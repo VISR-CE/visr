@@ -33,24 +33,20 @@ mode). A game controller is required.
 
 ## iPhone, iPad, Apple TV and Mac
 
-- **iPhone and iPad:** landscape play with on-screen controls or a game
-  controller. Wired external-display output puts the game on the display and
-  keeps the HUD and touch controls on the device.
+- **iPhone and iPad:** landscape play either on-screen or on an external display
+  with touch controls or a game controller.
 - **Apple TV:** controller play on the TV, with graphics profiles for Apple TV
   HD and Apple TV 4K models.
 - **Mac:** a native Mac app, with a frame-rate cap or uncapped rendering.
 
 Device profiles choose graphics settings for the hardware, with separate
 budgets for gameplay, menus and cutscenes. MetalFX upscaling, FXAA and SMAA
-are available. On flat screens, the HUD and menus render at display resolution
-even when the scene renders below it.
+are available.
 Settings live in `config.toml` in the app's data folder. The
 [build and configuration guide](port/ios/README.md#controls) explains the
 display and input controls. The [generated settings reference](port/linux/README.md#settings)
 lists the options, and the [device profile guide](profiles/README.md)
-describes how tuning is selected. Builds configured with an update feed can
-receive signed [profile and benchmark-recording packs](docs/data-packs.md)
-independently of app releases.
+describes how tuning is selected.
 
 ## Get the app
 
