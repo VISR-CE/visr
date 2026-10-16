@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VISR</title>
-<meta name="description" content="A native port of Halo: Combat Evolved to Apple Vision Pro: full stereo VR with head tracking and foveated rendering. Bring your own Xbox disc.">
+<title>VISR: Halo: Combat Evolved for Apple devices</title>
+<meta name="description" content="Halo: Combat Evolved for Apple Vision Pro, iPhone, iPad, Apple TV and Mac. Native Metal rendering and full stereo VR on Vision Pro. Bring your own Xbox disc.">
 <meta name="color-scheme" content="light dark">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="VISR">
-<meta property="og:title" content="VISR: Halo: Combat Evolved on Apple Vision Pro">
-<meta property="og:description" content="A native port of Halo: Combat Evolved to Apple Vision Pro: full stereo VR with head tracking and foveated rendering. Bring your own Xbox disc.">
+<meta property="og:title" content="VISR: Halo: Combat Evolved for Apple devices">
+<meta property="og:description" content="Halo: Combat Evolved for Apple Vision Pro, iPhone, iPad, Apple TV and Mac. Native Metal rendering and full stereo VR on Vision Pro. Bring your own Xbox disc.">
 <meta property="og:url" content="https://code.steverice.org/visr/">
 <meta property="og:image" content="https://code.steverice.org/visr/og.png">
 <meta property="og:image:width" content="1200">
@@ -25,34 +25,61 @@
   <header class="head">
     <div class="brand">
       <img class="icon" src="icon.png" width="180" height="180" alt="The VISR icon: a helmet with a gold visor">
-      <h1 class="wordmark">VISR</h1>
+      <p class="wordmark">VISR</p>
     </div>
-    <h1>Experience <em>Halo: Combat Evolved</em> in a whole new dimension</h1>
-    <p class="lede">VISR is a native port of Halo: Combat Evolved to Apple Vision Pro,
-      based on a lot of hard work from the community, running natively on-device in Metal.
+    <h1><em>Halo: Combat Evolved</em> for Apple devices</h1>
+    <p class="lede">VISR is a native port of Halo: Combat Evolved for Apple Vision Pro
+      and other Apple devices: iPhone, iPad, Apple TV and Mac. Built from the Halo: CE
+      decompilation, it renders on-device with Metal.
     </p>
     <p class="lede">
-      The goal is to provide the best possible way to experience Halo while staying
-      faithful to the original game. VISR builds on my love of the game and the many
-      thousands of hours I have spent playing it.
+      The goal is to optimize Halo for Apple hardware while staying faithful
+      to the original game.
     </p>
-    <blockquote><em>"The first VISR systems date back to the early 21st century…"</em>
-      <p>— <a href="https://www.halopedia.org/Armor_customization_(Halo_5:_Guardians)/Visor">"Dynasty" VISR, Halo 5: Guardians</a></p></blockquote>
-    <p class="links"><a href="https://github.com/steverice/visr">VISR on GitHub</a></p>
+    <p class="links"><a href="https://github.com/steverice/visr">GitHub</a> ·
+      <a href="https://github.com/steverice/visr/blob/main/ROADMAP.md">Roadmap</a></p>
   </header>
 
   <section aria-labelledby="vr">
-    <h2 id="vr">VR</h2>
+    <h2 id="vr">Apple Vision Pro</h2>
     <ul>
       <li>Full stereo VR with head tracking, through Compositor Services</li>
       <li>Foveated rendering through the Compositor's rate maps</li>
       <li>The HUD in CE's own corners, out in the periphery</li>
       <li>Scope zoom fills the view</li>
       <li>Third-person cutscenes on a 3D screen in the room</li>
-      <li>(Coming Soon) Support for gun / aim control with PSVR2 controllers</li>
     </ul>
     <img src="a30.png" width="480" alt="The level Halo in a visionOS window.">
     <p>VISR also plays in 2D, in a window or on a virtual screen in the room.</p>
+  </section>
+
+  <section aria-labelledby="apple-devices">
+    <h2 id="apple-devices">iPhone, iPad, Apple TV and Mac</h2>
+    <ul>
+      <li><strong>iPhone and iPad:</strong> landscape play with on-screen controls or a
+        game controller. Wired external-display output keeps the HUD and touch
+        controls on the device.</li>
+      <li><strong>Apple TV:</strong> controller play on the TV, with graphics profiles
+        for Apple TV HD and Apple TV 4K models.</li>
+      <li><strong>Mac:</strong> a native Mac app, with capped or uncapped rendering.</li>
+    </ul>
+    <p>Device profiles choose graphics settings for the hardware, with separate
+      budgets for gameplay, menus and cutscenes. MetalFX upscaling, FXAA and SMAA
+      are available. On flat screens, the HUD and menus render at display resolution
+      even when the scene renders below it.</p>
+    <p>The original intro and credits movies play from the imported disc.</p>
+  </section>
+
+  <section aria-labelledby="multiplayer">
+    <h2 id="multiplayer">Multiplayer and saves</h2>
+    <p>Split-screen co-op, LAN play and internet play come from OpenCE. Invite links
+      open in VISR across the Apple platforms. Internet play asks before contacting
+      third-party services. Bonjour discovery and the invite share sheet are
+      available on the platforms other than Apple TV.</p>
+    <p>Optional iCloud save synchronization carries profiles and campaign saves
+      between devices in builds configured for it.</p>
+    <p>Signed profile and benchmark-recording packs can update device tuning
+      independently of app releases.</p>
   </section>
 
   <section aria-labelledby="get">
@@ -61,7 +88,13 @@
   </section>
 
   <footer class="foot">
-    <p>VISR is an unofficial fan project, not affiliated with, sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios or Bungie. Halo and Halo: Combat Evolved are trademarks of Microsoft Corporation. VISR includes no game content and does not help you obtain it. It builds on the Halo: CE decompilation, <a href="https://github.com/OpenCommunityEdition/OpenCE">OpenCE</a> and the other projects in its <a href="https://github.com/steverice/visr#credits">credits</a>. The code is dedicated to the public domain under <a href="https://github.com/steverice/visr/blob/main/LICENSE.md">CC0 1.0</a>.</p>
+    <p>VISR includes no game content. Bring your own original Xbox disc image.
+      It is an unofficial fan project, not affiliated with Microsoft, Halo Studios
+      or Bungie. Halo and Halo: Combat Evolved are trademarks of Microsoft Corporation.
+      Built on <a href="https://github.com/OpenCommunityEdition/OpenCE">OpenCE</a>
+      and the projects in the <a href="https://github.com/steverice/visr#credits">credits</a>.
+      Code: <a href="https://github.com/steverice/visr/blob/main/LICENSE.md">CC0 1.0</a>;
+      <a href="https://github.com/steverice/visr/blob/main/NOTICE.md">third-party licenses</a>.</p>
   </footer>
 </main>
 </body>

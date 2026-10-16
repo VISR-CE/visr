@@ -2,10 +2,11 @@
 
 # VISR
 
-### Experience *Halo: Combat Evolved* in a whole new dimension
+### Halo: Combat Evolved for Apple devices
 
-VISR is a native port of Halo: Combat Evolved to Apple Vision Pro, built from
-the Halo: CE decompilation, running natively on-device in Metal.
+VISR is a native port of Halo: Combat Evolved for Apple Vision Pro and other
+Apple devices: iPhone, iPad, Apple TV and Mac. Built from the Halo: CE
+decompilation, it renders on-device with Metal.
 
 The goal is to provide the best possible way to experience Halo while staying
 faithful to the original game. VISR builds on my love of the game and the many
@@ -15,7 +16,7 @@ VISR ships no game data. You need a disc image of the original Xbox game, made
 from your own disc. VISR is an unofficial fan project, not affiliated with or
 endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
 
-## VR
+## Apple Vision Pro
 
 - Full stereo VR with head tracking, through Compositor Services
 - Foveated rendering through the Compositor's rate maps
@@ -23,28 +24,44 @@ endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
   rather than the head
 - Scope zoom fills the view
 - Third-person cutscenes on a 3D screen in the room
-- (Coming Soon) Support for gun / aim control with PSVR2 controllers
 
 VISR also plays in 2D, in a window or on a virtual screen in the room (theater
 mode). A game controller is required.
 
-Settings live in `config.toml` in the VISR folder in Files.
-[ROADMAP.md](ROADMAP.md) names the setting behind each feature, and
-[port/ios/README.md](port/ios/README.md) describes the display and renderer
-settings.
+## iPhone, iPad, Apple TV and Mac
 
-## Other Apple Platforms
+- **iPhone and iPad:** landscape play with on-screen controls or a game
+  controller. Wired external-display output puts the game on the display and
+  keeps the HUD and touch controls on the device.
+- **Apple TV:** controller play on the TV, with graphics profiles for Apple TV
+  HD and Apple TV 4K models.
+- **Mac:** a native Mac app, with a frame-rate cap or uncapped rendering.
 
-The same app will also build and run on iPhone, iPad, Apple TV and the Mac.
-While builds on these platforms may be tested, they are not an official target
-and may have issues.
+Device profiles choose graphics settings for the hardware, with separate
+budgets for gameplay, menus and cutscenes. MetalFX upscaling, FXAA and SMAA
+are available. On flat screens, the HUD and menus render at display resolution
+even when the scene renders below it.
+The original intro and credits movies play from the imported disc.
+
+Split-screen co-op, LAN play and internet play come from OpenCE. Invite links
+open in VISR across the Apple platforms. Internet play requires consent before
+contacting third-party services; the [network guide](port/ios/README.md#what-internet-play-reaches)
+describes what they receive. Bonjour discovery and the invite share sheet are
+available on the platforms other than Apple TV.
+
+Settings live in `config.toml` in the app's data folder. The
+[build and configuration guide](port/ios/README.md#controls) explains the
+display and input controls, and the [device profile guide](profiles/README.md)
+describes how tuning is selected. Builds configured with an update feed can
+receive signed [profile and benchmark-recording packs](docs/data-packs.md)
+independently of app releases.
 
 ## Get the app
 
-There are no releases. Each run of the [iOS workflow](https://github.com/steverice/visr/actions/workflows/ios.yml)
-uploads unsigned IPAs as artifacts: `visr-visionos-unsigned` for Apple Vision
-Pro, `visr-ios-unsigned` and `visr-tvos-unsigned` for the others. GitHub keeps
-them for 14 days. Sign one with your own Apple account
+Successful runs of the [iOS workflow](https://github.com/steverice/visr/actions/workflows/ios.yml)
+upload unsigned IPAs as artifacts: `visr-visionos-unsigned` for Apple Vision
+Pro, `visr-ios-unsigned` for iPhone and iPad, and `visr-tvos-unsigned` for
+Apple TV. GitHub keeps them for 14 days. Sign one with your own Apple account
 ([AltStore](https://faq.altstore.io/) and [Sideloadly](https://sideloadly.io/faq)
 have guides), or build from source. Keep the same bundle ID when you update,
 and your saves carry over.
@@ -64,8 +81,10 @@ You need a disc image (`.iso` or `.xiso`) of the original Xbox release:
 PC, Custom Edition and Master Chief Collection files do not work.
 
 Open VISR, tap **Choose XISO** and pick the image in Files, or copy one image
-into the VISR folder before launching. The importer checks the image's file
-system, map build and campaign maps before it copies anything, then extracts
+into the VISR folder before launching. Apple TV accepts the image through a
+local upload page; open the address shown by the app in a browser on another
+device. The importer checks the image's file system, map build and campaign
+maps before it copies anything, then extracts
 the maps and starts the game. Later launches go straight to the game, and you
 can delete the image. Saves live in the `save` folder inside the VISR folder;
 back it up before you delete the app. A build made with `--cloud-saves` also

@@ -1,4 +1,4 @@
-# Build and install VISR on iPhone, iPad, Apple TV and Apple Vision Pro
+# Build and install VISR on Apple devices
 
 This directory builds a native ARM64 iOS app around the existing game's ILP32
 runtime. It uses SDL3, OpenGL ES 3 or Metal, UIKit touch controls, and the user's original
@@ -208,13 +208,13 @@ is not used on Apple Vision Pro, which places the HUD itself.
 smooths the 3D view's jagged edges with a pass over it once it is drawn:
 `"fxaa"` (cheap) or `"smaa"` (sharper, about three times the work). The pass
 runs at the size the scene is rendered at, before the HUD and menus are
-drawn, so they are never blurred. It is off by default; the Apple TV HD's
-device profile turns FXAA on.
+drawn, so they are never blurred. It is off by default; the iPhone 17 Pro's
+device profile turns FXAA on. The Apple TV HD's profile leaves it off.
 
 The renderer preserves the selected aspect ratio and caps the render size to
 the drawable and GPU texture limit. Existing configuration files without
-`render_height` automatically use native resolution. Anti-aliasing and an
-in-app graphics settings menu are not implemented yet.
+`render_height` automatically use native resolution. An in-app graphics
+settings menu is not implemented yet.
 
 Each device starts from its **device profile**: the graphics settings chosen
 for its model, or for its class of device when the model has none
@@ -323,8 +323,27 @@ the Files picker. On iPadOS 26 and later it also requests the interface
 orientation lock for the full-screen scene; portrait is excluded from the
 app's orientation masks. iPadOS controls windowed multitasking and may
 letterbox the landscape app when a full-screen orientation lock is unavailable.
-Internet invite hosting and clipboard joining default to off on iOS. Local/network multiplayer is
-not yet validated.
+Internet play is off until the player accepts its disclosure. The
+[network guide below](#what-internet-play-reaches) describes the third-party
+services it contacts. LAN discovery uses Bonjour on iPhone, iPad, Vision Pro
+and Mac; Apple TV does not use Bonjour or the invite share sheet.
+
+### Wired external displays
+
+On iPhone and iPad with Metal, a wired display shows the game while the device
+keeps the HUD and touch controls over black. With a controller, the companion
+screen dims after inactivity. Unplugging the display pauses the game and returns
+it to the device. AirPlay and the OpenGL ES renderer use system mirroring.
+
+The device profile chooses the output mode and graphics budget for the display
+([external profiles](../../profiles/README.md#external-displays)). Player choices
+still apply on either output. On iOS 27, the app must be built with the iOS 27
+SDK for separate output; a build made with an older SDK uses system mirroring.
+
+Wired output, mode selection and the companion HUD have been verified on an
+iPhone 17 Pro. iPad output, disconnect/reconnect behavior, controller play,
+AirPlay and audio-route changes still need device verification; see the
+[roadmap](../../ROADMAP.md#app).
 
 ### Movies
 
