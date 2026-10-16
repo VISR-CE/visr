@@ -14,8 +14,8 @@ The goal is to provide the best possible way to experience Halo while staying
 faithful to the original game. VISR builds on my love of the game and the many
 thousands of hours I have spent playing it.
 
-VISR ships no game data. You need a disc image of the original Xbox game, made
-from your own disc. VISR is an unofficial fan project, not affiliated with or
+You need a disc image of the original Xbox game, made from your own disc.
+VISR is an unofficial fan project, not affiliated with or
 endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
 
 ## Apple Vision Pro
