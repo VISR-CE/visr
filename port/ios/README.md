@@ -110,6 +110,29 @@ not replace existing maps. Interrupted imports are cleaned up on next launch;
 existing maps displaced during the final move are restored if needed. Saves
 and profiles stay in `Documents/save` throughout.
 
+### Apple TV
+
+Build for tvOS 16 or later with `--tvos`:
+
+```sh
+python3 tools/ios_build.py --tvos --team YOUR_TEAM_ID --bundle-id com.yourname.visr
+python3 tools/ios_build.py --tvos --unsigned --ipa dist/VISR-tvOS-unsigned.ipa
+```
+
+The signed app is `build/tvos/app-device/Release-appletvos/VISR.app`;
+install it with the source-build commands below, using that path. A game
+controller is required.
+
+When game data is missing, the app shows a local address, a QR code and a
+pairing code. On a phone or computer on the same network, scan the QR code or
+open the address, enter the pairing code, and choose your Xbox disc image.
+Keep the setup screen open until the import finishes. The image is sent
+directly to the Apple TV, not to a project server.
+
+Apple TV keeps its data in a cache folder that tvOS may clear, including local
+saves. [Optional iCloud saves](../../docs/cloud-saves.md) can restore saved
+progress in builds configured for it; game data must be imported again.
+
 ### Install a source build
 
 List devices with `xcrun devicectl list devices`. Enable Developer Mode when
@@ -519,24 +542,37 @@ The manual copy command assumes `Documents/maps` does not yet exist; avoid nesti
 second `maps` directory. Simulator graphics are slow; validate performance on
 a physical device.
 
-### Running on a Mac
+## Mac
 
-`tools/mac_run.py` runs the device build on an Apple-silicon Mac as a "Designed
-for iPad" app, renders with the GPU, and collects the results:
+`--mac` builds the Mac Catalyst app for Apple silicon, ad hoc signed without
+an Apple developer account:
 
 ```sh
-python3 tools/ios_build.py --team TEAM
-python3 tools/mac_run.py run --team TEAM --xiso ~/Downloads/halo.iso --exit-after 60 \
+python3 tools/ios_build.py --mac
+open build/mac/app/Release-maccatalyst/VISR.app
+```
+
+The app imports an Xbox disc image through **Choose XISO**, as on iPhone and
+iPad. It keeps game data, saves, `config.toml` and logs in
+`~/Library/Application Support/<bundle identifier>/`. The default identifier
+is `org.steverice.visr.mac`.
+
+`tools/mac_run.py` uses this app by default and collects screenshots and logs.
+Seed its separate data folder with extracted maps:
+
+```sh
+python3 tools/mac_run.py run --maps assets/maps --exit-after 60 \
   --screenshot-every 300 --dump-shaders --out results/menu
 python3 tools/mac_run.py compare results/menu results/menu-again
 ```
 
-The first run imports the XISO into the app's container. `--init 'map_name a10'`
-loads a level without input. The runner wraps the CMake-built executable in a
-small `xcodegen` project because macOS kills the app the CMake project signs. It
-runs without a debugger because `memory_watch.c`'s deliberate page faults would
-stop one; to debug, use `process handle SIGSEGV SIGBUS --stop false --pass true`
-in LLDB.
+`--init 'map_name a10'` loads a level without input. The runner uses
+`~/Library/Application Support/<bundle identifier>/runner-data` and does not
+use iCloud saves. `--runner ipad --team TEAM --xiso path/to/halo.iso` selects
+the older Designed for iPad runner, which needs a signed iOS build and Xcode.
+Both runners run without a debugger because `memory_watch.c`'s deliberate
+page faults would stop one; to debug, use
+`process handle SIGSEGV SIGBUS --stop false --pass true` in LLDB.
 
 `run --simulator UDID` runs a simulator build in that simulator instead (the
 visionOS one by default; `--app` picks another), with the same settings and

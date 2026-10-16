@@ -78,7 +78,9 @@ You need a disc image (`.iso` or `.xiso`) of the original Xbox release:
 - NTSC-US, map build `01.10.12.2276`
 - PAL, map build `01.01.14.2342`
 
-PC, Custom Edition and Master Chief Collection files do not work.
+PC, Custom Edition and Master Chief Collection installations cannot replace
+the Xbox disc import. Custom Edition multiplayer maps can be downloaded
+separately when map sharing is enabled.
 
 Open VISR, tap **Choose XISO** and pick the image in Files, or copy one image
 into the VISR folder before launching. Apple TV accepts the image through a
