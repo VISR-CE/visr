@@ -51,7 +51,8 @@ available on the platforms other than Apple TV.
 
 Settings live in `config.toml` in the app's data folder. The
 [build and configuration guide](port/ios/README.md#controls) explains the
-display and input controls, and the [device profile guide](profiles/README.md)
+display and input controls. The [generated settings reference](port/linux/README.md#settings)
+lists the options, and the [device profile guide](profiles/README.md)
 describes how tuning is selected. Builds configured with an update feed can
 receive signed [profile and benchmark-recording packs](docs/data-packs.md)
 independently of app releases.

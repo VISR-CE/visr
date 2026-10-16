@@ -201,6 +201,12 @@ level needs them. Apple TV has no per-app Settings page. The code is in
 
 ## Controls
 
+The [settings reference](../linux/README.md#settings) and
+[configuration schema](../settings/config.schema.json) are generated from the
+setting definitions. Device profile options have a separate
+[reference](../../profiles/README.md#profile-settings-reference) and
+[schema](../settings/profile.schema.json).
+
 ### Resolution
 
 Native physical display resolution is the default, with a Retina drawable and
