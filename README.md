@@ -26,7 +26,7 @@ endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
   rather than the head
 - Scope zoom fills the view
 - Third-person cutscenes on a 3D screen in the room
-- (Coming Soon) Support for gun / aim control with PSVR2 controllers
+- Support for gun / aim control with PSVR2 controllers
 
 VISR also plays in 2D, in a window or on a virtual screen in the room (theater
 mode). A game controller is required.
