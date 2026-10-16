@@ -30,27 +30,37 @@
 - [ ] Aiming with tracked PlayStation VR2 Sense controllers: first-person seats aim with the hand, third-person seats with the stick
 - [ ] The game's rumble on the Sense controllers
 - [ ] Aim assist and magnetism kept for hand aiming, tunable in single player and fixed in multiplayer
+- [ ] Replay recorded hand and head poses on the Mac with per-weapon clips and tuning files for faster first-person arm animation work
+- [ ] Touch controls for iPhone and iPad, refined through hands-on testing
 
 ## Performance
 
 - [x] CPU savings in the Metal draw path, and visibility tests that don't wait for the GPU
 - [x] Relaxed-math pixel shaders
 - [x] The Compositor paces stereo frames (`display.frame_repeat`)
-- [x] A frame rate cap, or no cap, in the Mac app (`display.frame_rate`: `"display"`, a number or `"unlimited"`; set in `config.toml`, not yet a row in the settings screens)
+- [x] A frame rate cap, or no cap, in the Mac app (`display.frame_rate`: `"display"`, a number or `"unlimited"`; also in the Frame Rate settings row)
 - [x] Shader and pipeline warm-up at map load
 - [x] Device profiles: graphics settings chosen per device model or class, with the main menu and cutscenes budgeted apart from play (`profiles/`, `debug.device_profile`)
-- [ ] Profile knobs still to build: a shadow budget, a level-of-detail bias outside stereo, anti-aliasing, a frame-rate target for a scene class, pixel math as a setting
+- [x] Profile controls for level-of-detail bias, anti-aliasing and scene-class frame-rate caps (`display.lod_scale`, `display.anti_aliasing`, `scene.menu.display.frame_rate`, `scene.cutscene.display.frame_rate`)
+- [ ] Profile knobs still to build: a shadow budget and pixel math as a setting
 - [x] Choose the strongest compatible measured hardware profile at or below the current device, with exact profiles taking precedence and unknown hardware retaining its class fallback
-- [ ] Signed profile-data updates independent of app releases, with compatible snapshots, offline defaults, and rollback
+- [x] Signed profile and recording updates independent of app releases, with compatible snapshots, offline defaults, and rollback ([data packs](docs/data-packs.md))
+- [ ] Keep a valid downloaded pack healthy when a launch goes directly into gameplay without presenting the main menu
+- [ ] Profiles that also match newer models of the same device line (`and_newer`)
+- [ ] Generate settings JSON Schemas and reference tables from the settings definitions
 - [x] A benchmark testers can run from the app, whose report a profile is derived from (tester builds; `debug.benchmark_suite`)
 - [x] A recent render-target cache (a port of upstream's `197c1994`)
+- [x] Start frame work near the next refresh to reduce input latency in the Mac app (`display.late_start`)
+- [ ] Verify new fight recordings and use them to tune device profiles across the tested Apple hardware
 
 ## Graphics
 
 - [x] Rendering at the display's native resolution, with MetalFX upscaling (`display.upscaler`, `display.render_scale`)
 - [x] Compressed textures, 16x anisotropic filtering and reversed-Z depth
 - [x] Upstream's redrawn high-resolution HUD and text
-- [ ] Upstream's anti-aliasing (FXAA, SMAA, MSAA, SSAA), shadow resolution and per-pixel lighting on Metal
+- [x] FXAA and SMAA on Metal (`display.anti_aliasing`), with the HUD and menus kept sharp
+- [x] Configurable shadow-map resolution (`display.shadow_map_size`)
+- [ ] MSAA, SSAA and per-pixel lighting on Metal
 - [ ] Mirror reflections at full resolution by default (`display.mirror_resolution`)
 - [ ] AI-upscaled textures
 - [x] The intro and credits movies (Bink video, decoded with FFmpeg; `display.movies`)
@@ -62,13 +72,17 @@
 - [x] Split-screen co-op, LAN play, and internet play with a server browser, from OpenCE (`network.online`)
 - [x] `halo://join` invite links on every Apple platform
 - [x] A grace period that keeps a network game running while the app is in the background (`network.background_grace`)
-- [ ] LAN discovery over Bonjour
-- [ ] Sharing the host's invite from the app
-- [ ] Internet play on by default
+- [x] LAN discovery over Bonjour
+- [x] Sharing the host's invite from the app
+- [x] An internet-play disclosure before enabling online play (`network.online_ask`)
 - [x] Custom Edition maps downloaded from a game's players, from OpenCE; off by default (`network.map_download`, DOWNLOAD MAPS in Settings > Network Setup)
 - [x] Helping send a Custom Edition map to other players is off by default (`network.map_seed`, HELP SEND MAPS in Settings > Network Setup)
 - [ ] A question with the map's name and size before a map download starts, then downloads on by default
 
 ## App
 
+- [x] Wired external-display output on iPhone and iPad, with a HUD and touch-control companion on the device and the output mode chosen by its profile
+- [ ] Verify external-display disconnects, controller play, AirPlay mirroring and iPad output on devices
+- [x] Optional iCloud save synchronization ([cloud saves](docs/cloud-saves.md); builds made with `--cloud-saves`)
+- [ ] Verify cloud saves across two devices, including offline conflicts and iCloud being unavailable
 - [ ] An in-game settings screen for these options
