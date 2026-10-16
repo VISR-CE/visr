@@ -4,6 +4,8 @@
 
 ### Halo: Combat Evolved for Apple devices
 
+Experience *Halo: Combat Evolved* in a whole new dimension
+
 VISR is a native port of Halo: Combat Evolved for Apple Vision Pro and other
 Apple devices: iPhone, iPad, Apple TV and Mac. Built from the Halo: CE
 decompilation, it renders on-device with Metal.
@@ -24,6 +26,7 @@ endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
   rather than the head
 - Scope zoom fills the view
 - Third-person cutscenes on a 3D screen in the room
+- (Coming Soon) Support for gun / aim control with PSVR2 controllers
 
 VISR also plays in 2D, in a window or on a virtual screen in the room (theater
 mode). A game controller is required.
@@ -41,14 +44,6 @@ Device profiles choose graphics settings for the hardware, with separate
 budgets for gameplay, menus and cutscenes. MetalFX upscaling, FXAA and SMAA
 are available. On flat screens, the HUD and menus render at display resolution
 even when the scene renders below it.
-The original intro and credits movies play from the imported disc.
-
-Split-screen co-op, LAN play and internet play come from OpenCE. Invite links
-open in VISR across the Apple platforms. Internet play requires consent before
-contacting third-party services; the [network guide](port/ios/README.md#what-internet-play-reaches)
-describes what they receive. Bonjour discovery and the invite share sheet are
-available on the platforms other than Apple TV.
-
 Settings live in `config.toml` in the app's data folder. The
 [build and configuration guide](port/ios/README.md#controls) explains the
 display and input controls. The [generated settings reference](port/linux/README.md#settings)
