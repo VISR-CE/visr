@@ -45,7 +45,7 @@
 - [ ] Profile knobs still to build: a shadow budget and pixel math as a setting
 - [x] Choose the strongest compatible measured hardware profile at or below the current device, with exact profiles taking precedence and unknown hardware retaining its class fallback
 - [x] Signed profile and recording updates independent of app releases, with compatible snapshots, offline defaults, and rollback ([data packs](docs/data-packs.md))
-- [ ] Keep a valid downloaded pack healthy when a launch goes directly into gameplay without presenting the main menu
+- [x] Keep a valid downloaded pack healthy when a launch goes directly into gameplay without presenting the main menu
 - [x] Profiles that also match newer models of the same device line (`and_newer`)
 - [x] Generate settings JSON Schemas and reference tables from the settings definitions (`tools/settings_schema.py`)
 - [x] A benchmark testers can run from the app, whose report a profile is derived from (tester builds; `debug.benchmark_suite`)
