@@ -28,7 +28,22 @@ You do not need the Xbox SDK.
 2. Enter `python configure.py`.
 3. Enter `ninja windows`.
 
-`configure.py` generates the Windows build only on Windows.
+On Linux, `python configure.py --windows-cross` generates the Windows build
+and makes it the default Ninja target. Clang and lld compile against an MSVC
+toolchain and Windows SDK. Pass the versioned `VC/Tools/MSVC` folder with
+`include` and `lib` to `--windows-vctools-dir`, and the SDK folder with
+`Include` and `Lib` to `--windows-sdk-dir`. The build also accepts
+`VCToolsInstallDir` and `WindowsSdkDir` from the environment. It passes the
+include and library paths to Clang through `INCLUDE` and `LIB`. Use
+`--windows-cc` to select a different Clang executable.
+
+    python configure.py --windows-cross \
+        --windows-vctools-dir "$VCToolsInstallDir" \
+        --windows-sdk-dir "$WindowsSdkDir"
+    ninja windows
+
+The toolchain can come from [msvc-wine](https://github.com/mstorsjo/msvc-wine)
+or an unmodified Windows installation, including one mounted read-only.
 
 The build uses all the instructions of the processor of the computer that
 builds it (`-march=native`). Such a build does not always start on a

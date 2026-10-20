@@ -15,6 +15,11 @@ from tools.ios_guest_build import generate_ios_guest_build, ios_guest_configure_
 from tools.linux_build import generate_linux_build, linux_configure_inputs
 from tools.windows_build import generate_windows_build, windows_configure_inputs
 
+
+def is_windows() -> bool:
+    return os.name == "nt"
+
+
 # arguments
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -72,6 +77,38 @@ parser.add_argument(
     help="iOS guest: send each draw's identity and the front end's fallbacks to the host's render validation "
     "(tools/ios_build.py --render-validation; port/linux/src/gpu_validate.h)",
 )
+
+# no need to spam those extra flags when running on Windows
+if not is_windows():
+    parser.add_argument(
+        "--windows-cross",
+        action="store_true",
+        help="generate the Windows build (`ninja windows`) on Linux, cross-compiling "
+        "with clang against an MSVC toolchain (--windows-vctools-dir and --windows-sdk-dir), "
+        "and make it the default target",
+    )
+    parser.add_argument(
+        "--windows-cc",
+        metavar="BINARY",
+        help="compiler for the Windows cross build, `ninja windows` (default: clang)."
+             "Note that for now only Clang is supported.",
+    )
+    parser.add_argument(
+        "--windows-vctools-dir",
+        metavar="DIR",
+        type=Path,
+        help="the Visual C++ tools of the MSVC toolchain a --windows-cross build compiles "
+        "and links against: the versioned folder under VC/Tools/MSVC, the one with `include` "
+        "and `lib` (default: VCToolsInstallDir)",
+    )
+    parser.add_argument(
+        "--windows-sdk-dir",
+        metavar="DIR",
+        type=Path,
+        help="the Windows SDK a --windows-cross build compiles and links against: the "
+        "folder with `Include` and `Lib`, each with a versioned folder (default: WindowsSdkDir)",
+    )
+
 args = parser.parse_args()
 
 # the settings the builds read
@@ -89,10 +126,11 @@ sln = SimpleNamespace(
     ios_lld=args.ios_lld,
     render_validation=args.render_validation,
 )
-
-
-def is_windows() -> bool:
-    return os.name == "nt"
+if not is_windows():
+    sln.windows_cc = args.windows_cc
+    sln.windows_cross = args.windows_cross
+    sln.windows_vctools_dir = args.windows_vctools_dir
+    sln.windows_sdk_dir = args.windows_sdk_dir
 
 
 # build.ninja
@@ -136,7 +174,7 @@ n.newline()
 
 # the build for this computer, where it could be generated (the Windows
 # build is left out when SDL cannot be fetched, for instance)
-default = "windows" if is_windows() else "linux"
+default = "windows" if is_windows() or sln.windows_cross else "linux"
 if f"\nbuild {default}: " in out.getvalue():
     n.comment("Default rule: the build for this computer")
     n.default(default)
