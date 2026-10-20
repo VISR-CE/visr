@@ -969,17 +969,14 @@ static const struct config_setting config_settings[] =
 		"\"multiplier\" (each is coop_enemies_multiplier times as large, for any\n"
 		"number of players). Server Setup's EXTRA ENEMIES in co-op writes its\n"
 		"choice here." },
-	{ "network.coop_pickups", _config_string, "\"none\"", "HALO_NET_COOP_PICKUPS", _environment_value, _platform_all,
-		"Extra campaign weapons, grenades, health kits, overshields and camouflage.\n"
-		"Modes: \"none\", \"per_player\" (coop_enemies percent per extra player),\n"
-		"or \"multiplier\" (coop_enemies_multiplier times as many), up to 8 times\n"
-		"the original pickups. Only safe nearby places receive copies." },
-	{ "network.coop_vehicles", _config_string, "\"none\"", "HALO_NET_COOP_VEHICLES", _environment_value, _platform_all,
-		"Extra campaign vehicles: \"none\", \"per_player\" or \"multiplier\".\n"
-		"After a player clears its unloaded starting place by both bounding\n"
-		"radii plus 15 percent, make one more there, up to\n"
-		"floor((players - 1) * coop_enemies * 2 / 300) extras, or floor((coop_enemies_multiplier - 1) * 2 / 3) in static mode.\n"
-		"The host alone creates them, and waits while the starting place is blocked." },
+	{ "network.coop_extra_supplies", _config_boolean, "true", "HALO_NET_COOP_EXTRA_SUPPLIES", _environment_value,
+		_platform_all,
+		"Whether online co-op grows the campaign's pickups and vehicles with the\n"
+		"players. Pickups (weapons, grenades, health kits, overshields, camouflage)\n"
+		"gain 50 percent for each player past the first, up to 8 times the\n"
+		"original count. Each vehicle placement gains floor((players - 1) * 50 * 2 / 300)\n"
+		"replacements. false: the campaign's own. Server Setup's EXTRA SUPPLIES in\n"
+		"co-op writes its choice here." },
 	{ "network.coop_enemies", _config_integer, "50", "HALO_NET_COOP_ENEMIES", _environment_value, _platform_all,
 		"Online co-op's extra enemies per player, a percentage: for each player\n"
 		"past the first, each squad of enemies a level places gets this much of\n"

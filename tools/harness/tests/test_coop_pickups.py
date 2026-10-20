@@ -38,18 +38,6 @@ def test_negative_control(fault, case):
 
 
 def test_menu():
-    sys.path.insert(0, str(ROOT / 'tools'))
-    import port_settings
-    rows = port_settings.COOP_SETUP_SCREENS[0][3]
-    names = [r[0] for r in rows]
-    assert names[names.index('coop_extra_enemies') + 1] == 'coop_extra_pickups'
-    help_text = lambda text: text.replace('\\n', ' ')
-    assert help_text(rows[names.index('coop_extra_pickups')][3][0]) == (
-        "Pickups grow with the players: by the value of 'Per Player' for each player past the first.")
-    assert names[names.index('coop_extra_pickups') + 1] == 'coop_extra_vehicles'
-    assert 'coop_player_step' not in names
-    for name in ['coop_extra_enemies', 'coop_extra_pickups']:
-        assert rows[names.index(name)][2] == ['PER PLAYER', 'STATIC MULTIPLIER', 'NONE']
-    assert '"network.coop_pickups", _config_string' in read('port/linux/src/port_config.c')
+    assert '"network.coop_extra_supplies", _config_boolean, "true"' in read('port/linux/src/port_config.c')
     assert 'coop_pickups_register(result, scenario_object, palette);' in read('source/objects/objects.c')
     assert 'coop_pickups_update();' in read('port/linux/game/network_coop.c')

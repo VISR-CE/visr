@@ -8,7 +8,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import build, read, run, mutated, CHECK_FAILED
 
 def generated(fault=None):
-    source = re.sub(r'^#include.*\n', '', read('port/linux/game/coop_vehicles.c'), flags=re.M)
+    source = re.sub(r'^#include.*\n', '', read('port/linux/game/coop_scaling.h') + '\n' +
+                    read('port/linux/game/coop_vehicles.c'), flags=re.M)
     if fault:
         source = mutated(source, *fault)
     return (('under_test.inc', source),)
@@ -35,15 +36,8 @@ def test_negative_control(fault, case):
     assert status == CHECK_FAILED, output
 
 def test_menu():
-    import port_settings
-    rows = port_settings.COOP_SETUP_SCREENS[0][3]
-    names = [row[0] for row in rows]
-    assert names[names.index('coop_extra_pickups') + 1] == 'coop_extra_vehicles'
-    assert names[names.index('coop_extra_vehicles') + 1] == 'coop_enemies_multiplier'
-    row = rows[names.index('coop_extra_vehicles')]
-    assert row[2] == ['PER PLAYER', 'STATIC MULTIPLIER', 'NONE']
-    assert row[3][0].replace('\\n', ' ') == (
-        "Vehicles respawn after being driven a short distance based on the number of players: "
-        "by two thirds the value of 'Per Player' for each player past the first.")
-    assert '"network.coop_vehicles", _config_string' in read('port/linux/src/port_config.c')
+    settings = read('port/linux/src/port_config.c')
+    assert '"network.coop_extra_supplies", _config_boolean, "true"' in settings
+    assert 'network.coop_vehicles' not in settings and 'network.coop_pickups' not in settings
     assert 'coop_vehicles_register(result, scenario_object);' in read('source/objects/objects.c')
+    assert any('EXTRA SUPPLIES:' in s for s in read('tools/port_settings.py').split('\n'))

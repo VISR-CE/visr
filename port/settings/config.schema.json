@@ -3018,6 +3018,17 @@
             "desktop"
           ]
         },
+        "coop_extra_supplies": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether online co-op grows the campaign's pickups and vehicles with the players. Pickups (weapons, grenades, health kits, overshields, camouflage) gain 50 percent for each player past the first, up to 8 times the original count. Each vehicle placement gains floor((players - 1) * 50 * 2 / 300) replacements. false: the campaign's own. Server Setup's EXTRA SUPPLIES in co-op writes its choice here.",
+          "x-environment": "HALO_NET_COOP_EXTRA_SUPPLIES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "coop_enemies": {
           "type": "integer",
           "default": 50,

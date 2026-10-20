@@ -859,6 +859,11 @@ def _server_settings() -> list:
     # server_start)
     spinner_row("player_collisions", 14, ["ON", "OFF"], "network.coop_player_collisions", ["true", "false"])
     rows.append((f"{base}/op_player_collisions", None, SETUP_OPTIONS_PLACE + 3))
+    # ... and its EXTRA SUPPLIES, below it: whether the campaign's pickups and
+    # vehicles grow with the players (network.coop_extra_supplies: coop_pickups.c,
+    # coop_vehicles.c)
+    spinner_row("extra_supplies", 17, ["ON", "OFF"], "network.coop_extra_supplies", ["true", "false"])
+    rows.append((f"{base}/op_extra_supplies", None, SETUP_OPTIONS_PLACE + 4))
     # SHARE MAPS (port/linux/game/map_share.c), for any game, above the
     # options' rows (SETUP_OPTIONS_PLACE): whether players who join without
     # the game's Custom Edition map download it (network.map_share). The
@@ -896,7 +901,7 @@ def _server_settings() -> list:
                                          "PLAYER OPTIONS:", "ITEM OPTIONS:", "VEHICLE OPTIONS:", "INDICATOR OPTIONS:",
                                          "TEAMPLAY OPTIONS:", "LISTING:", "FRIENDLY FIRE:", "EXTRA ENEMIES:",
                                          "PER PLAYER:", "MULTIPLIER:", "PLAYER COLLISIONS:", "PASSWORD:",
-                                         "SHARE MAPS:"])
+                                         "SHARE MAPS:", "EXTRA SUPPLIES:"])
     extra += _strings(f"{base}/help_strings", [
         "",
         "The name the game shows in the lists of games.\\nEnter changes it.",
@@ -931,6 +936,9 @@ def _server_settings() -> list:
         # (SHARE MAPS', by its choice)
         "Players who join without the game's Custom Edition\\nmap download it from you and the other players.",
         "Players who join without the map cannot play.",
+        # (EXTRA SUPPLIES', by its choice)
+        "The campaign's weapons, grenades, health kits and\\nvehicles grow with the players, up to 8 times as many.",
+        "Pickups and vehicles are as the campaign has them.",
     ])
     lines = _screen(base, spec, rows, ["server settings update"],
                     ['<on event="created" run="server settings init"/>'], extra)

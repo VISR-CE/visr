@@ -1,10 +1,10 @@
 /*
 COOP_VEHICLES.C
 
-EXTRA VEHICLES: one replacement at the cleared starting place whenever a
-player clears the previous vehicle from the home, with a 15 percent buffer. Each authored placement
-has its own floor-rounded PER PLAYER budget or STATIC MULTIPLIER total;
-copies never register as new
+Extra campaign vehicles (network.coop_extra_supplies): one replacement at the
+cleared starting place whenever a player clears the previous vehicle from the
+home, with a 15 percent buffer. Each authored placement has its own
+floor-rounded budget, growing with the players; copies never register as new
 sources. Pelican cargo is anchored only after detaching and coming to rest.
 
 The host alone makes ordinary networked objects. Keep full salted handles,
@@ -30,9 +30,9 @@ it must not manufacture homes or budgets from coop_vehicle_homes in an unknown s
 #include "units/vehicle_definitions.h"
 #include "network_coop.h"
 #include "coop_vehicles.h"
+#include "coop_scaling.h"
 
-char const *config_string(char const *name);
-long config_integer(char const *name);
+int config_boolean(char const *name);
 boolean collision_test_sphere(real_point3d const *center, real radius, long ignore_object_index);
 
 /* vehicles.c's tag layout; the public header deliberately leaves it opaque. */
@@ -73,7 +73,7 @@ static struct
 	struct coop_vehicle_home homes[VEHICLE_HOMES];
 } coop_vehicle_homes, saved_vehicles;
 static boolean vehicles_enabled, saved_valid;
-static short vehicles_percent, vehicles_multiplier;
+static short vehicles_percent;
 static long saved_tick;
 
 static boolean vehicles_host(void)
@@ -81,11 +81,10 @@ static boolean vehicles_host(void)
 	return vehicles_enabled && game_connection() == _game_connection_network_server && network_coop_active();
 }
 
-/* Apply two-thirds extra growth in either mode, then round down. */
-static short vehicles_extra_count(short players, short percent, short multiplier)
+/* Apply two-thirds of the per-player growth, then round down. */
+static short vehicles_extra_count(short players, short percent)
 {
-	return multiplier > 0 ? (short)((PIN(multiplier, 2, 32) - 1) * VEHICLE_SCALING_NUMERATOR / VEHICLE_SCALING_DENOMINATOR) :
-		(short)(MAX(0, MIN(players, HALO_PORT_MAXIMUM_NETWORK_PLAYERS) - 1) *
+	return (short)(MAX(0, MIN(players, HALO_PORT_MAXIMUM_NETWORK_PLAYERS) - 1) *
 		(long)PIN(percent, 25, 200) * VEHICLE_SCALING_NUMERATOR / (100 * VEHICLE_SCALING_DENOMINATOR));
 }
 
@@ -209,14 +208,10 @@ static boolean vehicles_home_clear(struct coop_vehicle_home const *home)
 
 void coop_vehicles_new_game(void)
 {
-	char const *mode = config_string("network.coop_vehicles");
-
 	csmemset(&coop_vehicle_homes, 0, sizeof(coop_vehicle_homes));
 	saved_valid = FALSE;
-	vehicles_enabled = !strcmp(mode, "per_player") || !strcmp(mode, "multiplier");
-	vehicles_percent = (short)PIN(config_integer("network.coop_enemies"), 25, 200);
-	vehicles_multiplier = !strcmp(mode, "multiplier") ?
-		(short)PIN(config_integer("network.coop_enemies_multiplier"), 2, 32) : 0;
+	vehicles_enabled = config_boolean("network.coop_extra_supplies");
+	vehicles_percent = COOP_SUPPLY_PERCENT;
 }
 
 void coop_vehicles_register(long index, struct scenario_object_datum const *source)
@@ -261,7 +256,7 @@ void coop_vehicles_update(void)
 
 	if (!vehicles_host())
 		return;
-	budget = vehicles_extra_count(vehicles_player_count(), vehicles_percent, vehicles_multiplier);
+	budget = vehicles_extra_count(vehicles_player_count(), vehicles_percent);
 	for (number = 0; number < coop_vehicle_homes.count; number++)
 	{
 		struct coop_vehicle_home *home = &coop_vehicle_homes.homes[number];

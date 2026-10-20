@@ -4,6 +4,9 @@
 
 enum { COOP_SCALING_MAXIMUM_GROWTH = 8 };
 
+/* Growth for each player past the first, in percent, of pickups and vehicles. */
+#define COOP_SUPPLY_PERCENT 50
+
 static inline long coop_scaling_growth(short players, short percent)
 {
 	if (players <= 1 || percent <= 0)

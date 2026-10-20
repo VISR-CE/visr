@@ -2931,6 +2931,8 @@ help_strings, tools/port_settings.py) */
 #define SERVER_PASSWORD_HELP 23
 /* ... and for SHARE MAPS, by its choice (port/linux/game/map_share.c) */
 #define MAP_SHARE_HELP 24
+/* ... and for co-op's EXTRA SUPPLIES, by its choice */
+#define COOPERATIVE_EXTRA_SUPPLIES_HELP 26
 
 /* co-op's EXTRA ENEMIES' choices (port_settings.COOP_ENEMIES_MODES, in this
 order): its amount's row is the choice's */
@@ -3117,6 +3119,17 @@ static void server_settings_update(struct widget_instance *list)
 			multiplayer.cooperative_no_player_collisions = choice == 1;
 			if (help && list->focused_child == named(list, "op_player_collisions", 0))
 				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_PLAYER_COLLISIONS_HELP + choice);
+		}
+		/* ... and its EXTRA SUPPLIES, below it: ON or OFF, its help its choice's
+		(network.coop_extra_supplies, which the host reads as the game begins) */
+		visible_set(named(list, "op_extra_supplies", 0), cooperative);
+		if (cooperative && (spinner = named(list, "extra_supplies_spinner", 0)) != NULL)
+		{
+			short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
+			struct widget_instance *help = list->parameters.list.extended_description;
+
+			if (help && list->focused_child == named(list, "op_extra_supplies", 0))
+				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_SUPPLIES_HELP + choice);
 		}
 	}
 	/* SHARE MAPS (any game's: map_share.c), ON or OFF: its help is its

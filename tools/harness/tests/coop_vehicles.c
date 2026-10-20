@@ -52,14 +52,12 @@ static struct physics_definition physics;
 static struct scenario_object_datum sources[4];
 static struct {long actual_count;} headers,*object_header_data=&headers;
 static short global_structure_bsp_index;
-static int enabled,connection,coop,percent,multiplier,blocked,sphere_blocked,floor_present,allocation_failed,nearby;
+static int enabled,connection,coop,blocked,sphere_blocked,floor_present,allocation_failed,nearby;
 static long now,new_count,last_copy;
 static boolean collision_model_instance_new(struct collision_model_instance *p,long index) {(void)p;(void)index;return TRUE;}
 static boolean collision_model_test_sphere(struct collision_model_instance const *p,real_point3d const *c,float r) {(void)p;(void)c;(void)r;return blocked;}
 
-static char const *mode="per_player";
-static char const *config_string(char const *name) {(void)name;return enabled?mode:"none";}
-static long config_integer(char const *name) {return !strcmp(name,"network.coop_enemies")?percent:multiplier;}
+static int config_boolean(char const *name) {(void)name;return enabled;}
 static int game_connection(void) {return connection;}
 static boolean network_coop_active(void) {return coop;}
 static long game_time_get(void) {return now;}
@@ -110,7 +108,7 @@ static long reset(void) {
  memset(objects,0,sizeof(objects));memset(identifiers,0,sizeof(identifiers));memset(&game,0,sizeof(game));
  memset(definitions,0,sizeof(definitions));
  for(i=0;i<8;i++){definitions[i].type=i;definitions[i].object.physics.index=0;definitions[i].object.bounding_radius=1;}
- enabled=coop=floor_present=1;connection=2;percent=50;multiplier=2;mode="per_player";blocked=sphere_blocked=allocation_failed=nearby=0;
+ enabled=coop=floor_present=1;connection=2;blocked=sphere_blocked=allocation_failed=nearby=0;
  headers.actual_count=1;global_structure_bsp_index=0;now=new_count=0;for(i=0;i<5;i++)game.players[i]=1;
  physics.mass_points.count=1;physics.mass_points.address=&mass_point;mass_point.radius=.2f;
  index=make(0,1);make(9,1);coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);return index;
@@ -124,17 +122,14 @@ static void drive(long index,float metres) {
 static void counts(void) {
  int p,x,m;reset();
  for(p=1;p<=128;p++)for(x=25;x<=200;x+=25)
-  CHECK(vehicles_extra_count(p,x,0)==((p-1)*x*2)/300,"players %d percentage %d",p,x);
- CHECK(vehicles_extra_count(3,50,0)==0&&vehicles_extra_count(4,50,0)==1&&vehicles_extra_count(5,50,0)==1,"round down per vehicle");
- for(m=2;m<=32;m*=2)for(p=1;p<=128;p++)
-  CHECK(vehicles_extra_count(p,50,m)==((m-1)*2)/3,"static vehicle count depends on players");
- mode="multiplier";multiplier=4;coop_vehicles_new_game();
- CHECK(vehicles_multiplier==4&&vehicles_enabled,"static config");
- mode="invalid";coop_vehicles_new_game();CHECK(!vehicles_enabled,"unknown mode enabled");
+  CHECK(vehicles_extra_count(p,x)==((p-1)*x*2)/300,"players %d percentage %d",p,x);
+ CHECK(vehicles_extra_count(3,50)==0&&vehicles_extra_count(4,50)==1&&vehicles_extra_count(5,50)==1&&vehicles_extra_count(7,50)==2&&vehicles_extra_count(10,50)==3,"round down per vehicle");
+ coop_vehicles_new_game();CHECK(vehicles_enabled&&vehicles_percent==COOP_SUPPLY_PERCENT,"automatic config");
+ enabled=0;coop_vehicles_new_game();CHECK(!vehicles_enabled,"switch off enabled");
 }
 static void authority(void) {
  long index=reset();connection=1;coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);CHECK(!coop_vehicle_homes.count,"client registered");
- connection=2;enabled=0;coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);CHECK(!coop_vehicle_homes.count,"disabled registered");
+ connection=2;enabled=0;coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);CHECK(!coop_vehicle_homes.count,"disabled registered");settle();drive(index,11);CHECK(new_count==0,"switch off made vehicles");
  enabled=1;coop=0;coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);CHECK(!coop_vehicle_homes.count,"non-coop registered");
  coop=1;coop_vehicles_new_game();coop_vehicles_register(make(2,3),&sources[0]);coop_vehicles_register(make(3,6),&sources[1]);CHECK(!coop_vehicle_homes.count,"dropship/turret registered");
 }
@@ -163,10 +158,6 @@ static void delivery(void) {
 static void chain(void) {
  long index=reset();game.players[5]=game.players[6]=game.players[7]=game.players[8]=1;settle();drive(index,11);CHECK(new_count==1,"first copy");
  drive(last_copy,11);CHECK(new_count==2,"second copy");drive(last_copy,11);CHECK(new_count==2,"budget amplified");
- index=reset();mode="multiplier";multiplier=4;coop_vehicles_new_game();coop_vehicles_register(index,&sources[0]);
- memset(&game,0,sizeof(game));game.players[0]=1;settle();
- drive(index,11);drive(last_copy,11);CHECK(new_count==2,"two-thirds static copies missing");
- drive(last_copy,11);CHECK(new_count==2,"static budget amplified");
 }
 static void blocked_test(void) {
  long index=reset();settle();blocked=1;drive(index,11);CHECK(!new_count,"occupied pad");
