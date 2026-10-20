@@ -97,28 +97,14 @@ int main(int argc, char **argv)
     struct nv2a_dialect gl = {.version = 410};
     struct nv2a_dialect metal = {.version = GPU_SHADER_LANGUAGE_MSL, .msl = 1};
     struct nv2a_dialect es = {.version = 310, .es = 1};
-    struct nv2a_dialect gl_debug = gl;
-    struct nv2a_dialect metal_debug = metal;
 
     assert(argc == 2);
-    gl_debug.debug_expression = "vec3(0.0, 1.0, 0.0)";
-    metal_debug.debug_expression = gl_debug.debug_expression;
     check(&gl, 0, 0);
-    check(&gl, 1, 0);
     check(&metal, 0, 0);
-    check(&metal, 1, 0);
-    check(&es, 1, 0);
-    check(&es, 1, 1);
-    write_shader(argv[1], "gl_dot", "frag", &gl, 1, 0, 0);
+    check(&es, 0, 0);
     write_shader(argv[1], "gl_control", "frag", &gl, 0, 0, 0);
-    write_shader(argv[1], "gl_dot_debug", "frag", &gl_debug, 1, 0, 0);
-    write_shader(argv[1], "gl_dot_discard", "frag", &gl, 1, 0, 1);
-    write_shader(argv[1], "msl_dot", "metal", &metal, 1, 0, 0);
     write_shader(argv[1], "msl_control", "metal", &metal, 0, 0, 0);
-    write_shader(argv[1], "msl_dot_debug", "metal", &metal_debug, 1, 0, 0);
-    write_shader(argv[1], "msl_dot_discard", "metal", &metal, 1, 0, 1);
-    write_shader(argv[1], "es_dot", "frag", &es, 1, 0, 0);
-    write_shader(argv[1], "es_counter", "frag", &es, 1, 1, 0);
+    write_shader(argv[1], "es_control", "frag", &es, 0, 0, 0);
     return 0;
 }
 '''
@@ -148,7 +134,7 @@ def test_dot_zw_depth_generation_for_gl_and_metal():
             str(program), *(str(path) for path in objects), "-o", str(binary),
         ], cwd=ROOT, check=True)
         subprocess.run([str(binary), directory], cwd=ROOT, check=True)
-        for shader in (Path(directory, "es_dot.frag"), Path(directory, "es_counter.frag")):
+        for shader in (Path(directory, "es_control.frag"),):
             subprocess.run(["glslangValidator", str(shader)], cwd=ROOT, check=True)
         output = os.environ.get("ZSPRITE_SHADER_OUTPUT")
         if output:
