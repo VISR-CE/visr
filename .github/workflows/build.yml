@@ -60,9 +60,19 @@ jobs:
         run: python tools/ci_build.py linux release
 
       - name: Test
+        env:
+          ZSPRITE_SHADER_OUTPUT: dist/zsprite-shaders
         run: |
           python -m pytest --quiet tools/test_linux_port.py tools/harness
           python tools/test_light_storage.py
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: zsprite-generated-${{ github.sha }}
+          path: dist/zsprite-shaders
+          if-no-files-found: warn
+          retention-days: 3
 
       - name: Compile cache
         run: ccache --show-stats
