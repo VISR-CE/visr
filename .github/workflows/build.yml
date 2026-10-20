@@ -117,6 +117,11 @@ jobs:
           path: build/windows/third_party
           key: windows-third-party-${{ hashFiles('tools/windows_build.py') }}
 
+      - name: Compile borderless window objects
+        run: |
+          python configure.py --portable --lto=off --pgo=off --compiler-launcher ccache
+          ninja build/windows/obj/port/linux/src/sdl_platform.o build/windows/obj/port/windows/src/win32_window.o
+
       - name: Debug
         run: python tools/ci_build.py windows debug
 
