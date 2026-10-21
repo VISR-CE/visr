@@ -6,6 +6,7 @@
 #include "networking/network_game_globals.h"
 #include "network_distributed.h"
 #include "network_aim_assist.h"
+#include "cseries/errors.h"
 #include "networking/network_client_manager.h"
 #include "halo_network_version.h"
 #include <string.h>
@@ -80,4 +81,6 @@ void network_aim_assist_handle_message(long machine_index, word const *data, wor
         message.header.type != _distributed_message_aim_assist_policy ||
         message.header.count != 1 || message.block_mouse > 1 || message.reserved != 0) return;
     client_blocks_mouse = message.block_mouse != 0;
+    error(_error_log, "network: the host's aim assist policy (message %d, %d bytes): block %d, reserved %d",
+        (int)message.header.type, (int)size, (int)message.block_mouse, (int)message.reserved);
 }

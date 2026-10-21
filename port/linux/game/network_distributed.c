@@ -2465,6 +2465,16 @@ static void distributed_handle_inputs(
 		if (network_coop_active() && player->unit_index != NONE)
 			distributed_note_input_actions(input->player_index, &action);
 		network_coop_note_player_structure_bsp(input->player_index, input->structure_bsp_index);
+		{
+			static short logged_entries;
+
+			if (logged_entries < 3)
+			{
+				logged_entries++;
+				error(_error_log, "network: client input entry bytes 0 to 3: %02x %02x %02x %02x", input->player_index,
+					input->structure_bsp_index, input->coop_no_friendly_fire, input->pad);
+			}
+		}
 		network_coop_note_player_friendly_fire(DATUM_INDEX_NEW(input->player_index, player->identifier),
 			!input->coop_no_friendly_fire);
 		update_server_handle_distributed_input(DATUM_INDEX_NEW(input->player_index, player->identifier), input->tick,
@@ -4089,9 +4099,21 @@ void network_distributed_handle_message(
 		hit reports are taken from its stream alone, never from a datagram
 		(whose source address anyone can forge) */
 		if ((header.type == _distributed_message_client_ready || header.type == _distributed_message_client_identity ||
-				header.type == _distributed_message_hit_reports) && !distributed_handling_stream_message)
+				header.type == _distributed_message_hit_reports))
 		{
-			return;
+			/* (how each machine's, logged the first few times: an OpenCE
+			build's has been seen to differ from ours) */
+			static short logged[_distributed_message_hit_reports + 1][2];
+			short which = distributed_handling_stream_message ? 1 : 0;
+
+			if (logged[header.type][which] < 3)
+			{
+				logged[header.type][which]++;
+				error(_error_log, "network: message %d from machine #%ld came as a %s%s", (int)header.type,
+					machine_index, which ? "stream message" : "datagram", which ? "" : ", dropped");
+			}
+			if (!distributed_handling_stream_message)
+				return;
 		}
 		/* port: ... and a datagram stamped more than a stamp window from the
 		latest tick taken of the machine is dropped; over its stream any is
