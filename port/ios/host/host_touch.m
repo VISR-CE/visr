@@ -1,11 +1,13 @@
 /* UIKit controls feed a standard SDL gamepad. The first hardware controller
    shares player one with touch; additional hardware controllers keep their ports. */
 #import <UIKit/UIKit.h>
+#import <CoreHaptics/CoreHaptics.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
 #import "host_orientation.h"
 #include <math.h>
 #include "host_touch_replay.h"
+#include "touch_math.h"
 
 static struct host_touch_replay_gate replay_gate;
 static void touch_replay_ui_update(void);
@@ -84,14 +86,35 @@ void host_touch_replay_active(int active) {
         dispatch_async(dispatch_get_main_queue(),^{ touch_replay_ui_update(); });
 }
 
-@interface HaloButton : UIButton
+static touch_rect touch_rect_from_cg(CGRect rect) {
+    return (touch_rect){rect.origin.x,rect.origin.y,rect.size.width,rect.size.height};
+}
+
+static void touch_button_haptic(void) {
+    static UIImpactFeedbackGenerator *feedback;
+    if(!CHHapticEngine.capabilitiesForHardware.supportsHaptics)return;
+    if(!feedback)feedback=[[UIImpactFeedbackGenerator alloc]initWithStyle:UIImpactFeedbackStyleLight];
+    [feedback impactOccurred];[feedback prepare];
+}
+
+@interface HaloPaddedButton : UIButton
+@end
+@implementation HaloPaddedButton
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    return CGRectContainsPoint(CGRectInset(self.bounds,-7,-7),point);
+}
+@end
+
+@interface HaloButton : HaloPaddedButton
 @property(nonatomic) int gameButton;
 @property(nonatomic) int gameAxis;
+@property(nonatomic) BOOL pressed;
 @end
 @implementation HaloButton
 - (void)sendDown:(BOOL)down {
     if(host_touch_replay_blocked(&replay_gate))down=NO;
-    self.highlighted=down;
+    if(down && !self.pressed)touch_button_haptic();
+    self.pressed=down;self.highlighted=down;
     if(self.gameAxis>=0)axis_state(self.gameAxis,down?1:-1);
     else button_state(self.gameButton,down);
 }
@@ -114,32 +137,46 @@ void host_touch_replay_active(int active) {
 @interface HaloStick : UIControl
 @property(nonatomic) int firstAxis;
 @property(nonatomic) CGPoint position;
+@property(nonatomic) CGPoint restCenter;
+@property(nonatomic) BOOL floating;
+@property(nonatomic) touch_rect moveZone;
 @property(nonatomic,copy) NSString *caption;
 @end
 @implementation HaloStick
 - (void)updateTouch:(UITouch *)touch {
     if(host_touch_replay_blocked(&replay_gate)){[self reset];return;}
-    CGPoint p=[touch locationInView:self];CGFloat radius=self.bounds.size.width*.34;
-    CGFloat x=(p.x-self.bounds.size.width/2)/radius,y=(p.y-self.bounds.size.height/2)/radius;
-    CGFloat length=hypot(x,y);if(length>1){x/=length;y/=length;}
-    self.position=CGPointMake(x,y);axis_state(self.firstAxis,x);axis_state(self.firstAxis+1,y);
+    CGPoint p=[touch locationInView:self];CGFloat radius=MIN(self.bounds.size.width,self.bounds.size.height)/2;
+    CGFloat x=p.x-self.bounds.size.width/2,y=p.y-self.bounds.size.height/2;
+    touch_point output=touch_stick(x,y,radius,TOUCH_STICK_DEAD_ZONE,TOUCH_STICK_EXPONENT);
+    /* The knob follows the thumb, while the game receives the curved output. */
+    CGFloat length=hypot(x,y),travel=radius*.6;
+    if(length>travel){x*=travel/length;y*=travel/length;}
+    self.position=CGPointMake(x,y);axis_state(self.firstAxis,output.x);axis_state(self.firstAxis+1,output.y);
     [self setNeedsDisplay];
 }
-- (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {[self updateTouch:touch];return YES;}
+- (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
+    if(host_touch_replay_blocked(&replay_gate))return NO;
+    if(self.floating) {
+        CGPoint p=[touch locationInView:self.superview];
+        touch_point base=touch_floating_base((touch_point){p.x,p.y},self.moveZone,self.bounds.size.width/2);
+        self.center=CGPointMake(base.x,base.y);
+    }
+    [self updateTouch:touch];return YES;
+}
 - (BOOL)continueTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {[self updateTouch:touch];return YES;}
-- (void)reset {self.position=CGPointZero;axis_state(self.firstAxis,0);axis_state(self.firstAxis+1,0);[self setNeedsDisplay];}
+- (void)reset {if(self.floating)self.center=self.restCenter;self.position=CGPointZero;axis_state(self.firstAxis,0);axis_state(self.firstAxis+1,0);[self setNeedsDisplay];}
 - (void)endTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {[self reset];}
 - (void)cancelTrackingWithEvent:(UIEvent *)event {[self reset];}
 - (void)drawRect:(CGRect)rect {
     CGRect circle=CGRectInset(self.bounds,2,2);
     [[UIColor colorWithWhite:0 alpha:.2]setFill];UIBezierPath *path=[UIBezierPath bezierPathWithOvalInRect:circle];[path fill];
     [[UIColor colorWithWhite:1 alpha:.5]setStroke];path.lineWidth=1.5;[path stroke];
-    CGFloat size=self.bounds.size.width,r=size*.34;
-    CGRect knob=CGRectMake(size/2+self.position.x*r-21,size/2+self.position.y*r-21,42,42);
+    CGFloat size=self.bounds.size.width,knobSize=size*(42.0/136.0);
+    CGRect knob=CGRectMake(size/2+self.position.x-knobSize/2,size/2+self.position.y-knobSize/2,knobSize,knobSize);
     [[UIColor colorWithWhite:1 alpha:.25]setFill];[[UIBezierPath bezierPathWithOvalInRect:knob]fill];
-    NSDictionary *attrs=@{NSFontAttributeName:[UIFont systemFontOfSize:10 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:.8]};
+    NSDictionary *attrs=@{NSFontAttributeName:[UIFont systemFontOfSize:10*size/136 weight:UIFontWeightSemibold],NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:.8]};
     CGSize text=[self.caption sizeWithAttributes:attrs];
-    [self.caption drawAtPoint:CGPointMake((size-text.width)/2,size-20) withAttributes:attrs];
+    [self.caption drawAtPoint:CGPointMake((size-text.width)/2,size-20*size/136) withAttributes:attrs];
 }
 @end
 
@@ -148,6 +185,7 @@ void host_touch_replay_active(int active) {
 @property(nonatomic,strong) HaloStick *lookStick;
 @property(nonatomic,strong) NSMutableArray<HaloButton *> *buttons;
 @property(nonatomic,strong) UIButton *toggle;
+@property(nonatomic) CGRect layoutSafeArea;
 @end
 @implementation HaloControls
 - (HaloButton *)addButton:(NSString *)title label:(NSString *)label button:(int)button axis:(int)axis {
@@ -160,7 +198,7 @@ void host_touch_replay_active(int active) {
     if(!(self=[super initWithFrame:frame]))return nil;
     self.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
     self.multipleTouchEnabled=YES;self.buttons=[NSMutableArray array];
-    self.moveStick=[[HaloStick alloc]init];self.moveStick.firstAxis=SDL_GAMEPAD_AXIS_LEFTX;self.moveStick.caption=@"MOVE";
+    self.moveStick=[[HaloStick alloc]init];self.moveStick.floating=YES;self.moveStick.firstAxis=SDL_GAMEPAD_AXIS_LEFTX;self.moveStick.caption=@"MOVE";
     self.lookStick=[[HaloStick alloc]init];self.lookStick.firstAxis=SDL_GAMEPAD_AXIS_RIGHTX;self.lookStick.caption=@"LOOK";
     for(HaloStick *s in @[self.moveStick,self.lookStick]){s.backgroundColor=UIColor.clearColor;s.isAccessibilityElement=YES;s.accessibilityLabel=s.caption;[self addSubview:s];}
     [self addButton:@"A" label:@"A — Jump or select" button:SDL_GAMEPAD_BUTTON_SOUTH axis:-1];
@@ -178,9 +216,10 @@ void host_touch_replay_active(int active) {
     [self addButton:@"ZOOM" label:@"Zoom" button:SDL_GAMEPAD_BUTTON_RIGHT_STICK axis:-1];
     [self addButton:@"LIGHT" label:@"Flashlight" button:SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER axis:-1];
     [self addButton:@"SWAP G" label:@"Switch grenade" button:SDL_GAMEPAD_BUTTON_LEFT_SHOULDER axis:-1];
-    self.toggle=[UIButton buttonWithType:UIButtonTypeSystem];[self.toggle setTitle:@"Hide controls" forState:UIControlStateNormal];
+    self.toggle=[HaloPaddedButton buttonWithType:UIButtonTypeSystem];[self.toggle setTitle:@"Hide controls" forState:UIControlStateNormal];
     [self.toggle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];self.toggle.titleLabel.font=[UIFont systemFontOfSize:12];
     self.toggle.backgroundColor=[UIColor colorWithWhite:0 alpha:.3];self.toggle.layer.cornerRadius=12;
+    [self.toggle addTarget:self action:@selector(buttonHaptic) forControlEvents:UIControlEventTouchDown];
     [self.toggle addTarget:self action:@selector(toggleControls) forControlEvents:UIControlEventTouchUpInside];[self addSubview:self.toggle];
     [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(reset) name:UIApplicationWillResignActiveNotification object:nil];
     return self;
@@ -190,6 +229,7 @@ void host_touch_replay_active(int active) {
     for(HaloButton *button in self.buttons)[button cancelTrackingWithEvent:nil];
     [self.toggle cancelTrackingWithEvent:nil];
 }
+- (void)buttonHaptic {if(!host_touch_replay_blocked(&replay_gate))touch_button_haptic();}
 - (void)toggleControls {
     if(host_touch_replay_blocked(&replay_gate))return;
     [self reset];BOOL hidden=!self.moveStick.hidden;
@@ -198,32 +238,65 @@ void host_touch_replay_active(int active) {
 }
 - (void)layoutSubviews {
     [super layoutSubviews];CGRect r=UIEdgeInsetsInsetRect(self.bounds,self.safeAreaInsets);
-    CGFloat left=r.origin.x+16,right=CGRectGetMaxX(r)-16,bottom=CGRectGetMaxY(r)-12,top=r.origin.y+10;
-    CGFloat stick=MIN(136,r.size.height*.32),s=44,gap=4;
+    /* A highlight/title update can request layout while a thumb is held down. */
+    if(CGRectEqualToRect(r,self.layoutSafeArea))return;
+    self.layoutSafeArea=r;
+    /* Preserve the existing arrangement in scaled design points. */
+    CGFloat scale=touch_scale(r.size.width,r.size.height);
+    CGFloat left=r.origin.x+16*scale,right=CGRectGetMaxX(r)-16*scale,bottom=CGRectGetMaxY(r)-12*scale,top=r.origin.y+10*scale;
+    CGFloat stick=136*scale,s=44*scale,gap=4*scale;
+    [self reset];
     self.moveStick.frame=CGRectMake(left,bottom-stick,stick,stick);
-    self.lookStick.frame=CGRectMake(right-3*s-20-stick,bottom-stick,stick,stick);
+    self.moveStick.restCenter=self.moveStick.center;
+    self.moveStick.moveZone=touch_move_zone(touch_rect_from_cg(self.bounds),touch_rect_from_cg(r));
+    self.lookStick.frame=CGRectMake(right-3*s-20*scale-stick,bottom-stick,stick,stick);
     // Four face buttons in the traditional diamond.
     CGPoint face[4]={{right-2*s-gap,bottom-s},{right-s,bottom-2*s-gap},{right-3*s-2*gap,bottom-2*s-gap},{right-2*s-gap,bottom-3*s-2*gap}};
     for(int i=0;i<4;i++)self.buttons[i].frame=CGRectMake(face[i].x,face[i].y,s,s);
-    self.buttons[4].frame=CGRectMake(right-84,top+55,84,48);
-    self.buttons[5].frame=CGRectMake(left,top+55,90,48);
-    CGFloat d=34,dx=left+stick+12,dy=bottom-3*d;
+    self.buttons[4].frame=CGRectMake(right-84*scale,top+55*scale,84*scale,48*scale);
+    self.buttons[5].frame=CGRectMake(left,top+55*scale,90*scale,48*scale);
+    CGFloat d=34*scale,dx=left+stick+12*scale,dy=bottom-3*d;
     self.buttons[6].frame=CGRectMake(dx+d,dy,d,d);
     self.buttons[7].frame=CGRectMake(dx+d,dy+2*d,d,d);
     self.buttons[8].frame=CGRectMake(dx,dy+d,d,d);
     self.buttons[9].frame=CGRectMake(dx+2*d,dy+d,d,d);
-    self.buttons[10].frame=CGRectMake(CGRectGetMidX(r)-38,top,76,34);
-    self.buttons[11].frame=CGRectMake(left,bottom-stick-42,74,34);
-    self.buttons[12].frame=CGRectMake(right-3*s-20-stick,bottom-stick-42,74,34);
-    self.buttons[13].frame=CGRectMake(right-180,top+55,80,36);
-    self.buttons[14].frame=CGRectMake(left+104,top+55,80,36);
-    for(UIButton *b in self.buttons){b.layer.cornerRadius=MIN(b.bounds.size.width,b.bounds.size.height)/2;b.titleLabel.adjustsFontSizeToFitWidth=YES;}
-    self.toggle.frame=CGRectMake(right-108,top,108,32);
+    self.buttons[10].frame=CGRectMake(CGRectGetMidX(r)-38*scale,top,76*scale,34*scale);
+    self.buttons[11].frame=CGRectMake(left,bottom-stick-42*scale,74*scale,34*scale);
+    self.buttons[12].frame=CGRectMake(right-3*s-20*scale-stick,bottom-stick-42*scale,74*scale,34*scale);
+    self.buttons[13].frame=CGRectMake(right-180*scale,top+55*scale,80*scale,36*scale);
+    self.buttons[14].frame=CGRectMake(left+104*scale,top+55*scale,80*scale,36*scale);
+    for(UIButton *b in self.buttons){b.layer.cornerRadius=MIN(b.bounds.size.width,b.bounds.size.height)/2;b.titleLabel.font=[UIFont systemFontOfSize:14*scale weight:UIFontWeightSemibold];b.titleLabel.adjustsFontSizeToFitWidth=YES;}
+    self.toggle.titleLabel.font=[UIFont systemFontOfSize:12*scale];self.toggle.layer.cornerRadius=12*scale;
+    self.toggle.frame=CGRectMake(right-108*scale,top,108*scale,32*scale);
+}
+/* Resolve all targets together instead of letting subview order decide overlaps.
+   Returning the control itself also admits touches outside its visible bounds. */
+- (UIView *)controlAtPoint:(CGPoint)point {
+    if(host_touch_replay_blocked(&replay_gate))return nil;
+    NSMutableArray<UIControl *> *controls=[NSMutableArray array];
+    for(UIControl *view in self.subviews) {
+        if(!view.hidden && view.userInteractionEnabled && view.enabled && !view.tracking)
+            [controls addObject:view];
+    }
+    touch_target targets[MAX((NSUInteger)1,controls.count)];
+    for(NSUInteger i=0;i<controls.count;i++) {
+        UIControl *view=controls[i];
+        targets[i]=(touch_target){touch_rect_from_cg(view.frame),[view isKindOfClass:HaloStick.class]?18:7};
+    }
+    int index=touch_hit_test((touch_point){point.x,point.y},targets,controls.count);
+    if(index>=0)return controls[index];
+    if(!self.moveStick.hidden && !self.moveStick.tracking) {
+        touch_target zone={self.moveStick.moveZone,0};
+        if(touch_hit_test((touch_point){point.x,point.y},&zone,1)==0)return self.moveStick;
+    }
+    return nil;
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
-    if(host_touch_replay_blocked(&replay_gate))return NO;
-    for(UIView *view in self.subviews)if(!view.hidden && [view pointInside:[self convertPoint:point toView:view] withEvent:event])return YES;
-    return NO;
+    return [self controlAtPoint:point]!=nil;
+}
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    if(self.hidden || !self.userInteractionEnabled || self.alpha<.01)return nil;
+    return [self controlAtPoint:point];
 }
 @end
 

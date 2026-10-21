@@ -113,7 +113,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "visionOS")
     set(HALO_DEVICE_FAMILY 7)
 else()
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
-    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_orientation.m host/host_touch.m
+    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_orientation.m host/host_touch.m host/touch_math.c
         host/host_texture_settings.m host/texture_refine.m)
     if(HALO_MAC)
         # Mac Catalyst: Info.plist without the iOS-only keys (LSRequiresIPhoneOS, UIRequiresFullScreen, Files sharing)
@@ -250,6 +250,9 @@ if(HALO_NATIVE_MAC)
     set(HALO_UI_FRAMEWORK "-framework AppKit")
 else()
     set(HALO_UI_FRAMEWORK "-framework UIKit")
+    if(NOT HALO_TVOS AND NOT HALO_VISIONOS)
+        target_link_libraries(VISR PRIVATE "-framework CoreHaptics")
+    endif()
 endif()
 target_link_libraries(VISR PRIVATE SDL3::SDL3-static "-framework Foundation" "${HALO_UI_FRAMEWORK}"
     "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z)
