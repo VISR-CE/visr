@@ -275,7 +275,7 @@ static void touch_button_haptic(void) {
     if(host_touch_replay_blocked(&replay_gate))return nil;
     NSMutableArray<UIControl *> *controls=[NSMutableArray array];
     for(UIControl *view in self.subviews) {
-        if(!view.hidden && view.userInteractionEnabled && view.enabled && !view.tracking)
+        if([view isKindOfClass:UIControl.class] && !view.hidden && view.userInteractionEnabled && view.enabled && !view.tracking)
             [controls addObject:view];
     }
     touch_target targets[MAX((NSUInteger)1,controls.count)];
