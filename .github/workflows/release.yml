@@ -229,6 +229,11 @@ jobs:
           fetch-depth: 0
       - name: Select an accepted Xcode build
         run: python3 tools/xcode_select.py
+      - name: Refuse an Xcode that App Store Connect no longer accepts
+        run: |
+          case "$DEVELOPER_DIR" in
+            *beta_2.app*) echo "::error::Xcode 27.2 beta 2 uploads are rejected by App Store Connect; rerun to land on an image with beta 3"; exit 1 ;;
+          esac
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: '0.11.8'
