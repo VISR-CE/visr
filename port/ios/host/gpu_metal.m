@@ -1301,14 +1301,6 @@ static uint32_t gpu_metal_stream(uint32_t kind, const void *data, uint32_t size,
 
 /* vertex shaders' and pixel shaders' (gpu_metal_initialize) */
 static MTLCompileOptions *compile_options, *pixel_compile_options;
-/* A pixel shader that writes depth (a DOT_ZW stage, nv2a_psh.c) compiles with
-the vertex shaders' math. Under fast math, which an A8 uses for the others,
-its NaN depth tests and clamps can drop out, and on an Apple TV HD the NaN
-depths that reached the depth output in multiplayer fights hung the GPU. */
-static MTLCompileOptions *pixel_options(NSString *text)
-{
-	return [text containsString:@"[[depth(any)]]"] ? compile_options : pixel_compile_options;
-}
 
 /* debug.gl_debug: the shader work done while drawing, which a frame waits
 for: shader libraries compiled, vertex functions specialized and pipelines
@@ -1451,7 +1443,7 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 	{
 		NSError *error = nil;
 		NSString *text = @(source);
-		MTLCompileOptions *options = stage == GPU_SHADER_VERTEX ? compile_options : pixel_options(text);
+		MTLCompileOptions *options = stage == GPU_SHADER_VERTEX ? compile_options : pixel_compile_options;
 		MetalShader *record = [MetalShader new];
 		CFTimeInterval started;
 		id<MTLLibrary> library;
@@ -1518,8 +1510,8 @@ static id<MTLFunction> pixel_function(MetalShader *pixel, unsigned exact)
 			{
 				NSError *error = nil;
 				NSString *text = [NSString stringWithFormat:@"#define EXACT_BORDERS %u\n%@", exact, pixel->source];
-				/* the plain variant's math (pixel_options) */
-				id<MTLLibrary> library = [device newLibraryWithSource:text options:pixel_options(text) error:&error];
+				/* relaxed, as the plain variant (gpu_metal_initialize) */
+				id<MTLLibrary> library = [device newLibraryWithSource:text options:pixel_compile_options error:&error];
 
 				pixel->exact_tried |= 1u << exact;
 				if (library)
@@ -3014,7 +3006,7 @@ static void gpu_metal_warm_end(void)
 					const uint32_t *variant = ((NSData *)variants[item]).bytes;
 					MetalShader *pixel = table_get(shaders, variant[0]);
 					NSString *text = [NSString stringWithFormat:@"#define EXACT_BORDERS %u\n%@", variant[1], pixel->source];
-					id<MTLLibrary> library = [device newLibraryWithSource:text options:pixel_options(text) error:nil];
+					id<MTLLibrary> library = [device newLibraryWithSource:text options:pixel_compile_options error:nil];
 					id function = [library newFunctionWithName:@"fragment_main"];
 
 					if (function)
@@ -6363,9 +6355,8 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		fused multiply-adds and divide by reciprocals, but keeps infinities and
 		NaNs. The scene's pixel shaders are bound by ALU work, and under
 		exact IEEE arithmetic they took about twice the GPU time of the same
-		shaders under ANGLE, which compiles with fast math. Pixel shaders that
-		write depth keep the vertex shaders' options (pixel_options), so
-		positions and depth tests are untouched. Before iOS
+		shaders under ANGLE, which compiles with fast math. No pixel shader
+		writes depth, so positions and depth tests are untouched. Before iOS
 		18 the only other choice is fast math, which also drops infinities and
 		NaNs, so there pixel shaders keep the vertex shaders' options. */
 		pixel_compile_options = [compile_options copy];
