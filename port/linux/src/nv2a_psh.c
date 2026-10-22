@@ -301,7 +301,7 @@ static BOOL writes_replaced_depth(const struct nv2a_dialect *dialect,
 {
 	int stage;
 
-	if (dialect->es && key->count_samples)
+	if ((dialect->es && key->count_samples) || dialect->msl)
 		return FALSE;
 	for (stage = 1; stage < 4; stage++)
 	{
