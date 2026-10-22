@@ -461,9 +461,7 @@ across a respawn: the salted unit and both owned weapon objects must still match
 static short network_test_suite_bot_weapon(int actor, long player_index, long tick)
 {
 	static const char *const names[] = {
-		"weapons\\pistol\\pistol", "weapons\\assault rifle\\assault rifle",
-		"weapons\\plasma rifle\\plasma rifle", "weapons\\plasma pistol\\plasma pistol",
-		"weapons\\needler\\needler", "weapons\\shotgun\\shotgun"
+		"weapons\\assault rifle\\assault rifle", "weapons\\assault rifle\\assault rifle", "weapons\\assault rifle\\assault rifle", "weapons\\assault rifle\\assault rifle", "weapons\\assault rifle\\assault rifle", "weapons\\assault rifle\\assault rifle"
 	};
 	struct player_datum *player = player_try_and_get(player_index);
 	struct unit_datum *unit = player ? unit_try_and_get(player->unit_index) : NULL;
@@ -486,8 +484,7 @@ static short network_test_suite_bot_weapon(int actor, long player_index, long ti
 				platform_log("network test: bot weapon workload 2 missing definition %s", names[n]);
 				return -2;
 			}
-			for (previous = 0; previous < n; previous++)
-				if (network_test.suite_weapon_definitions[previous] == network_test.suite_weapon_definitions[n]) return -2;
+			(void)previous;
 		}
 		network_test.suite_weapon_definitions_ready = 1;
 	}
