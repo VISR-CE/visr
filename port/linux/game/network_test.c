@@ -461,7 +461,7 @@ across a respawn: the salted unit and both owned weapon objects must still match
 static short network_test_suite_bot_weapon(int actor, long player_index, long tick)
 {
 	static const char *const names[] = {
-		"weapons\\needler\\needler", "weapons\\needler\\needler", "weapons\\needler\\needler", "weapons\\pistol\\pistol", "weapons\\pistol\\pistol", "weapons\\pistol\\pistol"
+		"weapons\\needler\\needler", "weapons\\plasma pistol\\plasma pistol", "weapons\\needler\\needler", "weapons\\plasma pistol\\plasma pistol", "weapons\\needler\\needler", "weapons\\plasma pistol\\plasma pistol"
 	};
 	struct player_datum *player = player_try_and_get(player_index);
 	struct unit_datum *unit = player ? unit_try_and_get(player->unit_index) : NULL;
