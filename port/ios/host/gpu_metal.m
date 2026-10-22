@@ -247,6 +247,13 @@ static int encoder_depth_clamp;
 _Static_assert(GPU_STAGE_COUNT == 4 && GPU_ATTRIBUTE_COUNT == 16, "metal_state_cache.h's slots");
 static gpu_texture pass_color, pass_depth;
 static unsigned long pass_commands;
+/* Render passes in the open command buffer. A frame with many object shadows
+(a multiplayer fight: 99 shadow passes and the scene) went to the GPU as one
+command buffer, and an Apple TV HD's GPU stopped it as hung ("Caused GPU Hang
+Error"); from then on the system ignored every buffer the app sent and
+nothing was drawn. A buffer is committed once it holds this many passes, and
+the frame goes on in the next (HALO_METAL_PASSES_PER_BUFFER, 0 for none). */
+static unsigned long buffer_passes, passes_per_buffer = 16;
 /* the open command buffer's serial; every earlier one has been committed */
 static uint64_t current_serial = 1;
 static _Atomic uint64_t completed_serial;
@@ -809,6 +816,7 @@ static void commit(BOOL frame_end)
 	[committed commit];
 	last_committed = committed;
 	commands = nil;
+	buffer_passes = 0;
 	current_serial++;
 	if (frame_end)
 	{
@@ -1784,6 +1792,9 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 		if (native_pass.color && encoder)
 			native_pass.in_order++;
 		pass_end();
+		/* (not while display.native_hud's pass may still be parked in it) */
+		if (passes_per_buffer && buffer_passes >= passes_per_buffer && commands && !native_pass.color)
+			commit(NO);
 	}
 	pass = [MTLRenderPassDescriptor renderPassDescriptor];
 	pass.visibilityResultBuffer = visibility_buffer;
@@ -1848,6 +1859,7 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 				load_name(pass.stencilAttachment.loadAction)];
 	}
 	encoder = [command_buffer() renderCommandEncoderWithDescriptor:pass];
+	buffer_passes++;
 	metal_state_reset(&state_cache);
 	encoder_depth_clamp = 0;
 	if (metal_debug)
@@ -6247,6 +6259,12 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 
 		memset(capabilities, 0, sizeof(*capabilities));
 		metal_debug = (flags & GPU_INITIALIZE_DEBUG) != 0;
+		{
+			const char *passes = getenv("HALO_METAL_PASSES_PER_BUFFER");
+
+			if (passes && *passes)
+				passes_per_buffer = strtoul(passes, NULL, 10);
+		}
 		visibility_wait = fixed_timestep_launch = (flags & GPU_INITIALIZE_FIXED_TIMESTEP) != 0;
 		metalfx_requested = metalfx_wanted = (flags & GPU_INITIALIZE_METALFX) != 0;
 		metal_state_initialize(&state_cache, !(flags & GPU_INITIALIZE_NO_STATE_CACHE));
