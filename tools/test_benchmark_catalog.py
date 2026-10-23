@@ -353,17 +353,20 @@ def test_catalog_accepts_display_settings(tmp_path):
         "display.render_height": 540, "display.anisotropic_filtering": 4, "display.shadow_map_size": 256,
         "display.model_lod": "auto", "display.anti_aliasing": "smaa", "display.effect_resolution": False,
         "display.mirror_resolution": "full", "display.render_scale": 0.67,
-        "display.clutter_distance": 40, "debug.clutter_lowest_lod": True}
+        "display.clutter_distance": 40, "debug.clutter_lowest_lod": True, "display.frame_rate": 60}
     _write_catalog(tmp_path, cases, raw=benchmark_catalog._canonical({"schema": 1, "cases": cases}).decode("utf-8"))
     loaded = {case["id"]: case for case in benchmark_catalog.load_catalog(tmp_path)}
     assert loaded["mp-chillout-proof"]["settings"]["display.render_height"] == 540
+    assert loaded["mp-chillout-proof"]["settings"]["display.frame_rate"] == 60
 
 
 @pytest.mark.parametrize("settings", [
     {"display.render_height": -1}, {"display.render_height": True}, {"display.anisotropic_filtering": 3},
     {"display.anti_aliasing": "taa"}, {"display.render_scale": 1.5},
     {"display.compressed_textures": False}, {"display.clutter_distance": 201}, {"display.clutter_distance": -1},
-    {"debug.clutter_lowest_lod": "on"}, {"display.model_lod": "high"}])
+    {"debug.clutter_lowest_lod": "on"}, {"display.model_lod": "high"},
+    {"display.frame_rate": 29}, {"display.frame_rate": 1001}, {"display.frame_rate": "60"}, {"display.frame_rate": 60.5},
+    {"display.frame_rate": "unlimited"}])
 def test_catalog_rejects_unsupported_display_settings(tmp_path, settings):
     _recording(tmp_path)
     cases = _cases(players=2)
@@ -400,3 +403,9 @@ def test_catalog_rejects_invalid_variants(tmp_path, variant):
     _write_catalog(tmp_path, cases)
     with pytest.raises(benchmark_catalog.CatalogError):
         benchmark_catalog.load_catalog(tmp_path)
+
+
+def test_case_settings_match_the_app():
+    source = (Path(__file__).resolve().parents[1] / "port/ios/host/host_benchmark_catalog.m").read_text()
+    for name in benchmark_catalog.CASE_SETTINGS:
+        assert f'@"{name}"' in source, name
