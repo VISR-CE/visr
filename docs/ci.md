@@ -26,11 +26,11 @@ settings; adding these files does not configure them.
 | `test_death_timing.py`, `test_light_storage.py` | Ubuntu, clang, lld, x86 32-bit ELF execution | PR gate as standalone programs, including ordinary/full-LTO storage links. These programs are not pytest test functions. |
 | `ci_build.py linux release` | Ubuntu 24.04, Arch container with clang/lld, 32-bit glibc and SDL3 | PR and `main` push gate for changes to shared source, port, build tools or its workflow. Compiles and links the complete native Linux game, verifies an ELF32 x86 executable, and runs the recorded network format, signed lobby, Unicode line-break, orphaned-sound, co-op queue-reset and Monitor-scaling probes. No game data or game launch. |
 | `settings_schema.py --check`, `profile_check.py`, `profile_catalog_check.py` | Ubuntu, Python 3.11+ | PR gate for generated schema/reference drift and shipped profile/catalog policy. `test_profile_check.py` and `test_route_check.py` also execute their assertions during pytest collection. |
-| `tools/ios_test.py` | ARM64 macOS, Xcode, Homebrew LLVM/lld, SDL3, pkgconf | Existing PR gate in `iOS / build`, run once. Guest ABI, layout, memory, audio handoff, config/profile/data pack, network, timing, stereo math, capture/replay validators, sanitizers, XISO parser and Metal compilation probes. Uses synthetic inputs, not game maps. |
+| `tools/ios_test.py` | ARM64 macOS, Xcode, Homebrew LLVM/lld, SDL3, pkgconf | PR gate in `iOS / ios-regressions`, run once. Guest ABI, layout, memory, audio handoff, config/profile/data pack, network, timing, stereo math, capture/replay validators, sanitizers, XISO parser and Metal compilation probes. Uses synthetic inputs, not game maps. |
 | `test_menu_cancel.py`, `test_network_light_state.py`, `test_network_shader_warmup.py`, `test_shader_list_warmup.py` | macOS, `xcrun`, SDL3 where needed | Run by `ios_test.py`; deliberately excluded from the Ubuntu target because they invoke Apple's compiler driver. |
 | `bink_test.py --if-present` | macOS, Xcode | Existing native gate compiles the decoder. Movie decoding is unavailable without a legally supplied movie/disc image; successful compilation does not establish decoding coverage. |
 | `ios_build.py --unsigned` and `--simulator`, with iOS/tvOS/visionOS selectors | ARM64 macOS, Xcode device and simulator SDKs, Homebrew build dependencies | Existing automatic builds and artifacts for all three platforms. iOS and tvOS fail the workflow on error. visionOS retains its pre-existing advisory `continue-on-error` until a successful hosted run is reviewed and the policy is changed. |
-| `ios_build.py --mac` | ARM64 macOS, Xcode Mac Catalyst SDK | Added to the iOS build job; reuses its guest build and tools. Build only, no game launch. |
+| `ios_build.py --mac` | ARM64 macOS, Xcode Mac Catalyst SDK | `iOS / catalyst` builds it in its own job. Build only, no game launch. |
 | `tools/macos_test.py` | ARM64 macOS, Xcode, SDL3, pkgconf | AppKit import publication and rollback, service thread guards and event preservation, and native/mobile window flags. Runs from `ios_test.py` and `iOS / macos`; synthetic inputs, no app launch. |
 | `ios_build.py --native-mac --renderer metal` | ARM64 macOS, Xcode macOS SDK | `iOS / macos` builds the AppKit host with the shared Apple source cache. Build only, no game launch. |
 | `ci_build.py linux debug/release`, `test_linux_port.py`, `tools/harness`, `test_light_storage.py` | Arch container on Ubuntu, multilib clang/lld/SDL3 | Existing manual `Upstream desktop` workflow. Its debug build and full extracted-source harness remain separate from the release compile gate; see baseline failures below. |
@@ -79,8 +79,8 @@ does not download a beta Xcode or sign into an Apple account. Native
 If the Metal compiler is absent, the job installs Apple's documented
 `MetalToolchain` component for the selected Xcode, then verifies it again.
 
-The existing three Apple jobs each reuse setup for their device/simulator
-builds. The iOS job also shares setup with native probes and the Mac build.
+The Apple jobs run in parallel, each with its own setup: `ios-regressions`,
+`ios-device`, `catalyst`, `ios-simulator`, `tvos`, `visionos` and `macos`.
 Only downloaded third-party sources are cached, keyed by architecture and
 the downloader definitions. Build products, game assets and signing state
 are not cached. The upstream desktop workflow retains its manual trigger
