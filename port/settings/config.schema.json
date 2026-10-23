@@ -1493,6 +1493,16 @@
             "apple"
           ]
         },
+        "culling_chord": {
+          "type": "boolean",
+          "default": false,
+          "description": "While Back is held, B switches the structure triangle culling off and on as the game runs, from the next frame, shown on screen for two seconds and logged as \"culling-session: structure culling ON\" or \"OFF\"; while it is on, the surfaces left to draw are logged every 120 frames as \"culling-session: state ...\". The game doesn't see B meanwhile. The culling starts on. Not saved.",
+          "x-environment": "HALO_CULLING_CHORD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "sense_tuning_chord": {
           "type": "boolean",
           "default": false,

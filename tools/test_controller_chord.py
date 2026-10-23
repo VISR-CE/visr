@@ -206,3 +206,83 @@ int main(void){
                                str(binary)], capture_output=True, text=True)
     assert compiled.returncode == 0, compiled.stderr
     assert subprocess.run([str(binary)], capture_output=True, text=True).returncode == 0
+
+
+CULLING_FIXTURE = r'''
+#include <assert.h>
+#include <string.h>
+typedef unsigned short WORD;
+typedef unsigned char BYTE;
+typedef struct { WORD wButtons; BYTE bAnalogButtons[8]; } XINPUT_GAMEPAD;
+enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B };
+#define XINPUT_GAMEPAD_BACK 32
+static int culling = 1, sets, enabled_setting;
+static char message[96];
+static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
+void structure_culling_set_enabled(int on){ culling = on; sets++; }
+int structure_culling_get_enabled(void){ return culling; }
+static void halo_knob_message(const char *text){ strcpy(message, text); }
+'''
+
+
+def run_culling_chord(tmp_path, name, enabled, main):
+    compiler = shutil.which("clang") or shutil.which("cc")
+    assert compiler, "a C compiler is required"
+    source = (ROOT / "port/linux/src/xinput_sdl.c").read_text()
+    chord = function(source, "static void culling_chord(")
+    defines = "#define CULLING_CHORD_PULL 128\n#define CULLING_CHORD_RELEASE 40\n"
+    source_file = tmp_path / (name + ".c")
+    source_file.write_text(CULLING_FIXTURE.replace("@ENABLED@", str(enabled)) + defines + chord + main)
+    binary = tmp_path / name
+    compiled = subprocess.run([compiler, "-std=gnu11", "-O1", "-fsanitize=address,undefined", str(source_file), "-o", str(binary)],
+                              capture_output=True, text=True)
+    assert compiled.returncode == 0, compiled.stderr
+    result = subprocess.run([str(binary)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_culling_chord_is_ordinary_input_without_the_debug_setting(tmp_path):
+    run_culling_chord(tmp_path, "culling_off", 0, r'''
+int main(void){
+ XINPUT_GAMEPAD pad={0};
+ pad.wButtons=XINPUT_GAMEPAD_BACK;
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=255;
+ culling_chord(&pad);
+ assert(culling==1 && !sets && pad.bAnalogButtons[XINPUT_GAMEPAD_B]==255 && !message[0]);
+ return 0;
+}
+''')
+
+
+def test_culling_chord_flips_once_per_press_and_keeps_b_from_the_game(tmp_path):
+    run_culling_chord(tmp_path, "culling_on", 1, r'''
+int main(void){
+ XINPUT_GAMEPAD pad={0};
+ /* the first call announces the starting state */
+ culling_chord(&pad);
+ assert(culling==1 && sets==1);
+ /* B without Back is the game's */
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=255;
+ culling_chord(&pad);
+ assert(culling==1 && sets==1 && pad.bAnalogButtons[XINPUT_GAMEPAD_B]==255);
+ /* a B held down before Back goes down does not flip, and is let go before the next press */
+ pad.wButtons=XINPUT_GAMEPAD_BACK;
+ culling_chord(&pad);
+ assert(culling==1 && pad.bAnalogButtons[XINPUT_GAMEPAD_B]==0);
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=0;
+ culling_chord(&pad);
+ /* Back + B flips off; held across frames it flips once */
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=255;
+ culling_chord(&pad);
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=255;
+ culling_chord(&pad);
+ assert(culling==0 && sets==2 && !strcmp(message, "Structure culling: OFF") && pad.bAnalogButtons[XINPUT_GAMEPAD_B]==0);
+ /* released, pressed again: back on */
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=0;
+ culling_chord(&pad);
+ pad.bAnalogButtons[XINPUT_GAMEPAD_B]=255;
+ culling_chord(&pad);
+ assert(culling==1 && sets==3 && !strcmp(message, "Structure culling: ON"));
+ return 0;
+}
+''')

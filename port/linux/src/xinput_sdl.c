@@ -209,6 +209,47 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 		XINPUT_GAMEPAD_DPAD_RIGHT);
 }
 
+/* debug.culling_chord: while Back is held, B switches the structure culling (port/linux/game/structure_culling.c)
+off and on, from the next frame, shown on screen for two seconds and logged. It starts on. The game never sees B
+while Back is held. */
+void structure_culling_set_enabled(int enabled);
+int structure_culling_get_enabled(void);
+#define CULLING_CHORD_PULL 128
+#define CULLING_CHORD_RELEASE 40
+static void culling_chord(XINPUT_GAMEPAD *pad)
+{
+	static int enabled = -1;
+	static int pull_down;
+	int value;
+
+	if (enabled < 0)
+	{
+		enabled = config_boolean("debug.culling_chord");
+		if (enabled)
+			structure_culling_set_enabled(1);
+	}
+	if (!enabled)
+		return;
+	value = pad->bAnalogButtons[XINPUT_GAMEPAD_B];
+	if (value < CULLING_CHORD_RELEASE)
+		pull_down = 0;
+	else if (value >= CULLING_CHORD_PULL && !pull_down)
+	{
+		pull_down = 1;
+		/* (a B already down when Back goes down is not a press of the chord) */
+		if (pad->wButtons & XINPUT_GAMEPAD_BACK)
+		{
+			int now = !structure_culling_get_enabled();
+
+			structure_culling_set_enabled(now);
+			halo_knob_message(now ? "Structure culling: ON" : "Structure culling: OFF");
+		}
+	}
+	/* (a press under way with Back held is the chord's, not the game's) */
+	if (pad->wButtons & XINPUT_GAMEPAD_BACK)
+		pad->bAnalogButtons[XINPUT_GAMEPAD_B] = 0;
+}
+
 /* controller aim's pitch offset (input.aim_pitch_offset,
 port/linux/game/controller_aim_game.c), the live chord behind
 debug.sense_tuning_chord: while a hand aims and Back is held (the Sense controllers' Create), the right stick
@@ -1522,6 +1563,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 			stick_aimed_ms = SDL_GetTicks();
 			pthread_mutex_unlock(&mouse_lock);
 		}
+		culling_chord(&state->Gamepad);
 		knob_cycle_chord(&state->Gamepad);
 #ifdef HALO_IOS
 		external_mode_chord(&state->Gamepad);

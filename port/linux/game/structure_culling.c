@@ -141,6 +141,9 @@ static struct structure_culling_data structure_culling;
 static long structure_culling_tests = FLAG(_structure_culling_triangle_frustum_bit) |
 	FLAG(_structure_culling_bucket_facing_bit) | FLAG(_structure_culling_triangle_facing_bit) |
 	FLAG(_structure_culling_finer_buckets_bit) | FLAG(_structure_culling_near_first_bit);
+/* the live switch (debug.culling_chord): off walks the structure as the original game does, whatever the tests say */
+static volatile boolean structure_culling_enabled = TRUE;
+static volatile boolean structure_culling_session_logging;
 static long structure_culling_submitted;
 static long structure_culling_outside;
 static long structure_culling_facing;
@@ -963,6 +966,41 @@ void structure_culling_set_tests(long tests)
 	}
 }
 
+void platform_log(const char *format, ...);
+
+void structure_culling_set_enabled(int enabled)
+{
+	structure_culling_enabled = enabled;
+	structure_culling_session_logging = TRUE;
+	platform_log("culling-session: structure culling %s (tests %ld)", enabled ? "ON" : "OFF", structure_culling_tests);
+}
+
+int structure_culling_get_enabled(void)
+{
+	return structure_culling_enabled;
+}
+
+/* once a frame, after the visibility walk (either walk): the surfaces it left to draw, summed over about two
+seconds of frames and logged with the state they were drawn in, so on and off compare at the same spot */
+#define STRUCTURE_CULLING_LOG_FRAMES 120
+void structure_culling_note_frame(void)
+{
+	static long frames, surfaces;
+
+	if (!structure_culling_session_logging)
+	{
+		return;
+	}
+	surfaces += render.environment_surface_count;
+	if (++frames >= STRUCTURE_CULLING_LOG_FRAMES)
+	{
+		platform_log("culling-session: state %s surfaces %ld average over %ld frames (last frame: %ld drawn, %ld outside, %ld facing away)",
+			structure_culling_enabled ? "ON" : "OFF", surfaces / frames, frames, structure_culling_submitted,
+			structure_culling_outside, structure_culling_facing);
+		frames = surfaces = 0;
+	}
+}
+
 boolean structure_culling_traverse(struct structure_bsp *structure)
 {
 	short order[MAXIMUM_RENDERED_CLUSTERS];
@@ -978,7 +1016,7 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 	{
 		memset(structure_culling_recorded, 0, sizeof(structure_culling_recorded));
 	}
-	if (!structure_culling_tests || !structure_culling_data_matches(structure))
+	if (!structure_culling_enabled || !structure_culling_tests || !structure_culling_data_matches(structure))
 	{
 		return FALSE;
 	}

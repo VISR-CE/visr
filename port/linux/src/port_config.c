@@ -1097,6 +1097,12 @@ static const struct config_setting config_settings[] =
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
 		"the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and\n"
 		"debug.sense_tuning_chord's D-pad step get none of its presses. Not saved." },
+	{ "debug.culling_chord", _config_boolean, "false", "HALO_CULLING_CHORD", _environment_value, _platform_ios,
+		"While Back is held, B switches the structure triangle culling off and on as the\n"
+		"game runs, from the next frame, shown on screen for two seconds and logged as\n"
+		"\"culling-session: structure culling ON\" or \"OFF\"; while it is on, the surfaces left\n"
+		"to draw are logged every 120 frames as \"culling-session: state ...\". The game doesn't\n"
+		"see B meanwhile. The culling starts on. Not saved." },
 	{ "debug.sense_tuning_chord", _config_boolean, "false", "HALO_SENSE_TUNING_CHORD", _environment_value, _platform_ios,
 		"While a hand aims and Back (Create) is held, controller buttons change aim and\n"
 		"arms tuning as the game runs (laser mode, aim assist, steadying, pitch offset,\n"

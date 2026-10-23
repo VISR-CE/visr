@@ -2009,5 +2009,7 @@ void structure_visibility_compute(
 		}
 	}
 
+	structure_culling_note_frame(); /* port: debug.culling_chord's per-frame log */
+
 	return;
 }
