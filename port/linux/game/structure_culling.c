@@ -980,23 +980,66 @@ int structure_culling_get_enabled(void)
 	return structure_culling_enabled;
 }
 
-/* once a frame, after the visibility walk (either walk): the surfaces it left to draw, summed over about two
-seconds of frames and logged with the state they were drawn in, so on and off compare at the same spot */
+/* once a frame, after the visibility walk (either walk): the surfaces it left to draw and the time between
+calls, summed over STRUCTURE_CULLING_LOG_FRAMES frames and logged with the state they were drawn in, so on and off
+compare at the same spot. "late" counts the intervals over half again the median. */
 #define STRUCTURE_CULLING_LOG_FRAMES 120
+double halo_frame_trace_milliseconds(void);
+static int structure_culling_compare_doubles(void const *a, void const *b)
+{
+	double x = *(double const *)a, y = *(double const *)b;
+
+	return x < y ? -1 : x > y ? 1 : 0;
+}
+
 void structure_culling_note_frame(void)
 {
 	static long frames, surfaces;
+	static double previous_milliseconds;
+	static double intervals[STRUCTURE_CULLING_LOG_FRAMES];
+	static boolean last_enabled = TRUE;
+	double now;
+	boolean enabled_now;
 
 	if (!structure_culling_session_logging)
 	{
 		return;
 	}
-	surfaces += render.environment_surface_count;
-	if (++frames >= STRUCTURE_CULLING_LOG_FRAMES)
+	now = halo_frame_trace_milliseconds();
+	enabled_now = (structure_culling_enabled && structure_culling_tests) ? TRUE : FALSE;
+	if (enabled_now != last_enabled)
 	{
-		platform_log("culling-session: state %s surfaces %ld average over %ld frames (last frame: %ld drawn, %ld outside, %ld facing away)",
-			(structure_culling_enabled && structure_culling_tests) ? "ON" : "OFF", surfaces / frames, frames, structure_culling_submitted,
-			structure_culling_outside, structure_culling_facing);
+		/* (a flip: the window restarts, so a window never mixes the two states) */
+		last_enabled = enabled_now;
+		frames = surfaces = 0;
+		previous_milliseconds = 0.0;
+	}
+	if (previous_milliseconds != 0.0)
+	{
+		intervals[frames++] = now - previous_milliseconds;
+		surfaces += render.environment_surface_count;
+	}
+	previous_milliseconds = now;
+	if (frames >= STRUCTURE_CULLING_LOG_FRAMES)
+	{
+		double sorted[STRUCTURE_CULLING_LOG_FRAMES], sum = 0.0;
+		long index, late = 0;
+
+		memcpy(sorted, intervals, sizeof(sorted));
+		qsort(sorted, STRUCTURE_CULLING_LOG_FRAMES, sizeof(sorted[0]), structure_culling_compare_doubles);
+		for (index = 0; index < STRUCTURE_CULLING_LOG_FRAMES; ++index)
+		{
+			sum += intervals[index];
+			if (intervals[index] > sorted[STRUCTURE_CULLING_LOG_FRAMES / 2] * 1.5)
+			{
+				++late;
+			}
+		}
+		platform_log("culling-session: state %s surfaces %ld frames %ld frame_ms avg %.2f median %.2f p95 %.2f max %.2f late %ld (last frame: %ld drawn, %ld outside, %ld facing away)",
+			enabled_now ? "ON" : "OFF", surfaces / frames, frames, sum / frames,
+			sorted[STRUCTURE_CULLING_LOG_FRAMES / 2], sorted[STRUCTURE_CULLING_LOG_FRAMES * 95 / 100],
+			sorted[STRUCTURE_CULLING_LOG_FRAMES - 1], late, structure_culling_submitted, structure_culling_outside,
+			structure_culling_facing);
 		frames = surfaces = 0;
 	}
 }
