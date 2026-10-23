@@ -219,6 +219,7 @@ enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B };
 static int culling = 1, sets, enabled_setting;
 static char message[96];
 static int config_boolean(const char *name){ (void)name; return @ENABLED@; }
+void structure_culling_session_start(void){ sets++; }
 void structure_culling_set_enabled(int on){ culling = on; sets++; }
 int structure_culling_get_enabled(void){ return culling; }
 static void halo_knob_message(const char *text){ strcpy(message, text); }

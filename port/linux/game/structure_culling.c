@@ -959,6 +959,11 @@ void structure_culling_set_tests(long tests)
 	long changed = structure_culling_tests ^ tests;
 
 	structure_culling_tests = tests;
+	if (tests)
+	{
+		/* (the console's `structure_culling 31` is also the way back on from the live switch) */
+		structure_culling_set_enabled(TRUE);
+	}
 	/* (with no bsp loaded the next load builds with these tests) */
 	if (TEST_FLAG(changed, _structure_culling_finer_buckets_bit) && global_structure_bsp_index != NONE)
 	{
@@ -968,11 +973,21 @@ void structure_culling_set_tests(long tests)
 
 void platform_log(const char *format, ...);
 
+/* debug.culling_chord: from here the per-frame log runs, whichever state the walk is in */
+void structure_culling_session_start(void)
+{
+	structure_culling_session_logging = TRUE;
+	platform_log("culling-session: structure culling %s (tests %ld)", structure_culling_enabled ? "ON" : "OFF",
+		structure_culling_tests);
+}
+
 void structure_culling_set_enabled(int enabled)
 {
 	structure_culling_enabled = enabled;
-	structure_culling_session_logging = TRUE;
-	platform_log("culling-session: structure culling %s (tests %ld)", enabled ? "ON" : "OFF", structure_culling_tests);
+	if (structure_culling_session_logging)
+	{
+		platform_log("culling-session: structure culling %s (tests %ld)", enabled ? "ON" : "OFF", structure_culling_tests);
+	}
 }
 
 int structure_culling_get_enabled(void)

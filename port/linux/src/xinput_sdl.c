@@ -212,6 +212,7 @@ static void knob_cycle_chord(XINPUT_GAMEPAD *pad)
 /* debug.culling_chord: while Back is held, B switches the structure culling (port/linux/game/structure_culling.c)
 off and on, from the next frame, shown on screen for two seconds and logged. It starts on. The game never sees B
 while Back is held. */
+void structure_culling_session_start(void);
 void structure_culling_set_enabled(int enabled);
 int structure_culling_get_enabled(void);
 #define CULLING_CHORD_PULL 128
@@ -226,7 +227,7 @@ static void culling_chord(XINPUT_GAMEPAD *pad)
 	{
 		enabled = config_boolean("debug.culling_chord");
 		if (enabled)
-			structure_culling_set_enabled(1);
+			structure_culling_session_start();
 	}
 	if (!enabled)
 		return;

@@ -85,6 +85,7 @@ void structure_culling_dispose(void);
 void structure_culling_order_clusters(short *order, real const *distances, short count);
 boolean structure_culling_traverse(struct structure_bsp *structure);
 void structure_culling_set_tests(long tests);
+void structure_culling_session_start(void);
 void structure_culling_set_enabled(int enabled);
 int structure_culling_get_enabled(void);
 void structure_culling_note_frame(void);
