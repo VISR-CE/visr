@@ -1050,11 +1050,10 @@ void structure_culling_note_frame(void)
 				++late;
 			}
 		}
-		platform_log("culling-session: state %s surfaces %ld frames %ld frame_ms avg %.2f median %.2f p95 %.2f max %.2f late %ld (last frame: %ld drawn, %ld outside, %ld facing away)",
+		platform_log("culling-session: state %s surfaces %ld frames %ld frame_ms avg %.2f median %.2f p95 %.2f max %.2f late %ld",
 			enabled_now ? "ON" : "OFF", surfaces / frames, frames, sum / frames,
 			sorted[STRUCTURE_CULLING_LOG_FRAMES / 2], sorted[STRUCTURE_CULLING_LOG_FRAMES * 95 / 100],
-			sorted[STRUCTURE_CULLING_LOG_FRAMES - 1], late, structure_culling_submitted, structure_culling_outside,
-			structure_culling_facing);
+			sorted[STRUCTURE_CULLING_LOG_FRAMES - 1], late);
 		frames = surfaces = 0;
 	}
 }
