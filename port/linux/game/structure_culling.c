@@ -995,7 +995,7 @@ void structure_culling_note_frame(void)
 	if (++frames >= STRUCTURE_CULLING_LOG_FRAMES)
 	{
 		platform_log("culling-session: state %s surfaces %ld average over %ld frames (last frame: %ld drawn, %ld outside, %ld facing away)",
-			structure_culling_enabled ? "ON" : "OFF", surfaces / frames, frames, structure_culling_submitted,
+			(structure_culling_enabled && structure_culling_tests) ? "ON" : "OFF", surfaces / frames, frames, structure_culling_submitted,
 			structure_culling_outside, structure_culling_facing);
 		frames = surfaces = 0;
 	}
