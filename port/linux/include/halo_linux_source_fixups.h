@@ -79,6 +79,10 @@ these spans (the HUD, the flash, menus, bars, loading screens, movies) is
 drawn at the display's size when the scene's is smaller */
 void halo_render_scene_begin(short rasterizer_target, long x0, long y0, long x1, long y1);
 void halo_render_scene_end(void);
+/* spike (debug.metalfx_temporal, d3d8_device.c): rasterizer_set_frustum_z's
+eight constants, c[-96..-89]: the world-to-clip rows, the camera's position
+and forward */
+void halo_temporal_frustum(const float constants[8][4]);
 /* a map has loaded and its first frame is next (main_new_map): the shaders
 and pipelines its list names are compiled now, under the loading screen
 (port/linux/src/d3d8_device.c) */

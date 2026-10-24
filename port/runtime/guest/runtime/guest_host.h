@@ -268,6 +268,10 @@ void host_astc_map_arrived(const char *path);
 void host_astc_map_will_load(const char *name);
 void host_astc_game_started(void);
 
+#include "host_temporal.h"
+/* spike: debug.metalfx_temporal's frame for gpu_metal.m */
+void host_metalfx_temporal_frame(const struct host_temporal_frame *frame);
+
 #endif
 
 uint32_t host_shader_observation_activate(const char *map_name, int suppressed, char *map_key, uint32_t map_key_size);

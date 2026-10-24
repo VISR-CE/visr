@@ -1312,6 +1312,20 @@ static const struct config_setting config_settings[] =
 		"the display's pixels, rather than as a pass over the scene before it.\n"
 		"It saves a copy and a pass but does four times the FXAA work at half\n"
 		"scale: on the Apple TV HD it cost 15 ms a frame against the pass's 6." },
+	{ "debug.metalfx_temporal", _config_boolean, "false", "HALO_METALFX_TEMPORAL", _environment_value, _platform_ios,
+		"Spike: with display.upscaler = \"metalfx\" and the HUD at the display's\n"
+		"size, scale the scene with MetalFX's temporal scaler instead of its\n"
+		"spatial one: the scene is jittered, its depth is kept, and camera-only\n"
+		"motion comes from the depth and last frame's camera. FXAA is off.\n"
+		"Moving objects smear. Metal only." },
+	{ "debug.metalfx_jitter_scale", _config_real, "1.0", "HALO_METALFX_JITTER_SCALE", _environment_value, _platform_ios,
+		"Spike, with debug.metalfx_temporal: the jitter's size and sign (0: none)." },
+	{ "debug.metalfx_motion_scale", _config_real, "1.0", "HALO_METALFX_MOTION_SCALE", _environment_value, _platform_ios,
+		"Spike, with debug.metalfx_temporal: the motion vectors' size and sign\n"
+		"(0: none)." },
+	{ "debug.metalfx_time_scaler", _config_boolean, "false", "HALO_METALFX_TIME_SCALER", _environment_value, _platform_ios,
+		"Spike: give MetalFX's scaler (spatial or temporal) a command buffer of\n"
+		"its own and log its GPU time every 600 frames." },
 	{ "debug.rate_map_test", _config_boolean, "false", "HALO_RATE_MAP_TEST", _environment_value, _platform_ios,
 		"Metal renderer on the Mac: give the screen-sized targets a synthetic,\n"
 		"lopsided rate map (full rate in the middle third, half outside it, denser\n"

@@ -394,6 +394,10 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 	camera and so reaches the camera plane. The divide on the Xbox sends such
 	a vertex to infinity and the clipper takes the triangle; put it behind the
 	camera instead, which the clipper also takes (upstream's 3d2c04d6). */
+	/* spike (debug.metalfx_temporal): the world's draws are jittered */
+	if (dialect->temporal_jitter && text.buffer && (strstr(text.buffer, "c[0]") || strstr(text.buffer, "c[1]") ||
+		strstr(text.buffer, "c[2]") || strstr(text.buffer, "c[3]")))
+		xgpu_text_append(&text, "\tposition.xy += vec2(viewport_scale.w, viewport_offset.w) * position.w;\n");
 	xgpu_text_append(&text,
 		"\tif (!(abs(position.w) > 0.0))\n"
 		"\t\tposition = vec4(0.0, 0.0, 0.0, -1.0);\n"

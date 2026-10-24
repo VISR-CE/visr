@@ -32,6 +32,7 @@ but never returns to its run loop, which would otherwise drain them.
 #endif
 #include "host_external.h"
 #include "gpu.h"
+#include "host_temporal.h"
 #include "ios_host.h"
 #include "metal_state_cache.h"
 /* GPU_VALIDATION_REPORT: this backend's fallbacks and skips, by name, in a
@@ -256,6 +257,11 @@ the state cache, so a frame with no such draw makes no call and counts none */
 static int encoder_depth_clamp;
 _Static_assert(GPU_STAGE_COUNT == 4 && GPU_ATTRIBUTE_COUNT == 16, "metal_state_cache.h's slots");
 static gpu_texture pass_color, pass_depth;
+/* spike (debug.metalfx_temporal): the last depth target a pass paired with
+a color target (pass_begin), which gpu_metal_upscale gives the temporal
+scaler when that color target is the scene */
+static gpu_texture temporal_scene_color;
+static id<MTLTexture> temporal_scene_depth;
 static unsigned long pass_commands;
 static uint32_t perf_pass_token;
 /* the open command buffer's serial; every earlier one has been committed */
@@ -1892,6 +1898,9 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 		pass.stencilAttachment.clearStencil = clear ? clear->stencil & 0xff : 0;
 		pass_depth_texture = depth_record->texture;
 		use_texture(depth_record);
+		/* (spike: the scene's depth for MetalFX's temporal scaler) */
+		temporal_scene_color = color;
+		temporal_scene_depth = depth_record->texture;
 	}
 	pass_traffic_count(pass);
 	if (pass_log)
@@ -5534,6 +5543,8 @@ static void gpu_metal_flush(void)
 /* the back buffer scaled to width x height by MetalFX when it's smaller and
 display.upscaler asks for it, else the back buffer itself */
 static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, long width, long height, id<MTLTexture> output);
+static void scaler_time_begin(void);
+static void scaler_time_end(int temporal, unsigned long input_width, unsigned long input_height, long width, long height);
 
 static unsigned scene_upscale_path(long source_width, long source_height, long output_width, long output_height, int metalfx_encoded)
 {
@@ -5602,7 +5613,9 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, long width, long 
             platform_log("DRS shadow: MetalFX stage timing is unavailable; GPU cost decisions are refused");
             perf_metalfx_noted = YES;
         }
-        [upscaler encodeToCommandBuffer:commands];
+		scaler_time_begin();
+		[upscaler encodeToCommandBuffer:command_buffer()];
+		scaler_time_end(0, back_buffer.width, back_buffer.height, width, height);
 		return output;
 	}
 #endif
@@ -5610,6 +5623,330 @@ static id<MTLTexture> upscale_into(id<MTLTexture> back_buffer, long width, long 
 	(void)height;
 	(void)output;
 	return back_buffer;
+}
+
+/* ---------- spike: MetalFX's temporal scaler (debug.metalfx_temporal)
+
+d3d8_device.c sends the scene's camera, jitter and cuts at the end of each
+scene (host_metalfx_temporal_frame); gpu_metal_upscale then keeps the
+scene's depth, a compute pass reprojects each pixel's depth from this
+frame's camera to last frame's (camera-only motion, RG16Float, in UV units
+scaled to pixels by motionVectorScale), and MTLFXTemporalScaler takes the
+spatial scaler's place. debug.metalfx_time_scaler gives either scaler a
+command buffer of its own and logs its GPU time. */
+static struct host_temporal_frame temporal_frame;
+static BOOL temporal_frame_pending, temporal_unavailable, temporal_depth_copy;
+static int scaler_timing = -1;
+static float temporal_report_sign = 1.0f;
+static id<MTLTexture> temporal_motion, temporal_output, temporal_depth_r32;
+static id<MTLComputePipelineState> temporal_motion_pipeline;
+#ifdef HAVE_METALFX
+static id<MTLFXTemporalScaler> temporal_scaler API_AVAILABLE(ios(16.0), tvos(27.1), macos(13.0));
+#endif
+
+void host_metalfx_temporal_frame(const struct host_temporal_frame *frame)
+{
+	temporal_frame = *frame;
+	temporal_frame_pending = frame->enabled != 0;
+}
+
+static void metalfx_support_log(void)
+{
+#ifdef HAVE_METALFX
+	BOOL spatial = NO, temporal = NO;
+
+	if (@available(iOS 16.0, tvOS 16.0, visionOS 1.0, *))
+		spatial = [MTLFXSpatialScalerDescriptor supportsDevice:device];
+	if (@available(iOS 16.0, tvOS 27.1, macOS 13.0, *))
+		temporal = [MTLFXTemporalScalerDescriptor supportsDevice:device];
+	platform_log("MetalFX support: spatial %s, temporal %s (GPU %s)", spatial ? "yes" : "no", temporal ? "yes" : "no",
+		device.name.UTF8String);
+#else
+	platform_log("MetalFX support: spatial no, temporal no (this build has no MetalFX; GPU %s)", device.name.UTF8String);
+#endif
+}
+
+static NSString *const temporal_motion_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"struct MotionParameters { float4x4 reproject; float2 size; float2 jitter_ndc; uint copy_depth; uint pad[3]; };\n"
+	"kernel void temporal_motion(depth2d<float, access::read> depth [[texture(0)]],\n"
+	"	texture2d<half, access::write> motion [[texture(1)]], texture2d<float, access::write> depth_copy [[texture(2)]],\n"
+	"	constant MotionParameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"	if (gid.x >= uint(p.size.x) || gid.y >= uint(p.size.y)) return;\n"
+	"	float d = depth.read(gid);\n"
+	"	float2 uv = (float2(gid) + 0.5) / p.size;\n"
+	"	/* the pixel's surface, unjittered, in this frame's NDC (y up; depth reversed) */\n"
+	"	float2 ndc = float2(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0) - p.jitter_ndc;\n"
+	"	float4 previous = p.reproject * float4(ndc, 1.0 - d, 1.0);\n"
+	"	float2 m = float2(0.0);\n"
+	"	if (previous.w > 1e-6) {\n"
+	"		float2 previous_ndc = previous.xy / previous.w;\n"
+	"		m = float2(previous_ndc.x - ndc.x, ndc.y - previous_ndc.y) * 0.5;\n"
+	"	}\n"
+	"	motion.write(half4(half2(clamp(m, -1.0, 1.0)), 0.0h, 0.0h), gid);\n"
+	"	if (p.copy_depth) depth_copy.write(float4(d), gid);\n"
+	"}\n";
+
+/* rows (row-major, clip_i = sum_j m[i*4+j] p_j) inverted; NO when singular */
+static BOOL invert_rows(const float *m, double *inverse)
+{
+	double a[4][8];
+	int row, column, pivot, other;
+
+	for (row = 0; row < 4; row++)
+		for (column = 0; column < 8; column++)
+			a[row][column] = column < 4 ? (double)m[row * 4 + column] : (column - 4 == row ? 1.0 : 0.0);
+	for (column = 0; column < 4; column++)
+	{
+		pivot = column;
+		for (row = column + 1; row < 4; row++)
+			if (fabs(a[row][column]) > fabs(a[pivot][column]))
+				pivot = row;
+		if (fabs(a[pivot][column]) < 1e-12)
+			return NO;
+		if (pivot != column)
+			for (other = 0; other < 8; other++)
+			{
+				double t = a[column][other];
+				a[column][other] = a[pivot][other];
+				a[pivot][other] = t;
+			}
+		{
+			double scale = 1.0 / a[column][column];
+			for (other = 0; other < 8; other++)
+				a[column][other] *= scale;
+		}
+		for (row = 0; row < 4; row++)
+			if (row != column && a[row][column] != 0.0)
+			{
+				double factor = a[row][column];
+				for (other = 0; other < 8; other++)
+					a[row][other] -= factor * a[column][other];
+			}
+	}
+	for (row = 0; row < 4; row++)
+		for (column = 0; column < 4; column++)
+			inverse[row * 4 + column] = a[row][column + 4];
+	return YES;
+}
+
+/* debug.metalfx_time_scaler: GPU times of the scaler's own command buffers */
+static pthread_mutex_t scaler_time_lock = PTHREAD_MUTEX_INITIALIZER;
+static double scaler_times[2][600];
+static unsigned scaler_time_count[2];
+
+static int compare_doubles(const void *a, const void *b)
+{
+	double x = *(const double *)a, y = *(const double *)b;
+	return x < y ? -1 : x > y;
+}
+
+static void scaler_time_begin(void)
+{
+	if (scaler_timing < 0)
+	{
+		char value[8];
+
+		host_config_string("debug.metalfx_time_scaler", "false", value, sizeof(value));
+		scaler_timing = !strcmp(value, "true");
+	}
+	if (!scaler_timing)
+		return;
+	/* the scene's work goes ahead in its own command buffer */
+	commit(NO);
+	command_buffer();
+}
+
+static void scaler_time_end(int temporal, unsigned long input_width, unsigned long input_height, long width, long height)
+{
+	if (!scaler_timing || !commands)
+		return;
+	[commands addCompletedHandler:^(id<MTLCommandBuffer> completed)
+	{
+		double seconds = completed.GPUEndTime - completed.GPUStartTime;
+		double sorted[600], total = 0.0;
+		unsigned count, index;
+
+		if (completed.status != MTLCommandBufferStatusCompleted || seconds <= 0.0)
+			return;
+		pthread_mutex_lock(&scaler_time_lock);
+		scaler_times[temporal][scaler_time_count[temporal]++] = seconds * 1e3;
+		count = scaler_time_count[temporal];
+		if (count == 600)
+		{
+			memcpy(sorted, scaler_times[temporal], sizeof(sorted));
+			scaler_time_count[temporal] = 0;
+		}
+		pthread_mutex_unlock(&scaler_time_lock);
+		if (count != 600)
+			return;
+		qsort(sorted, 600, sizeof(double), compare_doubles);
+		for (index = 0; index < 600; index++)
+			total += sorted[index];
+		platform_log("MetalFX timing: %s %lux%lu to %ldx%ld: median %.3f ms, p10 %.3f, p90 %.3f, mean %.3f over 600",
+			temporal ? "temporal" : "spatial", input_width, input_height, width, height, sorted[300], sorted[60],
+			sorted[540], total / 600.0);
+	}];
+}
+
+/* the scene into width x height with the temporal scaler, or nil (then the
+spatial scaler's path runs) */
+static id<MTLTexture> temporal_upscale_into(id<MTLTexture> color, id<MTLTexture> depth, long width, long height,
+	id<MTLTexture> output)
+{
+#ifdef HAVE_METALFX
+	if (@available(iOS 16.0, tvOS 27.1, macOS 13.0, *))
+	{
+		BOOL fresh = NO;
+		struct
+		{
+			float reproject[16];
+			float size[2];
+			float jitter_ndc[2];
+			uint32_t copy_depth, pad[3];
+		} parameters;
+		double inverse[16], product[16];
+		id<MTLComputeCommandEncoder> compute;
+		int row, column, k;
+
+		if (temporal_unavailable || !depth || depth.width != color.width || depth.height != color.height ||
+			(long)color.width >= width || (long)color.height >= height)
+			return nil;
+		if (!temporal_scaler || temporal_scaler.inputWidth != color.width || temporal_scaler.inputHeight != color.height ||
+			temporal_scaler.outputWidth != (NSUInteger)width || temporal_scaler.outputHeight != (NSUInteger)height)
+		{
+			MTLFXTemporalScalerDescriptor *descriptor = [MTLFXTemporalScalerDescriptor new];
+			MTLTextureDescriptor *texture;
+			NSError *error = nil;
+			int attempt;
+
+			temporal_scaler = nil;
+			if (![MTLFXTemporalScalerDescriptor supportsDevice:device])
+			{
+				platform_log("MetalFX temporal (spike): unsupported on %s; the spatial scaler runs", device.name.UTF8String);
+				temporal_unavailable = YES;
+				return nil;
+			}
+			descriptor.colorTextureFormat = color.pixelFormat;
+			descriptor.motionTextureFormat = MTLPixelFormatRG16Float;
+			descriptor.outputTextureFormat = color.pixelFormat;
+			descriptor.inputWidth = color.width;
+			descriptor.inputHeight = color.height;
+			descriptor.outputWidth = (NSUInteger)width;
+			descriptor.outputHeight = (NSUInteger)height;
+			descriptor.autoExposureEnabled = NO;
+			/* the scene's own depth first, else a copy as R32Float */
+			for (attempt = 0; attempt < 2 && !temporal_scaler; attempt++)
+			{
+				temporal_depth_copy = attempt == 1 || getenv("HALO_METALFX_DEPTH_COPY") != NULL;
+				descriptor.depthTextureFormat = temporal_depth_copy ? MTLPixelFormatR32Float : depth.pixelFormat;
+				temporal_scaler = [descriptor newTemporalScalerWithDevice:device];
+				if (temporal_depth_copy)
+					break;
+			}
+			if (!temporal_scaler)
+			{
+				platform_log("MetalFX temporal (spike): no scaler for %lux%lu to %ldx%ld; the spatial scaler runs",
+					(unsigned long)color.width, (unsigned long)color.height, width, height);
+				temporal_unavailable = YES;
+				return nil;
+			}
+			texture = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRG16Float
+				width:color.width height:color.height mipmapped:NO];
+			texture.storageMode = MTLStorageModePrivate;
+			texture.usage = temporal_scaler.motionTextureUsage | MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead;
+			temporal_motion = [device newTextureWithDescriptor:texture];
+			texture.pixelFormat = MTLPixelFormatR32Float;
+			texture.usage = temporal_scaler.depthTextureUsage | MTLTextureUsageShaderWrite | MTLTextureUsageShaderRead;
+			temporal_depth_r32 = temporal_depth_copy ? [device newTextureWithDescriptor:texture] : nil;
+			texture = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:color.pixelFormat
+				width:(NSUInteger)width height:(NSUInteger)height mipmapped:NO];
+			texture.storageMode = MTLStorageModePrivate;
+			texture.usage = temporal_scaler.outputTextureUsage | MTLTextureUsageShaderRead;
+			temporal_output = [device newTextureWithDescriptor:texture];
+			if (!temporal_motion_pipeline)
+			{
+				id<MTLLibrary> library = [device newLibraryWithSource:temporal_motion_source options:nil error:&error];
+				id<MTLFunction> function = [library newFunctionWithName:@"temporal_motion"];
+
+				if (function)
+					temporal_motion_pipeline = [device newComputePipelineStateWithFunction:function error:&error];
+				if (!temporal_motion_pipeline)
+				{
+					platform_log("MetalFX temporal (spike): the motion pass failed to compile: %s",
+						error.description.UTF8String);
+					temporal_unavailable = YES;
+					temporal_scaler = nil;
+					return nil;
+				}
+			}
+			{
+				const char *sign = getenv("HALO_METALFX_JITTER_REPORT_SIGN");
+
+				temporal_report_sign = sign && atof(sign) < 0.0 ? -1.0f : 1.0f;
+			}
+			platform_log("MetalFX temporal (spike): scales %lux%lu up to %ldx%ld (depth %s, jitter offset sign %+.0f)",
+				(unsigned long)color.width, (unsigned long)color.height, width, height,
+				temporal_depth_copy ? "copied as R32Float" : "the scene's own", (double)temporal_report_sign);
+			fresh = YES;
+		}
+		/* reproject = previous * inverse(current), as Metal's columns */
+		if (!invert_rows(temporal_frame.world_to_clip, inverse))
+			return nil;
+		for (row = 0; row < 4; row++)
+			for (column = 0; column < 4; column++)
+			{
+				product[row * 4 + column] = 0.0;
+				for (k = 0; k < 4; k++)
+					product[row * 4 + column] += (double)temporal_frame.previous_world_to_clip[row * 4 + k] * inverse[k * 4 + column];
+			}
+		for (row = 0; row < 4; row++)
+			for (column = 0; column < 4; column++)
+				parameters.reproject[column * 4 + row] = (float)product[row * 4 + column];
+		parameters.size[0] = (float)color.width;
+		parameters.size[1] = (float)color.height;
+		parameters.jitter_ndc[0] = temporal_frame.jitter_ndc[0];
+		parameters.jitter_ndc[1] = temporal_frame.jitter_ndc[1];
+		parameters.copy_depth = temporal_depth_copy ? 1 : 0;
+		parameters.pad[0] = parameters.pad[1] = parameters.pad[2] = 0;
+		compute = [command_buffer() computeCommandEncoder];
+		[compute setComputePipelineState:temporal_motion_pipeline];
+		[compute setTexture:depth atIndex:0];
+		[compute setTexture:temporal_motion atIndex:1];
+		[compute setTexture:temporal_depth_copy ? temporal_depth_r32 : temporal_motion atIndex:2];
+		[compute setBytes:&parameters length:sizeof(parameters) atIndex:0];
+		[compute dispatchThreadgroups:MTLSizeMake((color.width + 7) / 8, (color.height + 7) / 8, 1)
+			threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+		[compute endEncoding];
+		scaler_time_begin();
+		if (!output || (output.usage & temporal_scaler.outputTextureUsage) != temporal_scaler.outputTextureUsage ||
+			output.pixelFormat != temporal_output.pixelFormat || (long)output.width != width || (long)output.height != height)
+			output = temporal_output;
+		temporal_scaler.colorTexture = color;
+		temporal_scaler.depthTexture = temporal_depth_copy ? temporal_depth_r32 : depth;
+		temporal_scaler.motionTexture = temporal_motion;
+		temporal_scaler.outputTexture = output;
+		temporal_scaler.inputContentWidth = color.width;
+		temporal_scaler.inputContentHeight = color.height;
+		temporal_scaler.jitterOffsetX = temporal_frame.jitter_pixels[0] * temporal_report_sign;
+		temporal_scaler.jitterOffsetY = temporal_frame.jitter_pixels[1] * temporal_report_sign;
+		temporal_scaler.motionVectorScaleX = (float)color.width * temporal_frame.motion_scale;
+		temporal_scaler.motionVectorScaleY = (float)color.height * temporal_frame.motion_scale;
+		temporal_scaler.depthReversed = YES;
+		temporal_scaler.reset = fresh || temporal_frame.reset;
+		[temporal_scaler encodeToCommandBuffer:command_buffer()];
+		scaler_time_end(1, color.width, color.height, width, height);
+		return output;
+	}
+#endif
+	(void)color;
+	(void)depth;
+	(void)width;
+	(void)height;
+	(void)output;
+	return nil;
 }
 
 /* the back buffer letterboxed into the drawable, as gpu_gl.c's gpu_present,
@@ -5836,7 +6173,7 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		id<MTLTexture> picture, target;
 		MTLScissorRect scissor;
 		struct gpu_clear whole_clear;
-		BOOL whole, scaled = NO, fxaa;
+		BOOL whole, scaled = NO, fxaa, temporal;
 		struct gpu_rect scene;
 
 		frame_begin();
@@ -5860,9 +6197,14 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		if (anti_alias == GPU_ANTI_ALIAS_FXAA && !fxaa)
 			gpu_metal_anti_alias(GPU_ANTI_ALIAS_FXAA, source, &scene);
 		command_buffer();
+		/* (spike, debug.metalfx_temporal: the scene's depth is kept for the
+		temporal scaler) */
+		temporal = temporal_frame_pending && whole && metalfx_wanted && temporal_scene_color == source &&
+			(picture.width < target.width || picture.height < target.height);
+		temporal_frame_pending = NO;
 		/* (only the scene's own pass: another target's depth is its own affair) */
 		if (encoder && pass_color == source)
-			pass_finish(YES);
+			pass_finish(!temporal);
 		else
 			pass_end();
 		use_texture(source_record);
@@ -5886,7 +6228,10 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		the scaler's own texture, which the quad copies */
 		if (whole)
 		{
-			picture = upscale_into(picture, (long)target.width, (long)target.height, target);
+			id<MTLTexture> temporal_picture = temporal ? temporal_upscale_into(picture, temporal_scene_depth,
+				(long)target.width, (long)target.height, target) : nil;
+
+			picture = temporal_picture ?: upscale_into(picture, (long)target.width, (long)target.height, target);
 			if (pass_log && picture != source_record->texture)
 				[pass_log appendFormat:@"\n  upscale: MetalFX, texture %u %lux%lu into %s %lux%lu", source,
 					(unsigned long)source_record->texture.width, (unsigned long)source_record->texture.height,
@@ -6599,6 +6944,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			host_fatal("Metal is unavailable (layer %p, device %p)", (__bridge void *)layer, (__bridge void *)device);
 		host_perf_metal_initialize(device);
 		queue = [device newCommandQueue];
+		metalfx_support_log();
 		/* (after the device: the archive is the device's, and named by its GPU) */
 		if (!(flags & GPU_INITIALIZE_NO_PIPELINE_ARCHIVE))
 			archive_open();

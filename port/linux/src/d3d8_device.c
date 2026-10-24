@@ -38,6 +38,7 @@ const char *cache_files_map_directory(void);
 const char *custom_edition_cache_loaded_path(void);
 #endif
 #include "gpu_companion.h"
+#include "host_temporal.h"
 #include "halo_stereo.h"
 #include "halo_spatial.h"
 #include "halo_stereo_window.h"
@@ -2098,6 +2099,136 @@ static void anti_aliasing_pass(struct render_target_entry *scene)
 	}
 }
 
+/* ---------- spike: MetalFX's temporal scaler (debug.metalfx_temporal)
+
+Camera-only motion: the scene's world-to-clip rows are kept from the first
+rasterizer_set_frustum_z of each primary view (rasterizer_window_begin's,
+the world's own depth range) and the host reprojects each pixel's depth
+from this frame's camera to last frame's. Inside the scene span the world's
+vertex programs (those reading c[-96..-93], nv2a_vsh.c) are moved by a
+Halton jitter, carried in viewport_scale.w and viewport_offset.w; never in a
+visibility test, so lens flares do not flicker. Textures get MetalFX's
+negative LOD bias. One view, mono, the primary target only. */
+static struct nv2a_dialect shader_dialect;
+static int temporal_wanted = -1;
+static float temporal_jitter_scale = 1.0f, temporal_motion_scale = 1.0f;
+static BOOL temporal_captured, temporal_previous_valid;
+static float temporal_rows[16], temporal_previous_rows[16];
+static float temporal_camera[6], temporal_previous_camera[6];
+static unsigned long temporal_last_frame;
+static unsigned long temporal_sequence;
+/* this view's: the jitter in pixels and NDC, and the LOD bias */
+static float temporal_jitter_pixels[2], temporal_jitter_ndc[2], temporal_lod_bias;
+
+static BOOL temporal_enabled(void)
+{
+	if (temporal_wanted < 0)
+	{
+		if (!device.gl_ready)
+			return FALSE;
+		temporal_wanted = shader_dialect.msl && config_boolean("debug.metalfx_temporal") ? 1 : 0;
+		temporal_jitter_scale = (float)config_real("debug.metalfx_jitter_scale");
+		temporal_motion_scale = (float)config_real("debug.metalfx_motion_scale");
+		if (temporal_wanted)
+			platform_log("MetalFX temporal (spike): on, jitter scale %.2f, motion scale %.2f",
+				(double)temporal_jitter_scale, (double)temporal_motion_scale);
+	}
+	return temporal_wanted > 0 && native_hud_active();
+}
+
+static float halton(unsigned long index, unsigned long base)
+{
+	float result = 0.0f, fraction = 1.0f;
+
+	while (index)
+	{
+		fraction /= (float)base;
+		result += fraction * (float)(index % base);
+		index /= base;
+	}
+	return result;
+}
+
+void halo_temporal_frustum(const float constants[8][4])
+{
+	int row;
+
+	if (!native_scene || temporal_captured || temporal_wanted <= 0)
+		return;
+	for (row = 0; row < 4; row++)
+		memcpy(&temporal_rows[row * 4], constants[row], sizeof(constants[row]));
+	memcpy(&temporal_camera[0], constants[4], 3 * sizeof(float));
+	memcpy(&temporal_camera[3], constants[5], 3 * sizeof(float));
+	temporal_captured = TRUE;
+}
+
+/* the view's jitter and LOD bias, at scene begin */
+static void temporal_scene_begin(long x0, long y0, long x1, long y1)
+{
+	float width = (float)(x1 - x0) * screen_scale[0], height = (float)(y1 - y0) * screen_scale[1];
+	unsigned long index;
+
+	temporal_captured = FALSE;
+	temporal_jitter_pixels[0] = temporal_jitter_pixels[1] = 0.0f;
+	temporal_jitter_ndc[0] = temporal_jitter_ndc[1] = 0.0f;
+	temporal_lod_bias = 0.0f;
+	if (!temporal_enabled() || width <= 0.0f || height <= 0.0f)
+		return;
+	/* (32 phases of Halton 2,3, from 1: MetalFX asks for at least 8 times
+	the square of the scale) */
+	index = temporal_sequence % 32 + 1;
+	temporal_jitter_pixels[0] = (halton(index, 2) - 0.5f) * temporal_jitter_scale;
+	temporal_jitter_pixels[1] = (halton(index, 3) - 0.5f) * temporal_jitter_scale;
+	/* (+y down in pixels, up in NDC) */
+	temporal_jitter_ndc[0] = 2.0f * temporal_jitter_pixels[0] / width;
+	temporal_jitter_ndc[1] = -2.0f * temporal_jitter_pixels[1] / height;
+	if (screen_scale_native[1] > screen_scale[1])
+		temporal_lod_bias = log2f(screen_scale[1] / screen_scale_native[1]);
+}
+
+/* the frame for the host, at scene end, before gpu_upscale */
+static void temporal_scene_end(void)
+{
+	struct host_temporal_frame frame;
+	float moved, cosine;
+	BOOL cut;
+
+	if (!temporal_enabled())
+		return;
+	memset(&frame, 0, sizeof(frame));
+	frame.enabled = temporal_captured ? 1 : 0;
+	if (!temporal_captured)
+	{
+#ifdef HALO_ILP32
+		host_metalfx_temporal_frame(&frame);
+#endif
+		return;
+	}
+	/* a cut: no last frame, a frame skipped (a map load, a movie, the
+	menus), or the camera moved more than 3 units or turned more than 60
+	degrees (render_interpolation.c's thresholds) */
+	moved = sqrtf((temporal_camera[0] - temporal_previous_camera[0]) * (temporal_camera[0] - temporal_previous_camera[0]) +
+		(temporal_camera[1] - temporal_previous_camera[1]) * (temporal_camera[1] - temporal_previous_camera[1]) +
+		(temporal_camera[2] - temporal_previous_camera[2]) * (temporal_camera[2] - temporal_previous_camera[2]));
+	cosine = temporal_camera[3] * temporal_previous_camera[3] + temporal_camera[4] * temporal_previous_camera[4] +
+		temporal_camera[5] * temporal_previous_camera[5];
+	cut = !temporal_previous_valid || device.frame != temporal_last_frame + 1 || moved > 3.0f || cosine < 0.5f;
+	memcpy(frame.world_to_clip, temporal_rows, sizeof(frame.world_to_clip));
+	memcpy(frame.previous_world_to_clip, cut ? temporal_rows : temporal_previous_rows, sizeof(frame.previous_world_to_clip));
+	memcpy(frame.jitter_pixels, temporal_jitter_pixels, sizeof(frame.jitter_pixels));
+	memcpy(frame.jitter_ndc, temporal_jitter_ndc, sizeof(frame.jitter_ndc));
+	frame.motion_scale = temporal_motion_scale;
+	frame.reset = cut ? 1 : 0;
+#ifdef HALO_ILP32
+	host_metalfx_temporal_frame(&frame);
+#endif
+	memcpy(temporal_previous_rows, temporal_rows, sizeof(temporal_rows));
+	memcpy(temporal_previous_camera, temporal_camera, sizeof(temporal_camera));
+	temporal_previous_valid = TRUE;
+	temporal_last_frame = device.frame;
+	temporal_sequence++;
+}
+
 /* render_window, as a view's window begins (source/render/render.c): what
 it draws into the back buffer until halo_render_scene_end is the scene, at
 the scene's size. Only a player's or the menu's own view (the primary
@@ -2109,6 +2240,8 @@ void halo_render_scene_begin(short rasterizer_target, long x0, long y0, long x1,
 	native_scene_bounds[1] = y0;
 	native_scene_bounds[2] = x1;
 	native_scene_bounds[3] = y1;
+	if (native_scene)
+		temporal_scene_begin(x0, y0, x1, y1);
 }
 
 /* the view's world and screen effects are drawn; its HUD is next (or a
@@ -2139,7 +2272,13 @@ void halo_render_scene_end(void)
 	/* the anti-aliasing pass over the scene first, unless FXAA goes into
 	the stretch below (debug.anti_aliasing_folded, anti_aliasing_folds) */
 	fold = native_hud_active() && anti_aliasing_folds();
-	if (scene && !fold)
+	/* (spike: MetalFX's temporal scaler wants the scene without FXAA) */
+	if (temporal_enabled())
+	{
+		temporal_scene_end();
+		fold = FALSE;
+	}
+	else if (scene && !fold)
 		anti_aliasing_pass(scene);
 	if (!native_hud_active())
 		return;
@@ -2203,6 +2342,7 @@ static void shader_dialect_initialize(struct nv2a_dialect *dialect, const struct
 	Metal, which runs on the same GPUs */
 	dialect->clip_capture = capabilities->shader_es || dialect->msl;
 	dialect->shader_lod_bias = !capabilities->sampler_lod_bias;
+	dialect->temporal_jitter = dialect->msl && config_boolean("debug.metalfx_temporal") != 0;
 	dialect->debug_expression = config_string("debug.gpu_debug_expression");
 	dialect->debug_texture0 = config_boolean("debug.gpu_debug_texture0") != 0;
 	dialect->debug_flat = config_boolean("debug.gpu_debug_flat") != 0;
@@ -4570,7 +4710,7 @@ static void raster_state_fill(BOOL has_depth, struct gpu_viewport *viewport, str
 
 /* the uniforms of the latest draws, converted from these inputs; the serial
 counts the conversions */
-#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 7 * D3DTSS_MAXSTAGES)
+#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 7 * D3DTSS_MAXSTAGES + 3)
 
 static DWORD draw_uniform_inputs[DRAW_UNIFORM_INPUT_COUNT];
 static struct gpu_uniforms draw_uniforms;
@@ -4715,6 +4855,16 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 			inputs[count++] = state[D3DTSS_BUMPENVLOFFSET];
 			inputs[count++] = state[D3DTSS_MIPMAPLODBIAS];
 		}
+		/* spike (debug.metalfx_temporal): the scene's jitter and LOD bias,
+		none in a visibility test or outside the scene */
+		{
+			BOOL jittered = native_scene && temporal_wanted > 0 && !device.visibility_test_active;
+			float jitter[3] = { jittered ? temporal_jitter_ndc[0] : 0.0f, jittered ? temporal_jitter_ndc[1] : 0.0f,
+				native_scene && temporal_wanted > 0 ? temporal_lod_bias : 0.0f };
+
+			memcpy(&inputs[count], jitter, sizeof(jitter));
+			count += 3;
+		}
 		if (!draw_uniforms.serial || !words_equal(inputs, draw_uniform_inputs, sizeof(inputs)))
 		{
 			struct gpu_uniforms *converted = &draw_uniforms;
@@ -4754,6 +4904,11 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 				converted->texture_lod_bias[0][stage] = dword_to_float(state[D3DTSS_MIPMAPLODBIAS]);
 			}
 			converted->screen_offset[0][0] = (float)UI_OFFSET;
+			converted->viewport_scale[0][3] = dword_to_float(inputs[count - 3]);
+			converted->viewport_offset[0][3] = dword_to_float(inputs[count - 2]);
+			if (dword_to_float(inputs[count - 1]) != 0.0f)
+				for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+					converted->texture_lod_bias[0][stage] += dword_to_float(inputs[count - 1]);
 		}
 	}
 	return TRUE;

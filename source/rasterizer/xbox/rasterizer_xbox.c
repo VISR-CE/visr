@@ -2988,6 +2988,8 @@ void rasterizer_set_frustum_z(
 	vertex_constants[7][1] = global_window_parameters.frustum.view_to_world.left.j;
 	vertex_constants[7][2] = global_window_parameters.frustum.view_to_world.left.k;
 	vertex_constants[7][3] = 255.9375f;
+	/* port: the camera for MetalFX's temporal scaler (spike) */
+	halo_temporal_frustum((const float (*)[4])vertex_constants);
 	IDirect3DDevice8_SetVertexShaderConstant(
 		global_d3d_device,
 		-96,

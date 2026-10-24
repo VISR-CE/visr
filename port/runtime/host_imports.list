@@ -145,3 +145,5 @@ host_astc_game_started
 host_astc_texture_key
 host_astc_texture_read
 host_astc_texture_generation
+
+host_metalfx_temporal_frame

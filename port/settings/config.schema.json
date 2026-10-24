@@ -1994,6 +1994,46 @@
             "desktop"
           ]
         },
+        "metalfx_temporal": {
+          "type": "boolean",
+          "default": false,
+          "description": "Spike: with display.upscaler = \"metalfx\" and the HUD at the display's size, scale the scene with MetalFX's temporal scaler instead of its spatial one: the scene is jittered, its depth is kept, and camera-only motion comes from the depth and last frame's camera. FXAA is off. Moving objects smear. Metal only.",
+          "x-environment": "HALO_METALFX_TEMPORAL",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "metalfx_jitter_scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Spike, with debug.metalfx_temporal: the jitter's size and sign (0: none).",
+          "x-environment": "HALO_METALFX_JITTER_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "metalfx_motion_scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "Spike, with debug.metalfx_temporal: the motion vectors' size and sign (0: none).",
+          "x-environment": "HALO_METALFX_MOTION_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "metalfx_time_scaler": {
+          "type": "boolean",
+          "default": false,
+          "description": "Spike: give MetalFX's scaler (spatial or temporal) a command buffer of its own and log its GPU time every 600 frames.",
+          "x-environment": "HALO_METALFX_TIME_SCALER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "rate_map_test": {
           "type": "boolean",
           "default": false,

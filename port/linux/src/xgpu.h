@@ -57,6 +57,10 @@ struct nv2a_dialect
 	/* samplers have no LOD bias of their own: pass texture_lod_bias to each
 	lookup */
 	unsigned char shader_lod_bias;
+	/* spike (debug.metalfx_temporal): world vertex programs (those reading
+	c[-96..-93]) add viewport_scale.w and viewport_offset.w, times w, to
+	the clip position: the scene's jitter */
+	unsigned char temporal_jitter;
 	/* debug.gpu_debug_expression, _texture0 and _flat (port_config.c) */
 	const char *debug_expression;
 	unsigned char debug_texture0;
