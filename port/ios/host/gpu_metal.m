@@ -5637,6 +5637,7 @@ command buffer of its own and logs its GPU time. */
 static struct host_temporal_frame temporal_frame;
 static BOOL temporal_frame_pending, temporal_unavailable, temporal_depth_copy;
 static int scaler_timing = -1;
+static unsigned long temporal_failed[4];
 static float temporal_report_sign = 1.0f;
 static id<MTLTexture> temporal_motion, temporal_output, temporal_depth_r32;
 static id<MTLComputePipelineState> temporal_motion_pipeline;
@@ -5657,10 +5658,18 @@ static void metalfx_support_log(void)
 
 	if (@available(iOS 16.0, tvOS 16.0, visionOS 1.0, *))
 		spatial = [MTLFXSpatialScalerDescriptor supportsDevice:device];
+	float minimum = 0.0f, maximum = 0.0f;
+
 	if (@available(iOS 16.0, tvOS 27.1, macOS 13.0, *))
 		temporal = [MTLFXTemporalScalerDescriptor supportsDevice:device];
-	platform_log("MetalFX support: spatial %s, temporal %s (GPU %s)", spatial ? "yes" : "no", temporal ? "yes" : "no",
-		device.name.UTF8String);
+	if (@available(iOS 17.0, tvOS 27.1, macOS 14.0, *))
+		if (temporal)
+		{
+			minimum = [MTLFXTemporalScalerDescriptor supportedInputContentMinScaleForDevice:device];
+			maximum = [MTLFXTemporalScalerDescriptor supportedInputContentMaxScaleForDevice:device];
+		}
+	platform_log("MetalFX support: spatial %s, temporal %s, temporal scale %.2f to %.2f (GPU %s)", spatial ? "yes" : "no",
+		temporal ? "yes" : "no", (double)minimum, (double)maximum, device.name.UTF8String);
 #else
 	platform_log("MetalFX support: spatial no, temporal no (this build has no MetalFX; GPU %s)", device.name.UTF8String);
 #endif
@@ -5814,6 +5823,9 @@ static id<MTLTexture> temporal_upscale_into(id<MTLTexture> color, id<MTLTexture>
 		if (temporal_unavailable || !depth || depth.width != color.width || depth.height != color.height ||
 			(long)color.width >= width || (long)color.height >= height)
 			return nil;
+		if (temporal_failed[0] == color.width && temporal_failed[1] == color.height &&
+			temporal_failed[2] == (unsigned long)width && temporal_failed[3] == (unsigned long)height)
+			return nil;
 		if (!temporal_scaler || temporal_scaler.inputWidth != color.width || temporal_scaler.inputHeight != color.height ||
 			temporal_scaler.outputWidth != (NSUInteger)width || temporal_scaler.outputHeight != (NSUInteger)height)
 		{
@@ -5848,9 +5860,13 @@ static id<MTLTexture> temporal_upscale_into(id<MTLTexture> color, id<MTLTexture>
 			}
 			if (!temporal_scaler)
 			{
+				/* (a scale outside the device's range: the next size may do) */
 				platform_log("MetalFX temporal (spike): no scaler for %lux%lu to %ldx%ld; the spatial scaler runs",
 					(unsigned long)color.width, (unsigned long)color.height, width, height);
-				temporal_unavailable = YES;
+				temporal_failed[0] = color.width;
+				temporal_failed[1] = color.height;
+				temporal_failed[2] = (unsigned long)width;
+				temporal_failed[3] = (unsigned long)height;
 				return nil;
 			}
 			texture = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRG16Float
