@@ -4646,8 +4646,6 @@ static BOOL frame_rate_sync(void)
 	CFTimeInterval period;
 	BOOL sync;
 
-	if (!host_frame_rate_unlimited() && cap == 0.0)
-		return NO;
 	os_unfair_lock_lock(&pacing_lock);
 	period = refresh_period;
 	os_unfair_lock_unlock(&pacing_lock);
