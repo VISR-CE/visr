@@ -2,6 +2,8 @@
 from pathlib import Path
 import subprocess
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -17,14 +19,16 @@ def compile_and_run(tmp_path, name, source):
     subprocess.run([str(binary)], check=True)
 
 
-def test_sampler_observation_requires_a_mipmapped_linear_stage(tmp_path):
+@pytest.mark.parametrize("validation", (0, 1))
+def test_sampler_observation_requires_a_mipmapped_linear_stage(tmp_path, validation):
     device = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    actual = section(device, "static long anisotropy_in_force(", "/* ---------- render targets sampled")
+    actual = f"#define HALO_RENDER_VALIDATION {validation}\n" + section(device, "static long anisotropy_in_force(", "/* ---------- render targets sampled")
     compile_and_run(tmp_path, "samplers", r'''
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
 typedef unsigned long DWORD;
+#define D3DTSS_MAXSTAGES 4
 typedef int BOOL;
 enum { D3DTSS_MINFILTER, D3DTSS_MIPFILTER, D3DTSS_MAGFILTER, D3DTSS_ADDRESSU,
     D3DTSS_ADDRESSV, D3DTSS_ADDRESSW, D3DTSS_MAXMIPLEVEL, D3DTSS_MAXANISOTROPY,
@@ -34,7 +38,8 @@ struct gpu_sampler_state { int min_filter, mip_filter, mag_filter, address_u, ad
     uint32_t max_mip_level, max_anisotropy; float lod_bias; uint32_t border_color; };
 static DWORD D3D__TextureState[1][10];
 static long benchmark_anisotropy, knob_anisotropy, benchmark_sampler_max_observed;
-static int gpu_filter(DWORD value) { return (int)value; }
+static int filter_calls, validation_notes;
+static int gpu_filter(DWORD value) { filter_calls++; validation_notes += value==99; return (int)value; }
 static int gpu_address(DWORD value) { return (int)value; }
 static float dword_to_float(DWORD value) { (void)value; return 0; }
 static long config_integer(const char *name) { (void)name; return 1; }
@@ -54,9 +59,31 @@ int main(void) {
     benchmark_anisotropy=8;
     sampler_state_fill(0,1,0,&sampler);
     assert(benchmark_sampler_max_observed==8 && sampler.min_filter==GPU_FILTER_ANISOTROPIC);
+    int before=filter_calls;
+    struct gpu_sampler_state previous=sampler;
+    benchmark_sampler_max_observed=0;
+    sampler_state_fill(0,1,0,&sampler);
+    assert((HALO_RENDER_VALIDATION ? filter_calls>before : filter_calls==before) && !memcmp(&previous,&sampler,sizeof(sampler)));
+    assert(benchmark_sampler_max_observed==8); /* a new measurement window still sees a cache hit */
+    knob_anisotropy=4; benchmark_anisotropy=0;
+    sampler_state_fill(0,1,0,&sampler);
+    assert(sampler.max_anisotropy==4 && filter_calls>before);
+    before=filter_calls;
+    D3D__TextureState[0][D3DTSS_BORDERCOLOR]=0xff123456;
+    sampler_state_fill(0,1,0,&sampler);
+    assert(sampler.border_color==0xff123456 && filter_calls>before);
+    sampler_state_fill(0,0,0,&sampler);
+    assert(sampler.mip_filter==GPU_FILTER_NONE);
+    sampler_state_fill(0,0,1,&sampler);
+    assert(sampler.mip_filter==GPU_FILTER_LINEAR);
     D3D__TextureState[0][D3DTSS_MINFILTER]=GPU_FILTER_POINT;
     sampler_state_fill(0,1,0,&sampler);
-    assert(benchmark_sampler_max_observed==8);
+    assert(sampler.min_filter==GPU_FILTER_POINT);
+    D3D__TextureState[0][D3DTSS_MINFILTER]=99;
+    sampler_state_fill(0,1,0,&sampler);
+    before=validation_notes;
+    sampler_state_fill(0,1,0,&sampler);
+    assert(validation_notes==before + (HALO_RENDER_VALIDATION ? 1 : 0));
 }
 ''')
 

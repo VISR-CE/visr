@@ -4122,6 +4122,27 @@ point sampled for one player, to keep the Xbox bitmaps' texels sharp */
 static void sampler_state_fill(int stage, BOOL mipmapped, BOOL hires, struct gpu_sampler_state *sampler)
 {
 	DWORD *state = D3D__TextureState[stage];
+	long used = anisotropy_in_force();
+	DWORD inputs[] = { state[D3DTSS_MINFILTER], state[D3DTSS_MIPFILTER], state[D3DTSS_MAGFILTER],
+		state[D3DTSS_ADDRESSU], state[D3DTSS_ADDRESSV], state[D3DTSS_ADDRESSW],
+		state[D3DTSS_MAXMIPLEVEL], state[D3DTSS_MAXANISOTROPY], state[D3DTSS_MIPMAPLODBIAS],
+		state[D3DTSS_BORDERCOLOR], (DWORD)mipmapped, (DWORD)hires, (DWORD)used };
+	static struct
+	{
+		BOOL valid;
+		DWORD inputs[13];
+		struct gpu_sampler_state sampler;
+	} previous[D3DTSS_MAXSTAGES];
+
+	/* The XDK also writes the state arrays directly, so compare their
+	contents rather than relying on the SetTextureState entry points. */
+#if !HALO_RENDER_VALIDATION
+	if (previous[stage].valid && !memcmp(previous[stage].inputs, inputs, sizeof(inputs)))
+	{
+		*sampler = previous[stage].sampler;
+		goto observe;
+	}
+#endif
 
 	memset(sampler, 0, sizeof(*sampler));
 	sampler->min_filter = hires ? GPU_FILTER_LINEAR : gpu_filter(state[D3DTSS_MINFILTER]);
@@ -4139,14 +4160,19 @@ static void sampler_state_fill(int stage, BOOL mipmapped, BOOL hires, struct gpu
 	Point-sampled and unmipmapped stages (the HUD, text, render targets)
 	stay as they are. */
 	{
-		long used = anisotropy_in_force();
-
 		if (used > 1 && sampler->min_filter == GPU_FILTER_LINEAR && sampler->mip_filter != GPU_FILTER_NONE)
 		{
 			sampler->min_filter = GPU_FILTER_ANISOTROPIC;
 			sampler->max_anisotropy = (uint32_t)used;
 		}
 	}
+	previous[stage].valid = 1;
+	memcpy(previous[stage].inputs, inputs, sizeof(inputs));
+	previous[stage].sampler = *sampler;
+#if !HALO_RENDER_VALIDATION
+observe:
+#endif
+	/* A cache hit still belongs to the current benchmark window. */
 	if (sampler->mip_filter != GPU_FILTER_NONE &&
 		(sampler->min_filter == GPU_FILTER_LINEAR || sampler->min_filter == GPU_FILTER_ANISOTROPIC))
 	{
@@ -4301,7 +4327,7 @@ static void stages_fill(struct nv2a_pixel_shader_key *key, float texture_scale[4
 				const D3DCOLOR *palette = device.palettes[stage] && device.palettes[stage]->Data ?
 					(const D3DCOLOR *)PLATFORM_PHYSICAL_TO_VIRTUAL(device.palettes[stage]->Data) : NULL;
 
-				handle = xgpu_texture_get((const DWORD *)texture, palette, &type, &description);
+				handle = xgpu_texture_get((const DWORD *)texture, palette, &type, &description, (unsigned)stage);
 				if (description.linear)
 				{
 					texture_scale[stage][0] = 1.0f / (float)description.width;
@@ -4568,6 +4594,56 @@ static void raster_state_fill(BOOL has_depth, struct gpu_viewport *viewport, str
 	raster->depth_clamp = halo_first_person_body_depth_clamp() != 0;
 }
 
+/* A key's source arrays can be written by the XDK without a setter call.
+Keep their exact contents, including unused bits, rather than a hash. The
+stage sampler types and coverage are resolved separately on every draw. */
+static void pixel_shader_key_fill(struct nv2a_pixel_shader_key *key)
+{
+	static BOOL valid;
+	static DWORD combiners[D3DRS_PS_MAX], previous[7 + 2 * D3DTSS_MAXSTAGES];
+	static struct nv2a_pixel_shader_key converted;
+	DWORD inputs[7 + 2 * D3DTSS_MAXSTAGES];
+	int stage, count = 0;
+
+	inputs[count++] = D3D__RenderState[D3DRS_PSTEXTUREMODES];
+	inputs[count++] = D3D__RenderState[D3DRS_ALPHATESTENABLE];
+	inputs[count++] = D3D__RenderState[D3DRS_ALPHAFUNC];
+	inputs[count++] = D3D__RenderState[D3DRS_FOGENABLE];
+	inputs[count++] = D3D__RenderState[D3DRS_FOGTABLEMODE];
+	inputs[count++] = device.visibility_test_active;
+	inputs[count++] = device_capabilities.occlusion_mode;
+	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+	{
+		inputs[count++] = D3D__TextureState[stage][D3DTSS_ALPHAKILL];
+		inputs[count++] = D3D__TextureState[stage][D3DTSS_COLORSIGN];
+	}
+	if (!valid || !words_equal(combiners, D3D__RenderState, sizeof(combiners)) ||
+		!words_equal(previous, inputs, sizeof(inputs)))
+	{
+		memcpy(combiners, D3D__RenderState, sizeof(combiners));
+		memcpy(previous, inputs, sizeof(inputs));
+		memset(&converted, 0, sizeof(converted));
+		memcpy(converted.combiner_state, combiners, sizeof(combiners));
+		/* Constants remain uniforms, as in prepare_draw's original key. */
+		memset(&converted.combiner_state[D3DRS_PSCONSTANT0_0], 0, 16 * sizeof(DWORD));
+		converted.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT0] = 0;
+		converted.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT1] = 0;
+		converted.texture_modes = D3D__RenderState[D3DRS_PSTEXTUREMODES];
+		for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+		{
+			converted.alpha_kill[stage] = D3D__TextureState[stage][D3DTSS_ALPHAKILL] == D3DTALPHAKILL_ENABLE;
+			converted.color_sign[stage] = (unsigned char)((D3D__TextureState[stage][D3DTSS_COLORSIGN] >> 28) & 0xf);
+		}
+		converted.alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
+		converted.fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
+		converted.fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
+		converted.count_samples = device.visibility_test_active &&
+			device_capabilities.occlusion_mode == GPU_OCCLUSION_SHADER_COUNTER;
+		valid = TRUE;
+	}
+	*key = converted;
+}
+
 /* the uniforms of the latest draws, converted from these inputs; the serial
 counts the conversions */
 #define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 7 * D3DTSS_MAXSTAGES)
@@ -4621,19 +4697,8 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		native_depth_asks++;
 	raster_state_fill(has_depth, &draw->viewport, &draw->scissor, &draw->depth_stencil, &draw->blend, &draw->raster);
 
-	memset(&key, 0, sizeof(key));
-	memcpy(key.combiner_state, D3D__RenderState, sizeof(key.combiner_state));
-	/* constants are uniforms, not part of the program */
-	memset(&key.combiner_state[D3DRS_PSCONSTANT0_0], 0, 16 * sizeof(DWORD));
-	key.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT0] = 0;
-	key.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT1] = 0;
-	key.texture_modes = D3D__RenderState[D3DRS_PSTEXTUREMODES];
+	pixel_shader_key_fill(&key);
 	stages_fill(&key, texture_scale, draw->stages);
-	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
-	{
-		key.alpha_kill[stage] = D3D__TextureState[stage][D3DTSS_ALPHAKILL] == D3DTALPHAKILL_ENABLE;
-		key.color_sign[stage] = (unsigned char)((D3D__TextureState[stage][D3DTSS_COLORSIGN] >> 28) & 0xf);
-	}
 	/* (only with the meter's blend: hud_hires.h, nv2a_pixel_shader_key) */
 	if (!((key.coverage_alpha & XGPU_COVERAGE_ALPHA) && D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
 		D3D__RenderState[D3DRS_SRCBLEND] == D3DBLEND_CONSTANTCOLOR &&
@@ -4641,11 +4706,6 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	{
 		key.coverage_alpha = 0;
 	}
-	key.alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
-	key.fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
-	key.fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
-	key.count_samples = device.visibility_test_active &&
-		device_capabilities.occlusion_mode == GPU_OCCLUSION_SHADER_COUNTER;
 
 	draw->vertex_shader = vertex_shader_get(program, immediate);
 	draw->pixel_shader = fragment_shader_get(&key);

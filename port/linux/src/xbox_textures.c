@@ -830,19 +830,22 @@ struct texture_entry
 
 static struct texture_entry *texture_buckets[TEXTURE_BUCKET_COUNT];
 
-/* Draws mostly bind the textures the draws before them bound. A lookup of a
+/* Each stage remembers the texture it last sampled, avoiding a hash and
+collisions between stages on repeated draws. A lookup of a
 texture that is not palettized is remembered with the memory watch serial it
 started at: while no watched page has been written since, and no texture
 has been dropped, the same lookup finds the same current texture. */
 #define RECENT_TEXTURE_COUNT 512
 
-static struct
+struct recent_texture
 {
 	DWORD data, format_word, size_word;
 	struct texture_entry *entry;
 	unsigned long watch_serial;
 	unsigned long drop_serial;
-} recent_textures[RECENT_TEXTURE_COUNT];
+};
+static struct recent_texture recent_textures[RECENT_TEXTURE_COUNT];
+static struct recent_texture stage_recent_textures[D3DTSS_MAXSTAGES];
 static unsigned long texture_drop_serial = 1;
 static unsigned long texture_frame = 0;
 /* the frame of each of the last sweeps, a sweep apart, and when the next
@@ -1123,10 +1126,10 @@ static gpu_texture texture_entry_result(struct texture_entry *entry, uint32_t *t
 }
 
 gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uint32_t *type,
-	struct xgpu_texture_description *description)
+	struct xgpu_texture_description *description, unsigned stage)
 {
 	DWORD data = resource[1], format_word = resource[3], size_word = resource[4];
-	struct texture_entry **bucket = &texture_buckets[bucket_index(data, format_word, size_word)];
+	struct texture_entry **bucket;
 	struct texture_entry *entry;
 	unsigned long generation;
 	BOOL palettized = ((format_word & D3DFORMAT_FORMAT_MASK) >> D3DFORMAT_FORMAT_SHIFT) == 0x0b;
@@ -1135,9 +1138,22 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 	struct texture_entry *oldest_variant = NULL;
 	unsigned long variant_count = 0;
 	static int no_cache = -1;
-	unsigned long recent = bucket_index(data, format_word, size_word) % RECENT_TEXTURE_COUNT;
+	unsigned long recent, bucket_number;
+	struct recent_texture *last = &stage_recent_textures[stage];
 	unsigned long watch_serial = memory_watch_serial();
 
+	/* The stage cache checks resource contents, not its pointer: the game
+	reuses resource objects and can write their metadata without a setter. */
+	if (!palettized && last->entry && last->data == data && last->format_word == format_word &&
+		last->size_word == size_word && last->drop_serial == texture_drop_serial &&
+		last->watch_serial == watch_serial)
+	{
+		last->entry->last_used_frame = texture_frame;
+		return texture_entry_result(last->entry, type, description);
+	}
+	/* Retain the shared recent cache for stages alternating textures. */
+	bucket_number = bucket_index(data, format_word, size_word);
+	recent = bucket_number % RECENT_TEXTURE_COUNT;
 	/* (a texture that is not palettized has the one entry, until one is
 	dropped: remembered, a page written since only means checking it) */
 	entry = NULL;
@@ -1149,10 +1165,12 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 		if (recent_textures[recent].watch_serial == watch_serial)
 		{
 			entry->last_used_frame = texture_frame;
+			*last = recent_textures[recent];
 			return texture_entry_result(entry, type, description);
 		}
 	}
 
+	bucket = &texture_buckets[bucket_number];
 	if (!entry)
 	{
 		for (entry = *bucket; entry; entry = entry->next)
@@ -1309,6 +1327,7 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 		recent_textures[recent].entry = entry;
 		recent_textures[recent].watch_serial = watch_serial;
 		recent_textures[recent].drop_serial = texture_drop_serial;
+		*last = recent_textures[recent];
 	}
 	return texture_entry_result(entry, type, description);
 }
@@ -1425,6 +1444,7 @@ void xgpu_texture_cache_begin_frame(void)
 		}
 		/* Recent hits bypass the generation check. Forget lookups, not textures. */
 		memset(recent_textures, 0, sizeof(recent_textures));
+		memset(stage_recent_textures, 0, sizeof(stage_recent_textures));
 	}
 	texture_frame++;
 	now = SDL_GetTicks();
