@@ -1556,13 +1556,13 @@ static uint32_t validate_draw(const struct gpu_draw *draw, const struct gpu_cons
 
 /* ---------- visibility tests (his queries: no nested begin, an end matches) */
 
-static void validate_visibility_begin(void)
+static void validate_visibility_begin(uint32_t flags)
 {
 	validation.call = "visibility_begin";
 	if (validation.visibility_active)
 		REPORT(VISIBILITY_INVALID, 1, "a test begins inside another");
 	validation.visibility_active = 1;
-	validation.backend.visibility_begin();
+	validation.backend.visibility_begin(flags);
 }
 
 static void validate_visibility_end(uint32_t slot)

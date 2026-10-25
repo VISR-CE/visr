@@ -145,6 +145,10 @@ static const struct config_setting config_settings[] =
 		"Draw the decals (bullet holes, blood, scorch marks) that share a texture\n"
 		"in one draw each rather than one draw a decal: the same picture for less\n"
 		"CPU time. False draws each on its own, to compare." },
+	{ "display.mp_visibility", _config_boolean, "true", "HALO_MP_VISIBILITY", _environment_value, _platform_all,
+		"In multiplayer gameplay, share stereo visibility walks and lens-flare tests\n"
+		"between eyes and use completed occlusion results without waiting for the GPU.\n"
+		"Campaign, co-op and cutscenes always keep their original visibility behavior." },
 	{ "display.shadow_batching", _config_boolean, "true", "HALO_SHADOW_BATCHING", _environment_value, _platform_all,
 		"Draw all of a view's character and vehicle shadows before laying any on the\n"
 		"world, and in stereo lay one eye's shadows in the other too: the picture's\n"

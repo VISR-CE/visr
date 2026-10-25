@@ -408,7 +408,13 @@ void render_objects(
 	profile_enter(render_objects_section);
 
 	rasterizer_models_begin(FALSE);
-	find_rendered_objects();
+	/* port: both primary stereo eyes use the same camera and culling frustum. */
+	if (!halo_mp_visibility_reuse())
+	{
+		halo_visibility_walk_phase(30, 1);
+		find_rendered_objects();
+		halo_visibility_walk_phase(31, 1);
+	}
 
 	data.shadow = FALSE;
 

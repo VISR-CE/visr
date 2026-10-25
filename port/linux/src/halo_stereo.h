@@ -12,6 +12,11 @@ types only: both the game's files and the platform's files include it.
 
 #include <stdint.h>
 
+/* Multiplayer visibility policy; campaign and cutscenes always retain the original path. */
+int halo_mp_visibility_active(void);
+int halo_mp_visibility_reuse(void);
+void halo_visibility_walk_phase(int phase, int objects);
+
 enum halo_stereo_mode
 {
 	HALO_STEREO_OFF,

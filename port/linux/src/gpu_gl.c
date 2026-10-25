@@ -867,6 +867,19 @@ static struct
 {
 	GLuint queries[GPU_VISIBILITY_SLOTS];
 	int active;
+	uint32_t flags;
+	uint32_t slot_flags[GPU_VISIBILITY_SLOTS];
+	GLuint completed[GPU_VISIBILITY_SLOTS];
+	/* Independent storage keeps an unfinished test from replacing an older
+	answer. The FIFO is bounded: at capacity, new tests are discarded. */
+	struct
+	{
+		GLuint query, counter;
+		uint32_t slot;
+	} pending[GPU_VISIBILITY_SLOTS];
+	unsigned long pending_head, pending_count;
+	unsigned long pending_active;
+	GLuint discard_counter;
 #ifdef GPU_GL_ES
 	int counters;                  /* GPU_OCCLUSION_SHADER_COUNTER */
 	GLuint counter_buffer;
@@ -931,7 +944,7 @@ static void gpu_gl_initialize(uint32_t flags, struct gpu_capabilities *capabilit
 			GLint counters = 0;
 
 			glGetIntegerv(GL_MAX_FRAGMENT_ATOMIC_COUNTERS, &counters);
-			xgpu_capabilities.atomic_counters = counters > 0;
+			xgpu_capabilities.atomic_counters = counters > 0 && halo_glMemoryBarrier;
 		}
 		xgpu_capabilities.s3tc = gl_extension_supported("GL_EXT_texture_compression_s3tc") ||
 			(gl_extension_supported("GL_EXT_texture_compression_dxt1") &&
@@ -1752,8 +1765,12 @@ static uint32_t gpu_gl_draw(const struct gpu_draw *draw, const struct gpu_consta
 	/* the counter the active visibility test adds to, bound before
 	program_get, which may link a program */
 	if (visibility.active && visibility.counters)
-		glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0, visibility.counter_buffer,
-			(GLintptr)(visibility.counter_active * sizeof(GLuint)), sizeof(GLuint));
+		glBindBufferRange(GL_ATOMIC_COUNTER_BUFFER, 0,
+			visibility.flags & GPU_VISIBILITY_NONBLOCKING ?
+				(visibility.pending_count == GPU_VISIBILITY_SLOTS ? visibility.discard_counter :
+				visibility.pending[visibility.pending_active].counter) : visibility.counter_buffer,
+			visibility.flags & GPU_VISIBILITY_NONBLOCKING ? 0 :
+				(GLintptr)(visibility.counter_active * sizeof(GLuint)), sizeof(GLuint));
 #endif
 	program = program_get(draw->vertex_shader, draw->pixel_shader);
 	if (!program)
@@ -1836,9 +1853,64 @@ static void gpu_gl_clear(const struct gpu_clear *clear, const struct gpu_rect *r
 
 /* ---------- visibility tests (the state is declared before gpu_initialize) */
 
-static void gpu_gl_visibility_begin(void)
+/* Query availability covers every earlier draw's counter write as well.
+Only completed storage is mapped; a pending query is never read with RESULT. */
+static void visibility_collect(void)
+{
+	while (visibility.pending_count)
+	{
+		unsigned long entry = visibility.pending_head;
+		GLuint available = 0, count = 0;
+
+		glGetQueryObjectuiv(visibility.pending[entry].query, GL_QUERY_RESULT_AVAILABLE, &available);
+		if (!available)
+			break;
+#ifdef GPU_GL_ES
+		if (visibility.counters)
+			count = gl_read_buffer_word(visibility.pending[entry].counter, 0);
+		else
+#endif
+			glGetQueryObjectuiv(visibility.pending[entry].query, GL_QUERY_RESULT, &count);
+		visibility.completed[visibility.pending[entry].slot] = count;
+		visibility.pending_head = (entry + 1) % GPU_VISIBILITY_SLOTS;
+		visibility.pending_count--;
+	}
+}
+
+static void gpu_gl_visibility_begin(uint32_t flags)
 {
 	visibility.active = 1;
+	visibility.flags = flags;
+	if (flags & GPU_VISIBILITY_NONBLOCKING)
+	{
+		visibility_collect();
+		visibility.pending_active = (visibility.pending_head + visibility.pending_count) % GPU_VISIBILITY_SLOTS;
+#ifdef GPU_GL_ES
+		if (visibility.counters)
+		{
+			const GLuint zero = 0;
+			GLuint *counter = visibility.pending_count == GPU_VISIBILITY_SLOTS ? &visibility.discard_counter :
+				&visibility.pending[visibility.pending_active].counter;
+
+			if (!*counter)
+				glGenBuffers(1, counter);
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, *counter);
+			/* Orphaning the discard buffer also avoids waiting when all FIFO
+			entries are still in flight. Completed entries can be reused. */
+			glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(zero), &zero, GL_STREAM_DRAW);
+			glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+		}
+#endif
+		if (visibility.pending_count < GPU_VISIBILITY_SLOTS)
+		{
+			GLuint *query = &visibility.pending[visibility.pending_active].query;
+
+			if (!*query)
+				glGenQueries(1, query);
+			glBeginQuery(VISIBILITY_QUERY, *query);
+		}
+		return;
+	}
 #ifdef GPU_GL_ES
 	if (visibility.counters)
 	{
@@ -1861,6 +1933,21 @@ static void gpu_gl_visibility_end(uint32_t slot)
 	GLuint scratch;
 
 	visibility.active = 0;
+	visibility.slot_flags[slot] = visibility.flags;
+	if (visibility.flags & GPU_VISIBILITY_NONBLOCKING)
+	{
+		if (visibility.pending_count < GPU_VISIBILITY_SLOTS)
+		{
+#ifdef GPU_GL_ES
+			if (visibility.counters)
+				glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+#endif
+			glEndQuery(VISIBILITY_QUERY);
+			visibility.pending[visibility.pending_active].slot = slot;
+			visibility.pending_count++;
+		}
+		return;
+	}
 #ifdef GPU_GL_ES
 	if (visibility.counters)
 	{
@@ -1887,6 +1974,13 @@ static uint32_t gpu_gl_visibility_result(uint32_t slot, uint32_t *samples)
 {
 	GLuint available = 0, count = 0;
 
+	if (visibility.slot_flags[slot] & GPU_VISIBILITY_NONBLOCKING)
+	{
+		visibility_collect();
+		/* Zero is the front end's answer when a test has no result. */
+		*samples = visibility.completed[slot];
+		return 1;
+	}
 #ifdef GPU_GL_ES
 	if (visibility.counters)
 	{

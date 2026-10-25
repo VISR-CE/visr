@@ -142,7 +142,8 @@ Windows it is __stdcall too, and SDL would include windows.h without it) */
 	X(glUnmapBuffer) \
 	X(glFenceSync) \
 	X(glClientWaitSync) \
-	X(glDeleteSync)
+	X(glDeleteSync) \
+	X(glMemoryBarrier)
 #else
 #define GL_FUNCTIONS(X) \
 	X(glGetString) \
@@ -377,6 +378,7 @@ pointers, sees the declarations without these aliases */
 #define glFenceSync HALO_GL_COUNTED(halo_glFenceSync)
 #define glClientWaitSync HALO_GL_COUNTED(halo_glClientWaitSync)
 #define glDeleteSync HALO_GL_COUNTED(halo_glDeleteSync)
+#define glMemoryBarrier HALO_GL_COUNTED(halo_glMemoryBarrier)
 #else
 #define glGetString HALO_GL_COUNTED(halo_glGetString)
 #define glGetIntegerv HALO_GL_COUNTED(halo_glGetIntegerv)

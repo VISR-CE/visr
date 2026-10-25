@@ -721,10 +721,10 @@ static uint32_t capture_draw(const struct gpu_draw *draw, const struct gpu_const
 	return drawn;
 }
 
-static void capture_visibility_begin(void)
+static void capture_visibility_begin(uint32_t flags)
 {
-	put(GPU_CAPTURE_VISIBILITY_BEGIN, NULL, 0, NULL, 0, NULL, 0);
-	capture.backend.visibility_begin();
+	put(GPU_CAPTURE_VISIBILITY_BEGIN, &flags, 1, NULL, 0, NULL, 0);
+	capture.backend.visibility_begin(flags);
 }
 
 static void capture_visibility_end(uint32_t slot)

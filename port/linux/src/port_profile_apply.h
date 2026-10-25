@@ -10,6 +10,7 @@ static inline int port_profile_apply_class(const char *name)
 		{"debug.dynamic_resolution_shadow", PORT_PROFILE_SESSION}, /* read once when the first frame is observed */
 		{"display.renderer", PORT_PROFILE_SESSION}, /* GPU backend/window selected before guest launch */
 		{"display.render_height", PORT_PROFILE_HOT},
+		{"display.mp_visibility", PORT_PROFILE_HOT},
 		{"display.output_height", PORT_PROFILE_SESSION},
 		{"display.render_scale", PORT_PROFILE_HOT},
 		{"display.upscaler", PORT_PROFILE_LEVEL},

@@ -431,12 +431,16 @@ uint32_t gpu_draw(const struct gpu_draw *draw, const struct gpu_constant_store *
 
 /* slots a test's result is kept in; slot 0 is the backend's */
 enum { GPU_VISIBILITY_SLOTS = 4096 };
+/* Keep the most recent completed answer, even in fixed-timestep runs. */
+enum { GPU_VISIBILITY_NONBLOCKING = 1 };
 
 /* the draws until gpu_visibility_end count their samples */
-void gpu_visibility_begin(void);
+void gpu_visibility_begin(uint32_t flags);
 /* the count goes to slot (1 to GPU_VISIBILITY_SLOTS - 1) */
 void gpu_visibility_end(uint32_t slot);
-/* 1 and the raw count (as occlusion_mode counts) once it is known, else 0 */
+/* 1 and the raw count (as occlusion_mode counts) once it is known, else 0.
+With GPU_VISIBILITY_NONBLOCKING, always 1 and the latest completed count,
+or zero until one completes. */
 uint32_t gpu_visibility_result(uint32_t slot, uint32_t *samples);
 
 /* ---------- frames */
@@ -730,7 +734,7 @@ its own functions. */
 		(clear, rectangles, count)) \
 	F(uint32_t, draw, (const struct gpu_draw *draw, const struct gpu_constant_store *constants, \
 		const struct gpu_uniforms *uniforms), (draw, constants, uniforms)) \
-	P(visibility_begin, (void), ()) \
+	P(visibility_begin, (uint32_t flags), (flags)) \
 	P(visibility_end, (uint32_t slot), (slot)) \
 	F(uint32_t, visibility_result, (uint32_t slot, uint32_t *samples), (slot, samples)) \
 	P(flush, (void), ()) \

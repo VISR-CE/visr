@@ -228,7 +228,8 @@ needs GPU family Apple3 (an A9) or a Mac; an A8 (the Apple TV HD) has no
 base vertex drawing, so there, and with debug.metal_base_vertex = false, the
 front end rebases each draw's indices and the draws take none */
 static BOOL base_vertex_draws;
-/* debug.fixed_timestep: visibility answers wait for the GPU (visibility_result) */
+/* debug.fixed_timestep: ordinary visibility answers wait for the GPU;
+GPU_VISIBILITY_NONBLOCKING keeps multiplayer asynchronous (visibility_result). */
 static BOOL visibility_wait;
 /* visibility tests count the samples that passed (MTLVisibilityResultModeCounting,
 GPU_OCCLUSION_EXACT) where the GPU can: from the A9's family (Apple3) and on
@@ -469,6 +470,7 @@ static uint64_t visibility_entry_serials[VISIBILITY_ENTRIES];
 static struct
 {
 	int active;
+	uint32_t flags;
 	unsigned long next;                /* the ring's next entry */
 	unsigned long first, count;        /* the active test's entries */
 	int entry_open;                    /* the open pass counts into entry first + count - 1 */
@@ -477,6 +479,7 @@ static struct
 	{
 		unsigned long first, count;
 		uint64_t serial;
+		uint32_t flags;
 	} slots[GPU_VISIBILITY_SLOTS];
 } visibility;
 
@@ -3795,9 +3798,10 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 
 /* ---------- visibility tests (the state is declared before the transient memory) */
 
-static void gpu_metal_visibility_begin(void)
+static void gpu_metal_visibility_begin(uint32_t flags)
 {
 	visibility.active = 1;
+	visibility.flags = flags;
 	visibility.count = 0;
 	visibility.entry_open = 0;
 }
@@ -3811,6 +3815,7 @@ static void gpu_metal_visibility_end(uint32_t slot)
 	visibility.slots[slot].first = visibility.first;
 	visibility.slots[slot].count = visibility.count;
 	visibility.slots[slot].serial = current_serial;
+	visibility.slots[slot].flags = visibility.flags;
 	if (visibility.count)
 	{
 		struct visibility_pending test = { slot, (uint32_t)visibility.first, (uint32_t)visibility.count };
@@ -3824,7 +3829,8 @@ count, whether any did (GPU_OCCLUSION_ANY_SAMPLE). With the fixed
 timestep, a result the GPU hasn't written yet is waited for, committing the
 open command buffer if it writes it: the game asks again until it has an
 answer (lens flares), so an answer now keeps runs repeatable, as a wait under
-GL does. In real time that wait makes the CPU and the GPU take turns every
+GL does. Multiplayer's GPU_VISIBILITY_NONBLOCKING bypasses that wait even
+with the fixed timestep. In real time that wait makes the CPU and the GPU take turns every
 frame, so the answer is the latest the GPU has written for the slot: this
 test's, or while the GPU is behind, an earlier one's (a flare fades a frame
 late), as desktop GL's persistent results do (gpu_gl.c) */
@@ -3835,7 +3841,7 @@ static uint32_t gpu_metal_visibility_result(uint32_t slot, uint32_t *samples)
 		*samples = 0;
 		if (!visibility.slots[slot].count)
 			return 1;
-		if (!visibility_wait)
+		if (!visibility_wait || (visibility.slots[slot].flags & GPU_VISIBILITY_NONBLOCKING))
 		{
 			*samples = (uint32_t)(atomic_load(&visibility_answers[slot]) & VISIBILITY_COUNT_MAXIMUM);
 			return 1;

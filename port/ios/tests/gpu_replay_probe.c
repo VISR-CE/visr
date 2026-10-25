@@ -73,7 +73,7 @@ static uint32_t mock_draw(const struct gpu_draw *d, const struct gpu_constant_st
 		hash_bytes(u, offsetof(struct gpu_uniforms, serial)));
 	return 1;
 }
-static void mock_visibility_begin(void) { note("visibility_begin", 0, 0); }
+static void mock_visibility_begin(uint32_t flags) { note("visibility_begin", flags, 0); }
 static void mock_visibility_end(uint32_t slot) { note("visibility_end", slot, 0); }
 static uint32_t mock_visibility_result(uint32_t slot, uint32_t *samples) { note("visibility_result", slot, 0); *samples = 1; return 1; }
 static void mock_flush(void) { note("flush", 0, 0); }
@@ -206,7 +206,7 @@ static void frames_draw(struct gpu_backend *gpu, int frames)
 		gpu->stream_reserve(sizeof(quad), 0);
 		draw.streams[0].offset = gpu->stream(GPU_STREAM_KIND_VERTEX, quad, sizeof(quad), &draw.streams[0].buffer);
 		draw.index_offset = gpu->stream(GPU_STREAM_KIND_INDEX, indices, sizeof(indices), &draw.index_buffer);
-		gpu->visibility_begin();
+		gpu->visibility_begin(frame & 1 ? GPU_VISIBILITY_NONBLOCKING : 0);
 		gpu->draw(&draw, &constants, &uniforms);
 		gpu->visibility_end(7);
 		/* mirrored vertices on the segment's second page, streamed indices, a base vertex */

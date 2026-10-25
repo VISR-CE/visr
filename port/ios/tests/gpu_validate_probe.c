@@ -49,7 +49,7 @@ static uint32_t mock_draw(const struct gpu_draw *d, const struct gpu_constant_st
 		GPU_VALIDATION_REPORT(report_in_draw, 0, "the backend's reason");
 	return draw_result;
 }
-static void mock_visibility_begin(void) {}
+static void mock_visibility_begin(uint32_t flags) { (void)flags; }
 static void mock_visibility_end(uint32_t slot) { (void)slot; visibility_ends++; }
 static uint32_t mock_visibility_result(uint32_t slot, uint32_t *samples) { (void)slot; *samples = 1; return 1; }
 static void mock_flush(void) {}
@@ -497,7 +497,7 @@ int main(void)
 		EXPECT_ONLY(CLEAR_DEPTH_WITHOUT_TARGET, "a depth clear without a depth target");
 	}
 	scene_make(GPU_VALIDATION_LOG, NULL);
-	gpu.visibility_begin();
+	gpu.visibility_begin(0);
 	gpu.visibility_end(GPU_VISIBILITY_SLOTS);
 	EXPECT_ONLY(VISIBILITY_INVALID, "a visibility slot past the last");
 	EXPECT(visibility_ends == 0, "which is not passed on to the backend");

@@ -99,10 +99,10 @@ uint32_t gpu_draw(const struct gpu_draw *draw, const struct gpu_constant_store *
 	return host_gpu_draw(draw, constants, uniforms);
 }
 
-void gpu_visibility_begin(void)
+void gpu_visibility_begin(uint32_t flags)
 {
 	IMMEDIATE_FLUSH();
-	host_gpu_visibility_begin();
+	host_gpu_visibility_begin(flags);
 }
 
 void gpu_visibility_end(uint32_t slot)

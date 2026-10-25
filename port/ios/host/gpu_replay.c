@@ -389,7 +389,10 @@ static int play(struct replay *replay, uint32_t operation, uint32_t *words, uint
 		return 1;
 	}
 	case GPU_CAPTURE_VISIBILITY_BEGIN:
-		backend->visibility_begin();
+		/* Older captures have no flags payload. */
+		if (size != 0 && size != 4)
+			return 0;
+		backend->visibility_begin(size ? words[0] : 0);
 		return 1;
 	case GPU_CAPTURE_VISIBILITY_END:
 		NEED(4);

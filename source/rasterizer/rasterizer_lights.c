@@ -388,7 +388,8 @@ The zoomed pass, a zoomed frame's only one, takes eye 0's */
 static long lens_flare_window_index(
 	void)
 {
-	return halo_stereo_current_layer() == 1 ? MAXIMUM_WINDOWS - 1 : global_window_parameters.window_index;
+	return halo_stereo_current_layer() == 1 && !halo_mp_visibility_reuse() ?
+		MAXIMUM_WINDOWS - 1 : global_window_parameters.window_index;
 }
 
 static struct rasterizer_lens_flare_submit_parameters *lens_flare_parameters_get(
@@ -541,6 +542,10 @@ void rasterizer_lens_flare_submit(
 	struct rasterizer_lens_flare_submit_parameters const *parameters)
 {
 	static boolean warned = FALSE;
+
+	/* port: eye 1 draws eye 0's records, including their query area and smoothed result. */
+	if (halo_mp_visibility_reuse())
+		return;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\rasterizer\\rasterizer_lights.c",

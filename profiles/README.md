@@ -204,6 +204,7 @@ Evidence names include the context: `[evidence."external.display.render_height"]
 | --- | --- | --- | --- | --- |
 | `display.texture_idle_seconds` | real, 10 to 600 | `60.0` | gameplay | Seconds a texture goes undrawn before the cache drops it, 10 to 600. |
 | `display.clutter_distance` | real, 0 to 200 | `0.0` | gameplay | Beyond this many world units from the camera, dead bodies, weapons and equipment on the ground and garbage objects are not drawn; 0 (default) draws them all, 0 to 200. |
+| `display.mp_visibility` | boolean | `true` | gameplay | In multiplayer gameplay, share stereo visibility walks and lens-flare tests between eyes and use completed occlusion results without waiting for the GPU. |
 ### debug
 
 | Setting | Type and accepted values | Default (Apple) | Contexts | Description |

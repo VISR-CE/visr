@@ -2870,7 +2870,7 @@ void WINAPI D3DDevice_BeginVisibilityTest(void)
 		return;
 	/* the slot is chosen when the test ends */
 	device.visibility_test_active = TRUE;
-	gpu_visibility_begin();
+	gpu_visibility_begin(halo_mp_visibility_active() ? GPU_VISIBILITY_NONBLOCKING : 0);
 }
 
 HRESULT WINAPI D3DDevice_EndVisibilityTest(DWORD index)

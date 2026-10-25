@@ -89,6 +89,8 @@ symbols in this file:
 #include "main/console.h" /* port: stereo's UI quad (console_is_active) */
 #include "game/players.h" /* port: stereo's zoomed pass (player_control_get_zoom_level) */
 #include "structures/structures.h"
+#include "scenario/scenario_definitions.h" /* port: multiplayer-only visibility policy */
+#include "cutscene/cinematics.h"
 
 /* ---------- constants */
 
@@ -153,6 +155,31 @@ static boolean render_stereo_eyes_drawn;
 /* port: in a stereo eye's render_window, the camera whose apex is the culling
 frustum's (render_player_frame_stereo), else NULL */
 static const struct render_camera *render_stereo_visibility_camera;
+/* port: scoped to one primary stereo pair; mirrors invalidate the retained lists. */
+static boolean render_stereo_visibility_reuse;
+
+int config_scene_boolean(const char *name, int scene);
+int halo_mp_visibility_active(void)
+{
+	/* Scenario type covers local and networked multiplayer, excluding campaign co-op. */
+	return global_scenario && global_scenario->type == _scenario_type_multiplayer &&
+		!cinematic_in_progress() && !halo_cinematic_screen() &&
+		config_scene_boolean("display.mp_visibility", 0) /* CONFIG_SCENE_GAMEPLAY */;
+}
+
+int halo_mp_visibility_reuse(void)
+{
+	return render_stereo_visibility_reuse;
+}
+
+/* port: benchmark-only visibility walk timing, through the existing host bridge. */
+void halo_visibility_walk_phase(int phase, int objects)
+{
+#ifdef HALO_IOS
+	extern void host_frame_cpu_phase(int phase, int value);
+	host_frame_cpu_phase(phase, objects);
+#endif
+}
 
 /* port: the camera a frame's distance decisions measure from (display.clutter_distance):
 in a stereo eye the center camera both eyes share, else the window's */
@@ -355,16 +382,22 @@ static void render_window(
 	render.frustum together, so they take the culling frustum's camera too.
 	The cluster stays the camera's own (structure_visibility_find_camera),
 	and render.camera is the camera again for the rest */
-	if (render_stereo_visibility_camera)
+	if (!render_stereo_visibility_reuse && render_stereo_visibility_camera)
 	{
 		struct render_camera saved_camera = render.camera;
 
 		render.camera = *render_stereo_visibility_camera;
+		halo_visibility_walk_phase(30, 0);
 		structure_visibility_compute();
+		halo_visibility_walk_phase(31, 0);
 		render.camera = saved_camera;
 	}
-	else
+	else if (!render_stereo_visibility_reuse)
+	{
+		halo_visibility_walk_phase(30, 0);
 		structure_visibility_compute();
+		halo_visibility_walk_phase(31, 0);
+	}
 	/* port: a stereo eye takes the frame's flash: the game's function ends
 	a damage flash's time each call, once per frame in mono */
 	if (render_stereo_screen_flash)
@@ -395,7 +428,8 @@ static void render_window(
 		render_objects();
 		structure_render_preprocess();
 		structure_render_lightmaps();
-		rasterizer_lens_flares_submit_occlusion_tests();
+		if (!render_stereo_visibility_reuse)
+			rasterizer_lens_flares_submit_occlusion_tests();
 		render_object_shadows();
 		lights_render_diffuse();
 
@@ -689,6 +723,7 @@ static void render_player_frame_stereo(
 	}
 	halo_stereo_set_fade(fade);
 
+	boolean visibility_pair_valid = halo_mp_visibility_active();
 	time_delta_since_tick_sec = render.time_delta_since_tick_sec;
 	/* the eyes, or the zoomed pass (pass 2) alone */
 	for (eye = first_pass; eye < pass_end; eye++)
@@ -754,6 +789,8 @@ static void render_player_frame_stereo(
 		player: the script fade alone) */
 		if (structure_visibility_find_mirror(&eye_camera, &eye_frustum, &mirror))
 		{
+			/* A mirror overwrites the primary visibility lists. */
+			visibility_pair_valid = FALSE;
 			short saved_cluster_index;
 			struct render_camera mirror_camera;
 			struct render_frustum mirror_frustum;
@@ -805,6 +842,7 @@ static void render_player_frame_stereo(
 
 			halo_controller_debug_marker();
 		}
+		render_stereo_visibility_reuse = eye == 1 && visibility_pair_valid;
 		render_stereo_visibility_camera = eye < 2 ? &cull_camera : NULL;
 		render_stereo_screen_flash = &screen_flash;
 		/* port: the eye's position, for what sits at infinity in each eye
@@ -822,6 +860,7 @@ static void render_player_frame_stereo(
 		halo_stereo_set_eye_position(NULL);
 		render_stereo_screen_flash = NULL;
 		render_stereo_visibility_camera = NULL;
+		render_stereo_visibility_reuse = FALSE;
 	}
 	render.time_delta_since_tick_sec = time_delta_since_tick_sec;
 	/* port: the frame leaves the seed where eye 0 left it (render_random.c) */

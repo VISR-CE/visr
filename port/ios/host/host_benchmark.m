@@ -432,8 +432,22 @@ void host_benchmark_frame_unshown(int why) {
 static os_unfair_lock split_lock = OS_UNFAIR_LOCK_INIT;
 static double split_began[2], split_seconds[3];
 static int split_ticks, split_marked, split_translated;
+/* Measured-window totals include both stereo eyes, and omit reused walks. */
+static double visibility_began[2], visibility_seconds[2];
+static unsigned visibility_walks[2];
 
 void host_frame_cpu_phase(int phase, int ticks) {
+    if ((phase == 30 || phase == 31) && ticks >= 0 && ticks < 2) {
+        if (!window_open) return;
+        double now = CACurrentMediaTime();
+        if (phase == 30) visibility_began[ticks] = now;
+        else if (visibility_began[ticks] > 0) {
+            visibility_seconds[ticks] += now - visibility_began[ticks];
+            visibility_walks[ticks]++;
+            visibility_began[ticks] = 0;
+        }
+        return;
+    }
     host_perf_hooks_phase(phase, ticks);
     if (phase >= 5) return;
     double now = CACurrentMediaTime();
@@ -719,6 +733,7 @@ static void record_applied_settings(NSMutableDictionary *settings, const struct 
             ![@[@"0", @"false", @"no", @"off"] containsObject:configured.lowercaseString];
         settings[@(switches[bit])] = enabled ? @"on" : @"off";
     }
+    settings[@"display.mp_visibility"] = configured_text("display.mp_visibility", "true");
     settings[@"display.anti_aliasing"] = mask & BENCHMARK_KNOB_ANTI_ALIASING ?
         @[@"off", @"fxaa", @"smaa"][knobs->anti_aliasing] : configured_text("display.anti_aliasing", "off");
     settings[@"display.effect_resolution"] = mask & BENCHMARK_KNOB_EFFECT ?
@@ -1687,6 +1702,11 @@ void host_benchmark_window(int open, int width, int height, int opened_tick) {
     os_unfair_lock_lock(&lock);
     host_benchmark_presentation_window();
     if(window_open!=open)benchmark_live_reset(&live);
+    if (open && metrics.frames == 0) {
+        memset(visibility_began, 0, sizeof(visibility_began));
+        memset(visibility_seconds, 0, sizeof(visibility_seconds));
+        memset(visibility_walks, 0, sizeof(visibility_walks));
+    }
     window_open = open;
     if (open) {
         if (window_started_at <= 0) window_started_at = CFAbsoluteTimeGetCurrent();
@@ -1717,7 +1737,12 @@ void host_benchmark_end(const char *status_name, const char *note) {
     host_benchmark_presentation_end_async();
     interrupted = window_interrupted;
     benchmark_metrics_summarize(&metrics, &summary);
-    if (summary.frames) measurements = benchmark_metrics_json(&metrics);
+    if (summary.frames) {
+        measurements = benchmark_metrics_json(&metrics);
+        host_logf(HOST_LOG_INFO, "benchmark: visibility: structure_ms=%.6f object_ms=%.6f structure_walks=%u object_walks=%u frames=%llu",
+            visibility_seconds[0] * 1000.0 / summary.frames, visibility_seconds[1] * 1000.0 / summary.frames,
+            visibility_walks[0], visibility_walks[1], (unsigned long long)summary.frames);
+    }
     host_frame_rate_override(0.0);
     outcome.left_least = metrics.left_least;
     last_run_throttled = metrics.thermal_worst >= BENCHMARK_THERMAL_SERIOUS;

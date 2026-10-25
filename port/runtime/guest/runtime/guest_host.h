@@ -185,7 +185,7 @@ uint32_t host_gpu_stream(uint32_t kind, const void *data, uint32_t size, gpu_buf
 gpu_shader host_gpu_shader_create(uint32_t stage, const char *source);
 void host_gpu_clear(const struct gpu_clear *clear, const struct gpu_rect *rectangles, uint32_t count);
 uint32_t host_gpu_draw(const struct gpu_draw *draw, const struct gpu_constant_store *constants, const struct gpu_uniforms *uniforms);
-void host_gpu_visibility_begin(void);
+void host_gpu_visibility_begin(uint32_t flags);
 void host_gpu_visibility_end(uint32_t slot);
 uint32_t host_gpu_visibility_result(uint32_t slot, uint32_t *samples);
 void host_gpu_flush(void);

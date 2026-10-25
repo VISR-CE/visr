@@ -34,13 +34,14 @@ static void *gles_proc(const char *name)
 /* port/ios/host/host.h */
 void host_fatal(const char *format, ...) __attribute__((format(printf, 1, 2), noreturn));
 
-/* the ES 3.2 entry points, which gpu_initialize's capability probe leaves
+/* the ES 3.1 and 3.2 entry points, which gpu_initialize's capability probe leaves
 unused when the context lacks them (Apple's ES 3.0 does); without any other,
 the backend cannot run, so it stops here with the name rather than crashing
 at the first call */
 static int gl_function_optional(const char *name)
 {
-	return !SDL_strcmp(name, "glCopyImageSubData") || !SDL_strcmp(name, "glDrawElementsBaseVertex");
+	return !SDL_strcmp(name, "glCopyImageSubData") || !SDL_strcmp(name, "glDrawElementsBaseVertex") ||
+		!SDL_strcmp(name, "glMemoryBarrier");
 }
 
 #define GL_FUNCTION_MISSING(name) \

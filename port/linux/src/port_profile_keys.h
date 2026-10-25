@@ -72,6 +72,7 @@ PROFILE_BOOLEAN("display.interpolation")
 PROFILE_REAL("input.aim_loss_grace", 0.0, 5.0)
 PROFILE_REAL("display.texture_idle_seconds", 10.0, 600.0)
 PROFILE_REAL("display.clutter_distance", 0.0, 200.0)
+PROFILE_BOOLEAN("display.mp_visibility")
 
 PROFILE_SCENE("display.render_scale")
 PROFILE_SCENE("display.render_height")

@@ -108,6 +108,17 @@
             "desktop"
           ]
         },
+        "mp_visibility": {
+          "type": "boolean",
+          "default": true,
+          "description": "In multiplayer gameplay, share stereo visibility walks and lens-flare tests between eyes and use completed occlusion results without waiting for the GPU. Campaign, co-op and cutscenes always keep their original visibility behavior.",
+          "x-environment": "HALO_MP_VISIBILITY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_batching": {
           "type": "boolean",
           "default": true,
