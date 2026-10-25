@@ -6161,6 +6161,41 @@ void WINAPI D3DDevice_Clear(DWORD count, CONST D3DRECT *rectangles, DWORD flags,
 /* suffix: "" for the usual frameNNNNN.png, else e.g. "-left" */
 static void write_screenshot_channel(struct render_target_entry *target, const char *suffix, int alpha);
 
+/* (spike, lane B: HALO_SCREENSHOT_TICKS = N saves the first frame of every
+Nth game tick as loadLL-tickTTTTTT, LL counting map loads, so launches with
+different settings and frame rates save the same moments) */
+static char screenshot_tick_name[32];
+extern long game_time_get(void);
+
+static BOOL screenshot_tick_due(void)
+{
+	static long every = -1, last_tick = -1, loads;
+	long tick;
+
+	if (every < 0)
+	{
+		const char *text = getenv("HALO_SCREENSHOT_TICKS");
+
+		every = text ? strtol(text, NULL, 10) : 0;
+		if (every < 0)
+			every = 0;
+	}
+	screenshot_tick_name[0] = 0;
+	if (!every)
+		return FALSE;
+	tick = game_time_get();
+	if (tick < last_tick)
+		loads++;
+	if (tick == last_tick || tick <= 0 || tick % every)
+	{
+		last_tick = tick;
+		return FALSE;
+	}
+	last_tick = tick;
+	snprintf(screenshot_tick_name, sizeof(screenshot_tick_name), "load%02ld-tick%06ld", loads, tick);
+	return TRUE;
+}
+
 static void write_screenshot(struct render_target_entry *target, const char *suffix)
 {
 	write_screenshot_channel(target, suffix, 0);
@@ -6172,7 +6207,10 @@ static void screenshot_file(const char *directory, const char *suffix, const uns
 {
 	char path[512];
 
-	snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
+	if (screenshot_tick_name[0])
+		snprintf(path, sizeof(path), "%s/%s%s.png", directory, screenshot_tick_name, suffix);
+	else
+		snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
 	png_write_bgra(path, pixels, width, height, width * 4);
 }
 
@@ -6501,7 +6539,10 @@ static void write_depth_screenshot(struct render_target_entry *target, const cha
 		pixels[index * 4 + 3] = 0xff;
 	}
 	free(depth);
-	snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
+	if (screenshot_tick_name[0])
+		snprintf(path, sizeof(path), "%s/%s%s.png", directory, screenshot_tick_name, suffix);
+	else
+		snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
 	png_write_bgra(path, pixels, width, height, width * 4);
 	platform_log("frame %lu: %s: %.1f%% of the depth is empty", device.frame, suffix,
 		100.0f * (float)empty / (float)(width * height));
@@ -6602,6 +6643,9 @@ static void hud_target_check(struct render_target_entry *target, const char *nam
 				}
 				pixel[3] = 0xff;
 			}
+		if (screenshot_tick_name[0])
+		snprintf(path, sizeof(path), "%s/%s%s.png", directory, screenshot_tick_name, suffix);
+	else
 		snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
 		png_write_bgra(path, pixels + ((unsigned long)crop[1] * width + (unsigned long)crop[0]) * 4, crop_width,
 			crop_height, width * 4);
@@ -6896,7 +6940,7 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,
 				back_buffer->target.texture);
-		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0)
+		if (screenshot_tick_due() || (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0))
 		{
 			write_screenshot(back_buffer, "");
 			if (companion && companion_capture)
