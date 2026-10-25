@@ -175,6 +175,10 @@ void host_perf_hooks_phase_at(int phase, int value, uint64_t now) {
         game_perf_event event = {.elapsed_us=now, .type=15, .value=(uint64_t)value*1000, .denominator=serial};
         host_perf_reports_event(&event);last_network_sample=now;return;
     }
+    if (phase == 24 && value > 0) {
+        game_perf_event event = {.elapsed_us=now, .type=GAME_PERF_EVENT_HIT_REFUSED, .value=(uint32_t)value};
+        host_perf_reports_event(&event);return;
+    }
     if (phase == 23) { objects_known = value >= 0; networked_objects = value >= 0 ? (uint32_t)value : 0; return; }
     if (phase == 19) { frame_draws += (uint32_t)value; return; }
     if (phase == 20 && value >= 0) {

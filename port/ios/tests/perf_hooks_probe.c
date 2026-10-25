@@ -41,6 +41,10 @@ int main(void) {
     assert(recorded.interval_us == 20000 && recorded.cpu_us == 4321);
     assert(recorded.simulation_us == GAME_PERF_UNAVAILABLE);
     assert(recorded.network_us == 0 && !(recorded.flags & GAME_PERF_PRESENT_FAILED));
+    host_perf_hooks_phase_at(24, 7, 1024000);
+    assert(event.type == GAME_PERF_EVENT_HIT_REFUSED && event.value == 7 && event.elapsed_us == 1024000);
+    host_perf_hooks_phase_at(24, 0, 1024500);
+    assert(event.elapsed_us == 1024000); /* no empty event */
     host_perf_hooks_phase_at(8, GAME_PERF_EVENT_CHECKPOINT_LOAD, 1025000);
     assert(event.type == GAME_PERF_EVENT_CHECKPOINT_LOAD && event.elapsed_us == 1025000);
     return 0;

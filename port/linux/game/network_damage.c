@@ -53,6 +53,8 @@ being hit looks and feels like on the clients).
 #include "objects/damage_effect_definitions.h"
 #include "effects/effect_definitions.h"
 #include "physics/collision_model_definitions.h"
+#include "physics/collisions.h"
+#include "mp_benchmark_probe.h"
 #include "items/weapon_definitions.h"
 #include "items/projectile_definitions.h"
 #include "scenario/scenario.h"
@@ -410,6 +412,8 @@ static struct damage_trail_point
 	real_point3d position;
 	real speed;
 	real radius;
+	real_point3d eye;
+	short structure_bsp_index;
 } damage_trails[MAXIMUM_TRACKED_PLAYERS][PLAYER_TRAIL_POINTS];
 /* ... what each weapon or grenade deals, as the tags have it (their walk
 is long): the hits a second of a damage effect from it, how it deals it
@@ -432,6 +436,10 @@ static struct
 } damage_event_destinations[MAXIMUM_DAMAGE_EVENTS_PER_TICK];
 /* for the automated tests' reports (network_test.c) */
 static long damage_rejected_reports;
+static long damage_sight_rejected_tick;
+#ifdef HALO_ILP32
+void host_frame_cpu_phase(int phase, int value);
+#endif
 static long damage_dealt_reports;
 static long damage_sent_reports;
 static long damage_replayed_events;
@@ -879,19 +887,20 @@ void network_damage_aftermath(
 
 /* ---------- the host */
 
+/* The flight window remains meaningful even when distance is unbounded. */
 /* the reach, the farther of it and the other (unbounded if either is) */
 static void distributed_reach_combine(
 	struct damage_reach *reach,
 	struct damage_reach const *other)
 {
+	reach->ticks = MAX(reach->ticks, other->ticks);
+	reach->carried_ticks = MAX(reach->carried_ticks, other->carried_ticks);
 	if (!(reach->distance >= 0.0f) || !(other->distance >= 0.0f))
 	{
 		reach->distance = -1.0f;
 		return;
 	}
 	reach->distance = MAX(reach->distance, other->distance);
-	reach->ticks = MAX(reach->ticks, other->ticks);
-	reach->carried_ticks = MAX(reach->carried_ticks, other->carried_ticks);
 }
 
 /* how far a projectile flies before it goes off or is gone, and how long
@@ -1045,9 +1054,9 @@ static byte distributed_projectile_deals(
 		else
 		{
 			from_here.distance += flight.distance;
-			from_here.ticks += flight.ticks;
-			from_here.carried_ticks += flight.carried_ticks;
 		}
+		from_here.ticks += flight.ticks;
+		from_here.carried_ticks += flight.carried_ticks;
 		distributed_reach_combine(reach, &from_here);
 	}
 	return kinds;
@@ -1380,6 +1389,8 @@ static void distributed_note_targets(
 			if (unit_index != NONE)
 			{
 				point->position = tick->objects[player_index][0].position;
+				unit_get_head_position(unit_index, &point->eye);
+				point->structure_bsp_index = global_structure_bsp_index_get();
 				point->speed = tick->objects[player_index][0].speed;
 				point->radius = 0.0f;
 				if (tick->objects[player_index][1].object_index != NONE)
@@ -1566,6 +1577,88 @@ static boolean distributed_player_could_fire(
 			return TRUE;
 	}
 	return FALSE;
+}
+
+/* Structure only: moving objects and destructible scenery are not reliable
+historical cover. Match projectile surface rules: invisible surfaces and back
+faces do not block; two-sided walls still do.
+A small endpoint margin accommodates an impact rounded onto a wall's surface. */
+static boolean distributed_sight_clear(
+	real_point3d const *from,
+	real_point3d const *to)
+{
+	real_vector3d vector;
+	struct collision_result hit;
+	real length;
+
+	vector_from_points3d(from, to, &vector);
+	length = normalize3d(&vector);
+	if (length <= 0.01f)
+		return TRUE;
+	scale_vector3d(&vector, length - 0.01f, &vector);
+	return !collision_test_vector(FLAG(_collision_test_structure_bit) |
+		FLAG(_collision_test_front_facing_surfaces_bit) |
+		FLAG(_collision_test_ignore_invisible_surfaces_bit),
+		from, &vector, NONE, &hit);
+}
+
+/* A direct hit must have been visible during its possible flight. The host's
+trail supplies the origin; a client never chooses a free-standing muzzle.
+Check impact and target center, since a grazing hit can land beyond an edge.
+The extra origin allows 0.25 world units (0.76 m) for tracked hand aim; a
+rider gets the vehicle's radius instead, for a gun ahead of a covered seat.
+These only add acceptance paths. Explosions, melee and collisions stay under
+their existing rules. Missing history, including another BSP, fails open. */
+static boolean distributed_player_saw_hit(
+	long machine_index,
+	short player_index,
+	struct distributed_hit_report const *report,
+	struct damage_reach const *reach)
+{
+	long now = game_time_get();
+	long made = MAX(report->host_time, now - (long)distributed_machine_round_trip_ticks(machine_index) -
+		PLAYER_TRAIL_REPORT_SLACK_TICKS);
+	real flight = reach->ticks;
+	long earliest;
+	boolean has_history = FALSE;
+	boolean has_report_history = FALSE;
+	short index;
+	real_point3d center, target_origin;
+	struct object_datum *target = object_get(report->object_index);
+
+	if (!(flight >= 0.0f && flight <= (real)PLAYER_TRAIL_TICKS))
+		flight = (real)PLAYER_TRAIL_TICKS;
+	earliest = made - (long)flight - TARGET_HISTORY_SLACK_TICKS - PLAYER_TRAIL_INTERVAL_TICKS;
+	object_get_origin(report->object_index, &target_origin);
+	center.x = report->target_position.x + target->object.bounding_sphere_center.x - target_origin.x;
+	center.y = report->target_position.y + target->object.bounding_sphere_center.y - target_origin.y;
+	center.z = report->target_position.z + target->object.bounding_sphere_center.z - target_origin.z;
+	for (index = 0; index < PLAYER_TRAIL_POINTS; index++)
+	{
+		struct damage_trail_point const *point = &damage_trails[player_index][index];
+		real_point3d muzzle;
+		real_vector3d forward;
+		real offset;
+
+		if (point->time == NONE || point->time < earliest || point->time > now ||
+			point->structure_bsp_index != global_structure_bsp_index_get())
+			continue;
+		has_history = TRUE;
+		if (point->time <= made)
+			has_report_history = TRUE;
+		if (distributed_sight_clear(&point->eye, &report->damage.origin) ||
+			distributed_sight_clear(&point->eye, &center))
+			return TRUE;
+		vector_from_points3d(&point->eye, &center, &forward);
+		normalize3d(&forward);
+		offset = MAX(0.25f, point->radius);
+		muzzle.x = point->eye.x + forward.i * offset;
+		muzzle.y = point->eye.y + forward.j * offset;
+		muzzle.z = point->eye.z + forward.k * offset;
+		if (distributed_sight_clear(&muzzle, &report->damage.origin) || distributed_sight_clear(&muzzle, &center))
+			return TRUE;
+	}
+	return !has_history || !has_report_history;
 }
 
 /* the weapons each player carries, and whether they drive, noted */
@@ -1913,7 +2006,7 @@ static boolean distributed_report_valid(
 	}
 	/* what hits at a point (a shot, an explosion) within its reach of where
 	the host had the player since it was fired, where the tags bound that
-	(no line of sight: a wall between is not looked for) */
+	(line of sight is checked separately, even for unbounded projectiles) */
 	if (!melee && !collision && fired_reach.distance >= 0.0f &&
 		!distributed_player_could_fire(machine_index, player_index, &report->damage.origin, &fired_reach,
 			report->host_time))
@@ -1939,6 +2032,17 @@ static boolean distributed_report_valid(
 			(real)sqrt(velocity.i * velocity.i + velocity.j * velocity.j + velocity.k * velocity.k);
 		if (!(distributed_distance_squared(&report->target_position, &origin) <= tolerance * tolerance))
 			return FALSE;
+	}
+	if (!area && !melee && !collision && game_connection() == _game_connection_network_server &&
+		!input_replay_playing() && !mp_benchmark_probe_active() &&
+		!distributed_player_saw_hit(machine_index, player_index, report, &fired_reach))
+	{
+		damage_sight_rejected_tick++;
+#ifndef HALO_RELEASE
+		error(_error_silent, "damage: refused occluded hit: player %d target %lx tick %ld",
+			player_index, report->object_index, report->host_time);
+#endif
+		return FALSE;
 	}
 	/* the damage as the host deals it: what a client's hit can be, from the
 	player's own */
@@ -2180,6 +2284,12 @@ void network_damage_host_tick(
 		distributed_client_machines(machine_indices, HALO_PORT_MAXIMUM_NETWORK_MACHINES) : 0;
 	short machine_number;
 
+#ifdef HALO_ILP32
+	/* Report the tick's count rather than one event per forged report. */
+	if (damage_sight_rejected_tick)
+		host_frame_cpu_phase(24, (int)damage_sight_rejected_tick);
+#endif
+	damage_sight_rejected_tick = 0;
 	distributed_log_reports();
 	distributed_note_weapons();
 	distributed_note_targets();
@@ -2389,6 +2499,7 @@ void network_damage_new_game(
 	short player_index;
 
 	damage_event_count = 0;
+	damage_sight_rejected_tick = 0;
 	damage_report_count = 0;
 	damage_dealing_report = FALSE;
 	damage_replaying_kill = FALSE;

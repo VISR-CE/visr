@@ -632,7 +632,7 @@ its name alone beside it, has its name given back as the map lists find it.
      the client's round trip and a second before the report came; not checked for what the tags do
      not bound: a projectile that sticks, which what it sticks to carries,
      one whose timer starts once it bounces or rests, a weapon's own
-     detonation; no line of sight); the target within a few world units of
+     detonation); the target within a few world units of
      where the host had it at the tick the report was made at (a player's
      unit or vehicle: the host keeps a second of where they were) or of
      where it is (more for a fast one; also for one that is no longer a
@@ -657,6 +657,20 @@ its name alone beside it, has its name given back as the map lists find it.
      client's projectiles deal nothing (the report does), but once that
      client has left the game they deal what they hit, as its own do (a
      hit the client reported just before it left may so be dealt twice).
+   - Direct reported hits must have a clear structure-BSP ray from a
+     historical shooter head position to the impact or target center during
+     the possible flight window, including the existing round-trip and tick
+     slack. Unbounded projectile range still gets this check. A second origin
+     advances toward the target by 0.25 world units for tracked hand aim, or
+     the historical vehicle radius for a rider's mounted muzzle. Rays stop
+     0.01 world units short of the endpoint for surface rounding and ignore
+     invisible surfaces, as projectile rays do. Objects,
+     including scenery, do not block this historical test. Explosions, melee
+     and collisions retain their existing checks; missing shooter history or
+     history from another BSP passes. The check runs only for network-host
+     reports, outside recordings and the multiplayer benchmark. Refusals
+     count in the existing rejected-hit statistics, emit a debug-build line,
+     and contribute a count per tick to performance event 16 on Apple builds.
    - The host sends its clients the damage it dealt to units, and a client
      replays what it does besides the harm (which the units' states
      bring): the player's screen flash and shake, the unit's flinch, pain
