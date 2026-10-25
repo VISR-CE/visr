@@ -125,6 +125,8 @@ DEFAULTS = {
     "display.interpolation": "true",
     "display.anisotropic_filtering": "1",
     "display.shadow_map_size": "128",
+    "display.dynamic_light_limit": "0",
+    "display.specular_light_limit": "0",
     "display.effect_resolution": '"xbox"',
     "display.compressed_textures": "false",
     "display.frame_pacing": '"off"',
