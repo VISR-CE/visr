@@ -6274,6 +6274,9 @@ static BOOL screenshot_tick_due(void)
 		const char *text = getenv("HALO_SCREENSHOT_TICKS");
 
 		every = text ? strtol(text, NULL, 10) : 0;
+		/* (or debug.screenshot_every below 0: every -N ticks, for a device's config.toml) */
+		if (!text && config_integer("debug.screenshot_every") < 0)
+			every = -config_integer("debug.screenshot_every");
 		if (every < 0)
 			every = 0;
 	}
