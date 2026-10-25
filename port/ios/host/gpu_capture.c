@@ -599,6 +599,12 @@ static uint32_t capture_texture_read(gpu_texture texture, void *pixels, uint32_t
 	return capture.backend.texture_read(texture, pixels, size);
 }
 
+/* (not recorded: a replay draws without multisampling) */
+static void capture_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	capture.backend.texture_multisample(texture, samples);
+}
+
 static gpu_buffer capture_buffer_create(uint32_t size)
 {
 	gpu_buffer handle = capture.backend.buffer_create(size);

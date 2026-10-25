@@ -78,6 +78,9 @@ struct gpu_capabilities
 	are not drawn). Upload textures of that format are accepted whatever
 	s3tc and astc say */
 	uint8_t upscaled_format;
+	/* the most samples a pixel a render target can be drawn with
+	(gpu_texture_multisample); 1 without multisampling */
+	uint8_t max_samples;
 	uint32_t max_texture_size;
 };
 
@@ -141,6 +144,21 @@ nothing drew), for debugging. Returns 0 and writes nothing if size is short of
 width * height * 4 or the backend cannot read the texture (ES: block-compressed
 textures and depth) */
 uint32_t gpu_texture_read(gpu_texture texture, void *pixels, uint32_t size);
+
+/* ---------- multisampling (display.anti_aliasing's "msaa2x" to "msaa8x")
+
+A render target drawn with samples above 1 has multisampled storage of the
+backend's, which its draws and clears go to. The backend resolves the
+samples into the texture before anything reads it: a draw's stage, a copy,
+a readback, an anti-aliasing pass, a stretch or Present. Every target of a
+draw or a clear has the same samples (the front end sees to it), at most
+gpu_capabilities.max_samples; 0 or 1 is none. When a target's samples
+change, the new storage starts with the texture's color, or with depth and
+stencil cleared, and a target that stops being multisampled keeps what was
+last resolved into its texture. Depth is not resolved: a readback of a
+multisampled depth target reads what was there before. A backend without
+multisampling (max_samples 1) ignores the call. */
+void gpu_texture_multisample(gpu_texture texture, uint32_t samples);
 
 /* ---------- buffers: the vertex mirror's segments */
 
@@ -730,6 +748,7 @@ its own functions. */
 	P(texture_generate_mipmaps, (gpu_texture texture, uint32_t base_level), (texture, base_level)) \
 	P(texture_destroy, (gpu_texture texture), (texture)) \
 	F(uint32_t, texture_read, (gpu_texture texture, void *pixels, uint32_t size), (texture, pixels, size)) \
+	P(texture_multisample, (gpu_texture texture, uint32_t samples), (texture, samples)) \
 	F(gpu_buffer, buffer_create, (uint32_t size), (size)) \
 	P(buffer_write, (gpu_buffer buffer, uint32_t offset, uint32_t size, const void *data, uint32_t flags), \
 		(buffer, offset, size, data, flags)) \

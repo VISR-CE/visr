@@ -57,6 +57,12 @@ uint32_t gpu_texture_read(gpu_texture texture, void *pixels, uint32_t size)
 	return host_gpu_texture_read(texture, pixels, size);
 }
 
+void gpu_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	IMMEDIATE_FLUSH();
+	host_gpu_texture_multisample(texture, samples);
+}
+
 gpu_buffer gpu_buffer_create(uint32_t size)
 {
 	IMMEDIATE_FLUSH();

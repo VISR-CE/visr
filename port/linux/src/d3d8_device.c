@@ -661,6 +661,11 @@ struct render_target_entry
 	/* the stereo layer a screen-sized target is for (halo_stereo.h), else
 	HALO_STEREO_LAYER_MONO */
 	int layer;
+	/* the mono back buffer or its depth buffer, which the 3D view is drawn
+	into: multisampled with multisampling (draw_targets); and the samples a
+	pixel it is drawn with (gpu_texture_multisample), 0 for none */
+	BOOL screen_buffer;
+	uint32_t samples;
 };
 
 /* every draw looks up its targets and whether its textures are render
@@ -1341,8 +1346,26 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 			return entry;
 		}
 	}
+	/* an earlier entry for the surface, at another size or scale, is not
+	drawn into again until it is chosen again (and multisampled again):
+	its samples are dropped, so a resize with multisampling on does not
+	keep every size's multisampled storage */
+	{
+		struct render_target_entry *earlier;
+
+		for (earlier = *render_target_bucket(surface->Data); earlier; earlier = earlier->next_in_bucket)
+		{
+			if (earlier->target.data == surface->Data && earlier->layer == layer && earlier->samples)
+			{
+				earlier->samples = 0;
+				gpu_texture_multisample(earlier->target.texture, 0);
+			}
+		}
+	}
 	entry = calloc(1, sizeof(*entry));
 	entry->layer = layer;
+	entry->screen_buffer = (surface->Data == device.back_buffer.Data || surface->Data == device.depth_buffer.Data) &&
+		height == SCREEN_HEIGHT && layer == HALO_STEREO_LAYER_MONO && !foveated_eye;
 	entry->target.data = surface->Data;
 	entry->target.width = width;
 	entry->target.height = height;
@@ -1531,8 +1554,24 @@ struct xgpu_render_target *xgpu_render_target_find(unsigned long data)
 /* counts draws and clears into render targets (xgpu_render_target.written) */
 static unsigned long render_target_write_serial;
 
-/* the pixels per unit of the bound targets (render_target_get) */
+/* the pixels per unit of the bound targets (render_target_get), and their
+samples a pixel (1 unless multisampled) */
 static float target_scale[2] = { 1.0f, 1.0f };
+static uint32_t target_samples = 1;
+
+/* multisampling's samples a pixel (display.anti_aliasing's "msaa2x" to
+"msaa8x", at most the GPU's: anti_aliasing_prepare), 0 without it */
+static uint32_t anti_aliasing_samples;
+
+/* a target drawn with this many samples a pixel from now on */
+static void target_multisample(struct render_target_entry *entry, uint32_t samples)
+{
+	if (entry && entry->samples != samples)
+	{
+		entry->samples = samples;
+		gpu_texture_multisample(entry->target.texture, samples);
+	}
+}
 
 /* tracked-controller aiming's reticle (halo_controller_draw_state), over
 present->reticle (the head-locked direction, halo_stereo_reticle): while a
@@ -1803,6 +1842,20 @@ static BOOL draw_targets(gpu_texture *color_texture, gpu_texture *depth_texture)
 	/* viewports and clears are in the targets' units (render_target_get) */
 	target_scale[0] = color ? color->target.scale[0] : depth->target.scale[0];
 	target_scale[1] = color ? color->target.scale[1] : depth->target.scale[1];
+	/* with multisampling, multisampled where either is a screen buffer or is
+	multisampled already: a draw's targets are all multisampled or none is,
+	so the mirror's view, drawn into the secondary target with the back
+	buffer's depth buffer, is too. Not in a stereo frame */
+	{
+		uint32_t samples = anti_aliasing_samples;
+
+		if (samples && (halo_stereo_frame()->mode != HALO_STEREO_OFF || halo_stereo_frame()->eye_count != 0 ||
+			!((color && (color->screen_buffer || color->samples)) || (depth && (depth->screen_buffer || depth->samples)))))
+			samples = 0;
+		target_multisample(color, samples);
+		target_multisample(depth, samples);
+		target_samples = samples ? samples : 1;
+	}
 	*color_texture = color ? color->target.texture : 0;
 	*depth_texture = depth ? depth->target.texture : 0;
 	return TRUE;
@@ -1828,6 +1881,9 @@ enum
 	_anti_aliasing_off,
 	_anti_aliasing_fxaa,
 	_anti_aliasing_smaa,
+	/* "msaa2x", "msaa4x" or "msaa8x": the mono back buffer, its depth buffer
+	and whatever is drawn with them multisampled (draw_targets) */
+	_anti_aliasing_msaa,
 };
 
 /* the method in effect, -1 until the setting is first read; and the
@@ -1835,6 +1891,8 @@ method the chord chose while the game runs (halo_anti_aliasing_toggle), in
 place of the setting's until the app quits, -1 for none */
 static int anti_aliasing_method = -1;
 static int anti_aliasing_live = -1;
+/* multisampling's samples as the setting asks for them, 0 for none */
+static int anti_aliasing_requested_samples;
 /* its passes' programs could be made (anti_aliasing_prepare) */
 static BOOL anti_aliasing_ready;
 
@@ -1855,18 +1913,24 @@ static void anti_aliasing_read(void)
 	const char *setting = contextual_setting;
 	int method = !strcmp(setting, "fxaa") ? _anti_aliasing_fxaa : !strcmp(setting, "smaa") ? _anti_aliasing_smaa :
 		_anti_aliasing_off;
+	int samples = !strcmp(setting, "msaa2x") ? 2 : !strcmp(setting, "msaa4x") ? 4 : !strcmp(setting, "msaa8x") ? 8 : 0;
 
+	if (samples)
+		method = _anti_aliasing_msaa;
 	if (anti_aliasing_live >= 0)
 	{
 		method = anti_aliasing_live;
+		samples = 0;
 		setting = method == _anti_aliasing_fxaa ? "fxaa" : method == _anti_aliasing_smaa ? "smaa" : "off";
 	}
-	if (method == anti_aliasing_method)
+	if (method == anti_aliasing_method && samples == anti_aliasing_requested_samples)
 		return;
 	anti_aliasing_method = method;
+	anti_aliasing_requested_samples = samples;
 	anti_aliasing_pass_count = 0;
 	if (method == _anti_aliasing_off && strcmp(setting, "off"))
-		platform_log("anti-aliasing: \"%s\" is not one of this build's (\"off\", \"fxaa\", \"smaa\"), so off", setting);
+		platform_log("anti-aliasing: \"%s\" is not one of this build's (\"off\", \"fxaa\", \"smaa\", \"msaa2x\", "
+			"\"msaa4x\", \"msaa8x\"), so off", setting);
 	else
 		platform_log("anti-aliasing: %s", setting);
 	anti_aliasing_prepare();
@@ -1908,8 +1972,22 @@ static void anti_aliasing_prepare(void)
 	static void *area, *search;
 
 	anti_aliasing_ready = FALSE;
+	anti_aliasing_samples = 0;
 	if (!device.gl_ready || anti_aliasing_method <= _anti_aliasing_off)
 		return;
+	if (anti_aliasing_method == _anti_aliasing_msaa)
+	{
+		uint32_t most = device_capabilities.max_samples;
+
+		anti_aliasing_samples = (uint32_t)anti_aliasing_requested_samples;
+		if (anti_aliasing_samples > most)
+		{
+			platform_log("anti-aliasing: the GPU has at most %u samples a pixel", (unsigned)most);
+			anti_aliasing_samples = most < 2 ? 0 : most;
+		}
+		platform_log("anti-aliasing: multisampling with %u samples a pixel", (unsigned)anti_aliasing_samples);
+		return;
+	}
 	if (anti_aliasing_method == _anti_aliasing_fxaa)
 		anti_aliasing_ready = gpu_anti_alias_prepare(GPU_ANTI_ALIAS_FXAA, NULL, NULL, NULL) != 0;
 	else if (!xgpu_smaa_shader_size)
@@ -2348,6 +2426,7 @@ static void shader_dialect_initialize(struct nv2a_dialect *dialect, const struct
 	dialect->clip_capture = capabilities->shader_es || dialect->msl;
 	dialect->shader_lod_bias = !capabilities->sampler_lod_bias;
 	dialect->temporal_jitter = dialect->msl && config_boolean("debug.metalfx_temporal") != 0;
+	dialect->sample_mask = dialect->msl;
 	dialect->debug_expression = config_string("debug.gpu_debug_expression");
 	dialect->debug_texture0 = config_boolean("debug.gpu_debug_texture0") != 0;
 	dialect->debug_flat = config_boolean("debug.gpu_debug_flat") != 0;
@@ -2454,9 +2533,15 @@ static void shader_replay(const char *directory)
 				(size - 2 * sizeof(DWORD)) / (4 * sizeof(DWORD)) == header[0])
 				source = nv2a_vertex_shader_translate(&dialect, header + 2, header[0], header[1]);
 		}
-		else if (pixel && data && size == sizeof(struct nv2a_pixel_shader_key))
+		else if (pixel && data && (size == sizeof(struct nv2a_pixel_shader_key) ||
+			size == NV2A_PIXEL_SHADER_KEY_BASE_SIZE))
 		{
-			source = nv2a_pixel_shader_translate(&dialect, (const struct nv2a_pixel_shader_key *)data);
+			/* (a key as recorded before its later fields: those are 0) */
+			struct nv2a_pixel_shader_key key;
+
+			memset(&key, 0, sizeof(key));
+			memcpy(&key, data, size);
+			source = nv2a_pixel_shader_translate(&dialect, &key);
 		}
 		free(data);
 		if (!source)
@@ -3027,8 +3112,9 @@ HRESULT WINAPI D3DDevice_EndVisibilityTest(DWORD index)
 	/* the target's pixels to a game pixel: the result is a count of the
 	game's pixels (visibility_unscaled), which the game divides by its own
 	test's area (lens flares, rasterizer_lights.c), a split-screen window's
-	or the screen's alike */
-	device.query_area[index] = target_scale[0] * target_scale[1];
+	or the screen's alike; by its samples a pixel when multisampled, each of
+	which counts */
+	device.query_area[index] = target_scale[0] * target_scale[1] * (float)target_samples;
 	/* A frame with stereo's eyes keeps the yes-or-no answer (0: see
 	visibility_unscaled) unless display.stereo_flare_counting is on
 	(visibility_slot). */
@@ -3491,7 +3577,7 @@ static void fragment_shader_dump(const struct fragment_entry *entry, const char 
 		fclose(file);
 	}
 	snprintf(path, sizeof(path), "ps_%08lx.key", entry->hash);
-	dump_file(debug_settings.dump_shaders, path, &entry->key, sizeof(entry->key), NULL, 0);
+	dump_file(debug_settings.dump_shaders, path, &entry->key, nv2a_pixel_shader_key_size(&entry->key), NULL, 0);
 }
 
 /* debug.gpu_dump_shaders dumps a shader when it is compiled, except at map
@@ -3575,7 +3661,7 @@ static gpu_shader fragment_shader_get(const struct nv2a_pixel_shader_key *key)
 			return recent[index]->dump_source ? fragment_shader_first_draw(recent[index]) : recent[index]->shader;
 		}
 	}
-	hash = hash_words(key, sizeof(*key));
+	hash = hash_words(key, nv2a_pixel_shader_key_size(key));
 	bucket = &fragment_buckets[hash % FRAGMENT_BUCKETS];
 	for (entry = *bucket; entry; entry = entry->next)
 	{
@@ -3815,22 +3901,24 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 	const unsigned char *bytes = (const unsigned char *)key;
 	unsigned long index, length;
 
-	if (!name)
+	/* (a multisampled alpha test's shader is not listed or observed: the
+	lists and catalogs hold the shaders of draws without multisampling) */
+	if (!name || key->alpha_test_samples)
 		return;
 	name->kind = 2;
-	name->hash = hash64(key, sizeof(*key));
+	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
 	name->pixel_key = key;
 #ifdef HALO_ILP32
 	{
 		struct shader_observation event = {0};
 		event.kind = SHADER_OBSERVATION_PIXEL; event.pixel_hash = name->hash;
-		event.pixel_size = sizeof(*key); memcpy(event.pixel, key, sizeof(*key));
+		event.pixel_size = (uint32_t)nv2a_pixel_shader_key_size(key); memcpy(event.pixel, key, event.pixel_size);
 		shader_observation_submit(&event);
 		if (observation_capture && !observation_developer_record) return;
 	}
 #endif
 	length = (unsigned long)snprintf(line, sizeof(line), "ps %016llx ", (unsigned long long)name->hash);
-	for (index = 0; index < sizeof(*key); index++)
+	for (index = 0; index < nv2a_pixel_shader_key_size(key); index++)
 		length += (unsigned long)snprintf(line + length, sizeof(line) - length, "%02x", bytes[index]);
 	shader_list_made(line);
 }
@@ -3856,7 +3944,7 @@ static void shader_list_take_pipelines(void)
 			struct shader_observation event = {0};
 			event.kind = SHADER_OBSERVATION_PIPELINE;
 			event.vertex_hash = vertex->hash; event.variant = vertex->variant; event.packed_mask = vertex->packed_mask;
-			event.pixel_hash = pixel->hash; event.pixel_size = sizeof(*pixel->pixel_key);
+			event.pixel_hash = pixel->hash; event.pixel_size = (uint32_t)nv2a_pixel_shader_key_size(pixel->pixel_key);
 			memcpy(event.pixel, pixel->pixel_key, event.pixel_size);
 			event.blend = built.blend; event.source = built.source; event.destination = built.destination;
 			event.operation = built.operation; event.write_mask = built.write_mask; event.exact_borders = built.exact_borders;
@@ -4119,8 +4207,10 @@ void halo_shader_list_warm(char const *map_name)
 				struct nv2a_pixel_shader_key key;
 				unsigned char *bytes = (unsigned char *)&key;
 
-				if (sscanf(line, "ps %63s %599s", second, first) != 2 || strlen(first) != 2 * sizeof(key) ||
-					!hex_bytes(first, bytes, sizeof(key)))
+				memset(&key, 0, sizeof(key));
+				if (sscanf(line, "ps %63s %599s", second, first) != 2 ||
+					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
+					!hex_bytes(first, bytes, strlen(first) / 2))
 				{
 					missing++;
 					continue;
@@ -4787,6 +4877,11 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		key.coverage_alpha = 0;
 	}
 	key.alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
+	/* multisampled: an alpha-tested surface covers a pixel's samples by how
+	far its alpha is past the reference (nv2a_pixel_shader_key) */
+	if (target_samples > 1 && key.alpha_test_function && !D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
+		shader_dialect.sample_mask)
+		key.alpha_test_samples = (unsigned char)target_samples;
 	key.fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key.fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key.count_samples = device.visibility_test_active &&
