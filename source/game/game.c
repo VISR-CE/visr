@@ -750,6 +750,14 @@ void game_initialize_for_new_map(
 	from now on go elsewhere, port/linux/game/network_objects.c) */
 	network_objects_placed();
 	ui_widgets_safe_to_load(TRUE);
+	/* port: finish bounded HUD decoding while the map still owns loading,
+	not at its first draw (port/linux/src/hud_hires.c). */
+	{
+		extern void hud_hires_preload_finish(void);
+
+		hud_hires_preload_finish();
+	}
+
 
 	return;
 }
