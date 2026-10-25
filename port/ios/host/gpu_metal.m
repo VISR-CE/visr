@@ -5821,7 +5821,7 @@ static id<MTLTexture> temporal_upscale_into(id<MTLTexture> color, id<MTLTexture>
 		int row, column, k;
 
 		if (temporal_unavailable || !depth || depth.width != color.width || depth.height != color.height ||
-			(long)color.width >= width || (long)color.height >= height)
+			(long)color.width > width || (long)color.height > height)
 			return nil;
 		if (temporal_failed[0] == color.width && temporal_failed[1] == color.height &&
 			temporal_failed[2] == (unsigned long)width && temporal_failed[3] == (unsigned long)height)
@@ -6216,7 +6216,7 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		/* (spike, debug.metalfx_temporal: the scene's depth is kept for the
 		temporal scaler) */
 		temporal = temporal_frame_pending && whole && metalfx_wanted && temporal_scene_color == source &&
-			(picture.width < target.width || picture.height < target.height);
+			picture.width <= target.width && picture.height <= target.height;
 		temporal_frame_pending = NO;
 		/* (only the scene's own pass: another target's depth is its own affair) */
 		if (encoder && pass_color == source)

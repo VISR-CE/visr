@@ -16,8 +16,26 @@ overflows after about 40 hours.
 #ifndef __HALO_VIRTUAL_CLOCK_H
 #define __HALO_VIRTUAL_CLOCK_H
 
-/* frames per second of game time: the game's tick rate, so each frame is one tick */
-#define HALO_VIRTUAL_CLOCK_RATE 30
+#include <stdlib.h>
+
+/* frames per second of game time: the game's tick rate, so each frame is one
+tick. (Spike, lane B: HALO_VIRTUAL_CLOCK_RATE in the environment, 30 to 240,
+gives frames between ticks, interpolated, to see temporal anti-aliasing at
+60 fps on the same frames run to run.) */
+static inline unsigned long halo_virtual_clock_rate(void)
+{
+	static unsigned long rate;
+
+	if (!rate)
+	{
+		const char *text = getenv("HALO_VIRTUAL_CLOCK_RATE");
+		long value = text ? strtol(text, NULL, 10) : 0;
+
+		rate = value >= 30 && value <= 240 ? (unsigned long)value : 30;
+	}
+	return rate;
+}
+#define HALO_VIRTUAL_CLOCK_RATE (halo_virtual_clock_rate())
 
 /* where the clocks start: nonzero, as a real clock's are */
 #define HALO_VIRTUAL_CLOCK_START_MILLISECONDS 1000000ULL

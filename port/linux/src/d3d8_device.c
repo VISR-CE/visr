@@ -833,6 +833,8 @@ static BOOL companion_active(void)
 	return companion_enabled;
 }
 
+static int native_hud_equal;
+
 static BOOL native_hud_active(void)
 {
 	const struct halo_stereo_frame *stereo;
@@ -842,9 +844,12 @@ static BOOL native_hud_active(void)
 		if (!device.gl_ready)
 			return FALSE;
 		native_hud_wanted = config_boolean("display.native_hud") && device_capabilities.upscale;
+		/* (spike: MetalFX's temporal scaler at 1x, anti-aliasing only,
+		needs the scene in a target of its own at the display's size too) */
+		native_hud_equal = native_hud_wanted && config_boolean("debug.metalfx_temporal") ? 1 : 0;
 	}
 	if (!companion_active() && (!native_hud_wanted ||
-		(screen_scale_native[0] <= screen_scale[0] && screen_scale_native[1] <= screen_scale[1])))
+		(!native_hud_equal && screen_scale_native[0] <= screen_scale[0] && screen_scale_native[1] <= screen_scale[1])))
 		return FALSE;
 	stereo = halo_stereo_frame();
 	return stereo->mode == HALO_STEREO_OFF && stereo->eye_count == 0 && !rate_map_test();
