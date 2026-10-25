@@ -6261,6 +6261,8 @@ Nth game tick as loadLL-tickTTTTTT, LL counting map loads, so launches with
 different settings and frame rates save the same moments) */
 static char screenshot_tick_name[32];
 extern long game_time_get(void);
+/* (source/game/game_time.c: game_time_get asserts without a game) */
+extern unsigned char game_time_initialized(void);
 
 static BOOL screenshot_tick_due(void)
 {
@@ -6277,6 +6279,8 @@ static BOOL screenshot_tick_due(void)
 	}
 	screenshot_tick_name[0] = 0;
 	if (!every)
+		return FALSE;
+	if (!game_time_initialized())
 		return FALSE;
 	tick = game_time_get();
 	if (tick < last_tick)
