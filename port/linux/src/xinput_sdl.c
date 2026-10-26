@@ -886,6 +886,30 @@ next press */
 #define ZOOM_GAP_POLLS 20
 #define ZOOM_SWAP_POLLS 90
 
+extern unsigned char game_time_initialized(void);
+extern long game_time_get(void);
+
+/* The scripted player's clock, in seconds. debug.test_input_clock = "wall" (the default) is the time since SDL
+started, which a loading screen's length shifts; "tick" is the game's own time (30 ticks a second, 0 until a
+level's game time exists), so the pattern is a function of the tick the pad was last read in and two runs of a
+level play alike, and "frames" the presented frames (platform_clock_frames, 30 a second) */
+static double test_input_clock(void)
+{
+	static int mode = -1;
+
+	if (mode < 0)
+	{
+		const char *setting = config_string("debug.test_input_clock");
+
+		mode = !strcmp(setting, "tick") ? 1 : !strcmp(setting, "frames") ? 2 : 0;
+	}
+	if (mode == 1)
+		return game_time_initialized() ? (double)game_time_get() / 30.0 : 0.0;
+	if (mode == 2)
+		return (double)platform_clock_frames() / 30.0;
+	return (double)SDL_GetTicks() / 1000.0;
+}
+
 static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 {
 	static int checked;
@@ -998,7 +1022,7 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 			pad->bAnalogButtons[XINPUT_GAMEPAD_X] = 255;
 		return;
 	}
-	t = (double)SDL_GetTicks() / 1000.0 + seed * 1.7;
+	t = test_input_clock() + seed * 1.7;
 	if (looking)
 	{
 		pad->sThumbRX = (SHORT)(sin(t * 0.5) * 14000.0);

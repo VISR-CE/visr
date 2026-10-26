@@ -1306,6 +1306,11 @@ static const struct config_setting config_settings[] =
 		"zoom <unclicks> times more (out of it); \"aachord:<start>,<period>\"\n"
 		"presses the live anti-aliasing chord (Back and R1) from poll <start> and\n"
 		"every <period> polls after; empty for none." },
+	{ "debug.test_input_clock", _config_string, "\"wall\"", "HALO_TEST_INPUT_CLOCK", _environment_value, _platform_all,
+		"The clock debug.test_input's scripted player reads: \"wall\" is the time\n"
+		"since SDL started, \"tick\" the game's tick count (30 a second), \"frames\"\n"
+		"the presented frames (30 a second). With \"tick\" and\n"
+		"debug.fixed_timestep two runs of one level play alike." },
 	{ "debug.side_by_side_screen", _config_boolean, "false", "HALO_SIDE_BY_SIDE_SCREEN", _environment_set_is_true,
 		_platform_ios,
 		"With display.stereo = \"side_by_side\": show the eyes SCREEN mode's\n"
