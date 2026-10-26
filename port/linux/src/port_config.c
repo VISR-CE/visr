@@ -1482,6 +1482,12 @@ static const struct config_setting config_settings[] =
 		"Draw the companion HUD without an external display and save it with screenshots." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
+	{ "debug.shadow_blur", _config_string, "\"xbox\"", "HALO_SHADOW_BLUR", _environment_value, _platform_all,
+		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"xbox\" the game's\n"
+		"taps at its fixed offsets (at 512 they fall 4 texels apart and show as separate copies), \"footprint\"\n"
+		"a box over 4 texels first and then the game's taps, so the blur covers what it covered at 128,\n"
+		"\"fine\" the game's taps half a texel apart at any size (a smaller blur), \"none\" one sample.\n"
+		"128-texel shadows are always the game's." },
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,
 		"Save every this many frames to screenshot_directory; 0 none." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,

@@ -232,6 +232,29 @@ boolean rasterizer_shadow_atlas_mapping(real *u0, real *v0, real *scale);
 short rasterizer_shadow_blur_capacity(void);
 boolean rasterizer_shadow_blur_select(short tile);
 boolean rasterizer_shadow_blur_copy(short first, short count);
+boolean rasterizer_shadow_prepass_select(short tile);
+boolean rasterizer_shadow_blur_select_prepassed(short tile);
+float halo_shadow_target_scale(void);
+const char *config_string(const char *name);
+
+/* debug.shadow_blur: the blur's four taps (u, v offsets in the shadow map's texture coordinates) for the next
+rasterizer_shadow_convolve, or not set for the game's own (half a 128-texel map's texel diagonally) */
+static boolean convolve_taps_set = FALSE;
+static real convolve_taps[4][2];
+
+static void convolve_taps_texels(
+	real const (*taps)[2],
+	real texels_a_side)
+{
+	short tap;
+
+	for (tap = 0; tap < 4; tap++)
+	{
+		convolve_taps[tap][0] = taps[tap][0] / texels_a_side;
+		convolve_taps[tap][1] = taps[tap][1] / texels_a_side;
+	}
+	convolve_taps_set = TRUE;
+}
 
 /* the window's first deferred shadow (rasterizer_environment_shadows_defer_begin): those from it on are
 blurred when the window's shadows are all drawn */
@@ -1010,16 +1033,45 @@ void rasterizer_environment_shadows_defer_end(
 {
 	deferred_shadows_generating = FALSE;
 	/* the window's new shadows, blurred out of their atlas tiles into blur pages' tiles, which then become their
-	slots' second targets; if they cannot, each is blurred into its slot, a render pass each */
+	slots' second targets; if they cannot, each is blurred into its slot, a render pass each. debug.shadow_blur
+	changes the blur of shadow maps larger than 128 texels (see port_config.c) */
 	if (deferred_shadows_drawn && deferred_shadows_in_atlas())
 	{
+		static real const game[4][2] = { { -0.5f, -0.5f }, { 0.5f, 0.5f }, { -0.5f, 0.5f }, { 0.5f, -0.5f } };
+		static real const zero[4][2] = { { 0.0f, 0.0f } };
+		/* a box over 4 texels (2 at 256), less the quad's own shift (half a 128 map's texel), before the game's taps */
+		static real const box4[4][2] = { { -3.5f, -3.5f }, { -1.5f, -1.5f }, { -3.5f, -1.5f }, { -1.5f, -3.5f } };
+		static real const box2[4][2] = { { -1.5f, -1.5f }, { -1.5f, -1.5f }, { -1.5f, -1.5f }, { -1.5f, -1.5f } };
+		const char *mode = config_string("debug.shadow_blur");
+		real scale = halo_shadow_target_scale();
+		real texels = 128.0f * scale;
+		boolean prepass = FALSE;
 		short index;
 		boolean blurred = TRUE;
 
+		if (scale > 1.0f && mode && !strcmp(mode, "footprint") && (scale == 2.0f || scale == 4.0f))
+			prepass = TRUE;
+		if (prepass)
+		{
+			for (index = deferred_shadow_window_first; index < deferred_shadow_count && blurred; index++)
+			{
+				if ((blurred = rasterizer_shadow_prepass_select(index)))
+				{
+					convolve_taps_texels(scale == 4.0f ? box4 : box2, texels);
+					rasterizer_shadow_convolve();
+				}
+			}
+		}
 		for (index = deferred_shadow_window_first; index < deferred_shadow_count && blurred; index++)
 		{
-			if ((blurred = rasterizer_shadow_blur_select(index)))
+			if ((blurred = prepass ? rasterizer_shadow_blur_select_prepassed(index) : rasterizer_shadow_blur_select(index)))
+			{
+				if (scale > 1.0f && mode && !strcmp(mode, "fine"))
+					convolve_taps_texels(game, texels);
+				else if (scale > 1.0f && mode && !strcmp(mode, "none"))
+					convolve_taps_texels(zero, texels);
 				rasterizer_shadow_convolve();
+			}
 		}
 		if (!blurred ||
 			!rasterizer_shadow_blur_copy(deferred_shadow_window_first, deferred_shadow_count - deferred_shadow_window_first))
@@ -1185,6 +1237,18 @@ static void rasterizer_shadow_convolve(
 		vertex_constants[7][1] = 1.0f;
 		vertex_constants[7][2] = 0.0f;
 		vertex_constants[7][3] = -0.00390625f;
+		/* port: debug.shadow_blur's taps, in place of the game's (each pair of rows is one tap's u and v) */
+		if (convolve_taps_set)
+		{
+			short tap;
+
+			for (tap = 0; tap < 4; tap++)
+			{
+				vertex_constants[2 * tap][3] = convolve_taps[tap][0];
+				vertex_constants[2 * tap + 1][3] = convolve_taps[tap][1];
+			}
+			convolve_taps_set = FALSE;
+		}
 		/* port: from an atlas tile, the coordinates moved into it (the gutter
 		past its edges is black, as the border the taps there read) */
 		{

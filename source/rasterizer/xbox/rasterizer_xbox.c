@@ -3962,6 +3962,8 @@ static void rasterizer_shadow_slots_initialize(
 static short shadow_atlas_tile = NONE;
 /* the tile of the blur page (below) the second shadow target is, or NONE */
 static short shadow_blur_tile = NONE;
+/* debug.shadow_blur "footprint": the tile of a pre-pass page the second shadow target is, or NONE */
+static short shadow_prepass_tile = NONE;
 
 boolean rasterizer_shadow_slot_select(
 	short slot)
@@ -3973,6 +3975,7 @@ boolean rasterizer_shadow_slot_select(
 		return FALSE;
 	shadow_atlas_tile = NONE;
 	shadow_blur_tile = NONE;
+	shadow_prepass_tile = NONE;
 	global_d3d_texture_shadow_primary = rasterizer_shadow_slots[slot].texture[0];
 	global_d3d_surface_shadow_primary = rasterizer_shadow_slots[slot].surface[0];
 	global_d3d_texture_shadow_secondary = rasterizer_shadow_slots[slot].texture[1];
@@ -4037,6 +4040,10 @@ static struct
 	D3DTexture *blur_texture[SHADOW_BLUR_PAGES];
 	D3DSurface *blur_surface[SHADOW_BLUR_PAGES];
 	boolean blur_cleared[SHADOW_BLUR_PAGES];
+	/* debug.shadow_blur "footprint": pages laid out as the atlas's, gutters included, for the pre-pass */
+	D3DTexture *temp_texture[SHADOW_ATLAS_PAGES];
+	D3DSurface *temp_surface[SHADOW_ATLAS_PAGES];
+	boolean temp_cleared[SHADOW_ATLAS_PAGES];
 } shadow_atlas;
 
 /* the layout for the shadow maps' scale in force, the pages of another one let go */
@@ -4064,6 +4071,15 @@ static void shadow_atlas_layout(
 		shadow_atlas.surface[page] = NULL;
 		shadow_atlas.texture[page] = NULL;
 		shadow_atlas.cleared[page] = FALSE;
+		if (shadow_atlas.temp_surface[page])
+		{
+			halo_shadow_atlas_forget(shadow_atlas.temp_surface[page]);
+			IDirect3DSurface8_Release(shadow_atlas.temp_surface[page]);
+			IDirect3DTexture8_Release(shadow_atlas.temp_texture[page]);
+		}
+		shadow_atlas.temp_surface[page] = NULL;
+		shadow_atlas.temp_texture[page] = NULL;
+		shadow_atlas.temp_cleared[page] = FALSE;
 	}
 	for (page = 0; page < SHADOW_BLUR_PAGES; page++)
 	{
@@ -4105,7 +4121,7 @@ void rasterizer_shadow_atlas_frame_begin(
 
 	shadow_atlas_layout();
 	for (page = 0; page < SHADOW_ATLAS_PAGES; page++)
-		shadow_atlas.cleared[page] = FALSE;
+		shadow_atlas.cleared[page] = shadow_atlas.temp_cleared[page] = FALSE;
 	for (page = 0; page < SHADOW_BLUR_PAGES; page++)
 		shadow_atlas.blur_cleared[page] = FALSE;
 	shadow_atlas_tile = NONE;
@@ -4189,6 +4205,61 @@ boolean rasterizer_shadow_atlas_select(
 	global_d3d_surface_shadow_secondary = rasterizer_shadow_slots[slot].surface[1];
 	shadow_atlas_tile = tile;
 	shadow_blur_tile = NONE;
+	shadow_prepass_tile = NONE;
+	return TRUE;
+}
+
+/* debug.shadow_blur "footprint": the pre-pass page that holds the tile, made if need be, and cleared (gutters too)
+before its first tile of the frame */
+static D3DSurface *shadow_temp_page(
+	short tile)
+{
+	short page = tile / (shadow_atlas.columns * shadow_atlas.columns);
+
+	if (page < 0 || page >= SHADOW_ATLAS_PAGES)
+		return NULL;
+	if (!shadow_atlas.temp_surface[page])
+	{
+		if (IDirect3DDevice8_CreateTexture(global_d3d_device, shadow_atlas.size, shadow_atlas.size, 1,
+				D3DUSAGE_RENDERTARGET, D3DFMT_R5G6B5, D3DPOOL_DEFAULT, &shadow_atlas.temp_texture[page]) < 0 ||
+			!shadow_atlas.temp_texture[page] ||
+			IDirect3DTexture8_GetSurfaceLevel(shadow_atlas.temp_texture[page], 0, &shadow_atlas.temp_surface[page]) < 0)
+		{
+			shadow_atlas.temp_surface[page] = NULL;
+			return NULL;
+		}
+		halo_shadow_atlas_register(shadow_atlas.temp_surface[page]);
+	}
+	if (!shadow_atlas.temp_cleared[page])
+	{
+		D3DVIEWPORT8 viewport;
+
+		viewport.X = 0;
+		viewport.Y = 0;
+		viewport.Width = shadow_atlas.size;
+		viewport.Height = shadow_atlas.size;
+		viewport.MinZ = 0.0f;
+		viewport.MaxZ = 1.0f;
+		IDirect3DDevice8_SetRenderTarget(global_d3d_device, shadow_atlas.temp_surface[page], NULL);
+		IDirect3DDevice8_SetViewport(global_d3d_device, &viewport);
+		IDirect3DDevice8_Clear(global_d3d_device, 0, NULL, D3DCLEAR_TARGET, 0, 1.0f, 0);
+		shadow_atlas.temp_cleared[page] = TRUE;
+	}
+	return shadow_atlas.temp_surface[page];
+}
+
+/* debug.shadow_blur "footprint": the pre-pass's targets, the first at the shadow's atlas tile and the second at the
+same tile of a pre-pass page */
+boolean rasterizer_shadow_prepass_select(
+	short tile)
+{
+	D3DSurface *page;
+
+	if (!rasterizer_shadow_atlas_select(tile) || !(page = shadow_temp_page(tile)))
+		return FALSE;
+	global_d3d_texture_shadow_secondary = shadow_atlas.temp_texture[tile / (shadow_atlas.columns * shadow_atlas.columns)];
+	global_d3d_surface_shadow_secondary = page;
+	shadow_prepass_tile = tile;
 	return TRUE;
 }
 
@@ -4269,6 +4340,20 @@ boolean rasterizer_shadow_blur_select(
 	return TRUE;
 }
 
+/* debug.shadow_blur "footprint": as rasterizer_shadow_blur_select, the blur's source the pre-pass page's tile (laid
+out as the atlas's, so rasterizer_shadow_atlas_mapping holds for it) */
+boolean rasterizer_shadow_blur_select_prepassed(
+	short tile)
+{
+	short page = tile / (shadow_atlas.columns * shadow_atlas.columns);
+
+	if (page < 0 || page >= SHADOW_ATLAS_PAGES || !shadow_atlas.temp_texture[page] || !rasterizer_shadow_blur_select(tile))
+		return FALSE;
+	global_d3d_texture_shadow_primary = shadow_atlas.temp_texture[page];
+	global_d3d_surface_shadow_primary = shadow_atlas.temp_surface[page];
+	return TRUE;
+}
+
 /* the blur tiles of the deferred shadows from first on, count of them, made their second targets, a blur page at a
 time; FALSE if a page's cannot be (that page's are not) */
 boolean rasterizer_shadow_blur_copy(
@@ -4329,7 +4414,10 @@ static boolean rasterizer_shadow_atlas_viewport(
 {
 	long x, y;
 
-	if (shadow_blur_tile != NONE && surface == global_d3d_surface_shadow_secondary &&
+	if (shadow_prepass_tile != NONE && surface == global_d3d_surface_shadow_secondary &&
+		surface == shadow_atlas.temp_surface[shadow_prepass_tile / (shadow_atlas.columns * shadow_atlas.columns)])
+		shadow_atlas_origin(shadow_prepass_tile, &x, &y);
+	else if (shadow_blur_tile != NONE && surface == global_d3d_surface_shadow_secondary &&
 		surface == shadow_atlas.blur_surface[shadow_blur_tile / rasterizer_shadow_blur_capacity()])
 		shadow_blur_origin(shadow_blur_tile, &x, &y);
 	else if (shadow_atlas_tile == NONE || surface != global_d3d_surface_shadow_primary)
