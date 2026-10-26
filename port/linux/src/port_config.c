@@ -1144,7 +1144,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
-		"anti-aliasing, effect resolution, mirror resolution) and left and right\n"
+		"anti-aliasing, effect resolution, mirror resolution, and \"shadows\": the\n"
+		"shadow map size and blur together, 128 with the game's blur, 256 and 512\n"
+		"with the footprint blur and 512 with the game's) and left and right\n"
 		"step its value as the game runs, from the next frame, shown on screen for\n"
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
 		"the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and\n"

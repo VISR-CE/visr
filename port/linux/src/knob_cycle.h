@@ -22,6 +22,9 @@ struct knob
 	int count;
 	const char *values[KNOB_VALUE_MAXIMUM];
 	const char *shown[KNOB_VALUE_MAXIMUM];
+	/* 1: read again from the renderer at every press, since something else may change it (the shadow_preset
+	console command), and stepped round the ends; 0: read once, and stopped at the ends */
+	int live;
 };
 
 /* The render height does not apply under foveated head-tracked stereo (the Compositor's rate maps size the eyes);
@@ -30,14 +33,18 @@ allocated until the app quits. Not here because they cannot change while the gam
 display.compressed_textures, display.renderer and display.foveation. */
 static const struct knob knob_table[] = {
 	{ "render lines", "display.render_height", KNOB_INTEGER, 5, { "0", "540", "720", "900", "1080" },
-		{ "profile", "540", "720", "900", "1080" } },
+		{ "profile", "540", "720", "900", "1080" }, 0 },
 	{ "shadow map", "display.shadow_map_size", KNOB_INTEGER, 4, { "128", "256", "512", "1024" },
-		{ "128", "256", "512", "1024" } },
+		{ "128", "256", "512", "1024" }, 0 },
 	{ "anisotropy", "display.anisotropic_filtering", KNOB_INTEGER, 5, { "1", "2", "4", "8", "16" },
-		{ "1x", "2x", "4x", "8x", "16x" } },
-	{ "model detail", "display.model_lod", KNOB_STRING, 2, { "auto", "max" }, { "auto", "max" } },
-	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 3, { "off", "fxaa", "smaa" }, { "off", "FXAA", "SMAA" } },
-	{ "effect resolution", "display.effect_resolution", KNOB_STRING, 3, { "xbox", "half", "full" }, { "xbox", "half", "full" } },
+		{ "1x", "2x", "4x", "8x", "16x" }, 0 },
+	{ "model detail", "display.model_lod", KNOB_STRING, 2, { "auto", "max" }, { "auto", "max" }, 0 },
+	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 3, { "off", "fxaa", "smaa" }, { "off", "FXAA", "SMAA" }, 0 },
+	{ "effect resolution", "display.effect_resolution", KNOB_STRING, 3, { "xbox", "half", "full" }, { "xbox", "half", "full" }, 0 },
+	/* the shadow map size and blur together (halo_knob_apply, d3d8_device.c), last so that Back + up reaches it from
+	the first knob in one press. The value is the size and the blur; the current one is what the renderer uses. */
+	{ "shadows", "shadows", KNOB_STRING, 4, { "128 xbox", "256 footprint", "512 xbox", "512 footprint" },
+		{ "128, Xbox blur", "256, footprint blur", "512, Xbox blur", "512, footprint blur" }, 1 },
 };
 #define KNOB_COUNT ((int)(sizeof(knob_table) / sizeof(*knob_table)))
 
@@ -82,9 +89,10 @@ static inline int knob_value_find(const struct knob *knob, const char *text)
 }
 
 /* The chord's press: select_delta moves to the next or previous knob (round the table), value_delta moves the knob
-chosen to the next or previous value (stopping at the ends). current(knob, text, size) writes the setting's value as
-it stands, for a knob not yet touched. label gets the text to show; the return is 1 when a value changed and
-name/value are what to apply, else 0 (a knob only chosen, or already at its end). */
+chosen to the next or previous value (stopping at the ends, or round them for a live knob). current(knob, text, size)
+writes the setting's value as it stands, for a knob not yet touched (and a live knob at every press). label gets the
+text to show; the return is 1 when a value changed and name/value are what to apply, else 0 (a knob only chosen, or
+already at its end). */
 static inline int knob_cycle_press(struct knob_state *state, int select_delta, int value_delta,
 	void (*current)(const struct knob *knob, char *text, unsigned long size), char *label, unsigned long label_size,
 	const char **name, const char **value)
@@ -95,7 +103,7 @@ static inline int knob_cycle_press(struct knob_state *state, int select_delta, i
 	if (select_delta)
 		state->selected = (state->selected + select_delta + KNOB_COUNT) % KNOB_COUNT;
 	knob = &knob_table[state->selected];
-	if (state->value[state->selected] < 0)
+	if (state->value[state->selected] < 0 || knob->live)
 	{
 		char text[64] = "";
 
@@ -106,6 +114,8 @@ static inline int knob_cycle_press(struct knob_state *state, int select_delta, i
 	{
 		int next = state->value[state->selected] + value_delta;
 
+		if (knob->live)
+			next = (next + knob->count) % knob->count;
 		if (next >= 0 && next < knob->count)
 		{
 			state->value[state->selected] = next;

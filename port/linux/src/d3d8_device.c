@@ -91,6 +91,7 @@ identity of the draw being made, which goes to the host just before the
 draw does, and this file's own fallbacks, by name. In any other build each
 of these is nothing. */
 #include "gpu_validate.h"
+#include "knob_cycle.h"
 #if HALO_RENDER_VALIDATION
 static struct gpu_validation_identity validation_draw;
 /* the game code that called: a guest address in the iOS guest */
@@ -252,6 +253,8 @@ static long benchmark_render_lines, benchmark_shadow_size, benchmark_anisotropy;
 /* debug.knob_cycle (halo_knob_apply): the same settings changed while the game runs, in place of the settings; the
 benchmark's values come first. 0 leaves the setting in force, and for the effect target -1 */
 static long knob_render_lines, knob_shadow_size, knob_anisotropy;
+/* the "shadows" knob's blur for shadow maps above 128 texels: 1 the footprint blur, 0 the game's, -1 debug.shadow_blur */
+static int knob_shadow_blur = -1;
 /* the frame the offscreen targets of an older size are freed on (knob_targets_release); 0 for none */
 static unsigned long knob_release_frame;
 static int knob_effect_level = -1;
@@ -1288,7 +1291,14 @@ int halo_shadow_blur_footprint(void)
 		game_blur = !strcmp(config_string("debug.shadow_blur"), "xbox");
 		read_at = revision;
 	}
-	return !game_blur && halo_shadow_target_scale() > 1.0f;
+	return (knob_shadow_blur >= 0 ? knob_shadow_blur : !game_blur) && halo_shadow_target_scale() > 1.0f;
+}
+
+/* debug.knob_cycle's "shadows" knob as the renderer has it, "<size> <blur>" ("512 footprint"; 128 is always "xbox") */
+void halo_shadows_in_force(char *text, unsigned long size)
+{
+	snprintf(text, size, "%ld %s", lroundf(halo_shadow_target_scale() * 128.0f),
+		halo_shadow_blur_footprint() ? "footprint" : "xbox");
 }
 
 static void recent_render_targets_forget(void);
@@ -2291,6 +2301,14 @@ int halo_knob_apply(const char *name, const char *value)
 		anti_aliasing_live_set(value);
 	else if (!strcmp(name, "display.effect_resolution"))
 		knob_effect_level = effect_resolution_level(value);
+	else if (!strcmp(name, "shadows"))
+	{
+		/* "<size> <blur>": the shadow map size, and "footprint" or "xbox" for the blur above 128 texels */
+		knob_shadow_size = atol(value);
+		knob_shadow_blur = strstr(value, "footprint") != NULL;
+		platform_log("shadows: %ld texels, %s blur from frame %lu (the knob cycle, until the app quits)",
+			knob_shadow_size, knob_shadow_blur ? "footprint" : "Xbox", (unsigned long)device.frame + 1);
+	}
 	else
 		return 0;
 	/* the new targets are allocated by the next frames; the old ones go two seconds on */
@@ -2334,6 +2352,33 @@ static void knob_script_frame(void)
 			}
 		}
 		script = *stop ? stop + 1 : stop;
+	}
+}
+
+/* the shadow_preset console command (source/hs/hs.c): the "shadows" knob's preset at INDEX (0 to 3, knob_cycle.h's
+order), applied, shown and logged as a press of the chord would be */
+void halo_knob_message(const char *text);
+
+void halo_shadow_preset(long index)
+{
+	int knob;
+
+	for (knob = 0; knob < KNOB_COUNT; knob++)
+		if (!strcmp(knob_table[knob].name, "shadows"))
+			break;
+	if (knob == KNOB_COUNT || index < 0 || index >= knob_table[knob].count)
+	{
+		platform_log("shadow_preset: %ld is not a preset (0 to %d)", index, knob == KNOB_COUNT ? -1 :
+			knob_table[knob].count - 1);
+		return;
+	}
+	{
+		char label[96];
+
+		halo_knob_apply("shadows", knob_table[knob].values[index]);
+		platform_log("knob: shadows=%s (shadow_preset %ld)", knob_table[knob].values[index], index);
+		snprintf(label, sizeof(label), "%s %s", knob_table[knob].label, knob_table[knob].shown[index]);
+		halo_knob_message(label);
 	}
 }
 

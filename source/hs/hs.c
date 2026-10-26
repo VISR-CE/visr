@@ -3382,7 +3382,7 @@ typedef void (*hs_token_enumerator)(
 
 struct hs_function_table_storage
 {
-	struct hs_function_definition const *functions[418 + 6];
+	struct hs_function_definition const *functions[418 + 7];
 	struct profile_section profile;
 	hs_token_enumerator token_enumerators[18];
 };
@@ -11773,7 +11773,28 @@ static struct hs_function_definition_with_1_parameter const debug_structure_cull
 	},
 };
 
-long const hs_function_table_count= 418 + 6;
+/* port: debug.knob_cycle's "shadows" presets (the shadow map size and blur together) change only this machine's
+rendering (d3d8_device.c) */
+void halo_shadow_preset(long index);
+
+HS_EVALUATE_VOID_LONG(hs_shadow_preset_evaluate, halo_shadow_preset)
+
+static struct hs_function_definition_with_1_parameter const shadow_preset_definition=
+{
+	{
+		_hs_type_void,
+		0,
+		"shadow_preset",
+		hs_macro_function_parse,
+		hs_shadow_preset_evaluate,
+		"the object shadows' size and blur until the app quits: 0 128 texels with the game's blur, 1 256 with the footprint blur, 2 512 with the game's, 3 512 with the footprint blur.",
+		NULL,
+		1,
+		{ _hs_type_long_integer },
+	},
+};
+
+long const hs_function_table_count= 418 + 7;
 
 struct hs_enum_definition const hs_enum_table[]=
 {
@@ -12211,6 +12232,7 @@ struct hs_function_table_storage hs_function_table=
 		&loose_sounds_definition.definition,
 		&structure_culling_definition.definition, /* port: local structure culling switch */
 		&debug_structure_culling_definition.definition, /* port: local culling debug view */
+		&shadow_preset_definition.definition, /* port: local shadow size and blur */
 	},
 	{
 		"hs_update",
@@ -12720,6 +12742,7 @@ static boolean const hs_function_allowed_in_maps[]=
 	/* port: local structure rendering */
 	FALSE, /* structure_culling: this machine's rendering */
 	FALSE, /* debug_structure_culling: this machine's rendering */
+	FALSE, /* shadow_preset: this machine's rendering */
 };
 typedef char verify_hs_function_allowed_in_maps_size[
 	NUMBEROF(hs_function_allowed_in_maps) == NUMBEROF(hs_function_table.functions) ? 1 : -1];
@@ -15348,6 +15371,7 @@ static boolean hs_expression_changes_no_game(
 		"player3_look_pitch_rate",
 		"structure_culling", /* port: only this machine's rendering */
 		"debug_structure_culling", /* port: only this machine's rendering */
+		"shadow_preset", /* port: only this machine's rendering */
 		"true", "false", "on", "off",
 	};
 	char const *character = expression;

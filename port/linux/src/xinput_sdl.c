@@ -169,10 +169,13 @@ static void back_dpad(XINPUT_GAMEPAD *pad)
 /* d3d8_device.c */
 int halo_knob_apply(const char *name, const char *value);
 void halo_knob_message(const char *text);
+void halo_shadows_in_force(char *text, unsigned long size);
 
 static void knob_current(const struct knob *knob, char *text, unsigned long size)
 {
-	if (knob->kind == KNOB_INTEGER)
+	if (!strcmp(knob->name, "shadows"))
+		halo_shadows_in_force(text, size);
+	else if (knob->kind == KNOB_INTEGER)
 		snprintf(text, size, "%ld", config_integer(knob->name));
 	else if (knob->kind == KNOB_BOOLEAN)
 		snprintf(text, size, "%s", config_boolean(knob->name) ? "true" : "false");
@@ -181,7 +184,8 @@ static void knob_current(const struct knob *knob, char *text, unsigned long size
 }
 
 /* debug.knob_cycle: while Back is held, the D-pad's up and down choose a quality setting (render lines, shadow map
-size, anisotropy, model detail, anti-aliasing, effect and mirror resolution; knob_cycle.h) and left and right step
+size, anisotropy, model detail, anti-aliasing, effect and mirror resolution, and the shadow size and blur together;
+knob_cycle.h) and left and right step
 its value, applied from the next frame and shown on screen for two seconds. The game never sees the D-pad while
 Back is held. It runs ahead of the other D-pad chords (debug.render_scale_dpad, debug.external_mode and
 debug.sense_tuning_chord's D-pad pitch step), which get no D-pad presses while it is on. */

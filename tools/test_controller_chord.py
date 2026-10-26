@@ -122,6 +122,7 @@ static long config_integer(const char *name){ return !strcmp(name, "display.shad
 static const char *config_string(const char *name){ (void)name; return "max"; }
 static int halo_knob_apply(const char *name, const char *value){ snprintf(applied, sizeof(applied), "%s=%s", name, value); applications++; return 1; }
 static void halo_knob_message(const char *text){ snprintf(message, sizeof(message), "%s", text); }
+static void halo_shadows_in_force(char *text, unsigned long size){ snprintf(text, size, "512 xbox"); }
 static void platform_log(const char *format, const char *name, const char *value){ (void)format; snprintf(logged, sizeof(logged), "knob: %s=%s", name, value); }
 '''
 
@@ -172,6 +173,25 @@ int main(void){
  knob_cycle_chord(&pad);
  assert(applications==1 && !strcmp(applied, "display.shadow_map_size=256") && !strcmp(logged, "knob: display.shadow_map_size=256"));
  assert(!strcmp(message, "shadow map 256") && pad.wButtons==XINPUT_GAMEPAD_BACK);
+ return 0;
+}
+''')
+
+
+def test_knob_chord_reaches_the_shadows_preset_with_one_press_and_steps_round(tmp_path):
+    run_knob_chord(tmp_path, "knob_shadows", 1, r'''
+int main(void){
+ XINPUT_GAMEPAD pad={0};
+ /* Back + up from the first knob chooses the shadows preset, at what the renderer has */
+ pad.wButtons=XINPUT_GAMEPAD_BACK|XINPUT_GAMEPAD_DPAD_UP;
+ knob_cycle_chord(&pad);
+ assert(!applications && !strcmp(message, "shadows 512, Xbox blur"));
+ /* right steps to the next preset, and past the last round to the first */
+ pad.wButtons=XINPUT_GAMEPAD_BACK;
+ knob_cycle_chord(&pad);
+ pad.wButtons=XINPUT_GAMEPAD_BACK|XINPUT_GAMEPAD_DPAD_RIGHT;
+ knob_cycle_chord(&pad);
+ assert(applications==1 && !strcmp(applied, "shadows=512 footprint") && !strcmp(message, "shadows 512, footprint blur"));
  return 0;
 }
 ''')
