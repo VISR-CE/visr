@@ -20,6 +20,7 @@ layouts).
 #include "../../shader_observations.h"
 #include "halo_stereo.h"
 #include "halo_spatial.h"
+#include "halo_host_pointer.h"
 
 /* Whether the current output is an external display (context values are never saved). */
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size);
@@ -173,6 +174,16 @@ host_sdl_text_result gives once it is done: 1 and the text, 2 if it was
 canceled, 0 while there is none */
 void host_sdl_text_input(int on, const char *title, const char *text, int masked);
 int host_sdl_text_result(char *buffer, unsigned int size);
+
+/* ---------- fingers and pointer devices in the menus (d3d8_device.c's halo_ui_pointer_update)
+
+struct host_ui_pointer crosses as it is (halo_host_pointer.h asserts its size). */
+
+/* fills what the host's fingers and pointer devices did since the last call;
+active stays 0 where the host has none */
+void host_ui_pointer_read(struct host_ui_pointer *pointer);
+/* the menus acted on the pointer: a host_ui_pointer_feedback_kind, for the Taptic Engine */
+void host_ui_pointer_feedback(int kind);
 /* the keyboard's keys by name (the controls' bindings, xinput_sdl.c) */
 void host_sdl_scancode_name(int scancode, char *buffer, unsigned int size);
 int host_sdl_scancode_from_name(const char *name);

@@ -39,6 +39,17 @@ void host_ios_prepare_assets(const char *documents);
 void host_tv_import(const char *documents);
 void host_ios_touch_attach(struct SDL_Window *window);
 void host_ios_touch_reset(void);
+/* the menus' pointer (host_sdl.c keeps its state; host_menu_pointer.m adds fingers): what the Taptic Engine does
+   for the menus, and what the touch controls do when a menu comes up or goes away */
+struct host_ui_pointer;
+struct host_menu_pointer;
+struct host_menu_pointer *host_menu_pointer_shared(void);
+/* host_menu_pointer.m: fingers on the game's view drive the menus; the touch controls call this when they attach */
+void host_menu_pointer_attach(void *root_view);
+/* host_touch.m: whether a replay holds the touch controls, and a menu coming up or going away */
+int host_ios_touch_blocked(void);
+void host_ios_touch_menu_changed(int menus);
+void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int));
 void host_touch_replay_active(int active);
 void host_ios_touch_pause(void);
 /* debug.frame_counter (host_frame_counter.m): a label in the window's corner
