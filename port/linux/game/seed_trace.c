@@ -54,6 +54,7 @@ static int trace_open(void)
 	if (trace_state != 0)
 		return trace_state > 0;
 	trace_state = config_boolean("debug.seed_trace") ? 1 : -1;
+	platform_log("debug.seed_trace: %s at the first tick", trace_state > 0 ? "on" : "off");
 	if (trace_state > 0)
 	{
 		snprintf(path, sizeof(path), "%s/recordings", platform_data_root());
@@ -61,7 +62,10 @@ static int trace_open(void)
 		snprintf(path, sizeof(path), "%s/recordings/seed-trace.log", platform_data_root());
 		trace_file = fopen(path, "w");
 		if (!trace_file)
+		{
+			platform_log("debug.seed_trace: cannot write %s", path);
 			trace_state = -1;
+		}
 		else
 		{
 			platform_log("debug.seed_trace: writing %s", path);
