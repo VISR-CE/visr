@@ -1566,6 +1566,17 @@
             "apple"
           ]
         },
+        "knob_at": {
+          "type": "string",
+          "default": "",
+          "description": "Change debug.knob_cycle's settings at given frames, for checks: \"frame:setting=value\", several separated by commas (\"1230:display.shadow_map_size=256\"); empty none.",
+          "x-environment": "HALO_KNOB_AT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "sense_tuning_chord": {
           "type": "boolean",
           "default": false,

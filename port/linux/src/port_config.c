@@ -1149,6 +1149,9 @@ static const struct config_setting config_settings[] =
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
 		"the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and\n"
 		"debug.sense_tuning_chord's D-pad step get none of its presses. Not saved." },
+	{ "debug.knob_at", _config_string, "\"\"", "HALO_KNOB_AT", _environment_value, _platform_all,
+		"Change debug.knob_cycle's settings at given frames, for checks: \"frame:setting=value\",\n"
+		"several separated by commas (\"1230:display.shadow_map_size=256\"); empty none." },
 	{ "debug.sense_tuning_chord", _config_boolean, "false", "HALO_SENSE_TUNING_CHORD", _environment_value, _platform_ios,
 		"While a hand aims and Back (Create) is held, controller buttons change aim and\n"
 		"arms tuning as the game runs (laser mode, aim assist, steadying, pitch offset,\n"

@@ -2249,6 +2249,45 @@ int halo_knob_apply(const char *name, const char *value)
 	return 1;
 }
 
+/* debug.knob_at: knob changes at given frames, for a check that compares a change made while the game runs with the
+same setting from launch: "frame:setting=value", several separated by commas (1230:display.shadow_map_size=256).
+Each is applied as the chord applies it (halo_knob_apply), as that frame begins. */
+static void knob_script_frame(void)
+{
+	const char *script = config_string("debug.knob_at");
+
+	while (script && *script)
+	{
+		char *end;
+		unsigned long frame = strtoul(script, &end, 10);
+		const char *equals, *stop;
+
+		if (end == script || *end != ':')
+			return;
+		script = end + 1;
+		stop = strchr(script, ',');
+		if (!stop)
+			stop = script + strlen(script);
+		equals = memchr(script, '=', (size_t)(stop - script));
+		if (equals && frame == device.frame)
+		{
+			char name[64], value[64];
+			size_t name_length = (size_t)(equals - script), value_length = (size_t)(stop - equals - 1);
+
+			if (name_length < sizeof(name) && value_length < sizeof(value))
+			{
+				memcpy(name, script, name_length);
+				name[name_length] = 0;
+				memcpy(value, equals + 1, value_length);
+				value[value_length] = 0;
+				if (halo_knob_apply(name, value))
+					platform_log("knob: %s=%s (debug.knob_at, frame %lu)", name, value, frame);
+			}
+		}
+		script = *stop ? stop + 1 : stop;
+	}
+}
+
 /* A cost run's anti-aliasing method (0 off, 1 fxaa, 2 smaa), effect resolution (0 xbox, 1 half, 2 full) and render
 scale (benchmark_suite.c), from the next frame and in place of the settings; -1 (0 for the scale)
 leaves one as configured. Called with all of them so when a run or the suite ends. */
@@ -7376,6 +7415,7 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		native_targets_release();
 	if (knob_release_frame && device.frame >= knob_release_frame)
 		knob_targets_release();
+	knob_script_frame();
 	device.frame++;
 	input_replay_frame(lroundf(screen_width * screen_scale[0]), lroundf(SCREEN_HEIGHT * screen_scale[1]));
 	/* (dynamic resolution: the run's size is its ceiling; the lines per frame are
