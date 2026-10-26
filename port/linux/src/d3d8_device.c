@@ -1293,8 +1293,7 @@ int halo_shadow_blur_footprint(void)
 
 static void recent_render_targets_forget(void);
 
-/* out of its address bucket, and freed (the backend holds the texture until the frames using it are done) */
-static void render_target_entry_free(struct render_target_entry *entry)
+static void render_target_entry_unbucket(struct render_target_entry *entry)
 {
 	struct render_target_entry **bucket = render_target_bucket(entry->target.data);
 
@@ -1302,8 +1301,55 @@ static void render_target_entry_free(struct render_target_entry *entry)
 		bucket = &(*bucket)->next_in_bucket;
 	if (*bucket)
 		*bucket = entry->next_in_bucket;
+}
+
+/* out of its address bucket, and freed (the backend holds the texture until the frames using it are done) */
+static void render_target_entry_free(struct render_target_entry *entry)
+{
+	render_target_entry_unbucket(entry);
 	gpu_texture_destroy(entry->target.texture);
 	free(entry);
+}
+
+/* Textures freed a few frames late (retired_textures_release, as each frame begins). The shadow atlas's pages are
+let go and made again within one frame when the shadow maps' size changes (rasterizer_xbox.c, shadow_atlas_layout),
+and a new page that took a page's freed texture at once drew nothing for the rest of the run, under Metal and GL
+alike: every object shadow was lost until the app quit. */
+#define RETIRED_TEXTURE_FRAMES 3
+#define RETIRED_TEXTURE_COUNT 128
+static struct
+{
+	gpu_texture texture;
+	unsigned long frame;
+} retired_textures[RETIRED_TEXTURE_COUNT];
+static int retired_texture_count;
+
+static void texture_retire(gpu_texture texture)
+{
+	if (!texture)
+		return;
+	if (retired_texture_count == RETIRED_TEXTURE_COUNT)
+	{
+		gpu_texture_destroy(texture);
+		return;
+	}
+	retired_textures[retired_texture_count].texture = texture;
+	retired_textures[retired_texture_count].frame = device.frame + RETIRED_TEXTURE_FRAMES;
+	retired_texture_count++;
+}
+
+static void retired_textures_release(void)
+{
+	int index, kept = 0;
+
+	for (index = 0; index < retired_texture_count; index++)
+	{
+		if (device.frame >= retired_textures[index].frame)
+			gpu_texture_destroy(retired_textures[index].texture);
+		else
+			retired_textures[kept++] = retired_textures[index];
+	}
+	retired_texture_count = kept;
 }
 
 void halo_shadow_atlas_register(D3DSurface *surface)
@@ -1342,7 +1388,10 @@ void halo_shadow_atlas_forget(D3DSurface *surface)
 			continue;
 		}
 		*link = entry->next;
-		render_target_entry_free(entry);
+		/* (its texture a few frames on: the pages that replace it are made in this frame) */
+		render_target_entry_unbucket(entry);
+		texture_retire(entry->target.texture);
+		free(entry);
 	}
 }
 
@@ -7415,6 +7464,7 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		native_targets_release();
 	if (knob_release_frame && device.frame >= knob_release_frame)
 		knob_targets_release();
+	retired_textures_release();
 	knob_script_frame();
 	device.frame++;
 	input_replay_frame(lroundf(screen_width * screen_scale[0]), lroundf(SCREEN_HEIGHT * screen_scale[1]));

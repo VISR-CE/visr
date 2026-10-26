@@ -1165,10 +1165,14 @@ static void gpu_gl_texture_upload(gpu_texture texture, uint32_t face, uint32_t l
 	}
 }
 
+static void framebuffers_forget(GLuint texture);
+
 static void gpu_gl_texture_destroy(gpu_texture texture)
 {
 	GLuint name = texture;
 
+	/* (GL hands the name out again: a framebuffer kept for it would draw into the deleted texture) */
+	framebuffers_forget(name);
 	glDeleteTextures(1, &name);
 	/* deleting a bound texture unbinds it */
 	state_invalidate();
@@ -1198,6 +1202,24 @@ struct framebuffer_entry
 };
 
 static struct framebuffer_entry *framebuffers;
+
+/* the framebuffers made for a texture that is going away */
+static void framebuffers_forget(GLuint texture)
+{
+	struct framebuffer_entry *entry, **link = &framebuffers;
+
+	while ((entry = *link) != NULL)
+	{
+		if (entry->color != texture && entry->depth != texture)
+		{
+			link = &entry->next;
+			continue;
+		}
+		*link = entry->next;
+		glDeleteFramebuffers(1, &entry->framebuffer);
+		free(entry);
+	}
+}
 
 static GLuint framebuffer_get(GLuint color, GLuint depth)
 {
