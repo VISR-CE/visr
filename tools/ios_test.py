@@ -335,6 +335,14 @@ run(BUILD / 'touch-replay-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
     'port/ios/tests/touch_controller_probe.c', '-o', BUILD / 'touch-controller-probe')
 run(BUILD / 'touch-controller-probe')
+# fingers and pointer devices on the menus: the state machine, the mapping to the menus' coordinates, and the
+# struct that crosses to the guest (its layout must hold under the guest's arm64_32 flags too)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_pointer_probe.c', '-o', BUILD / 'menu-pointer-probe')
+run(BUILD / 'menu-pointer-probe')
+run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',
+    '-fno-stack-protector', '-ffreestanding', '-Iport/runtime/include', '-fsyntax-only', '-x', 'c',
+    'port/runtime/include/halo_host_pointer.h')
 # a recorded route replays: tools/route_check.py's verdicts, and the suite's difficulty for the next map
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/input_replay_probe.c', '-o', BUILD / 'input-replay-probe')

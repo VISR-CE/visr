@@ -28,6 +28,8 @@ Conventions carried over from the Xbox:
 #include "xgpu.h"
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
+#include "halo_ui_pointer_map.h"
+#include "halo_host_pointer.h"
 #include "port_config.h"
 #include "halo_display.h"
 #ifdef HALO_ILP32
@@ -2881,22 +2883,99 @@ HRESULT WINAPI Direct3D_CreateDevice(UINT adapter, D3DDEVTYPE device_type, void 
 
 /* ---------- the menus' pointer */
 
+/* the geometry of the picture the menus are drawn in: the back buffer as the
+display blit fits it into a surface of the given size */
+static int ui_pointer_geometry(struct halo_ui_pointer_geometry *g, int window_width, int window_height,
+	int pixel_width, int pixel_height)
+{
+	struct render_target_entry *back_buffer = render_target_get(&device.back_buffer);
+
+	if (!back_buffer)
+		return FALSE;
+	g->window_width = window_width;
+	g->window_height = window_height;
+	g->pixel_width = pixel_width;
+	g->pixel_height = pixel_height;
+	g->picture_gl_width = back_buffer->target.gl_width;
+	g->picture_gl_height = back_buffer->target.gl_height;
+	g->picture_width = back_buffer->target.width;
+	g->picture_height = back_buffer->target.height;
+	g->screen_width = halo_screen_width();
+	return TRUE;
+}
+
 #ifdef HALO_ILP32
+/* the host's fingers and pointer devices (halo_host_pointer.h, guest_sdl.c) */
+void halo_host_pointer_read(struct host_ui_pointer *pointer);
+void halo_host_pointer_feedback(int kind);
+
+/* a point on the host's surface (points) in the menus' coordinates: the
+surface's aspect is all that matters, so it stands for both the window and
+the drawable, scaled to keep the fractions of a point */
+#define UI_POINTER_SCALE 8.0f
+static void ui_point_from_surface(const struct host_ui_pointer *host, float surface_x, float surface_y, short *x,
+	short *y)
+{
+	struct halo_ui_pointer_geometry g;
+	int width = (int)(host->surface_width * UI_POINTER_SCALE), height = (int)(host->surface_height * UI_POINTER_SCALE);
+
+	*x = *y = -1;
+	if (ui_pointer_geometry(&g, width, height, width, height))
+		halo_ui_pointer_map(&g, surface_x * UI_POINTER_SCALE, surface_y * UI_POINTER_SCALE, x, y);
+}
+
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 {
-	static int pause_menu = -1;
+	static int pause_menu = -1, menu_up = -1;
 	int paused = menus_active && halo_scene_class() != CONFIG_SCENE_MENU;
+	struct host_ui_pointer host;
 
-	(void)pointer;
-	/* The native sender's audio picker belongs to the in-game menus. This
-	runs every frame, so only changes cross to the host. */
+	/* The native sender's audio picker and the touch controls belong to the
+	menus. This runs every frame, so only changes cross to the host. */
 	if (paused != pause_menu)
 	{
 		pause_menu = paused;
 		host_sdl_set_hint("VISR_PAUSE_MENU", paused ? "1" : "0");
 	}
+	if ((menus_active != 0) != menu_up)
+	{
+		menu_up = menus_active != 0;
+		host_sdl_set_hint("VISR_MENU_ACTIVE", menu_up ? "1" : "0");
+	}
 	platform_menus_set_active(menus_active != 0);
-	return 0;
+	if (!menus_active)
+		return 0;
+	memset(&host, 0, sizeof(host));
+	halo_host_pointer_read(&host);
+	/* (no host source: the menus have no pointer, as on the Apple TV) */
+	if (!host.active)
+		return 0;
+	memset(pointer, 0, sizeof(*pointer));
+	if (host.surface_width > 0.0f && host.surface_height > 0.0f)
+	{
+		struct halo_ui_pointer_geometry g;
+		int width = (int)(host.surface_width * UI_POINTER_SCALE), height = (int)(host.surface_height * UI_POINTER_SCALE);
+
+		ui_point_from_surface(&host, host.x, host.y, &pointer->x, &pointer->y);
+		ui_point_from_surface(&host, host.click_x, host.click_y, &pointer->click_x, &pointer->click_y);
+		if (host.radius > 0.0f && ui_pointer_geometry(&g, width, height, width, height))
+		{
+			float radius = halo_ui_pointer_length(&g, host.radius * UI_POINTER_SCALE);
+
+			pointer->radius = (short)(radius < 1.0f ? 1 : radius > 64.0f ? 64 : radius);
+		}
+	}
+	pointer->moved = host.moved != 0;
+	pointer->left_clicks = (unsigned char)(host.left_clicks < 0 ? 0 : host.left_clicks < 255 ? host.left_clicks : 255);
+	pointer->right_clicks = (unsigned char)(host.right_clicks < 0 ? 0 : host.right_clicks < 255 ? host.right_clicks : 255);
+	/* (the host's steps are positive down the screen; the menus' are positive up the list) */
+	pointer->wheel_steps = (signed char)(host.wheel_steps < -8 ? 8 : host.wheel_steps > 8 ? -8 : -host.wheel_steps);
+	return 1;
+}
+
+void halo_ui_pointer_feedback(int kind)
+{
+	halo_host_pointer_feedback(kind);
 }
 #else
 /* a point in the window, as SDL reports it, in the menus' coordinates: the
@@ -2904,30 +2983,14 @@ inverse of the letterboxed display blit at presentation, the screen's
 width and the menus' centering (halo_screen_ui_offset) */
 static void ui_point_from_window(float window_x, float window_y, short *x, short *y)
 {
-	struct render_target_entry *back_buffer = render_target_get(&device.back_buffer);
-	int window_width, window_height, pixel_width, pixel_height, width, height, left, top;
-	float screen_x, screen_y;
+	struct halo_ui_pointer_geometry g;
+	int window_width, window_height, pixel_width, pixel_height;
 
 	*x = *y = -1;
-	if (!back_buffer)
-		return;
 	platform_video_window_size(&window_width, &window_height);
 	platform_video_drawable_size(&pixel_width, &pixel_height);
-	if (window_width <= 0 || window_height <= 0)
-		return;
-	width = pixel_width;
-	height = (int)((long)pixel_width * back_buffer->target.gl_height / back_buffer->target.gl_width);
-	if (height > pixel_height)
-	{
-		height = pixel_height;
-		width = (int)((long)pixel_height * back_buffer->target.gl_width / back_buffer->target.gl_height);
-	}
-	left = (pixel_width - width) / 2;
-	top = (pixel_height - height) / 2;
-	screen_x = (window_x * pixel_width / window_width - left) * (float)back_buffer->target.width / (float)width;
-	screen_y = (window_y * pixel_height / window_height - top) * (float)back_buffer->target.height / (float)height;
-	*x = (short)floorf(screen_x - (float)(halo_screen_width() - 640) / 2.0f);
-	*y = (short)floorf(screen_y);
+	if (ui_pointer_geometry(&g, window_width, window_height, pixel_width, pixel_height))
+		halo_ui_pointer_map(&g, window_x, window_y, x, y);
 }
 
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
@@ -2946,6 +3009,11 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	pointer->right_clicks = (unsigned char)(state.right_clicks < 255 ? state.right_clicks : 255);
 	pointer->wheel_steps = (signed char)(state.wheel_steps < -8 ? -8 : state.wheel_steps > 8 ? 8 : state.wheel_steps);
 	return 1;
+}
+
+void halo_ui_pointer_feedback(int kind)
+{
+	(void)kind;
 }
 #endif
 

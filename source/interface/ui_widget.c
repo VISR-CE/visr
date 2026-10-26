@@ -5801,6 +5801,11 @@ struct ui_mouse_target
 static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
 static long ui_mouse_target_count = 0;
 static boolean ui_mouse_noting_targets = FALSE;
+/* port: a finger's reach (halo_ui_pointer.radius, menu units; 0 for a mouse), and
+whether the menu has drawn since the pointer came: a click before the first draw
+has no targets to find and would otherwise be the "nothing to pick" A */
+static short ui_mouse_radius = 0;
+static boolean ui_mouse_menu_drawn = FALSE;
 
 /* The presses the mouse makes, posted one a frame: the event queue keeps
 only the latest event posted between two frames (queue_event). What they
@@ -6013,12 +6018,27 @@ static void ui_mouse_note_target(
 	return;
 }
 
-/* the target drawn last (so on top, and the innermost) under a point */
+/* the squared distance from a point to a rectangle, 0 inside it */
+static long ui_mouse_distance_squared(
+	short x,
+	short y,
+	rectangle2d const *bounds)
+{
+	long dx = x < bounds->x0 ? bounds->x0 - x : x >= bounds->x1 ? x - (bounds->x1 - 1) : 0;
+	long dy = y < bounds->y0 ? bounds->y0 - y : y >= bounds->y1 ? y - (bounds->y1 - 1) : 0;
+
+	return dx * dx + dy * dy;
+}
+
+/* the target drawn last (so on top, and the innermost) under a point; with a
+radius (a finger), when none contains the point, the nearest within it */
 static struct ui_mouse_target *ui_mouse_target_at(
 	short x,
 	short y)
 {
 	long index;
+	struct ui_mouse_target *nearest = NULL;
+	long nearest_distance = (long)ui_mouse_radius * ui_mouse_radius;
 
 	for (index = ui_mouse_target_count - 1; index >= 0; index--)
 	{
@@ -6026,9 +6046,19 @@ static struct ui_mouse_target *ui_mouse_target_at(
 
 		if (x >= bounds->x0 && x < bounds->x1 && y >= bounds->y0 && y < bounds->y1)
 			return &ui_mouse_targets[index];
+		if (ui_mouse_radius > 0)
+		{
+			long distance = ui_mouse_distance_squared(x, y, bounds);
+
+			if (distance <= nearest_distance && (!nearest || distance < nearest_distance))
+			{
+				nearest = &ui_mouse_targets[index];
+				nearest_distance = distance;
+			}
+		}
 	}
 
-	return NULL;
+	return nearest;
 }
 
 static boolean ui_mouse_widget_has_focus(
@@ -6202,12 +6232,15 @@ static void ui_widgets_process_mouse(
 	if (!halo_ui_pointer_update(ui_mouse_menus_active(), &pointer) ||
 		virtual_keyboard_active())
 	{
+		ui_mouse_menu_drawn = FALSE;
+		ui_mouse_radius = 0;
 		ui_mouse_press_count = 0;
 		ui_mouse_hover_pending = FALSE;
 		ui_mouse_click_pending = FALSE;
 	}
 	else
 	{
+		ui_mouse_radius = pointer.radius;
 		if (pointer.moved)
 		{
 			ui_mouse_hover_pending = TRUE;
@@ -6232,6 +6265,7 @@ static void ui_widgets_process_mouse(
 				ui_mouse_list_directions(widget, &back, &forward);
 			for (step = 0; step < ABS(pointer.wheel_steps) && step < 4; step++)
 				ui_mouse_press(pointer.wheel_steps > 0 ? back : forward);
+			halo_ui_pointer_feedback(1);
 		}
 		if (!ui_mouse_press_count && ui_mouse_hover_pending)
 		{
@@ -6246,13 +6280,23 @@ static void ui_widgets_process_mouse(
 					/* (a selection list's row is chosen by a click, not
 					by passing over it on the way to its buttons) */
 					if (!ui_mouse_selection_row(target->widget))
+					{
+						if (!ui_mouse_widget_has_focus(target->widget))
+							halo_ui_pointer_feedback(1);
 						ui_mouse_give_focus(target->widget);
+					}
 					break;
 				case _ui_mouse_target_list_slot:
 					ui_mouse_step_list_to_slot(target->widget);
+					halo_ui_pointer_feedback(1);
 					break;
 				}
 			}
+		}
+		if (!ui_mouse_press_count && ui_mouse_click_pending && !ui_mouse_menu_drawn)
+		{
+			/* (nothing has been drawn to click on yet) */
+			ui_mouse_click_pending = FALSE;
 		}
 		if (!ui_mouse_press_count && ui_mouse_click_pending)
 		{
@@ -6260,6 +6304,7 @@ static void ui_widgets_process_mouse(
 			target = ui_mouse_target_at(ui_mouse_click_x, ui_mouse_click_y);
 			if (target)
 			{
+				halo_ui_pointer_feedback(2);
 				switch (target->kind)
 				{
 				case _ui_mouse_target_item:
@@ -6308,7 +6353,10 @@ static void ui_widgets_process_mouse(
 						break;
 				}
 				if (index == ui_mouse_target_count)
+				{
+					halo_ui_pointer_feedback(2);
 					ui_mouse_press(_gamepad_analog_button_a);
+				}
 			}
 		}
 		if (ui_mouse_press_count)
@@ -6855,6 +6903,8 @@ void render_ui_widgets(
 					offset,
 					TRUE,
 					FALSE);
+				if (ui_mouse_noting_targets)
+					ui_mouse_menu_drawn = TRUE;
 				ui_mouse_noting_targets = FALSE;
 				if (widget_globals.debug_show_path)
 				{

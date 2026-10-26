@@ -91,6 +91,18 @@ int halo_host_text_result(char *buffer, unsigned int size)
 	return host_sdl_text_result(buffer, size);
 }
 
+/* ---------- the menus' pointer (d3d8_device.c) */
+
+void halo_host_pointer_read(struct host_ui_pointer *pointer)
+{
+	host_ui_pointer_read(pointer);
+}
+
+void halo_host_pointer_feedback(int kind)
+{
+	host_ui_pointer_feedback(kind);
+}
+
 bool SDL_ShowAndroidToast(const char *message, int duration, int gravity, int xoffset, int yoffset)
 {
 	return host_sdl_show_toast(message, duration, gravity, xoffset, yoffset) != 0;
