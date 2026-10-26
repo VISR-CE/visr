@@ -374,6 +374,11 @@ run(BUILD/'dynamic-resolution-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     '-framework', 'AudioToolbox', 'port/ios/tests/frame_deadline_probe.c', '-o', BUILD/'frame-deadline-probe')
 run(BUILD/'frame-deadline-probe')
+# Low Power Mode's frame rate: the power-state notice posted as the system posts it, and the rate across transitions
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-fsanitize=address,undefined',
+    '-DHALO_LOW_POWER_TESTING=1', '-Iport/ios/host', '-framework', 'Foundation',
+    'port/ios/tests/low_power_probe.m', 'port/ios/host/host_low_power.m', '-o', BUILD/'low-power-probe')
+run(BUILD/'low-power-probe')
 # the device benchmark's metrics, plan and journal (port/runtime/benchmark_*.c): percentiles of made-up frames,
 # the sweep walked with made-up devices, and the journal cut at every byte and after every write
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
