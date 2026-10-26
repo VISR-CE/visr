@@ -37,6 +37,8 @@ so the audio callback is handed to a thread that has one.
 #include "host_join_link.h"
 #include "host_external.h"
 #include "host_audio_output.h"
+#include "halo_host_pointer.h"
+#include "host_menu_pointer.h"
 
 #define HANDLE_COUNT 256
 
@@ -104,8 +106,18 @@ static void *handle_get(uint32_t handle, int type)
 
 /* ---------- general */
 
+static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value);
+static void menu_pointer_event(const SDL_Event *event);
+
 int host_sdl_init(uint32_t flags)
 {
+	static int hinted;
+
+	if (!hinted)
+	{
+		hinted = 1;
+		SDL_AddHintCallback("VISR_MENU_ACTIVE", menu_pointer_hint, NULL);
+	}
 	return SDL_Init((SDL_InitFlags)flags);
 }
 
@@ -434,6 +446,7 @@ int host_sdl_poll_event(void *event)
 			return 0;
 	}
 	while (held_back(&host_event));
+	menu_pointer_event(&host_event);
 #if HALO_NATIVE_MAC
     host_macos_normalize_event(&host_event);
 #endif
@@ -818,6 +831,108 @@ void host_sdl_text_input(int on, const char *title, const char *text, int masked
 		text_input_masked = masked != 0;
 	}
 	text_input_wanted = on != 0;
+}
+
+/* ---------- fingers and pointer devices in the menus (halo_host_pointer.h, host_menu_pointer.h)
+
+One state for them all: the fingers (host_menu_pointer.m) and a mouse or
+trackpad (SDL's mouse events, read in host_sdl_poll_event) add to it, and the
+guest's host_ui_pointer_read takes what they did. It reports a source on every
+host with a screen to touch or a mouse to move; the Apple TV and the Vision
+Pro have none, and their menus stay as they were. */
+
+static struct host_menu_pointer menu_pointer;
+static void (*pointer_feedback)(int);
+static void (*pointer_menus_changed)(int);
+
+struct host_menu_pointer *host_menu_pointer_shared(void)
+{
+	return &menu_pointer;
+}
+
+void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int))
+{
+	pointer_feedback = feedback;
+	pointer_menus_changed = menus_changed;
+}
+
+/* the guest publishes VISR_MENU_ACTIVE with the menus (halo_ui_pointer_update) */
+static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value)
+{
+	int menus = value && (value[0] == '1' || !SDL_strcasecmp(value, "true"));
+
+	(void)userdata;
+	(void)name;
+	(void)old_value;
+	host_menu_pointer_set_menus(&menu_pointer, menus);
+	if (pointer_menus_changed)
+		pointer_menus_changed(menus);
+}
+
+static void menu_pointer_event(const SDL_Event *event)
+{
+	static float wheel;
+	SDL_Window *window;
+	int width = 0, height = 0;
+
+	switch (event->type)
+	{
+	case SDL_EVENT_MOUSE_MOTION:
+		if (event->motion.which == SDL_TOUCH_MOUSEID || event->motion.which == SDL_PEN_MOUSEID)
+			return;
+		window = SDL_GetWindowFromID(event->motion.windowID);
+		break;
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+		if (event->button.which == SDL_TOUCH_MOUSEID || event->button.which == SDL_PEN_MOUSEID || !event->button.down)
+			return;
+		window = SDL_GetWindowFromID(event->button.windowID);
+		break;
+	case SDL_EVENT_MOUSE_WHEEL:
+		window = SDL_GetWindowFromID(event->wheel.windowID);
+		break;
+	default:
+		return;
+	}
+	if (window && SDL_GetWindowSize(window, &width, &height))
+		host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
+	switch (event->type)
+	{
+	case SDL_EVENT_MOUSE_MOTION:
+		host_menu_pointer_device_move(&menu_pointer, event->motion.x, event->motion.y);
+		break;
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+		if (event->button.button == SDL_BUTTON_LEFT || event->button.button == SDL_BUTTON_RIGHT)
+			host_menu_pointer_device_click(&menu_pointer, event->button.button == SDL_BUTTON_RIGHT,
+				event->button.x, event->button.y);
+		break;
+	default:
+		wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
+		while (wheel >= 1.0f)
+		{
+			host_menu_pointer_device_wheel(&menu_pointer, 1);
+			wheel -= 1.0f;
+		}
+		while (wheel <= -1.0f)
+		{
+			host_menu_pointer_device_wheel(&menu_pointer, -1);
+			wheel += 1.0f;
+		}
+		break;
+	}
+}
+
+void host_ui_pointer_read(struct host_ui_pointer *pointer)
+{
+	memset(pointer, 0, sizeof(*pointer));
+#if !TARGET_OS_TV && !TARGET_OS_VISION
+	host_menu_pointer_read(&menu_pointer, pointer);
+#endif
+}
+
+void host_ui_pointer_feedback(int kind)
+{
+	if (pointer_feedback)
+		pointer_feedback(kind);
 }
 
 int host_sdl_text_result(char *buffer, uint32_t size)

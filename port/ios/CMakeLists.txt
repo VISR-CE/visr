@@ -118,7 +118,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "visionOS")
     set(HALO_DEVICE_FAMILY 7)
 else()
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
-    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_orientation.m host/host_touch.m
+    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_orientation.m host/host_touch.m host/host_menu_pointer.m
         host/host_texture_settings.m host/texture_refine.m)
     if(HALO_MAC)
         # Mac Catalyst: Info.plist without the iOS-only keys (LSRequiresIPhoneOS, UIRequiresFullScreen, Files sharing)

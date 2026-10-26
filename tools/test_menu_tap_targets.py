@@ -1,0 +1,68 @@
+"""Execute the production menu pointer's target search with a finger's reach."""
+
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
+from unittest import SkipTest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_target_search_reach():
+    source = (ROOT / "source/interface/ui_widget.c").read_text()
+    start = source.index("/* the squared distance from a point to a rectangle")
+    end = source.index("static boolean ui_mouse_widget_has_focus(", start)
+    search = source[start:end]
+    compiler = shutil.which("clang") or shutil.which("cc")
+    if not compiler:
+        raise SkipTest("A C compiler is required for the menu target probe")
+    harness = r'''
+#include <assert.h>
+#include <stddef.h>
+typedef short boolean;
+typedef struct { short x0, y0, x1, y1; } rectangle2d;
+struct widget_instance;
+struct ui_mouse_target { struct widget_instance *widget; rectangle2d bounds; short kind; short button_index; };
+#define UI_MOUSE_MAXIMUM_TARGETS 96
+static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
+static long ui_mouse_target_count = 0;
+static short ui_mouse_radius = 0;
+__SEARCH__
+static void add(short x0, short y0, short x1, short y1) {
+    ui_mouse_targets[ui_mouse_target_count].bounds = (rectangle2d){ x0, y0, x1, y1 };
+    ui_mouse_target_count++;
+}
+int main(void) {
+    /* two rows 20 units tall with a 10 unit gap, and a button drawn over the first row's right end */
+    add(100, 100, 300, 120);
+    add(100, 130, 300, 150);
+    add(250, 100, 300, 120);
+    assert(ui_mouse_target_at(150, 110) == &ui_mouse_targets[0]);
+    /* containment: the target drawn last wins */
+    assert(ui_mouse_target_at(260, 110) == &ui_mouse_targets[2]);
+    /* a mouse (no reach) finds nothing in the gap or outside */
+    assert(!ui_mouse_target_at(150, 125));
+    assert(!ui_mouse_target_at(90, 110));
+    /* a finger's reach: the nearest target within it, none beyond */
+    ui_mouse_radius = 12;
+    assert(ui_mouse_target_at(150, 123) == &ui_mouse_targets[0]);   /* 4 below the first row, 7 above the second */
+    assert(ui_mouse_target_at(150, 127) == &ui_mouse_targets[1]);
+    assert(ui_mouse_target_at(95, 110) == &ui_mouse_targets[0]);
+    assert(!ui_mouse_target_at(60, 110));
+    assert(!ui_mouse_target_at(150, 80));
+    /* containment still beats a nearer edge of another target */
+    assert(ui_mouse_target_at(150, 119) == &ui_mouse_targets[0]);
+    /* the reach does not change what contains the point */
+    assert(ui_mouse_target_at(260, 110) == &ui_mouse_targets[2]);
+    ui_mouse_radius = 0;
+    assert(!ui_mouse_target_at(150, 125));
+    return 0;
+}
+'''.replace("__SEARCH__", search)
+    with tempfile.TemporaryDirectory() as directory:
+        probe = Path(directory) / "probe.c"
+        binary = Path(directory) / "probe"
+        probe.write_text(harness)
+        subprocess.run([compiler, "-O1", "-Wall", "-Werror", str(probe), "-o", str(binary)], check=True)
+        subprocess.run([str(binary)], check=True)

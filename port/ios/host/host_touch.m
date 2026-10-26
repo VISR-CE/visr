@@ -8,12 +8,16 @@
 #include <math.h>
 #include "host_touch_replay.h"
 #include "host_touch_controller.h"
+#include "host_menu_pointer.h"
 
 static struct host_touch_replay_gate replay_gate;
 static void touch_replay_ui_update(void);
 /* whether an attached overlay is out, so controller input knows to put it away (host_touch_controller.h) */
 static atomic_int controls_showing, controller_hide_pending;
 
+/* a menu is up (the guest's VISR_MENU_ACTIVE hint, host_menu_pointer.m): the touch controls keep only what a menu uses */
+static atomic_int menu_up;
+int host_ios_touch_blocked(void) { return host_touch_replay_blocked(&replay_gate); }
 static int pause_pending;
 void host_ios_touch_pause(void) { if (!host_touch_replay_blocked(&replay_gate)) pause_pending=1; }
 static SDL_Joystick *touch_joystick;
@@ -98,6 +102,7 @@ void host_ios_touch_reset(void) {
 }
 
 void host_touch_replay_active(int active) {
+    host_menu_pointer_set_blocked(host_menu_pointer_shared(),active);
     if(host_touch_replay_set(&replay_gate,active,host_ios_touch_reset))
         dispatch_async(dispatch_get_main_queue(),^{ touch_replay_ui_update(); });
 }
@@ -223,7 +228,15 @@ void host_touch_replay_active(int active) {
 - (void)applyVisibility {
     [self reset];
     BOOL hidden=self.manuallyHidden||self.controllerHidden;
-    self.moveStick.hidden=self.lookStick.hidden=hidden;for(UIView *b in self.buttons)b.hidden=hidden;
+    /* in a menu: A, B, X, Y, the arrows and PAUSE, dimmed; the sticks and weapon buttons put away */
+    BOOL menu=atomic_load(&menu_up)!=0;
+    self.moveStick.hidden=self.lookStick.hidden=hidden||menu;
+    for(NSUInteger i=0;i<self.buttons.count;i++) {
+        BOOL keep=i<4||(i>=6&&i<=10);
+        self.buttons[i].hidden=hidden||(menu&&!keep);
+        self.buttons[i].alpha=menu?.45:1;
+    }
+    [CATransaction flush];
     self.toggle.hidden=self.controllerHidden;
     atomic_store(&controls_showing,!self.controllerHidden);
     [self.toggle setTitle:self.manuallyHidden?@"Show controls":@"Hide controls" forState:UIControlStateNormal];
@@ -235,6 +248,8 @@ void host_touch_replay_active(int active) {
     self.controllerHidden=YES;[self applyVisibility];
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    /* a tap on a menu is the menu's (host_menu_pointer.m); it does not bring the controls back */
+    if(atomic_load(&menu_up) && self.controllerHidden)return;
     if(self.controllerHidden){self.controllerHidden=NO;self.manuallyHidden=NO;[self applyVisibility];return;}
     [super touchesBegan:touches withEvent:event];
 }
@@ -280,6 +295,10 @@ void host_touch_replay_active(int active) {
 @end
 
 static NSHashTable<HaloControls *> *attached_controls;
+void host_ios_touch_menu_changed(int menus) {
+    if(atomic_exchange(&menu_up,menus!=0)==(menus!=0))return;
+    for(HaloControls *controls in attached_controls)[controls applyVisibility];
+}
 static void touch_replay_ui_update(void) {
     BOOL blocked=host_touch_replay_blocked(&replay_gate);
     for(HaloControls *controls in attached_controls) {
@@ -325,5 +344,6 @@ void host_ios_touch_attach(SDL_Window *window) {
     static bool watching;
     if(!watching){watching=true;SDL_AddEventWatch(controller_input_watch,NULL);}
     touch_replay_ui_update();
+    host_menu_pointer_attach((__bridge void *)root);
     host_logf(HOST_LOG_INFO,"touch controls attached, %.0fx%.0f",root.bounds.size.width,root.bounds.size.height);
 }
