@@ -41,23 +41,32 @@ static int trace_state; /* 0 not looked at, 1 on, -1 off */
 static int in_tick;
 static long current_tick;
 
-static int trace_on(void)
-{
-	if (trace_state == 0)
-	{
-		trace_state = config_boolean("debug.seed_trace") ? 1 : -1;
-		if (trace_state > 0)
-		{
-			char path[512];
+/* the settings are read by the first tick (a seed's origin is noted at start-up, before they are): what is noted
+before then waits here */
+static struct { const char *what; unsigned long value; } pending[16];
+static int pending_count;
 
-			snprintf(path, sizeof(path), "%s/recordings", platform_data_root());
-			posix_make_directory(path);
-			snprintf(path, sizeof(path), "%s/recordings/seed-trace.log", platform_data_root());
-			trace_file = fopen(path, "w");
-			if (!trace_file)
-				trace_state = -1;
-			else
-				platform_log("debug.seed_trace: writing %s", path);
+static int trace_open(void)
+{
+	char path[512];
+	int index;
+
+	if (trace_state != 0)
+		return trace_state > 0;
+	trace_state = config_boolean("debug.seed_trace") ? 1 : -1;
+	if (trace_state > 0)
+	{
+		snprintf(path, sizeof(path), "%s/recordings", platform_data_root());
+		posix_make_directory(path);
+		snprintf(path, sizeof(path), "%s/recordings/seed-trace.log", platform_data_root());
+		trace_file = fopen(path, "w");
+		if (!trace_file)
+			trace_state = -1;
+		else
+		{
+			platform_log("debug.seed_trace: writing %s", path);
+			for (index = 0; index < pending_count; index++)
+				fprintf(trace_file, "S %s %08lx\n", pending[index].what, pending[index].value);
 		}
 	}
 	return trace_state > 0;
@@ -65,22 +74,27 @@ static int trace_on(void)
 
 void seed_trace_note(const char *what, unsigned long value)
 {
-	if (trace_on())
+	if (trace_state > 0)
 		fprintf(trace_file, "S %s %08lx\n", what, value);
+	else if (trace_state == 0 && pending_count < 16)
+	{
+		pending[pending_count].what = what;
+		pending[pending_count++].value = value;
+	}
 }
 
 /* get_global_random_seed_address and get_global_local_random_seed_address (random_math.c): the sequences'
 draws inside a tick, by the address that asked */
 void seed_trace_draw(char which, void *caller, unsigned long seed)
 {
-	if (!in_tick || !trace_on())
+	if (!in_tick || trace_state <= 0)
 		return;
 	fprintf(trace_file, "%c %ld %08lx %08lx\n", which, current_tick, (unsigned long)(size_t)caller, seed);
 }
 
 void seed_trace_tick_begin(void)
 {
-	if (!trace_on())
+	if (!trace_open())
 		return;
 	current_tick = game_time_get();
 	in_tick = 0; /* (the seeds are read below without being counted as draws) */
@@ -94,7 +108,7 @@ void seed_trace_action(const void *action, unsigned long size)
 	const unsigned long *words = (const unsigned long *)action;
 	unsigned long index;
 
-	if (!in_tick || !trace_on())
+	if (!in_tick || trace_state <= 0)
 		return;
 	fprintf(trace_file, "A %ld", current_tick);
 	for (index = 0; index < size / 4 && index < 8; index++)
@@ -116,7 +130,7 @@ void seed_trace_tick_end(void)
 	float player[3] = { 0, 0, 0 };
 	long player_index;
 
-	if (!in_tick || !trace_on())
+	if (!in_tick || trace_state <= 0)
 		return;
 	in_tick = 0;
 	data_iterator_new(&iterator, object_header_data);
