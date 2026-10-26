@@ -836,6 +836,13 @@ boolean update_client_dequeue(
 		extern void input_replay_tick_action(void *action);
 
 		input_replay_tick_action(&actions[0]);
+#ifdef HALO_SEED_TRACE
+		{
+			extern void seed_trace_action(const void *action, unsigned long size);
+
+			seed_trace_action(&actions[0], sizeof(actions[0]));
+		}
+#endif
 		player_control_apply_replay(update_client_local_player_index(0));
 		/* (the action tests the action carries, as the take recorded them or replays them: player_control.c) */
 		if (input_replay_sim_isolated())

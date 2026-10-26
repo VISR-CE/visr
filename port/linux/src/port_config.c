@@ -1616,6 +1616,13 @@ static const struct config_setting config_settings[] =
 	{ "debug.settings_dump", _config_boolean, "false", "HALO_SETTINGS_DUMP", _environment_set_is_true, _platform_ios,
 		"Log every setting a device profile may set at start, with the layer each\n"
 		"value came from; false logs only those something set." },
+#ifdef HALO_SEED_TRACE
+	{ "debug.seed_trace", _config_boolean, "false", "HALO_SEED_TRACE", _environment_value, _platform_all,
+		"Log every tick's draws from the random sequences, the first player's\n"
+		"action and a checksum of the world to recordings/seed-trace.log\n"
+		"(configure.py --seed-trace and tools/ios_build.py --seed-trace builds;\n"
+		"port/linux/game/seed_trace.c)." },
+#endif
 #ifdef HALO_PROFILE
 	{ "debug.profile_record", _config_boolean, "false", "HALO_PROFILE_RECORD", _environment_value, _platform_all,
 		"Record a profile with no command (configure.py --profile and\n"

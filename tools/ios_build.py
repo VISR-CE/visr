@@ -168,6 +168,9 @@ def main():
     parser.add_argument('--collision-log', action='store_true',
                         help='time and count the collision functions for the on-screen collision log (a debug and profiling '
                              'aid); without it the clock reads and counters are compiled out')
+    parser.add_argument('--seed-trace', action='store_true',
+                        help='a debug build: debug.seed_trace logs each tick\'s random-sequence draws, action and a world '
+                             'checksum (port/linux/game/seed_trace.c); without it the trace is compiled out')
     parser.add_argument('--profile', action='store_true',
                         help='a profiling build: the game records CPU scopes into trace parts in the data folder\'s '
                              'profiles folder (debug.profile_record, or the profile_record console command; '
@@ -212,6 +215,8 @@ def main():
         parser.error('--signing-profile requires --team and cannot change account capabilities or register devices')
     if args.signing_profile and args.upload:
         parser.error('--signing-profile archives/exports only; the CI release helper uploads with API authentication')
+    if args.seed_trace and args.app_store_package:
+        parser.error('--seed-trace is for development builds, never an App Store package')
     if args.profile and args.app_store_package:
         parser.error('--profile is for development builds, never an App Store package')
     if args.upload and not args.app_store_package:
@@ -299,7 +304,7 @@ def main():
     validation = args.render_validation == 'on'
     run(sys.executable,'configure.py','--ios',f'--pgo={args.pgo}',f'--lto={args.lto}','--ios-llvm',args.llvm,'--ios-lld',args.lld,
         *(['--render-validation'] if validation else []),*(['--collision-log'] if args.collision_log else []),
-        *(['--profile'] if args.profile else []))
+        *(['--seed-trace'] if args.seed_trace else []),*(['--profile'] if args.profile else []))
     run('ninja','ios_guest','-j',args.jobs)
     run(sys.executable,'tools/ios_bridges.py',*(['--render-validation'] if validation else []))
     # what a render capture is checked against when it is replayed (port/ios/host/gpu_capture.h)

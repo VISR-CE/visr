@@ -340,6 +340,13 @@ void game_tick(
 	collision_log_begin_period(0);
 	real_math_reset_precision();
 	profile_enter(game_update_section);
+#ifdef HALO_SEED_TRACE
+	{
+		extern void seed_trace_tick_begin(void);
+
+		seed_trace_tick_begin();
+	}
+#endif
 	/* port: debug.input_record and debug.input_replay take the tick's random seeds as the last tick left them, not as
 	the frames drawn since changed them (port/linux/src/input_replay.c) */
 	{
@@ -425,6 +432,13 @@ void game_tick(
 
 		input_replay_tick_end();
 	}
+#ifdef HALO_SEED_TRACE
+	{
+		extern void seed_trace_tick_end(void);
+
+		seed_trace_tick_end();
+	}
+#endif
 	profile_exit(game_update_section);
 	collision_log_end_period();
 	profile_tick_end();

@@ -40,6 +40,12 @@ parser.add_argument(
     "(source/physics/collision_usage.c); without it the clock reads and counters are compiled out",
 )
 parser.add_argument(
+    "--seed-trace",
+    action="store_true",
+    help="debug builds: log each tick's random-sequence draws, action and a world checksum "
+    "(debug.seed_trace; port/linux/game/seed_trace.c); without it the trace is compiled out",
+)
+parser.add_argument(
     "--profile",
     action="store_true",
     help="profiling builds: CPU scopes recorded on a console command or launch "
@@ -97,6 +103,7 @@ sln = SimpleNamespace(
     compiler_launcher=args.compiler_launcher,
     port_release=args.release,
     port_collision_log=args.collision_log,
+    port_seed_trace=args.seed_trace,
     port_profile=args.profile,
     port_lto=args.lto,
     port_portable=args.portable,

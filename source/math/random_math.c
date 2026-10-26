@@ -129,9 +129,18 @@ unsigned long get_random_seed(
 	return random_math_globals.global_random_seed;
 }
 
+#ifdef HALO_SEED_TRACE
+extern void seed_trace_draw(char which, void *caller, unsigned long seed);
+extern void seed_trace_note(const char *what, unsigned long value);
+#endif
+
 unsigned long *get_global_random_seed_address(
 	void)
 {
+#ifdef HALO_SEED_TRACE
+	/* port: debug.seed_trace (port/linux/game/seed_trace.c) */
+	seed_trace_draw('G', __builtin_return_address(0), random_math_globals.global_random_seed);
+#endif
 	match_dassert(
 		"c:\\halo\\SOURCE\\math\\random_math.c",
 		56,
@@ -143,6 +152,9 @@ unsigned long *get_global_random_seed_address(
 unsigned long *get_global_local_random_seed_address(
 	void)
 {
+#ifdef HALO_SEED_TRACE
+	seed_trace_draw('L', __builtin_return_address(0), random_math_globals.global_local_random_seed);
+#endif
 	return &random_math_globals.global_local_random_seed;
 }
 
@@ -156,7 +168,18 @@ random_seed_debug_log(
 unsigned long get_number_suitable_for_initializing_random_seed(
 	void)
 {
+#ifdef HALO_SEED_TRACE
+	{
+		unsigned long seconds = system_seconds(), milliseconds = system_milliseconds(), number = rand();
+
+		seed_trace_note("clock_seed_seconds", seconds);
+		seed_trace_note("clock_seed_milliseconds", milliseconds);
+		seed_trace_note("clock_seed_rand", number);
+		return seconds^milliseconds^number;
+	}
+#else
 	return system_seconds()^system_milliseconds()^rand();
+#endif
 }
 
 void
