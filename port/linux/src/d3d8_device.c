@@ -1541,7 +1541,16 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 		texture.height = (uint32_t)entry->target.allocated_height;
 		texture.depth = 1;
 		texture.levels = 1;
-		entry->target.texture = gpu_texture_create(&texture);
+		{
+			/* (dynamic resolution at a native ceiling makes the HUD layer's target the first time a drop
+			engages: how long that takes is the drop's one-time cost) */
+			double made_at = layer == HALO_STEREO_LAYER_NATIVE && screen_dynamic ? halo_frame_trace_milliseconds() : -1.0;
+
+			entry->target.texture = gpu_texture_create(&texture);
+			if (made_at >= 0.0)
+				platform_log("dynamic resolution: the HUD layer's %s target made in %.2f ms", depth ? "depth" : "color",
+					halo_frame_trace_milliseconds() - made_at);
+		}
 		if (pooled)
 		{
 			gpu_texture_set_content(entry->target.texture, (uint32_t)entry->target.gl_width,
