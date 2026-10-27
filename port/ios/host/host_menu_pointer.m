@@ -16,18 +16,15 @@ static UIImpactFeedbackGenerator *impact_feedback;
 @implementation HaloMenuTouch
 - (instancetype)initWithTarget:(id)target action:(SEL)action {
     if(!(self=[super initWithTarget:target action:action]))return nil;
-    self.cancelsTouchesInView=NO;self.delaysTouchesBegan=NO;self.delaysTouchesEnded=NO;self.delegate=self;
+    self.allowedTouchTypes=@[@(UITouchTypeDirect)];self.cancelsTouchesInView=NO;self.delaysTouchesBegan=NO;self.delaysTouchesEnded=NO;self.delegate=self;
     return self;
 }
 /* a touch that lands on a control belongs to the control; the controls' own view, left claiming every touch
    while they are put away, does not */
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)recognizer shouldReceiveTouch:(UITouch *)touch {
-    UIView *view=touch.view;
-    while(view && view!=self.view) {
-        if([NSStringFromClass(view.class) isEqualToString:@"HaloControls"])return view==touch.view;
-        view=view.superview;
-    }
-    return YES;
+    /* only the game's own view, or the controls' view where it claims every touch (controller in use); a button
+       (the audio output picker, a control) keeps its touch */
+    return touch.view==self.view || [NSStringFromClass(touch.view.class) isEqualToString:@"HaloControls"];
 }
 - (void)track {
     UIView *root=self.view;
