@@ -154,6 +154,24 @@ void seed_trace_tick_end(void)
 			if (trace_units)
 				fprintf(trace_file, "U %ld %ld %d %.5f,%.5f,%.5f\n", current_tick, (long)iterator.datum_index, (int)header->type,
 					origin.x, origin.y, origin.z);
+			if (trace_units && header->datum)
+			{
+				/* the same unit's exact bits: position, velocity, forward and up, the animation and the vitalities */
+				struct _object_datum *object = &header->datum->object;
+				union { float f; unsigned long u; } v[14];
+				int n;
+
+				v[0].f = object->position.x; v[1].f = object->position.y; v[2].f = object->position.z;
+				v[3].f = object->translational_velocity.i; v[4].f = object->translational_velocity.j; v[5].f = object->translational_velocity.k;
+				v[6].f = object->forward.i; v[7].f = object->forward.j; v[8].f = object->forward.k;
+				v[9].f = object->up.i; v[10].f = object->up.j; v[11].f = object->up.k;
+				v[12].f = object->body_vitality; v[13].f = object->shield_vitality;
+				fprintf(trace_file, "V %ld %ld", current_tick, (long)iterator.datum_index);
+				for (n = 0; n < 14; n++)
+					fprintf(trace_file, " %08lx", v[n].u);
+				fprintf(trace_file, " anim %d:%d:%d\n", (int)object->animation.state.index, (int)object->animation.state.frame_index,
+					(int)object->animation.interpolation_frame_index);
+			}
 			hash = hash_words(hash, (unsigned long)iterator.datum_index);
 			bits.f = origin.x;
 			hash = hash_words(hash, bits.u);
