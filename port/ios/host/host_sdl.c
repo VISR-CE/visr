@@ -22,10 +22,8 @@ so the audio callback is handed to a thread that has one.
 
 #include <SDL3/SDL.h>
 #include <limits.h>
-#if HALO_NATIVE_MAC
 #include <stdio.h>
 #include <stdlib.h>
-#endif
 #include <pthread.h>
 #include <stdatomic.h>
 #include <string.h>
@@ -108,6 +106,7 @@ static void *handle_get(uint32_t handle, int type)
 
 static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value);
 static void menu_pointer_event(const SDL_Event *event);
+static void menu_pointer_sync(void);
 
 int host_sdl_init(uint32_t flags)
 {
@@ -380,6 +379,7 @@ int host_sdl_poll_event(void *event)
 	static int test_extra_scene = -1;
 	static unsigned long polls;
 
+	menu_pointer_sync();
 	host_extra_scene_poll();
     host_external_poll();
     host_audio_output_poll();
@@ -934,7 +934,10 @@ void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int))
 	pointer_menus_changed = menus_changed;
 }
 
-/* the guest publishes VISR_MENU_ACTIVE with the menus (halo_ui_pointer_update) */
+/* the guest publishes VISR_MENU_ACTIVE with the menus (halo_ui_pointer_update). SDL calls this with its hints locked,
+so it only notes the value; menu_pointer_sync takes it up on the next poll or read, on the main thread */
+static atomic_int menu_pointer_hinted = -1;
+
 static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value)
 {
 	int menus = value && (value[0] == '1' || !SDL_strcasecmp(value, "true"));
@@ -942,9 +945,23 @@ static void menu_pointer_hint(void *userdata, const char *name, const char *old_
 	(void)userdata;
 	(void)name;
 	(void)old_value;
+	atomic_store(&menu_pointer_hinted, menus);
+}
+
+static void menu_pointer_sync(void)
+{
+	int menus = atomic_exchange(&menu_pointer_hinted, -1);
+
+	if (menus < 0)
+		return;
 	host_menu_pointer_set_menus(&menu_pointer, menus);
 	if (pointer_menus_changed)
 		pointer_menus_changed(menus);
+}
+
+void host_menu_pointer_block(int blocked)
+{
+	host_menu_pointer_set_blocked(&menu_pointer, blocked);
 }
 
 static void menu_pointer_event(const SDL_Event *event)
@@ -984,7 +1001,7 @@ static void menu_pointer_event(const SDL_Event *event)
 				event->button.x, event->button.y);
 		break;
 	default:
-		wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
+		wheel += event->wheel.y;
 		while (wheel >= 1.0f)
 		{
 			host_menu_pointer_device_wheel(&menu_pointer, 1);
@@ -999,10 +1016,118 @@ static void menu_pointer_event(const SDL_Event *event)
 	}
 }
 
+/* HALO_MENU_POINTER_SCRIPT, for runs with no finger: ops separated by ';', each "FRAME KIND ARGS", where FRAME counts
+the frames a menu has been up (reads), and positions are fractions of the window: "60 tap 0.5 0.4", "90 drag 0.5 0.7
+0.5 0.3", "120 click 0.5 0.4", "130 right 0.5 0.4", "140 wheel 2". A tap is a finger down, then up on the next frame;
+a drag moves in six steps. Each op is logged, so a journey can be checked against the log and the screenshots. */
+static struct
+{
+	int loaded;
+	const char *cursor;
+	unsigned long frame;
+	/* the op running */
+	int kind, step, steps;
+	unsigned long start;
+	float x0, y0, x1, y1;
+} menu_script;
+
+static void menu_script_next(void)
+{
+	char kind[16];
+	unsigned long frame;
+	int used = 0;
+
+	menu_script.kind = 0;
+	while (menu_script.cursor && *menu_script.cursor == ';')
+		menu_script.cursor++;
+	if (!menu_script.cursor || !*menu_script.cursor)
+		return;
+	menu_script.x0 = menu_script.y0 = menu_script.x1 = menu_script.y1 = 0.0f;
+	if (sscanf(menu_script.cursor, "%lu %15s%n", &frame, kind, &used) < 2)
+	{
+		menu_script.cursor = NULL;
+		return;
+	}
+	menu_script.cursor += used;
+	menu_script.start = frame;
+	menu_script.step = 0;
+	menu_script.steps = 1;
+	if (!strcmp(kind, "tap") || !strcmp(kind, "click") || !strcmp(kind, "right"))
+	{
+		menu_script.kind = !strcmp(kind, "tap") ? 1 : !strcmp(kind, "click") ? 3 : 4;
+		sscanf(menu_script.cursor, "%f %f%n", &menu_script.x0, &menu_script.y0, &used);
+	}
+	else if (!strcmp(kind, "drag"))
+	{
+		menu_script.kind = 2;
+		menu_script.steps = 8;
+		sscanf(menu_script.cursor, "%f %f %f %f%n", &menu_script.x0, &menu_script.y0, &menu_script.x1, &menu_script.y1,
+			&used);
+	}
+	else if (!strcmp(kind, "wheel"))
+	{
+		menu_script.kind = 5;
+		sscanf(menu_script.cursor, "%f%n", &menu_script.x0, &used);
+	}
+	menu_script.cursor += used;
+	host_logf(HOST_LOG_INFO, "menu pointer script: frame %lu %s %.3f %.3f %.3f %.3f", frame, kind, menu_script.x0,
+		menu_script.y0, menu_script.x1, menu_script.y1);
+}
+
+static void menu_script_run(void)
+{
+	SDL_Window *window = host_sdl_window();
+	int width = 0, height = 0;
+	float x, y, t;
+
+	if (!menu_script.loaded)
+	{
+		menu_script.loaded = 1;
+		menu_script.cursor = getenv("HALO_MENU_POINTER_SCRIPT");
+		menu_script_next();
+	}
+	menu_script.frame++;
+	if (!menu_script.kind || !window || !SDL_GetWindowSize(window, &width, &height) ||
+		menu_script.frame < menu_script.start + (unsigned long)menu_script.step)
+		return;
+	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
+	t = menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
+	x = (menu_script.x0 + (menu_script.x1 - menu_script.x0) * t) * (float)width;
+	y = (menu_script.y0 + (menu_script.y1 - menu_script.y0) * t) * (float)height;
+	switch (menu_script.kind)
+	{
+	case 1:
+	case 2:
+		if (menu_script.step == 0)
+			host_menu_pointer_touch_begin(&menu_pointer, 9000, x, y);
+		else if (menu_script.step < menu_script.steps)
+			host_menu_pointer_touch_move(&menu_pointer, 9000, x, y);
+		if (menu_script.kind == 1 && menu_script.step == 1)
+			host_menu_pointer_touch_end(&menu_pointer, 9000);
+		if (menu_script.kind == 2 && menu_script.step == menu_script.steps)
+			host_menu_pointer_touch_end(&menu_pointer, 9000);
+		menu_script.step++;
+		if (menu_script.kind == 1 ? menu_script.step > 1 : menu_script.step > menu_script.steps)
+			menu_script_next();
+		return;
+	case 3:
+	case 4:
+		host_menu_pointer_device_move(&menu_pointer, x, y);
+		host_menu_pointer_device_click(&menu_pointer, menu_script.kind == 4, x, y);
+		break;
+	default:
+		host_menu_pointer_device_wheel(&menu_pointer, (int)menu_script.x0);
+		break;
+	}
+	menu_script_next();
+}
+
 void host_ui_pointer_read(struct host_ui_pointer *pointer)
 {
 	memset(pointer, 0, sizeof(*pointer));
+	menu_pointer_sync();
 #if !TARGET_OS_TV && !TARGET_OS_VISION
+	menu_script_run();
 	host_menu_pointer_read(&menu_pointer, pointer);
 #endif
 }

@@ -29,7 +29,6 @@ Conventions carried over from the Xbox:
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
-#include "halo_host_pointer.h"
 #include "port_config.h"
 #include "halo_display.h"
 #ifdef HALO_ILP32
@@ -2872,6 +2871,7 @@ static int ui_pointer_geometry(struct halo_ui_pointer_geometry *g, int window_wi
 }
 
 #ifdef HALO_ILP32
+#include "halo_host_pointer.h"
 /* the host's fingers and pointer devices (halo_host_pointer.h, guest_sdl.c) */
 void halo_host_pointer_read(struct host_ui_pointer *pointer);
 void halo_host_pointer_feedback(int kind);
@@ -2918,6 +2918,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	if (!host.active)
 		return 0;
 	memset(pointer, 0, sizeof(*pointer));
+	pointer->x = pointer->y = pointer->click_x = pointer->click_y = -1;
 	if (host.surface_width > 0.0f && host.surface_height > 0.0f)
 	{
 		struct halo_ui_pointer_geometry g;
