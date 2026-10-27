@@ -57,9 +57,9 @@ static int trace_open(void)
 	platform_log("debug.seed_trace: %s at the first tick", trace_state > 0 ? "on" : "off");
 	if (trace_state > 0)
 	{
-		snprintf(path, sizeof(path), "%s/recordings", platform_data_root());
-		posix_make_directory(path);
-		snprintf(path, sizeof(path), "%s/recordings/seed-trace.log", platform_data_root());
+		/* (relative to the data folder, as the recordings are) */
+		posix_make_directory("recordings");
+		snprintf(path, sizeof(path), "recordings/seed-trace.log");
 		trace_file = fopen(path, "w");
 		if (!trace_file)
 		{
