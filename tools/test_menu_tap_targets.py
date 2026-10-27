@@ -66,3 +66,17 @@ int main(void) {
         probe.write_text(harness)
         subprocess.run([compiler, "-O1", "-Wall", "-Werror", str(probe), "-o", str(binary)], check=True)
         subprocess.run([str(binary)], check=True)
+
+
+def test_click_waits_for_the_first_draw():
+    source = (ROOT / "source/interface/ui_widget.c").read_text()
+    process = source[source.index("static void ui_widgets_process_mouse("):]
+    process = process[:process.index("\n}\n")]
+    # a click before the menu has drawn has no targets and would be the "nothing to pick" A
+    assert "!ui_mouse_menu_drawn" in process
+    # forgotten whenever the pointer is gone, so the next menu draws first
+    assert process.index("ui_mouse_menu_drawn = FALSE") < process.index("ui_mouse_radius = pointer.radius")
+    # a screen with no menu widget (the scores after a game) has nothing to draw first
+    assert "if (!ui_mouse_menu())\n\t\t\tui_mouse_menu_drawn = TRUE;" in process
+    render = source[source.index("ui_mouse_noting_targets = widget->local_player_index == NONE"):]
+    assert "ui_mouse_menu_drawn = TRUE" in render[:render.index("debug_show_path")]
