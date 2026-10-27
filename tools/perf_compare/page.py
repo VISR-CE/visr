@@ -15,6 +15,10 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
 PINNED_REF = "main"  # replace with the merged commit that holds the harness the numbers came from
 CODE_URL = f"https://github.com/steverice/visr/blob/{PINNED_REF}/tools/perf_compare"
+DEVICE_NOTE = ("The charts cover a few representative devices per platform. VISR ships a tuned device profile for every "
+               "Apple device, so it runs at its best with no setup.")
+DEVICE_METHOD = ("On iPhone, iPad, Apple TV and Vision Pro, VISR rows use the device's own profile and every other port runs at "
+                 "its default settings, so those charts show what each port does out of the box.")
 SITE_PAGE_URL = "https://code.steverice.org/visr/benchmarks.html"
 
 
@@ -155,6 +159,7 @@ def methodology(summary: dict, rows: list[dict]) -> list[str]:
              "capped numbers only and do not appear in the uncapped charts. The spreadsheet's README tab describes each "
              "column.", ""]
     lines.extend(timing_section(rows))
+    lines.extend([DEVICE_METHOD, ""])
     lines.extend(device_section(rows))
     lines.extend(suite_section(rows))
     lines.extend(_notes(records))
@@ -170,7 +175,7 @@ def render_page(summary: dict, rows: list[dict], specs: list[dict]) -> str:
         raise ValueError("summary schema mismatch")
     records = sorted(summary.get("records", []), key=_record_order)
     dates = sorted(str(r["date"]) for r in records if r.get("date"))
-    lines = ["# Performance benchmarks", "", CAVEAT, "",
+    lines = ["# Performance benchmarks", "", CAVEAT, "", DEVICE_NOTE, "",
              f"Last measured: {dates[-1] if dates else 'unknown'}. The [results spreadsheet]({SHEET_URL}) holds every number. "
              f"The [interactive version]({SITE_PAGE_URL}) adds suites and a choice of builds. The methodology is at the bottom "
              "of this page.", "",

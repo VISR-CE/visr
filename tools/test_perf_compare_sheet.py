@@ -462,3 +462,8 @@ def test_device_chart_titles_name_the_display_rate_not_uncapped():
     spec = {"chart": {"title_unit": "fps at display rate"}}
     assert charts.chart_title(spec, {"box": "M1 iPad Pro"}, "campaign") == "Campaign: fps at display rate, M1 iPad Pro"
     assert charts.chart_title({"chart": {}}, {"box": "M6 Mac mini"}, "campaign") == "Campaign: uncapped fps, M6 Mac mini"
+
+
+def test_both_pages_open_with_the_representative_device_note_and_explain_it_in_methodology():
+    assert page.DEVICE_NOTE in page.render_page({"schema": 2, "records": []}, [], [])
+    assert page.DEVICE_METHOD in "\n".join(page.methodology({"records": []}, []))

@@ -11,10 +11,10 @@ from markdown_it import MarkdownIt
 
 try:
     from . import charts
-    from .page import CAVEAT, SHEET_URL, methodology
+    from .page import CAVEAT, DEVICE_NOTE, SHEET_URL, methodology
 except ImportError:
     import charts
-    from page import CAVEAT, SHEET_URL, methodology
+    from page import CAVEAT, DEVICE_NOTE, SHEET_URL, methodology
 
 ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "docs/site"
@@ -140,7 +140,7 @@ def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_h
         f'<label><input type="radio" name="suite" value="{name}"{" checked" if name == charts.DEFAULT_SUITE else ""}> '
         f"{charts.SUITE_NAMES[name]}</label>" for name in charts.SUITE_CHOICES)
     dates = sorted(str(r["date"]) for r in summary.get("records", []) if r.get("date"))
-    intro = md.render(f"{CAVEAT}\n\nLast measured: {dates[-1] if dates else 'unknown'}. The "
+    intro = md.render(f"{CAVEAT}\n\n{DEVICE_NOTE}\n\nLast measured: {dates[-1] if dates else 'unknown'}. The "
                       f"[results spreadsheet]({SHEET_URL}) holds every number. The methodology is at the bottom of this page.")
     method = md.render("\n".join(methodology(summary, rows)))
     body = "\n".join(section(spec, rows, charts.DEFAULT_SUITE, reasons) for spec in specs)

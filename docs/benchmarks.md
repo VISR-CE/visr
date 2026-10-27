@@ -2,6 +2,8 @@
 
 We try to make these comparisons fair, but our numbers or our setup for other projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues)
 
+The charts cover a few representative devices per platform. VISR ships a tuned device profile for every Apple device, so it runs at its best with no setup.
+
 Last measured: 2026-10-26. The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
 ## Results
@@ -66,6 +68,8 @@ The snapshot holds 37 measured windows for 4 ports on 1 platform (Mac). Each win
 
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on and uncapped): Metal's per-frame timing: `metalperftrace` on-glass drawable intervals for the app's process. Ports: VISR, OpenCE-macOS, CoreCE.
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on): Safari `requestAnimationFrame` callbacks, which measure browser scheduling. Ports: OpenCE web.
+
+On iPhone, iPad, Apple TV and Vision Pro, VISR rows use the device's own profile and every other port runs at its default settings, so those charts show what each port does out of the box.
 
 ### Suites
 
