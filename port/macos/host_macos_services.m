@@ -142,7 +142,7 @@ int posix_share_link(const char *link) {
 void host_ios_touch_initialize(void) {}
 void host_ios_touch_attach(SDL_Window *window) { host_macos_window_ready(window); }
 void host_ios_touch_reset(void) {}
-void host_touch_replay_active(int active) { (void)active; }
+void host_touch_replay_active(int active) { host_menu_pointer_block(active); }
 void host_ios_touch_pause(void) {}
 int host_ios_gamepads(uint32_t *out, int capacity) {
     if (capacity <= 0 || !out) return 0;

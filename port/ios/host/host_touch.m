@@ -103,7 +103,7 @@ void host_ios_touch_reset(void) {
 }
 
 void host_touch_replay_active(int active) {
-    host_menu_pointer_set_blocked(host_menu_pointer_shared(),active);
+    host_menu_pointer_block(active);
     if(host_touch_replay_set(&replay_gate,active,host_ios_touch_reset))
         dispatch_async(dispatch_get_main_queue(),^{ touch_replay_ui_update(); });
 }
@@ -258,10 +258,12 @@ static void touch_latency_watch(void) {
         self.buttons[i].hidden=hidden||(menu&&!keep);
         self.buttons[i].alpha=menu?.45:1;
     }
-    [CATransaction flush];
+
     self.toggle.hidden=self.controllerHidden;
     atomic_store(&controls_showing,!self.controllerHidden);
     [self.toggle setTitle:self.manuallyHidden?@"Show controls":@"Hide controls" forState:UIControlStateNormal];
+    /* the guest pumps the run loop without letting it wait: commit now, not at the next touch */
+    [CATransaction flush];
 }
 /* A hardware controller in use puts the overlay away again after a touch brought it back,
    and covers a controller connected before its notification could reach us. */
