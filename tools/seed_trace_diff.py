@@ -13,11 +13,18 @@ import argparse
 import sys
 
 
-def ticks(path):
+def ticks(path, ignore_local=False):
     """the file's lines grouped by tick: {tick: [lines]}, plus the lines before the first tick"""
     groups, head, current = {}, [], None
     for line in open(path):
         line = line.rstrip("\n")
+        if ignore_local:
+            if line.startswith("L ") or line.startswith("S clock_seed"):
+                continue
+            if line.startswith("B "):
+                line = " ".join(line.split()[:3])
+            elif line.startswith("E "):
+                line = " ".join(line.split()[:-1])
         if line.startswith("B "):
             current = int(line.split()[1])
             groups[current] = []
@@ -30,9 +37,12 @@ def main():
     parser.add_argument("a")
     parser.add_argument("b")
     parser.add_argument("--context", type=int, default=6)
+    parser.add_argument("--ignore-local", action="store_true",
+                        help="leave out the local sequence (L lines and the local seed in B and E lines): the clock seeds it, "
+                             "so two runs never agree on it, and the question is whether the simulation parts")
     args = parser.parse_args()
-    head_a, a = ticks(args.a)
-    head_b, b = ticks(args.b)
+    head_a, a = ticks(args.a, args.ignore_local)
+    head_b, b = ticks(args.b, args.ignore_local)
     print(f"{args.a}: {len(a)} ticks; {args.b}: {len(b)} ticks")
     if head_a != head_b:
         print("before the first tick the traces differ:")
