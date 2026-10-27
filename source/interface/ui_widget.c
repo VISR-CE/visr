@@ -6160,6 +6160,9 @@ static void ui_widgets_process_mouse(
 	else
 	{
 		ui_mouse_radius = pointer.radius;
+		/* (a screen with no menu widget, the scores after a game, has nothing to draw first) */
+		if (!ui_mouse_menu())
+			ui_mouse_menu_drawn = TRUE;
 		if (pointer.moved)
 		{
 			ui_mouse_hover_pending = TRUE;
@@ -6209,6 +6212,8 @@ static void ui_widgets_process_mouse(
 					/* (a slot is chosen by a click: stepping the list to
 					it on a hover slides another card under the pointer,
 					and the next move steps again) */
+					if (!ui_mouse_widget_has_focus(target->widget->parent))
+						halo_ui_pointer_feedback(1);
 					ui_mouse_give_focus(target->widget->parent);
 					break;
 				}
@@ -6225,7 +6230,6 @@ static void ui_widgets_process_mouse(
 			target = ui_mouse_target_at(ui_mouse_click_x, ui_mouse_click_y);
 			if (target)
 			{
-				halo_ui_pointer_feedback(2);
 				switch (target->kind)
 				{
 				case _ui_mouse_target_item:
@@ -6234,9 +6238,11 @@ static void ui_widgets_process_mouse(
 					if (ui_mouse_selection_row(target->widget) && target->widget->parent &&
 						target->widget->parent->focused_child != target->widget)
 					{
+						halo_ui_pointer_feedback(1);
 						ui_mouse_give_focus(target->widget);
 						break;
 					}
+					halo_ui_pointer_feedback(2);
 					ui_mouse_give_focus(target->widget);
 					ui_mouse_press(_gamepad_analog_button_a);
 					break;
@@ -6245,6 +6251,7 @@ static void ui_widgets_process_mouse(
 					short back, forward;
 					boolean first_half;
 
+					halo_ui_pointer_feedback(2);
 					ui_mouse_give_focus(target->widget);
 					ui_mouse_list_directions(target->widget, &back, &forward);
 					first_half = back == _widget_event_dpad_left ?
@@ -6254,10 +6261,12 @@ static void ui_widgets_process_mouse(
 					break;
 				}
 				case _ui_mouse_target_list_slot:
+					halo_ui_pointer_feedback(2);
 					ui_mouse_step_list_to_slot(target->widget);
 					ui_mouse_press(_gamepad_analog_button_a);
 					break;
 				case _ui_mouse_target_button:
+					halo_ui_pointer_feedback(2);
 					ui_mouse_press(target->button_index);
 					break;
 				}
