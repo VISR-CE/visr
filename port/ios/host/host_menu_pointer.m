@@ -7,6 +7,9 @@
 #include "host_menu_pointer.h"
 
 #define pointer_state (*host_menu_pointer_shared())
+/* HALO_TOUCH_DEBUG=1 logs every touch the recognizer sees (debug only) */
+static BOOL touch_debug(void) {static int on=-1;if(on<0)on=getenv("HALO_TOUCH_DEBUG")!=NULL;return on;}
+#define TOUCH_LOG(...) do{if(touch_debug())fprintf(stderr,"halo-ios: menu-touch " __VA_ARGS__);}while(0)
 static UISelectionFeedbackGenerator *selection_feedback;
 static UIImpactFeedbackGenerator *impact_feedback;
 
@@ -24,6 +27,7 @@ static UIImpactFeedbackGenerator *impact_feedback;
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)recognizer shouldReceiveTouch:(UITouch *)touch {
     /* only the game's own view, or the controls' view where it claims every touch (controller in use); a button
        (the audio output picker, a control) keeps its touch */
+    TOUCH_LOG("receive? view=%s type=%ld\n",NSStringFromClass(touch.view.class).UTF8String,(long)touch.type);
     return touch.view==self.view || [NSStringFromClass(touch.view.class) isEqualToString:@"HaloControls"];
 }
 - (void)track {
@@ -35,6 +39,7 @@ static UIImpactFeedbackGenerator *impact_feedback;
     [self track];
     for(UITouch *touch in touches) {
         CGPoint p=[touch locationInView:self.view];
+        TOUCH_LOG("began %.1f,%.1f active=%d blocked=%d\n",p.x,p.y,pointer_state.menus_active,pointer_state.blocked);
         host_menu_pointer_touch_begin(&pointer_state,(intptr_t)(__bridge void *)touch,(float)p.x,(float)p.y);
     }
 }
@@ -47,6 +52,7 @@ static UIImpactFeedbackGenerator *impact_feedback;
 }
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [self track];
+    for(UITouch *touch in touches){CGPoint p=[touch locationInView:self.view];TOUCH_LOG("ended %.1f,%.1f\n",p.x,p.y);}
     for(UITouch *touch in touches)host_menu_pointer_touch_end(&pointer_state,(intptr_t)(__bridge void *)touch);
 }
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
