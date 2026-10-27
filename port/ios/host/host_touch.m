@@ -250,6 +250,7 @@ void host_touch_replay_active(int active) {
     self.controllerHidden=YES;[self applyVisibility];
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if(getenv("HALO_TOUCH_DEBUG")){CGPoint p=[touches.anyObject locationInView:self];fprintf(stderr,"halo-ios: host_touch began %.1f,%.1f menu_up=%d hidden=%d\n",p.x,p.y,(int)atomic_load(&menu_up),(int)self.controllerHidden);}
     /* a tap on a menu is the menu's (host_menu_pointer.m); it does not bring the controls back */
     if(atomic_load(&menu_up) && self.controllerHidden)return;
     if(self.controllerHidden){self.controllerHidden=NO;self.manuallyHidden=NO;[self applyVisibility];return;}
@@ -289,6 +290,7 @@ void host_touch_replay_active(int active) {
     self.toggle.frame=CGRectMake(right-108,top,108,32);
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    if(getenv("HALO_TOUCH_DEBUG"))fprintf(stderr,"halo-ios: host_touch hittest %.1f,%.1f\n",point.x,point.y);
     if(host_touch_replay_blocked(&replay_gate))return NO;
     if(self.controllerHidden)return YES;   /* a touch brings the overlay back (touchesBegan:) */
     for(UIView *view in self.subviews)if(!view.hidden && [view pointInside:[self convertPoint:point toView:view] withEvent:event])return YES;
