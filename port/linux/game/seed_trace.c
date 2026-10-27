@@ -12,6 +12,7 @@ One line per event, in a file in the data folder's recordings folder:
 	A <tick> <8 words>                the first local player's action as the tick took it
 	G <tick> <caller> <seed>          a draw from the global sequence: the address that asked and the seed it found
 	L <tick> <caller> <seed>          the same for the local sequence, inside a tick only
+	U <tick> <index> <type> <x,y,z>   with debug.seed_trace_units: a unit's position at the tick's end
 	E <tick> <objects> <units> <actors> <hash> <x,y,z of player 1>
 	                                  a tick ends: counts, a hash over every unit's index and position, the seeds
 
@@ -39,6 +40,7 @@ int config_boolean(const char *name);
 static FILE *trace_file;
 static int trace_state; /* 0 not looked at, 1 on, -1 off */
 static int in_tick;
+static int trace_units; /* debug.seed_trace_units: every unit's position each tick (U lines) */
 static long current_tick;
 
 /* the settings are read by the first tick (a seed's origin is noted at start-up, before they are): what is noted
@@ -68,7 +70,8 @@ static int trace_open(void)
 		}
 		else
 		{
-			platform_log("debug.seed_trace: writing %s", path);
+			trace_units = config_boolean("debug.seed_trace_units");
+			platform_log("debug.seed_trace: writing %s%s", path, trace_units ? " with every unit each tick" : "");
 			for (index = 0; index < pending_count; index++)
 				fprintf(trace_file, "S %s %08lx\n", pending[index].what, pending[index].value);
 		}
@@ -148,6 +151,9 @@ void seed_trace_tick_end(void)
 
 			units++;
 			object_get_origin(iterator.datum_index, &origin);
+			if (trace_units)
+				fprintf(trace_file, "U %ld %ld %d %.5f,%.5f,%.5f\n", current_tick, (long)iterator.datum_index, (int)header->type,
+					origin.x, origin.y, origin.z);
 			hash = hash_words(hash, (unsigned long)iterator.datum_index);
 			bits.f = origin.x;
 			hash = hash_words(hash, bits.u);

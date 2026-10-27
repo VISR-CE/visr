@@ -1627,6 +1627,9 @@ static const struct config_setting config_settings[] =
 		"action and a checksum of the world to recordings/seed-trace.log\n"
 		"(configure.py --seed-trace and tools/ios_build.py --seed-trace builds;\n"
 		"port/linux/game/seed_trace.c)." },
+	{ "debug.seed_trace_units", _config_boolean, "false", "HALO_SEED_TRACE_UNITS", _environment_value, _platform_all,
+		"With debug.seed_trace: also log every biped's and vehicle's position at\n"
+		"the end of each tick (about 70 lines a tick in a campaign level)." },
 #endif
 #ifdef HALO_PROFILE
 	{ "debug.profile_record", _config_boolean, "false", "HALO_PROFILE_RECORD", _environment_value, _platform_all,
