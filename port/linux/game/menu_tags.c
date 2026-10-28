@@ -953,8 +953,15 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			group_source = bitmap_group_get(group_index);
 			if (data->index < 0 || data->index >= group_source->bitmaps.count)
 			{
-				problem(source->file, source->line, "the map's bitmap has no such frame:", data->map);
-				return group;
+				/* (the map's bitmap can have fewer frames than the PC art the
+				file names, ui.map's arrows among them, and a game map's copy
+				fewer than ui.map's: its png then, as when the map has not got it) */
+				if (!png)
+				{
+					problem(source->file, source->line, "the map's bitmap has no such frame:", data->map);
+					return group;
+				}
+				goto frame_png;
 			}
 			memcpy(bitmap, (struct bitmap_data *)group_source->bitmaps.address + data->index, sizeof(*bitmap));
 			bitmap->cache_block_index = NONE;
@@ -980,6 +987,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			continue;
 		}
 
+	frame_png:
 		if (width <= 0 || height <= 0 || width > 2048 || height > 2048)
 		{
 			problem(source->file, source->line, "a frame is 1 to 2048 wide and high:", png);
