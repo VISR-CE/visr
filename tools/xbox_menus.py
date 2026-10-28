@@ -500,9 +500,9 @@ def browser_layout(root, widgets, bitmaps):
     # five live fields. Keep the updater's row names and all its children.
     # Region ends 36 pixels before the cap, matching the Server Name inset.
     columns = {'locked': (0, 16), 'dedicated': (16, 16),
-               'server_name': (36, 140), 'map': (180, 132),
-               'classic': (314, 10), 'type': (324, 60),
-               'players': (386, 60), 'ping': (448, 60)}
+               'server_name': (36, 138), 'map': (178, 132),
+               'classic': (310, 10), 'type': (322, 62),
+               'players': (386, 60), 'ping': (450, 58)}
     for c in list(rows.findall('child')):
         leaf = c.get('widget').rsplit('/', 1)[-1]
         if leaf.startswith('server_item_') and leaf[12:].isdigit():
@@ -609,7 +609,7 @@ def browser_layout(root, widgets, bitmaps):
     child(screen, refresh.get('name'), x=70, y=414)
     # button_key advances 21 pixels from icon to caption. Leave the same
     # 27-pixel gap after each caption, including the longer CREATE GAME.
-    items = (('x_butn', 'join_game_button_refresh', 84),
+    items = (('x_butn', 'join_game_button_refresh', 104),
              ('y_butn', '=create', 132),
              ('legend/b_butn', 'legend/=cancel', 52),
              ('legend/a_butn', 'legend/=accept', 70))
