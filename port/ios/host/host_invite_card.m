@@ -10,6 +10,47 @@
 #include "posix.h"
 #import "host_qr.h"
 
+/* Match host_benchmark_menu.m's palette and buttons, and the report overlay's
+   rounded panel in host_benchmark_page.m. */
+static UIColor *inviteColor(unsigned rgb) {
+    return [UIColor colorWithRed:((rgb >> 16) & 255) / 255.0 green:((rgb >> 8) & 255) / 255.0
+        blue:(rgb & 255) / 255.0 alpha:1];
+}
+
+#if TARGET_OS_TV
+/* Like HaloTVMenuButton, keep the menu colors instead of tvOS's white plate. */
+@interface HaloTVInviteButton : UIButton
+@end
+@implementation HaloTVInviteButton
+- (CGSize)intrinsicContentSize {
+    CGSize size = [super intrinsicContentSize];
+    /* HaloTVMenuButton's 14-by-32 padding without deprecated contentEdgeInsets. */
+    return CGSizeMake(size.width + 64, size.height + 28);
+}
+- (void)updateInviteAppearance {
+    self.backgroundColor = inviteColor(self.focused ? 0x3fd6ff : 0x1d3640);
+    UIColor *ink = inviteColor(self.focused ? 0x081216 : 0xe8f6fa);
+    [self setTitleColor:ink forState:UIControlStateNormal];
+    [self setTitleColor:ink forState:UIControlStateFocused];
+}
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.layer.cornerRadius = self.bounds.size.height / 2;
+    [self updateInviteAppearance];
+}
+- (void)didUpdateFocusInContext:(UIFocusUpdateContext *)context withAnimationCoordinator:(UIFocusAnimationCoordinator *)coordinator {
+    [super didUpdateFocusInContext:context withAnimationCoordinator:coordinator];
+    [coordinator addCoordinatedAnimations:^{
+        [self updateInviteAppearance];
+        self.transform = self.focused && !UIAccessibilityIsReduceMotionEnabled() ? CGAffineTransformMakeScale(1.05, 1.05) : CGAffineTransformIdentity;
+        self.layer.shadowOpacity = self.focused ? 0.4 : 0;
+        self.layer.shadowRadius = 12;
+        self.layer.shadowOffset = CGSizeMake(0, 8);
+    } completion:nil];
+}
+@end
+#endif
+
 @interface HaloInviteCardController : UIViewController
 @property(nonatomic, copy) NSString *link, *code;
 @property(nonatomic, strong) UIImageView *qr;
@@ -41,7 +82,28 @@ static UIWindow *invite_window;
     return label;
 }
 - (UIButton *)button:(NSString *)title action:(SEL)action {
+#if TARGET_OS_TV
+    UIButton *button = [HaloTVInviteButton buttonWithType:UIButtonTypeCustom];
+#else
     UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+    BOOL primary = action == @selector(share);
+    UIButtonConfiguration *configuration = primary ? UIButtonConfiguration.filledButtonConfiguration : UIButtonConfiguration.borderedButtonConfiguration;
+    configuration.baseBackgroundColor = inviteColor(primary ? 0x3fd6ff : 0x1d3640);
+    configuration.baseForegroundColor = inviteColor(primary ? 0x081216 : 0xe8f6fa);
+    configuration.background.backgroundColor = configuration.baseBackgroundColor;
+    configuration.background.strokeColor = inviteColor(0x1d3640);
+    configuration.background.strokeWidth = 1;
+    configuration.background.visualEffect = nil;
+    configuration.contentInsets = NSDirectionalEdgeInsetsMake(14, 32, 14, 32);
+    configuration.titleTextAttributesTransformer = ^NSDictionary<NSAttributedStringKey,id> *(NSDictionary<NSAttributedStringKey,id> *attributes) {
+        NSMutableDictionary *result = attributes.mutableCopy;
+        result[NSFontAttributeName] = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
+        return result;
+    };
+    button.configuration = configuration;
+#endif
+    button.tintColor = inviteColor(0x3fd6ff);
+    button.titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleHeadline];
     [button setTitle:title forState:UIControlStateNormal];
     [button addTarget:self action:action forControlEvents:UIControlEventPrimaryActionTriggered];
     [button.heightAnchor constraintGreaterThanOrEqualToConstant:44].active = YES;
@@ -50,7 +112,7 @@ static UIWindow *invite_window;
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
-    self.view.backgroundColor = UIColor.blackColor;
+    self.view.backgroundColor = inviteColor(0x081216);
     for (NSNotificationName name in @[UISceneDidEnterBackgroundNotification, UISceneDidDisconnectNotification])
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(sceneEnded:) name:name object:nil];
     self.qr = [UIImageView new];
@@ -63,11 +125,12 @@ static UIWindow *invite_window;
     UIStackView *details = [UIStackView new];
     details.axis = UILayoutConstraintAxisVertical;
     details.alignment = UIStackViewAlignmentFill;
-    details.spacing = 12;
-    UILabel *title = [self label:UIFontTextStyleTitle1 color:UIColor.whiteColor];
+    details.spacing = 16;
+    UILabel *title = [self label:UIFontTextStyleTitle1 color:inviteColor(0xe8f6fa)];
     title.text = @"Invite";
     [details addArrangedSubview:title];
-    self.codeLabel = [self label:UIFontTextStyleTitle2 color:UIColor.whiteColor];
+    self.codeLabel = [self label:UIFontTextStyleTitle2 color:inviteColor(0xe8f6fa)];
+    self.codeLabel.font = [UIFont monospacedSystemFontOfSize:self.codeLabel.font.pointSize weight:UIFontWeightMedium];
     [self.codeLabel setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisVertical];
     UIStackView *invite = [[UIStackView alloc] initWithArrangedSubviews:@[self.qr, self.codeLabel]];
     invite.axis = UILayoutConstraintAxisVertical;
@@ -83,6 +146,10 @@ static UIWindow *invite_window;
     self.stack.axis = UILayoutConstraintAxisHorizontal;
     self.stack.alignment = UIStackViewAlignmentCenter;
     self.stack.spacing = 24;
+    self.stack.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:0.78];
+    self.stack.layer.cornerRadius = 10;
+    self.stack.layoutMargins = UIEdgeInsetsMake(10, 12, 10, 12);
+    self.stack.layoutMarginsRelativeArrangement = YES;
     self.stack.translatesAutoresizingMaskIntoConstraints = NO;
     [self.view addSubview:self.stack];
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
