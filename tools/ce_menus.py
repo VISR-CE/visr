@@ -614,6 +614,8 @@ def main() -> None:
         lines.append("<menus>" if MAIN_MENU not in members else f"<menus{attributes([('root', our_name(MAIN_MENU))])}>")
         for tag in members:
             lines += widget_xml(tag, widgets[tag], tags, functions, inputs, fonts, {})
+        if folder == "error":
+            lines += port_settings.JOIN_BIG_WIDGETS.strip("\n").splitlines()
         lines.append("</menus>")
         (CE / f"{folder.replace('/', '.')}.xml").write_text("\n".join(lines) + "\n")
     for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items()]:

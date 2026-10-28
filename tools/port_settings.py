@@ -383,6 +383,9 @@ MT = "main_menu/multiplayer_type_select"
 # in turn: menu_functions.c's gametype_option_help)
 SLAYER_EDIT = "main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit"
 STRING_INSERTS = {
+    "strings/displayed_error_messages": [(60, [
+        "This game allows more\\nplayers than this device\\nruns smoothly.\\nJoin anyway?",
+    ])],
     f"{SLAYER_EDIT}/var_kills_to_win": [(5, ["75", "100", "150", "200", "250", "500"])],
     f"{SLAYER_EDIT}/cap_slayer": [(11, [
         "Seventy-five kills to win. Settle in for a long\\nfight.",
@@ -393,6 +396,37 @@ STRING_INSERTS = {
         "Five hundred kills to win. You'll be here a while.",
     ])],
 }
+
+
+# The browser warning is port-owned; ce_menus adds it to the imported error widgets.
+JOIN_BIG_WIDGETS = r'''
+	<widget name="error/confirm_join_big" width="640" height="480" bitmap="bitmaps/semi_transparent_grey">
+		<child widget="error/confirm_join_big_text_box" x="192" y="176"/>
+		<child widget="error/header_warning" x="201" y="180"/>
+	</widget>
+	<widget name="error/confirm_join_big_button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
+		<child widget="error/confirm_join_big_button_cancel" x="128"/>
+		<child widget="error/confirm_join_big_button_ok"/>
+	</widget>
+	<widget name="error/confirm_join_big_button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="left_mouse" run="mouse emit back event"/>
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+	</widget>
+	<widget name="error/confirm_join_big_button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port browser join big confirm" sound="sound\sfx\ui\forward"/>
+		<on event="start" run="port browser join big confirm" sound="sound\sfx\ui\forward"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="error/confirm_join_big_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="port browser join big back" sound="sound\sfx\ui\back"/>
+		<on event="back" run="port browser join big back" sound="sound\sfx\ui\back"/>
+		<child widget="error/confirm_join_big"/>
+		<child widget="error/confirm_join_big_button_bar" x="194" y="309"/>
+	</widget>
+	<widget name="error/confirm_join_big_text_box" type="text" controller="1" width="280" height="159" bitmap="bitmaps/alert_bkd" string_list="strings/displayed_error_messages" string_index="60" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36">
+	</widget>
+'''
 
 
 # a custom loadout's weapons (game_engine.h's _loadout_weapon_*)

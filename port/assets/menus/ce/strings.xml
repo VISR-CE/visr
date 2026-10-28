@@ -1479,6 +1479,7 @@
 		<string text="Connection rejected: Your\nclient is newer than the\nserver."/>
 		<string text="You must have\nAdministrator privileges\nto download this required\npatch."/>
 		<string text="Are you sure you want to\ndelete this saved game?"/>
+		<string text="This game allows more\nplayers than this device\nruns smoothly.\nJoin anyway?"/>
 	</strings>
 	<strings name="strings/var_boolean">
 		<string text="NO"/>

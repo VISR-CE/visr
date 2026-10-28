@@ -2239,6 +2239,8 @@ Xbox's networking, run by the engine's port entry points
 #define KEY_MODIFIER_CONTROL_BIT 1
 #define LOBBY_NAME "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"
 #define PREVIEW_NAME "pc\\main_menu\\multiplayer_type_select\\lobby\\preview_screen"
+/* The browser warning uses the same widget history as the other confirm dialogs. */
+#define JOIN_BIG_NAME "pc\\error\\confirm_join_big_modal_fullscreen"
 /* the server browser's password screen (tools/port_settings.py), and the
 longest password */
 #define PASSWORD_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"
@@ -3590,11 +3592,45 @@ static void browser_focus(struct widget_instance *list)
 	}
 }
 
+/* ui_widget_port_open replaces the browser. Keep its selection and browsing
+session until the warning returns through the normal widget history. */
+static struct
+{
+	boolean active, opening, returning;
+	short mode, controller;
+	struct p2p_listing game;
+	byte key_id[8], xnaddr[12];
+} browser_join_big;
+
+struct widget_instance *ui_widget_port_active_screen(short local_player_index);
+
+static boolean browser_join_big_ask(struct widget_instance *widget, short controller,
+	struct p2p_listing const *listing, struct advertised_game const *game, boolean *widget_deleted)
+{
+	boolean opened;
+
+	browser_join_big.active = browser_join_big.opening = TRUE;
+	browser_join_big.mode = multiplayer.mode;
+	browser_join_big.controller = controller;
+	if (listing)
+		browser_join_big.game = *listing;
+	if (game)
+	{
+		csmemcpy(browser_join_big.key_id, game->key_id, sizeof(browser_join_big.key_id));
+		csmemcpy(browser_join_big.xnaddr, game->xnaddr, sizeof(browser_join_big.xnaddr));
+	}
+	opened = ui_widget_port_open(widget, JOIN_BIG_NAME, widget_deleted);
+	browser_join_big.opening = FALSE;
+	if (!opened)
+		browser_join_big.active = FALSE;
+	return opened;
+}
+
 /* (the server browser's: below) */
 static void lobby_browser_begin(void);
 static void lobby_browser_update(struct widget_instance *list);
 static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,
-	boolean *widget_deleted);
+	boolean *widget_deleted, boolean confirmed);
 
 /* "gamespy screen init": the mode's title and parts; the games' client */
 static boolean browser_initialize(struct widget_instance *screen, struct event_record *event,
@@ -3629,10 +3665,14 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	not sorted) */
 	for (index = 0; named(screen, "header_sort_arrows", index); index++)
 		visible_set(named(screen, "header_sort_arrows", index), FALSE);
-	multiplayer.game_chosen = 0;
+	if (!browser_join_big.returning)
+	{
+		browser_join_big.active = FALSE;
+		multiplayer.game_chosen = 0;
+	}
 	/* (the server browser's games are internet play's listings; joining
 	one reaches its host, whose game the client then finds as Direct Link's) */
-	if (multiplayer.mode == _multiplayer_mode_server_browser)
+	if (multiplayer.mode == _multiplayer_mode_server_browser && !browser_join_big.returning)
 		lobby_browser_begin();
 	return ui_widget_port_browse(screen, event, widget_deleted);
 }
@@ -3830,6 +3870,9 @@ static void lobby_browser_begin(void)
 /* "gamespy screen dispose" */
 static void lobby_browser_end(void)
 {
+	if (browser_join_big.opening)
+		return;
+	browser_join_big.active = FALSE;
 	lobby_browser.joining = lobby_browser.ready = FALSE;
 	p2p_lobby_browse(FALSE);
 }
@@ -4189,7 +4232,7 @@ row (or Join) joins its game's invite, a game with a password once its
 screen has it; the A press posted once its host is reached joins its game
 (or shows its lobby, if under way) */
 static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,
-	boolean *widget_deleted)
+	boolean *widget_deleted, boolean confirmed)
 {
 	struct p2p_listing const *game;
 	short index;
@@ -4229,11 +4272,13 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 	if (lobby_browser.joining)
 		return TRUE;
 	index = row != NONE ? (short)(lobby_browser.first + row) : lobby_browser.chosen;
-	if (index >= lobby_browser.count)
+	if (index < 0 || index >= lobby_browser.count)
 		return campaign_fail();
-	game = &lobby_browser.games[index];
+	game = confirmed ? &browser_join_big.game : &lobby_browser.games[index];
 	if (!game->open || !game->joinable || !config_boolean("network.online"))
 		return campaign_fail();
+	if (!confirmed && player_capacity_marked(game->player_count, game->maximum_player_count))
+		return browser_join_big_ask(widget, controller, game, NULL, widget_deleted);
 	/* (a game with a password: its screen asks for it, then joins) */
 	if (game->locked)
 	{
@@ -4614,13 +4659,13 @@ static boolean browser_join(struct widget_instance *widget, short controller, bo
 
 /* "gamespy select item" (a row: joins its game) and "gamespy select button"
 (Join) */
-static boolean browser_select(struct widget_instance *widget, struct event_record *event, short controller,
-	boolean *widget_deleted)
+static boolean browser_pick(struct widget_instance *widget, short controller,
+	boolean *widget_deleted, boolean confirmed)
 {
 	short row = browser_row_index(widget);
 
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
-		return lobby_browser_select(widget, controller, row, widget_deleted);
+		return lobby_browser_select(widget, controller, row, widget_deleted, confirmed);
 	if (row != NONE)
 		multiplayer.game_chosen = row;
 	if (row != NONE || strstr(widget->name, "button_join"))
@@ -4629,6 +4674,11 @@ static boolean browser_select(struct widget_instance *widget, struct event_recor
 			!network_game_client_advertised_game_compatible(global_network_game_client_get(),
 				multiplayer.games[multiplayer.game_chosen], TRUE))
 			return campaign_fail();
+		if (!confirmed && multiplayer.mode == _multiplayer_mode_lan &&
+			multiplayer.game_chosen >= 0 && multiplayer.game_chosen < multiplayer.game_count &&
+			player_capacity_marked(multiplayer.games[multiplayer.game_chosen]->player_count,
+				multiplayer.games[multiplayer.game_chosen]->maximum_player_count))
+			return browser_join_big_ask(widget, controller, NULL, multiplayer.games[multiplayer.game_chosen], widget_deleted);
 		/* (a game under way: its lobby first, then JOIN GAME) */
 		if (multiplayer.game_chosen < multiplayer.game_count &&
 			advertised_in_progress(multiplayer.games[multiplayer.game_chosen]))
@@ -4645,6 +4695,69 @@ static boolean browser_select(struct widget_instance *widget, struct event_recor
 		return browser_join(widget, controller, widget_deleted);
 	}
 	return TRUE;
+}
+
+static boolean browser_select(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted)
+{
+	(void)event;
+	return browser_pick(widget, controller, widget_deleted, FALSE);
+}
+
+/* OK and Back both restore the browser first. Re-find the game's identity:
+rows and advertised-game slots can change while the warning is open. */
+static boolean browser_join_big_finish(struct widget_instance *widget, boolean *widget_deleted, boolean confirmed)
+{
+	struct widget_instance *screen, *join;
+	short controller = browser_join_big.controller;
+	short index;
+
+	if (!browser_join_big.active)
+		return campaign_fail();
+	browser_join_big.returning = TRUE;
+	ui_widget_port_go_back(widget);
+	browser_join_big.returning = FALSE;
+	browser_join_big.active = FALSE;
+	*widget_deleted = TRUE;
+	if (!confirmed)
+		return TRUE;
+	if (multiplayer.mode != browser_join_big.mode)
+		return campaign_fail();
+	screen = ui_widget_port_active_screen(0);
+	join = screen ? named(screen, "join_game_button_join", 0) : NULL;
+	if (!join)
+		return campaign_fail();
+	if (multiplayer.mode == _multiplayer_mode_server_browser)
+	{
+		lobby_browser.count = lobby_browser_valid_games(lobby_browser.games,
+			(short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES));
+		for (index = 0; index < lobby_browser.count; index++)
+		{
+			if (!memcmp(lobby_browser.games[index].identifier, browser_join_big.game.identifier,
+				sizeof(browser_join_big.game.identifier)))
+				break;
+		}
+		if (index == lobby_browser.count || !lobby_browser.games[index].open || !lobby_browser.games[index].joinable)
+			return campaign_fail();
+		lobby_browser.chosen = index;
+	}
+	else
+	{
+		browser_games_read();
+		for (index = 0; index < multiplayer.game_count; index++)
+		{
+			struct advertised_game const *game = multiplayer.games[index];
+
+			if (!memcmp(game->key_id, browser_join_big.key_id, sizeof(browser_join_big.key_id)) &&
+				!memcmp(game->xnaddr, browser_join_big.xnaddr, sizeof(browser_join_big.xnaddr)))
+				break;
+		}
+		if (index == multiplayer.game_count)
+			return campaign_fail();
+		multiplayer.game_chosen = index;
+	}
+	/* The flag belongs only to this replay; the next pick must ask again. */
+	return browser_pick(join, controller, widget_deleted, TRUE);
 }
 
 /* "player profile save changes" (Settings' OK, the profile being edited):
@@ -5932,6 +6045,14 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "gamespy select item") || !strcmp(name, "gamespy select button"))
 		{
 			return browser_select(widget, event, controller, widget_deleted);
+		}
+		else if (!strcmp(name, "port browser join big confirm"))
+		{
+			return browser_join_big_finish(widget, widget_deleted, TRUE);
+		}
+		else if (!strcmp(name, "port browser join big back"))
+		{
+			return browser_join_big_finish(widget, widget_deleted, FALSE);
 		}
 		else if (!strcmp(name, "gamespy back handler") && text_field_editing(NULL))
 		{
