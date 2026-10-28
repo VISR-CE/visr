@@ -27,7 +27,9 @@ Elsewhere host_stereo_frame leaves the frame mono. */
 #include "host_stereo.h"
 #include "host_config.h"
 #include "host.h"
+#include "host_stereo_entry.h"
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -102,19 +104,10 @@ with display.stereo = "head", whatever the frame is (the full view, the film
 on the screen, or no eyes) */
 static int head_frame_open;
 
-/* display.stereo = "head", read once */
+/* HEAD mode in effect for the frame the game latched (host_stereo_mode) */
 static int head_configured(void)
 {
-	static int configured = -1;
-
-	if (configured < 0)
-	{
-		char value[16];
-
-		host_config_string("display.stereo", "off", value, sizeof(value));
-		configured = !strcmp(value, "head");
-	}
-	return configured;
+	return host_stereo_mode() == HALO_STEREO_HEAD;
 }
 
 static id<MTLRenderPipelineState> eye_pipeline, eye_foveated_pipeline, hud_pipeline;
@@ -1297,23 +1290,26 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 }
 #endif
 
+#if TARGET_OS_VISION
+/* display.frame_repeat, clamped to 0..3, in stereo mode; 0 in any other */
+static int frame_repeat_in(int mode)
+{
+	int repeat;
+
+	if (mode != HALO_STEREO_HEAD && mode != HALO_STEREO_SCREEN)
+		return 0;
+	repeat = (int)host_config_real("display.frame_repeat", 0.0);
+	return repeat < 0 ? 0 : repeat > 3 ? 3 : repeat;
+}
+#endif
+
 /* display.frame_repeat, clamped to 0..3: how many extra refreshes each of
 the Compositor's frames stays up in stereo (0: every refresh, 90 Hz; 1: 45
 Hz). Theater mode's mono screen keeps every refresh */
 int host_stereo_frame_repeat(void)
 {
 #if TARGET_OS_VISION
-	char value[16];
-	int repeat;
-
-	if (!head_configured())
-	{
-		host_config_string("display.stereo", "off", value, sizeof(value));
-		if (strcmp(value, "screen"))
-			return 0;
-	}
-	repeat = (int)host_config_real("display.frame_repeat", 0.0);
-	return repeat < 0 ? 0 : repeat > 3 ? 3 : repeat;
+	return frame_repeat_in(host_stereo_mode());
 #else
 	return 0;
 #endif
@@ -1327,7 +1323,8 @@ void host_stereo_space_opened(void *layer_renderer)
 	if (layer_renderer)
 	{
 		cp_layer_renderer_t renderer = (__bridge cp_layer_renderer_t)layer_renderer;
-		int repeat = host_stereo_frame_repeat();
+		/* (the mode the player asked for: the game may not have latched it yet) */
+		int repeat = frame_repeat_in(host_stereo_mode_requested());
 
 		cp_layer_renderer_set_minimum_frame_repeat_count(renderer, repeat);
 		host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d): a frame every %d refresh%s",
@@ -1350,6 +1347,51 @@ void host_stereo_space_opened(void *layer_renderer)
 #else
 	(void)layer_renderer;
 #endif
+}
+
+/* the player entered VR from the window: set on the main thread, latched
+by the game's thread at its frame begin (host_stereo_entered) */
+static _Atomic int entered_requested;
+static int entered_latched;
+
+/* display.stereo's mode, read once */
+static int mode_configured(void)
+{
+	static int configured = -1;
+
+	if (configured < 0)
+	{
+		char value[16];
+
+		host_config_string("display.stereo", "off", value, sizeof(value));
+		configured = host_stereo_mode_named(value);
+	}
+	return configured;
+}
+
+void host_stereo_set_entered(int entered)
+{
+#if TARGET_OS_VISION
+	atomic_store(&entered_requested, entered != 0);
+#else
+	(void)entered;
+#endif
+}
+
+int host_stereo_entered(void)
+{
+	entered_latched = atomic_load(&entered_requested);
+	return entered_latched;
+}
+
+int host_stereo_mode(void)
+{
+	return halo_stereo_mode_entered(mode_configured(), entered_latched);
+}
+
+int host_stereo_mode_requested(void)
+{
+	return halo_stereo_mode_entered(mode_configured(), atomic_load(&entered_requested));
 }
 
 void host_stereo_frame(struct halo_stereo_frame *frame)

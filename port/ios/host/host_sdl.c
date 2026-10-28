@@ -401,8 +401,8 @@ int host_sdl_poll_event(void *event)
 		SDL_free(ids);
 		host_theater_chord(held || host_spatial_sense_menus_held());
 	}
-	/* debug.test_theater_reopen: the immersive space closed, then opened again
-	from the window's button */
+	/* debug.test_theater_reopen: Exit VR if the space is open, else Enter VR,
+	every 900 polls, six times */
 	{
 		static int test_theater_reopen = -1;
 		static unsigned long theater_polls;
@@ -414,14 +414,8 @@ int host_sdl_poll_event(void *event)
 			host_config_string("debug.test_theater_reopen", "false", value, sizeof(value));
 			test_theater_reopen = !strcmp(value, "true");
 		}
-		if (test_theater_reopen)
-		{
-			theater_polls++;
-			if (theater_polls == 900)
-				host_theater_test_close();
-			if (theater_polls == 3600)
-				host_theater_test_reopen();
-		}
+		if (test_theater_reopen && ++theater_polls % 900 == 0 && theater_polls <= 5400)
+			host_theater_test_toggle();
 	}
 #else
 	(void)test_extra_scene;

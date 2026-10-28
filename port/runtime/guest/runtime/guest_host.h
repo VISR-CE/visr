@@ -245,6 +245,10 @@ struct halo_stereo_frame crosses as it is (tools/ios_test.py pins its layout). *
 /* HEAD mode, at the game's frame begin: opens the Compositor's next frame and
 fills the eyes and the head's turn from it; eye_count stays 0 without one */
 void host_stereo_frame(struct halo_stereo_frame *frame);
+/* at the game's frame begin: 1 while the player has entered VR from the
+window (Apple Vision Pro's Enter VR), when display.stereo's "off" becomes
+HEAD mode (halo_stereo_mode_entered); 0 on every other platform */
+int host_stereo_entered(void);
 
 /* Fixed-width spatial samples and feedback cross the host/guest boundary unchanged. */
 void host_spatial_sample(int kind, struct halo_spatial_sample *sample);

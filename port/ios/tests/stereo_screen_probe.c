@@ -109,6 +109,9 @@ int config_boolean(const char *name) { (void)name; return 0; }
 /* host_stereo.m's SCREEN eyes: 64 mm apart about the head's offset, 4 m in
 front of a screen 4.618 m wide (the theater's default), frusta through its
 edges */
+/* the player never entered VR from the window: display.stereo's mode */
+int host_stereo_entered(void) { return 0; }
+
 void host_stereo_frame(struct halo_stereo_frame *frame)
 {
 	int eye;
@@ -308,7 +311,7 @@ static void reasons(void)
 	int logs;
 
 	printf("SCREEN mode's reasons:\n");
-	stereo_mode = -1;
+	stereo_configured = -1;
 	frames(1);
 	check(halo_stereo_screen_gameplay() && !halo_stereo_film() && halo_stereo_screen_framing(),
 		"gameplay is the 3D TV, framed as the band");
@@ -454,7 +457,7 @@ static void first_person_eye(void)
 		check(held == FILM_HOLD_FRAMES && on_surface,
 			"through the film's hold and into gameplay, the weapon keeps its own eye, no jump");
 	}
-	stereo_mode = HALO_STEREO_HEAD;
+	stereo_configured = HALO_STEREO_HEAD;
 	game_letterbox = 1;
 	frames(1);
 	halo_stereo_layer(0);
@@ -466,7 +469,7 @@ static void first_person_eye(void)
 	halo_stereo_layer(0);
 	check(!halo_stereo_first_person_eye(&none) && !halo_stereo_screen_gameplay() && !halo_stereo_screen_framing(),
 		"HEAD mode has none, and keeps its framing");
-	stereo_mode = HALO_STEREO_SCREEN;
+	stereo_configured = HALO_STEREO_SCREEN;
 	halo_stereo_layer(HALO_STEREO_LAYER_MONO);
 }
 
@@ -479,7 +482,7 @@ static void zoom_view(void)
 
 	printf("the zoom:\n");
 	reset_game();
-	stereo_mode = HALO_STEREO_HEAD;
+	stereo_configured = HALO_STEREO_HEAD;
 	frames(3 * FILM_HOLD_FRAMES);
 	check(!halo_stereo_zoom_begin(0) && !halo_stereo_zoom(), "HEAD mode unzoomed: none");
 	check(halo_stereo_zoom_begin(1) && halo_stereo_zoom(), "HEAD mode's full view, zoomed: the zoomed pass");
@@ -634,11 +637,11 @@ static void zoom_view(void)
 	check(!halo_stereo_zoom_begin(1), "nor does a frame without the Compositor's eyes");
 	check(zoom_logged < 0, "which re-arms the first zoom's log line (the space reopening, a load)");
 	host_eyes = 1;
-	stereo_mode = HALO_STEREO_SCREEN;
+	stereo_configured = HALO_STEREO_SCREEN;
 	frames(3 * FILM_HOLD_FRAMES);
 	check(halo_stereo_screen_gameplay() && !halo_stereo_zoom_begin(1),
 		"SCREEN gameplay has none: the game's zoom narrows the 3D TV's picture");
-	stereo_mode = HALO_STEREO_SIDE_BY_SIDE;
+	stereo_configured = HALO_STEREO_SIDE_BY_SIDE;
 	frames(3 * FILM_HOLD_FRAMES);
 	check(halo_stereo_zoom_begin(1), "the side-by-side view, the Mac's stand-in for HEAD mode, has it");
 	{
@@ -653,7 +656,7 @@ static void zoom_view(void)
 	frames(3 * FILM_HOLD_FRAMES);
 	check(!halo_stereo_zoom_begin(1), "but not as SCREEN gameplay (debug.side_by_side_screen)");
 	side_by_side_screen = 0;
-	stereo_mode = HALO_STEREO_SCREEN;
+	stereo_configured = HALO_STEREO_SCREEN;
 	halo_stereo_layer(HALO_STEREO_LAYER_MONO);
 	reset_game();
 }

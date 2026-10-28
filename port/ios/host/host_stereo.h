@@ -10,6 +10,18 @@ SCREEN mode, opens the Compositor's frame and fills the eyes (and in HEAD
 mode the head's turn) from it; eye_count stays 0 without one, and on every
 other platform */
 void host_stereo_frame(struct halo_stereo_frame *frame);
+/* Entering VR from the window (host_theater.m's Enter VR, the controller's
+chord): host_stereo_set_entered says the player entered (1) or left (0); the
+guest's import host_stereo_entered latches that once a frame, at the game's
+frame begin, and the game's mode follows (halo_stereo_mode_entered).
+host_stereo_mode is the mode in effect for the frame the game latched,
+for the host's own readers on the game's thread; host_stereo_mode_requested
+is the one the player asked for just now, for the immersive space's
+configuration as it opens. Always 0 (off) but on visionOS */
+void host_stereo_set_entered(int entered);
+int host_stereo_entered(void);
+int host_stereo_mode(void);
+int host_stereo_mode_requested(void);
 int host_stereo_last_head(float back[3], float position[3]);
 float host_stereo_room_yaw_offset(void);
 void host_stereo_room_vector(float vector[3]);

@@ -48,6 +48,7 @@ Planned releases, which may change. The sections below list every item.
 - [x] Stereo on the theater screen, as a 3D TV (`display.stereo = "screen"`)
 - [x] 2D play in a window at the window's resolution
 - [x] 2D play on a screen in your room on visionOS 26 (`display.immersive`, `display.theater_width`, `display.theater_distance`, `display.theater_environment`)
+- [x] Enter VR and Exit VR while the game runs on visionOS 26: a button below the window, a panel in VR, the Digital Crown, or View and Menu held on a controller
 
 ## Controls
 

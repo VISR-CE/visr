@@ -231,8 +231,6 @@ static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, 
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo_hud.h"
-/* display.immersive: frames go to the theater screen while its space is open */
-static BOOL theater_wanted;
 /* the cut's fade through black (gpu_metal_present_stereo) */
 static float stereo_cut_brightness(int view, int covered, int requested);
 #endif
@@ -6862,7 +6860,7 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 		/* head-tracked stereo without eyes this frame (the main menu, a
 		load): the picture goes on the UI's quad, level in front of the head
 		(host_stereo_present_ui), not the theater screen */
-		if (theater_wanted && record && record->texture && host_theater_active() && host_stereo_ui_ready())
+		if (record && record->texture && host_theater_active() && host_stereo_ui_ready())
 		{
 			use_texture(record);
 			commit(YES);
@@ -6876,7 +6874,7 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 		angle, host_theater_picture_size), goes on the screen
 		in the immersive space, whose frames pace the game; the window isn't
 		drawn meanwhile */
-		if (theater_wanted && record && record->texture && host_theater_active())
+		if (record && record->texture && host_theater_active())
 		{
 			int screen_width, screen_height;
 			long window_width, window_height, width, height;
@@ -7339,7 +7337,7 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 		}
 		/* Compositor timing is asynchronous; an unobserved target stays unknown. */
 
-		if (theater_wanted && !on_screen && present->mode == HALO_STEREO_HEAD && color[0] && color[0]->texture && color[1] &&
+		if (!on_screen && present->mode == HALO_STEREO_HEAD && color[0] && color[0]->texture && color[1] &&
 			color[1]->texture && depth[0] && depth[0]->texture && depth[1] && depth[1]->texture && host_stereo_ready())
 		{
 			int eye;
@@ -7394,7 +7392,7 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 		/* HEAD mode with a menu over the film (the main menu's scripted
 		scene, the pause menu in a cutscene): the left eye's picture with the
 		menu on the UI's quad, as a frame without eyes, not on the screen */
-		if (theater_wanted && on_screen && present->hud_ui && color[0] &&
+		if (on_screen && present->hud_ui && color[0] &&
 			color[0]->texture && hud && hud->texture && host_stereo_ui_ready())
 		{
 			id<MTLTexture> picture;
@@ -7413,7 +7411,7 @@ static uint32_t gpu_metal_present_stereo(const struct gpu_stereo_present *presen
 		perf_gpu_waited = 0.0;
 			return 0;
 		}
-		if (theater_wanted && on_screen && color[0] && color[0]->texture && color[1] &&
+		if (on_screen && color[0] && color[0]->texture && color[1] &&
 			color[1]->texture && host_stereo_ready())
 		{
 			id<MTLTexture> left, right;
@@ -7498,12 +7496,9 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		if (!(flags & GPU_INITIALIZE_NO_PIPELINE_ARCHIVE))
 			archive_open();
 #if TARGET_OS_VISION
-		if (flags & GPU_INITIALIZE_IMMERSIVE)
-		{
-			theater_wanted = YES;
-			host_theater_load_settings();
-			host_theater_open();
-		}
+		/* frames go to the immersive space whenever it's open: Enter VR opens
+		it while the game runs, and display.immersive opens it now */
+		host_theater_start((flags & GPU_INITIALIZE_IMMERSIVE) != 0);
 #endif
 		/* SDL's view sets the layer's scale and drawableSize (from layoutSubviews) */
 		layer.device = device;

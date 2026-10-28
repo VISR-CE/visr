@@ -781,6 +781,10 @@ for path, name, calls in (
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/foveation_scale_probe.c', '-o', BUILD/'foveation-scale-probe')
 run(BUILD/'foveation-scale-probe')
+# Enter VR on Apple Vision Pro: the stereo mode it gives, and the controller's chord
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
+    'port/ios/tests/stereo_entry_probe.c', '-o', BUILD/'stereo-entry-probe')
+run(BUILD/'stereo-entry-probe')
 # head-tracked stereo's look: the world holds still in the room while the head pans, and
 # the right stick's turn (the probe includes port/linux/game/stereo.c)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host',

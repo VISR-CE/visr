@@ -96,7 +96,7 @@ public func host_theater_set_upper_limbs(_ visible: Int32) {
     }
 }
 
-/* opens the space; host_theater.m calls it once SDL's window is up */
+/* opens the space: at launch with display.immersive, and for Enter VR (host_theater.m) */
 @_cdecl("host_theater_open")
 public func host_theater_open() {
     guard #available(visionOS 26.0, *) else {
@@ -109,6 +109,84 @@ public func host_theater_open() {
     }
     UIApplication.shared.activateSceneSession(for: request) { error in
         host_theater_log("theater: the immersive space didn't open: \(error.localizedDescription)")
+        host_theater_open_failed()
+    }
+}
+
+/* Enter VR: the ornament below the game's window, while the immersive space
+   is closed (host_theater.m sets it and clears it) */
+@_cdecl("host_theater_ornament")
+public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ shown: Int32) {
+    guard let controller else { return }
+    MainActor.assumeIsolated {
+        let window = Unmanaged<UIViewController>.fromOpaque(controller).takeUnretainedValue()
+        window.ornaments = shown == 0 ? [] : [
+            // below the window, where visionOS puts a window's toolbar
+            UIHostingOrnament(sceneAnchor: .bottom, contentAlignment: .top) {
+                Button {
+                    host_theater_enter()
+                } label: {
+                    Label("Enter VR", systemImage: "visionpro")
+                }
+                .controlSize(.large)
+                .padding(12)
+                .glassBackgroundEffect()
+                .accessibilityHint("Plays the game around you in the headset")
+            }
+        ]
+    }
+}
+
+/* Exit VR: a small panel window in the immersive space, near the player's
+   hands (the system's utility panel placement) */
+@available(visionOS 26.0, *)
+struct VRControls: View {
+    var body: some View {
+        Button {
+            host_theater_close()
+        } label: {
+            Label("Exit VR", systemImage: "rectangle.portrait.and.arrow.right")
+        }
+        .controlSize(.large)
+        .padding(16)
+        .glassBackgroundEffect(in: .capsule)
+        .accessibilityHint("Returns the game to its window")
+    }
+}
+
+@available(visionOS 26.0, *)
+@objc(HostVRControlsSceneDelegate)
+final class VRControlsSceneDelegate: UIResponder, UIHostingSceneDelegate {
+    static var rootScene: some Scene {
+        WindowGroup(id: "vr-controls") {
+            VRControls()
+        }
+        .windowStyle(.plain)
+        .windowResizability(.contentSize)
+        .defaultWindowPlacement { _, _ in
+            WindowPlacement(.utilityPanel)
+        }
+    }
+}
+
+/* host_theater.m: opens the Exit VR panel as the space opens, and closes it
+   as the space closes */
+@_cdecl("host_theater_controls")
+public func host_theater_controls(_ shown: Int32) {
+    guard #available(visionOS 26.0, *) else { return }
+    if shown == 0 {
+        for scene in UIApplication.shared.connectedScenes where scene.delegate is VRControlsSceneDelegate {
+            UIApplication.shared.requestSceneSessionDestruction(scene.session, options: nil, errorHandler: nil)
+        }
+        return
+    }
+    guard let request = UISceneSessionActivationRequest(hostingDelegateClass: VRControlsSceneDelegate.self,
+                                                        id: "vr-controls") else {
+        host_theater_log("theater: the Exit VR panel can't be requested")
+        return
+    }
+    UIApplication.shared.activateSceneSession(for: request) { error in
+        host_theater_log("theater: the Exit VR panel didn't open: \(error.localizedDescription)")
     }
 }
 

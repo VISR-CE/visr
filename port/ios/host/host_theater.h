@@ -91,6 +91,9 @@ float host_theater_fade_depth(simd_float4x4 projection);
 
 /* The immersive scene lets the system show hands again when aiming stops. */
 void host_theater_set_upper_limbs(int32_t visible);
+/* each event poll (host_sdl.c): whether a controller has Back and Start down
+together; held for HOST_STEREO_CHORD_SECONDS, Enter VR from the window or
+Exit VR from the space, once for each hold */
 void host_theater_chord(int held);
 /* The system's recenter phases share a yaw correction with the controllers. */
 void host_stereo_world_recenter(int active);
@@ -101,12 +104,30 @@ void host_theater_load_settings(void);
 int host_theater_dark(void);
 /* the picture's size in pixels for the screen's angle */
 void host_theater_picture_size(int *width, int *height);
-/* opens the immersive space (Theater.swift) */
+/* opens the immersive space (Theater.swift); host_theater_open_failed is
+its call back when the system refuses */
 void host_theater_open(void);
-/* debug.test_theater_reopen (host_sdl.c): closes the immersive space as the
-Digital Crown would; presses the window's button that opens it again */
-void host_theater_test_close(void);
-void host_theater_test_reopen(void);
+void host_theater_open_failed(void);
+/* once SDL's window is up (gpu_metal.m): reads display.theater_*, puts the
+Enter VR ornament on the window, and with open (display.immersive) opens
+the space in display.stereo's mode */
+void host_theater_start(int open);
+/* Enter VR (the window's ornament, the controller's chord): head-tracked
+stereo unless display.stereo names another mode (halo_stereo_mode_entered),
+in the immersive space */
+void host_theater_enter(void);
+/* Exit VR (the panel's button, the controller's chord): closes the space as
+the Digital Crown does; the game returns to its window */
+void host_theater_close(void);
+/* for host_theater.m: the Enter VR ornament on the game's window (a
+UIViewController, unretained), shown or removed (Theater.swift) */
+void host_theater_ornament(void *controller, int shown);
+/* for host_theater.m: the Exit VR panel, a small window in the space,
+opened (1) or closed (0) (Theater.swift) */
+void host_theater_controls(int shown);
+/* debug.test_theater_reopen (host_sdl.c): Exit VR if the space is open,
+else Enter VR */
+void host_theater_test_toggle(void);
 /* whether the space is open, so gpu_present draws there and not in the window */
 int host_theater_active(void);
 /* for Theater.swift: the space's layer renderer, unretained */
