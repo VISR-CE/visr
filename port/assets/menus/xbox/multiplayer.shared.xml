@@ -167,57 +167,53 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_gametype" controller="1" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
-		<child widget="xbox/error/confirm_delete_gametype_text_box" x="192" y="176" />
-		<child widget="xbox/error/header_warning" x="201" y="180" />
-	</widget>
-	<widget name="xbox/error/confirm_delete_gametype_button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
-		<child widget="xbox/error/confirm_delete_gametype_button_cancel" x="128" />
-		<child widget="xbox/error/confirm_delete_gametype_button_ok" />
-	</widget>
-	<widget name="xbox/error/confirm_delete_gametype_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
-		<on event="left_mouse" run="mouse emit back event" />
-		<on event="a" run="mouse emit back event" />
-		<on event="start" run="mouse emit back event" />
-	</widget>
-	<widget name="xbox/error/confirm_delete_gametype_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/error/confirm_delete_profile_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
 		<on event="start" run="port delete finish" sound="sound\sfx\ui\forward" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/error/confirm_delete_gametype_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
-		<on event="b" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
-		<on event="back" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
-		<child widget="xbox/error/confirm_delete_gametype" />
-		<child widget="xbox/error/confirm_delete_gametype_button_bar" x="194" y="449" />
-	</widget>
-	<widget name="xbox/error/confirm_delete_gametype_text_box" type="text" controller="1" width="280" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36">
+		<on event="b" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
+		<on event="back" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
+		<child widget="xbox/error/confirm_delete_profile" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/confirm_delete_profile_text_box" x="192" y="176" />
 		<child widget="xbox/error/header_warning" x="201" y="180" />
+		<child widget="xbox/error/confirm_delete_profile/b_butn" x="268" y="310" />
+		<child widget="xbox/error/confirm_delete_profile/b_caption" x="284" y="310" />
+		<child widget="xbox/error/confirm_delete_profile/a_butn" x="356" y="310" />
+		<child widget="xbox/error/confirm_delete_profile/a_caption" x="372" y="310" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile_button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
-		<child widget="xbox/error/confirm_delete_profile_button_cancel" x="128" />
-		<child widget="xbox/error/confirm_delete_profile_button_ok" />
-	</widget>
-	<widget name="xbox/error/confirm_delete_profile_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/error/confirm_delete_profile_text_box" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
+	<widget name="xbox/error/confirm_delete_profile/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
+	<widget name="xbox/error/confirm_delete_profile/b_caption" type="text" text="=CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit back event" />
-		<on event="a" run="mouse emit back event" />
-		<on event="start" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
-		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
-		<on event="start" run="port delete finish" sound="sound\sfx\ui\forward" />
+	<widget name="xbox/error/confirm_delete_profile/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
+	<widget name="xbox/error/confirm_delete_profile/a_caption" type="text" text="=OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
-		<on event="b" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
-		<on event="back" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
-		<child widget="xbox/error/confirm_delete_profile" />
-		<child widget="xbox/error/confirm_delete_profile_button_bar" x="194" y="449" />
+	<widget name="xbox/error/confirm_delete_gametype_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
+		<on event="start" run="port delete finish" sound="sound\sfx\ui\forward" />
+		<on event="b" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
+		<on event="back" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
+		<child widget="xbox/error/confirm_delete_gametype" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile_text_box" type="text" controller="1" width="280" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36">
+	<widget name="xbox/error/confirm_delete_gametype" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
+		<child widget="xbox/error/confirm_delete_gametype_text_box" x="192" y="176" />
+		<child widget="xbox/error/header_warning" x="201" y="180" />
+		<child widget="xbox/error/confirm_delete_gametype/b_butn" x="268" y="310" />
+		<child widget="xbox/error/confirm_delete_gametype/b_caption" x="284" y="310" />
+		<child widget="xbox/error/confirm_delete_gametype/a_butn" x="356" y="310" />
+		<child widget="xbox/error/confirm_delete_gametype/a_caption" x="372" y="310" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype_text_box" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
+	<widget name="xbox/error/confirm_delete_gametype/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
+	<widget name="xbox/error/confirm_delete_gametype/b_caption" type="text" text="=CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+		<on event="left_mouse" run="mouse emit back event" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
+	<widget name="xbox/error/confirm_delete_gametype/a_caption" type="text" text="=OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<strings name="xbox/strings/displayed_error_messages">
 		<string text="Unable to complete\nthe last operation." />
@@ -281,16 +277,6 @@
 		<string text="You must have\nAdministrator privileges\nto download this required\npatch." />
 		<string text="Are you sure you want to\ndelete this saved game?" />
 	</strings>
-	<strings name="xbox/strings/common_button_captions">
-		<string text="BACK" />
-		<string text="OK" />
-		<string text="CANCEL" />
-		<string text="DEFAULTS" />
-		<string text="CREATE NEW" />
-		<string text="DELETE" />
-		<string text="ADVANCED" />
-		<string text="Profile:" />
-	</strings>
 	<widget name="xbox/error/header_warning" type="text" controller="1" width="150" height="20" string_list="xbox/error/error_headers" string_index="1" font="ui\large_ui" color="#FF2896FF">
 	</widget>
 	<strings name="xbox/error/error_headers">
@@ -314,6 +300,16 @@
 		<string text="Players who kill a teammate will be assessed\na fifteen-second respawn penalty the next time\nthey die." />
 		<string text="Team autobalancing will be disabled.  Players will\nbe free to change teams as they wish." />
 		<string text="Team autobalancing will be enabled.  Players will\nnot be able to change to a more full team." />
+	</strings>
+	<strings name="xbox/strings/common_button_captions">
+		<string text="BACK" />
+		<string text="OK" />
+		<string text="CANCEL" />
+		<string text="DEFAULTS" />
+		<string text="CREATE NEW" />
+		<string text="DELETE" />
+		<string text="ADVANCED" />
+		<string text="Profile:" />
 	</strings>
 	<widget name="xbox/common_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event" />

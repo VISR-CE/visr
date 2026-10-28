@@ -345,21 +345,34 @@ def multiplayer_documents(assets, bitmaps):
         for e in ET.parse(assets / 'ce' / filename).getroot():
             shared.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
-    # tvOS edit rows use their own confirmation, with completion tied to a successful final delete.
-    for element in ET.parse(assets / 'ce/error.xml').getroot():
-        name = element.get('name', '')
-        if not name.startswith(('error/confirm_delete_profile', 'error/confirm_delete_gametype')):
-            continue
-        copied = deepcopy(element)
-        for on in copied.findall('on'):
-            if on.get('run', '').startswith('final del '):
-                on.set('run', 'port delete finish')
-                on.attrib.pop('close', None)
-            elif on.get('run') == 'cancel profile delete':
-                on.attrib.pop('close', None)
-                on.set('back', 'true')
-        shared.append(copied)
-        owned.add((copied.tag, name))
+    # Match the Xbox modal: fixed button art inside the alert, with A handled by the modal itself.
+    for kind, message in (('profile', 24), ('gametype', 25)):
+        base = 'error/confirm_delete_' + kind
+        modal = widget(shared, base + '_modal_fullscreen', width=640, height=480,
+                       flags='pass_unhandled_to_focused_child')
+        for event in ('a', 'start'):
+            ET.SubElement(modal, 'on', event=event, run='port delete finish', sound=r'sound\sfx\ui\forward')
+        for event in ('b', 'back'):
+            ET.SubElement(modal, 'on', event=event, run='cancel profile delete', back='true',
+                          sound=r'sound\sfx\ui\back')
+        panel = widget(shared, base, width=640, height=480, bitmap='bitmaps/semi_transparent_grey')
+        child(modal, base)
+        child(panel, base + '_text_box', x=192, y=176)
+        child(panel, 'error/header_warning', x=201, y=180)
+        widget(shared, base + '_text_box', type='text', width=239, height=159,
+               bitmap='bitmaps/alert_bkd', string_list='strings/displayed_error_messages', string_index=message,
+               font=r'ui\large_ui', color=BLUE, text_x=9, text_y=36)
+        for button, caption, x in (('b', '=CANCEL', 268), ('a', '=OK', 356)):
+            icon = base + '/' + button + '_butn'
+            child(panel, icon, x=x, y=310)
+            widget(shared, icon, width=16, height=20, bitmap='xbox/browser/' + button + '_butn_sm')
+            label = base + '/' + button + '_caption'
+            child(panel, label, x=x + 16, y=310)
+            widget(shared, label, type='text', text=caption, width=70, height=22,
+                   font=r'ui\small_ui', color=BLUE)
+            ET.SubElement(shared[-1], 'on', event='left_mouse',
+                          run='mouse emit back event' if button == 'b' else 'mouse emit accept event')
+        owned.update((e.tag, e.get('name')) for e in shared)
     pending = [e for root in documents.values() for e in root]
     while pending:
         element = pending.pop()
@@ -384,6 +397,8 @@ def multiplayer_documents(assets, bitmaps):
             for key in ('bitmap', 'header_bitmap', 'footer_bitmap'):
                 if e.get(key):
                     value = e.get(key)
+                    if value.startswith('xbox/browser/'):
+                        continue
                     if '\\' in value:
                         # Map previews have no shipped redraw. Reuse the shipped
                         # unknown-gametype card when that map tag is absent.
@@ -597,10 +612,11 @@ def browser_layout(root, widgets, bitmaps):
         icon.attrib.pop('text')
         icon.set('type', 'container')
         icon.set('bitmap', f'xbox/browser/{button}_butn')
-    for button in ('a', 'b', 'x', 'y'):
-        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{button}_butn')
-        ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + button + '_butn', index='0',
-                      png=f'xbox/art/{button}_butn.png', width='21', height='26')
+    for button in ('a', 'b', 'x', 'y', 'a_sm', 'b_sm'):
+        art = button[0] + '_butn' + ('_sm' if button.endswith('_sm') else '')
+        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{art}')
+        ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index='0',
+                      png=f'xbox/art/{button[0]}_butn.png', width='21', height='26')
     # A shared, inset redraw keeps the cap and right edge inside every row.
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
     for index in (0, 1):

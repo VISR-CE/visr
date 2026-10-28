@@ -172,7 +172,15 @@ def test_delete_confirmations_finish_both_edit_flows():
         for event in ('b', 'back'):
             cancel = modal.find(f'on[@event="{event}"]')
             assert cancel.get('run') == 'cancel profile delete' and cancel.get('back') == 'true'
-        accept = widgets[f'xbox/error/confirm_delete_{kind}_button_ok']
+        assert not any('button_bar' in c.get('widget', '') for c in modal.findall('child'))
+        panel = widgets[f'xbox/error/confirm_delete_{kind}']
+        for button, caption in (('a', '=OK'), ('b', '=CANCEL')):
+            icon = f'xbox/error/confirm_delete_{kind}/{button}_butn'
+            assert panel.find(f'child[@widget="{icon}"][@y="310"]') is not None
+            assert widgets[icon].get('bitmap') == f'xbox/browser/{button}_butn_sm'
+            label = widgets[f'xbox/error/confirm_delete_{kind}/{button}_caption']
+            assert label.get('text') == caption
+            assert label.find('on').get('run') == ('mouse emit accept event' if button == 'a' else 'mouse emit back event')
         for event in ('a', 'start'):
-            handler = accept.find(f'on[@event="{event}"]')
+            handler = modal.find(f'on[@event="{event}"]')
             assert handler.get('run') == 'port delete finish' and handler.get('close') is None

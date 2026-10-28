@@ -2083,6 +2083,8 @@ static boolean cancel_profile_delete(
 	struct event_record *event,
 	boolean *widget_deleted)
 {
+	extern void platform_log(char const *format, ...);
+	platform_log("menus: delete canceled (profile 0x%08lX)", event_handler_functions.profile_index);
 	event_handler_functions.profile_index = NONE;
 	return TRUE;
 }
@@ -6303,6 +6305,7 @@ boolean ui_widget_port_delete_finish(
 	boolean *widget_deleted)
 {
 	extern void ui_widget_port_go_back_past_editor(struct widget_instance *widget);
+	extern void platform_log(char const *format, ...);
 	long profile_index = event_handler_functions.profile_index;
 	boolean deleted = FALSE;
 	boolean success;
@@ -6311,6 +6314,7 @@ boolean ui_widget_port_delete_finish(
 		return FALSE;
 	success = (profile_index & 0xF) == 0 ? delete_player_profile_final(widget, NULL, &deleted) :
 		delete_playlist_profile_final(widget, NULL, &deleted);
+	platform_log("menus: delete final (profile 0x%08lX): %s", profile_index, success ? "completed" : "failed");
 	if (!success)
 		return FALSE;
 	event_handler_functions.profile_index = NONE;

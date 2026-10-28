@@ -477,6 +477,12 @@
 	<bitmap name="xbox/browser/y_butn">
 		<frame map="ui\shell\bitmaps\y_butn" index="0" png="xbox/art/y_butn.png" width="21" height="26" />
 	</bitmap>
+	<bitmap name="xbox/browser/a_butn_sm">
+		<frame map="ui\shell\bitmaps\a_butn_sm" index="0" png="xbox/art/a_butn.png" width="21" height="26" />
+	</bitmap>
+	<bitmap name="xbox/browser/b_butn_sm">
+		<frame map="ui\shell\bitmaps\b_butn_sm" index="0" png="xbox/art/b_butn.png" width="21" height="26" />
+	</bitmap>
 	<bitmap name="xbox/browser/row">
 		<frame png="xbox/art/browser_row__0.png" width="544" height="24" />
 		<frame png="xbox/art/browser_row__1.png" width="544" height="24" />

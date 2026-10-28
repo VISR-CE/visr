@@ -15,6 +15,7 @@ def test_delete_completion(tmp_path):
     program = r'''
 #include <assert.h>
 #include <stddef.h>
+static void platform_log(char const *format, ...) {}
 typedef int boolean;
 #define TRUE 1
 #define FALSE 0
