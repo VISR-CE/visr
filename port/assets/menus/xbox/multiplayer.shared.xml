@@ -167,6 +167,142 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" />
 	</widget>
+	<widget name="xbox/error/confirm_delete_gametype" controller="1" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
+		<child widget="xbox/error/confirm_delete_gametype_text_box" x="192" y="176" />
+		<child widget="xbox/error/header_warning" x="201" y="180" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype_button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
+		<child widget="xbox/error/confirm_delete_gametype_button_cancel" x="128" />
+		<child widget="xbox/error/confirm_delete_gametype_button_ok" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="left_mouse" run="mouse emit back event" />
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
+		<on event="start" run="port delete finish" sound="sound\sfx\ui\forward" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
+		<on event="back" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
+		<child widget="xbox/error/confirm_delete_gametype" />
+		<child widget="xbox/error/confirm_delete_gametype_button_bar" x="194" y="449" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_gametype_text_box" type="text" controller="1" width="280" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36">
+	</widget>
+	<widget name="xbox/error/confirm_delete_profile" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
+		<child widget="xbox/error/confirm_delete_profile_text_box" x="192" y="176" />
+		<child widget="xbox/error/header_warning" x="201" y="180" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_profile_button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
+		<child widget="xbox/error/confirm_delete_profile_button_cancel" x="128" />
+		<child widget="xbox/error/confirm_delete_profile_button_ok" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_profile_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="left_mouse" run="mouse emit back event" />
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_profile_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
+		<on event="start" run="port delete finish" sound="sound\sfx\ui\forward" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_profile_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
+		<on event="back" run="cancel profile delete" sound="sound\sfx\ui\back" back="true" />
+		<child widget="xbox/error/confirm_delete_profile" />
+		<child widget="xbox/error/confirm_delete_profile_button_bar" x="194" y="449" />
+	</widget>
+	<widget name="xbox/error/confirm_delete_profile_text_box" type="text" controller="1" width="280" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36">
+	</widget>
+	<strings name="xbox/strings/displayed_error_messages">
+		<string text="Unable to complete\nthe last operation." />
+		<string text="A networking error\nhas occurred." />
+		<string text="Unable to join game \nbecause it is closed." />
+		<string text="Unable to join game." />
+		<string text="The game has\nclosed down." />
+		<string text="Halo can't connect to\nthe network." />
+		<string text="Network connection lost." />
+		<string text="Failed to join the game." />
+		<string text="Your game has\ngone out of sync with\nthe others in\nthe game. Resetting..." />
+		<string text="Your connection is\nexperiencing\ndifficulties..." />
+		<string text="unused network error" />
+		<string text="A controller error\nhas occurred." />
+		<string text="Please reconnect\ncontroller #%controller.\nPress START to continue\nafter reconnecting." />
+		<string text="Please reconnect\n#%controller controller." />
+		<string text="A controller\nmemory card error\nhas occurred." />
+		<string text="Saving... one moment\nplease." />
+		<string text="Creating player profile...\none moment please." />
+		<string text="Creating game settings\nfile... one moment please." />
+		<string text="Player 2 must use a\ndifferent controller\nthan Player 1." />
+		<string text="unused controller error" />
+		<string text="unused controller error" />
+		<string text="Please insert\nanother quarter." />
+		<string text="All progress since the\nlast checkpoint will\nbe lost." />
+		<string text="All progress on this \nlevel will be lost." />
+		<string text="Are you sure you wish \nto delete this profile? \nAll your progress and \nsettings will be lost." />
+		<string text="Are you sure you wish \nto delete this\ngametype? All your\nsettings will be lost." />
+		<string text="Sorry, you can't delete\nthe default multiplayer\ngame settings." />
+		<string text="Sorry, there is already \na saved gametype or \nprofile with that name." />
+		<string text="Do you really want to\nback out without saving\nyour changes?" />
+		<string text="Sorry, you can't create\na saved game file with\nan empty name." />
+		<string text="Saving last checkpoint...\none moment please." />
+		<string text="Unable to load saved\ngame file." />
+		<string text="unused warning" />
+		<string text="Insufficient free space to\nsave game." />
+		<string text="Insufficient free save slots." />
+		<string text="An error has occurred\nloading a map file." />
+		<string text="You have reached the\nmaximum number of Halo\ngame files. Unable to\ncreate additional ones." />
+		<string text="Unable to create new\nplayer profile." />
+		<string text="Unable to create new\nmultiplayer game\nsettings entry." />
+		<string text="Unable to load saved\nprogress for this\nprofile." />
+		<string text="An error has occurred\ntrying to contact the \nGameSpy master server." />
+		<string text="Video settings changed...\nPress OK to accept." />
+		<string text="The server you selected\nrequires a password!" />
+		<string text="Unable to join the game\nserver!" />
+		<string text="The server reported\nan invalid connection\nrequest." />
+		<string text="Your password was\nrejected by the server." />
+		<string text="The server is full." />
+		<string text="Your CD Key is invalid." />
+		<string text="Your CD Key is in use\nby another player." />
+		<string text="The server operator has\nbanned you from playing\non this server." />
+		<string text="The server operator has\nkicked you from this\nserver." />
+		<string text="Video settings will be\ntested.  If you do not see\na confirm dialog after\nthe change, press ESC." />
+		<string text="Checkpoint saved." />
+		<string text="The address is invalid." />
+		<string text="You need to create or\nselect a profile in order\nto continue." />
+		<string text="Your client is running an\nincompatible network \nprotocol version." />
+		<string text="Connection rejected: Your\nclient is older than the\nserver." />
+		<string text="Connection rejected: Your\nclient is newer than the\nserver." />
+		<string text="You must have\nAdministrator privileges\nto download this required\npatch." />
+		<string text="Are you sure you want to\ndelete this saved game?" />
+	</strings>
+	<strings name="xbox/strings/common_button_captions">
+		<string text="BACK" />
+		<string text="OK" />
+		<string text="CANCEL" />
+		<string text="DEFAULTS" />
+		<string text="CREATE NEW" />
+		<string text="DELETE" />
+		<string text="ADVANCED" />
+		<string text="Profile:" />
+	</strings>
+	<widget name="xbox/error/header_warning" type="text" controller="1" width="150" height="20" string_list="xbox/error/error_headers" string_index="1" font="ui\large_ui" color="#FF2896FF">
+	</widget>
+	<strings name="xbox/error/error_headers">
+		<string text="ATTENTION" />
+		<string text="ATTENTION" />
+		<string text="ARE YOU SURE?" />
+		<string text="SAVING..." />
+		<string text="ATTENTION:" />
+		<string text="DID YOU KNOW..." />
+		<string text="OOPS!" />
+		<string text="ALERT!" />
+	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/cap_teamplay_options">
 		<string text="Players can not be hurt by weapons and explosives\nfired by their teammates." />
 		<string text="Players can be hurt by weapons or explosives\nfired by their teammates." />
@@ -178,16 +314,6 @@
 		<string text="Players who kill a teammate will be assessed\na fifteen-second respawn penalty the next time\nthey die." />
 		<string text="Team autobalancing will be disabled.  Players will\nbe free to change teams as they wish." />
 		<string text="Team autobalancing will be enabled.  Players will\nnot be able to change to a more full team." />
-	</strings>
-	<strings name="xbox/strings/common_button_captions">
-		<string text="BACK" />
-		<string text="OK" />
-		<string text="CANCEL" />
-		<string text="DEFAULTS" />
-		<string text="CREATE NEW" />
-		<string text="DELETE" />
-		<string text="ADVANCED" />
-		<string text="Profile:" />
 	</strings>
 	<widget name="xbox/common_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event" />
@@ -515,16 +641,6 @@
 	</strings>
 	<widget name="xbox/error/header_are_you_sure" type="text" controller="1" width="170" height="20" string_list="xbox/error/error_headers" string_index="2" font="ui\large_ui" color="#FF2896FF">
 	</widget>
-	<strings name="xbox/error/error_headers">
-		<string text="ATTENTION" />
-		<string text="ATTENTION" />
-		<string text="ARE YOU SURE?" />
-		<string text="SAVING..." />
-		<string text="ATTENTION:" />
-		<string text="DID YOU KNOW..." />
-		<string text="OOPS!" />
-		<string text="ALERT!" />
-	</strings>
 	<widget name="xbox/main_menu/profile_manager/player_profile_extended_desc" width="640" height="480">
 		<child widget="xbox/main_menu/current_profile_name" />
 		<child widget="xbox/main_menu/player_profiles_select/player_profile_right_item" x="22" y="2" />
@@ -765,68 +881,6 @@
 	</widget>
 	<widget name="xbox/error/header_error" type="text" controller="1" width="150" height="20" string_list="xbox/error/error_headers" font="ui\large_ui" color="#FF2896FF">
 	</widget>
-	<strings name="xbox/strings/displayed_error_messages">
-		<string text="Unable to complete\nthe last operation." />
-		<string text="A networking error\nhas occurred." />
-		<string text="Unable to join game \nbecause it is closed." />
-		<string text="Unable to join game." />
-		<string text="The game has\nclosed down." />
-		<string text="Halo can't connect to\nthe network." />
-		<string text="Network connection lost." />
-		<string text="Failed to join the game." />
-		<string text="Your game has\ngone out of sync with\nthe others in\nthe game. Resetting..." />
-		<string text="Your connection is\nexperiencing\ndifficulties..." />
-		<string text="unused network error" />
-		<string text="A controller error\nhas occurred." />
-		<string text="Please reconnect\ncontroller #%controller.\nPress START to continue\nafter reconnecting." />
-		<string text="Please reconnect\n#%controller controller." />
-		<string text="A controller\nmemory card error\nhas occurred." />
-		<string text="Saving... one moment\nplease." />
-		<string text="Creating player profile...\none moment please." />
-		<string text="Creating game settings\nfile... one moment please." />
-		<string text="Player 2 must use a\ndifferent controller\nthan Player 1." />
-		<string text="unused controller error" />
-		<string text="unused controller error" />
-		<string text="Please insert\nanother quarter." />
-		<string text="All progress since the\nlast checkpoint will\nbe lost." />
-		<string text="All progress on this \nlevel will be lost." />
-		<string text="Are you sure you wish \nto delete this profile? \nAll your progress and \nsettings will be lost." />
-		<string text="Are you sure you wish \nto delete this\ngametype? All your\nsettings will be lost." />
-		<string text="Sorry, you can't delete\nthe default multiplayer\ngame settings." />
-		<string text="Sorry, there is already \na saved gametype or \nprofile with that name." />
-		<string text="Do you really want to\nback out without saving\nyour changes?" />
-		<string text="Sorry, you can't create\na saved game file with\nan empty name." />
-		<string text="Saving last checkpoint...\none moment please." />
-		<string text="Unable to load saved\ngame file." />
-		<string text="unused warning" />
-		<string text="Insufficient free space to\nsave game." />
-		<string text="Insufficient free save slots." />
-		<string text="An error has occurred\nloading a map file." />
-		<string text="You have reached the\nmaximum number of Halo\ngame files. Unable to\ncreate additional ones." />
-		<string text="Unable to create new\nplayer profile." />
-		<string text="Unable to create new\nmultiplayer game\nsettings entry." />
-		<string text="Unable to load saved\nprogress for this\nprofile." />
-		<string text="An error has occurred\ntrying to contact the \nGameSpy master server." />
-		<string text="Video settings changed...\nPress OK to accept." />
-		<string text="The server you selected\nrequires a password!" />
-		<string text="Unable to join the game\nserver!" />
-		<string text="The server reported\nan invalid connection\nrequest." />
-		<string text="Your password was\nrejected by the server." />
-		<string text="The server is full." />
-		<string text="Your CD Key is invalid." />
-		<string text="Your CD Key is in use\nby another player." />
-		<string text="The server operator has\nbanned you from playing\non this server." />
-		<string text="The server operator has\nkicked you from this\nserver." />
-		<string text="Video settings will be\ntested.  If you do not see\na confirm dialog after\nthe change, press ESC." />
-		<string text="Checkpoint saved." />
-		<string text="The address is invalid." />
-		<string text="You need to create or\nselect a profile in order\nto continue." />
-		<string text="Your client is running an\nincompatible network \nprotocol version." />
-		<string text="Connection rejected: Your\nclient is older than the\nserver." />
-		<string text="Connection rejected: Your\nclient is newer than the\nserver." />
-		<string text="You must have\nAdministrator privileges\nto download this required\npatch." />
-		<string text="Are you sure you want to\ndelete this saved game?" />
-	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_mode">
 		<string text="Internet" />
 		<string text="LAN" />

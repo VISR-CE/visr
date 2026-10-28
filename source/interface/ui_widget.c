@@ -3903,6 +3903,18 @@ void ui_widget_port_go_back(
 	widget_instance_go_back_to_previous(widget);
 }
 
+/* port: the delete confirmation must skip the editor of the deleted item without reloading it. */
+void ui_widget_port_go_back_past_editor(
+	struct widget_instance *widget)
+{
+	short stack = widget->local_player_index == NONE ? 0 : widget->local_player_index;
+	struct widget_stack_data editor;
+
+	if (widget_globals.widget_stack[stack])
+		pop_widget(&widget_globals.widget_stack[stack], &editor);
+	widget_instance_go_back_to_previous(widget);
+}
+
 /* port: the screen a local player's menus show, or NULL in play
 (menu_functions.c's invite jump) */
 struct widget_instance *ui_widget_port_active_screen(

@@ -423,7 +423,7 @@ static char const *const port_function_names[] =
 	"disable if no custom campaigns", "port custom campaign begin",
 	/* (the Apple TV's DELETE PROFILE and DELETE GAMETYPE rows: the one being edited is the one the Xbox's
 	confirmation deletes) */
-	"port delete request",
+	"port delete request", "port delete finish",
 	/* (the Xbox look's Item Options rows the Xbox's functions have no fields for: map weapons, loadout) */
 	"port option row init", "port option row save",
 };

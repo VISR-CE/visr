@@ -5231,6 +5231,7 @@ boolean ui_widget_port_gametype_save(struct widget_instance *widget, boolean *wi
 boolean ui_widget_port_game_variant_set(struct game_variant *variant, struct game_variant_options const *options);
 boolean ui_widget_port_gametype_delete(long profile_index);
 boolean ui_widget_port_delete_request(void);
+boolean ui_widget_port_delete_finish(struct widget_instance *widget, boolean *widget_deleted);
 
 #define GAMETYPE_EDIT_ROWS 11
 
@@ -6270,6 +6271,10 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port option row save"))
 		{
 			gametype_option_row(widget, TRUE);
+		}
+		else if (!strcmp(name, "port delete finish"))
+		{
+			return ui_widget_port_delete_finish(widget, widget_deleted);
 		}
 		else if (!strcmp(name, "port delete request"))
 		{

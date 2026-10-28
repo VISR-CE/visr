@@ -161,3 +161,18 @@ def test_item_options_rows_set_and_save_their_own_spinners():
 
 def test_every_patch_has_an_explicit_footer():
     assert all(patch.get("footer") is not None for patch in table())
+
+
+def test_delete_confirmations_finish_both_edit_flows():
+    widgets = {w.get('name'): w for path in MENUS.glob('*.xml') for w in ET.parse(path).getroot().iter('widget')}
+    for kind in ('profile', 'gametype'):
+        row = next(row for patch in table() for row in rows(patch)
+                   if row.get('name') == ('profile_item_delete' if kind == 'profile' else 'gametype_item_delete'))
+        modal = widgets[row.get('open')]
+        for event in ('b', 'back'):
+            cancel = modal.find(f'on[@event="{event}"]')
+            assert cancel.get('run') == 'cancel profile delete' and cancel.get('back') == 'true'
+        accept = widgets[f'xbox/error/confirm_delete_{kind}_button_ok']
+        for event in ('a', 'start'):
+            handler = accept.find(f'on[@event="{event}"]')
+            assert handler.get('run') == 'port delete finish' and handler.get('close') is None

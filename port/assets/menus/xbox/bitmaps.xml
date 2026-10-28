@@ -72,6 +72,9 @@
 		<frame png="ce/shell/bitmaps/sel_list_item_bkd_top__1.png" width="512" height="32" />
 		<frame png="ce/shell/bitmaps/sel_list_item_bkd_top__2.png" width="512" height="32" />
 	</bitmap>
+	<bitmap name="xbox/bitmaps/semi_transparent_grey">
+		<frame png="ce/shell/bitmaps/semi_transparent_grey__0.png" width="4" height="4" map="ui\shell\bitmaps\semi_transparent_grey" index="0" />
+	</bitmap>
 	<bitmap name="xbox/bitmaps/server_header_background_0">
 		<frame png="ce/shell/bitmaps/server_header_background_0__0.png" width="16" height="32" />
 		<frame png="ce/shell/bitmaps/server_header_background_0__1.png" width="16" height="32" />

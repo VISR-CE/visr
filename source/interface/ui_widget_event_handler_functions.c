@@ -6294,6 +6294,29 @@ boolean ui_widget_port_delete_request(
 	return TRUE;
 }
 
+/* port: keep deletion and completion in one handler so a failed final delete cannot leave the editor. */
+boolean ui_widget_port_delete_finish(
+	struct widget_instance *widget,
+	boolean *widget_deleted)
+{
+	extern void ui_widget_port_go_back_past_editor(struct widget_instance *widget);
+	long profile_index = event_handler_functions.profile_index;
+	boolean deleted = FALSE;
+	boolean success;
+
+	if (profile_index == NONE)
+		return FALSE;
+	success = (profile_index & 0xF) == 0 ? delete_player_profile_final(widget, NULL, &deleted) :
+		delete_playlist_profile_final(widget, NULL, &deleted);
+	if (!success)
+		return FALSE;
+	event_handler_functions.profile_index = NONE;
+	player_ui_end_editing_profile();
+	ui_widget_port_go_back_past_editor(widget);
+	*widget_deleted = TRUE;
+	return TRUE;
+}
+
 /* a saved gametype deleted (as delete_playlist_profile_final) */
 boolean ui_widget_port_gametype_delete(
 	long profile_index)

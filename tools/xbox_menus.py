@@ -345,6 +345,21 @@ def multiplayer_documents(assets, bitmaps):
         for e in ET.parse(assets / 'ce' / filename).getroot():
             shared.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
+    # tvOS edit rows use their own confirmation, with completion tied to a successful final delete.
+    for element in ET.parse(assets / 'ce/error.xml').getroot():
+        name = element.get('name', '')
+        if not name.startswith(('error/confirm_delete_profile', 'error/confirm_delete_gametype')):
+            continue
+        copied = deepcopy(element)
+        for on in copied.findall('on'):
+            if on.get('run', '').startswith('final del '):
+                on.set('run', 'port delete finish')
+                on.attrib.pop('close', None)
+            elif on.get('run') == 'cancel profile delete':
+                on.attrib.pop('close', None)
+                on.set('back', 'true')
+        shared.append(copied)
+        owned.add((copied.tag, name))
     pending = [e for root in documents.values() for e in root]
     while pending:
         element = pending.pop()
@@ -686,7 +701,7 @@ def patch_document(names):
         anchor = f'profile_item_{key}'
     patch_row(edit, after=PEP + 'save_changes_profile_item', platform='tvos', pitch=33,
               name='profile_item_delete', text='DELETE PROFILE', run='port delete request',
-              open='ui\\shell\\error\\confirm_delete_profile_modal_fullscreen', picture=BLANK,
+              open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=BLANK,
               description='Delete this profile and\\neverything saved with it.' + current)
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
@@ -706,7 +721,7 @@ def patch_document(names):
     gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
     patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=33,
               name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
-              open='ui\\shell\\error\\confirm_delete_gametype_modal_fullscreen', picture=BLANK,
+              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture=BLANK,
               description='Delete this gametype.')
     return root
 
