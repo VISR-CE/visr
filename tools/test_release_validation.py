@@ -581,12 +581,12 @@ def test_release_workflow_auth_mode_is_oidc_only_and_cannot_build_or_publish() -
     assert "environment:" not in unsigned and "secrets." not in unsigned and "contents: write" not in unsigned
     assert "inputs.mode != 'unsigned'" in probe
     assert "inputs.mode != 'sync'" in probe
-    # Only the tag is pushed by prepare; main gets the metadata from a job with no environment or secrets.
+    # Only the tag is pushed by prepare; main gets the metadata from an approved job with no secrets.
     assert "HEAD:refs/heads/main" not in prepare
     assert "needs: prepare" in sync and "release.py sync-main" in sync
     assert "github.ref == 'refs/heads/main'" in sync
     assert "contents: write" in sync and "id-token: write" not in sync
-    assert "environment:" not in sync and "secrets." not in sync
+    assert "environment: release" in sync and "secrets." not in sync
     assert "sync-main" not in testflight.split("steps:", 1)[0]
     assert "id-token: write" not in testflight
     for variable in (

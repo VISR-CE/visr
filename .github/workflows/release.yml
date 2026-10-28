@@ -162,6 +162,21 @@ jobs:
               || ! git merge-base "$SOURCE_SHA" origin/main > /dev/null; then
               echo "::error::source_sha is not on main or on a release branch forked from main"; exit 1
             fi
+            # Show the approvers of the later jobs what the release branch adds to main.
+            base=$(git merge-base "$SOURCE_SHA" origin/main)
+            {
+              echo "## Release branch \`$SOURCE_BRANCH\`"
+              echo
+              echo "Source \`$SOURCE_SHA\` adds these commits and files to main at \`$base\`:"
+              echo
+              echo '```'
+              git log --oneline --no-decorate "$base..$SOURCE_SHA"
+              echo
+              git diff --name-status "$base..$SOURCE_SHA"
+              echo
+              git diff --stat "$base..$SOURCE_SHA"
+              echo '```'
+            } >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
           fi
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
@@ -228,8 +243,8 @@ jobs:
             --source-sha "$SOURCE_SHA" --source-branch "$SOURCE_BRANCH" --platforms "$RELEASE_PLATFORMS" --increment "$INCREMENT" \
             --resume-tag "$RESUME_TAG" --bootstrap-since "$BOOTSTRAP_SINCE" --bootstrap-version "$BOOTSTRAP_VERSION"
 
-  # Main never waits for or blocks on a release: this job merges the tag's changelog entry and manifest into
-  # main afterward, keeping main's tree otherwise unchanged, and retries if main moves. Its failure does not stop
+  # Main never waits for or blocks on a release: this job checks the tag as publication does, then merges its
+  # changelog entries and manifest into main, keeping main's tree otherwise unchanged, and retries if main moves. Its failure does not stop
   # the TestFlight upload or the GitHub release; dispatch mode=sync with resume_tag to retry it.
   sync-main:
     needs: prepare
@@ -238,6 +253,8 @@ jobs:
       ((inputs.mode == 'release' && needs.prepare.result == 'success') || (inputs.mode == 'sync' && inputs.resume_tag != ''))
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Approval as for the release itself: mode=sync runs no other gated job.
+    environment: release
     permissions:
       contents: write
     steps:
