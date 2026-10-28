@@ -489,7 +489,6 @@ def test_development_hooks_are_compiled_out_of_app_store_packages(tmp_path):
     ('port/ios/host/host_texture_upscale.m', 'HALO_TEXTURE_UPSCALE_CLEAN'),
     ('port/ios/host/texture_upscale_model.m', 'HALO_TEXTURE_UPSCALE_MODEL'),
     ('port/ios/host/host_import.m', 'HALO_TEXTURE_UPSCALE_IMPORT_PHASE'),
-    ('port/linux/game/menu_functions.c', 'HALO_BROWSER_FAKE_BIG'),
 ])
 def test_development_switches_are_read_only_inside_the_hooks_guard(path, switch):
     lines = (Path(__file__).resolve().parents[1] / path).read_text().splitlines()

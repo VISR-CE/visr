@@ -3926,13 +3926,13 @@ static short lobby_browser_valid_games(struct p2p_listing *games, short count)
 	return written;
 }
 
-/* A development build lists one extra marked game when HALO_BROWSER_FAKE_BIG is set, so the join warning can be
+/* A development build lists one extra marked game when debug.browser_fake_big is set, so the join warning can be
 screenshot without a real host (set HALO_NET_PLAYER_CAPACITY below 16 as well). Compiled out of App Store packages. */
 static short lobby_browser_games_read(struct p2p_listing *games)
 {
 	short count = lobby_browser_valid_games(games, (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES));
 #ifdef HALO_DEVELOPMENT_HOOKS
-	if (getenv("HALO_BROWSER_FAKE_BIG") && count < LOBBY_BROWSER_GAMES)
+	if (config_boolean("debug.browser_fake_big") && count < LOBBY_BROWSER_GAMES)
 	{
 		struct p2p_listing *fake = &games[count++];
 

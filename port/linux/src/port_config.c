@@ -1529,6 +1529,10 @@ static const struct config_setting config_settings[] =
 		"With the Metal renderer, indexed draws take a base vertex, so their\n"
 		"indices are drawn as the game holds them; false copies and rebases every\n"
 		"draw's indices on the CPU, as the OpenGL ES renderer has to, to compare." },
+	{ "debug.browser_fake_big", _config_boolean, "false", "HALO_BROWSER_FAKE_BIG", _environment_value, _platform_all,
+		"Development builds only: the server browser lists one extra game marked\n"
+		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
+		"network.player_capacity below 16 as well. App Store packages ignore it." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
