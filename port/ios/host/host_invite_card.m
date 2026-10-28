@@ -68,6 +68,7 @@ static UIWindow *invite_window;
     title.text = @"Invite";
     [details addArrangedSubview:title];
     self.codeLabel = [self label:UIFontTextStyleTitle2 color:UIColor.whiteColor];
+    [self.codeLabel setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisVertical];
     UIStackView *invite = [[UIStackView alloc] initWithArrangedSubviews:@[self.qr, self.codeLabel]];
     invite.axis = UILayoutConstraintAxisVertical;
     invite.alignment = UIStackViewAlignmentFill;
@@ -96,6 +97,7 @@ static UIWindow *invite_window;
         [self.stack.bottomAnchor constraintLessThanOrEqualToAnchor:safe.bottomAnchor constant:-20],
         [self.qr.widthAnchor constraintEqualToAnchor:self.qr.heightAnchor],
         [self.qr.widthAnchor constraintLessThanOrEqualToAnchor:safe.widthAnchor multiplier:0.5 constant:-32],
+        [self.qr.heightAnchor constraintLessThanOrEqualToAnchor:safe.heightAnchor constant:-110],
         [invite.heightAnchor constraintLessThanOrEqualToAnchor:safe.heightAnchor constant:-40],
         preferredSize]];
     [self refresh];
