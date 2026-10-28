@@ -99,7 +99,7 @@ be a child of many).
 | `description` | A column list's extended description: a widget |
 | `controller` | `1` to `4`, or `any` (the default); a `<child>`'s or `child_controller`: the one it is for |
 | `auto_close`, `auto_close_fade` | It closes itself after this many milliseconds, fading for this many |
-| `platform` | `desktop`, `android`, `apple`, `cloud_saves`, `quit` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `quit`: where the app can end itself, the desktop's and the Mac app's, not an iPhone, iPad, Apple TV or Vision Pro; the main menu's Quit has it; `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it). Every element takes this. |
+| `platform` | `desktop`, `android`, `apple`, `cloud_saves`, `quit` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `quit`: where the app can end itself, the desktop's and the Mac app's, not an iPhone, iPad, Apple TV or Vision Pro; the main menu's Quit has it; `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it; `tvos`: the Apple TV, whose remote has no X or Y; `keyboard`: the desktop, the Mac app, and an iPhone or iPad with a keyboard attached as the game starts). Every element takes this. |
 
 Widget flags: `pass_unhandled_to_focused_child` (an event it does not handle
 goes to its focused child: a screen needs it for its list to get events),
@@ -169,6 +169,32 @@ frame (`build number textbox only`). `<conditional widget="..."
 if_failed="true"/>`: a widget for a `branch` handler. `<replace search="..."
 function="controller"/>`: text replaced in the widget's (the controller's
 number).
+
+### `<patch>`
+
+The Xbox look's files (`xbox/`) change some of `ui.map`'s own lists with
+patches, made as `ui.map` loads (`port/linux/game/menu_tags.c`):
+
+```xml
+<patch list="ui\shell\main_menu\main_menu_select_list" screen="ui\shell\main_menu\main_menu">
+	<row after="ui\shell\main_menu\main_menu_item_game_demos" model="ui\shell\main_menu\main_menu_item_settings"
+	     platform="quit" name="main_menu_item_quit" text="QUIT" open="xbox/quit_screen"/>
+</patch>
+```
+
+| Element | Attributes |
+|---|---|
+| `<patch>` | `list` and `screen`: the map's column list and the screen it is on, by their paths. `footer`: the y the rows stay above (default: the screen's `a_butn`, else 480). |
+| `<row>` | A row added `after` or `before` a row (the map's path, or an earlier row's `name`). `name` (at most 31 characters: the widget's name, which some functions read), `text`, `run` (a function) and/or `open` (a screen: ours by name, the map's by path), `created` (a function run when the row is made). `model`: the map's row it looks like (default: the row it is put by). `description` and `picture` (a frame of the description's own picture by number, or `png:` and a PNG here) for a list with a description; a list whose description has a picture needs one. `pitch`: how far below the row before it (default: as far as that row is below the one before it). |
+| `<remove>` | `child`: the row taken out; `pitch` as for `<row>`. |
+| `<replace>` | `child`: the row replaced by a copy in its place, keeping its description: `name`, `text`, `run`, `open`, `created`, `model` as for `<row>`. |
+
+A row is a copy of its model with only A and Start (and `created`), so it
+runs no handler of the model's. The rows after an added row move down a
+pitch, as do the screen's children below it, above the footer and left of
+the list's right edge. Rows keep the descriptions they had; an added row
+shows its own. A patch that names something the map has not got, or whose
+rows pass the footer, is logged and not made.
 
 ## The art
 

@@ -196,7 +196,13 @@ MENU_ATTRIBUTES = {
            "label", "back", "branch", "platform"},
     "data": {"input", "platform"},
     "conditional": {"widget", "if_failed", "platform"},
-    "replace": {"search", "function", "platform"},
+    # (a widget's search and replace, or in a <patch> a row's replacement)
+    "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created"},
+    # (a <patch>'s, port/assets/menus/README.md)
+    "patch": {"list", "screen", "footer"},
+    "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
+            "platform"},
+    "remove": {"child", "pitch", "platform"},
 }
 
 
@@ -241,7 +247,8 @@ def test_menus_are_well_formed():
             where = f"{path.name}: <{element.tag} {element.get('name', '')}>"
             assert element.tag in MENU_ATTRIBUTES, where
             assert set(element.attrib) <= MENU_ATTRIBUTES[element.tag], where
-            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "quit", "mac_app"), where
+            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "quit", "mac_app",
+                                               "tvos", "keyboard"), where
             # (menu_files.c's whole numbers, which the tags keep in shorts,
             # its true/false attributes, and no text but whitespace outside
             # <string>s)

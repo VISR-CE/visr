@@ -266,6 +266,8 @@ enum element
 	_element_data,
 	_element_conditional,
 	_element_replace,
+	_element_patch,
+	_element_patch_row,
 };
 
 /* an attribute an element may have: its text (text) or number (number,
@@ -403,7 +405,7 @@ static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 
 			if (matches < 0)
 			{
-				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"quit\" or \"mac_app\"", platform);
+				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"quit\", \"mac_app\", \"tvos\" or \"keyboard\"", platform);
 				return 1;
 			}
 			return matches;
@@ -765,6 +767,79 @@ static void read_replace(struct reader *reader, const XML_Char **attributes, lon
 	LIST_ADD(reader, owner, first_replace, last_replace, replaces, index);
 }
 
+static void read_patch(struct reader *reader, const XML_Char **attributes)
+{
+	struct halo_menus *menus = &reader->menus;
+	struct halo_menu_patch patch;
+	struct attribute table[] =
+	{
+		{ "list", &patch.list }, { "screen", &patch.screen }, { "footer", NULL, &patch.footer, &patch.has_footer },
+	};
+
+	memset(&patch, 0, sizeof(patch));
+	patch.first_row = menus->patch_row_count;
+	patch.file = reader->file;
+	patch.line = current_line(reader);
+	read_attributes(reader, "patch", attributes, table, sizeof(table) / sizeof(*table));
+	if (!reader->failed && (!patch.list || !patch.screen))
+		reader_error(reader, "a <patch> needs a list and its screen");
+	else if (!reader->failed && (!strchr(patch.list, '\\') || !strchr(patch.screen, '\\')))
+		reader_error(reader, "a <patch>'s list and screen are the map's (paths, with backslashes)");
+	GROW(reader, menus->patches, menus->patch_count);
+	menus->patches[menus->patch_count++] = patch;
+}
+
+/* a picture: a frame of the description's own bitmap by its number, or
+png: and a PNG's path in the menus folder */
+static int picture_valid(const char *picture)
+{
+	if (!strncmp(picture, "png:", 4))
+		return path_inside_folder(picture + 4);
+	return *picture && strspn(picture, "0123456789") == strlen(picture) && strlen(picture) < 5;
+}
+
+static void read_patch_row(struct reader *reader, const char *element, const XML_Char **attributes, long kind,
+	long owner)
+{
+	struct halo_menus *menus = &reader->menus;
+	struct halo_menu_patch_row row;
+	struct attribute table[] =
+	{
+		{ "after", &row.after }, { "before", &row.before }, { "child", &row.child }, { "model", &row.model },
+		{ "name", &row.name }, { "text", &row.text }, { "run", &row.run }, { "open", &row.open },
+		{ "created", &row.created }, { "description", &row.description }, { "picture", &row.picture },
+		{ "pitch", NULL, &row.pitch, &row.has_pitch },
+	};
+
+	memset(&row, 0, sizeof(row));
+	row.kind = kind;
+	row.file = reader->file;
+	row.line = current_line(reader);
+	read_attributes(reader, element, attributes, table, sizeof(table) / sizeof(*table));
+	if (reader->failed)
+		return;
+	if (kind == HALO_MENU_PATCH_ROW && (!row.after == !row.before || row.child))
+		reader_error(reader, "a <row> is put after or before a row (one of them), and has no child");
+	else if (kind != HALO_MENU_PATCH_ROW && (!row.child || row.after || row.before))
+		reader_error(reader, "a <%s> names its row as child (and no after or before)", element);
+	else if (kind == HALO_MENU_PATCH_REMOVE && (row.model || row.name || row.text || row.run || row.open ||
+		row.created || row.description || row.picture))
+		reader_error(reader, "a <remove> has only child (and pitch)");
+	else if (kind != HALO_MENU_PATCH_REMOVE && (!row.name || !row.text || (!row.run && !row.open)))
+		reader_error(reader, "a <%s> needs a name, its text, and run or open", element);
+	else if (kind == HALO_MENU_PATCH_REPLACE && (row.description || row.picture || row.has_pitch))
+		reader_error(reader, "a <replace> keeps its row's place, description and picture");
+	else if (row.name && (strlen(row.name) > 31 || strpbrk(row.name, "\\/")))
+		reader_error(reader, "a row's name is at most 31 characters, without slashes: %s", row.name);
+	else if (row.picture && !picture_valid(row.picture))
+		reader_error(reader, "picture is a frame's number or png: and a path in the menus folder: %s", row.picture);
+	else if (row.has_pitch && row.pitch <= 0)
+		reader_error(reader, "pitch is above 0");
+	GROW(reader, menus->patch_rows, menus->patch_row_count);
+	menus->patch_rows[menus->patch_row_count++] = row;
+	menus->patches[owner].row_count++;
+}
+
 static void read_menus(struct reader *reader, const XML_Char **attributes)
 {
 	const char *root = NULL;
@@ -820,6 +895,27 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 	{
 		element = _element_string;
 		read_string(reader, attributes, owner);
+	}
+	else if (!strcmp(name, "patch") && parent == _element_menus)
+	{
+		element = _element_patch;
+		read_patch(reader, attributes);
+		owner = reader->menus.patch_count - 1;
+	}
+	else if (parent == _element_patch)
+	{
+		static const char *const kinds[] = { "row", "remove", "replace" };
+		long kind;
+
+		for (kind = 0; kind < 3; kind++)
+		{
+			if (!strcmp(name, kinds[kind]))
+			{
+				element = _element_patch_row;
+				read_patch_row(reader, name, attributes, kind, owner);
+				break;
+			}
+		}
 	}
 	else if (!strcmp(name, "widget") && (parent == _element_menus || parent == _element_widget))
 	{
@@ -952,7 +1048,7 @@ struct halo_menus const *halo_menus_load(void)
 	free(reader.last_input);
 	free(reader.last_conditional);
 	free(reader.last_replace);
-	if (reader.failed || !reader.menus.widget_count)
+	if (reader.failed || (!reader.menus.widget_count && !reader.menus.patch_count))
 	{
 		if (reader.failed)
 			platform_log("menus: the files have a problem; using the game's own menus");
