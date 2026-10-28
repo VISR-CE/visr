@@ -57,7 +57,8 @@ On first launch, trust the developer profile in Settings if visionOS asks.
 ## Controls and known issues
 
 - A game controller plays. A keyboard's arrow keys, Return and Escape work the menus.
-- Stereo is off by default, and the app has no in-app switch for it: the game opens in a window. Edit `config.toml` (in the VISR folder in Files) to change that. `display.stereo = "head"` plays in stereo with head tracking, and `display.stereo = "screen"` shows the game in 3D on the theater screen; both need visionOS 26 or later. `display.immersive = true` puts a flat screen in your room instead. [ROADMAP.md](ROADMAP.md) names the setting behind each feature.
+- The game opens in a window. On visionOS 26 or later, press **Enter VR** below the window to play in stereo around you, with your head turning the view. Press the Digital Crown to leave VR and return to the window; the game keeps running. With a game controller, hold View and Menu together for a second to switch in either direction.
+- Advanced: `config.toml` (in the VISR folder in Files) changes what VR shows and where the game starts. `display.stereo = "screen"` makes Enter VR show the game in 3D on a theater screen instead of around you. `display.immersive = true` starts the game in the immersive space: a flat screen in your room with `display.stereo = "off"` (the default), or VR with `"head"` or `"screen"`. [ROADMAP.md](ROADMAP.md) names the setting behind each feature.
 - Closing the window pauses the game. If visionOS reclaims the closed window, the game quits; it saves at checkpoints.
 - PlayStation VR2 Sense controllers aim on visionOS 27 (`input.aim`).
 
