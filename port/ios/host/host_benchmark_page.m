@@ -1,3 +1,4 @@
+#import "host_qr.h"
 /* The device benchmark's report, handed over with no account: the device serves
    a small page on the local network, and a screen shows the page's address as a
    QR code. A phone or computer on the same network opens it, reads the summary
@@ -194,22 +195,6 @@ static NSString *local_address(void) {
     return found ?: fallback;
 }
 
-static UIImage *qr_image(NSString *text) {
-    CIFilter *filter = [CIFilter filterWithName:@"CIQRCodeGenerator"];
-    CIImage *output;
-    CGImageRef image;
-    UIImage *result;
-
-    [filter setValue:[text dataUsingEncoding:NSUTF8StringEncoding] forKey:@"inputMessage"];
-    [filter setValue:@"M" forKey:@"inputCorrectionLevel"];
-    output = [filter.outputImage imageByApplyingTransform:CGAffineTransformMakeScale(10, 10)];
-    if (!output) return nil;
-    image = [[CIContext context] createCGImage:output fromRect:output.extent];
-    if (!image) return nil;
-    result = [UIImage imageWithCGImage:image];
-    CGImageRelease(image);
-    return result;
-}
 
 @interface HaloBenchmarkPageController : UIViewController
 @property(nonatomic, copy) NSString *summary, *code;
@@ -300,7 +285,7 @@ static UIImage *qr_image(NSString *text) {
         self.shownURL = url;
         self.address.text = url;
         host_logf(HOST_LOG_INFO, "benchmark: the report page is at %s", url.UTF8String);
-        self.qr.image = qr_image(url);
+        self.qr.image = host_qr_image(url, 10, 1);
     } else if (!url && !self.shownURL) self.address.text = @"Connect this device to your network to get the report.";
 }
 /* Back or Menu on a remote, B on a controller, Escape on a keyboard */

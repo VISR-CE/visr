@@ -1,3 +1,4 @@
+#import "host_qr.h"
 /* tvOS first-run import. Apple TV has no Files app, so the app serves a small
    web page on the local network: the player opens it on a phone or computer,
    sends their own XISO, and it is imported like the iOS Files importer does
@@ -473,15 +474,6 @@ static NSString *local_address(void) {
     return found?:fallback;
 }
 
-static UIImage *qr_image(NSString *text) {
-    CIFilter *filter=[CIFilter filterWithName:@"CIQRCodeGenerator"];
-    [filter setValue:[text dataUsingEncoding:NSUTF8StringEncoding] forKey:@"inputMessage"];
-    [filter setValue:@"M" forKey:@"inputCorrectionLevel"];
-    CIImage *image=[filter.outputImage imageByApplyingTransform:CGAffineTransformMakeScale(12,12)];
-    CGImageRef rendered=[[CIContext context] createCGImage:image fromRect:image.extent];
-    UIImage *result=[UIImage imageWithCGImage:rendered];CGImageRelease(rendered);
-    return result;
-}
 
 @interface HaloTVImportController : UIViewController
 @property(nonatomic,strong) UILabel *addressLabel,*codeLabel,*statusLabel;
@@ -584,7 +576,7 @@ static UIImage *qr_image(NSString *text) {
     if(url && ![url isEqualToString:self.shownURL]) {
         self.shownURL=url;
         self.addressLabel.text=[NSString stringWithFormat:@"Scan the code, or open %@",url];
-        self.qr.image=qr_image([NSString stringWithFormat:@"%@/?code=%s",url,pairing_code]);
+        self.qr.image=host_qr_image([NSString stringWithFormat:@"%@/?code=%s",url,pairing_code], 12, 1);
     } else if(!url && !self.shownURL) {
         self.addressLabel.text=@"Connect the Apple TV to your network to continue.";
     }

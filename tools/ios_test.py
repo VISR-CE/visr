@@ -438,6 +438,11 @@ required('port/linux/src/benchmark_suite.c', 'if (more == 2)', 'benchmark_scenar
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/join_link_probe.c', '-o', BUILD/'join-link-probe')
 run(BUILD/'join-link-probe')
+# CoreImage runs on macOS without UIKit or an app launch.
+run('xcrun', 'clang', '-fobjc-arc', '-Wall', '-Werror', '-framework', 'Foundation',
+    '-framework', 'CoreImage', '-framework', 'CoreGraphics', '-Iport/ios/host',
+    'port/ios/tests/qr_probe.m', 'port/ios/host/host_qr.m', '-o', BUILD/'qr-probe')
+run(BUILD/'qr-probe')
 # the frame pacer's rules (frame_pacer.h), with made-up refreshes and presented times
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/frame_pacer_probe.c', '-o', BUILD/'frame-pacer-probe')
