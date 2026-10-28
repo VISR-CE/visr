@@ -506,6 +506,24 @@ int main(int argc,char **argv) {
 #else
         env[env_count++]="HALO_HOST_CLOUD_SAVES=0";
 #endif
+        /* The menus' rows for the Apple TV's remote (platform="tvos") and for a keyboard (platform="keyboard",
+           port/linux/src/menu_platform.h): the Mac always has one, an iPad or iPhone one attached now. */
+#if TARGET_OS_TV
+        env[env_count++]="HALO_HOST_TVOS=1";
+#else
+        env[env_count++]="HALO_HOST_TVOS=0";
+#endif
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
+        env[env_count++]="HALO_HOST_KEYBOARD=1";
+#elif TARGET_OS_IOS
+        {
+            Class keyboard_class=NSClassFromString(@"GCKeyboard");
+            id keyboard=keyboard_class?((id(*)(id,SEL))objc_msgSend)(keyboard_class,NSSelectorFromString(@"coalescedKeyboard")):nil;
+            env[env_count++]=keyboard?"HALO_HOST_KEYBOARD=1":"HALO_HOST_KEYBOARD=0";
+        }
+#else
+        env[env_count++]="HALO_HOST_KEYBOARD=0";
+#endif
         mkdir("recordings",0755);
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
         /* the Mac app can end itself, so its menus keep Quit (menu_files.c's platform="quit"); on an iPhone, an

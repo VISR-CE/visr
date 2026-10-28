@@ -907,7 +907,8 @@ for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
         subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
-                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud,
+                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud,
+                            'HALO_HOST_KEYBOARD': '1' if mac else '0',
                             **({'HALO_APP_CAN_QUIT': '1'} if mac else {})})
 # ... and the main menu uses it: Quit's item and the B and Back handlers that open its question are the only elements
 # for platform "quit", every other item stays, and the items run one row apart from the first, so the menu has no
@@ -926,6 +927,9 @@ assert [int(child.get('y')) for child in shown] == [247 + 36 * row for row in ra
     'the main menu without Quit: four items, a row apart'
 print('main menu without Quit: ' + ', '.join(child.get('widget').split('/')[-1] for child in shown))
 run('python3', 'tools/test_menu_cancel.py')
+# the Xbox look's patch table: rows added, taken out and replaced in the map's lists, their places, descriptions and
+# tags, and patches that do not fit or resolve left unmade (menu_tags.c, port/ios/tests/menu_patch_probe.c)
+run('python3', 'tools/test_menu_patches.py')
 
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')

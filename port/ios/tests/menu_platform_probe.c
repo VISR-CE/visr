@@ -1,6 +1,7 @@
 /* The menus' platform attribute (port/linux/src/menu_platform.h): "quit" is for the desktop ports and the Mac app
 (the host sets HALO_APP_CAN_QUIT) and not for an iPhone, an iPad, an Apple TV or a Vision Pro; "desktop" and "android"
-are as before; anything else is refused. Built once for the desktop, once as the Apple guest (HALO_ILP32), once as
+are as before; "tvos" and "keyboard" follow HALO_HOST_TVOS and HALO_HOST_KEYBOARD on Apple hosts (a keyboard is always
+there on the desktop and never on Android); anything else is refused. Built once for the desktop, once as the Apple guest (HALO_ILP32), once as
 Android; the Apple guest's runs are with the variable and without it. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,18 @@ int main(int argc, char **argv)
 	check("cloud_saves", getenv("HALO_HOST_CLOUD_SAVES") && !strcmp(getenv("HALO_HOST_CLOUD_SAVES"), "1"));
 #else
 	check("cloud_saves", 0);
+#endif
+#if defined(HALO_IOS)
+	check("tvos", getenv("HALO_HOST_TVOS") && !strcmp(getenv("HALO_HOST_TVOS"), "1"));
+#else
+	check("tvos", 0);
+#endif
+#if defined(HALO_ANDROID)
+	check("keyboard", 0);
+#elif defined(HALO_ILP32)
+	check("keyboard", getenv("HALO_HOST_KEYBOARD") && !strcmp(getenv("HALO_HOST_KEYBOARD"), "1"));
+#else
+	check("keyboard", 1);
 #endif
 	check("quit", want_quit);
 	check("desktop", want_desktop);

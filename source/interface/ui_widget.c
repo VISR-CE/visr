@@ -1367,6 +1367,12 @@ static boolean ui_widget_load_children_recursive(
 /* port: whether the tag is one of the menus' (port/linux/game/menu_tags.c) */
 boolean pc_menu_tag(
 	long tag_index);
+/* port: whether the list is one the menus' patch table changed, and then its
+row's description number (port/linux/game/menu_tags.c) */
+boolean pc_menu_patch_list_index(
+	long list_tag,
+	long row_tag,
+	short *description);
 /* port: unavailable browser rows stay focusable for their reason text
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
@@ -3861,13 +3867,22 @@ boolean ui_widget_port_dispatch_event(
 
 /* port: the number of a list's focused item: among all its children, but
 in the PC version's lists (port/assets/menus) among those that take events,
-past their labels, as its game counts them */
+past their labels, as its game counts them; in a list of the map's that the
+patch table changed, the number its description is shown by (the row's
+place before the patch, or a patch row's own), NONE for a row without one */
 short ui_widget_port_list_index(
 	struct widget_instance *list_widget)
 {
 	boolean skip_labels = pc_menu_tag(list_widget->definition_tag_index);
 	struct widget_instance *child;
 	short index = 0;
+
+	if (pc_menu_patch_list_index(list_widget->definition_tag_index,
+		list_widget->focused_child ? list_widget->focused_child->definition_tag_index : NONE, &index))
+	{
+		return index;
+	}
+	index = 0;
 
 	for (child = list_widget->child; child && child != list_widget->focused_child; child = child->next)
 	{

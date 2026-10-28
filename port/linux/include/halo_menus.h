@@ -11,8 +11,10 @@ their meaning.
 A file holds <menus> with <bitmap> (holding <frame>s), <strings> (holding
 <string>s) and <widget> elements; a <widget> holds <widget> and <child>
 (its children), <on> (an event handler), <data> (a game data input),
-<conditional> and <replace> elements. port/assets/menus/README.md describes
-them.
+<conditional> and <replace> elements. A <patch> changes a list of the
+map's own (the Xbox look's, in ui.map): its <row>, <remove> and <replace>
+elements add, take out and swap the list's rows. port/assets/menus/README.md
+describes them.
 */
 
 #ifndef HALO_MENUS_H
@@ -114,6 +116,38 @@ struct halo_menu_widget
 	long line;
 };
 
+/* a patch of one of the map's lists: its rows, in the file's order, from
+first_row in the patch rows */
+struct halo_menu_patch
+{
+	char const *list, *screen;
+	/* the y the rows stay above (footer=), else the screen's a_butn's */
+	long footer, has_footer;
+	long first_row, row_count;
+	char const *file;
+	long line;
+};
+
+enum
+{
+	HALO_MENU_PATCH_ROW,
+	HALO_MENU_PATCH_REMOVE,
+	HALO_MENU_PATCH_REPLACE,
+};
+
+/* a <row> (added after or before a row), <remove> (child) or <replace>
+(child): a row's look is model's, the map's widget by its path (a row's
+default: the row it is put by; a replacement's: the row it replaces) */
+struct halo_menu_patch_row
+{
+	long kind;
+	char const *after, *before, *child, *model;
+	char const *name, *text, *run, *open, *created, *description, *picture;
+	long pitch, has_pitch;
+	char const *file;
+	long line;
+};
+
 struct halo_menus
 {
 	struct halo_menu_bitmap *bitmaps;
@@ -136,6 +170,10 @@ struct halo_menus
 	long conditional_count;
 	struct halo_menu_replace *replaces;
 	long replace_count;
+	struct halo_menu_patch *patches;
+	long patch_count;
+	struct halo_menu_patch_row *patch_rows;
+	long patch_row_count;
 	/* the main menu: <menus root="..."> (the last given), else "main_menu" */
 	char const *root;
 };
