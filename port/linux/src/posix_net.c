@@ -941,6 +941,22 @@ posix_ulong posix_lan_broadcast_address(void)
 
 /* ---------- sharing: a desktop has the clipboard */
 
+int posix_show_invite(const char *link, const char *code)
+{
+	(void)link;
+	(void)code;
+	return 0;
+}
+
+void posix_update_invite(const char *link, const char *code)
+{
+	(void)link;
+	(void)code;
+}
+
+void posix_invite_menu_ready(void) {}
+
+
 int posix_share_link(const char *link)
 {
 	(void)link;

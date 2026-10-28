@@ -99,7 +99,6 @@ no longer gives it (watch_background) */
 static UIScene *sheet_scene;
 #endif
 
-#if !TARGET_OS_TV
 /* the game's keys and mouse buttons let go while the sheet is up, as when its
 window loses focus (sdl_platform.c); host_sdl.c holds back the rest */
 static void game_focus(int focused)
@@ -111,13 +110,17 @@ static void game_focus(int focused)
 	event.window.windowID = SDL_GetWindowID(host_sdl_window());
 	SDL_PushEvent(&event);
 }
-#endif
+
+void host_present_input_update(void)
+{
+	game_focus(!host_window_up());
+}
 
 /* puts away a window of host_present_window's once what it presented is
 gone, giving the key window back (unless theater mode hid it meanwhile) with
 the game's landscape lock; the sheet's gives the game its input back. Again
 for the same window does nothing more */
-static void host_dismiss_window(UIWindow *window)
+void host_dismiss_window(UIWindow *window)
 {
 	UIWindow *previous = ((HostPresentWindow *)window).previousKey;
 
@@ -137,7 +140,7 @@ static void host_dismiss_window(UIWindow *window)
 	{
 		sheet_window = nil;
 		sheet_scene = nil;
-		game_focus(1);
+		host_present_input_update();
 	}
 #endif
 }
@@ -183,7 +186,7 @@ int host_alert(const char *title, const char *message, const char *first, const 
 
 int host_window_up(void)
 {
-	return sheet_window != nil;
+	return sheet_window != nil || host_invite_card_up();
 }
 
 #if !TARGET_OS_TV
@@ -213,6 +216,14 @@ static void watch_background(void)
 		queue:NSOperationQueue.mainQueue usingBlock:put_away];
 }
 #endif
+
+void host_dismiss_share_sheet(void)
+{
+	UIWindow *window = sheet_window;
+	if (!window) return;
+	[window.rootViewController dismissViewControllerAnimated:NO completion:nil];
+	host_dismiss_window(window);
+}
 
 int posix_share_link(const char *link)
 {

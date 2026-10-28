@@ -3342,27 +3342,33 @@ static boolean server_name_edit(struct widget_instance *row)
 /* "ss copy invite" */
 static boolean invite_copy(void)
 {
-	char link[TEXT_FIELD_LENGTH];
+	char link[TEXT_FIELD_LENGTH], code[16];
 
 	if (!p2p_invite_link(link, sizeof(link)))
 		return campaign_fail();
-	platform_clipboard_set(link);
+	p2p_host_code(code, sizeof(code));
+	if (!posix_show_invite(link, code))
+	{
+		platform_clipboard_set(link);
 #ifdef HALO_IOS
-	/* (Apple builds) and the share sheet, the clipboard copy kept */
-	posix_share_link(link);
+		posix_share_link(link);
 #endif
+	}
 	ui_play_audio_feedback_sound(SOUND_FORWARD);
 	return TRUE;
 }
 
-/* "port lobby share" (the lobby's Y, Apple builds): the invite link in the
-share sheet; nothing elsewhere */
+/* "port lobby share" (the lobby's Y, Apple builds): the Invite card,
+with the existing sharing path where the card is not available. */
 static boolean lobby_share(void)
 {
 #ifdef HALO_IOS
-	char link[TEXT_FIELD_LENGTH];
+	char link[TEXT_FIELD_LENGTH], code[16];
 
-	if (!global_network_game_server_get() || !p2p_invite_link(link, sizeof(link)) || !posix_share_link(link))
+	if (!global_network_game_server_get() || !p2p_invite_link(link, sizeof(link)))
+		return campaign_fail();
+	p2p_host_code(code, sizeof(code));
+	if (!posix_show_invite(link, code) && !posix_share_link(link))
 		return campaign_fail();
 	ui_play_audio_feedback_sound(SOUND_FORWARD);
 #endif
@@ -6507,6 +6513,8 @@ void menu_invite_poll(void)
 	if (!main_port_main_menu_loaded())
 		return;
 	menus_seen = TRUE;
+	if (ui_widget_port_active_screen(0))
+		posix_invite_menu_ready();
 	if (!multiplayer.invite_jump)
 		return;
 	screen = ui_widget_port_active_screen(0);
