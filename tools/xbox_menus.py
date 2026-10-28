@@ -22,6 +22,8 @@ MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
 # the Xbox's option rows: where the first sits and the pitch to the next
 FIRST_ROW, ROW_PITCH = 73, 30
+# the scroll arrows sit to the right of the 512-wide rows
+ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
          'mouse_settings', 'gamepad_setup')
 BLUE = '#FF2896FF'
@@ -34,6 +36,8 @@ MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
 # at 0x10C confirms server_list_item0 = ARGB(1, 0, .5, 1), description
 # labels = BLUE, values = white. No game data is needed to regenerate.
 SERVER_BLUE = '#FF0080FF'
+# ui.map has the left and right arrows only: the up and down arrows (scroll
+# cues, sort arrows) are PC redraws with PNG frames.
 # PC-only redraws have PNG frames; only these shared names exist in ui.map.
 MAP_BITMAPS = {'gradient', 'list_field', 'list_item_bkd_top', 'list_item_bkd',
                'semi_transparent_grey', 'alert_bkd', 'arrow_big_left', 'arrow_big_right',
@@ -122,6 +126,7 @@ def footer(root, base, save, defaults):
 def settings_page(assets, folder, bitmaps):
     source = ET.parse(assets / 'ce' / f'{PE.replace("/", ".")}.{folder}.xml').getroot()
     root = deepcopy(source)
+    pending = None
     prefix = f'{PE}/{folder}'
     base = f'xbox/settings/{folder}'
     removed = ('button_bar', 'button_defaults', 'button_ok')
@@ -161,17 +166,33 @@ def settings_page(assets, folder, bitmaps):
                 previous = old_y
                 row.set('y', str(first + place * pitch))
             help_top = int(next(w for w in root.iter('widget') if w.get('name') == f'{base}/help').get('top'))
-            fit_window(element, {w.get('name'): w for w in root.iter('widget')}, help_top)
+            pending = fit_window(element, {w.get('name'): w for w in root.iter('widget')}, help_top, root, bitmaps)
+    if pending:
+        pending()
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
            'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
     return root
 
 
-def fit_window(options, widgets, help_top):
+def arrows_needed(options, root, bitmaps, first, fit):
+    """The arrows beside the first and last row that show while rows are
+    hidden above or below (ui_widget.c names them). Returned as a call to make
+    once the page's bitmap names are settled."""
+    def add():
+        base = options.get('name').rsplit('/', 1)[0]
+        for direction, y in (('up', first), ('down', first + (fit - 1) * ROW_PITCH + 6)):
+            name = f'{base}/scroll_{direction}_arrow'
+            widget(root, name, width=16, height=16, bitmap=bitmap_ref(f'bitmaps/arrow_sm_{direction}', bitmaps))
+            child(options, name, x=ARROW_X, y=y)
+    return add
+
+
+def fit_window(options, widgets, help_top, root=None, bitmaps=None):
     """Show as many of a list's rows as fit above its help; the rest scroll."""
     rows = [c for c in options.findall('child')
-            if c.get('y') and 'button_bar' not in c.get('widget') and c.get('widget') in widgets]
+            if c.get('y') and 'button_bar' not in c.get('widget') and c.get('widget') in widgets
+            and not c.get('widget').rsplit('/', 1)[-1].startswith('scroll_')]
     if not rows:
         return
     slots = sorted({int(c.get('y')) for c in rows})
@@ -179,6 +200,8 @@ def fit_window(options, widgets, help_top):
     fit = (help_top - height - slots[0]) // ROW_PITCH + 1
     if len(slots) > fit:
         options.set('visible_rows', str(fit))
+        if root is not None:
+            return arrows_needed(options, root, bitmaps, slots[0], fit)
     else:
         options.attrib.pop('visible_rows', None)
 
@@ -382,7 +405,9 @@ def multiplayer_documents(assets, bitmaps):
                         # Preserve the co-op/competitive shared slots, using
                         # advanced_controls' 73 origin and 30-unit pitch.
                         c.set('y', str(73 + (int(c.get('y')) - 73) // 24 * 30))
-                fit_window(w, widgets, limit)
+                pending = fit_window(w, widgets, limit, next(r for r in documents.values() if w in list(r)), bitmaps)
+                if pending:
+                    pending()
         for c in w.findall('child'):
             leaf = c.get('widget', '').rsplit('/', 1)[-1]
             if 'button_bar' in leaf:
