@@ -110,6 +110,8 @@ struct halo_menu_widget
 		*header_bounds, *footer_bounds;
 	long x, y, left, top, width, height, text_x, text_y, auto_close, auto_close_fade, string_index;
 	long has_width, has_height;
+	/* a column list's rows shown at once (0: all) */
+	long visible_rows;
 	/* indices in their arrays, or HALO_MENU_NONE */
 	long parent, first_child, first_handler, first_input, first_conditional, first_replace;
 	char const *file;

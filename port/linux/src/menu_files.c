@@ -627,6 +627,7 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 		{ "height", NULL, &widget.height, &widget.has_height }, { "text_x", NULL, &widget.text_x },
 		{ "text_y", NULL, &widget.text_y }, { "auto_close", NULL, &widget.auto_close },
 		{ "auto_close_fade", NULL, &widget.auto_close_fade }, { "string_index", NULL, &widget.string_index },
+		{ "visible_rows", NULL, &widget.visible_rows },
 	};
 
 	memset(&widget, 0, sizeof(widget));

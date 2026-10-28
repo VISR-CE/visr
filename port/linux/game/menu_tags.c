@@ -64,6 +64,7 @@ char const *pc_menus_root_name(void);
 char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
+short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
 
@@ -457,6 +458,9 @@ static struct
 	none), which their descriptions are shown by (pc_menu_patch_list_index) */
 	struct menu_patch_index *patch_indices;
 	long patch_index_count;
+	/* the column lists that show a window of their rows (visible_rows=) */
+	struct { long tag_index; short rows; } *windows;
+	long window_count;
 	boolean loaded;
 	/* the Xbox look's set (display.menus not "pc"), else the PC version's */
 	boolean xbox_set;
@@ -1277,6 +1281,17 @@ static void *widget_build(long widget_index)
 		else
 			setting_add(source, build.widget_tags[widget_index]);
 	}
+	if (source->visible_rows)
+	{
+		if (definition->type != _widget_type_column_list || source->visible_rows < 1 || source->visible_rows > 64)
+			problem(source->file, source->line, "visible_rows is 1 to 64, for a column list:", source->name);
+		else
+		{
+			menu_tags.windows = realloc(menu_tags.windows, (menu_tags.window_count + 1) * sizeof(*menu_tags.windows));
+			menu_tags.windows[menu_tags.window_count].tag_index = build.widget_tags[widget_index];
+			menu_tags.windows[menu_tags.window_count++].rows = (short)source->visible_rows;
+		}
+	}
 	reference_clear(&definition->list_header_bitmap, BITMAP_GROUP_TAG);
 	reference_clear(&definition->list_footer_bitmap, BITMAP_GROUP_TAG);
 	if (source->header_bitmap)
@@ -1512,6 +1527,8 @@ static void menu_tags_release(void)
 		free(menu_tags.settings);
 	if (menu_tags.patch_indices)
 		free(menu_tags.patch_indices);
+	if (menu_tags.windows)
+		free(menu_tags.windows);
 	memset(&menu_tags, 0, sizeof(menu_tags));
 }
 
@@ -2773,6 +2790,21 @@ boolean pc_menu_tag(
 {
 	return menu_tags.loaded && tag_index != NONE &&
 		DATUM_INDEX_TO_ABSOLUTE_INDEX(tag_index) >= menu_tags.original_count;
+}
+
+/* how many rows of a menu file's column list show at once
+(visible_rows=); 0: all of them (ui_widget.c scrolls the rest in) */
+short pc_menu_list_window(
+	long tag_index)
+{
+	long index;
+
+	for (index = 0; menu_tags.loaded && tag_index != NONE && index < menu_tags.window_count; index++)
+	{
+		if (menu_tags.windows[index].tag_index == tag_index)
+			return menu_tags.windows[index].rows;
+	}
+	return 0;
 }
 
 /* where in its widget, and how large, a frame of ui.map's that a menu file

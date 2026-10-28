@@ -15,7 +15,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/server_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/options_menu" type="column_list" width="640" height="350" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/server_settings/help">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/options_menu" type="column_list" width="640" height="350" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/server_settings/help" visible_rows="9">
 		<data input="server settings update" />
 		<on event="created" run="server settings init" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_server_name" x="54" y="73" />

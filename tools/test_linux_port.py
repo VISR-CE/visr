@@ -190,7 +190,7 @@ MENU_ATTRIBUTES = {
     "widget": {"name", "type", "controller", "flags", "bitmap", "text", "strings", "values", "setting", "font",
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
-               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform"},
+               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
@@ -215,7 +215,7 @@ def c_strings(path: Path, start: str, end: str) -> list:
 
 # menu_files.c's attributes read as whole numbers (its tables' { name, NULL, &long })
 MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "left", "string_index", "text_x",
-                           "text_y", "top", "width", "x", "y"}
+                           "text_y", "top", "visible_rows", "width", "x", "y"}
 
 
 def test_menus_are_well_formed():

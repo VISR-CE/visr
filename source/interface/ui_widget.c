@@ -1367,6 +1367,10 @@ static boolean ui_widget_load_children_recursive(
 /* port: whether the tag is one of the menus' (port/linux/game/menu_tags.c) */
 boolean pc_menu_tag(
 	long tag_index);
+/* port: how many rows of a menu file's column list show at once
+(visible_rows=), else 0 (port/linux/game/menu_tags.c) */
+short pc_menu_list_window(
+	long tag_index);
 /* port: whether the list is one the menus' patch table changed, and then its
 row's description number (port/linux/game/menu_tags.c) */
 boolean pc_menu_patch_list_index(
@@ -6233,6 +6237,141 @@ static void ui_widgets_process_mouse(
 	return;
 }
 
+/* port: a menu file's column list with visible_rows= shows that many of its
+rows (the children that take events, or have children that do, and are not
+lists themselves) and scrolls the rest in, as the Xbox's lists scroll: the
+rows the game's code shows (visible) are set in a column from the first
+row's place at the pitch between its first two rows, the first shown being
+kept so that the focused row is among them. Done as the list is drawn, after
+its game data functions, and undone after (a row past the window is hidden
+only while the children draw, so the game's code and the focus see the rows
+as they were) */
+#define WINDOW_MAXIMUM_ROWS 64
+#define WINDOW_STATE_COUNT 8
+
+static struct
+{
+	struct widget_instance *widget;
+	long creation_time;
+	short first;
+} column_list_window_states[WINDOW_STATE_COUNT];
+static short column_list_window_state_next;
+
+static short *column_list_window_first(
+	struct widget_instance *widget)
+{
+	short index;
+
+	for (index = 0; index < WINDOW_STATE_COUNT; index++)
+	{
+		if (column_list_window_states[index].widget == widget &&
+			column_list_window_states[index].creation_time == widget->creation_time)
+		{
+			return &column_list_window_states[index].first;
+		}
+	}
+	index = column_list_window_state_next++ % WINDOW_STATE_COUNT;
+	column_list_window_states[index].widget = widget;
+	column_list_window_states[index].creation_time = widget->creation_time;
+	column_list_window_states[index].first = 0;
+	return &column_list_window_states[index].first;
+}
+
+/* hides the rows past the window and lays the rest out; saved gets each
+child's visible as it was (count of them returned, 0: nothing changed) */
+static short column_list_window_begin(
+	struct widget_instance *widget,
+	struct ui_widget_definition *definition,
+	short window,
+	boolean *saved)
+{
+	struct widget_instance *children[WINDOW_MAXIMUM_ROWS];
+	short reference_y[WINDOW_MAXIMUM_ROWS];
+	short row_children[WINDOW_MAXIMUM_ROWS];
+	short child_count = 0, row_count = 0, shown = 0, rank, focused_rank = NONE;
+	short first_y = 0, pitch = 0, first, *state, index;
+	long reference_index = 0;
+	struct widget_instance *child;
+
+	if (TEST_FLAG(definition->list_flags, _list_items_generated_in_code))
+		return 0;
+	for (child = widget->child; child; child = child->next)
+	{
+		struct ui_widget_child_reference *reference = NULL;
+
+		if (child_count >= WINDOW_MAXIMUM_ROWS)
+			return 0;
+		while (reference_index < definition->child_widgets.count)
+		{
+			reference = (struct ui_widget_child_reference *)definition->child_widgets.address + reference_index++;
+			if (reference->widget_tag.index != NONE)
+				break;
+			reference = NULL;
+		}
+		if (!reference || reference->widget_tag.index != child->definition_tag_index)
+			return 0;
+		children[child_count] = child;
+		reference_y[child_count] = reference->vertical_offset;
+		saved[child_count] = child->visible;
+		if (child->type != _ui_widget_type_column_list &&
+			(widget_instance_can_handle_events(child) || child->child))
+		{
+			if (row_count == 0)
+				first_y = reference->vertical_offset;
+			else if (pitch == 0 && reference->vertical_offset != first_y)
+				pitch = (short)(reference->vertical_offset - first_y);
+			row_children[row_count++] = child_count;
+		}
+		child_count++;
+	}
+	if (row_count == 0 || pitch == 0)
+		return 0;
+	for (index = 0; index < row_count; index++)
+	{
+		if (children[row_children[index]]->visible)
+		{
+			if (children[row_children[index]] == widget->focused_child)
+				focused_rank = shown;
+			shown++;
+		}
+	}
+	state = column_list_window_first(widget);
+	first = *state;
+	if (focused_rank != NONE)
+	{
+		if (focused_rank < first)
+			first = focused_rank;
+		else if (focused_rank >= first + window)
+			first = (short)(focused_rank - window + 1);
+	}
+	first = (short)PIN(first, 0, MAX(0, shown - window));
+	*state = first;
+	for (rank = 0, index = 0; index < row_count; index++)
+	{
+		child = children[row_children[index]];
+		if (!child->visible)
+			continue;
+		if (rank >= first && rank < first + window)
+			child->vertical_offset = (short)(widget->vertical_offset + first_y + (rank - first) * pitch);
+		else
+			child->visible = FALSE;
+		rank++;
+	}
+	return child_count;
+}
+
+static void column_list_window_end(
+	struct widget_instance *widget,
+	short child_count,
+	boolean const *saved)
+{
+	struct widget_instance *child;
+	short index = 0;
+
+	for (child = widget->child; child && index < child_count; child = child->next)
+		child->visible = saved[index++];
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -6250,6 +6389,8 @@ static void widget_instance_render_recursive(
 	/* port: (custom_edition_maps_picture) */
 	struct bitmap_data *custom_edition_picture;
 	short frame_index;
+	boolean window_saved[WINDOW_MAXIMUM_ROWS];
+	short window_children = 0;
 
 	if (!use_nifty_plasma_fx &&
 		TEST_FLAG(definition->flags, _widget_always_render_with_nifty_fx_bit))
@@ -6449,6 +6590,11 @@ static void widget_instance_render_recursive(
 	}
 	if (render_children)
 	{
+		short window = widget->type == _ui_widget_type_column_list ?
+			pc_menu_list_window(widget->definition_tag_index) : 0;
+
+		if (window > 0)
+			window_children = column_list_window_begin(widget, definition, window, window_saved);
 		for (child = widget->child; child; child = child->next)
 		{
 			focus = child == widget->focused_child;
@@ -6462,6 +6608,8 @@ static void widget_instance_render_recursive(
 				focus,
 				use_nifty_plasma_fx);
 		}
+		if (window_children > 0)
+			column_list_window_end(widget, window_children, window_saved);
 	}
 
 	return;

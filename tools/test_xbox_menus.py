@@ -109,8 +109,10 @@ def test_option_rows_end_above_the_help_text(path):
         if name.endswith('/help'):
             help_top = int(widget.get('top'))
         if name.endswith('/options_menu'):
-            row_ys = [int(child.get('y')) for child in widget.findall('child')
-                      if child.get('y') and not child.get('widget').endswith('/button_bar')]
+            row_ys = sorted({int(child.get('y')) for child in widget.findall('child')
+                             if child.get('y') and not child.get('widget').endswith('/button_bar')})
+            # a list that scrolls shows visible_rows of its rows at once
+            row_ys = row_ys[:int(widget.get('visible_rows', len(row_ys)))]
     if help_top is not None:
         assert max(row_ys) + 28 <= help_top
 
@@ -213,12 +215,45 @@ def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
             assert w.get('color') == '#FF0080FF'
 
 
-@pytest.mark.xfail(strict=True, reason='Static column lists need C viewport scrolling before server settings can ship')
-def test_server_settings_content_stays_above_help():
-    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.server_settings.xml')
-    widgets = {w.get('name'): w for w in root.iter('widget')}
-    options = next(w for w in widgets.values() if w.get('name').endswith('/options_menu'))
-    help_top = int(widgets[options.get('description')].get('top'))
-    for c in options.findall('child'):
-        if not c.get('widget').endswith('/button_bar'):
-            assert int(c.get('y')) + int(widgets[c.get('widget')].get('height')) <= help_top
+def window_rows(options, widgets):
+    """The rows of a scrolling list that show at once: the first rows' slots
+    of the column ui_widget.c lays out (visible_rows)."""
+    rows = [c for c in options.findall('child') if c.get('y') and 'button_bar' not in c.get('widget')]
+    slots = sorted({int(c.get('y')) for c in rows})
+    height = max(int(widgets[c.get('widget')].get('height')) for c in rows)
+    window = int(options.get('visible_rows', len(slots)))
+    pitch = slots[1] - slots[0]
+    return slots, window, slots[0] + (window - 1) * pitch + height
+
+
+def test_scrolling_lists_fit_above_their_help():
+    seen = []
+    for path in (MENUS / 'xbox').glob('*.xml'):
+        widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
+        for w in widgets.values():
+            if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
+                continue
+            slots, window, bottom = window_rows(w, widgets)
+            help_top = int(widgets[w.get('description')].get('top'))
+            assert window < len(slots) and bottom <= help_top, w.get('name')
+            seen.append(w.get('name'))
+    assert any(name.endswith('server_settings/options_menu') for name in seen)
+    assert any(name.endswith('network_setup/options_menu') for name in seen)
+
+
+def test_server_settings_and_network_rows_fit_with_scrolling():
+    for filename, name in (('main_menu.multiplayer_type_select.server_settings', 'server_settings'),
+                           ('settings.network_setup', 'network_setup')):
+        widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox' / (filename + '.xml')).getroot().iter('widget')}
+        options = next(w for w in widgets.values() if w.get('name').endswith(name + '/options_menu'))
+        slots, window, bottom = window_rows(options, widgets)
+        assert 'visible_rows' in options.attrib
+        assert bottom <= int(widgets[options.get('description')].get('top'))
+        assert len(slots) > window
+
+
+def test_only_column_lists_scroll():
+    for path in MENUS.rglob('*.xml'):
+        for w in ET.parse(path).getroot().iter('widget'):
+            if 'visible_rows' in w.attrib:
+                assert w.get('type') == 'column_list' and 1 <= int(w.get('visible_rows')) <= 64, w.get('name')

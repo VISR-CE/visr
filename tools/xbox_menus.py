@@ -20,8 +20,8 @@ from xml.etree import ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
-# pages with too many rows for the Xbox's row pitch: the PC page's 20-unit pitch
-COMPACT_PAGES = ('network_setup',)
+# the Xbox's option rows: where the first sits and the pitch to the next
+FIRST_ROW, ROW_PITCH = 73, 30
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
          'mouse_settings', 'gamepad_setup')
 BLUE = '#FF2896FF'
@@ -138,20 +138,15 @@ def settings_page(assets, folder, bitmaps):
         if element.get('string_list') == 'strings/common_button_captions':
             raise ValueError('PC button captions escaped footer replacement')
         if element.get('name') == f'{base}/help':
-            if folder in COMPACT_PAGES:
-                element.set('top', '360')
-                element.set('height', '50')
-            else:
-                element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
-                element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
+            element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
+            element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
         if element.get('name') == f'{base}/cloud_saves_status':
             element.set('top', '393')
             element.set('height', '20')
         if element.get('name') == f'{base}/options_menu':
             # Keep the PC platform-sharing slots. A page with more rows than fit
-            # at the Xbox's pitch takes the PC page's tighter one instead (13 rows
-            # of the Network page; the list does not scroll).
-            first, pitch = (71, 20) if folder in COMPACT_PAGES else (73, 30)
+            # above its help scrolls them (visible_rows).
+            first, pitch = FIRST_ROW, ROW_PITCH
             place = -1
             previous = None
             for row in element.findall('child'):
@@ -162,10 +157,27 @@ def settings_page(assets, folder, bitmaps):
                     place += 1
                 previous = old_y
                 row.set('y', str(first + place * pitch))
+            help_top = int(next(w for w in root.iter('widget') if w.get('name') == f'{base}/help').get('top'))
+            fit_window(element, {w.get('name'): w for w in root.iter('widget')}, help_top)
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
            'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
     return root
+
+
+def fit_window(options, widgets, help_top):
+    """Show as many of a list's rows as fit above its help; the rest scroll."""
+    rows = [c for c in options.findall('child')
+            if c.get('y') and 'button_bar' not in c.get('widget') and c.get('widget') in widgets]
+    if not rows:
+        return
+    slots = sorted({int(c.get('y')) for c in rows})
+    height = max(int(widgets[c.get('widget')].get('height', 0)) for c in rows)
+    fit = (help_top - height - slots[0]) // ROW_PITCH + 1
+    if len(slots) > fit:
+        options.set('visible_rows', str(fit))
+    else:
+        options.attrib.pop('visible_rows', None)
 
 
 def bitmap_ref(name, bitmaps):
@@ -299,8 +311,8 @@ def multiplayer_documents(assets, bitmaps):
                     e.set('bitmap', bitmap_ref('bitmaps/gradient', bitmaps))
     widgets = {e.get('name'): e for root in documents.values() for e in root if e.tag == 'widget'}
 
-    # Static option lists declare a viewport. The current engine only changes
-    # focus; runtime viewport scrolling is a prerequisite for long lists.
+    # A static option list with more rows than fit above its help scrolls
+    # them (visible_rows); its height is the room above the help.
     for w in widgets.values():
         if w.get('type') == 'column_list' and 'up_down_tabs_children' in w.get('flags', ''):
             limit = 400
@@ -317,6 +329,7 @@ def multiplayer_documents(assets, bitmaps):
                         # Preserve the co-op/competitive shared slots, using
                         # advanced_controls' 73 origin and 30-unit pitch.
                         c.set('y', str(73 + (int(c.get('y')) - 73) // 24 * 30))
+                fit_window(w, widgets, limit)
         for c in w.findall('child'):
             leaf = c.get('widget', '').rsplit('/', 1)[-1]
             if 'button_bar' in leaf:

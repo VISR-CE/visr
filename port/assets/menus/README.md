@@ -95,6 +95,7 @@ be a child of many).
 | `text_flags` | `editable`, `password`, `flashing`, `no_focus_test` |
 | `list_flags` | `items_in_code`, `items_from_strings` (a spinner showing its strings), `one_tooltip`, `single_preview` |
 | `strings`, `setting`, `values` | A spinner's values as shown, separated by `\|`; its `config.toml` setting and the values written for each (`port setting load` and `port setting save`) |
+| `visible_rows` | A column list's rows shown at once, 1 to 64 (all by default). The list scrolls in the rest as the focus moves to them. Its rows are the children that take events or hold ones that do and are not lists themselves (a `button_bar` stays where it is). The rows the game's code shows are put in a column from the first row's place, at the pitch between its first two rows (so rows that share a place, one for each mode, leave no gap), and the rows past the window are not drawn. Mouse wheel, d-pad and tabbing scroll it the same way. Lists the game fills in code (`items_in_code`) scroll themselves. |
 | `header_bitmap`, `footer_bitmap`, `header_bounds`, `footer_bounds` | A list's header and footer: a `<bitmap>` and "top left bottom right" |
 | `description` | A column list's extended description: a widget |
 | `controller` | `1` to `4`, or `any` (the default); a `<child>`'s or `child_controller`: the one it is for |

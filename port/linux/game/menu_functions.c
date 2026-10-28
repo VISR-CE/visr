@@ -3921,6 +3921,18 @@ static void lobby_browser_focus_row(struct widget_instance *list, short row)
 	}
 }
 
+/* the games' rows the browser has (the PC version's 15, the Xbox look's 9),
+which it scrolls a window of */
+static short lobby_browser_rows(struct widget_instance *list)
+{
+	struct widget_instance *row;
+	short rows = 0;
+
+	for (row = list->child; row; row = row->next)
+		rows += browser_row_index(row) != NONE;
+	return (short)PIN(rows, 1, BROWSER_ROWS);
+}
+
 /* "gamespy screen update" for the server browser: the rows (scrolled on
 at their ends), the line below them, the counts over the titles */
 static void lobby_browser_update(struct widget_instance *list)
@@ -3931,10 +3943,11 @@ static void lobby_browser_update(struct widget_instance *list)
 	wchar_t text[ROW_TEXT_LENGTH * 2];
 	unsigned long now = system_milliseconds();
 	short chosen;
+	short rows = lobby_browser_rows(list);
 
 	lobby_browser.count = lobby_browser_valid_games(lobby_browser.games,
 		(short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES));
-	if (focused == BROWSER_ROWS - 1 && lobby_browser.first + BROWSER_ROWS < lobby_browser.count)
+	if (focused == rows - 1 && lobby_browser.first + rows < lobby_browser.count)
 	{
 		lobby_browser.first++;
 		lobby_browser_focus_row(list, --focused);
@@ -3944,7 +3957,7 @@ static void lobby_browser_update(struct widget_instance *list)
 		lobby_browser.first--;
 		lobby_browser_focus_row(list, ++focused);
 	}
-	lobby_browser.first = (short)PIN(lobby_browser.first, 0, MAX(0, lobby_browser.count - BROWSER_ROWS));
+	lobby_browser.first = (short)PIN(lobby_browser.first, 0, MAX(0, lobby_browser.count - rows));
 	/* (the first game found takes the focus from the buttons, which had it
 	while there were none) */
 	if (lobby_browser.count && !lobby_browser.shown)
@@ -4036,7 +4049,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			for (index = 0; index < lobby_browser.count; index++)
 			{
 				if (!memcmp(lobby_browser.games[index].identifier, lobby_browser.identifier, 6) &&
-					index >= lobby_browser.first && index < lobby_browser.first + BROWSER_ROWS)
+					index >= lobby_browser.first && index < lobby_browser.first + rows)
 				{
 					lobby_browser_focus_row(list, (short)(index - lobby_browser.first));
 				}
@@ -4157,8 +4170,8 @@ static void lobby_browser_update(struct widget_instance *list)
 		usnprintf(text, ROW_TEXT_LENGTH - 1, L"%s %ld", label, players);
 		text_set(named(stats, "player_count_label", 0), text);
 		string_get(JOIN_GAME_LABELS, _join_game_label_page, label);
-		usnprintf(text, ROW_TEXT_LENGTH - 1, L"%s %d/%d", label, chosen / BROWSER_ROWS + 1,
-			MAX(1, (lobby_browser.count + BROWSER_ROWS - 1) / BROWSER_ROWS));
+		usnprintf(text, ROW_TEXT_LENGTH - 1, L"%s %d/%d", label, chosen / rows + 1,
+			MAX(1, (lobby_browser.count + rows - 1) / rows));
 		text_set(named(stats, "page_count_label", 0), text);
 		string_get(JOIN_GAME_LABELS, _join_game_label_servers, label);
 		browser_game_count_text(text, label, lobby_browser.count, dedicated);
