@@ -82,7 +82,7 @@ static struct widget_instance *named(struct widget_instance *w, char const *name
 static short browser_row_index(struct widget_instance *w) { return w->row; }
 static void browser_games_read(void) { }
 int p2p_lobby_games(struct p2p_listing *out, int max) { assert(available_count<=max); memcpy(out, available, sizeof(available)); return available_count; }
-static short lobby_browser_valid_games(struct p2p_listing *games, short count) { (void)games; return count; }
+static short lobby_browser_games_read(struct p2p_listing *games) { return (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES); }
 static struct advertised_game *lobby_browser_joined_game(void) { return NULL; }
 static int lobby_browser_join(struct p2p_listing const *g, short c) { joined=*g; controller_seen=c; joins++; return 1; }
 void p2p_lobby_refresh(void) { }
