@@ -85,7 +85,7 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
     marker = None if info['marker_frame'] is None else time_at_frame(entries, info['marker_frame'] + 30)
     first_level = next((e for e in entries if e['scene'] != 'menu'), None)
     kind = window['kind']
-    if kind in ('battle', 'cutscene', 'bot') and marker is None or kind == 'opening' and first_level is None:
+    if kind in ('battle', 'cutscene', 'bot', 'match', 'coop') and marker is None or kind == 'opening' and first_level is None:
         return {'note': 'no window start in the logs'}
     # Console windows start at the init marker; openings count from the level's first frames.
     if kind == 'cutscene':
@@ -93,7 +93,7 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
     elif kind == 'bot':
         first = marker + window['start_tick'] / 30
         last = first + window['ticks'] / 30
-    elif kind == 'battle':
+    elif kind in ('battle', 'match', 'coop'):
         first = marker + window['warmup_s']
         last = first + window['sample_s']
     else:

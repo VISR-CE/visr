@@ -113,3 +113,20 @@ def test_battle_window_on_a_device_below_the_display_rate_is_placed_in_seconds()
     assert cols['frames'] == pytest.approx(60 * 12, abs=60)
     assert cols['cpu_ms_p95'] == '50.0' and cols['gpu_ms_p95'] == '60.0'
     assert float(cols['gpu_ms_p50']) == 40.0
+
+
+def test_match_and_coop_plans_host_the_game_and_mark_the_window():
+    match = device_plan.plan('mp-chillout')
+    assert match['debug']['network_test'] == "'host:chillout'" and match['debug']['test_input'] == '"bot:1"'
+    assert 'network_test_players' not in match['debug'] and 'enemy_multiplier' not in match['debug']
+    assert match['init'][0].startswith('(begin (print "XP_START")') and '(sleep 2250)' in match['init'][0]
+    assert match['exit_after'] == 25 + 15 + 60 + 30
+    coop = device_plan.plan('coop-b30')
+    assert coop['debug']['network_test'] == "'host:levels\\b30\\b30:coop'"
+    assert coop['debug']['network_test_players'] == '2' and coop['debug']['enemy_multiplier'] == '1'
+    assert coop['init'][0] == '(set cheat_deathless_player true)' and 'test_input' not in coop['debug']
+
+
+def test_match_window_aligns_on_the_init_marker_like_a_battle():
+    cols = device_log.window_columns(W['mp-chillout'], stderr(marker_at=1200), frame_log())
+    assert cols['seconds'] == 35.0 and 'shorter than expected' in cols['note']

@@ -31,7 +31,26 @@ def plan(key: str, table: dict | None = None) -> dict:
         init = [deathless]
         debug['network_test'] = "'host:levels\\" + level + '\\' + level + ":coop'"
         debug['init_after'] = f'{INIT_AFTER_S}'
-        if kind == 'battle':
+        if kind in ('match', 'coop'):
+            # The host starts the game by itself (`network_test`, a second player per extra `network_test_players`).
+            # The init script only marks the start of the level and reads the local player count at the window's
+            # start and end, so `device_log` can place the window and the run can be checked for the right players.
+            level_spec = ('host:' + level) if kind == 'match' else ('host:levels\\' + level + '\\' + level + ':coop')
+            debug['network_test'] = "'" + level_spec + "'"
+            debug['network_test_start'] = '8.0'
+            if win['players'] > 1:
+                debug['network_test_players'] = str(win['players'])
+            if kind == 'coop':
+                debug['enemy_multiplier'] = '1'  # static 1x, as on the Mac
+                init = [deathless]  # as the opening windows: a death would reload a checkpoint
+            else:
+                init = []
+                debug['test_input'] = f'"{win["test_input"]}"'
+            ticks = (win['warmup_s'] + win['sample_s']) * TICKS_PER_SECOND
+            init.append(f'(begin (print "XP_START") (print (list_count (players))) (sleep {ticks}) '
+                        f'(print "XP_END") (print (list_count (players))))')
+            length = INIT_AFTER_S + win['warmup_s'] + win['sample_s'] + SLACK_S
+        elif kind == 'battle':
             init += win['commands']
             length = INIT_AFTER_S + win['warmup_s'] + win['sample_s'] + SLACK_S
         elif kind == 'cutscene':
