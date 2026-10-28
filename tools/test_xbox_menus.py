@@ -97,3 +97,26 @@ def test_save_is_a_focusable_action_separate_from_a_legend():
         assert save.find('on[@event="a"][@back="true"]') is not None
         accept = next(w for n, w in widgets.items() if n.endswith('/=accept'))
         assert accept.get('text') == 'SELECT'
+
+
+@pytest.mark.parametrize('path', sorted((MENUS / 'xbox').glob('settings.*_*.xml')))
+def test_option_rows_end_above_the_help_text(path):
+    root = ET.parse(path).getroot()
+    help_top = None
+    row_ys = []
+    for widget in root.iter('widget'):
+        name = widget.get('name', '')
+        if name.endswith('/help'):
+            help_top = int(widget.get('top'))
+        if name.endswith('/options_menu'):
+            row_ys = [int(child.get('y')) for child in widget.findall('child')
+                      if child.get('y') and not child.get('widget').endswith('/button_bar')]
+    if help_top is not None:
+        assert max(row_ys) + 28 <= help_top
+
+
+def test_game_map_frames_keep_their_png_next_to_the_map_bitmap():
+    root = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
+    frames = [frame for frame in root.iter('frame') if frame.get('map')]
+    assert frames
+    assert all(frame.get('png') for frame in frames)

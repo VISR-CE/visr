@@ -20,6 +20,8 @@ from xml.etree import ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
+# pages with too many rows for the Xbox's row pitch: the PC page's 20-unit pitch
+COMPACT_PAGES = ('network_setup',)
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
          'mouse_settings', 'gamepad_setup')
 BLUE = '#FF2896FF'
@@ -121,14 +123,20 @@ def settings_page(assets, folder, bitmaps):
         if element.get('string_list') == 'strings/common_button_captions':
             raise ValueError('PC button captions escaped footer replacement')
         if element.get('name') == f'{base}/help':
-            element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
-            element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
+            if folder in COMPACT_PAGES:
+                element.set('top', '360')
+                element.set('height', '50')
+            else:
+                element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
+                element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
         if element.get('name') == f'{base}/cloud_saves_status':
             element.set('top', '393')
             element.set('height', '20')
         if element.get('name') == f'{base}/options_menu':
-            # Keep the PC platform-sharing slots; runtime scrolling is needed
-            # for lists taller than the advanced-controls viewport.
+            # Keep the PC platform-sharing slots. A page with more rows than fit
+            # at the Xbox's pitch takes the PC page's tighter one instead (13 rows
+            # of the Network page; the list does not scroll).
+            first, pitch = (71, 20) if folder in COMPACT_PAGES else (73, 30)
             place = -1
             previous = None
             for row in element.findall('child'):
@@ -138,7 +146,7 @@ def settings_page(assets, folder, bitmaps):
                 if old_y != previous:
                     place += 1
                 previous = old_y
-                row.set('y', str(73 + place * 30))
+                row.set('y', str(first + place * pitch))
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
            'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
