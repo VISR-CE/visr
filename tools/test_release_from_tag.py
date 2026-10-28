@@ -177,7 +177,12 @@ def test_release_branch_revert_never_reaches_main(remote, monkeypatch: pytest.Mo
 
     with pytest.raises(ValueError, match="is not on main"):
         prepare(monkeypatch, held)
+    summary = remote["tmp"] / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     prepare(monkeypatch, held, branch="release/0.6.2")
+    shown = summary.read_text()
+    assert "## Release branch `release/0.6.2`" in shown
+    assert "Revert" in shown and "M\tapp.txt" in shown and "1 file changed" in shown
     release.sync_main(argparse.Namespace(tag="visr-v0.6.2"))
 
     main = remote_ref(origin, "main")
@@ -212,18 +217,100 @@ def test_sync_retries_when_main_moves_during_the_push(remote, monkeypatch: pytes
     git(origin, "merge-base", "--is-ancestor", "visr-v0.6.2^{commit}", main)
 
 
-def test_sync_refuses_a_tag_that_changes_code(remote, monkeypatch: pytest.MonkeyPatch):
-    seed = remote["seed"]
-    git(seed, "checkout", "--quiet", "--detach", remote["wanted"])
-    (seed / "app.txt").write_text("sneaky\n")
-    (seed / release.MANIFEST).write_text(json.dumps({"tag": "visr-v0.6.2", "version": "0.6.2"}) + "\n")
-    git(seed, "commit", "--quiet", "--all", "--message", "🔧 chore(release): generate visr-v0.6.2 changelog")
-    git(seed, "tag", "visr-v0.6.2")
-    git(seed, "push", "--quiet", "origin", "visr-v0.6.2")
-    before = remote_ref(remote["origin"], "main")
-    with pytest.raises(ValueError, match="changes more than"):
+@pytest.mark.parametrize("forgery", ["code", "parent", "version", "untrusted"])
+def test_sync_refuses_a_forged_tag(remote, monkeypatch: pytest.MonkeyPatch, forgery: str):
+    """Only a tag that passes publication's checks may reach main."""
+    origin, seed = remote["origin"], remote["seed"]
+    fake_commitizen(monkeypatch, "0.6.2")
+    prepare(monkeypatch, remote["wanted"])
+    git(seed, "fetch", "--quiet", "--tags", "origin")
+    manifest = json.loads(git(seed, "show", f"visr-v0.6.2:{release.MANIFEST}"))
+    manifest.update(tag="visr-v0.9.0", version="0.9.1" if forgery == "version" else "0.9.0")
+    base = remote["later"] if forgery == "parent" else remote["wanted"]
+    git(seed, "checkout", "--quiet", "--detach", base)
+    if forgery == "untrusted":
+        base = commit_file(seed, "app.txt", "unreviewed\n", "🐛 fix(app): never on a branch")
+    manifest["source_sha"] = remote["wanted"] if forgery == "parent" else base
+    if forgery == "code":
+        (seed / "app.txt").write_text("sneaky\n")
+    (seed / release.MANIFEST).write_text(json.dumps(manifest) + "\n")
+    git(seed, "commit", "--quiet", "--all", "--message", "🔧 chore(release): generate visr-v0.9.0 changelog")
+    git(seed, "tag", "visr-v0.9.0")
+    git(seed, "push", "--quiet", "origin", "visr-v0.9.0")
+    before = remote_ref(origin, "main")
+    expected = {
+        "code": "changes more than",
+        "parent": "parent differs",
+        "version": "different release",
+        "untrusted": "is not on main",
+    }
+    with pytest.raises(ValueError, match=expected[forgery]):
+        release.sync_main(argparse.Namespace(tag="visr-v0.9.0"))
+    assert remote_ref(origin, "main") == before
+
+
+def test_sync_out_of_order_keeps_every_changelog_entry(remote, monkeypatch: pytest.MonkeyPatch):
+    """0.6.2's sync failed and its tag was merged into release/0.6.3; syncing 0.6.3, then 0.6.2, loses nothing."""
+    origin, seed = remote["origin"], remote["seed"]
+    fake_commitizen(monkeypatch, "0.6.2")
+    prepare(monkeypatch, remote["wanted"])
+    git(seed, "fetch", "--quiet", "--tags", "origin")
+    git(seed, "checkout", "--quiet", "-b", "release/0.6.3", "origin/main")
+    git(seed, "merge", "--quiet", "--no-edit", "visr-v0.6.2")
+    source = git(seed, "rev-parse", "HEAD")
+    git(seed, "push", "--quiet", "origin", "release/0.6.3")
+    fake_commitizen(monkeypatch, "0.6.3")
+    prepare(monkeypatch, source, branch="release/0.6.3")
+
+    release.sync_main(argparse.Namespace(tag="visr-v0.6.3"))
+    main = remote_ref(origin, "main")
+    changelog = git(origin, "show", f"{main}:CHANGELOG.md")
+    assert changelog.index("## visr-v0.6.3") < changelog.index("## visr-v0.6.2") < changelog.index("## visr-v0.6.1")
+    assert changelog.count("## visr-v0.6.2") == 1
+    assert json.loads(git(origin, "show", f"{main}:{release.MANIFEST}"))["version"] == "0.6.3"
+    assert git(origin, "show", f"{main}:app.txt") == "v3"
+
+    release.sync_main(argparse.Namespace(tag="visr-v0.6.2"))
+    assert remote_ref(origin, "main") == main, "nothing is missing, so nothing is committed"
+
+
+def test_sync_adds_missing_metadata_when_the_tag_is_already_reachable(remote, monkeypatch: pytest.MonkeyPatch):
+    origin, seed = remote["origin"], remote["seed"]
+    fake_commitizen(monkeypatch, "0.6.2")
+    prepare(monkeypatch, remote["wanted"])
+    # Someone merged the tag by hand without its metadata.
+    git(seed, "fetch", "--quiet", "--tags", "origin")
+    git(seed, "checkout", "--quiet", "main")
+    git(seed, "merge", "--quiet", "--no-edit", "--strategy=ours", "visr-v0.6.2")
+    git(seed, "push", "--quiet", "origin", "main")
+
+    release.sync_main(argparse.Namespace(tag="visr-v0.6.2"))
+
+    main = remote_ref(origin, "main")
+    assert git(origin, "log", "-1", "--format=%s", main).startswith("🔧 chore(release-sync): ")
+    assert git(origin, "rev-list", "--parents", "-1", main).count(" ") == 1, "a plain commit, not a merge"
+    assert "## visr-v0.6.2" in git(origin, "show", f"{main}:CHANGELOG.md")
+
+
+def test_sync_reports_a_refused_push_instead_of_retrying(remote, monkeypatch: pytest.MonkeyPatch):
+    origin = remote["origin"]
+    fake_commitizen(monkeypatch, "0.6.2")
+    prepare(monkeypatch, remote["wanted"])
+    real_run = release.run
+    pushes: list[tuple[Any, ...]] = []
+
+    def run(*args: Any, **kwargs: Any) -> str:
+        if args[:4] == ("git", "push", "origin", "HEAD:refs/heads/main"):
+            pushes.append(args)
+            raise subprocess.CalledProcessError(1, args)  # a branch rule or auth failure
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(release, "run", run)
+    before = remote_ref(origin, "main")
+    with pytest.raises(ValueError, match="did not move"):
         release.sync_main(argparse.Namespace(tag="visr-v0.6.2"))
-    assert remote_ref(remote["origin"], "main") == before
+    assert len(pushes) == 1
+    assert remote_ref(origin, "main") == before
 
 
 @pytest.mark.parametrize("branch", ["feature/x", "release/", "release/../main", "release/a.lock", "main2"])
