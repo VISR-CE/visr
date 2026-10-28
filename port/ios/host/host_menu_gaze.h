@@ -40,6 +40,9 @@ struct host_menu_gaze_surface {
 /* phases of a spatial event (SwiftUI's SpatialEventCollection.Event.Phase) */
 enum { HOST_MENU_GAZE_ACTIVE, HOST_MENU_GAZE_ENDED, HOST_MENU_GAZE_CANCELLED };
 
+/* pinches that began off the menus, remembered until they end: two hands and a pointer, with room to spare */
+#define HOST_MENU_GAZE_IGNORED 8
+
 /* the pinch being followed */
 struct host_menu_gaze {
     int tracking;
@@ -47,10 +50,33 @@ struct host_menu_gaze {
     float down_x, down_y;
     int has_hand;
     float hand[3];
-    /* a pinch that began off the menus stays off them until it ends */
-    int ignoring;
-    intptr_t ignored;
+    /* each pinch that began off the menus (in play, looking away) stays off them until it ends; the oldest is
+       forgotten first if more are held than there is room for */
+    int ignored_count;
+    intptr_t ignored[HOST_MENU_GAZE_IGNORED];
 };
+
+static inline int host_menu_gaze_ignored(const struct host_menu_gaze *g, intptr_t id) {
+    for (int i = 0; i < g->ignored_count; i++)
+        if (g->ignored[i] == id) return 1;
+    return 0;
+}
+static inline void host_menu_gaze_ignore(struct host_menu_gaze *g, intptr_t id) {
+    if (host_menu_gaze_ignored(g, id)) return;
+    if (g->ignored_count == HOST_MENU_GAZE_IGNORED) {
+        memmove(g->ignored, g->ignored + 1, sizeof(g->ignored[0]) * (HOST_MENU_GAZE_IGNORED - 1));
+        g->ignored_count--;
+    }
+    g->ignored[g->ignored_count++] = id;
+}
+static inline void host_menu_gaze_forget(struct host_menu_gaze *g, intptr_t id) {
+    for (int i = 0; i < g->ignored_count; i++)
+        if (g->ignored[i] == id) {
+            memmove(g->ignored + i, g->ignored + i + 1, sizeof(g->ignored[0]) * (size_t)(g->ignored_count - i - 1));
+            g->ignored_count--;
+            return;
+        }
+}
 
 static inline float host_menu_gaze_dot(const float a[3], const float b[3]) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -139,14 +165,14 @@ static inline void host_menu_gaze_travel(const struct host_menu_gaze_surface *s,
    event was the menus'. */
 static inline int host_menu_gaze_event(struct host_menu_gaze *g, struct host_menu_pointer *m,
     const struct host_menu_gaze_surface *s, intptr_t id, int phase, const float *ray, const float *hand) {
-    if (g->tracking && (!m->tracking || m->finger != id) && g->id == id) {
-        /* the menus dropped it (they went away, a replay took the controls) */
+    if (g->tracking && !(m->tracking && m->finger == g->id)) {
+        /* the menus dropped the pinch being followed (they went away, a replay took the controls): the rest of it
+           is not theirs, and if its end never comes (the space closed mid-pinch), the next pinch is still free */
         g->tracking = 0;
-        g->ignoring = 1;
-        g->ignored = id;
+        host_menu_gaze_ignore(g, g->id);
     }
-    if (g->ignoring && g->ignored == id) {
-        if (phase != HOST_MENU_GAZE_ACTIVE) g->ignoring = 0;
+    if (host_menu_gaze_ignored(g, id)) {
+        if (phase != HOST_MENU_GAZE_ACTIVE) host_menu_gaze_forget(g, id);
         return 0;
     }
     if (g->tracking && g->id == id) {
@@ -171,8 +197,7 @@ static inline int host_menu_gaze_event(struct host_menu_gaze *g, struct host_men
 
         if (g->tracking || m->tracking || !host_menu_pointer_listening(m) || !s || !ray ||
             !host_menu_gaze_hit(s, ray, ray + 3, HOST_MENU_GAZE_EDGE_MARGIN, &u, &v)) {
-            g->ignoring = 1;
-            g->ignored = id;
+            host_menu_gaze_ignore(g, id);
             return 0;
         }
         host_menu_gaze_points(s, ray, &width, &height);
