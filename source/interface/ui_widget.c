@@ -6239,7 +6239,9 @@ static void ui_widgets_process_mouse(
 
 /* port: a menu file's column list with visible_rows= shows that many of its
 rows (the children that take events, or have children that do, and are not
-lists themselves) and scrolls the rest in, as the Xbox's lists scroll: the
+lists themselves) and scrolls the rest in, as the Xbox's lists scroll, with
+the children named scroll_up_arrow and scroll_down_arrow showing only while
+rows are hidden above or below: the
 rows the game's code shows (visible) are set in a column from the first
 row's place at the pitch between its first two rows, the first shown being
 kept so that the focused row is among them. Done as the list is drawn, after
@@ -6346,6 +6348,15 @@ static short column_list_window_begin(
 	}
 	first = (short)PIN(first, 0, MAX(0, shown - window));
 	*state = first;
+	/* the arrows (children named scroll_up_arrow and scroll_down_arrow): shown
+	only while rows are hidden above or below the window */
+	for (index = 0; index < child_count; index++)
+	{
+		if (children[index]->name && !strcmp(children[index]->name, "scroll_up_arrow"))
+			children[index]->visible = first > 0;
+		else if (children[index]->name && !strcmp(children[index]->name, "scroll_down_arrow"))
+			children[index]->visible = first + window < shown;
+	}
 	for (rank = 0, index = 0; index < row_count; index++)
 	{
 		child = children[row_children[index]];

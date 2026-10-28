@@ -110,7 +110,8 @@ def test_option_rows_end_above_the_help_text(path):
             help_top = int(widget.get('top'))
         if name.endswith('/options_menu'):
             row_ys = sorted({int(child.get('y')) for child in widget.findall('child')
-                             if child.get('y') and not child.get('widget').endswith('/button_bar')})
+                             if child.get('y') and not child.get('widget').endswith('/button_bar')
+                             and '/scroll_' not in child.get('widget')})
             # a list that scrolls shows visible_rows of its rows at once
             row_ys = row_ys[:int(widget.get('visible_rows', len(row_ys)))]
     if help_top is not None:
@@ -218,7 +219,8 @@ def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
 def window_rows(options, widgets):
     """The rows of a scrolling list that show at once: the first rows' slots
     of the column ui_widget.c lays out (visible_rows)."""
-    rows = [c for c in options.findall('child') if c.get('y') and 'button_bar' not in c.get('widget')]
+    rows = [c for c in options.findall('child') if c.get('y') and 'button_bar' not in c.get('widget')
+            and '/scroll_' not in c.get('widget')]
     slots = sorted({int(c.get('y')) for c in rows})
     height = max(int(widgets[c.get('widget')].get('height')) for c in rows)
     window = int(options.get('visible_rows', len(slots)))
@@ -257,3 +259,23 @@ def test_only_column_lists_scroll():
         for w in ET.parse(path).getroot().iter('widget'):
             if 'visible_rows' in w.attrib:
                 assert w.get('type') == 'column_list' and 1 <= int(w.get('visible_rows')) <= 64, w.get('name')
+
+
+def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
+    for path in (MENUS / 'xbox').glob('*.xml'):
+        widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
+        for w in widgets.values():
+            if 'visible_rows' not in w.attrib:
+                continue
+            arrows = {c.get('widget').rsplit('/', 1)[-1]: c for c in w.findall('child') if '/scroll_' in c.get('widget')}
+            assert set(arrows) == {'scroll_up_arrow', 'scroll_down_arrow'}, w.get('name')
+            rows = [int(c.get('y')) for c in w.findall('child')
+                    if c.get('y') and 'button_bar' not in c.get('widget') and '/scroll_' not in c.get('widget')]
+            up, down = int(arrows['scroll_up_arrow'].get('y')), int(arrows['scroll_down_arrow'].get('y'))
+            assert up == min(rows) and up < down
+            window = int(w.get('visible_rows'))
+            assert down <= min(rows) + window * 30
+            for leaf, frame in (('scroll_up_arrow', 'arrow_sm_up'), ('scroll_down_arrow', 'arrow_sm_down')):
+                art = widgets[arrows[leaf].get('widget')]
+                assert art.get('bitmap') == 'xbox/bitmaps/' + frame
+                assert not art.findall('on')
