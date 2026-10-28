@@ -1098,6 +1098,17 @@ static void present_pictures(id<MTLCommandQueue> queue, id<MTLTexture> left, id<
 					simd_mul(simd_inverse(origin_from_view), origin_from_screen));
 				uniforms.half_size = (simd_float2){ screen_width / 2.0f,
 					screen_width / 2.0f * (float)picture.height / (float)picture.width };
+				/* where the screen, and any menu on it, stands this frame, for a look and pinch (host_menu_gaze.h) */
+				if (index == 0 && view_index == 0)
+				{
+					float frame[16], center[3] = { 0.0f, 0.0f, 0.0f };
+					float x_axis[3] = { uniforms.half_size.x, 0.0f, 0.0f }, y_axis[3] = { 0.0f, uniforms.half_size.y, 0.0f };
+					float eye[3] = { origin_from_device.columns[3].x, origin_from_device.columns[3].y,
+						origin_from_device.columns[3].z };
+
+					memcpy(frame, &origin_from_screen, sizeof(frame));
+					host_menu_gaze_note_surface(frame, center, x_axis, y_axis, eye);
+				}
 				uniforms.decode_srgb = decode_srgb;
 				uniforms.brightness = brightness;
 				id<MTLRenderCommandEncoder> encoder = [commands renderCommandEncoderWithDescriptor:pass];

@@ -18,7 +18,16 @@
    consumed here: the game's keyboard mapping (xinput_sdl.c) would otherwise
    also read Back, which SDL reports as Escape, as Start. */
 void host_ios_touch_pause(void) {}
+#if TARGET_OS_VISION
+/* the menus' pointer (host_menu_pointer.m on the window, host_menu_gaze.h in the room): a replay holds it */
+static int replay_holds_pointer;
+void host_touch_replay_active(int active) { replay_holds_pointer=active!=0; host_menu_pointer_block(active); }
+int host_ios_touch_blocked(void) { return replay_holds_pointer; }
+/* (no touch controls to shrink) */
+void host_ios_touch_menu_changed(int menus) { (void)menus; }
+#else
 void host_touch_replay_active(int active) { (void)active; }
+#endif
 static SDL_Joystick *remote_joystick;
 #if TARGET_OS_VISION
 /* "Connect a game controller", shown while none is (host_ios_gamepads) */
@@ -115,6 +124,8 @@ void host_ios_touch_attach(SDL_Window *window) {
     controller_note.translatesAutoresizingMaskIntoConstraints=NO;
     UIView *root=native.rootViewController.view;
     [root addSubview:controller_note];
+    /* a look and pinch on the window's menus, as a tap on the iPhone's */
+    host_menu_pointer_attach((__bridge void *)root);
     [controller_note.centerXAnchor constraintEqualToAnchor:root.centerXAnchor].active=YES;
     [controller_note.bottomAnchor constraintEqualToAnchor:root.bottomAnchor constant:-40].active=YES;
     /* 520 points, or the window's width less a margin if the window is narrower */
