@@ -666,6 +666,15 @@ def quit_layout(root, widgets):
         action.set('width', '95' if x == 356 else '63')
         action.set('height', '22' if x == 356 else '20')
     screen = widgets[base + '/quit_screen']
+    # Xbox confirmations replace the previous screen (ui_widget_launch_widget),
+    # then dim the scene with a full-screen semi_transparent_grey background.
+    screen.set('name', base + '/quit_panel')
+    # The text panel has no handlers for the container to focus. Forward
+    # input through it to the original button bar.
+    modal = widget(root, base + '/quit_screen', width=640, height=480, controller=1,
+                   flags='pass_unhandled_to_focused_child pass_unhandled_to_all_children',
+                   bitmap='xbox/bitmaps/semi_transparent_grey')
+    child(modal, base + '/quit_panel')
     for c in screen.findall('child'):
         if c.get('widget') == base + '/quit_button_bar':
             c.set('x', '0')

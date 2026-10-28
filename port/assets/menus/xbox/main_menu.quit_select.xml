@@ -10,8 +10,11 @@
 		<on event="start" run="main menu quit game" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/quit_select/quit_screen" type="text" controller="1" left="180" top="160" width="280" height="160" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/main_menu/quit_select/header_quit_game_prompt" font="ui\large_ui" color="#FF2896FF" align="center" text_x="-10" text_y="35">
+	<widget name="xbox/main_menu/quit_select/quit_panel" type="text" controller="1" left="180" top="160" width="280" height="160" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/main_menu/quit_select/header_quit_game_prompt" font="ui\large_ui" color="#FF2896FF" align="center" text_x="-10" text_y="35">
 		<child widget="xbox/main_menu/quit_select/quit_button_bar" x="0" y="0" />
 		<child widget="xbox/error/header_are_you_sure" x="182" y="164" />
+	</widget>
+	<widget name="xbox/main_menu/quit_select/quit_screen" width="640" height="480" controller="1" flags="pass_unhandled_to_focused_child pass_unhandled_to_all_children" bitmap="xbox/bitmaps/semi_transparent_grey">
+		<child widget="xbox/main_menu/quit_select/quit_panel" />
 	</widget>
 </menus>
