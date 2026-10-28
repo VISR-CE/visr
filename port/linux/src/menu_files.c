@@ -809,7 +809,7 @@ static void read_patch_row(struct reader *reader, const char *element, const XML
 		{ "after", &row.after }, { "before", &row.before }, { "child", &row.child }, { "model", &row.model },
 		{ "name", &row.name }, { "text", &row.text }, { "run", &row.run }, { "open", &row.open },
 		{ "created", &row.created }, { "description", &row.description }, { "picture", &row.picture },
-		{ "pitch", NULL, &row.pitch, &row.has_pitch },
+		{ "pitch", NULL, &row.pitch, &row.has_pitch }, { "widget", &row.widget }, { "help", &row.help }, { "bitmap", &row.bitmap },
 	};
 
 	memset(&row, 0, sizeof(row));
@@ -823,10 +823,17 @@ static void read_patch_row(struct reader *reader, const char *element, const XML
 		reader_error(reader, "a <row> is put after or before a row (one of them), and has no child");
 	else if (kind != HALO_MENU_PATCH_ROW && (!row.child || row.after || row.before))
 		reader_error(reader, "a <%s> names its row as child (and no after or before)", element);
-	else if (kind == HALO_MENU_PATCH_REMOVE && (row.model || row.name || row.text || row.run || row.open ||
+	else if (kind == HALO_MENU_PATCH_REMOVE && (row.widget || row.model || row.name || row.text || row.run || row.open ||
 		row.created || row.description || row.picture))
 		reader_error(reader, "a <remove> has only child (and pitch)");
-	else if (kind != HALO_MENU_PATCH_REMOVE && (!row.name || !row.text || (!row.run && !row.open)))
+	else if (row.help && !row.widget)
+		reader_error(reader, "help is for a <row widget=>");
+	else if (row.bitmap && (row.widget || kind == HALO_MENU_PATCH_REMOVE))
+		reader_error(reader, "bitmap is for a <row> or <replace> that is a copy");
+	else if (row.widget && (kind != HALO_MENU_PATCH_ROW || !row.name || row.text || row.run || row.open ||
+		row.created || row.model || row.description || row.picture))
+		reader_error(reader, "a <row widget=> (one of our widgets as it is) takes only a name, its place and pitch");
+	else if (kind != HALO_MENU_PATCH_REMOVE && !row.widget && (!row.name || !row.text || (!row.run && !row.open)))
 		reader_error(reader, "a <%s> needs a name, its text, and run or open", element);
 	else if (kind == HALO_MENU_PATCH_REPLACE && (row.description || row.picture || row.has_pitch))
 		reader_error(reader, "a <replace> keeps its row's place, description and picture");

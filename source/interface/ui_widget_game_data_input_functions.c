@@ -2036,6 +2036,19 @@ static void set_textbox_to_build_number(
 			build_number_string,
 			sizeof(build_number_string));
 	}
+#else
+	/* VISR's version, in the place of the developer build label the PC menus show */
+	if (!build_number_string[0])
+	{
+		extern void pc_menu_version_text(char *text, long size);
+		char version[32];
+
+		pc_menu_version_text(version, sizeof(version));
+		ascii_to_wide(
+			version,
+			build_number_string,
+			sizeof(build_number_string));
+	}
 #endif
 
 	if (!widget->parameters.text_box.text)

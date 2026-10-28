@@ -145,6 +145,12 @@ struct halo_menu_patch_row
 	long kind;
 	char const *after, *before, *child, *model;
 	char const *name, *text, *run, *open, *created, *description, *picture;
+	/* a <row> that is one of our widgets as it is (widget=) rather than a copy */
+	char const *widget;
+	/* a row's own picture (a bitmap of ours), instead of its model's */
+	char const *bitmap;
+	/* with widget=: the strings (separated by |) the list's description text shows for the row's values */
+	char const *help;
 	long pitch, has_pitch;
 	char const *file;
 	long line;

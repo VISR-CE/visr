@@ -95,6 +95,7 @@ their handlers open opens.
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
+void host_sdl_app_version(char *buffer, unsigned int size);
 #endif
 
 #include <stdlib.h>
@@ -1173,6 +1174,21 @@ static char const *custom_map_level_name(short kind, short entry)
 	return custom_edition_maps_level_name(map_kind_display_index(kind, entry));
 }
 
+/* the main menu's CUSTOM CAMPAIGN (the Xbox look's patch): shown when there are Custom Edition campaign maps, and
+the list it opens starts on them */
+static boolean custom_campaign_entry;
+
+/* "disable if no custom campaigns" (the row's creation) */
+static boolean custom_campaigns_disable(struct widget_instance *row)
+{
+	if (custom_edition_maps_count(TRUE) < 1)
+	{
+		row->disabled = TRUE;
+		row->visible = FALSE;
+	}
+	return TRUE;
+}
+
 /* "initialize sp level list solo" starts on the level last played */
 static boolean level_list_initialize(struct widget_instance *list, short controller)
 {
@@ -1192,6 +1208,14 @@ static boolean level_list_initialize(struct widget_instance *list, short control
 	level_list.kind = MAP_KIND_SINGLEPLAYER;
 	level_list.chosen = level;
 	level_list.first = map_kind_first(level, NUMBER_OF_SINGLE_PLAYER_LEVELS);
+	/* (opened from the main menu's CUSTOM CAMPAIGN: on the Custom Edition campaigns) */
+	if (custom_campaign_entry && custom_edition_maps_count(TRUE) > 0)
+	{
+		level_list.kind = MAP_KIND_CUSTOM_SINGLEPLAYER;
+		level_list.chosen = 0;
+		level_list.first = 0;
+	}
+	custom_campaign_entry = FALSE;
 	map_kind_set(list, level_list.kind);
 	map_kind_focus(list, level_list.first, level_list.chosen);
 	return TRUE;
@@ -2608,6 +2632,24 @@ static void multiplayer_mode_set(struct widget_instance *widget)
 		menu_internet_screen_opened();
 	}
 #endif
+}
+
+#ifdef HALO_IOS
+/* the main menu's build number (ui_widget_game_data_input_functions.c): this app's version */
+void pc_menu_version_text(char *text, long size)
+{
+	char version[24];
+
+	host_sdl_app_version(version, sizeof(version));
+	snprintf(text, size, "VISR %s", version);
+}
+#endif
+
+/* whether the multiplayer mode chosen is system link (menu_tags.c's pc_menus_screen: the Xbox pregame for it, the
+Xbox look's lobby for any other) */
+boolean pc_menu_multiplayer_lan(void)
+{
+	return multiplayer.mode == _multiplayer_mode_lan || multiplayer.mode == _multiplayer_mode_host_lan;
 }
 
 /* player 1's profile for the controller's player in a network game */
@@ -5188,6 +5230,7 @@ boolean ui_widget_port_gametype_edit_begin(long profile_index);
 boolean ui_widget_port_gametype_save(struct widget_instance *widget, boolean *widget_deleted);
 boolean ui_widget_port_game_variant_set(struct game_variant *variant, struct game_variant_options const *options);
 boolean ui_widget_port_gametype_delete(long profile_index);
+boolean ui_widget_port_delete_request(void);
 
 #define GAMETYPE_EDIT_ROWS 11
 
@@ -5416,38 +5459,42 @@ static short gametype_option_index(struct gametype_option const *option, long va
 	return best;
 }
 
-/* each of the screen's option rows' spinner, with the option */
-static void gametype_options_each(struct widget_instance *list, boolean save)
+/* a row's spinners from the gametype (or the gametype from them, if save) */
+static void gametype_option_row(struct widget_instance *row, boolean save)
 {
 	struct game_variant *variant = edit_variant();
 	struct game_variant_options *options = edit_options();
-	struct widget_instance *row;
+	struct widget_instance *spinner;
 
 	if (!variant || !options)
 		return;
-	for (row = list->child; row; row = row->next)
+	for (spinner = row->child; spinner; spinner = spinner->next)
 	{
-		struct widget_instance *spinner;
+		/* (a spinner: its label's name, cut to 31 characters, can be
+		the same as its own) */
+		struct gametype_option const *option = spinner->type == 2 ? gametype_option_named(spinner->name) : NULL;
 
-		for (spinner = row->child; spinner; spinner = spinner->next)
+		if (!option)
+			continue;
+		if (save)
 		{
-			/* (a spinner: its label's name, cut to 31 characters, can be
-			the same as its own) */
-			struct gametype_option const *option = spinner->type == 2 ? gametype_option_named(spinner->name) : NULL;
+			short index = (short)PIN(spinner->parameters.list.selected_index, 0, option->count - 1);
 
-			if (!option)
-				continue;
-			if (save)
-			{
-				short index = (short)PIN(spinner->parameters.list.selected_index, 0, option->count - 1);
-
-				gametype_option_value_set(option, option->values[index], variant, options);
-			}
-			else
-				spinner->parameters.list.selected_index =
-					gametype_option_index(option, gametype_option_value(option, variant, options));
+			gametype_option_value_set(option, option->values[index], variant, options);
 		}
+		else
+			spinner->parameters.list.selected_index =
+				gametype_option_index(option, gametype_option_value(option, variant, options));
 	}
+}
+
+/* each of the screen's option rows' spinner, with the option */
+static void gametype_options_each(struct widget_instance *list, boolean save)
+{
+	struct widget_instance *row;
+
+	for (row = list->child; row; row = row->next)
+		gametype_option_row(row, save);
 }
 
 /* the options' list of a button of its bar (OK's): the one above it whose
@@ -6210,6 +6257,27 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "campaign menu continue"))
 		{
 			return campaign_continue(controller);
+		}
+		else if (!strcmp(name, "disable if no custom campaigns"))
+		{
+			return custom_campaigns_disable(widget);
+		}
+		else if (!strcmp(name, "port option row init"))
+		{
+			/* (an option row of the Xbox look's Item Options, which its own functions do not know) */
+			gametype_option_row(widget, FALSE);
+		}
+		else if (!strcmp(name, "port option row save"))
+		{
+			gametype_option_row(widget, TRUE);
+		}
+		else if (!strcmp(name, "port delete request"))
+		{
+			return ui_widget_port_delete_request();
+		}
+		else if (!strcmp(name, "port custom campaign begin"))
+		{
+			custom_campaign_entry = TRUE;
 		}
 		else if (!strcmp(name, "initialize sp level list solo"))
 		{

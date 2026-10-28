@@ -65,6 +65,9 @@ def validate(root, assets):
         if element.tag == 'widget' and '\\' in element.get('name', ''):
             raise ValueError(f"map widget definition: {element.get('name')}")
         for key in ('widget', 'description', 'root'):
+            # (a patch row's description is text, whose "\n" is a line break)
+            if element.tag == 'row' and key == 'description':
+                continue
             if '\\' in element.get(key, ''):
                 raise ValueError(f'map widget dependency: {element.get(key)}')
 
@@ -180,6 +183,49 @@ def fit_window(options, widgets, help_top):
         options.attrib.pop('visible_rows', None)
 
 
+IO = 'main_menu/settings_select/multiplayer_setup/item_options_edit'
+# the Item Options rows the PC version's port added (map weapons, loadout and the two weapons) and their labels
+IO_ROWS = (('op_map_weapons', 'map_weapons_label', 'MAP WEAPONS:'), ('op_loadout', 'loadout_label', 'LOADOUT:'),
+           ('op_primary_weapon', 'primary_weapon_label', 'PRIMARY WEAPON:'),
+           ('op_secondary_weapon', 'secondary_weapon_label', 'SECONDARY WEAPON:'))
+
+
+WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 'the shotgun', 'the sniper rifle',
+           'the rocket launcher', 'the plasma pistol', 'the plasma rifle', 'the needler')
+# what the help text shows for each value of a row, in the order of its spinner's values
+IO_HELP = {
+    'op_map_weapons': 'Weapons are lying around the map\\nto pick up.|There are no weapons lying around\\nthe map.',
+    'op_loadout': 'Everyone starts with the weapon set\\nabove.|Everyone starts with the primary and\\nsecondary weapons chosen here.',
+    'op_primary_weapon': '|'.join(f'Everyone starts with {w}\\nas a primary weapon.' for w in WEAPONS),
+    'op_secondary_weapon': '|'.join(f'Everyone starts with {w}\\nas a secondary weapon.' for w in WEAPONS),
+}
+
+
+def item_options_document(assets, bitmaps):
+    """The PC port's extra Item Options rows as widgets of their own, which patch rows put in the Xbox's screen.
+
+    The Xbox's functions for the screen know only its own rows, so each row sets and saves its spinners itself.
+    """
+    root = deepcopy(ET.parse(assets / 'ce' / (IO.replace('/', '.') + '.port.xml')).getroot())
+    labels = {f'xbox/{IO}/{label}': caption for _, label, caption in IO_ROWS}
+    for element in root.iter():
+        for key, value in list(element.attrib.items()):
+            if value.startswith(IO):
+                element.set(key, 'xbox/' + value)
+            elif key in ('bitmap', 'header_bitmap', 'footer_bitmap'):
+                element.set(key, bitmap_ref(value, bitmaps))
+        if element.get('name') in labels:
+            element.attrib.pop('string_list')
+            element.attrib.pop('string_index')
+            element.set('text', labels[element.get('name')])
+    rows = {f'xbox/{IO}/{name}' for name, _, _ in IO_ROWS}
+    for row in root.findall('widget'):
+        if row.get('name') in rows:
+            ET.SubElement(row, 'on', event='created', run='port option row init')
+            ET.SubElement(row, 'on', event='deleted', run='port option row save')
+    return root
+
+
 def bitmap_ref(name, bitmaps):
     bitmaps.add(name)
     return f'xbox/{name}'
@@ -221,6 +267,13 @@ def bitmap_document(assets, names):
     source = {b.get('name'): b for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
     root = ET.Element('menus')
     for name in sorted(names | {f'pause/pausebox_{side}' for side in ('left', 'center', 'right')}):
+        if name == 'main_menu/menu_custom_campaign':
+            # (drawn by tools/xbox_menu_art.py, in the lettering of the main menu's other labels)
+            bitmap = ET.SubElement(root, 'bitmap', name='xbox/' + name)
+            for frame in (0, 1):
+                ET.SubElement(bitmap, 'frame', png=f'xbox/art/menu_custom_campaign__{frame}.png', width='256',
+                              height='64')
+            continue
         if '\\' in name:
             bitmap = ET.SubElement(root, 'bitmap', name='xbox/map/' + name.replace('\\', '/'))
             ET.SubElement(bitmap, 'frame', map=name, index='0',
@@ -507,6 +560,105 @@ def quit_layout(root, widgets):
             c.set('y', '0')
 
 
+# a picture with nothing in it, for rows with no picture of the Xbox's
+BLANK = 'png:ce/port/blank__0.png'
+
+# ui.map's tag paths the patch table names (ui\\shell\\ is left out of each) and the screens it opens
+MM = 'ui\\shell\\main_menu\\'
+MPT = MM + 'multiplayer_type_select\\'
+PEP = MM + 'settings_select\\player_setup\\player_profile_edit\\'
+GTE = MM + 'settings_select\\multiplayer_setup\\playlist_edit\\'
+
+
+def patch(root, list_path, screen_path):
+    return ET.SubElement(root, 'patch', {'list': list_path, 'screen': screen_path})
+
+
+def patch_row(parent, tag='row', **attributes):
+    return ET.SubElement(parent, tag, {k: str(v) for k, v in attributes.items()})
+
+
+def patch_document(names):
+    """The patch table (port/linux/game/menu_tags.c): VISR's rows in the Xbox's own lists."""
+    root = ET.Element('menus')
+    # Main menu: QUIT (where the app can quit) and CUSTOM CAMPAIGN (only with Custom Edition campaign maps) after
+    # SETTINGS, QUIT first, since a hidden CUSTOM CAMPAIGN would leave a row's gap above it; the hidden GAME DEMOS
+    # row stays last. Both labels are pictures, as the main menu's are. QUIT goes in second, in the place after
+    # SETTINGS, and where the app cannot quit its row is not read at all.
+    main = patch(root, MM + 'main_menu_select_list', MM + 'main_menu')
+    patch_row(main, after=MM + 'main_menu_item_settings', model=MM + 'main_menu_item_settings',
+              name='main_menu_item_custom', text='CUSTOM CAMPAIGN', run='port custom campaign begin',
+              open='xbox/main_menu/solo_level_select/solo_level_select_screen',
+              created='disable if no custom campaigns', bitmap=bitmap_ref('main_menu/menu_custom_campaign', names))
+    patch_row(main, after=MM + 'main_menu_item_settings', model=MM + 'main_menu_item_settings', platform='quit',
+              name='main_menu_item_quit', text='QUIT', open='xbox/main_menu/quit_select/quit_screen',
+              bitmap=bitmap_ref('main_menu/menu_quit', names))
+    # Multiplayer type: SYSTEM LINK sets the mode (LAN) before the Xbox's own flow; INTERNET and DIRECT LINK open
+    # the Xbox-look browser, which shows each mode's header, rows and buttons
+    mp = patch(root, MPT + 'multiplayer_type_select_list', MPT + 'multiplayer_type_select_screen')
+    patch_row(mp, 'replace', child=MPT + 'multiplayer_type_conn_item', name='multiplayer_type_join_lan',
+              text='SYSTEM LINK PLAY', run='mp type set mode',
+              open=MPT + 'connected\\4way_profile_select\\4way_start2join_screen')
+    browser = 'xbox/main_menu/multiplayer_type_select/join_game/join_game_screen'
+    patch_row(mp, after=MPT + 'multiplayer_type_conn_item', name='multiplayer_type_internet', text='INTERNET',
+              run='mp type set mode', open=browser, picture=2,
+              description='Browse games on the Internet,\\njoin one, or host your own.')
+    patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_join_direct', text='DIRECT LINK',
+              run='mp type set mode', open=browser, picture=2,
+              description="Join a friend's game with\\nits join code or invite link.")
+    # Profile edit: the settings pages that are not the profile's before SAVE CHANGES (the keyboard's only where
+    # one is), and DELETE PROFILE after it on the Apple TV, whose remote has no X
+    edit = patch(root, PEP + 'profile_edit_select_list', PEP + 'player_profile_edit_screen')
+    # (each description ends as the Xbox's do, where the profile's name is shown)
+    current = '\\n\\nCurrent Profile:'
+    pages = (('video', 'VIDEO', 'video_settings', 'video_settings_screen', None,
+              'Frame rate, resolution and how\\nthe picture is drawn.' + current),
+             ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
+              'Volume and sound for the\\ngame on this device.' + current),
+             ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None,
+              'Online play, custom maps\\nand player names.' + current),
+             ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
+              'The keys and mouse buttons\\nfor each action.' + current))
+    anchor = None
+    for key, caption, folder, screen, platform, description in pages:
+        attributes = {'name': f'profile_item_{key}', 'text': caption,
+                      'open': f'xbox/settings/{folder}/{screen}', 'description': description, 'picture': BLANK}
+        if platform:
+            attributes['platform'] = platform
+        if anchor:
+            attributes['after'] = anchor
+        else:
+            attributes['before'] = PEP + 'save_changes_profile_item'
+            attributes['model'] = PEP + 'color_profile_item'
+        patch_row(edit, **attributes)
+        anchor = f'profile_item_{key}'
+    patch_row(edit, after=PEP + 'save_changes_profile_item', platform='tvos', pitch=33,
+              name='profile_item_delete', text='DELETE PROFILE', run='port delete request',
+              open='ui\\shell\\error\\confirm_delete_profile_modal_fullscreen', picture=BLANK,
+              description='Delete this profile and\\neverything saved with it.' + current)
+    # Advanced setup: IN-GAME HELP, which the game keeps in the profile
+    advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
+                     PEP + 'advanced_controls\\advanced_controls_screen')
+    patch_row(advanced, after=PEP + 'advanced_controls\\op_auto_center', name='op_ingame_help',
+              widget='xbox/settings/gamepad_setup/op_ingame_help_advanced',
+              help='The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.')
+    # Item Options (Server Setup's, and a gametype's): the port's rows after the Xbox's four, above the help text
+    options = patch(root, MM + 'settings_select\\multiplayer_setup\\item_options_edit\\item_options_menu',
+                    MM + 'settings_select\\multiplayer_setup\\item_options_edit\\item_options_screen')
+    options.set('footer', '321')
+    anchor = MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment'
+    for name, _, _ in IO_ROWS:
+        patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', help=IO_HELP[name])
+        anchor = name
+    # Gametype edit: DELETE GAMETYPE on the Apple TV
+    gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
+    patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=33,
+              name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
+              open='ui\\shell\\error\\confirm_delete_gametype_modal_fullscreen', picture=BLANK,
+              description='Delete this gametype.')
+    return root
+
+
 def generate(assets=MENUS):
     assets = Path(assets)
     names = set()
@@ -522,7 +674,26 @@ def generate(assets=MENUS):
                         bitmap=bitmap_ref('bitmaps/option_bkds', names), text_x=13, text_y=4)
     for event in ('a', 'start'):
         ET.SubElement(mouse, 'on', event=event, open='xbox/settings/mouse_settings/mouse_settings_screen')
+    # IN-GAME HELP on the Xbox's advanced setup page (a patch row): the row of the controls page, its spinner where
+    # the Xbox's advanced rows have theirs
+    gamepad = documents['settings.gamepad_setup.xml']
+    row = deepcopy(next(w for w in gamepad if w.get('name') == 'xbox/settings/gamepad_setup/op_ingame_help'))
+    row.set('name', 'xbox/settings/gamepad_setup/op_ingame_help_advanced')
+    spinner = deepcopy(next(w for w in gamepad if w.get('name') == 'xbox/settings/gamepad_setup/ingame_help_spinner'))
+    spinner.set('name', 'xbox/settings/gamepad_setup/ingame_help_spinner_advanced')
+    # (as wide as the Xbox's own spinners on its advanced page, 103, which have their arrows at its sides)
+    spinner.set('width', '103')
+    spinner.set('footer_bounds', '7 106 19 112')
+    for part in row.findall('child'):
+        if part.get('widget', '').endswith('ingame_help_spinner'):
+            part.set('widget', 'xbox/settings/gamepad_setup/ingame_help_spinner_advanced')
+            part.set('x', '337')
+    gamepad.append(spinner)
+    gamepad.append(row)
     documents.update(multiplayer_documents(assets, names))
+    documents['main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml'] = item_options_document(
+        assets, names)
+    documents['patches.xml'] = patch_document(names)
     documents['bitmaps.xml'] = bitmap_document(assets, names)
     for root in documents.values():
         validate(root, assets)

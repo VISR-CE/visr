@@ -6279,6 +6279,21 @@ boolean ui_widget_port_gametype_edit_begin(
 	return player_ui_get_edit_playlist_profile() != NULL;
 }
 
+/* the profile or gametype being edited made the one the delete confirmation deletes (as the Xbox's request
+functions, which read the select screen's list: this is for the Apple TV's DELETE rows on the edit screens); FALSE
+for none, or a built-in one */
+boolean ui_widget_port_delete_request(
+	void)
+{
+	long profile_index = player_ui_get_edit_profile_index();
+
+	event_handler_functions.profile_index = NONE;
+	if (profile_index == NONE || (profile_index & 0x40000000))
+		return FALSE;
+	event_handler_functions.profile_index = profile_index;
+	return TRUE;
+}
+
 /* a saved gametype deleted (as delete_playlist_profile_final) */
 boolean ui_widget_port_gametype_delete(
 	long profile_index)

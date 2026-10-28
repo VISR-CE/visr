@@ -58,6 +58,22 @@ static char const patches_xml[] =
 	"<patch list=\"ui\\shell\\settings\\settings_list\" screen=\"ui\\shell\\settings\\settings_screen\">\n"
 	"  <remove child=\"ui\\shell\\settings\\settings_item_1\"/>\n"
 	"</patch>\n"
+	/* a row that is one of our widgets as it is: no tags of its own, no description; one that names no widget, or
+	a map's, is not made */
+	"<patch list=\"ui\\shell\\adopt\\adopt_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
+	"  <row after=\"ui\\shell\\adopt\\adopt_item_1\" name=\"adopted\" widget=\"xbox/test_row\" help=\"Help A|Help B\"/>\n"
+	"</patch>\n"
+	"<patch list=\"ui\\shell\\adopt\\adopt_other_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
+	"  <row after=\"ui\\shell\\adopt\\adopt_other_item\" name=\"adopted_missing\" widget=\"xbox/no_such_screen\"/>\n"
+	"</patch>\n"
+	"<patch list=\"ui\\shell\\adopt\\adopt_map_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
+	"  <row after=\"ui\\shell\\adopt\\adopt_map_item\" name=\"adopted_map\" widget=\"ui\\shell\\settings\\settings_item_0\"/>\n"
+	"</patch>\n"
+	/* a row's own picture that there is none of: not made */
+	"<patch list=\"ui\\shell\\adopt\\adopt_bitmap_list\" screen=\"ui\\shell\\adopt\\adopt_screen\">\n"
+	"  <row after=\"ui\\shell\\adopt\\adopt_bitmap_item\" name=\"bitmapped\" text=\"B\" open=\"xbox/test_screen\"\n"
+	"       bitmap=\"xbox/no_such_bitmap\"/>\n"
+	"</patch>\n"
 	/* too many rows for the screen: not made, its tags left empty */
 	"<patch list=\"ui\\shell\\overflow\\overflow_list\" screen=\"ui\\shell\\overflow\\overflow_screen\">\n"
 	"  <row after=\"ui\\shell\\overflow\\overflow_item_0\" name=\"overflow_a\" text=\"A\" open=\"xbox/test_screen\"/>\n"
@@ -77,7 +93,9 @@ static char const patches_xml[] =
 static char const bad_xml[] =
 	"<menus><patch list=\"ui\\shell\\a\" screen=\"ui\\shell\\b\"><row name=\"r\" text=\"R\" open=\"x\"/></patch></menus>\n";
 
-static char const screen_xml[] = "<menus><widget name=\"xbox/test_screen\"/></menus>\n";
+static char const screen_xml[] =
+	"<menus><widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
+	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
 which replaces it) */
@@ -155,6 +173,14 @@ boolean pc_menu_gametype_edit_begin(void)
 	return TRUE;
 }
 
+/* (the multiplayer mode: system link or not) */
+static boolean probe_lan;
+
+boolean pc_menu_multiplayer_lan(void)
+{
+	return probe_lan;
+}
+
 int host_sdl_display_max_fps(void)
 {
 	return 0;
@@ -223,6 +249,13 @@ void *tag_get(long group_tag, long tag_index)
 
 char *tag_get_name(long tag_index)
 {
+	/* (the game halts for a tag not in its table: a reference to a tag a patch has not written yet has no name) */
+	if (table[DATUM_INDEX_TO_ABSOLUTE_INDEX(tag_index)].tag_index != tag_index)
+	{
+		printf("FAIL: the name of %lx, which is not in the table yet\n", (unsigned long)tag_index);
+		failures++;
+		return "";
+	}
 	return table[DATUM_INDEX_TO_ABSOLUTE_INDEX(tag_index)].name;
 }
 
@@ -379,8 +412,11 @@ static long panel_add(char const *name, char const *picture_name, char const *te
 static long mp_screen, mp_list, mp_blueline, mp_key, pe_screen, pe_list, pe_blueline, mm_screen, mm_list;
 static long st_screen, st_list, ov_list, other_list;
 
+static void adopt_build(void);
+
 static void map_build(void)
 {
+	adopt_build();
 	/* the multiplayer type screen (bounds and offsets as the Xbox's ui.map has them) */
 	{
 		long rows[4], children[4];
@@ -487,6 +523,41 @@ static void map_build(void)
 		children_set(widget_add("ui\\shell\\overflow\\overflow_screen", _widget_type_container, 0, 0, 640, 480),
 			2, children, screen_xs, screen_ys);
 	}
+}
+
+static long ad_screen, ad_list, ad_other_list, ad_map_list, ad_bitmap_list, ad_text;
+
+/* three lists on one screen, for the rows that are our widgets as they are */
+static void adopt_build(void)
+{
+	long rows[2], others[1], maps[1], bitmaps[1], children[4];
+	short const xs[2] = { 0, 0 }, ys[2] = { 73, 103 }, zero[1] = { 0 }, screen_xs[4] = { 0, 0, 0, 0 };
+	short const screen_ys[4] = { 0, 0, 0, 0 };
+
+	rows[0] = row_add("ui\\shell\\adopt\\adopt_item_0", 54, 0, 300, 28, 0);
+	rows[1] = row_add("ui\\shell\\adopt\\adopt_item_1", 54, 0, 300, 28, 0);
+	ad_list = widget_add("ui\\shell\\adopt\\adopt_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(ad_list, 2, rows, xs, ys);
+	/* (a description of one text, whose strings are the rows' values' in turn) */
+	ad_text = widget_add("ui\\shell\\adopt\\adopt_help", _widget_type_text_box, 68, 321, 550, 400);
+	reference_set(&definition_of(ad_text)->text_label_string_list, UNICODE_STRING_LIST_TAG,
+		strings_add("ui\\shell\\adopt\\adopt_help_strings", 4));
+	reference_set(&definition_of(ad_list)->extended_description_widget, UI_WIDGET_DEFINITION_TAG, ad_text);
+	others[0] = row_add("ui\\shell\\adopt\\adopt_other_item", 54, 0, 300, 28, 0);
+	ad_other_list = widget_add("ui\\shell\\adopt\\adopt_other_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(ad_other_list, 1, others, zero, zero);
+	maps[0] = row_add("ui\\shell\\adopt\\adopt_map_item", 54, 0, 300, 28, 0);
+	ad_map_list = widget_add("ui\\shell\\adopt\\adopt_map_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(ad_map_list, 1, maps, zero, zero);
+	bitmaps[0] = row_add("ui\\shell\\adopt\\adopt_bitmap_item", 54, 0, 300, 28, 0);
+	ad_bitmap_list = widget_add("ui\\shell\\adopt\\adopt_bitmap_list", _widget_type_column_list, 0, 0, 640, 480);
+	children_set(ad_bitmap_list, 1, bitmaps, zero, zero);
+	children[0] = ad_list;
+	children[1] = ad_other_list;
+	children[2] = ad_map_list;
+	children[3] = ad_bitmap_list;
+	ad_screen = widget_add("ui\\shell\\adopt\\adopt_screen", _widget_type_container, 0, 0, 640, 480);
+	children_set(ad_screen, 4, children, screen_xs, screen_ys);
 }
 
 /* ---------- the checks */
@@ -704,9 +775,53 @@ static void check_apple(boolean tvos)
 			"the list whose row runs no function is not patched");
 		check(!pc_menu_patch_list_index(mm_screen, NONE, &description), "a screen is not a patched list");
 	}
+	/* a row that is one of our widgets as it is: the widget itself, in its place, without a description; the ones
+	that name no widget or a map's not made */
+	{
+		short const tops[3] = { 73, 103, 133 };
+		short description = 0;
+		long test_row = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\test_row");
+
+		check_rows("adopt", ad_list, tops, 3);
+		if (child_count(ad_list) < 3)
+			return;
+		check(children_of(ad_list)[2].widget_tag.index == test_row, "the adopted row is our widget, not a copy");
+		check(!strcmp(children_of(ad_list)[2].name, "adopted"), "the adopted row is named so");
+		check(pc_menu_patch_list_index(ad_list, children_of(ad_list)[2].widget_tag.index, &description) &&
+			description == NONE, "the adopted row has no description (%d)", description);
+		{
+			struct string_list const *help = tag_get(UNICODE_STRING_LIST_TAG,
+				definition_of(ad_text)->text_label_string_list.index);
+
+			check(help->strings.count == 6 && string_is(help, 3, "map 3") && string_is(help, 4, "Help A") &&
+				string_is(help, 5, "Help B"), "the adopted row's help strings follow the description's own (%ld)",
+				help->strings.count);
+		}
+		check(!pc_menu_patch_list_index(ad_other_list, NONE, &description) && child_count(ad_other_list) == 1,
+			"a row of a widget there is none of is not made");
+		check(!pc_menu_patch_list_index(ad_map_list, NONE, &description) && child_count(ad_map_list) == 1,
+			"a row of a map's widget is not made");
+		check(!pc_menu_patch_list_index(ad_bitmap_list, NONE, &description) && child_count(ad_bitmap_list) == 1,
+			"a row with a picture there is none of is not made");
+	}
+	/* the screen the engine opens after a network game: the Xbox's, but for Internet games the Xbox look's lobby */
+	{
+		char const *const pregame = "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\pregame\\connected_pregame_screen";
+		char const *const postgame = "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_postgame_wrapper";
+
+		probe_lan = FALSE;
+		check(!strcmp(pc_menus_screen(pregame), "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"),
+			"an Internet game's pregame is the Xbox look's lobby (%s)", pc_menus_screen(pregame));
+		check(pc_menus_screen(postgame) == postgame, "the postgame map select stays the Xbox's");
+		probe_lan = TRUE;
+		check(pc_menus_screen(pregame) == pregame, "a system link game's pregame stays the Xbox's");
+		check(pc_menus_screen(postgame) == postgame, "the postgame map select stays the Xbox's for system link");
+		probe_lan = FALSE;
+	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	counted = 1 + 2 * (3 + (tvos ? 4 : 4) + 1 + 3 + 1 + 1);
-	used = 1 + 2 * (3 + 4 + 1 + 3);
+	/* (3 widgets of ours: the screen, the adopted row and the lobby) */
+	counted = 3 + 2 * (3 + (tvos ? 4 : 4) + 1 + 3 + 1 + 1);
+	used = 3 + 2 * (3 + 4 + 1 + 3);
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)

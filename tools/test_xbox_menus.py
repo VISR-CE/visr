@@ -28,6 +28,8 @@ def snapshot(path):
 def test_generation_is_deterministic_and_checked_in(tmp_path):
     assets = tmp_path / 'menus'
     shutil.copytree(MENUS / 'ce', assets / 'ce')
+    # (the art the generator draws from: tools/xbox_menu_art.py's)
+    shutil.copytree(MENUS / 'xbox/art', assets / 'xbox/art')
     shutil.copy(MENUS / 'menus.json', assets / 'menus.json')
     module = generator()
     module.generate(assets)

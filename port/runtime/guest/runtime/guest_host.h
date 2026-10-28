@@ -277,6 +277,8 @@ void host_bink_audio_skip(unsigned int position);
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
+/* the app's version (CFBundleShortVersionString), copied into guest memory: the main menu shows it */
+void host_sdl_app_version(char *buffer, unsigned int size);
 
 int host_astc_texture_key(const void *source, unsigned int format, unsigned int width, unsigned int height, unsigned int levels, unsigned int faces, unsigned int source_face_bytes, void *key);
 int host_astc_texture_read(const void *key, void *bytes, unsigned int size);

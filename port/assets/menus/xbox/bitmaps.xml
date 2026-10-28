@@ -101,6 +101,14 @@
 		<frame png="ce/shell/bitmaps/text_button_background__0.png" width="128" height="32" />
 		<frame png="ce/shell/bitmaps/text_button_background__1.png" width="128" height="32" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/menu_custom_campaign">
+		<frame png="xbox/art/menu_custom_campaign__0.png" width="256" height="64" />
+		<frame png="xbox/art/menu_custom_campaign__1.png" width="256" height="64" />
+	</bitmap>
+	<bitmap name="xbox/main_menu/menu_quit">
+		<frame png="ce/shell/main_menu/menu_quit__0.png" width="256" height="64" />
+		<frame png="ce/shell/main_menu/menu_quit__1.png" width="256" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/direct_ip/header_direct_ip__0.png" width="512" height="64" />
 	</bitmap>
