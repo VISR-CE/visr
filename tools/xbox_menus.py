@@ -672,9 +672,6 @@ def quit_layout(root, widgets):
             c.set('y', '0')
 
 
-# a picture with nothing in it, for rows with no picture of the Xbox's
-BLANK = 'png:ce/port/blank__0.png'
-
 # ui.map's tag paths the patch table names (ui\\shell\\ is left out of each) and the screens it opens
 MM = 'ui\\shell\\main_menu\\'
 MPT = MM + 'multiplayer_type_select\\'
@@ -732,10 +729,12 @@ def patch_document(names):
               'Online play, custom maps\\nand player names.' + current),
              ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
               'The keys and mouse buttons\\nfor each action.' + current))
+    # profile_options: appearance (3), advanced setup (2), console/storage (4), keyboard (0).
+    pictures = {'video': 3, 'audio': 2, 'network': 4, 'keyboard': 0}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:
         attributes = {'name': f'profile_item_{key}', 'text': caption,
-                      'open': f'xbox/settings/{folder}/{screen}', 'description': description, 'picture': BLANK}
+                      'open': f'xbox/settings/{folder}/{screen}', 'description': description, 'picture': pictures[key]}
         if platform:
             attributes['platform'] = platform
         if anchor:
@@ -747,7 +746,7 @@ def patch_document(names):
         anchor = f'profile_item_{key}'
     patch_row(edit, after=PEP + 'save_changes_profile_item', platform='tvos', pitch=33,
               name='profile_item_delete', text='DELETE PROFILE', run='port delete request',
-              open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=BLANK,
+              open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=4,
               description='Delete this profile and\\neverything saved with it.' + current)
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
@@ -767,7 +766,7 @@ def patch_document(names):
     gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
     patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=33,
               name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
-              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture=BLANK,
+              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture=5,
               description='Delete this gametype.')
     return root
 
