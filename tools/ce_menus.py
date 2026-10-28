@@ -50,6 +50,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hud_assets import bleed, render_svg  # noqa: E402
 import port_settings  # noqa: E402
+import xbox_menus  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 MENUS = ROOT / "port/assets/menus"
@@ -726,6 +727,7 @@ def main() -> None:
     (MENUS / "UNWIRED.md").write_text("\n".join(report))
     files = sorted(path.relative_to(MENUS).as_posix() for path in MENUS.rglob("*.xml"))
     files += sorted(art.pngs)
+    files = xbox_menus.retain_xbox_files(MENUS, files)
     (MENUS / "menus.json").write_text(json.dumps({
         "comment": "The menus' files the game embeds (tools/ce_menus.py, tools/embed_assets.py).",
         "files": files,
