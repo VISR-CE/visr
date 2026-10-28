@@ -498,10 +498,11 @@ def browser_layout(root, widgets, bitmaps):
 
     # The Xbox's nine-row list needs a wider column for the PC browser's
     # five live fields. Keep the updater's row names and all its children.
+    # Region ends 36 pixels before the cap, matching the Server Name inset.
     columns = {'locked': (0, 16), 'dedicated': (16, 16),
-               'server_name': (36, 140), 'map': (180, 166),
-               'classic': (348, 10), 'type': (358, 66),
-               'players': (426, 60), 'ping': (488, 56)}
+               'server_name': (36, 140), 'map': (180, 132),
+               'classic': (314, 10), 'type': (324, 60),
+               'players': (386, 60), 'ping': (448, 60)}
     for c in list(rows.findall('child')):
         leaf = c.get('widget').rsplit('/', 1)[-1]
         if leaf.startswith('server_item_') and leaf[12:].isdigit():
@@ -582,10 +583,13 @@ def browser_layout(root, widgets, bitmaps):
         icon.attrib.pop('text')
         icon.set('type', 'container')
         icon.set('bitmap', f'xbox/browser/{button}_butn')
+    # ui.map's 32x32 button textures include transparent padding; button_key
+    # draws them at native size and advances 21 pixels to each caption.
+    # The PNG redraws are needed only in maps without these Xbox bitmaps.
     for button in ('a', 'b', 'x', 'y'):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{button}_butn')
         ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + button + '_butn', index='0',
-                      png=f'xbox/art/{button}_butn.png', width='21', height='26')
+                      png=f'xbox/art/{button}_butn.png', width='32', height='32')
     # A shared, inset redraw keeps the cap and right edge inside every row.
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
     for index in (0, 1):
@@ -603,6 +607,18 @@ def browser_layout(root, widgets, bitmaps):
     refresh.attrib.update(text='REFRESH', width='104', height='22', font=r'ui\large_ui',
                           align='left', text_y='0')
     child(screen, refresh.get('name'), x=70, y=414)
+    # button_key advances 21 pixels from icon to caption. Leave the same
+    # 27-pixel gap after each caption, including the longer CREATE GAME.
+    items = (('x_butn', 'join_game_button_refresh', 84),
+             ('y_butn', '=create', 132),
+             ('legend/b_butn', 'legend/=cancel', 52),
+             ('legend/a_butn', 'legend/=accept', 70))
+    x = 66
+    for icon, caption, width in items:
+        for leaf, offset in ((icon, 0), (caption, 21)):
+            screen.find(f"child[@widget='{base}/{leaf}']").set('x', str(x + offset))
+        root.find(f"widget[@name='{base}/{caption}']").set('width', str(width))
+        x += 21 + width + 27
 
 
 def quit_layout(root, widgets):

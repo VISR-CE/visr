@@ -97,7 +97,7 @@ def browser_art(output):
     colors = {'a': '#24852f', 'b': '#ba222d', 'x': '#247dc0', 'y': '#d4a124'}
     for button, path in letters.items():
         svg = output / f'{button}_butn.svg'
-        svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="21" height="26" viewBox="0 0 21 26">'
+        svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">'
                        '<defs><linearGradient id="shine" x2="0.8" y2="1">'
                        '<stop stop-color="#ffffff" stop-opacity=".65"/><stop offset="1" stop-opacity=".3"/>'
                        '</linearGradient></defs>'
