@@ -913,8 +913,9 @@ void host_sdl_text_input(int on, const char *title, const char *text, int masked
 One state for them all: the fingers (host_menu_pointer.m) and a mouse or
 trackpad (SDL's mouse events, read in host_sdl_poll_event) add to it, and the
 guest's host_ui_pointer_read takes what they did. It reports a source on every
-host with a screen to touch or a mouse to move; the Apple TV and the Vision
-Pro have none, and their menus stay as they were. */
+host with a screen to touch or a mouse to move, and on the Vision Pro, where a
+look and pinch drives it (host_menu_gaze.h); the Apple TV has none, and its
+menus stay as they were. */
 
 static struct host_menu_pointer menu_pointer;
 static void (*pointer_feedback)(int);
@@ -1030,6 +1031,8 @@ spatial event of the immersive space to host_menu_gaze_spatial_event. Both run o
 does. */
 
 static struct host_menu_gaze_surface gaze_surface;
+/* the scripted pinch's id (HALO_MENU_POINTER_SCRIPT) */
+#define MENU_SCRIPT_PINCH 9001
 static struct host_menu_gaze gaze;
 
 static double gaze_now(void)
@@ -1051,10 +1054,35 @@ static const struct host_menu_gaze_surface *gaze_surface_drawn(void)
 void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const float *ray, int has_hand,
 	const float *hand)
 {
-	int tracking = gaze.tracking, taken;
+	static int frames_logged;
+	int tracking = gaze.tracking, clicks, taken;
+	const struct host_menu_gaze_surface *surface;
 
 	menu_pointer_sync();
-	taken = host_menu_gaze_event(&gaze, &menu_pointer, gaze_surface_drawn(), id, phase, has_ray ? ray : NULL,
+	surface = gaze_surface_drawn();
+	/* once, the first pinch that could be the menus' (not a scripted one): the ray, the hand and the surface as
+	they arrive, so one headset run shows whether the spatial events' frame and units are the drawables' (ARKit's
+	origin, meters) */
+	if (!frames_logged && id != MENU_SCRIPT_PINCH && phase == HOST_MENU_GAZE_ACTIVE && !tracking &&
+		host_menu_pointer_listening(&menu_pointer))
+	{
+		float u = -1.0f, v = -1.0f;
+		int hit = surface && has_ray && host_menu_gaze_hit(surface, ray, ray + 3, HOST_MENU_GAZE_EDGE_MARGIN, &u, &v);
+
+		frames_logged = 1;
+		host_logf(HOST_LOG_INFO, "menu pointer: first pinch on a menu: ray %s%.3f %.3f %.3f toward %.3f %.3f %.3f, hand "
+			"%s%.3f %.3f %.3f; surface %s at %.3f %.3f %.3f, half extents %.3f %.3f %.3f and %.3f %.3f %.3f, eyes at "
+			"%.3f %.3f %.3f, noted %.3f s before; %s %.3f, %.3f", has_ray ? "" : "(none) ", has_ray ? ray[0] : 0.0f,
+			has_ray ? ray[1] : 0.0f, has_ray ? ray[2] : 0.0f, has_ray ? ray[3] : 0.0f, has_ray ? ray[4] : 0.0f,
+			has_ray ? ray[5] : 0.0f, has_hand ? "" : "(none) ", has_hand ? hand[0] : 0.0f, has_hand ? hand[1] : 0.0f,
+			has_hand ? hand[2] : 0.0f, surface ? "drawn" : "not drawn", gaze_surface.center[0],
+			gaze_surface.center[1], gaze_surface.center[2], gaze_surface.x_axis[0], gaze_surface.x_axis[1],
+			gaze_surface.x_axis[2], gaze_surface.y_axis[0], gaze_surface.y_axis[1], gaze_surface.y_axis[2],
+			gaze_surface.eye[0], gaze_surface.eye[1], gaze_surface.eye[2], gaze_now() - gaze_surface.drawn_at,
+			hit ? "it hits at the picture's" : "it misses;", u, v);
+	}
+	clicks = menu_pointer.left_clicks;
+	taken = host_menu_gaze_event(&gaze, &menu_pointer, surface, id, phase, has_ray ? ray : NULL,
 		has_hand ? hand : NULL);
 	/* each pinch the menus take, as it begins and ends (the move between is the hand's travel) */
 	if (taken && !tracking)
@@ -1062,7 +1090,7 @@ void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const flo
 			gaze.down_x, gaze.down_y, menu_pointer.surface_width, menu_pointer.surface_height);
 	else if (tracking && !gaze.tracking)
 		host_logf(HOST_LOG_INFO, "menu pointer: the pinch %s", phase == HOST_MENU_GAZE_CANCELLED ? "was canceled" :
-			menu_pointer.left_clicks ? "let go without travel: a press" : "let go after a drag");
+			menu_pointer.left_clicks > clicks ? "let go without travel: a press" : "let go after a drag");
 }
 
 /* HALO_MENU_POINTER_SCRIPT, for runs with no finger: ops separated by ';', each "FRAME KIND ARGS", where FRAME counts
@@ -1153,7 +1181,7 @@ static void menu_script_next(void)
 static int menu_script_pinch(void)
 {
 	const struct host_menu_gaze_surface *surface = gaze_surface_drawn();
-	const intptr_t pinch = 9001;
+	const intptr_t pinch = MENU_SCRIPT_PINCH;
 	float ray[6], hand[3], t;
 	int phase = HOST_MENU_GAZE_ACTIVE, last = menu_script.steps;
 
