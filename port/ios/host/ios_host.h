@@ -33,6 +33,10 @@ int host_window_up(void);
 UIWindow *host_present_window(void);
 /* nonzero for a window of host_present_window's (theater mode leaves those be) */
 int host_is_present_window(UIWindow *window);
+void host_dismiss_window(UIWindow *window);
+void host_dismiss_share_sheet(void);
+void host_present_input_update(void);
+int host_invite_card_up(void);
 #endif
 /* the CAMetalLayer of a Metal window's view (host_sdl.c), or NULL */
 void *host_sdl_metal_layer(void);

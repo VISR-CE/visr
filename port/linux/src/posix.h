@@ -282,5 +282,11 @@ posix_ulong posix_lan_broadcast_address(void);
 /* offers link in the share sheet over the game, without waiting; 0 where
 there is none */
 int posix_share_link(const char *link);
+/* Invite card, without waiting; 0 asks the caller to use its existing share
+or clipboard path. Updates never open a card; NULL closes one on hosting stop. */
+int posix_show_invite(const char *link, const char *code);
+void posix_update_invite(const char *link, const char *code);
+/* Main-menu readiness for the development-only screenshot hook. */
+void posix_invite_menu_ready(void);
 
 #endif

@@ -545,6 +545,9 @@ PORT_POSIX_FUNCTIONS = (
     "posix_lan_status",
     "posix_lan_broadcast_address",
     "posix_share_link",
+    "posix_show_invite",
+    "posix_update_invite",
+    "posix_invite_menu_ready",
 )
 
 

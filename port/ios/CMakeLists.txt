@@ -159,7 +159,7 @@ add_executable(VISR MACOSX_BUNDLE
     "${CMAKE_CURRENT_BINARY_DIR}/texture_policy_table.c"
     host/host_main.m host/host_crash.c host/host_memory.c host/host_loader.c host/host_syscall.c host/guest_call.S
     host/host_thread.c host/host_sdl.c host/host_audio_output.m host/host_gpu.c host/host_external.m host/host_external_mode.c host/host_gpu_dispatch.c host/host_low_power.m host/host_frame_pacer.c host/gpu_metal.m host/host_frame_counter.m host/host_frame_counter_stats.c host/host_lifecycle.m
-    host/host_join_link.c host/host_config.c host/host_bink.c host/host_bonjour.m host/host_https.m host/host_share.m host/host_qr.m host/host_lan.c host/host_profile.c host/host_profile_catalog.c host/host_profile_delivery.c host/host_device.m host/host_memory_pressure.m
+    host/host_join_link.c host/host_config.c host/host_bink.c host/host_bonjour.m host/host_https.m host/host_share.m host/host_qr.m host/host_invite_card.m host/host_lan.c host/host_profile.c host/host_profile_catalog.c host/host_profile_delivery.c host/host_device.m host/host_memory_pressure.m
     "${ROOT}/port/third_party/tomlc17/tomlc17.c"
     host/host_shader_pack.c host/host_data_pack.m host/host_data_updates.m host/host_recording_pack.c host/host_benchmark_snapshot.m host/host_benchmark_catalog.m
     "${ROOT}/port/third_party/monocypher/monocypher.c"
@@ -175,7 +175,7 @@ add_executable(VISR MACOSX_BUNDLE
 if(HALO_NATIVE_MAC)
     get_target_property(HALO_NATIVE_SOURCES VISR SOURCES)
     list(REMOVE_ITEM HALO_NATIVE_SOURCES host/host_external.m host/host_share.m host/host_lifecycle.m
-        host/host_frame_counter.m host/host_benchmark_page.m host/host_qr.m)
+        host/host_frame_counter.m host/host_benchmark_page.m host/host_qr.m host/host_invite_card.m)
     set_property(TARGET VISR PROPERTY SOURCES "${HALO_NATIVE_SOURCES}")
     target_compile_definitions(VISR PRIVATE HALO_NATIVE_MAC=1)
     target_include_directories(VISR PRIVATE "${HALO_NATIVE_DIR}")

@@ -3315,8 +3315,12 @@ void p2p_new_invite_if_listed(void)
 		p2p.invite);
 	if (p2p.hosting)
 	{
+		char shown[P2P_CODE_LENGTH + 2];
+
 		p2p_signal_host(p2p.token);
 		publish_code(1);
+		p2p_code_display(p2p.code, shown);
+		posix_update_invite(p2p.invite, shown);
 		memcpy(p2p.clipboard, p2p.invite, sizeof(p2p.clipboard));
 		p2p.has_clipboard = 1;
 		/* (Discord is told the new one) */
@@ -3338,6 +3342,8 @@ static void update_hosting(void)
 
 	if (want && !p2p.hosting)
 	{
+		char shown[P2P_CODE_LENGTH + 2];
+
 		/* one invite for the whole run, so a link keeps working from game
 		to game */
 		if (!p2p.has_token)
@@ -3349,6 +3355,8 @@ static void update_hosting(void)
 		platform_log("Internet play: hosting. Invite players with this link (it only works while this "
 			"copy of the game runs): %s", p2p.invite);
 		publish_code(1);
+		p2p_code_display(p2p.code, shown);
+		posix_update_invite(p2p.invite, shown);
 		if (!p2p.invite_copied)
 		{
 			memcpy(p2p.clipboard, p2p.invite, sizeof(p2p.clipboard));
@@ -3360,6 +3368,7 @@ static void update_hosting(void)
 	else if (!want && p2p.hosting)
 	{
 		p2p.hosting = 0;
+		posix_update_invite(NULL, NULL);
 		p2p_signal_stop_hosting();
 		publish_code(0);
 		/* (the router's forwarding goes too: update_upnp) */

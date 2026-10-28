@@ -129,6 +129,9 @@ int host_alert(const char *title, const char *message, const char *first, const 
     return result == NSAlertFirstButtonReturn ? 0 : 1;
 }
 int host_window_up(void) { return modal_depth != 0; }
+int posix_show_invite(const char *link, const char *code) { (void)link; (void)code; return 0; }
+void posix_update_invite(const char *link, const char *code) { (void)link; (void)code; }
+void posix_invite_menu_ready(void) {}
 int posix_share_link(const char *link) {
     if (!NSThread.isMainThread || !link) return 0;
     [NSPasteboard.generalPasteboard clearContents];

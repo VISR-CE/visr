@@ -30,6 +30,12 @@ int main(void) {
     accepted("halo://join/" DIGITS "/", "halo://join/" DIGITS);
     accepted("HALO://Join/0123456789ABCDEF0123456789abcdef0123456789ABCDEF0123456789abcdef",
         "halo://join/" DIGITS);
+    accepted("HALO://JOIN/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+        "halo://join/" DIGITS);
+    /* Scanner text follows the same strict rules as pasted links. */
+    refused("HALO://JOIN/" DIGITS "\n");
+    refused("halo://join/" DIGITS "\r\n");
+    ignored("ABCD-EFGH");
     /* other URLs and files: none of this code's business, and not logged */
     ignored(NULL);
     ignored("");
