@@ -2370,11 +2370,13 @@ between its own and panel.base empty (strings) or its first frame */
 static boolean patch_panel_write(struct patch_work *work)
 {
 	struct patch_panel const *panel = &work->panel;
-	long count = panel->base + work->added_count, index;
+	long count = panel->base + work->added_count, index, total = 0;
+	struct string_list_entry *entries = NULL;
+	struct bitmap_data *bitmaps = NULL;
 
 	if (panel->strings)
 	{
-		struct string_list_entry *entries = allocate(count * sizeof(*entries));
+		entries = allocate(count * sizeof(*entries));
 		long own = panel->strings->strings.count;
 
 		if (!entries)
@@ -2388,16 +2390,15 @@ static boolean patch_panel_write(struct patch_work *work)
 			if (!patch_string_set(&entries[index], text ? text : ""))
 				return FALSE;
 		}
-		panel->strings->strings.address = entries;
-		panel->strings->strings.count = count;
 	}
 	if (panel->group)
 	{
 		long first = panel->sequence ? panel->sequence->first_bitmap_index : 0;
-		long own = panel->group->bitmaps.count, total = first + count;
-		struct bitmap_data *bitmaps = allocate(total * sizeof(*bitmaps));
+		long own = panel->group->bitmaps.count;
 		struct bitmap_data const *frames = panel->group->bitmaps.address;
 
+		total = first + count;
+		bitmaps = allocate(total * sizeof(*bitmaps));
 		if (!bitmaps)
 			return FALSE;
 		memcpy(bitmaps, frames, own * sizeof(*bitmaps));
@@ -2428,6 +2429,15 @@ static boolean patch_panel_write(struct patch_work *work)
 			bitmaps[index].cache_block_index = NONE;
 			bitmaps[index].base_address = NULL;
 		}
+	}
+	/* Commit both blocks only after every string and frame has been built. */
+	if (panel->strings)
+	{
+		panel->strings->strings.address = entries;
+		panel->strings->strings.count = count;
+	}
+	if (panel->group)
+	{
 		panel->group->bitmaps.address = bitmaps;
 		panel->group->bitmaps.count = total;
 		if (panel->sequence)

@@ -185,10 +185,13 @@ int host_sdl_display_max_fps(void)
 }
 
 static long textures_made;
+static boolean reject_texture;
 
 boolean rasterizer_bitmap_new(struct bitmap_data *bitmap)
 {
 	(void)bitmap;
+	if (reject_texture)
+		return FALSE;
 	textures_made++;
 	return TRUE;
 }
@@ -834,6 +837,38 @@ static void check_apple(boolean tvos)
 	check(textures_made == 1, "one texture made, DIRECT LINK's picture (%ld)", textures_made);
 }
 
+/* A failed bitmap build must leave both map blocks and the sequence intact. */
+static void check_panel_failure(void)
+{
+	struct patch_work *work = calloc(1, sizeof(*work));
+	struct string_list_entry entry = { 0 };
+	struct string_list strings = { 0 };
+	struct bitmap_data frame = { 0 };
+	struct bitmap_group group = { 0 };
+	struct bitmap_group_sequence sequence = { 0 };
+
+	strings.strings.address = &entry;
+	strings.strings.count = 1;
+	group.bitmaps.address = &frame;
+	group.bitmaps.count = 1;
+	sequence.bitmap_count = 1;
+	work->panel.strings = &strings;
+	work->panel.group = &group;
+	work->panel.sequence = &sequence;
+	work->panel.base = work->panel.frames = 1;
+	work->added_count = 1;
+	work->added_descriptions[0] = "New description";
+	work->added_pictures[0] = "png:ce/port/blank__0.png";
+	reject_texture = TRUE;
+	check(!patch_panel_write(work), "a failed bitmap build rejects the panel");
+	reject_texture = FALSE;
+	check(strings.strings.address == &entry && strings.strings.count == 1,
+		"a failed bitmap build keeps the original string block");
+	check(group.bitmaps.address == &frame && group.bitmaps.count == 1 && sequence.bitmap_count == 1,
+		"a failed bitmap build keeps the original bitmap block and sequence");
+	free(work);
+}
+
 int main(int argc, char **argv)
 {
 	snprintf(mode, sizeof(mode), "%s", argc > 1 ? argv[1] : "apple");
@@ -867,6 +902,7 @@ int main(int argc, char **argv)
 		check(menu_tags.loaded, "the menus loaded");
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
+		check_panel_failure();
 		menu_tags_unloaded();
 		check(table == map_table && table_count == map_count, "the map's own table is back after unloading");
 	}
