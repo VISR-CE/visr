@@ -3974,6 +3974,30 @@ static short lobby_browser_valid_games(struct p2p_listing *games, short count)
 	return written;
 }
 
+/* A development build lists one extra marked game when HALO_BROWSER_FAKE_BIG is set, so the join warning can be
+screenshot without a real host (set HALO_NET_PLAYER_CAPACITY below 16 as well). Compiled out of App Store packages. */
+static short lobby_browser_games_read(struct p2p_listing *games)
+{
+	short count = lobby_browser_valid_games(games, (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES));
+#ifdef HALO_DEVELOPMENT_HOOKS
+	if (getenv("HALO_BROWSER_FAKE_BIG") && count < LOBBY_BROWSER_GAMES)
+	{
+		struct p2p_listing *fake = &games[count++];
+
+		memset(fake, 0, sizeof(*fake));
+		memcpy(fake->identifier, "\xFA\x4B\x1D\x00\x00\x01", sizeof(fake->identifier));
+		strcpy(fake->name, "BIG TEST GAME");
+		strcpy(fake->map, "bloodgulch");
+		strcpy(fake->gametype, "Slayer");
+		fake->player_count = 12;
+		fake->maximum_player_count = 16;
+		fake->open = fake->joinable = TRUE;
+		fake->ping = 40;
+	}
+#endif
+	return count;
+}
+
 /* the game being joined, once its host is reached (the client's game from
 it), else NULL */
 static struct advertised_game *lobby_browser_joined_game(void)
@@ -4062,8 +4086,7 @@ static void lobby_browser_update(struct widget_instance *list)
 	short chosen;
 	short rows = lobby_browser_rows(list);
 
-	lobby_browser.count = lobby_browser_valid_games(lobby_browser.games,
-		(short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES));
+	lobby_browser.count = lobby_browser_games_read(lobby_browser.games);
 	if (focused == rows - 1 && lobby_browser.first + rows < lobby_browser.count)
 	{
 		lobby_browser.first++;
@@ -4793,8 +4816,7 @@ static boolean browser_join_big_finish(struct widget_instance *widget, boolean *
 		return campaign_fail();
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
 	{
-		lobby_browser.count = lobby_browser_valid_games(lobby_browser.games,
-			(short)p2p_lobby_games(lobby_browser.games, LOBBY_BROWSER_GAMES));
+		lobby_browser.count = lobby_browser_games_read(lobby_browser.games);
 		for (index = 0; index < lobby_browser.count; index++)
 		{
 			if (!memcmp(lobby_browser.games[index].identifier, browser_join_big.game.identifier,
