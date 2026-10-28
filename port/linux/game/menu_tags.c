@@ -403,6 +403,7 @@ static char const *const port_function_names[] =
 	"ss copy invite", "join controller to mp game", "mp level list initialize", "mp level list dispose",
 	"mp level select", "mp profiles list initialize", "mp profiles list dispose", "mp profile set for game",
 	"port lobby preview join",
+	"port browser join big confirm", "port browser join big back",
 	"port setup edit",
 	"port map list back",
 	"port pause end game",
