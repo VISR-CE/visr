@@ -91,6 +91,28 @@ function suiteValue(group, query, suite) {
   return [{ avg: geometricMean(rows.map((r) => parseFloat(r.fps_avg))), details, windows: [...usable.keys()].sort(), low: query.metrics.includes("fps_1pct_low") && rows.every((r) => r.fps_1pct_low !== "") ? geometricMean(rows.map((r) => parseFloat(r.fps_1pct_low))) : null, rows }, "", ""];
 }
 
+// The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick the
+// shared-suites rule leaves out falls back to its next older version with data. Mirrors _default_builds in charts.py.
+function defaultBuilds(entries, overall) {
+  const candidates = new Map();
+  for (const entry of [...entries].sort((a, b) => compareBuilds(b, a))) {
+    if (entry.value === null) continue;
+    if (!candidates.has(entry.port)) candidates.set(entry.port, []);
+    candidates.get(entry.port).push(entry);
+  }
+  const index = new Map([...candidates.keys()].map((port) => [port, 0]));
+  for (let round = 0; round <= entries.length; round++) {
+    if (!overall) break;
+    const picked = entries.filter((e) => candidates.has(e.port) && candidates.get(e.port)[index.get(e.port)] === e);
+    let moved = false;
+    for (const e of overallSplit(picked).left) {
+      if (index.get(e.port) + 1 < candidates.get(e.port).length) { index.set(e.port, index.get(e.port) + 1); moved = true; }
+    }
+    if (!moved) break;
+  }
+  return new Map([...candidates].map(([port, items]) => [port, items[index.get(port)]]));
+}
+
 function model(rows, query, suite) {
   const platformRows = rows.filter((row) => row.platform === query.platform);
   const groups = new Map();
@@ -124,17 +146,14 @@ function model(rows, query, suite) {
   entries.sort((a, b) => rank(a) - rank(b) || (a.port < b.port ? -1 : a.port > b.port ? 1 : 0)
     || (a.date < b.date ? 1 : a.date > b.date ? -1 : 0) || (a.version < b.version ? -1 : a.version > b.version ? 1 : 0)
     || (a.build < b.build ? -1 : a.build > b.build ? 1 : 0));
-  const newest = new Map();
-  for (const entry of entries) {
-    if (entry.value !== null && (!newest.has(entry.port) || compareBuilds(entry, newest.get(entry.port)) > 0)) newest.set(entry.port, entry);
-  }
-  for (const entry of entries) entry.default = newest.get(entry.port) === entry;
+  const chosen = defaultBuilds(entries, suite === "overall");
+  for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
   const reference = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
   return { overall: suite === "overall", entries, box: reference ? reference.host : "" };
 }
 
-// The builds list: one group per port in the model's order. `primary` is the port's newest version, with or without data for
-// the chart; `others` are the rest, newest first, offered as other versions. Mirrors build_groups in charts.py.
+// The builds list: one group per port in the model's order. `primary` is the build drawn by default (the newest version with
+// data for the suite), or the newest version when none has data; `others` are the rest, newest first. Mirrors build_groups in charts.py.
 function buildGroups(built) {
   const groups = new Map();
   for (const entry of built.entries) {
@@ -143,7 +162,8 @@ function buildGroups(built) {
   }
   return [...groups.values()].map((items) => {
     const ordered = [...items].sort((a, b) => compareBuilds(b, a));
-    return { port: items[0].port, port_name: items[0].port_name, primary: ordered[0], others: ordered.slice(1) };
+    const primary = ordered.find((e) => e.default) || ordered[0];
+    return { port: items[0].port, port_name: items[0].port_name, primary, others: ordered.filter((e) => e !== primary) };
   });
 }
 

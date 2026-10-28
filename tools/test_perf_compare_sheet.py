@@ -195,14 +195,15 @@ def test_the_newest_version_leads_even_when_an_older_one_was_measured_later():
     assert charts.version_key(newer) > charts.version_key(older_later) > charts.version_key(entry("visr", "main", "", "2099-01-01", None))
 
 
-def test_a_newest_version_without_data_stays_primary_and_the_ticked_build_sits_in_the_fold():
+def test_the_primary_is_the_newest_measured_version_and_a_newer_unmeasured_one_goes_in_the_fold():
     value = {"avg": 1.0, "low": None, "details": {}, "rows": []}
     measured = entry("visr", "0.6.2", "1", "2026-10-27", value, default=True)
     missing = entry("visr", "0.6.3", "2", "2026-10-28", None, reason="no campaign measurements yet")
     group = charts.build_groups({"overall": False, "box": "", "entries": [measured, missing]})[0]
-    assert group["primary"] is missing and group["others"] == [measured]
+    assert group["primary"] is measured and group["others"] == [missing]
     html = site_page.builds_list({"entries": [measured, missing], "overall": False, "box": ""}, charts.load_reasons())
-    assert '<details class="older" data-port="visr"><summary>1 other version \u00b7 1 shown</summary>' in html and " open" not in html.split("<details")[1].split(">")[0]
+    assert '<details class="older" data-port="visr"><summary>1 other version</summary>' in html
+    assert 'value="visr@0.6.2@1" checked' in html and "not measured here" in html
 
 
 def test_a_port_with_no_measured_build_is_listed_once_by_its_newest_build():
@@ -983,10 +984,12 @@ def test_other_versions_stay_closed_and_the_summary_counts_the_ones_drawn():
             built = charts.model(rows, item["query"], suite)
             html = site_page.builds_list(built, reasons)
             assert not re.search(r"<details class=\"older\"[^>]* open", html), (item["name"], suite)
-    built = charts.model(rows, charts.load_specs(ROOT / "docs/benchmarks/charts")[0]["query"], "combat")
-    everything = {charts.entry_key(e) for e in built["entries"]}
-    html = site_page.builds_list(built, reasons, everything)
-    assert re.search(r"<summary>\d+ other versions? \u00b7 \d+ shown</summary>", html)
+    value = {"avg": 1.0, "low": None, "details": {}, "rows": []}
+    newer = entry("visr", "0.6.2", "1", "2026-10-27", value, default=True)
+    older = entry("visr", "0.6.0", "2", "2026-10-20", value)
+    built = {"overall": False, "box": "", "entries": [newer, older]}
+    html = site_page.builds_list(built, reasons, {"visr@0.6.2@1", "visr@0.6.0@2"})
+    assert "<summary>1 other version \u00b7 1 shown</summary>" in html
     script = (ROOT / "docs/site/benchmarks/benchmarks.js").read_text()
     assert "more.open = state.open.has(id);" in script and "shown" in script
 
@@ -1074,3 +1077,69 @@ def test_chart_labels_use_the_same_port_names_as_the_builds_list():
     mac = charts.source(charts.load_specs(ROOT / "docs/benchmarks/charts")[0], charts.model(rows, charts.load_specs(ROOT / "docs/benchmarks/charts")[0]["query"], "campaign"), "campaign")
     assert "OpenCE-macOS v1.0.2" in mac and "OpenCE v1.0.2" not in mac
     assert "OpenCE-macOS v1.0.2" in (ROOT / "docs/site/benchmarks/static-mac.svg").read_text()
+
+
+def primary_rows():
+    """VISR 0.5.1 has Campaign and Combat, VISR 0.6.3 only Multiplayer, OpenCE-macOS Campaign and Combat, and two builds of a
+    port have nothing measured."""
+    combat = lambda **kw: {**box_record(**kw), "suite": "combat"}
+    mp = {**box_record(version="0.6.3", build="9", date="2026-10-28"), "suite": "multiplayer"}
+    gone = [record(port="opence-web", version=f"build-{n}", runs=[], status="unavailable", reason="safari-remote-automation-disabled") for n in (1, 2)]
+    return csv_rows(sheet_export.rows(summary(
+        box_record(), combat(), mp, box_record(port="opence-macos", version="v1.0.2", build="2"),
+        combat(port="opence-macos", version="v1.0.2", build="2"), *gone)))
+
+
+def primaries(built):
+    return {g["port"]: (g["primary"]["version"], g["primary"]["default"], [e["version"] for e in g["others"]]) for g in charts.build_groups(built)}
+
+
+def test_the_primary_is_the_newest_build_measured_for_the_selected_suite():
+    rows = primary_rows()
+    port_order = {**QUERY, "port_order": ["visr", "opence-macos", "opence-web"]}
+    # Overall: VISR 0.6.3 shares nothing with OpenCE-macOS, so the default falls back to 0.5.1, which is drawn and ticked.
+    overall = charts.model(rows, port_order, "overall")
+    assert primaries(overall)["visr"] == ("0.5.1", True, ["0.6.3"])
+    assert {charts.entry_key(e) for e in charts._drawn(overall, None)} == {"visr@0.5.1@7", "opence-macos@v1.0.2@2"}
+    status = charts.list_status(overall, None)
+    assert "visr@0.5.1@7" not in status and status["visr@0.6.3@9"]["tag"] == "not in Overall"
+    html = site_page.builds_list(overall, charts.load_reasons())
+    assert re.search(r'value="visr@0.5.1@7" checked', html) and re.search(r'value="visr@0.6.3@9"[^>]*>', html)
+    # Multiplayer: only 0.6.3 is measured, so it leads.
+    multiplayer = charts.model(rows, port_order, "multiplayer")
+    assert primaries(multiplayer)["visr"] == ("0.6.3", True, ["0.5.1"])
+    # Campaign: 0.6.3 has no Campaign rows, so 0.5.1 leads and 0.6.3 sits in the fold with its reason.
+    campaign = charts.model(rows, port_order, "campaign")
+    assert primaries(campaign)["visr"] == ("0.5.1", True, ["0.6.3"])
+    assert charts.list_status(campaign, None)["visr@0.6.3@9"]["tag"] == "not measured here"
+    # A port with nothing measured keeps its newest version on top, unticked, with the reason.
+    assert primaries(campaign)["opence-web"] == ("build-2", False, ["build-1"])
+    assert "visr@0.6.3@9" in charts.list_status(campaign, None) and "opence-web@build-2@7" in charts.list_status(campaign, None)
+
+
+def test_the_default_selection_and_the_drawn_set_agree_for_every_platform_and_suite():
+    rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
+    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
+        for suite in charts.SUITE_CHOICES:
+            built = charts.model(rows, item["query"], suite)
+            status = charts.list_status(built, None)
+            ticked = {charts.entry_key(e) for e in built["entries"] if e["default"] and charts.entry_key(e) not in status}
+            assert ticked == {charts.entry_key(e) for e in charts._drawn(built, None)}, (item["name"], suite)
+            for group in charts.build_groups(built):
+                if any(e["value"] is not None for e in [group["primary"], *group["others"]]):
+                    assert group["primary"]["value"] is not None, (item["name"], suite, group["port"])
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_browser_primaries_match_python():
+    rows, query = primary_rows(), {**QUERY, "port_order": ["visr", "opence-macos", "opence-web"]}
+    script = """
+const fs = require('fs');
+const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
+const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+console.log(JSON.stringify(input.suites.map((suite) => m.buildGroups(m.model(input.rows, input.query, suite)).map((g) => [g.port, g.primary.version, g.primary.default, g.others.map((e) => e.version)]))));
+"""
+    suites = list(charts.SUITE_CHOICES)
+    done = subprocess.run(["node", "-e", script, str(ROOT)], capture_output=True, text=True, check=True, input=json.dumps({"rows": rows, "query": query, "suites": suites}))
+    expected = [[[port, *values] for port, values in primaries(charts.model(rows, query, suite)).items()] for suite in suites]
+    assert json.loads(done.stdout) == expected

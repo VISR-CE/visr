@@ -153,6 +153,30 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
             "details": _details(rows, query), "windows": sorted(usable), "rows": rows}, "", ""
 
 
+def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
+    """The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick
+    the shared-suites rule leaves out (see `overall_split`) falls back to its next older version with data, so the
+    default selection and the drawn set agree. Mirrored by `defaultBuilds` in benchmarks.js."""
+    candidates: dict[str, list[dict]] = {}
+    for entry in sorted(entries, key=version_key, reverse=True):
+        if entry["value"] is not None:
+            candidates.setdefault(entry["port"], []).append(entry)
+    index = dict.fromkeys(candidates, 0)
+    for _ in range(len(entries) + 1):
+        picked = {port: items[index[port]] for port, items in candidates.items()}
+        if not overall:
+            break
+        left = overall_split([e for e in entries if picked.get(e["port"]) is e])[2]
+        moved = False
+        for e in left:
+            if index[e["port"]] + 1 < len(candidates[e["port"]]):
+                index[e["port"]] += 1
+                moved = True
+        if not moved:
+            break
+    return {port: items[index[port]] for port, items in candidates.items()}
+
+
 def model(rows: list[dict], query: dict, suite: str) -> dict:
     """Every build of the platform's ports as an entry, with its values for the suite or the reason it has none."""
     platform_rows = [row for row in rows if row["platform"] == query["platform"]]
@@ -184,27 +208,26 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
     order = query.get("port_order", [])
     entries.sort(key=lambda e: (order.index(e["port"]) if e["port"] in order else len(order), e["port"],
                                 tuple(-ord(c) for c in e["date"]), e["version"], e["build"]))
-    newest: dict[str, dict] = {}
+    chosen = _default_builds(entries, suite == "overall")
     for entry in entries:
-        if entry["value"] is not None and (entry["port"] not in newest or version_key(entry) > version_key(newest[entry["port"]])):
-            newest[entry["port"]] = entry
-    for entry in entries:
-        entry["default"] = newest.get(entry["port"]) is entry
+        entry["default"] = chosen.get(entry["port"]) is entry
     return {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
 
 
 def build_groups(built: dict) -> list[dict]:
-    """The builds list, one group per port in the model's order. A group's `primary` is the port's newest version,
-    whether or not it has data for the chart; `others` are its remaining builds, newest first, offered as older
-    versions (the build ticked by default sits there when the newest version has no data). Mirrored by `buildGroups`
-    in benchmarks.js."""
+    """The builds list, one group per port in the model's order. A group's `primary` is the build drawn by default (the
+    newest version with data for the suite), or the newest version when none has data; `others` are the remaining builds,
+    newest first, offered as other versions, with their reasons where they have no data. Mirrored by `buildGroups` in
+    benchmarks.js."""
     groups: dict[str, list[dict]] = {}
     for entry in built["entries"]:
         groups.setdefault(entry["port"], []).append(entry)
     result = []
     for items in groups.values():
         ordered = sorted(items, key=version_key, reverse=True)
-        result.append({"port": items[0]["port"], "port_name": items[0]["port_name"], "primary": ordered[0], "others": ordered[1:]})
+        primary = next((e for e in ordered if e["default"]), ordered[0])
+        result.append({"port": items[0]["port"], "port_name": items[0]["port_name"], "primary": primary,
+                       "others": [e for e in ordered if e is not primary]})
     return result
 
 
