@@ -928,6 +928,8 @@ struct halo_menus const *halo_menus_load(void)
 	static int succeeded;
 	struct reader reader;
 	long index;
+	/* (display.menus: "pc", else the Xbox look's, as menu_tags.c has it) */
+	int xbox_set = strcmp(config_string("display.menus"), "pc") != 0;
 
 	if (read)
 		return succeeded ? &menus : NULL;
@@ -938,7 +940,10 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		size_t length = strlen(files[index].path);
 
-		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml"))
+		/* (a set's own: the Xbox look's files are those in xbox/, the PC
+		version's every other) */
+		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml") &&
+			(strncmp(files[index].path, "xbox/", 5) == 0) == xbox_set)
 			read_file(&reader, &files[index]);
 	}
 	free(reader.last_child);

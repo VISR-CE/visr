@@ -1489,6 +1489,11 @@ static boolean solo_level_initialize_list_single_player(
 
 static wchar_t new_campaign_profile_name[12] = { 0 };
 byte single_player_level_data[0x50] = { 0 };
+/* (the level list's ten entries are 8 bytes each only with 4-byte pointers: the
+fill loops write them through struct single_player_level_entry, so a build with
+8-byte ones would run past this array into persistant_game_data_info) */
+typedef char verify_single_player_level_data_size[
+	sizeof(single_player_level_data) >= 10 * sizeof(struct single_player_level_entry) ? 1 : -1];
 struct persistent_game_difficulty
 {
 	short value;

@@ -439,6 +439,8 @@ static struct
 	struct pc_menu_setting *settings;
 	long setting_count;
 	boolean loaded;
+	/* the Xbox look's set (display.menus not "pc"), else the PC version's */
+	boolean xbox_set;
 	char root[300];
 } menu_tags;
 
@@ -460,6 +462,7 @@ static struct
 	/* a multiplayer map's build (the pause menu's SETTINGS): what the map
 	has not got is none, not a failure */
 	boolean game_map;
+	boolean xbox_set;
 } build;
 
 /* ---------- private code */
@@ -1461,7 +1464,10 @@ pausebox2 pieces), the box is the port's taller one (pause/pausebox_*:
 tools/port_settings.py), centred where the old one was; on a custom map's,
 what is below the list moves down. */
 
-#define PAUSE_SETTINGS_SCREEN "main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen"
+/* the screen SETTINGS opens, by set: the PC version's profile edit screen,
+or the Xbox look's own hub (a game map has not got ui.map's screens) */
+#define PAUSE_SETTINGS_SCREEN_PC "main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen"
+#define PAUSE_SETTINGS_SCREEN_XBOX "xbox/settings/settings_screen"
 #define PAUSE_BUTTON_SPACING 35
 #define PAUSE_BOX_FIRST_BUTTONS 3
 
@@ -1565,7 +1571,7 @@ static long pause_list_patch(struct cache_file_tag_instance *instances, struct u
 	long count = list->child_widgets.count, added = host ? 2 : 1, child;
 	struct ui_widget_child_reference *grown = allocate((count + added) * sizeof(struct ui_widget_child_reference));
 	struct ui_widget_definition const *model = tag_get(UI_WIDGET_DEFINITION_TAG, children[quit].widget_tag.index);
-	long settings_widget = widget_named(PAUSE_SETTINGS_SCREEN);
+	long settings_widget = widget_named(build.xbox_set ? PAUSE_SETTINGS_SCREEN_XBOX : PAUSE_SETTINGS_SCREEN_PC);
 	short spacing = count >= 2 ? (short)(children[count - 1].vertical_offset - children[count - 2].vertical_offset) :
 		PAUSE_BUTTON_SPACING;
 	void *buttons[2];
@@ -1734,17 +1740,15 @@ void menu_tags_loaded(
 	boolean game_map = strcmp(map_name, "ui") != 0;
 
 	/* (ui.map, and a multiplayer map: its pause menu's SETTINGS) */
-	if ((game_map && tag_loaded('Soul', MULTIPLAYER_COLLECTION) == NONE) ||
-		strcmp(config_string("display.menus"), "pc"))
-	{
+	if (game_map && tag_loaded('Soul', MULTIPLAYER_COLLECTION) == NONE)
 		return;
-	}
 	menus = halo_menus_load();
 	if (!menus)
 		return;
 	memset(&build, 0, sizeof(build));
 	build.menus = menus;
 	build.game_map = game_map;
+	build.xbox_set = strcmp(config_string("display.menus"), "pc") != 0;
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
 	build.text_tags = malloc((widget_count + 1) * sizeof(long));
@@ -1840,6 +1844,11 @@ void menu_tags_loaded(
 		/* (those it made) */
 		cache_files_set_tag_instances(instances, build.first_index + build.next);
 	}
+	else if (build.xbox_set)
+	{
+		/* (the Xbox look's root is the map's own main menu) */
+		menu_tags.root[0] = '\0';
+	}
 	else if (widget_named(menus->root) != NONE)
 	{
 		snprintf(menu_tags.root, sizeof(menu_tags.root), "%s%s", PC_MENU_TAG_PREFIX, menus->root);
@@ -1854,6 +1863,7 @@ void menu_tags_loaded(
 		platform_log("menus: there is no widget named %s, the main menu", menus->root);
 	}
 	menu_tags.loaded = TRUE;
+	menu_tags.xbox_set = build.xbox_set;
 	platform_log("menus: %ld widgets, %ld string lists and %ld bitmaps added to the map's %ld tags",
 		widget_count, own_lists + menus->string_list_count, menus->bitmap_count, build.first_index);
 	goto done;
@@ -1881,27 +1891,44 @@ void menu_tags_unloaded(
 char const *pc_menus_root_name(
 	void)
 {
-	/* (debug.menu_open: a screen to see, a profile being edited for the
-	settings' screens) */
+	/* (debug.menu_open: a screen to see. An XML screen by its name,
+	main_menu/settings_select/..., with a profile being edited for the
+	settings' screens; or a widget of the map's by its path, with its
+	backslashes, which the game loads itself, with the player's profile
+	being edited, or the first gametype for the gametype editors) */
 	char const *open = config_string("debug.menu_open");
 
-	if (menu_tags.loaded && *open && build.menus == NULL)
+	if (*open)
 	{
 		static char name[300];
-		long index;
+		extern boolean pc_menu_profile_edit_begin(void);
+		extern boolean pc_menu_gametype_edit_begin(void);
 
-		snprintf(name, sizeof(name), "%s%s", PC_MENU_TAG_PREFIX, open);
-		for (index = 0; name[index]; index++)
+		if (strchr(open, '\\'))
 		{
-			if (name[index] == '/')
-				name[index] = '\\';
-		}
-		if (tag_loaded(UI_WIDGET_DEFINITION_TAG, name) != NONE)
-		{
-			extern boolean pc_menu_profile_edit_begin(void);
-
-			pc_menu_profile_edit_begin();
+			snprintf(name, sizeof(name), "%s", open);
+			if (strstr(name, "\\playlist_edit\\"))
+				pc_menu_gametype_edit_begin();
+			else
+				pc_menu_profile_edit_begin();
+			platform_log("menus: debug.menu_open: the map's %s", name);
 			return name;
+		}
+		if (menu_tags.loaded && build.menus == NULL)
+		{
+			long index;
+
+			snprintf(name, sizeof(name), "%s%s", PC_MENU_TAG_PREFIX, open);
+			for (index = 0; name[index]; index++)
+			{
+				if (name[index] == '/')
+					name[index] = '\\';
+			}
+			if (tag_loaded(UI_WIDGET_DEFINITION_TAG, name) != NONE)
+			{
+				pc_menu_profile_edit_begin();
+				return name;
+			}
 		}
 		platform_log("menus: debug.menu_open: there is no widget named %s", open);
 	}
@@ -1976,7 +2003,8 @@ char const *pc_menus_screen(
 	};
 	short index;
 
-	if (!menu_tags.loaded)
+	/* (the Xbox look keeps the Xbox's screens) */
+	if (!menu_tags.loaded || menu_tags.xbox_set)
 		return name;
 	for (index = 0; index < NUMBEROF(screens); index++)
 	{

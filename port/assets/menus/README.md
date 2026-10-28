@@ -27,8 +27,13 @@ next to `config.toml`. A file with the same path as one here replaces it. On
 the desktop, any other `.xml` file there is added too. A PNG that a `<frame>`
 names is found there first. If any file has a problem, the log names the
 file, the line and the problem, and the game uses the Xbox's menus. The
-setting `display.menus = "xbox"` also uses them. `debug.menu_open` starts on
-one screen (by its name, `main_menu/settings_select/...`), for looking at it.
+files in `ce/` are the set `display.menus = "pc"` uses. The setting
+`"xbox"` builds only the files in an `xbox/` folder (none yet), beside the
+Xbox's own widgets from `ui.map`, which stay the main menu. `debug.menu_open`
+starts on one screen, for looking at it: by its name for ours
+(`main_menu/settings_select/...`), or by its path for one of the map's
+(`ui\shell\main_menu\...`, with its backslashes), with the player's profile
+(or, in `playlist_edit`, the first gametype) being edited.
 
 ## Elements
 

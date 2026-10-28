@@ -5713,6 +5713,18 @@ static boolean gametype_edit_begin(void)
 	return ui_widget_port_gametype_edit_begin(gametype_edit.gametypes[gametype_edit.chosen]);
 }
 
+/* begins editing the first gametype (debug.menu_open on an editor of the
+Xbox's, which edit what player_ui has begun editing); FALSE if there is none */
+boolean pc_menu_gametype_edit_begin(void)
+{
+	long gametypes[MAXIMUM_GAMETYPES];
+	short last;
+
+	if (ui_widget_port_gametypes(gametypes, MAXIMUM_GAMETYPES, &last) < 1)
+		return FALSE;
+	return ui_widget_port_gametype_edit_begin(gametypes[0]);
+}
+
 /* "request del playlist profile" (X, DELETE): not a built-in one */
 static boolean gametype_delete_request(void)
 {
