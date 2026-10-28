@@ -123,6 +123,8 @@ def roots(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         "source-tag",
         "nested-root",
         "overlap",
+        "source-off-main",
+        "release-changes-code",
     ],
 )
 def test_publish_roots_reject_drift_before_api(
@@ -154,6 +156,14 @@ def test_publish_roots_reject_drift_before_api(
         )
     elif fault == "nested-root":
         application = application / ".release"
+    elif fault == "source-off-main":
+        unrelated = git(application, "commit-tree", "4b825dc642cb6eb9a060e54bf8d69288fbee4904", "-m", "unrelated")
+        git(application, "update-ref", "refs/remotes/origin/main", unrelated)
+    elif fault == "release-changes-code":
+        (application / "code.c").write_text("int sneaky;\n")
+        git(application, "add", "code.c")
+        git(application, "commit", "--quiet", "--amend", "--no-edit")
+        git(application, "tag", "--force", manifest["tag"])
     else:
         application = controller
         monkeypatch.setenv("GITHUB_WORKSPACE", str(controller))
@@ -168,9 +178,35 @@ def test_publish_roots_reject_drift_before_api(
         "source-tag": "exact release tag",
         "nested-root": "original workspace",
         "overlap": "must be separate",
+        "source-off-main": "is not on main",
+        "release-changes-code": "changes more than",
     }
     with pytest.raises(ValueError, match=expected[fault]):
         release.publish(argparse.Namespace(source_root=application))
+
+
+def test_publish_accepts_a_tag_main_has_moved_past(roots):
+    """Main moved after the source and has not merged the tag yet; the tag is still publishable."""
+    application, _, manifest, _ = roots
+    git(application, "checkout", "--quiet", "--detach", manifest["source_sha"])
+    git(application, "commit", "--allow-empty", "--quiet", "--message", "later work on main")
+    git(application, "update-ref", "refs/remotes/origin/main", "HEAD")
+    git(application, "checkout", "--quiet", "--detach", manifest["tag"])
+    root, checked = release.publish_context(application)
+    assert root == application.resolve()
+    assert checked["tag"] == manifest["tag"]
+
+
+def test_publish_accepts_a_release_branch_source(roots):
+    application, _, manifest, _ = roots
+    git(application, "update-ref", "refs/remotes/origin/release/0.2.0", manifest["source_sha"])
+    git(application, "update-ref", "refs/remotes/origin/main", f"{manifest['source_sha']}^")
+    manifest["source_branch"] = "release/0.2.0"
+    (application / release.MANIFEST).write_text(json.dumps(manifest))
+    git(application, "add", release.MANIFEST)
+    git(application, "commit", "--quiet", "--amend", "--no-edit")
+    git(application, "tag", "--force", manifest["tag"])
+    assert release.publish_context(application)[1]["source_branch"] == "release/0.2.0"
 
 
 @pytest.mark.parametrize("script_import", [False, True])

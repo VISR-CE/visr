@@ -9,6 +9,7 @@ import os
 import plistlib
 import re
 import subprocess
+import textwrap
 from pathlib import Path
 from typing import Any, Self
 
@@ -545,17 +546,18 @@ def test_release_workflow_passes_preflight_catalog_context_to_prepare() -> None:
 
 def test_release_workflow_auth_mode_is_oidc_only_and_cannot_build_or_publish() -> None:
     workflow = (validation.release.ROOT / ".github/workflows/release.yml").read_text()
-    assert "options: [validate, auth, release, unsigned]" in workflow
+    assert "options: [validate, auth, release, unsigned, sync]" in workflow
     assert "source_sha:\n        description:" in workflow
     source_input = workflow.split("      source_sha:\n", 1)[1].split(
-        "      platforms:\n", 1
+        "      source_branch:\n", 1
     )[0]
     assert "required: false" in source_input
     jobs = workflow.split("\njobs:\n", 1)[1]
     auth = jobs.split("\n  identity-check:\n", 1)[1].split("\n  preflight:\n", 1)[0]
     probe = jobs.split("  probe:\n", 1)[1].split("\n  identity-check:\n", 1)[0]
     preflight = jobs.split("\n  preflight:\n", 1)[1].split("\n  prepare:\n", 1)[0]
-    prepare = jobs.split("\n  prepare:\n", 1)[1].split("\n  unsigned:\n", 1)[0]
+    prepare = jobs.split("\n  prepare:\n", 1)[1].split("\n  sync-main:\n", 1)[0]
+    sync = jobs.split("\n  sync-main:\n", 1)[1].split("\n  unsigned:\n", 1)[0]
     unsigned = jobs.split("\n  unsigned:\n", 1)[1].split("\n  testflight:\n", 1)[0]
     testflight = jobs.split("\n  testflight:\n", 1)[1]
     assert "github.event_name == 'workflow_dispatch'" in auth
@@ -578,6 +580,14 @@ def test_release_workflow_auth_mode_is_oidc_only_and_cannot_build_or_publish() -
     assert "needs: prepare" in unsigned and "release_unsigned.py\" build" in unsigned
     assert "environment:" not in unsigned and "secrets." not in unsigned and "contents: write" not in unsigned
     assert "inputs.mode != 'unsigned'" in probe
+    assert "inputs.mode != 'sync'" in probe
+    # Only the tag is pushed by prepare; main gets the metadata from a job with no environment or secrets.
+    assert "HEAD:refs/heads/main" not in prepare
+    assert "needs: prepare" in sync and "release.py sync-main" in sync
+    assert "github.ref == 'refs/heads/main'" in sync
+    assert "contents: write" in sync and "id-token: write" not in sync
+    assert "environment:" not in sync and "secrets." not in sync
+    assert "sync-main" not in testflight.split("steps:", 1)[0]
     assert "id-token: write" not in testflight
     for variable in (
         "ANTHROPIC_FEDERATION_RULE_ID",
@@ -646,12 +656,13 @@ def test_check_command_emits_verified_catalog_context(
     ]
 
 
-def test_rejected_source_never_runs_secret_job_cleanup(tmp_path: Path) -> None:
+@pytest.mark.parametrize("branch", ["main", "release/missing", "release/x; true", "release/../main"])
+def test_rejected_source_never_runs_secret_job_cleanup(tmp_path: Path, branch: str) -> None:
     """Model GitHub's failure/default/always conditions with a real rejected Git source."""
     workflow = (validation.release.ROOT / ".github/workflows/release.yml").read_text()
     preflight = workflow.split("\n  preflight:\n", 1)[1].split("\n  prepare:\n", 1)[0]
     guard = preflight.split(
-        "- name: Verify source is on main before using credentials", 1
+        "- name: Verify source is on main or a release branch forked from main before using credentials", 1
     )[1].split("\n      - ", 1)[0]
     cleanup = preflight.split("- name: Remove signing material", 1)[1]
     condition = re.search(r"^        if: (.+)$", cleanup, re.MULTILINE)
@@ -684,16 +695,17 @@ def test_rejected_source_never_runs_secret_job_cleanup(tmp_path: Path) -> None:
     env = {
         "PATH": os.environ["PATH"],
         "SOURCE_SHA": rejected,
+        "SOURCE_BRANCH": branch,
         "ASC_PRIVATE_KEY": "fixture-secret",
         "PROBE_MARKER": str(marker),
     }
-    command = re.search(r"^        run: (.+)$", guard, re.MULTILINE)
+    command = re.search(r"^        run: \|\n((?:          .*\n?)+)", guard, re.MULTILINE)
     assert command is not None
     result = subprocess.run(
-        command.group(1),
+        # GitHub runs bash steps with errexit and pipefail.
+        ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", textwrap.dedent(command.group(1))],
         cwd=tmp_path,
         env=env,
-        shell=True,
         capture_output=True,
         check=False,
     )
@@ -1171,3 +1183,40 @@ def test_cloud_saves_policy_is_explicit_and_defaults_off():
     assert command[command.index("--cloud-container") + 1] == "iCloud.org.steverice.visr"
     with pytest.raises(ValueError, match="cloud-saves"):
         validation.compare_evidence({**policy(), "cloud_saves": "on"}, policy())
+
+
+def test_source_guard_accepts_main_history_and_release_branches(tmp_path: Path) -> None:
+    workflow = (validation.release.ROOT / ".github/workflows/release.yml").read_text()
+    guard = workflow.split(
+        "- name: Verify source is on main or a release branch forked from main before using credentials", 1
+    )[1].split("\n      - ", 1)[0]
+    command = re.search(r"^        run: \|\n((?:          .*\n?)+)", guard, re.MULTILINE)
+    assert command is not None
+
+    def git(*args: str) -> str:
+        return subprocess.check_output(["git", *args], cwd=tmp_path, text=True).strip()
+
+    git("init", "--quiet", "--initial-branch=main")
+    git("config", "user.name", "Fixture")
+    git("config", "user.email", "fixture@example.invalid")
+    git("commit", "--quiet", "--allow-empty", "--message", "older main")
+    older = git("rev-parse", "HEAD")
+    git("commit", "--quiet", "--allow-empty", "--message", "main head")
+    git("update-ref", "refs/remotes/origin/main", "HEAD")
+    git("checkout", "--quiet", "--detach", older)
+    git("commit", "--quiet", "--allow-empty", "--message", "release branch revert")
+    branch_only = git("rev-parse", "HEAD")
+    git("update-ref", "refs/remotes/origin/release/0.6.2", branch_only)
+
+    def guard_passes(source: str, branch: str) -> bool:
+        return subprocess.run(
+            ["bash", "--noprofile", "--norc", "-eo", "pipefail", "-c", textwrap.dedent(command.group(1))],
+            cwd=tmp_path,
+            env={"PATH": os.environ["PATH"], "SOURCE_SHA": source, "SOURCE_BRANCH": branch},
+            capture_output=True,
+            check=False,
+        ).returncode == 0
+
+    assert guard_passes(older, "main")  # not main's head
+    assert guard_passes(branch_only, "release/0.6.2")
+    assert not guard_passes(branch_only, "main")
