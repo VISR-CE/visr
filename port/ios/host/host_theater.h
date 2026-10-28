@@ -122,9 +122,9 @@ void host_theater_close(void);
 /* for host_theater.m: the Enter VR ornament on the game's window (a
 UIViewController, unretained), shown or removed (Theater.swift) */
 void host_theater_ornament(void *controller, int shown);
-/* for host_theater.m: the Exit VR panel, a small window in the space,
-opened (1) or closed (0) (Theater.swift) */
-void host_theater_controls(int shown);
+/* for host_theater.m: opens the Exit VR panel, a small window in the space
+(Theater.swift); host_theater.m closes it with the space */
+void host_theater_controls_open(void);
 /* debug.test_theater_reopen (host_sdl.c): Exit VR if the space is open,
 else Enter VR */
 void host_theater_test_toggle(void);

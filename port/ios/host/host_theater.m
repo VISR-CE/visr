@@ -212,6 +212,8 @@ hidden. Shown again, the game's window becomes the key window unless an
 alert or sheet is still up: one put away while it was hidden could not give
 it back (host_dismiss_window), and without a key window a keyboard's keys
 go nowhere */
+static BOOL scene_is_controls(UIScene *scene);
+
 static void window_hidden(BOOL hidden)
 {
 	BOOL present_up = NO;
@@ -221,8 +223,7 @@ static void window_hidden(BOOL hidden)
 	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
 	{
 		/* (the Exit VR panel stays up in the space) */
-		if (![scene isKindOfClass:UIWindowScene.class] ||
-			[NSStringFromClass([(NSObject *)scene.delegate class]) isEqualToString:@"HostVRControlsSceneDelegate"])
+		if (![scene isKindOfClass:UIWindowScene.class] || scene_is_controls(scene))
 			continue;
 		for (UIWindow *window in ((UIWindowScene *)scene).windows)
 		{
@@ -336,15 +337,47 @@ void host_theater_open_failed(void)
 	enter_ornament_shown(YES);
 }
 
-void host_theater_close(void)
+/* the immersive space's scene: its session's role is the Compositor's
+immersive space role (CPSceneSessionRoleImmersiveSpaceApplication on
+visionOS 26; UIKit's on others). Every hosted scene's delegate is SwiftUI's
+own, so the role is what tells them apart */
+static BOOL scene_is_space(UIScene *scene)
+{
+	return [scene.session.role hasSuffix:@"ImmersiveSpaceApplication"];
+}
+
+/* the Exit VR panel's scene: the one window scene that isn't SDL's */
+static BOOL scene_is_controls(UIScene *scene)
+{
+	return [scene isKindOfClass:UIWindowScene.class] && !scene_is_space(scene) &&
+		![NSStringFromClass([(NSObject *)scene.delegate class]) isEqualToString:@"SDLUIKitSceneDelegate"];
+}
+
+static void scenes_close(BOOL (*which)(UIScene *), const char *what)
 {
 	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
 	{
-		if (![scene.session.role isEqualToString:UISceneSessionRoleImmersiveSpaceApplication])
+		if (!which(scene))
 			continue;
-		host_logf(HOST_LOG_INFO, "theater: leaving VR; closing the immersive space");
-		[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil errorHandler:nil];
+		host_logf(HOST_LOG_INFO, "theater: closing %s", what);
+		[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil errorHandler:^(NSError *error) {
+			host_logf(HOST_LOG_WARN, "theater: %s didn't close: %s", what, error.localizedDescription.UTF8String);
+		}];
 	}
+}
+
+void host_theater_close(void)
+{
+	host_logf(HOST_LOG_INFO, "theater: leaving VR");
+	scenes_close(scene_is_space, "the immersive space");
+}
+
+static void controls_shown(BOOL shown)
+{
+	if (shown)
+		host_theater_controls_open();
+	else
+		scenes_close(scene_is_controls, "the Exit VR panel");
 }
 
 void host_theater_start(int open)
@@ -387,7 +420,7 @@ void host_theater_attach(void *renderer)
 	space_opening = NO;
 	enter_ornament_shown(NO);
 	window_hidden(YES);
-	host_theater_controls(1);
+	controls_shown(YES);
 	/* the once-only logs, theater's and stereo's, repeat for each opening */
 	theater_frames = 0;
 	screen_presents = 0;
@@ -471,7 +504,7 @@ int host_theater_active(void)
 			world_tracking = nil;
 			host_logf(HOST_LOG_INFO, "theater: ARKit stopped until the space opens again");
 		}
-		host_theater_controls(0);
+		controls_shown(NO);
 		host_stereo_set_entered(0);
 		enter_ornament_shown(YES);
 		return 0;

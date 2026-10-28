@@ -155,7 +155,6 @@ struct VRControls: View {
 }
 
 @available(visionOS 26.0, *)
-@objc(HostVRControlsSceneDelegate)
 final class VRControlsSceneDelegate: UIResponder, UIHostingSceneDelegate {
     static var rootScene: some Scene {
         WindowGroup(id: "vr-controls") {
@@ -169,17 +168,11 @@ final class VRControlsSceneDelegate: UIResponder, UIHostingSceneDelegate {
     }
 }
 
-/* host_theater.m: opens the Exit VR panel as the space opens, and closes it
-   as the space closes */
-@_cdecl("host_theater_controls")
-public func host_theater_controls(_ shown: Int32) {
+/* host_theater.m: opens the Exit VR panel as the space opens (and closes it
+   as the space closes) */
+@_cdecl("host_theater_controls_open")
+public func host_theater_controls_open() {
     guard #available(visionOS 26.0, *) else { return }
-    if shown == 0 {
-        for scene in UIApplication.shared.connectedScenes where scene.delegate is VRControlsSceneDelegate {
-            UIApplication.shared.requestSceneSessionDestruction(scene.session, options: nil, errorHandler: nil)
-        }
-        return
-    }
     guard let request = UISceneSessionActivationRequest(hostingDelegateClass: VRControlsSceneDelegate.self,
                                                         id: "vr-controls") else {
         host_theater_log("theater: the Exit VR panel can't be requested")
