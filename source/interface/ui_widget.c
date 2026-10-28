@@ -676,6 +676,7 @@ struct widget_instance;
 #include "tag_files/tag_files.h"
 #include "tag_files/tag_groups.h"
 #include "text/draw_string.h"
+#include "text/font_group.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
 #include "ui_widget.h"
@@ -774,8 +775,7 @@ enum
 
 enum
 {
-	UI_WIDGET_DEFINITION_TAG = 'DeLa',
-	FONT_GROUP_TAG = 'font'
+	UI_WIDGET_DEFINITION_TAG = 'DeLa'
 };
 
 enum
@@ -5227,6 +5227,67 @@ static long search_and_replace(
 	}
 
 	return replacements;
+}
+
+/* port: measure without the cell's clipping, including glyph overhang. */
+static short ui_widget_port_text_width(wchar_t const *text)
+{
+	rectangle2d bounds = {0, 0, SHORT_MAX, SHORT_MAX};
+	rectangle2d ink, cursor;
+
+	draw_unicode_string_compute_bounds(&bounds, text, &ink, &cursor);
+	return MAX(ink.x1, cursor.x0);
+}
+
+/* port: browser cells share this path for both menu looks. Use the rendered
+font's metrics and glyph table so a cut name ends visibly in an ellipsis. */
+void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text, short capacity)
+{
+	struct ui_widget_definition *definition;
+	wchar_t const *suffix;
+	long old_font;
+	short width, length = 0, suffix_length, index;
+
+	if (!widget || capacity < 1 || !text[0])
+		return;
+	definition = ui_widget_definition_get(widget->definition_tag_index);
+	if (definition->text_font.index == NONE)
+		return;
+	/* draw_unicode_string requires a glyph to end strictly before x1. */
+	width = definition->bounds.x1 - definition->bounds.x0 - definition->horizontal_offset - 1;
+	old_font = draw_string_get_font();
+	draw_string_set_font(definition->text_font.index);
+	draw_string_set_format(NONE, 0, 0);
+	draw_string_set_indents(0, 0);
+	if (ui_widget_port_text_width(text) > width)
+	{
+		suffix = font_get_character_by_ascii_code(font_definition_get(definition->text_font.index), 0x2026) ?
+			L"\x2026" : L"...";
+		suffix_length = suffix[1] ? 3 : 1;
+		while (text[length] && length < capacity - 1)
+			length++;
+		length = MIN(length, capacity - suffix_length - 1);
+		if (length < 0)
+			text[0] = 0;
+		else
+		{
+			for (;;)
+			{
+				for (index = 0; index <= suffix_length; index++)
+					text[length + index] = suffix[index];
+				if (ui_widget_port_text_width(text) <= width)
+					break;
+				if (!length)
+				{
+					text[0] = 0;
+					break;
+				}
+				length--;
+			}
+		}
+	}
+	if (old_font != NONE)
+		draw_string_set_font(old_font);
 }
 
 /* port: the port's own error text (display_error_text_deferred), which may be

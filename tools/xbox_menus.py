@@ -428,9 +428,10 @@ def multiplayer_documents(assets, bitmaps):
             if 'button_bar' in leaf:
                 c.set('y', '449')
 
-    # map_display_name in menu_functions.c looks these up by PC tag path,
+    # menu_functions.c looks up map names and browser stats by PC tag path,
     # independently of the widgets' string_list references.
-    for name in ('main_menu/map_list', 'main_menu/mp_map_list'):
+    for name in ('main_menu/map_list', 'main_menu/mp_map_list',
+                 MP + '/join_game/join_game_ticker_labels'):
         shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
     quit_layout(documents['main_menu.quit_select.xml'], widgets)
@@ -501,11 +502,9 @@ def browser_layout(root, widgets, bitmaps):
     rows.attrib.pop('bitmap', None)
     rows.attrib.update(height='402', visible_rows='9')
     # These textures include transparent padding: the panel's outline is
-    # about 315x322 of 512x512, the rows' about 224x32 of 256x32. Scale
-    # that visible artwork to the browser bounds, leaving the padding clipped.
-    for art, width, height, frames in (('list_field', 884, 102, 1),
-                                       ('list_item_bkd_top', 622, 24, 2),
-                                       ('list_item_bkd', 622, 24, 2)):
+    # about 315x322 of 512x512. Scale that visible artwork to the description
+    # bounds, leaving its transparent padding clipped.
+    for art, width, height, frames in (('list_field', 884, 102, 1),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{art}')
         for index in range(frames):
             ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index=str(index),
@@ -515,9 +514,9 @@ def browser_layout(root, widgets, bitmaps):
     # The Xbox's nine-row list needs a wider column for the PC browser's
     # five live fields. Keep the updater's row names and all its children.
     columns = {'locked': (0, 16), 'dedicated': (16, 16),
-               'server_name': (36, 180), 'map': (220, 110),
-               'classic': (332, 10), 'type': (342, 70),
-               'players': (414, 60), 'ping': (478, 66)}
+               'server_name': (36, 140), 'map': (180, 166),
+               'classic': (348, 10), 'type': (358, 66),
+               'players': (426, 60), 'ping': (488, 56)}
     for c in list(rows.findall('child')):
         leaf = c.get('widget').rsplit('/', 1)[-1]
         if leaf.startswith('server_item_') and leaf[12:].isdigit():
@@ -541,7 +540,7 @@ def browser_layout(root, widgets, bitmaps):
     for index in range(1, 16):
         row = get(f'server_item_{index}')
         row.attrib.update(width='544', height='24', color=SERVER_BLUE,
-                          bitmap='xbox/browser/' + ('list_item_bkd_top' if index == 1 else 'list_item_bkd'))
+                          bitmap='xbox/browser/row')
         for c in row.findall('child'):
             field = c.get('widget').rsplit('/', 1)[-1].removeprefix('server_item_')
             c.set('x', str(columns[field][0]))
@@ -576,8 +575,8 @@ def browser_layout(root, widgets, bitmaps):
                         bitmap='xbox/browser/list_field')
     # Bounds do not translate children: stats stay over the column headers,
     # while the description background sits below the ninth server row.
-    for c, x, width in zip(panel.findall('child'), (370, 48, 240), (222, 180, 120)):
-        c.attrib.update(x=str(x), y='62')
+    for c, x, width in zip(panel.findall('child'), (326, 48, 226), (266, 176, 98)):
+        c.attrib.update(x=str(x), y='68')
         widgets[c.get('widget')].attrib.update(width=str(width), height='22')
     # The PC actions inspect the invoking widget's leaf name. This adapter
     # gives X the refresh action and Y the Internet hosting action while
@@ -593,12 +592,25 @@ def browser_layout(root, widgets, bitmaps):
         if c.get('widget') == rows.get('name'):
             c.set('widget', actions.get('name'))
     legend(root, screen, base + '/legend', cancel='BACK')
+    for button in ('a', 'b'):
+        icon = root.find(f"widget[@name='{base}/legend/{button}_butn']")
+        icon.attrib.pop('text')
+        icon.set('type', 'container')
+        icon.set('bitmap', f'xbox/browser/{button}_butn')
+    for button in ('a', 'b', 'x', 'y'):
+        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{button}_butn')
+        ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + button + '_butn', index='0',
+                      png=f'xbox/art/{button}_butn.png', width='21', height='26')
+    # A shared, inset redraw keeps the cap and right edge inside every row.
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
+    for index in (0, 1):
+        ET.SubElement(bitmap, 'frame', png=f'xbox/art/browser_row__{index}.png', width='544', height='24')
     child(screen, base + '/y_butn', x=180, y=414)
     child(screen, base + '/=create', x=202, y=414)
-    text_widget(root, base + '/y_butn', 'Y', width=21, height=26)
+    widget(root, base + '/y_butn', width=21, height=26, bitmap='xbox/browser/y_butn')
     text_widget(root, base + '/=create', 'CREATE GAME', width=144, height=22)
     child(screen, base + '/x_butn', x=48, y=414)
-    text_widget(root, base + '/x_butn', 'X', width=21, height=26)
+    widget(root, base + '/x_butn', width=21, height=26, bitmap='xbox/browser/x_butn')
     # Reuse the refresh action as the legend's clickable caption.
     refresh = get('join_game_button_refresh')
     refresh.attrib.pop('string_list', None)

@@ -328,7 +328,7 @@
 		<string text="Map"/>
 		<string text="Players"/>
 		<string text="Game"/>
-		<string text="Ping"/>
+		<string text="Region"/>
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/join_game/join_game_mode">
 		<string text="Internet"/>

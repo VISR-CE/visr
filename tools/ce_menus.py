@@ -74,6 +74,13 @@ LEFT_OUT = {
 # Credits' place; Multiplayer's Edit Gametypes and divider below Co-op,
 # keeping its 32-unit highlight inside the description panel's bottom curve.
 CHILD_OFFSETS = {
+    # Give Region ten units from Game, keeping the last column inside the frame.
+    **{("ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\join_game_header",
+        f"ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\op_sort_header_{field}"): (x, 0)
+       for field, x in (("players", 510), ("ping", 570))},
+    **{(f"ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\server_item_{row}",
+        f"ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\server_item_{field}"): (x, 0)
+       for row in range(1, 16) for field, x in (("players", 500), ("ping", 560))},
     ("ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\screen_stats_container",
      "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\server_count_label"): (355, 60),
     ("ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\screen_stats_container",

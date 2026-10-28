@@ -185,6 +185,9 @@ CONTROL_ROWS = 7
 
 # the profile menu's words for what its items now open
 STRING_OVERRIDES = {
+    "main_menu/multiplayer_type_select/join_game/join_game_column_headers": [
+        "Server Name", "Map", "Players", "Game", "Region",
+    ],
     f"{PE}/profile_edit_descriptions": [
         "Rename this profile.\\n\\n\\nProfile:",
         "Choose the keys and mouse\\nbuttons for each action.\\n\\nProfile:",
@@ -466,6 +469,10 @@ MAP_KIND_CHOOSER = "main_menu/new_select/list_item_0_map_kind"
 # changes to the PC version's widgets (by our names): attributes set, all
 # their handlers replaced, children added, game data inputs added
 WIDGET_PATCHES = {
+    # Region names need more room than the former Ping column.
+    **{f"{MT}/join_game/{name}": {"set": {"width": width}} for name, width in (
+        ("op_sort_header_type", 80), ("sort_header_type", 80), ("server_item_type", 77),
+        ("op_sort_header_ping", 60), ("sort_header_ping", 60), ("server_item_ping", 57))},
     "main_menu/multiplayer_type_select/join_game/server_count_label": {"set": {"width": 265}},
     # (the main menu's Quit, and B and Back's way to its question, only where
     # the app can end itself: the desktop's and the Mac app's. An iPhone, an

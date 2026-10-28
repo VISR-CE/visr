@@ -174,6 +174,10 @@ short ui_widget_spinner_extra_description(
 (menu_functions.c's invite jump) */
 struct widget_instance *ui_widget_port_active_screen(
 	short local_player_index);
+void ui_widget_port_text_ellipsize(
+	struct widget_instance *widget,
+	wchar_t *text,
+	short capacity);
 void ui_widget_delete(
 	struct widget_instance *widget);
 void ui_widgets_close_all(

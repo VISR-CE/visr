@@ -857,7 +857,7 @@
 		<string text="Map" />
 		<string text="Players" />
 		<string text="Game" />
-		<string text="Ping" />
+		<string text="Region" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_buttons">
 		<string text="GET LIST" />
@@ -920,5 +920,17 @@
 		<string text="Gephyrophobia" />
 		<string text="Unknown Level" />
 		<string text=" " />
+	</strings>
+	<strings name="main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
+		<string text="Players" />
+		<string text="Rules" />
+		<string text="Message" />
+		<string text="Getting Server Info..." />
+		<string text="Getting Message of the Day..." />
+		<string text="Welcome to Halo Multiplayer!" />
+		<string text="SERVERS:" />
+		<string text="PLAYERS:" />
+		<string text="PAGE" />
+		<string text="TODO: MOTD URL" />
 	</strings>
 </menus>
