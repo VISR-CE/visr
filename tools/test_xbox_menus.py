@@ -120,3 +120,105 @@ def test_game_map_frames_keep_their_png_next_to_the_map_bitmap():
     frames = [frame for frame in root.iter('frame') if frame.get('map')]
     assert frames
     assert all(frame.get('png') for frame in frames)
+
+
+MP_FILES = tuple('main_menu.multiplayer_type_select.' + name for name in (
+    'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'lobby')) + (
+    'main_menu.quit_select', 'main_menu.new_select.port')
+
+
+def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
+    module = generator()
+    for filename in MP_FILES:
+        source = ET.parse(MENUS / 'ce' / (filename + '.xml'))
+        path = MENUS / 'xbox' / (filename + '.xml')
+        assert path.is_file(), filename
+        output = ET.parse(path)
+        widgets = {w.get('name'): w for w in output.iter('widget')}
+        for original in source.iter('widget'):
+            copied = widgets['xbox/' + original.get('name')]
+            for tag, key in (('on', 'run'), ('data', 'input')):
+                assert [(e.get('event'), e.get(key)) for e in original.findall(tag)] == [
+                    (e.get('event'), e.get(key)) for e in copied.findall(tag)]
+            if '/header_' in original.get('name'):
+                for key in ('left', 'top', 'width', 'height'):
+                    assert copied.get(key) == original.get(key)
+                if original.get('bitmap'):
+                    assert copied.get('bitmap') == 'xbox/' + original.get('bitmap')
+        module.validate(output.getroot(), MENUS)
+
+
+def test_browser_uses_xbox_nine_row_list_and_description_panel():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
+    widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
+    rows = [c for c in widgets['join_game_items_list'].findall('child')
+            if c.get('widget').rsplit('/', 1)[-1].removeprefix('server_item_').isdigit()]
+    assert len(rows) == 9
+    assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
+        (48, 78 + 32 * i) for i in range(9)]
+    assert all(widgets[c.get('widget').rsplit('/', 1)[-1]].get('height') == '32' for c in rows)
+    panel = widgets['screen_stats_container']
+    assert [panel.get(k) for k in ('left', 'top', 'width', 'height')] == ['272', '78', '318', '322']
+    assert panel.get('bitmap') == 'xbox/bitmaps/list_field'
+    assert {'a_butn', 'b_butn', 'y_butn'} <= widgets.keys()
+
+
+def test_multiplayer_list_viewports_stop_before_help_and_footer():
+    for filename in MP_FILES:
+        root = ET.parse(MENUS / 'xbox' / (filename + '.xml'))
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        for w in widgets.values():
+            if w.get('type') != 'column_list' or 'up_down_tabs_children' not in w.get('flags', ''):
+                continue
+            if not any(c.get('y') for c in w.findall('child')):
+                continue
+            # Long static lists need the runtime viewport scroller. Their
+            # declared viewport, rather than a second page, bounds the rows.
+            assert int(w.get('top', 0)) + int(w.get('height')) <= 414, w.get('name')
+            desc = widgets.get(w.get('description'))
+            if desc is not None and desc.get('type') == 'text':
+                assert int(w.get('top', 0)) + int(w.get('height')) <= int(desc.get('top'))
+
+
+def test_quit_uses_confirm_button_positions():
+    root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
+    bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 294), (356, 294)]
+
+
+def test_selection_rows_end_above_footer():
+    paths = ['main_menu.multiplayer_type_select.join_game',
+             'main_menu.multiplayer_type_select.lobby', 'main_menu.new_select.port']
+    for filename in paths:
+        root = ET.parse(MENUS / 'xbox' / (filename + '.xml'))
+        # The generated shared file owns the reused profile/campaign row widgets.
+        shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
+        widgets = {w.get('name'): w for doc in (root, shared) for w in doc.iter('widget')}
+        for w in root.iter('widget'):
+            for c in w.findall('child'):
+                leaf = c.get('widget').rsplit('/', 1)[-1]
+                if c.get('y') and (leaf.startswith('list_item_') or
+                                   leaf.startswith('server_item_')):
+                    row = widgets[c.get('widget')]
+                    assert int(c.get('y')) + int(row.get('top', 0)) + int(row.get('height')) <= 414
+
+
+def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
+    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml')
+             for e in ET.parse(p).getroot() if e.get('name')]
+    assert len(names) == len(set(names))
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
+    for w in root.iter('widget'):
+        if w.get('name').rsplit('/', 1)[-1] in ('server_item_1', 'server_item_server_name'):
+            assert w.get('color') == '#FF0080FF'
+
+
+@pytest.mark.xfail(strict=True, reason='Static column lists need C viewport scrolling before server settings can ship')
+def test_server_settings_content_stays_above_help():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.server_settings.xml')
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    options = next(w for w in widgets.values() if w.get('name').endswith('/options_menu'))
+    help_top = int(widgets[options.get('description')].get('top'))
+    for c in options.findall('child'):
+        if not c.get('widget').endswith('/button_bar'):
+            assert int(c.get('y')) + int(widgets[c.get('widget')].get('height')) <= help_top

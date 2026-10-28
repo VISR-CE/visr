@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Xbox-look settings from the shipped PC rows (no game data needed).
+"""Generate Xbox-look settings and multiplayer screens from the shipped PC rows (no game data needed).
 
     python3 tools/xbox_menus.py
 
@@ -25,6 +25,21 @@ COMPACT_PAGES = ('network_setup',)
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
          'mouse_settings', 'gamepad_setup')
 BLUE = '#FF2896FF'
+MP = 'main_menu/multiplayer_type_select'
+MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
+    'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'lobby')) + (
+    'main_menu.quit_select', 'main_menu.new_select.port')
+# Bounds from tags/widgets.json: connected/server_list, advanced_controls,
+# and error/confirm_buttons. The probe omits colors; ui.map's text_color
+# at 0x10C confirms server_list_item0 = ARGB(1, 0, .5, 1), description
+# labels = BLUE, values = white. No game data is needed to regenerate.
+SERVER_BLUE = '#FF0080FF'
+# PC-only redraws have PNG frames; only these shared names exist in ui.map.
+MAP_BITMAPS = {'gradient', 'list_field', 'list_item_bkd_top', 'list_item_bkd',
+               'semi_transparent_grey', 'alert_bkd', 'arrow_big_left', 'arrow_big_right',
+               'spinner_list_3_wide_item_background', 'option_bkds', 'arrow_sm_left',
+               'arrow_sm_right', 'game_type_grafix', 'black'}
+
 
 
 def widget(root, name, **attributes):
@@ -194,15 +209,289 @@ def bitmap_document(assets, names):
     source = {b.get('name'): b for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
     root = ET.Element('menus')
     for name in sorted(names | {f'pause/pausebox_{side}' for side in ('left', 'center', 'right')}):
+        if '\\' in name:
+            bitmap = ET.SubElement(root, 'bitmap', name='xbox/map/' + name.replace('\\', '/'))
+            ET.SubElement(bitmap, 'frame', map=name, index='0',
+                          png='ce/shell/bitmaps/game_type_grafix__5.png')
+            continue
         bitmap = deepcopy(source[name])
         if not name.startswith('pause/'):
             bitmap.set('name', 'xbox/' + name)
         for index, frame in enumerate(bitmap):
-            if name.startswith('bitmaps/') and name != 'bitmaps/text_button_background':
+            if name.startswith('bitmaps/') and name.split('/')[-1] in MAP_BITMAPS:
                 frame.set('map', 'ui\\shell\\' + name.replace('/', '\\'))
                 frame.set('index', str(index))
         root.append(bitmap)
     return root
+
+
+def multiplayer_documents(assets, bitmaps):
+    """Copy wired PC definitions and their XML dependencies into the Xbox set.
+
+    Keep leaf names: menu_functions and menu tap find rows and values by name.
+    Native editor opens are the only map-widget references (never children).
+    """
+    definitions = {}
+    for path in sorted((assets / 'ce').glob('*.xml')):
+        for element in ET.parse(path).getroot():
+            if element.get('name'):
+                definitions[element.tag, element.get('name')] = element
+    documents = {}
+    owned = set()
+    for filename in MP_PAGES:
+        root = deepcopy(ET.parse(assets / 'ce' / (filename + '.xml')).getroot())
+        documents[filename + '.xml'] = root
+        owned.update((e.tag, e.get('name')) for e in root)
+    # new_select.port supplies the chooser, not a screen. Reuse the PC solo
+    # list and its data functions for the custom-campaign entry point.
+    campaign = documents['main_menu.new_select.port.xml']
+    for e in ET.parse(assets / 'ce/main_menu.solo_level_select.xml').getroot():
+        campaign.append(deepcopy(e))
+        owned.add((e.tag, e.get('name')))
+    shared = ET.Element('menus')
+    documents['multiplayer.shared.xml'] = shared
+    # Xbox item options combine vehicles with weapons; these two PC-only
+    # editors still need their wired XML screens until routing is integrated.
+    for folder in ('vehicle_options_edit', 'teamplay_options_edit'):
+        filename = 'main_menu.settings_select.multiplayer_setup.' + folder + '.xml'
+        for e in ET.parse(assets / 'ce' / filename).getroot():
+            shared.append(deepcopy(e))
+            owned.add((e.tag, e.get('name')))
+    pending = [e for root in documents.values() for e in root]
+    while pending:
+        element = pending.pop()
+        for e in element.iter():
+            for key, tag in (('widget', 'widget'), ('description', 'widget'), ('string_list', 'strings')):
+                name = e.get(key)
+                if not name or '\\' in name or (tag, name) in owned:
+                    continue
+                copied = deepcopy(definitions[tag, name])
+                shared.append(copied)
+                pending.append(copied)
+                owned.add((tag, name))
+    for root in documents.values():
+        for e in root.iter():
+            for key in ('name', 'widget', 'description', 'string_list'):
+                if e.get(key) and '\\' not in e.get(key):
+                    e.set(key, 'xbox/' + e.get(key))
+            if e.get('open'):
+                target = e.get('open')
+                e.set('open', 'xbox/' + target if ('widget', target) in owned else
+                      'ui\\shell\\' + target.replace('/', '\\'))
+            for key in ('bitmap', 'header_bitmap', 'footer_bitmap'):
+                if e.get(key):
+                    value = e.get(key)
+                    if '\\' in value:
+                        # Map previews have no shipped redraw. Reuse the shipped
+                        # unknown-gametype card when that map tag is absent.
+                        name = 'map/' + value.replace('\\', '/')
+                        bitmaps.add(value)
+                        e.set(key, 'xbox/' + name)
+                    else:
+                        e.set(key, bitmap_ref(value, bitmaps))
+            if e.tag == 'widget':
+                if e.get('color'):
+                    e.set('color', '#FFFFFFFF' if 'help' in e.get('name') else BLUE)
+                if e.get('bitmap') == 'xbox/bitmaps/text_button_background':
+                    e.attrib.pop('bitmap')
+                    e.set('color', BLUE)
+                if e.get('bitmap') == 'xbox/bitmaps/gradient_big':
+                    e.set('bitmap', bitmap_ref('bitmaps/gradient', bitmaps))
+    widgets = {e.get('name'): e for root in documents.values() for e in root if e.tag == 'widget'}
+
+    # Static option lists declare a viewport. The current engine only changes
+    # focus; runtime viewport scrolling is a prerequisite for long lists.
+    for w in widgets.values():
+        if w.get('type') == 'column_list' and 'up_down_tabs_children' in w.get('flags', ''):
+            limit = 400
+            desc = widgets.get(w.get('description'))
+            if desc is not None and desc.get('type') == 'text':
+                if desc.get('top') == '366':
+                    desc.set('top', '350')
+                    desc.set('height', '60')
+                limit = int(desc.get('top'))
+            w.set('height', str(limit))
+            if w.get('name') == 'xbox/' + MP + '/server_settings/options_menu':
+                for c in w.findall('child'):
+                    if c.get('y') and 'button_bar' not in c.get('widget'):
+                        # Preserve the co-op/competitive shared slots, using
+                        # advanced_controls' 73 origin and 30-unit pitch.
+                        c.set('y', str(73 + (int(c.get('y')) - 73) // 24 * 30))
+        for c in w.findall('child'):
+            leaf = c.get('widget', '').rsplit('/', 1)[-1]
+            if 'button_bar' in leaf:
+                c.set('y', '449')
+
+    browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
+    quit_layout(documents['main_menu.quit_select.xml'], widgets)
+    # The PC roster needs eleven slots. Use the advanced-controls row pitch
+    # with the server-list column, and the connected pregame's right column.
+    # Unlike static options, the campaign's data function scrolls its entries.
+    selection_layout(widgets, bitmaps)
+    for filename in ('main_menu.multiplayer_type_select.lobby.xml', 'main_menu.new_select.port.xml'):
+        root = documents[filename]
+        for w in list(root.findall('widget')):
+            if w.get('name', '').endswith('_screen'):
+                legend(root, w, w.get('name') + '/legend', cancel='BACK')
+    for filename in ('join_game.filters', 'join_game.port', 'direct_ip', 'server_settings'):
+        root = documents['main_menu.multiplayer_type_select.' + filename + '.xml']
+        for w in list(root.findall('widget')):
+            if w.get('name', '').endswith('_screen'):
+                legend(root, w, w.get('name') + '/legend')
+    return documents
+
+
+def selection_layout(widgets, bitmaps):
+    for w in widgets.values():
+        for c in w.findall('child'):
+            leaf = c.get('widget').rsplit('/', 1)[-1]
+            if (leaf.startswith('list_item_') and c.get('y') and
+                    w.get('type') == 'column_list'):
+                c.set('x', '48')
+                w.set('height', '406')
+                if '/lobby/' in w.get('name'):
+                    c.set('y', str(78 + int(leaf[10:]) * 30))
+            if leaf in ('lobby_right_item', 'replay_level_right_item'):
+                c.set('x', '0')
+                c.set('y', '0')
+        leaf = w.get('name').rsplit('/', 1)[-1]
+        if leaf.startswith('list_item_') and leaf[10:].isdigit():
+            w.set('width', '256')
+            w.set('bitmap', bitmap_ref('bitmaps/list_item_bkd_top' if leaf == 'list_item_0'
+                                       else 'bitmaps/list_item_bkd', bitmaps))
+        elif leaf == 'list_item_text':
+            w.set('width', '230')
+        elif leaf == 'list_item_arrows':
+            w.set('width', '256')
+        elif leaf in ('lobby_right_item', 'replay_level_right_item'):
+            w.attrib.update(left='323', top='115', width='254', height='286',
+                            bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+        elif leaf == 'sel_list_desc_bkd':
+            w.attrib.update(left='323', top='115', width='254', height='286',
+                            bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+        elif leaf in ('lobby_map_pic', 'replay_level_right_pic', 'mp_map_right_pic'):
+            # connected_pregame remote column + xbox_graphic offset (12,27).
+            w.attrib.update(left='335', top='142')
+        elif leaf in ('lobby_map_name', 'replay_level_right_name', 'mp_map_right_name'):
+            w.attrib.update(left='323', top='115', width='254', height='22')
+        elif leaf in ('lobby_game_data', 'replay_level_right_data', 'mp_map_right_data'):
+            # The pregame local-player offset (13,138); server info bounds.
+            w.attrib.update(left='336', top='253', width='260', height='144')
+        elif leaf == 'lobby_join_help':
+            # The original bottom-right help shares the action bar's line.
+            # The Xbox pregame message field is above the roster instead.
+            w.attrib.update(left='323', top='78', width='254', height='31')
+
+
+def browser_layout(root, widgets, bitmaps):
+    base = 'xbox/' + MP + '/join_game'
+    get = lambda leaf: widgets[base + '/' + leaf]
+    rows = get('join_game_items_list')
+    rows.attrib.pop('bitmap', None)
+    rows.set('height', '400')
+    for c in list(rows.findall('child')):
+        leaf = c.get('widget').rsplit('/', 1)[-1]
+        if leaf.startswith('server_item_') and leaf[12:].isdigit():
+            index = int(leaf[12:]) - 1
+            if index >= 9:
+                rows.remove(c)
+                continue
+            c.set('x', '48')
+            c.set('y', str(78 + 32 * index))
+            row = get(leaf)
+            row.set('width', '256')
+            row.set('height', '32')
+            row.set('bitmap', bitmap_ref('bitmaps/list_item_bkd_top' if index == 0 else 'bitmaps/list_item_bkd', bitmaps))
+            row.set('color', SERVER_BLUE)
+            # The PC updater writes fields on every row; it cannot populate
+            # Xbox's focused-map description without a C change. Keep their
+            # definitions and handlers, with the name and kind in the list.
+            for field in list(row.findall('child')):
+                if field.get('widget').rsplit('/', 1)[-1] not in (
+                        'server_item_locked', 'server_item_dedicated', 'server_item_server_name'):
+                    row.remove(field)
+        elif leaf in ('scroll_up_button', 'scroll_down_button'):
+            rows.remove(c)
+        elif leaf == 'op_browser_mode':
+            c.set('x', '326')
+            c.set('y', '96')
+        elif leaf == 'join_game_header':
+            c.set('x', '326')
+            c.set('y', '142')
+        elif leaf.startswith('item_ticker_'):
+            c.set('x', '283')
+            c.set('y', '302' if leaf.endswith('player_info') else '365')
+    get('server_item_server_name').set('width', '210')
+    get('server_item_server_name').set('color', SERVER_BLUE)
+    headers = get('join_game_header')
+    headers.set('width', '260')
+    headers.set('height', '84')
+    headers.set('flags', 'pass_unhandled_to_focused_child up_down_tabs_children')
+    for i, c in enumerate(headers.findall('child')):
+        # Two columns use the Xbox preview-card spacing (433 - 286),
+        # the PC map-header width, and the Xbox info panel's 21-unit pitch.
+        c.set('x', str((i // 4) * 147))
+        c.set('y', str((i % 4) * 21))
+        header = widgets[c.get('widget')]
+        header.set('width', '110')
+        for part in header.findall('child'):
+            field = widgets[part.get('widget')]
+            if part.get('widget').endswith('/header_sort_arrows'):
+                part.set('x', '36')
+            else:
+                field.set('width', '110')
+    for leaf in ('item_ticker_player_info', 'item_ticker_rules_info'):
+        item = get(leaf)
+        item.set('width', '290')
+        item.set('height', '60' if leaf.endswith('player_info') else '22')
+        item.attrib.pop('bitmap', None)
+        for c in item.findall('child'):
+            c.set('x', '0')
+            c.set('y', '0')
+    for leaf in ('ticker_player_info_label', 'ticker_rules_info_label'):
+        # The update owns the ticker's text; the panel does not need the PC
+        # prefix taking space from it.
+        for item in (get('item_ticker_player_info'), get('item_ticker_rules_info')):
+            for c in list(item.findall('child')):
+                if c.get('widget') == base + '/' + leaf:
+                    item.remove(c)
+    for leaf in ('ticker_player_info', 'ticker_rules_info'):
+        get(leaf).set('width', '290')
+        get(leaf).set('height', '60' if leaf == 'ticker_player_info' else '22')
+        get(leaf).set('color', '#FFFFFFFF')
+    panel = get('screen_stats_container')
+    panel.attrib.update(left='272', top='78', width='318', height='322',
+                        bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+    # Child bounds in this engine are screen coordinates plus offsets.
+    for i, c in enumerate(panel.findall('child')):
+        c.set('x', '326')
+        c.set('y', str(225 + i * 21))
+        widgets[c.get('widget')].set('width', '260')
+        widgets[c.get('widget')].set('height', '22')
+    screen = get('join_game_screen')
+    legend(root, screen, base + '/legend', cancel='BACK')
+    child(screen, base + '/y_butn', x=180, y=414)
+    child(screen, base + '/=create', x=202, y=414)
+    text_widget(root, base + '/y_butn', 'Y', width=21, height=26)
+    text_widget(root, base + '/=create', 'CREATE GAME', width=144, height=22)
+
+
+def quit_layout(root, widgets):
+    base = 'xbox/main_menu/quit_select'
+    bar = widgets[base + '/quit_button_bar']
+    bar.set('width', '640')
+    bar.set('height', '480')
+    for c, x in zip(bar.findall('child'), (268, 356)):
+        c.set('x', str(x))
+        c.set('y', '294')
+        action = widgets[c.get('widget')]
+        action.set('width', '95' if x == 356 else '63')
+        action.set('height', '22' if x == 356 else '20')
+    screen = widgets[base + '/quit_screen']
+    for c in screen.findall('child'):
+        if c.get('widget') == base + '/quit_button_bar':
+            c.set('x', '0')
+            c.set('y', '0')
 
 
 def generate(assets=MENUS):
@@ -220,6 +509,7 @@ def generate(assets=MENUS):
                         bitmap=bitmap_ref('bitmaps/option_bkds', names), text_x=13, text_y=4)
     for event in ('a', 'start'):
         ET.SubElement(mouse, 'on', event=event, open='xbox/settings/mouse_settings/mouse_settings_screen')
+    documents.update(multiplayer_documents(assets, names))
     documents['bitmaps.xml'] = bitmap_document(assets, names)
     for root in documents.values():
         validate(root, assets)
