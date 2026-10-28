@@ -2484,6 +2484,45 @@ static boolean patch_help_write(struct patch_work *work)
 	return TRUE;
 }
 
+/* The Siri Remote uses the empty card's A and the editors' DELETE rows.
+Keep the Xbox's two-button legend at its normal right-aligned positions;
+never change button_key itself, which other screens share. */
+static void patch_remote_legends(void)
+{
+#if defined(HALO_IOS)
+	char const *tv = getenv("HALO_HOST_TVOS");
+	char const *screens[] = {
+		"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_select_screen",
+		"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"
+	};
+
+	if (!tv || strcmp(tv, "1"))
+		return;
+	for (long screen = 0; screen < NUMBEROF(screens); screen++)
+	{
+		long tag = tag_loaded(UI_WIDGET_DEFINITION_TAG, screens[screen]);
+		struct ui_widget_definition *definition;
+		struct ui_widget_child_reference *children;
+		long count = 0;
+
+		if (tag == NONE)
+			continue;
+		definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+		children = definition->child_widgets.address;
+		for (long child = 0; child < definition->child_widgets.count; child++)
+		{
+			long index = children[child].widget_tag.index;
+
+			if (tag_name_ends(index, "\\x_butn") || tag_name_ends(index, "\\=delete") ||
+				tag_name_ends(index, "\\y_butn") || tag_name_ends(index, "\\=create_new"))
+				continue;
+			children[count++] = children[child];
+		}
+		definition->child_widgets.count = count;
+	}
+#endif
+}
+
 /* one patch: worked out whole, then written (the list's rows, the
 screen's children's offsets, the rows' tags, the description's strings and
 frames), or not made at all */
@@ -2808,6 +2847,7 @@ void menu_tags_loaded(
 	{
 		/* (the Xbox look's root is the map's own main menu) */
 		menu_tags.root[0] = '\0';
+		patch_remote_legends();
 		for (index = 0; patching && index < menus->patch_count && !build.failed; index++)
 			patch_apply(instances, &menus->patches[index]);
 	}
