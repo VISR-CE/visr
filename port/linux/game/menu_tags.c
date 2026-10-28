@@ -863,12 +863,15 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 		long width = data->width, height = data->height;
 
 		/* (a frame of the map's: a copy of its bitmap, which the texture cache
-		loads from the map as its own; in a game map that has not got it,
-		nothing) */
+		loads from the map as its own; in a game map that has not got it, its
+		png where it has one, else nothing) */
 		if (data->map && build.game_map && tag_loaded(BITMAP_GROUP_TAG, data->map) == NONE)
 		{
-			png = BLANK_PNG;
-			width = height = PLACEHOLDER_SIZE;
+			if (!png)
+			{
+				png = BLANK_PNG;
+				width = height = PLACEHOLDER_SIZE;
+			}
 		}
 		else if (data->map)
 		{

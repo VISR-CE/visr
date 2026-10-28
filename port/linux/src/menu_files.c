@@ -526,8 +526,9 @@ static void read_frame(struct reader *reader, const XML_Char **attributes, long 
 	memset(&frame, 0, sizeof(frame));
 	frame.index = -1;
 	read_attributes(reader, "frame", attributes, table, sizeof(table) / sizeof(*table));
-	if (!reader->failed && (frame.png != NULL) == (frame.map != NULL))
-		reader_error(reader, "a <frame> has a png or a map bitmap, not both");
+	/* (both: the map's bitmap where the map has it, else the png, which a game map needs) */
+	if (!reader->failed && !frame.png && !frame.map)
+		reader_error(reader, "a <frame> has a png or a map bitmap");
 	else if (!reader->failed && frame.png && (frame.width <= 0 || frame.height <= 0))
 		reader_error(reader, "a <frame> with a png needs width and height");
 	else if (!reader->failed && frame.map && frame.index < 0)
