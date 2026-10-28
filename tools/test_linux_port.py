@@ -261,11 +261,13 @@ def test_menus_are_well_formed():
             if element.tag == "bitmap":
                 bitmaps[element.get("name")] = element
                 for frame in element.iter("frame"):
-                    assert (frame.get("png") is None) != (frame.get("map") is None), where
+                    # a png, a map frame, or both (the png drawn where the map lacks the frame)
+                    assert frame.get("png") is not None or frame.get("map") is not None, where
+                    if frame.get("png") is not None:
+                        assert frame.get("png") in listed, where
                     if frame.get("map"):
                         assert "\\" in frame.get("map") and int(frame.get("index")) >= 0, where
                         continue
-                    assert frame.get("png") in listed, where
                     with (MENUS / frame.get("png")).open("rb") as png:
                         header = png.read(24)
                     width, height = int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
