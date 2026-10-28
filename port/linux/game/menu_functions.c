@@ -3982,8 +3982,10 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 #ifdef HALO_DEVELOPMENT_HOOKS
 	if (config_boolean("debug.browser_fake_big") && count < LOBBY_BROWSER_GAMES)
 	{
-		struct p2p_listing *fake = &games[count++];
+		/* (first, so it is on the first page of a long list) */
+		struct p2p_listing *fake = &games[0];
 
+		memmove(&games[1], &games[0], (size_t)count++ * sizeof(*games));
 		memset(fake, 0, sizeof(*fake));
 		memcpy(fake->identifier, "\xFA\x4B\x1D\x00\x00\x01", sizeof(fake->identifier));
 		strcpy(fake->name, "BIG TEST GAME");
