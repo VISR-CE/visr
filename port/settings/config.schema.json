@@ -2486,6 +2486,17 @@
             "apple"
           ]
         },
+        "browser_fake_big": {
+          "type": "boolean",
+          "default": false,
+          "description": "Development builds only: the server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.player_capacity below 16 as well. App Store packages ignore it.",
+          "x-environment": "HALO_BROWSER_FAKE_BIG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "menu_open": {
           "type": "string",
           "default": "",
