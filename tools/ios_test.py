@@ -27,6 +27,7 @@ if xbox_menus.is_dir():
 run('python3', 'tools/test_touch_mapping.py')
 # Held touch sticks must stop feeding movement while the pause menu is open.
 run('python3', 'tools/test_touch_pause.py')
+run('python3', 'tools/test_join_warning.py')
 run('python3', 'tools/test_ios_asm_convert.py')
 run('python3', 'tools/test_astc_rewrite.py')
 run('python3', 'tools/test_astc_encode.py')
