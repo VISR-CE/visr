@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import re
+import subprocess
 import tomllib
 import urllib.error
 from pathlib import Path
@@ -1025,7 +1026,7 @@ def test_publish_uses_summary_for_testflight_and_full_entry_for_github(
     assert github_publish[2]["body"] == notes
 
 
-def test_prepare_bootstrap_generates_one_version_and_atomic_push(
+def test_prepare_bootstrap_generates_one_version_and_pushes_only_the_tag(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(release.time, "strftime", lambda *_: "20261016.000000")
@@ -1111,16 +1112,8 @@ def test_prepare_bootstrap_generates_one_version_and_atomic_push(
     ]
     assert release.testflight_summary_for_release(notes, manifest) == summary
     pushes = [call for call in calls if call[:2] == ("git", "push")]
-    assert pushes == [
-        (
-            "git",
-            "push",
-            "--atomic",
-            "origin",
-            "HEAD:refs/heads/main",
-            "refs/tags/visr-v0.1.3",
-        )
-    ]
+    assert pushes == [("git", "push", "origin", "refs/tags/visr-v0.1.3")]
+    assert manifest["source_branch"] == "main"
     assert ("git", "tag", "visr-v0.1.2", baseline) in calls
     assert (
         "cz",
@@ -1218,13 +1211,15 @@ def test_prepare_resume_reuses_pinned_summary_without_provider_call(
     assert not any(call[:2] in [("cz", "bump"), ("git", "push")] for call in calls)
 
 
-def test_prepare_refuses_stale_main_before_any_mutation(
+def test_prepare_refuses_source_outside_main_before_any_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[Any] = []
 
     def fake_run(*args: Any, **kwargs: Any) -> str:
         calls.append(args)
+        if args[:3] == ("git", "merge-base", "--is-ancestor"):
+            raise subprocess.CalledProcessError(1, args)
         return "b" * 40
 
     monkeypatch.setattr(release, "require_ci", lambda: None)
@@ -1238,7 +1233,7 @@ def test_prepare_refuses_stale_main_before_any_mutation(
     monkeypatch.setenv(
         "RELEASE_PREFLIGHT_IDENTITY", preflight_identity("a" * 40, ["ios"], policy())
     )
-    with pytest.raises(ValueError, match="Main moved"):
+    with pytest.raises(ValueError, match="is not on main"):
         release.prepare(args)
     assert not any(
         call[:2] in [("cz", "bump"), ("git", "push"), ("git", "commit")]

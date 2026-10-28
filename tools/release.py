@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""CI-only, resumable GitHub and internal TestFlight releases; the only release assets are the verified unsigned apps."""
+"""CI-only, resumable GitHub and internal TestFlight releases; the only release assets are the verified unsigned apps.
+
+A release is cut from any reviewed commit and published as its tag; `sync-main` later merges the tag's
+changelog entry and manifest into main without changing main's code.
+"""
 
 from __future__ import annotations
 
@@ -175,6 +179,184 @@ def release_notes(changelog: str, version: str) -> str:
     if not re.match(rf"^## (?:visr-v)?{re.escape(version)}(?:\s|$)", notes):
         raise ValueError("Generated release entry does not match the selected version")
     return notes
+
+
+# A release is cut from a commit on main or on a release branch that forks from main. Main never has to
+# stand still: the release commit is pushed as its tag only, and `sync-main` merges its metadata into main.
+SOURCE_BRANCH_PATTERN = re.compile(r"main|release/[A-Za-z0-9][A-Za-z0-9._-]*")
+RELEASE_METADATA = frozenset({"CHANGELOG.md", MANIFEST.as_posix()})
+VERSION_ENTRY = re.compile(r"^## (?:visr-v)?(\d+)\.(\d+)\.(\d+)(?=\s|$)", re.MULTILINE)
+SYNC_ATTEMPTS = 5
+
+
+def source_branch(value: str | None) -> str:
+    branch = value or "main"
+    if not SOURCE_BRANCH_PATTERN.fullmatch(branch) or ".." in branch or branch.endswith((".", ".lock")):
+        raise ValueError("The source branch must be main or release/<name>")
+    return branch
+
+
+def is_ancestor(ancestor: str, descendant: str, root: Path | None = None) -> bool:
+    try:
+        run("git", "merge-base", "--is-ancestor", ancestor, descendant, root=root)
+    except subprocess.CalledProcessError as error:
+        if error.returncode == 1:
+            return False
+        raise
+    return True
+
+
+def ref_exists(ref: str, root: Path | None = None) -> bool:
+    try:
+        run("git", "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}", capture=True, root=root)
+    except subprocess.CalledProcessError:
+        return False
+    return True
+
+
+def fetch_release_refs(branch: str, *, required: bool, root: Path | None = None) -> None:
+    run("git", "fetch", "--tags", "origin", "+refs/heads/main:refs/remotes/origin/main", root=root)
+    if branch == "main":
+        return
+    try:
+        run("git", "fetch", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}", root=root)
+    except subprocess.CalledProcessError:
+        # A finished release's branch may be gone; its source is then on main through the metadata merge.
+        if required:
+            raise ValueError(f"Source branch {branch} does not exist on origin") from None
+
+
+def require_trusted_source(source: str, branch: str, root: Path | None = None) -> None:
+    """The source must be reviewed history: on main, or on a release branch that forks from main."""
+    where = "main" if branch == "main" else f"main or on {branch}"
+    if not ref_exists(source, root):
+        # Every fetched branch's history is local, so an unknown commit is on none of them.
+        raise ValueError(f"Source {source} is not on {where}")
+    if is_ancestor(source, "refs/remotes/origin/main", root):
+        return
+    remote = f"refs/remotes/origin/{branch}"
+    if branch != "main" and ref_exists(remote, root) and is_ancestor(source, remote, root):
+        try:
+            run("git", "merge-base", source, "refs/remotes/origin/main", capture=True, root=root)
+        except subprocess.CalledProcessError:
+            raise ValueError(f"Release branch {branch} does not fork from main") from None
+        return
+    raise ValueError(f"Source {source} is not on {where}")
+
+
+def require_metadata_only_release(revision: str = "HEAD", root: Path | None = None) -> None:
+    """A release commit adds only the changelog and manifest to its source."""
+    changed = run(
+        "git", "diff", "--name-only", f"{revision}^", revision, capture=True, root=root
+    ).splitlines()
+    if not set(changed) <= RELEASE_METADATA:
+        raise ValueError("The release commit changes more than the changelog and manifest")
+
+
+def require_tag_continuity(source: str) -> list[str]:
+    """Every earlier VISR tag is in the source's history, so versions and the changelog continue from it."""
+    tags = run("git", "tag", "--list", "visr-v*", capture=True).splitlines()
+    for tag in tags:
+        # Ignore inherited upstream version tags entirely. Only this flow owns VISR-prefixed tags.
+        prior = json.loads(run("git", "show", f"{tag}:{MANIFEST}", capture=True))
+        if prior["tag"] != tag:
+            raise ValueError("Unrecognized VISR version tag")
+        if not is_ancestor(tag, source):
+            raise ValueError(
+                f"{tag} is not in the source's history; merge its metadata into main first "
+                "(mode=sync) and release from a later commit, or merge the tag into the release branch"
+            )
+    return tags
+
+
+def version_key(version: str) -> tuple[int, int, int]:
+    match = re.fullmatch(r"(?:visr-v)?(\d+)\.(\d+)\.(\d+)", version)
+    if not match:
+        raise ValueError(f"Not a three-component version: {version}")
+    return tuple(int(part) for part in match.groups())  # type: ignore[return-value]
+
+
+def merge_changelog_entry(target: str, released: str, version: str) -> str:
+    """Add the release's entry to target's changelog in version order, keeping every other line of target."""
+    entry = release_notes(released, version)
+    key = version_key(version)
+    for match in VERSION_ENTRY.finditer(target):
+        existing = tuple(int(part) for part in match.groups())
+        if existing == key:
+            return target
+        if existing < key:
+            return target[: match.start()] + entry + "\n\n" + target[match.start() :]
+    if not target.strip():
+        return entry + "\n"
+    return target.rstrip("\n") + "\n\n" + entry + "\n"
+
+
+def merged_manifest(target: str | None, released: str) -> str:
+    """Main's manifest names its newest release."""
+    if target is None:
+        return released
+    current, new = json.loads(target), json.loads(released)
+    return released if version_key(new["version"]) > version_key(current["version"]) else target
+
+
+def sync_main(args: argparse.Namespace) -> None:
+    """Make the release tag part of main's history, carrying only its changelog entry and manifest.
+
+    The merge keeps main's tree and adds the release metadata on top, so a release cut from an older commit
+    or from a release branch never reverts or reapplies code on main. The tag becomes reachable from main,
+    which is what Commitizen and the next release's continuity check read.
+    """
+    require_ci()
+    tag = args.tag
+    if not re.fullmatch(r"visr-v\d+\.\d+\.\d+", tag):
+        raise ValueError("Sync requires an existing VISR release tag")
+    for attempt in range(1, SYNC_ATTEMPTS + 1):
+        run("git", "fetch", "--tags", "origin", "+refs/heads/main:refs/remotes/origin/main")
+        commit = run("git", "rev-parse", f"refs/tags/{tag}^{{commit}}", capture=True)
+        manifest = json.loads(run("git", "show", f"{commit}:{MANIFEST}", capture=True))
+        if manifest["tag"] != tag:
+            raise ValueError("Tag manifest names a different release")
+        require_metadata_only_release(commit)
+        if is_ancestor(commit, "refs/remotes/origin/main"):
+            print(f"{tag} is already in main's history")
+            return
+        run("git", "checkout", "--detach", "refs/remotes/origin/main")
+        run("git", "merge", "--no-ff", "--no-commit", "--strategy=ours", commit)
+        changelog_path, manifest_path = ROOT / "CHANGELOG.md", ROOT / MANIFEST
+        changelog_path.write_text(
+            merge_changelog_entry(
+                changelog_path.read_text(encoding="utf-8") if changelog_path.exists() else "",
+                run("git", "show", f"{commit}:CHANGELOG.md", capture=True),
+                manifest["version"],
+            ),
+            encoding="utf-8",
+        )
+        released = run("git", "show", f"{commit}:{MANIFEST}", capture=True) + "\n"
+        manifest_path.parent.mkdir(exist_ok=True)
+        manifest_path.write_text(
+            merged_manifest(
+                manifest_path.read_text(encoding="utf-8") if manifest_path.exists() else None,
+                released,
+            ),
+            encoding="utf-8",
+        )
+        run("git", "add", "--", "CHANGELOG.md", MANIFEST)
+        run(
+            "git",
+            "commit",
+            "--no-verify",
+            "--message",
+            f"🔀 merge(release): add the {tag} changelog and manifest to main",
+        )
+        try:
+            # Never forced: if main moved, fetch and merge again on top of it.
+            run("git", "push", "origin", "HEAD:refs/heads/main")
+        except subprocess.CalledProcessError:
+            print(f"Main moved while merging {tag}; attempt {attempt} of {SYNC_ATTEMPTS}")
+            continue
+        output("merge", run("git", "rev-parse", "HEAD", capture=True))
+        return
+    raise ValueError(f"Main kept moving; dispatch mode=sync with resume_tag={tag} to retry")
 
 
 def validate_testflight_summary(value: str | bytes) -> str:
@@ -716,6 +898,7 @@ def output(name: str, value: str) -> None:
 def prepare(args: argparse.Namespace) -> None:
     require_ci()
     source = full_sha(args.source_sha)
+    branch = source_branch(getattr(args, "source_branch", "main"))
     selected = platforms(args.platforms)
     if __package__:
         from . import release_validation as validation
@@ -728,11 +911,11 @@ def prepare(args: argparse.Namespace) -> None:
         raise ValueError(
             "Source, platforms, or build policy changed after release preflight"
         )
-    run("git", "fetch", "--tags", "origin", "main")
     manifest: dict[str, Any]
     if args.resume_tag:
         if not re.fullmatch(r"visr-v\d+\.\d+\.\d+", args.resume_tag):
             raise ValueError("Resume requires an existing VISR release tag")
+        fetch_release_refs(branch, required=False)
         run("git", "checkout", "--detach", f"refs/tags/{args.resume_tag}")
         manifest = json.loads((ROOT / MANIFEST).read_text())
         manifest_guest_epoch(manifest)
@@ -741,29 +924,26 @@ def prepare(args: argparse.Namespace) -> None:
             or manifest["platforms"] != selected
             or manifest["tag"] != args.resume_tag
             or manifest.get("build_policy") != policy
+            or manifest.get("source_branch", "main") != branch
         ):
             raise ValueError("Resume inputs differ from the immutable release manifest")
-        run("git", "merge-base", "--is-ancestor", "HEAD", "origin/main")
         if run("git", "rev-parse", "HEAD^", capture=True) != source:
             raise ValueError("Release commit parent differs from the pinned source")
+        require_metadata_only_release()
+        require_trusted_source(source, branch)
     else:
         validation.require_asset_policy(policy)
         validation.require_guest_epoch_policy(policy)
-        if run("git", "rev-parse", "origin/main", capture=True) != source:
-            raise ValueError("Main moved; review and dispatch again with its exact SHA")
+        fetch_release_refs(branch, required=True)
+        # Any reviewed commit may be released; main can keep moving during the run.
+        require_trusted_source(source, branch)
         run("git", "checkout", "--detach", source)
         catalog_context = validation.validate_recording_summary_context(
             os.environ.get("RELEASE_RECORDING_CONTEXT", ""), policy
         )
         require_wif_configuration()
         summary_model = release_summary_model()
-        tags = run("git", "tag", "--list", "visr-v*", capture=True).splitlines()
-        for tag in tags:
-            # Ignore inherited upstream version tags entirely. Only this flow owns VISR-prefixed tags.
-            prior = json.loads(run("git", "show", f"{tag}:{MANIFEST}", capture=True))
-            if prior["tag"] != tag:
-                raise ValueError("Unrecognized VISR version tag")
-            run("git", "merge-base", "--is-ancestor", tag, source)
+        tags = require_tag_continuity(source)
         if not tags:
             since = full_sha(args.bootstrap_since)
             if not re.fullmatch(r"\d+\.\d+\.\d+", args.bootstrap_version):
@@ -818,6 +998,7 @@ def prepare(args: argparse.Namespace) -> None:
             "version": version,
             "build_number": build,
             "source_sha": source,
+            "source_branch": branch,
             "platforms": selected,
             "notes_sha256": hashlib.sha256(notes.encode()).hexdigest(),
             "testflight_summary": summary,
@@ -841,15 +1022,9 @@ def prepare(args: argparse.Namespace) -> None:
             f"🔧 chore(release): generate {manifest['tag']} changelog",
         )
         run("git", "tag", "--annotate", manifest["tag"], "--message", manifest["tag"])
-        # The remote rejects the whole update if main advanced or the tag already exists.
-        run(
-            "git",
-            "push",
-            "--atomic",
-            "origin",
-            "HEAD:refs/heads/main",
-            f"refs/tags/{manifest['tag']}",
-        )
+        # Only the tag is pushed, and never forced: the remote refuses an existing tag. Main is untouched
+        # here; the sync-main job merges this commit's metadata into it afterward.
+        run("git", "push", "origin", f"refs/tags/{manifest['tag']}")
     notes = release_notes((ROOT / "CHANGELOG.md").read_text(), manifest["version"])
     if hashlib.sha256(notes.encode()).hexdigest() != manifest["notes_sha256"]:
         raise ValueError("Release notes changed after generation")
@@ -1379,7 +1554,10 @@ def publish_context(source_root: Path) -> tuple[Path, dict[str, Any]]:
         manifest["source_sha"]
     ):
         raise ValueError("Release commit parent differs from the pinned source")
-    run("git", "merge-base", "--is-ancestor", "HEAD", "origin/main", root=root)
+    require_metadata_only_release(root=root)
+    require_trusted_source(
+        full_sha(manifest["source_sha"]), source_branch(manifest.get("source_branch")), root=root
+    )
     print(
         f"Release controller {controller_sha}; application {manifest['tag']}; source {manifest['source_sha']}"
     )
@@ -1578,6 +1756,11 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     prepare_parser = commands.add_parser("prepare")
     prepare_parser.add_argument("--source-sha", required=True)
+    prepare_parser.add_argument(
+        "--source-branch",
+        default="main",
+        help="main, or the release/<name> branch whose history holds the source",
+    )
     prepare_parser.add_argument("--platforms", default="ios,tvos")
     prepare_parser.add_argument(
         "--increment", choices=("auto", "patch", "minor", "major"), default="auto"
@@ -1598,6 +1781,10 @@ def main() -> None:
         required=True,
         help="Folder of unsigned apps built from the tag by tools/release_unsigned.py, outside both checkouts",
     )
+    sync_parser = commands.add_parser(
+        "sync-main", help="Merge an existing release tag's changelog and manifest into main"
+    )
+    sync_parser.add_argument("--tag", required=True)
     commands.add_parser("identity-check")
     args = parser.parse_args()
     try:
@@ -1605,6 +1792,8 @@ def main() -> None:
             prepare(args)
         elif args.command == "publish":
             publish(args)
+        elif args.command == "sync-main":
+            sync_main(args)
         else:
             identity_check()
     except (

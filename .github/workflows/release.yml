@@ -4,13 +4,17 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Validate unsigned provenance, check Claude identity, perform an approved release, or build the unsigned apps of an existing release tag'
+        description: 'Validate unsigned provenance, check Claude identity, perform an approved release, build the unsigned apps of an existing release tag, or merge an existing tag''s metadata into main'
         type: choice
-        options: [validate, auth, release, unsigned]
+        options: [validate, auth, release, unsigned, sync]
         default: validate
       source_sha:
-        description: 'Reviewed full main commit SHA (not needed for auth check; original source SHA when resuming)'
+        description: 'Reviewed full commit SHA on main or on source_branch; it need not be the branch head (not needed for auth or sync; original source SHA when resuming)'
         required: false
+        type: string
+      source_branch:
+        description: 'main, or the release/<name> branch that holds source_sha (forked from main)'
+        default: 'main'
         type: string
       platforms:
         description: 'Existing App Store platforms: ios,tvos,visionos,macos (comma-separated)'
@@ -25,7 +29,7 @@ on:
         options: [auto, patch, minor, major]
         default: auto
       resume_tag:
-        description: 'Recover an existing visr-vX.Y.Z tag; never bumps again. In unsigned mode, the tag to build'
+        description: 'Recover an existing visr-vX.Y.Z tag; never bumps again. In unsigned mode, the tag to build; in sync mode, the tag to merge into main'
         type: string
       bootstrap_since:
         description: 'First managed release only: reviewed full ancestor SHA for changelog boundary'
@@ -47,7 +51,7 @@ concurrency:
 
 jobs:
   probe:
-    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'auth' && inputs.mode != 'unsigned' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.mode != 'auth' && inputs.mode != 'unsigned' && inputs.mode != 'sync' && github.ref == 'refs/heads/main'
     runs-on: xcode-27
     timeout-minutes: 180
     environment: release
@@ -143,11 +147,22 @@ jobs:
           persist-credentials: false
       - name: Select an accepted Xcode build
         run: python3 tools/xcode_select.py
-      - name: Verify source is on main before using credentials
+      # Shell only: this checkout is the source, which may predate the controller's release tools.
+      - name: Verify source is on main or a release branch forked from main before using credentials
         id: trusted-source
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
-        run: git merge-base --is-ancestor "$SOURCE_SHA" origin/main
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
+        run: |
+          if [[ ! "$SOURCE_BRANCH" =~ ^(main|release/[A-Za-z0-9][A-Za-z0-9._-]*)$ || "$SOURCE_BRANCH" == *..* ]]; then
+            echo "::error::source_branch must be main or release/<name>"; exit 1
+          fi
+          if ! git merge-base --is-ancestor "$SOURCE_SHA" origin/main; then
+            if [ "$SOURCE_BRANCH" = main ] || ! git merge-base --is-ancestor "$SOURCE_SHA" "refs/remotes/origin/$SOURCE_BRANCH" \
+              || ! git merge-base "$SOURCE_SHA" origin/main > /dev/null; then
+              echo "::error::source_sha is not on main or on a release branch forked from main"; exit 1
+            fi
+          fi
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: '0.11.8'
@@ -188,10 +203,11 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: '0.11.8'
-      - name: Generate and commit release metadata
+      - name: Generate release metadata and push it as the release tag only
         id: prepare
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
           RELEASE_PLATFORMS: ${{ inputs.platforms }}
           RELEASE_BUILD_POLICY: ${{ vars.RELEASE_BUILD_POLICY }}
           RELEASE_PREFLIGHT_IDENTITY: ${{ needs.preflight.outputs.identity }}
@@ -209,8 +225,33 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           uv run --python 3.11 --no-project --with-requirements tools/release-requirements.txt python tools/release.py prepare \
-            --source-sha "$SOURCE_SHA" --platforms "$RELEASE_PLATFORMS" --increment "$INCREMENT" \
+            --source-sha "$SOURCE_SHA" --source-branch "$SOURCE_BRANCH" --platforms "$RELEASE_PLATFORMS" --increment "$INCREMENT" \
             --resume-tag "$RESUME_TAG" --bootstrap-since "$BOOTSTRAP_SINCE" --bootstrap-version "$BOOTSTRAP_VERSION"
+
+  # Main never waits for or blocks on a release: this job merges the tag's changelog entry and manifest into
+  # main afterward, keeping main's tree otherwise unchanged, and retries if main moves. Its failure does not stop
+  # the TestFlight upload or the GitHub release; dispatch mode=sync with resume_tag to retry it.
+  sync-main:
+    needs: prepare
+    if: >-
+      !cancelled() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
+      ((inputs.mode == 'release' && needs.prepare.result == 'success') || (inputs.mode == 'sync' && inputs.resume_tag != ''))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Merge the release metadata into main
+        env:
+          RELEASE_TAG: ${{ inputs.mode == 'sync' && inputs.resume_tag || needs.prepare.outputs.tag }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          python3 tools/release.py sync-main --tag "$RELEASE_TAG"
 
   # The unsigned iPhone/iPad, Apple TV and Apple Vision Pro apps attached to the GitHub release, built from the
   # release tag with the reviewed controller. In unsigned mode they are only kept as a workflow artifact. The job has
