@@ -287,6 +287,10 @@ run('python3', 'tools/test_menu_tap_targets.py')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_pointer_probe.c', '-o', BUILD / 'menu-pointer-probe')
 run(BUILD / 'menu-pointer-probe')
+# a look and pinch on the Vision Pro's menus: the ray to the menus' surface, the hand's travel, the picture fractions
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    '-Iport/linux/src', '-Iport/runtime/include', 'port/ios/tests/menu_gaze_probe.c', '-o', BUILD / 'menu-gaze-probe')
+run(BUILD / 'menu-gaze-probe')
 run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',
     '-fno-stack-protector', '-ffreestanding', '-Iport/runtime/include', '-fsyntax-only', '-x', 'c',
     'port/runtime/include/halo_host_pointer.h')

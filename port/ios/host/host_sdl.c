@@ -37,6 +37,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_audio_output.h"
 #include "halo_host_pointer.h"
 #include "host_menu_pointer.h"
+#include "host_menu_gaze.h"
 
 #define HANDLE_COUNT 256
 
@@ -970,6 +971,16 @@ static void menu_pointer_event(const SDL_Event *event)
 	SDL_Window *window;
 	int width = 0, height = 0;
 
+#if TARGET_OS_VISION
+	/* the Vision Pro's menus are on a surface in the room, not in the window a mouse moves in; a look and pinch
+	drives them (host_menu_gaze_spatial_event) */
+	(void)event;
+	(void)wheel;
+	(void)window;
+	(void)width;
+	(void)height;
+	return;
+#endif
 	switch (event->type)
 	{
 	case SDL_EVENT_MOUSE_MOTION:
@@ -1016,10 +1027,58 @@ static void menu_pointer_event(const SDL_Event *event)
 	}
 }
 
+/* ---------- look and pinch on the Vision Pro's menus (host_menu_gaze.h)
+
+The presenters note where they drew the menus' surface (host_stereo.m, host_theater.m); Theater.swift hands each
+spatial event of the immersive space to host_menu_gaze_spatial_event. Both run on the main thread, as the game
+does. */
+
+static struct host_menu_gaze_surface gaze_surface;
+static struct host_menu_gaze gaze;
+
+static double gaze_now(void)
+{
+	return (double)SDL_GetTicksNS() / 1e9;
+}
+
+void host_menu_gaze_note_surface(const float frame_to_origin[16], const float center[3], const float x_axis[3],
+	const float y_axis[3], const float eye[3])
+{
+	host_menu_gaze_surface_set(&gaze_surface, frame_to_origin, center, x_axis, y_axis, eye, gaze_now());
+}
+
+static const struct host_menu_gaze_surface *gaze_surface_drawn(void)
+{
+	return host_menu_gaze_surface_fresh(&gaze_surface, gaze_now()) ? &gaze_surface : NULL;
+}
+
+void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const float *ray, int has_hand,
+	const float *hand)
+{
+	int tracking = gaze.tracking, taken;
+
+	menu_pointer_sync();
+	taken = host_menu_gaze_event(&gaze, &menu_pointer, gaze_surface_drawn(), id, phase, has_ray ? ray : NULL,
+		has_hand ? hand : NULL);
+	/* each pinch the menus take, as it begins and ends (the move between is the hand's travel) */
+	if (taken && !tracking)
+		host_logf(HOST_LOG_INFO, "menu pointer: a pinch at %.0f, %.0f of %.0f by %.0f points on the menus",
+			gaze.down_x, gaze.down_y, menu_pointer.surface_width, menu_pointer.surface_height);
+	else if (tracking && !gaze.tracking)
+		host_logf(HOST_LOG_INFO, "menu pointer: the pinch %s", phase == HOST_MENU_GAZE_CANCELLED ? "was canceled" :
+			menu_pointer.left_clicks ? "let go without travel: a press" : "let go after a drag");
+}
+
 /* HALO_MENU_POINTER_SCRIPT, for runs with no finger: ops separated by ';', each "FRAME KIND ARGS", where FRAME counts
 the frames a menu has been up (reads), and positions are fractions of the window: "60 tap 0.5 0.4", "90 drag 0.5 0.7
 0.5 0.3", "120 click 0.5 0.4", "130 right 0.5 0.4", "140 wheel 2". A tap is a finger down, then up on the next frame;
-a drag moves in six steps. Each op is logged, so a journey can be checked against the log and the screenshots. */
+a drag moves in six steps. On the Vision Pro, "150 pinch 0.5 0.4" looks at that fraction of the menus' surface in
+the room (from where the eyes were when it was drawn) and pinches, letting go on the next frame or after a count of
+frames given after the position ("150 pinch 0.5 0.4 90"), and "160 pinchdrag 0.5 0.4 0 6" pinches there and
+moves the hand 0 cm right and 6 cm down in six steps before letting go: synthetic spatial events through the same
+path as the headset's (host_menu_gaze_spatial_event), because the simulator cannot make them. With no surface drawn
+in the room (the game in its window) a pinch is a tap on the window. Each op is logged, so a journey can be checked
+against the log and the screenshots. */
 static struct
 {
 	int loaded;
@@ -1069,9 +1128,83 @@ static void menu_script_next(void)
 		menu_script.kind = 5;
 		sscanf(menu_script.cursor, "%f%n", &menu_script.x0, &used);
 	}
+	else if (!strcmp(kind, "pinch"))
+	{
+		int hold = 0, held = 0;
+
+		menu_script.kind = 6;
+		sscanf(menu_script.cursor, "%f %f%n", &menu_script.x0, &menu_script.y0, &used);
+		/* (an optional count of frames to hold the pinch before letting go) */
+		if (sscanf(menu_script.cursor + used, " %d%n", &hold, &held) == 1 && hold > 1)
+		{
+			menu_script.steps = hold;
+			used += held;
+		}
+	}
+	else if (!strcmp(kind, "pinchdrag"))
+	{
+		menu_script.kind = 7;
+		menu_script.steps = 8;
+		sscanf(menu_script.cursor, "%f %f %f %f%n", &menu_script.x0, &menu_script.y0, &menu_script.x1, &menu_script.y1,
+			&used);
+	}
 	menu_script.cursor += used;
 	host_logf(HOST_LOG_INFO, "menu pointer script: frame %lu %s %.3f %.3f %.3f %.3f", frame, kind, menu_script.x0,
 		menu_script.y0, menu_script.x1, menu_script.y1);
+}
+
+/* a scripted pinch's step on the menus' surface in the room; 0 when none is drawn (the op is then the window's) */
+static int menu_script_pinch(void)
+{
+	const struct host_menu_gaze_surface *surface = gaze_surface_drawn();
+	const intptr_t pinch = 9001;
+	float ray[6], hand[3], t;
+	int phase = HOST_MENU_GAZE_ACTIVE, last = menu_script.steps;
+
+	if (!surface && menu_script.step == 0)
+	{
+		host_logf(HOST_LOG_INFO, "menu pointer script: no menu surface in the room; the pinch is a tap on the window");
+		menu_script.kind = menu_script.kind == 6 ? 1 : 2;
+		/* (a drag on the window from the point to the point plus the travel, as fractions: a centimeter for 2%) */
+		menu_script.x1 = menu_script.x0 + menu_script.x1 * 0.02f;
+		menu_script.y1 = menu_script.y0 + menu_script.y1 * 0.02f;
+		return 0;
+	}
+	if (menu_script.step == last)
+		phase = HOST_MENU_GAZE_ENDED;
+	if (!surface)
+	{
+		/* (the surface went away mid-pinch: its end still arrives) */
+		host_menu_gaze_spatial_event(pinch, phase, 0, NULL, 0, NULL);
+		menu_script.step++;
+		if (menu_script.step > last)
+			menu_script_next();
+		return 1;
+	}
+	/* the eyes look at the fraction of the surface from where they were; the hand rests 30 cm below them and 30 cm
+	along the look, and moves along the surface's width and height */
+	{
+		float width = sqrtf(host_menu_gaze_dot(surface->x_axis, surface->x_axis));
+		float height = sqrtf(host_menu_gaze_dot(surface->y_axis, surface->y_axis)), length;
+
+		for (int i = 0; i < 3; i++)
+		{
+			ray[i] = surface->eye[i];
+			ray[3 + i] = surface->center[i] + (2.0f * menu_script.x0 - 1.0f) * surface->x_axis[i] +
+				(1.0f - 2.0f * menu_script.y0) * surface->y_axis[i] - ray[i];
+		}
+		length = sqrtf(host_menu_gaze_dot(ray + 3, ray + 3));
+		t = menu_script.kind == 7 && menu_script.step > 0 ?
+			fminf(1.0f, (float)menu_script.step / (float)(last - 2)) : 0.0f;
+		for (int i = 0; i < 3; i++)
+			hand[i] = ray[i] + (i == 1 ? -0.3f : 0.0f) + (length > 0.0f ? 0.3f * ray[3 + i] / length : 0.0f) +
+				t * 0.01f * (menu_script.x1 * surface->x_axis[i] / width - menu_script.y1 * surface->y_axis[i] / height);
+	}
+	host_menu_gaze_spatial_event(pinch, phase, 1, ray, 1, hand);
+	menu_script.step++;
+	if (menu_script.step > last)
+		menu_script_next();
+	return 1;
 }
 
 static void menu_script_run(void)
@@ -1089,6 +1222,8 @@ static void menu_script_run(void)
 	menu_script.frame++;
 	if (!menu_script.kind || !window || !SDL_GetWindowSize(window, &width, &height) ||
 		menu_script.frame < menu_script.start + (unsigned long)menu_script.step)
+		return;
+	if (menu_script.kind >= 6 && menu_script_pinch())
 		return;
 	host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
 	t = menu_script.steps > 1 ? (float)menu_script.step / (float)(menu_script.steps - 1) : 0.0f;
@@ -1126,7 +1261,7 @@ void host_ui_pointer_read(struct host_ui_pointer *pointer)
 {
 	memset(pointer, 0, sizeof(*pointer));
 	menu_pointer_sync();
-#if !TARGET_OS_TV && !TARGET_OS_VISION
+#if !TARGET_OS_TV
 	menu_script_run();
 	host_menu_pointer_read(&menu_pointer, pointer);
 #endif

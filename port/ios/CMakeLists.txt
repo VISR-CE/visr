@@ -113,7 +113,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "visionOS")
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
     set(HALO_PLATFORM_SOURCES Assets-visionOS.xcassets host/host_tv.m host/host_import.m host/host_orientation.m
         host/host_theater.m host/Theater.swift host/host_texture_settings.m host/texture_refine.m
-        host/host_spatial_input.m host/host_spatial_gamepad.c)
+        host/host_spatial_input.m host/host_spatial_gamepad.c host/host_menu_pointer.m)
     set(HALO_INFO_PLIST Info-visionOS.plist)
     set(HALO_DEVICE_FAMILY 7)
 else()

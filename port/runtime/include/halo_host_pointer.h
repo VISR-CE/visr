@@ -33,9 +33,14 @@ struct host_ui_pointer
 	/* how far from an item a touch still counts as on it, in points; 0 for a
 	pointer device */
 	float radius;
+	/* 1: x, y and the click are on a surface that shows the picture whole,
+	stretched to its shape (the Vision Pro's menu surfaces, host_menu_gaze.h):
+	fractions of the picture times the surface's size, with no letterbox to
+	undo; 0: a surface the picture is fit into, keeping its shape */
+	int32_t picture;
 };
 
-_Static_assert(sizeof(struct host_ui_pointer) == 48, "host_ui_pointer crosses between the guest and the host");
+_Static_assert(sizeof(struct host_ui_pointer) == 52, "host_ui_pointer crosses between the guest and the host");
 
 /* host_ui_pointer_feedback(kind) */
 enum host_ui_pointer_feedback_kind

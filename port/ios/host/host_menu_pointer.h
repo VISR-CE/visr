@@ -21,6 +21,10 @@
 /* half of Apple's 44 pt minimum target */
 #define HOST_MENU_POINTER_RADIUS 22.0f
 #define HOST_MENU_POINTER_MAXIMUM_STEPS 8
+/* a look and pinch (host_menu_gaze.h): half of visionOS's 60 pt minimum target, and a slop that a pinching
+   hand's own wobble stays inside */
+#define HOST_MENU_POINTER_GAZE_RADIUS 30.0f
+#define HOST_MENU_POINTER_GAZE_SLOP 20.0f
 
 struct host_menu_pointer {
     int menus_active, blocked;
@@ -33,7 +37,7 @@ struct host_menu_pointer {
     /* the latest position, and what has happened since the last read */
     float x, y, click_x, click_y;
     int moved, left_clicks, right_clicks, wheel_steps;
-    /* the latest input was a finger (it needs the reach) */
+    /* the latest input was a finger (1) or a look and pinch (2; it needs the reach), or a pointer device (0) */
     int touch;
 };
 
@@ -69,10 +73,17 @@ static inline void host_menu_pointer_touch_begin(struct host_menu_pointer *m, in
     m->touch = 1;
     m->moved = 1;
 }
+/* a pinch where the eyes meet the menus' surface (host_menu_gaze.h): a finger with a wider reach and slop, its
+   position a fraction of the picture */
+static inline void host_menu_pointer_gaze_begin(struct host_menu_pointer *m, intptr_t pinch, float x, float y) {
+    host_menu_pointer_touch_begin(m, pinch, x, y);
+    if (m->tracking && m->finger == pinch) m->touch = 2;
+}
 static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, intptr_t finger, float x, float y) {
     if (!m->tracking || m->finger != finger || !host_menu_pointer_listening(m)) return;
     if (!m->scrolling) {
-        if (hypotf(x - m->down_x, y - m->down_y) <= HOST_MENU_POINTER_SLOP) return;
+        if (hypotf(x - m->down_x, y - m->down_y) <=
+            (m->touch == 2 ? HOST_MENU_POINTER_GAZE_SLOP : HOST_MENU_POINTER_SLOP)) return;
         m->scrolling = 1;
         m->anchor_y = m->down_y;
     }
@@ -137,7 +148,8 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->click_y = m->click_y;
     out->surface_width = m->surface_width;
     out->surface_height = m->surface_height;
-    out->radius = m->touch ? HOST_MENU_POINTER_RADIUS : 0.0f;
+    out->radius = m->touch == 2 ? HOST_MENU_POINTER_GAZE_RADIUS : m->touch ? HOST_MENU_POINTER_RADIUS : 0.0f;
+    out->picture = m->touch == 2;
     if (!host_menu_pointer_listening(m)) {
         host_menu_pointer_clear(m);
         return;

@@ -10,8 +10,10 @@
 /* HALO_TOUCH_DEBUG=1 logs every touch the recognizer sees (debug only) */
 static BOOL touch_debug(void) {static int on=-1;if(on<0)on=getenv("HALO_TOUCH_DEBUG")!=NULL;return on;}
 #define TOUCH_LOG(...) do{if(touch_debug())fprintf(stderr,"halo-ios: menu-touch " __VA_ARGS__);}while(0)
+#if !TARGET_OS_VISION
 static UISelectionFeedbackGenerator *selection_feedback;
 static UIImpactFeedbackGenerator *impact_feedback;
+#endif
 
 @interface HaloMenuTouch : UIGestureRecognizer <UIGestureRecognizerDelegate>
 @end
@@ -19,7 +21,13 @@ static UIImpactFeedbackGenerator *impact_feedback;
 @implementation HaloMenuTouch
 - (instancetype)initWithTarget:(id)target action:(SEL)action {
     if(!(self=[super initWithTarget:target action:action]))return nil;
-    self.allowedTouchTypes=@[@(UITouchTypeDirect)];self.cancelsTouchesInView=NO;self.delaysTouchesBegan=NO;self.delaysTouchesEnded=NO;self.delegate=self;
+#if TARGET_OS_VISION
+    /* a look and pinch on a window (no mouse reaches SDL's menus there: host_sdl.c's menu_pointer_event) */
+    self.allowedTouchTypes=@[@(UITouchTypeDirect),@(UITouchTypeIndirect),@(UITouchTypeIndirectPointer)];
+#else
+    self.allowedTouchTypes=@[@(UITouchTypeDirect)];
+#endif
+    self.cancelsTouchesInView=NO;self.delaysTouchesBegan=NO;self.delaysTouchesEnded=NO;self.delegate=self;
     return self;
 }
 /* a touch that lands on a control belongs to the control; the controls' own view, left claiming every touch
@@ -61,21 +69,30 @@ static UIImpactFeedbackGenerator *impact_feedback;
 @end
 
 /* a tick when the focus lands on an item, a light tap when something is pressed; the iPad has no Taptic Engine
-   and these do nothing there */
+   and these do nothing there (the Vision Pro has no feedback generators: a pinching hand has nothing to feel, and the menus' own sounds
+   confirm it) */
 static void pointer_feedback(int kind) {
+#if !TARGET_OS_VISION
     if(kind==HOST_UI_POINTER_FEEDBACK_FOCUS)[selection_feedback selectionChanged];
     else if(kind==HOST_UI_POINTER_FEEDBACK_ACTIVATE)[impact_feedback impactOccurred];
+#else
+    (void)kind;
+#endif
 }
 
 static void menus_changed(int menus) {
+#if !TARGET_OS_VISION
     if(menus){[selection_feedback prepare];[impact_feedback prepare];}
+#endif
     host_ios_touch_menu_changed(menus);
 }
 
 void host_menu_pointer_attach(void *root_view) {
     UIView *root=(__bridge UIView *)root_view;
+#if !TARGET_OS_VISION
     if(!selection_feedback)selection_feedback=[[UISelectionFeedbackGenerator alloc]init];
     if(!impact_feedback)impact_feedback=[[UIImpactFeedbackGenerator alloc]initWithStyle:UIImpactFeedbackStyleLight];
+#endif
     [root addGestureRecognizer:[[HaloMenuTouch alloc]initWithTarget:nil action:nil]];
     host_ui_pointer_install(pointer_feedback,menus_changed);
 }

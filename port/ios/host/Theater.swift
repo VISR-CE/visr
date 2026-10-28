@@ -15,6 +15,38 @@ final class TheaterHands {
     var visibility: Visibility = .automatic
 }
 
+/* hands a spatial event to the menus' pointer (host_sdl.c's host_menu_gaze_spatial_event), which takes only a
+   pinch that looks at a menu while one is up: in play, every pinch stays the game's */
+@available(visionOS 26.0, *)
+enum TheaterPinch {
+    static func forward(_ event: SpatialEventCollection.Event) {
+        switch event.kind {
+        case .indirectPinch, .directPinch, .pointer: break
+        default: return
+        }
+        let phase: Int32
+        switch event.phase {
+        case .active: phase = 0
+        case .ended: phase = 1
+        default: phase = 2
+        }
+        var ray = [Float](repeating: 0, count: 6)
+        var hasRay: Int32 = 0
+        if let selection = event.selectionRay {
+            ray = [Float(selection.origin.x), Float(selection.origin.y), Float(selection.origin.z),
+                   Float(selection.direction.x), Float(selection.direction.y), Float(selection.direction.z)]
+            hasRay = 1
+        }
+        var hand = [Float](repeating: 0, count: 3)
+        var hasHand: Int32 = 0
+        if let pose = event.inputDevicePose {
+            hand = [Float(pose.pose3D.position.x), Float(pose.pose3D.position.y), Float(pose.pose3D.position.z)]
+            hasHand = 1
+        }
+        host_menu_gaze_spatial_event(event.id.hashValue, phase, hasRay, ray, hasHand, hand)
+    }
+}
+
 @available(visionOS 26.0, *)
 struct TheaterLayerConfiguration: CompositorLayerConfiguration {
     func makeConfiguration(capabilities: LayerRenderer.Capabilities,
@@ -64,6 +96,12 @@ final class TheaterSceneDelegate: UIResponder, UIHostingSceneDelegate {
         ImmersiveSpace(id: "theater") {
             CompositorLayer(configuration: TheaterLayerConfiguration()) { renderer in
                 host_theater_attach(Unmanaged.passUnretained(renderer).toOpaque())
+                // a look and pinch on the menus (host_menu_gaze.h): each pinch's ray and hand, in the space's frame
+                renderer.onSpatialEvent = { events in
+                    for event in events {
+                        TheaterPinch.forward(event)
+                    }
+                }
             }
             .onWorldRecenter { phase in
                 switch phase {

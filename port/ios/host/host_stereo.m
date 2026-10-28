@@ -1474,6 +1474,18 @@ static simd_float4x4 device_from_level(simd_float4x4 origin_from_device)
 	return simd_mul(simd_inverse(origin_from_device), origin_from_level);
 }
 
+/* where the menus' quad stands in the space this frame, for a look and pinch (host_menu_gaze.h) */
+static void note_menu_quad(simd_float4x4 origin_from_device, simd_float4x4 level, const struct host_stereo_hud_quad *quad)
+{
+	simd_float4x4 origin_from_frame = quad->frame == HOST_STEREO_HUD_LEVEL ? simd_mul(origin_from_device, level) :
+		origin_from_device;
+	float frame[16], eye[3] = { origin_from_device.columns[3].x, origin_from_device.columns[3].y,
+		origin_from_device.columns[3].z };
+
+	memcpy(frame, &origin_from_frame, sizeof(frame));
+	host_menu_gaze_note_surface(frame, quad->center, quad->x_axis, quad->y_axis, eye);
+}
+
 /* draws the quads over a view, each from its texture in layers (indexed by
 the quad's layer, HOST_STEREO_HUD_LAYER_*; a quad whose texture is nil or
 past layer_count isn't drawn): clip_from_device is the view's projection
@@ -2134,6 +2146,10 @@ void host_stereo_present(id<MTLCommandQueue> queue, id<MTLTexture> left, id<MTLT
 			simd_float4x4 origin_from_device;
 			cp_drawable_t drawable = host_theater_drawable(index, &origin_from_device, NULL);
 			simd_float4x4 level = device_from_level(origin_from_device);
+			/* a menu's UI quad, for a look and pinch */
+			for (int quad = 0; index == 0 && hud_ui && quad < quad_count; quad++)
+				if (quads[quad].layer == HOST_STEREO_HUD_LAYER_UI)
+					note_menu_quad(origin_from_device, level, &quads[quad]);
 			id<MTLCommandBuffer> commands;
 			size_t views;
 
@@ -2425,6 +2441,8 @@ void host_stereo_present_ui(id<MTLCommandQueue> queue, id<MTLTexture> picture, i
 			simd_float4x4 origin_from_device;
 			cp_drawable_t drawable = host_theater_drawable(index, &origin_from_device, NULL);
 			simd_float4x4 level = device_from_level(origin_from_device);
+			if (index == 0)
+				note_menu_quad(origin_from_device, level, &quad);
 			id<MTLCommandBuffer> commands;
 			size_t views;
 
