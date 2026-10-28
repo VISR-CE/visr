@@ -831,4 +831,40 @@
 		<string text="Internet" />
 		<string text="LAN" />
 	</strings>
+	<strings name="main_menu/map_list">
+		<string text="The Pillar of \nAutumn" />
+		<string text="Halo" />
+		<string text="The Truth and \nReconciliation" />
+		<string text="The Silent \nCartographer" />
+		<string text="Assault on the\nControl Room" />
+		<string text="343 Guilty \nSpark" />
+		<string text="The Library" />
+		<string text="Two Betrayals" />
+		<string text="Keyes" />
+		<string text="The Maw" />
+		<string text="This Level\nUnavailable" />
+	</strings>
+	<strings name="main_menu/mp_map_list">
+		<string text="Battle Creek" />
+		<string text="Sidewinder" />
+		<string text="Damnation" />
+		<string text="Rat Race" />
+		<string text="Prisoner" />
+		<string text="Hang 'Em High" />
+		<string text="Chill Out" />
+		<string text="Derelict" />
+		<string text="Boarding Action" />
+		<string text="Blood Gulch" />
+		<string text="Wizard" />
+		<string text="Chiron TL34" />
+		<string text="Longest" />
+		<string text="Ice Fields" />
+		<string text="Death Island" />
+		<string text="Danger Canyon" />
+		<string text="Infinity" />
+		<string text="Timberland" />
+		<string text="Gephyrophobia" />
+		<string text="Unknown Level" />
+		<string text=" " />
+	</strings>
 </menus>

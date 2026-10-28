@@ -388,6 +388,10 @@ def multiplayer_documents(assets, bitmaps):
             if 'button_bar' in leaf:
                 c.set('y', '449')
 
+    # map_display_name in menu_functions.c looks these up by PC tag path,
+    # independently of the widgets' string_list references.
+    for name in ('main_menu/map_list', 'main_menu/mp_map_list'):
+        shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
     quit_layout(documents['main_menu.quit_select.xml'], widgets)
     # The PC roster needs eleven slots. Use the advanced-controls row pitch
@@ -452,9 +456,28 @@ def selection_layout(widgets, bitmaps):
 def browser_layout(root, widgets, bitmaps):
     base = 'xbox/' + MP + '/join_game'
     get = lambda leaf: widgets[base + '/' + leaf]
+    screen = get('join_game_screen')
     rows = get('join_game_items_list')
     rows.attrib.pop('bitmap', None)
-    rows.set('height', '400')
+    rows.attrib.update(height='402', visible_rows='9')
+    # These textures include transparent padding: the panel's outline is
+    # about 315x322 of 512x512, the rows' about 224x32 of 256x32. Scale
+    # that visible artwork to the browser bounds, leaving the padding clipped.
+    for art, width, height, frames in (('list_field', 884, 102, 1),
+                                       ('list_item_bkd_top', 622, 24, 2),
+                                       ('list_item_bkd', 622, 24, 2)):
+        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{art}')
+        for index in range(frames):
+            ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index=str(index),
+                          png=f'ce/shell/bitmaps/{art}__{index}.png',
+                          width=str(width), height=str(height))
+
+    # The Xbox's nine-row list needs a wider column for the PC browser's
+    # five live fields. Keep the updater's row names and all its children.
+    columns = {'locked': (0, 16), 'dedicated': (16, 16),
+               'server_name': (36, 180), 'map': (220, 110),
+               'classic': (332, 10), 'type': (342, 70),
+               'players': (414, 60), 'ping': (478, 66)}
     for c in list(rows.findall('child')):
         leaf = c.get('widget').rsplit('/', 1)[-1]
         if leaf.startswith('server_item_') and leaf[12:].isdigit():
@@ -462,84 +485,87 @@ def browser_layout(root, widgets, bitmaps):
             if index >= 9:
                 rows.remove(c)
                 continue
-            c.set('x', '48')
-            c.set('y', str(78 + 32 * index))
-            row = get(leaf)
-            row.set('width', '256')
-            row.set('height', '32')
-            row.set('bitmap', bitmap_ref('bitmaps/list_item_bkd_top' if index == 0 else 'bitmaps/list_item_bkd', bitmaps))
-            row.set('color', SERVER_BLUE)
-            # The PC updater writes fields on every row; it cannot populate
-            # Xbox's focused-map description without a C change. Keep their
-            # definitions and handlers, with the name and kind in the list.
-            for field in list(row.findall('child')):
-                if field.get('widget').rsplit('/', 1)[-1] not in (
-                        'server_item_locked', 'server_item_dedicated', 'server_item_server_name'):
-                    row.remove(field)
-        elif leaf in ('scroll_up_button', 'scroll_down_button'):
+            c.attrib.update(x='48', y=str(108 + 24 * index))
+        elif leaf in ('scroll_up_button', 'scroll_down_button', 'join_game_button_bar'):
             rows.remove(c)
-        elif leaf == 'op_browser_mode':
-            c.set('x', '326')
-            c.set('y', '96')
         elif leaf == 'join_game_header':
-            c.set('x', '326')
-            c.set('y', '142')
-        elif leaf.startswith('item_ticker_'):
-            c.set('x', '283')
-            c.set('y', '302' if leaf.endswith('player_info') else '365')
-    get('server_item_server_name').set('width', '210')
+            c.attrib.update(x='48', y='86')
+        elif leaf.startswith('item_ticker_') or leaf == 'op_browser_mode':
+            # Nested lists are excluded from the viewport's row detection.
+            # Keep these descendants where gamespy screen update finds them.
+            get(leaf).set('type', 'column_list')
+            if leaf.startswith('item_ticker_'):
+                c.attrib.update(x='61', y='348' if leaf.endswith('player_info') else '374')
+    # Retain even the unused row definitions and their handlers so the PC
+    # browser's named-widget contract stays intact.
+    for index in range(1, 16):
+        row = get(f'server_item_{index}')
+        row.attrib.update(width='544', height='24', color=SERVER_BLUE,
+                          bitmap='xbox/browser/' + ('list_item_bkd_top' if index == 1 else 'list_item_bkd'))
+        for c in row.findall('child'):
+            field = c.get('widget').rsplit('/', 1)[-1].removeprefix('server_item_')
+            c.set('x', str(columns[field][0]))
+    for field, (_, width) in columns.items():
+        get('server_item_' + field).set('width', str(width))
     get('server_item_server_name').set('color', SERVER_BLUE)
     headers = get('join_game_header')
-    headers.set('width', '260')
-    headers.set('height', '84')
-    headers.set('flags', 'pass_unhandled_to_focused_child up_down_tabs_children')
-    for i, c in enumerate(headers.findall('child')):
-        # Two columns use the Xbox preview-card spacing (433 - 286),
-        # the PC map-header width, and the Xbox info panel's 21-unit pitch.
-        c.set('x', str((i // 4) * 147))
-        c.set('y', str((i % 4) * 21))
+    headers.attrib.update(width='544', height='20')
+    for c in headers.findall('child'):
+        field = c.get('widget').rsplit('/', 1)[-1].removeprefix('op_sort_header_')
+        x, width = columns[field]
+        c.attrib.update(x=str(x), y='0')
         header = widgets[c.get('widget')]
-        header.set('width', '110')
-        for part in header.findall('child'):
-            field = widgets[part.get('widget')]
-            if part.get('widget').endswith('/header_sort_arrows'):
-                part.set('x', '36')
-            else:
-                field.set('width', '110')
+        header.set('width', str(width))
+        header.attrib.pop('bitmap', None)
+        get('sort_header_' + field).set('width', str(width))
     for leaf in ('item_ticker_player_info', 'item_ticker_rules_info'):
         item = get(leaf)
-        item.set('width', '290')
-        item.set('height', '60' if leaf.endswith('player_info') else '22')
+        item.attrib.update(width='518', height='24')
         item.attrib.pop('bitmap', None)
         for c in item.findall('child'):
-            c.set('x', '0')
-            c.set('y', '0')
+            c.attrib.update(x='0', y='0')
     for leaf in ('ticker_player_info_label', 'ticker_rules_info_label'):
-        # The update owns the ticker's text; the panel does not need the PC
-        # prefix taking space from it.
         for item in (get('item_ticker_player_info'), get('item_ticker_rules_info')):
             for c in list(item.findall('child')):
                 if c.get('widget') == base + '/' + leaf:
                     item.remove(c)
     for leaf in ('ticker_player_info', 'ticker_rules_info'):
-        get(leaf).set('width', '290')
-        get(leaf).set('height', '60' if leaf == 'ticker_player_info' else '22')
-        get(leaf).set('color', '#FFFFFFFF')
+        get(leaf).attrib.update(width='518', height='24', color='#FFFFFFFF')
     panel = get('screen_stats_container')
-    panel.attrib.update(left='272', top='78', width='318', height='322',
-                        bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
-    # Child bounds in this engine are screen coordinates plus offsets.
-    for i, c in enumerate(panel.findall('child')):
-        c.set('x', '326')
-        c.set('y', str(225 + i * 21))
-        widgets[c.get('widget')].set('width', '260')
-        widgets[c.get('widget')].set('height', '22')
-    screen = get('join_game_screen')
+    panel.attrib.update(left='48', top='338', width='544', height='64',
+                        bitmap='xbox/browser/list_field')
+    # Bounds do not translate children: stats stay over the column headers,
+    # while the description background sits below the ninth server row.
+    for c, x, width in zip(panel.findall('child'), (370, 48, 240), (222, 180, 120)):
+        c.attrib.update(x=str(x), y='62')
+        widgets[c.get('widget')].attrib.update(width=str(width), height='22')
+    # The PC actions inspect the invoking widget's leaf name. This adapter
+    # gives X the refresh action and Y the Internet hosting action while
+    # sending A and navigation only to the focused server row.
+    actions = widget(root, base + '/button_refresh_create_inter', width=640, height=402,
+                     flags='pass_unhandled_to_focused_child')
+    ET.SubElement(actions, 'on', event='x', run='gamespy select button')
+    ET.SubElement(actions, 'on', event='y', run='join controller to mp game')
+    ET.SubElement(actions, 'on', event='y', run='mp type set mode',
+                  open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
+    child(actions, rows.get('name'))
+    for c in screen.findall('child'):
+        if c.get('widget') == rows.get('name'):
+            c.set('widget', actions.get('name'))
     legend(root, screen, base + '/legend', cancel='BACK')
     child(screen, base + '/y_butn', x=180, y=414)
     child(screen, base + '/=create', x=202, y=414)
     text_widget(root, base + '/y_butn', 'Y', width=21, height=26)
     text_widget(root, base + '/=create', 'CREATE GAME', width=144, height=22)
+    child(screen, base + '/x_butn', x=48, y=414)
+    text_widget(root, base + '/x_butn', 'X', width=21, height=26)
+    # Reuse the refresh action as the legend's clickable caption.
+    refresh = get('join_game_button_refresh')
+    refresh.attrib.pop('string_list', None)
+    refresh.attrib.pop('string_index', None)
+    refresh.attrib.update(text='REFRESH', width='104', height='22', font=r'ui\large_ui',
+                          align='left', text_y='0')
+    child(screen, refresh.get('name'), x=70, y=414)
 
 
 def quit_layout(root, widgets):

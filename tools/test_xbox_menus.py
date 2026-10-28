@@ -158,13 +158,77 @@ def test_browser_uses_xbox_nine_row_list_and_description_panel():
     rows = [c for c in widgets['join_game_items_list'].findall('child')
             if c.get('widget').rsplit('/', 1)[-1].removeprefix('server_item_').isdigit()]
     assert len(rows) == 9
+    assert widgets['join_game_items_list'].get('visible_rows') == '9'
+    # Match the viewport's row eligibility: descriptive containers must
+    # not consume a server slot or change the first row's origin/pitch.
+    eligible = []
+    for c in widgets['join_game_items_list'].findall('child'):
+        w = widgets[c.get('widget').rsplit('/', 1)[-1]]
+        if w.get('type') != 'column_list' and (w.findall('on') or w.findall('child')):
+            eligible.append(c)
+    assert eligible == rows
+    assert {'item_ticker_player_info', 'item_ticker_rules_info'} <= {
+        c.get('widget').rsplit('/', 1)[-1]
+        for c in widgets['join_game_items_list'].findall('child')}
     assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
-        (48, 78 + 32 * i) for i in range(9)]
-    assert all(widgets[c.get('widget').rsplit('/', 1)[-1]].get('height') == '32' for c in rows)
+        (48, 108 + 24 * i) for i in range(9)]
+    fields = ('server_name', 'map', 'type', 'players', 'ping')
+    headers = widgets['join_game_header']
+    header_x = {c.get('widget').rsplit('_', 1)[-1]: int(c.get('x', 0))
+                for c in headers.findall('child')}
+    for c in rows:
+        row = widgets[c.get('widget').rsplit('/', 1)[-1]]
+        parts = {c.get('widget').rsplit('/', 1)[-1]: c for c in row.findall('child')}
+        assert {f'server_item_{field}' for field in fields} <= parts.keys()
+        for field in fields:
+            part = parts[f'server_item_{field}']
+            # Header and value share a column, with room for every column.
+            x = int(part.get('x', 0))
+            assert x == header_x[field.rsplit('_', 1)[-1]]
+            assert x + int(widgets[f'server_item_{field}'].get('width')) <= int(row.get('width'))
     panel = widgets['screen_stats_container']
-    assert [panel.get(k) for k in ('left', 'top', 'width', 'height')] == ['272', '78', '318', '322']
-    assert panel.get('bitmap') == 'xbox/bitmaps/list_field'
-    assert {'a_butn', 'b_butn', 'y_butn'} <= widgets.keys()
+    assert int(panel.get('top')) >= 108 + 9 * 24
+    assert int(panel.get('top')) + int(panel.get('height')) <= 414
+    bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
+    frame = bitmaps[panel.get('bitmap')].find('frame')
+    # The source textures include transparent right/bottom padding. Their
+    # visible panel must cover both description lines and the list width.
+    assert int(frame.get('width')) * 315 // 512 >= int(panel.get('width')) - 1
+    assert int(frame.get('height')) * 322 // 512 >= int(panel.get('height'))
+    for c in rows:
+        row = widgets[c.get('widget').rsplit('/', 1)[-1]]
+        for frame in bitmaps[row.get('bitmap')].findall('frame'):
+            assert int(frame.get('width')) * 224 // 256 >= int(row.get('width'))
+            assert frame.get('height') == row.get('height')
+    assert {'a_butn', 'b_butn', 'y_butn', 'x_butn'} <= widgets.keys()
+    assert not any(c.get('widget').endswith('/join_game_button_bar')
+                   for w in root.iter('widget') for c in w.findall('child'))
+
+
+def test_browser_retains_map_names_at_the_c_updaters_lookup_paths():
+    shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
+    original = ET.parse(MENUS / 'ce/strings.xml')
+    for name in ('main_menu/map_list', 'main_menu/mp_map_list'):
+        expected = original.find(f'strings[@name="{name}"]')
+        actual = shared.find(f'strings[@name="{name}"]')
+        assert actual is not None
+        assert [e.get('text') for e in actual] == [e.get('text') for e in expected]
+
+
+def test_browser_legend_routes_shortcuts_without_broadcasting_row_actions():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    screen = next(w for n, w in widgets.items() if n.endswith('/join_game_screen'))
+    actions = next((widgets[c.get('widget')] for c in screen.findall('child')
+                    if 'button_refresh' in c.get('widget').rsplit('/', 1)[-1]), None)
+    assert actions is not None
+    assert actions.find('on[@event="x"][@run="gamespy select button"]') is not None
+    assert 'create_inter' in actions.get('name').rsplit('/', 1)[-1][:31]
+    assert [e.get('run') for e in actions.findall('on[@event="y"]')] == [
+        'join controller to mp game', 'mp type set mode']
+    assert actions.find('on[@event="y"][@run="mp type set mode"][@open]') is not None
+    assert actions.get('flags') == 'pass_unhandled_to_focused_child'
+    assert [c.get('widget').rsplit('/', 1)[-1] for c in actions.findall('child')] == ['join_game_items_list']
 
 
 def test_multiplayer_list_viewports_stop_before_help_and_footer():
