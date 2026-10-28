@@ -53,6 +53,17 @@ static void hit(void) {
     /* its right edge is toward -z now */
     float left_right[6] = { 0.5f, 1.6f, -1.0f, -2, 0, -0.6f };
     assert(host_menu_gaze_hit(&s, left_right, left_right + 3, 0.01f, &u, &v) && near(u, 1.0f, 1e-4f));
+    /* a frame turned and moved as note_menu_quad composes it (the device's pose times the level frame): the
+       quad's center lands 2 m along the turned forward from the moved origin, its axes turned with it */
+    {
+        const float origin[3] = { 3, 1, -4 };
+        struct host_menu_gaze_surface t = quad((float)M_PI / 4, origin);
+        float forward[3] = { -sinf((float)M_PI / 4), 0, -cosf((float)M_PI / 4) };
+        float ray[6] = { 3, 1, -4, forward[0], forward[1], forward[2] };
+        assert(near(t.center[0], 3 + 2 * forward[0], 1e-4f) && near(t.center[2], -4 + 2 * forward[2], 1e-4f));
+        assert(near(t.x_axis[0], 0.6f * cosf((float)M_PI / 4), 1e-4f) && near(t.x_axis[2], -0.6f * sinf((float)M_PI / 4), 1e-4f));
+        assert(host_menu_gaze_hit(&t, ray, ray + 3, 0, &u, &v) && near(u, 0.5f, 1e-4f) && near(v, 0.5f, 1e-4f));
+    }
     /* an unusable surface takes nothing */
     struct host_menu_gaze_surface none;
     memset(&none, 0, sizeof(none));
@@ -179,6 +190,46 @@ static void pinches(void) {
     host_menu_pointer_set_blocked(&m2, 0);
     p = take(&m2);
     assert(!p.left_clicks);
+    /* the menus drop a pinch whose end never comes (the space closed mid-pinch): the next pinch still begins */
+    struct host_menu_pointer m3 = menus(1);
+    struct host_menu_gaze g3;
+    memset(&g3, 0, sizeof(g3));
+    assert(host_menu_gaze_event(&g3, &m3, &s, 30, HOST_MENU_GAZE_ACTIVE, at_item, hand));
+    host_menu_pointer_set_menus(&m3, 0);
+    host_menu_pointer_set_menus(&m3, 1);
+    assert(host_menu_gaze_event(&g3, &m3, &s, 31, HOST_MENU_GAZE_ACTIVE, at_item, hand));
+    assert(host_menu_gaze_event(&g3, &m3, &s, 31, HOST_MENU_GAZE_ENDED, at_item, hand));
+    p = take(&m3);
+    assert(p.left_clicks == 1);
+    /* the dropped pinch's late events stay off the menus */
+    assert(!host_menu_gaze_event(&g3, &m3, &s, 30, HOST_MENU_GAZE_ACTIVE, at_item, hand));
+    assert(!host_menu_gaze_event(&g3, &m3, &s, 30, HOST_MENU_GAZE_ENDED, at_item, hand));
+    p = take(&m3);
+    assert(!p.left_clicks && !p.moved);
+
+    /* a pinch held in play stays the game's when the menus come up and the other hand pinches off them too */
+    struct host_menu_pointer m4 = menus(0);
+    struct host_menu_gaze g4;
+    memset(&g4, 0, sizeof(g4));
+    assert(!host_menu_gaze_event(&g4, &m4, &s, 40, HOST_MENU_GAZE_ACTIVE, at_item, hand));   /* in play */
+    host_menu_pointer_set_menus(&m4, 1);
+    assert(!host_menu_gaze_event(&g4, &m4, &s, 41, HOST_MENU_GAZE_ACTIVE, away, hand));      /* looks away */
+    assert(!host_menu_gaze_event(&g4, &m4, &s, 40, HOST_MENU_GAZE_ACTIVE, at_item, hand));
+    assert(!host_menu_gaze_event(&g4, &m4, &s, 40, HOST_MENU_GAZE_ENDED, at_item, hand));
+    p = take(&m4);
+    assert(!p.left_clicks && !p.moved);
+    /* and once both have ended, a new pinch on the menus is theirs */
+    assert(!host_menu_gaze_event(&g4, &m4, &s, 41, HOST_MENU_GAZE_CANCELLED, away, hand));
+    assert(g4.ignored_count == 0);
+    assert(host_menu_gaze_event(&g4, &m4, &s, 42, HOST_MENU_GAZE_ACTIVE, at_item, hand));
+    /* more held pinches than the room for them forgets the oldest, never the newest */
+    struct host_menu_gaze g5;
+    memset(&g5, 0, sizeof(g5));
+    for (intptr_t id = 100; id < 100 + HOST_MENU_GAZE_IGNORED + 2; id++)
+        host_menu_gaze_ignore(&g5, id);
+    assert(g5.ignored_count == HOST_MENU_GAZE_IGNORED && !host_menu_gaze_ignored(&g5, 100) &&
+        host_menu_gaze_ignored(&g5, 100 + HOST_MENU_GAZE_IGNORED + 1));
+
     /* a finger afterward is a finger again: no picture fractions, the touch reach */
     host_menu_pointer_touch_begin(&m2, 1, 10, 10);
     p = take(&m2);

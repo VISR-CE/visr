@@ -1474,7 +1474,11 @@ static simd_float4x4 device_from_level(simd_float4x4 origin_from_device)
 	return simd_mul(simd_inverse(origin_from_device), origin_from_level);
 }
 
-/* where the menus' quad stands in the space this frame, for a look and pinch (host_menu_gaze.h) */
+/* where the menus' quad stands in the space this frame, for a look and pinch (host_menu_gaze.h). It is noted at
+the drawable's predicted pose, while a pinch's ray is from a moment earlier; the UI's quad turns with the head's
+yaw, so a pinch while turning lands about the yaw rate times that gap off (some 17 points at 30 degrees a second
+over 33 ms, against a 30 point reach). The headset session checks a menu pinch while turning; if it misses, the
+fix is to meet the ray with the quad in the level frame at the event's own device pose */
 static void note_menu_quad(simd_float4x4 origin_from_device, simd_float4x4 level, const struct host_stereo_hud_quad *quad)
 {
 	simd_float4x4 origin_from_frame = quad->frame == HOST_STEREO_HUD_LEVEL ? simd_mul(origin_from_device, level) :

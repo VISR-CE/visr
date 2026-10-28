@@ -20,6 +20,8 @@ final class TheaterHands {
 @available(visionOS 26.0, *)
 enum TheaterPinch {
     static func forward(_ event: SpatialEventCollection.Event) {
+        // the menus' pointer, the presenters and the game share state unlocked on the main thread
+        dispatchPrecondition(condition: .onQueue(.main))
         switch event.kind {
         case .indirectPinch, .directPinch, .pointer: break
         default: return
