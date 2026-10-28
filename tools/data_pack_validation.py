@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import lzma
 import zlib
 import json
 import re
@@ -150,7 +151,40 @@ def decode_shader_asset(content: bytes, descriptor: tuple[str, int, str, int]) -
     return raw
 
 
-def validate_payload(payload: bytes, kind: str, compatibility: str, *, shader_assets: dict[str, bytes] | None = None) -> dict[str, bytes]:
+def recording_index(payload: bytes) -> tuple[str, int, str, int]:
+    """The single archive descriptor of a benchmark-catalog-2 payload, with host_data_pack.m's bounds."""
+    if len(payload) > data_pack.SHADER_INDEX_LIMIT:
+        raise ValueError("Recording index payload exceeds its limit")
+    decoded = decode_json(payload)
+    if set(decoded) != {"files"} or not isinstance(decoded["files"], dict) or set(decoded["files"]) != {data_pack.RECORDING_ARCHIVE_NAME}:
+        raise ValueError("Recording index has invalid fields")
+    value = decoded["files"][data_pack.RECORDING_ARCHIVE_NAME]
+    match = re.fullmatch(r"([0-9a-f]{64}):([1-9][0-9]{0,8}):([0-9a-f]{64}):([1-9][0-9]{0,8})", value) if isinstance(value, str) else None
+    if not match:
+        raise ValueError("Recording archive descriptor is invalid")
+    raw_size, compressed_size = int(match[2]), int(match[4])
+    if raw_size > data_pack.RECORDING_ARCHIVE_MAX_RAW or compressed_size > data_pack.RECORDING_ARCHIVE_MAX_COMPRESSED:
+        raise ValueError("Recording archive descriptor exceeds its limit")
+    return match[1], raw_size, match[3], compressed_size
+
+
+def decode_recording_asset(content: bytes, descriptor: tuple[str, int, str, int]) -> dict[str, bytes]:
+    """Verify the compressed hash, decode within the signed size, verify the raw hash, then parse the archive."""
+    raw_hash, raw_size, compressed_hash, compressed_size = descriptor
+    if len(content) != compressed_size or hashlib.sha256(content).hexdigest() != compressed_hash:
+        raise ValueError("Compressed recording archive hash or size differs from signed index")
+    decoder = lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
+    try:
+        raw = decoder.decompress(content, raw_size + 1)
+    except lzma.LZMAError as error:
+        raise ValueError("Invalid compressed recording archive") from error
+    if not decoder.eof or decoder.unused_data or len(raw) != raw_size or hashlib.sha256(raw).hexdigest() != raw_hash:
+        raise ValueError("Recording archive stream, raw hash, or size differs from signed index")
+    return data_pack.recording_archive_files(raw)
+
+
+def validate_payload(payload: bytes, kind: str, compatibility: str, *, shader_assets: dict[str, bytes] | None = None,
+                     recording_assets: dict[str, bytes] | None = None) -> dict[str, bytes]:
     decoded = decode_json(payload)
     if set(decoded) != {"files"} or not isinstance(decoded["files"], dict):
         raise ValueError("Pack payload has invalid fields")
@@ -165,6 +199,13 @@ def validate_payload(payload: bytes, kind: str, compatibility: str, *, shader_as
             if asset not in shader_assets:
                 raise ValueError("Signed shader map asset is missing: " + asset)
             files[name] = decode_shader_asset(shader_assets[asset], descriptor)
+        encoded = {name: base64.b64encode(content).decode("ascii") for name, content in files.items()}
+    if kind == "recordings" and compatibility.startswith("benchmark-catalog-2:"):
+        descriptor = recording_index(payload)
+        asset = descriptor[2] + ".xz"
+        if recording_assets is None or asset not in recording_assets:
+            raise ValueError("Signed recording archive asset is missing: " + asset)
+        files = decode_recording_asset(recording_assets[asset], descriptor)
         encoded = {name: base64.b64encode(content).decode("ascii") for name, content in files.items()}
     maximum_files, maximum_file, maximum_total = data_pack.snapshot_limits(kind)
     if not 1 <= len(encoded) <= maximum_files:

@@ -92,16 +92,35 @@ At launch the host freezes a canonical, deduplicated union of bundled records an
 
 ## Recording catalogs
 
-Recording snapshots contain `benchmark-catalog.json` and complete `.input`, `.actions`, `.seeds`, and `.route` sets, with optional `.checks`. The catalog supplies case order, map, measurement window, replay references, and multiplayer parameters. Use the exact compatibility identifier in the destination app's report, `data_updates.recordings.compatibility`:
+Recording snapshots contain `benchmark-catalog.json` and complete `.input`, `.actions`, `.seeds`, and `.route` sets, with optional `.checks`. The catalog supplies case order, map, measurement window, replay references, and multiplayer parameters. Use the exact compatibility identifier in the destination app's report, `data_updates.recordings.compatibility`. The app reads `benchmark-catalog-2:GUEST_SHA256` from 0.7.0 on; 0.6.x apps read `benchmark-catalog-1:GUEST_SHA256` feeds, which stay published for them.
 
 ```sh
 python3 tools/data_pack.py --kind recordings --channel tester \
-  --sequence 1 --compatibility benchmark-catalog-1:GUEST_SHA256 \
+  --sequence 1 --compatibility benchmark-catalog-2:GUEST_SHA256 \
   --input /private/path/validated-recordings \
-  --signing-key /private/path/signing-seed --output recordings.json
+  --signing-key /private/path/signing-seed --output recordings-2-GUEST_SHA256.json
 ```
 
 The tester site serves one feed per release, `recordings-GUEST_SHA256.json`, for 0.6.0 and later, plus the plain `recordings.json` that development builds read by default. Feeds for earlier releases are retired (`RETIRED_FEEDS` in `tools/pages_asset_overlay.py` removes a retired feed from the live site, which otherwise keeps every asset the repository lacks). A 0.5.x build whose feed is gone gets a 404, shows "Benchmark recordings are unavailable" and rechecks with backoff only while its menu is showing.
+
+### Compressed catalogs (`benchmark-catalog-2`)
+
+A catalog-1 payload holds every file as Base64 inside a JSON object, and the envelope Base64-encodes that payload again: 60 MB for 35 MB of text. A catalog-2 feed is a small signed index plus one archive served beside it, as for `shader-lists-2`. Its name carries `-2-`, so a 0.6.x build, which requests `recordings-GUEST_SHA256.json` for its own guest, never meets it even when a release shares that guest:
+
+```text
+recordings-2-GUEST_SHA256.json                signed index, under 1 KiB
+recording-blobs/XZ_SHA256.xz                  the archive, named by the hash of its own bytes
+```
+
+The index payload is `{"files":{"recordings":"RAW_SHA256:RAW_BYTES:XZ_SHA256:XZ_BYTES"}}`; hashes are lowercase SHA-256 and sizes positive decimal integers. The raw archive is `visr-recordings-1`, a newline, then each file in ascending name order as `NAME LENGTH`, a newline, the file's bytes and a newline. Names follow the recording grammar plus `benchmark-catalog.json`; files are non-empty and at most 4 MiB, and at most 160 files fit. The `.xz` stream uses LZMA2 with a 16 MiB window and a CRC32 check.
+
+The app downloads the index (at most 64 KiB) and checks its signature and the payload hash. Before the archive is downloaded, the signed sizes are bounded: at most 32 MiB compressed and 128 MiB raw. It then checks the downloaded bytes against `XZ_SHA256` and `XZ_BYTES`, decodes with Apple's `COMPRESSION_LZMA` into a buffer one byte larger than `RAW_BYTES`, requires exactly `RAW_BYTES` output with hash `RAW_SHA256`, and parses the archive strictly: ascending unique names, no trailing bytes. The files then pass the same native catalog validator as catalog-1 snapshots. A cached generation is reloaded by packing its files canonically and comparing the result with `RAW_SHA256`, so a damaged or extra file fails and downloads again.
+
+The archive's name is its content, so a new signed sequence or a catalog re-signed for another guest build with the same files adds an index of under 1 KiB and no archive. `tools/data_pack.py` reuses a published archive in `recording-blobs/` whose decoded bytes match, so a different liblzma never changes an address. The app does not download an archive it already holds under the same raw hash.
+
+The published 0.6.3 catalog (81 files, 27.7 MB) is a 4.9 MB archive where its catalog-1 envelope is 49.3 MB; the untrimmed 35.3 MB set of 0.5.x measured 6.27 MB against 62.8 MB. Apple's decoder takes about 0.4 s on an M2 Max and holds about 40 MB. LZFSE decodes in 30 ms but yields 9.8 MB, so xz is used.
+
+The Pages publisher (`tools/pages_asset_overlay.py`) admits archives only beside a signed catalog-2 index that names them, publishes exactly the archives that selected indexes name, and runs the native validator on each. A catalog-2 feed does not travel through the single-file recording commit overlay.
 
 A running benchmark keeps a copied, hashed recording snapshot. Resume uses those same bytes. A changed catalog, profile, guest hash, or baseline setting starts a fresh session. Format validation does not establish replay fidelity; verify actual movement or combat during the measurement window.
 

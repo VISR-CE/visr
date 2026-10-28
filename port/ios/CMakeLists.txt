@@ -314,7 +314,7 @@ else()
     target_link_libraries(VISR PRIVATE "-weak_framework BackgroundTasks")
 endif()
 target_link_libraries(VISR PRIVATE SDL3::SDL3-static "-framework Foundation" "${HALO_UI_FRAMEWORK}"
-    "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z)
+    "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z compression)
 # display.upscaler = "metalfx" (gpu_metal.m); the simulators have no MetalFX
 if(NOT CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
     target_link_libraries(VISR PRIVATE "-weak_framework MetalFX")
