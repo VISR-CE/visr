@@ -201,7 +201,7 @@ MENU_ATTRIBUTES = {
     # (a <patch>'s, port/assets/menus/README.md)
     "patch": {"list", "screen", "footer"},
     "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
-            "platform"},
+            "platform", "widget", "help", "bitmap"},
     "remove": {"child", "pitch", "platform"},
 }
 
