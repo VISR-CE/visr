@@ -886,7 +886,7 @@ next press */
 #define ZOOM_GAP_POLLS 20
 #define ZOOM_SWAP_POLLS 90
 
-/* "press:BUTTON@POLL BUTTON@POLL ...": each BUTTON (start, a, b, up, down,
+/* "press:BUTTON@POLL BUTTON@POLL ...": each BUTTON (start, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
 else is pressed (a menu walked by script) */
 #define TEST_PRESS_POLLS 4
@@ -937,6 +937,10 @@ static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 			pad->bAnalogButtons[XINPUT_GAMEPAD_A] = 255;
 		else if (!strcmp(button, "b"))
 			pad->bAnalogButtons[XINPUT_GAMEPAD_B] = 255;
+		else if (!strcmp(button, "x"))
+			pad->bAnalogButtons[XINPUT_GAMEPAD_X] = 255;
+		else if (!strcmp(button, "y"))
+			pad->bAnalogButtons[XINPUT_GAMEPAD_Y] = 255;
 	}
 }
 

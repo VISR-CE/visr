@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw the main menu's CUSTOM CAMPAIGN label in the lettering of its other rows (needs rsvg-convert).
+"""Draw Xbox menu fallback art and CUSTOM CAMPAIGN in the existing lettering (needs rsvg-convert).
 
     python3 tools/xbox_menu_art.py
 
@@ -86,6 +86,37 @@ def label_svg(paths, places, total, scale, highlighted):
             f'height="64" viewBox="0 0 256 64">\n  <defs>{defs}\n    {body}\n  </defs>\n  <!-- "{TEXT}" -->\n{groups}</svg>\n')
 
 
+def browser_art(output):
+    """Fallback redraws for map button art and a row outline with inset caps."""
+    letters = {
+        'a': 'M7 18 L11 8 L15 18 M8.5 15 H13.5',
+        'b': 'M8 8 V18 H12 Q17 18 15 14 Q14 12 11 13 H8 M8 8 H12 Q17 8 15 11 Q14 13 11 13',
+        'x': 'M7 8 L15 18 M15 8 L7 18',
+        'y': 'M7 8 L11 13 L15 8 M11 13 V18',
+    }
+    colors = {'a': '#24852f', 'b': '#ba222d', 'x': '#247dc0', 'y': '#d4a124'}
+    for button, path in letters.items():
+        svg = output / f'{button}_butn.svg'
+        svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="21" height="26" viewBox="0 0 21 26">'
+                       '<defs><linearGradient id="shine" x2="0.8" y2="1">'
+                       '<stop stop-color="#ffffff" stop-opacity=".65"/><stop offset="1" stop-opacity=".3"/>'
+                       '</linearGradient></defs>'
+                       f'<ellipse cx="10.5" cy="13" rx="8.5" ry="11" fill="{colors[button]}" stroke="#ddd"/>'
+                       '<ellipse cx="10.5" cy="13" rx="7.5" ry="10" fill="url(#shine)"/>'
+                       f'<path d="{path}" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" '
+                       'stroke-linejoin="round"/></svg>\n')
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(output / f'{button}_butn.png'),
+                        str(svg)], check=True)
+    for index in (0, 1):
+        svg = output / f'browser_row__{index}.svg'
+        shape = ('<rect x="2" y="1" width="540" height="22" rx="10" fill="#001125" '
+                 'fill-opacity=".8" stroke="#2896ff" stroke-width="2"/>') if index else ''
+        svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="544" height="24" '
+                       f'viewBox="0 0 544 24">{shape}</svg>\n')
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(output / f'browser_row__{index}.png'),
+                        str(svg)], check=True)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     paths = glyph_paths(menus / 'svg/shell/main_menu')
@@ -93,6 +124,7 @@ def generate(menus=MENUS):
     places, total, scale = layout(widths)
     output = menus / 'xbox/art'
     output.mkdir(parents=True, exist_ok=True)
+    browser_art(output)
     for frame in (0, 1):
         svg = output / f'menu_custom_campaign__{frame}.svg'
         svg.write_text(label_svg(paths, places, total, scale, frame == 1))

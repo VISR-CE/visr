@@ -199,7 +199,7 @@ def test_browser_uses_xbox_nine_row_list_and_description_panel():
     for c in rows:
         row = widgets[c.get('widget').rsplit('/', 1)[-1]]
         for frame in bitmaps[row.get('bitmap')].findall('frame'):
-            assert int(frame.get('width')) * 224 // 256 >= int(row.get('width'))
+            assert int(frame.get('width')) >= int(row.get('width'))
             assert frame.get('height') == row.get('height')
     assert {'a_butn', 'b_butn', 'y_butn', 'x_butn'} <= widgets.keys()
     assert not any(c.get('widget').endswith('/join_game_button_bar')
@@ -346,3 +346,37 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
                 art = widgets[arrows[leaf].get('widget')]
                 assert art.get('bitmap') == 'xbox/bitmaps/' + frame
                 assert not art.findall('on')
+
+
+def test_browser_stats_keep_runtime_string_aliases():
+    root = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
+    name = 'main_menu/multiplayer_type_select/join_game/join_game_ticker_labels'
+    labels = root.find(f'strings[@name="{name}"]')
+    assert labels is not None
+    assert [s.get('text') for s in labels][6:9] == ['SERVERS:', 'PLAYERS:', 'PAGE']
+
+
+def test_browser_buttons_draw_map_art_with_shipped_fallbacks():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
+    widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
+    bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
+    for button in ('a', 'b', 'x', 'y'):
+        icon = widgets[button + '_butn']
+        assert icon.get('text') is None
+        frame = bitmaps[icon.get('bitmap')].find('frame')
+        assert frame.get('map') == 'ui\\shell\\bitmaps\\' + button + '_butn'
+        assert (MENUS / frame.get('png')).is_file()
+
+
+def test_browser_highlight_has_one_shape_for_every_row():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
+    rows = [w for w in root.iter('widget')
+            if w.get('name').rsplit('/', 1)[-1].removeprefix('server_item_').isdigit()]
+    assert len({r.get('bitmap') for r in rows}) == 1
+    bitmap = root.find(f"bitmap[@name='{rows[0].get('bitmap')}']")
+    frame = bitmap.findall('frame')[1]
+    shape = ET.parse((MENUS / frame.get('png')).with_suffix('.svg')).getroot()[0]
+    left, width = float(shape.get('x')), float(shape.get('width'))
+    stroke = float(shape.get('stroke-width')) / 2
+    assert left - stroke > 0
+    assert left + width + stroke < int(rows[0].get('width'))

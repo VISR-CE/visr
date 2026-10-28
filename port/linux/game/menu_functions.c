@@ -3975,6 +3975,32 @@ static short lobby_browser_rows(struct widget_instance *list)
 	return (short)PIN(rows, 1, BROWSER_ROWS);
 }
 
+/* The Region column: a state the player must see before picking the row
+(another network version, a failed join, closed, larger than this device
+runs smoothly: the join warning's mark), else where the game is: the LAN, or
+the operator's region; "-" only when nothing says */
+static void browser_listing_region(struct p2p_listing const *game, wchar_t *text, int size)
+{
+	if (!game->joinable && !game->failed && !halo_network_kind_reason(game->kind))
+		usnprintf(text, size - 1, L"V%d", game->network_version);
+	else if (game->failed)
+		usnprintf(text, size - 1, L"FAILED");
+	else if (!game->open)
+		usnprintf(text, size - 1, L"CLOSED");
+	else if (player_capacity_marked(game->player_count, game->maximum_player_count))
+		usnprintf(text, size - 1, L"BIG");
+	else if (p2p_listing_server_kind(game) == P2P_SERVER_LAN)
+		usnprintf(text, size - 1, L"LAN");
+	else
+		text_to_wide(game->region[0] ? game->region : "-", text, size);
+}
+
+static void browser_name_set(struct widget_instance *cell, wchar_t *text)
+{
+	ui_widget_port_text_ellipsize(cell, text, ROW_TEXT_LENGTH);
+	text_set(cell, text);
+}
+
 /* "gamespy screen update" for the server browser: the rows (scrolled on
 at their ends), the line below them, the counts over the titles */
 static void lobby_browser_update(struct widget_instance *list)
@@ -4030,30 +4056,15 @@ static void lobby_browser_update(struct widget_instance *list)
 			continue;
 		game = &lobby_browser.games[index];
 		text_to_wide(game->name, text, ROW_TEXT_LENGTH);
-		text_set(named(row, "server_item_server_name", 0), text);
+		browser_name_set(named(row, "server_item_server_name", 0), text);
 		map_display_name(game->map, text);
-		text_set(named(row, "server_item_map", 0), text);
+		browser_name_set(named(row, "server_item_map", 0), text);
 		game_kind_type_text(game->kind, game->engine_type, text, ROW_TEXT_LENGTH);
-		text_set(named(row, "server_item_type", 0), text);
+		browser_name_set(named(row, "server_item_type", 0), text);
 		usnprintf(text, ROW_TEXT_LENGTH - 1, L"%d/%d", game->player_count, game->maximum_player_count);
 		text_set(named(row, "server_item_players", 0), text);
-		/* (no ping yet: its host is reached only on joining. A game of another network version, from Delta's
-		list, shows it) */
-		if (!game->joinable && !game->failed && !halo_network_kind_reason(game->kind))
-		{
-			usnprintf(text, ROW_TEXT_LENGTH - 1, L"V%d", game->network_version);
-			text_set(named(row, "server_item_ping", 0), text);
-		}
-		else if (game->from_master && !game->failed && game->open)
-		{
-			text_to_wide(game->region[0] ? game->region : "-", text, ROW_TEXT_LENGTH);
-			text_set(named(row, "server_item_ping", 0), text);
-		}
-		else
-		{
-			text_set(named(row, "server_item_ping", 0), game->failed ? L"FAILED" : !game->open ? L"CLOSED" :
-				game->in_progress ? L"LIVE" : player_capacity_marked(game->player_count, game->maximum_player_count) ? L"BIG" : L"-");
-		}
+		browser_listing_region(game, text, ROW_TEXT_LENGTH);
+		text_set(named(row, "server_item_ping", 0), text);
 		/* (the lock: a game with a password. Its bitmap's first frame is
 		empty, the PC version's for no lock; the next is the lock, in the
 		menus' blue) */
@@ -4274,6 +4285,7 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 	}
 	if (strstr(widget->name, "button_refresh"))
 	{
+		platform_log("menus: server browser refresh requested");
 		p2p_lobby_refresh();
 		lobby_browser.begin_time = system_milliseconds();
 		ui_play_audio_feedback_sound(SOUND_FORWARD);
@@ -4432,23 +4444,14 @@ static void browser_update(struct widget_instance *list)
 		game = multiplayer.games[index];
 		ustrncpy(text, game->game_name, NUMBEROF(game->game_name) - 1);
 		text[NUMBEROF(game->game_name) - 1] = 0;
-		text_set(named(row, "server_item_server_name", 0), text);
+		browser_name_set(named(row, "server_item_server_name", 0), text);
 		game_map_name(game, text);
-		text_set(named(row, "server_item_map", 0), text);
+		browser_name_set(named(row, "server_item_map", 0), text);
 		advertised_game_type_text(game, text, ROW_TEXT_LENGTH);
-		text_set(named(row, "server_item_type", 0), text);
+		browser_name_set(named(row, "server_item_type", 0), text);
 		usnprintf(text, ROW_TEXT_LENGTH - 1, L"%d/%d", game->player_count, game->maximum_player_count);
 		text_set(named(row, "server_item_players", 0), text);
-		if (!network_game_client_advertised_game_compatible(global_network_game_client_get(), game, FALSE) &&
-			!halo_network_kind_reason(advertised_kind(game)))
-		{
-			usnprintf(text, ROW_TEXT_LENGTH - 1, L"V%u",
-				network_game_client_advertised_game_version(global_network_game_client_get(), game));
-			text_set(named(row, "server_item_ping", 0), text);
-		}
-		else
-			text_set(named(row, "server_item_ping", 0), advertised_in_progress(game) ? L"LIVE" :
-				player_capacity_marked(game->player_count, game->maximum_player_count) ? L"BIG" : L"");
+		text_set(named(row, "server_item_ping", 0), multiplayer.mode == _multiplayer_mode_lan ? L"LAN" : L"-");
 		visible_set(named(row, "server_item_locked", 0), FALSE);
 		server_kind_icon_set(row, multiplayer.mode == _multiplayer_mode_lan ?
 			(advertised_dedicated(game) ? P2P_SERVER_DEDICATED : P2P_SERVER_LAN) :
