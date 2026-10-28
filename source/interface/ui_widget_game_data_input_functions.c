@@ -668,6 +668,10 @@ short ui_widget_port_list_index(
 	struct widget_instance *list_widget);
 boolean pc_menu_tag(
 	long tag_index);
+boolean pc_menu_patch_list_index(
+	long list_tag,
+	long row_tag,
+	short *description);
 
 /* ---------- globals */
 
@@ -2256,6 +2260,14 @@ static void player_profile_edit_select_menu_update_extended_description(
 	leave the last item's description shown, as they have none */
 	if (pc_menu_tag(list_widget->definition_tag_index) && list_widget->focused_child->type == _ui_widget_type_column_list)
 		index = NONE;
+	/* port: a list the menus' patch table changed (port/linux/game/menu_tags.c)
+	shows a row's description by the number the patch gave it */
+	{
+		short patched_index;
+
+		if (pc_menu_patch_list_index(list_widget->definition_tag_index, NONE, &patched_index))
+			index = ui_widget_port_list_index(list_widget);
+	}
 
 	if (index != NONE)
 	{
