@@ -6289,7 +6289,10 @@ boolean ui_widget_port_delete_request(
 
 	event_handler_functions.profile_index = NONE;
 	if (profile_index == NONE || (profile_index & 0x40000000))
+	{
+		ui_play_audio_feedback_sound(4);
 		return FALSE;
+	}
 	event_handler_functions.profile_index = profile_index;
 	return TRUE;
 }

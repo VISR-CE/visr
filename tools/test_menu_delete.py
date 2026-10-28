@@ -63,3 +63,36 @@ int main(void)
     subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-fsanitize=address,undefined',
                     str(source), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_builtin_delete_request_plays_error_sound(tmp_path):
+    events = (ROOT / 'source/interface/ui_widget_event_handler_functions.c').read_text()
+    request = block(events, 'boolean ui_widget_port_delete_request(\n')
+    program = r'''
+#include <assert.h>
+typedef int boolean;
+#define TRUE 1
+#define FALSE 0
+#define NONE (-1)
+static struct { long profile_index; } event_handler_functions;
+static long edit_index;
+static int sound;
+static long player_ui_get_edit_profile_index(void) { return edit_index; }
+static void ui_play_audio_feedback_sound(int value) { sound = value; }
+/* REQUEST */
+int main(void)
+{
+    edit_index = 0x40000000;
+    assert(!ui_widget_port_delete_request());
+    assert(sound == 4 && event_handler_functions.profile_index == NONE);
+    edit_index = 0x80000000;
+    sound = 0;
+    assert(ui_widget_port_delete_request());
+    assert(!sound && event_handler_functions.profile_index == edit_index);
+}
+'''.replace('/* REQUEST */', request)
+    source, binary = tmp_path / 'request.c', tmp_path / 'request'
+    source.write_text(program)
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-Wno-unused-function',
+                    str(source), '--output=' + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
