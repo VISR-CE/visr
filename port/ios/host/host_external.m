@@ -12,6 +12,7 @@
 #include "host_external_mode.h"
 #include "host_external_session.h"
 #include "host_external_splash.h"
+#include "host_hinge.h"
 #include "renderer_build.h"
 #include "host_audio_route.h"
 #include "host_audio_stall.h"
@@ -368,6 +369,7 @@ void host_external_attach(void *window_pointer,int metal) {
     metal_enabled=metal;
     phone_window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
         SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
+    host_hinge_attach((__bridge void *)phone_window.rootViewController.view);
     phone_layer=host_sdl_metal_layer();
     output_screen=phone_window.windowScene.screen;
     SDL_GetWindowSizeInPixels(window,&output_width,&output_height);
@@ -555,6 +557,7 @@ static void audio_reopen(const char *why) {
 }
 #endif
 void host_external_poll(void) {
+    host_hinge_poll();
     if(atomic_exchange(&audio_changed,0)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
         AVAudioSession *audio=AVAudioSession.sharedInstance;
