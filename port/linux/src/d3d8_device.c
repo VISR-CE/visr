@@ -2957,13 +2957,33 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		struct halo_ui_pointer_geometry g;
 		int width = (int)(host.surface_width * UI_POINTER_SCALE), height = (int)(host.surface_height * UI_POINTER_SCALE);
 
-		ui_point_from_surface(&host, host.x, host.y, &pointer->x, &pointer->y);
-		ui_point_from_surface(&host, host.click_x, host.click_y, &pointer->click_x, &pointer->click_y);
-		if (host.radius > 0.0f && ui_pointer_geometry(&g, width, height, width, height))
+		if (host.picture)
 		{
-			float radius = halo_ui_pointer_length(&g, host.radius * UI_POINTER_SCALE);
+			/* the Vision Pro's menu surface: the picture whole, at the
+			surface's shape, its 480 lines over the surface's height */
+			int screen_width = halo_screen_width();
 
-			pointer->radius = (short)(radius < 1.0f ? 1 : radius > 64.0f ? 64 : radius);
+			halo_ui_pointer_map_picture(host.x / host.surface_width, host.y / host.surface_height, screen_width,
+				&pointer->x, &pointer->y);
+			halo_ui_pointer_map_picture(host.click_x / host.surface_width, host.click_y / host.surface_height,
+				screen_width, &pointer->click_x, &pointer->click_y);
+			if (host.radius > 0.0f)
+			{
+				float radius = host.radius * 480.0f / host.surface_height;
+
+				pointer->radius = (short)(radius < 1.0f ? 1 : radius > 64.0f ? 64 : radius);
+			}
+		}
+		else
+		{
+			ui_point_from_surface(&host, host.x, host.y, &pointer->x, &pointer->y);
+			ui_point_from_surface(&host, host.click_x, host.click_y, &pointer->click_x, &pointer->click_y);
+			if (host.radius > 0.0f && ui_pointer_geometry(&g, width, height, width, height))
+			{
+				float radius = halo_ui_pointer_length(&g, host.radius * UI_POINTER_SCALE);
+
+				pointer->radius = (short)(radius < 1.0f ? 1 : radius > 64.0f ? 64 : radius);
+			}
 		}
 	}
 	pointer->moved = host.moved != 0;

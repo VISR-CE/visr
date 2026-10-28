@@ -57,6 +57,20 @@ static inline void halo_ui_pointer_map(const struct halo_ui_pointer_geometry *g,
 	*y = (short)floorf(screen_y);
 }
 
+/* a fraction of the picture (u from its left, v from its top) in the menus'
+coordinates, for a surface that shows the picture whole at its own shape (the
+Vision Pro's, halo_host_pointer.h's picture): the picture is the screen's width
+by 480 lines, the menus' 640 columns centered in it. -1 outside the picture's
+-0.5 to 1.5 or with no width */
+static inline void halo_ui_pointer_map_picture(float u, float v, int screen_width, short *x, short *y)
+{
+	*x = *y = -1;
+	if (screen_width <= 0 || !(u >= -0.5f && u <= 1.5f && v >= -0.5f && v <= 1.5f))
+		return;
+	*x = (short)floorf(u * (float)screen_width - (float)(screen_width - 640) / 2.0f);
+	*y = (short)floorf(v * 480.0f);
+}
+
 /* a length on the surface (points) in menu units, at the picture's scale */
 static inline float halo_ui_pointer_length(const struct halo_ui_pointer_geometry *g, float surface_length)
 {

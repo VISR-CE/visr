@@ -59,6 +59,15 @@ void host_ios_touch_menu_changed(int menus);
 /* a replay holds the controls: the menus take no pointer (host_touch.m, the Mac host) */
 void host_menu_pointer_block(int blocked);
 void host_ui_pointer_install(void (*feedback)(int), void (*menus_changed)(int));
+/* look and pinch on the Vision Pro's menus (host_sdl.c, host_menu_gaze.h): a presenter notes where it drew the
+menus' surface this frame (frame_to_origin a column-major 4x4 from the surface's frame to the space's; its center
+and half extents in that frame; the eyes' position in the space's frame), and Theater.swift hands over each
+spatial event (phase: 0 active, 1 ended, 2 canceled; ray: origin then direction; hand: the pinch's position; all
+in the space's frame, meters) */
+void host_menu_gaze_note_surface(const float frame_to_origin[16], const float center[3], const float x_axis[3],
+    const float y_axis[3], const float eye[3]);
+void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const float *ray, int has_hand,
+    const float *hand);
 void host_touch_replay_active(int active);
 void host_ios_touch_pause(void);
 /* debug.frame_counter (host_frame_counter.m): a label in the window's corner

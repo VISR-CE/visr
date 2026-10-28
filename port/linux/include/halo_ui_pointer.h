@@ -29,8 +29,8 @@ struct halo_ui_pointer
 /* frees the mouse for the menus while menus_active, and captures it again
 for aiming when not; while menus are active returns nonzero and what the
 pointer did since the last call. On iOS a touch or pointer device on the
-host (halo_host_pointer.h) is the source; 0 where the host has none (Apple TV,
-Vision Pro until its spatial source, a Mac without one). */
+host (halo_host_pointer.h) is the source, a look and pinch on the Vision Pro;
+0 where the host has none (Apple TV). */
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer);
 
 /* the menus act on the pointer: kind 1 the focus moved, 2 something was pressed

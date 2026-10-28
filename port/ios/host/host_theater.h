@@ -89,6 +89,16 @@ simd_float4 host_theater_fade_tint(const float fade[4], uint32_t decode_srgb);
 float host_theater_fade_depth(simd_float4x4 projection);
 #endif
 
+/* look and pinch on the Vision Pro's menus (host_sdl.c, host_menu_gaze.h): a presenter notes where it drew the
+menus' surface this frame (frame_to_origin a column-major 4x4 from the surface's frame to the space's; its center
+and half extents in that frame; the eyes' position in the space's frame), and Theater.swift hands over each
+spatial event (phase: 0 active, 1 ended, 2 canceled; ray: origin then direction; hand: the pinch's position; all
+in the space's frame, meters) */
+void host_menu_gaze_note_surface(const float frame_to_origin[16], const float center[3], const float x_axis[3],
+	const float y_axis[3], const float eye[3]);
+void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const float *ray, int has_hand,
+	const float *hand);
+
 /* The immersive scene lets the system show hands again when aiming stops. */
 void host_theater_set_upper_limbs(int32_t visible);
 /* each event poll (host_sdl.c): whether a controller has Back and Start down
