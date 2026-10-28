@@ -187,6 +187,12 @@ def test_browser_uses_xbox_nine_row_list_and_description_panel():
             x = int(part.get('x', 0))
             assert x == header_x[field.rsplit('_', 1)[-1]]
             assert x + int(widgets[f'server_item_{field}'].get('width')) <= int(row.get('width'))
+    first_row = widgets[rows[0].get('widget').rsplit('/', 1)[-1]]
+    parts = {c.get('widget').rsplit('/', 1)[-1]: c for c in first_row.findall('child')}
+    left_margin = int(parts['server_item_server_name'].get('x'))
+    right_edge = (int(parts['server_item_ping'].get('x')) +
+                  int(widgets['server_item_ping'].get('width')))
+    assert int(first_row.get('width')) - right_edge == left_margin
     panel = widgets['screen_stats_container']
     assert int(panel.get('top')) >= 108 + 9 * 24
     assert int(panel.get('top')) + int(panel.get('height')) <= 414
@@ -366,6 +372,19 @@ def test_browser_buttons_draw_map_art_with_shipped_fallbacks():
         frame = bitmaps[icon.get('bitmap')].find('frame')
         assert frame.get('map') == 'ui\\shell\\bitmaps\\' + button + '_butn'
         assert (MENUS / frame.get('png')).is_file()
+        assert (frame.get('width'), frame.get('height')) == ('32', '32')
+    screen = widgets['join_game_screen']
+    positions = {c.get('widget').rsplit('/', 1)[-1]: int(c.get('x', 0))
+                 for c in screen.findall('child')}
+    items = [('x_butn', 'join_game_button_refresh'), ('y_butn', '=create'),
+             ('b_butn', '=cancel'), ('a_butn', '=accept')]
+    gaps, previous_end = [], None
+    for icon, caption in items:
+        assert positions[caption] - positions[icon] == 21
+        if previous_end is not None:
+            gaps.append(positions[icon] - previous_end)
+        previous_end = positions[caption] + int(widgets[caption].get('width'))
+    assert min(gaps) > 0 and len(set(gaps)) == 1
 
 
 def test_browser_highlight_has_one_shape_for_every_row():
