@@ -192,15 +192,15 @@
 		<frame png="ce/port/pause/pausebox_right__1.png" width="16" height="256" />
 	</bitmap>
 	<bitmap name="xbox/map/ui/shell/bitmaps/colors_sm">
-		<frame map="ui\shell\bitmaps\colors_sm" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" />
+		<frame map="ui\shell\bitmaps\colors_sm" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
 	</bitmap>
 	<bitmap name="xbox/map/ui/shell/bitmaps/mp_map_grafix">
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
 	</bitmap>
 	<bitmap name="xbox/map/ui/shell/bitmaps/sp_levels">
-		<frame map="ui\shell\bitmaps\sp_levels" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
 	</bitmap>
 	<bitmap name="xbox/map/ui/shell/main_menu/difficulty_select/difficulty_options_small">
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" />
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
 	</bitmap>
 </menus>

@@ -224,7 +224,7 @@ def bitmap_document(assets, names):
         if '\\' in name:
             bitmap = ET.SubElement(root, 'bitmap', name='xbox/map/' + name.replace('\\', '/'))
             ET.SubElement(bitmap, 'frame', map=name, index='0',
-                          png='ce/shell/bitmaps/game_type_grafix__5.png')
+                          png='ce/shell/bitmaps/game_type_grafix__5.png', width='256', height='128')
             continue
         bitmap = deepcopy(source[name])
         if not name.startswith('pause/'):
