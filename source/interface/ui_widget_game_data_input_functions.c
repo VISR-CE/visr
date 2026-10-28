@@ -2027,8 +2027,7 @@ static void set_textbox_to_build_number(
 	static wchar_t build_number_string[64];
 
 #ifndef HALO_IOS
-	/* The iOS menu leaves this developer build label blank. Save and map
-	   version checks still use their original build numbers. */
+	/* Save and map version checks still use their original build numbers. */
 	if (!build_number_string[0])
 	{
 		ascii_to_wide(
@@ -2037,8 +2036,12 @@ static void set_textbox_to_build_number(
 			sizeof(build_number_string));
 	}
 #else
-	/* VISR's version, in the place of the developer build label the PC menus show */
-	if (!build_number_string[0])
+	/* port: keep the PC menu's blank label; only the Xbox set shows VISR's version. */
+	extern char const *config_string(char const *name);
+
+	if (!csstrcmp(config_string("display.menus"), "pc"))
+		build_number_string[0] = 0;
+	else if (!build_number_string[0])
 	{
 		extern void pc_menu_version_text(char *text, long size);
 		char version[32];
