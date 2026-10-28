@@ -157,3 +157,7 @@ def test_item_options_rows_set_and_save_their_own_spinners():
         assert set(handlers.values()) <= functions
     # (the rows have to end above the help text the patch's footer names)
     assert patch.get("footer") == "321"
+
+
+def test_every_patch_has_an_explicit_footer():
+    assert all(patch.get("footer") is not None for patch in table())

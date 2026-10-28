@@ -2532,11 +2532,38 @@ static void patch_apply(struct cache_file_tag_instance *instances, struct halo_m
 	for (child = 0; child < work->screen->child_widgets.count; child++)
 	{
 		work->screen_y[child] = children[child].vertical_offset;
-		if (!patch->has_footer && work->footer == PATCH_FOOTER_DEFAULT &&
-			tag_name_ends(children[child].widget_tag.index, "\\a_butn"))
+		if (!patch->has_footer)
 		{
-			work->footer = (short)(((struct ui_widget_definition const *)tag_get(UI_WIDGET_DEFINITION_TAG,
-				children[child].widget_tag.index))->bounds.y0 + children[child].vertical_offset);
+			long tag = children[child].widget_tag.index;
+			struct ui_widget_definition const *definition;
+
+			if (tag == NONE)
+				continue;
+			definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+			if (tag_name_ends(tag, "\\a_butn"))
+			{
+				long top = definition->bounds.y0 + children[child].vertical_offset;
+
+				if (top < work->footer)
+					work->footer = (short)top;
+			}
+			else if (definition->type == _widget_type_container)
+			{
+				struct ui_widget_child_reference const *parts = definition->child_widgets.address;
+
+				/* The Xbox's button_key and button_key_options keep the legend one level down. */
+				for (long part = 0; part < definition->child_widgets.count; part++)
+				{
+					if (parts[part].widget_tag.index != NONE && tag_name_ends(parts[part].widget_tag.index, "\\a_butn"))
+					{
+						struct ui_widget_definition const *button = tag_get(UI_WIDGET_DEFINITION_TAG, parts[part].widget_tag.index);
+						long top = children[child].vertical_offset + parts[part].vertical_offset + button->bounds.y0;
+
+						if (top < work->footer)
+							work->footer = (short)top;
+					}
+				}
+			}
 		}
 	}
 	/* the rows, each with its own number */

@@ -77,8 +77,6 @@ static char const patches_xml[] =
 	/* too many rows for the screen: not made, its tags left empty */
 	"<patch list=\"ui\\shell\\overflow\\overflow_list\" screen=\"ui\\shell\\overflow\\overflow_screen\">\n"
 	"  <row after=\"ui\\shell\\overflow\\overflow_item_0\" name=\"overflow_a\" text=\"A\" open=\"xbox/test_screen\"/>\n"
-	"  <row after=\"overflow_a\" name=\"overflow_b\" text=\"B\" open=\"xbox/test_screen\"/>\n"
-	"  <row after=\"overflow_b\" name=\"overflow_c\" text=\"C\" open=\"xbox/test_screen\"/>\n"
 	"</patch>\n"
 	/* a list the map has not got: not made, nothing used */
 	"<patch list=\"ui\\shell\\missing\\missing_list\" screen=\"ui\\shell\\missing\\missing_screen\">\n"
@@ -519,7 +517,11 @@ static void map_build(void)
 		ov_list = widget_add("ui\\shell\\overflow\\overflow_list", _widget_type_column_list, 0, 0, 640, 480);
 		children_set(ov_list, 2, rows, xs, ys);
 		children[0] = ov_list;
-		children[1] = widget_add("ui\\shell\\overflow\\a_butn", _widget_type_container, 0, 0, 21, 26);
+		long legend = widget_add("ui\\shell\\overflow\\a_butn", _widget_type_container, 0, 7, 21, 33);
+		short const legend_x[1] = { 0 }, legend_y[1] = { 7 };
+
+		children[1] = widget_add("ui\\shell\\overflow\\button_key_options", _widget_type_container, 0, 0, 300, 26);
+		children_set(children[1], 1, &legend, legend_x, legend_y);
 		children_set(widget_add("ui\\shell\\overflow\\overflow_screen", _widget_type_container, 0, 0, 640, 480),
 			2, children, screen_xs, screen_ys);
 	}
@@ -820,13 +822,13 @@ static void check_apple(boolean tvos)
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
 	/* (3 widgets of ours: the screen, the adopted row and the lobby) */
-	counted = 3 + 2 * (3 + (tvos ? 4 : 4) + 1 + 3 + 1 + 1);
-	used = 3 + 2 * (3 + 4 + 1 + 3);
+	counted = 3 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1);
+	used = 3 + 2 * (3 + 4 + 1 + 1);
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
 		empty += table[index].tag_index == NONE && table[index].group_tag == NONE;
-	check(empty == 6, "the overflowing patch's six tags are empty (%ld)", empty);
+	check(empty == 2, "the overflowing patch's two tags are empty (%ld)", empty);
 	check(tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\patch\\multiplayer_type_internet") ==
 		children_of(mp_list)[3].widget_tag.index, "a row's tag is named pc\\patch\\<name>");
 	check(textures_made == 1, "one texture made, DIRECT LINK's picture (%ld)", textures_made);

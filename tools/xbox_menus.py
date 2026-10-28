@@ -622,7 +622,7 @@ GTE = MM + 'settings_select\\multiplayer_setup\\playlist_edit\\'
 
 
 def patch(root, list_path, screen_path):
-    return ET.SubElement(root, 'patch', {'list': list_path, 'screen': screen_path})
+    return ET.SubElement(root, 'patch', {'list': list_path, 'screen': screen_path, 'footer': '414'})
 
 
 def patch_row(parent, tag='row', **attributes):
@@ -637,6 +637,7 @@ def patch_document(names):
     # row stays last. Both labels are pictures, as the main menu's are. QUIT goes in second, in the place after
     # SETTINGS, and where the app cannot quit its row is not read at all.
     main = patch(root, MM + 'main_menu_select_list', MM + 'main_menu')
+    main.set('footer', '480')
     patch_row(main, after=MM + 'main_menu_item_settings', model=MM + 'main_menu_item_settings',
               name='main_menu_item_custom', text='CUSTOM CAMPAIGN', run='port custom campaign begin',
               open='xbox/main_menu/solo_level_select/solo_level_select_screen',
