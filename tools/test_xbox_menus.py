@@ -331,7 +331,8 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
     for path in (MENUS / 'xbox').glob('*.xml'):
         widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
         for w in widgets.values():
-            if 'visible_rows' not in w.attrib:
+            # (the server browser pages its own nine rows, lobby_browser_update, and shows the page number)
+            if 'visible_rows' not in w.attrib or w.get('name').endswith('/join_game_items_list'):
                 continue
             arrows = {c.get('widget').rsplit('/', 1)[-1]: c for c in w.findall('child') if '/scroll_' in c.get('widget')}
             assert set(arrows) == {'scroll_up_arrow', 'scroll_down_arrow'}, w.get('name')
