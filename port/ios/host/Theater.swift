@@ -137,20 +137,27 @@ public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ show
     }
 }
 
-/* Exit VR: a small panel window in the immersive space, near the player's
-   hands (the system's utility panel placement) */
+/* Exit VR: a small button low in front of the player, out of the line of
+   sight. The system places the panel's window centered in front of the
+   player (the utility panel placement), so the window is tall and clear
+   with the button at its bottom edge: the button sits about half a meter
+   below eye level, at chest height, and nothing covers the game */
 @available(visionOS 26.0, *)
 struct VRControls: View {
     var body: some View {
-        Button {
-            host_theater_close()
-        } label: {
-            Label("Exit VR", systemImage: "rectangle.portrait.and.arrow.right")
+        VStack {
+            Spacer(minLength: 0)
+            Button {
+                host_theater_close()
+            } label: {
+                Label("Exit VR", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+            .controlSize(.small)
+            .padding(10)
+            .glassBackgroundEffect(in: .capsule)
+            .accessibilityHint("Returns the game to its window")
         }
-        .controlSize(.large)
-        .padding(16)
-        .glassBackgroundEffect(in: .capsule)
-        .accessibilityHint("Returns the game to its window")
+        .frame(width: 260, height: 1100)
     }
 }
 
