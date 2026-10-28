@@ -14,6 +14,14 @@ BUILD.mkdir(parents=True, exist_ok=True)
 def run(*args):
     subprocess.run([str(a) for a in args], cwd=ROOT, check=True)
 
+# Menu fallbacks are asset-free; map paths are also checked where the maps live.
+xbox_menus = ROOT / 'port/assets/menus/xbox'
+if xbox_menus.is_dir():
+    menu_check = ['python3', 'tools/ui_map_tags.py', '--check-menus', xbox_menus]
+    if os.environ.get('HALO_MAPS'):
+        menu_check.append(Path(os.environ['HALO_MAPS']) / 'ui.map')
+    run(*menu_check)
+
 # Touch button labels must reach their default game actions.
 run('python3', 'tools/test_touch_mapping.py')
 # Held touch sticks must stop feeding movement while the pause menu is open.
