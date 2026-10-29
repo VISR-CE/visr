@@ -88,8 +88,8 @@ static void upscale_phase(NSString *root) {
     status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
     /* (in the bar's place when the work is refused: the line under the message) */
     NSTextField *detail = [NSTextField labelWithString:@""];
-    detail.frame = NSMakeRect(24, 84, 412, 18); detail.alignment = NSTextAlignmentCenter;
-    detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.tertiaryLabelColor;
+    detail.frame = NSMakeRect(24, 96, 412, 18); detail.alignment = NSTextAlignmentCenter;
+    detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.secondaryLabelColor;
     detail.hidden = YES; [content addSubview:detail];
     VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 412, 46)];
     bar.tick = -1; [content addSubview:bar];
