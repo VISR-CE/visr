@@ -98,7 +98,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "tvOS")
     # tools/ios_build.py --render-height N overrides every profile (0 = the profile's).
     set(HALO_RENDER_HEIGHT 0 CACHE STRING "Internal render height (display.render_height); 0 leaves it to the device profile")
     # Brand assets (layered icon, top shelf) made from the iOS AppIcon artwork.
-    set(HALO_PLATFORM_SOURCES Assets-tvOS.xcassets host/host_tv.m host/host_tv_import.m)
+    set(HALO_PLATFORM_SOURCES Assets-tvOS.xcassets host/host_tv.m host/host_tv_import.m host/host_upscale_tick.m)
     set(HALO_INFO_PLIST Info-tvOS.plist)
     set(HALO_DEVICE_FAMILY 3)
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
@@ -111,14 +111,14 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "visionOS")
     # following the window when it's resized (d3d8_device.c's halo_screen_commit)
     set(HALO_RENDER_HEIGHT 0 CACHE STRING "Internal render height (display.render_height)")
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
-    set(HALO_PLATFORM_SOURCES Assets-visionOS.xcassets host/host_tv.m host/host_import.m host/host_orientation.m
+    set(HALO_PLATFORM_SOURCES Assets-visionOS.xcassets host/host_tv.m host/host_import.m host/host_upscale_tick.m host/host_orientation.m
         host/host_theater.m host/Theater.swift host/host_texture_settings.m host/texture_refine.m
         host/host_spatial_input.m host/host_spatial_gamepad.c)
     set(HALO_INFO_PLIST Info-visionOS.plist)
     set(HALO_DEVICE_FAMILY 7)
 else()
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
-    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_orientation.m host/host_touch.m
+    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_upscale_tick.m host/host_orientation.m host/host_touch.m
         host/host_texture_settings.m host/texture_refine.m)
     if(HALO_MAC)
         # Mac Catalyst: Info.plist without the iOS-only keys (LSRequiresIPhoneOS, UIRequiresFullScreen, Files sharing)
