@@ -114,7 +114,7 @@ public func host_theater_open() {
 }
 
 /* Enter VR: the ornament below the game's window, while the immersive space
-   is closed (host_theater.m sets it and clears it) */
+   is closed (host_theater.m sets it and clears it), faint until looked at */
 @_cdecl("host_theater_ornament")
 public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ shown: Int32) {
     guard let controller else { return }
@@ -131,6 +131,12 @@ public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ show
                 .controlSize(.large)
                 .padding(12)
                 .glassBackgroundEffect()
+                // faint until the player looks at it: the system's look-to-reveal
+                // (a hover effect it renders itself; the app never sees where
+                // the player looks), so it stays out of the way during play
+                .hoverEffect { effect, isActive, _ in
+                    effect.opacity(isActive ? 1.0 : 0.12)
+                }
                 .accessibilityHint("Plays the game around you in the headset")
             }
         ]
