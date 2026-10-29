@@ -15,6 +15,14 @@ BUILD.mkdir(parents=True, exist_ok=True)
 def run(*args):
     subprocess.run([str(a) for a in args], cwd=ROOT, check=True)
 
+# Menu fallbacks are asset-free; map paths are also checked where the maps live.
+xbox_menus = ROOT / 'port/assets/menus/xbox'
+if xbox_menus.is_dir():
+    menu_check = ['python3', 'tools/ui_map_tags.py', '--check-menus', xbox_menus]
+    if os.environ.get('HALO_MAPS'):
+        menu_check.append(Path(os.environ['HALO_MAPS']) / 'ui.map')
+    run(*menu_check)
+
 # Touch button labels must reach their default game actions.
 run('python3', 'tools/test_touch_mapping.py')
 # Held touch sticks must stop feeding movement while the pause menu is open.
@@ -924,33 +932,30 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/interface_rank_probe.c', f'--output={BUILD / "interface-rank-probe"}')
 run(BUILD/'interface-rank-probe')
 
-# The menus' platform attribute: "quit" is for the desktop ports and the Mac app (the host sets HALO_APP_CAN_QUIT), not
-# for an iPhone, an iPad, an Apple TV or a Vision Pro (menu_platform.h)
+# Host-specific menu capabilities; the retired quit platform is rejected.
 for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform-apple', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], False),
                            ('menu-platform-mac', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], True), ('menu-platform-android', ['-DHALO_ANDROID=1'], False)):
     run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', *defines, 'port/ios/tests/menu_platform_probe.c', '-o', BUILD / name)
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
         subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
-                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud,
-                            **({'HALO_APP_CAN_QUIT': '1'} if mac else {})})
-# ... and the main menu uses it: Quit's item and the B and Back handlers that open its question are the only elements
-# for platform "quit", every other item stays, and the items run one row apart from the first, so the menu has no
-# gap where Quit was and the list's wrap is its own over the items left (the pause menu's quit to main menu is another
-# screen and not in this file)
+                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud,
+                            'HALO_HOST_KEYBOARD': '1' if mac else '0'})
+# Every platform keeps four evenly spaced rows and inert root cancel handlers.
 main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()
-quit_elements = [element.attrib for element in main_menu.iter() if element.get('platform') == 'quit']
-assert sorted(element.get('event') or element.get('widget') for element in main_menu.iter()
-              if element.get('platform') == 'quit') == ['b', 'back', 'main_menu/main_menu_item_quit_game'], quit_elements
-# (the Quit item's own handlers stay: with the item not a child of the list they are never reached)
-assert all(on.get('platform') == 'quit' for on in main_menu.find("widget[@name='main_menu/main_menu']").iter('on')
-           if 'quit_select' in (on.get('open') or '')), 'a way to the quit question is left on Apple devices'
-shown = [child for child in main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child')
-         if child.get('platform') != 'quit']
+assert not any('quit_select' in element.get('open', '') for element in main_menu.iter())
+assert not any(element.get('platform') == 'quit' for element in main_menu.iter())
+for look in ('ce', 'xbox'):
+    dialog = ElementTree.parse(ROOT / f'port/assets/menus/{look}/main_menu.quit_select.xml')
+    assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
+shown = list(main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child'))
 assert [int(child.get('y')) for child in shown] == [247 + 36 * row for row in range(len(shown))] and len(shown) == 4, \
     'the main menu without Quit: four items, a row apart'
 print('main menu without Quit: ' + ', '.join(child.get('widget').split('/')[-1] for child in shown))
 run('python3', 'tools/test_menu_cancel.py')
+# the Xbox look's patch table: rows added, taken out and replaced in the map's lists, their places, descriptions and
+# tags, and patches that do not fit or resolve left unmade (menu_tags.c, port/ios/tests/menu_patch_probe.c)
+run('python3', 'tools/test_menu_patches.py')
 
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')

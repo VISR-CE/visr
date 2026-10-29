@@ -190,13 +190,19 @@ MENU_ATTRIBUTES = {
     "widget": {"name", "type", "controller", "flags", "bitmap", "text", "strings", "values", "setting", "font",
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
-               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform"},
+               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
     "data": {"input", "platform"},
     "conditional": {"widget", "if_failed", "platform"},
-    "replace": {"search", "function", "platform"},
+    # (a widget's search and replace, or in a <patch> a row's replacement)
+    "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created"},
+    # (a <patch>'s, port/assets/menus/README.md)
+    "patch": {"list", "screen", "footer"},
+    "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
+            "platform", "widget", "help", "bitmap"},
+    "remove": {"child", "pitch", "platform"},
 }
 
 
@@ -209,7 +215,7 @@ def c_strings(path: Path, start: str, end: str) -> list:
 
 # menu_files.c's attributes read as whole numbers (its tables' { name, NULL, &long })
 MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "left", "string_index", "text_x",
-                           "text_y", "top", "width", "x", "y"}
+                           "text_y", "top", "visible_rows", "width", "x", "y"}
 
 
 def test_menus_are_well_formed():
@@ -241,7 +247,8 @@ def test_menus_are_well_formed():
             where = f"{path.name}: <{element.tag} {element.get('name', '')}>"
             assert element.tag in MENU_ATTRIBUTES, where
             assert set(element.attrib) <= MENU_ATTRIBUTES[element.tag], where
-            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "quit", "mac_app"), where
+            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "mac_app",
+                                               "tvos", "keyboard"), where
             # (menu_files.c's whole numbers, which the tags keep in shorts,
             # its true/false attributes, and no text but whitespace outside
             # <string>s)
@@ -254,11 +261,13 @@ def test_menus_are_well_formed():
             if element.tag == "bitmap":
                 bitmaps[element.get("name")] = element
                 for frame in element.iter("frame"):
-                    assert (frame.get("png") is None) != (frame.get("map") is None), where
+                    # a png, a map frame, or both (the png drawn where the map lacks the frame)
+                    assert frame.get("png") is not None or frame.get("map") is not None, where
+                    if frame.get("png") is not None:
+                        assert frame.get("png") in listed, where
                     if frame.get("map"):
                         assert "\\" in frame.get("map") and int(frame.get("index")) >= 0, where
                         continue
-                    assert frame.get("png") in listed, where
                     with (MENUS / frame.get("png")).open("rb") as png:
                         header = png.read(24)
                     width, height = int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
@@ -595,9 +604,7 @@ def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
     subprocess.run(["clang", *defines, str(root / "port/ios/tests/menu_platform_probe.c"),
                     "--output", str(probe)], check=True)
     environment = {key: value for key, value in os.environ.items()
-                   if key not in {"HALO_APP_CAN_QUIT", "HALO_HOST_CLOUD_SAVES"}}
-    if kind == "mac":
-        environment["HALO_APP_CAN_QUIT"] = "1"
+                   if key not in {"HALO_HOST_CLOUD_SAVES"}}
     for capability in (None, "0", "1"):
         current = dict(environment)
         if capability is not None:

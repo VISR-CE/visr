@@ -4,7 +4,6 @@ Removing the root's inert cancel handlers must reproduce the empty UI-map
 screen. The tag loader and game boundaries are replaced, not cancel dispatch,
 history navigation, or handler dispatch. No game data or GPU is required.
 """
-import json
 from pathlib import Path
 import re
 import runpy
@@ -49,10 +48,10 @@ def test_cancel_preserves_the_main_menu_and_keeps_back_navigation(tmp_path):
         for on in menu.findall("on"):
             if on.get("event") not in ("b", "back"):
                 continue
-            # Keep the runtime's platform decision in C, including HALO_APP_CAN_QUIT.
             event = "_widget_event_b_button" if on.get("event") == "b" else "_widget_event_back_button"
-            platform = on.get("platform")
-            condition = f"menu_platform_matches({json.dumps(platform)})" if platform else "1"
+            assert not on.get("open"), "root cancel must never open the quit dialog"
+            assert on.get("platform") is None
+            condition = "1"
             flags = "1 << _event_handler_open_widget_bit" if on.get("open") else "0"
             assert set(on.attrib) <= {"event", "platform", "open"}, on.attrib
             handlers.append(f"if ({condition}) add_handler({event}, {flags});")

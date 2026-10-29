@@ -1489,6 +1489,11 @@ static boolean solo_level_initialize_list_single_player(
 
 static wchar_t new_campaign_profile_name[12] = { 0 };
 byte single_player_level_data[0x50] = { 0 };
+/* (the level list's ten entries are 8 bytes each only with 4-byte pointers: the
+fill loops write them through struct single_player_level_entry, so a build with
+8-byte ones would run past this array into persistant_game_data_info) */
+typedef char verify_single_player_level_data_size[
+	sizeof(single_player_level_data) >= 10 * sizeof(struct single_player_level_entry) ? 1 : -1];
 struct persistent_game_difficulty
 {
 	short value;
@@ -2078,6 +2083,8 @@ static boolean cancel_profile_delete(
 	struct event_record *event,
 	boolean *widget_deleted)
 {
+	extern void platform_log(char const *format, ...);
+	platform_log("menus: delete canceled (profile 0x%08lX)", event_handler_functions.profile_index);
 	event_handler_functions.profile_index = NONE;
 	return TRUE;
 }
@@ -6272,6 +6279,49 @@ boolean ui_widget_port_gametype_edit_begin(
 	}
 	player_ui_begin_editing_profile(profile_index);
 	return player_ui_get_edit_playlist_profile() != NULL;
+}
+
+/* the profile or gametype being edited made the one the delete confirmation deletes (as the Xbox's request
+functions, which read the select screen's list: this is for the Apple TV's DELETE rows on the edit screens); FALSE
+for none, or a built-in one */
+boolean ui_widget_port_delete_request(
+	void)
+{
+	long profile_index = player_ui_get_edit_profile_index();
+
+	event_handler_functions.profile_index = NONE;
+	if (profile_index == NONE || (profile_index & 0x40000000))
+	{
+		ui_play_audio_feedback_sound(4);
+		return FALSE;
+	}
+	event_handler_functions.profile_index = profile_index;
+	return TRUE;
+}
+
+/* port: keep deletion and completion in one handler so a failed final delete cannot leave the editor. */
+boolean ui_widget_port_delete_finish(
+	struct widget_instance *widget,
+	boolean *widget_deleted)
+{
+	extern void ui_widget_port_go_back_past_editor(struct widget_instance *widget);
+	extern void platform_log(char const *format, ...);
+	long profile_index = event_handler_functions.profile_index;
+	boolean deleted = FALSE;
+	boolean success;
+
+	if (profile_index == NONE)
+		return FALSE;
+	success = (profile_index & 0xF) == 0 ? delete_player_profile_final(widget, NULL, &deleted) :
+		delete_playlist_profile_final(widget, NULL, &deleted);
+	platform_log("menus: delete final (profile 0x%08lX): %s", profile_index, success ? "completed" : "failed");
+	if (!success)
+		return FALSE;
+	event_handler_functions.profile_index = NONE;
+	player_ui_end_editing_profile();
+	ui_widget_port_go_back_past_editor(widget);
+	*widget_deleted = TRUE;
+	return TRUE;
 }
 
 /* a saved gametype deleted (as delete_playlist_profile_final) */

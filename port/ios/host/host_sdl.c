@@ -11,6 +11,7 @@ so the audio callback is handed to a thread that has one.
 */
 
 #include <TargetConditionals.h>
+#include <CoreFoundation/CoreFoundation.h>
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo.h"
@@ -1008,5 +1009,16 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
 {
     if (!size) return;
     strncpy(buffer, host_cloud_saves_status(), size - 1);
+    buffer[size - 1] = 0;
+}
+
+void host_sdl_app_version(char *buffer, unsigned int size)
+{
+    CFTypeRef version = CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), CFSTR("CFBundleShortVersionString"));
+
+    if (!size) return;
+    buffer[0] = 0;
+    if (version && CFGetTypeID(version) == CFStringGetTypeID())
+        CFStringGetCString((CFStringRef)version, buffer, (CFIndex)size, kCFStringEncodingUTF8);
     buffer[size - 1] = 0;
 }

@@ -1581,10 +1581,9 @@ static void platform_show_pending_message(void)
 
 /* ---------- events */
 
-/* quits as closing the window does, when the events are next read (the
-menus' Quit: port/linux/game/menu_functions.c); Android's and the Apple
-devices' menus have none, as the system closes its apps; the Mac app (the
-host sets HALO_APP_CAN_QUIT) has one and ends itself */
+/* The retained debug confirmation requests the same exit as closing the
+window. HALO_APP_CAN_QUIT identifies the Mac host; mobile hosts leave exit
+handling to the system. */
 void platform_request_quit(void)
 {
 #if defined(HALO_ILP32)
