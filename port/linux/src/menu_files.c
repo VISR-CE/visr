@@ -791,9 +791,12 @@ static void read_patch(struct reader *reader, const XML_Char **attributes)
 }
 
 /* a picture: a frame of the description's own bitmap by its number, or
-png: and a PNG's path in the menus folder */
+png: and a PNG's path in the menus folder.
+port: bitmap: names an XML bitmap whose first frame is copied. */
 static int picture_valid(const char *picture)
 {
+	if (!strncmp(picture, "bitmap:", 7))
+		return path_inside_folder(picture + 7);
 	if (!strncmp(picture, "png:", 4))
 		return path_inside_folder(picture + 4);
 	return *picture && strspn(picture, "0123456789") == strlen(picture) && strlen(picture) < 5;
@@ -840,7 +843,7 @@ static void read_patch_row(struct reader *reader, const char *element, const XML
 	else if (row.name && (strlen(row.name) > 31 || strpbrk(row.name, "\\/")))
 		reader_error(reader, "a row's name is at most 31 characters, without slashes: %s", row.name);
 	else if (row.picture && !picture_valid(row.picture))
-		reader_error(reader, "picture is a frame's number or png: and a path in the menus folder: %s", row.picture);
+		reader_error(reader, "picture needs a frame number, png: path, or bitmap: name: %s", row.picture);
 	else if (row.has_pitch && row.pitch <= 0)
 		reader_error(reader, "pitch is above 0");
 	GROW(reader, menus->patch_rows, menus->patch_row_count);

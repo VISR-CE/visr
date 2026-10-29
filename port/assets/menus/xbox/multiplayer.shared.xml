@@ -546,7 +546,7 @@
 	</widget>
 	<widget name="xbox/main_menu/new_select/sel_arrow_left" width="6" height="28" bitmap="xbox/bitmaps/arrow_sm_left">
 	</widget>
-	<widget name="xbox/common_button_back" type="text" width="63" height="20" string_list="xbox/strings/common_button_captions" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/common_button_back" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event" />
 		<on event="start" run="mouse emit back event" />
 		<on event="left_mouse" run="mouse emit back event" />

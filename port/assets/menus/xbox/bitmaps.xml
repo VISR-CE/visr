@@ -214,4 +214,13 @@
 	<bitmap name="xbox/map/ui/shell/main_menu/difficulty_select/difficulty_options_small">
 		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
 	</bitmap>
+	<bitmap name="xbox/pictures/video">
+		<frame map="ui\shell\main_menu\multiplayer_type_select\mp_options" index="1" png="ce/shell/main_menu/multiplayer_type_select/mp_options__1.png" width="460" height="230" />
+	</bitmap>
+	<bitmap name="xbox/pictures/network">
+		<frame map="ui\shell\main_menu\multiplayer_type_select\mp_options" index="2" png="ce/shell/main_menu/multiplayer_type_select/mp_options__1.png" width="460" height="230" />
+	</bitmap>
+	<bitmap name="xbox/pictures/gametype">
+		<frame map="ui\shell\main_menu\multiplayer_type_select\mp_options" index="3" png="ce/shell/main_menu/multiplayer_type_select/mp_options__1.png" width="460" height="230" />
+	</bitmap>
 </menus>

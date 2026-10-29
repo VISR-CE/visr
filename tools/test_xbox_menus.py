@@ -141,7 +141,11 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
         output = ET.parse(path)
         widgets = {w.get('name'): w for w in output.iter('widget')}
         for original in source.iter('widget'):
-            copied = widgets['xbox/' + original.get('name')]
+            name = 'xbox/' + original.get('name')
+            # Quit's original text panel sits inside a new confirmation modal.
+            if name == 'xbox/main_menu/quit_select/quit_screen':
+                name = 'xbox/main_menu/quit_select/quit_panel'
+            copied = widgets[name]
             for tag, key in (('on', 'run'), ('data', 'input')):
                 assert [(e.get('event'), e.get(key)) for e in original.findall(tag)] == [
                     (e.get('event'), e.get(key)) for e in copied.findall(tag)]
@@ -258,7 +262,14 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
-    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 294), (356, 294)]
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 294), (284, 294), (356, 294), (372, 294)]
+    children = bar.findall('child')
+    assert children[0].get('widget') == 'xbox/error/confirm_delete_profile/b_butn'
+    assert children[2].get('widget') == 'xbox/error/confirm_delete_profile/a_butn'
+    modal = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_screen'))
+    assert modal.find('on[@event="a"]').get('run') == 'main menu quit game'
+    assert modal.find('on[@event="b"]').get('back') == 'true'
+
 
 
 def test_selection_rows_end_above_footer():

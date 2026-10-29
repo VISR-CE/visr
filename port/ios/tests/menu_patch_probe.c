@@ -40,7 +40,7 @@ static char const patches_xml[] =
 	"  <row after=\"profile_item_video\" name=\"profile_item_audio\" text=\"AUDIO\" open=\"xbox/test_screen\"\n"
 	"       description=\"Audio.\" picture=\"2\"/>\n"
 	"  <row after=\"profile_item_audio\" name=\"profile_item_network\" text=\"NETWORK\" open=\"xbox/test_screen\"\n"
-	"       description=\"Network.\" picture=\"3\"/>\n"
+	"       description=\"Network.\" picture=\"bitmap:xbox/test_picture\"/>\n"
 	"  <row after=\"profile_item_network\" platform=\"keyboard\" name=\"profile_item_keyboard\" text=\"KEYBOARD\"\n"
 	"       open=\"xbox/test_screen\" description=\"Keyboard.\" picture=\"4\"/>\n"
 	"  <row after=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\save_changes_profile_item\"\n"
@@ -92,7 +92,8 @@ static char const bad_xml[] =
 	"<menus><patch list=\"ui\\shell\\a\" screen=\"ui\\shell\\b\"><row name=\"r\" text=\"R\" open=\"x\"/></patch></menus>\n";
 
 static char const screen_xml[] =
-	"<menus><widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
+	"<menus><bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
+	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
@@ -737,6 +738,23 @@ static void check_apple(boolean tvos)
 				function_lookup("request del player profile"), NONE);
 		}
 		check_descriptions("profile edit", pe_list, tvos ? descriptions_tvos : descriptions_keyboard);
+		{
+			struct ui_widget_definition const *panel = definition_of(definition_of(pe_list)->extended_description_widget.index);
+			struct ui_widget_child_reference const *parts = panel->child_widgets.address;
+			struct bitmap_group const *group = bitmap_group_get(definition_of(parts[1].widget_tag.index)->background_bitmap.index);
+			struct bitmap_data const *frames = group->bitmaps.address;
+
+			check(frames[8].pixels_offset == 3000 && frames[8].width == 302 &&
+				frames[8].cache_block_index == NONE && frames[8].base_address == NULL,
+				"NETWORK borrows the other list's bitmap and resets its texture cache");
+			{
+				short x, y, width, height;
+
+				check(pc_menu_frame_placement(&frames[8], &x, &y, &width, &height) &&
+					width == 460 && height == 230,
+					"NETWORK keeps the borrowed frame's display size");
+			}
+		}
 		check(child_top(pe_screen, 7) == (tvos ? 319 : 352), "the line moved down with the rows (%d)",
 			child_top(pe_screen, 7));
 		check(child_top(pe_screen, 3) == 353, "the profile's name stayed (right of the list, %d)", child_top(pe_screen, 3));
@@ -824,9 +842,9 @@ static void check_apple(boolean tvos)
 		probe_lan = FALSE;
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* (3 widgets of ours: the screen, the adopted row and the lobby) */
-	counted = 3 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1);
-	used = 3 + 2 * (3 + 4 + 1 + 1);
+	/* (3 widgets: the screen, adopted row and lobby; 1 borrowed picture bitmap) */
+	counted = 4 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1);
+	used = 4 + 2 * (3 + 4 + 1 + 1);
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)

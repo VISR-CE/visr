@@ -310,6 +310,12 @@ def bitmap_document(assets, names):
                 frame.set('map', 'ui\\shell\\' + name.replace('/', '\\'))
                 frame.set('index', str(index))
         root.append(bitmap)
+    # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
+    for name, index in (('video', 1), ('network', 2), ('gametype', 3)):
+        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
+        ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
+                      index=str(index), png='ce/shell/main_menu/multiplayer_type_select/mp_options__1.png',
+                      width='460', height='230')
     return root
 
 
@@ -659,21 +665,31 @@ def quit_layout(root, widgets):
     bar = widgets[base + '/quit_button_bar']
     bar.set('width', '640')
     bar.set('height', '480')
-    for c, x in zip(bar.findall('child'), (268, 356)):
-        c.set('x', str(x))
-        c.set('y', '294')
-        action = widgets[c.get('widget')]
-        action.set('width', '95' if x == 356 else '63')
-        action.set('height', '22' if x == 356 else '20')
+    bar.attrib.pop('type', None)
+    bar.attrib.pop('flags', None)
+    # Share the delete confirmation's icon and cancel widgets; keep Quit's action.
+    bar[:] = []
+    for button, x in (('b', 268), ('a', 356)):
+        shared = 'xbox/error/confirm_delete_profile/'
+        child(bar, shared + button + '_butn', x=x, y=294)
+        target = shared + 'b_caption' if button == 'b' else base + '/quit_button_ok'
+        child(bar, target, x=x + 16, y=294)
+    action = widgets[base + '/quit_button_ok']
+    action.attrib.pop('string_list', None)
+    action.attrib.pop('string_index', None)
+    action.attrib.update(text='=OK', width='70', height='22', align='left', text_y='0')
     screen = widgets[base + '/quit_screen']
     # Xbox confirmations replace the previous screen (ui_widget_launch_widget),
     # then dim the scene with a full-screen semi_transparent_grey background.
     screen.set('name', base + '/quit_panel')
-    # The text panel has no handlers for the container to focus. Forward
-    # input through it to the original button bar.
+    # Forward pointer events through the text panel to the confirmation captions.
     modal = widget(root, base + '/quit_screen', width=640, height=480, controller=1,
                    flags='pass_unhandled_to_focused_child pass_unhandled_to_all_children',
                    bitmap='xbox/bitmaps/semi_transparent_grey')
+    for event in ('a', 'start'):
+        ET.SubElement(modal, 'on', event=event, run='main menu quit game')
+    for event in ('b', 'back'):
+        ET.SubElement(modal, 'on', event=event, back='true')
     child(modal, base + '/quit_panel')
     for c in screen.findall('child'):
         if c.get('widget') == base + '/quit_button_bar':
@@ -738,8 +754,9 @@ def patch_document(names):
               'Online play, custom maps\\nand player names.' + current),
              ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
               'The keys and mouse buttons\\nfor each action.' + current))
-    # profile_options: appearance (3), advanced setup (2), console/storage (4), keyboard (0).
-    pictures = {'video': 3, 'audio': 2, 'network': 4, 'keyboard': 0}
+    # Multiplayer's split-screen and system-link diagrams; profile's tuning and keyboard art.
+    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 2,
+                'network': 'bitmap:xbox/pictures/network', 'keyboard': 0}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:
         attributes = {'name': f'profile_item_{key}', 'text': caption,
@@ -755,7 +772,7 @@ def patch_document(names):
         anchor = f'profile_item_{key}'
     patch_row(edit, after=PEP + 'save_changes_profile_item', platform='tvos', pitch=33,
               name='profile_item_delete', text='DELETE PROFILE', run='port delete request',
-              open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=4,
+              open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=3,
               description='Delete this profile and\\neverything saved with it.' + current)
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
@@ -775,7 +792,7 @@ def patch_document(names):
     gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
     patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=33,
               name='gametype_item_delete', text='DELETE GAMETYPE', run='port delete request',
-              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture=5,
+              open='xbox/error/confirm_delete_gametype_modal_fullscreen', picture='bitmap:xbox/pictures/gametype',
               description='Delete this gametype.')
     return root
 

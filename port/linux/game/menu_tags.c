@@ -1866,6 +1866,7 @@ row with a description or picture gets the next number past the
 description's strings and the picture's frames, its text and frame added to
 grown copies of their blocks. picture= is a frame of the picture's own by
 its number, or png: and one of our PNGs, drawn at its first frame's size.
+port: bitmap: names another bitmap whose first frame is copied.
 
 Anything that does not resolve, does not fit or is not the shape the patch
 expects is logged and that patch is not made: its list stays the map's. The
@@ -2253,7 +2254,8 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 					source->name);
 			if (source->picture && !work->panel.group)
 				return patch_fail(work, source->file, source->line, "the list's description has no picture for", source->name);
-			if (source->picture && strncmp(source->picture, "png:", 4) && atol(source->picture) >= work->panel.frames)
+			if (source->picture && strncmp(source->picture, "png:", 4) && strncmp(source->picture, "bitmap:", 7) &&
+				atol(source->picture) >= work->panel.frames)
 				return patch_fail(work, source->file, source->line, "the picture has no such frame:", source->picture);
 			if (work->panel.base + work->added_count > 32767)
 				return patch_fail(work, source->file, source->line, "too many descriptions for", source->name);
@@ -2419,7 +2421,37 @@ static boolean patch_panel_write(struct patch_work *work)
 				}
 				continue;
 			}
-			bitmaps[index] = frames[first + (picture ? atol(picture) : 0)];
+			/* port: reuse a named bitmap's first frame for diagrams from another list. */
+			if (picture && !strncmp(picture, "bitmap:", 7))
+			{
+				long tag = tag_named(BITMAP_GROUP_TAG, picture + 7, work->patch->file, work->patch->line);
+				struct bitmap_group *group;
+
+				if (tag == NONE)
+					return FALSE;
+				group = bitmap_group_get(tag);
+				if (group->bitmaps.count < 1)
+					return FALSE;
+				bitmaps[index] = ((struct bitmap_data *)group->bitmaps.address)[0];
+				{
+					struct bitmap_data const *frame = group->bitmaps.address;
+					short x, y, width, height;
+
+					if (pc_menu_frame_placement(frame, &x, &y, &width, &height))
+					{
+						struct menu_frame_placement *placements = realloc(menu_tags.placements,
+							(menu_tags.placement_count + 1) * sizeof(*placements));
+
+						if (!placements)
+							return FALSE;
+						menu_tags.placements = placements;
+						placements[menu_tags.placement_count++] = (struct menu_frame_placement){
+							&bitmaps[index], x, y, width, height };
+					}
+				}
+			}
+			else
+				bitmaps[index] = frames[first + (picture ? atol(picture) : 0)];
 			bitmaps[index].cache_block_index = NONE;
 			bitmaps[index].base_address = NULL;
 		}
