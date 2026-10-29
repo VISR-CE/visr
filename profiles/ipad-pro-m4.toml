@@ -22,23 +22,23 @@ player_capacity = 32
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "A tester's 0.6.3 report ran 20 gameplay runs on an iPad16,3 (11-inch, 8 GB) at 120 frames a second and 1080 lines across a10, a50, b30, b40, c20, c40 and d40: 98.68% to 100% of frames on time, thermal state 0 throughout. GPU time was 3.7 to 4.1 ms at the median and mostly 5.7 to 6.3 ms at the 95th percentile in an 8.3 ms frame (worst runs 7.9 and 9.2 ms; 99th percentile up to 12.2 ms), CPU 95th percentile 4 to 5 ms. 120 at 1.5x enemies is not yet shown."
-source = "VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, presented gameplay runs, 2026-10-28; Steve, 2026-10-28"
+why = "A tester's 0.6.4 report ran 20 gameplay runs on an iPad16,3 (11-inch, 8 GB) at 120 frames a second and native 1668 lines across a10, a50, b30, b40, c20, c40 and d40, including 1.5x and 2x enemies and d40-maw-fight: 119.8 to 120.0 fps, 99.90% to 100% of frames on time, no stalls, thermal state 0 throughout. GPU time was 4.7 to 6.4 ms at the median (tightest: b40 at 1.5x) and 6.1 to 6.9 ms at the 95th percentile in an 8.3 ms frame; 99th percentile up to 12.9 ms. Earlier 0.6.3 report VBVS7L4Y measured the same tier at 1080 lines."
+source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29; VISR 0.6.3 benchmark report VBVS7L4Y, 2026-10-28"
 
 [evidence."display.render_height"]
-basis = "assumed"
-why = "Native (0) is the ceiling of dynamic resolution, 1668 lines on the 11-inch and 2064 on the 13-inch. Steve chose it on 2026-10-28 from the headroom measured at 1080: the GPU median is under half the 8.3 ms frame, so the scaler has room to render above 1080 when the scene allows. Not measured above 1080 on this device."
-source = "Steve, 2026-10-28; VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, 2026-10-28"
+basis = "measured"
+why = "Native (0) is the ceiling of dynamic resolution, 1668 lines on the 11-inch and 2064 on the 13-inch. On the 11-inch the device held 120 frames a second at the 1668-line ceiling in all 20 runs (see display.frame_rate), including 2x enemies. The 13-inch panel was not measured."
+source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29; Steve, 2026-10-28"
 
 [evidence."display.dynamic_resolution"]
 basis = "measured"
-why = "Dynamic resolution is on as the M1 iPad Pro's profile has it, where presented d40-maw-fight runs at 1080 and 1600 lines and 120 frames a second held 99.97% and 99.96% of frames on time with short drops of up to three levels and recovery within a second. On this device the report's runs sat at the 1080 ceiling the whole time (no level changes). Provisional: a rerun on the device will confirm the range from native down to 1080."
-source = "VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, 2026-10-28; VISR presented benchmark runs, build 20261025.132032, 2026-10-25"
+why = "Dynamic resolution is on as the M1 iPad Pro's profile has it, where presented d40-maw-fight runs at 1080 and 1600 lines and 120 frames a second held 99.97% and 99.96% of frames on time with short drops of up to three levels and recovery within a second. On this device all 20 runs of the 0.6.4 report stayed at the 1668-line ceiling with no level changes, so the planner never had to lower the resolution; it stays on as a safety net for heavier workloads."
+source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29; VISR presented benchmark runs, build 20261025.132032, 2026-10-25"
 
 [evidence."display.dynamic_resolution_floor"]
 basis = "assumed"
-why = "1080 lines is the ladder's ideal tier and the resolution the device held at 120 frames a second with GPU headroom; Steve chose it as the floor on 2026-10-28. It is above half of either panel's native lines, as the floor requires. A rerun on the device will confirm the range."
-source = "Steve, 2026-10-28; VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, 2026-10-28"
+why = "1080 lines is the ladder's ideal tier and the resolution the device held at 120 frames a second with GPU headroom; Steve chose it as the floor on 2026-10-28. It is above half of either panel's native lines, as the floor requires. Not exercised: the 0.6.4 runs never dropped below native, so the range below 1668 is unmeasured on this device."
+source = "Steve, 2026-10-28; VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29"
 
 [evidence."display.anisotropic_filtering"]
 basis = "measured"
