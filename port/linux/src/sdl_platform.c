@@ -1777,7 +1777,7 @@ void platform_pump_events(void)
 #endif
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
-			if (event.motion.which != SDL_TOUCH_MOUSEID)
+			if (event.motion.which != SDL_TOUCH_MOUSEID && event.motion.which != SDL_PEN_MOUSEID)
 			{
 				if (menu_ignore_warp && event.motion.x == menu_warp_x && event.motion.y == menu_warp_y)
 					menu_ignore_warp = 0;
@@ -1807,7 +1807,8 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
-			if (event.button.down) platform_menu_activity(event.button.which == SDL_TOUCH_MOUSEID, 0, 0, 0);
+			if (event.button.down)
+				platform_menu_activity(event.button.which == SDL_TOUCH_MOUSEID || event.button.which == SDL_PEN_MOUSEID, 0, 0, 0);
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
