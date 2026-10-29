@@ -34,7 +34,7 @@ platform = "iPhone/iPad"
 metrics = ["cpu_p50_ms"]
 budget = true
 windows = ["a10", "b30"]
-port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og"]
 no_data_reason = "CPU time per frame not reported"
 
 [query.filter]

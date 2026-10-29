@@ -35,7 +35,7 @@ platform = "iPhone/iPad"
 metrics = ["fps_avg", "fps_1pct_low"]
 details = ["on_time_pct"]
 windows = ["a10", "b30"]
-port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og"]
 no_data_reason = "no measurement at the display rate"
 
 [query.filter]

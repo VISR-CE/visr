@@ -17,6 +17,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "docs/benchmarks/results.csv"
+EXCLUDED_PORTS = ("opence-web",)  # the web build has no data and will not get any
 SHEET_ID = "1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4"
 
 
@@ -46,6 +47,8 @@ def validate(text: str) -> str:
         if not any(cell.strip() for cell in row):
             continue
         record = {name: row[position[name]] if name in position and position[name] < len(row) else "" for name in COLUMNS}
+        if record["port"] in EXCLUDED_PORTS:
+            continue
         if record["release_kind"] not in RELEASE_KINDS:
             continue  # the snapshot holds released builds only, whatever the sheet carries
         # Sheets writes booleans as TRUE/FALSE; the snapshot keeps the export's lowercase spelling.

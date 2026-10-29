@@ -499,7 +499,7 @@ def test_fetch_reads_columns_by_name_so_a_reordered_sheet_works():
 
 def test_reason_codes_become_plain_sentences_and_unknown_text_passes_through():
     reasons = charts.load_reasons()
-    assert charts.plain_reason("safari-remote-automation-disabled", reasons) == "Safari could not be automated on this Mac."
+    assert charts.plain_reason("console-unavailable", reasons) == "The app has no frame-time readout we could capture."
     assert charts.plain_reason("no co-op measurements yet", reasons) == "The split-screen co-op suite has not been run for this build."
     assert charts.plain_reason("missing multiplayer, co-op", reasons) == "No overall result: missing multiplayer, co-op."
     assert charts.plain_reason("Does not support split screen", reasons) == "Does not support split screen"
@@ -538,11 +538,19 @@ def test_only_released_builds_reach_the_public_rows():
 
 
 def test_fetch_drops_unreleased_rows_even_if_the_sheet_still_has_them():
-    rows = snapshot_rows()
+    rows = [row for row in snapshot_rows() if row["port"] != "opence-web"]
     unreleased = {**rows[0], "label": "VISR dev", "version": "dev", "release_kind": "pre-release main build"}
     text = sheet_export.to_csv(sheet_export.COLUMNS, [*rows, unreleased])
     cleaned = list(csv.DictReader(io.StringIO(sheet_fetch.validate(text))))
     assert "VISR dev" not in {row["label"] for row in cleaned} and len(cleaned) == len(rows)
+
+
+def test_fetch_drops_the_opence_web_port_even_if_the_sheet_still_has_it():
+    rows = [row for row in snapshot_rows() if row["port"] != "opence-web"]
+    web = {**rows[0], "label": "OpenCE web build-314", "port": "opence-web", "release_kind": "hosted web build (release channel)"}
+    text = sheet_export.to_csv(sheet_export.COLUMNS, [*rows, web])
+    cleaned = list(csv.DictReader(io.StringIO(sheet_fetch.validate(text))))
+    assert "opence-web" not in {row["port"] for row in cleaned} and len(cleaned) == len(rows)
 
 
 def test_chart_palette_matches_the_site_tokens_and_the_icon_colors():

@@ -35,7 +35,7 @@ platform = "iPhone/iPad"
 metrics = ["gpu_p50_ms", "gpu_p90_ms"]
 budget = true
 windows = ["a10", "b30"]
-port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og"]
 no_data_reason = "GPU time per frame not reported"
 
 [query.filter]

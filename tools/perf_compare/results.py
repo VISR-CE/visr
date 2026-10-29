@@ -188,7 +188,7 @@ def _conditions(runs, key):
 
 
 # Public names, in page order. Unknown ports follow in identifier order.
-PORTS = {"visr": "VISR", "opence-macos": "OpenCE-macOS", "opence-web": "OpenCE web", "corece": "CoreCE",
+PORTS = {"visr": "VISR", "opence-macos": "OpenCE-macOS", "corece": "CoreCE",
          "chupathingy": "Chupathingy", "halo-og": "Halo OG"}
 SCHEMA = 2
 # Everything that distinguishes one measured set from another. Two records with the same key are the
@@ -360,15 +360,6 @@ def _notes(records):
                       '110 seconds after player readiness once the CPU baseline is included. It samples 60 seconds '
                       'with a stationary player and no input. Start/end screenshots qualify the camera location, '
                       'but AI and combat state can vary between apps and rounds; this is not a deterministic combat replay.', ""])
-    web = [r for r in records if r.get("web_load_seconds") is not None and r.get("runs")]
-    if web:
-        lines.extend([f"OpenCE web runs import the disc image into each fresh Safari automation session, start the level "
-                      f"with the documented `?map=<level>&play`, wait {_cell(web[0]['web_load_seconds'])} seconds for loading, "
-                      "then warm up for 15 seconds and sample requestAnimationFrame callbacks for 60 seconds with no input. "
-                      "The page viewport is 640×480 points, so the game canvas is 1280×960 pixels on the same 60 Hz display "
-                      "as the native rows. The page does not report player readiness, so its sampling window can be offset "
-                      "from the native windows within the opening sequences. Browser callbacks are not the same event as "
-                      "native on-glass intervals.", ""])
     if any(r.get("port") == "corece" and r.get("runs") for r in records):
         lines.extend(["CoreCE rows come from separate matrices run after the VISR and OpenCE-macOS matrices on the same "
                       "hosts and dates, so they do not share round rotation with them. CoreCE reads the same maps from a "

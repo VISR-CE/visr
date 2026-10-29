@@ -33,7 +33,7 @@ config:
 platform = "Vision Pro"
 metrics = ["cpu_p50_ms"]
 budget = true
-port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og"]
 no_data_reason = "CPU time per frame not reported"
 
 [query.build_notes]
