@@ -38,6 +38,10 @@ RECORDING_063 = (
     "docs/site/packs/tester/recordings-"
     "c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json"
 )
+RECORDING_065 = (
+    "docs/site/packs/tester/recordings-"
+    "cd6918f423702083087fddf32473d31340014fb565fd96c90b995dddf43cd350.json"
+)
 RECEIPT = "docs/site/packs/tester/publication.json"
 MARKER = "docs/site/packs/tester/publication-format.txt"
 
@@ -206,7 +210,7 @@ def test_current_release_assets_are_checked_in_and_exact():
     assert len(profiles) == 20
     assert not [path for path in assets if "/device-profiles-2/" in path]
     assert len([path for path in assets if "/device-profiles-3/" in path]) == 55
-    assert len(recordings) == 6
+    assert len(recordings) == 7
     assert set(assets) == set(overlay.parse_receipt((root / RECEIPT).read_bytes()))
     assert hashlib.sha256(assets[RECORDING]).hexdigest() == (
         "8977e0e49588399d1c0f867d98f955b8a815b0c05e7463df2d1e92ae3ba64d89"
@@ -222,6 +226,9 @@ def test_current_release_assets_are_checked_in_and_exact():
     )
     assert hashlib.sha256(assets[RECORDING_063]).hexdigest() == (
         "e12d281950aa9d212e61fc8e934ddf8c32fdedfd0e1913918b3ecf8fc39cfc03"
+    )
+    assert hashlib.sha256(assets[RECORDING_065]).hexdigest() == (
+        "397adab01e507dafb2a307ada226b6bfed14459a66e2dc51628c388224e4bd08"
     )
     envelope = json.loads(assets[SHADER])
     manifest = overlay.validation.packs.decode_json(
