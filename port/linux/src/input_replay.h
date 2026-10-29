@@ -2,7 +2,7 @@
    game's vehicle/seat conversion; a missing action never supplies a pose. */
 #ifndef HALO_INPUT_REPLAY_H
 #define HALO_INPUT_REPLAY_H
-#include "../../runtime/benchmark_stage.h"
+#include "../../runtime/benchmark_staging.h"
 
 struct input_replay_camera_sample
 {
@@ -27,7 +27,7 @@ int input_replay_suite_suspend(void);
 void input_replay_suite_restore(void);
 int input_replay_suite_suspended(void);
 
-const char *input_replay_stage_error(void);
-int input_replay_stage_matches(const char *json, long tick);
+const char *input_replay_staging_error(void);
+int input_replay_staging_matches(const char *json, long tick, long segment);
 
 #endif

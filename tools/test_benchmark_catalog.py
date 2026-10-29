@@ -497,9 +497,9 @@ def test_catalog_rejects_invalid_display_variants(tmp_path, variants):
         benchmark_catalog.load_catalog(tmp_path)
 
 
-STAGE = [{"switch_bsp": 2}, {"teleport_player": "hangar"}, {"ai_place": "covenant"},
+STAGING = [{"switch_bsp": 2}, {"teleport_player": "hangar"}, {"ai_place": "covenant"},
          {"ai_see": ["covenant", "marines"]}, {"ai_see_player": "covenant"}, {"deathless": True}]
-INVALID_STAGES = [None, {}, [], ["ai_place"], [{"unknown": "x"}],
+INVALID_STAGINGS = [None, {}, [], ["ai_place"], [{"unknown": "x"}],
                   [{"ai_place": "x", "deathless": True}], [{"ai_place": "Bad"}],
                   [{"ai_place": "a" * 32}], [{"teleport_player": "x\n"}],
                   [{"switch_bsp": -1}], [{"switch_bsp": 32}], [{"switch_bsp": True}],
@@ -508,52 +508,54 @@ INVALID_STAGES = [None, {}, [], ["ai_place"], [{"unknown": "x"}],
                   [{"ai_see_player": "a;b"}], [{"deathless": True}] * 17]
 
 
-def staged_catalog(folder, stage=STAGE, route_stage=STAGE, tick="31", case_id="b30-warthog-fight"):
+def staged_catalog(folder, staging=STAGING, route_staging=STAGING, tick="31", segment="0", case_id="b30-warthog-fight"):
     extra = ""
-    if route_stage is not None:
-        extra += "stage = " + json.dumps(route_stage, sort_keys=True, separators=(",", ":")) + "\n"
+    if route_staging is not None:
+        extra += "staging = " + json.dumps(route_staging, sort_keys=True, separators=(",", ":")) + "\n"
     if tick is not None:
-        extra += f"stage_tick = {tick}\n"
+        extra += f"staging_tick = {tick}\n"
+    if segment is not None:
+        extra += f"staging_segment = {segment}\n"
     _recording(folder, route_extra=extra)
     cases = _cases()
-    cases[case_id]["stage"] = stage
+    cases[case_id]["staging"] = staging
     _write_catalog(folder, cases)
 
 
-def test_catalog_accepts_staged_gameplay(tmp_path):
+def test_catalog_accepts_stagingd_gameplay(tmp_path):
     staged_catalog(tmp_path)
-    assert next(c for c in benchmark_catalog.load_catalog(tmp_path) if c["kind"] == "gameplay")["stage"] == STAGE
+    assert next(c for c in benchmark_catalog.load_catalog(tmp_path) if c["kind"] == "gameplay")["staging"] == STAGING
 
 
-@pytest.mark.parametrize("stage", INVALID_STAGES)
-def test_catalog_rejects_invalid_stage(tmp_path, stage):
-    staged_catalog(tmp_path, stage=stage, route_stage=stage)
+@pytest.mark.parametrize("staging", INVALID_STAGINGS)
+def test_catalog_rejects_invalid_staging(tmp_path, staging):
+    staged_catalog(tmp_path, staging=staging, route_staging=staging)
     with pytest.raises(benchmark_catalog.CatalogError):
         benchmark_catalog.load_catalog(tmp_path)
 
 
 @pytest.mark.parametrize("tick", [None, "0", "-1", "true", "1.5", "2147483648", "1junk"])
-def test_catalog_requires_positive_stage_tick(tmp_path, tick):
+def test_catalog_requires_positive_staging_tick(tmp_path, tick):
     staged_catalog(tmp_path, tick=tick)
     with pytest.raises(benchmark_catalog.CatalogError):
         benchmark_catalog.load_catalog(tmp_path)
 
 
 @pytest.mark.parametrize("case_id", ["menu", "a10-opening", "mp-chillout-proof"])
-def test_catalog_rejects_stage_on_other_kinds(tmp_path, case_id):
+def test_catalog_rejects_staging_on_other_kinds(tmp_path, case_id):
     staged_catalog(tmp_path, case_id=case_id)
     with pytest.raises(benchmark_catalog.CatalogError):
         benchmark_catalog.load_catalog(tmp_path)
 
 
-@pytest.mark.parametrize("route_stage", [None, [{"deathless": True}]])
-def test_catalog_rejects_stage_different_from_route(tmp_path, route_stage):
-    staged_catalog(tmp_path, route_stage=route_stage)
+@pytest.mark.parametrize("route_staging", [None, [{"deathless": True}]])
+def test_catalog_rejects_staging_different_from_route(tmp_path, route_staging):
+    staged_catalog(tmp_path, route_staging=route_staging)
     with pytest.raises(benchmark_catalog.CatalogError):
         benchmark_catalog.load_catalog(tmp_path)
 
 
-def test_catalog_rejects_unselected_recorded_stage(tmp_path):
+def test_catalog_rejects_unselected_recorded_staging(tmp_path):
     staged_catalog(tmp_path)
     cases = _cases()
     _write_catalog(tmp_path, cases)
@@ -561,8 +563,15 @@ def test_catalog_rejects_unselected_recorded_stage(tmp_path):
         benchmark_catalog.load_catalog(tmp_path)
 
 
-@pytest.mark.parametrize("stage", [[{"switch_bsp": 0}], [{"switch_bsp": 31}],
+@pytest.mark.parametrize("staging", [[{"switch_bsp": 0}], [{"switch_bsp": 31}],
                                   [{"ai_see": ["a" * 31, "b" * 31]}] * 16])
-def test_catalog_accepts_stage_boundaries(tmp_path, stage):
-    staged_catalog(tmp_path, stage=stage, route_stage=stage)
+def test_catalog_accepts_staging_boundaries(tmp_path, staging):
+    staged_catalog(tmp_path, staging=staging, route_staging=staging)
     benchmark_catalog.load_catalog(tmp_path)
+
+
+@pytest.mark.parametrize("segment", [None, "-1", "1.0", "true", "2147483648", "00"])
+def test_catalog_requires_staging_segment(tmp_path, segment):
+    staged_catalog(tmp_path, segment=segment)
+    with pytest.raises(benchmark_catalog.CatalogError):
+        benchmark_catalog.load_catalog(tmp_path)

@@ -1638,11 +1638,11 @@
             "apple"
           ]
         },
-        "benchmark_stage": {
+        "benchmark_staging": {
           "type": "string",
           "default": "",
           "description": "Development hooks only: closed JSON staging steps for debug.input_record, applied once 30 ticks after the first tick following cinematic_done.",
-          "x-environment": "HALO_BENCHMARK_STAGE",
+          "x-environment": "HALO_BENCHMARK_STAGING",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

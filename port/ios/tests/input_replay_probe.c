@@ -42,13 +42,20 @@ void host_touch_replay_active(int active) {
 	touch_replay_active = active;
 }
 
-static const char *stage_config = "";
-static int stage_calls;
-static long stage_called_tick;
-int input_replay_stage_apply(const struct benchmark_stage *stage, char *error, unsigned int size)
+static const char *staging_config = "";
+static int staging_calls;
+static int staging_deathless;
+void input_replay_staging_restore(void) { staging_deathless = 0; }
+static long staging_called_tick;
+int input_replay_staging_apply(const struct benchmark_staging *staging, char *error, unsigned int size)
 {
-	(void)stage; (void)error; (void)size;
-	stage_calls++; stage_called_tick = game_time_get();
+	(void)size;
+	if (staging->steps[0].kind == BENCHMARK_STAGING_AI_PLACE) {
+		snprintf(error, size, "staging: missing %s", staging->steps[0].a);
+		return 0;
+	}
+	staging_deathless = 1;
+	staging_calls++; staging_called_tick = game_time_get();
 	return 1;
 }
 
@@ -70,7 +77,7 @@ int config_boolean(const char *name) {
 	(!strcmp(name, "game.enhanced_animations") && enhanced_animations); }
 long config_integer(const char *name) { (void)name; return 0; }
 const char *config_string(const char *name) {
-	if (!strcmp(name, "debug.benchmark_stage")) return stage_config;
+	if (!strcmp(name, "debug.benchmark_staging")) return staging_config;
 	if (!strcmp(name,"display.stereo")) return replay_probe_stereo_mode;
 	if (!strcmp(name, "debug.input_record")) return record_name;
 	return !strcmp(name, "debug.input_replay") ? replay_name : "";
@@ -85,7 +92,8 @@ static unsigned char clock_ready, menu_loaded;
 static long clock_tick;
 unsigned char game_time_initialized(void) { return clock_ready; }
 long game_time_get(void) { return clock_tick; }
-float game_time_get_tick_fraction(void) { return 0; }
+static float clock_fraction;
+float game_time_get_tick_fraction(void) { return clock_fraction; }
 unsigned char game_time_get_paused(void) { return 0; }
 unsigned char input_replay_main_menu_loaded(void) { return menu_loaded; }
 unsigned char input_replay_skip_cinematic(void) { return 0; }
@@ -633,62 +641,90 @@ static void check_staged_recording(void)
 	FILE *file;
 	char route[4096];
 	size_t count;
-	stage_config = "[{\"deathless\":true}]";
-	recording_stage_configure();
+	staging_config = "[{\"deathless\":true}]";
+	recording_staging_configure();
 #ifdef HALO_DEVELOPMENT_HOOKS
-	assert(replay.stage.count == 1);
+	assert(replay.staging.count == 1);
 #else
-	assert(replay.stage.count == 0);
+	assert(replay.staging.count == 0);
 #endif
-	stage_config = "";
+	staging_config = "";
 	input_replay_begin(NULL, 0); clock_ready = 1; clock_tick = 0; replay.await_level = 0;
-	strcpy(replay.record_path, "stage.input"); strcpy(replay.record_actions_path, "stage.actions");
-	assert(benchmark_stage_parse("[{\"deathless\":true}]", &replay.stage));
-	file = fopen("stage.route", "w"); assert(file);
-	fputs("stage = [{\"deathless\":true}]\nstage_tick = 12\n", file); fclose(file);
+	strcpy(replay.record_path, "staging.input"); strcpy(replay.record_actions_path, "staging.actions");
+	assert(benchmark_staging_parse("[{\"deathless\":true}]", &replay.staging));
+	file = fopen("staging.route", "w"); assert(file);
+	fputs("staging = [{\"deathless\":true}]\nstaging_tick = 12\n", file); fclose(file);
 	record(&pad, 0); input_replay_tick_action(action);
-	clock_tick = 10;
+	clock_tick = 90; clock_fraction = 0.75f; input_replay_tick_action(action); (void)game_ticks();
+	clock_tick = 10; clock_fraction = 0.25f; input_replay_tick_action(action); (void)game_ticks();
 	input_replay_note_event("cinematic_done", "intro");
-	assert(replay.stage_tick == 41);
+	assert(replay.staging_tick == 41);
 	for (clock_tick = 11; clock_tick <= 42; clock_tick++) input_replay_tick_action(action);
-	assert(stage_calls == 1 && stage_called_tick == 41);
+	assert(staging_calls == 1 && staging_called_tick == 41);
 	input_replay_note_event("cinematic_done", "later");
-	assert(replay.stage_tick == 41);
-	record_end("stage probe");
-	file = fopen("stage.route", "r"); assert(file);
+	assert(replay.staging_tick == 41);
+	assert(staging_deathless);
+	record_end("staging probe");
+	assert(!staging_deathless);
+	file = fopen("staging.route", "r"); assert(file);
 	count = fread(route, 1, sizeof(route) - 1, file); route[count] = 0; fclose(file);
-	assert(strstr(route, "stage = [{\"deathless\":true}]\nstage_tick = 41\n"));
+	assert(strstr(route, "staging = [{\"deathless\":true}]\nstaging_tick = 41\nstaging_segment = 1\n"));
 	input_replay_begin(NULL, 0); clock_ready = 0;
-	assert(input_replay_begin("./stage.input", 0));
-	assert(input_replay_stage_matches("[{\"deathless\":true}]", 41));
-	assert(!input_replay_stage_matches("", 0));
+	assert(input_replay_begin("./staging.input", 0));
+	assert(input_replay_staging_matches("[{\"deathless\":true}]", 41, 1));
+	assert(!input_replay_staging_matches("", 0, 0));
 	clock_ready = 1; replay.await_level = 0;
-	for (clock_tick = 0; clock_tick <= 42; clock_tick++) input_replay_tick_action(action);
-	assert(stage_calls == 2 && stage_called_tick == 41);
-	assert(!input_replay_stage_error()[0]);
+	clock_fraction = 0.9f;
+	clock_tick = 0; input_replay_tick_action(action);
+	clock_tick = 90; input_replay_tick_action(action); (void)game_ticks();
+	clock_tick = 10; clock_fraction = 0.8f; input_replay_tick_action(action); (void)game_ticks();
+	for (clock_tick = 11; clock_tick <= 42; clock_tick++) input_replay_tick_action(action);
+	clock_fraction = 0;
+	assert(staging_calls == 2 && staging_called_tick == 41);
+	assert(!input_replay_staging_error()[0]);
+	replay_finish(); assert(!staging_deathless);
 	input_replay_begin(NULL, 0); clock_ready = 0;
-	unlink("stage.input"); unlink("stage.actions"); unlink("stage.seeds"); unlink("stage.route");
+	unlink("staging.input"); unlink("staging.actions"); unlink("staging.seeds"); unlink("staging.route");
 #ifdef HALO_DEVELOPMENT_HOOKS
 	/* Automatic takes write the same pair into their periodically rewritten route. */
 	assert(!mkdir("recordings", 0700));
-	stage_config = "[{\"deathless\":true}]";
+	staging_config = "[{\"deathless\":true}]";
 	clock_ready = 1; clock_tick = 0;
 	take_open("a10", 0, 1, 1, 0);
 	replay.await_level = 0;
 	clock_tick = 10; input_replay_note_event("cinematic_done", "intro");
 	clock_tick = 41; input_replay_tick_action(action);
-	assert(stage_calls == 3 && stage_called_tick == 41);
-	assert(strstr(take.route, "stage = [{\"deathless\":true}]\nstage_tick = 41\n"));
-	take_close("stage probe");
+	assert(staging_calls == 3 && staging_called_tick == 41);
+	assert(strstr(take.route, "staging = [{\"deathless\":true}]\nstaging_tick = 41\nstaging_segment = 0\n"));
+	assert(staging_deathless);
+	take_close("staging probe");
+	assert(!staging_deathless);
 	assert(!rmdir("recordings"));
-	stage_config = ""; clock_ready = 0;
+	staging_config = ""; clock_ready = 0;
 	input_replay_begin(NULL, 0);
 #endif
+	staging_deathless = 1; input_replay_begin(NULL, 0); assert(!staging_deathless);
+	staging_deathless = 1; suite_suspended = TRUE; input_replay_suite_restore(); assert(!staging_deathless);
 	puts("staged recording and replay: PASS");
 }
 
 int main(int argc, char **argv)
 {
+	if (argc == 2 && (!strcmp(argv[1], "--malformed-staging") || !strcmp(argv[1], "--missing-staging-name") ||
+		!strcmp(argv[1], "--missing-auto-staging-name"))) {
+		unsigned int action[ACTION_WORDS] = {0};
+		staging_config = !strcmp(argv[1], "--malformed-staging") ? "broken" : "[{\"ai_place\":\"missing\"}]";
+		clock_ready = 1; clock_tick = 0;
+		if (!strcmp(argv[1], "--missing-auto-staging-name")) {
+			assert(!mkdir("recordings", 0700));
+			take_open("a10", 0, 1, 1, 0);
+		} else {
+			record_name = "failed"; configure();
+		}
+		input_replay_note_event("cinematic_done", "intro");
+		clock_tick = 31; input_replay_tick_action(action);
+		return 99; /* staging failure must terminate the recorder before this */
+	}
 	if (argc == 2 && !strcmp(argv[1], "--auto-record-suite-camera"))
 		return check_auto_record_suite_camera(0);
 	if (argc == 2 && !strcmp(argv[1], "--auto-record-suite-camera-baseline"))

@@ -141,11 +141,12 @@ static BOOL route_matches(NSString *folder, struct benchmark_scene *scene, NSErr
         route.scene.kind != scene->kind || fabs(route.scene.lead - scene->lead) > 1e-6 ||
         fabs(route.scene.seconds - scene->seconds) > 1e-6 ||
         strcmp(route.anchor, scene->anchor ? scene->anchor : "") ||
-        strcmp(route.scene.stage.json, scene->stage.json) ||
+        strcmp(route.scene.staging.json, scene->staging.json) ||
         fabs((route.scene.enemy_multiplier > 1.0 ? route.scene.enemy_multiplier : 1.0) -
              (scene->enemy_multiplier > 1.0 ? scene->enemy_multiplier : 1.0)) > 1e-6)
         return catalog_error(error, [NSString stringWithFormat:@"%@ does not match its signed catalog entry", recording]);
-    scene->stage_tick = route.scene.stage_tick;
+    scene->staging_tick = route.scene.staging_tick;
+    scene->staging_segment = route.scene.staging_segment;
     if (scene->anchor) scene->lead += route.scene.anchor_seconds;
     return YES;
 }
@@ -302,6 +303,7 @@ BOOL host_benchmark_catalog_load(NSString *folder, struct host_benchmark_catalog
     id parsed = data ? [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL] : nil;
     NSData *canonical = [parsed isKindOfClass:NSDictionary.class] ?
         [NSJSONSerialization dataWithJSONObject:parsed options:NSJSONWritingSortedKeys error:NULL] : nil;
+    /* Canonical byte equality also rejects duplicate keys collapsed by NSJSONSerialization. */
     if (!data || !canonical || ![canonical isEqualToData:data])
         return catalog_error(error, @"The signed benchmark catalog is missing, malformed, or noncanonical.");
     NSDictionary *document = parsed;
@@ -344,7 +346,7 @@ BOOL host_benchmark_catalog_load(NSString *folder, struct host_benchmark_catalog
         if ([kind isEqual:@"multiplayer"] && entry[@"arena"]) [expected addObject:@"arena"];
         if (entry[@"enemy_multiplier"]) [expected addObject:@"enemy_multiplier"];
         if (entry[@"anchor"]) [expected addObject:@"anchor"];
-        if (entry[@"stage"]) [expected addObject:@"stage"];
+        if (entry[@"staging"]) [expected addObject:@"staging"];
         if (entry[@"settings"]) [expected addObject:@"settings"];
         if (![[NSSet setWithArray:entry.allKeys] isEqualToSet:expected])
             return catalog_error(error, [NSString stringWithFormat:@"Catalog case %@ has missing or unsupported fields.", identifier]);
@@ -422,12 +424,20 @@ BOOL host_benchmark_catalog_load(NSString *folder, struct host_benchmark_catalog
         scene->recording = recording ? built.recordings[index] : NULL; scene->lead = lead; scene->seconds = window;
         scene->kind = menu ? BENCHMARK_SCENE_MENU : cutscene ? BENCHMARK_SCENE_CUTSCENE :
             multiplayer ? BENCHMARK_SCENE_MULTIPLAYER : BENCHMARK_SCENE_GAMEPLAY;
-        if (entry[@"stage"]) {
-            NSData *stage_data = [NSJSONSerialization isValidJSONObject:entry[@"stage"]] ?
-                [NSJSONSerialization dataWithJSONObject:entry[@"stage"] options:NSJSONWritingSortedKeys error:NULL] : nil;
-            NSString *stage_text = stage_data ? [[NSString alloc] initWithData:stage_data encoding:NSUTF8StringEncoding] : nil;
-            if (!gameplay || !has_recording || !stage_text || !benchmark_stage_parse(stage_text.UTF8String, &scene->stage))
-                return catalog_error(error, [NSString stringWithFormat:@"Catalog case %@ has an unsupported stage.", identifier]);
+        if (entry[@"staging"]) {
+            id steps = entry[@"staging"];
+            if (![steps isKindOfClass:NSArray.class])
+                return catalog_error(error, @"Catalog staging must be an array.");
+            for (id step in steps) {
+                id bsp = [step isKindOfClass:NSDictionary.class] ? step[@"switch_bsp"] : nil;
+                if (bsp && !integer_number(bsp, 0, 31, NULL))
+                    return catalog_error(error, @"Catalog staging switch_bsp must be an integer.");
+            }
+            NSData *staging_data = [NSJSONSerialization isValidJSONObject:entry[@"staging"]] ?
+                [NSJSONSerialization dataWithJSONObject:entry[@"staging"] options:NSJSONWritingSortedKeys error:NULL] : nil;
+            NSString *staging_text = staging_data ? [[NSString alloc] initWithData:staging_data encoding:NSUTF8StringEncoding] : nil;
+            if (!gameplay || !has_recording || !staging_text || !benchmark_staging_parse(staging_text.UTF8String, &scene->staging))
+                return catalog_error(error, [NSString stringWithFormat:@"Catalog case %@ has an unsupported staging.", identifier]);
         }
         scene->heavy = gameplay;
         scene->enemy_multiplier = enemy_multiplier;

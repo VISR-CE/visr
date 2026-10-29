@@ -299,7 +299,7 @@ def main():
     validation = args.render_validation == 'on'
     run(sys.executable,'configure.py','--ios',f'--pgo={args.pgo}',f'--lto={args.lto}','--ios-llvm',args.llvm,'--ios-lld',args.lld,
         *(['--render-validation'] if validation else []),*(['--collision-log'] if args.collision_log else []),
-        *(['--profile'] if args.profile else []))
+        *(['--profile'] if args.profile else []), *guest_development_options(args))
     run('ninja','ios_guest','-j',args.jobs)
     run(sys.executable,'tools/ios_bridges.py',*(['--render-validation'] if validation else []))
     # what a render capture is checked against when it is replayed (port/ios/host/gpu_capture.h)
@@ -555,6 +555,11 @@ def benchmark_upload_aps_environment(
         # the native Mac app signs CloudKit without a push entitlement (port/ios/CMakeLists.txt)
         return "development"
     return profile["Entitlements"]["aps-environment"]
+
+
+def guest_development_options(args):
+    """Keep guest recording switches on the host's development-hooks policy."""
+    return ['--development-hooks'] if development_hooks(args).endswith('=ON') else []
 
 
 def development_hooks(args):
