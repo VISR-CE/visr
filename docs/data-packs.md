@@ -150,6 +150,21 @@ python3 tools/data_pack.py --kind latest --channel tester --sequence SEQUENCE \
 
 `latest_release.py` reads the live record, sets the released platforms and never lowers a version. Use the Unix time as the sequence. Commit the envelope as `docs/site/packs/tester/latest.json` with the updated `publication.json`; release policy does not pin it. The release job prints the first command after publishing.
 
+## Feed hosts
+
+Two static GitHub Pages sites serve the same `packs/` tree, byte for byte:
+
+| Host | Feed base | Read by |
+| --- | --- | --- |
+| Feeds host | `https://feeds.visr.gg/packs/` | builds from 0.7.0 |
+| Project site | `https://code.steverice.org/visr/packs/` | every build before 0.7.0 |
+
+The project site keeps serving every file that an earlier build reads (`latest.json`, recordings, profiles and shaders) directly with status 200. Released apps refuse redirects, so the old URLs never redirect to the feeds host, and an installed app's embedded URL changes only with a new build. Do not remove a file from the project site while a released build can still request it.
+
+`.github/workflows/pages.yml` publishes both from one commit. After it stages and validates the checked-in tree, `tools/feeds_host.py stage` copies the staged `packs/` tree, a `CNAME` file and `.nojekyll` into a fresh single-commit repository that the job force-pushes to the `pages` branch of the repository named by the `FEEDS_REPOSITORY` variable. The job then deploys the project site, and `tools/feeds_host.py verify` downloads every staged file from both hosts and fails unless each is identical to the staged copy. The feeds host keeps no history; the checked-in tree on `main` remains the source of truth, and a rollback is a revert on `main`. Without `FEEDS_REPOSITORY` the job publishes the project site alone.
+
+A release policy whose feed URLs name the feeds host is accepted only if the legacy host serves identical bytes for every feed and companion asset it downloads (`read_feed` in `tools/release_validation.py`). Policies that name the project site stay valid.
+
 ## Publication
 
 Keep the random 32-byte signing seed outside the repository and distribution artifacts. `tools/data_pack.py` signs locally and does not publish. Serve each envelope directly over HTTPS after review. Publish a higher sequence to restore older shader or recording payload bytes; clients reject repeated and decreasing sequences. Device profiles roll back through a new revision instead ("Profile revisions"). Sign separately for each channel. Changing the pinned public key requires an app update.
