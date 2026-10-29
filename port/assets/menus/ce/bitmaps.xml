@@ -292,7 +292,7 @@
 		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0"/>
 		<frame width="512" height="256" map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/pc/v1/main_menu/settings_select/player_setup/player_profile_edit/profile_options__1.png" png="xbox/art/none.png"/>
 		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="1"/>
-		<frame width="512" height="256" map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/pc/v1/main_menu/settings_select/player_setup/player_profile_edit/profile_options__3.png" png="xbox/art/none.png"/>
+		<frame width="512" height="256" png="xbox/art/mouse.png"/>
 		<frame width="512" height="256" png="xbox/art/audio.png"/>
 		<frame width="512" height="256" png="xbox/art/video.png"/>
 		<frame width="512" height="256" png="xbox/art/internet.png"/>

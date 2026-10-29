@@ -703,7 +703,8 @@ def main() -> None:
 `tools/ce_menus.py` resolves the PC description frames before considering a placeholder.
 The profile editor's ABOUT row uses our information emblem (`xbox/art/about.svg`),
 in the palette and line weights of VIDEO, AUDIO, and INTERNET. The Xbox look does
-not have an ABOUT row or a dedicated ABOUT picture.
+not have an ABOUT row or a dedicated ABOUT picture. MOUSE SETUP uses our mouse
+drawing (`xbox/art/mouse.svg`) with the same palette, glow, and line weights.
 
 The other gaps use the player's `ui.map` pictures with a transparent fallback and
 runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game art ships.
@@ -712,7 +713,7 @@ runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game ar
 | --- | --- |
 | `mp_options` | 0 → Xbox 0; 1 → Xbox 1; 2 → INTERNET (invite-link join) |
 | `gametype_options` | 0 → Xbox 0; 3 and 4 → Xbox 3 (equipment/vehicles); 6 → Xbox 2 (players/teams); 7 → Xbox 5 (save) |
-| `profile_options` | 1 and 3 → Xbox 0 (keyboard); 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
+| `profile_options` | 1 → Xbox 0 (keyboard); 3 → MOUSE; 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
 
 All 13 former placeholder PNGs have been removed. The original redraw for the
 PC gametype chooser's frame 1 and the existing Xbox frame mappings remain.

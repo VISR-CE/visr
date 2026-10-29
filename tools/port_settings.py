@@ -609,7 +609,7 @@ PC_PICTURES = {
         0: 0, 3: 3, 4: 3, 6: 2, 7: 5,
     },
     f"{PE}/profile_options": {
-        1: 0, 3: 0, 4: "audio", 5: "video", 6: "internet", 8: "about",
+        1: 0, 3: "mouse", 4: "audio", 5: "video", 6: "internet", 8: "about",
     },
 }
 
@@ -624,7 +624,6 @@ def picture_frame(relative, index):
     if isinstance(source, str):
         frame["png"] = f"xbox/art/{source}.png"
     else:
-        # Mouse and keyboard settings share the native name-entry keyboard.
         frame["map"] = "ui\\shell\\" + name.replace("/", "\\")
         frame["index"] = str(source)
         frame["cache"] = f"cache/pc/v1/{name}__{index}.png"

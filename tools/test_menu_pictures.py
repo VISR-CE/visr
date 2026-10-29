@@ -55,3 +55,9 @@ def test_pc_direct_link_uses_internet_drawing():
     name = 'main_menu/multiplayer_type_select/mp_options'
     frame = port_settings.picture_frame('shell/' + name, 2)
     assert frame == {'width': '512', 'height': '256', 'png': 'xbox/art/internet.png'}
+
+
+def test_pc_mouse_setup_uses_mouse_drawing():
+    name = 'main_menu/settings_select/player_setup/player_profile_edit/profile_options'
+    frame = port_settings.picture_frame('shell/' + name, 3)
+    assert frame == {'width': '512', 'height': '256', 'png': 'xbox/art/mouse.png'}
