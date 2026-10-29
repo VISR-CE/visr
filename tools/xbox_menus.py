@@ -91,6 +91,8 @@ def retain_xbox_files(menus, files):
         root = ET.parse(path).getroot()
         validate(root, menus)
         names.update(frame.get('png') for frame in root.iter('frame'))
+        names.update(row.get('picture')[4:] for row in root.iter('row')
+                     if row.get('picture', '').startswith('png:'))
     return sorted(names)
 
 
@@ -754,7 +756,7 @@ def patch_document(names):
              ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
               'The keys and mouse buttons\\nfor each action.' + current))
     # Multiplayer's split-screen and system-link diagrams; profile's tuning and keyboard art.
-    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 2,
+    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 'png:xbox/art/audio.png',
                 'network': 'bitmap:xbox/pictures/network', 'keyboard': 0}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:

@@ -446,3 +446,17 @@ def test_quit_panel_matches_delete_confirmation_padding():
     title = modal.find("child[@widget='xbox/error/header_are_you_sure']")
     assert (title.get('x'), title.get('y')) == ('201', '180')
     assert panel.find('child') is None, 'absolute legend coordinates must not be nested in the text panel'
+
+
+def test_audio_picture_is_embedded_rgba_art():
+    patches = ET.parse(MENUS / 'xbox/patches.xml')
+    audio = next(row for row in patches.iter('row') if row.get('name') == 'profile_item_audio')
+    picture = audio.get('picture')
+    assert picture == 'png:xbox/art/audio.png'
+    png = (MENUS / picture[4:]).read_bytes()
+    assert png[:8] == b'\x89PNG\r\n\x1a\n'
+    assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (512, 256)
+    assert png[24:26] == bytes((8, 6)), '8-bit RGBA'
+    manifest = json.loads((MENUS / 'menus.json').read_text())['files']
+    assert picture[4:] in manifest
+    assert picture[4:] in generator().retain_xbox_files(MENUS, [])
