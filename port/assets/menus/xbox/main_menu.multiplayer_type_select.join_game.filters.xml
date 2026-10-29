@@ -87,8 +87,8 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_ping" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

@@ -117,12 +117,12 @@
 		<string text="Type the join code your friend's lobby shows,\nor a whole invite link, then JOIN GAME." />
 		<string text="That is not a join code (eight letters and digits)\nor an invite link. Try again." />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

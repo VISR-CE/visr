@@ -14,7 +14,7 @@ MP = "ui\\shell\\main_menu\\multiplayer_type_select\\"
 # the Xbox's own rows of the multiplayer type list, in order, each with the description and picture of its place
 MP_ROWS = ["multiplayer_type_coop_item", "multiplayer_type_split_item", "multiplayer_type_conn_item",
            "multiplayer_type_gametypes_item"]
-PLATFORMS = {"tvos", "keyboard"}
+PLATFORMS = {"tvos", "keyboard", "mac_app"}
 
 
 def table():
@@ -123,7 +123,7 @@ def test_main_menu_adds_only_custom_campaign():
 def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]
-    assert texts == [("VIDEO", None), ("AUDIO", None), ("NETWORK", None), ("KEYBOARD & MOUSE", "keyboard"),
+    assert texts == [("VIDEO", "mac_app"), ("AUDIO", None), ("NETWORK", None), ("KEYBOARD & MOUSE", "keyboard"),
                      ("DELETE PROFILE", "tvos")]
     keyboard = next(row for row in rows(patch) if row.get("platform") == "keyboard")
     assert keyboard.get("open").endswith("controls_settings_screen")
@@ -183,3 +183,22 @@ def test_delete_confirmations_finish_both_edit_flows():
         for event in ('a', 'start'):
             handler = modal.find(f'on[@event="{event}"]')
             assert handler.get('run') == 'port delete finish' and handler.get('close') is None
+
+def test_video_is_mac_app_only_in_profile_and_pause_settings():
+    profile = next(p for p in table() if p.get('screen').endswith('player_profile_edit_screen'))
+    video = profile.find("row[@name='profile_item_video']")
+    assert video.get('platform') == 'mac_app'
+    # A filtered VIDEO must not leave AUDIO referring to a missing anchor.
+    audio = profile.find("row[@name='profile_item_audio']")
+    assert not audio.get('platform')
+    assert audio.get('before').endswith('save_changes_profile_item')
+    assert audio.get('model').endswith('color_profile_item')
+    hub = ET.parse(MENUS / 'settings.xml')
+    options = hub.find("widget[@name='xbox/settings/settings_list']")
+    children = {c.get('widget').rsplit('/', 1)[-1]: c for c in options.findall('child')}
+    assert children['video'].get('platform') == 'mac_app'
+    assert not children['audio'].get('platform') and not children['network'].get('platform')
+    # The runtime packs visible rows at the first two remaining rows' pitch.
+    assert options.get('visible_rows') == '5'
+    assert [int(children[key].get('y')) for key in ('controls', 'video', 'audio', 'network', 'keyboard')] == [
+        78, 111, 111, 144, 177]

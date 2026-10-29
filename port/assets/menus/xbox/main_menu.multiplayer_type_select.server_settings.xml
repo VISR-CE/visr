@@ -304,8 +304,8 @@
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

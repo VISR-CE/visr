@@ -75,8 +75,8 @@
 		<child widget="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/b_butn" x="346" y="414" />
 		<child widget="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/=cancel" x="368" y="414" />
 	</widget>
-	<widget name="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/solo_level_select/solo_level_select_screen/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

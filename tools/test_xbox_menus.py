@@ -319,6 +319,9 @@ def test_scrolling_lists_fit_above_their_help():
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
                 continue
             slots, window, bottom = window_rows(w, widgets)
+            if not w.get('description'):
+                assert len(w.findall('child')) <= window and bottom <= 414, w.get('name')
+                continue
             help_top = int(widgets[w.get('description')].get('top'))
             assert window < len(slots) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
@@ -350,6 +353,9 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
         for w in widgets.values():
             # (the server browser pages its own nine rows, lobby_browser_update, and shows the page number)
             if 'visible_rows' not in w.attrib or w.get('name').endswith('/join_game_items_list'):
+                continue
+            # A short list can use the viewport only to pack platform-filtered rows.
+            if len(w.findall('child')) <= int(w.get('visible_rows')):
                 continue
             arrows = {c.get('widget').rsplit('/', 1)[-1]: c for c in w.findall('child') if '/scroll_' in c.get('widget')}
             assert set(arrows) == {'scroll_up_arrow', 'scroll_down_arrow'}, w.get('name')
@@ -435,7 +441,22 @@ def test_quit_panel_matches_delete_confirmation_padding():
     panel = root.find("widget[@name='xbox/main_menu/quit_select/quit_panel']")
     assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('192', '176', '239', '159')
     assert (panel.get('text_x'), panel.get('text_y')) == ('9', '36')
+    assert panel.get('text') == r'Are you sure you\nwish to exit Halo?'
     modal = root.find("widget[@name='xbox/main_menu/quit_select/quit_screen']")
     title = modal.find("child[@widget='xbox/error/header_are_you_sure']")
     assert (title.get('x'), title.get('y')) == ('201', '180')
     assert panel.find('child') is None, 'absolute legend coordinates must not be nested in the text panel'
+
+
+def test_audio_picture_is_embedded_rgba_art():
+    patches = ET.parse(MENUS / 'xbox/patches.xml')
+    audio = next(row for row in patches.iter('row') if row.get('name') == 'profile_item_audio')
+    picture = audio.get('picture')
+    assert picture == 'png:xbox/art/audio.png'
+    png = (MENUS / picture[4:]).read_bytes()
+    assert png[:8] == b'\x89PNG\r\n\x1a\n'
+    assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (512, 256)
+    assert png[24:26] == bytes((8, 6)), '8-bit RGBA'
+    manifest = json.loads((MENUS / 'menus.json').read_text())['files']
+    assert picture[4:] in manifest
+    assert picture[4:] in generator().retain_xbox_files(MENUS, [])

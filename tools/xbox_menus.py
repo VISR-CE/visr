@@ -91,6 +91,8 @@ def retain_xbox_files(menus, files):
         root = ET.parse(path).getroot()
         validate(root, menus)
         names.update(frame.get('png') for frame in root.iter('frame'))
+        names.update(row.get('picture')[4:] for row in root.iter('row')
+                     if row.get('picture', '').startswith('png:'))
     return sorted(names)
 
 
@@ -100,7 +102,8 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL'):
                                        ('b_butn', '=cancel', cancel, 346)):
         child(screen, f'{base}/{button}', x=x, y=414)
         child(screen, f'{base}/{caption}', x=x + 22, y=414)
-        text_widget(root, f'{base}/{button}', button[0].upper(), width=21, height=26)
+        # the game's own button art (ui.map's a_butn/b_butn, PNG fallbacks), as the Xbox legends draw it
+        widget(root, f'{base}/{button}', type='container', width=21, height=26, bitmap=f'xbox/browser/{button}')
         text_widget(root, f'{base}/{caption}', label, width=100, height=22)
 
 
@@ -268,16 +271,17 @@ def settings_hub(bitmaps):
     widget(root, f'{base}/header', left=35, top=11, width=605, height=59,
            bitmap=bitmap_ref(header, bitmaps))
     options = widget(root, f'{base}/settings_list', type='column_list', width=640, height=480,
-                     flags='pass_unhandled_to_focused_child up_down_tabs_children')
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5)
     for i, (key, caption, folder, screen_name, platform) in enumerate((
         ('controls', 'CONTROLS', 'gamepad_setup', 'gamepad_setup_screen', None),
-        ('video', 'VIDEO', 'video_settings', 'video_settings_screen', None),
+        ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app'),
         ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None),
         ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None),
         ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard'),
     )):
         attrs = {'platform': platform} if platform else {}
-        child(options, f'{base}/{key}', x=51, y=78 + i * 33, **attrs)
+        # VIDEO shares AUDIO's slot so filtering it preserves the 33-unit pitch.
+        child(options, f'{base}/{key}', x=51, y=78 + max(1, i - 1) * 33 if i else 78, **attrs)
         row = text_widget(root, f'{base}/{key}', caption, width=300, height=32,
                           bitmap=bitmap_ref('bitmaps/list_item_bkd', bitmaps), text_x=13, text_y=4)
         for event in ('a', 'start'):
@@ -311,7 +315,7 @@ def bitmap_document(assets, names):
                 frame.set('index', str(index))
         root.append(bitmap)
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
-    for name, index in (('video', 1), ('network', 2), ('gametype', 3)):
+    for name, index in (('video', 0), ('network', 2), ('gametype', 3)):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
                       index=str(index), png='ce/shell/main_menu/multiplayer_type_select/mp_options__1.png',
@@ -614,11 +618,6 @@ def browser_layout(root, widgets, bitmaps):
         if c.get('widget') == rows.get('name'):
             c.set('widget', actions.get('name'))
     legend(root, screen, base + '/legend', cancel='BACK')
-    for button in ('a', 'b'):
-        icon = root.find(f"widget[@name='{base}/legend/{button}_butn']")
-        icon.attrib.pop('text')
-        icon.set('type', 'container')
-        icon.set('bitmap', f'xbox/browser/{button}_butn')
     # ui.map's 32x32 button textures include transparent padding; button_key
     # draws them at native size and advances 21 pixels to each caption.
     # The PNG redraws are needed only in maps without these Xbox bitmaps.
@@ -684,6 +683,10 @@ def quit_layout(root, widgets):
     screen.set('name', base + '/quit_panel')
     screen.attrib.update(left='192', top='176', width='239', height='159',
                          text_x='9', text_y='36', align='left')
+    # The PC prompt's first line runs past this narrower Xbox panel's inner edge.
+    screen.attrib.pop('string_list', None)
+    screen.attrib.pop('string_index', None)
+    screen.set('text', r'Are you sure you\nwish to exit Halo?')
     screen[:] = []
     modal = widget(root, base + '/quit_screen', width=640, height=480, controller=1,
                    flags='pass_unhandled_to_focused_child pass_unhandled_to_all_children',
@@ -740,7 +743,7 @@ def patch_document(names):
     edit = patch(root, PEP + 'profile_edit_select_list', PEP + 'player_profile_edit_screen')
     # (each description ends as the Xbox's do, where the profile's name is shown)
     current = '\\n\\nCurrent Profile:'
-    pages = (('video', 'VIDEO', 'video_settings', 'video_settings_screen', None,
+    pages = (('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
               'Frame rate, resolution and how\\nthe picture is drawn.' + current),
              ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
               'Volume and sound for the\\ngame on this device.' + current),
@@ -749,7 +752,7 @@ def patch_document(names):
              ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
               'The keys and mouse buttons\\nfor each action.' + current))
     # Multiplayer's split-screen and system-link diagrams; profile's tuning and keyboard art.
-    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 2,
+    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 'png:xbox/art/audio.png',
                 'network': 'bitmap:xbox/pictures/network', 'keyboard': 0}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:
@@ -757,7 +760,7 @@ def patch_document(names):
                       'open': f'xbox/settings/{folder}/{screen}', 'description': description, 'picture': pictures[key]}
         if platform:
             attributes['platform'] = platform
-        if anchor:
+        if anchor and key != 'audio':
             attributes['after'] = anchor
         else:
             attributes['before'] = PEP + 'save_changes_profile_item'

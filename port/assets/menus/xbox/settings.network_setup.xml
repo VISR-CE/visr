@@ -214,8 +214,8 @@
 		<on event="start" run="port settings save" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/settings/network_setup/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/settings/network_setup/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/settings/network_setup/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/settings/network_setup/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/settings/network_setup/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/settings/network_setup/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

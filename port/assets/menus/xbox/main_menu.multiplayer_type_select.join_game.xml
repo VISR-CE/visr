@@ -461,9 +461,9 @@
 		<on event="y" run="mp type set mode" open="ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/a_butn" type="container" font="ui\large_ui" color="#FF2896FF" width="21" height="26" bitmap="xbox/browser/a_butn" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="70" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/b_butn" type="container" font="ui\large_ui" color="#FF2896FF" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="52" height="22" />
 	<bitmap name="xbox/browser/a_butn">
 		<frame map="ui\shell\bitmaps\a_butn" index="0" png="xbox/art/a_butn.png" width="32" height="32" />
