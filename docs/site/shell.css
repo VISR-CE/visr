@@ -8,8 +8,6 @@
   --line: #487a9d;
   --accent: #3fd6ff;
   --code-bg: #10232b;
-  --chart-avg: var(--visr-blue);
-  --chart-low: var(--visr-gold);
   --hud-blue: #2999ff;
   --hud-cyan: #3fd6ff;
   --hud-gold: #ffc24d;
@@ -21,10 +19,6 @@
   --hud-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --hud-corner: 22px;
 }
-/* The chart frames and controls in style.css pick their light surfaces without a dark query; set the dark ones here. */
-.bench-tabs { background: #10232bdd; }
-.device .bench-chart, .device-flat .bench-chart { background: #10232b; color: #e8f6fa; }
-.device-glass .glass-shape path { fill: #0a141a; stroke: #6d818c; }
 [hidden] { display: none !important; }
 html { overflow-x: clip; }
 body { position: relative; isolation: isolate; overflow-x: clip; }

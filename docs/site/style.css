@@ -1,19 +1,19 @@
 /* VISR page. Colors follow the app icon: a dark teal grid, cyan rim, gold visor. */
 
 :root {
-  --bg: #f4f7f8;
-  --ink: #0d1b21;
-  --muted: #4a5f67;
-  --line: #d3e0e4;
-  --accent: #006f96;
-  --code-bg: #0e1d23;
-  --code-ink: #d8f3fb;
-  /* VISR blue and gold come from the icon artwork. The chart pair is deepened for light backgrounds so the bars
-     keep 3:1 contrast against white (blue 3.5:1, gold 3.0:1); in dark mode the icon colors are used as they are. */
+  color-scheme: dark;
+  --bg: #081216;
+  --ink: #e8f6fa;
+  --muted: #93adb6;
+  --line: #1d3640;
+  --accent: #3fd6ff;
+  --code-bg: #10232b;
+  --code-ink: #c9f1fc;
+  /* VISR blue and gold come from the icon artwork; the chart bars use them as they are. */
   --visr-blue: #1fa9d4;
   --visr-gold: #ffc24d;
-  --chart-avg: #1593bd;
-  --chart-low: #c8870a;
+  --chart-avg: var(--visr-blue);
+  --chart-low: var(--visr-gold);
   /* Spacing, radius and type scale shared by every page. */
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 40px;
   --radius-sm: 8px; --radius-md: 12px; --radius-pill: 999px;
@@ -21,19 +21,6 @@
   --measure: 70ch; --page-width: 1160px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --chart-avg: var(--visr-blue);
-    --chart-low: var(--visr-gold);
-    --bg: #081216;
-    --ink: #e8f6fa;
-    --muted: #93adb6;
-    --line: #1d3640;
-    --accent: #3fd6ff;
-    --code-bg: #10232b;
-    --code-ink: #c9f1fc;
-  }
-}
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -178,12 +165,9 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
    SVG, slightly inset), so the curves cut into its corners and edges. The content is padded to stay inside them. */
 .device-vision.device-glass { aspect-ratio: 216 / 132; box-shadow: none; border-radius: 0; }
 .device-glass .glass-shape { filter: drop-shadow(0 8px 14px #0004); position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; overflow: visible; }
-.device-glass .glass-shape path { fill: #17252d; stroke: #51616a; stroke-width: 3; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.device-glass .glass-shape path { fill: #0a141a; stroke: #6d818c; stroke-width: 3; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
 .device-glass .glass-shape clipPath path { fill: #000; stroke: none; }
 .device-glass .glass-screen { position: absolute; inset: 0; }
-@media (prefers-color-scheme: dark) {
-  .device-glass .glass-shape path { fill: #0a141a; stroke: #6d818c; }
-}
 
 .device-mac { border-radius: 12px 12px 4px 4px; padding: 9px 9px 14px; margin-bottom: 12px; }
 .device-mac img { border-radius: 5px; }
@@ -277,8 +261,7 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-group > h2 { font-size: 1.5rem; margin-bottom: 8px; }
 /* The control sits at the top of the device frame's screen; the chart below it keeps clear of it. */
 .bench-tabs { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 2; display: inline-flex; border: 1px solid var(--line);
-  border-radius: 999px; padding: 2px; gap: 2px; background: #fffd; }
-@media (prefers-color-scheme: dark) { .bench-tabs { background: #10232bdd; } }
+  border-radius: 999px; padding: 2px; gap: 2px; background: #10232bdd; }
 .bench-tabs button { font: inherit; font-size: 0.75rem; font-weight: 600; min-height: 24px; min-width: 48px; padding: 0 10px; border: 0; border-radius: 999px;
   background: transparent; color: var(--muted); cursor: pointer; }
 .bench-tabs button:hover { color: var(--ink); }
@@ -300,8 +283,7 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .device-glass .bench-chart svg { width: 100%; height: 100%; }
 .device-glass .bench-empty { padding: 4px 10px; text-align: center; font-size: clamp(0.7rem, 2.6vw, 1rem); line-height: 1.3; }
 .bench-chart svg, .bench-chart img { display: block; flex: 0 1 auto; min-width: 0; width: 100%; max-width: 100%; height: auto; }
-.bench-chart:has(img) { background: #fff; }
-@media (prefers-color-scheme: dark) { .device .bench-chart, .device-flat .bench-chart { background: #10232b; color: #e8f6fa; } }
+.device .bench-chart, .device-flat .bench-chart { background: #10232b; color: #e8f6fa; }
 .bench-empty { color: inherit; margin: 0; padding: 24px 12px; font-size: 0.95rem; }
 .bench-legend, .bench-direction, .bench-caption { margin: 12px 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
 .bench-legend { color: var(--ink); font-size: 0.9rem; }
