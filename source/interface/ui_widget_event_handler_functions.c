@@ -5994,6 +5994,10 @@ short ui_widget_port_multiplayer_maps(
 	char **levels = custom_edition_maps_level_list(event_handler_functions.multiplayer_levels, 13, &level_count);
 
 	*names = (char const *const *)levels;
+	/* port: a caller that only wants the names (the lobby, on every redraw)
+	passes no last_used, and the saved game file is not opened for it */
+	if (!last_used)
+		return level_count;
 	*last_used = 0;
 	if (saved_game_file_retrieve_last_used_multiplayer_map(map_name))
 	{
