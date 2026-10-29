@@ -100,6 +100,8 @@ host_gpu_compile_progress
 host_gpu_initialize
 # stereo (halo_stereo.h)
 host_stereo_frame
+host_stereo_render_quality
+host_stereo_ab_change
 # spatial (halo_spatial.h)
 host_spatial_sample
 host_spatial_feedback

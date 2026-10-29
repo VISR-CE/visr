@@ -170,9 +170,13 @@ static void back_dpad(XINPUT_GAMEPAD *pad)
 int halo_knob_apply(const char *name, const char *value);
 void halo_knob_message(const char *text);
 
+float halo_knob_render_quality(void);
+
 static void knob_current(const struct knob *knob, char *text, unsigned long size)
 {
-	if (knob->kind == KNOB_INTEGER)
+	if (knob->kind == KNOB_REAL)
+		snprintf(text, size, "%.2f", halo_knob_render_quality());
+	else if (knob->kind == KNOB_INTEGER)
 		snprintf(text, size, "%ld", config_integer(knob->name));
 	else if (knob->kind == KNOB_BOOLEAN)
 		snprintf(text, size, "%s", config_boolean(knob->name) ? "true" : "false");

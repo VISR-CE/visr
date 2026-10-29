@@ -246,6 +246,10 @@ struct halo_stereo_frame crosses as it is (tools/ios_test.py pins its layout). *
 /* HEAD mode, at the game's frame begin: opens the Compositor's next frame and
 fills the eyes and the head's turn from it; eye_count stays 0 without one */
 void host_stereo_frame(struct halo_stereo_frame *frame);
+/* Negative quality queries the runtime target; nonnegative quality sets it. */
+float host_stereo_render_quality(float quality);
+void host_stereo_ab_change(const char *method, float quality, int shadows);
+
 
 /* Fixed-width spatial samples and feedback cross the host/guest boundary unchanged. */
 void host_spatial_sample(int kind, struct halo_spatial_sample *sample);
