@@ -108,8 +108,28 @@ static void import_watchdog(void)
 	assert(texture_upscale_level_checking(TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS) == TEXTURE_UPSCALE_LEVEL_DONE);
 }
 
+static void refusals(void)
+{
+	/* a refused pump never runs again at once, whatever is pending (0.6.3 looped on a pending scan) */
+	assert(!texture_upscale_pump_runs_again(1, 1, 0, 0, 1));
+	assert(!texture_upscale_pump_runs_again(1, 0, 1, 0, 1));
+	/* a pump that ended for its own reasons runs again for a pending scan or request */
+	assert(texture_upscale_pump_runs_again(0, 1, 0, 0, 1));
+	assert(texture_upscale_pump_runs_again(0, 0, 1, 0, 1));
+	assert(!texture_upscale_pump_runs_again(0, 0, 0, 0, 1));
+	assert(!texture_upscale_pump_runs_again(0, 1, 0, 1, 1));   /* gameplay */
+	assert(!texture_upscale_pump_runs_again(0, 1, 0, 0, 0));   /* too warm */
+	/* what the import screen says when the phase ends refused */
+	assert(!strcmp(texture_upscale_import_end_message("low storage"), TEXTURE_UPSCALE_IMPORT_NO_STORAGE));
+	assert(!strcmp(texture_upscale_import_end_message("critical thermal state"), TEXTURE_UPSCALE_IMPORT_TOO_WARM));
+	assert(!texture_upscale_import_end_message("queue empty"));
+	assert(!texture_upscale_import_end_message("error"));
+	assert(!texture_upscale_import_end_message(NULL));
+}
+
 int main(void)
 {
+	refusals();
 	import_watchdog();
 	level_source();
 	gate();

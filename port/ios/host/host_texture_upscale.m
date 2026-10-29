@@ -70,6 +70,8 @@ static atomic_uint level_walked_serial, level_serial;
 static atomic_bool level_skipped;
 /* the last texture stopped for lack of storage: the pump ends "low storage" and retries later */
 static atomic_bool storage_short;
+/* the storage refusal was logged this launch */
+static atomic_bool storage_refusal_logged;
 /* pumps_ended when the level's wait began: a queue that stopped since without finishing the level (an error, a
    catalog that cannot be read, critical thermal state) ends the wait rather than holding the loading screen */
 static atomic_uint level_pumps;
@@ -133,18 +135,43 @@ static NSString *cache_folder_for(NSString *root) {
 #endif
 }
 static NSString *cache_directory(void) { return cache_folder_for(upscale_root); }
-/* the free space the system would let a purgeable cache use (opportunistic capacity), else the volume's free space */
+/* The storage the upscaler may count on (texture_cache_storage_usable): important-usage capacity, or the volume's free
+   blocks, less a 2 GB headroom. The raw values (opportunistic too, for comparison) are logged once per launch. */
+static atomic_bool storage_logged;
 static uint64_t storage_available(NSString *folder) {
+    int opportunistic_read=0,important_read=0,volume_read=0;uint64_t opportunistic=0,important=0,volume=0;
+    NSString *failure=@"";
 #if !TARGET_OS_TV
-    /* (tvOS does not offer opportunistic capacity: its whole app storage is purgeable; the volume's free space) */
+    /* (tvOS does not offer these capacities: its whole app storage is purgeable; the volume's free space) */
     if(@available(iOS 11.0,macOS 10.13,*)){
-        NSNumber *value=nil;NSError *error=nil;
-        if([[NSURL fileURLWithPath:folder] getResourceValue:&value forKey:NSURLVolumeAvailableCapacityForOpportunisticUsageKey error:&error]&&value)
-            return value.unsignedLongLongValue;
+        NSURL *url=[NSURL fileURLWithPath:folder];NSError *error=nil;
+        NSDictionary *values=[url resourceValuesForKeys:@[NSURLVolumeAvailableCapacityForOpportunisticUsageKey,
+            NSURLVolumeAvailableCapacityForImportantUsageKey] error:&error];
+        NSNumber *o=values[NSURLVolumeAvailableCapacityForOpportunisticUsageKey],*i=values[NSURLVolumeAvailableCapacityForImportantUsageKey];
+        if(o){opportunistic_read=1;opportunistic=o.unsignedLongLongValue;}
+        if(i){important_read=1;important=i.unsignedLongLongValue;}
+        if(error)failure=[NSString stringWithFormat:@"; error %@ %ld",error.domain,(long)error.code];
     }
 #endif
     struct statvfs disk;
-    return statvfs(folder.fileSystemRepresentation,&disk)?0:(uint64_t)disk.f_bavail*disk.f_frsize;
+    if(!statvfs(folder.fileSystemRepresentation,&disk)){volume_read=1;volume=(uint64_t)disk.f_bavail*disk.f_frsize;}
+#ifdef HALO_DEVELOPMENT_HOOKS
+    /* Development only: HALO_TEXTURE_UPSCALE_CAPACITY="opportunistic,important" (MB) replaces the two reads, so a test can
+       show a phone with little free storage, or a failed read ("-" for unread) */
+    const char *fake=getenv("HALO_TEXTURE_UPSCALE_CAPACITY");
+    if(fake){char o[32]="",i[32]="";sscanf(fake,"%31[^,],%31s",o,i);
+        opportunistic_read=strcmp(o,"-")!=0;opportunistic=(uint64_t)strtoull(o,NULL,10)<<20;
+        important_read=strcmp(i,"-")!=0;important=(uint64_t)strtoull(i,NULL,10)<<20;
+        if(!important_read){volume_read=0;}}
+#endif
+    uint64_t usable=texture_cache_storage_usable(opportunistic_read,opportunistic,important_read,important,volume_read,volume);
+    if(!atomic_exchange(&storage_logged,true))
+        host_logf(HOST_LOG_INFO,"Upscale storage: opportunistic %s, important %s, volume %s; counting %llu MB (%s less 2 GB)%s",
+            opportunistic_read?[NSString stringWithFormat:@"%llu MB",(unsigned long long)(opportunistic>>20)].UTF8String:"unread",
+            important_read?[NSString stringWithFormat:@"%llu MB",(unsigned long long)(important>>20)].UTF8String:"unread",
+            volume_read?[NSString stringWithFormat:@"%llu MB",(unsigned long long)(volume>>20)].UTF8String:"unread",
+            (unsigned long long)(usable>>20),important_read?"important":"volume",failure.UTF8String);
+    return usable;
 }
 static const char *treatment_name(enum texture_policy_treatment value) {
     static const char *names[]={"skip","color","first-person","emissive","multipurpose","bump"};
@@ -412,7 +439,7 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     uint64_t available=storage_available(cache_directory());
     if(!texture_cache_background_may_run(available,projected)){
         /* (the queue stops here and is tried again later; not this texture's error) */
-        host_logf(HOST_LOG_WARN,"Upscale: stopped for storage: %llu MB the system offers, %llu MB needed for %016llx plus the reserve",
+        host_logf(HOST_LOG_WARN,"Upscale: stopped for storage: %llu MB to count on, %llu MB needed for %016llx plus the reserve",
             (unsigned long long)(available>>20),(unsigned long long)(projected>>20),(unsigned long long)d->hash);
         atomic_store(&storage_short,true);context->failed=YES;return 0;
     }
@@ -654,7 +681,9 @@ static void pump(void) {
         if(upscale_mode==TEXTURE_UPSCALE_MODE_AUTO&&!player_switch()){why="the player's switch is off";goto done;}
         {uint64_t available=storage_available(cache_directory());
             if(!texture_cache_background_may_run(available,1<<20)){
-                host_logf(HOST_LOG_WARN,"Upscale: not starting: %llu MB of storage the system offers, under the reserve",(unsigned long long)(available>>20));
+                /* (once per launch: the refusal is retried every RETRY_SECONDS) */
+                if(!atomic_exchange(&storage_refusal_logged,true))
+                    host_logf(HOST_LOG_WARN,"Upscale: not starting: %llu MB of storage to count on, under the reserve; trying again later",(unsigned long long)(available>>20));
                 why="low storage";goto done;}}
         if(atomic_exchange(&delete_requested,false))delete_cache();
         atomic_store(&finisher_failed,false);
@@ -701,7 +730,9 @@ static void pump(void) {
         if(!complete)why=atomic_exchange(&storage_short,false)?"low storage":atomic_load(&upscale_playing)?"gameplay":atomic_load(&finisher_failed)?"error":"interrupted";
     done:
         atomic_store(&pump_queued,false);
-        if((atomic_load(&scan_pending)||atomic_load(&pump_requested))&&!atomic_load(&upscale_playing)&&thermal_may_run())schedule_pump();
+        /* (a pump a gate refused ends here: run again at once, it would only be refused again) */
+        BOOL refused=!strcmp(why,"low storage")||!strcmp(why,"the player's switch is off")||!strcmp(why,"critical thermal state")||!strcmp(why,"gameplay");
+        if(texture_upscale_pump_runs_again(refused,atomic_load(&scan_pending),atomic_load(&pump_requested),atomic_load(&upscale_playing),thermal_may_run()))schedule_pump();
         else {release_generator(why);save_log();atomic_store(&last_end,why);atomic_fetch_add(&pumps_ended,1);
             /* an error (one texture, the catalog, the manifest) is tried again later rather than left until the next
                map load or foreground */
@@ -963,20 +994,29 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
                 now()-start,catalog_ready?(stage?stage:"between textures"):(stage?stage:"before the catalog"),shown*100,tick*100,menu.ready,menu.textures,
                 (unsigned long long)menu.ready_units,(unsigned long long)menu.units,p.ready,p.textures,(unsigned long long)p.ready_units,(unsigned long long)p.units);}
         if(progress){
-            struct host_texture_upscale_import_status status={shown,tick,menu_phase};
+            struct host_texture_upscale_import_status status={shown,tick,menu_phase,NULL};
             int keep_going=progress(context,&status);
             if(!keep_going&&!menu_phase){skipped=YES;break;}
         }
         if(idle)break;
         usleep(100000);
     }
+    const char *end=atomic_load(&last_end);
+    /* A gate refused the work (no storage, too warm): say so, offer Start playing, and wait for it; the work is tried
+       again later. iOS's continued processing ends with the phase. */
+    const char *message=skipped?NULL:texture_upscale_import_end_message(end);
+    /* (the work has stopped: iOS's continued processing ends now, not when the player taps) */
+    host_texture_upscale_continued_phase(0);
+    if(message&&progress){
+        host_logf(HOST_LOG_INFO,"Upscale import: ended (%s); the import screen says \"%s\"",end,message);
+        struct host_texture_upscale_import_status status={shown,tick,0,message};
+        while(progress(context,&status))usleep(100000);
+    }
     atomic_store(&import_shown,-1);
     struct texture_cache_progress p=progress_of(nil);
-    const char *end=atomic_load(&last_end);
     BOOL finished=!skipped&&end&&!strcmp(end,"queue empty");
     host_logf(HOST_LOG_INFO,"Upscale import: %s after %.1f s, %zu of %zu textures ready%s%s",skipped?"skipped":finished?"finished":"stopped",
         now()-start,p.ready,p.textures,skipped||finished?"":": ",skipped||finished?"":(end?end:"unknown"));
-    host_texture_upscale_continued_phase(0);
     atomic_fetch_sub(&urgent,1);
     return 1;
 }

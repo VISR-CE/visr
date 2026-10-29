@@ -42,6 +42,31 @@ static inline int texture_upscale_import_offer_skip(int menu_known, unsigned lon
 		seconds_without_progress >= TEXTURE_UPSCALE_IMPORT_STALL_SECONDS;
 }
 
+/* How a pump ends. A pump that a gate refused (no storage, the player's switch off, critical thermal state, gameplay)
+   ends there: it does not run again at once because a scan or a request is pending, since the gate would refuse again.
+   0.6.3 re-ran a pump refused for storage before it took its pending scan, forever: the import phase never saw it end
+   (36,143 refusals in one log) and never offered Start playing. The scan stays pending for the retry. */
+static inline int texture_upscale_pump_runs_again(int refused, int scan_pending, int pump_requested, int playing,
+	int thermal_ok)
+{
+	return !refused && (scan_pending || pump_requested) && !playing && thermal_ok;
+}
+
+/* What the import screen says when the phase ended because a gate refused the work: NULL for any other end. The work
+   is tried again later (a timer, the app's return, the next launch). */
+#define TEXTURE_UPSCALE_IMPORT_NO_STORAGE "Not enough free storage to upscale textures"
+#define TEXTURE_UPSCALE_IMPORT_TOO_WARM "Upscaling textures will continue when the device cools down"
+static inline const char *texture_upscale_import_end_message(const char *why)
+{
+	if (!why)
+		return NULL;
+	if (!strcmp(why, "low storage"))
+		return TEXTURE_UPSCALE_IMPORT_NO_STORAGE;
+	if (!strcmp(why, "critical thermal state"))
+		return TEXTURE_UPSCALE_IMPORT_TOO_WARM;
+	return NULL;
+}
+
 /* debug.texture_upscale_generate */
 enum texture_upscale_mode
 {

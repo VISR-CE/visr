@@ -19,6 +19,9 @@ struct host_texture_upscale_import_status
 {
 	double fraction, tick;
 	int menu_phase;
+	/* the phase ended because the work was refused (texture_upscale_import_end_message): this line in place of the
+	   progress, with Start playing; progress is called until it returns 0. NULL otherwise. */
+	const char *message;
 };
 typedef int (*host_texture_upscale_progress)(void *context, const struct host_texture_upscale_import_status *status);
 /* 1 once, on the first launch where an already-imported game should show the import screen's upscaling bar (see

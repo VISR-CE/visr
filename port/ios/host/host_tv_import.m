@@ -91,7 +91,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     atomic_store(&upscale_tick,upscale->tick<0?-1:(int)(upscale->tick*10000));
     /* (the bar's fraction over the setup and the whole set, in ten-thousandths; rounded down in the label) */
     unsigned shown=(unsigned)(upscale->fraction*10000);
-    status_set(import_extracting,shown,10000,[NSString stringWithFormat:@"Upscaling textures · %u%%",shown/100]);
+    status_set(import_extracting,shown,10000,upscale->message?@(upscale->message):[NSString stringWithFormat:@"Upscaling textures · %u%%",shown/100]);
     return !atomic_load(&skip_textures);
 }
 /* Called with a complete upload; runs on its own thread. */
