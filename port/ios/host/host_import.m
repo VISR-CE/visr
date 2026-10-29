@@ -6,6 +6,7 @@
 #import "host_orientation.h"
 #include "host_astc_store.h"
 #include "host_texture_upscale.h"
+#include "texture_upscale_schedule.h"
 #import "host_upscale_tick.h"
 
 #if !__has_feature(objc_arc)
@@ -19,6 +20,7 @@
 @property(nonatomic, strong) UIButton *chooseButton;
 @property(nonatomic, strong) UIButton *cancelButton;
 @property(nonatomic, strong) UIButton *retryButton;
+@property(nonatomic, strong) NSLayoutConstraint *actionsCentered,*startCentered;
 @property(atomic) BOOL retryRequested; /* Try Again pressed, read by the import worker */
 @property(nonatomic, strong) UIProgressView *progress;
 @property(nonatomic, strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
@@ -81,14 +83,16 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
     float fraction=(float)status->fraction;double tick=status->tick;
     NSString *message=status->message?@(status->message):nil,*detail=status->detail?@(status->detail):nil;
+    if(status->retry_note)detail=@(status->retry_note);
 #if TARGET_OS_MACCATALYST
     if(status->needed_bytes){
         NSString *found=[NSByteCountFormatter stringFromByteCount:(int64_t)status->found_bytes countStyle:NSByteCountFormatterCountStyleFile];
         NSString *needed=[NSByteCountFormatter stringFromByteCount:(int64_t)status->needed_bytes countStyle:NSByteCountFormatterCountStyleFile];
-        detail=[NSString stringWithFormat:@"Found %@ free; upscaling needs %@. VISR will try again when space is available.",found,needed];
+        char line[512];
+        texture_upscale_import_storage_line(line,sizeof(line),found.UTF8String,needed.UTF8String,status->retry_note!=NULL);
+        detail=[NSString stringWithFormat:@"%s\n%s",line,TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL];
     }
 #endif
-    if(status->retry_note)detail=@(status->retry_note);
     BOOL can_retry=status->can_retry;
     /* (decided here, on the import worker, from the controller's atomic flags: the screen is updated asynchronously, so a
        main thread that is held, as when the app is in the background, never holds the import with it) */
@@ -118,6 +122,10 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         if(!controller.cancelButton.configuration||![controller.cancelButton.configuration.title isEqual:@"Start playing"])start_playing_style(controller.cancelButton);
         controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;
         controller.cancelButton.enabled=!menu_phase&&!controller.cancelled;controller.cancelButton.accessibilityElementsHidden=menu_phase;
+        if((message!=nil)!=controller.actionsCentered.active){
+            controller.startCentered.active=NO;controller.actionsCentered.active=NO;
+            if(message)controller.actionsCentered.active=YES;else controller.startCentered.active=YES;
+        }
         controller.retryButton.alpha=message?1:0;controller.retryButton.accessibilityElementsHidden=!message;
         controller.retryButton.enabled=can_retry&&!requested&&!controller.cancelled&&!controller.retryRequested;
     });return action;
@@ -154,7 +162,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.statusLabel.adjustsFontForContentSizeCategory=YES;self.statusLabel.numberOfLines=0;self.statusLabel.textAlignment=NSTextAlignmentCenter;
     self.statusLabel.text=@"Original Xbox PAL or NTSC-US · .iso or .xiso\nNo game files are included.";
     self.statusLabel.accessibilityIdentifier=@"importStatus";[stack addArrangedSubview:self.statusLabel];
-    /* Reserve both refusal lines, including the Mac's wrapped storage numbers, before either state is shown. */
+    /* Reserve the refusal message and detail lines before either state is shown. */
     [self.statusLabel.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active=YES;
     [self.statusLabel.heightAnchor constraintEqualToConstant:MAX(96,self.statusLabel.font.lineHeight*4)].active=YES;
     self.spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
@@ -175,13 +183,25 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.retryButton.alpha=0;self.retryButton.enabled=NO;self.retryButton.accessibilityElementsHidden=YES;
     self.retryButton.accessibilityIdentifier=@"retryUpscale";
     [self.retryButton addTarget:self action:@selector(retryUpscale) forControlEvents:UIControlEventTouchUpInside];
-    /* Balance the reserved secondary action so Start playing stays centered in its original place. */
-    UIView *actionSpacer=[UIView new];
-    [actionSpacer.widthAnchor constraintEqualToAnchor:self.retryButton.widthAnchor].active=YES;
-    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[actionSpacer,self.cancelButton,self.retryButton]];
+    /* Only the transition into a refusal changes the action alignment; notes keep the same constraints. */
+    UIView *actionArea=[UIView new];[stack addArrangedSubview:actionArea];
+    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[self.retryButton,self.cancelButton]];
     actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=12;actions.alignment=UIStackViewAlignmentFill;
-    [self.retryButton.heightAnchor constraintEqualToAnchor:self.cancelButton.heightAnchor].active=YES;
-    [stack addArrangedSubview:actions];
+    actions.translatesAutoresizingMaskIntoConstraints=NO;[actionArea addSubview:actions];
+    self.actionsCentered=[actions.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor];
+    self.startCentered=[self.cancelButton.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor];
+    self.startCentered.active=YES;
+    [NSLayoutConstraint activateConstraints:@[
+        [actionArea.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
+        [actions.topAnchor constraintEqualToAnchor:actionArea.topAnchor],
+        [actions.bottomAnchor constraintEqualToAnchor:actionArea.bottomAnchor],
+        [self.retryButton.heightAnchor constraintEqualToAnchor:self.cancelButton.heightAnchor]]];
+#if TARGET_OS_MACCATALYST
+    self.statusLabel.lineBreakMode=NSLineBreakByClipping;
+    CGFloat maximumWidth=640;
+#else
+    CGFloat maximumWidth=520;
+#endif
     NSLayoutConstraint *width=[stack.widthAnchor constraintEqualToAnchor:content.widthAnchor constant:-48];width.priority=999;
     [NSLayoutConstraint activateConstraints:@[
         [scroll.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
@@ -193,7 +213,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         [stack.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],[stack.centerYAnchor constraintEqualToAnchor:content.centerYAnchor],
         [stack.topAnchor constraintGreaterThanOrEqualToAnchor:content.topAnchor constant:24],
         [stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-24],
-        [stack.widthAnchor constraintLessThanOrEqualToConstant:520],width]];
+        [stack.widthAnchor constraintLessThanOrEqualToConstant:maximumWidth],width]];
 }
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];

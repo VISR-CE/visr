@@ -490,6 +490,8 @@ static UIImage *qr_image(NSString *text) {
 @property(nonatomic,strong) UIProgressView *progress;
 @property(nonatomic,strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
 @property(nonatomic,strong) UIButton *skipTexturesButton,*retryTexturesButton;
+@property(nonatomic,strong) NSLayoutConstraint *actionsCentered,*startCentered;
+@property(nonatomic) BOOL shownRefusal;
 @property(nonatomic,copy) NSString *shownURL;
 @property(nonatomic) unsigned shownSerial;
 @end
@@ -533,12 +535,18 @@ static UIImage *qr_image(NSString *text) {
     self.retryTexturesButton.configuration=retryStyle;
     self.retryTexturesButton.alpha=0;self.retryTexturesButton.enabled=NO;
     [self.retryTexturesButton addTarget:self action:@selector(retryTexturePreparation) forControlEvents:UIControlEventPrimaryActionTriggered];
-    UIView *actionSpacer=[UIView new];
-    [actionSpacer.widthAnchor constraintEqualToAnchor:self.retryTexturesButton.widthAnchor].active=YES;
-    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[actionSpacer,self.skipTexturesButton,self.retryTexturesButton]];
+    UIView *actionArea=[UIView new];[stack addArrangedSubview:actionArea];
+    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[self.retryTexturesButton,self.skipTexturesButton]];
     actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=28;
-    [self.retryTexturesButton.heightAnchor constraintEqualToAnchor:self.skipTexturesButton.heightAnchor].active=YES;
-    [stack addArrangedSubview:actions];
+    actions.translatesAutoresizingMaskIntoConstraints=NO;[actionArea addSubview:actions];
+    self.actionsCentered=[actions.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor];
+    self.startCentered=[self.skipTexturesButton.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor];
+    self.startCentered.active=YES;
+    [NSLayoutConstraint activateConstraints:@[
+        [actionArea.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
+        [actions.topAnchor constraintEqualToAnchor:actionArea.topAnchor],
+        [actions.bottomAnchor constraintEqualToAnchor:actionArea.bottomAnchor],
+        [self.retryTexturesButton.heightAnchor constraintEqualToAnchor:self.skipTexturesButton.heightAnchor]]];
     [self.statusLabel.widthAnchor constraintEqualToConstant:1100].active=YES;
     [self.statusLabel.heightAnchor constraintEqualToConstant:100].active=YES;
     [NSLayoutConstraint activateConstraints:@[
@@ -546,6 +554,10 @@ static UIImage *qr_image(NSString *text) {
         [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
         [stack.widthAnchor constraintLessThanOrEqualToAnchor:self.view.widthAnchor multiplier:0.85]]];
     self.shownSerial=~0u;
+}
+- (NSArray<id<UIFocusEnvironment>> *)preferredFocusEnvironments {
+    if(self.skipTexturesButton.enabled)return @[self.skipTexturesButton];
+    return [super preferredFocusEnvironments];
 }
 - (void)skipTexturePreparation { atomic_store(&skip_textures,1); }
 - (void)retryTexturePreparation {
@@ -589,10 +601,15 @@ static UIImage *qr_image(NSString *text) {
     /* Both actions retain their layout space, including before texture preparation. */
     self.skipTexturesButton.accessibilityElementsHidden=!usable;
     BOOL refused=preparing&&atomic_load(&upscale_detail)!=NULL;
+    if(refused!=self.actionsCentered.active){
+        self.startCentered.active=NO;self.actionsCentered.active=NO;
+        if(refused)self.actionsCentered.active=YES;else self.startCentered.active=YES;
+    }
     self.retryTexturesButton.alpha=refused?1:0;self.retryTexturesButton.accessibilityElementsHidden=!refused;
     self.retryTexturesButton.enabled=refused&&atomic_load(&retry_available)&&!atomic_load(&retry_busy);
     self.skipTexturesButton.alpha=usable?1:0;self.skipTexturesButton.enabled=usable;
-    if(!wasShown&&usable)[self setNeedsFocusUpdate];
+    if(usable&&(!wasShown||(refused&&!self.shownRefusal)))[self setNeedsFocusUpdate];
+    self.shownRefusal=refused;
     if(serial!=self.shownSerial) {
         self.shownSerial=serial;
         const char *detail=preparing?atomic_load(&upscale_detail):NULL;
