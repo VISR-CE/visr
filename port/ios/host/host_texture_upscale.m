@@ -1061,10 +1061,22 @@ resume_import:
         struct host_texture_upscale_import_status status={.fraction=shown,.tick=tick,.message=message,
             .detail=texture_upscale_import_end_detail(end),.can_retry=texture_upscale_import_retry_available(end)};
         if(end==TEXTURE_UPSCALE_END_REFUSED_STORAGE){status.found_bytes=atomic_load(&storage_found);status.needed_bytes=import_storage_needed();}
-        double note_until=0;
+        double note_until=0,shown_at=now();
+#ifdef HALO_DEVELOPMENT_HOOKS
+        /* Development only: HALO_TEXTURE_UPSCALE_TEST_RETRY="5,20" presses Try Again that many seconds after the message
+           shows, so a test can step through the retry where no mouse can reach the window (a locked screen) */
+        double test_presses[8]={0};int test_count=0,test_next=0;
+        if(getenv("HALO_TEXTURE_UPSCALE_TEST_RETRY")){char *copy=strdup(getenv("HALO_TEXTURE_UPSCALE_TEST_RETRY")),*cursor=copy,*item;
+            while((item=strsep(&cursor,","))&&test_count<8)test_presses[test_count++]=atof(item);free(copy);}
+#endif
         for(;;){
             status.retry_note=now()<note_until?texture_upscale_import_retry_note(end):NULL;
             int action=progress(context,&status);
+#ifdef HALO_DEVELOPMENT_HOOKS
+            if(action==HOST_TEXTURE_UPSCALE_WAIT&&test_next<test_count&&now()-shown_at>=test_presses[test_next]){test_next++;action=HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+#else
+            (void)shown_at;
+#endif
             if(action==HOST_TEXTURE_UPSCALE_START_PLAYING)break;
             if(action==HOST_TEXTURE_UPSCALE_TRY_AGAIN&&status.can_retry){
                 status.can_retry=0;
