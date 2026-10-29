@@ -263,6 +263,9 @@ void host_perf_hooks_context(unsigned field, uint64_t value) {
 }
 void host_perf_hooks_budget(uint64_t value) { budget = value; pending.budget_us = value; }
 void host_perf_hooks_loading(int value) {
+#if HALO_DISCORD
+    host_discord_presence_loading(value);
+#endif
     loading = value != 0;
     /* Start a full second of presented frames after either loading edge. */
     host_perf_hooks_dynamic_ignore(DYNAMIC_RESOLUTION_LOAD);

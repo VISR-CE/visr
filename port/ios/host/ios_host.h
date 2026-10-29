@@ -13,6 +13,10 @@ static inline uint32_t guest_pointer(const void *p) { return p ? (uint32_t)((uin
 uint32_t host_ios_default_framebuffer(void);
 struct SDL_Window;
 struct SDL_Gamepad;
+#if HALO_NATIVE_MAC && HALO_DISCORD && defined(HALO_DEVELOPMENT_HOOKS)
+/* The native game loop pumps SDL rather than running Cocoa's timer loop. */
+void host_discord_development_poll(void);
+#endif
 /* the guest's window (host_sdl.c), for the GPU backend's present (gpu_gl.c) */
 struct SDL_Window *host_sdl_window(void);
 /* host_main.m: watch for SDL's window left minimized by a scene that went

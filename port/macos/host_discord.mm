@@ -180,7 +180,14 @@ static void link_discord(void) {
     status_text = @"Waiting for Discord authorization…";
     host_logf(HOST_LOG_INFO, "Discord: PKCE authorization requested with custom-scheme callback");
 #if HALO_NATIVE_MAC
-    if ([NSWorkspace.sharedWorkspace openURL:url]) host_logf(HOST_LOG_INFO, "Discord: authorization browser opened");
+#ifdef HALO_DEVELOPMENT_HOOKS
+    host_logf(HOST_LOG_INFO, "Discord: authorization URL %s", host_discord_redacted_authorization_url(url).UTF8String);
+#endif
+    BOOL opened = [NSWorkspace.sharedWorkspace openURL:url];
+#ifdef HALO_DEVELOPMENT_HOOKS
+    host_logf(HOST_LOG_INFO, "Discord: authorization openURL success=%d", (int)opened);
+#endif
+    if (opened) host_logf(HOST_LOG_INFO, "Discord: authorization browser opened");
     else { pending_state = nil; verifier = nil; status_text = @"Could not open the authorization browser."; }
 #else
     unsigned request = generation;
@@ -199,6 +206,39 @@ static void link_discord(void) {
     if (![authentication start]) { pending_state = nil; verifier = nil; status_text = @"Could not open Discord sign-in."; }
 #endif
 }
+#if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
+void host_discord_development_poll(void) {
+    /* Startup also reports menu presence; wait for the actual UI map's
+     * loading edge and a visible window before exercising the button path. */
+    if (!client) return;
+    static int enabled = -1;
+    if (enabled < 0) enabled = [NSProcessInfo.processInfo.environment[@"HALO_DISCORD_LINK_AT_LAUNCH"] isEqualToString:@"1"];
+    if (!enabled) return;
+    static bool launch_link_checked;
+    static NSTimeInterval menu_since;
+    if (!launch_link_checked) {
+        NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+        int ready = host_discord_presence_menu_ready(), visible = NSApp.mainWindow.isVisible;
+        static int last_gate = -1;
+        int gate = ready | (visible << 1);
+        if (gate != last_gate) {
+            last_gate = gate;
+            host_logf(HOST_LOG_INFO, "Discord: development menu gate ready=%d visible=%d", ready, visible);
+        }
+        if (!ready || !visible) menu_since = 0;
+        else if (!menu_since) menu_since = now;
+        else if (now - menu_since >= 1) {
+            launch_link_checked = true;
+            if (linked || refreshing || pending_state.length)
+                host_logf(HOST_LOG_INFO, "Discord: development launch link skipped (link already active)");
+            else {
+                host_logf(HOST_LOG_INFO, "Discord: development launch link after menu ready");
+                link_discord();
+            }
+        }
+    }
+}
+#endif
 static void unlink_discord(void) {
     ++generation;
     pending_state = nil; verifier = nil;

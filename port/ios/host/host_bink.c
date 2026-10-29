@@ -10,6 +10,9 @@ no movie opens, the game skips it, and the app has no FFmpeg code.
 
 #include "ios_host.h"
 #include "guest_host.h"
+#if HALO_NATIVE_MAC && HALO_DISCORD && defined(HALO_DEVELOPMENT_HOOKS)
+#include "host_discord_presence.h"
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -33,6 +36,9 @@ int host_bink_open(const char *path, struct host_bink_information *information)
 
 	bink_decoder_set_log(log_line);
 	opened = bink_decoder_open(path, &found);
+#if HALO_NATIVE_MAC && HALO_DISCORD && defined(HALO_DEVELOPMENT_HOOKS)
+    host_discord_presence_movie(opened);
+#endif
 	memcpy(information, &found, sizeof(found));
 	return opened;
 }
@@ -40,6 +46,9 @@ int host_bink_open(const char *path, struct host_bink_information *information)
 void host_bink_close(void)
 {
 	bink_decoder_close();
+#if HALO_NATIVE_MAC && HALO_DISCORD && defined(HALO_DEVELOPMENT_HOOKS)
+    host_discord_presence_movie(0);
+#endif
 }
 
 int host_bink_decode_frame(void)

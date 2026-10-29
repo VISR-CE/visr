@@ -27,6 +27,15 @@ int main(void) { @autoreleasepool {
     assert([query[@"code_challenge_method"] isEqualToString:@"S256"]);
     assert([query[@"scope"] isEqualToString:@"openid sdk.social_layer_presence"]);
     assert(!query[@"client_secret"]);
+    NSURLComponents *redacted = [NSURLComponents componentsWithString:host_discord_redacted_authorization_url(auth.URL)];
+    NSMutableDictionary *safe = [NSMutableDictionary new];
+    for (NSURLQueryItem *item in redacted.queryItems) safe[item.name] = item.value;
+    assert([safe[@"state"] isEqualToString:@"REDACTED"]);
+    assert([safe[@"code_challenge"] isEqualToString:@"REDACTED"]);
+    assert([safe[@"client_id"] isEqualToString:query[@"client_id"]]);
+    assert([safe[@"redirect_uri"] isEqualToString:VISRDiscordRedirect]);
+    assert(![redacted.string containsString:state]);
+    assert(![redacted.string containsString:query[@"code_challenge"]]);
     assert(!host_discord_callback_code(nil, @"expected"));
     NSString *base = [VISRDiscordRedirect stringByAppendingString:@"?state=expected&code=a%2Bb%3D&iss=https%3A%2F%2Fdiscord.com"];
     assert([host_discord_callback_code([NSURL URLWithString:base], @"expected") isEqualToString:@"a+b="]);

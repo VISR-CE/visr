@@ -55,6 +55,7 @@ def test_live_snapshot_map_boundaries_and_public_labels(tmp_path):
 #include <string.h>
 int main(void) {
     struct discord_presence value;
+    assert(!host_discord_presence_menu_ready());
     host_discord_presence_snapshot(&value);
     assert(!strcmp(value.details, "In the menus"));
     host_discord_presence_map("levels\\\\test\\\\bloodgulch\\\\bloodgulch");
@@ -97,6 +98,17 @@ int main(void) {
     host_discord_presence_snapshot(&value);
     assert(!strstr(value.details, "private") && strstr(value.details, "Custom map"));
     assert(!value.players && !value.capacity);
+    host_discord_presence_loading(1);
+    host_discord_presence_map("levels/ui/ui");
+    assert(!host_discord_presence_menu_ready());
+    host_discord_presence_loading(0);
+    assert(host_discord_presence_menu_ready());
+    host_discord_presence_movie(1);
+    assert(!host_discord_presence_menu_ready());
+    host_discord_presence_movie(0);
+    assert(host_discord_presence_menu_ready());
+    host_discord_presence_map("a10");
+    assert(!host_discord_presence_menu_ready());
     host_discord_presence_map("levels/ui/ui");
     host_discord_presence_context(4, 4);
     host_discord_presence_snapshot(&value);

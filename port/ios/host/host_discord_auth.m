@@ -36,6 +36,16 @@ NSURL *host_discord_authorization_url(NSString *verifier, NSString *state) {
     url.queryItems = items;
     return url.URL;
 }
+NSString *host_discord_redacted_authorization_url(NSURL *url) {
+    NSURLComponents *safe = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];
+    NSMutableArray *items = [NSMutableArray new];
+    for (NSURLQueryItem *item in safe.queryItems) {
+        BOOL sensitive = [item.name isEqualToString:@"state"] || [item.name isEqualToString:@"code_challenge"];
+        [items addObject:[NSURLQueryItem queryItemWithName:item.name value:sensitive ? @"REDACTED" : item.value]];
+    }
+    safe.queryItems = items;
+    return safe.string;
+}
 NSString *host_discord_callback_code(NSURL *url, NSString *expected_state) {
     if (!url) return nil;
     NSURLComponents *value = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO];

@@ -8,6 +8,7 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static const char *active_map;
 static unsigned game_kind, players, engine, capacity;
 static int64_t started;
+static int menu_map, map_loading = 1, movie_playing;
 static const struct { const char *key, *title; } maps[] = {
     {"a10", "The Pillar of Autumn"}, {"a30", "Halo"},
     {"a50", "The Truth and Reconciliation"}, {"b30", "The Silent Cartographer"},
@@ -27,6 +28,7 @@ void host_discord_presence_map(const char *name)
 {
     char key[64];
     const char *title = NULL;
+    int menu = 0;
     if (name && *name) {
         const char *base = name;
         for (const char *p = name; *p; ++p)
@@ -36,7 +38,8 @@ void host_discord_presence_map(const char *name)
         for (size_t i = 0; i < length; ++i)
             key[i] = base[i] >= 'A' && base[i] <= 'Z' ? base[i] + ('a' - 'A') : base[i];
         key[length] = 0;
-        if (key[0] && strcmp(key, "ui")) {
+        menu = !strcmp(key, "ui");
+        if (key[0] && !menu) {
             /* Custom cache names may contain private text; publish only known titles. */
             title = "Custom map";
             for (size_t i = 0; i < sizeof(maps) / sizeof(maps[0]); ++i)
@@ -45,9 +48,32 @@ void host_discord_presence_map(const char *name)
     }
     pthread_mutex_lock(&lock);
     active_map = title;
+    menu_map = menu;
     game_kind = players = engine = capacity = 0;
     started = title ? (int64_t)time(NULL) : 0;
     pthread_mutex_unlock(&lock);
+}
+
+void host_discord_presence_loading(int loading)
+{
+    pthread_mutex_lock(&lock);
+    map_loading = loading != 0;
+    pthread_mutex_unlock(&lock);
+}
+
+void host_discord_presence_movie(int playing)
+{
+    pthread_mutex_lock(&lock);
+    movie_playing = playing != 0;
+    pthread_mutex_unlock(&lock);
+}
+
+int host_discord_presence_menu_ready(void)
+{
+    pthread_mutex_lock(&lock);
+    int ready = menu_map && !map_loading && !movie_playing;
+    pthread_mutex_unlock(&lock);
+    return ready;
 }
 
 void host_discord_presence_context(unsigned field, uint64_t value)
