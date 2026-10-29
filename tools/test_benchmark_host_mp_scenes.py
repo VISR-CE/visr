@@ -191,3 +191,58 @@ def test_host_refuses_catalog_with_unsupported_variant_settings(tmp_path, catalo
     _write_variant_catalog(tmp_path, [{'id': 'x', 'models': ['AppleTV6,2'], 'settings': settings}])
     result = _variant_probe(catalog_probe, tmp_path, 'AppleTV6,2')
     assert result.returncode == 1 and 'variant' in result.stderr
+
+
+from test_benchmark_catalog import STAGE, INVALID_STAGES, staged_catalog
+
+
+def test_host_accepts_staged_gameplay(tmp_path, catalog_probe):
+    staged_catalog(tmp_path)
+    result = run_probe(catalog_probe, tmp_path, "full")
+    assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("stage", INVALID_STAGES)
+def test_host_rejects_invalid_stage(tmp_path, catalog_probe, stage):
+    staged_catalog(tmp_path, stage=stage, route_stage=stage)
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+@pytest.mark.parametrize("tick", [None, "0", "-1", "true", "1.5", "2147483648", "1junk"])
+def test_host_requires_stage_tick(tmp_path, catalog_probe, tick):
+    staged_catalog(tmp_path, tick=tick)
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+@pytest.mark.parametrize("case_id", ["menu", "a10-opening", "mp-chillout-proof"])
+def test_host_rejects_stage_on_other_kinds(tmp_path, catalog_probe, case_id):
+    staged_catalog(tmp_path, case_id=case_id)
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+@pytest.mark.parametrize("route_stage", [None, [{"deathless": True}]])
+def test_host_rejects_mismatched_stage(tmp_path, catalog_probe, route_stage):
+    staged_catalog(tmp_path, route_stage=route_stage)
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+def test_host_rejects_unselected_recorded_stage(tmp_path, catalog_probe):
+    staged_catalog(tmp_path)
+    _write_catalog(tmp_path, _cases())
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+@pytest.mark.parametrize("extra", ['stage_tick = 32\n', 'stage = [{"deathless":true}]\n'])
+def test_host_rejects_duplicate_stage_route_fields(tmp_path, catalog_probe, extra):
+    staged_catalog(tmp_path)
+    with (tmp_path / "take-b30.route").open("a") as route:
+        route.write(extra)
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+@pytest.mark.parametrize("stage", [[{"switch_bsp": 0}], [{"switch_bsp": 31}],
+                                  [{"ai_see": ["a" * 31, "b" * 31]}] * 16])
+def test_host_accepts_stage_boundaries(tmp_path, catalog_probe, stage):
+    staged_catalog(tmp_path, stage=stage, route_stage=stage)
+    result = run_probe(catalog_probe, tmp_path, "full")
+    assert result.returncode == 0, result.stderr

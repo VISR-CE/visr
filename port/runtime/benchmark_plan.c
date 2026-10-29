@@ -60,6 +60,8 @@ int benchmark_scene_from_route(const char *text, const char *recording, struct b
     route->scene.enemy_multiplier = route_value(text, "enemy_multiplier", number, sizeof(number)) ? atof(number) : 0.0;
     if (route->scene.enemy_multiplier != 0.0 && !(route->scene.enemy_multiplier >= 1.0 && route->scene.enemy_multiplier <= 8.0))
         return 0;
+    if (!benchmark_stage_route(text, &route->scene.stage, &route->scene.stage_tick) ||
+        (route->scene.stage.count && route->scene.kind != BENCHMARK_SCENE_GAMEPLAY)) return 0;
     /* an anchored window: "anchor = kind:n" names an event the route's "events = kind:n:tick,..." line holds */
     if (route_value(text, "anchor", route->anchor, sizeof(route->anchor)) && *route->anchor) {
         char events[2048];
@@ -177,6 +179,11 @@ unsigned long benchmark_plan_signature(const struct benchmark_plan *plan) {
             one->game_mode ? one->game_mode : "", one->score_limit, one->time_limit_minutes,
             one->arena_columns, one->arena_spacing, one->arena_distance, one->arena_movement_radius);
         for (at = text; *at; at++) hash = ((hash ^ (unsigned char)*at) * 16777619UL) & 0xffffffffUL;
+        if (one->stage.count) {
+            for (at = one->stage.json; *at; at++) hash = ((hash ^ (unsigned char)*at) * 16777619UL) & 0xffffffffUL;
+            snprintf(text, sizeof(text), "stage_tick=%ld;", one->stage_tick);
+            for (at = text; *at; at++) hash = ((hash ^ (unsigned char)*at) * 16777619UL) & 0xffffffffUL;
+        }
         /* (the settings a case sets, so a journal is never carried on with other values for the same cases) */
         snprintf(text, sizeof(text), "%s|%u|%u|%u|%ld|%ld|%ld|%d|%d|%d|%.3f|%.3f|%d;", one->workload ? one->workload : "",
             one->sim_experiments, one->sim_experiments_mask, one->knobs.mask, one->knobs.lines, one->knobs.anisotropy, one->knobs.shadow_size,

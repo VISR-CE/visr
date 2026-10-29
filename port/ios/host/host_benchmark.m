@@ -1943,7 +1943,7 @@ int host_benchmark_next(char *text, unsigned int size) {
         "simulation=%s players=%d views=%d game_mode=%s score_limit=%d time_limit_minutes=%d "
         "arena_columns=%d arena_spacing=%.6f arena_distance=%.6f arena_radius=%.6f enemy_multiplier=%.3f "
         "sim_experiments=%u sim_experiments_mask=%u lines=%ld anisotropy=%ld shadow=%ld lod=%d presented=%d offscreen=%d knob_aa=%d "
-        "knob_effect=%d knob_scale=%.3f knob_clutter=%.3f knob_clutter_lod=%d knob_dynamic_lights=%ld knob_specular_lights=%ld knob_shadow_minimum=%ld", scene->id, scene->map, scene->difficulty, scene->recording ? scene->recording : "",
+        "knob_effect=%d knob_scale=%.3f knob_clutter=%.3f knob_clutter_lod=%d knob_dynamic_lights=%ld knob_specular_lights=%ld knob_shadow_minimum=%ld stage=%s stage_tick=%ld", scene->id, scene->map, scene->difficulty, scene->recording ? scene->recording : "",
         scene->kind == BENCHMARK_SCENE_MENU ? "menu" : scene->kind == BENCHMARK_SCENE_CUTSCENE ? "cutscene" :
             scene->kind == BENCHMARK_SCENE_MULTIPLAYER ? "multiplayer_synthetic" : "gameplay",
         scene->lead, run.stage == 'P' ? reality_check_seconds(scene) : scene->seconds, scene->simulation ? scene->simulation : "",
@@ -1963,7 +1963,8 @@ int host_benchmark_next(char *text, unsigned int size) {
         knobs.mask & BENCHMARK_KNOB_CLUTTER_LOD ? knobs.clutter_lowest_lod : -1,
         knobs.mask & BENCHMARK_KNOB_DYNAMIC_LIGHTS ? knobs.dynamic_light_limit : -1L,
         knobs.mask & BENCHMARK_KNOB_SPECULAR_LIGHTS ? knobs.specular_light_limit : -1L,
-        knobs.mask & BENCHMARK_KNOB_SHADOW_MINIMUM ? knobs.shadow_minimum_size : -1L);
+        knobs.mask & BENCHMARK_KNOB_SHADOW_MINIMUM ? knobs.shadow_minimum_size : -1L,
+        scene->stage.json, scene->stage_tick);
     atomic_store(&window_ticks, 0);
     run_started_at = CFAbsoluteTimeGetCurrent();
     window_started_at = 0;

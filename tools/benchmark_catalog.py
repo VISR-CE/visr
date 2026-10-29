@@ -215,6 +215,29 @@ def _text(value, name, pattern, *, empty=False):
     return value
 
 
+def validate_stage(stage):
+    """Validate the closed scenario staging grammar shared with benchmark_stage.h."""
+    if not isinstance(stage, list) or not 1 <= len(stage) <= 16:
+        raise CatalogError("stage must contain 1 to 16 steps")
+    for step in stage:
+        if not isinstance(step, dict) or len(step) != 1:
+            raise CatalogError("stage steps must have exactly one key")
+        key, value = next(iter(step.items()))
+        if key == "switch_bsp":
+            valid = type(value) is int and 0 <= value <= 31
+        elif key == "deathless":
+            valid = value is True
+        elif key in {"teleport_player", "ai_place", "ai_see", "ai_see_player"}:
+            names = value if key == "ai_see" else [value]
+            valid = (isinstance(names, list) and len(names) == (2 if key == "ai_see" else 1) and
+                     all(isinstance(name, str) and re.fullmatch(r"[a-z0-9_]{1,31}", name) for name in names))
+        else:
+            valid = False
+        if not valid:
+            raise CatalogError(f"unsupported stage step {key}")
+    return stage
+
+
 def _route(folder, recording):
     route_path = folder / f"{recording}.route"
     route_bytes = _read_regular(route_path, 4095)
@@ -256,6 +279,20 @@ def _route(folder, recording):
             route["first_tick"] not in {0, 1} or not math.isfinite(route["lead"]) or not math.isfinite(route["window"]) or
             not 1.0 <= route["enemy_multiplier"] <= MAXIMUM_ENEMY_MULTIPLIER):
         raise CatalogError(f"{recording}.route is not a fresh replayable route")
+    route["stage"] = None
+    if "stage" in values:
+        try:
+            stage = json.loads(values["stage"], object_pairs_hook=_pairs)
+        except (ValueError, TypeError) as error:
+            raise CatalogError("invalid route stage") from error
+        validate_stage(stage)
+        if _canonical(stage).decode("ascii") != values["stage"]:
+            raise CatalogError("route stage must use canonical JSON")
+        if not re.fullmatch(r"[1-9][0-9]{0,9}", values.get("stage_tick", "")) or int(values["stage_tick"]) > 2147483647:
+            raise CatalogError("route stage requires a positive stage_tick")
+        route["stage"] = stage
+    elif "stage_tick" in values:
+        raise CatalogError("route stage_tick requires stage")
     for extension in ("input", "actions", "seeds"):
         _read_regular(folder / f"{recording}.{extension}", 4 * 1024 * 1024)
     return route
@@ -354,6 +391,8 @@ def load_catalog(folder):
             fields |= {"enemy_multiplier"}
         if "anchor" in case:
             fields |= {"anchor"}
+        if "stage" in case:
+            fields |= {"stage"}
         if "settings" in case:
             fields |= {"settings"}
         if set(case) != fields:
@@ -385,6 +424,10 @@ def load_catalog(folder):
         lead = _number(case["lead"], f"{case_id} lead", 0, 3600)
         window = _number(case["window"], f"{case_id} window", 0, 3600, positive=True)
         recording = case["recording"]
+        if "stage" in case:
+            if kind != "gameplay" or recording is None:
+                raise CatalogError("stage requires gameplay with a recording")
+            validate_stage(case["stage"])
         anchored = None
         if recording is not None:
             _text(recording, f"{case_id} recording", RECORDING_NAME)
@@ -396,7 +439,7 @@ def load_catalog(folder):
             if (route["scene"] != base_id or route["map"] != map_name or route["difficulty"] != difficulty or
                     route["kind"] != kind or abs(route["lead"] - lead) > 1e-6 or abs(route["window"] - window) > 1e-6 or
                     abs(route["enemy_multiplier"] - float(case.get("enemy_multiplier", 1))) > 1e-6 or
-                    route["anchor"] != anchor):
+                    route["anchor"] != anchor or route["stage"] != case.get("stage")):
                 raise CatalogError(f"case {case_id} does not match its recording route")
             if anchor is not None:
                 anchored = anchor_seconds(anchor, route["events"])

@@ -1638,6 +1638,17 @@
             "apple"
           ]
         },
+        "benchmark_stage": {
+          "type": "string",
+          "default": "",
+          "description": "Development hooks only: closed JSON staging steps for debug.input_record, applied once 30 ticks after the first tick following cinematic_done.",
+          "x-environment": "HALO_BENCHMARK_STAGE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "input_record": {
           "type": "string",
           "default": "",

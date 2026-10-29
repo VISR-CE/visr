@@ -11,6 +11,11 @@ recording skipped it.
 
 #include "cseries.h"
 #include "ai/actors.h"
+#include "ai/ai_script.h"
+#include "ai/ai_scenario_definitions.h"
+#include "game/cheats.h"
+#include "hs/hs_library_external.h"
+#include "../../runtime/benchmark_stage.h"
 #include "cutscene/cinematics.h"
 #include "game/game.h"
 #include "game/players.h"
@@ -131,4 +136,61 @@ unsigned char input_replay_skip_cinematic(void)
 		return 0;
 	main_skip_cinematic();
 	return 1;
+}
+
+/* The same operations as switch_bsp, object_teleport (player0), ai_place and the two AI sight commands in
+hs.c. Resolve against the loaded tags before executing any of them; names never become HSC source. */
+static int stage_lookup(void *context, int kind, const char *name)
+{
+	struct scenario *scenario = context;
+	long index;
+	if (kind == BENCHMARK_STAGE_SWITCH_BSP)
+		return scenario->structure_bsp_references.count;
+	if (kind == BENCHMARK_STAGE_TELEPORT_PLAYER)
+	{
+		for (index = 0; index < scenario->cutscene_flags.count; index++)
+		{
+			struct scenario_cutscene_flag *flag = TAG_BLOCK_GET_ELEMENT(&scenario->cutscene_flags, index, struct scenario_cutscene_flag);
+			if (!strncmp(flag->name, name, sizeof(flag->name))) return (int)index;
+		}
+	}
+	else
+	{
+		for (index = 0; index < scenario->ai_encounters.count; index++)
+		{
+			struct encounter_definition *encounter = TAG_BLOCK_GET_ELEMENT(&scenario->ai_encounters, index, struct encounter_definition);
+			if (!strncmp(encounter->name, name, sizeof(encounter->name))) return (int)index;
+		}
+	}
+	return -1;
+}
+
+static void stage_apply(void *context, int kind, int a, int b)
+{
+	(void)context;
+	switch (kind)
+	{
+	case BENCHMARK_STAGE_SWITCH_BSP: scenario_switch_structure_bsp((short)a); break;
+	case BENCHMARK_STAGE_TELEPORT_PLAYER:
+	{
+		struct player_datum *player = player_try_and_get(local_player_get_player_index(0));
+		if (player) hs_object_teleport(player->unit_index, (short)a);
+		break;
+	}
+	case BENCHMARK_STAGE_AI_PLACE: ai_scripting_place(a); break;
+	case BENCHMARK_STAGE_AI_SEE: ai_scripting_magically_see_encounter(a, b); break;
+	case BENCHMARK_STAGE_AI_SEE_PLAYER: ai_scripting_magically_see_players(a); break;
+	case BENCHMARK_STAGE_DEATHLESS: cheat.deathless_player = TRUE; break;
+	}
+}
+
+int input_replay_stage_apply(const struct benchmark_stage *stage, char *error, unsigned int size)
+{
+	struct scenario *scenario = global_scenario_try_and_get();
+	if (!scenario)
+	{
+		snprintf(error, size, "stage: no loaded scenario");
+		return 0;
+	}
+	return benchmark_stage_apply(stage, stage_lookup, stage_apply, scenario, error, size);
 }
