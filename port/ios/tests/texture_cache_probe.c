@@ -164,6 +164,26 @@ static void storage(void)
 	assert(texture_cache_level_start(&plan, TEXTURE_CACHE_FLOOR_SLACK) == TEXTURE_CACHE_LOW_STORAGE);
 	assert(texture_cache_background_may_run(TEXTURE_CACHE_FLOOR_SLACK + 10, 10));
 	assert(!texture_cache_background_may_run(TEXTURE_CACHE_FLOOR_SLACK + 9, 10));
+	/* the storage to count on: the important tier less the headroom; the opportunistic read is not used */
+	{
+		const uint64_t gb = 1ull << 30, mb = 1ull << 20;
+		assert(texture_cache_storage_usable(1, 3 * gb, 1, 9 * gb, 1, 9 * gb) == 7 * gb);
+		assert(texture_cache_storage_usable(1, 0, 1, 10 * gb, 1, 10 * gb) == 8 * gb);
+		/* a 0 opportunistic read with 5 GB free (an iPhone on iOS 27.2): 3 GB, which covers the whole set (about 941 MB
+		   as BC7) with 2 GB left */
+		assert(texture_cache_storage_usable(1, 0, 1, 5 * gb, 1, 5 * gb) == 3 * gb);
+		assert(texture_cache_background_may_run(texture_cache_storage_usable(1, 0, 1, 5 * gb, 1, 5 * gb), 941 * mb));
+		/* a failed opportunistic read: the same fallback */
+		assert(texture_cache_storage_usable(0, 0, 1, 5 * gb, 1, 5 * gb) == 3 * gb);
+		/* a failed important read: the volume's free blocks */
+		assert(texture_cache_storage_usable(0, 0, 0, 0, 1, 4 * gb) == 2 * gb);
+		assert(texture_cache_storage_usable(1, 0, 1, 0, 1, 4 * gb) == 0);   /* (an important read of 0 is believed) */
+		/* nothing above the headroom, or nothing read at all: 0, and the work is refused */
+		assert(texture_cache_storage_usable(1, 0, 1, 2 * gb, 1, 2 * gb) == 0);
+		assert(texture_cache_storage_usable(1, 0, 1, gb, 1, gb) == 0);
+		assert(texture_cache_storage_usable(0, 0, 0, 0, 0, 0) == 0);
+		assert(!texture_cache_background_may_run(texture_cache_storage_usable(0, 0, 0, 0, 0, 0), 1 << 20));
+	}
 	assert(strstr(TEXTURE_CACHE_LOW_STORAGE_TEXT, "Delete upscaled textures"));
 }
 

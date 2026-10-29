@@ -59,6 +59,7 @@ static NSColor *bar_blue(void) { return [NSColor colorWithSRGBRed:0.247 green:0.
 @public
     atomic_int skip, done, menu_phase;
     _Atomic double fraction, tick;
+    const char *_Atomic message;   /* the phase ended refused (a string literal), or NULL */
 }
 - (void)skip:(id)sender;
 @end
@@ -69,6 +70,7 @@ static int upscale_progress(void *context, const struct host_texture_upscale_imp
     VISRUpscalePhase *phase = (__bridge VISRUpscalePhase *)context;
     atomic_store(&phase->fraction, status->fraction); atomic_store(&phase->tick, status->tick);
     atomic_store(&phase->menu_phase, status->menu_phase);
+    atomic_store(&phase->message, status->message);
     /* (the main menu's textures come first: a skip counts once Start playing is offered) */
     return status->menu_phase || !atomic_load(&phase->skip);
 }
@@ -102,7 +104,8 @@ static void upscale_phase(NSString *root) {
         double shown = atomic_load(&phase->fraction);
         bar.fraction = shown; bar.tick = atomic_load(&phase->tick); bar.ready = !menu; bar.needsDisplay = YES;
         /* (rounded down: 100% only when every texture is made) */
-        status.stringValue = [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
+        const char *message = atomic_load(&phase->message);
+        status.stringValue = message ? @(message) : [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
         start.hidden = menu;
         [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
     }
