@@ -685,6 +685,10 @@ def quit_layout(root, widgets):
     screen.set('name', base + '/quit_panel')
     screen.attrib.update(left='192', top='176', width='239', height='159',
                          text_x='9', text_y='36', align='left')
+    # The PC prompt's first line runs past this narrower Xbox panel's inner edge.
+    screen.attrib.pop('string_list', None)
+    screen.attrib.pop('string_index', None)
+    screen.set('text', r'Are you sure you\nwish to exit Halo?')
     screen[:] = []
     modal = widget(root, base + '/quit_screen', width=640, height=480, controller=1,
                    flags='pass_unhandled_to_focused_child pass_unhandled_to_all_children',

@@ -441,6 +441,7 @@ def test_quit_panel_matches_delete_confirmation_padding():
     panel = root.find("widget[@name='xbox/main_menu/quit_select/quit_panel']")
     assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('192', '176', '239', '159')
     assert (panel.get('text_x'), panel.get('text_y')) == ('9', '36')
+    assert panel.get('text') == r'Are you sure you\nwish to exit Halo?'
     modal = root.find("widget[@name='xbox/main_menu/quit_select/quit_screen']")
     title = modal.find("child[@widget='xbox/error/header_are_you_sure']")
     assert (title.get('x'), title.get('y')) == ('201', '180')
