@@ -794,6 +794,28 @@ def patch_document(names):
     return root
 
 
+def native_header_sizes(documents, assets):
+    """Every header widget is as large as its bitmap's frame. The engine
+    scales a bitmap to its widget, and the PC screens' headers are 605 or 363
+    wide and 59 high for 512x64 pictures: drawn so they stretch the title
+    1.18 times wide (or squeeze it to 0.71), where the Xbox's own widgets show
+    the picture as it is."""
+    frames = {b.get('name'): b.find('frame') for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
+    for root in documents.values():
+        for w in root.iter('widget'):
+            leaf = w.get('name', '').rsplit('/', 1)[-1]
+            bitmap = w.get('bitmap', '').removeprefix('xbox/')
+            if (leaf == 'header' or leaf.startswith('header_')) and w.get('type') is None and bitmap in frames:
+                frame = frames[bitmap]
+                if (frame.get('width'), frame.get('height')) != ('512', '64'):
+                    continue  # (a wider picture, as the PC's 1024-wide gametype header, is drawn squeezed on purpose)
+                w.set('width', frame.get('width'))
+                w.set('height', frame.get('height'))
+            elif leaf == 'header_join_game' and not bitmap:
+                w.set('width', '512')
+                w.set('height', '64')  # (holds the browser's four titles)
+
+
 def generate(assets=MENUS):
     assets = Path(assets)
     names = set()
@@ -830,6 +852,7 @@ def generate(assets=MENUS):
         assets, names)
     documents['patches.xml'] = patch_document(names)
     documents['bitmaps.xml'] = bitmap_document(assets, names)
+    native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)
     output = assets / 'xbox'

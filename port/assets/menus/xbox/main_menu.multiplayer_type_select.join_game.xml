@@ -12,15 +12,15 @@
 		<child widget="xbox/error/error_modal" />
 		<child widget="xbox/error/error_modal_button_bar" x="194" y="449" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="363" height="59" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" controller="1" left="35" top="11" width="363" height="59">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" controller="1" left="35" top="11" width="512" height="64">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_internet" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_lan" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_server_browser" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_lan" controller="1" left="35" top="11" width="363" height="59" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_lan">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_lan" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_lan">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_arrows" width="64" height="32">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" />

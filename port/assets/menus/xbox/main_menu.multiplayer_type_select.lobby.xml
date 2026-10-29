@@ -18,7 +18,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/b_butn" x="346" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/=cancel" x="368" y="414" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/header_lobby" controller="1" left="35" top="11" width="363" height="59" bitmap="xbox/main_menu/multiplayer_type_select/lobby/header_lobby">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/header_lobby" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/lobby/header_lobby">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_join_help" type="text" controller="1" left="323" top="78" width="254" height="31" font="ui\small_ui" color="#FFFFFFFF" align="right" text_y="5" text_flags="no_focus_test">
 	</widget>
@@ -147,7 +147,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/b_butn" x="346" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/=cancel" x="368" y="414" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/header_add_player" controller="1" left="35" top="11" width="363" height="59" bitmap="xbox/main_menu/multiplayer_type_select/lobby/header_add_player">
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/header_add_player" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/lobby/header_add_player">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_list" type="column_list" width="640" height="406" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/profile_manager/player_profile_extended_desc">
 		<data input="3wide player profile list update" />
