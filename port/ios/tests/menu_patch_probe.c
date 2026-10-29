@@ -1105,11 +1105,11 @@ int main(int argc, char **argv)
 			{
 				struct string_list *list = tag_get(UNICODE_STRING_LIST_TAG,
 					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
-				check(string_is(list, 0, "Rename this profile using the virtual keyboard.\\n\\nCurrent Profile:"),
+				check(string_is(list, 0, "Rename this profile using\\nthe virtual keyboard.\\n\\nCurrent Profile:"),
 					"keyboard removal changes the next screen's description");
 				input_keyboard = 1;
 				pc_menu_screen_open(xbox);
-				check(string_is(list, 0, "Rename this profile with your keyboard.\\n\\nCurrent Profile:"),
+				check(string_is(list, 0, "Rename this profile with your\\nkeyboard.\\n\\nCurrent Profile:"),
 					"keyboard attachment changes the next screen's description");
 			}
 		}
