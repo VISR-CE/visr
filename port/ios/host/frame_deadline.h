@@ -13,4 +13,22 @@ static inline double frame_deadline_period(double target, double refresh_period)
 	return period >= 1.0 / 240.0 && period <= 1.0 / 20.0 ? period : 1.0 / 60.0;
 }
 
+/* The drawing thread's membership of the "VISR frame" workgroup (gpu_metal.m). UIKit starts its own intervals on the
+   main thread, which is the drawing thread, and raises an Objective-C exception from _beginInterval when the thread
+   belongs to a workgroup that is not UIKit's (a drag of the benchmark menu's scroll view, a UIKit update cycle),
+   so the thread leaves the workgroup before UIKit runs its own loop and joins again at the next frame. */
+enum { FRAME_DEADLINE_OFF = -1, FRAME_DEADLINE_NEW = 0, FRAME_DEADLINE_JOINED = 1, FRAME_DEADLINE_LEFT = 2 };
+
+/* the state once the thread that called leaves: only the joined thread can leave, and only while it is joined */
+static inline int frame_deadline_state_after_leave(int state, int on_joined_thread)
+{
+	return state == FRAME_DEADLINE_JOINED && on_joined_thread ? FRAME_DEADLINE_LEFT : state;
+}
+
+/* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out */
+static inline int frame_deadline_rejoin_wanted(int state, int offscreen)
+{
+	return state == FRAME_DEADLINE_LEFT && !offscreen;
+}
+
 #endif

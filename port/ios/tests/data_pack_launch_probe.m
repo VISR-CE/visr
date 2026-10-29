@@ -19,6 +19,7 @@ void platform_log(const char *format, ...) { (void)format; }
 const struct gpu_backend gpu_backend_metal = {0}, gpu_backend_gl = {0};
 void host_lifecycle_hold(void) {}
 void gpu_metal_frame_deadline_end(void) {}
+void gpu_metal_frame_deadline_leave(void) {}
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     (void)name; snprintf(out, size, "%s", fallback);
 }
