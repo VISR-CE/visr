@@ -118,9 +118,10 @@ void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[
 latest hand anchors; returns 1 when it filled, 0 when hands are not the
 source this sample (unsupported, off, no session) */
 int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, const float head_position[3]);
-/* 1 while the hands source filled the game sample it was last given. The
-Sense tracker wins while it is READY and then this is never asked, so
-host_spatial.m's precedence, not this flag, decides who owns a sample */
+/* 1 while the hands source filled the game sample it was last given: 0 while
+hand tracking is unsupported, its permission pending or denied, or no
+session has started it. input.aim alone decides whether this file is asked
+at all (host_spatial.m) */
 int host_spatial_hands_active(void);
 /* zeroes the gesture recognizer's state (pinches, aim turn arm, pulses, the
 prayer sign's dwell): called whenever hands were not this

@@ -425,8 +425,8 @@ static const struct config_setting config_settings[] =
 	{ "input.aim", _config_string, "\"controller\"", "HALO_AIM", _environment_value, _platform_ios,
 		"With display.stereo = \"head\": what aims, \"head\" (the view's center),\n"
 		"\"controller\" (default; the aiming hand's Sense controller) or\n"
-		"\"hands\" (the dominant hand's forearm aims; a tracked Sense pair takes\n"
-		"over while both controllers are tracked; the head is the fallback).\n"
+		"\"hands\" (the dominant hand's forearm aims; a Sense pair is not used in\n"
+		"this mode even if paired; the head is the fallback).\n"
 		"Aiming uses the head when tracking is unavailable in local play. In\n"
 		"network play, aim holds its last valid hand direction through\n"
 		"input.aim_loss_grace, then uses the head until the hand is tracked\n"

@@ -34,7 +34,7 @@ Planned releases and the work in each are tracked as milestones: https://github.
 - [x] Any game controller, plus keyboard navigation in the menus
 - [x] Touch controls on iPhone and iPad, sharing player one with a connected game controller
 - [x] Aiming with tracked PlayStation VR2 Sense controllers on visionOS 27: local first-person seats aim with the hand; third-person seats and all network seats use the stick (`input.aim`, `input.aim_hand`)
-- [x] Bare-hand aiming and gestures: the dominant forearm aims, finger pinches fire, jump, walk, crouch and turn, and a tracked Sense pair takes over automatically (`input.aim`, `input.hand_turn_deadzone`)
+- [x] Bare-hand aiming and gestures: the dominant forearm aims, finger pinches fire, jump, walk, crouch and turn (`input.aim`, `input.hand_turn_deadzone`)
 - [x] The game's rumble on the Sense controllers (`input.controller_rumble`)
 - [x] Bullet aim assist kept for hand aiming, tunable in single player and fixed in multiplayer (`input.aim_assist`)
 

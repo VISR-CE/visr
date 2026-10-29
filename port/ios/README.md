@@ -676,10 +676,9 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
   Both palms together, fingers up, held for 0.6 seconds, pauses. In a menu
   the fire pinch accepts, the crouch pinch backs out, and the walk pinches
   move the highlight. `input.aim_hand` picks the dominant hand and mirrors
-  every gesture above. A tracked Sense pair takes over automatically, and
-  hands come back when the pair is put down; the space asks for the Sense
-  accessory-tracking permission as well as the hand tracking one, so a pair
-  picked up can take over. A classic gamepad still works for buttons
+  every gesture above. `input.aim` chooses the source outright: in hands
+  mode the Sense controllers are not used even if paired (switch it back to
+  `"controller"` to use them). A classic gamepad still works for buttons
   alongside hand aiming: its Back held as the prayer sign fires reaches the
   game as Back plus Start, which ends a `debug.input_record` recording,
   and is not the chord that leaves the immersive space (that one reads Back

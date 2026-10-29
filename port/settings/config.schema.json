@@ -1086,7 +1086,7 @@
         "aim": {
           "type": "string",
           "default": "controller",
-          "description": "With display.stereo = \"head\": what aims, \"head\" (the view's center), \"controller\" (default; the aiming hand's Sense controller) or \"hands\" (the dominant hand's forearm aims; a tracked Sense pair takes over while both controllers are tracked; the head is the fallback). Aiming uses the head when tracking is unavailable in local play. In network play, aim holds its last valid hand direction through input.aim_loss_grace, then uses the head until the hand is tracked again (and before the first tracked pose); a seat uses stick aim. Anything else aims with the head.",
+          "description": "With display.stereo = \"head\": what aims, \"head\" (the view's center), \"controller\" (default; the aiming hand's Sense controller) or \"hands\" (the dominant hand's forearm aims; a Sense pair is not used in this mode even if paired; the head is the fallback). Aiming uses the head when tracking is unavailable in local play. In network play, aim holds its last valid hand direction through input.aim_loss_grace, then uses the head until the hand is tracked again (and before the first tracked pose); a seat uses stick aim. Anything else aims with the head.",
           "x-environment": "HALO_AIM",
           "x-environment-style": "value",
           "x-platforms": [

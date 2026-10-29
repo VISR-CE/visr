@@ -27,10 +27,10 @@ game sample takes each hand's latest anchor; the drawing sample
 the drawable's trackable-anchor time. On visionOS 26 the game logs once that
 controller aim needs 27, and aims with the head.
 
-With input.aim = "hands" the player's bare hands are a second source of the
+With input.aim = "hands" the player's bare hands are the only source of the
 same hands (host_spatial_hands.m), filling them from ARKit's hand tracking.
-The Sense tracker keeps precedence while it is READY, so picking the
-controllers up takes the sample back and putting one down hands it over.
+input.aim chooses the source outright: a tracked Sense pair is never
+consulted in hands mode, however many controllers are on the desk.
 
 The game sample also carries both controllers' buttons, read at the aiming
 hand's anchor timestamp (host_spatial_input.m) and mapped onto the Xbox
@@ -164,7 +164,7 @@ static double seconds_now(void)
 
 #if TARGET_OS_VISION
 /* the tracker (a HostSpatialTracker, visionOS 27), made at the first sample
-in HEAD mode with input.aim = "controller" or "hands" and no synthetic hand */
+in HEAD mode with input.aim = "controller" and no synthetic hand */
 #if HOST_SPATIAL_SENSE_SDK
 static id tracker;
 #endif
@@ -238,7 +238,7 @@ static void read_settings(void)
 			(double)rumble_strength, (double)HOST_SPATIAL_RUMBLE_STRENGTH_MAXIMUM, (double)clamped);
 		rumble_strength = clamped;
 	}
-	if ((aim_controller || aim_hands) && head_mode && !synthetic_on && !replay_on)
+	if (aim_controller && head_mode && !synthetic_on && !replay_on)
 		tracker_start();
 #else
 	if (aim_controller && head_mode && !synthetic_on && !replay_on)
@@ -1290,11 +1290,10 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 #if HOST_SPATIAL_SENSE_SDK
 		tracker_sample(kind, sample, position);
 #endif
-		/* the Sense tracker wins while it's READY, bare hands fill the
-		sample otherwise (host_spatial_hands.m): a controller picked up
-		takes the hands' place in the same sample it becomes ready in, and
-		one put down hands it back */
-		if (aim_hands && sample->reason != HALO_SPATIAL_READY)
+		/* input.aim chooses the source: in hands mode bare hands fill the
+		sample (host_spatial_hands.m) and a Sense pair is never consulted,
+		however many controllers are tracked */
+		if (aim_hands)
 		{
 			host_spatial_hands_sample(kind, sample, position);
 			if (kind == HALO_SPATIAL_SAMPLE_GAME)
@@ -1311,10 +1310,10 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 		else if (kind == HALO_SPATIAL_SAMPLE_GAME)
 		{
 			hands_filled_sample = 0;
-			/* hands were not this game sample's source (the Sense tracker took it, or
-			input.aim isn't "hands"): reset the gesture recognizer's state so a pinch or a
-			prayer dwell held before a takeover never survives into the sample hands fill
-			next, exactly as if the hand itself had been lost */
+			/* hands were not this game sample's source (input.aim isn't "hands"): reset the
+			gesture recognizer's state so a pinch or a prayer dwell held before this is never
+			carried into the next sample hands fill, exactly as if the hand itself had been
+			lost */
 			host_spatial_hands_idle();
 		}
 #else

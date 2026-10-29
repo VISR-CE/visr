@@ -633,9 +633,9 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 	if (!filled)
 	{
 		/* the provider is in the session but not running yet (fill's own WAITING): no joints
-		came in, so the recognizer's pinch and prayer state is reset exactly as a Sense takeover
-		resets it (host_spatial_hands_idle) -- a gap here is indistinguishable from a takeover to
-		a pinch that was mid-close */
+		came in, so the recognizer's pinch and prayer state is reset exactly as
+		host_spatial.m's own hands-not-the-source branch resets it (host_spatial_hands_idle)
+		-- a gap here is indistinguishable from a lost hand to a pinch that was mid-close */
 		host_spatial_hands_idle();
 		return filled;
 	}
