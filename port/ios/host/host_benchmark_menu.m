@@ -489,6 +489,9 @@ static NSInteger ask(NSString *heading, NSString *detail, NSArray<NSString *> *c
             ) { scene = (UIWindowScene *)candidate; break; }
     if (!scene) return 0;
     if (launchMenu) host_external_menu_splash();
+    /* the thread that drew the game is in the frame workgroup, and UIKit raises from its own interval when it begins on
+       such a thread (a drag of this menu's scroll view crashed an iPad Pro): out until the next frame */
+    gpu_metal_frame_deadline_leave();
     controller.heading = heading;
     controller.detail = detail;
     controller.choices = choices;
@@ -501,11 +504,18 @@ static NSInteger ask(NSString *heading, NSString *detail, NSArray<NSString *> *c
     if (launchMenu) retry_pending_reports();
     while (controller.chosen < 0) {
         @autoreleasepool {
-            [controller refreshBenchmark];
-            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
+            /* (an exception raised inside UIKit cannot unwind through the guest's frames below: it ends the app, so it
+               stops here and the menu carries on) */
+            @try {
+                [controller refreshBenchmark];
+                CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
 #if !TARGET_OS_TV
-            CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
+                CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
 #endif
+            } @catch (NSException *exception) {
+                host_logf(HOST_LOG_ERROR, "benchmark menu: UIKit raised %s: %s", exception.name.UTF8String,
+                    exception.reason.UTF8String ?: "");
+            }
         }
     }
     chosen = controller.chosen;

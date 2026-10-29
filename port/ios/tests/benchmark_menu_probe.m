@@ -10,6 +10,8 @@ static BOOL probe_reduce_motion;
 
 static NSDictionary *feed_state;
 static int menu_starts;
+static int workgroup_leaves;
+void gpu_metal_frame_deadline_leave(void) { workgroup_leaves++; }
 static atomic_bool sender_started;
 static dispatch_semaphore_t sender_gate;
 static void check(BOOL condition, const char *message);
@@ -158,6 +160,7 @@ static void refresh(HaloBenchmarkMenuController *controller) {
             const char *mode = host_benchmark_menu();
             [press invalidate];
             check(pressedWhileSending && mode == NULL, "Play finishes before pending iCloud delivery");
+            check(workgroup_leaves == 1, "The drawing thread leaves the frame workgroup before the menu runs UIKit's loop");
             dispatch_semaphore_signal(sender_gate);
             CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 2;
             do {

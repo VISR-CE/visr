@@ -28,6 +28,22 @@ static void periods(void) {
     CHECK(NEAR(frame_deadline_period(1000.0, 1.0 / 60.0), 1.0 / 60.0));
 }
 
+/* leaving the workgroup before UIKit's loop (host_benchmark_menu.m's ask), joining again at the next shown frame */
+static void membership(void) {
+    /* only the joined thread leaves, and only while joined */
+    CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_JOINED, 1) == FRAME_DEADLINE_LEFT);
+    CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_JOINED, 0) == FRAME_DEADLINE_JOINED);
+    CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_NEW, 1) == FRAME_DEADLINE_NEW);
+    CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_OFF, 1) == FRAME_DEADLINE_OFF);
+    CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_LEFT, 1) == FRAME_DEADLINE_LEFT);
+    /* a shown frame rejoins; an offscreen benchmark frame, or a thread never joined, does not */
+    CHECK(frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 1));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_JOINED, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_NEW, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_OFF, 0));
+}
+
 /* the calls gpu_metal.m makes: join once on the drawing thread, then a start and a finish around each frame's work */
 static void *frames(void *unused) {
     struct os_workgroup_join_token_opaque_s token;
@@ -52,6 +68,12 @@ static void *frames(void *unused) {
         usleep(2000);
         CHECK(os_workgroup_interval_finish(interval, NULL) == 0);
     }
+    /* leave on the joining thread, run, join the same interval again: the system accepts it */
+    os_workgroup_leave(interval, &token);
+    usleep(1000);
+    CHECK(os_workgroup_join(interval, &token) == 0);
+    CHECK(os_workgroup_interval_start(interval, mach_absolute_time(), mach_absolute_time() + 1000000, NULL) == 0);
+    CHECK(os_workgroup_interval_finish(interval, NULL) == 0);
     os_workgroup_leave(interval, &token);
     os_release(interval);
     return NULL;
@@ -61,6 +83,7 @@ int main(void) {
     pthread_t thread;
 
     periods();
+    membership();
     if (__builtin_available(macOS 11.0, *)) {
         CHECK(pthread_create(&thread, NULL, frames, NULL) == 0);
         pthread_join(thread, NULL);
