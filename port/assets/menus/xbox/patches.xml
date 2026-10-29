@@ -3,7 +3,6 @@
 <menus>
 	<patch list="ui\shell\main_menu\main_menu_select_list" screen="ui\shell\main_menu\main_menu" footer="480">
 		<row after="ui\shell\main_menu\main_menu_item_settings" model="ui\shell\main_menu\main_menu_item_settings" name="main_menu_item_custom" text="CUSTOM CAMPAIGN" run="port custom campaign begin" open="xbox/main_menu/solo_level_select/solo_level_select_screen" created="disable if no custom campaigns" bitmap="xbox/main_menu/menu_custom_campaign" />
-		<row after="ui\shell\main_menu\main_menu_item_settings" model="ui\shell\main_menu\main_menu_item_settings" platform="quit" name="main_menu_item_quit" text="QUIT" open="xbox/main_menu/quit_select/quit_screen" bitmap="xbox/main_menu/menu_quit" />
 	</patch>
 	<patch list="ui\shell\main_menu\multiplayer_type_select\multiplayer_type_select_list" screen="ui\shell\main_menu\multiplayer_type_select\multiplayer_type_select_screen" footer="414">
 		<replace child="ui\shell\main_menu\multiplayer_type_select\multiplayer_type_conn_item" name="multiplayer_type_join_lan" text="SYSTEM LINK PLAY" run="mp type set mode" open="ui\shell\main_menu\multiplayer_type_select\connected\4way_profile_select\4way_start2join_screen" />

@@ -100,7 +100,7 @@ be a child of many).
 | `description` | A column list's extended description: a widget |
 | `controller` | `1` to `4`, or `any` (the default); a `<child>`'s or `child_controller`: the one it is for |
 | `auto_close`, `auto_close_fade` | It closes itself after this many milliseconds, fading for this many |
-| `platform` | `desktop`, `android`, `apple`, `cloud_saves`, `quit` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `quit`: where the app can end itself, the desktop's and the Mac app's, not an iPhone, iPad, Apple TV or Vision Pro; the main menu's Quit has it; `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it; `tvos`: the Apple TV, whose remote has no X or Y; `keyboard`: the desktop, the Mac app, and an iPhone or iPad with a keyboard attached as the game starts). Every element takes this. |
+| `platform` | `desktop`, `android`, `apple`, `cloud_saves` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it; `tvos`: the Apple TV, whose remote has no X or Y; `keyboard`: the desktop, the Mac app, and an iPhone or iPad with a keyboard attached as the game starts). Every element takes this. |
 
 Widget flags: `pass_unhandled_to_focused_child` (an event it does not handle
 goes to its focused child: a screen needs it for its list to get events),
@@ -178,8 +178,9 @@ patches, made as `ui.map` loads (`port/linux/game/menu_tags.c`):
 
 ```xml
 <patch list="ui\shell\main_menu\main_menu_select_list" screen="ui\shell\main_menu\main_menu">
-	<row after="ui\shell\main_menu\main_menu_item_game_demos" model="ui\shell\main_menu\main_menu_item_settings"
-	     platform="quit" name="main_menu_item_quit" text="QUIT" open="xbox/quit_screen"/>
+	<row after="ui\shell\main_menu\main_menu_item_settings" model="ui\shell\main_menu\main_menu_item_settings"
+	     name="main_menu_item_custom" text="CUSTOM CAMPAIGN" run="port custom campaign begin"
+	     open="xbox/main_menu/solo_level_select/solo_level_select_screen"/>
 </patch>
 ```
 
@@ -207,3 +208,8 @@ map=...>`), else a placeholder, placed where the PC version's picture is in
 its frame (`--pictures`: only where, not the picture, is read);
 `NON_HANDDRAWN.md` lists both. It needs `rsvg-convert`, Pillow, NumPy and
 SciPy.
+
+The main menu has no Quit row in either look. B and Back at the root do
+nothing. The retained confirmation is available only through the debug
+setting `debug.menu_open = "main_menu/quit_select/quit_screen"` for PC, or
+`"xbox/main_menu/quit_select/quit_screen"` for Xbox.

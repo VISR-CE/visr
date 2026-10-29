@@ -932,8 +932,7 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/interface_rank_probe.c', f'--output={BUILD / "interface-rank-probe"}')
 run(BUILD/'interface-rank-probe')
 
-# The menus' platform attribute: "quit" is for the desktop ports and the Mac app (the host sets HALO_APP_CAN_QUIT), not
-# for an iPhone, an iPad, an Apple TV or a Vision Pro (menu_platform.h)
+# Host-specific menu capabilities; the retired quit platform is rejected.
 for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform-apple', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], False),
                            ('menu-platform-mac', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], True), ('menu-platform-android', ['-DHALO_ANDROID=1'], False)):
     run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', *defines, 'port/ios/tests/menu_platform_probe.c', '-o', BUILD / name)
@@ -941,21 +940,15 @@ for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform
     for cloud in ('0', '1'):
         subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
                        env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud,
-                            'HALO_HOST_KEYBOARD': '1' if mac else '0',
-                            **({'HALO_APP_CAN_QUIT': '1'} if mac else {})})
-# ... and the main menu uses it: Quit's item and the B and Back handlers that open its question are the only elements
-# for platform "quit", every other item stays, and the items run one row apart from the first, so the menu has no
-# gap where Quit was and the list's wrap is its own over the items left (the pause menu's quit to main menu is another
-# screen and not in this file)
+                            'HALO_HOST_KEYBOARD': '1' if mac else '0'})
+# Every platform keeps four evenly spaced rows and inert root cancel handlers.
 main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()
-quit_elements = [element.attrib for element in main_menu.iter() if element.get('platform') == 'quit']
-assert sorted(element.get('event') or element.get('widget') for element in main_menu.iter()
-              if element.get('platform') == 'quit') == ['b', 'back', 'main_menu/main_menu_item_quit_game'], quit_elements
-# (the Quit item's own handlers stay: with the item not a child of the list they are never reached)
-assert all(on.get('platform') == 'quit' for on in main_menu.find("widget[@name='main_menu/main_menu']").iter('on')
-           if 'quit_select' in (on.get('open') or '')), 'a way to the quit question is left on Apple devices'
-shown = [child for child in main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child')
-         if child.get('platform') != 'quit']
+assert not any('quit_select' in element.get('open', '') for element in main_menu.iter())
+assert not any(element.get('platform') == 'quit' for element in main_menu.iter())
+for look in ('ce', 'xbox'):
+    dialog = ElementTree.parse(ROOT / f'port/assets/menus/{look}/main_menu.quit_select.xml')
+    assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
+shown = list(main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child'))
 assert [int(child.get('y')) for child in shown] == [247 + 36 * row for row in range(len(shown))] and len(shown) == 4, \
     'the main menu without Quit: four items, a row apart'
 print('main menu without Quit: ' + ', '.join(child.get('widget').split('/')[-1] for child in shown))

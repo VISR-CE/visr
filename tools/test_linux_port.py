@@ -247,7 +247,7 @@ def test_menus_are_well_formed():
             where = f"{path.name}: <{element.tag} {element.get('name', '')}>"
             assert element.tag in MENU_ATTRIBUTES, where
             assert set(element.attrib) <= MENU_ATTRIBUTES[element.tag], where
-            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "quit", "mac_app",
+            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "mac_app",
                                                "tvos", "keyboard"), where
             # (menu_files.c's whole numbers, which the tags keep in shorts,
             # its true/false attributes, and no text but whitespace outside
@@ -604,9 +604,7 @@ def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
     subprocess.run(["clang", *defines, str(root / "port/ios/tests/menu_platform_probe.c"),
                     "--output", str(probe)], check=True)
     environment = {key: value for key, value in os.environ.items()
-                   if key not in {"HALO_APP_CAN_QUIT", "HALO_HOST_CLOUD_SAVES"}}
-    if kind == "mac":
-        environment["HALO_APP_CAN_QUIT"] = "1"
+                   if key not in {"HALO_HOST_CLOUD_SAVES"}}
     for capability in (None, "0", "1"):
         current = dict(environment)
         if capability is not None:

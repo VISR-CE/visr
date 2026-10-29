@@ -262,7 +262,7 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
-    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 294), (284, 294), (356, 294), (372, 294)]
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 310), (284, 310), (356, 310), (372, 310)]
     children = bar.findall('child')
     assert children[0].get('widget') == 'xbox/error/confirm_delete_profile/b_butn'
     assert children[2].get('widget') == 'xbox/error/confirm_delete_profile/a_butn'
@@ -410,3 +410,32 @@ def test_browser_highlight_has_one_shape_for_every_row():
     stroke = float(shape.get('stroke-width')) / 2
     assert left - stroke > 0
     assert left + width + stroke < int(rows[0].get('width'))
+
+
+def test_main_menus_never_open_quit_but_keep_the_dialog():
+    for folder in ('ce', 'xbox'):
+        for path in (MENUS / folder).glob('*.xml'):
+            root = ET.parse(path)
+            assert not [e.attrib for e in root.iter() if 'quit_select' in e.get('open', '')], path
+            assert not [e.attrib for e in root.iter() if e.get('platform') == 'quit'], path
+            if path.name != 'main_menu.quit_select.xml':
+                assert not [e.attrib for e in root.iter('on') if e.get('run') in
+                            ('main menu quit game', 'port quit game')], path
+        dialog = ET.parse(MENUS / folder / 'main_menu.quit_select.xml')
+        assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
+    main = ET.parse(MENUS / 'ce/main_menu.xml')
+    rows = main.find("widget[@name='main_menu/main_menu_select_list']").findall('child')
+    assert len(rows) == 4
+    assert [int(c.get('y')) for c in rows] == [247, 283, 319, 355]
+    assert not any('quit' in w.get('name', '') for w in main.iter('widget'))
+
+
+def test_quit_panel_matches_delete_confirmation_padding():
+    root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
+    panel = root.find("widget[@name='xbox/main_menu/quit_select/quit_panel']")
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('192', '176', '239', '159')
+    assert (panel.get('text_x'), panel.get('text_y')) == ('9', '36')
+    modal = root.find("widget[@name='xbox/main_menu/quit_select/quit_screen']")
+    title = modal.find("child[@widget='xbox/error/header_are_you_sure']")
+    assert (title.get('x'), title.get('y')) == ('201', '180')
+    assert panel.find('child') is None, 'absolute legend coordinates must not be nested in the text panel'

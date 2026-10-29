@@ -14,7 +14,7 @@ MP = "ui\\shell\\main_menu\\multiplayer_type_select\\"
 # the Xbox's own rows of the multiplayer type list, in order, each with the description and picture of its place
 MP_ROWS = ["multiplayer_type_coop_item", "multiplayer_type_split_item", "multiplayer_type_conn_item",
            "multiplayer_type_gametypes_item"]
-PLATFORMS = {"quit", "tvos", "keyboard"}
+PLATFORMS = {"tvos", "keyboard"}
 
 
 def table():
@@ -50,7 +50,7 @@ def test_every_screen_and_function_exists():
                     assert target in widgets, f"{row.get('name')}: no widget {target}"
             for key in ("run", "created"):
                 if row.get(key):
-                    assert row.get(key) in functions or row.get(key) in {"main menu quit game"}, \
+                    assert row.get(key) in functions, \
                         f"{row.get('name')}: no port function {row.get(key)}"
 
 
@@ -106,18 +106,17 @@ def test_multiplayer_modes_follow_the_row_names():
                                                                                        "join_lan", "join_direct"))
 
 
-def test_main_menu_rows_are_quit_then_custom_campaign():
-    """Both go in after SETTINGS, QUIT second, so that it ends up first and no gap is left above it."""
+def test_main_menu_adds_only_custom_campaign():
+    """The custom row follows SETTINGS without adding an exit action."""
     patch = next(p for p in table() if p.get("screen") == "ui\\shell\\main_menu\\main_menu")
-    custom, quit_row = rows(patch)
+    custom, = rows(patch)
     settings = "ui\\shell\\main_menu\\main_menu_item_settings"
     assert custom.get("text") == "CUSTOM CAMPAIGN" and custom.get("created") == "disable if no custom campaigns"
     assert custom.get("run") == "port custom campaign begin" and not custom.get("platform")
-    assert quit_row.get("text") == "QUIT" and quit_row.get("platform") == "quit"
-    assert custom.get("after") == quit_row.get("after") == settings
+    assert custom.get("after") == settings
     # (their labels are pictures, as the main menu's are, with the two frames the highlight switches between)
     bitmaps = {b.get("name"): b for b in ET.parse(MENUS / "bitmaps.xml").getroot()}
-    for row in (custom, quit_row):
+    for row in (custom,):
         assert len(bitmaps[row.get("bitmap")].findall("frame")) == 2, row.get("bitmap")
 
 

@@ -64,14 +64,14 @@ TITLE_FONT = ROOT / "port/assets/fonts/OpenCE-Regular.ttf"
 LEFT_OUT = {
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\header_gamespy_logo",
     "ui\\shell\\main_menu\\main_menu_item_credits",
+    "ui\\shell\\main_menu\\main_menu_item_quit_game",
     # (the "checking for updates" dialogs, which asked the PC version's
     # servers: Create > Internet and Join > Server Browser skip them,
     # port_settings.WIDGET_PATCHES)
     "ui\\shell\\main_menu\\multiplayer_type_select\\checking_updates_screen_create",
     "ui\\shell\\main_menu\\multiplayer_type_select\\checking_updates_screen_join",
 }
-# children moved: (parent, child) to (x, y); the main menu's Quit up into
-# Credits' place; Multiplayer's Edit Gametypes and divider below Co-op,
+# children moved: (parent, child) to (x, y); Multiplayer's Edit Gametypes and divider below Co-op,
 # keeping its 32-unit highlight inside the description panel's bottom curve.
 CHILD_OFFSETS = {
     # Give Region ten units from Game, keeping the last column inside the frame.
@@ -85,7 +85,6 @@ CHILD_OFFSETS = {
      "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\server_count_label"): (355, 60),
     ("ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\screen_stats_container",
      "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\page_count_label"): (220, 60),
-    ("ui\\shell\\main_menu\\main_menu_select_list", "ui\\shell\\main_menu\\main_menu_item_quit_game"): (192, 391),
     ("ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_select_list",
      "ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_gametypes_item"): (0, 358),
     ("ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_select_screen",
@@ -438,7 +437,8 @@ class Art:
 
 
 def reachable(tags: Tags) -> dict:
-    widgets, queue = {}, [MAIN_MENU]
+    # Keep the unused confirmation available to debug.menu_open after removing its row.
+    widgets, queue = {}, [MAIN_MENU, "ui\\shell\\main_menu\\quit_select\\quit_screen"]
     while queue:
         tag = queue.pop()
         if tag in widgets:

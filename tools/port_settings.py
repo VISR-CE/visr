@@ -474,20 +474,12 @@ WIDGET_PATCHES = {
         ("op_sort_header_type", 80), ("sort_header_type", 80), ("server_item_type", 77),
         ("op_sort_header_ping", 60), ("sort_header_ping", 60), ("server_item_ping", 57))},
     "main_menu/multiplayer_type_select/join_game/server_count_label": {"set": {"width": 265}},
-    # (the main menu's Quit, and B and Back's way to its question, only where
-    # the app can end itself: the desktop's and the Mac app's. An iPhone, an
-    # iPad, an Apple TV and a Vision Pro leave to the system, and the
-    # question's OK did nothing there). Keep inert B and Back handlers after
-    # the quit handlers: without one, the widget runtime deletes the root
-    # menu while trying to return to its empty history.
+    # Consume cancel at the root: returning to empty history deletes the menu.
     "main_menu/main_menu": {"handlers": [
         '<on event="created" run="main menu intialize" label="ring_loop"/>',
-        '<on event="back" open="main_menu/quit_select/quit_screen" platform="quit"/>',
-        '<on event="b" open="main_menu/quit_select/quit_screen" platform="quit"/>',
         '<on event="back"/>',
         '<on event="b"/>',
     ]},
-    "main_menu/main_menu_select_list": {"child_platform": {"main_menu/main_menu_item_quit_game": "quit"}},
     # The host returns here after a round with no menu history. Back must
     # reopen the main menu when it closes the last screen, as the lobby does.
     f"{MT}/connected/connected_map_select_wrapper": {"set": {

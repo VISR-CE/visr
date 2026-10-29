@@ -671,18 +671,20 @@ def quit_layout(root, widgets):
     bar[:] = []
     for button, x in (('b', 268), ('a', 356)):
         shared = 'xbox/error/confirm_delete_profile/'
-        child(bar, shared + button + '_butn', x=x, y=294)
+        child(bar, shared + button + '_butn', x=x, y=310)
         target = shared + 'b_caption' if button == 'b' else base + '/quit_button_ok'
-        child(bar, target, x=x + 16, y=294)
+        child(bar, target, x=x + 16, y=310)
     action = widgets[base + '/quit_button_ok']
     action.attrib.pop('string_list', None)
     action.attrib.pop('string_index', None)
     action.attrib.update(text='=OK', width='70', height='22', align='left', text_y='0')
     screen = widgets[base + '/quit_screen']
-    # Xbox confirmations replace the previous screen (ui_widget_launch_widget),
-    # then dim the scene with a full-screen semi_transparent_grey background.
+    # The message uses the delete confirmation's panel and padding. Keep the
+    # legend and title in screen coordinates, outside the offset text widget.
     screen.set('name', base + '/quit_panel')
-    # Forward pointer events through the text panel to the confirmation captions.
+    screen.attrib.update(left='192', top='176', width='239', height='159',
+                         text_x='9', text_y='36', align='left')
+    screen[:] = []
     modal = widget(root, base + '/quit_screen', width=640, height=480, controller=1,
                    flags='pass_unhandled_to_focused_child pass_unhandled_to_all_children',
                    bitmap='xbox/bitmaps/semi_transparent_grey')
@@ -691,10 +693,8 @@ def quit_layout(root, widgets):
     for event in ('b', 'back'):
         ET.SubElement(modal, 'on', event=event, back='true')
     child(modal, base + '/quit_panel')
-    for c in screen.findall('child'):
-        if c.get('widget') == base + '/quit_button_bar':
-            c.set('x', '0')
-            c.set('y', '0')
+    child(modal, 'xbox/error/header_are_you_sure', x=201, y=180)
+    child(modal, base + '/quit_button_bar')
 
 
 # ui.map's tag paths the patch table names (ui\\shell\\ is left out of each) and the screens it opens
@@ -715,19 +715,13 @@ def patch_row(parent, tag='row', **attributes):
 def patch_document(names):
     """The patch table (port/linux/game/menu_tags.c): VISR's rows in the Xbox's own lists."""
     root = ET.Element('menus')
-    # Main menu: QUIT (where the app can quit) and CUSTOM CAMPAIGN (only with Custom Edition campaign maps) after
-    # SETTINGS, QUIT first, since a hidden CUSTOM CAMPAIGN would leave a row's gap above it; the hidden GAME DEMOS
-    # row stays last. Both labels are pictures, as the main menu's are. QUIT goes in second, in the place after
-    # SETTINGS, and where the app cannot quit its row is not read at all.
+    # Add custom campaigns after SETTINGS; the map's hidden GAME DEMOS stays last.
     main = patch(root, MM + 'main_menu_select_list', MM + 'main_menu')
     main.set('footer', '480')
     patch_row(main, after=MM + 'main_menu_item_settings', model=MM + 'main_menu_item_settings',
               name='main_menu_item_custom', text='CUSTOM CAMPAIGN', run='port custom campaign begin',
               open='xbox/main_menu/solo_level_select/solo_level_select_screen',
               created='disable if no custom campaigns', bitmap=bitmap_ref('main_menu/menu_custom_campaign', names))
-    patch_row(main, after=MM + 'main_menu_item_settings', model=MM + 'main_menu_item_settings', platform='quit',
-              name='main_menu_item_quit', text='QUIT', open='xbox/main_menu/quit_select/quit_screen',
-              bitmap=bitmap_ref('main_menu/menu_quit', names))
     # Multiplayer type: SYSTEM LINK sets the mode (LAN) before the Xbox's own flow; INTERNET and DIRECT LINK open
     # the Xbox-look browser, which shows each mode's header, rows and buttons
     mp = patch(root, MPT + 'multiplayer_type_select_list', MPT + 'multiplayer_type_select_screen')
