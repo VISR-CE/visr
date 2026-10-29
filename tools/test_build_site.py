@@ -369,8 +369,9 @@ def test_platforms_wrapper_contains_exactly_four_platform_sections(committed):
     assert platforms.count('</section>') == 4
     assert 'On every device' not in platforms
     assert '<section aria-labelledby="on-every-device">' in page
-    if committed:
-        assert '<video' not in page
+    if committed:  # only the clips that are committed render as video; the others keep their poster image
+        clips = set(re.findall(r'<source src="([^"]+)"', page))
+        assert clips == {f'video/{path.name}' for path in (site / 'video').glob('*.mp4')}
 
 
 def test_site_template_has_skip_target_shared_styles_and_deferred_script():

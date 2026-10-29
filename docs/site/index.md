@@ -43,4 +43,4 @@
 
 {{ features: mac }}
 
-![Halo on Mac fighting Covenant forces in Two Betrayals](./mac.jpg){device=mac video=video/mac.mp4}
+![Halo on Mac fighting Covenant forces](./mac.jpg){device=mac video=video/mac.mp4}
