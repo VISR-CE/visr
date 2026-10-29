@@ -136,7 +136,7 @@ public func host_theater_set_upper_limbs(_ visible: Int32) {
     }
 }
 
-/* opens the space; host_theater.m calls it once SDL's window is up */
+/* opens the space: at launch with display.immersive, and for Enter VR (host_theater.m) */
 @_cdecl("host_theater_open")
 public func host_theater_open() {
     guard #available(visionOS 26.0, *) else {
@@ -149,6 +149,39 @@ public func host_theater_open() {
     }
     UIApplication.shared.activateSceneSession(for: request) { error in
         host_theater_log("theater: the immersive space didn't open: \(error.localizedDescription)")
+        host_theater_open_failed()
+    }
+}
+
+/* Enter VR: the ornament below the game's window, while the immersive space
+   is closed (host_theater.m sets it and clears it), faint until looked at */
+@_cdecl("host_theater_ornament")
+public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ shown: Int32) {
+    guard let controller else { return }
+    MainActor.assumeIsolated {
+        let window = Unmanaged<UIViewController>.fromOpaque(controller).takeUnretainedValue()
+        window.ornaments = shown == 0 ? [] : [
+            // below the window, where visionOS puts a window's toolbar
+            UIHostingOrnament(sceneAnchor: .bottom, contentAlignment: .top) {
+                Button {
+                    host_theater_enter()
+                } label: {
+                    Label("Enter VR", systemImage: "visionpro")
+                }
+                .controlSize(.large)
+                .padding(12)
+                .glassBackgroundEffect()
+                // faint until the player looks at it: the system's look-to-reveal
+                // (a hover effect it renders itself; the app never sees where
+                // the player looks), so it stays out of the way during play
+                .hoverEffect { effect, isActive, _ in
+                    effect.opacity(isActive ? 1.0 : 0.12)
+                }
+                .accessibilityHint("Plays the game around you in the headset")
+                // a clear gap below the window's edge, as a toolbar ornament has
+                .padding(.top, 24)
+            }
+        ]
     }
 }
 

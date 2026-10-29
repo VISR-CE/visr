@@ -383,6 +383,20 @@ int texture_cache_background_may_run(uint64_t free_bytes, uint64_t next_entry_by
 	return texture_cache_floor_ok(free_bytes, next_entry_bytes);
 }
 
+uint64_t texture_cache_storage_usable(int opportunistic_read, uint64_t opportunistic, int important_read, uint64_t important,
+	int volume_read, uint64_t volume_free)
+{
+	uint64_t base;
+
+	(void)opportunistic_read;
+	(void)opportunistic;
+	/* (the smaller of the two when both are read: important usage counts space the system would purge, and this cache
+	   in Library/Caches is among the first it purges) */
+	base = important_read && volume_read ? (important < volume_free ? important : volume_free) :
+		important_read ? important : volume_read ? volume_free : 0;
+	return base > TEXTURE_CACHE_FALLBACK_HEADROOM ? base - TEXTURE_CACHE_FALLBACK_HEADROOM : 0;
+}
+
 struct entry_contents
 {
 	const void *bytes;

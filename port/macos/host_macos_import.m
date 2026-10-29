@@ -4,6 +4,7 @@
 #include "ios_host.h"
 #include "xiso.h"
 #include "host_astc_store.h"
+#include "host_texture_upscale.h"
 #include <stdatomic.h>
 
 @interface VISRMacImport : NSObject {
@@ -20,6 +21,106 @@ static int progress(void *context, const char *name, uint64_t done, uint64_t tot
     (void)name; (void)done; (void)total;
     VISRMacImport *operation = (__bridge VISRMacImport *)context;
     return !atomic_load(&operation->canceled);
+}
+/* ---------- the upscaling phase (host_texture_upscale_prepare_import), as on iPhone and iPad: one bar over the setup
+   and the whole set, gray until the main menu's textures are made, then blue with Start playing; "ready to start" marks
+   where that happens. The work goes on behind the menus once the player starts. */
+static NSColor *bar_blue(void) { return [NSColor colorWithSRGBRed:0.247 green:0.839 blue:1 alpha:1]; }
+@interface VISRUpscaleBar : NSView
+@property(nonatomic) double fraction, tick;
+@property(nonatomic) BOOL ready;   /* Start playing is offered: the fill turns blue */
+@end
+@implementation VISRUpscaleBar
+- (BOOL)isFlipped { return YES; }
+- (void)drawRect:(NSRect)dirty {
+    (void)dirty;
+    CGFloat width = self.bounds.size.width, top = 8, height = 6;
+    NSRect track = NSMakeRect(0, top, width, height);
+    [[NSColor colorWithWhite:1 alpha:0.18] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:track xRadius:height / 2 yRadius:height / 2] fill];
+    NSRect fill = track; fill.size.width = round(width * MIN(MAX(self.fraction, 0), 1));
+    if (fill.size.width > 0) {
+        [(self.ready ? bar_blue() : NSColor.systemGrayColor) setFill];
+        [[NSBezierPath bezierPathWithRoundedRect:fill xRadius:height / 2 yRadius:height / 2] fill];
+    }
+    if (self.tick < 0) return;
+    CGFloat x = MIN(MAX(round(width * MIN(self.tick, 1) - 1), 0), width - 2);
+    [bar_blue() setFill];
+    NSRectFill(NSMakeRect(x, top - 5, 2, height + 10));
+    NSDictionary *style = @{NSFontAttributeName: [NSFont systemFontOfSize:NSFont.smallSystemFontSize],
+        NSForegroundColorAttributeName: bar_blue()};
+    NSString *label = @"ready to start";
+    NSSize size = [label sizeWithAttributes:style];
+    CGFloat left = MIN(MAX(x + 1 - size.width / 2, 0), MAX(width - size.width, 0));
+    [label drawAtPoint:NSMakePoint(left, top + height + 8) withAttributes:style];
+}
+@end
+@interface VISRUpscalePhase : NSObject {
+@public
+    atomic_int skip, done, menu_phase;
+    _Atomic double fraction, tick;
+    const char *_Atomic message;   /* the phase ended refused (a string literal), or NULL */
+    const char *_Atomic detail;    /* its second, smaller line */
+}
+- (void)skip:(id)sender;
+@end
+@implementation VISRUpscalePhase
+- (void)skip:(id)sender { (void)sender; atomic_store(&skip, 1); }
+@end
+static int upscale_progress(void *context, const struct host_texture_upscale_import_status *status) {
+    VISRUpscalePhase *phase = (__bridge VISRUpscalePhase *)context;
+    atomic_store(&phase->fraction, status->fraction); atomic_store(&phase->tick, status->tick);
+    atomic_store(&phase->menu_phase, status->menu_phase);
+    atomic_store(&phase->message, status->message); atomic_store(&phase->detail, status->detail);
+    /* (the main menu's textures come first: a skip counts once Start playing is offered) */
+    return status->menu_phase || !atomic_load(&phase->skip);
+}
+static void upscale_phase(NSString *root) {
+    VISRUpscalePhase *phase = [VISRUpscalePhase new];
+    atomic_store(&phase->tick, -1.0); atomic_store(&phase->menu_phase, 1);
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 460, 170)
+        styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+    window.title = @"VISR"; window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+    window.backgroundColor = [NSColor colorWithSRGBRed:0.025 green:0.045 blue:0.055 alpha:1];
+    NSView *content = window.contentView;
+    NSTextField *status = [NSTextField labelWithString:@"Upscaling textures"];
+    status.frame = NSMakeRect(24, 116, 412, 20); status.alignment = NSTextAlignmentCenter;
+    status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
+    /* (in the bar's place when the work is refused: the line under the message) */
+    NSTextField *detail = [NSTextField labelWithString:@""];
+    detail.frame = NSMakeRect(24, 96, 412, 18); detail.alignment = NSTextAlignmentCenter;
+    detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.secondaryLabelColor;
+    detail.hidden = YES; [content addSubview:detail];
+    VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 412, 46)];
+    bar.tick = -1; [content addSubview:bar];
+    NSButton *start = [NSButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
+    start.frame = NSMakeRect(165, 18, 130, 32); start.hidden = YES; start.keyEquivalent = @"\r"; [content addSubview:start];
+    [window center];
+    /* (the work is the player's own request: keep App Nap from slowing it while the window is behind another app) */
+    id activity = [NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiatedAllowingIdleSystemSleep
+        reason:@"Upscaling textures"];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        host_texture_upscale_prepare_import(root.fileSystemRepresentation, upscale_progress, (__bridge void *)phase);
+        atomic_store(&phase->done, 1);
+    });
+    NSModalSession session = [NSApp beginModalSessionForWindow:window];
+    while (!atomic_load(&phase->done)) {
+        [NSApp runModalSession:session];
+        BOOL menu = atomic_load(&phase->menu_phase);
+        double shown = atomic_load(&phase->fraction);
+        bar.fraction = shown; bar.tick = atomic_load(&phase->tick); bar.ready = !menu; bar.needsDisplay = YES;
+        /* (rounded down: 100% only when every texture is made) */
+        const char *message = atomic_load(&phase->message);
+        status.stringValue = message ? @(message) : [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
+        status.textColor = message ? NSColor.labelColor : NSColor.secondaryLabelColor;
+        const char *more = atomic_load(&phase->detail);
+        bar.hidden = message != NULL; detail.hidden = !message || !more; if (more) detail.stringValue = @(more);
+        start.hidden = menu;
+        [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+    }
+    [NSApp endModalSession:session];
+    [NSProcessInfo.processInfo endActivity:activity];
+    [window orderOut:nil];
 }
 /* Publishing is separate from extraction. A failed move must retain the previous maps. */
 static BOOL publish(NSString *staging, NSString *root, NSError **error) {
@@ -150,7 +251,18 @@ void host_ios_prepare_assets(const char *directory) {
     NSString *root = @(directory);
     recover(root);
     NSString *maps = [root stringByAppendingPathComponent:@"maps"];
-    if (xiso_maps_ready(maps.fileSystemRepresentation, NULL, 0)) return;
+    if (xiso_maps_ready(maps.fileSystemRepresentation, NULL, 0)) {
+        /* a game imported before the upscaling bar existed shows it once, where upscaling is on */
+        BOOL forced = NO;
+#ifdef HALO_DEVELOPMENT_HOOKS
+        forced = getenv("HALO_TEXTURE_UPSCALE_IMPORT_PHASE") != NULL;   /* (development builds only) */
+#endif
+        if (forced || host_texture_upscale_first_run_phase(directory)) {
+            host_texture_upscale_init(directory);
+            if (host_texture_upscale_enabled()) upscale_phase(root);
+        }
+        return;
+    }
     BOOL stale = NO;
     NSURL *url = remembered(root, &stale);
     while (1) {
@@ -159,6 +271,8 @@ void host_ios_prepare_assets(const char *directory) {
         NSString *failure = nil;
         if (import_disc(url, root, !automatic || stale, &failure)) {
             host_logf(HOST_LOG_INFO, "XISO import complete; original map bytes preserved");
+            host_texture_upscale_init(directory);
+            if (host_texture_upscale_enabled()) upscale_phase(root);
             return;
         }
         url = nil;

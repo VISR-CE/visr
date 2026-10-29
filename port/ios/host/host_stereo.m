@@ -27,7 +27,9 @@ Elsewhere host_stereo_frame leaves the frame mono. */
 #include "host_stereo.h"
 #include "host_config.h"
 #include "host.h"
+#include "host_stereo_entry.h"
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -102,19 +104,10 @@ with display.stereo = "head", whatever the frame is (the full view, the film
 on the screen, or no eyes) */
 static int head_frame_open;
 
-/* display.stereo = "head", read once */
+/* HEAD mode in effect for the frame the game latched (host_stereo_mode) */
 static int head_configured(void)
 {
-	static int configured = -1;
-
-	if (configured < 0)
-	{
-		char value[16];
-
-		host_config_string("display.stereo", "off", value, sizeof(value));
-		configured = !strcmp(value, "head");
-	}
-	return configured;
+	return host_stereo_mode() == HALO_STEREO_HEAD;
 }
 
 static id<MTLRenderPipelineState> eye_pipeline, eye_foveated_pipeline, hud_pipeline;
@@ -1297,23 +1290,26 @@ static void stereo_frame(struct halo_stereo_frame *frame) API_AVAILABLE(visionos
 }
 #endif
 
+#if TARGET_OS_VISION
+/* display.frame_repeat, clamped to 0..3, in stereo mode; 0 in any other */
+static int frame_repeat_in(int mode)
+{
+	int repeat;
+
+	if (mode != HALO_STEREO_HEAD && mode != HALO_STEREO_SCREEN)
+		return 0;
+	repeat = (int)host_config_real("display.frame_repeat", 0.0);
+	return repeat < 0 ? 0 : repeat > 3 ? 3 : repeat;
+}
+#endif
+
 /* display.frame_repeat, clamped to 0..3: how many extra refreshes each of
 the Compositor's frames stays up in stereo (0: every refresh, 90 Hz; 1: 45
 Hz). Theater mode's mono screen keeps every refresh */
 int host_stereo_frame_repeat(void)
 {
 #if TARGET_OS_VISION
-	char value[16];
-	int repeat;
-
-	if (!head_configured())
-	{
-		host_config_string("display.stereo", "off", value, sizeof(value));
-		if (strcmp(value, "screen"))
-			return 0;
-	}
-	repeat = (int)host_config_real("display.frame_repeat", 0.0);
-	return repeat < 0 ? 0 : repeat > 3 ? 3 : repeat;
+	return frame_repeat_in(host_stereo_mode());
 #else
 	return 0;
 #endif
@@ -1327,7 +1323,8 @@ void host_stereo_space_opened(void *layer_renderer)
 	if (layer_renderer)
 	{
 		cp_layer_renderer_t renderer = (__bridge cp_layer_renderer_t)layer_renderer;
-		int repeat = host_stereo_frame_repeat();
+		/* (the mode the player asked for: the game may not have latched it yet) */
+		int repeat = frame_repeat_in(host_stereo_mode_requested());
 
 		cp_layer_renderer_set_minimum_frame_repeat_count(renderer, repeat);
 		host_logf(HOST_LOG_INFO, "stereo: the frame repeat count is %d (asked %d): a frame every %d refresh%s",
@@ -1350,6 +1347,51 @@ void host_stereo_space_opened(void *layer_renderer)
 #else
 	(void)layer_renderer;
 #endif
+}
+
+/* the player entered VR from the window: set on the main thread, latched
+by the game's thread at its frame begin (host_stereo_entered) */
+static _Atomic int entered_requested;
+static int entered_latched;
+
+/* display.stereo's mode, read once */
+static int mode_configured(void)
+{
+	static int configured = -1;
+
+	if (configured < 0)
+	{
+		char value[16];
+
+		host_config_string("display.stereo", "off", value, sizeof(value));
+		configured = host_stereo_mode_named(value);
+	}
+	return configured;
+}
+
+void host_stereo_set_entered(int entered)
+{
+#if TARGET_OS_VISION
+	atomic_store(&entered_requested, entered != 0);
+#else
+	(void)entered;
+#endif
+}
+
+int host_stereo_entered(void)
+{
+	entered_latched = atomic_load(&entered_requested);
+	return entered_latched;
+}
+
+int host_stereo_mode(void)
+{
+	return halo_stereo_mode_entered(mode_configured(), entered_latched);
+}
+
+int host_stereo_mode_requested(void)
+{
+	return halo_stereo_mode_entered(mode_configured(), atomic_load(&entered_requested));
 }
 
 void host_stereo_frame(struct halo_stereo_frame *frame)
@@ -1529,6 +1571,147 @@ static void hud_draw(id<MTLRenderCommandEncoder> encoder, __unsafe_unretained id
 		[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:0];
 		[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
 	}
+}
+#endif
+
+#if TARGET_OS_VISION
+#import <UIKit/UIKit.h>
+#import <QuartzCore/QuartzCore.h>
+/* The first time a player enters VR, a hint low in the view says how to
+leave: "Press the Digital Crown to return to the window", small, in the
+system font on a dark capsule, head-locked HINT_DROP_DEGREES below the
+view's center, fading out after HINT_SECONDS. It's drawn into the
+Compositor's views (no window, so no window bar), over the HUD, in the full
+view and on frames that show only the UI's quad. Once it has shown, it
+never shows again (HINT_SHOWN_KEY in the app's own defaults, not
+config.toml). In SCREEN mode and the mono theater it isn't drawn, and it
+stays armed for the next head-tracked frame. */
+#define HINT_SECONDS 4.0
+#define HINT_FADE_IN_SECONDS 0.3
+#define HINT_FADE_OUT_SECONDS 0.6
+#define HINT_DISTANCE_METERS 1.2f
+#define HINT_DROP_DEGREES 22.0f
+#define HINT_HEIGHT_METERS 0.045f
+#define HINT_SHOWN_KEY @"VISRDigitalCrownHintShown"
+#define HINT_TEXT @"Press the Digital Crown to return to the window"
+
+static _Atomic int hint_armed;
+static double hint_started;
+static id<MTLTexture> hint_texture;
+static float hint_aspect;
+
+void host_stereo_hint_arm(void)
+{
+	if ([NSUserDefaults.standardUserDefaults boolForKey:HINT_SHOWN_KEY])
+		return;
+	atomic_store(&hint_armed, 1);
+}
+
+/* the hint's picture: white text in the system font on a dark capsule, as
+the HUD's layers keep it (premultiplied color, alpha the transmittance) */
+static id<MTLTexture> hint_picture(id<MTLDevice> device)
+{
+	if (hint_texture)
+		return hint_texture;
+	UIFont *font = [UIFont systemFontOfSize:40.0 weight:UIFontWeightMedium];
+	NSDictionary *attributes = @{ NSFontAttributeName: font, NSForegroundColorAttributeName: UIColor.whiteColor };
+	CGSize text = [HINT_TEXT sizeWithAttributes:attributes];
+	CGFloat height = ceil(text.height + 40.0), width = ceil(text.width + height);
+	size_t pixel_width = (size_t)width, pixel_height = (size_t)height;
+	uint8_t *pixels = calloc(pixel_width * pixel_height, 4);
+	CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+	CGContextRef context = CGBitmapContextCreate(pixels, pixel_width, pixel_height, 8, pixel_width * 4, space,
+		kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Little);
+
+	CGColorSpaceRelease(space);
+	if (!context)
+	{
+		free(pixels);
+		return nil;
+	}
+	/* UIKit's drawing, top-left origin */
+	CGContextTranslateCTM(context, 0.0, height);
+	CGContextScaleCTM(context, 1.0, -1.0);
+	UIGraphicsPushContext(context);
+	[[UIColor colorWithWhite:0.08 alpha:0.72] setFill];
+	[[UIBezierPath bezierPathWithRoundedRect:CGRectMake(0.0, 0.0, width, height) cornerRadius:height / 2.0] fill];
+	[HINT_TEXT drawAtPoint:CGPointMake((width - text.width) / 2.0, (height - text.height) / 2.0) withAttributes:attributes];
+	UIGraphicsPopContext();
+	CGContextRelease(context);
+	/* alpha to transmittance, the HUD layers' convention (hud_fragment) */
+	for (size_t index = 0; index < pixel_width * pixel_height; index++)
+		pixels[index * 4 + 3] = (uint8_t)(255 - pixels[index * 4 + 3]);
+	MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+		width:pixel_width height:pixel_height mipmapped:NO];
+	hint_texture = [device newTextureWithDescriptor:descriptor];
+	[hint_texture replaceRegion:MTLRegionMake2D(0, 0, pixel_width, pixel_height) mipmapLevel:0 withBytes:pixels
+		bytesPerRow:pixel_width * 4];
+	free(pixels);
+	hint_aspect = (float)(width / height);
+	return hint_texture;
+}
+
+/* once a frame, before its views draw: the hint's opacity now (0: none),
+starting its time at the first frame that draws it */
+static float hint_opacity(id<MTLDevice> device)
+{
+	double now, age;
+
+	if (!atomic_load(&hint_armed) || !hint_picture(device))
+		return 0.0f;
+	now = CACurrentMediaTime();
+	if (hint_started == 0.0)
+	{
+		hint_started = now;
+		[NSUserDefaults.standardUserDefaults setBool:YES forKey:HINT_SHOWN_KEY];
+		host_logf(HOST_LOG_INFO, "stereo: the Digital Crown hint shows (once: it won't show again)");
+	}
+	age = now - hint_started;
+	if (age >= HINT_SECONDS)
+	{
+		atomic_store(&hint_armed, 0);
+		hint_texture = nil;
+		host_logf(HOST_LOG_INFO, "stereo: the Digital Crown hint faded out");
+		return 0.0f;
+	}
+	if (age < HINT_FADE_IN_SECONDS)
+		return (float)(age / HINT_FADE_IN_SECONDS);
+	if (age > HINT_SECONDS - HINT_FADE_OUT_SECONDS)
+		return (float)((HINT_SECONDS - age) / HINT_FADE_OUT_SECONDS);
+	return 1.0f;
+}
+
+/* the hint as a head-locked quad below the view's center, turned to face
+the eyes */
+static void hint_draw(id<MTLRenderCommandEncoder> encoder, simd_float4x4 clip_from_device, uint32_t decode_srgb,
+	float opacity) API_AVAILABLE(visionos(26.0))
+{
+	struct hud_uniforms uniforms;
+	float drop = HINT_DROP_DEGREES * (float)M_PI / 180.0f;
+	float half_height = HINT_HEIGHT_METERS / 2.0f;
+
+	if (!(opacity > 0.0f) || !hint_texture)
+		return;
+	memset(&uniforms, 0, sizeof(uniforms));
+	uniforms.clip_from_frame = clip_from_device;
+	uniforms.source = (simd_float4){ 0.0f, 0.0f, 1.0f, 1.0f };
+	uniforms.center = (simd_float4){ 0.0f, -HINT_DISTANCE_METERS * sinf(drop), -HINT_DISTANCE_METERS * cosf(drop), 0.0f };
+	uniforms.x_axis = (simd_float4){ half_height * hint_aspect, 0.0f, 0.0f, 0.0f };
+	uniforms.y_axis = (simd_float4){ 0.0f, half_height * cosf(drop), -half_height * sinf(drop), 0.0f };
+	uniforms.decode_srgb = decode_srgb;
+	uniforms.brightness = 1.0f;
+	uniforms.opacity = opacity;
+	[encoder setRenderPipelineState:hud_pipeline];
+	[encoder setDepthStencilState:depth_always];
+	[encoder setFragmentSamplerState:linear_sampler atIndex:0];
+	[encoder setFragmentTexture:hint_texture atIndex:0];
+	[encoder setVertexBytes:&uniforms length:sizeof(uniforms) atIndex:0];
+	[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:0];
+	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+}
+#else
+void host_stereo_hint_arm(void)
+{
 }
 #endif
 
@@ -2144,6 +2327,8 @@ void host_stereo_present(id<MTLCommandQueue> queue, id<MTLTexture> left, id<MTLT
 				"the UI layer on the UI's quad over the HUD's pieces" : "no UI: the HUD's pieces alone");
 			ui_shown = hud_ui != 0;
 		}
+		/* the first-time Digital Crown hint, over everything */
+		float hint = hint_opacity(queue.device);
 
 		for (size_t index = 0; index < count; index++)
 		{
@@ -2368,6 +2553,8 @@ void host_stereo_present(id<MTLCommandQueue> queue, id<MTLTexture> left, id<MTLT
 						hud_draw(encoder, hud_layers, HOST_STEREO_HUD_LAYER_COUNT, quads + faded, quad_count - faded,
 							clip_from_device, level, decode_srgb, brightness, 0);
 				}
+				hint_draw(encoder, simd_mul(projection, simd_inverse(cp_view_get_transform(view))), decode_srgb,
+					hint);
 				[encoder endEncoding];
 			}
 			cp_drawable_encode_present(drawable, commands);
@@ -2440,6 +2627,8 @@ void host_stereo_present_ui(id<MTLCommandQueue> queue, id<MTLTexture> picture, i
 				"%.2f m %.1f m ahead, level, turning with the head", (unsigned long)picture.width,
 				(unsigned long)picture.height, hud ? " and the HUD layer" : "", 2.0f * quad.x_axis[0],
 				2.0f * quad.y_axis[1], -quad.center[2]);
+		float hint = hint_opacity(queue.device);
+
 		for (size_t index = 0; index < count; index++)
 		{
 			simd_float4x4 origin_from_device;
@@ -2518,6 +2707,7 @@ void host_stereo_present_ui(id<MTLCommandQueue> queue, id<MTLTexture> picture, i
 
 					hud_draw(encoder, menu_layers, 1, &quad, 1, clip_from_device, level, decode_srgb, brightness, 0);
 				}
+				hint_draw(encoder, clip_from_device, decode_srgb, hint);
 				[encoder endEncoding];
 			}
 			cp_drawable_encode_present(drawable, commands);

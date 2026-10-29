@@ -1,0 +1,44 @@
+order = 20
+heading = "iPhone and iPad"
+sub_heading = "iPhone and iPad: GPU time"
+sub_order = 25
+paragraph = "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported."
+empty = "No iPhone and iPad GPU times are reported yet."
+box = "M1 iPad Pro"
+needs_data = true
+frame_cost = true
+series_labels = ["Median GPU time (p50)", "90th-percentile GPU time (p90)"]
+
+[chart]
+type = "bar"
+horizontal = true
+title_unit = "GPU time per frame (ms)"
+x_label = "Port and version"
+y_label = "Milliseconds per frame"
+y_min = 0
+palette = ["#1593bd", "#c8870a"]
+marks = ["\U0001F7E6", "\U0001F7E8"]
+header = '''
+---
+config:
+  xyChart:
+    width: 860
+    height: 420
+  themeVariables:
+    xyChart:
+      plotColorPalette: "__PALETTE__"
+---
+'''
+
+[query]
+platform = "iPhone/iPad"
+metrics = ["gpu_p50_ms", "gpu_p90_ms"]
+budget = true
+windows = ["a10", "b30"]
+port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+no_data_reason = "GPU time per frame not reported"
+
+[query.filter]
+frame_mode = "capped"
+quality_preset = "defaults"
+status = "ok"

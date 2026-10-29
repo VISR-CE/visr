@@ -20,7 +20,8 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # new table here.
 # Generation 2 had not shipped when PROFILE_VARIABLE was added (no release read it, no shard was signed), so its table
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
-GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888"}
+GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
+                   3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888"}
 
 
 def key_table_sha256(text):

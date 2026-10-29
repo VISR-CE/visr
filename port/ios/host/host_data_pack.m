@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <compression.h>
 
 NSString * const HostDataPackSnapshotStagedNotification = @"HostDataPackSnapshotStaged";
 
@@ -148,6 +149,73 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     return PackShaderRaw(raw, descriptor) ? raw : nil;
 }
 
+// benchmark-catalog-2: the signed payload holds one descriptor, RAW_SHA256:RAW_BYTES:XZ_SHA256:XZ_BYTES, for an xz
+// stream (decoded by Apple's COMPRESSION_LZMA) that holds every recording file, so the files exist once and the
+// signature covers the compressed bytes by hash. The raw archive is the header line, then for each file in ascending
+// name order "NAME LENGTH\n", its bytes and "\n". Limits bound what a signed index can make the app allocate.
+static const NSUInteger PackArchiveMaxRaw = 128u << 20, PackArchiveMaxCompressed = 32u << 20;
+static NSString * const PackArchiveName = @"recordings";
+static NSString * const PackArchiveHeader = @"visr-recordings-1\n";
+static NSDictionary *PackRecordingIndex(NSDictionary *payload) {
+    if (!PackKeys(payload, @[@"files"]) || !PackKeys(payload[@"files"], @[PackArchiveName])) return nil;
+    NSString *descriptor = payload[@"files"][PackArchiveName];
+    if (!PackMatches(descriptor, @"^[0-9a-f]{64}:[1-9][0-9]{0,8}:[0-9a-f]{64}:[1-9][0-9]{0,8}\\z")) return nil;
+    NSArray *parts = [descriptor componentsSeparatedByString:@":"];
+    NSUInteger raw = (NSUInteger)[parts[1] longLongValue], compressed = (NSUInteger)[parts[3] longLongValue];
+    if (raw > PackArchiveMaxRaw || compressed > PackArchiveMaxCompressed) return nil;
+    return @{PackArchiveName: @[parts[0], @(raw), parts[2], @(compressed)]};
+}
+static BOOL PackRecordingFileName(NSString *name) {
+    return PackMatches(name, @"^[a-z0-9][a-z0-9-]{0,47}\\.(input|actions|seeds|route|checks)\\z") || [name isEqual:@"benchmark-catalog.json"];
+}
+static NSData *PackArchiveBuild(NSDictionary<NSString *, NSData *> *files) {
+    NSMutableData *archive = [NSMutableData dataWithData:[PackArchiveHeader dataUsingEncoding:NSASCIIStringEncoding]];
+    for (NSString *name in [files.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        [archive appendData:[[NSString stringWithFormat:@"%@ %lu\n", name, (unsigned long)[files[name] length]] dataUsingEncoding:NSASCIIStringEncoding]];
+        [archive appendData:files[name]];
+        [archive appendBytes:"\n" length:1];
+    }
+    return archive;
+}
+// Strict inverse of PackArchiveBuild: ascending unique allowed names, bounded non-empty files, no trailing bytes.
+static NSDictionary *PackArchiveParse(NSData *raw) {
+    const uint8_t *bytes = raw.bytes;
+    NSUInteger length = raw.length, offset = 0, total = 0;
+    NSData *header = [PackArchiveHeader dataUsingEncoding:NSASCIIStringEncoding];
+    if (length < header.length || memcmp(bytes, header.bytes, header.length) != 0) return nil;
+    offset = header.length;
+    NSMutableDictionary *files = [NSMutableDictionary dictionary];
+    NSString *previous = nil;
+    while (offset < length) {
+        NSUInteger end = offset;
+        while (end < length && end - offset <= 96 && bytes[end] != '\n') end++;
+        if (end >= length || bytes[end] != '\n') return nil;
+        NSString *line = [[NSString alloc] initWithBytes:bytes + offset length:end - offset encoding:NSASCIIStringEncoding];
+        if (!PackMatches(line, @"^[a-z0-9][a-z0-9.-]{0,62} [1-9][0-9]{0,6}\\z")) return nil;
+        NSArray *parts = [line componentsSeparatedByString:@" "];
+        NSString *name = parts[0];
+        NSUInteger size = (NSUInteger)[parts[1] longLongValue];
+        offset = end + 1;
+        if (!PackRecordingFileName(name) || (previous && [previous compare:name] != NSOrderedAscending) || size > HOST_RECORDING_PACK_MAX_FILE_BYTES ||
+            files.count >= HOST_RECORDING_PACK_MAX_FILES || size > length - offset || length - offset - size < 1 || bytes[offset + size] != '\n' ||
+            size > PackArchiveMaxRaw - total) return nil;
+        files[name] = [NSData dataWithBytes:bytes + offset length:size];
+        total += size; offset += size + 1; previous = name;
+    }
+    return files.count ? files : nil;
+}
+// Hash the compressed bytes, decode into a buffer one byte larger than the signed size (so growth is detected), then
+// check size and hash of the raw archive before parsing it.
+static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) {
+    if (compressed.length != [descriptor[3] unsignedIntegerValue] || ![PackSHA256(compressed) isEqual:descriptor[2]]) return nil;
+    NSUInteger size = [descriptor[1] unsignedIntegerValue];
+    NSMutableData *raw = [NSMutableData dataWithLength:size + 1];
+    size_t produced = compression_decode_buffer(raw.mutableBytes, raw.length, compressed.bytes, compressed.length, NULL, COMPRESSION_LZMA);
+    if (produced != size) return nil;
+    raw.length = size;
+    return PackShaderRaw(raw, descriptor) ? PackArchiveParse(raw) : nil;
+}
+
 @interface HostDataPackStore () <NSURLSessionDataDelegate>
 @property(nonatomic, copy) NSString *root, *bundled, *kind, *channel, *compatibility;
 @property(nonatomic, copy) NSData *publicKey;
@@ -156,6 +224,7 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
 @property(nonatomic) BOOL stateValid, launchStarted, menuPrepared;
 @property(nonatomic) NSMutableSet<NSString *> *menuGenerations;
 @property(nonatomic, copy) void (^updateCompletion)(BOOL);
+@property(nonatomic) NSMutableArray<void (^)(BOOL)> *joinedCompletions;
 @property(nonatomic) BOOL notModified;
 @property(nonatomic, copy) NSString *launchFolder;
 @property(nonatomic, copy) NSDictionary *identity;
@@ -185,13 +254,67 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
 // Recording bounds follow the maximum individually valid files, without a separate library-size cap.
 // tools/data_pack.py uses the same base64/JSON allowance.
 - (BOOL)shaderIndex { return [_kind isEqual:@"shaders"] && [_compatibility isEqual:@"shader-lists-2"]; }
-- (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if (self.shaderIndex) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }
+- (BOOL)recordingIndex { return [_kind isEqual:@"recordings"] && [_compatibility hasPrefix:@"benchmark-catalog-2:"]; }
+- (BOOL)indexed { return self.shaderIndex || self.recordingIndex; }
+- (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if (self.indexed) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }
 - (NSDictionary *)bundledIdentity { return @{@"kind": _kind, @"channel": _channel, @"compatibility": _compatibility, @"sequence": @0, @"sha256": @"", @"bundled": @YES}; }
 - (NSString *)statePath { return [_root stringByAppendingPathComponent:@"state.json"]; }
 - (NSString *)generationPath:(NSString *)name { return [_root stringByAppendingPathComponent:name]; }
 - (BOOL)generationName:(id)value {
     return [value isKindOfClass:NSString.class] && (![value length] || PackMatches(value, @"^[1-9][0-9]{0,15}-[0-9a-f]{64}\\z"));
 }
+static NSMutableDictionary<NSString *, HostDataPackStore *> *PackSharedStores;
+// Roots whose current trial this process began. Only a trial left by an earlier process is a crashed launch; one begun
+// here is still running, whichever instance looks at it.
+static NSMutableSet<NSString *> *PackTrialRoots;
+static void PackNoteTrial(NSString *root) {
+    @synchronized(HostDataPackStore.class) { if (!PackTrialRoots) PackTrialRoots = [NSMutableSet set]; [PackTrialRoots addObject:root.stringByStandardizingPath]; }
+}
+static BOOL PackTrialIsOurs(NSString *root) {
+    @synchronized(HostDataPackStore.class) { return [PackTrialRoots containsObject:root.stringByStandardizingPath]; }
+}
+// Stage folders carry the process ID: a store removes only those an earlier process left, never one another store of
+// this process is still filling and validating.
+static NSString *PackStagePrefix(void) { return [NSString stringWithFormat:@".stage-%d-", getpid()]; }
+static BOOL PackStaleStage(NSString *name) { return [name hasPrefix:@".stage-"] && ![name hasPrefix:PackStagePrefix()]; }
++ (instancetype)sharedStoreWithRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
+    @synchronized(HostDataPackStore.class) {
+        NSString *path = root.stringByStandardizingPath;
+        HostDataPackStore *store = path ? PackSharedStores[path] : nil;
+        if (store && [store.kind isEqual:kind] && [store.channel isEqual:channel] && [store.compatibility isEqual:compatibility]) return store;
+        if (store) host_logf(HOST_LOG_WARN, "data-packs: %s store asked for a root that serves %s; keeping them apart", kind.UTF8String, store.kind.UTF8String);
+        HostDataPackStore *created = [[self alloc] initWithRoot:root bundled:bundled kind:kind channel:channel publicKey:key compatibility:compatibility validator:validator];
+        if (!store && path) {
+            if (!PackSharedStores) PackSharedStores = [NSMutableDictionary dictionary];
+            PackSharedStores[path] = created;
+        }
+        return created;
+    }
+}
++ (NSString *)peekFolderAtRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
+    if (!root.isAbsolutePath || key.length != 32 || !validator) return bundled;
+    // A bare instance: no openStore, so no folder is created, repaired or started over. loadState and generation:
+    // only read.
+    HostDataPackStore *look = [[HostDataPackStore alloc] init];
+    look->_root = [root copy]; look->_bundled = [bundled copy]; look->_kind = [kind copy]; look->_channel = [channel copy];
+    look->_publicKey = [key copy]; look->_compatibility = [compatibility copy]; look->_validator = [validator copy];
+    if (!PackNode(root, YES) || ![look loadState]) return bundled;
+    NSDictionary *state = look->_state;
+    uint64_t quarantined = [state[@"quarantined"] unsignedLongLongValue];
+    NSString *active = state[@"active"];
+    if ([state[@"trial"] boolValue] && !PackTrialIsOurs(root)) {
+        quarantined = MAX(quarantined, (uint64_t)[[[active componentsSeparatedByString:@"-"] firstObject] longLongValue]);
+        active = state[@"healthy"];
+    }
+    // As the menu offers it: a valid candidate above the quarantine mark, else the active snapshot.
+    NSString *pending = state[@"pending"];
+    NSDictionary *pack = pending.length ? [look generation:pending] : nil;
+    NSString *name = pack && [pack[@"manifest"][@"sequence"] unsignedLongLongValue] > quarantined ? pending : nil;
+    if (!name && active.length && [look generation:active]) name = active;
+    return name ? [[look generationPath:name] stringByAppendingPathComponent:@"files"] : bundled;
+}
+/* Probes only: a new launch, as far as the stores are concerned. */
++ (void)forgetSharedStores { @synchronized(HostDataPackStore.class) { [PackSharedStores removeAllObjects]; [PackTrialRoots removeAllObjects]; } }
 - (instancetype)initWithRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
     if (!(self = [super init])) return nil;
     _root = [root copy]; _bundled = [bundled copy]; _kind = [kind copy]; _channel = [channel copy];
@@ -225,7 +348,7 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         // install: every cached generation goes, so none is activated without the state that admitted it.
         host_logf(HOST_LOG_INFO, "data-packs: %s state %s; starting the store over", _kind.UTF8String, stateMissing ? "is missing (cache purged, or first launch)" : "is unreadable or does not match this build");
         for (NSString *name in [manager contentsOfDirectoryAtPath:_root error:NULL]) {
-            if (([self generationName:name] && name.length) || [name hasPrefix:@".stage-"] || [name isEqual:@"state.json"] || [name isEqual:@"feed-validator.txt"]) {
+            if (([self generationName:name] && name.length) || PackStaleStage(name) || [name isEqual:@"state.json"] || [name isEqual:@"feed-validator.txt"] || [name isEqual:@"refused.txt"]) {
                 NSError *removal = nil;
                 if (![manager removeItemAtPath:[self generationPath:name] error:&removal]) {
                     host_logf(HOST_LOG_WARN, "data-packs: %s store unavailable (cannot remove %s: %s)", _kind.UTF8String, name.UTF8String, removal.localizedDescription.UTF8String ?: "unknown error");
@@ -337,8 +460,8 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     if (authenticated) *authenticated = manifest;
     NSDictionary *payload = PackJSON(payloadBytes);
     if (!PackKeys(payload, @[@"files"]) || ![payload[@"files"] isKindOfClass:NSDictionary.class]) { PackError(error, @"Pack payload has invalid fields"); return nil; }
-    if (self.shaderIndex) {
-        NSDictionary *assets = PackShaderIndex(payload);
+    if (self.indexed) {
+        NSDictionary *assets = self.recordingIndex ? PackRecordingIndex(payload) : PackShaderIndex(payload);
         if (!assets) { PackError(error, @"Shader index descriptors exceed their bounds or are malformed"); return nil; }
         return @{@"manifest": manifest, @"assets": assets};
     }
@@ -368,7 +491,11 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     NSDictionary *pack = [self verifyEnvelope:PackRead([folder stringByAppendingPathComponent:@"envelope.json"], self.envelopeLimit) authenticated:NULL error:NULL];
     NSDictionary *manifest = pack[@"manifest"];
     NSMutableDictionary *files = [pack[@"files"] mutableCopy];
-    if (pack[@"assets"]) {
+    if (pack[@"assets"] && self.recordingIndex) {
+        // The signed hash covers the canonical archive of the files on disk, so any added, missing or altered file fails.
+        files = [[self recordingFilesIn:filesPath matching:pack[@"assets"][PackArchiveName]] mutableCopy];
+        if (!files) return nil;
+    } else if (pack[@"assets"]) {
         files = [NSMutableDictionary dictionary];
         for (NSString *map in pack[@"assets"]) {
             NSArray *descriptor = pack[@"assets"][map];
@@ -403,10 +530,10 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     state[@"quarantined"] = @(MAX(sequence, [state[@"quarantined"] unsignedLongLongValue]));
 }
 - (void)prune {
-    NSMutableSet *keep = [NSMutableSet setWithObjects:_state[@"active"], _state[@"healthy"], _state[@"pending"], @"state.json", @"feed-validator.txt", nil];
+    NSMutableSet *keep = [NSMutableSet setWithObjects:_state[@"active"], _state[@"healthy"], _state[@"pending"], @"state.json", @"feed-validator.txt", @"refused.txt", nil];
     [keep unionSet:_menuGenerations ?: [NSSet set]];
     for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:_root error:NULL]) {
-        if (![keep containsObject:name] && ([self generationName:name] || [name hasPrefix:@".stage-"])) [NSFileManager.defaultManager removeItemAtPath:[self generationPath:name] error:NULL];
+        if (![keep containsObject:name] && ([self generationName:name] || PackStaleStage(name))) [NSFileManager.defaultManager removeItemAtPath:[self generationPath:name] error:NULL];
     }
 }
 - (NSString *)beginLaunch { @synchronized(self) {
@@ -417,7 +544,7 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     _launchStarted = YES;
     if (!_stateValid) return [_launchFolder copy];
     NSMutableDictionary *next = [_state mutableCopy];
-    if ([next[@"trial"] boolValue]) {
+    if ([next[@"trial"] boolValue] && !PackTrialIsOurs(_root)) {
         [self quarantine:next[@"active"] state:next];
         next[@"active"] = next[@"healthy"]; next[@"trial"] = @NO;
     }
@@ -439,7 +566,7 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         NSDictionary *candidate = [self generation:pending];
         if (candidate && [candidate[@"manifest"][@"sequence"] unsignedLongLongValue] > [next[@"quarantined"] unsignedLongLongValue]) {
             active = pending; activePack = candidate;
-            next[@"active"] = pending; next[@"trial"] = @YES;
+            next[@"active"] = pending; next[@"trial"] = @YES; PackNoteTrial(_root);
         } else if (!candidate && ![self generationIntact:pending]) [self forgetGeneration:pending state:next reason:"its files are missing"];
         else [self quarantine:pending state:next];
         next[@"pending"] = @"";
@@ -453,7 +580,7 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     // Roll back a prior crashed launch once, but do not start a new trial for a menu candidate.
     if (!_menuPrepared && !_launchStarted && _stateValid) {
         NSMutableDictionary *next = [_state mutableCopy];
-        if ([next[@"trial"] boolValue]) {
+        if ([next[@"trial"] boolValue] && !PackTrialIsOurs(_root)) {
             [self quarantine:next[@"active"] state:next];
             next[@"active"] = next[@"healthy"]; next[@"trial"] = @NO;
         }
@@ -501,9 +628,11 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     if (!pack) { [self selectBundled]; return; }
     NSMutableDictionary *next = [_state mutableCopy];
     next[@"active"] = name;
-    next[@"trial"] = @(![name isEqual:next[@"healthy"]]);
+    // A boolean, as loadState requires: @(!x) is an integer NSNumber, and a state holding one is unreadable at the next
+    // start, which then starts the store over (losing the snapshot and the crash rollback).
+    next[@"trial"] = [name isEqual:next[@"healthy"]] ? @NO : @YES;
     if ([name isEqual:next[@"pending"]]) next[@"pending"] = @"";
-    if ([self writeState:next error:NULL]) [self selectGeneration:name pack:pack];
+    if ([self writeState:next error:NULL]) { [self selectGeneration:name pack:pack]; if ([next[@"trial"] boolValue]) PackNoteTrial(_root); }
     else {
         host_logf(HOST_LOG_WARN, "data-packs: %s selected snapshot trial could not be persisted", _kind.UTF8String);
         [self selectBundled];
@@ -520,13 +649,53 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         [self prune];
     }
 } }
+- (NSString *)refusedPath { return [_root stringByAppendingPathComponent:@"refused.txt"]; }
+/* Whether an authenticated envelope's sequence is used up. A sequence at or under the quarantine mark is. Above it, one
+   at or under "highest" is used up only when a snapshot that new is installed, or when this exact envelope (sequence
+   and payload hash, in refused.txt) was refused for its content. A sequence marked seen with nothing installed (0.6.3's
+   two stores each reading the other's half-written stage as invalid) is taken again. */
+- (BOOL)sequenceUsed:(NSDictionary *)manifest {
+    uint64_t sequence = [manifest[@"sequence"] unsignedLongLongValue];
+    if (sequence <= [_state[@"quarantined"] unsignedLongLongValue]) return YES;
+    if (sequence > [_state[@"highest"] unsignedLongLongValue]) return NO;
+    for (NSString *field in @[@"active", @"healthy", @"pending"]) {
+        NSString *name = _state[field];
+        if (name.length && (uint64_t)[[[name componentsSeparatedByString:@"-"] firstObject] longLongValue] >= sequence && [self generationIntact:name]) return YES;
+    }
+    NSString *refused = [NSString stringWithContentsOfFile:self.refusedPath encoding:NSUTF8StringEncoding error:NULL];
+    return [refused isEqual:[NSString stringWithFormat:@"%llu %@\n", sequence, manifest[@"sha256"]]];
+}
 - (void)rejectManifest:(NSDictionary *)manifest {
     uint64_t sequence = [manifest[@"sequence"] unsignedLongLongValue];
+    // This envelope is not downloaded again; a different one at the same sequence would be.
+    [[NSString stringWithFormat:@"%llu %@\n", sequence, manifest[@"sha256"]] writeToFile:self.refusedPath atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     if (sequence <= [_state[@"highest"] unsignedLongLongValue]) return;
     NSMutableDictionary *next = [_state mutableCopy];
     // Only the sequence is used up: raising the quarantine mark too would also refuse a valid pack already staged.
     next[@"highest"] = @(sequence);
     if ([self writeState:next error:NULL]) [self prune];
+}
+// The files of a recording folder if, packed canonically, they match the descriptor's raw hash and size; else nil.
+- (NSDictionary *)recordingFilesIn:(NSString *)folder matching:(NSArray *)descriptor {
+    if (!PackNode(folder, YES)) return nil;
+    NSMutableDictionary *files = [NSMutableDictionary dictionary];
+    NSUInteger total = 0;
+    for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:NULL]) {
+        if (!PackRecordingFileName(name) || files.count >= HOST_RECORDING_PACK_MAX_FILES) return nil;
+        NSData *bytes = PackRead([folder stringByAppendingPathComponent:name], HOST_RECORDING_PACK_MAX_FILE_BYTES);
+        if (!bytes.length || bytes.length > PackArchiveMaxRaw - total) return nil;
+        total += bytes.length; files[name] = bytes;
+    }
+    return files.count && PackShaderRaw(PackArchiveBuild(files), descriptor) ? files : nil;
+}
+- (NSDictionary *)cachedRecordingFiles:(NSArray *)descriptor {
+    for (NSString *field in @[@"active", @"healthy", @"pending"]) {
+        NSString *name = _state[field];
+        if (!name.length || !PackNode([self generationPath:name], YES)) continue;
+        NSDictionary *files = [self recordingFilesIn:[[self generationPath:name] stringByAppendingPathComponent:@"files"] matching:descriptor];
+        if (files) return files;
+    }
+    return nil;
 }
 - (NSData *)cachedShaderMap:(NSString *)map descriptor:(NSArray *)descriptor {
     for (NSString *field in @[@"active", @"healthy", @"pending"]) {
@@ -555,7 +724,10 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         self.lastFeedSuperseded = YES;
         return PackError(error, @"Pack is older than the bundled data");
     }
-    if (pack[@"assets"]) {
+    if (pack[@"assets"] && self.recordingIndex) {
+        files = [[self cachedRecordingFiles:pack[@"assets"][PackArchiveName]] mutableCopy];
+        if (!files) return PackError(error, @"Recording index requires a missing archive download");
+    } else if (pack[@"assets"]) {
         files = [NSMutableDictionary dictionary];
         for (NSString *map in pack[@"assets"]) {
             NSData *raw = [self cachedShaderMap:map descriptor:pack[@"assets"][map]];
@@ -567,9 +739,9 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
 } }
 - (BOOL)stageVerifiedEnvelope:(NSData *)data pack:(NSDictionary *)pack files:(NSDictionary *)files error:(NSError **)error {
     NSDictionary *manifest = pack[@"manifest"];
-    if ([manifest[@"sequence"] unsignedLongLongValue] <= [_state[@"highest"] unsignedLongLongValue]) return PackError(error, @"Pack sequence was already seen");
+    if ([self sequenceUsed:manifest]) return PackError(error, @"Pack sequence was already seen");
     NSString *name = [NSString stringWithFormat:@"%@-%@", manifest[@"sequence"], manifest[@"sha256"]];
-    NSString *temporary = [self generationPath:[@".stage-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+    NSString *temporary = [self generationPath:[PackStagePrefix() stringByAppendingString:NSUUID.UUID.UUIDString]];
     NSString *filesPath = [temporary stringByAppendingPathComponent:@"files"];
     NSFileManager *manager = NSFileManager.defaultManager;
     if (![self ensureRoot:error] || ![manager createDirectoryAtPath:filesPath withIntermediateDirectories:YES attributes:nil error:error]) return NO;
@@ -588,11 +760,17 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         if (![data writeToFile:[temporary stringByAppendingPathComponent:@"envelope.json"] options:NSDataWritingWithoutOverwriting error:error]) return NO;
         NSData *metadata = [NSJSONSerialization dataWithJSONObject:manifest options:0 error:error];
         if (!metadata || ![metadata writeToFile:[temporary stringByAppendingPathComponent:@"metadata.json"] options:NSDataWritingWithoutOverwriting error:error]) return NO;
-        // A rename publishes the complete generation before the atomic state update.
+        // A rename publishes the complete generation before the atomic state update. A generation is named by its
+        // sequence and payload hash, so one already there and intact is this same snapshot (its state write was lost,
+        // or an older build had a second store on this root stage it): it is kept. Anything else there is replaced.
         NSString *destination = [self generationPath:name];
-        if (![manager moveItemAtPath:temporary toPath:destination error:error]) return NO;
+        struct stat existing;
+        if (lstat(destination.fileSystemRepresentation, &existing) == 0) {
+            if ([self generation:name]) [manager removeItemAtPath:temporary error:NULL];
+            else if (![manager removeItemAtPath:destination error:error] || ![manager moveItemAtPath:temporary toPath:destination error:error]) return NO;
+        } else if (![manager moveItemAtPath:temporary toPath:destination error:error]) return NO;
         NSMutableDictionary *next = [_state mutableCopy];
-        next[@"highest"] = manifest[@"sequence"]; next[@"pending"] = name;
+        next[@"highest"] = @(MAX([manifest[@"sequence"] unsignedLongLongValue], [_state[@"highest"] unsignedLongLongValue])); next[@"pending"] = name;
         if (![self writeState:next error:error]) { [manager removeItemAtPath:destination error:NULL]; return NO; }
         success = YES; [self prune];
         [NSNotificationCenter.defaultCenter postNotificationName:HostDataPackSnapshotStagedNotification object:self];
@@ -627,6 +805,11 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
 - (void)checkForUpdateAtURL:(NSURL *)url { [self checkForUpdateAtURL:url completion:nil]; }
 - (void)checkForUpdateAtURL:(NSURL *)url completion:(void (^)(BOOL))completion { @synchronized(self) {
     if (!_stateValid && !_session) [self openStore];
+    if (_session && completion) {
+        if (!_joinedCompletions) _joinedCompletions = [NSMutableArray array];
+        [_joinedCompletions addObject:[completion copy]];
+        return;
+    }
     if (!_stateValid || _session || ![url.scheme.lowercaseString isEqual:@"https"] || !url.host.length || url.user || url.password || url.query || url.fragment) {
         if (completion) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ completion(NO); });
         return;
@@ -664,7 +847,20 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     [task cancel];
 }
 - (NSUInteger)downloadLimit { return _mapName ? [_indexPack[@"assets"][_mapName][3] unsignedIntegerValue] : self.envelopeLimit; }
+- (BOOL)nextRecordingArchive {
+    NSArray *descriptor = _indexPack[@"assets"][PackArchiveName];
+    NSDictionary *cached = [self cachedRecordingFiles:descriptor];
+    if (cached) { [_mapFiles setDictionary:cached]; _mapName = nil; return NO; }
+    _mapName = PackArchiveName; _download = [NSMutableData data]; _responseAccepted = NO;
+    NSURL *url = [[[_feedURL URLByDeletingLastPathComponent] URLByAppendingPathComponent:@"recording-blobs"]
+        URLByAppendingPathComponent:[descriptor[2] stringByAppendingString:@".xz"]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setValue:@"application/octet-stream" forHTTPHeaderField:@"Accept"];
+    [[_session dataTaskWithRequest:request] resume];
+    return YES;
+}
 - (BOOL)nextShaderMap {
+    if (self.recordingIndex) return [self nextRecordingArchive];
     for (NSString *map in [[_indexPack[@"assets"] allKeys] sortedArrayUsingSelector:@selector(compare:)]) {
         if (_mapFiles[map]) continue;
         NSArray *descriptor = _indexPack[@"assets"][map];
@@ -697,10 +893,10 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     completionHandler(_responseAccepted ? NSURLSessionResponseAllow : NSURLSessionResponseCancel);
 } }
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)data { @synchronized(self) {
-    NSUInteger totalLimit = self.shaderIndex ? HOST_SHADER_PACK_MAX_INDEX_BYTES + HOST_SHADER_PACK_MAX_COMPRESSED_TOTAL_BYTES : self.envelopeLimit;
+    NSUInteger totalLimit = self.recordingIndex ? HOST_SHADER_PACK_MAX_INDEX_BYTES + PackArchiveMaxCompressed : self.shaderIndex ? HOST_SHADER_PACK_MAX_INDEX_BYTES + HOST_SHADER_PACK_MAX_COMPRESSED_TOTAL_BYTES : self.envelopeLimit;
     if (!_responseAccepted || data.length > self.downloadLimit - _download.length || data.length > totalLimit - _transferBytes) { _responseAccepted = NO; [_download setLength:0]; [task cancel]; return; }
     _transferBytes += data.length; [_download appendData:data];
-    if (!_mapName) {
+    if (!_mapName || self.recordingIndex) {
         int64_t expected = task.countOfBytesExpectedToReceive, received = task.countOfBytesReceived;
         self.downloadExpected = expected > 0 ? (uint64_t)expected : 0;
         self.downloadReceived = received > 0 ? (uint64_t)received : _transferBytes;
@@ -712,22 +908,27 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     BOOL staged = NO;
     if (error && !_notModified && !_statusRefused) host_logf(HOST_LOG_WARN, "data-packs: %s feed check ended (%s); keeping the current snapshot", _kind.UTF8String, error.localizedDescription.UTF8String);
     else if (!error && _responseAccepted) @autoreleasepool {
-        if (self.shaderIndex) {
+        if (self.indexed) {
+            BOOL archiveDone = NO;
             if (!_indexPack) {
                 NSDictionary *authenticated = nil;
                 _indexPack = [self verifyEnvelope:_download authenticated:&authenticated error:&stageError];
                 if (!_indexPack && authenticated) [self rejectManifest:authenticated];
-                if (_indexPack && [_indexPack[@"manifest"][@"sequence"] unsignedLongLongValue] <= [_state[@"highest"] unsignedLongLongValue]) {
+                if (_indexPack && [self sequenceUsed:_indexPack[@"manifest"]]) {
                     _indexPack = nil; PackError(&stageError, @"Pack sequence was already seen");
                 }
                 if (_indexPack) { _indexEnvelope = _download; _mapFiles = [NSMutableDictionary dictionary]; }
+            } else if (self.recordingIndex) {
+                NSDictionary *expanded = PackArchiveExpand(_download, _indexPack[@"assets"][_mapName]);
+                if (expanded) { [_mapFiles setDictionary:expanded]; archiveDone = YES; _mapName = nil; }
+                else { _indexPack = nil; PackError(&stageError, @"Recording archive stream, hash, size or contents are invalid"); }
             } else {
                 NSData *raw = PackShaderInflate(_download, _indexPack[@"assets"][_mapName]);
                 if (raw) _mapFiles[_mapName] = raw;
                 else { _indexPack = nil; PackError(&stageError, @"Shader download stream, hash or size is invalid"); }
             }
             if (_indexPack) {
-                if ([self nextShaderMap]) return;
+                if (!archiveDone && [self nextShaderMap]) return;
                 staged = [self stageVerifiedEnvelope:_indexEnvelope pack:_indexPack files:_mapFiles error:&stageError];
             }
         } else staged = [self stageEnvelope:_download error:&stageError];
@@ -736,10 +937,12 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         } else host_logf(HOST_LOG_WARN, "data-packs: %s feed not staged (%s); keeping the current snapshot", _kind.UTF8String, stageError.localizedDescription.UTF8String);
     }
     self.downloadReceived = 0; self.downloadExpected = 0;
-    void (^completion)(BOOL) = _updateCompletion;
+    NSMutableArray<void (^)(BOOL)> *completions = [NSMutableArray array];
+    if (_updateCompletion) [completions addObject:_updateCompletion];
+    if (_joinedCompletions) [completions addObjectsFromArray:_joinedCompletions];
     BOOL success = staged || _notModified;
-    _updateCompletion = nil;
-    if (completion) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ completion(success); });
+    _updateCompletion = nil; _joinedCompletions = nil;
+    for (void (^completion)(BOOL) in completions) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ completion(success); });
     _download = nil; _session = nil; _indexEnvelope = nil; _indexPack = nil; _mapFiles = nil; _mapName = nil; _feedURL = nil;
     [session finishTasksAndInvalidate];
 } }

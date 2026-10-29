@@ -3,7 +3,7 @@
 "use strict";
 
 const SUITES = ["campaign", "combat", "cutscenes", "multiplayer", "co-op"];
-const SUITE_NAMES = { campaign: "Campaign", combat: "Combat", cutscenes: "Cutscenes", multiplayer: "Multiplayer", "co-op": "Co-op", overall: "Overall" };
+const SUITE_NAMES = { campaign: "Campaign", combat: "Combat", cutscenes: "Cutscenes", multiplayer: "Multiplayer", "co-op": "Split-screen co-op", overall: "Overall" };
 const DEFAULT_SUITE = "campaign";
 
 function parseCsv(text) {
@@ -42,13 +42,23 @@ function niceCeiling(value) {
   return 10 * magnitude;
 }
 const number = (value) => value.toFixed(1).replace(/\.0$/, "");
+// Orders a port's builds: the numbers in the version (0.6.1, v1.0.2, build-314), then the date, then the build id; a version
+// with no numbers sorts first. Positive when `a` is newer. Mirrors version_key in charts.py.
+function compareBuilds(a, b) {
+  const numbers = (e) => (e.version.match(/\d+/g) || []).map(Number);
+  const [x, y] = [numbers(a), numbers(b)];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i];
+  if (x.length !== y.length) return x.length - y.length;
+  return a.date < b.date ? -1 : a.date > b.date ? 1 : a.build < b.build ? -1 : a.build > b.build ? 1 : 0;
+}
 const entryKey = (entry) => [entry.port, entry.version, entry.build].join("@");
 
 // Extra per-build figures a chart spec lists under `query.details`; mirrors DETAILS in charts.py.
 const DETAILS = { p95_ms: { unit: " ms", text: "95th-percentile frame time", geometric: true, places: 1 },
   on_time_pct: { unit: "%", text: "of frames on time", geometric: false, places: 1 },
   gpu_p50_ms: { unit: " ms", text: "median GPU time per rendered frame", geometric: true, places: 2 },
-  gpu_p90_ms: { unit: " ms", text: "90th-percentile GPU time per rendered frame", geometric: true, places: 2 } };
+  gpu_p90_ms: { unit: " ms", text: "90th-percentile GPU time per rendered frame", geometric: true, places: 2 },
+  cpu_p50_ms: { unit: " ms", text: "median CPU time per frame", geometric: true, places: 2 } };
 
 function suiteValue(group, query, suite) {
   const box = group.filter((row) => String(row.reference_box).toLowerCase() === "true");
@@ -79,7 +89,31 @@ function suiteValue(group, query, suite) {
     details[column] = values.some((v) => v === "") ? null
       : (DETAILS[column].geometric ? geometricMean : mean)(values.map(parseFloat));
   }
-  return [{ avg: geometricMean(rows.map((r) => parseFloat(r.fps_avg))), details, windows: [...usable.keys()].sort(), low: query.metrics.includes("fps_1pct_low") && rows.every((r) => r.fps_1pct_low !== "") ? geometricMean(rows.map((r) => parseFloat(r.fps_1pct_low))) : null, rows }, "", ""];
+  // The first metric is the main bar series and the optional second one (a 1% low, or a 90th percentile) the next.
+  const second = query.metrics.length > 1 ? query.metrics[1] : null;
+  return [{ avg: geometricMean(rows.map((r) => parseFloat(r[query.metrics[0]]))), details, windows: [...usable.keys()].sort(), low: second && rows.every((r) => r[second] !== "") ? geometricMean(rows.map((r) => parseFloat(r[second]))) : null, rows }, "", ""];
+}
+
+// The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick the
+// shared-suites rule leaves out falls back to its next older version with data. Mirrors _default_builds in charts.py.
+function defaultBuilds(entries, overall) {
+  const candidates = new Map();
+  for (const entry of [...entries].sort((a, b) => compareBuilds(b, a))) {
+    if (entry.value === null) continue;
+    if (!candidates.has(entry.port)) candidates.set(entry.port, []);
+    candidates.get(entry.port).push(entry);
+  }
+  const index = new Map([...candidates.keys()].map((port) => [port, 0]));
+  for (let round = 0; round <= entries.length; round++) {
+    if (!overall) break;
+    const picked = entries.filter((e) => candidates.has(e.port) && candidates.get(e.port)[index.get(e.port)] === e);
+    let moved = false;
+    for (const e of overallSplit(picked).left) {
+      if (index.get(e.port) + 1 < candidates.get(e.port).length) { index.set(e.port, index.get(e.port) + 1); moved = true; }
+    }
+    if (!moved) break;
+  }
+  return new Map([...candidates].map(([port, items]) => [port, items[index.get(port)]]));
 }
 
 function model(rows, query, suite) {
@@ -96,7 +130,7 @@ function model(rows, query, suite) {
     const entry = { port: first.port, port_name: first.port_name, version: first.version, build: first.build,
       label: first.label, date: group.map((r) => r.date).reduce((a, b) => (a > b ? a : b)),
       url: (group.find((r) => r.release_url) || {}).release_url || "",
-      gpu_note: (query.no_gpu_notes || {})[first.port] || "" };
+      gpu_note: (query.no_gpu_notes || {})[first.port] || "", port_note: (query.build_notes || {})[first.port] || "" };
     if (suite === "overall") {
       // Which suites count is decided per chart, from the builds drawn (see drawn()); here each build keeps its own suite values.
       const parts = SUITES.map((name) => suiteValue(group, query, name));
@@ -115,25 +149,70 @@ function model(rows, query, suite) {
   entries.sort((a, b) => rank(a) - rank(b) || (a.port < b.port ? -1 : a.port > b.port ? 1 : 0)
     || (a.date < b.date ? 1 : a.date > b.date ? -1 : 0) || (a.version < b.version ? -1 : a.version > b.version ? 1 : 0)
     || (a.build < b.build ? -1 : a.build > b.build ? 1 : 0));
-  const newest = new Map();
-  for (const entry of entries) {
-    if (entry.value !== null && (!newest.has(entry.port) || entry.date > newest.get(entry.port).date)) newest.set(entry.port, entry);
-  }
-  for (const entry of entries) entry.default = newest.get(entry.port) === entry;
+  const chosen = defaultBuilds(entries, suite === "overall");
+  for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
   const reference = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
-  return { overall: suite === "overall", entries, box: reference ? reference.host : "" };
+  const built = { overall: suite === "overall", entries, box: reference ? reference.host : "" };
+  if (query.budget) built.budget_ms = budgetMs(platformRows, query);
+  return built;
+}
+
+// The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted reference-box runs
+// that report the metric were held to (the frame cap, else the display rate). Mirrors _budget_ms in charts.py.
+function budgetMs(platformRows, query) {
+  const rates = [];
+  for (const row of platformRows) {
+    if (String(row.reference_box).toLowerCase() !== "true" || !matches(row, query.filter) || row[query.metrics[0]] === "") continue;
+    for (const column of ["cap_fps", "display_hz"]) {
+      const rate = row[column] === "" || row[column] === undefined ? NaN : Number(row[column]);
+      if (Number.isFinite(rate) && rate > 0) { rates.push(rate); break; }
+    }
+  }
+  return rates.length ? 1000 / Math.min(...rates) : null;
+}
+const round1 = (value) => Math.floor(value * 10 + 0.5) / 10;
+const lowerIsBetter = (column) => column.endsWith("_ms") || /^(gpu_|cpu_|frame_cost)/.test(column);
+
+// The builds list: one group per port in the model's order. `primary` is the build drawn by default (the newest version with
+// data for the suite), or the newest version when none has data; `others` are the rest, newest first. Mirrors build_groups in charts.py.
+function buildGroups(built) {
+  const groups = new Map();
+  for (const entry of built.entries) {
+    if (!groups.has(entry.port)) groups.set(entry.port, []);
+    groups.get(entry.port).push(entry);
+  }
+  return [...groups.values()].map((items) => {
+    const ordered = [...items].sort((a, b) => compareBuilds(b, a));
+    const primary = ordered.find((e) => e.default) || ordered[0];
+    return { port: items[0].port, port_name: items[0].port_name, primary, others: ordered.filter((e) => e !== primary) };
+  });
 }
 
 function pool(built, selected) {
   return built.entries.filter((e) => e.value !== null && (selected ? selected.has(entryKey(e)) : e.default));
 }
 
-// The suites Overall covers: every suite at least one drawn build has complete. A build missing one of them is left
-// out of Overall, so one incomplete port does not shrink the set for the rest.
+// The suites every build in the list has complete; a single build has all of its own.
+const OVERALL_MIN_SUITES = 2;
+const sharedSuites = (builds) => SUITES.filter((name) => builds.length && builds.every((e) => e.suites[name]));
+
+// Overall covers the suites every drawn build has complete. While those are fewer than two and more than one build is drawn,
+// the build whose removal leaves the most shared suites is dropped (ties: the build with the fewest suites, then the later
+// one), as long as dropping one adds a suite; a lone build counts all of its suites. Mirrors overall_split in charts.py.
 function overallSplit(shown) {
-  const suites = SUITES.filter((name) => shown.some((e) => e.suites[name]));
-  const kept = shown.filter((e) => suites.length && suites.every((name) => e.suites[name]));
-  return { suites, kept, left: shown.filter((e) => !kept.includes(e)) };
+  let kept = [...shown];
+  let shared = sharedSuites(kept);
+  while (shared.length < OVERALL_MIN_SUITES && kept.length > 1) {
+    let best = null;
+    kept.forEach((drop, index) => {
+      const option = [sharedSuites(kept.filter((e) => e !== drop)).length, -SUITES.filter((n) => drop.suites[n]).length, index, drop];
+      if (!best || option[0] > best[0] || (option[0] === best[0] && (option[1] > best[1] || (option[1] === best[1] && option[2] > best[2])))) best = option;
+    });
+    if (best[0] <= shared.length) break;
+    kept = kept.filter((e) => e !== best[3]);
+    shared = sharedSuites(kept);
+  }
+  return { suites: shared, kept, left: shown.filter((e) => !kept.includes(e)) };
 }
 
 function overallValue(entry, covered) {
@@ -165,13 +244,36 @@ function overallNote(built, selected) {
   if (!kept.length) return "";
   let note = "Overall covers " + joinNames(suites.map((name) => SUITE_NAMES[name])) + ".";
   for (const e of left) {
-    note += ` ${e.label} is not in Overall: ${joinNames(suites.filter((name) => !e.suites[name]).map((name) => SUITE_NAMES[name]))} not measured completely.`;
+    note += ` ${e.label} is not in Overall: it shares too few suites with the other builds.`;
   }
   return note;
 }
 
-function headerText(chart, palette) {
-  return chart.header.trim().replace("__PALETTE__", (palette || chart.palette || []).join(", "));
+// Why each build the chart does not draw is unavailable, by entry key: {kind, tag, reason}. A build with no data for the
+// suite carries its own reason; for Overall, a build that lacks a suite the other builds cover is unavailable too, and so
+// is an unticked build that ticking would leave out. The available ticked builds are exactly the ones drawn.
+// Mirrors list_status in charts.py.
+function listStatus(built, selected) {
+  const status = {};
+  const shown = pool(built, selected);
+  const keys = new Set(shown.map(entryKey));
+  for (const entry of built.entries) {
+    const key = entryKey(entry);
+    if (entry.value === null) {
+      status[key] = { kind: entry.kind, tag: entry.kind === "not_supported" ? "not supported" : "not measured here", reason: entry.reason };
+    } else if (built.overall) {
+      const { suites, kept } = overallSplit(keys.has(key) ? shown : [...shown, entry]);
+      if (!kept.includes(entry)) {
+        status[key] = { kind: "not_in_overall", tag: "not in Overall", reason: "Overall averages the suites every drawn build has, and this build shares too few of them with the others." };
+      }
+    }
+  }
+  return status;
+}
+
+function headerText(chart, palette, reverse = false) {
+  const colors = [...(palette || chart.palette || [])];
+  return chart.header.trim().replace("__PALETTE__", (reverse ? colors.reverse() : colors).join(", "));
 }
 
 function chartSource(spec, built, suite, selected, palette) {
@@ -184,15 +286,25 @@ function chartSource(spec, built, suite, selected, palette) {
   // A build without a 1% low draws no bar in the second series (a zero-length bar) instead of dropping the series.
   const known = shown.map((e) => e.value.low).filter((low) => low !== null);
   // The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average.
-  const lows = shown.map((e) => (e.value.low === null ? 0 : Math.min(e.value.low, e.value.avg)));
+  // A time series has no such ceiling: the 90th percentile is above the median by definition.
+  const lower = lowerIsBetter(spec.query.metrics[0]);
+  const lows = shown.map((e) => (e.value.low === null ? 0 : lower ? e.value.low : Math.min(e.value.low, e.value.avg)));
   const withLows = known.length > 0;
-  const yMax = chart.y_max ?? niceCeiling(Math.max(...averages, ...known) * 1.25);
+  // A frame-cost axis spans the frame budget, so a bar's length is its share of the budget; a bar over budget stretches it.
+  const yMax = chart.y_max ?? (built.budget_ms
+    ? Math.max(round1(built.budget_ms), Math.ceil(Math.max(...averages, ...known) * 1.05 * 10) / 10)
+    : niceCeiling(Math.max(...averages, ...known) * 1.25));
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
-  const title = `${SUITE_NAMES[suite]}: ${chart.title_unit || "uncapped fps"}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
-  return [headerText(chart, palette), head, `    title "${title}"`,
+  const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
+  const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
+  // A time series draws the longer 90th-percentile bar first, so the median bar in front of it stays visible; the colors
+  // swap with the order so the median keeps the first series' color.
+  const behind = lower && withLows;
+  return [headerText(chart, palette, behind), head, `    title "${title}"`,
     `    x-axis "${chart.x_label || ""}" [${labels.map((l) => `"${l}"`).join(", ")}]`,
     `    y-axis "${chart.y_label || ""}" ${number(chart.y_min ?? 0)} --> ${number(yMax)}`,
-    `    bar [${averages.map(number).join(", ")}]`, withLows ? `    bar [${lows.map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
+    `    bar [${(behind ? lows : averages).map(number).join(", ")}]`,
+    withLows ? `    bar [${(behind ? averages : lows).map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
 }
 
 function legendText(spec) {
@@ -244,11 +356,35 @@ function captionText(built, selected, columns, windows) {
   return captionParts(built, selected, columns, windows).map(([text]) => text).join("");
 }
 
+// The per-build figures under a chart as a table; mirrors caption_table in charts.py.
+const DETAIL_HEADINGS = { p95_ms: "95th-percentile frame time (ms)", on_time_pct: "On time", gpu_p50_ms: "Median GPU time (ms)",
+  gpu_p90_ms: "90th-percentile GPU time (ms)", cpu_p50_ms: "Median CPU time (ms)" };
+
+function captionTable(built, selected, columns, windows) {
+  const shown = drawn(built, selected);
+  if (!shown.length) return null;
+  columns = columns || [];
+  if (!windows || !windows.length) windows = [...new Set(shown.flatMap((e) => e.value.windows || []))].sort();
+  const rows = shown.map((e) => {
+    const cells = columns.map((column) => {
+      const value = (e.value.details || {})[column];
+      if (value === null || value === undefined) return "\u2013";
+      let text = value.toFixed(DETAILS[column].places);
+      if (text.includes(".")) text = text.replace(/\.?0+$/, "");
+      return text + (DETAILS[column].unit === "%" ? "%" : "");
+    });
+    const note = columns.length && cells.every((c) => c === "\u2013") ? detailText(e, columns) : "";
+    const gaps = missingWindows(e, windows).replace(/^; /, "");
+    return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells, notes: [e.port_note, note, gaps].filter(Boolean).join("; ") };
+  });
+  return { box: built.box, note: overallNote(built, selected), headings: columns.map((c) => DETAIL_HEADINGS[c]), rows };
+}
+
 // Plain-language text for reason codes (docs/benchmarks/reasons.toml); unknown codes pass through.
 function plainReason(reason, reasons) {
   if (Object.hasOwn(reasons.exact, reason)) return reasons.exact[reason];
   let match = /^no (.+) measurements yet$/.exec(reason);
-  if (match) return reasons.patterns.no_suite_data.replace("{suite}", match[1]);
+  if (match) return reasons.patterns.no_suite_data.replace("{suite}", (SUITE_NAMES[match[1]] || match[1]).toLowerCase());
   match = /^not measured in (.+?): (.+)$/.exec(reason);
   if (match) return reasons.patterns.partial_suite.replace("{suite}", match[1]).replace("{windows}", match[2]);
   match = /^missing (.+)$/.exec(reason);
@@ -256,7 +392,7 @@ function plainReason(reason, reasons) {
   return reason;
 }
 
-if (typeof module !== "undefined") module.exports = { captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, entryKey, SUITES };
+if (typeof module !== "undefined") module.exports = { captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
 
 // ---- Page ----
 function readHash() {
@@ -315,7 +451,7 @@ function labelBars(main, source) {
   const bars = groups.map((group) => [...group.querySelectorAll("rect")]);
   const ns = "http://www.w3.org/2000/svg";
   for (let i = 0; i < series[0].length; i++) {
-    const values = series.map((s) => s[i]).filter((v, k) => v !== undefined && (k === 0 || v > 0));
+    const values = series.map((s) => s[i]).filter((v, k) => v !== undefined && v > 0);
     const rects = bars.map((list) => list[i]).filter(Boolean);
     if (!rects.length || !values.length) continue;
     const longest = rects.reduce((a, b) => (parseFloat(b.getAttribute("width")) > parseFloat(a.getAttribute("width")) ? b : a));
@@ -327,7 +463,8 @@ function labelBars(main, source) {
     label.setAttribute("font-size", "20");
     label.setAttribute("font-weight", "600");
     label.setAttribute("class", "bar-value");
-    label.textContent = values.map(text).join(" / ");
+    // Times read "median / 90th percentile", the legend's order, whichever series is drawn first.
+    label.textContent = (milliseconds ? [...values].sort((a, b) => a - b) : values).map(text).join(" / ");
     groups[0].parentNode.appendChild(label);
   }
 }
@@ -375,7 +512,7 @@ async function drawChart(container, spec, built, suite, selected) {
     const anyData = built.entries.some((e) => e.value !== null);
     const nothingCommon = built.overall && anyData && pool(built, selected).length;
     container.append(el("p", { class: "bench-empty" }, !built.entries.length ? spec.empty
-      : nothingCommon ? "No build in this chart has every suite Overall covers."
+      : nothingCommon ? "No build in this chart has a suite to average."
       : anyData ? "Nothing is ticked." : "No build has data for this suite yet."));
     return;
   }
@@ -401,28 +538,63 @@ function drawLegend(node, spec, count) {
   });
 }
 
+// One build's row. A build with no data for the chart is dimmed and disabled, tagged briefly, with the full reason in the
+// row's tooltip and for screen readers. Mirrors build_item in site_page.py.
+function buildItem(entry, spec, state, off) {
+  const key = entryKey(entry);
+  const input = el("input", { type: "checkbox", value: key });
+  const name = el("span", { class: "build-name" }, entry.url ? el("a", { href: entry.url, rel: "noopener" }, entry.label) : entry.label);
+  const meta = el("span", { class: "build-meta" }, `build ${entry.build || "unknown"}, ${entry.date}`);
+  const label = el("label", { class: "build-label" }, input, " ", name, " ", meta);
+  if (off) {
+    input.disabled = true;
+    const reason = plainReason(off.reason, state.reasons);
+    return el("div", { class: "build off", title: reason }, label,
+      el("details", { class: "why" }, el("summary", { class: "tag" }, off.tag), el("p", {}, reason)));
+  }
+  input.checked = state.selected[spec.slug].has(key);
+  input.addEventListener("change", () => {
+    if (input.checked) state.selected[spec.slug].add(key); else state.selected[spec.slug].delete(key);
+    // Overall's suite set follows the ticked builds, so the rows that are drawn can change with a tick.
+    state.refresh(spec, state.models[spec.slug].overall, key);
+  });
+  return el("div", { class: "build" }, label);
+}
+
+// Built when the suite changes, not on every tick, so keyboard focus and the open disclosures stay where they are.
+// Mirrors caption_html in site_page.py.
+function drawCaption(node, table) {
+  node.replaceChildren();
+  if (!table) return;
+  const cell = (tag, attributes, ...children) => el(tag, attributes, ...children);
+  const head = el("tr", {}, ...["Build", "Measured", ...table.headings, "Notes"].map((text) => cell("th", { scope: "col" }, text)));
+  const body = table.rows.map((row) => el("tr", {},
+    cell("th", { scope: "row" }, row.url ? el("a", { href: row.url, rel: "noopener" }, row.label) : row.label, " ",
+      el("span", { class: "build-meta" }, `build ${row.build}`)),
+    cell("td", { "data-label": "Measured" }, row.measured), ...row.cells.map((text, i) => cell("td", { "data-label": table.headings[i] }, text)),
+    cell("td", { "data-label": "Notes" }, row.notes)));
+  node.append(el("table", { class: "bench-table" }, el("caption", {}, `${table.box}.` + (table.note ? " " + table.note : "")),
+    el("thead", {}, head), el("tbody", {}, ...body)));
+}
+
 function drawList(list, spec, built, state) {
-  const reasons = state.reasons;
+  const status = listStatus(built, state.selected[spec.slug]);
   list.hidden = !built.entries.length;
   list.replaceChildren(el("legend", {}, "Builds"));
-  for (const entry of built.entries) {
-    const key = entryKey(entry);
-    const detail = `build ${entry.build || "unknown"}, ${entry.date}`;
-    const input = el("input", { type: "checkbox", value: key });
-    input.checked = state.selected[spec.slug].has(key);
-    if (entry.value === null) {
-      input.disabled = true;
-      input.checked = false;
+  for (const group of buildGroups(built)) {
+    const box = el("div", { class: "build-group" }, buildItem(group.primary, spec, state, status[entryKey(group.primary)]));
+    if (group.others.length) {
+      const count = group.others.length;
+      const id = spec.slug + "/" + group.port;
+      // Closed unless the reader opened it; the summary says how many of the folded versions are drawn.
+      const shown = group.others.filter((e) => !status[entryKey(e)] && state.selected[spec.slug].has(entryKey(e))).length;
+      const more = el("details", { class: "older", "data-port": group.port },
+        el("summary", {}, `${count} other version${count === 1 ? "" : "s"}` + (shown ? ` \u00b7 ${shown} shown` : "")), ...group.others.map((e) => buildItem(e, spec, state, status[entryKey(e)])));
+      more.open = state.open.has(id);
+      more.addEventListener("toggle", () => { if (more.open) state.open.add(id); else state.open.delete(id); });
+      box.append(more);
     }
-    const word = entry.kind === "not_supported" ? "Not supported" : "Not measured";
-    const name = entry.url ? el("a", { href: entry.url, rel: "noopener" }, entry.label) : entry.label;
-    const rest = entry.value === null ? ` (${detail}). ${word}: ${plainReason(entry.reason, reasons)}` : ` (${detail})`;
-    const label = el("label", { class: entry.value === null ? "off" : "" }, input, " ", name, rest);
-    input.addEventListener("change", () => {
-      if (input.checked) state.selected[spec.slug].add(key); else state.selected[spec.slug].delete(key);
-      state.refresh(spec);
-    });
-    list.append(label);
+    list.append(box);
   }
 }
 
@@ -435,7 +607,7 @@ async function start() {
   const rows = parseCsv(text);
   const params = readHash();
   const state = { suite: SUITES.concat("overall").includes(params.get("suite")) ? params.get("suite") : DEFAULT_SUITE,
-    models: {}, selected: {}, refresh: null, reasons };
+    models: {}, selected: {}, refresh: null, reasons, open: new Set() };
   const dark = window.matchMedia("(prefers-color-scheme: dark)");
   const theme = () => mermaid.initialize(mermaidConfig(dark.matches));
   theme();
@@ -450,14 +622,16 @@ async function start() {
         ? requested.split(",").filter(Boolean) : built.entries.filter((e) => e.default).map(entryKey));
     }
   }
-  async function refresh(spec) {
+  async function refresh(spec, rebuildList = true, focusKey = null) {
     const built = state.models[spec.slug], section = sections[spec.slug];
     await drawChart(section.querySelector(".bench-chart"), spec, built, state.suite, state.selected[spec.slug]);
-    drawList(section.querySelector(".bench-rows"), spec, built, state);
+    if (rebuildList) {
+      drawList(section.querySelector(".bench-rows"), spec, built, state);
+      if (focusKey) [...section.querySelectorAll(".bench-rows input")].find((i) => i.value === focusKey)?.focus();
+    }
     drawLegend(section.querySelector(".bench-legend"), spec,
       !built.entries.length ? 0 : drawn(built, state.selected[spec.slug]).some((e) => e.value.low !== null) ? 2 : 1);
-    section.querySelector(".bench-caption").replaceChildren(...captionParts(built, state.selected[spec.slug], spec.query.details, spec.query.windows)
-      .map(([text, url]) => (url ? el("a", { href: url, rel: "noopener" }, text) : text)));
+    drawCaption(section.querySelector(".bench-caption"), captionTable(built, state.selected[spec.slug], spec.query.details, spec.query.windows));
     writeHash(state, specs);
   }
   state.refresh = refresh;

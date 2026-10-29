@@ -31,9 +31,23 @@ def checked_feed(data: bytes, guest: str) -> int:
     else:
         from release_validation import packs, verify_pages_recording_feed
 
-    verify_pages_recording_feed(data, guest)
+    # A benchmark-catalog-2 envelope names its archive; Pages checks that against the published blob (verify_recording_bundle).
+    verify_pages_recording_feed(data, guest, recording_index_only=True)
     envelope = packs.decode_json(data)
     return packs.decode_json(packs.decode_base64(envelope["manifest"], 65536))["sequence"]
+
+
+def signed_compatibility(data: bytes) -> str:
+    """The manifest's compatibility string, without verifying anything else."""
+    if __package__:
+        from .release_validation import packs
+    else:
+        from release_validation import packs
+
+    envelope = packs.decode_json(data)
+    manifest = packs.decode_json(packs.decode_base64(envelope["manifest"], 65536))
+    compatibility = manifest.get("compatibility")
+    return compatibility if isinstance(compatibility, str) else ""
 
 
 def mutable_recording_domain(
@@ -53,7 +67,7 @@ def mutable_recording_domain(
     if not isinstance(compatibility, str):
         raise ValueError("Recording feed has invalid signed compatibility metadata")
     match = re.fullmatch(
-        r"benchmark-(catalog-1|replay-1):([0-9a-f]{64})", compatibility
+        r"benchmark-(catalog-[12]|replay-1):([0-9a-f]{64})", compatibility
     )
     if not match:
         raise ValueError("Recording feed has invalid signed compatibility metadata")
@@ -112,6 +126,8 @@ def overlay(commit: str) -> tuple[str, bytes, int]:
     else:
         guest = match[1]
         sequence = checked_feed(data, guest)
+        if signed_compatibility(data).startswith("benchmark-catalog-2:"):
+            raise ValueError("A benchmark-catalog-2 feed publishes with its archive from the checked-in tree")
         candidate_domain = None
     previous: list[bytes] = []
     existing = ROOT / path

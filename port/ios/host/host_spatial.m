@@ -78,7 +78,7 @@ overrides them for another controller */
 static int settings_read;
 static int aim_controller;     /* input.aim = "controller" */
 static int aiming_hand = 1;    /* input.aim_hand: 0 left, 1 right */
-static int head_mode;          /* display.stereo = "head" */
+static int head_mode;          /* display.stereo = "head" (Enter VR's HEAD mode: host_stereo_mode) */
 static int synthetic_on;       /* debug.test_controller parsed */
 static int replay_on;          /* debug.controller_replay loaded: its samples answer every call */
 static struct host_spatial_synthetic synthetic;
@@ -1103,6 +1103,12 @@ void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 {
 	if (!settings_read)
 		read_settings();
+	/* HEAD mode from Enter VR over display.stereo = "off": the controllers'
+	tracking starts with the first frame in it, as read_settings starts it
+	for display.stereo = "head" */
+	if (!tracker && !needs_27 && aim_controller && !head_mode && host_stereo_mode() == HALO_STEREO_HEAD &&
+		!synthetic_on && !replay_on)
+		tracker_start();
 	if (@available(visionOS 27.0, *))
 		[(HostSpatialTracker *)tracker frame:drawable device:origin_from_device];
 }

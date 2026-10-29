@@ -608,7 +608,27 @@ boolean actor_look_secondary(
 	actor->control.secondary_look_type = type;
 	actor->control.secondary_look_priority = priority;
 	actor->control.secondary_look_timer = (short)ticks;
-	actor->control.secondary_look_direction = *direction;
+	/* port: the type and only the member it uses, the rest zero: callers fill the specification on their stack
+	and set one member, so a whole copy took the union's other bytes and the padding as the stack had them */
+	csmemset(&actor->control.secondary_look_direction, 0, sizeof(actor->control.secondary_look_direction));
+	actor->control.secondary_look_direction.type = direction->type;
+	switch (direction->type)
+	{
+	case _direction_specification_prop:
+		actor->control.secondary_look_direction.prop_index = direction->prop_index;
+		break;
+	case _direction_specification_object:
+		actor->control.secondary_look_direction.object_index = direction->object_index;
+		break;
+	case _direction_specification_point:
+		actor->control.secondary_look_direction.point = direction->point;
+		break;
+	case _direction_specification_vector:
+		actor->control.secondary_look_direction.vector = direction->vector;
+		break;
+	default:
+		break;
+	}
 
 	return TRUE;
 }

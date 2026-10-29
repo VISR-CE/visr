@@ -242,7 +242,7 @@ static void restart(const char *stereo, double lod_scale)
 {
 	setting_stereo = stereo;
 	setting_lod_scale = lod_scale;
-	stereo_mode = -1;
+	stereo_configured = -1;
 	turn_mode = -1;
 	film_mapping.depth_share = -1.0f;
 	clamp_logs = 0;

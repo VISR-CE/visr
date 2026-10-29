@@ -20,12 +20,22 @@ static NSData *blockedRead(id object, SEL selector, NSString *path)
 }
 /* Answers every feed request in the probe without a network: a status, or a connection failure. */
 static NSInteger stubStatus;
+static double stubDelay;   /* seconds before the answer, so a second check can arrive while the first is in flight */
 @interface FeedStub : NSURLProtocol
 @end
 @implementation FeedStub
 + (BOOL)canInitWithRequest:(NSURLRequest *)request { (void)request; return YES; }
 + (NSURLRequest *)canonicalRequestForRequest:(NSURLRequest *)request { return request; }
 - (void)startLoading {
+    if (stubDelay > 0) {
+        double delay = stubDelay; NSInteger status = stubStatus; id<NSURLProtocolClient> client = self.client; NSURL *url = self.request.URL;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+            NSHTTPURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:url statusCode:status HTTPVersion:@"HTTP/1.1" headerFields:@{}];
+            [client URLProtocol:self didReceiveResponse:response cacheStoragePolicy:NSURLCacheStorageNotAllowed];
+            [client URLProtocolDidFinishLoading:self];
+        });
+        return;
+    }
     if (!stubStatus) {
         [self.client URLProtocol:self didFailWithError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorNotConnectedToInternet userInfo:nil]];
         return;
@@ -63,6 +73,35 @@ int main(int argc, char **argv)
         NSFileManager *fm = NSFileManager.defaultManager;
         [fm createDirectoryAtPath:base withIntermediateDirectories:YES attributes:nil error:NULL];
         struct host_device d; host_device_identify(&d);
+        // The look at the profile before the launch menu (the upscaling gate) opens the store the menu will use and does not
+        // begin a launch: 0.6.3 began one there, on a second store of the same root, and the menu then quarantined the shard.
+        {
+            NSString *peekBase = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+            dataPackCacheOverride = [peekBase stringByAppendingPathComponent:@"cache"];
+            dataPackKeyOverride = [NSMutableData dataWithLength:32]; dataPackChannelOverride = @"tester";
+            NSString *bundledProfiles = [peekBase stringByAppendingPathComponent:@"bundled"];
+            [fm createDirectoryAtPath:bundledProfiles withIntermediateDirectories:YES attributes:nil error:NULL];
+            // Two launches whose upscaling check looks before the menu starts: nothing opens a store, for any kind.
+            for (int launch = 0; launch < 2; launch++) {
+                assert([host_profile_peek_folder(bundledProfiles, &d) isEqual:bundledProfiles]);
+                @synchronized(selectionLock()) { menuRequested = YES; }   // host_data_updates_menu_expected, as host_main does
+                assert([host_profile_update_folder(bundledProfiles) isEqual:bundledProfiles]);
+                assert([host_recording_update_folder(bundledProfiles) isEqual:bundledProfiles]);
+                assert(!host_shader_update_list("a10"));
+                (void)host_data_updates_metadata();
+                assert(!profiles && !recordings && !shaders && !profileFolder && !recordingFolder);
+                assert(![fm fileExistsAtPath:dataPackCacheOverride]);
+                @synchronized(selectionLock()) { menuRequested = NO; }
+            }
+            // store() gives one instance per root, for every kind.
+            HostPackValidator any = ^BOOL(NSString *f, NSError **e) { (void)f; (void)e; return YES; };
+            for (NSString *kind in @[@"profiles", @"recordings", @"shaders", @"latest"])
+                assert(store(kind, bundledProfiles, @"test-1", any) == store(kind, bundledProfiles, @"test-1", any));
+            assert(profileStore(bundledProfiles, d) == profileStore(bundledProfiles, d));
+            dataPackCacheOverride = nil; dataPackKeyOverride = nil; dataPackChannelOverride = nil;
+            [fm removeItemAtPath:peekBase error:NULL];
+            puts("PASS: looks before the launch menu open no store, over two launches; one store per root for every kind");
+        }
         assert([profileFeedURL(@"https://example.com/packs/profiles", &d).absoluteString isEqual:@"https://example.com/packs/profiles/ios/iPhone18,1/_.json"]);
         assert(!profileFeedURL(@"https://user@example.com/packs", &d));
         assert(!profileFeedURL(@"https://example.com/packs?x=1", &d));
@@ -277,6 +316,22 @@ int main(int argc, char **argv)
         dispatch_sync(updatesQueue(), ^{ stubStatus = 200; resetMenuRetry(); refreshMenuKinds(NO, YES); });
         waitForMenuChecks();
         dispatch_sync(updatesQueue(), ^{ assert(!recordingUnpublished); });   // an answer, even one that stages nothing, ends it
+        // A check asked for while another is in flight joins it and gets its answer, instead of an immediate failure that
+        // the menu would show as "Can't reach the profile server".
+        {
+            HostDataPackStore *joined = [[HostDataPackStore alloc] initWithRoot:[base stringByAppendingPathComponent:@"joined-cache"] bundled:current kind:@"profiles" channel:@"tester" publicKey:[NSMutableData dataWithLength:32] compatibility:@"profiles-1" validator:^BOOL(NSString *folder, NSError **error) { (void)folder; (void)error; return YES; }];
+            NSURL *url = [NSURL URLWithString:@"https://example.com/packs/profiles/ios/iPhone18,1/_.json"];
+            stubStatus = 404; stubDelay = 0.3;
+            dispatch_group_t answered = dispatch_group_create();
+            __block NSInteger firstStatus = -1, secondStatus = -1;
+            dispatch_group_enter(answered); dispatch_group_enter(answered);
+            [joined checkForUpdateAtURL:url completion:^(BOOL success) { (void)success; firstStatus = joined.lastFeedStatus; dispatch_group_leave(answered); }];
+            [joined checkForUpdateAtURL:url completion:^(BOOL success) { (void)success; secondStatus = joined.lastFeedStatus; dispatch_group_leave(answered); }];
+            assert(dispatch_group_wait(answered, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0);
+            assert(firstStatus == 404 && secondStatus == 404);
+            stubDelay = 0;
+            puts("PASS: a feed check asked for during another joins it");
+        }
         // Once Play froze the selection, nothing retries.
         host_data_updates_menu_finish();
         dispatch_sync(updatesQueue(), ^{ resetMenuRetry(); scheduleMenuRetry(); assert(!menuRetryScheduled); });

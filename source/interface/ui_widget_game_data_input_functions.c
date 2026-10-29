@@ -668,6 +668,10 @@ short ui_widget_port_list_index(
 	struct widget_instance *list_widget);
 boolean pc_menu_tag(
 	long tag_index);
+boolean pc_menu_patch_list_index(
+	long list_tag,
+	long row_tag,
+	short *description);
 
 /* ---------- globals */
 
@@ -2021,14 +2025,34 @@ static void set_textbox_to_build_number(
 	   wchar_t build_number_string[0x40]). Neither PDB records the block: placing it at the top of
 	   the function is unattested. January corroborates: .bss +0x28, referenced only here. */
 	static wchar_t build_number_string[64];
+	/* port: what this widget shows (a blank label for the PC menus' own widget) */
+	wchar_t const *label = build_number_string;
 
 #ifndef HALO_IOS
-	/* The iOS menu leaves this developer build label blank. Save and map
-	   version checks still use their original build numbers. */
+	/* Save and map version checks still use their original build numbers. */
 	if (!build_number_string[0])
 	{
 		ascii_to_wide(
 			"01.01.14.2342",
+			build_number_string,
+			sizeof(build_number_string));
+	}
+#else
+	/* port: keep the PC menu's blank label; only the Xbox look's main menu (the map's own
+	   widget, not one of the menus' tags) shows VISR's version, whichever look display.menus
+	   picks at the moment */
+	static wchar_t const blank_label[NUMBEROF(build_number_string)] = {0};
+
+	if (pc_menu_tag(widget->definition_tag_index))
+		label = blank_label;
+	else if (!build_number_string[0])
+	{
+		extern void pc_menu_version_text(char *text, long size);
+		char version[64];
+
+		pc_menu_version_text(version, sizeof(version));
+		ascii_to_wide(
+			version,
 			build_number_string,
 			sizeof(build_number_string));
 	}
@@ -2054,7 +2078,7 @@ static void set_textbox_to_build_number(
 	{
 		ustrncpy(
 			widget->parameters.text_box.text,
-			build_number_string,
+			label,
 			NUMBEROF(build_number_string) - 1);
 		widget->parameters.text_box.text[NUMBEROF(build_number_string) - 1] = 0;
 	}
@@ -2256,6 +2280,14 @@ static void player_profile_edit_select_menu_update_extended_description(
 	leave the last item's description shown, as they have none */
 	if (pc_menu_tag(list_widget->definition_tag_index) && list_widget->focused_child->type == _ui_widget_type_column_list)
 		index = NONE;
+	/* port: a list the menus' patch table changed (port/linux/game/menu_tags.c)
+	shows a row's description by the number the patch gave it */
+	{
+		short patched_index;
+
+		if (pc_menu_patch_list_index(list_widget->definition_tag_index, NONE, &patched_index))
+			index = ui_widget_port_list_index(list_widget);
+	}
 
 	if (index != NONE)
 	{
