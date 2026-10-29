@@ -13,7 +13,9 @@ def test_browser_text_fit_and_regions(tmp_path):
     menu = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     production = function(ui, 'static short ui_widget_port_text_width(')
     production += '\n' + function(ui, 'void ui_widget_port_text_ellipsize(')
-    production += '\n' + function(menu, 'static void browser_listing_region(')
+    for signature in ('static long player_capacity(void)', 'static boolean player_capacity_exceeded(',
+                      'static boolean player_capacity_marked(', 'static void browser_listing_region('):
+        production += '\n' + function(menu, signature)
     fixture = r'''
 #include <assert.h>
 #include <stddef.h>
@@ -21,6 +23,9 @@ def test_browser_text_fit_and_regions(tmp_path):
 #include <wchar.h>
 #include "p2p.h"
 #define NONE -1
+typedef int boolean;
+static long capacity = 8;
+static long config_integer(char const *name) { (void)name; return capacity; }
 #define SHORT_MAX 32767
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -57,7 +62,6 @@ static void draw_unicode_string_compute_bounds(rectangle2d const *bounds, wchar_
 #include <stdarg.h>
 #include <stdio.h>
 static int halo_network_kind_reason(int kind) { (void)kind; return 0; }
-static int player_capacity_marked(int count, int maximum) { (void)count; return maximum > 32; }
 enum p2p_server_kind p2p_listing_server_kind(const struct p2p_listing *l) { return l->kind == 9 ? P2P_SERVER_LAN : P2P_SERVER_UNKNOWN; }
 static void usnprintf(wchar_t *t, int size, wchar_t const *format, ...) { va_list a; va_start(a, format); vswprintf(t, size + 1, format, a); va_end(a); }
 static void text_to_wide(char const *s, wchar_t *w, short size) { int i = 0; for (; s[i] && i < size - 1; i++) w[i] = s[i]; w[i] = 0; }
@@ -71,8 +75,23 @@ int main(void) {
     strcpy(listing.region, "na-west");
     browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
     listing.kind = 9; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"LAN"));
-    listing.kind = 0; listing.maximum_player_count = 64;
+    listing.kind = 0; listing.player_count = 4; listing.maximum_player_count = 16;
     browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"BIG"));
+    /* Master provenance and region must never hide the same BIG mark that gates joining. */
+    for (int master = 0; master <= 1; master++) {
+        listing.from_master = master;
+        for (int dedicated = 0; dedicated <= 1; dedicated++) {
+            listing.dedicated = dedicated;
+            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"BIG"));
+            listing.player_count = 3;
+            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
+            listing.player_count = 4; capacity = 0;
+            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
+            capacity = 16;
+            browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
+            capacity = 8;
+        }
+    }
     listing.open = 0; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"CLOSED"));
     listing.failed = 1; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"FAILED"));
     listing.failed = 0; listing.joinable = 0; listing.network_version = 38;
