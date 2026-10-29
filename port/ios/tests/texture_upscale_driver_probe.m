@@ -60,7 +60,7 @@ const char *texture_policy_result_name(enum texture_policy_result result) {
 }
 struct retry_test {
     NSString *capacity_path;
-    int presses,disabled,resumed,saw_note;
+    int presses,disabled,resumed,saw_note,start_after_resume;
     double note_began;
     double fraction;
 };
@@ -69,7 +69,10 @@ static int retry_progress(void *opaque,const struct host_texture_upscale_import_
     assert(status->fraction>=test->fraction);test->fraction=status->fraction;
     if(!status->message){
         if(test->presses==2)test->resumed=1;
-        return test->resumed&&!status->menu_phase?HOST_TEXTURE_UPSCALE_START_PLAYING:HOST_TEXTURE_UPSCALE_WAIT;
+        /* after a passing retry, Start playing is offered again once the main menu's textures are made (here at once:
+           this set has no menu textures) */
+        if(test->resumed&&!status->menu_phase){test->start_after_resume=1;return HOST_TEXTURE_UPSCALE_START_PLAYING;}
+        return HOST_TEXTURE_UPSCALE_WAIT;
     }
     assert(status->needed_bytes>=TEXTURE_CACHE_FALLBACK_HEADROOM);
     assert(status->found_bytes==(64ull<<20));
@@ -192,7 +195,7 @@ int main(void) {@autoreleasepool {
     struct retry_test retry={.capacity_path=capacity};
     assert(host_texture_upscale_prepare_import(directory,retry_progress,&retry));
     dispatch_sync(upscale_worker,^{});
-    assert(retry.presses==2&&retry.disabled==2&&retry.resumed&&retry.saw_note&&retry_logs==2);
+    assert(retry.presses==2&&retry.disabled==2&&retry.resumed&&retry.saw_note&&retry_logs==2&&retry.start_after_resume);
     assert(continued_begins==2&&continued_ends==2&&atomic_load(&import_shown)==-1);
     assert(atomic_load(&retry_scheduled)); /* manual retry never replaces or cancels the timer */
     assert(storage_available(cache,&found)>0&&found==(9000ull<<20));

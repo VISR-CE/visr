@@ -119,6 +119,10 @@ static void upscale_phase(NSString *root) {
     NSButton *start = [VISRFirstClickButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
     start.frame = NSMakeRect(275, 18, 130, 32);start.bezelStyle=NSBezelStyleRounded;
     start.bezelColor=bar_blue();start.contentTintColor=NSColor.blackColor;
+    /* (black on the bar's light blue, as on iPhone and iPad: white on it measures about 1.7:1, black about 12:1;
+       contentTintColor does not reach a rounded button's title, the attributed title does) */
+    start.attributedTitle=[[NSAttributedString alloc] initWithString:@"Start playing" attributes:@{
+        NSForegroundColorAttributeName: NSColor.blackColor, NSFontAttributeName: [NSFont systemFontOfSize:NSFont.systemFontSize]}];
     start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
     NSButton *retry=[VISRFirstClickButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
     retry.frame=NSMakeRect(209,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
