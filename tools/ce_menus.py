@@ -141,7 +141,6 @@ XBOX_BITMAPS = {
 # the same picture, or for the profile settings the Xbox's for the same
 # thing (Change Name; its Controller Setup for Gamepads)
 XBOX_FRAMES = {
-    "shell/main_menu/multiplayer_type_select/mp_options__2": 3,
     "shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__2": 2,
     "shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__5": 4,
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__0": 0,
@@ -711,7 +710,7 @@ runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game ar
 
 | PC bitmap | Frames and sources |
 | --- | --- |
-| `mp_options` | 0 → Xbox 0; 1 → Xbox 1 |
+| `mp_options` | 0 → Xbox 0; 1 → Xbox 1; 2 → INTERNET (invite-link join) |
 | `gametype_options` | 0 → Xbox 0; 3 and 4 → Xbox 3 (equipment/vehicles); 6 → Xbox 2 (players/teams); 7 → Xbox 5 (save) |
 | `profile_options` | 1 and 3 → Xbox 0 (keyboard); 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
 

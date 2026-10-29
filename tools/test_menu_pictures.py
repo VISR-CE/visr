@@ -10,7 +10,7 @@ import port_settings
 
 
 FAMILIES = {
-    'main_menu/multiplayer_type_select/mp_options': (0, 1),
+    'main_menu/multiplayer_type_select/mp_options': (0, 1, 2),
     'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options': (0, 3, 4, 6, 7),
     'main_menu/settings_select/player_setup/player_profile_edit/profile_options': (1, 3, 4, 5, 6, 8),
 }
@@ -49,3 +49,9 @@ def test_description_art_is_embedded():
         for frame in bitmap:
             if frame.get('png'):
                 assert frame.get('png') in files
+
+
+def test_pc_direct_link_uses_internet_drawing():
+    name = 'main_menu/multiplayer_type_select/mp_options'
+    frame = port_settings.picture_frame('shell/' + name, 2)
+    assert frame == {'width': '512', 'height': '256', 'png': 'xbox/art/internet.png'}

@@ -604,7 +604,7 @@ WIDGET_PATCHES = {
 # Resolve missing PC description art from the approved drawings or the player's
 # ui.map. Keep the transparent fallback so game maps can use the extracted cache.
 PC_PICTURES = {
-    "main_menu/multiplayer_type_select/mp_options": {0: 0, 1: 1},
+    "main_menu/multiplayer_type_select/mp_options": {0: 0, 1: 1, 2: "internet"},
     "main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options": {
         0: 0, 3: 3, 4: 3, 6: 2, 7: 5,
     },
