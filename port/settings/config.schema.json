@@ -280,7 +280,7 @@
         "immersive": {
           "type": "boolean",
           "default": false,
-          "description": "Apple Vision Pro, visionOS 26 and later: start the game in an immersive space (a screen standing in the room, or with display.stereo its stereo view) instead of in a window. Either way the window's Enter VR button, or Back and Start held together on a controller, enters VR while the game runs, and Exit VR, the Digital Crown or the same chord returns to the window.",
+          "description": "Apple Vision Pro, visionOS 26 and later: start the game in an immersive space (a screen standing in the room, or with display.stereo its stereo view) instead of in a window. Either way the window's Enter VR button, or Back and Start held together on a controller, enters VR while the game runs, and the Digital Crown or the same chord returns to the window.",
           "x-environment": "HALO_IMMERSIVE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -2358,7 +2358,7 @@
         "test_theater_reopen": {
           "type": "boolean",
           "default": false,
-          "description": "Switch between the window and VR every 900 event polls, six times: Exit VR if the immersive space is open, else Enter VR (the host's host_theater.m). For the simulator.",
+          "description": "Switch between the window and VR every 900 event polls, six times: leave VR if the immersive space is open, else Enter VR (the host's host_theater.m). For the simulator.",
           "x-environment": "HALO_TEST_THEATER_REOPEN",
           "x-environment-style": "set_is_true",
           "x-platforms": [

@@ -212,8 +212,6 @@ hidden. Shown again, the game's window becomes the key window unless an
 alert or sheet is still up: one put away while it was hidden could not give
 it back (host_dismiss_window), and without a key window a keyboard's keys
 go nowhere */
-static BOOL scene_is_controls(UIScene *scene);
-
 static void window_hidden(BOOL hidden)
 {
 	BOOL present_up = NO;
@@ -222,8 +220,7 @@ static void window_hidden(BOOL hidden)
 
 	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
 	{
-		/* (the Exit VR panel stays up in the space) */
-		if (![scene isKindOfClass:UIWindowScene.class] || scene_is_controls(scene))
+		if (![scene isKindOfClass:UIWindowScene.class])
 			continue;
 		for (UIWindow *window in ((UIWindowScene *)scene).windows)
 		{
@@ -269,16 +266,16 @@ void host_theater_picture_size(int *width, int *height)
 
 /* Entering and leaving VR while the game runs. While the space is closed,
 an ornament below the game's window holds an Enter VR button
-(Theater.swift's host_theater_ornament); while it's open, a small panel
-window holds an Exit VR button (host_theater_controls), and the Digital
-Crown closes the space as the system does for any immersive space. Back and
-Start held together on a controller switch either way (host_theater_chord).
-Entering from the button or the chord is head-tracked stereo unless
-display.stereo names another mode (halo_stereo_mode_entered); leaving, by
-any of the three, returns the game to its window in display.stereo's mode.
-display.immersive only says whether the game starts in the space, and
-nothing here writes a setting. Without visionOS 26 there is no space, and
-no button. */
+(Theater.swift's host_theater_ornament); the window's bar is hidden while
+the space is open. The Digital Crown closes the space, as the system does
+for any immersive space, and the first time a player enters VR a hint in
+the space says so (host_stereo_hint_arm). Back and Start held together on
+a controller switch either way (host_theater_chord). Entering from the
+button or the chord is head-tracked stereo unless display.stereo names
+another mode (halo_stereo_mode_entered); leaving returns the game to its
+window in display.stereo's mode. display.immersive only says whether the
+game starts in the space, and nothing here writes a setting. Without
+visionOS 26 there is no space, and no button. */
 
 /* the game's window: SDL's, in SDL's window scene */
 static UIWindow *game_window(void)
@@ -349,13 +346,6 @@ static BOOL scene_is_space(UIScene *scene)
 	return [scene.session.role hasSuffix:@"ImmersiveSpaceApplication"];
 }
 
-/* the Exit VR panel's scene: the one window scene that isn't SDL's */
-static BOOL scene_is_controls(UIScene *scene)
-{
-	return [scene isKindOfClass:UIWindowScene.class] && !scene_is_space(scene) &&
-		![NSStringFromClass([(NSObject *)scene.delegate class]) isEqualToString:@"SDLUIKitSceneDelegate"];
-}
-
 static void scenes_close(BOOL (*which)(UIScene *), const char *what)
 {
 	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
@@ -373,14 +363,6 @@ void host_theater_close(void)
 {
 	host_logf(HOST_LOG_INFO, "theater: leaving VR");
 	scenes_close(scene_is_space, "the immersive space");
-}
-
-static void controls_shown(BOOL shown)
-{
-	if (shown)
-		host_theater_controls_open();
-	else
-		scenes_close(scene_is_controls, "the Exit VR panel");
 }
 
 void host_theater_start(int open)
@@ -407,7 +389,7 @@ void host_theater_test_toggle(void)
 {
 	if (layer_renderer)
 	{
-		host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: pressing Exit VR");
+		host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: leaving VR as the Digital Crown would");
 		host_theater_close();
 		return;
 	}
@@ -423,7 +405,7 @@ void host_theater_attach(void *renderer)
 	space_opening = NO;
 	enter_ornament_shown(NO);
 	window_hidden(YES);
-	controls_shown(YES);
+	host_stereo_hint_arm();
 	/* the once-only logs, theater's and stereo's, repeat for each opening */
 	theater_frames = 0;
 	screen_presents = 0;
@@ -507,7 +489,6 @@ int host_theater_active(void)
 			world_tracking = nil;
 			host_logf(HOST_LOG_INFO, "theater: ARKit stopped until the space opens again");
 		}
-		controls_shown(NO);
 		host_stereo_set_entered(0);
 		enter_ornament_shown(YES);
 		return 0;

@@ -137,66 +137,6 @@ public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ show
     }
 }
 
-/* Exit VR: a small button low in front of the player, out of the line of
-   sight. The system places the panel's window centered in front of the
-   player (the utility panel placement), so the window is tall and clear
-   with the button at its bottom edge: the button sits about half a meter
-   below eye level, at chest height, and nothing covers the game */
-@available(visionOS 26.0, *)
-struct VRControls: View {
-    var body: some View {
-        VStack {
-            Spacer(minLength: 0)
-            Button {
-                host_theater_close()
-            } label: {
-                Label("Exit VR", systemImage: "rectangle.portrait.and.arrow.right")
-            }
-            .controlSize(.small)
-            .padding(10)
-            .glassBackgroundEffect(in: .capsule)
-            .accessibilityHint("Returns the game to its window")
-        }
-        .frame(width: 260, height: 1100)
-        // no window bar or close control: only the button shows
-        .persistentSystemOverlays(.hidden)
-    }
-}
-
-@available(visionOS 26.0, *)
-final class VRControlsSceneDelegate: UIResponder, UIHostingSceneDelegate {
-    static var rootScene: some Scene {
-        WindowGroup(id: "vr-controls") {
-            VRControls()
-        }
-        .windowStyle(.plain)
-        .windowResizability(.contentSize)
-        .persistentSystemOverlays(.hidden)
-        .defaultWindowPlacement { _, _ in
-            WindowPlacement(.utilityPanel)
-        }
-    }
-}
-
-/* host_theater.m: opens the Exit VR panel as the space opens (and closes it
-   as the space closes) */
-@_cdecl("host_theater_controls_open")
-public func host_theater_controls_open() {
-    guard #available(visionOS 26.0, *) else { return }
-    guard let request = UISceneSessionActivationRequest(hostingDelegateClass: VRControlsSceneDelegate.self,
-                                                        id: "vr-controls") else {
-        host_theater_log("theater: the Exit VR panel can't be requested")
-        return
-    }
-    UIApplication.shared.activateSceneSession(for: request) { error in
-        host_theater_log("theater: the Exit VR panel didn't open: \(error.localizedDescription)")
-    }
-}
-
-private func host_theater_log(_ message: String) {
-    message.withCString { host_theater_log_c($0) }
-}
-
 /* The game's window keeps its window bar while VR is open, though UIKit has
    hidden its window, and UIKit has no way to hide the bar. A zero-size
    SwiftUI child of the window's root controller hides the window's system
@@ -233,4 +173,8 @@ public func host_theater_window_overlays(_ controller: UnsafeMutableRawPointer?,
         }
         GameWindowOverlays.shared.visibility = hidden != 0 ? .hidden : .automatic
     }
+}
+
+private func host_theater_log(_ message: String) {
+    message.withCString { host_theater_log_c($0) }
 }

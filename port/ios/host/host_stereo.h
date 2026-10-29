@@ -22,6 +22,10 @@ void host_stereo_set_entered(int entered);
 int host_stereo_entered(void);
 int host_stereo_mode(void);
 int host_stereo_mode_requested(void);
+/* as the immersive space opens: the first time ever (the app's defaults),
+a hint low in the view says the Digital Crown returns to the window, for
+4 s; never again once it has shown. No-op but on visionOS */
+void host_stereo_hint_arm(void);
 int host_stereo_last_head(float back[3], float position[3]);
 float host_stereo_room_yaw_offset(void);
 void host_stereo_room_vector(float vector[3]);

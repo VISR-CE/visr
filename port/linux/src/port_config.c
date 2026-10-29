@@ -222,7 +222,7 @@ static const struct config_setting config_settings[] =
 		"space (a screen standing in the room, or with display.stereo its stereo\n"
 		"view) instead of in a window. Either way the window's Enter VR button, or\n"
 		"Back and Start held together on a controller, enters VR while the game\n"
-		"runs, and Exit VR, the Digital Crown or the same chord returns to the\n"
+		"runs, and the Digital Crown or the same chord returns to the\n"
 		"window." },
 	{ "display.stereo", _config_string, "\"off\"", "HALO_STEREO", _environment_value, _platform_ios,
 		"Apple Vision Pro: \"off\" (flat), \"head\" (in stereo, the head turns the view),\n"
@@ -1481,7 +1481,7 @@ static const struct config_setting config_settings[] =
 		"the simulator, whose keyboard cannot type into it." },
 	{ "debug.test_theater_reopen", _config_boolean, "false", "HALO_TEST_THEATER_REOPEN", _environment_set_is_true, _platform_ios,
 		"Switch between the window and VR every 900 event polls, six times:\n"
-		"Exit VR if the immersive space is open, else Enter VR (the host's\n"
+		"leave VR if the immersive space is open, else Enter VR (the host's\n"
 		"host_theater.m). For the simulator." },
 	{ "debug.gl_debug", _config_boolean, "false", "HALO_GL_DEBUG", _environment_set_is_true, _platform_all,
 		"Report OpenGL errors in the log." },

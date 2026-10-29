@@ -92,8 +92,8 @@ float host_theater_fade_depth(simd_float4x4 projection);
 /* The immersive scene lets the system show hands again when aiming stops. */
 void host_theater_set_upper_limbs(int32_t visible);
 /* each event poll (host_sdl.c): whether a controller has Back and Start down
-together; held for HOST_STEREO_CHORD_SECONDS, Enter VR from the window or
-Exit VR from the space, once for each hold */
+together; held for HOST_STEREO_CHORD_SECONDS, enters VR from the window or leaves
+it, once for each hold */
 void host_theater_chord(int held);
 /* The system's recenter phases share a yaw correction with the controllers. */
 void host_stereo_world_recenter(int active);
@@ -116,8 +116,8 @@ void host_theater_start(int open);
 stereo unless display.stereo names another mode (halo_stereo_mode_entered),
 in the immersive space */
 void host_theater_enter(void);
-/* Exit VR (the panel's button, the controller's chord): closes the space as
-the Digital Crown does; the game returns to its window */
+/* leaving VR from the controller's chord: closes the space as the Digital
+Crown does; the game returns to its window */
 void host_theater_close(void);
 /* for host_theater.m: the Enter VR ornament on the game's window (a
 UIViewController, unretained), shown or removed (Theater.swift) */
@@ -126,11 +126,8 @@ void host_theater_ornament(void *controller, int shown);
 system overlays on the window's root controller (a UIViewController,
 unretained), hidden only while VR is open (Theater.swift) */
 void host_theater_window_overlays(void *controller, int hidden);
-/* for host_theater.m: opens the Exit VR panel, a small window in the space
-(Theater.swift); host_theater.m closes it with the space */
-void host_theater_controls_open(void);
-/* debug.test_theater_reopen (host_sdl.c): Exit VR if the space is open,
-else Enter VR */
+/* debug.test_theater_reopen (host_sdl.c): leaves VR if the space is open,
+else presses Enter VR */
 void host_theater_test_toggle(void);
 /* whether the space is open, so gpu_present draws there and not in the window */
 int host_theater_active(void);
