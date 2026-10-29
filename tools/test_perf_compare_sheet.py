@@ -282,7 +282,7 @@ def test_overall_suite_set_follows_the_ticked_builds():
     only_opence = charts.overall_note(built, {"opence-macos@v1.0.2@2"})
     assert only_opence == "Overall covers Campaign."
     text = charts.source(spec(), built, "overall", {"visr@0.5.1@7"})
-    assert 'title "Overall: uncapped fps, M6 Mac mini"' in text and '["VISR 0.5.1", "VISR 0.5.1 1% low"]' in text
+    assert 'title "Overall: uncapped fps, M6 Mac mini"' in text and '["VISR 0.5.1", "\u2800\u2800"]' in text
     assert charts.source(spec(), built, "overall", set()) is None
 
 
@@ -346,10 +346,10 @@ def test_chart_source_draws_average_then_low_for_the_ticked_builds():
     lines = text.splitlines()
     assert lines[:4] == ["---", "config: {}", "---", "xychart-beta horizontal"]
     assert 'title "Campaign: uncapped fps, M6 Mac mini"' in text
-    assert 'x-axis "X" ["VISR 0.5.1", "VISR 0.5.1 1% low", "OpenCE v1.0.2", "OpenCE v1.0.2 1% low"]' in text
-    assert "    bar [547.7, 0, 547.7, 0]" in text and "    bar [0, 200, 0, 200]" in text
+    assert 'x-axis "X" ["VISR 0.5.1", "\u2800\u2800", "\u2800\u2800\u2800", "OpenCE v1.0.2", "\u2800\u2800\u2800\u2800\u2800"]' in text
+    assert "    bar [547.7, 0, 0, 547.7, 0]" in text and "    bar [0, 200, 0, 0, 200]" in text
     chosen = charts.source(spec(), built, "campaign", {"visr@main@5"})
-    assert '["VISR main", "VISR main 1% low"]' in chosen
+    assert '["VISR main", "\u2800\u2800"]' in chosen
     assert charts.source(spec(), built, "campaign", set()) is None
     assert charts.legend(spec()) == "A Average fps B 1% low fps"
     assert "VISR 0.5.1 (build 7, measured 2026-10-26)" in charts.caption(built)
@@ -631,7 +631,7 @@ def test_a_build_without_a_1pct_low_keeps_the_series_for_the_builds_that_have_on
     by_port = {e["port"]: e["value"] for e in built["entries"]}
     assert by_port["master-chef"]["low"] is None and by_port["visr"]["low"] == pytest.approx(72.77)
     text = charts.source(spec, built, "campaign")
-    assert "bar [89.2, 0, 29.9]" in text and "bar [0, 72.8, 0]" in text
+    assert "bar [89.2, 0, 0, 29.9]" in text and "bar [0, 72.8, 0, 0]" in text
     assert "1% low" in charts.legend({**spec, "chart": {"marks": ["a", "b"]}}, built)
     note = charts.caption(built, None, query["details"])
     assert "12 ms 95th-percentile frame time, 92% of frames on time" in note and "no frame times reported" in note

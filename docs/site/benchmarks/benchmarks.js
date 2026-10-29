@@ -277,17 +277,6 @@ function headerText(chart, palette, rows = 0) {
   return text.replace(/(height: )(\d+)/, (_, key, value) => key + Math.max(Number(value), 26 * rows + 120));
 }
 
-// The words after a build's name on its first and second bar rows. Mirrors `row_suffixes` in charts.py.
-function rowSuffixes(spec) {
-  const labels = spec.series_labels;
-  const suffix = (i) => {
-    if (i >= labels.length) return "";
-    const match = /\(([^)]*)\)$/.exec(labels[i]);
-    return match ? match[1] : (i ? labels[i].replace(/ fps$/, "") : "");
-  };
-  return [suffix(0), suffix(1)];
-}
-
 function chartSource(spec, built, suite, selected, palette) {
   const shown = drawn(built, selected);
   if (!shown.length) return null;
@@ -307,14 +296,17 @@ function chartSource(spec, built, suite, selected, palette) {
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
   const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
   const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
-  // Each build is two adjacent rows when the chart has a second value, each row a bar of its own.
-  const [firstSuffix, secondSuffix] = withLows ? rowSuffixes(spec) : ["", ""];
+  // Each build is two adjacent rows when the chart has a second value, each row a bar of its own, with an empty row
+  // between builds. Only the first row is named; the others get invisible labels, each a different length because the
+  // axis drops repeated labels. Mirrors `source` in charts.py.
   const names = [], first = [], second = [];
+  const blank = () => "\u2800".repeat(names.length + 1);
   shown.forEach((e, i) => {
-    names.push(`${labels[i]} ${firstSuffix}`.trim());
+    if (withLows && i) { names.push(blank()); first.push(0); second.push(0); }
+    names.push(labels[i]);
     first.push(e.value.avg); second.push(0);
     if (withLows && e.value.low !== null) {
-      names.push(`${labels[i]} ${secondSuffix}`.trim());
+      names.push(blank());
       first.push(0); second.push(lower ? e.value.low : Math.min(e.value.low, e.value.avg));
     }
   });

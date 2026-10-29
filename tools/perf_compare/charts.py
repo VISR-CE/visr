@@ -405,18 +405,6 @@ def header_text(chart: dict, rows: int = 0) -> str:
     return re.sub(r"(height: )(\d+)", lambda m: m.group(1) + str(max(int(m.group(2)), 26 * rows + 120)), text, count=1)
 
 
-def row_suffixes(spec: dict) -> tuple[str, str]:
-    """The words after a build's name on its first and second bar rows: the parenthetical of each series label ("p50"),
-    else nothing for the first series and the label itself ("1% low") for the second. Mirrored by `rowSuffixes`."""
-    labels = spec["series_labels"]
-    def suffix(i: int) -> str:
-        if i >= len(labels):
-            return ""
-        match = re.search(r"\(([^)]*)\)$", labels[i])
-        return match.group(1) if match else (labels[i].removesuffix(" fps") if i else "")
-    return suffix(0), suffix(1)
-
-
 def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None) -> str | None:
     """Mermaid text for the ticked entries that have values, or None when there is nothing to draw. Each build is two
     adjacent rows when the chart has a second value (average, then 1% low or 90th percentile), each row a bar of its own."""
@@ -440,14 +428,18 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     else:
         y_max = _nice_ceiling(max(averages + known) * 1.25)
     head = "xychart-beta horizontal" if chart.get("horizontal") else "xychart-beta"
-    first_suffix, second_suffix = row_suffixes(spec) if with_lows else ("", "")
     names, first, second = [], [], []
-    for e, label in zip(drawn, labels):
+    def blank() -> str:
+        """An axis label that shows nothing; each is a different length because the axis drops repeated labels."""
+        return "\u2800" * (len(names) + 1)
+    for n, (e, label) in enumerate(zip(drawn, labels)):
         low = e["value"]["low"]
-        names.append(f"{label} {first_suffix}".strip())
+        if with_lows and n:
+            names.append(blank()); first.append(0); second.append(0)  # the gap between builds
+        names.append(label)
         first.append(e["value"]["avg"]); second.append(0)
         if with_lows and low is not None:
-            names.append(f"{label} {second_suffix}".strip())
+            names.append(blank())
             first.append(0); second.append(low if lower else min(low, e["value"]["avg"]))
     quoted = ", ".join('"' + name + '"' for name in names)
     lines = [header_text(chart, len(names)), head, f'    title "{chart_title(spec, built, suite)}"',

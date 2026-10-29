@@ -57,10 +57,10 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "VISR 0.6.3 1% low", "117-vision b25332ef9", "117-vision b25332ef9 1% low", "Beeman apple-v0.3.0", "Beeman apple-v0.3.0 1% low", "ChupathingyCE iOS v0.2.0 (pre-release)", "ChupathingyCE iOS v0.2.0 (pre-release) 1% low"]
+    x-axis "Port and version" ["VISR 0.6.3", "⠀⠀", "⠀⠀⠀", "117-vision b25332ef9", "⠀⠀⠀⠀⠀", "⠀⠀⠀⠀⠀⠀", "Beeman apple-v0.3.0", "⠀⠀⠀⠀⠀⠀⠀⠀", "⠀⠀⠀⠀⠀⠀⠀⠀⠀", "ChupathingyCE iOS v0.2.0 (pre-release)", "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.4, 0, 23.9, 0, 119.4, 0, 119.1, 0]
-    bar [0, 119.4, 0, 21.6, 0, 119.4, 0, 119.1]
+    bar [119.4, 0, 0, 23.9, 0, 0, 119.4, 0, 0, 119.1, 0]
+    bar [0, 119.4, 0, 0, 21.6, 0, 0, 119.4, 0, 0, 119.1]
 ```
 
 🟦 Average fps 🟨 1% low fps
@@ -87,7 +87,7 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV HD"
-    x-axis "Port and version" ["VISR 0.6.0", "VISR 0.6.0 1% low"]
+    x-axis "Port and version" ["VISR 0.6.0", "⠀⠀"]
     y-axis "Frames per second" 0 --> 40
     bar [29.8, 0]
     bar [0, 29.8]
@@ -103,24 +103,24 @@ Not measured: [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/relea
 
 ### Vision Pro
 
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.
 
 ```mermaid
 ---
 config:
   xyChart:
     width: 520
-    height: 263
+    height: 302
   themeVariables:
     xyChart:
       plotColorPalette: "#1593bd, #c8870a"
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "VISR 0.6.3 1% low", "117-vision b25332ef9", "117-vision b25332ef9 1% low", "master-chef 1.0.3"]
+    x-axis "Port and version" ["VISR 0.6.3", "⠀⠀", "⠀⠀⠀", "117-vision b25332ef9", "⠀⠀⠀⠀⠀", "⠀⠀⠀⠀⠀⠀", "master-chef 1.0.3"]
     y-axis "Frames per second" 0 --> 150
-    bar [89.5, 0, 21, 0, 29.8]
-    bar [0, 89.5, 0, 16.2, 0]
+    bar [89.5, 0, 0, 21, 0, 0, 29.8]
+    bar [0, 89.5, 0, 0, 16.2, 0, 0]
 ```
 
 🟦 Average fps 🟨 1% low fps
