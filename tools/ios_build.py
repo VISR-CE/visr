@@ -647,6 +647,7 @@ def build_mac(args, cloud, data_packs=()):
         '-DCMAKE_OSX_ARCHITECTURES=arm64','-DCMAKE_OSX_DEPLOYMENT_TARGET=16.0',f'-DHALO_BUNDLE_IDENTIFIER={args.bundle_id}',
         f'-DHALO_DEVELOPMENT_TEAM={args.team or ""}','-DHALO_MAC=ON',f'-DHALO_RENDERER={renderer}',f'-DHALO_GLES_FRAMEWORKS={frameworks}',f'-DHALO_BINK={args.bink.upper()}',
         f'-DHALO_BENCHMARK_ROUTES={routes.upper()}',
+        f'-DHALO_DATA_PACK_CHANNEL_NAME={args.data_pack_channel or ""}',
         f'-DHALO_RENDER_VALIDATION={"ON" if args.render_validation == "on" else "OFF"}',
         f'-DHALO_BUILD_NUMBER={time.strftime("%Y%m%d.%H%M%S")}',
         *([f'-DHALO_MARKETING_VERSION={args.marketing_version}'] if args.marketing_version else []),

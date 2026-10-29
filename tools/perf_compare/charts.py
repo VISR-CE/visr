@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "docs/benchmarks/results.csv"
 SPECS = ROOT / "docs/benchmarks/charts"
 REASONS = ROOT / "docs/benchmarks/reasons.toml"
+SUITE_INFO = ROOT / "docs/benchmarks/suites.toml"
 PAGE = ROOT / "docs/benchmarks.md"
 BEGIN = "<!-- BEGIN CHARTS -->"
 END = "<!-- END CHARTS -->"
@@ -26,7 +27,7 @@ END = "<!-- END CHARTS -->"
 SUITES = ("campaign", "combat", "cutscenes", "multiplayer", "co-op")
 SUITE_CHOICES = ("overall", *SUITES)
 SUITE_NAMES = {"campaign": "Campaign", "combat": "Combat", "cutscenes": "Cutscenes", "multiplayer": "Multiplayer",
-               "co-op": "Co-op", "overall": "Overall"}
+               "co-op": "Split-screen co-op", "overall": "Overall"}
 DEFAULT_SUITE = "campaign"
 
 
@@ -48,12 +49,17 @@ def load_reasons(path: Path = REASONS) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
+def load_suite_info(path: Path = SUITE_INFO) -> dict:
+    """Each suite's description and the windows (label and screenshot name) it samples, for the page's suite bar."""
+    return tomllib.loads(path.read_text(encoding="utf-8"))
+
+
 def plain_reason(reason: str, reasons: dict) -> str:
     """The page's sentence for a reason code; unknown codes and already-plain notes pass through."""
     if reason in reasons["exact"]:
         return reasons["exact"][reason]
     if reason.startswith("no ") and reason.endswith(" measurements yet"):
-        return reasons["patterns"]["no_suite_data"].format(suite=reason[3:-len(" measurements yet")])
+        return reasons["patterns"]["no_suite_data"].format(suite=SUITE_NAMES.get(reason[3:-len(" measurements yet")], reason[3:-len(" measurements yet")]).lower())
     match = re.fullmatch(r"not measured in (.+?): (.+)", reason)
     if match:
         return reasons["patterns"]["partial_suite"].format(suite=match[1], windows=match[2])
@@ -79,6 +85,12 @@ def _nice_ceiling(value: float) -> float:
 
 def _number(value: float) -> str:
     return f"{value:.1f}".removesuffix(".0")
+
+
+def version_key(entry: dict) -> tuple:
+    """Orders a port's builds, newest last: the numbers in the version (0.6.1, v1.0.2, build-314), then the measurement
+    date, then the build id. A version with no numbers (main) sorts first. Mirrored by `versionKey` in benchmarks.js."""
+    return (tuple(int(n) for n in re.findall(r"\d+", entry["version"])), entry["date"], entry["build"])
 
 
 def entry_key(entry: dict) -> str:
@@ -141,6 +153,30 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
             "details": _details(rows, query), "windows": sorted(usable), "rows": rows}, "", ""
 
 
+def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
+    """The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick
+    the shared-suites rule leaves out (see `overall_split`) falls back to its next older version with data, so the
+    default selection and the drawn set agree. Mirrored by `defaultBuilds` in benchmarks.js."""
+    candidates: dict[str, list[dict]] = {}
+    for entry in sorted(entries, key=version_key, reverse=True):
+        if entry["value"] is not None:
+            candidates.setdefault(entry["port"], []).append(entry)
+    index = dict.fromkeys(candidates, 0)
+    for _ in range(len(entries) + 1):
+        picked = {port: items[index[port]] for port, items in candidates.items()}
+        if not overall:
+            break
+        left = overall_split([e for e in entries if picked.get(e["port"]) is e])[2]
+        moved = False
+        for e in left:
+            if index[e["port"]] + 1 < len(candidates[e["port"]]):
+                index[e["port"]] += 1
+                moved = True
+        if not moved:
+            break
+    return {port: items[index[port]] for port, items in candidates.items()}
+
+
 def model(rows: list[dict], query: dict, suite: str) -> dict:
     """Every build of the platform's ports as an entry, with its values for the suite or the reason it has none."""
     platform_rows = [row for row in rows if row["platform"] == query["platform"]]
@@ -152,7 +188,8 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
         base = {"port": port, "port_name": group[0]["port_name"], "version": version, "build": build,
                 "label": group[0]["label"], "date": max(row["date"] for row in group),
                 "url": next((row.get("release_url", "") for row in group if row.get("release_url", "")), ""),
-                "gpu_note": query.get("no_gpu_notes", {}).get(port, "")}
+                "gpu_note": query.get("no_gpu_notes", {}).get(port, ""),
+                "port_note": query.get("build_notes", {}).get(port, "")}
         if suite == "overall":
             # Which suites count is decided per chart, from the builds drawn (see `_drawn`); here each build keeps
             # its own suite values. A build with none is listed with the first suite's reason.
@@ -171,26 +208,53 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
     order = query.get("port_order", [])
     entries.sort(key=lambda e: (order.index(e["port"]) if e["port"] in order else len(order), e["port"],
                                 tuple(-ord(c) for c in e["date"]), e["version"], e["build"]))
-    newest: dict[str, dict] = {}
+    chosen = _default_builds(entries, suite == "overall")
     for entry in entries:
-        if entry["value"] is not None and (entry["port"] not in newest or entry["date"] > newest[entry["port"]]["date"]):
-            newest[entry["port"]] = entry
-    for entry in entries:
-        entry["default"] = newest.get(entry["port"]) is entry
+        entry["default"] = chosen.get(entry["port"]) is entry
     return {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
 
 
-def overall_suites(pool: list[dict]) -> list[str]:
-    """The suites Overall covers on a chart: every suite at least one drawn build has complete. A build missing one
-    of them is left out of Overall (see `overall_split`), so one incomplete port does not shrink the set for the rest."""
-    return [name for name in SUITES if any(e["suites"].get(name) for e in pool)]
+def build_groups(built: dict) -> list[dict]:
+    """The builds list, one group per port in the model's order. A group's `primary` is the build drawn by default (the
+    newest version with data for the suite), or the newest version when none has data; `others` are the remaining builds,
+    newest first, offered as other versions, with their reasons where they have no data. Mirrored by `buildGroups` in
+    benchmarks.js."""
+    groups: dict[str, list[dict]] = {}
+    for entry in built["entries"]:
+        groups.setdefault(entry["port"], []).append(entry)
+    result = []
+    for items in groups.values():
+        ordered = sorted(items, key=version_key, reverse=True)
+        primary = next((e for e in ordered if e["default"]), ordered[0])
+        result.append({"port": items[0]["port"], "port_name": items[0]["port_name"], "primary": primary,
+                       "others": [e for e in ordered if e is not primary]})
+    return result
+
+
+OVERALL_MIN_SUITES = 2
+
+
+def _shared_suites(builds: list[dict]) -> list[str]:
+    """The suites every build in the list has complete; a single build has all of its own."""
+    return [name for name in SUITES if builds and all(e["suites"].get(name) for e in builds)]
 
 
 def overall_split(pool: list[dict]) -> tuple[list[str], list[dict], list[dict]]:
-    """(suites, builds drawn, builds left out) for Overall."""
-    suites = overall_suites(pool)
-    kept = [e for e in pool if suites and all(e["suites"].get(name) for name in suites)]
-    return suites, kept, [e for e in pool if e not in kept]
+    """(suites, builds drawn, builds left out) for Overall. Overall covers the suites every drawn build has complete.
+    While those are fewer than two and more than one build is drawn, the build whose removal leaves the most shared
+    suites is dropped (ties: the build with the fewest suites, then the later one), as long as dropping one adds a
+    suite; a lone build counts all of its suites. Mirrored by `overallSplit` in benchmarks.js."""
+    kept = list(pool)
+    shared = _shared_suites(kept)
+    while len(shared) < OVERALL_MIN_SUITES and len(kept) > 1:
+        options = [(len(_shared_suites([e for e in kept if e is not drop])), -sum(1 for n in SUITES if drop["suites"].get(n)), index, drop)
+                   for index, drop in enumerate(kept)]
+        best = max(options, key=lambda option: option[:3])
+        if best[0] <= len(shared):
+            break
+        kept = [e for e in kept if e is not best[3]]
+        shared = _shared_suites(kept)
+    return shared, kept, [e for e in pool if e not in kept]
 
 
 def _overall_value(entry: dict, covered: list[str]) -> dict:
@@ -234,9 +298,30 @@ def overall_note(built: dict, selected: set[str] | None = None) -> str:
         return ""
     note = "Overall covers " + _names([SUITE_NAMES[name] for name in suites]) + "."
     for e in left:
-        gaps = [SUITE_NAMES[name] for name in suites if not e["suites"].get(name)]
-        note += f" {e['label']} is not in Overall: {_names(gaps)} not measured completely."
+        note += f" {e['label']} is not in Overall: it shares too few suites with the other builds."
     return note
+
+
+def list_status(built: dict, selected: set[str] | None = None) -> dict[str, dict]:
+    """Why each build that the chart does not draw is unavailable, by entry key: {"kind", "tag", "reason"}. A build
+    with no data for the suite carries its own reason. For Overall, a build that has data but lacks a suite the other
+    builds cover is unavailable too, and so is an unticked build that ticking would leave out. Every other build is
+    available, and the available ticked builds are exactly the ones drawn. Mirrored by `listStatus` in benchmarks.js."""
+    status = {}
+    pool = _pool(built, selected)
+    keys = {entry_key(e) for e in pool}
+    for entry in built["entries"]:
+        key = entry_key(entry)
+        if entry["value"] is None:
+            tag = "not supported" if entry["kind"] == "not_supported" else "not measured here"
+            status[key] = {"kind": entry["kind"], "tag": tag, "reason": entry["reason"]}
+        elif built.get("overall"):
+            trial = pool if key in keys else [*pool, entry]
+            suites, kept, _ = overall_split(trial)
+            if entry not in kept:
+                status[key] = {"kind": "not_in_overall", "tag": "not in Overall",
+                               "reason": "Overall averages the suites every drawn build has, and this build shares too few of them with the others."}
+    return status
 
 
 def chart_title(spec: dict, built: dict, suite: str) -> str:
@@ -353,6 +438,45 @@ def caption_parts(built: dict, selected: set[str] | None = None, columns: list[s
     return parts
 
 
+# Column headings for the per-build figures in the table under a chart.
+DETAIL_HEADINGS = {"p95_ms": "95th-percentile frame time (ms)", "on_time_pct": "On time", "gpu_p50_ms": "Median GPU time (ms)",
+                   "gpu_p90_ms": "90th-percentile GPU time (ms)"}
+
+
+def _detail_cells(entry: dict, columns: list[str]) -> tuple[list[str], str]:
+    """One cell per detail column ("-" where the build has none) and the note for a build with none at all."""
+    cells = []
+    for column in columns:
+        value = (entry["value"].get("details") or {}).get(column)
+        if value is None:
+            cells.append("\u2013")
+            continue
+        unit, _, _, places = DETAILS[column]
+        text = f"{value:.{places}f}"
+        text = text.rstrip("0").rstrip(".") if "." in text else text
+        cells.append(text + ("%" if unit == "%" else ""))
+    note = _detail_text(entry, columns) if columns and all(cell == "\u2013" for cell in cells) else ""
+    return cells, note
+
+
+def caption_table(built: dict, selected: set[str] | None = None, columns: list[str] | None = None,
+                  windows: list[str] | None = None) -> dict | None:
+    """The per-build figures under a chart as a table: a header line (box and Overall note), column headings and one row
+    per drawn build. Mirrored by `captionTable` in benchmarks.js."""
+    drawn = _drawn(built, selected)
+    if not drawn:
+        return None
+    columns = columns or []
+    windows = windows or sorted({name for e in drawn for name in (e["value"].get("windows") or [])})
+    rows = []
+    for e in drawn:
+        cells, note = _detail_cells(e, columns)
+        gaps = _missing_windows(e, windows).removeprefix("; ")
+        rows.append({"label": e["label"], "url": e.get("url", ""), "build": e["build"] or "unknown", "measured": e["date"],
+                     "cells": cells, "notes": "; ".join(part for part in (e.get("port_note", ""), note, gaps) if part)})
+    return {"box": built["box"], "note": overall_note(built, selected), "headings": [DETAIL_HEADINGS[c] for c in columns], "rows": rows}
+
+
 def caption(built: dict, selected: set[str] | None = None, columns: list[str] | None = None, links: str = "",
             windows: list[str] | None = None) -> str:
     """The caption text; `links` is "markdown" or "" (plain)."""
@@ -365,7 +489,7 @@ def empty_text(spec: dict, built: dict) -> str:
     if not built["entries"]:
         return spec["empty"].strip()
     if built.get("overall") and any(e["value"] is not None for e in built["entries"]):
-        return "No build in this chart has every suite Overall covers."
+        return "No build in this chart has a suite to average."
     return "No build has data for this suite yet."
 
 

@@ -173,7 +173,7 @@ def suite_section(rows: list[dict]) -> list[str]:
              "the match with no other humans. Bot input is paced from the wall clock, so runs on different ports, and "
              "repeated runs on one port, play equivalent workloads, not identical replays. "
              f"{state('multiplayer')}",
-             "- **Co-op:** local split-screen campaign co-op, two players. Enemy scaling is set explicitly to static 1x on every "
+             "- **Split-screen co-op:** local split-screen campaign co-op on one device, two players. Enemy scaling is set explicitly to static 1x on every "
              "port that has the option: VISR sets `debug.enemy_multiplier = 1`, and OpenCE-macOS and CoreCE set their "
              "enemies-per-player scaling to static 1x. A port without the option runs its own fixed behavior, and its notes "
              "column in the spreadsheet says so. A port without split screen shows "
@@ -181,8 +181,9 @@ def suite_section(rows: list[dict]) -> list[str]:
              f"means the suite has not been run for the build. {state('co-op')}",
              "- **Overall:** per build, the geometric mean of the suites' average rates and the geometric mean of their 1% low "
              "rates, each suite weighted equally, so every suite counts the same whatever its frame-rate scale. Each chart "
-             "uses the suites that every build drawn in it has measured, so its bars stay comparable; the caption names "
-             "them. Ticking or unticking a build can change which suites a chart covers.", "",
+             "averages the suites that every build drawn in it has measured, so its bars stay comparable; the caption names "
+             "them. A build that shares fewer than two suites with the others is left out and named in the caption. Ticking or "
+             "unticking a build can change which suites a chart covers.", "",
              *notes,
              "A round is rejected when the outside-process CPU average rises more than half a core above the baseline taken "
              "before the window. Each round allows three attempts. Rejected attempts appear in the spreadsheet with the status "
@@ -234,7 +235,8 @@ def render_page(summary: dict, rows: list[dict], specs: list[dict]) -> str:
         raise ValueError("summary schema mismatch")
     records = sorted(summary.get("records", []), key=_record_order)
     lines = ["# Performance benchmarks", "", CAVEAT, "",
-             f"Last measured: {last_measured(summary, rows)}. The [results spreadsheet]({SHEET_URL}) holds every number. "
+             f"Last measured: {last_measured(summary, rows)}.", "",
+             f"The [results spreadsheet]({SHEET_URL}) holds every number. "
              f"The [interactive version]({SITE_PAGE_URL}) adds suites and a choice of builds. The methodology is at the bottom "
              "of this page.", "",
              "## Results", "", "Campaign suite, newest build of each port.", "", charts.BEGIN, "",

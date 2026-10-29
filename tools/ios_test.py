@@ -3,6 +3,7 @@
 import os
 import re
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
@@ -209,25 +210,25 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror',
     'port/ios/tests/recording_pack_probe.c', 'port/ios/host/host_recording_pack.c',
     'port/runtime/benchmark_plan.c', '-o', BUILD / 'recording-pack-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/runtime/include',
-    '-framework', 'Foundation', '-lz', 'port/ios/tests/data_pack_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/data_pack_probe.m', 'port/ios/host/host_data_pack.m',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'data-pack-probe')
 run(BUILD / 'data-pack-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Wl,-dead_strip',
     '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', '-framework', 'Foundation',
-    '-lz', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
+    '-lz', '-lcompression', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'data-pack-launch-probe')
 run(BUILD / 'data-pack-launch-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Wl,-dead_strip',
     '-DHALO_NATIVE_MAC=1', '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', '-framework', 'Foundation',
-    '-lz', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
+    '-lz', '-lcompression', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'data-pack-launch-mac-probe')
 run(BUILD / 'data-pack-launch-mac-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
-    '-framework', 'Network', '-lz', 'port/ios/tests/data_updates_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/data_updates_probe.m', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
@@ -257,7 +258,7 @@ probe_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(s
                            capture_output=True, text=True, cwd=ROOT).stdout.strip()
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
-    '-framework', 'Network', '-lz', 'port/ios/tests/profile_feed_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/profile_feed_probe.m', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
@@ -266,11 +267,43 @@ run(BUILD / 'profile-feed-probe', ROOT,
     re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
     probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
-    '-Iport/runtime/include', '-framework', 'Foundation', '-lz', 'port/ios/tests/shader_download_probe.m',
+    '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/shader_download_probe.m',
     'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'shader-download-probe')
 run(BUILD / 'shader-download-probe')
+# benchmark-catalog-2: the publisher's xz archive decodes with Apple's COMPRESSION_LZMA, and the store enforces its bounds
+recording_archive = BUILD / 'recording-archive-probe.xz'
+run('python3', '-c', (
+    'import sys; sys.path.insert(0, "tools"); import data_pack; '
+    'files = {"a.input": b"input bytes\\nline two\\n", "a.actions": b"actions\\n", "a.seeds": b"1 2 3\\n", "a.route": b"scene = a10\\n"}; '
+    'open(sys.argv[1], "wb").write(data_pack.compress_recording_archive(data_pack.recording_archive(files))[0])'), recording_archive)
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
+    '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/recording_download_probe.m',
+    'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
+    '-o', BUILD / 'recording-download-probe')
+run(BUILD / 'recording-download-probe', recording_archive)
+# the published catalog-2 feed expands, through the real store and catalog loader, to the catalog-1 files byte for byte
+published = ROOT / 'docs/site/packs/tester'
+published_feed = published / 'recordings-2-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'
+published_originals = BUILD / 'recording-catalog-originals'
+shutil.rmtree(published_originals, ignore_errors=True)
+run('python3', '-I', '-c', (
+    'import base64, json, pathlib, sys; out = pathlib.Path(sys.argv[2]); out.mkdir(parents=True); '
+    'files = json.loads(base64.b64decode(json.load(open(sys.argv[1]))["payload"]))["files"]; '
+    '[(out / name).write_bytes(base64.b64decode(value)) for name, value in files.items()]'),
+    published / 'recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json', published_originals)
+published_blob = next((published / 'recording-blobs').glob('*.xz'))
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
+    '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression',
+    'port/ios/tests/recording_catalog_probe.m', 'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/ios/host/host_benchmark_catalog.m', 'port/ios/host/host_recording_pack.c', 'port/runtime/benchmark_plan.c',
+    'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
+    '-o', BUILD / 'recording-catalog-probe')
+run(BUILD / 'recording-catalog-probe', published_feed, published_blob, published_originals,
+    re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
+    'c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89', 20)
 # a benchmark session keeps the recordings it started with, byte for byte, across an update and a relaunch
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/ios/host',
     '-framework', 'Foundation', 'port/ios/tests/benchmark_snapshot_probe.m', 'port/ios/host/host_benchmark_snapshot.m',

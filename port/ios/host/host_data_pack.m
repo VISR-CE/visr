@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <compression.h>
 
 NSString * const HostDataPackSnapshotStagedNotification = @"HostDataPackSnapshotStaged";
 
@@ -148,6 +149,73 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     return PackShaderRaw(raw, descriptor) ? raw : nil;
 }
 
+// benchmark-catalog-2: the signed payload holds one descriptor, RAW_SHA256:RAW_BYTES:XZ_SHA256:XZ_BYTES, for an xz
+// stream (decoded by Apple's COMPRESSION_LZMA) that holds every recording file, so the files exist once and the
+// signature covers the compressed bytes by hash. The raw archive is the header line, then for each file in ascending
+// name order "NAME LENGTH\n", its bytes and "\n". Limits bound what a signed index can make the app allocate.
+static const NSUInteger PackArchiveMaxRaw = 128u << 20, PackArchiveMaxCompressed = 32u << 20;
+static NSString * const PackArchiveName = @"recordings";
+static NSString * const PackArchiveHeader = @"visr-recordings-1\n";
+static NSDictionary *PackRecordingIndex(NSDictionary *payload) {
+    if (!PackKeys(payload, @[@"files"]) || !PackKeys(payload[@"files"], @[PackArchiveName])) return nil;
+    NSString *descriptor = payload[@"files"][PackArchiveName];
+    if (!PackMatches(descriptor, @"^[0-9a-f]{64}:[1-9][0-9]{0,8}:[0-9a-f]{64}:[1-9][0-9]{0,8}\\z")) return nil;
+    NSArray *parts = [descriptor componentsSeparatedByString:@":"];
+    NSUInteger raw = (NSUInteger)[parts[1] longLongValue], compressed = (NSUInteger)[parts[3] longLongValue];
+    if (raw > PackArchiveMaxRaw || compressed > PackArchiveMaxCompressed) return nil;
+    return @{PackArchiveName: @[parts[0], @(raw), parts[2], @(compressed)]};
+}
+static BOOL PackRecordingFileName(NSString *name) {
+    return PackMatches(name, @"^[a-z0-9][a-z0-9-]{0,47}\\.(input|actions|seeds|route|checks)\\z") || [name isEqual:@"benchmark-catalog.json"];
+}
+static NSData *PackArchiveBuild(NSDictionary<NSString *, NSData *> *files) {
+    NSMutableData *archive = [NSMutableData dataWithData:[PackArchiveHeader dataUsingEncoding:NSASCIIStringEncoding]];
+    for (NSString *name in [files.allKeys sortedArrayUsingSelector:@selector(compare:)]) {
+        [archive appendData:[[NSString stringWithFormat:@"%@ %lu\n", name, (unsigned long)[files[name] length]] dataUsingEncoding:NSASCIIStringEncoding]];
+        [archive appendData:files[name]];
+        [archive appendBytes:"\n" length:1];
+    }
+    return archive;
+}
+// Strict inverse of PackArchiveBuild: ascending unique allowed names, bounded non-empty files, no trailing bytes.
+static NSDictionary *PackArchiveParse(NSData *raw) {
+    const uint8_t *bytes = raw.bytes;
+    NSUInteger length = raw.length, offset = 0, total = 0;
+    NSData *header = [PackArchiveHeader dataUsingEncoding:NSASCIIStringEncoding];
+    if (length < header.length || memcmp(bytes, header.bytes, header.length) != 0) return nil;
+    offset = header.length;
+    NSMutableDictionary *files = [NSMutableDictionary dictionary];
+    NSString *previous = nil;
+    while (offset < length) {
+        NSUInteger end = offset;
+        while (end < length && end - offset <= 96 && bytes[end] != '\n') end++;
+        if (end >= length || bytes[end] != '\n') return nil;
+        NSString *line = [[NSString alloc] initWithBytes:bytes + offset length:end - offset encoding:NSASCIIStringEncoding];
+        if (!PackMatches(line, @"^[a-z0-9][a-z0-9.-]{0,62} [1-9][0-9]{0,6}\\z")) return nil;
+        NSArray *parts = [line componentsSeparatedByString:@" "];
+        NSString *name = parts[0];
+        NSUInteger size = (NSUInteger)[parts[1] longLongValue];
+        offset = end + 1;
+        if (!PackRecordingFileName(name) || (previous && [previous compare:name] != NSOrderedAscending) || size > HOST_RECORDING_PACK_MAX_FILE_BYTES ||
+            files.count >= HOST_RECORDING_PACK_MAX_FILES || size > length - offset || length - offset - size < 1 || bytes[offset + size] != '\n' ||
+            size > PackArchiveMaxRaw - total) return nil;
+        files[name] = [NSData dataWithBytes:bytes + offset length:size];
+        total += size; offset += size + 1; previous = name;
+    }
+    return files.count ? files : nil;
+}
+// Hash the compressed bytes, decode into a buffer one byte larger than the signed size (so growth is detected), then
+// check size and hash of the raw archive before parsing it.
+static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) {
+    if (compressed.length != [descriptor[3] unsignedIntegerValue] || ![PackSHA256(compressed) isEqual:descriptor[2]]) return nil;
+    NSUInteger size = [descriptor[1] unsignedIntegerValue];
+    NSMutableData *raw = [NSMutableData dataWithLength:size + 1];
+    size_t produced = compression_decode_buffer(raw.mutableBytes, raw.length, compressed.bytes, compressed.length, NULL, COMPRESSION_LZMA);
+    if (produced != size) return nil;
+    raw.length = size;
+    return PackShaderRaw(raw, descriptor) ? PackArchiveParse(raw) : nil;
+}
+
 @interface HostDataPackStore () <NSURLSessionDataDelegate>
 @property(nonatomic, copy) NSString *root, *bundled, *kind, *channel, *compatibility;
 @property(nonatomic, copy) NSData *publicKey;
@@ -185,7 +253,9 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
 // Recording bounds follow the maximum individually valid files, without a separate library-size cap.
 // tools/data_pack.py uses the same base64/JSON allowance.
 - (BOOL)shaderIndex { return [_kind isEqual:@"shaders"] && [_compatibility isEqual:@"shader-lists-2"]; }
-- (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if (self.shaderIndex) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }
+- (BOOL)recordingIndex { return [_kind isEqual:@"recordings"] && [_compatibility hasPrefix:@"benchmark-catalog-2:"]; }
+- (BOOL)indexed { return self.shaderIndex || self.recordingIndex; }
+- (NSUInteger)envelopeLimit { if ([_kind isEqual:@"latest"]) return 16 * 1024; if (self.indexed) return HOST_SHADER_PACK_MAX_INDEX_BYTES; return [_kind isEqual:@"profiles"] ? 4 * 1024 * 1024 : [_kind isEqual:@"shaders"] ? HOST_SHADER_PACK_MAX_ENVELOPE_BYTES : HOST_RECORDING_PACK_MAX_ENVELOPE_BYTES; }
 - (NSDictionary *)bundledIdentity { return @{@"kind": _kind, @"channel": _channel, @"compatibility": _compatibility, @"sequence": @0, @"sha256": @"", @"bundled": @YES}; }
 - (NSString *)statePath { return [_root stringByAppendingPathComponent:@"state.json"]; }
 - (NSString *)generationPath:(NSString *)name { return [_root stringByAppendingPathComponent:name]; }
@@ -337,8 +407,8 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     if (authenticated) *authenticated = manifest;
     NSDictionary *payload = PackJSON(payloadBytes);
     if (!PackKeys(payload, @[@"files"]) || ![payload[@"files"] isKindOfClass:NSDictionary.class]) { PackError(error, @"Pack payload has invalid fields"); return nil; }
-    if (self.shaderIndex) {
-        NSDictionary *assets = PackShaderIndex(payload);
+    if (self.indexed) {
+        NSDictionary *assets = self.recordingIndex ? PackRecordingIndex(payload) : PackShaderIndex(payload);
         if (!assets) { PackError(error, @"Shader index descriptors exceed their bounds or are malformed"); return nil; }
         return @{@"manifest": manifest, @"assets": assets};
     }
@@ -368,7 +438,11 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     NSDictionary *pack = [self verifyEnvelope:PackRead([folder stringByAppendingPathComponent:@"envelope.json"], self.envelopeLimit) authenticated:NULL error:NULL];
     NSDictionary *manifest = pack[@"manifest"];
     NSMutableDictionary *files = [pack[@"files"] mutableCopy];
-    if (pack[@"assets"]) {
+    if (pack[@"assets"] && self.recordingIndex) {
+        // The signed hash covers the canonical archive of the files on disk, so any added, missing or altered file fails.
+        files = [[self recordingFilesIn:filesPath matching:pack[@"assets"][PackArchiveName]] mutableCopy];
+        if (!files) return nil;
+    } else if (pack[@"assets"]) {
         files = [NSMutableDictionary dictionary];
         for (NSString *map in pack[@"assets"]) {
             NSArray *descriptor = pack[@"assets"][map];
@@ -528,6 +602,28 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     next[@"highest"] = @(sequence);
     if ([self writeState:next error:NULL]) [self prune];
 }
+// The files of a recording folder if, packed canonically, they match the descriptor's raw hash and size; else nil.
+- (NSDictionary *)recordingFilesIn:(NSString *)folder matching:(NSArray *)descriptor {
+    if (!PackNode(folder, YES)) return nil;
+    NSMutableDictionary *files = [NSMutableDictionary dictionary];
+    NSUInteger total = 0;
+    for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:folder error:NULL]) {
+        if (!PackRecordingFileName(name) || files.count >= HOST_RECORDING_PACK_MAX_FILES) return nil;
+        NSData *bytes = PackRead([folder stringByAppendingPathComponent:name], HOST_RECORDING_PACK_MAX_FILE_BYTES);
+        if (!bytes.length || bytes.length > PackArchiveMaxRaw - total) return nil;
+        total += bytes.length; files[name] = bytes;
+    }
+    return files.count && PackShaderRaw(PackArchiveBuild(files), descriptor) ? files : nil;
+}
+- (NSDictionary *)cachedRecordingFiles:(NSArray *)descriptor {
+    for (NSString *field in @[@"active", @"healthy", @"pending"]) {
+        NSString *name = _state[field];
+        if (!name.length || !PackNode([self generationPath:name], YES)) continue;
+        NSDictionary *files = [self recordingFilesIn:[[self generationPath:name] stringByAppendingPathComponent:@"files"] matching:descriptor];
+        if (files) return files;
+    }
+    return nil;
+}
 - (NSData *)cachedShaderMap:(NSString *)map descriptor:(NSArray *)descriptor {
     for (NSString *field in @[@"active", @"healthy", @"pending"]) {
         NSString *name = _state[field];
@@ -555,7 +651,10 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
         self.lastFeedSuperseded = YES;
         return PackError(error, @"Pack is older than the bundled data");
     }
-    if (pack[@"assets"]) {
+    if (pack[@"assets"] && self.recordingIndex) {
+        files = [[self cachedRecordingFiles:pack[@"assets"][PackArchiveName]] mutableCopy];
+        if (!files) return PackError(error, @"Recording index requires a missing archive download");
+    } else if (pack[@"assets"]) {
         files = [NSMutableDictionary dictionary];
         for (NSString *map in pack[@"assets"]) {
             NSData *raw = [self cachedShaderMap:map descriptor:pack[@"assets"][map]];
@@ -664,7 +763,20 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     [task cancel];
 }
 - (NSUInteger)downloadLimit { return _mapName ? [_indexPack[@"assets"][_mapName][3] unsignedIntegerValue] : self.envelopeLimit; }
+- (BOOL)nextRecordingArchive {
+    NSArray *descriptor = _indexPack[@"assets"][PackArchiveName];
+    NSDictionary *cached = [self cachedRecordingFiles:descriptor];
+    if (cached) { [_mapFiles setDictionary:cached]; _mapName = nil; return NO; }
+    _mapName = PackArchiveName; _download = [NSMutableData data]; _responseAccepted = NO;
+    NSURL *url = [[[_feedURL URLByDeletingLastPathComponent] URLByAppendingPathComponent:@"recording-blobs"]
+        URLByAppendingPathComponent:[descriptor[2] stringByAppendingString:@".xz"]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setValue:@"application/octet-stream" forHTTPHeaderField:@"Accept"];
+    [[_session dataTaskWithRequest:request] resume];
+    return YES;
+}
 - (BOOL)nextShaderMap {
+    if (self.recordingIndex) return [self nextRecordingArchive];
     for (NSString *map in [[_indexPack[@"assets"] allKeys] sortedArrayUsingSelector:@selector(compare:)]) {
         if (_mapFiles[map]) continue;
         NSArray *descriptor = _indexPack[@"assets"][map];
@@ -697,10 +809,10 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     completionHandler(_responseAccepted ? NSURLSessionResponseAllow : NSURLSessionResponseCancel);
 } }
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)data { @synchronized(self) {
-    NSUInteger totalLimit = self.shaderIndex ? HOST_SHADER_PACK_MAX_INDEX_BYTES + HOST_SHADER_PACK_MAX_COMPRESSED_TOTAL_BYTES : self.envelopeLimit;
+    NSUInteger totalLimit = self.recordingIndex ? HOST_SHADER_PACK_MAX_INDEX_BYTES + PackArchiveMaxCompressed : self.shaderIndex ? HOST_SHADER_PACK_MAX_INDEX_BYTES + HOST_SHADER_PACK_MAX_COMPRESSED_TOTAL_BYTES : self.envelopeLimit;
     if (!_responseAccepted || data.length > self.downloadLimit - _download.length || data.length > totalLimit - _transferBytes) { _responseAccepted = NO; [_download setLength:0]; [task cancel]; return; }
     _transferBytes += data.length; [_download appendData:data];
-    if (!_mapName) {
+    if (!_mapName || self.recordingIndex) {
         int64_t expected = task.countOfBytesExpectedToReceive, received = task.countOfBytesReceived;
         self.downloadExpected = expected > 0 ? (uint64_t)expected : 0;
         self.downloadReceived = received > 0 ? (uint64_t)received : _transferBytes;
@@ -712,7 +824,8 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
     BOOL staged = NO;
     if (error && !_notModified && !_statusRefused) host_logf(HOST_LOG_WARN, "data-packs: %s feed check ended (%s); keeping the current snapshot", _kind.UTF8String, error.localizedDescription.UTF8String);
     else if (!error && _responseAccepted) @autoreleasepool {
-        if (self.shaderIndex) {
+        if (self.indexed) {
+            BOOL archiveDone = NO;
             if (!_indexPack) {
                 NSDictionary *authenticated = nil;
                 _indexPack = [self verifyEnvelope:_download authenticated:&authenticated error:&stageError];
@@ -721,13 +834,17 @@ static NSData *PackShaderInflate(NSData *compressed, NSArray *descriptor) {
                     _indexPack = nil; PackError(&stageError, @"Pack sequence was already seen");
                 }
                 if (_indexPack) { _indexEnvelope = _download; _mapFiles = [NSMutableDictionary dictionary]; }
+            } else if (self.recordingIndex) {
+                NSDictionary *expanded = PackArchiveExpand(_download, _indexPack[@"assets"][_mapName]);
+                if (expanded) { [_mapFiles setDictionary:expanded]; archiveDone = YES; _mapName = nil; }
+                else { _indexPack = nil; PackError(&stageError, @"Recording archive stream, hash, size or contents are invalid"); }
             } else {
                 NSData *raw = PackShaderInflate(_download, _indexPack[@"assets"][_mapName]);
                 if (raw) _mapFiles[_mapName] = raw;
                 else { _indexPack = nil; PackError(&stageError, @"Shader download stream, hash or size is invalid"); }
             }
             if (_indexPack) {
-                if ([self nextShaderMap]) return;
+                if (!archiveDone && [self nextShaderMap]) return;
                 staged = [self stageVerifiedEnvelope:_indexEnvelope pack:_indexPack files:_mapFiles error:&stageError];
             }
         } else staged = [self stageEnvelope:_download error:&stageError];

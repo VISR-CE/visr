@@ -75,13 +75,27 @@ class Console:
         want = token.lower()
         return any(line.strip('"') == want for line in self.lines_since(since, partial=True))
 
-    def query(self, expression, clock, timeout=3.0):
-        """Send an expression and return the value line, or None when the console printed nothing back."""
+    def sync(self, clock, timeout=45.0):
+        """Wait for the console to work through what is queued (the readiness probes the adapter sent while waiting
+        for a player): print a token and wait for it, so the next query's reply is not an old echo. True if it came."""
+        mark = self.mark()
+        self.send('(print "XPSYNC")')
+        deadline = clock.now() + timeout
+        while clock.now() < deadline:
+            if self.seen('xpsync', mark):
+                return True
+            clock.sleep(0.1)
+        return False
+
+    def query(self, expression, clock, timeout=3.0, numeric=False):
+        """Send an expression and return the value line, or None when the console printed nothing back. With
+        `numeric`, lines that are not numbers (echo fragments of earlier input) are skipped."""
         mark = self.mark()
         self.send(expression)
         deadline = clock.now() + timeout
         while True:
-            replies = [line for line in self.lines_since(mark) if line and not line.startswith('(')]
+            replies = [line for line in self.lines_since(mark) if line and not line.startswith('(')
+                       and (not numeric or number(line) is not None)]
             if replies:
                 return replies[0]
             if clock.now() >= deadline:
@@ -108,8 +122,9 @@ class Hooks:
     def end(self): ...
 
 
-def _read_all(console, expressions, clock):
-    return {expression: console.query(expression, clock) for expression in expressions}
+def _read_all(console, expressions, clock, numeric=False):
+    timeout = 10.0 if numeric else 3.0
+    return {expression: console.query(expression, clock, timeout=timeout, numeric=numeric) for expression in expressions}
 
 
 def _living(window):
@@ -212,6 +227,27 @@ def run_bot(window, console, hooks, clock, prints=True):
     return {'kind': 'bot', 'seconds': seconds, 'ended': ended, 'start': start_reads, 'end': end_reads}
 
 
+def run_session(window, console, hooks, clock):
+    """A hosted game (a match or split-screen co-op) that is already running: warm up after player readiness, then
+    sample. The player count and game time are read at both ends of the window for the content checks."""
+    # The readiness probes the adapter sent while waiting for a player are still queued, and the game answers
+    # about one console line per tick: drain them during the warm-up so the counts read at the window's ends are current.
+    opened = clock.now()
+    console.sync(clock, timeout=150.0)
+    clock.sleep(max(0.0, window['warmup_s'] - (clock.now() - opened)))
+    hooks.prepare()
+    start_reads = _read_all(console, window['fingerprints'], clock, numeric=True)
+    hooks.begin()
+    started = clock.now()
+    clock.sleep(window['sample_s'] / 2)
+    hooks.mid()
+    clock.sleep(max(0.0, window['sample_s'] - (clock.now() - started)))
+    seconds = clock.now() - started
+    end_reads = _read_all(console, window['fingerprints'], clock, numeric=True)
+    hooks.end()
+    return {'kind': window['kind'], 'seconds': seconds, 'start': start_reads, 'end': end_reads, 'ended': 'time'}
+
+
 def run_window(window, console, hooks, clock=None, prints=True):
     clock = clock or RealClock()
     kind = window['kind']
@@ -221,4 +257,6 @@ def run_window(window, console, hooks, clock=None, prints=True):
         return run_cutscene(window, console, hooks, clock, prints)
     if kind == 'bot':
         return run_bot(window, console, hooks, clock, prints)
+    if kind in ('match', 'coop'):
+        return run_session(window, console, hooks, clock)
     raise ValueError('not a console window: ' + kind)

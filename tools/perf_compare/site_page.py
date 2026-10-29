@@ -10,6 +10,11 @@ from string import Template
 
 from markdown_it import MarkdownIt
 
+TOOLS = Path(__file__).resolve().parents[1]
+if str(TOOLS) not in sys.path:
+    sys.path.insert(0, str(TOOLS))
+from build_site import glyph  # the home page's platform icons (docs/site/icons/nav), with its `nav-icon` styles in style.css
+
 try:
     from . import charts
     from .page import CAVEAT, SHEET_URL, last_measured, methodology
@@ -26,6 +31,22 @@ TITLE = "VISR performance benchmarks"
 DESCRIPTION = "Frame-rate comparisons of VISR with other Halo: Combat Evolved ports on Apple devices."
 
 
+def site_header() -> str:
+    """The brand and site navigation shared with the home page (tools/site_header.html, filled by build_site.py)."""
+    return Template((ROOT / "tools/site_header.html").read_text(encoding="utf-8")).substitute(
+        home_current="", bench_current=' aria-current="page"').rstrip("\n")
+
+
+def suite_info(name: str, info: dict) -> str:
+    """The selected suite's description and the screenshots of the load each of its windows runs. The Suite bar shows
+    only the panel of the checked suite (CSS), so it needs no script."""
+    shots = "".join(
+        "<li>" + (f'<img src="benchmarks/thumbs/{escape(w["shot"])}.jpg" width="64" height="40" alt="" loading="lazy" decoding="async">'
+                  if w.get("shot") else "") + f'<span>{escape(w["label"])}</span></li>' for w in info.get("windows", []))
+    return (f'<div class="suite-info" data-suite="{name}"><p class="suite-text">{escape(info["description"])}</p>'
+            + (f'<ul class="suite-shots" aria-label="Windows sampled">{shots}</ul>' if shots else "") + "</div>")
+
+
 def head_tags(metadata: dict[str, str]) -> dict[str, str]:
     """The icon and social-card tags shared with the other site pages (tools/site_head_*.html, read by build_site.py)."""
     icons = (ROOT / "tools/site_head_icons.html").read_text(encoding="utf-8").rstrip("\n")
@@ -34,45 +55,8 @@ def head_tags(metadata: dict[str, str]) -> dict[str, str]:
     return {"head_icons": icons, "head_social": social}
 
 
-STYLE = """
-.page { max-width: 1160px; }
-.bench-bar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; border: 1px solid var(--line); padding: 10px 14px; margin: 0 0 24px;
-  position: sticky; top: 0; z-index: 10; background: var(--bg); box-shadow: 0 -16px 0 var(--bg); }
-.bench-bar legend { font-weight: 600; padding: 0 6px; }
-.bench-bar label { cursor: pointer; }
-.bench { margin: 0 0 40px; }
-.bench-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
-@media (min-width: 900px) { .bench-grid { grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr); } }
-/* The device frames come from style.css; only the screen's content box is defined here. */
-.bench-media { min-width: 0; }
-.device .bench-chart { display: flex; align-items: center; justify-content: center; width: 100%; overflow: hidden;
-  background: #fff; color: #111; border-radius: 18px; }
-.device-iphone .bench-chart { aspect-ratio: 19.5 / 9; border-radius: 24px; }
-.device-ipad .bench-chart { aspect-ratio: 4 / 3; border-radius: 12px; }
-.device-tv .bench-chart { aspect-ratio: 16 / 9; border-radius: 3px; }
-.device-vision .bench-chart { aspect-ratio: 16 / 9; border-radius: 14px; }
-.device-mac .bench-chart { aspect-ratio: 16 / 10; border-radius: 5px; }
-.device-vision.device-glass .bench-chart { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; box-sizing: border-box; }
-.device-glass .bench-chart { padding: 9.3% 12% 13.4%; }
-.device-glass .bench-chart svg { width: 100%; height: 100%; }
-.device-glass .bench-empty { padding: 4px 10px; text-align: center; font-size: clamp(0.7rem, 2.6vw, 1rem); line-height: 1.3; }
-.bench-chart svg, .bench-chart img { display: block; flex: 0 1 auto; min-width: 0; width: 100%; max-width: 100%; height: auto; }
-.bench-rows { border: 1px solid var(--line); padding: 8px 14px 12px; margin: 0; }
-.bench-rows legend { font-weight: 600; padding: 0 6px; }
-.bench-rows label { display: block; margin: 6px 0; line-height: 1.35; }
-.bench-rows label.off { color: var(--muted); }
-.bench-legend, .bench-direction, .bench-caption { color: var(--muted); font-size: 0.9rem; margin: 10px 0 0; }
-.bench-legend { color: var(--ink); font-size: 1rem; }
-.swatch { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 2px; margin-right: 0.15em; vertical-align: -0.1em; }
-.swatch.avg { background: var(--chart-avg); }
-.swatch.low { background: var(--chart-low); }
-.bench-chart:has(img) { background: #fff; }
-@media (prefers-color-scheme: dark) { .device .bench-chart { background: #10232b; color: #e8f6fa; } }
-.bench-empty { color: inherit; margin: 0; padding: 24px 12px; }
-.method { max-width: 760px; margin-inline: auto; }
-"""
-
-
+# The icons before each platform heading, the same glyphs the home page puts before its platform sections.
+HEADING_ICONS = {"mac": ["mac"], "iphone-ipad": ["iphone", "ipad"], "apple-tv": ["apple-tv"], "vision-pro": ["vision-pro"]}
 FRAMES = {"mac": "device-mac", "iphone-ipad": "device-ipad", "apple-tv": "device-tv", "vision-pro": "device-vision device-glass"}
 # The Vision Pro nav icon's outline with a shallower nose notch: the notch's rise above the lobes is halved
 # (the icon's `c-1.6 0-2.7-.9-3.5-2.1`, `c-.6-.8-1.8-.8-2.4 0` and `c-.8 1.2-1.9 2.1-3.5 2.1` become
@@ -113,6 +97,60 @@ def anchor(text: str, url: str) -> str:
     return (f'<a href="{escape(url)}" rel="noopener">{escape(text)}</a>' if url else escape(text))
 
 
+def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: bool = False) -> str:
+    """One build's row. A build the chart does not draw (`off`, from `charts.list_status`) is grayed out and cannot be
+    ticked, tagged briefly; the tag opens the full reason in place (a `details` element, so it works by keyboard, by
+    touch and without scripts), and the row's tooltip carries it too. Mirrored by `buildItem` in benchmarks.js."""
+    meta = f"build {entry['build'] or 'unknown'}, {entry['date']}"
+    link = anchor(entry["label"], entry.get("url", ""))
+    key = escape(charts.entry_key(entry))
+    if off is None:
+        mark = " checked" if checked else ""
+        return (f'<div class="build"><label class="build-label"><input type="checkbox" value="{key}"{mark}> '
+                f'<span class="build-name">{link}</span> <span class="build-meta">{escape(meta)}</span></label></div>')
+    reason = charts.plain_reason(off["reason"], reasons)
+    return (f'<div class="build off" title="{escape(reason, quote=True)}"><label class="build-label"><input type="checkbox" value="{key}" disabled> '
+            f'<span class="build-name">{link}</span> <span class="build-meta">{escape(meta)}</span></label>'
+            f'<details class="why"><summary class="tag">{off["tag"]}</summary><p>{escape(reason)}</p></details></div>')
+
+
+def builds_list(built: dict, reasons: dict, selected: set[str] | None = None) -> str:
+    """The Builds box: one group per port with its newest version, the port's other versions folded away. Its ticked,
+    available rows are the builds the chart draws."""
+    status = charts.list_status(built, selected)
+
+    def item(entry: dict) -> str:
+        key = charts.entry_key(entry)
+        return build_item(entry, reasons, status.get(key), key not in status and (key in selected if selected is not None else entry["default"]))
+
+    parts = ["<legend>Builds</legend>"]
+    for group in charts.build_groups(built):
+        parts.append('<div class="build-group">' + item(group["primary"]))
+        if group["others"]:
+            count = len(group["others"])
+            shown = sum(1 for e in group["others"] if charts.entry_key(e) not in status and (charts.entry_key(e) in selected if selected is not None else e["default"]))
+            label = f"{count} other version{'' if count == 1 else 's'}" + (f" \u00b7 {shown} shown" if shown else "")
+            parts.append(f'<details class="older" data-port="{escape(group["port"])}"><summary>{label}</summary>'
+                         + "".join(item(e) for e in group["others"]) + "</details>")
+        parts.append("</div>")
+    return "".join(parts)
+
+
+def caption_html(table: dict | None) -> str:
+    """The table under a chart. Mirrored by `drawCaption` in benchmarks.js."""
+    if table is None:
+        return ""
+    head = "".join(f"<th scope=\"col\">{escape(text)}</th>" for text in ["Build", "Measured", *table["headings"], "Notes"])
+    body = ""
+    for row in table["rows"]:
+        cells = "".join(f'<td data-label="{escape(name, quote=True)}">{escape(cell)}</td>' for name, cell in zip(table["headings"], row["cells"]))
+        body += (f'<tr><th scope="row">{anchor(row["label"], row["url"])} <span class="build-meta">build {escape(row["build"])}</span></th>'
+                 f'<td data-label="Measured">{escape(row["measured"])}</td>{cells}<td data-label="Notes">{escape(row["notes"])}</td></tr>')
+    note = f" {escape(table['note'])}" if table["note"] else ""
+    return (f'<table class="bench-table"><caption>{escape(table["box"])}.{note}</caption>'
+            f'<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
+
+
 def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
     built = charts.model(rows, spec["query"], suite)
     name = slug(spec)
@@ -124,31 +162,20 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
                  f'per build, {escape(charts.SUITE_NAMES[suite])} suite">')
     else:
         chart = f"<pre>{escape(text)}</pre>"
-    items = []
-    for entry in built["entries"]:
-        detail = f"build {entry['build'] or 'unknown'}, {entry['date']}"
-        if entry["value"] is None:
-            word = "Not supported" if entry["kind"] == "not_supported" else "Not measured"
-            items.append(f'<label class="off"><input type="checkbox" value="{escape(charts.entry_key(entry))}" disabled> '
-                         f'{anchor(entry["label"], entry.get("url", ""))} ({escape(detail)}). {word}: {escape(charts.plain_reason(entry["reason"], reasons))}</label>')
-        else:
-            checked = " checked" if entry["default"] else ""
-            items.append(f'<label><input type="checkbox" value="{escape(charts.entry_key(entry))}"{checked}> '
-                         f'{anchor(entry["label"], entry.get("url", ""))} ({escape(detail)})</label>')
-    rows_html = f'<legend>Builds</legend>{"".join(items)}' if items else "<legend>Builds</legend>"
+    rows_html = builds_list(built, reasons)
     swatches = ""
     if built["entries"]:
         swatches = "  ".join(f'<span class="swatch {kind}" aria-hidden="true"></span> {escape(label)}'
                              for kind, label in zip(("avg", "low"), spec["series_labels"][:(2 if charts.has_lows(built) else 1)]))
     return f"""<section class="bench" data-platform="{name}" aria-labelledby="h-{name}">
-<h2 id="h-{name}">{escape(spec["heading"])}</h2>
+<h2 id="h-{name}">{"".join(glyph(icon) for icon in HEADING_ICONS[name])}{escape(spec["heading"])}</h2>
 <p>{escape(spec["paragraph"].strip())}</p>
 <div class="bench-grid">
 <div class="bench-media"><figure class="device {FRAMES[name]}">{glass_svg() if "glass" in FRAMES[name] else ""}{screen(chart, FRAMES[name])}</figure>
 <p class="bench-legend">{swatches}</p>
 <p class="bench-direction">{escape(charts.direction_note(spec, built))}</p>
-<p class="bench-caption">{"".join(anchor(text, url) for text, url in charts.caption_parts(built, None, spec["query"].get("details"), spec["query"].get("windows")))}</p></div>
-<fieldset class="bench-rows"{"" if items else " hidden"}>{rows_html}</fieldset>
+<div class="bench-caption">{caption_html(charts.caption_table(built, None, spec["query"].get("details"), spec["query"].get("windows")))}</div></div>
+<fieldset class="bench-rows"{"" if built["entries"] else " hidden"}>{rows_html}</fieldset>
 </div>
 </section>"""
 
@@ -156,11 +183,13 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
 def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_html: str) -> str:
     md = MarkdownIt("commonmark", {"html": False})
     reasons = charts.load_reasons()
+    info = charts.load_suite_info()
     suites = "".join(
         f'<label><input type="radio" name="suite" value="{name}"{" checked" if name == charts.DEFAULT_SUITE else ""}> '
         f"{charts.SUITE_NAMES[name]}</label>" for name in charts.SUITE_CHOICES)
-    intro = md.render(f"{CAVEAT}\n\nLast measured: {last_measured(summary, rows)}. The "
+    intro = md.render(f"{CAVEAT}\n\nLast measured: {last_measured(summary, rows)}.\n\nThe "
                       f"[results spreadsheet]({SHEET_URL}) holds every number. The methodology is at the bottom of this page.")
+    panels = "".join(suite_info(name, info[name]) for name in charts.SUITE_CHOICES)
     method = md.render("\n".join(methodology(summary, rows)))
     body = "\n".join(section(spec, rows, charts.DEFAULT_SUITE, reasons) for spec in specs)
     head = head_tags({"description": DESCRIPTION, "og_title": TITLE, "path": "benchmarks.html"})
@@ -175,13 +204,13 @@ def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_h
 {head["head_icons"]}
 <link rel="stylesheet" href="style.css">
 {head["head_social"]}
-<style>{STYLE}</style>
 </head>
 <body>
-<main class="page" id="bench-root" data-csv="benchmarks/results.csv">
+{site_header()}
+<main class="page page-bench" id="bench-root" data-csv="benchmarks/results.csv">
 <h1>Performance benchmarks</h1>
 {intro.rstrip()}
-<fieldset class="bench-bar"><legend>Suite</legend>{suites}</fieldset>
+<fieldset class="bench-bar"><legend>Suite</legend><div class="suite-pills"><span class="suite-label" aria-hidden="true">Suite</span>{suites}</div>{panels}</fieldset>
 {body}
 <div class="method">
 {method.replace("<h2>Methodology</h2>", "<h2>Methodology</h2>", 1).rstrip()}
