@@ -27,6 +27,7 @@
 #endif
 #include "host_astc_store.h"
 #include "host_data_updates.h"
+#include "host_quit_signals.h"
 #include "../../linux/include/halo_port_limits.h" /* HALO_PORT_NETWORK_VERSION, for the log */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -258,8 +259,22 @@ void host_extra_scene_test(void) {
 
 #endif /* UIKit scene recovery */
 
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
+/* A quit signal (host_quit_signals.c) ends the Mac app the way Command-Q does: the game's quit event, which the game
+   acts on at its next frame; and if nothing has taken it in two seconds (an import screen, a modal window), host_exit. */
+static void quit_signal(int number) {
+    host_logf(HOST_LOG_INFO,"quit: signal %d",number);
+    SDL_Event event={.type=SDL_EVENT_QUIT};
+    SDL_PushEvent(&event);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{host_exit(0);});
+}
+#endif
+
 int main(int argc,char **argv) {
     (void)argc;(void)argv;
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
+    if(!host_quit_signals_install(dispatch_get_main_queue(),quit_signal))host_logf(HOST_LOG_WARN,"quit: the quit signals are not watched");
+#endif
     #if !HALO_NATIVE_MAC
     static int entered;
     if(entered++){

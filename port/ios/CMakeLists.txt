@@ -190,7 +190,7 @@ target_include_directories(halo_astcenc PUBLIC "${ROOT}/port/third_party/astcenc
 target_sources(VISR PRIVATE "${ROOT}/port/linux/src/astc_encode.cpp"
     "${ROOT}/port/linux/src/astc_rewrite.c" "${ROOT}/port/runtime/astc_store.c"
     host/host_astc_store.m host/host_astc_texture.c)
-target_sources(VISR PRIVATE host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
+target_sources(VISR PRIVATE host/host_quit_signals.c host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
     host/texture_refine_bounded.c host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
     "${ROOT}/port/third_party/bc7enc16/bc7decomp.c")
 target_include_directories(VISR PRIVATE "${ROOT}/port/third_party/bc7enc" "${ROOT}/port/third_party/bc7enc16")
