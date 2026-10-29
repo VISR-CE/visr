@@ -6762,9 +6762,10 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 	@autoreleasepool
 	{
 		MetalTexture *record = texture_record(target);
-		BOOL smaa = method == GPU_ANTI_ALIAS_SMAA;
+		BOOL smaa = method == GPU_ANTI_ALIAS_SMAA, foveated = NO;
 		unsigned long width, height;
 		MTLScissorRect area;
+		struct gpu_rect physical_rect;
 		id<MTLBlitCommandEncoder> blit;
 
 		if (!record || !record->texture || record->description.format != GPU_FORMAT_BGRA8 ||
@@ -6783,8 +6784,40 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		}
 		width = record->texture.width;
 		height = record->texture.height;
+		/* a foveated target (a stereo eye, or debug.rate_map_test): the rect
+		is in the map's screen units, and the picture is its physical pixels
+		in the texture's top left; past them the texture holds an earlier
+		frame (a higher render quality's), which the pass must neither filter
+		nor read. So the rect becomes the physical pixels it covers, at most
+		the map's physical size */
+		{
+			MTLSize screen, physical;
+			id<MTLRasterizationRateMap> map = foveation_map(record);
+
+			if (map && foveation_sizes(record, &screen, &physical))
+			{
+				MTLCoordinate2D low = [map mapScreenToPhysicalCoordinates:MTLCoordinate2DMake((float)rect->x,
+					(float)rect->y) forLayer:0];
+				MTLCoordinate2D high = [map mapScreenToPhysicalCoordinates:MTLCoordinate2DMake(
+					(float)(rect->x + rect->width), (float)(rect->y + rect->height)) forLayer:0];
+
+				physical_rect.x = (int32_t)floorf(low.x);
+				physical_rect.y = (int32_t)floorf(low.y);
+				physical_rect.width = (int32_t)ceilf(high.x) - physical_rect.x;
+				physical_rect.height = (int32_t)ceilf(high.y) - physical_rect.y;
+				rect = &physical_rect;
+				foveated = YES;
+				if (physical.width < width)
+					width = physical.width;
+				if (physical.height < height)
+					height = physical.height;
+			}
+		}
 		if (!clamp_rect(rect, width, height, &area))
 			return;
+		/* (the post textures, and SMAA's pipelines, stay sized to the texture) */
+		width = record->texture.width;
+		height = record->texture.height;
 		pass_end();
 		if (!post.color || post.color.width != width || post.color.height != height)
 		{
@@ -6809,8 +6842,9 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		/* dynamic resolution's pool: past the content's right and bottom edges
 		post.color holds an earlier, larger frame, which SMAA's passes would
 		read as edges; repeat the edge texels there, as a whole texture's clamp
-		would (only for a pooled target: a split-screen view's neighbor stays) */
-		if (record->content_width)
+		would (only for a pooled target, or a foveated one past its physical
+		pixels: a split-screen view's neighbor stays) */
+		if (record->content_width || foveated)
 		{
 			NSUInteger right = area.x + area.width, bottom = area.y + area.height, band;
 

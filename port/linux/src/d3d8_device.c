@@ -2111,7 +2111,8 @@ effects and before the HUD: with display.native_hud that is before the
 stretch, so the HUD and menus, drawn at the display's size afterward, are
 never filtered; without it they are drawn over the filtered scene in the
 same target. Off by default; read again between frames
-(halo_screen_commit). Not in a stereo frame. */
+(halo_screen_commit). In a stereo frame each eye's scene is filtered as its
+pass ends (after the eye's screen effects and flash); the HUD pass is not. */
 
 enum
 {
@@ -2426,15 +2427,32 @@ void halo_knob_message(const char *text)
 	}
 }
 
-/* the pass over the view's rectangle of the scene's target (halo_render_scene_end) */
-static void anti_aliasing_pass(struct render_target_entry *scene)
+/* the layer whose scene the anti-aliasing pass filters as a view ends: the
+mono back buffer's outside stereo, the current eye's in a stereo frame's eye
+pass (HALO_STEREO_LAYER_MONO is -1 there, never drawn), else none (-2): the
+HUD, the zoomed picture and the other stereo layers are not filtered */
+static int anti_aliasing_layer(void)
 {
 	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+	int layer = halo_stereo_current_layer();
+
+	if (stereo->mode == HALO_STEREO_OFF && stereo->eye_count == 0)
+		return HALO_STEREO_LAYER_MONO;
+	if (stereo->eye_count == 2 && (layer == 0 || layer == 1))
+		return layer;
+	return -2;
+}
+
+/* the pass over the view's rectangle of the scene's target (halo_render_scene_end). In a foveated eye the
+rectangle is in the rate map's screen units; the backend filters the part of it the map rendered (physical
+pixels) */
+static void anti_aliasing_pass(struct render_target_entry *scene)
+{
 	struct gpu_rect rect;
 
 	if (anti_aliasing_method < 0)
 		anti_aliasing_read();
-	if (!anti_aliasing_ready || stereo->mode != HALO_STEREO_OFF || stereo->eye_count != 0)
+	if (!anti_aliasing_ready || anti_aliasing_layer() < HALO_STEREO_LAYER_MONO)
 		return;
 	anti_aliasing_pass_count++;
 	rect.x = (int32_t)floorf((float)native_scene_bounds[0] * scene->target.scale[0] + 0.5f);
@@ -2443,11 +2461,20 @@ static void anti_aliasing_pass(struct render_target_entry *scene)
 	rect.height = (int32_t)floorf((float)native_scene_bounds[3] * scene->target.scale[1] + 0.5f) - rect.y;
 	if (rect.width > 0 && rect.height > 0)
 	{
-		/* proof that the pass runs: the first one, then one a minute at 120 a second */
-		if (anti_aliasing_pass_count == 1 || !(anti_aliasing_pass_count % 7200))
-			platform_log("anti-aliasing: %s pass %lu over %dx%d at %d,%d (target scale %.2f)", anti_aliasing_label_of(),
+		/* proof that the pass runs: the first one in each layer (mono, eye 0, eye 1) since the method changed, then
+		one a minute at 120 a second */
+		static unsigned long logged_layers, logged_count;
+		unsigned long layer_bit = 1ul << (scene->layer + 1);
+
+		if (logged_count > anti_aliasing_pass_count)
+			logged_layers = 0;
+		logged_count = anti_aliasing_pass_count;
+		if (!(logged_layers & layer_bit) || !(anti_aliasing_pass_count % 7200))
+			platform_log("anti-aliasing: %s pass %lu over %dx%d at %d,%d (target scale %.2f, %s)", anti_aliasing_label_of(),
 				anti_aliasing_pass_count, (int)rect.width, (int)rect.height, (int)rect.x, (int)rect.y,
-				(double)scene->target.scale[0]);
+				(double)scene->target.scale[0], scene->layer == HALO_STEREO_LAYER_MONO ? "mono" :
+				scene->layer == 0 ? "eye 0" : "eye 1");
+		logged_layers |= layer_bit;
 		gpu_anti_alias(anti_aliasing_method == _anti_aliasing_smaa ? GPU_ANTI_ALIAS_SMAA : GPU_ANTI_ALIAS_FXAA,
 			scene->target.texture, &rect);
 	}
@@ -2495,8 +2522,14 @@ void halo_render_scene_end(void)
 	native_scene = FALSE;
 	if (!device.gl_ready)
 		return;
-	/* (a view that drew nothing, a movie's, has nothing to bring over) */
-	scene = back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO);
+	/* (a view that drew nothing, a movie's, has nothing to bring over; in a
+	stereo eye pass the scene is that eye's layer, and the HUD's pass, which
+	is not a view's scene, filters nothing) */
+	{
+		int layer = anti_aliasing_layer();
+
+		scene = layer >= HALO_STEREO_LAYER_MONO ? back_buffer_drawn_this_frame(layer) : NULL;
+	}
 	/* the anti-aliasing pass over the scene first, unless FXAA goes into
 	the stretch below (debug.anti_aliasing_folded, anti_aliasing_folds) */
 	fold = native_hud_active() && anti_aliasing_folds();
