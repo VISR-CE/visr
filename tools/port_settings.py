@@ -601,6 +601,37 @@ WIDGET_PATCHES = {
     }},
 }
 
+# Resolve missing PC description art from the approved drawings or the player's
+# ui.map. Keep the transparent fallback so game maps can use the extracted cache.
+PC_PICTURES = {
+    "main_menu/multiplayer_type_select/mp_options": {0: 0, 1: 1},
+    "main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options": {
+        0: 0, 3: 3, 4: 3, 6: 2, 7: 5,
+    },
+    f"{PE}/profile_options": {
+        1: 0, 3: 0, 4: "audio", 5: "video", 6: "internet", 8: "about",
+    },
+}
+
+
+def picture_frame(relative, index):
+    """A PC description frame, sharing the Xbox look's art and cache behavior."""
+    name = relative.removeprefix("shell/")
+    source = PC_PICTURES.get(name, {}).get(index)
+    if source is None:
+        return None
+    frame = {"width": "512", "height": "256"}
+    if isinstance(source, str):
+        frame["png"] = f"xbox/art/{source}.png"
+    else:
+        # Mouse and keyboard settings share the native name-entry keyboard.
+        frame["map"] = "ui\\shell\\" + name.replace("/", "\\")
+        frame["index"] = str(source)
+        frame["cache"] = f"cache/pc/v1/{name}__{index}.png"
+        frame["png"] = "xbox/art/none.png"
+    return frame
+
+
 # frames added after a PC bitmap's (by our names): (the Xbox map's bitmap,
 # its frame, the size drawn at, where in the widget). The profile settings'
 # picture gets the Xbox's Controller Setup's pictures of its five button

@@ -118,8 +118,8 @@ def browser_art(output):
 
 
 # the pictures of the profile editor and multiplayer rows that ship as our own art (xbox/art/<name>.svg, 512 by 256):
-# AUDIO, VIDEO, and INTERNET, which NETWORK and DIRECT LINK show too
-REDRAWS = ('audio', 'video', 'internet')
+# AUDIO, VIDEO, INTERNET (also NETWORK and DIRECT LINK), and the PC look's ABOUT emblem
+REDRAWS = ('audio', 'video', 'internet', 'about')
 
 
 def redraw_art(output):
