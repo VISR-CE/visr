@@ -1112,6 +1112,149 @@ void halo_menus_log(char const *file, long line, char const *message, char const
 	platform_log("menus: %s:%ld: %s%s%s", file ? file : "?", line, message, detail ? " " : "", detail ? detail : "");
 }
 
+/* ---------- the player's cache of the map's pictures (halo_menus.h) */
+
+int posix_make_directory(const char *path);
+
+int halo_menus_cache_exists(char const *path)
+{
+	char full[1200];
+	FILE *file;
+
+	if (!path_inside_folder(path))
+		return 0;
+	snprintf(full, sizeof(full), "%s/%s", folder, path);
+	file = fopen(full, "rb");
+	if (file)
+		fclose(file);
+	return file != NULL;
+}
+
+static unsigned long crc_of(unsigned char const *bytes, size_t count, unsigned long crc)
+{
+	size_t index;
+	int bit;
+
+	crc = ~crc & 0xffffffffUL;
+	for (index = 0; index < count; index++)
+	{
+		crc ^= bytes[index];
+		for (bit = 0; bit < 8; bit++)
+			crc = (crc >> 1) ^ (0xedb88320UL & (0UL - (crc & 1)));
+	}
+	return ~crc & 0xffffffffUL;
+}
+
+static void put_long(unsigned char *at, unsigned long value)
+{
+	at[0] = (unsigned char)(value >> 24);
+	at[1] = (unsigned char)(value >> 16);
+	at[2] = (unsigned char)(value >> 8);
+	at[3] = (unsigned char)value;
+}
+
+/* a chunk of a PNG: length, type, data and the CRC of type and data; 0 on a write error */
+static int png_chunk(FILE *file, char const *type, unsigned char const *data, size_t size)
+{
+	unsigned char word[4];
+	unsigned long crc;
+
+	put_long(word, (unsigned long)size);
+	if (fwrite(word, 1, 4, file) != 4 || fwrite(type, 1, 4, file) != 4 || (size && fwrite(data, 1, size, file) != size))
+		return 0;
+	crc = crc_of((unsigned char const *)type, 4, 0);
+	crc = crc_of(data, size, crc);
+	put_long(word, crc);
+	return fwrite(word, 1, 4, file) == 4;
+}
+
+/* 8-bit RGBA, with its rows in stored (uncompressed) deflate blocks: no compressor is needed to write one, and the
+file is made once */
+int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height)
+{
+	char full[1200], temporary[1210];
+	unsigned long row_bytes = width * 4 + 1, raw_size = row_bytes * height, offset, row;
+	unsigned char *raw, *deflated, header[13];
+	size_t deflated_size = 0, at;
+	unsigned long low = 1, high = 0;
+	FILE *file;
+	int ok;
+
+	if (!path_inside_folder(path) || !width || !height || width > 4096 || height > 4096)
+		return 0;
+	raw = malloc(raw_size);
+	deflated = malloc(raw_size + (raw_size / 65535 + 1) * 5 + 6);
+	if (!raw || !deflated)
+	{
+		free(raw);
+		free(deflated);
+		return 0;
+	}
+	for (row = 0; row < height; row++)
+	{
+		raw[row * row_bytes] = 0;
+		memcpy(raw + row * row_bytes + 1, rgba + row * width * 4, width * 4);
+	}
+	deflated[deflated_size++] = 0x78;
+	deflated[deflated_size++] = 0x01;
+	for (offset = 0; offset < raw_size;)
+	{
+		unsigned long count = raw_size - offset > 65535 ? 65535 : raw_size - offset;
+
+		deflated[deflated_size++] = offset + count >= raw_size;
+		deflated[deflated_size++] = (unsigned char)count;
+		deflated[deflated_size++] = (unsigned char)(count >> 8);
+		deflated[deflated_size++] = (unsigned char)~count;
+		deflated[deflated_size++] = (unsigned char)(~count >> 8);
+		memcpy(deflated + deflated_size, raw + offset, count);
+		deflated_size += count;
+		offset += count;
+	}
+	for (at = 0; at < raw_size; at++)
+	{
+		low = (low + raw[at]) % 65521;
+		high = (high + low) % 65521;
+	}
+	put_long(deflated + deflated_size, (high << 16) | low);
+	deflated_size += 4;
+	/* (the menus folder and the folders of the path, one by one, then the file beside its own name until it is whole) */
+	{
+		char *slash;
+
+		posix_make_directory(folder);
+		snprintf(full, sizeof(full), "%s/%s", folder, path);
+		for (slash = full + strlen(folder) + 1; (slash = strchr(slash, '/')) != NULL; slash++)
+		{
+			*slash = 0;
+			posix_make_directory(full);
+			*slash = '/';
+		}
+	}
+	snprintf(temporary, sizeof(temporary), "%s.part", full);
+	file = fopen(temporary, "wb");
+	ok = file != NULL;
+	if (ok)
+	{
+		put_long(header, width);
+		put_long(header + 4, height);
+		header[8] = 8;
+		header[9] = 6;
+		header[10] = header[11] = header[12] = 0;
+		ok = fwrite("\x89PNG\r\n\x1a\n", 1, 8, file) == 8 && png_chunk(file, "IHDR", header, sizeof(header)) &&
+			png_chunk(file, "IDAT", deflated, deflated_size) && png_chunk(file, "IEND", NULL, 0);
+		ok = fclose(file) == 0 && ok;
+		if (ok)
+			ok = rename(temporary, full) == 0;
+		if (!ok)
+			remove(temporary);
+	}
+	free(raw);
+	free(deflated);
+	if (!ok)
+		platform_log("menus: could not write %s", full);
+	return ok;
+}
+
 /* ---------- art */
 
 static struct
@@ -1216,6 +1359,8 @@ static unsigned int art_first_texture(long index, unsigned long *levels)
 unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 {
 	long index;
+
+	pc_menu_art_extract();
 
 	for (index = 0; index < art_count; index++)
 	{

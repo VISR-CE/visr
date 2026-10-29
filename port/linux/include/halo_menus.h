@@ -201,6 +201,14 @@ void halo_menus_log(char const *file, long line, char const *message, char const
 /* menu art: the D3D texture (as the game's bitmap holds it) a frame's PNG is
 drawn for, until halo_menus_art_forget */
 void halo_menus_art_register(void const *texture, char const *png);
+/* The player's cache of the map's pictures, which no map but ui.map has (a frame's cache): files in the menus folder.
+exists: 1 if the file is there; write_png saves width by height RGBA bytes (rows top first) as the file, 1 if it
+could be; art_extract saves a map bitmap's texture (its hardware format) as one, 1 if it could be (xbox_textures.c) */
+int halo_menus_cache_exists(char const *path);
+int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height);
+int halo_menus_art_extract(void const *hardware_format, char const *cache_path);
+/* saves the pictures the loaded menus asked for (menu_tags.c), when menus draw */
+void pc_menu_art_extract(void);
 void halo_menus_art_forget(void);
 
 #endif

@@ -507,6 +507,8 @@ def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
         frame = by_key[key]
         assert frame.get('cache') == f'cache/xbox/{key}.png'
         assert frame.get('png') == 'xbox/art/none.png'
+        # (ui.map has it: the main menu saves it into the cache, where a game map's hub finds it)
+        assert frame.get('map', '').startswith('ui\\shell\\main_menu\\') and frame.get('index') is not None
     # a redraw shipped later takes the slot, with no cache named
     _, frames = hub_panel(tmp_path / 'b', redraws=('audio',))
     shutil.copy(MENUS / 'xbox/art/audio.png', tmp_path / 'b/menus/xbox/art/video.png')

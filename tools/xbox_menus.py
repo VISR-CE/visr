@@ -279,13 +279,27 @@ NONE_PNG = f'{ART}/none.png'
 PICTURE_SIZE = (512, 256)
 
 
+# where ui.map has each row's picture (the profile editor's own frames), which the menus save into the cache the
+# first time the main menu draws (halo_menus_art_extract): the profile editor's Controller Setup and Change Name
+# pictures, and the multiplayer type screen's diagrams
+PICTURE_SOURCES = {
+    'controls': (r'ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options', 1),
+    'video': (r'ui\shell\main_menu\multiplayer_type_select\mp_options', 0),
+    'network': (r'ui\shell\main_menu\multiplayer_type_select\mp_options', 2),
+    'keyboard': (r'ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options', 0),
+}
+
+
 def picture_frame(assets, key):
-    """The attributes of a row's picture frame: the redraw if shipped, else its cache over the transparent png."""
+    """The attributes of a row's picture frame: the redraw if shipped, else the map's own (saved to the cache where
+    ui.map is loaded) over the cache and the transparent png."""
     width, height = PICTURE_SIZE
     redraw = f'{ART}/{key}.png'
-    if (assets / redraw).is_file():
+    if (assets / redraw).is_file() or key not in PICTURE_SOURCES:
         return {'png': redraw, 'width': str(width), 'height': str(height)}
-    return {'cache': f'{CACHE}/{key}.png', 'png': NONE_PNG, 'width': str(width), 'height': str(height)}
+    tag, index = PICTURE_SOURCES[key]
+    return {'map': tag, 'index': str(index), 'cache': f'{CACHE}/{key}.png', 'png': NONE_PNG,
+            'width': str(width), 'height': str(height)}
 
 
 def hub_documents(assets):

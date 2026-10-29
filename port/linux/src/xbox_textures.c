@@ -19,6 +19,7 @@ memory_watch.c detects that by write-protecting the pages.
 #ifdef HALO_IOS
 #include "astc_store.h"
 #endif
+#include "halo_menus.h"
 #include "hud_hires.h"
 #include "menu_files.h"
 #include "text_hires.h"
@@ -558,6 +559,65 @@ static void dxt_decode_level(unsigned char kind, const unsigned char *source, un
 			}
 		}
 	}
+}
+
+/* ---------- reading a texture back (the menus' art cache) */
+
+/* level 0 of a plain 2D Xbox texture, its texels at texels, as RGBA bytes with the rows top first (the caller frees
+them), in the texture's own size. FALSE for one it does not read: a cube map or volume, a palettized texture (its
+palette is not here) or one with no size. */
+BOOL xgpu_texture_decode_rgba(DWORD format_word, DWORD size_word, const unsigned char *texels,
+	unsigned char **rgba, unsigned long *width, unsigned long *height)
+{
+	struct xgpu_texture_description description;
+	struct format_information information;
+	unsigned long count, index;
+	unsigned long *converted;
+	unsigned char *bytes;
+	BOOL decoded;
+
+	xgpu_texture_describe(format_word, size_word, &description);
+	information = format_information(description.format);
+	if (!texels || information.kind == _texel_unknown || information.kind == _texel_p8 || description.cube_map ||
+		description.depth != 1 || !description.width || !description.height || !texture_size_supported(&description))
+		return FALSE;
+	count = description.width * description.height;
+	converted = malloc(count * sizeof(*converted));
+	bytes = malloc(count * 4);
+	if (!converted || !bytes)
+	{
+		free(converted);
+		free(bytes);
+		return FALSE;
+	}
+	if (description.compressed)
+	{
+		dxt_decode_level(information.kind, texels, description.width, description.height, 1, converted);
+		decoded = TRUE;
+	}
+	else
+		decoded = decode_level(&description, 0, texels, NULL, converted);
+	if (!decoded)
+	{
+		free(converted);
+		free(bytes);
+		return FALSE;
+	}
+	for (index = 0; index < count; index++)
+	{
+		/* (ARGB words) */
+		uint32_t texel = (uint32_t)converted[index];
+
+		bytes[index * 4] = (unsigned char)(texel >> 16);
+		bytes[index * 4 + 1] = (unsigned char)(texel >> 8);
+		bytes[index * 4 + 2] = (unsigned char)texel;
+		bytes[index * 4 + 3] = (unsigned char)(texel >> 24);
+	}
+	free(converted);
+	*rgba = bytes;
+	*width = description.width;
+	*height = description.height;
+	return TRUE;
 }
 
 /* ---------- upload */
@@ -1682,6 +1742,31 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 		recent_textures[recent].drop_serial = texture_drop_serial;
 	}
 	return texture_entry_result(entry, type, description);
+}
+
+/* a menu bitmap of the map's (hardware_format: its Xbox texture) saved as a PNG at cache_path, in the menus folder's
+cache (menu_files.c): what the in-game menus draw where the map has not got it (halo_menus.h). 0 if it could not be. */
+int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
+{
+	const DWORD *resource = hardware_format;
+	struct xgpu_texture_description description;
+	unsigned long width, height, size;
+	const unsigned char *texels;
+	unsigned char *rgba;
+	int written;
+
+	if (!resource)
+		return 0;
+	xgpu_texture_describe(resource[3], resource[4], &description);
+	size = xgpu_texture_face_size(&description);
+	texels = (const unsigned char *)PLATFORM_PHYSICAL_TO_VIRTUAL(resource[1]);
+	if (!size || !platform_is_contiguous(texels) || !platform_is_contiguous(texels + size - 1))
+		return 0;
+	if (!xgpu_texture_decode_rgba(resource[3], resource[4], texels, &rgba, &width, &height))
+		return 0;
+	written = halo_menus_cache_write_png(cache_path, rgba, width, height);
+	free(rgba);
+	return written;
 }
 
 /* how many sweeps back the frame is taken that a texture must have been

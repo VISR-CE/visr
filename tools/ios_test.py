@@ -960,6 +960,8 @@ run('python3', 'tools/test_menu_cancel.py')
 # the Xbox look's patch table: rows added, taken out and replaced in the map's lists, their places, descriptions and
 # tags, and patches that do not fit or resolve left unmade (menu_tags.c, port/ios/tests/menu_patch_probe.c)
 run('python3', 'tools/test_menu_patches.py')
+# the decode behind the menus' picture cache: swizzled, linear and DXT textures read back as RGBA (xbox_textures.c)
+run('python3', 'tools/test_menu_art_decode.py')
 
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')

@@ -12,6 +12,7 @@ fails the files). */
 #include "menu_files.h"
 
 #include <stdarg.h>
+#include <sys/stat.h>
 
 /* ---------- the patch file */
 
@@ -93,6 +94,8 @@ static char const bad_xml[] =
 
 static char const screen_xml[] =
 	"<menus><bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
+	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
 	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
@@ -159,6 +162,11 @@ unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned
 {
 	(void)levels;
 	return size ? ((const unsigned char *)png)[0] : 0;
+}
+
+int posix_make_directory(const char *path)
+{
+	return mkdir(path, 0755);
 }
 
 void gpu_texture_destroy(unsigned int texture)
@@ -846,9 +854,9 @@ static void check_apple(boolean tvos)
 		probe_lan = FALSE;
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* (3 widgets: the screen, adopted row and lobby; 1 borrowed picture bitmap) */
-	counted = 4 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1);
-	used = 4 + 2 * (3 + 4 + 1 + 1);
+	/* (3 widgets: the screen, adopted row and lobby; 1 borrowed picture bitmap; 1 bitmap of the cached pictures) */
+	counted = 4 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
+	used = 4 + 2 * (3 + 4 + 1 + 1) + 1;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -889,6 +897,52 @@ static void check_panel_failure(void)
 	check(group.bitmaps.address == &frame && group.bitmaps.count == 1 && sequence.bitmap_count == 1,
 		"a failed bitmap build keeps the original bitmap block and sequence");
 	free(work);
+}
+
+/* ui.map's pictures that a frame asks to have saved in the cache (a game map's menus draw them from there): the one
+that is not there yet is saved when the menus first draw, through the texture cache and the decoder, once; the one
+that is there already is not (tools/test_menu_patches.py reads the PNG that is written) */
+static long hardware_requests, art_extractions;
+static unsigned char extracted_pixels[300 * 300 * 4];
+static char const extracted_resource[] = "resource";
+
+void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load)
+{
+	(void)bitmap;
+	check(block && load, "the picture is loaded and waited for");
+	hardware_requests++;
+	return (void *)extracted_resource;
+}
+
+int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
+{
+	long x, y;
+
+	art_extractions++;
+	for (y = 0; y < 300; y++)
+		for (x = 0; x < 300; x++)
+		{
+			unsigned char *pixel = extracted_pixels + (y * 300 + x) * 4;
+
+			pixel[0] = (unsigned char)x;
+			pixel[1] = (unsigned char)y;
+			pixel[2] = (unsigned char)(x ^ y);
+			pixel[3] = 255;
+		}
+	return hardware_format == extracted_resource && halo_menus_cache_write_png(cache_path, extracted_pixels, 300, 300);
+}
+
+static void check_extraction(void)
+{
+	check(!halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is not saved before the menus draw");
+	pc_menu_art_extract();
+	check(hardware_requests == 1 && art_extractions == 1, "only the picture that is not saved is asked for (%ld, %ld)",
+		hardware_requests, art_extractions);
+	check(halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is saved");
+	pc_menu_art_extract();
+	check(art_extractions == 1, "a picture is saved once");
+	check(!halo_menus_cache_exists("../escape.png") && !halo_menus_cache_write_png("../escape.png",
+		extracted_pixels, 1, 1), "nothing is written outside the menus folder");
 }
 
 /* a frame's picture is its cache where the player's file is there and can be drawn, else its png, else nothing */
@@ -956,6 +1010,21 @@ int main(int argc, char **argv)
 			fclose(file);
 		}
 	}
+	if (strcmp(mode, "bad"))
+	{
+		char path[400];
+		FILE *file;
+
+		snprintf(path, sizeof(path), "mkdir -p '%smenus/cache/xbox'", folder);
+		check(system(path) == 0, "the cache folder is made");
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/extracted.png", folder);
+		remove(path);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/present.png", folder);
+		file = fopen(path, "wb");
+		check(file != NULL, "%s is written", path);
+		if (file)
+			fclose(file);
+	}
 	map_build();
 	menu_tags_loaded("ui");
 	if (!strcmp(mode, "bad"))
@@ -969,6 +1038,7 @@ int main(int argc, char **argv)
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
 		check_panel_failure();
+		check_extraction();
 		check_art();
 		menu_tags_unloaded();
 		check(table == map_table && table_count == map_count, "the map's own table is back after unloading");

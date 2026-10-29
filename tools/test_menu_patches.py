@@ -47,6 +47,32 @@ def build(directory: Path) -> Path:
     return binary
 
 
+def check_saved_picture(path: Path) -> None:
+    """The PNG the probe's extraction wrote (halo_menus_cache_write_png): 300 by 300 RGBA that Python's zlib reads,
+    in more than one stored block, with no partial file left beside it."""
+    import struct
+    import zlib
+
+    data = path.read_bytes()
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    chunks, offset = {}, 8
+    while offset < len(data):
+        length, kind = struct.unpack(">I4s", data[offset:offset + 8])
+        body = data[offset + 8:offset + 8 + length]
+        assert struct.unpack(">I", data[offset + 8 + length:offset + 12 + length])[0] == zlib.crc32(kind + body)
+        chunks[kind] = body
+        offset += 12 + length
+    assert struct.unpack(">IIBB", chunks[b"IHDR"][:10]) == (300, 300, 8, 6)
+    raw = zlib.decompress(chunks[b"IDAT"])
+    assert len(raw) == 300 * (300 * 4 + 1) and len(chunks[b"IDAT"]) > 65535
+    for y in (0, 1, 150, 299):
+        row = raw[y * 1201:(y + 1) * 1201]
+        assert row[0] == 0
+        for x in (0, 7, 299):
+            assert tuple(row[1 + x * 4:5 + x * 4]) == (x % 256, y % 256, (x ^ y) % 256, 255)
+    assert not list(path.parent.glob("*.part"))
+
+
 def test_menu_patches(tmp_path):
     binary = build(tmp_path)
     (tmp_path / "menus/xbox").mkdir(parents=True)
@@ -54,6 +80,8 @@ def test_menu_patches(tmp_path):
         result = subprocess.run([str(binary), mode, str(tmp_path)], capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode == 0, f"menu patch probe failed ({mode})"
+        if mode != "bad":
+            check_saved_picture(tmp_path / "menus/cache/xbox/extracted.png")
 
 
 if __name__ == "__main__":
