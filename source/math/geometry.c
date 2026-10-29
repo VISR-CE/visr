@@ -1194,6 +1194,13 @@ short convex_polygon2d_clip_to_plane(
 
 			vector_from_points2d(point, previous_point, &vector);
 			scale = PIN(vector_intersect_plane2d(point, &vector, plane), 0.f, 1.f);
+			/* port: PIN passes NaN through. A corner exactly on the plane whose
+			neighbor is a rounding error behind it makes both the numerator and
+			denominator zero; the corner on the line is itself the crossing. */
+			if (scale != scale)
+			{
+				scale = 0.f;
+			}
 			point_from_line2d(point, &vector, scale, result + result_count);
 			SET_FLAG(result_clip_flags, result_count, TRUE);
 			result_count++;

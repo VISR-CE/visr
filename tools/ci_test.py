@@ -28,6 +28,7 @@ APPLE_PROBES = {
     "test_shader_list_record.py",
     "test_metal_border.py",
     "test_checkpoint_timing.py",
+    "test_portal_clip_nan.py",
     "test_dead_spectator_head.py",
     "test_stereo_passenger.py",
     "test_stereo_scope_guest.py",
