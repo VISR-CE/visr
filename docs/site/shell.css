@@ -118,10 +118,29 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .platform-copy ul { color: var(--muted); font-size: 15px; line-height: 1.55; margin: 0; }
 .platform-copy li { margin-bottom: 8px; }
 .platforms .platform-media { order: 1; padding: 0; gap: 18px; }
-.platforms .device { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; margin: 0; width: 100%; }
+/* Each platform's media sits in a thin outline of that device's shape, tinted with the HUD blue. The outline is a border
+   on the figure, so an image or a video clip inside it gets the same frame. */
+.platforms .device { --outline: color-mix(in srgb, var(--hud-blue) 60%, transparent); position: relative; width: 100%; margin: 0; padding: 8px;
+  border: 1px solid var(--outline); border-radius: 14px; background: none; box-shadow: 0 0 18px var(--hud-glow), inset 0 0 0 1px color-mix(in srgb, var(--hud-blue) 14%, transparent); }
 .platforms .device::after { content: none; }
-.platforms .device-ipad { width: 62%; justify-self: center; }
-.platforms .device :is(img, video) { display: block; width: 100%; height: auto; border: 1px solid var(--hud-blue); border-radius: 8px; }
+.platforms .device :is(img, video) { display: block; width: 100%; height: auto; border: 0; border-radius: 6px; }
+.platforms .device-iphone { padding: 7px 18px; border-radius: 30px; }
+.platforms .device-iphone :is(img, video) { border-radius: 20px; }
+.platforms .device-ipad { width: 62%; justify-self: center; padding: 11px; border-radius: 20px; }
+.platforms .device-ipad :is(img, video) { border-radius: 9px; }
+.platforms .device-tv { margin-bottom: 26px; padding: 6px; border-radius: 8px; }
+.platforms .device-tv :is(img, video) { border-radius: 3px; }
+.platforms .device-tv::after { content: ""; position: absolute; left: 32%; bottom: -25px; width: 36%; height: 24px; background: color-mix(in srgb, var(--hud-blue) 22%, transparent);
+  clip-path: polygon(42% 0, 58% 0, 64% 78%, 100% 86%, 100% 100%, 0 100%, 0 86%, 36% 78%); }
+.platforms .device-mac { margin-bottom: 14px; padding: 8px 8px 12px; border-radius: 12px 12px 4px 4px; }
+.platforms .device-mac :is(img, video) { border-radius: 4px; }
+.platforms .device-mac::after { content: ""; position: absolute; left: -3%; bottom: -13px; width: 106%; height: 12px; border: 1px solid var(--outline); border-radius: 2px 2px 14px 14px;
+  background: color-mix(in srgb, var(--hud-blue) 14%, transparent); }
+/* Vision Pro: the glass shape the hero uses (`#vp-clip`), with a thin glow along its edge. The clip is on the media and the
+   outline is a drop shadow on the figure, so it follows the clipped edge. */
+.platforms .device-vision { padding: 0; border: 0; border-radius: 0; box-shadow: none;
+  filter: drop-shadow(0 0 0.6px var(--hud-blue)) drop-shadow(0 0 0.6px var(--hud-blue)) drop-shadow(0 0 0.6px var(--hud-blue)) drop-shadow(0 0 12px var(--hud-glow)); }
+.platforms .device-vision :is(img, video) { aspect-ratio: 216 / 132; object-fit: cover; border-radius: 0; clip-path: url(#vp-clip); }
 .platforms .tablist { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 4px 4px 10px; min-width: 0; }
 .platforms .tablist::-webkit-scrollbar { display: none; }
 .platforms .tab { flex: none; min-height: 48px; padding: 0 14px; border: 2px solid transparent; border-radius: 8px; background: transparent; color: var(--hud-blue); font: 500 12px/1.5 Orbitron, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer; }
