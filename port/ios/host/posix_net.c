@@ -67,6 +67,20 @@ static int ios_accept4(int fd,void *p,socklen_t *n,int flags) {
 }
 static ssize_t ios_sendto(int fd,const void *p,size_t n,int flags,const void *address,socklen_t size) {
     struct sockaddr_storage a=sockaddr_inward(address,size);ssize_t r=sendto(fd,p,n,flags,(struct sockaddr *)&a,size);
+    if(r<0 && errno==EISCONN){
+        /* (the game gives a destination even after it connects its gameplay UDP socket, which Linux and
+        Winsock take and Darwin refuses: send() when the destination is the datagram peer it is connected to) */
+        struct sockaddr_storage peer;socklen_t peer_size=sizeof(peer),type_size=sizeof(int);int type;
+        if(a.ss_family==AF_INET && size>=sizeof(struct sockaddr_in) &&
+            getsockopt(fd,SOL_SOCKET,SO_TYPE,&type,&type_size)==0 && type==SOCK_DGRAM &&
+            getpeername(fd,(struct sockaddr *)&peer,&peer_size)==0 && peer.ss_family==AF_INET &&
+            peer_size>=sizeof(struct sockaddr_in)){
+            const struct sockaddr_in *destination=(const void *)&a,*connected=(const void *)&peer;
+            if(destination->sin_port==connected->sin_port && destination->sin_addr.s_addr==connected->sin_addr.s_addr)
+                r=send(fd,p,n,flags);
+        }
+        if(r<0)errno=EISCONN;
+    }
     /* (a first send gives an unbound socket its port: kept, as a bind's is) */
     host_socket_bound(fd);
     return r;
