@@ -684,6 +684,10 @@ run(BUILD/'loading-picture-upscaled-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_schedule_probe.c', '-o', BUILD/'texture-upscale-schedule-probe')
 run(BUILD/'texture-upscale-schedule-probe')
+# the Mac apps quit on SIGTERM, SIGINT and SIGHUP (port/ios/host/host_quit_signals.c)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host', 'port/ios/tests/quit_signals_probe.c',
+    'port/ios/host/host_quit_signals.c', '-o', BUILD/'quit-signals-probe')
+run(BUILD/'quit-signals-probe')
 # the import phase's bar and its "ready to start" mark (port/runtime/texture_upscale_import_bar.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_import_bar_probe.c', '-o', BUILD/'texture-upscale-import-bar-probe')
