@@ -441,6 +441,37 @@ static void prayer(void)
 	check(controls[1].menu == 0, "prayer: a hold that begins inside the cooldown never fires");
 }
 
+/* a sample that changes more states than capacity holds (both hands losing all four pinches
+at once: up to 8 pinch-off events) returns a count clamped to capacity, so a caller's
+events[0..count) is always in bounds */
+static void event_capacity_clamped(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[2];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count, finger;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand();
+	joints[1] = make_hand();
+	for (finger = 1; finger <= 4; finger++) /* every pinch on both hands, closed */
+	{
+		joints[0].tip[finger][2] = 0.010f;
+		joints[1].tip[finger][2] = 0.010f;
+	}
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 2); /* capacity matches the
+		buffer on every call: this setup sample emits more than 2 events too, into the same events[2] */
+
+	joints[0].tracked = 0; /* both hands untracked: every one of the 8 closed pinches opens */
+	joints[1].tracked = 0;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 2);
+	check(count == 2, "event capacity: the return clamps to capacity, not the true 8");
+	check(events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0, "event capacity: events[0] is a valid pinch-off");
+	check(events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0, "event capacity: events[1] is a valid pinch-off");
+}
+
 int main(void)
 {
 	pinch_hysteresis();
@@ -454,6 +485,7 @@ int main(void)
 	aim_turn_snap();
 	aim_turn_suppressed_by_drag();
 	prayer();
+	event_capacity_clamped();
 	if (failures)
 	{
 		printf("hands probe: %d FAILED\n", failures);

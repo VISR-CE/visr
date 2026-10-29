@@ -331,5 +331,9 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	if (!joints[1].tracked)
 		memset(&controls[1], 0, sizeof(controls[1]));
 
-	return count;
+	/* emit() only ever writes within capacity, but count keeps counting past it; clamp the
+	return so a caller's for (i = 0; i < count; i++) against events[capacity] is always in
+	bounds, even when a sample emits more state changes than capacity allows (both hands
+	losing every pinch at once can reach 8) */
+	return count < capacity ? count : capacity;
 }
