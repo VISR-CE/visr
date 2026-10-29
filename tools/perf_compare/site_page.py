@@ -172,7 +172,7 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
         # A companion chart of the platform above it: a smaller heading and the chart without the device frame.
         title = f'<h3 id="h-{name}">{escape(spec["heading"])}</h3>'
         # Every chart of a platform sits in the platform's own device frame, so switching charts keeps the frame.
-        frame = FRAMES[re.sub(r"-(gpu|cpu|fps)$", "", name)]
+        frame = FRAMES[re.sub(r"-(ms|fps)$", "", name)]
         media = f'<figure class="device {frame}">{glass_svg("glass-clip-" + name) if "glass" in frame else ""}{screen(chart, frame, "glass-clip-" + name)}</figure>'
         classes = "bench bench-sub"
     else:

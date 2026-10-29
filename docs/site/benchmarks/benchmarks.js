@@ -60,6 +60,10 @@ const DETAILS = { p95_ms: { unit: " ms", text: "95th-percentile frame time", geo
   gpu_p90_ms: { unit: " ms", text: "90th-percentile GPU time per rendered frame", geometric: true, places: 2 },
   cpu_p50_ms: { unit: " ms", text: "median CPU time per frame", geometric: true, places: 2 } };
 
+// Whether the row reports what the chart draws: its first metric, or for a `pair` chart (CPU and GPU time, two independent
+// bars) either metric. Mirrors _has_value in charts.py.
+const hasValue = (row, query) => (query.pair ? query.metrics : query.metrics.slice(0, 1)).some((name) => row[name] !== "");
+
 function suiteValue(group, query, suite) {
   const box = group.filter((row) => String(row.reference_box).toLowerCase() === "true");
   const unsupported = group.filter((row) => row.suite === suite && row.status === "not_supported");
@@ -71,7 +75,7 @@ function suiteValue(group, query, suite) {
   const mine = box.filter((row) => row.suite === suite);
   if (!mine.length) return [null, `no ${suite} measurements yet`, "not_measured"];
   const usable = new Map();
-  const candidates = mine.filter((row) => matches(row, query.filter) && row[query.metrics[0]] !== "");
+  const candidates = mine.filter((row) => matches(row, query.filter) && hasValue(row, query));
   candidates.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   for (const row of candidates) usable.set(row.window, row);
   if (!usable.size) {
@@ -91,7 +95,11 @@ function suiteValue(group, query, suite) {
   }
   // The first metric is the main bar series and the optional second one (a 1% low, or a 90th percentile) the next.
   const second = query.metrics.length > 1 ? query.metrics[1] : null;
-  return [{ avg: geometricMean(rows.map((r) => parseFloat(r[query.metrics[0]]))), details, windows: [...usable.keys()].sort(), low: second && rows.every((r) => r[second] !== "") ? geometricMean(rows.map((r) => parseFloat(r[second]))) : null, rows }, "", ""];
+  const main = query.metrics[0];
+  // A `pair` chart's two values are independent: each is null unless every window reports it.
+  const value = { avg: !query.pair || rows.every((r) => r[main] !== "") ? geometricMean(rows.map((r) => parseFloat(r[main]))) : null, details, windows: [...usable.keys()].sort(), low: second && rows.every((r) => r[second] !== "") ? geometricMean(rows.map((r) => parseFloat(r[second]))) : null, rows };
+  if (value.avg === null && value.low === null) return [null, query.no_data_reason || "no matching measurement", "not_measured"];
+  return [value, "", ""];
 }
 
 // The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick the
@@ -152,7 +160,7 @@ function model(rows, query, suite) {
   const chosen = defaultBuilds(entries, suite === "overall");
   for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
   const reference = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
-  const built = { overall: suite === "overall", entries, box: reference ? reference.host : "" };
+  const built = { overall: suite === "overall", pair: Boolean(query.pair), entries, box: reference ? reference.host : "" };
   if (query.budget) built.budget_ms = budgetMs(platformRows, query);
   return built;
 }
@@ -162,7 +170,7 @@ function model(rows, query, suite) {
 function budgetMs(platformRows, query) {
   const rates = [];
   for (const row of platformRows) {
-    if (String(row.reference_box).toLowerCase() !== "true" || !matches(row, query.filter) || row[query.metrics[0]] === "") continue;
+    if (String(row.reference_box).toLowerCase() !== "true" || !matches(row, query.filter) || !hasValue(row, query)) continue;
     for (const column of ["cap_fps", "display_hz"]) {
       const rate = row[column] === "" || row[column] === undefined ? NaN : Number(row[column]);
       if (Number.isFinite(rate) && rate > 0) { rates.push(rate); break; }
@@ -223,7 +231,7 @@ function overallValue(entry, covered) {
     details[column] = values.some((v) => v === null || v === undefined) ? null
       : (DETAILS[column].geometric ? geometricMean : mean)(values);
   }
-  return { avg: geometricMean(parts.map((p) => p.avg)), details, low: parts.every((p) => p.low !== null) ? geometricMean(parts.map((p) => p.low)) : null, rows: parts.flatMap((p) => p.rows) };
+  return { avg: parts.every((p) => p.avg !== null) ? geometricMean(parts.map((p) => p.avg)) : null, details, low: parts.every((p) => p.low !== null) ? geometricMean(parts.map((p) => p.low)) : null, rows: parts.flatMap((p) => p.rows) };
 }
 
 // The builds a chart draws. For Overall the geometric mean runs over the suites above, for the builds that have all of them.
@@ -285,12 +293,13 @@ function chartSource(spec, built, suite, selected, palette, rows = null) {
   const chart = spec.chart, rename = spec.rename || {};
   const labels = shown.map((e) => (`${rename[e.port_name] || e.port_name} ${e.version}`
     + (e.label.endsWith("(pre-release)") ? " (pre-release)" : "")).replaceAll('"', "'"));
-  const averages = shown.map((e) => e.value.avg);
+  // A pair chart's missing value is a bar that is not drawn: Mermaid gets 0 and a zero-length bar is hidden.
+  const averages = shown.map((e) => (e.value.avg === null ? 0 : e.value.avg));
   const known = shown.map((e) => e.value.low).filter((low) => low !== null);
   // The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average.
   // A time series has no such ceiling: the 90th percentile is above the median by definition.
   const lower = lowerIsBetter(spec.query.metrics[0]);
-  const withLows = known.length > 0;
+  const withLows = known.length > 0 || Boolean(built.pair);
   // A frame-cost axis spans the frame budget, so a bar's length is its share of the budget; a bar over budget stretches it.
   const yMax = chart.y_max ?? (built.budget_ms
     ? Math.max(round1(built.budget_ms), Math.ceil(Math.max(...averages, ...known) * 1.05 * 10) / 10)
@@ -416,13 +425,13 @@ function writeHash(state, specs) {
   history.replaceState(null, "", text ? "#" + decodeURIComponent(text).replaceAll(" ", "%20") : location.pathname + location.search);
 }
 
-// The chart a spec draws: frame rate, GPU time or CPU time, from its first metric.
+// The chart a spec draws: frame rate, or milliseconds per frame (CPU and GPU time).
 function metricKind(spec) {
   const metric = spec.query.metrics[0];
-  return metric.startsWith("gpu_") ? "gpu" : metric.startsWith("cpu_") ? "cpu" : "fps";
+  return spec.query.pair || metric.startsWith("gpu_") || metric.startsWith("cpu_") ? "ms" : "fps";
 }
-const KIND_LABELS = { fps: "FPS", gpu: "GPU", cpu: "CPU" };
-const KIND_ORDER = ["fps", "gpu", "cpu"];
+const KIND_LABELS = { fps: "FPS", ms: "ms" };
+const KIND_ORDER = ["fps", "ms"];
 
 function el(tag, attributes, ...children) {
   const node = document.createElement(tag);
@@ -461,7 +470,8 @@ function groupBars(main, source) {
     const y = parseFloat(top.getAttribute("y")), h = parseFloat(top.getAttribute("height"));
     const hasLow = lower[i] && series[1][i] > 0;
     top.setAttribute("height", h / 2);
-    if (!hasLow) top.setAttribute("y", y + h / 4);
+    // The millisecond chart pairs CPU above GPU, so a lone value keeps its half of the band; a lone fps average is centered.
+    if (!hasLow && !/y-axis "[^"]*(\bms\b|millisecond)/i.test(source)) top.setAttribute("y", y + h / 4);
     if (lower[i]) { lower[i].setAttribute("y", y + h / 2); lower[i].setAttribute("height", h / 2); }
   });
 }
@@ -673,15 +683,13 @@ function unionTable(group, spec, shared, table, state) {
   add("fps", "Average fps", (e) => e.value.avg, num);
   add("fps", "1% low fps", clampedLow, num);
   const fps = kindSpec("fps");
-  const HEADINGS = { p95_ms: "p95 frame time (ms)", on_time_pct: DETAIL_HEADINGS.on_time_pct, gpu_p50_ms: "GPU median (ms)", gpu_p90_ms: "GPU 90th percentile (ms)", cpu_p50_ms: "CPU median (ms)" };
-  const shownDetails = [];
+  const HEADINGS = { p95_ms: "p95 frame time (ms)", on_time_pct: DETAIL_HEADINGS.on_time_pct };
   for (const column of (fps && fps.query.details) || []) {
-    shownDetails.push(column);
     add("fps", HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num);
   }
-  if (!shownDetails.includes("gpu_p50_ms")) add("gpu", "GPU median (ms)", (e) => e.value.avg, num);
-  if (!shownDetails.includes("gpu_p90_ms")) add("gpu", "GPU 90th percentile (ms)", (e) => e.value.low, num);
-  if (!shownDetails.includes("cpu_p50_ms")) add("cpu", "CPU median (ms)", (e) => e.value.avg, num);
+  add("ms", "CPU median (ms)", (e) => e.value.avg, num);
+  add("ms", "GPU median (ms)", (e) => e.value.low, num);
+  add("ms", "GPU 90th percentile (ms)", (e) => (e.value.details || {}).gpu_p90_ms, num);
   const rows = shared[spec.slug];
   if (!rows.length) return null;
   const columns = defs.map((def) => ({ ...def, cells: rows.map((_, i) => def.format(value(def.kind, i, def.read))) }))
@@ -690,10 +698,17 @@ function unionTable(group, spec, shared, table, state) {
   return {
     footnote: clamped ? "1% low within measurement error of the average." : "", box: table ? table.box : "", note: table ? table.note : "", headings: columns.map((c) => c.head), marks: columns.map((c) => group.length > 1 && c.kind === current),
     rows: rows.map((e, i) => {
-      const drawnRow = table && table.rows.find((r) => r.label === e.label);
+      // One note per build for every view, so the rows keep their height when the chart changes: the notes of each view that
+      // draws the build, each part once; a build no view draws gets the reason from the current view.
+      const parts = [];
+      for (const other of group) {
+        const otherTable = other === spec ? table : captionTable(state.models[other.slug], state.selected[other.slug], other.query.details, other.query.windows);
+        const row = otherTable && otherTable.rows.find((r) => r.label === e.label);
+        for (const part of row ? row.notes.split("; ") : []) if (part && !parts.includes(part)) parts.push(part);
+      }
       const entry = state.models[spec.slug].entries.find((x) => entryKey(x) === entryKey(e));
       const missing = entry && /does not report (GPU|CPU)/.exec(entry.reason ? plainReason(entry.reason, state.reasons) : "");
-      const notes = drawnRow ? drawnRow.notes : missing ? `${missing[1]} not reported` : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
+      const notes = parts.length ? parts.join("; ") : missing ? `${missing[1]} not reported` : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
       return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells: columns.map((c) => c.cells[i]), notes };
     }) };
 }
@@ -824,6 +839,10 @@ function buildSelector(group, sections, state, params, draw) {
   const wrap = el("div", { class: "bench-group", "data-group": key });
   lead.before(wrap);
   if (title) wrap.append(title);
+  // One intro for every view, so the text above the device frame has the same height whichever chart is chosen and the
+  // frame never moves. The lead's intro covers all views; the other sections' intros are dropped.
+  const intro = lead.querySelector(":scope > p");
+  if (intro) wrap.append(intro);
   const buttons = [];
   // Each chart's device frame carries its own copy of the control, so the frame never changes when the chart does.
   const makeTabs = () => {
@@ -845,6 +864,7 @@ function buildSelector(group, sections, state, params, draw) {
   group.forEach((spec) => {
     const section = sections[spec.slug];
     for (const heading of section.querySelectorAll(":scope > h2, :scope > h3")) heading.remove();
+    if (section !== lead) section.querySelector(":scope > p")?.remove();
     section.removeAttribute("aria-labelledby");
     section.setAttribute("aria-label", `${key} ${KIND_LABELS[metricKind(spec)]}`);
     section.classList.remove("bench-sub");

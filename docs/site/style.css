@@ -362,6 +362,8 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-table td[data-label="Measured"], .bench-table td[data-label="On time"] { white-space: nowrap; }
 .bench-table td:not([data-label="Notes"]) { min-width: 4.5em; }
 .bench-table thead th:not(:first-child):not(:last-child) { min-width: 4.5em; }
+/* Three header lines for every view, so the rows below do not move when the marked columns bold and wrap differently. */
+.bench-table.fixed thead th { height: calc(0.78rem * 1.4 * 3 + 14px); vertical-align: bottom; }
 @media (max-width: 599px) {
   .bench-table:not(.fixed), .bench-table:not(.fixed) tbody, .bench-table:not(.fixed) tr, .bench-table:not(.fixed) th, .bench-table:not(.fixed) td, .bench-table:not(.fixed) caption { display: block; width: 100%; }
   .bench-table:not(.fixed) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

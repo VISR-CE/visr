@@ -36,11 +36,18 @@ def load_snapshot(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _has_value(row: dict, query: dict) -> bool:
+    """Whether the row reports what the chart draws: its first metric, or for a `pair` chart (CPU and GPU time, two
+    independent bars) either metric. Mirrored by `hasValue` in benchmarks.js."""
+    names = query["metrics"] if query.get("pair") else query["metrics"][:1]
+    return any(row.get(name, "") != "" for name in names)
+
+
 def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
     """(ports, builds) with a value for the spec's first metric among the reference-box rows its filter matches."""
     query = spec["query"]
     found = [row for row in rows if row["platform"] == query["platform"] and row["reference_box"].lower() == "true"
-             and _matches(row, query["filter"]) and row.get(query["metrics"][0], "") != ""]
+             and _matches(row, query["filter"]) and _has_value(row, query)]
     return len({row["port"] for row in found}), len({(row["port"], row["version"], row["build"]) for row in found})
 
 
@@ -60,10 +67,16 @@ def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
                     "name": re.sub(r"-fps$", "", spec["name"]),
                     "paragraph": spec["primary_paragraph"].strip()
                                  + ("" if any(s.get("needs_data") and s["query"]["platform"] == platform for s in kept)
-                                    else " GPU and CPU time per frame are not reported for " + spec["primary_heading"] + " builds yet.")}
+                                    else " GPU and CPU time per frame are not reported for " + spec["primary_heading"] + " builds yet.")
+                                 + (" The ms view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, "
+                                    "on an axis that ends at the frame budget; a build that reports only one is drawn with that bar alone."
+                                    if any(s.get("needs_data") and s["query"]["platform"] == platform for s in kept) else "")}
         elif spec.get("needs_data") and platform not in leads:
             spec = {**spec, "sub": True, "order": spec["sub_order"], "heading": spec.get("sub_heading", spec["heading"]),
-                    "name": spec["name"] if spec["name"].endswith("-cpu") else spec["name"] + "-gpu"}
+                    "name": spec["name"] + "-ms"}
+        elif spec.get("frame_cost") and platform in leads:
+            spec = {**spec, "paragraph": spec["paragraph"].strip()
+                    + " The FPS view shows average fps with the 1% low fps directly below it."}
         result.append(spec)
     return sorted(result, key=lambda spec: (spec.get("order", 1000), spec["name"]))
 
@@ -171,8 +184,7 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
     if not mine:
         return None, f"no {suite} measurements yet", "not_measured"
     usable = {}
-    for row in sorted((r for r in mine if _matches(r, query["filter"])
-                       and r.get(query["metrics"][0], "") != ""), key=lambda r: r["date"]):
+    for row in sorted((r for r in mine if _matches(r, query["filter"]) and _has_value(r, query)), key=lambda r: r["date"]):
         usable[row["window"]] = row
     if not usable:
         skipped = [row for row in mine if row["status"] == "not_measured" and row["notes"]]
@@ -187,10 +199,15 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
     rows = list(usable.values())
     # The first metric is the main bar series and the optional second one (a 1% low, or a 90th percentile) the next.
     second = query["metrics"][1] if len(query["metrics"]) > 1 else None
-    return {"avg": statistics.geometric_mean(float(r[query["metrics"][0]]) for r in rows),
-            "low": (statistics.geometric_mean(float(r[second]) for r in rows)
-                    if second and all(r.get(second, "") != "" for r in rows) else None),
-            "details": _details(rows, query), "windows": sorted(usable), "rows": rows}, "", ""
+    main = query["metrics"][0]
+    # A `pair` chart's two values are independent: each is None unless every window reports it.
+    value = {"avg": (statistics.geometric_mean(float(r[main]) for r in rows) if not query.get("pair") or all(r.get(main, "") != "" for r in rows) else None),
+             "low": (statistics.geometric_mean(float(r[second]) for r in rows)
+                     if second and all(r.get(second, "") != "" for r in rows) else None),
+             "details": _details(rows, query), "windows": sorted(usable), "rows": rows}
+    if value["avg"] is None and value["low"] is None:
+        return None, query.get("no_data_reason", "no matching measurement"), "not_measured"
+    return value, "", ""
 
 
 def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
@@ -251,7 +268,7 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
     chosen = _default_builds(entries, suite == "overall")
     for entry in entries:
         entry["default"] = chosen.get(entry["port"]) is entry
-    built = {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
+    built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
     if query.get("budget"):
         built["budget_ms"] = _budget_ms(platform_rows, query)
     return built
@@ -262,7 +279,7 @@ def _budget_ms(platform_rows: list[dict], query: dict) -> float | None:
     reference-box runs that report the charted metric were held to (the frame cap, else the display rate). Mirrored by `budgetMs` in benchmarks.js."""
     rates = []
     for row in platform_rows:
-        if row["reference_box"].lower() != "true" or not _matches(row, query["filter"]) or row.get(query["metrics"][0], "") == "":
+        if row["reference_box"].lower() != "true" or not _matches(row, query["filter"]) or not _has_value(row, query):
             continue
         for column in ("cap_fps", "display_hz"):
             try:
@@ -329,7 +346,7 @@ def _overall_value(entry: dict, covered: list[str]) -> dict:
         values = [(p.get("details") or {}).get(column) for p in parts]
         details[column] = None if any(v is None for v in values) else (
             statistics.geometric_mean(values) if DETAILS[column][2] == "geometric" else statistics.fmean(values))
-    return {"avg": statistics.geometric_mean(p["avg"] for p in parts), "details": details,
+    return {"avg": (statistics.geometric_mean(p["avg"] for p in parts) if all(p["avg"] is not None for p in parts) else None), "details": details,
             "low": (statistics.geometric_mean(p["low"] for p in parts) if all(p["low"] is not None for p in parts) else None),
             "rows": [r for p in parts for r in p["rows"]]}
 
@@ -414,12 +431,13 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     chart, rename = spec["chart"], spec.get("rename", {})
     labels = [(f"{rename.get(e['port_name'], e['port_name'])} {e['version']}"
                + (" (pre-release)" if e["label"].endswith("(pre-release)") else "")).replace('"', "'") for e in drawn]
-    averages = [e["value"]["avg"] for e in drawn]
+    # A pair chart's missing value is a bar that is not drawn: Mermaid gets 0 and the page hides a zero-length bar.
+    averages = [e["value"]["avg"] if e["value"]["avg"] is not None else 0 for e in drawn]
     known = [e["value"]["low"] for e in drawn if e["value"]["low"] is not None]
     # The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average.
     # A time series has no such ceiling: the 90th percentile is above the median by definition.
     lower = _lower_is_better(spec["query"]["metrics"][0])
-    with_lows = bool(known)
+    with_lows = bool(known) or bool(built.get("pair"))
     if "y_max" in chart:
         y_max = chart["y_max"]
     elif built.get("budget_ms"):
@@ -463,7 +481,7 @@ def direction_note(spec: dict, built: dict | None = None) -> str:
 def has_lows(built: dict, selected: set[str] | None = None) -> bool:
     """Whether any drawn build has a 1% low, so the second bar series is drawn."""
     drawn = _drawn(built, selected)
-    return any(e["value"]["low"] is not None for e in drawn)
+    return bool(built.get("pair") and drawn) or any(e["value"]["low"] is not None for e in drawn)
 
 
 def legend(spec: dict, built: dict | None = None) -> str:

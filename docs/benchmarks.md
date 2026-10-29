@@ -103,7 +103,7 @@ Not measured: [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/relea
 
 ### Vision Pro
 
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported. The ms view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget; a build that reports only one is drawn with that bar alone.
 
 ```mermaid
 ---
@@ -129,38 +129,9 @@ Higher is better.
 
 M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
 
-#### Vision Pro: GPU time
+#### Vision Pro: CPU and GPU time
 
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported.
-
-```mermaid
----
-config:
-  xyChart:
-    width: 520
-    height: 263
-  themeVariables:
-    xyChart:
-      plotColorPalette: "#1593bd, #c8870a"
----
-xychart-beta horizontal
-    title "Campaign: GPU time per frame (ms) against the 11.1 ms frame budget, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3"]
-    y-axis "Milliseconds per frame" 0 --> 11.1
-    bar [7.1]
-```
-
-🟦 Median GPU time (p50)
-
-Lower is better.
-
-M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28).
-
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build does not report GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report GPU time per frame.).
-
-#### Vision Pro: CPU time
-
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report CPU time are listed as not reported.
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported.
 
 ```mermaid
 ---
@@ -173,19 +144,20 @@ config:
       plotColorPalette: "#1593bd, #c8870a"
 ---
 xychart-beta horizontal
-    title "Campaign: CPU time per frame (ms) against the 11.1 ms frame budget, M2 Vision Pro"
+    title "Campaign: CPU and GPU time per frame (ms) against the 11.1 ms frame budget, M2 Vision Pro"
     x-axis "Port and version" ["VISR 0.6.3"]
     y-axis "Milliseconds per frame" 0 --> 11.1
     bar [3.5]
+    bar [7.1]
 ```
 
-🟦 Median CPU time per frame
+🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28).
+M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 3.53 ms median CPU time per frame, 7.07 ms median GPU time per rendered frame).
 
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report CPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build does not report CPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report CPU time per frame.).
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build reports neither CPU nor GPU time per frame.).
 
 <!-- END CHARTS -->
 

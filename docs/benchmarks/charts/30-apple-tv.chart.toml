@@ -1,18 +1,18 @@
 order = 30
 heading = "Apple TV"
-sub_heading = "Apple TV: GPU time"
+sub_heading = "Apple TV: CPU and GPU time"
 sub_order = 35
-paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the profile's frame cap. Lower is better. Builds that do not report GPU time are listed as not reported."
-empty = "No Apple TV GPU times are reported yet."
+paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the profile's frame cap. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported."
+empty = "No Apple TV CPU or GPU times are reported yet."
 box = "Apple TV HD"
 needs_data = true
 frame_cost = true
-series_labels = ["Median GPU time (p50)", "90th-percentile GPU time (p90)"]
+series_labels = ["Median CPU time", "Median GPU time"]
 
 [chart]
 type = "bar"
 horizontal = true
-title_unit = "GPU time per frame (ms)"
+title_unit = "CPU and GPU time per frame (ms)"
 x_label = "Port and version"
 y_label = "Milliseconds per frame"
 y_min = 0
@@ -32,10 +32,12 @@ config:
 
 [query]
 platform = "Apple TV"
-metrics = ["gpu_p50_ms", "gpu_p90_ms"]
+metrics = ["cpu_p50_ms", "gpu_p50_ms"]
+pair = true
+details = ["cpu_p50_ms", "gpu_p50_ms", "gpu_p90_ms"]
 budget = true
 port_order = ["visr", "opence-macos", "corece", "chupathingy", "halo-og"]
-no_data_reason = "GPU time per frame not reported"
+no_data_reason = "CPU and GPU time per frame not reported"
 
 [query.filter]
 frame_mode = "capped"
