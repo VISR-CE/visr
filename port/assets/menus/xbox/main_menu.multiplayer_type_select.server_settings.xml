@@ -11,7 +11,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" x="346" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=cancel" x="368" y="414" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings" controller="1" left="35" top="11" width="605" height="59" bitmap="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/server_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>

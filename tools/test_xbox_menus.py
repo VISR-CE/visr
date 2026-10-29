@@ -150,7 +150,8 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
                 assert [(e.get('event'), e.get(key)) for e in original.findall(tag)] == [
                     (e.get('event'), e.get(key)) for e in copied.findall(tag)]
             if '/header_' in original.get('name'):
-                for key in ('left', 'top', 'width', 'height'):
+                # (their size is their picture's: tools/test_xbox_titles.py)
+                for key in ('left', 'top'):
                     assert copied.get(key) == original.get(key)
                 if original.get('bitmap'):
                     assert copied.get('bitmap') == 'xbox/' + original.get('bitmap')

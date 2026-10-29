@@ -15,7 +15,7 @@
 	</strings>
 	<widget name="xbox/main_menu/solo_level_select/difficulty_indicator" controller="1" width="44" height="48" bitmap="xbox/map/ui/shell/main_menu/difficulty_select/difficulty_options_small">
 	</widget>
-	<widget name="xbox/main_menu/solo_level_select/header_replay_level" controller="1" left="35" top="11" width="605" height="59" bitmap="xbox/main_menu/solo_level_select/header_load_level">
+	<widget name="xbox/main_menu/solo_level_select/header_replay_level" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/solo_level_select/header_load_level">
 	</widget>
 	<widget name="xbox/main_menu/solo_level_select/replay_level_right_data" type="text" controller="1" left="336" top="253" width="260" height="144" string_list="xbox/main_menu/solo_level_select/map_data" string_index="2" font="ui\small_ui" color="#FF2896FF">
 	</widget>

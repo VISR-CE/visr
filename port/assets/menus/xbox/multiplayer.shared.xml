@@ -16,7 +16,7 @@
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/ghost_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options" controller="1" left="35" top="11" width="605" height="59" bitmap="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_banshee" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/banshee_label" />
@@ -129,7 +129,7 @@
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" controller="1" left="35" top="11" width="605" height="59" bitmap="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_label" />

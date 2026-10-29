@@ -32,7 +32,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/b_butn" x="346" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/=cancel" x="368" y="414" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" controller="1" left="35" top="11" width="605" height="59" bitmap="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
+	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/op_server_address" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
