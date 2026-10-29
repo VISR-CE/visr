@@ -368,12 +368,15 @@ static short cached_node_matrix_count = 0;
 static real_matrix4x3 const *cached_node_matrices = NULL;
 static real_matrix4x3 previous_camera_matrix[MAXIMUM_WINDOWS] = {0};
 
-/* rasterizer_environment_fog_screen_draw initializes a local pointer of the
-same name from this array; MSVC resolved the name in that initializer to
-the array, standard C to the new (uninitialized) local */
+/* port: every access goes through this, and the draw routine's local
+pointer to a window's slot has a different name. A local named
+previous_camera_matrix shadowed the array under standard C (MSVC resolved
+the name in its own initializer to the array), so indexing it by window put
+windows 2 and 3 past the end of the array. */
 static real_matrix4x3 *previous_camera_matrix_for_window(
 	short window_index)
 {
+	assert(window_index >= 0 && window_index < MAXIMUM_WINDOWS);
 	return &previous_camera_matrix[window_index];
 }
 static boolean local_environment_fog_screen_model_flag = FALSE;
@@ -1004,7 +1007,7 @@ void _rasterizer_environment_fog_screen_begin(
 
 		if (pass == 0)
 		{
-			real_matrix4x3 *previous_camera_matrix =
+			real_matrix4x3 *window_previous_camera_matrix =
 				previous_camera_matrix_for_window(global_window_parameters.window_index);
 			real_matrix4x3 wind_matrix = *global_identity4x3;
 			real screen_constants[5][4];
@@ -1024,7 +1027,7 @@ void _rasterizer_environment_fog_screen_begin(
 			{
 				fog_screen_saved_window_index = global_window_parameters.window_index;
 				fog_screen_saved_window = *window;
-				fog_screen_saved_camera_matrix = *previous_camera_matrix;
+				fog_screen_saved_camera_matrix = *window_previous_camera_matrix;
 			}
 
 			{
@@ -1050,11 +1053,9 @@ void _rasterizer_environment_fog_screen_begin(
 					}
 					/* January copies the first matrix-sized camera bytes here verbatim. */
 					csmemcpy(
-						&previous_camera_matrix[
-							window_index],
+						previous_camera_matrix_for_window(window_index),
 						&global_window_parameters.camera,
-						sizeof(previous_camera_matrix[
-							window_index]));
+						sizeof(real_matrix4x3));
 				}
 				local_fog_screen_first_time = FALSE;
 			}
@@ -1070,12 +1071,11 @@ void _rasterizer_environment_fog_screen_begin(
 				&vector);
 			wind_matrix.position.x = vector.i;
 			wind_matrix.position.y = vector.j;
-			matrix4x3_inverse(previous_camera_matrix, &matrix);
+			matrix4x3_inverse(window_previous_camera_matrix, &matrix);
 			matrix4x3_multiply(&wind_matrix, &matrix, &matrix);
 			matrix4x3_multiply(&global_window_parameters.frustum.world_to_view, &matrix, &matrix);
 			csmemcpy(
-				&previous_camera_matrix[
-					global_window_parameters.window_index],
+				window_previous_camera_matrix,
 				&global_window_parameters.frustum.world_to_view,
 				sizeof(real_matrix4x3));
 			}
