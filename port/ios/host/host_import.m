@@ -70,6 +70,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     double now=NSProcessInfo.processInfo.systemUptime;
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
     float fraction=(float)status->fraction;double tick=status->tick;
+    NSString *message=status->message?@(status->message):nil;
     dispatch_async(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
         controller.progress.progress=fraction;
@@ -78,7 +79,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         controller.progress.progressTintColor=menu_phase?UIColor.systemGrayColor:halo_upscale_bar_blue();
         [controller.tick setPosition:tick];
         /* (rounded down: 100% only when every texture is made) */
-        controller.statusLabel.text=[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
+        controller.statusLabel.text=message?:[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
         if(menu_phase)controller.cancelButton.hidden=YES;
         else {
             [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
