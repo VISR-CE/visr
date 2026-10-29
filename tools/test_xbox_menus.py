@@ -451,18 +451,33 @@ def test_quit_panel_matches_delete_confirmation_padding():
     assert panel.find('child') is None, 'absolute legend coordinates must not be nested in the text panel'
 
 
-def test_audio_picture_is_embedded_rgba_art():
-    patches = ET.parse(MENUS / 'xbox/patches.xml')
-    audio = next(row for row in patches.iter('row') if row.get('name') == 'profile_item_audio')
-    picture = audio.get('picture')
-    assert picture == 'png:xbox/art/audio.png'
-    png = (MENUS / picture[4:]).read_bytes()
-    assert png[:8] == b'\x89PNG\r\n\x1a\n'
-    assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (512, 256)
-    assert png[24:26] == bytes((8, 6)), '8-bit RGBA'
+def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
+    """Only AUDIO, VIDEO and INTERNET ship as our own art: 4x PNGs of the 512 by 256 drawings, which the profile
+    editor's rows, the multiplayer type screen's INTERNET and DIRECT LINK rows and the hub's slots name."""
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
-    assert picture[4:] in manifest
-    assert picture[4:] in generator().retain_xbox_files(MENUS, [])
+    for name in ('audio', 'video', 'internet'):
+        svg = (MENUS / f'xbox/art/{name}.svg').read_text()
+        assert 'width="512" height="256"' in svg
+        png = (MENUS / f'xbox/art/{name}.png').read_bytes()
+        assert png[:8] == b'\x89PNG\r\n\x1a\n' and png[24:26] == bytes((8, 6)), '8-bit RGBA'
+        assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (2048, 1024)
+        assert f'xbox/art/{name}.png' in manifest
+        assert f'xbox/art/{name}.png' in generator().retain_xbox_files(MENUS, [])
+    patches = ET.parse(MENUS / 'xbox/patches.xml')
+    wired = {row.get('name'): row.get('picture') for row in patches.iter('row') if row.get('picture')}
+    assert wired['profile_item_video'] == 'png:xbox/art/video.png'
+    assert wired['profile_item_audio'] == 'png:xbox/art/audio.png'
+    assert wired['profile_item_network'] == 'png:xbox/art/internet.png'
+    assert wired['multiplayer_type_internet'] == wired['multiplayer_type_join_direct'] == 'png:xbox/art/internet.png'
+    hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
+    frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
+    pngs = [frame.get('png') for frame in frames]
+    assert pngs[1:4] == ['xbox/art/video.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
+    assert all(frame.get('cache') is None for frame in frames[1:4])
+    # the controllers and keyboard stay the player's own, and nothing else borrows the Xbox's video or network pictures
+    assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache') and pngs[4] == 'xbox/art/none.png'
+    bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
+    assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
 
 
 def hub_panel(tmp_path, redraws=()):

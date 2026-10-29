@@ -117,6 +117,18 @@ def browser_art(output):
                         str(svg)], check=True)
 
 
+# the pictures of the profile editor and multiplayer rows that ship as our own art (xbox/art/<name>.svg, 512 by 256):
+# AUDIO, VIDEO, and INTERNET, which NETWORK and DIRECT LINK show too
+REDRAWS = ('audio', 'video', 'internet')
+
+
+def redraw_art(output):
+    """The redraws' PNGs, at 4 times their drawing's size as the other pictures are."""
+    for name in REDRAWS:
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(output / f'{name}.png'),
+                        str(output / f'{name}.svg')], check=True)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     paths = glyph_paths(menus / 'svg/shell/main_menu')
@@ -125,6 +137,7 @@ def generate(menus=MENUS):
     output = menus / 'xbox/art'
     output.mkdir(parents=True, exist_ok=True)
     browser_art(output)
+    redraw_art(output)
     for frame in (0, 1):
         svg = output / f'menu_custom_campaign__{frame}.svg'
         svg.write_text(label_svg(paths, places, total, scale, frame == 1))

@@ -290,11 +290,16 @@ PICTURE_SOURCES = {
 }
 
 
+# the rows whose picture ships as our own art (xbox/art/<name>.png, from tools/xbox_menu_art.py), by the name it has:
+# NETWORK shows the INTERNET picture
+REDRAW_NAMES = {'video': 'video', 'audio': 'audio', 'network': 'internet'}
+
+
 def picture_frame(assets, key):
     """The attributes of a row's picture frame: the redraw if shipped, else the map's own (saved to the cache where
     ui.map is loaded) over the cache and the transparent png."""
     width, height = PICTURE_SIZE
-    redraw = f'{ART}/{key}.png'
+    redraw = f'{ART}/{REDRAW_NAMES.get(key, key)}.png'
     if (assets / redraw).is_file() or key not in PICTURE_SOURCES:
         return {'png': redraw, 'width': str(width), 'height': str(height)}
     tag, index = PICTURE_SOURCES[key]
@@ -392,7 +397,7 @@ def bitmap_document(assets, names):
                 frame.set('index', str(index))
         root.append(bitmap)
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
-    for name, index in (('video', 0), ('network', 2), ('gametype', 3)):
+    for name, index in (('gametype', 3),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
                       index=str(index), png='ce/shell/main_menu/multiplayer_type_select/mp_options__1.png',
@@ -810,10 +815,10 @@ def patch_document(names):
               open=MPT + 'connected\\4way_profile_select\\4way_start2join_screen')
     browser = 'xbox/main_menu/multiplayer_type_select/join_game/join_game_screen'
     patch_row(mp, after=MPT + 'multiplayer_type_conn_item', name='multiplayer_type_internet', text='INTERNET',
-              run='mp type set mode', open=browser, picture=2,
+              run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description='Browse games on the Internet,\\njoin one, or host your own.')
     patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_join_direct', text='DIRECT LINK',
-              run='mp type set mode', open=browser, picture=2,
+              run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description="Join a friend's game with\\nits join code or invite link.")
     # Profile edit: the settings pages that are not the profile's before SAVE CHANGES (the keyboard's only where
     # one is), and DELETE PROFILE after it on the Apple TV, whose remote has no X
@@ -821,8 +826,8 @@ def patch_document(names):
     current = CURRENT
     pages = tuple(row for row in PAGE_ROWS if row[0] != 'controls')
     # Multiplayer's split-screen and system-link diagrams; profile's tuning and keyboard art.
-    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 'png:xbox/art/audio.png',
-                'network': 'bitmap:xbox/pictures/network', 'keyboard': 0}
+    pictures = {'video': f'png:{ART}/video.png', 'audio': f'png:{ART}/audio.png',
+                'network': f'png:{ART}/internet.png', 'keyboard': 0}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:
         attributes = {'name': f'profile_item_{key}', 'text': caption,
