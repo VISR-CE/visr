@@ -117,10 +117,11 @@ static void upscale_phase(NSString *root) {
     VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 632, 46)];
     bar.tick = -1; [content addSubview:bar];
     NSButton *start = [VISRFirstClickButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
-    start.frame = NSMakeRect(275, 18, 130, 32);start.bezelStyle=NSBezelStyleRounded;
-    start.bezelColor=bar_blue();start.contentTintColor=NSColor.blackColor;
-    /* (black on the bar's light blue, as on iPhone and iPad: white on it measures about 1.7:1, black about 12:1;
-       contentTintColor does not reach a rounded button's title, the attributed title does) */
+    start.frame = NSMakeRect(275, 22, 130, 24);   /* (the height a rounded bezel draws in a 32-point frame, to match Try Again) */
+    /* Filled in the bar's blue with a black title, drawn by its own layer: a rounded bezel's color turns gray whenever
+       the window is not key, which left black on dark gray (black on the blue measures about 12:1, white about 1.7:1) */
+    start.bordered = NO; start.wantsLayer = YES;
+    start.layer.backgroundColor = bar_blue().CGColor; start.layer.cornerRadius = 6;
     start.attributedTitle=[[NSAttributedString alloc] initWithString:@"Start playing" attributes:@{
         NSForegroundColorAttributeName: NSColor.blackColor, NSFontAttributeName: [NSFont systemFontOfSize:NSFont.systemFontSize]}];
     start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
@@ -159,7 +160,7 @@ static void upscale_phase(NSString *root) {
             detailText=[NSString stringWithFormat:@"%s\n%s",line,TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL];
         }
         bar.alphaValue=message?0:1;detail.alphaValue=message?1:0;detail.hidden=NO;detail.stringValue=detailText;
-        start.frame=NSMakeRect(message?341:275,18,130,32);
+        start.frame=NSMakeRect(message?341:275,22,130,24);
         start.alphaValue=menu?0:1;start.enabled=!menu;
         retry.alphaValue=message?1:0;retry.enabled=message&&atomic_load(&phase->can_retry)&&!atomic_load(&phase->retry_busy);
         [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
