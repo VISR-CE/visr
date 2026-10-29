@@ -59,6 +59,12 @@ bitmap of the map: `<frame map="ui\shell\...\profile_options" index="1"/>`. (Or
 its bitmap from the top left, one unit to a texel, cut to the widget's size.
 A map's frame with a `width` and `height` is drawn scaled to that size
 instead, from `x` and `y` in the widget (0 if not given).
+A frame with a `png` can also name a `cache`: a PNG in the menus folder that
+the game made from the player's own map (never shipped), drawn instead of
+`png` where it is there and can be drawn. `png` is then what is drawn where it
+is not (a transparent picture, `xbox/art/none.png`, leaves the picture out).
+The in-game settings hub's pictures are frames of this kind, one for each row:
+`xbox/art/<row>.png` where a redraw ships, else `cache/xbox/<row>.png`.
 A list's item shows frame 1 while it has the focus and frame 0 otherwise, if
 the bitmap has exactly two frames; the game's functions choose others.
 

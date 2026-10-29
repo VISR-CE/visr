@@ -950,6 +950,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 		struct halo_menu_frame const *data = &build.menus->frames[source->first_frame + frame];
 		struct bitmap_data *bitmap = &bitmaps[frame];
 		char const *png = data->png;
+		char art[512];
 		long width = data->width, height = data->height;
 
 		/* (a frame of the map's: a copy of its bitmap, which the texture cache
@@ -1012,6 +1013,12 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 		{
 			problem(source->file, source->line, "a frame is 1 to 2048 wide and high:", png);
 			return group;
+		}
+		/* (a frame's cache, where it has one, is tried before its png: "cache|png") */
+		if (data->cache && png)
+		{
+			snprintf(art, sizeof(art), "%s|%s", data->cache, png);
+			png = art;
 		}
 		if (!png_frame_build(bitmap, tag_index, png, width, height))
 		{

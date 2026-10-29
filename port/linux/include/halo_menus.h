@@ -33,6 +33,9 @@ the widget */
 struct halo_menu_frame
 {
 	char const *png;
+	/* a PNG of the player's, made from their own map's art and kept in the menus folder, drawn instead of png
+	where it is there (the shipped redraw is png, the placeholder where there is none) */
+	char const *cache;
 	char const *map;
 	long index;
 	long width, height;

@@ -98,12 +98,16 @@ static char const screen_xml[] =
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
 which replaces it) */
+/* (a picture's "files": the first byte is the texture the stand-in PNG decoder gives, 0 being one that cannot be
+drawn) */
+static const char shipped_png[] = "S";
 const struct menu_file_embedded menu_files_embedded[] =
 {
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
+	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
 };
-const unsigned int menu_files_embedded_count = 2;
+const unsigned int menu_files_embedded_count = 3;
 
 /* ---------- what the game and the platform layer give */
 
@@ -153,8 +157,8 @@ void *global_network_game_server_get(void)
 
 unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned long *levels)
 {
-	(void)png, (void)size, (void)levels;
-	return 0;
+	(void)levels;
+	return size ? ((const unsigned char *)png)[0] : 0;
 }
 
 void gpu_texture_destroy(unsigned int texture)
@@ -887,6 +891,51 @@ static void check_panel_failure(void)
 	free(work);
 }
 
+/* a frame's picture is its cache where the player's file is there and can be drawn, else its png, else nothing */
+static void check_art(void)
+{
+	static unsigned long texture[2];
+	unsigned long levels = 0, id = 100;
+	char path[400];
+	FILE *file;
+	long index;
+	struct { char const *art; unsigned int expected; char const *what; } const cases[] =
+	{
+		{ "cache/xbox/there.png|xbox/art/shipped.png", 'C', "the player's cache is drawn before the shipped png" },
+		{ "cache/xbox/missing.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache is missing" },
+		{ "cache/xbox/broken.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache cannot be" },
+		{ "cache/xbox/missing.png|cache/xbox/missing2.png", 0, "no picture is drawn where there is none" },
+		{ "xbox/art/shipped.png", 'S', "a png alone is drawn" },
+		{ "../cache/xbox/there.png|xbox/art/shipped.png", 'S', "a cache outside the menus folder is not read" },
+	};
+
+	snprintf(path, sizeof(path), "%smenus/cache/xbox", folder);
+	{
+		char command[500];
+
+		snprintf(command, sizeof(command), "mkdir -p '%s'", path);
+		check(system(command) == 0, "the cache folder is made");
+	}
+	for (index = 0; index < 2; index++)
+	{
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/%s.png", folder, index ? "broken" : "there");
+		file = fopen(path, "wb");
+		check(file != NULL, "%s is written", path);
+		if (file)
+		{
+			fputc(index ? 0 : 'C', file);
+			fclose(file);
+		}
+	}
+	for (index = 0; index < (long)(sizeof(cases) / sizeof(*cases)); index++)
+	{
+		texture[1] = id + index;
+		halo_menus_art_register(texture, cases[index].art);
+		check(menu_art_texture(id + index, &levels) == cases[index].expected, "%s", cases[index].what);
+	}
+	halo_menus_art_forget();
+}
+
 int main(int argc, char **argv)
 {
 	snprintf(mode, sizeof(mode), "%s", argc > 1 ? argv[1] : "apple");
@@ -920,6 +969,7 @@ int main(int argc, char **argv)
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
 		check_panel_failure();
+		check_art();
 		menu_tags_unloaded();
 		check(table == map_table && table_count == map_count, "the map's own table is back after unloading");
 	}

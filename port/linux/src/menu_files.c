@@ -520,7 +520,7 @@ static void read_frame(struct reader *reader, const XML_Char **attributes, long 
 	struct halo_menu_frame frame;
 	struct attribute table[] =
 	{
-		{ "png", &frame.png }, { "map", &frame.map }, { "index", NULL, &frame.index },
+		{ "png", &frame.png }, { "cache", &frame.cache }, { "map", &frame.map }, { "index", NULL, &frame.index },
 		{ "width", NULL, &frame.width }, { "height", NULL, &frame.height },
 		{ "x", NULL, &frame.x }, { "y", NULL, &frame.y },
 	};
@@ -531,6 +531,8 @@ static void read_frame(struct reader *reader, const XML_Char **attributes, long 
 	/* (both: the map's bitmap where the map has it, else the png, which a game map needs) */
 	if (!reader->failed && !frame.png && !frame.map)
 		reader_error(reader, "a <frame> has a png or a map bitmap");
+	else if (!reader->failed && frame.cache && !frame.png)
+		reader_error(reader, "a <frame> with a cache has a png too: what is drawn where the cache is not there");
 	else if (!reader->failed && frame.png && (frame.width <= 0 || frame.height <= 0))
 		reader_error(reader, "a <frame> with a png needs width and height");
 	else if (!reader->failed && frame.map && frame.index < 0)
@@ -1178,6 +1180,39 @@ void halo_menus_art_forget(void)
 	art_count = 0;
 }
 
+/* the first of a picture's files that can be drawn: art[].png is one path, or paths separated by | (a frame's
+cache, then its png), each in the menus folder or embedded; 0 for none, which draws nothing */
+static unsigned int art_first_texture(long index, unsigned long *levels)
+{
+	char const *path = art[index].png;
+
+	while (*path)
+	{
+		size_t length = strcspn(path, "|");
+		char candidate[256];
+
+		if (length && length < sizeof(candidate))
+		{
+			unsigned long size = 0;
+			const unsigned char *png;
+			unsigned int texture;
+
+			memcpy(candidate, path, length);
+			candidate[length] = 0;
+			png = file_data(candidate, &size);
+			texture = png ? hud_hires_png_texture(png, size, levels) : 0;
+			if (texture)
+				return texture;
+			if (png)
+				platform_log("menus: could not draw %s", candidate);
+		}
+		path += length;
+		if (*path == '|')
+			path++;
+	}
+	return 0;
+}
+
 unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 {
 	long index;
@@ -1192,10 +1227,7 @@ unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 		return 0;
 	if (!art[index].texture)
 	{
-		unsigned long size = 0;
-		const unsigned char *png = file_data(art[index].png, &size);
-
-		art[index].texture = png ? hud_hires_png_texture(png, size, &art[index].levels) : 0;
+		art[index].texture = art_first_texture(index, &art[index].levels);
 		if (!art[index].texture)
 		{
 			platform_log("menus: could not draw %s", art[index].png);
