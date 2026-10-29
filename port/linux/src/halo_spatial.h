@@ -86,8 +86,10 @@ struct halo_spatial_sample
 	struct halo_spatial_hand hands[2];   /* 0 left, 1 right */
 	/* the game sample only: 1 with both Sense controllers' buttons in
 	gamepad (host_spatial_gamepad.c's table), read at the aiming hand's
-	anchor timestamp (live while that anchor is stale); xinput_sdl.c merges
-	it into port 0 */
+	anchor timestamp (live while that anchor is stale); 2 with the hands'
+	gesture recognizer filling gamepad through that same table instead of
+	the controllers; xinput_sdl.c merges either into port 0, remapping the
+	menu buttons differently per source since only it knows a menu is up */
 	int32_t gamepad_valid;
 	struct halo_spatial_gamepad gamepad;
 };

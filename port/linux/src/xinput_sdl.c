@@ -1557,28 +1557,64 @@ static void sdl_gamepad_state(SDL_Gamepad *gamepad, XINPUT_GAMEPAD *pad)
 	}
 }
 
-/* controller aim's Sense controllers (host_spatial.m maps them onto the
+/* controller aim's Sense controllers, or the bare hands' gesture recognizer
+standing in for them (host_spatial.m or the recognizer maps either onto the
 Xbox gamepad by the spec's table, read at the poses' instant, into the game
-sample): merged into port 0 the way sdl_gamepad_state merges a gamepad, the
-buttons ORed, the larger analog value, a stick only where pushed further.
-In menus Circle (the table's X, action and reload) is B, as the Xbox's menus
-take B for back, and the grip's B (melee) is left out */
+sample, halo_spatial.h's gamepad_valid 1 or 2): merged into port 0 the way
+sdl_gamepad_state merges a gamepad, the buttons ORed, the larger analog
+value, a stick only where pushed further. Only the guest knows a menu is
+up, so the menu remap lives here, one branch per source: a Sense sample
+moves Circle (the table's X, action and reload) onto B, as the Xbox's menus
+take B for back, and the grip's B (melee) is left out; a hands sample has no
+face buttons to give menus directly, so the fire pinch (right trigger) is
+A (accept) and the crouch pinch (left thumb click) is B (back) instead. The
+left stick already drives menu focus (ui_widget.c's _event_type_left_stick
+handling, fed by event_manager.c), so the walk pinches reach it unchanged
+and need no D-pad synthesis here */
 static void sense_gamepad_state(BOOL menus, XINPUT_GAMEPAD *pad)
 {
 	const struct halo_spatial_sample *sample = halo_controller_game_sample();
 	BYTE analog[8];
+	WORD buttons;
 	SHORT left_x, left_y, right_x, right_y;
 	int index;
 
-	if (!sample || sample->gamepad_valid != 1)
+	/* 1 is a Sense sample, 2 is the hands' gesture-built gamepad (both
+	named in halo_spatial.h's gamepad_valid comment); either reaches the
+	game through this same merge, and only the branch below tells them
+	apart */
+	if (!sample || (sample->gamepad_valid != 1 && sample->gamepad_valid != 2))
 		return;
 	memcpy(analog, sample->gamepad.analog, sizeof(analog));
-	if (menus)
+	buttons = sample->gamepad.buttons;
+	if (menus && sample->gamepad_valid == 1)
 	{
 		analog[XINPUT_GAMEPAD_B] = analog[XINPUT_GAMEPAD_X];
 		analog[XINPUT_GAMEPAD_X] = 0;
 	}
-	pad->wButtons |= sample->gamepad.buttons;
+	else if (menus && sample->gamepad_valid == 2)
+	{
+		/* the same analog press test anti_aliasing_chord uses above (64
+		of 255): the fire pinch becomes accept. Zeroed the way the Sense
+		branch above zeros X after moving it to B, so this frame's pad
+		shows the value once, at A, and not a second time at its own
+		trigger slot */
+		if (analog[XINPUT_GAMEPAD_RIGHT_TRIGGER] > 64)
+		{
+			analog[XINPUT_GAMEPAD_A] = 255;
+			analog[XINPUT_GAMEPAD_RIGHT_TRIGGER] = 0;
+		}
+		/* the crouch pinch (left thumb click) becomes back, moved out of
+		the buttons word the same way, so the menu doesn't also see a
+		stick click */
+		if (buttons & XINPUT_GAMEPAD_LEFT_THUMB)
+		{
+			analog[XINPUT_GAMEPAD_B] = 255;
+			buttons &= (WORD)~XINPUT_GAMEPAD_LEFT_THUMB;
+		}
+		/* Start (the prayer pulse) passes through untouched */
+	}
+	pad->wButtons |= buttons;
 	for (index = 0; index < 8; index++)
 	{
 		if (analog[index] > pad->bAnalogButtons[index])
