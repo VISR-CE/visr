@@ -37,9 +37,6 @@ tip lost mid-pinch holds its state for HOLD_SECONDS before opening */
 #define HANDS_PINCH_CLOSE_METERS 0.015f
 #define HANDS_PINCH_OPEN_METERS 0.025f
 #define HANDS_PINCH_HOLD_SECONDS 0.2
-/* the drag turn's range, meters of sideways wrist travel from the pinch's close */
-#define HANDS_DRAG_START_METERS 0.02f
-#define HANDS_DRAG_FULL_METERS 0.15f
 /* the aim turn's ramp, degrees of arm past the deadzone to full deflection. A span, not an
 absolute angle: the deadzone itself is input.hand_turn_deadzone, anywhere from 5 to 60
 degrees, and a ramp measured from 0 would divide by a negative span (inverting the turn) or
@@ -71,14 +68,12 @@ struct hands_pinch { int closed; double lost_since; };
 struct hands_state
 {
 	struct hands_pinch pinch[2][NUMBER_OF_HANDS_PINCHES];   /* [hand][finger] */
-	int drag_anchored; float drag_anchor[3];                 /* the gun hand's wrist at the drag pinch's close */
 	int aim_turn_armed;                                      /* snap mode: inside the deadzone since the last snap */
-	int drag_snapped;                                        /* snap mode: this pinch has fired */
-	/* smooth mode: each turn's contribution is nonzero, so the log gets the
-	same on and off transitions snap mode's pulses give it */
-	int drag_turning, aim_turning;
+	/* smooth mode: the turn's contribution is nonzero, so the log gets the
+	same on and off transitions snap mode's pulse gives it */
+	int aim_turning;
 	double pulse_until; float pulse_x;                       /* the right stick's held snap value */
-	int pulse_kind;                                          /* which turn set the pulse, for its own off event */
+	int pulse_kind;                                          /* the aim turn, for its own off event */
 	/* the prayer sign's geometry gate (distance, fingers) on its own, independent of the
 	palm normals' unmeasured sign: its own on/off transition is what carries the measured dot
 	in the log (host_spatial_hands.c's prayer_near) */
@@ -91,7 +86,7 @@ struct hands_state
 thumb or the fingertip went untracked, which is the one reason a deliberate
 pinch does nothing at all, and its value is the gap's length against the
 hold that ends it (host_spatial_hands.c's pinch_update) */
-enum { HANDS_EVENT_PINCH, HANDS_EVENT_DRAG, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
+enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
 	HANDS_EVENT_PINCH_MISS };
 struct hands_event { int kind, hand, finger, on; float value, threshold; };
 
@@ -127,8 +122,8 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 Sense tracker wins while it is READY and then this is never asked, so
 host_spatial.m's precedence, not this flag, decides who owns a sample */
 int host_spatial_hands_active(void);
-/* zeroes the gesture recognizer's state (pinches, drag anchor, aim turn arm,
-pulses, the prayer sign's dwell): called whenever hands were not this
+/* zeroes the gesture recognizer's state (pinches, aim turn arm, pulses, the
+prayer sign's dwell): called whenever hands were not this
 sample's source, so no pinch or dwell survives into the next sample hands do
 fill (host_spatial.m's host_spatial_sample, the branch that clears
 hands_filled_sample; host_spatial_hands_sample's own WAITING gap) */

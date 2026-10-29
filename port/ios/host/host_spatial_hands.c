@@ -1,7 +1,7 @@
 /* The gesture recognizer (host_spatial_hands.h, declared): pinch hysteresis
 with the tip-loss hold and its no-refire-on-return rule, the gun and off
-hand's button and stick mapping, the drag and aim turns, and the prayer
-sign's dwell and Start pulse. Plain C over the reduced joint facts only, so
+hand's button and stick mapping, the aim turn, and the prayer sign's dwell
+and Start pulse. Plain C over the reduced joint facts only, so
 port/ios/tests/hands_probe.c can run it under ASan and UBSan on a Mac;
 host_spatial_hands.m supplies the joints and reads what this returns. No
 host_logf: the caller logs the events. */
@@ -69,10 +69,10 @@ static void normalize3(float v[3])
 }
 
 /* a value held between low and high, with the NaN guard host_spatial_gamepad.c's stick() has:
-a NaN compares false against both ends, so without it a 0 / 0 from either turn's ramp would
-pass straight through into controls[g].stick_x. Returning low answers both callers: each
-ramp's own floor is "no turn", and the sum's clamp runs from -1 but is handed two already
-clamped ramps, so no NaN can reach it */
+a NaN compares false against both ends, so without it a 0 / 0 from the aim turn's ramp would
+pass straight through into controls[g].stick_x. Returning low answers both callers: the
+ramp's own floor is "no turn", and the stick's clamp runs from -1 but is handed one already
+clamped ramp, so no NaN can reach it */
 static float clampf(float value, float low, float high)
 {
 	if (!(value == value))
@@ -232,8 +232,8 @@ static int prayer_near(const struct host_spatial_hand_joints joints[2], float *d
 }
 
 /* one smooth turn's on or off transition, for the log: nothing while the turn stands as it
-was. Snap mode's own on events come from the two snap branches, which is why this runs only
-in smooth mode (hands_recognize) */
+was. Snap mode's own on event comes from the snap branch, which is why this runs only in
+smooth mode (hands_recognize) */
 static void turn_transition(int *turning, int turning_now, int kind, int hand, int finger, float value,
 	float threshold, struct hands_event *events, int capacity, int *count)
 {
@@ -250,10 +250,10 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	int count = 0;
 	int g = aiming_hand ? 1 : 0, o = !g;
 	int hand, finger;
-	float drag_contribution = 0.0f, aim_contribution = 0.0f, stick_x;
-	/* what each turn last measured, for its own transition below: a turn the gun hand is
+	float aim_contribution = 0.0f, stick_x;
+	/* what the turn last measured, for its own transition below: a turn the gun hand is
 	not making measures 0, which is the reading its off event should carry */
-	float drag_magnitude = 0.0f, aim_yaw = 0.0f;
+	float aim_yaw = 0.0f;
 
 	memset(controls, 0, 2 * sizeof(controls[0]));
 
@@ -279,108 +279,58 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		controls[o].stick_y = -1.0f;
 	controls[o].stick_click = state->pinch[o][HANDS_PINCH_LITTLE].closed ? 1 : 0;
 
-	if (state->pinch[g][HANDS_PINCH_MIDDLE].closed)
+	/* an untracked gun hand has no aim to turn from: the final memset below zeros
+	controls[g].stick_x regardless, but it cannot undo an event already emitted or an
+	armed/pulse state already set from whatever aim_forward the caller passed, which for an
+	untracked hand is a zero vector whose yaw reads 0. Gating the whole computation on
+	joints[g].tracked, the same signal the final memset reads, keeps the aim turn silent and
+	the state untouched while the hand is gone, exactly as the pinch loop above already does
+	for its own events (pinch_update's hand_tracked) */
+	if (joints[g].tracked)
 	{
-		float lateral, sign, magnitude;
+		float yaw, excess, turn_sign;
 
-		/* drag_anchored is false exactly from the pinch's open until its next close (set below,
-		in the else branch), so this is the close transition: a fresh anchor and a fresh latch */
-		if (!state->drag_anchored)
-		{
-			state->drag_anchor[0] = joints[g].wrist[0];
-			state->drag_anchor[1] = joints[g].wrist[1];
-			state->drag_anchor[2] = joints[g].wrist[2];
-			state->drag_anchored = 1;
-			state->drag_snapped = 0;
-		}
-		/* lateral: the drag along the game's left axis, negated so right reads positive */
-		lateral = -(joints[g].wrist[1] - state->drag_anchor[1]);
-		sign = lateral < 0.0f ? -1.0f : 1.0f;
-		magnitude = fabsf(lateral);
-		drag_magnitude = magnitude;
+		yaw = atan2f(aim_forward[1], aim_forward[0]) * (180.0f / (float)M_PI);
+		excess = fabsf(yaw) - deadzone_degrees;
+		turn_sign = yaw < 0.0f ? -1.0f : 1.0f;
+		aim_yaw = yaw;
 
 		if (turn_snap)
 		{
-			if (magnitude > HANDS_DRAG_START_METERS && !state->drag_snapped)
+			if (excess < 0.0f)
+				state->aim_turn_armed = 1;
+			else if (excess > 0.0f && state->aim_turn_armed)
 			{
 				state->pulse_until = now + HANDS_PULSE_SECONDS;
-				state->pulse_x = sign;
-				state->pulse_kind = HANDS_EVENT_DRAG;
-				state->drag_snapped = 1;
-				emit(events, capacity, &count, HANDS_EVENT_DRAG, g, HANDS_PINCH_MIDDLE, 1, magnitude,
-					HANDS_DRAG_START_METERS);
+				state->pulse_x = -turn_sign;
+				state->pulse_kind = HANDS_EVENT_AIM_TURN;
+				state->aim_turn_armed = 0;
+				emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees);
 			}
 		}
 		else
-			/* clamped at both ends, as the aim turn's ramp below is: unclamped, the travel
-			inside START reads negative and a pinch held still on its own anchor turns left */
-			drag_contribution = sign * clampf((magnitude - HANDS_DRAG_START_METERS) /
-				(HANDS_DRAG_FULL_METERS - HANDS_DRAG_START_METERS), 0.0f, 1.0f);
-	}
-	else
-	{
-		state->drag_anchored = 0; /* the pinch is open: the next close picks a fresh anchor */
-
-		/* an untracked gun hand has no aim to turn from: the final memset below zeros
-		controls[g].stick_x regardless, but it cannot undo an event already emitted or an
-		armed/pulse state already set from whatever aim_forward the caller passed, which for an
-		untracked hand is a zero vector whose yaw reads 0. Gating the whole computation on
-		joints[g].tracked, the same signal the final memset reads, keeps the aim turn silent and
-		the state untouched while the hand is gone, exactly as the pinch loop above already does
-		for its own events (pinch_update's hand_tracked) */
-		if (joints[g].tracked)
-		{
-			float yaw, excess, turn_sign;
-
-			yaw = atan2f(aim_forward[1], aim_forward[0]) * (180.0f / (float)M_PI);
-			excess = fabsf(yaw) - deadzone_degrees;
-			turn_sign = yaw < 0.0f ? -1.0f : 1.0f;
-			aim_yaw = yaw;
-
-			if (turn_snap)
-			{
-				if (excess < 0.0f)
-					state->aim_turn_armed = 1;
-				else if (excess > 0.0f && state->aim_turn_armed)
-				{
-					state->pulse_until = now + HANDS_PULSE_SECONDS;
-					state->pulse_x = -turn_sign;
-					state->pulse_kind = HANDS_EVENT_AIM_TURN;
-					state->aim_turn_armed = 0;
-					emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees);
-				}
-			}
-			else
-				aim_contribution = -turn_sign *
-					clampf(excess / HANDS_AIM_TURN_RAMP_DEGREES, 0.0f, 1.0f);
-		}
+			aim_contribution = -turn_sign *
+				clampf(excess / HANDS_AIM_TURN_RAMP_DEGREES, 0.0f, 1.0f);
 	}
 
-	/* snap mode is pulse-only (no smooth fallback); smooth mode sums the two sources; either
-	way a live pulse overrides, since drag and aim turn never both run in the same sample */
-	stick_x = turn_snap ? 0.0f : clampf(drag_contribution + aim_contribution, -1.0f, 1.0f);
+	/* snap mode is pulse-only (no smooth fallback); smooth mode is the aim turn's own
+	contribution; either way a live pulse overrides it */
+	stick_x = turn_snap ? 0.0f : clampf(aim_contribution, -1.0f, 1.0f);
 	if (now < state->pulse_until)
 		stick_x = state->pulse_x;
 	controls[g].stick_x = stick_x;
-	/* the continuous turns report themselves the way the snap branches above report their
-	pulses: on as a contribution first becomes nonzero, off as it falls back to zero, each with
-	what it measured against the threshold it crossed. Without these two the log says nothing
-	at all about smooth turning, which is what the deadzone and the drag distances have to be
-	tuned against */
+	/* the continuous turn reports itself the way the snap branch above reports its pulse: on as
+	the contribution first becomes nonzero, off as it falls back to zero, with what it measured
+	against the deadzone it crossed. Without this the log says nothing at all about smooth
+	turning, which is what the deadzone has to be tuned against */
 	if (!turn_snap)
-	{
-		turn_transition(&state->drag_turning, drag_contribution != 0.0f, HANDS_EVENT_DRAG, g,
-			HANDS_PINCH_MIDDLE, drag_magnitude, HANDS_DRAG_START_METERS, events, capacity, &count);
 		turn_transition(&state->aim_turning, aim_contribution != 0.0f, HANDS_EVENT_AIM_TURN, g, 0, aim_yaw,
 			deadzone_degrees, events, capacity, &count);
-	}
 	/* a pulse's own end, so the log carries the width the caller's sampler gave it rather than
-	only the instant it began. pulse_kind is the turn that set it (the two never overlap) */
+	only the instant it began. pulse_kind is the aim turn, the only source that sets a pulse */
 	if (state->pulse_until > 0.0 && now >= state->pulse_until)
 	{
-		emit(events, capacity, &count, state->pulse_kind, g,
-			state->pulse_kind == HANDS_EVENT_DRAG ? HANDS_PINCH_MIDDLE : 0, 0, state->pulse_x,
-			(float)HANDS_PULSE_SECONDS);
+		emit(events, capacity, &count, state->pulse_kind, g, 0, 0, state->pulse_x, (float)HANDS_PULSE_SECONDS);
 		state->pulse_until = 0.0;
 	}
 

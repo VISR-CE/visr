@@ -115,9 +115,9 @@ static int forward_known[2];
 gesture recognizer reads, while the aim itself needs only the wrist and the
 forearm */
 static struct host_spatial_hand_joints joints[2];
-/* the gesture recognizer's own state (pinches, drag anchor, aim turn arm, the
-prayer dwell): host_spatial_hands_idle resets it whenever hands were not the
-game sample's source, so no pinch or dwell survives into the next one they fill */
+/* the gesture recognizer's own state (pinches, aim turn arm, the prayer
+dwell): host_spatial_hands_idle resets it whenever hands were not the game
+sample's source, so no pinch or dwell survives into the next one they fill */
 static struct hands_state gesture_state;
 /* 1 while the hands source filled the game sample it was last given */
 static int active;
@@ -555,7 +555,6 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 		snprintf(buffer, size, "%s %s", kind == HANDS_EVENT_PINCH ? "pinch" : "miss",
 			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
 		break;
-	case HANDS_EVENT_DRAG: snprintf(buffer, size, "drag"); break;
 	case HANDS_EVENT_AIM_TURN: snprintf(buffer, size, "aim turn"); break;
 	case HANDS_EVENT_PRAYER: snprintf(buffer, size, "prayer"); break;
 	case HANDS_EVENT_START: snprintf(buffer, size, "start"); break;
@@ -634,9 +633,9 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 	if (!filled)
 	{
 		/* the provider is in the session but not running yet (fill's own WAITING): no joints
-		came in, so the recognizer's pinch, drag and prayer state is reset exactly as a Sense
-		takeover resets it (host_spatial_hands_idle) -- a gap here is indistinguishable from a
-		takeover to a pinch that was mid-close */
+		came in, so the recognizer's pinch and prayer state is reset exactly as a Sense takeover
+		resets it (host_spatial_hands_idle) -- a gap here is indistinguishable from a takeover to
+		a pinch that was mid-close */
 		host_spatial_hands_idle();
 		return filled;
 	}

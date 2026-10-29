@@ -1,8 +1,8 @@
 /* The gesture recognizer (port/ios/host/host_spatial_hands.c, included):
 pinch hysteresis and the tip-loss hold, the gun and off hand's button and
-stick mapping, the drag and aim turns (smooth and snap), the prayer sign's
-dwell and Start pulse, and that a hand with tracked == 0 zeros every one of
-its own controls the same sample. */
+stick mapping, the aim turn (smooth and snap), the prayer sign's dwell and
+Start pulse, and that a hand with tracked == 0 zeros every one of its own
+controls the same sample. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -219,130 +219,6 @@ static void mirror_aim(void)
 	check(controls[1].menu == 0, "mirror: the off hand's menu is never set, mirrored too");
 }
 
-/* the drag turn, smooth mode: nothing inside START, then deflection grows linearly between
-START and FULL meters of sideways wrist travel from the pinch's close, right positive,
-clamped past FULL */
-static void drag_smooth(void)
-{
-	struct hands_state state;
-	struct host_spatial_hand_joints joints[2];
-	struct host_spatial_controls controls[2];
-	struct hands_event events[16];
-	const float forward[3] = { 1.0f, 0.0f, 0.0f };
-	int count;
-
-	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand(0);
-	joints[1] = make_hand(1);
-	joints[1].wrist[1] = 0.0f;
-	joints[1].tip[2][2] = 0.010f; /* the gun hand's middle closes: the drag anchor is set here */
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
-
-	/* the pinch held still on its own anchor: no travel at all, so no turn and nothing to log */
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.05, controls, events, 16);
-	check(controls[1].stick_x == 0.0f, "drag smooth: a pinch held still at its anchor turns nothing");
-	check(count == 0, "drag smooth: no event while the drag has not reached START");
-
-	joints[1].wrist[1] = -0.01f; /* 1 cm right, still inside START's 2 cm */
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.07, controls, events, 16);
-	check(controls[1].stick_x == 0.0f, "drag smooth: 1 cm right is inside START, no turn");
-	check(count == 0, "drag smooth: no event 1 cm in");
-
-	joints[1].wrist[1] = -0.02f; /* exactly at START: the ramp's own zero */
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.09, controls, events, 16);
-	check(controls[1].stick_x == 0.0f, "drag smooth: exactly at START is still zero");
-	check(count == 0, "drag smooth: no event exactly at START");
-
-	joints[1].wrist[1] = -0.085f; /* 8.5 cm to the right (right is positive lateral) */
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
-	check(near(controls[1].stick_x, 0.5f, 1e-3f), "drag smooth: 8.5 cm right is 0.5");
-	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 1 &&
-		near(events[0].value, 0.085f, 1e-3f), "drag smooth: one drag-on event with the travel it measured");
-
-	joints[1].wrist[1] = 0.2f; /* 20 cm to the left, past FULL: clamped to -1 */
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
-	check(near(controls[1].stick_x, -1.0f, 1e-3f), "drag smooth: 20 cm left clamps to -1");
-	check(count == 0, "drag smooth: a turn already on says nothing as it crosses sides");
-
-	joints[1].tip[2][2] = 0.05f; /* the pinch opens: the turn ends and says so */
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.3, controls, events, 16);
-	check(controls[1].stick_x == 0.0f, "drag smooth: the pinch opening ends the turn");
-	check(count == 2 && events[1].kind == HANDS_EVENT_DRAG && events[1].on == 0,
-		"drag smooth: the pinch's own open event and the drag's off event");
-}
-
-/* the drag turn, snap mode: one pulse per pinch past START, held for PULSE_SECONDS, no re-fire
-until the pinch opens and closes again */
-static void drag_snap(void)
-{
-	struct hands_state state;
-	struct host_spatial_hand_joints joints[2];
-	struct host_spatial_controls controls[2];
-	struct hands_event events[16];
-	const float forward[3] = { 1.0f, 0.0f, 0.0f };
-	int count;
-
-	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand(0);
-	joints[1] = make_hand(1);
-	joints[1].wrist[1] = 0.0f;
-	joints[1].tip[2][2] = 0.010f; /* middle closes at t = 1.0, wrist y 0 */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
-
-	joints[1].wrist[1] = -0.03f; /* 3 cm right, past START (2 cm) */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
-	check(controls[1].stick_x == 1.0f, "drag snap: the pulse fires right");
-	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 1, "drag snap: one drag event");
-
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.14, controls, events, 16); /* t + 0.09 */
-	check(controls[1].stick_x == 1.0f, "drag snap: the pulse still holds at t + 0.09");
-
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.16, controls, events, 16); /* t + 0.11 */
-	check(controls[1].stick_x == 0.0f, "drag snap: the pulse has released by t + 0.11");
-	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 0,
-		"drag snap: the pulse's end is logged, so its width shows");
-
-	joints[1].wrist[1] = -0.1f; /* still dragging further in the same pinch: no second pulse */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
-	check(controls[1].stick_x == 0.0f, "drag snap: no re-fire while the same pinch stays closed");
-
-	joints[1].tip[2][2] = 0.05f; /* reopen */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
-	joints[1].tip[2][2] = 0.010f; /* and close again, at a fresh anchor */
-	joints[1].wrist[1] = -0.03f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
-	joints[1].wrist[1] = -0.06f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.45, controls, events, 16);
-	check(controls[1].stick_x == 1.0f, "drag snap: a fresh close pinch fires again");
-	check(controls[0].menu == 0, "drag snap: the off hand's menu is never set");
-}
-
-/* the drag turn, snap mode, to the left: the pulse carries the drag's own sign, so a wrist
-travelling the other way turns the other way */
-static void drag_snap_left(void)
-{
-	struct hands_state state;
-	struct host_spatial_hand_joints joints[2];
-	struct host_spatial_controls controls[2];
-	struct hands_event events[16];
-	const float forward[3] = { 1.0f, 0.0f, 0.0f };
-	int count;
-
-	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand(0);
-	joints[1] = make_hand(1);
-	joints[1].wrist[1] = 0.0f;
-	joints[1].tip[2][2] = 0.010f; /* middle closes at t = 1.0, wrist y 0 */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
-
-	joints[1].wrist[1] = 0.03f; /* 3 cm left, past START (2 cm) */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
-	check(controls[1].stick_x == -1.0f, "drag snap left: the pulse fires left");
-	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 1,
-		"drag snap left: one drag event");
-	check(controls[0].menu == 0, "drag snap left: the off hand's menu is never set");
-}
-
 /* the off hand going untracked zeros its own controls the same sample and leaves the gun
 hand's standing, the mirror of hand_untracked_zeros */
 static void off_hand_untracked_zeros(void)
@@ -367,9 +243,8 @@ static void off_hand_untracked_zeros(void)
 	check(controls[1].trigger == 1.0f, "untracked off hand: the gun hand still fires");
 }
 
-/* the aim turn, smooth mode, suppressed while the middle pinch is closed: deflection grows
-linearly over HANDS_AIM_TURN_RAMP_DEGREES past the deadzone's edge, a left yaw turning left
-(negative stick x) */
+/* the aim turn, smooth mode: deflection grows linearly over HANDS_AIM_TURN_RAMP_DEGREES past
+the deadzone's edge, a left yaw turning left (negative stick x) */
 static void aim_turn_smooth(void)
 {
 	struct hands_state state;
@@ -509,9 +384,11 @@ static void aim_turn_untracked_gun_hand(void)
 	check(count == 0, "untracked gun hand: no event even well past the deadzone");
 }
 
-/* the aim turn is suppressed while the gun hand's middle pinch is closed, even well past the
-deadzone: the drag is the only source of stick_x */
-static void aim_turn_suppressed_by_drag(void)
+/* the gun hand's thumb-to-middle pinch is unbound: closed, it neither suppresses nor feeds the
+aim turn, which fires past the deadzone exactly as it does with the pinch open, and the pinch
+itself sets no control of its own (unlike the off hand's pinches, the gun hand's middle has no
+mapping at all) */
+static void aim_turn_with_middle_pinch_closed(void)
 {
 	struct hands_state state;
 	struct host_spatial_hand_joints joints[2];
@@ -523,17 +400,16 @@ static void aim_turn_suppressed_by_drag(void)
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
-	forward[0] = cosf(40.0f * (float)M_PI / 180.0f); forward[1] = sinf(40.0f * (float)M_PI / 180.0f); forward[2] = 0.0f;
+	joints[1].tip[2][2] = 0.010f; /* the gun hand's middle closes */
+	forward[0] = cosf(-45.0f * (float)M_PI / 180.0f); forward[1] = sinf(-45.0f * (float)M_PI / 180.0f); forward[2] = 0.0f;
 
-	joints[1].wrist[1] = 0.0f;
-	joints[1].tip[2][2] = 0.010f; /* the gun hand's middle closes: drag owns the stick now */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
-
-	joints[1].wrist[1] = -0.03f; /* past the drag's START, at yaw 40 (well past the deadzone) */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
-	check(controls[1].stick_x == 1.0f, "suppressed: the drag's pulse alone sets stick_x");
-	check(count == 1, "suppressed: exactly one pulse, from the drag");
-	check(events[0].kind == HANDS_EVENT_DRAG, "suppressed: the one pulse is the drag's, not the aim turn's");
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	check(near(controls[1].stick_x, 1.0f, 1e-3f), "middle pinch closed: 45 degrees right still turns +1");
+	check(controls[1].trigger == 0.0f && controls[1].face_low == 0,
+		"middle pinch closed: the pinch itself sets no control");
+	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].finger == HANDS_PINCH_MIDDLE &&
+		events[0].on == 1 && events[1].kind == HANDS_EVENT_AIM_TURN && events[1].on == 1,
+		"middle pinch closed: the pinch's own event, then the aim turn's, unrelated to each other");
 }
 
 /* both hands in the prayer sign: palms together and opposed per the pinned formula,
@@ -717,14 +593,11 @@ int main(void)
 	off_hand_untracked_zeros();
 	off_hand_mapping();
 	mirror_aim();
-	drag_smooth();
-	drag_snap();
-	drag_snap_left();
 	aim_turn_smooth();
 	aim_turn_wide_deadzone();
 	aim_turn_snap();
 	aim_turn_untracked_gun_hand();
-	aim_turn_suppressed_by_drag();
+	aim_turn_with_middle_pinch_closed();
 	prayer();
 	start_pulse_outlives_the_hands();
 	pinch_miss_logged();

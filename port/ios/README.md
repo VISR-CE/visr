@@ -668,9 +668,8 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
 - **Bare hands.** With `display.stereo = "head"` (so `display.immersive =
   true`), `input.aim = "hands"` aims with the dominant forearm rather than a
   controller or the head. The gun hand's thumb to index fires, held for
-  automatic fire; thumb to ring jumps; thumb to middle held and dragged
-  sideways turns, and so does holding the arm past
-  `input.hand_turn_deadzone` degrees to one side, both turns governed by
+  automatic fire; thumb to ring jumps; holding the arm past
+  `input.hand_turn_deadzone` degrees to one side turns, governed by
   `input.turn`, `input.snap_angle` and `input.smooth_turn_speed` the same way
   the Sense stick is. The off hand's thumb to index walks forward where you
   look, thumb to middle walks backward, and thumb to little finger crouches.
@@ -682,7 +681,7 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
   accessory-tracking permission as well as the hand tracking one, so a pair
   picked up can take over. A classic gamepad still works for buttons
   alongside hand aiming: its Back held as the prayer sign fires reaches the
-  game as Back plus Start, which ends a `debug.controller_record` recording,
+  game as Back plus Start, which ends a `debug.input_record` recording,
   and is not the chord that leaves the immersive space (that one reads Back
   and Start from a gamepad's own buttons, held together for a second).
   `debug.hand_log` logs every gesture's state change with the value measured
