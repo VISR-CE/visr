@@ -1,6 +1,6 @@
 /* The 0.6.0 profile feed (docs/data-packs.md, "Profile feed generations"): an iPhone 17 Pro keeps every bundled
    key, network.player_capacity included, with a stale device-profiles-1 shard on disk, with a current
-   device-profiles-2 shard, and after an update makes a cached shard older than its bundled profiles; an Apple TV 4K
+   device-profiles-3 shard, and after an update makes a cached shard older than its bundled profiles; an Apple TV 4K
    (3rd generation) likewise keeps display.upscaled_textures on, which its live device-profiles-1 shard turns off.
    Usage: profile-feed-probe REPOSITORY V1_PUBLIC_KEY V2_PUBLIC_KEY V2_IPHONE_SHARD V2_APPLE_TV_SHARD
    (the device-profiles-1 shards are the live ones checked in under docs/site/packs/tester/profiles) */
@@ -83,7 +83,7 @@ static void writeRevision(NSString *profiles, long long revision)
 int main(int argc, char **argv)
 {
     @autoreleasepool {
-        if (argc != 6) { fprintf(stderr, "usage: %s REPOSITORY V1_KEY V2_KEY V2_IPHONE_SHARD V2_APPLE_TV_SHARD\n", argv[0]); return 2; }
+        if (argc != 6) { fprintf(stderr, "usage: %s REPOSITORY V1_KEY V3_KEY V3_IPHONE_SHARD V3_APPLE_TV_SHARD\n", argv[0]); return 2; }
         NSString *live = [@(argv[1]) stringByAppendingPathComponent:@"docs/site/packs/tester/profiles"];
         NSFileManager *fm = NSFileManager.defaultManager;
         NSString *base = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
         NSString *tvLaunch = [tvCurrent beginLaunch];
         CHECK([fm fileExistsAtPath:tvOldFolder] && [tvLaunch isEqual:bundled] && [upscaling(tvLaunch) isEqual:@"true"],
             "0.6.0 on the Apple TV ignores the stored v1 shard and keeps upscaled textures on");
-        CHECK([tvCurrent stageEnvelope:[NSData dataWithContentsOfFile:@(argv[5])] error:&error], "the Apple TV's device-profiles-2 shard stages");
+        CHECK([tvCurrent stageEnvelope:[NSData dataWithContentsOfFile:@(argv[5])] error:&error], "the Apple TV's device-profiles-3 shard stages");
         NSString *tvNext = [profileStore(bundled, tv) beginLaunch];
         CHECK(![tvNext isEqual:bundled] && [upscaling(tvNext) isEqual:@"true"], "the Apple TV's v2 shard keeps upscaled textures on");
 
@@ -131,9 +131,9 @@ int main(int argc, char **argv)
         CHECK([fm fileExistsAtPath:oldFolder], "the stale v1 shard is still on disk");
         CHECK([launch isEqual:bundled] && [capacity(launch) isEqual:@"32"], "0.6.0 ignores the v1 shard and keeps network.player_capacity 32");
 
-        // A device-profiles-2 shard signed from these sources stages, activates and keeps every key.
+        // A device-profiles-3 shard signed from these sources stages, activates and keeps every key.
         NSData *v2 = [NSData dataWithContentsOfFile:@(argv[4])];
-        CHECK([current stageEnvelope:v2 error:&error] && !current.lastFeedSuperseded, "the device-profiles-2 shard at the bundled revision stages");
+        CHECK([current stageEnvelope:v2 error:&error] && !current.lastFeedSuperseded, "the device-profiles-3 shard at the bundled revision stages");
         HostDataPackStore *next = profileStore(bundled, d);
         NSString *v2Folder = [next beginLaunch]; [next markHealthy];
         CHECK(![v2Folder isEqual:bundled] && [v2Folder hasPrefix:dataPackCacheOverride], "the next launch uses the downloaded v2 shard");
@@ -184,7 +184,7 @@ int main(int argc, char **argv)
         [menu menuSnapshot];
         dispatch_sync(updatesQueue(), ^{
             profiles = menu; recordings = menu;
-            menuProfileURL = [NSURL URLWithString:@"https://example.com/packs/tester/device-profiles-2/ios/iPhone18,1/_.json"]; menuRecordingURL = nil;
+            menuProfileURL = [NSURL URLWithString:@"https://example.com/packs/tester/device-profiles-3/ios/iPhone18,1/_.json"]; menuRecordingURL = nil;
             @synchronized(selectionLock()) {
                 menuFrozen = NO; menuVisible = YES; menuInitialized = YES; profileFolder = nil; profileIdentity = nil;
                 profileReady = NO; profileLoading = YES; recordingReady = YES; recordingLoading = NO;

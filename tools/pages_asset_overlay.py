@@ -46,7 +46,7 @@ FEED2 = re.compile(re.escape(PREFIX) + r"recordings-2-([0-9a-f]{64})\.json")
 LEGACY_PROFILE_INDEX = PREFIX + "profiles-2.json"
 # Each device-profile generation's shards live in their own directory: profiles/ holds the frozen
 # device-profiles-1 shards that 0.4.2 to 0.5.1 read, device-profiles-N/ the later generations'.
-PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2"}
+PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2", "device-profiles-3": "device-profiles-3"}
 # Live feeds that source deletion alone would not remove: stage_site keeps every live asset the source lacks,
 # so a retired recording feed is named here. They served only releases before 0.6.0.
 RETIRED_FEEDS = frozenset(
@@ -61,7 +61,7 @@ RETIRED_FEEDS = frozenset(
 )
 # 0.6.3's launch menu quarantines every new device-profiles-2 shard sequence (two data-pack stores share one
 # cache root) and then reports the profile server unreachable; a 404 makes it use its bundled profiles. The
-# generation's shards stay off the site until a fixed client reads them.
+# generation stays off the site: 0.6.4 and later read device-profiles-3.
 RETIRED_PROFILE_DIRECTORIES = (PREFIX + "device-profiles-2/",)
 
 
