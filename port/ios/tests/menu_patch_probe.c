@@ -864,6 +864,44 @@ static void check_apple(boolean tvos)
 		check(pc_menus_screen(pregame) == pregame, "a system link game's pregame stays the Xbox's");
 		check(pc_menus_screen(postgame) == postgame, "the postgame map select stays the Xbox's for system link");
 		probe_lan = FALSE;
+		{
+			char const *const pc_pregame = "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
+			char const *const pc_postgame = "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper";
+			char const *const xbox_pregame = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
+			struct
+			{
+				char const *mode;
+				int pad, lan;
+				char const *pregame, *postgame;
+			} const cases[] =
+			{
+				{ "auto", 0, FALSE, pc_pregame, pc_postgame },
+				{ "auto", 0, TRUE, pc_pregame, pc_postgame },
+				{ "auto", 1, FALSE, xbox_pregame, postgame },
+				{ "auto", 1, TRUE, pregame, postgame },
+				{ "pc", 1, FALSE, pc_pregame, pc_postgame },
+				{ "pc", 1, TRUE, pc_pregame, pc_postgame },
+				{ "xbox", 0, FALSE, xbox_pregame, postgame },
+				{ "xbox", 0, TRUE, pregame, postgame },
+			};
+			long index;
+			for (index = 0; index < NUMBEROF(cases); index++)
+			{
+				menu_mode = cases[index].mode;
+				input_pad = cases[index].pad;
+				probe_lan = cases[index].lan;
+				/* A newly loaded map or the previous screen may hold the other look. */
+				menu_tags.xbox_set = !input_pad;
+				check(!strcmp(pc_menus_screen(pregame), cases[index].pregame),
+					"%s pregame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
+				check(!strcmp(pc_menus_screen(postgame), cases[index].postgame),
+					"%s postgame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
+			}
+			menu_mode = "xbox";
+			input_pad = 1;
+			probe_lan = FALSE;
+			menu_tags.xbox_set = TRUE;
+		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
 	/* Four widgets, two bitmaps and the PC description list precede patch tags. */

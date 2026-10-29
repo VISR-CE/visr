@@ -3020,19 +3020,25 @@ static void menu_profile_description(int keyboard)
 	}
 }
 
-long pc_menu_screen_open(long tag_index)
+static int menu_use_xbox(void)
 {
 	extern int platform_menu_pad(void);
+	char const *setting = config_string("display.menus");
+
+	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
+}
+
+long pc_menu_screen_open(long tag_index)
+{
 	extern int platform_menu_keyboard(void);
 	char const *name, *target;
-	char const *setting = config_string("display.menus");
 	long replacement;
 	int use_xbox;
 	if (!menu_tags.loaded || tag_index == NONE) return tag_index;
 	menu_profile_description(platform_menu_keyboard());
 	name = tag_get_name(tag_index);
 	if (!name) return tag_index;
-	use_xbox = !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
+	use_xbox = menu_use_xbox();
 	target = menu_screen_equivalent(name, use_xbox);
 	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
 	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))
@@ -3182,9 +3188,8 @@ short pc_menu_string_index(
 	return definition ? definition->string_list_index : NONE;
 }
 
-/* the screen the engine opens by name after a network game (the Xbox's),
-or ours where the PC version's menus are up: the host's map select, the
-lobby */
+/* Named network transitions use the current input just like pc_menu_screen_open;
+these map-select and pregame screens are not in the equivalence table. */
 char const *pc_menus_screen(
 	char const *name)
 {
@@ -3205,7 +3210,7 @@ char const *pc_menus_screen(
 
 	if (!menu_tags.loaded)
 		return name;
-	if (menu_tags.xbox_set)
+	if (menu_use_xbox())
 	{
 		/* (the Xbox's screens, but the pregame of an Internet or Direct Link game: the lobby, which has the
 		invites, the password and the players to add; system link keeps the Xbox's) */
