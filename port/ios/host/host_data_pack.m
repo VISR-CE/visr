@@ -575,7 +575,9 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
     if (!pack) { [self selectBundled]; return; }
     NSMutableDictionary *next = [_state mutableCopy];
     next[@"active"] = name;
-    next[@"trial"] = @(![name isEqual:next[@"healthy"]]);
+    // A boolean, as loadState requires: @(!x) is an integer NSNumber, and a state holding one is unreadable at the next
+    // start, which then starts the store over (losing the snapshot and the crash rollback).
+    next[@"trial"] = [name isEqual:next[@"healthy"]] ? @NO : @YES;
     if ([name isEqual:next[@"pending"]]) next[@"pending"] = @"";
     if ([self writeState:next error:NULL]) [self selectGeneration:name pack:pack];
     else {
