@@ -166,6 +166,12 @@ static void refusals(void)
 
 static void import_retry(void)
 {
+	char line[256];
+	texture_upscale_import_storage_line(line, sizeof(line), "1.05 GB", "3.22 GB", 0);
+	assert(!strcmp(line, "Found 1.05 GB free; upscaling needs 3.22 GB."));
+	texture_upscale_import_storage_line(line, sizeof(line), "2.10 GB", "3.22 GB", 1);
+	assert(!strcmp(line, "Still not enough free storage. Found 2.10 GB free; upscaling needs 3.22 GB."));
+
 	for (int e = 0; e < TEXTURE_UPSCALE_END_COUNT; e++)
 	{
 		enum texture_upscale_end end = (enum texture_upscale_end)e;
