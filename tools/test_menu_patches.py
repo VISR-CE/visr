@@ -13,11 +13,15 @@ import shutil
 import subprocess
 import sys
 
-import pytest
-
-# the probes build with the Apple toolchain (xcrun clang), as tools/ios_test.py runs them
-pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("xcrun"),
-                                reason="needs the Apple toolchain (xcrun)")
+# the probes build with the Apple toolchain (xcrun clang), as tools/ios_test.py runs them; tools/ios_test.py runs
+# this file as a script, where pytest may not be installed
+try:
+    import pytest
+except ImportError:
+    pytest = None
+else:
+    pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("xcrun"),
+                                    reason="needs the Apple toolchain (xcrun)")
 
 ROOT = Path(__file__).resolve().parents[1]
 EXPAT = ROOT / "port/third_party/expat"
