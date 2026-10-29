@@ -297,20 +297,117 @@ static BOOL ornament_shown;
 static BOOL space_opening;
 static struct host_stereo_chord chord;
 
-/* the window's Enter VR ornament, and its window bar, shown while the game
-is in its window and hidden while VR is open */
+/* SDL's UIWindow for the game, whatever scene holds it (none while parked) */
+static UIWindow *sdl_window(void)
+{
+	SDL_Window *window = host_sdl_window();
+
+	return window ? (__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+		SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, NULL) : nil;
+}
+
+/* the window's Enter VR ornament, shown while the game is in its window */
 static void enter_ornament_shown(BOOL shown)
 {
 	if (@available(visionOS 26.0, *))
 	{
-		UIViewController *controller = game_window().rootViewController;
+		UIViewController *controller = sdl_window().rootViewController;
 
 		if (!controller || shown == ornament_shown)
 			return;
 		host_theater_ornament((__bridge void *)controller, shown);
-		host_theater_window_overlays((__bridge void *)controller, !shown);
 		ornament_shown = shown;
 	}
+}
+
+/* While VR is open the game's window is dismissed, as visionOS apps put
+their windows away in a full space: a hidden UIWindow still leaves its
+scene's window bar floating in the space, and UIKit has no way to hide it.
+SDL's UIWindow is kept (parked_window) and its scene closed; host_main.m's
+disconnect observer doesn't quit for it (host_theater_window_parked). When
+the space closes, a new window scene is requested; SDL's delegate connects
+it (its second start of the game is ignored, host_main.m), and the parked
+UIWindow moves into it at its old size, with SDL's launch window hidden. */
+static UIWindow *parked_window;
+static CGSize parked_size;
+static BOOL window_restoring;
+static id scene_connect_observer;
+
+int host_theater_window_parked(void)
+{
+	return parked_window != nil;
+}
+
+static void window_adopt(UIWindowScene *scene)
+{
+	UIWindow *window = parked_window;
+
+	if (!window)
+		return;
+	parked_window = nil;
+	window_restoring = NO;
+	for (UIWindow *other in scene.windows)
+		if (other != window)
+			other.hidden = YES;
+	window.windowScene = scene;
+	window.hidden = NO;
+	[window makeKeyAndVisible];
+	if (@available(visionOS 26.0, *))
+		if (parked_size.width > 0.0 && parked_size.height > 0.0)
+			[scene requestGeometryUpdateWithPreferences:[[UIWindowSceneGeometryPreferencesVision alloc]
+				initWithSize:parked_size] errorHandler:nil];
+	host_logf(HOST_LOG_INFO, "theater: the game's window is back in a new window scene (%.0fx%.0f)",
+		parked_size.width, parked_size.height);
+	/* (ornaments set while the window had no scene don't come with it) */
+	if (@available(visionOS 26.0, *))
+	{
+		host_theater_ornament((__bridge void *)window.rootViewController, 0);
+		ornament_shown = NO;
+		enter_ornament_shown(YES);
+	}
+	host_extra_scene_restore_watch();
+}
+
+static void window_park(void)
+{
+	UIWindow *window = sdl_window();
+	UIWindowScene *scene = window.windowScene;
+
+	if (parked_window || !window || !scene)
+		return;
+	parked_window = window;
+	parked_size = scene.coordinateSpace.bounds.size;
+	host_logf(HOST_LOG_INFO, "theater: putting the game's window away while VR is open (%.0fx%.0f)",
+		parked_size.width, parked_size.height);
+	[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil
+		errorHandler:^(NSError *error) {
+			host_logf(HOST_LOG_WARN, "theater: the game's window didn't close: %s", error.localizedDescription.UTF8String);
+		}];	host_extra_scene_restore_watch();
+}
+
+static void window_unpark(void)
+{
+	if (!parked_window || window_restoring)
+		return;
+	window_restoring = YES;
+	if (!scene_connect_observer)
+		scene_connect_observer = [NSNotificationCenter.defaultCenter addObserverForName:UISceneWillConnectNotification
+			object:nil queue:nil usingBlock:^(NSNotification *notification) {
+				UIScene *scene = notification.object;
+
+				if (window_restoring && [scene isKindOfClass:UIWindowScene.class] &&
+					![scene.session.role hasSuffix:@"ImmersiveSpaceApplication"])
+					window_adopt((UIWindowScene *)scene);
+			}];
+	host_logf(HOST_LOG_INFO, "theater: asking for a window scene for the game's window");
+	[UIApplication.sharedApplication requestSceneSessionActivation:nil userActivity:nil options:nil
+		errorHandler:^(NSError *error) {
+			/* no window to come back to: as when the player closes the game's
+			window (host_main.m), the game ends; it saves at checkpoints */
+			host_logf(HOST_LOG_WARN, "theater: no window scene for the game's window (%s); quitting",
+				error.localizedDescription.UTF8String);
+			host_exit(0);
+		}];
 }
 
 static void space_open(void)
@@ -405,6 +502,7 @@ void host_theater_attach(void *renderer)
 	space_opening = NO;
 	enter_ornament_shown(NO);
 	window_hidden(YES);
+	window_park();
 	host_stereo_hint_arm();
 	/* the once-only logs, theater's and stereo's, repeat for each opening */
 	theater_frames = 0;
@@ -491,6 +589,7 @@ int host_theater_active(void)
 		}
 		host_stereo_set_entered(0);
 		enter_ornament_shown(YES);
+		window_unpark();
 		return 0;
 	}
 	return 1;

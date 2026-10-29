@@ -122,10 +122,9 @@ void host_theater_close(void);
 /* for host_theater.m: the Enter VR ornament on the game's window (a
 UIViewController, unretained), shown or removed (Theater.swift) */
 void host_theater_ornament(void *controller, int shown);
-/* for host_theater.m: hides (1) or shows (0) the game's window bar and other
-system overlays on the window's root controller (a UIViewController,
-unretained), hidden only while VR is open (Theater.swift) */
-void host_theater_window_overlays(void *controller, int hidden);
+/* 1 while the game's window is put away because VR is open: its scene's
+closing isn't the player closing the game (host_main.m) */
+int host_theater_window_parked(void);
 /* debug.test_theater_reopen (host_sdl.c): leaves VR if the space is open,
 else presses Enter VR */
 void host_theater_test_toggle(void);

@@ -191,6 +191,13 @@ scene closes once the game's window exists */
 /* polls left to watch the game's window after an extra scene closed */
 static int extra_scene_watch;
 
+/* theater mode (host_theater.m): the game's window was put away or came
+back in a new scene, and SDL's delegate for the old scene told the app it
+went to the background: watch for the minimized window as above */
+void host_extra_scene_restore_watch(void) {
+    extra_scene_watch=600;
+}
+
 void host_extra_scene_poll(void) {
     /* SDL's delegate for the closed scene tells the whole app it went to the
        background (SDL_uikitappdelegate.m: SDL_OnApplicationDidEnterBackground),
@@ -337,6 +344,8 @@ int main(int argc,char **argv) {
         install_apple_events_timer();
 #endif
 #if TARGET_OS_VISION
+        /* host_theater.m */
+        extern int host_theater_window_parked(void);
         /* Closing the window is how a visionOS app is left, and an app reopened
            into a new scene would have no game window: quit (the game saves at
            checkpoints). Registered before the import setup screen, whose wait
@@ -346,6 +355,12 @@ int main(int argc,char **argv) {
             usingBlock:^(NSNotification *notification){
                 /* an extra window scene closing (close_extra_window_scenes), or
                 theater mode's space, isn't the game's window closing */
+                /* nor is the game's window put away while VR is open (host_theater.m) */
+                if(host_theater_window_parked() && ![((UIScene *)notification.object).session.role
+                    hasSuffix:@"ImmersiveSpaceApplication"]){
+                    host_logf(HOST_LOG_INFO,"the game's window scene closed while VR is open; the window is kept");
+                    return;
+                }
                 if(!scene_is_the_games(notification.object)){
                     host_logf(HOST_LOG_INFO,"a scene that isn't the game's window disconnected");
                     return;
