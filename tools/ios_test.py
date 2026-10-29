@@ -684,6 +684,10 @@ run(BUILD/'loading-picture-upscaled-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_schedule_probe.c', '-o', BUILD/'texture-upscale-schedule-probe')
 run(BUILD/'texture-upscale-schedule-probe')
+# the import phase's bar and its "ready to start" mark (port/runtime/texture_upscale_import_bar.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
+    'port/ios/tests/texture_upscale_import_bar_probe.c', '-o', BUILD/'texture-upscale-import-bar-probe')
+run(BUILD/'texture-upscale-import-bar-probe')
 # the import phase's continued processing (port/runtime/texture_upscale_continued.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_continued_probe.c', '-o', BUILD/'texture-upscale-continued-probe')
