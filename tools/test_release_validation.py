@@ -1171,3 +1171,46 @@ def test_cloud_saves_policy_is_explicit_and_defaults_off():
     assert command[command.index("--cloud-container") + 1] == "iCloud.org.steverice.visr"
     with pytest.raises(ValueError, match="cloud-saves"):
         validation.compare_evidence({**policy(), "cloud_saves": "on"}, policy())
+
+
+def test_check_feeds_requires_the_legacy_host_to_match_a_feeds_host_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    values = {
+        **policy(),
+        "profile_feed_url": "https://feeds.visr.gg/packs/tester/device-profiles-3",
+        "recording_feed_required": "off",
+        "profile_feed_sha256s": {"ios/iPhone18,1/_": "a" * 64},
+        "shader_feed_url": "https://feeds.visr.gg/packs/tester/shaders.json",
+    }
+    values.pop("profile_feed_sha256", None)
+    served = {
+        "https://feeds.visr.gg/packs/tester/device-profiles-3/ios/iPhone18,1/_.json": b"profile",
+        "https://feeds.visr.gg/packs/tester/shaders.json": b"shaders",
+        "https://code.steverice.org/visr/packs/tester/device-profiles-3/ios/iPhone18,1/_.json": b"profile",
+        "https://code.steverice.org/visr/packs/tester/shaders.json": b"shaders",
+    }
+
+    class Response:
+        def __init__(self, url: str) -> None:
+            self.url = url
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self, limit: int) -> bytes:
+            return served[self.url][:limit]
+
+    class Opener:
+        def open(self, url: str, timeout: int) -> Response:
+            return Response(url)
+
+    monkeypatch.setattr(validation.urllib.request, "build_opener", lambda *_args: Opener())
+    monkeypatch.setattr(validation, "verify_feed", lambda *_args, **_kwargs: None)
+    assert validation.check_feeds(values) is None
+    served["https://code.steverice.org/visr/packs/tester/shaders.json"] = b"stale"
+    with pytest.raises(ValueError, match="different bytes"):
+        validation.check_feeds(values)

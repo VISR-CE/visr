@@ -21,7 +21,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 if __package__:
-    from . import benchmark_catalog, release
+    from . import benchmark_catalog, feed_hosts, release
     from . import data_pack_validation as packs
     from .data_pack import ENVELOPE_LIMITS
     from .ios_build import DATA_PACK_PUBLIC_KEY, data_pack_definitions
@@ -29,6 +29,7 @@ if __package__:
 else:
     import benchmark_catalog
     import data_pack_validation as packs
+    import feed_hosts
     import release
     from data_pack import ENVELOPE_LIMITS
     from ios_build import DATA_PACK_PUBLIC_KEY, data_pack_definitions
@@ -625,6 +626,21 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise ValueError("Release feeds must not redirect")
 
 
+def read_feed(url: str, limit: int, timeout: int) -> bytes:
+    """Download a feed or its companion asset. A feeds-host URL must serve the same bytes as the legacy host, which
+    still serves every build before 0.7.0 (docs/data-packs.md, "Feed hosts")."""
+    opener = urllib.request.build_opener(NoRedirect())
+    with opener.open(url, timeout=timeout) as response:
+        data = response.read(limit + 1)
+    legacy = feed_hosts.legacy_url(url)
+    if legacy is not None:
+        with opener.open(legacy, timeout=timeout) as response:
+            other = response.read(limit + 1)
+        if other != data:
+            raise ValueError(f"Feed hosts serve different bytes: {url} and {legacy}")
+    return data
+
+
 def verify_feed(
     data: bytes,
     kind: str,
@@ -779,8 +795,7 @@ def _verify_feed(
                 if asset in shader_assets:
                     continue
                 url = urllib.parse.urljoin(policy["shader_feed_url"], "shader-maps/" + asset)
-                with urllib.request.build_opener(NoRedirect()).open(url, timeout=45) as response:
-                    content = response.read(descriptor[3] + 1)
+                content = read_feed(url, descriptor[3], 45)
                 total += len(content)
                 if len(content) != descriptor[3] or total > packs.data_pack.SHADER_COMPRESSED_TOTAL_LIMIT:
                     raise ValueError("Shader asset download exceeds its signed size or aggregate limit")
@@ -799,8 +814,7 @@ def _verify_feed(
                 raise ValueError("Recording archive requires a trusted HTTPS feed URL")
             asset = descriptor[2] + ".xz"
             url = urllib.parse.urljoin(policy["recording_feed_url"], packs.data_pack.RECORDING_BLOB_DIRECTORY + "/" + asset)
-            with urllib.request.build_opener(NoRedirect()).open(url, timeout=120) as response:
-                content = response.read(descriptor[3] + 1)
+            content = read_feed(url, descriptor[3], 120)
             if len(content) != descriptor[3]:
                 raise ValueError("Recording archive download differs from its signed size")
             recording_assets = {asset: content}
@@ -861,10 +875,7 @@ def check_feeds(
         feeds.append(("recording", "recordings", policy["recording_feed_url"], None))
     for kind, payload_kind, url, profile_target in feeds:
         limit = ENVELOPE_LIMITS[payload_kind]
-        with urllib.request.build_opener(NoRedirect()).open(
-            url, timeout=45
-        ) as response:
-            data = response.read(limit + 1)
+        data = read_feed(url, limit, 45)
         if len(data) > limit:
             raise ValueError(f"{kind} feed exceeds the app download limit")
         if root is None:

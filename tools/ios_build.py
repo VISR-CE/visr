@@ -30,9 +30,11 @@ HEADERS = {
 }
 
 # signed profile and recording updates (docs/data-packs.md): the key the publisher's seed pairs with, and the
-# feeds on the project's site, one folder per channel
+# feeds, one folder per channel. Builds from 0.7.0 read them from the feeds host; the project's site, where every
+# earlier build reads them, serves the same files (docs/data-packs.md, "Feed hosts").
 DATA_PACK_PUBLIC_KEY = 'b57463a3c1b157fdb49a4df5c2041b88cabf07b4ba733d0c7290b90d85e3b5ea'
-DATA_PACK_FEED = 'https://code.steverice.org/visr/packs/{channel}/{kind}.json'
+DATA_PACK_FEED = 'https://feeds.visr.gg/packs/{channel}/{kind}.json'
+LEGACY_DATA_PACK_FEED = 'https://code.steverice.org/visr/packs/{channel}/{kind}.json'
 # the device-profile shards' directory for this source's feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
 PROFILE_FEED_DIRECTORY = 'device-profiles-3'
 

@@ -80,7 +80,7 @@ def mutable_recording_domain(
 
 def overlay(commit: str) -> tuple[str, bytes, int]:
     from data_pack import ENVELOPE_LIMITS
-    from ios_build import DATA_PACK_FEED
+    from ios_build import LEGACY_DATA_PACK_FEED
     from release_validation import NoRedirect
 
     source = os.environ["GITHUB_SHA"]
@@ -141,7 +141,7 @@ def overlay(commit: str) -> tuple[str, bytes, int]:
         previous.append(existing.read_bytes())
     # Also prevent rollback of an earlier overlay not yet persisted to main.
     feed_name = "recordings" if mutable else "recordings-" + guest
-    url = DATA_PACK_FEED.format(channel="tester", kind=feed_name)
+    url = LEGACY_DATA_PACK_FEED.format(channel="tester", kind=feed_name)
     try:
         with urllib.request.build_opener(NoRedirect()).open(url, timeout=45) as response:
             deployed = response.read(limit + 1)

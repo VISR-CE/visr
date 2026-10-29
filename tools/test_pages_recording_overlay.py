@@ -43,7 +43,7 @@ def configure_overlay(
     monkeypatch.setattr(overlay, "ROOT", tmp_path)
     monkeypatch.setattr(
         workflow_ios_build,
-        "DATA_PACK_FEED",
+        "LEGACY_DATA_PACK_FEED",
         "https://example.test/packs/{channel}/{kind}.json",
     )
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
