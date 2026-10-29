@@ -867,6 +867,32 @@ static void test_unified_catalog_pass(void) {
     CHECK(benchmark_plan_total(&plan,all,0) == 0);
 }
 
+/* A full outcomes array of skipped runs must remain resumable without retrying a rung. */
+static void test_skipped_journal_at_capacity(void) {
+    char path[] = "/tmp/visr-skipped-journal-XXXXXX";
+    int descriptor = mkstemp(path);
+    struct benchmark_device device = { 0 };
+    struct benchmark_outcome skipped = { .status = BENCHMARK_SKIPPED, .left_least = -1 };
+    struct benchmark_journal journal;
+
+    CHECK(descriptor >= 0);
+    if (descriptor < 0) return;
+    close(descriptor);
+    CHECK(benchmark_journal_start(path, BENCHMARK_UNIFIED, "SKIPMAX", &device, 123));
+    for (int index = 0; index < BENCHMARK_RUNS_MAXIMUM; index++) {
+        CHECK(benchmark_journal_begin(path, index, "A sw128"));
+        CHECK(benchmark_journal_end(path, index, &skipped));
+    }
+    benchmark_journal_load(path, &journal);
+    CHECK(journal.valid && !journal.cut_off && journal.count == BENCHMARK_RUNS_MAXIMUM);
+    for (int index = 0; index < BENCHMARK_RUNS_MAXIMUM; index++)
+        CHECK(journal.outcomes[index].status == BENCHMARK_SKIPPED);
+    CHECK(benchmark_journal_done(path));
+    benchmark_journal_load(path, &journal);
+    CHECK(journal.valid && journal.finished && journal.count == BENCHMARK_RUNS_MAXIMUM);
+    unlink(path);
+}
+
 static void test_capacity_gate(void) {
     const struct benchmark_scene catalog[] = {
         { .id="bg8", .map="bloodgulch", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=8 },
@@ -919,6 +945,7 @@ static void test_capacity_gate(void) {
 
 int main(void) {
     test_capacity_gate();
+    test_skipped_journal_at_capacity();
     test_unified_case_settings();
     test_unified_catalog_pass();
     test_metrics();

@@ -123,12 +123,13 @@ static struct benchmark_outcome outcomes[BENCHMARK_RUNS_MAXIMUM];
 static int outcome_count;
 static struct benchmark_run run;
 static int run_open, run_finishing;
-static int run_player_capacity, run_workload_variable;
+static int run_player_capacity, run_workload_variable, run_workload_seen;
 static enum benchmark_capacity_action run_capacity;
-static _Atomic int workload_variable_now;
 void host_benchmark_workload(int variable) {
-    atomic_store(&workload_variable_now, variable != 0);
-    if (run_open && !run_finishing) run_workload_variable = variable != 0;
+    if (run_open && !run_finishing) {
+        run_workload_variable = variable != 0;
+        run_workload_seen = 1;
+    }
 }
 static struct benchmark_outcome pending_outcome;
 static struct benchmark_summary pending_summary;
@@ -914,7 +915,7 @@ static int profile_player_capacity(void) {
 
 static void record_run_context(NSMutableDictionary *record, const struct benchmark_scene *scene,
     enum benchmark_status status) {
-    record[@"workload_context"] = run_workload_variable ? @"variable" : @"predictable";
+    record[@"workload_context"] = run_workload_seen ? (run_workload_variable ? @"variable" : @"predictable") : NSNull.null;
     if (scene->kind != BENCHMARK_SCENE_MULTIPLAYER) return;
     record[@"player_capacity"] = @(run_player_capacity);
     record[@"capacity_probe"] = @((BOOL)(run_capacity == BENCHMARK_CAPACITY_PROBE));
@@ -926,7 +927,7 @@ static void record_run_context(NSMutableDictionary *record, const struct benchma
 
 /* A skipped case must not inherit the previous case's window, graphics or shader evidence. */
 static void reset_run_record(void) {
-    run_workload_variable = atomic_load(&workload_variable_now);
+    run_workload_variable = run_workload_seen = 0;
     atomic_store(&window_ticks, 0);
     run_started_at = window_started_at = 0;
     run_capped = window_presented = 0;
@@ -1076,7 +1077,7 @@ static BOOL skip_capacity_run(void) {
     if (!benchmark_journal_begin(JOURNAL, run.index, run.key)) return NO;
     if (!write_run(&run, outcome.status, @"over profile limit", NULL, nil)) return NO;
     if (!benchmark_journal_end(JOURNAL, run.index, &outcome)) return NO;
-    outcomes[outcome_count++] = outcome;
+    if (outcome_count < BENCHMARK_RUNS_MAXIMUM) outcomes[outcome_count++] = outcome;
     return YES;
 }
 
@@ -1889,7 +1890,10 @@ int host_benchmark_next(char *text, unsigned int size) {
     run_capacity = benchmark_capacity_decision(plan.scenes, plan.scene_count, run.scene, run_player_capacity);
     reset_run_record();
     if (run_capacity == BENCHMARK_CAPACITY_SKIP) {
-        if (!skip_capacity_run()) return 3;
+        if (!skip_capacity_run()) {
+            flag(@"storage_failed");
+            host_benchmark_request_finish();
+        }
         return host_benchmark_next(text, size);
     }
     host_benchmark_phase(HOST_BENCHMARK_LOADING);

@@ -96,7 +96,8 @@ def host_function(source, signature):
     return source[start:source.index("\n}\n", start) + 3]
 
 
-def test_capacity_skip_record_journal_resume_and_summary(tmp_path):
+@pytest.mark.parametrize("scenario", ["context", "bounds", "begin_failure", "record_failure", "end_failure"])
+def test_capacity_skip_record_journal_resume_and_summary(tmp_path, scenario):
     """Catch lost skip receipts, repeated skipped runs, and missing report context."""
     import sys
     if sys.platform != "darwin":
@@ -104,6 +105,8 @@ def test_capacity_skip_record_journal_resume_and_summary(tmp_path):
     host = (ROOT / "port/ios/host/host_benchmark.m").read_text()
     functions = "\n".join(host_function(host, signature) for signature in (
         "void host_benchmark_workload(", "static void reset_run_record(", "static void record_run_context(", "static BOOL skip_capacity_run(", "static NSString *report_summary("))
+    next_run = host_function(host, "int host_benchmark_next(")
+    skip_branch = next_run[next_run.index("    scene = &plan.scenes[run.scene];"):next_run.index("    host_benchmark_phase(HOST_BENCHMARK_LOADING);")]
     profile = (ROOT / "port/ios/host/host_profile.c").read_text()
     functions = host_function(profile, "int host_profile_value(") + "\n" + host_function(host, "static int profile_player_capacity(") + "\n" + functions
     source = tmp_path / "capacity.m"
@@ -120,8 +123,7 @@ void host_device_profile_copy(struct host_profile *profile) { *profile=fixture_p
 static struct benchmark_plan plan;
 static struct benchmark_run run;
 static struct benchmark_outcome outcomes[BENCHMARK_RUNS_MAXIMUM];
-static int outcome_count, run_player_capacity, run_workload_variable, run_open, run_finishing;
-static _Atomic int workload_variable_now;
+static int outcome_count, run_player_capacity, run_workload_variable, run_workload_seen, run_open, run_finishing;
 static _Atomic long window_ticks;
 static double run_started_at, window_started_at;
 static int run_capped, window_presented, window_open, window_interrupted, window_width, window_height;
@@ -136,12 +138,21 @@ static os_unfair_lock lock=OS_UNFAIR_LOCK_INIT;
 static NSString *shader_directory(void) { return @"shaders"; }
 static enum benchmark_capacity_action run_capacity;
 static NSString *journal_path;
+static int failure_mode, write_attempts;
+static _Atomic int finish_requested;
+static NSMutableArray *flags;
+static void flag(NSString *value) { [flags addObject:value]; }
+static void host_benchmark_request_finish(void) { atomic_store(&finish_requested, 1); }
+static int host_benchmark_next(char *, unsigned int);
 #define JOURNAL journal_path.fileSystemRepresentation
 static NSString *run_path(int index) { return [NSString stringWithFormat:@"run-%d.json", index]; }
 static void record_run_context(NSMutableDictionary *, const struct benchmark_scene *, enum benchmark_status);
 static BOOL write_run(const struct benchmark_run *finished, enum benchmark_status status, NSString *note,
     const char *measurements, NSDictionary *presentation) {
     (void)note; (void)measurements; (void)presentation;
+    write_attempts++;
+    if (failure_mode==2) return NO;
+    if (failure_mode==3) journal_path=@"missing-directory/journal";
     NSMutableDictionary *record = [@{@"scene": @(plan.scenes[finished->scene].id), @"stage": @"A",
         @"status": @(benchmark_status_name(status))} mutableCopy];
     record_run_context(record, &plan.scenes[finished->scene], status);
@@ -150,7 +161,18 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
 }
 static NSString *host_benchmark_submission_summary(NSDictionary *record) { (void)record; return @"measured\n"; }
 ''' + functions + r'''
-int main(void) { @autoreleasepool {
+/* Exercise the host's real capacity branch; stand in for its completion UI. */
+static int host_benchmark_next(char *text, unsigned int size) {
+    const struct benchmark_scene *scene;
+    if (atomic_load(&finish_requested)) return 2;
+    if (!benchmark_plan_next(&plan,outcomes,outcome_count,&run)) return 2;
+''' + skip_branch + r'''
+    (void)scene;
+    return 1;
+}
+int main(int argc, char **argv) { @autoreleasepool {
+    assert(argc==2);
+    flags=[NSMutableArray array];
     assert(profile_player_capacity()==0);
     fixture_profile.count=1;
     snprintf(fixture_profile.values[0].name,sizeof(fixture_profile.values[0].name),"network.player_capacity");
@@ -177,14 +199,20 @@ int main(void) { @autoreleasepool {
     run_shader_before=run_shader_after=@{@"stale": @YES};
     run_started_at=window_started_at=10; window_ticks=1800; run_capped=window_presented=1;
     host_benchmark_workload(0); reset_run_record();
+    NSMutableDictionary *unknown=[NSMutableDictionary dictionary];
+    record_run_context(unknown,&scenes[0],BENCHMARK_CRASHED);
+    if (!strcmp(argv[1],"context")) {
+        assert(unknown[@"workload_context"]==NSNull.null && !run_workload_seen);
+    }
     assert(!window_width && !window_height && !dynamic_line_count && !dynamic_line_other);
     assert(!upscaler_requests && !upscaler_paths && !upscaler_frames[2]);
     assert(!graphics_first && !graphics_last && !graphics_changed && !graphics_snapshots);
     assert(!run_shader_before && !run_shader_after && !run_started_at && !window_ticks && !run_capped && !window_presented);
     run_open=1; host_benchmark_workload(1);
     assert(run_workload_variable==1);
+    if (!strcmp(argv[1],"context")) assert(run_workload_seen);
     run_finishing=1; host_benchmark_workload(0);
-    assert(run_workload_variable==1 && atomic_load(&workload_variable_now)==0);
+    assert(run_workload_variable==1 && run_workload_seen);
     run_finishing=0;
     run_player_capacity=8; run_capacity=BENCHMARK_CAPACITY_PROBE;
     NSMutableDictionary *record=[NSMutableDictionary dictionary];
@@ -196,9 +224,45 @@ int main(void) { @autoreleasepool {
     run_player_capacity=0; run_capacity=BENCHMARK_CAPACITY_RUN;
     record=[NSMutableDictionary dictionary]; record_run_context(record,&scenes[0],BENCHMARK_FAILED);
     assert([record[@"player_capacity"] intValue]==0 && ![record[@"capacity_probe"] boolValue]);
-    run_workload_variable=0;
+    host_benchmark_workload(0);
     record=[NSMutableDictionary dictionary]; record_run_context(record,&scenes[2],BENCHMARK_OK);
     assert([record[@"workload_context"] isEqual:@"predictable"] && !record[@"player_capacity"]);
+    if (!strcmp(argv[1],"bounds")) {
+        outcome_count=BENCHMARK_RUNS_MAXIMUM;
+        outcomes[BENCHMARK_RUNS_MAXIMUM-1].status=BENCHMARK_FAILED;
+        run=(struct benchmark_run){.index=0};
+        snprintf(run.key,sizeof(run.key),"A sw128");
+        assert(skip_capacity_run());
+        assert(outcome_count==BENCHMARK_RUNS_MAXIMUM);
+        assert(outcomes[BENCHMARK_RUNS_MAXIMUM-1].status==BENCHMARK_FAILED);
+        return 0;
+    }
+    if (strstr(argv[1],"_failure")) {
+        outcome_count=1;
+        outcomes[0].status=BENCHMARK_OK;
+        fixture_profile.count=1;
+        snprintf(fixture_profile.values[0].text,sizeof(fixture_profile.values[0].text),"8");
+        if (!strcmp(argv[1],"begin_failure")) { failure_mode=1; journal_path=@"missing-directory/journal"; }
+        else failure_mode=!strcmp(argv[1],"record_failure") ? 2 : 3;
+        write_attempts=0;
+        assert(host_benchmark_next(NULL,1)==2);
+        assert(atomic_load(&finish_requested) && [flags containsObject:@"storage_failed"]);
+        assert(outcome_count==1 && write_attempts==(failure_mode==1 ? 0 : 1));
+        assert(host_benchmark_next(NULL,1)==2);
+        assert(write_attempts==(failure_mode==1 ? 0 : 1));
+        return 0;
+    }
+    reset_run_record();
+    assert(!run_workload_seen && !run_workload_variable);
+    run_open=0;
+    host_benchmark_workload(1);
+    record=[NSMutableDictionary dictionary]; record_run_context(record,&scenes[0],BENCHMARK_FAILED);
+    assert(record[@"workload_context"]==NSNull.null);
+    run_open=1; run_finishing=1;
+    host_benchmark_workload(0);
+    record=[NSMutableDictionary dictionary]; record_run_context(record,&scenes[2],BENCHMARK_CRASHED);
+    assert(record[@"workload_context"]==NSNull.null);
+    run_open=run_finishing=0;
     /* The real host skip helper writes the receipt and the real journal advances past it on resume. */
     run_player_capacity=8; run_capacity=BENCHMARK_CAPACITY_SKIP;
     assert(benchmark_plan_next(&plan,outcomes,0,&run));
@@ -212,6 +276,7 @@ int main(void) { @autoreleasepool {
     assert([record[@"status"] isEqual:@"skipped"] && [record[@"skip_reason"] isEqual:@"over_profile_limit"]);
     assert([record[@"players"] intValue]==128 && [record[@"player_capacity"] intValue]==8);
     assert(![record[@"capacity_probe"] boolValue]);
+    assert(record[@"workload_context"]==NSNull.null);
     assert(CFGetTypeID((__bridge CFTypeRef)record[@"capacity_probe"])==CFBooleanGetTypeID());
     assert([report_summary() isEqual:@"sw128: skipped: over profile limit\n"]);
     struct benchmark_journal journal; benchmark_journal_load(JOURNAL,&journal);
@@ -229,7 +294,7 @@ int main(void) { @autoreleasepool {
                     "--include-directory=" + str(ROOT / "port/ios/host"), str(source),
                     str(ROOT / "port/runtime/benchmark_plan.c"), str(ROOT / "port/runtime/benchmark_journal.c"),
                     "-o", str(binary)], check=True)
-    subprocess.run([str(binary)], cwd=tmp_path, check=True)
+    subprocess.run([str(binary), scenario], cwd=tmp_path, check=True)
 
 
 def test_workload_bridge_uses_game_decision_and_host_gates_before_loading():
