@@ -650,6 +650,60 @@ function drawCaption(node, table) {
     el("thead", {}, head), el("tbody", {}, ...body)));
 }
 
+// The table under a platform's switchable charts: the columns of all its charts in one fixed order, so switching charts
+// changes no column's place or width, "\u2013" where a build has no value, and the selected metric's columns marked.
+function unionTable(group, spec, shared, table, state) {
+  const kindSpec = (kind) => group.find((s) => metricKind(s) === kind);
+  const value = (kind, i, read) => {
+    const s = kindSpec(kind);
+    const e = s && shared[s.slug][i];
+    return e && !e.placeholder ? read(e) : null;
+  };
+  const num = (places) => (v) => (v === null || v === undefined ? "\u2013" : v.toFixed(places).replace(/\.?0+$/, (m, offset, text) => (text.includes(".") ? "" : m)));
+  const percent = (v) => (v === null || v === undefined ? "\u2013" : num(1)(v) + "%");
+  const defs = [];
+  const add = (kind, head, read, format) => { if (kindSpec(kind)) defs.push({ kind, head, read, format }); };
+  add("fps", "Average fps", (e) => e.value.avg, num(1));
+  add("fps", "1% low fps", (e) => e.value.low, num(1));
+  const fps = kindSpec("fps");
+  for (const column of (fps && fps.query.details) || []) {
+    add("fps", column === "p95_ms" ? "p95 frame time (ms)" : DETAIL_HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num(DETAILS[column].places));
+  }
+  add("gpu", "GPU median (ms)", (e) => e.value.avg, num(2));
+  add("gpu", "GPU 90th percentile (ms)", (e) => e.value.low, num(2));
+  add("cpu", "CPU median (ms)", (e) => e.value.avg, num(2));
+  const rows = shared[spec.slug];
+  const columns = defs.map((def) => ({ ...def, cells: rows.map((_, i) => def.format(value(def.kind, i, def.read))) }))
+    .filter((column) => column.cells.some((cell) => cell !== "\u2013"));
+  const current = metricKind(spec);
+  return {
+    box: table ? table.box : "", note: table ? table.note : "", headings: columns.map((c) => c.head), marks: columns.map((c) => c.kind === current),
+    rows: rows.map((e, i) => {
+      const drawnRow = table && table.rows.find((r) => r.label === e.label);
+      const entry = state.models[spec.slug].entries.find((x) => entryKey(x) === entryKey(e));
+      const notes = drawnRow ? drawnRow.notes : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
+      return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells: columns.map((c) => c.cells[i]), notes };
+    }) };
+}
+
+function drawUnionCaption(node, table) {
+  node.replaceChildren();
+  // Percentages of the table's width, so the columns stay put whichever chart is shown; the table does not shrink below 640px.
+  const numeric = Math.floor(48 / table.headings.length);
+  const widths = ["17%", "12%", ...table.headings.map(() => numeric + "%"), "auto"];
+  const colgroup = el("colgroup", {}, ...widths.map((width) => el("col", { style: `width:${width}` })));
+  const head = el("tr", {}, ...["Build", "Measured", ...table.headings, "Notes"].map((text, i) =>
+    el("th", { scope: "col", class: table.marks[i - 2] ? "mark" : "" }, text)));
+  const body = table.rows.map((row) => el("tr", {},
+    el("th", { scope: "row" }, row.url ? el("a", { href: row.url, rel: "noopener" }, row.label) : row.label, " ",
+      el("span", { class: "build-meta" }, `build ${row.build}`)),
+    el("td", { "data-label": "Measured" }, row.measured),
+    ...row.cells.map((text, i) => el("td", { "data-label": table.headings[i], class: table.marks[i] ? "mark" : "" }, text)),
+    el("td", { "data-label": "Notes" }, row.notes)));
+  node.append(el("table", { class: "bench-table fixed", style: "min-width:640px" }, el("caption", {}, `${table.box}.` + (table.note ? " " + table.note : "")),
+    colgroup, el("thead", {}, head), el("tbody", {}, ...body)));
+}
+
 function drawList(list, spec, built, state) {
   const status = listStatus(built, state.selected[spec.slug]);
   list.hidden = !built.entries.length;
@@ -701,7 +755,8 @@ async function start() {
   async function refresh(spec, rebuildList = true, focusKey = null) {
     const built = state.models[spec.slug], section = sections[spec.slug];
     const group = groups.find((g) => g.length > 1 && g.includes(spec));
-    const rows = group ? sharedRows(group, state)[spec.slug] : null;
+    const shared = group ? sharedRows(group, state) : null;
+    const rows = group ? shared[spec.slug] : null;
     await drawChart(section.querySelector(".bench-chart"), spec, built, state.suite, state.selected[spec.slug], rows && rows.length ? rows : null);
     if (rebuildList) {
       drawList(section.querySelector(".bench-rows"), spec, built, state);
@@ -709,7 +764,9 @@ async function start() {
     }
     drawLegend(section.querySelector(".bench-legend"), spec,
       !built.entries.length ? 0 : drawn(built, state.selected[spec.slug]).some((e) => e.value.low !== null) ? 2 : 1);
-    drawCaption(section.querySelector(".bench-caption"), captionTable(built, state.selected[spec.slug], spec.query.details, spec.query.windows));
+    const table = captionTable(built, state.selected[spec.slug], spec.query.details, spec.query.windows);
+    if (group) drawUnionCaption(section.querySelector(".bench-caption"), unionTable(group, spec, shared, table, state));
+    else drawCaption(section.querySelector(".bench-caption"), table);
     writeHash(state, specs);
   }
   state.refresh = refresh;

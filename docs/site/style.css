@@ -363,12 +363,12 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-table td:not([data-label="Notes"]) { min-width: 4.5em; }
 .bench-table thead th:not(:first-child):not(:last-child) { min-width: 4.5em; }
 @media (max-width: 599px) {
-  .bench-table, .bench-table tbody, .bench-table tr, .bench-table th, .bench-table td, .bench-table caption { display: block; width: 100%; }
-  .bench-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .bench-table tr { border-top: 1px solid var(--line); padding: 8px 0; }
-  .bench-table th, .bench-table td { border: 0; padding: 1px 0; }
-  .bench-table td:empty { display: none; }
-  .bench-table td::before { content: attr(data-label) ": "; color: var(--ink); font-weight: 600; }
+  .bench-table:not(.fixed), .bench-table:not(.fixed) tbody, .bench-table:not(.fixed) tr, .bench-table:not(.fixed) th, .bench-table:not(.fixed) td, .bench-table:not(.fixed) caption { display: block; width: 100%; }
+  .bench-table:not(.fixed) thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .bench-table:not(.fixed) tr { border-top: 1px solid var(--line); padding: 8px 0; }
+  .bench-table:not(.fixed) th, .bench-table:not(.fixed) td { border: 0; padding: 1px 0; }
+  .bench-table:not(.fixed) td:empty { display: none; }
+  .bench-table:not(.fixed) td::before { content: attr(data-label) ": "; color: var(--ink); font-weight: 600; }
 }
 
 /* The suite bar is sticky from 900px up, so jump targets keep clear of it. */
@@ -381,3 +381,13 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .method li { margin-bottom: 10px; }
 .method code { white-space: normal; overflow-wrap: anywhere; }
 .bench-group > .bench { border-top: 0; padding-top: 0; margin-top: 0; }
+
+/* A platform's charts share one table layout: fixed columns, scrolling inside the table's own container where it is wider than the page. */
+.bench-caption:has(.bench-table.fixed) { overflow-x: auto; }
+.bench-table.fixed { table-layout: fixed; width: 100%; }
+.bench-table.fixed th, .bench-table.fixed td { padding-right: 6px; }
+.bench-table.fixed thead th { font-size: 0.72rem; overflow-wrap: normal; }
+.bench-table.fixed tbody th { overflow-wrap: anywhere; }
+.bench-table.fixed td.mark, .bench-table.fixed th.mark { color: var(--ink); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.bench-table.fixed thead th.mark { font-weight: 700; }
+.bench-table.fixed td:nth-child(n+3), .bench-table.fixed th:nth-child(n+3) { padding-left: 8px; }
