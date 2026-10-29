@@ -204,7 +204,7 @@ int host_device_profile_peek(const char *data_root, const char *name, char *text
 	else
 		host_config_string("debug.device_profile", "", selector, sizeof(selector));
 	if (!selector[0])
-		folder = host_profile_update_folder(folder);
+		folder = host_profile_peek_folder(folder);
 	snprintf(drop_in, sizeof(drop_in), "%s/device-profile.toml", data_root);
 	host_profile_resolve(&device, folder.fileSystemRepresentation, drop_in, selector, NULL, profile);
 	int found = host_profile_value(profile, name, text, size);

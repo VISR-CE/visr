@@ -72,7 +72,12 @@ static NSURLSessionConfiguration *Configuration(id object,SEL selector) {
     NSURLSessionConfiguration *configuration=((id(*)(id,SEL))original)(object,selector);
     configuration.protocolClasses=@[ShaderProtocol.class]; return configuration;
 }
+@interface HostDataPackStore (Probe)
++ (void)forgetSharedStores;
+@end
+/* Each Store() is the next launch's: trials an earlier one began are no longer this process's. */
 static HostDataPackStore *Store(NSString *root) {
+    [HostDataPackStore forgetSharedStores];
     return [[HostDataPackStore alloc] initWithRoot:root bundled:@"/bundled" kind:@"shaders" channel:@"tester" publicKey:[NSData dataWithBytes:public length:32] compatibility:@"shader-lists-2" validator:^BOOL(NSString *folder,NSError **error) {
         (void)error; return host_shader_pack_validate(folder.fileSystemRepresentation,NULL,NULL);
     }];

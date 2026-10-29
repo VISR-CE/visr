@@ -26,6 +26,7 @@
 #include "host_texture_settings.h"
 #endif
 #include "host_astc_store.h"
+#include "host_data_updates.h"
 #include "../../linux/include/halo_port_limits.h" /* HALO_PORT_NETWORK_VERSION, for the log */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -386,6 +387,10 @@ int main(int argc,char **argv) {
 #else
         if(host_load_image(NULL,0))host_fatal(host_arena?"Could not map the signed game image. See ios-runtime.log in Files.":
             "Could not reserve the game's memory arena (about 2.2 GB of address space). See ios-runtime.log in Files.");
+#endif
+#ifdef HALO_TESTER_BUILD
+        /* the launch menu below makes the data packs' launch selection: nothing before it may begin a launch of its own */
+        if(!getenv("HALO_BENCHMARK_SUITE")&&!getenv("HALO_RUNNER"))host_data_updates_menu_expected();
 #endif
 #if HALO_RENDER_VALIDATION
         /* a capture replayed with no game (host_render_replay.c): no game data, no game image */

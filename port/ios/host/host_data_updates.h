@@ -2,6 +2,9 @@
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>
 NSString *host_profile_update_folder(NSString *bundled);
+/* The profile folder for a look before launch (the upscaling gate): the launch's selection once there is one, else
+   bundled. Unlike host_profile_update_folder it never opens a store or begins a launch. */
+NSString *host_profile_peek_folder(NSString *bundled);
 /* Resolves verified generations off presentation; the visitor must not call back into launch setup. */
 void host_profile_updates_watch(NSString *dropIn, void (^visitor)(NSString *folder, NSDictionary *identity));
 NSString *host_recording_update_folder(NSString *bundled);
@@ -17,5 +20,8 @@ NSString *host_data_updates_latest_newer(void);
 void host_data_updates_menu_finish(void);
 #endif
 void host_data_updates_healthy(void);
+/* Called before anything reads the data packs when the launch menu will run: the menu, not a legacy launch, then
+   makes the launch selection. */
+void host_data_updates_menu_expected(void);
 /* 1 after a menu or world frame finishes drawing, 0 before any loading frame. */
 void host_data_updates_frame_ready(int ready);

@@ -36,8 +36,16 @@ static NSString *resolved(NSString *folder, struct host_device d, const char *na
 }
 static NSString *capacity(NSString *folder) { return resolved(folder, phone(), "network.player_capacity"); }
 static NSString *upscaling(NSString *folder) { return resolved(folder, appleTV(), "display.upscaled_textures"); }
+/* Each store below stands for a new launch (often of another build), so it must not get the instance the last one
+   left in the process's one-store-per-root registry. */
+@interface HostDataPackStore (Probe)
++ (void)forgetSharedStores;
+@end
+static HostDataPackStore *newLaunch(HostDataPackStore *(^make)(void)) { [HostDataPackStore forgetSharedStores]; return make(); }
+#define profileStore(bundled, device) newLaunch(^{ return profileStore(bundled, device); })
 static HostDataPackStore *generationOne(NSString *bundled, struct host_device d)
 {
+    [HostDataPackStore forgetSharedStores];
     char key[192]; assert(host_profile_device_key(&d, key, sizeof(key)));
     return store(@"profiles", bundled, [@"device-profiles-1:" stringByAppendingString:@(key)], ^BOOL(NSString *folder, NSError **error) {
         (void)error; return host_profile_validate_device_folder(folder.fileSystemRepresentation, &d, NULL);
