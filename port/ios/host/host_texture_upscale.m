@@ -1032,7 +1032,7 @@ resume_import:
         if(!menu_done&&!idle){double at=texture_upscale_import_tick(&in);if(at>=0)tick=at;}
         menu_done=menu_done||(menu_known&&texture_upscale_import_skippable(1,(unsigned long)menu.ready,(unsigned long)menu.textures));
         atomic_store(&import_shown,(int)(shown*10000));
-        if(!menu_phase&&!idle&&!stall_logged&&!texture_upscale_import_skippable(menu_known,(unsigned long)menu.ready,(unsigned long)menu.textures)){
+        if(!menu_phase&&!idle&&!stall_logged&&!menu_done&&!texture_upscale_import_skippable(menu_known,(unsigned long)menu.ready,(unsigned long)menu.textures)){
             stall_logged=YES;menu_logged=YES;const char *stage=atomic_load(&work_stage);
             host_logf(HOST_LOG_WARN,"Upscale import: nothing finished for %.0f s (%s, %zu of %zu of the main menu's textures); Start playing is offered",
                 now()-last_progress,catalog_ready?(stage?stage:"between textures"):(stage?stage:"before the catalog"),menu.ready,menu.textures);}

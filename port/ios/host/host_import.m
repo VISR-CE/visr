@@ -71,6 +71,9 @@ static void start_playing_style(UIButton *button) {
     style.title=@"Start playing";style.baseBackgroundColor=halo_upscale_bar_blue();style.baseForegroundColor=UIColor.blackColor;
     style.cornerStyle=UIButtonConfigurationCornerStyleLarge;style.contentInsets=NSDirectionalEdgeInsetsMake(14,24,14,24);
     button.configuration=style;
+    /* (a configuration's title is not the button's accessibility label on the Mac: VoiceOver and other assistive tools
+       found an unnamed button) */
+    button.accessibilityLabel=@"Start playing";
 }
 /* the on-device upscaler's import phase (rule 2): the same bar and the same "Start playing" skip */
 static int upscale_progress(void *context,const struct host_texture_upscale_import_status *status) {
