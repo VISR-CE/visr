@@ -158,6 +158,8 @@ struct VRControls: View {
             .accessibilityHint("Returns the game to its window")
         }
         .frame(width: 260, height: 1100)
+        // no window bar or close control: only the button shows
+        .persistentSystemOverlays(.hidden)
     }
 }
 
@@ -169,6 +171,7 @@ final class VRControlsSceneDelegate: UIResponder, UIHostingSceneDelegate {
         }
         .windowStyle(.plain)
         .windowResizability(.contentSize)
+        .persistentSystemOverlays(.hidden)
         .defaultWindowPlacement { _, _ in
             WindowPlacement(.utilityPanel)
         }
@@ -192,4 +195,42 @@ public func host_theater_controls_open() {
 
 private func host_theater_log(_ message: String) {
     message.withCString { host_theater_log_c($0) }
+}
+
+/* The game's window keeps its window bar while VR is open, though UIKit has
+   hidden its window, and UIKit has no way to hide the bar. A zero-size
+   SwiftUI child of the window's root controller hides the window's system
+   overlays while VR is open, and shows them again when it closes, so the
+   player can still move the window */
+@Observable
+final class GameWindowOverlays {
+    static let shared = GameWindowOverlays()
+    var visibility: Visibility = .automatic
+}
+
+struct GameWindowOverlaysView: View {
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .persistentSystemOverlays(GameWindowOverlays.shared.visibility)
+            .allowsHitTesting(false)
+    }
+}
+
+@_cdecl("host_theater_window_overlays")
+public func host_theater_window_overlays(_ controller: UnsafeMutableRawPointer?, _ hidden: Int32) {
+    guard let controller else { return }
+    MainActor.assumeIsolated {
+        let window = Unmanaged<UIViewController>.fromOpaque(controller).takeUnretainedValue()
+        if !window.children.contains(where: { $0 is UIHostingController<GameWindowOverlaysView> }) {
+            let child = UIHostingController(rootView: GameWindowOverlaysView())
+            child.view.backgroundColor = .clear
+            child.view.isUserInteractionEnabled = false
+            child.view.frame = .zero
+            window.addChild(child)
+            window.view.addSubview(child.view)
+            child.didMove(toParent: window)
+        }
+        GameWindowOverlays.shared.visibility = hidden != 0 ? .hidden : .automatic
+    }
 }

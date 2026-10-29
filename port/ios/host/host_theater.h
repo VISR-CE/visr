@@ -122,6 +122,10 @@ void host_theater_close(void);
 /* for host_theater.m: the Enter VR ornament on the game's window (a
 UIViewController, unretained), shown or removed (Theater.swift) */
 void host_theater_ornament(void *controller, int shown);
+/* for host_theater.m: hides (1) or shows (0) the game's window bar and other
+system overlays on the window's root controller (a UIViewController,
+unretained), hidden only while VR is open (Theater.swift) */
+void host_theater_window_overlays(void *controller, int hidden);
 /* for host_theater.m: opens the Exit VR panel, a small window in the space
 (Theater.swift); host_theater.m closes it with the space */
 void host_theater_controls_open(void);

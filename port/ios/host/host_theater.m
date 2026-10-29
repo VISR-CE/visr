@@ -300,6 +300,8 @@ static BOOL ornament_shown;
 static BOOL space_opening;
 static struct host_stereo_chord chord;
 
+/* the window's Enter VR ornament, and its window bar, shown while the game
+is in its window and hidden while VR is open */
 static void enter_ornament_shown(BOOL shown)
 {
 	if (@available(visionOS 26.0, *))
@@ -309,6 +311,7 @@ static void enter_ornament_shown(BOOL shown)
 		if (!controller || shown == ornament_shown)
 			return;
 		host_theater_ornament((__bridge void *)controller, shown);
+		host_theater_window_overlays((__bridge void *)controller, !shown);
 		ornament_shown = shown;
 	}
 }
