@@ -142,7 +142,10 @@ void platform_log(const char *format, ...)
 int halo_cinematic_screen(void) { return game_letterbox; }
 int halo_scripted_camera(void) { return game_scripted_camera; }
 int halo_scripted_director_camera(void) { return 0; }
-int halo_level_first_tick_pending(void) { return 0; }
+static int game_first_tick_pending;
+int halo_level_first_tick_pending(void) { return game_first_tick_pending; }
+static unsigned long game_level_serial;
+unsigned long halo_level_serial(void) { return game_level_serial; }
 int halo_level_start_campaign(void) { return 0; }
 static int game_cryo_pod;
 int halo_seat_cryo_pod(void) { return game_cryo_pod; }
@@ -2313,6 +2316,59 @@ static void cutscene_end(void)
 
 /* after the hold, the film's rectangle expands out to the full view at the
 bars' rate, carrying the film's bars */
+/* Entering a game from the main menu in VR: the menu's scripted camera is
+the film, and the game the menu starts opens on the player. The first frame
+of the new level is the full view, with no hold, window or expansion on the
+screen (the menu's film once carried into the game's first second or two) */
+static void new_level_drops_film(void)
+{
+	float progress = 0.0f, bars = 0.0f;
+	int frame, passed = 1;
+
+	printf("a new level after the main menu's film:\n");
+	restart("snap", 30.0, 120.0, 0);
+	game_first_person = 0;
+	game_settled = 1;
+	game_scripted_camera = 1;
+	for (frame = 0; frame < 30; frame++)
+		cutscene_frame();
+	check(on_film(), "the main menu's scripted camera: the film");
+	game_scripted_camera = 0;
+	game_first_person = game_player_look = 1;
+	game_level_serial++;
+	for (frame = 0; frame < 120; frame++) {
+		cutscene_frame();
+		passed &= immersive() && !halo_stereo_expansion(&progress, &bars);
+	}
+	check(passed, "the game's first frame and every one after: the full view, no film's end or expansion");
+	game_first_person = game_player_look = 0;
+	/* menu -> New Game -> a10: the level's first ticks have no letterbox
+	yet (its script puts the cutscene up on the third); the menu's film
+	carries straight into the cutscene, never the full view between */
+	game_first_person = 0;
+	game_scripted_camera = 1;
+	for (frame = 0; frame < 30; frame++)
+		cutscene_frame();
+	game_scripted_camera = 0;
+	game_level_serial++;
+	game_first_tick_pending = 1;
+	passed = 1;
+	for (frame = 0; frame < 6; frame++) {
+		cutscene_frame();
+		passed &= on_film();
+	}
+	game_first_tick_pending = 0;
+	game_letterbox = 1;
+	for (frame = 0; frame < 30; frame++) {
+		cutscene_frame();
+		passed &= on_film();
+	}
+	check(passed, "a new level that opens on a cutscene after its first ticks: the film throughout");
+	game_letterbox = 0;
+	for (frame = 0; frame < 200 && halo_stereo_film(); frame++)
+		cutscene_frame();
+}
+
 static void cutscene_expansion(void)
 {
 	int frame, held, passed, expanding;
@@ -3251,6 +3307,7 @@ int main(int argc, char **argv)
 	look_disabled();
 	cutscene_end();
 	cutscene_expansion();
+	new_level_drops_film();
 	title_bars();
 	expansion_window();
 	film_to_window();

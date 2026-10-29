@@ -596,6 +596,9 @@ the player's start shows */
 int halo_level_start_hold_flat(void);
 /* 1 while a campaign level is the running game (cinematic_screen.c) */
 int halo_level_start_campaign(void);
+/* changes each time a different level begins: the main menu, a game, the
+next campaign level; not a checkpoint's revert (cinematic_screen.c) */
+unsigned long halo_level_serial(void);
 /* The film's and the 3D TV's one mapping (stereo.c has the math): from
 the depth share (infinity's parallax as a share of the viewer's eye
 separation), the convergence (meters ahead of the camera on the screen's
