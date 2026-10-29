@@ -20,6 +20,8 @@ describes them.
 #ifndef HALO_MENUS_H
 #define HALO_MENUS_H
 
+#include <stddef.h>
+
 #define HALO_MENU_NONE (-1L)
 /* the port's event handler and game data functions (menu_functions.c) are
 numbered from here, clear of the Xbox's (0 to 101 and 0 to 40) and the PC's
@@ -33,6 +35,9 @@ the widget */
 struct halo_menu_frame
 {
 	char const *png;
+	/* a PNG of the player's, made from their own map's art and kept in the menus folder, drawn instead of png
+	where it is there (the shipped redraw is png, the placeholder where there is none) */
+	char const *cache;
 	char const *map;
 	long index;
 	long width, height;
@@ -198,6 +203,20 @@ void halo_menus_log(char const *file, long line, char const *message, char const
 /* menu art: the D3D texture (as the game's bitmap holds it) a frame's PNG is
 drawn for, until halo_menus_art_forget */
 void halo_menus_art_register(void const *texture, char const *png);
+/* The player's cache of the map's pictures, which no map but ui.map has (a frame's cache): files in the menus folder.
+exists: 1 if the file is there; write_png saves width by height RGBA bytes (rows top first) as the file, 1 if it
+could be; art_extract saves a map bitmap's texture (its hardware format) as one, 1 if it could be (xbox_textures.c) */
+int halo_menus_cache_exists(char const *path);
+int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height);
+int halo_menus_art_extract(void const *hardware_format, char const *cache_path);
+/* a note kept beside a picture (its folder is made by write_png): read returns the bytes it read, write_note 1 if it
+could be written. needs_save: 1 if the picture is not saved, or was saved from the original texture and the upscaler
+has made a larger one since (xbox_textures.c) */
+size_t halo_menus_cache_read(char const *path, char *bytes, size_t size);
+int halo_menus_cache_write_note(char const *path, char const *text);
+int halo_menus_art_needs_save(char const *cache_path);
+/* saves the pictures the loaded menus asked for (menu_tags.c), when menus draw */
+void pc_menu_art_extract(void);
 void halo_menus_art_forget(void);
 
 #endif

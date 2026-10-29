@@ -84,7 +84,11 @@ def test_multiplayer_type_has_six_rows_each_with_its_own_description_and_picture
             anchor = "multiplayer_type_join_lan" if anchor == "multiplayer_type_conn_item" else anchor
             order.insert(order.index(anchor) + 1, row.get("name"))
             assert row.get("description") and row.get("picture") is not None
-            assert 0 <= int(row.get("picture")) < len(MP_ROWS), "a frame of the four the Xbox's picture has"
+            picture = row.get("picture")
+            if picture.startswith("png:"):
+                assert (MENUS.parent / picture[4:]).is_file(), "a picture of our own"
+            else:
+                assert 0 <= int(picture) < len(MP_ROWS), "a frame of the four the Xbox's picture has"
             added[row.get("name")] = (row.get("description"), row.get("picture"))
             descriptions[row.get("name")] = ("added", len(added))
     assert order == ["multiplayer_type_coop_item", "multiplayer_type_split_item", "multiplayer_type_join_lan",

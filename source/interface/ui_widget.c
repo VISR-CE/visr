@@ -6699,6 +6699,58 @@ static void widget_instance_render_recursive(
 	return;
 }
 
+/* port: rendering and HUD suppression must agree even when controller and local player indices differ. */
+static boolean ui_widget_should_render(
+	struct widget_instance const *widget,
+	long widget_index,
+	short local_player_index)
+{
+	boolean should_render = FALSE;
+
+	if (widget)
+	{
+		if (widget->render_regardless_of_controller_index == TRUE)
+		{
+			should_render = TRUE;
+		}
+		else if (widget->widget_is_error_dialog == TRUE)
+		{
+			if (widget->local_player_index == local_player_index ||
+				widget->local_player_index == NONE ||
+				local_player_index == NONE ||
+				we_are_at_the_main_menu)
+			{
+				should_render = TRUE;
+			}
+		}
+		else if (widget->local_player_index == NONE && widget_index == 0)
+		{
+			should_render = TRUE;
+		}
+		else if (widget->local_player_index == local_player_index)
+		{
+			should_render = TRUE;
+		}
+	}
+	return should_render;
+}
+
+boolean ui_widget_port_screen_visible(
+	short local_player_index)
+{
+	long widget_index;
+
+	if (virtual_keyboard_active())
+		return FALSE;
+	local_player_index = PIN(local_player_index, 0, MAXIMUM_NUMBER_OF_LOCAL_PLAYERS - 1);
+	for (widget_index = 0; widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; widget_index++)
+	{
+		if (ui_widget_should_render(widget_globals.active_widgets[widget_index], widget_index, local_player_index))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 void render_ui_widgets_postgame(
 	short local_player_index,
 	rectangle2d *window_bounds)
@@ -6724,33 +6776,8 @@ void render_ui_widgets_postgame(
 		widget_index++)
 	{
 		struct widget_instance *widget = widget_globals.active_widgets[widget_index];
-		boolean should_render = FALSE;
+		boolean should_render = ui_widget_should_render(widget, widget_index, local_player_index);
 
-		if (widget)
-		{
-			if (widget->render_regardless_of_controller_index == TRUE)
-			{
-				should_render = TRUE;
-			}
-			else if (widget->widget_is_error_dialog == TRUE)
-			{
-				if (widget->local_player_index == local_player_index ||
-					widget->local_player_index == NONE ||
-					local_player_index == NONE ||
-					we_are_at_the_main_menu)
-				{
-					should_render = TRUE;
-				}
-			}
-			else if (widget->local_player_index == NONE && widget_index == 0)
-			{
-				should_render = TRUE;
-			}
-			else if (widget->local_player_index == local_player_index)
-			{
-				should_render = TRUE;
-			}
-		}
 		if (should_render)
 		{
 			bounds.x0 = 0;
@@ -6795,33 +6822,8 @@ void render_ui_widgets(
 			widget_index++)
 		{
 			struct widget_instance *widget = widget_globals.active_widgets[widget_index];
-			boolean should_render = FALSE;
+			boolean should_render = ui_widget_should_render(widget, widget_index, local_player_index);
 
-			if (widget)
-			{
-				if (widget->render_regardless_of_controller_index == TRUE)
-				{
-					should_render = TRUE;
-				}
-				else if (widget->widget_is_error_dialog == TRUE)
-				{
-					if (widget->local_player_index == local_player_index ||
-						widget->local_player_index == NONE ||
-						local_player_index == NONE ||
-						we_are_at_the_main_menu)
-					{
-						should_render = TRUE;
-					}
-				}
-				else if (widget->local_player_index == NONE && widget_index == 0)
-				{
-					should_render = TRUE;
-				}
-				else if (widget->local_player_index == local_player_index)
-				{
-					should_render = TRUE;
-				}
-			}
 			if (should_render)
 			{
 				point2d offset;
@@ -7879,6 +7881,12 @@ void process_ui_widgets(
 		644,
 		widget_globals.initialized);
 	widget_globals.current_system_milliseconds = system_milliseconds();
+	/* port: save ui.map pictures outside texture resolution, before a later game map needs them. */
+	if (we_are_at_the_main_menu)
+	{
+		extern void pc_menu_art_extract(void);
+		pc_menu_art_extract();
+	}
 	ui_widgets_process_mouse();
 	if (ui_widget_port_press_controller != NONE)
 	{

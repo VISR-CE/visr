@@ -252,14 +252,87 @@ def item_options_document(assets, bitmaps):
     return root
 
 
+# The settings pages' rows, in the order both lists show them: key, caption, folder, screen, platform and the
+# description shown beside the row (each ends as the Xbox's do, where the profile's name is shown). The profile edit
+# screen's patch rows and the in-game hub use the same ones.
+CURRENT = '\\n\\nCurrent Profile:'
+PAGE_ROWS = (
+    ('controls', 'CONTROLS', 'gamepad_setup', 'gamepad_setup_screen', None,
+     'Look, sensitivity, vibration and\\nthe button layout.' + CURRENT),
+    ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
+     'Frame rate, resolution and how\\nthe picture is drawn.' + CURRENT),
+    ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
+     'Volume and sound for the\\ngame on this device.' + CURRENT),
+    ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None,
+     'Online play, custom maps\\nand player names.' + CURRENT),
+    ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
+     'The keys and mouse buttons\\nfor each action.' + CURRENT),
+)
+# The picture slot. Each row names its picture once, by its key: the shipped redraw art/<key>.png where there is
+# one, else the player's own copy (the profile editor's picture, saved from their ui.map into the menus folder at
+# CACHE/<key>.png), else nothing: NONE_PNG, which is transparent, so the panel is drawn text-only. menu_files.c
+# tries a frame's cache before its png, so a frame is "cache + png" only where no redraw is shipped; a redraw added
+# later takes the place by regenerating (test_generation_is_deterministic_and_checked_in).
+ART = 'xbox/art'
+# Bump this directory to rebuild saved pictures after the decode or save format changes.
+CACHE = 'cache/xbox/v1'
+NONE_PNG = f'{ART}/none.png'
+PICTURE_SIZE = (512, 256)
+
+
+# where ui.map has each row's picture (the profile editor's own frames), which the menus save into the cache the
+# first main-menu update (pc_menu_art_extract): the profile editor's Controller Setup and Change Name
+# pictures, and the multiplayer type screen's diagrams
+PICTURE_SOURCES = {
+    'controls': (r'ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options', 1),
+    'video': (r'ui\shell\main_menu\multiplayer_type_select\mp_options', 0),
+    'network': (r'ui\shell\main_menu\multiplayer_type_select\mp_options', 2),
+    'keyboard': (r'ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options', 0),
+}
+
+
+# the rows whose picture ships as our own art (xbox/art/<name>.png, from tools/xbox_menu_art.py), by the name it has:
+# NETWORK shows the INTERNET picture
+REDRAW_NAMES = {'video': 'video', 'audio': 'audio', 'network': 'internet'}
+
+
+def picture_frame(assets, key):
+    """The attributes of a row's picture frame: the redraw if shipped, else the map's own (saved to the cache where
+    ui.map is loaded) over the cache and the transparent png."""
+    width, height = PICTURE_SIZE
+    redraw = f'{ART}/{REDRAW_NAMES.get(key, key)}.png'
+    if (assets / redraw).is_file() or key not in PICTURE_SOURCES:
+        return {'png': redraw, 'width': str(width), 'height': str(height)}
+    tag, index = PICTURE_SOURCES[key]
+    return {'map': tag, 'index': str(index), 'cache': f'{CACHE}/{key}.png', 'png': NONE_PNG,
+            'width': str(width), 'height': str(height)}
+
+
+def hub_documents(assets):
+    """The hub's descriptions and pictures, which are each filtered by platform like the rows are, so a hidden row
+    leaves the strings and frames in the same places as the rows."""
+    strings = ET.Element('strings', name='xbox/settings/hub_descriptions')
+    bitmap = ET.Element('bitmap', name='xbox/settings/hub_pictures')
+    for key, _, _, _, platform, description in PAGE_ROWS:
+        attrs = {'platform': platform} if platform else {}
+        ET.SubElement(strings, 'string', text=description, **attrs)
+        ET.SubElement(bitmap, 'frame', **picture_frame(assets, key), **attrs)
+    return strings, bitmap
+
+
 def bitmap_ref(name, bitmaps):
     bitmaps.add(name)
     return f'xbox/{name}'
 
 
-def settings_hub(bitmaps):
+def settings_hub(bitmaps, assets=MENUS):
+    """The in-game settings hub: the profile editor's layout (the list, and a framed panel with the focused row's
+    picture and description, as the main menu's profile editor has it), from the PC profile editor's widgets."""
     root = ET.Element('menus')
     base = 'xbox/settings'
+    strings, pictures = hub_documents(Path(assets))
+    root.append(strings)
+    root.append(pictures)
     screen = widget(root, f'{base}/settings_screen', width=640, height=480,
                     flags='pass_unhandled_to_focused_child pause_game',
                     bitmap=bitmap_ref('bitmaps/gradient', bitmaps))
@@ -267,22 +340,32 @@ def settings_hub(bitmaps):
         ET.SubElement(screen, 'on', event=event, back='true')
     child(screen, f'{base}/header')
     child(screen, f'{base}/settings_list')
+    child(screen, f'{base}/profile_label', x=432, y=353)
     header = f'{PE}/header_edit_profile_settings'
     widget(root, f'{base}/header', left=35, top=11, width=605, height=59,
            bitmap=bitmap_ref(header, bitmaps))
+    label = widget(root, f'{base}/profile_label', type='text', width=200, height=22, font=r'ui\large_ui',
+                   color='#FFFFFFFF')
+    ET.SubElement(label, 'data', input='get edit plyr profile name')
+    # The panel: the frame, then (in this order, which the list's description update expects) the text and the
+    # picture, at the Xbox's places
+    panel = widget(root, f'{base}/description', left=275, top=78, width=320, height=362,
+                   bitmap=bitmap_ref('bitmaps/list_field', bitmaps))
+    child(panel, f'{base}/description_text')
+    child(panel, f'{base}/description_picture', x=4)
+    widget(root, f'{base}/description_text', type='text', left=294, top=290, width=296, height=110,
+           string_list=f'{base}/hub_descriptions', font=r'ui\large_ui', color=BLUE)
+    widget(root, f'{base}/description_picture', left=288, top=85, width=279, height=202,
+           bitmap=f'{base}/hub_pictures')
     options = widget(root, f'{base}/settings_list', type='column_list', width=640, height=480,
-                     flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5)
-    for i, (key, caption, folder, screen_name, platform) in enumerate((
-        ('controls', 'CONTROLS', 'gamepad_setup', 'gamepad_setup_screen', None),
-        ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app'),
-        ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None),
-        ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None),
-        ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard'),
-    )):
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5,
+                     description=f'{base}/description')
+    ET.SubElement(options, 'data', input='plyr prof edit select menu upd8')
+    for i, (key, caption, folder, screen_name, platform, _) in enumerate(PAGE_ROWS):
         attrs = {'platform': platform} if platform else {}
         # VIDEO shares AUDIO's slot so filtering it preserves the 33-unit pitch.
         child(options, f'{base}/{key}', x=51, y=78 + max(1, i - 1) * 33 if i else 78, **attrs)
-        row = text_widget(root, f'{base}/{key}', caption, width=300, height=32,
+        row = text_widget(root, f'{base}/{key}', caption, width=232, height=32,
                           bitmap=bitmap_ref('bitmaps/list_item_bkd', bitmaps), text_x=13, text_y=4)
         for event in ('a', 'start'):
             ET.SubElement(row, 'on', event=event, open=f'xbox/settings/{folder}/{screen_name}')
@@ -315,7 +398,7 @@ def bitmap_document(assets, names):
                 frame.set('index', str(index))
         root.append(bitmap)
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
-    for name, index in (('video', 0), ('network', 2), ('gametype', 3)):
+    for name, index in (('gametype', 3),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
                       index=str(index), png='ce/shell/main_menu/multiplayer_type_select/mp_options__1.png',
@@ -733,27 +816,19 @@ def patch_document(names):
               open=MPT + 'connected\\4way_profile_select\\4way_start2join_screen')
     browser = 'xbox/main_menu/multiplayer_type_select/join_game/join_game_screen'
     patch_row(mp, after=MPT + 'multiplayer_type_conn_item', name='multiplayer_type_internet', text='INTERNET',
-              run='mp type set mode', open=browser, picture=2,
+              run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description='Browse games on the Internet,\\njoin one, or host your own.')
     patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_join_direct', text='DIRECT LINK',
-              run='mp type set mode', open=browser, picture=2,
+              run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description="Join a friend's game with\\nits join code or invite link.")
     # Profile edit: the settings pages that are not the profile's before SAVE CHANGES (the keyboard's only where
     # one is), and DELETE PROFILE after it on the Apple TV, whose remote has no X
     edit = patch(root, PEP + 'profile_edit_select_list', PEP + 'player_profile_edit_screen')
-    # (each description ends as the Xbox's do, where the profile's name is shown)
-    current = '\\n\\nCurrent Profile:'
-    pages = (('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
-              'Frame rate, resolution and how\\nthe picture is drawn.' + current),
-             ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
-              'Volume and sound for the\\ngame on this device.' + current),
-             ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None,
-              'Online play, custom maps\\nand player names.' + current),
-             ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard',
-              'The keys and mouse buttons\\nfor each action.' + current))
+    current = CURRENT
+    pages = tuple(row for row in PAGE_ROWS if row[0] != 'controls')
     # Multiplayer's split-screen and system-link diagrams; profile's tuning and keyboard art.
-    pictures = {'video': 'bitmap:xbox/pictures/video', 'audio': 'png:xbox/art/audio.png',
-                'network': 'bitmap:xbox/pictures/network', 'keyboard': 0}
+    pictures = {'video': f'png:{ART}/video.png', 'audio': f'png:{ART}/audio.png',
+                'network': f'png:{ART}/internet.png', 'keyboard': 0}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:
         attributes = {'name': f'profile_item_{key}', 'text': caption,
@@ -820,7 +895,7 @@ def generate(assets=MENUS):
     assets = Path(assets)
     names = set()
     documents = {f'settings.{page}.xml': settings_page(assets, page, names) for page in PAGES}
-    documents['settings.xml'] = settings_hub(names)
+    documents['settings.xml'] = settings_hub(names, assets)
     # Keyboard and mouse form one entry from the hub and profile edit screen.
     keyboard = documents['settings.controls_setup.xml']
     base = 'xbox/settings/controls_setup'

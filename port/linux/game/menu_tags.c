@@ -69,6 +69,17 @@ boolean pc_menu_multiplayer_lan(void);
 short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
+void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load);
+
+/* ui.map's bitmaps that the in-game menus draw from the player's cache where a game map lacks them (a <frame> with
+a cache), not yet saved there: saved by the main menu update (pc_menu_art_extract) */
+#define MAXIMUM_EXTRACTIONS 16
+static struct
+{
+	struct bitmap_data *bitmap;
+	char const *path;
+} extractions[MAXIMUM_EXTRACTIONS];
+static long extraction_count;
 
 /* The native Mac's DISPLAY choice follows the window between displays.
 Keep its UTF-16 backing stable so an open spinner sees the new label. */
@@ -950,6 +961,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 		struct halo_menu_frame const *data = &build.menus->frames[source->first_frame + frame];
 		struct bitmap_data *bitmap = &bitmaps[frame];
 		char const *png = data->png;
+		char art[512];
 		long width = data->width, height = data->height;
 
 		/* (a frame of the map's: a copy of its bitmap, which the texture cache
@@ -1004,6 +1016,14 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 					menu_tags.placement_count++;
 				}
 			}
+			/* (ui.map has the picture, which a game map's menus draw from the player's copy of it) */
+			if (data->cache && !build.game_map && extraction_count < MAXIMUM_EXTRACTIONS &&
+				halo_menus_art_needs_save(data->cache))
+			{
+				extractions[extraction_count].bitmap = bitmap;
+				extractions[extraction_count].path = data->cache;
+				extraction_count++;
+			}
 			continue;
 		}
 
@@ -1012,6 +1032,12 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 		{
 			problem(source->file, source->line, "a frame is 1 to 2048 wide and high:", png);
 			return group;
+		}
+		/* (a frame's cache, where it has one, is tried before its png: "cache|png") */
+		if (data->cache && png)
+		{
+			snprintf(art, sizeof(art), "%s|%s", data->cache, png);
+			png = art;
 		}
 		if (!png_frame_build(bitmap, tag_index, png, width, height))
 		{
@@ -1533,6 +1559,8 @@ static void instance_set(struct cache_file_tag_instance *instances, long group_t
 static void menu_tags_release(void)
 {
 	long index;
+
+	extraction_count = 0;
 
 	for (index = 0; index < menu_tags.bitmap_count; index++)
 	{
@@ -2929,6 +2957,23 @@ void menu_tags_unloaded(
 {
 	if (menu_tags.loaded || menu_tags.block_count)
 		menu_tags_release();
+}
+
+/* Saves queued ui.map pictures from process_ui_widgets, once per main-menu update, before texture resolution.
+A picture that cannot be read is left out, and its menus draw without it. */
+void pc_menu_art_extract(
+	void)
+{
+	long index, count = extraction_count;
+
+	extraction_count = 0;
+	for (index = 0; index < count; index++)
+	{
+		void *hardware_format = _texture_cache_bitmap_get_hardware_format(extractions[index].bitmap, TRUE, TRUE);
+
+		platform_log(halo_menus_art_extract(hardware_format, extractions[index].path) ?
+			"menus: saved the picture %s" : "menus: could not save the picture %s", extractions[index].path);
+	}
 }
 
 char const *pc_menus_root_name(

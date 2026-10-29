@@ -12,6 +12,7 @@ fails the files). */
 #include "menu_files.h"
 
 #include <stdarg.h>
+#include <sys/stat.h>
 
 /* ---------- the patch file */
 
@@ -93,17 +94,24 @@ static char const bad_xml[] =
 
 static char const screen_xml[] =
 	"<menus><bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
+	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/v1/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/v1/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/v1/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
 	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
 which replaces it) */
+/* (a picture's "files": the first byte is the texture the stand-in PNG decoder gives, 0 being one that cannot be
+drawn) */
+static const char shipped_png[] = "S";
 const struct menu_file_embedded menu_files_embedded[] =
 {
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
+	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
 };
-const unsigned int menu_files_embedded_count = 2;
+const unsigned int menu_files_embedded_count = 3;
 
 /* ---------- what the game and the platform layer give */
 
@@ -153,8 +161,13 @@ void *global_network_game_server_get(void)
 
 unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned long *levels)
 {
-	(void)png, (void)size, (void)levels;
-	return 0;
+	(void)levels;
+	return size ? ((const unsigned char *)png)[0] : 0;
+}
+
+int posix_make_directory(const char *path)
+{
+	return mkdir(path, 0755);
 }
 
 void gpu_texture_destroy(unsigned int texture)
@@ -842,9 +855,9 @@ static void check_apple(boolean tvos)
 		probe_lan = FALSE;
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* (3 widgets: the screen, adopted row and lobby; 1 borrowed picture bitmap) */
-	counted = 4 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1);
-	used = 4 + 2 * (3 + 4 + 1 + 1);
+	/* (3 widgets: the screen, adopted row and lobby; 1 borrowed picture bitmap; 1 bitmap of the cached pictures) */
+	counted = 4 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
+	used = 4 + 2 * (3 + 4 + 1 + 1) + 1;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -887,6 +900,123 @@ static void check_panel_failure(void)
 	free(work);
 }
 
+/* ui.map's pictures that a frame asks to have saved in the cache (a game map's menus draw them from there): the one
+that is not there yet is saved when the menus first draw, through the texture cache and the decoder, once; the one
+that is there already is not (tools/test_menu_patches.py reads the PNG that is written) */
+static long hardware_requests, art_extractions;
+static unsigned char extracted_pixels[300 * 300 * 4];
+static char const extracted_resource[] = "resource";
+
+void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load)
+{
+	(void)bitmap;
+	check(block && load, "the picture is loaded and waited for");
+	hardware_requests++;
+	return (void *)extracted_resource;
+}
+
+/* (xbox_textures.c's: a picture is saved where it is not there, or an upscaled version has appeared since it was
+saved from the original, which the probe says of upgrade.png) */
+int halo_menus_art_needs_save(char const *cache_path)
+{
+	return !halo_menus_cache_exists(cache_path) || !strcmp(cache_path, "cache/xbox/v1/upgrade.png");
+}
+
+int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
+{
+	long x, y;
+
+	art_extractions++;
+	for (y = 0; y < 300; y++)
+		for (x = 0; x < 300; x++)
+		{
+			unsigned char *pixel = extracted_pixels + (y * 300 + x) * 4;
+
+			pixel[0] = (unsigned char)x;
+			pixel[1] = (unsigned char)y;
+			pixel[2] = (unsigned char)(x ^ y);
+			pixel[3] = 255;
+		}
+	return hardware_format == extracted_resource && halo_menus_cache_write_png(cache_path, extracted_pixels, 300, 300);
+}
+
+static void check_extraction(void)
+{
+	unsigned long levels = 0;
+
+	menu_art_texture(0, &levels);
+	check(hardware_requests == 0 && art_extractions == 0, "texture resolution does not extract pictures");
+	check(!halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is not saved before the menu update");
+	pc_menu_art_extract();
+	check(hardware_requests == 2 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
+		"now, are asked for (%ld, %ld)", hardware_requests, art_extractions);
+	check(halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is saved");
+	{
+		char note[32];
+
+		check(halo_menus_cache_write_note("cache/xbox/v1/extracted.png.key", "00ff 2 2 2 2\n") &&
+			halo_menus_cache_read("cache/xbox/v1/extracted.png.key", note, sizeof(note) - 1) == 13, "a note is kept beside a picture");
+	}
+	pc_menu_art_extract();
+	check(art_extractions == 2, "a picture is saved once");
+	check(!halo_menus_cache_exists("../escape.png") && !halo_menus_cache_write_png("../escape.png",
+		extracted_pixels, 1, 1), "nothing is written outside the menus folder");
+}
+
+/* a frame's picture is its cache where the player's file is there and can be drawn, else its png, else nothing */
+static void check_art(void)
+{
+	static unsigned long texture[2];
+	unsigned long levels = 0, id = 100;
+	char path[400];
+	FILE *file;
+	long index;
+	struct { char const *art; unsigned int expected; char const *what; } const cases[] =
+	{
+		{ "cache/xbox/v1/there.png|xbox/art/shipped.png", 'C', "the player's cache is drawn before the shipped png" },
+		{ "cache/xbox/v1/missing.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache is missing" },
+		{ "cache/xbox/v1/broken.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache cannot be" },
+		{ "cache/xbox/v1/missing.png|cache/xbox/v1/missing2.png", 0, "no picture is drawn where there is none" },
+		{ "xbox/art/shipped.png", 'S', "a png alone is drawn" },
+		{ "cache/xbox/v1/legacy.png|xbox/art/shipped.png", 'S', "an unversioned picture is ignored" },
+		{ "../cache/xbox/v1/there.png|xbox/art/shipped.png", 'S', "a cache outside the menus folder is not read" },
+	};
+
+	snprintf(path, sizeof(path), "%smenus/cache/xbox/v1", folder);
+	{
+		char command[500];
+
+		snprintf(command, sizeof(command), "mkdir -p '%s'", path);
+		check(system(command) == 0, "the cache folder is made");
+	}
+	for (index = 0; index < 2; index++)
+	{
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/%s.png", folder, index ? "broken" : "there");
+		file = fopen(path, "wb");
+		check(file != NULL, "%s is written", path);
+		if (file)
+		{
+			fputc(index ? 0 : 'C', file);
+			fclose(file);
+		}
+	}
+	snprintf(path, sizeof(path), "%smenus/cache/xbox/legacy.png", folder);
+	file = fopen(path, "wb");
+	check(file != NULL, "the old unversioned picture is written");
+	if (file)
+	{
+		fputc('C', file);
+		fclose(file);
+	}
+	for (index = 0; index < (long)(sizeof(cases) / sizeof(*cases)); index++)
+	{
+		texture[1] = id + index;
+		halo_menus_art_register(texture, cases[index].art);
+		check(menu_art_texture(id + index, &levels) == cases[index].expected, "%s", cases[index].what);
+	}
+	halo_menus_art_forget();
+}
+
 int main(int argc, char **argv)
 {
 	snprintf(mode, sizeof(mode), "%s", argc > 1 ? argv[1] : "apple");
@@ -907,6 +1037,28 @@ int main(int argc, char **argv)
 			fclose(file);
 		}
 	}
+	if (strcmp(mode, "bad"))
+	{
+		char path[400];
+		FILE *file;
+
+		snprintf(path, sizeof(path), "mkdir -p '%smenus/cache/xbox/v1'", folder);
+		check(system(path) == 0, "the cache folder is made");
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/extracted.png", folder);
+		remove(path);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/present.png", folder);
+		file = fopen(path, "wb");
+		check(file != NULL, "%s is written", path);
+		if (file)
+			fclose(file);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/upgrade.png", folder);
+		file = fopen(path, "wb");
+		if (file)
+		{
+			fputs("saved from the original", file);
+			fclose(file);
+		}
+	}
 	map_build();
 	menu_tags_loaded("ui");
 	if (!strcmp(mode, "bad"))
@@ -920,6 +1072,8 @@ int main(int argc, char **argv)
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
 		check_panel_failure();
+		check_extraction();
+		check_art();
 		menu_tags_unloaded();
 		check(table == map_table && table_count == map_count, "the map's own table is back after unloading");
 	}

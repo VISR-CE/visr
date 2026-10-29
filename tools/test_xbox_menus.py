@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import shutil
 import sys
+import zlib
 from xml.etree import ElementTree as ET
 
 import pytest
@@ -320,7 +321,8 @@ def test_scrolling_lists_fit_above_their_help():
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
                 continue
             slots, window, bottom = window_rows(w, widgets)
-            if not w.get('description'):
+            # (the hub's description is a panel beside the rows, not help text under them)
+            if not w.get('description') or w.get('name') == 'xbox/settings/settings_list':
                 assert len(w.findall('child')) <= window and bottom <= 414, w.get('name')
                 continue
             help_top = int(widgets[w.get('description')].get('top'))
@@ -449,15 +451,96 @@ def test_quit_panel_matches_delete_confirmation_padding():
     assert panel.find('child') is None, 'absolute legend coordinates must not be nested in the text panel'
 
 
-def test_audio_picture_is_embedded_rgba_art():
-    patches = ET.parse(MENUS / 'xbox/patches.xml')
-    audio = next(row for row in patches.iter('row') if row.get('name') == 'profile_item_audio')
-    picture = audio.get('picture')
-    assert picture == 'png:xbox/art/audio.png'
-    png = (MENUS / picture[4:]).read_bytes()
-    assert png[:8] == b'\x89PNG\r\n\x1a\n'
-    assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (512, 256)
-    assert png[24:26] == bytes((8, 6)), '8-bit RGBA'
+def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
+    """Only AUDIO, VIDEO and INTERNET ship as our own art: 4x PNGs of the 512 by 256 drawings, which the profile
+    editor's rows, the multiplayer type screen's INTERNET and DIRECT LINK rows and the hub's slots name."""
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
-    assert picture[4:] in manifest
-    assert picture[4:] in generator().retain_xbox_files(MENUS, [])
+    for name in ('audio', 'video', 'internet'):
+        svg = (MENUS / f'xbox/art/{name}.svg').read_text()
+        assert 'width="512" height="256"' in svg
+        png = (MENUS / f'xbox/art/{name}.png').read_bytes()
+        assert png[:8] == b'\x89PNG\r\n\x1a\n' and png[24:26] == bytes((8, 6)), '8-bit RGBA'
+        assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (2048, 1024)
+        assert f'xbox/art/{name}.png' in manifest
+        assert f'xbox/art/{name}.png' in generator().retain_xbox_files(MENUS, [])
+    patches = ET.parse(MENUS / 'xbox/patches.xml')
+    wired = {row.get('name'): row.get('picture') for row in patches.iter('row') if row.get('picture')}
+    assert wired['profile_item_video'] == 'png:xbox/art/video.png'
+    assert wired['profile_item_audio'] == 'png:xbox/art/audio.png'
+    assert wired['profile_item_network'] == 'png:xbox/art/internet.png'
+    assert wired['multiplayer_type_internet'] == wired['multiplayer_type_join_direct'] == 'png:xbox/art/internet.png'
+    hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
+    frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
+    pngs = [frame.get('png') for frame in frames]
+    assert pngs[1:4] == ['xbox/art/video.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
+    assert all(frame.get('cache') is None for frame in frames[1:4])
+    # the controllers and keyboard stay the player's own, and nothing else borrows the Xbox's video or network pictures
+    assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache') and pngs[4] == 'xbox/art/none.png'
+    bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
+    assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
+
+
+def hub_panel(tmp_path, redraws=()):
+    """The hub generated into a copy of the art folder holding only the named pictures (and none.png)."""
+    assets = tmp_path / 'menus'
+    (assets / 'xbox/art').mkdir(parents=True)
+    shutil.copy(MENUS / 'xbox/art/none.png', assets / 'xbox/art/none.png')
+    for name in redraws:
+        shutil.copy(MENUS / f'xbox/art/{name}.png', assets / f'xbox/art/{name}.png')
+    root = generator().settings_hub(set(), assets)
+    return root, root.find("bitmap[@name='xbox/settings/hub_pictures']")
+
+
+def test_hub_has_the_profile_editors_framed_panel():
+    hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
+    options = hub.find("widget[@name='xbox/settings/settings_list']")
+    assert options.get('description') == 'xbox/settings/description'
+    assert options.find('data').get('input') == 'plyr prof edit select menu upd8'
+    panel = hub.find("widget[@name='xbox/settings/description']")
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('275', '78', '320', '362')
+    assert panel.get('bitmap') == 'xbox/bitmaps/list_field'
+    # the description update takes the first child for the text and the second for the picture
+    assert [c.get('widget').rsplit('/', 1)[-1] for c in panel.findall('child')] == [
+        'description_text', 'description_picture']
+    label = hub.find("widget[@name='xbox/settings/profile_label']")
+    assert label.find('data').get('input') == 'get edit plyr profile name'
+    # a row's text, picture and place agree wherever a platform hides a row
+    rows = options.findall('child')
+    strings = hub.find("strings[@name='xbox/settings/hub_descriptions']")
+    frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
+    assert [c.get('platform') for c in rows] == [s.get('platform') for s in strings] == [
+        f.get('platform') for f in frames]
+    assert all(s.get('text').endswith('Current Profile:') for s in strings)
+
+
+def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
+    # no redraw for the others: the player's cache over the transparent PNG (menu_files.c tries cache first)
+    _, frames = hub_panel(tmp_path / 'a', redraws=('audio',))
+    by_key = dict(zip(('controls', 'video', 'audio', 'network', 'keyboard'), frames))
+    assert by_key['audio'].attrib == {'png': 'xbox/art/audio.png', 'width': '512', 'height': '256'}
+    for key in ('controls', 'video', 'network', 'keyboard'):
+        frame = by_key[key]
+        assert frame.get('cache') == f'cache/xbox/v1/{key}.png'
+        assert frame.get('png') == 'xbox/art/none.png'
+        # (ui.map has it: the main menu saves it into the cache, where a game map's hub finds it)
+        assert frame.get('map', '').startswith('ui\\shell\\main_menu\\') and frame.get('index') is not None
+    # a redraw shipped later takes the slot, with no cache named
+    _, frames = hub_panel(tmp_path / 'b', redraws=('audio',))
+    shutil.copy(MENUS / 'xbox/art/audio.png', tmp_path / 'b/menus/xbox/art/video.png')
+    root = generator().settings_hub(set(), tmp_path / 'b/menus')
+    video = root.find("bitmap[@name='xbox/settings/hub_pictures']")[1]
+    assert video.get('png') == 'xbox/art/video.png' and video.get('cache') is None
+    # the text-only fallback (no redraw, no cache) draws a transparent picture: the placeholder is clear, 512 by 256
+    png = (MENUS / 'xbox/art/none.png').read_bytes()
+    assert (int.from_bytes(png[16:20], 'big'), int.from_bytes(png[20:24], 'big')) == (512, 256)
+    assert png[24:26] == bytes((8, 6))
+    data = zlib.decompress(b''.join(body for kind, body in png_chunks(png) if kind == b'IDAT'))
+    assert not any(data[1 + row * (1 + 512 * 4):][:512 * 4] != bytes(512 * 4) for row in range(256))
+
+
+def png_chunks(png):
+    offset = 8
+    while offset < len(png):
+        length = int.from_bytes(png[offset:offset + 4], 'big')
+        yield png[offset + 4:offset + 8], png[offset + 8:offset + 8 + length]
+        offset += 12 + length
