@@ -287,6 +287,9 @@ void host_sdl_app_version(char *buffer, unsigned int size);
 int host_astc_texture_key(const void *source, unsigned int format, unsigned int width, unsigned int height, unsigned int levels, unsigned int faces, unsigned int source_face_bytes, void *key);
 int host_astc_texture_read(const void *key, void *bytes, unsigned int size);
 unsigned long long host_astc_texture_generation(void);
+/* the upscaler's record for a texture (its level-0 hash and size): level 0 as RGBA8 in rgba, which may be NULL to ask
+   only for its size; returns its width in the high 32 bits and height in the low, 0 for no intact record */
+unsigned long long host_texture_record_rgba(unsigned long long hash, unsigned int width, unsigned int height, void *rgba, unsigned int capacity);
 
 /* Original-texture preparation; paths are copied by the host bridge. */
 void host_astc_map_arrived(const char *path);

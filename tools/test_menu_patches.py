@@ -82,6 +82,8 @@ def test_menu_patches(tmp_path):
         assert result.returncode == 0, f"menu patch probe failed ({mode})"
         if mode != "bad":
             check_saved_picture(tmp_path / "menus/cache/xbox/extracted.png")
+            # the picture that was saved from the original is saved again, over it
+            check_saved_picture(tmp_path / "menus/cache/xbox/upgrade.png")
 
 
 if __name__ == "__main__":

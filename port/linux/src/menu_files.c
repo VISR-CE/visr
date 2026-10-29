@@ -1170,6 +1170,40 @@ static int png_chunk(FILE *file, char const *type, unsigned char const *data, si
 
 /* 8-bit RGBA, with its rows in stored (uncompressed) deflate blocks: no compressor is needed to write one, and the
 file is made once */
+/* the file's first size bytes (a small note kept beside a picture), the number read; 0 if there is none */
+size_t halo_menus_cache_read(char const *path, char *bytes, size_t size)
+{
+	char full[1200];
+	FILE *file;
+	size_t count;
+
+	if (!path_inside_folder(path))
+		return 0;
+	snprintf(full, sizeof(full), "%s/%s", folder, path);
+	file = fopen(full, "rb");
+	if (!file)
+		return 0;
+	count = fread(bytes, 1, size, file);
+	fclose(file);
+	return count;
+}
+
+int halo_menus_cache_write_note(char const *path, char const *text)
+{
+	char full[1200];
+	FILE *file;
+	int ok;
+
+	if (!path_inside_folder(path))
+		return 0;
+	snprintf(full, sizeof(full), "%s/%s", folder, path);
+	file = fopen(full, "wb");
+	if (!file)
+		return 0;
+	ok = fwrite(text, 1, strlen(text), file) == strlen(text);
+	return fclose(file) == 0 && ok;
+}
+
 int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height)
 {
 	char full[1200], temporary[1210];
@@ -1244,7 +1278,11 @@ int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsi
 			png_chunk(file, "IDAT", deflated, deflated_size) && png_chunk(file, "IEND", NULL, 0);
 		ok = fclose(file) == 0 && ok;
 		if (ok)
+		{
+			/* (a picture saved again, from its upscaled version: the old file goes first where rename does not replace) */
+			remove(full);
 			ok = rename(temporary, full) == 0;
+		}
 		if (!ok)
 			remove(temporary);
 	}

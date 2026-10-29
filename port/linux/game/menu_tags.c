@@ -1018,7 +1018,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			}
 			/* (ui.map has the picture, which a game map's menus draw from the player's copy of it) */
 			if (data->cache && !build.game_map && extraction_count < MAXIMUM_EXTRACTIONS &&
-				!halo_menus_cache_exists(data->cache))
+				halo_menus_art_needs_save(data->cache))
 			{
 				extractions[extraction_count].bitmap = bitmap;
 				extractions[extraction_count].path = data->cache;

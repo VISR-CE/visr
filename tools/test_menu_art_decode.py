@@ -1,4 +1,6 @@
-"""The decode the menus' picture cache uses (xgpu_texture_decode_rgba, port/linux/src/xbox_textures.c).
+"""The decode the menus' picture cache uses (xgpu_texture_decode_rgba, port/linux/src/xbox_textures.c), and which
+version of a texture it saves: the upscaler's where it has made one, else the original's, and when a saved picture is
+saved again (xgpu_texture_picture_rgba and xgpu_texture_picture_stale).
 
 Compiles the file's texture-format section as it is (formats, geometry, swizzling, texel conversion, DXT) with a small
 driver, and reads back synthetic Xbox textures: a swizzled A8R8G8B8, a linear A8R8G8B8 with a pitch wider than its
@@ -31,11 +33,58 @@ typedef int BOOL;
 #define TRUE 1
 #define FALSE 0
 #define VALIDATION_NOTE(...) ((void)0)
+#include "texture_override.h"
 @DEFINES@
 @DESCRIPTION@
 @SLICE@
+/* a fake upscaler: "up" has a record of twice the texture's size whose texels are all 77, "none" has none, "broken" has
+one it cannot read, "same" has one the size of the texture */
+static const char *record_mode = "none";
+static unsigned long long fake_record(uint64_t hash, unsigned int width, unsigned int height, void *rgba,
+	unsigned int capacity)
+{
+	unsigned int factor = !strcmp(record_mode, "same") ? 1 : 2;
+
+	(void)hash;
+	if (!strcmp(record_mode, "none") || !width || !height)
+		return 0;
+	if (rgba)
+	{
+		if (!strcmp(record_mode, "broken") || capacity < width * factor * height * factor * 4)
+			return 0;
+		memset(rgba, 77, (size_t)width * factor * height * factor * 4);
+	}
+	return ((unsigned long long)(width * factor) << 32) | (height * factor);
+}
+
 int main(int argc, char **argv)
 {
+	if (argc > 3 && !strcmp(argv[1], "stale"))
+	{
+		record_mode = argv[3];
+		puts(xgpu_texture_picture_stale(argv[2], fake_record) ? "stale" : "fresh");
+		return 0;
+	}
+	if (argc > 3 && !strcmp(argv[1], "picture"))
+	{
+		DWORD format_word = (DWORD)strtoul(argv[2], NULL, 0);
+		unsigned char texels[4096], *rgba;
+		unsigned long width, height;
+		uint64_t hash;
+		BOOL upscaled;
+
+		record_mode = argv[3];
+		fread(texels, 1, sizeof(texels), stdin);
+		if (!xgpu_texture_picture_rgba(format_word, 0, texels, fake_record, &rgba, &width, &height, &hash, &upscaled))
+		{
+			puts("refused");
+			return 0;
+		}
+		printf("%s %lux%lu %02x %016llx\n", upscaled ? "upscaled" : "original", width, height, rgba[0],
+			(unsigned long long)hash);
+		free(rgba);
+		return 0;
+	}
 	DWORD format_word = (DWORD)strtoul(argv[1], NULL, 0), size_word = (DWORD)strtoul(argv[2], NULL, 0);
 	unsigned char texels[4096], *rgba;
 	unsigned long width, height, index;
@@ -70,7 +119,8 @@ def build(directory: Path) -> Path:
     (directory / "decode.c").write_text(program)
     binary = directory / "decode"
     subprocess.run(["xcrun", "clang", "-std=gnu11", "-g", "-Wall", "-fsanitize=address,undefined",
-                    "-Wno-unused-function", "-Wno-unused-variable", str(directory / "decode.c"),
+                    "-Wno-unused-function", "-Wno-unused-variable", f"--include-directory={ROOT / 'port/linux/src'}",
+                    str(directory / "decode.c"),
                     f"--output={binary}"], check=True)
     return binary
 
@@ -150,6 +200,43 @@ def test_dxt1_blocks(tmp_path):
     assert run(binary, format_word(0x0C, 3, 2), 0, blocks) == rgba_text(8, 4, pixels)
 
 
+def picture(binary, mode, texels):
+    return subprocess.run([str(binary), "picture", hex(format_word(0x06, 2, 2)), mode], input=texels,
+                          capture_output=True, check=True).stdout.decode().split()
+
+
+def test_a_picture_is_saved_from_the_upscaled_texture_when_there_is_one(tmp_path):
+    binary = build(tmp_path)
+    order = morton(4, 4)
+    texels = bytearray(64)
+    for y in range(4):
+        for x in range(4):
+            texels[order(x, y) * 4:order(x, y) * 4 + 4] = bytes((30, 20, 10, 255))
+    original = picture(binary, "none", bytes(texels))
+    assert original[:3] == ["original", "4x4", "0a"], original
+    # (the key is the hash of the texture's level 0 as the map holds it: 64-bit FNV-1a)
+    expected = 0xcbf29ce484222325
+    for byte in texels:
+        expected = ((expected ^ byte) * 0x100000001b3) % 2**64
+    assert original[3] == f"{expected:016x}"
+    # an upscaled record is preferred; one that cannot be read, or is no larger, leaves the original
+    assert picture(binary, "up", bytes(texels))[:3] == ["upscaled", "8x8", "4d"]
+    assert picture(binary, "broken", bytes(texels))[:3] == ["original", "4x4", "0a"]
+    assert picture(binary, "same", bytes(texels))[:3] == ["upscaled", "4x4", "4d"]
+
+
+def test_a_saved_picture_is_saved_again_once_the_upscaled_one_appears(tmp_path):
+    binary = build(tmp_path)
+    note = "00000000000000ff 4 4 4 4\n"
+    def stale(text, mode):
+        return subprocess.run([str(binary), "stale", text, mode], capture_output=True, check=True).stdout.decode().strip()
+    assert stale(note, "none") == "fresh", "no upscaled version yet"
+    assert stale(note, "up") == "stale", "an upscaled version has appeared"
+    assert stale("00000000000000ff 4 4 8 8\n", "up") == "fresh", "what was saved is already the upscaled one"
+    assert stale(note, "same") == "fresh", "a record no larger than what was saved"
+    assert stale("not a note", "up") == "fresh"
+
+
 def test_palettized_textures_are_refused(tmp_path):
     binary = build(tmp_path)
     assert run(binary, format_word(0x0B, 2, 2), 0, bytes(16)) == "refused"
@@ -158,6 +245,8 @@ def test_palettized_textures_are_refused(tmp_path):
 if __name__ == "__main__":
     import tempfile
     for test in (test_swizzled_a8r8g8b8, test_linear_a8r8g8b8_with_a_wider_pitch, test_dxt1_blocks,
+                 test_a_picture_is_saved_from_the_upscaled_texture_when_there_is_one,
+                 test_a_saved_picture_is_saved_again_once_the_upscaled_one_appears,
                  test_palettized_textures_are_refused):
         with tempfile.TemporaryDirectory() as directory:
             test(Path(directory))

@@ -20,6 +20,8 @@ describes them.
 #ifndef HALO_MENUS_H
 #define HALO_MENUS_H
 
+#include <stddef.h>
+
 #define HALO_MENU_NONE (-1L)
 /* the port's event handler and game data functions (menu_functions.c) are
 numbered from here, clear of the Xbox's (0 to 101 and 0 to 40) and the PC's
@@ -207,6 +209,12 @@ could be; art_extract saves a map bitmap's texture (its hardware format) as one,
 int halo_menus_cache_exists(char const *path);
 int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height);
 int halo_menus_art_extract(void const *hardware_format, char const *cache_path);
+/* a note kept beside a picture (its folder is made by write_png): read returns the bytes it read, write_note 1 if it
+could be written. needs_save: 1 if the picture is not saved, or was saved from the original texture and the upscaler
+has made a larger one since (xbox_textures.c) */
+size_t halo_menus_cache_read(char const *path, char *bytes, size_t size);
+int halo_menus_cache_write_note(char const *path, char const *text);
+int halo_menus_art_needs_save(char const *cache_path);
 /* saves the pictures the loaded menus asked for (menu_tags.c), when menus draw */
 void pc_menu_art_extract(void);
 void halo_menus_art_forget(void);

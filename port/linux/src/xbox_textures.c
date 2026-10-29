@@ -620,6 +620,76 @@ BOOL xgpu_texture_decode_rgba(DWORD format_word, DWORD size_word, const unsigned
 	return TRUE;
 }
 
+/* The upscaler's record for a texture, level 0 as RGBA8 (the host's host_texture_record_rgba): its level-0 hash and
+size; rgba NULL asks for the record's size alone. 0: none; else the size, width in the high 32 bits and height in the
+low. */
+typedef unsigned long long (*menu_art_record_function)(uint64_t hash, unsigned int width, unsigned int height,
+	void *rgba, unsigned int capacity);
+
+/* the hash the upscaler keys a texture's record by: its level 0 as the map holds it (texture_override_apply) */
+static uint64_t menu_art_hash(DWORD format_word, DWORD size_word, const unsigned char *texels)
+{
+	struct xgpu_texture_description description;
+
+	xgpu_texture_describe(format_word, size_word, &description);
+	return texture_override_hash(texels, description.levels > 1 ? xgpu_texture_level_offset(&description, 1) :
+		xgpu_texture_face_size(&description));
+}
+
+/* The texels a menu picture is saved from: the upscaled version where the upscaler has made one for this texture and
+the record can be read, else the original's (xgpu_texture_decode_rgba). saved_hash is the texture's key and
+*upscaled whether the record was used. */
+BOOL xgpu_texture_picture_rgba(DWORD format_word, DWORD size_word, const unsigned char *texels,
+	menu_art_record_function record, unsigned char **rgba, unsigned long *width, unsigned long *height,
+	uint64_t *saved_hash, BOOL *upscaled)
+{
+	struct xgpu_texture_description description;
+	unsigned long long size;
+
+	xgpu_texture_describe(format_word, size_word, &description);
+	*upscaled = FALSE;
+	*saved_hash = texels ? menu_art_hash(format_word, size_word, texels) : 0;
+	size = record && texels ? record(*saved_hash, (unsigned int)description.width, (unsigned int)description.height, NULL, 0) : 0;
+	if (size && (size >> 32) <= 8192 && (size & 0xffffffffULL) <= 8192 && (size >> 32) >= description.width)
+	{
+		unsigned long upscaled_width = (unsigned long)(size >> 32), upscaled_height = (unsigned long)(size & 0xffffffffULL);
+		unsigned char *bytes = malloc(upscaled_width * upscaled_height * 4);
+
+		if (bytes && record(*saved_hash, (unsigned int)description.width, (unsigned int)description.height, bytes,
+			(unsigned int)(upscaled_width * upscaled_height * 4)) == size)
+		{
+			*rgba = bytes;
+			*width = upscaled_width;
+			*height = upscaled_height;
+			*upscaled = TRUE;
+			return TRUE;
+		}
+		free(bytes);
+	}
+	return xgpu_texture_decode_rgba(format_word, size_word, texels, rgba, width, height);
+}
+
+/* The note kept beside a saved picture: the texture's key and the size of what was saved. */
+void xgpu_texture_picture_note(char *text, size_t size, uint64_t hash, unsigned long width, unsigned long height,
+	unsigned long saved_width, unsigned long saved_height)
+{
+	snprintf(text, size, "%016llx %lu %lu %lu %lu\n", (unsigned long long)hash, width, height, saved_width, saved_height);
+}
+
+/* Whether a picture saved with this note should be saved again: the upscaler has made a version of the texture that is
+larger than what was saved. A note that does not read leaves the picture as it is. */
+BOOL xgpu_texture_picture_stale(const char *note, menu_art_record_function record)
+{
+	unsigned long long hash;
+	unsigned long width, height, saved_width, saved_height;
+	unsigned long long size;
+
+	if (sscanf(note, "%llx %lu %lu %lu %lu", &hash, &width, &height, &saved_width, &saved_height) != 5 || !record)
+		return FALSE;
+	size = record(hash, (unsigned int)width, (unsigned int)height, NULL, 0);
+	return size && (size >> 32) > saved_width && (size >> 32) <= 8192 && (size & 0xffffffffULL) <= 8192;
+}
+
 /* ---------- upload */
 
 /* debug.texture_dump_directory writes level 0 of every upload as a TGA, read
@@ -1744,29 +1814,73 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 	return texture_entry_result(entry, type, description);
 }
 
+#ifdef HALO_IOS
+unsigned long long host_texture_record_rgba(unsigned long long hash, unsigned int width, unsigned int height,
+	void *rgba, unsigned int capacity);
+static unsigned long long menu_art_host_record(uint64_t hash, unsigned int width, unsigned int height, void *rgba,
+	unsigned int capacity)
+{
+	return host_texture_record_rgba(hash, width, height, rgba, capacity);
+}
+#define MENU_ART_RECORD menu_art_host_record
+#else
+#define MENU_ART_RECORD ((menu_art_record_function)NULL)
+#endif
+
 /* a menu bitmap of the map's (hardware_format: its Xbox texture) saved as a PNG at cache_path, in the menus folder's
-cache (menu_files.c): what the in-game menus draw where the map has not got it (halo_menus.h). 0 if it could not be. */
+cache (menu_files.c): what the in-game menus draw where the map has not got it (halo_menus.h). It is the upscaled
+version where the upscaler has made one, else the original, with a note (cache_path + ".key") of which texture it is
+and what was saved. 0 if it could not be. */
 int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
 {
 	const DWORD *resource = hardware_format;
 	struct xgpu_texture_description description;
 	unsigned long width, height, size;
 	const unsigned char *texels;
+	char note_path[300], note[128];
 	unsigned char *rgba;
+	uint64_t hash;
+	BOOL upscaled;
 	int written;
 
-	if (!resource)
+	if (!resource || strlen(cache_path) + 5 > sizeof(note_path))
 		return 0;
 	xgpu_texture_describe(resource[3], resource[4], &description);
 	size = xgpu_texture_face_size(&description);
 	texels = (const unsigned char *)PLATFORM_PHYSICAL_TO_VIRTUAL(resource[1]);
 	if (!size || !platform_is_contiguous(texels) || !platform_is_contiguous(texels + size - 1))
 		return 0;
-	if (!xgpu_texture_decode_rgba(resource[3], resource[4], texels, &rgba, &width, &height))
+	if (!xgpu_texture_picture_rgba(resource[3], resource[4], texels, MENU_ART_RECORD, &rgba, &width, &height, &hash,
+		&upscaled))
 		return 0;
 	written = halo_menus_cache_write_png(cache_path, rgba, width, height);
 	free(rgba);
+	if (written)
+	{
+		xgpu_texture_picture_note(note, sizeof(note), hash, description.width, description.height, width, height);
+		snprintf(note_path, sizeof(note_path), "%s.key", cache_path);
+		halo_menus_cache_write_note(note_path, note);
+		if (upscaled)
+			platform_log("menus: saved %s from the upscaled texture, %lux%lu", cache_path, width, height);
+	}
 	return written;
+}
+
+/* whether a picture is to be saved (menu_tags.c, when ui.map loads): it is not there, or it was saved from the original
+and the upscaler has made a larger version since (a cheap check: the note, and the record's header) */
+int halo_menus_art_needs_save(char const *cache_path)
+{
+	char note_path[300], note[128];
+	size_t count;
+
+	if (!halo_menus_cache_exists(cache_path))
+		return 1;
+	if (strlen(cache_path) + 5 > sizeof(note_path))
+		return 0;
+	snprintf(note_path, sizeof(note_path), "%s.key", cache_path);
+	count = halo_menus_cache_read(note_path, note, sizeof(note) - 1);
+	note[count] = 0;
+	return count && xgpu_texture_picture_stale(note, MENU_ART_RECORD);
 }
 
 /* how many sweeps back the frame is taken that a texture must have been

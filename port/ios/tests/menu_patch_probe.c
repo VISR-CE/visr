@@ -95,7 +95,8 @@ static char const bad_xml[] =
 static char const screen_xml[] =
 	"<menus><bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
 	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
-	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
 	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
@@ -914,6 +915,13 @@ void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, bool
 	return (void *)extracted_resource;
 }
 
+/* (xbox_textures.c's: a picture is saved where it is not there, or an upscaled version has appeared since it was
+saved from the original, which the probe says of upgrade.png) */
+int halo_menus_art_needs_save(char const *cache_path)
+{
+	return !halo_menus_cache_exists(cache_path) || !strcmp(cache_path, "cache/xbox/upgrade.png");
+}
+
 int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
 {
 	long x, y;
@@ -936,11 +944,17 @@ static void check_extraction(void)
 {
 	check(!halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is not saved before the menus draw");
 	pc_menu_art_extract();
-	check(hardware_requests == 1 && art_extractions == 1, "only the picture that is not saved is asked for (%ld, %ld)",
-		hardware_requests, art_extractions);
+	check(hardware_requests == 2 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
+		"now, are asked for (%ld, %ld)", hardware_requests, art_extractions);
 	check(halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is saved");
+	{
+		char note[32];
+
+		check(halo_menus_cache_write_note("cache/xbox/extracted.png.key", "00ff 2 2 2 2\n") &&
+			halo_menus_cache_read("cache/xbox/extracted.png.key", note, sizeof(note) - 1) == 13, "a note is kept beside a picture");
+	}
 	pc_menu_art_extract();
-	check(art_extractions == 1, "a picture is saved once");
+	check(art_extractions == 2, "a picture is saved once");
 	check(!halo_menus_cache_exists("../escape.png") && !halo_menus_cache_write_png("../escape.png",
 		extracted_pixels, 1, 1), "nothing is written outside the menus folder");
 }
@@ -1024,6 +1038,13 @@ int main(int argc, char **argv)
 		check(file != NULL, "%s is written", path);
 		if (file)
 			fclose(file);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/upgrade.png", folder);
+		file = fopen(path, "wb");
+		if (file)
+		{
+			fputs("saved from the original", file);
+			fclose(file);
+		}
 	}
 	map_build();
 	menu_tags_loaded("ui");
