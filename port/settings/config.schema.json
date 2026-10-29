@@ -919,8 +919,8 @@
         },
         "menus": {
           "type": "string",
-          "default": "pc",
-          "description": "The menus: \"pc\" for the PC version's main menu (port/assets/menus, and a menus folder here for your own), \"xbox\" for the Xbox's.",
+          "default": "auto",
+          "description": "The menus: \"auto\" (default) follows the input device at screen changes: PC for keyboard and mouse, Xbox for controller or touch. \"pc\" and \"xbox\" keep a fixed look. A menus folder here overrides port/assets/menus.",
           "x-environment": "HALO_MENUS",
           "x-environment-style": "value",
           "x-platforms": [

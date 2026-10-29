@@ -41,6 +41,26 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Called at screen open, so an attached keyboard changes the next description. */
+int host_menu_controller(void) {
+    int count=0,connected=0;
+    SDL_JoystickID *ids=SDL_GetGamepads(&count);
+    for(int index=0;index<count;index++)if(!SDL_IsJoystickVirtual(ids[index]))connected=1;
+    SDL_free(ids);
+    return connected;
+}
+
+int host_menu_keyboard(void) {
+#if HALO_NATIVE_MAC || TARGET_OS_MACCATALYST
+    return 1;
+#elif !TARGET_OS_TV && !TARGET_OS_VISION
+    Class keyboard_class=NSClassFromString(@"GCKeyboard");
+    return keyboard_class && ((id(*)(id,SEL))objc_msgSend)(keyboard_class,NSSelectorFromString(@"coalescedKeyboard"))!=nil;
+#else
+    return 0;
+#endif
+}
+
 static char data_root[1024],save_root[1024];
 static FILE *log_file;
 void host_logf(int priority,const char *format,...) {
@@ -525,6 +545,11 @@ int main(int argc,char **argv) {
         env[env_count++]="HALO_HOST_TVOS=1";
 #else
         env[env_count++]="HALO_HOST_TVOS=0";
+#endif
+#if TARGET_OS_VISION
+        env[env_count++]="HALO_HOST_VISIONOS=1";
+#else
+        env[env_count++]="HALO_HOST_VISIONOS=0";
 #endif
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
         env[env_count++]="HALO_HOST_KEYBOARD=1";

@@ -37,6 +37,7 @@ no screen pauses the game (a network game's clock runs on).
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 
 #include "halo_menus.h"
+#include "menu_equivalence.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -2809,7 +2810,7 @@ void menu_tags_loaded(
 	build.menus = menus;
 	build.game_map = game_map;
 	build.xbox_set = strcmp(config_string("display.menus"), "pc") != 0;
-	patching = !game_map && build.xbox_set && menus->patch_count;
+	patching = !game_map && menus->patch_count;
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
 	build.text_tags = malloc((widget_count + 1) * sizeof(long));
@@ -2903,7 +2904,7 @@ void menu_tags_loaded(
 	{
 		pause_patch(instances);
 	}
-	else if (build.xbox_set)
+	else
 	{
 		/* (the Xbox look's root is the map's own main menu) */
 		menu_tags.root[0] = '\0';
@@ -2911,7 +2912,7 @@ void menu_tags_loaded(
 		for (index = 0; patching && index < menus->patch_count && !build.failed; index++)
 			patch_apply(instances, &menus->patches[index]);
 	}
-	else if (widget_named(menus->root) != NONE)
+	if (!game_map && strcmp(config_string("display.menus"), "xbox") && widget_named(menus->root) != NONE)
 	{
 		snprintf(menu_tags.root, sizeof(menu_tags.root), "%s%s", PC_MENU_TAG_PREFIX, menus->root);
 		for (index = 0; menu_tags.root[index]; index++)
@@ -2920,7 +2921,7 @@ void menu_tags_loaded(
 				menu_tags.root[index] = '\\';
 		}
 	}
-	else
+	else if (!game_map && !build.xbox_set)
 	{
 		platform_log("menus: there is no widget named %s, the main menu", menus->root);
 	}
@@ -2974,6 +2975,74 @@ void pc_menu_art_extract(
 		platform_log(halo_menus_art_extract(hardware_format, extractions[index].path) ?
 			"menus: saved the picture %s" : "menus: could not save the picture %s", extractions[index].path);
 	}
+}
+
+/* Replacing pointers in the tag's string entries is safe here: a screen that
+is already drawn keeps its instance until this transition. Reuse two buffers. */
+static void menu_profile_description(int keyboard)
+{
+	static unsigned short text[2][2][256];
+	static long sizes[2][2];
+	static char const *const prefixes[] = { "Rename this profile", "Rename this gametype" };
+	static char const *const captions[][2] = {
+		{ "Rename this profile using the virtual keyboard.\\n\\nCurrent Profile:",
+		  "Rename this profile with your keyboard.\\n\\nCurrent Profile:" },
+		{ "Rename this gametype using the virtual keyboard.\\n\\n\\nThis gametype:",
+		  "Rename this gametype with your keyboard.\\n\\n\\nThis gametype:" },
+	};
+	long count, index, kind, variant;
+	struct cache_file_tag_instance *instances = cache_files_tag_instances(&count);
+	if (!sizes[0][0])
+		for (kind = 0; kind < 2; kind++)
+			for (variant = 0; variant < 2; variant++)
+				sizes[kind][variant] = halo_menus_utf16(captions[kind][variant], text[kind][variant], 256) * 2;
+	for (index = 0; index < count; index++)
+	{
+		struct string_list *list;
+		struct string_list_entry *entries;
+		unsigned short *first;
+		if (instances[index].group_tag != UNICODE_STRING_LIST_TAG || !instances[index].base_address) continue;
+		list = instances[index].base_address;
+		if (list->strings.count <= 0) continue;
+		entries = list->strings.address;
+		first = entries[0].string.address;
+		for (kind = 0; kind < 2; kind++)
+		{
+			char const *prefix = prefixes[kind];
+			long letter;
+			if (!first || entries[0].string.size < (long)strlen(prefix) * 2) continue;
+			for (letter = 0; prefix[letter] && first[letter] == (unsigned short)prefix[letter]; letter++) {}
+			if (prefix[letter]) continue;
+			entries[0].string.address = text[kind][keyboard != 0];
+			entries[0].string.size = sizes[kind][keyboard != 0];
+			break;
+		}
+	}
+}
+
+long pc_menu_screen_open(long tag_index)
+{
+	extern int platform_menu_pad(void);
+	extern int platform_menu_keyboard(void);
+	char const *name, *target;
+	char const *setting = config_string("display.menus");
+	long replacement;
+	int use_xbox;
+	if (!menu_tags.loaded || tag_index == NONE) return tag_index;
+	menu_profile_description(platform_menu_keyboard());
+	name = tag_get_name(tag_index);
+	if (!name) return tag_index;
+	use_xbox = !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
+	target = menu_screen_equivalent(name, use_xbox);
+	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
+	if (!use_xbox && !strcmp(name, "pc\\xbox\\settings\\settings_screen"))
+		target = "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen";
+	if (!target) return tag_index;
+	replacement = tag_loaded(UI_WIDGET_DEFINITION_TAG, target);
+	if (replacement == NONE) return tag_index;
+	menu_tags.xbox_set = use_xbox;
+	platform_log("menus: screen %s -> %s (%s)", name, target, use_xbox ? "pad" : "keyboard_mouse");
+	return replacement;
 }
 
 char const *pc_menus_root_name(
