@@ -67,6 +67,7 @@ static boolean browser_item_usable(struct widget_instance *w) { (void)w; return 
 static void browser_focus(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
+static void platform_log(char const *format, ...) { (void)format; }
 static long config_integer(char const *key) { (void)key; return capacity; }
 static int config_boolean(char const *key) { (void)key; return 1; }
 static int campaign_fail(void) { failures++; return 0; }
