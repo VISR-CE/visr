@@ -2730,6 +2730,23 @@ static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
 
 		if (samples < 2)
 			samples = 0;
+		/* a count the GPU does not take becomes the next one it does (the
+		visionOS simulator takes 4 and not 2), else none */
+		if (samples && ![device supportsTextureSampleCount:samples])
+		{
+			uint32_t wanted = samples;
+			static uint32_t logged;
+
+			while (samples <= 8 && ![device supportsTextureSampleCount:samples])
+				samples *= 2;
+			if (samples > 8)
+				samples = 0;
+			if (logged != wanted)
+			{
+				logged = wanted;
+				platform_log("Metal: this GPU does not take %u samples a pixel; multisampling with %u", wanted, samples);
+			}
+		}
 		if (!record || !record->texture || record->description.usage != GPU_USAGE_RENDER_TARGET ||
 			record->description.type != GPU_TEXTURE_2D || record->samples == samples)
 			return;
