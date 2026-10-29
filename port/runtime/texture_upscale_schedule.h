@@ -3,6 +3,7 @@ and Steve's rules of 2026-10-24): the profile is asked first, and gameplay alway
 probe can check the rules without the app. */
 #pragma once
 #include <string.h>
+#include <stdio.h>
 
 /* The order the work goes through the maps: the main menu's map first (Steve, 2026-10-26: the main menu's textures
    are the first thing the player sees, so they are made before anything else), then the campaign in order, then the
@@ -124,6 +125,14 @@ static inline const char *texture_upscale_import_retry_note(enum texture_upscale
 {
 	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE ? "Still not enough free storage." :
 		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? "Still too warm." : NULL;
+}
+
+/* Mac hosts supply Finder-formatted counts; keep the retry sentence identical in both UIs. */
+static inline void texture_upscale_import_storage_line(char *out, size_t size, const char *found,
+	const char *needed, int retry)
+{
+	snprintf(out, size, "%sFound %s free; upscaling needs %s.",
+		retry ? "Still not enough free storage. " : "", found, needed);
 }
 
 /* debug.texture_upscale_generate */

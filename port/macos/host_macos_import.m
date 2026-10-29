@@ -5,6 +5,7 @@
 #include "xiso.h"
 #include "host_astc_store.h"
 #include "host_texture_upscale.h"
+#include "texture_upscale_schedule.h"
 #include <stdatomic.h>
 
 @interface VISRMacImport : NSObject {
@@ -92,28 +93,28 @@ static int upscale_progress(void *context, const struct host_texture_upscale_imp
 static void upscale_phase(NSString *root) {
     VISRUpscalePhase *phase = [VISRUpscalePhase new];
     atomic_store(&phase->tick, -1.0); atomic_store(&phase->menu_phase, 1);
-    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 460, 170)
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 680, 170)
         styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
     window.title = @"VISR"; window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
     window.backgroundColor = [NSColor colorWithSRGBRed:0.025 green:0.045 blue:0.055 alpha:1];
     NSView *content = window.contentView;
     NSTextField *status = [NSTextField labelWithString:@"Upscaling textures"];
-    status.frame = NSMakeRect(24, 116, 412, 20); status.alignment = NSTextAlignmentCenter;
+    status.frame = NSMakeRect(24, 116, 632, 20); status.alignment = NSTextAlignmentCenter;
     status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
     /* (in the bar's place when the work is refused: the line under the message) */
     NSTextField *detail = [NSTextField labelWithString:@""];
-    detail.frame = NSMakeRect(24, 70, 412, 40);
-    detail.maximumNumberOfLines=2;detail.lineBreakMode=NSLineBreakByWordWrapping; detail.alignment = NSTextAlignmentCenter;
+    detail.frame = NSMakeRect(24, 66, 632, 44);
+    detail.maximumNumberOfLines=2;detail.lineBreakMode=NSLineBreakByClipping; detail.alignment = NSTextAlignmentCenter;
     detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.secondaryLabelColor;
     detail.hidden = YES; [content addSubview:detail];
-    VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 412, 46)];
+    VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 632, 46)];
     bar.tick = -1; [content addSubview:bar];
     NSButton *start = [NSButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
-    start.frame = NSMakeRect(165, 18, 130, 32);start.bezelStyle=NSBezelStyleRounded;
+    start.frame = NSMakeRect(275, 18, 130, 32);start.bezelStyle=NSBezelStyleRounded;
     start.bezelColor=bar_blue();start.contentTintColor=NSColor.blackColor;
     start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
     NSButton *retry=[NSButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
-    retry.frame=NSMakeRect(307,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
+    retry.frame=NSMakeRect(209,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
     retry.alphaValue=0;retry.enabled=NO;[content addSubview:retry];
     [window center];
     /* (the work is the player's own request: keep App Nap from slowing it while the window is behind another app) */
@@ -136,13 +137,16 @@ static void upscale_phase(NSString *root) {
         const char *more = atomic_load(&phase->detail);
         NSString *detailText=more?@(more):@"";
         uint64_t needed=atomic_load(&phase->needed_bytes),found=atomic_load(&phase->found_bytes);
+        const char *note=atomic_load(&phase->retry_note);if(note)detailText=@(note);
         if(needed){
             NSString *freeText=[NSByteCountFormatter stringFromByteCount:(int64_t)found countStyle:NSByteCountFormatterCountStyleFile];
             NSString *needText=[NSByteCountFormatter stringFromByteCount:(int64_t)needed countStyle:NSByteCountFormatterCountStyleFile];
-            detailText=[NSString stringWithFormat:@"Found %@ free; upscaling needs %@. VISR will try again when space is available.",freeText,needText];
+            char line[512];
+            texture_upscale_import_storage_line(line,sizeof(line),freeText.UTF8String,needText.UTF8String,note!=NULL);
+            detailText=[NSString stringWithFormat:@"%s\n%s",line,TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL];
         }
-        const char *note=atomic_load(&phase->retry_note);if(note)detailText=@(note);
         bar.alphaValue=message?0:1;detail.alphaValue=message?1:0;detail.hidden=NO;detail.stringValue=detailText;
+        start.frame=NSMakeRect(message?341:275,18,130,32);
         start.alphaValue=menu?0:1;start.enabled=!menu;
         retry.alphaValue=message?1:0;retry.enabled=message&&atomic_load(&phase->can_retry)&&!atomic_load(&phase->retry_busy);
         [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
