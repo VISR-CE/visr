@@ -416,6 +416,9 @@ void game_tick(
 	profile_scope(game_tick_player_effect_section, player_effect_update();)
 	/* port: the scripted camera's transition time, which scripts wait on, counted in ticks (camera_scripting.c) */
 	scripted_camera_tick();
+	/* port: the wind's step, once a tick (scenario.c: it stepped by the
+	frames' time) */
+	scenario_tick_update();
 	/* port: and at its end, before the frame draws the lights */
 	game_state_check_data_arrays();
 	lights_port_recover();
