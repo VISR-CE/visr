@@ -57,17 +57,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.0", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
+    x-axis "Port and version" ["VISR 0.6.3", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.5, 119.4, 119.1]
-    bar [119.5, 119.4, 119.1]
+    bar [119.4, 119.4, 119.1]
+    bar [119.4, 119.4, 119.1]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-M1 iPad Pro. [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (build 20261027.111952, measured 2026-10-27; no on-time share reported); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-27; no on-time share reported; b30 not measured yet).
+M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-27; no on-time share reported; b30 not measured yet).
 
 Not measured: [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
@@ -133,14 +133,14 @@ M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/relea
 
 ## Methodology
 
-The snapshot holds 181 measured windows for 9 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. Web builds run in a browser that always syncs to the display, so they have capped numbers only and do not appear in the uncapped charts. The spreadsheet's README tab describes each column.
+The snapshot holds 195 measured windows for 9 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. Web builds run in a browser that always syncs to the display, so they have capped numbers only and do not appear in the uncapped charts. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on and uncapped): Metal's per-frame timing: `metalperftrace` on-glass drawable intervals for the app's process. Ports: VISR, OpenCE-macOS, CoreCE, Halo OG.
 - **Mac** (M4 Mac mini, M6 Mac mini; uncapped, vsync off): The OpenGL frame swap, timestamped by a shim in the app's process (`flushBuffer` / `CGLFlushDrawable`), for a port that `metalperftrace` does not see. GPU time per frame is not available for these ports (OpenGL). Ports: Chupathingy.
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on): Safari `requestAnimationFrame` callbacks, which measure browser scheduling. Ports: OpenCE web.
-- **iPhone/iPad** (M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
+- **iPhone/iPad** (A10X iPad Pro, M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
 - **Apple TV** (Apple TV HD; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR.
 - **Apple TV** (Apple TV HD; frame cap on): Another method, named in the `method` column. Ports: VISR.
 - **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR.
