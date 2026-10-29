@@ -27,6 +27,11 @@ game sample takes each hand's latest anchor; the drawing sample
 the drawable's trackable-anchor time. On visionOS 26 the game logs once that
 controller aim needs 27, and aims with the head.
 
+With input.aim = "hands" the player's bare hands are a second source of the
+same hands (host_spatial_hands.m), filling them from ARKit's hand tracking.
+The Sense tracker keeps precedence while it is READY, so picking the
+controllers up takes the sample back and putting one down hands it over.
+
 The game sample also carries both controllers' buttons, read at the aiming
 hand's anchor timestamp (host_spatial_input.m) and mapped onto the Xbox
 gamepad (host_spatial_gamepad.c), which xinput_sdl.c merges into port 0.
@@ -54,6 +59,7 @@ controller aim owns them. */
 #include <os/lock.h>
 #include <simd/simd.h>
 #include "host_spatial_input.h"
+#include "host_spatial_hands.h"
 #include "host_theater.h"
 #endif
 
@@ -101,7 +107,16 @@ static atomic_int misplaced_restart_wanted;
 static int misplaced_restarts;
 #define MISPLACED_RESTARTS 2
 /* host_spatial_feedback's last values */
-static int feedback_aiming, feedback_buzz_serial;
+static int feedback_hidden, feedback_buzz_serial;
+#if TARGET_OS_VISION
+/* 1 while the bare-hand source filled the last game sample
+(host_spatial_hands.m): the player's real hands are the point of
+input.aim = "hands", so they stay visible however the guest aims. Kept here
+and not asked of the hands source, because the Sense tracker takes the sample
+back the moment it is READY and then the hands source is never called again
+to notice */
+static int hands_filled_sample;
+#endif
 /* 1 while controller aim owns the Sense controllers: the tracker runs with
 both loaded, so their buttons merge into port 0 (the game sample's
 gamepad_valid); host_sdl.c leaves them out of SDL's gamepads only then.
@@ -234,6 +249,36 @@ static void read_settings(void)
 #endif
 #endif
 }
+
+#if TARGET_OS_VISION
+/* the bare-hand source's drawing sample, beside the Sense tracker's and from
+the same drawable: the head of this drawable's device anchor (else the last
+latch, as the tracker does) and the drawable's trackable-anchor time, the
+instant the tracker predicts its own controllers to. Outside the visionOS 27
+gates, so it runs with or without the Sense SDK */
+static void hands_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device)
+{
+	float back[3], position[3] = { 0.0f, 0.0f, 0.0f };
+	double time = 0.0;
+
+	if (!aim_hands || !head_mode)
+		return;
+	if (drawable)
+	{
+		if (origin_from_device)
+		{
+			position[0] = origin_from_device->columns[3].x;
+			position[1] = origin_from_device->columns[3].y;
+			position[2] = origin_from_device->columns[3].z;
+		}
+		else
+			host_stereo_last_head(back, position);
+		time = cp_time_to_cf_time_interval(cp_frame_timing_get_trackable_anchor_time(
+			cp_drawable_get_frame_timing(drawable)));
+	}
+	host_spatial_hands_frame(drawable, position, time);
+}
+#endif
 
 #if HOST_SPATIAL_SENSE_SDK
 /* ---------- visionOS 27: the Sense controllers through ARKit */
@@ -1157,6 +1202,7 @@ void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 		tracker_start();
 	if (@available(visionOS 27.0, *))
 		[(HostSpatialTracker *)tracker frame:drawable device:origin_from_device];
+	hands_frame(drawable, origin_from_device);
 }
 
 /* the tracker's sample of this kind: the drawing sample host_stereo_frame
@@ -1183,10 +1229,9 @@ static void tracker_sample(int kind, struct halo_spatial_sample *sample, const f
 #if TARGET_OS_VISION && !HOST_SPATIAL_SENSE_SDK
 void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device)
 {
-	(void)drawable;
-	(void)origin_from_device;
 	if (!settings_read)
 		read_settings();
+	hands_frame(drawable, origin_from_device);
 }
 #endif
 
@@ -1232,6 +1277,18 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 #if HOST_SPATIAL_SENSE_SDK
 		tracker_sample(kind, sample, position);
 #endif
+		/* the Sense tracker wins while it's READY, bare hands fill the
+		sample otherwise (host_spatial_hands.m): a controller picked up
+		takes the hands' place in the same sample it becomes ready in, and
+		one put down hands it back */
+		if (aim_hands && sample->reason != HALO_SPATIAL_READY)
+		{
+			host_spatial_hands_sample(kind, sample, position);
+			if (kind == HALO_SPATIAL_SAMPLE_GAME)
+				hands_filled_sample = host_spatial_hands_active();
+		}
+		else if (kind == HALO_SPATIAL_SAMPLE_GAME)
+			hands_filled_sample = 0;
 #else
 		(void)kind;
 #endif
@@ -1240,8 +1297,11 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 	/* a controller that reads well above the head isn't where it reads
 	(the recording above keeps the sample as it came). Judged on the game
 	sample, live or replayed (a replay's head is the recording's: its yaw is
-	exactly 0 while there was none); the head aims until they agree */
-	if (kind == HALO_SPATIAL_SAMPLE_GAME && sample->reason == HALO_SPATIAL_READY && sample->synthetic != 1)
+	exactly 0 while there was none); the head aims until they agree. Never on
+	a hands sample (gamepad_valid 2): a hand held overhead is where it reads,
+	and the ARKit restart the test asks for would drop hand tracking */
+	if (kind == HALO_SPATIAL_SAMPLE_GAME && sample->reason == HALO_SPATIAL_READY && sample->synthetic != 1 &&
+		sample->gamepad_valid != 2)
 	{
 		const struct halo_spatial_hand *hand = &sample->hands[sample->aiming_hand ? 1 : 0];
 		int has_head = sample->synthetic == 2 ? sample->head_yaw != 0.0f : host_stereo_last_head(back, position);
@@ -1283,15 +1343,22 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 void host_spatial_feedback(const struct halo_spatial_feedback *feedback)
 {
 	int aiming = feedback->aiming != 0;
-
-	if (aiming != feedback_aiming)
-	{
-		feedback_aiming = aiming;
-		host_logf(HOST_LOG_INFO, "spatial: hands %s", aiming ? "hidden" : "shown");
 #if TARGET_OS_VISION
-		/* the drawn gun stands in for the hand (Theater.swift; the main
-		queue's) */
-		host_theater_set_upper_limbs(!aiming);
+	/* the drawn gun stands in for a controller in the hand, but not for the
+	hand itself: while the bare-hand source fills the sample the player's own
+	hands stay visible, whatever the guest aims with */
+	int hidden = aiming && !hands_filled_sample;
+#else
+	int hidden = aiming;
+#endif
+
+	if (hidden != feedback_hidden)
+	{
+		feedback_hidden = hidden;
+		host_logf(HOST_LOG_INFO, "spatial: hands %s", hidden ? "hidden" : "shown");
+#if TARGET_OS_VISION
+		/* (Theater.swift; the main queue's) */
+		host_theater_set_upper_limbs(!hidden);
 #endif
 	}
 	if (feedback->buzz_serial != feedback_buzz_serial)
