@@ -369,6 +369,70 @@ static void shared_store_launches(uint8_t *secret, NSData *key) {
     [HostDataPackStore forgetSharedStores];
     puts("PASS: one store per root; launch 1 then launch 2 keep a new shard; a 0.6.3 quarantine yields to the next sequence");
 }
+#define CATALOG_GUEST @"benchmark-catalog-1:c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89"
+static HostDataPackStore *RecordingStore(NSString *root, NSData *key, BOOL shared) {
+    BOOL (^validator)(NSString *, NSError **) = ^BOOL(NSString *folder, NSError **error) {
+        (void)error;
+        return [NSFileManager.defaultManager fileExistsAtPath:[folder stringByAppendingPathComponent:@"a10-test.input"]];
+    };
+    return shared ? [HostDataPackStore sharedStoreWithRoot:root bundled:@"/bundled" kind:@"recordings" channel:@"tester"
+                        publicKey:key compatibility:CATALOG_GUEST validator:validator]
+                  : [[HostDataPackStore alloc] initWithRoot:root bundled:@"/bundled" kind:@"recordings" channel:@"tester"
+                        publicKey:key compatibility:CATALOG_GUEST validator:validator];
+}
+static NSData *RecordingEnvelope(uint8_t *secret, long long sequence) {
+    NSData *payload = [NSJSONSerialization dataWithJSONObject:@{@"files": @{@"a10-test.input": @"eA=="}} options:0 error:NULL];
+    uint8_t hash[CC_SHA256_DIGEST_LENGTH], signature[64];
+    CC_SHA256(payload.bytes, (CC_LONG)payload.length, hash);
+    NSMutableString *digest = [NSMutableString string];
+    for (NSUInteger i = 0; i < sizeof(hash); i++) [digest appendFormat:@"%02x", hash[i]];
+    NSData *manifest = [NSJSONSerialization dataWithJSONObject:@{@"schema": @1, @"kind": @"recordings", @"channel": @"tester",
+        @"sequence": @(sequence), @"minimum_engine": @1, @"maximum_engine": @1, @"compatibility": CATALOG_GUEST, @"sha256": digest, @"notes": @"test"} options:0 error:NULL];
+    crypto_ed25519_sign(signature, secret, manifest.bytes, manifest.length);
+    return [NSJSONSerialization dataWithJSONObject:@{@"manifest": [manifest base64EncodedStringWithOptions:0],
+        @"signature": [[NSData dataWithBytes:signature length:64] base64EncodedStringWithOptions:0],
+        @"payload": [payload base64EncodedStringWithOptions:0]} options:0 error:NULL];
+}
+/* 0.6.4 moved only the profiles to a new cache root; the recordings store keeps 0.6.3's state. 0.6.3's two stores on the
+   recordings root quarantined the catalog's trial as they did a profile shard's (the legacy store began the launch, the
+   menu's store read it as a crash), so its sequence is used up: the same catalog is refused for good, and only the
+   catalog signed again at a higher sequence stages and stays. */
+static void recordings_quarantined_by_063(uint8_t *secret, NSData *key) {
+    [HostDataPackStore forgetSharedStores];
+    NSString *root = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+    NSData *live = RecordingEnvelope(secret, 1793178642);
+    assert([RecordingStore(root, key, NO) stageEnvelope:live error:NULL]);
+    assert(![[RecordingStore(root, key, NO) beginLaunch] isEqual:@"/bundled"]);      // 0.6.3's legacy store began a launch
+    [HostDataPackStore forgetSharedStores];                                           // (the next process)
+    assert([[RecordingStore(root, key, NO) menuSnapshot][@"folder"] isEqual:@"/bundled"]);
+    assert([State(root)[@"quarantined"] longLongValue] == 1793178642);
+    // 0.6.4, one store per root: the live catalog is refused at every check, so Benchmark stays unavailable
+    for (int launch = 0; launch < 2; launch++) {
+        [HostDataPackStore forgetSharedStores];
+        HostDataPackStore *menu = RecordingStore(root, key, YES);
+        NSError *error = nil;
+        assert(![menu stageEnvelope:live error:&error] && [error.localizedDescription isEqual:@"Pack sequence was already seen"]);
+        assert([[menu menuSnapshot][@"folder"] isEqual:@"/bundled"]);
+    }
+    // the same catalog signed again at a higher sequence stages, is chosen and stays healthy
+    [HostDataPackStore forgetSharedStores];
+    HostDataPackStore *menu = RecordingStore(root, key, YES);
+    assert([menu stageEnvelope:RecordingEnvelope(secret, 1793290000) error:NULL]);
+    NSString *recovered = [menu menuSnapshot][@"folder"];
+    assert(![recovered isEqual:@"/bundled"]);
+    [menu retainMenuFolder:recovered]; [menu selectMenuFolder:recovered]; [menu markHealthy];
+    [HostDataPackStore forgetSharedStores];
+    assert([[RecordingStore(root, key, YES) menuSnapshot][@"folder"] isEqual:recovered]);
+    // a fresh install (no 0.6.3 state) takes the live catalog at once
+    [HostDataPackStore forgetSharedStores];
+    NSString *fresh = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+    HostDataPackStore *first = RecordingStore(fresh, key, YES);
+    assert([first stageEnvelope:live error:NULL] && ![[first menuSnapshot][@"folder"] isEqual:@"/bundled"]);
+    [NSFileManager.defaultManager removeItemAtPath:root error:NULL];
+    [NSFileManager.defaultManager removeItemAtPath:fresh error:NULL];
+    [HostDataPackStore forgetSharedStores];
+    puts("PASS: a recordings catalog 0.6.3 quarantined is refused; the catalog at a higher sequence is taken; a fresh install takes the live one");
+}
 int main(void) { @autoreleasepool {
     profile_frame_rate();
     low_power_frame_rate();
@@ -376,6 +440,7 @@ int main(void) { @autoreleasepool {
     crypto_ed25519_key_pair(secret, public, seed);
     NSData *key = [NSData dataWithBytes:public length:32], *envelope = Envelope(secret, 1);
     shared_store_launches(secret, key);
+    recordings_quarantined_by_063(secret, key);
     // Menu candidates stay pending until selected; abandoned menus do not quarantine them.
     NSString *menuRoot = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
     HostDataPackStore *menu = Store(menuRoot, key);
