@@ -71,6 +71,7 @@ host_gpu_texture_generate_mipmaps
 host_gpu_texture_destroy
 host_gpu_texture_read
 host_gpu_texture_set_content
+host_gpu_texture_multisample
 host_gpu_buffer_create
 host_gpu_buffer_write
 host_gpu_stream_reserve

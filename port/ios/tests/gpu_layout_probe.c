@@ -29,6 +29,7 @@ int main(void)
 	SIZE(gpu_capabilities);
 	FIELD(gpu_capabilities, shader_language);
 	FIELD(gpu_capabilities, astc);
+	FIELD(gpu_capabilities, max_samples);
 	FIELD(gpu_capabilities, max_texture_size);
 	SIZE(gpu_texture_description);
 	FIELD(gpu_texture_description, foveated_eye);

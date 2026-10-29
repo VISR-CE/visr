@@ -912,6 +912,7 @@ static void gpu_gl_initialize(uint32_t flags, struct gpu_capabilities *capabilit
 	glGetIntegerv(GL_MINOR_VERSION, &minor);
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maximum_texture_size);
 	capabilities->max_texture_size = (uint32_t)maximum_texture_size;
+	capabilities->max_samples = 1;
 	capabilities->triangle_fans = 1;
 	capabilities->line_loops = 1;
 #ifdef GPU_GL_ES
@@ -1319,6 +1320,14 @@ static void gpu_gl_texture_copy_rects(gpu_texture source, const struct gpu_textu
 		glCopyImageSubData(source, GL_TEXTURE_2D, 0, (GLint)copy->x, (GLint)copy->y, 0,
 			copy->destination, GL_TEXTURE_2D, 0, 0, 0, 0, (GLsizei)copy->width, (GLsizei)copy->height, 1);
 	}
+}
+
+/* multisampling (display.anti_aliasing's "msaa2x" to "msaa8x") is the Metal
+backend's alone: here max_samples is 1, so the front end never asks */
+static void gpu_gl_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	(void)texture;
+	(void)samples;
 }
 
 static uint32_t gpu_gl_texture_read(gpu_texture texture, void *pixels, uint32_t size)
