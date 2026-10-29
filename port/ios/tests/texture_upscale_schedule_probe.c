@@ -92,8 +92,25 @@ static void level_source(void)
 	assert(!texture_upscale_first_run_phase(1, 0, 1));   /* nothing left to make */
 }
 
+static void import_watchdog(void)
+{
+	/* the menu's textures made: offered at once */
+	assert(texture_upscale_import_offer_skip(1, 182, 182, 0));
+	/* still making them and moving: held back */
+	assert(!texture_upscale_import_offer_skip(1, 90, 182, 5));
+	assert(!texture_upscale_import_offer_skip(0, 0, 0, TEXTURE_UPSCALE_IMPORT_STALL_SECONDS - 1));
+	/* no step finished for the stall time, before the catalog or during the menu's textures: offered anyway */
+	assert(texture_upscale_import_offer_skip(0, 0, 0, TEXTURE_UPSCALE_IMPORT_STALL_SECONDS));
+	assert(texture_upscale_import_offer_skip(1, 90, 182, TEXTURE_UPSCALE_IMPORT_STALL_SECONDS + 30));
+	/* a level's wait while nothing lists its textures ends rather than holding the loading screen */
+	assert(texture_upscale_level_checking(0) == TEXTURE_UPSCALE_LEVEL_CHECKING);
+	assert(texture_upscale_level_checking(TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS - 1) == TEXTURE_UPSCALE_LEVEL_CHECKING);
+	assert(texture_upscale_level_checking(TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS) == TEXTURE_UPSCALE_LEVEL_DONE);
+}
+
 int main(void)
 {
+	import_watchdog();
 	level_source();
 	gate();
 	activity();

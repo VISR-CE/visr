@@ -29,6 +29,19 @@ static inline int texture_upscale_import_skippable(int menu_known, unsigned long
 	return menu_known && menu_ready >= menu_total;
 }
 
+/* The import phase's watchdog: Start playing is held back only while the work toward the main menu's textures moves.
+   If no step finishes (the model's load, a map of the catalog, a texture) for TEXTURE_UPSCALE_IMPORT_STALL_SECONDS, it is
+   offered anyway and the work goes on behind the menus: a step that never ends (an iPhone 15 Pro Max on 0.6.3 sat at 0%
+   with nothing counted) must not hold the player on the import screen. The slowest step measured is the catalog, about
+   12 s on an A14 iPad Air. */
+#define TEXTURE_UPSCALE_IMPORT_STALL_SECONDS 60.0
+static inline int texture_upscale_import_offer_skip(int menu_known, unsigned long menu_ready, unsigned long menu_total,
+	double seconds_without_progress)
+{
+	return texture_upscale_import_skippable(menu_known, menu_ready, menu_total) ||
+		seconds_without_progress >= TEXTURE_UPSCALE_IMPORT_STALL_SECONDS;
+}
+
 /* debug.texture_upscale_generate */
 enum texture_upscale_mode
 {
@@ -119,6 +132,17 @@ enum texture_upscale_level_wait
 	TEXTURE_UPSCALE_LEVEL_WORKING,    /* making them: done of total units (input texels) */
 	TEXTURE_UPSCALE_LEVEL_DONE        /* the worker finished the level, ready or not (an error leaves it original) */
 };
+
+/* The pre-level wait's listing is bounded the same way: while the worker has not listed the level's textures the screen
+   shows nothing to skip, so a worker held by a step that never ends (see TEXTURE_UPSCALE_IMPORT_STALL_SECONDS) would hold
+   the loading screen forever. After this long without a list the level loads, original where its textures are not
+   ready. Listing a level takes well under a second once the catalog is built; the catalog itself about 12 s on an
+   A14 iPad Air. */
+#define TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS 30.0
+static inline enum texture_upscale_level_wait texture_upscale_level_checking(double seconds_waited)
+{
+	return seconds_waited >= TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS ? TEXTURE_UPSCALE_LEVEL_DONE : TEXTURE_UPSCALE_LEVEL_CHECKING;
+}
 
 /* Whether the loading screen shows its "Upscaling textures ..." line and "Press A to Skip": only while the worker is
    making the level's textures. Not while it is still listing them (no 0% for an instant), not when they are all ready
