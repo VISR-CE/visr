@@ -177,7 +177,7 @@ static int prayer_ready(const struct host_spatial_hand_joints joints[2])
 	return 1;
 }
 
-/* the prayer sign's geometry gate alone: palm centres close and both hands' fingers pointed
+/* the prayer sign's geometry gate alone: palm centers close and both hands' fingers pointed
 up, independent of the palm normals' sign. *dot is the measured dot product whenever this
 returns 1 (undefined otherwise, as prayer_ready already failed and the frames were never
 built); separating this from the sign test is what lets hands_recognize log the dot it
@@ -270,29 +270,39 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	}
 	else
 	{
-		float yaw, excess, turn_sign;
-
 		state->drag_anchored = 0; /* the pinch is open: the next close picks a fresh anchor */
 
-		yaw = atan2f(aim_forward[1], aim_forward[0]) * (180.0f / (float)M_PI);
-		excess = fabsf(yaw) - deadzone_degrees;
-		turn_sign = yaw < 0.0f ? -1.0f : 1.0f;
-
-		if (turn_snap)
+		/* an untracked gun hand has no aim to turn from: the final memset below (visr's Task 4
+		controller ruling 1) zeros controls[g].stick_x regardless, but it cannot undo an event
+		already emitted or an armed/pulse state already set from whatever aim_forward the
+		caller happened to pass (a zero vector, or a held last-known direction past the grace).
+		Gating the whole computation on joints[g].tracked, the same signal the final memset
+		reads, keeps the aim turn silent and the state untouched while the hand is gone, exactly
+		as the pinch loop above already does for its own events (pinch_update's hand_tracked) */
+		if (joints[g].tracked)
 		{
-			if (excess < 0.0f)
-				state->aim_turn_armed = 1;
-			else if (excess > 0.0f && state->aim_turn_armed)
+			float yaw, excess, turn_sign;
+
+			yaw = atan2f(aim_forward[1], aim_forward[0]) * (180.0f / (float)M_PI);
+			excess = fabsf(yaw) - deadzone_degrees;
+			turn_sign = yaw < 0.0f ? -1.0f : 1.0f;
+
+			if (turn_snap)
 			{
-				state->pulse_until = now + HANDS_PULSE_SECONDS;
-				state->pulse_x = -turn_sign;
-				state->aim_turn_armed = 0;
-				emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees);
+				if (excess < 0.0f)
+					state->aim_turn_armed = 1;
+				else if (excess > 0.0f && state->aim_turn_armed)
+				{
+					state->pulse_until = now + HANDS_PULSE_SECONDS;
+					state->pulse_x = -turn_sign;
+					state->aim_turn_armed = 0;
+					emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees);
+				}
 			}
+			else
+				aim_contribution = -turn_sign *
+					clampf(excess / (HANDS_AIM_TURN_FULL_DEGREES - deadzone_degrees), 0.0f, 1.0f);
 		}
-		else
-			aim_contribution = -turn_sign *
-				clampf(excess / (HANDS_AIM_TURN_FULL_DEGREES - deadzone_degrees), 0.0f, 1.0f);
 	}
 
 	/* snap mode is pulse-only (no smooth fallback); smooth mode sums the two sources; either

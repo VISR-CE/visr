@@ -355,6 +355,38 @@ static void aim_turn_snap(void)
 	check(controls[0].menu == 0, "aim snap: the off hand's menu is never set");
 }
 
+/* an untracked gun hand turns nothing, whatever forward it is given: the yaw computation, the
+aim-turn event and the armed/pulse state it would set are all gated on joints[g].tracked, the
+same signal the final memset reads to zero controls[g] (visr's Task 4 controller ruling 1), so
+a hand that has never been tracked (host_spatial_hands.m's sampler has no last-known forward to
+fall back on until the forearm has been tracked at least once, and so passes the zeroed
+aim.forward of an untracked hand) produces no event either, not just a zeroed stick_x */
+static void aim_turn_untracked_gun_hand(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float zero_forward[3] = { 0.0f, 0.0f, 0.0f };
+	float forward40[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tracked = 0; /* the gun hand has never been tracked */
+
+	count = hands_recognize(&state, joints, 1, zero_forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "untracked gun hand: no turn from a zero forward");
+	check(count == 0, "untracked gun hand: no event from a zero forward");
+
+	forward40[0] = cosf(40.0f * (float)M_PI / 180.0f); forward40[1] = sinf(40.0f * (float)M_PI / 180.0f);
+	forward40[2] = 0.0f;
+	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 1.1, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "untracked gun hand: no turn from a forward well past the deadzone");
+	check(count == 0, "untracked gun hand: no event even well past the deadzone");
+}
+
 /* the aim turn is suppressed while the gun hand's middle pinch is closed, even well past the
 deadzone: the drag is the only source of stick_x (Review Focus 4) */
 static void aim_turn_suppressed_by_drag(void)
@@ -492,6 +524,7 @@ int main(void)
 	drag_snap();
 	aim_turn_smooth();
 	aim_turn_snap();
+	aim_turn_untracked_gun_hand();
 	aim_turn_suppressed_by_drag();
 	prayer();
 	event_capacity_clamped();

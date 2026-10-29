@@ -661,7 +661,10 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		building one); held_forward_of turns the forearm's own last direction (last_forward,
 		still in the room's raw frame) into the same game-axes convention aim.forward carries,
 		so the recognizer's yaw math holds the arm's last known pointing rather than reading a
-		sudden, spurious center */
+		sudden, spurious center. The gun hand has never been tracked at all when forward_known[g]
+		is still 0: there is no last direction to fall back on, so forward stays the zero
+		aim.forward, which is fine either way, since the recognizer itself gates the whole aim
+		turn (event and armed/pulse state, not only stick_x) on joints[g].tracked */
 		if (sample->hands[g].state != HALO_SPATIAL_TRACKED && forward_known[g])
 		{
 			held_forward_of(last_forward[g], held_forward);
