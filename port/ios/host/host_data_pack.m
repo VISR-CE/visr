@@ -291,6 +291,28 @@ static BOOL PackStaleStage(NSString *name) { return [name hasPrefix:@".stage-"] 
         return created;
     }
 }
++ (NSString *)peekFolderAtRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
+    if (!root.isAbsolutePath || key.length != 32 || !validator) return bundled;
+    // A bare instance: no openStore, so no folder is created, repaired or started over. loadState and generation:
+    // only read.
+    HostDataPackStore *look = [[HostDataPackStore alloc] init];
+    look->_root = [root copy]; look->_bundled = [bundled copy]; look->_kind = [kind copy]; look->_channel = [channel copy];
+    look->_publicKey = [key copy]; look->_compatibility = [compatibility copy]; look->_validator = [validator copy];
+    if (!PackNode(root, YES) || ![look loadState]) return bundled;
+    NSDictionary *state = look->_state;
+    uint64_t quarantined = [state[@"quarantined"] unsignedLongLongValue];
+    NSString *active = state[@"active"];
+    if ([state[@"trial"] boolValue] && !PackTrialIsOurs(root)) {
+        quarantined = MAX(quarantined, (uint64_t)[[[active componentsSeparatedByString:@"-"] firstObject] longLongValue]);
+        active = state[@"healthy"];
+    }
+    // As the menu offers it: a valid candidate above the quarantine mark, else the active snapshot.
+    NSString *pending = state[@"pending"];
+    NSDictionary *pack = pending.length ? [look generation:pending] : nil;
+    NSString *name = pack && [pack[@"manifest"][@"sequence"] unsignedLongLongValue] > quarantined ? pending : nil;
+    if (!name && active.length && [look generation:active]) name = active;
+    return name ? [[look generationPath:name] stringByAppendingPathComponent:@"files"] : bundled;
+}
 /* Probes only: a new launch, as far as the stores are concerned. */
 + (void)forgetSharedStores { @synchronized(HostDataPackStore.class) { [PackSharedStores removeAllObjects]; [PackTrialRoots removeAllObjects]; } }
 - (instancetype)initWithRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
