@@ -48,3 +48,33 @@ screens or external-display profiles. For audio alone, choose an AirPlay
 output in macOS Sound settings. Wireless video and audio can be delayed;
 use a cable or local audio when response time matters. If a receiver drops,
 check the game window on the Mac and select a working sound output.
+
+## Discord account-linking trial
+
+The trial scaffolding is opt-in:
+
+```sh
+python3 tools/ios_build.py --native-mac --sandbox on --discord on
+```
+
+`--discord on` sets `HALO_DISCORD`, adds the Discord callback scheme to the
+built plist before signing, compiles the Keychain helpers and presence value
+producer, and adds Discord Settings to the app menu. Link Discord remains
+disabled until the Social SDK is integrated. The preflight does not open a
+browser, store tokens, or publish presence. The C producer accepts public map
+and mode labels, player counts, and a session start time; the live game adapter
+is still pending. Ordinary builds default to `--discord off`.
+
+Obtain the Discord Social SDK **C++ macOS arm64 release** archive from the
+Developer Portal. It must include `discordpp.h`,
+`libdiscord_partner_sdk.dylib`, supporting headers, and its license. Set
+`VISR_DISCORD_SDK` to the local archive path or an HTTPS URL and
+`VISR_DISCORD_SDK_SHA256` to an independently recorded lowercase SHA-256.
+The build rejects missing or mismatched digests and records the accepted
+hash under ignored `build/third_party/discord/`. It stages the archive without
+extracting or linking it; inspect the actual package before adding those
+steps. Never commit the SDK or a download URL containing credentials.
+
+SDK linking, PKCE authorization, token exchange and refresh, live presence,
+sandbox network access, binary size, and runtime entitlement requirements
+remain unverified. The current trial does not add sandbox entitlements.

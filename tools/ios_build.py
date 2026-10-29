@@ -152,6 +152,8 @@ def main():
     parser.add_argument('--data-pack-channel', choices=('stable', 'tester'),
                         help='the channel the signed updates come from (default tester with --tester, stable '
                              'otherwise); the native Mac app has no tester build, so its TestFlight build names tester')
+    parser.add_argument('--discord', choices=('on', 'off'), default='off',
+                        help='native Mac Discord preflight only; account linking requires the portal SDK')
     parser.add_argument('--sandbox', choices=('on', 'off'),
                         help='--native-mac: sign the ad hoc development build with the App Sandbox entitlements (off by '
                              'default). Team-signed native builds are always sandboxed')
@@ -239,6 +241,8 @@ def main():
         parser.error('--visionos supports only --renderer metal')
     if not args.native_mac:
         args.bundle_id = args.bundle_id or ('org.steverice.visr.mac' if platform_name == 'mac' else 'org.steverice.visr')
+    if args.discord == 'on' and not args.native_mac:
+        parser.error('--discord is for --native-mac')
     if args.sandbox and not args.native_mac:
         parser.error('--sandbox is for --native-mac')
     if args.native_mac:

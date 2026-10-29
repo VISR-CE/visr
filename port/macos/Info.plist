@@ -18,6 +18,7 @@
 	<string>$(HALO_BUILD_DESCRIPTION)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(HALO_MARKETING_VERSION)</string>
+	<!-- Discord trial URL types -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

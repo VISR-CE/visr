@@ -4,6 +4,9 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_metal.h>
 #include "host_macos.h"
+#ifdef HALO_DISCORD
+#include "host_discord.h"
+#endif
 #include "ios_host.h"
 #include "host_external.h"
 #include "host_benchmark.h"
@@ -54,6 +57,9 @@ void host_macos_install(void) {
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"0");
     if (!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMEPAD))
         host_fatal("SDL initialization: %s",SDL_GetError());
+#ifdef HALO_DISCORD
+    host_discord_install();
+#endif
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 }
 void host_macos_window_ready(void *sdl_window) {
@@ -81,6 +87,10 @@ void host_macos_window_ready(void *sdl_window) {
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@"VISR"];
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit VISR" action:@selector(quit:) keyEquivalent:@"q"];
     quit.target = actions;
+#ifdef HALO_DISCORD
+    [menu addItem:host_discord_settings_item()];
+    [menu addItem:NSMenuItem.separatorItem];
+#endif
     [menu addItem:quit];
     application.submenu = menu;
     NSApp.mainMenu = bar;

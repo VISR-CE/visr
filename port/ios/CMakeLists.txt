@@ -177,6 +177,23 @@ if(HALO_NATIVE_MAC)
     list(REMOVE_ITEM HALO_NATIVE_SOURCES host/host_external.m host/host_share.m host/host_lifecycle.m
         host/host_frame_counter.m host/host_benchmark_page.m)
     set_property(TARGET VISR PROPERTY SOURCES "${HALO_NATIVE_SOURCES}")
+    option(HALO_DISCORD "Discord trial scaffolding (SDK integration pending)" OFF)
+    if(HALO_DISCORD)
+        file(READ "${HALO_INFO_PLIST}" HALO_DISCORD_PLIST)
+        string(REPLACE "<!-- Discord trial URL types -->"
+            "<key>LSApplicationQueriesSchemes</key><array><string>discord</string></array>"
+            HALO_DISCORD_PLIST "${HALO_DISCORD_PLIST}")
+        string(REPLACE "<string>halo</string>"
+            "<string>halo</string><string>discord-1565271043529117697</string>"
+            HALO_DISCORD_PLIST "${HALO_DISCORD_PLIST}")
+        set(HALO_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info-discord.plist")
+        file(WRITE "${HALO_INFO_PLIST}" "${HALO_DISCORD_PLIST}")
+        enable_language(OBJCXX)
+        target_compile_definitions(VISR PRIVATE HALO_DISCORD=1)
+        target_sources(VISR PRIVATE "${HALO_NATIVE_DIR}/host_discord.mm"
+            "${ROOT}/port/runtime/discord_presence.c")
+        target_link_libraries(VISR PRIVATE "-framework Security")
+    endif()
     target_compile_definitions(VISR PRIVATE HALO_NATIVE_MAC=1)
     target_include_directories(VISR PRIVATE "${HALO_NATIVE_DIR}")
 endif()

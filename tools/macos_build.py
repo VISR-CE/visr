@@ -64,6 +64,7 @@ def native_commands(args, data_packs):
         *ios_build.cloud_definitions(args.bundle_id, args.cloud_saves, getattr(args, 'cloud_container', None),
                                      shader_upload=getattr(args, 'shader_upload', False),
                                      perf_reports=getattr(args, 'perf_reports', False)),
+        f'-DHALO_DISCORD={getattr(args, "discord", "off").upper()}',
         '-DHALO_TESTER_BUILD=OFF', '-DHALO_BENCHMARK_ROUTES=OFF', ios_build.development_hooks(args),
         f'-DHALO_BUILD_NUMBER={args.build_number or time.strftime("%Y%m%d.%H%M%S")}',
         f'-DHALO_DATA_PACK_CHANNEL_NAME={getattr(args, "data_pack_channel", None) or ""}',
@@ -95,6 +96,12 @@ def build_native(args, data_packs):
         from . import ios_build
     else:
         import ios_build
+    if getattr(args, 'discord', 'off') == 'on':
+        if __package__:
+            from .discord_sdk import prepare_from_environment
+        else:
+            from discord_sdk import prepare_from_environment
+        prepare_from_environment(ROOT / 'build/third_party/discord')
     configure, build = native_commands(args, data_packs)
     ios_build.run(*configure)
     # an App Store archive leaves the product as a link into its own intermediates (as on iOS)

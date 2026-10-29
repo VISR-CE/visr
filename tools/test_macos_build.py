@@ -208,3 +208,8 @@ def test_native_unsigned_cloud_saves_build_does_not_request_provisioning():
     assert '-DHALO_CLOUD_SAVES=ON' in configure
     assert 'CODE_SIGNING_ALLOWED=NO' in build
     assert '-allowProvisioningUpdates' not in build
+
+
+def test_discord_preflight_is_opt_in_and_cached_setting_is_cleared():
+    assert '-DHALO_DISCORD=OFF' in macos_build.native_commands(options(), [])[0]
+    assert '-DHALO_DISCORD=ON' in macos_build.native_commands(options(discord='on'), [])[0]
