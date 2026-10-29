@@ -60,6 +60,7 @@ static NSColor *bar_blue(void) { return [NSColor colorWithSRGBRed:0.247 green:0.
     atomic_int skip, done, menu_phase;
     _Atomic double fraction, tick;
     const char *_Atomic message;   /* the phase ended refused (a string literal), or NULL */
+    const char *_Atomic detail;    /* its second, smaller line */
 }
 - (void)skip:(id)sender;
 @end
@@ -70,7 +71,7 @@ static int upscale_progress(void *context, const struct host_texture_upscale_imp
     VISRUpscalePhase *phase = (__bridge VISRUpscalePhase *)context;
     atomic_store(&phase->fraction, status->fraction); atomic_store(&phase->tick, status->tick);
     atomic_store(&phase->menu_phase, status->menu_phase);
-    atomic_store(&phase->message, status->message);
+    atomic_store(&phase->message, status->message); atomic_store(&phase->detail, status->detail);
     /* (the main menu's textures come first: a skip counts once Start playing is offered) */
     return status->menu_phase || !atomic_load(&phase->skip);
 }
@@ -85,6 +86,11 @@ static void upscale_phase(NSString *root) {
     NSTextField *status = [NSTextField labelWithString:@"Upscaling textures"];
     status.frame = NSMakeRect(24, 116, 412, 20); status.alignment = NSTextAlignmentCenter;
     status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
+    /* (in the bar's place when the work is refused: the line under the message) */
+    NSTextField *detail = [NSTextField labelWithString:@""];
+    detail.frame = NSMakeRect(24, 84, 412, 18); detail.alignment = NSTextAlignmentCenter;
+    detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.tertiaryLabelColor;
+    detail.hidden = YES; [content addSubview:detail];
     VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 412, 46)];
     bar.tick = -1; [content addSubview:bar];
     NSButton *start = [NSButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
@@ -106,6 +112,9 @@ static void upscale_phase(NSString *root) {
         /* (rounded down: 100% only when every texture is made) */
         const char *message = atomic_load(&phase->message);
         status.stringValue = message ? @(message) : [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
+        status.textColor = message ? NSColor.labelColor : NSColor.secondaryLabelColor;
+        const char *more = atomic_load(&phase->detail);
+        bar.hidden = message != NULL; detail.hidden = !message || !more; if (more) detail.stringValue = @(more);
         start.hidden = menu;
         [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
     }

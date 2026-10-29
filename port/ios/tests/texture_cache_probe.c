@@ -168,6 +168,9 @@ static void storage(void)
 	{
 		const uint64_t gb = 1ull << 30, mb = 1ull << 20;
 		assert(texture_cache_storage_usable(1, 3 * gb, 1, 9 * gb, 1, 9 * gb) == 7 * gb);
+		/* both read: the smaller (an M1 iPad Pro on iOS 27.2: important 251,358 MB, the volume 221,093 MB) */
+		assert(texture_cache_storage_usable(1, 194348 * mb, 1, 251358 * mb, 1, 221093 * mb) == 221093 * mb - 2 * gb);
+		assert(texture_cache_storage_usable(1, 0, 1, 4 * gb, 1, 9 * gb) == 2 * gb);
 		assert(texture_cache_storage_usable(1, 0, 1, 10 * gb, 1, 10 * gb) == 8 * gb);
 		/* a 0 opportunistic read with 5 GB free (an iPhone on iOS 27.2): 3 GB, which covers the whole set (about 941 MB
 		   as BC7) with 2 GB left */

@@ -42,29 +42,73 @@ static inline int texture_upscale_import_offer_skip(int menu_known, unsigned lon
 		seconds_without_progress >= TEXTURE_UPSCALE_IMPORT_STALL_SECONDS;
 }
 
-/* How a pump ends. A pump that a gate refused (no storage, the player's switch off, critical thermal state, gameplay)
-   ends there: it does not run again at once because a scan or a request is pending, since the gate would refuse again.
-   0.6.3 re-ran a pump refused for storage before it took its pending scan, forever: the import phase never saw it end
-   (36,143 refusals in one log) and never offered Start playing. The scan stays pending for the retry. */
-static inline int texture_upscale_pump_runs_again(int refused, int scan_pending, int pump_requested, int playing,
-	int thermal_ok)
+/* How a pump ends. The refusals are a gate saying no before or during the work: no storage, the player's switch off,
+   critical thermal state, gameplay. A refused pump ends there: it does not run again at once because a scan or a request
+   is pending, since the gate would refuse again. 0.6.3 re-ran a pump refused for storage before it took its pending scan,
+   forever: the import phase never saw it end (36,143 refusals in one log) and never offered Start playing. The scan stays
+   pending for the retry (a timer for storage, the thermal notice, the app's return, the next launch). */
+enum texture_upscale_end
 {
-	return !refused && (scan_pending || pump_requested) && !playing && thermal_ok;
+	TEXTURE_UPSCALE_END_QUEUE_EMPTY,
+	TEXTURE_UPSCALE_END_INTERRUPTED,       /* a new priority, a scan or a map that changed: the pump runs again */
+	TEXTURE_UPSCALE_END_ERROR,             /* a texture failed */
+	TEXTURE_UPSCALE_END_CATALOG,           /* the catalog could not be built */
+	TEXTURE_UPSCALE_END_MANIFEST,          /* the manifest could not be reconciled */
+	TEXTURE_UPSCALE_END_REFUSED_STORAGE,
+	TEXTURE_UPSCALE_END_REFUSED_SWITCH,
+	TEXTURE_UPSCALE_END_REFUSED_THERMAL,
+	TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY,
+	TEXTURE_UPSCALE_END_COUNT
+};
+static inline int texture_upscale_end_refused(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE || end == TEXTURE_UPSCALE_END_REFUSED_SWITCH ||
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL || end == TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY;
+}
+/* for the log and the generator log's "why" */
+static inline const char *texture_upscale_end_name(enum texture_upscale_end end)
+{
+	switch (end)
+	{
+	case TEXTURE_UPSCALE_END_QUEUE_EMPTY: return "queue empty";
+	case TEXTURE_UPSCALE_END_INTERRUPTED: return "interrupted";
+	case TEXTURE_UPSCALE_END_ERROR: return "error";
+	case TEXTURE_UPSCALE_END_CATALOG: return "catalog";
+	case TEXTURE_UPSCALE_END_MANIFEST: return "manifest";
+	case TEXTURE_UPSCALE_END_REFUSED_STORAGE: return "low storage";
+	case TEXTURE_UPSCALE_END_REFUSED_SWITCH: return "the player's switch is off";
+	case TEXTURE_UPSCALE_END_REFUSED_THERMAL: return "critical thermal state";
+	case TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY: return "gameplay";
+	default: return "unknown";
+	}
+}
+static inline int texture_upscale_pump_runs_again(enum texture_upscale_end end, int scan_pending, int pump_requested,
+	int playing, int thermal_ok)
+{
+	return !texture_upscale_end_refused(end) && (scan_pending || pump_requested) && !playing && thermal_ok;
+}
+/* ends tried again on a timer (one at a time); the others wait for a notice, a map load or the app's return */
+static inline int texture_upscale_end_retries_on_timer(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_ERROR || end == TEXTURE_UPSCALE_END_CATALOG || end == TEXTURE_UPSCALE_END_MANIFEST ||
+		end == TEXTURE_UPSCALE_END_REFUSED_STORAGE;
 }
 
-/* What the import screen says when the phase ended because a gate refused the work: NULL for any other end. The work
-   is tried again later (a timer, the app's return, the next launch). */
+/* What the import screen says when the phase ended because a gate refused the work, with a second, smaller line: NULL
+   for any other end. */
 #define TEXTURE_UPSCALE_IMPORT_NO_STORAGE "Not enough free storage to upscale textures"
-#define TEXTURE_UPSCALE_IMPORT_TOO_WARM "Upscaling textures will continue when the device cools down"
-static inline const char *texture_upscale_import_end_message(const char *why)
+#define TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL "VISR will try again when space is available."
+#define TEXTURE_UPSCALE_IMPORT_TOO_WARM "Device is too warm to upscale textures"
+#define TEXTURE_UPSCALE_IMPORT_TOO_WARM_DETAIL "VISR will try again when it cools down."
+static inline const char *texture_upscale_import_end_message(enum texture_upscale_end end)
 {
-	if (!why)
-		return NULL;
-	if (!strcmp(why, "low storage"))
-		return TEXTURE_UPSCALE_IMPORT_NO_STORAGE;
-	if (!strcmp(why, "critical thermal state"))
-		return TEXTURE_UPSCALE_IMPORT_TOO_WARM;
-	return NULL;
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE ? TEXTURE_UPSCALE_IMPORT_NO_STORAGE :
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? TEXTURE_UPSCALE_IMPORT_TOO_WARM : NULL;
+}
+static inline const char *texture_upscale_import_end_detail(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE ? TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL :
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? TEXTURE_UPSCALE_IMPORT_TOO_WARM_DETAIL : NULL;
 }
 
 /* debug.texture_upscale_generate */
