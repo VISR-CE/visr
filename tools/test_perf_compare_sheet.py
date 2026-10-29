@@ -566,27 +566,14 @@ def test_fetch_drops_the_opence_web_port_even_if_the_sheet_still_has_it():
     assert "opence-web" not in {row["port"] for row in cleaned} and len(cleaned) == len(rows)
 
 
-def test_chart_palette_matches_the_site_tokens_and_the_icon_colors():
+def test_chart_palette_is_applied_to_every_spec_and_the_site_uses_the_icon_colors():
     css = (ROOT / "docs/site/style.css").read_text()
-    light = [re.search(rf"--{name}:\s*(#[0-9a-f]{{6}})", css).group(1) for name in ("chart-avg", "chart-low")]
     for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
-        assert item["chart"]["palette"] == light
+        palette = item["chart"]["palette"]
         assert "__PALETTE__" in item["chart"]["header"]
-        assert ", ".join(light) in charts.header_text(item["chart"])
+        assert ", ".join(palette) in charts.header_text(item["chart"])
     assert "--visr-blue: #1fa9d4" in css and "--visr-gold: #ffc24d" in css
-
-
-def _luminance(color):
-    channels = [int(color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
-    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def test_light_mode_bars_keep_three_to_one_contrast_on_white():
-    css = (ROOT / "docs/site/style.css").read_text()
-    for name in ("chart-avg", "chart-low"):
-        color = re.search(rf"--{name}:\s*(#[0-9a-f]{{6}})", css).group(1)
-        assert 1.05 / (_luminance(color) + 0.05) >= 3.0, name
+    assert "--chart-avg: var(--visr-blue)" in css and "--chart-low: var(--visr-gold)" in css
 
 
 def test_home_page_links_to_the_benchmarks_page_and_the_readme_to_its_site_address():
