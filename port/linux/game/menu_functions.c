@@ -3991,6 +3991,7 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 		strcpy(fake->name, "BIG TEST GAME");
 		strcpy(fake->map, "bloodgulch");
 		strcpy(fake->gametype, "Slayer");
+		fake->engine_type = 2;    /* (SLAYER, matching the gametype; 0 would read CO-OP) */
 		fake->player_count = 12;
 		fake->maximum_player_count = 16;
 		fake->open = fake->joinable = TRUE;
