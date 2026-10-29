@@ -80,6 +80,9 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/spatial_gamepad_probe.c', '-o', BUILD / 'spatial-gamepad-probe')
 run(BUILD / 'spatial-gamepad-probe')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
+    'port/ios/tests/hands_probe.c', '-o', BUILD / 'hands-probe')
+run(BUILD / 'hands-probe')
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
     'port/ios/tests/spatial_recenter_probe.c', '-o', BUILD / 'spatial-recenter-probe')
 run(BUILD / 'spatial-recenter-probe')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
