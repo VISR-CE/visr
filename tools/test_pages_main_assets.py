@@ -205,6 +205,7 @@ def test_current_release_assets_are_checked_in_and_exact():
     recordings = [path for path in assets if "recordings" in Path(path).name]
     assert len(profiles) == 20
     assert not [path for path in assets if "/device-profiles-2/" in path]
+    assert len([path for path in assets if "/device-profiles-3/" in path]) == 55
     assert len(recordings) == 6
     assert set(assets) == set(overlay.parse_receipt((root / RECEIPT).read_bytes()))
     assert hashlib.sha256(assets[RECORDING]).hexdigest() == (
