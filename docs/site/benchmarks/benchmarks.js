@@ -430,7 +430,7 @@ function metricKind(spec) {
   const metric = spec.query.metrics[0];
   return spec.query.pair || metric.startsWith("gpu_") || metric.startsWith("cpu_") ? "ms" : "fps";
 }
-const KIND_LABELS = { fps: "FPS", ms: "ms" };
+const KIND_LABELS = { fps: "FPS", ms: "Frame Time" };
 const KIND_ORDER = ["fps", "ms"];
 
 function el(tag, attributes, ...children) {

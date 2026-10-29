@@ -25,7 +25,7 @@ def main() -> int:
         page.set_content("<!doctype html><body></body>")
         page.add_script_tag(url=MERMAID)
         page.add_script_tag(path=str(SITE / "benchmarks/benchmarks.js"))
-        page.evaluate("mermaid.initialize({startOnLoad:false})")
+        page.evaluate("mermaid.initialize(mermaidConfig(true))")  # the dark chart theme the live page uses
         for spec in specs:
             text = charts.source(spec, charts.model(rows, spec["query"], charts.DEFAULT_SUITE), charts.DEFAULT_SUITE)
             target = SITE / f"benchmarks/static-{slug(spec)}.svg"
@@ -34,6 +34,8 @@ def main() -> int:
                 continue
             # benchmarks.js adds the gridlines and the even margin (finishChartSvg), as the live page does.
             svg = page.evaluate("async (s) => finishChartSvg((await mermaid.render('static', s)).svg, s)", text)
+            # The value labels use `currentColor`, which an `<img>` resolves to black: set the dark theme's ink on the root.
+            svg = svg.replace("<svg ", '<svg color="#e8f6fa" ', 1)
             target.write_text(svg + "\n", encoding="utf-8")
             print("wrote", target.relative_to(charts.ROOT))
         browser.close()

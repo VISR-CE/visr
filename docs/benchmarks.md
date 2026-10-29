@@ -24,7 +24,7 @@ config:
     height: 420
   themeVariables:
     xyChart:
-      plotColorPalette: "#1593bd, #c8870a"
+      plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
     title "Campaign: uncapped fps, M6 Mac mini"
@@ -53,7 +53,7 @@ config:
     height: 420
   themeVariables:
     xyChart:
-      plotColorPalette: "#1593bd, #c8870a"
+      plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
@@ -83,7 +83,7 @@ config:
     height: 420
   themeVariables:
     xyChart:
-      plotColorPalette: "#1593bd, #c8870a"
+      plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV HD"
@@ -103,7 +103,7 @@ Not measured: [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/relea
 
 ### Vision Pro
 
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported. The ms view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget; a build that reports only one is drawn with that bar alone.
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported. The Frame Time view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget; a build that reports only one is drawn with that bar alone.
 
 ```mermaid
 ---
@@ -113,7 +113,7 @@ config:
     height: 276
   themeVariables:
     xyChart:
-      plotColorPalette: "#1593bd, #c8870a"
+      plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
@@ -141,10 +141,10 @@ config:
     height: 263
   themeVariables:
     xyChart:
-      plotColorPalette: "#1593bd, #c8870a"
+      plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
-    title "Campaign: CPU and GPU time per frame (ms) against the 11.1 ms frame budget, M2 Vision Pro"
+    title "Campaign: CPU and GPU Frame Time (ms) against the 11.1 ms frame budget, M2 Vision Pro"
     x-axis "Port and version" ["VISR 0.6.3"]
     y-axis "Milliseconds per frame" 0 --> 11.1
     bar [3.5]

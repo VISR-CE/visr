@@ -68,7 +68,7 @@ def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
                     "paragraph": spec["primary_paragraph"].strip()
                                  + ("" if any(s.get("needs_data") and s["query"]["platform"] == platform for s in kept)
                                     else " GPU and CPU time per frame are not reported for " + spec["primary_heading"] + " builds yet.")
-                                 + (" The ms view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, "
+                                 + (" The Frame Time view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, "
                                     "on an axis that ends at the frame budget; a build that reports only one is drawn with that bar alone."
                                     if any(s.get("needs_data") and s["query"]["platform"] == platform for s in kept) else "")}
         elif spec.get("needs_data") and platform not in leads:
