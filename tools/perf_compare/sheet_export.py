@@ -55,9 +55,17 @@ RELEASE_PAGES = {
     "master-chef": "https://github.com/mitchaiet/master-chef/releases/tag/{tag}",
 }
 
+# Ports measured from a pinned source commit: the link goes to that commit. `{version}` is the commit.
+SOURCE_COMMIT_PAGES = {
+    "117": "https://github.com/zschwendi/117-vision/commit/{version}",
+}
+
 
 def release_url(port: str, version: str, build: str = "") -> str:
     """The release page for a build, or an empty string for a port without a known page."""
+    commit_template = SOURCE_COMMIT_PAGES.get(port)
+    if commit_template:
+        return commit_template.format(version=version) if version else ""
     template = RELEASE_PAGES.get(port)
     if not template or ("{build}" in template and not build):
         return ""

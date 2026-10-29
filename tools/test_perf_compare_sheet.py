@@ -640,6 +640,11 @@ def test_a_build_without_a_1pct_low_keeps_the_series_for_the_builds_that_have_on
     assert "1% low" not in charts.legend({**spec, "chart": {"marks": ["a", "b"]}}, only_chef)
 
 
+def test_pinned_source_builds_link_to_their_commit():
+    assert sheet_export.release_url("117", "b25332ef9", "130") == "https://github.com/zschwendi/117-vision/commit/b25332ef9"
+    assert sheet_export.release_url("117", "", "130") == ""
+
+
 def test_release_urls_name_each_ports_release_page_and_never_a_download():
     cases = [("visr", "0.6.0", "", "https://github.com/steverice/visr/releases/tag/visr-v0.6.0"),
              ("beeman", "0.3.0", "", "https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0"),

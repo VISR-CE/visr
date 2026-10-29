@@ -57,7 +57,7 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "117 b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
+    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
     y-axis "Frames per second" 0 --> 150
     bar [119.4, 23.9, 119.4, 119.1]
     bar [119.4, 21.6, 119.4, 119.1]
@@ -67,7 +67,7 @@ xychart-beta horizontal
 
 Higher is better.
 
-M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; no on-time share reported; a10 not measured yet); 117 b25332ef9 (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-27; no on-time share reported; b30 not measured yet).
+M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; no on-time share reported; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-27; no on-time share reported; b30 not measured yet).
 
 Not measured: [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
@@ -117,7 +117,7 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "117 b25332ef9", "master-chef 1.0.3"]
+    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
     y-axis "Frames per second" 0 --> 150
     bar [89.5, 21, 29.8]
     bar [89.5, 16.2, 0]
@@ -127,7 +127,7 @@ xychart-beta horizontal
 
 Higher is better.
 
-M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); 117 b25332ef9 (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
+M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
 
 #### Vision Pro: GPU time
 
@@ -156,7 +156,7 @@ Lower is better.
 
 M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28).
 
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report GPU time per frame.); 117 b25332ef9 (Not reported: this build does not report GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report GPU time per frame.).
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build does not report GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report GPU time per frame.).
 
 #### Vision Pro: CPU time
 
@@ -185,7 +185,7 @@ Lower is better.
 
 M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28).
 
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report CPU time per frame.); 117 b25332ef9 (Not reported: this build does not report CPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report CPU time per frame.).
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report CPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build does not report CPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report CPU time per frame.).
 
 <!-- END CHARTS -->
 
@@ -199,10 +199,10 @@ The snapshot holds 210 measured windows for 10 ports on 4 platforms (Mac, iPhone
 - **Mac** (M4 Mac mini, M6 Mac mini; uncapped, vsync off): The OpenGL frame swap, timestamped by a shim in the app's process (`flushBuffer` / `CGLFlushDrawable`), for a port that `metalperftrace` does not see. GPU time per frame is not available for these ports (OpenGL). Ports: Chupathingy.
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on): Safari `requestAnimationFrame` callbacks, which measure browser scheduling. Ports: OpenCE web.
 - **iPhone/iPad** (A10X iPad Pro, A14 iPhone 12 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
-- **iPhone/iPad** (A10X iPad Pro, A14 iPhone 12 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: 117.
+- **iPhone/iPad** (A10X iPad Pro, A14 iPhone 12 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: 117-vision.
 - **Apple TV** (Apple TV HD; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR.
 - **Apple TV** (Apple TV HD; frame cap on): Another method, named in the `method` column. Ports: VISR.
-- **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR, 117.
+- **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR, 117-vision.
 - **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): Another method, named in the `method` column. Ports: VISR.
 
 master-chef runs at a fixed 30 fps as shipped, below the 90 Hz display, so it has no uncapped rows.
@@ -219,7 +219,7 @@ Uncapped charts show average fps and GPU time per rendered frame, not 1% low rat
 
 ### Suites
 
-- **Campaign:** the openings of c10 (343 Guilty Spark) and b30 (The Silent Cartographer). One player, no input, default enemies. Each window warms up for 15 seconds after player readiness, takes a five-second background CPU baseline, then samples for 60 seconds. Three rounds per set. A set with fewer than three valid rounds is marked incomplete. Earlier sets used the a10 opening and a b30 window 90 seconds later (`b30 +90 s`); those rows stay in the spreadsheet. Measured on 10 ports: VISR, OpenCE-macOS, OpenCE web, CoreCE, master-chef, Beeman, ChupathingyCE iOS, Chupathingy, Halo OG, 117.
+- **Campaign:** the openings of c10 (343 Guilty Spark) and b30 (The Silent Cartographer). One player, no input, default enemies. Each window warms up for 15 seconds after player readiness, takes a five-second background CPU baseline, then samples for 60 seconds. Three rounds per set. A set with fewer than three valid rounds is marked incomplete. Earlier sets used the a10 opening and a b30 window 90 seconds later (`b30 +90 s`); those rows stay in the spreadsheet. Measured on 10 ports: VISR, OpenCE-macOS, OpenCE web, CoreCE, master-chef, Beeman, ChupathingyCE iOS, Chupathingy, Halo OG, 117-vision.
 - **Combat:** the player is made deathless and placed in a battle from the game console: the a50 hangar (`switch_bsp`, `object_teleport`, `ai_place` for the Covenant floors and the Marines, `ai_magically_see_encounter` and `ai_magically_see_players` so the sides engage at once) and Exterior A of b40 (the same commands), each sampled for 60 seconds after a 15-second warm-up, plus the b30 bot window: the scripted bot player for 1,800 game ticks (60 seconds of game time) from tick 900. Battles and the bot window are equivalent workloads, not replays: the AI's outcome differs by a few actors between runs, so each round's end counts (`ai_living_count`, player health, ticks) are kept in the `fingerprint` column and a round outside the other rounds' range is flagged in `notes`. A round is rejected when an encounter was not placed, the game reloaded a checkpoint, or the bot did not cover its ticks or throw a grenade. A port with no unattended console shows the status `not_measured`. Measured on 5 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG.
 - **Cutscenes:** two whole in-engine cutscenes called from the console, `x70_bridge` on d40 and `cutscene_rescue` on a50, sampled from the call to the script's `print`. Their length is set by the game's ticks, so it is the same on every port. A round is rejected when the print does not arrive within 1.5 times the expected length or the sample covers less than 95% of it. Measured on 5 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG.
 - **Multiplayer:** a hosted Slayer match on Chill Out and one on Blood Gulch, each a sampling window; the suite value is the mean over both maps' windows. One local player, driven by the scripted bot input, hosts and starts the match with no other humans. Bot input is paced from the wall clock, so runs on different ports, and repeated runs on one port, play equivalent workloads, not identical replays. Measured on 4 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy.
