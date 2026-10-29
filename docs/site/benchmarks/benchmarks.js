@@ -277,8 +277,10 @@ function headerText(chart, palette, rows = 0) {
   return text.replace(/(height: )(\d+)/, (_, key, value) => key + Math.max(Number(value), 26 * rows + 120));
 }
 
-function chartSource(spec, built, suite, selected, palette) {
-  const shown = drawn(built, selected);
+// `rows`, for a chart that shares its plot geometry with its platform's other charts, replaces the drawn builds: every
+// chart of the platform lists the same builds in the same order, a build without a value here drawn as an empty band.
+function chartSource(spec, built, suite, selected, palette, rows = null) {
+  const shown = rows || drawn(built, selected);
   if (!shown.length) return null;
   const chart = spec.chart, rename = spec.rename || {};
   const labels = shown.map((e) => (`${rename[e.port_name] || e.port_name} ${e.version}`
@@ -294,11 +296,12 @@ function chartSource(spec, built, suite, selected, palette) {
     ? Math.max(round1(built.budget_ms), Math.ceil(Math.max(...averages, ...known) * 1.05 * 10) / 10)
     : niceCeiling(Math.max(...averages, ...known) * 1.25));
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
-  const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
+  // A chart sharing a frame keeps a short title, so it fits the same width as its siblings' titles.
+  const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms && !rows ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
   const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
   // Both series share one band per build; `groupBars` splits each band between the two bars. Mirrors `source` in charts.py.
   const lows = shown.map((e) => (e.value.low === null ? 0 : lower ? e.value.low : Math.min(e.value.low, e.value.avg)));
-  return [headerText(chart, palette, shown.length * (withLows ? 2 : 1)), head, `    title "${title}"`,
+  return [headerText(chart, palette, shown.length * (withLows || rows ? 2 : 1)), head, `    title "${title}"`,
     `    x-axis "${chart.x_label || ""}" [${labels.map((l) => `"${l}"`).join(", ")}]`,
     `    y-axis "${chart.y_label || ""}" ${number(chart.y_min ?? 0)} --> ${number(yMax)}`,
     `    bar [${averages.map(number).join(", ")}]`,
@@ -452,8 +455,8 @@ function themePalette() {
 function groupBars(main, source) {
   const series = [...source.matchAll(/^\s*bar \[([^\]]*)\]/gm)].map((m) => m[1].split(",").map((v) => parseFloat(v)));
   const groups = [...main.querySelectorAll("g[class^='bar-plot-']")];
-  if (series.length !== 2 || groups.length !== 2) return;
-  const [upper, lower] = groups.map((group) => [...group.querySelectorAll("rect")]);
+  if (groups.length !== series.length || series.length < 1 || series.length > 2) return;
+  const [upper, lower = []] = groups.map((group) => [...group.querySelectorAll("rect")]);
   upper.forEach((top, i) => {
     const y = parseFloat(top.getAttribute("y")), h = parseFloat(top.getAttribute("height"));
     const hasLow = lower[i] && series[1][i] > 0;
@@ -493,11 +496,21 @@ function labelBars(main, source) {
   });
 }
 
-function finishChart(svg, source, pad = 22) {
+function finishChart(svg, source, pad = 22, shared = false) {
   const main = svg.querySelector("g.main");
   if (!main) return svg;
   if (source) { groupBars(main, source); labelBars(main, source); }
   const background = main.querySelector("rect.background");
+  if (shared) {
+    // Charts that share a frame keep the canvas Mermaid drew (the same size for each), so the axes do not move between them;
+    // only the right margin grows, for the value labels.
+    const canvas = svg.viewBox.baseVal;
+    const view = [Math.floor(canvas.x - pad), Math.floor(canvas.y - pad), Math.ceil(canvas.width + 2 * pad + 40), Math.ceil(canvas.height + 2 * pad)];
+    svg.setAttribute("viewBox", view.join(" "));
+    svg.style.maxWidth = view[2] + "px";
+    if (background) for (const [name, value] of [["x", view[0]], ["y", view[1]], ["width", view[2]], ["height", view[3]]]) background.setAttribute(name, value);
+    return svg;
+  }
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const child of main.children) {
     if (child === background || !child.getBBox) continue;
@@ -528,9 +541,43 @@ function finishChartSvg(text, source) {
   return markup;
 }
 
+// A build with no value in a shared chart keeps its band; this says so beside the axis.
+function markUnmeasured(svg, rows) {
+  const group = svg.querySelector("g[class^='bar-plot-']");
+  if (!group) return;
+  const rects = [...group.querySelectorAll("rect")];
+  rows.forEach((row, i) => {
+    if (!row.placeholder || !rects[i]) return;
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("x", parseFloat(rects[i].getAttribute("x")) + 8);
+    text.setAttribute("y", parseFloat(rects[i].getAttribute("y")) + parseFloat(rects[i].getAttribute("height")) / 2);
+    text.setAttribute("dominant-baseline", "middle");
+    text.setAttribute("fill", "currentColor");
+    text.setAttribute("font-size", "16");
+    text.setAttribute("font-style", "italic");
+    text.setAttribute("opacity", "0.7");
+    text.textContent = "not measured";
+    group.parentNode.appendChild(text);
+  });
+}
+
+// The builds every chart of a platform draws: the union of what each chart draws, in the first chart's order.
+function sharedRows(group, state) {
+  const found = new Map();
+  for (const spec of group) {
+    for (const e of drawn(state.models[spec.slug], state.selected[spec.slug])) if (!found.has(entryKey(e))) found.set(entryKey(e), e);
+  }
+  const order = group.flatMap((spec) => state.models[spec.slug].entries.map(entryKey));
+  const keys = [...found.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return Object.fromEntries(group.map((spec) => {
+    const mine = new Map(drawn(state.models[spec.slug], state.selected[spec.slug]).map((e) => [entryKey(e), e]));
+    return [spec.slug, keys.map((key) => mine.get(key) || { ...found.get(key), value: { avg: 0, low: null }, placeholder: true })];
+  }));
+}
+
 let renderCount = 0;
-async function drawChart(container, spec, built, suite, selected) {
-  const text = chartSource(spec, built, suite, selected, themePalette());
+async function drawChart(container, spec, built, suite, selected, rows = null) {
+  const text = chartSource(spec, built, suite, selected, themePalette(), rows);
   container.replaceChildren();
   if (text === null) {
     const anyData = built.entries.some((e) => e.value !== null);
@@ -547,7 +594,9 @@ async function drawChart(container, spec, built, suite, selected) {
     let svg;
     try { ({ svg } = await mermaid.render("bench-chart-" + ++renderCount, text, stage)); } finally { stage.remove(); }
     container.innerHTML = svg;
-    finishChart(container.querySelector("svg"), text);
+    const chart = container.querySelector("svg");
+    finishChart(chart, text, 22, Boolean(rows));
+    if (rows) markUnmeasured(chart, rows);
   } catch (error) {
     container.append(el("pre", {}, text));
   }
@@ -651,7 +700,9 @@ async function start() {
   }
   async function refresh(spec, rebuildList = true, focusKey = null) {
     const built = state.models[spec.slug], section = sections[spec.slug];
-    await drawChart(section.querySelector(".bench-chart"), spec, built, state.suite, state.selected[spec.slug]);
+    const group = groups.find((g) => g.length > 1 && g.includes(spec));
+    const rows = group ? sharedRows(group, state)[spec.slug] : null;
+    await drawChart(section.querySelector(".bench-chart"), spec, built, state.suite, state.selected[spec.slug], rows && rows.length ? rows : null);
     if (rebuildList) {
       drawList(section.querySelector(".bench-rows"), spec, built, state);
       if (focusKey) [...section.querySelectorAll(".bench-rows input")].find((i) => i.value === focusKey)?.focus();
