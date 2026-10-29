@@ -263,6 +263,16 @@ static void hands_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 
 	if (!aim_hands || !head_mode)
 		return;
+	/* A drawable without its device anchor cannot rebase the origin yet, so a
+	fill now would read the hand anchors in one origin and subtract a head
+	from the other, and the drawn gun would pop for those frames. Keep the
+	last drawing pose paired with the head it was made against
+	(host_spatial_pose.h's contract, which the tracker's frame: keeps with
+	hold_reference and host_spatial_hold_poses): host_spatial_hands_frame
+	isn't called at all, so the hands it holds stand until the origin
+	rebases. */
+	if (!origin_from_device && host_stereo_room_recenter_pending())
+		return;
 	if (drawable)
 	{
 		if (origin_from_device)

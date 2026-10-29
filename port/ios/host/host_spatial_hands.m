@@ -278,6 +278,10 @@ static void drain(void)
 	{
 		provider = nil;
 		ran_session = nil;
+		/* a kept barrel direction is a vector in the old session's origin,
+		so it doesn't survive into the new one */
+		last_forward[0] = last_forward[1] = (simd_float3){ 0.0f, 0.0f, 0.0f };
+		forward_known[0] = forward_known[1] = 0;
 		host_logf(HOST_LOG_INFO, "spatial: ARKit's session ended; the hand provider starts again with the next");
 	}
 	if (!session)
