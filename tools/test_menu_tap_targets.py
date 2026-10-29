@@ -80,3 +80,27 @@ def test_click_waits_for_the_first_draw():
     assert "if (!ui_mouse_menu())\n\t\t\tui_mouse_menu_drawn = TRUE;" in process
     render = source[source.index("ui_mouse_noting_targets = widget->local_player_index == NONE"):]
     assert "ui_mouse_menu_drawn = TRUE" in render[:render.index("debug_show_path")]
+
+
+def test_scroll_arrows_are_targets():
+    source = (ROOT / "source/interface/ui_widget.c").read_text()
+    note = source[source.index("static void ui_mouse_note_target("):]
+    note = note[:note.index("\n}\n")]
+    # a list's scroll arrows (Xbox look: server browser, map lists) step the list when tapped
+    assert 'strcmp(widget->name, "scroll_up_arrow")' in note and "_widget_event_dpad_up" in note
+    assert 'strcmp(widget->name, "scroll_down_arrow")' in note and "_widget_event_dpad_down" in note
+
+
+def test_pointer_synthesizes_no_input_activity():
+    # touch-made mouse events must not count as mouse activity, and the menu's own presses (posted to the
+    # event manager) must not reach the input class
+    platform = (ROOT / "port/linux/src/sdl_platform.c").read_text()
+    motion = platform[platform.index("case SDL_EVENT_MOUSE_MOTION:"):]
+    motion = motion[:motion.index("#ifndef HALO_ILP32")]
+    assert "SDL_TOUCH_MOUSEID" in motion and "SDL_PEN_MOUSEID" in motion
+    assert "SDL_TOUCH_MOUSEID || event.button.which == SDL_PEN_MOUSEID" in platform
+    host = (ROOT / "port/ios/host/host_sdl.c").read_text()
+    pointer = host[host.index("static void menu_pointer_event("):host.index("HALO_MENU_POINTER_SCRIPT")]
+    assert "platform_menu_activity" not in pointer
+    widget = (ROOT / "source/interface/ui_widget.c").read_text()
+    assert "platform_menu_activity" not in widget
