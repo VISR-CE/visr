@@ -1,4 +1,5 @@
 /* Exercise durable publication and lifecycle handoffs without a model or game process. */
+#define HALO_DEVELOPMENT_HOOKS 1
 #import "host_texture_upscale.m"
 #include <assert.h>
 #include <stdarg.h>
@@ -8,10 +9,14 @@ const struct texture_policy_table texture_policy_embedded={.low=12,.high=30,.sig
 void host_config_string(const char *name,const char *fallback,char *out,size_t size) {
     snprintf(out,size,"%s",!strcmp(name,"debug.texture_upscale_generate")?"true":fallback);
 }
-void host_logf(int level,const char *format,...) {(void)level;(void)format;}
+static int retry_logs;
+void host_logf(int level,const char *format,...) {
+    (void)level;if(strstr(format,"Upscale import: Try Again:"))retry_logs++;
+}
 int texture_upscale_model_available(void) {return 0;}
 const char *texture_upscale_model_unavailable_reason(void) {return "no compiled model in this build";}
-void host_texture_upscale_continued_phase(int began) {(void)began;}
+static int continued_begins,continued_ends;
+void host_texture_upscale_continued_phase(int began) {if(began)continued_begins++;else continued_ends++;}
 void texture_refine_set_cancel(const volatile int *flag) {(void)flag;}
 int host_device_profile_peek(const char *root,const char *name,char *text,size_t size) {(void)root;(void)name;snprintf(text,size,"true");return 1;}
 struct texture_upscale_generator *texture_upscale_generate_create(char *error,size_t size) {
@@ -52,6 +57,32 @@ size_t texture_policy_classify(struct texture_policy_catalog *catalog,const stru
 const char *texture_policy_kind_name(enum texture_policy_kind kind) {(void)kind;return "graphic";}
 const char *texture_policy_result_name(enum texture_policy_result result) {
     static const char *names[]={"s4g","bpf","original"};return names[result];
+}
+struct retry_test {
+    NSString *capacity_path;
+    int presses,disabled,resumed,saw_note;
+    double note_began;
+    double fraction;
+};
+static int retry_progress(void *opaque,const struct host_texture_upscale_import_status *status) {
+    struct retry_test *test=opaque;
+    assert(status->fraction>=test->fraction);test->fraction=status->fraction;
+    if(!status->message){
+        if(test->presses==2)test->resumed=1;
+        return test->resumed&&!status->menu_phase?HOST_TEXTURE_UPSCALE_START_PLAYING:HOST_TEXTURE_UPSCALE_WAIT;
+    }
+    assert(status->needed_bytes>=TEXTURE_CACHE_FALLBACK_HEADROOM);
+    assert(status->found_bytes==(64ull<<20));
+    if(!status->can_retry){test->disabled++;return HOST_TEXTURE_UPSCALE_WAIT;}
+    if(test->presses==0){test->presses++;return HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+    if(status->retry_note){
+        assert(!strcmp(status->retry_note,"Still not enough free storage."));
+        if(!test->saw_note)test->note_began=now();test->saw_note=1;
+        return HOST_TEXTURE_UPSCALE_WAIT;
+    }
+    assert(test->saw_note&&now()-test->note_began>=2.8);
+    assert([@"9000,9000" writeToFile:test->capacity_path atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+    test->presses++;return HOST_TEXTURE_UPSCALE_TRY_AGAIN;
 }
 int main(void) {@autoreleasepool {
     char pattern[]="/tmp/visr-upscale-driver-XXXXXX";char *directory=mkdtemp(pattern);assert(directory);
@@ -139,7 +170,34 @@ int main(void) {@autoreleasepool {
     assert(host_texture_upscale_level_ready());                          /* complete */
     fake_maps=0;
     assert(!host_texture_upscale_prepare_import(directory,NULL,NULL));
+    free(decisions);free(manifest);decisions=NULL;manifest=NULL;decision_count=manifest_count=0;
+    state_token=[NSObject new];
+    /* Found/needed before the catalog: use saved decisions, counting only entries on the current recipe. */
+    saved[0].scale=4;saved[1].scale=2;
+    assert(!texture_cache_decisions_save(cache.fileSystemRepresentation,saved,2));
+    assert(import_storage_needed()==TEXTURE_CACHE_FALLBACK_HEADROOM+texture_cache_projected_entry(&saved[1]));
+    assert(!texture_cache_delete_all(cache.fileSystemRepresentation));
+    assert(import_storage_needed()==TEXTURE_CACHE_FALLBACK_HEADROOM+IMPORT_FULL_SET_BYTES);
+    /* The file is read on every check; unlike an environment value it can change during the phase. */
+    NSString *capacity=[@(directory) stringByAppendingPathComponent:@"capacity.txt"];
+    assert([@"0,64" writeToFile:capacity atomically:YES encoding:NSUTF8StringEncoding error:nil]);
+    setenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE",capacity.fileSystemRepresentation,1);
+    uint64_t found=0;
+    assert(storage_available(cache,&found)==0&&found==(64ull<<20));
+    upscale_worker=dispatch_queue_create("test.upscale.retry",DISPATCH_QUEUE_SERIAL);
+    finisher=dispatch_queue_create("test.upscale.finish",DISPATCH_QUEUE_SERIAL);
+    map_keys=[NSMutableDictionary new];generator_releases=[NSMutableArray new];
+    upscale_enabled=YES;upscale_mode=TEXTURE_UPSCALE_MODE_FORCE;atomic_store(&pump_queued,false);
+    atomic_store(&loading_picture_failed,true);atomic_store(&retry_scheduled,true);
+    struct retry_test retry={.capacity_path=capacity};
+    assert(host_texture_upscale_prepare_import(directory,retry_progress,&retry));
+    dispatch_sync(upscale_worker,^{});
+    assert(retry.presses==2&&retry.disabled==2&&retry.resumed&&retry.saw_note&&retry_logs==2);
+    assert(continued_begins==2&&continued_ends==2&&atomic_load(&import_shown)==-1);
+    assert(atomic_load(&retry_scheduled)); /* manual retry never replaces or cancels the timer */
+    assert(storage_available(cache,&found)>0&&found==(9000ull<<20));
+    unsetenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE");upscale_enabled=NO;
     free(decisions);free(manifest);decisions=NULL;manifest=NULL;
     assert([NSFileManager.defaultManager removeItemAtPath:upscale_root error:nil]);
-    puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness and the no-mix rule with the generator off PASS");
+    puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness, the no-mix rule, storage estimates and import retry PASS");
 }}

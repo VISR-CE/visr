@@ -100,7 +100,7 @@ static uint64_t finisher_estimate;    /* the float top of the texture the finish
 #define OVERLAP_BUDGET (128ull<<20)
 static atomic_bool finisher_failed;
 static NSObject *state_token;    /* the manifest, texture_log and the files written from them */
-static BOOL catalog_ready;
+static atomic_bool catalog_ready;
 /* steps the pump finishes before and between textures (the model made, a map classified), for the import phase's
    watchdog (texture_upscale_import_offer_skip) */
 static atomic_uint setup_steps;
@@ -142,7 +142,8 @@ static NSString *cache_directory(void) { return cache_folder_for(upscale_root); 
 /* The storage the upscaler may count on (texture_cache_storage_usable): important-usage capacity, or the volume's free
    blocks, less a 2 GB headroom. The raw values (opportunistic too, for comparison) are logged once per launch. */
 static atomic_bool storage_logged;
-static uint64_t storage_available(NSString *folder) {
+static _Atomic uint64_t storage_found;
+static uint64_t storage_available(NSString *folder,uint64_t *found) {
     int opportunistic_read=0,important_read=0,volume_read=0;uint64_t opportunistic=0,important=0,volume=0;
     NSString *failure=@"";
 #if !TARGET_OS_TV
@@ -162,12 +163,20 @@ static uint64_t storage_available(NSString *folder) {
 #ifdef HALO_DEVELOPMENT_HOOKS
     /* Development only: HALO_TEXTURE_UPSCALE_CAPACITY="opportunistic,important" (MB) replaces the two reads, so a test can
        show a phone with little free storage, or a failed read ("-" for unread) */
-    const char *fake=getenv("HALO_TEXTURE_UPSCALE_CAPACITY");
+    /* Re-read the file on every storage check so a running retry test can free space without relaunching. */
+    NSString *capacity=nil;
+    const char *capacity_file=getenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE");
+    if(capacity_file&&capacity_file[0]=='/')
+        capacity=[NSString stringWithContentsOfFile:@(capacity_file) encoding:NSUTF8StringEncoding error:nil];
+    const char *fake=capacity?capacity.UTF8String:getenv("HALO_TEXTURE_UPSCALE_CAPACITY");
     if(fake){char o[32]="",i[32]="";sscanf(fake,"%31[^,],%31s",o,i);
         opportunistic_read=strcmp(o,"-")!=0;opportunistic=(uint64_t)strtoull(o,NULL,10)<<20;
         important_read=strcmp(i,"-")!=0;important=(uint64_t)strtoull(i,NULL,10)<<20;
         if(!important_read){volume_read=0;}}
 #endif
+    /* Found is the base before the headroom: the smaller of important capacity and free blocks, or whichever read. */
+    uint64_t base=texture_cache_storage_base(important_read,important,volume_read,volume);
+    atomic_store(&storage_found,base);if(found)*found=base;
     uint64_t usable=texture_cache_storage_usable(opportunistic_read,opportunistic,important_read,important,volume_read,volume);
     if(!atomic_exchange(&storage_logged,true))
         host_logf(HOST_LOG_INFO,"Upscale storage: opportunistic %s, important %s, volume %s; counting %llu MB (%s less 2 GB)%s",
@@ -439,8 +448,8 @@ static int generate_source(void *opaque,const struct host_texture_source *source
         host_logf(HOST_LOG_WARN,"Upscale %016llx: output exceeds the bounded working set",(unsigned long long)d->hash);
         save_log();export_table();return 0;
     }
-    uint64_t projected=(uint64_t)d->width*d->height*d->scale*d->scale*2+4096;
-    uint64_t available=storage_available(cache_directory());
+    uint64_t projected=texture_cache_projected_entry(d);
+    uint64_t available=storage_available(cache_directory(),NULL);
     if(!texture_cache_background_may_run(available,projected)){
         /* (the queue stops here and is tried again later; not this texture's error) */
         host_logf(HOST_LOG_WARN,"Upscale: stopped for storage: %llu MB to count on, %llu MB needed for %016llx plus the reserve",
@@ -623,7 +632,7 @@ static void make_loading_picture_with(unsigned char *gray,unsigned char *file) {
     if(!loading_picture_upscaled_read_tga(source.fileSystemRepresentation,gray))return;   /* (no picture in the data) */
     uint64_t hash=loading_picture_upscaled_hash(gray,LOADING_PICTURE_UPSCALED_SOURCE_PIXELS);
     if(loading_picture_upscaled_load(directory,hash,recipe,file))return;                   /* (already made) */
-    uint64_t available=storage_available(cache_directory()),projected=LOADING_PICTURE_UPSCALED_FILE_BYTES+4096;
+    uint64_t available=storage_available(cache_directory(),NULL),projected=LOADING_PICTURE_UPSCALED_FILE_BYTES+4096;
     if(!texture_cache_background_may_run(available,projected)){
         /* (once per launch, as the pump's own refusal) */
         static atomic_bool logged;
@@ -687,7 +696,7 @@ static void pump(void) {
         if(atomic_load(&upscale_playing)){end=TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY;goto done;}
         if(!thermal_may_run()){end=TEXTURE_UPSCALE_END_REFUSED_THERMAL;goto done;}
         if(upscale_mode==TEXTURE_UPSCALE_MODE_AUTO&&!player_switch()){end=TEXTURE_UPSCALE_END_REFUSED_SWITCH;goto done;}
-        {uint64_t available=storage_available(cache_directory());
+        {uint64_t available=storage_available(cache_directory(),NULL);
             if(!texture_cache_background_may_run(available,1<<20)){
                 /* (once per launch: the refusal is retried every RETRY_SECONDS) */
                 if(!atomic_exchange(&storage_refusal_logged,true))
@@ -956,6 +965,28 @@ int host_texture_upscale_first_run_phase(const char *root) {
     if(phase)[NSUserDefaults.standardUserDefaults setBool:YES forKey:IMPORT_SHOWN_KEY];
     return phase;
 }
+/* Before the catalog exists, the saved decisions still describe the set. If they cannot be read, budget 1 GiB
+   for the full stored set (measured BC7 set: 941 MiB). The displayed need includes the same 2 GiB headroom as storage. */
+#define IMPORT_FULL_SET_BYTES (1ull << 30)
+static uint64_t import_storage_needed(void) {
+    uint64_t bytes=IMPORT_FULL_SET_BYTES;
+    struct texture_recipe_globals globals=recipe_globals();
+    /* Snapshot the decisions and manifest without waiting behind a pump the existing timer may have started. */
+    @synchronized(state_token){
+        if(catalog_ready)bytes=texture_cache_projected_remaining(decisions,decision_count,manifest,manifest_count,&globals);
+        else {
+            struct texture_policy_decision *saved=NULL;size_t count=0;
+            struct texture_cache_record *records=NULL;size_t record_count=0;
+            if(!texture_cache_decisions_load(cache_directory().fileSystemRepresentation,&saved,&count)){
+                texture_cache_manifest_load(cache_directory().fileSystemRepresentation,&records,&record_count);
+                bytes=texture_cache_projected_remaining(saved,count,records,record_count,&globals);
+            }
+            free(saved);free(records);
+        }
+    }
+    if(bytes==UINT64_MAX)bytes=IMPORT_FULL_SET_BYTES; /* older decisions did not save scale */
+    return bytes+TEXTURE_CACHE_FALLBACK_HEADROOM;
+}
 int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_progress progress,void *context) {
     host_texture_upscale_init(root);
     if(!upscale_enabled)return 0;
@@ -971,6 +1002,8 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
     double shown=0,tick=-1;BOOL menu_done=NO;
     /* what changes whenever a step finishes: the watchdog's measure of progress */
     unsigned long long seen_units=~0ull;unsigned seen_steps=~0u,seen_foregrounds=atomic_load(&foregrounds);int seen_catalog=-1;
+    enum texture_upscale_end end;
+resume_import:
     for(;;) {
         struct texture_cache_progress p={0},menu={0};
         BOOL menu_known=NO;
@@ -1010,14 +1043,14 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
                 now()-start,catalog_ready?(stage?stage:"between textures"):(stage?stage:"before the catalog"),shown*100,tick*100,menu.ready,menu.textures,
                 (unsigned long long)menu.ready_units,(unsigned long long)menu.units,p.ready,p.textures,(unsigned long long)p.ready_units,(unsigned long long)p.units);}
         if(progress){
-            struct host_texture_upscale_import_status status={shown,tick,menu_phase,NULL,NULL};
+            struct host_texture_upscale_import_status status={.fraction=shown,.tick=tick,.menu_phase=menu_phase};
             int keep_going=progress(context,&status);
             if(!keep_going&&!menu_phase){skipped=YES;break;}
         }
         if(idle)break;
         usleep(100000);
     }
-    enum texture_upscale_end end=(enum texture_upscale_end)atomic_load(&last_end);
+    end=(enum texture_upscale_end)atomic_load(&last_end);
     /* A gate refused the work (no storage, too warm): say so, offer Start playing, and wait for it; the work is tried
        again later. iOS's continued processing ends with the phase. */
     const char *message=skipped?NULL:texture_upscale_import_end_message(end);
@@ -1025,8 +1058,40 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
     host_texture_upscale_continued_phase(0);
     if(message&&progress){
         host_logf(HOST_LOG_INFO,"Upscale import: ended (%s); the import screen says \"%s\"",texture_upscale_end_name(end),message);
-        struct host_texture_upscale_import_status status={shown,tick,0,message,texture_upscale_import_end_detail(end)};
-        while(progress(context,&status))usleep(100000);
+        struct host_texture_upscale_import_status status={.fraction=shown,.tick=tick,.message=message,
+            .detail=texture_upscale_import_end_detail(end),.can_retry=texture_upscale_import_retry_available(end)};
+        if(end==TEXTURE_UPSCALE_END_REFUSED_STORAGE){status.found_bytes=atomic_load(&storage_found);status.needed_bytes=import_storage_needed();}
+        double note_until=0;
+        for(;;){
+            status.retry_note=now()<note_until?texture_upscale_import_retry_note(end):NULL;
+            int action=progress(context,&status);
+            if(action==HOST_TEXTURE_UPSCALE_START_PLAYING)break;
+            if(action==HOST_TEXTURE_UPSCALE_TRY_AGAIN&&status.can_retry){
+                status.can_retry=0;
+                /* Publish the disabled button before the single gate check; no new timer or change to retry_scheduled. */
+                progress(context,&status);
+                uint64_t available=0;
+                BOOL passes=NO;
+                if(end==TEXTURE_UPSCALE_END_REFUSED_STORAGE){
+                    available=storage_available(cache_directory(),&status.found_bytes);
+                    passes=texture_cache_background_may_run(available,1<<20);
+                    status.needed_bytes=import_storage_needed();
+                }else if(end==TEXTURE_UPSCALE_END_REFUSED_THERMAL)passes=thermal_may_run();
+                BOOL resume=texture_upscale_import_retry_outcome(end,passes);
+                if(end==TEXTURE_UPSCALE_END_REFUSED_STORAGE)
+                    host_logf(HOST_LOG_INFO,"Upscale import: Try Again: storage %s (%llu MB to count on)",
+                        resume?"passed, upscaling resumes":"still under the reserve",(unsigned long long)(available>>20));
+                else host_logf(HOST_LOG_INFO,"Upscale import: Try Again: thermal %s",resume?"passed, upscaling resumes":"still too warm");
+                if(resume){
+                    ended=atomic_load(&pumps_ended);last_progress=now();
+                    host_texture_upscale_continued_phase(1);
+                    schedule_pump();
+                    goto resume_import;
+                }
+                status.can_retry=1;note_until=now()+3;
+            }
+            usleep(100000);
+        }
     }
     atomic_store(&import_shown,-1);
     struct texture_cache_progress p=progress_of(nil);

@@ -57,23 +57,37 @@ static NSColor *bar_blue(void) { return [NSColor colorWithSRGBRed:0.247 green:0.
 @end
 @interface VISRUpscalePhase : NSObject {
 @public
-    atomic_int skip, done, menu_phase;
+    atomic_int skip, done, menu_phase, retry_requested, can_retry, retry_busy;
+    _Atomic uint64_t found_bytes, needed_bytes;
+    const char *_Atomic retry_note;
     _Atomic double fraction, tick;
     const char *_Atomic message;   /* the phase ended refused (a string literal), or NULL */
     const char *_Atomic detail;    /* its second, smaller line */
 }
 - (void)skip:(id)sender;
+- (void)retry:(id)sender;
 @end
 @implementation VISRUpscalePhase
 - (void)skip:(id)sender { (void)sender; atomic_store(&skip, 1); }
+- (void)retry:(id)sender {
+    NSButton *button=sender;
+    if(!button.enabled)return;
+    button.enabled=NO;atomic_store(&retry_busy,1);atomic_store(&retry_requested,1);
+}
 @end
 static int upscale_progress(void *context, const struct host_texture_upscale_import_status *status) {
     VISRUpscalePhase *phase = (__bridge VISRUpscalePhase *)context;
     atomic_store(&phase->fraction, status->fraction); atomic_store(&phase->tick, status->tick);
     atomic_store(&phase->menu_phase, status->menu_phase);
     atomic_store(&phase->message, status->message); atomic_store(&phase->detail, status->detail);
-    /* (the main menu's textures come first: a skip counts once Start playing is offered) */
-    return status->menu_phase || !atomic_load(&phase->skip);
+    atomic_store(&phase->retry_note,status->retry_note);
+    atomic_store(&phase->found_bytes,status->found_bytes);atomic_store(&phase->needed_bytes,status->needed_bytes);
+    atomic_store(&phase->can_retry,status->can_retry);
+    if(!atomic_load(&phase->retry_requested))atomic_store(&phase->retry_busy,!status->can_retry);
+    /* The main menu's textures come first: a skip counts once Start playing is offered. */
+    if(!status->menu_phase&&atomic_load(&phase->skip))return HOST_TEXTURE_UPSCALE_START_PLAYING;
+    if(atomic_exchange(&phase->retry_requested,0)){atomic_store(&phase->retry_busy,1);return HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+    return HOST_TEXTURE_UPSCALE_WAIT;
 }
 static void upscale_phase(NSString *root) {
     VISRUpscalePhase *phase = [VISRUpscalePhase new];
@@ -88,13 +102,19 @@ static void upscale_phase(NSString *root) {
     status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
     /* (in the bar's place when the work is refused: the line under the message) */
     NSTextField *detail = [NSTextField labelWithString:@""];
-    detail.frame = NSMakeRect(24, 96, 412, 18); detail.alignment = NSTextAlignmentCenter;
+    detail.frame = NSMakeRect(24, 70, 412, 40);
+    detail.maximumNumberOfLines=2;detail.lineBreakMode=NSLineBreakByWordWrapping; detail.alignment = NSTextAlignmentCenter;
     detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.secondaryLabelColor;
     detail.hidden = YES; [content addSubview:detail];
     VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 412, 46)];
     bar.tick = -1; [content addSubview:bar];
     NSButton *start = [NSButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
-    start.frame = NSMakeRect(165, 18, 130, 32); start.hidden = YES; start.keyEquivalent = @"\r"; [content addSubview:start];
+    start.frame = NSMakeRect(165, 18, 130, 32);start.bezelStyle=NSBezelStyleRounded;
+    start.bezelColor=bar_blue();start.contentTintColor=NSColor.blackColor;
+    start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
+    NSButton *retry=[NSButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
+    retry.frame=NSMakeRect(307,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
+    retry.alphaValue=0;retry.enabled=NO;[content addSubview:retry];
     [window center];
     /* (the work is the player's own request: keep App Nap from slowing it while the window is behind another app) */
     id activity = [NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiatedAllowingIdleSystemSleep
@@ -114,8 +134,17 @@ static void upscale_phase(NSString *root) {
         status.stringValue = message ? @(message) : [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
         status.textColor = message ? NSColor.labelColor : NSColor.secondaryLabelColor;
         const char *more = atomic_load(&phase->detail);
-        bar.hidden = message != NULL; detail.hidden = !message || !more; if (more) detail.stringValue = @(more);
-        start.hidden = menu;
+        NSString *detailText=more?@(more):@"";
+        uint64_t needed=atomic_load(&phase->needed_bytes),found=atomic_load(&phase->found_bytes);
+        if(needed){
+            NSString *freeText=[NSByteCountFormatter stringFromByteCount:(int64_t)found countStyle:NSByteCountFormatterCountStyleFile];
+            NSString *needText=[NSByteCountFormatter stringFromByteCount:(int64_t)needed countStyle:NSByteCountFormatterCountStyleFile];
+            detailText=[NSString stringWithFormat:@"Found %@ free; upscaling needs %@. VISR will try again when space is available.",freeText,needText];
+        }
+        const char *note=atomic_load(&phase->retry_note);if(note)detailText=@(note);
+        bar.alphaValue=message?0:1;detail.alphaValue=message?1:0;detail.hidden=NO;detail.stringValue=detailText;
+        start.alphaValue=menu?0:1;start.enabled=!menu;
+        retry.alphaValue=message?1:0;retry.enabled=message&&atomic_load(&phase->can_retry)&&!atomic_load(&phase->retry_busy);
         [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
     }
     [NSApp endModalSession:session];

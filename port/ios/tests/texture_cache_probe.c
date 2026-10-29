@@ -146,6 +146,33 @@ static void manifest_round_trip(void)
 	rmdir(directory);
 }
 
+static void storage_projection(void)
+{
+	struct texture_recipe_globals g = globals();
+	struct texture_policy_decision d[] = {
+		{ .hash=1, .width=64, .height=32, .scale=4, .result=TEXTURE_POLICY_S4G, .treatment=TEXTURE_POLICY_COLOR },
+		{ .hash=2, .width=32, .height=16, .scale=8, .result=TEXTURE_POLICY_BPF, .treatment=TEXTURE_POLICY_COLOR },
+		{ .hash=3, .width=16, .height=16, .scale=2, .result=TEXTURE_POLICY_ORIGINAL }
+	};
+	struct texture_cache_record r = { .hash=1, .width=64, .height=32, .result=TEXTURE_POLICY_ORIGINAL,
+		.global_key=texture_recipe_global_key(&g, TEXTURE_POLICY_COLOR, TEXTURE_POLICY_S4G) };
+	uint64_t first = 64ull*32*4*4*2+4096, second = 32ull*16*8*8*2+4096;
+	assert(texture_cache_projected_remaining(d, 3, NULL, 0, &g) == first+second);
+	/* A current entry kept original by the damage rule is ready, too. */
+	assert(texture_cache_projected_remaining(d, 3, &r, 1, &g) == second);
+	r.global_key++;
+	assert(texture_cache_projected_remaining(d, 3, &r, 1, &g) == first+second);
+	assert(texture_cache_projected_remaining(NULL, 0, NULL, 0, &g) == 0);
+	d[0].scale=0; /* decisions saved by an older app did not carry scale */
+	assert(texture_cache_projected_remaining(d, 3, NULL, 0, &g) == UINT64_MAX);
+	assert(texture_cache_storage_base(1, 9, 1, 4) == 4);
+	assert(texture_cache_storage_base(1, 4, 1, 9) == 4);
+	assert(texture_cache_storage_base(1, 0, 1, 9) == 0);
+	assert(texture_cache_storage_base(0, 0, 1, 9) == 9);
+	assert(texture_cache_storage_base(1, 9, 0, 0) == 9);
+	assert(texture_cache_storage_base(0, 9, 0, 9) == 0);
+}
+
 static void storage(void)
 {
 	struct texture_cache_level_plan plan = { 0 };
@@ -290,9 +317,13 @@ static void decisions(void)
 	assert(texture_cache_decisions_save(directory, d, 2) == 0);
 	assert(texture_cache_decisions_load(directory, &loaded, &count) == 0 && count == 2);
 	assert(loaded[0].hash == 0x10 && loaded[0].result == TEXTURE_POLICY_ORIGINAL && loaded[0].treatment == TEXTURE_POLICY_BUMP_MAP);
-	assert(loaded[1].hash == 0x30 && loaded[1].width == 16 && loaded[1].result == TEXTURE_POLICY_BPF);
+	assert(loaded[1].hash == 0x30 && loaded[1].width == 16 && loaded[1].result == TEXTURE_POLICY_BPF && loaded[1].scale == 2);
 	free(loaded);
 	snprintf(path, sizeof(path), "%s/decisions.tsv", directory);
+	/* Five-column decisions from an older app remain readable, with an unknown scale. */
+	file = fopen(path, "w"); fputs("0000000000000030\t16\t16\t0\t1\n", file); fclose(file);
+	assert(!texture_cache_decisions_load(directory, &loaded, &count) && count == 1 && loaded[0].scale == 0);
+	free(loaded);
 	file = fopen(path, "a"); fputs("not a decision\n", file); fclose(file);
 	assert(texture_cache_decisions_load(directory, &loaded, &count) == -1 && !loaded && !count);
 	assert(texture_cache_delete_all(directory) == 0);
@@ -306,6 +337,7 @@ int main(void)
 	damage_keys();
 	invalidation_table();
 	manifest_round_trip();
+	storage_projection();
 	storage();
 	write_fails_cleanly();
 	size_and_delete();
