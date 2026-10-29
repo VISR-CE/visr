@@ -43,7 +43,7 @@ LATEST = PREFIX + "latest.json"
 LEGACY_PROFILE_INDEX = PREFIX + "profiles-2.json"
 # Each device-profile generation's shards live in their own directory: profiles/ holds the frozen
 # device-profiles-1 shards that 0.4.2 to 0.5.1 read, device-profiles-N/ the later generations'.
-PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2"}
+PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2", "device-profiles-3": "device-profiles-3"}
 MAX_ASSETS = 256
 MAX_RECEIPT = 65536
 MAX_TOTAL = 512 * 1024 * 1024

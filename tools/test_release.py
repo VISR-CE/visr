@@ -20,7 +20,7 @@ from tools.test_release_assets import asset_policy
 
 def policy():
     # a new release reads this source's profile feed generation (release_validation.require_asset_policy)
-    return {**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-2",
+    return {**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-3",
             "guest_source_date_epoch": "1792392070"}
 
 

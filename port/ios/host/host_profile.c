@@ -1032,8 +1032,8 @@ int host_profile_validate_feed_folder(const char *folder, const struct host_devi
 	void (*log_line)(const char *))
 {
     char key[192];
-    if (!device || (generation != 1 && generation != 2) || !host_profile_device_key(device, key, sizeof(key))) return 0;
-    return profile_validate_folder(folder, device, generation == 2 ? 2 : 0, log_line);
+    if (!device || generation < 1 || generation > 3 || !host_profile_device_key(device, key, sizeof(key))) return 0;
+    return profile_validate_folder(folder, device, generation >= 2 ? 2 : 0, log_line);
 }
 int host_profile_validate_device_folder(const char *folder, const struct host_device *device, void (*log_line)(const char *))
 {

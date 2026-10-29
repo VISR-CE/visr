@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PROFILES = ROOT / "profiles"
 FEED = Path("docs/site/packs/tester")
 # this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
-PROFILE_DOMAIN = "device-profiles-2"
+PROFILE_DOMAIN = "device-profiles-3"
 SHARDS = FEED / PROFILE_DOMAIN
 RECEIPT = FEED / "publication.json"
 RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
