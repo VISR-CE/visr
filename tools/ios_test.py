@@ -247,12 +247,12 @@ latest_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(
 run(BUILD / 'data-updates-probe', latest_key, BUILD / 'latest-record.json')
 # 0.6.0 profiles keep every bundled key (the iPhone 17 Pro's player capacity, the Apple TV 4K (3rd generation)'s
 # upscaled textures): with 0.5.1's live device-profiles-1 shard still cached, with a
-# device-profiles-2 shard signed here by the publisher, and once an update makes a cached shard older
+# device-profiles-3 shard signed here by the publisher, and once an update makes a cached shard older
 seed = BUILD / 'profile-feed-probe-seed'
 seed.write_bytes(bytes(range(32))); seed.chmod(0o600)
 for name, target in (('iphone', 'ios/iPhone18,1/_'), ('apple-tv', 'tvos/AppleTV14,1/_')):
     run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester', '--sequence', '1',
-        '--compatibility', 'device-profiles-2:' + target, '--input', 'profiles', '--signing-key', seed,
+        '--compatibility', 'device-profiles-3:' + target, '--input', 'profiles', '--signing-key', seed,
         '--output', BUILD / f'profile-feed-probe-{name}.json')
 probe_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(seed)], check=True,
                            capture_output=True, text=True, cwd=ROOT).stdout.strip()
