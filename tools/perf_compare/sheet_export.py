@@ -94,7 +94,7 @@ DESCRIPTIONS = {
     "os": "Operating system version.",
     "browser": "Browser and version for web builds; empty for native apps.",
     "date": "Date the set was measured (UTC).",
-    "method": "Measurement method: metalperftrace on-glass intervals (Mac), Instruments Metal System Trace displayed-surfaces intervals (iPhone/iPad), the app's own benchmark report or telemetry (Vision Pro), or Safari requestAnimationFrame callbacks (web).",
+    "method": "Measurement method: metalperftrace on-glass intervals (Mac), Instruments Metal System Trace displayed-surfaces intervals or the on-device Metal performance trace (iPhone/iPad), the app's own benchmark report or telemetry (Vision Pro), or Safari requestAnimationFrame callbacks (web).",
     "suite": "Workload suite: campaign (level openings), combat (console-placed battles and the scripted-bot window), cutscenes (whole in-engine cutscenes), multiplayer (hosted Slayer on Chill Out and Blood Gulch, one scripted-bot player) or co-op (two-player split screen). Combat, multiplayer and co-op windows are equivalent workloads across ports, not identical replays.",
     "window": "Sampling window: its key from windows.toml (c10, b30, a50-hangar, b40-exta, b30-bot, x70-bridge, cutscene-rescue; a10 in earlier rows), plus the delay after warm-up when it is not zero.",
     "scenario": "The window key as measured. Rows from before the window list use the level name (a10 or b30).",

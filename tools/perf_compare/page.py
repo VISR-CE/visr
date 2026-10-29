@@ -25,6 +25,9 @@ TIMING = {
     "mst": "Instruments Metal System Trace recorded over the network; each frame's time is a row of the "
            "`displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and "
            "p95/p99 agree within 1%.",
+    "lookback": "The phone's on-device Metal performance trace, read with `metalperftrace`: each frame's presented interval "
+                "and GPU time, used where Instruments Metal System Trace cannot record a full window. Against Instruments "
+                "Metal System Trace on an iPad Pro, average rate agreed within 0.01 fps and GPU p90 within 2%.",
     "app": "The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, "
            "counted over the same warm-up and sampling window.",
     "swap": "The OpenGL frame swap, timestamped by a shim in the app's process (`flushBuffer` / `CGLFlushDrawable`), for a "
@@ -61,7 +64,7 @@ def timing_section(rows: list[dict]) -> list[str]:
         if not mine:
             continue
         hosts = sorted({row["host"] for row in mine})
-        for group in ("trace", "swap", "mst", "app", "hud", "other"):
+        for group in ("trace", "swap", "mst", "lookback", "app", "hud", "other"):
             chosen = [row for row in mine if method_group(row) == group]
             if not chosen:
                 continue
@@ -222,7 +225,7 @@ def methodology(summary: dict, rows: list[dict]) -> list[str]:
     lines.extend(uncapped_section(rows))
     lines.extend(suite_section(rows))
     lines.extend(_notes(records))
-    groups = [group for group in ("trace", "swap", "mst", "app", "hud", "other")
+    groups = [group for group in ("trace", "swap", "mst", "lookback", "app", "hud", "other")
               if any(method_group(r) == group for r in ok)]
     lines.extend(line for group in groups for line in (METHOD_NOTES[group], ""))
     return lines

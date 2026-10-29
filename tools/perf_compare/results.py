@@ -286,6 +286,8 @@ def method_group(record):
         return "raf"
     if "system trace" in method or "displayed-surfaces" in method:
         return "mst"
+    if "on-device metal performance trace" in method:
+        return "lookback"
     if "frame-swap timestamps" in method:
         return "swap"
     if "metalperftrace" in method:
@@ -304,6 +306,10 @@ METHOD_NOTES = {
              "CPU/GPU durations and aggregate FPS are excluded. Repeated image content is not detected.",
     "mst": "Instruments Metal System Trace records the displayed-surfaces-interval table over the network: the time each frame is "
            "swapped onto the display. Repeated image content is not detected.",
+    "lookback": "The on-device Metal performance trace records each presented frame's interval and GPU time, read with "
+                "`metalperftrace`. It is used where Instruments Metal System Trace cannot record a full window. Against "
+                "Instruments Metal System Trace on an iPad Pro, average rate agreed within 0.01 fps and GPU p90 within 2%. "
+                "Repeated image content is not detected.",
     "swap": "A shim in the app's process timestamps each OpenGL frame swap (`flushBuffer` / `CGLFlushDrawable`) for ports that "
             "`metalperftrace` does not see. On two Metal ports its average rate matched `metalperftrace` to the digit. It reports "
             "no GPU time per frame.",
@@ -423,7 +429,7 @@ def render(summary: dict) -> str:
         lines.extend([f"## {PORTS.get(port, port)}", ""])
         versions = sorted({identity(r) for r in selected})
         lines.extend(["Measured versions: " + "; ".join(_cell(v) for v in versions) + ".", ""])
-        for group in ("trace", "swap", "mst", "app", "hud", "raf", "other"):
+        for group in ("trace", "swap", "mst", "lookback", "app", "hud", "raf", "other"):
             chosen = [r for r in selected if method_group(r) == group]
             if chosen:
                 lines.extend([METHOD_NOTES[group], ""])
