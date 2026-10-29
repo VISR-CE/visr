@@ -104,3 +104,15 @@ def test_pointer_synthesizes_no_input_activity():
     assert "platform_menu_activity" not in pointer
     widget = (ROOT / "source/interface/ui_widget.c").read_text()
     assert "platform_menu_activity" not in widget
+
+
+def test_carousel_arrows_are_targets():
+    source = (ROOT / "source/interface/ui_widget.c").read_text()
+    helper = source[source.index("static void ui_mouse_note_carousel_arrows("):]
+    helper = helper[:helper.index("\n}\n")]
+    # the profile carousel's arrows have no widget: strips outside the first and last items press the d-pad
+    assert "_widget_event_dpad_left" in helper and "ui_mouse_list_directions" in helper
+    assert "target->button_index = side ? forward : back;" in helper
+    note = source[source.index("static void ui_mouse_note_target("):]
+    note = note[:note.index("\n}\n")]
+    assert "ui_mouse_note_carousel_arrows(widget, offset)" in note
