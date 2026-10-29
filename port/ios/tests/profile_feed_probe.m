@@ -83,7 +83,7 @@ static void writeRevision(NSString *profiles, long long revision)
 int main(int argc, char **argv)
 {
     @autoreleasepool {
-        if (argc != 6) { fprintf(stderr, "usage: %s REPOSITORY V1_KEY V3_KEY V3_IPHONE_SHARD V3_APPLE_TV_SHARD\n", argv[0]); return 2; }
+        if (argc != 6 && argc != 7) { fprintf(stderr, "usage: %s REPOSITORY V1_KEY V3_KEY V3_IPHONE_SHARD V3_APPLE_TV_SHARD [V3_APPLE_TV_UPSCALING_OFF_SHARD]\n", argv[0]); return 2; }
         NSString *live = [@(argv[1]) stringByAppendingPathComponent:@"docs/site/packs/tester/profiles"];
         NSFileManager *fm = NSFileManager.defaultManager;
         NSString *base = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
@@ -98,6 +98,18 @@ int main(int argc, char **argv)
 
         // Apple TV 4K (3rd generation): its live device-profiles-1 shard predates upscaled textures there.
         struct host_device tv = appleTV();
+        if (argc == 7) {
+            // A downloaded shard decides the upscaling gate of the launch it is used in: the look before the launch menu
+            // reads it from disk (no store opened, nothing written), here a shard that turns upscaled textures off.
+            dataPackCacheOverride = [base stringByAppendingPathComponent:@"Caches-peek"];
+            dataPackKeyOverride = publicKey(@(argv[3]));
+            CHECK([[profileStore(bundled, tv) beginLaunch] isEqual:bundled] && [upscaling(bundled) isEqual:@"true"], "the bundled profiles upscale on the Apple TV 4K (3rd generation)");
+            CHECK([profileStore(bundled, tv) stageEnvelope:[NSData dataWithContentsOfFile:@(argv[6])] error:&error], "a shard turning upscaled textures off stages");
+            [HostDataPackStore forgetSharedStores];
+            NSString *peeked = host_profile_peek_folder(bundled, &tv);
+            CHECK(![peeked isEqual:bundled] && [upscaling(peeked) isEqual:@"false"], "the next launch's look before the menu reads that shard: upscaled textures off");
+            dataPackCacheOverride = [base stringByAppendingPathComponent:@"Caches"];
+        }
         CHECK([upscaling(bundled) isEqual:@"true"], "the bundled profiles turn upscaled textures on for the Apple TV 4K (3rd generation)");
         dataPackKeyOverride = publicKey(@(argv[2]));
         HostDataPackStore *tvOld = generationOne(bundled, tv);

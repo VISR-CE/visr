@@ -83,7 +83,7 @@ int main(int argc, char **argv)
             [fm createDirectoryAtPath:bundledProfiles withIntermediateDirectories:YES attributes:nil error:NULL];
             // Two launches whose upscaling check looks before the menu starts: nothing opens a store, for any kind.
             for (int launch = 0; launch < 2; launch++) {
-                assert([host_profile_peek_folder(bundledProfiles) isEqual:bundledProfiles]);
+                assert([host_profile_peek_folder(bundledProfiles, &d) isEqual:bundledProfiles]);
                 @synchronized(selectionLock()) { menuRequested = YES; }   // host_data_updates_menu_expected, as host_main does
                 assert([host_profile_update_folder(bundledProfiles) isEqual:bundledProfiles]);
                 assert([host_recording_update_folder(bundledProfiles) isEqual:bundledProfiles]);
