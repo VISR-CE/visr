@@ -548,6 +548,22 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 	sample->reason = reason;
 	if (kind != HALO_SPATIAL_SAMPLE_GAME)
 		return filled;
+	/* The origin can move between this game sample and the next head latch,
+	and the fill above read the anchors in one origin while the head came
+	from the other. Keep the previous drawing pose paired with its head until
+	that latch rebases, as the Sense tracker's sampleGame: does with its own
+	drawing sample; pose loss stays live, and the reference's head values are
+	this sample's own, so host_spatial_hold_poses leaves them alone. */
+	if (host_stereo_room_recenter_pending())
+	{
+		struct halo_spatial_sample reference;
+
+		memset(&reference, 0, sizeof(reference));
+		reference.head_yaw = sample->head_yaw;
+		reference.head_level = sample->head_level;
+		memcpy(reference.hands, draw_hands, sizeof(draw_hands));
+		host_spatial_hold_poses(sample, &reference);
+	}
 	active = filled;
 	if (filled)
 	{
