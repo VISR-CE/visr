@@ -3,6 +3,14 @@ from pathlib import Path
 import subprocess
 
 from test_menu_cancel import block
+import shutil
+import sys
+
+import pytest
+
+# the probes build with the Apple toolchain (xcrun clang), as tools/ios_test.py runs them
+pytestmark = pytest.mark.skipif(sys.platform != "darwin" or not shutil.which("xcrun"),
+                                reason="needs the Apple toolchain (xcrun)")
 
 ROOT = Path(__file__).resolve().parents[1]
 
