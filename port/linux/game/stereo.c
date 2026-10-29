@@ -1088,6 +1088,42 @@ void halo_stereo_frame_begin(void)
 			film_reason = 3;
 	}
 	cutscene = film_reason == 1 || film_reason == 2;
+	/* a new level (halo_level_serial) that doesn't open on the film drops
+	the last level's: the main menu's scripted camera is the film, and its
+	hold, its wait for the camera to reach the eyes, its window and its
+	expansion would show the game's first moments on the screen before the
+	full view. The view goes from the menu's straight to the full view,
+	through the cut's fade (host_stereo_hud.h). The call waits for the
+	level's first ticks, which start its opening cutscene (a10 and a30 put
+	up its camera on the third): a level that opens on one keeps the film
+	from the menu straight into it */
+	{
+		static unsigned long level_seen;
+		static int level_pending;
+		unsigned long level = halo_level_serial();
+
+		if (level != level_seen) {
+			level_seen = level;
+			level_pending = 1;
+		}
+		/* (without stereo there's no film to drop) */
+		if (level_pending && (stereo_mode == HALO_STEREO_OFF || !halo_level_first_tick_pending() ||
+			level_start_hold_frames >= HALO_STEREO_LEVEL_START_HOLD_FRAMES)) {
+			level_pending = 0;
+			if (film_reason == 0 && (film_frame || film_hold > 0 || expansion_on)) {
+				if (film_frame || film_hold > 0)
+					platform_log("stereo: a new level: the last level's film ends here, without its hold or "
+						"expansion");
+				film_frame = 0;
+				film_hold = 0;
+				settle_elapsed = portal_elapsed = 0.0f;
+				settle_gave_up = 0;
+				portal_begun = portal_full_shown = 0;
+				expansion_on = 0;
+				cutscene_third_person = cutscene_released = cutscene_anchored = 0;
+			}
+		}
+	}
 	/* a level's first frames, before its opening script has had its ticks: black
 	in the full view (and on a flat screen: a campaign level only), unless the
 	film has them already */

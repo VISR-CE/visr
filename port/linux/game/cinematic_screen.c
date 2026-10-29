@@ -16,6 +16,7 @@ picture.
 */
 
 #include "cseries.h"
+#include <stdio.h>
 #include <string.h>
 #include "camera/camera_scripting.h"
 #include "camera/director.h"
@@ -33,6 +34,7 @@ picture.
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
 #include "main/console.h"
+#include "main/main.h"
 #include "math/periodic_functions.h"
 #include "math/real_math.h"
 #include "../src/halo_stereo.h"
@@ -228,6 +230,32 @@ black over it (halo_stereo_level_start_hold) */
 int halo_level_first_tick_pending(void)
 {
 	return game_time_get() < HALO_LEVEL_START_TICKS;
+}
+
+/* A count of the levels begun: a change of the scenario's type (the main
+menu, a campaign level, a multiplayer game) or of the map's name (the next
+campaign level). A checkpoint's revert or a saved game's load on the same
+map isn't one. stereo.c drops the last level's film when it changes: the
+main menu's scripted camera is the film, and its end path would otherwise
+carry into the game the menu starts */
+unsigned long halo_level_serial(void)
+{
+	static int last_type = -2;
+	static char last_name[64];
+	static unsigned long serial;
+	int type = global_scenario ? global_scenario->type : -1;
+	/* (the menu's own map: main_get_map_name still names the level before it) */
+	const char *name = !global_scenario || type == _scenario_type_main_menu ? "" :
+		type == _scenario_type_multiplayer ? main_get_multiplayer_map_name() : main_get_map_name();
+
+	if (!name)
+		name = "";
+	if (type != last_type || strncmp(name, last_name, sizeof(last_name) - 1)) {
+		serial++;
+		last_type = type;
+		snprintf(last_name, sizeof(last_name), "%s", name);
+	}
+	return serial;
 }
 
 int halo_level_start_campaign(void)

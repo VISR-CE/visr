@@ -204,6 +204,7 @@ int halo_cinematic_screen(void) { return 0; }
 int halo_scripted_camera(void) { return 0; }
 int halo_scripted_director_camera(void) { return 0; }
 int halo_level_first_tick_pending(void) { return 0; }
+unsigned long halo_level_serial(void) { return 0; }
 int halo_level_start_campaign(void) { return 0; }
 int halo_seat_cryo_pod(void) { return 0; }
 int halo_seat_first_person_passenger(void) { return 0; }
