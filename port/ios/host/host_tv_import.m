@@ -58,6 +58,8 @@ static uint16_t server_port;
 static atomic_int preparing_textures, skip_textures, menu_phase_textures;
 /* the upscaling bar's "ready to start", in ten-thousandths of the bar; -1 while it is not known */
 static atomic_int upscale_tick=-1;
+/* the work was refused (no storage, too warm): the second, smaller line under the message, or NULL */
+static const char *_Atomic upscale_detail;
 
 static void status_set(enum import_state state,uint64_t done,uint64_t total,NSString *message) {
     pthread_mutex_lock(&status_lock);
@@ -91,6 +93,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     atomic_store(&upscale_tick,upscale->tick<0?-1:(int)(upscale->tick*10000));
     /* (the bar's fraction over the setup and the whole set, in ten-thousandths; rounded down in the label) */
     unsigned shown=(unsigned)(upscale->fraction*10000);
+    atomic_store(&upscale_detail,upscale->message?upscale->detail:NULL);
     status_set(import_extracting,shown,10000,upscale->message?@(upscale->message):[NSString stringWithFormat:@"Upscaling textures · %u%%",shown/100]);
     return !atomic_load(&skip_textures);
 }
@@ -124,7 +127,7 @@ static void import_image(void) {
             atomic_store(&skip_textures,0);
             host_astc_store_prepare_import(documents.fileSystemRepresentation,texture_progress,NULL);
             host_texture_upscale_prepare_import(documents.fileSystemRepresentation,upscale_progress,NULL);
-            atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);
+            atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);atomic_store(&upscale_detail,NULL);
             [files removeItemAtPath:staging error:nil];
             status_set(import_done,1,1,@"Imported. Starting Halo…");
         } else {
@@ -550,12 +553,20 @@ static UIImage *qr_image(NSString *text) {
     if(!wasShown&&usable)[self setNeedsFocusUpdate];
     if(serial!=self.shownSerial) {
         self.shownSerial=serial;
-        self.statusLabel.text=message;
-        self.progress.hidden=!total;
+        const char *detail=preparing?atomic_load(&upscale_detail):NULL;
+        if(detail){
+            /* the work refused: the line says so in place of the bar, which keeps its place */
+            NSMutableAttributedString *text=[[NSMutableAttributedString alloc] initWithString:message
+                attributes:@{NSFontAttributeName:self.statusLabel.font,NSForegroundColorAttributeName:UIColor.labelColor}];
+            [text appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\n" stringByAppendingString:@(detail)]
+                attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote],NSForegroundColorAttributeName:UIColor.secondaryLabelColor}]];
+            self.statusLabel.attributedText=text;
+        } else self.statusLabel.text=message;
+        self.progress.hidden=!total;self.progress.alpha=detail?0:1;
         self.progress.progressTintColor=atomic_load(&preparing_textures)&&atomic_load(&menu_phase_textures)?UIColor.systemGrayColor:halo_upscale_bar_blue();
         if(total)self.progress.progress=(float)((double)done/total);
         int tick=atomic_load(&upscale_tick);
-        [self.tick setPosition:preparing&&tick>=0?tick/10000.0:-1];
+        [self.tick setPosition:preparing&&tick>=0&&!detail?tick/10000.0:-1];
     }
     return state==import_done;
 }
@@ -619,7 +630,7 @@ static void host_tv_upscale_only(const char *root) {
     window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
         host_texture_upscale_prepare_import(documents.fileSystemRepresentation,upscale_progress,NULL);
-        atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);
+        atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);atomic_store(&upscale_detail,NULL);
         status_set(import_done,1,1,@"Done");
     });
     while(![controller refresh]) @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}

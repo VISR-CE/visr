@@ -70,16 +70,25 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     double now=NSProcessInfo.processInfo.systemUptime;
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
     float fraction=(float)status->fraction;double tick=status->tick;
-    NSString *message=status->message?@(status->message):nil;
+    NSString *message=status->message?@(status->message):nil,*detail=status->detail?@(status->detail):nil;
     dispatch_async(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
         controller.progress.progress=fraction;
         /* one bar over the setup and the whole set: gray until the main menu's textures are made, then blue with Start
            playing; "ready to start" marks where that happens */
         controller.progress.progressTintColor=menu_phase?UIColor.systemGrayColor:halo_upscale_bar_blue();
-        [controller.tick setPosition:tick];
+        /* the work refused (no storage, too warm): the line says so in place of the bar, which keeps its place */
+        controller.progress.alpha=message?0:1;
+        [controller.tick setPosition:message?-1:tick];
+        if(message){
+            NSMutableAttributedString *text=[[NSMutableAttributedString alloc] initWithString:message
+                attributes:@{NSFontAttributeName:controller.statusLabel.font,NSForegroundColorAttributeName:UIColor.labelColor}];
+            if(detail)[text appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\n" stringByAppendingString:detail]
+                attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleCaption1],NSForegroundColorAttributeName:UIColor.secondaryLabelColor}]];
+            controller.statusLabel.attributedText=text;
+        }
         /* (rounded down: 100% only when every texture is made) */
-        controller.statusLabel.text=message?:[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
+        else controller.statusLabel.text=[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
         /* (the button keeps its place while it waits, so nothing on the screen moves when it appears) */
         [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
         controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;

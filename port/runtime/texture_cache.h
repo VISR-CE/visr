@@ -111,9 +111,9 @@ int texture_cache_floor_ok(uint64_t free_bytes, uint64_t missing_bytes);
    - the background queue checks texture_cache_background_may_run before each entry and pauses while it is false. */
 enum texture_cache_level_start texture_cache_level_start(const struct texture_cache_level_plan *, uint64_t free_bytes);
 int texture_cache_background_may_run(uint64_t free_bytes, uint64_t next_entry_bytes);
-/* The storage the upscaler may count on, from what the system reports for the cache's volume: the important-usage
-   capacity (the player turned the upscaled look on and is waiting for it), or the volume's free blocks if that read
-   fails, less TEXTURE_CACHE_FALLBACK_HEADROOM, so the work leaves at least that much free. Opportunistic capacity is not
+/* The storage the upscaler may count on, from what the system reports for the cache's volume: the smaller of the
+   important-usage capacity (the player turned the upscaled look on and is waiting for it) and the volume's free blocks,
+   or whichever was read, less TEXTURE_CACHE_FALLBACK_HEADROOM, so the work leaves at least that much free. Opportunistic capacity is not
    used: an iPhone 15 Pro Max on iOS 27.2 read 0 MB with 5 GB and again with 10 GB free, and 0.6.3, which gated on it,
    never started. The cache is in Library/Caches, which the system purges before it runs short. A read that failed
    passes 0 for its _read; the opportunistic value is taken for the log only. */

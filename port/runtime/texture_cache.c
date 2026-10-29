@@ -390,7 +390,10 @@ uint64_t texture_cache_storage_usable(int opportunistic_read, uint64_t opportuni
 
 	(void)opportunistic_read;
 	(void)opportunistic;
-	base = important_read ? important : volume_read ? volume_free : 0;
+	/* (the smaller of the two when both are read: important usage counts space the system would purge, and this cache
+	   in Library/Caches is among the first it purges) */
+	base = important_read && volume_read ? (important < volume_free ? important : volume_free) :
+		important_read ? important : volume_read ? volume_free : 0;
 	return base > TEXTURE_CACHE_FALLBACK_HEADROOM ? base - TEXTURE_CACHE_FALLBACK_HEADROOM : 0;
 }
 
