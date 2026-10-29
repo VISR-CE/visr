@@ -3,6 +3,9 @@ name: Pages
 # Publishes the static landing page in docs/site to GitHub Pages. There is no
 # application build step. Signed asset feeds are validated before upload. Enable it under
 # Settings > Pages > Source: GitHub Actions.
+#
+# The same packs/ tree is also published to the feeds host (feeds.visr.gg, a second Pages site in the repository
+# named by the FEEDS_REPOSITORY variable; docs/data-packs.md, "Feed hosts"). Both hosts must serve identical bytes.
 
 on:
   push:
@@ -14,6 +17,8 @@ on:
       - 'tools/site_template.html'
       - 'tools/requirements-ci.*'
       - 'tools/pages_asset_overlay.py'
+      - 'tools/feeds_host.py'
+      - 'tools/feed_hosts.py'
       - 'tools/pages_recording_overlay.py'
       - 'tools/release_validation.py'
       - 'tools/data_pack.py'
@@ -56,8 +61,33 @@ jobs:
           uv run --python 3.11 --no-project --with-requirements tools/release-requirements.txt \
             python tools/pages_asset_overlay.py
           rm -- build/pages/index.md build/pages/README.md
+      - name: Publish the feeds host
+        if: vars.FEEDS_REPOSITORY != ''
+        env:
+          FEEDS_REPOSITORY: ${{ vars.FEEDS_REPOSITORY }}
+          FEEDS_DEPLOY_KEY: ${{ secrets.FEEDS_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$FEEDS_DEPLOY_KEY"
+          python3 tools/feeds_host.py stage build/pages build/feeds
+          install --directory --mode 700 "$RUNNER_TEMP/feeds-ssh"
+          printf '%s\n' "$FEEDS_DEPLOY_KEY" > "$RUNNER_TEMP/feeds-ssh/key"
+          chmod 600 "$RUNNER_TEMP/feeds-ssh/key"
+          # GitHub's published SSH host key (docs.github.com, "GitHub's SSH key fingerprints")
+          echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$RUNNER_TEMP/feeds-ssh/known_hosts"
+          cd build/feeds
+          git init --quiet --initial-branch=pages
+          git add --all
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --quiet --message "Feeds from ${GITHUB_SHA}"
+          GIT_SSH_COMMAND="ssh -i $RUNNER_TEMP/feeds-ssh/key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$RUNNER_TEMP/feeds-ssh/known_hosts" \
+            git push --force "git@github.com:${FEEDS_REPOSITORY}.git" pages:pages
+          rm --force "$RUNNER_TEMP/feeds-ssh/key"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: build/pages
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+      - name: Check that both hosts serve the same bytes
+        if: vars.FEEDS_REPOSITORY != ''
+        run: python3 tools/feeds_host.py verify build/pages
