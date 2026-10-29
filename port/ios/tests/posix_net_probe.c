@@ -63,6 +63,15 @@ int main(void)
 	assert(posix_socket_sendto(sender, "halo", 4, 0, &receiver_address, sizeof(receiver_address)) == 4);
 	assert(posix_socket_recvfrom(receiver, buffer, sizeof(buffer), 0, NULL, NULL) == 4);
 
+	/* a connected datagram socket, which the game still gives a destination: sent to its peer, not refused */
+	assert(posix_socket_connect(sender, &receiver_address, sizeof(receiver_address)) == 0);
+	assert(posix_socket_sendto(sender, "halo", 4, 0, &receiver_address, sizeof(receiver_address)) == 4);
+	assert(posix_socket_recvfrom(receiver, buffer, sizeof(buffer), 0, NULL, NULL) == 4);
+	posix_socket_close(sender);
+	sender = posix_socket(GAME_AF_INET, GAME_SOCK_DGRAM, 0);
+	assert(sender >= 0);
+	bind_loopback(sender, &sender_address);
+
 	/* a connection's, as accept and getpeername give it */
 	listener = posix_socket(GAME_AF_INET, GAME_SOCK_STREAM, 0);
 	client = posix_socket(GAME_AF_INET, GAME_SOCK_STREAM, 0);
