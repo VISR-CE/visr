@@ -153,7 +153,9 @@ static HostDataPackStore *store(NSString *kind, NSString *bundled, NSString *com
     NSString *cache = dataPackCacheOverride ?: NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
     NSString *root = [[[[cache stringByAppendingPathComponent:@"visr-data-packs"] stringByAppendingPathComponent:kind] stringByAppendingPathComponent:channel] stringByAppendingPathComponent:digest([compatibility dataUsingEncoding:NSUTF8StringEncoding])];
     pruneCompatibilityRoots(root);
-    return [[HostDataPackStore alloc] initWithRoot:root bundled:bundled kind:kind channel:channel publicKey:key compatibility:compatibility validator:validator];
+    // One store per root for the whole process: the profile check before the launch menu, the menu and a legacy
+    // launch all get the same instance.
+    return [HostDataPackStore sharedStoreWithRoot:root bundled:bundled kind:kind channel:channel publicKey:key compatibility:compatibility validator:validator];
 }
 
 /* This generation's profile store for device (docs/data-packs.md, "Profile feed generations"). Its shards bind to
@@ -186,7 +188,7 @@ static HostDataPackStore *profileStore(NSString *bundled, struct host_device dev
         if (!valid && error) *error = [NSError errorWithDomain:@"VISRDataUpdates" code:1 userInfo:@{NSLocalizedDescriptionKey: @"Invalid profile snapshot"}];
         return valid;
     });
-    result.supersededCheck = ^BOOL(NSDictionary<NSString *, NSData *> *files) {
+    if (!result.supersededCheck) result.supersededCheck = ^BOOL(NSDictionary<NSString *, NSData *> *files) {
         NSData *file = files[@"hardware/revision.toml"]; char sha256[65];
         long long revision = file ? host_profile_revision_parse(file.bytes, file.length, sha256) : 0;
         // A missing or malformed revision is the validator's to refuse, unless nothing can be newer than the bundle.
@@ -720,6 +722,16 @@ void host_profile_updates_watch(NSString *dropIn, void (^visitor)(NSString *, NS
     };
     // The menu's store creation and Play selection run on the updates queue; offer after both.
     if (usesMenu()) dispatch_async(updatesQueue(), watch); else watch();
+}
+void host_data_updates_menu_expected(void)
+{
+    @synchronized(selectionLock()) { menuRequested = YES; }
+}
+NSString *host_profile_peek_folder(NSString *bundled)
+{
+    // The launch's selection once there is one, else the bundled profiles. A look must never open a store: 0.6.3's
+    // look began a launch on a second store of the menu's root, which then quarantined the shard it had staged.
+    @synchronized(selectionLock()) { return profileFolder ?: bundled; }
 }
 NSString *host_profile_update_folder(NSString *bundled)
 {
