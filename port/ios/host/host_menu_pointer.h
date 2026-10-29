@@ -79,7 +79,9 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
     float travel = y - m->anchor_y;
     int steps = (int)(travel / HOST_MENU_POINTER_NOTCH);
     if (steps) {
-        m->wheel_steps += steps;
+        /* the list follows the finger as a scrolled page does: a finger moving up brings the later items (the wheel's
+           steps are positive away from the user, up the list) */
+        m->wheel_steps -= steps;
         m->anchor_y += (float)steps * HOST_MENU_POINTER_NOTCH;
     }
     m->x = x;
