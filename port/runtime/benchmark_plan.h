@@ -13,7 +13,7 @@
 #define HALO_BENCHMARK_PLAN_H
 
 #include <stddef.h>
-#include "benchmark_stage.h"
+#include "benchmark_staging.h"
 
 #define BENCHMARK_RUNS_MAXIMUM 64
 #define BENCHMARK_SCENES_MAXIMUM 20
@@ -89,8 +89,8 @@ struct benchmark_scene {
     struct benchmark_knobs knobs;
     /* the case this one is a variant of (the same recording or workload, other settings); its own id for none */
     const char *workload;
-    struct benchmark_stage stage;
-    long stage_tick;
+    struct benchmark_staging staging;
+    long staging_tick, staging_segment;
 };
 
 /* Capacity never changes the selected scenes or their signature. The host records a skipped outcome instead. */

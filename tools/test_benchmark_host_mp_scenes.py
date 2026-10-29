@@ -193,56 +193,80 @@ def test_host_refuses_catalog_with_unsupported_variant_settings(tmp_path, catalo
     assert result.returncode == 1 and 'variant' in result.stderr
 
 
-from test_benchmark_catalog import STAGE, INVALID_STAGES, staged_catalog
+from test_benchmark_catalog import STAGING, INVALID_STAGINGS, staged_catalog
 
 
-def test_host_accepts_staged_gameplay(tmp_path, catalog_probe):
+def test_host_accepts_stagingd_gameplay(tmp_path, catalog_probe):
     staged_catalog(tmp_path)
     result = run_probe(catalog_probe, tmp_path, "full")
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.parametrize("stage", INVALID_STAGES)
-def test_host_rejects_invalid_stage(tmp_path, catalog_probe, stage):
-    staged_catalog(tmp_path, stage=stage, route_stage=stage)
+@pytest.mark.parametrize("staging", INVALID_STAGINGS)
+def test_host_rejects_invalid_staging(tmp_path, catalog_probe, staging):
+    staged_catalog(tmp_path, staging=staging, route_staging=staging)
     assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
 
 
 @pytest.mark.parametrize("tick", [None, "0", "-1", "true", "1.5", "2147483648", "1junk"])
-def test_host_requires_stage_tick(tmp_path, catalog_probe, tick):
+def test_host_requires_staging_tick(tmp_path, catalog_probe, tick):
     staged_catalog(tmp_path, tick=tick)
     assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
 
 
 @pytest.mark.parametrize("case_id", ["menu", "a10-opening", "mp-chillout-proof"])
-def test_host_rejects_stage_on_other_kinds(tmp_path, catalog_probe, case_id):
+def test_host_rejects_staging_on_other_kinds(tmp_path, catalog_probe, case_id):
     staged_catalog(tmp_path, case_id=case_id)
     assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
 
 
-@pytest.mark.parametrize("route_stage", [None, [{"deathless": True}]])
-def test_host_rejects_mismatched_stage(tmp_path, catalog_probe, route_stage):
-    staged_catalog(tmp_path, route_stage=route_stage)
+@pytest.mark.parametrize("route_staging", [None, [{"deathless": True}]])
+def test_host_rejects_mismatched_staging(tmp_path, catalog_probe, route_staging):
+    staged_catalog(tmp_path, route_staging=route_staging)
     assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
 
 
-def test_host_rejects_unselected_recorded_stage(tmp_path, catalog_probe):
+def test_host_rejects_unselected_recorded_staging(tmp_path, catalog_probe):
     staged_catalog(tmp_path)
     _write_catalog(tmp_path, _cases())
     assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
 
 
-@pytest.mark.parametrize("extra", ['stage_tick = 32\n', 'stage = [{"deathless":true}]\n'])
-def test_host_rejects_duplicate_stage_route_fields(tmp_path, catalog_probe, extra):
+@pytest.mark.parametrize("extra", ['staging_tick = 32\n', 'staging = [{"deathless":true}]\n', 'staging_segment = 1\n'])
+def test_host_rejects_duplicate_staging_route_fields(tmp_path, catalog_probe, extra):
     staged_catalog(tmp_path)
     with (tmp_path / "take-b30.route").open("a") as route:
         route.write(extra)
     assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
 
 
-@pytest.mark.parametrize("stage", [[{"switch_bsp": 0}], [{"switch_bsp": 31}],
+@pytest.mark.parametrize("staging", [[{"switch_bsp": 0}], [{"switch_bsp": 31}],
                                   [{"ai_see": ["a" * 31, "b" * 31]}] * 16])
-def test_host_accepts_stage_boundaries(tmp_path, catalog_probe, stage):
-    staged_catalog(tmp_path, stage=stage, route_stage=stage)
+def test_host_accepts_staging_boundaries(tmp_path, catalog_probe, staging):
+    staged_catalog(tmp_path, staging=staging, route_staging=staging)
     result = run_probe(catalog_probe, tmp_path, "full")
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("raw", ['1.0', '2e0', 'true'])
+def test_host_rejects_noninteger_bsp_before_reserialization(tmp_path, catalog_probe, raw):
+    # Leave the route valid: otherwise route parsing would hide catalog acceptance.
+    staged_catalog(tmp_path, staging=[{"switch_bsp": 1}], route_staging=[{"switch_bsp": 1}])
+    path = tmp_path / "benchmark-catalog.json"
+    document = path.read_text()
+    assert '"switch_bsp":1' in document
+    path.write_text(document.replace('"switch_bsp":1', '"switch_bsp":' + raw))
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+def test_host_rejects_duplicate_staging_step_keys(tmp_path, catalog_probe):
+    staged_catalog(tmp_path, staging=[{"switch_bsp": 1}], route_staging=[{"switch_bsp": 1}])
+    path = tmp_path / "benchmark-catalog.json"
+    path.write_text(path.read_text().replace('"switch_bsp":1', '"switch_bsp":0,"switch_bsp":1'))
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0
+
+
+@pytest.mark.parametrize("segment", [None, "-1", "1.0", "true", "2147483648", "00"])
+def test_host_requires_staging_segment(tmp_path, catalog_probe, segment):
+    staged_catalog(tmp_path, segment=segment)
+    assert run_probe(catalog_probe, tmp_path, "full").returncode != 0

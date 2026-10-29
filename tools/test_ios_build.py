@@ -531,3 +531,55 @@ def test_catalyst_mac_build_names_the_requested_data_pack_channel(monkeypatch, t
 def test_dev_build_clears_cached_release_marketing_version(monkeypatch, tmp_path, arguments):
     configure = configure_with(monkeypatch, tmp_path, *arguments)
     assert '-DHALO_MARKETING_VERSION=' in configure
+
+
+@pytest.mark.parametrize("store", [False, True])
+def test_guest_development_hooks_follow_host_build(monkeypatch, tmp_path, store):
+    commands = []
+    configure_with(monkeypatch, tmp_path, '--unsigned')
+    monkeypatch.setattr(ios_build, 'run', lambda *command: commands.append([str(part) for part in command]))
+    arguments = ['--team', 'TEAM', '--app-store-package', str(tmp_path / 'package')] if store else ['--unsigned', '--local-routes', '--native-mac']
+    monkeypatch.setattr(ios_build.sys, 'argv', ['ios_build.py', '--host-pgo=off', *arguments])
+    # Capture guest configuration before any build, package, or signing side effect.
+    class Captured(Exception):
+        pass
+    def capture(*command):
+        command = [str(part) for part in command]
+        if 'configure.py' in command:
+            commands.append(command)
+            raise Captured
+    monkeypatch.setattr(ios_build, 'run', capture)
+    with pytest.raises(Captured):
+        ios_build.main()
+    guest = commands[-1]
+    assert ('--development-hooks' in guest) == (not store)
+    import runpy
+    from tools import ios_guest_build, linux_build, windows_build
+    root = Path(__file__).resolve().parents[1]
+    generated_guest = ios_guest_build.generate_ios_guest_build
+    solutions = []
+    monkeypatch.setattr(ios_guest_build, 'generate_ios_guest_build', lambda writer, sln: solutions.append(sln))
+    monkeypatch.setattr(linux_build, 'generate_linux_build', lambda *_args: None)
+    monkeypatch.setattr(windows_build, 'generate_windows_build', lambda *_args: None)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(ios_build.sys, 'argv', guest[1:])
+    runpy.run_path(str(root / 'configure.py'), run_name='__main__')
+    sln = solutions[0]
+    assert ('-DHALO_DEVELOPMENT_HOOKS=1' in linux_build.configuration_defines(sln)) == (not store)
+    # Inspect the recorder's real generated C flags without fetching or compiling anything.
+    monkeypatch.chdir(root)
+    monkeypatch.setattr(ios_guest_build, 'fetch_third_party', lambda: None)
+    monkeypatch.setattr(ios_guest_build, 'xdk_headers', lambda: [])
+    monkeypatch.setattr(ios_guest_build, 'pgo_profile', lambda *_args: None)
+    flags = []
+    class CaptureRecorder:
+        def comment(self, *_args, **_kwargs):
+            pass
+        variable = rule = comment
+        def build(self, **kwargs):
+            if kwargs.get('inputs') == Path('port/linux/src/input_replay.c'):
+                flags.extend(kwargs['variables']['cflags'].split())
+                raise Captured
+    with pytest.raises(Captured):
+        generated_guest(CaptureRecorder(), sln)
+    assert ('-DHALO_DEVELOPMENT_HOOKS=1' in flags) == (not store)

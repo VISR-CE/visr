@@ -1199,7 +1199,7 @@ static const struct config_setting config_settings[] =
 		_environment_value, _platform_ios,
 		"With upscaled_textures_toggle: press its toggle every this many frames,\n"
 		"for a test run with no controller; 0 never." },
-	{ "debug.benchmark_stage", _config_string, "\"\"", "HALO_BENCHMARK_STAGE", _environment_value, _platform_all,
+	{ "debug.benchmark_staging", _config_string, "\"\"", "HALO_BENCHMARK_STAGING", _environment_value, _platform_all,
 		"Development hooks only: closed JSON staging steps for debug.input_record,\n"
 		"applied once 30 ticks after the first tick following cinematic_done." },
 	{ "debug.input_record", _config_string, "\"\"", "HALO_INPUT_RECORD", _environment_value, _platform_all,

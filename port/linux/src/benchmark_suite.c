@@ -613,7 +613,7 @@ static int start_suite_for_output(void)
 /* takes the next run from the host and starts it; quits when there is none */
 static void next_run(void)
 {
-	char text[4096], path[256], stage_json[BENCHMARK_STAGE_JSON_SIZE];
+	char text[4096], path[256], staging_json[BENCHMARK_STAGING_JSON_SIZE];
 	int more = host_benchmark_next(text, sizeof(text));
 
     if(more==4) {
@@ -764,10 +764,10 @@ static void next_run(void)
 		finish("skipped", "the recording could not be read");
 		return;
 	}
-	field(text, "stage", stage_json, sizeof(stage_json));
-	if (!input_replay_stage_matches(stage_json, (long)number_field(text, "stage_tick")))
+	field(text, "staging", staging_json, sizeof(staging_json));
+	if (!input_replay_staging_matches(staging_json, (long)number_field(text, "staging_tick"), (long)number_field(text, "staging_segment")))
 	{
-		finish("failed", "stage does not match the signed case or recording route");
+		finish("failed", "staging does not match the signed case or recording route");
 		return;
 	}
 	/* (a case's signed enemy multiplier, for the level about to load; the recording's route carries it too, and the
@@ -912,9 +912,9 @@ void benchmark_suite_frame(long width, long height)
 		platform_log("benchmark suite: take position scene=%s tick=%ld", suite.scene, (long)ticks);
 	}
 	if ((suite.state == suite_loading || suite.state == suite_lead || suite.state == suite_measuring ||
-		suite.state == suite_review_tail) && input_replay_stage_error()[0])
+		suite.state == suite_review_tail) && input_replay_staging_error()[0])
 	{
-		finish("failed", input_replay_stage_error());
+		finish("failed", input_replay_staging_error());
 		return;
 	}
 	switch (suite.state)
