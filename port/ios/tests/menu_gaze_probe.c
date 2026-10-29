@@ -127,7 +127,7 @@ static void pinches(void) {
     assert(p.left_clicks == 1 && !p.wheel_steps && near(p.click_x / p.surface_width, 0.75f, 1e-3f));
     assert(!g.tracking && !m.tracking);
 
-    /* a pinch and drag down 10 cm: past the slop, list steps down, no press */
+    /* a pinch and drag down 10 cm: past the slop, the list follows the hand (steps up), no press */
     assert(host_menu_gaze_event(&g, &m, &s, 8, HOST_MENU_GAZE_ACTIVE, at_item, hand));
     take(&m);
     float down[3] = { 0.2f, 1.1f, -0.3f };
@@ -135,7 +135,7 @@ static void pinches(void) {
     host_menu_gaze_event(&g, &m, &s, 8, HOST_MENU_GAZE_ENDED, at_item, down);
     p = take(&m);
     /* 100 points of travel from where it began (past the 20 of slop): three 28 point notches */
-    assert(!p.left_clicks && p.wheel_steps == 3);
+    assert(!p.left_clicks && p.wheel_steps == -3);
 
     /* a second pinch while one is held is ignored, to its end */
     assert(host_menu_gaze_event(&g, &m, &s, 9, HOST_MENU_GAZE_ACTIVE, at_item, hand));
