@@ -132,6 +132,19 @@ int benchmark_scenes_select(enum benchmark_mode mode, const struct benchmark_sce
     return count;
 }
 
+enum benchmark_capacity_action benchmark_capacity_decision(const struct benchmark_scene *scenes, int count,
+    int index, int capacity) {
+    int probe = -1;
+    if (!scenes || index < 0 || index >= count) return BENCHMARK_CAPACITY_SKIP;
+    const struct benchmark_scene *scene = &scenes[index];
+    if (capacity <= 0 || scene->kind != BENCHMARK_SCENE_MULTIPLAYER || scene->players <= capacity)
+        return BENCHMARK_CAPACITY_RUN;
+    for (int i = 0; i < count; i++)
+        if (scenes[i].kind == BENCHMARK_SCENE_MULTIPLAYER && scenes[i].map && !strcmp(scenes[i].map, "bloodgulch") &&
+            scenes[i].players > capacity && (probe < 0 || scenes[i].players < scenes[probe].players)) probe = i;
+    return index == probe ? BENCHMARK_CAPACITY_PROBE : BENCHMARK_CAPACITY_SKIP;
+}
+
 static const long ladder_lines[] = { 540, 720, 1080, 1440, 2160 };
 #define LADDER_COUNT ((int)(sizeof(ladder_lines) / sizeof(ladder_lines[0])))
 #define SIZE_STEPS_MAXIMUM 3

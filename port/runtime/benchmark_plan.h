@@ -90,6 +90,11 @@ struct benchmark_scene {
     const char *workload;
 };
 
+/* Capacity never changes the selected scenes or their signature. The host records a skipped outcome instead. */
+enum benchmark_capacity_action { BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_PROBE, BENCHMARK_CAPACITY_SKIP };
+enum benchmark_capacity_action benchmark_capacity_decision(const struct benchmark_scene *scenes, int count,
+    int index, int capacity);
+
 /* what the plan needs to know about the device and its profile's values */
 struct benchmark_device {
     long drawable_lines;   /* the display's height in pixels */

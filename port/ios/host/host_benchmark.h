@@ -89,6 +89,8 @@ void gpu_metal_benchmark_realtime(int on);
 void gpu_metal_gpu_spans_summary(char *text, size_t size);
 #include "host_benchmark_progress.h"
 /* Guest phase changes only; the native UI samples progress at 4 Hz. */
+/* The game's map-load workload decision (halo_workload_decide), retained for the run record. */
+void host_benchmark_workload(int variable);
 void host_benchmark_phase(int phase);
 /* Hide synchronously before switching the renderer to presented work. */
 void host_benchmark_overlay_presented(int presented);

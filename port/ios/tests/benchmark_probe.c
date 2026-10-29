@@ -867,7 +867,58 @@ static void test_unified_catalog_pass(void) {
     CHECK(benchmark_plan_total(&plan,all,0) == 0);
 }
 
+static void test_capacity_gate(void) {
+    const struct benchmark_scene catalog[] = {
+        { .id="bg8", .map="bloodgulch", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=8 },
+        { .id="bg16", .map="bloodgulch", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=16 },
+        { .id="bg32", .map="bloodgulch", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=32 },
+        { .id="bg64", .map="bloodgulch", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=64 },
+        { .id="bg128", .map="bloodgulch", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=128 },
+        { .id="sw32", .map="sidewinder", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=32 },
+        { .id="sw128", .map="sidewinder", .kind=BENCHMARK_SCENE_MULTIPLAYER, .players=128 }
+    };
+    const int capacities[] = { 0, 8, 16, 32, 64 };
+    const enum benchmark_capacity_action expected[][7] = {
+        { BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN,
+          BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN },
+        { BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_PROBE, BENCHMARK_CAPACITY_SKIP, BENCHMARK_CAPACITY_SKIP,
+          BENCHMARK_CAPACITY_SKIP, BENCHMARK_CAPACITY_SKIP, BENCHMARK_CAPACITY_SKIP },
+        { BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_PROBE, BENCHMARK_CAPACITY_SKIP,
+          BENCHMARK_CAPACITY_SKIP, BENCHMARK_CAPACITY_SKIP, BENCHMARK_CAPACITY_SKIP },
+        { BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_PROBE,
+          BENCHMARK_CAPACITY_SKIP, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_SKIP },
+        { BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_RUN,
+          BENCHMARK_CAPACITY_PROBE, BENCHMARK_CAPACITY_RUN, BENCHMARK_CAPACITY_SKIP }
+    };
+    struct benchmark_scene selected[7];
+    struct benchmark_plan plan = { .mode=BENCHMARK_UNIFIED, .scenes=selected, .scene_count=7 };
+    unsigned long signature = 0;
+    for (int c = 0; c < 5; c++) {
+        CHECK(benchmark_scenes_select(BENCHMARK_UNIFIED, catalog, 7, NULL, 0, selected, 7) == 7);
+        if (!c) signature = benchmark_plan_signature(&plan);
+        struct benchmark_outcome done[7] = {0};
+        struct benchmark_run next;
+        for (int i = 0; i < 7; i++) {
+            CHECK(benchmark_capacity_decision(selected, 7, i, capacities[c]) == expected[c][i]);
+            CHECK(benchmark_plan_next(&plan, done, i, &next) && next.scene == i);
+            done[i].status = expected[c][i] == BENCHMARK_CAPACITY_SKIP ? BENCHMARK_SKIPPED : BENCHMARK_OK;
+        }
+        CHECK(!benchmark_plan_next(&plan, done, 7, &next));
+        CHECK(benchmark_plan_signature(&plan) == signature);
+    }
+    /* Catalog order does not choose the probe, and other maps cannot supply it. */
+    struct benchmark_scene shuffled[] = { catalog[4], catalog[5], catalog[2], catalog[1] };
+    CHECK(benchmark_capacity_decision(shuffled, 4, 0, 8) == BENCHMARK_CAPACITY_SKIP);
+    CHECK(benchmark_capacity_decision(shuffled, 4, 1, 8) == BENCHMARK_CAPACITY_SKIP);
+    CHECK(benchmark_capacity_decision(shuffled, 4, 3, 8) == BENCHMARK_CAPACITY_PROBE);
+    CHECK(benchmark_capacity_decision(catalog + 5, 2, 0, 8) == BENCHMARK_CAPACITY_SKIP);
+    CHECK(benchmark_capacity_decision(catalog, 7, 4, 128) == BENCHMARK_CAPACITY_RUN);
+    CHECK(benchmark_capacity_decision(probe_scenes, 4, 0, 8) == BENCHMARK_CAPACITY_RUN);
+    CHECK(benchmark_scenes_select(BENCHMARK_QUICK, catalog, 7, NULL, 0, selected, 7) == 0);
+}
+
 int main(void) {
+    test_capacity_gate();
     test_unified_case_settings();
     test_unified_catalog_pass();
     test_metrics();

@@ -36,6 +36,7 @@
 #include "benchmark_metrics.h"
 #include "benchmark_plan.h"
 #include "../../runtime/graphics_capture.h"
+#include <limits.h>
 #include <math.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -122,6 +123,13 @@ static struct benchmark_outcome outcomes[BENCHMARK_RUNS_MAXIMUM];
 static int outcome_count;
 static struct benchmark_run run;
 static int run_open, run_finishing;
+static int run_player_capacity, run_workload_variable;
+static enum benchmark_capacity_action run_capacity;
+static _Atomic int workload_variable_now;
+void host_benchmark_workload(int variable) {
+    atomic_store(&workload_variable_now, variable != 0);
+    if (run_open && !run_finishing) run_workload_variable = variable != 0;
+}
 static struct benchmark_outcome pending_outcome;
 static struct benchmark_summary pending_summary;
 static NSString *pending_note;
@@ -894,6 +902,49 @@ static NSString *configured_text(const char *name, const char *fallback) {
     return @(value);
 }
 
+/* Read the resolved device profile, including a drop-in profile, rather than the base config default. */
+static int profile_player_capacity(void) {
+    struct host_profile profile;
+    char text[32], *end;
+    host_device_profile_copy(&profile);
+    if (!host_profile_value(&profile, "network.player_capacity", text, sizeof(text))) return 0;
+    long capacity = strtol(text, &end, 10);
+    return *text && !*end && capacity > 0 && capacity <= INT_MAX ? (int)capacity : 0;
+}
+
+static void record_run_context(NSMutableDictionary *record, const struct benchmark_scene *scene,
+    enum benchmark_status status) {
+    record[@"workload_context"] = run_workload_variable ? @"variable" : @"predictable";
+    if (scene->kind != BENCHMARK_SCENE_MULTIPLAYER) return;
+    record[@"player_capacity"] = @(run_player_capacity);
+    record[@"capacity_probe"] = @((BOOL)(run_capacity == BENCHMARK_CAPACITY_PROBE));
+    if (status == BENCHMARK_SKIPPED && run_capacity == BENCHMARK_CAPACITY_SKIP) {
+        record[@"skip_reason"] = @"over_profile_limit";
+        record[@"players"] = @(scene->players);
+    }
+}
+
+/* A skipped case must not inherit the previous case's window, graphics or shader evidence. */
+static void reset_run_record(void) {
+    run_workload_variable = atomic_load(&workload_variable_now);
+    atomic_store(&window_ticks, 0);
+    run_started_at = window_started_at = 0;
+    run_capped = window_presented = 0;
+    os_unfair_lock_lock(&lock);
+    window_open = window_interrupted = window_width = window_height = 0;
+    dynamic_line_count = dynamic_line_other = 0;
+    upscaler_requests = upscaler_paths = 0;
+    memset(upscaler_frames, 0, sizeof(upscaler_frames));
+    graphics_first = graphics_last = nil;
+    graphics_changed = NO;
+    graphics_snapshots = graphics_invalid = 0;
+    os_unfair_lock_unlock(&lock);
+    run_shader_directory = shader_directory();
+    run_shader_before = run_shader_after = nil;
+    run_environment_start = run_environment_end = nil;
+    run_output = nil;
+}
+
 /* The values of the settings a cost run varies (tools/cost_suite.py), as the run had them: the case's own where it sets
    one, the configuration's otherwise, so every run of a suite names the same settings. The simulation changes read
    "on" or "off", the other switches "true" or "false"; render_lines, filtering, shadows and detail are the run's own. */
@@ -952,6 +1003,7 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
         measurements ?: ""];
 
     NSMutableDictionary *record = [[NSJSONSerialization JSONObjectWithData:[text dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingMutableContainers error:nil] mutableCopy];
+    record_run_context(record, scene, status);
     NSDictionary *upscaler = upscaler_metadata();
     record[@"upscaler"] = upscaler;
     /* dynamic resolution: render_size is the ceiling; here the lines the window's frames rendered at */
@@ -999,7 +1051,7 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
                 @"distance_milliunits": @(llround(scene->arena_distance * 1000)), @"movement_radius_milliunits": @(llround(scene->arena_movement_radius * 1000)) },
             @"warmup_ticks": @((long)llround(scene->lead * 30.0)), @"window_ticks": @((long)llround(scene->seconds * 30.0)) };
     NSString *map = scene->map[0] ? @(scene->map) : @"ui";
-    record[@"shader_capture"] = host_benchmark_shader_delta(run_shader_before,
+    record[@"shader_capture"] = status == BENCHMARK_SKIPPED ? @{} : host_benchmark_shader_delta(run_shader_before,
         run_shader_after ?: host_benchmark_shader_snapshot(run_shader_directory, map));
     /* (a presented reality check inside an offscreen suite measures what a player sees) */
     /* (a virtual launch's runs are all the virtual display's, a run that never opened its window too) */
@@ -1016,6 +1068,16 @@ static BOOL write_run(const struct benchmark_run *finished, enum benchmark_statu
     if (run_started_at > 0) record[@"wall_seconds"] = @(round((CFAbsoluteTimeGetCurrent() - run_started_at) * 10.0) / 10.0);
     text = json_object(host_benchmark_measurement_record(record, presentation, pacing));
     return [text writeToFile:run_path(finished->index) atomically:YES encoding:NSUTF8StringEncoding error:nil];
+}
+
+/* Complete the planned outcome without handing a scene to the guest. A resumed plan advances past SKIPPED. */
+static BOOL skip_capacity_run(void) {
+    struct benchmark_outcome outcome = { .status = BENCHMARK_SKIPPED, .left_least = -1 };
+    if (!benchmark_journal_begin(JOURNAL, run.index, run.key)) return NO;
+    if (!write_run(&run, outcome.status, @"over profile limit", NULL, nil)) return NO;
+    if (!benchmark_journal_end(JOURNAL, run.index, &outcome)) return NO;
+    outcomes[outcome_count++] = outcome;
+    return YES;
 }
 
 /* a display variant's description for its pass's report and runs: its id, place and the settings it sets */
@@ -1106,7 +1168,9 @@ static NSString *report_summary(void) {
                 @"thermal": @"the device got too hot", @"interrupted": @"interrupted", @"crashed": @"the app stopped",
                 @"killed": @"the app was stopped by the system", @"failed": @"did not run", @"partial": @"finished early; partial measurements retained" };
 
-            [summary appendFormat:@"%@: %@\n", one[@"scene"], said[one[@"status"]] ?: one[@"status"]];
+            NSString *description = [one[@"status"] isEqual:@"skipped"] && [one[@"skip_reason"] isEqual:@"over_profile_limit"] ?
+                @"skipped: over profile limit" : said[one[@"status"]] ?: one[@"status"];
+            [summary appendFormat:@"%@: %@\n", one[@"scene"], description];
         }
     }
     return summary;
@@ -1509,11 +1573,15 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
             struct benchmark_outcome *outcome = &outcomes[outcome_count - 1];
 
             benchmark_journal_end(JOURNAL, outcome_count - 1, outcome);
-            if (benchmark_plan_next(&plan, outcomes, outcome_count - 1, &cut))
+            if (benchmark_plan_next(&plan, outcomes, outcome_count - 1, &cut)) {
+                run_player_capacity = profile_player_capacity();
+                run_capacity = benchmark_capacity_decision(plan.scenes, plan.scene_count, cut.scene, run_player_capacity);
+                reset_run_record();
                 write_run(&cut, outcome->status, journal.crash_signal ?
                     [NSString stringWithFormat:@"the app ended during this run with signal %d", journal.crash_signal] :
                     [NSString stringWithFormat:@"the app ended during this run with no signal seen; its last memory sample was "
                         "%ld MB in use, %ld MB left before the system's limit", journal.last_footprint, journal.last_left], NULL, nil);
+            }
             flag(outcome->status == BENCHMARK_CRASHED ? @"crashed" : @"ended_by_system");
             host_logf(HOST_LOG_INFO, "benchmark: carrying on suite %s after run %d, which %s", report_code, outcome_count - 1,
                 journal.crash_signal ? "crashed" : "the system ended");
@@ -1817,6 +1885,13 @@ int host_benchmark_next(char *text, unsigned int size) {
         return completion_screen_requested ? 2 : 0;
     }
     scene = &plan.scenes[run.scene];
+    run_player_capacity = profile_player_capacity();
+    run_capacity = benchmark_capacity_decision(plan.scenes, plan.scene_count, run.scene, run_player_capacity);
+    reset_run_record();
+    if (run_capacity == BENCHMARK_CAPACITY_SKIP) {
+        if (!skip_capacity_run()) return 3;
+        return host_benchmark_next(text, size);
+    }
     host_benchmark_phase(HOST_BENCHMARK_LOADING);
     os_unfair_lock_lock(&progress_lock);
     snprintf(progress_case.title, sizeof(progress_case.title), "%s\n%s", scene_title(scene).UTF8String, scene->id);

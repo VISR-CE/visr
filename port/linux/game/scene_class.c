@@ -58,6 +58,8 @@ void platform_log(const char *format, ...);
 #ifdef HALO_ILP32
 /* port/ios/host/host_perf_hooks.c, a guest import */
 void host_dynamic_resolution_scene(int enabled, int floor_lines);
+/* port/ios/host/host_benchmark.m: the decision the map actually uses, even when its context did not change. */
+void host_benchmark_workload(int variable);
 #endif
 
 /* half a second of game time */
@@ -149,6 +151,9 @@ void halo_workload_decide(void)
 		snprintf(reasons, sizeof(reasons), "multiplayer map; %d players, %d on this device; above %ld at full rate: 30 fps",
 			workload_game_players(&inputs), inputs.local_players, full_rate_players);
 	config_workload_set_limited(variable, hold_30, reasons);
+#ifdef HALO_ILP32
+	host_benchmark_workload(config_workload_variable());
+#endif
 }
 
 /* the class's frame rate from the device's profile, 0 for none: only a
@@ -187,7 +192,12 @@ int halo_scene_class(void)
 		cutscene_last_tick = -1;
 		/* (back from a game: the menu is no game's workload) */
 		if (config_workload_variable())
+		{
 			config_workload_set(0, "main menu");
+#ifdef HALO_ILP32
+			host_benchmark_workload(config_workload_variable());
+#endif
+		}
 	}
 	else if (!game_time_initialized())
 	{
