@@ -9,7 +9,16 @@ ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 TITLES = ROOT / 'port/assets/titles'
 sys.path.insert(0, str(ROOT / 'tools'))
-import title_assets
+
+import pytest
+
+
+def title_assets_module():
+    """`tools/title_assets.py` (it needs numpy and Pillow, which the portable CI job does not install)"""
+    pytest.importorskip('numpy')
+    pytest.importorskip('PIL')
+    import title_assets
+    return title_assets
 
 SCALE = 4
 
@@ -60,6 +69,7 @@ def test_no_title_widget_scales_its_picture_unevenly():
 
 
 def test_every_title_the_maps_hold_has_a_shipped_picture():
+    title_assets = title_assets_module()
     listed = json.loads((TITLES / 'titles.json').read_text())['assets']
     by_tag = {}
     for entry in listed:
