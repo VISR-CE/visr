@@ -41,6 +41,9 @@ void host_touch_replay_active(int active);
 
 /* ---------- process */
 
+/* 1 when the host target was built with development hooks, otherwise 0. */
+int host_development_hooks(void);
+
 /* performs a Linux system call on the guest's behalf, converting the
 structures whose layout differs; returns the raw result (-errno on failure) */
 long long host_syscall(long long number, long long a, long long b, long long c,

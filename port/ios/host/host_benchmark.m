@@ -68,6 +68,15 @@
 #define OFFSCREEN_WINDOW_WALL_MIN 30.0
 #define OFFSCREEN_WINDOW_WALL_MAX 1800.0
 
+int host_development_hooks(void)
+{
+#ifdef HALO_DEVELOPMENT_HOOKS
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 static double window_wall_cap(void);
 
 static os_unfair_lock lock = OS_UNFAIR_LOCK_INIT;

@@ -84,8 +84,6 @@ parser.add_argument(
     help="iOS guest: send each draw's identity and the front end's fallbacks to the host's render validation "
     "(tools/ios_build.py --render-validation; port/linux/src/gpu_validate.h)",
 )
-parser.add_argument("--development-hooks", action="store_true",
-                    help="compile development-only recording switches (off for distribution builds)")
 args = parser.parse_args()
 try:
     check_profile_options(args.profile, args.pgo)
@@ -100,7 +98,6 @@ sln = SimpleNamespace(
     port_release=args.release,
     port_collision_log=args.collision_log,
     port_profile=args.profile,
-    port_development_hooks=args.development_hooks,
     port_lto=args.lto,
     port_portable=args.portable,
     port_pgo=args.pgo,

@@ -28,6 +28,11 @@ void platform_log(const char *format, ...);
 
 #include "input_replay.c"
 
+#ifdef HALO_ILP32
+static int probe_development_hooks;
+int host_development_hooks(void) { return probe_development_hooks; }
+#endif
+
 int halo_controller_unit_state(float position[3], float *facing_yaw, float *aim_yaw)
 { (void)position; (void)facing_yaw; (void)aim_yaw; return 0; }
 int halo_controller_run_aimed(void) { return 0; }
@@ -66,7 +71,10 @@ static unsigned long environment_config_changes = 1;
 static int timed_benchmark, review_take;
 static const char *replay_name = "";
 static const char *record_name = "";
-void platform_log(const char *format, ...) { (void)format; }
+static int staging_ignored_logs;
+void platform_log(const char *format, ...) {
+	if (strstr(format, "ignoring debug.benchmark_staging")) staging_ignored_logs++;
+}
 unsigned long config_changes(void) { return environment_config_changes; }
 int config_boolean(const char *name) {
 	if (!strcmp(name, "debug.benchmark_lip_sync")) lip_sync_config_reads++;
@@ -643,12 +651,18 @@ static void check_staged_recording(void)
 	size_t count;
 	staging_config = "[{\"deathless\":true}]";
 	recording_staging_configure();
-#ifdef HALO_DEVELOPMENT_HOOKS
-	assert(replay.staging.count == 1);
-#else
-	assert(replay.staging.count == 0);
-#endif
+	assert(replay.staging.count == host_development_hooks());
+	assert(staging_ignored_logs == !host_development_hooks());
+	if (!host_development_hooks()) {
+		staging_config = "broken";
+		recording_staging_configure();
+		assert(replay.staging.count == 0 && !replay.staging_error[0]);
+		assert(staging_ignored_logs == 2);
+	}
 	staging_config = "";
+	int ignored_logs = staging_ignored_logs;
+	recording_staging_configure();
+	assert(staging_ignored_logs == ignored_logs);
 	input_replay_begin(NULL, 0); clock_ready = 1; clock_tick = 0; replay.await_level = 0;
 	strcpy(replay.record_path, "staging.input"); strcpy(replay.record_actions_path, "staging.actions");
 	assert(benchmark_staging_parse("[{\"deathless\":true}]", &replay.staging));
@@ -685,24 +699,24 @@ static void check_staged_recording(void)
 	replay_finish(); assert(!staging_deathless);
 	input_replay_begin(NULL, 0); clock_ready = 0;
 	unlink("staging.input"); unlink("staging.actions"); unlink("staging.seeds"); unlink("staging.route");
-#ifdef HALO_DEVELOPMENT_HOOKS
-	/* Automatic takes write the same pair into their periodically rewritten route. */
-	assert(!mkdir("recordings", 0700));
-	staging_config = "[{\"deathless\":true}]";
-	clock_ready = 1; clock_tick = 0;
-	take_open("a10", 0, 1, 1, 0);
-	replay.await_level = 0;
-	clock_tick = 10; input_replay_note_event("cinematic_done", "intro");
-	clock_tick = 41; input_replay_tick_action(action);
-	assert(staging_calls == 3 && staging_called_tick == 41);
-	assert(strstr(take.route, "staging = [{\"deathless\":true}]\nstaging_tick = 41\nstaging_segment = 0\n"));
-	assert(staging_deathless);
-	take_close("staging probe");
-	assert(!staging_deathless);
-	assert(!rmdir("recordings"));
-	staging_config = ""; clock_ready = 0;
-	input_replay_begin(NULL, 0);
-#endif
+	if (host_development_hooks()) {
+		/* Automatic takes write the same pair into their periodically rewritten route. */
+		assert(!mkdir("recordings", 0700));
+		staging_config = "[{\"deathless\":true}]";
+		clock_ready = 1; clock_tick = 0;
+		take_open("a10", 0, 1, 1, 0);
+		replay.await_level = 0;
+		clock_tick = 10; input_replay_note_event("cinematic_done", "intro");
+		clock_tick = 41; input_replay_tick_action(action);
+		assert(staging_calls == 3 && staging_called_tick == 41);
+		assert(strstr(take.route, "staging = [{\"deathless\":true}]\nstaging_tick = 41\nstaging_segment = 0\n"));
+		assert(staging_deathless);
+		take_close("staging probe");
+		assert(!staging_deathless);
+		assert(!rmdir("recordings"));
+		staging_config = ""; clock_ready = 0;
+		input_replay_begin(NULL, 0);
+	}
 	staging_deathless = 1; input_replay_begin(NULL, 0); assert(!staging_deathless);
 	staging_deathless = 1; suite_suspended = TRUE; input_replay_suite_restore(); assert(!staging_deathless);
 	puts("staged recording and replay: PASS");
@@ -710,6 +724,12 @@ static void check_staged_recording(void)
 
 int main(int argc, char **argv)
 {
+#ifdef HALO_ILP32
+	/* Deliberately independent of the desktop fallback's environment variable. */
+	probe_development_hooks = getenv("PROBE_HOST_HOOKS") && !strcmp(getenv("PROBE_HOST_HOOKS"), "1");
+#endif
+	if (getenv("PROBE_EXPECT_HOOKS"))
+		assert(host_development_hooks() == atoi(getenv("PROBE_EXPECT_HOOKS")));
 	if (argc == 2 && (!strcmp(argv[1], "--malformed-staging") || !strcmp(argv[1], "--missing-staging-name") ||
 		!strcmp(argv[1], "--missing-auto-staging-name"))) {
 		unsigned int action[ACTION_WORDS] = {0};

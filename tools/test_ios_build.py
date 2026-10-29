@@ -533,53 +533,54 @@ def test_dev_build_clears_cached_release_marketing_version(monkeypatch, tmp_path
     assert '-DHALO_MARKETING_VERSION=' in configure
 
 
-@pytest.mark.parametrize("store", [False, True])
-def test_guest_development_hooks_follow_host_build(monkeypatch, tmp_path, store):
-    commands = []
-    configure_with(monkeypatch, tmp_path, '--unsigned')
-    monkeypatch.setattr(ios_build, 'run', lambda *command: commands.append([str(part) for part in command]))
-    arguments = ['--team', 'TEAM', '--app-store-package', str(tmp_path / 'package')] if store else ['--unsigned', '--local-routes', '--native-mac']
-    monkeypatch.setattr(ios_build.sys, 'argv', ['ios_build.py', '--host-pgo=off', *arguments])
-    # Capture guest configuration before any build, package, or signing side effect.
-    class Captured(Exception):
-        pass
-    def capture(*command):
-        command = [str(part) for part in command]
-        if 'configure.py' in command:
-            commands.append(command)
-            raise Captured
-    monkeypatch.setattr(ios_build, 'run', capture)
-    with pytest.raises(Captured):
-        ios_build.main()
-    guest = commands[-1]
-    assert ('--development-hooks' in guest) == (not store)
+def test_guest_build_flags_are_identical_for_runner_and_app_store(monkeypatch, tmp_path):
     import runpy
     from tools import ios_guest_build, linux_build, windows_build
+
+    configure_with(monkeypatch, tmp_path, '--unsigned')
     root = Path(__file__).resolve().parents[1]
     generated_guest = ios_guest_build.generate_ios_guest_build
     solutions = []
     monkeypatch.setattr(ios_guest_build, 'generate_ios_guest_build', lambda writer, sln: solutions.append(sln))
     monkeypatch.setattr(linux_build, 'generate_linux_build', lambda *_args: None)
     monkeypatch.setattr(windows_build, 'generate_windows_build', lambda *_args: None)
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(ios_build.sys, 'argv', guest[1:])
-    runpy.run_path(str(root / 'configure.py'), run_name='__main__')
-    sln = solutions[0]
-    assert ('-DHALO_DEVELOPMENT_HOOKS=1' in linux_build.configuration_defines(sln)) == (not store)
-    # Inspect the recorder's real generated C flags without fetching or compiling anything.
-    monkeypatch.chdir(root)
     monkeypatch.setattr(ios_guest_build, 'fetch_third_party', lambda: None)
     monkeypatch.setattr(ios_guest_build, 'xdk_headers', lambda: [])
     monkeypatch.setattr(ios_guest_build, 'pgo_profile', lambda *_args: None)
-    flags = []
-    class CaptureRecorder:
-        def comment(self, *_args, **_kwargs):
-            pass
-        variable = rule = comment
-        def build(self, **kwargs):
-            if kwargs.get('inputs') == Path('port/linux/src/input_replay.c'):
-                flags.extend(kwargs['variables']['cflags'].split())
+
+    class Captured(Exception):
+        pass
+
+    builds, recorder_flags = [], []
+    for arguments in [('--mac',), ('--team', 'TEAM', '--app-store-package', str(tmp_path / 'package'))]:
+        commands = []
+        def capture(*command):
+            command = [str(part) for part in command]
+            if 'tools/ios_bridges.py' in command:
                 raise Captured
-    with pytest.raises(Captured):
-        generated_guest(CaptureRecorder(), sln)
-    assert ('-DHALO_DEVELOPMENT_HOOKS=1' in flags) == (not store)
+            commands.append(command)
+        monkeypatch.setattr(ios_build, 'run', capture)
+        monkeypatch.setattr(ios_build.sys, 'argv', ['ios_build.py', '--host-pgo=off', '--renderer', 'metal', *arguments])
+        with pytest.raises(Captured):
+            ios_build.main()
+        assert len(commands) == 2
+        assert commands[1][0:2] == ['ninja', 'ios_guest']
+        builds.append(commands)
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(ios_build.sys, 'argv', commands[0][1:])
+        runpy.run_path(str(root / 'configure.py'), run_name='__main__')
+        monkeypatch.chdir(root)
+        flags = []
+        class CaptureRecorder:
+            def comment(self, *_args, **_kwargs):
+                pass
+            variable = rule = comment
+            def build(self, **kwargs):
+                if kwargs.get('inputs') == Path('port/linux/src/input_replay.c'):
+                    flags.extend(kwargs['variables']['cflags'].split())
+                    raise Captured
+        with pytest.raises(Captured):
+            generated_guest(CaptureRecorder(), solutions[-1])
+        recorder_flags.append(flags)
+    assert builds[0] == builds[1]
+    assert recorder_flags[0] == recorder_flags[1]
