@@ -221,7 +221,7 @@ def test_current_release_assets_are_checked_in_and_exact():
         "be6dddab12c382837eb40090e1cbaa3d614736cffef5de68ccf0981b526e516f"
     )
     assert hashlib.sha256(assets[RECORDING_063]).hexdigest() == (
-        "ca0a7e1e956368d3a963e5b392416f3269e35607a9523b15c3ee8ba892de9990"
+        "e12d281950aa9d212e61fc8e934ddf8c32fdedfd0e1913918b3ecf8fc39cfc03"
     )
     envelope = json.loads(assets[SHADER])
     manifest = overlay.validation.packs.decode_json(
