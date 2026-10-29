@@ -116,9 +116,9 @@
 		<on event="start" run="controls screen change set" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/a_butn" type="text" text="A" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/settings/controls_setup/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/settings/controls_setup/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/settings/controls_setup/b_butn" type="text" text="B" font="ui\large_ui" color="#FF2896FF" width="21" height="26" />
+	<widget name="xbox/settings/controls_setup/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/settings/controls_setup/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/controls_setup/mouse_setup" type="text" text="MOUSE SETUP" font="ui\large_ui" color="#FF2896FF" width="512" height="28" bitmap="xbox/bitmaps/option_bkds" text_x="13" text_y="4">
 		<on event="a" open="xbox/settings/mouse_settings/mouse_settings_screen" />

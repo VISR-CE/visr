@@ -102,7 +102,8 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL'):
                                        ('b_butn', '=cancel', cancel, 346)):
         child(screen, f'{base}/{button}', x=x, y=414)
         child(screen, f'{base}/{caption}', x=x + 22, y=414)
-        text_widget(root, f'{base}/{button}', button[0].upper(), width=21, height=26)
+        # the game's own button art (ui.map's a_butn/b_butn, PNG fallbacks), as the Xbox legends draw it
+        widget(root, f'{base}/{button}', type='container', width=21, height=26, bitmap=f'xbox/browser/{button}')
         text_widget(root, f'{base}/{caption}', label, width=100, height=22)
 
 
@@ -617,11 +618,6 @@ def browser_layout(root, widgets, bitmaps):
         if c.get('widget') == rows.get('name'):
             c.set('widget', actions.get('name'))
     legend(root, screen, base + '/legend', cancel='BACK')
-    for button in ('a', 'b'):
-        icon = root.find(f"widget[@name='{base}/legend/{button}_butn']")
-        icon.attrib.pop('text')
-        icon.set('type', 'container')
-        icon.set('bitmap', f'xbox/browser/{button}_butn')
     # ui.map's 32x32 button textures include transparent padding; button_key
     # draws them at native size and advances 21 pixels to each caption.
     # The PNG redraws are needed only in maps without these Xbox bitmaps.
