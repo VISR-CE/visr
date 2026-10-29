@@ -2,6 +2,7 @@
    the import screen and the game's loading screen and pause. */
 #pragma once
 #include <stddef.h>
+#include <stdint.h>
 /* the device profile's display.upscaled_textures, read before the import screen can need it (main thread) */
 void host_texture_upscale_resolve_profile(const char *root);
 void host_texture_upscale_init(const char *root);
@@ -11,7 +12,7 @@ void host_texture_upscale_map_will_load(const char *name);
 void host_texture_upscale_game_started(int is_game);
 void host_texture_upscale_paused(int paused);
 /* The import phase: runs the whole game's work, calling progress about ten times a second until it is done or progress
-   returns 0 (Skip: the work goes on in the background). fraction is the bar's fill over the setup and the whole set
+   returns HOST_TEXTURE_UPSCALE_START_PLAYING (Skip: the work goes on in the background). fraction is the bar's fill over the setup and the whole set
    (texture_upscale_import_bar.h); it never goes back. tick is where the main menu's textures are all made, which is
    where Skip ("Start playing") is offered, or -1 while it is not known. While menu_phase is 1 a 0 returned is ignored.
    0 when the generator is off on this device, so there is no phase. */
@@ -20,10 +21,20 @@ struct host_texture_upscale_import_status
 	double fraction, tick;
 	int menu_phase;
 	/* the phase ended because the work was refused (texture_upscale_import_end_message): this line in place of the
-	   progress, with Start playing; progress is called until it returns 0. NULL otherwise. */
+	   progress, with Start playing; progress is called until Start playing or a successful retry. NULL otherwise. */
 	const char *message;
 	const char *detail;   /* with message: a second, smaller line (when the work is tried again) */
+	const char *retry_note; /* replaces detail briefly after a refused retry; the host owns the deadline */
+	int can_retry;         /* Try Again is offered, and no check is running */
+	uint64_t found_bytes, needed_bytes; /* Mac storage detail, before headroom / remaining set plus headroom; 0 unknown */
 };
+enum host_texture_upscale_import_action
+{
+	HOST_TEXTURE_UPSCALE_START_PLAYING = 0,
+	HOST_TEXTURE_UPSCALE_WAIT = 1,
+	HOST_TEXTURE_UPSCALE_TRY_AGAIN = 2
+};
+/* Try Again is honored only when status.can_retry is set. */
 typedef int (*host_texture_upscale_progress)(void *context, const struct host_texture_upscale_import_status *status);
 /* 1 once, on the first launch where an already-imported game should show the import screen's upscaling bar (see
    texture_upscale_first_run_phase); the flag is persisted when it answers 1, and by any import phase */
