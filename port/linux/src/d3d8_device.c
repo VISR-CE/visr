@@ -1539,8 +1539,10 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 	}
 	entry = calloc(1, sizeof(*entry));
 	entry->layer = layer;
+	/* (multisampling's screen buffers: the mono back buffer and depth buffer, foveated by debug.rate_map_test
+	or not, and in stereo each eye's; never the HUD's, the zoomed picture's or the other stereo layers) */
 	entry->screen_buffer = (surface->Data == device.back_buffer.Data || surface->Data == device.depth_buffer.Data) &&
-		height == SCREEN_HEIGHT && layer == HALO_STEREO_LAYER_MONO && !foveated_eye;
+		height == SCREEN_HEIGHT && (layer == HALO_STEREO_LAYER_MONO || layer == 0 || layer == 1);
 	entry->target.data = surface->Data;
 	entry->target.width = width;
 	entry->target.height = height;
@@ -2080,12 +2082,13 @@ static BOOL draw_targets(gpu_texture *color_texture, gpu_texture *depth_texture)
 	/* with multisampling, multisampled where either is a screen buffer or is
 	multisampled already: a draw's targets are all multisampled or none is,
 	so the mirror's view, drawn into the secondary target with the back
-	buffer's depth buffer, is too. Not in a stereo frame */
+	buffer's depth buffer, is too. In a stereo frame the eyes' targets are
+	screen buffers too (render_target_get_layer) */
 	{
 		uint32_t samples = anti_aliasing_samples;
 
-		if (samples && (halo_stereo_frame()->mode != HALO_STEREO_OFF || halo_stereo_frame()->eye_count != 0 ||
-			!((color && (color->screen_buffer || color->samples)) || (depth && (depth->screen_buffer || depth->samples)))))
+		if (samples && !((color && (color->screen_buffer || color->samples)) ||
+			(depth && (depth->screen_buffer || depth->samples))))
 			samples = 0;
 		target_multisample(color, samples);
 		target_multisample(depth, samples);
