@@ -19,7 +19,7 @@
 @property(nonatomic, strong) UIButton *chooseButton;
 @property(nonatomic, strong) UIButton *cancelButton;
 @property(nonatomic, strong) UIButton *retryButton;
-@property(nonatomic) BOOL retryRequested;
+@property(atomic) BOOL retryRequested; /* Try Again pressed, read by the import worker */
 @property(nonatomic, strong) UIProgressView *progress;
 @property(nonatomic, strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -90,8 +90,13 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 #endif
     if(status->retry_note)detail=@(status->retry_note);
     BOOL can_retry=status->can_retry;
-    __block int action=HOST_TEXTURE_UPSCALE_WAIT;
-    dispatch_sync(dispatch_get_main_queue(),^{
+    /* (decided here, on the import worker, from the controller's atomic flags: the screen is updated asynchronously, so a
+       main thread that is held, as when the app is in the background, never holds the import with it) */
+    int action=HOST_TEXTURE_UPSCALE_WAIT;
+    BOOL requested=NO;
+    @synchronized(controller){requested=controller.retryRequested;controller.retryRequested=NO;}
+    if(requested)action=HOST_TEXTURE_UPSCALE_TRY_AGAIN;
+    dispatch_async(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
         controller.progress.progress=fraction;
         /* one bar over the setup and the whole set: gray until the main menu's textures are made, then blue with Start
@@ -114,9 +119,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;
         controller.cancelButton.enabled=!menu_phase&&!controller.cancelled;controller.cancelButton.accessibilityElementsHidden=menu_phase;
         controller.retryButton.alpha=message?1:0;controller.retryButton.accessibilityElementsHidden=!message;
-        controller.retryButton.enabled=can_retry&&!controller.cancelled&&!controller.retryRequested;
-        if(controller.cancelled&&!menu_phase)action=HOST_TEXTURE_UPSCALE_START_PLAYING;
-        else if(controller.retryRequested){controller.retryRequested=NO;action=HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+        controller.retryButton.enabled=can_retry&&!requested&&!controller.cancelled&&!controller.retryRequested;
     });return action;
 }
 @implementation HaloImportController
@@ -240,7 +243,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 }
 - (void)retryUpscale {
     if(!self.retryButton.enabled)return;
-    self.retryButton.enabled=NO;self.retryRequested=YES;
+    self.retryButton.enabled=NO;@synchronized(self){self.retryRequested=YES;}
 }
 - (void)cancelImport {self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.retryButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
 - (void)importImage:(NSURL *)url {
