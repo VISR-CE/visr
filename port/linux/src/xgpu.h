@@ -13,6 +13,8 @@ guest memory write tracking (memory_watch.c) and the device itself
 #include "platform.h"
 #include "gpu.h"
 
+#include <stddef.h>
+
 /* what the GPU backend can do (gpu_initialize, d3d8_device.c) */
 extern struct gpu_capabilities device_capabilities;
 
@@ -57,6 +59,10 @@ struct nv2a_dialect
 	/* samplers have no LOD bias of their own: pass texture_lod_bias to each
 	lookup */
 	unsigned char shader_lod_bias;
+	/* a pixel shader can choose which of a pixel's samples it covers
+	([[sample_mask]]): Metal only, the one backend that multisamples
+	(nv2a_pixel_shader_key alpha_test_samples) */
+	unsigned char sample_mask;
 	/* debug.gpu_debug_expression, _texture0 and _flat (port_config.c) */
 	const char *debug_expression;
 	unsigned char debug_texture0;
@@ -139,9 +145,29 @@ struct nv2a_pixel_shader_key
 	than a field of its own keeps the key's size, so recorded shader lists
 	stay valid.) */
 	unsigned char coverage_alpha;
+	/* (the fields from here on came after keys were first recorded:
+	nv2a_pixel_shader_key_size) */
+	/* drawn into a multisampled target (display.anti_aliasing's
+	multisampling) with the dialect's sample_mask: its samples a pixel. The
+	alpha test covers samples in proportion to how far alpha is past the
+	reference, not all of the pixel or none of it, so that cut-out edges
+	(foliage, grates) are smoothed too */
+	unsigned char alpha_test_samples;
+	unsigned char pad[3];
 };
 #define XGPU_COVERAGE_ALPHA 1
 #define XGPU_COVERAGE_POINT_THRESHOLD 2
+
+/* a key's bytes that name its shader: the keys recorded before
+alpha_test_samples (shader lists, dumps, replays) are the shaders of keys
+with it 0, so such a key is hashed, listed, dumped and replayed as its first
+NV2A_PIXEL_SHADER_KEY_BASE_SIZE bytes, as it was recorded */
+#define NV2A_PIXEL_SHADER_KEY_BASE_SIZE offsetof(struct nv2a_pixel_shader_key, alpha_test_samples)
+
+static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_shader_key *key)
+{
+	return key->alpha_test_samples ? sizeof(*key) : NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
+}
 
 char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const struct nv2a_pixel_shader_key *key);
 

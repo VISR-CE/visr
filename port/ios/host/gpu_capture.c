@@ -622,6 +622,12 @@ static void capture_texture_set_content(gpu_texture texture, uint32_t width, uin
 	capture.backend.texture_set_content(texture, width, height);
 }
 
+/* (not recorded: a replay draws without multisampling) */
+static void capture_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	capture.backend.texture_multisample(texture, samples);
+}
+
 static gpu_buffer capture_buffer_create(uint32_t size)
 {
 	gpu_buffer handle = capture.backend.buffer_create(size);

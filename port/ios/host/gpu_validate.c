@@ -631,6 +631,12 @@ static void validate_texture_set_content(gpu_texture texture, uint32_t width, ui
 	validation.backend.texture_set_content(texture, width, height);
 }
 
+static void validate_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	validation.call = "texture_multisample";
+	validation.backend.texture_multisample(texture, samples);
+}
+
 /* ---------- buffers and streams */
 
 static gpu_buffer validate_buffer_create(uint32_t size)

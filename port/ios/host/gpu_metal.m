@@ -107,6 +107,14 @@ Handles index tables of these; 0 is none. */
 	view's offset in its buffer */
 	id<MTLTexture> view_parent;
 	unsigned long view_offset;
+	/* multisampling (gpu_texture_multisample): the multisampled storage
+	draws go to, which every pass resolves into texture as it ends; its
+	samples a pixel (0: none); and whether it lacks texture's pixels (new, or
+	its samples dropped at the end of a frame), so that a pass that loads it
+	first draws texture into it (multisample_fill) */
+	id<MTLTexture> multisample;
+	uint32_t samples;
+	BOOL multisample_stale;
 }
 @end
 @implementation MetalTexture
@@ -275,6 +283,11 @@ static int encoder_depth_clamp;
 _Static_assert(GPU_STAGE_COUNT == 4 && GPU_ATTRIBUTE_COUNT == 16, "metal_state_cache.h's slots");
 static gpu_texture pass_color, pass_depth;
 static unsigned long pass_commands;
+/* the open pass's samples a pixel (1 unless multisampled), and its color
+target when that is multisampled, whose store is decided when the pass ends
+(pass_finish_open) */
+static uint32_t pass_samples = 1;
+static __unsafe_unretained MetalTexture *pass_multisample_color;
 static uint32_t perf_pass_token;
 /* the open command buffer's serial; every earlier one has been committed */
 static uint64_t current_serial = 1;
@@ -687,6 +700,8 @@ static struct
 	int depth_clamp, entry_open;
 	unsigned long pass_commands;
 	uint32_t perf_token;
+	uint32_t samples;
+	__unsafe_unretained MetalTexture *multisample_color;
 	/* since the last frame's log line */
 	unsigned long parks, in_order;
 } native_pass;
@@ -702,6 +717,10 @@ static void native_park(void)
 	native_pass.entry_open = visibility.entry_open;
 	native_pass.pass_commands = pass_commands;
 	native_pass.perf_token = perf_pass_token;
+	native_pass.samples = pass_samples;
+	native_pass.multisample_color = pass_multisample_color;
+	pass_samples = 1;
+	pass_multisample_color = nil;
 	perf_pass_token = 0;
 	native_pass.parked = YES;
 	native_pass.parks++;
@@ -743,6 +762,8 @@ static void native_unpark(void)
 	visibility.entry_open = native_pass.entry_open;
 	pass_commands = native_pass.pass_commands;
 	perf_pass_token = native_pass.perf_token;
+	pass_samples = native_pass.samples;
+	pass_multisample_color = native_pass.multisample_color;
 	pass_color = native_pass.color;
 	pass_depth = 0;
 	native_pass.commands = nil;
@@ -767,6 +788,25 @@ static void pass_finish(BOOL frame_end)
 
 static void pass_finish_open(BOOL frame_end)
 {
+	/* a multisampled color target is resolved into its texture as every
+	pass ends; its samples are kept for the next pass, except at the end
+	of the frame, when the next frame's first pass on it draws the texture
+	into them again if it loads them (multisample_fill), which is cheaper
+	than storing them all every frame */
+	if (encoder && pass_multisample_color)
+	{
+		MTLStoreAction store = frame_end ? MTLStoreActionMultisampleResolve : MTLStoreActionStoreAndMultisampleResolve;
+
+		[encoder setColorStoreAction:store atIndex:0];
+		pass_multisample_color->multisample_stale = frame_end;
+		if (!frame_end)
+			pass_attachment_traffic(pass_multisample_color->multisample, MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
+		pass_attachment_traffic(pass_multisample_color->texture, MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
+		if (pass_log)
+			[pass_log appendFormat:@"; color %s", frame_end ? "resolve" : "store and resolve"];
+	}
+	pass_multisample_color = nil;
+	pass_samples = 1;
 	if (encoder && pass_depth_texture)
 	{
 		MTLStoreAction store = frame_end ? MTLStoreActionDontCare : MTLStoreActionStore;
@@ -1985,9 +2025,9 @@ static void target_size(gpu_texture color, gpu_texture depth, unsigned long *wid
 /* the color attachment of depth-only passes, by size */
 static NSMutableDictionary<NSString *, id<MTLTexture>> *scratch_colors;
 
-static id<MTLTexture> scratch_color(NSUInteger width, NSUInteger height)
+static id<MTLTexture> scratch_color(NSUInteger width, NSUInteger height, uint32_t samples)
 {
-	NSString *key = [NSString stringWithFormat:@"%lux%lu", (unsigned long)width, (unsigned long)height];
+	NSString *key = [NSString stringWithFormat:@"%lux%lu/%u", (unsigned long)width, (unsigned long)height, samples];
 	id<MTLTexture> texture = scratch_colors[key];
 
 	if (!texture)
@@ -1995,6 +2035,11 @@ static id<MTLTexture> scratch_color(NSUInteger width, NSUInteger height)
 		MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
 			width:width height:height mipmapped:NO];
 
+		if (samples > 1)
+		{
+			descriptor.textureType = MTLTextureType2DMultisample;
+			descriptor.sampleCount = samples;
+		}
 		descriptor.usage = MTLTextureUsageRenderTarget;
 		descriptor.storageMode = MTLStorageModeMemoryless;
 		texture = [device newTextureWithDescriptor:descriptor];
@@ -2020,7 +2065,8 @@ static void pass_attachment_traffic(id<MTLTexture> texture, MTLLoadAction load, 
 
 	if (!texture)
 		return;
-	bytes = (double)texture.width * (double)texture.height * bytes_per_pixel;
+	/* (a multisampled attachment's every sample) */
+	bytes = (double)texture.width * (double)texture.height * bytes_per_pixel * (double)texture.sampleCount;
 	if (load == MTLLoadActionLoad)
 		pass_traffic.loaded += bytes;
 	if (store == MTLStoreActionStore)
@@ -2047,16 +2093,31 @@ static BOOL native_side_allowed(MetalTexture *color, MetalTexture *depth)
 	return !(color && color->used == current_serial) && !(depth && depth->used == current_serial);
 }
 
+static void multisample_fill(MetalTexture *record, MTLPixelFormat depth);
+
 static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_clear *clear)
 {
 	MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 	MTLRenderPassDescriptor *pass;
+	uint32_t samples;
+	BOOL fill = NO;
 
 	if (encoder && pass_color == color && pass_depth == depth && !clear)
 		return YES;
 	if ((color && (!color_record || !color_record->texture)) || (depth && (!depth_record || !depth_record->texture)) ||
 		(!color && !depth))
 		return NO;
+	/* (the front end gives a draw's targets the same samples) */
+	samples = color ? color_record->samples : depth_record->samples;
+	if ((color && samples && !color_record->multisample) || (depth && (depth_record->samples != samples ||
+		(samples && !depth_record->multisample))))
+	{
+		static int logged;
+
+		if (!logged++)
+			platform_log("Metal: targets %u and %u are not multisampled alike", color, depth);
+		return NO;
+	}
 	/* display.native_hud (native_pass): the draws come back to the parked
 	pass; or leave it for a pass that may run ahead of it; or neither */
 	if (native_pass.parked && color == native_pass.color && !depth && !clear)
@@ -2095,7 +2156,7 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 		/* a depth-only pass: the game's pixel shaders still write a color
 		(and may discard), so they need an attachment to write it to, which
 		never leaves the GPU's tile memory */
-		pass.colorAttachments[0].texture = scratch_color(depth_record->texture.width, depth_record->texture.height);
+		pass.colorAttachments[0].texture = scratch_color(depth_record->texture.width, depth_record->texture.height, samples);
 		pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
 		pass.colorAttachments[0].storeAction = MTLStoreActionDontCare;
 	}
@@ -2104,6 +2165,15 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 		pass.colorAttachments[0].texture = color_record->texture;
 		pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
 		pass.colorAttachments[0].storeAction = MTLStoreActionStore;
+		if (samples)
+		{
+			/* the samples are resolved into the texture as the pass ends,
+			and kept or not (pass_finish_open) */
+			pass.colorAttachments[0].texture = color_record->multisample;
+			pass.colorAttachments[0].resolveTexture = color_record->texture;
+			pass.colorAttachments[0].storeAction = MTLStoreActionUnknown;
+			pass_multisample_color = color_record;
+		}
 		if (clear && (clear->flags & GPU_CLEAR_COLOR))
 		{
 			float red = (float)((clear->color >> 16) & 0xff) / 255.0f, green = (float)((clear->color >> 8) & 0xff) / 255.0f;
@@ -2111,20 +2181,28 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 
 			pass.colorAttachments[0].loadAction = MTLLoadActionClear;
 			pass.colorAttachments[0].clearColor = MTLClearColorMake(red, green, blue, alpha);
+			color_record->multisample_stale = NO;
+		}
+		else if (samples && color_record->multisample_stale)
+		{
+			/* the samples lack the texture's pixels: drawn from it below,
+			with nothing to load first */
+			pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+			fill = YES;
 		}
 		use_texture(color_record);
 	}
 	if (depth)
 	{
-		pass.depthAttachment.texture = depth_record->texture;
+		pass.depthAttachment.texture = samples ? depth_record->multisample : depth_record->texture;
 		pass.depthAttachment.loadAction = clear && (clear->flags & GPU_CLEAR_DEPTH) ? MTLLoadActionClear : MTLLoadActionLoad;
 		pass.depthAttachment.storeAction = MTLStoreActionUnknown;
 		pass.depthAttachment.clearDepth = reversed_depth(clear ? clear->depth : 1.0f);
-		pass.stencilAttachment.texture = depth_record->texture;
+		pass.stencilAttachment.texture = pass.depthAttachment.texture;
 		pass.stencilAttachment.loadAction = clear && (clear->flags & GPU_CLEAR_STENCIL) ? MTLLoadActionClear : MTLLoadActionLoad;
 		pass.stencilAttachment.storeAction = MTLStoreActionUnknown;
 		pass.stencilAttachment.clearStencil = clear ? clear->stencil & 0xff : 0;
-		pass_depth_texture = depth_record->texture;
+		pass_depth_texture = pass.depthAttachment.texture;
 		use_texture(depth_record);
 	}
 	{
@@ -2144,6 +2222,8 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 		[pass_log appendFormat:@"\n  pass: color %u %lux%lu %s/%s", color, (unsigned long)target.width,
 			(unsigned long)target.height, color ? load_name(pass.colorAttachments[0].loadAction) : "memoryless",
 			store_name(pass.colorAttachments[0].storeAction)];
+		if (samples)
+			[pass_log appendFormat:@" (%u samples%s)", samples, fill ? ", filled from the texture" : ""];
 		if (depth)
 			[pass_log appendFormat:@", depth %u %lux%lu %s, stencil %s", depth, (unsigned long)depth_record->texture.width,
 				(unsigned long)depth_record->texture.height, load_name(pass.depthAttachment.loadAction),
@@ -2165,6 +2245,14 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	pass_color = color;
 	pass_depth = depth;
 	pass_commands = 0;
+	pass_samples = samples ? samples : 1;
+	if (fill)
+	{
+		multisample_fill(color_record, depth ? pass.depthAttachment.texture.pixelFormat : MTLPixelFormatInvalid);
+		color_record->multisample_stale = NO;
+		/* (the next draw sets again everything the fill set) */
+		metal_state_reset(&state_cache);
+	}
 	return YES;
 }
 
@@ -2185,7 +2273,9 @@ static id<MTLFXSpatialScaler> upscaler API_AVAILABLE(ios(16.0), tvos(16.0), visi
 #endif
 static id<MTLTexture> upscaled;
 
-static id<MTLFunction> clear_vertex, clear_fragment, present_vertex, present_fragment;
+static id<MTLFunction> clear_vertex, clear_fragment, present_vertex, present_fragment, fill_fragment;
+/* multisample_fill's pipelines, by samples and depth-stencil format */
+static NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *fill_pipelines;
 static id<MTLRenderPipelineState> present_pipeline, companion_pipeline;
 /* gpu_upscale's: the present quad into a BGRA8 render target with no depth */
 static id<MTLRenderPipelineState> upscale_pipeline;
@@ -2227,11 +2317,18 @@ static NSString *const utility_source =
 	"\tsampler linear [[sampler(0)]], constant float4 &content [[buffer(0)]])\n"
 	"{\n"
 	"\treturn picture.sample(linear, min(in.coordinates * content.xy, content.zw));\n"
+	"}\n"
+	/* a multisampled target's samples given its texture's pixels
+	(multisample_fill) */
+	"fragment float4 fill_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]])\n"
+	"{\n"
+	"\treturn picture.read(uint2(in.position.xy));\n"
 	"}\n";
 
-static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelFormat depth, uint32_t mask)
+static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelFormat depth, uint32_t mask,
+	uint32_t samples)
 {
-	NSNumber *key = @((color << 20) | (depth << 4) | mask);
+	NSNumber *key = @(((uint64_t)samples << 36) | (color << 20) | (depth << 4) | mask);
 	id<MTLRenderPipelineState> pipeline = clear_pipelines[key];
 
 	if (!pipeline)
@@ -2247,6 +2344,7 @@ static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelF
 			(mask & GPU_CHANNEL_ALPHA ? MTLColorWriteMaskAlpha : 0);
 		descriptor.depthAttachmentPixelFormat = depth;
 		descriptor.stencilAttachmentPixelFormat = depth;
+		descriptor.rasterSampleCount = samples;
 		pipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
 		if (!pipeline)
 			host_crash("Metal: cannot create the clear pipeline: %s", error.description.UTF8String);
@@ -2297,6 +2395,88 @@ static BOOL clamp_rect(const struct gpu_rect *rect, unsigned long width, unsigne
 	return YES;
 }
 
+/* the open pass's multisampled color target given its texture's pixels in
+every sample, before anything else in the pass: the samples were dropped at
+the end of the last frame (pass_finish_open) or are new. Edges drawn before
+come back as their resolved colors, already smoothed. */
+static void multisample_fill(MetalTexture *record, MTLPixelFormat depth)
+{
+	NSNumber *key = @(((uint64_t)record->samples << 32) | depth);
+	id<MTLRenderPipelineState> pipeline = fill_pipelines[key];
+
+	if (!pipeline)
+	{
+		MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
+		NSError *error = nil;
+
+		descriptor.vertexFunction = present_vertex;
+		descriptor.fragmentFunction = fill_fragment;
+		descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+		descriptor.depthAttachmentPixelFormat = depth;
+		descriptor.stencilAttachmentPixelFormat = depth;
+		descriptor.rasterSampleCount = record->samples;
+		pipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+		if (!pipeline)
+			host_fatal("Metal: cannot create the multisample fill pipeline: %s", error.description.UTF8String);
+		fill_pipelines[key] = pipeline;
+	}
+	[encoder setRenderPipelineState:pipeline];
+	[encoder setDepthStencilState:clear_depth_state(NO, NO)];
+	[encoder setCullMode:MTLCullModeNone];
+	[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)record->texture.width, (double)record->texture.height, 0.0, 1.0 }];
+	[encoder setScissorRect:(MTLScissorRect){ 0, 0, record->texture.width, record->texture.height }];
+	[encoder setFragmentTexture:record->texture atIndex:0];
+	if (visibility.entry_open)
+		[encoder setVisibilityResultMode:MTLVisibilityResultModeDisabled offset:0];
+	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+	visibility.entry_open = 0;
+	pass_attachment_traffic(record->texture, MTLLoadActionLoad, MTLStoreActionDontCare, 4.0);
+}
+
+static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	@autoreleasepool
+	{
+		MetalTexture *record = texture_record(texture);
+		MTLTextureDescriptor *descriptor;
+
+		if (samples < 2)
+			samples = 0;
+		if (!record || !record->texture || record->description.usage != GPU_USAGE_RENDER_TARGET ||
+			record->description.type != GPU_TEXTURE_2D || record->description.foveated_eye || record->samples == samples)
+			return;
+		/* (the open pass on it resolves what it drew into the texture) */
+		if (texture == pass_color || texture == pass_depth)
+			pass_end();
+		record->samples = samples;
+		record->multisample = nil;
+		record->multisample_stale = NO;
+		if (!samples)
+			return;
+		descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:record->texture.pixelFormat
+			width:record->texture.width height:record->texture.height mipmapped:NO];
+		descriptor.textureType = MTLTextureType2DMultisample;
+		descriptor.sampleCount = samples;
+		descriptor.usage = MTLTextureUsageRenderTarget;
+		descriptor.storageMode = MTLStorageModePrivate;
+		record->multisample = [device newTextureWithDescriptor:descriptor];
+		if (!record->multisample)
+		{
+			/* drawn without samples rather than not at all */
+			platform_log("Metal: cannot make a %ux%u target with %u samples; drawing it without",
+				(unsigned)descriptor.width, (unsigned)descriptor.height, samples);
+			record->samples = 0;
+			return;
+		}
+		/* color takes the texture's pixels when a pass first loads it;
+		depth and stencil start cleared, as a new target does */
+		if (record->description.format == GPU_FORMAT_DEPTH_STENCIL)
+			target_zero(record->multisample);
+		else
+			record->multisample_stale = YES;
+	}
+}
+
 /* each rectangle, as glClear inside glScissor does it: no viewport, depth
 range, color mask (the clear's channel_mask instead) or visibility test */
 static void gpu_metal_clear(const struct gpu_clear *clear, const struct gpu_rect *rectangles, uint32_t count)
@@ -2341,7 +2521,7 @@ static void gpu_metal_clear(const struct gpu_clear *clear, const struct gpu_rect
 		/* every pass has a BGRA8 color attachment: a depth-only pass a scratch
 		one (pass_begin), which a clear leaves alone */
 		[encoder setRenderPipelineState:clear_pipeline(MTLPixelFormatBGRA8Unorm,
-			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, color ? mask : 0)];
+			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, color ? mask : 0, pass_samples)];
 		[encoder setDepthStencilState:clear_depth_state((flags & GPU_CLEAR_DEPTH) != 0, (flags & GPU_CLEAR_STENCIL) != 0)];
 		[encoder setStencilReferenceValue:clear->stencil & 0xff];
 		[encoder setCullMode:MTLCullModeNone];
@@ -2400,6 +2580,9 @@ struct pipeline_key
 	uint8_t blend, source, destination, operation, write_mask, alpha_source, alpha_destination;
 	/* the stages that rebuild their border colors (exact_borders) */
 	uint8_t exact_borders;
+	/* the targets' samples a pixel (gpu_texture_multisample), 0 for none */
+	uint8_t samples;
+	uint8_t pad[3];
 	uint32_t color_format, depth_format;
 	/* the vertex function's specialization (attribute_kinds) */
 	uint8_t attribute_kinds[GPU_ATTRIBUTE_COUNT];
@@ -2710,6 +2893,7 @@ static MTLRenderPipelineDescriptor *pipeline_descriptor(const struct pipeline_ke
 	}
 	descriptor.depthAttachmentPixelFormat = (MTLPixelFormat)key->depth_format;
 	descriptor.stencilAttachmentPixelFormat = (MTLPixelFormat)key->depth_format;
+	descriptor.rasterSampleCount = key->samples ? key->samples : 1;
 	return descriptor;
 }
 
@@ -3027,7 +3211,8 @@ static void pipeline_request(const struct pipeline_key *key, MetalShader *vertex
 or, with pending set, isn't made yet (display.async_shaders: it's building) */
 /* (unretained, as front_cache_get: pipeline_table keeps every pipeline for good) */
 static void *draw_pipeline(const struct gpu_draw *draw, const struct draw_attributes *attributes,
-	MetalShader *vertex, MetalShader *pixel, unsigned exact, MTLPixelFormat color, MTLPixelFormat depth, BOOL *pending)
+	MetalShader *vertex, MetalShader *pixel, unsigned exact, MTLPixelFormat color, MTLPixelFormat depth, uint32_t samples,
+	BOOL *pending)
 {
 	struct pipeline_key key;
 	void *found, *cached;
@@ -3049,6 +3234,7 @@ static void *draw_pipeline(const struct gpu_draw *draw, const struct draw_attrib
 	}
 	key.write_mask = draw->color_target ? draw->blend.color_write_mask & 0xf : 0;
 	key.exact_borders = (uint8_t)exact;
+	key.samples = (uint8_t)(samples > 1 ? samples : 0);
 	key.color_format = (uint32_t)color;
 	key.depth_format = (uint32_t)depth;
 	memcpy(key.attribute_kinds, attributes->kinds, sizeof(key.attribute_kinds));
@@ -3069,7 +3255,9 @@ static void *draw_pipeline(const struct gpu_draw *draw, const struct draw_attrib
 		struct gpu_pipeline_description built;
 
 		pipeline_describe(&key, &built);
-		if (built_count < BUILT_PIPELINE_CAPACITY) built_during_play[built_count++] = built;
+		/* (a multisampled draw's pipeline is not listed: the lists hold those
+		of draws without multisampling) */
+		if (!key.samples && built_count < BUILT_PIPELINE_CAPACITY) built_during_play[built_count++] = built;
 		if (async_compiles)
 		{
 			pipeline_request(&key, vertex, pixel, nil, 1);
@@ -3846,6 +4034,7 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		unsigned exact = exact_borders(draw);
 		struct draw_attributes attributes;
 		BOOL pending;
+		uint32_t samples;
 
 		/* as GL's program_get: no program, no draw */
 		if (!vertex || !pixel)
@@ -3869,8 +4058,13 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		}
 #endif
 		draw_attributes_decide(draw, &attributes);
+		{
+			__unsafe_unretained MetalTexture *color = texture_record(draw->color_target);
+
+			samples = color ? color->samples : depth ? depth->samples : 0;
+		}
 		pipeline = (__bridge id<MTLRenderPipelineState>)draw_pipeline(draw, &attributes, vertex, pixel, exact, MTLPixelFormatBGRA8Unorm,
-			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, &pending);
+			depth && depth->texture ? depth->texture.pixelFormat : MTLPixelFormatInvalid, samples, &pending);
 		/* display.async_shaders: a draw whose pipeline is still building is
 		skipped this frame, as one that can't be made is; the runs of draws
 		to each pair of targets tell whether a whole pass drew nothing */
@@ -3910,6 +4104,24 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 					pass_end();
 					break;
 				}
+		}
+		/* a multisampled pass's targets have in their textures only what
+		earlier passes resolved: a draw that samples one of them ends the
+		pass, which resolves it, and goes on in a new one */
+		if (encoder && pass_samples > 1)
+		{
+			int stage;
+
+			for (stage = 0; stage < GPU_STAGE_COUNT; stage++)
+			{
+				gpu_texture sampled = draw->stages[stage].type ? draw->stages[stage].texture : 0;
+
+				if (sampled && (sampled == pass_color || sampled == pass_depth))
+				{
+					pass_end();
+					break;
+				}
+			}
 		}
 		if (!pass_begin(draw->color_target, draw->depth_target, NULL))
 		{
@@ -7571,6 +7783,8 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		clear_fragment = [utilities newFunctionWithName:@"clear_fragment"];
 		present_vertex = [utilities newFunctionWithName:@"present_vertex"];
 		present_fragment = [utilities newFunctionWithName:@"present_fragment"];
+		fill_fragment = [utilities newFunctionWithName:@"fill_fragment"];
+		fill_pipelines = [NSMutableDictionary dictionary];
 		present_descriptor.vertexFunction = present_vertex;
 		present_descriptor.fragmentFunction = present_fragment;
 		present_descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat;
@@ -7771,6 +7985,22 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		/* 8192 on an A8 (the Apple TV HD), the one Apple GPU family below Apple3 that still runs */
 		capabilities->max_texture_size = [device supportsFamily:MTLGPUFamilyApple3] ||
 			[device supportsFamily:MTLGPUFamilyMac2] ? 16384 : 8192;
+		/* multisampling's most samples a pixel, which every target format
+		takes (display.anti_aliasing) */
+		{
+			uint32_t samples;
+
+			capabilities->max_samples = 1;
+			for (samples = 8; samples >= 2; samples /= 2)
+			{
+				if ([device supportsTextureSampleCount:samples])
+				{
+					capabilities->max_samples = (uint8_t)samples;
+					break;
+				}
+			}
+			platform_log("Metal: multisampling up to %u samples a pixel", (unsigned)capabilities->max_samples);
+		}
 		capabilities->shader_language = GPU_SHADER_LANGUAGE_MSL;
 		capabilities->shader_es = 0;
 		capabilities->clip_y_flip = 0;
