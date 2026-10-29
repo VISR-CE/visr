@@ -1,12 +1,51 @@
 name: iOS
 
+# The Apple builds run on pushes to main and release branches and on pull
+# requests into main, not on plain pushes to other branches. Changes that cannot
+# reach an Apple build (documentation, benchmark data and the published site, the
+# Pages tooling, and the other workflows) skip the workflow. No status check from
+# this workflow is required by a ruleset or branch protection; if one becomes
+# required, replace paths-ignore with a job that exits early so the check still reports.
 on:
   push:
-    branches: [main]
-    paths-ignore: ['**.md', 'docs/**', 'research/**']
+    branches: [main, 'release/**']
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'research/**'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/cinematic-harness.yml'
+      - '.github/workflows/linux-compile.yml'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/release.yml'
+      - 'tools/build_site.py'
+      - 'tools/test_build_site.py'
+      - 'tools/site_*'
+      - 'tools/pages_*'
   pull_request:
     branches: [main]
-    paths-ignore: ['**.md', 'docs/**', 'research/**']
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'research/**'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/workflows/build.yml'
+      - '.github/workflows/ci.yml'
+      - '.github/workflows/cinematic-harness.yml'
+      - '.github/workflows/linux-compile.yml'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/release.yml'
+      - 'tools/build_site.py'
+      - 'tools/test_build_site.py'
+      - 'tools/site_*'
+      - 'tools/pages_*'
   workflow_dispatch:
 
 # The hosted image publishes all three Apple SDK families for Xcode 26.6.
@@ -18,11 +57,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: ios-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
 jobs:
   build:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -92,6 +132,7 @@ jobs:
           retention-days: 14
 
   macos:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -124,6 +165,7 @@ jobs:
           plutil -extract HaloShaderFeedURL raw "$app/Contents/Info.plist" | grep --quiet '^https://'
 
   tvos:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -172,6 +214,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   visionos:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: macos-26
     timeout-minutes: 60
     # Existing advisory job; promote after its first verified hosted run (docs/ci.md).

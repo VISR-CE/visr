@@ -4,9 +4,11 @@ Pull requests and pushes to `main` run the portable tooling suite on Ubuntu
 24.04 with Python 3.11 and 3.14. Shared source and build changes also compile
 a complete 32-bit x86 Linux release in an Arch container, then check its ELF
 header and the recorded network format. The Apple workflow runs native
-regressions and builds on ARM64 `macos-26` for changes outside Markdown,
-`docs/` and `research/`. These workflows can also be started manually. New
-pushes cancel older runs for the same branch.
+regressions and builds on ARM64 `macos-26` on pushes to `main` and
+`release/**` and on non-draft pull requests into `main`, skipping changes to
+Markdown, `docs/`, `research/`, the site and Pages tooling, and the other
+workflows. These workflows can also be started manually. New pushes cancel
+older runs for the same branch, except on `main` and `release/**`.
 
 The PR jobs use read-only repository permissions and do not require signing
 identities, Apple accounts, cloud containers or repository secrets. Checkout
