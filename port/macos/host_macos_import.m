@@ -56,6 +56,13 @@ static NSColor *bar_blue(void) { return [NSColor colorWithSRGBRed:0.247 green:0.
     [label drawAtPoint:NSMakePoint(left, top + height + 8) withAttributes:style];
 }
 @end
+/* The phase's buttons act on the first click, even when the window is not yet key (the click that brings VISR forward
+   would otherwise only activate it) */
+@interface VISRFirstClickButton : NSButton
+@end
+@implementation VISRFirstClickButton
+- (BOOL)acceptsFirstMouse:(NSEvent *)event { (void)event; return YES; }
+@end
 @interface VISRUpscalePhase : NSObject {
 @public
     atomic_int skip, done, menu_phase, retry_requested, can_retry, retry_busy;
@@ -109,11 +116,11 @@ static void upscale_phase(NSString *root) {
     detail.hidden = YES; [content addSubview:detail];
     VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 632, 46)];
     bar.tick = -1; [content addSubview:bar];
-    NSButton *start = [NSButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
+    NSButton *start = [VISRFirstClickButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
     start.frame = NSMakeRect(275, 18, 130, 32);start.bezelStyle=NSBezelStyleRounded;
     start.bezelColor=bar_blue();start.contentTintColor=NSColor.blackColor;
     start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
-    NSButton *retry=[NSButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
+    NSButton *retry=[VISRFirstClickButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
     retry.frame=NSMakeRect(209,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
     retry.alphaValue=0;retry.enabled=NO;[content addSubview:retry];
     [window center];
@@ -124,6 +131,8 @@ static void upscale_phase(NSString *root) {
         host_texture_upscale_prepare_import(root.fileSystemRepresentation, upscale_progress, (__bridge void *)phase);
         atomic_store(&phase->done, 1);
     });
+    /* (frontmost and key, so the first click and Return reach it) */
+    [NSApp activateIgnoringOtherApps:YES]; [window makeKeyAndOrderFront:nil];
     NSModalSession session = [NSApp beginModalSessionForWindow:window];
     while (!atomic_load(&phase->done)) {
         [NSApp runModalSession:session];
