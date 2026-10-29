@@ -414,7 +414,9 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     char error[512]={0};double start=now();
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,d->hash);atomic_store(&work_stage,"predictions");
-    if(!generator){footprint_before_model=footprint();generator=texture_upscale_generate_create(error,sizeof(error));
+    if(!generator){atomic_store(&work_stage,"loading the model");footprint_before_model=footprint();double made=now();
+        generator=texture_upscale_generate_create(error,sizeof(error));atomic_store(&work_stage,"predictions");
+        host_logf(HOST_LOG_INFO,"Upscale: loaded the model in %.1f s",now()-made);
         host_logf(HOST_LOG_INFO,"Upscale: made the generator at %llu MB",(unsigned long long)(footprint_before_model>>20));}
     /* Two textures overlap only while both float tops fit in OVERLAP_BUDGET together, so the peak is set by the
        largest texture alone; before a large one, freed memory goes back to the system. */
@@ -591,7 +593,9 @@ static void make_loading_picture_with(unsigned char *gray,unsigned char *file) {
     struct texture_upscale_generate_output output={0};char error[512]={0};
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,hash);atomic_store(&work_stage,"the loading picture");
-    if(!generator){footprint_before_model=footprint();generator=texture_upscale_generate_create(error,sizeof(error));}
+    if(!generator){atomic_store(&work_stage,"loading the model");footprint_before_model=footprint();double made=now();
+        generator=texture_upscale_generate_create(error,sizeof(error));atomic_store(&work_stage,"the loading picture");
+        host_logf(HOST_LOG_INFO,"Upscale: loaded the model in %.1f s (for the loading picture)",now()-made);}
     int failed=!generator||texture_upscale_generate(generator,&input,&output,error,sizeof(error));
     dispatch_group_leave(work_group);
     free(rgba);
@@ -649,7 +653,7 @@ static void pump(void) {
             if(!texture_cache_manifest_load(cache_directory().fileSystemRepresentation,&loaded,&count))
                 @synchronized(state_token){free(manifest);manifest=loaded;manifest_count=count;}
         }
-        if(!catalog_ready){catalog_ready=build_catalog();if(!catalog_ready){why="catalog";goto done;}
+        if(!catalog_ready){atomic_store(&work_stage,"the catalog");catalog_ready=build_catalog();atomic_store(&work_stage,NULL);if(!catalog_ready){why="catalog";goto done;}
             BOOL reconciled;@synchronized(state_token){reconciled=reconcile_manifest();
                 /* (for readiness while the generator is off: texture_cache_decisions_load) */
                 if(texture_cache_decisions_save(cache_directory().fileSystemRepresentation,decisions,decision_count))
@@ -822,6 +826,10 @@ void host_texture_upscale_init(const char *root) {
         id<MTLDevice> device=MTLCreateSystemDefaultDevice();record_format=TEXTURE_RECORD_ASTC4X4;
         /* rule 7: ASTC 4x4 where the GPU has no BC */
         if(@available(iOS 16.4,tvOS 16.4,macOS 11.0,*))if(device.supportsBCTextureCompression)record_format=TEXTURE_RECORD_BC7;
+#ifdef HALO_DEVELOPMENT_HOOKS
+        /* Development only: HALO_TEXTURE_UPSCALE_RECORDS=astc makes ASTC 4x4 records on a GPU with BC, as a phone without BC does */
+        if(getenv("HALO_TEXTURE_UPSCALE_RECORDS")&&!strcmp(getenv("HALO_TEXTURE_UPSCALE_RECORDS"),"astc"))record_format=TEXTURE_RECORD_ASTC4X4;
+#endif
         host_logf(HOST_LOG_INFO,"Upscale: records are %s",record_format==TEXTURE_RECORD_BC7?"BC7":"ASTC 4x4");
         [NSNotificationCenter.defaultCenter addObserverForName:NSProcessInfoThermalStateDidChangeNotification object:nil queue:nil usingBlock:^(NSNotification *note){(void)note;if(NSProcessInfo.processInfo.thermalState<=NSProcessInfoThermalStateFair&&!atomic_load(&upscale_playing))schedule_pump();}];
         #if TARGET_OS_OSX
@@ -891,7 +899,7 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
     host_texture_upscale_scan();
     /* the player is on the import's phase: iOS 26 may carry it on if they switch away */
     host_texture_upscale_continued_phase(1);
-    double start=now();BOOL skipped=NO,menu_checked=NO,menu_logged=NO;NSData *menu_keys=nil;
+    double start=now(),last_status=0;BOOL skipped=NO,menu_checked=NO,menu_logged=NO;NSData *menu_keys=nil;
     for(;;) {
         struct texture_cache_progress p={0},menu={0};
         BOOL menu_known=NO;
@@ -908,6 +916,10 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
         BOOL menu_phase=!idle&&!texture_upscale_import_skippable(menu_known,(unsigned long)menu.ready,(unsigned long)menu.textures);
         if(!menu_phase&&!menu_logged&&menu_known){menu_logged=YES;
             host_logf(HOST_LOG_INFO,"Upscale import: the main menu's textures are ready after %.1f s (%zu of %zu); Start playing is offered",now()-start,menu.ready,menu.textures);}
+        if(now()-last_status>=5){last_status=now();const char *stage=atomic_load(&work_stage);
+            host_logf(HOST_LOG_INFO,"Upscale import: %.0f s, %s; main menu %zu of %zu textures (%llu of %llu units); all %zu of %zu (%llu of %llu units)",
+                now()-start,catalog_ready?(stage?stage:"between textures"):(stage?stage:"before the catalog"),menu.ready,menu.textures,
+                (unsigned long long)menu.ready_units,(unsigned long long)menu.units,p.ready,p.textures,(unsigned long long)p.ready_units,(unsigned long long)p.units);}
         if(progress){
             int keep_going=progress(context,p.ready_units,p.units,menu_phase);
             if(!keep_going&&!menu_phase){skipped=YES;break;}
