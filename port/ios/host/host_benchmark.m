@@ -1,3 +1,4 @@
+#include "host_app_version.h"
 #include "host_perf_hooks.h"
 /* The device benchmark's host side (host_benchmark.h).
 
@@ -858,7 +859,7 @@ static NSString *report_header(void) {
         external_modes.count && external_mode_index + 1 < external_modes.count ? "false" : "true",
         json_object(suite_output ?: output_now()), json_object(output_reports ?: @[]),
         json_string(external_modes.count ? external_modes[external_mode_index] : @""),
-        json_string([NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"]),
+        json_string(host_app_version_description()),
         json_string([NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]), HALO_GUEST_SHA256,
         json_string(profile.inherited ? @"inherited" : profile.model_file[0] ? @"exact" : @"class"),
         json_string(@(profile.source_hardware)), json_string(@(profile.target_hardware)),

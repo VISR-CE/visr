@@ -1,8 +1,10 @@
 # Performance benchmarks
 
-We try to make these comparisons fair, but our numbers or our setup for other projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues)
+We try to make these comparisons fair, but numbers or projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues/new?template=benchmark.yml)
 
-Last measured: 2026-10-28. The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
+Last measured: 2026-10-29.
+
+The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
 ## Results
 
@@ -12,7 +14,7 @@ Campaign suite, newest build of each port.
 
 ### Mac
 
-Average presentation rate, with the frame cap and vsync off, the matched-stock settings and a 2560×1920 drawable. Each bar is the geometric mean of the average over all of the suite's windows (Campaign: c10 and b30; Combat: a50-hangar, b40-exta and b30-bot; Cutscenes: x70-bridge and cutscene-rescue); a build missing any of them is listed under the chart instead. Under the chart, each build lists the median and 90th-percentile GPU time per rendered frame. Halo OG is limited by CPU command submission, not by a frame cap. Chupathingy is an OpenGL app, timed at its frame swap, with no GPU time per frame.
+Measured on an M6 Mac mini with the frame cap and vsync off, the matched-stock settings and a 2560×1920 drawable. Bars show average fps; the table lists median and 90th-percentile GPU time per rendered frame.
 
 ```mermaid
 ---
@@ -26,22 +28,22 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: uncapped fps, M6 Mac mini"
-    x-axis "Port and version" ["VISR 0.6.1", "OpenCE v1.0.2", "CoreCE 0.3.0", "Chupathingy v0.8.0h", "Halo OG v0.5.1"]
+    x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.0", "Chupathingy v0.8.0h", "Halo OG v0.5.1"]
     y-axis "Frames per second" 0 --> 500
-    bar [364.7, 332.8, 244, 174.7, 95.8]
+    bar [338.1, 332.8, 244, 174.7, 95.8]
 ```
 
 🟦 Average fps
 
 Higher is better.
 
-M6 Mac mini. [VISR 0.6.1](https://github.com/steverice/visr/releases/tag/visr-v0.6.1) (build 20261027.174748, measured 2026-10-27; 4.15 ms median GPU time per rendered frame, 5.02 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-27; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (build 0.8.0h, measured 2026-10-28; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
+M6 Mac mini. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (build 0.8.0h, measured 2026-10-28; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Only measured with the frame cap on, at another size or with other settings.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Only measured with the frame cap on, at another size or with other settings.); [OpenCE web build-314](https://halocombatevolved.com/) (Only measured with the frame cap on, at another size or with other settings.); [OpenCE web build-280](https://halocombatevolved.com/) (Only measured with the frame cap on, at another size or with other settings.).
 
 ### iPhone and iPad
 
-Average presentation rate and 1% low rate (the slowest 1% of frames), from runs presented at the device's display rate. Each bar pair is the geometric mean of the average and of the 1% low over the suite's windows. Under the chart, each build lists the share of frames that arrive on time (within 5% of the display interval) where the app reports it. A build measured in only some of the suite's windows is charted from those windows, and the caption names the windows still to measure.
+Measured on an M1 iPad Pro from runs presented at the display rate. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval. GPU and CPU time per frame are not reported for iPhone and iPad builds yet.
 
 ```mermaid
 ---
@@ -55,23 +57,23 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.0", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
+    x-axis "Port and version" ["VISR 0.6.3", "117 b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.5, 119.4, 119.1]
-    bar [119.5, 119.4, 119.1]
+    bar [119.4, 23.9, 119.4, 119.1]
+    bar [119.4, 21.6, 119.4, 119.1]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-M1 iPad Pro. [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (build 20261027.111952, measured 2026-10-27; no on-time share reported); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-27; no on-time share reported; b30 not measured yet).
+M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; no on-time share reported; a10 not measured yet); 117 b25332ef9 (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-27; no on-time share reported; b30 not measured yet).
 
 Not measured: [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 ### Apple TV
 
-Average presentation rate and 1% low rate (the slowest 1% of frames), from runs presented at the frame cap of the device's profile, 30 fps on the Apple TV HD. Only VISR has Apple TV builds. Each bar pair is the geometric mean of the average and of the 1% low over the suite's windows. Under the chart, each build lists the share of frames that arrive on time (within 5% of the display interval) where the app reports it.
+Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval. GPU and CPU time per frame are not reported for Apple TV builds yet.
 
 ```mermaid
 ---
@@ -97,11 +99,11 @@ Higher is better.
 
 Apple TV HD. [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (build 20261027.111952, measured 2026-10-27; no on-time share reported).
 
-Not measured: VISR 0.6.1 (Apple TV HD) (Not run on this platform's reference device.).
+Not measured: [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this platform's reference device.); VISR 0.6.1 (Apple TV HD) (Not run on this platform's reference device.).
 
 ### Vision Pro
 
-Average presentation rate and 1% low rate (the slowest 1% of frames), from runs presented at the device's display rate. Each bar is the geometric mean of the average over the suite's windows, drawn beside the 1% low where the app reports one. Under the chart, each build lists its 95th-percentile frame time and the share of frames that arrive on time (within 5% of the display interval) where the app reports them. VISR replays a recorded route; master-chef runs with no input. master-chef: Fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times.
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.
 
 ```mermaid
 ---
@@ -115,38 +117,99 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.0", "master-chef 1.0.3"]
+    x-axis "Port and version" ["VISR 0.6.3", "117 b25332ef9", "master-chef 1.0.3"]
     y-axis "Frames per second" 0 --> 150
-    bar [89.4, 29.8]
-    bar [76.8, 0]
+    bar [89.5, 21, 29.8]
+    bar [89.5, 16.2, 0]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-M2 Vision Pro. [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (build 20261027.111952, measured 2026-10-27; 11.8 ms 95th-percentile frame time, 94.1% of frames on time; c10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-28; no frame times reported).
+M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); 117 b25332ef9 (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
+
+#### Vision Pro: GPU time
+
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 520
+    height: 263
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#1593bd, #c8870a"
+---
+xychart-beta horizontal
+    title "Campaign: GPU time per frame (ms) against the 11.1 ms frame budget, M2 Vision Pro"
+    x-axis "Port and version" ["VISR 0.6.3"]
+    y-axis "Milliseconds per frame" 0 --> 11.1
+    bar [7.1]
+```
+
+🟦 Median GPU time (p50)
+
+Lower is better.
+
+M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28).
+
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report GPU time per frame.); 117 b25332ef9 (Not reported: this build does not report GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report GPU time per frame.).
+
+#### Vision Pro: CPU time
+
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report CPU time are listed as not reported.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 520
+    height: 263
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#1593bd, #c8870a"
+---
+xychart-beta horizontal
+    title "Campaign: CPU time per frame (ms) against the 11.1 ms frame budget, M2 Vision Pro"
+    x-axis "Port and version" ["VISR 0.6.3"]
+    y-axis "Milliseconds per frame" 0 --> 11.1
+    bar [3.5]
+```
+
+🟦 Median CPU time per frame
+
+Lower is better.
+
+M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28).
+
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build does not report CPU time per frame.); 117 b25332ef9 (Not reported: this build does not report CPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build does not report CPU time per frame.).
 
 <!-- END CHARTS -->
 
 ## Methodology
 
-The snapshot holds 144 measured windows for 9 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. Web builds run in a browser that always syncs to the display, so they have capped numbers only and do not appear in the uncapped charts. The spreadsheet's README tab describes each column.
+The snapshot holds 210 measured windows for 10 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. Web builds run in a browser that always syncs to the display, so they have capped numbers only and do not appear in the uncapped charts. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on and uncapped): Metal's per-frame timing: `metalperftrace` on-glass drawable intervals for the app's process. Ports: VISR, OpenCE-macOS, CoreCE, Halo OG.
 - **Mac** (M4 Mac mini, M6 Mac mini; uncapped, vsync off): The OpenGL frame swap, timestamped by a shim in the app's process (`flushBuffer` / `CGLFlushDrawable`), for a port that `metalperftrace` does not see. GPU time per frame is not available for these ports (OpenGL). Ports: Chupathingy.
 - **Mac** (M4 Mac mini, M6 Mac mini; frame cap on): Safari `requestAnimationFrame` callbacks, which measure browser scheduling. Ports: OpenCE web.
-- **iPhone/iPad** (M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
+- **iPhone/iPad** (A10X iPad Pro, A14 iPhone 12 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
+- **iPhone/iPad** (A10X iPad Pro, A14 iPhone 12 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: 117.
 - **Apple TV** (Apple TV HD; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR.
 - **Apple TV** (Apple TV HD; frame cap on): Another method, named in the `method` column. Ports: VISR.
-- **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR.
+- **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR, 117.
 - **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): Another method, named in the `method` column. Ports: VISR.
 
 master-chef runs at a fixed 30 fps as shipped, below the 90 Hz display, so it has no uncapped rows.
 
 iPhone/iPad, Apple TV, and Vision Pro charts use runs presented at the device's display rate or, where its profile sets a lower frame cap, at that cap, not an uncapped mode. Their on-time share (frames within 5% of the display interval) is in the spreadsheet, and a device that holds its display rate shows an average near that rate. The Mac chart uses the uncapped, matched-stock runs described below.
+
+Where at least two ports report GPU time, a device section leads with the cost of a frame: median and 90th-percentile GPU time per rendered frame and median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget (1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. Frame rate and 1% low follow, since a missed frame still counts. A build that reports no GPU or CPU time is listed as not reported; otherwise the section leads with frame rate and 1% low, and a frame-cost chart that has at least two builds follows it.
 
 Halo OG's frame rate is limited by its CPU command submission, not by a frame cap: its uncapped settings are in force (the frame limit is 0 and vsync is off), its GPU is about half idle, and its rate does not change with the drawable size. It lacks several settings the other ports expose, among them shadow size, model LOD and field of view; its rows use its defaults.
 
@@ -156,12 +219,12 @@ Uncapped charts show average fps and GPU time per rendered frame, not 1% low rat
 
 ### Suites
 
-- **Campaign:** the openings of c10 (343 Guilty Spark) and b30 (The Silent Cartographer). One player, no input, default enemies. Each window warms up for 15 seconds after player readiness, takes a five-second background CPU baseline, then samples for 60 seconds. Three rounds per set. A set with fewer than three valid rounds is marked incomplete. Earlier sets used the a10 opening and a b30 window 90 seconds later (`b30 +90 s`); those rows stay in the spreadsheet. Measured on 9 ports: VISR, OpenCE-macOS, OpenCE web, CoreCE, master-chef, Beeman, ChupathingyCE iOS, Chupathingy, Halo OG.
+- **Campaign:** the openings of c10 (343 Guilty Spark) and b30 (The Silent Cartographer). One player, no input, default enemies. Each window warms up for 15 seconds after player readiness, takes a five-second background CPU baseline, then samples for 60 seconds. Three rounds per set. A set with fewer than three valid rounds is marked incomplete. Earlier sets used the a10 opening and a b30 window 90 seconds later (`b30 +90 s`); those rows stay in the spreadsheet. Measured on 10 ports: VISR, OpenCE-macOS, OpenCE web, CoreCE, master-chef, Beeman, ChupathingyCE iOS, Chupathingy, Halo OG, 117.
 - **Combat:** the player is made deathless and placed in a battle from the game console: the a50 hangar (`switch_bsp`, `object_teleport`, `ai_place` for the Covenant floors and the Marines, `ai_magically_see_encounter` and `ai_magically_see_players` so the sides engage at once) and Exterior A of b40 (the same commands), each sampled for 60 seconds after a 15-second warm-up, plus the b30 bot window: the scripted bot player for 1,800 game ticks (60 seconds of game time) from tick 900. Battles and the bot window are equivalent workloads, not replays: the AI's outcome differs by a few actors between runs, so each round's end counts (`ai_living_count`, player health, ticks) are kept in the `fingerprint` column and a round outside the other rounds' range is flagged in `notes`. A round is rejected when an encounter was not placed, the game reloaded a checkpoint, or the bot did not cover its ticks or throw a grenade. A port with no unattended console shows the status `not_measured`. Measured on 5 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG.
 - **Cutscenes:** two whole in-engine cutscenes called from the console, `x70_bridge` on d40 and `cutscene_rescue` on a50, sampled from the call to the script's `print`. Their length is set by the game's ticks, so it is the same on every port. A round is rejected when the print does not arrive within 1.5 times the expected length or the sample covers less than 95% of it. Measured on 5 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG.
-- **Multiplayer:** a hosted Slayer match on Chill Out and one on Blood Gulch, each a sampling window; the suite value is the mean over both maps' windows. One local player, driven by the scripted bot input, hosts and starts the match with no other humans. Bot input is paced from the wall clock, so runs on different ports, and repeated runs on one port, play equivalent workloads, not identical replays. No measurements yet.
-- **Co-op:** local split-screen campaign co-op, two players. Enemy scaling is set explicitly to static 1x on every port that has the option: VISR sets `debug.enemy_multiplier = 1`, and OpenCE-macOS and CoreCE set their enemies-per-player scaling to static 1x. A port without the option runs its own fixed behavior, and its notes column in the spreadsheet says so. A port without split screen shows "Does not support split screen" and the status `not_supported`; that differs from "not measured", which means the suite has not been run for the build. No measurements yet.
-- **Overall:** per build, the geometric mean of the suites' average rates and the geometric mean of their 1% low rates, each suite weighted equally, so every suite counts the same whatever its frame-rate scale. Each chart uses the suites that every build drawn in it has measured, so its bars stay comparable; the caption names them. Ticking or unticking a build can change which suites a chart covers.
+- **Multiplayer:** a hosted Slayer match on Chill Out and one on Blood Gulch, each a sampling window; the suite value is the mean over both maps' windows. One local player, driven by the scripted bot input, hosts and starts the match with no other humans. Bot input is paced from the wall clock, so runs on different ports, and repeated runs on one port, play equivalent workloads, not identical replays. Measured on 4 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy.
+- **Split-screen co-op:** local split-screen campaign co-op on one device, two players. Enemy scaling is set explicitly to static 1x on every port that has the option: VISR sets `debug.enemy_multiplier = 1`, and OpenCE-macOS and CoreCE set their enemies-per-player scaling to static 1x. A port without the option runs its own fixed behavior, and its notes column in the spreadsheet says so. A port without split screen shows "Does not support split screen" and the status `not_supported`; that differs from "not measured", which means the suite has not been run for the build. Measured on 1 port: VISR.
+- **Overall:** per build, the geometric mean of the suites' average rates and the geometric mean of their 1% low rates, each suite weighted equally, so every suite counts the same whatever its frame-rate scale. Each chart averages the suites that every build drawn in it has measured, so its bars stay comparable; the caption names them. A build that shares fewer than two suites with the others is left out and named in the caption. Ticking or unticking a build can change which suites a chart covers.
 
 Mac charts use a 2560×1920 drawable (a 1280×960-point window at 2×), where the ports' frame times separate; 1280×960 rows stay in the spreadsheet. Device sets run the same windows through a hosted one-player game, with the console commands held until the level runs. Their `cpu_p50_ms` column is VISR's own median frame CPU time, which shows the work a window adds on a device where the CPU matters.
 

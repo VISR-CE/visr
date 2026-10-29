@@ -14,6 +14,8 @@
 	<string>VISR</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>VISRBuildDescription</key>
+	<string>$(HALO_BUILD_DESCRIPTION)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(HALO_MARKETING_VERSION)</string>
 	<key>CFBundleURLTypes</key>

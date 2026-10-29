@@ -99,6 +99,7 @@ host_gpu_compile_progress
 host_gpu_initialize
 # stereo (halo_stereo.h)
 host_stereo_frame
+host_stereo_entered
 # spatial (halo_spatial.h)
 host_spatial_sample
 host_spatial_feedback
@@ -134,6 +135,7 @@ host_memory_available_megabytes
 host_sdl_cloud_saves_enabled
 host_sdl_cloud_saves_set_enabled
 host_sdl_cloud_saves_status
+host_sdl_app_version
 
 host_shader_observation_activate
 host_shader_observation_append
@@ -160,3 +162,4 @@ host_texture_cache_directory
 host_astc_texture_key
 host_astc_texture_read
 host_astc_texture_generation
+host_texture_record_rgba

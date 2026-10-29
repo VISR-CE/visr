@@ -31,9 +31,7 @@
 #include "../../linux/include/halo_port_limits.h" /* HALO_PORT_NETWORK_VERSION, for the log */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#if TARGET_OS_MACCATALYST
-#include <objc/message.h>
-#endif
+#include <objc/message.h> /* objc_msgSend: the Catalyst host and the iOS keyboard check */
 #include <mach/mach.h>
 #include <os/proc.h>
 #include <errno.h>
@@ -195,6 +193,13 @@ scene closes once the game's window exists */
 /* polls left to watch the game's window after an extra scene closed */
 static int extra_scene_watch;
 
+/* theater mode (host_theater.m): the game's window was put away or came
+back in a new scene, and SDL's delegate for the old scene told the app it
+went to the background: watch for the minimized window as above */
+void host_extra_scene_restore_watch(void) {
+    extra_scene_watch=600;
+}
+
 void host_extra_scene_poll(void) {
     /* SDL's delegate for the closed scene tells the whole app it went to the
        background (SDL_uikitappdelegate.m: SDL_OnApplicationDidEnterBackground),
@@ -355,6 +360,8 @@ int main(int argc,char **argv) {
         install_apple_events_timer();
 #endif
 #if TARGET_OS_VISION
+        /* host_theater.m */
+        extern int host_theater_window_parked(void);
         /* Closing the window is how a visionOS app is left, and an app reopened
            into a new scene would have no game window: quit (the game saves at
            checkpoints). Registered before the import setup screen, whose wait
@@ -364,6 +371,12 @@ int main(int argc,char **argv) {
             usingBlock:^(NSNotification *notification){
                 /* an extra window scene closing (close_extra_window_scenes), or
                 theater mode's space, isn't the game's window closing */
+                /* nor is the game's window put away while VR is open (host_theater.m) */
+                if(host_theater_window_parked() && ![((UIScene *)notification.object).session.role
+                    hasSuffix:@"ImmersiveSpaceApplication"]){
+                    host_logf(HOST_LOG_INFO,"the game's window scene closed while VR is open; the window is kept");
+                    return;
+                }
                 if(!scene_is_the_games(notification.object)){
                     host_logf(HOST_LOG_INFO,"a scene that isn't the game's window disconnected");
                     return;
@@ -525,6 +538,24 @@ int main(int argc,char **argv) {
         env[env_count++]="HALO_HOST_CLOUD_SAVES=1";
 #else
         env[env_count++]="HALO_HOST_CLOUD_SAVES=0";
+#endif
+        /* The menus' rows for the Apple TV's remote (platform="tvos") and for a keyboard (platform="keyboard",
+           port/linux/src/menu_platform.h): the Mac always has one, an iPad or iPhone one attached now. */
+#if TARGET_OS_TV
+        env[env_count++]="HALO_HOST_TVOS=1";
+#else
+        env[env_count++]="HALO_HOST_TVOS=0";
+#endif
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
+        env[env_count++]="HALO_HOST_KEYBOARD=1";
+#elif TARGET_OS_IOS
+        {
+            Class keyboard_class=NSClassFromString(@"GCKeyboard");
+            id keyboard=keyboard_class?((id(*)(id,SEL))objc_msgSend)(keyboard_class,NSSelectorFromString(@"coalescedKeyboard")):nil;
+            env[env_count++]=keyboard?"HALO_HOST_KEYBOARD=1":"HALO_HOST_KEYBOARD=0";
+        }
+#else
+        env[env_count++]="HALO_HOST_KEYBOARD=0";
 #endif
         mkdir("recordings",0755);
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC

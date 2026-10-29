@@ -668,6 +668,10 @@ short ui_widget_port_list_index(
 	struct widget_instance *list_widget);
 boolean pc_menu_tag(
 	long tag_index);
+boolean pc_menu_patch_list_index(
+	long list_tag,
+	long row_tag,
+	short *description);
 
 /* ---------- globals */
 
@@ -2023,12 +2027,28 @@ static void set_textbox_to_build_number(
 	static wchar_t build_number_string[64];
 
 #ifndef HALO_IOS
-	/* The iOS menu leaves this developer build label blank. Save and map
-	   version checks still use their original build numbers. */
+	/* Save and map version checks still use their original build numbers. */
 	if (!build_number_string[0])
 	{
 		ascii_to_wide(
 			"01.01.14.2342",
+			build_number_string,
+			sizeof(build_number_string));
+	}
+#else
+	/* port: keep the PC menu's blank label; only the Xbox set shows VISR's version. */
+	extern char const *config_string(char const *name);
+
+	if (!csstrcmp(config_string("display.menus"), "pc"))
+		build_number_string[0] = 0;
+	else if (!build_number_string[0])
+	{
+		extern void pc_menu_version_text(char *text, long size);
+		char version[64];
+
+		pc_menu_version_text(version, sizeof(version));
+		ascii_to_wide(
+			version,
 			build_number_string,
 			sizeof(build_number_string));
 	}
@@ -2256,6 +2276,14 @@ static void player_profile_edit_select_menu_update_extended_description(
 	leave the last item's description shown, as they have none */
 	if (pc_menu_tag(list_widget->definition_tag_index) && list_widget->focused_child->type == _ui_widget_type_column_list)
 		index = NONE;
+	/* port: a list the menus' patch table changed (port/linux/game/menu_tags.c)
+	shows a row's description by the number the patch gave it */
+	{
+		short patched_index;
+
+		if (pc_menu_patch_list_index(list_widget->definition_tag_index, NONE, &patched_index))
+			index = ui_widget_port_list_index(list_widget);
+	}
 
 	if (index != NONE)
 	{

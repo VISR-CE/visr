@@ -239,6 +239,39 @@ static void bc7_retry()
     free(record);
 }
 
+/* The menus read a picture back from the record that was made for it: level 0, any block format, only for the texture
+the record says it is for, and never from a record that is damaged */
+static void record_level0_decode(uint32_t format)
+{
+    chain input(16, 16);
+    auto &top = input.storage[0];
+    for (unsigned y = 0; y < 16; ++y) for (unsigned x = 0; x < 16; ++x)
+    {
+        uint8_t *pixel = top.data() + (y * 16 + x) * 4;
+        pixel[0] = uint8_t(x * 12); pixel[1] = uint8_t(y * 12); pixel[2] = 90;
+    }
+    void *record = nullptr;
+    size_t size = 0;
+    texture_upscale_encode_metrics metrics {};
+    assert(texture_upscale_encode_record(input.levels.data(), unsigned(input.levels.size()), 8, 8, 0x5151, 0x7, format,
+        TEXTURE_UPSCALE_ENCODE_ALPHA_BINARY, 2, &record, &size, &metrics) == TEXTURE_UPSCALE_ENCODE_OK);
+    auto bytes = static_cast<uint8_t *>(record);
+    uint32_t width = 0, height = 0;
+    assert(texture_record_decode_level0(bytes, size, 0x5151, 8, 8, nullptr, 0, &width, &height) == 1 && width == 16 && height == 16);
+    std::vector<uint8_t> rgba(16 * 16 * 4);
+    assert(texture_record_decode_level0(bytes, size, 0x5151, 8, 8, rgba.data(), rgba.size() - 1, &width, &height) == -1);
+    assert(texture_record_decode_level0(bytes, size, 0x5151, 8, 8, rgba.data(), rgba.size(), &width, &height) == 1);
+    int worst = 0;
+    for (size_t i = 0; i < rgba.size(); ++i) worst = std::max(worst, std::abs(int(rgba[i]) - int(top[i])));
+    assert(worst <= 24 && rgba[3] == 255);
+    assert(!texture_record_decode_level0(bytes, size, 0x5152, 8, 8, nullptr, 0, &width, &height));
+    assert(!texture_record_decode_level0(bytes, size, 0x5151, 4, 4, nullptr, 0, &width, &height));
+    bytes[size - 1] ^= 0x55;
+    assert(!texture_record_decode_level0(bytes, size, 0x5151, 8, 8, nullptr, 0, &width, &height));
+    free(record);
+    printf("format %u: a record's level 0 reads back as RGBA (worst error %d); another texture's or a damaged one is refused\n", format, worst);
+}
+
 static void generator_to_reader(uint32_t format)
 {
     uint8_t pixels[4 * 4 * 4];
@@ -334,6 +367,7 @@ int main()
         exclusions(format);
         binary_alpha(format);
         cutout_edge(format);
+        record_level0_decode(format);
         generator_to_reader(format);
     }
     puts("PASS: generator compression gates, retry exclusion, and record/checksum/manifest round trips");

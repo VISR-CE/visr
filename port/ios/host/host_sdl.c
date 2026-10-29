@@ -11,11 +11,13 @@ so the audio callback is handed to a thread that has one.
 */
 
 #include <TargetConditionals.h>
+#include <CoreFoundation/CoreFoundation.h>
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo.h"
 #endif
 #include "host.h"
+#include "host_app_version.h"
 #include "host_config.h"
 #include "host_cloud_saves.h"
 #include "host_frame_pacer.h"
@@ -399,8 +401,8 @@ int host_sdl_poll_event(void *event)
 		SDL_free(ids);
 		host_theater_chord(held || host_spatial_sense_menus_held());
 	}
-	/* debug.test_theater_reopen: the immersive space closed, then opened again
-	from the window's button */
+	/* debug.test_theater_reopen: Exit VR if the space is open, else Enter VR,
+	every 900 polls, six times */
 	{
 		static int test_theater_reopen = -1;
 		static unsigned long theater_polls;
@@ -412,14 +414,8 @@ int host_sdl_poll_event(void *event)
 			host_config_string("debug.test_theater_reopen", "false", value, sizeof(value));
 			test_theater_reopen = !strcmp(value, "true");
 		}
-		if (test_theater_reopen)
-		{
-			theater_polls++;
-			if (theater_polls == 900)
-				host_theater_test_close();
-			if (theater_polls == 3600)
-				host_theater_test_reopen();
-		}
+		if (test_theater_reopen && ++theater_polls % 900 == 0 && theater_polls <= 5400)
+			host_theater_test_toggle();
 	}
 #else
 	(void)test_extra_scene;
@@ -1008,5 +1004,16 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
 {
     if (!size) return;
     strncpy(buffer, host_cloud_saves_status(), size - 1);
+    buffer[size - 1] = 0;
+}
+
+void host_sdl_app_version(char *buffer, unsigned int size)
+{
+    CFTypeRef version = host_app_version_string(CFBundleGetMainBundle());
+
+    if (!size) return;
+    buffer[0] = 0;
+    if (version && CFGetTypeID(version) == CFStringGetTypeID())
+        CFStringGetCString((CFStringRef)version, buffer, (CFIndex)size, kCFStringEncodingUTF8);
     buffer[size - 1] = 0;
 }

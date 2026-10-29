@@ -334,3 +334,51 @@ texture_upscale_encode_result texture_upscale_encode_record(const texture_upscal
     *record = data.release(); *size = bytes;
     return TEXTURE_UPSCALE_ENCODE_OK;
 }
+
+extern "C" int texture_record_decode_level0(const uint8_t *file, size_t size, uint64_t hash, uint32_t width, uint32_t height,
+    uint8_t *rgba, size_t capacity, uint32_t *out_width, uint32_t *out_height)
+{
+    texture_record_layout layout {};
+    if (!file || size < TEXTURE_RECORD_FIXED_SIZE) return 0;
+    if (texture_record_check(file, size, size, hash, width, height, texture_record_u32(file + 8), &layout) ||
+        texture_record_check_payload(&layout, file + layout.header_size)) return 0;
+    *out_width = layout.width;
+    *out_height = layout.height;
+    if (!rgba) return 1;
+    size_t texels = size_t(layout.width) * layout.height;
+    if (capacity < texels * 4) return -1;
+    const uint8_t *level = file + layout.level_offset[0];
+    if (layout.format == TEXTURE_RECORD_BGRA8)
+    {
+        for (size_t t = 0; t < texels; ++t)
+        {
+            rgba[t * 4] = level[t * 4 + 2]; rgba[t * 4 + 1] = level[t * 4 + 1];
+            rgba[t * 4 + 2] = level[t * 4]; rgba[t * 4 + 3] = level[t * 4 + 3];
+        }
+        return 1;
+    }
+    unsigned blocks_x = (layout.width + 3) / 4, blocks_y = (layout.height + 3) / 4;
+    if (layout.format == TEXTURE_RECORD_BC7)
+    {
+        for (unsigned by = 0; by < blocks_y; ++by)
+        for (unsigned bx = 0; bx < blocks_x; ++bx)
+        {
+            alignas(8) uint8_t pixels[64];
+            if (!detexDecompressBlockBPTC(level + (size_t(by) * blocks_x + bx) * 16, 0xffffffffu, 0, pixels)) return -1;
+            unsigned w = std::min(4u, layout.width - bx * 4), h = std::min(4u, layout.height - by * 4);
+            for (unsigned y = 0; y < h; ++y)
+                memcpy(rgba + (size_t(by * 4 + y) * layout.width + bx * 4) * 4, pixels + y * 16, size_t(w) * 4);
+        }
+        return 1;
+    }
+    astcenc_config config;
+    astcenc_context *context = nullptr;
+    if (astcenc_config_init(ASTCENC_PRF_LDR, 4, 4, 1, ASTCENC_PRE_FASTEST, ASTCENC_FLG_DECOMPRESS_ONLY, &config) != ASTCENC_SUCCESS ||
+        astcenc_context_alloc(&config, 1, &context, nullptr) != ASTCENC_SUCCESS) return -1;
+    const astcenc_swizzle swizzle { ASTCENC_SWZ_R, ASTCENC_SWZ_G, ASTCENC_SWZ_B, ASTCENC_SWZ_A };
+    void *slice = rgba;
+    astcenc_image image { layout.width, layout.height, 1, ASTCENC_TYPE_U8, &slice };
+    astcenc_error status = astcenc_decompress_image(context, level, size_t(blocks_x) * blocks_y * 16, &image, &swizzle, 0);
+    astcenc_context_free(context);
+    return status == ASTCENC_SUCCESS ? 1 : -1;
+}

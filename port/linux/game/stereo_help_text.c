@@ -64,9 +64,17 @@ static char logged_name[32];
 
 static int head_mode(void)
 {
+#ifdef HALO_IOS
+	/* the mode in effect this frame (stereo.c), so entering VR from the
+	window over display.stereo "off" counts as HEAD mode */
+	int mode = halo_stereo_frame()->mode;
+
+	return mode == HALO_STEREO_HEAD || mode == HALO_STEREO_SIDE_BY_SIDE;
+#else
 	const char *stereo = config_string("display.stereo");
 
 	return stereo && (!strcmp(stereo, "head") || !strcmp(stereo, "side_by_side"));
+#endif
 }
 
 int halo_stereo_help_text_part(const char *message_name)

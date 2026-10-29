@@ -141,6 +141,16 @@ struct halo_stereo_frame
 	int32_t foveated_width, foveated_height;
 };
 
+/* The stereo mode in effect, from display.stereo's (configured) and whether
+the player entered VR from the window (Apple Vision Pro's Enter VR, or Back
+and Start held on a controller): entering VR over "off" is head-tracked
+stereo, and any other mode the player chose stays as it is, so "screen"
+keeps the 3D screen. Leaving VR returns to display.stereo's mode. */
+static inline int halo_stereo_mode_entered(int configured, int entered)
+{
+	return configured == HALO_STEREO_OFF && entered ? HALO_STEREO_HEAD : configured;
+}
+
 void halo_stereo_frame_begin(void);                    /* latches this frame's state */
 const struct halo_stereo_frame *halo_stereo_frame(void);
 /* -1 mono, 0/1 an eye, 2 the HUD, 3 the zoomed picture, 4 the reticle. The

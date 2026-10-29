@@ -21,6 +21,8 @@ compile_commands.json
 *.pdb
 xbox/
 !source/**/xbox/
+!port/assets/menus/xbox/
+!port/ios/tests/menu_patch/**/xbox/
 
 # Locally extracted proprietary game data (never commit)
 assets/

@@ -4,16 +4,17 @@ MENU_PLATFORM.H
 Whether a menu element's platform attribute (port/assets/menus/README.md) is
 for this build: "desktop" on the desktop ports, "android" on Android and on
 the Apple devices' game (HALO_ILP32, which also runs as the Mac app), and
-"quit" where the app can end itself, so the main menu's Quit is there: the
-desktop ports, and the Mac app, which its host says by setting
-HALO_APP_CAN_QUIT. An iPhone, an iPad, an Apple TV and a Vision Pro leave to
-the system, and a Quit there only asked a question whose OK did nothing.
 "mac_app" is the Apple host's Mac app alone, which says so by setting
 HALO_HOST_MAC: the one Apple build with a setting the others ignore
 (display.frame_rate). "apple" is every Apple host build (HALO_IOS): the
 lobby's Y, which shares the invite link. "cloud_saves" requires an Apple host
-with the cloud-saves capability, advertised through HALO_HOST_CLOUD_SAVES. Returns -1 for a value that is none of these. A header
-of its own so that tools/ios_test.py can build the three cases.
+with the cloud-saves capability, advertised through HALO_HOST_CLOUD_SAVES.
+"tvos" is the Apple TV, whose host sets HALO_HOST_TVOS (its remote has no X
+or Y). "keyboard" is a build with a keyboard: the desktop ports, and an Apple
+host that says it has one (HALO_HOST_KEYBOARD: always on the Mac, on an iPad
+or iPhone when one is attached as the game starts). Returns -1 for a value
+that is none of these. A header of its own so that tools/ios_test.py can
+build the three cases.
 */
 
 #ifndef MENU_PLATFORM_H
@@ -24,16 +25,6 @@ of its own so that tools/ios_test.py can build the three cases.
 
 static int menu_platform_matches(char const *platform)
 {
-	if (!strcmp(platform, "quit"))
-	{
-#if defined(HALO_ANDROID)
-		return 0;
-#elif defined(HALO_ILP32)
-		return getenv("HALO_APP_CAN_QUIT") != NULL;
-#else
-		return 1;
-#endif
-	}
 	if (!strcmp(platform, "mac_app"))
 	{
 #if defined(HALO_ILP32) && !defined(HALO_ANDROID)
@@ -60,6 +51,28 @@ static int menu_platform_matches(char const *platform)
 		return 1;
 #else
 		return 0;
+#endif
+	}
+	if (!strcmp(platform, "tvos"))
+	{
+#if defined(HALO_IOS)
+		char const *tv = getenv("HALO_HOST_TVOS");
+
+		return tv && !strcmp(tv, "1");
+#else
+		return 0;
+#endif
+	}
+	if (!strcmp(platform, "keyboard"))
+	{
+#if defined(HALO_ANDROID)
+		return 0;
+#elif defined(HALO_ILP32)
+		char const *keyboard = getenv("HALO_HOST_KEYBOARD");
+
+		return keyboard && !strcmp(keyboard, "1");
+#else
+		return 1;
 #endif
 	}
 	if (strcmp(platform, "desktop") && strcmp(platform, "android"))

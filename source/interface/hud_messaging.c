@@ -1424,8 +1424,11 @@ static long compare_messages(
 void hud_messaging_update(
 	short local_player_index)
 {
+	/* port: the pause menu and the screens it opens (the settings hub among them) are drawn over the HUD, whose
+	messages ("Hold BACK for score") are text drawn after them, so they show through the menu: not while one is up */
 	if (!cinematic_in_progress() &&
 		local_player_index != NONE &&
+		!ui_widget_port_screen_visible(local_player_index) &&
 		game_engine_hud_draw_messages(local_player_get_player_index(local_player_index)))
 	{
 		long font_index = hud_get_font_index();
