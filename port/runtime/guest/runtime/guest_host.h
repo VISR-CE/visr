@@ -207,6 +207,7 @@ void host_gpu_texture_generate_mipmaps(gpu_texture texture, uint32_t base_level)
 void host_gpu_texture_destroy(gpu_texture texture);
 uint32_t host_gpu_texture_read(gpu_texture texture, void *pixels, uint32_t size);
 void host_gpu_texture_set_content(gpu_texture texture, uint32_t width, uint32_t height);
+void host_gpu_texture_multisample(gpu_texture texture, uint32_t samples);
 gpu_buffer host_gpu_buffer_create(uint32_t size);
 void host_gpu_buffer_write(gpu_buffer buffer, uint32_t offset, uint32_t size, const void *data, uint32_t flags);
 void host_gpu_stream_reserve(uint32_t vertex_bytes, uint32_t index_bytes);

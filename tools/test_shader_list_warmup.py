@@ -60,6 +60,7 @@ struct vertex_shader_object {
     unsigned long packed_mask;
 };
 struct nv2a_pixel_shader_key { unsigned char byte; };
+#define NV2A_PIXEL_SHADER_KEY_BASE_SIZE sizeof(struct nv2a_pixel_shader_key)
 struct gpu_pipeline_description {
     gpu_shader vertex_shader, pixel_shader;
     unsigned char attribute_kinds[GPU_ATTRIBUTE_COUNT];

@@ -755,9 +755,27 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		const char *comparison = comparison_operator(key->alpha_test_function);
 
 		if (!comparison)
+		{
 			xgpu_text_append(&text, "\tdiscard;\n");
+		}
+		else if (*comparison && key->alpha_test_samples && dialect->msl && comparison[0] != '=' && comparison[0] != '!')
+		{
+			/* multisampled: the samples covered as alpha passes the reference
+			over the pixel (its change across the pixel from fwidth), the rest
+			left as they are; alpha itself is kept, the game keeping values of
+			its own in destination alpha (upstream's 94882796) */
+			xgpu_text_append(&text,
+				"\tfloat test_alpha = clamp(result.a, 0.0, 1.0) * 255.0;\n"
+				"\tfloat test_coverage = clamp(%s(test_alpha - alpha_reference) / max(fwidth(test_alpha), 1.0) + 0.5, 0.0, 1.0);\n"
+				"\tint test_samples = int(test_coverage * %d.0 + 0.5);\n"
+				"\tif (test_samples == 0) discard;\n"
+				"\tgl_SampleMask[0] = (1 << test_samples) - 1;\n",
+				comparison[0] == '<' ? "-" : "", (int)key->alpha_test_samples);
+		}
 		else if (*comparison)
+		{
 			xgpu_text_append(&text, "\tif (!(floor(clamp(result.a, 0.0, 1.0) * 255.0 + 0.5) %s alpha_reference)) discard;\n", comparison);
+		}
 	}
 	if (dialect->debug_expression && *dialect->debug_expression)
 		xgpu_text_append(&text, "\tresult = vec4(vec3(%s), 1.0);\n", dialect->debug_expression);
@@ -778,7 +796,10 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 			xgpu_text_append(&text,
 				"\tFragmentWithDepth output;\n\toutput.color = fragment_color;\n"
 				"\toutput.depth = (as_type<uint>(replaced_depth) & 0x7f800000u) != 0x7f800000u ?\n"
-				"\t\t1.0 - replaced_depth : 0.0;\n\treturn output;\n");
+				"\t\t1.0 - replaced_depth : 0.0;\n%s\treturn output;\n",
+				key->alpha_test_samples ? "\toutput.sample_mask = uint(gl_SampleMask[0]);\n" : "");
+		else if (key->alpha_test_samples)
+			xgpu_text_append(&text, "\treturn FragmentOut{ fragment_color, uint(gl_SampleMask[0]) };\n");
 		else
 			xgpu_text_append(&text, "\treturn fragment_color;\n");
 	}

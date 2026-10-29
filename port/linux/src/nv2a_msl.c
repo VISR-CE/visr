@@ -293,11 +293,19 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 		"\treturn plain + color * (t.sample(white, coordinates, b) - plain);\n"
 		"}\n"
 		"#endif\n");
-	if (writes_depth)
+	/* a multisampled alpha test (nv2a_pixel_shader_key alpha_test_samples)
+	chooses the samples it covers, as GLSL's gl_SampleMask[0] */
+	if (writes_depth && key->alpha_test_samples)
+		xgpu_text_append(text,
+			"struct FragmentWithDepth { float4 color [[color(0)]]; float depth [[depth(any)]]; "
+			"uint sample_mask [[sample_mask]]; };\n");
+	else if (writes_depth)
 		xgpu_text_append(text,
 			"struct FragmentWithDepth { float4 color [[color(0)]]; float depth [[depth(any)]]; };\n");
+	else if (key->alpha_test_samples)
+		xgpu_text_append(text, "struct FragmentOut { float4 color [[color(0)]]; uint sample_mask [[sample_mask]]; };\n");
 	xgpu_text_append(text, "fragment %s fragment_main(FragmentIn in [[stage_in]], constant Uniforms &u [[buffer(0)]]",
-		writes_depth ? "FragmentWithDepth" : "float4");
+		writes_depth ? "FragmentWithDepth" : key->alpha_test_samples ? "FragmentOut" : "float4");
 	for (stage = 0; stage < 4; stage++)
 	{
 		const char *type = key->sampler_type[stage] == _xgpu_sampler_3d ? "texture3d<float>" :
@@ -338,4 +346,6 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	xgpu_text_append(text, "\tfloat xFog = in.xFog;\n");
 	msl_uniform_locals(text, dialect, GPU_UNIFORM_PIXEL);
 	xgpu_text_append(text, "\tfloat4 fragment_color;\n");
+	if (key->alpha_test_samples)
+		xgpu_text_append(text, "\tint gl_SampleMask[1] = { -1 };\n");
 }

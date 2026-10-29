@@ -156,6 +156,12 @@ void gpu_texture_set_content(gpu_texture texture, uint32_t width, uint32_t heigh
 	host_gpu_texture_set_content(texture, width, height);
 }
 
+void gpu_texture_multisample(gpu_texture texture, uint32_t samples)
+{
+	IMMEDIATE_FLUSH();
+	host_gpu_texture_multisample(texture, samples);
+}
+
 gpu_buffer gpu_buffer_create(uint32_t size)
 {
 	IMMEDIATE_FLUSH();
