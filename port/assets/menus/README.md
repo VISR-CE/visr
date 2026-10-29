@@ -64,7 +64,9 @@ the game made from the player's own map (never shipped), drawn instead of
 `png` where it is there and can be drawn. `png` is then what is drawn where it
 is not (a transparent picture, `xbox/art/none.png`, leaves the picture out).
 The in-game settings hub's pictures are frames of this kind, one for each row:
-`xbox/art/<row>.png` where a redraw ships, else `cache/xbox/<row>.png`.
+`xbox/art/<row>.png` where a redraw ships, else `cache/xbox/v1/<row>.png`. The generator's `CACHE` constant in
+`tools/xbox_menus.py` sets the version; bump it to refresh saved pictures.
+Unversioned pictures are ignored.
 A list's item shows frame 1 while it has the focus and frame 0 otherwise, if
 the bitmap has exactly two frames; the game's functions choose others.
 

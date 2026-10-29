@@ -94,9 +94,9 @@ static char const bad_xml[] =
 
 static char const screen_xml[] =
 	"<menus><bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
-	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
-	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
-	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
+	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/v1/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/v1/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
+	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/v1/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
 	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
@@ -919,7 +919,7 @@ void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, bool
 saved from the original, which the probe says of upgrade.png) */
 int halo_menus_art_needs_save(char const *cache_path)
 {
-	return !halo_menus_cache_exists(cache_path) || !strcmp(cache_path, "cache/xbox/upgrade.png");
+	return !halo_menus_cache_exists(cache_path) || !strcmp(cache_path, "cache/xbox/v1/upgrade.png");
 }
 
 int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
@@ -946,16 +946,16 @@ static void check_extraction(void)
 
 	menu_art_texture(0, &levels);
 	check(hardware_requests == 0 && art_extractions == 0, "texture resolution does not extract pictures");
-	check(!halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is not saved before the menu update");
+	check(!halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is not saved before the menu update");
 	pc_menu_art_extract();
 	check(hardware_requests == 2 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
 		"now, are asked for (%ld, %ld)", hardware_requests, art_extractions);
-	check(halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is saved");
+	check(halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is saved");
 	{
 		char note[32];
 
-		check(halo_menus_cache_write_note("cache/xbox/extracted.png.key", "00ff 2 2 2 2\n") &&
-			halo_menus_cache_read("cache/xbox/extracted.png.key", note, sizeof(note) - 1) == 13, "a note is kept beside a picture");
+		check(halo_menus_cache_write_note("cache/xbox/v1/extracted.png.key", "00ff 2 2 2 2\n") &&
+			halo_menus_cache_read("cache/xbox/v1/extracted.png.key", note, sizeof(note) - 1) == 13, "a note is kept beside a picture");
 	}
 	pc_menu_art_extract();
 	check(art_extractions == 2, "a picture is saved once");
@@ -973,15 +973,16 @@ static void check_art(void)
 	long index;
 	struct { char const *art; unsigned int expected; char const *what; } const cases[] =
 	{
-		{ "cache/xbox/there.png|xbox/art/shipped.png", 'C', "the player's cache is drawn before the shipped png" },
-		{ "cache/xbox/missing.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache is missing" },
-		{ "cache/xbox/broken.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache cannot be" },
-		{ "cache/xbox/missing.png|cache/xbox/missing2.png", 0, "no picture is drawn where there is none" },
+		{ "cache/xbox/v1/there.png|xbox/art/shipped.png", 'C', "the player's cache is drawn before the shipped png" },
+		{ "cache/xbox/v1/missing.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache is missing" },
+		{ "cache/xbox/v1/broken.png|xbox/art/shipped.png", 'S', "the shipped png is drawn where the cache cannot be" },
+		{ "cache/xbox/v1/missing.png|cache/xbox/v1/missing2.png", 0, "no picture is drawn where there is none" },
 		{ "xbox/art/shipped.png", 'S', "a png alone is drawn" },
-		{ "../cache/xbox/there.png|xbox/art/shipped.png", 'S', "a cache outside the menus folder is not read" },
+		{ "cache/xbox/v1/legacy.png|xbox/art/shipped.png", 'S', "an unversioned picture is ignored" },
+		{ "../cache/xbox/v1/there.png|xbox/art/shipped.png", 'S', "a cache outside the menus folder is not read" },
 	};
 
-	snprintf(path, sizeof(path), "%smenus/cache/xbox", folder);
+	snprintf(path, sizeof(path), "%smenus/cache/xbox/v1", folder);
 	{
 		char command[500];
 
@@ -990,7 +991,7 @@ static void check_art(void)
 	}
 	for (index = 0; index < 2; index++)
 	{
-		snprintf(path, sizeof(path), "%smenus/cache/xbox/%s.png", folder, index ? "broken" : "there");
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/%s.png", folder, index ? "broken" : "there");
 		file = fopen(path, "wb");
 		check(file != NULL, "%s is written", path);
 		if (file)
@@ -998,6 +999,14 @@ static void check_art(void)
 			fputc(index ? 0 : 'C', file);
 			fclose(file);
 		}
+	}
+	snprintf(path, sizeof(path), "%smenus/cache/xbox/legacy.png", folder);
+	file = fopen(path, "wb");
+	check(file != NULL, "the old unversioned picture is written");
+	if (file)
+	{
+		fputc('C', file);
+		fclose(file);
 	}
 	for (index = 0; index < (long)(sizeof(cases) / sizeof(*cases)); index++)
 	{
@@ -1033,16 +1042,16 @@ int main(int argc, char **argv)
 		char path[400];
 		FILE *file;
 
-		snprintf(path, sizeof(path), "mkdir -p '%smenus/cache/xbox'", folder);
+		snprintf(path, sizeof(path), "mkdir -p '%smenus/cache/xbox/v1'", folder);
 		check(system(path) == 0, "the cache folder is made");
-		snprintf(path, sizeof(path), "%smenus/cache/xbox/extracted.png", folder);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/extracted.png", folder);
 		remove(path);
-		snprintf(path, sizeof(path), "%smenus/cache/xbox/present.png", folder);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/present.png", folder);
 		file = fopen(path, "wb");
 		check(file != NULL, "%s is written", path);
 		if (file)
 			fclose(file);
-		snprintf(path, sizeof(path), "%smenus/cache/xbox/upgrade.png", folder);
+		snprintf(path, sizeof(path), "%smenus/cache/xbox/v1/upgrade.png", folder);
 		file = fopen(path, "wb");
 		if (file)
 		{

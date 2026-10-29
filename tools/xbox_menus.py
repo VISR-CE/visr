@@ -274,13 +274,14 @@ PAGE_ROWS = (
 # tries a frame's cache before its png, so a frame is "cache + png" only where no redraw is shipped; a redraw added
 # later takes the place by regenerating (test_generation_is_deterministic_and_checked_in).
 ART = 'xbox/art'
-CACHE = 'cache/xbox'
+# Bump this directory to rebuild saved pictures after the decode or save format changes.
+CACHE = 'cache/xbox/v1'
 NONE_PNG = f'{ART}/none.png'
 PICTURE_SIZE = (512, 256)
 
 
 # where ui.map has each row's picture (the profile editor's own frames), which the menus save into the cache the
-# first time the main menu draws (halo_menus_art_extract): the profile editor's Controller Setup and Change Name
+# first main-menu update (pc_menu_art_extract): the profile editor's Controller Setup and Change Name
 # pictures, and the multiplayer type screen's diagrams
 PICTURE_SOURCES = {
     'controls': (r'ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options', 1),

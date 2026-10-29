@@ -520,7 +520,7 @@ def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
     assert by_key['audio'].attrib == {'png': 'xbox/art/audio.png', 'width': '512', 'height': '256'}
     for key in ('controls', 'video', 'network', 'keyboard'):
         frame = by_key[key]
-        assert frame.get('cache') == f'cache/xbox/{key}.png'
+        assert frame.get('cache') == f'cache/xbox/v1/{key}.png'
         assert frame.get('png') == 'xbox/art/none.png'
         # (ui.map has it: the main menu saves it into the cache, where a game map's hub finds it)
         assert frame.get('map', '').startswith('ui\\shell\\main_menu\\') and frame.get('index') is not None

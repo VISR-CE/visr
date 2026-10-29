@@ -9,11 +9,11 @@
 		<string text="The keys and mouse buttons\nfor each action.\n\nCurrent Profile:" platform="keyboard" />
 	</strings>
 	<bitmap name="xbox/settings/hub_pictures">
-		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="1" cache="cache/xbox/controls.png" png="xbox/art/none.png" width="512" height="256" />
+		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="1" cache="cache/xbox/v1/controls.png" png="xbox/art/none.png" width="512" height="256" />
 		<frame png="xbox/art/video.png" width="512" height="256" platform="mac_app" />
 		<frame png="xbox/art/audio.png" width="512" height="256" />
 		<frame png="xbox/art/internet.png" width="512" height="256" />
-		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/xbox/keyboard.png" png="xbox/art/none.png" width="512" height="256" platform="keyboard" />
+		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/xbox/v1/keyboard.png" png="xbox/art/none.png" width="512" height="256" platform="keyboard" />
 	</bitmap>
 	<widget name="xbox/settings/settings_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/gradient">
 		<on event="b" back="true" />
