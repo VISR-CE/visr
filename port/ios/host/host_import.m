@@ -60,6 +60,14 @@ static int texture_progress(void *context,uint64_t done,uint64_t total) {
         [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
     });return 1;
 }
+/* Start playing as a filled button in the bar's blue, the size of Choose XISO: the plain text button it replaces was a
+   small target that a Mac's mouse missed (a Catalyst build did not respond to clicks on it) */
+static void start_playing_style(UIButton *button) {
+    UIButtonConfiguration *style=UIButtonConfiguration.filledButtonConfiguration;
+    style.title=@"Start playing";style.baseBackgroundColor=halo_upscale_bar_blue();style.baseForegroundColor=UIColor.blackColor;
+    style.cornerStyle=UIButtonConfigurationCornerStyleLarge;style.contentInsets=NSDirectionalEdgeInsetsMake(14,24,14,24);
+    button.configuration=style;
+}
 /* the on-device upscaler's import phase (rule 2): the same bar and the same "Start playing" skip */
 static int upscale_progress(void *context,const struct host_texture_upscale_import_status *status) {
     HaloImportController *controller=(__bridge HaloImportController *)context;
@@ -90,7 +98,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         /* (rounded down: 100% only when every texture is made) */
         else controller.statusLabel.text=[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
         /* (the button keeps its place while it waits, so nothing on the screen moves when it appears) */
-        [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
+        if(!controller.cancelButton.configuration||![controller.cancelButton.configuration.title isEqual:@"Start playing"])start_playing_style(controller.cancelButton);
         controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;
         controller.cancelButton.enabled=!menu_phase&&!controller.cancelled;controller.cancelButton.accessibilityElementsHidden=menu_phase;
     });return 1;
@@ -153,6 +161,8 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 }
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    /* (first responder, so a keyboard's Return reaches keyCommands) */
+    [self becomeFirstResponder];
     if (self.pendingImage && !self.importing) {NSURL *url=self.pendingImage;self.pendingImage=nil;[self importImage:url];}
 }
 - (void)chooseImage {
@@ -182,6 +192,18 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
         dispatch_async(dispatch_get_main_queue(),^{[self.spinner stopAnimating];self.importing=NO;self.ready=YES;});
     });
+}
+- (BOOL)canBecomeFirstResponder { return YES; }
+/* Return or Enter presses Start playing once it is offered (a Mac's or an iPad's keyboard) */
+- (NSArray<UIKeyCommand *> *)keyCommands {
+    NSMutableArray *commands=[NSMutableArray new];
+    for(NSString *input in @[@"\r",@"\x03"]){UIKeyCommand *command=[UIKeyCommand keyCommandWithInput:input modifierFlags:0 action:@selector(startPlayingKey:)];
+        command.wantsPriorityOverSystemBehavior=YES;[commands addObject:command];}
+    return commands;
+}
+- (void)startPlayingKey:(UIKeyCommand *)command {
+    (void)command;
+    if(self.upscaling&&!self.cancelButton.hidden&&self.cancelButton.alpha>0&&self.cancelButton.enabled)[self cancelImport];
 }
 - (void)cancelImport {self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
 - (void)importImage:(NSURL *)url {
