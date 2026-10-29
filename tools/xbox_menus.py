@@ -466,6 +466,32 @@ def multiplayer_documents(assets, bitmaps):
             ET.SubElement(shared[-1], 'on', event='left_mouse',
                           run='mouse emit back event' if button == 'b' else 'mouse emit accept event')
         owned.update((e.tag, e.get('name')) for e in shared)
+    # Keep the join warning's CANCEL-first focus while drawing the Xbox confirmation art.
+    base = 'error/confirm_join_big'
+    for (tag, name), element in definitions.items():
+        if tag == 'widget' and name.startswith(base):
+            shared.append(deepcopy(element))
+            owned.add((tag, name))
+    warning = {e.get('name'): e for e in shared if e.tag == 'widget' and e.get('name', '').startswith(base)}
+    warning[base + '_text_box'].set('width', '239')
+    bar_child = warning[base + '_modal_fullscreen'].find(f"child[@widget='{base}_button_bar']")
+    bar_child.set('x', '268')
+    bar_child.set('y', '310')
+    for index, (button, caption, icon) in enumerate((('cancel', 'CANCEL', 'b'), ('ok', 'OK', 'a'))):
+        name = base + '_button_' + button
+        warning[base + '_button_bar'].find(f"child[@widget='{name}']").set('x', str(index * 88))
+        label = warning[name]
+        label.attrib.pop('string_list')
+        label.attrib.pop('string_index')
+        label.set('text', caption)
+        label.set('width', '85')
+        label.set('align', 'left')
+        label.set('text_x', '16')
+        label.set('text_y', '0')
+        art = base + '/' + icon + '_butn'
+        child(label, art)
+        widget(shared, art, width=16, height=20, bitmap='xbox/browser/' + icon + '_butn_sm')
+        owned.add(('widget', art))
     pending = [e for root in documents.values() for e in root]
     while pending:
         element = pending.pop()
@@ -534,7 +560,7 @@ def multiplayer_documents(assets, bitmaps):
         for c in w.findall('child'):
             leaf = c.get('widget', '').rsplit('/', 1)[-1]
             if 'button_bar' in leaf:
-                c.set('y', '449')
+                c.set('y', '310' if leaf == 'confirm_join_big_button_bar' else '449')
 
     # menu_functions.c looks up map names and browser stats by PC tag path,
     # independently of the widgets' string_list references.
@@ -908,6 +934,7 @@ def screen_pairs():
                    'direct_ip/direct_ip_screen', 'server_settings/server_settings_screen', 'lobby/lobby_screen'):
         pairs.append(('pc/xbox/' + MP + '/' + suffix, MP + '/' + suffix))
     pairs.append(('pc/xbox/main_menu/quit_select/quit_screen', 'main_menu/quit_select/quit_screen'))
+    pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))
     for group in ('vehicle', 'teamplay'):
         name = f'main_menu/settings_select/multiplayer_setup/{group}_options_edit/{group}_options_screen'
         pairs.append(('ui/shell/' + name, name))
