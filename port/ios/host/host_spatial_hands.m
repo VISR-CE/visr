@@ -28,8 +28,9 @@ controller's aim location (host_spatial_pose.h). The up is a guess about
 ARKit's wrist axes, which debug.hand_log measures once against the room's up.
 The game sample also runs the gesture recognizer (host_spatial_hands.c,
 plain C over the reduced joints below) and host_spatial_gamepad_map onto the
-same virtual gamepad the Sense pair fills; it marks itself gamepad_valid 2 so
-xinput_sdl.c, which takes only 1, leaves port 0 alone.
+same virtual gamepad the Sense pair fills; it marks itself gamepad_valid 2,
+which marks the sample as the hands source's. xinput_sdl.c merges that into
+port 0 like a Sense sample and remaps it differently in menus.
 
 Hands sit outside host_spatial.m's visionOS 27 gates. Accessory tracking is
 only complete in the 27 SDK (HOST_SPATIAL_SENSE_SDK) and the Sense tracker is
@@ -157,10 +158,11 @@ static void read_settings(void)
 	{
 		float clamped = deadzone > 60.0f ? 60.0f : 5.0f;
 
-		/* this read runs for everyone on the immersive path (hands_on() calls read_settings
-		from host_spatial_hands_frame, called every drawing frame regardless of input.aim), but
-		the setting only means anything with input.aim = "hands" (its own table description), so
-		the warning stays scoped to that: rule 10 holds for a controller or head user */
+		/* the setting only means anything with input.aim = "hands" (its own table
+		description), and this file's own read of input.aim is what says so. Nothing reaches
+		this file with any other value today, since host_spatial.m's hands_frame and its
+		sample branch both test aim_hands before calling in, so the scope is a guard against
+		a later caller rather than a case that happens now */
 		if (aim_hands)
 			host_logf(HOST_LOG_WARN, "spatial: input.hand_turn_deadzone %g is outside 5 to 60; using %g",
 				(double)deadzone, (double)clamped);
@@ -561,10 +563,10 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	}
 }
 
-/* debug.hand_log: one line per gesture state change (visr-hands-spec.md rule 9), the value
-measured against the threshold that decided it, to three decimals. The prayer sign's hand is
-always 0 (host_spatial_hands.c's emit calls: it is both hands together, neither one), so it
-logs as "both" rather than a side */
+/* debug.hand_log: one line per gesture state transition, the value measured against the
+threshold it crossed, to three decimals. The prayer sign's hand is always 0
+(host_spatial_hands.c's emit calls: it is both hands together, neither one), so it logs as
+"both" rather than a side */
 static void log_event(const struct hands_event *event)
 {
 	char gesture[16];
@@ -658,8 +660,9 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
 			CACurrentMediaTime(), controls, events, 16);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
-		/* the 2 says this sample is the hands source's without offering port
-		0 a gamepad, which xinput_sdl.c takes only at exactly 1 */
+		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
+		merges into port 0 like a Sense sample but remaps differently in menus
+		(its sense_gamepad_state) */
 		sample->gamepad_valid = 2;
 		if (hand_log)
 			for (i = 0; i < count; i++)

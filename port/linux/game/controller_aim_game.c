@@ -2179,9 +2179,9 @@ void halo_controller_debug_marker(void)
 /* ---------- for input_replay.c */
 
 /* for input_replay.c's header, decided at a run's first tick: 1 when this
-run's configuration can aim with a hand (input.aim = "controller" and a
-synthetic controller, or a host that has the Sense controllers connected or
-loading). The caller adds the stereo mode */
+run's configuration can aim with a hand (input.aim = "controller" or
+"hands", with a synthetic controller, or a host whose Sense controllers or
+bare hands are tracking or loading). The caller adds the stereo mode */
 int halo_controller_aim_configured(void)
 {
 	settings();

@@ -102,7 +102,8 @@ fills both controls (index 0 left, 1 right) for host_spatial_gamepad_map,
 and up to `capacity` state-change events for the caller to log. Returns
 the event count, clamped to `capacity`: a caller's events[0..count) is
 always in bounds, even when a sample changes more states than `capacity`
-holds. Never sets other->menu (Back plus Start leaves the space) */
+holds. Never sets other->menu: there is no off-hand gesture for it, and
+host_spatial_gamepad_map reads that field as the pad's Back */
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2],
 	int aiming_hand, const float aim_forward[3], int turn_snap, float deadzone_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity);
@@ -112,8 +113,11 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 
 /* the drawing sample's hands, queried at predict_to (the drawable's
 trackable-anchor time, the instant the Sense tracker predicts to) and held
-for the drawing sample that follows in this frame; a NULL drawable only
-drops the held one, as host_spatial_frame's does */
+for the drawing sample that follows in this frame; a NULL drawable drops the
+held one, as host_spatial_frame's does. The hold through a pending recenter
+is the caller's instead: host_spatial.m's hands_frame returns without calling
+in at all, drawable or not, so the held sample stays paired with the head it
+was made against until the origin rebases */
 void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[3], double predict_to);
 /* fills the sample's hands, reason and (game sample) the gamepad from the
 latest hand anchors; returns 1 when it filled, 0 when hands are not the

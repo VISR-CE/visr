@@ -3,8 +3,8 @@ with the tip-loss hold and its no-refire-on-return rule, the gun and off
 hand's button and stick mapping, the drag and aim turns, and the prayer
 sign's dwell and Start pulse. Plain C over the reduced joint facts only, so
 port/ios/tests/hands_probe.c can run it under ASan and UBSan on a Mac;
-host_spatial_hands.m supplies the joints and reads what this returns (Task
-5's sampler wiring, not here). No host_logf: the caller logs the events. */
+host_spatial_hands.m supplies the joints and reads what this returns. No
+host_logf: the caller logs the events. */
 #include "host_spatial_hands.h"
 #include "host_spatial_gamepad.h"
 #include <math.h>
@@ -169,14 +169,13 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	}
 }
 
-/* the prayer sign's palm frame for one hand: centre, normal and finger
-direction, built from the wrist and the index and little metacarpals only
-(the joints ARKit never drops, per visr-hands-behaviour.md section 9).
-The palm normal's sign is measured on device, not reasoned (Task 5's check,
-visr-hands-spec.md rule 8); if the measurement disagrees with the formula
-below, flip the sign here, nowhere else, since every caller of this
-function reads the same convention */
-static void palm_frame(const struct host_spatial_hand_joints *hand, float centre[3], float normal[3],
+/* the prayer sign's palm frame for one hand: center, normal and finger
+direction, built from the wrist and the index and little metacarpals only,
+the joints that stay tracked when two hands come together. The palm normal's
+sign is measured on device, not reasoned; if the measurement disagrees with
+the formula below, flip the sign here, nowhere else, since every caller of
+this function reads the same convention */
+static void palm_frame(const struct host_spatial_hand_joints *hand, float center[3], float normal[3],
 	float finger_direction[3])
 {
 	const float *wrist = hand->wrist, *index_mc = hand->metacarpal[0], *little_mc = hand->metacarpal[1];
@@ -185,7 +184,7 @@ static void palm_frame(const struct host_spatial_hand_joints *hand, float centre
 
 	for (axis = 0; axis < 3; axis++)
 	{
-		centre[axis] = (wrist[axis] + index_mc[axis] + little_mc[axis]) / 3.0f;
+		center[axis] = (wrist[axis] + index_mc[axis] + little_mc[axis]) / 3.0f;
 		mean_mc[axis] = (index_mc[axis] + little_mc[axis]) / 2.0f;
 	}
 	sub3(index_mc, wrist, index_dir);
@@ -213,19 +212,19 @@ up, independent of the palm normals' sign. *dot is the measured dot product when
 returns 1 (undefined otherwise, as prayer_ready already failed and the frames were never
 built); separating this from the sign test is what lets hands_recognize log the dot it
 measured even while the sign convention is wrong, rather than the gesture staying silent
-until a device run has already settled it (visr-hands-spec.md rule 9's "armed off a joint
-that stays tracked", applied to the sign the way it is applied to a lost joint) */
+until a device run has already settled it: a gate armed off joints that stay tracked can
+report itself, where the sign cannot */
 static int prayer_near(const struct host_spatial_hand_joints joints[2], float *dot)
 {
-	float centre[2][3], normal[2][3], finger_direction[2][3];
+	float center[2][3], normal[2][3], finger_direction[2][3];
 	int hand;
 
 	if (!prayer_ready(joints))
 		return 0;
 	for (hand = 0; hand < 2; hand++)
-		palm_frame(&joints[hand], centre[hand], normal[hand], finger_direction[hand]);
+		palm_frame(&joints[hand], center[hand], normal[hand], finger_direction[hand]);
 	*dot = dot3(normal[0], normal[1]);
-	if (distance3(centre[0], centre[1]) > HANDS_PRAYER_DISTANCE_METERS)
+	if (distance3(center[0], center[1]) > HANDS_PRAYER_DISTANCE_METERS)
 		return 0;
 	if (finger_direction[0][2] < HANDS_PRAYER_FINGERS_UP || finger_direction[1][2] < HANDS_PRAYER_FINGERS_UP)
 		return 0;
@@ -322,13 +321,13 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	{
 		state->drag_anchored = 0; /* the pinch is open: the next close picks a fresh anchor */
 
-		/* an untracked gun hand has no aim to turn from: the final memset below (visr's Task 4
-		controller ruling 1) zeros controls[g].stick_x regardless, but it cannot undo an event
-		already emitted or an armed/pulse state already set from whatever aim_forward the
-		caller happened to pass (a zero vector, or a held last-known direction past the grace).
-		Gating the whole computation on joints[g].tracked, the same signal the final memset
-		reads, keeps the aim turn silent and the state untouched while the hand is gone, exactly
-		as the pinch loop above already does for its own events (pinch_update's hand_tracked) */
+		/* an untracked gun hand has no aim to turn from: the final memset below zeros
+		controls[g].stick_x regardless, but it cannot undo an event already emitted or an
+		armed/pulse state already set from whatever aim_forward the caller passed, which for an
+		untracked hand is a zero vector whose yaw reads 0. Gating the whole computation on
+		joints[g].tracked, the same signal the final memset reads, keeps the aim turn silent and
+		the state untouched while the hand is gone, exactly as the pinch loop above already does
+		for its own events (pinch_update's hand_tracked) */
 		if (joints[g].tracked)
 		{
 			float yaw, excess, turn_sign;
@@ -389,7 +388,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	geometry gate (prayer_near) is logged on its own on/off transition with the dot it
 	measured against HANDS_PRAYER_OPPOSED_DOT: gating that log on the sign itself, like
 	prayer_holds used to, would mean a wrong sign convention never logs anything, which is
-	exactly what Task 5's device measurement needs to read */
+	exactly what the device measurement that settles the sign has to read */
 	{
 		float dot = 0.0f;
 		int near = prayer_near(joints, &dot);

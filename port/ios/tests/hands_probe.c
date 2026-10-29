@@ -480,10 +480,9 @@ static void aim_turn_snap(void)
 
 /* an untracked gun hand turns nothing, whatever forward it is given: the yaw computation, the
 aim-turn event and the armed/pulse state it would set are all gated on joints[g].tracked, the
-same signal the final memset reads to zero controls[g] (visr's Task 4 controller ruling 1), so
-a hand that has never been tracked (host_spatial_hands.m's sampler has no last-known forward to
-fall back on until the forearm has been tracked at least once, and so passes the zeroed
-aim.forward of an untracked hand) produces no event either, not just a zeroed stick_x */
+same signal the final memset reads to zero controls[g]. So the zeroed aim.forward the sampler
+passes for an untracked hand (host_spatial_hands.m, which holds no last direction of its own)
+produces no event either, not just a zeroed stick_x */
 static void aim_turn_untracked_gun_hand(void)
 {
 	struct hands_state state;
@@ -511,7 +510,7 @@ static void aim_turn_untracked_gun_hand(void)
 }
 
 /* the aim turn is suppressed while the gun hand's middle pinch is closed, even well past the
-deadzone: the drag is the only source of stick_x (Review Focus 4) */
+deadzone: the drag is the only source of stick_x */
 static void aim_turn_suppressed_by_drag(void)
 {
 	struct hands_state state;

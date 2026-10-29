@@ -678,10 +678,16 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
   the fire pinch accepts, the crouch pinch backs out, and the walk pinches
   move the highlight. `input.aim_hand` picks the dominant hand and mirrors
   every gesture above. A tracked Sense pair takes over automatically, and
-  hands come back when the pair is put down; a classic gamepad still works
-  for buttons alongside hand aiming. `debug.hand_log` logs every gesture's
-  state change with the value measured against its threshold. Unlike the
-  Sense controllers, hand tracking needs no visionOS 27 feature.
+  hands come back when the pair is put down; the space asks for the Sense
+  accessory-tracking permission as well as the hand tracking one, so a pair
+  picked up can take over. A classic gamepad still works for buttons
+  alongside hand aiming: its Back held as the prayer sign fires reaches the
+  game as Back plus Start, which ends a `debug.controller_record` recording,
+  and is not the chord that leaves the immersive space (that one reads Back
+  and Start from a gamepad's own buttons, held together for a second).
+  `debug.hand_log` logs every gesture's state change with the value measured
+  against its threshold. Unlike the Sense controllers, hand tracking needs no
+  visionOS 27 feature.
 - **Game data.** As on iPhone: the setup screen offers the Files picker, and
   an XISO placed in the app's Documents folder is imported.
 - **Closing the window pauses the game**, sound included, and reopening Halo
