@@ -2638,7 +2638,7 @@ static void multiplayer_mode_set(struct widget_instance *widget)
 /* the main menu's build number (ui_widget_game_data_input_functions.c): this app's version */
 void pc_menu_version_text(char *text, long size)
 {
-	char version[24];
+	char version[64];
 
 	host_sdl_app_version(version, sizeof(version));
 	snprintf(text, size, "VISR %s", version);

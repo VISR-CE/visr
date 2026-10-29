@@ -374,8 +374,8 @@ def main():
     # the imported maps: an uninstall would take them, and the upload with them)
     import time
     command.append(f'-DHALO_BUILD_NUMBER={args.build_number or time.strftime("%Y%m%d.%H%M%S")}')
-    if args.marketing_version:
-        command.append(f'-DHALO_MARKETING_VERSION={args.marketing_version}')
+    # An empty override restores Git-derived dev metadata in a reused release build directory.
+    command.append(f'-DHALO_MARKETING_VERSION={args.marketing_version or ""}')
     run(*command)
     # an App Store archive leaves the product as a link into its own intermediates, which the next plain build
     # cannot write through ("unable to create directory"): a link there is removed first
@@ -650,7 +650,7 @@ def build_mac(args, cloud, data_packs=()):
         f'-DHALO_DATA_PACK_CHANNEL_NAME={args.data_pack_channel or ""}',
         f'-DHALO_RENDER_VALIDATION={"ON" if args.render_validation == "on" else "OFF"}',
         f'-DHALO_BUILD_NUMBER={time.strftime("%Y%m%d.%H%M%S")}',
-        *([f'-DHALO_MARKETING_VERSION={args.marketing_version}'] if args.marketing_version else []),
+        f'-DHALO_MARKETING_VERSION={args.marketing_version or ""}',
         *([f'-DHALO_FRAME_PACING={args.frame_pacing.upper()}'] if args.frame_pacing else []),*cloud,*data_packs,development_hooks(args),
         *host_pgo_flags(args.host_pgo))
     # ad hoc, except with --cloud-saves or --benchmark-upload: iCloud entitlements need a development signature and a

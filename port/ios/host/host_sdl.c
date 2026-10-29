@@ -17,6 +17,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_stereo.h"
 #endif
 #include "host.h"
+#include "host_app_version.h"
 #include "host_config.h"
 #include "host_cloud_saves.h"
 #include "host_frame_pacer.h"
@@ -1014,7 +1015,7 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
 
 void host_sdl_app_version(char *buffer, unsigned int size)
 {
-    CFTypeRef version = CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), CFSTR("CFBundleShortVersionString"));
+    CFTypeRef version = host_app_version_string(CFBundleGetMainBundle());
 
     if (!size) return;
     buffer[0] = 0;

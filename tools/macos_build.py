@@ -72,8 +72,8 @@ def native_commands(args, data_packs):
         configure.append('-DHALO_BENCHMARK_LOCAL_ROUTES=ON')
     if args.frame_pacing:
         configure.append(f'-DHALO_FRAME_PACING={args.frame_pacing.upper()}')
-    if args.marketing_version:
-        configure.append(f'-DHALO_MARKETING_VERSION={args.marketing_version}')
+    # Clear a cached release override when returning to a development build.
+    configure.append(f'-DHALO_MARKETING_VERSION={args.marketing_version or ""}')
     if (getattr(args, 'shader_upload', False) or getattr(args, 'perf_reports', False)) and not args.team and not getattr(args, 'unsigned', False):
         raise ValueError('--native-mac --shader-upload/--perf-reports needs --team or --unsigned for compile validation')
     build = ['cmake', '--build', str(BUILD), '--config', 'Release', '--target', 'VISR', '--', '-quiet']

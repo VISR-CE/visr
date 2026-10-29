@@ -2044,7 +2044,7 @@ static void set_textbox_to_build_number(
 	else if (!build_number_string[0])
 	{
 		extern void pc_menu_version_text(char *text, long size);
-		char version[32];
+		char version[64];
 
 		pc_menu_version_text(version, sizeof(version));
 		ascii_to_wide(

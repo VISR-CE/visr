@@ -154,7 +154,7 @@ def bundle_identity(app):
     import plistlib
     with (app / 'Contents/Info.plist').open('rb') as stream:
         info = plistlib.load(stream)
-    return {'version': str(info.get('CFBundleShortVersionString', '')), 'build': str(info.get('CFBundleVersion', ''))}
+    return {'version': str(info.get('VISRBuildDescription') or info.get('CFBundleShortVersionString', '')), 'build': str(info.get('CFBundleVersion', ''))}
 
 
 def release_commit(repo, tag):

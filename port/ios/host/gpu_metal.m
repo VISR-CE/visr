@@ -1,3 +1,4 @@
+#include "host_app_version.h"
 #include "astc_policy.h"
 #include "host_perf_hooks.h"
 #include "host_perf_metal.h"
@@ -4927,7 +4928,7 @@ static void frame_log_start(void)
 		fprintf(frame_log.file, "session start=%s build=%s version=%s\n",
 			[format stringFromDate:NSDate.date].UTF8String,
 			[[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] description].UTF8String ?: "?",
-			[[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] description].UTF8String ?: "?");
+			[host_app_version_description() description].UTF8String ?: "?");
 		fflush(frame_log.file);
 	}
 	frame_log.started = frame_log.window_started = CACurrentMediaTime();
