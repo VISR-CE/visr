@@ -224,6 +224,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
 @property(nonatomic) BOOL stateValid, launchStarted, menuPrepared;
 @property(nonatomic) NSMutableSet<NSString *> *menuGenerations;
 @property(nonatomic, copy) void (^updateCompletion)(BOOL);
+@property(nonatomic) NSMutableArray<void (^)(BOOL)> *joinedCompletions;
 @property(nonatomic) BOOL notModified;
 @property(nonatomic, copy) NSString *launchFolder;
 @property(nonatomic, copy) NSDictionary *identity;
@@ -262,6 +263,36 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
 - (BOOL)generationName:(id)value {
     return [value isKindOfClass:NSString.class] && (![value length] || PackMatches(value, @"^[1-9][0-9]{0,15}-[0-9a-f]{64}\\z"));
 }
+static NSMutableDictionary<NSString *, HostDataPackStore *> *PackSharedStores;
+// Roots whose current trial this process began. Only a trial left by an earlier process is a crashed launch; one begun
+// here is still running, whichever instance looks at it.
+static NSMutableSet<NSString *> *PackTrialRoots;
+static void PackNoteTrial(NSString *root) {
+    @synchronized(HostDataPackStore.class) { if (!PackTrialRoots) PackTrialRoots = [NSMutableSet set]; [PackTrialRoots addObject:root.stringByStandardizingPath]; }
+}
+static BOOL PackTrialIsOurs(NSString *root) {
+    @synchronized(HostDataPackStore.class) { return [PackTrialRoots containsObject:root.stringByStandardizingPath]; }
+}
+// Stage folders carry the process ID: a store removes only those an earlier process left, never one another store of
+// this process is still filling and validating.
+static NSString *PackStagePrefix(void) { return [NSString stringWithFormat:@".stage-%d-", getpid()]; }
+static BOOL PackStaleStage(NSString *name) { return [name hasPrefix:@".stage-"] && ![name hasPrefix:PackStagePrefix()]; }
++ (instancetype)sharedStoreWithRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
+    @synchronized(HostDataPackStore.class) {
+        NSString *path = root.stringByStandardizingPath;
+        HostDataPackStore *store = path ? PackSharedStores[path] : nil;
+        if (store && [store.kind isEqual:kind] && [store.channel isEqual:channel] && [store.compatibility isEqual:compatibility]) return store;
+        if (store) host_logf(HOST_LOG_WARN, "data-packs: %s store asked for a root that serves %s; keeping them apart", kind.UTF8String, store.kind.UTF8String);
+        HostDataPackStore *created = [[self alloc] initWithRoot:root bundled:bundled kind:kind channel:channel publicKey:key compatibility:compatibility validator:validator];
+        if (!store && path) {
+            if (!PackSharedStores) PackSharedStores = [NSMutableDictionary dictionary];
+            PackSharedStores[path] = created;
+        }
+        return created;
+    }
+}
+/* Probes only: a new launch, as far as the stores are concerned. */
++ (void)forgetSharedStores { @synchronized(HostDataPackStore.class) { [PackSharedStores removeAllObjects]; [PackTrialRoots removeAllObjects]; } }
 - (instancetype)initWithRoot:(NSString *)root bundled:(NSString *)bundled kind:(NSString *)kind channel:(NSString *)channel publicKey:(NSData *)key compatibility:(NSString *)compatibility validator:(HostPackValidator)validator {
     if (!(self = [super init])) return nil;
     _root = [root copy]; _bundled = [bundled copy]; _kind = [kind copy]; _channel = [channel copy];
@@ -295,7 +326,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
         // install: every cached generation goes, so none is activated without the state that admitted it.
         host_logf(HOST_LOG_INFO, "data-packs: %s state %s; starting the store over", _kind.UTF8String, stateMissing ? "is missing (cache purged, or first launch)" : "is unreadable or does not match this build");
         for (NSString *name in [manager contentsOfDirectoryAtPath:_root error:NULL]) {
-            if (([self generationName:name] && name.length) || [name hasPrefix:@".stage-"] || [name isEqual:@"state.json"] || [name isEqual:@"feed-validator.txt"]) {
+            if (([self generationName:name] && name.length) || PackStaleStage(name) || [name isEqual:@"state.json"] || [name isEqual:@"feed-validator.txt"] || [name isEqual:@"refused.txt"]) {
                 NSError *removal = nil;
                 if (![manager removeItemAtPath:[self generationPath:name] error:&removal]) {
                     host_logf(HOST_LOG_WARN, "data-packs: %s store unavailable (cannot remove %s: %s)", _kind.UTF8String, name.UTF8String, removal.localizedDescription.UTF8String ?: "unknown error");
@@ -477,10 +508,10 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
     state[@"quarantined"] = @(MAX(sequence, [state[@"quarantined"] unsignedLongLongValue]));
 }
 - (void)prune {
-    NSMutableSet *keep = [NSMutableSet setWithObjects:_state[@"active"], _state[@"healthy"], _state[@"pending"], @"state.json", @"feed-validator.txt", nil];
+    NSMutableSet *keep = [NSMutableSet setWithObjects:_state[@"active"], _state[@"healthy"], _state[@"pending"], @"state.json", @"feed-validator.txt", @"refused.txt", nil];
     [keep unionSet:_menuGenerations ?: [NSSet set]];
     for (NSString *name in [NSFileManager.defaultManager contentsOfDirectoryAtPath:_root error:NULL]) {
-        if (![keep containsObject:name] && ([self generationName:name] || [name hasPrefix:@".stage-"])) [NSFileManager.defaultManager removeItemAtPath:[self generationPath:name] error:NULL];
+        if (![keep containsObject:name] && ([self generationName:name] || PackStaleStage(name))) [NSFileManager.defaultManager removeItemAtPath:[self generationPath:name] error:NULL];
     }
 }
 - (NSString *)beginLaunch { @synchronized(self) {
@@ -491,7 +522,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
     _launchStarted = YES;
     if (!_stateValid) return [_launchFolder copy];
     NSMutableDictionary *next = [_state mutableCopy];
-    if ([next[@"trial"] boolValue]) {
+    if ([next[@"trial"] boolValue] && !PackTrialIsOurs(_root)) {
         [self quarantine:next[@"active"] state:next];
         next[@"active"] = next[@"healthy"]; next[@"trial"] = @NO;
     }
@@ -513,7 +544,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
         NSDictionary *candidate = [self generation:pending];
         if (candidate && [candidate[@"manifest"][@"sequence"] unsignedLongLongValue] > [next[@"quarantined"] unsignedLongLongValue]) {
             active = pending; activePack = candidate;
-            next[@"active"] = pending; next[@"trial"] = @YES;
+            next[@"active"] = pending; next[@"trial"] = @YES; PackNoteTrial(_root);
         } else if (!candidate && ![self generationIntact:pending]) [self forgetGeneration:pending state:next reason:"its files are missing"];
         else [self quarantine:pending state:next];
         next[@"pending"] = @"";
@@ -527,7 +558,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
     // Roll back a prior crashed launch once, but do not start a new trial for a menu candidate.
     if (!_menuPrepared && !_launchStarted && _stateValid) {
         NSMutableDictionary *next = [_state mutableCopy];
-        if ([next[@"trial"] boolValue]) {
+        if ([next[@"trial"] boolValue] && !PackTrialIsOurs(_root)) {
             [self quarantine:next[@"active"] state:next];
             next[@"active"] = next[@"healthy"]; next[@"trial"] = @NO;
         }
@@ -579,7 +610,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
     // start, which then starts the store over (losing the snapshot and the crash rollback).
     next[@"trial"] = [name isEqual:next[@"healthy"]] ? @NO : @YES;
     if ([name isEqual:next[@"pending"]]) next[@"pending"] = @"";
-    if ([self writeState:next error:NULL]) [self selectGeneration:name pack:pack];
+    if ([self writeState:next error:NULL]) { [self selectGeneration:name pack:pack]; if ([next[@"trial"] boolValue]) PackNoteTrial(_root); }
     else {
         host_logf(HOST_LOG_WARN, "data-packs: %s selected snapshot trial could not be persisted", _kind.UTF8String);
         [self selectBundled];
@@ -596,8 +627,26 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
         [self prune];
     }
 } }
+- (NSString *)refusedPath { return [_root stringByAppendingPathComponent:@"refused.txt"]; }
+/* Whether an authenticated envelope's sequence is used up. A sequence at or under the quarantine mark is. Above it, one
+   at or under "highest" is used up only when a snapshot that new is installed, or when this exact envelope (sequence
+   and payload hash, in refused.txt) was refused for its content. A sequence marked seen with nothing installed (0.6.3's
+   two stores each reading the other's half-written stage as invalid) is taken again. */
+- (BOOL)sequenceUsed:(NSDictionary *)manifest {
+    uint64_t sequence = [manifest[@"sequence"] unsignedLongLongValue];
+    if (sequence <= [_state[@"quarantined"] unsignedLongLongValue]) return YES;
+    if (sequence > [_state[@"highest"] unsignedLongLongValue]) return NO;
+    for (NSString *field in @[@"active", @"healthy", @"pending"]) {
+        NSString *name = _state[field];
+        if (name.length && (uint64_t)[[[name componentsSeparatedByString:@"-"] firstObject] longLongValue] >= sequence && [self generationIntact:name]) return YES;
+    }
+    NSString *refused = [NSString stringWithContentsOfFile:self.refusedPath encoding:NSUTF8StringEncoding error:NULL];
+    return [refused isEqual:[NSString stringWithFormat:@"%llu %@\n", sequence, manifest[@"sha256"]]];
+}
 - (void)rejectManifest:(NSDictionary *)manifest {
     uint64_t sequence = [manifest[@"sequence"] unsignedLongLongValue];
+    // This envelope is not downloaded again; a different one at the same sequence would be.
+    [[NSString stringWithFormat:@"%llu %@\n", sequence, manifest[@"sha256"]] writeToFile:self.refusedPath atomically:YES encoding:NSUTF8StringEncoding error:NULL];
     if (sequence <= [_state[@"highest"] unsignedLongLongValue]) return;
     NSMutableDictionary *next = [_state mutableCopy];
     // Only the sequence is used up: raising the quarantine mark too would also refuse a valid pack already staged.
@@ -668,9 +717,9 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
 } }
 - (BOOL)stageVerifiedEnvelope:(NSData *)data pack:(NSDictionary *)pack files:(NSDictionary *)files error:(NSError **)error {
     NSDictionary *manifest = pack[@"manifest"];
-    if ([manifest[@"sequence"] unsignedLongLongValue] <= [_state[@"highest"] unsignedLongLongValue]) return PackError(error, @"Pack sequence was already seen");
+    if ([self sequenceUsed:manifest]) return PackError(error, @"Pack sequence was already seen");
     NSString *name = [NSString stringWithFormat:@"%@-%@", manifest[@"sequence"], manifest[@"sha256"]];
-    NSString *temporary = [self generationPath:[@".stage-" stringByAppendingString:NSUUID.UUID.UUIDString]];
+    NSString *temporary = [self generationPath:[PackStagePrefix() stringByAppendingString:NSUUID.UUID.UUIDString]];
     NSString *filesPath = [temporary stringByAppendingPathComponent:@"files"];
     NSFileManager *manager = NSFileManager.defaultManager;
     if (![self ensureRoot:error] || ![manager createDirectoryAtPath:filesPath withIntermediateDirectories:YES attributes:nil error:error]) return NO;
@@ -689,11 +738,17 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
         if (![data writeToFile:[temporary stringByAppendingPathComponent:@"envelope.json"] options:NSDataWritingWithoutOverwriting error:error]) return NO;
         NSData *metadata = [NSJSONSerialization dataWithJSONObject:manifest options:0 error:error];
         if (!metadata || ![metadata writeToFile:[temporary stringByAppendingPathComponent:@"metadata.json"] options:NSDataWritingWithoutOverwriting error:error]) return NO;
-        // A rename publishes the complete generation before the atomic state update.
+        // A rename publishes the complete generation before the atomic state update. A generation is named by its
+        // sequence and payload hash, so one already there and intact is this same snapshot (its state write was lost,
+        // or an older build had a second store on this root stage it): it is kept. Anything else there is replaced.
         NSString *destination = [self generationPath:name];
-        if (![manager moveItemAtPath:temporary toPath:destination error:error]) return NO;
+        struct stat existing;
+        if (lstat(destination.fileSystemRepresentation, &existing) == 0) {
+            if ([self generation:name]) [manager removeItemAtPath:temporary error:NULL];
+            else if (![manager removeItemAtPath:destination error:error] || ![manager moveItemAtPath:temporary toPath:destination error:error]) return NO;
+        } else if (![manager moveItemAtPath:temporary toPath:destination error:error]) return NO;
         NSMutableDictionary *next = [_state mutableCopy];
-        next[@"highest"] = manifest[@"sequence"]; next[@"pending"] = name;
+        next[@"highest"] = @(MAX([manifest[@"sequence"] unsignedLongLongValue], [_state[@"highest"] unsignedLongLongValue])); next[@"pending"] = name;
         if (![self writeState:next error:error]) { [manager removeItemAtPath:destination error:NULL]; return NO; }
         success = YES; [self prune];
         [NSNotificationCenter.defaultCenter postNotificationName:HostDataPackSnapshotStagedNotification object:self];
@@ -728,6 +783,11 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
 - (void)checkForUpdateAtURL:(NSURL *)url { [self checkForUpdateAtURL:url completion:nil]; }
 - (void)checkForUpdateAtURL:(NSURL *)url completion:(void (^)(BOOL))completion { @synchronized(self) {
     if (!_stateValid && !_session) [self openStore];
+    if (_session && completion) {
+        if (!_joinedCompletions) _joinedCompletions = [NSMutableArray array];
+        [_joinedCompletions addObject:[completion copy]];
+        return;
+    }
     if (!_stateValid || _session || ![url.scheme.lowercaseString isEqual:@"https"] || !url.host.length || url.user || url.password || url.query || url.fragment) {
         if (completion) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ completion(NO); });
         return;
@@ -832,7 +892,7 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
                 NSDictionary *authenticated = nil;
                 _indexPack = [self verifyEnvelope:_download authenticated:&authenticated error:&stageError];
                 if (!_indexPack && authenticated) [self rejectManifest:authenticated];
-                if (_indexPack && [_indexPack[@"manifest"][@"sequence"] unsignedLongLongValue] <= [_state[@"highest"] unsignedLongLongValue]) {
+                if (_indexPack && [self sequenceUsed:_indexPack[@"manifest"]]) {
                     _indexPack = nil; PackError(&stageError, @"Pack sequence was already seen");
                 }
                 if (_indexPack) { _indexEnvelope = _download; _mapFiles = [NSMutableDictionary dictionary]; }
@@ -855,10 +915,12 @@ static NSDictionary *PackArchiveExpand(NSData *compressed, NSArray *descriptor) 
         } else host_logf(HOST_LOG_WARN, "data-packs: %s feed not staged (%s); keeping the current snapshot", _kind.UTF8String, stageError.localizedDescription.UTF8String);
     }
     self.downloadReceived = 0; self.downloadExpected = 0;
-    void (^completion)(BOOL) = _updateCompletion;
+    NSMutableArray<void (^)(BOOL)> *completions = [NSMutableArray array];
+    if (_updateCompletion) [completions addObject:_updateCompletion];
+    if (_joinedCompletions) [completions addObjectsFromArray:_joinedCompletions];
     BOOL success = staged || _notModified;
-    _updateCompletion = nil;
-    if (completion) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ completion(success); });
+    _updateCompletion = nil; _joinedCompletions = nil;
+    for (void (^completion)(BOOL) in completions) dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{ completion(success); });
     _download = nil; _session = nil; _indexEnvelope = nil; _indexPack = nil; _mapFiles = nil; _mapName = nil; _feedURL = nil;
     [session finishTasksAndInvalidate];
 } }
