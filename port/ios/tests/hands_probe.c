@@ -254,12 +254,21 @@ static void drag_smooth(void)
 	check(count == 0, "drag smooth: no event exactly at START");
 
 	joints[1].wrist[1] = -0.085f; /* 8.5 cm to the right (right is positive lateral) */
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
 	check(near(controls[1].stick_x, 0.5f, 1e-3f), "drag smooth: 8.5 cm right is 0.5");
+	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 1 &&
+		near(events[0].value, 0.085f, 1e-3f), "drag smooth: one drag-on event with the travel it measured");
 
 	joints[1].wrist[1] = 0.2f; /* 20 cm to the left, past FULL: clamped to -1 */
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
 	check(near(controls[1].stick_x, -1.0f, 1e-3f), "drag smooth: 20 cm left clamps to -1");
+	check(count == 0, "drag smooth: a turn already on says nothing as it crosses sides");
+
+	joints[1].tip[2][2] = 0.05f; /* the pinch opens: the turn ends and says so */
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.3, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "drag smooth: the pinch opening ends the turn");
+	check(count == 2 && events[1].kind == HANDS_EVENT_DRAG && events[1].on == 0,
+		"drag smooth: the pinch's own open event and the drag's off event");
 }
 
 /* the drag turn, snap mode: one pulse per pinch past START, held for PULSE_SECONDS, no re-fire
@@ -288,8 +297,10 @@ static void drag_snap(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.14, controls, events, 16); /* t + 0.09 */
 	check(controls[1].stick_x == 1.0f, "drag snap: the pulse still holds at t + 0.09");
 
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.16, controls, events, 16); /* t + 0.11 */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.16, controls, events, 16); /* t + 0.11 */
 	check(controls[1].stick_x == 0.0f, "drag snap: the pulse has released by t + 0.11");
+	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 0,
+		"drag snap: the pulse's end is logged, so its width shows");
 
 	joints[1].wrist[1] = -0.1f; /* still dragging further in the same pinch: no second pulse */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
@@ -366,6 +377,7 @@ static void aim_turn_smooth(void)
 	struct host_spatial_controls controls[2];
 	struct hands_event events[16];
 	float forward[3];
+	int count;
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
@@ -376,12 +388,22 @@ static void aim_turn_smooth(void)
 	check(controls[1].stick_x == 0.0f, "aim smooth: 10 degrees left is inside the deadzone");
 
 	forward[0] = cosf(31.5f * (float)M_PI / 180.0f); forward[1] = sinf(31.5f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
 	check(near(controls[1].stick_x, -0.5f, 1e-3f), "aim smooth: 31.5 degrees left is -0.5");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 1 &&
+		near(events[0].value, 31.5f, 0.1f) && near(events[0].threshold, 18.0f, 1e-3f),
+		"aim smooth: one aim-turn-on event with the yaw against the deadzone");
 
 	forward[0] = cosf(-45.0f * (float)M_PI / 180.0f); forward[1] = sinf(-45.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
 	check(near(controls[1].stick_x, 1.0f, 1e-3f), "aim smooth: 45 degrees right is +1");
+	check(count == 0, "aim smooth: a turn already on says nothing as it crosses sides");
+
+	forward[0] = cosf(5.0f * (float)M_PI / 180.0f); forward[1] = sinf(5.0f * (float)M_PI / 180.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.3, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "aim smooth: back inside the deadzone, no turn");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 0,
+		"aim smooth: the turn's return to zero is logged");
 }
 
 /* the smooth aim turn over input.hand_turn_deadzone's whole accepted range (5 to 60 degrees,
@@ -515,6 +537,23 @@ static void aim_turn_suppressed_by_drag(void)
 	check(events[0].kind == HANDS_EVENT_DRAG, "suppressed: the one pulse is the drag's, not the aim turn's");
 }
 
+/* both hands in the prayer sign: palms together and opposed per the pinned formula,
+normal = normalize(cross(index_mc - wrist, little_mc - wrist)); swapping which metacarpal is
+"index" between the two hands gives opposed normals without needing a measured sign */
+static void prayer_pose(struct host_spatial_hand_joints joints[2])
+{
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	joints[0].wrist[1] = 0.05f;
+	joints[0].metacarpal[0][0] = 0.03f; joints[0].metacarpal[0][1] = 0.05f; joints[0].metacarpal[0][2] = 0.05f;
+	joints[0].metacarpal[1][0] = -0.03f; joints[0].metacarpal[1][1] = 0.05f; joints[0].metacarpal[1][2] = 0.05f;
+
+	joints[1].wrist[1] = -0.05f;
+	joints[1].metacarpal[0][0] = -0.03f; joints[1].metacarpal[0][1] = -0.05f; joints[1].metacarpal[0][2] = 0.05f;
+	joints[1].metacarpal[1][0] = 0.03f; joints[1].metacarpal[1][1] = -0.05f; joints[1].metacarpal[1][2] = 0.05f;
+}
+
 /* the prayer sign: both palms together, fingers up, a 0.6 s dwell that fires once and holds
 Start for PULSE_SECONDS; a broken pose restarts the dwell, and a fresh hold inside the cooldown
 never fires */
@@ -526,21 +565,10 @@ static void prayer(void)
 	struct hands_event events[16];
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
 	double t;
+	int count;
 
-	/* hand 0 (left) and hand 1 (right), palms opposed per the pinned formula:
-	normal = normalize(cross(index_mc - wrist, little_mc - wrist)); swapping which metacarpal
-	is "index" between the two hands gives opposed normals without needing a measured sign */
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand(0);
-	joints[1] = make_hand(1);
-
-	joints[0].wrist[1] = 0.05f;
-	joints[0].metacarpal[0][0] = 0.03f; joints[0].metacarpal[0][1] = 0.05f; joints[0].metacarpal[0][2] = 0.05f;
-	joints[0].metacarpal[1][0] = -0.03f; joints[0].metacarpal[1][1] = 0.05f; joints[0].metacarpal[1][2] = 0.05f;
-
-	joints[1].wrist[1] = -0.05f;
-	joints[1].metacarpal[0][0] = -0.03f; joints[1].metacarpal[0][1] = -0.05f; joints[1].metacarpal[0][2] = 0.05f;
-	joints[1].metacarpal[1][0] = 0.03f; joints[1].metacarpal[1][1] = -0.05f; joints[1].metacarpal[1][2] = 0.05f;
+	prayer_pose(joints);
 
 	/* a 1.0 baseline keeps every timestamp strictly positive, away from the state's own
 	zero-means-idle sentinels (prayer_since, pulse/cooldown clocks) */
@@ -552,8 +580,10 @@ static void prayer(void)
 	check(controls[1].menu == 1, "prayer: fires at 0.6 s held");
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.69, controls, events, 16);
 	check(controls[1].menu == 1, "prayer: Start still held at 0.69 s");
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.71, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.71, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: Start released by 0.71 s");
+	check(count == 1 && events[0].kind == HANDS_EVENT_START && events[0].on == 0,
+		"prayer: the Start pulse's end is logged, so its width shows");
 
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 3.0, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: no re-fire from a continued hold");
@@ -581,6 +611,72 @@ static void prayer(void)
 	for (t = 1.8; t <= 1.8 + 0.2 + 0.6 + 1e-9; t += 0.05) /* a new hold 0.2 s after the fire */
 		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: a hold that begins inside the cooldown never fires");
+}
+
+/* the Start pulse the prayer sign just earned outlives the hands dropping out of sight
+inside its own window: bringing both hands together and then letting them fall is the natural
+thing to do, and the untracked memset would otherwise eat the pause */
+static void start_pulse_outlives_the_hands(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	double t;
+
+	memset(&state, 0, sizeof(state));
+	prayer_pose(joints);
+	joints[1].tip[1][2] = 0.010f; /* the gun hand's index closed too, to zero with the rest */
+	for (t = 1.0; t <= 1.6 + 1e-9; t += 0.05)
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+	check(controls[1].menu == 1, "start pulse: the sign fires at 0.6 s held");
+
+	joints[0].tracked = joints[1].tracked = 0; /* both hands gone the very next sample */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.62, controls, events, 16);
+	check(controls[1].menu == 1, "start pulse: still held with both hands untracked inside the window");
+	check(controls[1].trigger == 0.0f, "start pulse: the rest of the gun hand's controls are still zeroed");
+
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.75, controls, events, 16);
+	check(controls[1].menu == 0, "start pulse: released once the window ends, hands or no hands");
+}
+
+/* a pinch blocked by an untracked thumb or fingertip reports the gap it is in: the hold is
+all that stands between it and an open, and the reading itself is gone, so the log says so
+rather than falling silent */
+static void pinch_miss_logged(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed at t = 1.0 */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+
+	joints[1].tip_tracked[0] = 0; /* the thumb drops: every one of that hand's four pinches is blocked */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "pinch miss: the closed pinch holds through the gap");
+	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
+		events[0].finger == HANDS_PINCH_INDEX && near(events[0].threshold, (float)HANDS_PINCH_HOLD_SECONDS, 1e-3f),
+		"pinch miss: one miss-on event per blocked pinch, against the hold");
+
+	/* 0.3 s in, past HOLD_SECONDS: the gap ends and the pinch opens with it */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.35, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "pinch miss: the hold opens the pinch");
+	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
+		near(events[0].value, 0.3f, 1e-3f) && events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0,
+		"pinch miss: the gap's length is logged, then the open it caused");
+
+	joints[1].tip_tracked[0] = 1; /* the thumb returns: the three pinches still in a gap close theirs */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
+	check(count == 3 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0,
+		"pinch miss: a gap that ends before the hold is logged too");
 }
 
 /* a sample that changes more states than capacity holds (both hands losing all four pinches
@@ -631,6 +727,8 @@ int main(void)
 	aim_turn_untracked_gun_hand();
 	aim_turn_suppressed_by_drag();
 	prayer();
+	start_pulse_outlives_the_hands();
+	pinch_miss_logged();
 	event_capacity_clamped();
 	if (failures)
 	{

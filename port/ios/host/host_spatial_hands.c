@@ -91,6 +91,18 @@ and tip_tracked govern the per-tip hold-then-open. lost_since's sign tells
 the three states apart: 0 idle, positive the untracked gap's start (timing
 toward HOLD_SECONDS), negative pending (opened by a loss, waiting for a
 tracked sample above OPEN before it may close again) */
+/* the end of a tip-loss gap, for the log: how long the pinch spent unreadable against the
+hold that would have ended it. Silent unless a gap was running, so every caller below can
+hand it the state it is about to move on */
+static void miss_ended(const struct hands_pinch *pinch, int hand, int finger, double now,
+	struct hands_event *events, int capacity, int *count)
+{
+	if (pinch->lost_since <= 0.0)
+		return;
+	emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 0, (float)(now - pinch->lost_since),
+		(float)HANDS_PINCH_HOLD_SECONDS);
+}
+
 static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int hand_tracked, int thumb_tracked,
 	const float thumb[3], int tip_tracked, const float tip[3], double now, struct hands_event *events, int capacity,
 	int *count)
@@ -104,6 +116,7 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 			pinch->closed = 0;
 			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS);
 		}
+		miss_ended(pinch, hand, finger, now, events, capacity, count);
 		pinch->lost_since = -1.0; /* pending: needs a confirmed open before it can close again */
 		return;
 	}
@@ -111,9 +124,17 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	if (!(thumb_tracked && tip_tracked))
 	{
 		if (pinch->lost_since == 0.0)
+		{
 			pinch->lost_since = now; /* the gap starts here */
+			/* a pinch with an untracked thumb or tip reads no distance at all, closed or
+			open, and used to pass in silence: the hold below is the only thing standing
+			between it and an open, so the log says it started */
+			emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 1, 0.0f,
+				(float)HANDS_PINCH_HOLD_SECONDS);
+		}
 		else if (pinch->lost_since > 0.0 && pinch->closed && now - pinch->lost_since >= HANDS_PINCH_HOLD_SECONDS)
 		{
+			miss_ended(pinch, hand, finger, now, events, capacity, count);
 			pinch->closed = 0;
 			pinch->lost_since = -1.0;
 			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS);
@@ -131,7 +152,10 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 		return;
 	}
 	if (pinch->lost_since > 0.0)
+	{
+		miss_ended(pinch, hand, finger, now, events, capacity, count);
 		pinch->lost_since = 0.0; /* the gap ended before the hold timed out: resume normally below */
+	}
 
 	if (!pinch->closed && distance < HANDS_PINCH_CLOSE_METERS)
 	{
@@ -208,6 +232,18 @@ static int prayer_near(const struct host_spatial_hand_joints joints[2], float *d
 	return 1;
 }
 
+/* one smooth turn's on or off transition, for the log: nothing while the turn stands as it
+was. Snap mode's own on events come from the two snap branches, which is why this runs only
+in smooth mode (hands_recognize) */
+static void turn_transition(int *turning, int turning_now, int kind, int hand, int finger, float value,
+	float threshold, struct hands_event *events, int capacity, int *count)
+{
+	if (*turning == turning_now)
+		return;
+	*turning = turning_now;
+	emit(events, capacity, count, kind, hand, finger, turning_now, value, threshold);
+}
+
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2], int aiming_hand,
 	const float aim_forward[3], int turn_snap, float deadzone_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity)
@@ -216,6 +252,9 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	int g = aiming_hand ? 1 : 0, o = !g;
 	int hand, finger;
 	float drag_contribution = 0.0f, aim_contribution = 0.0f, stick_x;
+	/* what each turn last measured, for its own transition below: a turn the gun hand is
+	not making measures 0, which is the reading its off event should carry */
+	float drag_magnitude = 0.0f, aim_yaw = 0.0f;
 
 	memset(controls, 0, 2 * sizeof(controls[0]));
 
@@ -259,6 +298,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		lateral = -(joints[g].wrist[1] - state->drag_anchor[1]);
 		sign = lateral < 0.0f ? -1.0f : 1.0f;
 		magnitude = fabsf(lateral);
+		drag_magnitude = magnitude;
 
 		if (turn_snap)
 		{
@@ -266,6 +306,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 			{
 				state->pulse_until = now + HANDS_PULSE_SECONDS;
 				state->pulse_x = sign;
+				state->pulse_kind = HANDS_EVENT_DRAG;
 				state->drag_snapped = 1;
 				emit(events, capacity, &count, HANDS_EVENT_DRAG, g, HANDS_PINCH_MIDDLE, 1, magnitude,
 					HANDS_DRAG_START_METERS);
@@ -295,6 +336,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 			yaw = atan2f(aim_forward[1], aim_forward[0]) * (180.0f / (float)M_PI);
 			excess = fabsf(yaw) - deadzone_degrees;
 			turn_sign = yaw < 0.0f ? -1.0f : 1.0f;
+			aim_yaw = yaw;
 
 			if (turn_snap)
 			{
@@ -304,6 +346,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 				{
 					state->pulse_until = now + HANDS_PULSE_SECONDS;
 					state->pulse_x = -turn_sign;
+					state->pulse_kind = HANDS_EVENT_AIM_TURN;
 					state->aim_turn_armed = 0;
 					emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees);
 				}
@@ -320,6 +363,27 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	if (now < state->pulse_until)
 		stick_x = state->pulse_x;
 	controls[g].stick_x = stick_x;
+	/* the continuous turns report themselves the way the snap branches above report their
+	pulses: on as a contribution first becomes nonzero, off as it falls back to zero, each with
+	what it measured against the threshold it crossed. Without these two the log says nothing
+	at all about smooth turning, which is what the deadzone and the drag distances have to be
+	tuned against */
+	if (!turn_snap)
+	{
+		turn_transition(&state->drag_turning, drag_contribution != 0.0f, HANDS_EVENT_DRAG, g,
+			HANDS_PINCH_MIDDLE, drag_magnitude, HANDS_DRAG_START_METERS, events, capacity, &count);
+		turn_transition(&state->aim_turning, aim_contribution != 0.0f, HANDS_EVENT_AIM_TURN, g, 0, aim_yaw,
+			deadzone_degrees, events, capacity, &count);
+	}
+	/* a pulse's own end, so the log carries the width the caller's sampler gave it rather than
+	only the instant it began. pulse_kind is the turn that set it (the two never overlap) */
+	if (state->pulse_until > 0.0 && now >= state->pulse_until)
+	{
+		emit(events, capacity, &count, state->pulse_kind, g,
+			state->pulse_kind == HANDS_EVENT_DRAG ? HANDS_PINCH_MIDDLE : 0, 0, state->pulse_x,
+			(float)HANDS_PULSE_SECONDS);
+		state->pulse_until = 0.0;
+	}
 
 	/* the prayer sign: both hands held together fires the Start pulse once per dwell. The
 	geometry gate (prayer_near) is logged on its own on/off transition with the dot it
@@ -358,13 +422,26 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		}
 	}
 	controls[g].menu = now < state->start_until;
+	/* and the Start pulse's end, for the same reason */
+	if (state->start_until > 0.0 && now >= state->start_until)
+	{
+		emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 0, 1.0f, (float)HANDS_PULSE_SECONDS);
+		state->start_until = 0.0;
+	}
 
 	/* tracked == 0 zeros every control of that hand, the same sample, regardless of anything
-	computed above (visr's Task 4 controller ruling 1) */
-	if (!joints[0].tracked)
-		memset(&controls[0], 0, sizeof(controls[0]));
-	if (!joints[1].tracked)
-		memset(&controls[1], 0, sizeof(controls[1]));
+	computed above. The Start pulse is the one exception: the prayer sign is both hands coming
+	together, and dropping them is the natural thing to do next, which would otherwise eat the
+	pulse the sign just earned inside its own 100 ms window */
+	{
+		int start_pulse = controls[g].menu;
+
+		if (!joints[0].tracked)
+			memset(&controls[0], 0, sizeof(controls[0]));
+		if (!joints[1].tracked)
+			memset(&controls[1], 0, sizeof(controls[1]));
+		controls[g].menu = start_pulse;
+	}
 
 	/* emit() only ever writes within capacity, but count keeps counting past it; clamp the
 	return so a caller's for (i = 0; i < count; i++) against events[capacity] is always in

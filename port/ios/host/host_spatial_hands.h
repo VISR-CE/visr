@@ -74,7 +74,11 @@ struct hands_state
 	int drag_anchored; float drag_anchor[3];                 /* the gun hand's wrist at the drag pinch's close */
 	int aim_turn_armed;                                      /* snap mode: inside the deadzone since the last snap */
 	int drag_snapped;                                        /* snap mode: this pinch has fired */
+	/* smooth mode: each turn's contribution is nonzero, so the log gets the
+	same on and off transitions snap mode's pulses give it */
+	int drag_turning, aim_turning;
 	double pulse_until; float pulse_x;                       /* the right stick's held snap value */
+	int pulse_kind;                                          /* which turn set the pulse, for its own off event */
 	/* the prayer sign's geometry gate (distance, fingers) on its own, independent of the
 	palm normals' unmeasured sign: its own on/off transition is what carries the measured dot
 	in the log (host_spatial_hands.c's prayer_near) */
@@ -83,7 +87,12 @@ struct hands_state
 	double start_until;                                      /* the Start pulse */
 };
 
-enum { HANDS_EVENT_PINCH, HANDS_EVENT_DRAG, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START };
+/* PINCH_MISS is a pinch nothing could read, not a pinch that opened: the
+thumb or the fingertip went untracked, which is the one reason a deliberate
+pinch does nothing at all, and its value is the gap's length against the
+hold that ends it (host_spatial_hands.c's pinch_update) */
+enum { HANDS_EVENT_PINCH, HANDS_EVENT_DRAG, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
+	HANDS_EVENT_PINCH_MISS };
 struct hands_event { int kind, hand, finger, on; float value, threshold; };
 
 /* one sample: the two hands' joints (index 0 left, 1 right), which is the

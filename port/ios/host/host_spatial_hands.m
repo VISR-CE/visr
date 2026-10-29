@@ -537,20 +537,6 @@ static int fill(double predict_to, const float *head_position, struct halo_spati
 	return 1;
 }
 
-/* a hand's last barrel direction (last_forward, kept in hand_of) converted into the aim's
-game-axes convention: that static is the raw room-space forearm direction feeding the aim
-transform before location_of turns it into halo_spatial_location's axes and applies the
-room's recenter correction, so it needs the same two steps (host_spatial_room_to_game,
-host_stereo_room_vector) as position_of applies to a position, minus the head subtraction a
-direction has no use for */
-static void held_forward_of(simd_float3 room, float game[3])
-{
-	float vector[3] = { room.x, room.y, room.z };
-
-	host_spatial_room_to_game(vector, game);
-	host_stereo_room_vector(game);
-}
-
 /* one gesture event's name for debug.hand_log (host_spatial_hands.h's enum hands_event's
 kind); the pinch's finger is folded in since the four pinches would otherwise log
 identically */
@@ -561,8 +547,11 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	switch (kind)
 	{
 	case HANDS_EVENT_PINCH:
-		snprintf(buffer, size, "pinch %s", finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ?
-			finger_names[finger] : "?");
+	case HANDS_EVENT_PINCH_MISS:
+		/* a miss is the same finger with nothing to read on it (host_spatial_hands.h's enum):
+		named apart so a pinch that never had a distance doesn't read as one that opened */
+		snprintf(buffer, size, "%s %s", kind == HANDS_EVENT_PINCH ? "pinch" : "miss",
+			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
 		break;
 	case HANDS_EVENT_DRAG: snprintf(buffer, size, "drag"); break;
 	case HANDS_EVENT_AIM_TURN: snprintf(buffer, size, "aim turn"); break;
@@ -652,24 +641,20 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 	{
 		int g = sample->aiming_hand ? 1 : 0;
 		const float *forward = sample->hands[g].aim.forward;
-		float held_forward[3];
 		struct host_spatial_controls controls[2];
 		struct hands_event events[16];
 		int count, i;
 
-		/* a fully untracked aiming hand leaves aim.forward zeroed (hand_of returns before
-		building one); held_forward_of turns the forearm's own last direction (last_forward,
-		still in the room's raw frame) into the same game-axes convention aim.forward carries,
-		so the recognizer's yaw math holds the arm's last known pointing rather than reading a
-		sudden, spurious center. The gun hand has never been tracked at all when forward_known[g]
-		is still 0: there is no last direction to fall back on, so forward stays the zero
-		aim.forward, which is fine either way, since the recognizer itself gates the whole aim
-		turn (event and armed/pulse state, not only stick_x) on joints[g].tracked */
-		if (sample->hands[g].state != HALO_SPATIAL_TRACKED && forward_known[g])
-		{
-			held_forward_of(last_forward[g], held_forward);
-			forward = held_forward;
-		}
+		/* the aim the recognizer turns from is the sample's own, with no fallback: an anchor
+		dropout zeroes aim.forward and the recognizer gates the whole aim turn (its event and
+		its armed and pulse state, not only stick_x) on joints[g].tracked, so there is nothing
+		to hold a last pointing alive for.
+
+		One case does reach the recognizer with joints[g].tracked == 1 and that zeroed forward:
+		a wrist tracked whose forearm never has been, where hand_of fills the reduced joints and
+		then returns without a barrel. Its yaw reads 0, which in snap mode arms the aim turn, so
+		one snap can fire the instant the forearm first appears already past the deadzone. That
+		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
 			CACurrentMediaTime(), controls, events, 16);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);

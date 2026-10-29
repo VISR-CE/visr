@@ -261,7 +261,10 @@ static void hands_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 	float back[3], position[3] = { 0.0f, 0.0f, 0.0f };
 	double time = 0.0;
 
-	if (!aim_hands || !head_mode)
+	/* the same gate tracker_start runs under (read_settings): a synthetic controller or a
+	replay answers every sample itself, so starting hand tracking under either would ask the
+	player for the hand tracking permission to feed a source nothing reads */
+	if (!aim_hands || !head_mode || synthetic_on || replay_on)
 		return;
 	/* A drawable without its device anchor cannot rebase the origin yet, so a
 	fill now would read the hand anchors in one origin and subtract a head
@@ -1295,7 +1298,15 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 		{
 			host_spatial_hands_sample(kind, sample, position);
 			if (kind == HALO_SPATIAL_SAMPLE_GAME)
+			{
 				hands_filled_sample = host_spatial_hands_active();
+				/* the flag below is a statement about an accessory anchor this sample no longer
+				consults: a hands sample is built from the hand anchors, the test is skipped for
+				it, and nothing else clears the flag, so a controller flagged before it was put
+				down would rewrite every later hands sample MISPLACED for the rest of the run */
+				if (hands_filled_sample)
+					memset(&misplaced, 0, sizeof(misplaced));
+			}
 		}
 		else if (kind == HALO_SPATIAL_SAMPLE_GAME)
 		{
