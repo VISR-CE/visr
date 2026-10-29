@@ -942,7 +942,11 @@ int halo_menus_art_extract(void const *hardware_format, char const *cache_path)
 
 static void check_extraction(void)
 {
-	check(!halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is not saved before the menus draw");
+	unsigned long levels = 0;
+
+	menu_art_texture(0, &levels);
+	check(hardware_requests == 0 && art_extractions == 0, "texture resolution does not extract pictures");
+	check(!halo_menus_cache_exists("cache/xbox/extracted.png"), "the picture is not saved before the menu update");
 	pc_menu_art_extract();
 	check(hardware_requests == 2 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
 		"now, are asked for (%ld, %ld)", hardware_requests, art_extractions);

@@ -1398,7 +1398,6 @@ unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 {
 	long index;
 
-	pc_menu_art_extract();
 
 	for (index = 0; index < art_count; index++)
 	{

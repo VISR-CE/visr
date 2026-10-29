@@ -72,7 +72,7 @@ boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, shor
 void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load);
 
 /* ui.map's bitmaps that the in-game menus draw from the player's cache where a game map lacks them (a <frame> with
-a cache), not yet saved there: saved the first time the menus draw (pc_menu_art_extract) */
+a cache), not yet saved there: saved by the main menu update (pc_menu_art_extract) */
 #define MAXIMUM_EXTRACTIONS 16
 static struct
 {
@@ -2959,8 +2959,8 @@ void menu_tags_unloaded(
 		menu_tags_release();
 }
 
-/* saves the pictures a game map's menus will need from ui.map's loaded bitmaps, once: called when the menus draw (a
-picture that cannot be read is left out, and its menus draw without it) */
+/* Saves queued ui.map pictures from process_ui_widgets, once per main-menu update, before texture resolution.
+A picture that cannot be read is left out, and its menus draw without it. */
 void pc_menu_art_extract(
 	void)
 {

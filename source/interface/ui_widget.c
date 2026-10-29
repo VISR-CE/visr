@@ -7879,6 +7879,12 @@ void process_ui_widgets(
 		644,
 		widget_globals.initialized);
 	widget_globals.current_system_milliseconds = system_milliseconds();
+	/* port: save ui.map pictures outside texture resolution, before a later game map needs them. */
+	if (we_are_at_the_main_menu)
+	{
+		extern void pc_menu_art_extract(void);
+		pc_menu_art_extract();
+	}
 	ui_widgets_process_mouse();
 	if (ui_widget_port_press_controller != NONE)
 	{
