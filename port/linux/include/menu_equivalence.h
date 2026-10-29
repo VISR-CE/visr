@@ -22,6 +22,7 @@ static char const *const menu_screen_pairs[][2] = {
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen", "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"},
 	{"pc\\xbox\\main_menu\\quit_select\\quit_screen", "pc\\main_menu\\quit_select\\quit_screen"},
+	{"pc\\xbox\\error\\confirm_join_big_modal_fullscreen", "pc\\error\\confirm_join_big_modal_fullscreen"},
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\vehicle_options_edit\\vehicle_options_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\vehicle_options_edit\\vehicle_options_screen"},
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\teamplay_options_edit\\teamplay_options_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\teamplay_options_edit\\teamplay_options_screen"},
 };

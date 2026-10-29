@@ -42,6 +42,10 @@ int main(void) {
     screen = menu_screen_equivalent(screen, state.pad);
     assert(!strcmp(screen, menu_screen_pairs[0][1]));
     assert(!menu_screen_equivalent("unpaired", 0));
+    char const *warning = "pc\\error\\confirm_join_big_modal_fullscreen";
+    char const *xbox_warning = "pc\\xbox\\error\\confirm_join_big_modal_fullscreen";
+    assert(!strcmp(menu_screen_equivalent(warning, 1), xbox_warning));
+    assert(!strcmp(menu_screen_equivalent(xbox_warning, 0), warning));
     menu_input_start(&state, 1, 0, 0);
     assert(state.pad);
     menu_input_activity(&state, 0, 0, 0, 0);
