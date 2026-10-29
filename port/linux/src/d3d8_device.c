@@ -2067,9 +2067,9 @@ enum
 
 /* the method in effect, -1 until the setting is first read; and the
 method the chord chose while the game runs (halo_anti_aliasing_toggle), in
-place of the setting's until the app quits, -1 for none */
+place of the setting's until the app quits, empty for none */
 static int anti_aliasing_method = -1;
-static int anti_aliasing_live = -1;
+static char anti_aliasing_live_text[32];
 /* its passes' programs could be made (anti_aliasing_prepare) */
 static BOOL anti_aliasing_ready;
 
@@ -2085,19 +2085,16 @@ static const char *anti_aliasing_label_of(void)
 /* display.anti_aliasing's method; a value this build does not draw is off */
 static void anti_aliasing_read(void)
 {
+	static char previous_setting[32];
     char contextual_setting[32];
     config_scene_string("display.anti_aliasing",halo_scene_class(),contextual_setting,sizeof(contextual_setting));
-	const char *setting = contextual_setting;
+	const char *setting = anti_aliasing_live_text[0] ? anti_aliasing_live_text : contextual_setting;
 	int method = !strcmp(setting, "fxaa") ? _anti_aliasing_fxaa : !strcmp(setting, "smaa") ? _anti_aliasing_smaa :
 		_anti_aliasing_off;
 
-	if (anti_aliasing_live >= 0)
-	{
-		method = anti_aliasing_live;
-		setting = method == _anti_aliasing_fxaa ? "fxaa" : method == _anti_aliasing_smaa ? "smaa" : "off";
-	}
-	if (method == anti_aliasing_method)
+	if (method == anti_aliasing_method && !strcmp(setting, previous_setting))
 		return;
+	snprintf(previous_setting, sizeof(previous_setting), "%s", setting);
 	anti_aliasing_method = method;
 	anti_aliasing_pass_count = 0;
 	if (method == _anti_aliasing_off && strcmp(setting, "off"))
@@ -2196,15 +2193,18 @@ off, off otherwise, from the next frame, with a label on screen: in a game,
 the HUD's own message line (where "Checkpoint... done" shows), elsewhere
 the debug text, for two seconds. Not saved: the next launch takes
 display.anti_aliasing again */
+static void knob_ab_changed(void);
+
 void halo_anti_aliasing_toggle(void)
 {
 	if (anti_aliasing_method < 0)
 		anti_aliasing_read();
-	anti_aliasing_live = anti_aliasing_method == _anti_aliasing_fxaa ? _anti_aliasing_off : _anti_aliasing_fxaa;
-	anti_aliasing_label = anti_aliasing_live == _anti_aliasing_fxaa ? "FXAA on" : "FXAA off";
+	int fxaa = anti_aliasing_method != _anti_aliasing_fxaa;
+	snprintf(anti_aliasing_live_text, sizeof(anti_aliasing_live_text), "%s", fxaa ? "fxaa" : "off");
+	anti_aliasing_label = fxaa ? "FXAA on" : "FXAA off";
 	if (game_in_progress())
 	{
-		hud_print_message(0, anti_aliasing_live == _anti_aliasing_fxaa ? L"FXAA on" : L"FXAA off");
+		hud_print_message(0, fxaa ? L"FXAA on" : L"FXAA off");
 		anti_aliasing_changed_milliseconds = -1.0;
 	}
 	else
@@ -2212,23 +2212,44 @@ void halo_anti_aliasing_toggle(void)
 	platform_log("anti-aliasing: %s (the live chord, until the app quits)", anti_aliasing_label);
 	if (device.gl_ready)
 		anti_aliasing_read();
+	knob_ab_changed();
 }
 
-/* debug.knob_cycle's anti-aliasing: the method named ("off", "fxaa" or "smaa") from the next frame, until the app quits */
+/* debug.knob_cycle's anti-aliasing: the method named from the next frame, until the app quits */
 static void anti_aliasing_live_set(const char *method)
 {
-	if (anti_aliasing_method < 0)
-		anti_aliasing_read();
-	anti_aliasing_live = !strcmp(method, "fxaa") ? _anti_aliasing_fxaa : !strcmp(method, "smaa") ? _anti_aliasing_smaa :
-		_anti_aliasing_off;
+	snprintf(anti_aliasing_live_text, sizeof(anti_aliasing_live_text), "%s", method);
 	if (device.gl_ready)
 		anti_aliasing_read();
 }
 
-/* One setting of debug.knob_cycle's chord (xinput_sdl.c), by its config name and the text of its new value, changed
-from the next frame (the targets that depend on it are allocated again) and until the app quits. Returns 0 for a
-setting the chord does not change. The render height has no effect under foveated head-tracked stereo, where the
-Compositor's rate maps size the eyes. */
+/* Every live method change restarts the same stereo measurement window. */
+static void knob_ab_changed(void)
+{
+#ifdef HALO_ILP32
+	if (halo_stereo_frame()->mode != HALO_STEREO_OFF)
+	{
+		char method[32];
+		config_scene_string("display.anti_aliasing", halo_scene_class(), method, sizeof(method));
+		host_stereo_ab_change(anti_aliasing_live_text[0] ? anti_aliasing_live_text : method,
+			host_stereo_render_quality(-1.0f), knob_shadow_size > 0 ? knob_shadow_size : config_integer("display.shadow_map_size"));
+	}
+#endif
+}
+
+/* The live quality starts below the fixed maximum in an A/B launch. */
+float halo_knob_render_quality(void)
+{
+#ifdef HALO_ILP32
+	return host_stereo_render_quality(-1.0f);
+#else
+	return (float)config_real("display.render_quality");
+#endif
+}
+
+/* One setting of debug.knob_cycle's chord (xinput_sdl.c), by its config name and value text.
+The targets that depend on it are allocated again on the next frame; changes last until the app quits.
+Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
 int halo_knob_apply(const char *name, const char *value)
 {
 	if (!strcmp(name, "display.render_height"))
@@ -2241,10 +2262,24 @@ int halo_knob_apply(const char *name, const char *value)
 		halo_model_lod_set(strcmp(value, "auto") != 0);
 	else if (!strcmp(name, "display.anti_aliasing"))
 		anti_aliasing_live_set(value);
+	else if (!strcmp(name, "display.render_quality"))
+	{
+#ifdef HALO_ILP32
+		host_stereo_render_quality((float)atof(value));
+#else
+		static int logged;
+		if (!logged)
+		{
+			logged = 1;
+			platform_log("stereo: runtime render quality is unavailable on this platform");
+		}
+#endif
+	}
 	else if (!strcmp(name, "display.effect_resolution"))
 		knob_effect_level = effect_resolution_level(value);
 	else
 		return 0;
+	knob_ab_changed();
 	/* the new targets are allocated by the next frames; the old ones go two seconds on */
 	knob_release_frame = device.frame + 120;
 	return 1;
@@ -2261,7 +2296,7 @@ void halo_benchmark_knobs(int anti_aliasing, int effect_level, double render_sca
 		anti_aliasing_live_set(methods[anti_aliasing]);
 	else
 	{
-		anti_aliasing_live = -1;
+		anti_aliasing_live_text[0] = 0;
 		if (device.gl_ready)
 			anti_aliasing_read();
 	}

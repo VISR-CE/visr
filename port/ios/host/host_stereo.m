@@ -2738,3 +2738,56 @@ int host_stereo_room_recenter_pending(void)
 	return 0;
 #endif
 }
+
+float host_stereo_render_quality(float quality)
+{
+#if TARGET_OS_VISION
+	return host_theater_runtime_quality(quality);
+#else
+	static int logged;
+	if (quality >= 0.0f && !logged++)
+		host_logf(HOST_LOG_INFO, "stereo: runtime render quality is unavailable on this platform");
+	return (float)host_config_real("display.render_quality", 0.6);
+#endif
+}
+
+#include "host_stereo_ab.h"
+static struct host_stereo_ab_window ab_window;
+static char ab_method[32];
+static float ab_quality;
+static int ab_shadows;
+static int ab_started;
+
+void host_stereo_ab_change(const char *method, float quality, int shadows)
+{
+	ab_started = 1;
+	snprintf(ab_method, sizeof(ab_method), "%s", method);
+	ab_quality = quality;
+	ab_shadows = shadows;
+	host_stereo_ab_restart(&ab_window);
+}
+
+void host_stereo_ab_sample(double gpu_seconds)
+{
+	double median, high;
+	/* Capture the launch's off baseline before the first forward cycle of the chord. */
+	if (!ab_started)
+	{
+		static int enabled = -1;
+		char method[32];
+		if (enabled < 0)
+		{
+			char value[16];
+			host_config_string("debug.knob_cycle", "false", value, sizeof(value));
+			enabled = !strcmp(value, "true");
+		}
+		if (!enabled)
+			return;
+		host_config_string("display.anti_aliasing", "off", method, sizeof(method));
+		host_stereo_ab_change(method, host_stereo_render_quality(-1.0f),
+			(int)host_config_real("display.shadow_map_size", 512));
+	}
+	if (host_stereo_ab_add(&ab_window, gpu_seconds, &median, &high))
+		host_logf(HOST_LOG_INFO, "stereo: a/b: %s, quality %.2f, shadows %d: GPU %.1f ms, p95 %.1f over 300 frames",
+			ab_method, ab_quality, ab_shadows, median, high);
+}

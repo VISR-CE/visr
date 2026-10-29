@@ -150,3 +150,5 @@ float host_theater_minimum_near(void);
 void host_theater_log_c(const char *message);
 /* for Theater.swift: host_join_link_open, for a join link the space was opened with */
 #include "host_join_link.h"
+
+float host_theater_runtime_quality(float quality);

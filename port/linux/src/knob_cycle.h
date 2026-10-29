@@ -12,7 +12,7 @@ right). Nothing is saved: the next launch takes the settings again. */
 
 #define KNOB_VALUE_MAXIMUM 6
 
-enum knob_kind { KNOB_INTEGER, KNOB_BOOLEAN, KNOB_STRING };
+enum knob_kind { KNOB_INTEGER, KNOB_BOOLEAN, KNOB_STRING, KNOB_REAL };
 
 struct knob
 {
@@ -36,7 +36,8 @@ static const struct knob knob_table[] = {
 	{ "anisotropy", "display.anisotropic_filtering", KNOB_INTEGER, 5, { "1", "2", "4", "8", "16" },
 		{ "1x", "2x", "4x", "8x", "16x" } },
 	{ "model detail", "display.model_lod", KNOB_STRING, 2, { "auto", "max" }, { "auto", "max" } },
-	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 3, { "off", "fxaa", "smaa" }, { "off", "FXAA", "SMAA" } },
+	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 5, { "off", "fxaa", "smaa", "msaa2x", "msaa4x" }, { "off", "FXAA", "SMAA", "MSAA 2x", "MSAA 4x" } },
+	{ "render quality", "display.render_quality", KNOB_REAL, 3, { "0.5", "0.6", "0.7" }, { "0.5", "0.6", "0.7" } },
 	{ "effect resolution", "display.effect_resolution", KNOB_STRING, 3, { "xbox", "half", "full" }, { "xbox", "half", "full" } },
 };
 #define KNOB_COUNT ((int)(sizeof(knob_table) / sizeof(*knob_table)))
@@ -61,16 +62,18 @@ static inline void knob_state_reset(struct knob_state *state)
 static inline int knob_value_find(const struct knob *knob, const char *text)
 {
 	int index, best = 0;
-	long wanted = atol(text), distance = -1;
+	double wanted = atof(text), distance = -1;
 
 	for (index = 0; index < knob->count; index++)
 		if (!strcmp(knob->values[index], text))
 			return index;
-	if (knob->kind != KNOB_INTEGER)
+	if (knob->kind != KNOB_INTEGER && knob->kind != KNOB_REAL)
 		return 0;
 	for (index = 0; index < knob->count; index++)
 	{
-		long gap = labs(atol(knob->values[index]) - wanted);
+		double gap = atof(knob->values[index]) - wanted;
+
+		if (gap < 0) gap = -gap;
 
 		if (distance < 0 || gap < distance)
 		{

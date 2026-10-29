@@ -1028,3 +1028,15 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime',
     'port/runtime/texture_cache.c', '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
     '-o', BUILD/'texture-upscale-driver-probe')
 run(BUILD/'texture-upscale-driver-probe')
+
+# Stereo A/B reuses pacing samples after a settling window.
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/stereo_ab_probe.c', '-o', BUILD/'stereo-ab-probe')
+run(BUILD/'stereo-ab-probe')
+
+# Exercise the host logger too, including the default path's one-time settings read.
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-DHOST_STEREO_AB_PROBE',
+    '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', '-Wl,-dead_strip', '-framework', 'Foundation',
+    'port/ios/tests/stereo_ab_probe.c', 'port/ios/host/host_stereo.m', '-o', BUILD/'stereo-ab-host-probe')
+run(BUILD/'stereo-ab-host-probe', 'enabled')
+run(BUILD/'stereo-ab-host-probe', 'disabled')
