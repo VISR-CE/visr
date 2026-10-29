@@ -345,7 +345,9 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-table td { font-variant-numeric: tabular-nums; color: var(--muted); }
 .bench-table .build-meta { display: block; margin: 0; overflow-wrap: anywhere; }
 .bench-table tbody th { min-width: 9.5em; }
-.bench-table td[data-label="Measured"] { white-space: nowrap; }
+.bench-table td[data-label="Measured"], .bench-table td[data-label="On time"] { white-space: nowrap; }
+.bench-table td:not([data-label="Notes"]) { min-width: 4.5em; }
+.bench-table thead th:not(:first-child):not(:last-child) { min-width: 4.5em; }
 @media (max-width: 599px) {
   .bench-table, .bench-table tbody, .bench-table tr, .bench-table th, .bench-table td, .bench-table caption { display: block; width: 100%; }
   .bench-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

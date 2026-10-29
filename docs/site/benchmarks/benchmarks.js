@@ -271,9 +271,21 @@ function listStatus(built, selected) {
   return status;
 }
 
-function headerText(chart, palette, reverse = false) {
+function headerText(chart, palette, rows = 0) {
   const colors = [...(palette || chart.palette || [])];
-  return chart.header.trim().replace("__PALETTE__", (reverse ? colors.reverse() : colors).join(", "));
+  const text = chart.header.trim().replace("__PALETTE__", colors.join(", "));
+  return text.replace(/(height: )(\d+)/, (_, key, value) => key + Math.max(Number(value), 26 * rows + 120));
+}
+
+// The words after a build's name on its first and second bar rows. Mirrors `row_suffixes` in charts.py.
+function rowSuffixes(spec) {
+  const labels = spec.series_labels;
+  const suffix = (i) => {
+    if (i >= labels.length) return "";
+    const match = /\(([^)]*)\)$/.exec(labels[i]);
+    return match ? match[1] : (i ? labels[i].replace(/ fps$/, "") : "");
+  };
+  return [suffix(0), suffix(1)];
 }
 
 function chartSource(spec, built, suite, selected, palette) {
@@ -283,12 +295,10 @@ function chartSource(spec, built, suite, selected, palette) {
   const labels = shown.map((e) => (`${rename[e.port_name] || e.port_name} ${e.version}`
     + (e.label.endsWith("(pre-release)") ? " (pre-release)" : "")).replaceAll('"', "'"));
   const averages = shown.map((e) => e.value.avg);
-  // A build without a 1% low draws no bar in the second series (a zero-length bar) instead of dropping the series.
   const known = shown.map((e) => e.value.low).filter((low) => low !== null);
   // The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average.
   // A time series has no such ceiling: the 90th percentile is above the median by definition.
   const lower = lowerIsBetter(spec.query.metrics[0]);
-  const lows = shown.map((e) => (e.value.low === null ? 0 : lower ? e.value.low : Math.min(e.value.low, e.value.avg)));
   const withLows = known.length > 0;
   // A frame-cost axis spans the frame budget, so a bar's length is its share of the budget; a bar over budget stretches it.
   const yMax = chart.y_max ?? (built.budget_ms
@@ -297,14 +307,22 @@ function chartSource(spec, built, suite, selected, palette) {
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
   const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
   const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
-  // A time series draws the longer 90th-percentile bar first, so the median bar in front of it stays visible; the colors
-  // swap with the order so the median keeps the first series' color.
-  const behind = lower && withLows;
-  return [headerText(chart, palette, behind), head, `    title "${title}"`,
-    `    x-axis "${chart.x_label || ""}" [${labels.map((l) => `"${l}"`).join(", ")}]`,
+  // Each build is two adjacent rows when the chart has a second value, each row a bar of its own.
+  const [firstSuffix, secondSuffix] = withLows ? rowSuffixes(spec) : ["", ""];
+  const names = [], first = [], second = [];
+  shown.forEach((e, i) => {
+    names.push(`${labels[i]} ${firstSuffix}`.trim());
+    first.push(e.value.avg); second.push(0);
+    if (withLows && e.value.low !== null) {
+      names.push(`${labels[i]} ${secondSuffix}`.trim());
+      first.push(0); second.push(lower ? e.value.low : Math.min(e.value.low, e.value.avg));
+    }
+  });
+  return [headerText(chart, palette, names.length), head, `    title "${title}"`,
+    `    x-axis "${chart.x_label || ""}" [${names.map((l) => `"${l}"`).join(", ")}]`,
     `    y-axis "${chart.y_label || ""}" ${number(chart.y_min ?? 0)} --> ${number(yMax)}`,
-    `    bar [${(behind ? lows : averages).map(number).join(", ")}]`,
-    withLows ? `    bar [${(behind ? averages : lows).map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
+    `    bar [${first.map(number).join(", ")}]`,
+    withLows ? `    bar [${second.map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
 }
 
 function legendText(spec) {
@@ -373,9 +391,10 @@ function captionTable(built, selected, columns, windows) {
       if (text.includes(".")) text = text.replace(/\.?0+$/, "");
       return text + (DETAILS[column].unit === "%" ? "%" : "");
     });
-    const note = columns.length && cells.every((c) => c === "\u2013") ? detailText(e, columns) : "";
+    let note = columns.length && cells.every((c) => c === "\u2013") ? detailText(e, columns) : "";
+    if (note.endsWith(" reported") && (e.port_note || "").includes(note.slice(0, -" reported".length))) note = "";
     const gaps = missingWindows(e, windows).replace(/^; /, "");
-    return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells, notes: [e.port_note, note, gaps].filter(Boolean).join("; ") };
+    return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells, notes: [e.port_note, note, gaps].filter(Boolean).map((part) => part.replace(/\.$/, "")).join("; ") };
   });
   return { box: built.box, note: overallNote(built, selected), headings: columns.map((c) => DETAIL_HEADINGS[c]), rows };
 }
@@ -438,9 +457,8 @@ function themePalette() {
 // Mermaid's xychart draws its content flush to the edge of its canvas (the last tick label overhangs it). After
 // rendering, this fits the view box to the content plus an even margin on all four sides. `svg` must be in the
 // document so `getBBox` works. (Mermaid 11.12 has no gridline option, so the charts have none.)
-// Prints each category's value after its longest bar, read from the chart's Mermaid text: fps to one decimal, milliseconds to
-// two. Where two series share a category (average and 1% low) one label reads "average / low", so overlapping bars keep both
-// numbers. The text uses the container's color, so it reads in light and dark.
+// Prints each bar's value after its end: fps to one decimal, milliseconds to two. A zero-length bar (the other series' row)
+// is hidden and has no label. The text uses the container's color, so it reads in light and dark.
 function labelBars(main, source) {
   const series = [...source.matchAll(/^\s*bar \[([^\]]*)\]/gm)].map((m) => m[1].split(",").map((v) => parseFloat(v)));
   const axis = /y-axis "([^"]*)"/.exec(source);
@@ -448,25 +466,25 @@ function labelBars(main, source) {
   const text = (value) => value.toFixed(milliseconds ? 2 : 1);
   const groups = [...main.querySelectorAll("g[class^='bar-plot-']")];
   if (!series.length || groups.length !== series.length) return;
-  const bars = groups.map((group) => [...group.querySelectorAll("rect")]);
   const ns = "http://www.w3.org/2000/svg";
-  for (let i = 0; i < series[0].length; i++) {
-    const values = series.map((s) => s[i]).filter((v, k) => v !== undefined && v > 0);
-    const rects = bars.map((list) => list[i]).filter(Boolean);
-    if (!rects.length || !values.length) continue;
-    const longest = rects.reduce((a, b) => (parseFloat(b.getAttribute("width")) > parseFloat(a.getAttribute("width")) ? b : a));
-    const label = document.createElementNS(ns, "text");
-    label.setAttribute("x", parseFloat(longest.getAttribute("x")) + parseFloat(longest.getAttribute("width")) + 6);
-    label.setAttribute("y", parseFloat(longest.getAttribute("y")) + parseFloat(longest.getAttribute("height")) / 2);
-    label.setAttribute("dominant-baseline", "middle");
-    label.setAttribute("fill", "currentColor");
-    label.setAttribute("font-size", "20");
-    label.setAttribute("font-weight", "600");
-    label.setAttribute("class", "bar-value");
-    // Times read "median / 90th percentile", the legend's order, whichever series is drawn first.
-    label.textContent = (milliseconds ? [...values].sort((a, b) => a - b) : values).map(text).join(" / ");
-    groups[0].parentNode.appendChild(label);
-  }
+  groups.forEach((group, k) => {
+    const rects = [...group.querySelectorAll("rect")];
+    series[k].forEach((value, i) => {
+      const rect = rects[i];
+      if (!rect) return;
+      if (!(value > 0)) { rect.setAttribute("display", "none"); return; }  // the other series' row: Mermaid draws a stub for a zero
+      const label = document.createElementNS(ns, "text");
+      label.setAttribute("x", parseFloat(rect.getAttribute("x")) + parseFloat(rect.getAttribute("width")) + 6);
+      label.setAttribute("y", parseFloat(rect.getAttribute("y")) + parseFloat(rect.getAttribute("height")) / 2);
+      label.setAttribute("dominant-baseline", "middle");
+      label.setAttribute("fill", "currentColor");
+      label.setAttribute("font-size", "18");
+      label.setAttribute("font-weight", k ? "400" : "600");
+      label.setAttribute("class", "bar-value");
+      label.textContent = text(value);
+      groups[0].parentNode.appendChild(label);
+    });
+  });
 }
 
 function finishChart(svg, source, pad = 22) {

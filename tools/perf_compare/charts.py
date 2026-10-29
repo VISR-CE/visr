@@ -397,15 +397,29 @@ def chart_title(spec: dict, built: dict, suite: str) -> str:
     return f"{SUITE_NAMES[suite]}: {unit}, {box}".replace('"', "'")
 
 
-def header_text(chart: dict, reverse: bool = False) -> str:
-    """The hand-written Mermaid frontmatter with the light-mode bar colors filled in; `reverse` swaps the two colors for
-    a chart that draws its second series first."""
+def header_text(chart: dict, rows: int = 0) -> str:
+    """The hand-written Mermaid frontmatter with the light-mode bar colors filled in. The canvas grows with the number of
+    bar rows (`rows`), so each row keeps a readable thickness."""
     palette = chart.get("palette", [])
-    return chart.get("header", "").strip().replace("__PALETTE__", ", ".join(reversed(palette) if reverse else palette))
+    text = chart.get("header", "").strip().replace("__PALETTE__", ", ".join(palette))
+    return re.sub(r"(height: )(\d+)", lambda m: m.group(1) + str(max(int(m.group(2)), 26 * rows + 120)), text, count=1)
+
+
+def row_suffixes(spec: dict) -> tuple[str, str]:
+    """The words after a build's name on its first and second bar rows: the parenthetical of each series label ("p50"),
+    else nothing for the first series and the label itself ("1% low") for the second. Mirrored by `rowSuffixes`."""
+    labels = spec["series_labels"]
+    def suffix(i: int) -> str:
+        if i >= len(labels):
+            return ""
+        match = re.search(r"\(([^)]*)\)$", labels[i])
+        return match.group(1) if match else (labels[i].removesuffix(" fps") if i else "")
+    return suffix(0), suffix(1)
 
 
 def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None) -> str | None:
-    """Mermaid text for the ticked entries that have values, or None when there is nothing to draw."""
+    """Mermaid text for the ticked entries that have values, or None when there is nothing to draw. Each build is two
+    adjacent rows when the chart has a second value (average, then 1% low or 90th percentile), each row a bar of its own."""
     drawn = _drawn(built, selected)
     if not drawn:
         return None
@@ -413,13 +427,10 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     labels = [(f"{rename.get(e['port_name'], e['port_name'])} {e['version']}"
                + (" (pre-release)" if e["label"].endswith("(pre-release)") else "")).replace('"', "'") for e in drawn]
     averages = [e["value"]["avg"] for e in drawn]
-    # A build without a 1% low draws no bar in the second series (a zero-length bar) instead of dropping the series.
     known = [e["value"]["low"] for e in drawn if e["value"]["low"] is not None]
-    # The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average and
-    # does not cover the average bar.
+    # The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average.
     # A time series has no such ceiling: the 90th percentile is above the median by definition.
     lower = _lower_is_better(spec["query"]["metrics"][0])
-    lows = [(e["value"]["low"] if lower else min(e["value"]["low"], e["value"]["avg"])) if e["value"]["low"] is not None else 0 for e in drawn]
     with_lows = bool(known)
     if "y_max" in chart:
         y_max = chart["y_max"]
@@ -429,15 +440,21 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     else:
         y_max = _nice_ceiling(max(averages + known) * 1.25)
     head = "xychart-beta horizontal" if chart.get("horizontal") else "xychart-beta"
-    quoted = ", ".join('"' + label + '"' for label in labels)
-    # A time series draws the longer 90th-percentile bar first, so the median bar in front of it stays visible; the colors
-    # swap with the order so the median keeps the first series' color.
-    behind = lower and with_lows
-    lines = [header_text(chart, behind), head, f'    title "{chart_title(spec, built, suite)}"',
+    first_suffix, second_suffix = row_suffixes(spec) if with_lows else ("", "")
+    names, first, second = [], [], []
+    for e, label in zip(drawn, labels):
+        low = e["value"]["low"]
+        names.append(f"{label} {first_suffix}".strip())
+        first.append(e["value"]["avg"]); second.append(0)
+        if with_lows and low is not None:
+            names.append(f"{label} {second_suffix}".strip())
+            first.append(0); second.append(low if lower else min(low, e["value"]["avg"]))
+    quoted = ", ".join('"' + name + '"' for name in names)
+    lines = [header_text(chart, len(names)), head, f'    title "{chart_title(spec, built, suite)}"',
              f'    x-axis "{chart.get("x_label", "")}" [{quoted}]',
              f'    y-axis "{chart.get("y_label", "")}" {_number(chart.get("y_min", 0))} --> {_number(y_max)}',
-             f"    bar [{', '.join(_number(v) for v in (lows if behind else averages))}]",
-             f"    bar [{', '.join(_number(v) for v in (averages if behind else lows))}]" if with_lows else ""]
+             f"    bar [{', '.join(_number(v) for v in first)}]",
+             f"    bar [{', '.join(_number(v) for v in second)}]" if with_lows else ""]
     return "\n".join(line for line in lines if line)
 
 
@@ -553,8 +570,12 @@ def caption_table(built: dict, selected: set[str] | None = None, columns: list[s
     for e in drawn:
         cells, note = _detail_cells(e, columns)
         gaps = _missing_windows(e, windows).removeprefix("; ")
+        port_note = e.get("port_note", "")
+        if note.endswith(" reported") and note.removesuffix(" reported") in port_note:
+            note = ""  # the port's own note already says it
+        parts = [part.rstrip(".") for part in (port_note, note, gaps) if part]
         rows.append({"label": e["label"], "url": e.get("url", ""), "build": e["build"] or "unknown", "measured": e["date"],
-                     "cells": cells, "notes": "; ".join(part for part in (e.get("port_note", ""), note, gaps) if part)})
+                     "cells": cells, "notes": "; ".join(parts)})
     return {"box": built["box"], "note": overall_note(built, selected), "headings": [DETAIL_HEADINGS[c] for c in columns], "rows": rows}
 
 
