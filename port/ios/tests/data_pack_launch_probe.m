@@ -214,6 +214,19 @@ int main(void) { @autoreleasepool {
     HostDataPackStore *nextMenu = Store(menuRoot, key);
     assert(![[nextMenu beginLaunch] isEqual:candidate[@"folder"]]);
     [NSFileManager.defaultManager removeItemAtPath:menuRoot error:NULL];
+    // Choosing the snapshot that is already healthy keeps a state the next start can read: trial is a boolean.
+    NSString *healthyRoot = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+    HostDataPackStore *chooser = Store(healthyRoot, key);
+    assert([chooser stageEnvelope:envelope error:NULL]);
+    NSString *chosen = [chooser menuSnapshot][@"folder"];
+    [chooser selectMenuFolder:chosen]; [chooser markHealthy];
+    chooser = Store(healthyRoot, key);
+    assert([[chooser menuSnapshot][@"folder"] isEqual:chosen]);
+    [chooser selectMenuFolder:chosen];
+    NSDictionary *chosenState = [NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:[healthyRoot stringByAppendingPathComponent:@"state.json"]] options:0 error:NULL];
+    assert(chosenState[@"trial"] == (id)kCFBooleanFalse);
+    assert([[Store(healthyRoot, key) menuSnapshot][@"folder"] isEqual:chosen]);
+    [NSFileManager.defaultManager removeItemAtPath:healthyRoot error:NULL];
     NSString *invalidRoot = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
     HostDataPackStore *invalidMenu = Store(invalidRoot, key);
     assert([invalidMenu stageEnvelope:envelope error:NULL]);
