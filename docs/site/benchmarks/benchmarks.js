@@ -700,47 +700,53 @@ function buildSelector(group, sections, state, params, draw) {
   const wrap = el("div", { class: "bench-group", "data-group": key });
   lead.before(wrap);
   if (title) wrap.append(title);
-  const tabs = el("div", { class: "bench-tabs", role: "tablist", "aria-label": `${key} chart` });
-  const buttons = kinds.map((kind) => {
-    const button = el("button", { type: "button", role: "tab", "data-kind": kind }, KIND_LABELS[kind]);
-    button.addEventListener("click", () => choose(kind, false));
-    button.addEventListener("keydown", (event) => {
-      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
-      if (!step) return;
-      event.preventDefault();
-      choose(kinds[(kinds.indexOf(kind) + step + kinds.length) % kinds.length], true);
-    });
-    tabs.append(button);
-    return button;
-  });
-  wrap.append(tabs);
+  const buttons = [];
+  // Each chart's device frame carries its own copy of the control, so the frame never changes when the chart does.
+  const makeTabs = () => {
+    const tabs = el("div", { class: "bench-tabs", role: "tablist", "aria-label": `${key} chart` });
+    for (const kind of kinds) {
+      const button = el("button", { type: "button", role: "tab", "data-kind": kind }, KIND_LABELS[kind]);
+      button.addEventListener("click", () => choose(kind, false));
+      button.addEventListener("keydown", (event) => {
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+        if (!step) return;
+        event.preventDefault();
+        choose(kinds[(kinds.indexOf(kind) + step + kinds.length) % kinds.length], true);
+      });
+      tabs.append(button);
+      buttons.push(button);
+    }
+    return tabs;
+  };
   group.forEach((spec) => {
     const section = sections[spec.slug];
     for (const heading of section.querySelectorAll(":scope > h2, :scope > h3")) heading.remove();
     section.removeAttribute("aria-labelledby");
     section.setAttribute("aria-label", `${key} ${KIND_LABELS[metricKind(spec)]}`);
     section.classList.remove("bench-sub");
+    const frame = section.querySelector("figure.device");
+    frame.classList.add("has-tabs");
+    frame.append(makeTabs());
     wrap.append(section);
   });
   async function choose(kind, focus) {
     current = kind;
     state.views[key] = kind;
     try { localStorage.setItem("bench-view." + key, kind); } catch (error) { /* storage can be blocked */ }
+    for (const spec of group) sections[spec.slug].hidden = metricKind(spec) !== kind;
+    mark(kind);
+    await draw(group[kinds.indexOf(kind)]);
+    if (focus) sections[group[kinds.indexOf(kind)].slug].querySelector(`.bench-tabs [data-kind="${kind}"]`).focus();
+  }
+  function mark(kind) {
     buttons.forEach((button) => {
       const on = button.dataset.kind === kind;
       button.setAttribute("aria-selected", on ? "true" : "false");
       button.tabIndex = on ? 0 : -1;
-      if (on && focus) button.focus();
     });
-    for (const spec of group) sections[spec.slug].hidden = metricKind(spec) !== kind;
-    await draw(group[kinds.indexOf(kind)]);
   }
   state.views[key] = current;
-  buttons.forEach((button) => {
-    const on = button.dataset.kind === current;
-    button.setAttribute("aria-selected", on ? "true" : "false");
-    button.tabIndex = on ? 0 : -1;
-  });
+  mark(current);
   for (const spec of group) sections[spec.slug].hidden = metricKind(spec) !== current;
 }
 

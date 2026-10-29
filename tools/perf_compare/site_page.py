@@ -69,11 +69,11 @@ GLASS_VIEW = (1.2, 4.9, 21.6, 13.2)
 GLASS_CLIP_SCALE = 0.98
 
 
-def glass_svg() -> str:
+def glass_svg(ident: str = "glass-clip") -> str:
     x, y, w, h = GLASS_VIEW
     inset = f"translate(.5 .5) scale({GLASS_CLIP_SCALE}) translate(-.5 -.5) scale({1 / w:.6f} {1 / h:.6f}) translate({-x} {-y})"
     return (f'<svg class="glass-shape" viewBox="{x} {y} {w} {h}" preserveAspectRatio="none" aria-hidden="true">'
-            f'<defs><clipPath id="glass-clip" clipPathUnits="objectBoundingBox"><path transform="{inset}" d="{GLASS_PATH}"/></clipPath></defs>'
+            f'<defs><clipPath id="{ident}" clipPathUnits="objectBoundingBox"><path transform="{inset}" d="{GLASS_PATH}"/></clipPath></defs>'
             f'<path d="{GLASS_PATH}"/></svg>')
 
 
@@ -81,9 +81,9 @@ def slug(spec: dict) -> str:
     return re.sub(r"^\d+-", "", spec["name"])
 
 
-def screen(chart: str, frame: str) -> str:
+def screen(chart: str, frame: str, ident: str = "glass-clip") -> str:
     inner = f'<div class="bench-chart">{chart}</div>'
-    return f'<div class="glass-screen">{inner}</div>' if "glass" in frame else inner
+    return f'<div class="glass-screen" style="clip-path: url(#{ident})">{inner}</div>' if "glass" in frame else inner
 
 
 def spec_payload(specs: list[dict]) -> str:
@@ -171,11 +171,13 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
     if spec.get("sub"):
         # A companion chart of the platform above it: a smaller heading and the chart without the device frame.
         title = f'<h3 id="h-{name}">{escape(spec["heading"])}</h3>'
-        media = f'<figure class="device-flat">{screen(chart, "")}</figure>'
+        # Every chart of a platform sits in the platform's own device frame, so switching charts keeps the frame.
+        frame = FRAMES[re.sub(r"-(gpu|cpu|fps)$", "", name)]
+        media = f'<figure class="device {frame}">{glass_svg("glass-clip-" + name) if "glass" in frame else ""}{screen(chart, frame, "glass-clip-" + name)}</figure>'
         classes = "bench bench-sub"
     else:
         title = f'<h2 id="h-{name}">{"".join(glyph(icon) for icon in HEADING_ICONS[name])}{escape(spec["heading"])}</h2>'
-        media = f'<figure class="device {FRAMES[name]}">{glass_svg() if "glass" in FRAMES[name] else ""}{screen(chart, FRAMES[name])}</figure>'
+        media = f'<figure class="device {FRAMES[name]}">{glass_svg("glass-clip-" + name) if "glass" in FRAMES[name] else ""}{screen(chart, FRAMES[name], "glass-clip-" + name)}</figure>'
         classes = "bench"
     return f"""<section class="{classes}" data-platform="{name}" aria-labelledby="h-{name}">
 {title}
