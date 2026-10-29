@@ -68,8 +68,15 @@ static void normalize3(float v[3])
 	}
 }
 
+/* a value held between low and high, with the NaN guard host_spatial_gamepad.c's stick() has:
+a NaN compares false against both ends, so without it a 0 / 0 from either turn's ramp would
+pass straight through into controls[g].stick_x. Returning low answers both callers: each
+ramp's own floor is "no turn", and the sum's clamp runs from -1 but is handed two already
+clamped ramps, so no NaN can reach it */
 static float clampf(float value, float low, float high)
 {
+	if (!(value == value))
+		return low;
 	if (value < low)
 		return low;
 	if (value > high)
@@ -265,8 +272,10 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 			}
 		}
 		else
-			drag_contribution = sign * (magnitude - HANDS_DRAG_START_METERS) /
-				(HANDS_DRAG_FULL_METERS - HANDS_DRAG_START_METERS);
+			/* clamped at both ends, as the aim turn's ramp below is: unclamped, the travel
+			inside START reads negative and a pinch held still on its own anchor turns left */
+			drag_contribution = sign * clampf((magnitude - HANDS_DRAG_START_METERS) /
+				(HANDS_DRAG_FULL_METERS - HANDS_DRAG_START_METERS), 0.0f, 1.0f);
 	}
 	else
 	{
@@ -301,7 +310,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 			}
 			else
 				aim_contribution = -turn_sign *
-					clampf(excess / (HANDS_AIM_TURN_FULL_DEGREES - deadzone_degrees), 0.0f, 1.0f);
+					clampf(excess / HANDS_AIM_TURN_RAMP_DEGREES, 0.0f, 1.0f);
 		}
 	}
 

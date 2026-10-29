@@ -40,8 +40,12 @@ tip lost mid-pinch holds its state for HOLD_SECONDS before opening */
 /* the drag turn's range, meters of sideways wrist travel from the pinch's close */
 #define HANDS_DRAG_START_METERS 0.02f
 #define HANDS_DRAG_FULL_METERS 0.15f
-/* the aim turn's range past the deadzone, degrees */
-#define HANDS_AIM_TURN_FULL_DEGREES 45.0f
+/* the aim turn's ramp, degrees of arm past the deadzone to full deflection. A span, not an
+absolute angle: the deadzone itself is input.hand_turn_deadzone, anywhere from 5 to 60
+degrees, and a ramp measured from 0 would divide by a negative span (inverting the turn) or
+by zero for the wider half of that range. 27 puts the default deadzone's full deflection at
+18 + 27 = 45 degrees of arm */
+#define HANDS_AIM_TURN_RAMP_DEGREES 27.0f
 /* the prayer sign's geometry and timing, measured on device (see the
 comment on palm_frame in host_spatial_hands.c for the measurement) */
 #define HANDS_PRAYER_DISTANCE_METERS 0.16f

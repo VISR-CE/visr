@@ -219,8 +219,9 @@ static void mirror_aim(void)
 	check(controls[1].menu == 0, "mirror: the off hand's menu is never set, mirrored too");
 }
 
-/* the drag turn, smooth mode: deflection grows linearly between START and FULL meters of
-sideways wrist travel from the pinch's close, right positive, clamped past FULL */
+/* the drag turn, smooth mode: nothing inside START, then deflection grows linearly between
+START and FULL meters of sideways wrist travel from the pinch's close, right positive,
+clamped past FULL */
 static void drag_smooth(void)
 {
 	struct hands_state state;
@@ -228,6 +229,7 @@ static void drag_smooth(void)
 	struct host_spatial_controls controls[2];
 	struct hands_event events[16];
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
@@ -235,6 +237,21 @@ static void drag_smooth(void)
 	joints[1].wrist[1] = 0.0f;
 	joints[1].tip[2][2] = 0.010f; /* the gun hand's middle closes: the drag anchor is set here */
 	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+
+	/* the pinch held still on its own anchor: no travel at all, so no turn and nothing to log */
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "drag smooth: a pinch held still at its anchor turns nothing");
+	check(count == 0, "drag smooth: no event while the drag has not reached START");
+
+	joints[1].wrist[1] = -0.01f; /* 1 cm right, still inside START's 2 cm */
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.07, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "drag smooth: 1 cm right is inside START, no turn");
+	check(count == 0, "drag smooth: no event 1 cm in");
+
+	joints[1].wrist[1] = -0.02f; /* exactly at START: the ramp's own zero */
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.09, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "drag smooth: exactly at START is still zero");
+	check(count == 0, "drag smooth: no event exactly at START");
 
 	joints[1].wrist[1] = -0.085f; /* 8.5 cm to the right (right is positive lateral) */
 	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
@@ -289,8 +306,59 @@ static void drag_snap(void)
 	check(controls[0].menu == 0, "drag snap: the off hand's menu is never set");
 }
 
+/* the drag turn, snap mode, to the left: the pulse carries the drag's own sign, so a wrist
+travelling the other way turns the other way */
+static void drag_snap_left(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].wrist[1] = 0.0f;
+	joints[1].tip[2][2] = 0.010f; /* middle closes at t = 1.0, wrist y 0 */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+
+	joints[1].wrist[1] = 0.03f; /* 3 cm left, past START (2 cm) */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].stick_x == -1.0f, "drag snap left: the pulse fires left");
+	check(count == 1 && events[0].kind == HANDS_EVENT_DRAG && events[0].on == 1,
+		"drag snap left: one drag event");
+	check(controls[0].menu == 0, "drag snap left: the off hand's menu is never set");
+}
+
+/* the off hand going untracked zeros its own controls the same sample and leaves the gun
+hand's standing, the mirror of hand_untracked_zeros */
+static void off_hand_untracked_zeros(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[0].tip[1][2] = 0.010f; /* the off hand walks forward */
+	joints[1].tip[1][2] = 0.010f; /* and the gun hand fires */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[0].stick_y == 1.0f && controls[1].trigger == 1.0f, "untracked off hand: both start pinched");
+
+	joints[0].tracked = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	check(controls_all_zero(&controls[0]), "untracked off hand: every control of its own zero the same sample");
+	check(controls[1].trigger == 1.0f, "untracked off hand: the gun hand still fires");
+}
+
 /* the aim turn, smooth mode, suppressed while the middle pinch is closed: deflection grows
-linearly from the deadzone edge to FULL degrees, a left yaw turning left (negative stick x) */
+linearly over HANDS_AIM_TURN_RAMP_DEGREES past the deadzone's edge, a left yaw turning left
+(negative stick x) */
 static void aim_turn_smooth(void)
 {
 	struct hands_state state;
@@ -314,6 +382,39 @@ static void aim_turn_smooth(void)
 	forward[0] = cosf(-45.0f * (float)M_PI / 180.0f); forward[1] = sinf(-45.0f * (float)M_PI / 180.0f);
 	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
 	check(near(controls[1].stick_x, 1.0f, 1e-3f), "aim smooth: 45 degrees right is +1");
+}
+
+/* the smooth aim turn over input.hand_turn_deadzone's whole accepted range (5 to 60 degrees,
+host_spatial_hands.m's read_settings): the ramp runs HANDS_AIM_TURN_RAMP_DEGREES past whatever
+the deadzone is, so a wide deadzone neither inverts the turn nor divides by zero */
+static void aim_turn_wide_deadzone(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	forward[2] = 0.0f;
+
+	forward[0] = cosf(20.0f * (float)M_PI / 180.0f); forward[1] = sinf(20.0f * (float)M_PI / 180.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 60.0f, 1.0, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "aim smooth: 20 degrees left is inside a 60 degree deadzone");
+
+	/* 27 degrees past that deadzone: the ramp's full deflection, turning left for a left yaw */
+	forward[0] = cosf(87.0f * (float)M_PI / 180.0f); forward[1] = sinf(87.0f * (float)M_PI / 180.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 60.0f, 1.1, controls, events, 16);
+	check(near(controls[1].stick_x, -1.0f, 1e-3f), "aim smooth: 87 degrees left with a 60 degree deadzone is -1");
+
+	/* a deadzone at 45 with the yaw right on its edge: the ramp is zero there, and clampf's own
+	guard means no NaN reaches stick_x even if the two angles land a hair apart */
+	memset(&state, 0, sizeof(state));
+	forward[0] = cosf(45.0f * (float)M_PI / 180.0f); forward[1] = sinf(45.0f * (float)M_PI / 180.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 45.0f, 1.0, controls, events, 16);
+	check(near(controls[1].stick_x, 0.0f, 1e-3f), "aim smooth: 45 degrees left with a 45 degree deadzone is zero");
 }
 
 /* the aim turn, snap mode: fires once past the deadzone, re-arms only once the yaw comes back
@@ -518,11 +619,14 @@ int main(void)
 	pinch_hysteresis();
 	pinch_loss_hold();
 	hand_untracked_zeros();
+	off_hand_untracked_zeros();
 	off_hand_mapping();
 	mirror_aim();
 	drag_smooth();
 	drag_snap();
+	drag_snap_left();
 	aim_turn_smooth();
+	aim_turn_wide_deadzone();
 	aim_turn_snap();
 	aim_turn_untracked_gun_hand();
 	aim_turn_suppressed_by_drag();
