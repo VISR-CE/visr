@@ -6,6 +6,7 @@
 #import "host_orientation.h"
 #include "host_astc_store.h"
 #include "host_texture_upscale.h"
+#import "host_upscale_tick.h"
 
 #if !__has_feature(objc_arc)
 #error The asynchronous importer requires Objective-C ARC.
@@ -18,6 +19,7 @@
 @property(nonatomic, strong) UIButton *chooseButton;
 @property(nonatomic, strong) UIButton *cancelButton;
 @property(nonatomic, strong) UIProgressView *progress;
+@property(nonatomic, strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
 @property(nonatomic, strong) NSURL *pendingImage;
 @property(atomic) BOOL cancelled;
@@ -59,20 +61,24 @@ static int texture_progress(void *context,uint64_t done,uint64_t total) {
     });return 1;
 }
 /* the on-device upscaler's import phase (rule 2): the same bar and the same "Start playing" skip */
-static int upscale_progress(void *context,unsigned long long done,unsigned long long total,int menu_phase) {
+static int upscale_progress(void *context,const struct host_texture_upscale_import_status *status) {
     HaloImportController *controller=(__bridge HaloImportController *)context;
     controller.upscaling=YES;
     /* (the main menu's textures come first; Skip is not offered, and a cancel is not honored, until they are made) */
+    int menu_phase=status->menu_phase;
     if(controller.cancelled&&!menu_phase)return 0;
     double now=NSProcessInfo.processInfo.systemUptime;
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
-    float fraction=total?(float)((double)done/total):0;
+    float fraction=(float)status->fraction;double tick=status->tick;
     dispatch_async(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
         controller.progress.progress=fraction;
-        /* one bar over the whole set: gray until the main menu's textures are made, then blue with Start playing */
-        controller.progress.progressTintColor=menu_phase?UIColor.systemGrayColor:[UIColor colorWithRed:0.247 green:0.839 blue:1 alpha:1];
-        controller.statusLabel.text=[NSString stringWithFormat:@"Upscaling textures · %.0f%%",fraction*100];
+        /* one bar over the setup and the whole set: gray until the main menu's textures are made, then blue with Start
+           playing; "ready to start" marks where that happens */
+        controller.progress.progressTintColor=menu_phase?UIColor.systemGrayColor:halo_upscale_bar_blue();
+        [controller.tick setPosition:tick];
+        /* (rounded down: 100% only when every texture is made) */
+        controller.statusLabel.text=[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
         if(menu_phase)controller.cancelButton.hidden=YES;
         else {
             [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
@@ -117,6 +123,8 @@ static int upscale_progress(void *context,unsigned long long done,unsigned long 
     self.progress=[[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];self.progress.hidden=YES;
     self.progress.accessibilityLabel=@"Game import progress";[stack addArrangedSubview:self.progress];
     [self.progress.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active=YES;
+    /* (room under the bar for the upscaling phase's "ready to start") */
+    self.tick=[HaloUpscaleTick tickOnBar:self.progress];[stack setCustomSpacing:34 afterView:self.progress];
     self.cancelButton=[UIButton buttonWithType:UIButtonTypeSystem];[self.cancelButton setTitle:@"Cancel import" forState:UIControlStateNormal];
     self.cancelButton.accessibilityIdentifier=@"cancelImport";
     [self.cancelButton addTarget:self action:@selector(cancelImport) forControlEvents:UIControlEventTouchUpInside];
