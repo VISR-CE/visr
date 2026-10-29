@@ -406,8 +406,8 @@ def header_text(chart: dict, rows: int = 0) -> str:
 
 
 def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None) -> str | None:
-    """Mermaid text for the ticked entries that have values, or None when there is nothing to draw. Each build is two
-    adjacent rows when the chart has a second value (average, then 1% low or 90th percentile), each row a bar of its own."""
+    """Mermaid text for the ticked entries that have values, or None when there is nothing to draw. Each build is
+    one band with two series (average, then 1% low or 90th percentile)."""
     drawn = _drawn(built, selected)
     if not drawn:
         return None
@@ -428,25 +428,14 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     else:
         y_max = _nice_ceiling(max(averages + known) * 1.25)
     head = "xychart-beta horizontal" if chart.get("horizontal") else "xychart-beta"
-    names, first, second = [], [], []
-    def blank() -> str:
-        """An axis label that shows nothing; each is a different length because the axis drops repeated labels."""
-        return "\u2800" * (len(names) + 1)
-    for n, (e, label) in enumerate(zip(drawn, labels)):
-        low = e["value"]["low"]
-        if with_lows and n:
-            names.append(blank()); first.append(0); second.append(0)  # the gap between builds
-        names.append(label)
-        first.append(e["value"]["avg"]); second.append(0)
-        if with_lows and low is not None:
-            names.append(blank())
-            first.append(0); second.append(low if lower else min(low, e["value"]["avg"]))
-    quoted = ", ".join('"' + name + '"' for name in names)
-    lines = [header_text(chart, len(names)), head, f'    title "{chart_title(spec, built, suite)}"',
-             f'    x-axis "{chart.get("x_label", "")}" [{quoted}]',
+    labels_text = ", ".join('"' + label + '"' for label in labels)
+    # Both series share one band per build; the page splits each band between the two bars (`groupBars` in benchmarks.js).
+    lows = [(e["value"]["low"] if lower else min(e["value"]["low"], e["value"]["avg"])) if e["value"]["low"] is not None else 0 for e in drawn]
+    lines = [header_text(chart, len(labels) * (2 if with_lows else 1)), head, f'    title "{chart_title(spec, built, suite)}"',
+             f'    x-axis "{chart.get("x_label", "")}" [{labels_text}]',
              f'    y-axis "{chart.get("y_label", "")}" {_number(chart.get("y_min", 0))} --> {_number(y_max)}',
-             f"    bar [{', '.join(_number(v) for v in first)}]",
-             f"    bar [{', '.join(_number(v) for v in second)}]" if with_lows else ""]
+             f"    bar [{', '.join(_number(v) for v in averages)}]",
+             f"    bar [{', '.join(_number(v) for v in lows)}]" if with_lows else ""]
     return "\n".join(line for line in lines if line)
 
 

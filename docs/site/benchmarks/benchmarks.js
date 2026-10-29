@@ -296,25 +296,13 @@ function chartSource(spec, built, suite, selected, palette) {
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
   const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
   const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
-  // Each build is two adjacent rows when the chart has a second value, each row a bar of its own, with an empty row
-  // between builds. Only the first row is named; the others get invisible labels, each a different length because the
-  // axis drops repeated labels. Mirrors `source` in charts.py.
-  const names = [], first = [], second = [];
-  const blank = () => "\u2800".repeat(names.length + 1);
-  shown.forEach((e, i) => {
-    if (withLows && i) { names.push(blank()); first.push(0); second.push(0); }
-    names.push(labels[i]);
-    first.push(e.value.avg); second.push(0);
-    if (withLows && e.value.low !== null) {
-      names.push(blank());
-      first.push(0); second.push(lower ? e.value.low : Math.min(e.value.low, e.value.avg));
-    }
-  });
-  return [headerText(chart, palette, names.length), head, `    title "${title}"`,
-    `    x-axis "${chart.x_label || ""}" [${names.map((l) => `"${l}"`).join(", ")}]`,
+  // Both series share one band per build; `groupBars` splits each band between the two bars. Mirrors `source` in charts.py.
+  const lows = shown.map((e) => (e.value.low === null ? 0 : lower ? e.value.low : Math.min(e.value.low, e.value.avg)));
+  return [headerText(chart, palette, shown.length * (withLows ? 2 : 1)), head, `    title "${title}"`,
+    `    x-axis "${chart.x_label || ""}" [${labels.map((l) => `"${l}"`).join(", ")}]`,
     `    y-axis "${chart.y_label || ""}" ${number(chart.y_min ?? 0)} --> ${number(yMax)}`,
-    `    bar [${first.map(number).join(", ")}]`,
-    withLows ? `    bar [${second.map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
+    `    bar [${averages.map(number).join(", ")}]`,
+    withLows ? `    bar [${lows.map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
 }
 
 function legendText(spec) {
@@ -449,6 +437,23 @@ function themePalette() {
 // Mermaid's xychart draws its content flush to the edge of its canvas (the last tick label overhangs it). After
 // rendering, this fits the view box to the content plus an even margin on all four sides. `svg` must be in the
 // document so `getBBox` works. (Mermaid 11.12 has no gridline option, so the charts have none.)
+// Mermaid draws both series across a band's full height, overlapping. This gives the average the band's upper half and the
+// second value its lower half, touching, so a build is one pair under one axis label. A build without a second value keeps
+// a half-height average bar, centered. Run before `labelBars`, which reads the bars' final geometry.
+function groupBars(main, source) {
+  const series = [...source.matchAll(/^\s*bar \[([^\]]*)\]/gm)].map((m) => m[1].split(",").map((v) => parseFloat(v)));
+  const groups = [...main.querySelectorAll("g[class^='bar-plot-']")];
+  if (series.length !== 2 || groups.length !== 2) return;
+  const [upper, lower] = groups.map((group) => [...group.querySelectorAll("rect")]);
+  upper.forEach((top, i) => {
+    const y = parseFloat(top.getAttribute("y")), h = parseFloat(top.getAttribute("height"));
+    const hasLow = lower[i] && series[1][i] > 0;
+    top.setAttribute("height", h / 2);
+    if (!hasLow) top.setAttribute("y", y + h / 4);
+    if (lower[i]) { lower[i].setAttribute("y", y + h / 2); lower[i].setAttribute("height", h / 2); }
+  });
+}
+
 // Prints each bar's value after its end: fps to one decimal, milliseconds to two. A zero-length bar (the other series' row)
 // is hidden and has no label. The text uses the container's color, so it reads in light and dark.
 function labelBars(main, source) {
@@ -482,7 +487,7 @@ function labelBars(main, source) {
 function finishChart(svg, source, pad = 22) {
   const main = svg.querySelector("g.main");
   if (!main) return svg;
-  if (source) labelBars(main, source);
+  if (source) { groupBars(main, source); labelBars(main, source); }
   const background = main.querySelector("rect.background");
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const child of main.children) {

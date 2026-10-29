@@ -57,10 +57,10 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "⠀⠀", "⠀⠀⠀", "117-vision b25332ef9", "⠀⠀⠀⠀⠀", "⠀⠀⠀⠀⠀⠀", "Beeman apple-v0.3.0", "⠀⠀⠀⠀⠀⠀⠀⠀", "⠀⠀⠀⠀⠀⠀⠀⠀⠀", "ChupathingyCE iOS v0.2.0 (pre-release)", "⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀"]
+    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.4, 0, 0, 23.9, 0, 0, 119.4, 0, 0, 119.1, 0]
-    bar [0, 119.4, 0, 0, 21.6, 0, 0, 119.4, 0, 0, 119.1]
+    bar [119.4, 23.9, 119.4, 119.1]
+    bar [119.4, 21.6, 119.4, 119.1]
 ```
 
 🟦 Average fps 🟨 1% low fps
@@ -87,10 +87,10 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV HD"
-    x-axis "Port and version" ["VISR 0.6.0", "⠀⠀"]
+    x-axis "Port and version" ["VISR 0.6.0"]
     y-axis "Frames per second" 0 --> 40
-    bar [29.8, 0]
-    bar [0, 29.8]
+    bar [29.8]
+    bar [29.8]
 ```
 
 🟦 Average fps 🟨 1% low fps
@@ -110,17 +110,17 @@ Measured on an M2 Vision Pro from runs presented at the display rate. Bars show 
 config:
   xyChart:
     width: 520
-    height: 302
+    height: 276
   themeVariables:
     xyChart:
       plotColorPalette: "#1593bd, #c8870a"
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "⠀⠀", "⠀⠀⠀", "117-vision b25332ef9", "⠀⠀⠀⠀⠀", "⠀⠀⠀⠀⠀⠀", "master-chef 1.0.3"]
+    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
     y-axis "Frames per second" 0 --> 150
-    bar [89.5, 0, 0, 21, 0, 0, 29.8]
-    bar [0, 89.5, 0, 0, 16.2, 0, 0]
+    bar [89.5, 21, 29.8]
+    bar [89.5, 16.2, 0]
 ```
 
 🟦 Average fps 🟨 1% low fps
