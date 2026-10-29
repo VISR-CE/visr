@@ -542,9 +542,12 @@ static UIImage *qr_image(NSString *text) {
     /* once the disc is imported and textures are being prepared, only the progress shows */
     BOOL preparing=atomic_load(&preparing_textures);
     self.introLabel.hidden=self.qr.hidden=self.addressLabel.hidden=self.codeLabel.hidden=preparing;
-    BOOL wasHidden=self.skipTexturesButton.hidden;
-    self.skipTexturesButton.hidden=!atomic_load(&preparing_textures)||atomic_load(&menu_phase_textures);
-    if(wasHidden&&!self.skipTexturesButton.hidden)[self setNeedsFocusUpdate];
+    /* (while textures are prepared the button keeps its place, unseen until it may be used, so nothing moves) */
+    BOOL wasShown=!self.skipTexturesButton.hidden&&self.skipTexturesButton.enabled;
+    BOOL usable=atomic_load(&preparing_textures)&&!atomic_load(&menu_phase_textures);
+    self.skipTexturesButton.hidden=!atomic_load(&preparing_textures);
+    self.skipTexturesButton.alpha=usable?1:0;self.skipTexturesButton.enabled=usable;
+    if(!wasShown&&usable)[self setNeedsFocusUpdate];
     if(serial!=self.shownSerial) {
         self.shownSerial=serial;
         self.statusLabel.text=message;
