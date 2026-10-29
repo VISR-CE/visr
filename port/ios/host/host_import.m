@@ -80,11 +80,10 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         [controller.tick setPosition:tick];
         /* (rounded down: 100% only when every texture is made) */
         controller.statusLabel.text=message?:[NSString stringWithFormat:@"Upscaling textures · %d%%",(int)floor(fraction*100)];
-        if(menu_phase)controller.cancelButton.hidden=YES;
-        else {
-            [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
-            controller.cancelButton.hidden=NO;
-        }
+        /* (the button keeps its place while it waits, so nothing on the screen moves when it appears) */
+        [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
+        controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;
+        controller.cancelButton.enabled=!menu_phase&&!controller.cancelled;controller.cancelButton.accessibilityElementsHidden=menu_phase;
     });return 1;
 }
 @implementation HaloImportController
@@ -167,7 +166,8 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;
     self.chooseButton.hidden=YES;self.introLabel.hidden=YES;self.cancelButton.hidden=NO;self.cancelButton.enabled=YES;
     [self.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
-    self.cancelButton.hidden=YES;   // (Skip appears once the main menu's textures are made)
+    /* (Skip appears once the main menu's textures are made; until then it keeps its place, unseen) */
+    self.cancelButton.alpha=0;self.cancelButton.enabled=NO;self.cancelButton.accessibilityElementsHidden=YES;
     self.progress.progressTintColor=UIColor.systemGrayColor;self.statusLabel.text=@"Upscaling textures";[self.spinner startAnimating];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
         host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
