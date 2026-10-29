@@ -26,6 +26,16 @@ typedef BOOL (^HostPackValidator)(NSString *folder, NSError **error);
                    publicKey:(NSData *)key
                compatibility:(NSString *)compatibility
                    validator:(HostPackValidator)validator;
+// The folder a launch starting now would use, read without opening a store: nothing on disk changes, and an open
+// store's in-memory state is not touched. A trial an earlier process left counts as rolled back. For looks before
+// the launch menu (the upscaling gate); bundled when the root has nothing usable.
++ (NSString *)peekFolderAtRoot:(NSString *)root
+                       bundled:(NSString *)bundled
+                          kind:(NSString *)kind
+                       channel:(NSString *)channel
+                     publicKey:(NSData *)key
+                 compatibility:(NSString *)compatibility
+                     validator:(HostPackValidator)validator;
 - (NSString *)beginLaunch;
 // Menu candidates remain pending until the user starts Play or Benchmark.
 // These methods validate/read disk and must run off the presentation thread.

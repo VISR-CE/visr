@@ -2,9 +2,11 @@
 #ifdef __OBJC__
 #import <Foundation/Foundation.h>
 NSString *host_profile_update_folder(NSString *bundled);
-/* The profile folder for a look before launch (the upscaling gate): the launch's selection once there is one, else
-   bundled. Unlike host_profile_update_folder it never opens a store or begins a launch. */
-NSString *host_profile_peek_folder(NSString *bundled);
+struct host_device;
+/* The profile folder for a look before launch (the upscaling gate): the launch's selection once there is one, else the
+   shard a launch starting now would use, read from disk. Unlike host_profile_update_folder it never opens a store or
+   begins a launch. */
+NSString *host_profile_peek_folder(NSString *bundled, const struct host_device *device);
 /* Resolves verified generations off presentation; the visitor must not call back into launch setup. */
 void host_profile_updates_watch(NSString *dropIn, void (^visitor)(NSString *folder, NSDictionary *identity));
 NSString *host_recording_update_folder(NSString *bundled);

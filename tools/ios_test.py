@@ -3,6 +3,7 @@
 import os
 import re
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
@@ -247,6 +248,17 @@ for name, target in (('iphone', 'ios/iPhone18,1/_'), ('apple-tv', 'tvos/AppleTV1
         '--output', BUILD / f'profile-feed-probe-{name}.json')
 probe_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(seed)], check=True,
                            capture_output=True, text=True, cwd=ROOT).stdout.strip()
+# and an Apple TV shard, one revision on, that turns upscaled textures off: the upscaling gate before the launch menu
+# must read it in the launch that uses it
+upscale_off = BUILD / 'profile-feed-probe-upscale-off'
+shutil.rmtree(upscale_off, ignore_errors=True)
+shutil.copytree(ROOT / 'profiles', upscale_off)
+apple_tv = upscale_off / 'apple-tv-4k-3rd.toml'
+apple_tv.write_text(apple_tv.read_text().replace('[display]\nupscaled_textures = true\n', '[display]\nupscaled_textures = false\n', 1))
+run('python3', 'tools/profile_revision.py', '--bump', '--profiles', upscale_off)
+run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester', '--sequence', '2',
+    '--compatibility', 'device-profiles-3:tvos/AppleTV14,1/_', '--input', upscale_off, '--signing-key', seed,
+    '--output', BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
     '-framework', 'Network', '-lz', 'port/ios/tests/profile_feed_probe.m', 'port/ios/host/host_data_pack.m',
@@ -256,7 +268,8 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="tes
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'profile-feed-probe')
 run(BUILD / 'profile-feed-probe', ROOT,
     re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
-    probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json')
+    probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json',
+    BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
     '-Iport/runtime/include', '-framework', 'Foundation', '-lz', 'port/ios/tests/shader_download_probe.m',
     'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',

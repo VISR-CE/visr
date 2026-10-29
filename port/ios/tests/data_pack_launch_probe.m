@@ -340,6 +340,32 @@ static void shared_store_launches(uint8_t *secret, NSData *key) {
     error = nil;
     assert(![refusing stageEnvelope:Envelope(secret, 7) error:&error] && [error.localizedDescription isEqual:@"Pack sequence was already seen"]);
     [NSFileManager.defaultManager removeItemAtPath:root error:NULL];
+
+    // A look before the launch (the upscaling gate) reads what a launch starting now would use and changes nothing.
+    HostPackValidator hasTest = ^BOOL(NSString *folder, NSError **validationError) {
+        (void)validationError; return [NSFileManager.defaultManager fileExistsAtPath:[folder stringByAppendingPathComponent:@"test.toml"]];
+    };
+    NSString *(^Peek)(NSString *) = ^NSString *(NSString *at) {
+        return [HostDataPackStore peekFolderAtRoot:at bundled:@"/bundled" kind:@"profiles" channel:@"stable" publicKey:key compatibility:@"profiles-2" validator:hasTest];
+    };
+    root = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
+    assert([Peek(root) isEqual:@"/bundled"] && ![NSFileManager.defaultManager fileExistsAtPath:root]);   // nothing created
+    [HostDataPackStore forgetSharedStores];
+    HostDataPackStore *looked = Store(root, key);
+    assert([looked stageEnvelope:Envelope(secret, 40) error:NULL]);
+    NSString *candidate40 = [looked menuSnapshot][@"folder"];
+    NSData *stateBytes = [NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"state.json"]];
+    assert([Peek(root) isEqual:candidate40]);                                                    // the pending shard
+    assert([[NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"state.json"]] isEqual:stateBytes]);
+    [looked selectMenuFolder:candidate40]; [looked markHealthy];
+    assert([looked stageEnvelope:Envelope(secret, 41) error:NULL]);
+    [HostDataPackStore forgetSharedStores];
+    NSString *trial41 = [Store(root, key) beginLaunch];                                          // a launch that never got healthy
+    [HostDataPackStore forgetSharedStores];
+    assert(![trial41 isEqual:candidate40] && [Peek(root) isEqual:candidate40]);                // its trial counts as rolled back
+    stateBytes = [NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"state.json"]];
+    assert([State(root)[@"trial"] boolValue] && [[NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:@"state.json"]] isEqual:stateBytes]);
+    [NSFileManager.defaultManager removeItemAtPath:root error:NULL];
     [HostDataPackStore forgetSharedStores];
     puts("PASS: one store per root; launch 1 then launch 2 keep a new shard; a 0.6.3 quarantine yields to the next sequence");
 }

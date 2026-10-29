@@ -144,14 +144,21 @@ static void pruneCompatibilityRoots(NSString *root)
 /* Probes point these at a temporary folder and their own key; the app leaves them nil. */
 static NSString *dataPackCacheOverride, *dataPackChannelOverride;
 static NSData *dataPackKeyOverride;
-static HostDataPackStore *store(NSString *kind, NSString *bundled, NSString *compatibility, HostPackValidator validator)
+/* A kind's cache root for this build's channel and compatibility, and the key its packs are checked with. */
+static NSString *storeRoot(NSString *kind, NSString *compatibility, NSString **channelOut, NSData **keyOut)
 {
     NSBundle *bundle = NSBundle.mainBundle;
     NSString *channel = dataPackChannelOverride ?: [bundle objectForInfoDictionaryKey:@"HaloDataPackChannel"];
     if (![channel isEqual:@"tester"] && ![channel isEqual:@"stable"]) channel = @"stable";
-    NSData *key = dataPackKeyOverride ?: publicKey([bundle objectForInfoDictionaryKey:@"HaloDataPackPublicKey"]);
+    *channelOut = channel;
+    *keyOut = dataPackKeyOverride ?: publicKey([bundle objectForInfoDictionaryKey:@"HaloDataPackPublicKey"]);
     NSString *cache = dataPackCacheOverride ?: NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
-    NSString *root = [[[[cache stringByAppendingPathComponent:@"visr-data-packs"] stringByAppendingPathComponent:kind] stringByAppendingPathComponent:channel] stringByAppendingPathComponent:digest([compatibility dataUsingEncoding:NSUTF8StringEncoding])];
+    return [[[[cache stringByAppendingPathComponent:@"visr-data-packs"] stringByAppendingPathComponent:kind] stringByAppendingPathComponent:channel] stringByAppendingPathComponent:digest([compatibility dataUsingEncoding:NSUTF8StringEncoding])];
+}
+static HostDataPackStore *store(NSString *kind, NSString *bundled, NSString *compatibility, HostPackValidator validator)
+{
+    NSString *channel; NSData *key;
+    NSString *root = storeRoot(kind, compatibility, &channel, &key);
     pruneCompatibilityRoots(root);
     // One store per root for the whole process: the profile check before the launch menu, the menu and a legacy
     // launch all get the same instance.
@@ -167,17 +174,19 @@ static BOOL profileShardOlder(long long revision, const char *sha256, long long 
 {
     return bundled <= 0 || revision < bundled || (revision == bundled && ![@(sha256) isEqualToString:bundledSHA256]);
 }
-static HostDataPackStore *profileStore(NSString *bundled, struct host_device device)
+/* The profile feed's compatibility for device and the validator its shards pass: valid for the device, and not older
+   than the bundled profiles. */
+static HostPackValidator profileValidator(NSString *bundled, struct host_device device, NSString **compatibilityOut,
+    long long *bundledRevisionOut, NSString **bundledSHA256Out)
 {
     char key[192];
     BOOL identified = host_profile_device_key(&device, key, sizeof(key));
-    NSString *compatibility = [@HOST_PROFILE_FEED_DOMAIN ":" stringByAppendingString:identified ? @(key) : @"unidentified"];
+    *compatibilityOut = [@HOST_PROFILE_FEED_DOMAIN ":" stringByAppendingString:identified ? @(key) : @"unidentified"];
     char bundledText[65];
     long long bundledRevision = host_profile_revision_read(bundled.fileSystemRepresentation, bundledText);
     NSString *bundledSHA256 = @(bundledText);
-    if (bundledRevision <= 0)
-        host_logf(HOST_LOG_WARN, "data-packs: the bundled profiles have no valid revision; profile downloads stay off");
-    HostDataPackStore *result = store(@"profiles", bundled, compatibility, ^BOOL(NSString *folder, NSError **error) {
+    *bundledRevisionOut = bundledRevision; *bundledSHA256Out = bundledSHA256;
+    return ^BOOL(NSString *folder, NSError **error) {
         char sha256[65];
         BOOL valid = identified && host_profile_validate_feed_folder(folder.fileSystemRepresentation, &device, HOST_PROFILE_FEED_GENERATION, NULL);
         long long revision = valid ? host_profile_revision_read(folder.fileSystemRepresentation, sha256) : 0;
@@ -187,7 +196,15 @@ static HostDataPackStore *profileStore(NSString *bundled, struct host_device dev
         }
         if (!valid && error) *error = [NSError errorWithDomain:@"VISRDataUpdates" code:1 userInfo:@{NSLocalizedDescriptionKey: @"Invalid profile snapshot"}];
         return valid;
-    });
+    };
+}
+static HostDataPackStore *profileStore(NSString *bundled, struct host_device device)
+{
+    NSString *compatibility, *bundledSHA256; long long bundledRevision;
+    HostPackValidator validator = profileValidator(bundled, device, &compatibility, &bundledRevision, &bundledSHA256);
+    if (bundledRevision <= 0)
+        host_logf(HOST_LOG_WARN, "data-packs: the bundled profiles have no valid revision; profile downloads stay off");
+    HostDataPackStore *result = store(@"profiles", bundled, compatibility, validator);
     if (!result.supersededCheck) result.supersededCheck = ^BOOL(NSDictionary<NSString *, NSData *> *files) {
         NSData *file = files[@"hardware/revision.toml"]; char sha256[65];
         long long revision = file ? host_profile_revision_parse(file.bytes, file.length, sha256) : 0;
@@ -727,11 +744,17 @@ void host_data_updates_menu_expected(void)
 {
     @synchronized(selectionLock()) { menuRequested = YES; }
 }
-NSString *host_profile_peek_folder(NSString *bundled)
+NSString *host_profile_peek_folder(NSString *bundled, const struct host_device *device)
 {
-    // The launch's selection once there is one, else the bundled profiles. A look must never open a store: 0.6.3's
-    // look began a launch on a second store of the menu's root, which then quarantined the shard it had staged.
-    @synchronized(selectionLock()) { return profileFolder ?: bundled; }
+    @synchronized(selectionLock()) { if (profileFolder) return profileFolder; }
+    // Before a selection: the shard a launch starting now would use, read without opening a store. Opening one here
+    // is what broke 0.6.3: its look began a launch on a second store of the menu's root, which then quarantined the
+    // shard it had staged. A downloaded shard still decides the upscaling gate for this launch.
+    NSString *compatibility, *bundledSHA256, *channel; long long bundledRevision; NSData *key;
+    HostPackValidator validator = profileValidator(bundled, *device, &compatibility, &bundledRevision, &bundledSHA256);
+    NSString *root = storeRoot(@"profiles", compatibility, &channel, &key);
+    return [HostDataPackStore peekFolderAtRoot:root bundled:bundled kind:@"profiles" channel:channel publicKey:key
+        compatibility:compatibility validator:validator];
 }
 NSString *host_profile_update_folder(NSString *bundled)
 {
