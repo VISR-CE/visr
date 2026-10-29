@@ -212,7 +212,7 @@ def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_h
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{TITLE}</title>
 <meta name="description" content="{DESCRIPTION}">
-<meta name="color-scheme" content="light dark">
+<meta name="color-scheme" content="dark">
 {head["head_icons"]}
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="shell.css">

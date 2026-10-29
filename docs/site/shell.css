@@ -1,40 +1,30 @@
 /* Shared HUD colors leave the chart palette to style.css. */
+/* Dark only: the HUD palette is the game's menu blue on near-black. The chart palette comes from the icon colors. */
 :root {
-  --bg: #f4f7fa;
-  --ink: #102331;
-  --muted: #455e70;
-  --line: #7a9bb5;
-  --accent: #006f96;
-  --code-bg: #102331;
-  --hud-blue: #086bbb;
-  --hud-cyan: #006f96;
-  --hud-gold: #8a5a00;
-  --hud-panel: linear-gradient(180deg, #f6fbff, #fff);
-  --hud-wash: #e8f2fc;
-  --hud-grid: #257c9d22;
-  --hud-floor: #006f9659;
-  --hud-glow: #2999ff26;
+  color-scheme: dark;
+  --bg: #050e14;
+  --ink: #e8f6fa;
+  --muted: #a8c1cc;
+  --line: #487a9d;
+  --accent: #3fd6ff;
+  --code-bg: #10232b;
+  --chart-avg: var(--visr-blue);
+  --chart-low: var(--visr-gold);
+  --hud-blue: #2999ff;
+  --hud-cyan: #3fd6ff;
+  --hud-gold: #ffc24d;
+  --hud-panel: linear-gradient(180deg, #0c3056e6, #051426f2);
+  --hud-wash: #082240;
+  --hud-grid: #3fd6ff1f;
+  --hud-floor: #3fd6ff8c;
+  --hud-glow: #2999ff40;
   --hud-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --hud-corner: 22px;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #050e14;
-    --ink: #e8f6fa;
-    --muted: #a8c1cc;
-    --line: #487a9d;
-    --accent: #3fd6ff;
-    --code-bg: #10232b;
-    --hud-blue: #2999ff;
-    --hud-cyan: #3fd6ff;
-    --hud-gold: #ffc24d;
-    --hud-panel: linear-gradient(180deg, #0c3056e6, #051426f2);
-    --hud-wash: #082240;
-    --hud-grid: #3fd6ff1f;
-    --hud-floor: #3fd6ff8c;
-    --hud-glow: #2999ff40;
-  }
-}
+/* The chart frames and controls in style.css pick their light surfaces without a dark query; set the dark ones here. */
+.bench-tabs { background: #10232bdd; }
+.device .bench-chart, .device-flat .bench-chart { background: #10232b; color: #e8f6fa; }
+.device-glass .glass-shape path { fill: #0a141a; stroke: #6d818c; }
 [hidden] { display: none !important; }
 html { overflow-x: clip; }
 body { position: relative; isolation: isolate; overflow-x: clip; }
@@ -229,9 +219,7 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
 @keyframes a-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes c-run { from { background-position: 0 0; } to { background-position: 0 80px; } }
 @keyframes c-stereo { 0%, 100% { text-shadow: -3px 0 0 color-mix(in srgb, var(--hud-cyan) 85%, transparent), 3px 0 0 color-mix(in srgb, var(--hud-gold) 85%, transparent); } 50% { text-shadow: -1px 0 0 color-mix(in srgb, var(--hud-cyan) 85%, transparent), 1px 0 0 color-mix(in srgb, var(--hud-gold) 85%, transparent); } }
-@media (prefers-color-scheme: dark) {
-  .head blockquote::before { color: #050e14; }
-}
+.head blockquote::before { color: #050e14; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .head::after { display: none; }

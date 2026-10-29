@@ -382,3 +382,12 @@ def test_site_template_has_skip_target_shared_styles_and_deferred_script():
         assert '<link rel="stylesheet" href="shell.css">' in html
         assert '<script src="site.js" defer></script>' in html
         assert html.index('class="skip-link"') < html.index('<main ')
+
+
+def test_site_is_dark_only():
+    site = ROOT / "docs/site"
+    for page in ("index.html", "benchmarks.html", "privacy.html"):
+        assert '<meta name="color-scheme" content="dark">' in (site / page).read_text(encoding="utf-8"), page
+    shell = (site / "shell.css").read_text(encoding="utf-8")
+    assert "color-scheme: dark;" in shell
+    assert "prefers-color-scheme" not in shell and "data-theme" not in shell

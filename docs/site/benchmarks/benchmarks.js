@@ -765,7 +765,7 @@ async function start() {
   const state = { suite: SUITES.concat("overall").includes(params.get("suite")) ? params.get("suite") : DEFAULT_SUITE,
     models: {}, selected: {}, refresh: null, reasons, open: new Set() };
   const dark = window.matchMedia("(prefers-color-scheme: dark)");
-  const theme = () => mermaid.initialize(mermaidConfig(dark.matches));
+  const theme = () => mermaid.initialize(mermaidConfig(true));
   theme();
   const sections = Object.fromEntries(specs.map((spec) => [spec.slug, document.querySelector(`[data-platform="${spec.slug}"]`)]));
   state.views = {};
