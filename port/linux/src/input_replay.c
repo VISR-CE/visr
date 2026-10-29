@@ -83,6 +83,7 @@ extern float game_time_get_tick_fraction(void);
 extern unsigned char game_time_get_paused(void);
 /* port/linux/game/input_replay_scenario.c */
 extern unsigned char input_replay_main_menu_loaded(void);
+extern int input_replay_stage_apply(const struct benchmark_stage *, char *, unsigned int);
 extern unsigned char input_replay_skip_cinematic(void);
 extern void input_replay_level(char *map, unsigned int size, long *difficulty, long *players, unsigned long *seed);
 /* the game's global random seed; set to *seed first when seed is given */
@@ -140,6 +141,10 @@ struct recorded_state
 static struct
 {
 	BOOL configured;
+	struct benchmark_stage stage;
+	long stage_tick;
+	BOOL stage_applied;
+	char stage_error[96];
 	char record_path[512], replay_path[512], replay_name[256];
 	FILE *record_file;
 	BOOL record_ended;
@@ -399,6 +404,14 @@ static void route_load(void)
 			platform_log("debug.input_replay: %s has no .route, so the enemy multiplier it was recorded with is unknown; "
 				"using debug.enemy_multiplier %.3f", replay.replay_path, configured);
 		return;
+	}
+	{
+		char route_text[4096];
+		size_t count = fread(route_text, 1, sizeof(route_text) - 1, file);
+		route_text[count] = 0;
+		if ((count == sizeof(route_text) - 1 && fgetc(file) != EOF) || !benchmark_stage_route(route_text, &replay.stage, &replay.stage_tick))
+			snprintf(replay.stage_error, sizeof(replay.stage_error), "stage: invalid recording route");
+		rewind(file);
 	}
 	while (fgets(line, sizeof(line), file))
 	{
@@ -680,6 +693,8 @@ static void take_close(const char *why)
 		replay.actions_written, replay.segment + 1, replay.segment ? "s" : "");
 }
 
+static void recording_stage_configure(void);
+
 static void take_open(const char *map, long tick, long difficulty, long players, unsigned long seed)
 {
 	static const char *const difficulties[] = { "easy", "normal", "hard", "impossible" };
@@ -701,6 +716,7 @@ static void take_open(const char *map, long tick, long difficulty, long players,
 	take.players_written = take.paused = FALSE;
 	take.pauses = 0;
 	take.route[0] = 0;
+	recording_stage_configure();
 	memset(&events, 0, sizeof(events));
 	replay.actions_written = 0;
 	replay.record_environment_valid = FALSE;
@@ -776,12 +792,31 @@ static void take_update(void)
 	}
 }
 
+static void recording_stage_configure(void)
+{
+	memset(&replay.stage, 0, sizeof(replay.stage));
+	replay.stage_tick = 0;
+	replay.stage_applied = FALSE;
+	replay.stage_error[0] = 0;
+#ifdef HALO_DEVELOPMENT_HOOKS
+	{
+		const char *text = config_string("debug.benchmark_stage");
+		if (*text && !benchmark_stage_parse(text, &replay.stage))
+		{
+			snprintf(replay.stage_error, sizeof(replay.stage_error), "stage: invalid debug.benchmark_stage");
+			platform_log("debug.input_record: %s", replay.stage_error);
+		}
+	}
+#endif
+}
+
 static void configure(void)
 {
 	const char *record = config_string("debug.input_record");
 	const char *replay_name = config_string("debug.input_replay");
 
 	replay.configured = TRUE;
+	if (*record) recording_stage_configure();
 	if (!strcmp(record, "auto") && !*replay_name)
 	{
 		take.automatic = TRUE;
@@ -1326,6 +1361,51 @@ void input_replay_tick_end(void)
 	input_replay_random_seeds(tick_seeds.seeds, FALSE);
 }
 
+const char *input_replay_stage_error(void)
+{
+	return replay.stage_error;
+}
+
+int input_replay_stage_matches(const char *json, long tick)
+{
+	return !replay.stage_error[0] && !strcmp(json, replay.stage.json) && tick == replay.stage_tick;
+}
+
+/* Run after recording or restoring this tick's seeds, before the position diagnostic. A stage may both
+consume randomness and teleport the player, so these must see the same order in a recording and its replay. */
+static void replay_stage_update(void)
+{
+	double ticks;
+	if (!replay.stage.count || replay.stage_applied || replay.stage_error[0] || replay.stage_tick <= 0)
+		return;
+	ticks = game_ticks();
+	if (ticks < replay.stage_tick) return;
+	replay.stage_applied = TRUE;
+	if ((long)ticks != replay.stage_tick)
+		snprintf(replay.stage_error, sizeof(replay.stage_error), "stage: missed tick %ld", replay.stage_tick);
+	else if (!input_replay_stage_apply(&replay.stage, replay.stage_error, sizeof(replay.stage_error)))
+		platform_log("debug.input_replay: %s", replay.stage_error);
+	if (replay.stage_error[0]) return;
+	platform_log("debug.input_replay: applied stage at tick %ld", replay.stage_tick);
+	if (take.open)
+	{
+		take_route_note("stage = %s\nstage_tick = %ld\n", replay.stage.json, replay.stage_tick);
+		take_route_write("open");
+	}
+	else if (*replay.record_actions_path)
+	{
+		char path[512];
+		FILE *route;
+		size_t length = strlen(replay.record_actions_path);
+		snprintf(path, sizeof(path), "%.*s.route", (int)(length - 8), replay.record_actions_path);
+		if ((route = fopen(path, "a")))
+		{
+			fprintf(route, "stage = %s\nstage_tick = %ld\n", replay.stage.json, replay.stage_tick);
+			fclose(route);
+		}
+	}
+}
+
 /* player 1's action as a tick takes it (update_client_dequeue, single
 player): recorded, or replaced by the recording's for this segment and tick */
 void input_replay_tick_action(void *action)
@@ -1433,7 +1513,7 @@ void input_replay_tick_action(void *action)
 						fprintf(replay.seeds_file, "%s\n", SEEDS_HEADER);
 					/* (a recording of its own, not a take: NAME.route, with only what a replay needs to meet the same
 					enemies) */
-					if (!take.open && coop_enemies_solo_multiplier() > 1.0)
+					if (!take.open && (coop_enemies_solo_multiplier() > 1.0 || replay.stage.count))
 					{
 						FILE *route;
 
@@ -1543,10 +1623,14 @@ void input_replay_tick_action(void *action)
 			replay_finish();
 			log_ended();
 		}
+		replay_stage_update();
 		route_log(tick, applied ? "recorded action" : "no recorded action");
 	}
 	else if (*replay.record_actions_path)
+	{
+		replay_stage_update();
 		route_log(tick, "recorded");
+	}
 }
 
 /* player_control.c: whether a replay skips cinematics itself, at the tick its take did (input_replay_tick_action),
@@ -1758,6 +1842,9 @@ void input_replay_note_event(const char *kind, const char *name)
 	if (index == EVENT_KINDS)
 		return;
 	events.counts[index]++;
+	if (!strcmp(kind, "cinematic_done") && events.counts[index] == 1 &&
+		(take.open || *replay.record_actions_path) && replay.stage.count && !replay.stage_tick)
+		replay.stage_tick = (long)ticks + 31;
 	/* (the script that called, for a cinematic: lowercase letters, digits and underscores; none from the engine) */
 	script[0] = 0;
 	if (name && name[0] != '[')

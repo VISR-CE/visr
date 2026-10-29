@@ -25,6 +25,7 @@ are the iOS, tvOS, visionOS and Mac app's.
 #include "benchmark_mp_state.h"
 #include "benchmark_mp_arena.h"
 #include "network_test_suite.h"
+#include "input_replay.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -612,7 +613,7 @@ static int start_suite_for_output(void)
 /* takes the next run from the host and starts it; quits when there is none */
 static void next_run(void)
 {
-	char text[1024], path[256];
+	char text[4096], path[256], stage_json[BENCHMARK_STAGE_JSON_SIZE];
 	int more = host_benchmark_next(text, sizeof(text));
 
     if(more==4) {
@@ -763,6 +764,12 @@ static void next_run(void)
 		finish("skipped", "the recording could not be read");
 		return;
 	}
+	field(text, "stage", stage_json, sizeof(stage_json));
+	if (!input_replay_stage_matches(stage_json, (long)number_field(text, "stage_tick")))
+	{
+		finish("failed", "stage does not match the signed case or recording route");
+		return;
+	}
 	/* (a case's signed enemy multiplier, for the level about to load; the recording's route carries it too, and the
 	catalog is checked against it) */
 	if (suite.enemy_multiplier > 1.0)
@@ -903,6 +910,12 @@ void benchmark_suite_frame(long width, long height)
 	{
 		suite.review_progress = (long)(ticks / 300.0);
 		platform_log("benchmark suite: take position scene=%s tick=%ld", suite.scene, (long)ticks);
+	}
+	if ((suite.state == suite_loading || suite.state == suite_lead || suite.state == suite_measuring ||
+		suite.state == suite_review_tail) && input_replay_stage_error()[0])
+	{
+		finish("failed", input_replay_stage_error());
+		return;
 	}
 	switch (suite.state)
 	{

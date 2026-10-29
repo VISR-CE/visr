@@ -132,6 +132,9 @@ int input_replay_begin(const char *name, int lip_sync) {
 }
 void coop_enemies_solo_override(double multiplier) { (void)multiplier; }
 static int replay_ended;
+static const char *stage_error = "";
+const char *input_replay_stage_error(void) { return stage_error; }
+int input_replay_stage_matches(const char *json, long tick) { return !*json && !tick; }
 int input_replay_ended(void) { return replay_ended; }
 long input_replay_segment(void) { return 0; }
 double input_replay_length_ticks(void) { return 9000; }
@@ -175,7 +178,7 @@ static void reset(void) {
     graphics_window_open = 0; graphics_test_revision = 0;
     graphics_serializations = graphics_deliveries = graphics_window_active = 0;
     override_lines=override_shadow=override_anisotropy=0; override_lod=0;
-    combat_begins = 0;
+    combat_begins = 0; stage_error = "";
     memset(&suite, 0, sizeof(suite));
     strcpy(suite.map, "chillout"); strcpy(suite.mp_game_mode, "slayer");
     strcpy(suite.mp_simulation, "local_controllers");
@@ -206,6 +209,14 @@ int main(void) {
     assert(recording);
     fputs("probe", recording);
     fclose(recording);
+
+    reset();
+    strcpy(suite.scene, "staged-case");
+    suite.state = suite_lead;
+    stage_error = "stage: missing absent_encounter";
+    CHECK(frame(0) == -1);
+    CHECK(!strcmp(last_end_status, "failed"));
+    CHECK(strstr(last_log, "absent_encounter"));
 
     reset(); worker_active = 1;
     CHECK(frame(0) == -1 && starts == 1);

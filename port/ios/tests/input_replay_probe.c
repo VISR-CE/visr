@@ -42,6 +42,16 @@ void host_touch_replay_active(int active) {
 	touch_replay_active = active;
 }
 
+static const char *stage_config = "";
+static int stage_calls;
+static long stage_called_tick;
+int input_replay_stage_apply(const struct benchmark_stage *stage, char *error, unsigned int size)
+{
+	(void)stage; (void)error; (void)size;
+	stage_calls++; stage_called_tick = game_time_get();
+	return 1;
+}
+
 static int lip_sync;
 static unsigned long lip_sync_config_reads;
 static int enhanced_animations = 1;
@@ -60,6 +70,7 @@ int config_boolean(const char *name) {
 	(!strcmp(name, "game.enhanced_animations") && enhanced_animations); }
 long config_integer(const char *name) { (void)name; return 0; }
 const char *config_string(const char *name) {
+	if (!strcmp(name, "debug.benchmark_stage")) return stage_config;
 	if (!strcmp(name,"display.stereo")) return replay_probe_stereo_mode;
 	if (!strcmp(name, "debug.input_record")) return record_name;
 	return !strcmp(name, "debug.input_replay") ? replay_name : "";
@@ -615,6 +626,67 @@ static void check_enemy_multiplier_metadata(void)
 	puts("enemy multiplier metadata: PASS");
 }
 
+static void check_staged_recording(void)
+{
+	unsigned int action[ACTION_WORDS] = {0};
+	XINPUT_GAMEPAD pad = {0};
+	FILE *file;
+	char route[4096];
+	size_t count;
+	stage_config = "[{\"deathless\":true}]";
+	recording_stage_configure();
+#ifdef HALO_DEVELOPMENT_HOOKS
+	assert(replay.stage.count == 1);
+#else
+	assert(replay.stage.count == 0);
+#endif
+	stage_config = "";
+	input_replay_begin(NULL, 0); clock_ready = 1; clock_tick = 0; replay.await_level = 0;
+	strcpy(replay.record_path, "stage.input"); strcpy(replay.record_actions_path, "stage.actions");
+	assert(benchmark_stage_parse("[{\"deathless\":true}]", &replay.stage));
+	file = fopen("stage.route", "w"); assert(file);
+	fputs("stage = [{\"deathless\":true}]\nstage_tick = 12\n", file); fclose(file);
+	record(&pad, 0); input_replay_tick_action(action);
+	clock_tick = 10;
+	input_replay_note_event("cinematic_done", "intro");
+	assert(replay.stage_tick == 41);
+	for (clock_tick = 11; clock_tick <= 42; clock_tick++) input_replay_tick_action(action);
+	assert(stage_calls == 1 && stage_called_tick == 41);
+	input_replay_note_event("cinematic_done", "later");
+	assert(replay.stage_tick == 41);
+	record_end("stage probe");
+	file = fopen("stage.route", "r"); assert(file);
+	count = fread(route, 1, sizeof(route) - 1, file); route[count] = 0; fclose(file);
+	assert(strstr(route, "stage = [{\"deathless\":true}]\nstage_tick = 41\n"));
+	input_replay_begin(NULL, 0); clock_ready = 0;
+	assert(input_replay_begin("./stage.input", 0));
+	assert(input_replay_stage_matches("[{\"deathless\":true}]", 41));
+	assert(!input_replay_stage_matches("", 0));
+	clock_ready = 1; replay.await_level = 0;
+	for (clock_tick = 0; clock_tick <= 42; clock_tick++) input_replay_tick_action(action);
+	assert(stage_calls == 2 && stage_called_tick == 41);
+	assert(!input_replay_stage_error()[0]);
+	input_replay_begin(NULL, 0); clock_ready = 0;
+	unlink("stage.input"); unlink("stage.actions"); unlink("stage.seeds"); unlink("stage.route");
+#ifdef HALO_DEVELOPMENT_HOOKS
+	/* Automatic takes write the same pair into their periodically rewritten route. */
+	assert(!mkdir("recordings", 0700));
+	stage_config = "[{\"deathless\":true}]";
+	clock_ready = 1; clock_tick = 0;
+	take_open("a10", 0, 1, 1, 0);
+	replay.await_level = 0;
+	clock_tick = 10; input_replay_note_event("cinematic_done", "intro");
+	clock_tick = 41; input_replay_tick_action(action);
+	assert(stage_calls == 3 && stage_called_tick == 41);
+	assert(strstr(take.route, "stage = [{\"deathless\":true}]\nstage_tick = 41\n"));
+	take_close("stage probe");
+	assert(!rmdir("recordings"));
+	stage_config = ""; clock_ready = 0;
+	input_replay_begin(NULL, 0);
+#endif
+	puts("staged recording and replay: PASS");
+}
+
 int main(int argc, char **argv)
 {
 	if (argc == 2 && !strcmp(argv[1], "--auto-record-suite-camera"))
@@ -637,6 +709,7 @@ int main(int argc, char **argv)
     }
 	check_recorded_action_metadata();
 	check_enemy_multiplier_metadata();
+	check_staged_recording();
 	check_controller_action_format();
 	check_control_pose();
 	clock_tick = 0;

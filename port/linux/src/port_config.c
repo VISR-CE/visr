@@ -1191,6 +1191,9 @@ static const struct config_setting config_settings[] =
 		_environment_value, _platform_ios,
 		"With upscaled_textures_toggle: press its toggle every this many frames,\n"
 		"for a test run with no controller; 0 never." },
+	{ "debug.benchmark_stage", _config_string, "\"\"", "HALO_BENCHMARK_STAGE", _environment_value, _platform_all,
+		"Development hooks only: closed JSON staging steps for debug.input_record,\n"
+		"applied once 30 ticks after the first tick following cinematic_done." },
 	{ "debug.input_record", _config_string, "\"\"", "HALO_INPUT_RECORD", _environment_value, _platform_all,
 		"Record controller 1 while a map plays, to <name>.input in the data folder\n"
 		"(port/linux/src/input_replay.c); empty records nothing." },
