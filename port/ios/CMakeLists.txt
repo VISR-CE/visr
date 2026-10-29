@@ -200,28 +200,26 @@ if(HALO_TVOS OR HALO_NATIVE_MAC)
 endif()
 target_compile_features(VISR PRIVATE cxx_std_14)
 target_link_libraries(VISR PRIVATE halo_astcenc)
-# Compile the CC0 model on the build host; inference never compiles a package on the device.
-# The native macOS app does not run the generator, but shares its unavailable-service behavior. tvOS bundles the
-# model: Apple TVs whose profile turns upscaled textures on (the 4K 3rd generation and newer) make them.
+# Compile the CC0 model on the build host; inference never compiles a package on the device. Every Apple target bundles
+# it: iPhone, iPad, the Mac (Catalyst and the AppKit app) and the Apple TVs whose profile turns upscaled textures on (the
+# 4K 3rd generation and newer) make the textures on the device.
 target_sources(VISR PRIVATE host/texture_upscale_model.m)
 target_link_libraries(VISR PRIVATE "-framework CoreML")
-if(NOT HALO_NATIVE_MAC)
-    set(HALO_UPSCALE_MODEL_PACKAGE "${ROOT}/port/assets/models/S4g.mlpackage")
-    set(HALO_UPSCALE_MODEL_COMPILED "${CMAKE_CURRENT_BINARY_DIR}/models/S4g.mlmodelc")
-    file(GLOB_RECURSE HALO_UPSCALE_MODEL_INPUTS CONFIGURE_DEPENDS "${HALO_UPSCALE_MODEL_PACKAGE}/*")
-    add_custom_command(
-        OUTPUT "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin"
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/models"
-        COMMAND xcrun coremlcompiler compile "${HALO_UPSCALE_MODEL_PACKAGE}" "${CMAKE_CURRENT_BINARY_DIR}/models"
-        DEPENDS ${HALO_UPSCALE_MODEL_INPUTS}
-        COMMENT "Compiling the S4g texture upscale model"
-        VERBATIM)
-    add_custom_target(halo_upscale_model DEPENDS "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin")
-    add_dependencies(VISR halo_upscale_model)
-    set_source_files_properties("${HALO_UPSCALE_MODEL_COMPILED}" PROPERTIES
-        GENERATED TRUE MACOSX_PACKAGE_LOCATION Resources)
-    target_sources(VISR PRIVATE "${HALO_UPSCALE_MODEL_COMPILED}")
-endif()
+set(HALO_UPSCALE_MODEL_PACKAGE "${ROOT}/port/assets/models/S4g.mlpackage")
+set(HALO_UPSCALE_MODEL_COMPILED "${CMAKE_CURRENT_BINARY_DIR}/models/S4g.mlmodelc")
+file(GLOB_RECURSE HALO_UPSCALE_MODEL_INPUTS CONFIGURE_DEPENDS "${HALO_UPSCALE_MODEL_PACKAGE}/*")
+add_custom_command(
+    OUTPUT "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/models"
+    COMMAND xcrun coremlcompiler compile "${HALO_UPSCALE_MODEL_PACKAGE}" "${CMAKE_CURRENT_BINARY_DIR}/models"
+    DEPENDS ${HALO_UPSCALE_MODEL_INPUTS}
+    COMMENT "Compiling the S4g texture upscale model"
+    VERBATIM)
+add_custom_target(halo_upscale_model DEPENDS "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin")
+add_dependencies(VISR halo_upscale_model)
+set_source_files_properties("${HALO_UPSCALE_MODEL_COMPILED}" PROPERTIES
+    GENERATED TRUE MACOSX_PACKAGE_LOCATION Resources)
+target_sources(VISR PRIVATE "${HALO_UPSCALE_MODEL_COMPILED}")
 target_include_directories(VISR PRIVATE host "${ROOT}/port/runtime" "${ROOT}/port/runtime/include"
     "${ROOT}/port/runtime/guest/runtime" "${ROOT}/port/linux/src" "${ROOT}/build/ios/host"
     "${ROOT}/build/ios/embedded" "${ROOT}/port/third_party/tomlc17")
