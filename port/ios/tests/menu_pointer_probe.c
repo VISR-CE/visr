@@ -51,11 +51,11 @@ static void drag(void) {
     assert(!p.wheel_steps && !p.moved);
     host_menu_pointer_touch_move(&m, 1, 100, 200 + 10.0f + 2 * HOST_MENU_POINTER_NOTCH + 3);   /* two notches down */
     p = take(&m);
-    assert(p.wheel_steps == 2);
+    assert(p.wheel_steps == -2);
     host_menu_pointer_touch_move(&m, 1, 100, 200 + 10.0f + 2 * HOST_MENU_POINTER_NOTCH - 3);   /* the remainder carries */
     host_menu_pointer_touch_move(&m, 1, 100, 100);                                                /* a long way up */
     p = take(&m);
-    assert(p.wheel_steps < 0 && p.wheel_steps >= -HOST_MENU_POINTER_MAXIMUM_STEPS);
+    assert(p.wheel_steps > 0 && p.wheel_steps <= HOST_MENU_POINTER_MAXIMUM_STEPS);
     host_menu_pointer_touch_end(&m, 1);
     p = take(&m);
     assert(!p.left_clicks);                          /* a drag is not a tap */
@@ -63,7 +63,7 @@ static void drag(void) {
     take(&m);
     host_menu_pointer_touch_move(&m, 1, 0, 5000);
     p = take(&m);
-    assert(p.wheel_steps == HOST_MENU_POINTER_MAXIMUM_STEPS);
+    assert(p.wheel_steps == -HOST_MENU_POINTER_MAXIMUM_STEPS);
 }
 
 static void fingers(void) {
