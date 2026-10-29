@@ -263,6 +263,10 @@ void host_stereo_frame(struct halo_stereo_frame *frame);
 window (Apple Vision Pro's Enter VR), when display.stereo's "off" becomes
 HEAD mode (halo_stereo_mode_entered); 0 on every other platform */
 int host_stereo_entered(void);
+/* Negative quality queries the runtime target; nonnegative quality sets it. */
+float host_stereo_render_quality(float quality);
+void host_stereo_ab_change(const char *method, float quality, int shadows);
+
 
 /* Fixed-width spatial samples and feedback cross the host/guest boundary unchanged. */
 void host_spatial_sample(int kind, struct halo_spatial_sample *sample);

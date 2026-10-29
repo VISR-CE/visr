@@ -24,6 +24,7 @@ to read the eyes' poses and presents it full view. */
 #include "ios_host.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdatomic.h>
 #include <string.h>
 
@@ -122,6 +123,29 @@ float host_theater_render_quality(void)
 	double quality = host_config_real("display.render_quality", 0.6);
 
 	return !(quality > 0.0) ? 0.0f : quality > 1.0 ? 1.0f : (float)quality;
+}
+
+/* A negative value queries the requested target, which the layer may still be approaching. */
+static float runtime_quality = -1.0f;
+float host_theater_runtime_quality(float quality)
+{
+	static int unavailable_logged;
+	if (quality < 0.0f)
+		return runtime_quality >= 0.0f ? runtime_quality : host_theater_render_quality();
+	if (layer_renderer && foveation_enabled)
+	{
+		if (@available(visionOS 26.0, *))
+		{
+			runtime_quality = fminf(foveation_quality, fmaxf(0.0f, quality));
+			cp_layer_renderer_set_render_quality(layer_renderer, runtime_quality);
+			host_logf(HOST_LOG_INFO, "theater: runtime render quality set to %.3f; layer reports %.3f (maximum %.3f)",
+				runtime_quality, cp_layer_renderer_get_render_quality(layer_renderer), foveation_quality);
+			return runtime_quality;
+		}
+	}
+	if (!unavailable_logged++)
+		host_logf(HOST_LOG_INFO, "theater: runtime render quality is unavailable without a foveated layer");
+	return host_theater_runtime_quality(-1.0f);
 }
 
 static const char *layout_name(int layout)
@@ -498,6 +522,7 @@ void host_theater_test_toggle(void)
 void host_theater_attach(void *renderer)
 {
 	layer_renderer = (__bridge cp_layer_renderer_t)renderer;
+	runtime_quality = -1.0f;
 	screen_placed = NO;
 	space_opening = NO;
 	enter_ornament_shown(NO);
@@ -523,6 +548,11 @@ void host_theater_attach(void *renderer)
 			double scale = host_config_real("display.render_scale", 1.0);
 			float quality = host_foveation_scaled_quality(foveation_quality, (float)scale);
 
+			/* Session-only override; ordinary launches retain display.render_scale's mapping. */
+			const char *ab_quality = getenv("HALO_AB_RENDER_QUALITY");
+			if (ab_quality && *ab_quality)
+				quality = fminf(foveation_quality, fmaxf(0.0f, strtof(ab_quality, NULL)));
+			runtime_quality = quality;
 			cp_layer_renderer_set_render_quality(layer_renderer, quality);
 			host_logf(HOST_LOG_INFO, "theater: the render quality is set to %.3f (display.render_scale %.2f of the "
 				"maximum %.3f); the layer is %s, its render "

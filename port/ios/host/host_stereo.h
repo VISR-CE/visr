@@ -112,3 +112,8 @@ level and turning with the head's yaw, inside foveation's sharp region
 (0 to 1) dims the quad toward black, for the fade of a cut to or from it */
 void host_stereo_present_ui(id<MTLCommandQueue> queue, id<MTLTexture> picture, id<MTLTexture> hud, float brightness);
 #endif
+
+/* Negative quality queries the runtime target; nonnegative quality sets it. */
+float host_stereo_render_quality(float quality);
+void host_stereo_ab_change(const char *method, float quality, int shadows);
+void host_stereo_ab_sample(double gpu_seconds);
