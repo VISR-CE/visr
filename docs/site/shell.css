@@ -143,7 +143,7 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
 .bench-head > p:nth-of-type(2) { order: -1; margin: 0; font: 13px/1.6 var(--hud-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--hud-gold); }
 .bench-head > p:last-child { font-size: 16px; margin-top: 10px; }
 .bench-bar { position: relative; isolation: isolate; padding-block: 12px; margin-top: 0; gap: 12px; }
-.bench-bar::before { content: ""; position: absolute; z-index: -1; inset-block: 0; left: calc(50% - 50vw); width: 100vw; background: color-mix(in srgb, var(--bg) 92%, transparent); border-block: 1px solid var(--hud-blue); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.bench-bar::before { content: ""; position: absolute; z-index: -1; inset-block: 0; left: calc(50% - 50vw); width: 100vw; background: color-mix(in srgb, var(--bg) 96%, transparent); border-block: 1px solid var(--hud-blue); }
 .bench-bar .suite-label { display: inline; font: 12px/1.5 var(--hud-mono); letter-spacing: 0.18em; }
 .bench-bar label { min-height: 44px; padding-inline: 12px; border: 2px solid transparent; border-radius: 6px; background: transparent; color: var(--hud-blue); font: 500 13px/1.4 Orbitron, sans-serif; letter-spacing: 0.06em; text-transform: uppercase; }
 .bench-bar label:has(input:checked) { background: var(--hud-wash); border-color: var(--hud-blue); color: var(--ink); box-shadow: 0 0 14px var(--hud-glow); }

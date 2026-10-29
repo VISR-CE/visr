@@ -235,13 +235,12 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 }
 @media (min-width: 900px) {
   .bench-bar { position: sticky; top: 0; z-index: 20; isolation: isolate; padding: var(--space-2) 0; row-gap: 4px; }
-  /* The page color at about 88% opacity with a blur, spread past the column on both sides, so content scrolls faintly behind
-     the bar; the bottom line runs the same width. */
+  /* The page color at about 96% opacity, spread past the column on both sides; the bottom line runs the same width.
+     No backdrop blur: it makes Safari repaint the bar on every scroll frame. */
   .bench-bar::before { content: ""; position: absolute; z-index: -1; top: 0; bottom: 0; left: calc(50% - 50vw); width: 100vw;
-    background: var(--bg); border-bottom: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+    background: var(--bg); border-bottom: 1px solid var(--line); }
   @supports (background: color-mix(in srgb, red 50%, transparent)) {
-    .bench-bar::before { background: color-mix(in srgb, var(--bg) 88%, transparent); }
+    .bench-bar::before { background: color-mix(in srgb, var(--bg) 96%, transparent); }
   }
   body { overflow-x: clip; }
 }
