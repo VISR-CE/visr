@@ -872,6 +872,28 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 
 	if (reader->failed)
 		return;
+	/* Both looks share several identical bitmap and string resources. Keep the first. */
+	if (!reader->skipping && parent == _element_menus &&
+		(!strcmp(name, "bitmap") || !strcmp(name, "strings")))
+	{
+		long attribute, index;
+		for (attribute = 0; attributes[attribute]; attribute += 2)
+		{
+			if (strcmp(attributes[attribute], "name")) continue;
+			if (!strcmp(name, "bitmap"))
+			{
+				for (index = 0; index < reader->menus.bitmap_count; index++)
+					if (!strcmp(reader->menus.bitmaps[index].name, attributes[attribute + 1])) break;
+				if (index < reader->menus.bitmap_count) { reader->skipping++; return; }
+			}
+			else
+			{
+				for (index = 0; index < reader->menus.string_list_count; index++)
+					if (!strcmp(reader->menus.string_lists[index].name, attributes[attribute + 1])) break;
+				if (index < reader->menus.string_list_count) { reader->skipping++; return; }
+			}
+		}
+	}
 	if (reader->skipping || !for_this_platform(reader, attributes))
 	{
 		reader->skipping++;
@@ -1038,8 +1060,6 @@ struct halo_menus const *halo_menus_load(void)
 	static int succeeded;
 	struct reader reader;
 	long index;
-	/* (display.menus: "pc", else the Xbox look's, as menu_tags.c has it) */
-	int xbox_set = strcmp(config_string("display.menus"), "pc") != 0;
 
 	if (read)
 		return succeeded ? &menus : NULL;
@@ -1050,10 +1070,8 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		size_t length = strlen(files[index].path);
 
-		/* (a set's own: the Xbox look's files are those in xbox/, the PC
-		version's every other) */
-		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml") &&
-			(strncmp(files[index].path, "xbox/", 5) == 0) == xbox_set)
+		/* Both looks must exist before any screen can switch between them. */
+		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml"))
 			read_file(&reader, &files[index]);
 	}
 	free(reader.last_child);

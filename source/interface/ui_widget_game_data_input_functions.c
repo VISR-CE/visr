@@ -2025,6 +2025,8 @@ static void set_textbox_to_build_number(
 	   wchar_t build_number_string[0x40]). Neither PDB records the block: placing it at the top of
 	   the function is unattested. January corroborates: .bss +0x28, referenced only here. */
 	static wchar_t build_number_string[64];
+	/* port: what this widget shows (a blank label for the PC menus' own widget) */
+	wchar_t const *label = build_number_string;
 
 #ifndef HALO_IOS
 	/* Save and map version checks still use their original build numbers. */
@@ -2036,11 +2038,13 @@ static void set_textbox_to_build_number(
 			sizeof(build_number_string));
 	}
 #else
-	/* port: keep the PC menu's blank label; only the Xbox set shows VISR's version. */
-	extern char const *config_string(char const *name);
+	/* port: keep the PC menu's blank label; only the Xbox look's main menu (the map's own
+	   widget, not one of the menus' tags) shows VISR's version, whichever look display.menus
+	   picks at the moment */
+	static wchar_t const blank_label[NUMBEROF(build_number_string)] = {0};
 
-	if (!csstrcmp(config_string("display.menus"), "pc"))
-		build_number_string[0] = 0;
+	if (pc_menu_tag(widget->definition_tag_index))
+		label = blank_label;
 	else if (!build_number_string[0])
 	{
 		extern void pc_menu_version_text(char *text, long size);
@@ -2074,7 +2078,7 @@ static void set_textbox_to_build_number(
 	{
 		ustrncpy(
 			widget->parameters.text_box.text,
-			build_number_string,
+			label,
 			NUMBEROF(build_number_string) - 1);
 		widget->parameters.text_box.text[NUMBEROF(build_number_string) - 1] = 0;
 	}

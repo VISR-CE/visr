@@ -3950,6 +3950,18 @@ struct widget_instance *ui_widget_load_by_name_or_tag(
 		(widget_stack>=0) && (widget_stack<MAXIMUM_GAMEPADS));
 	if (tag_index == NONE)
 		tag_index = tag_loaded(UI_WIDGET_DEFINITION_TAG, name);
+	/* port: decide the menu look only at a screen open, never for its children. */
+	if (!parent && tag_index != NONE)
+	{
+		extern long pc_menu_screen_open(long tag_index);
+		long screen_tag = pc_menu_screen_open(tag_index);
+		if (screen_tag != tag_index)
+		{
+			focused_child_parent_widget_tag = NONE;
+			focused_child_index = NONE;
+		}
+		tag_index = screen_tag;
+	}
 	if (tag_index != NONE)
 	{
 		definition = ui_widget_definition_get(tag_index);

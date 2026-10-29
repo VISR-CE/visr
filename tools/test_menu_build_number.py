@@ -31,9 +31,9 @@ def test_build_label_by_menu_set(tmp_path):
 #define csmemset memset
 #define csstrcmp strcmp
 #define ustrncpy wcsncpy
-struct widget_instance { struct { struct { wchar_t *text; } text_box; } parameters; };
-static const char *menus = "pc";
-static const char *config_string(const char *key) { return menus; }
+struct widget_instance { long definition_tag_index; struct { struct { wchar_t *text; } text_box; } parameters; };
+/* the PC menus' own widget is tag 7; the map's (the Xbox look's) main menu label is any other */
+static int pc_menu_tag(long tag) { return tag == 7; }
 static void pc_menu_version_text(char *text, long size) { strcpy(text, "VISR 0.7.0"); }
 static void ascii_to_wide(const char *text, wchar_t *wide, long size)
 { mbstowcs(wide, text, size / sizeof(*wide)); }
@@ -41,14 +41,14 @@ static void *ui_widget_realloc(void *p, long size, const char *file, long line) 
 /* FUNCTION */
 int main(void)
 {
-    struct widget_instance widget = { 0 };
+    struct widget_instance widget = { 7 };
     set_textbox_to_build_number(&widget);
 #ifdef HALO_IOS
     assert(!widget.parameters.text_box.text[0]);
-    menus = "xbox";
+    widget.definition_tag_index = 3;
     set_textbox_to_build_number(&widget);
     assert(!wcscmp(widget.parameters.text_box.text, L"VISR 0.7.0"));
-    menus = "pc";
+    widget.definition_tag_index = 7;
     set_textbox_to_build_number(&widget);
     assert(!widget.parameters.text_box.text[0]);
 #else

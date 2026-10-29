@@ -31,6 +31,10 @@ typedef XINPUT_STATE *PXINPUT_STATE;
 typedef int SDL_Gamepad;
 static int requested, configured_players = 1, physical_count, virtual_calls, physical_calls;
 static SDL_Gamepad pads[PORT_COUNT];
+static int menu_activity_calls;
+static void menu_gamepad_activity(XINPUT_GAMEPAD const *pad) {
+    (void)pad; menu_activity_calls++;
+}
 static long config_integer(const char *key) { (void)key; return configured_players; }
 static int __attribute__((unused)) mp_benchmark_probe_requested(void) { return requested; }
 static int mp_benchmark_probe_or_test_gamepad(XINPUT_GAMEPAD *pad, short port) {
@@ -61,7 +65,7 @@ int main(void) {
         actual_xinput_secondary_branch(port, &state);
         CHECK(state.Gamepad.value == 100 + port);
     }
-    CHECK(virtual_calls == 3 && physical_calls == 0);
+    CHECK(virtual_calls == 3 && physical_calls == 0 && menu_activity_calls == 0);
     requested = 0; physical_count = 3; pads[1] = 41; pads[2] = 42;
     state.Gamepad.value = 0;
     actual_xinput_secondary_branch(1, &state);
@@ -69,6 +73,7 @@ int main(void) {
     state.Gamepad.value = 0;
     actual_xinput_secondary_branch(2, &state);
     CHECK(state.Gamepad.value == 42 && physical_calls == 2 && virtual_calls == 3);
+    CHECK(menu_activity_calls == 2);
     physical_count = 0; configured_players = 2;
     state.Gamepad.value = 0;
     actual_xinput_secondary_branch(1, &state);

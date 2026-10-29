@@ -8,6 +8,11 @@ rows, the screens' children, the descriptions' strings and frames and pc_menu_pa
 argv[1]: "apple" (a keyboard, no Apple TV), "tvos" (the Apple TV, no keyboard) or "bad" (a malformed patch, which
 fails the files). */
 
+static int input_pad = 1, input_keyboard = 1;
+static char const *menu_mode = "xbox";
+int platform_menu_pad(void) { return input_pad; }
+int platform_menu_keyboard(void) { return input_keyboard; }
+
 #include "menu_tags.c"
 #include "menu_files.h"
 
@@ -100,6 +105,11 @@ static char const screen_xml[] =
 	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
+static char const pc_xml[] =
+	"<menus><widget name=\"main_menu/main_menu\"/>"
+	"<strings name=\"main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions\">"
+	"<string text=\"Rename this profile.\"/></strings></menus>";
+
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
 which replaces it) */
 /* (a picture's "files": the first byte is the texture the stand-in PNG decoder gives, 0 being one that cannot be
@@ -109,9 +119,10 @@ const struct menu_file_embedded menu_files_embedded[] =
 {
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
+	{ "ce/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
 	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
 };
-const unsigned int menu_files_embedded_count = 3;
+const unsigned int menu_files_embedded_count = 4;
 
 /* ---------- what the game and the platform layer give */
 
@@ -133,7 +144,7 @@ void platform_log(char const *format, ...)
 char const *config_string(char const *name)
 {
 	if (!strcmp(name, "display.menus"))
-		return "xbox";
+		return menu_mode;
 	return "";
 }
 
@@ -649,8 +660,8 @@ static void check_descriptions(char const *what, long list, short const *expecte
 
 static boolean string_is(struct string_list const *list, long index, char const *text)
 {
-	unsigned short expected[64];
-	long length = halo_menus_utf16(text, expected, 64);
+	unsigned short expected[256];
+	long length = halo_menus_utf16(text, expected, 256);
 	struct string_list_entry const *entry = (struct string_list_entry const *)list->strings.address + index;
 
 	return index < list->strings.count && entry->string.size == length * 2 &&
@@ -853,11 +864,49 @@ static void check_apple(boolean tvos)
 		check(pc_menus_screen(pregame) == pregame, "a system link game's pregame stays the Xbox's");
 		check(pc_menus_screen(postgame) == postgame, "the postgame map select stays the Xbox's for system link");
 		probe_lan = FALSE;
+		{
+			char const *const pc_pregame = "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
+			char const *const pc_postgame = "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper";
+			char const *const xbox_pregame = "pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen";
+			struct
+			{
+				char const *mode;
+				int pad, lan;
+				char const *pregame, *postgame;
+			} const cases[] =
+			{
+				{ "auto", 0, FALSE, pc_pregame, pc_postgame },
+				{ "auto", 0, TRUE, pc_pregame, pc_postgame },
+				{ "auto", 1, FALSE, xbox_pregame, postgame },
+				{ "auto", 1, TRUE, pregame, postgame },
+				{ "pc", 1, FALSE, pc_pregame, pc_postgame },
+				{ "pc", 1, TRUE, pc_pregame, pc_postgame },
+				{ "xbox", 0, FALSE, xbox_pregame, postgame },
+				{ "xbox", 0, TRUE, pregame, postgame },
+			};
+			long index;
+			for (index = 0; index < NUMBEROF(cases); index++)
+			{
+				menu_mode = cases[index].mode;
+				input_pad = cases[index].pad;
+				probe_lan = cases[index].lan;
+				/* A newly loaded map or the previous screen may hold the other look. */
+				menu_tags.xbox_set = !input_pad;
+				check(!strcmp(pc_menus_screen(pregame), cases[index].pregame),
+					"%s pregame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
+				check(!strcmp(pc_menus_screen(postgame), cases[index].postgame),
+					"%s postgame follows current input or override (pad %d, LAN %d)", menu_mode, input_pad, probe_lan);
+			}
+			menu_mode = "xbox";
+			input_pad = 1;
+			probe_lan = FALSE;
+			menu_tags.xbox_set = TRUE;
+		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* (3 widgets: the screen, adopted row and lobby; 1 borrowed picture bitmap; 1 bitmap of the cached pictures) */
-	counted = 4 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
-	used = 4 + 2 * (3 + 4 + 1 + 1) + 1;
+	/* Four widgets, two bitmaps and the PC description list precede patch tags. */
+	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
+	used = 6 + 2 * (3 + 4 + 1 + 1) + 1;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1071,6 +1120,37 @@ int main(int argc, char **argv)
 		check(menu_tags.loaded, "the menus loaded");
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
+		{
+			long xbox = tag_loaded(UI_WIDGET_DEFINITION_TAG, MM "main_menu");
+			long pc = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\main_menu\\main_menu");
+			long open = xbox;
+			menu_mode = "auto";
+			input_pad = 0;
+			check(pc != NONE, "both looks loaded together");
+			check(open == xbox, "input changes do not mutate an open screen");
+			check(pc_menu_screen_open(open) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
+			input_pad = 1;
+			check(pc_menu_screen_open(pc) == xbox && menu_tags.xbox_set, "back to main takes pad look");
+			check(pc_menu_screen_open(mp_screen) == mp_screen && menu_tags.xbox_set,
+				"an unavailable counterpart holds the look");
+			menu_mode = "pc";
+			check(pc_menu_screen_open(xbox) == pc, "fixed PC overrides pad input");
+			menu_mode = "xbox";
+			input_pad = 0;
+			check(pc_menu_screen_open(pc) == xbox, "fixed Xbox overrides keyboard input");
+			input_keyboard = 0;
+			pc_menu_screen_open(xbox);
+			{
+				struct string_list *list = tag_get(UNICODE_STRING_LIST_TAG,
+					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
+				check(string_is(list, 0, "Rename this profile using\\nthe virtual keyboard.\\n\\nCurrent Profile:"),
+					"keyboard removal changes the next screen's description");
+				input_keyboard = 1;
+				pc_menu_screen_open(xbox);
+				check(string_is(list, 0, "Rename this profile with your\\nkeyboard.\\n\\nCurrent Profile:"),
+					"keyboard attachment changes the next screen's description");
+			}
+		}
 		check_panel_failure();
 		check_extraction();
 		check_art();
