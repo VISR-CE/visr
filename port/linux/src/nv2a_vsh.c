@@ -203,84 +203,11 @@ static const char shader_helpers[] =
 	"	return vec4(1.0, max(s.x, 0.0), specular, 1.0);\n"
 	"}\n";
 
-/* the clip position's z and w (r12) as the program writes them, for MSL's
-reversed depth: after a dot product into one of them, keep its operands
-(depth_za and depth_zb for z, depth_wa and depth_wb for w) and remember the
-operation; any other write forgets it. Halo's programs make both with the
-same position and two rows of the projection, as dph v0, c[2] and
-dph v0, c[3]. The writes come after both units have read their operands, so
-A and B are this instruction's. */
-static void depth_rows_track(struct xgpu_text *text, const DWORD *instruction, unsigned long mac, unsigned long ilu,
-	unsigned long *z_op, unsigned long *w_op)
-{
-	unsigned long temporary = field(instruction, 3, 20, 4);
-	int mac_dot = mac == _mac_dp3 || mac == _mac_dph || mac == _mac_dp4;
-	/* components of r12 this instruction writes with a dot product, and with
-	anything else */
-	unsigned long dot = 0, other = 0;
-
-	if (mac != _mac_nop && mac != _mac_arl && temporary == 12)
-		*(mac_dot ? &dot : &other) |= field(instruction, 3, 24, 4);
-	if (ilu != _ilu_nop && (mac != _mac_nop ? 1 : temporary) == 12)
-		other |= field(instruction, 3, 16, 4);
-	if (field(instruction, 3, 11, 1) && field(instruction, 3, 3, 8) == 0 &&
-		(field(instruction, 3, 2, 1) ? ilu : mac) != 0)
-	{
-		*(!field(instruction, 3, 2, 1) && mac_dot ? &dot : &other) |= field(instruction, 3, 12, 4);
-	}
-	if ((dot | other) & 2)
-	{
-		*z_op = (dot & 2) && !(other & 2) ? mac : 0;
-		if (*z_op)
-			xgpu_text_append(text, "\tdepth_za = A;\n\tdepth_zb = B;\n");
-	}
-	if ((dot | other) & 1)
-	{
-		*w_op = (dot & 1) && !(other & 1) ? mac : 0;
-		if (*w_op)
-			xgpu_text_append(text, "\tdepth_wa = A;\n\tdepth_wb = B;\n");
-	}
-}
-
-/* at the clip position's capture: clip.w - clip.z made without the
-cancellation. When z and w were the same dot product with one operand in
-common, w - z is the dot product of the common operand with the difference
-of the others; the rows of a projection differ in every element by much less
-than either, and the difference of two floats that close is exact. The
-result is a value near the clip position's w - z with the rounding of a
-small dot product, not of two large ones. Returns whether it wrote one. */
-static int reversed_depth_operands(struct xgpu_text *text, unsigned long z_op, unsigned long w_op)
-{
-	const char *form;
-
-	if (!z_op || z_op != w_op)
-	{
-		xgpu_text_append(text, "\tclip_reversed_kept = false;\n");
-		return 0;
-	}
-	/* dph(a, b) is dot(a.xyz, b.xyz) + b.w: with a in common its rows'
-	difference keeps the w, with b in common the b.w cancels */
-	form = z_op == _mac_dp4 ? "dot(%s, %s)" : "dot((%s).xyz, (%s).xyz)";
-	xgpu_text_append(text, "\tclip_reversed_kept = true;\n\tif (all(depth_za == depth_wa))\n\t\tclip_reversed = ");
-	if (z_op == _mac_dph)
-		xgpu_text_append(text, "dot(depth_wa.xyz, (depth_wb - depth_zb).xyz) + (depth_wb.w - depth_zb.w)");
-	else
-		xgpu_text_append(text, form, "depth_wa", "depth_wb - depth_zb");
-	xgpu_text_append(text, ";\n\telse if (all(depth_zb == depth_wb))\n\t\tclip_reversed = ");
-	xgpu_text_append(text, form, "depth_wa - depth_za", "depth_wb");
-	xgpu_text_append(text, ";\n\telse\n\t\tclip_reversed_kept = false;\n");
-	return 1;
-}
-
 char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWORD *instructions,
 	unsigned long instruction_count, unsigned long packed_attribute_mask)
 {
 	struct xgpu_text text = { 0 };
 	unsigned long index;
-	/* the dot products (_mac_dp3, _mac_dph, _mac_dp4; 0 none) that last
-	wrote the clip position's z and w (r12), for reversed_depth_operands */
-	unsigned long depth_z_op = 0, depth_w_op = 0;
-	int reversed_kept = 0;
 
 
 	if (!dialect->version)
@@ -334,10 +261,6 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 		"\tvec4 A, B, C, mac, ilu;\n");
 	if (dialect->clip_capture)
 		xgpu_text_append(&text, "\tvec4 clip_position = vec4(0.0);\n\tbool clip_captured = false;\n");
-	if (dialect->msl)
-		xgpu_text_append(&text,
-			"\tvec4 depth_za = vec4(0.0), depth_zb = vec4(0.0), depth_wa = vec4(0.0), depth_wb = vec4(0.0);\n"
-			"\tfloat clip_reversed = 0.0;\n\tbool clip_reversed_kept = false;\n");
 
 	for (index = 0; index < instruction_count; index++)
 	{
@@ -395,11 +318,7 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 			((field(instruction, 2, 0, 2) << 2) | field(instruction, 3, 30, 2)) == 12)
 		{
 			xgpu_text_append(&text, "\tclip_position = oPos;\n\tclip_captured = true;\n");
-			if (dialect->msl)
-				reversed_kept = reversed_depth_operands(&text, depth_z_op, depth_w_op);
 		}
-		if (dialect->msl)
-			depth_rows_track(&text, instruction, mac, ilu, &depth_z_op, &depth_w_op);
 
 		/* results are written only after both units have read their inputs */
 		if (mac == _mac_arl)
@@ -486,24 +405,7 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 	if (dialect->clip_z_remap)
 		xgpu_text_append(&text, "\tgl_Position.z = 2.0 * gl_Position.z - gl_Position.w;\n");
 	/* Metal draws reversed-Z (gpu_metal.m): depth 1 at the near plane, 0 at
-	the far, so a float depth buffer keeps its precision at a distance. w - z
-	of the finished position does not: at a distance z is within a few
-	thousandths of w, so the difference keeps only the rounding of the two
-	dot products that made them, different at every vertex, and a decal a
-	millimeter off its surface lost whole triangles to it (Blood Gulch's base
-	emblems at a scope's zoom). Where the dot products' operands were kept,
-	the difference of the projection's w and z rows is taken first, which is
-	exact, and the vertex's dot product with it is as precise as any other
-	(reversed_depth_operands). The screen conversion's z, undone as above, is
-	(clip.z * c[-38].z + (c[-37].z - viewport_offset.z) * clip.w) / scale.z,
-	so its w - z is written with clip.w - clip.z in place of clip.z. */
-	if (dialect->msl && reversed_kept)
-		xgpu_text_append(&text,
-			"\tif (clip_captured && clip_reversed_kept && abs(clip_position.w) > 0.0)\n"
-			"\t\tgl_Position.z = (clip_reversed * c[%d].z + clip_position.w * ((scale.z - c[%d].z)\n"
-			"\t\t\t- (c[%d].z - viewport_offset.z))) / scale.z;\n"
-			"\telse\n\t",
-			XGPU_VERTEX_CONSTANT_BIAS - 38, XGPU_VERTEX_CONSTANT_BIAS - 38, XGPU_VERTEX_CONSTANT_BIAS - 37);
+	the far, so a float depth buffer keeps its precision at a distance */
 	if (dialect->msl)
 		xgpu_text_append(&text, "\tgl_Position.z = gl_Position.w - gl_Position.z;\n");
 	xgpu_text_append(&text,

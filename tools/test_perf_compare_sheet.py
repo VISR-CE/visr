@@ -168,80 +168,6 @@ def test_model_ticks_the_newest_build_of_each_port_and_lists_the_rest_with_reaso
     assert by_key["visr@0.5.1@7"]["value"] == {"avg": pytest.approx(547.7226, abs=1e-3), "low": pytest.approx(200.0), "details": {}, "windows": ["a10", "b30"], "rows": by_key["visr@0.5.1@7"]["value"]["rows"]}
 
 
-def entry(port, version, build, date, value, **extra):
-    return {"port": port, "port_name": port, "version": version, "build": build, "date": date, "label": f"{port} {version}",
-            "url": "", "value": value, "reason": "", "kind": "" if value else "not_measured", "default": False, **extra}
-
-
-def test_builds_group_by_port_with_the_newest_version_first_and_the_rest_folded_away():
-    built = charts.model(snapshot_rows(), QUERY, "campaign")
-    groups = {g["port"]: g for g in charts.build_groups(built)}
-    visr = groups["visr"]
-    assert charts.entry_key(visr["primary"]) == "visr@0.5.1@7" and visr["primary"]["default"]
-    assert [charts.entry_key(e) for e in visr["others"]] == ["visr@main@5"]
-    assert sum(1 + len(g["others"]) for g in groups.values()) == len(built["entries"])
-    assert [g["port"] for g in charts.build_groups(built)] == list(dict.fromkeys(e["port"] for e in built["entries"]))
-
-
-def test_the_newest_version_leads_even_when_an_older_one_was_measured_later():
-    value = {"avg": 1.0, "low": None, "details": {}, "rows": []}
-    older_later = entry("visr", "0.6.0", "1", "2026-10-28", value)
-    newer = entry("visr", "0.6.1", "2", "2026-10-27", value)
-    web = [entry("web", "build-280", "280", "2026-10-27", None), entry("web", "build-314", "314", "2026-10-26", None)]
-    built = {"overall": False, "box": "", "entries": [older_later, newer, *web]}
-    groups = {g["port"]: g for g in charts.build_groups(built)}
-    assert groups["visr"]["primary"] is newer and groups["visr"]["others"] == [older_later]
-    assert groups["web"]["primary"]["build"] == "314"
-    assert charts.version_key(newer) > charts.version_key(older_later) > charts.version_key(entry("visr", "main", "", "2099-01-01", None))
-
-
-def test_the_primary_is_the_newest_measured_version_and_a_newer_unmeasured_one_goes_in_the_fold():
-    value = {"avg": 1.0, "low": None, "details": {}, "rows": []}
-    measured = entry("visr", "0.6.2", "1", "2026-10-27", value, default=True)
-    missing = entry("visr", "0.6.3", "2", "2026-10-28", None, reason="no campaign measurements yet")
-    group = charts.build_groups({"overall": False, "box": "", "entries": [measured, missing]})[0]
-    assert group["primary"] is measured and group["others"] == [missing]
-    html = site_page.builds_list({"entries": [measured, missing], "overall": False, "box": ""}, charts.load_reasons())
-    assert '<details class="older" data-port="visr"><summary>1 other version</summary>' in html
-    assert 'value="visr@0.6.2@1" checked' in html and "not measured here" in html
-
-
-def test_a_port_with_no_measured_build_is_listed_once_by_its_newest_build():
-    built = charts.model(snapshot_rows(), QUERY, "campaign")
-    web = next(g for g in charts.build_groups(built) if g["port"] == "opence-web")
-    assert web["primary"]["value"] is None and not web["primary"]["default"]
-
-
-def test_builds_list_shows_one_row_per_port_dims_unmeasured_builds_and_opens_the_reason_in_place():
-    reasons = charts.load_reasons()
-    built = charts.model(snapshot_rows(), QUERY, "campaign")
-    html = site_page.builds_list(built, reasons)
-    assert html.count('class="build-group"') == len(charts.build_groups(built))
-    assert 'type="checkbox" value="visr@0.5.1@7" checked' in html
-    assert 'type="checkbox" value="visr@main@5">' in html and "<details" in html
-    off = next(e for e in built["entries"] if e["value"] is None)
-    item = site_page.build_item(off, reasons, charts.list_status(built, None)[charts.entry_key(off)])
-    reason = charts.plain_reason(off["reason"], reasons)
-    assert 'class="build off"' in item and "disabled" in item and "not measured here" in item
-    assert f'title="{reason}"' in item and f"<p>{reason}</p>" in item and '<summary class="tag">' in item
-    assert "Not measured:" not in item and "<button" not in item
-
-
-def test_caption_table_has_one_row_per_drawn_build_with_the_detail_columns_and_notes():
-    value = {"avg": 10.0, "low": None, "details": {"gpu_p50_ms": 4.15, "gpu_p90_ms": 5.0}, "windows": ["a10"], "rows": []}
-    bare = {"avg": 10.0, "low": None, "details": {"gpu_p50_ms": None, "gpu_p90_ms": None}, "windows": ["a10", "b30"], "rows": []}
-    one = entry("visr", "0.6.1", "7", "2026-10-27", value, default=True)
-    two = entry("gl", "1.0", "", "2026-10-28", bare, default=True, gpu_note="GPU time per frame not available (OpenGL)")
-    built = {"overall": False, "box": "M6 Mac mini", "entries": [one, two]}
-    table = charts.caption_table(built, None, ["gpu_p50_ms", "gpu_p90_ms"], ["a10", "b30"])
-    assert table["headings"] == ["Median GPU time (ms)", "90th-percentile GPU time (ms)"]
-    assert table["rows"][0]["cells"] == ["4.15", "5"] and table["rows"][0]["notes"] == "b30 not measured yet"
-    assert table["rows"][1]["cells"] == ["\u2013", "\u2013"] and table["rows"][1]["notes"] == "GPU time per frame not available (OpenGL)"
-    html = site_page.caption_html(table)
-    assert html.count("<tr>") == 3 and "<caption>M6 Mac mini.</caption>" in html and 'data-label="Median GPU time (ms)"' in html
-    assert charts.caption_table({**built, "entries": [{**one, "value": None}]}, None, []) is None
-
-
 def test_suites_without_data_show_not_measured_rows():
     built = charts.model(snapshot_rows(), QUERY, "multiplayer")
     assert all(e["value"] is None for e in built["entries"])
@@ -258,8 +184,8 @@ def overall_entry(rows, port, version, selected=None):
     return built, entry["value"]
 
 
-def test_overall_leaves_out_a_build_that_shares_too_few_suites_with_the_rest():
-    # VISR also has Multiplayer; OpenCE-macOS has Campaign only. They share one suite, so OpenCE is left out and VISR keeps both.
+def test_overall_covers_every_suite_a_drawn_build_has_complete_and_leaves_out_builds_missing_one():
+    # VISR also has Multiplayer; OpenCE-macOS has Campaign only. Overall covers Campaign and Multiplayer and leaves OpenCE out.
     extra = [{**box_record(fps=(100.0, 100.0), p99=10.0), "suite": "multiplayer"}]
     rows = overall_rows(*extra)
     built = charts.model(rows, QUERY, "overall")
@@ -270,7 +196,7 @@ def test_overall_leaves_out_a_build_that_shares_too_few_suites_with_the_rest():
     assert visr["avg"] == pytest.approx(((500 * 600) ** 0.5 * 100) ** 0.5)
     note = charts.overall_note(built)
     assert note.startswith("Overall covers Campaign and Multiplayer.")
-    assert "OpenCE-macOS v1.0.2 is not in Overall: it shares too few suites with the other builds." in note
+    assert "OpenCE-macOS v1.0.2 is not in Overall: Multiplayer not measured completely." in note
 
 
 def test_overall_suite_set_follows_the_ticked_builds():
@@ -286,13 +212,13 @@ def test_overall_suite_set_follows_the_ticked_builds():
     assert charts.source(spec(), built, "overall", set()) is None
 
 
-def test_overall_draws_one_build_when_two_share_nothing():
+def test_overall_draws_nothing_when_no_build_has_every_suite_in_the_set():
     rows = snapshot_rows({**box_record(port="corece", version="0.3.0", build="9", fps=(100.0, 100.0)), "suite": "co-op"})
     built = charts.model(rows, {**QUERY, "port_order": ["visr", "corece"]}, "overall")
     keys = {"visr@0.5.1@7", "corece@0.3.0@9"}
-    assert 'title "Overall' in charts.source(spec(), built, "overall", keys)
-    assert charts.source(spec(), built, "overall", set()) is None
-    assert charts.empty_text(spec(), built) == "No build in this chart has a suite to average."
+    assert charts.source(spec(), built, "overall", keys) is None
+    assert charts.caption(built, keys) == ""
+    assert charts.empty_text(spec(), built) == "No build in this chart has every suite Overall covers."
 
 
 def window_chart_rows(extra_windows=()):
@@ -413,7 +339,7 @@ def test_committed_snapshot_has_the_export_columns_and_every_spec_renders_from_i
     assert rows and list(rows[0]) == list(sheet_export.COLUMNS)
     for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
         for suite in charts.SUITE_CHOICES:
-            assert charts.render_section(item, rows, suite).startswith("#")
+            assert charts.render_section(item, rows, suite).startswith("### ")
 
 
 def test_pages_copy_of_the_snapshot_is_the_committed_snapshot():
@@ -431,8 +357,7 @@ const rows = m.parseCsv(fs.readFileSync(process.argv[1] + '/docs/benchmarks/resu
 const out = {};
 for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) for (const suite of m.SUITES.concat(['overall'])) {
   const built = m.model(rows, spec.query, suite);
-  out[spec.slug + '/' + suite] = [m.chartSource(spec, built, suite), m.captionText(built, null, spec.query.details, spec.query.windows), built.entries.map((e) => [m.entryKey(e), e.default, e.kind, e.reason]),
-    m.buildGroups(built).map((g) => [g.port, m.entryKey(g.primary), g.others.map(m.entryKey)]), m.captionTable(built, null, spec.query.details, spec.query.windows)];
+  out[spec.slug + '/' + suite] = [m.chartSource(spec, built, suite), m.captionText(built, null, spec.query.details, spec.query.windows), built.entries.map((e) => [m.entryKey(e), e.default, e.kind, e.reason])];
   const firstKey = built.entries.length ? new Set([m.entryKey(built.entries[0])]) : new Set();
   out[spec.slug + '/' + suite + '/first'] = [m.chartSource(spec, built, suite, firstKey), m.captionText(built, firstKey, spec.query.details, spec.query.windows)];
 }
@@ -445,9 +370,7 @@ console.log(JSON.stringify(out));
         for suite in charts.SUITE_CHOICES:
             built = charts.model(rows, item["query"], suite)
             expected = [charts.source(item, built, suite), charts.caption(built, None, item["query"].get("details"), "", item["query"].get("windows")),
-                        [[charts.entry_key(e), e["default"], e["kind"], e["reason"]] for e in built["entries"]],
-                        [[g["port"], charts.entry_key(g["primary"]), [charts.entry_key(e) for e in g["others"]]] for g in charts.build_groups(built)],
-                        charts.caption_table(built, None, item["query"].get("details"), item["query"].get("windows"))]
+                        [[charts.entry_key(e), e["default"], e["kind"], e["reason"]] for e in built["entries"]]]
             assert browser[f"{site_page.slug(item)}/{suite}"] == expected
             first = {charts.entry_key(built["entries"][0])} if built["entries"] else set()
             assert browser[f"{site_page.slug(item)}/{suite}/first"] == [
@@ -500,7 +423,7 @@ def test_fetch_reads_columns_by_name_so_a_reordered_sheet_works():
 def test_reason_codes_become_plain_sentences_and_unknown_text_passes_through():
     reasons = charts.load_reasons()
     assert charts.plain_reason("safari-remote-automation-disabled", reasons) == "Safari could not be automated on this Mac."
-    assert charts.plain_reason("no co-op measurements yet", reasons) == "The split-screen co-op suite has not been run for this build."
+    assert charts.plain_reason("no co-op measurements yet", reasons) == "The co-op suite has not been run for this build."
     assert charts.plain_reason("missing multiplayer, co-op", reasons) == "No overall result: missing multiplayer, co-op."
     assert charts.plain_reason("Does not support split screen", reasons) == "Does not support split screen"
 
@@ -657,10 +580,9 @@ def test_release_urls_name_each_ports_release_page_and_never_a_download():
 
 def test_a_builds_label_links_to_its_release_in_the_caption_and_the_builds_list():
     rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    spec = next(item for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows) if item["query"]["platform"] == "Apple TV")
+    spec = next(item for item in charts.load_specs(ROOT / "docs/benchmarks/charts") if item["query"]["platform"] == "Apple TV")
     built = charts.model(rows, spec["query"], "campaign")
-    entry = next(e for e in built["entries"] if e["version"] == "0.6.0")
-    assert entry["url"] == "https://github.com/steverice/visr/releases/tag/visr-v0.6.0"
+    assert built["entries"][0]["url"] == "https://github.com/steverice/visr/releases/tag/visr-v0.6.0"
     assert "[VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (build" in charts.caption(built, None, None, "markdown")
     assert charts.caption(built) == "".join(text for text, _ in charts.caption_parts(built))
     html = site_page.section(spec, rows, "campaign", charts.load_reasons())
@@ -768,7 +690,7 @@ console.log(JSON.stringify(input.selections.map((keys) => {
     expected = [[charts.source(spec(), built, "overall", None if keys is None else set(keys)),
                  charts.caption(built, None if keys is None else set(keys), [])] for keys in selections]
     assert json.loads(done.stdout) == expected
-    assert "Overall covers Campaign and Combat." in expected[0][1] and "is not in Overall" not in expected[0][1]
+    assert "Overall covers Campaign, Combat and Multiplayer. OpenCE-macOS v1.0.2 is not in Overall: Multiplayer not measured completely." in expected[0][1]
     assert "Overall covers Campaign, Combat and Multiplayer." in expected[1][1]
 
 
@@ -831,315 +753,3 @@ def test_methodology_describes_combat_and_cutscenes_only_once_they_have_rows():
     assert "2560×1920 drawable" in text and "equivalent workloads, not replays" in text
     assert "Overall:" in text and "every build drawn in it has measured" in text
     assert "TestFlight" not in text
-
-
-def _listed(html):
-    """(checked and enabled keys, disabled keys) from a rendered Builds box."""
-    inputs = re.findall(r'<input type="checkbox" value="([^"]+)"([^>]*)>', html)
-    return ({key for key, attrs in inputs if "checked" in attrs and "disabled" not in attrs},
-            {key for key, attrs in inputs if "disabled" in attrs})
-
-
-def test_the_builds_list_matches_the_chart_for_every_platform_and_suite_in_the_data():
-    rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    reasons = charts.load_reasons()
-    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
-        for suite in charts.SUITE_CHOICES:
-            built = charts.model(rows, item["query"], suite)
-            drawn = {charts.entry_key(e) for e in charts._drawn(built, None)}
-            checked, disabled = _listed(site_page.builds_list(built, reasons))
-            assert checked == drawn, (item["name"], suite)
-            assert checked.isdisjoint(disabled)
-            # Ticking every available build keeps the two in step, and so does unticking them all.
-            status = charts.list_status(built, None)
-            available = {charts.entry_key(e) for e in built["entries"] if charts.entry_key(e) not in status and e["value"] is not None}
-            for selected in (available, set()):
-                checked, _ = _listed(site_page.builds_list(built, reasons, selected))
-                assert checked == {charts.entry_key(e) for e in charts._drawn(built, selected)}, (item["name"], suite)
-
-
-def test_a_build_missing_a_suite_is_grayed_out_in_overall_with_the_suites_it_lacks():
-    extra = [{**box_record(fps=(100.0, 100.0), p99=10.0), "suite": "multiplayer"}]
-    built = charts.model(snapshot_rows(*extra), QUERY, "overall")
-    status = charts.list_status(built, None)
-    assert status["opence-macos@v1.0.2@2"] == {"kind": "not_in_overall", "tag": "not in Overall",
-                                                "reason": "Overall averages the suites every drawn build has, and this build shares too few of them with the others."}
-    html = site_page.builds_list(built, charts.load_reasons())
-    assert "shares too few of them with the others" in html and "not in Overall" in html
-    checked, disabled = _listed(html)
-    assert "opence-macos@v1.0.2@2" in disabled and "visr@0.5.1@7" in checked
-
-
-def test_port_notes_land_in_the_notes_cell_of_that_ports_builds():
-    rows = snapshot_rows()
-    built = charts.model(rows, {**QUERY, "build_notes": {"visr": "Replays a recorded route."}}, "campaign")
-    table = charts.caption_table(built, None, [])
-    notes = {r["label"]: r["notes"] for r in table["rows"]}
-    assert notes[next(e["label"] for e in built["entries"] if e["port"] == "visr" and e["default"])].startswith("Replays a recorded route.")
-    assert all("recorded route" not in r["notes"] for r in table["rows"] if "VISR" not in r["label"] and "visr" not in r["label"].lower())
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
-def test_browser_list_status_matches_python_for_every_platform_and_suite():
-    rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    specs = charts.load_specs(ROOT / "docs/benchmarks/charts")
-    script = """
-const fs = require('fs');
-const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
-const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-console.log(JSON.stringify(input.specs.map((spec) => input.suites.map((suite) => {
-  const built = m.model(input.rows, spec.query, suite);
-  return [m.listStatus(built, null), m.captionTable(built, null, spec.query.details, spec.query.windows)];
-}))));
-"""
-    done = subprocess.run(["node", "-e", script, str(ROOT)], capture_output=True, text=True, check=True,
-                          input=json.dumps({"rows": rows, "specs": specs, "suites": list(charts.SUITE_CHOICES)}))
-    expected = [[[charts.list_status(b, None), charts.caption_table(b, None, s["query"].get("details"), s["query"].get("windows"))]
-                 for b in (charts.model(rows, s["query"], suite) for suite in charts.SUITE_CHOICES)] for s in specs]
-    assert json.loads(done.stdout) == json.loads(json.dumps(expected))
-
-
-def test_both_pages_share_the_site_header_stylesheet_and_footer():
-    site = ROOT / "docs/site"
-    home, bench = (site / "index.html").read_text(), (site / "benchmarks.html").read_text()
-    for page, current in ((home, "Home"), (bench, "Benchmarks")):
-        header = re.search(r'<nav class="site-nav".*?</nav>', page, re.S).group(0)
-        assert re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', header) == [
-            ("./", "Home"), ("benchmarks.html", "Benchmarks"), ("https://forms.gle/bhjDV4XhRWbZjQet8", "Become a tester")]
-        assert re.findall(r'aria-current="page">([^<]+)<', header) == [current]
-        assert '<link rel="stylesheet" href="style.css">' in page and "<style>" not in page
-        assert "TestFlight" not in page and '<footer class="foot">' in page
-    assert re.search(r'<footer class="foot">(.*?)</footer>', home, re.S).group(1).strip() == re.search(r'<footer class="foot">(.*?)</footer>', bench, re.S).group(1).strip()
-
-
-def test_every_suite_describes_itself_and_its_window_screenshots_exist():
-    info = charts.load_suite_info()
-    assert set(info) == set(charts.SUITE_CHOICES)
-    html = (ROOT / "docs/site/benchmarks.html").read_text()
-    for name, item in info.items():
-        assert f'<div class="suite-info" data-suite="{name}">' in html and item["description"]
-        assert (name == "overall") == ("windows" not in item)
-        for window in item.get("windows", []):
-            if "shot" in window:
-                thumb = ROOT / "docs/site/benchmarks/thumbs" / f'{window["shot"]}.jpg'
-                assert thumb.is_file() and thumb.stat().st_size < 12_000, thumb.name
-
-
-def test_platform_text_names_no_port_and_no_suite_windows():
-    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
-        text = item["paragraph"]
-        for word in ("Halo OG", "Chupathingy", "OpenGL", "master-chef", "Campaign", "Combat", "Cutscenes", "b30", "c10"):
-            assert word not in text, (item["name"], word)
-
-
-def test_the_co_op_suite_is_named_split_screen_co_op_wherever_a_reader_sees_it():
-    assert charts.SUITE_NAMES["co-op"] == "Split-screen co-op"
-    html = (ROOT / "docs/site/benchmarks.html").read_text()
-    assert "Split-screen co-op</label>" in html and 'value="co-op"' in html
-    assert not re.search(r"(?<![-\w])Co-op(?!\w)", re.sub(r"<script.*?</script>", "", html, flags=re.S))
-    assert "Split-screen co-op is drawn flat" in html
-    assert "Split-screen co-op" in (ROOT / "docs/benchmarks.md").read_text()
-
-
-def test_the_sticky_suite_bar_is_translucent_with_a_blur_and_keeps_its_full_width_bleed_and_line():
-    css = (ROOT / "docs/site/style.css").read_text()
-    bar = css[css.index(".bench-bar::before"):]
-    assert "backdrop-filter: blur(" in bar and "-webkit-backdrop-filter: blur(" in bar
-    assert re.search(r"color-mix\(in srgb, var\(--bg\) 8[5-9]%, transparent\)", bar)
-    assert "width: 100vw" in bar and "border-bottom: 1px solid var(--line)" in bar
-    assert "display: contents" in css and ".suite-text { order: 2; flex: 1 1 100%" in css
-
-
-def test_the_suite_label_wraps_with_the_pills_and_the_legend_takes_no_room_so_the_bar_background_covers_its_whole_box():
-    css = (ROOT / "docs/site/style.css").read_text()
-    legend = re.search(r"\.bench-bar legend \{([^}]*)\}", css).group(1)
-    assert "position: absolute" in legend and "float" not in legend
-    html = (ROOT / "docs/site/benchmarks.html").read_text()
-    assert re.search(r'<legend>Suite</legend><div class="suite-pills"><span class="suite-label" aria-hidden="true">Suite</span><label>', html)
-
-
-def test_the_pills_row_reserves_the_height_of_a_screenshot_so_the_suite_bar_never_changes_height():
-    css = (ROOT / "docs/site/style.css").read_text()
-    assert re.search(r"@media \(min-width: 900px\) \{[^@]*\.suite-pills \{ min-height: 50px; \}", css)
-
-
-def test_benchmark_platform_headings_carry_the_home_pages_icons_hidden_from_screen_readers():
-    site = ROOT / "docs/site"
-    bench, home = (site / "benchmarks.html").read_text(), (site / "index.html").read_text()
-    expected = {"mac": ["mac"], "iphone-ipad": ["iphone", "ipad"], "apple-tv": ["apple-tv"], "vision-pro": ["vision-pro"]}
-    for slug, icons in expected.items():
-        heading = re.search(rf'<h2 id="h-{slug}">(.*?)</h2>', bench, re.S).group(1)
-        glyphs = re.findall(r'<span class="nav-icon">(<svg.*?</svg>)</span>', heading, re.S)
-        assert len(glyphs) == len(icons) and all('aria-hidden="true"' in g for g in glyphs)
-        for icon, markup in zip(icons, glyphs):
-            assert markup == (site / "icons/nav" / f"{icon}.svg").read_text().strip()
-            assert markup in home
-
-
-def test_other_versions_stay_closed_and_the_summary_counts_the_ones_drawn():
-    rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    reasons = charts.load_reasons()
-    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
-        for suite in charts.SUITE_CHOICES:
-            built = charts.model(rows, item["query"], suite)
-            html = site_page.builds_list(built, reasons)
-            assert not re.search(r"<details class=\"older\"[^>]* open", html), (item["name"], suite)
-    value = {"avg": 1.0, "low": None, "details": {}, "rows": []}
-    newer = entry("visr", "0.6.2", "1", "2026-10-27", value, default=True)
-    older = entry("visr", "0.6.0", "2", "2026-10-20", value)
-    built = {"overall": False, "box": "", "entries": [newer, older]}
-    html = site_page.builds_list(built, reasons, {"visr@0.6.2@1", "visr@0.6.0@2"})
-    assert "<summary>1 other version \u00b7 1 shown</summary>" in html
-    script = (ROOT / "docs/site/benchmarks/benchmarks.js").read_text()
-    assert "more.open = state.open.has(id);" in script and "shown" in script
-
-
-def _suite_build(name, *suites):
-    found = {suite: {"avg": 100.0, "low": None, "details": {}, "rows": []} for suite in suites}
-    return {"port": name, "label": name, "suites": found}
-
-
-def _split(*builds):
-    suites, kept, left = charts.overall_split(list(builds))
-    return suites, [e["port"] for e in kept], [e["port"] for e in left]
-
-
-ALL5 = ("campaign", "combat", "cutscenes", "multiplayer", "co-op")
-
-
-def test_overall_on_the_mac_drops_the_build_that_shares_nothing_and_averages_campaign_and_combat():
-    visr = _suite_build("visr", "multiplayer", "co-op")
-    opence = _suite_build("opence", "campaign", "combat", "cutscenes", "multiplayer")
-    corece = _suite_build("corece", "campaign", "combat", "cutscenes")
-    chupa = _suite_build("chupa", "campaign", "combat", "cutscenes")
-    og = _suite_build("og", "campaign", "combat")
-    suites, kept, left = _split(visr, opence, corece, chupa, og)
-    assert (suites, kept, left) == (["campaign", "combat"], ["opence", "corece", "chupa", "og"], ["visr"])
-    # Once VISR has Campaign, Combat and Cutscenes, every build shares Campaign and Combat and none is dropped.
-    visr = _suite_build("visr", *ALL5)
-    assert _split(visr, opence, corece, chupa, og) == (["campaign", "combat"], ["visr", "opence", "corece", "chupa", "og"], [])
-    assert _split(visr, opence, corece, chupa) == (["campaign", "combat", "cutscenes"], ["visr", "opence", "corece", "chupa"], [])
-
-
-def test_overall_breaks_ties_by_fewest_suites_then_the_later_build():
-    # Both drops leave one shared suite; the build with fewer suites goes.
-    assert _split(_suite_build("a", "campaign", "combat", "cutscenes"), _suite_build("b", "multiplayer")) == (["campaign", "combat", "cutscenes"], ["a"], ["b"])
-    # Equal suite counts and equal gain: the later build goes.
-    assert _split(_suite_build("a", "campaign"), _suite_build("b", "combat")) == (["campaign"], ["a"], ["b"])
-    # Dropping the build with the fewest suites is not automatic: removing the broader one leaves the larger shared set.
-    big = _suite_build("big", "campaign", "combat")
-    small = _suite_build("small", "multiplayer", "co-op")
-    other = _suite_build("other", "campaign", "combat", "cutscenes")
-    assert _split(big, small, other) == (["campaign", "combat"], ["big", "other"], ["small"])
-
-
-def test_overall_keeps_a_single_build_whole_and_does_not_drop_builds_that_cannot_share_more():
-    assert _split(_suite_build("solo", "campaign", "multiplayer", "co-op")) == (["campaign", "multiplayer", "co-op"], ["solo"], [])
-    assert _split(_suite_build("solo", "campaign")) == (["campaign"], ["solo"], [])
-    # Three builds that all have only Campaign stay together: dropping one adds no suite.
-    assert _split(_suite_build("a", "campaign"), _suite_build("b", "campaign"), _suite_build("c", "campaign")) == (["campaign"], ["a", "b", "c"], [])
-    # Vision Pro: VISR with four suites and a build with only Campaign.
-    assert _split(_suite_build("visr", "campaign", "combat", "cutscenes", "multiplayer"), _suite_build("chef", "campaign")) == (
-        ["campaign", "combat", "cutscenes", "multiplayer"], ["visr"], ["chef"])
-    assert _split() == ([], [], [])
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
-def test_browser_overall_split_matches_python_on_the_tie_and_mac_cases():
-    cases = [[("visr", "multiplayer", "co-op"), ("opence", "campaign", "combat", "cutscenes", "multiplayer"), ("corece", "campaign", "combat", "cutscenes"),
-              ("chupa", "campaign", "combat", "cutscenes"), ("og", "campaign", "combat")],
-             [("a", "campaign", "combat", "cutscenes"), ("b", "multiplayer")], [("a", "campaign"), ("b", "combat")],
-             [("big", "campaign", "combat"), ("small", "multiplayer", "co-op"), ("other", "campaign", "combat", "cutscenes")],
-             [("solo", "campaign")], [("a", "campaign"), ("b", "campaign"), ("c", "campaign")]]
-    script = """
-const fs = require('fs');
-const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
-const cases = JSON.parse(fs.readFileSync(0, 'utf8'));
-console.log(JSON.stringify(cases.map((c) => {
-  const r = m.overallSplit(c.map(([port, ...suites]) => ({ port, suites: Object.fromEntries(suites.map((s) => [s, {}])) })));
-  return [r.suites, r.kept.map((e) => e.port), r.left.map((e) => e.port)];
-})));
-"""
-    done = subprocess.run(["node", "-e", script, str(ROOT)], capture_output=True, text=True, check=True, input=json.dumps(cases))
-    expected = [list(_split(*[_suite_build(port, *suites) for port, *suites in case])) for case in cases]
-    assert json.loads(done.stdout) == expected
-
-
-def test_chart_labels_use_the_same_port_names_as_the_builds_list():
-    rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
-        assert "rename" not in item, item["name"]
-        for suite in charts.SUITE_CHOICES:
-            built = charts.model(rows, item["query"], suite)
-            text = charts.source(item, built, suite)
-            for e in charts._drawn(built, None):
-                assert f'{e["port_name"]} {e["version"]}' in text, (item["name"], suite, e["label"])
-    mac = charts.source(charts.load_specs(ROOT / "docs/benchmarks/charts")[0], charts.model(rows, charts.load_specs(ROOT / "docs/benchmarks/charts")[0]["query"], "campaign"), "campaign")
-    assert "OpenCE-macOS v1.0.2" in mac and "OpenCE v1.0.2" not in mac
-    assert "OpenCE-macOS v1.0.2" in (ROOT / "docs/site/benchmarks/static-mac.svg").read_text()
-
-
-def primary_rows():
-    """VISR 0.5.1 has Campaign and Combat, VISR 0.6.3 only Multiplayer, OpenCE-macOS Campaign and Combat, and two builds of a
-    port have nothing measured."""
-    combat = lambda **kw: {**box_record(**kw), "suite": "combat"}
-    mp = {**box_record(version="0.6.3", build="9", date="2026-10-28"), "suite": "multiplayer"}
-    gone = [record(port="opence-web", version=f"build-{n}", runs=[], status="unavailable", reason="safari-remote-automation-disabled") for n in (1, 2)]
-    return csv_rows(sheet_export.rows(summary(
-        box_record(), combat(), mp, box_record(port="opence-macos", version="v1.0.2", build="2"),
-        combat(port="opence-macos", version="v1.0.2", build="2"), *gone)))
-
-
-def primaries(built):
-    return {g["port"]: (g["primary"]["version"], g["primary"]["default"], [e["version"] for e in g["others"]]) for g in charts.build_groups(built)}
-
-
-def test_the_primary_is_the_newest_build_measured_for_the_selected_suite():
-    rows = primary_rows()
-    port_order = {**QUERY, "port_order": ["visr", "opence-macos", "opence-web"]}
-    # Overall: VISR 0.6.3 shares nothing with OpenCE-macOS, so the default falls back to 0.5.1, which is drawn and ticked.
-    overall = charts.model(rows, port_order, "overall")
-    assert primaries(overall)["visr"] == ("0.5.1", True, ["0.6.3"])
-    assert {charts.entry_key(e) for e in charts._drawn(overall, None)} == {"visr@0.5.1@7", "opence-macos@v1.0.2@2"}
-    status = charts.list_status(overall, None)
-    assert "visr@0.5.1@7" not in status and status["visr@0.6.3@9"]["tag"] == "not in Overall"
-    html = site_page.builds_list(overall, charts.load_reasons())
-    assert re.search(r'value="visr@0.5.1@7" checked', html) and re.search(r'value="visr@0.6.3@9"[^>]*>', html)
-    # Multiplayer: only 0.6.3 is measured, so it leads.
-    multiplayer = charts.model(rows, port_order, "multiplayer")
-    assert primaries(multiplayer)["visr"] == ("0.6.3", True, ["0.5.1"])
-    # Campaign: 0.6.3 has no Campaign rows, so 0.5.1 leads and 0.6.3 sits in the fold with its reason.
-    campaign = charts.model(rows, port_order, "campaign")
-    assert primaries(campaign)["visr"] == ("0.5.1", True, ["0.6.3"])
-    assert charts.list_status(campaign, None)["visr@0.6.3@9"]["tag"] == "not measured here"
-    # A port with nothing measured keeps its newest version on top, unticked, with the reason.
-    assert primaries(campaign)["opence-web"] == ("build-2", False, ["build-1"])
-    assert "visr@0.6.3@9" in charts.list_status(campaign, None) and "opence-web@build-2@7" in charts.list_status(campaign, None)
-
-
-def test_the_default_selection_and_the_drawn_set_agree_for_every_platform_and_suite():
-    rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
-        for suite in charts.SUITE_CHOICES:
-            built = charts.model(rows, item["query"], suite)
-            status = charts.list_status(built, None)
-            ticked = {charts.entry_key(e) for e in built["entries"] if e["default"] and charts.entry_key(e) not in status}
-            assert ticked == {charts.entry_key(e) for e in charts._drawn(built, None)}, (item["name"], suite)
-            for group in charts.build_groups(built):
-                if any(e["value"] is not None for e in [group["primary"], *group["others"]]):
-                    assert group["primary"]["value"] is not None, (item["name"], suite, group["port"])
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
-def test_browser_primaries_match_python():
-    rows, query = primary_rows(), {**QUERY, "port_order": ["visr", "opence-macos", "opence-web"]}
-    script = """
-const fs = require('fs');
-const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
-const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-console.log(JSON.stringify(input.suites.map((suite) => m.buildGroups(m.model(input.rows, input.query, suite)).map((g) => [g.port, g.primary.version, g.primary.default, g.others.map((e) => e.version)]))));
-"""
-    suites = list(charts.SUITE_CHOICES)
-    done = subprocess.run(["node", "-e", script, str(ROOT)], capture_output=True, text=True, check=True, input=json.dumps({"rows": rows, "query": query, "suites": suites}))
-    expected = [[[port, *values] for port, values in primaries(charts.model(rows, query, suite)).items()] for suite in suites]
-    assert json.loads(done.stdout) == expected

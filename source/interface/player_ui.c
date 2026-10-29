@@ -806,12 +806,6 @@ void player_ui_remember_player1_profile(
 	return;
 }
 
-long player_ui_get_edit_profile_index(
-	void)
-{
-	return player_ui_globals.edit_profile_index;
-}
-
 void player_ui_begin_editing_profile(
 	long profile_index)
 {

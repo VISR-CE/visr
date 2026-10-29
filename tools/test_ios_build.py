@@ -518,16 +518,3 @@ def test_the_guard_test_refuses_a_switch_under_another_conditional(tmp_path):
         if 'getenv("X")' in stripped:
             guarded.append(any(stack))
     assert guarded == [False]
-
-
-def test_catalyst_mac_build_names_the_requested_data_pack_channel(monkeypatch, tmp_path):
-    configure = configure_with(monkeypatch, tmp_path, '--mac', '--data-pack-channel', 'tester',
-                               '--recording-feed-url', 'https://packs.example/recordings-2-x.json')
-    assert '-DHALO_DATA_PACK_CHANNEL_NAME=tester' in configure
-    assert '-DHALO_RECORDING_FEED_URL=https://packs.example/recordings-2-x.json' in configure
-
-
-@pytest.mark.parametrize('arguments', [('--unsigned',), ('--mac',), ('--native-mac',)])
-def test_dev_build_clears_cached_release_marketing_version(monkeypatch, tmp_path, arguments):
-    configure = configure_with(monkeypatch, tmp_path, *arguments)
-    assert '-DHALO_MARKETING_VERSION=' in configure

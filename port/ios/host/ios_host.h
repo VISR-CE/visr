@@ -15,9 +15,6 @@ struct SDL_Window;
 struct SDL_Gamepad;
 /* the guest's window (host_sdl.c), for the GPU backend's present (gpu_gl.c) */
 struct SDL_Window *host_sdl_window(void);
-/* host_main.m: watch for SDL's window left minimized by a scene that went
-away (theater mode's put-away window) and restore it */
-void host_extra_scene_restore_watch(void);
 /* a message box over the game (host_sdl.c; the guest's SDL_ShowSimpleMessageBox
 comes here too) */
 int host_sdl_show_simple_message_box(unsigned int flags, const char *title, const char *message);

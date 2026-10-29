@@ -532,18 +532,3 @@ def test_timing_method_falls_back_to_the_metal_swap_shim_only_on_repeats():
     assert adapters.timing_method({'id': 'visr'}, base) == 'metalperftrace'
     assert adapters.timing_method({'id': 'visr'}, {**base, 'metal_swap_shim': True}) == 'glft-metal'
     assert adapters.timing_method({'id': 'chupathingy'}, {**base, 'metal_swap_shim': True}) == 'glft'
-
-
-def test_bundle_identity_prefers_dev_description(tmp_path):
-    import plistlib
-
-    app = tmp_path / 'VISR.app'
-    (app / 'Contents').mkdir(parents=True)
-    info = app / 'Contents/Info.plist'
-    values = {'CFBundleShortVersionString': '0.6.3', 'CFBundleVersion': '123',
-              'VISRBuildDescription': '0.6.3-dev (123456789+)'}
-    info.write_bytes(plistlib.dumps(values))
-    assert engine().bundle_identity(app) == {'version': '0.6.3-dev (123456789+)', 'build': '123'}
-    del values['VISRBuildDescription']
-    info.write_bytes(plistlib.dumps(values))
-    assert engine().bundle_identity(app) == {'version': '0.6.3', 'build': '123'}

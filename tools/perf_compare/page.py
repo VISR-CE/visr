@@ -90,14 +90,6 @@ def device_section(rows: list[dict]) -> list[str]:
                       "frame cap, at that cap, not an uncapped mode. Their on-time share (frames within 5% of the display interval) is in the "
                       "spreadsheet, and a device that holds its display rate shows an average near that rate. The Mac chart "
                       "uses the uncapped, matched-stock runs described below.", ""])
-    if any(row.get("gpu_p50_ms") for row in ok if row["platform"] in devices):
-        lines.extend(["Where at least two ports report GPU time, a device section leads with the cost of a frame: median and 90th-percentile GPU time per rendered frame and "
-                      "median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget "
-                      "(1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom "
-                      "before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. "
-                      "GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. "
-                      "Frame rate and 1% low follow, since a missed frame still counts. A build that reports no "
-                      "GPU or CPU time is listed as not reported; otherwise the section leads with frame rate and 1% low, and a frame-cost chart that has at least two builds follows it.", ""])
     og = [row for row in ok if row["port"] == "halo-og"]
     if og:
         lines.extend(["Halo OG's frame rate is limited by its CPU command submission, not by a frame cap: its uncapped settings "
@@ -181,7 +173,7 @@ def suite_section(rows: list[dict]) -> list[str]:
              "the match with no other humans. Bot input is paced from the wall clock, so runs on different ports, and "
              "repeated runs on one port, play equivalent workloads, not identical replays. "
              f"{state('multiplayer')}",
-             "- **Split-screen co-op:** local split-screen campaign co-op on one device, two players. Enemy scaling is set explicitly to static 1x on every "
+             "- **Co-op:** local split-screen campaign co-op, two players. Enemy scaling is set explicitly to static 1x on every "
              "port that has the option: VISR sets `debug.enemy_multiplier = 1`, and OpenCE-macOS and CoreCE set their "
              "enemies-per-player scaling to static 1x. A port without the option runs its own fixed behavior, and its notes "
              "column in the spreadsheet says so. A port without split screen shows "
@@ -189,9 +181,8 @@ def suite_section(rows: list[dict]) -> list[str]:
              f"means the suite has not been run for the build. {state('co-op')}",
              "- **Overall:** per build, the geometric mean of the suites' average rates and the geometric mean of their 1% low "
              "rates, each suite weighted equally, so every suite counts the same whatever its frame-rate scale. Each chart "
-             "averages the suites that every build drawn in it has measured, so its bars stay comparable; the caption names "
-             "them. A build that shares fewer than two suites with the others is left out and named in the caption. Ticking or "
-             "unticking a build can change which suites a chart covers.", "",
+             "uses the suites that every build drawn in it has measured, so its bars stay comparable; the caption names "
+             "them. Ticking or unticking a build can change which suites a chart covers.", "",
              *notes,
              "A round is rejected when the outside-process CPU average rises more than half a core above the baseline taken "
              "before the window. Each round allows three attempts. Rejected attempts appear in the spreadsheet with the status "
@@ -243,8 +234,7 @@ def render_page(summary: dict, rows: list[dict], specs: list[dict]) -> str:
         raise ValueError("summary schema mismatch")
     records = sorted(summary.get("records", []), key=_record_order)
     lines = ["# Performance benchmarks", "", CAVEAT, "",
-             f"Last measured: {last_measured(summary, rows)}.", "",
-             f"The [results spreadsheet]({SHEET_URL}) holds every number. "
+             f"Last measured: {last_measured(summary, rows)}. The [results spreadsheet]({SHEET_URL}) holds every number. "
              f"The [interactive version]({SITE_PAGE_URL}) adds suites and a choice of builds. The methodology is at the bottom "
              "of this page.", "",
              "## Results", "", "Campaign suite, newest build of each port.", "", charts.BEGIN, "",

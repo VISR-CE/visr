@@ -33,7 +33,6 @@ static struct widget_instance *named(struct widget_instance *row, char const *na
 		!strcmp(name, "server_item_dedicated") ? &dedicated_icon : &other;
 }
 static void text_set(struct widget_instance *widget, wchar_t const *text) { wcsncpy(widget->text, text, 95); }
-static void browser_name_set(struct widget_instance *widget, wchar_t *text) { text_set(widget, text); }
 static void visible_set(struct widget_instance *widget, int visible) { if (widget == &dedicated_icon) dedicated_visible = visible; }
 static void game_map_name(struct advertised_game *game, wchar_t *text) { (void)game; wcscpy(text, L"Blood Gulch"); }
 static int advertised_in_progress(struct advertised_game *game) { (void)game; return 0; }
@@ -99,9 +98,7 @@ int main(void)
 	kind = 128; game.engine_type = 1; render_row(); assert(!wcscmp(type.text, L"HC CTF"));
 	kind = 131; render_row(); assert(!wcscmp(type.text, L"HC GUN GAME"));
 	kind = 4; render_row(); assert(!wcscmp(type.text, L"UNSUPPORTED"));
-	kind = 0; version = 37; render_row(); assert(!wcscmp(ping.text, L"LAN"));
-	multiplayer.mode = 2; render_row(); assert(!wcscmp(ping.text, L"-"));
-	multiplayer.mode = _multiplayer_mode_lan;
+	kind = 0; version = 37; render_row(); assert(!wcscmp(ping.text, L"V37"));
 	kind = 1; version = 38;
 	assert(ui_widget_port_browser_row_unavailable(&cell));
 	assert(!ui_widget_port_browser_row_unavailable(&outside));
@@ -120,6 +117,6 @@ int main(void)
 	assert(ui_widget_port_browser_row_unavailable(&cell));
 	lobby_browser.games[1].joinable = 1;
 	assert(!ui_widget_port_browser_row_unavailable(&cell));
-	puts("PASS: browser mode names, region labels, gray unavailable rows");
+	puts("PASS: browser mode names, version labels, gray unavailable rows");
 	return 0;
 }

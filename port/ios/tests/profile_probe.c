@@ -509,14 +509,6 @@ static void check_shipped(const char *shipped)
 	profile = resolve(shipped, sibling, NULL, "");
 	assert(profile.inherited && has(&profile, "display.effect_resolution", "half"));
 	assert(!strcmp(profile.model_file, "ipad-pro-m1.toml"));
-	/* The M4 iPad Pro (11-inch iPad16,3) has its own profile: 120 frames a second, dynamic resolution from native
-	   (render_height 0) down to 1080 lines. */
-	struct host_device m4 = device("ios", "iPad16,3", "", 9);
-	m4.memory_megabytes = 7455; m4.pixel_width = 2420; m4.pixel_height = 1668; m4.refresh_rate = 120;
-	profile = resolve(shipped, m4, NULL, "");
-	assert(!profile.inherited && !strcmp(profile.model_file, "ipad-pro-m4.toml") &&
-		has(&profile, "display.frame_rate", "120") && has(&profile, "display.render_height", "0") &&
-		has(&profile, "display.dynamic_resolution", "true") && has(&profile, "display.dynamic_resolution_floor", "1080"));
 	/* The measured first-generation 12.9-inch iPad uses its own 720-line, 30 frames a second model profile. The neighboring
 	   cellular identifier is cataloged, but a device reporting no memory or display cannot inherit and keeps the class floor. */
 	profile = resolve(shipped, device("ios", "iPad6,7", "", 3), NULL, "");

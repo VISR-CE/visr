@@ -207,9 +207,6 @@ static int host_unanchored;
 static unsigned long host_frames;
 
 /* host_stereo.m's host_stereo_frame, reduced to the head */
-/* the player never entered VR from the window: display.stereo's mode */
-int host_stereo_entered(void) { return 0; }
-
 void host_stereo_frame(struct halo_stereo_frame *frame)
 {
 	host_frames++;
@@ -370,7 +367,7 @@ static void restart(const char *turn, double snap_angle, double smooth_turn_spee
 	setting_smooth_turn_speed = smooth_turn_speed;
 	setting_comfort_vignette = comfort_vignette;
 	turn_mode = -1;
-	stereo_configured = -1;
+	stereo_mode = -1;
 	snap_pending = smooth_yaw = 0.0f;
 	snap_armed = 1;
 	vignette_strength = 0.0f;

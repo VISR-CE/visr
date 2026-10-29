@@ -165,6 +165,10 @@
 		<frame png="ce/shell/main_menu/menu_profile__0.png" width="256" height="64"/>
 		<frame png="ce/shell/main_menu/menu_profile__1.png" width="256" height="64"/>
 	</bitmap>
+	<bitmap name="main_menu/menu_quit">
+		<frame png="ce/shell/main_menu/menu_quit__0.png" width="256" height="64"/>
+		<frame png="ce/shell/main_menu/menu_quit__1.png" width="256" height="64"/>
+	</bitmap>
 	<bitmap name="main_menu/menu_settings">
 		<frame png="ce/shell/main_menu/menu_settings__0.png" width="256" height="64"/>
 		<frame png="ce/shell/main_menu/menu_settings__1.png" width="256" height="64"/>

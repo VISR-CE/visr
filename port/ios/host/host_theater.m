@@ -19,7 +19,6 @@ to read the eyes' poses and presents it full view. */
 #include "host_theater.h"
 #include "host_foveation_scale.h"
 #include "host_stereo.h"
-#include "host_stereo_entry.h"
 #include "host.h"
 #include "ios_host.h"
 #include <math.h>
@@ -113,8 +112,8 @@ int host_theater_foveation(void)
 	host_config_string("display.foveation", "true", value, sizeof(value));
 	if (strcmp(value, "true"))
 		return 0;
-	/* (as the space opens: the mode the player asked for, Enter VR's too) */
-	return host_stereo_mode_requested() == HALO_STEREO_HEAD;
+	host_config_string("display.stereo", "off", value, sizeof(value));
+	return !strcmp(value, "head");
 }
 
 float host_theater_render_quality(void)
@@ -264,18 +263,24 @@ void host_theater_picture_size(int *width, int *height)
 	*height = (int)lround(*width / SCREEN_ASPECT) & ~1;
 }
 
-/* Entering and leaving VR while the game runs. While the space is closed,
-an ornament below the game's window holds an Enter VR button
-(Theater.swift's host_theater_ornament); the window's bar is hidden while
-the space is open. The Digital Crown closes the space, as the system does
-for any immersive space, and the first time a player enters VR a hint in
-the space says so (host_stereo_hint_arm). Back and Start held together on
-a controller switch either way (host_theater_chord). Entering from the
-button or the chord is head-tracked stereo unless display.stereo names
-another mode (halo_stereo_mode_entered); leaving returns the game to its
-window in display.stereo's mode. display.immersive only says whether the
-game starts in the space, and nothing here writes a setting. Without
-visionOS 26 there is no space, and no button. */
+/* While the space is closed, a button on the game's window opens it again
+(the stereo spec's D3: closing the space returns to the window). A pinch on
+it, or a tap, calls Theater.swift's host_theater_open, as the game did at
+start. */
+static UIButton *reopen_button;
+
+@interface TheaterReopenTarget : NSObject
+@end
+
+@implementation TheaterReopenTarget
+- (void)reopen
+{
+	host_logf(HOST_LOG_INFO, "theater: opening the immersive space again");
+	host_theater_open();
+}
+@end
+
+static TheaterReopenTarget *reopen_target;
 
 /* the game's window: SDL's, in SDL's window scene */
 static UIWindow *game_window(void)
@@ -292,218 +297,80 @@ static UIWindow *game_window(void)
 	return nil;
 }
 
-static BOOL ornament_shown;
-/* the space was asked to open and hasn't attached (or failed) yet */
-static BOOL space_opening;
-static struct host_stereo_chord chord;
-
-/* SDL's UIWindow for the game, whatever scene holds it (none while parked) */
-static UIWindow *sdl_window(void)
+static void reopen_button_shown(BOOL shown)
 {
-	SDL_Window *window = host_sdl_window();
-
-	return window ? (__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
-		SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, NULL) : nil;
-}
-
-/* the window's Enter VR ornament, shown while the game is in its window */
-static void enter_ornament_shown(BOOL shown)
-{
-	if (@available(visionOS 26.0, *))
+	if (!shown)
 	{
-		UIViewController *controller = sdl_window().rootViewController;
-
-		if (!controller || shown == ornament_shown)
-			return;
-		host_theater_ornament((__bridge void *)controller, shown);
-		ornament_shown = shown;
+		[reopen_button removeFromSuperview];
+		reopen_button = nil;
+		return;
 	}
-}
-
-/* While VR is open the game's window is dismissed, as visionOS apps put
-their windows away in a full space: a hidden UIWindow still leaves its
-scene's window bar floating in the space, and UIKit has no way to hide it.
-SDL's UIWindow is kept (parked_window) and its scene closed; host_main.m's
-disconnect observer doesn't quit for it (host_theater_window_parked). When
-the space closes, a new window scene is requested; SDL's delegate connects
-it (its second start of the game is ignored, host_main.m), and the parked
-UIWindow moves into it at its old size, with SDL's launch window hidden. */
-static UIWindow *parked_window;
-static CGSize parked_size;
-static BOOL window_restoring;
-static id scene_connect_observer;
-
-int host_theater_window_parked(void)
-{
-	return parked_window != nil;
-}
-
-static void window_adopt(UIWindowScene *scene)
-{
-	UIWindow *window = parked_window;
-
-	if (!window)
+	UIView *view = game_window().rootViewController.view;
+	if (!view || reopen_button)
 		return;
-	parked_window = nil;
-	window_restoring = NO;
-	for (UIWindow *other in scene.windows)
-		if (other != window)
-			other.hidden = YES;
-	window.windowScene = scene;
-	window.hidden = NO;
-	[window makeKeyAndVisible];
-	if (@available(visionOS 26.0, *))
-		if (parked_size.width > 0.0 && parked_size.height > 0.0)
-			[scene requestGeometryUpdateWithPreferences:[[UIWindowSceneGeometryPreferencesVision alloc]
-				initWithSize:parked_size] errorHandler:nil];
-	host_logf(HOST_LOG_INFO, "theater: the game's window is back in a new window scene (%.0fx%.0f)",
-		parked_size.width, parked_size.height);
-	/* (ornaments set while the window had no scene don't come with it) */
-	if (@available(visionOS 26.0, *))
-	{
-		host_theater_ornament((__bridge void *)window.rootViewController, 0);
-		ornament_shown = NO;
-		enter_ornament_shown(YES);
-	}
-	host_extra_scene_restore_watch();
+	if (!reopen_target)
+		reopen_target = [TheaterReopenTarget new];
+	UIButtonConfiguration *configuration = [UIButtonConfiguration filledButtonConfiguration];
+	configuration.title = @"Back to the Theater";
+	reopen_button = [UIButton buttonWithConfiguration:configuration primaryAction:nil];
+	[reopen_button addTarget:reopen_target action:@selector(reopen) forControlEvents:UIControlEventPrimaryActionTriggered];
+	reopen_button.translatesAutoresizingMaskIntoConstraints = NO;
+	[view addSubview:reopen_button];
+	[NSLayoutConstraint activateConstraints:@[
+		[reopen_button.topAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor constant:24.0],
+		[reopen_button.centerXAnchor constraintEqualToAnchor:view.centerXAnchor],
+	]];
+	[view bringSubviewToFront:reopen_button];
 }
 
-static void window_park(void)
-{
-	UIWindow *window = sdl_window();
-	UIWindowScene *scene = window.windowScene;
-
-	if (parked_window || !window || !scene)
-		return;
-	parked_window = window;
-	parked_size = scene.coordinateSpace.bounds.size;
-	host_logf(HOST_LOG_INFO, "theater: putting the game's window away while VR is open (%.0fx%.0f)",
-		parked_size.width, parked_size.height);
-	[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil
-		errorHandler:^(NSError *error) {
-			host_logf(HOST_LOG_WARN, "theater: the game's window didn't close: %s", error.localizedDescription.UTF8String);
-		}];	host_extra_scene_restore_watch();
-}
-
-static void window_unpark(void)
-{
-	if (!parked_window || window_restoring)
-		return;
-	window_restoring = YES;
-	if (!scene_connect_observer)
-		scene_connect_observer = [NSNotificationCenter.defaultCenter addObserverForName:UISceneWillConnectNotification
-			object:nil queue:nil usingBlock:^(NSNotification *notification) {
-				UIScene *scene = notification.object;
-
-				if (window_restoring && [scene isKindOfClass:UIWindowScene.class] &&
-					![scene.session.role hasSuffix:@"ImmersiveSpaceApplication"])
-					window_adopt((UIWindowScene *)scene);
-			}];
-	host_logf(HOST_LOG_INFO, "theater: asking for a window scene for the game's window");
-	[UIApplication.sharedApplication requestSceneSessionActivation:nil userActivity:nil options:nil
-		errorHandler:^(NSError *error) {
-			/* no window to come back to: as when the player closes the game's
-			window (host_main.m), the game ends; it saves at checkpoints */
-			host_logf(HOST_LOG_WARN, "theater: no window scene for the game's window (%s); quitting",
-				error.localizedDescription.UTF8String);
-			host_exit(0);
-		}];
-}
-
-static void space_open(void)
-{
-	if (space_opening || layer_renderer)
-		return;
-	space_opening = YES;
-	host_theater_open();
-}
-
-void host_theater_enter(void)
-{
-	if (layer_renderer)
-		return;
-	host_logf(HOST_LOG_INFO, "theater: entering VR from the window");
-	host_stereo_set_entered(1);
-	space_open();
-}
-
-void host_theater_open_failed(void)
-{
-	space_opening = NO;
-	host_stereo_set_entered(0);
-	enter_ornament_shown(YES);
-}
-
-/* the immersive space's scene: its session's role is the Compositor's
-immersive space role (CPSceneSessionRoleImmersiveSpaceApplication on
-visionOS 26; UIKit's on others). Every hosted scene's delegate is SwiftUI's
-own, so the role is what tells them apart */
-static BOOL scene_is_space(UIScene *scene)
-{
-	return [scene.session.role hasSuffix:@"ImmersiveSpaceApplication"];
-}
-
-static void scenes_close(BOOL (*which)(UIScene *), const char *what)
+/* debug.test_theater_reopen (host_sdl.c): closes the space as the Digital
+Crown would, then presses the button */
+void host_theater_test_close(void)
 {
 	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
 	{
-		if (!which(scene))
+		if ([scene isKindOfClass:UIWindowScene.class] &&
+			[NSStringFromClass([(NSObject *)scene.delegate class]) isEqualToString:@"SDLUIKitSceneDelegate"])
 			continue;
-		host_logf(HOST_LOG_INFO, "theater: closing %s", what);
-		[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil errorHandler:^(NSError *error) {
-			host_logf(HOST_LOG_WARN, "theater: %s didn't close: %s", what, error.localizedDescription.UTF8String);
-		}];
+		host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: closing the immersive space");
+		[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil errorHandler:nil];
 	}
 }
 
-void host_theater_close(void)
+void host_theater_test_reopen(void)
 {
-	host_logf(HOST_LOG_INFO, "theater: leaving VR");
-	scenes_close(scene_is_space, "the immersive space");
-}
-
-void host_theater_start(int open)
-{
-	host_theater_load_settings();
-	enter_ornament_shown(YES);
-	if (open)
-		space_open();
+	host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: %s", reopen_button ? "pressing the button" : "no button to press");
+	[reopen_button sendActionsForControlEvents:UIControlEventPrimaryActionTriggered];
 }
 
 void host_theater_chord(int held)
 {
-	if (!host_stereo_chord_step(&chord, held, CACurrentMediaTime()))
-		return;
-	host_logf(HOST_LOG_INFO, "theater: Back and Start held: %s", layer_renderer ? "leaving VR" : "entering VR");
-	if (layer_renderer)
-		host_theater_close();
-	else
-		host_theater_enter();
-}
+	static CFTimeInterval began;
+	static BOOL fired;
 
-/* debug.test_theater_reopen (host_sdl.c) */
-void host_theater_test_toggle(void)
-{
-	if (layer_renderer)
+	if (!held)
 	{
-		host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: leaving VR as the Digital Crown would");
-		host_theater_close();
+		began = 0.0;
+		fired = NO;
 		return;
 	}
-	host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: %s", ornament_shown ? "pressing Enter VR" :
-		"no Enter VR button; entering anyway");
-	host_theater_enter();
+	if (began == 0.0)
+		began = CACurrentMediaTime();
+	if (fired || CACurrentMediaTime() - began < 1.0)
+		return;
+	fired = YES;
+	if (layer_renderer)
+		host_theater_test_close();
+	else
+		host_theater_test_reopen();
 }
 
 void host_theater_attach(void *renderer)
 {
 	layer_renderer = (__bridge cp_layer_renderer_t)renderer;
 	screen_placed = NO;
-	space_opening = NO;
-	enter_ornament_shown(NO);
+	reopen_button_shown(NO);
 	window_hidden(YES);
-	window_park();
-	host_stereo_hint_arm();
 	/* the once-only logs, theater's and stereo's, repeat for each opening */
 	theater_frames = 0;
 	screen_presents = 0;
@@ -587,9 +454,7 @@ int host_theater_active(void)
 			world_tracking = nil;
 			host_logf(HOST_LOG_INFO, "theater: ARKit stopped until the space opens again");
 		}
-		host_stereo_set_entered(0);
-		enter_ornament_shown(YES);
-		window_unpark();
+		reopen_button_shown(YES);
 		return 0;
 	}
 	return 1;

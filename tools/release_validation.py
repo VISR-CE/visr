@@ -634,8 +634,6 @@ def verify_feed(
     profile_target: str | None = None,
     shader_assets: dict[str, bytes] | None = None,
     shader_index_only: bool = False,
-    recording_assets: dict[str, bytes] | None = None,
-    recording_index_only: bool = False,
 ) -> dict[str, Any] | None:
     if root is not None:
         if shader_assets is not None or shader_index_only:
@@ -685,32 +683,27 @@ def verify_feed(
         compatibility = (
             "profiles-2"
             if kind == "profile"
-            else ("benchmark-catalog-1:" + policy["guest_sha256"], "benchmark-catalog-2:" + policy["guest_sha256"])
+            else "benchmark-catalog-1:" + policy["guest_sha256"]
         )
-    return _verify_feed(data, kind, policy, compatibility, shader_assets=shader_assets, shader_index_only=shader_index_only,
-                        recording_assets=recording_assets, recording_index_only=recording_index_only)
+    return _verify_feed(data, kind, policy, compatibility, shader_assets=shader_assets, shader_index_only=shader_index_only)
 
 
-def verify_pages_recording_feed(data: bytes, guest_sha256: str, *, recording_assets: dict[str, bytes] | None = None,
-                                recording_index_only: bool = False) -> dict[str, Any] | None:
-    """Accept only the published recording-feed contracts for this guest."""
+def verify_pages_recording_feed(data: bytes, guest_sha256: str) -> None:
+    """Accept only the two published recording-feed contracts for this guest."""
     if not re.fullmatch(r"[0-9a-f]{64}", guest_sha256):
         raise ValueError("Recording feed guest must be an exact lowercase SHA-256")
     policy = {
         "guest_sha256": guest_sha256,
         "recording_feed_sha256": hashlib.sha256(data).hexdigest(),
     }
-    return _verify_feed(
+    _verify_feed(
         data,
         "recording",
         policy,
         (
             "benchmark-replay-1:" + guest_sha256,
             "benchmark-catalog-1:" + guest_sha256,
-            "benchmark-catalog-2:" + guest_sha256,
         ),
-        recording_assets=recording_assets,
-        recording_index_only=recording_index_only,
     )
 
 
@@ -722,8 +715,6 @@ def _verify_feed(
     *,
     shader_assets: dict[str, bytes] | None = None,
     shader_index_only: bool = False,
-    recording_assets: dict[str, bytes] | None = None,
-    recording_index_only: bool = False,
 ) -> dict[str, Any] | None:
     if hashlib.sha256(data).hexdigest() != policy[f"{kind}_feed_sha256"]:
         raise ValueError(f"{kind} feed hash differs from the reviewed envelope")
@@ -785,32 +776,11 @@ def _verify_feed(
                 if len(content) != descriptor[3] or total > packs.data_pack.SHADER_COMPRESSED_TOTAL_LIMIT:
                     raise ValueError("Shader asset download exceeds its signed size or aggregate limit")
                 shader_assets[asset] = content
-    if kind == "recording" and selected.startswith("benchmark-catalog-2:"):
-        if len(data) > packs.data_pack.SHADER_INDEX_LIMIT:
-            raise ValueError("Recording index exceeds the app download limit")
-        descriptor = packs.recording_index(payload)
-        if recording_index_only:
-            # Pages authenticates the envelope first, then validates it with its blob; release acquisition never sets this.
-            return {"compatibility": selected, "sequence": manifest["sequence"]}
-        if recording_assets is None:
-            base = urllib.parse.urlsplit(policy.get("recording_feed_url", ""))
-            if (base.scheme != "https" or not base.hostname or base.username or base.password
-                    or base.query or base.fragment):
-                raise ValueError("Recording archive requires a trusted HTTPS feed URL")
-            asset = descriptor[2] + ".xz"
-            url = urllib.parse.urljoin(policy["recording_feed_url"], packs.data_pack.RECORDING_BLOB_DIRECTORY + "/" + asset)
-            with urllib.request.build_opener(NoRedirect()).open(url, timeout=120) as response:
-                content = response.read(descriptor[3] + 1)
-            if len(content) != descriptor[3]:
-                raise ValueError("Recording archive download differs from its signed size")
-            recording_assets = {asset: content}
-        files = packs.validate_payload(payload, payload_kind, selected, recording_assets=recording_assets)
-    else:
-        files = (packs.validate_payload(payload, payload_kind, selected, shader_assets=shader_assets)
-            if selected == "shader-lists-2" else packs.validate_payload(payload, payload_kind, selected))
+    files = (packs.validate_payload(payload, payload_kind, selected, shader_assets=shader_assets)
+        if selected == "shader-lists-2" else packs.validate_payload(payload, payload_kind, selected))
     if (
         kind != "recording"
-        or selected not in ("benchmark-catalog-1:" + policy["guest_sha256"], "benchmark-catalog-2:" + policy["guest_sha256"])
+        or selected != "benchmark-catalog-1:" + policy["guest_sha256"]
     ):
         return None
     catalog_raw = files.get("benchmark-catalog.json")
@@ -971,7 +941,7 @@ def validate_recording_summary_context(
         raise ValueError(
             "Verified benchmark catalog context feed hash differs from release policy"
         )
-    if context["compatibility"] not in ("benchmark-catalog-1:" + policy["guest_sha256"], "benchmark-catalog-2:" + policy["guest_sha256"]):
+    if context["compatibility"] != "benchmark-catalog-1:" + policy["guest_sha256"]:
         raise ValueError(
             "Verified benchmark catalog context compatibility differs from release policy"
         )

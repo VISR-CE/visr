@@ -1,4 +1,3 @@
-#include "host_app_version.h"
 /* Apache-2.0. The render producer only copies into the bounded portable collector.
    All persistence, admission, compression and networking runs on one utility worker. */
 #import "host_shader_upload.h"
@@ -176,7 +175,7 @@ static NSDictionary *metadata(struct shader_observation_generation *g) {
 #endif
     return @{@"schema":@1,@"nonce":[[NSUUID.UUID.UUIDString stringByReplacingOccurrencesOfString:@"-" withString:@""] lowercaseString],
         @"mapFingerprint":@(g->fingerprint),@"mapKey":@(g->map_key),@"mapFormat":@(g->map_format),@"renderer":@"metal",
-        @"model":@(model),@"platform":platform,@"appVersion":host_app_version_description() ?: @"unknown",
+        @"model":@(model),@"platform":platform,@"appVersion":[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"unknown",
         @"appBuild":[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] ?: @"unknown",@"guestSHA256":guest,
         @"descriptorABI":@SHADER_OBSERVATION_ABI,@"shaderListID":@(g->shader_list_id)};
 }
@@ -276,7 +275,7 @@ static void acknowledge(NSString *path,NSDictionary *payload) {
 }
 static void deliver(void) {
     if(inflight || !atomic_load(&enabled) || atomic_load(&runtime_suppressed) || atomic_load(&suspended) || !atomic_load(&menu) || host_benchmark_running())return;
-    NSString *version=[NSString stringWithFormat:@"%@/%@",host_app_version_description(), [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]];
+    NSString *version=[NSString stringWithFormat:@"%@/%@",[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"], [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]];
     if([state[@"paused"] isEqual:version])return;
     NSTimeInterval now=NSDate.date.timeIntervalSince1970;
     long day=(long)(now/86400);

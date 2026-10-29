@@ -976,29 +976,6 @@
     529.0
    ],
    "cap": 21.875
-  },
-  {
-   "name": "ui__bkd_virtual_keyboard__0",
-   "tag": "ui\\bkd_virtual_keyboard",
-   "bitmap": 0,
-   "width": 1024,
-   "height": 512,
-   "format": "dxt3",
-   "scale": 2,
-   "crc": 4074355977,
-   "text": "ENTER NAME",
-   "lefts": [
-    64.75,
-    86.625,
-    107.5,
-    126.875,
-    148.625,
-    182.625,
-    203.125,
-    227.625,
-    255.375
-   ],
-   "cap": 21.875
   }
  ]
 }

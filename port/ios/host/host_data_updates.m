@@ -260,7 +260,7 @@ static void initializeLegacy(void)
         host_device_identify(&device);
         BOOL identified = host_profile_device_key(&device,deviceKey,sizeof(deviceKey));
         profiles = profileStore(bundledProfiles, device);
-        recordings = store(@"recordings", bundledRecordings, @"benchmark-catalog-2:" HALO_GUEST_SHA256, ^BOOL(NSString *folder, NSError **error) {
+        recordings = store(@"recordings", bundledRecordings, @"benchmark-catalog-1:" HALO_GUEST_SHA256, ^BOOL(NSString *folder, NSError **error) {
             BOOL valid = host_recording_pack_validate(folder.fileSystemRepresentation, NULL) &&
                 host_benchmark_catalog_validate_folder(folder, error);
             if (!valid && error && !*error) *error = [NSError errorWithDomain:@"VISRDataUpdates" code:2 userInfo:@{NSLocalizedDescriptionKey: @"Invalid recording snapshot"}];
@@ -628,7 +628,7 @@ static void initializeMenu(struct host_device device)
         profileReady = !menuProfileURL || (profileIdentity && ![profileIdentity[@"bundled"] boolValue]);
         profileLoading = menuProfileURL != nil;
     }
-    recordings = store(@"recordings", bundledRecordings, @"benchmark-catalog-2:" HALO_GUEST_SHA256, ^BOOL(NSString *folder, NSError **error) {
+    recordings = store(@"recordings", bundledRecordings, @"benchmark-catalog-1:" HALO_GUEST_SHA256, ^BOOL(NSString *folder, NSError **error) {
         return host_recording_pack_validate(folder.fileSystemRepresentation, NULL) && host_benchmark_catalog_validate_folder(folder, error);
     });
     // Beside the recordings: <recording feed directory>/latest.json, so no setting of its own. Never selected for a launch.

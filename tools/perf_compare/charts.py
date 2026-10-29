@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "docs/benchmarks/results.csv"
 SPECS = ROOT / "docs/benchmarks/charts"
 REASONS = ROOT / "docs/benchmarks/reasons.toml"
-SUITE_INFO = ROOT / "docs/benchmarks/suites.toml"
 PAGE = ROOT / "docs/benchmarks.md"
 BEGIN = "<!-- BEGIN CHARTS -->"
 END = "<!-- END CHARTS -->"
@@ -27,7 +26,7 @@ END = "<!-- END CHARTS -->"
 SUITES = ("campaign", "combat", "cutscenes", "multiplayer", "co-op")
 SUITE_CHOICES = ("overall", *SUITES)
 SUITE_NAMES = {"campaign": "Campaign", "combat": "Combat", "cutscenes": "Cutscenes", "multiplayer": "Multiplayer",
-               "co-op": "Split-screen co-op", "overall": "Overall"}
+               "co-op": "Co-op", "overall": "Overall"}
 DEFAULT_SUITE = "campaign"
 
 
@@ -36,44 +35,7 @@ def load_snapshot(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
-    """(ports, builds) with a value for the spec's first metric among the reference-box rows its filter matches."""
-    query = spec["query"]
-    found = [row for row in rows if row["platform"] == query["platform"] and row["reference_box"].lower() == "true"
-             and _matches(row, query["filter"]) and row.get(query["metrics"][0], "") != ""]
-    return len({row["port"] for row in found}), len({(row["port"], row["version"], row["build"]) for row in found})
-
-
-def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
-    """The specs worth drawing for these rows. A spec marked `needs_data` (the frame-cost charts) is drawn only when
-    at least two builds report its metric, since a chart of one build compares nothing. A platform leads with its
-    `frame_cost` chart only when at least two ports report it; otherwise the frame-rate chart (`primary_*` keys) leads and
-    a frame-cost chart that is drawn follows it as a sub-section (`sub_heading`, `sub_order`)."""
-    counts = {spec["name"]: _reporters(spec, rows) for spec in specs if spec.get("needs_data")}
-    kept = [spec for spec in specs if not spec.get("needs_data") or counts[spec["name"]][1] >= 2]
-    leads = {spec["query"]["platform"] for spec in kept if spec.get("frame_cost") and counts[spec["name"]][0] >= 2}
-    result = []
-    for spec in kept:
-        platform = spec["query"]["platform"]
-        if spec.get("primary_heading") and platform not in leads:
-            spec = {**spec, "sub": False, "order": spec["primary_order"], "heading": spec["primary_heading"],
-                    "name": re.sub(r"-fps$", "", spec["name"]),
-                    "paragraph": spec["primary_paragraph"].strip()
-                                 + ("" if any(s.get("needs_data") and s["query"]["platform"] == platform for s in kept)
-                                    else " GPU and CPU time per frame are not reported for " + spec["primary_heading"] + " builds yet.")}
-        elif spec.get("needs_data") and platform not in leads:
-            spec = {**spec, "sub": True, "order": spec["sub_order"], "heading": spec.get("sub_heading", spec["heading"]),
-                    "name": spec["name"] if spec["name"].endswith("-cpu") else spec["name"] + "-gpu"}
-        result.append(spec)
-    return sorted(result, key=lambda spec: (spec.get("order", 1000), spec["name"]))
-
-
-def load_specs(directory: Path, rows: list[dict] | None = None) -> list[dict]:
-    """The chart specs in order; with the snapshot's rows, only those worth drawing (see `select_specs`)."""
-    return select_specs(_load_specs(directory), rows) if rows is not None else _load_specs(directory)
-
-
-def _load_specs(directory: Path) -> list[dict]:
+def load_specs(directory: Path) -> list[dict]:
     specs = []
     for path in sorted(directory.glob("*.chart.toml")):
         spec = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -86,17 +48,12 @@ def load_reasons(path: Path = REASONS) -> dict:
     return tomllib.loads(path.read_text(encoding="utf-8"))
 
 
-def load_suite_info(path: Path = SUITE_INFO) -> dict:
-    """Each suite's description and the windows (label and screenshot name) it samples, for the page's suite bar."""
-    return tomllib.loads(path.read_text(encoding="utf-8"))
-
-
 def plain_reason(reason: str, reasons: dict) -> str:
     """The page's sentence for a reason code; unknown codes and already-plain notes pass through."""
     if reason in reasons["exact"]:
         return reasons["exact"][reason]
     if reason.startswith("no ") and reason.endswith(" measurements yet"):
-        return reasons["patterns"]["no_suite_data"].format(suite=SUITE_NAMES.get(reason[3:-len(" measurements yet")], reason[3:-len(" measurements yet")]).lower())
+        return reasons["patterns"]["no_suite_data"].format(suite=reason[3:-len(" measurements yet")])
     match = re.fullmatch(r"not measured in (.+?): (.+)", reason)
     if match:
         return reasons["patterns"]["partial_suite"].format(suite=match[1], windows=match[2])
@@ -124,12 +81,6 @@ def _number(value: float) -> str:
     return f"{value:.1f}".removesuffix(".0")
 
 
-def version_key(entry: dict) -> tuple:
-    """Orders a port's builds, newest last: the numbers in the version (0.6.1, v1.0.2, build-314), then the measurement
-    date, then the build id. A version with no numbers (main) sorts first. Mirrored by `versionKey` in benchmarks.js."""
-    return (tuple(int(n) for n in re.findall(r"\d+", entry["version"])), entry["date"], entry["build"])
-
-
 def entry_key(entry: dict) -> str:
     return "@".join((entry["port"], entry["version"], entry["build"]))
 
@@ -139,8 +90,7 @@ def entry_key(entry: dict) -> str:
 DETAILS = {"p95_ms": (" ms", "95th-percentile frame time", "geometric", 1),
            "on_time_pct": ("%", "of frames on time", "arithmetic", 1),
            "gpu_p50_ms": (" ms", "median GPU time per rendered frame", "geometric", 2),
-           "gpu_p90_ms": (" ms", "90th-percentile GPU time per rendered frame", "geometric", 2),
-           "cpu_p50_ms": (" ms", "median CPU time per frame", "geometric", 2)}
+           "gpu_p90_ms": (" ms", "90th-percentile GPU time per rendered frame", "geometric", 2)}
 
 
 def _details(rows: list[dict], query: dict) -> dict:
@@ -185,36 +135,10 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
         # A suite bar covers the same windows for every port: a build with only some of them is listed, not drawn.
         return None, f"not measured in {SUITE_NAMES[suite]}: {', '.join(missing)}", "not_measured"
     rows = list(usable.values())
-    # The first metric is the main bar series and the optional second one (a 1% low, or a 90th percentile) the next.
-    second = query["metrics"][1] if len(query["metrics"]) > 1 else None
-    return {"avg": statistics.geometric_mean(float(r[query["metrics"][0]]) for r in rows),
-            "low": (statistics.geometric_mean(float(r[second]) for r in rows)
-                    if second and all(r.get(second, "") != "" for r in rows) else None),
+    return {"avg": statistics.geometric_mean(float(r["fps_avg"]) for r in rows),
+            "low": (statistics.geometric_mean(float(r["fps_1pct_low"]) for r in rows)
+                    if "fps_1pct_low" in query["metrics"] and all(r.get("fps_1pct_low", "") != "" for r in rows) else None),
             "details": _details(rows, query), "windows": sorted(usable), "rows": rows}, "", ""
-
-
-def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
-    """The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick
-    the shared-suites rule leaves out (see `overall_split`) falls back to its next older version with data, so the
-    default selection and the drawn set agree. Mirrored by `defaultBuilds` in benchmarks.js."""
-    candidates: dict[str, list[dict]] = {}
-    for entry in sorted(entries, key=version_key, reverse=True):
-        if entry["value"] is not None:
-            candidates.setdefault(entry["port"], []).append(entry)
-    index = dict.fromkeys(candidates, 0)
-    for _ in range(len(entries) + 1):
-        picked = {port: items[index[port]] for port, items in candidates.items()}
-        if not overall:
-            break
-        left = overall_split([e for e in entries if picked.get(e["port"]) is e])[2]
-        moved = False
-        for e in left:
-            if index[e["port"]] + 1 < len(candidates[e["port"]]):
-                index[e["port"]] += 1
-                moved = True
-        if not moved:
-            break
-    return {port: items[index[port]] for port, items in candidates.items()}
 
 
 def model(rows: list[dict], query: dict, suite: str) -> dict:
@@ -228,8 +152,7 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
         base = {"port": port, "port_name": group[0]["port_name"], "version": version, "build": build,
                 "label": group[0]["label"], "date": max(row["date"] for row in group),
                 "url": next((row.get("release_url", "") for row in group if row.get("release_url", "")), ""),
-                "gpu_note": query.get("no_gpu_notes", {}).get(port, ""),
-                "port_note": query.get("build_notes", {}).get(port, "")}
+                "gpu_note": query.get("no_gpu_notes", {}).get(port, "")}
         if suite == "overall":
             # Which suites count is decided per chart, from the builds drawn (see `_drawn`); here each build keeps
             # its own suite values. A build with none is listed with the first suite's reason.
@@ -248,78 +171,26 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
     order = query.get("port_order", [])
     entries.sort(key=lambda e: (order.index(e["port"]) if e["port"] in order else len(order), e["port"],
                                 tuple(-ord(c) for c in e["date"]), e["version"], e["build"]))
-    chosen = _default_builds(entries, suite == "overall")
+    newest: dict[str, dict] = {}
     for entry in entries:
-        entry["default"] = chosen.get(entry["port"]) is entry
-    built = {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
-    if query.get("budget"):
-        built["budget_ms"] = _budget_ms(platform_rows, query)
-    return built
+        if entry["value"] is not None and (entry["port"] not in newest or entry["date"] > newest[entry["port"]]["date"]):
+            newest[entry["port"]] = entry
+    for entry in entries:
+        entry["default"] = newest.get(entry["port"]) is entry
+    return {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
 
 
-def _budget_ms(platform_rows: list[dict], query: dict) -> float | None:
-    """The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted
-    reference-box runs that report the charted metric were held to (the frame cap, else the display rate). Mirrored by `budgetMs` in benchmarks.js."""
-    rates = []
-    for row in platform_rows:
-        if row["reference_box"].lower() != "true" or not _matches(row, query["filter"]) or row.get(query["metrics"][0], "") == "":
-            continue
-        for column in ("cap_fps", "display_hz"):
-            try:
-                rate = float(row.get(column, ""))
-            except ValueError:
-                continue
-            if rate > 0:
-                rates.append(rate)
-                break
-    return 1000 / min(rates) if rates else None
-
-
-def _round1(value: float) -> float:
-    return math.floor(value * 10 + 0.5) / 10
-
-
-def build_groups(built: dict) -> list[dict]:
-    """The builds list, one group per port in the model's order. A group's `primary` is the build drawn by default (the
-    newest version with data for the suite), or the newest version when none has data; `others` are the remaining builds,
-    newest first, offered as other versions, with their reasons where they have no data. Mirrored by `buildGroups` in
-    benchmarks.js."""
-    groups: dict[str, list[dict]] = {}
-    for entry in built["entries"]:
-        groups.setdefault(entry["port"], []).append(entry)
-    result = []
-    for items in groups.values():
-        ordered = sorted(items, key=version_key, reverse=True)
-        primary = next((e for e in ordered if e["default"]), ordered[0])
-        result.append({"port": items[0]["port"], "port_name": items[0]["port_name"], "primary": primary,
-                       "others": [e for e in ordered if e is not primary]})
-    return result
-
-
-OVERALL_MIN_SUITES = 2
-
-
-def _shared_suites(builds: list[dict]) -> list[str]:
-    """The suites every build in the list has complete; a single build has all of its own."""
-    return [name for name in SUITES if builds and all(e["suites"].get(name) for e in builds)]
+def overall_suites(pool: list[dict]) -> list[str]:
+    """The suites Overall covers on a chart: every suite at least one drawn build has complete. A build missing one
+    of them is left out of Overall (see `overall_split`), so one incomplete port does not shrink the set for the rest."""
+    return [name for name in SUITES if any(e["suites"].get(name) for e in pool)]
 
 
 def overall_split(pool: list[dict]) -> tuple[list[str], list[dict], list[dict]]:
-    """(suites, builds drawn, builds left out) for Overall. Overall covers the suites every drawn build has complete.
-    While those are fewer than two and more than one build is drawn, the build whose removal leaves the most shared
-    suites is dropped (ties: the build with the fewest suites, then the later one), as long as dropping one adds a
-    suite; a lone build counts all of its suites. Mirrored by `overallSplit` in benchmarks.js."""
-    kept = list(pool)
-    shared = _shared_suites(kept)
-    while len(shared) < OVERALL_MIN_SUITES and len(kept) > 1:
-        options = [(len(_shared_suites([e for e in kept if e is not drop])), -sum(1 for n in SUITES if drop["suites"].get(n)), index, drop)
-                   for index, drop in enumerate(kept)]
-        best = max(options, key=lambda option: option[:3])
-        if best[0] <= len(shared):
-            break
-        kept = [e for e in kept if e is not best[3]]
-        shared = _shared_suites(kept)
-    return shared, kept, [e for e in pool if e not in kept]
+    """(suites, builds drawn, builds left out) for Overall."""
+    suites = overall_suites(pool)
+    kept = [e for e in pool if suites and all(e["suites"].get(name) for name in suites)]
+    return suites, kept, [e for e in pool if e not in kept]
 
 
 def _overall_value(entry: dict, covered: list[str]) -> dict:
@@ -363,45 +234,20 @@ def overall_note(built: dict, selected: set[str] | None = None) -> str:
         return ""
     note = "Overall covers " + _names([SUITE_NAMES[name] for name in suites]) + "."
     for e in left:
-        note += f" {e['label']} is not in Overall: it shares too few suites with the other builds."
+        gaps = [SUITE_NAMES[name] for name in suites if not e["suites"].get(name)]
+        note += f" {e['label']} is not in Overall: {_names(gaps)} not measured completely."
     return note
-
-
-def list_status(built: dict, selected: set[str] | None = None) -> dict[str, dict]:
-    """Why each build that the chart does not draw is unavailable, by entry key: {"kind", "tag", "reason"}. A build
-    with no data for the suite carries its own reason. For Overall, a build that has data but lacks a suite the other
-    builds cover is unavailable too, and so is an unticked build that ticking would leave out. Every other build is
-    available, and the available ticked builds are exactly the ones drawn. Mirrored by `listStatus` in benchmarks.js."""
-    status = {}
-    pool = _pool(built, selected)
-    keys = {entry_key(e) for e in pool}
-    for entry in built["entries"]:
-        key = entry_key(entry)
-        if entry["value"] is None:
-            tag = "not supported" if entry["kind"] == "not_supported" else "not measured here"
-            status[key] = {"kind": entry["kind"], "tag": tag, "reason": entry["reason"]}
-        elif built.get("overall"):
-            trial = pool if key in keys else [*pool, entry]
-            suites, kept, _ = overall_split(trial)
-            if entry not in kept:
-                status[key] = {"kind": "not_in_overall", "tag": "not in Overall",
-                               "reason": "Overall averages the suites every drawn build has, and this build shares too few of them with the others."}
-    return status
 
 
 def chart_title(spec: dict, built: dict, suite: str) -> str:
     box = built["box"] or spec.get("box", "")
     unit = spec.get("chart", {}).get("title_unit", "uncapped fps")
-    if built.get("budget_ms"):
-        unit += f" against the {_number(built['budget_ms'])} ms frame budget"
     return f"{SUITE_NAMES[suite]}: {unit}, {box}".replace('"', "'")
 
 
-def header_text(chart: dict, reverse: bool = False) -> str:
-    """The hand-written Mermaid frontmatter with the light-mode bar colors filled in; `reverse` swaps the two colors for
-    a chart that draws its second series first."""
-    palette = chart.get("palette", [])
-    return chart.get("header", "").strip().replace("__PALETTE__", ", ".join(reversed(palette) if reverse else palette))
+def header_text(chart: dict) -> str:
+    """The hand-written Mermaid frontmatter with the light-mode bar colors filled in."""
+    return chart.get("header", "").strip().replace("__PALETTE__", ", ".join(chart.get("palette", [])))
 
 
 def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None) -> str | None:
@@ -417,27 +263,16 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     known = [e["value"]["low"] for e in drawn if e["value"]["low"] is not None]
     # The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average and
     # does not cover the average bar.
-    # A time series has no such ceiling: the 90th percentile is above the median by definition.
-    lower = _lower_is_better(spec["query"]["metrics"][0])
-    lows = [(e["value"]["low"] if lower else min(e["value"]["low"], e["value"]["avg"])) if e["value"]["low"] is not None else 0 for e in drawn]
+    lows = [min(e["value"]["low"], e["value"]["avg"]) if e["value"]["low"] is not None else 0 for e in drawn]
     with_lows = bool(known)
-    if "y_max" in chart:
-        y_max = chart["y_max"]
-    elif built.get("budget_ms"):
-        # The axis spans the frame budget, so a bar's length is its share of the budget; a bar over budget stretches it.
-        y_max = max(_round1(built["budget_ms"]), math.ceil(max(averages + known) * 1.05 * 10) / 10)
-    else:
-        y_max = _nice_ceiling(max(averages + known) * 1.25)
+    y_max = chart.get("y_max", _nice_ceiling(max(averages + known) * 1.25))
     head = "xychart-beta horizontal" if chart.get("horizontal") else "xychart-beta"
     quoted = ", ".join('"' + label + '"' for label in labels)
-    # A time series draws the longer 90th-percentile bar first, so the median bar in front of it stays visible; the colors
-    # swap with the order so the median keeps the first series' color.
-    behind = lower and with_lows
-    lines = [header_text(chart, behind), head, f'    title "{chart_title(spec, built, suite)}"',
+    lines = [header_text(chart), head, f'    title "{chart_title(spec, built, suite)}"',
              f'    x-axis "{chart.get("x_label", "")}" [{quoted}]',
              f'    y-axis "{chart.get("y_label", "")}" {_number(chart.get("y_min", 0))} --> {_number(y_max)}',
-             f"    bar [{', '.join(_number(v) for v in (lows if behind else averages))}]",
-             f"    bar [{', '.join(_number(v) for v in (averages if behind else lows))}]" if with_lows else ""]
+             f"    bar [{', '.join(_number(v) for v in averages)}]",
+             f"    bar [{', '.join(_number(v) for v in lows)}]" if with_lows else ""]
     return "\n".join(line for line in lines if line)
 
 
@@ -518,46 +353,6 @@ def caption_parts(built: dict, selected: set[str] | None = None, columns: list[s
     return parts
 
 
-# Column headings for the per-build figures in the table under a chart.
-DETAIL_HEADINGS = {"p95_ms": "95th-percentile frame time (ms)", "on_time_pct": "On time", "gpu_p50_ms": "Median GPU time (ms)",
-                   "gpu_p90_ms": "90th-percentile GPU time (ms)",
-                   "cpu_p50_ms": "Median CPU time (ms)"}
-
-
-def _detail_cells(entry: dict, columns: list[str]) -> tuple[list[str], str]:
-    """One cell per detail column ("-" where the build has none) and the note for a build with none at all."""
-    cells = []
-    for column in columns:
-        value = (entry["value"].get("details") or {}).get(column)
-        if value is None:
-            cells.append("\u2013")
-            continue
-        unit, _, _, places = DETAILS[column]
-        text = f"{value:.{places}f}"
-        text = text.rstrip("0").rstrip(".") if "." in text else text
-        cells.append(text + ("%" if unit == "%" else ""))
-    note = _detail_text(entry, columns) if columns and all(cell == "\u2013" for cell in cells) else ""
-    return cells, note
-
-
-def caption_table(built: dict, selected: set[str] | None = None, columns: list[str] | None = None,
-                  windows: list[str] | None = None) -> dict | None:
-    """The per-build figures under a chart as a table: a header line (box and Overall note), column headings and one row
-    per drawn build. Mirrored by `captionTable` in benchmarks.js."""
-    drawn = _drawn(built, selected)
-    if not drawn:
-        return None
-    columns = columns or []
-    windows = windows or sorted({name for e in drawn for name in (e["value"].get("windows") or [])})
-    rows = []
-    for e in drawn:
-        cells, note = _detail_cells(e, columns)
-        gaps = _missing_windows(e, windows).removeprefix("; ")
-        rows.append({"label": e["label"], "url": e.get("url", ""), "build": e["build"] or "unknown", "measured": e["date"],
-                     "cells": cells, "notes": "; ".join(part for part in (e.get("port_note", ""), note, gaps) if part)})
-    return {"box": built["box"], "note": overall_note(built, selected), "headings": [DETAIL_HEADINGS[c] for c in columns], "rows": rows}
-
-
 def caption(built: dict, selected: set[str] | None = None, columns: list[str] | None = None, links: str = "",
             windows: list[str] | None = None) -> str:
     """The caption text; `links` is "markdown" or "" (plain)."""
@@ -570,7 +365,7 @@ def empty_text(spec: dict, built: dict) -> str:
     if not built["entries"]:
         return spec["empty"].strip()
     if built.get("overall") and any(e["value"] is not None for e in built["entries"]):
-        return "No build in this chart has a suite to average."
+        return "No build in this chart has every suite Overall covers."
     return "No build has data for this suite yet."
 
 
@@ -582,7 +377,7 @@ def render_section(spec: dict, rows: list[dict], suite: str = DEFAULT_SUITE, rea
     """The Markdown for one platform's default view: the chart if any build has data, else why not."""
     reasons = reasons or load_reasons()
     built = model(rows, spec["query"], suite)
-    parts = [("####" if spec.get("sub") else "###") + f" {spec['heading']}", "", spec["paragraph"].strip(), ""]
+    parts = [f"### {spec['heading']}", "", spec["paragraph"].strip(), ""]
     text = source(spec, built, suite)
     if text is None:
         parts.extend([empty_text(spec, built), ""])
@@ -617,8 +412,7 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="fail when the page's charts are stale")
     parser.add_argument("--stdout", action="store_true", help="print the chart section instead of editing the page")
     args = parser.parse_args()
-    rows = load_snapshot(args.snapshot)
-    block = render_all(rows, load_specs(args.specs, rows), args.suite)
+    block = render_all(load_snapshot(args.snapshot), load_specs(args.specs), args.suite)
     if args.stdout:
         sys.stdout.write(block)
         return 0

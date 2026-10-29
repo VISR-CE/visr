@@ -5,6 +5,7 @@ functions inserted below own event consumption, handler actions and history. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "menu_platform.h"
 
 typedef int boolean;
 typedef float real;
@@ -105,7 +106,7 @@ static void main_goto_main_menu(void) { returned_to_main++; }
 static int ui_widget_launch_widget(struct widget_instance *widget, long tag)
 {
 	/* Tag loading is the engine boundary. The real dispatcher must request
-	a widget only when a handler explicitly requests it. */
+	the quit dialog, rather than deleting the root with empty history. */
 	assert(tag == 2);
 	ui_widget_delete(widget_instance_get_topmost_parent(widget));
 	widget_globals.active_widgets[0] = &instances[2];
@@ -180,7 +181,7 @@ int main(void)
 		assert(widget_globals.active_widgets[0] == &instances[0]);
 		reset(1);
 		press(cancel);
-		assert(widget_globals.active_widgets[0] == &instances[0]); /* Mac root also stays */
+		assert(widget_globals.active_widgets[0] == &instances[2]); /* desktop Quit */
 		reset(0);
 		instances[1].parent = NULL;
 		widget_globals.active_widgets[0] = &instances[1];
@@ -214,9 +215,9 @@ int main(void)
 		assert(widget_globals.active_widgets[0] == &instances[0]);
 		reset(1);
 		press(cancel);
-		assert(widget_globals.active_widgets[0] == &instances[0]);
+		assert(widget_globals.active_widgets[0] == &instances[2]);
 	}
 	}
-	puts("PASS: root B/Back consumed; Mac cancel, nested Back and pause resume preserved");
+	puts("PASS: root B/Back consumed; desktop Quit, nested Back and pause resume preserved");
 	return 0;
 }

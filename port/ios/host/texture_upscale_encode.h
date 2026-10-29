@@ -57,13 +57,6 @@ enum texture_upscale_encode_result texture_upscale_encode_record(
 /* The calling thread's later encodes end with TEXTURE_UPSCALE_ENCODE_ERROR between block rows (BC7) or tiles (ASTC)
    once *flag reads nonzero: the scheduler's stop for gameplay. NULL (the default) never stops them. */
 void texture_upscale_encode_set_cancel(const volatile int *flag);
-/* Level 0 of a record file (texture_record.h) as RGBA8, rows top first, for a texture with this level-0 hash and size:
-   the menus save the pictures they draw from the original's upscaled version when there is one. The file is checked as
-   the texture loader checks it (header, level table, checksum), in any of the three formats. Returns 0 if the file is
-   not a record for that texture; else 1, with the record's level 0 size in *out_width and *out_height, and, when rgba is
-   not NULL and capacity holds width * height * 4 bytes, the texels (-1 if it does not, or on a decode error). */
-int texture_record_decode_level0(const uint8_t *file, size_t size, uint64_t hash, uint32_t width, uint32_t height,
-    uint8_t *rgba, size_t capacity, uint32_t *out_width, uint32_t *out_height);
 #ifdef __cplusplus
 }
 #endif

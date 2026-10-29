@@ -50,13 +50,6 @@ static void background_task_end(void) {
 scenes before the window exists). Another scene going to the background (an
 extra window scene being closed) leaves the game playing */
 int host_scene_is_games(void *scene);
-#if TARGET_OS_VISION
-/* host_theater.m: the game's window is put away while VR is open; its scene
-going to the background and closing isn't the game going to the background */
-int host_theater_window_parked(void);
-#else
-static int host_theater_window_parked(void) { return 0; }
-#endif
 
 void host_lifecycle_install(void) {
     /* an iPad app on a Mac (tools/mac_run.py) may draw in the background, and
@@ -65,10 +58,6 @@ void host_lifecycle_install(void) {
     [NSNotificationCenter.defaultCenter addObserverForName:UISceneDidEnterBackgroundNotification object:nil
         queue:nil usingBlock:^(NSNotification *notification){
             if(!host_scene_is_games((__bridge void *)notification.object))return;
-            if(host_theater_window_parked()){
-                host_logf(HOST_LOG_INFO,"the game's put-away window went to the background; VR plays on");
-                return;
-            }
             atomic_store(&backgrounded,1);
             pthread_mutex_lock(&background_lock);
             if(!background_began)background_began=monotonic_milliseconds();

@@ -295,9 +295,9 @@ def method_group(record):
     return "hud" if "hud" in method else "other"
 
 
-CAVEAT = ("We try to make these comparisons fair, but numbers or projects may be wrong or out of date. "
-          "Corrections? Updates? A new port or build we should add? "
-          "[Open an issue](https://github.com/steverice/visr/issues/new?template=benchmark.yml)")
+CAVEAT = ("We try to make these comparisons fair, but our numbers or our setup for other projects may be wrong "
+          "or out of date. Corrections? Updates? A new port or build we should add? "
+          "[Open an issue](https://github.com/steverice/visr/issues)")
 
 METHOD_NOTES = {
     "trace": "Apple's metalperftrace records per-frame on-glass drawable intervals. "

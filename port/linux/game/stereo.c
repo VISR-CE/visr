@@ -92,9 +92,6 @@ short main_get_window_count(void);
 /* port/ios/host/host_stereo.m, imported by the guest (guest_host.h): opens the
 Compositor's next frame and fills the eyes and the head's turn from it */
 void host_stereo_frame(struct halo_stereo_frame *frame);
-/* port/ios/host/host_stereo.m, imported too: 1 while the player has entered
-VR from the window (host_stereo_entry.h), latched for this frame */
-int host_stereo_entered(void);
 #endif
 
 /* the debug side-by-side eyes: fixed frusta and a typical eye separation
@@ -148,11 +145,7 @@ the frame's begin only: render.c's eye loop gives the camera's own tangent
 
 static struct halo_stereo_frame stereo_frame;
 static int stereo_layer = HALO_STEREO_LAYER_MONO;
-static int stereo_mode = -1; /* the mode in effect this frame */
-/* display.stereo's mode, read once, on the first frame; the mode in effect
-is this one, or HEAD while the player has entered VR over "off"
-(halo_stereo_mode_entered) */
-static int stereo_configured = -1;
+static int stereo_mode = -1; /* read once, on the first frame */
 
 static const char *const mode_names[] = {"off", "head", "screen", "side_by_side"};
 
@@ -1043,32 +1036,19 @@ void halo_stereo_frame_begin(void)
 	int one_window = main_get_window_count() == 1;
 	float time_delta;
 
-	if (stereo_configured < 0) {
+	if (stereo_mode < 0) {
 		const char *name = config_string("display.stereo");
 		int recognized;
 
-		stereo_configured = mode_from_name(name, &recognized);
+		stereo_mode = mode_from_name(name, &recognized);
 		turn_settings();
 		mapping_settings();
 		/* the settings in effect (input.* act only in HEAD mode) */
 		platform_log("stereo: display.stereo %s, input.turn %s, input.snap_angle %.1f, "
-			"input.smooth_turn_speed %.1f, input.comfort_vignette %s", mode_names[stereo_configured],
+			"input.smooth_turn_speed %.1f, input.comfort_vignette %s", mode_names[stereo_mode],
 			turn_names[turn_mode], snap_degrees, smooth_degrees_per_second, comfort_vignette ? "true" : "false");
 		if (!recognized)
 			platform_log("stereo: display.stereo \"%s\" is not recognized; using off", name ? name : "(none)");
-	}
-	{
-		static int entered_last;
-		int entered = 0;
-
-#ifdef HALO_IOS
-		entered = host_stereo_entered() != 0;
-#endif
-		stereo_mode = halo_stereo_mode_entered(stereo_configured, entered);
-		if (entered != entered_last)
-			platform_log("stereo: %s VR: the mode is %s (display.stereo %s)", entered ? "entered" : "left",
-				mode_names[stereo_mode], mode_names[stereo_configured]);
-		entered_last = entered;
 	}
 	/* the stick wasn't read since the last frame (no gamepad): no turn, no
 	vignette */

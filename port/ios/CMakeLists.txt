@@ -81,7 +81,7 @@ endif()
 # Each build a new CFBundleVersion (tools/ios_build.py), so installing over the
 # app replaces it and keeps its Documents, or on tvOS its Caches (the imported game)
 set(HALO_BUILD_NUMBER 6 CACHE STRING "CFBundleVersion")
-include("${CMAKE_CURRENT_LIST_DIR}/AppVersion.cmake")
+set(HALO_MARKETING_VERSION "0.1.2" CACHE STRING "CFBundleShortVersionString supplied by the CI release tag")
 if(HALO_NATIVE_MAC)
     set(HALO_NATIVE_DIR "${CMAKE_CURRENT_LIST_DIR}/../macos")
     set(HALO_PLATFORM_SOURCES "${HALO_NATIVE_DIR}/host_macos_services.m"
@@ -191,7 +191,7 @@ target_sources(VISR PRIVATE "${ROOT}/port/linux/src/astc_encode.cpp"
     "${ROOT}/port/linux/src/astc_rewrite.c" "${ROOT}/port/runtime/astc_store.c"
     host/host_astc_store.m host/host_astc_texture.c)
 target_sources(VISR PRIVATE host/host_quit_signals.c host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
-    host/texture_refine_bounded.c host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
+    host/texture_refine_bounded.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
     "${ROOT}/port/third_party/bc7enc16/bc7decomp.c")
 target_include_directories(VISR PRIVATE "${ROOT}/port/third_party/bc7enc" "${ROOT}/port/third_party/bc7enc16")
 target_link_libraries(VISR PRIVATE "-framework Accelerate")
@@ -312,7 +312,7 @@ else()
     target_link_libraries(VISR PRIVATE "-weak_framework BackgroundTasks")
 endif()
 target_link_libraries(VISR PRIVATE SDL3::SDL3-static "-framework Foundation" "${HALO_UI_FRAMEWORK}"
-    "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z compression)
+    "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z)
 # display.upscaler = "metalfx" (gpu_metal.m); the simulators have no MetalFX
 if(NOT CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
     target_link_libraries(VISR PRIVATE "-weak_framework MetalFX")
@@ -482,8 +482,7 @@ set_target_properties(VISR PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${HALO_INFO_PLIS
     XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS YES
     XCODE_ATTRIBUTE_HALO_RENDER_HEIGHT "${HALO_RENDER_HEIGHT}"
     XCODE_ATTRIBUTE_HALO_BUILD_NUMBER "${HALO_BUILD_NUMBER}"
-    XCODE_ATTRIBUTE_HALO_MARKETING_VERSION "${HALO_MARKETING_VERSION}"
-    XCODE_ATTRIBUTE_HALO_BUILD_DESCRIPTION "${HALO_BUILD_DESCRIPTION}")
+    XCODE_ATTRIBUTE_HALO_MARKETING_VERSION "${HALO_MARKETING_VERSION}")
 if(HALO_DEVELOPMENT_TEAM)
     set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${HALO_DEVELOPMENT_TEAM}")
 endif()

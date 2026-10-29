@@ -151,11 +151,11 @@ def _number(value, places=2):
     return "" if value is None else f"{value:.{places}f}"
 
 
-RELEASE_KINDS = ("release", "hosted web build (release channel)", "pinned source build")
+RELEASE_KINDS = ("release", "hosted web build (release channel)")
 
 
 def is_release(record: dict) -> bool:
-    """Public data holds released builds only: a tagged release, or a hosted build on a release channel. A port that publishes no releases is measured from a pinned commit."""
+    """Public data holds released builds only: a tagged release, or a hosted build on a release channel."""
     return str(record.get("release_kind") or "") in RELEASE_KINDS
 
 

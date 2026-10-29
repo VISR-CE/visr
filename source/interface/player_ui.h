@@ -45,9 +45,6 @@ struct player_profile *player_ui_get_edit_player_profile(
 	void);
 struct game_variant *player_ui_get_edit_playlist_profile(
 	void);
-/* port: the saved game file index of the profile or gametype being edited, or NONE */
-long player_ui_get_edit_profile_index(
-	void);
 /* port: the PC options (game_engine.h) of the gametype being edited, and of
 the multiplayer gametype (player_ui_set_game_variant's) */
 struct game_variant_options;

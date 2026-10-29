@@ -17,7 +17,7 @@ from site_page import MERMAID, SITE, slug
 
 def main() -> int:
     from playwright.sync_api import sync_playwright
-    rows, specs = charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS, charts.load_snapshot(charts.SNAPSHOT))
+    rows, specs = charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS)
     (SITE / "benchmarks").mkdir(exist_ok=True)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch()

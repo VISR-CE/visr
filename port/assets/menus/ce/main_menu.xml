@@ -12,6 +12,8 @@
 	</widget>
 	<widget name="main_menu/main_menu" width="640" height="480" flags="pass_unhandled_to_focused_child">
 		<on event="created" run="main menu intialize" label="ring_loop"/>
+		<on event="back" open="main_menu/quit_select/quit_screen" platform="quit"/>
+		<on event="b" open="main_menu/quit_select/quit_screen" platform="quit"/>
 		<on event="back"/>
 		<on event="b"/>
 		<child widget="main_menu/halo_logo" y="28"/>
@@ -36,6 +38,11 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<conditional widget="main_menu/profile_manager/pm_entry_creating_profile" if_failed="true"/>
 	</widget>
+	<widget name="main_menu/main_menu_item_quit_game" type="text" width="256" height="33" bitmap="main_menu/menu_quit">
+		<on event="start" open="main_menu/quit_select/quit_screen"/>
+		<on event="a" open="main_menu/quit_select/quit_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
 	<widget name="main_menu/main_menu_item_settings" type="text" width="256" height="33" bitmap="main_menu/menu_settings" string_list="main_menu/main_menu_options" string_index="3" font="ui\small_ui" color="#000080FF">
 		<on event="a" run="profile set edit begin" label="settings" open="main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen" branch="true"/>
 		<on event="start" run="profile set edit begin" label="settings" open="main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen" branch="true"/>
@@ -51,6 +58,7 @@
 		<child widget="main_menu/main_menu_item_multiplayer" x="192" y="283"/>
 		<child widget="main_menu/main_menu_item_profile" x="192" y="319"/>
 		<child widget="main_menu/main_menu_item_settings" x="192" y="355"/>
+		<child widget="main_menu/main_menu_item_quit_game" x="192" y="391" platform="quit"/>
 	</widget>
 	<widget name="main_menu/new_campaign_creating_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1">
 		<on event="deleted" run="new campaign decision" open="main_menu/new_campaign_saving_profile"/>
