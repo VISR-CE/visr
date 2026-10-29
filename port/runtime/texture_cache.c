@@ -172,6 +172,36 @@ void texture_cache_progress(const struct texture_cache_key *keys, size_t key_cou
 	free(sorted);
 }
 
+uint64_t texture_cache_projected_remaining(const struct texture_policy_decision *decisions, size_t decision_count,
+	const struct texture_cache_record *records, size_t record_count, const struct texture_recipe_globals *globals)
+{
+	struct texture_cache_record *sorted = NULL;
+	uint64_t bytes = 0;
+
+	if (record_count && (sorted = malloc(record_count * sizeof(*sorted))))
+	{
+		memcpy(sorted, records, record_count * sizeof(*sorted));
+		qsort(sorted, record_count, sizeof(*sorted), record_order);
+	}
+	for (size_t i = 0; i < decision_count; i++)
+	{
+		struct texture_cache_progress p = { 0 };
+		progress_add(&decisions[i], sorted, sorted ? record_count : 0, globals, &p);
+		if (p.textures && !p.ready)
+		{
+			uint32_t scale = decisions[i].scale;
+			if (scale != 2 && scale != 4 && scale != 8)
+			{
+				free(sorted);
+				return UINT64_MAX;
+			}
+			bytes += texture_cache_projected_entry(&decisions[i]);
+		}
+	}
+	free(sorted);
+	return bytes;
+}
+
 int texture_cache_manifest_load(const char *directory, struct texture_cache_record **records, size_t *count_out)
 {
 	char path[1024], line[256];
@@ -281,8 +311,8 @@ static int fill_decisions(FILE *file, const void *context)
 	size_t i;
 
 	for (i = 0; i < c->count; i++)
-		if (fprintf(file, "%016" PRIx64 "\t%u\t%u\t%u\t%u\n", c->d[i].hash, c->d[i].width, c->d[i].height,
-			(unsigned)c->d[i].result, (unsigned)c->d[i].treatment) < 0)
+		if (fprintf(file, "%016" PRIx64 "\t%u\t%u\t%u\t%u\t%u\n", c->d[i].hash, c->d[i].width, c->d[i].height,
+			(unsigned)c->d[i].result, (unsigned)c->d[i].treatment, c->d[i].scale) < 0)
 			return -1;
 	return 0;
 }
@@ -314,7 +344,7 @@ int texture_cache_decisions_load(const char *directory, struct texture_policy_de
 		unsigned result, treatment;
 
 		memset(&d, 0, sizeof(d));
-		if (sscanf(line, "%" SCNx64 "\t%u\t%u\t%u\t%u", &d.hash, &d.width, &d.height, &result, &treatment) != 5 ||
+		if (sscanf(line, "%" SCNx64 "\t%u\t%u\t%u\t%u\t%u", &d.hash, &d.width, &d.height, &result, &treatment, &d.scale) < 5 ||
 			result > TEXTURE_POLICY_ORIGINAL || treatment > TEXTURE_POLICY_BUMP_MAP)
 		{
 			free(list);
@@ -392,8 +422,7 @@ uint64_t texture_cache_storage_usable(int opportunistic_read, uint64_t opportuni
 	(void)opportunistic;
 	/* (the smaller of the two when both are read: important usage counts space the system would purge, and this cache
 	   in Library/Caches is among the first it purges) */
-	base = important_read && volume_read ? (important < volume_free ? important : volume_free) :
-		important_read ? important : volume_read ? volume_free : 0;
+	base = texture_cache_storage_base(important_read, important, volume_read, volume_free);
 	return base > TEXTURE_CACHE_FALLBACK_HEADROOM ? base - TEXTURE_CACHE_FALLBACK_HEADROOM : 0;
 }
 

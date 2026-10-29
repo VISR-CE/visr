@@ -111,6 +111,21 @@ static inline const char *texture_upscale_import_end_detail(enum texture_upscale
 		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? TEXTURE_UPSCALE_IMPORT_TOO_WARM_DETAIL : NULL;
 }
 
+/* Only storage and thermal refusals have a gate the player can try again. A press checks it once. */
+static inline int texture_upscale_import_retry_available(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE || end == TEXTURE_UPSCALE_END_REFUSED_THERMAL;
+}
+static inline int texture_upscale_import_retry_outcome(enum texture_upscale_end refused, int gate_passes)
+{
+	return texture_upscale_import_retry_available(refused) && gate_passes;
+}
+static inline const char *texture_upscale_import_retry_note(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE ? "Still not enough free storage." :
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? "Still too warm." : NULL;
+}
+
 /* debug.texture_upscale_generate */
 enum texture_upscale_mode
 {

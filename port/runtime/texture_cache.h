@@ -73,12 +73,22 @@ void texture_cache_progress(const struct texture_cache_key *keys, size_t key_cou
 	const struct texture_cache_record *records, size_t record_count, const struct texture_recipe_globals *globals,
 	struct texture_cache_progress *progress);
 
+/* The same conservative projection as generate_source, summed over decisions not ready on the current global
+   recipe. Original decisions and current entries (including damage-rule originals) do not need storage. Returns
+   UINT64_MAX if an unfinished decision has no scale (the older saved format). */
+uint64_t texture_cache_projected_remaining(const struct texture_policy_decision *decisions, size_t decision_count,
+	const struct texture_cache_record *records, size_t record_count, const struct texture_recipe_globals *globals);
+static inline uint64_t texture_cache_projected_entry(const struct texture_policy_decision *d)
+{
+	return (uint64_t)d->width * d->height * d->scale * d->scale * 2 + 4096;
+}
+
 /* the manifest: <directory>/manifest.tsv, one record per line; load returns 0 with *records malloc'd and *count set (a missing manifest: 0 records), or -1 if it exists but cannot be read (no records) */
 int texture_cache_manifest_load(const char *directory, struct texture_cache_record **records, size_t *count);
 int texture_cache_manifest_save(const char *directory, const struct texture_cache_record *records, size_t count);
 /* the whole-game decisions the generator classified (<directory>/decisions.tsv), so readiness can be judged while the
    generator is off: load returns 0 with *decisions malloc'd and sorted by hash, width and height, or -1 if the file is
-   missing or cannot be read */
+   missing or cannot be read. The optional sixth column saves scale; old rows load scale 0 (unknown). */
 int texture_cache_decisions_save(const char *directory, const struct texture_policy_decision *decisions, size_t count);
 int texture_cache_decisions_load(const char *directory, struct texture_policy_decision **decisions, size_t *count);
 
@@ -118,6 +128,13 @@ int texture_cache_background_may_run(uint64_t free_bytes, uint64_t next_entry_by
    never started. The cache is in Library/Caches, which the system purges before it runs short. A read that failed
    passes 0 for its _read; the opportunistic value is taken for the log only. */
 #define TEXTURE_CACHE_FALLBACK_HEADROOM (2ull << 30)
+/* The free space counted before the 2 GB headroom is subtracted: the smaller of important capacity and free
+   blocks, or whichever was read. This is the "Found" number on Mac import screens. */
+static inline uint64_t texture_cache_storage_base(int important_read, uint64_t important, int volume_read, uint64_t volume_free)
+{
+	return important_read && volume_read ? (important < volume_free ? important : volume_free) :
+		important_read ? important : volume_read ? volume_free : 0;
+}
 uint64_t texture_cache_storage_usable(int opportunistic_read, uint64_t opportunistic, int important_read, uint64_t important,
 	int volume_read, uint64_t volume_free);
 /* <directory>/<hash>-<w>x<h>.bin through a .tmp and a rename; on any failure nothing is left behind; 0 on success */

@@ -18,6 +18,8 @@
 @property(nonatomic, strong) UILabel *introLabel;
 @property(nonatomic, strong) UIButton *chooseButton;
 @property(nonatomic, strong) UIButton *cancelButton;
+@property(nonatomic, strong) UIButton *retryButton;
+@property(nonatomic) BOOL retryRequested;
 @property(nonatomic, strong) UIProgressView *progress;
 @property(nonatomic, strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
 @property(nonatomic, strong) UIActivityIndicatorView *spinner;
@@ -79,7 +81,17 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
     float fraction=(float)status->fraction;double tick=status->tick;
     NSString *message=status->message?@(status->message):nil,*detail=status->detail?@(status->detail):nil;
-    dispatch_async(dispatch_get_main_queue(),^{
+#if TARGET_OS_MACCATALYST
+    if(status->needed_bytes){
+        NSString *found=[NSByteCountFormatter stringFromByteCount:(int64_t)status->found_bytes countStyle:NSByteCountFormatterCountStyleFile];
+        NSString *needed=[NSByteCountFormatter stringFromByteCount:(int64_t)status->needed_bytes countStyle:NSByteCountFormatterCountStyleFile];
+        detail=[NSString stringWithFormat:@"Found %@ free; upscaling needs %@. VISR will try again when space is available.",found,needed];
+    }
+#endif
+    if(status->retry_note)detail=@(status->retry_note);
+    BOOL can_retry=status->can_retry;
+    __block int action=HOST_TEXTURE_UPSCALE_WAIT;
+    dispatch_sync(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
         controller.progress.progress=fraction;
         /* one bar over the setup and the whole set: gray until the main menu's textures are made, then blue with Start
@@ -101,7 +113,11 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         if(!controller.cancelButton.configuration||![controller.cancelButton.configuration.title isEqual:@"Start playing"])start_playing_style(controller.cancelButton);
         controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;
         controller.cancelButton.enabled=!menu_phase&&!controller.cancelled;controller.cancelButton.accessibilityElementsHidden=menu_phase;
-    });return 1;
+        controller.retryButton.alpha=message?1:0;controller.retryButton.accessibilityElementsHidden=!message;
+        controller.retryButton.enabled=can_retry&&!controller.cancelled&&!controller.retryRequested;
+        if(controller.cancelled&&!menu_phase)action=HOST_TEXTURE_UPSCALE_START_PLAYING;
+        else if(controller.retryRequested){controller.retryRequested=NO;action=HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+    });return action;
 }
 @implementation HaloImportController
 - (void)viewDidLoad {
@@ -135,6 +151,9 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.statusLabel.adjustsFontForContentSizeCategory=YES;self.statusLabel.numberOfLines=0;self.statusLabel.textAlignment=NSTextAlignmentCenter;
     self.statusLabel.text=@"Original Xbox PAL or NTSC-US · .iso or .xiso\nNo game files are included.";
     self.statusLabel.accessibilityIdentifier=@"importStatus";[stack addArrangedSubview:self.statusLabel];
+    /* Reserve both refusal lines, including the Mac's wrapped storage numbers, before either state is shown. */
+    [self.statusLabel.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active=YES;
+    [self.statusLabel.heightAnchor constraintEqualToConstant:MAX(96,self.statusLabel.font.lineHeight*4)].active=YES;
     self.spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.hidesWhenStopped=YES;[stack addArrangedSubview:self.spinner];
     self.progress=[[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];self.progress.hidden=YES;
@@ -145,7 +164,21 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.cancelButton=[UIButton buttonWithType:UIButtonTypeSystem];[self.cancelButton setTitle:@"Cancel import" forState:UIControlStateNormal];
     self.cancelButton.accessibilityIdentifier=@"cancelImport";
     [self.cancelButton addTarget:self action:@selector(cancelImport) forControlEvents:UIControlEventTouchUpInside];
-    self.cancelButton.hidden=YES;[stack addArrangedSubview:self.cancelButton];
+    self.cancelButton.hidden=YES;
+    self.retryButton=[UIButton buttonWithType:UIButtonTypeSystem];
+    UIButtonConfiguration *retryStyle=UIButtonConfiguration.borderedButtonConfiguration;
+    retryStyle.title=@"Try Again";retryStyle.cornerStyle=UIButtonConfigurationCornerStyleLarge;
+    retryStyle.contentInsets=NSDirectionalEdgeInsetsMake(14,16,14,16);self.retryButton.configuration=retryStyle;
+    self.retryButton.alpha=0;self.retryButton.enabled=NO;self.retryButton.accessibilityElementsHidden=YES;
+    self.retryButton.accessibilityIdentifier=@"retryUpscale";
+    [self.retryButton addTarget:self action:@selector(retryUpscale) forControlEvents:UIControlEventTouchUpInside];
+    /* Balance the reserved secondary action so Start playing stays centered in its original place. */
+    UIView *actionSpacer=[UIView new];
+    [actionSpacer.widthAnchor constraintEqualToAnchor:self.retryButton.widthAnchor].active=YES;
+    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[actionSpacer,self.cancelButton,self.retryButton]];
+    actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=12;actions.alignment=UIStackViewAlignmentFill;
+    [self.retryButton.heightAnchor constraintEqualToAnchor:self.cancelButton.heightAnchor].active=YES;
+    [stack addArrangedSubview:actions];
     NSLayoutConstraint *width=[stack.widthAnchor constraintEqualToAnchor:content.widthAnchor constant:-48];width.priority=999;
     [NSLayoutConstraint activateConstraints:@[
         [scroll.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
@@ -184,7 +217,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 - (void)upscalePhaseOnly {
     self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;
     self.chooseButton.hidden=YES;self.introLabel.hidden=YES;self.cancelButton.hidden=NO;self.cancelButton.enabled=YES;
-    [self.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
+    start_playing_style(self.cancelButton);
     /* (Skip appears once the main menu's textures are made; until then it keeps its place, unseen) */
     self.cancelButton.alpha=0;self.cancelButton.enabled=NO;self.cancelButton.accessibilityElementsHidden=YES;
     self.progress.progressTintColor=UIColor.systemGrayColor;self.statusLabel.text=@"Upscaling textures";[self.spinner startAnimating];
@@ -205,7 +238,11 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     (void)command;
     if(self.upscaling&&!self.cancelButton.hidden&&self.cancelButton.alpha>0&&self.cancelButton.enabled)[self cancelImport];
 }
-- (void)cancelImport {self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
+- (void)retryUpscale {
+    if(!self.retryButton.enabled)return;
+    self.retryButton.enabled=NO;self.retryRequested=YES;
+}
+- (void)cancelImport {self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.retryButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
 - (void)importImage:(NSURL *)url {
     if (self.importing) return;
     self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;

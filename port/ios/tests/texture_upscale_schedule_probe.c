@@ -164,8 +164,24 @@ static void refusals(void)
 	assert(!texture_upscale_import_end_detail(TEXTURE_UPSCALE_END_INTERRUPTED));
 }
 
+static void import_retry(void)
+{
+	for (int e = 0; e < TEXTURE_UPSCALE_END_COUNT; e++)
+	{
+		enum texture_upscale_end end = (enum texture_upscale_end)e;
+		int offered = end == TEXTURE_UPSCALE_END_REFUSED_STORAGE || end == TEXTURE_UPSCALE_END_REFUSED_THERMAL;
+		assert(texture_upscale_import_retry_available(end) == offered);
+		assert(texture_upscale_import_retry_outcome(end, 1) == offered);
+		assert(!texture_upscale_import_retry_outcome(end, 0));
+		assert((texture_upscale_import_retry_note(end) != NULL) == offered);
+	}
+	assert(!strcmp(texture_upscale_import_retry_note(TEXTURE_UPSCALE_END_REFUSED_STORAGE), "Still not enough free storage."));
+	assert(!strcmp(texture_upscale_import_retry_note(TEXTURE_UPSCALE_END_REFUSED_THERMAL), "Still too warm."));
+}
+
 int main(void)
 {
+	import_retry();
 	refusals();
 	import_watchdog();
 	level_source();

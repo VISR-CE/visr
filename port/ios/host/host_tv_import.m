@@ -56,6 +56,7 @@ static nw_listener_t listener;
 static dispatch_queue_t server_queue;
 static uint16_t server_port;
 static atomic_int preparing_textures, skip_textures, menu_phase_textures;
+static atomic_int retry_textures, retry_available, retry_busy;
 /* the upscaling bar's "ready to start", in ten-thousandths of the bar; -1 while it is not known */
 static atomic_int upscale_tick=-1;
 /* the work was refused (no storage, too warm): the second, smaller line under the message, or NULL */
@@ -93,9 +94,13 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     atomic_store(&upscale_tick,upscale->tick<0?-1:(int)(upscale->tick*10000));
     /* (the bar's fraction over the setup and the whole set, in ten-thousandths; rounded down in the label) */
     unsigned shown=(unsigned)(upscale->fraction*10000);
-    atomic_store(&upscale_detail,upscale->message?upscale->detail:NULL);
+    atomic_store(&upscale_detail,upscale->message?(upscale->retry_note?upscale->retry_note:upscale->detail):NULL);
+    atomic_store(&retry_available,upscale->can_retry);
+    if(!atomic_load(&retry_textures))atomic_store(&retry_busy,!upscale->can_retry);
     status_set(import_extracting,shown,10000,upscale->message?@(upscale->message):[NSString stringWithFormat:@"Upscaling textures · %u%%",shown/100]);
-    return !atomic_load(&skip_textures);
+    if(atomic_load(&skip_textures))return HOST_TEXTURE_UPSCALE_START_PLAYING;
+    if(atomic_exchange(&retry_textures,0)){atomic_store(&retry_busy,1);return HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+    return HOST_TEXTURE_UPSCALE_WAIT;
 }
 /* Called with a complete upload; runs on its own thread. */
 static void import_image(void) {
@@ -484,7 +489,7 @@ static UIImage *qr_image(NSString *text) {
 @property(nonatomic,strong) UILabel *introLabel;
 @property(nonatomic,strong) UIProgressView *progress;
 @property(nonatomic,strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
-@property(nonatomic,strong) UIButton *skipTexturesButton;
+@property(nonatomic,strong) UIButton *skipTexturesButton,*retryTexturesButton;
 @property(nonatomic,copy) NSString *shownURL;
 @property(nonatomic) unsigned shownSerial;
 @end
@@ -519,7 +524,23 @@ static UIImage *qr_image(NSString *text) {
     self.skipTexturesButton=[UIButton buttonWithType:UIButtonTypeSystem];
     [self.skipTexturesButton setTitle:@"Start playing" forState:UIControlStateNormal];
     [self.skipTexturesButton addTarget:self action:@selector(skipTexturePreparation) forControlEvents:UIControlEventPrimaryActionTriggered];
-    self.skipTexturesButton.hidden=YES;[stack addArrangedSubview:self.skipTexturesButton];
+    UIButtonConfiguration *startStyle=UIButtonConfiguration.filledButtonConfiguration;
+    startStyle.title=@"Start playing";startStyle.baseBackgroundColor=halo_upscale_bar_blue();startStyle.baseForegroundColor=UIColor.blackColor;
+    self.skipTexturesButton.configuration=startStyle;
+    self.skipTexturesButton.alpha=0;self.skipTexturesButton.enabled=NO;
+    self.retryTexturesButton=[UIButton buttonWithType:UIButtonTypeSystem];
+    UIButtonConfiguration *retryStyle=UIButtonConfiguration.borderedButtonConfiguration;retryStyle.title=@"Try Again";
+    self.retryTexturesButton.configuration=retryStyle;
+    self.retryTexturesButton.alpha=0;self.retryTexturesButton.enabled=NO;
+    [self.retryTexturesButton addTarget:self action:@selector(retryTexturePreparation) forControlEvents:UIControlEventPrimaryActionTriggered];
+    UIView *actionSpacer=[UIView new];
+    [actionSpacer.widthAnchor constraintEqualToAnchor:self.retryTexturesButton.widthAnchor].active=YES;
+    UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[actionSpacer,self.skipTexturesButton,self.retryTexturesButton]];
+    actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=28;
+    [self.retryTexturesButton.heightAnchor constraintEqualToAnchor:self.skipTexturesButton.heightAnchor].active=YES;
+    [stack addArrangedSubview:actions];
+    [self.statusLabel.widthAnchor constraintEqualToConstant:1100].active=YES;
+    [self.statusLabel.heightAnchor constraintEqualToConstant:100].active=YES;
     [NSLayoutConstraint activateConstraints:@[
         [stack.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
         [stack.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
@@ -527,6 +548,23 @@ static UIImage *qr_image(NSString *text) {
     self.shownSerial=~0u;
 }
 - (void)skipTexturePreparation { atomic_store(&skip_textures,1); }
+- (void)retryTexturePreparation {
+    if(!self.retryTexturesButton.enabled)return;
+    self.retryTexturesButton.enabled=NO;atomic_store(&retry_busy,1);atomic_store(&retry_textures,1);
+}
+- (BOOL)canBecomeFirstResponder { return YES; }
+- (void)viewDidAppear:(BOOL)animated { [super viewDidAppear:animated];[self becomeFirstResponder]; }
+- (NSArray<UIKeyCommand *> *)keyCommands {
+    NSMutableArray *commands=[NSMutableArray new];
+    for(NSString *input in @[@"\r",@"\x03"]){
+        UIKeyCommand *command=[UIKeyCommand keyCommandWithInput:input modifierFlags:0 action:@selector(startPlayingKey:)];
+        command.wantsPriorityOverSystemBehavior=YES;[commands addObject:command];
+    }
+    return commands;
+}
+- (void)startPlayingKey:(UIKeyCommand *)command {
+    (void)command;if(self.skipTexturesButton.enabled)[self skipTexturePreparation];
+}
 /* Called from the wait loop; returns YES once the import is done. */
 - (BOOL)refresh {
     NSString *address=local_address();
@@ -548,7 +586,11 @@ static UIImage *qr_image(NSString *text) {
     /* (while textures are prepared the button keeps its place, unseen until it may be used, so nothing moves) */
     BOOL wasShown=!self.skipTexturesButton.hidden&&self.skipTexturesButton.enabled;
     BOOL usable=atomic_load(&preparing_textures)&&!atomic_load(&menu_phase_textures);
-    self.skipTexturesButton.hidden=!atomic_load(&preparing_textures);
+    /* Both actions retain their layout space, including before texture preparation. */
+    self.skipTexturesButton.accessibilityElementsHidden=!usable;
+    BOOL refused=preparing&&atomic_load(&upscale_detail)!=NULL;
+    self.retryTexturesButton.alpha=refused?1:0;self.retryTexturesButton.accessibilityElementsHidden=!refused;
+    self.retryTexturesButton.enabled=refused&&atomic_load(&retry_available)&&!atomic_load(&retry_busy);
     self.skipTexturesButton.alpha=usable?1:0;self.skipTexturesButton.enabled=usable;
     if(!wasShown&&usable)[self setNeedsFocusUpdate];
     if(serial!=self.shownSerial) {
