@@ -387,7 +387,7 @@ static struct
 
 /* the settings, read once (settings) */
 static int settings_read;
-static int aim_controller;          /* input.aim = "controller" */
+static int aim_controller;          /* a hand aims: input.aim = "controller" or "hands" */
 static int test_controller;         /* debug.test_controller or debug.controller_replay set */
 static int aim_trace;               /* debug.aim_trace: a line every drawn frame while a hand aims */
 static float pitch_offset_degrees;  /* input.aim_pitch_offset; the live chord steps it */
@@ -482,7 +482,11 @@ static void settings(void)
 	if (settings_read)
 		return;
 	settings_read = 1;
-	aim_controller = !strcmp(config_string("input.aim"), "controller");
+	{
+		const char *aim = config_string("input.aim");
+
+		aim_controller = !strcmp(aim, "controller") || !strcmp(aim, "hands");
+	}
 	/* a replayed pose stream (debug.controller_replay) is checked like a synthetic one */
 	test_controller = config_string("debug.test_controller")[0] != 0 || config_string("debug.controller_replay")[0] != 0;
 	aim_trace = config_boolean("debug.aim_trace");
@@ -772,6 +776,7 @@ static void can_not_start_messages(const struct halo_spatial_sample *sample)
 	case HALO_SPATIAL_ONE_CONTROLLER: text = "Controller aim needs both Sense controllers"; break;
 	case HALO_SPATIAL_DENIED: text = "Controller aim needs accessory tracking permission"; break;
 	case HALO_SPATIAL_NEEDS_27: text = "Controller aim needs visionOS 27"; break;
+	case HALO_SPATIAL_HANDS_DENIED: text = "Hand aim needs hand tracking permission"; break;
 	case HALO_SPATIAL_MISPLACED:
 		text = network_controller_aim() ? "Controller tracking is off: holding gameplay aim" :
 			"Controller tracking is off: aiming with your head";

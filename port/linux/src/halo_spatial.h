@@ -21,7 +21,7 @@ enum halo_spatial_state
 enum halo_spatial_reason
 {
 	HALO_SPATIAL_READY,          /* controller aim can run */
-	HALO_SPATIAL_OFF,            /* input.aim isn't "controller" */
+	HALO_SPATIAL_OFF,            /* input.aim isn't "controller" or "hands" */
 	HALO_SPATIAL_NO_CONTROLLERS,
 	HALO_SPATIAL_ONE_CONTROLLER,
 	HALO_SPATIAL_NEEDS_27,
@@ -30,7 +30,13 @@ enum halo_spatial_reason
 	/* the aiming controller reads well above the head for a while: its
 	position and the head's are not in one frame (host_spatial_pose.h's
 	misplaced test), so the hand can't aim until they agree */
-	HALO_SPATIAL_MISPLACED
+	HALO_SPATIAL_MISPLACED,
+	/* appended after HALO_SPATIAL_MISPLACED, never in the middle: the
+	guest's 1u << reason mask (controller_aim_game.c's can_not_start_shown)
+	has room while the enum stays under 32, and its order is part of the
+	recording format (debug.controller_record) */
+	HALO_SPATIAL_HANDS_DENIED,    /* input.aim = "hands": hand tracking permission denied */
+	HALO_SPATIAL_NO_HANDS         /* input.aim = "hands": hand tracking unsupported */
 };
 
 /* host_spatial_sample's kind */

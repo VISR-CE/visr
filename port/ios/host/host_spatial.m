@@ -77,6 +77,7 @@ overrides them for another controller */
 /* the settings, read once (read_settings) */
 static int settings_read;
 static int aim_controller;     /* input.aim = "controller" */
+static int aim_hands;          /* input.aim = "hands" */
 static int aiming_hand = 1;    /* input.aim_hand: 0 left, 1 right */
 static int head_mode;          /* display.stereo = "head" (Enter VR's HEAD mode: host_stereo_mode) */
 static int synthetic_on;       /* debug.test_controller parsed */
@@ -148,7 +149,7 @@ static double seconds_now(void)
 
 #if TARGET_OS_VISION
 /* the tracker (a HostSpatialTracker, visionOS 27), made at the first sample
-in HEAD mode with input.aim = "controller" and no synthetic hand */
+in HEAD mode with input.aim = "controller" or "hands" and no synthetic hand */
 #if HOST_SPATIAL_SENSE_SDK
 static id tracker;
 #endif
@@ -173,7 +174,8 @@ static void read_settings(void)
 	settings_read = 1;
 	host_config_string("input.aim", "controller", value, sizeof(value));
 	aim_controller = !strcmp(value, "controller");
-	if (!aim_controller && strcmp(value, "head"))
+	aim_hands = !strcmp(value, "hands");
+	if (!aim_controller && !aim_hands && strcmp(value, "head"))
 		host_logf(HOST_LOG_WARN, "controller aim: input.aim \"%s\" is not recognized; aiming with the head", value);
 	host_config_string("input.aim_hand", "right", value, sizeof(value));
 	aiming_hand = strcmp(value, "left") ? 1 : 0;
@@ -221,7 +223,7 @@ static void read_settings(void)
 			(double)rumble_strength, (double)HOST_SPATIAL_RUMBLE_STRENGTH_MAXIMUM, (double)clamped);
 		rumble_strength = clamped;
 	}
-	if (aim_controller && head_mode && !synthetic_on && !replay_on)
+	if ((aim_controller || aim_hands) && head_mode && !synthetic_on && !replay_on)
 		tracker_start();
 #else
 	if (aim_controller && head_mode && !synthetic_on && !replay_on)
@@ -1221,9 +1223,11 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 	}
 	else
 	{
-		sample->reason = aim_controller ? HALO_SPATIAL_NO_CONTROLLERS : HALO_SPATIAL_OFF;
+		sample->reason = aim_controller || aim_hands ? HALO_SPATIAL_NO_CONTROLLERS : HALO_SPATIAL_OFF;
 #if TARGET_OS_VISION
-		if (needs_27)
+		/* needs_27 is the Sense SDK gate: its message names visionOS 27 and
+		Sense, which would be wrong for a hands source */
+		if (needs_27 && aim_controller)
 			sample->reason = HALO_SPATIAL_NEEDS_27;
 #if HOST_SPATIAL_SENSE_SDK
 		tracker_sample(kind, sample, position);

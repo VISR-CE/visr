@@ -1086,7 +1086,7 @@
         "aim": {
           "type": "string",
           "default": "controller",
-          "description": "With display.stereo = \"head\": what aims, \"head\" (the view's center) or \"controller\" (default; the aiming hand's Sense controller). Aiming uses the head when tracking is unavailable in local play. In network play, aim holds its last valid hand direction through input.aim_loss_grace, then uses the head until the hand is tracked again (and before the first tracked pose); a seat uses stick aim. Anything else aims with the head.",
+          "description": "With display.stereo = \"head\": what aims, \"head\" (the view's center), \"controller\" (default; the aiming hand's Sense controller) or \"hands\" (the dominant hand's forearm aims; a tracked Sense pair takes over while both controllers are tracked; the head is the fallback). Aiming uses the head when tracking is unavailable in local play. In network play, aim holds its last valid hand direction through input.aim_loss_grace, then uses the head until the hand is tracked again (and before the first tracked pose); a seat uses stick aim. Anything else aims with the head.",
           "x-environment": "HALO_AIM",
           "x-environment-style": "value",
           "x-platforms": [
@@ -1108,6 +1108,16 @@
           "default": "right",
           "description": "With input.aim = \"controller\": the aiming hand, \"right\" (default) or \"left\" (the buttons mirror).",
           "x-environment": "HALO_AIM_HAND",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "hand_turn_deadzone": {
+          "type": "number",
+          "default": 18.0,
+          "description": "With input.aim = \"hands\": degrees the aim must point past your body's forward before the body turns under it, 5 to 60.",
+          "x-environment": "HALO_HAND_TURN_DEADZONE",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"
@@ -1396,6 +1406,16 @@
           "default": "",
           "description": "A synthetic right Sense controller in place of the real ones, to check controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\" holds it still in the room at those degrees from the room's forward (yaw right, pitch up positive; \"fixed:30,0\"), \"sweep\" turns it 30 degrees each way over 4 s, and \"loss:<seconds>\" holds it at fixed:0,0 but untracked for that long every 10 s, then orientation-only as long (up to 5). Empty for none; leave it empty on a headset.",
           "x-environment": "HALO_TEST_CONTROLLER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "hand_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log every hand gesture's state change with the value measured against its threshold.",
+          "x-environment": "HALO_HAND_LOG",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"

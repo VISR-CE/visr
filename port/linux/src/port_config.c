@@ -423,13 +423,15 @@ static const struct config_setting config_settings[] =
 		"With input.turn = \"smooth\": darken the edges of the view while the stick\n"
 		"turns it, for comfort." },
 	{ "input.aim", _config_string, "\"controller\"", "HALO_AIM", _environment_value, _platform_ios,
-		"With display.stereo = \"head\": what aims, \"head\" (the view's center)\n"
-		"or \"controller\" (default; the aiming hand's Sense controller). Aiming\n"
-		"uses the head when tracking is unavailable in local play. In network\n"
-		"play, aim holds its last valid hand direction through input.aim_loss_grace,\n"
-		"then uses the head until the hand is tracked again (and before the\n"
-		"first tracked pose); a seat uses stick aim. Anything else aims with the\n"
-		"head." },
+		"With display.stereo = \"head\": what aims, \"head\" (the view's center),\n"
+		"\"controller\" (default; the aiming hand's Sense controller) or\n"
+		"\"hands\" (the dominant hand's forearm aims; a tracked Sense pair takes\n"
+		"over while both controllers are tracked; the head is the fallback).\n"
+		"Aiming uses the head when tracking is unavailable in local play. In\n"
+		"network play, aim holds its last valid hand direction through\n"
+		"input.aim_loss_grace, then uses the head until the hand is tracked\n"
+		"again (and before the first tracked pose); a seat uses stick aim.\n"
+		"Anything else aims with the head." },
 	{ "input.aim_loss_grace", _config_real, "0.5", "HALO_AIM_LOSS_GRACE", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": seconds of lost hand tracking during\n"
 		"which the last hand aim is held, in local and network play, before the\n"
@@ -438,6 +440,10 @@ static const struct config_setting config_settings[] =
 	{ "input.aim_hand", _config_string, "\"right\"", "HALO_AIM_HAND", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": the aiming hand, \"right\" (default) or\n"
 		"\"left\" (the buttons mirror)." },
+	{ "input.hand_turn_deadzone", _config_real, "18.0", "HALO_HAND_TURN_DEADZONE", _environment_value,
+		_platform_ios,
+		"With input.aim = \"hands\": degrees the aim must point past your body's\n"
+		"forward before the body turns under it, 5 to 60." },
 	{ "input.aim_pitch_offset", _config_real, "0.0", "HALO_AIM_PITCH_OFFSET", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": degrees the barrel ray and gun tilt down\n"
 		"from the aim axis (-10 to 45), for aiming from the hip with the forearm\n"
@@ -584,6 +590,9 @@ static const struct config_setting config_settings[] =
 		"degrees each way over 4 s, and \"loss:<seconds>\" holds it at fixed:0,0\n"
 		"but untracked for that long every 10 s, then orientation-only as long\n"
 		"(up to 5). Empty for none; leave it empty on a headset." },
+	{ "debug.hand_log", _config_boolean, "false", "HALO_HAND_LOG", _environment_value, _platform_ios,
+		"Log every hand gesture's state change with the value measured against\n"
+		"its threshold." },
 	{ "debug.controller_record", _config_string, "\"\"", "HALO_CONTROLLER_RECORD", _environment_value,
 		_platform_ios,
 		"Write every pose sample the host hands the game (both hands, the\n"
