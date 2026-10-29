@@ -408,6 +408,19 @@ def test_site_page_has_a_default_view_suite_switch_and_the_pinned_mermaid():
     assert '"slug": "mac"' in html and "</script><script" not in html
 
 
+def test_site_page_groups_benchmarks_heading_and_intro_in_shared_shell():
+    data = summary(box_record())
+    html = site_page.render_site_page(data, csv_rows(sheet_export.rows(data)), [spec()], "<p>legal</p>")
+    head = html.split('<header class="bench-head">', 1)[1].split('</header>', 1)[0]
+    assert '<h1>Performance benchmarks</h1>' in head
+    assert '<p>' in head and head.index('</h1>') < head.index('<p>')
+    assert 'class="bench-bar"' not in head
+    assert html.index('<header class="bench-head">') < html.index('<fieldset class="bench-bar">')
+    assert '<a class="skip-link" href="#bench-root">Skip to content</a>' in html
+    assert '<main class="page page-bench" id="bench-root"' in html
+    assert '<link rel="stylesheet" href="shell.css">' in html
+
+
 def test_committed_snapshot_has_the_export_columns_and_every_spec_renders_from_it():
     rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
     assert rows and list(rows[0]) == list(sheet_export.COLUMNS)

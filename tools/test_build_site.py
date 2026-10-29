@@ -281,3 +281,104 @@ def test_home_page_keeps_its_own_url_and_links_the_benchmarks_page():
     home = render_site((ROOT / 'docs/site/index.md').read_text(encoding='utf-8'))
     assert '<meta property="og:url" content="https://code.steverice.org/visr/">' in home
     assert 'href="benchmarks.html"' in home and 'docs/benchmarks.md' not in home
+
+
+@pytest.mark.parametrize('with_media', [False, True])
+def test_hero_structure_keeps_copy_media_and_quote_in_order(with_media):
+    source = SOURCE.replace('[GitHub](https://github.com/steverice/visr)',
+                            '[Vision Pro](#apple-vision-pro) • [GitHub](https://github.com/steverice/visr)')
+    if with_media:
+        source = source.replace('## Apple Vision Pro', '![Hero](a30.png){hero}\n\n## Apple Vision Pro', 1)
+    page = render_site(source)
+    head = page.split('<header class="head">', 1)[1].split('</header>', 1)[0]
+    parts = ['class="hero-floor"', '<svg class="clip-defs"', 'id="vp-clip"',
+             'class="hero-copy"', 'class="kicker"', 'class="brand"',
+             '<h1>Experience', 'class="lede"', 'class="platform-nav"']
+    if with_media:
+        parts.append('<figure class="hero-media">')
+        assert re.search(r'</nav>\s*</div>\s*<figure class="hero-media">', head)
+        image = head.split('<figure class="hero-media">', 1)[1].split('</figure>', 1)[0]
+        assert 'fetchpriority="high"' in image and 'loading="lazy"' not in image
+    else:
+        assert 'class="hero-media"' not in head
+        assert re.search(r'</nav>\s*</div>\s*<blockquote>', head)
+    parts.append('<blockquote>')
+    positions = [head.index(part) for part in parts]
+    assert positions == sorted(positions)
+    assert page.index('</header>', page.index('<header class="head">')) < page.index('<section ')
+
+
+def test_tagline_highlights_whole_new_dimension_and_preserves_other_copy():
+    source = SOURCE.replace('## Experience *Halo: Combat Evolved*',
+                            '## Experience *Halo: Combat Evolved* in a whole new dimension')
+    page = render_site(source)
+    assert '<h1>Experience <em>Halo: Combat Evolved</em> in a <span class="accent">whole new <span class="stereo">dimension</span></span></h1>' in page
+    unchanged = render_site(SOURCE)
+    assert '<h1>Experience <em>Halo: Combat Evolved</em></h1>' in unchanged
+    assert 'class="accent"' not in unchanged and 'class="stereo"' not in unchanged
+
+
+@pytest.mark.parametrize('annotation, figure', [('hero', 'hero-media'), ('device=iphone', 'device device-iphone')])
+@pytest.mark.parametrize('clip_exists', [False, True])
+def test_media_video_uses_poster_and_falls_back_to_image(tmp_path, annotation, figure, clip_exists):
+    import struct
+    (tmp_path / 'game.png').write_bytes(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sII', 13, b'IHDR', 1600, 900))
+    if clip_exists:
+        (tmp_path / 'game.mp4').write_bytes(b'clip')
+    image = f'![Halo & touch controls](game.png){{{annotation} video=game.mp4}}'
+    source = (SOURCE.replace('## Apple Vision Pro', image + '\n\n## Apple Vision Pro', 1)
+              if annotation == 'hero' else SOURCE + '\n' + image + '\n')
+    page = render_site(source, asset_root=tmp_path)
+    slot = page.split(f'<figure class="{figure}">', 1)[1].split('</figure>', 1)[0]
+    assert 'width="1600" height="900"' in slot
+    if clip_exists:
+        assert '<video class="media-video" muted loop playsinline preload="none"' in slot
+        assert 'poster="game.png"' in slot
+        assert 'role="img" aria-label="Halo &amp; touch controls"' in slot
+        assert '<source src="game.mp4" type="video/mp4"></video>' in slot
+        assert '<img' not in slot
+    else:
+        assert '<img src="game.png" alt="Halo &amp; touch controls"' in slot
+        assert '<video' not in slot
+        assert ('fetchpriority="high"' if annotation == 'hero' else 'loading="lazy"') in slot
+    assert '{' + annotation not in page
+
+
+def test_hero_image_after_a_section_fails_build():
+    with pytest.raises(ValueError, match='hero.*before.*section'):
+        render_site(SOURCE + '\n![Hero](a30.png){hero}\n')
+
+
+@pytest.mark.parametrize('annotation', ['hero', 'device=iphone'])
+@pytest.mark.parametrize('attributes', ['video=clip.webm', 'video=', 'video=bad clip.mp4', 'video=clip.mp4 extra=value'])
+def test_malformed_media_video_annotation_fails_build(annotation, attributes):
+    with pytest.raises(ValueError, match='device'):
+        render_site(SOURCE + f'\n![Gameplay](icon.png){{{annotation} {attributes}}}\n')
+
+
+@pytest.mark.parametrize('committed', [False, True])
+def test_platforms_wrapper_contains_exactly_four_platform_sections(committed):
+    site = ROOT / 'docs/site'
+    page = ((site / 'index.html').read_text(encoding='utf-8') if committed else
+            render_site((site / 'index.md').read_text(encoding='utf-8')))
+    platforms = re.search(r'<div class="platforms" data-tabs>(.*?)\n  </div>', page, re.S).group(1)
+    assert page.count('<div class="platforms" data-tabs>') == 1
+    assert '<h2 class="platforms-title">Platforms</h2>' in platforms
+    assert re.findall(r'<section aria-labelledby="([^"]+)">', platforms) == [
+        'apple-vision-pro', 'iphone-and-ipad', 'apple-tv', 'mac']
+    assert platforms.count('</section>') == 4
+    assert 'On every device' not in platforms
+    assert '<section aria-labelledby="on-every-device">' in page
+    if committed:
+        assert '<video' not in page
+
+
+def test_site_template_has_skip_target_shared_styles_and_deferred_script():
+    template = (ROOT / 'tools/site_template.html').read_text(encoding='utf-8')
+    page = render_site(SOURCE)
+    for html in (template, page):
+        assert '<a class="skip-link" href="#main">Skip to content</a>' in html
+        assert '<main class="page" id="main">' in html
+        assert '<link rel="stylesheet" href="shell.css">' in html
+        assert '<script src="site.js" defer></script>' in html
+        assert html.index('class="skip-link"') < html.index('<main ')

@@ -83,6 +83,17 @@ NAV_ICONS = {"Get VISR": "download", "Vision Pro": "vision-pro", "iPhone": "ipho
 SECTION_ICONS = {"apple-vision-pro": ["vision-pro"], "iphone-and-ipad": ["iphone", "ipad"],
                  "apple-tv": ["apple-tv"], "mac": ["mac"]}
 
+# The line above the wordmark, and the part of the tagline set in the accent color (the tagline itself is fixed copy).
+KICKER = "Apple Vision Pro · iPhone · iPad · Apple TV · Mac"
+HIGHLIGHT = "whole new dimension"
+# The Vision Pro front glass the hero's media is clipped to (the outline the benchmarks page also uses), in
+# objectBoundingBox units; `.hero-media` points its `clip-path` at it.
+HERO_CLIP = ('<svg class="clip-defs" width="0" height="0" aria-hidden="true"><defs>'
+             '<clipPath id="vp-clip" clipPathUnits="objectBoundingBox"><path transform="scale(0.046296 0.075758) translate(-1.2 -4.9)" '
+             'd="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05'
+             '-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></clipPath></defs></svg>')
+MEDIA_ANNOTATION = re.compile(r"\{(?:device=(iphone|ipad|tv|mac|vision)|(hero))(?: video=([\w./-]+\.mp4))?\}")
+
 
 def glyph(name: str) -> str:
     """a platform glyph from docs/site/icons/nav/, inlined so it takes the text color"""
@@ -116,6 +127,16 @@ def every_device_columns(facts: dict) -> str:
         columns.append(f'      <li><span class="pillar-icon">{icon}</span>'
                        f'<h3>{escape(item["title"])}</h3><p>{INLINE.renderInline(item["text"]).strip()}</p></li>')
     return "\n".join(['    <ul class="pillars">', *columns, '    </ul>'])
+
+
+def media_element(image_html: str, image, video: str | None, asset_root: Path) -> str:
+    """A media slot: a muted, looping `<video>` with the image as its poster when the clip exists in the site folder,
+    the image alone until then. `site.js` plays the clip only while it is on screen and motion is allowed."""
+    if not video or not (asset_root / video).is_file():
+        return image_html
+    return (f'<video class="media-video" muted loop playsinline preload="none" poster="{escape(image.attrGet("src"), quote=True)}" '
+            f'width="{image.attrGet("width")}" height="{image.attrGet("height")}" role="img" '
+            f'aria-label="{escape(image.content, quote=True)}"><source src="{escape(video, quote=True)}" type="video/mp4"></video>')
 
 
 def expand_includes(source: str, facts: dict) -> str:
@@ -233,6 +254,8 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
         image.attrSet("height", str(height))
 
     device_blocks = {}
+    video_names = {}
+    hero_block = None
     for index, block in enumerate(blocks[3:], 3):
         if block[0].type != "paragraph_open":
             continue
@@ -241,13 +264,20 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
             continue
         annotation = "".join(child.content for child in children[1:]).strip()
         image = children[0]
-        if annotation.startswith("{device="):
-            match = re.fullmatch(r"\{device=(iphone|ipad|tv|mac|vision)\}", annotation)
+        if annotation.startswith(("{device=", "{hero")):
+            match = MEDIA_ANNOTATION.fullmatch(annotation)
             if not match:
-                raise ValueError("Use device=iphone, ipad, tv or mac on a standalone image")
-            device_blocks[index] = match.group(1)
+                raise ValueError("Use device=iphone, ipad, tv, mac or vision (or hero), with an optional video=NAME.mp4, on a standalone image")
+            if match.group(2):
+                hero_block = index
+            else:
+                device_blocks[index] = match.group(1)
+            video_names[index] = match.group(3)
             local_image_size(image, required=True)
-            image.attrSet("loading", "lazy")
+            if match.group(2):  # the hero is the first thing on screen
+                image.attrSet("fetchpriority", "high")
+            else:
+                image.attrSet("loading", "lazy")
             image.attrSet("decoding", "async")
         elif len(children) == 1:
             local_image_size(image)
@@ -264,10 +294,13 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
     image.attrSet("width", "180")
     image.attrSet("height", "180")
     logo = md.renderer.render([image], md.options, {})
-    output = ['  <header class="head">', '    <div class="brand">',
-              f'      {logo}', '      <h1 class="wordmark">VISR</h1>', '    </div>']
+    output = ['  <header class="head">', '    <div class="hero-floor" aria-hidden="true"></div>', f'    {HERO_CLIP}',
+              '    <div class="hero-copy">', f'      <p class="kicker"><span class="pulse" aria-hidden="true"></span>{KICKER}</p>',
+              '    <div class="brand">', f'      {logo}', '      <h1 class="wordmark">VISR</h1>', '    </div>']
     blocks[2][0].tag = blocks[2][-1].tag = "h1"
-    output.append(md.renderer.render(blocks[2], md.options, {}).rstrip())
+    tagline = md.renderer.render(blocks[2], md.options, {}).rstrip()
+    output.append(tagline.replace(HIGHLIGHT, f'<span class="accent">{HIGHLIGHT.rsplit(" ", 1)[0]} <span class="stereo">{HIGHLIGHT.rsplit(" ", 1)[1]}</span></span>', 1))
+    hero_media = []
     section = False
     copy = []
     media = []
@@ -284,13 +317,23 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
         media.clear()
 
     identifiers = set()
+    head_quote = []
+    platforms_open = False
+
+    def close_head():
+        """End the hero: the copy column, the media beside it, then the quote strip."""
+        output.append("    </div>")
+        output.extend(hero_media)
+        output.extend(head_quote)
+        output.append("  </header>")
+
     for index, block in enumerate(blocks[3:], 3):
         first = block[0]
         if first.type == "heading_open" and first.tag == "h2":
             if section:
                 finish_section()
             else:
-                output.append("  </header>")
+                close_head()
             text = md.renderer.renderInlineAsText(inline(block), md.options, {})
             base = re.sub(r"[^\w-]+", "-", text.lower()).strip("-") or "section"
             identifier = base
@@ -300,6 +343,12 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
                 suffix += 1
             identifiers.add(identifier)
             first.attrSet("id", identifier)
+            if identifier in SECTION_ICONS and not platforms_open:
+                output.extend(['  <div class="platforms" data-tabs>', '  <h2 class="platforms-title">Platforms</h2>'])
+                platforms_open = True
+            elif identifier not in SECTION_ICONS and platforms_open:
+                output.append("  </div>")
+                platforms_open = False
             output.append(f'  <section aria-labelledby="{escape(identifier, quote=True)}">')
             section = True
             copy.append(heading_with_icons(md.renderer.render(block, md.options, {}).rstrip(), identifier))
@@ -314,21 +363,35 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
                 output.extend(['    <nav class="platform-nav" aria-label="Platforms">',
                                nav_with_icons(md.renderer.render(children, md.options, {}).rstrip()), '    </nav>'])
                 continue
+        elif not section and first.type == "blockquote_open":
+            head_quote.append(md.renderer.render(block, md.options, {}).rstrip())
+            continue
+        if not section and first.type == "paragraph_open":
+            children = inline(block)
             lone_link = (children and children[0].type == "link_open"
                          and children[-1].type == "link_close"
                          and sum(child.type == "link_open" for child in children) == 1)
             first.attrSet("class", "links" if lone_link else "lede")
-        if index in device_blocks:
+        if index == hero_block:
+            if section:
+                raise ValueError("Place the hero image before the first section")
+            token = inline(block)[0]
+            slot = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
+            hero_media.append(f'    <figure class="hero-media">{slot}</figure>')
+        elif index in device_blocks:
             if not section:
                 raise ValueError("Place a device image inside a section")
-            image = md.renderer.render([inline(block)[0]], md.options, {})
+            token = inline(block)[0]
+            image = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
             media.append(f'        <figure class="device device-{device_blocks[index]}">{image}</figure>')
         else:
             (copy if section else output).append(md.renderer.render(block, md.options, {}).rstrip())
     if section:
         finish_section()
     else:
-        output.append("  </header>")
+        close_head()
+    if platforms_open:
+        output.append("  </div>")
     if template is None:
         template = (ROOT / "tools/site_template.html").read_text(encoding="utf-8")
     return Template(template).substitute(

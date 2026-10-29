@@ -8,16 +8,19 @@
 <meta name="color-scheme" content="light dark">
 $head_icons
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="shell.css">
 $head_social
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 $site_header
-<main class="page">
+<main class="page" id="main">
 $content
   <footer class="foot">
 $legal
   </footer>
 </main>
+<script src="site.js" defer></script>
 <script>
 // GitHub's /releases/latest skips prereleases, and every release before 1.0 is one, so look up the newest release instead.
 fetch("https://api.github.com/repos/steverice/visr/releases?per_page=1")

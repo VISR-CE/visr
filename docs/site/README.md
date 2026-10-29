@@ -33,3 +33,5 @@ Add a device frame to a standalone gameplay image with `{device=iphone}`, `{devi
 ```
 
 Use local PNG or JPEG images with descriptive alt text. The build reads their dimensions and groups framed images beside their section's text. Images stack below the text on narrow screens.
+
+Media slots take a looping clip. Add ` video=video/NAME.mp4` inside the annotation (`{device=iphone video=video/iphone.mp4}`). When that file exists under `docs/site/`, the slot renders a muted, looping `<video>` that uses the image as its poster, and `site.js` plays it only while it is on screen and the visitor allows motion. Until the file exists, the slot shows the image. `{hero}` marks the image for the home page's hero (a standalone image before the first section) and takes the same option. Encode clips as H.264 MP4 without audio, 6 to 10 seconds, under 3 MB.

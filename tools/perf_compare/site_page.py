@@ -215,13 +215,17 @@ def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_h
 <meta name="color-scheme" content="light dark">
 {head["head_icons"]}
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="shell.css">
 {head["head_social"]}
 </head>
 <body>
+<a class="skip-link" href="#bench-root">Skip to content</a>
 {site_header()}
 <main class="page page-bench" id="bench-root" data-csv="benchmarks/results.csv">
+<header class="bench-head">
 <h1>Performance benchmarks</h1>
 {intro.rstrip()}
+</header>
 <fieldset class="bench-bar"><legend>Suite</legend><div class="suite-pills"><span class="suite-label" aria-hidden="true">Suite</span>{suites}</div>{panels}</fieldset>
 {body}
 <div class="method">
