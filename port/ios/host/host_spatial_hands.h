@@ -43,7 +43,7 @@ tip lost mid-pinch holds its state for HOLD_SECONDS before opening */
 /* the aim turn's range past the deadzone, degrees */
 #define HANDS_AIM_TURN_FULL_DEGREES 45.0f
 /* the prayer sign's geometry and timing, measured on device (see the
-comment on hands_prayer_holds in host_spatial_hands.c for the measurement) */
+comment on palm_frame in host_spatial_hands.c for the measurement) */
 #define HANDS_PRAYER_DISTANCE_METERS 0.16f
 #define HANDS_PRAYER_OPPOSED_DOT -0.4f
 #define HANDS_PRAYER_FINGERS_UP 0.5f
@@ -71,6 +71,10 @@ struct hands_state
 	int aim_turn_armed;                                      /* snap mode: inside the deadzone since the last snap */
 	int drag_snapped;                                        /* snap mode: this pinch has fired */
 	double pulse_until; float pulse_x;                       /* the right stick's held snap value */
+	/* the prayer sign's geometry gate (distance, fingers) on its own, independent of the
+	palm normals' unmeasured sign: its own on/off transition is what carries the measured dot
+	in the log (host_spatial_hands.c's prayer_near) */
+	int prayer_near;
 	double prayer_since; int prayer_fired; double prayer_cooldown_until;
 	double start_until;                                      /* the Start pulse */
 };
@@ -106,6 +110,12 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 Sense tracker wins while it is READY and then this is never asked, so
 host_spatial.m's precedence, not this flag, decides who owns a sample */
 int host_spatial_hands_active(void);
+/* zeroes the gesture recognizer's state (pinches, drag anchor, aim turn arm,
+pulses, the prayer sign's dwell): called whenever hands were not this
+sample's source, so no pinch or dwell survives into the next sample hands do
+fill (host_spatial.m's host_spatial_sample, the branch that clears
+hands_filled_sample; host_spatial_hands_sample's own WAITING gap) */
+void host_spatial_hands_idle(void);
 #endif
 
 #endif

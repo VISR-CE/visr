@@ -1298,7 +1298,14 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 				hands_filled_sample = host_spatial_hands_active();
 		}
 		else if (kind == HALO_SPATIAL_SAMPLE_GAME)
+		{
 			hands_filled_sample = 0;
+			/* hands were not this game sample's source (the Sense tracker took it, or
+			input.aim isn't "hands"): reset the gesture recognizer's state so a pinch or a
+			prayer dwell held before a takeover never survives into the sample hands fill
+			next, exactly as if the hand itself had been lost */
+			host_spatial_hands_idle();
+		}
 #else
 		(void)kind;
 #endif

@@ -28,26 +28,35 @@ static int near(float value, float wanted, float tolerance)
 /* a tracked, open hand: the thumb tip at the origin, the other four tips
 5 cm away along up, a neutral wrist and an arbitrary open-hand metacarpal
 pose. Tests move one tip, the wrist or the metacarpals to build the case
-they need. */
-static struct host_spatial_hand_joints make_hand(void)
+they need. hand (0 or 1, joints[]'s own index) sets the wrist and
+metacarpals a meter apart on the room's left axis: two default hands are
+never close enough for the prayer sign's geometry gate (host_spatial_hands.c's
+prayer_near) to fire by accident in a test that isn't about it, and a test
+that cares about either hand's absolute wrist position already overwrites it
+before using it, so the offset never reaches an assertion */
+static struct host_spatial_hand_joints make_hand(int hand)
 {
-	struct host_spatial_hand_joints hand;
+	struct host_spatial_hand_joints j;
+	float wrist_y = hand ? 1.0f : 0.0f;
 	int i;
 
-	memset(&hand, 0, sizeof(hand));
-	hand.tracked = 1;
-	hand.forearm_tracked = 1;
+	memset(&j, 0, sizeof(j));
+	j.tracked = 1;
+	j.forearm_tracked = 1;
+	j.wrist[1] = wrist_y;
 	for (i = 0; i < 5; i++)
 	{
-		hand.tip_tracked[i] = 1;
-		hand.tip[i][2] = (i == 0) ? 0.0f : 0.05f;
+		j.tip_tracked[i] = 1;
+		j.tip[i][2] = (i == 0) ? 0.0f : 0.05f;
 	}
-	hand.metacarpal_tracked[0] = hand.metacarpal_tracked[1] = 1;
-	hand.metacarpal[0][0] = 0.03f;
-	hand.metacarpal[0][2] = 0.05f;
-	hand.metacarpal[1][0] = -0.03f;
-	hand.metacarpal[1][2] = 0.05f;
-	return hand;
+	j.metacarpal_tracked[0] = j.metacarpal_tracked[1] = 1;
+	j.metacarpal[0][0] = 0.03f;
+	j.metacarpal[0][1] = wrist_y;
+	j.metacarpal[0][2] = 0.05f;
+	j.metacarpal[1][0] = -0.03f;
+	j.metacarpal[1][1] = wrist_y;
+	j.metacarpal[1][2] = 0.05f;
+	return j;
 }
 
 /* every field of a controls struct is zero */
@@ -70,8 +79,8 @@ static void pinch_hysteresis(void)
 	int count;
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 
 	joints[1].tip[1][2] = 0.010f; /* the index tip at 1.0 cm: closes */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
@@ -102,8 +111,8 @@ static void pinch_loss_hold(void)
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* close the index pinch at t = 1.0 */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "pinch loss: starts closed");
@@ -141,8 +150,8 @@ static void hand_untracked_zeros(void)
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "untracked: starts closed");
@@ -163,8 +172,8 @@ static void off_hand_mapping(void)
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[0].tip[1][2] = 0.010f; /* off hand (0): index closed */
 	joints[0].tip[2][2] = 0.010f; /* off hand (0): middle closed too; index wins */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
@@ -172,13 +181,13 @@ static void off_hand_mapping(void)
 	check(controls[0].menu == 0, "off hand: menu never set");
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
+	joints[0] = make_hand(0);
 	joints[0].tip[2][2] = 0.010f; /* only middle: backward */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_y == -1.0f, "off hand: middle alone, stick_y -1");
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
+	joints[0] = make_hand(0);
 	joints[0].tip[4][2] = 0.010f; /* little: stick click */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_click == 1, "off hand: little closes the stick click");
@@ -194,16 +203,16 @@ static void mirror_aim(void)
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[0].tip[1][2] = 0.010f; /* hand 0 is the gun hand now */
 	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[0].trigger == 1.0f, "mirror: hand 0's index fires when it is the gun hand");
 	check(controls[1].trigger == 0.0f, "mirror: hand 1 (the off hand) never fires from this pinch");
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* walk forward with the off hand (now hand 1) */
 	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_y == 1.0f, "mirror: hand 1's index walks forward as the off hand");
@@ -221,8 +230,8 @@ static void drag_smooth(void)
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[1].wrist[1] = 0.0f;
 	joints[1].tip[2][2] = 0.010f; /* the gun hand's middle closes: the drag anchor is set here */
 	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
@@ -248,8 +257,8 @@ static void drag_snap(void)
 	int count;
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[1].wrist[1] = 0.0f;
 	joints[1].tip[2][2] = 0.010f; /* middle closes at t = 1.0, wrist y 0 */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
@@ -291,8 +300,8 @@ static void aim_turn_smooth(void)
 	float forward[3];
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 
 	forward[0] = cosf(10.0f * (float)M_PI / 180.0f); forward[1] = sinf(10.0f * (float)M_PI / 180.0f); forward[2] = 0.0f;
 	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
@@ -319,8 +328,8 @@ static void aim_turn_snap(void)
 	int count;
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 
 	forward[0] = 1.0f; forward[1] = 0.0f; forward[2] = 0.0f; /* 0 degrees: arms it */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
@@ -358,8 +367,8 @@ static void aim_turn_suppressed_by_drag(void)
 	int count;
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	forward[0] = cosf(40.0f * (float)M_PI / 180.0f); forward[1] = sinf(40.0f * (float)M_PI / 180.0f); forward[2] = 0.0f;
 
 	joints[1].wrist[1] = 0.0f;
@@ -389,8 +398,8 @@ static void prayer(void)
 	normal = normalize(cross(index_mc - wrist, little_mc - wrist)); swapping which metacarpal
 	is "index" between the two hands gives opposed normals without needing a measured sign */
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 
 	joints[0].wrist[1] = 0.05f;
 	joints[0].metacarpal[0][0] = 0.03f; joints[0].metacarpal[0][1] = 0.05f; joints[0].metacarpal[0][2] = 0.05f;
@@ -454,8 +463,8 @@ static void event_capacity_clamped(void)
 	int count, finger;
 
 	memset(&state, 0, sizeof(state));
-	joints[0] = make_hand();
-	joints[1] = make_hand();
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	for (finger = 1; finger <= 4; finger++) /* every pinch on both hands, closed */
 	{
 		joints[0].tip[finger][2] = 0.010f;

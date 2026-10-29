@@ -26,9 +26,10 @@ and its up the wrist joint's +y, as a room transform that
 host_spatial_location turns into the room's level frame exactly as it turns a
 controller's aim location (host_spatial_pose.h). The up is a guess about
 ARKit's wrist axes, which debug.hand_log measures once against the room's up.
-No gestures yet: a classic gamepad carries the buttons, and the game sample
-marks itself gamepad_valid 2 so xinput_sdl.c, which takes only 1, leaves port
-0 alone.
+The game sample also runs the gesture recognizer (host_spatial_hands.c,
+plain C over the reduced joints below) and host_spatial_gamepad_map onto the
+same virtual gamepad the Sense pair fills; it marks itself gamepad_valid 2 so
+xinput_sdl.c, which takes only 1, leaves port 0 alone.
 
 Hands sit outside host_spatial.m's visionOS 27 gates. Accessory tracking is
 only complete in the 27 SDK (HOST_SPATIAL_SENSE_SDK) and the Sense tracker is
@@ -43,11 +44,13 @@ host_theater.m). */
 #include "host.h"
 #include <TargetConditionals.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #if TARGET_OS_VISION
 #import <Foundation/Foundation.h>
 #import <ARKit/ARKit.h>
+#import <QuartzCore/QuartzCore.h>
 #include <os/lock.h>
 #include <simd/simd.h>
 #include "host_theater.h"
@@ -63,6 +66,9 @@ static int settings_read;
 static int aim_hands;          /* input.aim = "hands" */
 static int aiming_hand = 1;    /* input.aim_hand: 0 left, 1 right */
 static int head_mode;          /* display.stereo = "head" */
+static int turn_snap = 1;      /* input.turn == "snap" (the recognizer's own read; host_spatial.m
+	reads the same key for the Sense stick and neither owns the other's copy) */
+static float deadzone = 18.0f; /* input.hand_turn_deadzone, clamped to 5 to 60 */
 static int hand_log;           /* debug.hand_log */
 
 /* one change from a callback, queued for the game thread */
@@ -108,6 +114,10 @@ static int forward_known[2];
 gesture recognizer reads, while the aim itself needs only the wrist and the
 forearm */
 static struct host_spatial_hand_joints joints[2];
+/* the gesture recognizer's own state (pinches, drag anchor, aim turn arm, the
+prayer dwell): host_spatial_hands_idle resets it whenever hands were not the
+game sample's source, so no pinch or dwell survives into the next one they fill */
+static struct hands_state gesture_state;
 /* 1 while the hands source filled the game sample it was last given */
 static int active;
 /* debug.hand_log's wrist-axis measurement, logged once */
@@ -140,6 +150,22 @@ static void read_settings(void)
 	aiming_hand = strcmp(value, "left") ? 1 : 0;
 	host_config_string("display.stereo", "off", value, sizeof(value));
 	head_mode = !strcmp(value, "head");
+	host_config_string("input.turn", "snap", value, sizeof(value));
+	turn_snap = !strcmp(value, "snap");
+	deadzone = (float)host_config_real("input.hand_turn_deadzone", 18.0);
+	if (!(deadzone >= 5.0f && deadzone <= 60.0f))
+	{
+		float clamped = deadzone > 60.0f ? 60.0f : 5.0f;
+
+		/* this read runs for everyone on the immersive path (hands_on() calls read_settings
+		from host_spatial_hands_frame, called every drawing frame regardless of input.aim), but
+		the setting only means anything with input.aim = "hands" (its own table description), so
+		the warning stays scoped to that: rule 10 holds for a controller or head user */
+		if (aim_hands)
+			host_logf(HOST_LOG_WARN, "spatial: input.hand_turn_deadzone %g is outside 5 to 60; using %g",
+				(double)deadzone, (double)clamped);
+		deadzone = clamped;
+	}
 	host_config_string("debug.hand_log", "false", value, sizeof(value));
 	hand_log = !strcmp(value, "true");
 }
@@ -511,6 +537,55 @@ static int fill(double predict_to, const float *head_position, struct halo_spati
 	return 1;
 }
 
+/* a hand's last barrel direction (last_forward, kept in hand_of) converted into the aim's
+game-axes convention: that static is the raw room-space forearm direction feeding the aim
+transform before location_of turns it into halo_spatial_location's axes and applies the
+room's recenter correction, so it needs the same two steps (host_spatial_room_to_game,
+host_stereo_room_vector) as position_of applies to a position, minus the head subtraction a
+direction has no use for */
+static void held_forward_of(simd_float3 room, float game[3])
+{
+	float vector[3] = { room.x, room.y, room.z };
+
+	host_spatial_room_to_game(vector, game);
+	host_stereo_room_vector(game);
+}
+
+/* one gesture event's name for debug.hand_log (host_spatial_hands.h's enum hands_event's
+kind); the pinch's finger is folded in since the four pinches would otherwise log
+identically */
+static void gesture_name(int kind, int finger, char *buffer, size_t size)
+{
+	static const char *const finger_names[NUMBER_OF_HANDS_PINCHES] = { "index", "middle", "ring", "little" };
+
+	switch (kind)
+	{
+	case HANDS_EVENT_PINCH:
+		snprintf(buffer, size, "pinch %s", finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ?
+			finger_names[finger] : "?");
+		break;
+	case HANDS_EVENT_DRAG: snprintf(buffer, size, "drag"); break;
+	case HANDS_EVENT_AIM_TURN: snprintf(buffer, size, "aim turn"); break;
+	case HANDS_EVENT_PRAYER: snprintf(buffer, size, "prayer"); break;
+	case HANDS_EVENT_START: snprintf(buffer, size, "start"); break;
+	default: snprintf(buffer, size, "?"); break;
+	}
+}
+
+/* debug.hand_log: one line per gesture state change (visr-hands-spec.md rule 9), the value
+measured against the threshold that decided it, to three decimals. The prayer sign's hand is
+always 0 (host_spatial_hands.c's emit calls: it is both hands together, neither one), so it
+logs as "both" rather than a side */
+static void log_event(const struct hands_event *event)
+{
+	char gesture[16];
+
+	gesture_name(event->kind, event->finger, gesture, sizeof(gesture));
+	host_logf(HOST_LOG_INFO, "hands: %s %s %s %.3f against %.3f", gesture,
+		event->kind == HANDS_EVENT_PRAYER ? "both" : (event->hand ? "right" : "left"),
+		event->on ? "on" : "off", (double)event->value, (double)event->threshold);
+}
+
 void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[3], double predict_to)
 {
 	struct host_spatial_hand_joints drawn[2];
@@ -565,13 +640,42 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		host_spatial_hold_poses(sample, &reference);
 	}
 	active = filled;
-	if (filled)
+	if (!filled)
 	{
-		/* no gestures yet, so no buttons of ours: the 2 says this sample is
-		the hands source's without offering port 0 a gamepad, which
-		xinput_sdl.c takes only at exactly 1 */
+		/* the provider is in the session but not running yet (fill's own WAITING): no joints
+		came in, so the recognizer's pinch, drag and prayer state is reset exactly as a Sense
+		takeover resets it (host_spatial_hands_idle) -- a gap here is indistinguishable from a
+		takeover to a pinch that was mid-close */
+		host_spatial_hands_idle();
+		return filled;
+	}
+	{
+		int g = sample->aiming_hand ? 1 : 0;
+		const float *forward = sample->hands[g].aim.forward;
+		float held_forward[3];
+		struct host_spatial_controls controls[2];
+		struct hands_event events[16];
+		int count, i;
+
+		/* a fully untracked aiming hand leaves aim.forward zeroed (hand_of returns before
+		building one); held_forward_of turns the forearm's own last direction (last_forward,
+		still in the room's raw frame) into the same game-axes convention aim.forward carries,
+		so the recognizer's yaw math holds the arm's last known pointing rather than reading a
+		sudden, spurious center */
+		if (sample->hands[g].state != HALO_SPATIAL_TRACKED && forward_known[g])
+		{
+			held_forward_of(last_forward[g], held_forward);
+			forward = held_forward;
+		}
+		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
+			CACurrentMediaTime(), controls, events, 16);
+		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
+		/* the 2 says this sample is the hands source's without offering port
+		0 a gamepad, which xinput_sdl.c takes only at exactly 1 */
 		sample->gamepad_valid = 2;
-		memset(&sample->gamepad, 0, sizeof(sample->gamepad));
+		if (hand_log)
+			for (i = 0; i < count; i++)
+				log_event(&events[i]);
 	}
 	return filled;
 }
@@ -579,5 +683,10 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 int host_spatial_hands_active(void)
 {
 	return active;
+}
+
+void host_spatial_hands_idle(void)
+{
+	memset(&gesture_state, 0, sizeof(gesture_state));
 }
 #endif

@@ -177,9 +177,14 @@ static int prayer_ready(const struct host_spatial_hand_joints joints[2])
 	return 1;
 }
 
-/* the prayer sign's pose test (visr-hands-spec.md rule 8, visr-hands-behaviour.md 6.1):
-palm centres close, palm normals opposed, both hands' fingers pointed up */
-static int prayer_holds(const struct host_spatial_hand_joints joints[2])
+/* the prayer sign's geometry gate alone: palm centres close and both hands' fingers pointed
+up, independent of the palm normals' sign. *dot is the measured dot product whenever this
+returns 1 (undefined otherwise, as prayer_ready already failed and the frames were never
+built); separating this from the sign test is what lets hands_recognize log the dot it
+measured even while the sign convention is wrong, rather than the gesture staying silent
+until a device run has already settled it (visr-hands-spec.md rule 9's "armed off a joint
+that stays tracked", applied to the sign the way it is applied to a lost joint) */
+static int prayer_near(const struct host_spatial_hand_joints joints[2], float *dot)
 {
 	float centre[2][3], normal[2][3], finger_direction[2][3];
 	int hand;
@@ -188,9 +193,8 @@ static int prayer_holds(const struct host_spatial_hand_joints joints[2])
 		return 0;
 	for (hand = 0; hand < 2; hand++)
 		palm_frame(&joints[hand], centre[hand], normal[hand], finger_direction[hand]);
+	*dot = dot3(normal[0], normal[1]);
 	if (distance3(centre[0], centre[1]) > HANDS_PRAYER_DISTANCE_METERS)
-		return 0;
-	if (dot3(normal[0], normal[1]) > HANDS_PRAYER_OPPOSED_DOT)
 		return 0;
 	if (finger_direction[0][2] < HANDS_PRAYER_FINGERS_UP || finger_direction[1][2] < HANDS_PRAYER_FINGERS_UP)
 		return 0;
@@ -298,29 +302,41 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		stick_x = state->pulse_x;
 	controls[g].stick_x = stick_x;
 
-	/* the prayer sign: both hands held together fires the Start pulse once per dwell */
-	if (prayer_holds(joints))
+	/* the prayer sign: both hands held together fires the Start pulse once per dwell. The
+	geometry gate (prayer_near) is logged on its own on/off transition with the dot it
+	measured against HANDS_PRAYER_OPPOSED_DOT: gating that log on the sign itself, like
+	prayer_holds used to, would mean a wrong sign convention never logs anything, which is
+	exactly what Task 5's device measurement needs to read */
 	{
-		if (state->prayer_since == 0.0)
+		float dot = 0.0f;
+		int near = prayer_near(joints, &dot);
+
+		if (near != state->prayer_near)
 		{
-			state->prayer_since = now;
-			state->prayer_fired = now < state->prayer_cooldown_until; /* a hold begun inside the
-				cooldown is consumed without firing, even once the cooldown itself ends */
+			state->prayer_near = near;
+			emit(events, capacity, &count, HANDS_EVENT_PRAYER, 0, 0, near, dot, HANDS_PRAYER_OPPOSED_DOT);
 		}
-		if (!state->prayer_fired && now - state->prayer_since >= HANDS_PRAYER_DWELL_SECONDS)
+		if (near && dot <= HANDS_PRAYER_OPPOSED_DOT)
 		{
-			state->start_until = now + HANDS_PULSE_SECONDS;
-			state->prayer_fired = 1;
-			state->prayer_cooldown_until = now + HANDS_PRAYER_COOLDOWN_SECONDS;
-			emit(events, capacity, &count, HANDS_EVENT_PRAYER, 0, 0, 1, (float)(now - state->prayer_since),
-				(float)HANDS_PRAYER_DWELL_SECONDS);
-			emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 1, 1.0f, (float)HANDS_PULSE_SECONDS);
+			if (state->prayer_since == 0.0)
+			{
+				state->prayer_since = now;
+				state->prayer_fired = now < state->prayer_cooldown_until; /* a hold begun inside the
+					cooldown is consumed without firing, even once the cooldown itself ends */
+			}
+			if (!state->prayer_fired && now - state->prayer_since >= HANDS_PRAYER_DWELL_SECONDS)
+			{
+				state->start_until = now + HANDS_PULSE_SECONDS;
+				state->prayer_fired = 1;
+				state->prayer_cooldown_until = now + HANDS_PRAYER_COOLDOWN_SECONDS;
+				emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 1, 1.0f, (float)HANDS_PULSE_SECONDS);
+			}
 		}
-	}
-	else
-	{
-		state->prayer_since = 0.0;
-		state->prayer_fired = 0;
+		else
+		{
+			state->prayer_since = 0.0;
+			state->prayer_fired = 0;
+		}
 	}
 	controls[g].menu = now < state->start_until;
 
