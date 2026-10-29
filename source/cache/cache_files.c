@@ -689,6 +689,12 @@ long tag_loaded(
 	long absolute_index;
 	long result = NONE;
 
+	/* port: an empty tag reference has no name; it names no loaded tag */
+	if (!name)
+	{
+		return NONE;
+	}
+
 	if (cache_file_globals.tags_loaded)
 	{
 		match_assert(

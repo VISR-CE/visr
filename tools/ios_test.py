@@ -359,6 +359,7 @@ run(BUILD / 'mp-benchmark-context-probe')
 run('python3', 'tools/test_replay_control.py')
 run('python3', 'tools/test_checkpoint_timing.py')
 run('python3', 'tools/test_route_check.py')
+run('python3', 'tools/test_tag_loaded_null.py')
 # a runner's settings are the run's, never a device profile's: mac_run.py writes every setting a profile may set
 # (and marks what it writes chosen in config.origins), so no profile can move a check-metal run
 profile_keys = re.findall(r'^PROFILE_(?:BOOLEAN|INTEGER|REAL|STRING)\("([^"]+)"',
