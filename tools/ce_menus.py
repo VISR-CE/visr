@@ -19,11 +19,12 @@ in the PC bitmaps' layout), copied to port/assets/menus/svg, at up to 4
 times their size. The pictures with no redraw (renders, screenshots, logos)
 are the Xbox map's bitmap of the same name, where it has the same pictures
 in the same order (XBOX_BITMAPS: the player's own ui.map draws them, and
-nothing is shipped), else the --placeholder image, fitted to each frame
+nothing is shipped). Description panels first resolve the approved drawings
+or cached map pictures through port_settings.picture_frame. Other gaps use
+the --placeholder image, fitted to each frame
 where the PC version's picture is (--pictures: only their bounds are read),
 else to the part of it the widgets show;
-port/assets/menus/NON_HANDDRAWN.md lists both, the placeholders as ones to
-be redrawn.
+port/assets/menus/NON_HANDDRAWN.md lists the picture sources.
 
 What this engine (the Xbox's) has no use for is written but never runs: the
 PC version's mouse events (the port's own mouse support clicks with A), and
@@ -369,6 +370,11 @@ class Art:
         lines = [f"\t<bitmap{attributes([('name', our_name(tag))])}>"]
         for index in indices:
             width, height = data[index]["width"], data[index]["height"]
+            picture = port_settings.picture_frame(relative, index)
+            if picture:
+                self.pngs.append(picture["png"])
+                lines.append(f"\t\t<frame{attributes(list(picture.items()))}/>")
+                continue
             name = self.frame_sources(relative, index, len(data))[-1]
             if name in XBOX_FRAMES and not any((self.redraws / f"{source}.svg").is_file()
                                                for source in self.frame_sources(relative, index, len(data))):
@@ -692,20 +698,29 @@ def main() -> None:
         "| --- | --- |",
     ]
     report += [f"| `{name}` | `{tag}` frame {index} |" for name, tag, index in art.added_frames]
-    report += [
-        "",
-        "## Placeholders, to be redrawn",
-        "",
-        "The Xbox's map has none of these (or other pictures under the name), so each frame is a placeholder",
-        "until it is redrawn.",
-        "",
-        "| File | Size | The PC version's picture |",
-        "| --- | --- | --- |",
-    ]
-    report += [f"| `{png}` | {w}x{h} | `{source}` |" for png, w, h, source in sorted(art.pictures)]
-    report += ["", f"{len(art.pictures)} of {len(art.pngs)} frames are placeholders.",
-               "", "The PC version's `ui\\gamespy` and `ui\\ticker` fonts are drawn with `ui\\small_ui`, which",
-               "the Xbox's map has.", ""]
+    report += r"""
+## PC description pictures
+
+`tools/ce_menus.py` resolves the PC description frames before considering a placeholder.
+The profile editor's ABOUT row uses our information emblem (`xbox/art/about.svg`),
+in the palette and line weights of VIDEO, AUDIO, and INTERNET. The Xbox look does
+not have an ABOUT row or a dedicated ABOUT picture.
+
+The other gaps use the player's `ui.map` pictures with a transparent fallback and
+runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game art ships.
+
+| PC bitmap | Frames and sources |
+| --- | --- |
+| `mp_options` | 0 → Xbox 0; 1 → Xbox 1 |
+| `gametype_options` | 0 → Xbox 0; 3 and 4 → Xbox 3 (equipment/vehicles); 6 → Xbox 2 (players/teams); 7 → Xbox 5 (save) |
+| `profile_options` | 1 and 3 → Xbox 0 (keyboard); 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
+
+All 13 former placeholder PNGs have been removed. The original redraw for the
+PC gametype chooser's frame 1 and the existing Xbox frame mappings remain.
+
+The PC version's `ui\gamespy` and `ui\ticker` fonts are drawn with `ui\small_ui`, which
+the Xbox's map has.
+""".splitlines()
     (MENUS / "NON_HANDDRAWN.md").write_text("\n".join(report))
     # what is not wired
     used = Counter()

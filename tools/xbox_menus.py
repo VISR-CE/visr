@@ -86,6 +86,9 @@ def serialize(root):
 def retain_xbox_files(menus, files):
     """Keep Xbox XML and its PNG dependencies when ce_menus rewrites the manifest."""
     names = set(files)
+    # PC description panels share the drawings too, including ABOUT.
+    for path in sorted((menus / 'ce').glob('*.xml')):
+        names.update(frame.get('png') for frame in ET.parse(path).iter('frame') if frame.get('png'))
     for path in sorted((menus / 'xbox').glob('*.xml')):
         names.add(path.relative_to(menus).as_posix())
         root = ET.parse(path).getroot()
@@ -401,7 +404,7 @@ def bitmap_document(assets, names):
     for name, index in (('gametype', 3),):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
-                      index=str(index), png='ce/shell/main_menu/multiplayer_type_select/mp_options__1.png',
+                      index=str(index), png=NONE_PNG,
                       width='460', height='230')
     return root
 
