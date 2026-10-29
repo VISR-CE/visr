@@ -120,6 +120,19 @@ int texture_upscale_model_available(void)
     }
 }
 
+const char *texture_upscale_model_unavailable_reason(void)
+{
+    @autoreleasepool {
+        if (@available(iOS 17.0, tvOS 17.0, macOS 14.0, *)) {
+            if (!model_url()) return "no compiled model in this build";
+            for (id<MLComputeDeviceProtocol> device in MLModel.availableComputeDevices)
+                if ([device isKindOfClass:MLNeuralEngineComputeDevice.class]) return "";
+            return "no Neural Engine available to Core ML";
+        }
+        return "an OS before iOS 17, tvOS 17 or macOS 14";
+    }
+}
+
 struct texture_upscale_model *texture_upscale_model_create(char *error, size_t error_size)
 {
     @autoreleasepool {
