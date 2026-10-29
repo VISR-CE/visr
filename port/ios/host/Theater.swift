@@ -138,6 +138,8 @@ public func host_theater_ornament(_ controller: UnsafeMutableRawPointer?, _ show
                     effect.opacity(isActive ? 1.0 : 0.12)
                 }
                 .accessibilityHint("Plays the game around you in the headset")
+                // a clear gap below the window's edge, as a toolbar ornament has
+                .padding(.top, 24)
             }
         ]
     }
