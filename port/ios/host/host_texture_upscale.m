@@ -774,9 +774,14 @@ void host_texture_upscale_init(const char *root) {
             /* and packages copied in for HALO_TEXTURE_UPSCALE_MODEL */
             for(NSString *name in [files contentsOfDirectoryAtPath:base error:nil])
                 if([name.pathExtension isEqual:@"mlmodelc"])[files removeItemAtPath:[base stringByAppendingPathComponent:name] error:nil];
+            /* and Core ML's compiled copies of the model, so the next load compiles it for this Neural Engine again as on
+               a fresh install */
+            NSString *caches=NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject;
+            NSString *compiled=[[caches stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier?:@""] stringByAppendingPathComponent:@"com.apple.e5rt.e5bundlecache"];
+            if([files fileExistsAtPath:compiled]&&![files removeItemAtPath:compiled error:nil])host_logf(HOST_LOG_WARN,"Upscale: could not remove Core ML's compiled model cache");
             /* and the import screen's shown flag, so the next launch shows it again as a first import would */
             [NSUserDefaults.standardUserDefaults removeObjectForKey:@"VISRUpscaleImportShown"];
-            host_logf(HOST_LOG_INFO,"Upscale: removed the texture cache, the export, the generator log and the import screen's shown flag");
+            host_logf(HOST_LOG_INFO,"Upscale: removed the texture cache, the export, the generator log, Core ML's compiled model and the import screen's shown flag");
             return;
         }
 #endif
