@@ -48,31 +48,9 @@
 </section>
 <section class="bench" data-platform="iphone-ipad" aria-labelledby="h-iphone-ipad">
 <h2 id="h-iphone-ipad"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="2" width="11" height="20" rx="2.8"/><path d="M10.5 5h3"/></svg></span><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="2.5" width="16" height="19" rx="2.2"/><path d="M11.5 18.5h1"/></svg></span>iPhone and iPad</h2>
-<p>Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported.</p>
+<p>Measured on an M1 iPad Pro from runs presented at the display rate. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval. GPU and CPU time per frame are not reported for iPhone and iPad builds yet.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-ipad"><div class="bench-chart"><img src="benchmarks/static-iphone-ipad.svg" alt="iPhone and iPad: median gpu time (p50) and 90th-percentile gpu time (p90) per build, Campaign suite"></div></figure>
-<p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Median GPU time (p50)  <span class="swatch low" aria-hidden="true"></span> 90th-percentile GPU time (p90)</p>
-<p class="bench-direction">Lower is better.</p>
-<div class="bench-caption"><table class="bench-table"><caption>M1 iPad Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3</a> <span class="build-meta">build 20261028.084949</span></th><td data-label="Measured">2026-10-28</td><td data-label="Notes">a10 not measured yet</td></tr></tbody></table></div></div>
-<fieldset class="bench-rows"><legend>Builds</legend><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.3@20261028.084949" checked> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3</a></span> <span class="build-meta">build 20261028.084949, 2026-10-28</span></label></div><details class="older" data-port="visr"><summary>1 other version</summary><div class="build off" title="Not reported: this build does not report GPU time per frame."><label class="build-label"><input type="checkbox" value="visr@0.6.0@20261027.111952" disabled> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.0" rel="noopener">VISR 0.6.0</a></span> <span class="build-meta">build 20261027.111952, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report GPU time per frame.</p></details></div></details></div><div class="build-group"><div class="build off" title="Not reported: this build does not report GPU time per frame."><label class="build-label"><input type="checkbox" value="beeman@apple-v0.3.0@" disabled> <span class="build-name"><a href="https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0" rel="noopener">Beeman apple-v0.3.0</a></span> <span class="build-meta">build unknown, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report GPU time per frame.</p></details></div></div><div class="build-group"><div class="build off" title="Not reported: this build does not report GPU time per frame."><label class="build-label"><input type="checkbox" value="chupathingyce-ios@v0.2.0@0.8.0h-dev d7fafc8" disabled> <span class="build-name"><a href="https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0" rel="noopener">ChupathingyCE iOS v0.2.0 (pre-release)</a></span> <span class="build-meta">build 0.8.0h-dev d7fafc8, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report GPU time per frame.</p></details></div></div><div class="build-group"><div class="build off" title="Not run on this device yet."><label class="build-label"><input type="checkbox" value="halopad@v0.3.12@" disabled> <span class="build-name"><a href="https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12" rel="noopener">HaloPad v0.3.12</a></span> <span class="build-meta">build unknown, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not run on this device yet.</p></details></div></div><div class="build-group"><div class="build off" title="Not run on this device yet."><label class="build-label"><input type="checkbox" value="snailbbq@v0.2.118-beta@" disabled> <span class="build-name"><a href="https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta" rel="noopener">SnailBBQ v0.2.118-beta</a></span> <span class="build-meta">build unknown, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not run on this device yet.</p></details></div></div></fieldset>
-</div>
-</section>
-<section class="bench bench-sub" data-platform="iphone-ipad-cpu" aria-labelledby="h-iphone-ipad-cpu">
-<h3 id="h-iphone-ipad-cpu">iPhone and iPad: CPU time</h3>
-<p>Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report CPU time are listed as not reported.</p>
-<div class="bench-grid">
-<div class="bench-media"><figure class="device-flat"><div class="bench-chart"><img src="benchmarks/static-iphone-ipad-cpu.svg" alt="iPhone and iPad: CPU time: median cpu time per frame per build, Campaign suite"></div></figure>
-<p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Median CPU time per frame</p>
-<p class="bench-direction">Lower is better.</p>
-<div class="bench-caption"><table class="bench-table"><caption>M1 iPad Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3</a> <span class="build-meta">build 20261028.084949</span></th><td data-label="Measured">2026-10-28</td><td data-label="Notes">a10, b30 not measured yet</td></tr></tbody></table></div></div>
-<fieldset class="bench-rows"><legend>Builds</legend><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.3@20261028.084949" checked> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3</a></span> <span class="build-meta">build 20261028.084949, 2026-10-28</span></label></div><details class="older" data-port="visr"><summary>1 other version</summary><div class="build off" title="Not reported: this build does not report CPU time per frame."><label class="build-label"><input type="checkbox" value="visr@0.6.0@20261027.111952" disabled> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.0" rel="noopener">VISR 0.6.0</a></span> <span class="build-meta">build 20261027.111952, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report CPU time per frame.</p></details></div></details></div><div class="build-group"><div class="build off" title="Not reported: this build does not report CPU time per frame."><label class="build-label"><input type="checkbox" value="beeman@apple-v0.3.0@" disabled> <span class="build-name"><a href="https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0" rel="noopener">Beeman apple-v0.3.0</a></span> <span class="build-meta">build unknown, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report CPU time per frame.</p></details></div></div><div class="build-group"><div class="build off" title="Not reported: this build does not report CPU time per frame."><label class="build-label"><input type="checkbox" value="chupathingyce-ios@v0.2.0@0.8.0h-dev d7fafc8" disabled> <span class="build-name"><a href="https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0" rel="noopener">ChupathingyCE iOS v0.2.0 (pre-release)</a></span> <span class="build-meta">build 0.8.0h-dev d7fafc8, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report CPU time per frame.</p></details></div></div><div class="build-group"><div class="build off" title="Not run on this device yet."><label class="build-label"><input type="checkbox" value="halopad@v0.3.12@" disabled> <span class="build-name"><a href="https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12" rel="noopener">HaloPad v0.3.12</a></span> <span class="build-meta">build unknown, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not run on this device yet.</p></details></div></div><div class="build-group"><div class="build off" title="Not run on this device yet."><label class="build-label"><input type="checkbox" value="snailbbq@v0.2.118-beta@" disabled> <span class="build-name"><a href="https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta" rel="noopener">SnailBBQ v0.2.118-beta</a></span> <span class="build-meta">build unknown, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not run on this device yet.</p></details></div></div></fieldset>
-</div>
-</section>
-<section class="bench bench-sub" data-platform="iphone-ipad-fps" aria-labelledby="h-iphone-ipad-fps">
-<h3 id="h-iphone-ipad-fps">iPhone and iPad: frame rate</h3>
-<p>Measured on an M1 iPad Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.</p>
-<div class="bench-grid">
-<div class="bench-media"><figure class="device-flat"><div class="bench-chart"><img src="benchmarks/static-iphone-ipad-fps.svg" alt="iPhone and iPad: frame rate: average fps and 1% low fps per build, Campaign suite"></div></figure>
+<div class="bench-media"><figure class="device device-ipad"><div class="bench-chart"><img src="benchmarks/static-iphone-ipad.svg" alt="iPhone and iPad: average fps and 1% low fps per build, Campaign suite"></div></figure>
 <p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Average fps  <span class="swatch low" aria-hidden="true"></span> 1% low fps</p>
 <p class="bench-direction">Higher is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>M1 iPad Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">On time</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3</a> <span class="build-meta">build 20261028.084949</span></th><td data-label="Measured">2026-10-28</td><td data-label="On time">–</td><td data-label="Notes">no on-time share reported; a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0" rel="noopener">Beeman apple-v0.3.0</a> <span class="build-meta">build unknown</span></th><td data-label="Measured">2026-10-27</td><td data-label="On time">–</td><td data-label="Notes">no on-time share reported; b30 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0" rel="noopener">ChupathingyCE iOS v0.2.0 (pre-release)</a> <span class="build-meta">build 0.8.0h-dev d7fafc8</span></th><td data-label="Measured">2026-10-27</td><td data-label="On time">–</td><td data-label="Notes">no on-time share reported; b30 not measured yet</td></tr></tbody></table></div></div>
@@ -92,9 +70,20 @@
 </section>
 <section class="bench" data-platform="vision-pro" aria-labelledby="h-vision-pro">
 <h2 id="h-vision-pro"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.9-3.5-2.1-.6-.8-1.8-.8-2.4 0-.8 1.2-1.9 2.1-3.5 2.1-2.7 0-4.8-2.3-4.8-5.3z"/></svg></span>Vision Pro</h2>
+<p>Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.</p>
+<div class="bench-grid">
+<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="1.2 4.9 21.6 13.2" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.046296 0.075758) translate(-1.2 -4.9)" d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></clipPath></defs><path d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></svg><div class="glass-screen"><div class="bench-chart"><img src="benchmarks/static-vision-pro.svg" alt="Vision Pro: average fps and 1% low fps per build, Campaign suite"></div></div></figure>
+<p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Average fps  <span class="swatch low" aria-hidden="true"></span> 1% low fps</p>
+<p class="bench-direction">Higher is better.</p>
+<div class="bench-caption"><table class="bench-table"><caption>M2 Vision Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">95th-percentile frame time (ms)</th><th scope="col">On time</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a> <span class="build-meta">build 20261028.91150</span></th><td data-label="Measured">2026-10-28</td><td data-label="95th-percentile frame time (ms)">11.1</td><td data-label="On time">99.8%</td><td data-label="Notes">Replays a recorded route.; a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3" rel="noopener">master-chef 1.0.3</a> <span class="build-meta">build 103</span></th><td data-label="Measured">2026-10-27</td><td data-label="95th-percentile frame time (ms)">–</td><td data-label="On time">–</td><td data-label="Notes">Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times.; no frame times reported</td></tr></tbody></table></div></div>
+<fieldset class="bench-rows"><legend>Builds</legend><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.3@20261028.91150" checked> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a></span> <span class="build-meta">build 20261028.91150, 2026-10-28</span></label></div><details class="older" data-port="visr"><summary>2 other versions</summary><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.1@20261027.174748"> <span class="build-name">VISR 0.6.1 (Vision Pro)</span> <span class="build-meta">build 20261027.174748, 2026-10-27</span></label></div><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.0@20261027.111952"> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.0" rel="noopener">VISR 0.6.0</a></span> <span class="build-meta">build 20261027.111952, 2026-10-27</span></label></div></details></div><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="master-chef@1.0.3@103" checked> <span class="build-name"><a href="https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3" rel="noopener">master-chef 1.0.3</a></span> <span class="build-meta">build 103, 2026-10-27</span></label></div></div></fieldset>
+</div>
+</section>
+<section class="bench bench-sub" data-platform="vision-pro-gpu" aria-labelledby="h-vision-pro-gpu">
+<h3 id="h-vision-pro-gpu">Vision Pro: GPU time</h3>
 <p>Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="1.2 4.9 21.6 13.2" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.046296 0.075758) translate(-1.2 -4.9)" d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></clipPath></defs><path d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></svg><div class="glass-screen"><div class="bench-chart"><img src="benchmarks/static-vision-pro.svg" alt="Vision Pro: median gpu time (p50) and 90th-percentile gpu time (p90) per build, Campaign suite"></div></div></figure>
+<div class="bench-media"><figure class="device-flat"><div class="bench-chart"><img src="benchmarks/static-vision-pro-gpu.svg" alt="Vision Pro: GPU time: median gpu time (p50) and 90th-percentile gpu time (p90) per build, Campaign suite"></div></figure>
 <p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Median GPU time (p50)</p>
 <p class="bench-direction">Lower is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>M2 Vision Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a> <span class="build-meta">build 20261028.91150</span></th><td data-label="Measured">2026-10-28</td><td data-label="Notes">Replays a recorded route.</td></tr></tbody></table></div></div>
@@ -110,17 +99,6 @@
 <p class="bench-direction">Lower is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>M2 Vision Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a> <span class="build-meta">build 20261028.91150</span></th><td data-label="Measured">2026-10-28</td><td data-label="Notes">Replays a recorded route.</td></tr></tbody></table></div></div>
 <fieldset class="bench-rows"><legend>Builds</legend><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.3@20261028.91150" checked> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a></span> <span class="build-meta">build 20261028.91150, 2026-10-28</span></label></div><details class="older" data-port="visr"><summary>2 other versions</summary><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.1@20261027.174748"> <span class="build-name">VISR 0.6.1 (Vision Pro)</span> <span class="build-meta">build 20261027.174748, 2026-10-27</span></label></div><div class="build off" title="Not reported: this build does not report CPU time per frame."><label class="build-label"><input type="checkbox" value="visr@0.6.0@20261027.111952" disabled> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.0" rel="noopener">VISR 0.6.0</a></span> <span class="build-meta">build 20261027.111952, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report CPU time per frame.</p></details></div></details></div><div class="build-group"><div class="build off" title="Not reported: this build does not report CPU time per frame."><label class="build-label"><input type="checkbox" value="master-chef@1.0.3@103" disabled> <span class="build-name"><a href="https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3" rel="noopener">master-chef 1.0.3</a></span> <span class="build-meta">build 103, 2026-10-27</span></label><details class="why"><summary class="tag">not measured here</summary><p>Not reported: this build does not report CPU time per frame.</p></details></div></div></fieldset>
-</div>
-</section>
-<section class="bench bench-sub" data-platform="vision-pro-fps" aria-labelledby="h-vision-pro-fps">
-<h3 id="h-vision-pro-fps">Vision Pro: frame rate</h3>
-<p>Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.</p>
-<div class="bench-grid">
-<div class="bench-media"><figure class="device-flat"><div class="bench-chart"><img src="benchmarks/static-vision-pro-fps.svg" alt="Vision Pro: frame rate: average fps and 1% low fps per build, Campaign suite"></div></figure>
-<p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Average fps  <span class="swatch low" aria-hidden="true"></span> 1% low fps</p>
-<p class="bench-direction">Higher is better.</p>
-<div class="bench-caption"><table class="bench-table"><caption>M2 Vision Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">95th-percentile frame time (ms)</th><th scope="col">On time</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a> <span class="build-meta">build 20261028.91150</span></th><td data-label="Measured">2026-10-28</td><td data-label="95th-percentile frame time (ms)">11.1</td><td data-label="On time">99.8%</td><td data-label="Notes">Replays a recorded route.; a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3" rel="noopener">master-chef 1.0.3</a> <span class="build-meta">build 103</span></th><td data-label="Measured">2026-10-27</td><td data-label="95th-percentile frame time (ms)">–</td><td data-label="On time">–</td><td data-label="Notes">Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times.; no frame times reported</td></tr></tbody></table></div></div>
-<fieldset class="bench-rows"><legend>Builds</legend><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.3@20261028.91150" checked> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a></span> <span class="build-meta">build 20261028.91150, 2026-10-28</span></label></div><details class="older" data-port="visr"><summary>2 other versions</summary><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.1@20261027.174748"> <span class="build-name">VISR 0.6.1 (Vision Pro)</span> <span class="build-meta">build 20261027.174748, 2026-10-27</span></label></div><div class="build"><label class="build-label"><input type="checkbox" value="visr@0.6.0@20261027.111952"> <span class="build-name"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.0" rel="noopener">VISR 0.6.0</a></span> <span class="build-meta">build 20261027.111952, 2026-10-27</span></label></div></details></div><div class="build-group"><div class="build"><label class="build-label"><input type="checkbox" value="master-chef@1.0.3@103" checked> <span class="build-name"><a href="https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3" rel="noopener">master-chef 1.0.3</a></span> <span class="build-meta">build 103, 2026-10-27</span></label></div></div></fieldset>
 </div>
 </section>
 <div class="method">
@@ -139,7 +117,7 @@
 </ul>
 <p>master-chef runs at a fixed 30 fps as shipped, below the 90 Hz display, so it has no uncapped rows.</p>
 <p>iPhone/iPad, Apple TV, and Vision Pro charts use runs presented at the device's display rate or, where its profile sets a lower frame cap, at that cap, not an uncapped mode. Their on-time share (frames within 5% of the display interval) is in the spreadsheet, and a device that holds its display rate shows an average near that rate. The Mac chart uses the uncapped, matched-stock runs described below.</p>
-<p>A device section that has GPU times leads with the cost of a frame: median and 90th-percentile GPU time per rendered frame and median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget (1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. Frame rate and 1% low follow, since a missed frame still counts. A build that reports no GPU or CPU time is listed as not reported; a device where no build reports it shows frame rate and 1% low only.</p>
+<p>Where at least two ports report GPU time, a device section leads with the cost of a frame: median and 90th-percentile GPU time per rendered frame and median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget (1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. Frame rate and 1% low follow, since a missed frame still counts. A build that reports no GPU or CPU time is listed as not reported; otherwise the section leads with frame rate and 1% low, and a frame-cost chart that has at least two builds follows it.</p>
 <p>Halo OG's frame rate is limited by its CPU command submission, not by a frame cap: its uncapped settings are in force (the frame limit is 0 and vsync is off), its GPU is about half idle, and its rate does not change with the drawable size. It lacks several settings the other ports expose, among them shadow size, model LOD and field of view; its rows use its defaults.</p>
 <h3>Uncapped charts</h3>
 <p>Uncapped charts show average fps and GPU time per rendered frame, not 1% low rates. When a game renders faster than the display refreshes, macOS hands drawables to the window server in bursts, so the on-glass intervals record when the window server latches drawables rather than the frames a player sees; VISR's intervals alternate between about 0 ms and about 5 ms. Percentiles of those intervals, the 1% low included, describe that latching. The average counts frames shown per second and is not affected. GPU time per rendered frame comes from the same Metal trace. A game that renders several frames for each frame it shows has all of their GPU time added to the next shown frame, so each shown interval's GPU time is split by its command buffers, one per rendered frame, and reported as the median and the 90th percentile over rendered frames. Capped and device charts keep the 1% low and add the share of frames that arrive on time. The spreadsheet keeps every column.</p>
@@ -259,113 +237,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
  {
   "slug": "iphone-ipad",
   "heading": "iPhone and iPad",
-  "paragraph": "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported.",
-  "empty": "No iPhone and iPad GPU times are reported yet.",
-  "box": "M1 iPad Pro",
-  "series_labels": [
-   "Median GPU time (p50)",
-   "90th-percentile GPU time (p90)"
-  ],
-  "chart": {
-   "type": "bar",
-   "horizontal": true,
-   "title_unit": "GPU time per frame (ms)",
-   "x_label": "Port and version",
-   "y_label": "Milliseconds per frame",
-   "y_min": 0,
-   "palette": [
-    "#1593bd",
-    "#c8870a"
-   ],
-   "marks": [
-    "🟦",
-    "🟨"
-   ],
-   "header": "---\nconfig:\n  xyChart:\n    width: 860\n    height: 420\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
-  },
-  "query": {
-   "platform": "iPhone/iPad",
-   "metrics": [
-    "gpu_p50_ms",
-    "gpu_p90_ms"
-   ],
-   "budget": true,
-   "windows": [
-    "a10",
-    "b30"
-   ],
-   "port_order": [
-    "visr",
-    "opence-macos",
-    "opence-web",
-    "corece",
-    "chupathingy",
-    "halo-og"
-   ],
-   "no_data_reason": "GPU time per frame not reported",
-   "filter": {
-    "frame_mode": "capped",
-    "quality_preset": "defaults",
-    "status": "ok"
-   }
-  }
- },
- {
-  "slug": "iphone-ipad-cpu",
-  "heading": "iPhone and iPad: CPU time",
-  "paragraph": "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report CPU time are listed as not reported.",
-  "empty": "No iPhone and iPad CPU times are reported yet.",
-  "box": "M1 iPad Pro",
-  "series_labels": [
-   "Median CPU time per frame"
-  ],
-  "chart": {
-   "type": "bar",
-   "horizontal": true,
-   "title_unit": "CPU time per frame (ms)",
-   "x_label": "Port and version",
-   "y_label": "Milliseconds per frame",
-   "y_min": 0,
-   "palette": [
-    "#1593bd",
-    "#c8870a"
-   ],
-   "marks": [
-    "🟦",
-    "🟨"
-   ],
-   "header": "---\nconfig:\n  xyChart:\n    width: 860\n    height: 420\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
-  },
-  "query": {
-   "platform": "iPhone/iPad",
-   "metrics": [
-    "cpu_p50_ms"
-   ],
-   "budget": true,
-   "windows": [
-    "a10",
-    "b30"
-   ],
-   "port_order": [
-    "visr",
-    "opence-macos",
-    "opence-web",
-    "corece",
-    "chupathingy",
-    "halo-og"
-   ],
-   "no_data_reason": "CPU time per frame not reported",
-   "filter": {
-    "frame_mode": "capped",
-    "quality_preset": "defaults",
-    "status": "ok"
-   }
-  }
- },
- {
-  "slug": "iphone-ipad-fps",
-  "heading": "iPhone and iPad: frame rate",
-  "paragraph": "Measured on an M1 iPad Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.",
+  "paragraph": "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval. GPU and CPU time per frame are not reported for iPhone and iPad builds yet.",
   "empty": "No iPhone or iPad results yet.",
   "box": "M1 iPad Pro",
   "series_labels": [
@@ -473,6 +345,66 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
  {
   "slug": "vision-pro",
   "heading": "Vision Pro",
+  "paragraph": "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.",
+  "empty": "No Vision Pro results yet.",
+  "box": "M2 Vision Pro",
+  "series_labels": [
+   "Average fps",
+   "1% low fps"
+  ],
+  "chart": {
+   "type": "bar",
+   "horizontal": true,
+   "title_unit": "fps at display rate",
+   "x_label": "Port and version",
+   "y_label": "Frames per second",
+   "y_min": 0,
+   "palette": [
+    "#1593bd",
+    "#c8870a"
+   ],
+   "marks": [
+    "🟦",
+    "🟨"
+   ],
+   "header": "---\nconfig:\n  xyChart:\n    width: 520\n    height: 263\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
+  },
+  "query": {
+   "platform": "Vision Pro",
+   "metrics": [
+    "fps_avg",
+    "fps_1pct_low"
+   ],
+   "details": [
+    "p95_ms",
+    "on_time_pct"
+   ],
+   "port_order": [
+    "visr",
+    "opence-macos",
+    "opence-web",
+    "corece",
+    "chupathingy",
+    "halo-og"
+   ],
+   "no_data_reason": "no measurement at the display rate",
+   "build_notes": {
+    "visr": "Replays a recorded route.",
+    "master-chef": "Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times."
+   },
+   "filter": {
+    "frame_mode": [
+     "capped",
+     "display"
+    ],
+    "quality_preset": "defaults",
+    "status": "ok"
+   }
+  }
+ },
+ {
+  "slug": "vision-pro-gpu",
+  "heading": "Vision Pro: GPU time",
   "paragraph": "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported.",
   "empty": "No Vision Pro GPU times are reported yet.",
   "box": "M2 Vision Pro",
@@ -568,66 +500,6 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
     "halo-og"
    ],
    "no_data_reason": "CPU time per frame not reported",
-   "build_notes": {
-    "visr": "Replays a recorded route.",
-    "master-chef": "Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times."
-   },
-   "filter": {
-    "frame_mode": [
-     "capped",
-     "display"
-    ],
-    "quality_preset": "defaults",
-    "status": "ok"
-   }
-  }
- },
- {
-  "slug": "vision-pro-fps",
-  "heading": "Vision Pro: frame rate",
-  "paragraph": "Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.",
-  "empty": "No Vision Pro results yet.",
-  "box": "M2 Vision Pro",
-  "series_labels": [
-   "Average fps",
-   "1% low fps"
-  ],
-  "chart": {
-   "type": "bar",
-   "horizontal": true,
-   "title_unit": "fps at display rate",
-   "x_label": "Port and version",
-   "y_label": "Frames per second",
-   "y_min": 0,
-   "palette": [
-    "#1593bd",
-    "#c8870a"
-   ],
-   "marks": [
-    "🟦",
-    "🟨"
-   ],
-   "header": "---\nconfig:\n  xyChart:\n    width: 520\n    height: 263\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
-  },
-  "query": {
-   "platform": "Vision Pro",
-   "metrics": [
-    "fps_avg",
-    "fps_1pct_low"
-   ],
-   "details": [
-    "p95_ms",
-    "on_time_pct"
-   ],
-   "port_order": [
-    "visr",
-    "opence-macos",
-    "opence-web",
-    "corece",
-    "chupathingy",
-    "halo-og"
-   ],
-   "no_data_reason": "no measurement at the display rate",
    "build_notes": {
     "visr": "Replays a recorded route.",
     "master-chef": "Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times."

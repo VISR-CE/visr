@@ -36,26 +36,34 @@ def load_snapshot(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _reports(spec: dict, rows: list[dict]) -> bool:
-    """Whether any reference-box row the spec's filter matches has a value for its first metric."""
+def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
+    """(ports, builds) with a value for the spec's first metric among the reference-box rows its filter matches."""
     query = spec["query"]
-    return any(row["platform"] == query["platform"] and row["reference_box"].lower() == "true"
-               and _matches(row, query["filter"]) and row.get(query["metrics"][0], "") != "" for row in rows)
+    found = [row for row in rows if row["platform"] == query["platform"] and row["reference_box"].lower() == "true"
+             and _matches(row, query["filter"]) and row.get(query["metrics"][0], "") != ""]
+    return len({row["port"] for row in found}), len({(row["port"], row["version"], row["build"]) for row in found})
 
 
 def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
-    """The specs worth drawing for these rows. A spec marked `needs_data` (the frame-cost charts) is dropped where no
-    build reports its metric. A platform left without a `frame_cost` chart promotes its frame-rate chart (`primary_*`
-    keys) to the platform's main chart and says that frame cost is not reported there yet."""
-    kept = [spec for spec in specs if not spec.get("needs_data") or _reports(spec, rows)]
-    cost = {spec["query"]["platform"] for spec in kept if spec.get("frame_cost")}
+    """The specs worth drawing for these rows. A spec marked `needs_data` (the frame-cost charts) is drawn only when
+    at least two builds report its metric, since a chart of one build compares nothing. A platform leads with its
+    `frame_cost` chart only when at least two ports report it; otherwise the frame-rate chart (`primary_*` keys) leads and
+    a frame-cost chart that is drawn follows it as a sub-section (`sub_heading`, `sub_order`)."""
+    counts = {spec["name"]: _reporters(spec, rows) for spec in specs if spec.get("needs_data")}
+    kept = [spec for spec in specs if not spec.get("needs_data") or counts[spec["name"]][1] >= 2]
+    leads = {spec["query"]["platform"] for spec in kept if spec.get("frame_cost") and counts[spec["name"]][0] >= 2}
     result = []
     for spec in kept:
-        if spec.get("primary_heading") and spec["query"]["platform"] not in cost:
+        platform = spec["query"]["platform"]
+        if spec.get("primary_heading") and platform not in leads:
             spec = {**spec, "sub": False, "order": spec["primary_order"], "heading": spec["primary_heading"],
                     "name": re.sub(r"-fps$", "", spec["name"]),
-                    "paragraph": spec["primary_paragraph"].strip() + " GPU and CPU time per frame are not reported for "
-                                 + spec["primary_heading"] + " builds yet."}
+                    "paragraph": spec["primary_paragraph"].strip()
+                                 + ("" if any(s.get("needs_data") and s["query"]["platform"] == platform for s in kept)
+                                    else " GPU and CPU time per frame are not reported for " + spec["primary_heading"] + " builds yet.")}
+        elif spec.get("needs_data") and platform not in leads:
+            spec = {**spec, "sub": True, "order": spec["sub_order"], "heading": spec.get("sub_heading", spec["heading"]),
+                    "name": spec["name"] if spec["name"].endswith("-cpu") else spec["name"] + "-gpu"}
         result.append(spec)
     return sorted(result, key=lambda spec: (spec.get("order", 1000), spec["name"]))
 

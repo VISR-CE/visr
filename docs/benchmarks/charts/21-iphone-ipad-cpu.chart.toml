@@ -1,5 +1,6 @@
 order = 21
 sub = true
+sub_order = 26
 heading = "iPhone and iPad: CPU time"
 paragraph = "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report CPU time are listed as not reported."
 empty = "No iPhone and iPad CPU times are reported yet."

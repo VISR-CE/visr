@@ -1,5 +1,6 @@
 order = 31
 sub = true
+sub_order = 36
 heading = "Apple TV: CPU time"
 paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the profile's frame cap. Lower is better. Builds that do not report CPU time are listed as not reported."
 empty = "No Apple TV CPU times are reported yet."

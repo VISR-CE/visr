@@ -1,5 +1,7 @@
 order = 20
 heading = "iPhone and iPad"
+sub_heading = "iPhone and iPad: GPU time"
+sub_order = 25
 paragraph = "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported."
 empty = "No iPhone and iPad GPU times are reported yet."
 box = "M1 iPad Pro"

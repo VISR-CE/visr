@@ -1,5 +1,6 @@
 order = 41
 sub = true
+sub_order = 46
 heading = "Vision Pro: CPU time"
 paragraph = "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report CPU time are listed as not reported."
 empty = "No Vision Pro CPU times are reported yet."

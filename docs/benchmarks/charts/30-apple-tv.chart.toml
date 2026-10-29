@@ -1,5 +1,7 @@
 order = 30
 heading = "Apple TV"
+sub_heading = "Apple TV: GPU time"
+sub_order = 35
 paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the profile's frame cap. Lower is better. Builds that do not report GPU time are listed as not reported."
 empty = "No Apple TV GPU times are reported yet."
 box = "Apple TV HD"

@@ -1,5 +1,7 @@
 order = 40
 heading = "Vision Pro"
+sub_heading = "Vision Pro: GPU time"
+sub_order = 45
 paragraph = "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported."
 empty = "No Vision Pro GPU times are reported yet."
 box = "M2 Vision Pro"
