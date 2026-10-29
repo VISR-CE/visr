@@ -100,6 +100,8 @@ TEXTS = {
     MENU + "solo_level_select\\header_load_level": ["LOAD LEVEL"],
     # (in every map: the multiplayer maps show it after a game)
     "ui\\shell\\bitmaps\\postgame_carnage_report": ["POSTGAME CARNAGE REPORT"],
+    # (the name-entry screen's whole backdrop, ENTER NAME and the keyboard's panels and legend in one picture)
+    "ui\\bkd_virtual_keyboard": ["ENTER NAME"],
 }
 
 # where the text is, in the pictures that hold more than their title (texels:
@@ -108,6 +110,8 @@ TEXTS = {
 TEXT_BOXES = {
     # (the report's panel, its border line at row 68 under the title)
     "ui\\shell\\bitmaps\\postgame_carnage_report": (58, 36, 556, 67),
+    # (the title over its glow, above the panel's top line at row 70)
+    "ui\\bkd_virtual_keyboard": (50, 30, 300, 69),
 }
 
 # the pictures whose rest is drawn from a hand-made SVG redraw of it (in
@@ -115,6 +119,8 @@ TEXT_BOXES = {
 # picture: sharper, and the project's own drawing
 BACKGROUNDS = {
     "ui\\shell\\bitmaps\\postgame_carnage_report": "postgame_carnage_report.svg",
+    # (the whole picture but its title: panels, lines and legend, drawn as vectors)
+    "ui\\bkd_virtual_keyboard": "bkd_virtual_keyboard.svg",
 }
 
 
@@ -564,14 +570,22 @@ def build_title(bitmap: dict, text: str, scale: int, layout=None, region=None, s
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--map", required=True)
+    parser.add_argument("--only", help="make just this tag's titles, keeping the others as they are")
     arguments = parser.parse_args()
     xbox_map = XboxMap(Path(arguments.map))
     TITLES.mkdir(parents=True, exist_ok=True)
-    for stale in TITLES.glob("*.png"):
-        stale.unlink()
     entries = []
+    kept = []
+    if arguments.only:
+        kept = [entry for entry in json.loads((TITLES / "titles.json").read_text())["assets"]
+                if entry["tag"] != arguments.only]
+    else:
+        for stale in TITLES.glob("*.png"):
+            stale.unlink()
     layouts = {}
     for tag, texts in TEXTS.items():
+        if arguments.only and tag != arguments.only:
+            continue
         group = xbox_map.bitmap_group(tag)
         for index, (bitmap, text) in enumerate(zip(group["bitmaps"], texts)):
             width, height = bitmap["width"], bitmap["height"]
@@ -604,7 +618,7 @@ def main() -> None:
             moved = np.abs(layout.corrections())
             print(f"{name}: '{text}' {width}x{height} at {scale}x, covers {layout.overlap():.3f}; "
                   f"letters moved {moved.mean():.2f} texels on average, {moved.max():.2f} at most")
-    (TITLES / "titles.json").write_text(json.dumps({"font": FONT.name, "assets": entries}, indent=1) + "\n")
+    (TITLES / "titles.json").write_text(json.dumps({"font": FONT.name, "assets": kept + entries}, indent=1) + "\n")
 
 
 if __name__ == "__main__":

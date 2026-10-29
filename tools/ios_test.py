@@ -3,6 +3,7 @@
 import os
 import re
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
@@ -13,6 +14,14 @@ BUILD.mkdir(parents=True, exist_ok=True)
 
 def run(*args):
     subprocess.run([str(a) for a in args], cwd=ROOT, check=True)
+
+# Menu fallbacks are asset-free; map paths are also checked where the maps live.
+xbox_menus = ROOT / 'port/assets/menus/xbox'
+if xbox_menus.is_dir():
+    menu_check = ['python3', 'tools/ui_map_tags.py', '--check-menus', xbox_menus]
+    if os.environ.get('HALO_MAPS'):
+        menu_check.append(Path(os.environ['HALO_MAPS']) / 'ui.map')
+    run(*menu_check)
 
 # Touch button labels must reach their default game actions.
 run('python3', 'tools/test_touch_mapping.py')
@@ -201,25 +210,25 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror',
     'port/ios/tests/recording_pack_probe.c', 'port/ios/host/host_recording_pack.c',
     'port/runtime/benchmark_plan.c', '-o', BUILD / 'recording-pack-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/runtime/include',
-    '-framework', 'Foundation', '-lz', 'port/ios/tests/data_pack_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/data_pack_probe.m', 'port/ios/host/host_data_pack.m',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'data-pack-probe')
 run(BUILD / 'data-pack-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Wl,-dead_strip',
     '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', '-framework', 'Foundation',
-    '-lz', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
+    '-lz', '-lcompression', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'data-pack-launch-probe')
 run(BUILD / 'data-pack-launch-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Wl,-dead_strip',
     '-DHALO_NATIVE_MAC=1', '-Iport/ios/host', '-Iport/linux/src', '-Iport/runtime/include', '-framework', 'Foundation',
-    '-lz', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
+    '-lz', '-lcompression', 'port/ios/tests/data_pack_launch_probe.m', 'port/ios/host/host_data_pack.m',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'data-pack-launch-mac-probe')
 run(BUILD / 'data-pack-launch-mac-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
-    '-framework', 'Network', '-lz', 'port/ios/tests/data_updates_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/data_updates_probe.m', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
@@ -238,31 +247,75 @@ latest_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(
 run(BUILD / 'data-updates-probe', latest_key, BUILD / 'latest-record.json')
 # 0.6.0 profiles keep every bundled key (the iPhone 17 Pro's player capacity, the Apple TV 4K (3rd generation)'s
 # upscaled textures): with 0.5.1's live device-profiles-1 shard still cached, with a
-# device-profiles-2 shard signed here by the publisher, and once an update makes a cached shard older
+# device-profiles-3 shard signed here by the publisher, and once an update makes a cached shard older
 seed = BUILD / 'profile-feed-probe-seed'
 seed.write_bytes(bytes(range(32))); seed.chmod(0o600)
 for name, target in (('iphone', 'ios/iPhone18,1/_'), ('apple-tv', 'tvos/AppleTV14,1/_')):
     run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester', '--sequence', '1',
-        '--compatibility', 'device-profiles-2:' + target, '--input', 'profiles', '--signing-key', seed,
+        '--compatibility', 'device-profiles-3:' + target, '--input', 'profiles', '--signing-key', seed,
         '--output', BUILD / f'profile-feed-probe-{name}.json')
 probe_key = subprocess.run([str(BUILD / 'data-pack-sign'), '--public-key', str(seed)], check=True,
                            capture_output=True, text=True, cwd=ROOT).stdout.strip()
+# and an Apple TV shard, one revision on, that turns upscaled textures off: the upscaling gate before the launch menu
+# must read it in the launch that uses it
+upscale_off = BUILD / 'profile-feed-probe-upscale-off'
+shutil.rmtree(upscale_off, ignore_errors=True)
+shutil.copytree(ROOT / 'profiles', upscale_off)
+apple_tv = upscale_off / 'apple-tv-4k-3rd.toml'
+apple_tv.write_text(apple_tv.read_text().replace('[display]\nupscaled_textures = true\n', '[display]\nupscaled_textures = false\n', 1))
+run('python3', 'tools/profile_revision.py', '--bump', '--profiles', upscale_off)
+run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester', '--sequence', '2',
+    '--compatibility', 'device-profiles-3:tvos/AppleTV14,1/_', '--input', upscale_off, '--signing-key', seed,
+    '--output', BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
-    '-framework', 'Network', '-lz', 'port/ios/tests/profile_feed_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/profile_feed_probe.m', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'profile-feed-probe')
 run(BUILD / 'profile-feed-probe', ROOT,
     re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
-    probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json')
+    probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json',
+    BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
-    '-Iport/runtime/include', '-framework', 'Foundation', '-lz', 'port/ios/tests/shader_download_probe.m',
+    '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/shader_download_probe.m',
     'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
     'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
     '-o', BUILD / 'shader-download-probe')
 run(BUILD / 'shader-download-probe')
+# benchmark-catalog-2: the publisher's xz archive decodes with Apple's COMPRESSION_LZMA, and the store enforces its bounds
+recording_archive = BUILD / 'recording-archive-probe.xz'
+run('python3', '-c', (
+    'import sys; sys.path.insert(0, "tools"); import data_pack; '
+    'files = {"a.input": b"input bytes\\nline two\\n", "a.actions": b"actions\\n", "a.seeds": b"1 2 3\\n", "a.route": b"scene = a10\\n"}; '
+    'open(sys.argv[1], "wb").write(data_pack.compress_recording_archive(data_pack.recording_archive(files))[0])'), recording_archive)
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
+    '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression', 'port/ios/tests/recording_download_probe.m',
+    'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
+    '-o', BUILD / 'recording-download-probe')
+run(BUILD / 'recording-download-probe', recording_archive)
+# the published catalog-2 feed expands, through the real store and catalog loader, to the catalog-1 files byte for byte
+published = ROOT / 'docs/site/packs/tester'
+published_feed = published / 'recordings-2-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'
+published_originals = BUILD / 'recording-catalog-originals'
+shutil.rmtree(published_originals, ignore_errors=True)
+run('python3', '-I', '-c', (
+    'import base64, json, pathlib, sys; out = pathlib.Path(sys.argv[2]); out.mkdir(parents=True); '
+    'files = json.loads(base64.b64decode(json.load(open(sys.argv[1]))["payload"]))["files"]; '
+    '[(out / name).write_bytes(base64.b64decode(value)) for name, value in files.items()]'),
+    published / 'recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json', published_originals)
+published_blob = next((published / 'recording-blobs').glob('*.xz'))
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks',
+    '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation', '-lz', '-lcompression',
+    'port/ios/tests/recording_catalog_probe.m', 'port/ios/host/host_data_pack.m', 'port/ios/host/host_shader_pack.c',
+    'port/ios/host/host_benchmark_catalog.m', 'port/ios/host/host_recording_pack.c', 'port/runtime/benchmark_plan.c',
+    'port/third_party/monocypher/monocypher.c', 'port/third_party/monocypher/monocypher-ed25519.c',
+    '-o', BUILD / 'recording-catalog-probe')
+run(BUILD / 'recording-catalog-probe', published_feed, published_blob, published_originals,
+    re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
+    'c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89', 20)
 # a benchmark session keeps the recordings it started with, byte for byte, across an update and a relaunch
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblocks', '-Iport/ios/host',
     '-framework', 'Foundation', 'port/ios/tests/benchmark_snapshot_probe.m', 'port/ios/host/host_benchmark_snapshot.m',
@@ -693,6 +746,14 @@ run(BUILD/'loading-picture-upscaled-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_schedule_probe.c', '-o', BUILD/'texture-upscale-schedule-probe')
 run(BUILD/'texture-upscale-schedule-probe')
+# the Mac apps quit on SIGTERM, SIGINT and SIGHUP (port/ios/host/host_quit_signals.c)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host', 'port/ios/tests/quit_signals_probe.c',
+    'port/ios/host/host_quit_signals.c', '-o', BUILD/'quit-signals-probe')
+run(BUILD/'quit-signals-probe')
+# the import phase's bar and its "ready to start" mark (port/runtime/texture_upscale_import_bar.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
+    'port/ios/tests/texture_upscale_import_bar_probe.c', '-o', BUILD/'texture-upscale-import-bar-probe')
+run(BUILD/'texture-upscale-import-bar-probe')
 # the import phase's continued processing (port/runtime/texture_upscale_continued.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/runtime',
     'port/ios/tests/texture_upscale_continued_probe.c', '-o', BUILD/'texture-upscale-continued-probe')
@@ -749,6 +810,10 @@ for path, name, calls in (
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/foveation_scale_probe.c', '-o', BUILD/'foveation-scale-probe')
 run(BUILD/'foveation-scale-probe')
+# Enter VR on Apple Vision Pro: the stereo mode it gives, and the controller's chord
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src', '-Iport/ios/host',
+    'port/ios/tests/stereo_entry_probe.c', '-o', BUILD/'stereo-entry-probe')
+run(BUILD/'stereo-entry-probe')
 # head-tracked stereo's look: the world holds still in the room while the head pans, and
 # the right stick's turn (the probe includes port/linux/game/stereo.c)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-DHALO_IOS=1', '-Iport/linux/src', '-Iport/ios/host',
@@ -900,33 +965,33 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/interface_rank_probe.c', f'--output={BUILD / "interface-rank-probe"}')
 run(BUILD/'interface-rank-probe')
 
-# The menus' platform attribute: "quit" is for the desktop ports and the Mac app (the host sets HALO_APP_CAN_QUIT), not
-# for an iPhone, an iPad, an Apple TV or a Vision Pro (menu_platform.h)
+# Host-specific menu capabilities; the retired quit platform is rejected.
 for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform-apple', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], False),
                            ('menu-platform-mac', ['-DHALO_ILP32=1', '-DHALO_IOS=1'], True), ('menu-platform-android', ['-DHALO_ANDROID=1'], False)):
     run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', *defines, 'port/ios/tests/menu_platform_probe.c', '-o', BUILD / name)
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
         subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
-                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud,
-                            **({'HALO_APP_CAN_QUIT': '1'} if mac else {})})
-# ... and the main menu uses it: Quit's item and the B and Back handlers that open its question are the only elements
-# for platform "quit", every other item stays, and the items run one row apart from the first, so the menu has no
-# gap where Quit was and the list's wrap is its own over the items left (the pause menu's quit to main menu is another
-# screen and not in this file)
+                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud,
+                            'HALO_HOST_KEYBOARD': '1' if mac else '0'})
+# Every platform keeps four evenly spaced rows and inert root cancel handlers.
 main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()
-quit_elements = [element.attrib for element in main_menu.iter() if element.get('platform') == 'quit']
-assert sorted(element.get('event') or element.get('widget') for element in main_menu.iter()
-              if element.get('platform') == 'quit') == ['b', 'back', 'main_menu/main_menu_item_quit_game'], quit_elements
-# (the Quit item's own handlers stay: with the item not a child of the list they are never reached)
-assert all(on.get('platform') == 'quit' for on in main_menu.find("widget[@name='main_menu/main_menu']").iter('on')
-           if 'quit_select' in (on.get('open') or '')), 'a way to the quit question is left on Apple devices'
-shown = [child for child in main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child')
-         if child.get('platform') != 'quit']
+assert not any('quit_select' in element.get('open', '') for element in main_menu.iter())
+assert not any(element.get('platform') == 'quit' for element in main_menu.iter())
+for look in ('ce', 'xbox'):
+    dialog = ElementTree.parse(ROOT / f'port/assets/menus/{look}/main_menu.quit_select.xml')
+    assert any(w.get('name', '').endswith('/quit_screen') for w in dialog.iter('widget'))
+shown = list(main_menu.find("widget[@name='main_menu/main_menu_select_list']").iter('child'))
 assert [int(child.get('y')) for child in shown] == [247 + 36 * row for row in range(len(shown))] and len(shown) == 4, \
     'the main menu without Quit: four items, a row apart'
 print('main menu without Quit: ' + ', '.join(child.get('widget').split('/')[-1] for child in shown))
 run('python3', 'tools/test_menu_cancel.py')
+run('python3', 'tools/test_menu_visibility.py')
+# the Xbox look's patch table: rows added, taken out and replaced in the map's lists, their places, descriptions and
+# tags, and patches that do not fit or resolve left unmade (menu_tags.c, port/ios/tests/menu_patch_probe.c)
+run('python3', 'tools/test_menu_patches.py')
+# the decode behind the menus' picture cache: swizzled, linear and DXT textures read back as RGBA (xbox_textures.c)
+run('python3', 'tools/test_menu_art_decode.py')
 
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')

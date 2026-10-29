@@ -3,6 +3,7 @@
 from email.message import Message
 import hashlib
 import json
+import subprocess
 
 import pytest
 
@@ -17,6 +18,7 @@ RECORDING = "docs/site/packs/tester/recordings.json"
 def test_only_signed_asset_paths_are_admitted():
     assert overlay.allowed_asset(PROFILE) == ("profile", "ios/iPhone18,1/_")
     assert overlay.allowed_asset(PROFILE_2) == ("profile", "ios/iPhone18,1/_")
+    assert overlay.allowed_asset(PROFILE_2.replace("/device-profiles-2/", "/device-profiles-3/")) == ("profile", "ios/iPhone18,1/_")
     assert overlay.allowed_asset(SHADER) == ("shader", None)
     assert overlay.allowed_asset(RECORDING) == ("recording", None)
     for path in [
@@ -25,7 +27,7 @@ def test_only_signed_asset_paths_are_admitted():
         "docs/site/packs/stable/shaders.json",
         PROFILE.replace("iPhone18,1", ".."),
         PROFILE.replace("/_", "/Apple-M4"),
-        PROFILE.replace("/profiles/", "/device-profiles-3/"),
+        PROFILE.replace("/profiles/", "/device-profiles-4/"),
         PROFILE.replace("/profiles/", "/shader-maps/"),
     ]:
         with pytest.raises(ValueError):
@@ -384,3 +386,74 @@ def test_a_lower_profile_revision_cannot_replace_a_published_shard(monkeypatch):
     with pytest.raises(ValueError, match="revision"):
         overlay.advance(PROFILE_2, b"new", b"rollback")
     overlay.advance(PROFILE_2, b"new", b"next")
+
+
+def test_a_retired_recording_feed_leaves_the_site_but_other_live_feeds_stay(tmp_path, monkeypatch):
+    (tmp_path / "docs/site").mkdir(parents=True)
+    retired = sorted(overlay.RETIRED_FEEDS)[0]
+    other = "docs/site/packs/tester/recordings-" + "9" * 64 + ".json"
+    live = {
+        RECORDING: envelope("benchmark-catalog-1:" + "a" * 64, 1, "r"),
+        retired: envelope("benchmark-catalog-1:" + "b" * 64, 1, "old"),
+        other: envelope("benchmark-catalog-1:" + "9" * 64, 1, "kept"),
+    }
+    monkeypatch.setattr(overlay, "ROOT", tmp_path)
+    monkeypatch.setattr(overlay, "trusted_source", lambda: "a" * 40)
+    monkeypatch.setattr(overlay, "verify_asset", lambda path, data: json.loads(data))
+    monkeypatch.setattr(overlay, "source_assets", lambda: {RECORDING: live[RECORDING]})
+    monkeypatch.setattr(overlay, "live_assets", lambda: dict(live))
+    result = overlay.stage_site(destination=tmp_path / "stage")
+    assert not (result / retired.removeprefix("docs/site/")).exists()
+    assert (result / other.removeprefix("docs/site/")).read_bytes() == live[other]
+    receipt = json.loads((result / "packs/tester/publication.json").read_bytes())
+    assert retired not in receipt["assets"] and other in receipt["assets"]
+
+def test_generation_two_profile_shards_leave_the_site_and_generation_one_stays(tmp_path, monkeypatch):
+    (tmp_path / "docs/site").mkdir(parents=True)
+    shard = "docs/site/packs/tester/device-profiles-2/ios/iPad16,3/_.json"
+    frozen = "docs/site/packs/tester/profiles/ios/iPad13,4/_.json"
+    live = {
+        RECORDING: envelope("benchmark-catalog-1:" + "a" * 64, 1, "r"),
+        shard: envelope("device-profiles-2:ios/iPad16,3/_", 1793231748, "quarantined by 0.6.3"),
+        frozen: envelope("device-profiles-1:ios/iPad13,4/_", 1, "kept"),
+    }
+    monkeypatch.setattr(overlay, "ROOT", tmp_path)
+    monkeypatch.setattr(overlay, "trusted_source", lambda: "a" * 40)
+    monkeypatch.setattr(overlay, "verify_asset", lambda path, data: json.loads(data))
+    monkeypatch.setattr(overlay, "source_assets", lambda: {RECORDING: live[RECORDING]})
+    monkeypatch.setattr(overlay, "live_assets", lambda: dict(live))
+    result = overlay.stage_site(destination=tmp_path / "stage")
+    assert not (result / shard.removeprefix("docs/site/")).exists()
+    assert (result / frozen.removeprefix("docs/site/")).read_bytes() == live[frozen]
+    assert (result / RECORDING.removeprefix("docs/site/")).read_bytes() == live[RECORDING]
+    receipt = json.loads((result / "packs/tester/publication.json").read_bytes())
+    assert shard not in receipt["assets"] and frozen in receipt["assets"]
+
+def test_a_catalog_two_feed_publishes_with_exactly_the_archive_it_names(tmp_path, monkeypatch):
+    import data_pack
+    import test_data_pack
+    guest = "a" * 64
+    arguments = test_data_pack.catalog_two_arguments(tmp_path)
+    arguments[arguments.index("--compatibility") + 1] = "benchmark-catalog-2:" + guest
+    data_pack.main(arguments)
+    public = subprocess.check_output([str(data_pack.sign_helper()), "--public-key", str(tmp_path / "seed")]).decode().strip()
+    monkeypatch.setattr(overlay.validation, "DATA_PACK_PUBLIC_KEY", public)
+    feed = (tmp_path / "recordings-x.json").read_bytes()
+    path = "docs/site/packs/tester/recordings-2-" + guest + ".json"
+    [blob_file] = (tmp_path / "recording-blobs").iterdir()
+    blob = blob_file.read_bytes()
+    blob_path = "docs/site/packs/tester/recording-blobs/" + blob_file.name
+    assert overlay.allowed_asset(blob_path) == ("recording-blob", None)
+    overlay.verify_recording_bundle({path: feed, blob_path: blob})
+    overlay.verify_recording_bundle({})
+    with pytest.raises(ValueError, match="signed format"):
+        overlay.verify_asset("docs/site/packs/tester/recordings-" + guest + ".json", feed)
+    with pytest.raises(ValueError, match="missing"):
+        overlay.verify_recording_bundle({path: feed})
+    with pytest.raises(ValueError, match="differ from the signed indexes"):
+        overlay.verify_recording_bundle({blob_path: blob})
+    with pytest.raises(ValueError, match="content hash"):
+        overlay.verify_asset(blob_path.replace(blob_file.stem, "0" * 64), blob)
+    damaged = blob[:-1] + bytes([blob[-1] ^ 1])
+    with pytest.raises(ValueError):
+        overlay.verify_recording_bundle({path: feed, blob_path: damaged})

@@ -1,7 +1,9 @@
 # Menus
 
-The game's menus are the PC version's (Halo Custom Edition's): its main menu
-and every screen it leads to. They are XML files in this folder, which the
+The menus follow the last input device when a screen opens: the PC look for
+keyboard and mouse, the Xbox look for a controller or touch. Apple TV and
+Vision Pro always use the Xbox look. `display.menus = "auto"` is the default;
+`"pc"` and `"xbox"` keep a fixed look. They are XML files in this folder, which the
 game builds into its own widget tags when the menus' map (`ui.map`) loads
 (`port/linux/game/menu_tags.c`). They then work like the Xbox's menus: with a
 controller, the keyboard and the mouse, on every port.
@@ -27,8 +29,15 @@ next to `config.toml`. A file with the same path as one here replaces it. On
 the desktop, any other `.xml` file there is added too. A PNG that a `<frame>`
 names is found there first. If any file has a problem, the log names the
 file, the line and the problem, and the game uses the Xbox's menus. The
-setting `display.menus = "xbox"` also uses them. `debug.menu_open` starts on
-one screen (by its name, `main_menu/settings_select/...`), for looking at it.
+files in `ce/` are the set `display.menus = "pc"` uses. Both `ce/` and `xbox/` load together with the Xbox's own widgets from
+`ui.map`. `tools/xbox_menus.py` generates the safe screen pairs in
+`port/linux/include/menu_equivalence.h`. Screens without a counterpart keep
+the current look; the main menu always applies the current input class.
+The CHANGE NAME description checks keyboard attachment again when a screen opens. `debug.menu_open`
+starts on one screen, for looking at it: by its name for ours
+(`main_menu/settings_select/...`), or by its path for one of the map's
+(`ui\shell\main_menu\...`, with its backslashes), with the player's profile
+(or, in `playlist_edit`, the first gametype) being edited.
 
 ## Elements
 
@@ -54,6 +63,14 @@ bitmap of the map: `<frame map="ui\shell\...\profile_options" index="1"/>`. (Or
 its bitmap from the top left, one unit to a texel, cut to the widget's size.
 A map's frame with a `width` and `height` is drawn scaled to that size
 instead, from `x` and `y` in the widget (0 if not given).
+A frame with a `png` can also name a `cache`: a PNG in the menus folder that
+the game made from the player's own map (never shipped), drawn instead of
+`png` where it is there and can be drawn. `png` is then what is drawn where it
+is not (a transparent picture, `xbox/art/none.png`, leaves the picture out).
+The in-game settings hub's pictures are frames of this kind, one for each row:
+`xbox/art/<row>.png` where a redraw ships, else `cache/xbox/v1/<row>.png`. The generator's `CACHE` constant in
+`tools/xbox_menus.py` sets the version; bump it to refresh saved pictures.
+Unversioned pictures are ignored.
 A list's item shows frame 1 while it has the focus and frame 0 otherwise, if
 the bitmap has exactly two frames; the game's functions choose others.
 
@@ -90,11 +107,12 @@ be a child of many).
 | `text_flags` | `editable`, `password`, `flashing`, `no_focus_test` |
 | `list_flags` | `items_in_code`, `items_from_strings` (a spinner showing its strings), `one_tooltip`, `single_preview` |
 | `strings`, `setting`, `values` | A spinner's values as shown, separated by `\|`; its `config.toml` setting and the values written for each (`port setting load` and `port setting save`) |
+| `visible_rows` | A column list's rows shown at once, 1 to 64 (all by default). The list scrolls in the rest as the focus moves to them. Its rows are the children that take events or hold ones that do and are not lists themselves (a `button_bar` stays where it is). The rows the game's code shows are put in a column from the first row's place, at the pitch between its first two rows (so rows that share a place, one for each mode, leave no gap), and the rows past the window are not drawn. Mouse wheel, d-pad and tabbing scroll it the same way. Lists the game fills in code (`items_in_code`) scroll themselves. |
 | `header_bitmap`, `footer_bitmap`, `header_bounds`, `footer_bounds` | A list's header and footer: a `<bitmap>` and "top left bottom right" |
 | `description` | A column list's extended description: a widget |
 | `controller` | `1` to `4`, or `any` (the default); a `<child>`'s or `child_controller`: the one it is for |
 | `auto_close`, `auto_close_fade` | It closes itself after this many milliseconds, fading for this many |
-| `platform` | `desktop`, `android`, `apple`, `cloud_saves`, `quit` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `quit`: where the app can end itself, the desktop's and the Mac app's, not an iPhone, iPad, Apple TV or Vision Pro; the main menu's Quit has it; `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it). Every element takes this. |
+| `platform` | `desktop`, `android`, `apple`, `cloud_saves` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it; `tvos`: the Apple TV, whose remote has no X or Y; `keyboard`: the desktop, the Mac app, and an iPhone or iPad with a keyboard attached as the game starts). Every element takes this. |
 
 Widget flags: `pass_unhandled_to_focused_child` (an event it does not handle
 goes to its focused child: a screen needs it for its list to get events),
@@ -165,6 +183,34 @@ if_failed="true"/>`: a widget for a `branch` handler. `<replace search="..."
 function="controller"/>`: text replaced in the widget's (the controller's
 number).
 
+### `<patch>`
+
+The Xbox look's files (`xbox/`) change some of `ui.map`'s own lists with
+patches, made as `ui.map` loads (`port/linux/game/menu_tags.c`):
+
+```xml
+<patch list="ui\shell\main_menu\main_menu_select_list" screen="ui\shell\main_menu\main_menu">
+	<row after="ui\shell\main_menu\main_menu_item_settings" model="ui\shell\main_menu\main_menu_item_settings"
+	     name="main_menu_item_custom" text="CUSTOM CAMPAIGN" run="port custom campaign begin"
+	     open="xbox/main_menu/solo_level_select/solo_level_select_screen"/>
+</patch>
+```
+
+| Element | Attributes |
+|---|---|
+| `<patch>` | `list` and `screen`: the map's column list and the screen it is on, by their paths. `footer`: the y the rows stay above (default: the screen's `a_butn`, else 480). |
+| `<row>` | A row added `after` or `before` a row (the map's path, or an earlier row's `name`). `name` (at most 31 characters: the widget's name, which some functions read), `text`, `run` (a function) and/or `open` (a screen: ours by name, the map's by path), `created` (a function run when the row is made). `model`: the map's row it looks like (default: the row it is put by). `bitmap`: a bitmap of ours drawn in the model's place (the main menu's labels are pictures). `description` and `picture` (a frame of the description's own picture by number, or `png:` and a PNG here) for a list with a description; a list whose description has a picture needs one. `pitch`: how far below the row before it (default: as far as that row is below the one before it). |
+| `<row widget=>` | `widget`: one of our widgets (a container with its own children, such as a label and a spinner) put in the list as it is, instead of a copy of a model: with `name`, `after` or `before`, and `pitch`, and no text, function, screen, description or picture. It makes no tags of its own. `help`: for a list whose description is one text that its rows' values' strings follow in turn (Advanced Controls, Item Options), the strings (separated by `\|`) added after the map's own for the row's values, which is right for rows added at the end. |
+| `<remove>` | `child`: the row taken out; `pitch` as for `<row>`. |
+| `<replace>` | `child`: the row replaced by a copy in its place, keeping its description: `name`, `text`, `run`, `open`, `created`, `model` as for `<row>`. |
+
+A row is a copy of its model with only A and Start (and `created`), so it
+runs no handler of the model's. The rows after an added row move down a
+pitch, as do the screen's children below it, above the footer and left of
+the list's right edge. Rows keep the descriptions they had; an added row
+shows its own. A patch that names something the map has not got, or whose
+rows pass the footer, is logged and not made.
+
 ## The art
 
 `tools/ce_menus.py` draws each frame from its redraw in `svg/` (copied from
@@ -174,3 +220,8 @@ map=...>`), else a placeholder, placed where the PC version's picture is in
 its frame (`--pictures`: only where, not the picture, is read);
 `NON_HANDDRAWN.md` lists both. It needs `rsvg-convert`, Pillow, NumPy and
 SciPy.
+
+The main menu has no Quit row in either look. B and Back at the root do
+nothing. The retained confirmation is available only through the debug
+setting `debug.menu_open = "main_menu/quit_select/quit_screen"` for PC, or
+`"xbox/main_menu/quit_select/quit_screen"` for Xbox.

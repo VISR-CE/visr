@@ -8,7 +8,17 @@ typedef BOOL (^HostPackValidator)(NSString *folder, NSError **error);
 
 // Each instance serves one kind/channel and freezes its selected folder for a launch.
 // Use separate roots for different kinds or channels. Pack files contain data only.
+// An instance holds its root's state in memory, so a process must have one instance per root: two would each stage
+// the same download and each read the other's launch trial as a crashed launch. The app gets its stores from
+// sharedStoreWithRoot:, which returns the root's existing instance.
 @interface HostDataPackStore : NSObject
++ (instancetype)sharedStoreWithRoot:(NSString *)root
+                            bundled:(NSString *)bundled
+                               kind:(NSString *)kind
+                            channel:(NSString *)channel
+                          publicKey:(NSData *)key
+                      compatibility:(NSString *)compatibility
+                          validator:(HostPackValidator)validator;
 - (instancetype)initWithRoot:(NSString *)root
                      bundled:(NSString *)bundled
                         kind:(NSString *)kind
@@ -16,6 +26,16 @@ typedef BOOL (^HostPackValidator)(NSString *folder, NSError **error);
                    publicKey:(NSData *)key
                compatibility:(NSString *)compatibility
                    validator:(HostPackValidator)validator;
+// The folder a launch starting now would use, read without opening a store: nothing on disk changes, and an open
+// store's in-memory state is not touched. A trial an earlier process left counts as rolled back. For looks before
+// the launch menu (the upscaling gate); bundled when the root has nothing usable.
++ (NSString *)peekFolderAtRoot:(NSString *)root
+                       bundled:(NSString *)bundled
+                          kind:(NSString *)kind
+                       channel:(NSString *)channel
+                     publicKey:(NSData *)key
+                 compatibility:(NSString *)compatibility
+                     validator:(HostPackValidator)validator;
 - (NSString *)beginLaunch;
 // Menu candidates remain pending until the user starts Play or Benchmark.
 // These methods validate/read disk and must run off the presentation thread.
@@ -26,6 +46,7 @@ typedef BOOL (^HostPackValidator)(NSString *folder, NSError **error);
 - (void)markHealthy;
 - (BOOL)stageEnvelope:(NSData *)data error:(NSError * _Nullable * _Nullable)error;
 - (void)checkForUpdateAtURL:(NSURL *)url;
+// A check asked for while another is in flight joins it: its completion runs when that check ends, with its result.
 - (void)checkForUpdateAtURL:(NSURL *)url completion:(void (^ _Nullable)(BOOL success))completion;
 - (NSDictionary *)metadata;
 // The HTTP status the last feed check's first request was answered with, read in its completion: 0 when no answer

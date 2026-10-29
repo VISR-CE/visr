@@ -27,6 +27,10 @@ typedef void (*texture_upscale_model_observer)(const struct texture_upscale_mode
 
 /* Includes Core ML's current device availability and the compiled resource in the main bundle. */
 int texture_upscale_model_available(void);
+/* Why the model is not available, for the log: "" when it is, else what is missing (the compiled model is not in this
+   build's bundle, which is so for the AppKit Mac app; no Neural Engine Core ML can use; an OS before Core ML's device
+   list). */
+const char *texture_upscale_model_unavailable_reason(void);
 /* At most one live service. Reports unavailable rather than falling back to CPU-only or GPU inference. */
 struct texture_upscale_model *texture_upscale_model_create(char *error, size_t error_size);
 void texture_upscale_model_destroy(struct texture_upscale_model *model);

@@ -194,6 +194,8 @@ index of the one pressed, or -1 */
 int host_sdl_show_message_box(unsigned int flags, const char *title, const char *message, const char *first,
 	const char *second);
 int host_sdl_get_gamepads(unsigned int *ids, int capacity);
+int host_menu_keyboard(void);
+int host_menu_controller(void);
 unsigned int host_sdl_open_gamepad(unsigned int id);
 unsigned int host_sdl_gamepad_from_id(unsigned int id);
 int host_sdl_gamepad_axis(unsigned int gamepad, int axis);
@@ -256,6 +258,10 @@ struct halo_stereo_frame crosses as it is (tools/ios_test.py pins its layout). *
 /* HEAD mode, at the game's frame begin: opens the Compositor's next frame and
 fills the eyes and the head's turn from it; eye_count stays 0 without one */
 void host_stereo_frame(struct halo_stereo_frame *frame);
+/* at the game's frame begin: 1 while the player has entered VR from the
+window (Apple Vision Pro's Enter VR), when display.stereo's "off" becomes
+HEAD mode (halo_stereo_mode_entered); 0 on every other platform */
+int host_stereo_entered(void);
 
 /* Fixed-width spatial samples and feedback cross the host/guest boundary unchanged. */
 void host_spatial_sample(int kind, struct halo_spatial_sample *sample);
@@ -288,10 +294,15 @@ void host_bink_audio_skip(unsigned int position);
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
+/* the app's build description (numeric version for releases), copied into guest memory: the main menu shows it */
+void host_sdl_app_version(char *buffer, unsigned int size);
 
 int host_astc_texture_key(const void *source, unsigned int format, unsigned int width, unsigned int height, unsigned int levels, unsigned int faces, unsigned int source_face_bytes, void *key);
 int host_astc_texture_read(const void *key, void *bytes, unsigned int size);
 unsigned long long host_astc_texture_generation(void);
+/* the upscaler's record for a texture (its level-0 hash and size): level 0 as RGBA8 in rgba, which may be NULL to ask
+   only for its size; returns its width in the high 32 bits and height in the low, 0 for no intact record */
+unsigned long long host_texture_record_rgba(unsigned long long hash, unsigned int width, unsigned int height, void *rgba, unsigned int capacity);
 
 /* Original-texture preparation; paths are copied by the host bridge. */
 void host_astc_map_arrived(const char *path);

@@ -29,6 +29,88 @@ static inline int texture_upscale_import_skippable(int menu_known, unsigned long
 	return menu_known && menu_ready >= menu_total;
 }
 
+/* The import phase's watchdog: Start playing is held back only while the work toward the main menu's textures moves.
+   If no step finishes (the model's load, a map of the catalog, a texture) for TEXTURE_UPSCALE_IMPORT_STALL_SECONDS, it is
+   offered anyway and the work goes on behind the menus: a step that never ends (an iPhone 15 Pro Max on 0.6.3 sat at 0%
+   with nothing counted) must not hold the player on the import screen. The slowest step measured is the catalog, about
+   12 s on an A14 iPad Air. */
+#define TEXTURE_UPSCALE_IMPORT_STALL_SECONDS 60.0
+static inline int texture_upscale_import_offer_skip(int menu_known, unsigned long menu_ready, unsigned long menu_total,
+	double seconds_without_progress)
+{
+	return texture_upscale_import_skippable(menu_known, menu_ready, menu_total) ||
+		seconds_without_progress >= TEXTURE_UPSCALE_IMPORT_STALL_SECONDS;
+}
+
+/* How a pump ends. The refusals are a gate saying no before or during the work: no storage, the player's switch off,
+   critical thermal state, gameplay. A refused pump ends there: it does not run again at once because a scan or a request
+   is pending, since the gate would refuse again. 0.6.3 re-ran a pump refused for storage before it took its pending scan,
+   forever: the import phase never saw it end (36,143 refusals in one log) and never offered Start playing. The scan stays
+   pending for the retry (a timer for storage, the thermal notice, the app's return, the next launch). */
+enum texture_upscale_end
+{
+	TEXTURE_UPSCALE_END_QUEUE_EMPTY,
+	TEXTURE_UPSCALE_END_INTERRUPTED,       /* a new priority, a scan or a map that changed: the pump runs again */
+	TEXTURE_UPSCALE_END_ERROR,             /* a texture failed */
+	TEXTURE_UPSCALE_END_CATALOG,           /* the catalog could not be built */
+	TEXTURE_UPSCALE_END_MANIFEST,          /* the manifest could not be reconciled */
+	TEXTURE_UPSCALE_END_REFUSED_STORAGE,
+	TEXTURE_UPSCALE_END_REFUSED_SWITCH,
+	TEXTURE_UPSCALE_END_REFUSED_THERMAL,
+	TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY,
+	TEXTURE_UPSCALE_END_COUNT
+};
+static inline int texture_upscale_end_refused(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE || end == TEXTURE_UPSCALE_END_REFUSED_SWITCH ||
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL || end == TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY;
+}
+/* for the log and the generator log's "why" */
+static inline const char *texture_upscale_end_name(enum texture_upscale_end end)
+{
+	switch (end)
+	{
+	case TEXTURE_UPSCALE_END_QUEUE_EMPTY: return "queue empty";
+	case TEXTURE_UPSCALE_END_INTERRUPTED: return "interrupted";
+	case TEXTURE_UPSCALE_END_ERROR: return "error";
+	case TEXTURE_UPSCALE_END_CATALOG: return "catalog";
+	case TEXTURE_UPSCALE_END_MANIFEST: return "manifest";
+	case TEXTURE_UPSCALE_END_REFUSED_STORAGE: return "low storage";
+	case TEXTURE_UPSCALE_END_REFUSED_SWITCH: return "the player's switch is off";
+	case TEXTURE_UPSCALE_END_REFUSED_THERMAL: return "critical thermal state";
+	case TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY: return "gameplay";
+	default: return "unknown";
+	}
+}
+static inline int texture_upscale_pump_runs_again(enum texture_upscale_end end, int scan_pending, int pump_requested,
+	int playing, int thermal_ok)
+{
+	return !texture_upscale_end_refused(end) && (scan_pending || pump_requested) && !playing && thermal_ok;
+}
+/* ends tried again on a timer (one at a time); the others wait for a notice, a map load or the app's return */
+static inline int texture_upscale_end_retries_on_timer(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_ERROR || end == TEXTURE_UPSCALE_END_CATALOG || end == TEXTURE_UPSCALE_END_MANIFEST ||
+		end == TEXTURE_UPSCALE_END_REFUSED_STORAGE;
+}
+
+/* What the import screen says when the phase ended because a gate refused the work, with a second, smaller line: NULL
+   for any other end. */
+#define TEXTURE_UPSCALE_IMPORT_NO_STORAGE "Not enough free storage to upscale textures"
+#define TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL "VISR will try again when space is available."
+#define TEXTURE_UPSCALE_IMPORT_TOO_WARM "Device is too warm to upscale textures"
+#define TEXTURE_UPSCALE_IMPORT_TOO_WARM_DETAIL "VISR will try again when it cools down."
+static inline const char *texture_upscale_import_end_message(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE ? TEXTURE_UPSCALE_IMPORT_NO_STORAGE :
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? TEXTURE_UPSCALE_IMPORT_TOO_WARM : NULL;
+}
+static inline const char *texture_upscale_import_end_detail(enum texture_upscale_end end)
+{
+	return end == TEXTURE_UPSCALE_END_REFUSED_STORAGE ? TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL :
+		end == TEXTURE_UPSCALE_END_REFUSED_THERMAL ? TEXTURE_UPSCALE_IMPORT_TOO_WARM_DETAIL : NULL;
+}
+
 /* debug.texture_upscale_generate */
 enum texture_upscale_mode
 {
@@ -119,6 +201,17 @@ enum texture_upscale_level_wait
 	TEXTURE_UPSCALE_LEVEL_WORKING,    /* making them: done of total units (input texels) */
 	TEXTURE_UPSCALE_LEVEL_DONE        /* the worker finished the level, ready or not (an error leaves it original) */
 };
+
+/* The pre-level wait's listing is bounded the same way: while the worker has not listed the level's textures the screen
+   shows nothing to skip, so a worker held by a step that never ends (see TEXTURE_UPSCALE_IMPORT_STALL_SECONDS) would hold
+   the loading screen forever. After this long without a list the level loads, original where its textures are not
+   ready. Listing a level takes well under a second once the catalog is built; the catalog itself about 12 s on an
+   A14 iPad Air. */
+#define TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS 30.0
+static inline enum texture_upscale_level_wait texture_upscale_level_checking(double seconds_waited)
+{
+	return seconds_waited >= TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS ? TEXTURE_UPSCALE_LEVEL_DONE : TEXTURE_UPSCALE_LEVEL_CHECKING;
+}
 
 /* Whether the loading screen shows its "Upscaling textures ..." line and "Press A to Skip": only while the worker is
    making the level's textures. Not while it is still listing them (no 0% for an instant), not when they are all ready

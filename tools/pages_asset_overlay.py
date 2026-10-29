@@ -40,10 +40,35 @@ MARKER_DATA = b"visr-signed-assets-1\n"
 RECORDING = PREFIX + "recordings.json"
 SHADER = PREFIX + "shaders.json"
 LATEST = PREFIX + "latest.json"
+# benchmark-catalog-2 feeds have their own names, so a build that reads recordings-GUEST.json as catalog-1 never meets one,
+# even when two releases share a guest.
+FEED2 = re.compile(re.escape(PREFIX) + r"recordings-2-([0-9a-f]{64})\.json")
 LEGACY_PROFILE_INDEX = PREFIX + "profiles-2.json"
 # Each device-profile generation's shards live in their own directory: profiles/ holds the frozen
 # device-profiles-1 shards that 0.4.2 to 0.5.1 read, device-profiles-N/ the later generations'.
-PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2"}
+PROFILE_DIRECTORIES = {"profiles": "device-profiles-1", "device-profiles-2": "device-profiles-2", "device-profiles-3": "device-profiles-3"}
+# Live feeds that source deletion alone would not remove: stage_site keeps every live asset the source lacks,
+# so a retired recording feed is named here. They served only releases before 0.6.0.
+RETIRED_FEEDS = frozenset(
+    PREFIX + "recordings-" + guest + ".json"
+    for guest in (
+        "28e06eaaa33443bbcce7ad8b4415d73bf3d21ab2d00a5846d8b85ec3b183f995",
+        "d57c1206e07347c174974dac9e6bdfd2df6bea9194a991198e12048b4f239b92",
+        "a949cfcc94abf93df5bd091bd9d27a6933dbc688b81f52c3ea863fa720ff99eb",
+        "6c831c00ef902ff90589f77cd834291dfde17dcec189cd3bdff22fd168f3334e",
+        "4d6924ec86afba868b1fd994bcc323d441b18991ef5367cebca18a6b5cb97d2d",
+    )
+)
+# 0.6.3's launch menu quarantines every new device-profiles-2 shard sequence (two data-pack stores share one
+# cache root) and then reports the profile server unreachable; a 404 makes it use its bundled profiles. The
+# generation stays off the site: 0.6.4 and later read device-profiles-3.
+RETIRED_PROFILE_DIRECTORIES = (PREFIX + "device-profiles-2/",)
+
+
+def retired(path: str) -> bool:
+    return path in RETIRED_FEEDS or path.startswith(RETIRED_PROFILE_DIRECTORIES)
+
+
 MAX_ASSETS = 256
 MAX_RECEIPT = 65536
 MAX_TOTAL = 512 * 1024 * 1024
@@ -52,7 +77,7 @@ MAX_TOTAL = 512 * 1024 * 1024
 def allowed_asset(path: str) -> tuple[str, str | None]:
     if not isinstance(path, str) or not path.startswith(PREFIX):
         raise ValueError("Only tester signed asset paths may be overlaid")
-    if path == RECORDING or legacy.FEED_PATH.fullmatch(path):
+    if path == RECORDING or legacy.FEED_PATH.fullmatch(path) or FEED2.fullmatch(path):
         return "recording", None
     if path == SHADER:
         return "shader", None
@@ -60,6 +85,8 @@ def allowed_asset(path: str) -> tuple[str, str | None]:
         return "latest", None
     if re.fullmatch(re.escape(PREFIX) + r"shader-maps/[0-9a-f]{64}\.zlib", path):
         return "shader-map", None
+    if re.fullmatch(re.escape(PREFIX) + r"recording-blobs/[0-9a-f]{64}\.xz", path):
+        return "recording-blob", None
     profile = re.fullmatch(re.escape(PREFIX) + r"([a-z0-9-]+)/(.+)\.json", path)
     if profile and profile[1] in PROFILE_DIRECTORIES:
         target = profile[2]
@@ -72,6 +99,8 @@ def allowed_asset(path: str) -> tuple[str, str | None]:
 
 def limit_for(path: str) -> int:
     kind, _ = allowed_asset(path)
+    if kind == "recording-blob":
+        return validation.packs.data_pack.RECORDING_ARCHIVE_MAX_COMPRESSED
     if kind == "shader-map":
         return validation.packs.data_pack.SHADER_COMPRESSED_FILE_LIMIT
     return ENVELOPE_LIMITS[
@@ -88,13 +117,19 @@ def verify_asset(path: str, data: bytes) -> dict:
         if path != PREFIX + "shader-maps/" + digest + ".zlib":
             raise ValueError("Shader asset filename differs from its content hash")
         return {"compatibility": "shader-map", "sequence": 1}
+    if kind == "recording-blob":
+        if path != PREFIX + "recording-blobs/" + digest + ".xz":
+            raise ValueError("Recording archive filename differs from its content hash")
+        return {"compatibility": "recording-blob", "sequence": 1}
     if kind == "recording":
         domain, guest, sequence = legacy.mutable_recording_domain(
             data, require_catalog=path == RECORDING
         )
-        match = legacy.FEED_PATH.fullmatch(path)
+        match = legacy.FEED_PATH.fullmatch(path) or FEED2.fullmatch(path)
         if match and match[1] != guest:
             raise ValueError("Recording filename differs from signed guest domain")
+        if bool(FEED2.fullmatch(path)) != domain.startswith("benchmark-catalog-2:"):
+            raise ValueError("Recording filename differs from its signed format")
         return {"compatibility": domain, "sequence": sequence}
     if kind == "latest":
         # Not pinned by release policy: the app does not need the record to run. Signature, kind, compatibility and
@@ -150,6 +185,27 @@ def verify_shader_bundle(assets: dict[str, bytes]) -> None:
         raise ValueError("Published shader assets differ from the signed index")
     validation.verify_feed(assets[SHADER], "shader", {"shader_feed_sha256": hashlib.sha256(assets[SHADER]).hexdigest()},
         shader_assets={Path(path).name: raw for path, raw in maps.items()})
+
+
+def verify_recording_bundle(assets: dict[str, bytes]) -> None:
+    """Only an authenticated benchmark-catalog-2 feed may admit a recording archive into publication, and every such
+    feed must find its archive, which must decode to a catalog the native validator accepts."""
+    blobs = {path: raw for path, raw in assets.items() if path.startswith(PREFIX + "recording-blobs/")}
+    expected = set()
+    for path, raw in assets.items():
+        if allowed_asset(path)[0] != "recording" or not verify_asset(path, raw)["compatibility"].startswith("benchmark-catalog-2:"):
+            continue
+        envelope = validation.packs.decode_json(raw)
+        payload = validation.packs.decode_base64(envelope["payload"], validation.packs.data_pack.SHADER_INDEX_LIMIT)
+        descriptor = validation.packs.recording_index(payload)
+        blob = PREFIX + "recording-blobs/" + descriptor[2] + ".xz"
+        if blob not in blobs:
+            raise ValueError("Signed recording archive is missing: " + blob)
+        expected.add(blob)
+        match = FEED2.fullmatch(path)
+        validation.verify_pages_recording_feed(raw, match[1], recording_assets={Path(blob).name: blobs[blob]})
+    if set(blobs) - expected:
+        raise ValueError("Published recording archives differ from the signed indexes")
 
 
 def parse_receipt(data: bytes) -> dict[str, str]:
@@ -246,6 +302,7 @@ def live_assets() -> dict[str, bytes]:
         result[path] = raw
         check_budget(result)
     verify_shader_bundle(result)
+    verify_recording_bundle(result)
     return result
 
 
@@ -285,13 +342,16 @@ def source_assets() -> dict[str, bytes]:
             or name == SHADER
             or name == LATEST
             or legacy.FEED_PATH.fullmatch(name)
+            or FEED2.fullmatch(name)
             or (any(name.startswith(PREFIX + directory + "/") for directory in PROFILE_DIRECTORIES) and path.is_file())
             or (name.startswith(PREFIX + "shader-maps/") and path.is_file())
+            or (name.startswith(PREFIX + "recording-blobs/") and path.is_file())
         ):
             result[name] = read_source(path, limit_for(name))
             verify_asset(name, result[name])
             check_budget(result)
     verify_shader_bundle(result)
+    verify_recording_bundle(result)
     return result
 
 
@@ -318,7 +378,7 @@ def checked_in_assets() -> dict[str, bytes]:
             if child.is_symlink():
                 raise ValueError("Tester asset directories cannot be symbolic links")
             relative = child.relative_to(ROOT).as_posix()
-            if relative not in {PREFIX + directory for directory in (*PROFILE_DIRECTORIES, "shader-maps")} and not any(
+            if relative not in {PREFIX + directory for directory in (*PROFILE_DIRECTORIES, "shader-maps", "recording-blobs")} and not any(
                 relative.startswith(PREFIX + directory + "/") for directory in PROFILE_DIRECTORIES
             ):
                 raise ValueError("Unexpected directory under the tester asset root")
@@ -329,7 +389,7 @@ def checked_in_assets() -> dict[str, bytes]:
                 raise ValueError("Tester assets cannot be symbolic links")
             if relative in {RECEIPT, MARKER, LEGACY_PROFILE_INDEX}:
                 continue
-            if not relative.endswith((".json", ".zlib")):
+            if not relative.endswith((".json", ".zlib", ".xz")):
                 raise ValueError("Unexpected file under the tester asset root")
             try:
                 allowed_asset(relative)
@@ -351,6 +411,7 @@ def checked_in_assets() -> dict[str, bytes]:
             raise ValueError("Checked-in asset has an invalid signed sequence: " + path)
     check_budget(assets)
     verify_shader_bundle(assets)
+    verify_recording_bundle(assets)
     return assets
 
 
@@ -448,6 +509,8 @@ def stage_site(
     live = live_assets()
     selected = dict(source)
     for path, raw in live.items():
+        if retired(path) and path not in source:
+            continue
         if path in source:
             a, b = verify_asset(path, source[path]), verify_asset(path, raw)
             if a["compatibility"] == b["compatibility"]:
@@ -472,8 +535,16 @@ def stage_site(
         index = validation.packs.shader_index(validation.packs.decode_base64(envelope["payload"], 65536))
         keep = {PREFIX + "shader-maps/" + item[2] + ".zlib" for item in index.values()}
         selected = {path: raw for path, raw in selected.items() if not path.startswith(PREFIX + "shader-maps/") or path in keep}
+    # Likewise for recording archives: keep only those a selected benchmark-catalog-2 feed names.
+    referenced = set()
+    for path, raw in selected.items():
+        if allowed_asset(path)[0] == "recording" and verify_asset(path, raw)["compatibility"].startswith("benchmark-catalog-2:"):
+            payload = validation.packs.decode_base64(validation.packs.decode_json(raw)["payload"], validation.packs.data_pack.SHADER_INDEX_LIMIT)
+            referenced.add(PREFIX + "recording-blobs/" + validation.packs.recording_index(payload)[2] + ".xz")
+    selected = {path: raw for path, raw in selected.items() if not path.startswith(PREFIX + "recording-blobs/") or path in referenced}
     check_budget(selected)
     verify_shader_bundle(selected)
+    verify_recording_bundle(selected)
     if RECORDING not in selected:
         raise ValueError("Publication must preserve the known recording feed")
     receipt = (
@@ -498,9 +569,10 @@ def stage_site(
     temporary = Path(tempfile.mkdtemp(prefix=".pages-assets-", dir=destination.parent))
     try:
         shutil.copytree(ROOT / "docs/site", temporary, dirs_exist_ok=True)
-        copied_maps = temporary / "packs/tester/shader-maps"
-        if copied_maps.exists():
-            shutil.rmtree(copied_maps)
+        for stale in ("shader-maps", "recording-blobs"):
+            copied = temporary / "packs/tester" / stale
+            if copied.exists():
+                shutil.rmtree(copied)
         for path, raw in selected.items():
             target = temporary / path.removeprefix("docs/site/")
             target.parent.mkdir(parents=True, exist_ok=True)

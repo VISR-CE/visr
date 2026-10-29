@@ -7181,13 +7181,21 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 			back_buffer_drawn_this_frame(HALO_STEREO_LAYER_ZOOM) : NULL;
 		int stereo_frame = stereo->eye_count == 2 && (back_buffer_drawn_this_frame(0) || zoom);
 		static unsigned long frames_without_eyes;
+		static int stereo_drawn;
 
 		/* a few seconds without the Compositor's eyes (the space closed):
-		the stereo layers' targets go */
+		the stereo layers' targets go, also once leaving VR has returned
+		display.stereo's "off" (halo_stereo_mode_entered) */
 		if (stereo->eye_count == 2)
+		{
 			frames_without_eyes = 0;
-		else if (stereo->mode != HALO_STEREO_OFF && ++frames_without_eyes == 300)
+			stereo_drawn = 1;
+		}
+		else if ((stereo->mode != HALO_STEREO_OFF || stereo_drawn) && ++frames_without_eyes == 300)
+		{
 			stereo_targets_release();
+			stereo_drawn = 0;
+		}
 		/* a stereo frame's screenshot and trace are of eye 0, or the zoomed
 		picture in a zoomed frame */
 		/* display.native_hud: the display-sized back buffer, which holds the

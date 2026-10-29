@@ -328,8 +328,8 @@ platform = "ios"
 models = ["iPad16,3", "iPad16,4", "iPad16,5", "iPad16,6", "iPad16,8", "iPad16,9", "iPad16,10", "iPad16,11"]
 tier = 1130
 gpu_family = 9
-basis = "assumed"
-source = "iPad Pro (M4) and iPad Air 8th generation (M4). https://en.wikipedia.org/wiki/List_of_iPad_models and https://en.wikipedia.org/wiki/IPad_Pro. Same GPU lineage as the neighboring tiers, each generation succeeding the last."
+basis = "measured"
+source = "ipad-pro-m4.toml: a tester's 0.6.3 report on an iPad16,3 (11-inch iPad Pro M4), 120 frames a second at 1080 lines, 2026-10-28. iPad Pro (M4) and iPad Air 8th generation (M4). https://en.wikipedia.org/wiki/List_of_iPad_models and https://en.wikipedia.org/wiki/IPad_Pro. Same GPU lineage as the neighboring tiers, each generation succeeding the last."
 
 [[hardware]]
 id = "ipad-m5"
@@ -486,5 +486,15 @@ profile = "ipad-pro-m1.toml"
 minimum_memory_mb = 7000
 minimum_gpu_family = 7
 # Play at 1080 lines capped at 60 (120 did not hold); menu and cutscenes native, below this limit on every M1 iPad.
+maximum_pixels = [7581120, 7581120, 7581120]
+maximum_refresh_hertz = 120
+
+[[fallback]]
+hardware = "ipad-m4"
+profile = "ipad-pro-m4.toml"
+# The measured 11-inch has 8 GB (7,455 MB reported); the 16 GB models and the 13-inch (2752x2064, 5,680,128) fit.
+minimum_memory_mb = 7000
+minimum_gpu_family = 9
+# Play from native down to 1080 lines at 120; menu and cutscenes native, below this limit on every M4 iPad.
 maximum_pixels = [7581120, 7581120, 7581120]
 maximum_refresh_hertz = 120

@@ -1,6 +1,7 @@
 /* texture_upscale_schedule.h: the profile gate (rule 1) and when the work may run (rules 4 and 6) */
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "texture_upscale_schedule.h"
 
 static void gate(void)
@@ -92,8 +93,81 @@ static void level_source(void)
 	assert(!texture_upscale_first_run_phase(1, 0, 1));   /* nothing left to make */
 }
 
+static void import_watchdog(void)
+{
+	/* the menu's textures made: offered at once */
+	assert(texture_upscale_import_offer_skip(1, 182, 182, 0));
+	/* still making them and moving: held back */
+	assert(!texture_upscale_import_offer_skip(1, 90, 182, 5));
+	assert(!texture_upscale_import_offer_skip(0, 0, 0, TEXTURE_UPSCALE_IMPORT_STALL_SECONDS - 1));
+	/* no step finished for the stall time, before the catalog or during the menu's textures: offered anyway */
+	assert(texture_upscale_import_offer_skip(0, 0, 0, TEXTURE_UPSCALE_IMPORT_STALL_SECONDS));
+	assert(texture_upscale_import_offer_skip(1, 90, 182, TEXTURE_UPSCALE_IMPORT_STALL_SECONDS + 30));
+	/* a level's wait while nothing lists its textures ends rather than holding the loading screen */
+	assert(texture_upscale_level_checking(0) == TEXTURE_UPSCALE_LEVEL_CHECKING);
+	assert(texture_upscale_level_checking(TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS - 1) == TEXTURE_UPSCALE_LEVEL_CHECKING);
+	assert(texture_upscale_level_checking(TEXTURE_UPSCALE_LEVEL_CHECK_SECONDS) == TEXTURE_UPSCALE_LEVEL_DONE);
+}
+
+/* A model of the pump's end: how many pumps run back to back after one is scheduled, when every pump ends the same
+   way and a scan stays pending (as when a gate refuses before the scan is taken). 0.6.3's storage refusal ran without
+   end; any refusal now runs once. */
+static int pumps_in_a_row(enum texture_upscale_end end)
+{
+	int runs = 0;
+
+	do
+		runs++;
+	while (runs < 1000 && texture_upscale_pump_runs_again(end, 1, 0, 0, 1));
+	return runs;
+}
+
+static void refusals(void)
+{
+	int e;
+
+	/* every refusal ends the pump, whatever is pending: the 0.6.3 loop cannot come back for any of them */
+	for (e = 0; e < TEXTURE_UPSCALE_END_COUNT; e++)
+		if (texture_upscale_end_refused((enum texture_upscale_end)e))
+		{
+			assert(pumps_in_a_row((enum texture_upscale_end)e) == 1);
+			assert(!texture_upscale_pump_runs_again((enum texture_upscale_end)e, 0, 1, 0, 1));
+		}
+	/* exactly these four are refusals */
+	assert(texture_upscale_end_refused(TEXTURE_UPSCALE_END_REFUSED_STORAGE));
+	assert(texture_upscale_end_refused(TEXTURE_UPSCALE_END_REFUSED_SWITCH));
+	assert(texture_upscale_end_refused(TEXTURE_UPSCALE_END_REFUSED_THERMAL));
+	assert(texture_upscale_end_refused(TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY));
+	assert(!texture_upscale_end_refused(TEXTURE_UPSCALE_END_QUEUE_EMPTY));
+	assert(!texture_upscale_end_refused(TEXTURE_UPSCALE_END_INTERRUPTED));
+	assert(!texture_upscale_end_refused(TEXTURE_UPSCALE_END_ERROR));
+	/* a pump that ended for its own reasons runs again for a pending scan or request, not in gameplay or when too warm */
+	assert(texture_upscale_pump_runs_again(TEXTURE_UPSCALE_END_INTERRUPTED, 1, 0, 0, 1));
+	assert(texture_upscale_pump_runs_again(TEXTURE_UPSCALE_END_QUEUE_EMPTY, 0, 1, 0, 1));
+	assert(!texture_upscale_pump_runs_again(TEXTURE_UPSCALE_END_QUEUE_EMPTY, 0, 0, 0, 1));
+	assert(!texture_upscale_pump_runs_again(TEXTURE_UPSCALE_END_INTERRUPTED, 1, 0, 1, 1));
+	assert(!texture_upscale_pump_runs_again(TEXTURE_UPSCALE_END_INTERRUPTED, 1, 0, 0, 0));
+	/* storage and errors retry on a timer; the others wait for their notice */
+	assert(texture_upscale_end_retries_on_timer(TEXTURE_UPSCALE_END_REFUSED_STORAGE));
+	assert(texture_upscale_end_retries_on_timer(TEXTURE_UPSCALE_END_ERROR));
+	assert(!texture_upscale_end_retries_on_timer(TEXTURE_UPSCALE_END_REFUSED_THERMAL));
+	assert(!texture_upscale_end_retries_on_timer(TEXTURE_UPSCALE_END_REFUSED_GAMEPLAY));
+	/* every end has a name */
+	for (e = 0; e < TEXTURE_UPSCALE_END_COUNT; e++)
+		assert(strcmp(texture_upscale_end_name((enum texture_upscale_end)e), "unknown"));
+	/* what the import screen says when the phase ends refused, and only then */
+	assert(!strcmp(texture_upscale_import_end_message(TEXTURE_UPSCALE_END_REFUSED_STORAGE), TEXTURE_UPSCALE_IMPORT_NO_STORAGE));
+	assert(!strcmp(texture_upscale_import_end_detail(TEXTURE_UPSCALE_END_REFUSED_STORAGE), TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL));
+	assert(!strcmp(texture_upscale_import_end_message(TEXTURE_UPSCALE_END_REFUSED_THERMAL), TEXTURE_UPSCALE_IMPORT_TOO_WARM));
+	assert(!texture_upscale_import_end_message(TEXTURE_UPSCALE_END_QUEUE_EMPTY));
+	assert(!texture_upscale_import_end_message(TEXTURE_UPSCALE_END_ERROR));
+	assert(!texture_upscale_import_end_detail(TEXTURE_UPSCALE_END_INTERRUPTED));
+}
+
 int main(void)
 {
+	refusals();
+	import_watchdog();
 	level_source();
 	gate();
 	activity();

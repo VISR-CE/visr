@@ -154,7 +154,7 @@ def bundle_identity(app):
     import plistlib
     with (app / 'Contents/Info.plist').open('rb') as stream:
         info = plistlib.load(stream)
-    return {'version': str(info.get('CFBundleShortVersionString', '')), 'build': str(info.get('CFBundleVersion', ''))}
+    return {'version': str(info.get('VISRBuildDescription') or info.get('CFBundleShortVersionString', '')), 'build': str(info.get('CFBundleVersion', ''))}
 
 
 def release_commit(repo, tag):
@@ -230,7 +230,7 @@ def page_text(summary):
     """The public page: charts from the committed results snapshot, then the methodology."""
     import charts
     from page import render_page
-    return render_page(summary, charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS))
+    return render_page(summary, charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS, charts.load_snapshot(charts.SNAPSHOT)))
 
 
 def write_outputs(page_path, summary, check=False):
@@ -241,7 +241,7 @@ def write_outputs(page_path, summary, check=False):
     from markdown_it import MarkdownIt
     status = write_page(page_path, page_text(summary), check)
     if Path(page_path) == PAGE:
-        rows, specs = charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS)
+        rows, specs = charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS, charts.load_snapshot(charts.SNAPSHOT))
         legal = MarkdownIt('commonmark', {'html': False}).render(load_facts()['shared']['legal']).rstrip()
         (ROOT / 'docs/site/benchmarks').mkdir(exist_ok=True)
         status |= write_page(ROOT / 'docs/site/benchmarks.html', site_page.render_site_page(summary, rows, specs, legal), check)
@@ -433,7 +433,7 @@ def refresh(config, summary_path, page_path):
                         measured = metrics(intervals, config.get('display_hz', 60))
                         if config.get('native_method') == 'metalperftrace' and target['id'] not in ('opence-web', *adapters.GLFT_PORTS) and adapters.timing_method(target, run_config) == 'metalperftrace':
                             measured.update(gpu_metrics(parse_metal_trace_gpu(json.loads((folder / 'timeline.json').read_text()))))
-                        if measured['duration_s'] < 58 and (not win or win['kind'] in ('opening', 'battle')):
+                        if measured['duration_s'] < 58 and (not win or win['kind'] in ('opening', 'battle', 'match', 'coop')):
                             raise RuntimeError('short-window')
                         if not run_record.pop('scene_verified'):
                             raise RuntimeError('scene-unverified')

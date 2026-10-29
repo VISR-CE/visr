@@ -1,0 +1,66 @@
+schema = 1
+name = "iPad Pro (M4)"
+kind = "model"
+status = "provisional"
+
+[match]
+platform = "ios"
+models = ["iPad16,3", "iPad16,4", "iPad16,5", "iPad16,6"]
+
+[display]
+frame_rate = "120"
+render_height = 0
+dynamic_resolution = true
+dynamic_resolution_floor = 1080
+anisotropic_filtering = 16
+shadow_map_size = 512
+effect_resolution = "half"
+upscaler = "metalfx"
+
+[network]
+player_capacity = 32
+
+[evidence."display.frame_rate"]
+basis = "measured"
+why = "A tester's 0.6.3 report ran 20 gameplay runs on an iPad16,3 (11-inch, 8 GB) at 120 frames a second and 1080 lines across a10, a50, b30, b40, c20, c40 and d40: 98.68% to 100% of frames on time, thermal state 0 throughout. GPU time was 3.7 to 4.1 ms at the median and mostly 5.7 to 6.3 ms at the 95th percentile in an 8.3 ms frame (worst runs 7.9 and 9.2 ms; 99th percentile up to 12.2 ms), CPU 95th percentile 4 to 5 ms. 120 at 1.5x enemies is not yet shown."
+source = "VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, presented gameplay runs, 2026-10-28; Steve, 2026-10-28"
+
+[evidence."display.render_height"]
+basis = "assumed"
+why = "Native (0) is the ceiling of dynamic resolution, 1668 lines on the 11-inch and 2064 on the 13-inch. Steve chose it on 2026-10-28 from the headroom measured at 1080: the GPU median is under half the 8.3 ms frame, so the scaler has room to render above 1080 when the scene allows. Not measured above 1080 on this device."
+source = "Steve, 2026-10-28; VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, 2026-10-28"
+
+[evidence."display.dynamic_resolution"]
+basis = "measured"
+why = "Dynamic resolution is on as the M1 iPad Pro's profile has it, where presented d40-maw-fight runs at 1080 and 1600 lines and 120 frames a second held 99.97% and 99.96% of frames on time with short drops of up to three levels and recovery within a second. On this device the report's runs sat at the 1080 ceiling the whole time (no level changes). Provisional: a rerun on the device will confirm the range from native down to 1080."
+source = "VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, 2026-10-28; VISR presented benchmark runs, build 20261025.132032, 2026-10-25"
+
+[evidence."display.dynamic_resolution_floor"]
+basis = "assumed"
+why = "1080 lines is the ladder's ideal tier and the resolution the device held at 120 frames a second with GPU headroom; Steve chose it as the floor on 2026-10-28. It is above half of either panel's native lines, as the floor requires. A rerun on the device will confirm the range."
+source = "Steve, 2026-10-28; VISR 0.6.3 benchmark report VBVS7L4Y, iPad16,3, 2026-10-28"
+
+[evidence."display.anisotropic_filtering"]
+basis = "measured"
+why = "16x against off cost 0.1 ms of GPU time a frame."
+source = "iPad settings sweep, a10 benchmark at 3180x2384, 2026-10-03"
+
+[evidence."display.shadow_map_size"]
+basis = "measured"
+why = "1024 cost 0.9 to 2.7 ms of GPU time a frame and 2048 1.3 to 3.1 (the device warmed during the sweep); 128 against 512 made no difference."
+source = "iPad settings sweep, a10 benchmark, 2026-10-03"
+
+[evidence."display.effect_resolution"]
+basis = "measured"
+why = "On c40's mirror floors, full took GPU time from about 9 ms to 13.7 ms a frame and the frame from 8.3 ms to 13.1."
+source = "iPad mirror runs, c40, 2026-10-03"
+
+[evidence."network.player_capacity"]
+basis = "measured"
+why = "At 30 frames a second, minimum settings and 540 lines, a 32-player game held (99.84% of frames on time) and so did Sidewinder with 128 (99.76%); Blood Gulch with 64 held 13%. Blood Gulch's 64 is the choice above 32, and 48 was not run; the games that held are not the one that failed, so 32 is the highest count measured to hold on every map. Provisional until rerun on a build with the multiplayer render fixes."
+source = "VISR settings sweep capacity runs, build 20261023.144726 (0.4.2), two rounds at minimum settings and 540 lines, 2026-10-24 and 2026-10-25"
+
+[evidence."display.upscaler"]
+basis = "measured"
+why = "MetalFX spatial scaling from 1080 lines to the 3180x2384 panel kept every tier held: on time at 60 was 99.98% (d40), 99.93% (a10) and 99.97% (b30) against 99.98%, 99.83% and 100% with bilinear; at 120 it was 99.90% (a10) and 99.75% (d40, the device at thermal state 2) against 99.73% and 99.96%. The scaler adds about 1.0 ms of GPU time a frame (offscreen medians 6.6 against 5.6 ms on a10 and 6.4 against 5.5 on d40). Edges are smoother and detail sharper than the bilinear stretch in same-frame comparisons."
+source = "Providence a10-heroic, d40-maw-fight and b30 presented runs, build d290f06fe (20261026.002743), 2026-10-26; offscreen costs from the temporal-aa lane, 2026-10-25"

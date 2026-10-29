@@ -886,9 +886,74 @@ next press */
 #define ZOOM_GAP_POLLS 20
 #define ZOOM_SWAP_POLLS 90
 
+/* "press:BUTTON@POLL BUTTON@POLL ...": prefix a button with k for keyboard
+input (ka, kb, kdown); an unprefixed button is controller input. "none"
+changes only the input class. Each BUTTON (start, a, b, x, y, up, down,
+left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
+else is pressed (a menu walked by script) */
+#define TEST_PRESS_POLLS 4
+#define TEST_PRESS_MAX 64
+
+static struct
+{
+	char button[8];
+	unsigned long poll;
+} test_presses[TEST_PRESS_MAX];
+static int test_press_count;
+
+static void test_input_presses_parse(const char *text)
+{
+	char button[8];
+	unsigned long poll;
+	int used;
+
+	while (test_press_count < TEST_PRESS_MAX && sscanf(text, " %7[a-z]@%lu%n", button, &poll, &used) == 2)
+	{
+		strcpy(test_presses[test_press_count].button, button);
+		test_presses[test_press_count++].poll = poll;
+		text += used;
+	}
+}
+
+static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
+{
+	int index;
+
+	for (index = 0; index < test_press_count; index++)
+	{
+		const char *button = test_presses[index].button;
+		extern void platform_menu_activity(int pad, float dx, float dy, int motion);
+
+		if (poll < test_presses[index].poll || poll >= test_presses[index].poll + TEST_PRESS_POLLS)
+			continue;
+		platform_menu_activity(button[0] != 'k', 0, 0, 0);
+		if (button[0] == 'k') button++;
+		if (!strcmp(button, "start"))
+			pad->wButtons |= XINPUT_GAMEPAD_START;
+		else if (!strcmp(button, "up"))
+			pad->wButtons |= XINPUT_GAMEPAD_DPAD_UP;
+		else if (!strcmp(button, "down"))
+			pad->wButtons |= XINPUT_GAMEPAD_DPAD_DOWN;
+		else if (!strcmp(button, "left"))
+			pad->wButtons |= XINPUT_GAMEPAD_DPAD_LEFT;
+		else if (!strcmp(button, "right"))
+			pad->wButtons |= XINPUT_GAMEPAD_DPAD_RIGHT;
+		else if (!strcmp(button, "a"))
+			pad->bAnalogButtons[XINPUT_GAMEPAD_A] = 255;
+		else if (!strcmp(button, "b"))
+			pad->bAnalogButtons[XINPUT_GAMEPAD_B] = 255;
+		else if (!strcmp(button, "x"))
+			pad->bAnalogButtons[XINPUT_GAMEPAD_X] = 255;
+		else if (!strcmp(button, "y"))
+			pad->bAnalogButtons[XINPUT_GAMEPAD_Y] = 255;
+	}
+}
+
 static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 {
 	static int checked;
+	static int pressing;
+	static unsigned long press_polls;
 	static int seed = -1;
 	static int looking;
 	static int walklooking;
@@ -906,7 +971,12 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 		const char *setting = config_string("debug.test_input");
 
 		checked = 1;
-		if (!strncmp(setting, "bot:", 4))
+		if (!strncmp(setting, "press:", 6))
+		{
+			pressing = 1;
+			test_input_presses_parse(setting + 6);
+		}
+		else if (!strncmp(setting, "bot:", 4))
 			seed = atoi(setting + 4);
 		else if (!strcmp(setting, "bot"))
 			seed = 0;
@@ -942,6 +1012,11 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 			if (fields < 5)
 				zoom_unclicks = 0;
 		}
+	}
+	if (pressing)
+	{
+		test_input_presses(pad, press_polls++);
+		return;
 	}
 	if (chording)
 	{
@@ -1262,6 +1337,18 @@ static void stick_dead_zone(SHORT *x, SHORT *y)
 	*y = through_game_dead_zone(fy * scale);
 }
 
+static void menu_gamepad_activity(XINPUT_GAMEPAD const *pad)
+{
+	extern void platform_menu_activity(int pad, float dx, float dy, int motion);
+	int index;
+	for (index = 0; index < 8; index++)
+		if (pad->bAnalogButtons[index]) break;
+	if (pad->wButtons || index < 8 ||
+		abs(pad->sThumbLX) > GAME_STICK_DEAD_RANGE || abs(pad->sThumbLY) > GAME_STICK_DEAD_RANGE ||
+		abs(pad->sThumbRX) > GAME_STICK_DEAD_RANGE || abs(pad->sThumbRY) > GAME_STICK_DEAD_RANGE)
+		platform_menu_activity(1, 0, 0, 0);
+}
+
 static void sdl_gamepad_state(SDL_Gamepad *gamepad, XINPUT_GAMEPAD *pad)
 {
 	static const struct
@@ -1524,7 +1611,12 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 				keyboard_controls(&input, &state->Gamepad);
 		}
 		if (port_gamepad(gamepads, count, 0))
+		{
+			XINPUT_GAMEPAD activity = {0};
+			sdl_gamepad_state(gamepads[0], &activity);
+			menu_gamepad_activity(&activity);
 			sdl_gamepad_state(gamepads[0], &state->Gamepad);
+		}
 		/* the Sense controllers, before the test input and the replay
 		filter, so recordings see them; Create (Back) held with the right
 		stick reaches the pitch offset's chord below, not the game */
@@ -1568,6 +1660,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	else if (port_gamepad(gamepads, count, port))
 	{
 		sdl_gamepad_state(port_gamepad(gamepads, count, port), &state->Gamepad);
+		menu_gamepad_activity(&state->Gamepad);
 	}
 
 	if (memcmp(&state->Gamepad, &controllers[port].previous, sizeof(state->Gamepad)))

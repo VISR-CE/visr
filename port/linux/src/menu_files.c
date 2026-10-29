@@ -266,6 +266,8 @@ enum element
 	_element_data,
 	_element_conditional,
 	_element_replace,
+	_element_patch,
+	_element_patch_row,
 };
 
 /* an attribute an element may have: its text (text) or number (number,
@@ -403,7 +405,7 @@ static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 
 			if (matches < 0)
 			{
-				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"quit\" or \"mac_app\"", platform);
+				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"quit\", \"mac_app\", \"tvos\" or \"keyboard\"", platform);
 				return 1;
 			}
 			return matches;
@@ -518,7 +520,7 @@ static void read_frame(struct reader *reader, const XML_Char **attributes, long 
 	struct halo_menu_frame frame;
 	struct attribute table[] =
 	{
-		{ "png", &frame.png }, { "map", &frame.map }, { "index", NULL, &frame.index },
+		{ "png", &frame.png }, { "cache", &frame.cache }, { "map", &frame.map }, { "index", NULL, &frame.index },
 		{ "width", NULL, &frame.width }, { "height", NULL, &frame.height },
 		{ "x", NULL, &frame.x }, { "y", NULL, &frame.y },
 	};
@@ -526,8 +528,11 @@ static void read_frame(struct reader *reader, const XML_Char **attributes, long 
 	memset(&frame, 0, sizeof(frame));
 	frame.index = -1;
 	read_attributes(reader, "frame", attributes, table, sizeof(table) / sizeof(*table));
-	if (!reader->failed && (frame.png != NULL) == (frame.map != NULL))
-		reader_error(reader, "a <frame> has a png or a map bitmap, not both");
+	/* (both: the map's bitmap where the map has it, else the png, which a game map needs) */
+	if (!reader->failed && !frame.png && !frame.map)
+		reader_error(reader, "a <frame> has a png or a map bitmap");
+	else if (!reader->failed && frame.cache && !frame.png)
+		reader_error(reader, "a <frame> with a cache has a png too: what is drawn where the cache is not there");
 	else if (!reader->failed && frame.png && (frame.width <= 0 || frame.height <= 0))
 		reader_error(reader, "a <frame> with a png needs width and height");
 	else if (!reader->failed && frame.map && frame.index < 0)
@@ -624,6 +629,7 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 		{ "height", NULL, &widget.height, &widget.has_height }, { "text_x", NULL, &widget.text_x },
 		{ "text_y", NULL, &widget.text_y }, { "auto_close", NULL, &widget.auto_close },
 		{ "auto_close_fade", NULL, &widget.auto_close_fade }, { "string_index", NULL, &widget.string_index },
+		{ "visible_rows", NULL, &widget.visible_rows },
 	};
 
 	memset(&widget, 0, sizeof(widget));
@@ -764,6 +770,89 @@ static void read_replace(struct reader *reader, const XML_Char **attributes, lon
 	LIST_ADD(reader, owner, first_replace, last_replace, replaces, index);
 }
 
+static void read_patch(struct reader *reader, const XML_Char **attributes)
+{
+	struct halo_menus *menus = &reader->menus;
+	struct halo_menu_patch patch;
+	struct attribute table[] =
+	{
+		{ "list", &patch.list }, { "screen", &patch.screen }, { "footer", NULL, &patch.footer, &patch.has_footer },
+	};
+
+	memset(&patch, 0, sizeof(patch));
+	patch.first_row = menus->patch_row_count;
+	patch.file = reader->file;
+	patch.line = current_line(reader);
+	read_attributes(reader, "patch", attributes, table, sizeof(table) / sizeof(*table));
+	if (!reader->failed && (!patch.list || !patch.screen))
+		reader_error(reader, "a <patch> needs a list and its screen");
+	else if (!reader->failed && (!strchr(patch.list, '\\') || !strchr(patch.screen, '\\')))
+		reader_error(reader, "a <patch>'s list and screen are the map's (paths, with backslashes)");
+	GROW(reader, menus->patches, menus->patch_count);
+	menus->patches[menus->patch_count++] = patch;
+}
+
+/* a picture: a frame of the description's own bitmap by its number, or
+png: and a PNG's path in the menus folder.
+port: bitmap: names an XML bitmap whose first frame is copied. */
+static int picture_valid(const char *picture)
+{
+	if (!strncmp(picture, "bitmap:", 7))
+		return path_inside_folder(picture + 7);
+	if (!strncmp(picture, "png:", 4))
+		return path_inside_folder(picture + 4);
+	return *picture && strspn(picture, "0123456789") == strlen(picture) && strlen(picture) < 5;
+}
+
+static void read_patch_row(struct reader *reader, const char *element, const XML_Char **attributes, long kind,
+	long owner)
+{
+	struct halo_menus *menus = &reader->menus;
+	struct halo_menu_patch_row row;
+	struct attribute table[] =
+	{
+		{ "after", &row.after }, { "before", &row.before }, { "child", &row.child }, { "model", &row.model },
+		{ "name", &row.name }, { "text", &row.text }, { "run", &row.run }, { "open", &row.open },
+		{ "created", &row.created }, { "description", &row.description }, { "picture", &row.picture },
+		{ "pitch", NULL, &row.pitch, &row.has_pitch }, { "widget", &row.widget }, { "help", &row.help }, { "bitmap", &row.bitmap },
+	};
+
+	memset(&row, 0, sizeof(row));
+	row.kind = kind;
+	row.file = reader->file;
+	row.line = current_line(reader);
+	read_attributes(reader, element, attributes, table, sizeof(table) / sizeof(*table));
+	if (reader->failed)
+		return;
+	if (kind == HALO_MENU_PATCH_ROW && (!row.after == !row.before || row.child))
+		reader_error(reader, "a <row> is put after or before a row (one of them), and has no child");
+	else if (kind != HALO_MENU_PATCH_ROW && (!row.child || row.after || row.before))
+		reader_error(reader, "a <%s> names its row as child (and no after or before)", element);
+	else if (kind == HALO_MENU_PATCH_REMOVE && (row.widget || row.model || row.name || row.text || row.run || row.open ||
+		row.created || row.description || row.picture))
+		reader_error(reader, "a <remove> has only child (and pitch)");
+	else if (row.help && !row.widget)
+		reader_error(reader, "help is for a <row widget=>");
+	else if (row.bitmap && (row.widget || kind == HALO_MENU_PATCH_REMOVE))
+		reader_error(reader, "bitmap is for a <row> or <replace> that is a copy");
+	else if (row.widget && (kind != HALO_MENU_PATCH_ROW || !row.name || row.text || row.run || row.open ||
+		row.created || row.model || row.description || row.picture))
+		reader_error(reader, "a <row widget=> (one of our widgets as it is) takes only a name, its place and pitch");
+	else if (kind != HALO_MENU_PATCH_REMOVE && !row.widget && (!row.name || !row.text || (!row.run && !row.open)))
+		reader_error(reader, "a <%s> needs a name, its text, and run or open", element);
+	else if (kind == HALO_MENU_PATCH_REPLACE && (row.description || row.picture || row.has_pitch))
+		reader_error(reader, "a <replace> keeps its row's place, description and picture");
+	else if (row.name && (strlen(row.name) > 31 || strpbrk(row.name, "\\/")))
+		reader_error(reader, "a row's name is at most 31 characters, without slashes: %s", row.name);
+	else if (row.picture && !picture_valid(row.picture))
+		reader_error(reader, "picture needs a frame number, png: path, or bitmap: name: %s", row.picture);
+	else if (row.has_pitch && row.pitch <= 0)
+		reader_error(reader, "pitch is above 0");
+	GROW(reader, menus->patch_rows, menus->patch_row_count);
+	menus->patch_rows[menus->patch_row_count++] = row;
+	menus->patches[owner].row_count++;
+}
+
 static void read_menus(struct reader *reader, const XML_Char **attributes)
 {
 	const char *root = NULL;
@@ -783,6 +872,28 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 
 	if (reader->failed)
 		return;
+	/* Both looks share several identical bitmap and string resources. Keep the first. */
+	if (!reader->skipping && parent == _element_menus &&
+		(!strcmp(name, "bitmap") || !strcmp(name, "strings")))
+	{
+		long attribute, index;
+		for (attribute = 0; attributes[attribute]; attribute += 2)
+		{
+			if (strcmp(attributes[attribute], "name")) continue;
+			if (!strcmp(name, "bitmap"))
+			{
+				for (index = 0; index < reader->menus.bitmap_count; index++)
+					if (!strcmp(reader->menus.bitmaps[index].name, attributes[attribute + 1])) break;
+				if (index < reader->menus.bitmap_count) { reader->skipping++; return; }
+			}
+			else
+			{
+				for (index = 0; index < reader->menus.string_list_count; index++)
+					if (!strcmp(reader->menus.string_lists[index].name, attributes[attribute + 1])) break;
+				if (index < reader->menus.string_list_count) { reader->skipping++; return; }
+			}
+		}
+	}
 	if (reader->skipping || !for_this_platform(reader, attributes))
 	{
 		reader->skipping++;
@@ -819,6 +930,27 @@ static void XMLCALL element_start(void *data, const XML_Char *name, const XML_Ch
 	{
 		element = _element_string;
 		read_string(reader, attributes, owner);
+	}
+	else if (!strcmp(name, "patch") && parent == _element_menus)
+	{
+		element = _element_patch;
+		read_patch(reader, attributes);
+		owner = reader->menus.patch_count - 1;
+	}
+	else if (parent == _element_patch)
+	{
+		static const char *const kinds[] = { "row", "remove", "replace" };
+		long kind;
+
+		for (kind = 0; kind < 3; kind++)
+		{
+			if (!strcmp(name, kinds[kind]))
+			{
+				element = _element_patch_row;
+				read_patch_row(reader, name, attributes, kind, owner);
+				break;
+			}
+		}
 	}
 	else if (!strcmp(name, "widget") && (parent == _element_menus || parent == _element_widget))
 	{
@@ -938,6 +1070,7 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		size_t length = strlen(files[index].path);
 
+		/* Both looks must exist before any screen can switch between them. */
 		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml"))
 			read_file(&reader, &files[index]);
 	}
@@ -946,7 +1079,7 @@ struct halo_menus const *halo_menus_load(void)
 	free(reader.last_input);
 	free(reader.last_conditional);
 	free(reader.last_replace);
-	if (reader.failed || !reader.menus.widget_count)
+	if (reader.failed || (!reader.menus.widget_count && !reader.menus.patch_count))
 	{
 		if (reader.failed)
 			platform_log("menus: the files have a problem; using the game's own menus");
@@ -995,6 +1128,187 @@ long halo_menus_utf16(char const *utf8, unsigned short *out, long capacity)
 void halo_menus_log(char const *file, long line, char const *message, char const *detail)
 {
 	platform_log("menus: %s:%ld: %s%s%s", file ? file : "?", line, message, detail ? " " : "", detail ? detail : "");
+}
+
+/* ---------- the player's cache of the map's pictures (halo_menus.h) */
+
+int posix_make_directory(const char *path);
+
+int halo_menus_cache_exists(char const *path)
+{
+	char full[1200];
+	FILE *file;
+
+	if (!path_inside_folder(path))
+		return 0;
+	snprintf(full, sizeof(full), "%s/%s", folder, path);
+	file = fopen(full, "rb");
+	if (file)
+		fclose(file);
+	return file != NULL;
+}
+
+static unsigned long crc_of(unsigned char const *bytes, size_t count, unsigned long crc)
+{
+	size_t index;
+	int bit;
+
+	crc = ~crc & 0xffffffffUL;
+	for (index = 0; index < count; index++)
+	{
+		crc ^= bytes[index];
+		for (bit = 0; bit < 8; bit++)
+			crc = (crc >> 1) ^ (0xedb88320UL & (0UL - (crc & 1)));
+	}
+	return ~crc & 0xffffffffUL;
+}
+
+static void put_long(unsigned char *at, unsigned long value)
+{
+	at[0] = (unsigned char)(value >> 24);
+	at[1] = (unsigned char)(value >> 16);
+	at[2] = (unsigned char)(value >> 8);
+	at[3] = (unsigned char)value;
+}
+
+/* a chunk of a PNG: length, type, data and the CRC of type and data; 0 on a write error */
+static int png_chunk(FILE *file, char const *type, unsigned char const *data, size_t size)
+{
+	unsigned char word[4];
+	unsigned long crc;
+
+	put_long(word, (unsigned long)size);
+	if (fwrite(word, 1, 4, file) != 4 || fwrite(type, 1, 4, file) != 4 || (size && fwrite(data, 1, size, file) != size))
+		return 0;
+	crc = crc_of((unsigned char const *)type, 4, 0);
+	crc = crc_of(data, size, crc);
+	put_long(word, crc);
+	return fwrite(word, 1, 4, file) == 4;
+}
+
+/* 8-bit RGBA, with its rows in stored (uncompressed) deflate blocks: no compressor is needed to write one, and the
+file is made once */
+/* the file's first size bytes (a small note kept beside a picture), the number read; 0 if there is none */
+size_t halo_menus_cache_read(char const *path, char *bytes, size_t size)
+{
+	char full[1200];
+	FILE *file;
+	size_t count;
+
+	if (!path_inside_folder(path))
+		return 0;
+	snprintf(full, sizeof(full), "%s/%s", folder, path);
+	file = fopen(full, "rb");
+	if (!file)
+		return 0;
+	count = fread(bytes, 1, size, file);
+	fclose(file);
+	return count;
+}
+
+int halo_menus_cache_write_note(char const *path, char const *text)
+{
+	char full[1200];
+	FILE *file;
+	int ok;
+
+	if (!path_inside_folder(path))
+		return 0;
+	snprintf(full, sizeof(full), "%s/%s", folder, path);
+	file = fopen(full, "wb");
+	if (!file)
+		return 0;
+	ok = fwrite(text, 1, strlen(text), file) == strlen(text);
+	return fclose(file) == 0 && ok;
+}
+
+int halo_menus_cache_write_png(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height)
+{
+	char full[1200], temporary[1210];
+	unsigned long row_bytes = width * 4 + 1, raw_size = row_bytes * height, offset, row;
+	unsigned char *raw, *deflated, header[13];
+	size_t deflated_size = 0, at;
+	unsigned long low = 1, high = 0;
+	FILE *file;
+	int ok;
+
+	if (!path_inside_folder(path) || !width || !height || width > 4096 || height > 4096)
+		return 0;
+	raw = malloc(raw_size);
+	deflated = malloc(raw_size + (raw_size / 65535 + 1) * 5 + 6);
+	if (!raw || !deflated)
+	{
+		free(raw);
+		free(deflated);
+		return 0;
+	}
+	for (row = 0; row < height; row++)
+	{
+		raw[row * row_bytes] = 0;
+		memcpy(raw + row * row_bytes + 1, rgba + row * width * 4, width * 4);
+	}
+	deflated[deflated_size++] = 0x78;
+	deflated[deflated_size++] = 0x01;
+	for (offset = 0; offset < raw_size;)
+	{
+		unsigned long count = raw_size - offset > 65535 ? 65535 : raw_size - offset;
+
+		deflated[deflated_size++] = offset + count >= raw_size;
+		deflated[deflated_size++] = (unsigned char)count;
+		deflated[deflated_size++] = (unsigned char)(count >> 8);
+		deflated[deflated_size++] = (unsigned char)~count;
+		deflated[deflated_size++] = (unsigned char)(~count >> 8);
+		memcpy(deflated + deflated_size, raw + offset, count);
+		deflated_size += count;
+		offset += count;
+	}
+	for (at = 0; at < raw_size; at++)
+	{
+		low = (low + raw[at]) % 65521;
+		high = (high + low) % 65521;
+	}
+	put_long(deflated + deflated_size, (high << 16) | low);
+	deflated_size += 4;
+	/* (the menus folder and the folders of the path, one by one, then the file beside its own name until it is whole) */
+	{
+		char *slash;
+
+		posix_make_directory(folder);
+		snprintf(full, sizeof(full), "%s/%s", folder, path);
+		for (slash = full + strlen(folder) + 1; (slash = strchr(slash, '/')) != NULL; slash++)
+		{
+			*slash = 0;
+			posix_make_directory(full);
+			*slash = '/';
+		}
+	}
+	snprintf(temporary, sizeof(temporary), "%s.part", full);
+	file = fopen(temporary, "wb");
+	ok = file != NULL;
+	if (ok)
+	{
+		put_long(header, width);
+		put_long(header + 4, height);
+		header[8] = 8;
+		header[9] = 6;
+		header[10] = header[11] = header[12] = 0;
+		ok = fwrite("\x89PNG\r\n\x1a\n", 1, 8, file) == 8 && png_chunk(file, "IHDR", header, sizeof(header)) &&
+			png_chunk(file, "IDAT", deflated, deflated_size) && png_chunk(file, "IEND", NULL, 0);
+		ok = fclose(file) == 0 && ok;
+		if (ok)
+		{
+			/* (a picture saved again, from its upscaled version: the old file goes first where rename does not replace) */
+			remove(full);
+			ok = rename(temporary, full) == 0;
+		}
+		if (!ok)
+			remove(temporary);
+	}
+	free(raw);
+	free(deflated);
+	if (!ok)
+		platform_log("menus: could not write %s", full);
+	return ok;
 }
 
 /* ---------- art */
@@ -1065,9 +1379,43 @@ void halo_menus_art_forget(void)
 	art_count = 0;
 }
 
+/* the first of a picture's files that can be drawn: art[].png is one path, or paths separated by | (a frame's
+cache, then its png), each in the menus folder or embedded; 0 for none, which draws nothing */
+static unsigned int art_first_texture(long index, unsigned long *levels)
+{
+	char const *path = art[index].png;
+
+	while (*path)
+	{
+		size_t length = strcspn(path, "|");
+		char candidate[256];
+
+		if (length && length < sizeof(candidate))
+		{
+			unsigned long size = 0;
+			const unsigned char *png;
+			unsigned int texture;
+
+			memcpy(candidate, path, length);
+			candidate[length] = 0;
+			png = file_data(candidate, &size);
+			texture = png ? hud_hires_png_texture(png, size, levels) : 0;
+			if (texture)
+				return texture;
+			if (png)
+				platform_log("menus: could not draw %s", candidate);
+		}
+		path += length;
+		if (*path == '|')
+			path++;
+	}
+	return 0;
+}
+
 unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 {
 	long index;
+
 
 	for (index = 0; index < art_count; index++)
 	{
@@ -1079,10 +1427,7 @@ unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 		return 0;
 	if (!art[index].texture)
 	{
-		unsigned long size = 0;
-		const unsigned char *png = file_data(art[index].png, &size);
-
-		art[index].texture = png ? hud_hires_png_texture(png, size, &art[index].levels) : 0;
+		art[index].texture = art_first_texture(index, &art[index].levels);
 		if (!art[index].texture)
 		{
 			platform_log("menus: could not draw %s", art[index].png);

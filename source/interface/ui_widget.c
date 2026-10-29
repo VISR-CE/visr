@@ -676,6 +676,7 @@ struct widget_instance;
 #include "tag_files/tag_files.h"
 #include "tag_files/tag_groups.h"
 #include "text/draw_string.h"
+#include "text/font_group.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
 #include "ui_widget.h"
@@ -774,8 +775,7 @@ enum
 
 enum
 {
-	UI_WIDGET_DEFINITION_TAG = 'DeLa',
-	FONT_GROUP_TAG = 'font'
+	UI_WIDGET_DEFINITION_TAG = 'DeLa'
 };
 
 enum
@@ -1367,6 +1367,16 @@ static boolean ui_widget_load_children_recursive(
 /* port: whether the tag is one of the menus' (port/linux/game/menu_tags.c) */
 boolean pc_menu_tag(
 	long tag_index);
+/* port: how many rows of a menu file's column list show at once
+(visible_rows=), else 0 (port/linux/game/menu_tags.c) */
+short pc_menu_list_window(
+	long tag_index);
+/* port: whether the list is one the menus' patch table changed, and then its
+row's description number (port/linux/game/menu_tags.c) */
+boolean pc_menu_patch_list_index(
+	long list_tag,
+	long row_tag,
+	short *description);
 /* port: unavailable browser rows stay focusable for their reason text
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
@@ -3861,13 +3871,22 @@ boolean ui_widget_port_dispatch_event(
 
 /* port: the number of a list's focused item: among all its children, but
 in the PC version's lists (port/assets/menus) among those that take events,
-past their labels, as its game counts them */
+past their labels, as its game counts them; in a list of the map's that the
+patch table changed, the number its description is shown by (the row's
+place before the patch, or a patch row's own), NONE for a row without one */
 short ui_widget_port_list_index(
 	struct widget_instance *list_widget)
 {
 	boolean skip_labels = pc_menu_tag(list_widget->definition_tag_index);
 	struct widget_instance *child;
 	short index = 0;
+
+	if (pc_menu_patch_list_index(list_widget->definition_tag_index,
+		list_widget->focused_child ? list_widget->focused_child->definition_tag_index : NONE, &index))
+	{
+		return index;
+	}
+	index = 0;
 
 	for (child = list_widget->child; child && child != list_widget->focused_child; child = child->next)
 	{
@@ -3881,6 +3900,18 @@ short ui_widget_port_list_index(
 void ui_widget_port_go_back(
 	struct widget_instance *widget)
 {
+	widget_instance_go_back_to_previous(widget);
+}
+
+/* port: the delete confirmation must skip the editor of the deleted item without reloading it. */
+void ui_widget_port_go_back_past_editor(
+	struct widget_instance *widget)
+{
+	short stack = widget->local_player_index == NONE ? 0 : widget->local_player_index;
+	struct widget_stack_data editor;
+
+	if (widget_globals.widget_stack[stack])
+		pop_widget(&widget_globals.widget_stack[stack], &editor);
 	widget_instance_go_back_to_previous(widget);
 }
 
@@ -3919,6 +3950,18 @@ struct widget_instance *ui_widget_load_by_name_or_tag(
 		(widget_stack>=0) && (widget_stack<MAXIMUM_GAMEPADS));
 	if (tag_index == NONE)
 		tag_index = tag_loaded(UI_WIDGET_DEFINITION_TAG, name);
+	/* port: decide the menu look only at a screen open, never for its children. */
+	if (!parent && tag_index != NONE)
+	{
+		extern long pc_menu_screen_open(long tag_index);
+		long screen_tag = pc_menu_screen_open(tag_index);
+		if (screen_tag != tag_index)
+		{
+			focused_child_parent_widget_tag = NONE;
+			focused_child_index = NONE;
+		}
+		tag_index = screen_tag;
+	}
 	if (tag_index != NONE)
 	{
 		definition = ui_widget_definition_get(tag_index);
@@ -5198,6 +5241,67 @@ static long search_and_replace(
 	return replacements;
 }
 
+/* port: measure without the cell's clipping, including glyph overhang. */
+static short ui_widget_port_text_width(wchar_t const *text)
+{
+	rectangle2d bounds = {0, 0, SHORT_MAX, SHORT_MAX};
+	rectangle2d ink, cursor;
+
+	draw_unicode_string_compute_bounds(&bounds, text, &ink, &cursor);
+	return MAX(ink.x1, cursor.x0);
+}
+
+/* port: browser cells share this path for both menu looks. Use the rendered
+font's metrics and glyph table so a cut name ends visibly in an ellipsis. */
+void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text, short capacity)
+{
+	struct ui_widget_definition *definition;
+	wchar_t const *suffix;
+	long old_font;
+	short width, length = 0, suffix_length, index;
+
+	if (!widget || capacity < 1 || !text[0])
+		return;
+	definition = ui_widget_definition_get(widget->definition_tag_index);
+	if (definition->text_font.index == NONE)
+		return;
+	/* draw_unicode_string requires a glyph to end strictly before x1. */
+	width = definition->bounds.x1 - definition->bounds.x0 - definition->horizontal_offset - 1;
+	old_font = draw_string_get_font();
+	draw_string_set_font(definition->text_font.index);
+	draw_string_set_format(NONE, 0, 0);
+	draw_string_set_indents(0, 0);
+	if (ui_widget_port_text_width(text) > width)
+	{
+		suffix = font_get_character_by_ascii_code(font_definition_get(definition->text_font.index), 0x2026) ?
+			L"\x2026" : L"...";
+		suffix_length = suffix[1] ? 3 : 1;
+		while (text[length] && length < capacity - 1)
+			length++;
+		length = MIN(length, capacity - suffix_length - 1);
+		if (length < 0)
+			text[0] = 0;
+		else
+		{
+			for (;;)
+			{
+				for (index = 0; index <= suffix_length; index++)
+					text[length + index] = suffix[index];
+				if (ui_widget_port_text_width(text) <= width)
+					break;
+				if (!length)
+				{
+					text[0] = 0;
+					break;
+				}
+				length--;
+			}
+		}
+	}
+	if (old_font != NONE)
+		draw_string_set_font(old_font);
+}
+
 /* port: the port's own error text (display_error_text_deferred), which may be
 longer than a line of its dialog: broken at spaces (the strings' line break,
 '\r') where a line would be wider than `width` in the font drawn with.
@@ -6274,6 +6378,152 @@ static void ui_widgets_process_mouse(
 	return;
 }
 
+/* port: a menu file's column list with visible_rows= shows that many of its
+rows (the children that take events, or have children that do, and are not
+lists themselves) and scrolls the rest in, as the Xbox's lists scroll, with
+the children named scroll_up_arrow and scroll_down_arrow showing only while
+rows are hidden above or below: the
+rows the game's code shows (visible) are set in a column from the first
+row's place at the pitch between its first two rows, the first shown being
+kept so that the focused row is among them. Done as the list is drawn, after
+its game data functions, and undone after (a row past the window is hidden
+only while the children draw, so the game's code and the focus see the rows
+as they were) */
+#define WINDOW_MAXIMUM_ROWS 64
+#define WINDOW_STATE_COUNT 8
+
+static struct
+{
+	struct widget_instance *widget;
+	long creation_time;
+	short first;
+} column_list_window_states[WINDOW_STATE_COUNT];
+static short column_list_window_state_next;
+
+static short *column_list_window_first(
+	struct widget_instance *widget)
+{
+	short index;
+
+	for (index = 0; index < WINDOW_STATE_COUNT; index++)
+	{
+		if (column_list_window_states[index].widget == widget &&
+			column_list_window_states[index].creation_time == widget->creation_time)
+		{
+			return &column_list_window_states[index].first;
+		}
+	}
+	index = column_list_window_state_next++ % WINDOW_STATE_COUNT;
+	column_list_window_states[index].widget = widget;
+	column_list_window_states[index].creation_time = widget->creation_time;
+	column_list_window_states[index].first = 0;
+	return &column_list_window_states[index].first;
+}
+
+/* hides the rows past the window and lays the rest out; saved gets each
+child's visible as it was (count of them returned, 0: nothing changed) */
+static short column_list_window_begin(
+	struct widget_instance *widget,
+	struct ui_widget_definition *definition,
+	short window,
+	boolean *saved)
+{
+	struct widget_instance *children[WINDOW_MAXIMUM_ROWS];
+	short reference_y[WINDOW_MAXIMUM_ROWS];
+	short row_children[WINDOW_MAXIMUM_ROWS];
+	short child_count = 0, row_count = 0, shown = 0, rank, focused_rank = NONE;
+	short first_y = 0, pitch = 0, first, *state, index;
+	long reference_index = 0;
+	struct widget_instance *child;
+
+	if (TEST_FLAG(definition->list_flags, _list_items_generated_in_code))
+		return 0;
+	for (child = widget->child; child; child = child->next)
+	{
+		struct ui_widget_child_reference *reference = NULL;
+
+		if (child_count >= WINDOW_MAXIMUM_ROWS)
+			return 0;
+		while (reference_index < definition->child_widgets.count)
+		{
+			reference = (struct ui_widget_child_reference *)definition->child_widgets.address + reference_index++;
+			if (reference->widget_tag.index != NONE)
+				break;
+			reference = NULL;
+		}
+		if (!reference || reference->widget_tag.index != child->definition_tag_index)
+			return 0;
+		children[child_count] = child;
+		reference_y[child_count] = reference->vertical_offset;
+		saved[child_count] = child->visible;
+		if (child->type != _ui_widget_type_column_list &&
+			(widget_instance_can_handle_events(child) || child->child))
+		{
+			if (row_count == 0)
+				first_y = reference->vertical_offset;
+			else if (pitch == 0 && reference->vertical_offset != first_y)
+				pitch = (short)(reference->vertical_offset - first_y);
+			row_children[row_count++] = child_count;
+		}
+		child_count++;
+	}
+	if (row_count == 0 || pitch == 0)
+		return 0;
+	for (index = 0; index < row_count; index++)
+	{
+		if (children[row_children[index]]->visible)
+		{
+			if (children[row_children[index]] == widget->focused_child)
+				focused_rank = shown;
+			shown++;
+		}
+	}
+	state = column_list_window_first(widget);
+	first = *state;
+	if (focused_rank != NONE)
+	{
+		if (focused_rank < first)
+			first = focused_rank;
+		else if (focused_rank >= first + window)
+			first = (short)(focused_rank - window + 1);
+	}
+	first = (short)PIN(first, 0, MAX(0, shown - window));
+	*state = first;
+	/* the arrows (children named scroll_up_arrow and scroll_down_arrow): shown
+	only while rows are hidden above or below the window */
+	for (index = 0; index < child_count; index++)
+	{
+		if (children[index]->name && !strcmp(children[index]->name, "scroll_up_arrow"))
+			children[index]->visible = first > 0;
+		else if (children[index]->name && !strcmp(children[index]->name, "scroll_down_arrow"))
+			children[index]->visible = first + window < shown;
+	}
+	for (rank = 0, index = 0; index < row_count; index++)
+	{
+		child = children[row_children[index]];
+		if (!child->visible)
+			continue;
+		if (rank >= first && rank < first + window)
+			child->vertical_offset = (short)(widget->vertical_offset + first_y + (rank - first) * pitch);
+		else
+			child->visible = FALSE;
+		rank++;
+	}
+	return child_count;
+}
+
+static void column_list_window_end(
+	struct widget_instance *widget,
+	short child_count,
+	boolean const *saved)
+{
+	struct widget_instance *child;
+	short index = 0;
+
+	for (child = widget->child; child && index < child_count; child = child->next)
+		child->visible = saved[index++];
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -6291,6 +6541,8 @@ static void widget_instance_render_recursive(
 	/* port: (custom_edition_maps_picture) */
 	struct bitmap_data *custom_edition_picture;
 	short frame_index;
+	boolean window_saved[WINDOW_MAXIMUM_ROWS];
+	short window_children = 0;
 
 	if (!use_nifty_plasma_fx &&
 		TEST_FLAG(definition->flags, _widget_always_render_with_nifty_fx_bit))
@@ -6490,6 +6742,11 @@ static void widget_instance_render_recursive(
 	}
 	if (render_children)
 	{
+		short window = widget->type == _ui_widget_type_column_list ?
+			pc_menu_list_window(widget->definition_tag_index) : 0;
+
+		if (window > 0)
+			window_children = column_list_window_begin(widget, definition, window, window_saved);
 		for (child = widget->child; child; child = child->next)
 		{
 			focus = child == widget->focused_child;
@@ -6503,9 +6760,63 @@ static void widget_instance_render_recursive(
 				focus,
 				use_nifty_plasma_fx);
 		}
+		if (window_children > 0)
+			column_list_window_end(widget, window_children, window_saved);
 	}
 
 	return;
+}
+
+/* port: rendering and HUD suppression must agree even when controller and local player indices differ. */
+static boolean ui_widget_should_render(
+	struct widget_instance const *widget,
+	long widget_index,
+	short local_player_index)
+{
+	boolean should_render = FALSE;
+
+	if (widget)
+	{
+		if (widget->render_regardless_of_controller_index == TRUE)
+		{
+			should_render = TRUE;
+		}
+		else if (widget->widget_is_error_dialog == TRUE)
+		{
+			if (widget->local_player_index == local_player_index ||
+				widget->local_player_index == NONE ||
+				local_player_index == NONE ||
+				we_are_at_the_main_menu)
+			{
+				should_render = TRUE;
+			}
+		}
+		else if (widget->local_player_index == NONE && widget_index == 0)
+		{
+			should_render = TRUE;
+		}
+		else if (widget->local_player_index == local_player_index)
+		{
+			should_render = TRUE;
+		}
+	}
+	return should_render;
+}
+
+boolean ui_widget_port_screen_visible(
+	short local_player_index)
+{
+	long widget_index;
+
+	if (virtual_keyboard_active())
+		return FALSE;
+	local_player_index = PIN(local_player_index, 0, MAXIMUM_NUMBER_OF_LOCAL_PLAYERS - 1);
+	for (widget_index = 0; widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; widget_index++)
+	{
+		if (ui_widget_should_render(widget_globals.active_widgets[widget_index], widget_index, local_player_index))
+			return TRUE;
+	}
+	return FALSE;
 }
 
 void render_ui_widgets_postgame(
@@ -6533,33 +6844,8 @@ void render_ui_widgets_postgame(
 		widget_index++)
 	{
 		struct widget_instance *widget = widget_globals.active_widgets[widget_index];
-		boolean should_render = FALSE;
+		boolean should_render = ui_widget_should_render(widget, widget_index, local_player_index);
 
-		if (widget)
-		{
-			if (widget->render_regardless_of_controller_index == TRUE)
-			{
-				should_render = TRUE;
-			}
-			else if (widget->widget_is_error_dialog == TRUE)
-			{
-				if (widget->local_player_index == local_player_index ||
-					widget->local_player_index == NONE ||
-					local_player_index == NONE ||
-					we_are_at_the_main_menu)
-				{
-					should_render = TRUE;
-				}
-			}
-			else if (widget->local_player_index == NONE && widget_index == 0)
-			{
-				should_render = TRUE;
-			}
-			else if (widget->local_player_index == local_player_index)
-			{
-				should_render = TRUE;
-			}
-		}
 		if (should_render)
 		{
 			bounds.x0 = 0;
@@ -6604,33 +6890,8 @@ void render_ui_widgets(
 			widget_index++)
 		{
 			struct widget_instance *widget = widget_globals.active_widgets[widget_index];
-			boolean should_render = FALSE;
+			boolean should_render = ui_widget_should_render(widget, widget_index, local_player_index);
 
-			if (widget)
-			{
-				if (widget->render_regardless_of_controller_index == TRUE)
-				{
-					should_render = TRUE;
-				}
-				else if (widget->widget_is_error_dialog == TRUE)
-				{
-					if (widget->local_player_index == local_player_index ||
-						widget->local_player_index == NONE ||
-						local_player_index == NONE ||
-						we_are_at_the_main_menu)
-					{
-						should_render = TRUE;
-					}
-				}
-				else if (widget->local_player_index == NONE && widget_index == 0)
-				{
-					should_render = TRUE;
-				}
-				else if (widget->local_player_index == local_player_index)
-				{
-					should_render = TRUE;
-				}
-			}
 			if (should_render)
 			{
 				point2d offset;
@@ -7690,6 +7951,12 @@ void process_ui_widgets(
 		644,
 		widget_globals.initialized);
 	widget_globals.current_system_milliseconds = system_milliseconds();
+	/* port: save ui.map pictures outside texture resolution, before a later game map needs them. */
+	if (we_are_at_the_main_menu)
+	{
+		extern void pc_menu_art_extract(void);
+		pc_menu_art_extract();
+	}
 	ui_widgets_process_mouse();
 	if (ui_widget_port_press_controller != NONE)
 	{

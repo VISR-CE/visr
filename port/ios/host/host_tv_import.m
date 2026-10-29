@@ -10,6 +10,7 @@
 #include "xiso.h"
 #include "host_astc_store.h"
 #include "host_texture_upscale.h"
+#import "host_upscale_tick.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <ifaddrs.h>
@@ -55,6 +56,10 @@ static nw_listener_t listener;
 static dispatch_queue_t server_queue;
 static uint16_t server_port;
 static atomic_int preparing_textures, skip_textures, menu_phase_textures;
+/* the upscaling bar's "ready to start", in ten-thousandths of the bar; -1 while it is not known */
+static atomic_int upscale_tick=-1;
+/* the work was refused (no storage, too warm): the second, smaller line under the message, or NULL */
+static const char *_Atomic upscale_detail;
 
 static void status_set(enum import_state state,uint64_t done,uint64_t total,NSString *message) {
     pthread_mutex_lock(&status_lock);
@@ -80,12 +85,16 @@ static int texture_progress(void *context,uint64_t done,uint64_t total) {
 }
 
 /* the on-device upscaler's import phase (rule 2), skipped with the same button */
-static int upscale_progress(void *context,unsigned long long done,unsigned long long total,int menu_phase) {
+static int upscale_progress(void *context,const struct host_texture_upscale_import_status *upscale) {
     (void)context;
     atomic_store(&preparing_textures,1);
     /* the main menu's textures come first: Start playing is not offered until they are made */
-    atomic_store(&menu_phase_textures,menu_phase);
-    status_set(import_extracting,done,total,@"Upscaling textures");
+    atomic_store(&menu_phase_textures,upscale->menu_phase);
+    atomic_store(&upscale_tick,upscale->tick<0?-1:(int)(upscale->tick*10000));
+    /* (the bar's fraction over the setup and the whole set, in ten-thousandths; rounded down in the label) */
+    unsigned shown=(unsigned)(upscale->fraction*10000);
+    atomic_store(&upscale_detail,upscale->message?upscale->detail:NULL);
+    status_set(import_extracting,shown,10000,upscale->message?@(upscale->message):[NSString stringWithFormat:@"Upscaling textures · %u%%",shown/100]);
     return !atomic_load(&skip_textures);
 }
 /* Called with a complete upload; runs on its own thread. */
@@ -118,7 +127,7 @@ static void import_image(void) {
             atomic_store(&skip_textures,0);
             host_astc_store_prepare_import(documents.fileSystemRepresentation,texture_progress,NULL);
             host_texture_upscale_prepare_import(documents.fileSystemRepresentation,upscale_progress,NULL);
-            atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);
+            atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);atomic_store(&upscale_detail,NULL);
             [files removeItemAtPath:staging error:nil];
             status_set(import_done,1,1,@"Imported. Starting Halo…");
         } else {
@@ -474,6 +483,7 @@ static UIImage *qr_image(NSString *text) {
 @property(nonatomic,strong) UIImageView *qr;
 @property(nonatomic,strong) UILabel *introLabel;
 @property(nonatomic,strong) UIProgressView *progress;
+@property(nonatomic,strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
 @property(nonatomic,strong) UIButton *skipTexturesButton;
 @property(nonatomic,copy) NSString *shownURL;
 @property(nonatomic) unsigned shownSerial;
@@ -503,6 +513,8 @@ static UIImage *qr_image(NSString *text) {
     self.codeLabel.text=[NSString stringWithFormat:@"Code %s",pairing_code];[stack addArrangedSubview:self.codeLabel];
     self.progress=[[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];self.progress.hidden=YES;
     [self.progress.widthAnchor constraintEqualToConstant:900].active=YES;[stack addArrangedSubview:self.progress];
+    /* (room under the bar for the upscaling phase's "ready to start") */
+    self.tick=[HaloUpscaleTick tickOnBar:self.progress];[stack setCustomSpacing:56 afterView:self.progress];
     self.statusLabel=[self label:UIFontTextStyleCallout color:UIColor.secondaryLabelColor];[stack addArrangedSubview:self.statusLabel];
     self.skipTexturesButton=[UIButton buttonWithType:UIButtonTypeSystem];
     [self.skipTexturesButton setTitle:@"Start playing" forState:UIControlStateNormal];
@@ -533,15 +545,28 @@ static UIImage *qr_image(NSString *text) {
     /* once the disc is imported and textures are being prepared, only the progress shows */
     BOOL preparing=atomic_load(&preparing_textures);
     self.introLabel.hidden=self.qr.hidden=self.addressLabel.hidden=self.codeLabel.hidden=preparing;
-    BOOL wasHidden=self.skipTexturesButton.hidden;
-    self.skipTexturesButton.hidden=!atomic_load(&preparing_textures)||atomic_load(&menu_phase_textures);
-    if(wasHidden&&!self.skipTexturesButton.hidden)[self setNeedsFocusUpdate];
+    /* (while textures are prepared the button keeps its place, unseen until it may be used, so nothing moves) */
+    BOOL wasShown=!self.skipTexturesButton.hidden&&self.skipTexturesButton.enabled;
+    BOOL usable=atomic_load(&preparing_textures)&&!atomic_load(&menu_phase_textures);
+    self.skipTexturesButton.hidden=!atomic_load(&preparing_textures);
+    self.skipTexturesButton.alpha=usable?1:0;self.skipTexturesButton.enabled=usable;
+    if(!wasShown&&usable)[self setNeedsFocusUpdate];
     if(serial!=self.shownSerial) {
         self.shownSerial=serial;
-        self.statusLabel.text=message;
-        self.progress.hidden=!total;
-        self.progress.progressTintColor=atomic_load(&preparing_textures)&&atomic_load(&menu_phase_textures)?UIColor.systemGrayColor:[UIColor colorWithRed:0.247 green:0.839 blue:1 alpha:1];
+        const char *detail=preparing?atomic_load(&upscale_detail):NULL;
+        if(detail){
+            /* the work refused: the line says so in place of the bar, which keeps its place */
+            NSMutableAttributedString *text=[[NSMutableAttributedString alloc] initWithString:message
+                attributes:@{NSFontAttributeName:self.statusLabel.font,NSForegroundColorAttributeName:UIColor.labelColor}];
+            [text appendAttributedString:[[NSAttributedString alloc] initWithString:[@"\n" stringByAppendingString:@(detail)]
+                attributes:@{NSFontAttributeName:[UIFont preferredFontForTextStyle:UIFontTextStyleFootnote],NSForegroundColorAttributeName:UIColor.secondaryLabelColor}]];
+            self.statusLabel.attributedText=text;
+        } else self.statusLabel.text=message;
+        self.progress.hidden=!total;self.progress.alpha=detail?0:1;
+        self.progress.progressTintColor=atomic_load(&preparing_textures)&&atomic_load(&menu_phase_textures)?UIColor.systemGrayColor:halo_upscale_bar_blue();
         if(total)self.progress.progress=(float)((double)done/total);
+        int tick=atomic_load(&upscale_tick);
+        [self.tick setPosition:preparing&&tick>=0&&!detail?tick/10000.0:-1];
     }
     return state==import_done;
 }
@@ -605,7 +630,7 @@ static void host_tv_upscale_only(const char *root) {
     window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
         host_texture_upscale_prepare_import(documents.fileSystemRepresentation,upscale_progress,NULL);
-        atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);
+        atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);atomic_store(&upscale_detail,NULL);
         status_set(import_done,1,1,@"Done");
     });
     while(![controller refresh]) @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}

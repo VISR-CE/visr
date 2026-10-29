@@ -9,6 +9,7 @@ import argparse
 import base64
 import hashlib
 import json
+import lzma
 import os
 from pathlib import Path
 import re
@@ -32,15 +33,26 @@ else:
 ROOT = Path(__file__).resolve().parents[1]
 # The device profile feed generation this source's apps read (host_profile.h, HOST_PROFILE_FEED_GENERATION):
 # its shards are signed as PROFILE_FEED_DOMAIN:<target> and served from a directory of the same name.
-# device-profiles-1 is what 0.4.2 to 0.5.1 read; its path is frozen.
-PROFILE_FEED_GENERATION = 2
+# device-profiles-1 is what 0.4.2 to 0.5.1 read; its path is frozen. device-profiles-2 is what 0.6.0 to 0.6.3 read; it is
+# retired: a new shard there would reach 0.6.3, whose duplicate stores quarantine it.
+PROFILE_FEED_GENERATION = 3
 PROFILE_FEED_DOMAIN = f"device-profiles-{PROFILE_FEED_GENERATION}"
-DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2")
+DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3")
 REVISION = profile_revision.NAME
 SHADER_INDEX_LIMIT = 65536
 SHADER_COMPRESSED_FILE_LIMIT = 4 * 1024 * 1024
 SHADER_COMPRESSED_TOTAL_LIMIT = 16 * 1024 * 1024
 MAXIMUM_SEQUENCE = 2**53 - 1
+# benchmark-catalog-2 (docs/data-packs.md, "Recording catalogs"): the signed payload names one xz stream that holds
+# every recording file; host_data_pack.m reads it with Apple's COMPRESSION_LZMA, which decodes this xz container.
+RECORDING_ARCHIVE_NAME = "recordings"
+RECORDING_ARCHIVE_HEADER = b"visr-recordings-1\n"
+RECORDING_ARCHIVE_MAX_RAW = 128 * 1024 * 1024
+RECORDING_ARCHIVE_MAX_COMPRESSED = 32 * 1024 * 1024
+RECORDING_BLOB_DIRECTORY = "recording-blobs"
+# CRC32 and a 16 MiB window: measured against COMPRESSION_LZMA, 6.27 MB for the 0.6.3 catalog (8 MiB 6.36, 64 MiB 6.23).
+RECORDING_XZ = dict(format=lzma.FORMAT_XZ, check=lzma.CHECK_CRC32,
+                    filters=[{"id": lzma.FILTER_LZMA2, "preset": 9 | lzma.PRESET_EXTREME, "dict_size": 16 * 1024 * 1024}])
 RECORDING_MAX_FILES = 160
 RECORDING_MAX_FILE_BYTES = 4 * 1024 * 1024
 # Match the native route grammar: three streams and two short metadata files per
@@ -59,6 +71,59 @@ LEGACY_BUILTIN_SCENES = {"menu", "a10-opening", "b30-beach"}
 LEGACY_MAXIMUM_ROUTES = 13
 PROFILE_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\.toml")
 RECORDING_NAME = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?\.(?:input|actions|seeds|route|checks)")
+
+
+def recording_archive(files):
+    """The canonical raw archive: header, then NAME LENGTH, newline, bytes, newline for each file in name order."""
+    parts = [RECORDING_ARCHIVE_HEADER]
+    for name in sorted(files):
+        parts += [f"{name} {len(files[name])}\n".encode("ascii"), files[name], b"\n"]
+    return b"".join(parts)
+
+
+def recording_archive_files(raw):
+    """Strict inverse of recording_archive, as the app parses it: ascending unique names, non-empty files, no trailing bytes."""
+    if not raw.startswith(RECORDING_ARCHIVE_HEADER):
+        raise ValueError("recording archive header is missing")
+    offset, files, previous = len(RECORDING_ARCHIVE_HEADER), {}, None
+    while offset < len(raw):
+        end = raw.find(b"\n", offset)
+        line = raw[offset:end].decode("ascii") if end > offset else ""
+        match = re.fullmatch(r"([a-z0-9][a-z0-9.-]{0,62}) ([1-9][0-9]{0,6})", line)
+        if not match or not snapshot_name_allowed(match[1], "recordings", "benchmark-catalog-2:" + "0" * 64) or (previous is not None and match[1] <= previous):
+            raise ValueError("recording archive entry is invalid")
+        offset, size = end + 1, int(match[2])
+        if raw[offset + size:offset + size + 1] != b"\n" or len(files) >= RECORDING_MAX_FILES or size > RECORDING_MAX_FILE_BYTES:
+            raise ValueError("recording archive entry is truncated or too large")
+        files[match[1]] = raw[offset:offset + size]
+        offset, previous = offset + size + 1, match[1]
+    if not files:
+        raise ValueError("recording archive is empty")
+    return files
+
+
+def recording_blob_name(digest):
+    return f"{RECORDING_BLOB_DIRECTORY}/{digest}.xz"
+
+
+def compress_recording_archive(raw, directory=None):
+    """(xz bytes, descriptor): reuses an already published blob of the same archive, so a republished catalog keeps its
+    content address even if a different liblzma would compress it differently."""
+    raw_hash = hashlib.sha256(raw).hexdigest()
+    compressed = None
+    for path in sorted(Path(directory).glob("*.xz")) if directory and Path(directory).is_dir() else []:
+        candidate = path.read_bytes()
+        try:
+            if len(candidate) <= RECORDING_ARCHIVE_MAX_COMPRESSED and hashlib.sha256(lzma.decompress(candidate)).hexdigest() == raw_hash:
+                compressed = candidate
+                break
+        except lzma.LZMAError:
+            continue
+    if compressed is None:
+        compressed = lzma.compress(raw, **RECORDING_XZ)
+    if len(raw) > RECORDING_ARCHIVE_MAX_RAW or len(compressed) > RECORDING_ARCHIVE_MAX_COMPRESSED:
+        raise ValueError("recording archive exceeds its size limit")
+    return compressed, ":".join((raw_hash, str(len(raw)), hashlib.sha256(compressed).hexdigest(), str(len(compressed))))
 
 
 def canonical(value):
@@ -209,7 +274,7 @@ def validate_shaders(folder):
 
 def validate_device_profiles(folder, target, generation=1):
     platform, model, chip = profile_target_parts(target)
-    command = "validate" if generation == 1 else "validate-2"
+    command = "validate" if generation == 1 else f"validate-{generation}"
     result = subprocess.run([str(profile_delivery_helper()), command, str(folder), platform, model, chip], capture_output=True, text=True)
     if result.returncode:
         raise ValueError(result.stderr.strip() or "device profile snapshot rejected")
@@ -221,7 +286,7 @@ def device_profile_snapshot(folder, platform, model, chip="", generation=1):
     target = device_profile_key(platform, model, chip)
     folder = Path(folder)
     source = snapshot(folder, "profiles")
-    if generation == 2:
+    if generation >= 2:
         if REVISION not in source:
             raise ValueError(f"{REVISION} is missing; run tools/profile_revision.py --bump")
         profile_revision.check(folder)
@@ -257,7 +322,7 @@ def device_profile_snapshot(folder, platform, model, chip="", generation=1):
             lines.extend(key + " = " + json.dumps(value, ensure_ascii=True) for key, value in table.items())
     files = {name: source[name] for name in sorted(keep)}
     files["hardware/catalog.toml"] = ("\n".join(lines) + "\n").encode("ascii")
-    if generation == 2:
+    if generation >= 2:
         files[REVISION] = source[REVISION]
     with tempfile.TemporaryDirectory(prefix="visr-device-profile-") as temporary:
         root = Path(temporary)
@@ -274,10 +339,10 @@ def validate_recordings(folder, compatibility=None):
     if result.returncode:
         raise ValueError(result.stderr.strip() or "recording snapshot rejected")
     catalog_path = Path(folder) / benchmark_catalog.CATALOG_NAME
-    if compatibility and compatibility.startswith("benchmark-catalog-1:"):
+    if compatibility and compatibility.startswith(("benchmark-catalog-1:", "benchmark-catalog-2:")):
         benchmark_catalog.load_catalog(folder)
     elif catalog_path.exists():
-        raise ValueError("benchmark-catalog.json requires benchmark-catalog-1 compatibility")
+        raise ValueError("benchmark-catalog.json requires benchmark-catalog-1 or -2 compatibility")
     else:
         # Preserve the exact old-client feed contract in the publisher only. New app code has no built-in case IDs.
         routes = sorted(Path(folder).glob("*.route"))
@@ -385,7 +450,7 @@ def snapshot_name_allowed(name, kind, compatibility=None):
             # device-profiles-1 and the whole-set profiles-1/2 packs refuse it
             return compatibility is None or (device is not None and device[0] >= 2)
         return name == "hardware/catalog.toml" or (device is not None and name == "capacity.toml") or (len(name) < 64 and PROFILE_NAME.fullmatch(name) and name != "device-profile.toml")
-    return ((compatibility and compatibility.startswith("benchmark-catalog-1:") and name == benchmark_catalog.CATALOG_NAME)
+    return ((compatibility and compatibility.startswith(("benchmark-catalog-1:", "benchmark-catalog-2:")) and name == benchmark_catalog.CATALOG_NAME)
         or RECORDING_NAME.fullmatch(name))
 
 
@@ -492,11 +557,11 @@ def main(arguments=None):
         raise ValueError("sequence must be a positive integer at most 2^53 - 1")
     if args.minimum_engine != 1 or args.maximum_engine != 1:
         raise ValueError("this publisher supports only minimum_engine = maximum_engine = 1")
-    expected = (r"device-profiles-[12]:.+|profiles-[12]" if args.kind == "profiles" else
-                "shader-lists-[12]" if args.kind == "shaders" else "latest-release-1" if args.kind == "latest" else r"benchmark-(?:replay-1|catalog-1):[0-9a-f]{64}")
+    expected = (r"device-profiles-[123]:.+|profiles-[12]" if args.kind == "profiles" else
+                "shader-lists-[12]" if args.kind == "shaders" else "latest-release-1" if args.kind == "latest" else r"benchmark-(?:replay-1|catalog-[12]):[0-9a-f]{64}")
     if not re.fullmatch(expected, args.compatibility):
-        raise ValueError("compatibility must be device-profiles-1: or device-profiles-2: plus a target, profiles-1 or profiles-2, "
-                         "benchmark-replay-1:/benchmark-catalog-1: plus the exact lowercase guest SHA-256, or latest-release-1")
+        raise ValueError("compatibility must be device-profiles-1:, -2: or -3: plus a target, profiles-1 or profiles-2, "
+                         "benchmark-replay-1:/benchmark-catalog-1:/benchmark-catalog-2: plus the exact lowercase guest SHA-256, or latest-release-1")
     if len(args.notes.encode("utf-8")) > 4096:
         raise ValueError("notes must be at most 4096 UTF-8 bytes")
     device = device_domain(args.compatibility) if args.kind == "profiles" else None
@@ -509,7 +574,7 @@ def main(arguments=None):
         print(f"Released apps that admit this shard: {', '.join(checked) or f'none yet read device-profiles-{device[0]}'}")
     else:
         if args.device_platform or args.device_model or args.device_chip:
-            raise ValueError("device arguments require device-profiles-1 or device-profiles-2 compatibility")
+            raise ValueError("device arguments require device-profiles-1, -2 or -3 compatibility")
         files = snapshot(args.input, args.kind, args.compatibility)
     assets = {}
     if args.kind == "shaders" and args.compatibility == "shader-lists-2":
@@ -526,6 +591,10 @@ def main(arguments=None):
         if compressed_total > SHADER_COMPRESSED_TOTAL_LIMIT:
             raise ValueError("compressed shader maps exceed total size limit")
         payload = canonical({"files": encoded})
+    elif args.kind == "recordings" and args.compatibility.startswith("benchmark-catalog-2:"):
+        compressed, descriptor = compress_recording_archive(recording_archive(files), args.output.parent / RECORDING_BLOB_DIRECTORY)
+        assets[recording_blob_name(descriptor.split(":")[2])] = compressed
+        payload = canonical({"files": {RECORDING_ARCHIVE_NAME: descriptor}})
     else:
         payload = canonical({"files": {name: base64.b64encode(content).decode("ascii") for name, content in files.items()}})
     manifest = canonical({"schema": 1, "kind": args.kind, "channel": args.channel, "sequence": args.sequence,
@@ -540,19 +609,19 @@ def main(arguments=None):
     envelope = canonical({name: base64.b64encode(value).decode("ascii")
         for name, value in (("manifest", manifest), ("signature", signature), ("payload", payload))})
     # the app refuses a larger download before it checks the signature (host_data_pack.m, envelopeLimit)
-    if len(envelope) + 1 > ENVELOPE_LIMITS[args.kind]:
+    if len(envelope) + 1 > ENVELOPE_LIMITS[args.kind] and not assets:
         raise ValueError(f"envelope exceeds the app's {ENVELOPE_LIMITS[args.kind]} byte download limit")
     if assets:
         if len(envelope) + 1 > SHADER_INDEX_LIMIT:
-            raise ValueError("shader index exceeds its download limit")
-        destination = args.output.parent / "shader-maps"
-        destination.mkdir(exist_ok=True)
-        if destination.is_symlink() or not destination.is_dir():
-            raise ValueError("shader asset directory must be a regular directory")
+            raise ValueError("index exceeds its download limit")
         # Publish immutable content before the index that references it. Retain old assets
         # so an interrupted publisher never invalidates an already served index.
         for name, content in assets.items():
-            atomic_write(destination / name, content)
+            destination = (args.output.parent / name).parent if "/" in name else args.output.parent / "shader-maps"
+            destination.mkdir(exist_ok=True)
+            if destination.is_symlink() or not destination.is_dir():
+                raise ValueError("asset directory must be a regular directory")
+            atomic_write(destination / Path(name).name, content)
     atomic_write(args.output, envelope + b"\n")
     print(f"Wrote {args.kind} sequence {args.sequence}: {len(files)} files, {len(envelope) + 1} bytes")
     return 0

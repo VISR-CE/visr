@@ -350,7 +350,7 @@ def configure_with(monkeypatch, tmp_path, *arguments):
 def test_device_builds_download_from_the_projects_feeds_by_default(monkeypatch, tmp_path, arguments, channel):
     configure = configure_with(monkeypatch, tmp_path, *arguments)
     assert '-DHALO_DATA_PACK_PUBLIC_KEY=' + ios_build.DATA_PACK_PUBLIC_KEY in configure
-    assert f'-DHALO_PROFILE_FEED_URL=https://code.steverice.org/visr/packs/{channel}/device-profiles-2' in configure
+    assert f'-DHALO_PROFILE_FEED_URL=https://code.steverice.org/visr/packs/{channel}/device-profiles-3' in configure
     assert f'-DHALO_RECORDING_FEED_URL=https://code.steverice.org/visr/packs/{channel}/recordings.json' in configure
     assert f'-DHALO_SHADER_FEED_URL=https://code.steverice.org/visr/packs/{channel}/shaders.json' in configure
 
@@ -456,7 +456,7 @@ def test_every_apple_app_declares_exempt_encryption(name):
 def test_native_mac_downloads_the_stable_feeds_by_default(monkeypatch, tmp_path):
     configure = configure_with(monkeypatch, tmp_path, '--native-mac')
     assert '-DHALO_DATA_PACK_PUBLIC_KEY=' + ios_build.DATA_PACK_PUBLIC_KEY in configure
-    assert '-DHALO_PROFILE_FEED_URL=https://code.steverice.org/visr/packs/stable/device-profiles-2' in configure
+    assert '-DHALO_PROFILE_FEED_URL=https://code.steverice.org/visr/packs/stable/device-profiles-3' in configure
     assert '-DHALO_SHADER_FEED_URL=https://code.steverice.org/visr/packs/stable/shaders.json' in configure
     assert '-DHALO_DATA_PACK_CHANNEL_NAME=' in configure
     assert '-DHALO_BUNDLE_IDENTIFIER=org.steverice.visr.native' in configure
@@ -466,7 +466,7 @@ def test_native_mac_testflight_build_names_the_tester_channel_and_the_ios_record
     configure = configure_with(monkeypatch, tmp_path, '--native-mac', '--team', 'TEAM', '--signing-profile', 'UUID',
                                '--data-pack-channel', 'tester')
     assert '-DHALO_DATA_PACK_CHANNEL_NAME=tester' in configure
-    assert '-DHALO_PROFILE_FEED_URL=https://code.steverice.org/visr/packs/tester/device-profiles-2' in configure
+    assert '-DHALO_PROFILE_FEED_URL=https://code.steverice.org/visr/packs/tester/device-profiles-3' in configure
     assert '-DHALO_BUNDLE_IDENTIFIER=org.steverice.visr' in configure
     assert '-DHALO_TESTER_BUILD=OFF' in configure
 
@@ -518,3 +518,16 @@ def test_the_guard_test_refuses_a_switch_under_another_conditional(tmp_path):
         if 'getenv("X")' in stripped:
             guarded.append(any(stack))
     assert guarded == [False]
+
+
+def test_catalyst_mac_build_names_the_requested_data_pack_channel(monkeypatch, tmp_path):
+    configure = configure_with(monkeypatch, tmp_path, '--mac', '--data-pack-channel', 'tester',
+                               '--recording-feed-url', 'https://packs.example/recordings-2-x.json')
+    assert '-DHALO_DATA_PACK_CHANNEL_NAME=tester' in configure
+    assert '-DHALO_RECORDING_FEED_URL=https://packs.example/recordings-2-x.json' in configure
+
+
+@pytest.mark.parametrize('arguments', [('--unsigned',), ('--mac',), ('--native-mac',)])
+def test_dev_build_clears_cached_release_marketing_version(monkeypatch, tmp_path, arguments):
+    configure = configure_with(monkeypatch, tmp_path, *arguments)
+    assert '-DHALO_MARKETING_VERSION=' in configure

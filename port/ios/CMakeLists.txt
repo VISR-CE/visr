@@ -81,7 +81,7 @@ endif()
 # Each build a new CFBundleVersion (tools/ios_build.py), so installing over the
 # app replaces it and keeps its Documents, or on tvOS its Caches (the imported game)
 set(HALO_BUILD_NUMBER 6 CACHE STRING "CFBundleVersion")
-set(HALO_MARKETING_VERSION "0.1.2" CACHE STRING "CFBundleShortVersionString supplied by the CI release tag")
+include("${CMAKE_CURRENT_LIST_DIR}/AppVersion.cmake")
 if(HALO_NATIVE_MAC)
     set(HALO_NATIVE_DIR "${CMAKE_CURRENT_LIST_DIR}/../macos")
     set(HALO_PLATFORM_SOURCES "${HALO_NATIVE_DIR}/host_macos_services.m"
@@ -98,7 +98,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "tvOS")
     # tools/ios_build.py --render-height N overrides every profile (0 = the profile's).
     set(HALO_RENDER_HEIGHT 0 CACHE STRING "Internal render height (display.render_height); 0 leaves it to the device profile")
     # Brand assets (layered icon, top shelf) made from the iOS AppIcon artwork.
-    set(HALO_PLATFORM_SOURCES Assets-tvOS.xcassets host/host_tv.m host/host_tv_import.m)
+    set(HALO_PLATFORM_SOURCES Assets-tvOS.xcassets host/host_tv.m host/host_tv_import.m host/host_upscale_tick.m)
     set(HALO_INFO_PLIST Info-tvOS.plist)
     set(HALO_DEVICE_FAMILY 3)
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
@@ -111,14 +111,14 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "visionOS")
     # following the window when it's resized (d3d8_device.c's halo_screen_commit)
     set(HALO_RENDER_HEIGHT 0 CACHE STRING "Internal render height (display.render_height)")
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
-    set(HALO_PLATFORM_SOURCES Assets-visionOS.xcassets host/host_tv.m host/host_import.m host/host_orientation.m
+    set(HALO_PLATFORM_SOURCES Assets-visionOS.xcassets host/host_tv.m host/host_import.m host/host_upscale_tick.m host/host_orientation.m
         host/host_theater.m host/Theater.swift host/host_texture_settings.m host/texture_refine.m
         host/host_spatial_input.m host/host_spatial_gamepad.c)
     set(HALO_INFO_PLIST Info-visionOS.plist)
     set(HALO_DEVICE_FAMILY 7)
 else()
     option(HALO_EXTENDED_VIRTUAL_ADDRESSING "Sign with the extended virtual addressing entitlement" OFF)
-    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_orientation.m host/host_touch.m host/host_menu_pointer.m
+    set(HALO_PLATFORM_SOURCES Assets.xcassets host/host_import.m host/host_upscale_tick.m host/host_orientation.m host/host_touch.m host/host_menu_pointer.m
         host/host_texture_settings.m host/texture_refine.m)
     if(HALO_MAC)
         # Mac Catalyst: Info.plist without the iOS-only keys (LSRequiresIPhoneOS, UIRequiresFullScreen, Files sharing)
@@ -190,8 +190,8 @@ target_include_directories(halo_astcenc PUBLIC "${ROOT}/port/third_party/astcenc
 target_sources(VISR PRIVATE "${ROOT}/port/linux/src/astc_encode.cpp"
     "${ROOT}/port/linux/src/astc_rewrite.c" "${ROOT}/port/runtime/astc_store.c"
     host/host_astc_store.m host/host_astc_texture.c)
-target_sources(VISR PRIVATE host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
-    host/texture_refine_bounded.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
+target_sources(VISR PRIVATE host/host_quit_signals.c host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
+    host/texture_refine_bounded.c host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
     "${ROOT}/port/third_party/bc7enc16/bc7decomp.c")
 target_include_directories(VISR PRIVATE "${ROOT}/port/third_party/bc7enc" "${ROOT}/port/third_party/bc7enc16")
 target_link_libraries(VISR PRIVATE "-framework Accelerate")
@@ -200,28 +200,26 @@ if(HALO_TVOS OR HALO_NATIVE_MAC)
 endif()
 target_compile_features(VISR PRIVATE cxx_std_14)
 target_link_libraries(VISR PRIVATE halo_astcenc)
-# Compile the CC0 model on the build host; inference never compiles a package on the device.
-# The native macOS app does not run the generator, but shares its unavailable-service behavior. tvOS bundles the
-# model: Apple TVs whose profile turns upscaled textures on (the 4K 3rd generation and newer) make them.
+# Compile the CC0 model on the build host; inference never compiles a package on the device. Every Apple target bundles
+# it: iPhone, iPad, the Mac (Catalyst and the AppKit app) and the Apple TVs whose profile turns upscaled textures on (the
+# 4K 3rd generation and newer) make the textures on the device.
 target_sources(VISR PRIVATE host/texture_upscale_model.m)
 target_link_libraries(VISR PRIVATE "-framework CoreML")
-if(NOT HALO_NATIVE_MAC)
-    set(HALO_UPSCALE_MODEL_PACKAGE "${ROOT}/port/assets/models/S4g.mlpackage")
-    set(HALO_UPSCALE_MODEL_COMPILED "${CMAKE_CURRENT_BINARY_DIR}/models/S4g.mlmodelc")
-    file(GLOB_RECURSE HALO_UPSCALE_MODEL_INPUTS CONFIGURE_DEPENDS "${HALO_UPSCALE_MODEL_PACKAGE}/*")
-    add_custom_command(
-        OUTPUT "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin"
-        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/models"
-        COMMAND xcrun coremlcompiler compile "${HALO_UPSCALE_MODEL_PACKAGE}" "${CMAKE_CURRENT_BINARY_DIR}/models"
-        DEPENDS ${HALO_UPSCALE_MODEL_INPUTS}
-        COMMENT "Compiling the S4g texture upscale model"
-        VERBATIM)
-    add_custom_target(halo_upscale_model DEPENDS "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin")
-    add_dependencies(VISR halo_upscale_model)
-    set_source_files_properties("${HALO_UPSCALE_MODEL_COMPILED}" PROPERTIES
-        GENERATED TRUE MACOSX_PACKAGE_LOCATION Resources)
-    target_sources(VISR PRIVATE "${HALO_UPSCALE_MODEL_COMPILED}")
-endif()
+set(HALO_UPSCALE_MODEL_PACKAGE "${ROOT}/port/assets/models/S4g.mlpackage")
+set(HALO_UPSCALE_MODEL_COMPILED "${CMAKE_CURRENT_BINARY_DIR}/models/S4g.mlmodelc")
+file(GLOB_RECURSE HALO_UPSCALE_MODEL_INPUTS CONFIGURE_DEPENDS "${HALO_UPSCALE_MODEL_PACKAGE}/*")
+add_custom_command(
+    OUTPUT "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/models"
+    COMMAND xcrun coremlcompiler compile "${HALO_UPSCALE_MODEL_PACKAGE}" "${CMAKE_CURRENT_BINARY_DIR}/models"
+    DEPENDS ${HALO_UPSCALE_MODEL_INPUTS}
+    COMMENT "Compiling the S4g texture upscale model"
+    VERBATIM)
+add_custom_target(halo_upscale_model DEPENDS "${HALO_UPSCALE_MODEL_COMPILED}/coremldata.bin")
+add_dependencies(VISR halo_upscale_model)
+set_source_files_properties("${HALO_UPSCALE_MODEL_COMPILED}" PROPERTIES
+    GENERATED TRUE MACOSX_PACKAGE_LOCATION Resources)
+target_sources(VISR PRIVATE "${HALO_UPSCALE_MODEL_COMPILED}")
 target_include_directories(VISR PRIVATE host "${ROOT}/port/runtime" "${ROOT}/port/runtime/include"
     "${ROOT}/port/runtime/guest/runtime" "${ROOT}/port/linux/src" "${ROOT}/build/ios/host"
     "${ROOT}/build/ios/embedded" "${ROOT}/port/third_party/tomlc17")
@@ -314,7 +312,7 @@ else()
     target_link_libraries(VISR PRIVATE "-weak_framework BackgroundTasks")
 endif()
 target_link_libraries(VISR PRIVATE SDL3::SDL3-static "-framework Foundation" "${HALO_UI_FRAMEWORK}"
-    "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z)
+    "-framework Metal" "-framework AVFAudio" "-framework QuartzCore" "-framework Network" "-framework CoreImage" z compression)
 # display.upscaler = "metalfx" (gpu_metal.m); the simulators have no MetalFX
 if(NOT CMAKE_OSX_SYSROOT MATCHES "[Ss]imulator")
     target_link_libraries(VISR PRIVATE "-weak_framework MetalFX")
@@ -484,7 +482,8 @@ set_target_properties(VISR PROPERTIES MACOSX_BUNDLE_INFO_PLIST "${HALO_INFO_PLIS
     XCODE_ATTRIBUTE_GCC_GENERATE_DEBUGGING_SYMBOLS YES
     XCODE_ATTRIBUTE_HALO_RENDER_HEIGHT "${HALO_RENDER_HEIGHT}"
     XCODE_ATTRIBUTE_HALO_BUILD_NUMBER "${HALO_BUILD_NUMBER}"
-    XCODE_ATTRIBUTE_HALO_MARKETING_VERSION "${HALO_MARKETING_VERSION}")
+    XCODE_ATTRIBUTE_HALO_MARKETING_VERSION "${HALO_MARKETING_VERSION}"
+    XCODE_ATTRIBUTE_HALO_BUILD_DESCRIPTION "${HALO_BUILD_DESCRIPTION}")
 if(HALO_DEVELOPMENT_TEAM)
     set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${HALO_DEVELOPMENT_TEAM}")
 endif()

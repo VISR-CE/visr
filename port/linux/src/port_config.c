@@ -218,12 +218,17 @@ static const struct config_setting config_settings[] =
 		"(default), or \"metalfx\" (Metal renderer, on a device: MetalFX's spatial\n"
 		"scaler, sharper edges and text for a fraction of a millisecond)." },
 	{ "display.immersive", _config_boolean, "false", "HALO_IMMERSIVE", _environment_value, _platform_ios,
-		"Apple Vision Pro, visionOS 26 and later: show the game on a screen standing\n"
-		"in the room (an immersive space) instead of in a window." },
+		"Apple Vision Pro, visionOS 26 and later: start the game in an immersive\n"
+		"space (a screen standing in the room, or with display.stereo its stereo\n"
+		"view) instead of in a window. Either way the window's Enter VR button, or\n"
+		"Back and Start held together on a controller, enters VR while the game\n"
+		"runs, and the Digital Crown or the same chord returns to the\n"
+		"window." },
 	{ "display.stereo", _config_string, "\"off\"", "HALO_STEREO", _environment_value, _platform_ios,
 		"Apple Vision Pro: \"off\" (flat), \"head\" (in stereo, the head turns the view),\n"
 		"\"screen\" (in stereo on the theater screen), or \"side_by_side\" (a debug view\n"
-		"of both eyes in the window)." },
+		"of both eyes in the window). Enter VR uses \"head\" while this is \"off\", and\n"
+		"this mode otherwise." },
 	{ "display.frame_repeat", _config_integer, "0", "HALO_FRAME_REPEAT", _environment_value, _platform_ios,
 		"Apple Vision Pro, display.stereo = \"head\" or \"screen\": how many extra\n"
 		"display refreshes each frame stays up, 0 to 3: 0 draws a frame every\n"
@@ -787,9 +792,10 @@ static const struct config_setting config_settings[] =
 		"The most memory the upscaled textures may take, in MB; 0 (default) picks\n"
 		"it from the device's memory. Past it, the ones drawn longest ago make\n"
 		"room, and a texture with no room is drawn as the map has it." },
-	{ "display.menus", _config_string, "\"pc\"", "HALO_MENUS", _environment_value, _platform_all,
-		"The menus: \"pc\" for the PC version's main menu (port/assets/menus,\n"
-		"and a menus folder here for your own), \"xbox\" for the Xbox's." },
+	{ "display.menus", _config_string, "\"auto\"", "HALO_MENUS", _environment_value, _platform_all,
+		"The menus: \"auto\" (default) follows the input device at screen changes: PC\n"
+		"for keyboard and mouse, Xbox for controller or touch. \"pc\" and \"xbox\"\n"
+		"keep a fixed look. A menus folder here overrides port/assets/menus." },
 	{ "display.player_names", _config_string, "\"none\"", "HALO_PLAYER_NAMES", _environment_value, _platform_all,
 		"In multiplayer, whose names are drawn above their heads: \"none\" (the\n"
 		"Xbox's: the name of the player under the reticle shows, and teammates\n"
@@ -1475,8 +1481,8 @@ static const struct config_setting config_settings[] =
 		"were typed and Done pressed (the host's host_tv.m); empty for none. For\n"
 		"the simulator, whose keyboard cannot type into it." },
 	{ "debug.test_theater_reopen", _config_boolean, "false", "HALO_TEST_THEATER_REOPEN", _environment_set_is_true, _platform_ios,
-		"With display.immersive: close the immersive space a few seconds in, then\n"
-		"press the window's button that opens it again (the host's\n"
+		"Switch between the window and VR every 900 event polls, six times:\n"
+		"leave VR if the immersive space is open, else Enter VR (the host's\n"
 		"host_theater.m). For the simulator." },
 	{ "debug.gl_debug", _config_boolean, "false", "HALO_GL_DEBUG", _environment_set_is_true, _platform_all,
 		"Report OpenGL errors in the log." },
