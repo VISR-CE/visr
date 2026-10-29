@@ -25,7 +25,7 @@ struct host_ui_pointer
 	int32_t moved;
 	int32_t left_clicks;
 	int32_t right_clicks;
-	/* whole notches: positive when the finger or wheel moves down the screen */
+	/* whole notches: positive down the list, as a wheel turned toward the user and a finger moving up the screen scroll it */
 	int32_t wheel_steps;
 	float x, y;
 	float click_x, click_y;
