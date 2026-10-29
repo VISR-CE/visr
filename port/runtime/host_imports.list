@@ -6,6 +6,7 @@ host_abort
 host_guest_halt
 host_map_load_failed
 host_exit
+host_development_hooks
 host_benchmark_start
 host_benchmark_next
 host_benchmark_phase

@@ -165,8 +165,6 @@ def configuration_defines(sln: Any) -> List[str]:
         defines.append("-DHALO_COLLISION_LOG")
     if getattr(sln, "port_profile", False):
         defines.append("-DHALO_PROFILE")
-    if getattr(sln, "port_development_hooks", False):
-        defines.append("-DHALO_DEVELOPMENT_HOOKS=1")
     return defines
 
 

@@ -1,5 +1,6 @@
 """The guest's closed staging parser and atomic scenario validation."""
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -85,17 +86,24 @@ def test_staging_parser_refuses_broken_json(staging_probe, text):
     assert subprocess.run([str(staging_probe), text], capture_output=True).returncode == 1
 
 
-@pytest.mark.parametrize("development", [False, True])
-def test_recording_and_replay_staging_tick_and_development_gate(tmp_path, development):
+@pytest.mark.parametrize("imported", [False, True])
+def test_recording_and_replay_staging_tick_and_runtime_gate(tmp_path, imported):
     binary = tmp_path / "input-replay-probe"
     command = ["cc", "-O2", "-fsanitize=address,undefined", "-I", str(ROOT / "port/linux/src")]
-    from types import SimpleNamespace
-    from tools.linux_build import configuration_defines
-    command.extend(configuration_defines(SimpleNamespace(port_development_hooks=development)))
+    if imported:
+        command.append("-DHALO_ILP32=1")
     subprocess.run([*command, str(ROOT / "port/ios/tests/input_replay_probe.c"), "-o", str(binary)], check=True)
-    result = subprocess.run([str(binary)], capture_output=True, text=True, cwd=tmp_path)
-    assert result.returncode == 0, result.stderr
-    assert "staged recording and replay: PASS" in result.stdout
+    # The same executable must accept both host answers without recompilation.
+    for value in (None, "0", "1", "true", "01"):
+        environment = dict(os.environ)
+        environment.pop("HALO_DEVELOPMENT_HOOKS", None)
+        if value is not None:
+            environment["HALO_DEVELOPMENT_HOOKS"] = value
+        environment["PROBE_HOST_HOOKS"] = "0" if value == "1" else "1"
+        environment["PROBE_EXPECT_HOOKS"] = environment["PROBE_HOST_HOOKS"] if imported else ("1" if value == "1" else "0")
+        result = subprocess.run([str(binary)], capture_output=True, text=True, cwd=tmp_path, env=environment)
+        assert result.returncode == 0, result.stderr
+        assert "staged recording and replay: PASS" in result.stdout
 
 
 def test_staged_route_and_plan_signature(tmp_path):
@@ -137,12 +145,10 @@ int main(void) {
 @pytest.mark.parametrize("reason", ["malformed-staging", "missing-staging-name", "missing-auto-staging-name"])
 def test_recording_rejects_staging_failure_immediately(tmp_path, reason):
     binary = tmp_path / "recording-probe"
-    from types import SimpleNamespace
-    from tools.linux_build import configuration_defines
     subprocess.run(["cc", "-O2", "-I", str(ROOT / "port/linux/src"),
-                    *configuration_defines(SimpleNamespace(port_development_hooks=True)),
                     str(ROOT / "port/ios/tests/input_replay_probe.c"), "-o", str(binary)], check=True)
-    result = subprocess.run([str(binary), "--" + reason], cwd=tmp_path, capture_output=True, text=True)
+    result = subprocess.run([str(binary), "--" + reason], cwd=tmp_path, capture_output=True, text=True,
+                            env={**os.environ, "HALO_DEVELOPMENT_HOOKS": "1"})
     assert result.returncode == 1, result.stderr
 
 
@@ -185,3 +191,16 @@ int main(void) {
     subprocess.run(["cc", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
                     "-I", str(ROOT / "port/runtime"), str(source), "-o", str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+@pytest.mark.parametrize("development", [False, True])
+def test_apple_host_development_hooks_match_target_policy(tmp_path, development):
+    source = tmp_path / "host-hooks.c"
+    source.write_text(function("port/ios/host/host_benchmark.m", "host_development_hooks") +
+                      "\nint main(void) { return host_development_hooks(); }\n")
+    binary = tmp_path / "host-hooks"
+    command = ["cc", "-Wall", "-Wextra", "-Werror"]
+    if development:
+        command.append("-DHALO_DEVELOPMENT_HOOKS=1")
+    subprocess.run([*command, str(source), "-o", str(binary)], check=True)
+    assert subprocess.run([str(binary)]).returncode == int(development)

@@ -76,6 +76,17 @@ to the recording, a summary to the log, and the game quits.
 #include <math.h>
 #include <time.h>
 
+#ifdef HALO_ILP32
+/* port/runtime/guest/runtime/guest_host.h */
+extern int host_development_hooks(void);
+#else
+static int host_development_hooks(void)
+{
+	const char *value = getenv("HALO_DEVELOPMENT_HOOKS");
+	return value && !strcmp(value, "1");
+}
+#endif
+
 /* source/game/game_time.c */
 extern unsigned char game_time_initialized(void);
 extern long game_time_get(void);
@@ -801,17 +812,21 @@ static void recording_staging_configure(void)
 	replay.staging_tick = replay.staging_segment = 0;
 	replay.staging_applied = FALSE;
 	replay.staging_error[0] = 0;
-#ifdef HALO_DEVELOPMENT_HOOKS
+	const char *text = config_string("debug.benchmark_staging");
+	if (*text)
 	{
-		const char *text = config_string("debug.benchmark_staging");
-		if (*text && !benchmark_staging_parse(text, &replay.staging))
+		if (!host_development_hooks())
+		{
+			platform_log("debug.input_record: ignoring debug.benchmark_staging because development hooks are disabled");
+			return;
+		}
+		if (!benchmark_staging_parse(text, &replay.staging))
 		{
 			snprintf(replay.staging_error, sizeof(replay.staging_error), "staging: invalid debug.benchmark_staging");
 			platform_log("debug.input_record: %s", replay.staging_error);
 			exit(EXIT_FAILURE);
 		}
 	}
-#endif
 }
 
 static void configure(void)
