@@ -59,6 +59,16 @@ RETIRED_FEEDS = frozenset(
         "4d6924ec86afba868b1fd994bcc323d441b18991ef5367cebca18a6b5cb97d2d",
     )
 )
+# 0.6.3's launch menu quarantines every new device-profiles-2 shard sequence (two data-pack stores share one
+# cache root) and then reports the profile server unreachable; a 404 makes it use its bundled profiles. The
+# generation's shards stay off the site until a fixed client reads them.
+RETIRED_PROFILE_DIRECTORIES = (PREFIX + "device-profiles-2/",)
+
+
+def retired(path: str) -> bool:
+    return path in RETIRED_FEEDS or path.startswith(RETIRED_PROFILE_DIRECTORIES)
+
+
 MAX_ASSETS = 256
 MAX_RECEIPT = 65536
 MAX_TOTAL = 512 * 1024 * 1024
@@ -499,7 +509,7 @@ def stage_site(
     live = live_assets()
     selected = dict(source)
     for path, raw in live.items():
-        if path in RETIRED_FEEDS and path not in source:
+        if retired(path) and path not in source:
             continue
         if path in source:
             a, b = verify_asset(path, source[path]), verify_asset(path, raw)

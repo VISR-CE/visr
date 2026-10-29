@@ -407,6 +407,27 @@ def test_a_retired_recording_feed_leaves_the_site_but_other_live_feeds_stay(tmp_
     receipt = json.loads((result / "packs/tester/publication.json").read_bytes())
     assert retired not in receipt["assets"] and other in receipt["assets"]
 
+def test_generation_two_profile_shards_leave_the_site_and_generation_one_stays(tmp_path, monkeypatch):
+    (tmp_path / "docs/site").mkdir(parents=True)
+    shard = "docs/site/packs/tester/device-profiles-2/ios/iPad16,3/_.json"
+    frozen = "docs/site/packs/tester/profiles/ios/iPad13,4/_.json"
+    live = {
+        RECORDING: envelope("benchmark-catalog-1:" + "a" * 64, 1, "r"),
+        shard: envelope("device-profiles-2:ios/iPad16,3/_", 1793231748, "quarantined by 0.6.3"),
+        frozen: envelope("device-profiles-1:ios/iPad13,4/_", 1, "kept"),
+    }
+    monkeypatch.setattr(overlay, "ROOT", tmp_path)
+    monkeypatch.setattr(overlay, "trusted_source", lambda: "a" * 40)
+    monkeypatch.setattr(overlay, "verify_asset", lambda path, data: json.loads(data))
+    monkeypatch.setattr(overlay, "source_assets", lambda: {RECORDING: live[RECORDING]})
+    monkeypatch.setattr(overlay, "live_assets", lambda: dict(live))
+    result = overlay.stage_site(destination=tmp_path / "stage")
+    assert not (result / shard.removeprefix("docs/site/")).exists()
+    assert (result / frozen.removeprefix("docs/site/")).read_bytes() == live[frozen]
+    assert (result / RECORDING.removeprefix("docs/site/")).read_bytes() == live[RECORDING]
+    receipt = json.loads((result / "packs/tester/publication.json").read_bytes())
+    assert shard not in receipt["assets"] and frozen in receipt["assets"]
+
 def test_a_catalog_two_feed_publishes_with_exactly_the_archive_it_names(tmp_path, monkeypatch):
     import data_pack
     import test_data_pack
