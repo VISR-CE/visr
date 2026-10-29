@@ -72,6 +72,7 @@ static atomic_bool storage_short;
 /* pumps_ended when the level's wait began: a queue that stopped since without finishing the level (an error, a
    catalog that cannot be read, critical thermal state) ends the wait rather than holding the loading screen */
 static atomic_uint level_pumps;
+static _Atomic double level_began;   /* when the level's wait began (its listing is bounded: texture_upscale_level_checking) */
 static NSString *level_name;
 static NSMutableArray *generator_releases;
 static NSMutableArray<NSString *> *map_paths;
@@ -95,6 +96,9 @@ static uint64_t finisher_estimate;    /* the float top of the texture the finish
 static atomic_bool finisher_failed;
 static NSObject *state_token;    /* the manifest, texture_log and the files written from them */
 static BOOL catalog_ready;
+/* steps the pump finishes before and between textures (the model made, a map classified), for the import phase's
+   watchdog (texture_upscale_import_offer_skip) */
+static atomic_uint setup_steps;
 static NSString *priority_name,*sorting_priority;
 static atomic_uint priority_serial;
 
@@ -196,6 +200,7 @@ static BOOL build_catalog(void) {
     BOOL ok=YES;NSMutableArray<NSString *> *classified_maps=[NSMutableArray new];
     for(NSString *path in map_paths) {
         if(atomic_load(&upscale_playing)){ok=NO;break;}
+        atomic_fetch_add(&setup_steps,1);
         char error[256]={0};
         uint64_t map_size=0;
         errno=0;FILE *map=host_texture_source_open_policy_map(path.fileSystemRepresentation,&map_size,error,sizeof(error));
@@ -415,7 +420,7 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,d->hash);atomic_store(&work_stage,"predictions");
     if(!generator){atomic_store(&work_stage,"loading the model");footprint_before_model=footprint();double made=now();
-        generator=texture_upscale_generate_create(error,sizeof(error));atomic_store(&work_stage,"predictions");
+        generator=texture_upscale_generate_create(error,sizeof(error));atomic_fetch_add(&setup_steps,1);atomic_store(&work_stage,"predictions");
         host_logf(HOST_LOG_INFO,"Upscale: loaded the model in %.1f s",now()-made);
         host_logf(HOST_LOG_INFO,"Upscale: made the generator at %llu MB",(unsigned long long)(footprint_before_model>>20));}
     /* Two textures overlap only while both float tops fit in OVERLAP_BUDGET together, so the peak is set by the
@@ -594,7 +599,7 @@ static void make_loading_picture_with(unsigned char *gray,unsigned char *file) {
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,hash);atomic_store(&work_stage,"the loading picture");
     if(!generator){atomic_store(&work_stage,"loading the model");footprint_before_model=footprint();double made=now();
-        generator=texture_upscale_generate_create(error,sizeof(error));atomic_store(&work_stage,"the loading picture");
+        generator=texture_upscale_generate_create(error,sizeof(error));atomic_fetch_add(&setup_steps,1);atomic_store(&work_stage,"the loading picture");
         host_logf(HOST_LOG_INFO,"Upscale: loaded the model in %.1f s (for the loading picture)",now()-made);}
     int failed=!generator||texture_upscale_generate(generator,&input,&output,error,sizeof(error));
     dispatch_group_leave(work_group);
@@ -899,7 +904,9 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
     host_texture_upscale_scan();
     /* the player is on the import's phase: iOS 26 may carry it on if they switch away */
     host_texture_upscale_continued_phase(1);
-    double start=now(),last_status=0;BOOL skipped=NO,menu_checked=NO,menu_logged=NO;NSData *menu_keys=nil;
+    double start=now(),last_status=0,last_progress=now();BOOL skipped=NO,menu_checked=NO,menu_logged=NO,stall_logged=NO,offered=NO;NSData *menu_keys=nil;
+    /* what changes whenever a step finishes: the watchdog's measure of progress */
+    unsigned long long seen_units=~0ull;unsigned seen_steps=~0u;int seen_catalog=-1;
     for(;;) {
         struct texture_cache_progress p={0},menu={0};
         BOOL menu_known=NO;
@@ -912,8 +919,17 @@ int host_texture_upscale_prepare_import(const char *root,host_texture_upscale_pr
         }
         /* done: a pump has ended since the import's scan with nothing queued after it */
         BOOL idle=atomic_load(&pumps_ended)!=ended&&!atomic_load(&pump_queued);
-        /* (a phase that has ended, finished or not, has nothing left to hold back) */
-        BOOL menu_phase=!idle&&!texture_upscale_import_skippable(menu_known,(unsigned long)menu.ready,(unsigned long)menu.textures);
+        unsigned steps=atomic_load(&setup_steps);
+        if(p.ready_units!=seen_units||steps!=seen_steps||(int)catalog_ready!=seen_catalog){
+            seen_units=p.ready_units;seen_steps=steps;seen_catalog=catalog_ready;last_progress=now();}
+        /* (a phase that has ended, finished or not, has nothing left to hold back; nor one whose work has stopped moving) */
+        /* (once offered it stays: Start playing never disappears again) */
+        offered=offered||texture_upscale_import_offer_skip(menu_known,(unsigned long)menu.ready,(unsigned long)menu.textures,now()-last_progress);
+        BOOL menu_phase=!idle&&!offered;
+        if(!menu_phase&&!idle&&!stall_logged&&!texture_upscale_import_skippable(menu_known,(unsigned long)menu.ready,(unsigned long)menu.textures)){
+            stall_logged=YES;menu_logged=YES;const char *stage=atomic_load(&work_stage);
+            host_logf(HOST_LOG_WARN,"Upscale import: nothing finished for %.0f s (%s, %zu of %zu of the main menu's textures); Start playing is offered",
+                now()-last_progress,catalog_ready?(stage?stage:"between textures"):(stage?stage:"before the catalog"),menu.ready,menu.textures);}
         if(!menu_phase&&!menu_logged&&menu_known){menu_logged=YES;
             host_logf(HOST_LOG_INFO,"Upscale import: the main menu's textures are ready after %.1f s (%zu of %zu); Start playing is offered",now()-start,menu.ready,menu.textures);}
         if(now()-last_status>=5){last_status=now();const char *stage=atomic_load(&work_stage);
@@ -962,6 +978,7 @@ int host_texture_upscale_level_begin(const char *name) {
     @synchronized(activity_token){level_name=priority_name;texture_upscale_activity_map_will_load(&activity);}
     atomic_store(&level_serial,atomic_load(&priority_serial));
     atomic_store(&level_pumps,atomic_load(&pumps_ended));
+    atomic_store(&level_began,now());
     set_stop(NO);schedule_pump();
     return 1;
 }
@@ -972,7 +989,15 @@ int host_texture_upscale_level_poll(unsigned long long *done,unsigned long long 
     BOOL stopped=atomic_load(&pumps_ended)!=atomic_load(&level_pumps)&&!atomic_load(&pump_queued);
     NSString *name;@synchronized(activity_token){name=level_name;}
     NSData *keys;@synchronized(map_keys){keys=name?map_keys[name]:nil;}
-    if(!keys)return stopped||(catalog_ready&&atomic_load(&level_walked_serial)==atomic_load(&level_serial))?TEXTURE_UPSCALE_LEVEL_DONE:TEXTURE_UPSCALE_LEVEL_CHECKING;
+    if(!keys){
+        if(stopped||(catalog_ready&&atomic_load(&level_walked_serial)==atomic_load(&level_serial)))return TEXTURE_UPSCALE_LEVEL_DONE;
+        double waited=now()-atomic_load(&level_began);
+        enum texture_upscale_level_wait state=texture_upscale_level_checking(waited);
+        if(state==TEXTURE_UPSCALE_LEVEL_DONE){const char *stage=atomic_load(&work_stage);
+            host_logf(HOST_LOG_WARN,"Upscale level %s: its textures are still not listed after %.0f s (%s); the level loads",name.UTF8String,waited,
+                catalog_ready?(stage?stage:"between textures"):(stage?stage:"before the catalog"));}
+        return state;
+    }
     struct texture_cache_progress p=progress_of(keys);
     if(done)*done=p.ready_units;
     if(total)*total=p.units;
