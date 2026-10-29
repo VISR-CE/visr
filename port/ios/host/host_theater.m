@@ -44,6 +44,9 @@ static int environment_dark;
 static cp_layer_renderer_t layer_renderer;
 static ar_session_t session;
 static ar_world_tracking_provider_t world_tracking;
+/* host_theater_session_set_provider's slots, by HOST_THEATER_PROVIDER_*;
+nil where a source hasn't registered one */
+static ar_data_provider_t providers[NUMBER_OF_HOST_THEATER_PROVIDERS];
 static BOOL screen_placed;
 static simd_float4x4 origin_from_screen;
 static id<MTLRenderPipelineState> pipeline, hud_pipeline, fade_pipeline;
@@ -578,13 +581,19 @@ ar_session_t host_theater_session(void)
 	return world_tracking ? session : nil;
 }
 
-void host_theater_session_run(ar_data_provider_t accessory_tracking)
+void host_theater_session_set_provider(int slot, ar_data_provider_t provider)
 {
+	ar_data_providers_t data_providers;
+
 	if (!session || !world_tracking)
 		return;
-	ar_session_run(session, accessory_tracking ?
-		ar_data_providers_create_with_data_providers(world_tracking, accessory_tracking, nil) :
-		ar_data_providers_create_with_data_providers(world_tracking, nil));
+	providers[slot] = provider;
+	data_providers = ar_data_providers_create();
+	ar_data_providers_add_data_provider(data_providers, world_tracking);
+	for (int i = 0; i < NUMBER_OF_HOST_THEATER_PROVIDERS; i++)
+		if (providers[i])
+			ar_data_providers_add_data_provider(data_providers, providers[i]);
+	ar_session_run(session, data_providers);
 }
 
 void host_theater_session_restart(void)
@@ -595,6 +604,11 @@ void host_theater_session_restart(void)
 	world_tracking = ar_world_tracking_provider_create(ar_world_tracking_configuration_create());
 	session = ar_session_create();
 	ar_session_run(session, ar_data_providers_create_with_data_providers(world_tracking, nil));
+	/* providers don't outlive their session; each source re-registers when
+	it notices the new one (host_spatial.m's ran_session). An explicit nil
+	per slot, not memset: under ARC these are retained pointers */
+	for (int i = 0; i < NUMBER_OF_HOST_THEATER_PROVIDERS; i++)
+		providers[i] = nil;
 	host_logf(HOST_LOG_INFO, "theater: ARKit's session started again");
 }
 
@@ -615,6 +629,11 @@ int host_theater_active(void)
 			ar_session_stop(session);
 			session = nil;
 			world_tracking = nil;
+			/* providers don't outlive their session; each source
+			re-registers when it notices the next one. An explicit nil per
+			slot, not memset: under ARC these are retained pointers */
+			for (int i = 0; i < NUMBER_OF_HOST_THEATER_PROVIDERS; i++)
+				providers[i] = nil;
 			host_logf(HOST_LOG_INFO, "theater: ARKit stopped until the space opens again");
 		}
 		host_stereo_set_entered(0);

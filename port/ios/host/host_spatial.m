@@ -766,7 +766,7 @@ updated as they come and go */
 	rerun_device_position = last_device_position;
 	rerun_device_known = last_device_known;
 	rerun_pending = 1;
-	host_theater_session_run(provider);
+	host_theater_session_set_provider(HOST_THEATER_PROVIDER_ACCESSORY, provider);
 	ran_session = session;
 	host_logf(HOST_LOG_INFO, "spatial: the accessory provider tracks %s; ARKit's session runs again with it",
 		names.UTF8String);
