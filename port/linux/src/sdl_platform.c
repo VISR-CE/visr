@@ -1727,7 +1727,15 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
-			if (event.key.down && !event.key.repeat) platform_menu_activity(0, 0, 0, 0);
+			if (event.key.down && !event.key.repeat)
+			{
+#ifdef HALO_IOS
+				/* UIKit also sends key events for the on-screen keyboard. */
+				extern int host_menu_keyboard(void);
+				if (host_menu_keyboard())
+#endif
+					platform_menu_activity(0, 0, 0, 0);
+			}
 			if (event.key.scancode < SDL_SCANCODE_COUNT)
 			{
 				input_state.keys[event.key.scancode] = event.key.down;
