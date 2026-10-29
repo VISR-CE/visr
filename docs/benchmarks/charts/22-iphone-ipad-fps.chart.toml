@@ -1,6 +1,10 @@
-order = 20
-heading = "iPhone and iPad"
-paragraph = "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
+order = 22
+sub = true
+heading = "iPhone and iPad: frame rate"
+primary_heading = "iPhone and iPad"
+primary_order = 20
+primary_paragraph = "Measured on an M1 iPad Pro from runs presented at the display rate. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
+paragraph = "Measured on an M1 iPad Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
 empty = "No iPhone or iPad results yet."
 box = "M1 iPad Pro"
 series_labels = ["Average fps", "1% low fps"]

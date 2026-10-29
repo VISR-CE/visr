@@ -413,7 +413,7 @@ def test_committed_snapshot_has_the_export_columns_and_every_spec_renders_from_i
     assert rows and list(rows[0]) == list(sheet_export.COLUMNS)
     for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
         for suite in charts.SUITE_CHOICES:
-            assert charts.render_section(item, rows, suite).startswith("### ")
+            assert charts.render_section(item, rows, suite).startswith("#")
 
 
 def test_pages_copy_of_the_snapshot_is_the_committed_snapshot():
@@ -657,7 +657,7 @@ def test_release_urls_name_each_ports_release_page_and_never_a_download():
 
 def test_a_builds_label_links_to_its_release_in_the_caption_and_the_builds_list():
     rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
-    spec = next(item for item in charts.load_specs(ROOT / "docs/benchmarks/charts") if item["query"]["platform"] == "Apple TV")
+    spec = next(item for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows) if item["query"]["platform"] == "Apple TV")
     built = charts.model(rows, spec["query"], "campaign")
     entry = next(e for e in built["entries"] if e["version"] == "0.6.0")
     assert entry["url"] == "https://github.com/steverice/visr/releases/tag/visr-v0.6.0"

@@ -1,6 +1,10 @@
-order = 40
-heading = "Vision Pro"
-paragraph = "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported."
+order = 42
+sub = true
+heading = "Vision Pro: frame rate"
+primary_heading = "Vision Pro"
+primary_order = 40
+primary_paragraph = "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported."
+paragraph = "Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps, drawn beside the 1% low fps where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported."
 empty = "No Vision Pro results yet."
 box = "M2 Vision Pro"
 series_labels = ["Average fps", "1% low fps"]

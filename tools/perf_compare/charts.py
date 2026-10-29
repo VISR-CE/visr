@@ -36,7 +36,36 @@ def load_snapshot(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def load_specs(directory: Path) -> list[dict]:
+def _reports(spec: dict, rows: list[dict]) -> bool:
+    """Whether any reference-box row the spec's filter matches has a value for its first metric."""
+    query = spec["query"]
+    return any(row["platform"] == query["platform"] and row["reference_box"].lower() == "true"
+               and _matches(row, query["filter"]) and row.get(query["metrics"][0], "") != "" for row in rows)
+
+
+def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
+    """The specs worth drawing for these rows. A spec marked `needs_data` (the frame-cost charts) is dropped where no
+    build reports its metric. A platform left without a `frame_cost` chart promotes its frame-rate chart (`primary_*`
+    keys) to the platform's main chart and says that frame cost is not reported there yet."""
+    kept = [spec for spec in specs if not spec.get("needs_data") or _reports(spec, rows)]
+    cost = {spec["query"]["platform"] for spec in kept if spec.get("frame_cost")}
+    result = []
+    for spec in kept:
+        if spec.get("primary_heading") and spec["query"]["platform"] not in cost:
+            spec = {**spec, "sub": False, "order": spec["primary_order"], "heading": spec["primary_heading"],
+                    "name": re.sub(r"-fps$", "", spec["name"]),
+                    "paragraph": spec["primary_paragraph"].strip() + " GPU and CPU time per frame are not reported for "
+                                 + spec["primary_heading"] + " builds yet."}
+        result.append(spec)
+    return sorted(result, key=lambda spec: (spec.get("order", 1000), spec["name"]))
+
+
+def load_specs(directory: Path, rows: list[dict] | None = None) -> list[dict]:
+    """The chart specs in order; with the snapshot's rows, only those worth drawing (see `select_specs`)."""
+    return select_specs(_load_specs(directory), rows) if rows is not None else _load_specs(directory)
+
+
+def _load_specs(directory: Path) -> list[dict]:
     specs = []
     for path in sorted(directory.glob("*.chart.toml")):
         spec = tomllib.loads(path.read_text(encoding="utf-8"))
@@ -102,7 +131,8 @@ def entry_key(entry: dict) -> str:
 DETAILS = {"p95_ms": (" ms", "95th-percentile frame time", "geometric", 1),
            "on_time_pct": ("%", "of frames on time", "arithmetic", 1),
            "gpu_p50_ms": (" ms", "median GPU time per rendered frame", "geometric", 2),
-           "gpu_p90_ms": (" ms", "90th-percentile GPU time per rendered frame", "geometric", 2)}
+           "gpu_p90_ms": (" ms", "90th-percentile GPU time per rendered frame", "geometric", 2),
+           "cpu_p50_ms": (" ms", "median CPU time per frame", "geometric", 2)}
 
 
 def _details(rows: list[dict], query: dict) -> dict:
@@ -147,9 +177,11 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
         # A suite bar covers the same windows for every port: a build with only some of them is listed, not drawn.
         return None, f"not measured in {SUITE_NAMES[suite]}: {', '.join(missing)}", "not_measured"
     rows = list(usable.values())
-    return {"avg": statistics.geometric_mean(float(r["fps_avg"]) for r in rows),
-            "low": (statistics.geometric_mean(float(r["fps_1pct_low"]) for r in rows)
-                    if "fps_1pct_low" in query["metrics"] and all(r.get("fps_1pct_low", "") != "" for r in rows) else None),
+    # The first metric is the main bar series and the optional second one (a 1% low, or a 90th percentile) the next.
+    second = query["metrics"][1] if len(query["metrics"]) > 1 else None
+    return {"avg": statistics.geometric_mean(float(r[query["metrics"][0]]) for r in rows),
+            "low": (statistics.geometric_mean(float(r[second]) for r in rows)
+                    if second and all(r.get(second, "") != "" for r in rows) else None),
             "details": _details(rows, query), "windows": sorted(usable), "rows": rows}, "", ""
 
 
@@ -211,7 +243,32 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
     chosen = _default_builds(entries, suite == "overall")
     for entry in entries:
         entry["default"] = chosen.get(entry["port"]) is entry
-    return {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
+    built = {"overall": suite == "overall", "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
+    if query.get("budget"):
+        built["budget_ms"] = _budget_ms(platform_rows, query)
+    return built
+
+
+def _budget_ms(platform_rows: list[dict], query: dict) -> float | None:
+    """The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted
+    reference-box runs that report the charted metric were held to (the frame cap, else the display rate). Mirrored by `budgetMs` in benchmarks.js."""
+    rates = []
+    for row in platform_rows:
+        if row["reference_box"].lower() != "true" or not _matches(row, query["filter"]) or row.get(query["metrics"][0], "") == "":
+            continue
+        for column in ("cap_fps", "display_hz"):
+            try:
+                rate = float(row.get(column, ""))
+            except ValueError:
+                continue
+            if rate > 0:
+                rates.append(rate)
+                break
+    return 1000 / min(rates) if rates else None
+
+
+def _round1(value: float) -> float:
+    return math.floor(value * 10 + 0.5) / 10
 
 
 def build_groups(built: dict) -> list[dict]:
@@ -327,12 +384,16 @@ def list_status(built: dict, selected: set[str] | None = None) -> dict[str, dict
 def chart_title(spec: dict, built: dict, suite: str) -> str:
     box = built["box"] or spec.get("box", "")
     unit = spec.get("chart", {}).get("title_unit", "uncapped fps")
+    if built.get("budget_ms"):
+        unit += f" against the {_number(built['budget_ms'])} ms frame budget"
     return f"{SUITE_NAMES[suite]}: {unit}, {box}".replace('"', "'")
 
 
-def header_text(chart: dict) -> str:
-    """The hand-written Mermaid frontmatter with the light-mode bar colors filled in."""
-    return chart.get("header", "").strip().replace("__PALETTE__", ", ".join(chart.get("palette", [])))
+def header_text(chart: dict, reverse: bool = False) -> str:
+    """The hand-written Mermaid frontmatter with the light-mode bar colors filled in; `reverse` swaps the two colors for
+    a chart that draws its second series first."""
+    palette = chart.get("palette", [])
+    return chart.get("header", "").strip().replace("__PALETTE__", ", ".join(reversed(palette) if reverse else palette))
 
 
 def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None) -> str | None:
@@ -348,16 +409,27 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
     known = [e["value"]["low"] for e in drawn if e["value"]["low"] is not None]
     # The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average and
     # does not cover the average bar.
-    lows = [min(e["value"]["low"], e["value"]["avg"]) if e["value"]["low"] is not None else 0 for e in drawn]
+    # A time series has no such ceiling: the 90th percentile is above the median by definition.
+    lower = _lower_is_better(spec["query"]["metrics"][0])
+    lows = [(e["value"]["low"] if lower else min(e["value"]["low"], e["value"]["avg"])) if e["value"]["low"] is not None else 0 for e in drawn]
     with_lows = bool(known)
-    y_max = chart.get("y_max", _nice_ceiling(max(averages + known) * 1.25))
+    if "y_max" in chart:
+        y_max = chart["y_max"]
+    elif built.get("budget_ms"):
+        # The axis spans the frame budget, so a bar's length is its share of the budget; a bar over budget stretches it.
+        y_max = max(_round1(built["budget_ms"]), math.ceil(max(averages + known) * 1.05 * 10) / 10)
+    else:
+        y_max = _nice_ceiling(max(averages + known) * 1.25)
     head = "xychart-beta horizontal" if chart.get("horizontal") else "xychart-beta"
     quoted = ", ".join('"' + label + '"' for label in labels)
-    lines = [header_text(chart), head, f'    title "{chart_title(spec, built, suite)}"',
+    # A time series draws the longer 90th-percentile bar first, so the median bar in front of it stays visible; the colors
+    # swap with the order so the median keeps the first series' color.
+    behind = lower and with_lows
+    lines = [header_text(chart, behind), head, f'    title "{chart_title(spec, built, suite)}"',
              f'    x-axis "{chart.get("x_label", "")}" [{quoted}]',
              f'    y-axis "{chart.get("y_label", "")}" {_number(chart.get("y_min", 0))} --> {_number(y_max)}',
-             f"    bar [{', '.join(_number(v) for v in averages)}]",
-             f"    bar [{', '.join(_number(v) for v in lows)}]" if with_lows else ""]
+             f"    bar [{', '.join(_number(v) for v in (lows if behind else averages))}]",
+             f"    bar [{', '.join(_number(v) for v in (averages if behind else lows))}]" if with_lows else ""]
     return "\n".join(line for line in lines if line)
 
 
@@ -440,7 +512,8 @@ def caption_parts(built: dict, selected: set[str] | None = None, columns: list[s
 
 # Column headings for the per-build figures in the table under a chart.
 DETAIL_HEADINGS = {"p95_ms": "95th-percentile frame time (ms)", "on_time_pct": "On time", "gpu_p50_ms": "Median GPU time (ms)",
-                   "gpu_p90_ms": "90th-percentile GPU time (ms)"}
+                   "gpu_p90_ms": "90th-percentile GPU time (ms)",
+                   "cpu_p50_ms": "Median CPU time (ms)"}
 
 
 def _detail_cells(entry: dict, columns: list[str]) -> tuple[list[str], str]:
@@ -501,7 +574,7 @@ def render_section(spec: dict, rows: list[dict], suite: str = DEFAULT_SUITE, rea
     """The Markdown for one platform's default view: the chart if any build has data, else why not."""
     reasons = reasons or load_reasons()
     built = model(rows, spec["query"], suite)
-    parts = [f"### {spec['heading']}", "", spec["paragraph"].strip(), ""]
+    parts = [("####" if spec.get("sub") else "###") + f" {spec['heading']}", "", spec["paragraph"].strip(), ""]
     text = source(spec, built, suite)
     if text is None:
         parts.extend([empty_text(spec, built), ""])
@@ -536,7 +609,8 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="fail when the page's charts are stale")
     parser.add_argument("--stdout", action="store_true", help="print the chart section instead of editing the page")
     args = parser.parse_args()
-    block = render_all(load_snapshot(args.snapshot), load_specs(args.specs), args.suite)
+    rows = load_snapshot(args.snapshot)
+    block = render_all(rows, load_specs(args.specs, rows), args.suite)
     if args.stdout:
         sys.stdout.write(block)
         return 0

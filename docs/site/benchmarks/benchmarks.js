@@ -57,7 +57,8 @@ const entryKey = (entry) => [entry.port, entry.version, entry.build].join("@");
 const DETAILS = { p95_ms: { unit: " ms", text: "95th-percentile frame time", geometric: true, places: 1 },
   on_time_pct: { unit: "%", text: "of frames on time", geometric: false, places: 1 },
   gpu_p50_ms: { unit: " ms", text: "median GPU time per rendered frame", geometric: true, places: 2 },
-  gpu_p90_ms: { unit: " ms", text: "90th-percentile GPU time per rendered frame", geometric: true, places: 2 } };
+  gpu_p90_ms: { unit: " ms", text: "90th-percentile GPU time per rendered frame", geometric: true, places: 2 },
+  cpu_p50_ms: { unit: " ms", text: "median CPU time per frame", geometric: true, places: 2 } };
 
 function suiteValue(group, query, suite) {
   const box = group.filter((row) => String(row.reference_box).toLowerCase() === "true");
@@ -88,7 +89,9 @@ function suiteValue(group, query, suite) {
     details[column] = values.some((v) => v === "") ? null
       : (DETAILS[column].geometric ? geometricMean : mean)(values.map(parseFloat));
   }
-  return [{ avg: geometricMean(rows.map((r) => parseFloat(r.fps_avg))), details, windows: [...usable.keys()].sort(), low: query.metrics.includes("fps_1pct_low") && rows.every((r) => r.fps_1pct_low !== "") ? geometricMean(rows.map((r) => parseFloat(r.fps_1pct_low))) : null, rows }, "", ""];
+  // The first metric is the main bar series and the optional second one (a 1% low, or a 90th percentile) the next.
+  const second = query.metrics.length > 1 ? query.metrics[1] : null;
+  return [{ avg: geometricMean(rows.map((r) => parseFloat(r[query.metrics[0]]))), details, windows: [...usable.keys()].sort(), low: second && rows.every((r) => r[second] !== "") ? geometricMean(rows.map((r) => parseFloat(r[second]))) : null, rows }, "", ""];
 }
 
 // The build each port draws by default: its newest version with data for the suite. For Overall, a port whose pick the
@@ -149,8 +152,26 @@ function model(rows, query, suite) {
   const chosen = defaultBuilds(entries, suite === "overall");
   for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
   const reference = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
-  return { overall: suite === "overall", entries, box: reference ? reference.host : "" };
+  const built = { overall: suite === "overall", entries, box: reference ? reference.host : "" };
+  if (query.budget) built.budget_ms = budgetMs(platformRows, query);
+  return built;
 }
+
+// The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted reference-box runs
+// that report the metric were held to (the frame cap, else the display rate). Mirrors _budget_ms in charts.py.
+function budgetMs(platformRows, query) {
+  const rates = [];
+  for (const row of platformRows) {
+    if (String(row.reference_box).toLowerCase() !== "true" || !matches(row, query.filter) || row[query.metrics[0]] === "") continue;
+    for (const column of ["cap_fps", "display_hz"]) {
+      const rate = row[column] === "" || row[column] === undefined ? NaN : Number(row[column]);
+      if (Number.isFinite(rate) && rate > 0) { rates.push(rate); break; }
+    }
+  }
+  return rates.length ? 1000 / Math.min(...rates) : null;
+}
+const round1 = (value) => Math.floor(value * 10 + 0.5) / 10;
+const lowerIsBetter = (column) => column.endsWith("_ms") || /^(gpu_|cpu_|frame_cost)/.test(column);
 
 // The builds list: one group per port in the model's order. `primary` is the build drawn by default (the newest version with
 // data for the suite), or the newest version when none has data; `others` are the rest, newest first. Mirrors build_groups in charts.py.
@@ -250,8 +271,9 @@ function listStatus(built, selected) {
   return status;
 }
 
-function headerText(chart, palette) {
-  return chart.header.trim().replace("__PALETTE__", (palette || chart.palette || []).join(", "));
+function headerText(chart, palette, reverse = false) {
+  const colors = [...(palette || chart.palette || [])];
+  return chart.header.trim().replace("__PALETTE__", (reverse ? colors.reverse() : colors).join(", "));
 }
 
 function chartSource(spec, built, suite, selected, palette) {
@@ -264,15 +286,25 @@ function chartSource(spec, built, suite, selected, palette) {
   // A build without a 1% low draws no bar in the second series (a zero-length bar) instead of dropping the series.
   const known = shown.map((e) => e.value.low).filter((low) => low !== null);
   // The 1% low never exceeds the average, so a low that rounds above it (a capped run) is drawn at the average.
-  const lows = shown.map((e) => (e.value.low === null ? 0 : Math.min(e.value.low, e.value.avg)));
+  // A time series has no such ceiling: the 90th percentile is above the median by definition.
+  const lower = lowerIsBetter(spec.query.metrics[0]);
+  const lows = shown.map((e) => (e.value.low === null ? 0 : lower ? e.value.low : Math.min(e.value.low, e.value.avg)));
   const withLows = known.length > 0;
-  const yMax = chart.y_max ?? niceCeiling(Math.max(...averages, ...known) * 1.25);
+  // A frame-cost axis spans the frame budget, so a bar's length is its share of the budget; a bar over budget stretches it.
+  const yMax = chart.y_max ?? (built.budget_ms
+    ? Math.max(round1(built.budget_ms), Math.ceil(Math.max(...averages, ...known) * 1.05 * 10) / 10)
+    : niceCeiling(Math.max(...averages, ...known) * 1.25));
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
-  const title = `${SUITE_NAMES[suite]}: ${chart.title_unit || "uncapped fps"}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
-  return [headerText(chart, palette), head, `    title "${title}"`,
+  const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
+  const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
+  // A time series draws the longer 90th-percentile bar first, so the median bar in front of it stays visible; the colors
+  // swap with the order so the median keeps the first series' color.
+  const behind = lower && withLows;
+  return [headerText(chart, palette, behind), head, `    title "${title}"`,
     `    x-axis "${chart.x_label || ""}" [${labels.map((l) => `"${l}"`).join(", ")}]`,
     `    y-axis "${chart.y_label || ""}" ${number(chart.y_min ?? 0)} --> ${number(yMax)}`,
-    `    bar [${averages.map(number).join(", ")}]`, withLows ? `    bar [${lows.map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
+    `    bar [${(behind ? lows : averages).map(number).join(", ")}]`,
+    withLows ? `    bar [${(behind ? averages : lows).map(number).join(", ")}]` : ""].filter(Boolean).join("\n");
 }
 
 function legendText(spec) {
@@ -326,7 +358,7 @@ function captionText(built, selected, columns, windows) {
 
 // The per-build figures under a chart as a table; mirrors caption_table in charts.py.
 const DETAIL_HEADINGS = { p95_ms: "95th-percentile frame time (ms)", on_time_pct: "On time", gpu_p50_ms: "Median GPU time (ms)",
-  gpu_p90_ms: "90th-percentile GPU time (ms)" };
+  gpu_p90_ms: "90th-percentile GPU time (ms)", cpu_p50_ms: "Median CPU time (ms)" };
 
 function captionTable(built, selected, columns, windows) {
   const shown = drawn(built, selected);
@@ -419,7 +451,7 @@ function labelBars(main, source) {
   const bars = groups.map((group) => [...group.querySelectorAll("rect")]);
   const ns = "http://www.w3.org/2000/svg";
   for (let i = 0; i < series[0].length; i++) {
-    const values = series.map((s) => s[i]).filter((v, k) => v !== undefined && (k === 0 || v > 0));
+    const values = series.map((s) => s[i]).filter((v, k) => v !== undefined && v > 0);
     const rects = bars.map((list) => list[i]).filter(Boolean);
     if (!rects.length || !values.length) continue;
     const longest = rects.reduce((a, b) => (parseFloat(b.getAttribute("width")) > parseFloat(a.getAttribute("width")) ? b : a));
@@ -431,7 +463,8 @@ function labelBars(main, source) {
     label.setAttribute("font-size", "20");
     label.setAttribute("font-weight", "600");
     label.setAttribute("class", "bar-value");
-    label.textContent = values.map(text).join(" / ");
+    // Times read "median / 90th percentile", the legend's order, whichever series is drawn first.
+    label.textContent = (milliseconds ? [...values].sort((a, b) => a - b) : values).map(text).join(" / ");
     groups[0].parentNode.appendChild(label);
   }
 }

@@ -1,0 +1,45 @@
+order = 40
+heading = "Vision Pro"
+paragraph = "Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median and 90th-percentile GPU time per rendered frame in milliseconds, on an axis that ends at the frame budget at the display rate. Lower is better. Builds that do not report GPU time are listed as not reported."
+empty = "No Vision Pro GPU times are reported yet."
+box = "M2 Vision Pro"
+needs_data = true
+frame_cost = true
+series_labels = ["Median GPU time (p50)", "90th-percentile GPU time (p90)"]
+
+[chart]
+type = "bar"
+horizontal = true
+title_unit = "GPU time per frame (ms)"
+x_label = "Port and version"
+y_label = "Milliseconds per frame"
+y_min = 0
+palette = ["#1593bd", "#c8870a"]
+marks = ["\U0001F7E6", "\U0001F7E8"]
+header = '''
+---
+config:
+  xyChart:
+    width: 520
+    height: 263
+  themeVariables:
+    xyChart:
+      plotColorPalette: "__PALETTE__"
+---
+'''
+
+[query]
+platform = "Vision Pro"
+metrics = ["gpu_p50_ms", "gpu_p90_ms"]
+budget = true
+port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+no_data_reason = "GPU time per frame not reported"
+
+[query.build_notes]
+visr = "Replays a recorded route."
+master-chef = "Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times."
+
+[query.filter]
+frame_mode = ["capped", "display"]
+quality_preset = "defaults"
+status = "ok"

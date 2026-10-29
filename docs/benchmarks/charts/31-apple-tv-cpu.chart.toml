@@ -1,0 +1,41 @@
+order = 31
+sub = true
+heading = "Apple TV: CPU time"
+paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show median main-thread CPU time per frame in milliseconds, on an axis that ends at the frame budget at the profile's frame cap. Lower is better. Builds that do not report CPU time are listed as not reported."
+empty = "No Apple TV CPU times are reported yet."
+box = "Apple TV HD"
+needs_data = true
+series_labels = ["Median CPU time per frame"]
+
+[chart]
+type = "bar"
+horizontal = true
+title_unit = "CPU time per frame (ms)"
+x_label = "Port and version"
+y_label = "Milliseconds per frame"
+y_min = 0
+palette = ["#1593bd", "#c8870a"]
+marks = ["\U0001F7E6", "\U0001F7E8"]
+header = '''
+---
+config:
+  xyChart:
+    width: 860
+    height: 420
+  themeVariables:
+    xyChart:
+      plotColorPalette: "__PALETTE__"
+---
+'''
+
+[query]
+platform = "Apple TV"
+metrics = ["cpu_p50_ms"]
+budget = true
+port_order = ["visr", "opence-macos", "opence-web", "corece", "chupathingy", "halo-og"]
+no_data_reason = "CPU time per frame not reported"
+
+[query.filter]
+frame_mode = "capped"
+quality_preset = "defaults"
+status = "ok"

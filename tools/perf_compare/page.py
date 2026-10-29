@@ -90,6 +90,14 @@ def device_section(rows: list[dict]) -> list[str]:
                       "frame cap, at that cap, not an uncapped mode. Their on-time share (frames within 5% of the display interval) is in the "
                       "spreadsheet, and a device that holds its display rate shows an average near that rate. The Mac chart "
                       "uses the uncapped, matched-stock runs described below.", ""])
+    if any(row.get("gpu_p50_ms") for row in ok if row["platform"] in devices):
+        lines.extend(["A device section that has GPU times leads with the cost of a frame: median and 90th-percentile GPU time per rendered frame and "
+                      "median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget "
+                      "(1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom "
+                      "before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. "
+                      "GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. "
+                      "Frame rate and 1% low follow, since a missed frame still counts. A build that reports no "
+                      "GPU or CPU time is listed as not reported; a device where no build reports it shows frame rate and 1% low only.", ""])
     og = [row for row in ok if row["port"] == "halo-og"]
     if og:
         lines.extend(["Halo OG's frame rate is limited by its CPU command submission, not by a frame cap: its uncapped settings "

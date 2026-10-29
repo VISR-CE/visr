@@ -7,6 +7,8 @@
 "no uncapped 2560×1920 matched-stock measurement" = "Only measured with the frame cap on, at another size or with other settings."
 "no uncapped matched-stock measurement" = "Only measured with the frame cap on or with other settings."
 "no measurement at the display rate" = "Only measured with other frame-rate or quality settings."
+"GPU time per frame not reported" = "Not reported: this build does not report GPU time per frame."
+"CPU time per frame not reported" = "Not reported: this build does not report CPU time per frame."
 "not measured yet" = "Not run on this device yet."
 "no unattended console" = "This port has no way to start this suite without a person at the keyboard."
 "no frames in the trace" = "The timing trace held no frames for this window."

@@ -158,8 +158,9 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
     if text is None:
         chart = f'<p class="bench-empty">{escape(charts.empty_text(spec, built))}</p>'
     elif (SITE / f"benchmarks/static-{name}.svg").exists():
-        chart = (f'<img src="benchmarks/static-{name}.svg" alt="{escape(spec["heading"])}: average and 1% low fps '
-                 f'per build, {escape(charts.SUITE_NAMES[suite])} suite">')
+        chart = (f'<img src="benchmarks/static-{name}.svg" alt="{escape(spec["heading"])}: '
+                 f'{escape(" and ".join(label.lower() for label in spec["series_labels"]))} per build, '
+                 f'{escape(charts.SUITE_NAMES[suite])} suite">')
     else:
         chart = f"<pre>{escape(text)}</pre>"
     rows_html = builds_list(built, reasons)
@@ -167,11 +168,20 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
     if built["entries"]:
         swatches = "  ".join(f'<span class="swatch {kind}" aria-hidden="true"></span> {escape(label)}'
                              for kind, label in zip(("avg", "low"), spec["series_labels"][:(2 if charts.has_lows(built) else 1)]))
-    return f"""<section class="bench" data-platform="{name}" aria-labelledby="h-{name}">
-<h2 id="h-{name}">{"".join(glyph(icon) for icon in HEADING_ICONS[name])}{escape(spec["heading"])}</h2>
+    if spec.get("sub"):
+        # A companion chart of the platform above it: a smaller heading and the chart without the device frame.
+        title = f'<h3 id="h-{name}">{escape(spec["heading"])}</h3>'
+        media = f'<figure class="device-flat">{screen(chart, "")}</figure>'
+        classes = "bench bench-sub"
+    else:
+        title = f'<h2 id="h-{name}">{"".join(glyph(icon) for icon in HEADING_ICONS[name])}{escape(spec["heading"])}</h2>'
+        media = f'<figure class="device {FRAMES[name]}">{glass_svg() if "glass" in FRAMES[name] else ""}{screen(chart, FRAMES[name])}</figure>'
+        classes = "bench"
+    return f"""<section class="{classes}" data-platform="{name}" aria-labelledby="h-{name}">
+{title}
 <p>{escape(spec["paragraph"].strip())}</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device {FRAMES[name]}">{glass_svg() if "glass" in FRAMES[name] else ""}{screen(chart, FRAMES[name])}</figure>
+<div class="bench-media">{media}
 <p class="bench-legend">{swatches}</p>
 <p class="bench-direction">{escape(charts.direction_note(spec, built))}</p>
 <div class="bench-caption">{caption_html(charts.caption_table(built, None, spec["query"].get("details"), spec["query"].get("windows")))}</div></div>

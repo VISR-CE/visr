@@ -230,7 +230,7 @@ def page_text(summary):
     """The public page: charts from the committed results snapshot, then the methodology."""
     import charts
     from page import render_page
-    return render_page(summary, charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS))
+    return render_page(summary, charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS, charts.load_snapshot(charts.SNAPSHOT)))
 
 
 def write_outputs(page_path, summary, check=False):
@@ -241,7 +241,7 @@ def write_outputs(page_path, summary, check=False):
     from markdown_it import MarkdownIt
     status = write_page(page_path, page_text(summary), check)
     if Path(page_path) == PAGE:
-        rows, specs = charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS)
+        rows, specs = charts.load_snapshot(charts.SNAPSHOT), charts.load_specs(charts.SPECS, charts.load_snapshot(charts.SNAPSHOT))
         legal = MarkdownIt('commonmark', {'html': False}).render(load_facts()['shared']['legal']).rstrip()
         (ROOT / 'docs/site/benchmarks').mkdir(exist_ok=True)
         status |= write_page(ROOT / 'docs/site/benchmarks.html', site_page.render_site_page(summary, rows, specs, legal), check)
