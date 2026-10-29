@@ -311,7 +311,7 @@ def bitmap_document(assets, names):
                 frame.set('index', str(index))
         root.append(bitmap)
     # Borrow the Multiplayer diagrams and gametype figure through single-frame bitmaps.
-    for name, index in (('video', 1), ('network', 2), ('gametype', 3)):
+    for name, index in (('video', 0), ('network', 2), ('gametype', 3)):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/pictures/{name}')
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
                       index=str(index), png='ce/shell/main_menu/multiplayer_type_select/mp_options__1.png',
