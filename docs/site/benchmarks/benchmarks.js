@@ -472,7 +472,7 @@ function labelBars(main, source) {
   const series = [...source.matchAll(/^\s*bar \[([^\]]*)\]/gm)].map((m) => m[1].split(",").map((v) => parseFloat(v)));
   const axis = /y-axis "([^"]*)"/.exec(source);
   const milliseconds = axis && /\bms\b|millisecond/i.test(axis[1]);
-  const text = (value) => value.toFixed(milliseconds ? 2 : 1);
+  const text = (value) => value.toFixed(1);
   const groups = [...main.querySelectorAll("g[class^='bar-plot-']")];
   if (!series.length || groups.length !== series.length) return;
   const ns = "http://www.w3.org/2000/svg";
@@ -659,29 +659,37 @@ function unionTable(group, spec, shared, table, state) {
     const e = s && shared[s.slug][i];
     return e && !e.placeholder ? read(e) : null;
   };
-  const num = (places) => (v) => (v === null || v === undefined ? "\u2013" : v.toFixed(places).replace(/\.?0+$/, (m, offset, text) => (text.includes(".") ? "" : m)));
-  const percent = (v) => (v === null || v === undefined ? "\u2013" : num(1)(v) + "%");
+  // One decimal everywhere, matching the chart's labels. A 1% low above the average is shown as the average (as the chart draws it).
+  const num = (v) => (v === null || v === undefined ? "\u2013" : v.toFixed(1));
+  const percent = (v) => (v === null || v === undefined ? "\u2013" : v.toFixed(1) + "%");
+  let clamped = false;
+  const clampedLow = (e) => {
+    if (e.value.low === null) return null;
+    if (e.value.low > e.value.avg) { clamped = true; return e.value.avg; }
+    return e.value.low;
+  };
   const defs = [];
   const add = (kind, head, read, format) => { if (kindSpec(kind)) defs.push({ kind, head, read, format }); };
-  add("fps", "Average fps", (e) => e.value.avg, num(1));
-  add("fps", "1% low fps", (e) => e.value.low, num(1));
+  add("fps", "Average fps", (e) => e.value.avg, num);
+  add("fps", "1% low fps", clampedLow, num);
   const fps = kindSpec("fps");
   for (const column of (fps && fps.query.details) || []) {
-    add("fps", column === "p95_ms" ? "p95 frame time (ms)" : DETAIL_HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num(DETAILS[column].places));
+    add("fps", column === "p95_ms" ? "p95 frame time (ms)" : DETAIL_HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num);
   }
-  add("gpu", "GPU median (ms)", (e) => e.value.avg, num(2));
-  add("gpu", "GPU 90th percentile (ms)", (e) => e.value.low, num(2));
-  add("cpu", "CPU median (ms)", (e) => e.value.avg, num(2));
+  add("gpu", "GPU median (ms)", (e) => e.value.avg, num);
+  add("gpu", "GPU 90th percentile (ms)", (e) => e.value.low, num);
+  add("cpu", "CPU median (ms)", (e) => e.value.avg, num);
   const rows = shared[spec.slug];
   const columns = defs.map((def) => ({ ...def, cells: rows.map((_, i) => def.format(value(def.kind, i, def.read))) }))
     .filter((column) => column.cells.some((cell) => cell !== "\u2013"));
   const current = metricKind(spec);
   return {
-    box: table ? table.box : "", note: table ? table.note : "", headings: columns.map((c) => c.head), marks: columns.map((c) => c.kind === current),
+    footnote: clamped ? "1% low within measurement error of the average." : "", box: table ? table.box : "", note: table ? table.note : "", headings: columns.map((c) => c.head), marks: columns.map((c) => c.kind === current),
     rows: rows.map((e, i) => {
       const drawnRow = table && table.rows.find((r) => r.label === e.label);
       const entry = state.models[spec.slug].entries.find((x) => entryKey(x) === entryKey(e));
-      const notes = drawnRow ? drawnRow.notes : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
+      const missing = entry && /does not report (GPU|CPU)/.exec(entry.reason ? plainReason(entry.reason, state.reasons) : "");
+      const notes = drawnRow ? drawnRow.notes : missing ? `${missing[1]} not reported` : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
       return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells: columns.map((c) => c.cells[i]), notes };
     }) };
 }
@@ -702,6 +710,7 @@ function drawUnionCaption(node, table) {
     el("td", { "data-label": "Notes" }, row.notes)));
   node.append(el("table", { class: "bench-table fixed", style: "min-width:640px" }, el("caption", {}, `${table.box}.` + (table.note ? " " + table.note : "")),
     colgroup, el("thead", {}, head), el("tbody", {}, ...body)));
+  if (table.footnote) node.append(el("p", { class: "bench-footnote" }, table.footnote));
 }
 
 function drawList(list, spec, built, state) {
@@ -834,6 +843,8 @@ function buildSelector(group, sections, state, params, draw) {
     section.classList.remove("bench-sub");
     const frame = section.querySelector("figure.device");
     frame.classList.add("has-tabs");
+    // The table spans the section's full width, under the chart and the builds list.
+    section.append(section.querySelector(".bench-caption"));
     frame.append(makeTabs());
     wrap.append(section);
   });

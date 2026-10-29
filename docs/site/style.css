@@ -391,3 +391,5 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-table.fixed td.mark, .bench-table.fixed th.mark { color: var(--ink); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .bench-table.fixed thead th.mark { font-weight: 700; }
 .bench-table.fixed td:nth-child(n+3), .bench-table.fixed th:nth-child(n+3) { padding-left: 8px; }
+.bench-group > .bench > .bench-caption { margin-top: 20px; }
+.bench-footnote { margin: 6px 0 0; color: var(--muted); font-size: 0.8rem; }
