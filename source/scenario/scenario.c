@@ -852,6 +852,9 @@ void scenario_location_from_point(
 	}
 
 	location->cluster_index = (short)cluster_index;
+	/* port: and the rest of it set too, not left as the stack had it: the
+	locations go into the objects, and two runs of one game differed there */
+	location->bonus = NONE;
 
 	return;
 }
