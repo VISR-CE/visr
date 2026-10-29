@@ -954,11 +954,15 @@ def test_the_co_op_suite_is_named_split_screen_co_op_wherever_a_reader_sees_it()
     assert "Split-screen co-op" in (ROOT / "docs/benchmarks.md").read_text()
 
 
-def test_the_sticky_suite_bar_is_translucent_with_a_blur_and_keeps_its_full_width_bleed_and_line():
+def test_the_sticky_suite_bar_is_nearly_opaque_without_a_blur_and_keeps_its_full_width_bleed_and_line():
     css = (ROOT / "docs/site/style.css").read_text()
     bar = css[css.index(".bench-bar::before"):]
-    assert "backdrop-filter: blur(" in bar and "-webkit-backdrop-filter: blur(" in bar
-    assert re.search(r"color-mix\(in srgb, var\(--bg\) 8[5-9]%, transparent\)", bar)
+    # A backdrop blur on the sticky bar makes Safari repaint it on every scroll frame.
+    assert "backdrop-filter" not in css and "backdrop-filter" not in (ROOT / "docs/site/shell.css").read_text()
+    assert re.search(r"color-mix\(in srgb, var\(--bg\) 9[5-9]%, transparent\)", bar)
+    assert "position: sticky" in css
+    script = (ROOT / "docs/site/benchmarks/benchmarks.js").read_text()
+    assert not re.search(r"""addEventListener\(\s*["']scroll["']|onscroll""", script)  # the bar is CSS only
     assert "width: 100vw" in bar and "border-bottom: 1px solid var(--line)" in bar
     assert "display: contents" in css and ".suite-text { order: 2; flex: 1 1 100%" in css
 
