@@ -55,6 +55,8 @@ void host_lifecycle_install(void);
 void host_lifecycle_hold(void);
 /* gpu_metal.m (display.frame_deadline): the frame's work has ended; nothing on a Vision Pro */
 void gpu_metal_frame_deadline_end(void);
+/* the calling thread is about to run UIKit's own loop: leave the frame workgroup, join again at the next frame */
+void gpu_metal_frame_deadline_leave(void);
 void host_sdl_audio_pause(int paused);
 /* the runner's pinned display (HALO_HOST_DISPLAY, host_main.m): the drawable size the guest is told */
 void host_sdl_pin_window_pixels(int width, int height);

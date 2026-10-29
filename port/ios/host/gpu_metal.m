@@ -5052,9 +5052,10 @@ between Presents stays inside the frame's interval, past its deadline. */
 #if !TARGET_OS_VISION
 static struct
 {
-	int state;               /* 0 not set up, 1 joined, -1 off or unavailable */
+	int state;               /* FRAME_DEADLINE_*: 0 not set up, 1 joined, 2 left (rejoins at the next frame), -1 off */
 	os_workgroup_interval_t interval;
 	struct os_workgroup_join_token_opaque_s token;
+	pthread_t thread;        /* the thread that joined: a workgroup is left on the thread that joined it */
 	int open, start_failed;
 	mach_timebase_info_data_t timebase;
 } frame_deadline;
@@ -5079,7 +5080,10 @@ static void frame_deadline_begin(BOOL offscreen)
 				int joined = frame_deadline.interval ? os_workgroup_join(frame_deadline.interval, &frame_deadline.token) : -1;
 
 				if (!joined)
-					frame_deadline.state = 1;
+				{
+					frame_deadline.state = FRAME_DEADLINE_JOINED;
+					frame_deadline.thread = pthread_self();
+				}
 				host_logf(HOST_LOG_INFO, "Metal: each frame's deadline goes to the system (display.frame_deadline): %s",
 					!joined ? "on" : frame_deadline.interval ? "the drawing thread could not join the workgroup" :
 					"no workgroup interval");
@@ -5088,7 +5092,21 @@ static void frame_deadline_begin(BOOL offscreen)
 		else
 			host_logf(HOST_LOG_INFO, "Metal: display.frame_deadline is off");
 	}
-	if (frame_deadline.state != 1 || offscreen)
+	if (frame_deadline_rejoin_wanted(frame_deadline.state, offscreen))
+	{
+		/* (after gpu_metal_frame_deadline_leave: the same interval, joined again on this thread) */
+		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+		{
+			if (os_workgroup_join(frame_deadline.interval, &frame_deadline.token))
+				frame_deadline.state = FRAME_DEADLINE_OFF;
+			else
+			{
+				frame_deadline.state = FRAME_DEADLINE_JOINED;
+				frame_deadline.thread = pthread_self();
+			}
+		}
+	}
+	if (frame_deadline.state != FRAME_DEADLINE_JOINED || offscreen)
 		return;
 	os_unfair_lock_lock(&pacing_lock);
 	period = refresh_period;
@@ -5123,8 +5141,27 @@ void gpu_metal_frame_deadline_end(void)
 		frame_deadline.open = 0;
 	}
 }
+
+/* The thread is about to run UIKit's own loop (host_benchmark_menu.m's ask): leave the workgroup, since UIKit raises an
+   exception when its interval begins on a thread of another workgroup (known-bugs, benchmark menu drag). The next
+   shown frame joins again. Does nothing on any thread but the one that joined. */
+void gpu_metal_frame_deadline_leave(void)
+{
+	int on_joined_thread = frame_deadline.state == FRAME_DEADLINE_JOINED && pthread_equal(frame_deadline.thread, pthread_self());
+
+	if (frame_deadline_state_after_leave(frame_deadline.state, on_joined_thread) != FRAME_DEADLINE_LEFT)
+		return;
+	gpu_metal_frame_deadline_end();
+	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
+		os_workgroup_leave(frame_deadline.interval, &frame_deadline.token);
+	frame_deadline.state = FRAME_DEADLINE_LEFT;
+}
 #else
 void gpu_metal_frame_deadline_end(void)
+{
+}
+
+void gpu_metal_frame_deadline_leave(void)
 {
 }
 #endif
