@@ -319,6 +319,9 @@ def test_scrolling_lists_fit_above_their_help():
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
                 continue
             slots, window, bottom = window_rows(w, widgets)
+            if not w.get('description'):
+                assert len(w.findall('child')) <= window and bottom <= 414, w.get('name')
+                continue
             help_top = int(widgets[w.get('description')].get('top'))
             assert window < len(slots) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
@@ -350,6 +353,9 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
         for w in widgets.values():
             # (the server browser pages its own nine rows, lobby_browser_update, and shows the page number)
             if 'visible_rows' not in w.attrib or w.get('name').endswith('/join_game_items_list'):
+                continue
+            # A short list can use the viewport only to pack platform-filtered rows.
+            if len(w.findall('child')) <= int(w.get('visible_rows')):
                 continue
             arrows = {c.get('widget').rsplit('/', 1)[-1]: c for c in w.findall('child') if '/scroll_' in c.get('widget')}
             assert set(arrows) == {'scroll_up_arrow', 'scroll_down_arrow'}, w.get('name')

@@ -268,16 +268,17 @@ def settings_hub(bitmaps):
     widget(root, f'{base}/header', left=35, top=11, width=605, height=59,
            bitmap=bitmap_ref(header, bitmaps))
     options = widget(root, f'{base}/settings_list', type='column_list', width=640, height=480,
-                     flags='pass_unhandled_to_focused_child up_down_tabs_children')
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5)
     for i, (key, caption, folder, screen_name, platform) in enumerate((
         ('controls', 'CONTROLS', 'gamepad_setup', 'gamepad_setup_screen', None),
-        ('video', 'VIDEO', 'video_settings', 'video_settings_screen', None),
+        ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app'),
         ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None),
         ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None),
         ('keyboard', 'KEYBOARD & MOUSE', 'controls_setup', 'controls_settings_screen', 'keyboard'),
     )):
         attrs = {'platform': platform} if platform else {}
-        child(options, f'{base}/{key}', x=51, y=78 + i * 33, **attrs)
+        # VIDEO shares AUDIO's slot so filtering it preserves the 33-unit pitch.
+        child(options, f'{base}/{key}', x=51, y=78 + max(1, i - 1) * 33 if i else 78, **attrs)
         row = text_widget(root, f'{base}/{key}', caption, width=300, height=32,
                           bitmap=bitmap_ref('bitmaps/list_item_bkd', bitmaps), text_x=13, text_y=4)
         for event in ('a', 'start'):
@@ -740,7 +741,7 @@ def patch_document(names):
     edit = patch(root, PEP + 'profile_edit_select_list', PEP + 'player_profile_edit_screen')
     # (each description ends as the Xbox's do, where the profile's name is shown)
     current = '\\n\\nCurrent Profile:'
-    pages = (('video', 'VIDEO', 'video_settings', 'video_settings_screen', None,
+    pages = (('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
               'Frame rate, resolution and how\\nthe picture is drawn.' + current),
              ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
               'Volume and sound for the\\ngame on this device.' + current),
@@ -757,7 +758,7 @@ def patch_document(names):
                       'open': f'xbox/settings/{folder}/{screen}', 'description': description, 'picture': pictures[key]}
         if platform:
             attributes['platform'] = platform
-        if anchor:
+        if anchor and key != 'audio':
             attributes['after'] = anchor
         else:
             attributes['before'] = PEP + 'save_changes_profile_item'
