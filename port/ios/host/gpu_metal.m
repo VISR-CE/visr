@@ -115,6 +115,10 @@ Handles index tables of these; 0 is none. */
 	id<MTLTexture> multisample;
 	uint32_t samples;
 	BOOL multisample_stale;
+	/* the samples live only in tile memory (memoryless, msaa_samples_kept
+	NO): every pass resolves them and drops them, and a pass that loads them
+	first draws the resolved texture back into them (multisample_fill) */
+	BOOL multisample_memoryless;
 }
 @end
 @implementation MetalTexture
@@ -288,6 +292,38 @@ target when that is multisampled, whose store is decided when the pass ends
 (pass_finish_open) */
 static uint32_t pass_samples = 1;
 static __unsafe_unretained MetalTexture *pass_multisample_color;
+/* the open pass's depth-stencil target is multisampled, resolved into its texture as the pass ends */
+static BOOL pass_multisample_depth;
+static __unsafe_unretained MetalTexture *pass_multisample_depth_record;
+
+/* Multisampling's storage (display.anti_aliasing "msaa2x" to "msaa8x"). A multisampled color target's samples are
+memoryless: each pass resolves them into the target's texture and drops them, and a later pass that loads the target
+first draws the resolved picture back into every sample (multisample_fill) from a copy of it, so no pass reads a
+texture it also resolves into. Depth and stencil keep their samples between the passes of a frame: drawn back from a
+resolved depth, a sample would take its pixel's nearest depth rather than its own, and the game's later passes that
+test depth for equality (multipass lighting) would miss most samples. At the end of a frame every target is resolved
+(an eye's depth is what the Compositor reprojects with) and its samples dropped; a next frame's pass that loads them
+rather than clearing draws them back. For measuring the earlier design: HALO_MSAA_KEEP_SAMPLES=1 stores color's
+samples between passes too, and HALO_MSAA_FILL_DIRECT=1 fills from the resolved texture itself rather than a copy. */
+static BOOL msaa_keep_samples, msaa_fill_direct, msaa_stencil_export;
+static int msaa_options_read;
+
+static void msaa_options(void)
+{
+	const char *keep, *direct;
+
+	if (msaa_options_read)
+		return;
+	msaa_options_read = 1;
+	keep = getenv("HALO_MSAA_KEEP_SAMPLES");
+	direct = getenv("HALO_MSAA_FILL_DIRECT");
+	msaa_keep_samples = keep && *keep == '1';
+	msaa_fill_direct = direct && *direct == '1';
+	msaa_stencil_export = [device supportsFamily:MTLGPUFamilyApple5] || [device supportsFamily:MTLGPUFamilyMac2];
+	platform_log("Metal: multisampling keeps %s samples between passes and fills them from %s; stencil %s written by "
+		"a fragment shader", msaa_keep_samples ? "every target's" : "depth's and stencil's",
+		msaa_fill_direct ? "the resolved texture itself" : "a copy of it", msaa_stencil_export ? "can be" : "cannot be");
+}
 static uint32_t perf_pass_token;
 /* the open command buffer's serial; every earlier one has been committed */
 static uint64_t current_serial = 1;
@@ -702,6 +738,8 @@ static struct
 	uint32_t perf_token;
 	uint32_t samples;
 	__unsafe_unretained MetalTexture *multisample_color;
+	BOOL multisample_depth;
+	__unsafe_unretained MetalTexture *multisample_depth_record;
 	/* since the last frame's log line */
 	unsigned long parks, in_order;
 } native_pass;
@@ -719,8 +757,12 @@ static void native_park(void)
 	native_pass.perf_token = perf_pass_token;
 	native_pass.samples = pass_samples;
 	native_pass.multisample_color = pass_multisample_color;
+	native_pass.multisample_depth = pass_multisample_depth;
+	native_pass.multisample_depth_record = pass_multisample_depth_record;
 	pass_samples = 1;
 	pass_multisample_color = nil;
+	pass_multisample_depth = NO;
+	pass_multisample_depth_record = nil;
 	perf_pass_token = 0;
 	native_pass.parked = YES;
 	native_pass.parks++;
@@ -764,6 +806,8 @@ static void native_unpark(void)
 	perf_pass_token = native_pass.perf_token;
 	pass_samples = native_pass.samples;
 	pass_multisample_color = native_pass.multisample_color;
+	pass_multisample_depth = native_pass.multisample_depth;
+	pass_multisample_depth_record = native_pass.multisample_depth_record;
 	pass_color = native_pass.color;
 	pass_depth = 0;
 	native_pass.commands = nil;
@@ -795,21 +839,31 @@ static void pass_finish_open(BOOL frame_end)
 	than storing them all every frame */
 	if (encoder && pass_multisample_color)
 	{
-		MTLStoreAction store = frame_end ? MTLStoreActionMultisampleResolve : MTLStoreActionStoreAndMultisampleResolve;
+		BOOL drop = frame_end || pass_multisample_color->multisample_memoryless;
+		MTLStoreAction store = drop ? MTLStoreActionMultisampleResolve : MTLStoreActionStoreAndMultisampleResolve;
 
 		[encoder setColorStoreAction:store atIndex:0];
-		pass_multisample_color->multisample_stale = frame_end;
-		if (!frame_end)
+		pass_multisample_color->multisample_stale = drop;
+		if (!drop)
 			pass_attachment_traffic(pass_multisample_color->multisample, MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
 		pass_attachment_traffic(pass_multisample_color->texture, MTLLoadActionDontCare, MTLStoreActionStore, 4.0);
 		if (pass_log)
-			[pass_log appendFormat:@"; color %s", frame_end ? "resolve" : "store and resolve"];
+			[pass_log appendFormat:@"; color %s", drop ? "resolve" : "store and resolve"];
 	}
 	pass_multisample_color = nil;
 	pass_samples = 1;
 	if (encoder && pass_depth_texture)
 	{
 		MTLStoreAction store = frame_end ? MTLStoreActionDontCare : MTLStoreActionStore;
+
+		if (pass_multisample_depth)
+		{
+			BOOL drop = frame_end || (pass_multisample_depth_record && pass_multisample_depth_record->multisample_memoryless);
+
+			store = drop ? MTLStoreActionMultisampleResolve : MTLStoreActionStoreAndMultisampleResolve;
+			if (pass_multisample_depth_record)
+				pass_multisample_depth_record->multisample_stale = drop;
+		}
 
 		[encoder setDepthStoreAction:store];
 		[encoder setStencilStoreAction:store];
@@ -820,6 +874,8 @@ static void pass_finish_open(BOOL frame_end)
 	if (encoder && pass_log)
 		[pass_log appendFormat:@"; %lu draws and clears", pass_commands];
 	pass_depth_texture = nil;
+	pass_multisample_depth = NO;
+	pass_multisample_depth_record = nil;
 	host_perf_metal_end(perf_pass_token, encoder);
 	perf_pass_token = 0;
 	[encoder endEncoding];
@@ -2093,14 +2149,19 @@ static BOOL native_side_allowed(MetalTexture *color, MetalTexture *depth)
 	return !(color && color->used == current_serial) && !(depth && depth->used == current_serial);
 }
 
-static void multisample_fill(MetalTexture *record, MTLPixelFormat depth);
+/* the textures multisample_fill reads: the color's, its depth's and that depth's stencil view */
+struct multisample_sources { __unsafe_unretained id<MTLTexture> color, depth, stencil; };
+static void multisample_sources(MetalTexture *color, MetalTexture *depth, BOOL stencil, struct multisample_sources *sources);
+static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFormat depth,
+	const struct multisample_sources *sources, BOOL fill_depth, BOOL fill_stencil);
 
 static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_clear *clear)
 {
 	MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 	MTLRenderPassDescriptor *pass;
 	uint32_t samples;
-	BOOL fill = NO;
+	BOOL fill = NO, fill_depth = NO, fill_stencil = NO;
+	struct multisample_sources sources = { nil, nil, nil };
 
 	if (encoder && pass_color == color && pass_depth == depth && !clear)
 		return YES;
@@ -2190,6 +2251,8 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 			pass.colorAttachments[0].loadAction = MTLLoadActionDontCare;
 			fill = YES;
 		}
+		if (samples && pass.colorAttachments[0].loadAction == MTLLoadActionClear)
+			color_record->multisample_stale = NO;
 		use_texture(color_record);
 	}
 	if (depth)
@@ -2202,6 +2265,35 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 		pass.stencilAttachment.loadAction = clear && (clear->flags & GPU_CLEAR_STENCIL) ? MTLLoadActionClear : MTLLoadActionLoad;
 		pass.stencilAttachment.storeAction = MTLStoreActionUnknown;
 		pass.stencilAttachment.clearStencil = clear ? clear->stencil & 0xff : 0;
+		if (samples && depth_record->multisample_stale)
+		{
+			/* the samples lack the texture's depth and stencil: whatever
+			the pass does not clear is drawn back from it below */
+			if (pass.depthAttachment.loadAction != MTLLoadActionClear)
+			{
+				pass.depthAttachment.loadAction = MTLLoadActionDontCare;
+				fill_depth = YES;
+			}
+			if (pass.stencilAttachment.loadAction != MTLLoadActionClear)
+			{
+				pass.stencilAttachment.loadAction = MTLLoadActionDontCare;
+				fill_stencil = YES;
+			}
+			depth_record->multisample_stale = NO;
+		}
+		if (samples)
+		{
+			pass_multisample_depth_record = depth_record;
+			/* multisampled depth is resolved into the texture as the pass
+			ends, as color is: readers of the texture (a stereo eye's depth,
+			which the Compositor reprojects with) see the nearest sample,
+			the largest reversed depth; stencil takes the first sample */
+			pass.depthAttachment.resolveTexture = depth_record->texture;
+			pass.depthAttachment.depthResolveFilter = MTLMultisampleDepthResolveFilterMax;
+			pass.stencilAttachment.resolveTexture = depth_record->texture;
+			pass.stencilAttachment.stencilResolveFilter = MTLMultisampleStencilResolveFilterSample0;
+			pass_multisample_depth = YES;
+		}
 		pass_depth_texture = pass.depthAttachment.texture;
 		use_texture(depth_record);
 	}
@@ -2223,12 +2315,17 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 			(unsigned long)target.height, color ? load_name(pass.colorAttachments[0].loadAction) : "memoryless",
 			store_name(pass.colorAttachments[0].storeAction)];
 		if (samples)
-			[pass_log appendFormat:@" (%u samples%s)", samples, fill ? ", filled from the texture" : ""];
+			[pass_log appendFormat:@" (%u samples%s%s)", samples, fill ? ", filled from the texture" : "",
+				fill_depth || fill_stencil ? ", depth-stencil filled" : ""];
 		if (depth)
 			[pass_log appendFormat:@", depth %u %lux%lu %s, stencil %s", depth, (unsigned long)depth_record->texture.width,
 				(unsigned long)depth_record->texture.height, load_name(pass.depthAttachment.loadAction),
 				load_name(pass.stencilAttachment.loadAction)];
 	}
+	/* (the fill's sources, copied before the pass: it resolves into the textures they come from) */
+	if (fill || fill_depth || fill_stencil)
+		multisample_sources(fill ? color_record : nil, fill_depth || fill_stencil ? depth_record : nil, fill_stencil,
+			&sources);
 	id<MTLCommandBuffer> perf_commands = command_buffer();
 	perf_pass_token = host_perf_metal_prepare(perf_commands, pass, !color ? 2 : depth ? 0 : 1, perf_group);
 	encoder = [perf_commands renderCommandEncoderWithDescriptor:pass];
@@ -2246,10 +2343,12 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	pass_depth = depth;
 	pass_commands = 0;
 	pass_samples = samples ? samples : 1;
-	if (fill)
+	if (fill || fill_depth || fill_stencil)
 	{
-		multisample_fill(color_record, depth ? pass.depthAttachment.texture.pixelFormat : MTLPixelFormatInvalid);
-		color_record->multisample_stale = NO;
+		multisample_fill(color ? color_record : depth_record, samples, depth ? pass.depthAttachment.texture.pixelFormat :
+			MTLPixelFormatInvalid, &sources, fill_depth, fill_stencil);
+		if (fill)
+			color_record->multisample_stale = NO;
 		/* (the next draw sets again everything the fill set) */
 		metal_state_reset(&state_cache);
 	}
@@ -2399,38 +2498,227 @@ static BOOL clamp_rect(const struct gpu_rect *rect, unsigned long width, unsigne
 every sample, before anything else in the pass: the samples were dropped at
 the end of the last frame (pass_finish_open) or are new. Edges drawn before
 come back as their resolved colors, already smoothed. */
-static void multisample_fill(MetalTexture *record, MTLPixelFormat depth)
+/* multisample_fill's depth and stencil writers, built on first use: color and depth from the sources, and with
+stencil feedback (msaa_stencil_export) the stencil too */
+static NSString *const fill_depth_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"struct PresentOut { float4 position [[position]]; float2 coordinates; };\n"
+	"struct FillDepth { float4 color [[color(0)]]; float depth [[depth(any)]]; };\n"
+	"fragment FillDepth fill_depth_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
+	"\tdepth2d<float> depth [[texture(1)]])\n"
+	"{\n"
+	"\tuint2 at = uint2(in.position.xy);\n"
+	"\tFillDepth out;\n"
+	"\tout.color = picture.read(min(at, uint2(picture.get_width() - 1, picture.get_height() - 1)));\n"
+	"\tout.depth = depth.read(at);\n"
+	"\treturn out;\n"
+	"}\n";
+static NSString *const fill_stencil_source =
+	@"struct FillStencil { float4 color [[color(0)]]; float depth [[depth(any)]]; uint stencil [[stencil]]; };\n"
+	"fragment FillStencil fill_stencil_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n"
+	"\tdepth2d<float> depth [[texture(1)]], texture2d<uint> stencil [[texture(2)]])\n"
+	"{\n"
+	"\tuint2 at = uint2(in.position.xy);\n"
+	"\tFillStencil out;\n"
+	"\tout.color = picture.read(min(at, uint2(picture.get_width() - 1, picture.get_height() - 1)));\n"
+	"\tout.depth = depth.read(at);\n"
+	"\tout.stencil = stencil.read(at).r;\n"
+	"\treturn out;\n"
+	"}\n";
+static id<MTLFunction> fill_depth_fragment, fill_stencil_fragment;
+/* copies of resolved textures for multisample_fill to read, by size and format; and a 1x1 picture for a fill that
+writes no color */
+static NSMutableDictionary<NSString *, id<MTLTexture>> *fill_copies;
+static id<MTLTexture> fill_blank;
+static NSMutableDictionary<NSNumber *, id<MTLDepthStencilState>> *fill_depth_states;
+
+static id<MTLTexture> fill_copy(id<MTLTexture> source, NSString *role)
 {
-	NSNumber *key = @(((uint64_t)record->samples << 32) | depth);
+	NSString *key = [NSString stringWithFormat:@"%@ %lux%lu/%lu", role, (unsigned long)source.width,
+		(unsigned long)source.height, (unsigned long)source.pixelFormat];
+	id<MTLTexture> copy = fill_copies[key];
+
+	if (!copy)
+	{
+		MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:source.pixelFormat
+			width:source.width height:source.height mipmapped:NO];
+
+		descriptor.usage = MTLTextureUsageShaderRead |
+			(source.pixelFormat == MTLPixelFormatDepth32Float_Stencil8 ? MTLTextureUsagePixelFormatView : 0);
+		descriptor.storageMode = MTLStorageModePrivate;
+		copy = [device newTextureWithDescriptor:descriptor];
+		if (!fill_copies)
+			fill_copies = [NSMutableDictionary dictionary];
+		fill_copies[key] = copy;
+	}
+	return copy;
+}
+
+/* the fill's sources: the resolved textures themselves (HALO_MSAA_FILL_DIRECT) or copies of them made now, before
+the pass that resolves into them begins */
+static void multisample_sources(MetalTexture *color, MetalTexture *depth, BOOL stencil, struct multisample_sources *sources)
+{
+	id<MTLBlitCommandEncoder> blit = nil;
+
+	sources->color = color ? color->texture : nil;
+	sources->depth = depth ? depth->texture : nil;
+	if (!msaa_fill_direct)
+	{
+		if (color)
+		{
+			sources->color = fill_copy(color->texture, @"color");
+			blit = [command_buffer() blitCommandEncoder];
+			[blit copyFromTexture:color->texture toTexture:sources->color];
+			pass_attachment_traffic(color->texture, MTLLoadActionLoad, MTLStoreActionDontCare, 4.0);
+		}
+		if (depth)
+		{
+			sources->depth = fill_copy(depth->texture, @"depth");
+			if (!blit)
+				blit = [command_buffer() blitCommandEncoder];
+			[blit copyFromTexture:depth->texture toTexture:sources->depth];
+			pass_attachment_traffic(depth->texture, MTLLoadActionLoad, MTLStoreActionDontCare, 5.0);
+		}
+		if (blit)
+		{
+			if (metal_debug)
+				blit.label = @"multisample fill sources";
+			[blit endEncoding];
+		}
+	}
+	/* (a stencil view of the depth texture; a view per texture, kept with it) */
+	sources->stencil = nil;
+	if (depth && stencil && sources->depth)
+	{
+		static NSMapTable<id<MTLTexture>, id<MTLTexture>> *views;
+		id<MTLTexture> view;
+
+		if (!views)
+			views = [NSMapTable weakToStrongObjectsMapTable];
+		view = [views objectForKey:sources->depth];
+		if (!view && (sources->depth.usage & MTLTextureUsagePixelFormatView))
+		{
+			view = [sources->depth newTextureViewWithPixelFormat:MTLPixelFormatX32_Stencil8];
+			if (view)
+				[views setObject:view forKey:sources->depth];
+		}
+		sources->stencil = view;
+	}
+}
+
+static id<MTLDepthStencilState> fill_depth_state(BOOL depth, BOOL stencil)
+{
+	NSNumber *key = @((depth ? 1 : 0) | (stencil ? 2 : 0));
+	id<MTLDepthStencilState> state = fill_depth_states[key];
+
+	if (!state)
+	{
+		MTLDepthStencilDescriptor *descriptor = [MTLDepthStencilDescriptor new];
+
+		descriptor.depthCompareFunction = MTLCompareFunctionAlways;
+		descriptor.depthWriteEnabled = depth;
+		if (stencil)
+		{
+			MTLStencilDescriptor *face = [MTLStencilDescriptor new];
+
+			face.stencilCompareFunction = MTLCompareFunctionAlways;
+			face.stencilFailureOperation = MTLStencilOperationReplace;
+			face.depthFailureOperation = MTLStencilOperationReplace;
+			face.depthStencilPassOperation = MTLStencilOperationReplace;
+			face.readMask = 0xff;
+			face.writeMask = 0xff;
+			descriptor.frontFaceStencil = face;
+			descriptor.backFaceStencil = face;
+		}
+		state = [device newDepthStencilStateWithDescriptor:descriptor];
+		if (!fill_depth_states)
+			fill_depth_states = [NSMutableDictionary dictionary];
+		fill_depth_states[key] = state;
+	}
+	return state;
+}
+
+/* the open pass's multisampled targets given their textures' pixels in
+every sample, before anything else in the pass: the samples were dropped
+(memoryless, or at the end of the frame), and those not cleared are drawn
+back from the resolved textures (sources) */
+static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFormat depth,
+	const struct multisample_sources *sources, BOOL fill_depth, BOOL fill_stencil)
+{
+	BOOL color = sources->color != nil, stencil = fill_stencil && sources->stencil != nil;
+	int kind = fill_depth || stencil ? (stencil ? 2 : 1) : 0;
+	NSNumber *key = @(((uint64_t)samples << 32) | ((uint64_t)depth << 4) | (uint64_t)(kind << 1) | (color ? 1 : 0));
 	id<MTLRenderPipelineState> pipeline = fill_pipelines[key];
 
+	if (fill_stencil && !stencil)
+	{
+		static int logged;
+
+		if (!logged++)
+			platform_log("Metal: a multisampled pass loads stencil that cannot be drawn back; it starts at 0");
+	}
+	if (kind && !fill_depth_fragment)
+	{
+		NSError *error = nil;
+		NSString *stencil_source = fill_stencil_source;
+		id<MTLLibrary> library = [device newLibraryWithSource:msaa_stencil_export ?
+			[fill_depth_source stringByAppendingString:stencil_source] : fill_depth_source options:nil error:&error];
+
+		if (!library)
+			host_fatal("Metal: cannot compile the multisample depth fill: %s", error.description.UTF8String);
+		fill_depth_fragment = [library newFunctionWithName:@"fill_depth_fragment"];
+		fill_stencil_fragment = msaa_stencil_export ? [library newFunctionWithName:@"fill_stencil_fragment"] : nil;
+	}
 	if (!pipeline)
 	{
 		MTLRenderPipelineDescriptor *descriptor = [MTLRenderPipelineDescriptor new];
 		NSError *error = nil;
 
 		descriptor.vertexFunction = present_vertex;
-		descriptor.fragmentFunction = fill_fragment;
+		descriptor.fragmentFunction = kind == 2 ? fill_stencil_fragment : kind == 1 ? fill_depth_fragment : fill_fragment;
 		descriptor.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+		descriptor.colorAttachments[0].writeMask = color ? MTLColorWriteMaskAll : MTLColorWriteMaskNone;
 		descriptor.depthAttachmentPixelFormat = depth;
 		descriptor.stencilAttachmentPixelFormat = depth;
-		descriptor.rasterSampleCount = record->samples;
+		descriptor.rasterSampleCount = samples;
 		pipeline = [device newRenderPipelineStateWithDescriptor:descriptor error:&error];
 		if (!pipeline)
 			host_fatal("Metal: cannot create the multisample fill pipeline: %s", error.description.UTF8String);
 		fill_pipelines[key] = pipeline;
 	}
+	if (!fill_blank)
+	{
+		MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+			width:1 height:1 mipmapped:NO];
+
+		descriptor.usage = MTLTextureUsageShaderRead;
+		fill_blank = [device newTextureWithDescriptor:descriptor];
+	}
 	[encoder setRenderPipelineState:pipeline];
-	[encoder setDepthStencilState:clear_depth_state(NO, NO)];
+	[encoder setDepthStencilState:kind ? fill_depth_state(fill_depth, stencil) : clear_depth_state(NO, NO)];
+	if (stencil)
+		[encoder setStencilReferenceValue:0];
 	[encoder setCullMode:MTLCullModeNone];
-	[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)record->texture.width, (double)record->texture.height, 0.0, 1.0 }];
-	[encoder setScissorRect:(MTLScissorRect){ 0, 0, record->texture.width, record->texture.height }];
-	[encoder setFragmentTexture:record->texture atIndex:0];
+	{
+		/* in a foveated pass the viewport and scissor are in the map's
+		screen units, and the quad over the whole screen covers every
+		physical pixel, each of which reads its own texel */
+		MTLSize screen = MTLSizeMake(record->texture.width, record->texture.height, 1), physical;
+
+		foveation_sizes(record, &screen, &physical);
+		[encoder setViewport:(MTLViewport){ 0.0, 0.0, (double)screen.width, (double)screen.height, 0.0, 1.0 }];
+		[encoder setScissorRect:(MTLScissorRect){ 0, 0, screen.width, screen.height }];
+	}
+	[encoder setFragmentTexture:color ? sources->color : fill_blank atIndex:0];
+	if (kind)
+		[encoder setFragmentTexture:sources->depth atIndex:1];
+	if (kind == 2)
+		[encoder setFragmentTexture:sources->stencil atIndex:2];
 	if (visibility.entry_open)
 		[encoder setVisibilityResultMode:MTLVisibilityResultModeDisabled offset:0];
 	[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
 	visibility.entry_open = 0;
-	pass_attachment_traffic(record->texture, MTLLoadActionLoad, MTLStoreActionDontCare, 4.0);
 }
 
 static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
@@ -2443,7 +2731,7 @@ static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
 		if (samples < 2)
 			samples = 0;
 		if (!record || !record->texture || record->description.usage != GPU_USAGE_RENDER_TARGET ||
-			record->description.type != GPU_TEXTURE_2D || record->description.foveated_eye || record->samples == samples)
+			record->description.type != GPU_TEXTURE_2D || record->samples == samples)
 			return;
 		/* (the open pass on it resolves what it drew into the texture) */
 		if (texture == pass_color || texture == pass_depth)
@@ -2458,7 +2746,9 @@ static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
 		descriptor.textureType = MTLTextureType2DMultisample;
 		descriptor.sampleCount = samples;
 		descriptor.usage = MTLTextureUsageRenderTarget;
-		descriptor.storageMode = MTLStorageModePrivate;
+		msaa_options();
+		record->multisample_memoryless = !msaa_keep_samples && record->description.format != GPU_FORMAT_DEPTH_STENCIL;
+		descriptor.storageMode = record->multisample_memoryless ? MTLStorageModeMemoryless : MTLStorageModePrivate;
 		record->multisample = [device newTextureWithDescriptor:descriptor];
 		if (!record->multisample)
 		{
@@ -2468,9 +2758,9 @@ static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
 			record->samples = 0;
 			return;
 		}
-		/* color takes the texture's pixels when a pass first loads it;
-		depth and stencil start cleared, as a new target does */
-		if (record->description.format == GPU_FORMAT_DEPTH_STENCIL)
+		/* the samples take the texture's pixels when a pass first loads
+		them; stored depth and stencil start cleared, as a new target does */
+		if (record->description.format == GPU_FORMAT_DEPTH_STENCIL && !record->multisample_memoryless)
 			target_zero(record->multisample);
 		else
 			record->multisample_stale = YES;
@@ -3361,6 +3651,41 @@ static void warm_end_background(void)
 			continue;
 		pipeline_request(&key, vertex, pixel, pipelines_built, 0);
 		requested++;
+	}
+	/* HALO_MSAA_WARM (a comparison session's "2,4"): each listed pipeline again at those sample counts, so
+	switching to multisampling while the game runs does not leave draws waiting on their pipelines. Pixel shaders
+	whose alpha test covers samples are other shaders, built on first use */
+	{
+		const char *warm = getenv("HALO_MSAA_WARM");
+		unsigned long extra = 0;
+
+		for (; warm && *warm; warm++)
+		{
+			uint8_t samples = (uint8_t)(*warm - '0');
+
+			if (samples != 2 && samples != 4 && samples != 8)
+				continue;
+			if (![device supportsTextureSampleCount:samples])
+				continue;
+			for (index = 0; index < count; index++)
+			{
+				struct pipeline_key key;
+				MetalShader *vertex, *pixel;
+				void *found;
+
+				pipeline_key_from_description(&list[index], &key);
+				key.samples = samples;
+				vertex = table_get(shaders, key.vertex_shader);
+				pixel = table_get(shaders, key.pixel_shader);
+				if (!vertex || !pixel || metal_compile_claim(&pipeline_table, &key, sizeof(key), &found) != METAL_CLAIM_NEW)
+					continue;
+				pipeline_request(&key, vertex, pixel, pipelines_built, 0);
+				extra++;
+			}
+		}
+		if (extra)
+			platform_log("Metal: %lu multisampled pipelines building too (HALO_MSAA_WARM)", extra);
+		requested += extra;
 	}
 	warm_list = nil;
 	warm_group = nil;
