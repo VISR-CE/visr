@@ -148,6 +148,46 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.5 (2026-10-29)
+
+### Summary
+
+- If the texture import refuses, tap Try Again. Start playing should stay available afterward, and the import screen should keep the retry note and buttons centered.
+- On Mac, check that the import screen shows storage estimates and keeps them visible.
+- On Mac, check that Start playing stays blue with readable black text, even when the window isn't active. Also check that the first click on the import window works and that VoiceOver names the button.
+- In VR, zoom in on foot and turn your head. The reticle and scope ticks should stay centered instead of swinging off and snapping back.
+- In VR, start a game from the main menu, especially multiplayer. It should go straight to the full view without briefly showing the flat HUD first.
+- With the Metal renderer, look at distant decals while moving the camera slightly, such as the base emblems on Blood Gulch through a scope. They should stay intact instead of losing triangles.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **upscale**: retry refused imports — keep `Start playing` available and show Mac storage estimates
+
+### fix
+
+- **stereo**: keep the zoomed reticle centered on foot in VR — it projected the unit's aim, which follows the head only at each game tick, through the zoom camera, which follows the head every frame, so between ticks the reticle and its scope ticks swung off center by the head's turn times the magnification and snapped back 30 times a second
+- **stereo**: go from the menu straight to the full view when a game starts in VR — the main menu's scripted camera is the film, and its end path (the hold, the wait for the camera to reach the eyes, the window onto the world, the expansion) carried into the game the menu started, so a multiplayer game's first second or two showed on the screen with the flat HUD, its field of view changed there, and only then did it expand around the player
+- **macos**: keep Start playing blue when the window is not key — a rounded bezel's color turns gray in an inactive window, which left its black title on dark gray; the button now draws the bar's blue with its own layer
+- **macos**: draw Start playing's title in black on the bar's blue, and test that Start playing returns after a passing Try Again — the AppKit title was white on the light blue fill (about 1.7:1 contrast); it is black as on iPhone and iPad (about 12:1); the driver probe now checks that, after a refusal and a passing retry, the import offers Start playing again once the main menu's textures are made
+- **import**: name Start playing for assistive tools, take the first click on the Mac, and quiet a false stall line — on Catalyst the filled button's configuration title was not its accessibility label, so VoiceOver found an unnamed button; the AppKit phase window comes forward and key before its modal session, and its buttons accept the click that brings VISR forward instead of spending it on activation; the import watchdog no longer logs "nothing finished" when a catalog rebuilt on the app's return hides the main menu's count after Start playing was already offered
+- **upscale**: center refusal actions and retain Mac storage counts — keep retry notes and button positions stable in the import UIs
+- **upscale**: update the import screen asynchronously again, and add a scripted Try Again for tests — the retry's iOS callback waited on the main queue for each update, so a main thread that was held (the app in the background) would hold the import with it; Try Again is now read from the controller's atomic flag on the import worker; `HALO_TEXTURE_UPSCALE_TEST_RETRY` (development builds only) presses Try Again at the given seconds after the refusal shows, for tests where no mouse can reach the window
+- **ai**: store only the meaningful part of an actor's secondary look direction — `actor_look_secondary` copied the caller's whole `direction_specification`, whose union bytes and padding each caller leaves as its stack had them, so actor datums differed between runs; it now zeroes the stored direction and copies the type and the one member that type uses (behavior described in OpenH1 PR #39)
+- **collision**: set the locations' `bonus` in `collision_test_vector` and `collision_test_pill_new` — both set only the leaf and cluster, so `object_translate` copied stack bytes into a projectile's datum location; nothing reads the field, but whole-datum hashes differed between runs (behavior described in OpenH1 PR #46)
+- **metal**: keep reversed depth's precision at a distance — the MSL vertex epilogue wrote `w - z` of the finished position, which at a distance keeps only the rounding of the two dot products that made `z` and `w`, different at every vertex; decals a millimeter or two off their surface lost whole triangles from one small camera move to the next (Blood Gulch's base emblems at a scope's zoom, about 25 units away). The translator now keeps the operands of the dot products that write the clip position's `z` and `w` and, when they share the position, takes the difference of the projection's rows first, which is exact, so `clip.w - clip.z` has the rounding of one small dot product; programs that write either component any other way keep `w - z`. The stored depth, its compares, clears, biases and read-backs are unchanged. Behavior described in OpenH1 PR #211.
+
+### docs
+
+- **site**: keep the 0.6.4 release tree's `docs/site` on the 0.6.5 branch — the `visr-v0.6.4` tag carries main's `docs/site` from the hold commit, which this tree's site and Pages tooling tests do not match; Pages deploys only from `main`, so nothing served changes
+
 ## visr-v0.6.4 (2026-10-29)
 
 ### Summary
