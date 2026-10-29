@@ -29,9 +29,7 @@
 #include "../../linux/include/halo_port_limits.h" /* HALO_PORT_NETWORK_VERSION, for the log */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
-#if TARGET_OS_MACCATALYST
-#include <objc/message.h>
-#endif
+#include <objc/message.h> /* objc_msgSend: the Catalyst host and the iOS keyboard check */
 #include <mach/mach.h>
 #include <os/proc.h>
 #include <errno.h>
