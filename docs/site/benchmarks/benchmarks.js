@@ -673,18 +673,22 @@ function unionTable(group, spec, shared, table, state) {
   add("fps", "Average fps", (e) => e.value.avg, num);
   add("fps", "1% low fps", clampedLow, num);
   const fps = kindSpec("fps");
+  const HEADINGS = { p95_ms: "p95 frame time (ms)", on_time_pct: DETAIL_HEADINGS.on_time_pct, gpu_p50_ms: "GPU median (ms)", gpu_p90_ms: "GPU 90th percentile (ms)", cpu_p50_ms: "CPU median (ms)" };
+  const shownDetails = [];
   for (const column of (fps && fps.query.details) || []) {
-    add("fps", column === "p95_ms" ? "p95 frame time (ms)" : DETAIL_HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num);
+    shownDetails.push(column);
+    add("fps", HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num);
   }
-  add("gpu", "GPU median (ms)", (e) => e.value.avg, num);
-  add("gpu", "GPU 90th percentile (ms)", (e) => e.value.low, num);
-  add("cpu", "CPU median (ms)", (e) => e.value.avg, num);
+  if (!shownDetails.includes("gpu_p50_ms")) add("gpu", "GPU median (ms)", (e) => e.value.avg, num);
+  if (!shownDetails.includes("gpu_p90_ms")) add("gpu", "GPU 90th percentile (ms)", (e) => e.value.low, num);
+  if (!shownDetails.includes("cpu_p50_ms")) add("cpu", "CPU median (ms)", (e) => e.value.avg, num);
   const rows = shared[spec.slug];
+  if (!rows.length) return null;
   const columns = defs.map((def) => ({ ...def, cells: rows.map((_, i) => def.format(value(def.kind, i, def.read))) }))
     .filter((column) => column.cells.some((cell) => cell !== "\u2013"));
   const current = metricKind(spec);
   return {
-    footnote: clamped ? "1% low within measurement error of the average." : "", box: table ? table.box : "", note: table ? table.note : "", headings: columns.map((c) => c.head), marks: columns.map((c) => c.kind === current),
+    footnote: clamped ? "1% low within measurement error of the average." : "", box: table ? table.box : "", note: table ? table.note : "", headings: columns.map((c) => c.head), marks: columns.map((c) => group.length > 1 && c.kind === current),
     rows: rows.map((e, i) => {
       const drawnRow = table && table.rows.find((r) => r.label === e.label);
       const entry = state.models[spec.slug].entries.find((x) => entryKey(x) === entryKey(e));
@@ -696,6 +700,7 @@ function unionTable(group, spec, shared, table, state) {
 
 function drawUnionCaption(node, table) {
   node.replaceChildren();
+  if (!table) return;
   // Percentages of the table's width, so the columns stay put whichever chart is shown; the table does not shrink below 640px.
   const numeric = Math.floor(48 / table.headings.length);
   const widths = ["17%", "12%", ...table.headings.map(() => numeric + "%"), "auto"];
@@ -763,9 +768,10 @@ async function start() {
   }
   async function refresh(spec, rebuildList = true, focusKey = null) {
     const built = state.models[spec.slug], section = sections[spec.slug];
-    const group = groups.find((g) => g.length > 1 && g.includes(spec));
-    const shared = group ? sharedRows(group, state) : null;
-    const rows = group ? shared[spec.slug] : null;
+    const group = groups.find((g) => g.includes(spec));
+    const several = group.length > 1;
+    const shared = several ? sharedRows(group, state) : { [spec.slug]: drawn(built, state.selected[spec.slug]) };
+    const rows = several ? shared[spec.slug] : null;
     await drawChart(section.querySelector(".bench-chart"), spec, built, state.suite, state.selected[spec.slug], rows && rows.length ? rows : null);
     if (rebuildList) {
       drawList(section.querySelector(".bench-rows"), spec, built, state);
@@ -774,8 +780,7 @@ async function start() {
     drawLegend(section.querySelector(".bench-legend"), spec,
       !built.entries.length ? 0 : drawn(built, state.selected[spec.slug]).some((e) => e.value.low !== null) ? 2 : 1);
     const table = captionTable(built, state.selected[spec.slug], spec.query.details, spec.query.windows);
-    if (group) drawUnionCaption(section.querySelector(".bench-caption"), unionTable(group, spec, shared, table, state));
-    else drawCaption(section.querySelector(".bench-caption"), table);
+    drawUnionCaption(section.querySelector(".bench-caption"), unionTable(group, spec, shared, table, state));
     writeHash(state, specs);
   }
   state.refresh = refresh;
@@ -792,6 +797,8 @@ async function start() {
   }
   for (const spec of specs) recompute(spec, false);
   // A platform with more than one chart (frame rate, GPU time, CPU time) is one section with a selector.
+  // Every platform's table spans the section's full width, under the chart and the builds list.
+  for (const group of groups) if (group.length === 1) sections[group[0].slug].append(sections[group[0].slug].querySelector(".bench-caption"));
   for (const group of groups) if (group.length > 1) buildSelector(group, sections, state, params, async (spec) => { await refresh(spec); writeHash(state, specs); });
   for (const spec of specs) if (shown(spec)) await refresh(spec);
 }
