@@ -5947,7 +5947,16 @@ static void ui_mouse_note_target(
 	bounds.y0 += offset.y;
 	bounds.y1 += offset.y;
 	button_index = ui_mouse_key_button(widget);
-	if (button_index != NONE)
+	if (button_index == NONE && widget->name && !strcmp(widget->name, "scroll_up_arrow"))
+		button_index = _widget_event_dpad_up;
+	else if (button_index == NONE && widget->name && !strcmp(widget->name, "scroll_down_arrow"))
+		button_index = _widget_event_dpad_down;
+	if (button_index == _widget_event_dpad_up || button_index == _widget_event_dpad_down)
+	{
+		/* port: a list's scroll arrow (drawn only while rows are hidden that way): a tap steps the list that way */
+		kind = _ui_mouse_target_button;
+	}
+	else if (button_index != NONE)
 	{
 		/* the icon and its label: the text beginning just right of it */
 		struct widget_instance *sibling;
