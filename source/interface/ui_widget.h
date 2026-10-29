@@ -170,6 +170,9 @@ short ui_widget_spinner_own_item_count(
 short ui_widget_spinner_extra_description(
 	struct widget_instance *spinner,
 	short item_index);
+/* port: whether a screen draws over this local player, across all controller slots. */
+boolean ui_widget_port_screen_visible(short local_player_index);
+
 /* port: the screen a local player's menus show, or NULL in play
 (menu_functions.c's invite jump) */
 struct widget_instance *ui_widget_port_active_screen(
