@@ -3197,6 +3197,7 @@ static void zoom_reticle_case(const char *name, float requested_yaw, float game_
 	head_yaw_taken = desired;
 	head_seat_leftover = head_pending_yaw = 0.0f;
 	head_pitch_now = head_pitch * DEGREES;
+	head_pitch_known = 0;
 	seat_limited = 0;
 	if (!halo_stereo_seat_yaw_clamp(0, &desired, 0.0f, desired, 0.0f,
 		-45.0f * DEGREES, 45.0f * DEGREES))
@@ -3219,8 +3220,48 @@ static void zoom_reticle_case(const char *name, float requested_yaw, float game_
 	(void)shot_up;
 }
 
+/* On foot with the head's look, the unit's aim is the head's as of the last
+tick while the zoom camera is the head's this frame: between ticks the aim
+lags by the head's turn since. The reticle stays straight ahead, where the
+gun aims once the look takes the turn, rather than swinging off center by
+the lag times the magnification and back at each tick */
+static void zoom_reticle_on_foot(float lag_degrees, float magnification)
+{
+	float forward[3], up[3], shot[3], shot_up[3], reticle[3];
+	char name[128];
+
+	stereo_frame.mode = HALO_STEREO_HEAD;
+	stereo_frame.eye_count = 2;
+	third_person_head = 0;
+	cutscene_immersive = 0;
+	film_frame = 0;
+	camera_noted = 0;
+	seated = 0;
+	game_first_person_passenger = 0;
+	head_seat_leftover = 0.0f;
+	head_yaw_taken = 30.0f * DEGREES;
+	head_pending_yaw = lag_degrees * DEGREES;
+	head_pitch_known = 1;
+	head_pitch_now = 5.0f * DEGREES;
+	game_camera_forward(30.0f * DEGREES, 5.0f * DEGREES, forward, up);
+	game_camera_forward(30.0f * DEGREES, 5.0f * DEGREES, shot, shot_up);
+	halo_stereo_zoom_orient(forward, up);
+	halo_stereo_zoom_reticle(shot, forward, up, magnification);
+	halo_stereo_reticle(reticle);
+	snprintf(name, sizeof(name), "on foot: the aim a tick behind the head by %.1f degrees at %.0fx: the zoomed "
+		"reticle stays centered", lag_degrees, magnification);
+	printf("  %s: reticle tangents %.4f across, %.4f up\n", name, reticle[0] / -reticle[2],
+		reticle[1] / -reticle[2]);
+	check(fabsf(reticle[0] / -reticle[2]) < 1e-4f && fabsf(reticle[1] / -reticle[2]) < 1e-4f, name);
+	head_pitch_known = 0;
+	head_pending_yaw = 0.0f;
+	(void)shot_up;
+}
+
 static void zoom_reticle_alignment(void)
 {
+	zoom_reticle_on_foot(0.7f, 2.0f);
+	zoom_reticle_on_foot(0.7f, 8.0f);
 	zoom_reticle_case("inside arc: settled 2x reticle stays centered", 20.0f, 10.0f, 10.0f,
 		20.0f, 2.0f, 0.0f);
 	zoom_reticle_case("seat bound plus head pitch: settled 2x reticle stays centered", 50.0f, 0.0f, 10.0f,
