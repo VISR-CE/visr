@@ -2386,11 +2386,28 @@ void halo_stereo_zoom_orient(float forward[3], float up[3])
 /* The zoom picture occupies a head-locked plane, but its pixels are from
 the zoom camera. Project the ordinary unit aim (before autoaim changes a
 shot) through that camera, then expand its tangent by the picture's zoom.
-The unzoomed reticle continues to use the eye camera's frame. */
+The unzoomed reticle continues to use the eye camera's frame.
+
+On foot with the head's look (the zoom camera turned by the head,
+halo_stereo_zoom_orient), the gun aims where the head looks, so the reticle
+is straight ahead, as unzoomed. The unit's aim is the head's only as of the
+last tick (30 Hz), while the zoom camera is the head's every frame: projected,
+the head's turn since the tick, times the magnification, swung the reticle
+off center and back at each tick */
+static int zoom_head_aims(void)
+{
+	return stereo_frame.mode == HALO_STEREO_HEAD && stereo_frame.eye_count == 2 && head_pitch_known &&
+		!third_person_head && head_seat_leftover == 0.0f && !halo_seat_first_person_passenger();
+}
+
 void halo_stereo_zoom_reticle(const float aim[3], const float forward[3], const float up[3], float magnification)
 {
 	float ray[3], x, y, length;
 
+	if (zoom_head_aims()) {
+		reticle_set(NULL, NULL, NULL);
+		return;
+	}
 	if (!aim)
 		aim = forward;
 	halo_stereo_eyes_frame_vector(forward, up, aim, ray);
