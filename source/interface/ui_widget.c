@@ -5925,6 +5925,61 @@ static boolean ui_mouse_widget_is_item(
 		widget->type == _ui_widget_type_column_list;
 }
 
+static void ui_mouse_list_directions(
+	struct widget_instance *widget,
+	short *back,
+	short *forward);
+
+/* port: the arrows at the ends of a carousel (a list showing several items side by side: the profile
+select's) are drawn by the list itself, with no widget of their own to find, so they are the strips just
+outside its first and last items; a tap on one steps the list that way, as the d-pad does */
+#define UI_MOUSE_CAROUSEL_ARROW_WIDTH 24
+
+static void ui_mouse_note_carousel_arrows(
+	struct widget_instance *list,
+	point2d offset)
+{
+	struct widget_instance *child;
+	struct widget_instance *first = NULL;
+	struct widget_instance *last = NULL;
+	short back, forward, side;
+
+	ui_mouse_list_directions(list, &back, &forward);
+	if (back != _widget_event_dpad_left)
+		return;
+	for (child = list->child; child; child = child->next)
+	{
+		if (!first)
+			first = child;
+		last = child;
+	}
+	for (side = 0; first && side < 2; side++)
+	{
+		struct widget_instance *item = side ? last : first;
+		struct ui_widget_definition *item_definition = ui_widget_definition_get(item->definition_tag_index);
+		struct ui_mouse_target *target;
+		rectangle2d bounds = item_definition->bounds;
+
+		if (ui_mouse_target_count >= UI_MOUSE_MAXIMUM_TARGETS)
+			return;
+		bounds.x0 += offset.x + item->horizontal_offset;
+		bounds.x1 += offset.x + item->horizontal_offset;
+		bounds.y0 += offset.y + item->vertical_offset;
+		bounds.y1 += offset.y + item->vertical_offset;
+		if (side)
+			bounds.x0 = bounds.x1, bounds.x1 += UI_MOUSE_CAROUSEL_ARROW_WIDTH;
+		else
+			bounds.x1 = bounds.x0, bounds.x0 -= UI_MOUSE_CAROUSEL_ARROW_WIDTH;
+		target = &ui_mouse_targets[ui_mouse_target_count++];
+		target->widget = list;
+		target->bounds = bounds;
+		target->kind = _ui_mouse_target_button;
+		target->button_index = side ? forward : back;
+	}
+
+	return;
+}
+
 static void ui_mouse_note_target(
 	struct widget_instance *widget,
 	struct ui_widget_definition const *definition,
@@ -6006,6 +6061,8 @@ static void ui_mouse_note_target(
 	else if (widget->type == _ui_widget_type_spinner_list)
 	{
 		/* a list showing several items is picked through them */
+		if (parent && ui_mouse_list_shows_several(widget) && widget_instance_can_receive_events(widget))
+			ui_mouse_note_carousel_arrows(widget, offset);
 		if (!parent || ui_mouse_list_shows_several(widget) || !widget_instance_can_receive_events(widget))
 			return;
 		kind = _ui_mouse_target_value;
