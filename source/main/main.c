@@ -3722,6 +3722,17 @@ void main_loop(
 		MAIN_CPU_PHASE(14, local_player_count());
 #ifdef HALO_IOS
 		{
+			/* port: Discord's public numeric snapshot (host_discord_presence.c).
+			The network game holds the negotiated limit; a local session has
+			only the players selected when it began, not the engine maximum. */
+			boolean presence_networked = main_globals.connection == _game_connection_network_server ||
+				main_globals.connection == _game_connection_network_client;
+			struct network_game *presence_game = presence_networked ? network_game_get_game() : NULL;
+			MAIN_CPU_PHASE(24, game_engine ? game_engine->type : 0);
+			MAIN_CPU_PHASE(25, presence_networked ? (presence_game ? presence_game->maximum_players : 0) :
+				local_player_count());
+		}
+		{
 			static unsigned long perf_network_time;
 			if (main_globals.frame_start_milliseconds - perf_network_time >= 1000)
 			{

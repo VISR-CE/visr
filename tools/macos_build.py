@@ -65,6 +65,7 @@ def native_commands(args, data_packs):
                                      shader_upload=getattr(args, 'shader_upload', False),
                                      perf_reports=getattr(args, 'perf_reports', False)),
         f'-DHALO_DISCORD={getattr(args, "discord", "off").upper()}',
+        f'-DHALO_DISCORD_SDK_ROOT={getattr(args, "discord_sdk_root", "")}',
         '-DHALO_TESTER_BUILD=OFF', '-DHALO_BENCHMARK_ROUTES=OFF', ios_build.development_hooks(args),
         f'-DHALO_BUILD_NUMBER={args.build_number or time.strftime("%Y%m%d.%H%M%S")}',
         f'-DHALO_DATA_PACK_CHANNEL_NAME={getattr(args, "data_pack_channel", None) or ""}',
@@ -91,27 +92,43 @@ def ad_hoc_sign(args):
     return ['codesign', '--force', '--sign', '-', *entitlements, APP]
 
 
+def drop_stale_discord(app):
+    """Xcode retains old embeds and resources when they leave the project."""
+    (Path(app) / 'Contents/Resources/Licenses/License-Notices.txt').unlink(missing_ok=True)
+    framework = Path(app) / 'Contents/Frameworks/discord_partner_sdk.framework'
+    if framework.is_symlink():
+        framework.unlink()
+    elif framework.exists():
+        shutil.rmtree(framework)
+
+
+def sign_embedded_frameworks(app, run):
+    """Sign real nested code before its enclosing framework and app."""
+    directory = Path(app) / 'Contents/Frameworks'
+    code = [path for path in directory.rglob('*')
+            if not path.is_symlink() and (path.suffix == '.dylib' or path.suffix == '.framework')]
+    for path in sorted(code, key=lambda path: len(path.parts), reverse=True):
+        run('codesign', '--force', '--sign', '-', path)
+
+
 def build_native(args, data_packs):
     if __package__:
         from . import ios_build
     else:
         import ios_build
-    if getattr(args, 'discord', 'off') == 'on':
-        if __package__:
-            from .discord_sdk import prepare_from_environment
-        else:
-            from discord_sdk import prepare_from_environment
-        prepare_from_environment(ROOT / 'build/third_party/discord')
     configure, build = native_commands(args, data_packs)
     ios_build.run(*configure)
     # an App Store archive leaves the product as a link into its own intermediates (as on iOS)
     if APP.is_symlink():
         APP.unlink()
+    if getattr(args, 'discord', 'off') == 'off':
+        drop_stale_discord(APP)
     ios_build.run(*build)
     if getattr(args, 'unsigned', False):
         print(f'App (unsigned, compile check only): {APP}')
         return
     if not args.team:
+        sign_embedded_frameworks(APP, ios_build.run)
         ios_build.run(*ad_hoc_sign(args))
     ios_build.run('codesign', '--verify', '--deep', '--strict', APP)
     print(f'App: {APP}')

@@ -153,7 +153,7 @@ def main():
                         help='the channel the signed updates come from (default tester with --tester, stable '
                              'otherwise); the native Mac app has no tester build, so its TestFlight build names tester')
     parser.add_argument('--discord', choices=('on', 'off'), default='off',
-                        help='native Mac Discord preflight only; account linking requires the portal SDK')
+                        help='enable Discord on native Mac or iOS; requires the pinned portal SDK in VISR_DISCORD_SDK')
     parser.add_argument('--sandbox', choices=('on', 'off'),
                         help='--native-mac: sign the ad hoc development build with the App Sandbox entitlements (off by '
                              'default). Team-signed native builds are always sandboxed')
@@ -241,8 +241,8 @@ def main():
         parser.error('--visionos supports only --renderer metal')
     if not args.native_mac:
         args.bundle_id = args.bundle_id or ('org.steverice.visr.mac' if platform_name == 'mac' else 'org.steverice.visr')
-    if args.discord == 'on' and not args.native_mac:
-        parser.error('--discord is for --native-mac')
+    if args.discord == 'on' and (args.mac or args.tvos or args.visionos):
+        parser.error('--discord supports --native-mac and iOS only')
     if args.sandbox and not args.native_mac:
         parser.error('--sandbox is for --native-mac')
     if args.native_mac:
@@ -293,6 +293,17 @@ def main():
         parser.error('--bundle-id must be a reverse-DNS identifier (e.g. com.example.halo)')
     if args.jobs < 1:
         parser.error('--jobs must be positive')
+    args.discord_sdk_root = ''
+    if args.discord == 'on':
+        if __package__:
+            from .discord_sdk import prepare_from_environment
+        else:
+            from discord_sdk import prepare_from_environment
+        discord_platform = 'macos' if args.native_mac else 'ios-simulator' if args.simulator else 'ios'
+        try:
+            args.discord_sdk_root = prepare_from_environment(ROOT / 'build/third_party/discord', discord_platform)
+        except (ValueError, OSError) as error:
+            parser.error(str(error))
     if renderer == 'BOTH':
         include=ROOT/'build/ios/gl_include'
         for name,(registry,revision,source) in HEADERS.items():
@@ -364,6 +375,7 @@ def main():
              f'-DHALO_RENDER_HEIGHT={args.render_height}', f'-DHALO_RENDERER={renderer}', f'-DHALO_BINK={args.bink.upper()}',
              f'-DHALO_EXTENDED_VIRTUAL_ADDRESSING={"ON" if args.extended_virtual_addressing else "OFF"}', *cloud, *data_packs,
              f'-DHALO_DATA_PACK_CHANNEL_NAME={args.data_pack_channel or ""}',
+             f'-DHALO_DISCORD={args.discord.upper()}', f'-DHALO_DISCORD_SDK_ROOT={args.discord_sdk_root}',
              f'-DHALO_RENDER_VALIDATION={"ON" if validation else "OFF"}',
              *host_pgo_flags(args.host_pgo)]
     if args.benchmark_upload or args.shader_upload or args.perf_reports or args.cloud_saves:
@@ -387,6 +399,13 @@ def main():
     if product.is_symlink():
         product.unlink()
     drop_stale_ffmpeg_license(build, args.bink)
+    if args.discord == 'off':
+        (product / 'Licenses/License-Notices.txt').unlink(missing_ok=True)
+        framework = product / 'Frameworks/discord_partner_sdk.framework'
+        if framework.is_symlink():
+            framework.unlink()
+        elif framework.exists():
+            shutil.rmtree(framework)
     command=['cmake','--build',build,'--config','Release','--target','VISR','--','-quiet']
     if args.simulator or args.unsigned:command.append('CODE_SIGNING_ALLOWED=NO')
     else:

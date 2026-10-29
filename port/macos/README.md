@@ -51,30 +51,33 @@ check the game window on the Mac and select a working sound output.
 
 ## Discord account-linking trial
 
-The trial scaffolding is opt-in:
+Discord is off by default. Supply the pinned Discord Social SDK archive as
+[the Apple build guide](../ios/README.md#optional-discord-sdk) describes, then build:
 
 ```sh
 python3 tools/ios_build.py --native-mac --sandbox on --discord on
 ```
 
-`--discord on` sets `HALO_DISCORD`, adds the Discord callback scheme to the
-built plist before signing, compiles the Keychain helpers and presence value
-producer, and adds Discord Settings to the app menu. Link Discord remains
-disabled until the Social SDK is integrated. The preflight does not open a
-browser, store tokens, or publish presence. The C producer accepts public map
-and mode labels, player counts, and a session start time; the live game adapter
-is still pending. Ordinary builds default to `--discord off`.
+The build verifies the archive and extracts only the macOS release framework,
+headers and notices into ignored build output. It links and embeds the framework,
+signs nested code before the app in ad hoc builds, and registers the Discord
+callback scheme before signing. The build guide records the SDK version and
+expected SHA-256. Never commit SDK files or a download URL containing credentials.
 
-Obtain the Discord Social SDK **C++ macOS arm64 release** archive from the
-Developer Portal. It must include `discordpp.h`,
-`libdiscord_partner_sdk.dylib`, supporting headers, and its license. Set
-`VISR_DISCORD_SDK` to the local archive path or an HTTPS URL and
-`VISR_DISCORD_SDK_SHA256` to an independently recorded lowercase SHA-256.
-The build rejects missing or mismatched digests and records the accepted
-hash under ignored `build/third_party/discord/`. It stages the archive without
-extracting or linking it; inspect the actual package before adding those
-steps. Never commit the SDK or a download URL containing credentials.
+Choose **Discord Settings…** from the app menu, then **Link Discord**. The trial
+opens Discord's authorization page with PKCE and a random state value. Discord
+returns through `discord-1565271043529117697:/authorize/callback`; this flow does
+not use the SDK's loopback-server authorization helper. The SDK exchanges the
+code, updates its token and connects. Refresh tokens use the Keychain, and launch
+attempts to refresh an existing link. **Unlink Discord** clears the connection
+and stored tokens.
 
-SDK linking, PKCE authorization, token exchange and refresh, live presence,
-sandbox network access, binary size, and runtime entitlement requirements
-remain unverified. The current trial does not add sandbox entitlements.
+Linking shares the current map, game mode and player counts through Rich Presence.
+The presence adapter reads those values from the game; menus show “In the menus.”
+Network access uses the app's `com.apple.security.network.client` entitlement.
+A successful build does not verify authorization, sandbox access or published
+presence: those require a guided sign-in and a check from Discord. Until that
+check, account linking and live presence remain trial behavior.
+
+Use `--discord off` to rebuild without Discord; the build removes an embedded
+framework and SDK notices left by a previous Discord-enabled build.

@@ -85,6 +85,15 @@ its own notice.
 | [musl](https://musl.libc.org/) 1.2.5 | MIT, with the component notices in its `COPYRIGHT` |
 | Khronos OpenGL ES and EGL headers | MIT and Apache-2.0, as their registries state in each header |
 
+## Optional Discord Social SDK
+
+Discord-enabled native Mac and iOS builds use Discord Social SDK 1.10.19337,
+obtained separately from the Discord Developer Portal under Discord's SDK
+terms. The SDK is not stored in this repository. Its `License-Notices.txt`
+contains the notices for its bundled open source components and accompanies
+the framework in Discord-enabled app bundles. Builds with Discord disabled do
+not include the SDK.
+
 ## Fonts
 
 | Font | License | Location |

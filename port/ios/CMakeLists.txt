@@ -177,25 +177,63 @@ if(HALO_NATIVE_MAC)
     list(REMOVE_ITEM HALO_NATIVE_SOURCES host/host_external.m host/host_share.m host/host_lifecycle.m
         host/host_frame_counter.m host/host_benchmark_page.m)
     set_property(TARGET VISR PROPERTY SOURCES "${HALO_NATIVE_SOURCES}")
-    option(HALO_DISCORD "Discord trial scaffolding (SDK integration pending)" OFF)
-    if(HALO_DISCORD)
-        file(READ "${HALO_INFO_PLIST}" HALO_DISCORD_PLIST)
-        string(REPLACE "<!-- Discord trial URL types -->"
-            "<key>LSApplicationQueriesSchemes</key><array><string>discord</string></array>"
-            HALO_DISCORD_PLIST "${HALO_DISCORD_PLIST}")
-        string(REPLACE "<string>halo</string>"
-            "<string>halo</string><string>discord-1565271043529117697</string>"
-            HALO_DISCORD_PLIST "${HALO_DISCORD_PLIST}")
-        set(HALO_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info-discord.plist")
-        file(WRITE "${HALO_INFO_PLIST}" "${HALO_DISCORD_PLIST}")
-        enable_language(OBJCXX)
-        target_compile_definitions(VISR PRIVATE HALO_DISCORD=1)
-        target_sources(VISR PRIVATE "${HALO_NATIVE_DIR}/host_discord.mm"
-            "${ROOT}/port/runtime/discord_presence.c")
-        target_link_libraries(VISR PRIVATE "-framework Security")
-    endif()
     target_compile_definitions(VISR PRIVATE HALO_NATIVE_MAC=1)
     target_include_directories(VISR PRIVATE "${HALO_NATIVE_DIR}")
+endif()
+# The SDK is supplied externally and extracted only into ignored build output.
+option(HALO_DISCORD "Discord Social SDK account linking and presence trial" OFF)
+if(HALO_DISCORD)
+    if(HALO_MAC OR (NOT HALO_NATIVE_MAC AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS"))
+        message(FATAL_ERROR "Discord supports native macOS and iOS only")
+    endif()
+    set(HALO_DISCORD_SDK_ROOT "" CACHE PATH "Verified, selectively extracted Discord SDK")
+    if(NOT EXISTS "${HALO_DISCORD_SDK_ROOT}/include/discordpp.h")
+        message(FATAL_ERROR "Discord SDK absent: build with VISR_DISCORD_SDK or --discord off")
+    endif()
+    if(HALO_NATIVE_MAC)
+        set(HALO_DISCORD_FRAMEWORK "${HALO_DISCORD_SDK_ROOT}/lib/release/discord_partner_sdk.framework")
+        set(HALO_DISCORD_RUNPATH "@executable_path/../Frameworks")
+    else()
+        if(CMAKE_OSX_SYSROOT MATCHES "simulator")
+            set(HALO_DISCORD_SLICE ios-arm64-simulator)
+        else()
+            set(HALO_DISCORD_SLICE ios-arm64)
+        endif()
+        set(HALO_DISCORD_FRAMEWORK "${HALO_DISCORD_SDK_ROOT}/lib/release/discord_partner_sdk.xcframework/${HALO_DISCORD_SLICE}/discord_partner_sdk.framework")
+        set(HALO_DISCORD_RUNPATH "@executable_path/Frameworks")
+    endif()
+    if(NOT EXISTS "${HALO_DISCORD_FRAMEWORK}/discord_partner_sdk")
+        message(FATAL_ERROR "Selected Discord framework is missing")
+    endif()
+    file(READ "${HALO_INFO_PLIST}" HALO_DISCORD_PLIST)
+    string(REPLACE "<string>halo</string>"
+        "<string>halo</string><string>discord-1565271043529117697</string>"
+        HALO_DISCORD_PLIST "${HALO_DISCORD_PLIST}")
+    string(REPLACE "</dict>\n</plist>"
+        "<key>LSApplicationQueriesSchemes</key><array><string>discord</string></array></dict>\n</plist>"
+        HALO_DISCORD_PLIST "${HALO_DISCORD_PLIST}")
+    set(HALO_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info-discord.plist")
+    file(WRITE "${HALO_INFO_PLIST}" "${HALO_DISCORD_PLIST}")
+    enable_language(OBJCXX)
+    target_compile_definitions(VISR PRIVATE HALO_DISCORD=1)
+    target_compile_features(VISR PRIVATE cxx_std_17)
+    set_property(TARGET VISR PROPERTY OBJCXX_STANDARD 17)
+    target_include_directories(VISR PRIVATE "${HALO_DISCORD_SDK_ROOT}/include" "${ROOT}/port/macos")
+    target_sources(VISR PRIVATE "${ROOT}/port/macos/host_discord.mm"
+        host/host_discord_auth.m host/host_discord_tokens.m host/host_discord_presence.c
+        "${ROOT}/port/runtime/discord_presence.c")
+    target_link_libraries(VISR PRIVATE "${HALO_DISCORD_FRAMEWORK}" "-framework Security" "-framework AuthenticationServices")
+    set_target_properties(VISR PROPERTIES
+        XCODE_EMBED_FRAMEWORKS "${HALO_DISCORD_FRAMEWORK}"
+        XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
+        XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES)
+    set_property(TARGET VISR APPEND PROPERTY BUILD_RPATH "${HALO_DISCORD_RUNPATH}")
+    if(NOT HALO_NATIVE_MAC)
+        target_sources(VISR PRIVATE host/host_discord_ui.m)
+    endif()
+    set(HALO_DISCORD_NOTICES "${HALO_DISCORD_SDK_ROOT}/License-Notices.txt")
+    set_source_files_properties("${HALO_DISCORD_NOTICES}" PROPERTIES MACOSX_PACKAGE_LOCATION Resources/Licenses)
+    target_sources(VISR PRIVATE "${HALO_DISCORD_NOTICES}")
 endif()
 # astc-encoder detects NEON on every arm64 Apple target. Keep its C++ flags
 # separate from the host and guest translation units.
@@ -302,7 +340,7 @@ if(HALO_BINK)
         INCLUDE_DIRECTORIES "${HALO_FFMPEG}")
     target_compile_definitions(VISR PRIVATE HALO_BINK=1)
 endif()
-target_compile_options(VISR PRIVATE "$<$<COMPILE_LANGUAGE:OBJC>:-fobjc-arc>")
+target_compile_options(VISR PRIVATE "$<$<COMPILE_LANGUAGE:OBJC,OBJCXX>:-fobjc-arc>")
 # Profile-guided optimization of the host and SDL (tools/ios_build.py --host-pgo): "use" compiles with the
 # profile in HALO_HOST_PROFILE (pgo/visr_host.profdata, recorded by tools/host_pgo_train.py); "generate" builds
 # the instrumented app that records one, writing raw profiles to the pattern in HALO_HOST_PROFILE when it exits.

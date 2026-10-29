@@ -11,8 +11,8 @@ struct discord_presence {
 extern "C" {
 #endif
 /* Feed public map/mode labels, never server addresses or player identities.
- * A zero capacity represents the menu or an unknown party, not one player.
- * The game adapter will supply these values when the SDK trial resumes. */
+ * A missing map shows "In the menus" and clears the party and timestamp.
+ * A zero capacity preserves a known player count without inventing a limit. */
 void discord_presence_make(struct discord_presence *out, const char *map, const char *mode,
     int players, int capacity, int64_t started);
 #ifdef __cplusplus

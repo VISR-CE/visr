@@ -17,6 +17,9 @@
 #include "host_benchmark.h"
 #include "host_external.h"
 #include "host_cloud_saves.h"
+#ifdef HALO_DISCORD
+#include "host_discord.h"
+#endif
 #include "host_shader_upload.h"
 #include "host_perf_reports.h"
 #include "host_perf_hooks.h"
@@ -70,6 +73,9 @@ void host_exit(int code) {
     host_cloud_saves_leaving(3);
     host_shader_upload_suspend();
     host_perf_reports_finish(code != 0);
+#ifdef HALO_DISCORD
+    host_discord_shutdown();
+#endif
     exit(code);
 }
 
@@ -340,6 +346,9 @@ int main(int argc,char **argv) {
         /* halo://join links (host_join_link.c): before the import screen can spin the run loop,
            which is when SDL's scene delegate passes on the link the app was launched with */
         host_join_link_install(data_root);
+#if defined(HALO_DISCORD) && !HALO_NATIVE_MAC
+        host_discord_install();
+#endif
 #if TARGET_OS_MACCATALYST
         install_apple_events_timer();
 #endif

@@ -1,6 +1,9 @@
 #include "host_app_version.h"
 /* Apache-2.0. All disk, JSON and compression work stays on the utility worker. */
 #import "host_perf_reports.h"
+#if HALO_DISCORD
+#include "host_discord_presence.h"
+#endif
 #import "host_shader_upload.h"
 #import "host_benchmark_outbox.h"
 #import "host_report_delivery.h"
@@ -508,6 +511,9 @@ void host_perf_reports_start(const char *sha) {
 #endif
 }
 void host_perf_reports_activate(const char *name,int suppressed) {
+#if HALO_DISCORD
+    host_discord_presence_map(name);
+#endif
     host_perf_hooks_dynamic_flush();host_perf_hooks_dynamic_ignore(4);
 #if HALO_PERF_REPORTS
     if(!worker)return;

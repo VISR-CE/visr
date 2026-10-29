@@ -77,6 +77,31 @@ Code signing and provisioning must succeed
 before installation. No jailbreak, JIT entitlement, or writable executable
 memory is used.
 
+### Optional Discord SDK
+
+Discord is off by default. Native AppKit Mac and iOS builds accept `--discord on`.
+Download Discord Social SDK 1.10.19337 from the Discord Developer Portal and
+set `VISR_DISCORD_SDK` to its ZIP path or an HTTPS URL. The build verifies SHA-256
+`d784097504685953849cc2842561d8a8013326fe0b8df65a1de63ddefde62045`
+before extracting headers, notices and only the target's release framework into
+ignored `build/third_party/discord/<platform>/`. The SDK is never committed.
+`VISR_DISCORD_SDK_SHA256` can explicitly override the digest for a separately
+verified archive; the default is pinned to version 1.10.19337.
+
+```sh
+export VISR_DISCORD_SDK="$HOME/Downloads/DiscordSocialSdk-1.10.19337.zip"
+python3 tools/ios_build.py --native-mac --discord on --sandbox on
+python3 tools/ios_build.py --unsigned --renderer metal --discord on
+python3 tools/ios_build.py --simulator --renderer metal --discord on
+```
+
+The Mac build embeds the macOS framework. iOS selects `ios-arm64`, and the
+Apple silicon simulator selects `ios-arm64-simulator`; neither build extracts
+the other slice. Discord-on builds fail clearly if the archive is absent or
+its digest does not match. `--discord off` clears the build setting and removes
+an embedded Discord framework left by a previous build. Mac Catalyst, tvOS
+and visionOS do not support this switch.
+
 ### Metal-only builds
 
 The default build includes both OpenGL ES and Metal on iOS, iPadOS, Apple TV

@@ -1,5 +1,8 @@
-/* Apache-2.0. The game thread owns these scalars; collection adds no locks or allocation. */
+/* Apache-2.0. The game thread owns the performance scalars. */
 #include "host_perf_hooks.h"
+#if HALO_DISCORD
+#include "host_discord_presence.h"
+#endif
 #include "host_perf_reports.h"
 #include <time.h>
 #include <string.h>
@@ -247,6 +250,9 @@ static uint64_t now_us(void) {
     return (uint64_t)value.tv_sec * 1000000 + (uint64_t)value.tv_nsec / 1000;
 }
 void host_perf_hooks_context(unsigned field, uint64_t value) {
+#if HALO_DISCORD
+    host_discord_presence_context(field, value);
+#endif
     if (!field || field >= 12) return;
     if (!(context_seen & (1u << field)) || context_values[field] != value) {
         game_perf_event event = {.elapsed_us = now_us(), .type = GAME_PERF_EVENT_CONTEXT, .flags = field, .value = value, .denominator = serial};
@@ -269,6 +275,12 @@ void host_perf_hooks_loading(int value) {
 }
 void host_perf_hooks_phase(int phase, int value) { host_perf_hooks_phase_at(phase, value, now_us()); }
 void host_perf_hooks_phase_at(int phase, int value, uint64_t now) {
+#if HALO_DISCORD
+    if (phase == 24 || phase == 25) {
+        host_discord_presence_context((unsigned)phase, (uint32_t)value);
+        return;
+    }
+#endif
     if (phase == 7) {
         if (!frame_sealed) return;
         frame_sealed = 0;
