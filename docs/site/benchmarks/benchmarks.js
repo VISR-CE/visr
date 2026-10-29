@@ -402,6 +402,7 @@ function readHash() {
 function writeHash(state, specs) {
   const params = new URLSearchParams();
   if (state.suite !== DEFAULT_SUITE) params.set("suite", state.suite);
+  for (const [platform, kind] of Object.entries(state.views || {})) if (kind !== "fps") params.set("view." + platform, kind);
   for (const spec of specs) {
     const built = state.models[spec.slug];
     const defaults = built.entries.filter((e) => e.default).map(entryKey).sort().join(",");
@@ -411,6 +412,14 @@ function writeHash(state, specs) {
   const text = params.toString();
   history.replaceState(null, "", text ? "#" + decodeURIComponent(text).replaceAll(" ", "%20") : location.pathname + location.search);
 }
+
+// The chart a spec draws: frame rate, GPU time or CPU time, from its first metric.
+function metricKind(spec) {
+  const metric = spec.query.metrics[0];
+  return metric.startsWith("gpu_") ? "gpu" : metric.startsWith("cpu_") ? "cpu" : "fps";
+}
+const KIND_LABELS = { fps: "FPS", gpu: "GPU", cpu: "CPU" };
+const KIND_ORDER = ["fps", "gpu", "cpu"];
 
 function el(tag, attributes, ...children) {
   const node = document.createElement(tag);
@@ -627,6 +636,9 @@ async function start() {
   const theme = () => mermaid.initialize(mermaidConfig(dark.matches));
   theme();
   const sections = Object.fromEntries(specs.map((spec) => [spec.slug, document.querySelector(`[data-platform="${spec.slug}"]`)]));
+  state.views = {};
+  const shown = (spec) => !sections[spec.slug].hidden;
+  const groups = groupByPlatform(specs);
 
   function recompute(spec, keepSelection) {
     state.models[spec.slug] = model(rows, spec.query, state.suite);
@@ -650,7 +662,7 @@ async function start() {
     writeHash(state, specs);
   }
   state.refresh = refresh;
-  dark.addEventListener("change", async () => { theme(); for (const spec of specs) await refresh(spec); });
+  dark.addEventListener("change", async () => { theme(); for (const spec of specs) if (shown(spec)) await refresh(spec); });
   const switcher = document.querySelectorAll('input[name="suite"]');
   for (const input of switcher) {
     input.checked = input.value === state.suite;
@@ -658,11 +670,78 @@ async function start() {
       state.suite = input.value;
       state.touched = true;
       for (const spec of specs) recompute(spec, false);
-      for (const spec of specs) await refresh(spec);
+      for (const spec of specs) if (shown(spec)) await refresh(spec);
     });
   }
   for (const spec of specs) recompute(spec, false);
-  for (const spec of specs) await refresh(spec);
+  // A platform with more than one chart (frame rate, GPU time, CPU time) is one section with a selector.
+  for (const group of groups) if (group.length > 1) buildSelector(group, sections, state, params, async (spec) => { await refresh(spec); writeHash(state, specs); });
+  for (const spec of specs) if (shown(spec)) await refresh(spec);
+}
+
+function groupByPlatform(specs) {
+  const byPlatform = new Map();
+  for (const spec of specs) byPlatform.set(spec.query.platform, [...(byPlatform.get(spec.query.platform) || []), spec]);
+  return [...byPlatform.values()].map((group) => group.sort((a, b) => KIND_ORDER.indexOf(metricKind(a)) - KIND_ORDER.indexOf(metricKind(b))));
+}
+
+// Merges a platform's sections into one: the lead heading, a segmented FPS / GPU / CPU control, and the chosen chart's
+// text, chart, table and build list. The choice is kept in the URL hash (`view.<platform>`) and in localStorage.
+function buildSelector(group, sections, state, params, draw) {
+  const key = group[0].query.platform;
+  const lead = sections[(group.find((spec) => !spec.sub) || group[0]).slug];
+  const title = lead.querySelector("h2");
+  const kinds = group.map(metricKind);
+  let stored = null;
+  try { stored = localStorage.getItem("bench-view." + key); } catch (error) { /* storage can be blocked */ }
+  const wanted = params.get("view." + key) || stored;
+  let current = kinds.includes(wanted) ? wanted : "fps";
+  if (!kinds.includes(current)) current = kinds[0];
+  const wrap = el("div", { class: "bench-group", "data-group": key });
+  lead.before(wrap);
+  if (title) wrap.append(title);
+  const tabs = el("div", { class: "bench-tabs", role: "tablist", "aria-label": `${key} chart` });
+  const buttons = kinds.map((kind) => {
+    const button = el("button", { type: "button", role: "tab", "data-kind": kind }, KIND_LABELS[kind]);
+    button.addEventListener("click", () => choose(kind, false));
+    button.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+      if (!step) return;
+      event.preventDefault();
+      choose(kinds[(kinds.indexOf(kind) + step + kinds.length) % kinds.length], true);
+    });
+    tabs.append(button);
+    return button;
+  });
+  wrap.append(tabs);
+  group.forEach((spec) => {
+    const section = sections[spec.slug];
+    for (const heading of section.querySelectorAll(":scope > h2, :scope > h3")) heading.remove();
+    section.removeAttribute("aria-labelledby");
+    section.setAttribute("aria-label", `${key} ${KIND_LABELS[metricKind(spec)]}`);
+    section.classList.remove("bench-sub");
+    wrap.append(section);
+  });
+  async function choose(kind, focus) {
+    current = kind;
+    state.views[key] = kind;
+    try { localStorage.setItem("bench-view." + key, kind); } catch (error) { /* storage can be blocked */ }
+    buttons.forEach((button) => {
+      const on = button.dataset.kind === kind;
+      button.setAttribute("aria-selected", on ? "true" : "false");
+      button.tabIndex = on ? 0 : -1;
+      if (on && focus) button.focus();
+    });
+    for (const spec of group) sections[spec.slug].hidden = metricKind(spec) !== kind;
+    await draw(group[kinds.indexOf(kind)]);
+  }
+  state.views[key] = current;
+  buttons.forEach((button) => {
+    const on = button.dataset.kind === current;
+    button.setAttribute("aria-selected", on ? "true" : "false");
+    button.tabIndex = on ? 0 : -1;
+  });
+  for (const spec of group) sections[spec.slug].hidden = metricKind(spec) !== current;
 }
 
 if (typeof document !== "undefined") start().catch((error) => console.error(error));

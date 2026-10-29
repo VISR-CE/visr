@@ -87,7 +87,7 @@ def screen(chart: str, frame: str) -> str:
 
 
 def spec_payload(specs: list[dict]) -> str:
-    keep = ("heading", "paragraph", "empty", "box", "series_labels", "chart", "query", "rename")
+    keep = ("heading", "paragraph", "empty", "box", "series_labels", "chart", "query", "rename", "sub")
     payload = [{"slug": slug(spec), **{key: spec[key] for key in keep if key in spec}} for spec in specs]
     return json.dumps(payload, ensure_ascii=False, indent=1).replace("</", "<\\/")
 
