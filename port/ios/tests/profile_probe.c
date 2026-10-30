@@ -406,7 +406,7 @@ static void check_unprofiled_models(const char *shipped)
 	assert(profile.inherited && !strcmp(profile.model_file, "ipad-air-4.toml") && has(&profile, "display.render_height", "1080"));
 	/* iPhone 12 Pro Max: the measured 12 Pro's chip and memory; the 4 GB iPhone 12 keeps the class floor. */
 	profile = resolve_model(shipped, "ios", "iPhone13,4", 7, 5700, 2778, 1284, 60);
-	assert(profile.inherited && !strcmp(profile.model_file, "iphone-12-pro.toml") && has(&profile, "display.frame_rate", "30"));
+	assert(profile.inherited && !strcmp(profile.model_file, "iphone-12-pro.toml") && has(&profile, "display.frame_rate", "60"));
 	profile = resolve_model(shipped, "ios", "iPhone13,2", 7, 3800, 2532, 1170, 60);
 	assert(!profile.model_file[0] && !strcmp(profile.class_file, "iphone-ipad.toml"));
 	/* iPad 5th generation (A9), the oldest: below every measured iPad profile. */
@@ -502,7 +502,7 @@ static void check_shipped(const char *shipped)
 		has(&profile, "display.frame_rate", "60"));
 	profile = resolve(shipped, device("ios", "iPhone13,3", "", 7), NULL, "");
 	assert(!strcmp(profile.model_file, "iphone-12-pro.toml") && has(&profile, "display.render_height", "900") &&
-		has(&profile, "display.frame_rate", "30"));
+		has(&profile, "display.frame_rate", "60"));
 	/* The smaller M1 iPad Pro inherits the measured M1 profile, subject to its envelope. */
 	struct host_device sibling = device("ios", "iPad13,4", "", 7);
 	sibling.memory_megabytes = 8192; sibling.pixel_width = 2388; sibling.pixel_height = 1668; sibling.refresh_rate = 120;
