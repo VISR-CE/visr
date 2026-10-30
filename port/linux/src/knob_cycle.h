@@ -36,7 +36,9 @@ static const struct knob knob_table[] = {
 	{ "anisotropy", "display.anisotropic_filtering", KNOB_INTEGER, 5, { "1", "2", "4", "8", "16" },
 		{ "1x", "2x", "4x", "8x", "16x" } },
 	{ "model detail", "display.model_lod", KNOB_STRING, 2, { "auto", "max" }, { "auto", "max" } },
-	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 5, { "off", "fxaa", "smaa", "msaa2x", "msaa4x" }, { "off", "FXAA", "SMAA", "MSAA 2x", "MSAA 4x" } },
+	/* (MSAA 4x is left out: it misses the Vision Pro's 90 Hz at every render quality measured; display.anti_aliasing
+	still takes "msaa4x") */
+	{ "anti-aliasing", "display.anti_aliasing", KNOB_STRING, 4, { "off", "fxaa", "smaa", "msaa2x" }, { "off", "FXAA", "SMAA", "MSAA 2x" } },
 	{ "render quality", "display.render_quality", KNOB_REAL, 3, { "0.5", "0.6", "0.7" }, { "0.5", "0.6", "0.7" } },
 	{ "effect resolution", "display.effect_resolution", KNOB_STRING, 3, { "xbox", "half", "full" }, { "xbox", "half", "full" } },
 };

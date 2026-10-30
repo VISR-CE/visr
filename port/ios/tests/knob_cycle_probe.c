@@ -55,9 +55,9 @@ int main(void)
 	assert(!knob_cycle_press(&state, 0, 0, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(label, "shadow map 1024"));
 	int aa = find("display.anti_aliasing"), quality = find("display.render_quality");
-	assert(aa >= 0 && knob_table[aa].count == 5 && quality >= 0);
+	assert(aa >= 0 && knob_table[aa].count == 4 && quality >= 0);
 	assert(!strcmp(knob_table[aa].values[3], "msaa2x"));
-	assert(!strcmp(knob_table[aa].shown[4], "MSAA 4x"));
+	assert(!strcmp(knob_table[aa].shown[3], "MSAA 2x"));
 	assert(knob_value_find(&knob_table[quality], "0.60") == 1);
 	assert(knob_value_find(&knob_table[quality], "0.68") == 2);
 	puts("PASS: knob cycle selects, steps, stops at the ends and wraps");
