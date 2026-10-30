@@ -46,6 +46,10 @@ enum
 has no game engine) */
 struct damage_data;
 boolean network_coop_active(void);
+/* game_state.c: remember the team only after a checkpoint write succeeds. */
+void network_coop_checkpoint_saved(void);
+/* main.c: host team-wipe policy, including checkpoint roster compatibility. */
+boolean network_coop_wipe_reverts(void);
 /* The host-selected immunity for friendly non-player units and vehicles. */
 boolean network_coop_protects_ally(struct damage_data const *damage, long object_index);
 /* whether the players collide with each other: FALSE in a co-op game whose

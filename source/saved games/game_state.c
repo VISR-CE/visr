@@ -100,6 +100,7 @@ symbols in this file:
 #include "real_math.h"
 #include "console.h"
 #include "game_state.h"
+#include "network_coop.h" /* port: checkpoint membership for host team-wipe reverts */
 #include "../../port/linux/src/port_config.h" /* port: checkpoint revival is a local respawn boundary */
 #include "game.h"
 #include "tag_files.h"
@@ -331,6 +332,9 @@ void game_state_save(
 	main_stop_time();
 	game_state_globals.saved_game_valid = (game_state_write_to_file()!=FALSE);
 	main_start_time();
+	/* port: never associate new players with an older or failed save. */
+	if (game_state_globals.saved_game_valid)
+		network_coop_checkpoint_saved();
 	game_state_note_event("checkpoint saved");
 
 	return;
