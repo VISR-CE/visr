@@ -92,7 +92,7 @@ int main(int argc, char **argv)
         assert([fm copyItemAtPath:[@(argv[1]) stringByAppendingPathComponent:@"profiles"] toPath:bundled error:NULL]);
         long long bundledRevision = host_profile_revision_read(bundled.fileSystemRepresentation, NULL);
         CHECK(bundledRevision >= 1, "the bundled profiles carry a revision");
-        CHECK([capacity(bundled) isEqual:@"32"], "the bundled profiles give the iPhone 17 Pro network.player_capacity 32");
+        CHECK([capacity(bundled) isEqual:@"128"], "the bundled profiles give the iPhone 17 Pro network.player_capacity 128");
         dataPackCacheOverride = [base stringByAppendingPathComponent:@"Caches"]; dataPackChannelOverride = @"tester";
         NSError *error = nil;
 
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
         HostDataPackStore *current = profileStore(bundled, d);
         NSString *launch = [current beginLaunch];
         CHECK([fm fileExistsAtPath:oldFolder], "the stale v1 shard is still on disk");
-        CHECK([launch isEqual:bundled] && [capacity(launch) isEqual:@"32"], "0.6.0 ignores the v1 shard and keeps network.player_capacity 32");
+        CHECK([launch isEqual:bundled] && [capacity(launch) isEqual:@"128"], "0.6.0 ignores the v1 shard and keeps network.player_capacity 128");
 
         // A device-profiles-4 shard signed from these sources stages, activates and keeps every key.
         NSData *v2 = [NSData dataWithContentsOfFile:@(argv[4])];
@@ -149,14 +149,14 @@ int main(int argc, char **argv)
         HostDataPackStore *next = profileStore(bundled, d);
         NSString *v2Folder = [next beginLaunch]; [next markHealthy];
         CHECK(![v2Folder isEqual:bundled] && [v2Folder hasPrefix:dataPackCacheOverride], "the next launch uses the downloaded v2 shard");
-        CHECK([capacity(v2Folder) isEqual:@"32"], "the v2 shard keeps network.player_capacity 32");
+        CHECK([capacity(v2Folder) isEqual:@"128"], "the v2 shard keeps network.player_capacity 128");
         CHECK(host_profile_revision_read(v2Folder.fileSystemRepresentation, NULL) == bundledRevision, "the v2 shard carries the bundled revision");
 
         // An app update raises the bundled revision: the cached shard is now older and gives way.
         writeRevision(bundled, bundledRevision + 1);
         HostDataPackStore *updated = profileStore(bundled, d);
         NSString *afterUpdate = [updated beginLaunch];
-        CHECK([afterUpdate isEqual:bundled] && [capacity(afterUpdate) isEqual:@"32"], "a cached shard older than the bundled profiles is not used");
+        CHECK([afterUpdate isEqual:bundled] && [capacity(afterUpdate) isEqual:@"128"], "a cached shard older than the bundled profiles is not used");
         // The feed serves the same, now older, shard again: refused as superseded although its sequence was seen.
         CHECK(![updated stageEnvelope:v2 error:&error] && updated.lastFeedSuperseded, "an older served shard is refused as superseded");
         // The same revision stamped from other sources is older too: the bundle wins.
@@ -184,7 +184,7 @@ int main(int argc, char **argv)
         [downgraded beginLaunch];
         CHECK([downgraded stageEnvelope:v2 error:&error] && !downgraded.lastFeedSuperseded, "after a downgrade the same shard still stages");
         NSString *downgradedFolder = [profileStore(bundled, d) beginLaunch];
-        CHECK(![downgradedFolder isEqual:bundled] && [capacity(downgradedFolder) isEqual:@"32"], "and the downgraded build uses it");
+        CHECK(![downgradedFolder isEqual:bundled] && [capacity(downgradedFolder) isEqual:@"128"], "and the downgraded build uses it");
         dataPackCacheOverride = [base stringByAppendingPathComponent:@"Caches"];
         writeRevision(bundled, bundledRevision + 1);
 
