@@ -1,3 +1,34 @@
+## visr-v0.6.7 (2026-10-30)
+
+### Summary
+
+- Try joining multiplayer games hosted on network versions 40 and 41, in addition to earlier supported hosts.
+- Join a version 40 or 41 host and confirm you reach the lobby without a generic join failure.
+- If a host refuses your join request, check that you now see a specific message explaining why instead of a generic failure.
+- Try joining a host on version 42 and confirm it is still refused.
+- Join a host on an earlier version, below 40, and confirm joining still works as before.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **net**: join hosts of network versions 40 and 41 — hosts from 40 take a 350-byte `message_client_join_game_request` (234 zero bytes before the type trailer), built by `create_network_game_message_padded`; refusal codes 8 to 10 now show a message through `platform_show_message` instead of a generic failure. Behavior described from black-box observation of OpenCE release builds.
+
+### fix
+
+- **net**: log the join request's wire size — `network_game_client_idle_joining` read `GET_MESSAGE_SIZE` after `network_game_client_write` had byte-swapped the header in place, so it logged 1216 for a 116-byte request; `halo_network_join_request_wire_size` pins 116 below version 40 and 350 from 40
+
+### test
+
+- **net**: `delta_probe` joins 40 and 41 and refuses 42 — 40 was its example of an unjoinable version
+- **net**: the join request's padding follows `network_game_host_version` — review found no test tied `network_game_client_idle_joining` to the host version
+
 ## visr-v0.6.6 (2026-10-30)
 
 ### Summary
