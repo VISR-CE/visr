@@ -31,7 +31,9 @@ PROFILES = ROOT / "profiles"
 FEED = Path("docs/site/packs/tester")
 # this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
 PROFILE_DOMAIN = "device-profiles-4"
-SHARDS = FEED / PROFILE_DOMAIN
+# Every generation published from these sources, newest first, with the keys that generation's released validators
+# refuse: 0.6.4 to 0.6.7 read device-profiles-3 and refuse a whole shard that names network.full_rate_players.
+GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-3": ("network.full_rate_players",)}
 RECEIPT = FEED / "publication.json"
 RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
 REPOSITORY = "steverice/visr"
@@ -210,20 +212,106 @@ def manifest_sequence(shard):
     return int(manifest["sequence"])
 
 
-def build_feed(targets, profiles, out, signing_key, run, repo=ROOT):
-    """Sign a tester shard for each target; returns {target: (shard path, sequence)}."""
+def strip_keys(text, keys):
+    """A profile's text without these settings or their evidence; everything else stays byte for byte."""
+    names = set()
+    for key in keys:
+        section, _, name = key.partition(".")
+        names.update({f"{section}/{name}", f"variable.{section}/{name}"})
+    evidence = {f'evidence."{prefix}{key}"' for key in keys for prefix in ("", "variable.")}
+    lines, section = [], ""
+    for line in text.splitlines(keepends=True):
+        header = re.fullmatch(r"\s*\[([^\[\]]+)\]\s*(#.*)?", line.rstrip("\n"))
+        if header:
+            section = header[1].strip()
+        if section in evidence:
+            continue
+        setting = re.match(r"\s*([A-Za-z0-9_]+)\s*=", line)
+        if setting and f"{section}/{setting[1]}" in names:
+            continue
+        lines.append(line)
+    return "".join(lines)
+
+
+def generation_profiles(profiles, domain, folder):
+    """The profile sources a generation is signed from: profiles itself when it refuses no key that they set, else a
+    copy in folder without those keys, stamped with the same revision and the copy's own hash."""
+    profiles, keys = Path(profiles), GENERATIONS[domain]
+    changed = {path.name: strip_keys(path.read_text(), keys) for path in profiles.glob("*.toml")}
+    changed = {name: text for name, text in changed.items() if text != (profiles / name).read_text()}
+    if not changed:
+        return profiles
+    folder = Path(folder)
+    if folder.exists():
+        shutil.rmtree(folder)
+    shutil.copytree(profiles, folder)
+    for name, text in changed.items():
+        (folder / name).write_text(text)
+    number = revision.read(folder)[0]
+    (folder / revision.NAME).write_text(revision.text(number, revision.inputs_sha256(folder)), encoding="ascii")
+    return folder
+
+
+def build_feed(targets, profiles, out, signing_key, run, repo=ROOT, sequence=None):
+    """Sign a tester shard for each target in every published generation; returns {feed path: (shard path, sequence)}.
+    Each shard takes the given sequence, else the next after its own."""
     shards = {}
-    for target in targets:
-        sequence = manifest_sequence(repo / SHARDS / f"{target}.json") + 1
-        output = out / "feed" / f"{target}.json"
-        output.parent.mkdir(parents=True, exist_ok=True)
-        result = run(sys.executable, repo / "tools/data_pack.py", "--kind", "profiles", "--channel", "tester",
-                     "--sequence", sequence, "--compatibility", f"{PROFILE_DOMAIN}:{target}", "--input", profiles,
-                     "--signing-key", signing_key, "--output", output)
-        if result.returncode:
-            raise Failure(f"data_pack.py failed for {target} (exit {result.returncode})")
-        shards[target] = (output, sequence)
+    for domain in GENERATIONS:
+        source = generation_profiles(profiles, domain, out / "generation-profiles" / domain)
+        for target in targets:
+            destination = FEED / domain / f"{target}.json"
+            current = manifest_sequence(repo / destination)
+            number = current + 1 if sequence is None else sequence
+            if number <= current:
+                raise Failure(f"{destination} is already at sequence {current}")
+            output = out / "feed" / domain / f"{target}.json"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            result = run(sys.executable, repo / "tools/data_pack.py", "--kind", "profiles", "--channel", "tester",
+                         "--sequence", number, "--compatibility", f"{domain}:{target}", "--input", source,
+                         "--signing-key", signing_key, "--output", output)
+            if result.returncode:
+                raise Failure(f"data_pack.py failed for {domain}:{target} (exit {result.returncode})")
+            shards[destination] = (output, number)
     return shards
+
+
+def install_shards(repo, shards):
+    """Copy signed shards into repo's feed and name them in its publication receipt; returns the changed paths."""
+    repo = Path(repo)
+    raw = (repo / RECEIPT).read_text()
+    receipt = json.loads(raw)
+    for destination, (path, _) in shards.items():
+        (repo / destination).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, repo / destination)
+        receipt["assets"][str(destination)] = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    (repo / RECEIPT).write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + ("\n" if raw.endswith("\n") else ""))
+    return [*shards, RECEIPT]
+
+
+def published_targets(repo):
+    """Every target with a shard in any published generation, as PLATFORM/MODEL/CHIP."""
+    found = set()
+    for domain in GENERATIONS:
+        folder = Path(repo) / FEED / domain
+        found.update(str(path.relative_to(folder).with_suffix("")) for path in folder.rglob("*.json"))
+    return sorted(found)
+
+
+def sign_all(options, run=None):
+    """Sign every published target in every published generation from the worktree's profiles, at one sequence, and
+    update the worktree's feed and receipt. Commits and pushes nothing."""
+    run = run or run_command
+    repo = Path(options.worktree)
+    if not options.signing_key:
+        raise Failure("--sign-all needs --signing-key")
+    targets = published_targets(repo)
+    if not targets:
+        raise Failure("no published targets")
+    out = Path(options.out) if options.out else repo / "build/profile-feed"
+    shards = build_feed(targets, repo / "profiles", out, options.signing_key, run, repo=repo, sequence=options.sign_all)
+    install_shards(repo, shards)
+    print(f"signed {len(targets)} targets in {len(GENERATIONS)} generations at sequence {options.sign_all}; nothing committed")
+    return 0
 
 
 def evidence_url(key, name):
@@ -360,15 +448,7 @@ def open_pull_request(options, out, target, evidence, shards, branch, key, devic
         shutil.copyfile(target.parent / revision.NAME, repo / paths[1])
     if (evidence / "before.png").exists():
         publish_assets(evidence, key, run, out)
-    receipt = json.loads((repo / RECEIPT).read_text())
-    for shard, (path, _) in shards.items():
-        destination = SHARDS / f"{shard}.json"
-        (repo / destination).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(path, repo / destination)
-        receipt["assets"][str(destination)] = hashlib.sha256(path.read_bytes()).hexdigest()
-        paths.append(destination)
-    (repo / RECEIPT).write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")))
-    paths.append(RECEIPT)
+    paths.extend(install_shards(repo, shards))
     if run(sys.executable, repo / "tools/profile_check.py").returncode:
         raise Failure("tools/profile_check.py rejected the profile folder; nothing was committed")
     title = f"Update the {device.model} profile"
@@ -385,8 +465,10 @@ def open_pull_request(options, out, target, evidence, shards, branch, key, devic
 
 def main(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("model", help="device model name from cost-model/device-facts.csv")
-    parser.add_argument("--report", required=True, help="a benchmark report.json to fit and propose from")
+    parser.add_argument("model", nargs="?", help="device model name from cost-model/device-facts.csv")
+    parser.add_argument("--report", help="a benchmark report.json to fit and propose from")
+    parser.add_argument("--sign-all", type=int, metavar="SEQUENCE",
+                        help="instead of a report: sign every published target in every generation at this sequence")
     parser.add_argument("--dry-run", action="store_true", help="write everything to --out and open no pull request")
     parser.add_argument("--out", help="folder for the changed profile, screenshots, shards and body (default build/profile-pr/MODEL)")
     parser.add_argument("--workload", default="gameplay")
@@ -403,8 +485,10 @@ def main(arguments=None):
     parser.add_argument("--app", help="native runner app")
     parser.add_argument("--host", help="run-job.sh host for the screenshot job (default: its own choice)")
     options = parser.parse_args(arguments)
+    if options.sign_all is None and not (options.model and options.report):
+        parser.error("a device model and --report are required without --sign-all")
     try:
-        return build(options)
+        return sign_all(options) if options.sign_all is not None else build(options)
     except Failure as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

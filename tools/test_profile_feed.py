@@ -10,6 +10,7 @@ import pytest
 
 import data_pack
 import ios_build
+import profile_pr
 import profile_revision
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -196,3 +197,86 @@ def test_native_validators_hold_each_generation_to_its_revision_rule(tmp_path):
     assert admits("validate-2", "with") and not admits("validate-2", "without")
     (tmp_path / "with/hardware/revision.toml").write_text("schema = 1\nrevision = 1\n")
     assert not admits("validate-2", "with")
+
+
+FULL_RATE = ("[network]\nplayer_capacity = 32\n", "[network]\nplayer_capacity = 32\nfull_rate_players = 16\n")
+FULL_RATE_EVIDENCE = '\n[evidence."network.full_rate_players"]\nbasis = "assumed"\nwhy = "A test sets this value to show which generations carry it."\n'
+
+
+def profiles_with_full_rate(folder):
+    """A copy of the profiles whose iPhone 17 Pro sets network.full_rate_players, with evidence and a new revision."""
+    shutil.copytree(ROOT / "profiles", folder)
+    path = folder / "iphone-17-pro.toml"
+    text = path.read_text()
+    assert FULL_RATE[0] in text
+    path.write_text(text.replace(*FULL_RATE) + FULL_RATE_EVIDENCE)
+    profile_revision.bump(folder)
+    return folder
+
+
+def test_stripping_leaves_other_text_alone():
+    text = "schema = 1\n" + FULL_RATE[1] + "[variable.network]\nfull_rate_players = 8\nother = 1\n" + FULL_RATE_EVIDENCE + '[evidence."x"]\nwhy = "y"\n'
+    assert profile_pr.strip_keys(text, ("network.full_rate_players",)) == (
+        "schema = 1\n" + FULL_RATE[0] + '[variable.network]\nother = 1\n\n[evidence."x"]\nwhy = "y"\n')
+
+
+def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
+    for domain in profile_pr.GENERATIONS:
+        assert profile_pr.generation_profiles(ROOT / "profiles", domain, tmp_path / domain) == ROOT / "profiles"
+
+
+@pytest.mark.skipif("visr-v0.6.7" not in tags(), reason="needs the release tags")
+def test_a_profile_with_the_key_reaches_both_generations(tmp_path):
+    target = "ios/iPhone18,1/_"
+    profiles = profiles_with_full_rate(tmp_path / "profiles")
+    stripped = profile_pr.generation_profiles(profiles, "device-profiles-3", tmp_path / "generation-3")
+    assert profile_revision.read(stripped)[0] == profile_revision.read(profiles)[0]
+    assert profile_pr.generation_profiles(profiles, "device-profiles-4", tmp_path / "generation-4") == profiles
+    # the released validators refuse the key, and every one of them accepts the stripped shard
+    bare = data_pack.device_profile_snapshot(profiles, "ios", "iPhone18,1", generation=3)
+    with pytest.raises(ValueError, match="would refuse"):
+        data_pack.validate_with_released_apps(bare, target, 3)
+    files = data_pack.device_profile_snapshot(stripped, "ios", "iPhone18,1", generation=3)
+    accepted = data_pack.validate_with_released_apps(files, target, 3)
+    assert {"visr-v0.6.4", "visr-v0.6.7"} <= set(accepted)
+    assert b"full_rate_players" not in files["iphone-17-pro.toml"]
+    assert b"player_capacity = 32" in files["iphone-17-pro.toml"]
+    # generation 4 signs with the key, through the publisher
+    output = tmp_path / "shard.json"
+    assert data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",
+        "--compatibility", f"device-profiles-4:{target}", "--input", str(profiles),
+        "--signing-key", str(signing_key(tmp_path)), "--output", str(output)]) == 0
+    assert b"full_rate_players = 16" in payload_files(output.read_bytes())["iphone-17-pro.toml"]
+
+
+def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
+    repo = tmp_path / "repo"
+    profiles_with_full_rate(repo / "profiles")
+    tester = repo / profile_pr.FEED
+    existing = tester / "device-profiles-3/ios/iPhone18,1/_.json"
+    existing.parent.mkdir(parents=True)
+    existing_bytes = json.dumps({"manifest": base64.b64encode(json.dumps({"sequence": 5}).encode()).decode()}).encode()
+    existing.write_bytes(existing_bytes)
+    (tester / "publication.json").write_text('{"assets":{}}\n')
+    calls = []
+
+    def run(*args, **_):
+        args = [str(arg) for arg in args]
+        calls.append((args[args.index("--compatibility") + 1], args[args.index("--input") + 1]))
+        Path(args[args.index("--output") + 1]).write_bytes(existing_bytes)
+        return profile_pr.SimpleNamespace(returncode=0)
+
+    options = profile_pr.SimpleNamespace(worktree=str(repo), signing_key="seed", out=str(tmp_path / "out"), sign_all=2**40)
+    assert profile_pr.sign_all(options, run) == 0
+    assert {domain for domain, _ in calls} == {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_"}
+    sources = dict(calls)
+    assert sources["device-profiles-4:ios/iPhone18,1/_"] == str(repo / "profiles")
+    assert sources["device-profiles-3:ios/iPhone18,1/_"] != str(repo / "profiles")
+    assets = json.loads((tester / "publication.json").read_text())["assets"]
+    for domain in profile_pr.GENERATIONS:
+        name = f"docs/site/packs/tester/{domain}/ios/iPhone18,1/_.json"
+        assert assets[name] == hashlib.sha256((repo / name).read_bytes()).hexdigest()
+    # a sequence the feed has already passed is refused before anything is signed for that shard
+    options.sign_all = 1
+    with pytest.raises(profile_pr.Failure, match="already at sequence"):
+        profile_pr.sign_all(options, run)
