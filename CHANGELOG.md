@@ -148,6 +148,32 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.6 (2026-10-30)
+
+### Summary
+
+- Finish a benchmark run, then try the completion screen and benchmark menu. Dragging on the completion screen should no longer crash the app, which was seen on an iPad Pro M4.
+- Open the benchmark menu more than once between frames, for example by choosing "Not now" or reopening it after an offscreen benchmark. The app should stay stable.
+- Play split screen with 3 or 4 players and check the fog effects in windows 2 through 4. They should no longer cause memory corruption or crashes.
+- Walk through portals and doorways, and watch for areas that briefly fail to appear for a single frame. Areas behind portals should now draw correctly.
+- Load modded or merged maps where a player's HUD reference is empty. The game should no longer crash on those seats.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **benchmark**: leave the frame workgroup only once between frames — `gpu_metal_frame_deadline_leave` compared the state after `frame_deadline_state_after_leave`, which returns `FRAME_DEADLINE_LEFT` for a thread that has already left, so a second `ask()` with no shown frame between (`Not now`, or the menu again after an offscreen benchmark) called `os_workgroup_leave` for a thread that is no longer a member; `frame_deadline_leave_wanted` lets only the joined thread leave, and `frame_deadline_probe` checks the double leave
+- **benchmark**: leave the frame workgroup before the benchmark menu runs UIKit's loop — the drawing thread is the main thread and stays in the `VISR frame` workgroup after its first Present, and UIKit raises from `_beginInterval` on such a thread (an iPad Pro M4 crashed dragging the completion screen); `ask()` calls `gpu_metal_frame_deadline_leave`, the next shown frame joins again, and a `@try`/`@catch` keeps a UIKit exception from ending the app
+- **rasterizer**: index the fog screen's previous camera matrix by window — a local `previous_camera_matrix` pointer shadowed the static array, so `rasterizer_environment_fog_screen_draw` wrote past `previous_camera_matrix` for windows 2 to 4 of split screen. Same bug class as described in OpenCE PR #519. `previous_camera_matrix_for_window` now checks its index.
+- **math**: zero a NaN crossing parameter in `convex_polygon2d_clip_to_plane` — a portal corner exactly on the clip line with its neighbor a rounding error behind gave 0/0, which `PIN` passes through, so the clusters behind the portal were skipped for a frame. Same bug class as described in OpenCE PR #518. Adds `tools/test_portal_clip_nan.py`, which clips outlines that produce the NaN.
+- **cache**: return `NONE` from `tag_loaded` for a NULL name — `verify_tag_reference` passes an empty reference's name straight in and `_stricmp` dereferenced it, crashing on seats whose HUD reference is empty (modded or merged maps). Behavior as in halo64 commit d3245ada48 (CC0-compatible). Adds `tools/test_tag_loaded_null.py`.
+
 ## visr-v0.6.5 (2026-10-29)
 
 ### Summary
