@@ -31,12 +31,12 @@ Create one envelope from the repository profile sources:
 
 ```sh
 python3 tools/data_pack.py --kind profiles --channel tester \
-  --sequence 1 --compatibility device-profiles-3:ios/iPhone18,1/_ \
+  --sequence 1 --compatibility device-profiles-4:ios/iPhone18,1/_ \
   --input profiles --signing-key /private/path/signing-seed \
   --output iphone-profile.json
 ```
 
-Serve that envelope under `device-profiles-3/ios/iPhone18,1/_.json`. Each shard contains the target platform's class partitions, selected model, only the hardware catalog records and source profiles needed for conservative inheritance, and the profile set's revision. Runtime memory, GPU, pixel, and refresh checks still decide whether an inherited profile is suitable. User overrides keep their existing precedence. Debug profile selection uses the bundled profile set.
+Serve that envelope under `device-profiles-4/ios/iPhone18,1/_.json`. Each shard contains the target platform's class partitions, selected model, only the hardware catalog records and source profiles needed for conservative inheritance, and the profile set's revision. Runtime memory, GPU, pixel, and refresh checks still decide whether an inherited profile is suitable. User overrides keep their existing precedence. Debug profile selection uses the bundled profile set.
 
 An optional `capacity.toml` reserves schema 1 with optional `validated_maximum_players` from 2 through 128 and an `evidence` string of at most 2048 bytes. A supplied maximum requires evidence. Omit unknown capacity. This metadata does not change profile matching or display a warning.
 
@@ -48,7 +48,8 @@ A downloaded shard replaces all of the app's bundled profiles for that launch, a
 | --- | --- | --- |
 | `device-profiles-1` | `profiles/` | 0.2.2 to 0.5.1 |
 | `device-profiles-2` | `device-profiles-2/` | 0.6.0 to 0.6.3 (retired) |
-| `device-profiles-3` | `device-profiles-3/` | 0.6.4 and later |
+| `device-profiles-3` | `device-profiles-3/` | 0.6.4 to 0.6.7 |
+| `device-profiles-4` | `device-profiles-4/` | 0.6.8 and later |
 
 The generation is `HOST_PROFILE_FEED_GENERATION` in `port/ios/host/host_profile.h`, and `PROFILE_FEED_GENERATION` in `tools/data_pack.py`. Bump it, and give the new generation its own directory, whenever an app would accept a shard that an earlier app of the same generation refuses: a profile key added or removed, a range or choice changed, a new heading, catalog field or file. `tools/test_profile_feed.py` fails when `port/linux/src/port_profile_keys.h` changes without a bump. Bump it also when a release needs profile updates of its own, separate from earlier releases. A device that has no shard in its generation's directory uses its bundled profiles; it never falls back to an older generation.
 

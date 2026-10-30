@@ -34,7 +34,7 @@ HEADERS = {
 DATA_PACK_PUBLIC_KEY = 'b57463a3c1b157fdb49a4df5c2041b88cabf07b4ba733d0c7290b90d85e3b5ea'
 DATA_PACK_FEED = 'https://code.steverice.org/visr/packs/{channel}/{kind}.json'
 # the device-profile shards' directory for this source's feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
-PROFILE_FEED_DIRECTORY = 'device-profiles-3'
+PROFILE_FEED_DIRECTORY = 'device-profiles-4'
 
 HOST_PROFILE = ROOT / 'pgo/visr_host.profdata'
 HOST_PROFILE_RAW = ROOT / 'build/host-pgo/raw'

@@ -18,6 +18,7 @@ def test_only_signed_asset_paths_are_admitted():
     assert overlay.allowed_asset(PROFILE) == ("profile", "ios/iPhone18,1/_")
     assert overlay.allowed_asset(PROFILE_2) == ("profile", "ios/iPhone18,1/_")
     assert overlay.allowed_asset(PROFILE_2.replace("/device-profiles-2/", "/device-profiles-3/")) == ("profile", "ios/iPhone18,1/_")
+    assert overlay.allowed_asset(PROFILE_2.replace("/device-profiles-2/", "/device-profiles-4/")) == ("profile", "ios/iPhone18,1/_")
     assert overlay.allowed_asset(SHADER) == ("shader", None)
     assert overlay.allowed_asset(RECORDING) == ("recording", None)
     for path in [
@@ -26,7 +27,7 @@ def test_only_signed_asset_paths_are_admitted():
         "docs/site/packs/stable/shaders.json",
         PROFILE.replace("iPhone18,1", ".."),
         PROFILE.replace("/_", "/Apple-M4"),
-        PROFILE.replace("/profiles/", "/device-profiles-4/"),
+        PROFILE.replace("/profiles/", "/device-profiles-5/"),
         PROFILE.replace("/profiles/", "/shader-maps/"),
     ]:
         with pytest.raises(ValueError):

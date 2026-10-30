@@ -21,17 +21,17 @@ def asset_policy():
 
 
 def test_new_policy_pins_device_shards_and_shader_feed():
-    value = {**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-3"}
+    value = {**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-4"}
     assert validation.load_policy(json.dumps(value)) == value
     validation.require_asset_policy(value)
     with pytest.raises(ValueError, match="asset"):
         validation.require_asset_policy(policy())
     # the frozen device-profiles-1 directory (0.4.2 to 0.5.1) still validates, but a new release cannot use it
     assert validation.load_policy(json.dumps(asset_policy())) == asset_policy()
-    with pytest.raises(ValueError, match="device-profiles-3"):
+    with pytest.raises(ValueError, match="device-profiles-4"):
         validation.require_asset_policy(asset_policy())
     # nor the retired device-profiles-2 directory 0.6.0 to 0.6.3 read
-    with pytest.raises(ValueError, match="device-profiles-3"):
+    with pytest.raises(ValueError, match="device-profiles-4"):
         validation.require_asset_policy({**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-2"})
 
 
@@ -41,6 +41,7 @@ def test_new_policy_pins_device_shards_and_shader_feed():
     ("https://example.invalid/tester/device-profiles-2", "device-profiles-2"),
     ("https://example.invalid/tester/device-profiles-2/", "device-profiles-2"),
     ("https://example.invalid/tester/device-profiles-3", "device-profiles-3"),
+    ("https://example.invalid/tester/device-profiles-4", "device-profiles-4"),
     ("https://example.invalid/tester/device-profiles-9", "device-profiles-1"),
 ])
 def test_profile_domain_follows_the_feed_directory(url, domain):

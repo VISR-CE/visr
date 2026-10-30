@@ -34,9 +34,9 @@ ROOT = Path(__file__).resolve().parents[1]
 # its shards are signed as PROFILE_FEED_DOMAIN:<target> and served from a directory of the same name.
 # device-profiles-1 is what 0.4.2 to 0.5.1 read; its path is frozen. device-profiles-2 is what 0.6.0 to 0.6.3 read; it is
 # retired: a new shard there would reach 0.6.3, whose duplicate stores quarantine it.
-PROFILE_FEED_GENERATION = 3
+PROFILE_FEED_GENERATION = 4
 PROFILE_FEED_DOMAIN = f"device-profiles-{PROFILE_FEED_GENERATION}"
-DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3")
+DEVICE_PROFILE_DOMAINS = ("device-profiles-1", "device-profiles-2", "device-profiles-3", "device-profiles-4")
 REVISION = profile_revision.NAME
 SHADER_INDEX_LIMIT = 65536
 SHADER_COMPRESSED_FILE_LIMIT = 4 * 1024 * 1024
@@ -493,10 +493,10 @@ def main(arguments=None):
         raise ValueError("sequence must be a positive integer at most 2^53 - 1")
     if args.minimum_engine != 1 or args.maximum_engine != 1:
         raise ValueError("this publisher supports only minimum_engine = maximum_engine = 1")
-    expected = (r"device-profiles-[123]:.+|profiles-[12]" if args.kind == "profiles" else
+    expected = (r"device-profiles-[1234]:.+|profiles-[12]" if args.kind == "profiles" else
                 "shader-lists-[12]" if args.kind == "shaders" else "latest-release-1" if args.kind == "latest" else r"benchmark-(?:replay-1|catalog-1):[0-9a-f]{64}")
     if not re.fullmatch(expected, args.compatibility):
-        raise ValueError("compatibility must be device-profiles-1:, -2: or -3: plus a target, profiles-1 or profiles-2, "
+        raise ValueError("compatibility must be device-profiles-1:, -2:, -3: or -4: plus a target, profiles-1 or profiles-2, "
                          "benchmark-replay-1:/benchmark-catalog-1: plus the exact lowercase guest SHA-256, or latest-release-1")
     if len(args.notes.encode("utf-8")) > 4096:
         raise ValueError("notes must be at most 4096 UTF-8 bytes")
@@ -510,7 +510,7 @@ def main(arguments=None):
         print(f"Released apps that admit this shard: {', '.join(checked) or f'none yet read device-profiles-{device[0]}'}")
     else:
         if args.device_platform or args.device_model or args.device_chip:
-            raise ValueError("device arguments require device-profiles-1, -2 or -3 compatibility")
+            raise ValueError("device arguments require device-profiles-1, -2, -3 or -4 compatibility")
         files = snapshot(args.input, args.kind, args.compatibility)
     assets = {}
     if args.kind == "shaders" and args.compatibility == "shader-lists-2":
