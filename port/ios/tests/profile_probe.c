@@ -503,9 +503,10 @@ static void check_shipped(const char *shipped)
 	assert(!strcmp(profile.model_file, "vision-pro-m2.toml") && profile.count == 7 && has(&profile, "display.anti_aliasing", "smaa") &&
 		has(&profile, "display.renderer", "metal"));
 	/* iPhone 17 Pro, iPad Pro (M1) and the Macs: values equal to the built-in defaults, and the iPhone and iPad
-	class profile's Metal; the 17 Pro and the M1 iPad Pro target 120 frames a second in a predictable workload */
+	class profile's Metal; the M1 iPad Pro targets 120 frames a second in a predictable workload and the 17 Pro takes the
+	ladder's 60 (120 at 1080 lines missed on the Maw) */
 	profile = resolve(shipped, device("ios", "iPhone18,1", "", 10), NULL, "");
-	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "120") &&
+	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "60") &&
 		has(&profile, "display.anisotropic_filtering", "16") &&
 		has(&profile, "display.shadow_map_size", "512") && has(&profile, "display.renderer", "metal") &&
 		has(&profile, "display.anti_aliasing", "fxaa"));
