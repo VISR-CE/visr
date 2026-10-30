@@ -2725,6 +2725,7 @@ void network_coop_reverted(
 		game_state_port_restamp_revert_time();
 		hs_runtime_port_shift_sleep_times(ticks);
 	}
+	network_objects_coop_reverted();
 	/* (the dropships' riders kept are of the game state reverted from) */
 	coop_enemies_reset();
 	error(_error_silent, "co-op: reverted %ld ticks, clock kept at %ld", ticks, now);
