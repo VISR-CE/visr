@@ -24,7 +24,7 @@ static std::unique_ptr<discordpp::Client> client;
 static NSString *pending_state, *verifier, *status_text = @"Not linked";
 static NSTimeInterval authorization_started;
 static unsigned generation;
-static bool linked, refreshing, presence_pending;
+static bool linked, refreshing, revoking, presence_pending;
 static NSTimer *callback_timer;
 static struct discord_presence published;
 static bool published_valid;
@@ -138,6 +138,7 @@ static void receive_callback(NSURL *url) {
     pending_state = nil; verifier = nil;
     [authentication cancel]; authentication = nil;
     status_text = @"Completing Discord link…";
+    refreshing = true;
     host_logf(HOST_LOG_INFO, "Discord: matching callback received; GetToken requested");
     client->GetToken(application_id, code.UTF8String, request_verifier.UTF8String,
         VISRDiscordRedirect.UTF8String, token_callback(generation));
@@ -249,9 +250,13 @@ static void unlink_discord(void) {
     NSDictionary *tokens = host_discord_tokens_read(&read);
     if (client) {
         client->ClearRichPresence();
-        if (tokens) client->RevokeToken(application_id, [tokens[@"access"] UTF8String], [](discordpp::ClientResult result) {
-            report_result("revoke", result);
-        });
+        if (tokens) {
+            revoking = true;
+            client->RevokeToken(application_id, [tokens[@"access"] UTF8String], [](discordpp::ClientResult result) {
+                revoking = false;
+                report_result("revoke", result);
+            });
+        }
         client->Disconnect();
     }
     OSStatus deleted = host_discord_tokens_delete();
@@ -266,6 +271,39 @@ void host_discord_shutdown(void) {
     SDL_RemoveEventWatch(discord_url, NULL);
     if (client) { client->ClearRichPresence(); client->Disconnect(); client.reset(); }
 }
+void host_discord_poll(void) {
+    if (!client || !NSThread.isMainThread) return;
+    static NSTimeInterval last_tick;
+    NSTimeInterval tick = NSProcessInfo.processInfo.systemUptime;
+    if (tick - last_tick < 1) return;
+    last_tick = tick;
+    /* Presence needs no frame-rate pump. OAuth waits in the browser without
+     * SDK work; pump only saved/new token operations, a link, or revocation. */
+    bool pump = linked || refreshing || revoking;
+#ifdef HALO_DEVELOPMENT_HOOKS
+    static int last_pump = -1;
+    if (last_pump != (int)pump) {
+        last_pump = pump;
+        host_logf(HOST_LOG_INFO, "Discord: callbacks %s; main thread=%d; interval=1s",
+            pump ? "active" : "paused", (int)NSThread.isMainThread);
+    }
+#endif
+    if (pump) discordpp::RunCallbacks();
+#if !HALO_NATIVE_MAC
+    host_discord_ui_install();
+#endif
+    if (refresh_retry && NSProcessInfo.processInfo.systemUptime >= refresh_retry) {
+        refresh_retry = 0;
+        refresh_tokens();
+    }
+    if (pending_state.length && NSProcessInfo.processInfo.systemUptime - authorization_started > 300) {
+        pending_state = nil; verifier = nil; status_text = @"Discord sign-in timed out. Try again.";
+        [authentication cancel]; authentication = nil;
+    }
+    static NSTimeInterval last;
+    NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
+    if (now - last >= 15) { last = now; publish_presence(); }
+}
 void host_discord_install(void) {
     if (client) return;
     client = std::make_unique<discordpp::Client>();
@@ -279,24 +317,11 @@ void host_discord_install(void) {
     });
     client->SetTokenExpirationCallback([] { refresh_tokens(); });
     SDL_AddEventWatch(discord_url, NULL);
-    callback_timer = [NSTimer timerWithTimeInterval:0.1 repeats:YES block:^(NSTimer *timer) {
+    callback_timer = [NSTimer timerWithTimeInterval:1.0 repeats:YES block:^(NSTimer *timer) {
         (void)timer;
-        discordpp::RunCallbacks();
-#if !HALO_NATIVE_MAC
-        host_discord_ui_install();
-#endif
-        if (refresh_retry && NSProcessInfo.processInfo.systemUptime >= refresh_retry) {
-            refresh_retry = 0;
-            refresh_tokens();
-        }
-        if (pending_state.length && NSProcessInfo.processInfo.systemUptime - authorization_started > 300) {
-            pending_state = nil; verifier = nil; status_text = @"Discord sign-in timed out. Try again.";
-            [authentication cancel]; authentication = nil;
-        }
-        static NSTimeInterval last;
-        NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
-        if (now - last >= 15) { last = now; publish_presence(); }
+        host_discord_poll();
     }];
+    callback_timer.tolerance = 0.2;
     [NSRunLoop.mainRunLoop addTimer:callback_timer forMode:NSRunLoopCommonModes];
 #if HALO_NATIVE_MAC
     [NSNotificationCenter.defaultCenter addObserverForName:NSApplicationWillTerminateNotification object:nil

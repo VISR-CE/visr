@@ -370,6 +370,9 @@ int host_sdl_poll_event(void *event)
 	static int test_extra_scene = -1;
 	static unsigned long polls;
 
+#if HALO_DISCORD
+    host_discord_poll();
+#endif
 #if HALO_NATIVE_MAC && HALO_DISCORD && defined(HALO_DEVELOPMENT_HOOKS)
     host_discord_development_poll();
 #endif
