@@ -41,13 +41,28 @@ def test_team_wipe_xbox_generated_screen():
 
 
 def test_team_wipe_setting_binding():
-    from harness import build, enum_with, function, read, run, structure
+    from harness import build, function, read, run, structure
     source = read('port/linux/game/menu_functions.c')
-    types = enum_with(source, '_option_long') + structure(source, 'gametype_option')
-    import re
-    entry = re.search(r'\{ "coop_team_wipe_spinner".*?\n\t\t\{[^}]*\} \}', source, re.S)
-    assert entry is not None
-    code = 'static struct gametype_option const option = ' + entry.group() + ';\n'
-    code += function(source, 'gametype_option_value') + function(source, 'gametype_option_value_set')
-    status, output = run(build('coop_wipe_menu', (('types.inc', types), ('under_test.inc', code))), '')
+    root = ET.fromstring('\n'.join(port_settings.multiplayer_files()[NAME]))
+    spinner = root.find(f"widget[@name='{BASE}coop_team_wipe_spinner']")
+    assert spinner.find("on[@event='created']").get('run') == 'port setting load'
+    assert spinner.find("on[@event='deleted']").get('run') == 'port setting save'
+    values = spinner.get('values').split('|')
+    import json
+    types = structure(source, 'pc_menu_setting')
+    metadata = 'static struct pc_menu_setting setting = {1, ' + json.dumps(spinner.get('setting'))
+    metadata += ', ' + str(len(values)) + ', {' + ','.join(map(json.dumps, values)) + '}, NONE};\n'
+    code = ''.join(function(source, name) for name in
+                   ('text_is_number', 'spinner_item', 'setting_value_index', 'setting_load', 'setting_save'))
+    status, output = run(build('coop_wipe_menu', (('types.inc', types), ('metadata.inc', metadata),
+                                                ('under_test.inc', code))), '')
     assert status == 0, output
+
+
+def test_team_wipe_help_has_two_lines():
+    root = ET.fromstring('\n'.join(port_settings.multiplayer_files()[NAME]))
+    strings = root.find(f"strings[@name='{BASE}help_strings']").findall('string')
+    for item in strings[29:32]:
+        lines = item.get('text').split('\\n')
+        assert len(lines) == 2
+        assert max(map(len, lines)) <= 49

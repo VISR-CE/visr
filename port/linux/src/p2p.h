@@ -190,7 +190,9 @@ in everyone's server browser: Create Game's PUBLIC; a private game is
 reached only by its invite. Going private makes a new invite, if the old one
 was listed */
 void p2p_set_hosting_public(int public);
-/* The chosen PUBLIC visibility, independent of password or listing state. */
+/* Refresh the co-op visibility at host game start, preserving LAN privacy. */
+void p2p_cooperative_game_start(void);
+/* Effective PUBLIC visibility: browser enabled, independent of password or listing state. */
 int p2p_hosting_listed(void);
 /* the password of the game hosted for the internet (Server Setup's
 PASSWORD; NULL or empty: none): its listing lets only those who know it

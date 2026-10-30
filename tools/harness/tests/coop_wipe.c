@@ -32,6 +32,10 @@ static struct {int public,has_password,listed;} lobby;
 #define pthread_mutex_unlock(lock) ((void)0)
 
 static char const *policy="auto";
+static int browser_enabled=TRUE,coop_public;
+static struct {int hosting_lan_only;} p2p;
+static int config_boolean(char const *name){if(!strcmp(name,"network.public_lobby"))return browser_enabled;CHECK(!strcmp(name,"network.coop_public"),"wrong config key");return coop_public;}
+static void p2p_new_invite_if_listed(void){}
 static short game_connection(void){return (short)connection;}
 static boolean coop_game(void){return active;}
 static char const *config_string(char const *name){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong policy key");return policy;}
@@ -68,7 +72,7 @@ static void setup(void)
 {
  memset(live_machine_players,0xff,sizeof(live_machine_players));
  player_data=game_state_data_new("players",4,sizeof(struct player_datum));add_player();add_player();
- connection=_game_connection_network_server;active=TRUE;memset(&lobby,0,sizeof(lobby));policy="auto";
+ connection=_game_connection_network_server;active=TRUE;browser_enabled=TRUE;coop_public=FALSE;p2p.hosting_lan_only=FALSE;memset(&lobby,0,sizeof(lobby));policy="auto";
  tick=main_loss_last_tick=0;paused=FALSE;all_dead=TRUE;save_succeeds=TRUE;reverts=respawns=diagnostics=0;
  memset(&main_globals,0,sizeof(main_globals));game_state_globals.saved_game_valid=FALSE;
  network_coop_new_game();game_state_save();
@@ -84,7 +88,19 @@ int main(int argc,char **argv)
    setup();policy=cases[i].mode;lobby.public=cases[i].public_game;lobby.has_password=locked;lobby.listed=transport;wipe();
    CHECK(reverts==cases[i].want&&respawns==1-cases[i].want,"policy %s/public%d/password%d/transport%d",policy,lobby.public,locked,transport);
   }
-  setup();lobby.public=TRUE;wipe();CHECK(!reverts&&respawns==1,"public choice depended on browser state");
+  for(int visibility=0;visibility<2;visibility++){
+   setup();lobby.public=visibility;browser_enabled=FALSE;wipe();CHECK(reverts==1&&!respawns,"browser-off game counted as public");
+  }
+ } else CASE("start-visibility") {
+  for(int visibility=0;visibility<2;visibility++)for(int lan=0;lan<2;lan++){
+   setup();lobby.public=!visibility;coop_public=visibility;p2p.hosting_lan_only=lan;
+   network_coop_new_game();game_state_save();wipe();
+   CHECK(reverts==(!visibility||lan)&&respawns==(visibility&&!lan),"co-op start kept stale host visibility");
+  }
+  for(int role=_game_connection_local;role<=_game_connection_network_client;role++){
+   setup();connection=role;coop_public=TRUE;lobby.public=FALSE;network_coop_new_game();
+   CHECK(!lobby.public,"non-host changed visibility at game start");
+  }
  } else CASE("authority") {
   policy="revert";connection=_game_connection_network_client;CHECK(!network_coop_wipe_reverts(),"client decides wipe");
   connection=_game_connection_network_server;active=FALSE;CHECK(!network_coop_wipe_reverts(),"multiplayer decides co-op wipe");

@@ -64,7 +64,9 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   Setup (`network.coop_team_wipe`) defaults to AUTO: private games revert
   the checkpoint; public games respawn at checkpoint positions without
   reverting the world. REVERT CHECKPOINT and RESPAWN ONLY override the
-  visibility choice, including public games with passwords. Reverting
+  visibility choice, including public games with passwords. With the server
+  browser disabled (`network.public_lobby=false`), AUTO treats the game as
+  private. Reverting
   requires a saved checkpoint with the same players and machine
   assignments; otherwise the host logs the fallback and respawns them.
   A mission the scripts fail

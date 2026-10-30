@@ -5432,8 +5432,7 @@ enum
 	_option_health,		/* the variant's health, tenths */
 	_option_short,		/* a short of the options */
 	_option_option_byte,	/* a byte of the options */
-	_option_radar,		/* the options' radar players, and the variant's flag */
-	_option_setting		/* a config string selected by its index */
+	_option_radar		/* the options' radar players, and the variant's flag */
 };
 
 struct gametype_option
@@ -5444,8 +5443,6 @@ struct gametype_option
 	unsigned long argument;
 	short count;
 	long values[16];
-	char const *setting;
-	char const *setting_values[16];
 };
 
 #define VARIANT_FIELD(field) (short)offsetof(struct game_variant, field)
@@ -5532,8 +5529,6 @@ static struct gametype_option const gametype_options[] =
 	/* (up to 500, for big games: tools/port_settings.py's STRING_INSERTS) */
 	{ "kills_to_win_spinner", _option_long, VARIANT_FIELD(universal_variant.score_to_win), 0, 11,
 		{ 5, 10, 15, 25, 50, 75, 100, 150, 200, 250, 500 } },
-	{ "coop_team_wipe_spinner", _option_setting, 0, 0, 3, { 0, 1, 2 }, "network.coop_team_wipe",
-		{ "auto", "revert", "respawn" } },
 	/* team options */
 	{ "friendly_fire_spinner", _option_short, OPTIONS_FIELD(friendly_fire), 0, 4,
 		{ _friendly_fire_off, _friendly_fire_on, _friendly_fire_shields_only, _friendly_fire_explosives_only } },
@@ -5575,18 +5570,6 @@ static long gametype_option_value(struct gametype_option const *option, struct g
 	case _option_short: return *(short *)(o + option->offset);
 	case _option_option_byte: return o[option->offset];
 	case _option_radar: return options->radar_players;
-	case _option_setting:
-		{
-			char const *value = config_string(option->setting);
-			short index;
-
-			for (index = 0; index < option->count; index++)
-			{
-				if (!strcmp(value, option->setting_values[index]))
-					return index;
-			}
-			return 0;
-		}
 	}
 	return 0;
 }
@@ -5610,9 +5593,6 @@ static void gametype_option_value_set(struct gametype_option const *option, long
 	case _option_health: variant->universal_variant.health = (real)value / 10.0f; break;
 	case _option_short: *(short *)(o + option->offset) = (short)value; break;
 	case _option_option_byte: o[option->offset] = (byte)value; break;
-	case _option_setting:
-		config_write(option->setting, option->setting_values[PIN(value, 0, option->count - 1)]);
-		break;
 	case _option_radar:
 		/* (and the Xbox's flag: other players on the tracker or not) */
 		options->radar_players = (byte)value;

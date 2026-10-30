@@ -3490,6 +3490,18 @@ int p2p_peer_reached(const unsigned char *peer_identifier, unsigned long *addres
 	return result;
 }
 
+/* network_coop_new_game refreshes the co-op choice even when Server Setup
+was never opened. A LAN host must still remain private. */
+void p2p_cooperative_game_start(void)
+{
+	int public;
+
+	pthread_mutex_lock(&p2p_lock);
+	public = !p2p.hosting_lan_only && config_boolean("network.coop_public");
+	pthread_mutex_unlock(&p2p_lock);
+	p2p_set_hosting_public(public);
+}
+
 void p2p_set_hosting_allowed(int allowed)
 {
 	pthread_mutex_lock(&p2p_lock);

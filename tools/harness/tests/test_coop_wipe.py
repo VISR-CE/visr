@@ -9,13 +9,14 @@ from harness import CHECK_FAILED, build, mutated, run
 from harness.coop_wipe import generated
 
 
-@pytest.mark.parametrize('case', ['policy', 'authority', 'roster', 'save', 'new-map', 'delay', 'failure'])
+@pytest.mark.parametrize('case', ['start-visibility', 'policy', 'authority', 'roster', 'save', 'new-map', 'delay', 'failure'])
 def test_team_wipe(case):
     status, output = run(build('coop_wipe', generated()), case)
     assert status == 0, output
 
 
 @pytest.mark.parametrize('before,after,case', [
+    ('p2p_cooperative_game_start();', '', 'start-visibility'),
     ('if (!coop_host())\n\t\treturn FALSE;', 'if (FALSE) return FALSE;', 'authority'),
     ('strcmp(mode, "revert") && p2p_hosting_listed()', 'strcmp(mode, "revert") && !p2p_hosting_listed()', 'policy'),
     ('if (!game_state_port_saved_game_valid() || !checkpoint_players_match())',

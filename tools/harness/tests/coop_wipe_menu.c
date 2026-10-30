@@ -1,25 +1,33 @@
 #include "harness.h"
-#define PIN(v, low, high) ((v)<(low)?(low):((v)>(high)?(high):(v)))
-#define _game_variant_no_shields_bit 0
-#define _game_variant_draw_object_in_motion_sensor_bit 1
-#define _radar_players_none 0
-struct game_variant {struct {long flags;real health;} universal_variant;};
-struct game_variant_options {byte radar_players;};
+#define MAXIMUM_STRINGS 16
+#define _stricmp strcasecmp
+#include <strings.h>
+struct widget_instance {
+ struct widget_instance *parent;
+ long definition_tag_index;
+ struct {struct {short selected_index,number_of_items;} list;} parameters;
+};
 static char const *setting_value="auto";
-static int writes;
-static char const *config_string(char const *name){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong setting");return setting_value;}
+static int reads,writes;
+static int config_text(char const *name,char *text,unsigned int size){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong read setting");snprintf(text,size,"%s",setting_value);reads++;return TRUE;}
 static int config_write(char const *name,char const *value){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong write setting");setting_value=value;writes++;return TRUE;}
+static boolean setting_text(char const *name,char *text,unsigned int size,boolean defaults){CHECK(!defaults,"loaded default instead of stored choice");return config_text(name,text,size);}
+#define platform_log(...) ((void)0)
 #include "types.inc"
+#include "metadata.inc"
+static struct pc_menu_setting *pc_menu_setting_get(long index){CHECK(index==1,"wrong definition");return &setting;}
 #include "under_test.inc"
 int main(void)
 {
+ struct widget_instance spinner={.definition_tag_index=1,.parameters.list.number_of_items=3};
+ char const *values[]={"auto","revert","respawn"};
  for(int i=0;i<3;i++){
-  CHECK(option.values[i]==i,"wrong setting index");
-  gametype_option_value_set(&option,option.values[i],NULL,NULL);
-  CHECK(gametype_option_value(&option,NULL,NULL)==i,"setting did not round trip");
+  setting_value=values[i];CHECK(setting_load(&spinner),"load failed");
+  CHECK(spinner.parameters.list.selected_index==i,"stored choice not loaded");
+  spinner.parameters.list.selected_index=(i+1)%3;CHECK(setting_save(&spinner),"save failed");
+  CHECK(!strcmp(setting_value,values[(i+1)%3]),"selected choice not written");
  }
- CHECK(writes==3&&!strcmp(setting_value,"respawn"),"wrong setting writes");
- setting_value="invalid";
- CHECK(gametype_option_value(&option,NULL,NULL)==0,"unknown setting did not use AUTO");
+ CHECK(reads==3&&writes==3,"binding did not read/write config");
+ setting_value="invalid";CHECK(setting_load(&spinner)&&spinner.parameters.list.selected_index==0,"invalid choice did not use AUTO");
  return 0;
 }

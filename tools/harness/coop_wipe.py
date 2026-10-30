@@ -7,7 +7,9 @@ def generated():
     state = read('source/saved games/game_state.c')
     main = read('source/main/main.c')
     types = structure(coop, 'coop_checkpoint_players')
-    code = function(read('port/linux/src/p2p_lobby.c'), 'p2p_hosting_listed')
+    lobby = read('port/linux/src/p2p_lobby.c')
+    code = function(lobby, 'p2p_hosting_listed') + function(lobby, 'p2p_set_hosting_public')
+    code += function(read('port/linux/src/p2p.c'), 'p2p_cooperative_game_start')
     for name in ('coop_host', 'network_coop_checkpoint_saved', 'checkpoint_players_match',
                  'network_coop_wipe_reverts', 'network_coop_new_game'):
         code += function(coop, name)

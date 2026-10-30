@@ -590,7 +590,8 @@ void unit_scripting_set_current_vitality_of(long unit_index, real body_vitality,
 /* port_config.c */
 int config_boolean(char const *name);
 char const *config_string(char const *name);
-/* p2p_lobby.c: chosen visibility, independent of listing transport state */
+/* p2p_lobby.c: effective visibility, independent of listing transport state */
+void p2p_cooperative_game_start(void);
 int p2p_hosting_listed(void);
 
 /* ---------- private code */
@@ -2037,6 +2038,8 @@ static void players_vitality_keep(
 void network_coop_new_game(
 	void)
 {
+	if (coop_host())
+		p2p_cooperative_game_start();
 	csmemset(&checkpoint_players, 0, sizeof(checkpoint_players));
 	csmemset(&coop_presentation, 0, sizeof(coop_presentation));
 	csmemset(&coop_events, 0, sizeof(coop_events));

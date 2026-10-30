@@ -996,14 +996,14 @@ void p2p_lobby_quit(void)
 
 /* ---------- the game's side */
 
-/* Chosen visibility is independent of passwords, browser enablement, and
-whether the listing service has accepted the game. */
+/* A disabled server browser makes PUBLIC ineffective for AUTO. Passwords
+and temporary listing outages do not change the chosen visibility. */
 int p2p_hosting_listed(void)
 {
 	int public;
 
 	pthread_mutex_lock(&p2p_lock);
-	public = lobby.public;
+	public = lobby.public && config_boolean("network.public_lobby");
 	pthread_mutex_unlock(&p2p_lock);
 	return public;
 }

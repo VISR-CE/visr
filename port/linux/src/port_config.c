@@ -1110,7 +1110,8 @@ static const struct config_setting config_settings[] =
 		"When every co-op player dies: \"auto\" reverts the checkpoint in a\n"
 		"PRIVATE game and only respawns in a PUBLIC game; \"revert\" or\n"
 		"\"respawn\" overrides that choice. A password does not make a PUBLIC\n"
-		"game private. Reverting requires a saved checkpoint with the current\n"
+		"game private. With the server browser off (network.public_lobby=false),\n"
+		"AUTO treats the game as private. Reverting requires a checkpoint with the current\n"
 		"players and machines; otherwise they respawn without a world reset.\n"
 		"TEAM WIPE in Server Setup writes its choice here." },
 	{ "network.coop_friendly_fire", _config_string, "\"on\"", "HALO_NET_COOP_FRIENDLY_FIRE", _environment_value,
