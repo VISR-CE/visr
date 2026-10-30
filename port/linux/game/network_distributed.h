@@ -343,7 +343,8 @@ void network_coop_note_sound(short kind, long definition_index, long object_inde
 void network_objects_new_game(void);
 /* after each tick */
 void network_objects_host_tick(void);
-/* Host only, after loading a co-op checkpoint and repairing its clock. */
+/* Host only: capture before loading, refresh after repairing the clock. */
+void network_objects_coop_reverting(void);
 void network_objects_coop_reverted(void);
 word network_objects_damage_animation_entry_size(void);
 void network_objects_handle_damage_animations(void const *entries, short count);

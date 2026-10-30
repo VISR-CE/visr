@@ -14,6 +14,7 @@ struct object_iterator { int cursor; long index; unsigned mask; };
 struct distributed_object_change { int change; long object_index; };
 struct distributed_object_change_message { int header; struct distributed_object_change changes[3]; };
 static long objects_host_told[MAXIMUM_TRACKED_OBJECTS], objects_host_told_count;
+static long objects_host_revert_alive[MAXIMUM_TRACKED_OBJECTS];
 static struct { unsigned long checksum, weapons_checksum; long time, ammunition_time, carried_time; }
 	objects_host_inventories[MAXIMUM_TRACKED_OBJECTS];
 static struct { int creates, deletes; } objects_statistics;
@@ -87,9 +88,49 @@ int main(int argc, char **argv)
 		objects_host_told[6] = 0x10006; /* absent after rewind: normal diff deletes it */
 	}
 	CASE("batch") for (int i = 3; i < 16; i++) add(i, _object_type_biped, FALSE);
+	/* The captured world is the pre-load state, not the saved image. */
+	CASE("alive")
+	{
+		network_objects_coop_reverting();
+		network_objects_coop_reverted();
+		CHECK(sent_count == 0, "living units must retain their replicas");
+		CHECK(objects_host_inventories[0].checksum == 7, "living inventory changed");
+		return 0;
+	}
+	for (int i = 0; i < MAXIMUM_TRACKED_OBJECTS; i++)
+		world[i].datum.object.damage_flags = 1;
+	CASE("respawn")
+	{
+		world[0].id = objects_host_told[0] = 0x20000;
+		world[0].datum.object.damage_flags = 0; /* alive replacement, different full ID */
+	}
+	CASE("absent") world[0].id = NONE;
+	network_objects_coop_reverting();
+	world[0].id = 0x10000;
+	for (int i = 0; i < MAXIMUM_TRACKED_OBJECTS; i++)
+		world[i].datum.object.damage_flags = 0;
+	CASE("filter") world[4].datum.object.damage_flags = 1;
 	network_objects_coop_reverted();
-	fresh(world[0].id); fresh(world[1].id); fresh(world[2].id);
-	CASE("repeat") { sent_count = 0; network_objects_coop_reverted(); fresh(world[0].id); fresh(world[1].id); }
+	if (strcmp(case_name, "unknown") == 0)
+		CHECK(sent_count == 5, "unannounced ID must only be created");
+	else if (strcmp(case_name, "changed") == 0 || strcmp(case_name, "respawn") == 0)
+	{
+		CHECK(sent_count == 6, "changed ID must use normal delete/create");
+		CHECK(sent[2].object_index == 0x20000 && sent[2].change == _object_change_delete &&
+			sent[3].object_index == 0x10000 && sent[3].change == _object_change_create, "replacement lifetime lost");
+	}
+	else fresh(world[0].id);
+	fresh(world[1].id); fresh(world[2].id);
+	CASE("repeat")
+	{
+		sent_count = 0;
+		network_objects_coop_reverting(); network_objects_coop_reverted();
+		CHECK(sent_count == 0, "second revert must recapture living units");
+		world[0].datum.object.damage_flags = 1;
+		network_objects_coop_reverting(); world[0].datum.object.damage_flags = 0;
+		network_objects_coop_reverted(); fresh(world[0].id);
+		CHECK(sent_count == 2, "only newly dead unit must restart");
+	}
 	CASE("empty")
 	{
 		CHECK(objects_host_inventories[0].checksum == 0 && objects_host_inventories[0].weapons_checksum == 0,

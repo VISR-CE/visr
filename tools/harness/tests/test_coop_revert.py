@@ -23,10 +23,13 @@ def generated(fault=None):
     if fault == 'inventory':
         hook = mutated(hook, 'objects_host_inventories[absolute_index].time = now - INVENTORY_REFRESH_TICKS;',
                        'objects_host_inventories[absolute_index].time = now;')
-    return (('under_test.inc', update + '\n' + hook),)
+    capture = function(source, 'network_objects_coop_reverting')
+    if fault == 'alive':
+        capture = mutated(capture, 'objects_host_revert_alive[absolute_index] = iterator.index;', '')
+    return (('under_test.inc', update + '\n' + capture + '\n' + hook),)
 
 
-@pytest.mark.parametrize('case', ['same', 'unknown', 'changed', 'repeat', 'filter', 'empty', 'batch'])
+@pytest.mark.parametrize('case', ['same', 'unknown', 'changed', 'repeat', 'filter', 'empty', 'batch', 'alive', 'respawn', 'absent'])
 def test_case(case):
     status, output = run_case(case)
     assert status == 0, output
@@ -37,7 +40,7 @@ def run_case(case, fault=None):
     return run(build('coop_revert', generated(fault)), case)
 
 
-@pytest.mark.parametrize('fault,case', [('delete', 'same'), ('create', 'same'), ('inventory', 'empty')])
+@pytest.mark.parametrize('fault,case', [('delete', 'same'), ('create', 'same'), ('inventory', 'empty'), ('alive', 'alive')])
 def test_negative_control(fault, case):
     status, output = run_case(case, fault)
     assert status == CHECK_FAILED, output
@@ -49,3 +52,13 @@ def test_host_dispatch_after_clock_repair():
     code = function(source, 'network_coop_reverted')
     status, output = run(build('coop_revert_dispatch', (('under_test.inc', code),)), 'dispatch')
     assert status == 0, output
+
+
+def test_capture_before_checkpoint_load():
+    source = read('source/main/main.c')
+    code = function(source, 'main_coop_host_revert')
+    assert code.index('game_state_port_saved_game_valid()') < code.index('network_objects_coop_reverting()')
+    assert code.index('network_objects_coop_reverting()') < code.index('game_state_revert()') < code.index('network_coop_reverted(now)')
+    for caller in ['main_revert_map_private', 'main_skip_cinematic_private', 'main_lost_map_private']:
+        code = function(source, caller)
+        assert 'main_coop_host' in code and 'main_coop_host_revert()' in code
