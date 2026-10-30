@@ -642,6 +642,26 @@ static void check_enemy_multiplier_metadata(void)
 	puts("enemy multiplier metadata: PASS");
 }
 
+static void check_staging_opening_events(void)
+{
+	const char *first[] = {"cinematic_done", "cinematic_end"};
+	const char *second[] = {"cinematic_end", "cinematic_done"};
+	for (int order = 0; order < 2; order++) {
+		input_replay_begin(NULL, 0); clock_ready = 1; clock_tick = 10;
+		strcpy(replay.record_actions_path, "opening.actions");
+		assert(benchmark_staging_parse("[{\"deathless\":true}]", &replay.staging));
+		input_replay_note_event("cinematic_start", "intro");
+		assert(replay.staging_tick == 0);
+		input_replay_note_event(first[order], "intro");
+		assert(replay.staging_tick == 41);
+		clock_tick = 12;
+		input_replay_note_event(second[order], "intro");
+		input_replay_note_event(first[order], "later");
+		assert(replay.staging_tick == 41);
+	}
+	input_replay_begin(NULL, 0); clock_ready = 0;
+}
+
 static void check_staged_recording(void)
 {
 	unsigned int action[ACTION_WORDS] = {0};
@@ -765,6 +785,7 @@ int main(int argc, char **argv)
     }
 	check_recorded_action_metadata();
 	check_enemy_multiplier_metadata();
+	check_staging_opening_events();
 	check_staged_recording();
 	check_controller_action_format();
 	check_control_pose();

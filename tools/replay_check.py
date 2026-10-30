@@ -154,8 +154,8 @@ def main():
     staging.add_argument("--staging-preset", choices=tuple(STAGING_PRESETS),
                          help="record a battle from perf_compare/windows.toml, with deathless enabled")
     parser.add_argument("--anchor", help="anchor the window on an event of the take (kind:n or kind:script)")
-    parser.add_argument("--lead-after", type=float, default=0.0, help="seconds after the anchor the window starts")
-    parser.add_argument("--window", type=float, default=0.0, help="the window's length in seconds (default: to near the take's end)")
+    parser.add_argument("--lead-after", type=float, help="seconds after the anchor the window starts")
+    parser.add_argument("--window", type=float, help="the window's length in seconds (default: to near the take's end)")
     parser.add_argument("--only-unlimited", action="store_true", help="replay once, unlimited (for a take's per-frame costs)")
     parser.add_argument("--take", type=Path, help="skip the recording: replay this take (its path without an extension)")
     parser.add_argument("--offscreen", action="store_true",
@@ -165,6 +165,14 @@ def main():
     args = parser.parse_args()
     if args.staging_preset:
         args.staging = staging_json(json.dumps(STAGING_PRESETS[args.staging_preset]))
+        if args.anchor is None:
+            args.anchor = "cinematic_end:1"
+        if args.lead_after is None:
+            args.lead_after = 16.0
+        if args.window is None:
+            args.window = 60.0
+    if args.lead_after is None:
+        args.lead_after = 0.0
     rates = (RATES[0], "offscreen") if args.offscreen else RATES
     if args.only_unlimited:
         rates = ("unlimited",)

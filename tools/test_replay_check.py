@@ -135,3 +135,29 @@ def test_suite_launch_keeps_local_routes(tmp_path):
     mac_run.clear_benchmark_folder(folder)
     assert [path.name for path in folder.iterdir()] == ["local-routes"]
     assert (folder / "local-routes" / "benchmark-catalog.json").is_file()
+
+
+@pytest.mark.parametrize("preset", ["a50-hangar", "b40-exterior-a"])
+@pytest.mark.parametrize("options,expected", [([], ("cinematic_end:1", 16, 60)),
+    (["--anchor", "cinematic_end:1", "--lead-after", "0", "--window", "1"], ("cinematic_end:1", 0, 1))])
+def test_staging_preset_defaults_to_opening_end_window(tmp_path, monkeypatch, preset, options, expected):
+    app = tmp_path / "VISR.app"
+    (app / "Contents").mkdir(parents=True)
+    (app / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "test.runner"}))
+    monkeypatch.setattr(replay_check.mac_run, "native_app_default", lambda: app)
+    monkeypatch.setattr(replay_check.mac_run, "native_data_folder", lambda _: tmp_path / "data")
+    base = take(tmp_path)
+    # Enough active input for a 60-second window starting 16 seconds after tick 30.
+    actions = base.with_suffix(".actions").read_text().splitlines()
+    base.with_suffix(".actions").write_text(actions[0] + "\n" + ("\n".join(actions[1:]) + "\n") * 17 + "\n")
+    base.with_suffix(".route").write_text(ROUTE.replace("seconds = 5.0", "seconds = 90.0") + "events = cinematic_end:1:30:intro\n")
+    monkeypatch.setattr(sys, "argv", ["replay_check.py", "--out", str(tmp_path / "out"),
+                                    "--take", str(base), "--staging-preset", preset, *options])
+    cases = []
+    def runner(*args):
+        cases.extend(benchmark_catalog.load_catalog(tmp_path / "data/benchmark/local-routes"))
+        return 0
+    monkeypatch.setattr(replay_check, "runner", runner)
+    assert replay_check.main() == 2  # No reports from the launch stub.
+    assert cases
+    assert all((case["anchor"], case["lead"], case["window"]) == expected for case in cases)

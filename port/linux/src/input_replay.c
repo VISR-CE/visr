@@ -1867,7 +1867,7 @@ void input_replay_note_event(const char *kind, const char *name)
 	if (index == EVENT_KINDS)
 		return;
 	events.counts[index]++;
-	if (!strcmp(kind, "cinematic_done") && events.counts[index] == 1 &&
+	if ((!strcmp(kind, "cinematic_done") || !strcmp(kind, "cinematic_end")) && events.counts[index] == 1 &&
 		(take.open || *replay.record_actions_path) && replay.staging.count && !replay.staging_tick)
 	{
 		replay.staging_tick = game_time_get() + 31;
