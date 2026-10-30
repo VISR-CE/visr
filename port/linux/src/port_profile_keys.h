@@ -16,7 +16,8 @@ texture, which a device's memory decides), and display.clutter_distance (how
 far bodies, loose items and garbage are drawn, which a device's speed decides),
 and network.player_capacity (the most players the device holds at 30 frames a
 second, which the host's default and the server browser's marks follow; it
-refuses no one).
+refuses no one), and network.full_rate_players (the multiplayer slot threshold
+for the variable frame rate, with 0 leaving it unlimited).
 
 An X-macro list, included with all seven macros defined:
 
@@ -94,6 +95,7 @@ PROFILE_REAL("input.aim_loss_grace", 0.0, 5.0)
 PROFILE_REAL("display.texture_idle_seconds", 10.0, 600.0)
 PROFILE_REAL("display.clutter_distance", 0.0, 200.0)
 PROFILE_INTEGER("network.player_capacity", 2, 128)
+PROFILE_INTEGER("network.full_rate_players", 0, 128)
 
 PROFILE_SCENE("display.render_scale")
 PROFILE_SCENE("display.render_height")

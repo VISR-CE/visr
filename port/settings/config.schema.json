@@ -3219,6 +3219,16 @@
             "desktop"
           ]
         },
+        "full_rate_players": {
+          "type": "integer",
+          "default": 0,
+          "description": "The most multiplayer slots this device holds at the profile's variable frame rate and settings, 2 to 128; 0 (default) leaves it unlimited. Above this threshold, gameplay is held to at most 30 frames a second for the whole map, using the game's maximum players at map load. Campaign, co-op, split screen and the main menu are unaffected. A player's explicit display.frame_rate choice still wins. Vision Pro paces its own frames. A profile sets this at or below player_capacity.",
+          "x-environment": "HALO_NET_FULL_RATE_PLAYERS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "map_share": {
           "type": "boolean",
           "default": true,

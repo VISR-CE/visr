@@ -332,7 +332,8 @@ static void profile_add_settings(struct host_profile *profile, toml_datum_t tabl
 				break;
 			case _profile_integer:
 				if ((accepted = datum.type == TOML_INT64 && (double)datum.u.int64 >= key->minimum &&
-					(double)datum.u.int64 <= key->maximum))
+					(double)datum.u.int64 <= key->maximum &&
+					(strcmp(key->name, "network.full_rate_players") || datum.u.int64 != 1)))
 					snprintf(value.text, sizeof(value.text), "%lld", (long long)datum.u.int64);
 				break;
 			case _profile_real:
