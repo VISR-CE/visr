@@ -2906,14 +2906,17 @@ static boolean network_game_client_idle_joining(
 					halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0);
 				if (message)
 				{
+					/* (read before the write, which byte-swaps the header in place) */
+					unsigned wire_size = (unsigned)GET_MESSAGE_SIZE(*message);
+
 					if (network_game_client_write(
 						client->connection,
 						message,
-						GET_MESSAGE_SIZE(*message),
+						wire_size,
 						NULL,
 						1))
 					{
-						network_event("sent a join request of %u bytes", (unsigned)GET_MESSAGE_SIZE(*message));
+						network_event("sent a join request of %u bytes", wire_size);
 						SET_FLAG(
 							client->flags,
 							_network_game_client_join_request_sent_bit,

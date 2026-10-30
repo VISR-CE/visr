@@ -7,6 +7,16 @@
 #include <string.h>
 
 #define HALO_NETWORK_JOIN_PASS_FIELD_SIZE 234
+/* the join request's TCP frame without the pass field: length word, version
+byte, 112-byte body, type trailer */
+#define HALO_NETWORK_JOIN_REQUEST_FRAME_SIZE 116
+
+/* the join request's size on the wire to a host of this network version
+(halo_network_version_has_join_pass_field: from 40) */
+static inline unsigned halo_network_join_request_wire_size(int has_pass_field)
+{
+	return HALO_NETWORK_JOIN_REQUEST_FRAME_SIZE + (has_pass_field ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0);
+}
 
 /* Client-only codes: the hosting protocol's rejection range stays unchanged. */
 enum
