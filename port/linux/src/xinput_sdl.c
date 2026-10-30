@@ -1565,9 +1565,10 @@ sdl_gamepad_state merges a gamepad, the buttons ORed, the larger analog
 value, a stick only where pushed further. Only the guest knows a menu is
 up, so the menu remap lives here, one branch per source: a Sense sample
 moves Circle (the table's X, action and reload) onto B, as the Xbox's menus
-take B for back, and the grip's B (melee) is left out; a hands sample has no
-face buttons to give menus directly, so the fire pinch (right trigger) is
-A (accept) and the crouch pinch (left thumb click) is B (back) instead. The
+take B for back, and the grip's B (melee) is left out; a hands sample brings
+one face button of its own, the gun hand's ring pinch on A, which a menu must
+not read as accept, so it is cleared and the fire pinch (right trigger)
+becomes A (accept) with the crouch pinch (left thumb click) as B (back). The
 left stick already drives menu focus (ui_widget.c's _event_type_left_stick
 handling, fed by event_manager.c), so the walk pinches reach it unchanged
 and need no D-pad synthesis here */
@@ -1594,6 +1595,14 @@ static void sense_gamepad_state(BOOL menus, XINPUT_GAMEPAD *pad)
 	}
 	else if (menus && sample->gamepad_valid == 2)
 	{
+		/* the gun hand's ring pinch is jump: the recognizer puts it on
+		controls[g].face_low (host_spatial_hands.c) and
+		host_spatial_gamepad_map maps face_low to A
+		(host_spatial_gamepad.c), which in a menu is accept, so jumping
+		confirmed whatever the highlight was on. Cleared before the fire
+		pinch below sets it, so the fire pinch is the only accept and a
+		menu has one gesture for it rather than two */
+		analog[XINPUT_GAMEPAD_A] = 0;
 		/* the same analog press test anti_aliasing_chord uses above (64
 		of 255): the fire pinch becomes accept. Zeroed the way the Sense
 		branch above zeros X after moving it to B, so this frame's pad
