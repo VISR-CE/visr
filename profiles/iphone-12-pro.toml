@@ -1,7 +1,7 @@
-# iPhone13,3 (iPhone 12 Pro, A14, 60 Hz): 30 frames a second at 900 lines and full quality but the game's 128-pixel shadows, from the October 2026
-# settings sweep. 60 holds at no measured size, even at 720 lines with every setting at its cheapest (94.0% of a10
-# frames on time), so the profile takes the ladder's floor rate with the lines and quality that rate affords. Before
-# this profile the model fell to the iPhone and iPad class, 60 at 720 lines, which put 72% of frames on time.
+# iPhone13,3 (iPhone 12 Pro, A14, 60 Hz): 60 frames a second at 900 lines and full quality but the game's 128-pixel shadows in the
+# predictable workload (campaign at 1x), 30 in the variable one (multiplayer, co-op, enemy multipliers). The October 2026 sweeps on
+# builds before 0.6.5 held 30 and not 60; the October 29 to 30 sweep on main e77a24957 held 60 at 720 and 900 lines in every round.
+# Before this profile the model fell to the iPhone and iPad class, 60 at 720 lines, which put 72% of frames on time.
 #:schema ../port/settings/profile.schema.json
 schema = 1
 name = "iPhone 12 Pro"
@@ -13,20 +13,28 @@ platform = "ios"
 models = ["iPhone13,3"]
 
 [display]
-frame_rate = "30"
+frame_rate = "60"
 render_height = 900
 anisotropic_filtering = 16
 shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 
+[variable.display]
+frame_rate = "30"
+
 [network]
-player_capacity = 8
+player_capacity = 64
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "At 720 lines and maximum quality 71.8% (a10) and 72.7% (d40) of frames were within 16.7 ms (17 rounds each); with every setting at its cheapest 94.0% and 95.7%. At 30, 900 lines held 99.86% and 100% at 1x and 100% at 1.5x enemies, and the presented d40 run at 30 and 720 lines showed all 2,273 frames on time. Hold: after the first second of the window, at least 99.5% of frames within one frame period and at most 0.5% over 1.5 periods, for the median round of every workload."
-source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds on 20261023.144726, a10-heroic and d40-maw-fight offscreen windows plus one presented d40 run, 2026-10-23 to 2026-10-25"
+why = "At 60 frames a second and 900 lines the Maw fight put 99.96% and 99.96% of frames on time and a10-heroic 99.87% and 99.97% (two rounds each, 0 to 2 stalls over 50 ms, thermal state 0 throughout); at 720 lines 99.98% and 99.98% and 99.87% and 99.93%. The earlier sweep (build 20261024.122832) put 71.8% and 72.7% on time at 60 and 720 lines, which contradicts these runs; the new build passed at both sizes. 60 holds with margin at 1x enemies; 1.5x, 2x and multiplayer were measured at 30 only, so the variable workload keeps 30."
+source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-29 to 2026-10-30"
+
+[evidence."variable.display.frame_rate"]
+basis = "measured"
+why = "At 30 frames a second and 900 lines, fixed resolution held 99.73% to 100% of frames on time at 1.5x and 2x enemies on a10-heroic and the Maw (three rounds each), a window down to 540 lines changed nothing, and multiplayer with 8 and 16 players held 100%. 60 frames a second was not measured under enemy multipliers or in multiplayer, so the variable workload stays at 30."
+source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-29 to 2026-10-30"
 
 [evidence."display.render_height"]
 basis = "measured"
@@ -50,7 +58,7 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.dynamic_resolution"]
 basis = "measured"
-why = "Presented d40-maw-fight at this profile's 900 lines and 30 frames a second: 100% of frames on time with dynamic resolution off and on; it rendered all 2,273 frames at the ceiling, so it costs nothing where the GPU keeps up and is there for heavier scenes. The report's lines distribution confirms the A14 has the stage timing the planner needs."
+why = "Presented d40-maw-fight at 900 lines and 30 frames a second: 100% of frames on time with dynamic resolution off and on; it rendered all 2,273 frames at the ceiling, so it costs nothing where the GPU keeps up and is there for heavier scenes. The report's lines distribution confirms the A14 has the stage timing the planner needs."
 source = "VISR presented benchmark runs, build 20261025.213708, 2026-10-25"
 
 [scene.menu.display]
@@ -61,6 +69,6 @@ basis = "assumed"
 why = "Menus run at 60 as before the gameplay cap; the sweep did not measure menus."
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "At 30 frames a second, minimum settings and 540 lines, the 16-player game held 54.7% of frames on time. 8 is half of that and was not run on this phone (12 was not run either). Provisional until rerun."
-source = "VISR settings sweep capacity runs, build 20261023.144726 (0.4.2), two rounds at minimum settings and 540 lines, 2026-10-24 and 2026-10-25"
+basis = "measured"
+why = "At 30 frames a second, minimum settings and 540 lines every rung held in two rounds: Blood Gulch with 8, 16, 24, 32, 48 and 64 players (99.92% to 100% of frames on time) and Sidewinder with 32, 64 and 128. Blood Gulch with 128 players held in both rounds that completed (99.97% and 100%) but the app exited or stalled in 4 of 6 attempts without a crash or memory-kill report, so 64 is the highest count measured to run reliably. Earlier runs on build 20261023.144726 put 54.7% on time at 16 players, before the multiplayer render fixes."
+source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-29 to 2026-10-30"
