@@ -86,25 +86,16 @@ struct text_hires_glyph
 	float left, top, right, bottom;
 	float u0, v0, u1, v1;
 	float advance;
+	int redraw;
 };
 
 int text_hires_enabled(void); /* port: port/linux/src/text_hires.c */
-long text_hires_font(char const *tag_name, float cap_height, float oversample);
+long text_hires_font(char const *tag_name, float cap_height, float oversample, char const *variant);
 int text_hires_covers(long font, unsigned long code);
 int text_hires_glyph(long font, unsigned long code, struct text_hires_glyph *glyph);
 void text_hires_register_atlas(unsigned long const *texture, unsigned long width, unsigned long height);
-/* port: the font tag's own glyphs, rebuilt at the display's resolution, for
-the menus' redraw (port/linux/src/ui_redraw.h, display.ui_redraw_text) */
-struct text_hires_tag_glyph
-{
-	long width, height, origin_x, origin_y, advance;
-	unsigned char const *pixels;
-};
-typedef int (*text_hires_tag_glyph_function)(void const *context, unsigned long code,
-	struct text_hires_tag_glyph *glyph);
-long text_hires_font_from_tag(char const *tag_name, void const *context, text_hires_tag_glyph_function lookup,
-	float oversample);
-int ui_redraw_text_from_tags(void);
+/* port: whether the menus' redraw is active (port/linux/src/ui_redraw.h) */
+int ui_redraw_active(void);
 
 /* ---------- constants */
 
@@ -797,31 +788,6 @@ static void rasterizer_text_draw_scaled_character(
 	return;
 }
 
-/* port: a character of a font tag, for the high-res text's font of the
-tag's own glyphs (text_hires_font_from_tag) */
-static int hires_text_tag_glyph(
-	void const *context,
-	unsigned long code,
-	struct text_hires_tag_glyph *glyph)
-{
-	struct font_header *font = (struct font_header *)context;
-	struct font_character *character;
-
-	if (code > 0xFFFF)
-		return 0;
-	character = font_get_character_by_ascii_code(font, (word)code);
-	if (!character)
-		return 0;
-	glyph->width = character->bitmap_width;
-	glyph->height = character->bitmap_height;
-	glyph->origin_x = character->bitmap_origin_x;
-	glyph->origin_y = character->bitmap_origin_y;
-	glyph->advance = character->character_width;
-	glyph->pixels = (byte const *)font->pixels.address + character->pixels_offset;
-
-	return 1;
-}
-
 /* port: the high-res text's font for a font tag, sized by the height of its
 capital H (its rows with ink), its glyphs drawn with oversample times the
 pixels (for text scaled up), or NONE */
@@ -833,9 +799,10 @@ static long hires_text_font_get(
 	{
 		struct font_header *font;
 		real oversample;
+		boolean redraw;
 		long hires_font;
 	} fonts[MAXIMUM_HIRES_TEXT_FONTS];
-	boolean from_tags = ui_redraw_text_from_tags() ? TRUE : FALSE;
+	boolean redraw = ui_redraw_active() ? TRUE : FALSE;
 	static short next_font = 0;
 	struct font_header *font;
 	struct font_character *capital;
@@ -852,16 +819,9 @@ static long hires_text_font_get(
 	font = font_definition_get(font_index);
 	for (font_slot = 0; font_slot < MAXIMUM_HIRES_TEXT_FONTS; font_slot++)
 	{
-		if (!from_tags && fonts[font_slot].font == font && fonts[font_slot].oversample == oversample)
+		if (fonts[font_slot].font == font && fonts[font_slot].oversample == oversample &&
+			fonts[font_slot].redraw == redraw)
 			return fonts[font_slot].hires_font;
-	}
-	/* (not remembered here: text_hires.c forgets these fonts when their map
-	unloads, and finds one among its few quickly) */
-	if (from_tags)
-	{
-		hires_font = text_hires_font_from_tag(tag_get_name(font_index), font, hires_text_tag_glyph, (float)oversample);
-
-		return hires_font < 0 ? NONE : hires_font;
 	}
 	capital = font_get_character_by_ascii_code(font, 'H');
 	if (capital)
@@ -885,11 +845,12 @@ static long hires_text_font_get(
 		}
 	}
 	hires_font = top == NONE ? NONE :
-		text_hires_font(tag_get_name(font_index), (float)(bottom - top + 1), (float)oversample);
+		text_hires_font(tag_get_name(font_index), (float)(bottom - top + 1), (float)oversample, redraw ? "redraw" : NULL);
 	if (hires_font < 0)
 		hires_font = NONE;
 	fonts[next_font].font = font;
 	fonts[next_font].oversample = oversample;
+	fonts[next_font].redraw = redraw;
 	fonts[next_font].hires_font = hires_font;
 	next_font = (short)((next_font + 1) % MAXIMUM_HIRES_TEXT_FONTS);
 
@@ -967,9 +928,23 @@ static void rasterizer_draw_hires_glyph(
 
 	if (!text_hires_glyph(hires_text_font, font_character->character, &glyph))
 		return;
-	/* (the font's advance centred on the tag's, so that its letters keep
-	their own spacing) */
-	left = pen_x + (font_character->character_width - glyph.advance) * 0.5f + glyph.left;
+	if (glyph.redraw)
+	{
+		/* (keep the game's advance, sharing its gap in the font's own
+		side-bearing proportions) */
+		real ink = glyph.right - glyph.left;
+		real lsb = glyph.left;
+		real rsb = glyph.advance - glyph.right;
+		real gap = font_character->character_width - ink;
+
+		left = pen_x + (lsb + rsb > 0.0f ? gap * lsb / (lsb + rsb) : gap * 0.5f);
+	}
+	else
+	{
+		/* (the font's advance centered on the tag's, so that its letters
+		keep their own spacing) */
+		left = pen_x + (font_character->character_width - glyph.advance) * 0.5f + glyph.left;
+	}
 	right = left + (glyph.right - glyph.left);
 	if (x > 0 && !font_character_cut(font, font_character, 0, x, 0, font_character->bitmap_height))
 		clip_left = -32768.0f;

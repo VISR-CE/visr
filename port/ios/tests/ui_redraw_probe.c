@@ -1,6 +1,6 @@
 /* ui_redraw_rebuild (port/linux/src/ui_redraw_rebuild.c): a two-texel border
 stays two texels wide and sharp, a flat fill and a gentle gradient pass
-through unchanged, and a coverage's edge stays where it was. */
+through unchanged. */
 #include "ui_redraw.h"
 
 #include <stdio.h>
@@ -22,7 +22,6 @@ int main(void)
 {
 	enum { WIDTH = 16, HEIGHT = 8, SCALE = 4 };
 	static unsigned char frame[WIDTH * HEIGHT * 4], out[WIDTH * HEIGHT * 4 * SCALE * SCALE];
-	static unsigned char coverage[WIDTH * HEIGHT], out_coverage[WIDTH * HEIGHT * SCALE * SCALE];
 	long x, y, sharp = 0, soft = 0;
 
 	/* a border two texels wide (blue) at columns 0-1 over a navy fill */
@@ -76,15 +75,7 @@ int main(void)
 
 		check(value >= expected - 1.0f && value <= expected + 1.0f, "a gradient stays smooth");
 	}
-	/* a coverage (one channel): a block from column 5 on keeps its edge */
-	memset(coverage, 0, sizeof(coverage));
-	for (y = 0; y < HEIGHT; y++)
-		for (x = 5; x < WIDTH; x++)
-			coverage[y * WIDTH + x] = 255;
-	check(ui_redraw_rebuild(coverage, WIDTH, HEIGHT, 1, WIDTH * SCALE, HEIGHT * SCALE, out_coverage), "coverage rebuild failed");
-	y = HEIGHT * SCALE / 2;
-	check(out_coverage[y * WIDTH * SCALE + 5 * SCALE - 2] < 32, "clear before the edge");
-	check(out_coverage[y * WIDTH * SCALE + 5 * SCALE + 1] > 223, "covered after the edge");
+	check(!ui_redraw_rebuild(frame, WIDTH, HEIGHT, 1, WIDTH * SCALE, HEIGHT * SCALE, out), "refuses one channel");
 	check(!ui_redraw_rebuild(NULL, WIDTH, HEIGHT, 4, WIDTH * SCALE, HEIGHT * SCALE, out), "refuses no source");
 	(void)sharp;
 	if (failures)

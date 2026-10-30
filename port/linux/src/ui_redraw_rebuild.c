@@ -3,9 +3,8 @@ UI_REDRAW_REBUILD.C
 
 A picture of the menus rebuilt at a larger size (ui_redraw.h): smooth where
 the picture is smooth, and with its edges drawn again about one output pixel
-wide where it has edges. No state; the menus' redraw (ui_redraw.c), the
-high-res text (text_hires.c) and their test (port/ios/tests/ui_redraw_probe.c)
-call it.
+wide where it has edges. No state; the menus' redraw (ui_redraw.c) and its test
+(port/ios/tests/ui_redraw_probe.c) call it.
 */
 
 #include "ui_redraw.h"
@@ -40,46 +39,6 @@ static long clamp_index(long value, long count)
 	return value < 0 ? 0 : value >= count ? count - 1 : value;
 }
 
-/* A coverage (a glyph) is blurred a little first (a Gaussian of about half a
-texel), so that its edges, 13 texels to a capital, come out as curves rather
-than following each texel's step */
-static void coverage_soften(float *premultiplied, long width, long height)
-{
-	static const float kernel[3] = { 0.107f, 0.786f, 0.107f };
-	float *line = malloc((size_t)(width > height ? width : height) * sizeof(*line));
-	long x, y, tap;
-
-	if (!line)
-		return;
-	for (y = 0; y < height; y++)
-	{
-		for (x = 0; x < width; x++)
-		{
-			line[x] = 0.0f;
-			for (tap = -1; tap <= 1; tap++)
-				line[x] += kernel[tap + 1] * premultiplied[(y * width + clamp_index(x + tap, width)) * 4 + 3];
-		}
-		for (x = 0; x < width; x++)
-			premultiplied[(y * width + x) * 4 + 3] = line[x];
-	}
-	for (x = 0; x < width; x++)
-	{
-		for (y = 0; y < height; y++)
-		{
-			line[y] = 0.0f;
-			for (tap = -1; tap <= 1; tap++)
-				line[y] += kernel[tap + 1] * premultiplied[(clamp_index(y + tap, height) * width + x) * 4 + 3];
-		}
-		for (y = 0; y < height; y++)
-		{
-			float *texel = premultiplied + (y * width + x) * 4;
-
-			texel[0] = texel[1] = texel[2] = texel[3] = line[y];
-		}
-	}
-	free(line);
-}
-
 int ui_redraw_rebuild(const unsigned char *source, long width, long height, long channels,
 	long output_width, long output_height, unsigned char *output)
 {
@@ -88,7 +47,7 @@ int ui_redraw_rebuild(const unsigned char *source, long width, long height, long
 	long x, y, index, channel;
 
 	if (!source || !output || width <= 0 || height <= 0 || output_width < width || output_height < height ||
-		(channels != 1 && channels != 4))
+		channels != 4)
 		return 0;
 	scale_x = (float)output_width / width;
 	scale_y = (float)output_height / height;
@@ -96,17 +55,15 @@ int ui_redraw_rebuild(const unsigned char *source, long width, long height, long
 	premultiplied = malloc((size_t)width * height * 4 * sizeof(*premultiplied));
 	if (!premultiplied)
 		return 0;
-	/* (four channels each: a coverage is white with it as its alpha) */
+	/* (four channels each, premultiplied for filtering) */
 	for (index = 0; index < width * height; index++)
 	{
-		float alpha = (channels == 4 ? source[index * 4 + 3] : source[index]) / 255.0f;
+		float alpha = source[index * 4 + 3] / 255.0f;
 
 		for (channel = 0; channel < 3; channel++)
-			premultiplied[index * 4 + channel] = (channels == 4 ? source[index * 4 + channel] / 255.0f : 1.0f) * alpha;
+			premultiplied[index * 4 + channel] = (source[index * 4 + channel] / 255.0f) * alpha;
 		premultiplied[index * 4 + 3] = alpha;
 	}
-	if (channels == 1)
-		coverage_soften(premultiplied, width, height);
 	for (y = 0; y < output_height; y++)
 	{
 		float source_y = (y + 0.5f) / scale_y - 0.5f;
@@ -124,31 +81,6 @@ int ui_redraw_rebuild(const unsigned char *source, long width, long height, long
 			float range = 0.0f;
 
 			cubic_weights(source_x - x0, weights_x);
-			if (channels == 1)
-			{
-				/* a coverage: its smooth contour at half the strongest
-				coverage of the sixteen texels around, drawn about one output pixel wide at that
-				strength (so a faint thin stroke stays as faint, but sharp) */
-				float value = 0.0f, strongest = 0.0f, fraction, half_width = 0.6f / scale;
-
-				for (row = 0; row < 4; row++)
-				{
-					const float *line = premultiplied + clamp_index(y0 - 1 + row, height) * width * 4;
-
-					for (column = 0; column < 4; column++)
-					{
-						float texel = line[clamp_index(x0 - 1 + column, width) * 4 + 3];
-
-						value += texel * weights_y[row] * weights_x[column];
-						if (texel > strongest)
-							strongest = texel;
-					}
-				}
-				fraction = strongest > 0.0f ? clamp01(value / strongest) : 0.0f;
-				fraction = clamp01((fraction - (0.5f - half_width)) / (2.0f * half_width));
-				output[y * output_width + x] = (unsigned char)(strongest * fraction * 255.0f + 0.5f);
-				continue;
-			}
 			for (row = 0; row < 4; row++)
 			{
 				const float *line = premultiplied + clamp_index(y0 - 1 + row, height) * width * 4;
@@ -206,15 +138,12 @@ int ui_redraw_rebuild(const unsigned char *source, long width, long height, long
 				/* on an edge: where the smooth value falls between the darkest
 				and brightest texel, sharpened to about one output pixel (the
 				fraction changes by about 1/scale from one output pixel to the
-				next across an edge); a coverage's a pixel and a half, and only
-				where the glyph is solid, so faint thin strokes stay soft */
+				next across an edge) */
 				float fraction = clamp01((smooth[driver] - corners[low][driver]) / range);
-				float half_width = (channels == 1 ? 0.75f : 0.5f) / scale;
+				float half_width = 0.5f / scale;
 				float edge = clamp01((fraction - (0.5f - half_width)) / (2.0f * half_width));
 				float amount = clamp01((range - EDGE_CONTRAST) / (0.5f * EDGE_CONTRAST));
 
-				if (channels == 1)
-					amount *= clamp01((corners[high][3] - 0.6f) / 0.15f);
 				for (channel = 0; channel < 4; channel++)
 				{
 					float sharp = corners[low][channel] + (corners[high][channel] - corners[low][channel]) * edge;
@@ -229,9 +158,7 @@ int ui_redraw_rebuild(const unsigned char *source, long width, long height, long
 					result[channel] = result[3];
 			}
 			index = y * output_width + x;
-			if (channels == 1)
-				output[index] = (unsigned char)(result[3] * 255.0f + 0.5f);
-			else if (result[3] * 255.0f >= 0.5f)
+			if (result[3] * 255.0f >= 0.5f)
 			{
 				for (channel = 0; channel < 3; channel++)
 					output[index * 4 + channel] = (unsigned char)(clamp01(result[channel] / result[3]) * 255.0f + 0.5f);

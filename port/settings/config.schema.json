@@ -898,19 +898,8 @@
         "ui_redraw": {
           "type": "boolean",
           "default": false,
-          "description": "Draw the menus' frames, rows and dialogs, and their text, at the display's resolution, rebuilt on this device from your copy of the game's menus. The main menu and the loading screens keep their look.",
+          "description": "Draw the menus' frames, rows and dialogs at the display's resolution, rebuilt on this device from your copy of the game's menus, and their text with Overpass. The main menu and the loading screens keep their look.",
           "x-environment": "HALO_UI_REDRAW",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ]
-        },
-        "ui_redraw_text": {
-          "type": "string",
-          "default": "game",
-          "description": "With display.ui_redraw, the menus' text: \"game\" (default) the game's own letters rebuilt at the display's resolution; \"overpass\" the fonts of display.high_res_text.",
-          "x-environment": "HALO_UI_REDRAW_TEXT",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

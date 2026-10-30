@@ -2,9 +2,9 @@
 UI_REDRAW.H
 
 The menus' redraw (display.ui_redraw): the menus' frames, rows, dialogs and
-legend pictures, and their text, drawn at the display's resolution from the
-player's own ui.map, rebuilt on the device each time the map loads. The game's
-widgets still lay out, focus and draw the menus; only the textures they draw
+legend pictures rebuilt from the player's own ui.map, and their text drawn
+with Overpass, at the display's resolution. The game's widgets still lay
+out, focus and draw the menus; only the textures and glyphs they draw
 change. The main menu, the loading screens and the HUD are not redrawn.
 */
 
@@ -12,12 +12,11 @@ change. The main menu, the loading screens and the HUD are not redrawn.
 #define UI_REDRAW_H
 
 /* A picture rebuilt larger (ui_redraw_rebuild.c): source is width by height
-texels of channels bytes each (4: RGBA or BGRA, straight alpha; 1: a
-coverage), output is output_width by output_height (at least as large) of the
-same. Smooth regions stay smooth; edges are drawn again about one output
-pixel wide along the smooth picture's contour, between the texels' own
-colors. A coverage is softened a little first, so a small glyph's curves come
-out as curves. 0 if it could not be (bad arguments, out of memory). */
+texels of 4 bytes each (RGBA or BGRA, straight alpha), output is
+output_width by output_height (at least as large) of the same. Smooth
+regions stay smooth; edges are drawn again about one output pixel wide
+along the smooth picture's contour, between the texels' own colors.
+0 if it could not be (bad arguments, out of memory). */
 int ui_redraw_rebuild(const unsigned char *source, long width, long height, long channels,
 	long output_width, long output_height, unsigned char *output);
 
@@ -31,9 +30,6 @@ void ui_redraw_begin_screen(const char *tag_name);
 void ui_redraw_end_screen(void);
 /* whether the screen drawing now is redrawn */
 int ui_redraw_active(void);
-/* whether the screen drawing now draws its text from the font tags' own
-glyphs (display.ui_redraw_text = "game") */
-int ui_redraw_text_from_tags(void);
 
 /* While a redrawn screen draws: a widget's background, its bitmap's tag name,
 its texture's resource (the D3D texture's words: Data is [1]) and its size

@@ -178,7 +178,8 @@ def main() -> None:
         index = files.index(font["file"])
         tag = font["tag"].replace("\\", "\\\\")
         size = (ROOT / FONT_ASSETS / font["file"]).stat().st_size
-        lines.append(f'\t{{ "{tag}", "{font["file"]}", font{index}, {size} }},')
+        variant = json.dumps(font["variant"]) if font.get("variant") is not None else "0"
+        lines.append(f'\t{{ "{tag}", "{font["file"]}", font{index}, {size}, {variant} }},')
     if not fonts:
         lines.append("\t{ 0 },")
     lines.append("};")

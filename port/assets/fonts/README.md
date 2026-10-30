@@ -8,6 +8,8 @@ place of the bitmap fonts of the maps (`port/linux/src/text_hires.c`).
 | --- | --- | --- |
 | `Overpass-900.ttf` | `ui\large_ui`, `ui\interstate` | Overpass, weight 900 (Black) |
 | `Overpass-750.ttf` | `ui\small_ui` | Overpass, weight 750 |
+| `Overpass-800.ttf` | `ui\large_ui` in redrawn menus | Overpass, weight 800 |
+| `Overpass-650.ttf` | `ui\small_ui` in redrawn menus | Overpass, weight 650 |
 | `OpenCE-Regular.ttf` | the menus' titles, as pictures (`port/assets/titles`) | OpenCE: Newtown, respaced for this project (`tools/title_font.py`) |
 | `Newtown-Regular.ttf` | (OpenCE's source) | Newtown by Roger White, unmodified |
 
@@ -40,6 +42,8 @@ The Overpass files are static instances of Google Fonts' variable Overpass
 
     python3 -m fontTools.varLib.instancer 'Overpass[wght].ttf' wght=900 -o Overpass-900.ttf
     python3 -m fontTools.varLib.instancer 'Overpass[wght].ttf' wght=750 -o Overpass-750.ttf
+    python3 -m fontTools.varLib.instancer 'Overpass[wght].ttf' wght=800 -o Overpass-800.ttf
+    python3 -m fontTools.varLib.instancer 'Overpass[wght].ttf' wght=650 -o Overpass-650.ttf
 
 The builds embed the Overpass files (`tools/embed_assets.py`), and the
 release packages carry `Overpass-OFL.txt`, as the license asks.

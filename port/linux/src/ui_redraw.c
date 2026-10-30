@@ -11,7 +11,6 @@ edges): pictures, the legend's buttons among them, are drawn as they are.
 */
 
 #include "ui_redraw.h"
-#include "text_hires.h"
 #include "platform.h"
 #include "port_config.h"
 #include "xgpu.h"
@@ -195,11 +194,6 @@ void ui_redraw_end_screen(void)
 int ui_redraw_active(void)
 {
 	return screen_active;
-}
-
-int ui_redraw_text_from_tags(void)
-{
-	return screen_active && !strcmp(config_string("display.ui_redraw_text"), "game");
 }
 
 void ui_redraw_note(const char *tag_name, const void *hardware_format, long width, long height)
@@ -394,8 +388,6 @@ void ui_redraw_forget(void)
 	textures_release();
 	texture_count = 0;
 	generation++;
-	/* (the text's fonts of this map's font tags too) */
-	text_hires_forget_tag_fonts();
 }
 
 long ui_redraw_touch_target_units(void)

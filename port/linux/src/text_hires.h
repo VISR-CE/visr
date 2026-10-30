@@ -20,6 +20,7 @@ struct text_hires_embedded
 	const char *file;
 	const unsigned int *data;
 	unsigned int size;
+	const char *variant; /* NULL or empty for the default */
 };
 
 extern const struct text_hires_embedded text_hires_embedded[];
@@ -33,6 +34,7 @@ struct text_hires_glyph
 	float left, top, right, bottom;
 	float u0, v0, u1, v1;
 	float advance;
+	int redraw; /* uses side-bearing proportions within the game's advance */
 };
 
 /* The committed setting; checked before looking up cached font choices. */
@@ -41,28 +43,10 @@ int text_hires_enabled(void);
 /* the font standing for a font tag, sized so that its capitals are
 cap_height units tall, its glyphs rasterized with oversample times the
 display's pixels (for text drawn scaled up); -1 if none, or
-display.high_res_text is off */
-long text_hires_font(char const *tag_name, float cap_height, float oversample);
-/* a character of a font tag (the map's): its coverage, width by height bytes,
-drawn with its corner origin_x and origin_y units left and up of the pen,
-and the pen moved advance units after it */
-struct text_hires_tag_glyph
-{
-	long width, height, origin_x, origin_y, advance;
-	const unsigned char *pixels;
-};
-typedef int (*text_hires_tag_glyph_function)(const void *context, unsigned long code,
-	struct text_hires_tag_glyph *glyph);
-/* the font tag's own glyphs as a font (the menus' redraw, display.ui_redraw_text
-= "game", ui_redraw.h): each rebuilt at the display's resolution from its
-coverage (ui_redraw_rebuild) when first drawn, at its own place and advance.
-lookup gives a character of the tag, context its font. -1 if none, or
-display.high_res_text is off */
-long text_hires_font_from_tag(char const *tag_name, const void *context, text_hires_tag_glyph_function lookup,
-	float oversample);
-/* The map unloaded: forget the fonts of its font tags (their tags' memory is
-reused), and their glyphs */
-void text_hires_forget_tag_fonts(void);
+display.high_res_text is off. variant selects an embedded alternative, falling
+back to the default when none exists for the tag; NULL or empty selects the
+default */
+long text_hires_font(char const *tag_name, float cap_height, float oversample, const char *variant);
 /* whether the font has a glyph for the character (it draws a string only
 if it has all of its characters) */
 int text_hires_covers(long font, unsigned long code);
