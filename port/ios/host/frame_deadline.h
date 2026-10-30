@@ -25,6 +25,13 @@ static inline int frame_deadline_state_after_leave(int state, int on_joined_thre
 	return state == FRAME_DEADLINE_JOINED && on_joined_thread ? FRAME_DEADLINE_LEFT : state;
 }
 
+/* whether a leave has anything to do: only the thread that is joined leaves, and once, so a second leave with no frame
+   (and no rejoin) in between does not call os_workgroup_leave for a thread that is no longer a member */
+static inline int frame_deadline_leave_wanted(int state, int on_joined_thread)
+{
+	return state == FRAME_DEADLINE_JOINED && on_joined_thread;
+}
+
 /* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out */
 static inline int frame_deadline_rejoin_wanted(int state, int offscreen)
 {

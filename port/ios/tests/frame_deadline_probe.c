@@ -36,6 +36,13 @@ static void membership(void) {
     CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_NEW, 1) == FRAME_DEADLINE_NEW);
     CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_OFF, 1) == FRAME_DEADLINE_OFF);
     CHECK(frame_deadline_state_after_leave(FRAME_DEADLINE_LEFT, 1) == FRAME_DEADLINE_LEFT);
+    /* a second leave before any rejoin does nothing (a double os_workgroup_leave is fatal) */
+    CHECK(frame_deadline_leave_wanted(FRAME_DEADLINE_JOINED, 1));
+    CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_JOINED, 0));
+    CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_LEFT, 1));
+    CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_LEFT, 0));
+    CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_NEW, 1));
+    CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_OFF, 1));
     /* a shown frame rejoins; an offscreen benchmark frame, or a thread never joined, does not */
     CHECK(frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 0));
     CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 1));
