@@ -1,82 +1,122 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="256" viewBox="0 0 512 256">
-  <title>VEHICLES — Warthog</title>
-  <desc>Original three-quarter front drawing with a sloped armored hood, long-travel suspension, open cab, and rear-bed M41 three-barrel chaingun on a shielded pedestal.</desc>
-  <defs>
-    <linearGradient id="surface" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="248" y2="74.4">
-      <stop stop-color="#2f3f4e"/>
-      <stop offset="1" stop-color="#0e141a"/>
-    </linearGradient>
-    <filter id="halo" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="256" color-interpolation-filters="sRGB">
-      <feComponentTransfer in="SourceAlpha">
-        <feFuncA type="linear" slope="1.153846"/>
-      </feComponentTransfer>
-      <feMorphology operator="dilate" radius="1.5"/>
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feFlood flood-color="#2396ff" flood-opacity="0.56"/>
-      <feComposite in2="blur" operator="in" result="glow"/>
-      <feMerge>
-        <feMergeNode in="glow"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
-  </defs>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M35 115C20 109 15 121 17 137C18 150 25 157 36 151L47 143 M230 94C240 84 254 90 258 105C263 123 255 134 243 132"/>
-  </g>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M22 110L47 99L110 77L143 88L147 105L167 115L186 109L188 88L225 79L253 91L251 114L242 121L232 105L214 103L198 117L193 138L110 161L105 132L90 117L72 114L53 123L43 139L23 130Z"/>
-    <path d="M22 110L81 120L143 88L110 77Z"/>
-    <path d="M188 88L225 79L253 91L214 103Z"/>
-  </g>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M20 124L48 130L47 139L18 133L14 127Z"/>
-    <path d="M23 115L47 120L45 128L23 123Z"/>
-  </g>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M111 77L124 56L153 63L143 88Z"/>
-    <path d="M154 112L160 60Q161 57 165 56L181 51Q185 50 187 55L202 95L196 98L181 57L166 62L160 112Z"/>
-  </g>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M144 106L146 88L157 85L160 103 M169 107L172 83L183 80L189 100"/>
-  </g>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M215 96L215 63L220 61L222 94L229 96L221 101L208 98Z"/>
-    <path d="M211 57L218 47L231 50L233 64L225 70L212 65Z"/>
-    <path d="M213 49L210 38L220 35L227 40L229 51L223 54Z"/>
-    <path d="M211 51L174 43L169 46L169 53L210 62Z"/>
-  </g>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M171 46L209 55 M171 50L209 59 M176 44L175 54 M182 45L181 56 M201 49L200 60 M218 48L220 59L230 62 M230 58L239 62L240 69 M221 67L221 84"/>
-  </g>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M96 131L119 143L109 154 M114 138L126 147L112 158 M192 118L204 131 M187 126L201 139 M113 155L191 133 M116 160L190 139 M109 91L84 107L50 102 M86 113L111 100 M149 113L164 122L185 115 M145 105L135 98"/>
-  </g>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M47 144C48 125 57 114 70 117L83 121C100 125 104 141 100 159C97 176 88 184 76 180L63 176C50 172 45 159 47 144Z"/>
-  </g>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
-    <ellipse cx="80" cy="151" rx="19" ry="28"/>
-    <ellipse cx="81" cy="151" rx="10" ry="17"/>
-    <ellipse cx="81" cy="151" rx="4" ry="7"/>
-  </g>
-  <g fill="none" stroke="#2996ff" stroke-opacity="0.733333" stroke-width="0.45">
-    <path d="M57 126l8 3l3 -3 M51 136l8 3l3 -3 M49 147l8 3l3 -3 M50 158l8 3l3 -3 M54 168l8 3l3 -3 M62 175l8 3l3 -3 M70 119l8 3l3 -3 M82 123l8 3l3 -3 M93 131l8 3l3 -3 M99 144l8 3l3 -3 M97 160l8 3l3 -3 M90 173l8 3l3 -3"/>
-  </g>
-  <g fill="url(#surface)" fill-opacity="0.333333" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
-    <path d="M191 127C192 108 201 97 214 100L227 104C244 108 248 124 244 142C241 159 232 167 220 163L207 159C194 155 189 142 191 127Z"/>
-  </g>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
-    <ellipse cx="224" cy="134" rx="19" ry="28"/>
-    <ellipse cx="225" cy="134" rx="10" ry="17"/>
-    <ellipse cx="225" cy="134" rx="4" ry="7"/>
-  </g>
-  <g fill="none" stroke="#2996ff" stroke-opacity="0.733333" stroke-width="0.45">
-    <path d="M201 109l8 3l3 -3 M195 119l8 3l3 -3 M193 130l8 3l3 -3 M194 141l8 3l3 -3 M198 151l8 3l3 -3 M206 158l8 3l3 -3 M214 102l8 3l3 -3 M226 106l8 3l3 -3 M237 114l8 3l3 -3 M243 127l8 3l3 -3 M241 143l8 3l3 -3 M234 156l8 3l3 -3"/>
-  </g>
-  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M27 117L43 121 M27 120L42 124 M49 105L59 107L54 111L44 109Z M99 88L107 90L103 94L95 92Z M116 78L126 62L147 67L140 83 M132 64L124 79 M144 94L138 90 M188 111L198 105 M230 84L243 91 M235 95L243 97"/>
-  </g>
-  <g fill="none" stroke="#2996ff" stroke-opacity="0.733333" stroke-width="0.45">
-    <path d="M37 91H18V78H8 M224 171V190H256 M231 188V192 M236 188V192 M241 188V192 M246 188V192 M251 188V192 M256 188V192"/>
-  </g>
+<title>Warthog</title>
+<desc>Original shaded drawing of an open military vehicle with a rear pedestal chaingun.</desc>
+<defs>
+ <linearGradient id="armor" x1="0" y1="0" x2=".25" y2="1"><stop stop-color="#434254"/><stop offset=".42" stop-color="#24273b"/><stop offset="1" stop-color="#090f20"/></linearGradient>
+ <linearGradient id="hood" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#595266"/><stop offset=".28" stop-color="#3c3b52"/><stop offset=".72" stop-color="#222b41"/><stop offset="1" stop-color="#121d30"/></linearGradient>
+ <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#52617a"/><stop offset=".32" stop-color="#272b3f"/><stop offset=".66" stop-color="#101629"/><stop offset="1" stop-color="#343b52"/></linearGradient>
+ <radialGradient id="rubber" cx=".3" cy=".2" r=".8"><stop stop-color="#303144"/><stop offset=".5" stop-color="#141827"/><stop offset="1" stop-color="#050a15"/></radialGradient>
+ <radialGradient id="hub" cx=".3" cy=".3" r=".75"><stop stop-color="#536078"/><stop offset=".45" stop-color="#293044"/><stop offset=".7" stop-color="#10172a"/><stop offset="1" stop-color="#344760"/></radialGradient>
+ <filter id="glow" x="-15%" y="-20%" width="130%" height="140%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2.1" result="blur"/><feFlood flood-color="#087be3" flood-opacity=".64"/><feComposite in2="blur" operator="in"/><feMerge result="lit"><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge><feTurbulence type="fractalNoise" baseFrequency=".19" numOctaves="3" seed="9"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope=".09"/></feComponentTransfer><feComposite in2="SourceAlpha" operator="in"/><feBlend in2="lit" mode="soft-light"/></filter>
+</defs>
+<g stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)" stroke="#26618b" stroke-width=".55">
+<!-- Far-side tires and the shadowed chassis. -->
+<path d="M210 140C224 126 242 134 245 154L246 173Q243 193 231 194L221 188L218 168Z" fill="url(#rubber)"/>
+<path d="M64 112Q53 99 42 111Q31 123 34 145Q36 160 48 160L65 151Z" fill="url(#rubber)"/>
+<path d="M52 134L108 177L214 157L237 145L213 132L100 135Z" fill="#090e1d"/>
+<path d="M69 138L117 161L204 148L222 140L216 147L121 173L64 149Z" fill="url(#metal)"/>
+<!-- Rear deck, open bed, and high side armor. -->
+<path d="M39 103L86 74L144 84L189 118L130 156L56 137Z" fill="url(#armor)"/>
+<path d="M39 103L86 78L126 89L91 116Z" fill="url(#metal)"/>
+<path d="M51 104L86 85L113 91L86 111Z" fill="#0b1021"/>
+<path d="M40 104L59 108L85 120L113 127L119 151L98 160L88 142L70 132L57 136L48 126Z" fill="url(#armor)"/>
+<path d="M44 105L60 109L87 121L112 128" fill="none" stroke="#6a6a83"/>
+<!-- Suspension remains visible below the open wheel wells. -->
+<path d="M88 143L126 168L150 158M108 142L125 173L155 164M192 139L218 157L237 147" fill="none" stroke="#313e56" stroke-width="4"/>
+<path d="M89 142L125 167L150 157M112 146L126 172" fill="none" stroke="#64809a" stroke-width=".8"/>
+<path d="M109 138L120 164" stroke="#7c7c90" stroke-width="3"/>
+<path d="M107 140l7 -1m-6 5l8 -1m-6 5l8 -1m-6 5l8 -1m-6 5l8 -1" stroke="#151a2b" stroke-width="2"/>
+<!-- Bucket seats and the low cab. -->
+<path d="M106 119L111 97Q112 93 117 94L128 99L133 122L126 128Z" fill="url(#metal)"/>
+<path d="M137 115L140 94Q141 90 146 92L158 98L162 119L155 124Z" fill="url(#armor)"/>
+<path d="M107 124L126 115L149 125L134 138Z" fill="#0b1020"/>
+<!-- Rear roll hoop: open space, rounded metal tubing, angled braces. -->
+<path d="M74 111L81 74Q82 68 88 67L113 72Q118 73 120 79L135 118" fill="none" stroke="#0a1120" stroke-width="8"/>
+<path d="M74 110L81 74Q82 68 88 67L113 72Q118 73 120 79L135 118" fill="none" stroke="url(#metal)" stroke-width="5"/>
+<path d="M72 110L79 74Q80 66 88 65L114 70Q120 72 122 79L137 116" fill="none" stroke="#387fb5" stroke-width=".9"/>
+<path d="M57 107L84 73M92 120L113 76" fill="none" stroke="#25354d" stroke-width="4"/>
+<path d="M56 106L83 72M91 120L112 77" fill="none" stroke="#4d6e89" stroke-width=".7"/>
+<!-- Windshield cowl and sloped hood. -->
+<path d="M124 111L146 84L179 91L202 114L176 133Z" fill="url(#metal)"/>
+<path d="M132 109L149 90L174 96L187 110L164 108L153 119Z" fill="#111a2a"/>
+<path d="M135 107L149 92L162 95L150 111Z" fill="#324354" stroke="none"/>
+<path d="M164 97L174 99L182 108L157 111Z" fill="#29374b" stroke="none"/>
+<path d="M155 117L176 108L206 117L249 137L224 157L180 153L144 137Z" fill="url(#hood)"/>
+<path d="M158 118L178 112L202 121L236 137L217 147L183 143Z" fill="url(#armor)" stroke="#45485e"/>
+<path d="M159 118L184 137L218 144L234 137" fill="none" stroke="#69617a" stroke-width=".8"/>
+<path d="M176 113L186 120L211 128M178 116L202 124" fill="none" stroke="#7a718a" stroke-width=".6" opacity=".5"/>
+<path d="M165 120L184 132L218 140L231 136" fill="none" stroke="#8a7896" stroke-width="3" opacity=".12"/>
+<!-- The near fender rises well above the tire. -->
+<path d="M91 124L111 118L152 137L180 152L173 164L153 160L143 141L120 131L106 137L100 157L89 152L86 138Z" fill="url(#armor)"/>
+<path d="M91 125L111 120L150 139L177 153L171 158L149 151L140 136L119 128L104 132L95 151L90 149Z" fill="url(#hood)"/>
+<path d="M94 125L111 121L149 140L177 153" fill="none" stroke="#64849e" stroke-width=".9"/>
+<path d="M57 113L66 118L63 126M147 145L166 154M177 149L188 151" fill="none" stroke="#66768c" stroke-width=".5"/>
+<path d="M66 126L82 134M72 125L83 130" fill="none" stroke="#0a1120" stroke-width="1.4"/>
+<!-- Nose, recessed grille, headlights, and front bumper. -->
+<path d="M180 153L224 157L249 137L247 158L224 177L181 169Z" fill="url(#metal)"/>
+<path d="M189 156L219 160L235 149L234 159L219 170L190 166Z" fill="#080e1b"/>
+<path d="M193 158L193 165M198 159L198 166M204 160L204 167M210 161L210 168M216 161L216 168M223 158L223 165M228 154L228 161" stroke="#3f536a" stroke-width="1.6"/>
+<path d="M181 156L188 157L188 164L181 163ZM237 148L244 143L243 150L237 155Z" fill="#52677f" stroke="#839bae"/>
+<path d="M171 169L185 167L219 176L249 156L252 164L222 185L180 179L169 175Z" fill="url(#metal)"/>
+<path d="M173 169L220 179L250 160" fill="none" stroke="#74869d"/>
+<path d="M185 177L184 184L191 186L194 180M231 176L233 181L240 176L238 171" fill="none" stroke="#283f59" stroke-width="3"/>
+<!-- Raised rear pedestal and shielded three-barrel chaingun. -->
+<path d="M82 96L92 91L105 95L102 101L91 104L80 100Z" fill="url(#metal)"/>
+<path d="M88 96L87 60L95 58L98 96L93 100Z" fill="url(#metal)"/>
+<path d="M86 61L80 54L86 42L105 44L111 53L104 63L94 67Z" fill="url(#armor)"/>
+<path d="M86 48L79 36L83 22L97 21L111 30L114 44L105 51L97 43Z" fill="url(#hood)"/>
+<path d="M82 24L96 24L108 32L110 40L103 39L97 31L86 32L86 42" fill="#25273c" stroke="#717487" stroke-width=".6"/>
+<path d="M94 39L101 34L121 39L127 47L120 54L102 49Z" fill="url(#metal)"/>
+<path d="M112 38L143 45L146 48L143 52L113 46Z" fill="url(#metal)"/>
+<path d="M112 45L144 52L146 56L142 59L111 52Z" fill="url(#metal)"/>
+<path d="M120 42L149 49L151 53L147 56L119 49Z" fill="url(#metal)"/>
+<path d="M130 43L129 52L134 55L137 46Z" fill="#334157"/>
+<path d="M143 46L149 48L153 52L150 58L144 60L140 56L140 50Z" fill="url(#metal)"/>
+<ellipse cx="146" cy="50" rx="1.6" ry="2" fill="#030913"/><ellipse cx="149" cy="54" rx="1.6" ry="2" fill="#030913"/><ellipse cx="144" cy="56" rx="1.6" ry="2" fill="#030913"/>
+<path d="M83 48L75 50L73 58L78 59M99 59L106 63L106 69" fill="none" stroke="#53617a" stroke-width="2"/>
+<path d="M51 119 C75 117 75 124 75 143 Q75 167 64 167 L51 167Z" fill="url(#rubber)"/>
+<path d="M52.91 119.36l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M55.82 121.43l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M58.36 125.16l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M60.33 130.28l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M61.57 136.38l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M62.00 143.00l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M61.57 149.62l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M60.33 155.72l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M58.36 160.84l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M55.82 164.57l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M52.91 166.64l5.85 1.2l3 -2l4.94 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<ellipse cx="51" cy="143" rx="11" ry="24" fill="url(#rubber)" stroke="#4084b1"/>
+<ellipse cx="51" cy="143" rx="7.15" ry="17.28" fill="#090f20" stroke="#364d67"/>
+<ellipse cx="51" cy="143" rx="4.95" ry="12.48" fill="url(#hub)" stroke="#526a83"/>
+<ellipse cx="51" cy="143" rx="1.98" ry="5.28" fill="#11192a" stroke="#54617c"/>
+<ellipse cx="54.41" cy="143.00" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="52.70" cy="150.69" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="49.30" cy="150.69" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="47.59" cy="143.00" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="49.30" cy="135.31" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="52.70" cy="135.31" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<path d="M119 138 C155 136 155 143 155 168 Q155 198 138 198 L119 198Z" fill="url(#rubber)"/>
+<path d="M121.95 138.46l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M126.45 141.04l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M130.38 145.71l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M133.42 152.10l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M135.34 159.73l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M136.00 168.00l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M135.34 176.27l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M133.42 183.90l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M130.38 190.29l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M126.45 194.96l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<path d="M121.95 197.54l8.55 1.2l3 -2l7.22 1" fill="none" stroke="#303346" stroke-width="1.25"/>
+<ellipse cx="119" cy="168" rx="17" ry="30" fill="url(#rubber)" stroke="#4084b1"/>
+<ellipse cx="119" cy="168" rx="11.05" ry="21.599999999999998" fill="#090f20" stroke="#364d67"/>
+<ellipse cx="119" cy="168" rx="7.65" ry="15.600000000000001" fill="url(#hub)" stroke="#526a83"/>
+<ellipse cx="119" cy="168" rx="3.06" ry="6.6" fill="#11192a" stroke="#54617c"/>
+<ellipse cx="124.27" cy="168.00" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="121.64" cy="177.61" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="116.36" cy="177.61" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="113.73" cy="168.00" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="116.36" cy="158.39" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+<ellipse cx="121.64" cy="158.39" rx=".65" ry="1" fill="#6c7185" stroke="none"/>
+</g>
 </svg>
