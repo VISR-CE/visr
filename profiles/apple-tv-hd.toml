@@ -37,7 +37,7 @@ dynamic_resolution = true
 dynamic_resolution_floor = 480
 
 [network]
-player_capacity = 8
+player_capacity = 16
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -112,5 +112,6 @@ why = "Decided for this device: a cutscene's cost is scripted, and at 540 it alr
 source = "Apple TV HD runs of a10 with the 30 cap, and replays of a played take, 2026-10-13"
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "No player count held 30 frames a second at minimum settings on this Apple TV, so 8, the lowest choice that keeps a game playable at all, is a guess. Provisional until a multiplayer run shows what it holds."
+basis = "measured"
+why = "At 30 frames a second, minimum settings and 540 lines, presented 120 second windows on Blood Gulch put 99.64% and 99.81% of frames on time with 8 players, 99.55%, 99.36% and 99.72% with 16 (the median round holds), 83.5% and 87.6% with 24 and 31% with 32. Sidewinder with 32 players put 92.4% and 96.0% on time and with 64 players 2.5% and 4.2%. The margin at 16 is thin: the median round clears the 99.5% bar by 0.05 points, and reports from players correct it. 16 is the highest count that holds on the map that failed first; 16 on Sidewinder was not run, and its 32 failed later than Blood Gulch's 24."
+source = "VISR settings sweep capacity ladder, build 20261029.212036 (main e77a24957), two rounds and a third on 16 players, presented, 2026-10-29 to 2026-10-30"
