@@ -2988,8 +2988,8 @@ static void menu_profile_description(int keyboard)
 	static char const *const captions[][2] = {
 		{ "Rename this profile using\\nthe virtual keyboard.\\n\\nCurrent Profile:",
 		  "Rename this profile with your\\nkeyboard.\\n\\nCurrent Profile:" },
-		{ "Rename this gametype using\\nthe virtual keyboard.\\n\\n\\nThis gametype:",
-		  "Rename this gametype with your\\nkeyboard.\\n\\n\\nThis gametype:" },
+		{ "Rename this gametype using\\nthe virtual keyboard.\\n\\nThis gametype:",
+		  "Rename this gametype with\\nyour keyboard.\\n\\nThis gametype:" },
 	};
 	long count, index, kind, variant;
 	struct cache_file_tag_instance *instances = cache_files_tag_instances(&count);
