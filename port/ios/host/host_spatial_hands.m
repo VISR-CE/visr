@@ -22,10 +22,11 @@ provider fills anchors the caller owns rather than handing out a collection.
 A hand anchor carries a skeleton whose joints hang off the wrist, not an aim
 location, so the aim is built rather than read: its position is the wrist,
 its barrel the forearm's direction (the wrist less the forearm's arm joint)
-and its up the wrist joint's +y, as a room transform that
-host_spatial_location turns into the room's level frame exactly as it turns a
-controller's aim location (host_spatial_pose.h). The up is a guess about
-ARKit's wrist axes, which debug.hand_log measures once against the room's up.
+and its up the room's up squared off against that barrel, as a room transform
+that host_spatial_location turns into the room's level frame exactly as it
+turns a controller's aim location (host_spatial_pose.h). Nothing of the
+hand's own orientation reaches the aim, which is what keeps the gun upright
+under a hand that rolls freely about the forearm it is aiming with.
 The game sample also runs the gesture recognizer (host_spatial_hands.c,
 plain C over the reduced joints below) and host_spatial_gamepad_map onto the
 same virtual gamepad the Sense pair fills; it marks itself gamepad_valid 2,
@@ -58,8 +59,10 @@ host_theater.m). */
 
 /* a forearm shorter than this is a degenerate reading, not a direction */
 #define FOREARM_MINIMUM_METERS 0.01f
-/* an up this far along the barrel says nothing about the gun's roll */
-#define UP_ALONG_BARREL 0.98f
+/* a barrel this far along the room's up leaves the projection in hand_of
+nothing to normalize: about 3 degrees of vertical, where the last up stands
+in rather than a direction read out of rounding error */
+#define UP_ALONG_BARREL 0.9986f
 
 /* the settings, read once (read_settings); host_spatial.m reads the same ones
 for the Sense tracker, and neither owns the other's copy */
@@ -111,6 +114,11 @@ static int draw_reason, draw_fresh;
 tracked: an untracked forearm keeps it for that sample */
 static simd_float3 last_forward[2];
 static int forward_known[2];
+/* each hand's last up, for the one case the room cannot give one: a barrel
+within UP_ALONG_BARREL of the room's up has nothing left to square against
+it, so the roll holds where it was rather than spinning (hand_of) */
+static simd_float3 last_up[2];
+static int up_known[2];
 /* the reduced joints of the last game sample (host_spatial_hands.h): what a
 gesture recognizer reads, while the aim itself needs only the wrist and the
 forearm */
@@ -121,9 +129,6 @@ sample's source, so no pinch or dwell survives into the next one they fill */
 static struct hands_state gesture_state;
 /* 1 while the hands source filled the game sample it was last given */
 static int active;
-/* debug.hand_log's wrist-axis measurement, logged once */
-static int axes_logged;
-
 /* the joints the aim and a gesture recognizer need, in struct
 host_spatial_hand_joints's order (the reduction below walks them together) */
 enum { JOINT_WRIST, JOINT_FOREARM_ARM, JOINT_THUMB_TIP, JOINT_INDEX_TIP, JOINT_MIDDLE_TIP, JOINT_RING_TIP,
@@ -306,10 +311,12 @@ static void drain(void)
 	{
 		provider = nil;
 		ran_session = nil;
-		/* a kept barrel direction is a vector in the old session's origin,
-		so it doesn't survive into the new one */
+		/* a kept barrel direction or up is a vector in the old session's
+		origin, so neither survives into the new one */
 		last_forward[0] = last_forward[1] = (simd_float3){ 0.0f, 0.0f, 0.0f };
 		forward_known[0] = forward_known[1] = 0;
+		last_up[0] = last_up[1] = (simd_float3){ 0.0f, 0.0f, 0.0f };
+		up_known[0] = up_known[1] = 0;
 		host_logf(HOST_LOG_INFO, "spatial: ARKit's session ended; the hand provider starts again with the next");
 	}
 	if (!session)
@@ -389,22 +396,27 @@ static void position_of(simd_float3 room, const float *head_position, float game
 	host_stereo_room_vector(game);
 }
 
-/* the wrist's axes against the up the gun's roll is built from
-(debug.hand_log, once): which ARKit wrist axis is the back of the hand is a
-guess, and this is the measurement that settles it. The room's up, not the
-head's: the head's orientation isn't on this side of the samples, and the
-room's up is what the level frame rolls against anyway */
-static void log_wrist_axes(simd_float4x4 wrist, simd_float3 forward)
+/* the up that sets the gun's roll, for one barrel direction in the room: the
+room's up (the game's +z once host_spatial_room_to_game has had it,
+host_spatial_pose.h) projected square to the barrel. Nothing of the hand's
+orientation is in it. An open hand rolls freely about the forearm it aims
+with, so an up taken off the wrist put that roll straight into the weapon and
+the gun rendered on its side; the room cannot do that. Within
+UP_ALONG_BARREL of vertical the projection has nothing left to normalize, and
+the hand's last up stands in; with none yet, the room's forward does, which
+is square to the up a vertical barrel lies along */
+static simd_float3 aim_up(int hand, simd_float3 forward)
 {
-	simd_float3 up = { 0.0f, 1.0f, 0.0f };
+	const simd_float3 room_up = { 0.0f, 1.0f, 0.0f }, room_forward = { 0.0f, 0.0f, -1.0f };
+	simd_float3 reference = room_up;
 
-	axes_logged = 1;
-	host_logf(HOST_LOG_INFO, "spatial: the aiming wrist's axes against the room's up: +x %.2f +y %.2f +z %.2f; "
-		"against the barrel: +x %.2f +y %.2f +z %.2f. The roll is built from +y; the right axis is the one near 0 "
-		"against the barrel and furthest from 0 against the up",
-		simd_dot(wrist.columns[0].xyz, up), simd_dot(wrist.columns[1].xyz, up), simd_dot(wrist.columns[2].xyz, up),
-		simd_dot(wrist.columns[0].xyz, forward), simd_dot(wrist.columns[1].xyz, forward),
-		simd_dot(wrist.columns[2].xyz, forward));
+	if (fabsf(simd_dot(room_up, forward)) > UP_ALONG_BARREL)
+	{
+		if (up_known[hand])
+			return last_up[hand];
+		reference = room_forward;
+	}
+	return simd_normalize(reference - simd_dot(reference, forward) * forward);
 }
 
 /* one hand from the anchor the provider filled: the state, held, the
@@ -486,11 +498,11 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	(controller_aim_game.c's hand_sightline), and a tracked bare hand is as
 	held as hand aim gets */
 	out->held = 1;
-	/* the up, which sets the gun's roll. Nearly along the barrel it says
-	nothing about roll, so the room's up stands in and the gun reads level */
-	up = wrist.columns[1].xyz;
-	if (fabsf(simd_dot(up, forward)) > UP_ALONG_BARREL)
-		up = (simd_float3){ 0.0f, 1.0f, 0.0f };
+	/* the up, which sets the gun's roll: the room's, square to the barrel
+	(aim_up), and kept for the one barrel the room cannot answer for */
+	up = aim_up(hand, forward);
+	last_up[hand] = up;
+	up_known[hand] = 1;
 	/* a room transform in the convention location_of reads: -z the barrel,
 	+y the up, the wrist the position. host_spatial_location squares the up
 	against the barrel itself (host_spatial_pose.c's location_axes), so only
@@ -502,11 +514,6 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	/* the grip is the wrist's own transform. The guest reads only aim, but
 	host_spatial_hold_poses copies both, so it is filled sanely */
 	location_of(wrist, head_position, &out->grip);
-	/* the aiming hand's wrist, not whichever hand came into view first: the
-	constant the measurement settles is read off that hand, and the two
-	wrists are mirrored */
-	if (hand_log && !axes_logged && hand == aiming_hand)
-		log_wrist_axes(wrist, forward);
 }
 
 /* both hands from the two anchors, and the reason for them. predict_to above
