@@ -565,7 +565,7 @@ static void watch_checks(void)
 		"a watched host's listing is heard, with its version, while not browsing");
 	/* tampered (another version, the old signature): no change */
 	memcpy(bytes, published, (size_t)published_size);
-	bytes[4] = (unsigned char)(bytes[4] + 2);
+	bytes[4] = (unsigned char)(bytes[4] + 5);
 	bytes[9] = (unsigned char)(bytes[9] + 50);
 	clock_now += 10;
 	hear(bytes, published_size, 0, NULL);
@@ -575,7 +575,7 @@ static void watch_checks(void)
 	sign_again(bytes, published_size);
 	clock_now += 10;
 	hear(bytes, published_size, 0, NULL);
-	check(watched(&version) == P2P_WATCH_LISTED && version == HALO_PORT_NETWORK_VERSION + 2,
+	check(watched(&version) == P2P_WATCH_LISTED && version == HALO_PORT_NETWORK_VERSION + 5,
 		"a watched host of another version is told");
 	/* a retained copy of long ago: ignored */
 	memcpy(bytes, published, (size_t)published_size);
@@ -645,7 +645,7 @@ static void stage_checks(void)
 	facts.over = 1;
 	check(p2p_join_stage(&facts) == P2P_JOIN_NOT_FOUND, "given up without an answer: not found");
 	facts.over = 0;
-	facts.host_version = HALO_PORT_NETWORK_VERSION + 3;
+	facts.host_version = HALO_PORT_NETWORK_VERSION + 4;
 	check(p2p_join_stage(&facts) == P2P_JOIN_VERSION, "a listing of another version: told at once");
 	facts.watched = P2P_WATCH_ENDED;
 	check(p2p_join_stage(&facts) == P2P_JOIN_ENDED, "a tombstone: ended");
