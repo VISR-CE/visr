@@ -3,8 +3,62 @@ import hashlib
 import json
 import stat
 import zipfile
+from pathlib import Path
 import pytest
 from discord_sdk import FRAMEWORK, SLICES, SHA256, VERSION, prepare, prepare_from_environment
+
+
+@pytest.mark.parametrize('architectures', [('arm64',), ('arm64', 'x86_64')])
+def test_macos_embed_omits_voice_assets_and_keeps_requested_architectures(tmp_path, monkeypatch, architectures):
+    import discord_sdk
+    source = tmp_path / 'cache/discord_partner_sdk.framework'
+    version = source / 'Versions/A'
+    for name in ('Headers/discord.h', 'Frameworks/libdiscord_krisp.dylib', 'Resources/Krisp/model.kef',
+                 'Resources/other.kw', 'Resources/PrivacyInfo.xcprivacy', '_CodeSignature/CodeResources',
+                 'discord_partner_sdk'):
+        path = version / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('universal')
+    (source / 'Versions/Current').symlink_to('A')
+    for name in ('Headers', 'Frameworks', 'Resources', 'discord_partner_sdk'):
+        (source / name).symlink_to('Versions/Current/' + name)
+    commands = []
+    monkeypatch.setattr(discord_sdk.subprocess, 'check_output', lambda *args, **kwargs: 'arm64 x86_64')
+
+    def thin(command, **kwargs):
+        commands.append(command)
+        Path(command[-1]).write_text('arm64')
+    monkeypatch.setattr(discord_sdk.subprocess, 'run', thin)
+    destination = tmp_path / 'embed/discord_partner_sdk.framework'
+    destination.mkdir(parents=True)
+    (destination / 'stale').touch()
+    discord_sdk.slim_macos_framework(source, destination, architectures)
+    assert not (destination / 'stale').exists()
+    assert not (destination / 'Headers').is_symlink()
+    assert not (destination / 'Versions/A/Headers').exists()
+    assert not (destination / 'Frameworks/libdiscord_krisp.dylib').exists()
+    assert not (destination / 'Resources/Krisp').exists()
+    assert not (destination / 'Resources/other.kw').exists()
+    assert not (destination / 'Versions/A/_CodeSignature').exists()
+    assert (destination / 'Resources/PrivacyInfo.xcprivacy').is_file()
+    assert (source / 'discord_partner_sdk').read_text() == 'universal'
+    if len(architectures) == 1:
+        assert (destination / 'discord_partner_sdk').read_text() == 'arm64'
+        assert commands[0][2:4] == ['-thin', 'arm64']
+    else:
+        assert (destination / 'discord_partner_sdk').read_text() == 'universal'
+        assert commands == []
+
+
+def test_macos_embed_rejects_missing_architecture_before_replacing_output(tmp_path, monkeypatch):
+    import discord_sdk
+    source, destination = tmp_path / 'cache', tmp_path / 'embed'
+    destination.mkdir()
+    (destination / 'old').touch()
+    monkeypatch.setattr(discord_sdk.subprocess, 'check_output', lambda *args, **kwargs: 'arm64')
+    with pytest.raises(ValueError, match='do not cover'):
+        discord_sdk.slim_macos_framework(source, destination, ['x86_64'])
+    assert (destination / 'old').exists()
 
 
 def sdk_archive(tmp_path, extra=()):

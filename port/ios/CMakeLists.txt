@@ -192,6 +192,12 @@ if(HALO_DISCORD)
     endif()
     if(HALO_NATIVE_MAC)
         set(HALO_DISCORD_FRAMEWORK "${HALO_DISCORD_SDK_ROOT}/lib/release/discord_partner_sdk.framework")
+        set(HALO_DISCORD_EMBED "${CMAKE_CURRENT_BINARY_DIR}/discord/discord_partner_sdk.framework")
+        execute_process(COMMAND "${Python3_EXECUTABLE}" "${ROOT}/tools/discord_sdk.py"
+            --source "${HALO_DISCORD_FRAMEWORK}" --destination "${HALO_DISCORD_EMBED}"
+            --architectures ${CMAKE_OSX_ARCHITECTURES}
+            COMMAND_ERROR_IS_FATAL ANY)
+        set(HALO_DISCORD_FRAMEWORK "${HALO_DISCORD_EMBED}")
         set(HALO_DISCORD_RUNPATH "@executable_path/../Frameworks")
     else()
         if(CMAKE_OSX_SYSROOT MATCHES "simulator")

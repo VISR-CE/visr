@@ -5,6 +5,7 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import tempfile
 import urllib.parse
 import urllib.request
@@ -16,6 +17,36 @@ FRAMEWORK = 'lib/release/discord_partner_sdk.framework'
 XCFRAMEWORK = 'lib/release/discord_partner_sdk.xcframework'
 SLICES = {'macos': FRAMEWORK, 'ios': f'{XCFRAMEWORK}/ios-arm64/discord_partner_sdk.framework',
           'ios-simulator': f'{XCFRAMEWORK}/ios-arm64-simulator/discord_partner_sdk.framework'}
+
+
+def slim_macos_framework(source, destination, architectures):
+    """Stage the presence-only embed; leave the verified SDK cache untouched."""
+    source, destination = Path(source).resolve(), Path(destination).resolve()
+    if source == destination or source in destination.parents or destination in source.parents:
+        raise ValueError('Discord embed staging must be separate from its source')
+    architectures = set(architectures)
+    binary = source / 'discord_partner_sdk'
+    available = set(subprocess.check_output(['lipo', '-archs', str(binary)], text=True).split())
+    if not architectures or not architectures <= available:
+        raise ValueError(f'Discord SDK architectures {sorted(available)} do not cover {sorted(architectures)}')
+
+    # Discord's voice guide permits omitting Krisp libraries and models. Framework
+    # headers and the original signature are also unnecessary in a re-signed embed.
+    def excluded(directory, names):
+        return [name for name in names if name in ('Headers', '_CodeSignature') or
+                'krisp' in name.lower() or Path(name).suffix.lower() in ('.kef', '.kw')]
+
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination, symlinks=True, ignore=excluded)
+    if architectures != available:
+        binary = (destination / 'discord_partner_sdk').resolve(strict=True)
+        temporary = binary.with_suffix('.thin')
+        flags = ['-thin', next(iter(architectures))] if len(architectures) == 1 else [
+            flag for arch in sorted(architectures) for flag in ('-extract', arch)]
+        subprocess.run(['lipo', str(binary), *flags, '-output', str(temporary)], check=True)
+        temporary.chmod(binary.stat().st_mode & 0o777)
+        temporary.replace(binary)
 
 
 def _relative_path(name):
@@ -139,3 +170,13 @@ def prepare_from_environment(destination, platform='macos'):
         raise ValueError('Discord SDK archive is not a valid ZIP file') from error
     print(f'Discord SDK {VERSION}: verified {platform} framework at {root}', flush=True)
     return root
+
+
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser(description='Stage a slim macOS Discord framework for embedding')
+    parser.add_argument('--source', required=True, type=Path)
+    parser.add_argument('--destination', required=True, type=Path)
+    parser.add_argument('--architectures', required=True, nargs='+')
+    args = parser.parse_args()
+    slim_macos_framework(args.source, args.destination, args.architectures)
