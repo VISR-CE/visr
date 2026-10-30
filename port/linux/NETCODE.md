@@ -553,9 +553,13 @@ its name alone beside it, has its name given back as the map lists find it.
      Only that deletion scope skips the two original flag-deletion assertions;
      local cleanup, other game deletions, hosts and single player retain them.
      Object messages and replay behavior are unchanged.
-   - After a co-op checkpoint revert, the host reliably deletes each
-     restored living unit before recreating it through the ordinary object
-     diff, even if its datum ID is unchanged. This replaces client corpses
+   - Before a co-op checkpoint revert, the host captures the full datum IDs
+     of its announced living units. After loading, it reliably deletes a
+     restored living unit with the same announced ID only if that ID was
+     absent from the captured alive set, then recreates it through the
+     ordinary object diff. Units alive throughout retain their replicas and
+     AI control state; changed or unannounced IDs use the normal diff.
+     This replaces client corpses
      for players, NPCs, and vehicles. The delete detaches player bindings;
      the next living player state attaches the fresh unit. Inventories are
      invalidated so weapons, ammunition, and grenades are resent, including

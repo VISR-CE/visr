@@ -332,6 +332,8 @@ struct distributed_inventory_message
 /* the host: the objects it has told its clients of, by absolute index
 (the object's datum index), NONE for none */
 static long objects_host_told[MAXIMUM_TRACKED_OBJECTS];
+/* Outside the checkpoint image: announced living IDs just before a revert. */
+static long objects_host_revert_alive[MAXIMUM_TRACKED_OBJECTS];
 /* ... the next object at rest to send, round them all */
 static long objects_host_resting_cursor;
 /* ... past the highest of them */
@@ -1213,6 +1215,28 @@ static void distributed_host_update_objects(
 	}
 }
 
+/* Capture before game_state_revert overwrites the host's object array. Full
+IDs distinguish a saved corpse from a replacement in the same datum slot. */
+void network_objects_coop_reverting(
+	void)
+{
+	struct object_iterator iterator;
+
+	csmemset(objects_host_revert_alive, NONE, sizeof(objects_host_revert_alive));
+	object_iterator_new(&iterator, _object_mask_unit, 0);
+	while (object_iterator_next(&iterator))
+	{
+		long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.index);
+
+		if (objects_host_told[absolute_index] == iterator.index &&
+			distributed_object_networked(iterator.index) &&
+			!TEST_FLAG(object_get(iterator.index)->object.damage_flags, _object_dead_bit))
+		{
+			objects_host_revert_alive[absolute_index] = iterator.index;
+		}
+	}
+}
+
 /* A checkpoint can revive a unit without changing its datum ID. A create
 alone reuses the client's corpse (distributed_client_create), so delete
 first, then let the ordinary diff create the restored lifetime. This also
@@ -1231,24 +1255,28 @@ void network_objects_coop_reverted(
 	{
 		long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.index);
 
-		if (!distributed_object_networked(iterator.index) ||
+		if (objects_host_revert_alive[absolute_index] == iterator.index ||
+			!distributed_object_networked(iterator.index) ||
 			TEST_FLAG(object_get(iterator.index)->object.damage_flags, _object_dead_bit))
 		{
 			continue;
 		}
-		csmemset(&message.changes[count], 0, sizeof(message.changes[count]));
-		message.changes[count].change = _object_change_delete;
-		message.changes[count].object_index = iterator.index;
-		objects_statistics.deletes++;
-		if (++count == limit)
-		{
-			distributed_send(&message, _distributed_message_object_changes, count,
-				(word)(sizeof(message.header) + count * sizeof(struct distributed_object_change)),
-				_distributed_to_clients_reliably);
-			count = 0;
-		}
+		/* Different or unannounced IDs already take the ordinary diff path. */
 		if (objects_host_told[absolute_index] == iterator.index)
+		{
+			csmemset(&message.changes[count], 0, sizeof(message.changes[count]));
+			message.changes[count].change = _object_change_delete;
+			message.changes[count].object_index = iterator.index;
+			objects_statistics.deletes++;
+			if (++count == limit)
+			{
+				distributed_send(&message, _distributed_message_object_changes, count,
+					(word)(sizeof(message.header) + count * sizeof(struct distributed_object_change)),
+					_distributed_to_clients_reliably);
+				count = 0;
+			}
 			objects_host_told[absolute_index] = NONE;
+		}
 		objects_host_inventories[absolute_index].checksum = 0;
 		objects_host_inventories[absolute_index].weapons_checksum = 0;
 		/* Force even an empty inventory or a zero checksum to be resent. */

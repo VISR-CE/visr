@@ -2082,6 +2082,7 @@ static boolean main_coop_host_revert(
 	if (!game_state_port_saved_game_valid())
 		return FALSE;
 	MAIN_CPU_PHASE(8, 7); /* port: checkpoint rewind event */
+	network_objects_coop_reverting(); /* port: preserve pre-load unit lifetimes */
 	game_state_revert();
 	network_coop_reverted(now);
 	ui_widgets_disable_pause_game(30);
