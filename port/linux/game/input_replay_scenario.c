@@ -25,6 +25,8 @@ recording skipped it.
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
 
+void platform_log(const char *format, ...);
+
 unsigned char input_replay_main_menu_loaded(void)
 {
 	struct scenario *scenario = global_scenario_try_and_get();
@@ -178,6 +180,7 @@ static void staging_apply(void *context, int kind, int a, int b)
 	case BENCHMARK_STAGING_TELEPORT_PLAYER:
 	{
 		struct player_datum *player = player_try_and_get(local_player_get_player_index(0));
+		platform_log("debug.input_replay: staging teleport flag=%d unit=%ld", a, (long)(player ? player->unit_index : NONE));
 		if (player) hs_object_teleport(player->unit_index, (short)a);
 		break;
 	}
@@ -195,11 +198,29 @@ static void staging_apply(void *context, int kind, int a, int b)
 
 int input_replay_staging_apply(const struct benchmark_staging *staging, char *error, unsigned int size)
 {
+	static const char *const keys[] = { "switch_bsp", "teleport_player", "ai_place", "ai_see", "ai_see_player", "deathless" };
 	struct scenario *scenario = global_scenario_try_and_get();
+	int index;
 	if (!scenario)
 	{
 		snprintf(error, size, "staging: no loaded scenario");
 		return 0;
 	}
-	return benchmark_staging_apply(staging, staging_lookup, staging_apply, scenario, error, size);
+	if (!benchmark_staging_apply(staging, staging_lookup, staging_apply, scenario, error, size)) return 0;
+	/* Log only after validation and application succeed, so missing names cannot leave misleading step evidence. */
+	for (index = 0; index < staging->count; index++)
+	{
+		const struct benchmark_staging_step *step = &staging->steps[index];
+		char description[96];
+		if (step->kind == BENCHMARK_STAGING_SWITCH_BSP)
+			snprintf(description, sizeof(description), "%s %d", keys[step->kind], step->bsp);
+		else if (step->kind == BENCHMARK_STAGING_DEATHLESS)
+			snprintf(description, sizeof(description), "%s true", keys[step->kind]);
+		else if (step->kind == BENCHMARK_STAGING_AI_SEE)
+			snprintf(description, sizeof(description), "%s %s %s", keys[step->kind], step->a, step->b);
+		else
+			snprintf(description, sizeof(description), "%s %s", keys[step->kind], step->a);
+		platform_log("debug.input_replay: staging step %d/%d applied: %s", index + 1, staging->count, description);
+	}
+	return 1;
 }

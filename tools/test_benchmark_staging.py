@@ -173,6 +173,7 @@ static void hs_object_teleport(int i, short j) { (void)i; (void)j; }
 static void ai_scripting_place(int i) { (void)i; }
 static void ai_scripting_magically_see_encounter(int i, int j) { (void)i; (void)j; }
 static void ai_scripting_magically_see_players(int i) { (void)i; }
+static void platform_log(const char *format, ...) { (void)format; }
 /* IMPLEMENTATION */
 int main(void) {
     for (int previous = 0; previous <= 1; previous++) {
