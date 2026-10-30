@@ -105,7 +105,7 @@ def test_generation_two_shards_carry_the_revision_and_every_bundled_key(tmp_path
     assert manifest(envelope)["compatibility"] == "device-profiles-2:ios/iPhone18,1/_"
     files = payload_files(envelope)
     assert files["hardware/revision.toml"] == (ROOT / "profiles/hardware/revision.toml").read_bytes()
-    assert b"player_capacity = 32" in files["iphone-17-pro.toml"]
+    assert b"player_capacity = 128" in files["iphone-17-pro.toml"]
     assert b"player_capacity = 8" in files["iphone-ipad.toml"]
     # the Apple TV 4K (3rd generation) shard keeps upscaled textures on, which its device-profiles-1 shard does not
     tv = data_pack.device_profile_snapshot(ROOT / "profiles", "tvos", "AppleTV14,1", generation=2)
