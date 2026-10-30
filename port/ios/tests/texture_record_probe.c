@@ -165,6 +165,21 @@ int main(void)
 	assert(texture_override_cache_records(second, TEXTURE_RECORD_BC7, "") == 0);
 	texture_override_cache_map_loaded(1);
 	assert(!find(0x11, 64, 32, &levels) && !live);
+	/* Menu pictures can arrive after their first draw, and a newer recipe replaces a resident picture. */
+	assert(texture_override_cache_records(cache, TEXTURE_RECORD_BC7, "") == 7);
+	assert(!find(0x66, 16, 16, &levels));
+	snprintf(path, sizeof(path), "%s/manifest.tsv", cache);
+	manifest = fopen(path, "a"); assert(manifest);
+	fprintf(manifest, "0000000000000066\t16\t16\t0\t1\t0000000000000666\t1\t1\n");
+	fclose(manifest);
+	assert(texture_override_cache_records(cache, TEXTURE_RECORD_BC7, "") == 8);
+	assert(find(0x66, 16, 16, &levels) && last_width == 32);
+	record(cache, 0x66, 16, 16, 4, TEXTURE_RECORD_BC7, 0x667, 0);
+	manifest = fopen(path, "w"); assert(manifest);
+	fprintf(manifest, "0000000000000066\t16\t16\t0\t1\t0000000000000667\t1\t1\n");
+	fclose(manifest);
+	assert(texture_override_cache_records(cache, TEXTURE_RECORD_BC7, "") == 1);
+	assert(find(0x66, 16, 16, &levels) && last_width == 64);
 	/* a format of 0 (a GPU that draws neither) lists nothing even with a manifest */
 	assert(texture_override_cache_records(cache, 0, "") == 0);
 	puts("PASS: texture cache records: BC7 and ASTC 4x4 mip chains as blocks, BGRA8 exceptions, refusals, manifest index");

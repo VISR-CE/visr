@@ -79,6 +79,8 @@ static int by_record_key(const void *a, const void *b)
 	return (x->height > y->height) - (x->height < y->height);
 }
 
+static const struct record_entry *record_entry(uint64_t hash, uint32_t width, uint32_t height);
+
 size_t texture_override_cache_records(const char *directory, uint32_t format, const char *second)
 {
 	char path[1024], line[512];
@@ -95,7 +97,7 @@ size_t texture_override_cache_records(const char *directory, uint32_t format, co
 	length = snprintf(path, sizeof(path), "%s/manifest.tsv", directories[0]);
 	file = format && *directories[0] && length > 0 && (size_t)length < sizeof(path) ? fopen(path, "r") : NULL;
 	if (!file)
-		return 0;
+		goto refreshed;
 	/* (port/runtime/texture_cache.c's manifest: hash, width, height, result, treatment, recipe key, global key,
 	bytes) */
 	while (fgets(line, sizeof(line), file))
@@ -125,6 +127,21 @@ size_t texture_override_cache_records(const char *directory, uint32_t format, co
 	fclose(file);
 	if (record_entry_count)
 		qsort(record_entries, record_entry_count, sizeof(*record_entries), by_record_key);
+refreshed:
+	/* Menus may read the manifest again as the host publishes pictures. Retry newly arrived records and replace
+	changed recipes, retaining unchanged textures and the budget's refusal backoff. No source pixels are cached here. */
+	for (unsigned long index = 0; started && index < cache.count; index++)
+	{
+		struct texture_replacement *record = &cache.records[index];
+		const struct record_entry *entry = record_entry(record->hash, record->width, record->height);
+
+		if (record->set != 0)
+			continue;
+		if (record->state == _texture_replacement_resident && (!entry || record->recipe_key != entry->recipe_key))
+			texture_replacement_drop(&cache, record);
+		if (record->state == _texture_replacement_absent && entry)
+			record->state = _texture_replacement_unknown;
+	}
 	return record_entry_count;
 }
 
@@ -268,6 +285,7 @@ static void load_record(struct texture_replacement *record)
 			(unsigned long)record->height);
 	else
 		platform_log("texture cache %016llx: the device made no texture for %s", (unsigned long long)record->hash, path);
+	record->recipe_key = layout.recipe_key;
 	texture_replacement_loaded(&cache, record, texture, layout.levels);
 	read_milliseconds += now_milliseconds() - began;
 	reads++;
