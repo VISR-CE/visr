@@ -553,6 +553,14 @@ its name alone beside it, has its name given back as the map lists find it.
      Only that deletion scope skips the two original flag-deletion assertions;
      local cleanup, other game deletions, hosts and single player retain them.
      Object messages and replay behavior are unchanged.
+   - After a co-op checkpoint revert, the host reliably deletes each
+     restored living unit before recreating it through the ordinary object
+     diff, even if its datum ID is unchanged. This replaces client corpses
+     for players, NPCs, and vehicles. The delete detaches player bindings;
+     the next living player state attaches the fresh unit. Inventories are
+     invalidated so weapons, ammunition, and grenades are resent, including
+     empty inventories. Objects absent after the load retain normal deletion.
+     Clients and the wire format are unchanged.
    - The objects placed when the map loads are placed alike everywhere:
      the host's word finds a client's already there. Past loading, a
      client's own objects (projectiles, effects: what only it sees) take

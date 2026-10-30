@@ -1213,6 +1213,58 @@ static void distributed_host_update_objects(
 	}
 }
 
+/* A checkpoint can revive a unit without changing its datum ID. A create
+alone reuses the client's corpse (distributed_client_create), so delete
+first, then let the ordinary diff create the restored lifetime. This also
+revives NPCs and vehicles; objects absent after the load keep the normal diff. */
+void network_objects_coop_reverted(
+	void)
+{
+	struct distributed_object_change_message message;
+	short count = 0;
+	short limit = MIN(MAXIMUM_ENTRIES_PER_MESSAGE, RELIABLE_ENTRIES(struct distributed_object_change));
+	struct object_iterator iterator;
+	long now = game_time_get();
+
+	object_iterator_new(&iterator, _object_mask_unit, 0);
+	while (object_iterator_next(&iterator))
+	{
+		long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.index);
+
+		if (!distributed_object_networked(iterator.index) ||
+			TEST_FLAG(object_get(iterator.index)->object.damage_flags, _object_dead_bit))
+		{
+			continue;
+		}
+		csmemset(&message.changes[count], 0, sizeof(message.changes[count]));
+		message.changes[count].change = _object_change_delete;
+		message.changes[count].object_index = iterator.index;
+		objects_statistics.deletes++;
+		if (++count == limit)
+		{
+			distributed_send(&message, _distributed_message_object_changes, count,
+				(word)(sizeof(message.header) + count * sizeof(struct distributed_object_change)),
+				_distributed_to_clients_reliably);
+			count = 0;
+		}
+		if (objects_host_told[absolute_index] == iterator.index)
+			objects_host_told[absolute_index] = NONE;
+		objects_host_inventories[absolute_index].checksum = 0;
+		objects_host_inventories[absolute_index].weapons_checksum = 0;
+		/* Force even an empty inventory or a zero checksum to be resent. */
+		objects_host_inventories[absolute_index].time = now - INVENTORY_REFRESH_TICKS;
+		objects_host_inventories[absolute_index].ammunition_time = NONE;
+		objects_host_inventories[absolute_index].carried_time = now;
+	}
+	if (count)
+	{
+		distributed_send(&message, _distributed_message_object_changes, count,
+			(word)(sizeof(message.header) + count * sizeof(struct distributed_object_change)),
+			_distributed_to_clients_reliably);
+	}
+	distributed_host_update_objects();
+}
+
 /* The order a newly loaded client receives the host's objects in, most
 needed first: players' units (it may spectate them), the vehicles players
 and AI ride, other units, then everything else. */
