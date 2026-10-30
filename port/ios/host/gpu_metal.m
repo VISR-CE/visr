@@ -7934,6 +7934,24 @@ static void stereo_pacing_count(void)
 		}
 		pacing_percentiles(stereo_pacing.cpu_times, stereo_pacing.timed, &cpu_median, &cpu_high);
 		pacing_percentiles(stereo_pacing.gpu_times, stereo_pacing.timed, &gpu_median, &gpu_high);
+		/* the system's state with each report, when it changes: the Compositor ran whole stretches at 45 Hz with the
+		GPU well under the 90 Hz budget, a state that crossed relaunches and came and went in a launch */
+		{
+			static int logged_thermal = -1, logged_low_power = -1;
+			int thermal = (int)NSProcessInfo.processInfo.thermalState;
+			int low_power = NSProcessInfo.processInfo.lowPowerModeEnabled ? 1 : 0;
+
+			if (thermal != logged_thermal || low_power != logged_low_power)
+			{
+				static const char *names[] = { "nominal", "fair", "serious", "critical" };
+
+				platform_log("stereo: thermal state %s, Low Power Mode %s, presentations %.1f ms apart at the shortest",
+					thermal >= 0 && thermal < 4 ? names[thermal] : "unknown", low_power ? "on" : "off",
+					stereo_pacing.shortest * 1000.0);
+				logged_thermal = thermal;
+				logged_low_power = low_power;
+			}
+		}
 		platform_log("stereo: frames shown for 1/2/3/4/5+ refreshes at %.1f Hz: %lu/%lu/%lu/%lu/%lu (repeat count %d); "
 			"frame CPU %.1f ms, GPU %.1f ms (medians; 95th %.1f, %.1f)", 1.0 / period, shown[1], shown[2], shown[3],
 			shown[4], shown[5], repeat, cpu_median, gpu_median, cpu_high, gpu_high);
