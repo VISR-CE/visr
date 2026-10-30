@@ -56,6 +56,10 @@ asked for, one with a backslash is a tag of the map instead
 </bitmap>
 ```
 
+A bitmap whose `name` is a map tag path replaces that map bitmap's frame textures
+with its PNGs. The map keeps its frame indices and geometry, and supplies the
+original texture when a PNG is missing or cannot be drawn.
+
 A picture for widgets. Each `<frame>` is an 8-bit RGBA PNG and its size in
 the 640x480 menu screen (the PNG is a whole multiple of it), or a frame of a
 bitmap of the map: `<frame map="ui\shell\...\profile_options" index="1"/>`. (Or

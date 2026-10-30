@@ -406,6 +406,11 @@ def bitmap_document(assets, names):
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
                       index=str(index), png=NONE_PNG,
                       width='460', height='230')
+    # Map widgets keep their bitmap and frame indices; replace only the drawn textures.
+    name = 'main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_options'
+    bitmap = deepcopy(source[name])
+    bitmap.set('name', 'ui\\shell\\' + name.replace('/', '\\'))
+    root.append(bitmap)
     return root
 
 

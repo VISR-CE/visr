@@ -578,3 +578,14 @@ def test_join_warning_uses_xbox_confirmation_art_and_cancel_first():
         assert art.get('bitmap') == f'xbox/browser/{icon}_butn_sm'
     assert (r'pc\xbox\error\confirm_join_big_modal_fullscreen',
             r'pc\error\confirm_join_big_modal_fullscreen') in generator().screen_pairs()
+
+
+def test_map_gametype_pictures_use_the_six_pc_redraws():
+    name = 'main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_options'
+    root = ET.parse(MENUS / 'xbox/bitmaps.xml')
+    bitmap = next(b for b in root.getroot() if b.get('name') == 'ui\\shell\\' + name.replace('/', '\\'))
+    frames = list(bitmap)
+    assert len(frames) == 6
+    for index, frame in enumerate(frames):
+        assert frame.attrib == {'png': f'ce/shell/{name}__{index}.png', 'width': '256', 'height': '256'}
+        assert (MENUS / frame.get('png')).is_file()

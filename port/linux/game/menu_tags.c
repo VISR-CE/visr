@@ -74,11 +74,12 @@ void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, bool
 
 /* ui.map's bitmaps that the in-game menus draw from the player's cache where a game map lacks them (a <frame> with
 a cache), not yet saved there: saved by the main menu update (pc_menu_art_extract) */
-#define MAXIMUM_EXTRACTIONS 16
+#define MAXIMUM_EXTRACTIONS 64
 static struct
 {
 	struct bitmap_data *bitmap;
 	char const *path;
+	boolean redraw;
 } extractions[MAXIMUM_EXTRACTIONS];
 static long extraction_count;
 
@@ -947,6 +948,34 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 
 	if (build.failed)
 		return group;
+	/* port: a map-named bitmap changes its textures, retaining the map's frames
+	and geometry. Registration waits for the texture cache in pc_menu_art_extract;
+	xbox_textures.c keeps the map texture when the PNG cannot be drawn. */
+	if (strchr(source->name, '\\'))
+	{
+		long map_index = tag_loaded(BITMAP_GROUP_TAG, source->name);
+		struct bitmap_group *original;
+
+		if (map_index == NONE)
+			return group;
+		original = bitmap_group_get(map_index);
+		for (frame = 0; frame < source->frame_count && frame < original->bitmaps.count; frame++)
+		{
+			char const *png = build.menus->frames[source->first_frame + frame].png;
+
+			if (!png)
+				continue;
+			if (extraction_count == MAXIMUM_EXTRACTIONS)
+			{
+				problem(source->file, source->line, "too many map picture requests:", source->name);
+				break;
+			}
+			extractions[extraction_count].bitmap = (struct bitmap_data *)original->bitmaps.address + frame;
+			extractions[extraction_count].path = png;
+			extractions[extraction_count++].redraw = TRUE;
+		}
+		return original;
+	}
 	if (!source->frame_count)
 	{
 		problem(source->file, source->line, "a bitmap has no frames:", source->name);
@@ -1024,6 +1053,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			{
 				extractions[extraction_count].bitmap = bitmap;
 				extractions[extraction_count].path = data->cache;
+				extractions[extraction_count].redraw = FALSE;
 				extraction_count++;
 			}
 			continue;
@@ -2973,6 +3003,12 @@ void pc_menu_art_extract(
 	{
 		void *hardware_format = _texture_cache_bitmap_get_hardware_format(extractions[index].bitmap, TRUE, TRUE);
 
+		if (extractions[index].redraw)
+		{
+			if (hardware_format)
+				halo_menus_art_register(hardware_format, extractions[index].path);
+			continue;
+		}
 		platform_log(halo_menus_art_extract(hardware_format, extractions[index].path) ?
 			"menus: saved the picture %s" : "menus: could not save the picture %s", extractions[index].path);
 	}

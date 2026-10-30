@@ -98,7 +98,8 @@ static char const bad_xml[] =
 	"<menus><patch list=\"ui\\shell\\a\" screen=\"ui\\shell\\b\"><row name=\"r\" text=\"R\" open=\"x\"/></patch></menus>\n";
 
 static char const screen_xml[] =
-	"<menus><bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
+	"<menus><bitmap name=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\"><frame png=\"xbox/art/shipped.png\" width=\"256\" height=\"256\"/></bitmap>"
+	"<bitmap name=\"xbox/test_picture\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" width=\"460\" height=\"230\"/></bitmap>"
 	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/v1/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
 	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/v1/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
 	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/v1/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
@@ -904,9 +905,9 @@ static void check_apple(boolean tvos)
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Four widgets, two bitmaps and the PC description list precede patch tags. */
-	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
-	used = 6 + 2 * (3 + 4 + 1 + 1) + 1;
+	/* Four widgets, three bitmaps and the PC description list precede patch tags. */
+	counted = 7 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
+	used = 7 + 2 * (3 + 4 + 1 + 1) + 1;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -954,7 +955,7 @@ that is not there yet is saved when the menus first draw, through the texture ca
 that is there already is not (tools/test_menu_patches.py reads the PNG that is written) */
 static long hardware_requests, art_extractions;
 static unsigned char extracted_pixels[300 * 300 * 4];
-static char const extracted_resource[] = "resource";
+static unsigned long const extracted_resource[2] = { 0, 500 };
 
 void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, boolean block, boolean load)
 {
@@ -997,9 +998,12 @@ static void check_extraction(void)
 	check(hardware_requests == 0 && art_extractions == 0, "texture resolution does not extract pictures");
 	check(!halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is not saved before the menu update");
 	pc_menu_art_extract();
-	check(hardware_requests == 2 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
+	check(hardware_requests == 3 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
 		"now, are asked for (%ld, %ld)", hardware_requests, art_extractions);
 	check(halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is saved");
+	check(menu_art_texture(500, &levels) == 'S', "a map bitmap draws its registered PNG");
+	halo_menus_art_register(extracted_resource, "xbox/art/missing.png");
+	check(menu_art_texture(500, &levels) == 0, "a missing PNG leaves texture resolution to the original map bitmap");
 	{
 		char note[32];
 
