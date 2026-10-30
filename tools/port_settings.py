@@ -942,6 +942,9 @@ def _server_settings() -> list:
     rows.append((f"{base}/op_player_collisions", None, SETUP_OPTIONS_PLACE + 3))
     spinner_row("ally_friendly_fire", 17, ["ON", "OFF"], "network.coop_ally_friendly_fire", ["true", "false"])
     rows.append((f"{base}/op_ally_friendly_fire", None, SETUP_OPTIONS_PLACE + 4))
+    spinner_row("coop_team_wipe", 18, ["AUTO", "REVERT CHECKPOINT", "RESPAWN ONLY"],
+                "network.coop_team_wipe", ["auto", "revert", "respawn"])
+    rows.append((f"{base}/op_coop_team_wipe", None, SETUP_OPTIONS_PLACE + 5))
     # SHARE MAPS (port/linux/game/map_share.c), for any game, above the
     # options' rows (SETUP_OPTIONS_PLACE): whether players who join without
     # the game's Custom Edition map download it (network.map_share). The
@@ -979,7 +982,7 @@ def _server_settings() -> list:
                                          "PLAYER OPTIONS:", "ITEM OPTIONS:", "VEHICLE OPTIONS:", "INDICATOR OPTIONS:",
                                          "TEAMPLAY OPTIONS:", "LISTING:", "FRIENDLY FIRE:", "EXTRA ENEMIES:",
                                          "PER PLAYER:", "MULTIPLIER:", "PLAYER COLLISIONS:", "PASSWORD:",
-                                         "SHARE MAPS:", "ALLY FRIENDLY FIRE:"])
+                                         "SHARE MAPS:", "ALLY FRIENDLY FIRE:", "TEAM WIPE:"])
     extra += _strings(f"{base}/help_strings", [
         "",
         "The name the game shows in the lists of games.\\nEnter changes it.",
@@ -1018,6 +1021,9 @@ def _server_settings() -> list:
         "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules.",
         # (MAXIMUM PLAYERS', past the most this device holds at 30 frames a second: network.player_capacity)
         "More players than this device holds at a steady\\n30 frames a second. It may run slowly.",
+        "Private games revert the checkpoint; public games\\nonly respawn. A changed team or missing save\\nalways uses respawn only.",
+        "Revert the checkpoint after everyone dies. A changed\\nteam or missing save uses respawn only.",
+        "Respawn at checkpoint positions after everyone dies.\\nThe world keeps its progress.",
     ])
     lines = _screen(base, spec, rows, ["server settings update"],
                     ['<on event="created" run="server settings init"/>'], extra)

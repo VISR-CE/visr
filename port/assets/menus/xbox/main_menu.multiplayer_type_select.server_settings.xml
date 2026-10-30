@@ -29,6 +29,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_enemies_multiplier" x="54" y="313" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_player_collisions" x="54" y="343" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_ally_friendly_fire" x="54" y="373" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_team_wipe" x="54" y="403" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_map_share" x="54" y="223" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_game_type" x="54" y="253" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_player_options" x="54" y="283" />
@@ -166,6 +167,17 @@
 		<on event="deleted" run="port setting save" />
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_team_wipe" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_label" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_spinner" x="286" y="1" />
+	</widget>
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="18" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="AUTO|REVERT CHECKPOINT|RESPAWN ONLY" setting="network.coop_team_wipe" values="auto|revert|respawn" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load" />
+		<on event="deleted" run="port setting save" />
+		<on event="left_mouse" run="mouse spinner 1wide click" />
+	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_map_share" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/map_share_label" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/map_share_spinner" x="286" y="1" />
@@ -270,6 +282,7 @@
 		<string text="PASSWORD:" />
 		<string text="SHARE MAPS:" />
 		<string text="ALLY FRIENDLY FIRE:" />
+		<string text="TEAM WIPE:" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/help_strings">
 		<string text="" />
@@ -301,6 +314,9 @@
 		<string text="Players can hurt friendly AI and vehicles." />
 		<string text="Friendly AI and vehicles are protected from players.\nPlayer-to-player friendly fire keeps its own rules." />
 		<string text="More players than this device holds at a steady\n30 frames a second. It may run slowly." />
+		<string text="Private games revert the checkpoint; public games\nonly respawn. A changed team or missing save\nalways uses respawn only." />
+		<string text="Revert the checkpoint after everyone dies. A changed\nteam or missing save uses respawn only." />
+		<string text="Respawn at checkpoint positions after everyone dies.\nThe world keeps its progress." />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
