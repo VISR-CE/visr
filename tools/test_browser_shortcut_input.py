@@ -44,7 +44,7 @@ def test_scripted_x_and_y_emit_analog_buttons_for_exact_press_window() -> None:
 #include <stdlib.h>
 enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y };
 enum { XINPUT_GAMEPAD_START = 1, XINPUT_GAMEPAD_DPAD_UP = 2, XINPUT_GAMEPAD_DPAD_DOWN = 4,
-       XINPUT_GAMEPAD_DPAD_LEFT = 8, XINPUT_GAMEPAD_DPAD_RIGHT = 16 };
+       XINPUT_GAMEPAD_DPAD_LEFT = 8, XINPUT_GAMEPAD_DPAD_RIGHT = 16, XINPUT_GAMEPAD_BACK = 32 };
 static int menu_pad;
 void platform_menu_activity(int pad, float dx, float dy, int motion) {
     (void)dx; (void)dy; (void)motion; menu_pad = pad;
@@ -74,6 +74,14 @@ int main(void) {
     XINPUT_GAMEPAD pad = {0};
     test_input_presses(&pad, 0);
     CHECK(pad.bAnalogButtons[XINPUT_GAMEPAD_X] == 255 && pad.bAnalogButtons[XINPUT_GAMEPAD_Y] == 255);
+    test_press_count = 0;
+    test_input_presses_parse("back@0 down@0");
+    pad = (XINPUT_GAMEPAD){0};
+    test_input_presses(&pad, 3);
+    CHECK(pad.wButtons == (XINPUT_GAMEPAD_BACK | XINPUT_GAMEPAD_DPAD_DOWN));
+    pad = (XINPUT_GAMEPAD){0};
+    test_input_presses(&pad, 4);
+    CHECK(!pad.wButtons);
     test_press_count = 0;
     test_input_presses_parse("ka@0 none@8 knone@16");
     pad = (XINPUT_GAMEPAD){0};

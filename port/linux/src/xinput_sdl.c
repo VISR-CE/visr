@@ -892,9 +892,10 @@ next press */
 
 /* "press:BUTTON@POLL BUTTON@POLL ...": prefix a button with k for keyboard
 input (ka, kb, kdown); an unprefixed button is controller input. "none"
-changes only the input class. Each BUTTON (start, a, b, x, y, up, down,
+changes only the input class. Each BUTTON (start, back, a, b, x, y, up, down,
 left, right) is held for TEST_PRESS_POLLS polls from its POLL, and nothing
-else is pressed (a menu walked by script) */
+else is pressed (a menu walked by script). Presses at the same POLL are held
+together: "back@100 down@100" is debug.knob_cycle's chord */
 #define TEST_PRESS_POLLS 4
 #define TEST_PRESS_MAX 64
 
@@ -934,6 +935,8 @@ static void test_input_presses(XINPUT_GAMEPAD *pad, unsigned long poll)
 		if (button[0] == 'k') button++;
 		if (!strcmp(button, "start"))
 			pad->wButtons |= XINPUT_GAMEPAD_START;
+		else if (!strcmp(button, "back"))
+			pad->wButtons |= XINPUT_GAMEPAD_BACK;
 		else if (!strcmp(button, "up"))
 			pad->wButtons |= XINPUT_GAMEPAD_DPAD_UP;
 		else if (!strcmp(button, "down"))
