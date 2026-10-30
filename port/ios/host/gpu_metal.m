@@ -5149,7 +5149,7 @@ void gpu_metal_frame_deadline_leave(void)
 {
 	int on_joined_thread = frame_deadline.state == FRAME_DEADLINE_JOINED && pthread_equal(frame_deadline.thread, pthread_self());
 
-	if (frame_deadline_state_after_leave(frame_deadline.state, on_joined_thread) != FRAME_DEADLINE_LEFT)
+	if (!frame_deadline_leave_wanted(frame_deadline.state, on_joined_thread))
 		return;
 	gpu_metal_frame_deadline_end();
 	if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
