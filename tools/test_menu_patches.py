@@ -42,6 +42,7 @@ def build(directory: Path) -> Path:
                     "-fsanitize=address,undefined", "-fno-sanitize-recover=undefined",
                     "-DHALO_ILP32=1", "-DHALO_IOS=1", "-DMENU_TAGS_PROBE=1",
                     f"--include-directory={directory}", f"--include-directory={EXPAT}",
+                    f"--include-directory={ROOT / 'port/linux/game'}",
                     str(directory / "menu_patch_probe.c"), str(directory / "menu_files.c"),
                     *(str(EXPAT / name) for name in ("xmlparse.c", "xmlrole.c", "xmltok.c")),
                     f"--output={binary}"], check=True)

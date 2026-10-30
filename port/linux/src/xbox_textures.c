@@ -948,6 +948,9 @@ struct texture_entry
 	(texture_override.h): whether the bitmap here may have one, the hash of
 	its first level, and where the replacement cache has it
 	(texture_override_cache.h) */
+	unsigned long menu_picture_serial;
+	uint64_t menu_picture_hash;
+	struct texture_override_reference menu_picture_reference;
 	int texture_override_eligible;
 	uint64_t texture_override_hash;
 	struct texture_override_reference texture_override_reference;
@@ -978,6 +981,13 @@ struct texture_entry
 #define MAXIMUM_PALETTE_VARIANTS 8
 
 static struct texture_entry *texture_buckets[TEXTURE_BUCKET_COUNT];
+/* Selected original menu art is keyed by pixels, not the game's reusable texture-cache addresses. */
+static struct { uint64_t hash; unsigned long width, height; } menu_pictures[128];
+static unsigned long menu_picture_count, menu_picture_serial = 1;
+static uint64_t menu_picture_refresh;
+
+
+
 
 /* Draws mostly bind the textures the draws before them bound. A lookup of a
 texture that is not palettized is remembered with the memory watch serial it
@@ -1323,6 +1333,61 @@ static gpu_texture texture_entry_replacement(struct texture_entry *entry, unsign
 	return texture;
 }
 
+/* A menu picture can be ready before the rest of ui.map, or finish after it opened. Look up its compressed record
+under the regular replacement budget. No model work runs here; the host's existing pump makes every record. */
+static BOOL menu_picture_texture(struct texture_entry *entry, gpu_texture *texture, unsigned long *levels)
+{
+#ifdef HALO_IOS
+	unsigned long index;
+	static int enabled;
+	uint64_t now;
+	int fallback;
+	uint32_t format = device_capabilities.upscaled_format == GPU_FORMAT_BC7 ? TEXTURE_RECORD_BC7 :
+		device_capabilities.upscaled_format == GPU_FORMAT_ASTC4X4 ? TEXTURE_RECORD_ASTC4X4 : 0;
+
+	if (!menu_picture_count || !entry->size || !platform_is_contiguous((void *)entry->address) ||
+		!platform_is_contiguous((void *)(entry->address + entry->size - 1)) ||
+		entry->type != GPU_TEXTURE_2D || entry->description.linear ||
+		*config_string("debug.texture_override_directory") || *config_string("debug.texture_compare_directory"))
+		return FALSE;
+	if (entry->menu_picture_serial != menu_picture_serial)
+	{
+		entry->menu_picture_hash = menu_art_hash(entry->format_word, entry->size_word,
+			(const unsigned char *)entry->address);
+		entry->menu_picture_serial = menu_picture_serial;
+		memset(&entry->menu_picture_reference, 0, sizeof(entry->menu_picture_reference));
+	}
+	for (index = 0; index < menu_picture_count; index++)
+		if (menu_pictures[index].hash == entry->menu_picture_hash &&
+			menu_pictures[index].width == entry->description.width && menu_pictures[index].height == entry->description.height)
+			break;
+	if (index == menu_picture_count)
+		return FALSE;
+	now = SDL_GetTicks();
+	if (!menu_picture_refresh || now >= menu_picture_refresh)
+	{
+		char profile[16] = "true";
+
+		config_default("display.upscaled_textures", profile, sizeof(profile));
+		enabled = !strcmp(profile, "true") && config_reload_boolean("display.upscaled_textures");
+		if (enabled && format)
+		{
+			texture_replacements_start();
+			texture_override_cache_records(texture_record_directory(), format, "");
+		}
+		menu_picture_refresh = now + 1000;
+	}
+	*texture = 0;
+	if (enabled && format && !texture_upscale_state_show_original(&texture_upscale))
+		*texture = texture_override_cache_find(&entry->menu_picture_reference, entry->menu_picture_hash,
+			entry->description.width, entry->description.height, levels, &fallback);
+	return TRUE;
+#else
+	(void)entry; (void)texture; (void)levels;
+	return FALSE;
+#endif
+}
+
 /* whether the entry is drawn as its replacement now (texture_entry_result) */
 static BOOL texture_entry_replaced(struct texture_entry *entry)
 {
@@ -1610,6 +1675,24 @@ static gpu_texture texture_entry_result(struct texture_entry *entry, uint32_t *t
 	}
 	*type = entry->result_type;
 	*description = entry->result_description;
+	if (entry->result_texture == entry->texture)
+	{
+		gpu_texture picture;
+		unsigned long levels;
+
+		if (menu_picture_texture(entry, &picture, &levels))
+		{
+			if (picture)
+			{
+#ifdef HALO_IOS
+				extern void benchmark_graphics_texture_replacement_selected(void);
+				benchmark_graphics_texture_replacement_selected();
+#endif
+				description->levels = levels;
+			}
+			return picture ? picture : entry->texture;
+		}
+	}
 	/* The replacement is looked up at every bind, cached result or not: the
 	lookup marks it drawn, which keeps texture_replacement_cache.h from
 	dropping it, and a dropped one is read again here when there is room.
@@ -1770,6 +1853,7 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 		/* (which bitmap is here may have changed with the pixels) */
 		entry->override = -1;
 		entry->texture_override_eligible = 0;
+		entry->menu_picture_serial = 0;
 		if (entry->size && !palettized && !entry->description.cube_map && entry->description.depth == 1)
 		{
 			unsigned long levels;
@@ -1871,6 +1955,43 @@ static unsigned long long menu_art_host_record(uint64_t hash, unsigned int width
 #else
 #define MENU_ART_RECORD ((menu_art_record_function)NULL)
 #endif
+
+void halo_menus_pictures_forget(void)
+{
+	menu_picture_count = 0;
+	menu_picture_serial++;
+	menu_picture_refresh = 0;
+}
+
+void halo_menus_picture_register(void const *hardware_format)
+{
+#ifdef HALO_IOS
+	const DWORD *resource = hardware_format;
+	struct xgpu_texture_description description;
+	const unsigned char *texels;
+	unsigned long size, index;
+	uint64_t hash;
+
+	if (!resource || menu_picture_count == sizeof(menu_pictures) / sizeof(menu_pictures[0]))
+		return;
+	xgpu_texture_describe(resource[3], resource[4], &description);
+	size = xgpu_texture_face_size(&description);
+	texels = (const unsigned char *)PLATFORM_PHYSICAL_TO_VIRTUAL(resource[1]);
+	if (!size || !platform_is_contiguous(texels) || !platform_is_contiguous(texels + size - 1))
+		return;
+	hash = menu_art_hash(resource[3], resource[4], texels);
+	for (index = 0; index < menu_picture_count; index++)
+		if (menu_pictures[index].hash == hash && menu_pictures[index].width == description.width &&
+			menu_pictures[index].height == description.height)
+			return;
+	menu_pictures[menu_picture_count].hash = hash;
+	menu_pictures[menu_picture_count].width = description.width;
+	menu_pictures[menu_picture_count++].height = description.height;
+	menu_picture_serial++;
+#else
+	(void)hardware_format;
+#endif
+}
 
 /* a menu bitmap of the map's (hardware_format: its Xbox texture) saved as a PNG at cache_path, in the menus folder's
 cache (menu_files.c): what the in-game menus draw where the map has not got it (halo_menus.h). It is the upscaled

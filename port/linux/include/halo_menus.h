@@ -217,6 +217,10 @@ int halo_menus_cache_write_note(char const *path, char const *text);
 int halo_menus_art_needs_save(char const *cache_path);
 /* saves the pictures the loaded menus asked for (menu_tags.c), when menus draw */
 void pc_menu_art_extract(void);
+/* The original menu pictures: register their source keys once ui.map has loaded; forget before its memory is reused.
+The renderer reads completed texture-cache records on demand, under the normal replacement memory budget. */
+void halo_menus_picture_register(void const *hardware_format);
+void halo_menus_pictures_forget(void);
 void halo_menus_art_forget(void);
 
 #endif

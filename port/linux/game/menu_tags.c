@@ -38,6 +38,7 @@ no screen pauses the game (a network game's clock runs on).
 
 #include "halo_menus.h"
 #include "menu_equivalence.h"
+#include "../../runtime/menu_picture_upscaled.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -81,6 +82,7 @@ static struct
 	char const *path;
 } extractions[MAXIMUM_EXTRACTIONS];
 static long extraction_count;
+static boolean menu_pictures_pending;
 
 /* The native Mac's DISPLAY choice follows the window between displays.
 Keep its UTF-16 backing stable so an open spinner sees the new label. */
@@ -1565,6 +1567,8 @@ static void menu_tags_release(void)
 	long index;
 
 	extraction_count = 0;
+	menu_pictures_pending = FALSE;
+	halo_menus_pictures_forget();
 
 	for (index = 0; index < menu_tags.bitmap_count; index++)
 	{
@@ -2937,6 +2941,7 @@ void menu_tags_loaded(
 		goto failed;
 	}
 	cache_files_set_tag_instances(instances, build.first_index + build.next);
+	menu_pictures_pending = !game_map;
 	menu_tags.loaded = TRUE;
 	menu_tags.xbox_set = build.xbox_set;
 	platform_log("menus: %ld widgets, %ld string lists and %ld bitmaps added to the map's %ld tags",
@@ -2971,6 +2976,30 @@ void pc_menu_art_extract(
 	long index, count = extraction_count;
 
 	extraction_count = 0;
+	/* Register only the original pictures. Their records may arrive after ui.map first drew, and SVG replacements
+	never enter this path. Keep the map's bitmap dimensions: the renderer samples the larger texture in that layout. */
+#ifdef HALO_IOS
+	if (menu_pictures_pending)
+	{
+		size_t picture;
+
+		menu_pictures_pending = FALSE;
+		for (picture = 0; picture < sizeof(menu_picture_upscaled_tags) / sizeof(menu_picture_upscaled_tags[0]); picture++)
+		{
+			long tag = tag_loaded(BITMAP_GROUP_TAG, menu_picture_upscaled_tags[picture]);
+			struct bitmap_group *group = tag != NONE ? bitmap_group_get(tag) : NULL;
+			long frame;
+
+			for (frame = 0; group && frame < group->bitmaps.count; frame++)
+			{
+				struct bitmap_data *bitmap = (struct bitmap_data *)group->bitmaps.address + frame;
+				void *hardware = _texture_cache_bitmap_get_hardware_format(bitmap, TRUE, TRUE);
+
+				halo_menus_picture_register(hardware);
+			}
+		}
+	}
+#endif
 	for (index = 0; index < count; index++)
 	{
 		void *hardware_format = _texture_cache_bitmap_get_hardware_format(extractions[index].bitmap, TRUE, TRUE);

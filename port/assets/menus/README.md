@@ -221,6 +221,21 @@ its frame (`--pictures`: only where, not the picture, is read);
 `NON_HANDDRAWN.md` lists both. It needs `rsvg-convert`, Pillow, NumPy and
 SciPy.
 
+On Apple platforms, the original map and campaign pictures, both difficulty icon sets,
+Halo logo and marine color previews (including `colors_sm` in profile lists) use
+4x raw S4g when the device profile and the player's `display.upscaled_textures`
+switch allow it. These seven map bitmaps are listed in
+`port/runtime/menu_picture_upscaled.h`; the SVG redraws keep their own art.
+The existing on-device scheduler makes their BC7 or ASTC texture-cache records
+while menus or loading screens run, with no GPU inference fallback.
+
+The renderer checks for completed records while these pictures draw, so a picture
+can become sharper after its menu has opened. Its bitmap size and placement in
+the 640x480 layout stay the same. Missing or damaged records, an unsupported
+device, or the switch being off leave the original picture in place. These direct
+map pictures use the texture cache instead of overwriting the original PNG cache;
+they share its memory budget, storage accounting and deletion.
+
 The main menu has no Quit row in either look. B and Back at the root do
 nothing. The retained confirmation is available only through the debug
 setting `debug.menu_open = "main_menu/quit_select/quit_screen"` for PC, or
