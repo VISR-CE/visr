@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="256" viewBox="0 0 512 256">
+  <title>VEHICLES — Warthog</title>
+  <desc>Original three-quarter drawing of an open-top Warthog with four off-road tires, a roll bar, and a mounted chain gun.</desc>
+  <defs>
+    <linearGradient id="surface" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="248" y2="74.4">
+      <stop stop-color="#2f3f4e"/><stop offset="1" stop-color="#0e141a"/>
+    </linearGradient>
+    <filter id="halo" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="256" color-interpolation-filters="sRGB">
+      <feComponentTransfer in="SourceAlpha"><feFuncA type="linear" slope="1.153846"/></feComponentTransfer>
+      <feMorphology operator="dilate" radius="1.5"/>
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#2396ff" flood-opacity="0.56"/>
+      <feComposite in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <g id="far-tires">
+      <ellipse cx="98" cy="149" rx="19" ry="25"/>
+      <ellipse cx="244" cy="140" rx="19" ry="25"/>
+    </g>
+    <g id="tires">
+      <path d="M48 174C48 158 55 147 68 147L79 150C92 153 98 167 96 183C94 199 87 209 74 207L64 204C53 202 48 190 48 174Z"/>
+      <path d="M190 169C190 152 198 140 211 140L223 143C236 147 241 161 238 177C236 193 227 203 215 200L204 197C194 195 189 183 190 169Z"/>
+    </g>
+    <g id="body">
+      <path d="M28 151L43 131L105 114L122 128L143 137L179 129L196 111L243 118L253 137L238 152L230 143L210 135L194 142L183 165L103 183L95 160L80 145L61 142L45 151L39 163Z"/>
+      <path d="M43 131L105 114L130 124L69 143Z"/>
+      <path d="M105 114L113 86L142 78L134 105L130 124"/>
+      <path d="M148 137L159 79Q160 74 165 74L193 68Q198 67 201 73L218 119L212 120L195 75L165 81L154 137Z"/>
+      <path d="M179 129L196 111L243 118L225 134Z"/>
+    </g>
+    <g id="gun">
+      <path d="M203 116V77L209 75V115Z"/>
+      <path d="M190 67L208 62L219 67L218 78L201 82L190 76Z"/>
+      <path d="M190 68L147 62L137 65L137 71L190 77Z"/>
+      <path d="M208 62L211 56L222 58L224 68L219 70 M218 74L226 80L225 85"/>
+    </g>
+    <mask id="far-visible" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="256">
+      <rect width="512" height="256" fill="white"/>
+      <g fill="black" stroke="black" stroke-width="2"><use href="#body"/><use href="#tires"/></g>
+    </mask>
+  </defs>
+  <g transform="translate(0 -30)">
+  <g mask="url(#far-visible)">
+    <use href="#far-tires" fill="url(#surface)" fill-opacity="0.333333"/>
+    <use href="#far-tires" fill="none" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" filter="url(#halo)"/>
+  </g>
+  <g fill="url(#surface)" fill-opacity="0.333333">
+    <use href="#tires"/><use href="#body"/><use href="#gun"/>
+  </g>
+  <g fill="none" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
+    <use href="#tires"/><use href="#body"/><use href="#gun"/>
+  </g>
+  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linejoin="round" stroke-linecap="round">
+    <ellipse cx="76" cy="179" rx="18" ry="27"/>
+    <ellipse cx="77" cy="179" rx="10" ry="16"/>
+    <ellipse cx="77" cy="179" rx="4" ry="7"/>
+    <ellipse cx="219" cy="172" rx="18" ry="27"/>
+    <ellipse cx="219" cy="172" rx="10" ry="16"/>
+    <ellipse cx="219" cy="172" rx="4" ry="7"/>
+    <path d="M28 151L46 156 M29 155L25 160L39 168L48 166 M35 143L45 145L48 140L39 139Z"/>
+    <path d="M47 133L68 138L112 125 M70 146L59 153 M102 174L181 157 M108 180L181 164"/>
+    <path d="M110 113L117 91L137 85 M117 91L131 111 M110 113L131 107"/>
+    <path d="M126 132L131 112L144 111L145 131 M153 128L157 105L168 102L172 123 M122 137L137 146L176 137"/>
+    <ellipse cx="124" cy="119" rx="6" ry="3" transform="rotate(-24 124 119)"/>
+    <path d="M124 121L128 131 M180 128L191 116 M224 134L244 126 M235 131L239 139"/>
+    <path d="M139 65L190 71 M139 68L190 74 M146 63V72 M153 63V73 M182 68V76 M194 67L202 71L218 67 M202 71V81"/>
+  </g>
+  <g fill="none" stroke="#2996ff" stroke-opacity="0.733333" stroke-width="0.45">
+    <path d="M56 158L65 160 M51 169L60 171 M51 181L59 183 M54 193L62 195 M62 202L69 202 M65 149L71 153 M80 153L85 158 M89 165L93 168 M91 180L95 182 M88 194L92 196 M78 201L82 205"/>
+    <path d="M198 151L207 154 M192 163L201 166 M192 176L201 179 M195 188L203 191 M203 196L211 197 M211 143L216 147 M225 147L230 152 M232 159L237 163 M233 176L237 179 M229 189L233 192 M218 195L223 199"/>
+    <path d="M91 127L82 131 M96 129L88 133 M102 131L94 135 M105 154L115 157L112 167 M117 159L137 154 M166 143L176 140"/>
+    <path d="M58 124H25V107H12 M218 209V222H255 M230 220V224 M235 220V224 M240 220V224 M245 220V224 M250 220V224 M255 220V224"/>
+  </g>
+  </g>
+</svg>

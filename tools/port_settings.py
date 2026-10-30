@@ -606,7 +606,7 @@ WIDGET_PATCHES = {
 PC_PICTURES = {
     "main_menu/multiplayer_type_select/mp_options": {0: 0, 1: 1, 2: "internet"},
     "main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options": {
-        0: 0, 3: 3, 4: 3, 6: 2, 7: 5,
+        0: 0, 3: 3, 4: "warthog", 6: 2, 7: 5,
     },
     f"{PE}/profile_options": {
         1: 0, 3: "mouse", 4: "audio", 5: "video", 6: "internet", 8: "about",

@@ -61,3 +61,19 @@ def test_pc_mouse_setup_uses_mouse_drawing():
     name = 'main_menu/settings_select/player_setup/player_profile_edit/profile_options'
     frame = port_settings.picture_frame('shell/' + name, 3)
     assert frame == {'width': '512', 'height': '256', 'png': 'xbox/art/mouse.png'}
+
+
+def test_pc_vehicle_options_uses_warthog_without_changing_items():
+    family = 'main_menu/settings_select/multiplayer_setup/playlist_edit'
+    widgets = ET.parse(MENUS / ('ce/' + family.replace('/', '.') + '.xml'))
+    row = family + '/playlist_edit_vehicles_list_item'
+    assert widgets.find(f"widget[@name='{row}']").get('string_index') == '6'
+    children = widgets.find(f"widget[@name='{family}/edit_playlist_select_list']").findall('child')
+    index = [child.get('widget') for child in children].index(row)
+    assert index == 4
+    assert port_settings.picture_frame('shell/' + family + '/gametype_options', index) == {
+        'width': '512', 'height': '256', 'png': 'xbox/art/warthog.png'}
+    items = port_settings.picture_frame('shell/' + family + '/gametype_options', 3)
+    assert items['map'] == 'ui\\shell\\' + (family + '/gametype_options').replace('/', '\\')
+    assert items['index'] == '3'
+    assert items['png'] == 'xbox/art/none.png'
