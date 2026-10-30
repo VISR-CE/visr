@@ -55,6 +55,16 @@ uint64_t texture_recipe_key(const struct texture_recipe_globals *g, const struct
 
 	if (length < 0 || (size_t)length >= sizeof(text))
 		length = (int)sizeof(text) - 1;
+	/* Preserve unpinned entries' keys; pinning must replace a prior damage fallback even when its result was S4g. */
+	if (r->pinned && (size_t)length < sizeof(text) - 1)
+	{
+		int added = snprintf(text + length, sizeof(text) - (size_t)length, ";pinned=1");
+
+		if (added > 0)
+			length += added;
+		if ((size_t)length >= sizeof(text))
+			length = (int)sizeof(text) - 1;
+	}
 	return texture_override_hash((const unsigned char *)text, (size_t)length);
 }
 

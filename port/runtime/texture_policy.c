@@ -1,6 +1,7 @@
 /* The device classifier: step-tools/upscale_lib/policy.py and xbox_map.py in C (texture_policy.h). Keep the two in
 step: the plan's Task 6 compares their tables over all 24 maps. */
 #include "texture_policy.h"
+#include "menu_picture_upscaled.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -182,6 +183,16 @@ static int shell_art(const struct entry *e)
 	return e->tag_count && !strncmp(e->tags[0].tag, "ui\\shell\\", 9);
 }
 
+static int menu_picture(const struct entry *e)
+{
+	size_t index;
+
+	for (index = 0; index < e->tag_count; index++)
+		if (menu_picture_upscaled_tag(e->tags[index].tag))
+			return 1;
+	return 0;
+}
+
 /* classes.treatment(bitmap, "none"), except that the shell's art is in scope */
 static enum texture_policy_treatment treatment(const struct entry *e)
 {
@@ -190,7 +201,7 @@ static enum texture_policy_treatment treatment(const struct entry *e)
 
 	/* the main menu's art (ui\shell\..., the big HALO logo among it) is what the player sees first, so it is upscaled;
 	   the in-game HUD (ui\hud\...) has its own high-resolution replacements and stays original */
-	if (shell_art(e))
+	if (shell_art(e) || menu_picture(e))
 		return TEXTURE_POLICY_COLOR;
 	if (kind == BUMP)
 		return TEXTURE_POLICY_BUMP_MAP;
@@ -212,9 +223,19 @@ static int decodable(int format)
 
 static void rescope(struct entry *e)
 {
+	int readable = decodable(e->format);
+
+	/* host_astc_store.m's source decoder also reads these original menu pictures; keep other uncompressed art out. */
+	if (menu_picture(e))
+		switch (e->format)
+		{
+		case 0: case 1: case 2: case 3: case 6: case 8: case 9: case 10: case 11:
+			readable = 1;
+			break;
+		}
 	e->treatment = treatment(e);
 	e->out_of_scope = e->type != 0 || (e->flags & LINEAR) || !(e->flags & POWER_OF_TWO) ||
-		e->treatment == TEXTURE_POLICY_SKIP || !decodable(e->format);
+		e->treatment == TEXTURE_POLICY_SKIP || !readable;
 }
 
 static uint64_t key_of(const struct texture_policy_bitmap *b)

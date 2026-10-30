@@ -80,6 +80,15 @@ static void keys(void)
 	assert(texture_recipe_key(&g, &a) != texture_recipe_key(&g, &b));
 	b = a; b.alpha = 1;
 	assert(texture_recipe_key(&g, &a) != texture_recipe_key(&g, &b));
+	/* Pinning a previously classified graphic must replace a cached damage fallback. */
+	b = a; b.pinned = 1;
+	assert(texture_recipe_key(&g, &a) != texture_recipe_key(&g, &b));
+	{
+		struct texture_cache_record stored = record(&g, TEXTURE_POLICY_S4G, TEXTURE_POLICY_COLOR), desired = stored;
+
+		desired.recipe_key = texture_recipe_key(&g, &b);
+		assert(texture_cache_action(&stored, &desired, stored.global_key) == TEXTURE_CACHE_REPLACE_BACKGROUND);
+	}
 	assert(texture_recipe_global_key(&g, TEXTURE_POLICY_COLOR, TEXTURE_POLICY_ORIGINAL) == 0);
 }
 
