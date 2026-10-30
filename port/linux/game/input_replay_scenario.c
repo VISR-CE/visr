@@ -159,8 +159,8 @@ static int staging_lookup(void *context, int kind, const char *name)
 	return -1;
 }
 
-static BOOL staging_deathless_owned;
-static BOOL staging_deathless_previous;
+static boolean staging_deathless_owned;
+static boolean staging_deathless_previous;
 
 void input_replay_staging_restore(void)
 {
