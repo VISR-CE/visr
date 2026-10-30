@@ -996,6 +996,18 @@ void p2p_lobby_quit(void)
 
 /* ---------- the game's side */
 
+/* Chosen visibility is independent of passwords, browser enablement, and
+whether the listing service has accepted the game. */
+int p2p_hosting_listed(void)
+{
+	int public;
+
+	pthread_mutex_lock(&p2p_lock);
+	public = lobby.public;
+	pthread_mutex_unlock(&p2p_lock);
+	return public;
+}
+
 void p2p_set_hosting_public(int public)
 {
 	pthread_mutex_lock(&p2p_lock);
