@@ -1,5 +1,6 @@
 /* Join padding and refusal messages from the observed network frames. */
 #include "../../linux/include/halo_network_join_wire.h"
+#include "../../linux/include/halo_network_version.h"
 #include <assert.h>
 #include <stdio.h>
 
@@ -53,6 +54,11 @@ int main(void)
 	code = ((unsigned)refusal[1] << 8) | refusal[2];
 	assert(code == 9);
 	assert(!strcmp(halo_network_rejection_message(code), "This server doesn't allow VPN connections."));
+	/* the wire size logged for a join: 116 to hosts below 40, 350 from 40 */
+	for (unsigned version = 29; version <= 41; version++)
+		assert(halo_network_join_request_wire_size(halo_network_version_has_join_pass_field(version)) ==
+			(version >= 40 ? 350u : 116u));
+	assert(halo_network_join_request_wire_size(0) == 116 && halo_network_join_request_wire_size(1) == 350);
 	puts("PASS: join padding, frame lengths, refusal messages");
 	return 0;
 }
