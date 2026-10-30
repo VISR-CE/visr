@@ -93,6 +93,18 @@ long text_hires_font(char const *tag_name, float cap_height, float oversample);
 int text_hires_covers(long font, unsigned long code);
 int text_hires_glyph(long font, unsigned long code, struct text_hires_glyph *glyph);
 void text_hires_register_atlas(unsigned long const *texture, unsigned long width, unsigned long height);
+/* port: the font tag's own glyphs, rebuilt at the display's resolution, for
+the menus' redraw (port/linux/src/ui_redraw.h, display.ui_redraw_text) */
+struct text_hires_tag_glyph
+{
+	long width, height, origin_x, origin_y, advance;
+	unsigned char const *pixels;
+};
+typedef int (*text_hires_tag_glyph_function)(void const *context, unsigned long code,
+	struct text_hires_tag_glyph *glyph);
+long text_hires_font_from_tag(char const *tag_name, void const *context, text_hires_tag_glyph_function lookup,
+	float oversample);
+int ui_redraw_text_from_tags(void);
 
 /* ---------- constants */
 
@@ -785,6 +797,31 @@ static void rasterizer_text_draw_scaled_character(
 	return;
 }
 
+/* port: a character of a font tag, for the high-res text's font of the
+tag's own glyphs (text_hires_font_from_tag) */
+static int hires_text_tag_glyph(
+	void const *context,
+	unsigned long code,
+	struct text_hires_tag_glyph *glyph)
+{
+	struct font_header *font = (struct font_header *)context;
+	struct font_character *character;
+
+	if (code > 0xFFFF)
+		return 0;
+	character = font_get_character_by_ascii_code(font, (word)code);
+	if (!character)
+		return 0;
+	glyph->width = character->bitmap_width;
+	glyph->height = character->bitmap_height;
+	glyph->origin_x = character->bitmap_origin_x;
+	glyph->origin_y = character->bitmap_origin_y;
+	glyph->advance = character->character_width;
+	glyph->pixels = (byte const *)font->pixels.address + character->pixels_offset;
+
+	return 1;
+}
+
 /* port: the high-res text's font for a font tag, sized by the height of its
 capital H (its rows with ink), its glyphs drawn with oversample times the
 pixels (for text scaled up), or NONE */
@@ -798,6 +835,7 @@ static long hires_text_font_get(
 		real oversample;
 		long hires_font;
 	} fonts[MAXIMUM_HIRES_TEXT_FONTS];
+	boolean from_tags = ui_redraw_text_from_tags() ? TRUE : FALSE;
 	static short next_font = 0;
 	struct font_header *font;
 	struct font_character *capital;
@@ -814,8 +852,16 @@ static long hires_text_font_get(
 	font = font_definition_get(font_index);
 	for (font_slot = 0; font_slot < MAXIMUM_HIRES_TEXT_FONTS; font_slot++)
 	{
-		if (fonts[font_slot].font == font && fonts[font_slot].oversample == oversample)
+		if (!from_tags && fonts[font_slot].font == font && fonts[font_slot].oversample == oversample)
 			return fonts[font_slot].hires_font;
+	}
+	/* (not remembered here: text_hires.c forgets these fonts when their map
+	unloads, and finds one among its few quickly) */
+	if (from_tags)
+	{
+		hires_font = text_hires_font_from_tag(tag_get_name(font_index), font, hires_text_tag_glyph, (float)oversample);
+
+		return hires_font < 0 ? NONE : hires_font;
 	}
 	capital = font_get_character_by_ascii_code(font, 'H');
 	if (capital)

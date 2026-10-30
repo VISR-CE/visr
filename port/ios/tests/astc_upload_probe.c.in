@@ -138,6 +138,27 @@ static gpu_texture menu_art_texture(DWORD data, unsigned long *levels)
 static BOOL hud_hires_override_coverage(long index) { (void)index; return FALSE; }
 static BOOL hud_hires_override_point_threshold(long index) { (void)index; return FALSE; }
 static unsigned long menu_art_generation(void) { return 0; }
+static int ui_redraw_texture(unsigned long data, unsigned long format_word, unsigned long size_word,
+	unsigned int *texture, unsigned long *levels)
+{
+	(void)data; (void)format_word; (void)size_word; (void)texture; (void)levels; return 0;
+}
+static int ui_redraw_build(unsigned long data, const unsigned char *pixels, unsigned long width, unsigned long height,
+	int hand_made)
+{
+	(void)data; (void)pixels; (void)width; (void)height; (void)hand_made; return 0;
+}
+static unsigned long ui_redraw_generation(void) { return 0; }
+static int menu_art_pixels(unsigned long data, unsigned char **bgra, unsigned long *width, unsigned long *height,
+	int *hand_made)
+{
+	(void)data; (void)bgra; (void)width; (void)height; (void)hand_made; return 0;
+}
+static BOOL xgpu_texture_decode_rgba(DWORD format_word, DWORD size_word, const unsigned char *texels,
+	unsigned char **rgba, unsigned long *width, unsigned long *height)
+{
+	(void)format_word; (void)size_word; (void)texels; (void)rgba; (void)width; (void)height; return FALSE;
+}
 @RESULT@
 gpu_texture gpu_texture_create(const struct gpu_texture_description *description)
 {

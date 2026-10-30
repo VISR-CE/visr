@@ -70,6 +70,7 @@ def test_replacement_counts_only_a_selected_texture_in_an_open_window(tmp_path):
     compile_and_run(tmp_path, "textures", r'''
 #include <assert.h>
 #include <stdint.h>
+#include <stdlib.h>
 #define HALO_IOS 1
 #define TRUE 1
 #define FALSE 0
@@ -78,7 +79,8 @@ typedef unsigned long gpu_texture;
 typedef unsigned long DWORD;
 typedef uint32_t D3DCOLOR;
 struct xgpu_texture_description { unsigned long levels; int hires; int hires_coverage; int hires_point_threshold; };
-struct texture_entry { DWORD data; uint32_t type; struct xgpu_texture_description description;
+struct texture_entry { DWORD data, format_word, size_word; unsigned long address, size;
+    uint32_t type; struct xgpu_texture_description description;
     int override; int texture_override_eligible; gpu_texture texture;
     int result_valid; unsigned long result_menu_generation; gpu_texture result_texture;
     uint32_t result_type; struct xgpu_texture_description result_description; };
@@ -101,6 +103,20 @@ static gpu_texture menu_art_texture(DWORD data, unsigned long *levels) {
 static gpu_texture hud_hires_override_texture(int value, unsigned long *levels) { (void)value; (void)levels; return 0; }
 static int hud_hires_override_coverage(int value) { (void)value; return 0; }
 static int hud_hires_override_point_threshold(int value) { (void)value; return 0; }
+static int ui_redraw_texture(unsigned long data, unsigned long format_word, unsigned long size_word,
+    gpu_texture *texture, unsigned long *levels) {
+    (void)data; (void)format_word; (void)size_word; (void)texture; (void)levels; return 0; }
+static int ui_redraw_build(unsigned long data, const unsigned char *pixels, unsigned long width,
+    unsigned long height, int hand_made) {
+    (void)data; (void)pixels; (void)width; (void)height; (void)hand_made; return 0; }
+static unsigned long ui_redraw_generation(void) { return 0; }
+static int menu_art_pixels(unsigned long data, unsigned char **pixels, unsigned long *width,
+    unsigned long *height, int *hand_made) {
+    (void)data; (void)pixels; (void)width; (void)height; (void)hand_made; return 0; }
+static int platform_is_contiguous(const void *pointer) { (void)pointer; return 1; }
+static int xgpu_texture_decode_rgba(DWORD format_word, DWORD size_word, const unsigned char *texels,
+    unsigned char **rgba, unsigned long *width, unsigned long *height) {
+    (void)format_word; (void)size_word; (void)texels; (void)rgba; (void)width; (void)height; return 0; }
 ''' + actual + r'''
 int main(void) {
     struct texture_entry entry = {0};

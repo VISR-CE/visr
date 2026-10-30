@@ -309,6 +309,11 @@ static unsigned int png_upload(unsigned char *pixels, unsigned long width, unsig
 	return texture;
 }
 
+unsigned char *hud_hires_png_pixels(const void *png, unsigned long size, unsigned long *width, unsigned long *height)
+{
+	return png_decode(png, size, width, height);
+}
+
 unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned long *levels)
 {
 	unsigned long width = 0, height = 0;

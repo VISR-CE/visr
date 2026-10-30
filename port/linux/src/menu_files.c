@@ -1438,3 +1438,46 @@ unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 	*levels = art[index].levels;
 	return art[index].texture;
 }
+
+int menu_art_pixels(unsigned long data, unsigned char **bgra, unsigned long *width, unsigned long *height,
+	int *hand_made)
+{
+	long index;
+	char const *path;
+
+	for (index = 0; index < art_count; index++)
+	{
+		if (art[index].data == data)
+			break;
+	}
+	if (index == art_count || !art[index].png)
+		return 0;
+	/* (the first of its files that can be read, as art_first_texture) */
+	for (path = art[index].png; *path;)
+	{
+		size_t length = strcspn(path, "|");
+		char candidate[256];
+
+		if (length && length < sizeof(candidate))
+		{
+			unsigned long size = 0;
+			const unsigned char *png;
+
+			memcpy(candidate, path, length);
+			candidate[length] = 0;
+			png = file_data(candidate, &size);
+			*bgra = png ? hud_hires_png_pixels(png, size, width, height) : NULL;
+			if (*bgra)
+			{
+				/* (the menus' cache holds the player's pictures saved from
+				ui.map: halo_menus_art_extract) */
+				*hand_made = strncmp(candidate, "cache/", 6) != 0;
+				return 1;
+			}
+		}
+		path += length;
+		if (*path == '|')
+			path++;
+	}
+	return 0;
+}

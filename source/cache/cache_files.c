@@ -599,6 +599,12 @@ void scenario_tags_unload(
 
 		hud_hires_tags_unloaded();
 	}
+	/* port: the menus' redraw forgets this map's textures (port/linux/src/ui_redraw.c) */
+	{
+		extern void ui_redraw_forget(void);
+
+		ui_redraw_forget();
+	}
 	sound_cache_close();
 	/* port: the sounds of tag files go, after the sound cache that held them
 	(port/linux/game/loose_sounds.c) */

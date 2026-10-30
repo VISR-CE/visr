@@ -312,6 +312,7 @@ the setting for one start of the game. It has priority over the file.
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
+| `input.ui_touch_target` | integer | `44` | apple | `HALO_UI_TOUCH_TARGET` | On an iPhone, the least height in points of a menu row's or button's touch target: a tap between rows goes to the nearest one this tall around its center. |
 | `input.turn` | string | `"snap"` | apple | `HALO_TURN` | With display.stereo = "head": how the right stick turns the view: "snap" (default; a flick turns input.snap_angle at once), "smooth" (steadily, at input.smooth_turn_speed), or "off" (it doesn't; turn your body). |
 | `input.snap_angle` | number | `30.0` | apple | `HALO_SNAP_ANGLE` | With input.turn = "snap": degrees per snap (5 to 180). |
 | `input.smooth_turn_speed` | number | `120.0` | apple | `HALO_SMOOTH_TURN_SPEED` | With input.turn = "smooth": degrees per second with the stick all the way over (10 to 720; 120 is the game's own speed before it speeds up). |
@@ -388,6 +389,9 @@ the setting for one start of the game. It has priority over the file.
 | `display.direct_camera` | boolean | `true` | apple, desktop | `HALO_DIRECT_CAMERA` | In first person, point the view where the player aims now instead of where the last tick left it: the view turns the frame the stick or the mouse moves, not up to two ticks (66 ms) later. |
 | `display.high_res_hud` | boolean | `true` | apple, desktop | `HALO_HIGH_RES_HUD` | Draw the HUD (meters, counters, panels, motion sensor, reticles, waypoints, scopes) from the high-res assets (8x the maps' bitmaps); false draws the maps' own bitmaps. |
 | `display.high_res_text` | boolean | `true` | apple, desktop | `HALO_HIGH_RES_TEXT` | Draw the menus' and HUD's text with the fonts in port/assets/fonts (Overpass) at the resolution the game draws at, and the menus' titles from port/assets/titles; false draws the maps' bitmap fonts and titles. |
+| `display.ui_redraw` | boolean | `false` | apple, desktop | `HALO_UI_REDRAW` | Draw the menus' frames, rows and dialogs, and their text, at the display's resolution, rebuilt on this device from your copy of the game's menus. |
+| `display.ui_redraw_text` | string | `"game"` | apple, desktop | `HALO_UI_REDRAW_TEXT` | With display.ui_redraw, the menus' text: "game" (default) the game's own letters rebuilt at the display's resolution; "overpass" the fonts of display.high_res_text. |
+| `display.ui_redraw_pictures` | string | `"original"` | apple, desktop | `HALO_UI_REDRAW_PICTURES` | With display.ui_redraw, the console and controller pictures: "original" (default) the game's own. |
 | `display.upscaled_textures` | boolean | `true` | apple, desktop | `HALO_UPSCALED_TEXTURES` | Draw upscaled textures (made on this device from your copy of the game) where they exist; false draws the maps' own. |
 | `display.upscaled_textures_memory` | integer | `0` | apple, desktop | `HALO_UPSCALED_TEXTURES_MEMORY` | The most memory the upscaled textures may take, in MB; 0 (default) picks it from the device's memory. |
 | `display.menus` | string | `"auto"` | apple, desktop | `HALO_MENUS` | The menus: "auto" (default) follows the input device at screen changes: PC for keyboard and mouse, Xbox for controller or touch. "pc" and "xbox" keep a fixed look. |

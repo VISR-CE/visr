@@ -23,6 +23,7 @@ memory_watch.c detects that by write-protecting the pages.
 #include "hud_hires.h"
 #include "menu_files.h"
 #include "text_hires.h"
+#include "ui_redraw.h"
 #include "port_config.h"
 #include "../game/cache_file_formats.h"
 #include "texture_override.h"
@@ -1512,6 +1513,49 @@ static gpu_texture texture_entry_result_uncached(struct texture_entry *entry, ui
 {
 	*type = entry->type;
 	*description = entry->description;
+	/* (a menus' frame drawn at the display's resolution: ui_redraw.h) */
+	{
+		gpu_texture redrawn = 0;
+		unsigned long levels = 1;
+		int state = ui_redraw_texture(entry->data, entry->format_word, entry->size_word, &redrawn, &levels);
+
+		if (state == 2)
+		{
+			unsigned char *pixels = NULL;
+			unsigned long width = 0, height = 0;
+			int hand_made = 0;
+
+			/* (the menus' art in a game map: the picture it is drawn
+			from; else the map's own texels, as RGBA, swapped to BGRA as
+			the menus' art is, though the rebuild minds no order) */
+			if (!menu_art_pixels(entry->data, &pixels, &width, &height, &hand_made) && entry->size &&
+				platform_is_contiguous((void *)entry->address) &&
+				platform_is_contiguous((void *)(entry->address + entry->size - 1)) &&
+				xgpu_texture_decode_rgba(entry->format_word, entry->size_word,
+					(const unsigned char *)entry->address, &pixels, &width, &height))
+			{
+				unsigned long index;
+
+				for (index = 0; index < width * height; index++)
+				{
+					unsigned char red = pixels[index * 4];
+
+					pixels[index * 4] = pixels[index * 4 + 2];
+					pixels[index * 4 + 2] = red;
+				}
+			}
+			ui_redraw_build(entry->data, pixels, width, height, hand_made);
+			free(pixels);
+			state = ui_redraw_texture(entry->data, entry->format_word, entry->size_word, &redrawn, &levels);
+		}
+		if (state == 1 && redrawn)
+		{
+			*type = GPU_TEXTURE_2D;
+			description->levels = levels;
+			description->hires = TRUE;
+			return redrawn;
+		}
+	}
 	/* (a menu's bitmap: menu_files.h) */
 	{
 		unsigned long levels;
@@ -1555,7 +1599,8 @@ static gpu_texture texture_entry_result(struct texture_entry *entry, uint32_t *t
 		description->levels = 1;
 		return atlas;
 	}
-	menu_generation = menu_art_generation();
+	/* (and the menus' redraw: a frame noted, the setting turned) */
+	menu_generation = menu_art_generation() + ui_redraw_generation();
 	if (!entry->result_valid || entry->result_menu_generation != menu_generation)
 	{
 		entry->result_texture = texture_entry_result_uncached(entry, &entry->result_type,

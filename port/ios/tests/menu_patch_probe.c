@@ -178,6 +178,12 @@ unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned
 	return size ? ((const unsigned char *)png)[0] : 0;
 }
 
+unsigned char *hud_hires_png_pixels(const void *png, unsigned long size, unsigned long *width, unsigned long *height)
+{
+	(void)png; (void)size; (void)width; (void)height;
+	return NULL;
+}
+
 int posix_make_directory(const char *path)
 {
 	return mkdir(path, 0755);

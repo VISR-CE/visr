@@ -664,6 +664,11 @@ struct widget_instance;
 #include "networking/network_game_globals.h"
 #include "networking/network_server_manager.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+/* port: the menus' redraw (port/linux/src/ui_redraw.c) */
+void ui_redraw_begin_screen(char const *tag_name);
+void ui_redraw_end_screen(void);
+void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
+long ui_redraw_touch_target_units(void);
 #include "rasterizer/rasterizer.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -6123,6 +6128,36 @@ static struct ui_mouse_target *ui_mouse_target_at(
 			}
 		}
 	}
+	/* port: on an iPhone a tap between rows goes to the nearest row or
+	button, each taken as tall as input.ui_touch_target around its center
+	(port/linux/src/ui_redraw.c); the rows are drawn as they are */
+	{
+		long least = ui_redraw_touch_target_units();
+		struct ui_mouse_target *nearest = NULL;
+		long nearest_distance = 0;
+
+		for (index = 0; least > 0 && index < ui_mouse_target_count; index++)
+		{
+			rectangle2d const *bounds = &ui_mouse_targets[index].bounds;
+			long center = (bounds->y0 + bounds->y1) / 2;
+			long half = MAX((long)(bounds->y1 - bounds->y0), least) / 2;
+			long distance = ABS((long)y - center);
+
+			if ((ui_mouse_targets[index].kind != _ui_mouse_target_item &&
+					ui_mouse_targets[index].kind != _ui_mouse_target_button) ||
+				x < bounds->x0 || x >= bounds->x1 || distance > half)
+			{
+				continue;
+			}
+			if (!nearest || distance < nearest_distance)
+			{
+				nearest = &ui_mouse_targets[index];
+				nearest_distance = distance;
+			}
+		}
+		if (nearest)
+			return nearest;
+	}
 
 	return nearest;
 }
@@ -6747,6 +6782,13 @@ static void widget_instance_render_recursive(
 				texels.y1 = (short)((long)(bounds.y1 - bounds.y0) * bitmap->height / frame_height);
 				shown = bounds.x1 > bounds.x0 && bounds.y1 > bounds.y0;
 			}
+			/* port: the menus' redraw draws this frame's texture at the
+			display's resolution (port/linux/src/ui_redraw.c) */
+			if (shown && !custom_edition_picture)
+			{
+				ui_redraw_note(tag_get_name(definition->background_bitmap.index), bitmap->hardware_format,
+					bitmap->width, bitmap->height);
+			}
 			if (shown)
 			{
 				draw_bitmap_in_rect(
@@ -6971,12 +7013,16 @@ void render_ui_widgets(
 				/* the mouse drives the first player's menus */
 				ui_mouse_noting_targets = widget->local_player_index == NONE ||
 					widget->local_player_index == 0;
+				/* port: whether the menus' redraw draws this screen
+				(port/linux/src/ui_redraw.c: not the main menu) */
+				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
 					widget_globals.active_widgets[widget_index],
 					&bounds,
 					offset,
 					TRUE,
 					FALSE);
+				ui_redraw_end_screen();
 				if (ui_mouse_noting_targets)
 					ui_mouse_menu_drawn = TRUE;
 				ui_mouse_noting_targets = FALSE;

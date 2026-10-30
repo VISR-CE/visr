@@ -895,6 +895,39 @@
             "desktop"
           ]
         },
+        "ui_redraw": {
+          "type": "boolean",
+          "default": false,
+          "description": "Draw the menus' frames, rows and dialogs, and their text, at the display's resolution, rebuilt on this device from your copy of the game's menus. The main menu and the loading screens keep their look.",
+          "x-environment": "HALO_UI_REDRAW",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "ui_redraw_text": {
+          "type": "string",
+          "default": "game",
+          "description": "With display.ui_redraw, the menus' text: \"game\" (default) the game's own letters rebuilt at the display's resolution; \"overpass\" the fonts of display.high_res_text.",
+          "x-environment": "HALO_UI_REDRAW_TEXT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "ui_redraw_pictures": {
+          "type": "string",
+          "default": "original",
+          "description": "With display.ui_redraw, the console and controller pictures: \"original\" (default) the game's own.",
+          "x-environment": "HALO_UI_REDRAW_PICTURES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "upscaled_textures": {
           "type": "boolean",
           "default": true,
@@ -1011,6 +1044,16 @@
     "input": {
       "type": "object",
       "properties": {
+        "ui_touch_target": {
+          "type": "integer",
+          "default": 44,
+          "description": "On an iPhone, the least height in points of a menu row's or button's touch target: a tap between rows goes to the nearest one this tall around its center. The rows are drawn as they are. 0 turns it off.",
+          "x-environment": "HALO_UI_TOUCH_TARGET",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "turn": {
           "type": "string",
           "default": "snap",

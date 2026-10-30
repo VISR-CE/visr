@@ -406,6 +406,10 @@ static const struct config_setting config_settings[] =
 		"them all, 0 to 200. Held weapons, living units, vehicles, scenery and effects\n"
 		"are always drawn. Only the drawing changes, never the game. A device profile\n"
 		"sets it for the device's speed; it is not a player choice." },
+	{ "input.ui_touch_target", _config_integer, "44", "HALO_UI_TOUCH_TARGET", _environment_value, _platform_ios,
+		"On an iPhone, the least height in points of a menu row's or button's touch\n"
+		"target: a tap between rows goes to the nearest one this tall around its\n"
+		"center. The rows are drawn as they are. 0 turns it off." },
 	{ "input.turn", _config_string, "\"snap\"", "HALO_TURN", _environment_value, _platform_ios,
 		"With display.stereo = \"head\": how the right stick turns the view: \"snap\"\n"
 		"(default; a flick turns input.snap_angle at once), \"smooth\" (steadily, at\n"
@@ -782,6 +786,18 @@ static const struct config_setting config_settings[] =
 		"Draw the menus' and HUD's text with the fonts in port/assets/fonts\n"
 		"(Overpass) at the resolution the game draws at, and the menus' titles\n"
 		"from port/assets/titles; false draws the maps' bitmap fonts and titles." },
+	{ "display.ui_redraw", _config_boolean, "false", "HALO_UI_REDRAW", _environment_value, _platform_all,
+		"Draw the menus' frames, rows and dialogs, and their text, at the display's\n"
+		"resolution, rebuilt on this device from your copy of the game's menus. The\n"
+		"main menu and the loading screens keep their look." },
+	{ "display.ui_redraw_text", _config_string, "\"game\"", "HALO_UI_REDRAW_TEXT", _environment_value, _platform_all,
+		"With display.ui_redraw, the menus' text: \"game\" (default) the game's own\n"
+		"letters rebuilt at the display's resolution; \"overpass\" the fonts of\n"
+		"display.high_res_text." },
+	{ "display.ui_redraw_pictures", _config_string, "\"original\"", "HALO_UI_REDRAW_PICTURES", _environment_value,
+		_platform_all,
+		"With display.ui_redraw, the console and controller pictures: \"original\"\n"
+		"(default) the game's own." },
 	{ "display.upscaled_textures", _config_boolean, "true", "HALO_UPSCALED_TEXTURES", _environment_value, _platform_all,
 		"Draw upscaled textures (made on this device from your copy of the game)\n"
 		"where they exist; false draws the maps' own. A device profile that sets\n"

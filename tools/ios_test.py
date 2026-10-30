@@ -62,6 +62,10 @@ run('xcrun', 'clang', '-O2', '-DHALO_TESTER_BUILD=1', 'port/ios/tests/benchmark_
 run(BUILD/'benchmark-page-policy-tester-probe')
 # gpu.h crosses the guest/host boundary (step 4): the host's layout of its structs, as
 # _Static_asserts, must hold under the guest's arm64_32 flags too
+# the menus' redraw's picture rebuild (port/linux/src/ui_redraw_rebuild.c)
+run('xcrun', 'clang', '-O2', '-Iport/linux/src', 'port/ios/tests/ui_redraw_probe.c', 'port/linux/src/ui_redraw_rebuild.c',
+    '-o', BUILD / 'ui-redraw-probe')
+run(BUILD / 'ui-redraw-probe')
 run('xcrun', 'clang', '-O2', '-Iport/linux/src', 'port/ios/tests/gpu_layout_probe.c', '-o', BUILD / 'gpu-layout-probe')
 with open(BUILD / 'gpu_layout_check.h', 'w') as layout_check:
     subprocess.run([str(BUILD / 'gpu-layout-probe')], cwd=ROOT, check=True, stdout=layout_check)

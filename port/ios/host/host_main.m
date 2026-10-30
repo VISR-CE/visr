@@ -571,6 +571,16 @@ int main(int argc,char **argv) {
 #else
         env[env_count++]="HALO_HOST_VISIONOS=0";
 #endif
+        /* an iPhone, and its points' pixels: the menus' taller touch targets (input.ui_touch_target,
+           port/linux/src/ui_redraw.c) */
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !HALO_NATIVE_MAC
+        static char env_phone[48];
+        if(UIDevice.currentDevice.userInterfaceIdiom==UIUserInterfaceIdiomPhone)
+        {
+            snprintf(env_phone,sizeof(env_phone),"HALO_HOST_PHONE_SCALE=%.2f",(double)UIScreen.mainScreen.scale);
+            env[env_count++]=env_phone;
+        }
+#endif
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
         env[env_count++]="HALO_HOST_KEYBOARD=1";
 #elif TARGET_OS_IOS
