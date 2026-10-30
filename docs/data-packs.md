@@ -31,12 +31,12 @@ Create one envelope from the repository profile sources:
 
 ```sh
 python3 tools/data_pack.py --kind profiles --channel tester \
-  --sequence 1 --compatibility device-profiles-3:ios/iPhone18,1/_ \
+  --sequence 1 --compatibility device-profiles-4:ios/iPhone18,1/_ \
   --input profiles --signing-key /private/path/signing-seed \
   --output iphone-profile.json
 ```
 
-Serve that envelope under `device-profiles-3/ios/iPhone18,1/_.json`. Each shard contains the target platform's class partitions, selected model, only the hardware catalog records and source profiles needed for conservative inheritance, and the profile set's revision. Runtime memory, GPU, pixel, and refresh checks still decide whether an inherited profile is suitable. User overrides keep their existing precedence. Debug profile selection uses the bundled profile set.
+Serve that envelope under `device-profiles-4/ios/iPhone18,1/_.json`. Each shard contains the target platform's class partitions, selected model, only the hardware catalog records and source profiles needed for conservative inheritance, and the profile set's revision. Runtime memory, GPU, pixel, and refresh checks still decide whether an inherited profile is suitable. User overrides keep their existing precedence. Debug profile selection uses the bundled profile set.
 
 An optional `capacity.toml` reserves schema 1 with optional `validated_maximum_players` from 2 through 128 and an `evidence` string of at most 2048 bytes. A supplied maximum requires evidence. Omit unknown capacity. This metadata does not change profile matching or display a warning.
 
@@ -48,7 +48,8 @@ A downloaded shard replaces all of the app's bundled profiles for that launch, a
 | --- | --- | --- |
 | `device-profiles-1` | `profiles/` | 0.2.2 to 0.5.1 |
 | `device-profiles-2` | `device-profiles-2/` | 0.6.0 to 0.6.3 (retired) |
-| `device-profiles-3` | `device-profiles-3/` | 0.6.4 and later |
+| `device-profiles-3` | `device-profiles-3/` | 0.6.4 to 0.6.7 |
+| `device-profiles-4` | `device-profiles-4/` | 0.6.8 and later |
 
 The `device-profiles-2/` shards are withdrawn: 0.6.0 to 0.6.3 quarantine a newly published sequence (two data-pack stores share one cache root, and the launch menu reads the other store's first trial as a crashed launch), then report the profile server unreachable. Without a shard the server answers 404 and those apps benchmark with their bundled profiles. `RETIRED_PROFILE_DIRECTORIES` in `tools/pages_asset_overlay.py` keeps the live shards off the site. Publish profile updates again only for a client with the fix, at a sequence above 1793231748.
 

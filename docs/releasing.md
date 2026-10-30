@@ -62,7 +62,7 @@ Configure `RELEASE_BUILD_POLICY` as a JSON object with the required fields below
 | `guest_compiler_version` | Exact first compiler-version line from the probe |
 | `guest_profile_sha256` | Guest profile SHA-256 from the probe |
 | `host_profile_sha256` | Host profile SHA-256 from the probe |
-| `profile_feed_url` | Mutable HTTPS base directory for device-keyed signed tester profiles, ending in this source's generation directory (`device-profiles-3`) |
+| `profile_feed_url` | Mutable HTTPS base directory for device-keyed signed tester profiles, ending in this source's generation directory (`device-profiles-4`) |
 | `profile_feed_sha256s` | Object mapping each canonical `platform/model/chip-key` to the SHA-256 of its reviewed envelope |
 | `shader_feed_url` | Mutable HTTPS endpoint for signed additive shader lists |
 | `shader_feed_sha256` | SHA-256 of the reviewed shader envelope |
