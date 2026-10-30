@@ -53,6 +53,7 @@ enum
 struct texture_replacement
 {
 	uint64_t hash;
+	uint64_t recipe_key;      /* resident texture-cache record: detects replacement during menu generation */
 	uint32_t width, height;   /* the original's */
 	uint32_t texture, levels; /* resident: gpu.h's handle and its level count */
 	uint64_t bytes;           /* its levels' bytes, once the file has been checked */
