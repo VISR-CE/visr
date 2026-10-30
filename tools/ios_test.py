@@ -748,6 +748,11 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '
     'port/ios/tests/texture_policy_probe.c', 'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c',
     '-lz', '-o', BUILD/'texture-policy-probe')
 run(BUILD/'texture-policy-probe')
+# the original menu pictures keep raw S4g, including uncompressed difficulty icons, without broadening other art
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/runtime',
+    '--include-directory=port/linux/src', 'port/ios/tests/menu_picture_upscaled_probe.c',
+    'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c', '-lz', '--output', BUILD/'menu-picture-upscaled-probe')
+run(BUILD/'menu-picture-upscaled-probe')
 # its scale rule against the shipping set's 2x, 4x and 8x textures (port/assets/texture-selection-lock.tsv)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src',
     'port/ios/tests/texture_selection_probe.c', 'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c',

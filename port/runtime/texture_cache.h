@@ -30,6 +30,7 @@ struct texture_recipe
 	int wrap, dilates;
 	int alpha;                         /* 0 none, 1 binary, 2 graded */
 	uint32_t scale;                    /* 2, 4 or 8: texture_policy_decision.scale */
+	int pinned;                        /* a pinned S4g result never falls back through the damage rule */
 };
 struct texture_cache_record
 {

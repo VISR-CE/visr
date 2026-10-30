@@ -424,7 +424,7 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     BOOL dilate=alpha!=TEXTURE_UPSCALE_ALPHA_NONE&&(d->dilates||alpha==TEXTURE_UPSCALE_ALPHA_BINARY)&&d->treatment!=TEXTURE_POLICY_MULTIPURPOSE&&d->treatment!=TEXTURE_POLICY_BUMP_MAP;
     const struct texture_policy_table *policy=&texture_policy_embedded;
     struct texture_recipe_globals globals=recipe_globals();
-    struct texture_recipe recipe={d->hash,d->width,d->height,d->result,d->treatment,d->wrap,dilate,alpha,d->scale};
+    struct texture_recipe recipe={d->hash,d->width,d->height,d->result,d->treatment,d->wrap,dilate,alpha,d->scale,d->pinned};
     struct texture_cache_record desired={d->hash,d->width,d->height,d->result,d->treatment,
         texture_recipe_key(&globals,&recipe),texture_recipe_global_key(&globals,d->treatment,d->result),0};
     BOOL current=NO,exported=NO;
