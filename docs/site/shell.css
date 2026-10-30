@@ -155,8 +155,7 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
 .foot { max-width: 760px; border-color: var(--hud-blue); font-size: 13px; line-height: 1.65; margin-top: 56px; }
 
 /* Benchmark styling stops at the surrounding shell. */
-.bench-head { position: relative; display: flex; flex-direction: column; padding-block: 48px 32px; }
-.bench-head::before { bottom: auto; height: var(--hud-corner); }
+.bench-head { position: relative; display: flex; flex-direction: column; padding: 48px 22px 34px; margin-bottom: 24px; }
 .bench-head h1 { margin: 14px 0 0; font: 600 clamp(30px, 4.8vw, 64px)/1.1 Orbitron, sans-serif; letter-spacing: 0.03em; overflow-wrap: anywhere; text-shadow: 0 0 22px var(--hud-glow); }
 .bench-head > p { max-width: 760px; margin: 18px 0 0; color: var(--muted); font-size: 18px; line-height: 1.55; }
 .bench-head > p:nth-of-type(2) { order: -1; margin: 0; font: 13px/1.6 var(--hud-mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--hud-gold); }
