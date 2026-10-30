@@ -141,8 +141,6 @@ XBOX_BITMAPS = {
 # the same picture, or for the profile settings the Xbox's for the same
 # thing (Change Name; its Controller Setup for Gamepads)
 XBOX_FRAMES = {
-    "shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__2": 2,
-    "shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__5": 4,
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__0": 0,
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__2": 1,
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__7": 3,
@@ -371,6 +369,10 @@ class Art:
             width, height = data[index]["width"], data[index]["height"]
             picture = port_settings.picture_frame(relative, index)
             if picture:
+                # CE assets are rebuilt after the output folder is cleared.
+                if picture["png"].startswith("ce/"):
+                    self.draw(relative, index, len(data), width, height, MENUS / picture["png"],
+                              self.shown.get(tag, []))
                 self.pngs.append(picture["png"])
                 lines.append(f"\t\t<frame{attributes(list(picture.items()))}/>")
                 continue
@@ -712,11 +714,19 @@ runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game ar
 | PC bitmap | Frames and sources |
 | --- | --- |
 | `mp_options` | 0 → Xbox 0; 1 → Xbox 1; 2 → INTERNET (invite-link join) |
-| `gametype_options` | 0 → Xbox 0; 3 and 4 → Xbox 3 (equipment/vehicles); 6 → Xbox 2 (players/teams); 7 → Xbox 5 (save) |
+| `gametype_options` | 0 → NAME; 1 → existing five-icon redraw; 2 → PLAYER; 3 → ITEM; 4 → VEHICLE; 5 → INDICATOR; 6 → TEAMPLAY; 7 → SAVE |
 | `profile_options` | 1 → Xbox 0 (keyboard); 3 → MOUSE; 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
 
 All 13 former placeholder PNGs have been removed. The original redraw for the
-PC gametype chooser's frame 1 and the existing Xbox frame mappings remain.
+PC gametype chooser's frame 1 remains. The other seven frames use original
+`xbox/art/gametype-*.svg` drawings, rendered at 4x. All eight frames draw at
+256×128 in a matching widget centered above the text, preserving their 2:1
+proportions without clipping or overlap.
+None uses the player's map.
+The picture widget selects the focused child's position, not its `string_index`:
+VEHICLE is frame 4, INDICATOR is frame 5, and TEAMPLAY is frame 6.
+See `playlist_settings_menu_update_extended_description` and
+`ui_widget_port_list_index` in `source/interface/`.
 
 The PC version's `ui\gamespy` and `ui\ticker` fonts are drawn with `ui\small_ui`, which
 the Xbox's map has.

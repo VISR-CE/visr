@@ -454,7 +454,9 @@ def test_quit_panel_matches_delete_confirmation_padding():
 def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     """Description drawings ship as 4x RGBA PNGs; Xbox rows and hub slots share their sources."""
     manifest = json.loads((MENUS / 'menus.json').read_text())['files']
-    for name in ('audio', 'video', 'internet', 'about', 'mouse'):
+    for name in ('audio', 'video', 'internet', 'about', 'mouse',
+                 'gametype-name', 'gametype-player', 'gametype-item', 'gametype-vehicle',
+                 'gametype-indicator', 'gametype-teamplay', 'gametype-save'):
         svg = (MENUS / f'xbox/art/{name}.svg').read_text()
         assert 'width="512" height="256"' in svg
         png = (MENUS / f'xbox/art/{name}.png').read_bytes()

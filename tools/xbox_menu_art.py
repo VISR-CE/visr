@@ -118,8 +118,10 @@ def browser_art(output):
 
 
 # the pictures of the profile editor and multiplayer rows that ship as our own art (xbox/art/<name>.svg, 512 by 256):
-# AUDIO, VIDEO, INTERNET (also NETWORK and DIRECT LINK), and the PC look's ABOUT emblem and MOUSE drawing
-REDRAWS = ('audio', 'video', 'internet', 'about', 'mouse')
+# Profile, multiplayer, and PC gametype editor panels.
+REDRAWS = ('audio', 'video', 'internet', 'about', 'mouse',
+           'gametype-name', 'gametype-player', 'gametype-item', 'gametype-vehicle',
+           'gametype-indicator', 'gametype-teamplay', 'gametype-save')
 
 
 def redraw_art(output):

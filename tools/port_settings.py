@@ -585,6 +585,11 @@ WIDGET_PATCHES = {
             f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" x="54" y="223"/>',
             f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" x="54" y="253"/>',
         ]}},
+    # PNG frames fill the widget once their logical size fits it. Keep the 2:1 art
+    # centered in the space above the description instead of stretching it to 208 high.
+    "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_pic": {
+        "set": {"left": 304, "top": 114, "width": 256, "height": 128},
+    },
     # (the PC's Vehicles row's Start opened Item Options)
     "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_vehicles_list_item": {"handlers": [
         '<on event="a" open="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen"/>',
@@ -605,8 +610,13 @@ WIDGET_PATCHES = {
 # ui.map. Keep the transparent fallback so game maps can use the extracted cache.
 PC_PICTURES = {
     "main_menu/multiplayer_type_select/mp_options": {0: 0, 1: 1, 2: "internet"},
+    # playlist_settings_menu_update_extended_description uses focused child order,
+    # so VEHICLE precedes INDICATOR despite their string_index values (6 and 4).
     "main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options": {
-        0: 0, 3: 3, 4: 3, 6: 2, 7: 5,
+        0: "gametype-name",
+        1: "ce/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__1.png",
+        2: "gametype-player", 3: "gametype-item",
+        4: "gametype-vehicle", 5: "gametype-indicator", 6: "gametype-teamplay", 7: "gametype-save",
     },
     f"{PE}/profile_options": {
         1: 0, 3: "mouse", 4: "audio", 5: "video", 6: "internet", 8: "about",
@@ -621,8 +631,11 @@ def picture_frame(relative, index):
     if source is None:
         return None
     frame = {"width": "512", "height": "256"}
+    # The PC slot is 284 pixels wide; use an integer PNG scale that fits the 2:1 art.
+    if name.endswith("/playlist_edit/gametype_options"):
+        frame = {"width": "256", "height": "128"}
     if isinstance(source, str):
-        frame["png"] = f"xbox/art/{source}.png"
+        frame["png"] = source if source.startswith("ce/") else f"xbox/art/{source}.png"
     else:
         frame["map"] = "ui\\shell\\" + name.replace("/", "\\")
         frame["index"] = str(source)

@@ -23,8 +23,6 @@ the same picture, or for the profile settings the Xbox's picture for the same th
 
 | The PC version's frame | The Xbox's frame |
 | --- | --- |
-| `shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__2.png` | `ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\gametype_options` frame 2 |
-| `shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options__5.png` | `ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\gametype_options` frame 4 |
 | `shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__0.png` | `ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options` frame 0 |
 | `shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__2.png` | `ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options` frame 1 |
 | `shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__7.png` | `ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options` frame 3 |
@@ -54,11 +52,19 @@ runtime extraction into `cache/pc/v1`, as the Xbox settings hub does. No game ar
 | PC bitmap | Frames and sources |
 | --- | --- |
 | `mp_options` | 0 → Xbox 0; 1 → Xbox 1; 2 → INTERNET (invite-link join) |
-| `gametype_options` | 0 → Xbox 0; 3 and 4 → Xbox 3 (equipment/vehicles); 6 → Xbox 2 (players/teams); 7 → Xbox 5 (save) |
+| `gametype_options` | 0 → NAME; 1 → existing five-icon redraw; 2 → PLAYER; 3 → ITEM; 4 → VEHICLE; 5 → INDICATOR; 6 → TEAMPLAY; 7 → SAVE |
 | `profile_options` | 1 → Xbox 0 (keyboard); 3 → MOUSE; 4 → AUDIO; 5 → VIDEO; 6 → INTERNET; 8 → ABOUT |
 
 All 13 former placeholder PNGs have been removed. The original redraw for the
-PC gametype chooser's frame 1 and the existing Xbox frame mappings remain.
+PC gametype chooser's frame 1 remains. The other seven frames use original
+`xbox/art/gametype-*.svg` drawings, rendered at 4x. All eight frames draw at
+256×128 in a matching widget centered above the text, preserving their 2:1
+proportions without clipping or overlap.
+None uses the player's map.
+The picture widget selects the focused child's position, not its `string_index`:
+VEHICLE is frame 4, INDICATOR is frame 5, and TEAMPLAY is frame 6.
+See `playlist_settings_menu_update_extended_description` and
+`ui_widget_port_list_index` in `source/interface/`.
 
 The PC version's `ui\gamespy` and `ui\ticker` fonts are drawn with `ui\small_ui`, which
 the Xbox's map has.
