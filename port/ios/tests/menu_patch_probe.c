@@ -108,7 +108,9 @@ static char const screen_xml[] =
 static char const pc_xml[] =
 	"<menus><widget name=\"main_menu/main_menu\"/>"
 	"<strings name=\"main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions\">"
-	"<string text=\"Rename this profile.\"/></strings></menus>";
+	"<string text=\"Rename this profile.\"/></strings>"
+	"<strings name=\"main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text\">"
+	"<string text=\"Rename this gametype.\"/></strings></menus>";
 
 /* (embedded as tools/embed_assets.py has them; the malformed patch is a file of the same name in the menus folder,
 which replaces it) */
@@ -904,9 +906,9 @@ static void check_apple(boolean tvos)
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Four widgets, two bitmaps and the PC description list precede patch tags. */
-	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 1;
-	used = 6 + 2 * (3 + 4 + 1 + 1) + 1;
+	/* Four widgets, two bitmaps and the two PC description lists precede patch tags. */
+	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 2;
+	used = 6 + 2 * (3 + 4 + 1 + 1) + 2;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1145,10 +1147,16 @@ int main(int argc, char **argv)
 					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
 				check(string_is(list, 0, "Rename this profile using\\nthe virtual keyboard.\\n\\nCurrent Profile:"),
 					"keyboard removal changes the next screen's description");
+				struct string_list *gametype = tag_get(UNICODE_STRING_LIST_TAG,
+					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\playlist_edit_list_extended_dsc_text"));
+				check(string_is(gametype, 0, "Rename this gametype using\\nthe virtual keyboard.\\n\\nThis gametype:"),
+					"virtual keyboard caption keeps the gametype label on the fourth line");
 				input_keyboard = 1;
 				pc_menu_screen_open(xbox);
 				check(string_is(list, 0, "Rename this profile with your\\nkeyboard.\\n\\nCurrent Profile:"),
 					"keyboard attachment changes the next screen's description");
+				check(string_is(gametype, 0, "Rename this gametype with\\nyour keyboard.\\n\\nThis gametype:"),
+					"hardware keyboard caption wraps inside the panel and keeps the label line");
 			}
 		}
 		check_panel_failure();
