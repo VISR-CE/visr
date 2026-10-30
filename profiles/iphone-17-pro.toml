@@ -46,12 +46,12 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "120 frames a second at 1080 lines does not hold: on the Maw fight 99.46%, 99.43% and 99.38% of frames were on time (three rounds), on a10-heroic 99.24%, 99.90% and 99.72%, a window down to 960 lines did no better on the Maw (99.35%, 99.52%, 99.40%), and the phone had reached thermal state 1 in most rounds. At 60 frames a second and 1080 lines, 1.5x enemies put 99.87% to 100% of frames on time and 2x enemies 99.83% to 100% on a10-heroic and the Maw (ladder tier 4), so the profile takes tier 4; 120 at 900 lines held (lowest 99.56%) but is not a ladder tier. Replaces the 2026-10-27 assumption that Pro iPhones target 120 in campaign."
+why = "120 frames a second at 1080 lines does not hold: on the Maw fight 99.46%, 99.43% and 99.38% of frames were on time (three rounds), on a10-heroic 99.24%, 99.90% and 99.72%, the rows with a window down to 960 lines ran at a fixed 1080 because dynamic resolution did not act on this build and are not cited, and the phone had reached thermal state 1 in most rounds. At 60 frames a second and 1080 lines, 1.5x enemies put 99.87% to 100% of frames on time and 2x enemies 99.83% to 100% on a10-heroic and the Maw (ladder tier 4), so the profile takes tier 4; 120 at 900 lines held (lowest 99.56%) but is not a ladder tier. Replaces the 2026-10-27 assumption that Pro iPhones target 120 in campaign."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-30"
 
 [evidence."variable.display.frame_rate"]
 basis = "measured"
-why = "60 frames a second at 1080 lines held at 1.5x and 2x enemies, fixed or with a window down to 540 lines, 99.83% to 100% of frames on time on a10-heroic and the Maw (two or three rounds each, thermal state 0 or 1). Multiplayer was measured at 30 frames a second only (32 and 64 players on Blood Gulch, 100%); the 60 frames a second multiplayer measurements are pending. The earlier sweep (build 20261024.122832) put 120 at 93.6% to 98.5% on time at 1080 lines."
+why = "60 frames a second at 1080 lines held at 1.5x and 2x enemies at fixed resolution, 99.83% to 100% of frames on time on a10-heroic and the Maw (three rounds each, thermal state 0 or 1); the rows with a window down to 540 lines ran at a fixed 1080 because dynamic resolution did not act on this build and are not cited. Multiplayer at 30 frames a second held with 32 and 64 players on Blood Gulch (100%), but at 60 frames a second and a fixed 1080 lines it missed (one round: 32 players 80.6% of frames on time, 64 players 25.3%, 128 players 22.8%), so 60 does not hold for multiplayer from 32 players up; counts below 32 were not measured. The earlier sweep (build 20261024.122832) put 120 at 93.6% to 98.5% on time at 1080 lines."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-30"
 
 [evidence."external.display.output_height"]
@@ -66,7 +66,7 @@ source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15
 
 [evidence."network.player_capacity"]
 basis = "measured"
-why = "At 30 frames a second, 540 lines and minimum settings every rung held in two rounds (frames on time): Blood Gulch with 8, 16 and 24 players 99.94% to 100%, 32 players 99.97% and 100%, 48 players 100% and 100%, 64 players 100% and 99.97%, 128 players 100% and 99.94%; Sidewinder with 32 and 64 players 100%, 128 players 100% and 100%. 128 is the schema maximum. At the profile's 1080 lines with fixed resolution Blood Gulch with 128 players missed 30 frames a second (90.0% and 93.1% on time, thermal state 1), so large games depend on the variable-context window. Blood Gulch with 32 and 64 players at 1080 lines held 100% at 30. Multiplayer at 60 frames a second, the variable context's rate, is not yet measured."
+why = "At 30 frames a second, 540 lines and minimum settings every rung held in two rounds (frames on time): Blood Gulch with 8, 16 and 24 players 99.94% to 100%, 32 players 99.97% and 100%, 48 players 100% and 100%, 64 players 100% and 99.97%, 128 players 100% and 99.94%; Sidewinder with 32 and 64 players 100%, 128 players 100% and 100%. 128 is the schema maximum. At the profile's 1080 lines with fixed resolution Blood Gulch with 128 players missed 30 frames a second (90.0% and 93.1% on time, thermal state 1), so large games need fewer lines than 1080. Blood Gulch with 32 and 64 players at 1080 lines held 100% at 30. Multiplayer at 60 frames a second, the variable context's rate, is not yet measured."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-30"
 
 [evidence."display.dynamic_resolution"]
