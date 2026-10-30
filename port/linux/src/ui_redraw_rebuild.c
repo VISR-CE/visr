@@ -124,6 +124,31 @@ int ui_redraw_rebuild(const unsigned char *source, long width, long height, long
 			float range = 0.0f;
 
 			cubic_weights(source_x - x0, weights_x);
+			if (channels == 1)
+			{
+				/* a coverage: its smooth contour at half the strongest
+				coverage of the sixteen texels around, drawn about one output pixel wide at that
+				strength (so a faint thin stroke stays as faint, but sharp) */
+				float value = 0.0f, strongest = 0.0f, fraction, half_width = 0.6f / scale;
+
+				for (row = 0; row < 4; row++)
+				{
+					const float *line = premultiplied + clamp_index(y0 - 1 + row, height) * width * 4;
+
+					for (column = 0; column < 4; column++)
+					{
+						float texel = line[clamp_index(x0 - 1 + column, width) * 4 + 3];
+
+						value += texel * weights_y[row] * weights_x[column];
+						if (texel > strongest)
+							strongest = texel;
+					}
+				}
+				fraction = strongest > 0.0f ? clamp01(value / strongest) : 0.0f;
+				fraction = clamp01((fraction - (0.5f - half_width)) / (2.0f * half_width));
+				output[y * output_width + x] = (unsigned char)(strongest * fraction * 255.0f + 0.5f);
+				continue;
+			}
 			for (row = 0; row < 4; row++)
 			{
 				const float *line = premultiplied + clamp_index(y0 - 1 + row, height) * width * 4;

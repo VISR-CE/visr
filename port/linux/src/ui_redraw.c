@@ -220,6 +220,7 @@ void ui_redraw_note(const char *tag_name, const void *hardware_format, long widt
 			return;
 		memset(&textures[index], 0, sizeof(textures[index]));
 		texture_count++;
+		platform_log("ui redraw: %s (%ldx%ld) redrawn", tag_name, width, height);
 	}
 	else if (textures[index].format_word != resource[3] || textures[index].size_word != resource[4] ||
 		textures[index].width != width || textures[index].height != height)
@@ -344,7 +345,11 @@ int ui_redraw_build(unsigned long data, const unsigned char *pixels, unsigned lo
 		every frame is rebuilt the same way) */
 		if (hand_made || factor * (unsigned long)textures[index].width != width ||
 			factor * (unsigned long)textures[index].height != height)
+		{
+			platform_log("ui redraw: a %lux%lu picture for a %ldx%ld frame is drawn as it is", width, height,
+				textures[index].width, textures[index].height);
 			return 0;
+		}
 		reduced = box_reduce(pixels, width, height, factor);
 		if (!reduced)
 			return 0;

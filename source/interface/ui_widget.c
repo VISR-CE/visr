@@ -6786,8 +6786,8 @@ static void widget_instance_render_recursive(
 			display's resolution (port/linux/src/ui_redraw.c) */
 			if (shown && !custom_edition_picture)
 			{
-				ui_redraw_note(tag_get_name(definition->background_bitmap.index), bitmap->hardware_format,
-					bitmap->width, bitmap->height);
+				ui_redraw_note(tag_get_name(definition->background_bitmap.index),
+					_texture_cache_bitmap_get_hardware_format(bitmap, FALSE, FALSE), bitmap->width, bitmap->height);
 			}
 			if (shown)
 			{
