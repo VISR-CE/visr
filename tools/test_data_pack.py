@@ -436,3 +436,32 @@ def test_catalog_two_is_a_separate_compatibility_from_catalog_one(tmp_path):
     assert manifest["compatibility"] == "benchmark-catalog-2:" + "a" * 64
     # the files cannot be read as a catalog-1 payload: there is no per-file base64 table
     assert list(json.loads(base64.b64decode(envelope["payload"]))["files"]) == ["recordings"]
+
+
+@pytest.mark.parametrize("steps", [[{"deathless": True}],
+    [{"ai_place": "hangar_cov_first_floor"}] * 10 + [{"deathless": True}]])
+def test_recording_pack_accepts_staged_routes(tmp_path, steps):
+    folder = recording(tmp_path / "recordings")
+    route = folder / "test-route.route"
+    with route.open("a") as stream:
+        stream.write("staging = " + data_pack.canonical(steps).decode("ascii") + "\nstaging_tick = 880\nstaging_segment = 0\n")
+    data_pack.validate_recordings(folder)
+
+
+@pytest.mark.parametrize("metadata", [
+    'staging = [{"deathless":false}]\nstaging_tick = 31\nstaging_segment = 0\n',
+    'staging = [{"deathless":true}]\nstaging_tick = 0\nstaging_segment = 0\n',
+    'staging = [{"deathless":true}]\nstaging_tick = 31\nstaging_segment = 32\n',
+    'staging = [{"deathless":true}]\nstaging_tick = 31\n',
+    'staging_tick = 31\nstaging_segment = 0\n',
+    'staging = [{"deathless":true}]\nstaging_tick = 31\nstaging_segment = 0\nstaging_tick = 32\n',
+    ' staging = [{"deathless":true}]\n staging_tick = 31\n staging_segment = 0\n',
+    'staging = [{"deathless":true}]\nstaging_tick = 31\nstaging_segment = 0\nkind = cutscene\n',
+    'closed_by = ' + 'x' * 255 + '\n',
+])
+def test_recording_pack_rejects_invalid_staging_metadata(tmp_path, metadata):
+    folder = recording(tmp_path / "recordings")
+    with (folder / "test-route.route").open("a") as stream:
+        stream.write(metadata)
+    with pytest.raises(ValueError, match="recording pack rejected"):
+        data_pack.validate_recordings(folder)

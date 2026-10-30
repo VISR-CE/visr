@@ -187,17 +187,22 @@ static int route_valid(char *text, const char *name, char scene[48])
 {
     struct benchmark_route route;
     char *copy, *cursor, *line;
-    char seen[64][64]; int seen_count = 0, ok = 1;
+    char seen[64][64]; int seen_count = 0, ok = 1, staging_metadata = 0;
     copy = strdup(text);
     if (!copy) return 0;
     cursor = copy;
     while (ok && (line = line_next(&cursor))) {
         char *equal = strchr(line, '='), *key, *value;
         double n; long long v; int i;
+        size_t length = strlen(line);
         if (!*line) continue;
-        if (strlen(line) > 254 || !equal) { ok = 0; break; }
+        if (!equal) { ok = 0; break; }
         *equal = 0; key = trim(line); value = trim(equal + 1);
         if (!*key || strlen(key) >= 64 || !*value) { ok = 0; break; }
+        /* The closed staging JSON can exceed an ordinary metadata line's limit. */
+        if (length > 254 && (strcmp(key, "staging") || strlen(value) >= BENCHMARK_STAGING_JSON_SIZE)) {
+            ok = 0; break;
+        }
         if (strcmp(key, "segment_seed")) {
             for (i = 0; i < seen_count; i++) if (!strcmp(seen[i], key)) ok = 0;
             if (seen_count == 64) { ok = 0; break; }
@@ -215,6 +220,15 @@ static int route_valid(char *text, const char *name, char scene[48])
             for (at = 0; ok && value[at]; at++)
                 ok &= (value[at] >= 'a' && value[at] <= 'z') || (value[at] >= '0' && value[at] <= '9') || value[at] == '_' ||
                     value[at] == ':' || (value[at] == ',' && key[0] == 'e');
+        }
+        else if (!strcmp(key, "staging")) staging_metadata = 1;
+        else if (!strcmp(key, "staging_tick")) {
+            staging_metadata = 1;
+            ok &= integer(value, 10, 1, TICKS_MAXIMUM, &v);
+        }
+        else if (!strcmp(key, "staging_segment")) {
+            staging_metadata = 1;
+            ok &= integer(value, 10, 0, SEGMENTS_MAXIMUM - 1, &v);
         }
         else if (!strcmp(key, "scenario_help")) ok &= !strcmp(value, "off");
         else if (!strcmp(key, "enemy_multiplier")) ok &= real_number(value, 1, 8, &n);
@@ -234,7 +248,8 @@ static int route_valid(char *text, const char *name, char scene[48])
         else if (strcmp(key, "version") && strcmp(key, "recorded") && strcmp(key, "closed_by") && !profile_metadata_key(key)) ok = 0;
     }
     free(copy);
-    if (!ok || !benchmark_scene_from_route(text, name, &route) || !name_valid(route.map, 31) ||
+    if (!ok || !benchmark_scene_from_route(text, name, &route) ||
+        (staging_metadata && !route.scene.staging.count) || !name_valid(route.map, 31) ||
         !name_valid(route.id, 47) || !isfinite(route.scene.lead) || !isfinite(route.scene.seconds) ||
         route.scene.lead < 0 || route.scene.lead > 3600 || route.scene.seconds < 0 || route.scene.seconds > 3600) return 0;
     snprintf(scene, 48, "%s", route.id);
