@@ -84,3 +84,9 @@ def test_host_version_rules_use_the_capability_helpers():
     numeric = re.compile(r"(network_game_host_version\(\)|\.version)\s*(<|>|<=|>=)\s*\d")
     for path in list(uses) + ["port/linux/game/network_aim_assist.c"]:
         assert not numeric.search(read(path)), path
+
+
+def test_join_request_padding_follows_the_host_version():
+    client = read("source/networking/network_client_manager.c")
+    assert "create_network_game_message_padded(" in client
+    assert "halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0" in client
