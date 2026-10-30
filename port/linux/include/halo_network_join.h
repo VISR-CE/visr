@@ -15,8 +15,8 @@ Header-only and pure, so the probes can run it.
 
 #include "halo_network_version.h"
 
-/* whether a host that announces this network version can be joined: this
-build's own, or an older one back to HALO_PORT_NETWORK_OLDEST_JOINABLE */
+/* whether a host's advertised version is in this build's joinable range,
+including supported newer hosts (halo_network_version_joinable) */
 static inline int halo_network_joinable(int version)
 {
 	return version > 0 && halo_network_version_joinable((unsigned)HALO_PORT_NETWORK_VERSION, (unsigned)version);

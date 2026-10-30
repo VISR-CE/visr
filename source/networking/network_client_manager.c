@@ -394,6 +394,7 @@ symbols in this file:
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 void platform_show_message(char const *title, char const *message);
 #include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
+#include "halo_network_join_wire.h" /* port: join padding and refusals */
 #include "halo_network_content.h" /* port: game-kind refusal */
 
 /* ---------- constants */
@@ -2317,6 +2318,7 @@ void network_game_client_rejected_by_game(
 	word rejection_code)
 {
 	const char *reason = "<unknown>";
+	char const *message = halo_network_rejection_message(rejection_code);
 
 	match_assert(
 		"c:\\halo\\SOURCE\\networking\\network_client_manager.c",
@@ -2354,12 +2356,26 @@ void network_game_client_rejected_by_game(
 	case _rejection_code_blacklisted_machine:
 		reason = "_rejection_code_blacklisted_machine";
 		break;
+
+	case HALO_NETWORK_REJECTION_LINK_REQUIRED:
+		reason = "link required";
+		break;
+
+	case HALO_NETWORK_REJECTION_VPN_BLOCKED:
+		reason = "VPN blocked";
+		break;
+
+	case HALO_NETWORK_REJECTION_LINK_INVALID:
+		reason = "link invalid";
+		break;
 	}
 
 	network_event(
 		"unable to join game: reason= #%d/%s",
 		rejection_code,
 		reason);
+	if (message)
+		platform_show_message("VISR: cannot join this game", message);
 	/* port: the join went to the pregame screen at once (and a machine
 	refused a game in progress, network_game_server_refuse_late_joiner, is in
 	it): with no game behind it, it is left for the main menu, which says
@@ -2883,10 +2899,11 @@ static boolean network_game_client_idle_joining(
 					csmemcpy(join_game_request.hardware_id, hardware_id, csstrlen(hardware_id));
 				}
 
-				message = create_network_game_message(
+				message = create_network_game_message_padded(
 					_message_client_join_game_request,
 					&join_game_request,
-					sizeof(join_game_request));
+					sizeof(join_game_request),
+					halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0);
 				if (message)
 				{
 					if (network_game_client_write(
@@ -2896,6 +2913,7 @@ static boolean network_game_client_idle_joining(
 						NULL,
 						1))
 					{
+						network_event("sent a join request of %u bytes", (unsigned)GET_MESSAGE_SIZE(*message));
 						SET_FLAG(
 							client->flags,
 							_network_game_client_join_request_sent_bit,
@@ -3137,8 +3155,7 @@ the system link list does (network_game_join_game_from_server_list) */
 void platform_show_message(char const *title, char const *message);
 
 /* port: whether this client can join the advertised game: its host's network
-version is this machine's (HALO_PORT_NETWORK_VERSION) or an older one it
-plays with (halo_network_version_joinable), and it plays the
+version is one this client joins (halo_network_version_joinable), and it plays the
 distributed netcode (a host of this version built before the lockstep
 netcode was removed may play that), and its game kind is supported.
 If not the player is told why (when

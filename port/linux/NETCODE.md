@@ -173,7 +173,7 @@ the host's reliable stream. VISR always renders stock shield effects and
 hosts send the synchronized STOCK selector (0). Selector 6 leaves player
 presentation choices local in other implementations; VISR still draws stock.
 
-Clients join hosts of versions 29 to 32, 34 to 36, and 39 as well; no host of 33 or 37
+Clients join hosts of versions 29 to 32, 34 to 36, and 39 to 41 as well; no host of 33 or 37
 was released, so those are refused. Hosts of 29 to 34 send the
 13,120-byte settings record with the 28-byte options block, which the client
 widens; hosts of 35 to 37 send the 13,136-byte record. A client takes each
@@ -182,7 +182,11 @@ later rule only from a host whose version has it: the co-op ally switch from
 from 36 (selectors 0–5) and selector 6 from 38. A join request carries no
 version, so a client of 38 sends a host of 33 to 37 the same bytes it sends a
 host of 38. Current hosts do not negotiate a downgrade with older clients.
-Version 39 uses the 38 join and game codecs. Hosting stays at 38. The
+Version 39 uses the 38 join and game codecs. Versions 40 and 41 add 234
+zero bytes before the join packet's type trailer, making a 350-byte TCP
+frame; hosts below 40 keep the 116-byte frame. Hosting stays at 38.
+Servers requiring a Discord link or rejecting a VPN connection show a
+specific refusal message; VISR does not support Discord join passes. The
 client-build message (92) is discarded as an unknown distributed kind.
 Dedicated games advertise no host player; player counts are retained as
 sent. LAN dedicated flags and kinds are ignored when reserved bytes
@@ -279,7 +283,7 @@ say whether its player plays co-op without friendly fire (its byte 2).
 
 Versions 30 to 32 only add: a machine that does not know an addition drops it.
 A host of version 32 plays every client as version 32 (a join request does
-not carry a version), and a client joins hosts of version 29 to 32
+not carry a version), and a client of 32 joins hosts of versions 29 to 32
 (`halo_network_version.h`), playing by the host's version: it waits for no
 message 90 from a host of 31 or less, whose mouse magnetism it plays as set.
 The Apple port does not import upstream's text chat (kinds 87 to 89) or its

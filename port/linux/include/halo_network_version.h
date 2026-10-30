@@ -2,7 +2,7 @@
 HALO_NETWORK_VERSION.H
 
 The current agreement is 38. A client also joins hosts of 29 to 32 and 34 to
-36, and 39 (33 and 37 were never released). Hosts of 29 to 34 send the 13,120-byte
+36, and 39 to 41 (33 and 37 were never released). Hosts of 29 to 34 send the 13,120-byte
 settings record with the 28-byte options block, which the receiver widens;
 hosts of 35 to 37 send the 13,136-byte record. Each
 later rule is taken only from a host whose version has it (the helpers below);
@@ -39,6 +39,9 @@ their own destruction */
 #define HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS 38
 /* dedicated-server discovery metadata; the join codec stays at 38 */
 #define HALO_NETWORK_VERSION_DEDICATED 39
+/* the join request adds an empty pass and proof field */
+#define HALO_NETWORK_VERSION_JOIN_PASS_FIELD 40
+#define HALO_NETWORK_VERSION_NEWEST_JOINABLE 41
 
 /* the older versions a client of this build joins, one bit per version from
 the oldest: 29 to 32, and 34 to 36, each checked by joining a host of that
@@ -48,8 +51,9 @@ version. No host of 33 or 37 was released, so neither is joined. */
 /* whether a client of version `ours` joins a host of version `theirs` */
 static inline int halo_network_version_joinable(unsigned ours, unsigned theirs)
 {
-	/* Version 39 changes discovery metadata, not the version-38 join codec. */
-	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS && theirs == HALO_NETWORK_VERSION_DEDICATED)
+	/* port: newer hosts keep the game codec; 40 and 41 need join padding. */
+	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS &&
+		theirs >= HALO_NETWORK_VERSION_DEDICATED && theirs <= HALO_NETWORK_VERSION_NEWEST_JOINABLE)
 		return 1;
 	if (theirs == ours)
 		return 1;
@@ -110,6 +114,12 @@ static inline int halo_network_version_has_game_kind(unsigned version)
 static inline int halo_network_version_has_dedicated(unsigned version)
 {
 	return version >= HALO_NETWORK_VERSION_DEDICATED;
+}
+
+/* whether a host requires the pass and proof field in the join request */
+static inline int halo_network_version_has_join_pass_field(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_JOIN_PASS_FIELD;
 }
 
 /* how far a datagram's tick may be from the latest the sender's others

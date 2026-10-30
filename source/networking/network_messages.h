@@ -78,6 +78,13 @@ void *create_network_game_message(
 	const void *message_struct,
 	short message_struct_size);
 
+/* port: insert a host-version field before the encoded packet's type trailer. */
+void *create_network_game_message_padded(
+	enum network_game_message_type message_type,
+	const void *message_struct,
+	short message_struct_size,
+	unsigned extra_zero_bytes);
+
 boolean decode_network_game_message(
 	void *message_struct,
 	const void *encoded_message,
