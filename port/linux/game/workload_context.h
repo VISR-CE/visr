@@ -36,6 +36,8 @@ struct workload_inputs
 	int online;
 	/* the network game's players, every machine's; 0 outside a network game */
 	int network_players;
+	/* the advertised slot limit, on both the host and a joining machine */
+	int game_maximum_players;
 	/* this device's players: more than one is split screen */
 	int local_players;
 	/* the enemies' multiplier (coop_enemies_solo_multiplier, at least 1) */
@@ -43,6 +45,19 @@ struct workload_inputs
 	/* a co-op host's extra enemies (network.coop_enemies_mode other than "none") */
 	int coop_extra_enemies;
 };
+
+/* Synthetic games may have a larger roster than their advertised limit. */
+static inline int workload_game_players(const struct workload_inputs *in)
+{
+	return in->game_maximum_players > in->network_players ? in->game_maximum_players : in->network_players;
+}
+
+/* The decision is latched at map load, independently of later joins and departures. */
+static inline int workload_hold_30(const struct workload_inputs *in, long full_rate_players)
+{
+	return !in->main_menu && in->multiplayer_map && in->local_players <= 1 && full_rate_players > 0 &&
+		workload_game_players(in) > full_rate_players;
+}
 
 /* 1 for variable, 0 for predictable; reasons (may be NULL) names why, for the log */
 static inline int workload_variable(const struct workload_inputs *in, char *reasons, size_t size)

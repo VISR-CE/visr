@@ -22,7 +22,7 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
-                   4: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888"}
+                   4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3"}
 
 
 def key_table_sha256(text):

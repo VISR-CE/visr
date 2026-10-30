@@ -56,6 +56,26 @@ for line, word in (('frame_rate = "5"', "must be one of"), ('renderer = "vulkan"
                    ("shadow_map_size = 2048", "must be from 128 to 1024"), ("render_quality = 0.0", "must be from 0.1 to 1"),
                    ("render_scale = nan", "must be")):
     refused(GOOD.replace("[display]", "[display]\n" + line), word)
+# The multiplayer full-rate threshold is optional and cannot exceed an explicit capacity.
+def network_profile(full_rate, capacity=None):
+    text = GOOD + f"[network]\nfull_rate_players = {full_rate}\n"
+    if capacity is not None:
+        text += f"player_capacity = {capacity}\n"
+    for name in (["full_rate_players", "player_capacity"] if capacity is not None else ["full_rate_players"]):
+        text += (f'[evidence."network.{name}"]\nbasis = "assumed"\n'
+                 'why = "A conservative player threshold pending device measurements."\n')
+    return text
+
+
+for value in (0, 2, 32, 128):
+    assert problems(network_profile(value))[0] == []
+for value in (-1, 1, 129, '2.0', 'true', '"32"'):
+    refused(network_profile(value), "must be")
+assert problems(network_profile(32, 32))[0] == []
+assert problems(network_profile(0, 16))[0] == []
+refused(network_profile(64, 32), "must not exceed network.player_capacity")
+refused(network_profile(16).replace("[network]", "[variable.network]"), "holds only [variable.display]")
+
 # every value says why; a measured one says where; evidence for nothing is a slip
 refused(GOOD.replace("[display]", "[display]\nshadow_map_size = 256"), 'display.shadow_map_size needs an [evidence."display.shadow_map_size"]')
 refused(GOOD.replace('source = "Box runs of b30, 2026-10-12"\n', ""), "a measured value needs source")

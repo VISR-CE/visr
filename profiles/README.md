@@ -99,6 +99,8 @@ A build reads only `[variable.display]`, and only the `PROFILE_VARIABLE` setting
 
 **Precedence.** The variable value lies over the profile's own, a scene class's value over either, and an external display's values over all of them (below). A value the player or the environment set is the value in every workload. A frame rate in `[variable.display]` holds on every device, as a scene class's does. A variable value never enters `config.toml`.
 
+`network.full_rate_players` sets the largest multiplayer slot limit that keeps the variable frame rate at the profile's settings; 0 (the default) leaves it unlimited. At map load, a larger game holds gameplay to at most 30 fps for the whole map. Campaign, co-op, split screen and the main menu keep their frame rates, and explicit player choices still win. Vision Pro paces its own frames. The thresholds nest: up to `full_rate_players`, use the variable frame rate; above it through `network.player_capacity`, use 30 fps; above capacity, the browser marks the game BIG and joining shows a warning. When both keys are set, `full_rate_players` must not exceed `player_capacity`.
+
 Evidence is named `[evidence."variable.display.dynamic_resolution_floor"]`. Split screen is variable for now; tables named `split` are reserved for split-screen values by player count.
 
 ## What the log says
@@ -255,6 +257,7 @@ Evidence names include the context: `[evidence."external.display.render_height"]
 | Setting | Type and accepted values | Default (Apple) | Contexts | Description |
 | --- | --- | --- | --- | --- |
 | `network.player_capacity` | integer, 2 to 128 | `0` | gameplay | The most players this device holds at 30 frames a second at the lowest settings, 2 to 128; 0 (default) names no limit. |
+| `network.full_rate_players` | integer, 0 to 128 | `0` | gameplay | The most multiplayer slots this device holds at the profile's variable frame rate and settings, 2 to 128; 0 (default) leaves it unlimited. |
 ### debug
 
 | Setting | Type and accepted values | Default (Apple) | Contexts | Description |

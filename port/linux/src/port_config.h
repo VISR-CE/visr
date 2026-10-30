@@ -91,9 +91,11 @@ recording notes of the settings it was made under) */
 void config_profile_settings_text(char *text, size_t size);
 /* The workload context of the map in force: 0 predictable (single-player campaign at standard settings, the
 profile's own values), 1 variable ([variable.display] under the scene classes). set, as a map loads
-(port/linux/game/scene_class.c): logged, and config_changes advances, when it changes; 1 then */
+(port/linux/game/scene_class.c): logged for each map; config_changes advances when it changes, returning 1 */
 int config_workload_variable(void);
 int config_workload_set(int variable, const char *reasons);
+/* Map-load multiplayer fallback, resolved below explicit frame-rate choices. */
+int config_workload_set_limited(int variable, int hold_30, const char *reasons);
 /* "gameplay", "menu", "cutscene" */
 const char *config_scene_name(int scene);
 /* what the scene class changes, for the log ("display.render_scale 0.667

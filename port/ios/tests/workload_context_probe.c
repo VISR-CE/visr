@@ -67,6 +67,31 @@ int main(void)
 	assert(workload_variable(&(struct workload_inputs){ .multiplayer_map = 1, .enemy_multiplier = 1.0 }, NULL, 0));
 	assert(!workload_variable(&(struct workload_inputs){ .enemy_multiplier = 1.0, .local_players = 1 }, reasons, 1) &&
 		!reasons[0]);
+	/* Slot limits, rather than the initial roster, decide the whole map on hosts and joined machines. */
+	struct workload_inputs mp = { .multiplayer_map = 1, .networked = 1, .network_players = 6,
+		.game_maximum_players = 64, .local_players = 1 };
+	assert(workload_hold_30(&mp, 32));
+	assert(!workload_hold_30(&mp, 64));
+	assert(!workload_hold_30(&mp, 128));
+	assert(!workload_hold_30(&mp, 0));
+	mp.online = 1;
+	assert(workload_hold_30(&mp, 32));
+	mp.network_players = 64;
+	mp.game_maximum_players = 16;
+	assert(workload_hold_30(&mp, 32) && workload_game_players(&mp) == 64);
+	mp.multiplayer_map = 0;
+	mp.enemy_multiplier = 2.0;
+	assert(!workload_hold_30(&mp, 2));
+	mp.coop_extra_enemies = 1;
+	assert(!workload_hold_30(&mp, 2));
+	mp.networked = 0;
+	assert(!workload_hold_30(&mp, 2));
+	mp.multiplayer_map = 1;
+	mp.local_players = 2;
+	assert(!workload_hold_30(&mp, 2));
+	mp.local_players = 1;
+	mp.main_menu = 1;
+	assert(!workload_hold_30(&mp, 2));
 	puts("PASS: workload contexts: solo, multiplier, LAN co-op by size, online co-op, split screen, multiplayer maps");
 	return 0;
 }

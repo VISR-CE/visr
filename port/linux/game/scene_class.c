@@ -48,6 +48,7 @@ frame_rate = "30"), which it holds frames for and names in its frame log
 #include "networking/network_server_manager.h"
 #include "coop_enemies.h"
 #include "workload_context.h"
+#include "network_test_suite.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -120,6 +121,10 @@ void halo_workload_decide(void)
 {
 	struct workload_inputs inputs;
 	short connection = game_connection();
+	struct network_game *game = network_game_get_game();
+	long full_rate_players = config_integer("network.full_rate_players");
+	const char *visionos = getenv("HALO_HOST_VISIONOS");
+	int hold_30, variable;
 	char reasons[160];
 
 	memset(&inputs, 0, sizeof(inputs));
@@ -128,13 +133,22 @@ void halo_workload_decide(void)
 	inputs.networked = connection == _game_connection_network_server || connection == _game_connection_network_client;
 	inputs.online = workload_online(connection);
 	inputs.network_players = inputs.networked ? coop_enemies_game_players() : 0;
+	/* (a synthetic benchmark game advertises every slot; its case's player count is the game's size) */
+	inputs.game_maximum_players = network_test_suite_network_players() > 0 ? network_test_suite_network_players() :
+		inputs.networked && game ? game->maximum_players : 0;
 	inputs.local_players = pc_menu_split_players() ? 2 : 1;
 	inputs.enemy_multiplier = coop_enemies_solo_multiplier();
 	/* (a co-op host's own choice; a machine that joined is not told the host's, so it counts them as the default's,
 	which adds enemies for each player past the first) */
 	inputs.coop_extra_enemies = connection == _game_connection_network_client ||
 		strcmp(config_string("network.coop_enemies_mode"), "none") != 0;
-	config_workload_set(workload_variable(&inputs, reasons, sizeof(reasons)), reasons);
+	variable = workload_variable(&inputs, reasons, sizeof(reasons));
+	/* The compositor owns visionOS pacing, including when its profile sets this threshold. */
+	hold_30 = !(visionos && atoi(visionos)) && workload_hold_30(&inputs, full_rate_players);
+	if (hold_30)
+		snprintf(reasons, sizeof(reasons), "multiplayer map; %d players, %d on this device; above %ld at full rate: 30 fps",
+			workload_game_players(&inputs), inputs.local_players, full_rate_players);
+	config_workload_set_limited(variable, hold_30, reasons);
 }
 
 /* the class's frame rate from the device's profile, 0 for none: only a

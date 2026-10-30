@@ -308,6 +308,22 @@ static void check_refusals(void)
 	profile = resolve(folder, device("visionos", "Grace1,1", "", 8), missing, "");
 	assert(profile.count == 0 && strstr(logged, "network.player_capacity has a value"));
 
+	/* The full-rate threshold accepts 0 or 2 through 128, with the same strict type checks. */
+	const char *thresholds[] = { "0", "2", "32", "128", "-1", "1", "129", "2.0", "true", "\"32\"" };
+	for (unsigned i = 0; i < sizeof(thresholds) / sizeof(thresholds[0]); i++)
+	{
+		char text[512];
+		snprintf(text, sizeof(text), "schema = 1\nname = \"Grace\"\nkind = \"model\"\n[match]\nplatform = \"visionos\"\n"
+			"models = [\"Grace1,1\"]\n[network]\nfull_rate_players = %s\n", thresholds[i]);
+		write_file("grace.toml", text);
+		logged[0] = 0;
+		profile = resolve(folder, device("visionos", "Grace1,1", "", 8), missing, "");
+		if (i < 4)
+			assert(profile.count == 1 && has(&profile, "network.full_rate_players", thresholds[i]));
+		else
+			assert(profile.count == 0 && strstr(logged, "network.full_rate_players has a value"));
+	}
+
 	/* the clutter distance is within 0 to 200 world units */
 	write_file("grace.toml", "schema = 1\nname = \"Grace\"\nkind = \"model\"\n[match]\nplatform = \"visionos\"\n"
 		"models = [\"Grace1,1\"]\n[display]\nclutter_distance = 40\n");
@@ -750,7 +766,7 @@ static void check_variable(void)
 		"models = [\"Variable1,1\"]\n[display]\nrender_height = 1080\ndynamic_resolution = false\n"
 		"[variable.display]\ndynamic_resolution = true\ndynamic_resolution_floor = 540\nshadow_map_size = 128\n"
 		"anti_aliasing = \"fxaa\"\nframe_rate = \"30\"\nanisotropic_filtering = 4\n"
-		"[variable.network]\nplayer_capacity = 16\n"
+		"[variable.network]\nplayer_capacity = 16\nfull_rate_players = 8\n"
 		"[scene.variable.display]\nrender_scale = 0.5\n");
 	logged[0] = 0;
 	profile = resolve(folder, device("ios", "Variable1,1", "", 5), NULL, "");
@@ -761,9 +777,10 @@ static void check_variable(void)
 	assert(strstr(encoded, "display.anti_aliasing\tfxaa\tmodel Variable\tvariable\n"));
 	assert(strstr(encoded, "display.frame_rate\t30\tmodel Variable\tvariable\n"));
 	/* refused: a setting outside PROFILE_VARIABLE, a section other than display, a scene class named variable */
-	assert(!strstr(encoded, "anisotropic_filtering") && !strstr(encoded, "player_capacity") && !strstr(encoded, "0.5"));
+	assert(!strstr(encoded, "anisotropic_filtering") && !strstr(encoded, "player_capacity") && !strstr(encoded, "full_rate_players") && !strstr(encoded, "0.5"));
 	assert(strstr(logged, "display.anisotropic_filtering cannot change by workload; ignored"));
 	assert(strstr(logged, "network.player_capacity cannot change by workload; ignored"));
+	assert(strstr(logged, "network.full_rate_players cannot change by workload; ignored"));
 	assert(strstr(logged, "scene class \"variable\" is not one this build knows; ignored"));
 	/* the profile's own value is not the variable one; the variable lookup finds it */
 	assert(has(&profile, "display.dynamic_resolution", "false"));

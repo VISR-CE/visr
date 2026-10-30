@@ -112,6 +112,7 @@ static void launch(const char *profile)
 		unsetenv("HALO_DEVICE_PROFILE_VALUES");
 	config_loaded = 0;
 	config_workload_is_variable = 0;
+	config_workload_hold_30 = 0;
 	logged[0] = 0;
 	/* (any question loads) */
 	(void)config_boolean("display.vsync");
@@ -682,6 +683,41 @@ static void check_workload(void)
 	config_workload_set(0, "main menu");
 }
 
+/* The map-load fallback reaches scene_frame_rate through the contextual string resolver. */
+static void check_workload_frame_rate(void)
+{
+	char text[32], snapshot[8192];
+	unsigned long changes;
+
+	fresh();
+	launch(TV_MODEL "display.frame_rate\t60\tmodel TV\tvariable\n");
+	assert(config_integer("network.full_rate_players") == 0);
+	config_workload_set_limited(1, 1, "multiplayer map; above 32 at full rate: 30 fps");
+	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_CUTSCENE, text, sizeof(text)) && !strcmp(text, "60"));
+	assert(!strcmp(config_string("display.frame_rate"), "display"));
+	config_profile_settings_text(snapshot, sizeof(snapshot));
+	assert(strstr(snapshot, "display.frame_rate = \"30\""));
+	changes = config_changes();
+	assert(!config_workload_set_limited(1, 1, "next multiplayer map") && config_changes() == changes);
+	assert(config_workload_set_limited(1, 0, "small multiplayer map"));
+	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "60"));
+	config_workload_set_limited(1, 1, "large multiplayer map");
+	assert(config_write("display.frame_rate", "120"));
+	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "120"));
+	setenv("HALO_FRAME_RATE", "unlimited", 1);
+	launch(TV_MODEL);
+	config_workload_set_limited(1, 1, "large multiplayer map");
+	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "unlimited"));
+	unsetenv("HALO_FRAME_RATE");
+	fresh();
+	launch(TV_MODEL);
+	config_workload_set_limited(1, 1, "large multiplayer map");
+	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+	config_workload_set(0, "main menu");
+	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "display"));
+}
+
 /* display.effect_resolution was a boolean beside display.mirror_resolution: the saved choice carries over */
 static void check_effect_resolution_migration(void)
 {
@@ -756,6 +792,7 @@ int main(void)
 	check_changed_default();
 	check_external();
 	check_workload();
+	check_workload_frame_rate();
 	check_effect_resolution_migration();
 	fresh();
 	rmdir(directory);

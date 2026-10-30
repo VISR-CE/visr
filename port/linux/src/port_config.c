@@ -1047,6 +1047,14 @@ static const struct config_setting config_settings[] =
 		"and Server Setup says the device may run slowly), and the server browser\n"
 		"marks the games with more. Joining a game is never refused. A device\n"
 		"profile sets it for the device's speed; it is not a player choice." },
+	{ "network.full_rate_players", _config_integer, "0", "HALO_NET_FULL_RATE_PLAYERS", _environment_value, _platform_ios,
+		"The most multiplayer slots this device holds at the profile's variable\n"
+		"frame rate and settings, 2 to 128; 0 (default) leaves it unlimited.\n"
+		"Above this threshold, gameplay is held to at most 30 frames a second\n"
+		"for the whole map, using the game's maximum players at map load.\n"
+		"Campaign, co-op, split screen and the main menu are unaffected.\n"
+		"A player's explicit display.frame_rate choice still wins. Vision Pro\n"
+		"paces its own frames. A profile sets this at or below player_capacity." },
 	{ "network.map_share", _config_boolean, "true", "HALO_NET_MAP_SHARE", _environment_value, _platform_all,
 		"Hosting: send a player who joins without the game's Custom Edition map\n"
 		"the map (from custom_maps), and the resource maps it needs that the\n"
@@ -3653,9 +3661,14 @@ or the environment set is the value in every scene. */
 
 /* the workload context of the map in force (config_workload_set): 1 while it is variable */
 static int config_workload_is_variable;
+static int config_workload_hold_30;
+static const struct config_value config_workload_rate_30 = { .string = "30" };
+/* display.frame_rate's index, found when the hold is set (config_workload_set_limited), so the per-frame lookup
+compares an index, not a name */
+static long config_frame_rate_index = -1;
 
 /* The game-thread sampler shares resolution without config_value's initialization lock. */
-static const struct config_value *config_scene_value_cached(size_t index, int scene, int external)
+static const struct config_value *config_scene_value_uncapped(size_t index, int scene, int external)
 {
 	const struct config_setting_state *state = &config_states[index];
 	if (state->source == _source_default || state->source == _source_profile)
@@ -3673,6 +3686,26 @@ static const struct config_value *config_scene_value_cached(size_t index, int sc
 			return &state->variable_value;
 	}
 	return &config_values[index];
+}
+
+/* Resolve the fallback with the workload so scene_frame_rate and benchmark snapshots see the same cap.
+Explicit choices retain their existing precedence; the base setting and config.toml stay unchanged. */
+static const struct config_value *config_scene_value_cached(size_t index, int scene, int external)
+{
+	const struct config_value *value = config_scene_value_uncapped(index, scene, external);
+	const struct config_setting_state *state = &config_states[index];
+
+	if (config_workload_hold_30 && config_workload_is_variable && scene == CONFIG_SCENE_GAMEPLAY &&
+		(state->source == _source_default || state->source == _source_profile) &&
+		(long)index == config_frame_rate_index)
+	{
+		char *end;
+		long rate = strtol(value->string ? value->string : "", &end, 10);
+
+		if (!value->string || !*value->string || *end || rate > 30)
+			return &config_workload_rate_30;
+	}
+	return value;
 }
 
 static const struct config_value *config_scene_value(const char *name, enum config_type type, int scene)
@@ -3732,16 +3765,26 @@ int config_workload_variable(void)
 
 int config_workload_set(int variable, const char *reasons)
 {
+	return config_workload_set_limited(variable, 0, reasons);
+}
+
+int config_workload_set_limited(int variable, int hold_30, const char *reasons)
+{
 	char changes[512] = "";
 	size_t index, length = 0;
+	int changed;
 
 	(void)config_boolean("debug.settings_dump");   /* the first load */
 	variable = variable != 0;
-	if (variable == config_workload_is_variable)
-		return 0;
+	hold_30 = variable && hold_30;
+	if (config_frame_rate_index < 0)
+		config_frame_rate_index = config_setting_index("display.frame_rate");
+	changed = variable != config_workload_is_variable || hold_30 != config_workload_hold_30;
 	pthread_mutex_lock(&config_lock);
 	config_workload_is_variable = variable;
-	config_change_count++;
+	config_workload_hold_30 = hold_30;
+	if (changed)
+		config_change_count++;
 	pthread_mutex_unlock(&config_lock);
 	for (index = 0; index < NUMBER_OF_CONFIG_SETTINGS; index++)
 	{
@@ -3751,7 +3794,8 @@ int config_workload_set(int variable, const char *reasons)
 
 		if (!state->variable.text || (state->source != _source_default && state->source != _source_profile))
 			continue;
-		config_literal(config_settings[index].type, variable ? &state->variable_value : &config_values[index], literal,
+		config_literal(config_settings[index].type,
+			variable ? config_scene_value_cached(index, CONFIG_SCENE_GAMEPLAY, 0) : &config_values[index], literal,
 			sizeof(literal));
 		written = snprintf(changes + length, sizeof(changes) - length, "%s%s %s [%s]", length ? ", " : "",
 			config_settings[index].name, literal, variable ? state->variable.source : "predictable");
@@ -3759,9 +3803,10 @@ int config_workload_set(int variable, const char *reasons)
 			break;
 		length += (size_t)written;
 	}
+	/* Every map gets its reason, even when it shares the preceding map's context. */
 	platform_log("workload: %s (%s)%s%s", variable ? "variable" : "predictable", reasons && *reasons ? reasons : "",
 		*changes ? ": " : "", changes);
-	return 1;
+	return changed;
 }
 
 void config_profile_settings_text(char *text, size_t size)

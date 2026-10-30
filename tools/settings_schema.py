@@ -113,6 +113,8 @@ def profile_value(name, key, settings):
     item = {'type': {'real': 'number'}.get(kind, kind)}
     if minimum is not None:
         item.update(minimum=minimum, maximum=maximum)
+    if name == 'network.full_rate_players':
+        item['not'] = {'const': 1}
     if choices:
         named = [choice for choice in choices if choice != '#']
         if '#' in choices:

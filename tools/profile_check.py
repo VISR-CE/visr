@@ -113,6 +113,8 @@ def value_problem(name, value, key):
     elif kind == "real":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             return "must be a number"
+    if name == "network.full_rate_players" and value == 1:
+        return "must be 0 or from 2 to 128"
     if kind in ("integer", "real"):
         return None if minimum <= value <= maximum else f"must be from {minimum:g} to {maximum:g}"
     if not isinstance(value, str):
@@ -273,6 +275,11 @@ def check_profile(path, keys, drop_in=False, scenes=None):
                 continue
             check_settings(sections, scene, external)
 
+    network = table.get("network", {})
+    if isinstance(network, dict):
+        full_rate, capacity = network.get("full_rate_players"), network.get("player_capacity")
+        if type(full_rate) is int and type(capacity) is int and full_rate > capacity:
+            problems.append("network.full_rate_players must not exceed network.player_capacity")
     check_context(table)
     variable = table.get("variable", {})
     if not isinstance(variable, dict):

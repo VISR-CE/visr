@@ -147,3 +147,13 @@ def test_source_edits_require_schema_and_document_regeneration(tmp_path, monkeyp
     assert schema.main(['--check']) == 1
     assert schema.main([]) == 0
     assert schema.main(['--check']) == 0
+
+
+def test_full_rate_players_range():
+    validator = pytest.importorskip('jsonschema').Draft202012Validator(
+        schema.profile_value('network.full_rate_players', schema.profile_check.profile_keys()['network.full_rate_players'],
+                             schema.config_settings()))
+    for value in (0, 2, 32, 128):
+        assert validator.is_valid(value)
+    for value in (-1, 1, 129, True, '32'):
+        assert not validator.is_valid(value)
