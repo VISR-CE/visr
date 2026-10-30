@@ -1,7 +1,12 @@
 """tools/replay_check.py's drop-in route: the unsigned local catalog it writes passes the app's catalog rules."""
 from pathlib import Path
+import argparse
+import json
+import plistlib
 import struct
 import sys
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark_catalog  # noqa: E402
@@ -49,6 +54,65 @@ def test_local_catalog_repeats_the_takes_enemy_multiplier(tmp_path):
     [case] = benchmark_catalog.load_catalog(local)
     assert case["enemy_multiplier"] == 2.0
     assert "enemy_multiplier = 2.000" in (local / "check.route").read_text()
+
+
+@pytest.mark.parametrize("preset,window", [("a50-hangar", "a50-hangar"), ("b40-exterior-a", "b40-exta")])
+def test_staging_presets_match_battle_commands(preset, window):
+    import tomllib
+
+    windows = tomllib.loads((replay_check.ROOT / "tools/perf_compare/windows.toml").read_text())
+    commands = []
+    steps = json.loads(replay_check.staging_json(json.dumps(replay_check.STAGING_PRESETS[preset])))
+    for step in steps[:-1]:
+        key, value = next(iter(step.items()))
+        if key == "teleport_player":
+            commands.append(f"(object_teleport (unit (list_get (players) 0)) {value})")
+        elif key == "ai_see":
+            commands.append(f"(ai_magically_see_encounter {' '.join(value)})")
+        else:
+            command = "ai_magically_see_players" if key == "ai_see_player" else key
+            commands.append(f"({command} {value})")
+    assert commands == windows[window]["commands"]
+    assert steps[-1] == {"deathless": True}
+
+
+@pytest.mark.parametrize("preset", replay_check.STAGING_PRESETS)
+def test_local_catalog_repeats_staging(tmp_path, preset):
+    base = take(tmp_path)
+    steps = replay_check.STAGING_PRESETS[preset]
+    canonical = replay_check.staging_json(json.dumps(steps, indent=2))
+    base.with_suffix(".route").write_text(ROUTE + f"staging = {canonical}\nstaging_tick = 31\nstaging_segment = 0\n")
+    local = tmp_path / "local-routes"
+    replay_check.write_local_routes(base, local, "check")
+    [case] = benchmark_catalog.load_catalog(local)
+    assert case["staging"] == steps
+    assert f"staging = {canonical}\nstaging_tick = 31\nstaging_segment = 0\n" in (local / "check.route").read_text()
+
+
+@pytest.mark.parametrize("text", ['[]', '[{"deathless":false}]', '[{"ai_place":"bad-name"}]',
+                                  '[{"switch_bsp":32}]', '[{"deathless":true,"deathless":true}]', 'invalid'])
+def test_staging_argument_rejects_invalid_steps(text):
+    with pytest.raises(argparse.ArgumentTypeError):
+        replay_check.staging_json(text)
+
+
+@pytest.mark.parametrize("option,value", [("--staging", '[{"deathless": true}]'),
+                                          ("--staging-preset", "a50-hangar")])
+def test_recording_receives_staging_as_a_toml_string(tmp_path, monkeypatch, option, value):
+    import tomllib
+
+    app = tmp_path / "VISR.app"
+    (app / "Contents").mkdir(parents=True)
+    (app / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "test.runner"}))
+    monkeypatch.setattr(replay_check.mac_run, "native_app_default", lambda: app)
+    monkeypatch.setattr(replay_check.mac_run, "native_data_folder", lambda _: tmp_path / "data")
+    monkeypatch.setattr(sys, "argv", ["replay_check.py", "--out", str(tmp_path / "out"), option, value])
+    calls = []
+    monkeypatch.setattr(replay_check, "runner", lambda *args: calls.append(args) or 0)
+    assert replay_check.main() == 2  # The stub runner leaves no take.
+    [setting] = [arg for arg in calls[0] if isinstance(arg, str) and arg.startswith("debug.benchmark_staging=")]
+    recorded = json.loads(tomllib.loads(setting)["debug"]["benchmark_staging"])
+    assert recorded == (json.loads(value) if option == "--staging" else replay_check.STAGING_PRESETS[value])
 
 
 def test_local_catalog_compiled_out_without_routes():

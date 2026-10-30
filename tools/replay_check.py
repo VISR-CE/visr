@@ -7,7 +7,8 @@ at a controller.
 1. Records a take: the game's scripted test input (debug.test_input = "bot:N") plays the map while the automatic
    recorder (debug.input_record = "auto") writes recordings/take-MAP-TIME.{input,actions,seeds,route}. With
    --enemy-multiplier the take is recorded with debug.enemy_multiplier, which its .route carries and the catalog
-   case repeats, so the replays meet the same extra enemies.
+   case repeats, so the replays meet the same extra enemies. --staging JSON or --staging-preset records with
+   debug.benchmark_staging; the route carries its steps and tick into both replays.
 2. Replays the take, with its .seeds file (both random seeds set at every tick), through the device benchmark's
    suite at two frame rates (display.frame_rate), from an unsigned local catalog (write_local_routes; a build
    that carries routes runs it, and its reports say catalog_signed false). Each replay notes player 1's position
@@ -42,6 +43,43 @@ RATES = ("30", "unlimited")
 # the suite runs only a catalog's cases, and a catalog case needs its .seeds file, so a replay without the take's
 # per-tick seeds is no longer run
 LABELS = ("with-seeds",)
+
+# Structured counterparts of perf_compare/windows.toml's battle commands, in execution order.
+STAGING_PRESETS = {
+    "a50-hangar": [
+        {"switch_bsp": 2},
+        {"teleport_player": "extraction_dropship_base"},
+        {"ai_place": "hangar_cov_first_floor"},
+        {"ai_place": "hangar_cov_second_floor"},
+        {"ai_place": "hangar_cov_third_floor"},
+        {"ai_place": "hangar_marines"},
+        {"ai_place": "hangar_marines"},
+        {"ai_see": ["hangar_cov_first_floor", "hangar_marines"]},
+        {"ai_see": ["hangar_marines", "hangar_cov_first_floor"]},
+        {"ai_see_player": "hangar_cov_second_floor"},
+        {"ai_see_player": "hangar_cov_third_floor"},
+        {"deathless": True},
+    ],
+    "b40-exterior-a": [
+        {"switch_bsp": 0},
+        {"teleport_player": "ext_a_dropship_a_flag"},
+        {"ai_place": "ext_a_area_a_cov"},
+        {"ai_place": "ext_a_area_a_marines"},
+        {"ai_see": ["ext_a_area_a_cov", "ext_a_area_a_marines"]},
+        {"ai_see": ["ext_a_area_a_marines", "ext_a_area_a_cov"]},
+        {"deathless": True},
+    ],
+}
+
+
+def staging_json(text):
+    """An argparse value using the catalog's closed staging grammar."""
+    try:
+        steps = json.loads(text, object_pairs_hook=benchmark_catalog._pairs)
+        benchmark_catalog.validate_staging(steps)
+        return benchmark_catalog._canonical(steps).decode("ascii")
+    except (ValueError, benchmark_catalog.CatalogError) as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
 
 
 def runner(out, *options):
@@ -91,6 +129,8 @@ def write_local_routes(take, local, scene, anchor=None, lead=0, window_seconds=N
             "window": int(window) if float(window).is_integer() else window}
     if anchor:
         case["anchor"] = anchor
+    if "staging" in values:
+        case["staging"] = json.loads(staging_json(values["staging"]))
     if multiplier > 1:
         # (a whole number is written without a fraction: the app's canonical JSON)
         case["enemy_multiplier"] = int(multiplier) if multiplier.is_integer() else multiplier
@@ -108,6 +148,11 @@ def main():
     parser.add_argument("--seconds", type=float, default=120.0, help="how long the bot plays")
     parser.add_argument("--enemy-multiplier", type=float, default=1.0,
                         help="record the take with debug.enemy_multiplier (1 off); its replays use the recorded value")
+    staging = parser.add_mutually_exclusive_group()
+    staging.add_argument("--staging", type=staging_json, metavar="JSON",
+                         help="record with structured debug.benchmark_staging; replays use the route's staging")
+    staging.add_argument("--staging-preset", choices=tuple(STAGING_PRESETS),
+                         help="record a battle from perf_compare/windows.toml, with deathless enabled")
     parser.add_argument("--anchor", help="anchor the window on an event of the take (kind:n or kind:script)")
     parser.add_argument("--lead-after", type=float, default=0.0, help="seconds after the anchor the window starts")
     parser.add_argument("--window", type=float, default=0.0, help="the window's length in seconds (default: to near the take's end)")
@@ -118,6 +163,8 @@ def main():
     parser.add_argument("--offscreen-mode", choices=("serialized", "pipelined"), default="serialized",
                         help="with --offscreen: debug.benchmark_offscreen_mode for the offscreen replays")
     args = parser.parse_args()
+    if args.staging_preset:
+        args.staging = staging_json(json.dumps(STAGING_PRESETS[args.staging_preset]))
     rates = (RATES[0], "offscreen") if args.offscreen else RATES
     if args.only_unlimited:
         rates = ("unlimited",)
@@ -134,6 +181,9 @@ def main():
         # the recording run: real time (a take is of a played session), the bot at the controller
         # (the route log every 300 ticks also counts the level's actors)
         extra = ["--set", "debug.input_replay_route=300"]
+        if args.staging:
+            # A TOML string containing canonical JSON, not a TOML array of tables.
+            extra += ["--set", "debug.benchmark_staging=" + json.dumps(args.staging)]
         if args.enemy_multiplier != 1.0:
             extra += ["--set", f"debug.enemy_multiplier={args.enemy_multiplier}"]
         status = runner(args.out / "record", "--exit-after", str(args.seconds), "--set", 'debug.input_record="auto"', *extra,
