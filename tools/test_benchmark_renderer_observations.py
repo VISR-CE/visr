@@ -89,6 +89,13 @@ static int texture_upscale_state_show_original(const struct texture_upscale_stat
 static gpu_texture replacement_texture; static unsigned long replacement_levels; static int replacement_lookups;
 static gpu_texture texture_entry_replacement(struct texture_entry *entry, unsigned long *levels) {
     (void)entry; replacement_lookups++; *levels=replacement_levels; return replacement_texture; }
+static int selected_menu_picture;
+static gpu_texture picture_texture;
+static int menu_picture_texture(struct texture_entry *entry, gpu_texture *texture, unsigned long *levels) {
+    (void)entry;
+    if (!selected_menu_picture) return FALSE;
+    *texture=picture_texture; *levels=6; return TRUE;
+}
 static int graphics_window_open;
 static unsigned long long texture_replacement_selections;
 static unsigned long menu_generation;
@@ -138,5 +145,18 @@ int main(void) {
     assert(menu_queries==4);
     atlas_texture=0;
     assert(texture_entry_result(&entry,&type,&description)==1 && menu_queries==4);
+    /* A selected original picture can receive its record after opening; an off/missing picture bypasses the
+       whole-map replacement. Both cached lookup and report counting follow the texture actually selected. */
+    selected_menu_picture=1; replacement_texture=2; texture_replacement_selections=0;
+    int before_lookups=replacement_lookups;
+    assert(texture_entry_result(&entry,&type,&description)==1 && texture_replacement_selections==0);
+    assert(replacement_lookups==before_lookups);
+    picture_texture=8;
+    assert(texture_entry_result(&entry,&type,&description)==8 && description.levels==6);
+    assert(texture_replacement_selections==1);
+    graphics_window_open=0;
+    assert(texture_entry_result(&entry,&type,&description)==8 && texture_replacement_selections==1);
+    menu_texture=4; menu_generation++;
+    assert(texture_entry_result(&entry,&type,&description)==4 && description.levels==5);
 }
 ''')

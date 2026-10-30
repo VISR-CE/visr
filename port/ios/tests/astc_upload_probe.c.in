@@ -131,6 +131,12 @@ static gpu_texture text_hires_atlas_texture(DWORD data)
 {
 	(void)data; return fixture_text ? 996 : 0;
 }
+/* Menu-picture registration is a separate renderer boundary; this probe exercises ordinary map uploads. */
+static BOOL menu_picture_texture(struct texture_entry *entry, gpu_texture *texture, unsigned long *levels)
+{
+    (void)entry; (void)texture; (void)levels; return FALSE;
+}
+
 static gpu_texture menu_art_texture(DWORD data, unsigned long *levels)
 {
 	(void)data; *levels = 1; return fixture_menu ? 997 : 0;

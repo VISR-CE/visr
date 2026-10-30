@@ -966,6 +966,9 @@ void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, bool
 
 /* (xbox_textures.c's: a picture is saved where it is not there, or an upscaled version has appeared since it was
 saved from the original, which the probe says of upgrade.png) */
+void halo_menus_picture_register(void const *hardware_format) { (void)hardware_format; }
+void halo_menus_pictures_forget(void) {}
+
 int halo_menus_art_needs_save(char const *cache_path)
 {
 	return !halo_menus_cache_exists(cache_path) || !strcmp(cache_path, "cache/xbox/v1/upgrade.png");
