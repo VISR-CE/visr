@@ -550,8 +550,10 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	{
 	case HANDS_EVENT_PINCH:
 	case HANDS_EVENT_PINCH_MISS:
-		/* a miss is the same finger with nothing to read on it (host_spatial_hands.h's enum):
-		named apart so a pinch that never had a distance doesn't read as one that opened */
+		/* a miss is the same finger ARKit stopped reporting, measured from the position carried
+		in the palm's frame instead (host_spatial_hands.h's enum): named apart so a pinch
+		reading a carried tip doesn't read as one that opened, and so the gaps' lengths can be
+		counted off the log */
 		snprintf(buffer, size, "%s %s", kind == HANDS_EVENT_PINCH ? "pinch" : "miss",
 			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
 		break;

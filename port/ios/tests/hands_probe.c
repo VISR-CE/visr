@@ -1,8 +1,8 @@
 /* The gesture recognizer (port/ios/host/host_spatial_hands.c, included):
-pinch hysteresis and the tip-loss hold, the gun and off hand's button and
-stick mapping, the aim turn (smooth and snap), the prayer sign's dwell and
-Start pulse, and that a hand with tracked == 0 zeros every one of its own
-controls the same sample. */
+pinch hysteresis and the fingertip carried in the palm's frame through a
+dropout, the gun and off hand's button and stick mapping, the aim turn
+(smooth and snap), the prayer sign's dwell and Start pulse, and that a hand
+with tracked == 0 zeros every one of its own controls the same sample. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -59,6 +59,33 @@ static struct host_spatial_hand_joints make_hand(int hand)
 	return j;
 }
 
+/* one hand moved as a rigid body: every joint position turned roll_degrees about the game's
+forward axis (x forward, y left, z up, as host_spatial_pose.h's host_spatial_room_to_game
+leaves them) and then offset. A tip carried through a dropout is stored in the palm's frame
+(host_spatial_hands.c's palm_basis), so it has to follow the hand through a move like this;
+a tip kept in the room's axes instead would be left tens of centimeters behind */
+static void move_hand(struct host_spatial_hand_joints *j, float roll_degrees, const float offset[3])
+{
+	float c = cosf(roll_degrees * (float)M_PI / 180.0f), s = sinf(roll_degrees * (float)M_PI / 180.0f);
+	float *points[9];
+	int i, count = 0;
+
+	points[count++] = j->wrist;
+	points[count++] = j->forearm_arm;
+	for (i = 0; i < 5; i++)
+		points[count++] = j->tip[i];
+	for (i = 0; i < 2; i++)
+		points[count++] = j->metacarpal[i];
+	for (i = 0; i < count; i++)
+	{
+		float y = points[i][1], z = points[i][2];
+
+		points[i][0] += offset[0];
+		points[i][1] = y * c - z * s + offset[1];
+		points[i][2] = y * s + z * c + offset[2];
+	}
+}
+
 /* every field of a controls struct is zero */
 static int controls_all_zero(const struct host_spatial_controls *controls)
 {
@@ -88,59 +115,173 @@ static void pinch_hysteresis(void)
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].hand == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX && events[0].on == 1, "pinch: one pinch-on event for the index");
 
-	joints[1].tip[1][2] = 0.020f; /* 2.0 cm: inside the hysteresis band, no change */
+	joints[1].tip[1][2] = 0.030f; /* 3.0 cm: inside the hysteresis band, no change */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "pinch: 2.0 cm still closed (hysteresis)");
+	check(controls[1].trigger == 1.0f, "pinch: 3.0 cm still closed (hysteresis)");
 	check(count == 0, "pinch: no event inside the hysteresis band");
 
-	joints[1].tip[1][2] = 0.030f; /* 3.0 cm: opens */
+	joints[1].tip[1][2] = 0.040f; /* 4.0 cm: opens */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
-	check(controls[1].trigger == 0.0f, "pinch: 3.0 cm opens the trigger");
+	check(controls[1].trigger == 0.0f, "pinch: 4.0 cm opens the trigger");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0, "pinch: one pinch-off event");
 	check(controls[0].menu == 0, "pinch: the off hand's menu is never set");
 }
 
-/* a tip lost mid-pinch holds the pinch for HOLD_SECONDS, then opens; once opened by a loss, the
-pinch does not close again until a tracked sample reads the distance above OPEN first */
-static void pinch_loss_hold(void)
+/* a pinch closed when ARKit drops the fingertip stays closed for as long as the dropout lasts,
+with the hand itself still tracked: the tip is carried in the palm's frame
+(host_spatial_hands.c's tips_resolve), the gap shows in the log as a miss, and no pinch event
+comes out of it. On device one finger's dropouts ran from 0.07 s to 21 s in a single session */
+static void pinch_survives_a_tip_dropout(void)
 {
 	struct hands_state state;
 	struct host_spatial_hand_joints joints[2];
 	struct host_spatial_controls controls[2];
 	struct hands_event events[16];
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	double t;
+	int count, i, pinch_events = 0, opened = 0;
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* close the index pinch at t = 1.0 */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "pinch loss: starts closed");
+	check(controls[1].trigger == 1.0f, "tip dropout: starts closed");
 
-	joints[1].tip_tracked[0] = 0; /* the thumb tip goes untracked at t = 1.05: the loss timer starts here */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "pinch loss: still closed right as the thumb drops out");
+	joints[1].tip_tracked[1] = 0; /* the index tip drops out at t = 1.05 */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tip dropout: still closed as the tip drops out");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
+		events[0].finger == HANDS_PINCH_INDEX, "tip dropout: the gap is logged as a miss, not as a pinch");
 
-	/* 0.3 s later, comfortably past HOLD_SECONDS (0.2 s): opens */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.35, controls, events, 16);
-	check(controls[1].trigger == 0.0f, "pinch loss: open after HOLD_SECONDS untracked");
+	for (t = 1.10; t <= 4.05 + 1e-9; t += 0.05) /* 3.0 s of it */
+	{
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		for (i = 0; i < count; i++)
+			if (events[i].kind == HANDS_EVENT_PINCH)
+				pinch_events++;
+		if (controls[1].trigger != 1.0f)
+			opened++;
+	}
+	check(opened == 0, "tip dropout: closed through 3.0 s of dropout");
+	check(pinch_events == 0, "tip dropout: no pinch event during the gap");
 
-	joints[1].tip_tracked[0] = 1; /* tracked again, at 1.0 cm: must not re-close yet */
+	joints[1].tip_tracked[1] = 1; /* the tip returns, still pinched */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.1, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tip dropout: still closed as the tip returns");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
+		near(events[0].value, 3.05f, 0.01f), "tip dropout: the gap's length is logged as it ends");
+}
+
+/* the same dropout with the hand moving through it: the carried tip is stored in the palm's
+frame, so a hand translated and turned while its fingertip is invisible carries that tip along
+and the pinch stays closed */
+static void pinch_carry_follows_the_palm(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	const float across[3] = { 0.30f, -0.20f, 0.10f }, back[3] = { -0.15f, 0.25f, -0.05f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
-	check(controls[1].trigger == 0.0f, "pinch loss: still open at 1.0 cm right after the loss (no confirmation yet)");
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "carried tip: starts closed");
 
-	joints[1].tip[1][2] = 0.030f; /* a sample above OPEN confirms it */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.5, controls, events, 16);
-	check(controls[1].trigger == 0.0f, "pinch loss: still open above OPEN");
+	joints[1].tip_tracked[1] = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "carried tip: closed as the tip drops out");
 
-	joints[1].tip[1][2] = 0.010f; /* now it can close again */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.6, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "pinch loss: closes again once confirmed");
+	move_hand(&joints[1], 40.0f, across);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.5, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "carried tip: closed with the hand turned 40 degrees and moved 0.37 m");
+	check(count == 0, "carried tip: the move itself says nothing");
+
+	move_hand(&joints[1], -70.0f, back);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 2.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "carried tip: closed again with the hand turned back the other way");
+	check(count == 0, "carried tip: the second move says nothing either");
+
+	joints[1].tip_tracked[1] = 1; /* the tip is seen again where the moved palm says it is */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 2.5, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "carried tip: the real reading agrees, still closed");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0,
+		"carried tip: only the gap's end is logged");
+}
+
+/* a tip lost while the pinch is open and found closed fires on the sample it returns: nothing
+stands between the reading and the press, since a pinch no longer has to be seen apart before
+it may close */
+static void pinch_closes_when_the_tip_returns(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "tip returns closed: starts open, the tips 5 cm from the thumb");
+
+	joints[1].tip_tracked[1] = 0;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "tip returns closed: open through the gap");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1,
+		"tip returns closed: the gap is logged");
+
+	joints[1].tip_tracked[1] = 1;
+	joints[1].tip[1][2] = 0.010f; /* it comes back already pinched */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tip returns closed: fires on the sample it returns");
+	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
+		events[1].kind == HANDS_EVENT_PINCH && events[1].on == 1,
+		"tip returns closed: the gap's end, then the press it was holding up");
+}
+
+/* a tip that drops out at 2 cm from the thumb, inside the closed band, and comes back at 6 cm:
+the carry holds the pinch closed through the gap, and the live reading opens it on the sample it
+returns, so a finger that really did move while invisible is corrected at once */
+static void pinch_opens_when_the_tip_returns_apart(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.020f; /* 2.0 cm: under CLOSE, so the pinch is closed */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tip returns apart: starts closed at 2 cm");
+
+	joints[1].tip_tracked[1] = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tip returns apart: the carry holds it closed");
+
+	joints[1].tip_tracked[1] = 1;
+	joints[1].tip[1][2] = 0.060f; /* it comes back 6 cm away: the finger did move */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "tip returns apart: reads open on the sample it returns");
+	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
+		events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0,
+		"tip returns apart: the gap's end, then the open the reading decided");
 }
 
 /* a hand with tracked == 0 opens every one of its pinches and zeros every one of its controls,
-the same sample, with no hold */
+the same sample: a lost hand carries no fingertip forward, so nothing holds its pinches. The
+hand that comes back closes at once on a live reading, with no apart-first confirmation */
 static void hand_untracked_zeros(void)
 {
 	struct hands_state state;
@@ -148,17 +289,28 @@ static void hand_untracked_zeros(void)
 	struct host_spatial_controls controls[2];
 	struct hands_event events[16];
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count, finger, pinch_offs = 0;
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
-	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed */
+	for (finger = 1; finger <= 4; finger++) /* every one of the gun hand's pinches closed */
+		joints[1].tip[finger][2] = 0.010f;
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "untracked: starts closed");
 
 	joints[1].tracked = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
 	check(controls_all_zero(&controls[1]), "untracked gun hand: every control zero the same sample");
+	for (finger = 0; finger < count; finger++)
+		if (events[finger].kind == HANDS_EVENT_PINCH && events[finger].on == 0)
+			pinch_offs++;
+	check(count == NUMBER_OF_HANDS_PINCHES && pinch_offs == NUMBER_OF_HANDS_PINCHES,
+		"untracked gun hand: every pinch opens that same sample");
+
+	joints[1].tracked = 1; /* back, with the fingers still together */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "untracked gun hand: a hand that comes back pinched closes at once");
 }
 
 /* the off hand's index pinch moves the stick forward, middle back (index wins when both are
@@ -516,9 +668,9 @@ static void start_pulse_outlives_the_hands(void)
 	check(controls[1].menu == 0, "start pulse: released once the window ends, hands or no hands");
 }
 
-/* a pinch blocked by an untracked thumb or fingertip reports the gap it is in: the hold is
-all that stands between it and an open, and the reading itself is gone, so the log says so
-rather than falling silent */
+/* a pinch reading a carried thumb or fingertip reports the gap it is in, on as the gap starts
+and off with its length as the gap ends: the carry is what holds the pinch's state through it,
+so the log is the only thing that says the reading was not a live one */
 static void pinch_miss_logged(void)
 {
 	struct hands_state state;
@@ -534,24 +686,20 @@ static void pinch_miss_logged(void)
 	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed at t = 1.0 */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 
-	joints[1].tip_tracked[0] = 0; /* the thumb drops: every one of that hand's four pinches is blocked */
+	joints[1].tip_tracked[0] = 0; /* the thumb drops: every one of that hand's four pinches carries it */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "pinch miss: the closed pinch holds through the gap");
 	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
-		events[0].finger == HANDS_PINCH_INDEX && near(events[0].threshold, (float)HANDS_PINCH_HOLD_SECONDS, 1e-3f),
-		"pinch miss: one miss-on event per blocked pinch, against the hold");
+		events[0].finger == HANDS_PINCH_INDEX, "pinch miss: one miss-on event per carried pinch");
 
-	/* 0.3 s in, past HOLD_SECONDS: the gap ends and the pinch opens with it */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.35, controls, events, 16);
-	check(controls[1].trigger == 0.0f, "pinch miss: the hold opens the pinch");
-	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
-		near(events[0].value, 0.3f, 1e-3f) && events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0,
-		"pinch miss: the gap's length is logged, then the open it caused");
+	check(controls[1].trigger == 1.0f, "pinch miss: a gap of any length never opens the pinch");
+	check(count == 0, "pinch miss: a gap already logged says nothing more while it runs");
 
-	joints[1].tip_tracked[0] = 1; /* the thumb returns: the three pinches still in a gap close theirs */
+	joints[1].tip_tracked[0] = 1; /* the thumb returns: each gap ends with its own length */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
-	check(count == 3 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0,
-		"pinch miss: a gap that ends before the hold is logged too");
+	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
+		near(events[0].value, 0.35f, 1e-3f), "pinch miss: each gap's length is logged as it ends");
 }
 
 /* a sample that changes more states than capacity holds (both hands losing all four pinches
@@ -588,7 +736,10 @@ static void event_capacity_clamped(void)
 int main(void)
 {
 	pinch_hysteresis();
-	pinch_loss_hold();
+	pinch_survives_a_tip_dropout();
+	pinch_carry_follows_the_palm();
+	pinch_closes_when_the_tip_returns();
+	pinch_opens_when_the_tip_returns_apart();
 	hand_untracked_zeros();
 	off_hand_untracked_zeros();
 	off_hand_mapping();

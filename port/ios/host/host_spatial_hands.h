@@ -32,11 +32,13 @@ the same host_spatial_controls the Sense readers fill, for
 host_spatial_gamepad_map to turn into the virtual gamepad. Plain C, no
 Objective-C and no host_logf: the caller logs the events this returns. */
 
-/* a pinch's hysteresis, meters: closes below CLOSE, opens above OPEN; a
-tip lost mid-pinch holds its state for HOLD_SECONDS before opening */
-#define HANDS_PINCH_CLOSE_METERS 0.015f
-#define HANDS_PINCH_OPEN_METERS 0.025f
-#define HANDS_PINCH_HOLD_SECONDS 0.2
+/* a pinch's hysteresis, meters: closes below CLOSE, opens above OPEN and
+holds whatever it had in between. Both are to be felt on device and are the
+first thing to tune here: they want to be loose enough that the press lands
+while the fingers are still closing, since the thumb and the fingertip ARKit
+reports stop short of where they look */
+#define HANDS_PINCH_CLOSE_METERS 0.025f
+#define HANDS_PINCH_OPEN_METERS 0.035f
 /* the aim turn's ramp, degrees of arm past the deadzone to full deflection. A span, not an
 absolute angle: the deadzone itself is input.hand_turn_deadzone, anywhere from 5 to 60
 degrees, and a ramp measured from 0 would divide by a negative span (inverting the turn) or
@@ -57,17 +59,27 @@ call count) decides how many samples see it */
 
 enum { HANDS_PINCH_INDEX, HANDS_PINCH_MIDDLE, HANDS_PINCH_RING, HANDS_PINCH_LITTLE, NUMBER_OF_HANDS_PINCHES };
 
-/* one pinch's hysteresis state; lost_since is 0 while tracked and closing
-normally, the untracked gap's start time while timing toward HOLD_SECONDS,
-and a negative sentinel once the pinch has opened because of a loss (the
-hand's or the tip's): that sentinel blocks closing again until a tracked
-sample reads the distance above OPEN, so a dropped tip never re-fires on
-return (host_spatial_hands.c's pinch_update) */
-struct hands_pinch { int closed; double lost_since; };
+/* one pinch's hysteresis state. carried_since is 0 while both ends of the
+pinch are ARKit's own reading, and the start time of the gap in which either
+end is carried (or cannot be read at all) otherwise: it times that gap for
+the log and nothing else, since no deadline opens a pinch any more
+(host_spatial_hands.c's pinch_update) */
+struct hands_pinch { int closed; double carried_since; };
 
 struct hands_state
 {
 	struct hands_pinch pinch[2][NUMBER_OF_HANDS_PINCHES];   /* [hand][finger] */
+	/* each hand's five fingertips (thumb first, as the joints above) kept in
+	that hand's own palm frame: ARKit drops the outer tips constantly while
+	the palm bones stay tracked, so the last position a tip was seen at is
+	stored in coordinates the wrist and the two metacarpals define and read
+	back through the palm's current pose, and a pinch never opens merely
+	because its tip went out of sight (host_spatial_hands.c's tips_resolve).
+	known says a stored coordinate exists, carried that this sample is
+	reading it rather than ARKit; a hand whose tracked goes to 0 forgets all
+	five, since a lost hand opens every pinch anyway */
+	float tip_local[2][5][3];
+	int tip_known[2][5], tip_carried[2][5];
 	int aim_turn_armed;                                      /* snap mode: inside the deadzone since the last snap */
 	/* smooth mode: the turn's contribution is nonzero, so the log gets the
 	same on and off transitions snap mode's pulse gives it */
@@ -82,10 +94,13 @@ struct hands_state
 	double start_until;                                      /* the Start pulse */
 };
 
-/* PINCH_MISS is a pinch nothing could read, not a pinch that opened: the
-thumb or the fingertip went untracked, which is the one reason a deliberate
-pinch does nothing at all, and its value is the gap's length against the
-hold that ends it (host_spatial_hands.c's pinch_update) */
+/* PINCH_MISS is a pinch whose thumb or fingertip ARKit is not reporting, not
+a pinch that opened: the reading is a carried one (or, where no carry is
+possible, none at all, and the pinch holds what it had). It marks the gap's
+start, and on its way out carries the gap's length as its value. Nothing but
+the tip's return ends a gap now, so its threshold is 0: the measurement these
+events are here for is how long the gaps run (host_spatial_hands.c's
+pinch_update) */
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
 	HANDS_EVENT_PINCH_MISS };
 struct hands_event { int kind, hand, finger, on; float value, threshold; };

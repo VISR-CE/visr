@@ -1,7 +1,7 @@
 /* The gesture recognizer (host_spatial_hands.h, declared): pinch hysteresis
-with the tip-loss hold and its no-refire-on-return rule, the gun and off
-hand's button and stick mapping, the aim turn, and the prayer sign's dwell
-and Start pulse. Plain C over the reduced joint facts only, so
+over fingertips carried in the palm's frame through ARKit's dropouts, the gun
+and off hand's button and stick mapping, the aim turn, and the prayer sign's
+dwell and Start pulse. Plain C over the reduced joint facts only, so
 port/ios/tests/hands_probe.c can run it under ASan and UBSan on a Mac;
 host_spatial_hands.m supplies the joints and reads what this returns. No
 host_logf: the caller logs the events. */
@@ -11,7 +11,7 @@ host_logf: the caller logs the events. */
 #include <string.h>
 
 /* every timestamp this file is given (the `now` argument, and every value
-derived from it: a pinch's lost_since, the prayer dwell's since, the pulse
+derived from it: a pinch's carried_since, the prayer dwell's since, the pulse
 and cooldown clocks) is assumed strictly positive, so 0.0 is free to mean
 "idle" for every one of hands_state's own clocks below */
 
@@ -84,91 +84,6 @@ static float clampf(float value, float low, float high)
 	return value;
 }
 
-/* one pinch's hysteresis and tip-loss hold (host_spatial_hands.h's struct
-hands_pinch comment). hand_tracked governs the whole-hand immediate open
-("A hand with tracked == 0 opens every pinch immediately"); thumb_tracked
-and tip_tracked govern the per-tip hold-then-open. lost_since's sign tells
-the three states apart: 0 idle, positive the untracked gap's start (timing
-toward HOLD_SECONDS), negative pending (opened by a loss, waiting for a
-tracked sample above OPEN before it may close again) */
-/* the end of a tip-loss gap, for the log: how long the pinch spent unreadable against the
-hold that would have ended it. Silent unless a gap was running, so every caller below can
-hand it the state it is about to move on */
-static void miss_ended(const struct hands_pinch *pinch, int hand, int finger, double now,
-	struct hands_event *events, int capacity, int *count)
-{
-	if (pinch->lost_since <= 0.0)
-		return;
-	emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 0, (float)(now - pinch->lost_since),
-		(float)HANDS_PINCH_HOLD_SECONDS);
-}
-
-static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int hand_tracked, int thumb_tracked,
-	const float thumb[3], int tip_tracked, const float tip[3], double now, struct hands_event *events, int capacity,
-	int *count)
-{
-	float distance;
-
-	if (!hand_tracked)
-	{
-		if (pinch->closed)
-		{
-			pinch->closed = 0;
-			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS);
-		}
-		miss_ended(pinch, hand, finger, now, events, capacity, count);
-		pinch->lost_since = -1.0; /* pending: needs a confirmed open before it can close again */
-		return;
-	}
-
-	if (!(thumb_tracked && tip_tracked))
-	{
-		if (pinch->lost_since == 0.0)
-		{
-			pinch->lost_since = now; /* the gap starts here */
-			/* a pinch with an untracked thumb or tip reads no distance at all, closed or
-			open, and used to pass in silence: the hold below is the only thing standing
-			between it and an open, so the log says it started */
-			emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 1, 0.0f,
-				(float)HANDS_PINCH_HOLD_SECONDS);
-		}
-		else if (pinch->lost_since > 0.0 && pinch->closed && now - pinch->lost_since >= HANDS_PINCH_HOLD_SECONDS)
-		{
-			miss_ended(pinch, hand, finger, now, events, capacity, count);
-			pinch->closed = 0;
-			pinch->lost_since = -1.0;
-			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS);
-		}
-		return;
-	}
-
-	distance = distance3(thumb, tip);
-
-	if (pinch->lost_since < 0.0)
-	{
-		/* pending: only a confirmed reading above OPEN clears it; closing is refused meanwhile */
-		if (distance > HANDS_PINCH_OPEN_METERS)
-			pinch->lost_since = 0.0;
-		return;
-	}
-	if (pinch->lost_since > 0.0)
-	{
-		miss_ended(pinch, hand, finger, now, events, capacity, count);
-		pinch->lost_since = 0.0; /* the gap ended before the hold timed out: resume normally below */
-	}
-
-	if (!pinch->closed && distance < HANDS_PINCH_CLOSE_METERS)
-	{
-		pinch->closed = 1;
-		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, HANDS_PINCH_CLOSE_METERS);
-	}
-	else if (pinch->closed && distance > HANDS_PINCH_OPEN_METERS)
-	{
-		pinch->closed = 0;
-		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS);
-	}
-}
-
 /* the prayer sign's palm frame for one hand: center, normal and finger
 direction, built from the wrist and the index and little metacarpals only,
 the joints that stay tracked when two hands come together. The palm normal's
@@ -193,6 +108,170 @@ static void palm_frame(const struct host_spatial_hand_joints *hand, float center
 	normalize3(normal);
 	sub3(mean_mc, wrist, finger_direction);
 	normalize3(finger_direction);
+}
+
+/* the same three joints as an orthonormal frame a position can be stored in:
+the wrist for the origin, palm_frame's own normal and finger direction for
+two of the axes (the normal is the cross product of two vectors the finger
+direction is a combination of, so the two are already square), and their
+cross product for the third */
+struct palm_basis { float origin[3], axis[3][3]; };
+
+/* 1 and the frame, or 0 where the three joints give no plane to build it on
+(the metacarpals collinear with the wrist, which a real hand never is) */
+static int palm_basis_build(const struct host_spatial_hand_joints *hand, struct palm_basis *basis)
+{
+	float center[3];
+
+	memcpy(basis->origin, hand->wrist, sizeof(basis->origin));
+	palm_frame(hand, center, basis->axis[0], basis->axis[1]);
+	cross3(basis->axis[0], basis->axis[1], basis->axis[2]);
+	/* two unit axes square to each other cross to a unit third; anything well
+	short of that means normalize3 found nothing to normalize */
+	return dot3(basis->axis[2], basis->axis[2]) > 0.5f;
+}
+
+/* a point into one palm frame's coordinates, and back out of them: what a
+carried fingertip is stored and read as */
+static void palm_encode(const struct palm_basis *basis, const float point[3], float local[3])
+{
+	float offset[3];
+	int axis;
+
+	sub3(point, basis->origin, offset);
+	for (axis = 0; axis < 3; axis++)
+		local[axis] = dot3(offset, basis->axis[axis]);
+}
+
+static void palm_decode(const struct palm_basis *basis, const float local[3], float point[3])
+{
+	int axis, component;
+
+	for (component = 0; component < 3; component++)
+		point[component] = basis->origin[component];
+	for (axis = 0; axis < 3; axis++)
+		for (component = 0; component < 3; component++)
+			point[component] += local[axis] * basis->axis[axis][component];
+}
+
+/* a hand ARKit has lost carries nothing forward: the hand that comes back
+builds its carry from what it is seen doing then, rather than from where its
+fingers were before it left (hands_recognize's own tracked == 0 path opens
+every one of that hand's pinches the same sample) */
+static void tips_forget(struct hands_state *state, int hand)
+{
+	memset(state->tip_local[hand], 0, sizeof(state->tip_local[hand]));
+	memset(state->tip_known[hand], 0, sizeof(state->tip_known[hand]));
+	memset(state->tip_carried[hand], 0, sizeof(state->tip_carried[hand]));
+}
+
+/* one tracked hand's five fingertips as this sample reads them: a tip ARKit
+reports as given, with its palm-frame coordinates stored for later; a tip
+ARKit has dropped from those stored coordinates, read back through the palm's
+current pose, so the pinch on it keeps measuring and a hand that moves while
+the tip is out of sight carries the tip with it. usable is 0 only where
+neither is possible, which is a tip not yet seen or a palm frame the
+metacarpals are too lost to build, and a pinch on an unusable tip holds
+whatever state it had (pinch_update) */
+static void tips_resolve(struct hands_state *state, int hand, const struct host_spatial_hand_joints *joints,
+	float tip[5][3], int usable[5], int carried[5])
+{
+	struct palm_basis basis;
+	int framed = joints->metacarpal_tracked[0] && joints->metacarpal_tracked[1] &&
+		palm_basis_build(joints, &basis);
+	int index;
+
+	for (index = 0; index < 5; index++)
+	{
+		if (joints->tip_tracked[index])
+		{
+			memcpy(tip[index], joints->tip[index], sizeof(tip[index]));
+			usable[index] = 1;
+			if (framed)
+			{
+				palm_encode(&basis, tip[index], state->tip_local[hand][index]);
+				state->tip_known[hand][index] = 1;
+			}
+			continue;
+		}
+		usable[index] = framed && state->tip_known[hand][index];
+		if (usable[index])
+		{
+			palm_decode(&basis, state->tip_local[hand][index], tip[index]);
+			carried[index] = 1;
+		}
+	}
+	memcpy(state->tip_carried[hand], carried, sizeof(state->tip_carried[hand]));
+}
+
+/* one pinch's hysteresis (host_spatial_hands.h's struct hands_pinch
+comment). hand_tracked governs the whole-hand immediate open ("A hand with
+tracked == 0 opens every pinch immediately"); below that there is nothing but
+the hysteresis, over whichever of the two positions tips_resolve could put
+together. A fingertip going out of sight is not a reason to open: ARKit loses
+the outer tips for anything from a twentieth of a second to tens of seconds
+while the hand is plainly held still, and every one of those dropouts used to
+open the pinch the player was holding */
+/* the end of a carried gap, for the log: how long this pinch went without a
+live reading of both its ends. Silent unless a gap was running, so every
+caller below can hand it the state it is about to move on */
+static void miss_ended(const struct hands_pinch *pinch, int hand, int finger, double now,
+	struct hands_event *events, int capacity, int *count)
+{
+	if (pinch->carried_since <= 0.0)
+		return;
+	emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 0, (float)(now - pinch->carried_since), 0.0f);
+}
+
+static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int hand_tracked, int thumb_usable,
+	const float thumb[3], int tip_usable, const float tip[3], int carried, double now,
+	struct hands_event *events, int capacity, int *count)
+{
+	float distance;
+
+	if (!hand_tracked)
+	{
+		if (pinch->closed)
+		{
+			pinch->closed = 0;
+			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS);
+		}
+		miss_ended(pinch, hand, finger, now, events, capacity, count);
+		pinch->carried_since = 0.0;
+		return;
+	}
+
+	/* the gap's own log, on as it starts and off with its length as it ends: the distance below
+	is a carried one, or there is none at all, and either way the player's finger is somewhere
+	this file is guessing at. The gaps' lengths are the measurement to tune against */
+	if (carried || !(thumb_usable && tip_usable))
+	{
+		if (pinch->carried_since == 0.0)
+		{
+			pinch->carried_since = now;
+			emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 1, 0.0f, 0.0f);
+		}
+	}
+	else
+	{
+		miss_ended(pinch, hand, finger, now, events, capacity, count);
+		pinch->carried_since = 0.0;
+	}
+	/* nothing to measure and nothing to carry: the pinch keeps what it had rather than opening */
+	if (!(thumb_usable && tip_usable))
+		return;
+
+	distance = distance3(thumb, tip);
+	if (!pinch->closed && distance < HANDS_PINCH_CLOSE_METERS)
+	{
+		pinch->closed = 1;
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, HANDS_PINCH_CLOSE_METERS);
+	}
+	else if (pinch->closed && distance > HANDS_PINCH_OPEN_METERS)
+	{
+		pinch->closed = 0;
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS);
+	}
 }
 
 /* both hands tracked with the wrist and both metacarpals: the prerequisite
@@ -260,13 +339,26 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	for (hand = 0; hand < 2; hand++)
 	{
 		const struct host_spatial_hand_joints *j = &joints[hand];
+		/* this hand's tips for this sample, zeroed first: an untracked hand resolves nothing,
+		and pinch_update is handed these whether it reads them or not */
+		float tip[5][3];
+		int usable[5], carried[5];
+
+		memset(tip, 0, sizeof(tip));
+		memset(usable, 0, sizeof(usable));
+		memset(carried, 0, sizeof(carried));
+		if (j->tracked)
+			tips_resolve(state, hand, j, tip, usable, carried);
+		else
+			tips_forget(state, hand);
 
 		for (finger = 0; finger < NUMBER_OF_HANDS_PINCHES; finger++)
 		{
 			int tip_index = finger + 1; /* tip[0] is the thumb */
 
-			pinch_update(&state->pinch[hand][finger], hand, finger, j->tracked, j->tip_tracked[0], j->tip[0],
-				j->tip_tracked[tip_index], j->tip[tip_index], now, events, capacity, &count);
+			pinch_update(&state->pinch[hand][finger], hand, finger, j->tracked, usable[0], tip[0],
+				usable[tip_index], tip[tip_index], carried[0] || carried[tip_index], now, events, capacity,
+				&count);
 		}
 	}
 
@@ -395,6 +487,6 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	/* emit() only ever writes within capacity, but count keeps counting past it; clamp the
 	return so a caller's for (i = 0; i < count; i++) against events[capacity] is always in
 	bounds, even when a sample emits more state changes than capacity allows (both hands
-	losing every pinch at once can reach 8) */
+	lost at once, every pinch closed and every one of them in a carried gap, reaches 16) */
 	return count < capacity ? count : capacity;
 }
