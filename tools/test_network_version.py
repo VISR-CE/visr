@@ -1,4 +1,4 @@
-"""Network versions 30 to 32: the join range and gates (halo_network_version.h), and that the sources
+"""Network versions through 41: the join range and gates (halo_network_version.h), and that the sources
 use them where a machine decides what to take or send."""
 import subprocess
 import tempfile

@@ -26,6 +26,13 @@ run('python3', 'tools/astc_upload_test.py')
 run('python3', 'tools/test_astc_store.py')
 run('python3', 'tools/astc_worker_test.py')
 
+# Pure network probes also run in the portable pytest suite.
+for probe in ('network_version', 'network_join_wire'):
+    executable = BUILD / (probe.replace('_', '-') + '-probe')
+    run('xcrun', 'clang', '-std=c11', '-Wall', '-Werror', '-O2', '-fsanitize=address,undefined',
+        f'port/ios/tests/{probe}_probe.c', '-o', executable)
+    run(executable)
+
 clang = '/opt/homebrew/opt/llvm/bin/clang'
 lld = '/opt/homebrew/opt/lld/bin/ld.lld'
 run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',

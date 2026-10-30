@@ -16,21 +16,29 @@ int main(void)
 
 		assert(halo_network_version_joinable(32, version) == expected);
 	}
-	/* a build of 38 joins hosts of 29 to 32, 34 to 36, 38 and 39, and no others
+	/* a build of 38 joins hosts of 29 to 32, 34 to 36, 38 to 41, and no others
 	   (no host of 33 or 37 was released to join) */
 	for (version = 0; version < 0x10000; version++)
 		assert(halo_network_version_joinable(38, version) ==
-			((version >= 29 && version <= 32) || (version >= 34 && version <= 36) || version == 38 || version == 39));
+			((version >= 29 && version <= 32) || (version >= 34 && version <= 36) || (version >= 38 && version <= 41)));
+	/* Other clients still refuse newer hosts. */
+	for (unsigned ours = 0; ours <= 41; ours++)
+		for (version = ours + 1; version <= 42; version++)
+			assert(halo_network_version_joinable(ours, version) ==
+				(ours == 38 && version >= 39 && version <= 41));
 	/* a build of 29 (a VISR before the range) joins only its own */
 	assert(halo_network_version_joinable(29, 29) && !halo_network_version_joinable(29, 30));
+	for (version = 0; version < 0x10000; version++)
+		assert(halo_network_version_has_join_pass_field(version) == (version >= 40));
 	/* message 90 comes from hosts of 32 */
 	assert(!halo_network_version_has_aim_policy(29) && !halo_network_version_has_aim_policy(31));
 	assert(halo_network_version_has_aim_policy(32) && halo_network_version_has_aim_policy(33));
 	/* what each host version sends and takes */
-	for (version = 29; version <= 39; version++)
+	for (version = 29; version <= 41; version++)
 	{
 		unsigned long selector;
 
+		assert(halo_network_version_has_aim_policy(version) == (version >= 32));
 		assert(halo_network_version_has_ally_switch(version) == (version >= 33));
 		assert(halo_network_version_has_static_shields(version) == (version >= 34));
 		/* 33 and 34 keep the 13,120-byte record with the 28-byte options block */

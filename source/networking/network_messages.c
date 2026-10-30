@@ -181,6 +181,7 @@ symbols in this file:
 #include "bungie_net/common/message_header.h"
 #include "memory/data_packet_groups.h"
 #include "networking/network_messages.h"
+#include "halo_network_join_wire.h" /* port: join padding */
 
 /* cseries_windows.c's */
 unsigned long system_milliseconds(void);
@@ -674,6 +675,16 @@ void *create_network_game_message(
 	const void *message_struct,
 	short message_struct_size)
 {
+	return create_network_game_message_padded(message_type, message_struct, message_struct_size, 0);
+}
+
+/* port: keep the original encoder path when a host needs no extra field. */
+void *create_network_game_message_padded(
+	enum network_game_message_type message_type,
+	const void *message_struct,
+	short message_struct_size,
+	unsigned extra_zero_bytes)
+{
 	/* as large as the packet group lets the encoder write */
 	byte encoded_message[HALO_PORT_NETWORK_PACKET_SIZE];
 	union network_game_message_size encoded_message_size;
@@ -831,6 +842,19 @@ void *create_network_game_message(
 
 	if (encode_network_game_message(message_struct, encoded_message, &encoded_message_size.encoded, message_type, 1))
 	{
+		/* port: hosts from 40 require an empty pass and proof before the trailer. */
+		if (extra_zero_bytes)
+		{
+			size_t padded_size = halo_network_join_request_pad(encoded_message, encoded_message_size.value,
+				extra_zero_bytes, encoded_message, sizeof(encoded_message));
+
+			if (!padded_size)
+			{
+				network_event("create_network_game_message(): the padded message is too long");
+				return NULL;
+			}
+			encoded_message_size.value = padded_size;
+		}
 		/* a message header holds lengths up to HALO_PORT_MAXIMUM_NETWORK_MESSAGE_SIZE-1,
 		header included: a longer message would go out with a wrong length and
 		derail the stream (create_message only asserts on it) */
@@ -840,7 +864,7 @@ void *create_network_game_message(
 			message = NULL;
 		}
 		else
-		message = create_message(3, encoded_message, encoded_message_size.value, network_game_message_buffer, sizeof(network_game_message_buffer));
+			message = create_message(3, encoded_message, encoded_message_size.value, network_game_message_buffer, sizeof(network_game_message_buffer));
 		if (!message)
 		{
 			network_event("create_message() failed");

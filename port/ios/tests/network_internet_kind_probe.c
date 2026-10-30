@@ -83,7 +83,7 @@ int main(void)
 	   Version/flags are 00 27 23 and 00 27 21; counts are reported players,
 	   not machines, so an empty dedicated game stays at zero players. */
 	unsigned const flags[] = {0x23, 0x21, 0x01, 0xa3};
-	for (unsigned version = 38; version <= 39; version++)
+	for (unsigned version = 38; version <= 41; version++)
 	for (unsigned f = 0; f < sizeof(flags) / sizeof(flags[0]); f++)
 	{
 		int size = record(bytes, 0, 0, 0);
@@ -92,7 +92,7 @@ int main(void)
 		memset(&lobby, 0, sizeof(lobby));
 		memcpy(queued.payload, bytes, size); queued.size = size;
 		listing_take(&queued, &parsed);
-		assert(lobby.games[0].listing.dedicated == (version == 39 && f < 2));
+		assert(lobby.games[0].listing.dedicated == (version >= 39 && f < 2));
 		assert(lobby.games[0].listing.player_count == 0);
 		assert(lobby.games[0].listing.network_version == version);
 	}
