@@ -1021,8 +1021,8 @@ def _server_settings() -> list:
         "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules.",
         # (MAXIMUM PLAYERS', past the most this device holds at 30 frames a second: network.player_capacity)
         "More players than this device holds at a steady\\n30 frames a second. It may run slowly.",
-        "Private: revert. Public: respawn only.\\nChanged team or no save: respawn only.",
-        "Revert after everyone dies. Changed team\\nor no save: respawn only.",
+        "Private: revert. Public: respawn only.\\nPlayers changed or no checkpoint: respawn only.",
+        "Revert after everyone dies. Players changed\\nor no checkpoint: respawn only.",
         "Respawn after everyone dies.\\nKeep the world's progress.",
     ])
     lines = _screen(base, spec, rows, ["server settings update"],
