@@ -1539,9 +1539,11 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 	entry = calloc(1, sizeof(*entry));
 	entry->layer = layer;
 	/* (multisampling's screen buffers: the mono back buffer and depth buffer, foveated by debug.rate_map_test
-	or not, and in stereo each eye's; never the HUD's, the zoomed picture's or the other stereo layers) */
+	or not, and in stereo each eye's and the zoomed picture's, which replaces the eyes while scoped; never the
+	HUD's or the other stereo layers) */
 	entry->screen_buffer = (surface->Data == device.back_buffer.Data || surface->Data == device.depth_buffer.Data) &&
-		height == SCREEN_HEIGHT && (layer == HALO_STEREO_LAYER_MONO || layer == 0 || layer == 1);
+		height == SCREEN_HEIGHT && (layer == HALO_STEREO_LAYER_MONO || layer == 0 || layer == 1 ||
+		layer == HALO_STEREO_LAYER_ZOOM);
 	entry->target.data = surface->Data;
 	entry->target.width = width;
 	entry->target.height = height;
@@ -2429,8 +2431,11 @@ void halo_knob_message(const char *text)
 
 /* the layer whose scene the anti-aliasing pass filters as a view ends: the
 mono back buffer's outside stereo, the current eye's in a stereo frame's eye
-pass (HALO_STEREO_LAYER_MONO is -1 there, never drawn), else none (-2): the
-HUD, the zoomed picture and the other stereo layers are not filtered */
+pass (HALO_STEREO_LAYER_MONO is -1 there, never drawn), the zoomed picture
+that replaces the eyes while scoped, else none (-2): the HUD and the other
+stereo layers are not filtered. The zoomed pass is a frame's only scene then,
+so no world image is filtered twice; the zoomed view's HUD elements are drawn
+after it, as the eyes' HUD is */
 static int anti_aliasing_layer(void)
 {
 	const struct halo_stereo_frame *stereo = halo_stereo_frame();
@@ -2439,6 +2444,8 @@ static int anti_aliasing_layer(void)
 	if (stereo->mode == HALO_STEREO_OFF && stereo->eye_count == 0)
 		return HALO_STEREO_LAYER_MONO;
 	if (stereo->eye_count == 2 && (layer == 0 || layer == 1))
+		return layer;
+	if (stereo->eye_count == 2 && layer == HALO_STEREO_LAYER_ZOOM && halo_stereo_zoom())
 		return layer;
 	return -2;
 }
@@ -2461,7 +2468,7 @@ static void anti_aliasing_pass(struct render_target_entry *scene)
 	rect.height = (int32_t)floorf((float)native_scene_bounds[3] * scene->target.scale[1] + 0.5f) - rect.y;
 	if (rect.width > 0 && rect.height > 0)
 	{
-		/* proof that the pass runs: the first one in each layer (mono, eye 0, eye 1) since the method changed, then
+		/* proof that the pass runs: the first one in each layer (mono, eye 0, eye 1, zoom) since the method changed, then
 		one a minute at 120 a second */
 		static unsigned long logged_layers, logged_count;
 		unsigned long layer_bit = 1ul << (scene->layer + 1);
@@ -2473,7 +2480,7 @@ static void anti_aliasing_pass(struct render_target_entry *scene)
 			platform_log("anti-aliasing: %s pass %lu over %dx%d at %d,%d (target scale %.2f, %s)", anti_aliasing_label_of(),
 				anti_aliasing_pass_count, (int)rect.width, (int)rect.height, (int)rect.x, (int)rect.y,
 				(double)scene->target.scale[0], scene->layer == HALO_STEREO_LAYER_MONO ? "mono" :
-				scene->layer == 0 ? "eye 0" : "eye 1");
+				scene->layer == HALO_STEREO_LAYER_ZOOM ? "zoom" : scene->layer == 0 ? "eye 0" : "eye 1");
 		logged_layers |= layer_bit;
 		gpu_anti_alias(anti_aliasing_method == _anti_aliasing_smaa ? GPU_ANTI_ALIAS_SMAA : GPU_ANTI_ALIAS_FXAA,
 			scene->target.texture, &rect);
