@@ -1054,11 +1054,13 @@ static const struct config_setting config_settings[] =
 		"LISTING changes it for each game." },
 	{ "network.player_capacity", _config_integer, "0", "HALO_NET_PLAYER_CAPACITY", _environment_value, _platform_all,
 		"The most players this device holds at 30 frames a second at the lowest\n"
-		"settings, 2 to 128; 0 (default) names no limit. Create Game starts\n"
-		"MAXIMUM PLAYERS at the largest choice within it (the player can raise it,\n"
-		"and Server Setup says the device may run slowly), and the server browser\n"
-		"marks the games with more. Joining a game is never refused. A device\n"
-		"profile sets it for the device's speed; it is not a player choice." },
+		"settings, 2 to 128; 0 (default) names no limit. This remains the measured\n"
+		"capacity used by benchmark runs. When network.full_rate_players is 0,\n"
+		"it also sets the hosted-game default and the warning threshold in\n"
+		"Server Setup and the browsers. A positive network.full_rate_players\n"
+		"takes precedence for those defaults and warnings. Joining a game is\n"
+		"never refused. A device profile sets it for the device's speed; it is\n"
+		"not a player choice." },
 	{ "network.full_rate_players", _config_integer, "0", "HALO_NET_FULL_RATE_PLAYERS", _environment_value, _platform_ios,
 		"The most multiplayer slots this device holds at the profile's variable\n"
 		"frame rate and settings, 2 to 128; 0 (default) leaves it unlimited.\n"
@@ -1066,7 +1068,11 @@ static const struct config_setting config_settings[] =
 		"for the whole map, using the game's maximum players at map load.\n"
 		"Campaign, co-op, split screen and the main menu are unaffected.\n"
 		"A player's explicit display.frame_rate choice still wins. Vision Pro\n"
-		"paces its own frames. A profile sets this at or below player_capacity." },
+		"paces its own frames. A positive value also sets the hosted-game default\n"
+		"and the warning threshold in Server Setup and the browsers, taking\n"
+		"precedence over network.player_capacity. The browser marks a larger\n"
+		"game BIG once it is at least half this threshold full; joining then\n"
+		"asks for confirmation. A profile sets this at or below player_capacity." },
 	{ "network.map_share", _config_boolean, "true", "HALO_NET_MAP_SHARE", _environment_value, _platform_all,
 		"Hosting: send a player who joins without the game's Custom Edition map\n"
 		"the map (from custom_maps), and the resource maps it needs that the\n"
@@ -1572,7 +1578,8 @@ static const struct config_setting config_settings[] =
 	{ "debug.browser_fake_big", _config_boolean, "false", "HALO_BROWSER_FAKE_BIG", _environment_value, _platform_all,
 		"Development builds only: the server browser lists one extra game marked\n"
 		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
-		"network.player_capacity below 16 as well. App Store packages ignore it." },
+		"network.full_rate_players below 16, or network.player_capacity below\n"
+		"16 when full_rate_players is 0. App Store packages ignore it." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },

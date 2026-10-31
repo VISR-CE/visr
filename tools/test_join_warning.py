@@ -18,6 +18,7 @@ def test_join_warning(tmp_path):
         'static long player_capacity(void)',
         'static boolean player_capacity_exceeded(long players)',
         'static boolean player_capacity_marked(long players, long maximum_players)',
+        'static short maximum_players_start(short most)',
         'static boolean browser_join_big_ask(',
         'static boolean browser_initialize(',
         'static void lobby_browser_end(void)\n{',
@@ -51,7 +52,8 @@ struct widget_instance { char const *name; short row; struct widget_instance *ch
 struct advertised_game { unsigned char key_id[8], xnaddr[12]; int player_count, maximum_player_count, open, live, valid; };
 static struct { short mode, game_count, game_chosen; struct advertised_game *games[4]; unsigned char preview_key_id[8], preview_xnaddr[12]; } multiplayer;
 static struct { short count, first, chosen, controller; boolean ready, joining; unsigned long begin_time; struct p2p_listing games[4], password_game; } lobby_browser;
-static long capacity = 8;
+static long capacity = 8, full_rate;
+static short const maximum_players[] = {2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128};
 static int joins, passwords, warnings, previews, failures, backs, controller_seen, begins, stops;
 static struct p2p_listing joined, available[4];
 static int available_count;
@@ -68,7 +70,7 @@ static void browser_focus(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
 static void platform_log(char const *format, ...) { (void)format; }
-static long config_integer(char const *key) { (void)key; return capacity; }
+static long config_integer(char const *key) { return !strcmp(key,"network.full_rate_players") ? full_rate : capacity; }
 static int config_boolean(char const *key) { (void)key; return 1; }
 static int campaign_fail(void) { failures++; return 0; }
 static void *global_network_game_client_get(void) { return &multiplayer; }
@@ -96,7 +98,7 @@ static void reset(int mode)
     memset(&browser_join_big, 0, sizeof(browser_join_big));
     memset(&multiplayer, 0, sizeof(multiplayer));
     memset(&lobby_browser, 0, sizeof(lobby_browser));
-    joins=passwords=warnings=previews=failures=backs=begins=stops=0; capacity=8;
+    joins=passwords=warnings=previews=failures=backs=begins=stops=0; capacity=8; full_rate=0;
     multiplayer.mode=mode;
     available_count=lobby_browser.count=1;
     memset(available, 0, sizeof(available));
@@ -109,6 +111,22 @@ int main(void)
 {
     struct widget_instance row={.name="server_item_1", .row=0}; boolean deleted=0;
     struct advertised_game lan={.key_id={9}, .xnaddr={7}, .player_count=4, .maximum_player_count=16, .open=1, .valid=1};
+    /* Losing full-rate precedence breaks both host defaults and the warning boundary. */
+    capacity=128; full_rate=64;
+    assert(maximum_players_start(128)==8);
+    assert(maximum_players_start(16)==4);
+    assert(!player_capacity_exceeded(64) && player_capacity_exceeded(65));
+    assert(!player_capacity_marked(31,128) && player_capacity_marked(32,128));
+    assert(!player_capacity_marked(64,64));
+    capacity=0;
+    assert(player_capacity_exceeded(65) && maximum_players_start(128)==8);
+    full_rate=0; capacity=8;
+    assert(!player_capacity_exceeded(8) && player_capacity_exceeded(9));
+    assert(!player_capacity_marked(3,16) && player_capacity_marked(4,16));
+    assert(maximum_players_start(128)==2);
+    capacity=0;
+    assert(!player_capacity_exceeded(128) && !player_capacity_marked(128,128));
+    assert(maximum_players_start(128)==10);
     for (int mode=0; mode<=1; mode++) for (int button=0; button<=1; button++)
     {
         reset(mode); multiplayer.game_count=1; multiplayer.games[0]=&lan;
@@ -125,6 +143,9 @@ int main(void)
         assert(browser_join_big_finish(&join_button,&deleted,FALSE));
         assert(!browser_join_big.active && !joins && backs==1);
         browser_select(pick,NULL,1,&deleted); assert(warnings==2);
+        reset(mode); multiplayer.game_count=1; multiplayer.games[0]=&lan;
+        capacity=128; full_rate=8;
+        browser_select(pick,NULL,1,&deleted); assert(warnings==1 && !joins);
         reset(mode); multiplayer.game_count=1; multiplayer.games[0]=&lan;
         capacity=0; browser_select(pick,NULL,1,&deleted); assert(!warnings && joins==1);
         reset(mode); multiplayer.game_count=1; multiplayer.games[0]=&lan;

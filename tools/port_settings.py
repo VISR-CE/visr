@@ -1050,8 +1050,8 @@ def _server_settings() -> list:
         "Players who join without the map cannot play.",
         "Players can hurt friendly AI and vehicles.",
         "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules.",
-        # (MAXIMUM PLAYERS', past the most this device holds at 30 frames a second: network.player_capacity)
-        "More players than this device holds at a steady\\n30 frames a second. It may run slowly.",
+        # (MAXIMUM PLAYERS', past the device's full-rate threshold, falling back to player_capacity)
+        "More players than recommended for this device.\\nIt may run slowly.",
         "Players can leave and join at any time.\\nPlayers always respawn in place upon death.",
         "Fireteam cannot change after level start.\\nIf the whole team dies, revert to checkpoint.",
         "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies.",

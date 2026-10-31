@@ -234,7 +234,7 @@
 		<string text="Players who join without the map cannot play."/>
 		<string text="Players can hurt friendly AI and vehicles."/>
 		<string text="Friendly AI and vehicles are protected from players.\nPlayer-to-player friendly fire keeps its own rules."/>
-		<string text="More players than this device holds at a steady\n30 frames a second. It may run slowly."/>
+		<string text="More players than recommended for this device.\nIt may run slowly."/>
 		<string text="Players can leave and join at any time.\nPlayers always respawn in place upon death."/>
 		<string text="Fireteam cannot change after level start.\nIf the whole team dies, revert to checkpoint."/>
 		<string text="Friendly fire, extra enemies, player collisions\nand what happens when everyone dies."/>

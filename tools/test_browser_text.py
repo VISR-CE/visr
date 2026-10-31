@@ -24,8 +24,8 @@ def test_browser_text_fit_and_regions(tmp_path):
 #include "p2p.h"
 #define NONE -1
 typedef int boolean;
-static long capacity = 8;
-static long config_integer(char const *name) { (void)name; return capacity; }
+static long capacity = 8, full_rate;
+static long config_integer(char const *name) { return !strcmp(name,"network.full_rate_players") ? full_rate : capacity; }
 #define SHORT_MAX 32767
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -92,6 +92,13 @@ int main(void) {
             capacity = 8;
         }
     }
+    capacity = 128; full_rate = 8;
+    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"BIG"));
+    listing.player_count = 3;
+    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
+    listing.player_count = 4; listing.maximum_player_count = 8;
+    browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"na-west"));
+    listing.maximum_player_count = 16;
     listing.open = 0; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"CLOSED"));
     listing.failed = 1; browser_listing_region(&listing, text, 32); assert(!wcscmp(text, L"FAILED"));
     listing.failed = 0; listing.joinable = 0; listing.network_version = 38;

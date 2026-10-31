@@ -2371,11 +2371,13 @@ int platform_text_field_result(char *text, int size);
 int config_boolean(char const *name);
 void ui_widget_port_post_button(short controller_index, short button_index);
 
-/* network.player_capacity: the most players this device holds at 30 frames a second (a device profile's; 0: no
-limit). It sets where a hosted game starts and what the browsers mark; it refuses no one */
+/* Match the warning and hosted-game default to the 30 fps hold threshold. Profiles without a full-rate
+threshold keep their measured player capacity; with neither, games are not warned about. Joining is never refused. */
 static long player_capacity(void)
 {
-	return config_integer("network.player_capacity");
+	long full_rate = config_integer("network.full_rate_players");
+
+	return full_rate > 0 ? full_rate : config_integer("network.player_capacity");
 }
 
 static boolean player_capacity_exceeded(long players)
@@ -2385,8 +2387,8 @@ static boolean player_capacity_exceeded(long players)
 	return capacity > 0 && players > capacity;
 }
 
-/* a browsed game is marked BIG when it allows more players than this device holds and is already at least half
- * that full, so an empty lobby with a large limit is not flagged */
+/* a browsed game is marked BIG when its limit exceeds the warning threshold and its player count is already
+ * at least half that threshold, so an empty lobby with a large limit is not flagged */
 static boolean player_capacity_marked(long players, long maximum_players)
 {
 	return player_capacity_exceeded(maximum_players) && players * 2 >= player_capacity();
@@ -2407,7 +2409,7 @@ static struct
 	/* the server settings */
 	wchar_t game_name[16];
 	short maximum_players_index;
-	/* (whether it was chosen: until then each game hosted starts within network.player_capacity) */
+	/* (whether it was chosen: until then each game hosted starts within player_capacity()) */
 	boolean maximum_players_set;
 	/* (co-op's own, so it leaves multiplayer's as it was: each game hosted
 	starts with COOPERATIVE_DEFAULT_PLAYERS players at most) */
@@ -3040,7 +3042,7 @@ help_strings, tools/port_settings.py) */
 #define COOPERATIVE_ENEMIES_MULTIPLIER_HELP 20
 #define COOPERATIVE_PLAYER_COLLISIONS_HELP 21
 #define SERVER_PASSWORD_HELP 23
-/* ... and for MAXIMUM PLAYERS past network.player_capacity */
+/* ... and for MAXIMUM PLAYERS past player_capacity()'s warning threshold */
 #define MAXIMUM_PLAYERS_SLOW_HELP 28
 /* ... and for SHARE MAPS, by its choice (port/linux/game/map_share.c) */
 #define MAP_SHARE_HELP 24
@@ -3261,7 +3263,7 @@ static void server_settings_update(struct widget_instance *list)
 		text_set(named(list, "game_type_value", 0), type);
 	}
 	settings_help(list);
-	/* MAXIMUM PLAYERS past what this device holds at 30 frames a second (network.player_capacity) says so */
+	/* MAXIMUM PLAYERS past the warning threshold (player_capacity()) says so */
 	if (spinner && list->focused_child == named(list, "op_max_players", 0) && list->parameters.list.extended_description &&
 		player_capacity_exceeded(maximum_players[*server_settings_maximum_players_index()]))
 		list->parameters.list.extended_description->parameters.text_box.string_list_index = MAXIMUM_PLAYERS_SLOW_HELP;

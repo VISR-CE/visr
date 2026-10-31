@@ -15,9 +15,11 @@ display.texture_idle_seconds (how long the texture cache keeps an undrawn
 texture, which a device's memory decides), and display.clutter_distance (how
 far bodies, loose items and garbage are drawn, which a device's speed decides),
 and network.player_capacity (the most players the device holds at 30 frames a
-second, which the host's default and the server browser's marks follow; it
-refuses no one), and network.full_rate_players (the multiplayer slot threshold
-for the variable frame rate, with 0 leaving it unlimited).
+second, used by the benchmark ladder), and network.full_rate_players (the
+multiplayer slot threshold for the variable frame rate, with 0 leaving it
+unlimited). The hosted-game default and warnings use a positive full_rate_players,
+otherwise player_capacity; with neither, games are not warned about. Joining
+is never refused.
 
 An X-macro list, included with all seven macros defined:
 
