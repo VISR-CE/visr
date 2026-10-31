@@ -2,7 +2,7 @@
   <!-- Xbox sheet coordinates: aim sprite [32,0,50,18], zoom sprites
        [0,0,31,24] and [0,24,43,48]. White coverage supplies gray and alpha. -->
   <circle cx="40.5" cy="8.5" r="4" fill="none" stroke="#fff" stroke-width="1"/>
-  <path fill="#fff" d="M40 8h1v1h-1z"/>
+  <circle cx="40.5" cy="8.5" r="0.6" fill="#fff"/>
   <g fill="#fff">
     <!-- The Xbox zoom labels have their own outlines and advances. -->
     <path d="M5.5 6.55

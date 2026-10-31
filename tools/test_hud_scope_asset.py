@@ -39,3 +39,10 @@ def test_sniper_scope_sheet_is_embedded_at_8x():
     data = (ROOT / png).read_bytes()
     assert data[:8] == embed_assets.PNG_SIGNATURE
     assert struct.unpack_from(">II", data, 16) == (512, 512)
+
+
+def test_sniper_scope_center_dot_is_round():
+    root = ET.parse(ROOT / "port/assets/hud/svg/hud__bitmaps__sniper__hud_reticles_scope.svg").getroot()
+    dot = root.findall("{http://www.w3.org/2000/svg}circle")[1]
+    assert [float(dot.get(key)) for key in ("cx", "cy", "r")] == [40.5, 8.5, 0.6]
+    assert dot.get("fill") == "#fff"
