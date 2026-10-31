@@ -1112,8 +1112,8 @@ static const struct config_setting config_settings[] =
 		"False selects CLASSIC, where the host refuses late joiners and a team\n"
 		"wipe reverts to the last checkpoint. Without a checkpoint, players\n"
 		"respawn: synchronized co-op level restarts are not available.\n"
-		"A checkpoint must match the current players and machines; after a\n"
-		"departure, wipes respawn until the next checkpoint saves the new roster.\n"
+		"Every current player must have the same saved datum and machine slot.\n"
+		"Departures keep the checkpoint usable; a new player needs a fresh one.\n"
 		"Listing and passwords do not affect this choice. FIRETEAM in CO-OP\n"
 		"OPTIONS writes it here. Multiplayer games are unaffected." },
 	{ "network.coop_friendly_fire", _config_string, "\"on\"", "HALO_NET_COOP_FRIENDLY_FIRE", _environment_value,

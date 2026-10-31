@@ -68,9 +68,11 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   checkpoint. Without a checkpoint, players respawn; synchronized co-op
   level restarts are not available.
   Listing and passwords do not affect this choice. Reverting requires a
-  saved checkpoint with the same players and machine assignments. After a
-  departure, wipes respawn players until the next checkpoint saves the new
-  roster; a revert never restores a departed player.
+  saved checkpoint containing every current player at the same datum and
+  machine slot. Players may leave after that checkpoint: the host reapplies
+  their normal quit handling after the load, and clients receive the unit
+  deaths through object replication. A new player still requires a fresh
+  checkpoint before a team wipe can revert.
   Scripted mission failures revert to the last checkpoint on the host in
   both modes, as a
   skipped cutscene does (below); a client never reverts on its own. A level

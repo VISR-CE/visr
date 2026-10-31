@@ -3360,7 +3360,7 @@
         "coop_late_join": {
           "type": "boolean",
           "default": true,
-          "description": "Whether players can join a co-op game after it starts: true selects DROP-IN, where a team wipe respawns players and keeps world progress. False selects CLASSIC, where the host refuses late joiners and a team wipe reverts to the last checkpoint. Without a checkpoint, players respawn: synchronized co-op level restarts are not available. A checkpoint must match the current players and machines; after a departure, wipes respawn until the next checkpoint saves the new roster. Listing and passwords do not affect this choice. FIRETEAM in CO-OP OPTIONS writes it here. Multiplayer games are unaffected.",
+          "description": "Whether players can join a co-op game after it starts: true selects DROP-IN, where a team wipe respawns players and keeps world progress. False selects CLASSIC, where the host refuses late joiners and a team wipe reverts to the last checkpoint. Without a checkpoint, players respawn: synchronized co-op level restarts are not available. Every current player must have the same saved datum and machine slot. Departures keep the checkpoint usable; a new player needs a fresh one. Listing and passwords do not affect this choice. FIRETEAM in CO-OP OPTIONS writes it here. Multiplayer games are unaffected.",
           "x-environment": "HALO_NET_COOP_LATE_JOIN",
           "x-environment-style": "value",
           "x-platforms": [

@@ -9,7 +9,7 @@
 static int diagnostics;
 #define error(...) (++diagnostics)
 enum {_game_connection_local,_game_connection_network_client,_game_connection_network_server};
-struct player_datum {short identifier;boolean quit_out_of_game;long unit_index;};
+struct player_datum {short identifier;boolean quit_out_of_game;long unit_index,quit_out_of_game_time;};
 struct data_iterator {long datum_index;int next;};
 static struct data_array *player_data;
 static long live_machine_players[3][2];
@@ -23,6 +23,12 @@ static void *data_iterator_next(struct data_iterator *i)
  }
  return NULL;
 }
+static struct player_datum *player_try_and_get(long index){int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(index);if(slot>=player_data->maximum_count)return NULL;struct player_datum *p=datum_get(player_data,index);return (unsigned short)p->identifier==(unsigned long)index>>16?p:NULL;}
+static void machine_remove_player(long index){for(int m=0;m<3;m++)for(int s=0;s<2;s++)if(live_machine_players[m][s]!=NONE&&DATUM_INDEX_TO_ABSOLUTE_INDEX(live_machine_players[m][s])==DATUM_INDEX_TO_ABSOLUTE_INDEX(index))live_machine_players[m][s]=NONE;}
+static long last_killed_unit;
+static boolean game_engine_running(void){return FALSE;}
+static void unit_get(long index){(void)index;}
+static void unit_kill_no_statistics(long index){last_killed_unit=index;}
 #include "types.inc"
 static struct coop_checkpoint_players checkpoint_players;
 static int connection,active;
@@ -67,7 +73,7 @@ static struct {boolean offered,skip_save_written;int voters,cooldown_until;} ski
 static void skip_vote_clear(void){}
 static void coop_enemies_new_game(void){}
 #include "under_test.inc"
-static long add_player(void){long id=datum_new(player_data);int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(id);CHECK(id!=NONE,"player fixture full");((struct player_datum *)datum_get(player_data,id))->unit_index=100+slot;live_machine_players[slot<2?slot:2][slot<3?0:1]=id;return id;}
+static long add_player(void){long id=datum_new(player_data);int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(id);CHECK(id!=NONE,"player fixture full");((struct player_datum *)datum_get(player_data,id))->unit_index=100+slot;((struct player_datum *)datum_get(player_data,id))->quit_out_of_game_time=NONE;live_machine_players[slot<2?slot:2][slot<3?0:1]=id;return id;}
 static struct player_datum *player(int slot){return (void *)(player_data->data+slot*player_data->size);}
 static void setup(void)
 {
@@ -92,18 +98,33 @@ int main(int argc,char **argv)
   connection=_game_connection_network_server;active=FALSE;CHECK(!network_coop_wipe_reverts(),"multiplayer decides co-op wipe");
   connection=_game_connection_local;wipe();CHECK(reverts==1&&!respawns,"local campaign behavior changed");
  } else CASE("roster") {
-  for(int change=0;change<4;change++){
-   setup();late_join=FALSE;
-   if(change==0)add_player();
-   else if(change==1)player(1)->quit_out_of_game=TRUE;
-   else if(change==2)player(1)->identifier++;
-   else live_machine_players[1][0]=NONE; /* A leave before its quit timer expires. */
-   wipe();CHECK(!reverts&&respawns==1&&diagnostics>0,"changed membership reverted");
-  }
+  setup();add_player();wipe();CHECK(!reverts&&respawns==1,"new player reverted");
+  setup();player(1)->identifier++;wipe();CHECK(!reverts&&respawns==1,"different datum reverted");
+  setup();live_machine_players[2][0]=live_machine_players[1][0];live_machine_players[1][0]=NONE;
+  wipe();CHECK(!reverts&&respawns==1,"different machine reverted");
+  setup();live_machine_players[1][1]=live_machine_players[1][0];live_machine_players[1][0]=NONE;
+  wipe();CHECK(!reverts&&respawns==1,"different local slot reverted");
+  setup();player(1)->quit_out_of_game=TRUE;wipe();CHECK(!reverts&&respawns==1,"quit player on a current machine reverted");
   setup();add_player();game_state_save();wipe();CHECK(reverts==1&&!respawns,"new matching checkpoint rejected");
-  setup();player(1)->quit_out_of_game=TRUE;live_machine_players[1][0]=NONE;
-  wipe();CHECK(respawns==1&&!reverts,"departure restored old roster");
-  game_state_save();wipe();CHECK(reverts==1&&respawns==1,"checkpoint after departure did not restore revert");
+  for(int pending=0;pending<2;pending++){
+   setup();player(1)->quit_out_of_game=!pending;live_machine_players[1][0]=NONE;
+   wipe();wipe();CHECK(reverts==2&&!respawns,"subset roster did not revert twice");
+   /* The checkpoint restores a living departed player, but not its machine. */
+   player(1)->quit_out_of_game=FALSE;player(1)->unit_index=101;
+   last_killed_unit=NONE;coop_reconcile_departures();
+   CHECK(player(1)->quit_out_of_game&&last_killed_unit==101,"departed player did not take the normal quit/death path after load");
+   CHECK(!player(0)->quit_out_of_game&&player(0)->unit_index!=NONE,"current player was removed");
+   game_state_save();wipe();CHECK(reverts==3&&!respawns,"checkpoint after departure rejected");
+  }
+  /* A scripted revert bypasses the wipe guard and can restore an old
+     datum beneath a replacement's live machine entry. */
+  setup();long replacement=live_machine_players[1][0]+0x10000;
+  live_machine_players[1][0]=replacement;last_killed_unit=NONE;
+  coop_reconcile_departures();
+  CHECK(live_machine_players[1][0]==replacement&&!player(1)->quit_out_of_game&&last_killed_unit==NONE,
+   "incompatible scripted load cleared a replacement's live mapping");
+  setup();memset(live_machine_players,0xff,sizeof(live_machine_players));
+  CHECK(!checkpoint_players_match(),"empty live roster accepted");
  } else CASE("save") {
   add_player();save_succeeds=FALSE;game_state_save();
   CHECK(checkpoint_players.count==2&&!game_state_port_saved_game_valid(),"failed save replaced membership snapshot");

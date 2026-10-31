@@ -846,11 +846,12 @@ static void network_test_log_players(
 				(long)DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index));
 		}
 		/* the game type's score and the kills and deaths */
-		network_test_append(line, (int)sizeof(line), &length, " s%ld k%d d%d f%d t%ld m%d",
+		network_test_append(line, (int)sizeof(line), &length, " s%ld k%d d%d f%d t%ld m%d id%lx u%lx quit%d/%ld",
 			game_engine && game_engine->get_player_score ?
 				game_engine->get_player_score(iterator.datum_index, _get_score_individual) : -1L,
 			player->statistics.kills[0], player->statistics.deaths, player->statistics.friendly_fire_kills, (long)player->team_index,
-			(int)player->network_player_data.machine_index);
+			(int)player->network_player_data.machine_index, iterator.datum_index, player->unit_index,
+			(int)player->quit_out_of_game, player->quit_out_of_game_time);
 		if (network_test.suite_owned)
 			network_test_append(line, (int)sizeof(line), &length, " reposition%lu energy_projectiles%u",
 				network_test_suite_repositions(player->local_player_index != NONE ? player->local_player_index : player->network_player_data.machine_index),

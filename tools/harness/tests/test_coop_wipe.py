@@ -22,6 +22,8 @@ def test_team_wipe(case):
      'if (FALSE)', 'roster'),
     ('!(main_loss_scripted && network_coop_active())', 'TRUE', 'failure'),
     ('main_loss_scripted = FALSE;', '', 'failure'),
+    ('remove_quitting_players_from_game();', '', 'roster'),
+    ('if (!checkpoint_players_match())\n\t\treturn;', '', 'roster'),
     ('csmemset(&checkpoint_players, 0, sizeof(checkpoint_players));', '', 'new-map'),
     ('if (game_state_globals.saved_game_valid)\n\t\tnetwork_coop_checkpoint_saved();',
      'network_coop_checkpoint_saved();', 'save'),

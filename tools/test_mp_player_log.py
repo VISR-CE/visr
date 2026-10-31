@@ -40,7 +40,7 @@ struct unit_datum { struct { unsigned long flags,control_flags; float primary_tr
     int grenade_counts[2],current_weapon_index; long weapon_object_indices[4];
     struct vector aiming_vector,looking_vector,throttle;
     struct { int aiming_screen_index,looking_screen_index,state; } animation; } unit; };
-struct player_datum { wchar_t name[12]; long unit_index,team_index,respawn_timer; int local_player_index;
+struct player_datum { wchar_t name[12]; long unit_index,team_index,respawn_timer,quit_out_of_game_time; int quit_out_of_game; int local_player_index;
     struct { int kills[4],deaths,friendly_fire_kills; } statistics;
     struct { int machine_index; } network_player_data; };
 struct item_datum { struct { long parent_object_index; unsigned long flags; } object;

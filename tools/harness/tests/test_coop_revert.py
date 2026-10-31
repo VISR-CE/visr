@@ -52,12 +52,15 @@ def test_negative_control(fault, case):
     assert status == CHECK_FAILED, output
 
 
-def test_host_dispatch_after_clock_repair():
+@pytest.mark.parametrize("omit_departures", [False, True])
+def test_host_dispatch_after_clock_repair(omit_departures):
     from harness import run
     source = read('port/linux/game/network_coop.c')
     code = function(source, 'network_coop_reverted')
+    if omit_departures:
+        code = mutated(code, 'coop_reconcile_departures();', '')
     status, output = run(build('coop_revert_dispatch', (('under_test.inc', code),)), 'dispatch')
-    assert status == 0, output
+    assert status == (CHECK_FAILED if omit_departures else 0), output
 
 
 def test_capture_before_checkpoint_load():

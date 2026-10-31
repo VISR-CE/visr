@@ -2103,32 +2103,35 @@ void network_coop_checkpoint_saved(
 	checkpoint_players.valid = checkpoint_players.count > 0;
 }
 
+/* The machine table is live session state outside the checkpoint image.
+A quit removes its entry before the delayed unit death (players.c). */
+static boolean coop_player_present(
+	long player_index)
+{
+	short machine_index;
+	short local_player_index;
+
+	for (machine_index = 0; machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES; machine_index++)
+	{
+		long *players = machine_get_player_list(machine_index);
+
+		for (local_player_index = 0; local_player_index < MAXIMUM_LOCAL_PLAYERS; local_player_index++)
+		{
+			if (players[local_player_index] == player_index)
+				return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static boolean checkpoint_players_match(
 	void)
 {
-	struct data_iterator iterator;
-	struct player_datum *player;
 	short count = 0;
 	short machine_index;
 	short local_player_index;
 
 	if (!checkpoint_players.valid)
-		return FALSE;
-	data_iterator_new(&iterator, player_data);
-	while ((player = data_iterator_next(&iterator)) != NULL)
-	{
-		short index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index);
-
-		if (player->quit_out_of_game)
-			continue;
-		if (!VALID_INDEX(index, MAXIMUM_TRACKED_PLAYERS) ||
-			checkpoint_players.players[index] != iterator.datum_index)
-		{
-			return FALSE;
-		}
-		count++;
-	}
-	if (count != checkpoint_players.count)
 		return FALSE;
 	for (machine_index = 0; machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES; machine_index++)
 	{
@@ -2136,16 +2139,59 @@ static boolean checkpoint_players_match(
 
 		for (local_player_index = 0; local_player_index < MAXIMUM_LOCAL_PLAYERS; local_player_index++)
 		{
-			if (checkpoint_players.machine_players[machine_index][local_player_index] != players[local_player_index])
+			long player_index = players[local_player_index];
+			short index = DATUM_INDEX_TO_ABSOLUTE_INDEX(player_index);
+			struct player_datum *player;
+
+			if (player_index == NONE)
+				continue;
+			player = player_try_and_get(player_index);
+			if (!player || player->quit_out_of_game || !VALID_INDEX(index, MAXIMUM_TRACKED_PLAYERS) ||
+				checkpoint_players.players[index] != player_index ||
+				checkpoint_players.machine_players[machine_index][local_player_index] != player_index)
+			{
 				return FALSE;
+			}
+			count++;
 		}
 	}
-	return TRUE;
+	return count > 0;
+}
+
+/* A load restores player datums, but not the live machine table or the
+network game's roster. Repeat the ordinary timed quit immediately, before
+network_objects_coop_reverted sends the restored objects. Clients already
+received the reliable quit; ordinary object replication carries its death.
+Keep quit datums, as a normal departure does, for slot reuse by
+network_game_spawn_player rather than deleting players independently. */
+static void coop_reconcile_departures(
+	void)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+
+	/* A scripted load can bypass the wipe guard. If a new player reused
+	an old slot, its live mapping belongs to that new datum, not the saved
+	one: machine_remove_player compares absolute slots. */
+	if (!checkpoint_players_match())
+		return;
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+	{
+		if (!coop_player_present(iterator.datum_index) && !player->quit_out_of_game)
+		{
+			player->quit_out_of_game_time = game_time_get();
+			machine_remove_player(iterator.datum_index);
+			error(_error_silent, "co-op: restored departed player %lx quits", iterator.datum_index);
+		}
+	}
+	remove_quitting_players_from_game();
 }
 
 /* Only the host chooses. main_reset_map_private recreates local players only,
 so a missing checkpoint must respawn until a network restart is available.
-An existing checkpoint must still contain exactly the current roster. */
+Every current player must occupy the same saved datum and machine slot;
+departed players are reconciled after loading by coop_reconcile_departures. */
 boolean network_coop_wipe_reverts(
 	void)
 {
@@ -2836,10 +2882,11 @@ void network_coop_reverted(
 		game_state_port_restamp_revert_time();
 		hs_runtime_port_shift_sleep_times(ticks);
 	}
+	coop_reconcile_departures();
 	network_objects_coop_reverted();
 	/* (the dropships' riders kept are of the game state reverted from) */
 	coop_enemies_reset();
-	error(_error_silent, "co-op: reverted %ld ticks, clock kept at %ld", ticks, now);
+	error(_error_silent, "co-op: reverted %ld ticks, clock kept at %ld, enemy scaling players %d", ticks, now, coop_enemies_game_players());
 	event_new(_coop_event_reverted);
 }
 
