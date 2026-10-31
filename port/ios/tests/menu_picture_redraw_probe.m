@@ -20,6 +20,8 @@ int main(int argc,char **argv) { @autoreleasepool {
         f=fopen(argv[3],"rb");assert(f&&fread(top,1,top_size,f)==top_size);fclose(f);
         memcpy(saved,top,top_size);memcpy(second,top,top_size);
         assert(menu_picture_redraw_source(source,512,h)>=0);
+        assert(menu_picture_redraw(source,512,h,top,3,NULL,argv[4],NULL)==0);
+        assert(!memcmp(top,saved,top_size));
         cancel=1;assert(menu_picture_redraw(source,512,h,top,4,&cancel,argv[4],NULL)==-1);
         assert(!memcmp(top,saved,top_size));cancel=0;
         assert(menu_picture_redraw(source,512,h,top,4,NULL,"/missing-resources",NULL)==0);
@@ -33,6 +35,11 @@ int main(int argc,char **argv) { @autoreleasepool {
         f=fopen(argv[5],"wb");assert(f&&fwrite(top,1,top_size,f)==top_size);fclose(f);
         /* Both published mip scales exercise the same source guards and font path. */
         struct menu_picture_redraw_metrics half;
+        memcpy(second,saved,size*4);cancel=1;
+        assert(menu_picture_redraw(source,512,h,second,2,&cancel,argv[4],NULL)==-1);
+        assert(!memcmp(second,saved,size*4));cancel=0;
+        assert(menu_picture_redraw(source,512,h,second,2,NULL,"/missing-resources",NULL)==0);
+        assert(!memcmp(second,saved,size*4));
         assert(menu_picture_redraw(source,512,h,second,2,NULL,argv[4],&half)==1);
         memcpy(top,saved,size*4);
         assert(menu_picture_redraw(source,512,h,top,2,NULL,argv[4],NULL)==1);

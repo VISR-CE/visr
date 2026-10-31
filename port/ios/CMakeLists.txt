@@ -556,6 +556,6 @@ if(HALO_ENTITLEMENTS)
     endif()
 endif()
 
-# Authored keyboard and the same Overpass file embedded for menu text.
-target_sources(VISR PRIVATE "${ROOT}/port/assets/menus/xbox/art/keyboard.png" "${ROOT}/port/assets/fonts/Overpass-650.ttf")
-set_source_files_properties("${ROOT}/port/assets/menus/xbox/art/keyboard.png" "${ROOT}/port/assets/fonts/Overpass-650.ttf" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+# The import redraws use the same Overpass file embedded for menu text.
+target_sources(VISR PRIVATE "${ROOT}/port/assets/fonts/Overpass-650.ttf")
+set_source_files_properties("${ROOT}/port/assets/fonts/Overpass-650.ttf" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)

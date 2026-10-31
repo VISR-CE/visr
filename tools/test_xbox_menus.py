@@ -473,9 +473,9 @@ def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     pngs = [frame.get('png') for frame in frames]
     assert pngs[1:4] == ['xbox/art/video.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
     assert all(frame.get('cache') is None for frame in frames[1:4])
-    # The controller stays the player's own; the keyboard uses our reproducible Overpass drawing.
+    # Both pictures use the player's map; the importer redraws the recognized keyboard.
     assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache')
-    assert pngs[4] == 'xbox/art/keyboard.png' and frames[4].get('cache') is None
+    assert pngs[4] == 'xbox/art/none.png' and frames[4].get('cache') == 'cache/xbox/v1/keyboard.png'
     bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
     assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
 
@@ -579,3 +579,12 @@ def test_join_warning_uses_xbox_confirmation_art_and_cancel_first():
         assert art.get('bitmap') == f'xbox/browser/{icon}_butn_sm'
     assert (r'pc\xbox\error\confirm_join_big_modal_fullscreen',
             r'pc\error\confirm_join_big_modal_fullscreen') in generator().screen_pairs()
+
+
+def test_keyboard_picture_is_generated_at_import_without_a_shipped_png():
+    assert not list(MENUS.rglob('keyboard.png'))
+    assert 'xbox/art/keyboard.png' not in json.loads((MENUS / 'menus.json').read_text())['files']
+    assert not (ROOT / 'tools/menu_keyboard_redraw.py').exists()
+    redraw = (ROOT / 'port/ios/host/menu_picture_redraw.m').read_text()
+    assert '@"keyboard"' not in redraw
+    assert 'keyboard.png' not in (ROOT / 'port/ios/CMakeLists.txt').read_text()
