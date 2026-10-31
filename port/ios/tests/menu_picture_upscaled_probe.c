@@ -66,6 +66,8 @@ int main(void)
 			assert(decision.result == TEXTURE_POLICY_BPF && decision.pinned && decision.scale == 4);
 			assert(decision.treatment == TEXTURE_POLICY_COLOR && !decision.wrap);
 		}
+	decision = classify("ui\\shell\\bitmaps\\gradient", 0, 11, 0, 137);
+	assert(decision.result == TEXTURE_POLICY_BPF && decision.pinned && decision.scale == 4);
 	assert(menu_picture_upscaled_tag("ui\\shell\\bitmaps\\arrow_big_left"));
 	assert(menu_picture_upscaled_tag("ui\\shell\\bitmaps\\arrow_big_right"));
 	for (int frame = 0; frame < 2; frame++)

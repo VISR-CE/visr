@@ -24,6 +24,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include "host_profile.h"
 #include "texture_refine.h"
 #include "menu_picture_trace.h"
+#include "menu_background_redraw.h"
 #include "menu_picture_redraw.h"
 #include "texture_upscale_big.h"
 #include "loading_picture_upscaled.h"
@@ -531,6 +532,19 @@ static int generate_source(void *opaque,const struct host_texture_source *source
                 int drawn=menu_picture_redraw(owned,d->width,d->height,(uint8_t *)output.levels[level].pixels,
                     scale,&stop_flag,NULL,&redraw);
                 host_logf(HOST_LOG_INFO,"Menu redraw %016llx %ux: %s, %.3f s, %llu scratch bytes",
+                    (unsigned long long)d->hash,scale,drawn>0?"complete":drawn<0?"stopped":"plain bpf",
+                    redraw.seconds,(unsigned long long)redraw.scratch_bytes);
+                if(drawn<0)break;
+            }
+        }
+        if(output.result==TEXTURE_POLICY_BPF&&menu_background_redraw_source(owned,d->width,d->height)>=0) {
+            for(unsigned level=0;level<output.level_count;level++) {
+                unsigned scale=output.levels[level].width/d->width;
+                if(scale!=2&&scale!=4)continue;
+                struct menu_background_redraw_metrics redraw={0};
+                int drawn=menu_background_redraw(owned,d->width,d->height,(uint8_t *)output.levels[level].pixels,
+                    scale,&stop_flag,&redraw);
+                host_logf(HOST_LOG_INFO,"Menu band %016llx %ux: %s, %.3f s, %llu scratch bytes",
                     (unsigned long long)d->hash,scale,drawn>0?"complete":drawn<0?"stopped":"plain bpf",
                     redraw.seconds,(unsigned long long)redraw.scratch_bytes);
                 if(drawn<0)break;

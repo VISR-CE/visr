@@ -758,6 +758,11 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/menu_picture_trace_probe.c', 'port/ios/host/menu_picture_trace.c',
     'port/ios/host/menu_picture_shapes.c', '--output', BUILD/'menu-picture-trace-probe')
 run(BUILD/'menu-picture-trace-probe')
+# The source-fitted menu band preserves the plain upscale for unknown sources.
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
+    'port/ios/tests/menu_background_redraw_probe.c', 'port/ios/host/menu_background_redraw.c',
+    '--output', BUILD/'menu-background-redraw-probe')
+run(BUILD/'menu-background-redraw-probe')
 # Authored art never replaces an unknown player's source; missing resources preserve bpf.
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined',
     '--include-directory=port/ios/host', 'port/ios/tests/menu_picture_redraw_probe.m',

@@ -248,23 +248,26 @@ static void main_menu_art(void)
 	struct texture_policy_catalog *c = texture_policy_catalog_new();
 	struct texture_policy_table t = table(NULL, 0);
 	struct texture_policy_decision *d;
-	const struct texture_policy_decision *logo, *list, *hud, *plain;
+	const struct texture_policy_decision *logo, *list, *hud, *plain, *gradient;
 	size_t n;
 
 	add(c, "ui\\shell\\main_menu\\halo_logo", 0, 0x21, 64, DXT5, 1, 0, "DeLa", "DeLa", "");
 	add(c, "ui\\shell\\bitmaps\\list_field", 0, 0x22, 64, DXT5, 1, 0, "DeLa", "DeLa", "");
 	add(c, "ui\\hud\\bitmaps\\hud_sweeper", 0, 0x23, 64, DXT5, 1, 0, "matg", "matg", "");
 	add(c, "ui\\shell\\bitmaps\\gradient", 0, 0x24, 64, 11, 1, 0, "DeLa", "DeLa", "");
+	add(c, "ui\\shell\\bitmaps\\unlisted_panel", 0, 0x25, 64, 11, 1, 0, "DeLa", "DeLa", "");
 	n = texture_policy_classify(c, &t, &d, NULL, NULL);
-	assert(n == 4);
+	assert(n == 5);
 	logo = find(d, n, 0x21, 64);
 	list = find(d, n, 0x22, 64);
 	hud = find(d, n, 0x23, 64);
-	plain = find(d, n, 0x24, 64);
+	gradient = find(d, n, 0x24, 64);
+	plain = find(d, n, 0x25, 64);
 	assert(logo->result == TEXTURE_POLICY_S4G && logo->kind == TEXTURE_POLICY_GRAPHIC && !logo->wrap);
 	assert(list->result == TEXTURE_POLICY_S4G && list->kind == TEXTURE_POLICY_GRAPHIC);
 	assert(hud->result == TEXTURE_POLICY_ORIGINAL);
 	assert(plain->result == TEXTURE_POLICY_ORIGINAL);
+	assert(gradient->result == TEXTURE_POLICY_S4G && gradient->kind == TEXTURE_POLICY_GRAPHIC);
 	free(d);
 	texture_policy_catalog_free(c);
 }
