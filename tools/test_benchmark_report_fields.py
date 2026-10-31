@@ -301,7 +301,7 @@ def test_workload_bridge_uses_game_decision_and_host_gates_before_loading():
     host = (ROOT / "port/ios/host/host_benchmark.m").read_text()
     game = (ROOT / "port/linux/game/scene_class.c").read_text()
     decision = host_function(game, "void halo_workload_decide(")
-    assert decision.index("config_workload_set(") < decision.index("host_benchmark_workload(config_workload_variable())")
+    assert decision.index("config_workload_set_limited(") < decision.index("host_benchmark_workload(config_workload_variable())")
     assert "host_benchmark_workload" in (ROOT / "port/runtime/host_imports.list").read_text()
     assert "void host_benchmark_workload(int variable);" in (ROOT / "port/runtime/guest/runtime/guest_host.h").read_text()
     next_run = host_function(host, "int host_benchmark_next(")
