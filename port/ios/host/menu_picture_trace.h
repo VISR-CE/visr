@@ -7,7 +7,7 @@ struct menu_picture_trace_metrics {
     size_t scratch_bytes;
     double seconds;
 };
-/* Recognize only the six approved decoded 512x256 RGBA sources. -1 means plain bpf. */
+/* Recognize six approved 512x256 sources and five 512x512 controller maps in decoded RGBA. -1 means plain bpf. */
 int menu_picture_trace_source(const uint8_t *source, unsigned width, unsigned height);
 /* Transactional: fallback (0) and cancellation (-1) leave bpf byte-identical. 1 means traced.
    Source is straight RGBA8, output is its 2x or 4x straight RGBA8 bpf. */

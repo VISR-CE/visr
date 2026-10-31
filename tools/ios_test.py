@@ -761,7 +761,8 @@ run(BUILD/'menu-picture-trace-probe')
 # Authored art never replaces an unknown player's source; missing resources preserve bpf.
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined',
     '--include-directory=port/ios/host', 'port/ios/tests/menu_picture_redraw_probe.m',
-    'port/ios/host/menu_picture_redraw.m', '-framework', 'Foundation', '-framework', 'CoreText',
+    'port/ios/host/menu_picture_redraw.m', 'port/ios/host/menu_picture_trace.c',
+    'port/ios/host/menu_picture_shapes.c', '-framework', 'Foundation', '-framework', 'CoreText',
     '-framework', 'CoreGraphics', '-framework', 'ImageIO', '--output', BUILD/'menu-picture-redraw-probe')
 run(BUILD/'menu-picture-redraw-probe')
 

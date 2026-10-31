@@ -277,7 +277,7 @@ static struct texture_recipe_globals recipe_globals(void) {
     const struct texture_policy_table *policy=&texture_policy_embedded;
     return (struct texture_recipe_globals){.model_id="S4g: PBRify SPAN V4 per channel",
         .model_sha256="d1f1fa1af7a5ab23fcf143e75aac4951e6c52d56bf77d9ccd4d004a4831d0461",.pipeline_version={1,1,1,1,1,1},
-        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=3,
+        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=4,
         .encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
         .damage_bpf_structure_loss=policy->damage_bpf_structure_loss,.damage_measure_version=(uint32_t)policy->damage_measure_version};
 }
@@ -511,7 +511,7 @@ static int generate_source(void *opaque,const struct host_texture_source *source
         }
         /* Source hashes gate the optional silhouette post-step. It shares the finisher, gameplay stop,
            compressed record and draw route with the existing menu picture upscale. */
-        if(output.result==TEXTURE_POLICY_BPF&&menu_picture_trace_source(owned,d->width,d->height)>=0) {
+        if(output.result==TEXTURE_POLICY_BPF&&d->height==256&&menu_picture_trace_source(owned,d->width,d->height)>=0) {
             for(unsigned level=0;level<output.level_count;level++) {
                 unsigned scale=output.levels[level].width/d->width;
                 if(scale!=2&&scale!=4)continue;

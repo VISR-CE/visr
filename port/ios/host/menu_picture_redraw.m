@@ -4,6 +4,7 @@
 #import <CoreText/CoreText.h>
 #import <ImageIO/ImageIO.h>
 #include "menu_picture_redraw.h"
+#include "menu_picture_trace.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,12 +88,23 @@ int menu_picture_redraw(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *b
         space=CGColorSpaceCreateDeviceGray();ctx=CGBitmapContextCreate(mask,w,h,8,w,space,(CGBitmapInfo)kCGImageAlphaNone);
         if(!ctx)goto done;
         CGContextSetGrayFillColor(ctx,1,1);CGContextSetTextMatrix(ctx,CGAffineTransformIdentity);
-        memcpy(result,bpf,n*4);unsigned variable=0;
+        memcpy(result,bpf,n*4);
+        for(unsigned i=0;i<sizeof(slots)/sizeof(slots[0]);i++) {
+            const struct slot *s=&slots[i];
+            for(unsigned y=(unsigned)(s->y0*k);y<=s->y1*k&&y<h;y++)
+                for(unsigned x=(unsigned)(s->x0*k);x<=s->x1*k&&x<w;x++)result[((size_t)y*w+x)*4+3]=0;
+        }
+        /* Erase before tracing: the replacement halo may extend into a label slot.
+           Trace also clears the dark exterior haze that made the old rectangular erases visible.
+           Both steps publish together, so a rejected silhouette keeps the entire plain bpf picture. */
+        struct menu_picture_trace_metrics trace;
+        int traced=menu_picture_trace(source,sw,sh,result,scale,cancel,&trace);
+        if(metrics)metrics->scratch_bytes+=trace.scratch_bytes;
+        if(traced<=0){status=traced;goto done;}
+        unsigned variable=0;
         for(unsigned i=0;i<sizeof(slots)/sizeof(slots[0]);i++) {
             if(cancel&&*cancel){status=-1;goto done;}
             const struct slot *s=&slots[i];const char *label=s->fixed?s->fixed:labels[picture-4][variable++];
-            for(unsigned y=(unsigned)(s->y0*k);y<=s->y1*k&&y<h;y++)
-                for(unsigned x=(unsigned)(s->x0*k);x<=s->x1*k&&x<w;x++)result[((size_t)y*w+x)*4+3]=0;
             NSDictionary *attrs=@{(__bridge NSString *)kCTFontAttributeName:(__bridge id)font,
                 (__bridge NSString *)kCTForegroundColorFromContextAttributeName:@YES};
             NSAttributedString *text=[[NSAttributedString alloc] initWithString:[NSString stringWithUTF8String:label] attributes:attrs];

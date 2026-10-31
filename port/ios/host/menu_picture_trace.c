@@ -17,10 +17,12 @@ static uint64_t digest(const uint8_t *p, size_t n) {
 }
 int menu_picture_trace_source(const uint8_t *p, unsigned w, unsigned h) {
     static const uint64_t hashes[]={UINT64_C(0xf36bb16cd42f5bd6),UINT64_C(0xe632c00dd1625c3c),
-        UINT64_C(0x7adcf52f208bec59),UINT64_C(0x6ea78954e953d88b),UINT64_C(0x7ce8581a05529296),UINT64_C(0xabbf90e26606d4ae)};
-    if(!p||w!=512||h!=256)return -1;
+        UINT64_C(0x7adcf52f208bec59),UINT64_C(0x6ea78954e953d88b),UINT64_C(0x7ce8581a05529296),UINT64_C(0xabbf90e26606d4ae),
+        UINT64_C(0x10abeb8e84292ebb),UINT64_C(0x4f2391de207baaf5),UINT64_C(0xb21af00c0b190d4b),
+        UINT64_C(0xe24cf6469a4cbaed),UINT64_C(0xa30fdfccfcf19037)};
+    if(!p||w!=512||(h!=256&&h!=512))return -1;
     uint64_t hash=digest(p,(size_t)w*h*4);
-    for(unsigned i=0;i<6;i++)if(hash==hashes[i])return (int)i;
+    for(unsigned i=h==256?0:6;i<(h==256?6u:11u);i++)if(hash==hashes[i])return (int)i;
     return -1;
 }
 static float cubic(float x) {
@@ -28,17 +30,17 @@ static float cubic(float x) {
     return x<=1 ? (1.25f*x-2.25f)*x*x+1 : x<2 ? ((-.75f*x+3.75f)*x-6)*x+3 : 0;
 }
 /* OpenCV's prototype uses cubic reconstruction on matching texel centers. */
-static void sample(const uint8_t *p, float x, float y, float out[4]) {
+static void sample(const uint8_t *p, unsigned h, float x, float y, float out[4]) {
     int ix=(int)floorf(x),iy=(int)floorf(y); memset(out,0,4*sizeof(float));
     for(int j=-1;j<=2;j++)for(int i=-1;i<=2;i++) {
         float v=cubic(x-ix-i)*cubic(y-iy-j)/255;
-        int sx=(int)clampf(ix+i,0,511),sy=(int)clampf(iy+j,0,255);
+        int sx=(int)clampf(ix+i,0,511),sy=(int)clampf(iy+j,0,h-1);
         for(int c=0;c<4;c++)out[c]+=v*p[((size_t)sy*512+sx)*4+c];
     }
     for(int c=0;c<4;c++)out[c]=clampf(out[c],0,1);
 }
-static float blue_signal(const uint8_t *p, float x, float y) {
-    float v[4];sample(p,x,y,v);return (v[2]-.55f*v[1]-.25f*v[0])*v[3];
+static float blue_signal(const uint8_t *p, unsigned h, float x, float y) {
+    float v[4];sample(p,h,x,y,v);return (v[2]-.55f*v[1]-.25f*v[0])*v[3];
 }
 static int colored(const float v[4]) {
     return v[3]>.25f&&fmaxf(v[0],v[1])>.2f&&
@@ -89,6 +91,27 @@ static void update_nearest(int *nearest,const uint16_t *coordinates,unsigned w,u
     float d=curve_distance2((unsigned)s,coordinates,w,x+.5f,y+.5f);
     if(old<0||d<curve_distance2((unsigned)old,coordinates,w,x+.5f,y+.5f))nearest[(size_t)y*w+x]=s;
 }
+/* A four-source-pixel opening removes thin leaders and lettering before contouring.
+   Sliding sums keep this linear in the decoded image area. */
+static int mask_filter(const uint8_t *input,uint8_t *output,unsigned w,unsigned h,
+    unsigned radius,int vertical,int dilate,const volatile int *cancel) {
+    unsigned lines=vertical?w:h,length=vertical?h:w,step=vertical?w:1;
+    for(unsigned line=0;line<lines;line++) {
+        if(cancel&&*cancel)return 0;
+        unsigned base=vertical?line:line*w,sum=0;
+        for(unsigned k=0;k<=radius&&k<length;k++)sum+=input[base+k*step]!=0;
+        for(unsigned k=0;k<length;k++) {
+            output[base+k*step]=dilate?sum>0:sum==2*radius+1;
+            if(k>=radius)sum-=input[base+(k-radius)*step]!=0;
+            if(k+radius+1<length)sum+=input[base+(k+radius+1)*step]!=0;
+        }
+    }
+    return 1;
+}
+static int leader_pixel(const uint8_t *p) {
+    /* Leaders are pale cyan; the saturated blue silhouette has a lower red/blue ratio. */
+    return p[3]>80&&p[2]>80&&p[0]>.23f*p[2]&&p[0]<.60f*p[2]&&p[1]>.48f*p[2];
+}
 int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bpf,unsigned scale,
     const volatile int *cancel,struct menu_picture_trace_metrics *metrics) {
     double started=clock_seconds();if(metrics)memset(metrics,0,sizeof(*metrics));
@@ -96,7 +119,8 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
     if(picture<0||!bpf||(scale!=2&&scale!=4))return 0;
     if(cancel&&*cancel)return -1;
     /* Detection always runs at 4x; rendering at 2x uses the same fitted curves. */
-    const unsigned w=2048,h=1024,n=w*h,cap=65536;
+    const unsigned w=2048,h=sh*4,n=w*h,cap=65536;
+    const int controller=picture>=6;
     uint8_t *mask=calloc(n,1),*outside=calloc(n,1),*visited=calloc(n,1),*seed=calloc(n,1),*keep=calloc(cap+1,1);
     uint16_t *coordinates=calloc(n,sizeof(*coordinates));
     unsigned *queue=malloc((size_t)n*sizeof(*queue));int *nearest=malloc((size_t)n*sizeof(*nearest));
@@ -106,10 +130,17 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
     if(metrics)metrics->scratch_bytes=(size_t)n*14+(cap+1)*(1+3*sizeof(struct point))+(size_t)sw*sh*scale*scale*4;
     for(unsigned y=0;y<h;y++) {
         if(cancel&&*cancel){status=-1;goto done;}
-        for(unsigned x=0;x<w;x++){float v[4];sample(source,(x+.5f)/4-.5f,(y+.5f)/4-.5f,v);
+        for(unsigned x=0;x<w;x++){float v[4];sample(source,sh,(x+.5f)/4-.5f,(y+.5f)/4-.5f,v);
             mask[y*w+x]=v[3]>(picture==4?.34f:.50f);
             /* Translucent red/green indicators stay separate; opaque armor still supplies its alpha silhouette. */
             if(picture==2&&v[3]<.85f&&colored(v))mask[y*w+x]=0;}
+    }
+    if(controller) {
+        if(!mask_filter(mask,outside,w,h,8,0,0,cancel)||
+           !mask_filter(outside,visited,w,h,8,1,0,cancel)||
+           !mask_filter(visited,outside,w,h,8,0,1,cancel)||
+           !mask_filter(outside,mask,w,h,8,1,1,cancel)){status=-1;goto done;}
+        memset(outside,0,n);memset(visited,0,n);
     }
     /* Flood transparent exterior; enclosed detail is filled without changing source pixels. */
     unsigned head=0,tail=0;queue[tail++]=0;outside[0]=1;
@@ -122,17 +153,20 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
         head=0;tail=0;queue[tail++]=i;visited[i]=1;
         while(head<tail){if((head%2048)==0&&cancel&&*cancel){status=-1;goto done;}unsigned j=queue[head++],x=j%w,y=j/w;unsigned ns[4]={x?j-1:j,x+1<w?j+1:j,y?j-w:j,y+1<h?j+w:j};
             for(int k=0;k<4;k++){unsigned t=ns[k];if(mask[t]&&!visited[t]){visited[t]=1;queue[tail++]=t;}}}
-        if(tail<1600){for(unsigned k=0;k<tail;k++)mask[queue[k]]=0;continue;}
+        /* Controller maps also contain lettering whose compressed-alpha haze can survive opening.
+           Keep only components large enough to be a controller; the one-path guard still rejects
+           a second substantial subject instead of silently choosing one. */
+        if(tail<(controller?n/40:1600)){for(unsigned k=0;k<tail;k++)mask[queue[k]]=0;continue;}
         area+=tail;paths++;unsigned count=contour(mask,w,h,i,path,cap,cancel);if(count<12||count>10000){status=cancel&&*cancel?-1:0;goto done;}
         boundary+=count;
-        float sigma=picture==4?9.f:2.f;int radius=(int)ceilf(sigma*3);
+        float sigma=(picture==4||controller)?9.f:2.f;int radius=(int)ceilf(sigma*3);
         memcpy(smoothed,path,count*sizeof(*path));
         /* Snap to the blue ridge along the alpha edge's normal, then smooth displacements. */
         for(unsigned k=0;k<count;k++) {
             if(cancel&&*cancel){status=-1;goto done;}
             struct point a=smoothed[(k+count-3)%count],b=smoothed[(k+3)%count];float nx=-(b.y-a.y),ny=b.x-a.x,len=hypotf(nx,ny);
-            nx/=fmaxf(len,1e-6f);ny/=fmaxf(len,1e-6f);float best=-1e9f,shift=0,limit=picture==4?1.1f:.85f;
-            for(int t=0;t<23;t++){float d=-limit+2*limit*t/22.f;float v=blue_signal(source,smoothed[k].x/4-.5f+nx*d,smoothed[k].y/4-.5f+ny*d)-.025f*d*d/(limit*limit);
+            nx/=fmaxf(len,1e-6f);ny/=fmaxf(len,1e-6f);float best=-1e9f,shift=0,limit=(picture==4||controller)?1.1f:.85f;
+            for(int t=0;t<23;t++){float d=-limit+2*limit*t/22.f;float v=blue_signal(source,sh,smoothed[k].x/4-.5f+nx*d,smoothed[k].y/4-.5f+ny*d)-.025f*d*d/(limit*limit);
                 if(v>best){best=v;shift=d;}}
             path[k]=(struct point){smoothed[k].x+nx*shift*4,smoothed[k].y+ny*shift*4};
         }
@@ -178,7 +212,7 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
     for(unsigned y=0;y<h;y++){if(cancel&&*cancel){status=-1;goto done;}for(unsigned x=0;x<w;x++) {
         unsigned i=y*w+x;int s=nearest[i];if(s<0)goto done;
         float d=sqrtf(curve_distance2((unsigned)s,coordinates,w,x+.5f,y+.5f));if(d>=33)continue;
-        float v[4];sample(source,(x+.5f)/4-.5f,(y+.5f)/4-.5f,v);
+        float v[4];sample(source,sh,(x+.5f)/4-.5f,(y+.5f)/4-.5f,v);
         if(v[2]>v[1]*1.18f&&v[1]>v[0]*1.4f) {
             /* Include the core bin on both sides: snapping can put the ridge just inside the alpha mask. */
             if((!mask[i]||d<1)&&v[3]<.95f)profile[(int)d][bpf[((size_t)(y*scale/4)*(sw*scale)+x*scale/4)*4+3]]++;
@@ -197,6 +231,13 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
         if(err<best){best=err;amp=aa;spread=ss;core=cc;width=clampf(ww*2.355f,2.2f,3);}
     }
     float lc[3],gc[3];for(int c=0;c<3;c++){lc[c]=median(line[c]);gc[c]=median(glow_hist[c]);}
+    if(controller) {
+        /* Restore the upscaled leaders above the new rim, including their antialiased fringe.
+           These masks are computed from the player's pixels and never stored as geometry. */
+        for(unsigned i=0;i<sw*sh;i++)outside[i]=leader_pixel(source+i*4);
+        if(!mask_filter(outside,visited,sw,sh,2,0,1,cancel)||
+           !mask_filter(visited,outside,sw,sh,2,1,1,cancel)){status=-1;goto done;}
+    }
     unsigned ow=sw*scale,oh=sh*scale;
     memcpy(result,bpf,(size_t)ow*oh*4);
     for(unsigned y=0;y<oh;y++) {
@@ -205,8 +246,20 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
             float px=(x+.5f)*4/scale,py=(y+.5f)*4/scale;
             unsigned gx=(unsigned)px,gy=(unsigned)py,i=gy*w+gx;int s=nearest[i];
             float dist=sqrtf(curve_distance2((unsigned)s,coordinates,w,px,py));int inside=mask[i];
+            if(controller) {
+                const uint8_t *old=bpf+((size_t)y*ow+x)*4;
+                /* Protect cyan stroke coverage, not its rectangular dark source shadow. */
+                if(outside[(y/scale)*sw+x/scale]&&old[2]>40&&old[0]>.23f*old[2]&&
+                   old[0]<.60f*old[2]&&old[1]>.48f*old[2]&&old[3])continue;
+                /* The redraw adds labels after tracing. Only the protected leaders belong
+                   outside this halo; retaining source haze here would expose the erase slots. */
+                if(!inside&&dist>=64) {
+                    memset(result+((size_t)y*ow+x)*4,0,4);
+                    continue;
+                }
+            }
             if(dist>=64||(inside&&dist>=4))continue;
-            float v[4];sample(source,(x+.5f)/scale-.5f,(y+.5f)/scale-.5f,v);if(colored(v))continue;
+            float v[4];sample(source,sh,(x+.5f)/scale-.5f,(y+.5f)/scale-.5f,v);if(colored(v))continue;
             float pixel_width=4.f/scale;
             float coverage=clampf((width/2+pixel_width*.5f-dist)/pixel_width,0,1)*fminf(.95f,core+amp);
             float fade=clampf((64-dist)/20,0,1);fade=fade*fade*(3-2*fade);float glow=amp*expf(-dist/spread)*fade;
@@ -220,13 +273,15 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
             }
             for(int c=0;c<3;c++)target[c]=target[c]*(1-coverage)+lc[c]*coverage;
             target[3]=target[3]*(1-coverage)+coverage;
-            float weight=inside?clampf(4-dist,0,1):clampf((64-dist)/4,0,1);
+            /* Controller exterior is fully replaced so the old dark leader shadows cannot
+               survive at the halo's smooth zero-alpha cutoff. */
+            float weight=inside?clampf(4-dist,0,1):(controller?1.f:clampf((64-dist)/4,0,1));
             uint8_t *out=result+((size_t)y*ow+x)*4;float olda=out[3]/255.f,a=olda*(1-weight)+target[3]*weight;
             for(int c=0;c<3;c++)out[c]=(uint8_t)roundf(clampf((out[c]/255.f*olda*(1-weight)+target[c]*weight)/fmaxf(a,1e-8f),0,1)*255);
             out[3]=(uint8_t)roundf(clampf(a,0,1)*255);
         }
     }
-    if(!menu_picture_shapes((unsigned)picture,source,result,scale,cancel)){status=cancel&&*cancel?-1:0;goto done;}
+    if(!controller&&!menu_picture_shapes((unsigned)picture,source,result,scale,cancel)){status=cancel&&*cancel?-1:0;goto done;}
     if(cancel&&*cancel){status=-1;goto done;}
     memcpy(bpf,result,(size_t)ow*oh*4);status=1;
 done:
