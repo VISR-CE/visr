@@ -40,6 +40,9 @@ boolean network_game_server_game_is_open(
 boolean network_game_server_game_is_loading(
 	struct network_game_server *server);
 /* joining a distributed game in progress (network_server_manager.c) */
+boolean network_game_server_refuse_classic_late_joiner(
+	struct network_game_server *server,
+	struct network_game_server_client_machine *machine);
 boolean network_game_server_accepts_late_joins(
 	struct network_game_server *server);
 boolean network_game_server_client_machine_is_loaded(

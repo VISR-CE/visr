@@ -26,6 +26,11 @@ def test_config_comes_from_every_c_entry():
     assert online['default'] is False
     assert online['x-defaults'] == {'apple': False, 'desktop': True}
     assert online['x-environment'] == 'HALO_NET_MAP_DOWNLOAD'
+    fireteam = config['properties']['network']['properties']['coop_late_join']
+    assert fireteam['type'] == 'boolean'
+    assert fireteam['default'] is True
+    assert fireteam['x-environment'] == 'HALO_NET_COOP_LATE_JOIN'
+    assert 'coop_team_wipe' not in config['properties']['network']['properties']
     assert config['additionalProperties'] is False
 
 

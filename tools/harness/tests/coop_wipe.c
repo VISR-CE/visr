@@ -31,15 +31,15 @@ static struct {int public,has_password,listed;} lobby;
 #define pthread_mutex_lock(lock) ((void)0)
 #define pthread_mutex_unlock(lock) ((void)0)
 
-static char const *policy="auto";
+static boolean late_join;
 static int browser_enabled=TRUE,coop_public;
 static struct {int hosting_lan_only;} p2p;
-static int config_boolean(char const *name){if(!strcmp(name,"network.public_lobby"))return browser_enabled;CHECK(!strcmp(name,"network.coop_public"),"wrong config key");return coop_public;}
+static int config_boolean(char const *name){if(!strcmp(name,"network.public_lobby"))return browser_enabled;if(!strcmp(name,"network.coop_late_join"))return late_join;CHECK(!strcmp(name,"network.coop_public"),"wrong config key");return coop_public;}
 static void p2p_new_invite_if_listed(void){}
 static short game_connection(void){return (short)connection;}
 static boolean coop_game(void){return active;}
-static char const *config_string(char const *name){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong policy key");return policy;}
 static long tick,main_loss_last_tick;
+static boolean main_loss_scripted;
 static boolean paused,all_dead,save_succeeds;
 static int reverts,respawns;
 static struct {boolean lost_map,saving_map;short loss_timer;} main_globals;
@@ -48,6 +48,7 @@ static boolean game_state_port_saved_game_valid(void){return game_state_globals.
 static long game_time_get(void){return tick;}
 static boolean game_time_get_paused(void){return paused;}
 static boolean players_are_all_dead(void){return all_dead;}
+static boolean network_coop_active(void){return active;}
 static boolean main_coop_host_revert(void){if(!game_state_globals.saved_game_valid)return FALSE;reverts++;return TRUE;}
 static void players_respawn_at_checkpoint(void){respawns++;}
 static void game_state_revert(void){reverts++;}
@@ -72,7 +73,7 @@ static void setup(void)
 {
  memset(live_machine_players,0xff,sizeof(live_machine_players));
  player_data=game_state_data_new("players",4,sizeof(struct player_datum));add_player();add_player();
- connection=_game_connection_network_server;active=TRUE;browser_enabled=TRUE;coop_public=FALSE;p2p.hosting_lan_only=FALSE;memset(&lobby,0,sizeof(lobby));policy="auto";
+ connection=_game_connection_network_server;active=TRUE;browser_enabled=TRUE;coop_public=FALSE;p2p.hosting_lan_only=FALSE;memset(&lobby,0,sizeof(lobby));late_join=FALSE;
  tick=main_loss_last_tick=0;paused=FALSE;all_dead=TRUE;save_succeeds=TRUE;reverts=respawns=diagnostics=0;
  memset(&main_globals,0,sizeof(main_globals));game_state_globals.saved_game_valid=FALSE;
  network_coop_new_game();game_state_save();
@@ -82,32 +83,17 @@ int main(int argc,char **argv)
 {
  char const *case_name=argc>1?argv[1]:"";setup();
  CASE("policy") {
-  struct {char const *mode;int public_game;int want;} cases[]={
-   {"auto",0,1},{"auto",1,0},{"revert",1,1},{"respawn",0,0},{"invalid",0,1},{"invalid",1,0}};
-  for(unsigned i=0;i<sizeof(cases)/sizeof(cases[0]);i++)for(int locked=0;locked<2;locked++)for(int transport=0;transport<2;transport++){
-   setup();policy=cases[i].mode;lobby.public=cases[i].public_game;lobby.has_password=locked;lobby.listed=transport;wipe();
-   CHECK(reverts==cases[i].want&&respawns==1-cases[i].want,"policy %s/public%d/password%d/transport%d",policy,lobby.public,locked,transport);
-  }
-  for(int visibility=0;visibility<2;visibility++){
-   setup();lobby.public=visibility;browser_enabled=FALSE;wipe();CHECK(reverts==1&&!respawns,"browser-off game counted as public");
-  }
- } else CASE("start-visibility") {
-  for(int visibility=0;visibility<2;visibility++)for(int lan=0;lan<2;lan++){
-   setup();lobby.public=!visibility;coop_public=visibility;p2p.hosting_lan_only=lan;
-   network_coop_new_game();game_state_save();wipe();
-   CHECK(reverts==(!visibility||lan)&&respawns==(visibility&&!lan),"co-op start kept stale host visibility");
-  }
-  for(int role=_game_connection_local;role<=_game_connection_network_client;role++){
-   setup();connection=role;coop_public=TRUE;lobby.public=FALSE;network_coop_new_game();
-   CHECK(!lobby.public,"non-host changed visibility at game start");
+  for(int drop_in=0;drop_in<2;drop_in++)for(int listed=0;listed<2;listed++)for(int locked=0;locked<2;locked++)for(int browser=0;browser<2;browser++){
+   setup();late_join=drop_in;lobby.public=listed;lobby.has_password=locked;browser_enabled=browser;wipe();wipe();
+   CHECK(reverts==2*(1-drop_in)&&respawns==2*drop_in,"fireteam policy depended on visibility/password/browser");
   }
  } else CASE("authority") {
-  policy="revert";connection=_game_connection_network_client;CHECK(!network_coop_wipe_reverts(),"client decides wipe");
+  late_join=FALSE;connection=_game_connection_network_client;CHECK(!network_coop_wipe_reverts(),"client decides wipe");
   connection=_game_connection_network_server;active=FALSE;CHECK(!network_coop_wipe_reverts(),"multiplayer decides co-op wipe");
   connection=_game_connection_local;wipe();CHECK(reverts==1&&!respawns,"local campaign behavior changed");
  } else CASE("roster") {
   for(int change=0;change<4;change++){
-   setup();policy="revert";
+   setup();late_join=FALSE;
    if(change==0)add_player();
    else if(change==1)player(1)->quit_out_of_game=TRUE;
    else if(change==2)player(1)->identifier++;
@@ -115,12 +101,17 @@ int main(int argc,char **argv)
    wipe();CHECK(!reverts&&respawns==1&&diagnostics>0,"changed membership reverted");
   }
   setup();add_player();game_state_save();wipe();CHECK(reverts==1&&!respawns,"new matching checkpoint rejected");
+  setup();player(1)->quit_out_of_game=TRUE;live_machine_players[1][0]=NONE;
+  wipe();CHECK(respawns==1&&!reverts,"departure restored old roster");
+  game_state_save();wipe();CHECK(reverts==1&&respawns==1,"checkpoint after departure did not restore revert");
  } else CASE("save") {
   add_player();save_succeeds=FALSE;game_state_save();
-  CHECK(checkpoint_players.count==2&&!network_coop_wipe_reverts(),"failed save replaced membership snapshot");
-  setup();game_state_globals.saved_game_valid=FALSE;wipe();CHECK(!reverts&&respawns==1&&diagnostics>0,"missing saved state did not diagnose fallback");
+  CHECK(checkpoint_players.count==2&&!game_state_port_saved_game_valid(),"failed save replaced membership snapshot");
+  setup();game_state_globals.saved_game_valid=FALSE;wipe();CHECK(!reverts&&respawns==1&&diagnostics>0,"missing checkpoint did not safely respawn CLASSIC");
   setup();save_succeeds=FALSE;game_state_save();wipe();
-  CHECK(!reverts&&respawns==1&&diagnostics>0,"failed save with unchanged team did not diagnose fallback");
+  CHECK(!reverts&&respawns==1&&diagnostics>0,"failed save did not safely respawn CLASSIC");
+  setup();late_join=TRUE;game_state_globals.saved_game_valid=FALSE;wipe();
+  CHECK(!reverts&&respawns==1,"DROP-IN without a checkpoint restarted");
  } else CASE("new-map") {
   CHECK(network_coop_wipe_reverts(),"valid checkpoint rejected");
   host_attachment_count=3;host_looping_sound_count=2;
@@ -134,7 +125,18 @@ int main(int argc,char **argv)
   setup();main_lost_map();paused=TRUE;tick=92;main_lost_map_private();CHECK(!reverts,"pause advanced death timer");
   paused=FALSE;main_lost_map_private();tick=184;main_lost_map_private();CHECK(reverts==1,"resumed death timer stalled");
  } else CASE("failure") {
-  policy="respawn";all_dead=FALSE;add_player();wipe();CHECK(reverts==1&&!respawns,"scripted failure used wipe policy/roster guard");
+  for(int drop_in=0;drop_in<2;drop_in++)for(int dead=0;dead<2;dead++){
+   setup();late_join=drop_in;all_dead=dead;add_player();main_lost_map_scripted();tick+=92;main_lost_map_private();
+   CHECK(reverts==1&&!respawns,"scripted failure used wipe policy/roster guard");
+  }
+  setup();late_join=TRUE;main_lost_map();main_lost_map_scripted();tick+=92;main_lost_map_private();
+  CHECK(reverts==1&&!respawns,"scripted failure did not override pending wipe");
+  wipe();CHECK(reverts==1&&respawns==1,"scripted loss leaked into the next DROP-IN wipe");
+  setup();active=FALSE;all_dead=FALSE;game_state_globals.saved_game_valid=FALSE;
+  main_lost_map_scripted();tick+=92;main_lost_map_private();
+  CHECK(!reverts&&respawns==1,"multiplayer loss behavior changed");
+  setup();active=FALSE;all_dead=TRUE;main_lost_map_scripted();tick+=92;main_lost_map_private();
+  CHECK(!reverts&&respawns==1,"multiplayer all-dead loss behavior changed");
  } else return 2;
  return 0;
 }

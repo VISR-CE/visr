@@ -96,26 +96,27 @@ def test_state_samples_run_on_tick_boundaries(tmp_path):
 #define _network_test_off 0
 static struct { int mode; } network_test;
 static long tick;
-static int active, menu, lines;
+static int active, menu, lines, device_samples;
 static long game_time_get(void) { return tick; }
 static int game_in_progress(void) { return active; }
 static int main_port_main_menu_loaded(void) { return menu; }
 static void network_test_log_players(void) { assert(tick % 30 == 0); lines++; }
+static void network_test_log_devices(void) { assert(tick % 30 == 0); device_samples++; }
 ''' + source[start:end] + r'''
 int main(void) {
     active = 1;
     for (tick = 1; tick <= 90; tick++) network_test_log_tick();
-    assert(lines == 0); /* ordinary gameplay does not log */
+    assert(lines == 0 && device_samples == 0); /* ordinary gameplay does not log */
     network_test.mode = 1;
     /* A frame can advance 29, 30, 31: the boundary must still be sampled. */
     for (tick = 1; tick <= 90; tick++) network_test_log_tick();
-    assert(lines == 3);
+    assert(lines == 3 && device_samples == 3);
     active = 0;
-    tick = 120; network_test_log_tick(); assert(lines == 3);
+    tick = 120; network_test_log_tick(); assert(lines == 3 && device_samples == 3);
     active = 1;
-    tick = 0; network_test_log_tick(); assert(lines == 3);
-    tick = 30; network_test_log_tick(); assert(lines == 4); /* next map */
-    menu = 1; tick = 60; network_test_log_tick(); assert(lines == 4); /* UI scenario */
+    tick = 0; network_test_log_tick(); assert(lines == 3 && device_samples == 3);
+    tick = 30; network_test_log_tick(); assert(lines == 4 && device_samples == 4); /* next map */
+    menu = 1; tick = 60; network_test_log_tick(); assert(lines == 4 && device_samples == 4); /* UI scenario */
 }
 '''
     path, binary = tmp_path / 'state_log.c', tmp_path / 'state_log'

@@ -18,10 +18,10 @@ struct widget_instance {
 };
 static struct widget_instance widgets[] = {
  {.name="friendly_fire_spinner"}, {.name="extra_enemies_spinner"},
- {.name="player_collisions_spinner"}, {.name="ally_friendly_fire_spinner"}, {.name="coop_team_wipe_spinner"},
+ {.name="player_collisions_spinner"}, {.name="ally_friendly_fire_spinner"}, {.name="fireteam_spinner"},
  {.name="op_friendly_fire"}, {.name="op_extra_enemies"}, {.name="op_enemies_per_player"},
  {.name="op_enemies_multiplier"}, {.name="op_player_collisions"}, {.name="op_ally_friendly_fire"},
- {.name="op_coop_team_wipe"}
+ {.name="op_fireteam"}
 };
 
 static struct widget_instance *named(struct widget_instance *list,const char *name,int depth){(void)list;(void)depth;for(unsigned int i=0;i<NUMBEROF(widgets);i++)if(!strcmp(widgets[i].name,name))return &widgets[i];return NULL;}
@@ -59,10 +59,10 @@ int main(void){
  }
  select_row("op_enemies_per_player");CHECK(help_index()==COOPERATIVE_ENEMIES_PER_PLAYER_HELP,"per-player help");
  select_row("op_enemies_multiplier");CHECK(help_index()==COOPERATIVE_ENEMIES_MULTIPLIER_HELP,"multiplier help");
- const char *rows[]={"op_friendly_fire","op_player_collisions","op_ally_friendly_fire","op_coop_team_wipe"};
- const char *spinners[]={"friendly_fire_spinner","player_collisions_spinner","ally_friendly_fire_spinner","coop_team_wipe_spinner"};
- int counts[]={4,2,2,3};
- int offsets[]={COOPERATIVE_FRIENDLY_FIRE_HELP,COOPERATIVE_PLAYER_COLLISIONS_HELP,COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP,COOPERATIVE_TEAM_WIPE_HELP};
+ const char *rows[]={"op_friendly_fire","op_player_collisions","op_ally_friendly_fire","op_fireteam"};
+ const char *spinners[]={"friendly_fire_spinner","player_collisions_spinner","ally_friendly_fire_spinner","fireteam_spinner"};
+ int counts[]={4,2,2,2};
+ int offsets[]={COOPERATIVE_FRIENDLY_FIRE_HELP,COOPERATIVE_PLAYER_COLLISIONS_HELP,COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP,COOPERATIVE_FIRETEAM_HELP};
  for(int row=0;row<4;row++)for(int value=0;value<counts[row];value++){
   select_row(rows[row]);choice(spinners[row],value);CHECK(help_index()==offsets[row]+value,"choice help");
  }

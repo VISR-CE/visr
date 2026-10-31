@@ -14231,7 +14231,7 @@ HS_EVALUATE_NO_ARGUMENTS(cinematic_skip_start_evaluate, cinematic_skip_start)
 HS_EVALUATE_NO_ARGUMENTS(cinematic_skip_stop_evaluate, cinematic_skip_stop)
 HS_EVALUATE_NO_ARGUMENTS(attract_mode_start_evaluate, attract_mode_start)
 HS_EVALUATE_NO_ARGUMENTS(main_won_map_evaluate, main_won_map)
-HS_EVALUATE_NO_ARGUMENTS(main_lost_map_evaluate, main_lost_map)
+HS_EVALUATE_NO_ARGUMENTS(main_lost_map_evaluate, main_lost_map_scripted) /* port: preserve scripted failure on a team wipe. */
 HS_EVALUATE_NO_ARGUMENTS(main_save_map_safe_evaluate, main_save_map_safe)
 HS_EVALUATE_NO_ARGUMENTS(main_save_cancel_evaluate, main_save_cancel)
 HS_EVALUATE_NO_ARGUMENTS(main_save_map_no_timeout_evaluate, main_save_map_no_timeout)

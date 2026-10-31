@@ -37,6 +37,9 @@ short network_game_client_get_state(
 	short *state_data);
 boolean network_game_client_join_first_available_game(
 	void);
+/* port: debug.network_test's stale-advertisement rejection probe. */
+boolean network_game_client_test_join_closed_game(
+	void);
 boolean network_game_client_set_team(
 	char team_index);
 /* port: advertised version and game kind, retained beside available_games */

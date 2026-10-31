@@ -1873,6 +1873,11 @@ static boolean network_game_server_handle_message_client_join_game_request(
 	/* (or a distributed game in progress: network_game_server_accepts_late_joins) */
 	boolean late_join = network_game_server_accepts_late_joins(server);
 
+	/* port: check before accepting a machine, so a reconnect cannot replace
+	its former roster entry in CLASSIC (accept_client_machine_into_game). */
+	if (network_game_server_refuse_classic_late_joiner(server, server_client_machine))
+		return TRUE;
+
 	if (network_game_server_get_state(server, NULL) == _network_game_server_state_pregame || late_join)
 	{
 		struct message_client_join_game_request join_game_request;

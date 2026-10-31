@@ -1105,15 +1105,17 @@ static const struct config_setting config_settings[] =
 		"Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER\n"
 		"map) starts as PUBLIC or, false, PRIVATE: Server Setup's LISTING in\n"
 		"co-op, which writes its choice here." },
-	{ "network.coop_team_wipe", _config_string, "\"auto\"", "HALO_NET_COOP_TEAM_WIPE", _environment_value,
+	{ "network.coop_late_join", _config_boolean, "true", "HALO_NET_COOP_LATE_JOIN", _environment_value,
 		_platform_all,
-		"When every co-op player dies: \"auto\" reverts the checkpoint in a\n"
-		"PRIVATE game and only respawns in a PUBLIC game; \"revert\" or\n"
-		"\"respawn\" overrides that choice. A password does not make a PUBLIC\n"
-		"game private. With the server browser off (network.public_lobby=false),\n"
-		"AUTO treats the game as private. Reverting requires a checkpoint with the current\n"
-		"players and machines; otherwise they respawn without a world reset.\n"
-		"TEAM WIPE in CO-OP OPTIONS writes its choice here." },
+		"Whether players can join a co-op game after it starts: true selects\n"
+		"DROP-IN, where a team wipe respawns players and keeps world progress.\n"
+		"False selects CLASSIC, where the host refuses late joiners and a team\n"
+		"wipe reverts to the last checkpoint. Without a checkpoint, players\n"
+		"respawn: synchronized co-op level restarts are not available.\n"
+		"A checkpoint must match the current players and machines; after a\n"
+		"departure, wipes respawn until the next checkpoint saves the new roster.\n"
+		"Listing and passwords do not affect this choice. FIRETEAM in CO-OP\n"
+		"OPTIONS writes it here. Multiplayer games are unaffected." },
 	{ "network.coop_friendly_fire", _config_string, "\"on\"", "HALO_NET_COOP_FRIENDLY_FIRE", _environment_value,
 		_platform_all,
 		"Whether the players of an online co-op game hurt each other: \"off\",\n"

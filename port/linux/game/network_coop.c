@@ -590,9 +590,8 @@ void unit_scripting_set_current_vitality_of(long unit_index, real body_vitality,
 /* port_config.c */
 int config_boolean(char const *name);
 char const *config_string(char const *name);
-/* p2p_lobby.c: effective visibility, independent of listing transport state */
+/* p2p.c: the host game start also applies the co-op listing preference. */
 void p2p_cooperative_game_start(void);
-int p2p_hosting_listed(void);
 
 /* ---------- private code */
 
@@ -2144,17 +2143,13 @@ static boolean checkpoint_players_match(
 	return TRUE;
 }
 
-/* Only the host chooses. Unknown values use the automatic policy too;
-PUBLIC is a visibility choice, including games protected by a password. */
+/* Only the host chooses. main_reset_map_private recreates local players only,
+so a missing checkpoint must respawn until a network restart is available.
+An existing checkpoint must still contain exactly the current roster. */
 boolean network_coop_wipe_reverts(
 	void)
 {
-	char const *mode;
-
-	if (!coop_host())
-		return FALSE;
-	mode = config_string("network.coop_team_wipe");
-	if (!strcmp(mode, "respawn") || (strcmp(mode, "revert") && p2p_hosting_listed()))
+	if (!coop_host() || config_boolean("network.coop_late_join"))
 		return FALSE;
 	if (!game_state_port_saved_game_valid() || !checkpoint_players_match())
 	{

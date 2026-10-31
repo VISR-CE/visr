@@ -60,17 +60,19 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   outside the loaded BSP and falling for two seconds is brought back beside
   the host, else a teammate. A dead
   player watches a living teammate (`coop_spectate.c`) and comes back
-  beside one once it is safe. With everyone dead, TEAM WIPE in CO-OP
-  OPTIONS (`network.coop_team_wipe`) defaults to AUTO: private games revert
-  the checkpoint; public games respawn at checkpoint positions without
-  reverting the world. REVERT CHECKPOINT and RESPAWN ONLY override the
-  visibility choice, including public games with passwords. With the server
-  browser disabled (`network.public_lobby=false`), AUTO treats the game as
-  private. Reverting
-  requires a saved checkpoint with the same players and machine
-  assignments; otherwise the host logs the fallback and respawns them.
-  A mission the scripts fail
-  with players still alive reverts to the last checkpoint on the host, as a
+  beside one once it is safe. FIRETEAM in CO-OP OPTIONS
+  (`network.coop_late_join`) defaults to DROP-IN (`true`): players may join
+  a game in progress, and with everyone dead they respawn at checkpoint
+  positions without reverting the world. CLASSIC (`false`) refuses new
+  players after the level starts. A team wipe reverts to the last
+  checkpoint. Without a checkpoint, players respawn; synchronized co-op
+  level restarts are not available.
+  Listing and passwords do not affect this choice. Reverting requires a
+  saved checkpoint with the same players and machine assignments. After a
+  departure, wipes respawn players until the next checkpoint saves the new
+  roster; a revert never restores a departed player.
+  Scripted mission failures revert to the last checkpoint on the host in
+  both modes, as a
   skipped cutscene does (below); a client never reverts on its own. A level
   won ends the round as in multiplayer, and the next round is the
   campaign's next level.

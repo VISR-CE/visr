@@ -748,6 +748,7 @@ static char const *scenario_paths[10] =
 static struct _main_globals main_globals = { 0 };
 /* Keep the original globals layout; these clocks belong to pending requests. */
 static long main_loss_last_tick;
+static boolean main_loss_scripted; /* port: game_lost overrides the wipe policy. */
 /* port: checkpoint waits use simulation ticks without changing main_globals' saved layout. */
 static long main_save_last_tick;
 static boolean main_save_clock_valid;
@@ -957,12 +958,21 @@ void main_lost_map(
 {
 	if (!main_globals.lost_map)
 	{
+		main_loss_scripted = FALSE;
 		main_globals.loss_timer = 0;
 		main_loss_last_tick = game_time_get();
 	}
 	main_globals.saving_map = FALSE;
 	main_globals.lost_map = TRUE;
 	return;
+}
+
+/* port: a script can fail the mission even while the whole fireteam is dead. */
+void main_lost_map_scripted(
+	void)
+{
+	main_lost_map();
+	main_loss_scripted = TRUE;
 }
 
 void main_stop_time(
@@ -2399,10 +2409,12 @@ static void main_lost_map_private(
 		main_globals.loss_timer = 0;
 		/* port: the co-op host chooses whether a team wipe rewinds or only
 		respawns. Scripted failures still revert, or their cutscene would
-		never end. A missing save falls back to checkpoint positions. */
+		never end. A missing save falls back to respawning: the local reset
+		path cannot restart the other machines. */
 		if (game_connection() != _game_connection_network_server)
 			game_state_revert();
-		else if ((players_are_all_dead() && !network_coop_wipe_reverts()) || !main_coop_host_revert())
+		else if ((players_are_all_dead() && !(main_loss_scripted && network_coop_active()) &&
+			!network_coop_wipe_reverts()) || !main_coop_host_revert())
 			players_respawn_at_checkpoint();
 	}
 	return;

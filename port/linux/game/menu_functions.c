@@ -3045,8 +3045,8 @@ help_strings, tools/port_settings.py) */
 /* ... and for SHARE MAPS, by its choice (port/linux/game/map_share.c) */
 #define MAP_SHARE_HELP 24
 #define COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP 26
-#define COOPERATIVE_TEAM_WIPE_HELP 29
-#define COOPERATIVE_OPTIONS_HELP 32
+#define COOPERATIVE_FIRETEAM_HELP 29
+#define COOPERATIVE_OPTIONS_HELP 31
 
 /* co-op's EXTRA ENEMIES' choices (port_settings.COOP_ENEMIES_MODES, in this
 order): its amount's row is the choice's */
@@ -3205,13 +3205,13 @@ static void coop_options_update(struct widget_instance *list)
 		if (help && list->focused_child == named(list, "op_player_collisions", 0))
 			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_PLAYER_COLLISIONS_HELP + choice);
 	}
-	if ((spinner = named(list, "coop_team_wipe_spinner", 0)) != NULL)
+	if ((spinner = named(list, "fireteam_spinner", 0)) != NULL)
 	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 2);
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
 		struct widget_instance *help = list->parameters.list.extended_description;
 
-		if (help && list->focused_child == named(list, "op_coop_team_wipe", 0))
-			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_TEAM_WIPE_HELP + choice);
+		if (help && list->focused_child == named(list, "op_fireteam", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FIRETEAM_HELP + choice);
 	}
 	if ((spinner = named(list, "ally_friendly_fire_spinner", 0)) != NULL)
 	{

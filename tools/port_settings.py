@@ -895,9 +895,9 @@ def _coop_options() -> list:
     rows.append((f"{base}/op_player_collisions", None, 3))
     extra += _hosting_spinner(base, "ally_friendly_fire", 17, ["ON", "OFF"], "network.coop_ally_friendly_fire", ["true", "false"])
     rows.append((f"{base}/op_ally_friendly_fire", None, 4))
-    extra += _hosting_spinner(base, "coop_team_wipe", 18, ["AUTO", "REVERT CHECKPOINT", "RESPAWN ONLY"],
-                "network.coop_team_wipe", ["auto", "revert", "respawn"])
-    rows.append((f"{base}/op_coop_team_wipe", None, 5))
+    extra += _hosting_spinner(base, "fireteam", 18, ["DROP-IN", "CLASSIC"],
+                "network.coop_late_join", ["true", "false"])
+    rows.append((f"{base}/op_fireteam", None, 5))
     extra += _button(f"{base}/button_ok", 1,
                      ['<on event="a" run="coop options save" back="true"/>',
                       '<on event="start" run="coop options save" back="true"/>'])
@@ -1013,7 +1013,7 @@ def _server_settings() -> list:
                                          "PLAYER OPTIONS:", "ITEM OPTIONS:", "VEHICLE OPTIONS:", "INDICATOR OPTIONS:",
                                          "TEAMPLAY OPTIONS:", "LISTING:", "FRIENDLY FIRE:", "EXTRA ENEMIES:",
                                          "PER PLAYER:", "MULTIPLIER:", "PLAYER COLLISIONS:", "PASSWORD:",
-                                         "SHARE MAPS:", "ALLY FRIENDLY FIRE:", "TEAM WIPE:", "CO-OP OPTIONS"])
+                                         "SHARE MAPS:", "ALLY FRIENDLY FIRE:", "FIRETEAM:", "CO-OP OPTIONS"])
     extra += _strings(f"{base}/help_strings", [
         "",
         "The name the game shows in the lists of games.\\nEnter changes it.",
@@ -1052,9 +1052,8 @@ def _server_settings() -> list:
         "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules.",
         # (MAXIMUM PLAYERS', past the most this device holds at 30 frames a second: network.player_capacity)
         "More players than this device holds at a steady\\n30 frames a second. It may run slowly.",
-        "Private: revert. Public: respawn only.\\nPlayers changed or no checkpoint: respawn only.",
-        "Revert after everyone dies. Players changed\\nor no checkpoint: respawn only.",
-        "Respawn after everyone dies.\\nKeep the world's progress.",
+        "Players can leave and join at any time.\\nPlayers always respawn in place upon death.",
+        "Fireteam cannot change after level start.\\nIf the whole team dies, revert to checkpoint.",
         "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies.",
     ])
     lines = _screen(base, spec, rows, ["server settings update"],

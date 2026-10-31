@@ -15,6 +15,7 @@ Automated system link sessions for testing the netcode without the menus
   difficulty, as the Map screen does for a campaign level;
 - "join" searches for games and joins the first it finds, as picking it in
   the system link list does;
+- "join-closed" also requests closed games, to test host join rejection;
 - "browse" joins the first game the server browser lists (internet play's
   public games: a host's with debug.network_test_public), as picking it
   there does, and then as "join". It never picks a game the OpenCE master
@@ -63,6 +64,8 @@ Called from the main loop every frame (main.c).
 #include "items/items.h"
 #include "objects/damage.h"
 #include "scenario/scenario.h"
+#include "scenario/scenario_definitions.h"
+#include "devices/devices.h"
 #include "tag_files/tag_files.h"
 #include "camera/observer.h"
 #include "network_test_suite.h"
@@ -683,7 +686,7 @@ static void network_test_read_settings(
 			snprintf(network_test.variant_name, sizeof(network_test.variant_name), "%s", colon + 1);
 		}
 	}
-	else if (!strcmp(setting, "join"))
+	else if (!strcmp(setting, "join") || !strcmp(setting, "join-closed"))
 	{
 		network_test.mode = _network_test_join;
 	}
@@ -725,6 +728,29 @@ static void network_test_append(
 	va_end(arguments);
 	if (written > 0)
 		*length = MIN(*length + written, size - 1);
+}
+
+/* port: named devices give the pair harness a persistent world marker. Their
+positions do not depend on transient object creation or name reuse.
+Both peers report their own state; this hook never changes the level. */
+static void network_test_log_devices(
+	void)
+{
+	struct scenario *scenario = global_scenario_get();
+	short name_index;
+
+	if (game_time_get() % 150 || !scenario)
+		return;
+	for (name_index = 0; name_index < scenario->object_names.count; name_index++)
+	{
+		struct scenario_object_name *name = TAG_BLOCK_GET_ELEMENT(&scenario->object_names,
+			name_index, struct scenario_object_name);
+		long object_index = object_index_from_name_index(name_index);
+
+		if (object_index != NONE && TEST_FLAG(_object_mask_device, object_get(object_index)->object.type))
+			platform_log("network test: device tick %ld name %.32s position %.3f power %.3f",
+				game_time_get(), name->name, device_get_position(object_index), device_get_power(object_index));
+	}
 }
 
 /* every player's unit, as this machine sees it */
@@ -899,7 +925,10 @@ void network_test_log_tick(
 		return;
 	tick = game_time_get();
 	if (tick > 0 && tick % TICKS_PER_SECOND == 0)
+	{
 		network_test_log_players();
+		network_test_log_devices();
+	}
 }
 
 /* each of this machine's players hits the next player with their weapon's
@@ -1700,7 +1729,8 @@ void network_test_update(
 				platform_log("network test: searching for games");
 			}
 		}
-		else if (!network_test.joined && network_game_client_join_first_available_game())
+		else if (!network_test.joined && (!strcmp(config_string("debug.network_test"), "join-closed") ?
+			network_game_client_test_join_closed_game() : network_game_client_join_first_available_game()))
 		{
 			network_test.joined = TRUE;
 			/* (again, as the menus' joins do just before they join: a client the

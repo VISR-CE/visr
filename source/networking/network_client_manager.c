@@ -2412,10 +2412,16 @@ void network_game_client_rejected_by_game(
 	refused a game in progress, network_game_server_refuse_late_joiner, is in
 	it): with no game behind it, it is left for the main menu, which says
 	why, rather than sitting in a lobby that will never start */
-	display_error_when_main_menu_loaded(
-		rejection_code == _rejection_code_game_is_full || rejection_code == _rejection_code_game_is_closed ?
-			_error_network_join_game_closed :
-			_error_network_failed_to_join_game);
+	/* port: code 5 remains the protocol's closed-game refusal. The existing
+	text also says full; explain the refusal in the game's own dialog. */
+	if (rejection_code == _rejection_code_game_is_closed)
+		display_error_text_when_main_menu_loaded(
+			L"The host is not accepting late joiners.");
+	else
+		display_error_when_main_menu_loaded(
+			rejection_code == _rejection_code_game_is_full ?
+				_error_network_join_game_closed :
+				_error_network_failed_to_join_game);
 	network_game_abort();
 	network_game_client_reset(client, TRUE);
 
@@ -3321,8 +3327,8 @@ boolean network_game_client_advertised_game_in_progress(
 		(network_game_client_advertised_versions[game_index].flags & HALO_PORT_ADVERTISED_IN_PROGRESS_FLAG) != 0;
 }
 
-boolean network_game_client_join_first_available_game(
-	void)
+static boolean network_game_client_join_available_game(
+	boolean include_closed)
 {
 	struct network_game_client *client = global_network_game_client_get();
 	long game_index;
@@ -3337,7 +3343,7 @@ boolean network_game_client_join_first_available_game(
 		struct network_advertised_game *game = &client->available_games[game_index];
 
 		if (network_game_client_advertised_game_is_valid(game) &&
-			game->platform == network_game_get_local_platform() && game->open)
+			game->platform == network_game_get_local_platform() && (game->open || include_closed))
 		{
 			struct transport_address address = { { { 0 } } };
 			struct network_join_parameters join_parameters;
@@ -3360,6 +3366,20 @@ boolean network_game_client_join_first_available_game(
 		}
 	}
 	return FALSE;
+}
+
+boolean network_game_client_join_first_available_game(
+	void)
+{
+	return network_game_client_join_available_game(FALSE);
+}
+
+/* port: the automated rejection test models a client with a stale open
+advertisement. The host still decides whether its join request is accepted. */
+boolean network_game_client_test_join_closed_game(
+	void)
+{
+	return network_game_client_join_available_game(TRUE);
 }
 
 /* ... and puts this machine's players on a team (a team game needs both

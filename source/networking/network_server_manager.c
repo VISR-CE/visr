@@ -476,6 +476,8 @@ symbols in this file:
 #include "tag_files/tag_files.h"
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 
+int config_boolean(char const *name);
+
 /* port: internet play's Discord presence (port/linux/src/p2p.c), and the
 server browser's listing of a public game (p2p_lobby.c) */
 void p2p_set_game_player_counts(int count, int maximum);
@@ -2610,12 +2612,38 @@ host's objects when it has loaded (network_objects.c). Until then the
 machine hears none of the game's messages (network_game_server_send_message_to_all_machines),
 which a machine in the pregame would refuse. */
 
+/* port: CLASSIC keeps the fireteam fixed once play starts. This also feeds
+both listing formats through network_game_server_accepts_late_joins. */
+static boolean network_game_server_classic_fireteam(
+	struct network_game_server *server)
+{
+	return server->state == _network_game_server_state_ingame &&
+		server->game.variant.game_engine_index == 0 &&
+		!config_boolean("network.coop_late_join");
+}
+
+/* port: already joined machines belong to the starting roster, including
+ones still fetching the map when the host started it. */
+boolean network_game_server_refuse_classic_late_joiner(
+	struct network_game_server *server,
+	struct network_game_server_client_machine *machine)
+{
+	if (!network_game_server_classic_fireteam(server) ||
+		network_game_server_client_machine_is_joined_to_game(server, machine))
+	{
+		return FALSE;
+	}
+	network_game_server_refuse_late_joiner(server, machine, _rejection_code_game_is_closed);
+	return TRUE;
+}
+
 boolean network_game_server_accepts_late_joins(
 	struct network_game_server *server)
 {
 	/* (and a player can join it: a machine none of whose players can is
 	refused, network_game_server_refuse_late_joiner) */
 	return server->state == _network_game_server_state_ingame &&
+		!network_game_server_classic_fireteam(server) &&
 		network_game_server_game_is_open(server) &&
 		network_game_has_free_player_slot(&server->game);
 }
@@ -2662,8 +2690,8 @@ static boolean network_game_server_machine_has_players(
 	return FALSE;
 }
 
-/* a machine joining the game in progress none of whose players could join
-(the game filled up): told the game is full, and let go */
+/* port: refuse a machine joining in progress, using the existing rejection
+message and reason codes, then release its connection and slot. */
 static void network_game_server_refuse_late_joiner(
 	struct network_game_server *server,
 	struct network_game_server_client_machine *machine,
@@ -2850,14 +2878,14 @@ static boolean network_game_server_queue_held_players(
 			continue;
 		}
 		player = network_game_server_held_players[index];
+		player.player_list_index = NONE;
+		network_game_server_queue_player_for_addition(server, &player);
 		network_game_server_held_player_count--;
 		if (index < network_game_server_held_player_count)
 		{
 			network_game_server_held_players[index] =
 				network_game_server_held_players[network_game_server_held_player_count];
 		}
-		player.player_list_index = NONE;
-		network_game_server_queue_player_for_addition(server, &player);
 		network_event("a player from machine #%ld joins now that the map is downloaded",
 			machine_index);
 		any = TRUE;
@@ -3008,6 +3036,30 @@ void network_game_server_queue_player_for_addition(
 	struct network_player *player)
 {
 	match_assert(NETWORK_SERVER_MANAGER_FILE, 0x5DE, server && player);
+
+	/* port: only the original lobby players held for a map download may
+	finish joining CLASSIC. Being unloaded does not admit new controllers.
+	queue_held_players keeps each original entry until this check finishes. */
+	if (network_game_server_classic_fireteam(server))
+	{
+		boolean held = FALSE;
+		long index;
+
+		for (index = 0; index < network_game_server_held_player_count; index++)
+		{
+			if (network_game_server_held_players[index].machine_index == player->machine_index &&
+				network_game_server_held_players[index].controller_index == player->controller_index)
+			{
+				held = TRUE;
+				break;
+			}
+		}
+		if (!held)
+		{
+			network_event("CLASSIC fireteam refused a new local player after level start");
+			return;
+		}
+	}
 
 	/* port: a player already in the game or queued to join it, asked for
 	again: the pregame screen asks every frame until its player is in the

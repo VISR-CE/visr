@@ -62,6 +62,9 @@ void main_won_map(
 
 void main_lost_map(
 	void);
+/* port: scripted loss must not use the co-op wipe policy. */
+void main_lost_map_scripted(
+	void);
 
 void main_revert_map(
 	void);

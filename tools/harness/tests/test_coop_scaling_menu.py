@@ -14,39 +14,39 @@ BASE = 'main_menu/multiplayer_type_select/coop_options/'
 SETUP_BASE = 'main_menu/multiplayer_type_select/server_settings/'
 
 
-def test_team_wipe_generated_screen():
+def test_fireteam_generated_screen():
     text = '\n'.join(port_settings.multiplayer_files()[NAME])
     root = ET.fromstring(text)
     widgets = {w.get('name'): w for w in root.findall('widget')}
-    spinner = widgets[BASE + 'coop_team_wipe_spinner']
-    assert spinner.get('strings').split('|') == ['AUTO', 'REVERT CHECKPOINT', 'RESPAWN ONLY']
-    assert spinner.get('setting') == 'network.coop_team_wipe'
-    assert spinner.get('values') == 'auto|revert|respawn'
+    spinner = widgets[BASE + 'fireteam_spinner']
+    assert spinner.get('strings').split('|') == ['DROP-IN', 'CLASSIC']
+    assert spinner.get('setting') == 'network.coop_late_join'
+    assert spinner.get('values') == 'true|false'
     rows = {r.get('widget').removeprefix(BASE): r for r in widgets[BASE + 'options_menu'].findall('child')}
     positions = {'op_friendly_fire': 73, 'op_extra_enemies': 103,
                  'op_enemies_per_player': 133, 'op_enemies_multiplier': 133,
                  'op_player_collisions': 163, 'op_ally_friendly_fire': 193,
-                 'op_coop_team_wipe': 223}
+                 'op_fireteam': 223}
     for name, y in positions.items():
         assert int(rows[name].get('y')) == y
-    row = rows['op_coop_team_wipe']
+    row = rows['op_fireteam']
     help_top = int(widgets[BASE + 'help'].get('top'))
-    assert int(row.get('y')) + int(widgets[BASE + 'op_coop_team_wipe'].get('height')) < help_top
+    assert int(row.get('y')) + int(widgets[BASE + 'op_fireteam'].get('height')) < help_top
     assert (ROOT / 'port/assets/menus/ce' / NAME).read_text() == text
 
 
-def test_team_wipe_xbox_generated_screen():
+def test_fireteam_xbox_generated_screen():
     assets = ROOT / 'port/assets/menus'
     generated = xbox_menus.multiplayer_documents(assets, set())
     xbox_menus.native_header_sizes(generated, assets)
     assert (assets / 'xbox' / NAME).read_text() == xbox_menus.serialize(generated[NAME])
 
 
-def test_team_wipe_setting_binding():
+def test_fireteam_setting_binding():
     from harness import build, function, read, run, structure
     source = read('port/linux/game/menu_functions.c')
     root = ET.fromstring('\n'.join(port_settings.multiplayer_files()[NAME]))
-    spinner = root.find(f"widget[@name='{BASE}coop_team_wipe_spinner']")
+    spinner = root.find(f"widget[@name='{BASE}fireteam_spinner']")
     assert spinner.find("on[@event='created']").get('run') == 'port setting load'
     assert spinner.find("on[@event='deleted']") is None
     values = spinner.get('values').split('|')
@@ -56,16 +56,21 @@ def test_team_wipe_setting_binding():
     metadata += ', ' + str(len(values)) + ', {' + ','.join(map(json.dumps, values)) + '}, NONE};\n'
     code = ''.join(function(source, name) for name in
                    ('text_is_number', 'spinner_item', 'setting_value_index', 'setting_load', 'setting_changed_save'))
-    status, output = run(build('coop_wipe_menu', (('types.inc', types), ('metadata.inc', metadata),
+    status, output = run(build('fireteam_menu', (('types.inc', types), ('metadata.inc', metadata),
                                                 ('under_test.inc', code))), '')
     assert status == 0, output
 
 
-def test_team_wipe_help_has_two_lines():
+def test_fireteam_help_has_two_lines():
     root = ET.fromstring('\n'.join(port_settings.multiplayer_files()[SETUP]))
     strings = root.find(f"strings[@name='{SETUP_BASE}help_strings']").findall('string')
-    for item in strings[29:32]:
+    expected = [
+        ['Players can leave and join at any time.', 'Players always respawn in place upon death.'],
+        ['Fireteam cannot change after level start.', 'If the whole team dies, revert to checkpoint.'],
+    ]
+    for item, words in zip(strings[29:31], expected, strict=True):
         lines = item.get('text').split('\\n')
+        assert lines == words
         assert len(lines) == 2
         assert max(map(len, lines)) <= 49
 
@@ -91,7 +96,7 @@ def test_coop_page_navigation_and_hosting_rows():
             assert accept.get('back') == 'true'
             assert accept.get('run') == 'coop options save'
         rows = {c.get('widget').split('/')[-1]: c for c in setup[setup_base + 'options_menu'].findall('child')}
-        assert not any(key in rows for key in ('op_friendly_fire', 'op_extra_enemies', 'op_coop_team_wipe'))
+        assert not any(key in rows for key in ('op_friendly_fire', 'op_extra_enemies', 'op_fireteam'))
         assert int(rows['op_map_share'].get('y')) == (223 if look == 'xbox' else 193)
         assert rows['op_coop_options'].get('y') == rows['op_game_type'].get('y')
         assert list(rows).index('op_map_share') < list(rows).index('op_coop_options')
