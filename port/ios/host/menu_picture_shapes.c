@@ -198,3 +198,74 @@ int menu_picture_shapes(unsigned picture,const uint8_t *source,uint8_t *rgba,uns
     return redraw(&shapes[0],source,rgba,scale,cancel) &&
            redraw(&shapes[1],source,rgba,scale,cancel);
 }
+
+int menu_carousel_shapes_source(const uint8_t *source,unsigned width,unsigned height)
+{
+    static const uint64_t hashes[]={UINT64_C(0xfc5484a0d9744add),UINT64_C(0x9cdebcc37bf18524),
+        UINT64_C(0x0944245a78c04241),UINT64_C(0x35288b532daae554)};
+    if(!source || width!=32 || height!=256) return -1;
+    uint64_t hash=UINT64_C(14695981039346656037);
+    for(size_t i=0;i<(size_t)width*height*4;i++) hash=(hash^source[i])*UINT64_C(1099511628211);
+    for(unsigned i=0;i<4;i++) if(hash==hashes[i]) return (int)i;
+    return -1;
+}
+
+/* The list draws frame zero at rest and frame one while stepping that direction.
+ * The source's DXT blocks distort the rim's color; fit each RGBA channel along
+ * its height, separately from the fill, rather than magnifying those blocks. */
+static int carousel_gradient(Polygon polygon,const uint8_t *source,int rim,double base[4],double slope[4])
+{
+    double n=0,sy=0,syy=0,sc[4]={0},syc[4]={0};
+    for(unsigned y=0;y<171;y++) for(unsigned x=0;x<18;x++) {
+        int inside;
+        double d=distance_to(polygon,x+.5,y+.5,&inside);
+        const uint8_t *p=source+((size_t)y*32+x)*4;
+        if(rim ? p[3]<110 || d>.55 : !inside || d<2) continue;
+        double yy=y+.5;
+        n++;sy+=yy;syy+=yy*yy;
+        for(unsigned c=0;c<4;c++) { double v=p[c]/255.0;sc[c]+=v;syc[c]+=yy*v; }
+    }
+    double determinant=n*syy-sy*sy;
+    if(n<2 || determinant<=0) return 0;
+    for(unsigned c=0;c<4;c++) {
+        slope[c]=(n*syc[c]-sy*sc[c])/determinant;
+        base[c]=(sc[c]-slope[c]*sy)/n;
+    }
+    return 1;
+}
+int menu_carousel_shapes(const uint8_t *source,unsigned width,unsigned height,uint8_t *rgba,
+    unsigned scale,const volatile int *cancel)
+{
+    int picture=menu_carousel_shapes_source(source,width,height);
+    if(picture<0 || !rgba || (scale!=2 && scale!=4)) return 0;
+    if(stopped(cancel)) return -1;
+    const Point left[]={{17.5,.5},{.5,85.5},{17.5,170.5}};
+    const Point right[]={{.5,.5},{17.5,85.5},{.5,170.5}};
+    Polygon polygon={picture<2?left:right,3};
+    double base[2][4],slope[2][4];
+    if(!carousel_gradient(polygon,source,0,base[0],slope[0]) ||
+       !carousel_gradient(polygon,source,1,base[1],slope[1])) return 0;
+    size_t size=(size_t)width*height*scale*scale*4;
+    uint8_t *result=calloc(size,1);
+    if(!result) return 0;
+    for(unsigned y=0;y<172*scale;y++) {
+        if(stopped(cancel)) { free(result);return -1; }
+        for(unsigned x=0;x<19*scale;x++) {
+            Pixel pixel={{0}};
+            for(unsigned sy=0;sy<4;sy++) for(unsigned sx=0;sx<4;sx++) {
+                double xx=(x+(sx+.5)/4)/scale,yy=(y+(sy+.5)/4)/scale;
+                int inside;double d=distance_to(polygon,xx,yy,&inside);
+                int layer=d<=.5?1:0;
+                if(!inside && !layer) continue;
+                double alpha=clip(base[layer][3]+slope[layer][3]*yy);
+                pixel.c[3]+=alpha/16;
+                for(unsigned c=0;c<3;c++) pixel.c[c]+=clip(base[layer][c]+slope[layer][c]*yy)*alpha/16;
+            }
+            uint8_t *p=result+((size_t)y*width*scale+x)*4;
+            for(unsigned c=0;c<3;c++) p[c]=(uint8_t)lround(clip(pixel.c[3]?pixel.c[c]/pixel.c[3]:0)*255);
+            p[3]=(uint8_t)lround(pixel.c[3]*255);
+        }
+    }
+    if(stopped(cancel)) { free(result);return -1; }
+    memcpy(rgba,result,size);free(result);return 1;
+}

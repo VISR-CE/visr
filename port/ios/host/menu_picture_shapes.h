@@ -11,4 +11,11 @@ int menu_picture_shapes(unsigned picture, const uint8_t *source,
                         uint8_t *rgba, unsigned scale,
                         const volatile int *cancel);
 
+/* Four 32 by 256 carousel frames, identified by decoded source hash.
+ * Unknown or invalid inputs preserve rgba; cancellation is transactional.
+ * Returns 1 on success, 0 for plain upscale fallback, -1 on cancellation. */
+int menu_carousel_shapes_source(const uint8_t *source, unsigned width, unsigned height);
+int menu_carousel_shapes(const uint8_t *source, unsigned width, unsigned height,
+                         uint8_t *rgba, unsigned scale, const volatile int *cancel);
+
 #endif

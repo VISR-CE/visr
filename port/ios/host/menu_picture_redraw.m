@@ -5,12 +5,15 @@
 #import <ImageIO/ImageIO.h>
 #include "menu_picture_redraw.h"
 #include "menu_picture_trace.h"
+#include "menu_picture_shapes.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 static double seconds(void) { struct timespec t;clock_gettime(CLOCK_MONOTONIC,&t);return t.tv_sec+t.tv_nsec*1e-9; }
 int menu_picture_redraw_source(const uint8_t *p,unsigned w,unsigned h) {
+    int carousel=menu_carousel_shapes_source(p,w,h);
+    if(carousel>=0)return carousel+9;
     static const uint64_t hashes[]={UINT64_C(0x10abeb8e84292ebb),UINT64_C(0x4f2391de207baaf5),
         UINT64_C(0xb21af00c0b190d4b),UINT64_C(0xe24cf6469a4cbaed),UINT64_C(0xa30fdfccfcf19037)};
     if(!p||w!=512||(h!=256&&h!=512))return -1;
@@ -51,6 +54,11 @@ int menu_picture_redraw(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *b
     int picture=menu_picture_redraw_source(source,sw,sh);
     if(picture<0||!bpf||(scale!=2&&scale!=4))return 0;
     if(cancel&&*cancel)return -1;
+    if(picture>=9) {
+        int result=menu_carousel_shapes(source,sw,sh,bpf,scale,cancel);
+        if(metrics) { metrics->seconds=seconds()-start;metrics->scratch_bytes=(size_t)sw*sh*scale*scale*4; }
+        return result;
+    }
     unsigned w=sw*scale,h=sh*scale;size_t n=(size_t)w*h;
     uint8_t *result=calloc(n,4),*mask=NULL;float *temp=NULL,*blur=NULL;
     CGContextRef ctx=NULL;CGColorSpaceRef space=NULL;CGFontRef cgfont=NULL;CTFontRef font=NULL;
