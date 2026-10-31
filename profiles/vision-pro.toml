@@ -11,7 +11,12 @@ gpu_family = [1, 0]
 [display]
 renderer = "metal"
 foveation = true
+anti_aliasing = "smaa"
 render_quality = 0.6
+
+[evidence."display.anti_aliasing"]
+basis = "assumed"
+why = "Taken from the M2 headset's measured default, in vision-pro-m2.toml."
 
 [evidence."display.foveation"]
 basis = "assumed"

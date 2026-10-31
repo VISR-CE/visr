@@ -497,10 +497,10 @@ static void check_shipped(const char *shipped)
 	profile = resolve(shipped, device("tvos", "AppleTV14,1", "", 8), NULL, "");
 	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.anisotropic_filtering", "16") &&
 		!strcmp(profile.model_file, "apple-tv-4k-3rd.toml"));
-	/* Vision Pro: the headset sweep's values, which are the built-in defaults too */
+	/* Vision Pro: the headset sweep's values, which are the built-in defaults too, and SMAA */
 	profile = resolve(shipped, device("visionos", "RealityDevice14,1", "", 8), NULL, "");
 	assert(has(&profile, "display.render_quality", "0.6") && has(&profile, "display.foveation", "true"));
-	assert(!strcmp(profile.model_file, "vision-pro-m2.toml") && profile.count == 5 &&
+	assert(!strcmp(profile.model_file, "vision-pro-m2.toml") && profile.count == 7 && has(&profile, "display.anti_aliasing", "smaa") &&
 		has(&profile, "display.renderer", "metal"));
 	/* iPhone 17 Pro, iPad Pro (M1) and the Macs: values equal to the built-in defaults, and the iPhone and iPad
 	class profile's Metal; the 17 Pro and the M1 iPad Pro target 120 frames a second in a predictable workload */
@@ -556,7 +556,7 @@ static void check_shipped(const char *shipped)
 	assert(has(&profile, "display.renderer", "metal") && has(&profile, "display.render_height", "720") &&
 		!strcmp(profile.class_file, "iphone-ipad.toml"));
 	profile = resolve(shipped, device("visionos", "RealityDevice99,1", "", 15), NULL, "");
-	assert(profile.count == 3 && !profile.model_file[0] && has(&profile, "display.renderer", "metal"));
+	assert(profile.count == 4 && has(&profile, "display.anti_aliasing", "smaa") && !profile.model_file[0] && has(&profile, "display.renderer", "metal"));
 	check_unprofiled_models(shipped);
 }
 
