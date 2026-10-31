@@ -950,6 +950,12 @@ assert [int(child.get('y')) for child in shown] == [247 + 36 * row for row in ra
 print('main menu without Quit: ' + ', '.join(child.get('widget').split('/')[-1] for child in shown))
 run('python3', 'tools/test_menu_cancel.py')
 
+# Imported images are removed only from private Documents after final map verification.
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/ios/host', '-Iport/runtime', 'port/ios/tests/import_source_probe.m', 'port/runtime/xiso.c',
+    '-framework', 'Foundation', '-o', BUILD/'import-source-probe')
+run(BUILD/'import-source-probe')
+
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')
 run('python3', 'tools/test_network_light_state.py')
