@@ -1,8 +1,9 @@
 /* The gesture recognizer (port/ios/host/host_spatial_hands.c, included):
 pinch hysteresis and the fingertip carried in the palm's frame through a
 dropout, the gun and off hand's button and stick mapping, the aim turn
-(smooth and snap), the prayer sign's dwell and Start pulse, and that a hand
-with tracked == 0 zeros every one of its own controls the same sample. */
+(smooth and snap), the prayer sign's dwell and Start pulse, the whole-hand
+gap a blink is held through, and that a hand untracked past that gap opens
+every one of its pinches and zeros every one of its own controls. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -279,9 +280,11 @@ static void pinch_opens_when_the_tip_returns_apart(void)
 		"tip returns apart: the gap's end, then the open the reading decided");
 }
 
-/* a hand with tracked == 0 opens every one of its pinches and zeros every one of its controls,
-the same sample: a lost hand carries no fingertip forward, so nothing holds its pinches. The
-hand that comes back closes at once on a live reading, with no apart-first confirmation */
+/* a hand ARKit has stopped reporting for longer than HANDS_HAND_GAP_SECONDS opens every one of
+its pinches and zeros every one of its controls, on the sample the gap runs out: a hand lost
+that long carries no fingertip forward, so nothing holds its pinches. The gap itself is what
+the first untracked sample starts, and pinch_holds_through_a_hand_blink covers what it holds.
+The hand that comes back closes at once on a live reading, with no apart-first confirmation */
 static void hand_untracked_zeros(void)
 {
 	struct hands_state state;
@@ -299,18 +302,140 @@ static void hand_untracked_zeros(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "untracked: starts closed");
 
-	joints[1].tracked = 0;
+	joints[1].tracked = 0; /* the hand's gap starts here, and holds everything while it runs */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
-	check(controls_all_zero(&controls[1]), "untracked gun hand: every control zero the same sample");
+	check(controls[1].trigger == 1.0f && count == 0, "untracked gun hand: the first untracked sample holds");
+
+	/* 0.20 s untracked, past the gap: now the hand is gone */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	check(controls_all_zero(&controls[1]), "untracked gun hand: every control zero once the gap has run out");
 	for (finger = 0; finger < count; finger++)
 		if (events[finger].kind == HANDS_EVENT_PINCH && events[finger].on == 0)
 			pinch_offs++;
 	check(count == NUMBER_OF_HANDS_PINCHES && pinch_offs == NUMBER_OF_HANDS_PINCHES,
-		"untracked gun hand: every pinch opens that same sample");
+		"untracked gun hand: every pinch opens on that same sample");
 
 	joints[1].tracked = 1; /* back, with the fingers still together */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "untracked gun hand: a hand that comes back pinched closes at once");
+}
+
+/* a whole hand lost for less than HANDS_HAND_GAP_SECONDS is ARKit blinking, not a hand put
+down: every pinch of that hand holds its state through the gap, the controls those pinches
+drive hold with it, and the hand that comes back inside the gap resumes with no event at all,
+exactly as a carried fingertip does (pinch_survives_a_tip_dropout). Without the gap a
+whole-hand dropout of one or two samples releases the trigger and fires a second shot */
+static void pinch_holds_through_a_hand_blink(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	double t;
+	int count, events_seen = 0, dropped = 0;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed at t = 1.0 */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "hand blink: starts closed");
+
+	joints[1].tracked = 0; /* the whole hand is gone for 0.10 s, nine frames of a 90 Hz device */
+	for (t = 1.05; t <= 1.15 + 1e-9; t += 0.05)
+	{
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		events_seen += count;
+		if (controls[1].trigger != 1.0f)
+			dropped++;
+	}
+	check(dropped == 0, "hand blink: the trigger never drops through a 0.10 s gap");
+	check(events_seen == 0, "hand blink: no event at all while the gap runs");
+
+	joints[1].tracked = 1; /* back inside the gap, the fingers still together */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "hand blink: still closed as the hand returns");
+	check(count == 0, "hand blink: the return itself says nothing");
+}
+
+/* the same hand gone for 0.20 s: HANDS_HAND_GAP_SECONDS has run out, so the pinch opens with
+its event and every one of that hand's controls goes to zero on the sample it expires, which is
+what a player lowering their hands is asking for */
+static void hand_gap_expires(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "hand gap: starts closed");
+
+	joints[1].tracked = 0; /* the gap starts on this sample, so this one still holds */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 0, "hand gap: the gap's first sample holds");
+
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.25, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "hand gap: 0.20 s untracked opens the pinch");
+	check(controls_all_zero(&controls[1]), "hand gap: every control of that hand is zero at the expiry");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
+		events[0].finger == HANDS_PINCH_INDEX, "hand gap: one pinch-off event at the expiry");
+
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	check(count == 0, "hand gap: an expired gap says nothing more while the hand stays away");
+}
+
+/* the aim turn stays gated on the hand's live tracked flag, not on the gap: the joint geometry
+a blink holds is stale, so the forward the sampler hands in turns nothing and arms nothing while
+the hand is away, even past the deadzone and even while that hand's pinches are still held */
+static void aim_turn_silent_in_a_hand_gap(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f; /* the gun hand's index closed, so the gap has something to hold */
+	forward[2] = 0.0f;
+
+	/* snap mode, armed inside the deadzone while the hand is tracked: a stale forward past the
+	deadzone would otherwise pulse the stick the instant the hand blinks */
+	forward[0] = cosf(10.0f * (float)M_PI / 180.0f); forward[1] = sinf(10.0f * (float)M_PI / 180.0f);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].stick_x == 0.0f && controls[1].trigger == 1.0f, "aim turn in a gap: armed and closed");
+
+	joints[1].tracked = 0;
+	forward[0] = cosf(45.0f * (float)M_PI / 180.0f); forward[1] = sinf(45.0f * (float)M_PI / 180.0f);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "aim turn in a gap: the pinch is still held");
+	check(controls[1].stick_x == 0.0f, "aim turn in a gap: no snap pulse from a stale forward");
+	check(count == 0, "aim turn in a gap: no event at all from a stale forward");
+
+	/* smooth mode: a turn that was running goes to zero as the hand blinks, and reports itself
+	off exactly as it does for a hand that stays untracked */
+	memset(&state, 0, sizeof(state));
+	joints[1] = make_hand(1);
+	forward[0] = cosf(31.5f * (float)M_PI / 180.0f); forward[1] = sinf(31.5f * (float)M_PI / 180.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	check(near(controls[1].stick_x, -0.5f, 1e-3f), "aim turn in a gap: turning before the blink");
+
+	joints[1].tracked = 0;
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.05, controls, events, 16);
+	check(controls[1].stick_x == 0.0f, "aim turn in a gap: the smooth turn contributes nothing");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 0,
+		"aim turn in a gap: the turn reports itself off");
 }
 
 /* the off hand's index pinch moves the stick forward, middle back (index wins when both are
@@ -371,8 +496,9 @@ static void mirror_aim(void)
 	check(controls[1].menu == 0, "mirror: the off hand's menu is never set, mirrored too");
 }
 
-/* the off hand going untracked zeros its own controls the same sample and leaves the gun
-hand's standing, the mirror of hand_untracked_zeros */
+/* the off hand going untracked past its own gap zeros its own controls and leaves the gun
+hand's standing, the mirror of hand_untracked_zeros. The gap is per hand, so the gun hand's
+pinch is untouched by the off hand's loss at every point of it */
 static void off_hand_untracked_zeros(void)
 {
 	struct hands_state state;
@@ -389,9 +515,12 @@ static void off_hand_untracked_zeros(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_y == 1.0f && controls[1].trigger == 1.0f, "untracked off hand: both start pinched");
 
-	joints[0].tracked = 0;
+	joints[0].tracked = 0; /* the off hand's gap starts, so its stick still stands */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
-	check(controls_all_zero(&controls[0]), "untracked off hand: every control of its own zero the same sample");
+	check(controls[0].stick_y == 1.0f, "untracked off hand: the gap holds its stick");
+
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	check(controls_all_zero(&controls[0]), "untracked off hand: every control of its own zero past its gap");
 	check(controls[1].trigger == 1.0f, "untracked off hand: the gun hand still fires");
 }
 
@@ -507,9 +636,9 @@ static void aim_turn_snap(void)
 
 /* an untracked gun hand turns nothing, whatever forward it is given: the yaw computation, the
 aim-turn event and the armed/pulse state it would set are all gated on joints[g].tracked, the
-same signal the final memset reads to zero controls[g]. So the zeroed aim.forward the sampler
-passes for an untracked hand (host_spatial_hands.m, which holds no last direction of its own)
-produces no event either, not just a zeroed stick_x */
+hand's live flag rather than its gap. So the zeroed aim.forward the sampler passes for an
+untracked hand (host_spatial_hands.m, which holds no last direction of its own) produces no
+event either, not just a zeroed stick_x */
 static void aim_turn_untracked_gun_hand(void)
 {
 	struct hands_state state;
@@ -642,7 +771,9 @@ static void prayer(void)
 
 /* the Start pulse the prayer sign just earned outlives the hands dropping out of sight
 inside its own window: bringing both hands together and then letting them fall is the natural
-thing to do, and the untracked memset would otherwise eat the pause */
+thing to do, and the pause would otherwise be eaten. Two things hold it now, since each hand's
+gap already outlasts HANDS_PULSE_SECONDS; the exception in hands_recognize's own zeroing is
+what would still hold a pulse wider than that gap */
 static void start_pulse_outlives_the_hands(void)
 {
 	struct hands_state state;
@@ -662,10 +793,14 @@ static void start_pulse_outlives_the_hands(void)
 	joints[0].tracked = joints[1].tracked = 0; /* both hands gone the very next sample */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.62, controls, events, 16);
 	check(controls[1].menu == 1, "start pulse: still held with both hands untracked inside the window");
-	check(controls[1].trigger == 0.0f, "start pulse: the rest of the gun hand's controls are still zeroed");
+	check(controls[1].trigger == 1.0f, "start pulse: the gun hand's index is held by its own gap");
 
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.75, controls, events, 16);
 	check(controls[1].menu == 0, "start pulse: released once the window ends, hands or no hands");
+
+	/* and the hands' own gap runs out a little later, which is where the pinches go */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.8, controls, events, 16);
+	check(controls_all_zero(&controls[1]), "start pulse: every control of the gun hand zero past its gap");
 }
 
 /* a pinch reading a carried thumb or fingertip reports the gap it is in, on as the gap starts
@@ -725,9 +860,12 @@ static void event_capacity_clamped(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 2); /* capacity matches the
 		buffer on every call: this setup sample emits more than 2 events too, into the same events[2] */
 
-	joints[0].tracked = 0; /* both hands untracked: every one of the 8 closed pinches opens */
+	joints[0].tracked = 0; /* both hands untracked: the sample their gaps start on holds everything */
 	joints[1].tracked = 0;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 2);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 2);
+
+	/* past both gaps: every one of the 8 closed pinches opens at once */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 2);
 	check(count == 2, "event capacity: the return clamps to capacity, not the true 8");
 	check(events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0, "event capacity: events[0] is a valid pinch-off");
 	check(events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0, "event capacity: events[1] is a valid pinch-off");
@@ -741,6 +879,9 @@ int main(void)
 	pinch_closes_when_the_tip_returns();
 	pinch_opens_when_the_tip_returns_apart();
 	hand_untracked_zeros();
+	pinch_holds_through_a_hand_blink();
+	hand_gap_expires();
+	aim_turn_silent_in_a_hand_gap();
 	off_hand_untracked_zeros();
 	off_hand_mapping();
 	mirror_aim();

@@ -154,15 +154,15 @@ static void palm_decode(const struct palm_basis *basis, const float local[3], fl
 			point[component] += local[axis] * basis->axis[axis][component];
 }
 
-/* a hand ARKit has lost carries nothing forward: the hand that comes back
-builds its carry from what it is seen doing then, rather than from where its
-fingers were before it left (hands_recognize's own tracked == 0 path opens
-every one of that hand's pinches the same sample) */
+/* a hand ARKit has lost for longer than its gap carries nothing forward: the
+hand that comes back builds its carry from what it is seen doing then, rather
+than from where its fingers were before it left (hand_lost below, and the
+same sample's pinch_update, which opens every one of that hand's pinches).
+A hand still inside its gap keeps all five, since it has not been lost yet */
 static void tips_forget(struct hands_state *state, int hand)
 {
 	memset(state->tip_local[hand], 0, sizeof(state->tip_local[hand]));
 	memset(state->tip_known[hand], 0, sizeof(state->tip_known[hand]));
-	memset(state->tip_carried[hand], 0, sizeof(state->tip_carried[hand]));
 }
 
 /* one tracked hand's five fingertips as this sample reads them: a tip ARKit
@@ -201,17 +201,45 @@ static void tips_resolve(struct hands_state *state, int hand, const struct host_
 			carried[index] = 1;
 		}
 	}
-	memcpy(state->tip_carried[hand], carried, sizeof(state->tip_carried[hand]));
+}
+
+/* whether one hand counts as gone this sample, which is what everything
+below acts on rather than the anchor's own tracked flag. ARKit can stop
+reporting a whole hand for a sample or two, and reading that as a hand put
+down turns one held pinch into a release and an immediate fresh press: a
+trigger pulled twice, a walk-forward stutter. So a hand that stops being
+reported starts a gap instead and holds everything it had through it, exactly
+as a fingertip out of sight is carried (tips_resolve), and only once
+HANDS_HAND_GAP_SECONDS has run does it become a loss. A hand back inside its
+gap resumes with no event at all, since nothing about it ever moved.
+
+What the gap must not hold is anything read out of the joints themselves:
+hands_recognize keeps the aim turn and the prayer sign on the live flag,
+whose geometry is stale the moment ARKit stops reporting it.
+
+Called once per hand per sample: it keeps the gap's start time */
+static int hand_lost(struct hands_state *state, int hand, int tracked, double now)
+{
+	if (tracked)
+	{
+		state->hand_gap_since[hand] = 0.0;
+		return 0;
+	}
+	if (state->hand_gap_since[hand] == 0.0)
+		state->hand_gap_since[hand] = now;
+	return now - state->hand_gap_since[hand] >= HANDS_HAND_GAP_SECONDS;
 }
 
 /* one pinch's hysteresis (host_spatial_hands.h's struct hands_pinch
-comment). hand_tracked governs the whole-hand immediate open ("A hand with
-tracked == 0 opens every pinch immediately"); below that there is nothing but
-the hysteresis, over whichever of the two positions tips_resolve could put
-together. A fingertip going out of sight is not a reason to open: ARKit loses
-the outer tips for anything from a twentieth of a second to tens of seconds
-while the hand is plainly held still, and every one of those dropouts used to
-open the pinch the player was holding */
+comment). hand_tracked governs the whole-hand open: a hand ARKit is not
+reporting opens every pinch, which hands_recognize asks for only once that
+hand's gap has run out (hand_lost), so a blink reaches this function not at
+all. Below that there is nothing but the hysteresis, over whichever of the
+two positions tips_resolve could put together. A fingertip going out of sight
+is not a reason to open either: ARKit loses the outer tips for anything from
+a twentieth of a second to tens of seconds while the hand is plainly held
+still, and every one of those dropouts used to open the pinch the player was
+holding */
 /* the end of a carried gap, for the log: how long this pinch went without a
 live reading of both its ends. Silent unless a gap was running, so every
 caller below can hand it the state it is about to move on */
@@ -329,6 +357,9 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	int count = 0;
 	int g = aiming_hand ? 1 : 0, o = !g;
 	int hand, finger;
+	/* each hand's loss as hand_lost decides it, for the zeroing at the end: a hand untracked
+	but still inside its gap is neither tracked nor lost, and holds what it had */
+	int lost[2];
 	float aim_contribution = 0.0f, stick_x;
 	/* what the turn last measured, for its own transition below: a turn the gun hand is
 	not making measures 0, which is the reading its off event should carry */
@@ -347,10 +378,16 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		memset(tip, 0, sizeof(tip));
 		memset(usable, 0, sizeof(usable));
 		memset(carried, 0, sizeof(carried));
+		lost[hand] = hand_lost(state, hand, j->tracked, now);
 		if (j->tracked)
 			tips_resolve(state, hand, j, tip, usable, carried);
-		else
+		else if (lost[hand])
 			tips_forget(state, hand);
+		/* a hand inside its gap is skipped outright: every pinch keeps the state it had, no
+		event comes out, and the controls below are built from that kept state, so the gap
+		holds the trigger and the walking stick as well as the pinches themselves */
+		if (!j->tracked && !lost[hand])
+			continue;
 
 		for (finger = 0; finger < NUMBER_OF_HANDS_PINCHES; finger++)
 		{
@@ -371,13 +408,14 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		controls[o].stick_y = -1.0f;
 	controls[o].stick_click = state->pinch[o][HANDS_PINCH_LITTLE].closed ? 1 : 0;
 
-	/* an untracked gun hand has no aim to turn from: the final memset below zeros
-	controls[g].stick_x regardless, but it cannot undo an event already emitted or an
-	armed/pulse state already set from whatever aim_forward the caller passed, which for an
-	untracked hand is a zero vector whose yaw reads 0. Gating the whole computation on
-	joints[g].tracked, the same signal the final memset reads, keeps the aim turn silent and
-	the state untouched while the hand is gone, exactly as the pinch loop above already does
-	for its own events (pinch_update's hand_tracked) */
+	/* an untracked gun hand has no aim to turn from, and nothing below cleans up after one:
+	the zeroing at the end of this function spares a hand that is only inside its gap, so this
+	gate is the one thing keeping a stale barrel out of the turn. It could not undo an event
+	already emitted or an armed/pulse state already set from whatever aim_forward the caller
+	passed either, which for an untracked hand is a zero vector whose yaw reads 0. Gating the
+	whole computation on joints[g].tracked rather than on the gap keeps the aim turn silent and
+	its state untouched for as long as ARKit is not reporting the hand: a blink holds that
+	hand's pinches (hand_lost), never the geometry its joints would give */
 	if (joints[g].tracked)
 	{
 		float yaw, excess, turn_sign;
@@ -470,16 +508,18 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		state->start_until = 0.0;
 	}
 
-	/* tracked == 0 zeros every control of that hand, the same sample, regardless of anything
-	computed above. The Start pulse is the one exception: the prayer sign is both hands coming
-	together, and dropping them is the natural thing to do next, which would otherwise eat the
-	pulse the sign just earned inside its own 100 ms window */
+	/* a lost hand (hand_lost: untracked past its gap) zeros every control of that hand, the
+	same sample, regardless of anything computed above. A hand still inside its gap is not
+	zeroed, which is what carries a held trigger or a walking stick through a blink. The Start
+	pulse is the one exception to the zeroing: the prayer sign is both hands coming together,
+	and dropping them is the natural thing to do next, which would otherwise eat the pulse the
+	sign just earned inside its own 100 ms window */
 	{
 		int start_pulse = controls[g].menu;
 
-		if (!joints[0].tracked)
+		if (lost[0])
 			memset(&controls[0], 0, sizeof(controls[0]));
-		if (!joints[1].tracked)
+		if (lost[1])
 			memset(&controls[1], 0, sizeof(controls[1]));
 		controls[g].menu = start_pulse;
 	}

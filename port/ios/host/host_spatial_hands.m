@@ -68,7 +68,6 @@ in rather than a direction read out of rounding error */
 for the Sense tracker, and neither owns the other's copy */
 static int settings_read;
 static int aim_hands;          /* input.aim = "hands" */
-static int aiming_hand = 1;    /* input.aim_hand: 0 left, 1 right */
 static int head_mode;          /* display.stereo = "head" */
 static int turn_snap = 1;      /* input.turn == "snap" (the recognizer's own read; host_spatial.m
 	reads the same key for the Sense stick and neither owns the other's copy) */
@@ -116,7 +115,9 @@ static simd_float3 last_forward[2];
 static int forward_known[2];
 /* each hand's last up, for the one case the room cannot give one: a barrel
 within UP_ALONG_BARREL of the room's up has nothing left to square against
-it, so the roll holds where it was rather than spinning (hand_of) */
+it, so the last up stands in as the reference and the roll holds near where
+it was rather than spinning (aim_up, which squares it against the barrel it
+is standing in for) */
 static simd_float3 last_up[2];
 static int up_known[2];
 /* the reduced joints of the last game sample (host_spatial_hands.h): what a
@@ -152,8 +153,8 @@ static void read_settings(void)
 	settings_read = 1;
 	host_config_string("input.aim", "controller", value, sizeof(value));
 	aim_hands = !strcmp(value, "hands");
-	host_config_string("input.aim_hand", "right", value, sizeof(value));
-	aiming_hand = strcmp(value, "left") ? 1 : 0;
+	/* input.aim_hand is not read here: which hand the gun is in arrives with every sample
+	(halo_spatial_sample's aiming_hand, which host_spatial.m fills from that setting) */
 	host_config_string("display.stereo", "off", value, sizeof(value));
 	head_mode = !strcmp(value, "head");
 	host_config_string("input.turn", "snap", value, sizeof(value));
@@ -403,8 +404,11 @@ orientation is in it. An open hand rolls freely about the forearm it aims
 with, so an up taken off the wrist put that roll straight into the weapon and
 the gun rendered on its side; the room cannot do that. Within
 UP_ALONG_BARREL of vertical the projection has nothing left to normalize, and
-the hand's last up stands in; with none yet, the room's forward does, which
-is square to the up a vertical barrel lies along */
+the hand's last up stands in as the reference instead; with none yet, or with
+one no better placed than the room's up is, the room's forward does, which is
+square to the up a vertical barrel lies along. Whatever the reference, the up
+returned is projected square to this barrel and normalized: it is always a
+unit vector and never parallel to the barrel */
 static simd_float3 aim_up(int hand, simd_float3 forward)
 {
 	const simd_float3 room_up = { 0.0f, 1.0f, 0.0f }, room_forward = { 0.0f, 0.0f, -1.0f };
@@ -412,9 +416,18 @@ static simd_float3 aim_up(int hand, simd_float3 forward)
 
 	if (fabsf(simd_dot(room_up, forward)) > UP_ALONG_BARREL)
 	{
-		if (up_known[hand])
-			return last_up[hand];
-		reference = room_forward;
+		/* the kept up is a reference like any other and squared against this barrel the same
+		way, never handed back as it stands: one kept from a near-level barrel is all but the
+		room's up, so a barrel that arrives vertical in a single sample would be given an up
+		parallel to itself. host_spatial_pose.c's location_axes crosses the two, which leaves
+		a zero left and a zero up, and hand_of stores that back as the kept up, so the roll
+		would stay dead until the barrel left the cone. The forearm joint returning after a
+		dropout, and a hand leaving view and coming back raised, both reach this in one sample:
+		neither clears forward_known or up_known */
+		if (up_known[hand] && fabsf(simd_dot(last_up[hand], forward)) <= UP_ALONG_BARREL)
+			reference = last_up[hand];
+		else
+			reference = room_forward;
 	}
 	return simd_normalize(reference - simd_dot(reference, forward) * forward);
 }

@@ -39,6 +39,13 @@ while the fingers are still closing, since the thumb and the fingertip ARKit
 reports stop short of where they look */
 #define HANDS_PINCH_CLOSE_METERS 0.025f
 #define HANDS_PINCH_OPEN_METERS 0.035f
+/* how long a whole hand may go untracked before it counts as gone, seconds.
+Inside this gap every pinch of that hand holds its state and the controls
+those pinches drive hold with it, so a single sample in which ARKit loses the
+hand is not a release (host_spatial_hands.c's hand_lost). Short on purpose:
+long enough to swallow a tracking artifact of a few frames at 90 Hz, short
+enough that a player lowering their hands releases the trigger at once */
+#define HANDS_HAND_GAP_SECONDS 0.15f
 /* the aim turn's ramp, degrees of arm past the deadzone to full deflection. A span, not an
 absolute angle: the deadzone itself is input.hand_turn_deadzone, anywhere from 5 to 60
 degrees, and a ramp measured from 0 would divide by a negative span (inverting the turn) or
@@ -75,11 +82,16 @@ struct hands_state
 	stored in coordinates the wrist and the two metacarpals define and read
 	back through the palm's current pose, and a pinch never opens merely
 	because its tip went out of sight (host_spatial_hands.c's tips_resolve).
-	known says a stored coordinate exists, carried that this sample is
-	reading it rather than ARKit; a hand whose tracked goes to 0 forgets all
-	five, since a lost hand opens every pinch anyway */
+	known says a stored coordinate exists; a hand that stays untracked past
+	its gap forgets all five, since a hand lost for that long opens every
+	pinch anyway */
 	float tip_local[2][5][3];
-	int tip_known[2][5], tip_carried[2][5];
+	int tip_known[2][5];
+	/* when each hand's current untracked run started, 0 while ARKit is
+	reporting the hand: what HANDS_HAND_GAP_SECONDS is measured against, so a
+	hand that blinks holds every pinch it had and a hand that is really gone
+	still opens them (host_spatial_hands.c's hand_lost) */
+	double hand_gap_since[2];
 	int aim_turn_armed;                                      /* snap mode: inside the deadzone since the last snap */
 	/* smooth mode: the turn's contribution is nonzero, so the log gets the
 	same on and off transitions snap mode's pulse gives it */
@@ -138,11 +150,12 @@ hand tracking is unsupported, its permission pending or denied, or no
 session has started it. input.aim alone decides whether this file is asked
 at all (host_spatial.m) */
 int host_spatial_hands_active(void);
-/* zeroes the gesture recognizer's state (pinches, aim turn arm, pulses, the
-prayer sign's dwell): called whenever hands were not this
-sample's source, so no pinch or dwell survives into the next sample hands do
-fill (host_spatial.m's host_spatial_sample, the branch that clears
-hands_filled_sample; host_spatial_hands_sample's own WAITING gap) */
+/* zeroes the gesture recognizer's state (pinches, carried tips and their
+hands' gaps, aim turn arm, pulses, the prayer sign's dwell): called whenever
+hands were not this sample's source, so no pinch or dwell survives into the
+next sample hands do fill (host_spatial.m's host_spatial_sample, the branch
+that clears hands_filled_sample; host_spatial_hands_sample's own WAITING
+gap) */
 void host_spatial_hands_idle(void);
 #endif
 
