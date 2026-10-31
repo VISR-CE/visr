@@ -113,16 +113,20 @@ The cache validator accepts these exact Xbox v5 cache builds on iOS:
 The image is opened through the system document picker with coordinated,
 security-scoped access. A cloud image may need to download before extraction.
 Leave enough local storage for its maps as well as any local XISO copy.
-Nothing is fetched from a game-download service, and the source image is never
-modified or deleted. After import, subsequent launches use the extracted maps.
+Nothing is fetched from a game-download service. Images chosen from outside
+VISR's private Documents folder are kept. After import, subsequent launches use
+the extracted maps.
 
 You can also copy **one** `.iso` or `.xiso` directly into VISR's Documents
 folder using Finder's Files tab or Files > On My iPhone/iPad > VISR, then
 launch the app. It detects and imports that image when game data is missing.
 If several images are present, choose one with the picker. After a successful
-import, deleting the extra XISO copy from the app folder can reclaim storage.
+import and verification of the installed maps, VISR removes the imported image
+from its private Documents folder (including Inbox) to reclaim storage. A
+symlink pointing outside that folder is kept. Native Mac and Catalyst imports
+keep the source image because their data folders may belong to the player.
 
-Imports run in a private staging directory. Invalid or cancelled imports do
+Imports run in a private staging directory. Invalid or canceled imports do
 not replace existing maps. Interrupted imports are cleaned up on next launch;
 existing maps displaced during the final move are restored if needed. Saves
 and profiles stay in `Documents/save` throughout.

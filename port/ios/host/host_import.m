@@ -8,6 +8,7 @@
 #include "host_texture_upscale.h"
 #include "texture_upscale_schedule.h"
 #import "host_upscale_tick.h"
+#import "host_import_source.h"
 
 #if !__has_feature(objc_arc)
 #error The asynchronous importer requires Objective-C ARC.
@@ -323,6 +324,17 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
                         [files moveItemAtPath:[staging stringByAppendingPathComponent:@"bink"] toPath:movies error:nil])
                         [[NSURL fileURLWithPath:movies] setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
                     NSURL *mapsURL=[NSURL fileURLWithPath:target];[mapsURL setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:nil];
+                    /* Catalyst's data root can be a player-owned folder. Only mobile platforms have private Documents. */
+                    NSString *privateDocuments=nil;
+#if !TARGET_OS_MACCATALYST
+                    privateDocuments=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;
+#endif
+                    enum host_import_source_result cleanup=host_import_remove_source(url,self.documents,privateDocuments,
+                        imported,^BOOL{return self.cancelled;});
+                    if(cleanup==HOST_IMPORT_SOURCE_REMOVED)
+                        host_logf(HOST_LOG_INFO,"Removed imported disc image from VISR's Documents folder");
+                    else if(cleanup==HOST_IMPORT_SOURCE_REMOVE_FAILED)
+                        host_logf(HOST_LOG_WARN,"Could not remove imported disc image from VISR's Documents folder");
                     /* Successful completion marker used only for diagnostics; game data stays separate. */
                     host_logf(HOST_LOG_INFO,"XISO import complete; original map bytes preserved");
                     host_astc_store_prepare_import(self.documents.fileSystemRepresentation,texture_progress,(__bridge void *)self);
@@ -380,7 +392,7 @@ void host_ios_prepare_assets(const char *root) {
     if (!scene) host_fatal("Could not open the game import screen.");
     HaloImportController *controller=[HaloImportController new];controller.documents=documents;
     /* Dropping an XISO into the app with Finder/Files also works. Only choose
-       automatically when exactly one image is present; never alter the source. */
+       automatically when exactly one image is present; cleanup follows verified import. */
     NSMutableArray<NSURL *> *images=[NSMutableArray new];
     for (NSString *directory in @[documents,[documents stringByAppendingPathComponent:@"Inbox"]]) {
         for (NSURL *url in [files contentsOfDirectoryAtURL:[NSURL fileURLWithPath:directory] includingPropertiesForKeys:@[NSURLIsRegularFileKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:nil]) {

@@ -1047,6 +1047,12 @@ run('python3', 'tools/test_menu_patches.py')
 # the decode behind the menus' picture cache: swizzled, linear and DXT textures read back as RGBA (xbox_textures.c)
 run('python3', 'tools/test_menu_art_decode.py')
 
+# Imported images are removed only from private Documents after final map verification.
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/ios/host', '-Iport/runtime', 'port/ios/tests/import_source_probe.m', 'port/runtime/xiso.c',
+    '-framework', 'Foundation', '-o', BUILD/'import-source-probe')
+run(BUILD/'import-source-probe')
+
 # Parse untrusted XISO metadata and exercise extraction/cancellation under sanitizers.
 run('python3', 'tools/ios_xiso_test.py')
 run('python3', 'tools/test_network_light_state.py')
