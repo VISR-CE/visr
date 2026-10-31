@@ -2735,6 +2735,81 @@
    ]
   },
   {
+   "name": "sniper__hud_reticles_scope__0",
+   "tag": "ui\\hud\\bitmaps\\sniper\\hud_reticles_scope",
+   "bitmap": 0,
+   "width": 64,
+   "height": 64,
+   "format": "a8y8",
+   "scale": 8,
+   "crc": 2373183232,
+   "cells": [
+    {
+     "xbox": [
+      32,
+      0,
+      50,
+      18
+     ],
+     "svg": "hud__bitmaps__sniper__hud_reticles_scope.svg",
+     "source_scale": 1,
+     "source": [
+      32,
+      0
+     ],
+     "clip": [
+      32,
+      0,
+      50,
+      18
+     ],
+     "kind": "alpha"
+    },
+    {
+     "xbox": [
+      0,
+      0,
+      31,
+      24
+     ],
+     "svg": "hud__bitmaps__sniper__hud_reticles_scope.svg",
+     "source_scale": 1,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      31,
+      24
+     ],
+     "kind": "alpha"
+    },
+    {
+     "xbox": [
+      0,
+      24,
+      43,
+      48
+     ],
+     "svg": "hud__bitmaps__sniper__hud_reticles_scope.svg",
+     "source_scale": 1,
+     "source": [
+      0,
+      24
+     ],
+     "clip": [
+      0,
+      24,
+      43,
+      48
+     ],
+     "kind": "alpha"
+    }
+   ]
+  },
+  {
    "name": "sniper__sniper_scope_crosshairs2__0",
    "tag": "ui\\hud\\bitmaps\\sniper\\sniper_scope_crosshairs2",
    "bitmap": 0,
