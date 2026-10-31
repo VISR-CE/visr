@@ -68,7 +68,7 @@ def test_the_material_names_and_result_end_the_table(tmp_path):
 def test_the_scales_end_the_table(tmp_path):
     raw = json.loads((ROOT / "port/assets/texture-policy.json").read_text())
     text = emit(tmp_path, raw)
-    assert "\t2, 4, 0x1, 0x4, doubled_tags, 3, doubled_textures, 38 };" in text
+    assert "\t2, 4, 0x1, 0x4, doubled_tags, 5, doubled_textures, 38 };" in text
     assert "{ 0x07edbf0e395b91b9ull, 64, 64 }," in text
     none = dict(raw["scales"], doubled=dict(raw["scales"]["doubled"], kinds=[], treatments=[], tags=[], textures=[]))
     assert "\t2, 4, 0x0, 0x0, NULL, 0, NULL, 0 };" in emit(tmp_path, dict(raw, scales=none))

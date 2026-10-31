@@ -23,6 +23,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include "texture_upscale_import_bar.h"
 #include "host_profile.h"
 #include "texture_refine.h"
+#include "menu_picture_trace.h"
 #include "texture_upscale_big.h"
 #include "loading_picture_upscaled.h"
 #include <sys/stat.h>
@@ -275,7 +276,7 @@ static struct texture_recipe_globals recipe_globals(void) {
     const struct texture_policy_table *policy=&texture_policy_embedded;
     return (struct texture_recipe_globals){.model_id="S4g: PBRify SPAN V4 per channel",
         .model_sha256="d1f1fa1af7a5ab23fcf143e75aac4951e6c52d56bf77d9ccd4d004a4831d0461",.pipeline_version={1,1,1,1,1,1},
-        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=1,
+        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=2,
         .encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
         .damage_bpf_structure_loss=policy->damage_bpf_structure_loss,.damage_measure_version=(uint32_t)policy->damage_measure_version};
 }
@@ -507,6 +508,22 @@ static int generate_source(void *opaque,const struct host_texture_source *source
             peak_footprint=MAX(peak_footprint,footprint());log_texture_error(d,"generate",error,now()-start);
             host_logf(HOST_LOG_WARN,"Upscale %016llx: %s",(unsigned long long)d->hash,error);atomic_store(&finisher_failed,true);texture_upscale_big_free(owned);free(levels);return;
         }
+        /* Source hashes gate the optional silhouette post-step. It shares the finisher, gameplay stop,
+           compressed record and draw route with the existing menu picture upscale. */
+        if(output.result==TEXTURE_POLICY_BPF&&menu_picture_trace_source(owned,d->width,d->height)>=0) {
+            for(unsigned level=0;level<output.level_count;level++) {
+                unsigned scale=output.levels[level].width/d->width;
+                if(scale!=2&&scale!=4)continue;
+                struct menu_picture_trace_metrics trace_metrics={0};
+                int traced=menu_picture_trace(owned,d->width,d->height,(uint8_t *)output.levels[level].pixels,
+                    scale,&stop_flag,&trace_metrics);
+                host_logf(HOST_LOG_INFO,"Menu trace %016llx %ux: %s, %u paths, %u pixels, %.3f s, %llu scratch bytes",
+                    (unsigned long long)d->hash,scale,traced>0?"complete":traced<0?"stopped":"plain bpf",
+                    trace_metrics.paths,trace_metrics.area,trace_metrics.seconds,(unsigned long long)trace_metrics.scratch_bytes);
+                if(traced<0)break;
+            }
+        }
+        if(stop_flag){texture_upscale_generate_free_output(&output);texture_upscale_big_free(owned);free(levels);finisher_estimate=0;return;}
         struct texture_upscale_encode_metrics metrics={0};void *bytes=NULL;size_t size=0;double encode_start=now();
         enum texture_upscale_encode_result encoded=TEXTURE_UPSCALE_ENCODE_OK;
         if(output.result!=TEXTURE_POLICY_ORIGINAL)encoded=texture_upscale_encode_record(output.levels,output.level_count,d->width,d->height,d->hash,

@@ -960,7 +960,7 @@ static void check_panel_failure(void)
 /* ui.map's pictures that a frame asks to have saved in the cache (a game map's menus draw them from there): the one
 that is not there yet is saved when the menus first draw, through the texture cache and the decoder, once; the one
 that is there already is not (tools/test_menu_patches.py reads the PNG that is written) */
-static long hardware_requests, art_extractions;
+static long hardware_requests, art_extractions, picture_registrations;
 static unsigned char extracted_pixels[300 * 300 * 4];
 static char const extracted_resource[] = "resource";
 
@@ -974,7 +974,7 @@ void *_texture_cache_bitmap_get_hardware_format(struct bitmap_data *bitmap, bool
 
 /* (xbox_textures.c's: a picture is saved where it is not there, or an upscaled version has appeared since it was
 saved from the original, which the probe says of upgrade.png) */
-void halo_menus_picture_register(void const *hardware_format) { (void)hardware_format; }
+void halo_menus_picture_register(void const *hardware_format) { (void)hardware_format; picture_registrations++; }
 void halo_menus_pictures_forget(void) {}
 
 int halo_menus_art_needs_save(char const *cache_path)
@@ -1008,8 +1008,9 @@ static void check_extraction(void)
 	check(hardware_requests == 0 && art_extractions == 0, "texture resolution does not extract pictures");
 	check(!halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is not saved before the menu update");
 	pc_menu_art_extract();
-	check(hardware_requests == 2 && art_extractions == 2, "only the pictures that are not saved, or have an upscaled version "
-		"now, are asked for (%ld, %ld)", hardware_requests, art_extractions);
+	check(hardware_requests == picture_registrations + 2 && art_extractions == 2,
+		"menu pictures register their textures; only missing or upgraded cached pictures extract (%ld, %ld)",
+		hardware_requests, art_extractions);
 	check(halo_menus_cache_exists("cache/xbox/v1/extracted.png"), "the picture is saved");
 	{
 		char note[32];

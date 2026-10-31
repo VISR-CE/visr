@@ -59,6 +59,13 @@ int main(void)
 				assert(decision.pinned && decision.scale == 4 && !decision.wrap);
 			}
 	}
+	for (size_t picture = 7; picture < sizeof(menu_picture_upscaled_tags) / sizeof(menu_picture_upscaled_tags[0]); picture++)
+		for (int frame = 0; frame < 8; frame++)
+		{
+			decision = classify(menu_picture_upscaled_tags[picture], frame, 16, 0, 1);
+			assert(decision.result == TEXTURE_POLICY_BPF && decision.pinned && decision.scale == 4);
+			assert(decision.treatment == TEXTURE_POLICY_COLOR && !decision.wrap);
+		}
 	decision = classify(pictures[0], 0, 13, 0, 1);
 	assert(decision.result == TEXTURE_POLICY_ORIGINAL);
 	decision = classify(pictures[0], 0, 11, 0, 1 | 16);

@@ -12,7 +12,9 @@ static const char *const menu_picture_upscaled_tags[] = {
 	"ui\\shell\\main_menu\\difficulty_select\\difficulty_options_small",
 	"ui\\shell\\main_menu\\halo_logo",
 	"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\color_edit\\player_color_marine_large",
-	"ui\\shell\\bitmaps\\colors_sm"
+	"ui\\shell\\bitmaps\\colors_sm",
+	"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_options",
+	"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_options"
 };
 
 static inline int menu_picture_upscaled_tag(const char *tag)

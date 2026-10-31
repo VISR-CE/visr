@@ -3,6 +3,7 @@ with output texel j between input texels 2j and 2j+1 (pipeline.downsample2), Lan
 texel centers (consistency._upsample_axis), a Gaussian of radius ceil(3 sigma), taps wrapped or clamped. */
 #import <Metal/Metal.h>
 #include "texture_refine.h"
+/* Menu silhouettes stay on the CPU (menu_picture_trace.c), sharing the bounded bpf worker and gameplay stop. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
