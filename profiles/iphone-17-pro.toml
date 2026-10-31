@@ -18,6 +18,7 @@ dynamic_resolution = true
 
 [variable.display]
 frame_rate = "60"
+shadow_map_size = 128
 
 [external.display]
 output_height = 1600
@@ -25,6 +26,7 @@ render_height = 1600
 
 [network]
 player_capacity = 128
+full_rate_players = 64
 
 [evidence."display.anisotropic_filtering"]
 basis = "assumed"
@@ -46,7 +48,7 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "120 frames a second at 1080 lines does not hold: on the Maw fight 99.46%, 99.43% and 99.38% of frames were on time (three rounds), on a10-heroic 99.24%, 99.90% and 99.72%, the rows with a window down to 960 lines ran at a fixed 1080 because dynamic resolution did not act on this build and are not cited, and the phone had reached thermal state 1 in most rounds. At 60 frames a second and 1080 lines, 1.5x enemies put 99.87% to 100% of frames on time and 2x enemies 99.83% to 100% on a10-heroic and the Maw (ladder tier 4), so the profile takes tier 4; 120 at 900 lines held (lowest 99.56%) but is not a ladder tier. Replaces the 2026-10-27 assumption that Pro iPhones target 120 in campaign."
+why = "120 frames a second at 1080 lines does not hold: on the Maw fight 99.46%, 99.43% and 99.38% of frames were on time (three rounds), on a10-heroic 99.24%, 99.90% and 99.72%, the rows with a window down to 960 lines ran at a fixed 1080 because dynamic resolution did not act on this build and are not cited, and the phone had reached thermal state 1 in most rounds. At 60 frames a second and 1080 lines, 1.5x enemies put 99.87% to 100% of frames on time and 2x enemies 99.83% to 100% on a10-heroic and the Maw (ladder tier 4), so the profile takes tier 4; 120 at 900 lines held (lowest 99.56%) but is not a ladder tier. Replaces the 2026-10-27 assumption that Pro iPhones target 120 in campaign. Headroom pass at 128 shadows (thermal state 1): the campaign tier stays 60. 120 frames a second at 1080 lines, 1x enemies held on a10-heroic (99.77% and 99.72%) and d40-maw-fight (99.50% and 99.42%, the second round under the 99.5% hold); at 1206 lines 99.95% and 99.28%. At 1.5x enemies the first runs were capped to 60 by a benchmark cap precedence bug and are not evidence; with the cap bypassed, 120 at 1080 lines and 1.5x put 99.51% (d40) and 98.99% (a10) of frames on time, so 120/1080/1.5x does not qualify. The variable context keeps 60."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-30"
 
 [evidence."variable.display.frame_rate"]
@@ -73,3 +75,13 @@ source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented
 basis = "assumed"
 why = "Apple GPUs from the A14 on have the stage timing dynamic resolution needs (iPhone 12 Pro measured); at the ceiling it costs nothing, and it lowers the scene only in frames the GPU cannot finish in time."
 source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch (2nd generation) and iPad Pro M1, 2026-10-25"
+
+[evidence."variable.display.shadow_map_size"]
+basis = "measured"
+why = "Look test at a fixed 1080 lines, 60 frames a second, 64 players on Blood Gulch: 512 shadows 28% of frames on time (35 fps), 128 shadows 99.2% (56 fps). With the window down to 540 lines and 128 shadows, 32 players held 99.96% and 100%, 64 players 99.97% and 99.97% (59.7 to 60.0 fps, thermal state 0 or 1). Steve 2026-10-30: 128 is acceptable for the whole variable context."
+source = "VISR settings sweep look and mpshadow phases, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second and 128 shadows, Blood Gulch with 64 players held 99.97% of frames on time in two rounds; with 128 players it did not (98.6% and 89.2%, 55.7 and 52.0 fps, thermal state 1), so 64 is the largest count measured to hold. Counts between 64 and 128 were not run."
+source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30"

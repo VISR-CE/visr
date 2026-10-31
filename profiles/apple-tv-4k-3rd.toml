@@ -25,6 +25,9 @@ model_lod = "max"
 render_height = 1080
 anisotropic_filtering = 16
 
+[variable.display]
+shadow_map_size = 128
+
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Steve's decision (2026-10-25): upscaled textures on the Apple TV 4K (3rd generation) and newer, off on the earlier Apple TVs (the class's value). Its A15 has the Neural Engine the upscaler needs and 4 GB of memory; the whole game's set takes about 655 MB of storage, kept in Library/Caches, which tvOS may purge between launches (it is then made again)."
@@ -88,3 +91,8 @@ why = "Pinned to the built-in default so the Apple TV class profile's floor (the
 [evidence."scene.cutscene.display.render_scale"]
 basis = "assumed"
 why = "Pinned to the built-in default so the Apple TV class profile's floor (the Apple TV HD's value) does not reach this model; not separately measured."
+
+[evidence."variable.display.shadow_map_size"]
+basis = "assumed"
+why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPad Pro (M1) and the iPhone 17 Pro; the Apple TV 4K (3rd generation) inherits it without a run on this device."
+source = "Steve, 2026-10-30"

@@ -19,6 +19,9 @@ shadow_map_size = 512
 model_lod = "max"
 dynamic_resolution = true
 
+[variable.display]
+shadow_map_size = 128
+
 [network]
 player_capacity = 16
 
@@ -56,3 +59,8 @@ source = "VISR settings sweep capacity runs, build 20261023.144726 (0.4.2), two 
 basis = "assumed"
 why = "The same A14 GPU family as the iPhone 12 Pro, where dynamic resolution ran with stage timing and cost nothing at the ceiling; on the A10X and M1 it held 60 frames a second in the Maw fight where the fixed resolution did not."
 source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch (2nd generation) and iPad Pro M1, 2026-10-25"
+
+[evidence."variable.display.shadow_map_size"]
+basis = "assumed"
+why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPad Pro (M1) and the iPhone 17 Pro, inherited here without a run on this device."
+source = "Steve, 2026-10-30"

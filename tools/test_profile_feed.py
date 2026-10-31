@@ -98,13 +98,15 @@ def signing_key(tmp_path):
 
 def test_generation_two_shards_carry_the_revision_and_every_bundled_key(tmp_path):
     output = tmp_path / "shard.json"
+    # 0.6.0 refuses `network.full_rate_players`, so the shard is signed from the sources generation 3 uses
+    sources = profile_pr.generation_profiles(ROOT / "profiles", "device-profiles-3", tmp_path / "generation-profiles")
     assert data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",
-        "--compatibility", "device-profiles-2:ios/iPhone18,1/_", "--input", str(ROOT / "profiles"),
+        "--compatibility", "device-profiles-2:ios/iPhone18,1/_", "--input", str(sources),
         "--signing-key", str(signing_key(tmp_path)), "--output", str(output)]) == 0
     envelope = output.read_bytes()
     assert manifest(envelope)["compatibility"] == "device-profiles-2:ios/iPhone18,1/_"
     files = payload_files(envelope)
-    assert files["hardware/revision.toml"] == (ROOT / "profiles/hardware/revision.toml").read_bytes()
+    assert files["hardware/revision.toml"] == (sources / "hardware/revision.toml").read_bytes()
     assert b"player_capacity = 128" in files["iphone-17-pro.toml"]
     assert b"player_capacity = 8" in files["iphone-ipad.toml"]
     # the Apple TV 4K (3rd generation) shard keeps upscaled textures on, which its device-profiles-1 shard does not
@@ -199,7 +201,7 @@ def test_native_validators_hold_each_generation_to_its_revision_rule(tmp_path):
     assert not admits("validate-2", "with")
 
 
-FULL_RATE = ("[network]\nplayer_capacity = 32\n", "[network]\nplayer_capacity = 32\nfull_rate_players = 16\n")
+FULL_RATE = ("[network]\nplayer_capacity = 128\n", "[network]\nplayer_capacity = 128\nfull_rate_players = 16\n")
 FULL_RATE_EVIDENCE = '\n[evidence."network.full_rate_players"]\nbasis = "assumed"\nwhy = "A test sets this value to show which generations carry it."\n'
 
 
@@ -207,7 +209,8 @@ def profiles_with_full_rate(folder):
     """A copy of the profiles whose iPhone 17 Pro sets network.full_rate_players, with evidence and a new revision."""
     shutil.copytree(ROOT / "profiles", folder)
     path = folder / "iphone-17-pro.toml"
-    text = path.read_text()
+    # the shipped profile may already set a measured value: start from one that does not
+    text = profile_pr.strip_keys(path.read_text(), ("network.full_rate_players",))
     assert FULL_RATE[0] in text
     path.write_text(text.replace(*FULL_RATE) + FULL_RATE_EVIDENCE)
     profile_revision.bump(folder)
@@ -221,8 +224,12 @@ def test_stripping_leaves_other_text_alone():
 
 
 def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
+    profiles = tmp_path / "profiles"
+    shutil.copytree(ROOT / "profiles", profiles)
+    for path in profiles.glob("*.toml"):
+        path.write_text(profile_pr.strip_keys(path.read_text(), ("network.full_rate_players",)))
     for domain in profile_pr.GENERATIONS:
-        assert profile_pr.generation_profiles(ROOT / "profiles", domain, tmp_path / domain) == ROOT / "profiles"
+        assert profile_pr.generation_profiles(profiles, domain, tmp_path / domain) == profiles
 
 
 @pytest.mark.skipif("visr-v0.6.7" not in tags(), reason="needs the release tags")
@@ -240,7 +247,7 @@ def test_a_profile_with_the_key_reaches_both_generations(tmp_path):
     accepted = data_pack.validate_with_released_apps(files, target, 3)
     assert {"visr-v0.6.4", "visr-v0.6.7"} <= set(accepted)
     assert b"full_rate_players" not in files["iphone-17-pro.toml"]
-    assert b"player_capacity = 32" in files["iphone-17-pro.toml"]
+    assert b"player_capacity = 128" in files["iphone-17-pro.toml"]
     # generation 4 signs with the key, through the publisher
     output = tmp_path / "shard.json"
     assert data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",

@@ -27,6 +27,7 @@ dynamic_resolution = true
 dynamic_resolution_floor = 1080
 
 [variable.display]
+shadow_map_size = 128
 dynamic_resolution_floor = 540
 
 [network]
@@ -76,3 +77,8 @@ source = "VISR presented benchmark runs on the iPhone 17 Pro, main c6f138a78, 20
 basis = "assumed"
 why = "Steve's decision on 2026-10-27 to match the iPhone 17 Pro's 32: the same A17 Pro/A18 class of GPU, not measured separately on this model. The 17 Pro held Sidewinder with 128 players at 30 frames a second, minimum settings and 540 lines, and 32 is half of Blood Gulch's failing 64 there."
 source = "iphone-17-pro.toml network.player_capacity evidence; Steve, 2026-10-27"
+
+[evidence."variable.display.shadow_map_size"]
+basis = "assumed"
+why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPhone 17 Pro, inherited here without a run on this device."
+source = "Steve, 2026-10-30"
