@@ -23,7 +23,9 @@ layout: reads the Xbox map's HUD bitmaps (sizes, formats, sprite rectangles,
     matches and aligns each cell, and writes port/assets/hud/layout.json
     (numbers only) with copies of the redraws used in port/assets/hud/svg.
     Needs a map and the restored tags; its output is committed. A bitmap
-    with a cell that no redraw matches is left out.
+    with a cell that no redraw matches is left out. The Xbox-native sniper
+    reticle sheet retains its committed SVG and measured layout instead
+    (the PC sheet has a different zoom label).
 build: renders port/assets/hud/svg with layout.json into port/assets/hud/*.png
     (committed; the builds embed them).
 check: compares each PNG, reduced to the tag's size, with the map's bitmap
@@ -72,6 +74,12 @@ METERS = {
     HUD + "combined\\hud_ammo_meters": ("hud_xbox_order/bitmaps/combined/hud_ammo_meters.svg",
                                        "extra/xbox_order_hud_meters/tags/ui/hud/bitmaps/combined/hud_ammo_meters.bitmap"),
 }
+# The Xbox scope sheet has its own redraw: the PC sheet's 8x label differs
+# from the Xbox's 10x. Keep this source when regenerating the PC-based set.
+XBOX_SCOPE = HUD + "sniper\\hud_reticles_scope"
+XBOX_SCOPE_SVG = "hud__bitmaps__sniper__hud_reticles_scope.svg"
+XBOX_SCOPE_CRC = 2373183232
+
 # redraws not used: those with English text (other languages' maps have
 # their own; the Xbox message icons all have some), the sniper's zoom labels
 # (2x and 8x, where the Xbox's are 2x and 10x), and the meters in the PC
@@ -378,14 +386,48 @@ def redraws(svg_root: Path, hek_root: Path, tag: str) -> list:
     return found
 
 
+def xbox_scope_entry(group: dict) -> dict | None:
+    """The Xbox-native scope redraw, including both zoom-label sprites.
+
+    Its geometry was measured on this revision; do not bless a different
+    bitmap by generating a new CRC for the same drawing.
+    """
+    if len(group["bitmaps"]) != 1:
+        return None
+    bitmap = group["bitmaps"][0]
+    if (bitmap["width"], bitmap["height"], bitmap["format"]) != (64, 64, 3) or \
+            zlib.crc32(bitmap["pixels"][:level0_size(bitmap)]) != XBOX_SCOPE_CRC:
+        return None
+    cells = [[32, 0, 50, 18], [0, 0, 31, 24], [0, 24, 43, 48]]
+    sprites = [pixel_rectangle(sprite, 64, 64) for sequence in group["sequences"] for sprite in sequence
+               if sprite[0] == 0]
+    if sprites != cells:
+        return None
+    return {
+        "name": "sniper__hud_reticles_scope__0", "tag": XBOX_SCOPE,
+        "bitmap": 0, "width": 64, "height": 64, "format": "a8y8",
+        "scale": SCALE, "crc": XBOX_SCOPE_CRC,
+        # A8Y8 carries coverage in both channels on this sheet. Copy SVG
+        # coverage into RGB as well as alpha, as xbox_textures.c decodes it.
+        "cells": [{"xbox": cell, "svg": XBOX_SCOPE_SVG, "source_scale": 1,
+                   "source": cell[:2], "clip": cell, "kind": "alpha"} for cell in cells],
+    }
+
+
 def layout(arguments) -> None:
     xbox_map = XboxMap(Path(arguments.map))
     svg_root, hek_root = Path(arguments.svg), Path(arguments.hek)
     renders = {}
     entries = []
     sources = {}
+    scope_svg = (ASSETS / "svg" / XBOX_SCOPE_SVG).read_bytes()
     for group_tag, tag in sorted(xbox_map.tags):
         if group_tag != "bitm" or not tag.startswith(FOLDERS):
+            continue
+        if tag == XBOX_SCOPE:
+            entry = xbox_scope_entry(xbox_map.bitmap_group(tag))
+            if entry is not None:
+                entries.append(entry)
             continue
         candidates = redraws(svg_root, hek_root, tag)
         if not candidates:
@@ -490,8 +532,12 @@ def layout(arguments) -> None:
     if (ASSETS / "svg").exists():
         shutil.rmtree(ASSETS / "svg")
     (ASSETS / "svg").mkdir(parents=True)
+    # A map without the sniper must not delete the Xbox-native source that
+    # a later layout run needs; it cannot be recovered from the PC set.
+    (ASSETS / "svg" / XBOX_SCOPE_SVG).write_bytes(scope_svg)
     for svg in sorted({cell["svg"] for entry in entries for cell in entry["cells"]}):
-        shutil.copyfile(svg_root / sources[svg], ASSETS / "svg" / svg)
+        if svg != XBOX_SCOPE_SVG:
+            shutil.copyfile(svg_root / sources[svg], ASSETS / "svg" / svg)
     LAYOUT.write_text(json.dumps({"assets": entries}, indent=1) + "\n")
 
 
