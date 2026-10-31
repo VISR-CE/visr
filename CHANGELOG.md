@@ -1,3 +1,77 @@
+## visr-v0.6.8 (2026-10-31)
+
+### Summary
+
+- Try the server browser or LAN list with a game marked BIG. A warning now asks you to confirm before you join. Cancel returns you to the browser with your selection kept.
+- If a join fails because of a strict NAT, the server browser now tells you to turn on UPnP instead of only saying it could not reach the game.
+- Large multiplayer maps may now run at 30 frames per second for the whole map on devices that can't hold their usual frame rate at that player count.
+- Anti-aliasing options (FXAA, SMAA, MSAA) now apply while you're scoped in, and the zoomed scope picture uses your anti-aliasing setting. This is mainly for Vision Pro stereo, so it may not apply on every selected platform.
+- The sniper scope now redraws correctly, and its reticle center is a small, round solid dot.
+- Custom Edition clients no longer start a map they haven't finished downloading, which previously caused a damaged disc error.
+- Check co-op revert and checkpoint behavior. Living players and units should now be preserved or recreated properly.
+- On iOS, gameplay network traffic that previously failed after connecting should now send. Try joining and playing multiplayer.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **stereo**: FXAA and SMAA over each eye in head-tracked stereo — `display.anti_aliasing` filtered nothing in a stereo frame, because `halo_render_scene_end` looked up the mono back buffer (`HALO_STEREO_LAYER_MONO`, never drawn there) and `anti_aliasing_pass` returned early in any stereo frame
+- **profiles**: hold a big multiplayer game to 30 frames a second — `network.full_rate_players` is the most players a device holds at its variable frame rate; above it a multiplayer map runs at 30 for the whole map, nested under `network.player_capacity`, with no player setting
+- **menus**: say "Strict NAT, turn on UPnP" when the server browser cannot reach a game and this network's NAT is the cause — a failed join showed only "Could not reach <name>" even though the p2p log already knew the NAT gave each destination its own port and no router forwarded the tunnel's
+- **visionos**: add live anti-aliasing comparisons — `debug.knob_cycle` exposes AA and runtime quality while stereo logs each comparison
+- **stereo**: multisampling on the eyes' foveated targets, with color samples kept only in tile memory — `display.anti_aliasing` "msaa2x"/"msaa4x" now reaches a stereo frame's eyes and `debug.rate_map_test`'s targets, and a multisampled color target's samples are memoryless, drawn back from a copy of the resolved picture when a later pass loads them
+- **metal**: multisampling for `display.anti_aliasing` "msaa2x", "msaa4x" and "msaa8x" on the Metal renderer — the measurement spike's multisampling (`acb5726fc`) brought onto current `main`, as the base for Vision Pro stereo anti-aliasing
+- **network**: list a fake marked game in development builds — `HALO_BROWSER_FAKE_BIG` adds one `BIG` listing to the server browser through `lobby_browser_games_read`, compiled only under `HALO_DEVELOPMENT_HOOKS`, so the join warning can be screenshot without a real host
+- **network**: ask before joining a browsed game larger than this device holds — picking a game marked `BIG` in the server browser or the LAN list opens a Halo-style warning (`error/confirm_join_big_modal_fullscreen`, the PC menus' confirm-dialog look) before its password screen, preview or join; OK replays the pick against the game found again by its identity, CANCEL and B return to the browser with its selection kept, and Direct Link, codes and invites do not ask; `tools/test_join_warning.py` covers both browsers, cancel, capacity 0, password order and a vanished or reordered game
+
+### fix
+
+- **hud**: round the sniper reticle center — `hud_reticles_scope` now uses a tiny solid circle with the original dot’s visual weight
+- **hud**: add the sniper scope redraw — `hud_reticles_scope` was missing from the 8x set
+- **stereo**: the zoomed scope picture honors `display.anti_aliasing` — `render_target_get_layer` makes the zoom target a multisampling screen buffer and `anti_aliasing_layer` returns the zoom layer during the zoomed pass, so FXAA, SMAA and MSAA run on it as on the eyes while scoped
+- **coop**: preserve living replicas on revert — capture full unit IDs before `game_state_revert` replaces the world
+- **coop**: recreate checkpoint units — unchanged datum IDs let `distributed_client_create` reuse corpses
+- **net**: do not start a client before the map it is downloading is there — a Custom Edition client still fetching its map by map sharing asked for its player again after the host started, the host took the request for a late joiner's and started it at once, and the client loaded a map it did not have (the damaged disc error)
+- **metal**: multisample at a count the GPU takes — the visionOS simulator refuses 2 samples a pixel, and allocating a 2x target aborted on Metal's descriptor validation; `gpu_metal_texture_multisample` now takes the next count `supportsTextureSampleCount` accepts (4 there) and logs the substitution once
+- **scenario**: step the wind once a tick, at the end of `game_tick` — `scenario_frame_update` stepped it from the frames' elapsed time, so the wind and the antennas it moves differed with the frame rate and between runs
+- **effects**: make a decal whether or not the texture cache has its bitmap yet — `decal_new_from_collision` returned when the bitmap was not cached, which a thread fills by the clock and the cache's room, so two runs of one map made different numbers of decals and every later local-seed pick parted
+- **objects**: light a unit from its lightmap whether or not the texture cache has it yet — `lights_illumination_at_point` sampled the structure's lightmap only if the cache already held its bitmap, which the loading thread fills by the clock, so a unit's illumination (the AI's sight) differed between runs in the first ticks of a map
+- **units**: do not keep the sound manager's index of a unit's speech — `unit.speech.impulse_sound_index` took the mixer's index, which depends on whether the sound can be heard and has a channel, and nothing reads it, so two runs of one game differed there
+- **scenario**: set the `bonus` field in `scenario_location_from_point` — it set only the leaf and cluster, so the stack's bytes went into every object, particle and effect that keeps the location and two runs of one game hashed differently
+- **ios**: send on a connected datagram socket when the game still gives a destination — Darwin refuses `sendto` with `EISCONN` on a connected UDP socket, which Linux and Winsock accept, so `ios_sendto` failed every gameplay datagram the game addressed after connecting
+- **interface**: start each local player's first-person `weapon_index` at `NONE` on a new map — `first_person_weapons_initialize_for_new_map` zeroed the structure, so slot zero was taken for a real weapon until the player held one
+- **items**: keep an item's resting surface past 32767 — the surface index lives in a signed 16-bit field, so a collision surface above 32767 read back negative and `item_accelerate` and `item_update` indexed the collision surfaces with it
+- **render**: let a frame draw 32768 structure triangles and give the dynamic triangle buffer room for them — retail stops the list at 16384 and `RASTERIZER_MAXIMUM_DYNAMIC_TRIANGLES` held 32768, so a large map or a high resolution frame lost the rest of its structure
+- **network**: give the fake marked game a Slayer engine — `lobby_browser_games_read` left `engine_type` at 0, so the Game column read CO-OP while the description said Slayer
+- **network**: list the fake marked game first — `lobby_browser_games_read` put it after the sorted listings, on the last page of a long list
+
+### perf
+
+- **metal**: keep the anti-aliasing targets of two sizes — a stereo frame's eyes and the zoomed picture differ in size, so with SMAA each scope toggle remade three private textures and compiled three pipelines on the render thread; `gpu_anti_alias` now swaps between the current and previous sizes
+- **input**: read the clock only when a button is held or collision times are shown — `update_hold_ticks` read it for every key each frame and `collision_log_start_time` and `collision_log_end_time` read the performance counter twice for every collision test, whether or not `collision_log_time` showed the result
+- **menus**: do not look up the last-used multiplayer map on every lobby redraw — `map_display_name` and `lobby_map_show` asked `ui_widget_port_multiplayer_maps` for a `last_used` they never read, which opened the saved game file each time
+
+### build
+
+- **profiles**: sign generations 3 and 4 from one source — `tools/profile_pr.py` signs every published generation in one run, `device-profiles-3` without `network.full_rate_players`, whose released validators refuse it, so released apps keep getting profile updates once a profile sets the key
+
+### test
+
+- **coop**: guard the revert capture's dead filter and reset — two more negative controls for `network_objects_coop_reverting`, and `NETCODE.md` now says units alive throughout rely on the ordinary inventory checksums
+- **net**: `p2p_lobby_check` expects 40 and 41 joinable and refuses 42 and 43 — it used 40 and 41 as its unjoinable versions, so main's Linux release compile failed after `halo_network_version_joinable` took 40 and 41
+
+### chore
+
+- **profiles**: SMAA is the Vision Pro default — `display.anti_aliasing = "smaa"` in `vision-pro.toml` and `vision-pro-m2.toml`; GPU median at quality 0.6 stays under the 11.1 ms budget at 90 Hz (off then SMAA: b30 7.5, 7.6; c10 8.4, 9.8; b40 8.4, 9.8)
+- **profiles**: open profile feed generation 4 — new builds read `device-profiles-4` so the next profile key can reach them, while released builds keep reading `device-profiles-3`, whose validators refuse any shard carrying that key
+- **network**: make the fake marked listing a setting — `debug.browser_fake_big` (`HALO_BROWSER_FAKE_BIG`) replaces the `getenv` read in `lobby_browser_games_read`, which the guest's `config_boolean` reaches and `getenv` does not; still compiled only under `HALO_DEVELOPMENT_HOOKS`, and the config reference and schema are regenerated
+
 ## visr-v0.6.7 (2026-10-30)
 
 ### Summary
