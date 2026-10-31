@@ -26,6 +26,12 @@ def generated(fault=None):
     capture = function(source, 'network_objects_coop_reverting')
     if fault == 'alive':
         capture = mutated(capture, 'objects_host_revert_alive[absolute_index] = iterator.index;', '')
+    if fault == 'reset':
+        capture = mutated(capture, 'csmemset(objects_host_revert_alive, NONE, sizeof(objects_host_revert_alive));', '')
+    if fault == 'told':
+        capture = mutated(capture, 'objects_host_told[absolute_index] == iterator.index &&', '')
+    if fault == 'dead':
+        capture = mutated(capture, '!TEST_FLAG(object_get(iterator.index)->object.damage_flags, _object_dead_bit))', 'TRUE)')
     return (('under_test.inc', update + '\n' + capture + '\n' + hook),)
 
 
@@ -40,7 +46,7 @@ def run_case(case, fault=None):
     return run(build('coop_revert', generated(fault)), case)
 
 
-@pytest.mark.parametrize('fault,case', [('delete', 'same'), ('create', 'same'), ('inventory', 'empty'), ('alive', 'alive')])
+@pytest.mark.parametrize('fault,case', [('delete', 'same'), ('create', 'same'), ('inventory', 'empty'), ('alive', 'alive'), ('reset', 'repeat'), ('dead', 'same')])
 def test_negative_control(fault, case):
     status, output = run_case(case, fault)
     assert status == CHECK_FAILED, output

@@ -559,11 +559,12 @@ its name alone beside it, has its name given back as the map lists find it.
      absent from the captured alive set, then recreates it through the
      ordinary object diff. Units alive throughout retain their replicas and
      AI control state; changed or unannounced IDs use the normal diff.
-     This replaces client corpses
-     for players, NPCs, and vehicles. The delete detaches player bindings;
-     the next living player state attaches the fresh unit. Inventories are
-     invalidated so weapons, ammunition, and grenades are resent, including
-     empty inventories. Objects absent after the load retain normal deletion.
+     This replaces client corpses for players, NPCs, and vehicles. The
+     delete detaches player bindings; the next living player state attaches
+     the fresh unit. The inventories of recreated units, and of restored
+     living units absent from the captured set, are resent, including empty
+     inventories; units alive throughout rely on the ordinary checksums.
+     Objects absent after the load retain normal deletion.
      Clients and the wire format are unchanged.
    - The objects placed when the map loads are placed alike everywhere:
      the host's word finds a client's already there. Past loading, a
