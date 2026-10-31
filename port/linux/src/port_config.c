@@ -1113,11 +1113,11 @@ static const struct config_setting config_settings[] =
 		"game private. With the server browser off (network.public_lobby=false),\n"
 		"AUTO treats the game as private. Reverting requires a checkpoint with the current\n"
 		"players and machines; otherwise they respawn without a world reset.\n"
-		"TEAM WIPE in Server Setup writes its choice here." },
+		"TEAM WIPE in CO-OP OPTIONS writes its choice here." },
 	{ "network.coop_friendly_fire", _config_string, "\"on\"", "HALO_NET_COOP_FRIENDLY_FIRE", _environment_value,
 		_platform_all,
 		"Whether the players of an online co-op game hurt each other: \"off\",\n"
-		"\"on\", \"shields_only\" or \"explosives_only\" (Server Setup's FRIENDLY\n"
+		"\"on\", \"shields_only\" or \"explosives_only\" (CO-OP OPTIONS' FRIENDLY\n"
 		"FIRE in co-op, which writes its choice here). Damage to AI allies is\n"
 		"controlled separately by network.coop_ally_friendly_fire." },
 	{ "network.coop_own_friendly_fire", _config_boolean, "true", "HALO_NET_COOP_OWN_FRIENDLY_FIRE",
@@ -1129,31 +1129,31 @@ static const struct config_setting config_settings[] =
 	{ "network.coop_ally_friendly_fire", _config_boolean, "true", "HALO_NET_COOP_ALLY_FRIENDLY_FIRE", _environment_value,
 		_platform_all,
 		"Whether players can hurt friendly non-player units and vehicles in\n"
-		"online co-op. Server Setup's ALLY FRIENDLY FIRE writes its choice\n"
+		"online co-op. CO-OP OPTIONS' ALLY FRIENDLY FIRE writes its choice\n"
 		"here; false protects allies without changing player-to-player damage,\n"
 		"enemy damage, AI-on-AI damage or scripted deaths." },
 	{ "network.coop_player_collisions", _config_boolean, "true", "HALO_NET_COOP_PLAYER_COLLISIONS", _environment_value,
 		_platform_all,
 		"Whether the players of an online co-op game bump into each other;\n"
 		"false, they walk through each other (the AI's characters they still\n"
-		"bump into). Server Setup's PLAYER COLLISIONS in co-op writes its\n"
+		"bump into). CO-OP OPTIONS' PLAYER COLLISIONS in co-op writes its\n"
 		"choice here." },
 	{ "network.coop_enemies_mode", _config_string, "\"per_player\"", "HALO_NET_COOP_ENEMIES_MODE", _environment_value,
 		_platform_all,
 		"Online co-op's extra enemies: \"none\", \"per_player\" (each squad of\n"
 		"enemies grows by coop_enemies for each player past the first) or\n"
 		"\"multiplier\" (each is coop_enemies_multiplier times as large, for any\n"
-		"number of players). Server Setup's EXTRA ENEMIES in co-op writes its\n"
+		"number of players). CO-OP OPTIONS' EXTRA ENEMIES in co-op writes its\n"
 		"choice here." },
 	{ "network.coop_enemies", _config_integer, "50", "HALO_NET_COOP_ENEMIES", _environment_value, _platform_all,
 		"Online co-op's extra enemies per player, a percentage: for each player\n"
 		"past the first, each squad of enemies a level places gets this much of\n"
-		"itself more (100: as many again; 25 to 200). Server Setup's PER PLAYER\n"
+		"itself more (100: as many again; 25 to 200). CO-OP OPTIONS' PER PLAYER\n"
 		"in co-op writes its choice here." },
 	{ "network.coop_enemies_multiplier", _config_integer, "2", "HALO_NET_COOP_ENEMIES_MULTIPLIER", _environment_value,
 		_platform_all,
 		"Online co-op's static multiplier of its enemies: each squad of enemies\n"
-		"a level places is this many times as large (2 to 32). Server Setup's\n"
+		"a level places is this many times as large (2 to 32). CO-OP OPTIONS'\n"
 		"MULTIPLIER in co-op writes its choice here." },
 	{ "network.brokers_file", _config_string, "\"brokers.txt\"",
 		"HALO_NET_BROKERS_FILE", _environment_value, _platform_all,

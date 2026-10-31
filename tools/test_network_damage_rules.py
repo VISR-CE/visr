@@ -78,10 +78,11 @@ def test_ally_setting_and_menu_match_wire_polarity():
 
     setting = settings_schema.config_settings()["network.coop_ally_friendly_fire"]
     assert setting["default"] is True
-    menu = "\n".join(port_settings.multiplayer_files()["main_menu.multiplayer_type_select.server_settings.xml"])
+    menu = "\n".join(port_settings.multiplayer_files()["main_menu.multiplayer_type_select.coop_options.xml"])
     assert 'strings="ON|OFF" setting="network.coop_ally_friendly_fire" values="true|false"' in menu
-    assert "ALLY FRIENDLY FIRE:" in menu
-    update = function("port/linux/game/menu_functions.c", "server_settings_update")
-    assert 'visible_set(named(list, "op_ally_friendly_fire", 0), cooperative)' in update
+    assert 'string_index="17"' in menu
+    update = function("port/linux/game/menu_functions.c", "coop_options_update")
+    assert 'named(list, "ally_friendly_fire_spinner", 0)' in update
     start = function("port/linux/game/menu_functions.c", "server_start")
-    assert "network_game_server_port_set_cooperative_ally_friendly_fire(" in start
+    assert "server_coop_rules_apply();" in start
+    assert "network_game_server_port_set_cooperative_ally_friendly_fire(" in function("port/linux/game/menu_functions.c", "server_coop_rules_apply")

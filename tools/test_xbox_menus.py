@@ -129,7 +129,7 @@ def test_game_map_frames_keep_their_png_next_to_the_map_bitmap():
 
 
 MP_FILES = tuple('main_menu.multiplayer_type_select.' + name for name in (
-    'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'lobby')) + (
+    'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby')) + (
     'main_menu.quit_select', 'main_menu.new_select.port')
 
 

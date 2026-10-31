@@ -29,7 +29,7 @@ PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
 BLUE = '#FF2896FF'
 MP = 'main_menu/multiplayer_type_select'
 MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
-    'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'lobby')) + (
+    'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby')) + (
     'main_menu.quit_select', 'main_menu.new_select.port')
 # Bounds from tags/widgets.json: connected/server_list, advanced_controls,
 # and error/confirm_buttons. The probe omits colors; ui.map's text_color
@@ -581,7 +581,7 @@ def multiplayer_documents(assets, bitmaps):
         for w in list(root.findall('widget')):
             if w.get('name', '').endswith('_screen'):
                 legend(root, w, w.get('name') + '/legend', cancel='BACK')
-    for filename in ('join_game.filters', 'join_game.port', 'direct_ip', 'server_settings'):
+    for filename in ('join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options'):
         root = documents['main_menu.multiplayer_type_select.' + filename + '.xml']
         for w in list(root.findall('widget')):
             if w.get('name', '').endswith('_screen'):
@@ -934,7 +934,8 @@ def screen_pairs():
         pairs.append(('pc/xbox/settings/' + page + '/' + screen, pe + page + '/' + screen))
     for suffix in ('join_game/join_game_screen', 'join_game/filters/filters_screen',
                    'join_game/password/password_screen', 'join_game/code/code_screen',
-                   'direct_ip/direct_ip_screen', 'server_settings/server_settings_screen', 'lobby/lobby_screen'):
+                   'direct_ip/direct_ip_screen', 'server_settings/server_settings_screen',
+                   'coop_options/coop_options_screen', 'lobby/lobby_screen'):
         pairs.append(('pc/xbox/' + MP + '/' + suffix, MP + '/' + suffix))
     pairs.append(('pc/xbox/main_menu/quit_select/quit_screen', 'main_menu/quit_select/quit_screen'))
     pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))

@@ -60,8 +60,8 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   outside the loaded BSP and falling for two seconds is brought back beside
   the host, else a teammate. A dead
   player watches a living teammate (`coop_spectate.c`) and comes back
-  beside one once it is safe. With everyone dead, TEAM WIPE in Server
-  Setup (`network.coop_team_wipe`) defaults to AUTO: private games revert
+  beside one once it is safe. With everyone dead, TEAM WIPE in CO-OP
+  OPTIONS (`network.coop_team_wipe`) defaults to AUTO: private games revert
   the checkpoint; public games respawn at checkpoint positions without
   reverting the world. REVERT CHECKPOINT and RESPAWN ONLY override the
   visibility choice, including public games with passwords. With the server

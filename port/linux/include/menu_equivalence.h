@@ -20,6 +20,7 @@ static char const *const menu_screen_pairs[][2] = {
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen", "pc\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen", "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"},
+	{"pc\\xbox\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen", "pc\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"},
 	{"pc\\xbox\\main_menu\\quit_select\\quit_screen", "pc\\main_menu\\quit_select\\quit_screen"},
 	{"pc\\xbox\\error\\confirm_join_big_modal_fullscreen", "pc\\error\\confirm_join_big_modal_fullscreen"},

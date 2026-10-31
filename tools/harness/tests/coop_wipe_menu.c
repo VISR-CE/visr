@@ -12,6 +12,7 @@ static int reads,writes;
 static int config_text(char const *name,char *text,unsigned int size){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong read setting");snprintf(text,size,"%s",setting_value);reads++;return TRUE;}
 static int config_write(char const *name,char const *value){CHECK(!strcmp(name,"network.coop_team_wipe"),"wrong write setting");setting_value=value;writes++;return TRUE;}
 static boolean setting_text(char const *name,char *text,unsigned int size,boolean defaults){CHECK(!defaults,"loaded default instead of stored choice");return config_text(name,text,size);}
+static boolean setting_write(char const *name,char const *value){return config_write(name,value);}
 #define platform_log(...) ((void)0)
 #include "types.inc"
 #include "metadata.inc"
@@ -24,7 +25,7 @@ int main(void)
  for(int i=0;i<3;i++){
   setting_value=values[i];CHECK(setting_load(&spinner),"load failed");
   CHECK(spinner.parameters.list.selected_index==i,"stored choice not loaded");
-  spinner.parameters.list.selected_index=(i+1)%3;CHECK(setting_save(&spinner),"save failed");
+  spinner.parameters.list.selected_index=(i+1)%3;CHECK(setting_changed_save(&spinner,&setting),"save failed");
   CHECK(!strcmp(setting_value,values[(i+1)%3]),"selected choice not written");
  }
  CHECK(reads==3&&writes==3,"binding did not read/write config");

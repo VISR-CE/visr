@@ -2413,11 +2413,6 @@ static struct
 	starts with COOPERATIVE_DEFAULT_PLAYERS players at most) */
 	short cooperative_maximum_players_index;
 	boolean cooperative_maximum_players_set;
-	/* co-op's FRIENDLY FIRE shown (network.coop_friendly_fire's) */
-	short cooperative_friendly_fire;
-	/* co-op's PLAYER COLLISIONS shown, OFF (network.coop_player_collisions's) */
-	boolean cooperative_no_player_collisions;
-	boolean cooperative_ally_friendly_fire;
 	/* the browser's games */
 	struct advertised_game *games[MAXIMUM_ADVERTISED_GAMES];
 	short game_count, game_chosen;
@@ -3036,8 +3031,8 @@ static char const *const server_settings_gametype_rows[] =
 
 /* the most players a co-op game hosted starts with (maximum_players') */
 #define COOPERATIVE_DEFAULT_PLAYERS 16
-/* Server Setup's help for co-op's FRIENDLY FIRE and EXTRA ENEMIES, by
-their choices, and EXTRA ENEMIES' PER PLAYER and MULTIPLIER (its
+/* CO-OP OPTIONS shares Server Setup's help strings for FRIENDLY FIRE and
+EXTRA ENEMIES, by their choices, and EXTRA ENEMIES' PER PLAYER and MULTIPLIER (its
 help_strings, tools/port_settings.py) */
 #define COOPERATIVE_FRIENDLY_FIRE_HELP 12
 #define COOPERATIVE_EXTRA_ENEMIES_HELP 16
@@ -3051,6 +3046,7 @@ help_strings, tools/port_settings.py) */
 #define MAP_SHARE_HELP 24
 #define COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP 26
 #define COOPERATIVE_TEAM_WIPE_HELP 29
+#define COOPERATIVE_OPTIONS_HELP 32
 
 /* co-op's EXTRA ENEMIES' choices (port_settings.COOP_ENEMIES_MODES, in this
 order): its amount's row is the choice's */
@@ -3158,6 +3154,75 @@ static void wide_to_text(wchar_t const *wide, char *text, short size)
 	text[index] = 0;
 }
 
+/* CO-OP OPTIONS saves its config bindings on OK; ordinary Back cancels,
+as on the gametype option pages. */
+static void coop_options_update(struct widget_instance *list)
+{
+	struct widget_instance *spinner;
+
+	settings_help(list);
+	/* Each rule's help follows its spinner choice. */
+	if ((spinner = named(list, "friendly_fire_spinner", 0)) != NULL)
+	{
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0,
+			NUMBEROF(cooperative_friendly_fire_modes) - 1);
+		struct widget_instance *help = list->parameters.list.extended_description;
+
+		if (help && list->focused_child == named(list, "op_friendly_fire", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FRIENDLY_FIRE_HELP + choice);
+	}
+	/* ... and its EXTRA ENEMIES, with the row of the amount of the one
+	chosen below it (network.coop_enemies_mode and its amounts, which the
+	host reads as the game begins: coop_enemies.c) */
+	{
+		struct widget_instance *help = list->parameters.list.extended_description;
+		short mode = _cooperative_enemies_none;
+
+		if ((spinner = named(list, "extra_enemies_spinner", 0)) != NULL)
+		{
+			mode = (short)PIN(spinner->parameters.list.selected_index, 0,
+				NUMBER_OF_COOPERATIVE_ENEMIES_MODES - 1);
+		}
+		visible_set(named(list, "op_enemies_per_player", 0), mode == _cooperative_enemies_per_player);
+		visible_set(named(list, "op_enemies_multiplier", 0), mode == _cooperative_enemies_multiplier);
+		if (help)
+		{
+			if (list->focused_child == named(list, "op_extra_enemies", 0))
+				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_ENEMIES_HELP + mode);
+			else if (list->focused_child == named(list, "op_enemies_per_player", 0))
+				help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_PER_PLAYER_HELP;
+			else if (list->focused_child == named(list, "op_enemies_multiplier", 0))
+				help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_MULTIPLIER_HELP;
+		}
+	}
+	/* ... and its PLAYER COLLISIONS, below them: ON or OFF, its help its
+	choice's */
+	if ((spinner = named(list, "player_collisions_spinner", 0)) != NULL)
+	{
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
+		struct widget_instance *help = list->parameters.list.extended_description;
+
+		if (help && list->focused_child == named(list, "op_player_collisions", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_PLAYER_COLLISIONS_HELP + choice);
+	}
+	if ((spinner = named(list, "coop_team_wipe_spinner", 0)) != NULL)
+	{
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 2);
+		struct widget_instance *help = list->parameters.list.extended_description;
+
+		if (help && list->focused_child == named(list, "op_coop_team_wipe", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_TEAM_WIPE_HELP + choice);
+	}
+	if ((spinner = named(list, "ally_friendly_fire_spinner", 0)) != NULL)
+	{
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
+		struct widget_instance *help = list->parameters.list.extended_description;
+
+		if (help && list->focused_child == named(list, "op_ally_friendly_fire", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP + choice);
+	}
+}
+
 /* "server settings update" */
 static void server_settings_update(struct widget_instance *list)
 {
@@ -3206,74 +3271,10 @@ static void server_settings_update(struct widget_instance *list)
 
 		for (row = 0; row < NUMBEROF(server_settings_gametype_rows); row++)
 			visible_set(named(list, server_settings_gametype_rows[row], 0), !cooperative);
-		/* co-op's FRIENDLY FIRE, in their place: its help is its choice's */
-		visible_set(named(list, "op_friendly_fire", 0), cooperative);
-		if (cooperative && (spinner = named(list, "friendly_fire_spinner", 0)) != NULL)
-		{
-			short choice = (short)PIN(spinner->parameters.list.selected_index, 0,
-				NUMBEROF(cooperative_friendly_fire_modes) - 1);
-			struct widget_instance *help = list->parameters.list.extended_description;
-
-			multiplayer.cooperative_friendly_fire = cooperative_friendly_fire_modes[choice];
-			if (help && list->focused_child == named(list, "op_friendly_fire", 0))
-				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FRIENDLY_FIRE_HELP + choice);
-		}
-		/* ... and its EXTRA ENEMIES, with the row of the amount of the one
-		chosen below it (network.coop_enemies_mode and its amounts, which the
-		host reads as the game begins: coop_enemies.c) */
-		{
-			struct widget_instance *help = list->parameters.list.extended_description;
-			short mode = _cooperative_enemies_none;
-
-			if ((spinner = named(list, "extra_enemies_spinner", 0)) != NULL)
-			{
-				mode = (short)PIN(spinner->parameters.list.selected_index, 0,
-					NUMBER_OF_COOPERATIVE_ENEMIES_MODES - 1);
-			}
-			visible_set(named(list, "op_extra_enemies", 0), cooperative);
-			visible_set(named(list, "op_enemies_per_player", 0), cooperative && mode == _cooperative_enemies_per_player);
-			visible_set(named(list, "op_enemies_multiplier", 0), cooperative && mode == _cooperative_enemies_multiplier);
-			if (cooperative && help)
-			{
-				if (list->focused_child == named(list, "op_extra_enemies", 0))
-					help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_ENEMIES_HELP + mode);
-				else if (list->focused_child == named(list, "op_enemies_per_player", 0))
-					help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_PER_PLAYER_HELP;
-				else if (list->focused_child == named(list, "op_enemies_multiplier", 0))
-					help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_MULTIPLIER_HELP;
-			}
-		}
-		/* ... and its PLAYER COLLISIONS, below them: ON or OFF, its help its
-		choice's */
-		visible_set(named(list, "op_player_collisions", 0), cooperative);
-		if (cooperative && (spinner = named(list, "player_collisions_spinner", 0)) != NULL)
-		{
-			short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
-			struct widget_instance *help = list->parameters.list.extended_description;
-
-			multiplayer.cooperative_no_player_collisions = choice == 1;
-			if (help && list->focused_child == named(list, "op_player_collisions", 0))
-				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_PLAYER_COLLISIONS_HELP + choice);
-		}
-		visible_set(named(list, "op_coop_team_wipe", 0), cooperative);
-		if (cooperative && (spinner = named(list, "coop_team_wipe_spinner", 0)) != NULL)
-		{
-			short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 2);
-			struct widget_instance *help = list->parameters.list.extended_description;
-
-			if (help && list->focused_child == named(list, "op_coop_team_wipe", 0))
-				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_TEAM_WIPE_HELP + choice);
-		}
-		visible_set(named(list, "op_ally_friendly_fire", 0), cooperative);
-		if (cooperative && (spinner = named(list, "ally_friendly_fire_spinner", 0)) != NULL)
-		{
-			short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
-			struct widget_instance *help = list->parameters.list.extended_description;
-
-			multiplayer.cooperative_ally_friendly_fire = choice == 0;
-			if (help && list->focused_child == named(list, "op_ally_friendly_fire", 0))
-				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP + choice);
-		}
+		visible_set(named(list, "op_coop_options", 0), cooperative);
+		if (cooperative && list->parameters.list.extended_description &&
+			list->focused_child == named(list, "op_coop_options", 0))
+			list->parameters.list.extended_description->parameters.text_box.string_list_index = COOPERATIVE_OPTIONS_HELP;
 	}
 	/* SHARE MAPS (any game's: map_share.c), ON or OFF: its help is its
 	choice's. Its spinner keeps network.map_share itself */
@@ -3387,6 +3388,21 @@ static boolean lobby_share(void)
 	return TRUE;
 }
 
+/* Read stored rules at START GAME even when CO-OP OPTIONS was never opened. */
+static void server_coop_rules_apply(void)
+{
+	char const *value = config_string("network.coop_friendly_fire");
+	char const *const values[] = { "off", "on", "shields_only", "explosives_only" };
+	short choice, friendly_fire = _friendly_fire_off;
+
+	for (choice = 0; choice < NUMBEROF(values); choice++)
+		if (!_stricmp(value, values[choice]))
+			friendly_fire = cooperative_friendly_fire_modes[choice];
+	network_game_server_port_set_cooperative_friendly_fire(friendly_fire);
+	network_game_server_port_set_cooperative_player_collisions(config_boolean("network.coop_player_collisions"));
+	network_game_server_port_set_cooperative_ally_friendly_fire(config_boolean("network.coop_ally_friendly_fire"));
+}
+
 /* "ss start game": the settings given the server, then the lobby */
 static boolean server_start(void)
 {
@@ -3402,9 +3418,7 @@ static boolean server_start(void)
 	if (hosting_cooperative())
 	{
 		gametype_setup_end();
-		network_game_server_port_set_cooperative_friendly_fire(multiplayer.cooperative_friendly_fire);
-		network_game_server_port_set_cooperative_player_collisions(!multiplayer.cooperative_no_player_collisions);
-		network_game_server_port_set_cooperative_ally_friendly_fire(multiplayer.cooperative_ally_friendly_fire);
+		server_coop_rules_apply();
 	}
 	else if (!gametype_setup_apply())
 		return campaign_fail();
@@ -6329,6 +6343,10 @@ boolean pc_menu_event_function_invoke(
 		{
 			item_activated(widget, event_controller(widget, event), widget_deleted);
 		}
+		else if (!strcmp(name, "coop options save"))
+		{
+			settings_each(screen_of(widget), setting_changed_save);
+		}
 		else if (!strcmp(name, "port settings save"))
 		{
 			settings_each(screen_of(widget), setting_changed_save);
@@ -6519,6 +6537,8 @@ void pc_menu_game_data_function_invoke(
 		gametype_list_update(widget);
 	else if (!strcmp(name, "server settings update"))
 		server_settings_update(widget);
+	else if (!strcmp(name, "coop options update"))
+		coop_options_update(widget);
 	else if (!strcmp(name, "port password update"))
 		password_screen_update(widget);
 	else if (!strcmp(name, "port code update"))

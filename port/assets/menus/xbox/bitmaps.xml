@@ -108,6 +108,9 @@
 		<frame png="xbox/art/menu_custom_campaign__0.png" width="256" height="64" />
 		<frame png="xbox/art/menu_custom_campaign__1.png" width="256" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options">
+		<frame png="ce/port/main_menu/multiplayer_type_select/coop_options/header_coop_options.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/direct_ip/header_direct_ip__0.png" width="512" height="64" />
 	</bitmap>

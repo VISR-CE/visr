@@ -439,6 +439,7 @@ static char const *const port_function_names[] =
 	"port delete request", "port delete finish",
 	/* (the Xbox look's Item Options rows the Xbox's functions have no fields for: map weapons, loadout) */
 	"port option row init", "port option row save",
+	"coop options save",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -462,6 +463,7 @@ static char const *const port_game_data_input_names[] =
 	"port gamepad layout preview",
 	/* (Direct Link's ENTER CODE screen) */
 	"port code update",
+	"coop options update",
 };
 
 static struct

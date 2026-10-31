@@ -3360,7 +3360,7 @@
         "coop_team_wipe": {
           "type": "string",
           "default": "auto",
-          "description": "When every co-op player dies: \"auto\" reverts the checkpoint in a PRIVATE game and only respawns in a PUBLIC game; \"revert\" or \"respawn\" overrides that choice. A password does not make a PUBLIC game private. With the server browser off (network.public_lobby=false), AUTO treats the game as private. Reverting requires a checkpoint with the current players and machines; otherwise they respawn without a world reset. TEAM WIPE in Server Setup writes its choice here.",
+          "description": "When every co-op player dies: \"auto\" reverts the checkpoint in a PRIVATE game and only respawns in a PUBLIC game; \"revert\" or \"respawn\" overrides that choice. A password does not make a PUBLIC game private. With the server browser off (network.public_lobby=false), AUTO treats the game as private. Reverting requires a checkpoint with the current players and machines; otherwise they respawn without a world reset. TEAM WIPE in CO-OP OPTIONS writes its choice here.",
           "x-environment": "HALO_NET_COOP_TEAM_WIPE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3371,7 +3371,7 @@
         "coop_friendly_fire": {
           "type": "string",
           "default": "on",
-          "description": "Whether the players of an online co-op game hurt each other: \"off\", \"on\", \"shields_only\" or \"explosives_only\" (Server Setup's FRIENDLY FIRE in co-op, which writes its choice here). Damage to AI allies is controlled separately by network.coop_ally_friendly_fire.",
+          "description": "Whether the players of an online co-op game hurt each other: \"off\", \"on\", \"shields_only\" or \"explosives_only\" (CO-OP OPTIONS' FRIENDLY FIRE in co-op, which writes its choice here). Damage to AI allies is controlled separately by network.coop_ally_friendly_fire.",
           "x-environment": "HALO_NET_COOP_FRIENDLY_FIRE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3393,7 +3393,7 @@
         "coop_ally_friendly_fire": {
           "type": "boolean",
           "default": true,
-          "description": "Whether players can hurt friendly non-player units and vehicles in online co-op. Server Setup's ALLY FRIENDLY FIRE writes its choice here; false protects allies without changing player-to-player damage, enemy damage, AI-on-AI damage or scripted deaths.",
+          "description": "Whether players can hurt friendly non-player units and vehicles in online co-op. CO-OP OPTIONS' ALLY FRIENDLY FIRE writes its choice here; false protects allies without changing player-to-player damage, enemy damage, AI-on-AI damage or scripted deaths.",
           "x-environment": "HALO_NET_COOP_ALLY_FRIENDLY_FIRE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3404,7 +3404,7 @@
         "coop_player_collisions": {
           "type": "boolean",
           "default": true,
-          "description": "Whether the players of an online co-op game bump into each other; false, they walk through each other (the AI's characters they still bump into). Server Setup's PLAYER COLLISIONS in co-op writes its choice here.",
+          "description": "Whether the players of an online co-op game bump into each other; false, they walk through each other (the AI's characters they still bump into). CO-OP OPTIONS' PLAYER COLLISIONS in co-op writes its choice here.",
           "x-environment": "HALO_NET_COOP_PLAYER_COLLISIONS",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3415,7 +3415,7 @@
         "coop_enemies_mode": {
           "type": "string",
           "default": "per_player",
-          "description": "Online co-op's extra enemies: \"none\", \"per_player\" (each squad of enemies grows by coop_enemies for each player past the first) or \"multiplier\" (each is coop_enemies_multiplier times as large, for any number of players). Server Setup's EXTRA ENEMIES in co-op writes its choice here.",
+          "description": "Online co-op's extra enemies: \"none\", \"per_player\" (each squad of enemies grows by coop_enemies for each player past the first) or \"multiplier\" (each is coop_enemies_multiplier times as large, for any number of players). CO-OP OPTIONS' EXTRA ENEMIES in co-op writes its choice here.",
           "x-environment": "HALO_NET_COOP_ENEMIES_MODE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3426,7 +3426,7 @@
         "coop_enemies": {
           "type": "integer",
           "default": 50,
-          "description": "Online co-op's extra enemies per player, a percentage: for each player past the first, each squad of enemies a level places gets this much of itself more (100: as many again; 25 to 200). Server Setup's PER PLAYER in co-op writes its choice here.",
+          "description": "Online co-op's extra enemies per player, a percentage: for each player past the first, each squad of enemies a level places gets this much of itself more (100: as many again; 25 to 200). CO-OP OPTIONS' PER PLAYER in co-op writes its choice here.",
           "x-environment": "HALO_NET_COOP_ENEMIES",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3437,7 +3437,7 @@
         "coop_enemies_multiplier": {
           "type": "integer",
           "default": 2,
-          "description": "Online co-op's static multiplier of its enemies: each squad of enemies a level places is this many times as large (2 to 32). Server Setup's MULTIPLIER in co-op writes its choice here.",
+          "description": "Online co-op's static multiplier of its enemies: each squad of enemies a level places is this many times as large (2 to 32). CO-OP OPTIONS' MULTIPLIER in co-op writes its choice here.",
           "x-environment": "HALO_NET_COOP_ENEMIES_MULTIPLIER",
           "x-environment-style": "value",
           "x-platforms": [

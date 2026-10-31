@@ -649,6 +649,7 @@ TITLES = {
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
     f"{MT}/join_game/header_password": "PASSWORD",
     f"{MT}/lobby/header_lobby": "GAME LOBBY",
+    f"{MT}/coop_options/header_coop_options": "CO-OP OPTIONS",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -821,6 +822,94 @@ def _password_screen() -> list:
     return lines
 
 
+def _hosting_spinner(base, key, label_index, strings, setting, values):
+    extra = []
+    extra += _widget(f"{base}/op_{key}", [("width", 512), ("height", 28),
+                                          ("flags", "pass_unhandled_to_focused_child"),
+                                          ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<child widget="{base}/{key}_label"/>',
+                      f'<child widget="{base}/{key}_spinner" x="286" y="1"/>'])
+    extra += _widget(f"{base}/{key}_label", [("type", "text"), ("controller", 1), ("width", 300),
+                                             ("height", 22), ("string_list", f"{base}/labels"),
+                                             ("string_index", label_index), ("font", "ui\\large_ui"),
+                                             ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    extra += _widget(f"{base}/{key}_spinner",
+                     [("type", "spinner"), ("top", 2), ("width", 206), ("height", 20),
+                      ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
+                      ("strings", "|".join(strings)), ("setting", setting),
+                      ("values", "|".join(str(value) for value in values)), ("font", "ui\\large_ui"),
+                      ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
+                      ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
+                      ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
+                     ['<on event="created" run="port setting load"/>',
+                      '<on event="deleted" run="port setting save"/>',
+                      '<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+    return extra
+
+
+def _coop_options() -> list:
+    base = f"{MT}/coop_options"
+    spec = {"screen": "coop_options_screen", "spacing": 30,
+            "header": ("header_coop_options", f"{base}/header_coop_options")}
+    rows, extra = [], []
+    # Keep the Server Setup bindings and shared help indices as the rules
+    # move to their own page (menu_functions.c's coop_options_update).
+    extra += _widget(f"{base}/op_friendly_fire", [("width", 512), ("height", 28),
+                                                  ("flags", "pass_unhandled_to_focused_child"),
+                                                  ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<child widget="{base}/friendly_fire_label"/>',
+                      f'<child widget="{base}/friendly_fire_spinner" x="286" y="1"/>'])
+    extra += _widget(f"{base}/friendly_fire_label", [("type", "text"), ("controller", 1), ("width", 300),
+                                                     ("height", 22), ("string_list", f"{base}/labels"),
+                                                     ("string_index", 10), ("font", "ui\\large_ui"),
+                                                     ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    extra += _widget(f"{base}/friendly_fire_spinner",
+                     [("type", "spinner"), ("top", 2), ("width", 206), ("height", 20),
+                      ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
+                      ("strings", "OFF|ON|SHIELD ONLY|EXPLOSIVES ONLY"), ("setting", "network.coop_friendly_fire"),
+                      ("values", "|".join(COOP_FRIENDLY_FIRE_VALUES)), ("font", "ui\\large_ui"),
+                      ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
+                      ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
+                      ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
+                     ['<on event="created" run="port setting load"/>', '<on event="deleted" run="port setting save"/>',
+                      '<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+    rows.append((f"{base}/op_friendly_fire", None, 0))
+    # ... and its EXTRA ENEMIES (port/linux/game/coop_enemies.c), below it:
+    # NONE, PER PLAYER or STATIC MULTIPLIER, and below that the amount of the
+    # one chosen (its own row, the other hidden: menu_functions.c's
+    # coop_options_update); each kept in its network.coop_enemies setting
+
+    extra += _hosting_spinner(base, "extra_enemies", 11, ["NONE", "PER PLAYER", "STATIC MULTIPLIER"], "network.coop_enemies_mode",
+                COOP_ENEMIES_MODES)
+    rows.append((f"{base}/op_extra_enemies", None, 1))
+    extra += _hosting_spinner(base, "enemies_per_player", 12, [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
+                "network.coop_enemies", COOP_ENEMIES_PERCENTAGES)
+    rows.append((f"{base}/op_enemies_per_player", None, 2))
+    extra += _hosting_spinner(base, "enemies_multiplier", 13, [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
+                "network.coop_enemies_multiplier", COOP_ENEMIES_MULTIPLIERS)
+    rows.append((f"{base}/op_enemies_multiplier", None, 2))
+    # ... and its PLAYER COLLISIONS, below them (network.coop_player_collisions,
+    # which the host sends its players as the game begins: menu_functions.c's
+    # server_start)
+    extra += _hosting_spinner(base, "player_collisions", 14, ["ON", "OFF"], "network.coop_player_collisions", ["true", "false"])
+    rows.append((f"{base}/op_player_collisions", None, 3))
+    extra += _hosting_spinner(base, "ally_friendly_fire", 17, ["ON", "OFF"], "network.coop_ally_friendly_fire", ["true", "false"])
+    rows.append((f"{base}/op_ally_friendly_fire", None, 4))
+    extra += _hosting_spinner(base, "coop_team_wipe", 18, ["AUTO", "REVERT CHECKPOINT", "RESPAWN ONLY"],
+                "network.coop_team_wipe", ["auto", "revert", "respawn"])
+    rows.append((f"{base}/op_coop_team_wipe", None, 5))
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="coop options save" back="true"/>',
+                      '<on event="start" run="coop options save" back="true"/>'])
+    lines = _screen(base, spec, rows, ["coop options update"], [], extra)
+    # Hosting pages share labels and help so moving a rule preserves its words.
+    lines = [line.replace(f'string_list="{base}/labels"', f'string_list="{MT}/server_settings/labels"')
+             .replace(f'string_list="{base}/help_strings"', f'string_list="{MT}/server_settings/help_strings"')
+             for line in lines]
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
 def _server_settings() -> list:
     """Create Game's server settings (in the PC version's place): the game's
     name, the most players (up to the port's 128), its invite link, and
@@ -875,82 +964,24 @@ def _server_settings() -> list:
     # which players from the server browser must type
     extra += _value_row(base, "password", 15, "ss edit server password")
     rows.append((f"{base}/op_password", None))
-    # co-op's FRIENDLY FIRE (between its players), in the place of the
-    # gametype's rows, which co-op hides as multiplayer hides it, laid out
-    # as Teamplay Options' (menu_functions.c's server_settings_update); its
-    # choice kept in network.coop_friendly_fire
-    extra += _widget(f"{base}/op_friendly_fire", [("width", 512), ("height", 28),
-                                                  ("flags", "pass_unhandled_to_focused_child"),
-                                                  ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                     [f'<child widget="{base}/friendly_fire_label"/>',
-                      f'<child widget="{base}/friendly_fire_spinner" x="286" y="1"/>'])
-    extra += _widget(f"{base}/friendly_fire_label", [("type", "text"), ("controller", 1), ("width", 300),
-                                                     ("height", 22), ("string_list", f"{base}/labels"),
-                                                     ("string_index", 10), ("font", "ui\\large_ui"),
-                                                     ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    extra += _widget(f"{base}/friendly_fire_spinner",
-                     [("type", "spinner"), ("top", 2), ("width", 206), ("height", 20),
-                      ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                      ("strings", "OFF|ON|SHIELD ONLY|EXPLOSIVES ONLY"), ("setting", "network.coop_friendly_fire"),
-                      ("values", "|".join(COOP_FRIENDLY_FIRE_VALUES)), ("font", "ui\\large_ui"),
-                      ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
-                      ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
-                      ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
-                     ['<on event="created" run="port setting load"/>', '<on event="deleted" run="port setting save"/>',
-                      '<on event="left_mouse" run="mouse spinner 1wide click"/>'])
-    rows.append((f"{base}/op_friendly_fire", None, SETUP_OPTIONS_PLACE))
-    # ... and its EXTRA ENEMIES (port/linux/game/coop_enemies.c), below it:
-    # NONE, PER PLAYER or STATIC MULTIPLIER, and below that the amount of the
-    # one chosen (its own row, the other hidden: menu_functions.c's
-    # server_settings_update); each kept in its network.coop_enemies setting
-    def spinner_row(key, label_index, strings, setting, values):
-        nonlocal extra
-        extra += _widget(f"{base}/op_{key}", [("width", 512), ("height", 28),
-                                              ("flags", "pass_unhandled_to_focused_child"),
-                                              ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                         [f'<child widget="{base}/{key}_label"/>',
-                          f'<child widget="{base}/{key}_spinner" x="286" y="1"/>'])
-        extra += _widget(f"{base}/{key}_label", [("type", "text"), ("controller", 1), ("width", 300),
+    extra += _widget(f"{base}/op_coop_options", [("width", 512), ("height", 28),
+                                                ("flags", "pass_unhandled_to_focused_child"),
+                                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<on event="a" open="{MT}/coop_options/coop_options_screen"/>',
+                      f'<on event="start" open="{MT}/coop_options/coop_options_screen"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>',
+                      f'<child widget="{base}/coop_options_label"/>'])
+    extra += _widget(f"{base}/coop_options_label", [("type", "text"), ("controller", 1), ("width", 512),
                                                  ("height", 22), ("string_list", f"{base}/labels"),
-                                                 ("string_index", label_index), ("font", "ui\\large_ui"),
+                                                 ("string_index", 19), ("font", "ui\\large_ui"),
                                                  ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-        extra += _widget(f"{base}/{key}_spinner",
-                         [("type", "spinner"), ("top", 2), ("width", 206), ("height", 20),
-                          ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                          ("strings", "|".join(strings)), ("setting", setting),
-                          ("values", "|".join(str(value) for value in values)), ("font", "ui\\large_ui"),
-                          ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
-                          ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
-                          ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
-                         ['<on event="created" run="port setting load"/>',
-                          '<on event="deleted" run="port setting save"/>',
-                          '<on event="left_mouse" run="mouse spinner 1wide click"/>'])
-
-    spinner_row("extra_enemies", 11, ["NONE", "PER PLAYER", "STATIC MULTIPLIER"], "network.coop_enemies_mode",
-                COOP_ENEMIES_MODES)
-    rows.append((f"{base}/op_extra_enemies", None, SETUP_OPTIONS_PLACE + 1))
-    spinner_row("enemies_per_player", 12, [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
-                "network.coop_enemies", COOP_ENEMIES_PERCENTAGES)
-    rows.append((f"{base}/op_enemies_per_player", None, SETUP_OPTIONS_PLACE + 2))
-    spinner_row("enemies_multiplier", 13, [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
-                "network.coop_enemies_multiplier", COOP_ENEMIES_MULTIPLIERS)
-    rows.append((f"{base}/op_enemies_multiplier", None, SETUP_OPTIONS_PLACE + 2))
-    # ... and its PLAYER COLLISIONS, below them (network.coop_player_collisions,
-    # which the host sends its players as the game begins: menu_functions.c's
-    # server_start)
-    spinner_row("player_collisions", 14, ["ON", "OFF"], "network.coop_player_collisions", ["true", "false"])
-    rows.append((f"{base}/op_player_collisions", None, SETUP_OPTIONS_PLACE + 3))
-    spinner_row("ally_friendly_fire", 17, ["ON", "OFF"], "network.coop_ally_friendly_fire", ["true", "false"])
-    rows.append((f"{base}/op_ally_friendly_fire", None, SETUP_OPTIONS_PLACE + 4))
-    spinner_row("coop_team_wipe", 18, ["AUTO", "REVERT CHECKPOINT", "RESPAWN ONLY"],
-                "network.coop_team_wipe", ["auto", "revert", "respawn"])
-    rows.append((f"{base}/op_coop_team_wipe", None, SETUP_OPTIONS_PLACE + 5))
     # SHARE MAPS (port/linux/game/map_share.c), for any game, above the
     # options' rows (SETUP_OPTIONS_PLACE): whether players who join without
     # the game's Custom Edition map download it (network.map_share). The
     # host's upload limit is config.toml's network.map_share_upload
-    spinner_row("map_share", 16, ["ON", "OFF"], "network.map_share", ["true", "false"])
+    extra += _hosting_spinner(base, "map_share", 16, ["ON", "OFF"], "network.map_share", ["true", "false"])
     rows.append((f"{base}/op_map_share", None, SETUP_OPTIONS_PLACE - 1))
+    rows.append((f"{base}/op_coop_options", None, SETUP_OPTIONS_PLACE))
     # the gametype's options for this game (the gametype editor's screens,
     # editing a copy of the gametype chosen: "port setup edit")
     for index, (key, screen) in enumerate(SETUP_OPTION_SCREENS):
@@ -982,7 +1013,7 @@ def _server_settings() -> list:
                                          "PLAYER OPTIONS:", "ITEM OPTIONS:", "VEHICLE OPTIONS:", "INDICATOR OPTIONS:",
                                          "TEAMPLAY OPTIONS:", "LISTING:", "FRIENDLY FIRE:", "EXTRA ENEMIES:",
                                          "PER PLAYER:", "MULTIPLIER:", "PLAYER COLLISIONS:", "PASSWORD:",
-                                         "SHARE MAPS:", "ALLY FRIENDLY FIRE:", "TEAM WIPE:"])
+                                         "SHARE MAPS:", "ALLY FRIENDLY FIRE:", "TEAM WIPE:", "CO-OP OPTIONS"])
     extra += _strings(f"{base}/help_strings", [
         "",
         "The name the game shows in the lists of games.\\nEnter changes it.",
@@ -1024,6 +1055,7 @@ def _server_settings() -> list:
         "Private: revert. Public: respawn only.\\nPlayers changed or no checkpoint: respawn only.",
         "Revert after everyone dies. Players changed\\nor no checkpoint: respawn only.",
         "Respawn after everyone dies.\\nKeep the world's progress.",
+        "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies.",
     ])
     lines = _screen(base, spec, rows, ["server settings update"],
                     ['<on event="created" run="server settings init"/>'], extra)
@@ -1036,16 +1068,16 @@ def _server_settings() -> list:
 
 
 MAXIMUM_PLAYERS = [2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
-# network.coop_friendly_fire's values, as Server Setup's FRIENDLY FIRE shows
+# network.coop_friendly_fire's values, as CO-OP OPTIONS' FRIENDLY FIRE shows
 # them (menu_functions.c's cooperative_friendly_fire_modes, in this order)
 COOP_FRIENDLY_FIRE_VALUES = ["off", "on", "shields_only", "explosives_only"]
-# Server Setup's EXTRA ENEMIES: network.coop_enemies_mode's values (in
+# CO-OP OPTIONS' EXTRA ENEMIES: network.coop_enemies_mode's values (in
 # coop_enemies.c's order), and the amounts of PER PLAYER (network.coop_enemies,
 # percentages) and STATIC MULTIPLIER (network.coop_enemies_multiplier)
 COOP_ENEMIES_MODES = ["none", "per_player", "multiplier"]
 COOP_ENEMIES_PERCENTAGES = [25, 50, 100, 150, 200]
 COOP_ENEMIES_MULTIPLIERS = [2, 4, 8, 16, 32]
-# (Server Setup's place of its options' rows, co-op's or the gametype's: after
+# (Server Setup's place of CO-OP OPTIONS or the gametype rows: after
 # SHARE MAPS')
 SETUP_OPTIONS_PLACE = 6
 # Server Setup's rows of the gametype's options: the gametype editor's
@@ -1337,6 +1369,7 @@ def multiplayer_files() -> dict:
     return {
         f"{MT}/join_game".replace("/", ".") + ".port.xml": head + _join_game_extras() + ["</menus>", ""],
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
+        f"{MT}/coop_options".replace("/", ".") + ".xml": head + _coop_options() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],

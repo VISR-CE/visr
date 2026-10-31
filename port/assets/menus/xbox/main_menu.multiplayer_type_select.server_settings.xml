@@ -23,14 +23,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_invite" x="54" y="133" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_listing" x="54" y="163" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_password" x="54" y="193" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_friendly_fire" x="54" y="253" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_extra_enemies" x="54" y="283" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_enemies_per_player" x="54" y="313" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_enemies_multiplier" x="54" y="313" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_player_collisions" x="54" y="343" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_ally_friendly_fire" x="54" y="373" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_team_wipe" x="54" y="403" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_map_share" x="54" y="223" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_options" x="54" y="253" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_game_type" x="54" y="253" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_player_options" x="54" y="283" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_item_options" x="54" y="313" />
@@ -101,82 +95,13 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/password_value" type="text" controller="1" width="280" height="22" font="ui\small_ui" color="#FF2896FF" align="center" text_y="5" text_flags="no_focus_test">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_friendly_fire" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/friendly_fire_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/friendly_fire_spinner" x="286" y="1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_options" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+		<on event="a" open="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen" />
+		<on event="start" open="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/coop_options_label" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/friendly_fire_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="10" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/friendly_fire_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ON|SHIELD ONLY|EXPLOSIVES ONLY" setting="network.coop_friendly_fire" values="off|on|shields_only|explosives_only" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_extra_enemies" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/extra_enemies_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/extra_enemies_spinner" x="286" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/extra_enemies_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/extra_enemies_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|PER PLAYER|STATIC MULTIPLIER" setting="network.coop_enemies_mode" values="none|per_player|multiplier" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_enemies_per_player" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/enemies_per_player_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/enemies_per_player_spinner" x="286" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/enemies_per_player_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="12" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/enemies_per_player_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="25%|50%|100%|150%|200%" setting="network.coop_enemies" values="25|50|100|150|200" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_enemies_multiplier" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/enemies_multiplier_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/enemies_multiplier_spinner" x="286" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/enemies_multiplier_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="13" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/enemies_multiplier_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="2X|4X|8X|16X|32X" setting="network.coop_enemies_multiplier" values="2|4|8|16|32" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_player_collisions" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/player_collisions_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/player_collisions_spinner" x="286" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/player_collisions_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="14" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/player_collisions_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="network.coop_player_collisions" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_ally_friendly_fire" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/ally_friendly_fire_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/ally_friendly_fire_spinner" x="286" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/ally_friendly_fire_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="17" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/ally_friendly_fire_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="network.coop_ally_friendly_fire" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_team_wipe" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_spinner" x="286" y="1" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="18" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/coop_team_wipe_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="AUTO|REVERT CHECKPOINT|RESPAWN ONLY" setting="network.coop_team_wipe" values="auto|revert|respawn" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="created" run="port setting load" />
-		<on event="deleted" run="port setting save" />
-		<on event="left_mouse" run="mouse spinner 1wide click" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/coop_options_label" type="text" controller="1" width="512" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="19" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_map_share" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/map_share_label" />
@@ -283,6 +208,7 @@
 		<string text="SHARE MAPS:" />
 		<string text="ALLY FRIENDLY FIRE:" />
 		<string text="TEAM WIPE:" />
+		<string text="CO-OP OPTIONS" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/help_strings">
 		<string text="" />
@@ -317,6 +243,7 @@
 		<string text="Private: revert. Public: respawn only.\nPlayers changed or no checkpoint: respawn only." />
 		<string text="Revert after everyone dies. Players changed\nor no checkpoint: respawn only." />
 		<string text="Respawn after everyone dies.\nKeep the world's progress." />
+		<string text="Friendly fire, extra enemies, player collisions\nand what happens when everyone dies." />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
