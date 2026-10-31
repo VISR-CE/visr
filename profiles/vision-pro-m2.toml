@@ -8,7 +8,13 @@ models = ["RealityDevice14,1"]
 
 [display]
 foveation = true
+anti_aliasing = "smaa"
 render_quality = 0.6
+
+[evidence."display.anti_aliasing"]
+basis = "measured"
+why = "SMAA was picked in a Vision Pro session on 2026-10-30; off looked clearly worse and the methods looked alike. GPU median at quality 0.6 in ms, off then SMAA: b30 7.5, 7.6; c10 8.4, 9.8; b40 8.4, 9.8, under the 11.1 ms budget at 90 Hz."
+source = "Headset anti-aliasing session and A/B rehearsals, 2026-10-30."
 
 [evidence."display.foveation"]
 basis = "measured"
