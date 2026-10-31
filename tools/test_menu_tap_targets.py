@@ -28,6 +28,10 @@ struct ui_mouse_target { struct widget_instance *widget; rectangle2d bounds; sho
 static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
 static long ui_mouse_target_count = 0;
 static short ui_mouse_radius = 0;
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define ABS(a) ((a) < 0 ? -(a) : (a))
+enum { _ui_mouse_target_item, _ui_mouse_target_value, _ui_mouse_target_list_slot, _ui_mouse_target_button };
+static long ui_redraw_touch_target_units(void) { return 0; }
 __SEARCH__
 static void add(short x0, short y0, short x1, short y1) {
     ui_mouse_targets[ui_mouse_target_count].bounds = (rectangle2d){ x0, y0, x1, y1 };
