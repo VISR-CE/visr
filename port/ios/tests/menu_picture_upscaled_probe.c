@@ -1,4 +1,4 @@
-/* Apache-2.0. The original menu pictures use raw S4g for every frame, including the uncompressed difficulty icons. */
+/* Apache-2.0. Menu photographs use bpf; logos, difficulty icons and marines keep raw S4g. */
 #include "texture_policy.h"
 #include "menu_picture_upscaled.h"
 #include <assert.h>
@@ -53,8 +53,8 @@ int main(void)
 			for (int frame = 0; frame < 4; frame += 3)
 			{
 				decision = classify(pictures[picture], frame, formats[format], 0, 1);
-				assert(decision.kind == TEXTURE_POLICY_GRAPHIC);
-				assert(decision.result == TEXTURE_POLICY_S4G);
+				assert(decision.kind == (picture < 2 ? TEXTURE_POLICY_SURFACE : TEXTURE_POLICY_GRAPHIC));
+				assert(decision.result == (picture < 2 ? TEXTURE_POLICY_BPF : TEXTURE_POLICY_S4G));
 				assert(decision.treatment == TEXTURE_POLICY_COLOR);
 				assert(decision.pinned && decision.scale == 4 && !decision.wrap);
 			}

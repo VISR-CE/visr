@@ -473,8 +473,9 @@ def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     pngs = [frame.get('png') for frame in frames]
     assert pngs[1:4] == ['xbox/art/video.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
     assert all(frame.get('cache') is None for frame in frames[1:4])
-    # the controllers and keyboard stay the player's own, and nothing else borrows the Xbox's video or network pictures
-    assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache') and pngs[4] == 'xbox/art/none.png'
+    # The controller stays the player's own; the keyboard uses our reproducible Overpass drawing.
+    assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache')
+    assert pngs[4] == 'xbox/art/keyboard.png' and frames[4].get('cache') is None
     bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
     assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
 

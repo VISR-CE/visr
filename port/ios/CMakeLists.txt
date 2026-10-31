@@ -191,7 +191,7 @@ target_sources(VISR PRIVATE "${ROOT}/port/linux/src/astc_encode.cpp"
     "${ROOT}/port/linux/src/astc_rewrite.c" "${ROOT}/port/runtime/astc_store.c"
     host/host_astc_store.m host/host_astc_texture.c)
 target_sources(VISR PRIVATE host/host_quit_signals.c host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
-    host/texture_refine_bounded.c host/menu_picture_trace.c host/menu_picture_shapes.c host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
+    host/texture_refine_bounded.c host/menu_picture_trace.c host/menu_picture_shapes.c host/menu_picture_redraw.m host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
     "${ROOT}/port/third_party/bc7enc16/bc7decomp.c")
 target_include_directories(VISR PRIVATE "${ROOT}/port/third_party/bc7enc" "${ROOT}/port/third_party/bc7enc16")
 target_link_libraries(VISR PRIVATE "-framework Accelerate")
@@ -387,7 +387,7 @@ set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_SKIP_INSTALL NO XCODE_ATTR
 # beside config.toml at each start, as upstream's Android app does
 target_sources(VISR PRIVATE "${ROOT}/port/assets/network/brokers.txt")
 set_source_files_properties("${ROOT}/port/assets/network/brokers.txt" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
-target_link_libraries(VISR PRIVATE "-framework CoreText" "-framework CoreGraphics")
+target_link_libraries(VISR PRIVATE "-framework CoreText" "-framework CoreGraphics" "-framework ImageIO")
 target_sources(VISR PRIVATE "${ROOT}/port/assets/brand/Orbitron.ttf" "${ROOT}/port/assets/brand/VISRIcon.png"
     "${ROOT}/port/assets/brand/OFL-Orbitron.txt")
 set_source_files_properties("${ROOT}/port/assets/brand/Orbitron.ttf" "${ROOT}/port/assets/brand/VISRIcon.png"
@@ -555,3 +555,7 @@ if(HALO_ENTITLEMENTS)
         message(STATUS "the entitlements include multicast: broadcasts on")
     endif()
 endif()
+
+# Authored keyboard and the same Overpass file embedded for menu text.
+target_sources(VISR PRIVATE "${ROOT}/port/assets/menus/xbox/art/keyboard.png" "${ROOT}/port/assets/fonts/Overpass-650.ttf")
+set_source_files_properties("${ROOT}/port/assets/menus/xbox/art/keyboard.png" "${ROOT}/port/assets/fonts/Overpass-650.ttf" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)

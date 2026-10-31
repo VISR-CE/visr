@@ -13,7 +13,7 @@
 		<frame png="xbox/art/video.png" width="512" height="256" platform="mac_app" />
 		<frame png="xbox/art/audio.png" width="512" height="256" />
 		<frame png="xbox/art/internet.png" width="512" height="256" />
-		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/xbox/v1/keyboard.png" png="xbox/art/none.png" width="512" height="256" platform="keyboard" />
+		<frame png="xbox/art/keyboard.png" width="512" height="256" platform="keyboard" />
 	</bitmap>
 	<widget name="xbox/settings/settings_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/gradient">
 		<on event="b" back="true" />

@@ -748,7 +748,7 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '
     'port/ios/tests/texture_policy_probe.c', 'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c',
     '-lz', '-o', BUILD/'texture-policy-probe')
 run(BUILD/'texture-policy-probe')
-# the original menu pictures keep raw S4g, including uncompressed difficulty icons, without broadening other art
+# Menu photographs keep 4x bpf; logos, marines and uncompressed difficulty icons keep raw S4g.
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/runtime',
     '--include-directory=port/linux/src', 'port/ios/tests/menu_picture_upscaled_probe.c',
     'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c', '-lz', '--output', BUILD/'menu-picture-upscaled-probe')
@@ -758,6 +758,13 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/menu_picture_trace_probe.c', 'port/ios/host/menu_picture_trace.c',
     'port/ios/host/menu_picture_shapes.c', '--output', BUILD/'menu-picture-trace-probe')
 run(BUILD/'menu-picture-trace-probe')
+# Authored art never replaces an unknown player's source; missing resources preserve bpf.
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined',
+    '--include-directory=port/ios/host', 'port/ios/tests/menu_picture_redraw_probe.m',
+    'port/ios/host/menu_picture_redraw.m', '-framework', 'Foundation', '-framework', 'CoreText',
+    '-framework', 'CoreGraphics', '-framework', 'ImageIO', '--output', BUILD/'menu-picture-redraw-probe')
+run(BUILD/'menu-picture-redraw-probe')
+
 
 # its scale rule against the shipping set's 2x, 4x and 8x textures (port/assets/texture-selection-lock.tsv)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '-Iport/linux/src',
