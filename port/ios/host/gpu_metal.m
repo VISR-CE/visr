@@ -6599,8 +6599,11 @@ static struct
 	/* FXAA's, and SMAA's, programs or textures could not be made */
 	BOOL failed[2];
 	/* the target's pixels before the pass, and SMAA's edges and blending
-	weights, at the target's size */
+	weights, at the target's size, and the same for the size used before it:
+	a stereo frame's eyes and the zoomed picture differ, and scoping must not
+	remake these and SMAA's pipelines at each toggle */
 	id<MTLTexture> color, edges, weights;
+	id<MTLTexture> other_color, other_edges, other_weights;
 	/* SMAA's lookup textures */
 	id<MTLTexture> area, search;
 } post;
@@ -6821,11 +6824,30 @@ static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const stru
 		pass_end();
 		if (!post.color || post.color.width != width || post.color.height != height)
 		{
-			post.color = post_texture(MTLPixelFormatBGRA8Unorm, width, height, YES);
-			post.edges = post.weights = nil;
-			/* SMAA's pipelines are specialized for one size: the old
-			size's go, so a live resize does not keep one set per size */
-			[post.smaa_pipelines removeAllObjects];
+			id<MTLTexture> color = post.color, edges = post.edges, weights = post.weights;
+
+			post.color = post.other_color;
+			post.edges = post.other_edges;
+			post.weights = post.other_weights;
+			post.other_color = color;
+			post.other_edges = edges;
+			post.other_weights = weights;
+			if (!post.color || post.color.width != width || post.color.height != height)
+			{
+				if (post.color)
+				{
+					/* SMAA's pipelines are specialized for one size: the size
+					leaving goes, so a live resize keeps at most two sets */
+					NSString *prefix = [NSString stringWithFormat:@"%lux%lu/",
+						(unsigned long)post.color.width, (unsigned long)post.color.height];
+
+					for (NSString *key in post.smaa_pipelines.allKeys)
+						if ([key hasPrefix:prefix])
+							[post.smaa_pipelines removeObjectForKey:key];
+				}
+				post.color = post_texture(MTLPixelFormatBGRA8Unorm, width, height, YES);
+				post.edges = post.weights = nil;
+			}
 		}
 		if (smaa && !post.edges)
 		{
