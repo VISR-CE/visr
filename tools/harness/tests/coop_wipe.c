@@ -1,5 +1,6 @@
 #include "harness.h"
 #define MAXIMUM_TRACKED_PLAYERS 4
+#define NETWORK_GAME_MAXIMUM_PLAYER_COUNT 4
 #define HALO_PORT_MAXIMUM_NETWORK_MACHINES 3
 #define MAXIMUM_LOCAL_PLAYERS 2
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -9,7 +10,7 @@
 static int diagnostics;
 #define error(...) (++diagnostics)
 enum {_game_connection_local,_game_connection_network_client,_game_connection_network_server};
-struct player_datum {short identifier;boolean quit_out_of_game;long unit_index,quit_out_of_game_time;};
+struct player_datum {short identifier;short local_player_index;boolean quit_out_of_game;long unit_index,quit_out_of_game_time;};
 struct data_iterator {long datum_index;int next;};
 static struct data_array *player_data;
 static long live_machine_players[3][2];
@@ -25,6 +26,11 @@ static void *data_iterator_next(struct data_iterator *i)
 }
 static struct player_datum *player_try_and_get(long index){int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(index);if(slot>=player_data->maximum_count)return NULL;struct player_datum *p=datum_get(player_data,index);return (unsigned short)p->identifier==(unsigned long)index>>16?p:NULL;}
 static void machine_remove_player(long index){for(int m=0;m<3;m++)for(int s=0;s<2;s++)if(live_machine_players[m][s]!=NONE&&DATUM_INDEX_TO_ABSOLUTE_INDEX(live_machine_players[m][s])==DATUM_INDEX_TO_ABSOLUTE_INDEX(index))live_machine_players[m][s]=NONE;}
+enum {_object_dead_bit};
+struct object_datum {struct {unsigned long damage_flags;} object;};
+struct unit_datum {struct {unsigned long damage_flags;} object;struct {long player_index;boolean active;} unit;};
+static struct unit_datum units[4];
+static struct object_datum *object_try_and_get(long index){return index>=100&&index<104?(struct object_datum *)&units[index-100]:NULL;}
 static long last_killed_unit;
 static boolean game_engine_running(void){return FALSE;}
 static void unit_get(long index){(void)index;}
@@ -56,7 +62,17 @@ static boolean game_time_get_paused(void){return paused;}
 static boolean players_are_all_dead(void){return all_dead;}
 static boolean network_coop_active(void){return active;}
 static boolean main_coop_host_revert(void){if(!game_state_globals.saved_game_valid)return FALSE;reverts++;return TRUE;}
-static void players_respawn_at_checkpoint(void){respawns++;}
+static struct {boolean all_dead;} restored_players;
+static __typeof__(restored_players) *players_globals=&restored_players;
+enum {_object_mask_unit};
+static struct player_datum *player_get(long index){return datum_get(player_data,index);}
+static void *object_try_and_get_and_verify_type(long index,int mask){(void)mask;return object_try_and_get(index);}
+static void unit_set_actively_controlled(long index,boolean active){CHECK(active||units[index-100].unit.player_index==NONE,"detached corpse still owns player");units[index-100].unit.active=active;}
+static void player_control_new_unit(short local,long index){(void)local;(void)index;}
+static void player_spawn(long index){int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(index);((struct player_datum *)datum_get(player_data,index))->unit_index=100+slot;units[slot].object.damage_flags=0;}
+static real_point3d const *players_checkpoint_position(long index){static real_point3d position;(void)index;return &position;}
+static boolean player_teleport(long index,long unit,real_point3d const *position){(void)index;(void)unit;(void)position;return TRUE;}
+static void player_place_beside_teammate(long index){(void)index;}
 static void game_state_revert(void){reverts++;}
 static void game_state_call_before_save_procs(void){}
 static void main_stop_time(void){}
@@ -73,13 +89,15 @@ static struct {boolean offered,skip_save_written;int voters,cooldown_until;} ski
 static void skip_vote_clear(void){}
 static void coop_enemies_new_game(void){}
 #include "under_test.inc"
-static long add_player(void){long id=datum_new(player_data);int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(id);CHECK(id!=NONE,"player fixture full");((struct player_datum *)datum_get(player_data,id))->unit_index=100+slot;((struct player_datum *)datum_get(player_data,id))->quit_out_of_game_time=NONE;live_machine_players[slot<2?slot:2][slot<3?0:1]=id;return id;}
+static long add_player(void){long id=datum_new(player_data);int slot=DATUM_INDEX_TO_ABSOLUTE_INDEX(id);CHECK(id!=NONE,"player fixture full");((struct player_datum *)datum_get(player_data,id))->unit_index=100+slot;((struct player_datum *)datum_get(player_data,id))->local_player_index=NONE;units[slot].unit.player_index=id;units[slot].unit.active=TRUE;((struct player_datum *)datum_get(player_data,id))->quit_out_of_game_time=NONE;live_machine_players[slot<2?slot:2][slot<3?0:1]=id;return id;}
 static struct player_datum *player(int slot){return (void *)(player_data->data+slot*player_data->size);}
 static void setup(void)
 {
  memset(live_machine_players,0xff,sizeof(live_machine_players));
+ memset(units,0,sizeof(units));
  player_data=game_state_data_new("players",4,sizeof(struct player_datum));add_player();add_player();
  connection=_game_connection_network_server;active=TRUE;browser_enabled=TRUE;coop_public=FALSE;p2p.hosting_lan_only=FALSE;memset(&lobby,0,sizeof(lobby));late_join=FALSE;
+ restored_players.all_dead=TRUE;
  tick=main_loss_last_tick=0;paused=FALSE;all_dead=TRUE;save_succeeds=TRUE;reverts=respawns=diagnostics=0;
  memset(&main_globals,0,sizeof(main_globals));game_state_globals.saved_game_valid=FALSE;
  network_coop_new_game();game_state_save();
@@ -125,6 +143,37 @@ int main(int argc,char **argv)
    "incompatible scripted load cleared a replacement's live mapping");
   setup();memset(live_machine_players,0xff,sizeof(live_machine_players));
   CHECK(!checkpoint_players_match(),"empty live roster accepted");
+ } else CASE("dead-checkpoint") {
+  for(int corpse=0;corpse<2;corpse++){
+   setup();
+   if(corpse)units[1].object.damage_flags=FLAG(_object_dead_bit);
+   else player(1)->unit_index=NONE;
+   game_state_save();
+   CHECK(network_coop_wipe_reverts(),"living current teammate did not permit revert");
+   live_machine_players[0][0]=NONE;player(0)->quit_out_of_game=TRUE;
+   /* Becoming alive after the save cannot make the old checkpoint safe. */
+   player(1)->unit_index=101;units[1].object.damage_flags=0;
+   wipe();wipe();CHECK(!reverts&&respawns==2,"wiped survivors reverted to a dead checkpoint");
+   game_state_save();wipe();CHECK(reverts==1&&respawns==2,"fresh living checkpoint remained unsafe");
+  }
+ } else CASE("restored-dead") {
+  setup();player(1)->unit_index=NONE;game_state_save();
+  live_machine_players[0][0]=NONE;
+  /* Scripted loss must still load the checkpoint, bypassing the wipe guard. */
+  main_lost_map_scripted();tick+=92;main_lost_map_private();
+  CHECK(reverts==1&&!respawns,"scripted loss did not revert");
+  coop_reconcile_departures();coop_respawn_if_no_living_players();
+  CHECK(player(0)->quit_out_of_game&&respawns==1&&player(1)->unit_index!=NONE&&!players_globals->all_dead,"scripted load left every current player dead");
+  setup();coop_respawn_if_no_living_players();CHECK(!respawns,"living restored team respawned");
+  setup();player(0)->unit_index=NONE;coop_respawn_if_no_living_players();
+  CHECK(!respawns,"living restored teammate did not preserve normal respawn");
+  setup();units[0].object.damage_flags=units[1].object.damage_flags=FLAG(_object_dead_bit);
+  coop_respawn_if_no_living_players();
+  CHECK(respawns==1&&coop_player_has_living_unit(player(0))&&coop_player_has_living_unit(player(1))&&!players_globals->all_dead,"dead objects did not recover");
+  setup();player(0)->unit_index=player(1)->unit_index=NONE;
+  live_machine_players[1][0]+=0x10000;
+  coop_reconcile_departures();coop_respawn_if_no_living_players();
+  CHECK(!respawns&&player(0)->unit_index==NONE&&player(1)->unit_index==NONE,"incompatible scripted load spawned saved datums");
  } else CASE("save") {
   add_player();save_succeeds=FALSE;game_state_save();
   CHECK(checkpoint_players.count==2&&!game_state_port_saved_game_valid(),"failed save replaced membership snapshot");

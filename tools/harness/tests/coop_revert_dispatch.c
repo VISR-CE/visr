@@ -2,7 +2,7 @@
 enum { _error_silent, _coop_event_reverted };
 static boolean host;
 static long tick;
-static int repaired, refreshed, reconciled;
+static int repaired, refreshed, reconciled, fallbacks;
 static boolean coop_host(void) { return host; }
 static long game_time_get(void) { return tick; }
 static void game_time_set_distributed(long now) { tick = now; }
@@ -16,9 +16,14 @@ static void coop_reconcile_departures(void)
 {
 	CHECK(tick == 300, "departure applied before clock repair"); reconciled++;
 }
+static void coop_respawn_if_no_living_players(void)
+{
+	CHECK(tick == 300 && reconciled == refreshed + 1, "fallback preceded clock/departure repair"); fallbacks++;
+}
 static void network_objects_coop_reverted(void)
 {
 	CHECK(tick == 300, "object state sent before clock repair");
+	CHECK(fallbacks == refreshed + 1, "restored units sent before respawn fallback");
 	CHECK(reconciled == refreshed + 1, "restored units sent before departure handling"); refreshed++;
 }
 #include "under_test.inc"

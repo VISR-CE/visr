@@ -9,16 +9,24 @@ from harness import CHECK_FAILED, build, mutated, read, run
 from harness.coop_wipe import generated
 
 
-@pytest.mark.parametrize('case', ['policy', 'authority', 'roster', 'save', 'new-map', 'delay', 'failure'])
+@pytest.mark.parametrize('case', ['policy', 'authority', 'roster', 'save', 'new-map', 'delay', 'failure', 'dead-checkpoint', 'restored-dead'])
 def test_team_wipe(case):
     status, output = run(build('coop_wipe', generated()), case)
     assert status == 0, output
 
 
 @pytest.mark.parametrize('before,after,case', [
+    ('network_player_detach_unit(iterator.datum_index);', '(void)0;', 'restored-dead'),
+    ('unit->unit.player_index = NONE;', '', 'restored-dead'),
+    ('if (checkpoint_players_match() == FALSE)\n\t\treturn;', '', 'restored-dead'),
+    ('!checkpoint_has_living_current_player()', 'FALSE', 'dead-checkpoint'),
+    ('checkpoint_players.living[index] = coop_player_has_living_unit(player);',
+     'checkpoint_players.living[index] = TRUE;', 'dead-checkpoint'),
+    ('error(_error_silent, "co-op: restored checkpoint has no living current player; respawning");\n\tplayers_respawn_at_checkpoint();',
+     '', 'restored-dead'),
     ('!coop_host() || config_boolean("network.coop_late_join")', 'config_boolean("network.coop_late_join")', 'authority'),
     ('config_boolean("network.coop_late_join")', '!config_boolean("network.coop_late_join")', 'policy'),
-    ('if (!game_state_port_saved_game_valid() || !checkpoint_players_match())',
+    ('if (!game_state_port_saved_game_valid() || !checkpoint_players_match() ||\n\t\t!checkpoint_has_living_current_player())',
      'if (FALSE)', 'roster'),
     ('!(main_loss_scripted && network_coop_active())', 'TRUE', 'failure'),
     ('main_loss_scripted = FALSE;', '', 'failure'),

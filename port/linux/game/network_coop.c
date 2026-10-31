@@ -575,6 +575,7 @@ table. A team wipe may rewind only while both still name the saved team. */
 struct coop_checkpoint_players
 {
 	long players[MAXIMUM_TRACKED_PLAYERS];
+	boolean living[MAXIMUM_TRACKED_PLAYERS];
 	long machine_players[HALO_PORT_MAXIMUM_NETWORK_MACHINES][MAXIMUM_LOCAL_PLAYERS];
 	short count;
 	boolean valid;
@@ -585,6 +586,8 @@ static struct coop_checkpoint_players checkpoint_players;
 /* ---------- prototypes */
 
 static void client_play_presentation(void);
+/* players.c */
+void network_player_detach_unit(long player_index);
 /* unit_scripting_commands.c */
 void unit_scripting_set_current_vitality_of(long unit_index, real body_vitality, real shield_vitality);
 /* port_config.c */
@@ -2066,6 +2069,14 @@ void network_coop_new_game(
 	coop_enemies_new_game();
 }
 
+static boolean coop_player_has_living_unit(
+	struct player_datum const *player)
+{
+	struct object_datum *unit = object_try_and_get(player->unit_index);
+
+	return unit && !TEST_FLAG(unit->object.damage_flags, _object_dead_bit);
+}
+
 /* game_state.c calls only after the checkpoint file was written. This
 metadata stays outside the saved image, as the live machine table does. */
 void network_coop_checkpoint_saved(
@@ -2081,6 +2092,7 @@ void network_coop_checkpoint_saved(
 	if (!coop_host())
 		return;
 	csmemset(checkpoint_players.players, NONE, sizeof(checkpoint_players.players));
+	csmemset(checkpoint_players.living, 0, sizeof(checkpoint_players.living));
 	data_iterator_new(&iterator, player_data);
 	while ((player = data_iterator_next(&iterator)) != NULL)
 	{
@@ -2091,6 +2103,7 @@ void network_coop_checkpoint_saved(
 		if (!VALID_INDEX(index, MAXIMUM_TRACKED_PLAYERS))
 			return;
 		checkpoint_players.players[index] = iterator.datum_index;
+		checkpoint_players.living[index] = coop_player_has_living_unit(player);
 		checkpoint_players.count++;
 	}
 	for (machine_index = 0; machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES; machine_index++)
@@ -2120,6 +2133,21 @@ static boolean coop_player_present(
 			if (players[local_player_index] == player_index)
 				return TRUE;
 		}
+	}
+	return FALSE;
+}
+
+/* A surviving machine must restore a living teammate. A valid save may
+contain only dead players besides the teammate who has since left. */
+static boolean checkpoint_has_living_current_player(
+	void)
+{
+	short index;
+
+	for (index = 0; index < MAXIMUM_TRACKED_PLAYERS; index++)
+	{
+		if (checkpoint_players.living[index] && coop_player_present(checkpoint_players.players[index]))
+			return TRUE;
 	}
 	return FALSE;
 }
@@ -2156,6 +2184,38 @@ static boolean checkpoint_players_match(
 		}
 	}
 	return count > 0;
+}
+
+/* Scripted failures and cinematic skips bypass the wipe policy. Recover
+before sending restored objects, or the departed unit's next death can
+latch all_dead with nobody left to respawn. */
+static void coop_respawn_if_no_living_players(
+	void)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+
+	/* Incompatible scripted loads cannot safely spawn saved datums beneath
+	a replacement's live slot. Keep the existing reconciliation guard. */
+	if (checkpoint_players_match() == FALSE)
+		return;
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+	{
+		if (!player->quit_out_of_game && coop_player_present(iterator.datum_index) &&
+			coop_player_has_living_unit(player))
+			return;
+	}
+	/* A save can catch a dead unit before its player is detached. The
+	checkpoint respawn helper only spawns players without a unit. */
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+	{
+		if (!player->quit_out_of_game && coop_player_present(iterator.datum_index) && player->unit_index != NONE)
+			network_player_detach_unit(iterator.datum_index);
+	}
+	error(_error_silent, "co-op: restored checkpoint has no living current player; respawning");
+	players_respawn_at_checkpoint();
 }
 
 /* A load restores player datums, but not the live machine table or the
@@ -2197,9 +2257,10 @@ boolean network_coop_wipe_reverts(
 {
 	if (!coop_host() || config_boolean("network.coop_late_join"))
 		return FALSE;
-	if (!game_state_port_saved_game_valid() || !checkpoint_players_match())
+	if (!game_state_port_saved_game_valid() || !checkpoint_players_match() ||
+		!checkpoint_has_living_current_player())
 	{
-		error(_error_silent, "co-op: team wipe respawns without a revert: no checkpoint with the current players and machines");
+		error(_error_silent, "co-op: team wipe respawns without a revert: no checkpoint with the current players and machines and a living teammate");
 		return FALSE;
 	}
 	return TRUE;
@@ -2883,6 +2944,7 @@ void network_coop_reverted(
 		hs_runtime_port_shift_sleep_times(ticks);
 	}
 	coop_reconcile_departures();
+	coop_respawn_if_no_living_players();
 	network_objects_coop_reverted();
 	/* (the dropships' riders kept are of the game state reverted from) */
 	coop_enemies_reset();
