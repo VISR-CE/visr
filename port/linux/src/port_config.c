@@ -786,7 +786,7 @@ static const struct config_setting config_settings[] =
 		"Draw the menus' and HUD's text with the fonts in port/assets/fonts\n"
 		"(Overpass) at the resolution the game draws at, and the menus' titles\n"
 		"from port/assets/titles; false draws the maps' bitmap fonts and titles." },
-	{ "display.ui_redraw", _config_boolean, "false", "HALO_UI_REDRAW", _environment_value, _platform_all,
+	{ "display.ui_redraw", _config_boolean, "true", "HALO_UI_REDRAW", _environment_value, _platform_all,
 		"Draw the menus' frames, rows and dialogs at the display's resolution,\n"
 		"rebuilt on this device from your copy of the game's menus, and their text\n"
 		"with Overpass. The main menu and the loading screens keep their look." },
