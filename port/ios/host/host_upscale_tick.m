@@ -31,6 +31,13 @@ UIColor *halo_upscale_bar_blue(void) { return [UIColor colorWithRed:0.247 green:
     position=value;self.hidden=value<0;
     [self setNeedsLayout];
 }
+- (CGFloat)minimumBottomSpacing {
+#if TARGET_OS_TV
+    return 10+10+label.font.lineHeight+10;
+#else
+    return 5+6+label.font.lineHeight+6;
+#endif
+}
 - (void)layoutSubviews {
     [super layoutSubviews];
     if(position<0)return;

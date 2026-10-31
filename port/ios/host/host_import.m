@@ -21,7 +21,10 @@
 @property(nonatomic, strong) UIButton *chooseButton;
 @property(nonatomic, strong) UIButton *cancelButton;
 @property(nonatomic, strong) UIButton *retryButton;
-@property(nonatomic, strong) NSLayoutConstraint *actionsCentered,*startCentered;
+@property(nonatomic, strong) UIStackView *stack, *actions;
+@property(nonatomic, strong) UIView *actionArea;
+@property(nonatomic, copy) NSArray *layoutInputs;
+@property(nonatomic, strong) NSLayoutConstraint *iconSize, *statusReserve, *topPadding, *bottomPadding, *actionsWidth;
 @property(atomic) BOOL retryRequested; /* Try Again pressed, read by the import worker */
 @property(nonatomic, strong) UIProgressView *progress;
 @property(nonatomic, strong) HaloUpscaleTick *tick; /* "ready to start" on the upscaling bar */
@@ -126,11 +129,9 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
         if(!controller.cancelButton.configuration||![controller.cancelButton.configuration.title isEqual:@"Start playing"])start_playing_style(controller.cancelButton);
         controller.cancelButton.hidden=NO;controller.cancelButton.alpha=menu_phase?0:1;
         controller.cancelButton.enabled=!menu_phase&&!controller.cancelled;controller.cancelButton.accessibilityElementsHidden=menu_phase;
-        if((message!=nil)!=controller.actionsCentered.active){
-            controller.startCentered.active=NO;controller.actionsCentered.active=NO;
-            if(message)controller.actionsCentered.active=YES;else controller.startCentered.active=YES;
-        }
+        controller.retryButton.hidden=message==nil;
         controller.retryButton.alpha=message?1:0;controller.retryButton.accessibilityElementsHidden=!message;
+        [controller.view setNeedsLayout];
         controller.retryButton.enabled=can_retry&&!requested&&!controller.cancelled&&!controller.retryRequested;
     });return action;
 }
@@ -143,18 +144,22 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     UIScrollView *scroll=[UIScrollView new];scroll.translatesAutoresizingMaskIntoConstraints=NO;
     [self.view addSubview:scroll];
     UIView *content=[UIView new];content.translatesAutoresizingMaskIntoConstraints=NO;[scroll addSubview:content];
-    UIStackView *stack=[UIStackView new];stack.axis=UILayoutConstraintAxisVertical;stack.spacing=14;
+    UIStackView *stack=[UIStackView new];self.stack=stack;stack.axis=UILayoutConstraintAxisVertical;stack.spacing=14;
     stack.alignment=UIStackViewAlignmentCenter;stack.translatesAutoresizingMaskIntoConstraints=NO;[content addSubview:stack];
     UIImageView *icon=[[UIImageView alloc] initWithImage:[UIImage imageNamed:@"AppIcon60x60"]];
     icon.contentMode=UIViewContentModeScaleAspectFill;icon.clipsToBounds=YES;icon.layer.cornerRadius=16;
-    [icon.widthAnchor constraintEqualToConstant:72].active=YES;[icon.heightAnchor constraintEqualToConstant:72].active=YES;
+    self.iconSize=[icon.heightAnchor constraintEqualToConstant:72];self.iconSize.active=YES;
+    [icon.widthAnchor constraintEqualToAnchor:icon.heightAnchor].active=YES;
     /* visionOS's layered icon has no AppIcon60x60 image */
     if(icon.image)[stack addArrangedSubview:icon];
     UILabel *title=[UILabel new];title.text=@"VISR";title.font=[UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];
-    title.adjustsFontForContentSizeCategory=YES;title.textAlignment=NSTextAlignmentCenter;[stack addArrangedSubview:title];
+    title.adjustsFontForContentSizeCategory=YES;title.numberOfLines=0;
+    title.textAlignment=NSTextAlignmentCenter;[stack addArrangedSubview:title];
+    [title.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active=YES;
     UILabel *body=[UILabel new];self.introLabel=body;body.text=@"Choose your own Halo: Combat Evolved Xbox XISO.\nWe'll import the game and start it for you.";
     body.font=[UIFont preferredFontForTextStyle:UIFontTextStyleBody];body.adjustsFontForContentSizeCategory=YES;
     body.numberOfLines=0;body.textAlignment=NSTextAlignmentCenter;body.textColor=UIColor.secondaryLabelColor;[stack addArrangedSubview:body];
+    [body.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active=YES;
     self.chooseButton=[UIButton buttonWithType:UIButtonTypeSystem];
     UIButtonConfiguration *style=UIButtonConfiguration.filledButtonConfiguration;
     style.title=@"Choose XISO";style.baseBackgroundColor=[UIColor colorWithRed:0.36 green:0.65 blue:0.31 alpha:1];
@@ -166,9 +171,10 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.statusLabel.adjustsFontForContentSizeCategory=YES;self.statusLabel.numberOfLines=0;self.statusLabel.textAlignment=NSTextAlignmentCenter;
     self.statusLabel.text=@"Original Xbox PAL or NTSC-US · .iso or .xiso\nNo game files are included.";
     self.statusLabel.accessibilityIdentifier=@"importStatus";[stack addArrangedSubview:self.statusLabel];
-    /* Reserve the refusal message and detail lines before either state is shown. */
+    /* Keep space for refusal details when it fits; longer text must retain its intrinsic height. */
     [self.statusLabel.widthAnchor constraintEqualToAnchor:stack.widthAnchor].active=YES;
-    [self.statusLabel.heightAnchor constraintEqualToConstant:MAX(96,self.statusLabel.font.lineHeight*4)].active=YES;
+    self.statusReserve=[self.statusLabel.heightAnchor constraintGreaterThanOrEqualToConstant:96];
+    self.statusReserve.active=YES;
     self.spinner=[[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner.hidesWhenStopped=YES;[stack addArrangedSubview:self.spinner];
     self.progress=[[UIProgressView alloc] initWithProgressViewStyle:UIProgressViewStyleDefault];self.progress.hidden=YES;
@@ -184,40 +190,83 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     UIButtonConfiguration *retryStyle=UIButtonConfiguration.borderedButtonConfiguration;
     retryStyle.title=@"Try Again";retryStyle.cornerStyle=UIButtonConfigurationCornerStyleLarge;
     retryStyle.contentInsets=NSDirectionalEdgeInsetsMake(14,16,14,16);self.retryButton.configuration=retryStyle;
-    self.retryButton.alpha=0;self.retryButton.enabled=NO;self.retryButton.accessibilityElementsHidden=YES;
+    self.retryButton.hidden=YES;self.retryButton.alpha=0;self.retryButton.enabled=NO;self.retryButton.accessibilityElementsHidden=YES;
     self.retryButton.accessibilityIdentifier=@"retryUpscale";
     [self.retryButton addTarget:self action:@selector(retryUpscale) forControlEvents:UIControlEventTouchUpInside];
     /* Only the transition into a refusal changes the action alignment; notes keep the same constraints. */
-    UIView *actionArea=[UIView new];[stack addArrangedSubview:actionArea];
+    UIView *actionArea=[UIView new];self.actionArea=actionArea;[stack addArrangedSubview:actionArea];
     UIStackView *actions=[[UIStackView alloc] initWithArrangedSubviews:@[self.retryButton,self.cancelButton]];
-    actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=12;actions.alignment=UIStackViewAlignmentFill;
+    self.actions=actions;actions.axis=UILayoutConstraintAxisHorizontal;actions.spacing=12;actions.alignment=UIStackViewAlignmentFill;
     actions.translatesAutoresizingMaskIntoConstraints=NO;[actionArea addSubview:actions];
-    self.actionsCentered=[actions.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor];
-    self.startCentered=[self.cancelButton.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor];
-    self.startCentered.active=YES;
+    self.actionsWidth=[actions.widthAnchor constraintEqualToAnchor:actionArea.widthAnchor];
     [NSLayoutConstraint activateConstraints:@[
         [actionArea.widthAnchor constraintEqualToAnchor:stack.widthAnchor],
+        [actions.centerXAnchor constraintEqualToAnchor:actionArea.centerXAnchor],
+        [actions.widthAnchor constraintLessThanOrEqualToAnchor:actionArea.widthAnchor],
         [actions.topAnchor constraintEqualToAnchor:actionArea.topAnchor],
-        [actions.bottomAnchor constraintEqualToAnchor:actionArea.bottomAnchor],
-        [self.retryButton.heightAnchor constraintEqualToAnchor:self.cancelButton.heightAnchor]]];
+        [actions.bottomAnchor constraintEqualToAnchor:actionArea.bottomAnchor]]];
+    for(UILabel *label in @[title,body,self.statusLabel])
+        [label setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisVertical];
+    for(UIButton *button in @[self.chooseButton,self.cancelButton,self.retryButton]){
+        button.titleLabel.numberOfLines=0;button.titleLabel.textAlignment=NSTextAlignmentCenter;
+        NSLayoutConstraint *height=[button.heightAnchor constraintGreaterThanOrEqualToConstant:44];
+        height.priority=999;height.active=YES;
+        [button.widthAnchor constraintLessThanOrEqualToAnchor:stack.widthAnchor].active=YES;
+        [button setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisVertical];
+    }
 #if TARGET_OS_MACCATALYST
-    self.statusLabel.lineBreakMode=NSLineBreakByClipping;
     CGFloat maximumWidth=640;
 #else
     CGFloat maximumWidth=520;
 #endif
     NSLayoutConstraint *width=[stack.widthAnchor constraintEqualToAnchor:content.widthAnchor constant:-48];width.priority=999;
+    self.topPadding=[stack.topAnchor constraintGreaterThanOrEqualToAnchor:content.topAnchor constant:24];
+    self.bottomPadding=[stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-24];
     [NSLayoutConstraint activateConstraints:@[
         [scroll.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor],
         [scroll.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor],
-        [scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],[scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
+        [scroll.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor],[scroll.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor],
         [content.topAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.topAnchor],[content.bottomAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.bottomAnchor],
         [content.leadingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.leadingAnchor],[content.trailingAnchor constraintEqualToAnchor:scroll.contentLayoutGuide.trailingAnchor],
         [content.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor],[content.heightAnchor constraintGreaterThanOrEqualToAnchor:scroll.frameLayoutGuide.heightAnchor],
         [stack.centerXAnchor constraintEqualToAnchor:content.centerXAnchor],[stack.centerYAnchor constraintEqualToAnchor:content.centerYAnchor],
-        [stack.topAnchor constraintGreaterThanOrEqualToAnchor:content.topAnchor constant:24],
-        [stack.bottomAnchor constraintLessThanOrEqualToAnchor:content.bottomAnchor constant:-24],
+        self.topPadding,self.bottomPadding,
         [stack.widthAnchor constraintLessThanOrEqualToConstant:maximumWidth],width]];
+}
+/* Fit the same centered stack before growing the scroll content for accessibility text. Measuring the actual
+   labels also handles multiline storage refusals and the button's change from Cancel import to Start playing. */
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    CGFloat width=MAX(1,self.stack.bounds.size.width);
+    CGFloat available=self.view.safeAreaLayoutGuide.layoutFrame.size.height;
+    NSArray *inputs=@[@(width),@(available),self.traitCollection.preferredContentSizeCategory,
+        self.statusLabel.attributedText?:[[NSAttributedString alloc] initWithString:self.statusLabel.text?:@""],
+        @(self.chooseButton.hidden),@(self.introLabel.hidden),@(self.spinner.hidden),@(self.progress.hidden),
+        @(self.cancelButton.hidden),@(self.retryButton.hidden),
+        self.cancelButton.configuration.title?:[self.cancelButton titleForState:UIControlStateNormal]?:@""];
+    if([inputs isEqual:self.layoutInputs])return;
+    self.layoutInputs=inputs;
+    self.actionArea.hidden=self.cancelButton.hidden&&self.retryButton.hidden;
+    CGFloat actionWidth=0;NSUInteger visible=0;
+    for(UIButton *button in self.actions.arrangedSubviews){
+        if(button.hidden)continue;
+        actionWidth+=[button sizeThatFits:CGSizeMake(CGFLOAT_MAX,CGFLOAT_MAX)].width;visible++;
+    }
+    if(visible>1)actionWidth+=12;
+    BOOL vertical=actionWidth>width;
+    self.actions.axis=vertical?UILayoutConstraintAxisVertical:UILayoutConstraintAxisHorizontal;
+    self.actionsWidth.active=vertical;
+    self.stack.spacing=14;self.iconSize.constant=72;self.statusReserve.constant=96;
+    CGFloat tickSpacing=[self.tick minimumBottomSpacing];
+    [self.stack setCustomSpacing:MAX(34,tickSpacing) afterView:self.progress];
+    CGFloat height=[self.stack systemLayoutSizeFittingSize:CGSizeMake(width,UILayoutFittingCompressedSize.height)
+        withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel].height;
+    BOOL compact=height+48>available;
+    if(compact){
+        self.stack.spacing=6;self.iconSize.constant=40;self.statusReserve.constant=0;
+        [self.stack setCustomSpacing:tickSpacing afterView:self.progress];
+    }
+    self.topPadding.constant=compact?8:24;self.bottomPadding.constant=compact?-8:-24;
 }
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];

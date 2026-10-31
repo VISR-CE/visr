@@ -8,6 +8,8 @@
 + (instancetype)tickOnBar:(UIProgressView *)bar;
 /* position: 0 to 1 along the bar, or negative to hide the mark (not known yet) */
 - (void)setPosition:(double)position;
+/* Space below the bar, including Dynamic Type's label and a gap before the next control. */
+- (CGFloat)minimumBottomSpacing;
 @end
 
 /* the bar's blue when the upscaling phase may be skipped (the HUD's blue) */
