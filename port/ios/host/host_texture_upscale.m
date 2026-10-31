@@ -26,6 +26,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include "menu_picture_trace.h"
 #include "menu_background_redraw.h"
 #include "menu_picture_redraw.h"
+#include "menu_difficulty.h"
 #include "texture_upscale_big.h"
 #include "loading_picture_upscaled.h"
 #include <sys/stat.h>
@@ -278,7 +279,7 @@ static struct texture_recipe_globals recipe_globals(void) {
     const struct texture_policy_table *policy=&texture_policy_embedded;
     return (struct texture_recipe_globals){.model_id="S4g: PBRify SPAN V4 per channel",
         .model_sha256="d1f1fa1af7a5ab23fcf143e75aac4951e6c52d56bf77d9ccd4d004a4831d0461",.pipeline_version={1,1,1,1,1,1},
-        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=5,
+        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=6,
         .encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
         .damage_bpf_structure_loss=policy->damage_bpf_structure_loss,.damage_measure_version=(uint32_t)policy->damage_measure_version};
 }
@@ -414,7 +415,7 @@ static unsigned encoder_threads(void) {
 /* The pump and the finisher are long-lived blocks, so the priority they were queued at is not the priority to keep:
    each texture sets its thread's again from whether a wait is on screen now (texture_upscale_priority.h). */
 static void follow_priority(void) { pthread_set_qos_class_self_np(texture_upscale_priority_qos(atomic_load(&urgent)),0); }
-struct generation_context { const struct texture_policy_decision *decision; BOOL found,failed; };
+struct generation_context { const struct texture_policy_decision *decision; BOOL found,failed; const uint8_t *const *difficulty; };
 static int generate_source(void *opaque,const struct host_texture_source *source) {
     struct generation_context *context=opaque;const struct texture_policy_decision *d=context->decision;
     if(source->hash!=d->hash||source->width!=d->width||source->height!=d->height)return !atomic_load(&upscale_playing);
@@ -462,11 +463,16 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     /* The walk's source is valid only during this call; the job keeps its own copy until the finisher is done. */
     size_t source_bytes=0;
     {uint32_t w=d->width,h=d->height;for(unsigned i=0;i<source->level_count;i++){source_bytes+=(size_t)w*h*4;w=MAX(1u,w/2);h=MAX(1u,h/2);}}
-    uint8_t *owned=texture_upscale_big_alloc(source_bytes?source_bytes:1);struct texture_upscale_rgba_level *levels=calloc(source->level_count?source->level_count:1,sizeof(*levels));
+    int difficulty=menu_difficulty_source(source->rgba,d->width,d->height);
+    const uint8_t *matching=difficulty>=0&&context->difficulty?context->difficulty[difficulty]:NULL;
+    size_t companion_bytes=matching?256u*256u*4u:0;
+    uint8_t *owned=texture_upscale_big_alloc(source_bytes+companion_bytes?source_bytes+companion_bytes:1);struct texture_upscale_rgba_level *levels=calloc(source->level_count?source->level_count:1,sizeof(*levels));
     if(!owned||!levels){texture_upscale_big_free(owned);free(levels);log_texture_error(d,"generate","could not copy the source levels",0);context->failed=YES;return 0;}
     {uint32_t w=d->width,h=d->height;size_t offset=0;
         for(unsigned i=0;i<source->level_count;i++){memcpy(owned+offset,source->rgba+source->level_offsets[i],(size_t)w*h*4);
             levels[i]=(struct texture_upscale_rgba_level){owned+offset,w,h};offset+=(size_t)w*h*4;w=MAX(1u,w/2);h=MAX(1u,h/2);}}
+    const uint8_t *large=companion_bytes?owned+source_bytes:NULL;
+    if(large)memcpy((uint8_t *)large,matching,companion_bytes);
     struct texture_upscale_generate_input input={*d,policy,levels,source->level_count,alpha,d->wrap,dilate,d->pinned};
     char error[512]={0};double start=now();
     dispatch_group_enter(work_group);
@@ -550,6 +556,17 @@ static int generate_source(void *opaque,const struct host_texture_source *source
                 if(drawn<0)break;
             }
         }
+        if(large&&output.result==TEXTURE_POLICY_S4G) {
+            for(unsigned level=0;level<output.level_count;level++) {
+                unsigned scale=output.levels[level].width/d->width;
+                if(scale!=2&&scale!=4)continue;
+                double made=now();
+                int replaced=menu_difficulty_replace(owned,large,(uint8_t *)output.levels[level].pixels,scale,&stop_flag);
+                host_logf(HOST_LOG_INFO,"Menu difficulty %016llx %ux: %s, %.6f s",
+                    (unsigned long long)d->hash,scale,replaced>0?"complete":replaced<0?"stopped":"plain S4g",now()-made);
+                if(replaced<0)break;
+            }
+        }
         if(stop_flag){texture_upscale_generate_free_output(&output);texture_upscale_big_free(owned);free(levels);finisher_estimate=0;return;}
         struct texture_upscale_encode_metrics metrics={0};void *bytes=NULL;size_t size=0;double encode_start=now();
         enum texture_upscale_encode_result encoded=TEXTURE_UPSCALE_ENCODE_OK;
@@ -612,7 +629,19 @@ static BOOL thermal_may_run(void) {
     if(state<=NSProcessInfoThermalStateFair)atomic_store(&thermal_blocked,false);
     return !atomic_load(&thermal_blocked);
 }
-struct map_generation_context { unsigned serial; BOOL failed; };
+struct map_generation_context { unsigned serial; BOOL failed; uint8_t *difficulty[4]; };
+/* A separate bounded walk makes companion selection independent of bitmap order. Only
+   the menu map needs it; no extracted pixels survive this map's finisher jobs. */
+static int collect_difficulty(void *opaque,const struct host_texture_source *source) {
+    struct map_generation_context *map=opaque;
+    if(stop_flag||!thermal_may_run()||map->serial!=atomic_load(&priority_serial)||atomic_load(&scan_pending))return 0;
+    int index=menu_difficulty_large_source(source->rgba,source->width,source->height);
+    if(index>=0&&!map->difficulty[index]) {
+        map->difficulty[index]=malloc(256u*256u*4u);
+        if(map->difficulty[index])memcpy(map->difficulty[index],source->rgba,256u*256u*4u);
+    }
+    return 1;
+}
 static int generate_map_source(void *opaque,const struct host_texture_source *source) {
     struct map_generation_context *map=opaque;
     if(atomic_load(&finisher_failed)){map->failed=YES;return 0;}
@@ -621,7 +650,7 @@ static int generate_map_source(void *opaque,const struct host_texture_source *so
     if(!slot||[pass_hashes containsObject:name])return 1;
     const struct texture_policy_decision *decision=&decisions[slot.unsignedLongLongValue];
     if(decision->result==TEXTURE_POLICY_ORIGINAL)return 1;
-    struct generation_context context={decision,NO,NO};generate_source(&context,source);
+    struct generation_context context={decision,NO,NO,(const uint8_t *const *)map->difficulty};generate_source(&context,source);
     map->failed=context.failed;
     if(!context.failed)[pass_hashes addObject:name];
     return !map->failed&&!atomic_load(&upscale_playing)&&thermal_may_run()&&!atomic_load(&scan_pending)&&map->serial==atomic_load(&priority_serial);
@@ -779,8 +808,15 @@ static void pump(void) {
            once preserves shape grouping without inflating it for each texture. */
         for(NSString *path in ordered){@autoreleasepool {
             if(serial!=atomic_load(&priority_serial)||atomic_load(&scan_pending)||atomic_load(&upscale_playing)||!thermal_may_run()){complete=NO;break;}
-            struct map_generation_context context={serial,NO};
+            struct map_generation_context context={.serial=serial};
+            if([map_base(path) isEqualToString:@"ui"]) {
+                double began=now();
+                int collected=host_texture_source_walk_map(path.fileSystemRepresentation,collect_difficulty,&context);
+                if(collected!=1)for(unsigned i=0;i<4;i++){free(context.difficulty[i]);context.difficulty[i]=NULL;}
+                host_logf(HOST_LOG_INFO,"Menu difficulty companion scan: %.6f s",now()-began);
+            }
             int result=host_texture_source_walk_map(path.fileSystemRepresentation,generate_map_source,&context);
+            for(unsigned i=0;i<4;i++)free(context.difficulty[i]);
             if(result<0)host_logf(HOST_LOG_WARN,"Upscale: malformed source map");
             if(result!=1||context.failed){complete=NO;break;}
             /* the level being loaded is done once its last texture is encoded */

@@ -191,7 +191,7 @@ target_sources(VISR PRIVATE "${ROOT}/port/linux/src/astc_encode.cpp"
     "${ROOT}/port/linux/src/astc_rewrite.c" "${ROOT}/port/runtime/astc_store.c"
     host/host_astc_store.m host/host_astc_texture.c)
 target_sources(VISR PRIVATE host/host_quit_signals.c host/host_texture_upscale.m host/host_texture_upscale_continued.m host/texture_upscale_generate.m host/texture_upscale_pixels.c
-    host/texture_refine_bounded.c host/menu_picture_trace.c host/menu_picture_shapes.c host/menu_picture_redraw.m host/menu_background_redraw.c host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
+    host/texture_refine_bounded.c host/menu_picture_trace.c host/menu_picture_shapes.c host/menu_picture_redraw.m host/menu_background_redraw.c host/menu_difficulty.c host/host_texture_record.c host/texture_upscale_encode.cpp "${ROOT}/port/third_party/bc7enc/bc7enc.cpp"
     "${ROOT}/port/third_party/bc7enc16/bc7decomp.c")
 target_include_directories(VISR PRIVATE "${ROOT}/port/third_party/bc7enc" "${ROOT}/port/third_party/bc7enc16")
 target_link_libraries(VISR PRIVATE "-framework Accelerate")

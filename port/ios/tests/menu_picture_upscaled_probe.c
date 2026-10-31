@@ -1,4 +1,4 @@
-/* Apache-2.0. Menu photographs use bpf; logos, difficulty icons and marines keep raw S4g. */
+/* Apache-2.0. Menu photographs use bpf; logos, difficulty frames and marines start with S4g. */
 #include "texture_policy.h"
 #include "menu_picture_upscaled.h"
 #include <assert.h>

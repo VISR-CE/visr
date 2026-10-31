@@ -748,7 +748,7 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/runtime', '
     'port/ios/tests/texture_policy_probe.c', 'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c',
     '-lz', '-o', BUILD/'texture-policy-probe')
 run(BUILD/'texture-policy-probe')
-# Menu photographs keep 4x bpf; logos, marines and uncompressed difficulty icons keep raw S4g.
+# Menu photographs keep 4x bpf; logos, marines and difficulty frames start with S4g.
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/runtime',
     '--include-directory=port/linux/src', 'port/ios/tests/menu_picture_upscaled_probe.c',
     'port/runtime/texture_policy.c', BUILD/'texture_policy_table.c', '-lz', '--output', BUILD/'menu-picture-upscaled-probe')
@@ -763,6 +763,11 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-director
     'port/ios/tests/menu_background_redraw_probe.c', 'port/ios/host/menu_background_redraw.c',
     '--output', BUILD/'menu-background-redraw-probe')
 run(BUILD/'menu-background-redraw-probe')
+# Large difficulty frames replace small icons only when both decoded sources match.
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '--include-directory=port/ios/host', 'port/ios/tests/menu_difficulty_probe.c',
+    'port/ios/host/menu_difficulty.c', '-lm', '--output', BUILD/'menu-difficulty-probe')
+run(BUILD/'menu-difficulty-probe')
 # Authored art never replaces an unknown player's source; missing resources preserve bpf.
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fsanitize=address,undefined',
     '--include-directory=port/ios/host', 'port/ios/tests/menu_picture_redraw_probe.m',
