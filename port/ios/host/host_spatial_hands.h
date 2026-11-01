@@ -34,11 +34,13 @@ Objective-C and no host_logf: the caller logs the events this returns. */
 
 /* a pinch's hysteresis, meters: closes below CLOSE, opens above OPEN and
 holds whatever it had in between. Both are to be felt on device and are the
-first thing to tune here: they want to be loose enough that the press lands
-while the fingers are still closing, since the thumb and the fingertip ARKit
-reports stop short of where they look */
-#define HANDS_PINCH_CLOSE_METERS 0.025f
-#define HANDS_PINCH_OPEN_METERS 0.035f
+first thing to tune here: 0.015 / 0.025 read late to a player closing the
+pinch deliberately, and 0.025 / 0.035 fired on its own from a merely relaxed
+hand, so CLOSE sits between the two and OPEN is widened further still, to
+make a false trigger from an unintentional near-pinch the harder of the two
+mistakes to make */
+#define HANDS_PINCH_CLOSE_METERS 0.018f
+#define HANDS_PINCH_OPEN_METERS 0.030f
 /* how long a whole hand may go untracked before it counts as gone, seconds.
 Inside this gap every pinch of that hand holds its state and the controls
 those pinches drive hold with it, so a single sample in which ARKit loses the

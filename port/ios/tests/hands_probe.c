@@ -116,9 +116,9 @@ static void pinch_hysteresis(void)
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].hand == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX && events[0].on == 1, "pinch: one pinch-on event for the index");
 
-	joints[1].tip[1][2] = 0.030f; /* 3.0 cm: inside the hysteresis band, no change */
+	joints[1].tip[1][2] = 0.024f; /* 2.4 cm: inside the hysteresis band, no change */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "pinch: 3.0 cm still closed (hysteresis)");
+	check(controls[1].trigger == 1.0f, "pinch: 2.4 cm still closed (hysteresis)");
 	check(count == 0, "pinch: no event inside the hysteresis band");
 
 	joints[1].tip[1][2] = 0.040f; /* 4.0 cm: opens */
@@ -248,7 +248,7 @@ static void pinch_closes_when_the_tip_returns(void)
 		"tip returns closed: the gap's end, then the press it was holding up");
 }
 
-/* a tip that drops out at 2 cm from the thumb, inside the closed band, and comes back at 6 cm:
+/* a tip that drops out at 1.2 cm from the thumb, inside the closed band, and comes back at 6 cm:
 the carry holds the pinch closed through the gap, and the live reading opens it on the sample it
 returns, so a finger that really did move while invisible is corrected at once */
 static void pinch_opens_when_the_tip_returns_apart(void)
@@ -263,9 +263,9 @@ static void pinch_opens_when_the_tip_returns_apart(void)
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
-	joints[1].tip[1][2] = 0.020f; /* 2.0 cm: under CLOSE, so the pinch is closed */
+	joints[1].tip[1][2] = 0.012f; /* 1.2 cm: under CLOSE, so the pinch is closed */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "tip returns apart: starts closed at 2 cm");
+	check(controls[1].trigger == 1.0f, "tip returns apart: starts closed at 1.2 cm");
 
 	joints[1].tip_tracked[1] = 0;
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
@@ -440,7 +440,7 @@ static void aim_turn_silent_in_a_hand_gap(void)
 
 /* the off hand's index pinch moves the stick forward, middle back (index wins when both are
 closed), ring clicks the stick; the gun hand's index fires, ring is the low face button and
-middle is the high face button */
+middle is the high face button. Both hands' little fingers stay unbound */
 static void off_hand_mapping(void)
 {
 	struct hands_state state;
