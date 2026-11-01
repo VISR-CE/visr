@@ -24,6 +24,7 @@ boolean virtual_keyboard_initialize(
 	void);
 void virtual_keyboard_dispose(
 	void);
+void virtual_keyboard_set_controller_context(short controller_index);
 boolean virtual_keyboard_launch(
 	wchar_t *text_buffer,
 	word buffer_size,

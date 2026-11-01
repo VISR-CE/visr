@@ -2018,6 +2018,17 @@
             "desktop"
           ]
         },
+        "controller_glyph_family": {
+          "type": "string",
+          "default": "",
+          "description": "Development capture override by controller port, comma-separated: xbox, playstation, switch, mfi, keyboard, touch, missing.",
+          "x-environment": "HALO_CONTROLLER_GLYPH_FAMILY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "test_input": {
           "type": "string",
           "default": "",

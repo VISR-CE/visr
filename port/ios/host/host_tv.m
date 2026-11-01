@@ -156,6 +156,9 @@ int host_ios_gamepads(uint32_t *out,int capacity) {
 #endif
     SDL_free(ids);return used;
 }
+SDL_Gamepad *host_ios_gamepad_physical(SDL_Gamepad *pad) {
+    return SDL_GetGamepadID(pad)==remote_id ? (primary_hardware?SDL_GetGamepadFromID(primary_hardware):NULL) : pad;
+}
 int host_ios_gamepad_type(SDL_Gamepad *pad) {
     SDL_Gamepad *physical=primary_hardware?SDL_GetGamepadFromID(primary_hardware):NULL;
     if(SDL_GetGamepadID(pad)!=remote_id)return SDL_GetGamepadType(pad);

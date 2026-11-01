@@ -141,6 +141,8 @@ int host_spatial_sense_menus_held(void);
 int host_spatial_owns_sense_controllers(void);
 int host_sdl_controller_aim_owns(uint32_t id);
 int host_ios_gamepad_type(struct SDL_Gamepad *pad);
+/* The physical pad merged behind touch/remote, or NULL for touch alone. */
+struct SDL_Gamepad *host_ios_gamepad_physical(struct SDL_Gamepad *pad);
 int host_ios_gamepad_axis(struct SDL_Gamepad *pad, int axis);
 int host_ios_gamepad_button(struct SDL_Gamepad *pad, int button);
 int host_linux_errno(int native_errno);

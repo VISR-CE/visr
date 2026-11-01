@@ -3037,6 +3037,7 @@ static int ui_pointer_geometry(struct halo_ui_pointer_geometry *g, int window_wi
 /* the host's fingers and pointer devices (halo_host_pointer.h, guest_sdl.c) */
 void halo_host_pointer_read(struct host_ui_pointer *pointer);
 void halo_host_pointer_feedback(int kind);
+void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer);
 
 /* a point on the host's surface (points) in the menus' coordinates: the
 surface's aspect is all that matters, so it stands for both the window and
@@ -3072,10 +3073,12 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		host_sdl_set_hint("VISR_MENU_ACTIVE", menu_up ? "1" : "0");
 	}
 	platform_menus_set_active(menus_active != 0);
+	halo_controller_glyph_pointer_activity(menus_active, NULL);
 	if (!menus_active)
 		return 0;
 	memset(&host, 0, sizeof(host));
 	halo_host_pointer_read(&host);
+	halo_controller_glyph_pointer_activity(menus_active, &host);
 	/* (no host source: the menus have no pointer, as on the Apple TV) */
 	if (!host.active)
 		return 0;

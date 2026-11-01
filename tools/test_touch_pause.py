@@ -16,11 +16,14 @@ def test_paused_touch_input_and_shared_hardware():
         start = source.index("int host_ios_gamepad_axis(")
     end = source.index("\nvoid host_ios_touch_reset(", start)
     reader = source[start:end]
+    glyph_state = next(line for line in source.splitlines()
+                       if line.startswith("static atomic_int glyph_touch_active"))
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
         raise SkipTest("A C compiler is required for the touch pause probe")
     harness = r'''
 #include <assert.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include "host_touch_replay.h"
@@ -31,6 +34,7 @@ enum { SDL_GAMEPAD_BUTTON_SOUTH, SDL_GAMEPAD_BUTTON_EAST, SDL_GAMEPAD_BUTTON_WES
        SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, SDL_GAMEPAD_BUTTON_DPAD_UP, SDL_GAMEPAD_BUTTON_DPAD_DOWN,
        SDL_GAMEPAD_BUTTON_DPAD_LEFT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT, SDL_GAMEPAD_BUTTON_COUNT };
 static int pause_pending;
+__GLYPH_STATE__
 enum { SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, SDL_GAMEPAD_AXIS_RIGHTX,
        SDL_GAMEPAD_AXIS_RIGHTY, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER };
 static struct host_touch_replay_gate replay_gate;
@@ -60,6 +64,7 @@ int main(void) {
         assert(host_ios_gamepad_axis(&touch, axis) == hardware.axes[axis]);
         assert(host_ios_gamepad_axis(&hardware, axis) == hardware.axes[axis]);
     }
+    assert(atomic_load(&glyph_touch_active) == 0);
     paused = 0; primary_hardware = 0;
     for (int axis = 0; axis < 6; axis++)
         assert(host_ios_gamepad_axis(&touch, axis) == touch.axes[axis]);
@@ -98,7 +103,7 @@ int main(void) {
     with tempfile.TemporaryDirectory(prefix="touch-pause-") as temporary:
         probe = Path(temporary) / "touch_pause.c"
         executable = Path(temporary) / "touch_pause"
-        probe.write_text(harness.replace("__READER__", reader))
+        probe.write_text(harness.replace("__READER__", reader).replace("__GLYPH_STATE__", glyph_state))
         subprocess.run([compiler, "-O2", "-Wall", "-Wextra", "-Werror", "-I" + str(ROOT / "port/ios/host"),
                         str(probe), "-o", str(executable)], check=True)
         subprocess.run([str(executable)], check=True)

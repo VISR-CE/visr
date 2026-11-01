@@ -22,12 +22,16 @@ static int pause_pending;
 void host_ios_touch_pause(void) { if (!host_touch_replay_blocked(&replay_gate)) pause_pending=1; }
 static SDL_Joystick *touch_joystick;
 static SDL_JoystickID touch_id, primary_hardware;
+static atomic_int glyph_touch_active = 1;
 
 static void button_state(int button, BOOL down) {
+    if(down)atomic_store(&glyph_touch_active,1);
     if(touch_joystick) SDL_SetJoystickVirtualButton(touch_joystick,button,
         host_touch_replay_blocked(&replay_gate)?NO:down);
 }
 static void axis_state(int axis, float value) {
+    if((axis<SDL_GAMEPAD_AXIS_LEFT_TRIGGER && fabsf(value)>.27f) ||
+        (axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && value>0))atomic_store(&glyph_touch_active,1);
     if(host_touch_replay_blocked(&replay_gate))value=axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER?-1:0;
     if(touch_joystick) SDL_SetJoystickVirtualAxis(touch_joystick,axis,(Sint16)(fmaxf(-1,fminf(1,value))*32767));
 }
@@ -48,6 +52,7 @@ void host_ios_touch_initialize(void) {
 }
 int host_ios_gamepads(uint32_t *out,int capacity) {
     int count=0,used=0;SDL_JoystickID *ids=SDL_GetGamepads(&count);
+    SDL_JoystickID previous_hardware=primary_hardware;
     primary_hardware=0;
     if(capacity>0 && touch_id)out[used++]=touch_id;
     for(int i=0;i<count;i++) {
@@ -57,7 +62,12 @@ int host_ios_gamepads(uint32_t *out,int capacity) {
             if(!SDL_GetGamepadFromID(ids[i]))SDL_OpenGamepad(ids[i]);
         } else if(used<capacity) out[used++]=ids[i];
     }
+    if(previous_hardware!=primary_hardware)atomic_store(&glyph_touch_active,primary_hardware?0:1);
     SDL_free(ids);return used;
+}
+SDL_Gamepad *host_ios_gamepad_physical(SDL_Gamepad *pad) {
+    return SDL_GetGamepadID(pad)==touch_id ?
+        (primary_hardware && !atomic_load(&glyph_touch_active)?SDL_GetGamepadFromID(primary_hardware):NULL) : pad;
 }
 int host_ios_gamepad_type(SDL_Gamepad *pad) {
     /* Keep the shared touch/hardware controller in the first recognized port. */
@@ -83,11 +93,14 @@ int host_ios_gamepad_axis(SDL_Gamepad *pad,int axis) {
         value=0;
     if(SDL_GetGamepadID(pad)==touch_id && primary_hardware) {
         int physical=SDL_GetGamepadAxis(SDL_GetGamepadFromID(primary_hardware),axis);
+        if(abs(physical)>9000)atomic_store(&glyph_touch_active,0);
         if(abs(physical)>abs(value))value=physical;
     }
     return value;
 }
 int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
+    if(SDL_GetGamepadID(pad)==touch_id && primary_hardware &&
+        SDL_GetGamepadButton(SDL_GetGamepadFromID(primary_hardware),button))atomic_store(&glyph_touch_active,0);
     if(button==SDL_GAMEPAD_BUTTON_START && SDL_GetGamepadID(pad)==touch_id && pause_pending && !host_touch_replay_blocked(&replay_gate)) {
         pause_pending=0;return 1;
     }

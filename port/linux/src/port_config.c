@@ -1358,6 +1358,8 @@ static const struct config_setting config_settings[] =
 		"Seconds after the start before anything is damaged, so that a game can\n"
 		"be set up and started first (a host's messages to its own client are\n"
 		"damaged too)." },
+	{ "debug.controller_glyph_family", _config_string, "\"\"", "HALO_CONTROLLER_GLYPH_FAMILY", _environment_value, _platform_all,
+		"Development capture override by controller port, comma-separated: xbox, playstation, switch, mfi, keyboard, touch, missing." },
 	{ "debug.test_input", _config_string, "\"\"", "HALO_TEST_INPUT", _environment_value, _platform_all,
 		"\"bot:<seed>\" plays controller 1 with a scripted pattern (automated\n"
 		"network tests); \"look:<seed>\" stands still, only turning and looking\n"

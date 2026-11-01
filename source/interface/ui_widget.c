@@ -685,6 +685,9 @@ long ui_redraw_touch_target_units(void);
 #include "text/text_group.h"
 #include "text/unicode.h"
 #include "ui_widget.h"
+#include "interface/controller_glyphs.h"
+#include "halo_controller_glyphs.h"
+#include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 
 /* ---------- constants */
 
@@ -1313,7 +1316,8 @@ static void render_state_bitmap(
 	rectangle2d *bounds,
 	rectangle2d *cursor_bounds,
 	pixel32 color,
-	struct icon_hud_element_definition *icon);
+	struct icon_hud_element_definition *icon,
+	short physical, short semantic, pixel32 glyph_color);
 static boolean should_flip_sticks_for_local_player(
 	short local_player_index);
 static unsigned long __stdcall filesystem_initialization_thread_proc(
@@ -1411,6 +1415,7 @@ static long search_and_replace(
 	wchar_t *search,
 	wchar_t *replace,
 	wchar_t **string);
+static short ui_mouse_key_button(struct widget_instance *widget);
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -1628,6 +1633,165 @@ static real global_ui_white_red = 0.8f;
 static real global_ui_white_green = 0.8f;
 static real global_ui_white_blue = 0.8f;
 
+
+/* port: independently owned bitmaps allow two players to draw different
+symbols for the same original atlas frame during one render pass. */
+#ifdef HALO_IOS
+#define CONTROLLER_GLYPH_CACHE_SIZE 64
+static struct
+{
+	int kind, width, height;
+	char label[96];
+	struct bitmap_data *bitmap;
+} controller_glyph_cache[CONTROLLER_GLYPH_CACHE_SIZE];
+static short controller_glyph_cache_count, controller_glyph_cache_next;
+#endif
+
+void controller_glyphs_dispose(void)
+{
+#ifdef HALO_IOS
+	short index;
+	for (index = 0; index < controller_glyph_cache_count; index++)
+		bitmap_delete(controller_glyph_cache[index].bitmap);
+	memset(controller_glyph_cache, 0, sizeof(controller_glyph_cache));
+	controller_glyph_cache_count = controller_glyph_cache_next = 0;
+#endif
+}
+
+/* port: clipping must crop texture coordinates rather than stretch the
+remaining glyph. Also used for the keyboard backdrop's two legend holes. */
+void controller_glyph_blit(struct bitmap_data *bitmap, rectangle2d const *bounds,
+	rectangle2d const *source, rectangle2d const *clip, pixel32 color, short blend)
+{
+	struct dynamic_screen_vertex vertices[4];
+	struct rasterizer_dynamic_screen_geometry_parameters parameters;
+	rectangle2d visible = *bounds;
+	real u0, v0, u1, v1, source_x, source_y, source_width, source_height;
+	int index;
+
+	if (!bitmap || bounds->x1 <= bounds->x0 || bounds->y1 <= bounds->y0) return;
+	if (clip)
+	{
+		visible.x0 = MAX(visible.x0, clip->x0); visible.x1 = MIN(visible.x1, clip->x1);
+		visible.y0 = MAX(visible.y0, clip->y0); visible.y1 = MIN(visible.y1, clip->y1);
+	}
+	if (visible.x1 <= visible.x0 || visible.y1 <= visible.y0) return;
+	source_x = source ? source->x0 : 0; source_y = source ? source->y0 : 0;
+	source_width = source ? source->x1 - source->x0 : bitmap->width;
+	source_height = source ? source->y1 - source->y0 : bitmap->height;
+	u0 = (source_x + (visible.x0-bounds->x0)*source_width/(bounds->x1-bounds->x0))/bitmap->width;
+	u1 = (source_x + (visible.x1-bounds->x0)*source_width/(bounds->x1-bounds->x0))/bitmap->width;
+	v0 = (source_y + (visible.y0-bounds->y0)*source_height/(bounds->y1-bounds->y0))/bitmap->height;
+	v1 = (source_y + (visible.y1-bounds->y0)*source_height/(bounds->y1-bounds->y0))/bitmap->height;
+	memset(vertices, 0, sizeof(vertices));
+	for (index = 0; index < 4; index++)
+	{
+		vertices[index].position.x = index == 0 || index == 3 ? visible.x0 : visible.x1;
+		vertices[index].position.y = index < 2 ? visible.y0 : visible.y1;
+		vertices[index].texture_coordinates.x = index == 0 || index == 3 ? u0 : u1;
+		vertices[index].texture_coordinates.y = index < 2 ? v0 : v1;
+		vertices[index].color = color;
+	}
+	memset(&parameters, 0, sizeof(parameters));
+	parameters.map[0] = bitmap;
+	parameters.framebuffer_blend_function = blend;
+	/* port: HUD blend uses ONE, so its white coverage must weight RGB by
+	alpha; menu SRCALPHA already does that multiplication at blending. */
+	parameters.alpha_weighted = blend == _controller_glyph_blend_hud;
+	parameters.map_scale[0].i = parameters.map_scale[0].j = 1.0f;
+	parameters.map_texture_scale[0].i = parameters.map_texture_scale[0].j = 1.0f;
+	rasterizer_psuedo_dynamic_screen_quad_draw(&parameters, vertices);
+}
+
+int controller_glyph_draw(short player, short semantic, short physical,
+	rectangle2d const *bounds, rectangle2d const *clip, pixel32 color, short blend)
+{
+#ifdef HALO_IOS
+	char label[96];
+	int kind, width, height, padded_width = 8, padded_height = 8, index;
+	real scale;
+	struct bitmap_data *bitmap;
+	rectangle2d source;
+	int host_controller_glyph_raster(int kind, char const *label, int width, int height, unsigned char *pixels);
+	float halo_screen_pixel_scale(void);
+
+	if (!bounds || bounds->x1 <= bounds->x0 || bounds->y1 <= bounds->y0) return 0;
+	kind = halo_controller_glyph_request(player, semantic, physical, label, sizeof(label));
+	if (kind == HALO_GLYPH_HIDDEN) return 1;
+	if (kind != HALO_GLYPH_SYMBOL && kind != HALO_GLYPH_KEYCAP) return 0;
+	scale = PIN(halo_screen_pixel_scale(), 1.0f, 8.0f);
+	width = PIN((int)((bounds->x1 - bounds->x0) * scale + 0.999f), 8, 512);
+	height = PIN((int)((bounds->y1 - bounds->y0) * scale + 0.999f), 8, 256);
+	while (padded_width < width) padded_width *= 2;
+	while (padded_height < height) padded_height *= 2;
+	for (index = 0; index < controller_glyph_cache_count; index++)
+	{
+		if (controller_glyph_cache[index].kind == kind && controller_glyph_cache[index].width == width &&
+			controller_glyph_cache[index].height == height && !strcmp(controller_glyph_cache[index].label, label)) break;
+	}
+	if (index == controller_glyph_cache_count)
+	{
+		int replacing = index == CONTROLLER_GLYPH_CACHE_SIZE;
+		unsigned char *pixels = malloc(width * height * 4);
+		int row;
+		if (!pixels) return 0;
+		if (!host_controller_glyph_raster(kind, label, width, height, pixels))
+		{
+			free(pixels);
+			return 0;
+		}
+		bitmap = bitmap_2d_new((short)padded_width, (short)padded_height, 0, 11);
+		if (!bitmap || !bitmap->base_address)
+		{
+			if (bitmap) bitmap_delete(bitmap);
+			free(pixels);
+			return 0;
+		}
+		memset(bitmap->base_address, 0, padded_width * padded_height * 4);
+		for (row = 0; row < height; row++)
+			memcpy((unsigned char *)bitmap->base_address + row * padded_width * 4, pixels + row * width * 4, width * 4);
+		free(pixels);
+		if (!rasterizer_bitmap_new(bitmap))
+		{
+			bitmap_delete(bitmap);
+			return 0;
+		}
+		rasterizer_bitmap_changed(bitmap);
+		if (replacing)
+		{
+			index = controller_glyph_cache_next;
+			controller_glyph_cache_next = (controller_glyph_cache_next + 1) % CONTROLLER_GLYPH_CACHE_SIZE;
+			bitmap_delete(controller_glyph_cache[index].bitmap);
+		}
+		controller_glyph_cache[index].bitmap = bitmap;
+		controller_glyph_cache[index].kind = kind;
+		controller_glyph_cache[index].width = width;
+		controller_glyph_cache[index].height = height;
+		strcpy(controller_glyph_cache[index].label, label);
+		if (!replacing) controller_glyph_cache_count++;
+	}
+	bitmap = controller_glyph_cache[index].bitmap;
+	source.x0 = source.y0 = 0; source.x1 = (short)width; source.y1 = (short)height;
+	if (blend >= 0) controller_glyph_blit(bitmap, bounds, &source, clip, color, blend);
+	return 1;
+#else
+	(void)player; (void)semantic; (void)physical; (void)bounds; (void)clip; (void)color; (void)blend;
+	return 0;
+#endif
+}
+
+/* port: prepare before cutting baked legend art out of a background, so
+missing symbols and Xbox fallback leave the original picture untouched. */
+int controller_glyph_hidden(short player, short physical)
+{
+	char label[96];
+	return halo_controller_glyph_request(player, NONE, physical, label, sizeof(label)) == HALO_GLYPH_HIDDEN;
+}
+
+int controller_glyph_ready(short player, short semantic, short physical, rectangle2d const *bounds)
+{
+	return controller_glyph_draw(player, semantic, physical, bounds, NULL, 0, -1);
+}
 
 /* ---------- public code */
 
@@ -2204,6 +2368,7 @@ void ui_widgets_dispose(
 	void)
 {
 	ui_widgets_close_all();
+	controller_glyphs_dispose(); /* port */
 	if (widget_memory_pool->base_address)
 		pool_free(widget_memory_pool->base_address);
 	widget_memory_pool->base_address = NULL;
@@ -4073,7 +4238,8 @@ static void render_state_bitmap(
 	rectangle2d *bounds,
 	rectangle2d *cursor_bounds,
 	pixel32 color,
-	struct icon_hud_element_definition *icon)
+	struct icon_hud_element_definition *icon,
+	short physical, short semantic, pixel32 glyph_color)
 {
 	struct game_globals *game_globals;
 	struct game_globals_interface_tag_references *interface_tag_references;
@@ -4110,7 +4276,14 @@ static void render_state_bitmap(
 		scale = hud_globals_get_scale(local_player_count() > 1);
 		point.x = (short)(icon->offset.x * scale + cursor_bounds->x0 + 1.0f);
 		point.y = (short)(cursor_bounds->y1 - icon->offset.y * scale - 2.0f);
-		hud_draw_bitmap_direct(
+		rectangle2d glyph_bounds;
+		glyph_bounds.x0 = point.x;
+		glyph_bounds.x1 = point.x + (short)fast_ftol((clip ? clip->x1 - clip->x0 : 1.0f) * bitmap->width * scale);
+		glyph_bounds.y1 = point.y;
+		glyph_bounds.y0 = point.y + (short)fast_ftol(-(clip ? clip->y1 - clip->y0 : 1.0f) * bitmap->height * scale);
+		if (!controller_glyph_draw(local_player_index_for_draw_string_and_hack_in_icons,
+			semantic, physical, &glyph_bounds, NULL, glyph_color, _controller_glyph_blend_hud))
+			hud_draw_bitmap_direct(
 			bitmap,
 			_hud_anchor_bottom_left,
 			&point,
@@ -4267,7 +4440,7 @@ void draw_string_and_hack_in_icons(
 					bounds,
 					&cursor_bounds,
 					(real_argb_color_to_pixel32(&icon_color) & 0x00ffffff) | alpha,
-					icon);
+					icon, icon_index, icon_type, real_argb_color_to_pixel32(&text_color));
 				bounds->x0++;
 				icon->flags = saved_flags;
 				icon->width_offset = saved_width_offset;
@@ -5362,6 +5535,44 @@ static boolean ui_widget_port_text_wrap(
 	return fits;
 }
 
+/* port: '=' joins a button to its caption in the Xbox legends. A hidden
+button leaves the actionable caption, without changing the stored string. */
+static wchar_t const *ui_widget_touch_caption(struct widget_instance *widget, wchar_t const *text)
+{
+	struct widget_instance *child;
+	struct ui_widget_definition *definition;
+	short best_button = NONE, owner = NONE;
+	int closest = 64;
+
+	if (!text || text[0] != L'=' || !widget->parent) return text;
+	definition = ui_widget_definition_get(widget->definition_tag_index);
+	for (child = widget->parent->child; child; child = child->next)
+	{
+		short button = ui_mouse_key_button(child);
+		struct ui_widget_definition *button_definition;
+		int dx, dy;
+		if (button == NONE || !child->visible) continue;
+		button_definition = ui_widget_definition_get(child->definition_tag_index);
+		dx = widget->horizontal_offset + definition->bounds.x0 -
+			child->horizontal_offset - button_definition->bounds.x0;
+		dy = widget->vertical_offset + definition->bounds.y0 -
+			child->vertical_offset - button_definition->bounds.y0;
+		if (dx > 0 && dx < closest && abs(dy) < 16)
+		{
+			closest = dx;
+			best_button = button;
+			owner = child->local_player_index == NONE ?
+				local_player_index_for_draw_string_and_hack_in_icons : child->local_player_index;
+		}
+	}
+	if (best_button != NONE && controller_glyph_hidden(owner, best_button))
+	{
+		text++;
+		while (*text == L' ') text++;
+	}
+	return text;
+}
+
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5536,10 +5747,17 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
-	if (string_has_icons_to_draw(*text))
-		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, *text, FALSE);
+	wchar_t const *display_text = ui_widget_touch_caption(widget, *text);
+	if (string_has_icons_to_draw(display_text))
+	{
+		short saved_player = local_player_index_for_draw_string_and_hack_in_icons;
+		if (widget->local_player_index >= 0 && widget->local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS)
+			local_player_index_for_draw_string_and_hack_in_icons = widget->local_player_index;
+		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, display_text, FALSE);
+		local_player_index_for_draw_string_and_hack_in_icons = saved_player;
+	}
 	else
-		rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, *text);
+		rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, display_text);
 
 	return;
 }
@@ -6788,6 +7006,14 @@ static void widget_instance_render_recursive(
 			{
 				ui_redraw_note(tag_get_name(definition->background_bitmap.index),
 					_texture_cache_bitmap_get_hardware_format(bitmap, FALSE, FALSE), bitmap->width, bitmap->height);
+			}
+			if (shown && ui_mouse_key_button(widget) != NONE && !custom_edition_picture)
+			{
+				short owner = widget->local_player_index == NONE ?
+					local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+				pixel32 glyph_color = modulate_pixel32_by_real_alpha(0xff2996ff, alpha);
+				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &bounds, clip, glyph_color, _controller_glyph_blend_menu))
+					shown = FALSE;
 			}
 			if (shown)
 			{

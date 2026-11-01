@@ -36,6 +36,7 @@ so the audio callback is handed to a thread that has one.
 #endif
 #include "host_join_link.h"
 #include "host_external.h"
+#include "../../linux/include/halo_controller_glyphs.h"
 #include "host_audio_output.h"
 #include "halo_host_pointer.h"
 #include "host_menu_pointer.h"
@@ -528,6 +529,69 @@ int host_sdl_gamepad_type(uint32_t gamepad)
 	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
 
 	return object ? host_ios_gamepad_type(object) : SDL_GAMEPAD_TYPE_UNKNOWN;
+}
+
+/* The guest's handle can name the virtual pad merging touch and hardware.
+Resolve through the same platform service that supplies that handle's input. */
+int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, char *label, unsigned int size, int player, int menus)
+{
+	SDL_Gamepad *object = handle_get(gamepad, _handle_gamepad);
+	SDL_Gamepad *pad = object ? host_ios_gamepad_physical(object) : NULL;
+	const char *symbol = NULL;
+	int element = halo_glyph_element(physical);
+	int host_menu_keyboard(void);
+
+	if (!label || size < 2 || size > 128 || element < 0) return HALO_GLYPH_ORIGINAL;
+	label[0] = 0;
+	if (family && *family)
+	{
+		static const char *const symbols[] = { "a.circle", "b.circle", "x.circle", "y.circle",
+			"r1.rectangle.roundedbottom", "l1.rectangle.roundedbottom", "l2.rectangle.roundedtop",
+			"r2.rectangle.roundedtop", "dpad.up.filled", "dpad.down.filled", "dpad.left.filled",
+			"dpad.right.filled", "line.3.horizontal.circle", "rectangle.on.rectangle.circle",
+			"l.joystick.press.down", "r.joystick.press.down", "l.joystick", "r.joystick" };
+		if (!strcmp(family, "xbox") || !strcmp(family, "missing")) return HALO_GLYPH_ORIGINAL;
+		if (!strcmp(family, "touch")) return HALO_GLYPH_HIDDEN;
+		if (!strcmp(family, "keyboard")) return HALO_GLYPH_KEYCAP;
+		if (!strcmp(family, "playstation") || !strcmp(family, "switch") || !strcmp(family, "mfi"))
+		{
+			symbol = symbols[physical];
+			if (physical < 4 && !strcmp(family, "playstation"))
+			{
+				static const char *const face[] = {"xmark.circle", "circle.circle", "square.circle", "triangle.circle"};
+				symbol = face[physical];
+			}
+			if (physical < 4 && !strcmp(family, "switch"))
+			{
+				static const char *const face[] = {"b.circle", "a.circle", "y.circle", "x.circle"};
+				symbol = face[physical];
+			}
+		}
+	}
+	if (!symbol)
+	{
+		int host_spatial_controller_glyph(int physical, int menus, char *label, unsigned int size);
+		if (player == 0 && host_spatial_owns_sense_controllers())
+			return host_spatial_controller_glyph(physical, menus, label, size) ? HALO_GLYPH_SYMBOL : HALO_GLYPH_ORIGINAL;
+		if (!pad)
+		{
+			if (player != 0 && !object) return HALO_GLYPH_ORIGINAL;
+#if TARGET_OS_TV
+			/* A Siri Remote without a physical pad is not touch input. */
+			if (object) return HALO_GLYPH_ORIGINAL;
+#endif
+			return !object && host_menu_keyboard() ? HALO_GLYPH_KEYCAP : HALO_GLYPH_HIDDEN;
+		}
+		SDL_GamepadType type = SDL_GetGamepadType(pad);
+		if (type == SDL_GAMEPAD_TYPE_XBOX360 || type == SDL_GAMEPAD_TYPE_XBOXONE)
+			return HALO_GLYPH_ORIGINAL;
+		symbol = halo_glyph_is_axis(physical)
+			? SDL_GetGamepadAppleSFSymbolsNameForAxis(pad, (SDL_GamepadAxis)element)
+			: SDL_GetGamepadAppleSFSymbolsNameForButton(pad, (SDL_GamepadButton)element);
+	}
+	if (!symbol || !*symbol || strlen(symbol) >= size) return HALO_GLYPH_ORIGINAL;
+	snprintf(label, size, "%s", symbol);
+	return HALO_GLYPH_SYMBOL;
 }
 
 int host_sdl_rumble_gamepad(uint32_t gamepad, uint32_t low, uint32_t high, uint32_t milliseconds)

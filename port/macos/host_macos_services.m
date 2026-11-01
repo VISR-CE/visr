@@ -151,6 +151,7 @@ int host_ios_gamepads(uint32_t *out, int capacity) {
     if (ids && copied > 0) memcpy(out, ids, (size_t)copied * sizeof(*out));
     SDL_free(ids); return copied;
 }
+SDL_Gamepad *host_ios_gamepad_physical(SDL_Gamepad *pad) { return pad; }
 int host_ios_gamepad_type(SDL_Gamepad *pad) { return SDL_GetGamepadType(pad); }
 int host_ios_gamepad_axis(SDL_Gamepad *pad, int axis) { return SDL_GetGamepadAxis(pad, (SDL_GamepadAxis)axis); }
 int host_ios_gamepad_button(SDL_Gamepad *pad, int button) { return SDL_GetGamepadButton(pad, (SDL_GamepadButton)button); }

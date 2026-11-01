@@ -42,6 +42,10 @@ drive the controller.
 /* port/linux/game/network_aim_assist.c */
 extern unsigned char network_aim_assist_block_mouse(void);
 #include "halo_keyboard.h"
+#include "halo_controller_glyphs.h"
+#ifdef HALO_IOS
+#include "halo_host_pointer.h"
+#endif
 #include "mp_benchmark_probe.h"
 #include "benchmark_mp_arena.h"
 #include "halo_spatial.h"
@@ -52,8 +56,13 @@ extern unsigned char network_aim_assist_block_mouse(void);
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define PORT_COUNT 4
+#ifdef HALO_IOS
+static int glyph_keyboard_active;
+static int glyph_menus_active;
+#endif
 #define VK_OEM_3_BACKQUOTE 0xc0
 
 /* ---------- game hooks */
@@ -1284,6 +1293,121 @@ static SDL_Gamepad *port_gamepad(SDL_Gamepad *gamepads[PORT_COUNT], int count, i
 	return port < count ? gamepads[port] : NULL;
 }
 
+/* Native pointer activity is authoritative: a positive radius is a finger
+or pinch, and an installed but idle pointer does not change the source. */
+void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer)
+{
+#ifdef HALO_IOS
+	glyph_menus_active = menus != 0;
+	if (!menus || !pointer || !pointer->active ||
+		!(pointer->moved || pointer->left_clicks || pointer->right_clicks || pointer->wheel_steps)) return;
+	glyph_keyboard_active = pointer->radius > 0.0f ? -2 : 1;
+#else
+	(void)menus; (void)pointer;
+#endif
+}
+
+#ifdef HALO_IOS
+static void glyph_keyboard_activity(struct platform_input_state const *input)
+{
+	int platform_menu_keyboard(void);
+	int index;
+	if (!input->focused) return;
+	if (!input->mouse_released && (input->mouse_dx * input->mouse_dx + input->mouse_dy * input->mouse_dy >= 16.0f ||
+		input->mouse_wheel != 0.0f)) glyph_keyboard_active = 1;
+	for (index = 0; !input->mouse_released && index < PLATFORM_MOUSE_BUTTON_COUNT; index++)
+		if (input->mouse_buttons[index]) glyph_keyboard_active = 1;
+	/* UIKit's software keyboard also emits keys; it remains touch input. */
+	if (platform_menu_keyboard())
+		for (index = 0; index < SDL_SCANCODE_COUNT; index++)
+			if (input->keys[index]) glyph_keyboard_active = 1;
+}
+
+static int glyph_gamepad_active(XINPUT_GAMEPAD const *pad)
+{
+	int index;
+	if (pad->wButtons || abs(pad->sThumbLX) > 9000 || abs(pad->sThumbLY) > 9000 ||
+		abs(pad->sThumbRX) > 9000 || abs(pad->sThumbRY) > 9000) return 1;
+	for (index = 0; index < 8; index++)
+		if (pad->bAnalogButtons[index] > 64) return 1;
+	return 0;
+}
+#endif
+
+/* Controller prompts share input's port assignment; keyboard actions retain
+semantic identity because reload and action have independent bindings. */
+int halo_controller_glyph_request(short player, short semantic, short physical, char *label, unsigned int size)
+{
+#ifdef HALO_IOS
+	SDL_Gamepad *gamepads[PORT_COUNT];
+	SDL_Gamepad *pad;
+	char family[24] = {0};
+	int count, kind, action;
+	int host_development_hooks(void);
+	int host_sdl_gamepad_glyph(unsigned int gamepad, int physical, const char *family, char *label, unsigned int size, int player, int menus);
+	static const char *const menu_keys[] = {"Enter", "Escape", "E", "Tab", "", "", "", "",
+		"Up", "Down", "Left", "Right", "Escape", "F1", "", "", "WASD", "Mouse"};
+
+	if (!label || size < 2 || size > 128 || player < 0 || player >= PORT_COUNT ||
+		physical < 0 || physical >= 18) return HALO_GLYPH_ORIGINAL;
+	label[0] = 0;
+	if (host_development_hooks())
+	{
+		const char *part = config_string("debug.controller_glyph_family");
+		int index;
+		for (index = 0; index < player && *part; index++)
+		{
+			while (*part && *part != ',') part++;
+			if (*part) part++;
+		}
+		if (index == player)
+		{
+			unsigned int length = 0;
+			while (part[length] && part[length] != ',' && length < sizeof(family)-1) length++;
+			memcpy(family, part, length);
+		}
+	}
+	if (!family[0] && player == 0)
+	{
+		if (glyph_keyboard_active == 1) strcpy(family, "keyboard");
+		else if (glyph_keyboard_active == -2) strcpy(family, "touch");
+	}
+	count = sdl_gamepads(gamepads);
+	pad = port_gamepad(gamepads, count, player);
+	kind = host_sdl_gamepad_glyph((unsigned int)(uintptr_t)pad, physical, family, label, size, player, glyph_menus_active);
+	/* A keyboard belongs to port 0 only, except for explicit capture overrides. */
+	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && strcmp(family, "keyboard")))
+		return kind == HALO_GLYPH_KEYCAP ? HALO_GLYPH_ORIGINAL : kind;
+	action = halo_glyph_keyboard_action(semantic);
+	if (!glyph_menus_active && semantic == physical && (physical == 12 || physical == 13))
+		action = physical == 12 ? HALO_KEYBOARD_PAUSE : HALO_KEYBOARD_SCOREBOARD;
+	if (action >= 0)
+	{
+		int slot;
+		bindings_read();
+		for (slot = 0; slot < MAXIMUM_BINDINGS; slot++)
+		{
+			if (bindings[action][slot] >= 0)
+			{
+				halo_input_name(bindings[action][slot], label, size);
+				return *label ? HALO_GLYPH_KEYCAP : HALO_GLYPH_ORIGINAL;
+			}
+		}
+		return HALO_GLYPH_ORIGINAL;
+	}
+	if (semantic == 28 || semantic == 29)
+		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
+	else if (semantic == 30 || semantic == 31)
+		snprintf(label, size, "%s", semantic == 30 ? "WASD" : "Mouse");
+	else
+		snprintf(label, size, "%s", menu_keys[physical]);
+	return *label ? HALO_GLYPH_KEYCAP : HALO_GLYPH_ORIGINAL;
+#else
+	(void)player; (void)semantic; (void)physical; (void)label; (void)size;
+	return HALO_GLYPH_ORIGINAL;
+#endif
+}
+
 static SHORT stick(Sint16 value, BOOL flip)
 {
 	int result = flip ? -(int)value - 1 : value;
@@ -1606,6 +1730,10 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		this frame (controller_aim_game.c; once a frame) */
 		halo_controller_sample_game();
 		platform_input_read(&input, TRUE);
+#ifdef HALO_IOS
+		glyph_menus_active = input.menus != FALSE;
+		glyph_keyboard_activity(&input);
+#endif
 		mouse_poll(&input);
 		wheel_update();
 		keyboard_actions_held = 0;
@@ -1622,12 +1750,22 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 			XINPUT_GAMEPAD activity = {0};
 			sdl_gamepad_state(gamepads[0], &activity);
 			menu_gamepad_activity(&activity);
+#ifdef HALO_IOS
+			if (glyph_gamepad_active(&activity)) glyph_keyboard_active = 0;
+#endif
 			sdl_gamepad_state(gamepads[0], &state->Gamepad);
 		}
 		/* the Sense controllers, before the test input and the replay
 		filter, so recordings see them; Create (Back) held with the right
 		stick reaches the pitch offset's chord below, not the game */
 		sense_gamepad_state(input.menus != FALSE, &state->Gamepad);
+#ifdef HALO_IOS
+		{
+			XINPUT_GAMEPAD activity = {0};
+			sense_gamepad_state(input.menus != FALSE, &activity);
+			if (glyph_gamepad_active(&activity)) glyph_keyboard_active = 0;
+		}
+#endif
 		probe_policy = mp_benchmark_probe_or_test_gamepad(&state->Gamepad, port);
 		if (abs(state->Gamepad.sThumbRX) > STICK_AIMING_DEFLECTION ||
 			abs(state->Gamepad.sThumbRY) > STICK_AIMING_DEFLECTION)

@@ -15,6 +15,8 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 # These compile through xcrun and run in native Apple test jobs.
 APPLE_PROBES = {
+    "test_controller_glyphs.py",
+    "test_controller_glyph_raster.py",
     "test_astc_rewrite.py",
     "test_astc_encode.py",
     "test_benchmark_menu.py",

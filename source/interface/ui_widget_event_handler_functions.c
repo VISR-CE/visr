@@ -1029,6 +1029,7 @@ void game_engine_playlist_next(
 	long);
 void playlist_profile_delete(
 	long profile_index);
+void virtual_keyboard_set_controller_context(short controller_index);
 boolean virtual_keyboard_launch(
 	void *text,
 	long maximum_length,
@@ -3474,6 +3475,9 @@ boolean ui_widget_event_handler_function_invoke(
 	run what changes the player's files or settings: ui_widget_function_denied */
 	if (ui_widget_function_denied(widget, function_index))
 		return TRUE;
+	/* port: preserve the initiating controller across the keyboard's event flush. */
+	virtual_keyboard_set_controller_context(event && event->controller_index >= 0 && event->controller_index < 4 ?
+		event->controller_index : widget->local_player_index);
 	/* port: the menus' own functions (port/linux/game/menu_functions.c) */
 	if (function_index >= PC_MENU_FUNCTION_BASE && function_index < 0x8000)
 	{

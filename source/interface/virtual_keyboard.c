@@ -96,6 +96,7 @@ symbols in this file:
 #include "text/font_group.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
+#include "interface/controller_glyphs.h"
 #include "text_filter.h" /* port: port/linux/game/text_filter.c */
 
 /* ---------- constants */
@@ -347,6 +348,16 @@ static rectangle2d keyboard_rect[NUMBER_OF_VIRTUAL_KEYS] =
 };
 
 static struct virtual_keyboard_globals virtual_keyboard_globals= {0};
+/* port: the last controller operating this shared keyboard owns its prompts. */
+static short virtual_keyboard_glyph_player, virtual_keyboard_glyph_context;
+
+/* port: event handlers seed the next launch before its event is flushed.
+Keep this separate from the active owner: teardown handlers may run later. */
+void virtual_keyboard_set_controller_context(short controller_index)
+{
+	if (controller_index >= 0 && controller_index < 4)
+		virtual_keyboard_glyph_context = controller_index;
+}
 
 /* ---------- public code */
 
@@ -442,6 +453,7 @@ boolean virtual_keyboard_launch(
 		virtual_keyboard_globals.row = 0;
 		virtual_keyboard_globals.column = 0;
 		virtual_keyboard_globals.active = TRUE;
+		virtual_keyboard_glyph_player = virtual_keyboard_glyph_context;
 		virtual_keyboard_globals.text_buffer = text_buffer;
 		virtual_keyboard_globals.cursor = text_buffer + ustrlen(text_buffer);
 		virtual_keyboard_globals.buffer_size = buffer_size;
@@ -626,6 +638,47 @@ static wchar_t virtual_keyboard_get_current_character(
 		virtual_keyboard_globals.row][virtual_keyboard_globals.column]);
 }
 
+#ifdef HALO_IOS
+static void virtual_keyboard_draw_background(struct bitmap_data *bitmap, rectangle2d *bounds, char const *name)
+{
+	if (!name || strcmp(name, "ui\\bkd_virtual_keyboard"))
+	{
+		draw_bitmap_in_rect(bitmap, bounds, bounds, NULL, 0xffffffff, NULL, FALSE);
+		return;
+	}
+	rectangle2d cells[2] = {{414,371,440,392}, {414,472,440,493}};
+	rectangle2d sample = {414,0,440,21};
+	int replaced[2], index;
+	for (index = 0; index < 2; index++)
+	{
+		short button = index ? _gamepad_analog_button_a : _gamepad_analog_button_b;
+		replaced[index] = controller_glyph_ready(virtual_keyboard_glyph_player, NONE, button, &cells[index]);
+		/* The baked '=' starts at 397/498; BACK/ENTER start beyond 408/509. */
+		if (replaced[index] && controller_glyph_hidden(virtual_keyboard_glyph_player, button))
+			cells[index].x1 += 16;
+	}
+	if (replaced[0] || replaced[1])
+	{
+		rectangle2d strips[5] = {{0,0,414,640}, {440,0,480,640},
+			{414,0,440,371}, {414,392,440,472}, {414,493,440,640}};
+		strips[3].x0 = cells[0].x1;
+		strips[4].x0 = cells[1].x1;
+		if (!replaced[0]) strips[2].x1 = cells[0].x1;
+		if (!replaced[1]) strips[3].x1 = cells[1].x1;
+		for (index = 0; index < 5; index++)
+			controller_glyph_blit(bitmap, bounds, bounds, &strips[index], 0xffffffff, _controller_glyph_blend_menu);
+		for (index = 0; index < 2; index++)
+		{
+			if (!replaced[index]) continue;
+			controller_glyph_blit(bitmap, &cells[index], &sample, NULL, 0xffffffff, _controller_glyph_blend_menu);
+			controller_glyph_draw(virtual_keyboard_glyph_player, NONE,
+				index ? _gamepad_analog_button_a : _gamepad_analog_button_b, &cells[index], NULL, 0xff2996ff, _controller_glyph_blend_menu);
+		}
+	}
+	else draw_bitmap_in_rect(bitmap, bounds, bounds, NULL, 0xffffffff, NULL, FALSE);
+}
+#endif
+
 static void virtual_keyboard_render_internal(
 	void)
 {
@@ -663,7 +716,15 @@ static void virtual_keyboard_render_internal(
 			"c:\\halo\\SOURCE\\interface\\virtual_keyboard.c",
 			1046,
 			bitmap);
+#ifdef HALO_IOS
+		/* port: only the two buttons baked into the stock backdrop change.
+		The 410..444 legend band is uniform translucent black; sample an
+		empty part to retain that opacity behind each replacement. */
+		virtual_keyboard_draw_background(bitmap, &bounds,
+			tag_get_name(virtual_keyboard_globals.keyboard->background_bitmap_tag.index));
+#else
 		draw_bitmap_in_rect(bitmap, &bounds, &bounds, NULL, 0xffffffff, NULL, FALSE);
+#endif
 	}
 
 	draw_string_set_draw_mode(virtual_keyboard_globals.keyboard->font_tag.index, NONE, 0, 0, &caption_color);
@@ -1219,6 +1280,11 @@ static void virtual_keyboard_process_internal(
 
 	while (get_next_event(&event, NONE))
 	{
+		if (event.controller_index >= 0 && event.controller_index < 4)
+		{
+			virtual_keyboard_glyph_player = event.controller_index;
+			virtual_keyboard_set_controller_context(event.controller_index);
+		}
 		switch (event.type)
 		{
 		case _event_type_left_stick:

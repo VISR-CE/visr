@@ -351,6 +351,7 @@ static void location_of(simd_float4x4 transform, const float *head_position, str
 
 API_AVAILABLE(visionos(27.0))
 @interface HostSpatialTracker : NSObject
+- (NSString *)glyph:(int)physical menus:(int)menus;
 @end
 
 @implementation HostSpatialTracker
@@ -1078,6 +1079,49 @@ this frame) */
 	draw_fresh = 1;
 }
 
+/* Same source elements as host_spatial_gamepad_map, inverted for prompts.
+Menu Circle is B; unavailable sources retain the map's original art. */
+- (NSString *)glyph:(int)physical menus:(int)menus
+{
+	int hand = aiming_hand;
+	NSArray<NSString *> *names = nil;
+	int stick = 0;
+	switch (physical)
+	{
+	case 0: names = @[GCInputButtonA, GCInputButtonX]; break;
+	case 1: names = menus ? @[GCInputButtonB, GCInputButtonY] :
+		@[GCInputGripButton, GCInputRightShoulder, GCInputLeftShoulder]; break;
+	case 2: if (menus) return nil; names = @[GCInputButtonB, GCInputButtonY]; break;
+	case 3: hand ^= 1; names = @[GCInputButtonA, GCInputButtonX]; break;
+	case 4: hand ^= 1; names = @[GCInputButtonB, GCInputButtonY]; break;
+	case 5: hand ^= 1; names = @[GCInputGripButton, GCInputRightShoulder, GCInputLeftShoulder]; break;
+	case 6: hand ^= 1; /* fall through */
+	case 7: names = @[GCInputTrigger, GCInputRightTrigger, GCInputLeftTrigger]; break;
+	case 13: hand ^= 1; /* fall through */
+	case 12: names = @[GCInputButtonMenu, GCInputButtonOptions, GCInputButtonShare]; break;
+	case 14: hand ^= 1; /* fall through */
+	case 15: names = @[GCInputThumbstickButton, GCInputRightThumbstickButton, GCInputLeftThumbstickButton]; break;
+	case 16: hand ^= 1; /* fall through */
+	case 17: names = @[GCInputThumbstick, GCInputRightThumbstick, GCInputLeftThumbstick]; stick = 1; break;
+	default: return nil;
+	}
+	for (HostSpatialController *entry in controllers)
+	{
+		if (!entry.accessory || entry.hand != hand) continue;
+		id<GCDevicePhysicalInputState> state = [entry.controller.input capture];
+		for (NSString *name in names)
+		{
+			id<GCPhysicalInputElement> element;
+			if (stick)
+				element = state.dpads[(NSString<GCDirectionPadElementName> *)name];
+			else
+				element = state.buttons[(NSString<GCButtonElementName> *)name];
+			if (element) return element.sfSymbolsName;
+		}
+	}
+	return nil;
+}
+
 - (int)drawSample:(struct halo_spatial_sample *)sample
 {
 	if (!draw_fresh)
@@ -1279,6 +1323,25 @@ void host_spatial_feedback(const struct halo_spatial_feedback *feedback)
 		}
 	}
 #endif
+}
+
+/* Called on the guest/game thread, like the tracker's sample methods. */
+int host_spatial_controller_glyph(int physical, int menus, char *label, unsigned int size)
+{
+#if TARGET_OS_VISION && HOST_SPATIAL_SENSE_SDK
+	if (@available(visionOS 27.0, *))
+	{
+		if (!host_spatial_owns_sense_controllers() || !tracker) return 0;
+		NSString *name = [(HostSpatialTracker *)tracker glyph:physical menus:menus];
+		const char *symbol = name.UTF8String;
+		if (!symbol || strlen(symbol) >= size) return 0;
+		snprintf(label, size, "%s", symbol);
+		return 1;
+	}
+#else
+	(void)physical; (void)menus; (void)label; (void)size;
+#endif
+	return 0;
 }
 
 /* for host_lifecycle.m and host_exit (declared in ios_host.h): the app in

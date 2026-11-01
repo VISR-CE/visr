@@ -150,6 +150,9 @@ symbols in this file:
 
 #include <stddef.h>
 
+#include "interface/controller_glyphs.h"
+extern short local_player_index_for_draw_string_and_hack_in_icons;
+
 /* ---------- constants */
 
 enum
@@ -470,7 +473,8 @@ static void render_state_bitmap(
 	rectangle2d *bounds,
 	rectangle2d *cursor_bounds,
 	pixel32 color,
-	struct icon_hud_element_definition const *icon);
+	struct icon_hud_element_definition const *icon,
+	short physical, short semantic, short player);
 
 /* port: HEAD mode's help text (port/linux/game/stereo_help_text.c,
 halo_stereo.h): how much of a help message to draw, in HALO_HELP_TEXT_*'s
@@ -536,7 +540,8 @@ static void render_state_bitmap(
 	rectangle2d *bounds,
 	rectangle2d *cursor_bounds,
 	pixel32 color,
-	struct icon_hud_element_definition const *icon)
+	struct icon_hud_element_definition const *icon,
+	short physical, short semantic, short player)
 {
 	long bitmap_group_index = hud_globals->messaging.messaging_icons.index;
 	long frame_index = 0;
@@ -559,7 +564,14 @@ static void render_state_bitmap(
 		scale = local_player_count() > 1 ? 0.75f : 1.0f;
 		point.x = (short)(icon->offset.x * scale + cursor_bounds->x0);
 		point.y = (short)(cursor_bounds->y1 - icon->offset.y * scale);
-		hud_draw_bitmap_direct(
+		/* port: use text color for new coverage; preserve icon color on fallback. */
+		rectangle2d glyph_bounds;
+		glyph_bounds.x0 = point.x;
+		glyph_bounds.x1 = point.x + (short)fast_ftol((clip ? clip->x1 - clip->x0 : 1.0f) * bitmap->width * scale);
+		glyph_bounds.y1 = point.y;
+		glyph_bounds.y0 = point.y + (short)fast_ftol(-(clip ? clip->y1 - clip->y0 : 1.0f) * bitmap->height * scale);
+		if (physical < 0 || !controller_glyph_draw(player, semantic, physical, &glyph_bounds, NULL, color, _controller_glyph_blend_hud))
+			hud_draw_bitmap_direct(
 			bitmap,
 			_hud_corner_bottom_left,
 			&point,
@@ -1424,6 +1436,8 @@ static long compare_messages(
 void hud_messaging_update(
 	short local_player_index)
 {
+	/* port: custom state text uses ui_widget.c's inline icon renderer too. */
+	local_player_index_for_draw_string_and_hack_in_icons = local_player_index;
 	/* port: the pause menu and the screens it opens (the settings hub among them) are drawn over the HUD, whose
 	messages ("Hold BACK for score") are text drawn after them, so they show through the menu: not while one is up */
 	if (!cinematic_in_progress() &&
@@ -1781,7 +1795,7 @@ void hud_messaging_update(
 												&line_bounds,
 												&line_cursor,
 												pixel_color,
-												icon);
+												icon, NONE, NONE, local_player_index);
 										}
 										else
 										{
@@ -1860,7 +1874,7 @@ void hud_messaging_update(
 										&line_bounds,
 										&line_cursor,
 										pixel_color,
-										icon);
+										icon, icon_index, element->data, local_player_index);
 								}
 							}
 							else

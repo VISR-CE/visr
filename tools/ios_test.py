@@ -25,6 +25,8 @@ if xbox_menus.is_dir():
 
 # Touch button labels must reach their default game actions.
 run('python3', 'tools/test_touch_mapping.py')
+run('python3', 'tools/test_controller_glyphs.py')
+run('python3', 'tools/test_controller_glyph_raster.py')
 # Held touch sticks must stop feeding movement while the pause menu is open.
 run('python3', 'tools/test_touch_pause.py')
 run('python3', 'tools/test_join_warning.py')
