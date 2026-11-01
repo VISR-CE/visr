@@ -22,6 +22,15 @@ struct host_spatial_hand_joints
 	float wrist[3], forearm_arm[3];
 	int tip_tracked[5];          /* thumb, index, middle, ring, little */
 	float tip[5][3];
+	/* one bone and two bones back from each tip, in the same order: what a pinch
+	is judged by while the thumb is hiding the fingertip it is pinching
+	(HANDS_PART_LEVEL_* below). Kept as whole families of five, as the tips are,
+	so host_spatial_hands.m's reduction walks each one as a single range of
+	ar_hand_skeleton_joint_name_* */
+	int intermediate_tip_tracked[5];
+	float intermediate_tip[5][3];
+	int intermediate_base_tracked[5];
+	float intermediate_base[5][3];
 	int metacarpal_tracked[2];   /* index, little */
 	float metacarpal[2][3];
 };
@@ -41,6 +50,20 @@ make a false trigger from an unintentional near-pinch the harder of the two
 mistakes to make */
 #define HANDS_PINCH_CLOSE_METERS 0.018f
 #define HANDS_PINCH_OPEN_METERS 0.030f
+/* how far the still-visible pair behind a pinch (HANDS_PART_LEVEL_* below) must grow
+apart from where it was when that pinch's fingertips were last measured before the
+fingers count as parted, meters. A change and not a position on purpose: the pair sits
+at whatever separation this hand and this finger put it at while the pads are touching,
+which varies by player and by finger and cannot be known in advance, so the reference
+is recorded live on every sample the tips themselves can be measured
+(host_spatial_hands.c's part_reference_record) and only the growth needs a constant.
+12 mm clears both of the things that move the pair while the pads stay in contact (a
+few millimeters of joint jitter, and the centimeter or so that loosening or tightening
+a grip gives) and sits well under the two centimeters and more the pair swings when the
+finger and thumb really do extend out of a pinch, the finger's joint riding a proximal
+phalanx around 45 mm long through tens of degrees. Half of it re-arms the carry
+(hands_pinch's parted), so a pair hovering at the margin cannot chatter the trigger */
+#define HANDS_PART_MARGIN_METERS 0.012f
 /* how long a whole hand may go untracked before it counts as gone, seconds.
 Inside this gap every pinch of that hand holds its state and the controls
 those pinches drive hold with it, so a single sample in which ARKit loses the
@@ -68,12 +91,42 @@ call count) decides how many samples see it */
 
 enum { HANDS_PINCH_INDEX, HANDS_PINCH_MIDDLE, HANDS_PINCH_RING, HANDS_PINCH_LITTLE, NUMBER_OF_HANDS_PINCHES };
 
+/* the joints a pinch is judged by while its fingertip is hidden, most distal first: the
+pinching finger's intermediate base (its middle knuckle) against the thumb's intermediate
+tip, then against the thumb's intermediate base one bone further back. A pinch puts the
+thumb's pad on the fingertip, so the contact point is exactly what the cameras lose, and
+these are the nearest joints on either side the thumb is not sitting on. They are also the
+nearest pair worth measuring: the finger's own knuckle and the thumb's hardly move against
+each other at all, so a pair taken from those two could not tell a pinch from an open hand.
+Both levels share the finger's joint because the thumb's is the one that goes: the thumb's
+intermediate tip is a centimeter or two behind a pad the finger wraps over, while its
+intermediate base sits on the outside of the hand. host_spatial_hands.c's part_decide takes
+the first level both of whose ends are tracked and whose reference it has */
+enum { HANDS_PART_LEVEL_THUMB_INTERMEDIATE_TIP, HANDS_PART_LEVEL_THUMB_INTERMEDIATE_BASE,
+	NUMBER_OF_HANDS_PART_LEVELS };
+
 /* one pinch's hysteresis state. carried_since is 0 while both ends of the
 pinch are ARKit's own reading, and the start time of the gap in which either
 end is carried (or cannot be read at all) otherwise: it times that gap for
 the log and nothing else, since no deadline opens a pinch any more
 (host_spatial_hands.c's pinch_update) */
-struct hands_pinch { int closed; double carried_since; };
+struct hands_pinch
+{
+	int closed;
+	double carried_since;
+	/* the part check's own hysteresis over HANDS_PART_MARGIN_METERS: 1 once the visible
+	pair has grown past the margin, back to 0 below half of it or on any sample the two
+	fingertips can be measured again. While it is set no carried position may close this
+	pinch, since the carry's premise -- the finger is still where it was, which is on the
+	thumb -- is the thing the pair has just disproved (host_spatial_hands.c's part_decide) */
+	int parted;
+	/* what each level's pair measured on the last sample both of this pinch's fingertips
+	were ARKit's own reading, which is the pose those tips confirmed the fingers were in.
+	known is 0 where that sample could not see the level, so a reference is never carried
+	over from an older pose */
+	float part_reference[NUMBER_OF_HANDS_PART_LEVELS];
+	int part_reference_known[NUMBER_OF_HANDS_PART_LEVELS];
+};
 
 struct hands_state
 {
@@ -82,8 +135,10 @@ struct hands_state
 	that hand's own palm frame: ARKit drops the outer tips constantly while
 	the palm bones stay tracked, so the last position a tip was seen at is
 	stored in coordinates the wrist and the two metacarpals define and read
-	back through the palm's current pose, and a pinch never opens merely
-	because its tip went out of sight (host_spatial_hands.c's tips_resolve).
+	back through the palm's current pose, so a tip going out of sight is not by
+	itself a reason to open a pinch (host_spatial_hands.c's tips_resolve; what
+	does open one from behind a hidden tip is part_decide, which reads joints
+	the thumb is not sitting on rather than this carry).
 	known says a stored coordinate exists; a hand that stays untracked past
 	its gap forgets all five, since a hand lost for that long opens every
 	pinch anyway */
@@ -117,7 +172,14 @@ events are here for is how long the gaps run (host_spatial_hands.c's
 pinch_update) */
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
 	HANDS_EVENT_PINCH_MISS };
-struct hands_event { int kind, hand, finger, on; float value, threshold; };
+/* which reading decided a pinch's event, so the log says which of this file's three paths
+moved it: the two fingertips as ARKit reported them, a position carried in the palm's frame,
+or the still-visible pair behind a hidden fingertip (HANDS_PART_LEVEL_*). HAND_LOST is the
+whole-hand open, BLIND a gap with neither end readable at all, and NONE every other kind of
+event, which has no reading of this sort */
+enum { HANDS_PATH_NONE, HANDS_PATH_MEASURED, HANDS_PATH_CARRIED, HANDS_PATH_PARTED,
+	HANDS_PATH_HAND_LOST, HANDS_PATH_BLIND };
+struct hands_event { int kind, hand, finger, on, path; float value, threshold; };
 
 /* one sample: the two hands' joints (index 0 left, 1 right), which is the
 gun hand, the gun hand's aim forward in the game's axes (from

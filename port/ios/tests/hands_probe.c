@@ -1,6 +1,8 @@
 /* The gesture recognizer (port/ios/host/host_spatial_hands.c, included):
 pinch hysteresis and the fingertip carried in the palm's frame through a
-dropout, the gun and off hand's button and stick mapping, the aim turn
+dropout, the release a pinch gets from the joints behind it once the fingers
+part while that fingertip is still hidden (and that holding the pinch never
+earns one), the gun and off hand's button and stick mapping, the aim turn
 (smooth and snap), the prayer sign's dwell and Start pulse, the whole-hand
 gap a blink is held through, and that a hand untracked past that gap opens
 every one of its pinches and zeros every one of its own controls. */
@@ -49,6 +51,15 @@ static struct host_spatial_hand_joints make_hand(int hand)
 	{
 		j.tip_tracked[i] = 1;
 		j.tip[i][2] = (i == 0) ? 0.0f : 0.05f;
+		/* the chain walking back from each tip: the thumb's toward the wrist, each finger's
+		down the finger. What they put the part check's pair at (host_spatial_hands.c's
+		part_pair_of) is 3.0 cm for the thumb's intermediate tip against a finger's
+		intermediate base and 5.0 cm for its intermediate base, which set_part_pair below
+		moves and the tests read against HANDS_PART_MARGIN_METERS */
+		j.intermediate_tip_tracked[i] = 1;
+		j.intermediate_base_tracked[i] = 1;
+		j.intermediate_tip[i][2] = (i == 0) ? -0.020f : 0.030f;
+		j.intermediate_base[i][2] = (i == 0) ? -0.040f : 0.010f;
 	}
 	j.metacarpal_tracked[0] = j.metacarpal_tracked[1] = 1;
 	j.metacarpal[0][0] = 0.03f;
@@ -68,13 +79,20 @@ a tip kept in the room's axes instead would be left tens of centimeters behind *
 static void move_hand(struct host_spatial_hand_joints *j, float roll_degrees, const float offset[3])
 {
 	float c = cosf(roll_degrees * (float)M_PI / 180.0f), s = sinf(roll_degrees * (float)M_PI / 180.0f);
-	float *points[9];
+	float *points[19];
 	int i, count = 0;
 
 	points[count++] = j->wrist;
 	points[count++] = j->forearm_arm;
 	for (i = 0; i < 5; i++)
+	{
 		points[count++] = j->tip[i];
+		/* the part check's own joints move with the rest or the hold-to-fire case below
+		proves nothing: a pair left behind while every other joint turns keeps its
+		separation for the wrong reason */
+		points[count++] = j->intermediate_tip[i];
+		points[count++] = j->intermediate_base[i];
+	}
 	for (i = 0; i < 2; i++)
 		points[count++] = j->metacarpal[i];
 	for (i = 0; i < count; i++)
@@ -85,6 +103,17 @@ static void move_hand(struct host_spatial_hand_joints *j, float roll_degrees, co
 		points[i][1] = y * c - z * s + offset[1];
 		points[i][2] = y * s + z * c + offset[2];
 	}
+}
+
+/* one pinch's still-visible pair set to a given separation, by moving only the finger's
+intermediate base: the joints host_spatial_hands.c's part_pair_of reads, and none of the
+fingertips. That is the whole case the check is for, since on device the tips are what the
+pinching thumb hides. make_hand leaves the pair at 3.0 cm, so 5.0 cm is 2.0 cm of parting */
+static void set_part_pair(struct host_spatial_hand_joints *j, int finger, float meters)
+{
+	j->intermediate_base[finger + 1][0] = j->intermediate_tip[0][0];
+	j->intermediate_base[finger + 1][1] = j->intermediate_tip[0][1];
+	j->intermediate_base[finger + 1][2] = j->intermediate_tip[0][2] + meters;
 }
 
 /* every field of a controls struct is zero */
@@ -897,6 +926,267 @@ static void event_capacity_clamped(void)
 	check(events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0, "event capacity: events[1] is a valid pinch-off");
 }
 
+/* the defect the part check exists for: a pinch occludes the very fingertip whose distance
+closed it, so the tip goes missing on the sample after the press and the carried position
+says "still on the thumb" for as long as the gap runs. While the fingers really are together
+that is the right answer and nothing may come out of it. The moment they part, the pair of
+joints the thumb is not sitting on grows away from what it measured while the tips were last
+seen, and the pinch releases there and then rather than when the camera finds the tip again */
+static void pinch_parts_while_the_tip_is_hidden(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	double t;
+	int count, events_seen = 0, opened = 0;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f; /* the index pinch closes on a live reading at t = 1.0 */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 1 && events[0].path == HANDS_PATH_MEASURED,
+		"parts: the press is measured from the tips");
+
+	joints[1].tip_tracked[1] = 0; /* and the pinch hides the tip immediately, as on device */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
+		events[0].path == HANDS_PATH_CARRIED, "parts: the gap opens as a carried one");
+
+	for (t = 1.022; t <= 4.022 + 1e-9; t += 0.011) /* 3.0 s with the fingers still together */
+	{
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		events_seen += count;
+		if (controls[1].trigger != 1.0f)
+			opened++;
+	}
+	check(opened == 0, "parts: closed through 3.0 s of the tip being hidden");
+	check(events_seen == 0, "parts: a gap with the fingers together says nothing at all");
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.050f); /* the fingers part, the tip still hidden */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.033, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "parts: the trigger releases on the sample the fingers part");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
+		events[0].path == HANDS_PATH_PARTED, "parts: one pinch-off event, named as the pair's");
+	check(near(events[0].value, 0.020f, 1e-4f) && events[0].threshold == HANDS_PART_MARGIN_METERS,
+		"parts: the event carries the growth against the margin");
+
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.044, controls, events, 16);
+	check(controls[1].trigger == 0.0f && count == 0,
+		"parts: the carry cannot close it again while the pair says apart");
+}
+
+/* a tap: the press, the tip hidden by it, and the fingers parting again inside 200 ms. The
+release lands on the sample the parting is first visible, which is what makes a tap one shot
+instead of a held trigger (on the plasma pistol, a controlled shot instead of a charged one) */
+static void pinch_tap_releases_within_one_sample(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tap: pressed at t = 1.0");
+
+	joints[1].tip_tracked[1] = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "tap: held while the tip is hidden");
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.045f); /* 1.5 cm of parting, 22 ms in */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "tap: released 22 ms after the press, inside one sample of parting");
+	check(count == 1 && events[0].on == 0 && events[0].path == HANDS_PATH_PARTED,
+		"tap: the release is the pair's, not a tip that came back");
+}
+
+/* hold to fire: automatic weapons are fired by holding the pinch, and the tip is hidden for
+every sample of it. The release rule has no clock and nothing that accumulates in it, only the
+pair's separation now against what it was when the tips were last measured, and rigid motion
+of the hand cannot change that separation. So 5 s of samples with the hand turning and
+travelling never releases, where a deadline on the gap's length would have */
+static void pinch_hold_to_fire_never_releases(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	const float along[3] = { 0.002f, 0.0f, 0.0f };
+	double t;
+	int count, events_seen = 0, opened = 0, samples = 0;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	joints[1].tip_tracked[1] = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "hold to fire: pressed, and the tip hidden by it");
+
+	for (t = 1.022; t <= 6.022 + 1e-9; t += 0.011) /* 5.0 s at 90 Hz, the hand moving throughout */
+	{
+		move_hand(&joints[1], 1.0f, along);
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		events_seen += count;
+		samples++;
+		if (controls[1].trigger != 1.0f)
+			opened++;
+	}
+	check(samples > 400, "hold to fire: the 5.0 s really is 400 samples and more");
+	check(opened == 0, "hold to fire: the trigger is never released");
+	check(events_seen == 0, "hold to fire: and nothing is logged against it");
+
+	joints[1].tip_tracked[1] = 1; /* the tip is seen again, still on the thumb */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 6.033, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS &&
+		events[0].on == 0, "hold to fire: still closed as the tip returns, with only the gap's length logged");
+}
+
+/* the thumb's intermediate tip is the more distal half of the pair and the one that goes
+first, since the pinching finger wraps over the pad behind it. With it untracked the check
+falls to the thumb's intermediate base, a bone further back and on the outside of the hand,
+and still releases */
+static void pinch_part_uses_the_thumb_ladder(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "thumb ladder: starts closed with both levels measured");
+
+	joints[1].tip_tracked[1] = 0;
+	joints[1].intermediate_tip_tracked[0] = 0; /* the thumb's own distal joint goes with the tip */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "thumb ladder: held with only the thumb's base left");
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.050f);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "thumb ladder: the second level releases it");
+	check(count == 1 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
+		"thumb ladder: the growth is the same 2.0 cm, measured from that level's own reference");
+}
+
+/* the pair untracked as well as the tip: no reading on either side, so the check has nothing
+to say and the carry's answer stands, which is today's behavior of holding the pinch closed.
+A missing pair must never be read as a parting -- that would release the trigger every time
+ARKit lost a few joints at once */
+static void pinch_part_falls_back_without_the_pair(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+
+	joints[1].tip_tracked[1] = 0;
+	joints[1].intermediate_base_tracked[1] = 0; /* the finger's half of the pair, which both levels share */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.050f); /* parted, but nothing can see it */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 0,
+		"no pair: an unreadable pair holds the pinch, exactly as the carry alone did");
+
+	joints[1].intermediate_base_tracked[1] = 1; /* the joint comes back, and the parting with it */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	check(controls[1].trigger == 0.0f && count == 1 && events[0].path == HANDS_PATH_PARTED,
+		"no pair: the release waits for the pair rather than being guessed without it");
+}
+
+/* a pinch with nothing to carry either: the metacarpals go, so there is no palm frame to read
+a hidden tip back out of (host_spatial_hands.c's tips_resolve) and the pinch is blind rather
+than guessing. The pair is still tracked, and it releases, because the check is ahead of the
+early return a pinch with no reading takes */
+static void pinch_parts_with_nothing_to_carry(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+
+	joints[1].tip_tracked[1] = 0;
+	joints[1].metacarpal_tracked[0] = joints[1].metacarpal_tracked[1] = 0;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "blind pinch: held with no palm frame to carry the tip in");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
+		events[0].finger == HANDS_PINCH_INDEX && events[0].path == HANDS_PATH_BLIND,
+		"blind pinch: the index's gap is logged as a blind one, not as a carried one");
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.050f);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	check(controls[1].trigger == 0.0f && count == 1 && events[0].path == HANDS_PATH_PARTED,
+		"blind pinch: the pair releases it even with no reading of the tips at all");
+}
+
+/* the part check is a band, like the pinch's own: it releases above the margin and lets a
+carried position close the pinch again only below half of it. Without the lower edge a pair
+sitting near the margin would release and re-close sample after sample, which is a trigger
+firing repeatedly from one held pinch. Below the lower edge the fingers really are back
+together, and a re-press while the tip is still hidden is the player pinching again */
+static void pinch_part_does_not_chatter(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	joints[1].tip_tracked[1] = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.050f); /* 2.0 cm: past the margin, released */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	check(controls[1].trigger == 0.0f && count == 1, "chatter: released past the margin");
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.039f); /* 0.9 cm: inside the band, still apart */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	check(controls[1].trigger == 0.0f && count == 0, "chatter: a pair back inside the band stays released");
+
+	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.034f); /* 0.4 cm: together again, a real re-press */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "chatter: the fingers back together close it again");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 1 &&
+		events[0].path == HANDS_PATH_CARRIED, "chatter: and that press is logged as the carry's, not the tips'");
+}
+
 int main(void)
 {
 	pinch_hysteresis();
@@ -920,6 +1210,13 @@ int main(void)
 	prayer();
 	start_pulse_outlives_the_hands();
 	pinch_miss_logged();
+	pinch_parts_while_the_tip_is_hidden();
+	pinch_tap_releases_within_one_sample();
+	pinch_hold_to_fire_never_releases();
+	pinch_part_uses_the_thumb_ladder();
+	pinch_part_falls_back_without_the_pair();
+	pinch_parts_with_nothing_to_carry();
+	pinch_part_does_not_chatter();
 	event_capacity_clamped();
 	if (failures)
 	{

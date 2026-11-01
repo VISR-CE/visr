@@ -133,7 +133,16 @@ static int active;
 /* the joints the aim and a gesture recognizer need, in struct
 host_spatial_hand_joints's order (the reduction below walks them together) */
 enum { JOINT_WRIST, JOINT_FOREARM_ARM, JOINT_THUMB_TIP, JOINT_INDEX_TIP, JOINT_MIDDLE_TIP, JOINT_RING_TIP,
-	JOINT_LITTLE_TIP, JOINT_INDEX_METACARPAL, JOINT_LITTLE_METACARPAL, NUMBER_OF_HAND_JOINTS };
+	JOINT_LITTLE_TIP,
+	/* each tip's chain one and two bones back, each family in the same thumb-first order,
+	so the reduction below walks a family as one range. These are what a pinch is judged by
+	while the thumb is sitting on the fingertip it is pinching and the cameras have lost it
+	(host_spatial_hands.h's HANDS_PART_LEVEL_*) */
+	JOINT_THUMB_INTERMEDIATE_TIP, JOINT_INDEX_INTERMEDIATE_TIP, JOINT_MIDDLE_INTERMEDIATE_TIP,
+	JOINT_RING_INTERMEDIATE_TIP, JOINT_LITTLE_INTERMEDIATE_TIP,
+	JOINT_THUMB_INTERMEDIATE_BASE, JOINT_INDEX_INTERMEDIATE_BASE, JOINT_MIDDLE_INTERMEDIATE_BASE,
+	JOINT_RING_INTERMEDIATE_BASE, JOINT_LITTLE_INTERMEDIATE_BASE,
+	JOINT_INDEX_METACARPAL, JOINT_LITTLE_METACARPAL, NUMBER_OF_HAND_JOINTS };
 static const ar_hand_skeleton_joint_name_t joint_names[NUMBER_OF_HAND_JOINTS] = {
 	ar_hand_skeleton_joint_name_wrist,
 	ar_hand_skeleton_joint_name_forearm_arm,
@@ -142,6 +151,16 @@ static const ar_hand_skeleton_joint_name_t joint_names[NUMBER_OF_HAND_JOINTS] = 
 	ar_hand_skeleton_joint_name_middle_finger_tip,
 	ar_hand_skeleton_joint_name_ring_finger_tip,
 	ar_hand_skeleton_joint_name_little_finger_tip,
+	ar_hand_skeleton_joint_name_thumb_intermediate_tip,
+	ar_hand_skeleton_joint_name_index_finger_intermediate_tip,
+	ar_hand_skeleton_joint_name_middle_finger_intermediate_tip,
+	ar_hand_skeleton_joint_name_ring_finger_intermediate_tip,
+	ar_hand_skeleton_joint_name_little_finger_intermediate_tip,
+	ar_hand_skeleton_joint_name_thumb_intermediate_base,
+	ar_hand_skeleton_joint_name_index_finger_intermediate_base,
+	ar_hand_skeleton_joint_name_middle_finger_intermediate_base,
+	ar_hand_skeleton_joint_name_ring_finger_intermediate_base,
+	ar_hand_skeleton_joint_name_little_finger_intermediate_base,
 	ar_hand_skeleton_joint_name_index_finger_metacarpal,
 	ar_hand_skeleton_joint_name_little_finger_metacarpal
 };
@@ -484,6 +503,12 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	{
 		reduced->tip_tracked[i] = tracked[JOINT_THUMB_TIP + i];
 		position_of(room[JOINT_THUMB_TIP + i].columns[3].xyz, head_position, reduced->tip[i]);
+		reduced->intermediate_tip_tracked[i] = tracked[JOINT_THUMB_INTERMEDIATE_TIP + i];
+		position_of(room[JOINT_THUMB_INTERMEDIATE_TIP + i].columns[3].xyz, head_position,
+			reduced->intermediate_tip[i]);
+		reduced->intermediate_base_tracked[i] = tracked[JOINT_THUMB_INTERMEDIATE_BASE + i];
+		position_of(room[JOINT_THUMB_INTERMEDIATE_BASE + i].columns[3].xyz, head_position,
+			reduced->intermediate_base[i]);
 	}
 	for (i = 0; i < 2; i++)
 	{
@@ -584,18 +609,31 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	}
 }
 
+/* which reading moved a pinch (host_spatial_hands.h's HANDS_PATH_*), for the tail of the
+line below: the gaps are what this log is read for, and without this a pinch released
+because the fingers were seen to part looks the same in it as one released because the
+camera found the fingertip again. Empty for the kinds of event that have no such reading */
+static const char *path_name(int path)
+{
+	static const char *const names[] = { "", " (measured)", " (carried)", " (parted)", " (hand lost)",
+		" (blind)" };
+
+	return path >= 0 && path < (int)(sizeof(names) / sizeof(names[0])) ? names[path] : "";
+}
+
 /* debug.hand_log: one line per gesture state transition, the value measured against the
-threshold it crossed, to three decimals. The prayer sign's hand is always 0
-(host_spatial_hands.c's emit calls: it is both hands together, neither one), so it logs as
-"both" rather than a side */
+threshold it crossed, to three decimals, and which reading decided it. The prayer sign's hand
+is always 0 (host_spatial_hands.c's emit calls: it is both hands together, neither one), so it
+logs as "both" rather than a side */
 static void log_event(const struct hands_event *event)
 {
 	char gesture[16];
 
 	gesture_name(event->kind, event->finger, gesture, sizeof(gesture));
-	host_logf(HOST_LOG_INFO, "hands: %s %s %s %.3f against %.3f", gesture,
+	host_logf(HOST_LOG_INFO, "hands: %s %s %s %.3f against %.3f%s", gesture,
 		event->kind == HANDS_EVENT_PRAYER ? "both" : (event->hand ? "right" : "left"),
-		event->on ? "on" : "off", (double)event->value, (double)event->threshold);
+		event->on ? "on" : "off", (double)event->value, (double)event->threshold,
+		path_name(event->path));
 }
 
 void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[3], double predict_to)

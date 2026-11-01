@@ -1,7 +1,9 @@
 /* The gesture recognizer (host_spatial_hands.h, declared): pinch hysteresis
-over fingertips carried in the palm's frame through ARKit's dropouts, the gun
-and off hand's button and stick mapping, the aim turn, and the prayer sign's
-dwell and Start pulse. Plain C over the reduced joint facts only, so
+over fingertips carried in the palm's frame through ARKit's dropouts, the
+check on the joints behind a pinch that releases it when the fingers part
+rather than when the hidden fingertip is found again, the gun and off hand's
+button and stick mapping, the aim turn, and the prayer sign's dwell and Start
+pulse. Plain C over the reduced joint facts only, so
 port/ios/tests/hands_probe.c can run it under ASan and UBSan on a Mac;
 host_spatial_hands.m supplies the joints and reads what this returns. No
 host_logf: the caller logs the events. */
@@ -15,8 +17,10 @@ derived from it: a pinch's carried_since, the prayer dwell's since, the pulse
 and cooldown clocks) is assumed strictly positive, so 0.0 is free to mean
 "idle" for every one of hands_state's own clocks below */
 
+/* path is HANDS_PATH_* (host_spatial_hands.h): which reading moved a pinch, and
+HANDS_PATH_NONE for every event of a kind that has no such reading */
 static void emit(struct hands_event *events, int capacity, int *count, int kind, int hand, int finger, int on,
-	float value, float threshold)
+	float value, float threshold, int path)
 {
 	if (*count < capacity)
 	{
@@ -26,6 +30,7 @@ static void emit(struct hands_event *events, int capacity, int *count, int kind,
 		events[*count].on = on;
 		events[*count].value = value;
 		events[*count].threshold = threshold;
+		events[*count].path = path;
 	}
 	(*count)++;
 }
@@ -235,49 +240,160 @@ comment). hand_tracked governs the whole-hand open: a hand ARKit is not
 reporting opens every pinch, which hands_recognize asks for only once that
 hand's gap has run out (hand_lost), so a blink reaches this function not at
 all. Below that there is nothing but the hysteresis, over whichever of the
-two positions tips_resolve could put together. A fingertip going out of sight
-is not a reason to open either: ARKit loses the outer tips for anything from
-a twentieth of a second to tens of seconds while the hand is plainly held
+two positions tips_resolve could put together, with part_decide ahead of it
+wherever one of those two is a guess. A fingertip going out of sight is not a
+reason to open either: ARKit loses the outer tips for anything from a
+twentieth of a second to tens of seconds while the hand is plainly held
 still, and every one of those dropouts used to open the pinch the player was
 holding */
+/* one pinch's still-visible pair as this sample reads it, per level
+(host_spatial_hands.h's HANDS_PART_LEVEL_*). No carry and no palm frame: the whole reason
+these joints are the ones to ask is that ARKit keeps reporting them while the thumb hides
+the fingertip, so a level either has both its ends this sample or is not used. finger is the
+pinch's own index, and its chain of joints is finger + 1, as its tip is */
+struct part_pair { int known[NUMBER_OF_HANDS_PART_LEVELS]; float distance[NUMBER_OF_HANDS_PART_LEVELS]; };
+
+static void part_pair_of(const struct host_spatial_hand_joints *joints, int finger, struct part_pair *pair)
+{
+	int chain = finger + 1;
+	const float *thumb[NUMBER_OF_HANDS_PART_LEVELS];
+	int thumb_tracked[NUMBER_OF_HANDS_PART_LEVELS];
+	int level;
+
+	thumb[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_TIP] = joints->intermediate_tip[0];
+	thumb[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_BASE] = joints->intermediate_base[0];
+	thumb_tracked[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_TIP] = joints->intermediate_tip_tracked[0];
+	thumb_tracked[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_BASE] = joints->intermediate_base_tracked[0];
+	for (level = 0; level < NUMBER_OF_HANDS_PART_LEVELS; level++)
+	{
+		pair->known[level] = joints->intermediate_base_tracked[chain] && thumb_tracked[level];
+		pair->distance[level] = pair->known[level] ?
+			distance3(joints->intermediate_base[chain], thumb[level]) : 0.0f;
+	}
+}
+
+/* what the part check measures growth from: every level this sample can see, recorded on
+every sample both of the pinch's fingertips are ARKit's own reading, so the reference always
+holds the pair's separation in the pose those tips confirmed the fingers were in. A level
+this sample cannot see is forgotten rather than left standing, since a reference taken in an
+older pose describes a hand shape that has since moved on. The pair's state goes with it: the
+tips decide for themselves while they can be seen, so whatever the pair said during a gap is
+spent as soon as that gap ends */
+static void part_reference_record(struct hands_pinch *pinch, const struct part_pair *pair)
+{
+	int level;
+
+	for (level = 0; level < NUMBER_OF_HANDS_PART_LEVELS; level++)
+	{
+		pinch->part_reference_known[level] = pair->known[level];
+		pinch->part_reference[level] = pair->known[level] ? pair->distance[level] : 0.0f;
+	}
+	pinch->parted = 0;
+}
+
+/* the fix the carry needed. A pinch occludes the very fingertip its distance is measured
+from, because the thumb is sitting on it, so the tip goes missing on the sample after the
+press and the carry answers "still where it was, which is on the thumb" for the whole
+dropout. For a finger genuinely away from the thumb and merely out of view that is the right
+answer and the carry stays. For a finger the thumb is on it cannot be: the state being
+measured is what causes the occlusion, so the carry can never notice the fingers parting, and
+on device a tap meant as one shot became a held trigger for as long as 2.3 s.
+
+So while a fingertip cannot be measured, the pinch is judged instead by the pair of joints
+behind the contact point that the thumb is not sitting on, against what that pair measured
+while the tips were last seen (part_reference_record). Returns 1 when the carry may not be
+trusted this sample, which releases a closed pinch and keeps an already-released one open: a
+pinch is never closed again by a position carried from a pose the pair says the hand has
+left. There is no clock in any of it, which is what lets a pinch be held for as long as the
+player holds it (hands_probe.c's pinch_hold_to_fire_never_releases) */
+static int part_decide(struct hands_pinch *pinch, const struct part_pair *pair, int hand, int finger,
+	struct hands_event *events, int capacity, int *count)
+{
+	int level;
+
+	for (level = 0; level < NUMBER_OF_HANDS_PART_LEVELS; level++)
+	{
+		float growth;
+
+		if (!(pair->known[level] && pinch->part_reference_known[level]))
+			continue;
+		growth = pair->distance[level] - pinch->part_reference[level];
+		/* a band, as this file's every other threshold is: past the margin the fingers are
+		apart, and only back under half of it is a carried position trusted to close the pinch
+		again. Without the lower edge a pair sitting at the margin would release and re-close
+		sample after sample, turning one held pinch into a stream of shots */
+		if (growth > HANDS_PART_MARGIN_METERS)
+			pinch->parted = 1;
+		else if (growth < HANDS_PART_MARGIN_METERS / 2.0f)
+			pinch->parted = 0;
+		if (pinch->parted && pinch->closed)
+		{
+			pinch->closed = 0;
+			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, growth,
+				HANDS_PART_MARGIN_METERS, HANDS_PATH_PARTED);
+		}
+		return pinch->parted;
+	}
+	/* no level this sample can both see and compare against: the carry's answer stands, which
+	is a closed pinch holding, exactly as before this check existed. A release the pair has
+	already decided stands too, since the pair going missing is not the fingers coming back
+	together */
+	return pinch->parted;
+}
+
 /* the end of a carried gap, for the log: how long this pinch went without a
 live reading of both its ends. Silent unless a gap was running, so every
-caller below can hand it the state it is about to move on */
+caller below can hand it the state it is about to move on. Its path says
+whether the pair ended up releasing the pinch inside that gap, which is the
+one thing about a gap worth knowing beyond its length */
 static void miss_ended(const struct hands_pinch *pinch, int hand, int finger, double now,
 	struct hands_event *events, int capacity, int *count)
 {
 	if (pinch->carried_since <= 0.0)
 		return;
-	emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 0, (float)(now - pinch->carried_since), 0.0f);
+	emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 0, (float)(now - pinch->carried_since), 0.0f,
+		pinch->parted ? HANDS_PATH_PARTED : HANDS_PATH_CARRIED);
 }
 
 static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int hand_tracked, int thumb_usable,
-	const float thumb[3], int tip_usable, const float tip[3], int carried, double now,
-	struct hands_event *events, int capacity, int *count)
+	const float thumb[3], int tip_usable, const float tip[3], int carried, const struct part_pair *pair,
+	double now, struct hands_event *events, int capacity, int *count)
 {
 	float distance;
+	/* this sample's reading of the pinch is a guess rather than a measurement: one of its two
+	ends is a carried position, or neither end can be put together at all. The same condition
+	the gap below is logged on, and the one that hands the pinch to part_decide */
+	int guessing = carried || !(thumb_usable && tip_usable);
+	int path = carried ? HANDS_PATH_CARRIED : HANDS_PATH_MEASURED;
 
 	if (!hand_tracked)
 	{
 		if (pinch->closed)
 		{
 			pinch->closed = 0;
-			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS);
+			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS,
+				HANDS_PATH_HAND_LOST);
 		}
 		miss_ended(pinch, hand, finger, now, events, capacity, count);
 		pinch->carried_since = 0.0;
+		/* a hand ARKit is not reporting has no joints to judge anything by, so nothing this
+		pinch recorded about its pair outlives the loss: the hand that comes back records its
+		reference from what it is seen doing then, as tips_resolve rebuilds its carry */
+		memset(pinch->part_reference_known, 0, sizeof(pinch->part_reference_known));
+		pinch->parted = 0;
 		return;
 	}
 
 	/* the gap's own log, on as it starts and off with its length as it ends: the distance below
 	is a carried one, or there is none at all, and either way the player's finger is somewhere
 	this file is guessing at. The gaps' lengths are the measurement to tune against */
-	if (carried || !(thumb_usable && tip_usable))
+	if (guessing)
 	{
 		if (pinch->carried_since == 0.0)
 		{
 			pinch->carried_since = now;
-			emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 1, 0.0f, 0.0f);
+			emit(events, capacity, count, HANDS_EVENT_PINCH_MISS, hand, finger, 1, 0.0f, 0.0f,
+				carried ? HANDS_PATH_CARRIED : HANDS_PATH_BLIND);
 		}
 	}
 	else
@@ -285,6 +401,13 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 		miss_ended(pinch, hand, finger, now, events, capacity, count);
 		pinch->carried_since = 0.0;
 	}
+	/* the pair behind the contact point decides a pinch whose tips this sample can only guess
+	at, and it is asked ahead of the early return below so that a pinch with no reading at all
+	is released by it too */
+	if (!guessing)
+		part_reference_record(pinch, pair);
+	else if (part_decide(pinch, pair, hand, finger, events, capacity, count))
+		return;
 	/* nothing to measure and nothing to carry: the pinch keeps what it had rather than opening */
 	if (!(thumb_usable && tip_usable))
 		return;
@@ -293,12 +416,12 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	if (!pinch->closed && distance < HANDS_PINCH_CLOSE_METERS)
 	{
 		pinch->closed = 1;
-		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, HANDS_PINCH_CLOSE_METERS);
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, HANDS_PINCH_CLOSE_METERS, path);
 	}
 	else if (pinch->closed && distance > HANDS_PINCH_OPEN_METERS)
 	{
 		pinch->closed = 0;
-		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS);
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS, path);
 	}
 }
 
@@ -347,7 +470,7 @@ static void turn_transition(int *turning, int turning_now, int kind, int hand, i
 	if (*turning == turning_now)
 		return;
 	*turning = turning_now;
-	emit(events, capacity, count, kind, hand, finger, turning_now, value, threshold);
+	emit(events, capacity, count, kind, hand, finger, turning_now, value, threshold, HANDS_PATH_NONE);
 }
 
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2], int aiming_hand,
@@ -392,10 +515,12 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		for (finger = 0; finger < NUMBER_OF_HANDS_PINCHES; finger++)
 		{
 			int tip_index = finger + 1; /* tip[0] is the thumb */
+			struct part_pair pair;
 
+			part_pair_of(j, finger, &pair);
 			pinch_update(&state->pinch[hand][finger], hand, finger, j->tracked, usable[0], tip[0],
-				usable[tip_index], tip[tip_index], carried[0] || carried[tip_index], now, events, capacity,
-				&count);
+				usable[tip_index], tip[tip_index], carried[0] || carried[tip_index], &pair, now, events,
+				capacity, &count);
 		}
 	}
 
@@ -438,7 +563,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 				state->pulse_x = -turn_sign;
 				state->pulse_kind = HANDS_EVENT_AIM_TURN;
 				state->aim_turn_armed = 0;
-				emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees);
+				emit(events, capacity, &count, HANDS_EVENT_AIM_TURN, g, 0, 1, yaw, deadzone_degrees,
+					HANDS_PATH_NONE);
 			}
 		}
 		else
@@ -463,7 +589,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	only the instant it began. pulse_kind is the aim turn, the only source that sets a pulse */
 	if (state->pulse_until > 0.0 && now >= state->pulse_until)
 	{
-		emit(events, capacity, &count, state->pulse_kind, g, 0, 0, state->pulse_x, (float)HANDS_PULSE_SECONDS);
+		emit(events, capacity, &count, state->pulse_kind, g, 0, 0, state->pulse_x, (float)HANDS_PULSE_SECONDS,
+			HANDS_PATH_NONE);
 		state->pulse_until = 0.0;
 	}
 
@@ -479,7 +606,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		if (near != state->prayer_near)
 		{
 			state->prayer_near = near;
-			emit(events, capacity, &count, HANDS_EVENT_PRAYER, 0, 0, near, dot, HANDS_PRAYER_OPPOSED_DOT);
+			emit(events, capacity, &count, HANDS_EVENT_PRAYER, 0, 0, near, dot, HANDS_PRAYER_OPPOSED_DOT,
+				HANDS_PATH_NONE);
 		}
 		if (near && dot <= HANDS_PRAYER_OPPOSED_DOT)
 		{
@@ -494,7 +622,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 				state->start_until = now + HANDS_PULSE_SECONDS;
 				state->prayer_fired = 1;
 				state->prayer_cooldown_until = now + HANDS_PRAYER_COOLDOWN_SECONDS;
-				emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 1, 1.0f, (float)HANDS_PULSE_SECONDS);
+				emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 1, 1.0f, (float)HANDS_PULSE_SECONDS,
+					HANDS_PATH_NONE);
 			}
 		}
 		else
@@ -507,7 +636,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	/* and the Start pulse's end, for the same reason */
 	if (state->start_until > 0.0 && now >= state->start_until)
 	{
-		emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 0, 1.0f, (float)HANDS_PULSE_SECONDS);
+		emit(events, capacity, &count, HANDS_EVENT_START, g, 0, 0, 1.0f, (float)HANDS_PULSE_SECONDS,
+			HANDS_PATH_NONE);
 		state->start_until = 0.0;
 	}
 
