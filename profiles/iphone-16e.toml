@@ -31,7 +31,8 @@ shadow_map_size = 128
 dynamic_resolution_floor = 540
 
 [network]
-player_capacity = 32
+player_capacity = 64
+full_rate_players = 32
 
 [evidence."display.anisotropic_filtering"]
 basis = "measured"
@@ -74,11 +75,16 @@ why = "Blood Gulch with 32 players on the 17 Pro at native needed only 1117 line
 source = "VISR presented benchmark runs on the iPhone 17 Pro, main c6f138a78, 2026-10-26"
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "Steve's decision on 2026-10-27 to match the iPhone 17 Pro's 32: the same A17 Pro/A18 class of GPU, not measured separately on this model. The 17 Pro held Sidewinder with 128 players at 30 frames a second, minimum settings and 540 lines, and 32 is half of Blood Gulch's failing 64 there."
-source = "iphone-17-pro.toml network.player_capacity evidence; Steve, 2026-10-27"
+basis = "inherited"
+why = "Inherit 64 from the nearest measured weaker iPhone, the iPhone 12 Pro. Its current-build minimum-settings ladder holds 64 reliably; 128 has incomplete attempts. This model has not run the current capacity ladder. This replaces the older 32-player estimate from a stronger phone."
+source = "`iphone-12-pro.toml` network.player_capacity evidence, main e77a24957, 2026-10-29 to 2026-10-30"
 
 [evidence."variable.display.shadow_map_size"]
 basis = "assumed"
 why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPhone 17 Pro, inherited here without a run on this device."
 source = "Steve, 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Inherit 32 from the nearest measured weaker iPhone, the iPhone 12 Pro. Its current-build ladder at 60 frames a second and its variable settings holds 32 on Blood Gulch and Sidewinder and fails 48 on Blood Gulch. The iPhone 16e has not run the threshold ladder at its own variable settings."
+source = "`iphone-12-pro.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"

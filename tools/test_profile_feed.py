@@ -108,7 +108,7 @@ def test_generation_two_shards_carry_the_revision_and_every_bundled_key(tmp_path
     files = payload_files(envelope)
     assert files["hardware/revision.toml"] == (sources / "hardware/revision.toml").read_bytes()
     assert b"player_capacity = 128" in files["iphone-17-pro.toml"]
-    assert b"player_capacity = 8" in files["iphone-ipad.toml"]
+    assert b"player_capacity = 64" in files["iphone-ipad.toml"]
     # the Apple TV 4K (3rd generation) shard keeps upscaled textures on, which its device-profiles-1 shard does not
     tv = data_pack.device_profile_snapshot(ROOT / "profiles", "tvos", "AppleTV14,1", generation=2)
     assert b"upscaled_textures = true" in tv["apple-tv-4k-3rd.toml"]
@@ -201,7 +201,7 @@ def test_native_validators_hold_each_generation_to_its_revision_rule(tmp_path):
     assert not admits("validate-2", "with")
 
 
-FULL_RATE = ("[network]\nplayer_capacity = 128\n", "[network]\nplayer_capacity = 128\nfull_rate_players = 16\n")
+FULL_RATE = ("[network]\nplayer_capacity = 128\n", "[network]\nplayer_capacity = 128\nfull_rate_players = 64\n")
 FULL_RATE_EVIDENCE = '\n[evidence."network.full_rate_players"]\nbasis = "assumed"\nwhy = "A test sets this value to show which generations carry it."\n'
 
 
@@ -209,7 +209,8 @@ def profiles_with_full_rate(folder):
     """A copy of the profiles whose iPhone 17 Pro sets network.full_rate_players, with evidence and a new revision."""
     shutil.copytree(ROOT / "profiles", folder)
     path = folder / "iphone-17-pro.toml"
-    # the shipped profile may already set a measured value: start from one that does not
+    # Keep the fixture at least as high as weaker iPhones so it passes the catalog-order check.
+    # The shipped profile may already set a measured value: start from one that does not.
     text = profile_pr.strip_keys(path.read_text(), ("network.full_rate_players",))
     assert FULL_RATE[0] in text
     path.write_text(text.replace(*FULL_RATE) + FULL_RATE_EVIDENCE)
@@ -253,7 +254,7 @@ def test_a_profile_with_the_key_reaches_both_generations(tmp_path):
     assert data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",
         "--compatibility", f"device-profiles-4:{target}", "--input", str(profiles),
         "--signing-key", str(signing_key(tmp_path)), "--output", str(output)]) == 0
-    assert b"full_rate_players = 16" in payload_files(output.read_bytes())["iphone-17-pro.toml"]
+    assert b"full_rate_players = 64" in payload_files(output.read_bytes())["iphone-17-pro.toml"]
 
 
 def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):

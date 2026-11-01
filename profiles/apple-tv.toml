@@ -27,6 +27,9 @@ render_scale = 0.6667
 render_scale = 0.6
 frame_rate = "30"
 
+[network]
+full_rate_players = 2
+
 [evidence."display.renderer"]
 basis = "measured"
 why = "An Apple TV has no Files app or Settings page to choose a renderer with, and its OpenGL ES lacks S3TC, border clamp and base vertex. Metal ran the menu, a10 and b30 on an Apple TV HD with no Metal error."
@@ -71,3 +74,8 @@ why = "The Apple TV HD's cutscene value, about 650 lines (apple-tv-hd.toml)."
 [evidence."scene.cutscene.display.frame_rate"]
 basis = "inherited"
 why = "The Apple TV HD's cutscene frame rate, 30 as the original played them (apple-tv-hd.toml)."
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Use the shared TV class floor of 2 from the weakest measured TV, Apple TV HD, whose current-build ladder at its variable settings holds 2 at 30 frames a second on both maps and fails 4 on Sidewinder. This fallback is inherited policy, not a measurement on unlisted hardware."
+source = "`apple-tv-hd.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"

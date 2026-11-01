@@ -20,7 +20,8 @@ anisotropic_filtering = 4
 model_lod = "auto"
 
 [network]
-player_capacity = 8
+player_capacity = 64
+full_rate_players = 16
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -55,5 +56,11 @@ basis = "assumed"
 why = "Menus run at 60 as before the gameplay cap; the sweep did not measure menus."
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "No player count held 30 frames a second at minimum settings on this iPad, so 8, the lowest choice that keeps a game playable at all, is a guess. Provisional until a multiplayer run shows what it holds."
+basis = "measured"
+why = "The current-build capacity ladder holds 64 players at 30 frames a second, minimum settings and 540 lines: median on-time frames are 99.93% on Blood Gulch and 99.875% on Sidewinder, two presented rounds each. At 128, Blood Gulch falls to 27.925% and Sidewinder to 10.43%. All lower measured Blood Gulch rungs hold. The highest count that holds on both maps is 64. This minimum-settings capacity is separate from the threshold at the variable profile's settings."
+source = "VISR presented capacity ladder, main e77a24957, build 20261029.192128, 2026-10-30 to 2026-10-31"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second, the real 720-line variable settings (128 shadows, 4x filtering, automatic model detail, full effects and fixed resolution) hold 16 players on Blood Gulch: 99.85% and 99.81% of frames on time, median 99.83%. The 24-player rung fails at 99.05% and 98.95% (median 99.00%); the 32-player probe also fails (median 91.245%). Sidewinder confirms 16 at 99.92% and 99.90% (median 99.91%). Each count has two valid presented rounds; 16 is the largest passing ladder count confirmed on both maps."
+source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31"

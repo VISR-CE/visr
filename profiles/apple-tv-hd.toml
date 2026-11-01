@@ -38,6 +38,7 @@ dynamic_resolution_floor = 480
 
 [network]
 player_capacity = 16
+full_rate_players = 2
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -115,3 +116,8 @@ source = "Apple TV HD runs of a10 with the 30 cap, and replays of a played take,
 basis = "measured"
 why = "At 30 frames a second, minimum settings and 540 lines, presented 120 second windows on Blood Gulch put 99.64% and 99.81% of frames on time with 8 players, 99.55%, 99.36% and 99.72% with 16 (the median round holds), 83.5% and 87.6% with 24 and 31% with 32. Sidewinder with 32 players put 92.4% and 96.0% on time and with 64 players 2.5% and 4.2%. The margin at 16 is thin: the median round clears the 99.5% bar by 0.05 points, and reports from players correct it. 16 is the highest count that holds on the map that failed first; 16 on Sidewinder was not run, and its 32 failed later than Blood Gulch's 24."
 source = "VISR settings sweep capacity ladder, build 20261029.212036 (main e77a24957), two rounds and a third on 16 players, presented, 2026-10-29 to 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At the real variable settings (540-line ceiling, dynamic resolution down to 480, 128 shadows, 4x filtering, automatic model detail and full effects), 8 players fail at 60 frames a second (Blood Gulch median 6.85%) and at 30 (94.485%). The 16-player probes also fail. The 30-fps follow-up holds 2 players: Blood Gulch 99.86% and 99.83%, median 99.845%; Sidewinder 99.75% and 99.55%, median 99.65%. Four holds Blood Gulch narrowly (99.525%) but fails Sidewinder (98.26%). Each score uses two valid presented rounds. Two is the largest count confirmed on both maps at the 99.5% bar; its margin is thin."
+source = "VISR toobig sweep and 2/4-player follow-up, build 20261029.212036 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31 to 2026-11-01"

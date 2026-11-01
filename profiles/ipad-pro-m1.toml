@@ -77,5 +77,5 @@ source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented
 
 [evidence."network.full_rate_players"]
 basis = "measured"
-why = "At 60 frames a second, a fixed 1080 lines and 128 shadows, Blood Gulch with 64 players held 99.93% of frames on time in two rounds, and with 128 players it did not: 84.5% and 87.0% (49.2 and 49.8 fps). 64 is the largest count measured to hold; counts between 64 and 128 were not run."
+why = "At 60 frames a second, a 1080-line ceiling, dynamic resolution down to 540 lines and 128 shadows, Blood Gulch with 64 players holds a median 99.93% of frames on time across two presented rounds. At 128 the median is 85.74%, below the 99.5% bar. 64 is the largest passing ladder count; counts between 64 and 128 and Sidewinder at 64 were not run. These runs used full effects; the profile uses the cheaper half-resolution effects."
 source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30"

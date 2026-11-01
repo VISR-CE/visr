@@ -1062,8 +1062,9 @@ static const struct config_setting config_settings[] =
 		"never refused. A device profile sets it for the device's speed; it is\n"
 		"not a player choice." },
 	{ "network.full_rate_players", _config_integer, "0", "HALO_NET_FULL_RATE_PLAYERS", _environment_value, _platform_ios,
-		"The most multiplayer slots this device holds at the profile's variable\n"
-		"frame rate and settings, 2 to 128; 0 (default) leaves it unlimited.\n"
+		"The most multiplayer slots this device holds at 60 fps and variable\n"
+		"quality, or at 30 when the first rung cannot hold 60, 2 to 128;\n"
+		"0 (default) leaves it unlimited.\n"
 		"Above this threshold, gameplay is held to at most 30 frames a second\n"
 		"for the whole map, using the game's maximum players at map load.\n"
 		"Campaign, co-op, split screen and the main menu are unaffected.\n"

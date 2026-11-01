@@ -321,9 +321,82 @@ def check_profile(path, keys, drop_in=False, scenes=None):
     return problems, table
 
 
-def check_set(tables):
+def check_full_rate_order(tables, catalog):
+    """A stronger catalog tier cannot set a lower full-rate player threshold within one product line.
+
+    iPhone and iPad tiers share a platform but belong to independent families.
+    Exact models inherit a missing threshold from their applicable GPU-family class.
+    Hardware without a tier or any declared threshold does not establish an order.
+    Zero means unlimited, equivalent to the game's maximum of 128 players here.
+    """
+    ranked = []
+    hardware = catalog.get("hardware", [])
+    if not isinstance(hardware, list):
+        return []  # The catalog checker reports malformed catalog fields.
+    for entry in hardware:
+        if not isinstance(entry, dict):
+            continue
+        tier, platform = entry.get("tier"), entry.get("platform")
+        if type(tier) is not int:
+            continue
+        models = entry.get("models", [])
+        if not isinstance(models, list):
+            models = []
+        families = {parsed[1] for name in models if isinstance(name, str)
+                    and (parsed := re.match(r"^(iPhone|iPad|AppleTV|RealityDevice)[0-9]+,", name))}
+        if platform == "mac" and entry.get("chips"):
+            families.add("Mac")
+        for file, table in sorted(tables.items()):
+            match, network = table.get("match", {}), table.get("network", {})
+            if not isinstance(match, dict) or not isinstance(network, dict):
+                continue
+            if table.get("kind") != "model" or match.get("platform") != platform:
+                continue
+            limit = network.get("full_rate_players")
+            if "full_rate_players" not in network and type(entry.get("gpu_family")) is int:
+                classes = []
+                for class_table in tables.values():
+                    class_match = class_table.get("match", {})
+                    if (class_table.get("kind") != "class" or not isinstance(class_match, dict)
+                            or class_match.get("platform") != platform):
+                        continue
+                    bounds = class_match.get("gpu_family")
+                    if (isinstance(bounds, list) and len(bounds) == 2
+                            and all(type(bound) is int for bound in bounds)
+                            and bounds[0] <= entry["gpu_family"]
+                            and (bounds[1] == 0 or entry["gpu_family"] <= bounds[1])):
+                        classes.append(class_table)
+                # Ambiguous or missing class coverage is reported separately by check_set.
+                if len(classes) == 1 and isinstance(classes[0].get("network", {}), dict):
+                    limit = classes[0].get("network", {}).get("full_rate_players")
+            if type(limit) is not int or not 0 <= limit <= 128:
+                continue
+            if not any(isinstance(match.get(field, []), list) and isinstance(entry.get(field, []), list)
+                       and any(name in match.get(field, []) for name in entry.get(field, []))
+                       for field in ("models", "chips")):
+                continue
+            for family in families:
+                ranked.append((platform, family, tier, file, limit or 128))
+    problems = set()
+    for platform, family, tier, file, limit in ranked:
+        for other_platform, other_family, weaker_tier, weaker_file, weaker_limit in ranked:
+            if ((platform, family) == (other_platform, other_family) and tier > weaker_tier
+                    and file != weaker_file and limit < weaker_limit):
+                problems.add(f"{file}: network.full_rate_players ranks below {weaker_file} "
+                             f"on stronger {family} hardware (catalog tiers {tier} > {weaker_tier})")
+    return sorted(problems)
+
+
+def check_set(tables, catalog=None):
     """problems across a whole profiles/ folder: {file name: parsed table}"""
     problems = []
+    if catalog is None:
+        try:
+            catalog = load_toml(PROFILES / "hardware/catalog.toml")
+        except (OSError, ParseError) as error:
+            problems.append(f"hardware/catalog.toml: cannot check full-rate player order: {error}")
+            catalog = {}
+    problems.extend(check_full_rate_order(tables, catalog))
     claimed = {}
     rules = {}
     for file, table in sorted(tables.items()):

@@ -184,4 +184,82 @@ assert any("GPU family Apple2: covered by" in problem
                                                    "tvos-new.toml": family_class("tvos", 2, 0)}))
 assert any("no class profile for platform mac" in problem
            for problem in profile_check.check_set({name: table for name, table in whole.items() if name != "mac.toml"}))
-print("PASS: profile_check.py refuses player settings, out-of-range values, missing evidence, bad headings and scenes")
+
+# Catalog tiers, rather than model generation numbers or GPU families, order each product line.
+def threshold_profile(platform, field, identity, limit):
+    return {"kind": "model", "match": {"platform": platform, field: [identity]},
+            "network": {"full_rate_players": limit}}
+
+
+catalog = {"hardware": [
+    {"platform": "ios", "models": ["iPad8,1"], "tier": 1091},
+    {"platform": "ios", "models": ["iPad13,1"], "tier": 1090},
+    {"platform": "ios", "models": ["iPhone18,1"], "tier": 190},
+    {"platform": "mac", "chips": ["Apple M4"], "tier": 40},
+    {"platform": "mac", "chips": ["Apple M3 Max"], "tier": 50},
+]}
+ordered = {
+    "air.toml": threshold_profile("ios", "models", "iPad13,1", 32),
+    "pro.toml": threshold_profile("ios", "models", "iPad8,1", 16),
+    "phone.toml": threshold_profile("ios", "models", "iPhone18,1", 8),
+}
+errors = profile_check.check_full_rate_order(ordered, catalog)
+assert len(errors) == 1 and "pro.toml" in errors[0] and "air.toml" in errors[0], errors
+assert profile_check.check_set({**whole, **ordered}, catalog) == errors
+ordered["pro.toml"]["network"]["full_rate_players"] = 32
+assert profile_check.check_full_rate_order(ordered, catalog) == []
+# A zero threshold is unlimited, not weaker than a positive threshold.
+ordered["pro.toml"]["network"]["full_rate_players"] = 0
+assert profile_check.check_full_rate_order(ordered, catalog) == []
+ordered["air.toml"]["network"]["full_rate_players"] = 0
+ordered["pro.toml"]["network"]["full_rate_players"] = 64
+assert len(profile_check.check_full_rate_order(ordered, catalog)) == 1
+# Equal tiers, absent limits and unordered hardware do not invent an ordering.
+catalog["hardware"][0]["tier"] = 1090
+assert profile_check.check_full_rate_order(ordered, catalog) == []
+del catalog["hardware"][0]["tier"]
+assert profile_check.check_full_rate_order(ordered, catalog) == []
+macs = {"m4.toml": threshold_profile("mac", "chips", "Apple M4", 64),
+        "max.toml": threshold_profile("mac", "chips", "Apple M3 Max", 32)}
+assert len(profile_check.check_full_rate_order(macs, catalog)) == 1
+macs["max.toml"]["network"].clear()
+assert profile_check.check_full_rate_order(macs, catalog) == []
+
+# An exact model without a threshold keeps the class value; catalog inheritance does not rescue it.
+fallback_catalog = {"hardware": [
+    {"platform": "ios", "models": ["iPad13,9"], "tier": 1100, "gpu_family": 7},
+    {"platform": "ios", "models": ["iPad16,3"], "tier": 1130, "gpu_family": 9},
+]}
+fallback = {
+    "m1.toml": threshold_profile("ios", "models", "iPad13,9", 64),
+    "m4.toml": threshold_profile("ios", "models", "iPad16,3", 64),
+    "class.toml": {"kind": "class", "match": {"platform": "ios", "gpu_family": [1, 0]},
+                   "network": {"full_rate_players": 16}},
+}
+fallback["m4.toml"]["network"].clear()
+assert len(profile_check.check_full_rate_order(fallback, fallback_catalog)) == 1
+# Omitting the entire network table has the same fallback behavior.
+del fallback["m4.toml"]["network"]
+assert len(profile_check.check_full_rate_order(fallback, fallback_catalog)) == 1
+fallback["class.toml"]["network"]["full_rate_players"] = 64
+assert profile_check.check_full_rate_order(fallback, fallback_catalog) == []
+fallback["class.toml"]["network"]["full_rate_players"] = 16
+for explicit in (64, 0):
+    fallback["m4.toml"]["network"] = {"full_rate_players": explicit}
+    assert profile_check.check_full_rate_order(fallback, fallback_catalog) == []
+# Select the class for this GPU, rather than borrowing the lower family's threshold.
+del fallback["m4.toml"]["network"]
+fallback["class.toml"]["match"]["gpu_family"] = [1, 7]
+fallback["new-class.toml"] = {"kind": "class", "match": {"platform": "ios", "gpu_family": [8, 0]},
+                             "network": {"full_rate_players": 64}}
+assert profile_check.check_full_rate_order(fallback, fallback_catalog) == []
+fallback["new-class.toml"]["network"]["full_rate_players"] = 16
+assert len(profile_check.check_full_rate_order(fallback, fallback_catalog)) == 1
+
+# Malformed catalog fields remain the catalog validator's errors, rather than crashing this rule.
+for malformed in ({"hardware": {}}, {"hardware": [None]},
+                  {"hardware": [{"tier": 1, "platform": "ios", "models": None}]},
+                  {"hardware": [{"tier": 1, "platform": "ios", "models": [42]}]}):
+    assert profile_check.check_full_rate_order(fallback, malformed) == []
+
+print("PASS: profile_check.py validates settings, evidence, scene coverage and catalog player-threshold order")

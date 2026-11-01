@@ -27,6 +27,12 @@ anisotropic_filtering = 16
 
 [variable.display]
 shadow_map_size = 128
+dynamic_resolution = true
+dynamic_resolution_floor = 540
+
+[network]
+player_capacity = 128
+full_rate_players = 6
 
 [evidence."display.upscaled_textures"]
 basis = "assumed"
@@ -96,3 +102,23 @@ why = "Pinned to the built-in default so the Apple TV class profile's floor (the
 basis = "assumed"
 why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPad Pro (M1) and the iPhone 17 Pro; the Apple TV 4K (3rd generation) inherits it without a run on this device."
 source = "Steve, 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second, 1080 lines, 512 shadows and 2160 output, 6 players hold Blood Gulch at 99.99% and 99.97% and Sidewinder at 100% in both rounds. 8 players fail Sidewinder in three rounds (99.43%, 98.65%, 99.14%), and Blood Gulch falls to about 95% at 16 and 62% at 24. At 30 frames a second both maps hold 32."
+source = "VISR toobig sweep and follow-up on Apple TV 4K (3rd generation), build from main e77a24957, Metal, Blood Gulch and Sidewinder, 2026-11-01"
+
+[evidence."network.player_capacity"]
+basis = "measured"
+why = "At 30 frames a second, 540 lines and 128 shadows, 128 players, the highest tested, held 100% of frames on time on Blood Gulch and Sidewinder in two rounds each."
+source = "VISR presented capacity ladder on Apple TV 4K (3rd generation), build from main e77a24957, 2026-11-01"
+
+[evidence."variable.display.dynamic_resolution"]
+basis = "measured"
+why = "A 1080-line ceiling with dynamic resolution down to 540 held a minimum of 99.80% of frames on time at 60 frames a second through 2x enemies on a10 and d40."
+source = "VISR context qualification on Apple TV 4K (3rd generation), build from main e77a24957, 2026-11-01"
+
+[evidence."variable.display.dynamic_resolution_floor"]
+basis = "measured"
+why = "The same wide window, 1080 lines down to 540, passed; see `variable.display.dynamic_resolution`."
+source = "VISR context qualification on Apple TV 4K (3rd generation), build from main e77a24957, 2026-11-01"

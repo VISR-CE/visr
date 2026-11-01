@@ -25,6 +25,7 @@ frame_rate = "30"
 
 [network]
 player_capacity = 64
+full_rate_players = 32
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -72,3 +73,8 @@ why = "Menus run at 60 as before the gameplay cap; the sweep did not measure men
 basis = "measured"
 why = "At 30 frames a second, minimum settings and 540 lines every rung held in two rounds: Blood Gulch with 8, 16, 24, 32, 48 and 64 players (99.92% to 100% of frames on time) and Sidewinder with 32, 64 and 128. Blood Gulch with 128 players held in both rounds that completed (99.97% and 100%) but the app exited or stalled in 4 of 6 attempts without a crash or memory-kill report, so 64 is the highest count measured to run reliably. Earlier runs on build 20261023.144726 put 54.7% on time at 16 players, before the multiplayer render fixes."
 source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-29 to 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second, the real variable settings (900-line ceiling, dynamic resolution down to 540, 128 shadows, 16x filtering, maximum model detail and full effects) hold every Blood Gulch rung through 32 players. At 32, valid rounds put 99.93% and 99.97% of frames on time, median 99.95%. The 48-player rung fails at 99.14% and the 64-player probe at 95.315%. Sidewinder confirms 32 at 100% in both rounds. Each decision uses two valid presented 120-second rounds at the 99.5% bar. Formal warm-ups precede qualification; cold screening and thermal-invalid attempts are excluded. 32 is the largest passing ladder count confirmed on both maps."
+source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31 to 2026-11-01"

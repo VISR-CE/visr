@@ -23,7 +23,8 @@ model_lod = "max"
 dynamic_resolution = true
 
 [network]
-player_capacity = 8
+player_capacity = 64
+full_rate_players = 16
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -76,5 +77,10 @@ why = "Keep the native-size cutscene rendering until a cutscene is measured on t
 
 [evidence."network.player_capacity"]
 basis = "inherited"
-why = "Taken from the A10X iPad's measured capacity run (16 players held 88.7% of frames at 30 and minimum settings; 8 is half of that). Not run on this A12; the report had no multiplayer window."
-source = "ipad-pro-12-9-2nd.toml"
+why = "Inherit 64 from the nearest measured weaker iPad, the A10X iPad Pro, whose current-build minimum-settings capacity ladder holds 64 on Blood Gulch and Sidewinder. The A12 has not run this multiplayer ladder."
+source = "`ipad-pro-12-9-2nd.toml` network.player_capacity evidence, main e77a24957, 2026-10-30 to 2026-10-31"
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Inherit 16 from the nearest measured weaker iPad, the A10X iPad Pro, whose ladder at 60 frames a second and its variable settings holds 16 on Blood Gulch and Sidewinder and fails 24 on Blood Gulch. This A12 profile has not run the multiplayer threshold ladder at its own variable settings."
+source = "`ipad-pro-12-9-2nd.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"

@@ -25,6 +25,9 @@ anisotropic_filtering = 4
 model_lod = "auto"
 dynamic_resolution = true
 
+[network]
+full_rate_players = 2
+
 [evidence."display.dynamic_resolution"]
 basis = "assumed"
 why = "The same A10X GPU as the iPad Pro 12.9-inch (2nd generation), where dynamic resolution took the Maw fight from 76.1% to 99.8% on time at 60 frames a second. With the 1080 output and 720 render lines the 0.5.0 run on a 4K TV held 4 of 6 1x windows; dynamic resolution lowers the scene to 540 lines in the heavy frames. tvOS stage timing is unmeasured; without timing dynamic resolution stays off and says so in the log."
@@ -78,3 +81,8 @@ why = "Pinned to the built-in default so the Apple TV class profile's floor (the
 basis = "measured"
 why = "On a 4K TV with the scene at 720 lines, handing the Apple TV a 1080 image tied a 720 image when both ran cool (on-time 0.991 in the 8 windows where both were thermally nominal; GPU mean 14.1 against 14.7 ms over all windows), against the full 4K drawable baseline at 55.0 frames a second and 0.907 on time. 1080 gives the HUD and text 1.5 times the lines and gives 1080p TVs a native picture. The cap only lowers output, so 720p TVs are unchanged. Steve's decision."
 source = "TestFlight 0.5.0 benchmark reports X6RJWBVJ, 3LADMGUU, U764MX75 (4K TV) and ZGVMKGQJ (0.4.1 baseline), build 20261025.150026, 2026-10-25"
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Inherit 2 from the nearest measured weaker TV, Apple TV HD, whose current-build ladder at its variable settings holds 2 at 30 frames a second on Blood Gulch and Sidewinder and fails 4 on Sidewinder. This model has not run the multiplayer threshold ladder at its own variable settings."
+source = "`apple-tv-hd.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"

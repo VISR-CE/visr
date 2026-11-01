@@ -29,7 +29,8 @@ frame_rate = "60"
 render_height = 0
 
 [network]
-player_capacity = 8
+player_capacity = 64
+full_rate_players = 16
 
 [evidence."display.renderer"]
 basis = "measured"
@@ -75,5 +76,11 @@ basis = "assumed"
 why = "Render at 1080 lines for the initial external output profile, pending sustained wired-display measurements."
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "The floor for a device weaker than every measured iPhone or iPad: the iPad Pro 12.9-inch (1st generation) held no player count, and the 16-player game ran at 88.7% on the A10X iPad. 8 is a guess. Models with their own profile set their own value."
+basis = "inherited"
+why = "Use the conservative shared class floor of 64 from the weakest measured iPad (A9X) and iPhone (12 Pro) current-build capacity ladders. This shared fallback is inherited policy, not a measurement or guarantee for hardware older than those devices. Exact and catalog-selected model profiles supply their own values."
+source = "`ipad-pro-12-9-1st.toml` and `iphone-12-pro.toml` network.player_capacity evidence, main e77a24957, 2026-10-29 to 2026-10-31"
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Use the conservative shared class floor of 16: the weakest measured iPad (A9X) holds 16 and the weakest measured iPhone (12 Pro) holds 32 at 60 frames a second and their own variable settings. Model profiles retain their separate family values. This shared fallback is inherited policy rather than a cross-family measurement or a guarantee for hardware older than those devices."
+source = "`ipad-pro-12-9-1st.toml` and `iphone-12-pro.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"

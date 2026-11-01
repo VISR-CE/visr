@@ -716,6 +716,35 @@ static void check_workload_frame_rate(void)
 	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
 	config_workload_set(0, "main menu");
 	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "display"));
+	/* A 30-only profile keeps its measured rate on either side of its player threshold. The warning uses
+	full_rate_players independently of this cap (menu_functions.c, player_capacity_exceeded). */
+	fresh();
+	launch(TV_MODEL "display.frame_rate\t30\tmodel TV\n"
+		"network.full_rate_players\t16\tmodel TV\n");
+	assert(config_integer("network.full_rate_players") == 16);
+	for (int limited = 0; limited <= 1; limited++)
+	{
+		config_workload_set_limited(1, limited, "30-only multiplayer map");
+		/* False means the copied string is the base cap, which frame_rate_flags applies. */
+		assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+		assert(!strcmp(config_string("display.frame_rate"), "30"));
+	}
+	/* Choosing 60 differs from this profile's base 30, so it is an explicit player value. */
+	assert(config_write("display.frame_rate", "60"));
+	assert(config_explicit("display.frame_rate"));
+	assert(config_states[config_setting_index("display.frame_rate")].source == _source_file);
+	assert(config_workload_is_variable && config_workload_hold_30);
+	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "60"));
+	/* The same boundary applies when only multiplayer uses 30 fps. */
+	fresh();
+	launch(TV_MODEL "display.frame_rate\t60\tmodel TV\n"
+		"display.frame_rate\t30\tmodel TV\tvariable\n"
+		"network.full_rate_players\t16\tmodel TV\n");
+	for (int limited = 0; limited <= 1; limited++)
+	{
+		config_workload_set_limited(1, limited, "30-only multiplayer map");
+		assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+	}
 }
 
 /* display.effect_resolution was a boolean beside display.mirror_resolution: the saved choice carries over */

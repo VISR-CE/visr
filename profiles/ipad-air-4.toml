@@ -23,7 +23,8 @@ dynamic_resolution = true
 shadow_map_size = 128
 
 [network]
-player_capacity = 16
+player_capacity = 64
+full_rate_players = 64
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -51,9 +52,9 @@ why = "Maximum against automatic model detail cost 0.05 to 0.06 ms a frame at 90
 source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds on 20261023.144726, a10-heroic and d40-maw-fight offscreen windows plus one presented d40 run, 2026-10-23 to 2026-10-25"
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "At 30 frames a second, minimum settings and 540 lines, a 32-player game held 98.6% of frames on time, short of 99.5%. 16 is half of that and was not run on this iPad (24 was not run either). Provisional until rerun."
-source = "VISR settings sweep capacity runs, build 20261023.144726 (0.4.2), two rounds at minimum settings and 540 lines, 2026-10-24 and 2026-10-25"
+basis = "measured"
+why = "The current-build capacity ladder holds 64 players at 30 frames a second and 540 lines: median on-time frames are 99.985% on Blood Gulch and 100% on Sidewinder, two presented rounds each. At 128, Blood Gulch falls to 99.235% and Sidewinder to 99.97%. All lower measured Blood Gulch rungs hold. This ladder used 512 shadows, 2x filtering, automatic model detail, Xbox effects and lowest clutter detail; it did not test the cheapest 128 shadows. 64 is the highest passing count on both maps in that measured ladder, separate from the threshold at the variable profile's settings."
+source = "VISR presented capacity ladder, main e77a24957, build 20261029.192128, 2026-10-30 to 2026-10-31"
 
 [evidence."display.dynamic_resolution"]
 basis = "assumed"
@@ -64,3 +65,8 @@ source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch
 basis = "assumed"
 why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPad Pro (M1) and the iPhone 17 Pro, inherited here without a run on this device."
 source = "Steve, 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second, the real variable settings (1080-line ceiling, dynamic resolution down to 540, 128 shadows, 16x filtering, maximum model detail and full effects) hold every Blood Gulch rung through 64 players. At 64, two valid presented rounds put 99.93% and 99.89% of frames on time, median 99.91%. At 128 the median is 49.225%, below the 99.5% bar. Sidewinder confirms 64 at 99.97% and 99.93%, median 99.95%. 64 is the largest passing ladder count confirmed on both maps."
+source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31 to 2026-11-01"

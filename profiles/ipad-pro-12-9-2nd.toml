@@ -22,7 +22,8 @@ model_lod = "max"
 dynamic_resolution = true
 
 [network]
-player_capacity = 8
+player_capacity = 64
+full_rate_players = 16
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -74,6 +75,11 @@ basis = "assumed"
 why = "Keep the previous native-size cutscene rendering until a cutscene is measured on this model."
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "At 30 frames a second, minimum settings and 540 lines, even the 16-player game held 88.7% of frames on time. 8 is half of that and was not run on this iPad (12 was not run either). Provisional until rerun."
-source = "VISR settings sweep capacity runs, build 20261023.144726 (0.4.2), two rounds at minimum settings and 540 lines, 2026-10-24 and 2026-10-25"
+basis = "measured"
+why = "The current-build capacity ladder holds 64 players at 30 frames a second, minimum settings and 540 lines: median on-time frames are 99.955% on Blood Gulch and 100% on Sidewinder, two presented rounds each. At 128, Blood Gulch falls to 96.11% and Sidewinder to 67.315%. All lower measured Blood Gulch rungs hold. The highest count that holds on both maps is 64. This minimum-settings capacity is separate from the threshold at the variable profile's settings."
+source = "VISR presented capacity ladder, main e77a24957, build 20261029.192128, 2026-10-30 to 2026-10-31"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second, the real variable settings (900-line ceiling, dynamic resolution down to 540, 128 shadows, 16x filtering, maximum model detail and full effects) hold 16 players on Blood Gulch: 99.94% and 99.89% on time, median 99.915%. The 24-player rung fails at 98.81% and the 32-player probe at 97.17%. Sidewinder confirms 16 at 99.94% and 99.99%, median 99.965%. Each decision uses two valid presented rounds at the 99.5% bar. Earlier thermal-invalid attempts are excluded; the valid confirmation pair followed an extended cooldown. 16 is the largest passing ladder count confirmed on both maps."
+source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31 to 2026-11-01"

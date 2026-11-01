@@ -37,7 +37,8 @@ output_height = 1440
 render_height = 1440
 
 [network]
-player_capacity = 32
+player_capacity = 64
+full_rate_players = 32
 
 [evidence."display.frame_rate"]
 basis = "assumed"
@@ -95,11 +96,16 @@ why = "Rendering follows the output cap: the drawable is the monitor's own shape
 source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, native built-in output, 2026-10-24 UTC; Steve, 2026-10-27"
 
 [evidence."network.player_capacity"]
-basis = "assumed"
-why = "Steve's decision on 2026-10-27 to match the iPhone 17 Pro's 32: the same A17 Pro/A18 class of GPU, not measured separately on this model. The 17 Pro held Sidewinder with 128 players at 30 frames a second, minimum settings and 540 lines, and 32 is half of Blood Gulch's failing 64 there."
-source = "iphone-17-pro.toml network.player_capacity evidence; Steve, 2026-10-27"
+basis = "inherited"
+why = "Use the nearest measured weaker iPhone, the iPhone 12 Pro, as the shared profile's inherited capacity: its current-build minimum-settings ladder holds 64 reliably, while 128 has incomplete attempts. The iPhone 16 Pro's own current-build capacity ladder holds 128, but the other models in this shared profile were not measured; the common value conservatively stays at the weaker phone's 64. This replaces the older 32-player estimate from a stronger phone."
+source = "`iphone-12-pro.toml` network.player_capacity evidence and the iPhone 16 Pro presented capacity ladder, main e77a24957, 2026-10-29 to 2026-10-30"
 
 [evidence."variable.display.shadow_map_size"]
 basis = "assumed"
 why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPhone 17 Pro, inherited here without a run on this device."
 source = "Steve, 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Inherit 32 from the nearest measured weaker iPhone, the iPhone 12 Pro. Its current-build ladder at 60 frames a second and its variable settings holds 32 on Blood Gulch and Sidewinder and fails 48 on Blood Gulch. These models do not have a completed threshold qualification at their own variable settings."
+source = "`iphone-12-pro.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"

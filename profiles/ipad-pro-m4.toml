@@ -21,7 +21,8 @@ upscaler = "metalfx"
 shadow_map_size = 128
 
 [network]
-player_capacity = 32
+player_capacity = 128
+full_rate_players = 64
 
 [evidence."display.frame_rate"]
 basis = "measured"
@@ -59,9 +60,9 @@ why = "On c40's mirror floors, full took GPU time from about 9 ms to 13.7 ms a f
 source = "iPad mirror runs, c40, 2026-10-03"
 
 [evidence."network.player_capacity"]
-basis = "measured"
-why = "At 30 frames a second, minimum settings and 540 lines, a 32-player game held (99.84% of frames on time) and so did Sidewinder with 128 (99.76%); Blood Gulch with 64 held 13%. Blood Gulch's 64 is the choice above 32, and 48 was not run; the games that held are not the one that failed, so 32 is the highest count measured to hold on every map. Provisional until rerun on a build with the multiplayer render fixes."
-source = "VISR settings sweep capacity runs, build 20261023.144726 (0.4.2), two rounds at minimum settings and 540 lines, 2026-10-24 and 2026-10-25"
+basis = "inherited"
+why = "The nearest measured weaker iPad is the iPad Pro (M1), whose current-build capacity ladder holds 128 players. The older 32-player capacity came from a build before the multiplayer render fixes and is superseded by this conservative inheritance. The M4 has not run the current capacity ladder."
+source = "ipad-pro-m1.toml network.player_capacity evidence, main e77a24957, 2026-10-30"
 
 [evidence."display.upscaler"]
 basis = "measured"
@@ -72,3 +73,8 @@ source = "Providence a10-heroic, d40-maw-fight and b30 presented runs, build d29
 basis = "assumed"
 why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPad Pro (M1) and the iPhone 17 Pro, inherited here without a run on this device."
 source = "Steve, 2026-10-30"
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "Inherit 64 from the nearest measured weaker iPad, the iPad Pro (M1), whose two-round 60-fps Blood Gulch result holds at 64 and fails at 128 on the current build. The M4 has not run this multiplayer ladder at its own variable settings."
+source = "ipad-pro-m1.toml network.full_rate_players evidence, main e77a24957, 2026-10-30"
