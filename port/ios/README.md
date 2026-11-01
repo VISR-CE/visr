@@ -668,11 +668,12 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
 - **Bare hands.** With `display.stereo = "head"` (so `display.immersive =
   true`), `input.aim = "hands"` aims with the dominant forearm rather than a
   controller or the head. The gun hand's thumb to index fires, held for
-  automatic fire; thumb to ring jumps; holding the arm past
-  `input.hand_turn_deadzone` degrees to one side turns, governed by
-  `input.turn`, `input.snap_angle` and `input.smooth_turn_speed` the same way
-  the Sense stick is. The off hand's thumb to index walks forward where you
-  look, thumb to middle walks backward, and thumb to little finger crouches.
+  automatic fire; thumb to middle is action (use, reload, enter a vehicle);
+  thumb to ring jumps; holding the arm past `input.hand_turn_deadzone` degrees
+  to one side turns, governed by `input.turn`, `input.snap_angle` and
+  `input.smooth_turn_speed` the same way the Sense stick is. The off hand's
+  thumb to index walks forward where you look, thumb to middle walks
+  backward, and thumb to ring crouches.
   Both palms together, fingers up, held for 0.6 seconds, pauses. In a menu
   the fire pinch accepts, the crouch pinch backs out, and the walk pinches
   move the highlight. `input.aim_hand` picks the dominant hand and mirrors

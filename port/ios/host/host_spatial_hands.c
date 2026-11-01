@@ -399,14 +399,16 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		}
 	}
 
-	/* the gun hand's buttons, and the off hand's stick and click */
+	/* the gun hand's buttons, and the off hand's stick and click. Each hand's little finger
+	stays unbound, for a gesture not yet designed */
 	controls[g].trigger = state->pinch[g][HANDS_PINCH_INDEX].closed ? 1.0f : 0.0f;
 	controls[g].face_low = state->pinch[g][HANDS_PINCH_RING].closed ? 1 : 0;
+	controls[g].face_high = state->pinch[g][HANDS_PINCH_MIDDLE].closed ? 1 : 0;
 	if (state->pinch[o][HANDS_PINCH_INDEX].closed)
 		controls[o].stick_y = 1.0f;
 	else if (state->pinch[o][HANDS_PINCH_MIDDLE].closed)
 		controls[o].stick_y = -1.0f;
-	controls[o].stick_click = state->pinch[o][HANDS_PINCH_LITTLE].closed ? 1 : 0;
+	controls[o].stick_click = state->pinch[o][HANDS_PINCH_RING].closed ? 1 : 0;
 
 	/* an untracked gun hand has no aim to turn from, and nothing below cleans up after one:
 	the zeroing at the end of this function spares a hand that is only inside its gap, so this

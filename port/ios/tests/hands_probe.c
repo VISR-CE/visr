@@ -439,7 +439,8 @@ static void aim_turn_silent_in_a_hand_gap(void)
 }
 
 /* the off hand's index pinch moves the stick forward, middle back (index wins when both are
-closed), little clicks the stick; the gun hand's index fires and ring is the low face button */
+closed), ring clicks the stick; the gun hand's index fires, ring is the low face button and
+middle is the high face button */
 static void off_hand_mapping(void)
 {
 	struct hands_state state;
@@ -465,9 +466,9 @@ static void off_hand_mapping(void)
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
-	joints[0].tip[4][2] = 0.010f; /* little: stick click */
+	joints[0].tip[3][2] = 0.010f; /* ring: stick click */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
-	check(controls[0].stick_click == 1, "off hand: little closes the stick click");
+	check(controls[0].stick_click == 1, "off hand: ring closes the stick click");
 }
 
 /* mirrored: aiming_hand = 0, so the gun is on hand 0 and the off hand is hand 1 */
@@ -665,10 +666,9 @@ static void aim_turn_untracked_gun_hand(void)
 	check(count == 0, "untracked gun hand: no event even well past the deadzone");
 }
 
-/* the gun hand's thumb-to-middle pinch is unbound: closed, it neither suppresses nor feeds the
-aim turn, which fires past the deadzone exactly as it does with the pinch open, and the pinch
-itself sets no control of its own (unlike the off hand's pinches, the gun hand's middle has no
-mapping at all) */
+/* the gun hand's thumb-to-middle pinch fills the high face button: closed, it neither
+suppresses nor feeds the aim turn, which fires past the deadzone exactly as it does with the
+pinch open, and the pinch sets nothing on the gun hand's controls beyond that one button */
 static void aim_turn_with_middle_pinch_closed(void)
 {
 	struct hands_state state;
@@ -686,11 +686,37 @@ static void aim_turn_with_middle_pinch_closed(void)
 
 	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
 	check(near(controls[1].stick_x, 1.0f, 1e-3f), "middle pinch closed: 45 degrees right still turns +1");
+	check(controls[1].face_high == 1, "middle pinch closed: the pinch fills the high face button");
 	check(controls[1].trigger == 0.0f && controls[1].face_low == 0,
-		"middle pinch closed: the pinch itself sets no control");
+		"middle pinch closed: no other control follows from it");
 	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].finger == HANDS_PINCH_MIDDLE &&
 		events[0].on == 1 && events[1].kind == HANDS_EVENT_AIM_TURN && events[1].on == 1,
 		"middle pinch closed: the pinch's own event, then the aim turn's, unrelated to each other");
+}
+
+/* the gun hand's middle pinch fills face_high and nothing else, and the off hand's middle
+pinch still walks backward in the same sample: one hand's middle finger does not reach the
+other hand's mapping */
+static void middle_pinch_does_not_cross_hands(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[2][2] = 0.010f; /* gun hand (1): middle closed */
+	joints[0].tip[2][2] = 0.010f; /* off hand (0): middle closed */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].face_high == 1, "gun hand: middle pinch fills the high face button");
+	check(controls[1].trigger == 0.0f && controls[1].face_low == 0 && controls[1].grip == 0 &&
+		controls[1].stick_click == 0 && controls[1].stick_x == 0.0f && controls[1].stick_y == 0.0f &&
+		controls[1].menu == 0, "gun hand: middle pinch sets nothing else");
+	check(controls[0].stick_y == -1.0f, "off hand: middle pinch still walks backward");
+	check(controls[0].face_high == 0, "off hand: the gun hand's face button stays off the off hand");
 }
 
 /* both hands in the prayer sign: palms together and opposed per the pinned formula,
@@ -890,6 +916,7 @@ int main(void)
 	aim_turn_snap();
 	aim_turn_untracked_gun_hand();
 	aim_turn_with_middle_pinch_closed();
+	middle_pinch_does_not_cross_hands();
 	prayer();
 	start_pulse_outlives_the_hands();
 	pinch_miss_logged();
