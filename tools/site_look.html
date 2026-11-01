@@ -1,0 +1,13 @@
+    <div class="look-box" id="look-box" data-scenes="$scenes" data-asset-base="$asset_base">
+      <div id="look-stage" role="group" aria-roledescription="panorama" aria-label="$label. Use arrow keys to look around, Enter to expand, and Escape to close." tabindex="0">
+        <img id="look-poster" src="$folder/poster.jpg" width="1024" height="512" loading="lazy" decoding="async" alt="$label">
+        <canvas id="look-gl" aria-hidden="true"></canvas>
+        <button type="button" id="look-motion" aria-pressed="false">LOOK WITH MOTION</button>
+        <button type="button" id="look-close" aria-label="Close panorama">&times;</button>
+      </div>
+      <svg id="look-frame" aria-hidden="true"><path id="look-frame-path"></path></svg>
+      <div class="look-compass" aria-hidden="true"><span id="look-heading">000°</span><span id="look-ticks"></span></div>
+      <div id="look-hint" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m8 7-5 5 5 5m8-10 5 5-5 5M3 12h18"/></svg><span>DRAG TO LOOK</span></div>
+      <div class="look-arrows"><button type="button" id="look-left" aria-label="Look left"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg></button><button type="button" id="look-right" aria-label="Look right"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>
+    </div>
+    <video id="look-video" muted loop playsinline preload="none" hidden></video>

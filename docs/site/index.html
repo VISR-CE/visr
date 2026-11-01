@@ -20,6 +20,7 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="The VISR icon, a helmet with a gold visor, beside the VISR wordmark">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="look.css">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -54,6 +55,23 @@
 <a href="https://www.halopedia.org/Armor_customization_(Halo_5:_Guardians)/Visor">&quot;Dynasty&quot; VISR, Halo 5: Guardians</a></p>
 </blockquote>
   </header>
+  <section class="look-around" aria-labelledby="stand-inside-the-level">
+<h2 id="stand-inside-the-level">Stand inside the level</h2>
+<p>Full stereo VR with head tracking and foveated rendering on Apple Vision Pro.</p>
+    <div class="look-box" id="look-box" data-scenes="[{&quot;folder&quot;: &quot;lifeboat&quot;, &quot;label&quot;: &quot;Lifeboats over Halo&quot;}]" data-asset-base="https://media.visr.gg/look/">
+      <div id="look-stage" role="group" aria-roledescription="panorama" aria-label="Lifeboats over Halo. Use arrow keys to look around, Enter to expand, and Escape to close." tabindex="0">
+        <img id="look-poster" src="look/lifeboat/poster.jpg" width="1024" height="512" loading="lazy" decoding="async" alt="Lifeboats over Halo">
+        <canvas id="look-gl" aria-hidden="true"></canvas>
+        <button type="button" id="look-motion" aria-pressed="false">LOOK WITH MOTION</button>
+        <button type="button" id="look-close" aria-label="Close panorama">&times;</button>
+      </div>
+      <svg id="look-frame" aria-hidden="true"><path id="look-frame-path"></path></svg>
+      <div class="look-compass" aria-hidden="true"><span id="look-heading">000°</span><span id="look-ticks"></span></div>
+      <div id="look-hint" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m8 7-5 5 5 5m8-10 5 5-5 5M3 12h18"/></svg><span>DRAG TO LOOK</span></div>
+      <div class="look-arrows"><button type="button" id="look-left" aria-label="Look left"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 6-6 6 6 6"/></svg></button><button type="button" id="look-right" aria-label="Look right"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></button></div>
+    </div>
+    <video id="look-video" muted loop playsinline preload="none" hidden></video>
+  </section>
   <section aria-labelledby="on-every-device">
 <h2 id="on-every-device">On every device</h2>
     <ul class="pillars">
@@ -176,6 +194,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
   </footer>
 </main>
 <script src="site.js" defer></script>
+<script src="look.js" defer></script>
 <script>
 // GitHub's /releases/latest skips prereleases, and every release before 1.0 is one, so look up the newest release instead.
 fetch("https://api.github.com/repos/steverice/visr/releases?per_page=1")

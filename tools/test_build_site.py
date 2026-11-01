@@ -392,3 +392,85 @@ def test_site_is_dark_only():
     shell = (site / "shell.css").read_text(encoding="utf-8")
     assert "color-scheme: dark;" in shell
     assert "prefers-color-scheme" not in shell and "data-theme" not in shell
+
+
+LOOK_SOURCE = SOURCE.replace(
+    '## Apple Vision Pro',
+    '## Stand inside the level\n\n'
+    'Full stereo VR with head tracking and foveated rendering on Apple Vision Pro.\n\n'
+    '{{ look-around }}\n\n## On every device\n\nShared features.\n\n## Apple Vision Pro',
+    1,
+)
+
+
+def test_look_around_marker_renders_between_hero_and_shared_features():
+    page = render_site(LOOK_SOURCE)
+    section = re.search(
+        r'<section\b[^>]*aria-labelledby="stand-inside-the-level"[^>]*>(.*?)</section>',
+        page, re.S,
+    )
+    assert section is not None
+    assert 'class="look-around"' in section.group(0)
+    assert '<h2 id="stand-inside-the-level">Stand inside the level</h2>' in section.group(1)
+    assert page.index('</header>') < section.start() < page.index('aria-labelledby="on-every-device"')
+    assert '{{ look-around }}' not in page
+    assert page.count('id="look-stage"') == 1
+
+
+def test_look_around_resources_are_only_loaded_on_pages_with_a_panorama():
+    with_look = render_site(LOOK_SOURCE)
+    without_look = render_site(SOURCE)
+    assert '<link rel="stylesheet" href="look.css">' in with_look
+    assert '<script src="look.js" defer></script>' in with_look
+    assert 'href="look.css"' not in without_look
+    assert 'src="look.js"' not in without_look
+
+
+def test_look_around_defers_video_loading_and_keeps_an_image_fallback():
+    page = render_site(LOOK_SOURCE)
+    section = re.search(
+        r'<section\b[^>]*aria-labelledby="stand-inside-the-level"[^>]*>(.*?)</section>',
+        page, re.S,
+    ).group(1)
+    video_match = re.search(r'<video\b[^>]*id="look-video"[^>]*>', section)
+    assert video_match is not None
+    video = video_match.group(0)
+    assert 'preload="none"' in video
+    assert re.search(r'\ssrc\s*=', video) is None
+    assert '<source' not in section
+    assert 'autoplay' not in video
+    poster_match = re.search(r'<img\b[^>]*id="look-poster"[^>]*>', section)
+    assert poster_match is not None
+    poster = poster_match.group(0)
+    assert 'src="look/lifeboat/poster.jpg"' in poster
+    assert 'loading="lazy"' in poster
+    assert re.search(r'\balt="[^"]+"', poster)
+
+
+def test_look_around_surface_and_controls_have_accessible_names():
+    page = render_site(LOOK_SOURCE)
+    stage_match = re.search(r'<\w+\b[^>]*id="look-stage"[^>]*>', page)
+    assert stage_match is not None
+    stage = stage_match.group(0)
+    assert 'tabindex="0"' in stage
+    assert 'role="group"' in stage
+    assert 'aria-roledescription="panorama"' in stage
+    assert re.search(r'\baria-label="Lifeboat[^"]*"', stage)
+    for identifier in ('look-motion', 'look-close', 'look-left', 'look-right'):
+        control = re.search(rf'<button\b[^>]*id="{identifier}"[^>]*>(.*?)</button>', page, re.S)
+        assert control is not None, identifier
+        assert re.search(r'\baria-label="[^"]+"', control.group(0)) or re.sub(r'<[^>]+>', '', control.group(1)).strip(), identifier
+
+
+def test_look_around_scene_list_supplies_the_poster_and_runtime_data(monkeypatch):
+    import html
+    import json
+    import tools.build_site as builder
+    scenes = [{"folder": "second", "label": 'A second scene with "quotes"'}]
+    monkeypatch.setattr(builder, "LOOK_SCENES", scenes)
+    page = builder.render_site(LOOK_SOURCE)
+    assert 'src="look/second/poster.jpg"' in page
+    assert 'look/lifeboat/' not in page
+    data = re.search(r'data-scenes="([^"]+)"', page).group(1)
+    assert json.loads(html.unescape(data)) == scenes
+    assert 'data-asset-base="https://media.visr.gg/look/"' in page

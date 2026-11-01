@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import json
 from html import escape
 from pathlib import Path
 import re
@@ -212,6 +213,10 @@ def head_tags(metadata: dict[str, str]) -> dict[str, str]:
     return {"head_icons": icons, "head_social": social}
 
 
+LOOK_ASSET_BASE = "https://media.visr.gg/look/"
+LOOK_SCENES = [{"folder": "lifeboat", "label": "Lifeboats over Halo"}]
+
+
 CURRENT = ' aria-current="page"'
 
 
@@ -349,7 +354,8 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
             elif identifier not in SECTION_ICONS and platforms_open:
                 output.append("  </div>")
                 platforms_open = False
-            output.append(f'  <section aria-labelledby="{escape(identifier, quote=True)}">')
+            section_class = ' class="look-around"' if identifier == "stand-inside-the-level" else ""
+            output.append(f'  <section{section_class} aria-labelledby="{escape(identifier, quote=True)}">')
             section = True
             copy.append(heading_with_icons(md.renderer.render(block, md.options, {}).rstrip(), identifier))
             continue
@@ -394,13 +400,23 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
         output.append("  </div>")
     if template is None:
         template = (ROOT / "tools/site_template.html").read_text(encoding="utf-8")
-    return Template(template).substitute(
+    page = Template(template).substitute(
         **head_tags(metadata),
         site_header=site_header("home"),
         **{key: escape(value, quote=True) for key, value in metadata.items()},
         content="\n".join(output).replace(f"<p>{EVERY_DEVICE_MARKER}</p>", every_device_columns(facts)),
         legal=md.render(facts["shared"]["legal"]).rstrip(),
     )
+    if "{{ look-around }}" in source:
+        widget = Template((ROOT / "tools/site_look.html").read_text(encoding="utf-8").rstrip()).substitute(
+            scenes=escape(json.dumps(LOOK_SCENES), quote=True),
+            asset_base=escape(LOOK_ASSET_BASE, quote=True),
+            folder=escape("look/" + LOOK_SCENES[0]["folder"], quote=True),
+            label=escape(LOOK_SCENES[0]["label"], quote=True))
+        page = page.replace("<p>{{ look-around }}</p>", widget)
+        page = page.replace("</head>", '<link rel="stylesheet" href="look.css">\n</head>')
+        page = page.replace('<script src="site.js" defer></script>', '<script src="site.js" defer></script>\n<script src="look.js" defer></script>')
+    return page
 
 
 def main() -> int:

@@ -15,6 +15,12 @@
 
 [Get VISR](https://github.com/steverice/visr/releases) • [Vision Pro](#apple-vision-pro) • [iPhone](#iphone-and-ipad) • [iPad](#iphone-and-ipad) • [Apple TV](#apple-tv) • [Mac](#mac) • [GitHub](https://github.com/steverice/visr)
 
+## Stand inside the level
+
+Full stereo VR with head tracking and foveated rendering on Apple Vision Pro.
+
+{{ look-around }}
+
 ## On every device
 
 {{ shared: every-device }}

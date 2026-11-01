@@ -35,3 +35,19 @@ Add a device frame to a standalone gameplay image with `{device=iphone}`, `{devi
 Use local PNG or JPEG images with descriptive alt text. The build reads their dimensions and groups framed images beside their section's text. Images stack below the text on narrow screens.
 
 Media slots take a looping clip. Add ` video=video/NAME.mp4` inside the annotation (`{device=iphone video=video/iphone.mp4}`). When that file exists under `docs/site/`, the slot renders a muted, looping `<video>` that uses the image as its poster, and `site.js` plays it only while it is on screen and the visitor allows motion. Until the file exists, the slot shows the image. `{hero}` marks the image for the home page's hero (a standalone image before the first section) and takes the same option. Encode clips as H.264 MP4 without audio, 6 to 10 seconds, under 3 MB.
+
+`{{ look-around }}` adds the panorama viewer inside a section. Its scene list is
+`LOOK_SCENES` in `tools/build_site.py`: each entry names a folder under `look/`
+and a label. Add a folder and one entry, then regenerate the page. The viewer
+uses the first entry; it does not include a scene picker.
+
+`LOOK_ASSET_BASE` in `tools/build_site.py` sets the scene asset URL, currently
+`https://media.visr.gg/look/`. Each remote scene folder contains `shape.mp4`
+(HEVC), `shape-h264.mp4` (8-bit H.264), `still8k.jpg`, and `mask.png`. Both clips
+use the same masked upper-hemisphere geometry. The media host must allow
+anonymous CORS requests from the site so WebGL can use the textures.
+
+Keep the small `poster.jpg` and `mask.png` in the site's scene folder; keep
+videos and the 8K still outside git. The poster provides an immediate local
+fallback. `look.js` loads the remote still, mask, and selected clip near the
+viewport; `look.css` styles the viewer with the shared site tokens.
