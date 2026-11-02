@@ -4,7 +4,9 @@ dropout, the release a pinch gets from the joints behind it once the fingers
 part while that fingertip is still hidden (and that holding the pinch never
 earns one), the growth that release is measured by and the line it is reported
 on, the gun and off hand's button and stick mapping, the aim turn
-(smooth and snap), the prayer sign's dwell and Start pulse, the whole-hand
+(smooth and snap) and the arm's elevation beside it on the same stick, with
+the sign that makes a raised arm raise the gun, the prayer sign's dwell and
+Start pulse, the whole-hand
 gap a blink is held through, and that a hand untracked past that gap opens
 every one of its pinches and zeros every one of its own controls. */
 #include <math.h>
@@ -134,6 +136,20 @@ static void set_part_pair(struct host_spatial_hand_joints *j, int finger, float 
 	set_part_joint(j, j->intermediate_tip[finger + 1], meters);
 	set_part_joint(j, j->intermediate_base[finger + 1], meters - 0.020f);
 	set_part_joint(j, j->knuckle[finger + 1], meters - 0.040f);
+}
+
+/* an aim forward the recognizer's two angles read straight back off, both in degrees: the
+yaw about the room's up axis and the elevation out of its horizontal plane
+(host_spatial_hands.c's hands_recognize takes the yaw as atan2(forward[1], forward[0]) and
+the elevation as the rise against the length of that horizontal part). The game's axes, x
+forward, y left, z up, as host_spatial_pose.h's host_spatial_room_to_game leaves them */
+static void set_aim(float forward[3], float yaw_degrees, float elevation_degrees)
+{
+	float yaw = yaw_degrees * (float)M_PI / 180.0f, elevation = elevation_degrees * (float)M_PI / 180.0f;
+
+	forward[0] = cosf(elevation) * cosf(yaw);
+	forward[1] = cosf(elevation) * sinf(yaw);
+	forward[2] = sinf(elevation);
 }
 
 /* every field of a controls struct is zero */
@@ -719,6 +735,137 @@ static void aim_turn_untracked_gun_hand(void)
 	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 1.1, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "untracked gun hand: no turn from a forward well past the deadzone");
 	check(count == 0, "untracked gun hand: no event even well past the deadzone");
+
+	/* and the same for the elevation, which shares the gate: an arm raised 40 degrees on a hand
+	ARKit is not reporting elevates nothing and says nothing */
+	set_aim(forward40, 0.0f, 40.0f);
+	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 1.2, controls, events, 16);
+	check(controls[1].stick_y == 0.0f, "untracked gun hand: no elevation from a forward well past the deadzone");
+	check(count == 0, "untracked gun hand: no elevation event either");
+}
+
+/* the arm's elevation on the aiming stick's vertical axis, shaped as the smooth turn is: zero
+inside input.hand_turn_deadzone, a linear ramp over HANDS_AIM_TURN_RAMP_DEGREES past it, and
+clamped at the ends. The sign is the one thing here that could only be read out of the game:
+controls[g].stick_y reaches input_abstraction.c as the right stick's vertical axis and
+becomes input_state->pitch, which player_control.c reads as looking up while it is positive,
+so a raised arm has to deflect positive and a lowered one negative */
+static void aim_elevation_smooth(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	set_aim(forward, 0.0f, 0.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	check(controls[1].stick_y == 0.0f, "aim elevation: a level arm elevates nothing");
+	check(count == 0, "aim elevation: and says nothing about it");
+
+	set_aim(forward, 0.0f, 10.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	check(controls[1].stick_y == 0.0f, "aim elevation: 10 degrees up is inside the deadzone");
+
+	set_aim(forward, 0.0f, 31.5f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	check(near(controls[1].stick_y, 0.5f, 1e-3f), "aim elevation: 31.5 degrees up is +0.5, raising the gun");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1 &&
+		events[0].hand == 1 && near(events[0].value, 31.5f, 0.1f) && near(events[0].threshold, 18.0f, 1e-3f),
+		"aim elevation: one elevation-on event with the elevation against the deadzone");
+
+	set_aim(forward, 0.0f, 45.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.3, controls, events, 16);
+	check(near(controls[1].stick_y, 1.0f, 1e-3f), "aim elevation: 45 degrees up is the ramp's full +1");
+	check(count == 0, "aim elevation: an elevation already on says nothing as it ramps");
+
+	set_aim(forward, 0.0f, 80.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.4, controls, events, 16);
+	check(near(controls[1].stick_y, 1.0f, 1e-3f), "aim elevation: an arm straight up clamps at +1");
+
+	/* the mirror: an arm lowered the same amount deflects the same amount the other way, which
+	is what points a turret's gun down */
+	set_aim(forward, 0.0f, -31.5f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.5, controls, events, 16);
+	check(near(controls[1].stick_y, -0.5f, 1e-3f), "aim elevation: 31.5 degrees down is -0.5, lowering the gun");
+	check(count == 0, "aim elevation: crossing level without passing through the deadzone says nothing");
+
+	set_aim(forward, 0.0f, -45.0f);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.6, controls, events, 16);
+	check(near(controls[1].stick_y, -1.0f, 1e-3f), "aim elevation: 45 degrees down is the ramp's full -1");
+
+	set_aim(forward, 0.0f, -5.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.7, controls, events, 16);
+	check(controls[1].stick_y == 0.0f, "aim elevation: back inside the deadzone, no elevation");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 0,
+		"aim elevation: the return to level is logged");
+}
+
+/* the elevation ignores input.hand_turn_snap, where the turn does not: a snap is a discrete
+step of yaw and there is no such thing as a snapped elevation, so a player who picked snap
+turning would otherwise have no way at all to aim a turret up or down */
+static void aim_elevation_ignores_snap(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	set_aim(forward, 0.0f, 45.0f);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	check(near(controls[1].stick_y, 1.0f, 1e-3f), "aim elevation: snap turning still elevates");
+	check(controls[1].stick_x == 0.0f, "aim elevation: and the yaw inside the deadzone snaps nothing");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1,
+		"aim elevation: the elevation reports itself in snap mode too");
+}
+
+/* the two axes of the one stick are read off the same aim forward and neither touches the
+other: a yaw past the deadzone with the arm level turns and does not elevate, and raising the
+arm from there elevates without disturbing the turn or logging anything about it */
+static void aim_axes_do_not_interfere(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	set_aim(forward, 31.5f, 0.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	check(near(controls[1].stick_x, -0.5f, 1e-3f), "two axes: 31.5 degrees left turns -0.5");
+	check(controls[1].stick_y == 0.0f, "two axes: and a level arm elevates nothing while it turns");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN, "two axes: only the turn is logged");
+
+	set_aim(forward, 31.5f, 31.5f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	check(near(controls[1].stick_x, -0.5f, 1e-3f), "two axes: raising the arm leaves the turn where it was");
+	check(near(controls[1].stick_y, 0.5f, 1e-3f), "two axes: and elevates +0.5 beside it");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1,
+		"two axes: only the elevation is logged, the turn having not changed");
+
+	/* and back the other way: dropping the arm to level ends the elevation alone */
+	set_aim(forward, 31.5f, 0.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	check(near(controls[1].stick_x, -0.5f, 1e-3f), "two axes: the turn still stands");
+	check(controls[1].stick_y == 0.0f, "two axes: the elevation alone has gone");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 0,
+		"two axes: and only the elevation's end is logged");
 }
 
 /* the gun hand's thumb-to-middle pinch fills the high face button: closed, it neither
@@ -1380,6 +1527,9 @@ int main(void)
 	aim_turn_wide_deadzone();
 	aim_turn_snap();
 	aim_turn_untracked_gun_hand();
+	aim_elevation_smooth();
+	aim_elevation_ignores_snap();
+	aim_axes_do_not_interfere();
 	aim_turn_with_middle_pinch_closed();
 	middle_pinch_does_not_cross_hands();
 	prayer();

@@ -2,8 +2,8 @@
 over fingertips carried in the palm's frame through ARKit's dropouts, the
 check on the joints behind a pinch that releases it when the fingers part
 rather than when the hidden fingertip is found again, the gun and off hand's
-button and stick mapping, the aim turn, and the prayer sign's dwell and Start
-pulse. Plain C over the reduced joint facts only, so
+button and stick mapping, the aim turn and the arm's elevation, and the
+prayer sign's dwell and Start pulse. Plain C over the reduced joint facts only, so
 port/ios/tests/hands_probe.c can run it under ASan and UBSan on a Mac;
 host_spatial_hands.m supplies the joints and reads what this returns. No
 host_logf: the caller logs the events. */
@@ -539,9 +539,11 @@ static int prayer_near(const struct host_spatial_hand_joints joints[2], float *d
 	return 1;
 }
 
-/* one smooth turn's on or off transition, for the log: nothing while the turn stands as it
-was. Snap mode's own on event comes from the snap branch, which is why this runs only in
-smooth mode (hands_recognize) */
+/* one continuous aim axis's on or off transition, for the log: nothing while the axis stands
+as it was. The smooth turn is one caller and the arm's elevation the other, each with its own
+flag in hands_state. Snap mode's turn reports itself from the snap branch instead, which is
+why the turn's call runs only in smooth mode; the elevation has no snap mode and so always
+calls (hands_recognize) */
 static void turn_transition(int *turning, int turning_now, int kind, int hand, int finger, float value,
 	float threshold, struct hands_event *events, int capacity, int *count)
 {
@@ -565,6 +567,9 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	/* what the turn last measured, for its own transition below: a turn the gun hand is
 	not making measures 0, which is the reading its off event should carry */
 	float aim_yaw = 0.0f;
+	/* and the same pair for the arm's elevation, read off the same aim forward: an untracked
+	gun hand leaves both at 0, as it leaves the turn's at 0 */
+	float elevation_contribution = 0.0f, aim_elevation = 0.0f;
 
 	memset(controls, 0, 2 * sizeof(controls[0]));
 
@@ -616,20 +621,42 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 
 	/* an untracked gun hand has no aim to turn from, and nothing below cleans up after one:
 	the zeroing at the end of this function spares a hand that is only inside its gap, so this
-	gate is the one thing keeping a stale barrel out of the turn. It could not undo an event
-	already emitted or an armed/pulse state already set from whatever aim_forward the caller
-	passed either, which for an untracked hand is a zero vector whose yaw reads 0. Gating the
-	whole computation on joints[g].tracked rather than on the gap keeps the aim turn silent and
-	its state untouched for as long as ARKit is not reporting the hand: a blink holds that
-	hand's pinches (hand_lost), never the geometry its joints would give */
+	gate is the one thing keeping a stale barrel out of the turn and the elevation both. It
+	could not undo an event already emitted or an armed/pulse state already set from whatever
+	aim_forward the caller passed either, which for an untracked hand is a zero vector whose
+	yaw and elevation both read 0. Gating the whole computation on joints[g].tracked rather
+	than on the gap keeps both axes silent and their state untouched for as long as ARKit is
+	not reporting the hand: a blink holds that hand's pinches (hand_lost), never the geometry
+	its joints would give */
 	if (joints[g].tracked)
 	{
 		float yaw, excess, turn_sign;
+		float elevation, elevation_excess, elevation_sign;
 
 		yaw = atan2f(aim_forward[1], aim_forward[0]) * (180.0f / (float)M_PI);
 		excess = fabsf(yaw) - deadzone_degrees;
 		turn_sign = yaw < 0.0f ? -1.0f : 1.0f;
 		aim_yaw = yaw;
+
+		/* the arm's elevation off the same barrel the yaw comes from: how far the aim rises out
+		of the room's horizontal plane, which is the aim forward's up component against the
+		length of its horizontal part (aim_forward's index 2 is up, as host_spatial_pose.h's
+		host_spatial_room_to_game leaves it). Signed as the yaw is, with the same deadzone and
+		the same ramp, so the two axes of the one stick feel alike under the one arm.
+		The sign is positive upward and that is the whole point of it: controls[g].stick_y
+		reaches the game as the right stick's vertical axis
+		(host_spatial_gamepad.c's host_spatial_gamepad_map fills thumb[3]), which
+		input_abstraction.c's input_abstraction_update turns into input_state->pitch, and
+		player_control.c sets _player_control_look_relative_up_bit for a positive pitch. So
+		raising the arm raises the gun, and lowering it lowers it, with no sign flip anywhere
+		between */
+		elevation = atan2f(aim_forward[2], sqrtf(aim_forward[0] * aim_forward[0] +
+			aim_forward[1] * aim_forward[1])) * (180.0f / (float)M_PI);
+		elevation_excess = fabsf(elevation) - deadzone_degrees;
+		elevation_sign = elevation < 0.0f ? -1.0f : 1.0f;
+		aim_elevation = elevation;
+		elevation_contribution = elevation_sign *
+			clampf(elevation_excess / HANDS_AIM_TURN_RAMP_DEGREES, 0.0f, 1.0f);
 
 		if (turn_snap)
 		{
@@ -663,6 +690,25 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	if (!turn_snap)
 		turn_transition(&state->aim_turning, aim_contribution != 0.0f, HANDS_EVENT_AIM_TURN, g, 0, aim_yaw,
 			deadzone_degrees, events, capacity, &count);
+	/* the arm's elevation on the same stick's vertical axis, and no seat test anywhere in this
+	file to gate it: the game's own rule already decides whether the axis means anything.
+	stereo.c's halo_stereo_stick_look drops the right stick's pitch outright while
+	head_tracking() is true, which is a player on foot in head-tracked stereo, where the head
+	supplies pitch and this axis is discarded unread. It returns before that line when
+	head_tracking() is false, and a seat whose camera is third person (a Shade's or a Warthog's
+	turret) is exactly that case, so there the stick's pitch survives and elevates the gun.
+	A turret has no other way to aim up or down from the hands, since the head is not driving
+	it, so the axis is filled always and the game gates it.
+
+	Written unconditionally, unlike stick_x above: snap mode zeroes the turn because a snap is
+	a discrete step of yaw, but there is no such thing as a snapped elevation, and a player who
+	picked snap turning would otherwise have no vertical in a turret at all. The pulse override
+	stays on stick_x, which is the only axis a snap ever writes */
+	controls[g].stick_y = clampf(elevation_contribution, -1.0f, 1.0f);
+	/* and it reports itself the way the smooth turn does, on both turn settings for the same
+	reason it is computed on both */
+	turn_transition(&state->aim_elevating, elevation_contribution != 0.0f, HANDS_EVENT_AIM_ELEVATION, g, 0,
+		aim_elevation, deadzone_degrees, events, capacity, &count);
 	/* a pulse's own end, so the log carries the width the caller's sampler gave it rather than
 	only the instant it began. pulse_kind is the aim turn, the only source that sets a pulse */
 	if (state->pulse_until > 0.0 && now >= state->pulse_until)

@@ -620,6 +620,9 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
 		break;
 	case HANDS_EVENT_AIM_TURN: snprintf(buffer, size, "aim turn"); break;
+	/* the aiming stick's other axis, named apart from the turn so a session's elevations can be
+	counted off the log on their own (host_spatial_hands.h's HANDS_EVENT_AIM_ELEVATION) */
+	case HANDS_EVENT_AIM_ELEVATION: snprintf(buffer, size, "aim elevation"); break;
 	case HANDS_EVENT_PRAYER: snprintf(buffer, size, "prayer"); break;
 	case HANDS_EVENT_START: snprintf(buffer, size, "start"); break;
 	default: snprintf(buffer, size, "?"); break;

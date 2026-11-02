@@ -98,7 +98,13 @@ enough that a player lowering their hands releases the trigger at once */
 absolute angle: the deadzone itself is input.hand_turn_deadzone, anywhere from 5 to 60
 degrees, and a ramp measured from 0 would divide by a negative span (inverting the turn) or
 by zero for the wider half of that range. 27 puts the default deadzone's full deflection at
-18 + 27 = 45 degrees of arm */
+18 + 27 = 45 degrees of arm.
+
+Both axes of the aiming stick share this span, and share input.hand_turn_deadzone with it:
+the arm's elevation drives that stick's vertical axis off the same aim forward the yaw is
+read from (host_spatial_hands.c's hands_recognize), through the same arm swinging through the
+same range, so a second constant here would be a second thing to tune with nothing measured
+behind it. Split them once a device session says the two axes want different ramps */
 #define HANDS_AIM_TURN_RAMP_DEGREES 27.0f
 /* the prayer sign's geometry and timing, measured on device (see the
 comment on palm_frame in host_spatial_hands.c for the measurement) */
@@ -197,6 +203,9 @@ struct hands_state
 	/* smooth mode: the turn's contribution is nonzero, so the log gets the
 	same on and off transitions snap mode's pulse gives it */
 	int aim_turning;
+	/* the same for the arm's elevation, on both turn settings: the elevation
+	has no snap mode to report itself instead (hands_recognize) */
+	int aim_elevating;
 	double pulse_until; float pulse_x;                       /* the right stick's held snap value */
 	int pulse_kind;                                          /* the aim turn, for its own off event */
 	/* the prayer sign's geometry gate (distance, fingers) on its own, independent of the
@@ -226,8 +235,13 @@ gap and is the number the part check would have had to act on; off means the tip
 ARKit's own reading on the previous sample too, which makes the growth one sample wide and
 not a measurement of anything. Its path is MEASURED where a level was readable and BLIND
 where none was, which is the one case the part check cannot act at all */
+/* AIM_ELEVATION is the aiming stick's vertical axis as the turn's events are its horizontal
+one: on as the arm's elevation first carries the stick off zero, off as it falls back, with
+the elevation it measured against the deadzone it crossed. Unlike the turn it has no snap
+mode, so it reports on both settings of input.hand_turn_snap
+(host_spatial_hands.c's hands_recognize) */
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
-	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH };
+	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH, HANDS_EVENT_AIM_ELEVATION };
 /* which reading decided a pinch's event, so the log says which of this file's three paths
 moved it: the two fingertips as ARKit reported them, a position carried in the palm's frame,
 or the still-visible pair behind a hidden fingertip (HANDS_PART_LEVEL_*). HAND_LOST is the
@@ -239,7 +253,9 @@ struct hands_event { int kind, hand, finger, on, path; float value, threshold; }
 
 /* one sample: the two hands' joints (index 0 left, 1 right), which is the
 gun hand, the gun hand's aim forward in the game's axes (from
-halo_spatial_hand.aim), snap or smooth turning, the deadzone, the time;
+halo_spatial_hand.aim, whose index 2 is up, so the aiming stick's turn comes
+off its yaw and its elevation off its rise), snap or smooth turning, the
+deadzone, the time;
 fills both controls (index 0 left, 1 right) for host_spatial_gamepad_map,
 and up to `capacity` state-change events for the caller to log. Returns
 the event count, clamped to `capacity`: a caller's events[0..count) is
