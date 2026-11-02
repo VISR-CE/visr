@@ -567,6 +567,10 @@ void render_object_shadows(
 				}
 				else
 				{
+					/* port: a shadow without a slot this frame is drawn, blurred and applied the game's own way,
+					in the game's own pair of targets: not in the last applied shadow's, and not skipping the
+					blur as a deferred one does (it was not blurred when the window's were generated) */
+					rasterizer_environment_shadows_apply_end();
 					render_object(&data);
 				}
 			}
