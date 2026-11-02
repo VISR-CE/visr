@@ -9,6 +9,8 @@ const sceneAsset = name => `${box.dataset.assetBase}${scene.folder}/${name}`;
 const v = document.getElementById('look-video'), poster = document.getElementById('look-poster');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const TOUCH = matchMedia('(pointer: coarse)').matches, FOCAL = 700;
+// Narrow views shorten the focal length so a phone still sees about 70° across instead of a 30° slice.
+const focal = (w, h) => Math.min(FOCAL, Math.max(w * .72, h * .55));
 let sideways = 0, driftDirection = 1, dragVelocity = 0, movedAt = 0, inputAt = -Infinity, driftAt = 0, drift = 0, pitchDrift = 0, motion = false, head = null, yawOff = 0, pitchOff = 0, vx = 0, vy = 0;
 let fresh = true, downAt = 0, moved = 0, hoverX = 0, glareX = 40, near = false, visible = false, loaded = false, running = false;
 let yaw = scene.yaw ?? 0, pitch = scene.pitch ?? 22, last = null, mode = 'idle', idle, cx = 0, cy = 0, tcx = null, tcy = null;
@@ -149,7 +151,7 @@ function render() {
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.uniform1i(u('moving'), videoReady && hasMask && autoplay());
     gl.uniform1f(u('band'), scene.videoBand ?? .5);
-    gl.uniform2f(u('center'), cx * dpr, (h - cy) * dpr); gl.uniform1f(u('focal'), FOCAL * dpr);
+    gl.uniform2f(u('center'), cx * dpr, (h - cy) * dpr); gl.uniform1f(u('focal'), focal(w, h) * dpr);
     const a = yaw * Math.PI / 180, b = pitch * Math.PI / 180;
     gl.uniform1f(u('cy'), Math.cos(a)); gl.uniform1f(u('sy'), Math.sin(a)); gl.uniform1f(u('cp'), Math.cos(b)); gl.uniform1f(u('sp'), Math.sin(b));
     gl.drawArrays(gl.TRIANGLES, 0, 3);

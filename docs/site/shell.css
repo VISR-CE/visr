@@ -83,7 +83,8 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .stereo { display: inline-block; text-shadow: -2px 0 0 color-mix(in srgb, var(--hud-cyan) 85%, transparent), 2px 0 0 color-mix(in srgb, var(--hud-gold) 85%, transparent); animation: c-stereo 5s ease-in-out infinite; }
 .head .lede { order: 4; margin: 0; font-size: 17px; line-height: 1.55; color: var(--muted); }
 .head .lede + .lede { font-size: 16px; }
-.hero-media { order: 3; position: relative; width: 100%; margin: 0; align-self: center; filter: drop-shadow(0 0 18px #1fa9d480); animation: a-float 9s ease-in-out infinite; }
+/* The wireframe strap reaches past the face on the right, so the narrow layout shifts the whole headset left to center it. */
+.hero-media { order: 3; position: relative; width: 100%; margin: 0; align-self: center; filter: drop-shadow(0 0 18px #1fa9d480); animation: a-float 9s ease-in-out infinite; translate: -8% 0; }
 .hero-media::before { content: ""; position: absolute; z-index: -1; inset: -20%; background: radial-gradient(closest-side, #1fa9d459, transparent 85%); pointer-events: none; }
 /* The visor: media in the panorama's shape, under glass, with the gold rim. */
 .hero-media, .platforms .device-vision { container-type: inline-size; }
@@ -216,7 +217,7 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
   .hero-copy > h1 { font-size: clamp(38px, 3.7vw, 52px); }
   .head .lede { font-size: 19px; }
   .head .lede + .lede { font-size: 17px; }
-  .hero-media { order: initial; width: 120%; justify-self: center; }
+  .hero-media { order: initial; width: 120%; justify-self: center; translate: none; }
   .head blockquote { grid-column: 1 / -1; align-items: center; padding: 18px 26px; font-size: 14px; }
   .head blockquote p { flex: 1; }
   .head blockquote br { display: none; }
