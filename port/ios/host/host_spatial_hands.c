@@ -1,5 +1,7 @@
 /* The gesture recognizer (host_spatial_hands.h, declared): pinch hysteresis
-over fingertips carried in the palm's frame through ARKit's dropouts, the
+over fingertips carried in the palm's frame through ARKit's dropouts, with its
+two thresholds scaled off a ruler measured from each of the player's own
+fingers rather than fixed in meters, the
 check on the joints behind a pinch that releases it when the fingers part
 rather than when the hidden fingertip is found again, the gun and off hand's
 button and stick mapping, the aim turn and the arm's elevation, and the
@@ -87,6 +89,54 @@ static float clampf(float value, float low, float high)
 	if (value > high)
 		return high;
 	return value;
+}
+
+/* one reading of a finger's own ruler, folded into that finger's window
+(host_spatial_hands.h's struct hands_pinch, its ruler_sample). Only a reading that could be a
+finger gets in: outside HANDS_RULER_MINIMUM_METERS to HANDS_RULER_MAXIMUM_METERS the number is
+a tracking glitch, and it is dropped rather than clamped to the nearer end, since a boundary
+value folded in still drags the window toward the boundary where a dropped one leaves the
+window exactly as it was. A window that only ever sees glitches therefore stays empty and
+ruler_meters below answers with the default, which is what the zero-ruler case needs: no
+threshold anywhere in this file ever becomes 0 */
+static void ruler_push(struct hands_pinch *pinch, float meters)
+{
+	if (!(meters >= HANDS_RULER_MINIMUM_METERS && meters <= HANDS_RULER_MAXIMUM_METERS))
+		return;
+	pinch->ruler_sample[pinch->ruler_next] = meters;
+	pinch->ruler_next = (pinch->ruler_next + 1) % HANDS_RULER_SAMPLES;
+	if (pinch->ruler_count < HANDS_RULER_SAMPLES)
+		pinch->ruler_count++;
+}
+
+/* this finger's ruler as its window now stands: the median of its readings, or
+HANDS_RULER_DEFAULT_METERS while there are too few of them to trust one
+(HANDS_RULER_MINIMUM_SAMPLES). The return is never 0 and never outside the plausible range,
+since every value in the window passed ruler_push's test and the default sits inside it too,
+so neither threshold scaled off this can collapse or run away */
+static float ruler_meters(const struct hands_pinch *pinch)
+{
+	float sorted[HANDS_RULER_SAMPLES];
+	int count = pinch->ruler_count, i, j;
+
+	if (count < HANDS_RULER_MINIMUM_SAMPLES)
+		return HANDS_RULER_DEFAULT_METERS;
+	/* the valid readings are the first count of the ring however far ruler_next has wrapped:
+	a full window is all of it and a partial one is [0, count), so one copy covers both, and
+	the order within it does not matter to a median */
+	memcpy(sorted, pinch->ruler_sample, (size_t)count * sizeof(sorted[0]));
+	/* an insertion sort over at most HANDS_RULER_SAMPLES values, once per pinch per sample:
+	at this size the cheapest sort to read is the right one, and nothing here sits on a path
+	where a better asymptote would be measurable */
+	for (i = 1; i < count; i++)
+	{
+		float value = sorted[i];
+
+		for (j = i; j > 0 && sorted[j - 1] > value; j--)
+			sorted[j] = sorted[j - 1];
+		sorted[j] = value;
+	}
+	return sorted[count / 2];
 }
 
 /* the prayer sign's palm frame for one hand: center, normal and finger
@@ -480,8 +530,14 @@ static void miss_ended(const struct hands_pinch *pinch, int hand, int finger, do
 		pinch->parted ? HANDS_PATH_PARTED : HANDS_PATH_CARRIED);
 }
 
+/* close_meters and open_meters are this finger's own band for this sample, already scaled off
+its ruler by hands_recognize (HANDS_PINCH_CLOSE_RULER_FRACTION in host_spatial_hands.h): passed
+in rather than read from a macro here so that the two numbers are the caller's one decision and
+every event this function emits reports the threshold the decision was actually made against,
+which is what debug.hand_log puts on device */
 static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int hand_tracked, int thumb_usable,
 	const float thumb[3], int tip_usable, const float tip[3], int carried, const struct part_pair *pair,
+	float close_meters, float open_meters,
 	double now, struct hands_event *events, int capacity, int *count)
 {
 	float distance;
@@ -503,7 +559,7 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 		if (pinch->closed)
 		{
 			pinch->closed = 0;
-			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS,
+			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, open_meters,
 				HANDS_PATH_HAND_LOST);
 			held_ended(pinch, hand, finger, now, HANDS_PATH_HAND_LOST, events, capacity, count);
 		}
@@ -550,18 +606,18 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 		return;
 
 	distance = distance3(thumb, tip);
-	if (!pinch->closed && distance < HANDS_PINCH_CLOSE_METERS)
+	if (!pinch->closed && distance < close_meters)
 	{
 		pinch->closed = 1;
 		/* the only place a hold's clock starts, so the release that ends it reports the whole of
 		it however it is ended (held_ended) */
 		pinch->closed_since = now;
-		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, HANDS_PINCH_CLOSE_METERS, path);
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, close_meters, path);
 	}
-	else if (pinch->closed && distance > HANDS_PINCH_OPEN_METERS)
+	else if (pinch->closed && distance > open_meters)
 	{
 		pinch->closed = 0;
-		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS, path);
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, open_meters, path);
 		held_ended(pinch, hand, finger, now, path, events, capacity, count);
 		/* and what the pair behind this pinch had grown by at the instant the tips themselves
 		released it, which is the margin's own measurement: a release decided here rather than
@@ -673,11 +729,26 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		{
 			int tip_index = finger + 1; /* tip[0] is the thumb */
 			struct part_pair pair;
+			float ruler;
 
+			/* this finger's own ruler before anything reads a threshold off it, so a sample
+			that can measure the segment scales that same sample's band. Read straight off
+			joints and only where ARKit reports both of the segment's ends: the carry in
+			tips_resolve answers where the finger probably still is, and a probability has no
+			business setting the threshold it is then judged against. Each finger gets its own
+			because each finger is a different length: the middle, ring and little fingers'
+			distal segments are shorter than the index's, and on device their resting thumb
+			distances run near 80 mm where the index's runs near 25, so one ruler for the hand
+			would scale three of the four fingers by a segment that is not theirs */
+			if (j->tracked && j->intermediate_tip_tracked[tip_index] && j->tip_tracked[tip_index])
+				ruler_push(&state->pinch[hand][finger],
+					distance3(j->intermediate_tip[tip_index], j->tip[tip_index]));
+			ruler = ruler_meters(&state->pinch[hand][finger]);
 			part_pair_of(j, finger, &pair);
 			pinch_update(&state->pinch[hand][finger], hand, finger, j->tracked, usable[0], tip[0],
-				usable[tip_index], tip[tip_index], carried[0] || carried[tip_index], &pair, now, events,
-				capacity, &count);
+				usable[tip_index], tip[tip_index], carried[0] || carried[tip_index], &pair,
+				HANDS_PINCH_CLOSE_RULER_FRACTION * ruler, HANDS_PINCH_OPEN_RULER_FRACTION * ruler,
+				now, events, capacity, &count);
 		}
 	}
 

@@ -43,15 +43,66 @@ the same host_spatial_controls the Sense readers fill, for
 host_spatial_gamepad_map to turn into the virtual gamepad. Plain C, no
 Objective-C and no host_logf: the caller logs the events this returns. */
 
-/* a pinch's hysteresis, meters: closes below CLOSE, opens above OPEN and
-holds whatever it had in between. Both are to be felt on device and are the
-first thing to tune here: 0.015 / 0.025 read late to a player closing the
-pinch deliberately, and 0.025 / 0.035 fired on its own from a merely relaxed
-hand, so CLOSE sits between the two and OPEN is widened further still, to
-make a false trigger from an unintentional near-pinch the harder of the two
-mistakes to make */
-#define HANDS_PINCH_CLOSE_METERS 0.018f
-#define HANDS_PINCH_OPEN_METERS 0.030f
+/* a pinch's hysteresis: closes below CLOSE, opens above OPEN and holds whatever it had in
+between. Both are fractions of a ruler measured from the player's own hand rather than
+absolute meters, because a session of raw distances (debug.hand_distance_log, whose line is
+host_spatial_hands.m's periodic log) finally said where the two absolute numbers were sitting,
+and it was inside the wrong distribution. For the aiming hand, 3690 samples:
+
+	a deliberate pinch, n=417:   min 0.0010  25th 0.0051  median 0.0071  75th 0.0094
+	                             95th 0.0206  max 0.0287
+	a resting hand,     n=1236:  min 0.0183  5th 0.0242  25th 0.0319  median 0.0391
+	                             75th 0.0474  95th 0.0655  max 0.1110
+
+The old CLOSE of 0.018 sat a fifth of a millimeter under that resting minimum, so a merely
+relaxed hand reached it and fired, and the old OPEN of 0.030 sat inside the resting lower
+quartile, so a tap's release waited while the hand settled on top of it. Five rounds of work
+read that second number as a fault in the release rules and tuned those instead (the carry's
+deadline, the joints part_pair_of watches, the growth part_decide asks for): the rules were
+answering correctly about a threshold in the wrong place.
+
+The ruler is a per-finger measure so the thresholds scale with the player's own fingers, which
+is what a joint radius would do if ARKit reported one. It does not: "radius" appears nowhere in
+the XROS 27 ARKit headers, and ar_hand_skeleton_get_joint_named hands back a joint with a
+transform and a tracked flag and nothing about its size. So the stand-in is the finger's distal
+segment, its intermediate tip to its own tip, which the same session measured at 0.0224 for the
+index finger with a spread under 1 mm across the whole of it: the steadier of the two rulers
+that session logged (palm width varied by about 2 mm), and per-finger where palm width is one
+number for the hand.
+
+Two thirds of that segment for CLOSE and one whole segment for OPEN puts this player's band at
+0.0149 and 0.0224, which is the clear air between his two distributions: CLOSE 3.4 mm below the
+resting minimum of 0.0183, so no relaxed hand reaches it, and OPEN 1.8 mm above the pinching
+95th percentile of 0.0206, so no held pinch drifts over it. A bigger hand's band scales with its
+own fingers rather than keeping this one's millimeters */
+#define HANDS_PINCH_CLOSE_RULER_FRACTION (2.0f / 3.0f)
+#define HANDS_PINCH_OPEN_RULER_FRACTION 1.0f
+/* the ruler to use until this finger has been measured enough times to trust: the index
+finger's segment as the session above measured it. Its only job is to be a real number of the
+right order, so that a hand whose joints never arrive keeps a working band instead of
+collapsing both thresholds to 0, and so the first samples after the hands become the aim source
+are not judged against nothing. All four fingers fall back to it: it is the one ruler that was
+actually measured, and host_spatial_hands.c's own per-finger window replaces it within
+HANDS_RULER_MINIMUM_SAMPLES below, which is a fraction of a second of an open hand */
+#define HANDS_RULER_DEFAULT_METERS 0.0224f
+/* the range a reading has to land in to count as a finger at all. A distal segment of a human
+finger runs from about 10 mm (a small little finger) to about 40 mm (a large index), and a
+reading outside that is a tracking glitch and not a measurement: host_spatial_hands.c's
+ruler_push drops it rather than folding it in, so no glitch can move a threshold even by the
+boundary's worth. These two are also what keeps a threshold away from 0 from the other
+direction, since the window can only ever hold values between them */
+#define HANDS_RULER_MINIMUM_METERS 0.010f
+#define HANDS_RULER_MAXIMUM_METERS 0.040f
+/* how many readings each finger's ruler is smoothed over, and how few it may be trusted on.
+A median over a window and not one sample: the segment is a constant of the player's hand
+rather than a signal (under 1 mm of spread over 3690 samples), so the window is there to throw
+a glitch away, not to track a change, and a median of fifteen needs eight bad readings running
+before it moves at all where a mean would be dragged by one. Fifteen is about a sixth of a
+second at 90 Hz, which is as much history as a constant needs; five is 56 ms, short enough that
+the default above is gone almost as soon as a hand is in view and long enough that no single
+reading is ever the ruler on its own */
+#define HANDS_RULER_SAMPLES 15
+#define HANDS_RULER_MINIMUM_SAMPLES 5
 /* how far the still-visible pair behind a pinch (HANDS_PART_LEVEL_* below) must grow
 apart from where it was when that pinch's fingertips were last measured before the
 fingers count as parted, meters. A change and not a position on purpose: the pair sits
@@ -182,6 +233,22 @@ struct hands_pinch
 	over from an older pose */
 	float part_reference[NUMBER_OF_HANDS_PART_LEVELS];
 	int part_reference_known[NUMBER_OF_HANDS_PART_LEVELS];
+	/* this finger's own ruler, as a ring buffer of its last readings and a count of how many
+	of them there are: the window host_spatial_hands.c's ruler_meters takes the median of to
+	scale HANDS_PINCH_CLOSE_RULER_FRACTION and HANDS_PINCH_OPEN_RULER_FRACTION above. Readings
+	come only from a sample where ARKit reports both ends of the segment itself, with no part
+	for the carried tip above, so a pinch (which hides the fingertip it is measuring) simply
+	stops filling the window and keeps the open hand's readings for the length of the hold.
+	Valid entries are ruler_sample[0..ruler_count), ruler_next being where the next one lands.
+
+	It is the one thing in this struct that outlives a lost hand. Everything else here is a
+	reading of a pose and is cleared when the hand goes (host_spatial_hands.c's pinch_update,
+	its !hand_tracked branch), but a finger's length is a fact about the player: the hand that
+	comes back has the fingers that left. Only host_spatial_hands_idle's zeroing of the whole
+	state forgets it, and there the five samples it takes to rebuild are spent while the hands
+	are becoming the aim source anyway */
+	float ruler_sample[HANDS_RULER_SAMPLES];
+	int ruler_next, ruler_count;
 };
 
 struct hands_state
@@ -298,11 +365,14 @@ alone (host_spatial_hands.m's periodic log), nothing here read by any decision i
 distance and path are indexed as every other per-finger array here is (HANDS_PINCH_INDEX
 first; hands_tip_distances below). palm_width is the index metacarpal to the little
 metacarpal, and index_distal the index finger's intermediate tip to its own tip: two
-measurements of this hand's own size, on the premise (not yet acted on) that the pinch
-hysteresis belongs in a fraction of one of them rather than in an absolute distance that
-fits one player's hand and not another's. Both read straight off the joints with no carry
-of their own, since neither is a fingertip a thumb ever hides; *_known is 0 where ARKit
-is not reporting the joint it needs this sample, and the measurement is then 0 too */
+measurements of this hand's own size, logged so that a session could say which of them was
+steady enough to put the pinch hysteresis in a fraction of, rather than in an absolute
+distance that fits one player's hand and not another's. index_distal won that comparison and
+is now the ruler (HANDS_PINCH_CLOSE_RULER_FRACTION above), measured per finger rather than for
+the index alone; both stay logged, since palm width is what says the hand is being seen at the
+right scale at all. Both read straight off the joints with no carry of their own, since
+neither is a fingertip a thumb ever hides; *_known is 0 where ARKit is not reporting the joint
+it needs this sample, and the measurement is then 0 too */
 struct hands_tip_distances
 {
 	float distance[NUMBER_OF_HANDS_PINCHES];

@@ -182,9 +182,15 @@ static void pinch_hysteresis(void)
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].hand == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX && events[0].on == 1, "pinch: one pinch-on event for the index");
 
-	joints[1].tip[1][2] = 0.024f; /* 2.4 cm: inside the hysteresis band, no change */
+	/* 1.8 cm: inside the hysteresis band. The band is scaled off this finger's own ruler now
+	(host_spatial_hands.c's ruler_meters), so the value has to sit inside it both while the
+	ruler is still HANDS_RULER_DEFAULT_METERS, as it is here on three samples, and at the 2.0 cm
+	segment make_hand's own joints would converge it to over a longer case: 1.49 to 2.24 cm and
+	1.33 to 2.0 cm respectively, and 1.8 is inside both. 2.4 cm was inside the old fixed band
+	and is outside both of these, which is the measurement this change acted on */
+	joints[1].tip[1][2] = 0.018f;
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
-	check(controls[1].trigger == 1.0f, "pinch: 2.4 cm still closed (hysteresis)");
+	check(controls[1].trigger == 1.0f, "pinch: 1.8 cm still closed (hysteresis)");
 	check(count == 0, "pinch: no event inside the hysteresis band");
 
 	joints[1].tip[1][2] = 0.040f; /* 4.0 cm: opens */
@@ -1711,6 +1717,208 @@ static void pinch_part_does_not_chatter(void)
 		events[0].path == HANDS_PATH_CARRIED, "chatter: and that press is logged as the carry's, not the tips'");
 }
 
+/* one finger's ruler filled from a chosen segment length: its intermediate tip put that far
+behind its own tip, then enough tracked samples run that host_spatial_hands.c's ruler_meters
+takes the median of real readings instead of returning HANDS_RULER_DEFAULT_METERS. Twenty
+samples where the window holds fifteen, so the window is saturated with this one value and the
+two or three measuring samples a case runs afterwards cannot move the median off it, however
+the fixture's own tip moves happen to read as segments. The tip stays where make_hand leaves
+it, 5 cm from the thumb, so nothing closes while the window fills */
+static void fill_ruler(struct hands_state *state, struct host_spatial_hand_joints joints[2], int hand,
+	int finger, float segment_meters)
+{
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	int i;
+
+	joints[hand].intermediate_tip[finger + 1][2] = joints[hand].tip[finger + 1][2] - segment_meters;
+	for (i = 0; i < 20; i++)
+		hands_recognize(state, joints, 1, forward, 1, 18.0f, 0.0f, 0.1 + 0.001 * i, controls, events, 16);
+}
+
+/* the band comes off the player's own finger rather than off two absolute distances. A ruler of
+2.24 cm is the index segment a device session measured, and the band it gives is 1.493 cm and
+2.24 cm: the clear air between that session's pinching distribution (95th percentile 2.06 cm)
+and its resting one (minimum 1.83 cm), which neither of the old constants was in
+(host_spatial_hands.h's HANDS_PINCH_CLOSE_RULER_FRACTION carries the percentiles).
+Every event reports the threshold it was decided against, so debug.hand_log on device shows
+the scaled number and not a constant */
+static void pinch_band_scales_with_the_ruler(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0224f);
+
+	joints[1].tip[1][2] = 0.0149f; /* a hair under two thirds of the ruler: closes */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "ruler: 1.49 cm closes against a 2.24 cm ruler");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 1 &&
+		near(events[0].threshold, 0.0224f * 2.0f / 3.0f, 1e-5f),
+		"ruler: and the event carries the scaled close threshold, not a constant");
+
+	joints[1].tip[1][2] = 0.0223f; /* a hair under one whole ruler: inside the band, no change */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "ruler: 2.23 cm is still inside the band");
+	check(count == 0, "ruler: and says nothing");
+
+	joints[1].tip[1][2] = 0.0225f; /* a hair over one whole ruler: opens */
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "ruler: 2.25 cm opens against a 2.24 cm ruler");
+	check(count == 3 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
+		near(events[0].threshold, 0.0224f, 1e-5f),
+		"ruler: and the release carries the scaled open threshold");
+
+	/* and the other edge of the close, on its own state: a hair over two thirds of the ruler is
+	above the resting minimum this band was placed under, and must not fire */
+	memset(&state, 0, sizeof(state));
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0224f);
+	joints[1].tip[1][2] = 0.0151f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "ruler: 1.51 cm does not close against a 2.24 cm ruler");
+	check(count == 0, "ruler: and nothing is logged about it");
+}
+
+/* a larger hand gets a proportionally larger band off its own fingers, which is the whole point
+of a fraction: a 3.0 cm segment closes at 2.0 cm and opens at 3.0 cm, the same two thirds and
+one whole the 2.24 cm segment above gives 1.49 and 2.24 cm */
+static void pinch_band_scales_with_a_larger_hand(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0300f);
+
+	joints[1].tip[1][2] = 0.0199f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "larger ruler: 1.99 cm closes against a 3.0 cm ruler");
+	check(count == 1 && near(events[0].threshold, 0.0200f, 1e-5f),
+		"larger ruler: the close threshold scaled with the finger");
+
+	/* 2.5 cm closes nothing on the smaller hand above and sits inside this one's band */
+	joints[1].tip[1][2] = 0.0250f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 0, "larger ruler: 2.5 cm is inside the larger band");
+
+	joints[1].tip[1][2] = 0.0301f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "larger ruler: 3.01 cm opens against a 3.0 cm ruler");
+	check(count == 3 && near(events[0].threshold, 0.0300f, 1e-5f),
+		"larger ruler: the open threshold scaled with it too");
+}
+
+/* each finger is measured on its own, because each finger is a different length: the middle,
+ring and little fingers' distal segments are shorter than the index's, and on device their
+resting thumb distances run near 8 cm where the index's runs near 2.5. So one thumb distance can
+be a pinch on one finger and not on another, and that is correct rather than a bug: 1.6 cm is
+inside a 3.0 cm finger's close and outside a 2.24 cm finger's */
+static void pinch_ruler_is_per_finger(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0224f);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_MIDDLE, 0.0300f);
+
+	joints[1].tip[1][2] = 0.0160f;
+	joints[1].tip[2][2] = 0.0160f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "per finger: 1.6 cm misses the index's close at 1.49 cm");
+	check(controls[1].face_high == 1, "per finger: and makes the middle finger's at 2.0 cm");
+	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].finger == HANDS_PINCH_MIDDLE &&
+		events[0].on == 1 && near(events[0].threshold, 0.0200f, 1e-5f),
+		"per finger: one event, the middle finger's, against the middle finger's own threshold");
+}
+
+/* a segment that cannot be a finger leaves the thresholds at the measured default rather than
+at nothing: ruler_push drops a reading outside HANDS_RULER_MINIMUM_METERS to
+HANDS_RULER_MAXIMUM_METERS, so a window that only ever sees glitches stays empty and
+ruler_meters answers HANDS_RULER_DEFAULT_METERS. Without that a segment read as 0 would scale
+both thresholds to 0, which closes no pinch ever and opens every one of them */
+static void pinch_ruler_falls_back_without_a_plausible_segment(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	/* the segment read as exactly 0, the case a zero threshold would come out of */
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0f);
+	joints[1].tip[1][2] = 0.0149f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "ruler fallback: a zero segment still closes at the default band");
+	check(count == 1 && near(events[0].threshold, HANDS_RULER_DEFAULT_METERS * 2.0f / 3.0f, 1e-5f),
+		"ruler fallback: against the default ruler's own close, not 0");
+
+	/* and a segment far too long to be one, the other way a glitch reads */
+	memset(&state, 0, sizeof(state));
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.200f);
+	joints[1].tip[1][2] = 0.0151f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].trigger == 0.0f && count == 0,
+		"ruler fallback: a 20 cm segment leaves the default band, which 1.51 cm does not close");
+}
+
+/* the ruler is the one thing on a pinch that outlives losing the hand. Everything else there is
+a reading of a pose and is cleared when ARKit stops reporting the hand (host_spatial_hands.c's
+pinch_update, its !hand_tracked branch), but a finger's length is a fact about the player and
+the hand that comes back has the fingers that left. A hand lowered and raised again mid-firefight
+would otherwise spend five samples on the default band every time */
+static void pinch_ruler_outlives_a_lost_hand(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0300f);
+
+	/* the whole hand gone for longer than HANDS_HAND_GAP_SECONDS, which is a real loss */
+	joints[1].tracked = 0;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
+
+	/* back, and pinching at 1.99 cm: inside the 3.0 cm ruler's close and well outside the
+	default ruler's, so this closing is the ruler having survived */
+	joints[1].tracked = 1;
+	joints[1].tip[1][2] = 0.0199f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "ruler across a loss: the hand comes back with the finger it left with");
+}
+
 int main(void)
 {
 	pinch_hysteresis();
@@ -1751,6 +1959,11 @@ int main(void)
 	pinch_parts_with_nothing_to_carry();
 	pinch_part_does_not_chatter();
 	pinch_hold_duration_logged();
+	pinch_band_scales_with_the_ruler();
+	pinch_band_scales_with_a_larger_hand();
+	pinch_ruler_is_per_finger();
+	pinch_ruler_falls_back_without_a_plausible_segment();
+	pinch_ruler_outlives_a_lost_hand();
 	event_capacity_clamped();
 	if (failures)
 	{

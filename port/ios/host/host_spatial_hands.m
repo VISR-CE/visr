@@ -706,13 +706,17 @@ static const char *const distance_path_names[] = { "measured", "carried", "unava
 /* debug.hand_distance_log: one line per hand, roughly ten times a second
 (HAND_DISTANCE_LOG_SAMPLES above). Four decimals on every distance: three gives 1 mm bins,
 too coarse to tell a resting hand from a deliberate pinch apart, which is the whole reason
-for this line (host_spatial_hands.h's HANDS_PINCH_CLOSE_METERS / OPEN_METERS comment). Each
+for this line (host_spatial_hands.h's HANDS_PINCH_CLOSE_RULER_FRACTION comment, which records
+the distributions this line measured). Each
 of the four pinches carries its distance, which of HANDS_DISTANCE_MEASURED/CARRIED/
 UNAVAILABLE it is, and whether that pinch is closed right now, so a session's lines sort
 into the resting and the pinching distributions without correlating against any other line.
 palm_width and index_distal close the line: two measures of this hand's own size, "unavailable"
-rather than a number on a sample ARKit doesn't give them, since the player asked whether the
-two thresholds belong in a fraction of one of these rather than in an absolute distance.
+rather than a number on a sample ARKit doesn't give them, since the question this line was added
+to answer was whether the two thresholds belong in a fraction of one of these rather than in an
+absolute distance. They do, and the distal segment is the one they are in now
+(host_spatial_hands.c's ruler_meters); both stay on the line, palm width because it is what
+says the hand is being seen at the right scale at all.
 
 Greppable on "hands: distance ", and every field after the side is in a fixed column, so an
 awk invocation can pull any of them by number without parsing the line (the report at
