@@ -772,12 +772,16 @@ void interface_draw_hud(
 	if (render.local_player_index == NONE)
 		return;
 
+	/* port: a split screen view's HUD, and the game engine's scores and
+	timers, laid out as one player's and scaled into the view (hud_draw.c) */
+	hud_full_layout_begin();
 	hud_draw_screen();
 	/* port: a corner the HUD took outside its group spans ends with it, and
 	with the game engine's own drawing after it (halo_stereo.h) */
 	halo_hud_group_forget_corner();
 	game_engine_post_rasterize();
 	halo_hud_group_forget_corner(); /* port */
+	hud_full_layout_end();
 
 	return;
 }

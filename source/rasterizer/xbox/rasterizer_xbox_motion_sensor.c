@@ -49,6 +49,7 @@ symbols in this file:
 #include "rasterizer/rasterizer_console_vars.h"
 #include <xtl.h>
 #include "rasterizer/xbox/rasterizer_xbox_pixel_shader.h"
+#include "interface/hud.h" /* port: hud_split_screen_layout */
 
 /* ---------- constants */
 
@@ -566,7 +567,7 @@ void _rasterizer_hud_motion_sensor_blip_end(
 			pixel_shader.final_combiner_inputs_efg = 0x1800;
 			rasterizer_set_pixel_shader(&pixel_shader);
 
-			radius = local_player_count() > 1 ? 32.0f : 42.0f;
+			radius = hud_split_screen_layout() ? 32.0f : 42.0f;
 			IDirect3DDevice8_Begin(global_d3d_device, D3DPT_TRIANGLEFAN);
 			IDirect3DDevice8_SetVertexData2s(global_d3d_device, 4, 0, 0);
 			IDirect3DDevice8_SetVertexData2f(

@@ -1208,6 +1208,10 @@ static const struct config_setting config_settings[] =
 		"arms tuning as the game runs (laser mode, aim assist, steadying, pitch offset,\n"
 		"origin raise, reticle easing, arms, gun smoothing), and the game sees neither\n"
 		"stick meanwhile. Off, Back with those buttons is ordinary game input." },
+	{ "debug.split_screen_hud", _config_boolean, "false", "HALO_SPLIT_SCREEN_HUD", _environment_value, _platform_all,
+		"Split screen draws the Xbox's split screen HUD (its smaller elements, packed\n"
+		"against the screen's title-safe edges) instead of each player's full HUD laid\n"
+		"out in their own view as in a one-player game. Read at launch." },
 	{ "debug.halt_screen", _config_boolean, "false", "HALO_HALT_SCREEN", _environment_value, _platform_ios,
 		"On a fatal game error (a failed assertion or a halt), stop on the game's\n"
 		"halt screen, its recent messages on a blue background, instead of crashing.\n"

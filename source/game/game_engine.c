@@ -1406,7 +1406,7 @@ static void rasterize_in_game_score_draw_line(
 	boolean splitscreen;
 	long font_index;
 
-	splitscreen = local_player_count() > 1;
+	splitscreen = hud_split_screen_layout(); /* port: (a full split screen HUD is one player's) */
 	font_index = hud_get_font_index();
 	narrow_tab_stops[0] = 80;
 	narrow_tab_stops[1] = 125;

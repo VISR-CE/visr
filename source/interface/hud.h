@@ -26,6 +26,20 @@ struct hud_scripted_globals_definition
 	byte pad[2];
 };
 
+/* ---------- prototypes/HUD_DRAW.C */
+
+/* port: the Xbox's split screen HUD (debug.split_screen_hud with two or more
+local players) rather than each player's full HUD */
+boolean hud_split_screen_layout(
+	void);
+/* port: interface_draw_hud, around a split screen view's HUD: a one-player
+layout scaled into the view; FALSE when there is nothing to change, and
+then hud_full_layout_end does nothing */
+boolean hud_full_layout_begin(
+	void);
+void hud_full_layout_end(
+	void);
+
 /* ---------- prototypes/HUD.C */
 
 void hud_initialize(

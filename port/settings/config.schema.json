@@ -1630,6 +1630,17 @@
             "apple"
           ]
         },
+        "split_screen_hud": {
+          "type": "boolean",
+          "default": false,
+          "description": "Split screen draws the Xbox's split screen HUD (its smaller elements, packed against the screen's title-safe edges) instead of each player's full HUD laid out in their own view as in a one-player game. Read at launch.",
+          "x-environment": "HALO_SPLIT_SCREEN_HUD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "halt_screen": {
           "type": "boolean",
           "default": false,
