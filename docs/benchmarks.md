@@ -2,7 +2,7 @@
 
 We try to make these comparisons fair, but numbers or projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues/new?template=benchmark.yml)
 
-Last measured: 2026-10-31.
+Last measured: 2026-11-02.
 
 The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
@@ -117,17 +117,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 33.3 ms frame budget, Apple TV HD"
-    x-axis "Port and version" ["VISR 0.6.3"]
+    x-axis "Port and version" ["VISR 0.6.8"]
     y-axis "Milliseconds per frame" 0 --> 33.3
-    bar [17.3]
-    bar [31]
+    bar [17.5]
+    bar [30.4]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-Apple TV HD. [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 17.28 ms median CPU time per frame, 30.97 ms median GPU time per rendered frame).
+Apple TV HD. [VISR 0.6.8 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 17.54 ms median CPU time per frame, 30.39 ms median GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.).
 
@@ -147,17 +147,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV HD"
-    x-axis "Port and version" ["VISR 0.6.3"]
+    x-axis "Port and version" ["VISR 0.6.8"]
     y-axis "Frames per second" 0 --> 40
-    bar [29.9]
-    bar [26.5]
+    bar [29.8]
+    bar [25.2]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-Apple TV HD. [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 99.6% of frames on time).
+Apple TV HD. [VISR 0.6.8 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 99.5% of frames on time).
 
 ### Vision Pro
 
@@ -221,7 +221,7 @@ M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/relea
 
 ## Methodology
 
-The snapshot holds 228 measured windows for 10 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 235 measured windows for 10 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 

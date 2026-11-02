@@ -672,12 +672,13 @@ def test_a_builds_label_links_to_its_release_in_the_caption_and_the_builds_list(
     rows = charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
     spec = next(item for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows) if item["query"]["platform"] == "Apple TV")
     built = charts.model(rows, spec["query"], "campaign")
-    entry = next(e for e in built["entries"] if e["version"] == "0.6.3")
-    assert entry["url"] == "https://github.com/steverice/visr/releases/tag/visr-v0.6.3"
-    assert "[VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build" in charts.caption(built, None, None, "markdown")
+    entry = next(e for e in built["entries"] if e["port"] == "visr" and e["default"])
+    url = f"https://github.com/steverice/visr/releases/tag/visr-v{entry['version']}"
+    assert entry["url"] == url
+    assert f"]({url}) (build" in charts.caption(built, None, None, "markdown")
     assert charts.caption(built) == "".join(text for text, _ in charts.caption_parts(built))
     html = site_page.section(spec, rows, "campaign", charts.load_reasons())
-    assert 'href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3"' in html
+    assert f'href="{url}"' in html
 
 
 def test_gpu_columns_average_the_rounds_and_stay_empty_unless_every_round_has_them():
