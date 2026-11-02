@@ -285,7 +285,7 @@ def head_tags(metadata: dict[str, str]) -> dict[str, str]:
 LOOK_ASSET_BASE = "https://media.visr.gg/look/"
 LOOK_SCENES = [
     {"folder": "lifeboat", "label": "Lifeboats over Halo", "yaw": 12},
-    {"folder": "b30-beach", "label": "The beach on The Silent Cartographer", "pitch": 7, "videoBand": 1228 / 2048, "drift": {"yaw": 5, "pitch": 0}},
+    {"folder": "b30-battle", "label": "The battle on the beach of The Silent Cartographer", "yaw": 125, "pitch": 2, "videoBand": 1, "drift": {"yaw": 10, "pitch": 0}},
     {"folder": "b40-battlefield", "label": "The snowfield on Assault on the Control Room", "yaw": 315, "pitch": 60, "videoBand": 1252 / 2048, "drift": {"yaw": 2, "pitch": 0}},
     {"folder": "a50-grav-lift", "label": "The gravity lift on The Truth and Reconciliation", "yaw": 176, "pitch": 60, "videoBand": 1348 / 2048, "drift": {"yaw": 0, "pitch": -2, "stop": -15}},
     {"folder": "damnation", "label": "The waterfalls of Damnation", "yaw": 150, "pitch": -20, "videoBand": 1488 / 2048},
