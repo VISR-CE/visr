@@ -256,19 +256,36 @@ struct part_pair { int known[NUMBER_OF_HANDS_PART_LEVELS]; float distance[NUMBER
 static void part_pair_of(const struct host_spatial_hand_joints *joints, int finger, struct part_pair *pair)
 {
 	int chain = finger + 1;
-	const float *thumb[NUMBER_OF_HANDS_PART_LEVELS];
-	int thumb_tracked[NUMBER_OF_HANDS_PART_LEVELS];
+	/* the ladder in the order host_spatial_hands.h argues for it, as a table rather than six
+	cases: the finger's end stepping back down the finger, the thumb's end stepping back within
+	each of those, so a level's two ends read off one line and adding a level is adding a row */
+	const float *finger_end[NUMBER_OF_HANDS_PART_LEVELS] = {
+		joints->intermediate_tip[chain], joints->intermediate_tip[chain],
+		joints->intermediate_base[chain], joints->intermediate_base[chain],
+		joints->knuckle[chain], joints->knuckle[chain]
+	};
+	int finger_tracked[NUMBER_OF_HANDS_PART_LEVELS] = {
+		joints->intermediate_tip_tracked[chain], joints->intermediate_tip_tracked[chain],
+		joints->intermediate_base_tracked[chain], joints->intermediate_base_tracked[chain],
+		joints->knuckle_tracked[chain], joints->knuckle_tracked[chain]
+	};
+	const float *thumb_end[NUMBER_OF_HANDS_PART_LEVELS] = {
+		joints->intermediate_tip[0], joints->intermediate_base[0],
+		joints->intermediate_tip[0], joints->intermediate_base[0],
+		joints->intermediate_tip[0], joints->intermediate_base[0]
+	};
+	int thumb_tracked[NUMBER_OF_HANDS_PART_LEVELS] = {
+		joints->intermediate_tip_tracked[0], joints->intermediate_base_tracked[0],
+		joints->intermediate_tip_tracked[0], joints->intermediate_base_tracked[0],
+		joints->intermediate_tip_tracked[0], joints->intermediate_base_tracked[0]
+	};
 	int level;
 
-	thumb[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_TIP] = joints->intermediate_tip[0];
-	thumb[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_BASE] = joints->intermediate_base[0];
-	thumb_tracked[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_TIP] = joints->intermediate_tip_tracked[0];
-	thumb_tracked[HANDS_PART_LEVEL_THUMB_INTERMEDIATE_BASE] = joints->intermediate_base_tracked[0];
 	for (level = 0; level < NUMBER_OF_HANDS_PART_LEVELS; level++)
 	{
-		pair->known[level] = joints->intermediate_base_tracked[chain] && thumb_tracked[level];
+		pair->known[level] = finger_tracked[level] && thumb_tracked[level];
 		pair->distance[level] = pair->known[level] ?
-			distance3(joints->intermediate_base[chain], thumb[level]) : 0.0f;
+			distance3(finger_end[level], thumb_end[level]) : 0.0f;
 	}
 }
 
@@ -289,6 +306,27 @@ static void part_reference_record(struct hands_pinch *pinch, const struct part_p
 		pinch->part_reference[level] = pair->known[level] ? pair->distance[level] : 0.0f;
 	}
 	pinch->parted = 0;
+	pinch->part_over = 0;
+}
+
+/* the first level of the ladder this sample can both see and compare against, and how far
+that level has grown from its reference. Returns the level, or -1 where no level has both,
+which is the one case the check cannot speak at all. Separated out because two callers want
+the same number: part_decide, which acts on it, and pinch_update, which reports it on every
+release the fingertips themselves decided so that HANDS_PART_MARGIN_METERS can be measured
+rather than argued (host_spatial_hands.h's HANDS_EVENT_PART_GROWTH) */
+static int part_growth(const struct hands_pinch *pinch, const struct part_pair *pair, float *growth)
+{
+	int level;
+
+	for (level = 0; level < NUMBER_OF_HANDS_PART_LEVELS; level++)
+		if (pair->known[level] && pinch->part_reference_known[level])
+		{
+			*growth = pair->distance[level] - pinch->part_reference[level];
+			return level;
+		}
+	*growth = 0.0f;
+	return -1;
 }
 
 /* the fix the carry needed. A pinch occludes the very fingertip its distance is measured
@@ -305,39 +343,57 @@ while the tips were last seen (part_reference_record). Returns 1 when the carry 
 trusted this sample, which releases a closed pinch and keeps an already-released one open: a
 pinch is never closed again by a position carried from a pose the pair says the hand has
 left. There is no clock in any of it, which is what lets a pinch be held for as long as the
-player holds it (hands_probe.c's pinch_hold_to_fire_never_releases) */
+player holds it (hands_probe.c's pinch_hold_to_fire_never_releases): the confirmation below
+counts consecutive samples past the margin and resets on the first one inside it, so nothing
+here accumulates with the length of a hold.
+
+Which joints, and how far they have to grow, are the two things a device session corrected.
+The first version watched the finger's middle knuckle, which barely translates when a pinch
+opens, and asked for 12 mm of growth from it: over a whole session it released one pinch,
+and every other release waited for the hidden fingertip exactly as it had before the check
+existed. Both halves of that are fixed here, the joints in part_pair_of and the margin in
+host_spatial_hands.h, and pinch_update now reports the growth at every release the
+fingertips decided so the margin is measured next time rather than argued again */
 static int part_decide(struct hands_pinch *pinch, const struct part_pair *pair, int hand, int finger,
 	struct hands_event *events, int capacity, int *count)
 {
-	int level;
+	float growth;
 
-	for (level = 0; level < NUMBER_OF_HANDS_PART_LEVELS; level++)
-	{
-		float growth;
-
-		if (!(pair->known[level] && pinch->part_reference_known[level]))
-			continue;
-		growth = pair->distance[level] - pinch->part_reference[level];
-		/* a band, as this file's every other threshold is: past the margin the fingers are
-		apart, and only back under half of it is a carried position trusted to close the pinch
-		again. Without the lower edge a pair sitting at the margin would release and re-close
-		sample after sample, turning one held pinch into a stream of shots */
-		if (growth > HANDS_PART_MARGIN_METERS)
-			pinch->parted = 1;
-		else if (growth < HANDS_PART_MARGIN_METERS / 2.0f)
-			pinch->parted = 0;
-		if (pinch->parted && pinch->closed)
-		{
-			pinch->closed = 0;
-			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, growth,
-				HANDS_PART_MARGIN_METERS, HANDS_PATH_PARTED);
-		}
-		return pinch->parted;
-	}
 	/* no level this sample can both see and compare against: the carry's answer stands, which
 	is a closed pinch holding, exactly as before this check existed. A release the pair has
 	already decided stands too, since the pair going missing is not the fingers coming back
 	together */
+	if (part_growth(pinch, pair, &growth) < 0)
+		return pinch->parted;
+	/* a band, as this file's every other threshold is: past the margin the fingers are
+	apart, and only back under half of it is a carried position trusted to close the pinch
+	again. Without the lower edge a pair sitting at the margin would release and re-close
+	sample after sample, turning one held pinch into a stream of shots.
+
+	Past the margin is also counted rather than acted on at once (HANDS_PART_CONFIRM_SAMPLES):
+	the band's own shape is what makes one noisy sample expensive, since parted does not clear
+	again until the growth falls under half the margin, which a hand that is still pinching
+	will not do. A real parting grows further on the sample after it starts and confirms
+	immediately; a spike has to happen twice running */
+	if (growth > HANDS_PART_MARGIN_METERS)
+	{
+		if (pinch->part_over < HANDS_PART_CONFIRM_SAMPLES)
+			pinch->part_over++;
+		if (pinch->part_over >= HANDS_PART_CONFIRM_SAMPLES)
+			pinch->parted = 1;
+	}
+	else
+	{
+		pinch->part_over = 0;
+		if (growth < HANDS_PART_MARGIN_METERS / 2.0f)
+			pinch->parted = 0;
+	}
+	if (pinch->parted && pinch->closed)
+	{
+		pinch->closed = 0;
+		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, growth,
+			HANDS_PART_MARGIN_METERS, HANDS_PATH_PARTED);
+	}
 	return pinch->parted;
 }
 
@@ -365,6 +421,13 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	the gap below is logged on, and the one that hands the pinch to part_decide */
 	int guessing = carried || !(thumb_usable && tip_usable);
 	int path = carried ? HANDS_PATH_CARRIED : HANDS_PATH_MEASURED;
+	/* the pair's growth as this sample arrived, and whether a gap was running when it did:
+	both are read before anything below moves them, since part_reference_record resets the
+	reference the growth is measured from and miss_ended clears the gap. They are what the
+	measured release at the end of this function reports, and the measurement that settles
+	HANDS_PART_MARGIN_METERS (host_spatial_hands.h's HANDS_EVENT_PART_GROWTH) */
+	float arrival_growth = 0.0f;
+	int arrival_level, arrival_in_gap;
 
 	if (!hand_tracked)
 	{
@@ -381,8 +444,12 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 		reference from what it is seen doing then, as tips_resolve rebuilds its carry */
 		memset(pinch->part_reference_known, 0, sizeof(pinch->part_reference_known));
 		pinch->parted = 0;
+		pinch->part_over = 0;
 		return;
 	}
+
+	arrival_level = part_growth(pinch, pair, &arrival_growth);
+	arrival_in_gap = pinch->carried_since > 0.0;
 
 	/* the gap's own log, on as it starts and off with its length as it ends: the distance below
 	is a carried one, or there is none at all, and either way the player's finger is somewhere
@@ -422,6 +489,17 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	{
 		pinch->closed = 0;
 		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS, path);
+		/* and what the pair behind this pinch had grown by at the instant the tips themselves
+		released it, which is the margin's own measurement: a release decided here rather than
+		by part_decide is a release the part check did not catch, so the growths on these lines
+		are the distribution HANDS_PART_MARGIN_METERS has to sit at the bottom of. Reported
+		whatever that growth was, including the growths well under the margin, since those are
+		the ones worth seeing. Only on a measured release: a carried one is a guess at both
+		ends, so the growth beside it would describe nothing */
+		if (!guessing)
+			emit(events, capacity, count, HANDS_EVENT_PART_GROWTH, hand, finger, arrival_in_gap,
+				arrival_growth, HANDS_PART_MARGIN_METERS,
+				arrival_level >= 0 ? HANDS_PATH_MEASURED : HANDS_PATH_BLIND);
 	}
 }
 
@@ -659,7 +737,9 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 
 	/* emit() only ever writes within capacity, but count keeps counting past it; clamp the
 	return so a caller's for (i = 0; i < count; i++) against events[capacity] is always in
-	bounds, even when a sample emits more state changes than capacity allows (both hands
-	lost at once, every pinch closed and every one of them in a carried gap, reaches 16) */
+	bounds, even when a sample emits more lines than capacity allows. The worst sample is
+	eight pinches each ending a carried gap, releasing from their own fingertips, and
+	reporting the pair's growth for that release, which reaches 24: what
+	host_spatial_hands.m sizes its buffer to, since the growth line is the one worth keeping */
 	return count < capacity ? count : capacity;
 }

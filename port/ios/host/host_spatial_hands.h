@@ -22,7 +22,7 @@ struct host_spatial_hand_joints
 	float wrist[3], forearm_arm[3];
 	int tip_tracked[5];          /* thumb, index, middle, ring, little */
 	float tip[5][3];
-	/* one bone and two bones back from each tip, in the same order: what a pinch
+	/* one, two and three bones back from each tip, in the same order: what a pinch
 	is judged by while the thumb is hiding the fingertip it is pinching
 	(HANDS_PART_LEVEL_* below). Kept as whole families of five, as the tips are,
 	so host_spatial_hands.m's reduction walks each one as a single range of
@@ -31,6 +31,8 @@ struct host_spatial_hand_joints
 	float intermediate_tip[5][3];
 	int intermediate_base_tracked[5];
 	float intermediate_base[5][3];
+	int knuckle_tracked[5];
+	float knuckle[5][3];
 	int metacarpal_tracked[2];   /* index, little */
 	float metacarpal[2][3];
 };
@@ -57,13 +59,34 @@ at whatever separation this hand and this finger put it at while the pads are to
 which varies by player and by finger and cannot be known in advance, so the reference
 is recorded live on every sample the tips themselves can be measured
 (host_spatial_hands.c's part_reference_record) and only the growth needs a constant.
-12 mm clears both of the things that move the pair while the pads stay in contact (a
-few millimeters of joint jitter, and the centimeter or so that loosening or tightening
-a grip gives) and sits well under the two centimeters and more the pair swings when the
-finger and thumb really do extend out of a pinch, the finger's joint riding a proximal
-phalanx around 45 mm long through tens of degrees. Half of it re-arms the carry
-(hands_pinch's parted), so a pair hovering at the margin cannot chatter the trigger */
-#define HANDS_PART_MARGIN_METERS 0.012f
+Half of it re-arms the carry (hands_pinch's parted), so a pair hovering at the margin
+cannot chatter the trigger.
+
+5 mm is provisional, and it is deliberately low: the first value here was 12 mm,
+reasoned from the length of a proximal phalanx and the angle it swings through, and a
+whole device session released one pinch by this path. Every other release waited for the
+hidden fingertip to come back, which is the defect the check exists to fix. So the
+number stops being argued and starts being measured: HANDS_EVENT_PART_GROWTH below
+reports the pair's growth at every release the fingertips themselves decided, whatever
+that growth was, so one session of ordinary taps and holds gives the distribution of
+growths at a release the player meant. This constant becomes the low end of that
+distribution, with the jitter floor the same session shows under it. Until then 5 mm is
+chosen to be smaller than any real parting rather than larger than any noise, with
+HANDS_PART_CONFIRM_SAMPLES below carrying the noise instead */
+#define HANDS_PART_MARGIN_METERS 0.005f
+/* how many samples running the pair must be past that margin before a pinch is released.
+2, which costs the release one sample (11 ms at 90 Hz, under a tenth of the time the
+plasma pistol takes to charge) and is what makes the small margin safe to hold a trigger
+against. One sample would not be: a single noisy reading past the margin sets
+hands_pinch's parted, and parted does not clear again until the growth falls under half
+the margin or the fingertips can be measured again, neither of which a hand that is
+still pinching with the tip hidden will do. So one spike does not cost a sample of
+trigger, it costs the rest of the hold, and at 90 Hz a hold of a few seconds is
+thousands of chances to take that spike. Requiring the parting twice running makes a
+false release need two spikes in a row, while a real parting only grows further on the
+sample after it starts and so always confirms. It is a count and not a clock: nothing
+about it accumulates over a hold (host_spatial_hands.c's part_decide) */
+#define HANDS_PART_CONFIRM_SAMPLES 2
 /* how long a whole hand may go untracked before it counts as gone, seconds.
 Inside this gap every pinch of that hand holds its state and the controls
 those pinches drive hold with it, so a single sample in which ARKit loses the
@@ -91,18 +114,33 @@ call count) decides how many samples see it */
 
 enum { HANDS_PINCH_INDEX, HANDS_PINCH_MIDDLE, HANDS_PINCH_RING, HANDS_PINCH_LITTLE, NUMBER_OF_HANDS_PINCHES };
 
-/* the joints a pinch is judged by while its fingertip is hidden, most distal first: the
-pinching finger's intermediate base (its middle knuckle) against the thumb's intermediate
-tip, then against the thumb's intermediate base one bone further back. A pinch puts the
+/* the joints a pinch is judged by while its fingertip is hidden, as a ladder of pairs the
+finger's end steps down and the thumb's end steps along, most distal first. A pinch puts the
 thumb's pad on the fingertip, so the contact point is exactly what the cameras lose, and
-these are the nearest joints on either side the thumb is not sitting on. They are also the
-nearest pair worth measuring: the finger's own knuckle and the thumb's hardly move against
-each other at all, so a pair taken from those two could not tell a pinch from an open hand.
-Both levels share the finger's joint because the thumb's is the one that goes: the thumb's
-intermediate tip is a centimeter or two behind a pad the finger wraps over, while its
-intermediate base sits on the outside of the hand. host_spatial_hands.c's part_decide takes
-the first level both of whose ends are tracked and whose reference it has */
-enum { HANDS_PART_LEVEL_THUMB_INTERMEDIATE_TIP, HANDS_PART_LEVEL_THUMB_INTERMEDIATE_BASE,
+every level here is a pair the thumb is not sitting on.
+
+The finger's end is named first because it is the end that has to move. A finger opening out
+of a pinch rotates almost entirely about its own two outer joints: the fingertip travels
+centimeters, the joint right behind it nearly as far, and the middle knuckle (the
+intermediate base) barely translates at all. A device session that watched the middle
+knuckle released one pinch in the whole session, which is what the finger's intermediate tip
+is here to fix: it sits a bone behind the contact point, out of the thumb's shadow, and
+still travels with the tip. Below it the ladder gives up signal for visibility, the
+intermediate base first and the knuckle last, since a pair taken off the knuckle can only
+just tell a pinch from an open hand and is the last thing worth asking.
+
+The thumb's end steps from its intermediate tip to its intermediate base within each of the
+finger's: the finger's distal phalanx wraps over the thumb's pad, so the thumb's
+intermediate tip is the first joint of the two at risk, while its intermediate base sits on
+the outside of the hand. Stepping the thumb before the finger is on purpose, since losing
+the thumb's more distal joint costs far less of the pair's travel than giving up the
+finger's.
+
+host_spatial_hands.c's part_decide takes the first level both of whose ends are tracked and
+whose reference it has */
+enum { HANDS_PART_LEVEL_INTERMEDIATE_TIP_THUMB_TIP, HANDS_PART_LEVEL_INTERMEDIATE_TIP_THUMB_BASE,
+	HANDS_PART_LEVEL_INTERMEDIATE_BASE_THUMB_TIP, HANDS_PART_LEVEL_INTERMEDIATE_BASE_THUMB_BASE,
+	HANDS_PART_LEVEL_KNUCKLE_THUMB_TIP, HANDS_PART_LEVEL_KNUCKLE_THUMB_BASE,
 	NUMBER_OF_HANDS_PART_LEVELS };
 
 /* one pinch's hysteresis state. carried_since is 0 while both ends of the
@@ -120,6 +158,12 @@ struct hands_pinch
 	pinch, since the carry's premise -- the finger is still where it was, which is on the
 	thumb -- is the thing the pair has just disproved (host_spatial_hands.c's part_decide) */
 	int parted;
+	/* how many samples running the pair has been past the margin, counting up to
+	HANDS_PART_CONFIRM_SAMPLES and stopping there: what keeps a single noisy reading from
+	setting parted, which no hand still holding a pinch could clear again. Any sample inside
+	the margin puts it back to 0, as does a sample the fingertips themselves can be measured
+	on (part_reference_record) and the loss of the whole hand */
+	int part_over;
 	/* what each level's pair measured on the last sample both of this pinch's fingertips
 	were ARKit's own reading, which is the pose those tips confirmed the fingers were in.
 	known is 0 where that sample could not see the level, so a reference is never carried
@@ -170,8 +214,20 @@ start, and on its way out carries the gap's length as its value. Nothing but
 the tip's return ends a gap now, so its threshold is 0: the measurement these
 events are here for is how long the gaps run (host_spatial_hands.c's
 pinch_update) */
+/* PART_GROWTH is not a state change at all: it is the margin's own measurement, emitted
+alongside every pinch release the two fingertips themselves decided (host_spatial_hands.c's
+pinch_update). Its value is how far the still-visible pair behind the pinch
+(HANDS_PART_LEVEL_*) had grown from its reference at that instant and its threshold is
+HANDS_PART_MARGIN_METERS, so a session of ordinary taps and holds gives the distribution of
+growths at a real release and the margin stops being a guess. It is emitted whatever that
+growth was, including the growths well under the margin, which are the ones worth seeing.
+`on` says whether the release came out of a carried or blind gap, so the growth spans that
+gap and is the number the part check would have had to act on; off means the tips were
+ARKit's own reading on the previous sample too, which makes the growth one sample wide and
+not a measurement of anything. Its path is MEASURED where a level was readable and BLIND
+where none was, which is the one case the part check cannot act at all */
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
-	HANDS_EVENT_PINCH_MISS };
+	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH };
 /* which reading decided a pinch's event, so the log says which of this file's three paths
 moved it: the two fingertips as ARKit reported them, a position carried in the palm's frame,
 or the still-visible pair behind a hidden fingertip (HANDS_PART_LEVEL_*). HAND_LOST is the

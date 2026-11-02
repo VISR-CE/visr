@@ -134,14 +134,16 @@ static int active;
 host_spatial_hand_joints's order (the reduction below walks them together) */
 enum { JOINT_WRIST, JOINT_FOREARM_ARM, JOINT_THUMB_TIP, JOINT_INDEX_TIP, JOINT_MIDDLE_TIP, JOINT_RING_TIP,
 	JOINT_LITTLE_TIP,
-	/* each tip's chain one and two bones back, each family in the same thumb-first order,
-	so the reduction below walks a family as one range. These are what a pinch is judged by
-	while the thumb is sitting on the fingertip it is pinching and the cameras have lost it
-	(host_spatial_hands.h's HANDS_PART_LEVEL_*) */
+	/* each tip's chain one, two and three bones back, each family in the same thumb-first
+	order, so the reduction below walks a family as one range. These are what a pinch is
+	judged by while the thumb is sitting on the fingertip it is pinching and the cameras have
+	lost it (host_spatial_hands.h's HANDS_PART_LEVEL_*) */
 	JOINT_THUMB_INTERMEDIATE_TIP, JOINT_INDEX_INTERMEDIATE_TIP, JOINT_MIDDLE_INTERMEDIATE_TIP,
 	JOINT_RING_INTERMEDIATE_TIP, JOINT_LITTLE_INTERMEDIATE_TIP,
 	JOINT_THUMB_INTERMEDIATE_BASE, JOINT_INDEX_INTERMEDIATE_BASE, JOINT_MIDDLE_INTERMEDIATE_BASE,
 	JOINT_RING_INTERMEDIATE_BASE, JOINT_LITTLE_INTERMEDIATE_BASE,
+	JOINT_THUMB_KNUCKLE, JOINT_INDEX_KNUCKLE, JOINT_MIDDLE_KNUCKLE, JOINT_RING_KNUCKLE,
+	JOINT_LITTLE_KNUCKLE,
 	JOINT_INDEX_METACARPAL, JOINT_LITTLE_METACARPAL, NUMBER_OF_HAND_JOINTS };
 static const ar_hand_skeleton_joint_name_t joint_names[NUMBER_OF_HAND_JOINTS] = {
 	ar_hand_skeleton_joint_name_wrist,
@@ -161,6 +163,11 @@ static const ar_hand_skeleton_joint_name_t joint_names[NUMBER_OF_HAND_JOINTS] = 
 	ar_hand_skeleton_joint_name_middle_finger_intermediate_base,
 	ar_hand_skeleton_joint_name_ring_finger_intermediate_base,
 	ar_hand_skeleton_joint_name_little_finger_intermediate_base,
+	ar_hand_skeleton_joint_name_thumb_knuckle,
+	ar_hand_skeleton_joint_name_index_finger_knuckle,
+	ar_hand_skeleton_joint_name_middle_finger_knuckle,
+	ar_hand_skeleton_joint_name_ring_finger_knuckle,
+	ar_hand_skeleton_joint_name_little_finger_knuckle,
 	ar_hand_skeleton_joint_name_index_finger_metacarpal,
 	ar_hand_skeleton_joint_name_little_finger_metacarpal
 };
@@ -509,6 +516,8 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 		reduced->intermediate_base_tracked[i] = tracked[JOINT_THUMB_INTERMEDIATE_BASE + i];
 		position_of(room[JOINT_THUMB_INTERMEDIATE_BASE + i].columns[3].xyz, head_position,
 			reduced->intermediate_base[i]);
+		reduced->knuckle_tracked[i] = tracked[JOINT_THUMB_KNUCKLE + i];
+		position_of(room[JOINT_THUMB_KNUCKLE + i].columns[3].xyz, head_position, reduced->knuckle[i]);
 	}
 	for (i = 0; i < 2; i++)
 	{
@@ -600,6 +609,14 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 		reading a carried tip doesn't read as one that opened, and so the gaps' lengths can be
 		counted off the log */
 		snprintf(buffer, size, "%s %s", kind == HANDS_EVENT_PINCH ? "pinch" : "miss",
+			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
+		break;
+	case HANDS_EVENT_PART_GROWTH:
+		/* "part", one word of its own, so a reader can pull every one of these lines out of a
+		session with a single pattern without catching the "(parted)" that path_name puts on
+		the end of a pinch line. It is the margin's measurement, not a state change
+		(host_spatial_hands.h's enum) */
+		snprintf(buffer, size, "part %s",
 			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
 		break;
 	case HANDS_EVENT_AIM_TURN: snprintf(buffer, size, "aim turn"); break;
@@ -703,7 +720,11 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		int g = sample->aiming_hand ? 1 : 0;
 		const float *forward = sample->hands[g].aim.forward;
 		struct host_spatial_controls controls[2];
-		struct hands_event events[16];
+		/* 24 is the worst sample the recognizer can fill: eight pinches each ending a carried
+		gap, releasing, and reporting the pair's growth for that release
+		(host_spatial_hands.c's pinch_update). Below that the recognizer drops log lines
+		rather than overrunning, and the growth line is the one this size exists to keep */
+		struct hands_event events[24];
 		int count, i;
 
 		/* the aim the recognizer turns from is the sample's own, with no fallback: an anchor
@@ -717,7 +738,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		one snap can fire the instant the forearm first appears already past the deadzone. That
 		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
-			CACurrentMediaTime(), controls, events, 16);
+			CACurrentMediaTime(), controls, events, 24);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
 		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
 		merges into port 0 like a Sense sample but remaps differently in menus
