@@ -11,7 +11,8 @@
 .look-compass { position: absolute; top: 7%; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
 #look-heading { padding: 2px 10px; background: color-mix(in srgb, var(--hud-panel) 40%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); color: var(--hud-cyan); font: 13px/1.4 var(--hud-mono); letter-spacing: .1em; }
 #look-ticks { width: 220px; height: 10px; background-image: repeating-linear-gradient(90deg,var(--hud-cyan) 0 1px,transparent 1px 20px); opacity: .7; }
-#look-hint { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: color-mix(in srgb, var(--hud-panel) 40%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid var(--line); font: 12px/1.4 var(--hud-mono); letter-spacing: .12em; pointer-events: none; white-space: nowrap; }
+/* Sits just above the visor's nose bridge; whole-pixel offsets keep the 1px border from blurring away. */
+#look-hint { position: absolute; left: 50%; top: round(66%, 1px); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 18px; background: color-mix(in srgb, var(--hud-panel) 40%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid var(--line); font: 12px/1.4 var(--hud-mono); letter-spacing: .12em; pointer-events: none; white-space: nowrap; }
 .look-around button { min-width: 44px; min-height: 44px; background: color-mix(in srgb, var(--hud-panel) 40%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid var(--line); color: var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 #look-close { display: none; position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; font-size: 24px; }
 #look-stage.fixed #look-close { display: flex; }
@@ -21,7 +22,7 @@
 #look-motion[aria-pressed=true] { background: color-mix(in srgb, var(--hud-cyan) 70%, transparent); color: var(--bg); }
 @media (max-width: 640px) {
   .look-box { aspect-ratio: 16/10; }
-  #look-hint { top: 36%; padding: 8px 10px; font-size: 10px; letter-spacing: .04em; }
+  #look-hint { top: 36%; transform: translate(-50%,-50%); padding: 8px 10px; font-size: 10px; letter-spacing: .04em; }
   #look-motion { font-size: 10px; padding-inline: 12px; letter-spacing: .04em; }
 }
 
