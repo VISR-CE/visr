@@ -56,9 +56,9 @@ gl.attachShader(program, compile(gl.VERTEX_SHADER, `
   }`));
 gl.attachShader(program, compile(gl.FRAGMENT_SHADER, `
   precision mediump float;
-  uniform sampler2D screen, shapes, shade, lip; uniform float glare, sheen; varying vec2 uv; varying vec3 n;
+  uniform sampler2D screen, shapes, shade, lip; uniform float lift; uniform float glare, sheen; varying vec2 uv; varying vec3 n;
   const vec2 M = vec2(${MARGIN.join(', ')}), S = vec2(${SCREEN.join(', ')});
-  const float ZOOM = 1.15, LIFT = .09;
+  const float ZOOM = 1.15;
   void main() {
     vec3 m = texture2D(shapes, uv).rgb, N = normalize(n);
     vec2 e = texture2D(lip, uv).rg;
@@ -71,7 +71,7 @@ gl.attachShader(program, compile(gl.FRAGMENT_SHADER, `
     // The 2:1 picture covers the slightly wider screen.
     vec2 at = (uv - M) / S; at.y = .5 + (at.y - .5) * S.y / S.x;
     // Zoomed in and lifted so the reticle sits in the middle of the glass above the nose; the lost bottom is HUD.
-    at = .5 + (at - .5) / ZOOM; at.y += LIFT;
+    at = .5 + (at - .5) / ZOOM; at.y += lift;
     vec3 picture = texture2D(screen, at).rgb * edge * mix(1., smoothstep(.05, .7, edge), low);
     vec3 c = mix(glass, picture, m.g);
     // A faint reflection of the room over the whole front, stronger where the dome turns away.
@@ -133,6 +133,8 @@ function draw() {
   // --glare runs 40% to 46% and --sheen -8% to -13% with the headset's float.
   gl.uniform1f(u('glare'), -.16 + (parseFloat(style.getPropertyValue('--glare')) - 40) * .012);
   gl.uniform1f(u('sheen'), (parseFloat(style.getPropertyValue('--sheen')) + 8) * .01);
+  // The loading screen's LOADING sits low in its frame, so it lifts further than the clip.
+  gl.uniform1f(u('lift'), source === tile ? .21 : .09);
   if (source !== media || (media.tagName === 'VIDEO' && media.readyState >= 2)) { gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); }
   gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);
