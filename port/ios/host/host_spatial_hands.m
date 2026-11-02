@@ -71,7 +71,16 @@ static int aim_hands;          /* input.aim = "hands" */
 static int head_mode;          /* display.stereo = "head" */
 static int turn_snap = 1;      /* input.turn == "snap" (the recognizer's own read; host_spatial.m
 	reads the same key for the Sense stick and neither owns the other's copy) */
-static float deadzone = 18.0f; /* input.hand_turn_deadzone, clamped to 5 to 60 */
+static float deadzone = 18.0f; /* input.hand_turn_deadzone, clamped to 5 to 60: the arm-out turn's
+	alone now */
+/* input.hand_elevation_deadzone and input.hand_elevation_span, clamped to 2 to 45 and 5 to 60.
+The arm's elevation borrowed the turn's deadzone and HANDS_AIM_TURN_RAMP_DEGREES when it was
+added, which asked for the arm 45 degrees above its corrected zero for a full deflection; on
+device that reads as slow, since nobody's comfortable vertical reach is as long as their
+sideways sweep. Two settings rather than two constants so the feel can be converged without a
+rebuild, which is how input.hand_turn_deadzone itself was settled */
+static float elevation_deadzone = 9.0f;
+static float elevation_span = 14.0f;
 static float pitch_offset;     /* input.aim_pitch_offset, clamped to -10 to 45: the same trim
 	controller_aim_game.c reads for the barrel ray, read again here so the arm's elevation can
 	take it too (host_spatial_hands.c's hands_recognize) */
@@ -211,6 +220,33 @@ static void read_settings(void)
 			host_logf(HOST_LOG_WARN, "spatial: input.hand_turn_deadzone %g is outside 5 to 60; using %g",
 				(double)deadzone, (double)clamped);
 		deadzone = clamped;
+	}
+	elevation_deadzone = (float)host_config_real("input.hand_elevation_deadzone", 9.0);
+	if (!(elevation_deadzone >= 2.0f && elevation_deadzone <= 45.0f))
+	{
+		float clamped = elevation_deadzone > 45.0f ? 45.0f : 2.0f;
+
+		/* gated on aim_hands exactly as the turn's deadzone above is, and for the same reason:
+		the setting means nothing with any other input.aim, and nothing reaches this file with
+		one today */
+		if (aim_hands)
+			host_logf(HOST_LOG_WARN, "spatial: input.hand_elevation_deadzone %g is outside 2 to 45; using %g",
+				(double)elevation_deadzone, (double)clamped);
+		elevation_deadzone = clamped;
+	}
+	elevation_span = (float)host_config_real("input.hand_elevation_span", 14.0);
+	if (!(elevation_span >= 5.0f && elevation_span <= 60.0f))
+	{
+		float clamped = elevation_span > 60.0f ? 60.0f : 5.0f;
+
+		/* the low end matters more here than on either deadzone: the span is a divisor in
+		hands_recognize's ramp, so a 0 or a negative from a hand-edited config would invert the
+		elevation or hand it an infinity, and clamping to 5 keeps it a positive number of
+		degrees whatever arrives */
+		if (aim_hands)
+			host_logf(HOST_LOG_WARN, "spatial: input.hand_elevation_span %g is outside 5 to 60; using %g",
+				(double)elevation_span, (double)clamped);
+		elevation_span = clamped;
 	}
 	pitch_offset = (float)host_config_real("input.aim_pitch_offset", 0.0);
 	if (!(pitch_offset >= -10.0f && pitch_offset <= 45.0f))
@@ -838,7 +874,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		one snap can fire the instant the forearm first appears already past the deadzone. That
 		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
-			pitch_offset, CACurrentMediaTime(), controls, events, 32);
+			elevation_deadzone, elevation_span, pitch_offset, CACurrentMediaTime(), controls, events, 32);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
 		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
 		merges into port 0 like a Sense sample but remaps differently in menus

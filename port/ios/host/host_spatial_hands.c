@@ -684,7 +684,8 @@ static void turn_transition(int *turning, int turning_now, int kind, int hand, i
 }
 
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2], int aiming_hand,
-	const float aim_forward[3], int turn_snap, float deadzone_degrees, float pitch_offset_degrees, double now,
+	const float aim_forward[3], int turn_snap, float deadzone_degrees, float elevation_deadzone_degrees,
+	float elevation_span_degrees, float pitch_offset_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity)
 {
 	int count = 0;
@@ -697,8 +698,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	/* what the turn last measured, for its own transition below: a turn the gun hand is
 	not making measures 0, which is the reading its off event should carry */
 	float aim_yaw = 0.0f;
-	/* and the same pair for the arm's elevation, read off the same aim forward: an untracked
-	gun hand leaves both at 0, as it leaves the turn's at 0 */
+	/* and the same pair for the arm's elevation, read off the same aim forward but against its
+	own deadzone and span: an untracked gun hand leaves both at 0, as it leaves the turn's at 0 */
 	float elevation_contribution = 0.0f, aim_elevation = 0.0f;
 
 	memset(controls, 0, 2 * sizeof(controls[0]));
@@ -786,8 +787,19 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		/* the arm's elevation off the same barrel the yaw comes from: how far the aim rises out
 		of the room's horizontal plane, which is the aim forward's up component against the
 		length of its horizontal part (aim_forward's index 2 is up, as host_spatial_pose.h's
-		host_spatial_room_to_game leaves it). Signed as the yaw is, with the same deadzone and
-		the same ramp, so the two axes of the one stick feel alike under the one arm.
+		host_spatial_room_to_game leaves it). Signed as the yaw is.
+
+		Its own deadzone and span, not the turn's. Both axes shared input.hand_turn_deadzone and
+		HANDS_AIM_TURN_RAMP_DEGREES when this axis was added, on the reasoning that one arm
+		swinging through one range should feel alike on both axes of the one stick. That put a
+		full deflection 18 + 27 = 45 degrees of arm above the corrected zero, and on device it
+		reads as slow: a player's comfortable vertical reach is a fraction of their sideways
+		sweep, so the same two numbers that make a liked turn make a sluggish elevation.
+		input.hand_elevation_deadzone and input.hand_elevation_span arrive here instead,
+		defaulting to 9 and 14, which puts the gun at its stop 23 degrees up. The division is
+		safe at either documented end of the span and past them: an excess over a span of 0 is
+		an infinity clampf pins to 0 or 1, and a 0 over 0 is the NaN its guard answers with 0.
+
 		The sign is positive upward and that is the whole point of it: controls[g].stick_y
 		reaches the game as the right stick's vertical axis
 		(host_spatial_gamepad.c's host_spatial_gamepad_map fills thumb[3]), which
@@ -813,11 +825,11 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		moves the turn */
 		elevation = atan2f(aim_forward[2], sqrtf(aim_forward[0] * aim_forward[0] +
 			aim_forward[1] * aim_forward[1])) * (180.0f / (float)M_PI) - pitch_offset_degrees;
-		elevation_excess = fabsf(elevation) - deadzone_degrees;
+		elevation_excess = fabsf(elevation) - elevation_deadzone_degrees;
 		elevation_sign = elevation < 0.0f ? -1.0f : 1.0f;
 		aim_elevation = elevation;
 		elevation_contribution = elevation_sign *
-			clampf(elevation_excess / HANDS_AIM_TURN_RAMP_DEGREES, 0.0f, 1.0f);
+			clampf(elevation_excess / elevation_span_degrees, 0.0f, 1.0f);
 
 		if (turn_snap)
 		{
@@ -869,7 +881,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	/* and it reports itself the way the smooth turn does, on both turn settings for the same
 	reason it is computed on both */
 	turn_transition(&state->aim_elevating, elevation_contribution != 0.0f, HANDS_EVENT_AIM_ELEVATION, g, 0,
-		aim_elevation, deadzone_degrees, events, capacity, &count);
+		aim_elevation, elevation_deadzone_degrees, events, capacity, &count);
 	/* a pulse's own end, so the log carries the width the caller's sampler gave it rather than
 	only the instant it began. pulse_kind is the aim turn, the only source that sets a pulse */
 	if (state->pulse_until > 0.0 && now >= state->pulse_until)

@@ -151,11 +151,16 @@ degrees, and a ramp measured from 0 would divide by a negative span (inverting t
 by zero for the wider half of that range. 27 puts the default deadzone's full deflection at
 18 + 27 = 45 degrees of arm.
 
-Both axes of the aiming stick share this span, and share input.hand_turn_deadzone with it:
-the arm's elevation drives that stick's vertical axis off the same aim forward the yaw is
-read from (host_spatial_hands.c's hands_recognize), through the same arm swinging through the
-same range, so a second constant here would be a second thing to tune with nothing measured
-behind it. Split them once a device session says the two axes want different ramps */
+The turn's alone. The arm's elevation shared this span and input.hand_turn_deadzone with it
+when the vertical axis was added, on the reasoning that one arm swinging through one range
+should feel alike on both axes of the one stick, with the note that they should be split once
+a device session said otherwise. It said otherwise: the turn is liked as it is and the
+elevation reads as slow, because 18 + 27 asks for the arm 45 degrees above its corrected zero
+for a full deflection and nobody's comfortable vertical reach is as long as their sideways
+sweep. So the elevation takes input.hand_elevation_deadzone and input.hand_elevation_span
+instead, which arrive as hands_recognize's own arguments (as the turn's deadzone already did)
+and default to 9 and 14. This constant stays a constant because only the turn reads it now and
+nothing has asked for the turn to change */
 #define HANDS_AIM_TURN_RAMP_DEGREES 27.0f
 /* the prayer sign's geometry and timing, measured on device (see the
 comment on palm_frame in host_spatial_hands.c for the measurement) */
@@ -321,7 +326,8 @@ is 0 because the pinch is open by the time the line is written. Instrumentation 
 decision anywhere in this file reads closed_since */
 /* AIM_ELEVATION is the aiming stick's vertical axis as the turn's events are its horizontal
 one: on as the arm's elevation first carries the stick off zero, off as it falls back, with
-the elevation it measured against the deadzone it crossed. Unlike the turn it has no snap
+the elevation it measured against the deadzone it crossed, which is
+input.hand_elevation_deadzone and not the turn's. Unlike the turn it has no snap
 mode, so it reports on both settings of input.hand_turn_snap
 (host_spatial_hands.c's hands_recognize) */
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
@@ -340,7 +346,10 @@ struct hands_event { int kind, hand, finger, on, path; float value, threshold; }
 gun hand, the gun hand's aim forward in the game's axes (from
 halo_spatial_hand.aim, whose index 2 is up, so the aiming stick's turn comes
 off its yaw and its elevation off its rise), snap or smooth turning, the
-deadzone, input.aim_pitch_offset (degrees, the same trim
+turn's deadzone (input.hand_turn_deadzone), the elevation's own deadzone and
+span (input.hand_elevation_deadzone and input.hand_elevation_span, degrees;
+the turn's span is HANDS_AIM_TURN_RAMP_DEGREES above and is not a setting),
+input.aim_pitch_offset (degrees, the same trim
 controller_aim_game.c applies to the barrel ray), the time;
 fills both controls (index 0 left, 1 right) for host_spatial_gamepad_map,
 and up to `capacity` state-change events for the caller to log. Returns
@@ -350,6 +359,7 @@ holds. Never sets other->menu: there is no off-hand gesture for it, and
 host_spatial_gamepad_map reads that field as the pad's Back */
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2],
 	int aiming_hand, const float aim_forward[3], int turn_snap, float deadzone_degrees,
+	float elevation_deadzone_degrees, float elevation_span_degrees,
 	float pitch_offset_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity);
 

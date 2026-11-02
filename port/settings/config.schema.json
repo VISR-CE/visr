@@ -1123,6 +1123,26 @@
             "apple"
           ]
         },
+        "hand_elevation_deadzone": {
+          "type": "number",
+          "default": 9.0,
+          "description": "With input.aim = \"hands\": degrees the aim must rise or fall past its corrected zero before a turret's gun follows it, 2 to 45. Separate from input.hand_turn_deadzone, which it used to share: a comfortable vertical reach is much shorter than a sideways sweep, so one number for both made the up and down adjustment feel slow.",
+          "x-environment": "HALO_HAND_ELEVATION_DEADZONE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "hand_elevation_span": {
+          "type": "number",
+          "default": 14.0,
+          "description": "With input.aim = \"hands\": degrees of aim past input.hand_elevation_deadzone to a turret's full up or down, 5 to 60. With both defaults the gun is at its stop 23 degrees above the corrected zero.",
+          "x-environment": "HALO_HAND_ELEVATION_SPAN",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "aim_pitch_offset": {
           "type": "number",
           "default": 0.0,

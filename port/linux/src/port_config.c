@@ -444,6 +444,19 @@ static const struct config_setting config_settings[] =
 		_platform_ios,
 		"With input.aim = \"hands\": degrees the aim must point past your body's\n"
 		"forward before the body turns under it, 5 to 60." },
+	{ "input.hand_elevation_deadzone", _config_real, "9.0", "HALO_HAND_ELEVATION_DEADZONE",
+		_environment_value, _platform_ios,
+		"With input.aim = \"hands\": degrees the aim must rise or fall past its\n"
+		"corrected zero before a turret's gun follows it, 2 to 45. Separate from\n"
+		"input.hand_turn_deadzone, which it used to share: a comfortable vertical\n"
+		"reach is much shorter than a sideways sweep, so one number for both made\n"
+		"the up and down adjustment feel slow." },
+	{ "input.hand_elevation_span", _config_real, "14.0", "HALO_HAND_ELEVATION_SPAN", _environment_value,
+		_platform_ios,
+		"With input.aim = \"hands\": degrees of aim past\n"
+		"input.hand_elevation_deadzone to a turret's full up or down, 5 to 60.\n"
+		"With both defaults the gun is at its stop 23 degrees above the corrected\n"
+		"zero." },
 	{ "input.aim_pitch_offset", _config_real, "0.0", "HALO_AIM_PITCH_OFFSET", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": degrees the barrel ray and gun tilt down\n"
 		"from the aim axis (-10 to 45), for aiming from the hip with the forearm\n"
