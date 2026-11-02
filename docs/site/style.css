@@ -160,12 +160,12 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 /* Vision Pro shows the view itself, so it has no bezel. */
 .device-vision { padding: 0; border: 0; background: none; }
 .device-vision img { border-radius: 14px; }
-/* Vision Pro front glass: an outline derived from the site's Vision Pro icon, scaled up (`.glass-shape` carries its path),
+/* Vision Pro front glass: the home page's visor shape (`.glass-shape` carries its path),
    with a dark glass fill. The screen fills the glass and is clipped to the outline (`#glass-clip`, drawn in the same
    SVG, slightly inset), so the curves cut into its corners and edges. The content is padded to stay inside them. */
-.device-vision.device-glass { aspect-ratio: 216 / 132; box-shadow: none; border-radius: 0; }
+.device-vision.device-glass { aspect-ratio: 2 / 1; box-shadow: none; border-radius: 0; }
 .device-glass .glass-shape { filter: drop-shadow(0 8px 14px #0004); position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; overflow: visible; }
-.device-glass .glass-shape path { fill: #0a141a; stroke: #6d818c; stroke-width: 3; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.device-glass .glass-shape path { fill: #0a141a; stroke: var(--visr-gold); stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
 .device-glass .glass-shape clipPath path { fill: #000; stroke: none; }
 .device-glass .glass-screen { position: absolute; inset: 0; }
 
@@ -266,8 +266,8 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-tabs button:hover { color: var(--ink); }
 .bench-tabs button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
 .has-tabs .bench-chart { box-sizing: border-box; padding-top: 40px; }
-.device-glass.has-tabs .bench-tabs { top: 8%; }
-.device-glass.has-tabs .bench-chart { padding: max(13%, 40px) 9% 10%; }
+.device-glass.has-tabs .bench-tabs { top: 3%; }
+.device-glass.has-tabs .bench-chart { padding: clamp(40px, 9%, 64px) 6% 15%; }
 .bench-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .bench[hidden] { display: none; }
 .bench-sub { margin-top: 12px; padding-top: 12px; }
@@ -278,7 +278,7 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .device-vision .bench-chart { aspect-ratio: 16 / 9; border-radius: 14px; }
 .device-mac .bench-chart { aspect-ratio: 16 / 10; border-radius: 5px; }
 .device-vision.device-glass .bench-chart { position: absolute; inset: 0; aspect-ratio: auto; border-radius: 0; box-sizing: border-box; }
-.device-glass .bench-chart { padding: 9.3% 12% 13.4%; }
+.device-glass .bench-chart { padding: 5% 5% 14%; }
 .device-glass .bench-chart svg { width: 100%; height: 100%; }
 .device-glass .bench-empty { padding: 4px 10px; text-align: center; font-size: clamp(0.7rem, 2.6vw, 1rem); line-height: 1.3; }
 .bench-chart svg, .bench-chart img { display: block; flex: 0 1 auto; min-width: 0; width: 100%; max-width: 100%; height: auto; }

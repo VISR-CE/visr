@@ -58,12 +58,10 @@ def head_tags(metadata: dict[str, str]) -> dict[str, str]:
 # The icons before each platform heading, the same glyphs the home page puts before its platform sections.
 HEADING_ICONS = {"mac": ["mac"], "iphone-ipad": ["iphone", "ipad"], "apple-tv": ["apple-tv"], "vision-pro": ["vision-pro"]}
 FRAMES = {"mac": "device-mac", "iphone-ipad": "device-ipad", "apple-tv": "device-tv", "vision-pro": "device-vision device-glass"}
-# The Vision Pro nav icon's outline with a shallower nose notch: the notch's rise above the lobes is halved
-# (the icon's `c-1.6 0-2.7-.9-3.5-2.1`, `c-.6-.8-1.8-.8-2.4 0` and `c-.8 1.2-1.9 2.1-3.5 2.1` become
-# `c-1.6 0-2.7-.45-3.5-1.05`, `c-.6-.4-1.8-.4-2.4 0` and `c-.8.6-1.9 1.05-3.5 1.05`). The nav icon is untouched.
-GLASS_PATH = ("M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05"
-              "-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z")
-GLASS_VIEW = (1.2, 4.9, 21.6, 13.2)
+# The visor shape from the home page (`visor_segments` in `tools/build_site.py`), on the same 200x100 canvas.
+GLASS_PATH = ("M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79"
+              "C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z")
+GLASS_VIEW = (0, 0, 200, 100)
 # The chart's screen is clipped to the same path, scaled a little smaller so the outline's stroke stays visible and
 # its curves cut into the screen's corners and edges.
 GLASS_CLIP_SCALE = 0.98

@@ -167,7 +167,7 @@ Measured on an M2 Vision Pro from runs presented at the display rate. Bars show 
 ---
 config:
   xyChart:
-    width: 520
+    width: 980
     height: 263
   themeVariables:
     xyChart:
@@ -175,7 +175,7 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 11.1 ms frame budget, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3"]
+    x-axis "" ["VISR 0.6.3"]
     y-axis "Milliseconds per frame" 0 --> 11.1
     bar [3.5]
     bar [7.1]
@@ -197,7 +197,7 @@ Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate
 ---
 config:
   xyChart:
-    width: 520
+    width: 980
     height: 276
   themeVariables:
     xyChart:
@@ -205,7 +205,7 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
+    x-axis "" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
     y-axis "Frames per second" 0 --> 150
     bar [89.5, 21, 29.8]
     bar [89.5, 16.2, 0]

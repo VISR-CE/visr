@@ -126,7 +126,7 @@ xychart-beta horizontal
 <h2 id="h-vision-pro"><span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.9-3.5-2.1-.6-.8-1.8-.8-2.4 0-.8 1.2-1.9 2.1-3.5 2.1-2.7 0-4.8-2.3-4.8-5.3z"/></svg></span>Vision Pro</h2>
 <p>Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. The FPS view shows average fps with the 1% low fps directly below it.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="1.2 4.9 21.6 13.2" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip-vision-pro" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.046296 0.075758) translate(-1.2 -4.9)" d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></clipPath></defs><path d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></svg><div class="glass-screen" style="clip-path: url(#glass-clip-vision-pro)"><div class="bench-chart"><img src="benchmarks/static-vision-pro.svg" alt="Vision Pro: median cpu time and median gpu time per build, Campaign suite"></div></div></figure>
+<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip-vision-pro" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.005000 0.010000) translate(0 0)" d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></clipPath></defs><path d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></svg><div class="glass-screen" style="clip-path: url(#glass-clip-vision-pro)"><div class="bench-chart"><img src="benchmarks/static-vision-pro.svg" alt="Vision Pro: median cpu time and median gpu time per build, Campaign suite"></div></div></figure>
 <p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Median CPU time  <span class="swatch low" aria-hidden="true"></span> Median GPU time</p>
 <p class="bench-direction">Lower is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>M2 Vision Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">Median CPU time (ms)</th><th scope="col">Median GPU time (ms)</th><th scope="col">90th-percentile GPU time (ms)</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a> <span class="build-meta">build 20261028.91150</span></th><td data-label="Measured">2026-10-28</td><td data-label="Median CPU time (ms)">3.53</td><td data-label="Median GPU time (ms)">7.07</td><td data-label="90th-percentile GPU time (ms)">–</td><td data-label="Notes">Replays a recorded route</td></tr></tbody></table></div></div>
@@ -137,10 +137,10 @@ xychart-beta horizontal
 <h3 id="h-vision-pro-fps">Vision Pro: frame rate</h3>
 <p>Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="1.2 4.9 21.6 13.2" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip-vision-pro-fps" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.046296 0.075758) translate(-1.2 -4.9)" d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></clipPath></defs><path d="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></svg><div class="glass-screen" style="clip-path: url(#glass-clip-vision-pro-fps)"><div class="bench-chart"><pre>---
+<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip-vision-pro-fps" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.005000 0.010000) translate(0 0)" d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></clipPath></defs><path d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></svg><div class="glass-screen" style="clip-path: url(#glass-clip-vision-pro-fps)"><div class="bench-chart"><pre>---
 config:
   xyChart:
-    width: 520
+    width: 980
     height: 276
   themeVariables:
     xyChart:
@@ -148,7 +148,7 @@ config:
 ---
 xychart-beta horizontal
     title &quot;Campaign: fps at display rate, M2 Vision Pro&quot;
-    x-axis &quot;Port and version&quot; [&quot;VISR 0.6.3&quot;, &quot;117-vision b25332ef9&quot;, &quot;master-chef 1.0.3&quot;]
+    x-axis &quot;&quot; [&quot;VISR 0.6.3&quot;, &quot;117-vision b25332ef9&quot;, &quot;master-chef 1.0.3&quot;]
     y-axis &quot;Frames per second&quot; 0 --&gt; 150
     bar [89.5, 21, 29.8]
     bar [89.5, 16.2, 0]</pre></div></div></figure>
@@ -526,7 +526,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
    "type": "bar",
    "horizontal": true,
    "title_unit": "CPU and GPU Frame Time (ms)",
-   "x_label": "Port and version",
+   "x_label": "",
    "y_label": "Milliseconds per frame",
    "y_min": 0,
    "palette": [
@@ -537,7 +537,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
     "🟦",
     "🟨"
    ],
-   "header": "---\nconfig:\n  xyChart:\n    width: 520\n    height: 263\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
+   "header": "---\nconfig:\n  xyChart:\n    width: 980\n    height: 263\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
   },
   "query": {
    "platform": "Vision Pro",
@@ -588,7 +588,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
    "type": "bar",
    "horizontal": true,
    "title_unit": "fps at display rate",
-   "x_label": "Port and version",
+   "x_label": "",
    "y_label": "Frames per second",
    "y_min": 0,
    "palette": [
@@ -599,7 +599,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
     "🟦",
     "🟨"
    ],
-   "header": "---\nconfig:\n  xyChart:\n    width: 520\n    height: 263\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
+   "header": "---\nconfig:\n  xyChart:\n    width: 980\n    height: 263\n  themeVariables:\n    xyChart:\n      plotColorPalette: \"__PALETTE__\"\n---\n"
   },
   "query": {
    "platform": "Vision Pro",

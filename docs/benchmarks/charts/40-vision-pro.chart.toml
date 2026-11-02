@@ -13,7 +13,7 @@ series_labels = ["Median CPU time", "Median GPU time"]
 type = "bar"
 horizontal = true
 title_unit = "CPU and GPU Frame Time (ms)"
-x_label = "Port and version"
+x_label = ""
 y_label = "Milliseconds per frame"
 y_min = 0
 palette = ["#1fa9d4", "#ffc24d"]
@@ -22,7 +22,7 @@ header = '''
 ---
 config:
   xyChart:
-    width: 520
+    width: 980
     height: 263
   themeVariables:
     xyChart:
