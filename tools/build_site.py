@@ -162,6 +162,8 @@ def visor_slot(slot):
 HERO_CLIP = ('<svg class="clip-defs" width="0" height="0" aria-hidden="true"><defs>'
              '<clipPath id="vp-clip" clipPathUnits="objectBoundingBox"><path transform="scale(.005 .01)" '
              f'd="{visor_path()}"/></clipPath></defs></svg>')
+# The hero video's stand-in while it loads: the game's loading screen as a 6-column sprite sheet of 36 frames at 30 per second (`visor.js`).
+HERO_LOADING = ("loading-hero.webp", 6, 36, 30)
 MEDIA_ANNOTATION = re.compile(r"\{(?:device=(iphone|ipad|tv|mac|vision)|(hero))(?: video=([\w./-]+\.mp4))?\}")
 
 
@@ -337,6 +339,7 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
     device_blocks = {}
     video_names = {}
     hero_block = None
+    hero_loading = False
     for index, block in enumerate(blocks[3:], 3):
         if block[0].type != "paragraph_open":
             continue
@@ -459,6 +462,9 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
                 raise ValueError("Place the hero image before the first section")
             token = inline(block)[0]
             slot = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
+            if slot.startswith("<video") and (asset_root / HERO_LOADING[0]).is_file():
+                slot = slot.replace("<video ", f'<video data-loading="{" ".join(map(str, HERO_LOADING))}" ', 1)
+                hero_loading = True
             hero_media.append(f'    <figure class="hero-media">{headset_wireframe()}{visor_slot(slot)}</figure>')
         elif index in device_blocks:
             if not section:
@@ -485,6 +491,8 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
         content="\n".join(output).replace(f"<p>{EVERY_DEVICE_MARKER}</p>", every_device_columns(facts)),
         legal=md.render(facts["shared"]["legal"]).rstrip(),
     )
+    if hero_loading:
+        page = page.replace("</head>", f'<link rel="preload" as="image" href="{HERO_LOADING[0]}" type="image/webp" fetchpriority="high">\n</head>', 1)
     if "{{ look-around }}" in source:
         widget = Template((ROOT / "tools/site_look.html").read_text(encoding="utf-8").rstrip()).substitute(
             scenes=escape(json.dumps(LOOK_SCENES), quote=True),

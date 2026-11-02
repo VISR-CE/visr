@@ -6,6 +6,10 @@ const canvas = document.createElement('canvas');
 const gl = media && canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true });
 if (!gl) return;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+// A hero video's data-loading is "sheet cols frames fps": the game's loading screen, a sprite sheet preloaded in the head, plays on the screen until the clip can play through.
+const spec = media.tagName === 'VIDEO' && (media.dataset.loading || '').split(' ')[0] && media.dataset.loading.split(' ');
+const sheet = spec && new Image(), tile = document.createElement('canvas');
+let source = media, phase = 'play', t0 = 0, ready = false;
 const path = new Path2D(figure.querySelector('.visor-rim path').getAttribute('d'));
 const SCREEN = [.925, .87], MARGIN = [.0375, .065], MASK_W = 2048, MASK_H = 1024;
 
@@ -54,6 +58,7 @@ gl.attachShader(program, compile(gl.FRAGMENT_SHADER, `
   precision mediump float;
   uniform sampler2D screen, shapes, shade, lip; uniform float glare, sheen; varying vec2 uv; varying vec3 n;
   const vec2 M = vec2(${MARGIN.join(', ')}), S = vec2(${SCREEN.join(', ')});
+  const float ZOOM = 1.15, LIFT = .09;
   void main() {
     vec3 m = texture2D(shapes, uv).rgb, N = normalize(n);
     vec2 e = texture2D(lip, uv).rg;
@@ -65,6 +70,8 @@ gl.attachShader(program, compile(gl.FRAGMENT_SHADER, `
     // The picture's lower edge melts a little into the black glass.
     // The 2:1 picture covers the slightly wider screen.
     vec2 at = (uv - M) / S; at.y = .5 + (at.y - .5) * S.y / S.x;
+    // Zoomed in and lifted so the reticle sits in the middle of the glass above the nose; the lost bottom is HUD.
+    at = .5 + (at - .5) / ZOOM; at.y += LIFT;
     vec3 picture = texture2D(screen, at).rgb * edge * mix(1., smoothstep(.05, .7, edge), low);
     vec3 c = mix(glass, picture, m.g);
     // A faint reflection of the room over the whole front, stronger where the dome turns away.
@@ -100,7 +107,24 @@ function texture(unit, name, source) {
 }
 gl.uniform1f(u('yaw'), -32 * Math.PI / 180); gl.uniform1f(u('pitch'), -10 * Math.PI / 180);
 
+function frameAt(n) {
+  const cols = +spec[1], w = sheet.naturalWidth / cols, h = sheet.naturalHeight / Math.ceil(+spec[2] / cols);
+  tile.width = w; tile.height = h; tile.getContext('2d').drawImage(sheet, n % cols * w, Math.floor(n / cols) * h, w, h, 0, 0, w, h);
+}
+const buffered = () => media.duration > 0 && media.buffered.length > 0 && media.buffered.end(media.buffered.length - 1) >= media.duration - .25;
+// Loop the loading screen to its last frame, start the clip from 0 behind it, and cut over once the clip is playing.
+function tick(now) {
+  if (phase === 'play' || phase === 'still') return;
+  if (!t0) t0 = now;
+  const n = Math.floor((now - t0) * +spec[3] / 1000);
+  if (phase === 'load') {
+    if (n >= +spec[2] && (ready || buffered())) { media.currentTime = 0; media.play().catch(() => {}); phase = 'start'; t0 = now; }
+    else frameAt(n % +spec[2]);
+  } else if ((!media.seeking && media.readyState >= 3 && media.currentTime > 0) || now - t0 > 3000) { phase = 'play'; source = media; }
+}
+
 function draw() {
+  tick(performance.now());
   const box = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2);
   const w = Math.round(canvas.offsetWidth * dpr), h = Math.round(canvas.offsetHeight * dpr);
   if (w && (canvas.width !== w || canvas.height !== h)) { canvas.width = w; canvas.height = h; }
@@ -109,7 +133,7 @@ function draw() {
   // --glare runs 40% to 46% and --sheen -8% to -13% with the headset's float.
   gl.uniform1f(u('glare'), -.16 + (parseFloat(style.getPropertyValue('--glare')) - 40) * .012);
   gl.uniform1f(u('sheen'), (parseFloat(style.getPropertyValue('--sheen')) + 8) * .01);
-  if (media.tagName === 'VIDEO' && media.readyState >= 2) { gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, media); }
+  if (source !== media || (media.tagName === 'VIDEO' && media.readyState >= 2)) { gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); }
   gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);
   return box;
@@ -120,7 +144,7 @@ let looping = false;
 function start() { if (reduced.matches) { draw(); return; } if (!looping) { looping = true; requestAnimationFrame(frame); } }
 
 function begin() {
-  texture(0, 'screen', media); texture(1, 'shapes', shapes); texture(2, 'shade', shade); texture(3, 'lip', lip);
+  texture(0, 'screen', source); texture(1, 'shapes', shapes); texture(2, 'shade', shade); texture(3, 'lip', lip);
   canvas.className = 'visor-dome'; canvas.setAttribute('aria-hidden', 'true');
   figure.appendChild(canvas); figure.classList.add('is-convex');
   new IntersectionObserver(entries => { onScreen = entries[0].isIntersecting; if (onScreen) start(); }).observe(figure);
@@ -128,7 +152,18 @@ function begin() {
   addEventListener('resize', start);
   start();
 }
-if (media.tagName === 'VIDEO') { if (media.readyState >= 2) begin(); else media.addEventListener('loadeddata', begin, { once: true }); }
+function loadingFirst() {
+  source = tile; phase = 'load'; media.addEventListener('canplaythrough', () => { ready = true; }, { once: true });
+  if (reduced.matches) {
+    // One loading frame, then the poster.
+    phase = 'still'; frameAt(Math.floor(+spec[2] * .4));
+    const poster = new Image(); poster.onload = () => { source = poster; start(); }; poster.src = media.poster;
+    media.addEventListener('loadeddata', () => { if (poster.src) poster.src = media.poster; }, { once: true });
+  } else frameAt(0);
+  begin();
+}
+if (sheet && media.readyState < 4) { sheet.onload = loadingFirst; sheet.onerror = () => media.addEventListener('loadeddata', begin, { once: true }); sheet.src = spec[0]; }
+else if (media.tagName === 'VIDEO') { if (media.readyState >= 2) begin(); else media.addEventListener('loadeddata', begin, { once: true }); }
 else if (media.complete && media.naturalWidth) begin();
 else media.addEventListener('load', begin, { once: true });
 })();

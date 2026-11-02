@@ -474,3 +474,17 @@ def test_look_around_scene_list_supplies_the_poster_and_runtime_data(monkeypatch
     data = re.search(r'data-scenes="([^"]+)"', page).group(1)
     assert json.loads(html.unescape(data)) == scenes
     assert 'data-asset-base="https://media.visr.gg/look/"' in page
+
+
+def test_hero_video_plays_the_loading_screen_until_it_can_play_through(tmp_path):
+    import struct
+    (tmp_path / 'game.png').write_bytes(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sII', 13, b'IHDR', 1600, 900))
+    (tmp_path / 'game.mp4').write_bytes(b'clip')
+    source = SOURCE.replace('## Apple Vision Pro', '![Hero](game.png){hero video=game.mp4}\n\n## Apple Vision Pro', 1)
+    page = render_site(source, asset_root=tmp_path)
+    assert '<video data-loading="' not in page  # no sheet in the folder: the plain video
+    (tmp_path / 'loading-hero.webp').write_bytes(b'sheet')
+    page = render_site(source, asset_root=tmp_path)
+    assert '<video data-loading="loading-hero.webp 6 36 30" class="media-video"' in page
+    assert page.index('<link rel="preload" as="image" href="loading-hero.webp"') < page.index('</head>')
+    assert 'loading-hero.webp' not in render_site(source.replace('{hero video=game.mp4}', '{hero}'), asset_root=tmp_path)
