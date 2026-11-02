@@ -286,6 +286,42 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	float pitch_offset_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity);
 
+/* debug.hand_distance_log alone: where one of the four distances below came from. Not
+HANDS_PATH_*, which is which reading moved a pinch's *event* and has PARTED, HAND_LOST and
+BLIND to say so a decision was made; a raw distance decides nothing, so it only needs to say
+whether both of its ends this sample are ARKit's own reading, one or both carried in the
+palm's frame (tips_resolve in host_spatial_hands.c), or neither readable at all */
+enum { HANDS_DISTANCE_MEASURED, HANDS_DISTANCE_CARRIED, HANDS_DISTANCE_UNAVAILABLE };
+
+/* one hand's thumb-to-fingertip distances and scale references, for debug.hand_distance_log
+alone (host_spatial_hands.m's periodic log), nothing here read by any decision in this file.
+distance and path are indexed as every other per-finger array here is (HANDS_PINCH_INDEX
+first; hands_tip_distances below). palm_width is the index metacarpal to the little
+metacarpal, and index_distal the index finger's intermediate tip to its own tip: two
+measurements of this hand's own size, on the premise (not yet acted on) that the pinch
+hysteresis belongs in a fraction of one of them rather than in an absolute distance that
+fits one player's hand and not another's. Both read straight off the joints with no carry
+of their own, since neither is a fingertip a thumb ever hides; *_known is 0 where ARKit
+is not reporting the joint it needs this sample, and the measurement is then 0 too */
+struct hands_tip_distances
+{
+	float distance[NUMBER_OF_HANDS_PINCHES];
+	int path[NUMBER_OF_HANDS_PINCHES];
+	float palm_width;
+	int palm_width_known;
+	float index_distal;
+	int index_distal_known;
+};
+
+/* this hand's four thumb-to-fingertip distances and its two scale references as this
+sample's own joints and tips_resolve would read them. May write state->tip_local and
+state->tip_known exactly as hands_recognize's own call into tips_resolve already did for
+this sample (the carry's write, not a decision), so calling this after hands_recognize has
+run for the same state and the same joints changes nothing that call did not already
+change. Called only for debug.hand_distance_log */
+void hands_tip_distances(struct hands_state *state, int hand, const struct host_spatial_hand_joints *joints,
+	struct hands_tip_distances *out);
+
 #ifdef __OBJC__
 #import <CompositorServices/CompositorServices.h>
 

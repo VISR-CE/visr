@@ -76,6 +76,15 @@ static float pitch_offset;     /* input.aim_pitch_offset, clamped to -10 to 45: 
 	controller_aim_game.c reads for the barrel ray, read again here so the arm's elevation can
 	take it too (host_spatial_hands.c's hands_recognize) */
 static int hand_log;           /* debug.hand_log */
+static int hand_distance_log;  /* debug.hand_distance_log */
+/* debug.hand_distance_log's own rate, in game samples: this file's own assumption is 90 Hz
+for a hand's game sample (the same one HANDS_HAND_GAP_SECONDS's and
+HANDS_PART_CONFIRM_SAMPLES's comments in host_spatial_hands.h make), and 90 / 9 = 10, so one
+line every ninth sample lands close to ten a second without reading a clock this file has
+no other reason to read here. Counted rather than timed because the log is for comparing
+distances sample to sample while the hand actually moves, not for a fixed wall-clock rate */
+#define HAND_DISTANCE_LOG_SAMPLES 9
+static int distance_log_counter;
 
 /* one change from a callback, queued for the game thread */
 enum hands_event_kind
@@ -224,6 +233,8 @@ static void read_settings(void)
 	}
 	host_config_string("debug.hand_log", "false", value, sizeof(value));
 	hand_log = !strcmp(value, "true");
+	host_config_string("debug.hand_distance_log", "false", value, sizeof(value));
+	hand_distance_log = !strcmp(value, "true");
 }
 
 /* 1 while bare hands are the aim source here. visionOS 26 is where the
@@ -687,6 +698,56 @@ static void log_event(const struct hands_event *event)
 		path_name(event->path));
 }
 
+/* debug.hand_distance_log's own line, named by where the distance came from
+(HANDS_DISTANCE_*, host_spatial_hands.h): "measured", "carried" or "unavailable", in that
+order so the enum's own values index straight into it */
+static const char *const distance_path_names[] = { "measured", "carried", "unavailable" };
+
+/* debug.hand_distance_log: one line per hand, roughly ten times a second
+(HAND_DISTANCE_LOG_SAMPLES above). Four decimals on every distance: three gives 1 mm bins,
+too coarse to tell a resting hand from a deliberate pinch apart, which is the whole reason
+for this line (host_spatial_hands.h's HANDS_PINCH_CLOSE_METERS / OPEN_METERS comment). Each
+of the four pinches carries its distance, which of HANDS_DISTANCE_MEASURED/CARRIED/
+UNAVAILABLE it is, and whether that pinch is closed right now, so a session's lines sort
+into the resting and the pinching distributions without correlating against any other line.
+palm_width and index_distal close the line: two measures of this hand's own size, "unavailable"
+rather than a number on a sample ARKit doesn't give them, since the player asked whether the
+two thresholds belong in a fraction of one of these rather than in an absolute distance.
+
+Greppable on "hands: distance ", and every field after the side is in a fixed column, so an
+awk invocation can pull any of them by number without parsing the line (the report at
+.superpowers/sdd/2026-10-28-visr-hands-plan/distance-log-report.md has the exact ones) */
+static void log_distance_sample(int hand, const struct host_spatial_hand_joints *joints)
+{
+	static const char *const finger_names[NUMBER_OF_HANDS_PINCHES] = { "index", "middle", "ring", "little" };
+	struct hands_tip_distances distances;
+	char line[256];
+	size_t used;
+	int finger;
+
+	hands_tip_distances(&gesture_state, hand, joints, &distances);
+	used = (size_t)snprintf(line, sizeof(line), "hands: distance %s", hand ? "right" : "left");
+	for (finger = 0; finger < NUMBER_OF_HANDS_PINCHES && used < sizeof(line); finger++)
+		used += (size_t)snprintf(line + used, sizeof(line) - used, " %s %.4f %s %s", finger_names[finger],
+			(double)distances.distance[finger], distance_path_names[distances.path[finger]],
+			gesture_state.pinch[hand][finger].closed ? "closed" : "open");
+	if (used < sizeof(line))
+	{
+		if (distances.palm_width_known)
+			used += (size_t)snprintf(line + used, sizeof(line) - used, " palm %.4f", (double)distances.palm_width);
+		else
+			used += (size_t)snprintf(line + used, sizeof(line) - used, " palm unavailable");
+	}
+	if (used < sizeof(line))
+	{
+		if (distances.index_distal_known)
+			snprintf(line + used, sizeof(line) - used, " index_distal %.4f", (double)distances.index_distal);
+		else
+			snprintf(line + used, sizeof(line) - used, " index_distal unavailable");
+	}
+	host_logf(HOST_LOG_INFO, "%s", line);
+}
+
 void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[3], double predict_to)
 {
 	struct host_spatial_hand_joints drawn[2];
@@ -782,6 +843,17 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		if (hand_log)
 			for (i = 0; i < count; i++)
 				log_event(&events[i]);
+		/* its own route, not these events: the gesture log above is capacity-bounded
+		(events[32], hands_recognize's own clamp) for lines worth keeping even on the busiest
+		sample, and a periodic raw-distance line has nothing to do with that budget and no
+		business crowding it. host_logf has no such cap, so this costs nothing events does not
+		already cost and nothing when debug.hand_distance_log is off */
+		if (hand_distance_log && ++distance_log_counter >= HAND_DISTANCE_LOG_SAMPLES)
+		{
+			distance_log_counter = 0;
+			log_distance_sample(0, &joints[0]);
+			log_distance_sample(1, &joints[1]);
+		}
 	}
 	return filled;
 }

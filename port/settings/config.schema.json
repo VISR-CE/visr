@@ -1421,6 +1421,16 @@
             "apple"
           ]
         },
+        "hand_distance_log": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log the raw thumb to fingertip distances periodically, for calibrating the pinch thresholds.",
+          "x-environment": "HALO_HAND_DISTANCE_LOG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "controller_record": {
           "type": "string",
           "default": "",

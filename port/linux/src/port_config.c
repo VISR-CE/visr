@@ -593,6 +593,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.hand_log", _config_boolean, "false", "HALO_HAND_LOG", _environment_value, _platform_ios,
 		"Log every hand gesture's state change with the value measured against\n"
 		"its threshold." },
+	{ "debug.hand_distance_log", _config_boolean, "false", "HALO_HAND_DISTANCE_LOG", _environment_value,
+		_platform_ios,
+		"Log the raw thumb to fingertip distances periodically, for calibrating\n"
+		"the pinch thresholds." },
 	{ "debug.controller_record", _config_string, "\"\"", "HALO_CONTROLLER_RECORD", _environment_value,
 		_platform_ios,
 		"Write every pose sample the host hands the game (both hands, the\n"

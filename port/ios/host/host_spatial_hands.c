@@ -208,6 +208,53 @@ static void tips_resolve(struct hands_state *state, int hand, const struct host_
 	}
 }
 
+/* debug.hand_distance_log alone (host_spatial_hands.m's periodic log): the same tips_resolve
+every pinch already reads this sample, read again here for the four raw distances rather
+than a decision. Idempotent with hands_recognize's own call into it for this sample: given
+the same state and the same joints, an ARKit-tracked tip encodes the same palm-frame
+position it already did and a carried one decodes the same position back, so calling this
+after hands_recognize has run writes nothing new to state->tip_local or state->tip_known.
+palm_width and index_distal need no carry and no tips_resolve at all, since the thumb never
+hides the index metacarpal or the index finger's own intermediate tip the way it hides a
+fingertip: they are read straight off joints, 0 and not-known where ARKit isn't reporting
+the joint either one needs this sample */
+void hands_tip_distances(struct hands_state *state, int hand, const struct host_spatial_hand_joints *joints,
+	struct hands_tip_distances *out)
+{
+	float tip[5][3];
+	int usable[5], carried[5];
+	int finger;
+
+	memset(tip, 0, sizeof(tip));
+	memset(usable, 0, sizeof(usable));
+	memset(carried, 0, sizeof(carried));
+	if (joints->tracked)
+		tips_resolve(state, hand, joints, tip, usable, carried);
+	for (finger = 0; finger < NUMBER_OF_HANDS_PINCHES; finger++)
+	{
+		int tip_index = finger + 1; /* tip[0] is the thumb, as tips_resolve's own array is */
+
+		if (usable[0] && usable[tip_index])
+		{
+			out->distance[finger] = distance3(tip[0], tip[tip_index]);
+			out->path[finger] = (carried[0] || carried[tip_index]) ?
+				HANDS_DISTANCE_CARRIED : HANDS_DISTANCE_MEASURED;
+		}
+		else
+		{
+			out->distance[finger] = 0.0f;
+			out->path[finger] = HANDS_DISTANCE_UNAVAILABLE;
+		}
+	}
+	out->palm_width_known = joints->metacarpal_tracked[0] && joints->metacarpal_tracked[1];
+	out->palm_width = out->palm_width_known ? distance3(joints->metacarpal[0], joints->metacarpal[1]) : 0.0f;
+	/* finger 1 of each chain is the index finger, as tip[] and intermediate_tip[] both order
+	it (thumb, index, middle, ring, little: this file's part_pair_of comment) */
+	out->index_distal_known = joints->intermediate_tip_tracked[1] && joints->tip_tracked[1];
+	out->index_distal = out->index_distal_known ?
+		distance3(joints->intermediate_tip[1], joints->tip[1]) : 0.0f;
+}
+
 /* whether one hand counts as gone this sample, which is what everything
 below acts on rather than the anchor's own tracked flag. ARKit can stop
 reporting a whole hand for a sample or two, and reading that as a hand put
