@@ -103,7 +103,37 @@ Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v
 
 ### Apple TV
 
-Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval. GPU and CPU time per frame are not reported for Apple TV builds yet.
+Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the profile's frame cap. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. The FPS view shows average fps with the 1% low fps directly below it.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 860
+    height: 420
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#1fa9d4, #ffc24d"
+---
+xychart-beta horizontal
+    title "Campaign: CPU and GPU Frame Time (ms) against the 33.3 ms frame budget, Apple TV HD"
+    x-axis "Port and version" ["VISR 0.6.3"]
+    y-axis "Milliseconds per frame" 0 --> 33.3
+    bar [17.3]
+    bar [31]
+```
+
+🟦 Median CPU time 🟨 Median GPU time
+
+Lower is better.
+
+Apple TV HD. [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 17.28 ms median CPU time per frame, 30.97 ms median GPU time per rendered frame).
+
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.).
+
+#### Apple TV: frame rate
+
+Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.
 
 ```mermaid
 ---
@@ -117,19 +147,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV HD"
-    x-axis "Port and version" ["VISR 0.6.0"]
+    x-axis "Port and version" ["VISR 0.6.3"]
     y-axis "Frames per second" 0 --> 40
-    bar [29.8]
-    bar [29.8]
+    bar [29.9]
+    bar [26.5]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-Apple TV HD. [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (build 20261027.111952, measured 2026-10-27; no on-time share reported).
-
-Not measured: [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this platform's reference device.); VISR 0.6.1 (Apple TV HD) (Not run on this platform's reference device.).
+Apple TV HD. [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 99.6% of frames on time).
 
 ### Vision Pro
 
