@@ -1641,6 +1641,17 @@
             "desktop"
           ]
         },
+        "split_hud_margin": {
+          "type": "number",
+          "default": 0.03,
+          "description": "In split screen, the margin between each player's HUD and the edges of their view, as a fraction of the view's height, 0.0 to 0.2 (default 0.03). Read at launch.",
+          "x-environment": "HALO_SPLIT_HUD_MARGIN",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "split_hud_scale": {
           "type": "number",
           "default": 1.0,

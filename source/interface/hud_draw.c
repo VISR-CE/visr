@@ -1442,16 +1442,28 @@ boolean hud_split_screen_layout(
 }
 
 /* port: a split screen view's HUD is the one-player HUD laid out right at the
-view's own edges: the view's window is its rectangle less a few lines, so
-nothing touches the divider, rather than the one-player title-safe margins,
-which in a quarter of the screen leave the HUD crowded toward the middle.
+view's own edges: the view's window is its rectangle less a margin of a few
+percent of its height, so nothing touches the divider, rather than the one-player title-safe margins,
+which in a quarter of the screen leave the HUD crowded toward the middle
+(debug.split_hud_margin).
 With three or four players, debug.split_hud_scale sizes the whole HUD and
 debug.split_tracker_scale the motion sensor against one player's (1, the
 default, at its size) */
-enum
+/* debug.split_hud_margin: the margin on every side of a view, in lines of
+the view's height times this fraction */
+static short hud_split_view_inset(
+	rectangle2d const *view)
 {
-	HUD_SPLIT_VIEW_INSET = 4
-};
+	static int set = FALSE;
+	static real fraction;
+
+	if (!set)
+	{
+		fraction = (real)PIN(config_real("debug.split_hud_margin"), 0.0, 0.2);
+		set = TRUE;
+	}
+	return (short)MAX(1, fast_ftol(fraction * (view->y1 - view->y0)));
+}
 
 static real hud_split_scale_setting(
 	char const *name,
@@ -1503,7 +1515,7 @@ static void hud_full_layout_apply(
 	if (scale >= 1.0f)
 	{
 		viewport = view;
-		inset = HUD_SPLIT_VIEW_INSET;
+		inset = hud_split_view_inset(&view);
 		window.x0 = view.x0 + inset;
 		window.x1 = view.x1 - inset;
 		window.y0 = view.y0 + inset;
@@ -1517,7 +1529,7 @@ static void hud_full_layout_apply(
 		viewport.y0 = 0;
 		viewport.x1 = (short)fast_ftol((view.x1 - view.x0) / scale);
 		viewport.y1 = (short)fast_ftol((view.y1 - view.y0) / scale);
-		inset = (short)fast_ftol(HUD_SPLIT_VIEW_INSET / scale);
+		inset = (short)fast_ftol(hud_split_view_inset(&view) / scale);
 		window.x0 = inset;
 		window.x1 = viewport.x1 - inset;
 		window.y0 = inset;
@@ -1538,7 +1550,7 @@ boolean hud_full_layout_begin(
 	rectangle2d view = render.camera.viewport_bounds;
 
 	if (local_player_count() <= 1 || hud_split_screen_layout() || hud_full_layout_held ||
-		view.x1 - view.x0 <= 2 * HUD_SPLIT_VIEW_INSET || view.y1 - view.y0 <= 2 * HUD_SPLIT_VIEW_INSET)
+		view.x1 - view.x0 <= 2 * hud_split_view_inset(&view) || view.y1 - view.y0 <= 2 * hud_split_view_inset(&view))
 	{
 		return FALSE;
 	}

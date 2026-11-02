@@ -1212,6 +1212,10 @@ static const struct config_setting config_settings[] =
 		"Split screen draws the Xbox's split screen HUD (its smaller elements, packed\n"
 		"against the screen's title-safe edges) instead of each player's full HUD laid\n"
 		"out in their own view as in a one-player game. Read at launch." },
+	{ "debug.split_hud_margin", _config_real, "0.03", "HALO_SPLIT_HUD_MARGIN", _environment_value, _platform_all,
+		"In split screen, the margin between each player's HUD and the edges of their\n"
+		"view, as a fraction of the view's height, 0.0 to 0.2 (default 0.03). Read at\n"
+		"launch." },
 	{ "debug.split_hud_scale", _config_real, "1.0", "HALO_SPLIT_HUD_SCALE", _environment_value, _platform_all,
 		"With three or four players in split screen, the size of each player's HUD\n"
 		"against a one-player HUD's, 0.25 to 1.0 (default 1.0). Read at launch." },
