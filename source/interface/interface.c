@@ -773,7 +773,7 @@ void interface_draw_hud(
 		return;
 
 	/* port: a split screen view's HUD, and the game engine's scores and
-	timers, at one player's size in the view's corners (hud_draw.c) */
+	timers, at one player's size at the view's edges (hud_draw.c) */
 	hud_full_layout_begin();
 	hud_draw_screen();
 	/* port: a corner the HUD took outside its group spans ends with it, and

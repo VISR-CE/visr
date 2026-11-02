@@ -33,7 +33,7 @@ local players) rather than each player's full HUD */
 boolean hud_split_screen_layout(
 	void);
 /* port: interface_draw_hud, around a split screen view's HUD: the one-player
-HUD at its own size in the view's corners; FALSE when there is nothing to change, and
+HUD at its own size at the view's edges; FALSE when there is nothing to change, and
 then hud_full_layout_end does nothing */
 boolean hud_full_layout_begin(
 	void);

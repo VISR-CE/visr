@@ -1436,16 +1436,22 @@ boolean hud_split_screen_layout(
 }
 
 /* port: a split screen view's HUD keeps the one-player HUD's size and is
-laid out in the view's own corners: the view's window is its rectangle less
-the one-player title-safe margins (rasterizer_xbox.c's frame bounds against
-the screen's), measured from the view's own edges. FALSE, nothing changed:
-one player, or debug.split_screen_hud */
+laid out right at the view's own edges: the view's window is its rectangle
+less a few lines, so nothing touches the divider, rather than the one-player
+title-safe margins, which in a quarter of the screen leave the HUD crowded
+toward the middle. FALSE, nothing changed: one player, or
+debug.split_screen_hud */
+enum
+{
+	HUD_SPLIT_VIEW_INSET = 4
+};
+
 boolean hud_full_layout_begin(
 	void)
 {
 	rectangle2d view = render.camera.viewport_bounds;
-	short margin_x = rasterizer_globals.reserved04.frame_bounds.x0 - rasterizer_globals.reserved04.screen_bounds.x0;
-	short margin_y = rasterizer_globals.reserved04.frame_bounds.y0 - rasterizer_globals.reserved04.screen_bounds.y0;
+	short margin_x = HUD_SPLIT_VIEW_INSET;
+	short margin_y = HUD_SPLIT_VIEW_INSET;
 	rectangle2d window;
 
 	if (local_player_count() <= 1 || hud_split_screen_layout() || hud_full_layout_held ||
