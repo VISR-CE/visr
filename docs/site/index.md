@@ -31,7 +31,7 @@
 
 ![Halo on iPhone with touch controls during the Silent Cartographer beach battle](./iphone.jpg){device=iphone video=video/iphone.mp4}
 
-![Halo on iPad fighting the Flood in the Library](./ipad.jpg){device=ipad video=video/ipad.mp4}
+![Halo on iPad](./ipad.jpg){device=ipad video=video/ipad.mp4}
 
 ## Apple TV
 
