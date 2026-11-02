@@ -329,6 +329,27 @@ static int part_growth(const struct hands_pinch *pinch, const struct part_pair *
 	return -1;
 }
 
+/* the end of a hold, for the log: how long this pinch had been closed, in seconds, with the
+path that released it (host_spatial_hands.h's HANDS_EVENT_PINCH_HELD). Every release calls
+it, right after its own pinch-off line, so one line per release comes out whichever of the
+three readings decided it. Silent unless a close was recorded, which keeps a pinch found
+closed in a freshly zeroed state out of the log rather than dating it from 0.
+
+Instrumentation and nothing else: it clears closed_since, touches no other field, and no rule
+in this file reads the duration. Three rounds of work have each tuned a proxy for a prompt
+release while the thing the player reports, a tap that lasts long enough to charge instead of
+fire, went unmeasured; the next change to those rules should be a number read off these
+lines */
+static void held_ended(struct hands_pinch *pinch, int hand, int finger, double now, int path,
+	struct hands_event *events, int capacity, int *count)
+{
+	if (pinch->closed_since <= 0.0)
+		return;
+	emit(events, capacity, count, HANDS_EVENT_PINCH_HELD, hand, finger, 0, (float)(now - pinch->closed_since),
+		0.0f, path);
+	pinch->closed_since = 0.0;
+}
+
 /* the fix the carry needed. A pinch occludes the very fingertip its distance is measured
 from, because the thumb is sitting on it, so the tip goes missing on the sample after the
 press and the carry answers "still where it was, which is on the thumb" for the whole
@@ -355,7 +376,7 @@ existed. Both halves of that are fixed here, the joints in part_pair_of and the 
 host_spatial_hands.h, and pinch_update now reports the growth at every release the
 fingertips decided so the margin is measured next time rather than argued again */
 static int part_decide(struct hands_pinch *pinch, const struct part_pair *pair, int hand, int finger,
-	struct hands_event *events, int capacity, int *count)
+	double now, struct hands_event *events, int capacity, int *count)
 {
 	float growth;
 
@@ -393,6 +414,7 @@ static int part_decide(struct hands_pinch *pinch, const struct part_pair *pair, 
 		pinch->closed = 0;
 		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, growth,
 			HANDS_PART_MARGIN_METERS, HANDS_PATH_PARTED);
+		held_ended(pinch, hand, finger, now, HANDS_PATH_PARTED, events, capacity, count);
 	}
 	return pinch->parted;
 }
@@ -436,6 +458,7 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 			pinch->closed = 0;
 			emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, 0.0f, HANDS_PINCH_OPEN_METERS,
 				HANDS_PATH_HAND_LOST);
+			held_ended(pinch, hand, finger, now, HANDS_PATH_HAND_LOST, events, capacity, count);
 		}
 		miss_ended(pinch, hand, finger, now, events, capacity, count);
 		pinch->carried_since = 0.0;
@@ -473,7 +496,7 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	is released by it too */
 	if (!guessing)
 		part_reference_record(pinch, pair);
-	else if (part_decide(pinch, pair, hand, finger, events, capacity, count))
+	else if (part_decide(pinch, pair, hand, finger, now, events, capacity, count))
 		return;
 	/* nothing to measure and nothing to carry: the pinch keeps what it had rather than opening */
 	if (!(thumb_usable && tip_usable))
@@ -483,12 +506,16 @@ static void pinch_update(struct hands_pinch *pinch, int hand, int finger, int ha
 	if (!pinch->closed && distance < HANDS_PINCH_CLOSE_METERS)
 	{
 		pinch->closed = 1;
+		/* the only place a hold's clock starts, so the release that ends it reports the whole of
+		it however it is ended (held_ended) */
+		pinch->closed_since = now;
 		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 1, distance, HANDS_PINCH_CLOSE_METERS, path);
 	}
 	else if (pinch->closed && distance > HANDS_PINCH_OPEN_METERS)
 	{
 		pinch->closed = 0;
 		emit(events, capacity, count, HANDS_EVENT_PINCH, hand, finger, 0, distance, HANDS_PINCH_OPEN_METERS, path);
+		held_ended(pinch, hand, finger, now, path, events, capacity, count);
 		/* and what the pair behind this pinch had grown by at the instant the tips themselves
 		released it, which is the margin's own measurement: a release decided here rather than
 		by part_decide is a release the part check did not catch, so the growths on these lines
@@ -785,7 +812,8 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	return so a caller's for (i = 0; i < count; i++) against events[capacity] is always in
 	bounds, even when a sample emits more lines than capacity allows. The worst sample is
 	eight pinches each ending a carried gap, releasing from their own fingertips, and
-	reporting the pair's growth for that release, which reaches 24: what
-	host_spatial_hands.m sizes its buffer to, since the growth line is the one worth keeping */
+	reporting both the pair's growth for that release and the length of the hold it ended,
+	which reaches 32: what host_spatial_hands.m sizes its buffer to, since the growth and the
+	hold are the lines worth keeping */
 	return count < capacity ? count : capacity;
 }

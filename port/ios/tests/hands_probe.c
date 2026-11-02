@@ -3,12 +3,13 @@ pinch hysteresis and the fingertip carried in the palm's frame through a
 dropout, the release a pinch gets from the joints behind it once the fingers
 part while that fingertip is still hidden (and that holding the pinch never
 earns one), the growth that release is measured by and the line it is reported
-on, the gun and off hand's button and stick mapping, the aim turn
-(smooth and snap) and the arm's elevation beside it on the same stick, with
-the sign that makes a raised arm raise the gun, the prayer sign's dwell and
-Start pulse, the whole-hand
-gap a blink is held through, and that a hand untracked past that gap opens
-every one of its pinches and zeros every one of its own controls. */
+on, the length of the hold every release reports behind itself, the gun and
+off hand's button and stick mapping, the aim turn (smooth and snap) and the
+arm's elevation beside it on the same stick, with the sign that makes a
+raised arm raise the gun, the prayer sign's dwell and Start pulse, the
+whole-hand gap a blink is held through, and that a hand untracked past that
+gap opens every one of its pinches and zeros every one of its own
+controls. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -192,9 +193,16 @@ static void pinch_hysteresis(void)
 	/* the release the two tips decided, and the pair's growth reported beside it: every one of
 	these carries the margin's measurement, with nothing hidden and no gap behind it, so the
 	growth is 0 and the line says so (host_spatial_hands.h's HANDS_EVENT_PART_GROWTH) */
-	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
-		events[1].kind == HANDS_EVENT_PART_GROWTH && events[1].on == 0 &&
-		near(events[1].value, 0.0f, 1e-4f), "pinch: one pinch-off event, with the growth beside it");
+	check(count == 3 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
+		events[2].kind == HANDS_EVENT_PART_GROWTH && events[2].on == 0 &&
+		near(events[2].value, 0.0f, 1e-4f), "pinch: one pinch-off event, with the growth beside it");
+	/* and the hold's own length between the two, which is the measurement the pinch rules have
+	never had: closed at t = 1.0, released at t = 1.2 (host_spatial_hands.h's
+	HANDS_EVENT_PINCH_HELD) */
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && events[1].hand == 1 &&
+		events[1].finger == HANDS_PINCH_INDEX && events[1].on == 0 && near(events[1].value, 0.2f, 1e-3f) &&
+		events[1].threshold == 0.0f && events[1].path == HANDS_PATH_MEASURED,
+		"pinch: and the 0.2 s it was held, on the path that released it");
 	check(controls[0].menu == 0, "pinch: the off hand's menu is never set");
 }
 
@@ -345,10 +353,10 @@ static void pinch_opens_when_the_tip_returns_apart(void)
 	joints[1].tip[1][2] = 0.060f; /* it comes back 6 cm away: the finger did move */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "tip returns apart: reads open on the sample it returns");
-	check(count == 3 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
+	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
 		events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0 &&
-		events[2].kind == HANDS_EVENT_PART_GROWTH,
-		"tip returns apart: the gap's end, the open the reading decided, and the growth behind it");
+		events[2].kind == HANDS_EVENT_PINCH_HELD && events[3].kind == HANDS_EVENT_PART_GROWTH,
+		"tip returns apart: the gap's end, the open the reading decided, the hold's length and the growth");
 }
 
 /* a hand ARKit has stopped reporting for longer than HANDS_HAND_GAP_SECONDS opens every one of
@@ -363,7 +371,7 @@ static void hand_untracked_zeros(void)
 	struct host_spatial_controls controls[2];
 	struct hands_event events[16];
 	const float forward[3] = { 1.0f, 0.0f, 0.0f };
-	int count, finger, pinch_offs = 0;
+	int count, finger, pinch_offs = 0, helds = 0;
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
@@ -381,10 +389,19 @@ static void hand_untracked_zeros(void)
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
 	check(controls_all_zero(&controls[1]), "untracked gun hand: every control zero once the gap has run out");
 	for (finger = 0; finger < count; finger++)
+	{
 		if (events[finger].kind == HANDS_EVENT_PINCH && events[finger].on == 0)
 			pinch_offs++;
-	check(count == NUMBER_OF_HANDS_PINCHES && pinch_offs == NUMBER_OF_HANDS_PINCHES,
+		/* the whole-hand open is a release like any other, so each of the four reports the hold
+		it ended: closed at t = 1.0 and lost at t = 1.3, on the hand-lost path */
+		if (events[finger].kind == HANDS_EVENT_PINCH_HELD && near(events[finger].value, 0.3f, 1e-3f) &&
+			events[finger].path == HANDS_PATH_HAND_LOST)
+			helds++;
+	}
+	check(count == 2 * NUMBER_OF_HANDS_PINCHES && pinch_offs == NUMBER_OF_HANDS_PINCHES,
 		"untracked gun hand: every pinch opens on that same sample");
+	check(helds == NUMBER_OF_HANDS_PINCHES,
+		"untracked gun hand: and each one reports the 0.3 s it was held when the hand went");
 
 	joints[1].tracked = 1; /* back, with the fingers still together */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
@@ -456,8 +473,12 @@ static void hand_gap_expires(void)
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.25, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "hand gap: 0.20 s untracked opens the pinch");
 	check(controls_all_zero(&controls[1]), "hand gap: every control of that hand is zero at the expiry");
-	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
+	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
 		events[0].finger == HANDS_PINCH_INDEX, "hand gap: one pinch-off event at the expiry");
+	/* with the hold it ended: closed at t = 1.0, the hand gone by t = 1.25, so the trigger was
+	down for the whole 0.25 s including the gap that opened it */
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.25f, 1e-3f) &&
+		events[1].path == HANDS_PATH_HAND_LOST, "hand gap: and the 0.25 s of trigger the gap ended");
 
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
 	check(count == 0, "hand gap: an expired gap says nothing more while the hand stays away");
@@ -1065,6 +1086,57 @@ static void pinch_miss_logged(void)
 		near(events[0].value, 0.35f, 1e-3f), "pinch miss: each gap's length is logged as it ends");
 }
 
+/* the length of a hold, which is the thing three rounds of pinch work never measured
+(host_spatial_hands.h's HANDS_EVENT_PINCH_HELD): a tap and a deliberate hold in the same run
+each report their own duration, measured from their own press, and a whole-hand blink in the
+middle of the hold neither releases it nor restarts its clock. Nothing here reads the
+duration back into a decision: the pinch rules are exactly what they were, and these lines
+exist so the next change to them can be a number rather than a fourth guess */
+static void pinch_hold_duration_logged(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	const float forward[3] = { 1.0f, 0.0f, 0.0f };
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	/* a tap: pressed at t = 10.0, let go 80 ms later */
+	joints[1].tip[1][2] = 0.010f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 10.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 1, "hold length: the tap's press, with no hold line behind it");
+
+	joints[1].tip[1][2] = 0.040f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 10.08, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "hold length: the tap releases");
+	check(count == 3 && events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.08f, 1e-3f) &&
+		events[1].hand == 1 && events[1].finger == HANDS_PINCH_INDEX && events[1].on == 0 &&
+		events[1].path == HANDS_PATH_MEASURED, "hold length: and reports the 80 ms it was held");
+
+	/* a deliberate hold, with a blink in it: pressed at t = 11.0, the hand gone for one sample
+	well inside HANDS_HAND_GAP_SECONDS, released at t = 12.5 */
+	joints[1].tip[1][2] = 0.010f;
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 11.0, controls, events, 16);
+	check(controls[1].trigger == 1.0f, "hold length: pressed again at t = 11.0");
+
+	joints[1].tracked = 0;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 11.05, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 0, "hold length: a blink holds the trigger silently");
+	joints[1].tracked = 1;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 11.1, controls, events, 16);
+	check(controls[1].trigger == 1.0f && count == 0, "hold length: and the hand's return is not a fresh press");
+
+	joints[1].tip[1][2] = 0.040f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 12.5, controls, events, 16);
+	check(controls[1].trigger == 0.0f, "hold length: the hold releases");
+	check(count == 3 && events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 1.5f, 1e-3f),
+		"hold length: reporting the whole 1.5 s from the press, blink included");
+}
+
 /* a sample that changes more states than capacity holds (both hands losing all four pinches
 at once: up to 8 pinch-off events) returns a count clamped to capacity, so a caller's
 events[0..count) is always in bounds */
@@ -1096,7 +1168,11 @@ static void event_capacity_clamped(void)
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 2);
 	check(count == 2, "event capacity: the return clamps to capacity, not the true 8");
 	check(events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0, "event capacity: events[0] is a valid pinch-off");
-	check(events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0, "event capacity: events[1] is a valid pinch-off");
+	/* events[1] is that pinch's own hold line, since every release writes one right behind
+	itself (host_spatial_hands.c's held_ended): the pair survives the clamp together, which is
+	the point of sizing the caller's buffer for both */
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && events[1].on == 0 && events[1].hand == events[0].hand &&
+		events[1].finger == events[0].finger, "event capacity: events[1] is that release's own hold line");
 }
 
 /* the defect the part check exists for: a pinch occludes the very fingertip whose distance
@@ -1145,10 +1221,14 @@ static void pinch_parts_while_the_tip_is_hidden(void)
 		"parts: the first sample past the margin arms the release rather than taking it");
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.044, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "parts: the trigger releases on the sample that confirms the parting");
-	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
+	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
 		events[0].path == HANDS_PATH_PARTED, "parts: one pinch-off event, named as the pair's");
 	check(near(events[0].value, 0.020f, 1e-4f) && events[0].threshold == HANDS_PART_MARGIN_METERS,
 		"parts: the event carries the growth against the margin");
+	/* and the length of that hold beside it, which is what makes a session's taps countable:
+	closed at t = 1.0, held deliberately for three seconds, released at t = 4.044 */
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 3.044f, 1e-3f) &&
+		events[1].path == HANDS_PATH_PARTED, "parts: with the 3.044 s of trigger the pair ended");
 
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.055, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 0,
@@ -1192,7 +1272,7 @@ static void pinch_parts_at_the_intermediate_tip_alone(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "distal joint: the joint behind the fingertip releases the pinch");
-	check(count == 1 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
+	check(count == 2 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
 		"distal joint: the growth is that joint's own 2.0 cm");
 }
 
@@ -1228,8 +1308,12 @@ static void pinch_part_margin_edges(void)
 	check(controls[1].trigger == 1.0f && count == 0, "margin: 6 mm arms the release on the sample it appears");
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "margin: 6 mm releases on the very next sample, 11 ms later");
-	check(count == 1 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.006f, 1e-4f),
+	check(count == 2 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.006f, 1e-4f),
 		"margin: the release carries the 6 mm that earned it");
+	/* a tap of exactly this shape is the complaint's subject, and it now has a number: closed
+	at t = 1.0, released at t = 1.055 */
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.055f, 1e-3f),
+		"margin: and the 55 ms that tap was held");
 }
 
 /* the measurement that settles the margin. Every pinch release the two fingertips themselves
@@ -1264,14 +1348,20 @@ static void pinch_part_growth_logged(void)
 	joints[1].tip_tracked[1] = 1;
 	joints[1].tip[1][2] = 0.040f;
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
-	check(controls[1].trigger == 0.0f && count == 3, "growth: the gap's end, the release, and the growth behind it");
+	check(controls[1].trigger == 0.0f && count == 4,
+		"growth: the gap's end, the release, the hold's length and the growth behind it");
 	check(events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0 && events[1].path == HANDS_PATH_MEASURED,
 		"growth: the release itself is the tips'");
-	check(events[2].kind == HANDS_EVENT_PART_GROWTH && events[2].finger == HANDS_PINCH_INDEX &&
-		events[2].hand == 1, "growth: and the growth line names the same pinch");
-	check(near(events[2].value, 0.004f, 1e-4f) && events[2].threshold == HANDS_PART_MARGIN_METERS,
+	/* the release this file exists to catch, now with the figure the complaint is about: a tap
+	closed at t = 1.0 that the camera, not the fingers, let go at t = 1.033 */
+	check(events[2].kind == HANDS_EVENT_PINCH_HELD && events[2].finger == HANDS_PINCH_INDEX &&
+		events[2].hand == 1 && near(events[2].value, 0.033f, 1e-3f) && events[2].threshold == 0.0f &&
+		events[2].path == HANDS_PATH_MEASURED, "growth: the hold's own length, on the path that ended it");
+	check(events[3].kind == HANDS_EVENT_PART_GROWTH && events[3].finger == HANDS_PINCH_INDEX &&
+		events[3].hand == 1, "growth: and the growth line names the same pinch");
+	check(near(events[3].value, 0.004f, 1e-4f) && events[3].threshold == HANDS_PART_MARGIN_METERS,
 		"growth: carrying the 4 mm the pair had grown, against the margin that did not catch it");
-	check(events[2].on == 1 && events[2].path == HANDS_PATH_MEASURED,
+	check(events[3].on == 1 && events[3].path == HANDS_PATH_MEASURED,
 		"growth: marked as spanning a gap, with the pair readable throughout");
 
 	/* a release with no gap before it: the reference is one sample old, so the growth is not a
@@ -1280,8 +1370,10 @@ static void pinch_part_growth_logged(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
 	joints[1].tip[1][2] = 0.040f;
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
-	check(count == 2 && events[1].kind == HANDS_EVENT_PART_GROWTH && events[1].on == 0 &&
-		near(events[1].value, 0.0f, 1e-4f), "growth: a release with no gap before it reports a growth of nothing");
+	check(count == 3 && events[2].kind == HANDS_EVENT_PART_GROWTH && events[2].on == 0 &&
+		near(events[2].value, 0.0f, 1e-4f), "growth: a release with no gap before it reports a growth of nothing");
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.011f, 1e-3f),
+		"growth: and that press was held for the one sample between it and the release");
 }
 
 /* a tap: the press, the tip hidden by it, and the fingers parting again inside 200 ms. The
@@ -1314,8 +1406,12 @@ static void pinch_tap_releases_on_the_confirming_sample(void)
 	check(controls[1].trigger == 1.0f && count == 0, "tap: the parting's first sample is the confirmation's");
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "tap: released 33 ms after the press, one sample after the parting showed");
-	check(count == 1 && events[0].on == 0 && events[0].path == HANDS_PATH_PARTED,
+	check(count == 2 && events[0].on == 0 && events[0].path == HANDS_PATH_PARTED,
 		"tap: the release is the pair's, not a tip that came back");
+	/* and the number that makes a device session readable: 33 ms of trigger for a tap, against
+	the hold a player complains about (host_spatial_hands.h's HANDS_EVENT_PINCH_HELD) */
+	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.033f, 1e-3f) &&
+		events[1].path == HANDS_PATH_PARTED, "tap: logged as 33 ms held, not as a hold");
 }
 
 /* hold to fire: automatic weapons are fired by holding the pinch, and the tip is hidden for
@@ -1392,7 +1488,7 @@ static void pinch_part_uses_the_thumb_ladder(void)
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "thumb ladder: the level on the thumb's base releases it");
-	check(count == 1 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
+	check(count == 2 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
 		"thumb ladder: the growth is the same 2.0 cm, measured from that level's own reference");
 }
 
@@ -1433,7 +1529,7 @@ static void pinch_part_falls_back_without_the_pair(void)
 	joints[1].intermediate_tip_tracked[1] = 1; /* the joints come back, and the parting with them */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
-	check(controls[1].trigger == 0.0f && count == 1 && events[0].path == HANDS_PATH_PARTED,
+	check(controls[1].trigger == 0.0f && count == 2 && events[0].path == HANDS_PATH_PARTED,
 		"no pair: the release waits for the pair rather than being guessed without it");
 }
 
@@ -1467,7 +1563,7 @@ static void pinch_parts_with_nothing_to_carry(void)
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f);
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
-	check(controls[1].trigger == 0.0f && count == 1 && events[0].path == HANDS_PATH_PARTED,
+	check(controls[1].trigger == 0.0f && count == 2 && events[0].path == HANDS_PATH_PARTED,
 		"blind pinch: the pair releases it even with no reading of the tips at all");
 }
 
@@ -1496,7 +1592,7 @@ static void pinch_part_does_not_chatter(void)
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f); /* 2.0 cm: past the margin, released */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
-	check(controls[1].trigger == 0.0f && count == 1, "chatter: released past the margin");
+	check(controls[1].trigger == 0.0f && count == 2, "chatter: released past the margin");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.054f); /* 4 mm: inside the band, still apart */
 	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
@@ -1545,6 +1641,7 @@ int main(void)
 	pinch_part_falls_back_without_the_pair();
 	pinch_parts_with_nothing_to_carry();
 	pinch_part_does_not_chatter();
+	pinch_hold_duration_logged();
 	event_capacity_clamped();
 	if (failures)
 	{

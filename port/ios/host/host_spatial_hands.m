@@ -619,6 +619,15 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 		snprintf(buffer, size, "part %s",
 			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
 		break;
+	case HANDS_EVENT_PINCH_HELD:
+		/* "held", its own word again, so every release's duration pulls out of a session with
+		one pattern: "hands: held index" is every hold of the trigger finger, and the number
+		after the side and the "off" is that hold's length in seconds, to the millisecond. The
+		tail says which reading released it, which is what separates a tap the fingers ended
+		from one that waited for the camera (host_spatial_hands.h's HANDS_EVENT_PINCH_HELD) */
+		snprintf(buffer, size, "held %s",
+			finger >= 0 && finger < NUMBER_OF_HANDS_PINCHES ? finger_names[finger] : "?");
+		break;
 	case HANDS_EVENT_AIM_TURN: snprintf(buffer, size, "aim turn"); break;
 	/* the aiming stick's other axis, named apart from the turn so a session's elevations can be
 	counted off the log on their own (host_spatial_hands.h's HANDS_EVENT_AIM_ELEVATION) */
@@ -723,11 +732,12 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		int g = sample->aiming_hand ? 1 : 0;
 		const float *forward = sample->hands[g].aim.forward;
 		struct host_spatial_controls controls[2];
-		/* 24 is the worst sample the recognizer can fill: eight pinches each ending a carried
-		gap, releasing, and reporting the pair's growth for that release
-		(host_spatial_hands.c's pinch_update). Below that the recognizer drops log lines
-		rather than overrunning, and the growth line is the one this size exists to keep */
-		struct hands_event events[24];
+		/* 32 is the worst sample the recognizer can fill: eight pinches each ending a carried
+		gap, releasing, and reporting both the pair's growth for that release and how long the
+		hold it ended had run (host_spatial_hands.c's pinch_update). Below that the recognizer
+		drops log lines rather than overrunning, and those two are the lines this size exists
+		to keep */
+		struct hands_event events[32];
 		int count, i;
 
 		/* the aim the recognizer turns from is the sample's own, with no fallback: an anchor
@@ -741,7 +751,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		one snap can fire the instant the forearm first appears already past the deadzone. That
 		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
-			CACurrentMediaTime(), controls, events, 24);
+			CACurrentMediaTime(), controls, events, 32);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
 		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
 		merges into port 0 like a Sense sample but remaps differently in menus

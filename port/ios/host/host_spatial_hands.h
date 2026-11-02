@@ -157,6 +157,12 @@ the log and nothing else, since no deadline opens a pinch any more
 struct hands_pinch
 {
 	int closed;
+	/* when this pinch closed, 0 while it is open: what every release reports as the length of
+	the hold it ended (HANDS_EVENT_PINCH_HELD below, host_spatial_hands.c's held_ended). It is
+	set on the close transition alone, so a state zeroed under a closed pinch (whenever hands
+	were not a sample's source: host_spatial_hands_idle) drops that hold without a line rather
+	than measuring it from 0 */
+	double closed_since;
 	double carried_since;
 	/* the part check's own hysteresis over HANDS_PART_MARGIN_METERS: 1 once the visible
 	pair has grown past the margin, back to 0 below half of it or on any sample the two
@@ -235,13 +241,25 @@ gap and is the number the part check would have had to act on; off means the tip
 ARKit's own reading on the previous sample too, which makes the growth one sample wide and
 not a measurement of anything. Its path is MEASURED where a level was readable and BLIND
 where none was, which is the one case the part check cannot act at all */
+/* PINCH_HELD is the one thing the pinch work has never measured: how long the trigger was
+actually held. Three rounds of tuning have each moved a proxy for a prompt release (the
+carry's deadline, then the joints the part check watches, then the growth it asks for) while
+the complaint stayed the same, that a quick tap becomes a hold, and nothing in this file ever
+reported the duration being complained about. So one line comes out of every release, on
+every path that can release a pinch: its value is how many seconds that pinch had been
+closed, and its own path is the release's, so a session of ordinary play sorts into how long
+a tap really lasts and which reading ended it. Its threshold is 0, as PINCH_MISS's is and for
+the same reason: no duration decides anything here, the number is the measurement itself. `on`
+is 0 because the pinch is open by the time the line is written. Instrumentation only: no
+decision anywhere in this file reads closed_since */
 /* AIM_ELEVATION is the aiming stick's vertical axis as the turn's events are its horizontal
 one: on as the arm's elevation first carries the stick off zero, off as it falls back, with
 the elevation it measured against the deadzone it crossed. Unlike the turn it has no snap
 mode, so it reports on both settings of input.hand_turn_snap
 (host_spatial_hands.c's hands_recognize) */
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
-	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH, HANDS_EVENT_AIM_ELEVATION };
+	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH, HANDS_EVENT_AIM_ELEVATION,
+	HANDS_EVENT_PINCH_HELD };
 /* which reading decided a pinch's event, so the log says which of this file's three paths
 moved it: the two fingertips as ARKit reported them, a position carried in the palm's frame,
 or the still-visible pair behind a hidden fingertip (HANDS_PART_LEVEL_*). HAND_LOST is the
