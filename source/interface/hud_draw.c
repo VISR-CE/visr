@@ -1419,12 +1419,9 @@ screen's title-safe edges, for a 480-line television) */
 int config_boolean(const char *name);
 
 static boolean hud_full_layout_held = FALSE;
-static short hud_full_layout_width;
 static struct
 {
-	rectangle2d render_viewport_bounds;
 	rectangle2d render_window_bounds;
-	rectangle2d rasterizer_viewport_bounds;
 	rectangle2d rasterizer_window_bounds;
 } hud_full_layout_saved;
 
@@ -1438,50 +1435,34 @@ boolean hud_split_screen_layout(
 	return enabled && local_player_count() > 1;
 }
 
-/* port: a split screen view's camera becomes a one-player screen of 480
-lines, as wide as the view's shape gives, with the one-player title-safe
-frame (rasterizer_xbox.c's 7.5%); the HUD lays itself out there as in a
-one-player game and the screen transforms, which divide by the camera's
-viewport, scale it into the view, whose rectangle the render target keeps
-(rasterizer_hud_layout_viewport). The view's world positions (nav points,
-names) project with the same camera, so they land where they did. FALSE,
-nothing changed: one player, or debug.split_screen_hud */
+/* port: a split screen view's HUD keeps the one-player HUD's size and is
+laid out in the view's own corners: the view's window is its rectangle less
+the one-player title-safe margins (rasterizer_xbox.c's frame bounds against
+the screen's), measured from the view's own edges. FALSE, nothing changed:
+one player, or debug.split_screen_hud */
 boolean hud_full_layout_begin(
 	void)
 {
 	rectangle2d view = render.camera.viewport_bounds;
-	long view_width = view.x1 - view.x0;
-	long view_height = view.y1 - view.y0;
-	long width;
-	rectangle2d layout_viewport;
-	rectangle2d layout_window;
+	short margin_x = rasterizer_globals.reserved04.frame_bounds.x0 - rasterizer_globals.reserved04.screen_bounds.x0;
+	short margin_y = rasterizer_globals.reserved04.frame_bounds.y0 - rasterizer_globals.reserved04.screen_bounds.y0;
+	rectangle2d window;
 
 	if (local_player_count() <= 1 || hud_split_screen_layout() || hud_full_layout_held ||
-		view_width <= 0 || view_height <= 0)
+		view.x1 - view.x0 <= 2 * margin_x || view.y1 - view.y0 <= 2 * margin_y)
 	{
 		return FALSE;
 	}
-	width = (view_width * 480 + view_height / 2) / view_height;
-	layout_viewport.x0 = 0;
-	layout_viewport.y0 = 0;
-	layout_viewport.x1 = (short)width;
-	layout_viewport.y1 = 480;
-	layout_window.x0 = (short)(48 * width / 640);
-	layout_window.x1 = (short)(width - layout_window.x0);
-	layout_window.y0 = 36;
-	layout_window.y1 = 444;
+	window.x0 = view.x0 + margin_x;
+	window.x1 = view.x1 - margin_x;
+	window.y0 = view.y0 + margin_y;
+	window.y1 = view.y1 - margin_y;
 
-	hud_full_layout_saved.render_viewport_bounds = render.camera.viewport_bounds;
 	hud_full_layout_saved.render_window_bounds = render.camera.window_bounds;
-	hud_full_layout_saved.rasterizer_viewport_bounds = global_window_parameters.camera.viewport_bounds;
 	hud_full_layout_saved.rasterizer_window_bounds = global_window_parameters.camera.window_bounds;
-	rasterizer_hud_layout_viewport(&global_window_parameters.camera.viewport_bounds);
-	render.camera.viewport_bounds = layout_viewport;
-	render.camera.window_bounds = layout_window;
-	global_window_parameters.camera.viewport_bounds = layout_viewport;
-	global_window_parameters.camera.window_bounds = layout_window;
+	render.camera.window_bounds = window;
+	global_window_parameters.camera.window_bounds = window;
 	hud_full_layout_held = TRUE;
-	hud_full_layout_width = (short)width;
 	return TRUE;
 }
 
@@ -1490,11 +1471,8 @@ void hud_full_layout_end(
 {
 	if (!hud_full_layout_held)
 		return;
-	render.camera.viewport_bounds = hud_full_layout_saved.render_viewport_bounds;
 	render.camera.window_bounds = hud_full_layout_saved.render_window_bounds;
-	global_window_parameters.camera.viewport_bounds = hud_full_layout_saved.rasterizer_viewport_bounds;
 	global_window_parameters.camera.window_bounds = hud_full_layout_saved.rasterizer_window_bounds;
-	rasterizer_hud_layout_viewport(NULL);
 	hud_full_layout_held = FALSE;
 }
 
@@ -1504,9 +1482,16 @@ void hud_zoomed_layout_begin(
 	rectangle2d *saved_window_bounds)
 {
 	long width = render.camera.window_bounds.x1 - render.camera.window_bounds.x0;
-	/* port: (a full split screen HUD's layout is its own screen) */
-	long screen_width = hud_full_layout_held ? hud_full_layout_width : halo_screen_width();
-	short inset = (short)((width - width * 640 / screen_width) / 2);
+	short inset = (short)((width - width * 640 / halo_screen_width()) / 2);
+
+	/* port: a split screen view's full HUD zooms over the one-player
+	window's 640 columns, as wide as one player's (none past the view) */
+	if (hud_full_layout_held)
+	{
+		long one_player = rasterizer_globals.reserved04.frame_bounds.x1 - rasterizer_globals.reserved04.frame_bounds.x0;
+
+		inset = (short)MAX(0, (width - one_player * 640 / halo_screen_width()) / 2);
+	}
 
 	*saved_window_bounds = render.camera.window_bounds;
 	render.camera.window_bounds.x0 += inset;

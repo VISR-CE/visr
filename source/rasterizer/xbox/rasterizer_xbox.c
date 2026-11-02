@@ -1529,21 +1529,6 @@ void rasterizer_set_target_as_texture(
 
 static boolean rasterizer_shadow_atlas_viewport(D3DSurface *surface, D3DVIEWPORT8 *viewport);
 
-/* port: split screen's full HUD (hud_full_layout_begin) gives the camera a
-one-player layout, whose size the HUD's screen transforms divide by, while the
-render target's viewport stays the player's view: the layout is scaled into
-the view whole */
-static boolean hud_layout_viewport_held = FALSE;
-static rectangle2d hud_layout_viewport;
-
-void rasterizer_hud_layout_viewport(
-	rectangle2d const *viewport)
-{
-	hud_layout_viewport_held = viewport != NULL;
-	if (viewport)
-		hud_layout_viewport = *viewport;
-}
-
 void rasterizer_set_target(
 	short target,
 	short mipmap_index,
@@ -1627,15 +1612,12 @@ void rasterizer_set_target(
 		zbuffer ? d3d_surface_z : NULL);
 	if (target == _rasterizer_target_render_primary)
 	{
-		/* port: the view's own rectangle while its full HUD draws in a
-		one-player layout (rasterizer_hud_layout_viewport) */
-		rectangle2d const *bounds = hud_layout_viewport_held ?
-			&hud_layout_viewport : &global_window_parameters.camera.viewport_bounds;
-
-		viewport.X = bounds->x0;
-		viewport.Y = bounds->y0;
-		viewport.Width = bounds->x1 - bounds->x0;
-		viewport.Height = bounds->y1 - bounds->y0;
+		viewport.X = global_window_parameters.camera.viewport_bounds.x0;
+		viewport.Y = global_window_parameters.camera.viewport_bounds.y0;
+		viewport.Width = global_window_parameters.camera.viewport_bounds.x1 -
+			global_window_parameters.camera.viewport_bounds.x0;
+		viewport.Height = global_window_parameters.camera.viewport_bounds.y1 -
+			global_window_parameters.camera.viewport_bounds.y0;
 	}
 	else if (!rasterizer_shadow_atlas_viewport(d3d_surface, &viewport))
 	{
