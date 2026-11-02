@@ -72,6 +72,9 @@ static int head_mode;          /* display.stereo = "head" */
 static int turn_snap = 1;      /* input.turn == "snap" (the recognizer's own read; host_spatial.m
 	reads the same key for the Sense stick and neither owns the other's copy) */
 static float deadzone = 18.0f; /* input.hand_turn_deadzone, clamped to 5 to 60 */
+static float pitch_offset;     /* input.aim_pitch_offset, clamped to -10 to 45: the same trim
+	controller_aim_game.c reads for the barrel ray, read again here so the arm's elevation can
+	take it too (host_spatial_hands.c's hands_recognize) */
 static int hand_log;           /* debug.hand_log */
 
 /* one change from a callback, queued for the game thread */
@@ -199,6 +202,25 @@ static void read_settings(void)
 			host_logf(HOST_LOG_WARN, "spatial: input.hand_turn_deadzone %g is outside 5 to 60; using %g",
 				(double)deadzone, (double)clamped);
 		deadzone = clamped;
+	}
+	pitch_offset = (float)host_config_real("input.aim_pitch_offset", 0.0);
+	if (!(pitch_offset >= -10.0f && pitch_offset <= 45.0f))
+	{
+		/* clamped the way controller_aim_game.c's own read of this setting is (its
+		PITCH_OFFSET_MINIMUM/MAXIMUM branch), not the two-way idiom above: past either end
+		clamps to that end, and a NaN neither a slider nor an environment variable should ever
+		produce clamps to 0 rather than to the low end. The host and the guest read the same
+		key, and the point of reading it here at all is that the two agree exactly, including
+		on the one input that is not really a degree count */
+		float clamped = pitch_offset > 45.0f ? 45.0f : pitch_offset < -10.0f ? -10.0f : 0.0f;
+
+		/* gated on aim_hands for the same reason the deadzone's warning above is: this file
+		only ever uses the setting while hands are the aim source, and controller_aim_game.c
+		has already warned about its own read of it for input.aim = "controller" */
+		if (aim_hands)
+			host_logf(HOST_LOG_WARN, "spatial: input.aim_pitch_offset %g is outside -10 to 45; using %g",
+				(double)pitch_offset, (double)clamped);
+		pitch_offset = clamped;
 	}
 	host_config_string("debug.hand_log", "false", value, sizeof(value));
 	hand_log = !strcmp(value, "true");
@@ -751,7 +773,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		one snap can fire the instant the forearm first appears already past the deadzone. That
 		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
-			CACurrentMediaTime(), controls, events, 32);
+			pitch_offset, CACurrentMediaTime(), controls, events, 32);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
 		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
 		merges into port 0 like a Sense sample but remaps differently in menus

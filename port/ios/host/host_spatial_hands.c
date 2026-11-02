@@ -581,7 +581,7 @@ static void turn_transition(int *turning, int turning_now, int kind, int hand, i
 }
 
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2], int aiming_hand,
-	const float aim_forward[3], int turn_snap, float deadzone_degrees, double now,
+	const float aim_forward[3], int turn_snap, float deadzone_degrees, float pitch_offset_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity)
 {
 	int count = 0;
@@ -676,9 +676,25 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		input_abstraction.c's input_abstraction_update turns into input_state->pitch, and
 		player_control.c sets _player_control_look_relative_up_bit for a positive pitch. So
 		raising the arm raises the gun, and lowering it lowers it, with no sign flip anywhere
-		between */
+		between.
+
+		input.aim_pitch_offset is subtracted before the deadzone and the ramp ever see it: it
+		is the same downward correction controller_aim_game.c reads into pitch_offset_degrees
+		and hands to controller_aim.c's controller_location_to_world, which rotates the aim
+		forward about the location's left axis (forward toward -up, positive down) before the
+		guest ever draws a sightline from it. This file has only the forward component, not
+		the hand's up or left, but it does not need them: aim_up (host_spatial_hands.m) builds
+		that up as the room's up squared off against this same forward, which puts forward and
+		up in the one vertical plane that also holds the room's vertical and this forward's
+		heading. Turning forward toward -up by an angle theta inside that plane is turning its
+		elevation from phi to phi - theta while its horizontal direction keeps the same heading,
+		scaled by cos(phi - theta) rather than flipped, for any arm pose this recognizer ever
+		sees. So subtracting degrees from the elevation this file already measures is the same
+		rotation controller_location_to_world does, without carrying the up vector through this
+		call. Nothing here touches yaw: it stays off the raw aim_forward, so the trim never
+		moves the turn */
 		elevation = atan2f(aim_forward[2], sqrtf(aim_forward[0] * aim_forward[0] +
-			aim_forward[1] * aim_forward[1])) * (180.0f / (float)M_PI);
+			aim_forward[1] * aim_forward[1])) * (180.0f / (float)M_PI) - pitch_offset_degrees;
 		elevation_excess = fabsf(elevation) - deadzone_degrees;
 		elevation_sign = elevation < 0.0f ? -1.0f : 1.0f;
 		aim_elevation = elevation;

@@ -177,18 +177,18 @@ static void pinch_hysteresis(void)
 	joints[1] = make_hand(1);
 
 	joints[1].tip[1][2] = 0.010f; /* the index tip at 1.0 cm: closes */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "pinch: 1.0 cm closes the trigger");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].hand == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX && events[0].on == 1, "pinch: one pinch-on event for the index");
 
 	joints[1].tip[1][2] = 0.024f; /* 2.4 cm: inside the hysteresis band, no change */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "pinch: 2.4 cm still closed (hysteresis)");
 	check(count == 0, "pinch: no event inside the hysteresis band");
 
 	joints[1].tip[1][2] = 0.040f; /* 4.0 cm: opens */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "pinch: 4.0 cm opens the trigger");
 	/* the release the two tips decided, and the pair's growth reported beside it: every one of
 	these carries the margin's measurement, with nothing hidden and no gap behind it, so the
@@ -224,18 +224,18 @@ static void pinch_survives_a_tip_dropout(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* close the index pinch at t = 1.0 */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tip dropout: starts closed");
 
 	joints[1].tip_tracked[1] = 0; /* the index tip drops out at t = 1.05 */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tip dropout: still closed as the tip drops out");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX, "tip dropout: the gap is logged as a miss, not as a pinch");
 
 	for (t = 1.10; t <= 4.05 + 1e-9; t += 0.05) /* 3.0 s of it */
 	{
-		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 		for (i = 0; i < count; i++)
 			if (events[i].kind == HANDS_EVENT_PINCH)
 				pinch_events++;
@@ -246,7 +246,7 @@ static void pinch_survives_a_tip_dropout(void)
 	check(pinch_events == 0, "tip dropout: no pinch event during the gap");
 
 	joints[1].tip_tracked[1] = 1; /* the tip returns, still pinched */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 4.1, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tip dropout: still closed as the tip returns");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
 		near(events[0].value, 3.05f, 0.01f), "tip dropout: the gap's length is logged as it ends");
@@ -269,25 +269,25 @@ static void pinch_carry_follows_the_palm(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "carried tip: starts closed");
 
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "carried tip: closed as the tip drops out");
 
 	move_hand(&joints[1], 40.0f, across);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.5, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.5, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "carried tip: closed with the hand turned 40 degrees and moved 0.37 m");
 	check(count == 0, "carried tip: the move itself says nothing");
 
 	move_hand(&joints[1], -70.0f, back);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 2.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 2.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "carried tip: closed again with the hand turned back the other way");
 	check(count == 0, "carried tip: the second move says nothing either");
 
 	joints[1].tip_tracked[1] = 1; /* the tip is seen again where the moved palm says it is */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 2.5, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 2.5, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "carried tip: the real reading agrees, still closed");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0,
 		"carried tip: only the gap's end is logged");
@@ -308,18 +308,18 @@ static void pinch_closes_when_the_tip_returns(void)
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "tip returns closed: starts open, the tips 5 cm from the thumb");
 
 	joints[1].tip_tracked[1] = 0;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "tip returns closed: open through the gap");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1,
 		"tip returns closed: the gap is logged");
 
 	joints[1].tip_tracked[1] = 1;
 	joints[1].tip[1][2] = 0.010f; /* it comes back already pinched */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tip returns closed: fires on the sample it returns");
 	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
 		events[1].kind == HANDS_EVENT_PINCH && events[1].on == 1,
@@ -342,16 +342,16 @@ static void pinch_opens_when_the_tip_returns_apart(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.012f; /* 1.2 cm: under CLOSE, so the pinch is closed */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tip returns apart: starts closed at 1.2 cm");
 
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tip returns apart: the carry holds it closed");
 
 	joints[1].tip_tracked[1] = 1;
 	joints[1].tip[1][2] = 0.060f; /* it comes back 6 cm away: the finger did move */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "tip returns apart: reads open on the sample it returns");
 	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
 		events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0 &&
@@ -378,15 +378,15 @@ static void hand_untracked_zeros(void)
 	joints[1] = make_hand(1);
 	for (finger = 1; finger <= 4; finger++) /* every one of the gun hand's pinches closed */
 		joints[1].tip[finger][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "untracked: starts closed");
 
 	joints[1].tracked = 0; /* the hand's gap starts here, and holds everything while it runs */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "untracked gun hand: the first untracked sample holds");
 
 	/* 0.20 s untracked, past the gap: now the hand is gone */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 16);
 	check(controls_all_zero(&controls[1]), "untracked gun hand: every control zero once the gap has run out");
 	for (finger = 0; finger < count; finger++)
 	{
@@ -404,7 +404,7 @@ static void hand_untracked_zeros(void)
 		"untracked gun hand: and each one reports the 0.3 s it was held when the hand went");
 
 	joints[1].tracked = 1; /* back, with the fingers still together */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.4, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "untracked gun hand: a hand that comes back pinched closes at once");
 }
 
@@ -427,13 +427,13 @@ static void pinch_holds_through_a_hand_blink(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed at t = 1.0 */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "hand blink: starts closed");
 
 	joints[1].tracked = 0; /* the whole hand is gone for 0.10 s, nine frames of a 90 Hz device */
 	for (t = 1.05; t <= 1.15 + 1e-9; t += 0.05)
 	{
-		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 		events_seen += count;
 		if (controls[1].trigger != 1.0f)
 			dropped++;
@@ -442,7 +442,7 @@ static void pinch_holds_through_a_hand_blink(void)
 	check(events_seen == 0, "hand blink: no event at all while the gap runs");
 
 	joints[1].tracked = 1; /* back inside the gap, the fingers still together */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "hand blink: still closed as the hand returns");
 	check(count == 0, "hand blink: the return itself says nothing");
 }
@@ -463,14 +463,14 @@ static void hand_gap_expires(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "hand gap: starts closed");
 
 	joints[1].tracked = 0; /* the gap starts on this sample, so this one still holds */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "hand gap: the gap's first sample holds");
 
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.25, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.25, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "hand gap: 0.20 s untracked opens the pinch");
 	check(controls_all_zero(&controls[1]), "hand gap: every control of that hand is zero at the expiry");
 	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
@@ -480,7 +480,7 @@ static void hand_gap_expires(void)
 	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.25f, 1e-3f) &&
 		events[1].path == HANDS_PATH_HAND_LOST, "hand gap: and the 0.25 s of trigger the gap ended");
 
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 16);
 	check(count == 0, "hand gap: an expired gap says nothing more while the hand stays away");
 }
 
@@ -505,12 +505,12 @@ static void aim_turn_silent_in_a_hand_gap(void)
 	/* snap mode, armed inside the deadzone while the hand is tracked: a stale forward past the
 	deadzone would otherwise pulse the stick the instant the hand blinks */
 	forward[0] = cosf(10.0f * (float)M_PI / 180.0f); forward[1] = sinf(10.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_x == 0.0f && controls[1].trigger == 1.0f, "aim turn in a gap: armed and closed");
 
 	joints[1].tracked = 0;
 	forward[0] = cosf(45.0f * (float)M_PI / 180.0f); forward[1] = sinf(45.0f * (float)M_PI / 180.0f);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "aim turn in a gap: the pinch is still held");
 	check(controls[1].stick_x == 0.0f, "aim turn in a gap: no snap pulse from a stale forward");
 	check(count == 0, "aim turn in a gap: no event at all from a stale forward");
@@ -520,11 +520,11 @@ static void aim_turn_silent_in_a_hand_gap(void)
 	memset(&state, 0, sizeof(state));
 	joints[1] = make_hand(1);
 	forward[0] = cosf(31.5f * (float)M_PI / 180.0f); forward[1] = sinf(31.5f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(near(controls[1].stick_x, -0.5f, 1e-3f), "aim turn in a gap: turning before the blink");
 
 	joints[1].tracked = 0;
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "aim turn in a gap: the smooth turn contributes nothing");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 0,
 		"aim turn in a gap: the turn reports itself off");
@@ -546,20 +546,20 @@ static void off_hand_mapping(void)
 	joints[1] = make_hand(1);
 	joints[0].tip[1][2] = 0.010f; /* off hand (0): index closed */
 	joints[0].tip[2][2] = 0.010f; /* off hand (0): middle closed too; index wins */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_y == 1.0f, "off hand: index wins over middle, stick_y +1");
 	check(controls[0].menu == 0, "off hand: menu never set");
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[0].tip[2][2] = 0.010f; /* only middle: backward */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_y == -1.0f, "off hand: middle alone, stick_y -1");
 
 	memset(&state, 0, sizeof(state));
 	joints[0] = make_hand(0);
 	joints[0].tip[3][2] = 0.010f; /* ring: stick click */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_click == 1, "off hand: ring closes the stick click");
 }
 
@@ -576,7 +576,7 @@ static void mirror_aim(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[0].tip[1][2] = 0.010f; /* hand 0 is the gun hand now */
-	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[0].trigger == 1.0f, "mirror: hand 0's index fires when it is the gun hand");
 	check(controls[1].trigger == 0.0f, "mirror: hand 1 (the off hand) never fires from this pinch");
 
@@ -584,7 +584,7 @@ static void mirror_aim(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* walk forward with the off hand (now hand 1) */
-	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_y == 1.0f, "mirror: hand 1's index walks forward as the off hand");
 	check(controls[1].menu == 0, "mirror: the off hand's menu is never set, mirrored too");
 }
@@ -605,14 +605,14 @@ static void off_hand_untracked_zeros(void)
 	joints[1] = make_hand(1);
 	joints[0].tip[1][2] = 0.010f; /* the off hand walks forward */
 	joints[1].tip[1][2] = 0.010f; /* and the gun hand fires */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_y == 1.0f && controls[1].trigger == 1.0f, "untracked off hand: both start pinched");
 
 	joints[0].tracked = 0; /* the off hand's gap starts, so its stick still stands */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[0].stick_y == 1.0f, "untracked off hand: the gap holds its stick");
 
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 16);
 	check(controls_all_zero(&controls[0]), "untracked off hand: every control of its own zero past its gap");
 	check(controls[1].trigger == 1.0f, "untracked off hand: the gun hand still fires");
 }
@@ -633,23 +633,23 @@ static void aim_turn_smooth(void)
 	joints[1] = make_hand(1);
 
 	forward[0] = cosf(10.0f * (float)M_PI / 180.0f); forward[1] = sinf(10.0f * (float)M_PI / 180.0f); forward[2] = 0.0f;
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "aim smooth: 10 degrees left is inside the deadzone");
 
 	forward[0] = cosf(31.5f * (float)M_PI / 180.0f); forward[1] = sinf(31.5f * (float)M_PI / 180.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(near(controls[1].stick_x, -0.5f, 1e-3f), "aim smooth: 31.5 degrees left is -0.5");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 1 &&
 		near(events[0].value, 31.5f, 0.1f) && near(events[0].threshold, 18.0f, 1e-3f),
 		"aim smooth: one aim-turn-on event with the yaw against the deadzone");
 
 	forward[0] = cosf(-45.0f * (float)M_PI / 180.0f); forward[1] = sinf(-45.0f * (float)M_PI / 180.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(near(controls[1].stick_x, 1.0f, 1e-3f), "aim smooth: 45 degrees right is +1");
 	check(count == 0, "aim smooth: a turn already on says nothing as it crosses sides");
 
 	forward[0] = cosf(5.0f * (float)M_PI / 180.0f); forward[1] = sinf(5.0f * (float)M_PI / 180.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.3, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.3, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "aim smooth: back inside the deadzone, no turn");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 0,
 		"aim smooth: the turn's return to zero is logged");
@@ -672,19 +672,19 @@ static void aim_turn_wide_deadzone(void)
 	forward[2] = 0.0f;
 
 	forward[0] = cosf(20.0f * (float)M_PI / 180.0f); forward[1] = sinf(20.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 60.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 60.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "aim smooth: 20 degrees left is inside a 60 degree deadzone");
 
 	/* 27 degrees past that deadzone: the ramp's full deflection, turning left for a left yaw */
 	forward[0] = cosf(87.0f * (float)M_PI / 180.0f); forward[1] = sinf(87.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 60.0f, 1.1, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 60.0f, 0.0f, 1.1, controls, events, 16);
 	check(near(controls[1].stick_x, -1.0f, 1e-3f), "aim smooth: 87 degrees left with a 60 degree deadzone is -1");
 
 	/* a deadzone at 45 with the yaw right on its edge: the ramp is zero there, and clampf's own
 	guard means no NaN reaches stick_x even if the two angles land a hair apart */
 	memset(&state, 0, sizeof(state));
 	forward[0] = cosf(45.0f * (float)M_PI / 180.0f); forward[1] = sinf(45.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 45.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 45.0f, 0.0f, 1.0, controls, events, 16);
 	check(near(controls[1].stick_x, 0.0f, 1e-3f), "aim smooth: 45 degrees left with a 45 degree deadzone is zero");
 }
 
@@ -704,25 +704,25 @@ static void aim_turn_snap(void)
 	joints[1] = make_hand(1);
 
 	forward[0] = 1.0f; forward[1] = 0.0f; forward[2] = 0.0f; /* 0 degrees: arms it */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 
 	forward[0] = cosf(30.0f * (float)M_PI / 180.0f); forward[1] = sinf(30.0f * (float)M_PI / 180.0f);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[1].stick_x == -1.0f, "aim snap: 30 degrees left pulses -1");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN && events[0].on == 1, "aim snap: one aim-turn event");
 
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16); /* the pulse has released */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 16); /* the pulse has released */
 	check(controls[1].stick_x == 0.0f, "aim snap: the pulse releases");
 
 	forward[0] = cosf(25.0f * (float)M_PI / 180.0f); forward[1] = sinf(25.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.4, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "aim snap: still out past the deadzone, but disarmed: no re-fire");
 
 	forward[0] = cosf(10.0f * (float)M_PI / 180.0f); forward[1] = sinf(10.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.5, controls, events, 16); /* back inside: re-arms */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.5, controls, events, 16); /* back inside: re-arms */
 
 	forward[0] = cosf(30.0f * (float)M_PI / 180.0f); forward[1] = sinf(30.0f * (float)M_PI / 180.0f);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.6, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.6, controls, events, 16);
 	check(controls[1].stick_x == -1.0f, "aim snap: re-armed, pulses again");
 	check(controls[0].menu == 0, "aim snap: the off hand's menu is never set");
 }
@@ -747,20 +747,20 @@ static void aim_turn_untracked_gun_hand(void)
 	joints[1] = make_hand(1);
 	joints[1].tracked = 0; /* the gun hand has never been tracked */
 
-	count = hands_recognize(&state, joints, 1, zero_forward, 1, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, zero_forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "untracked gun hand: no turn from a zero forward");
 	check(count == 0, "untracked gun hand: no event from a zero forward");
 
 	forward40[0] = cosf(40.0f * (float)M_PI / 180.0f); forward40[1] = sinf(40.0f * (float)M_PI / 180.0f);
 	forward40[2] = 0.0f;
-	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[1].stick_x == 0.0f, "untracked gun hand: no turn from a forward well past the deadzone");
 	check(count == 0, "untracked gun hand: no event even well past the deadzone");
 
 	/* and the same for the elevation, which shares the gate: an arm raised 40 degrees on a hand
 	ARKit is not reporting elevates nothing and says nothing */
 	set_aim(forward40, 0.0f, 40.0f);
-	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward40, 1, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(controls[1].stick_y == 0.0f, "untracked gun hand: no elevation from a forward well past the deadzone");
 	check(count == 0, "untracked gun hand: no elevation event either");
 }
@@ -785,43 +785,43 @@ static void aim_elevation_smooth(void)
 	joints[1] = make_hand(1);
 
 	set_aim(forward, 0.0f, 0.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_y == 0.0f, "aim elevation: a level arm elevates nothing");
 	check(count == 0, "aim elevation: and says nothing about it");
 
 	set_aim(forward, 0.0f, 10.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(controls[1].stick_y == 0.0f, "aim elevation: 10 degrees up is inside the deadzone");
 
 	set_aim(forward, 0.0f, 31.5f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(near(controls[1].stick_y, 0.5f, 1e-3f), "aim elevation: 31.5 degrees up is +0.5, raising the gun");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1 &&
 		events[0].hand == 1 && near(events[0].value, 31.5f, 0.1f) && near(events[0].threshold, 18.0f, 1e-3f),
 		"aim elevation: one elevation-on event with the elevation against the deadzone");
 
 	set_aim(forward, 0.0f, 45.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.3, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.3, controls, events, 16);
 	check(near(controls[1].stick_y, 1.0f, 1e-3f), "aim elevation: 45 degrees up is the ramp's full +1");
 	check(count == 0, "aim elevation: an elevation already on says nothing as it ramps");
 
 	set_aim(forward, 0.0f, 80.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.4, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.4, controls, events, 16);
 	check(near(controls[1].stick_y, 1.0f, 1e-3f), "aim elevation: an arm straight up clamps at +1");
 
 	/* the mirror: an arm lowered the same amount deflects the same amount the other way, which
 	is what points a turret's gun down */
 	set_aim(forward, 0.0f, -31.5f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.5, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.5, controls, events, 16);
 	check(near(controls[1].stick_y, -0.5f, 1e-3f), "aim elevation: 31.5 degrees down is -0.5, lowering the gun");
 	check(count == 0, "aim elevation: crossing level without passing through the deadzone says nothing");
 
 	set_aim(forward, 0.0f, -45.0f);
-	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.6, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.6, controls, events, 16);
 	check(near(controls[1].stick_y, -1.0f, 1e-3f), "aim elevation: 45 degrees down is the ramp's full -1");
 
 	set_aim(forward, 0.0f, -5.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.7, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.7, controls, events, 16);
 	check(controls[1].stick_y == 0.0f, "aim elevation: back inside the deadzone, no elevation");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 0,
 		"aim elevation: the return to level is logged");
@@ -844,11 +844,117 @@ static void aim_elevation_ignores_snap(void)
 	joints[1] = make_hand(1);
 
 	set_aim(forward, 0.0f, 45.0f);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(near(controls[1].stick_y, 1.0f, 1e-3f), "aim elevation: snap turning still elevates");
 	check(controls[1].stick_x == 0.0f, "aim elevation: and the yaw inside the deadzone snaps nothing");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1,
 		"aim elevation: the elevation reports itself in snap mode too");
+}
+
+/* input.aim_pitch_offset corrects the elevation the same way controller_aim_game.c corrects
+the barrel ray: an arm held in the player's own natural aiming pose reads as level once their
+offset is subtracted, rather than as that offset's own worth of elevation. Without this trim
+a Covenant turret's gun climbed to its stop on every device session, since a level aim read
+as the full offset (27 degrees for the player who found it) and that was already past the
+deadzone (f7bfc0312 added the stick, this fixes what it read) */
+static void aim_elevation_pitch_offset(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	/* the natural pose itself: 27 degrees of raw elevation, trimmed level by a 27 degree
+	offset, is the case on device that flew the turret to its stop before this fix */
+	set_aim(forward, 0.0f, 27.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 27.0f, 1.0, controls, events, 16);
+	check(controls[1].stick_y == 0.0f, "pitch offset: a natural pose trimmed level elevates nothing");
+	check(count == 0, "pitch offset: and says nothing about it");
+
+	/* 20 degrees up from that trimmed zero: 47 degrees raw, 20 once trimmed, 2 past the 18
+	degree deadzone */
+	set_aim(forward, 0.0f, 47.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 27.0f, 1.1, controls, events, 16);
+	check(near(controls[1].stick_y, 2.0f / 27.0f, 1e-3f),
+		"pitch offset: 20 degrees up from the trimmed zero raises the gun");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1 &&
+		near(events[0].value, 20.0f, 0.1f) && near(events[0].threshold, 18.0f, 1e-3f),
+		"pitch offset: the elevation event carries the trimmed angle, not the raw one");
+
+	/* 20 degrees down from the trimmed zero instead: 7 degrees raw, -20 once trimmed. The jump
+	passes straight through the trimmed zero without a sample inside the deadzone, exactly as
+	aim_elevation_smooth's own crossing does, so this reports nothing new */
+	set_aim(forward, 0.0f, 7.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 27.0f, 1.2, controls, events, 16);
+	check(near(controls[1].stick_y, -2.0f / 27.0f, 1e-3f),
+		"pitch offset: 20 degrees down from the trimmed zero lowers the gun");
+	check(count == 0, "pitch offset: crossing the trimmed zero without passing through the deadzone says nothing");
+}
+
+/* the regression this fixes, pinned to the angle that found it: the same natural pose with no
+offset applied reads the full 27 degrees of raw elevation and deflects the stick, which is what
+climbed the turret before input.aim_pitch_offset was read on this path at all */
+static void aim_elevation_without_pitch_offset(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls controls[2];
+	struct hands_event events[16];
+	float forward[3];
+	int count;
+
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	set_aim(forward, 0.0f, 27.0f);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0, controls, events, 16);
+	check(near(controls[1].stick_y, 9.0f / 27.0f, 1e-3f),
+		"pitch offset: without it the same natural pose still deflects the stick, which is the regression");
+	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1,
+		"pitch offset: and reports the elevation turning on");
+}
+
+/* the trim only ever reaches the elevation (host_spatial_hands.c's hands_recognize keeps the
+yaw on the raw aim_forward): the same arm turns the stick by the same amount and logs the same
+AIM_TURN value whatever input.aim_pitch_offset is set to */
+static void aim_turn_ignores_pitch_offset(void)
+{
+	struct hands_state untrimmed_state, trimmed_state;
+	struct host_spatial_hand_joints joints[2];
+	struct host_spatial_controls untrimmed_controls[2], trimmed_controls[2];
+	struct hands_event untrimmed_events[16], trimmed_events[16];
+	float forward[3];
+	int untrimmed_count, trimmed_count;
+
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+
+	/* the elevation stays inside the 18 degree deadzone both trimmed and untrimmed (12, and
+	12 - 27 = -15), so neither run's elevation axis has anything to say and the only event
+	either logs is the turn being compared */
+	set_aim(forward, 31.5f, 12.0f);
+
+	memset(&untrimmed_state, 0, sizeof(untrimmed_state));
+	untrimmed_count = hands_recognize(&untrimmed_state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0,
+		untrimmed_controls, untrimmed_events, 16);
+
+	memset(&trimmed_state, 0, sizeof(trimmed_state));
+	trimmed_count = hands_recognize(&trimmed_state, joints, 1, forward, 0, 18.0f, 27.0f, 1.0,
+		trimmed_controls, trimmed_events, 16);
+
+	check(near(untrimmed_controls[1].stick_x, trimmed_controls[1].stick_x, 1e-6f),
+		"pitch offset: the turn deflects identically whatever the trim is");
+	check(untrimmed_count == 1 && trimmed_count == 1 &&
+		untrimmed_events[0].kind == HANDS_EVENT_AIM_TURN && trimmed_events[0].kind == HANDS_EVENT_AIM_TURN &&
+		near(untrimmed_events[0].value, trimmed_events[0].value, 1e-6f),
+		"pitch offset: and logs the same yaw either way");
 }
 
 /* the two axes of the one stick are read off the same aim forward and neither touches the
@@ -868,13 +974,13 @@ static void aim_axes_do_not_interfere(void)
 	joints[1] = make_hand(1);
 
 	set_aim(forward, 31.5f, 0.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(near(controls[1].stick_x, -0.5f, 1e-3f), "two axes: 31.5 degrees left turns -0.5");
 	check(controls[1].stick_y == 0.0f, "two axes: and a level arm elevates nothing while it turns");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_TURN, "two axes: only the turn is logged");
 
 	set_aim(forward, 31.5f, 31.5f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.1, controls, events, 16);
 	check(near(controls[1].stick_x, -0.5f, 1e-3f), "two axes: raising the arm leaves the turn where it was");
 	check(near(controls[1].stick_y, 0.5f, 1e-3f), "two axes: and elevates +0.5 beside it");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 1,
@@ -882,7 +988,7 @@ static void aim_axes_do_not_interfere(void)
 
 	/* and back the other way: dropping the arm to level ends the elevation alone */
 	set_aim(forward, 31.5f, 0.0f);
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.2, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.2, controls, events, 16);
 	check(near(controls[1].stick_x, -0.5f, 1e-3f), "two axes: the turn still stands");
 	check(controls[1].stick_y == 0.0f, "two axes: the elevation alone has gone");
 	check(count == 1 && events[0].kind == HANDS_EVENT_AIM_ELEVATION && events[0].on == 0,
@@ -907,7 +1013,7 @@ static void aim_turn_with_middle_pinch_closed(void)
 	joints[1].tip[2][2] = 0.010f; /* the gun hand's middle closes */
 	forward[0] = cosf(-45.0f * (float)M_PI / 180.0f); forward[1] = sinf(-45.0f * (float)M_PI / 180.0f); forward[2] = 0.0f;
 
-	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 0, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(near(controls[1].stick_x, 1.0f, 1e-3f), "middle pinch closed: 45 degrees right still turns +1");
 	check(controls[1].face_high == 1, "middle pinch closed: the pinch fills the high face button");
 	check(controls[1].trigger == 0.0f && controls[1].face_low == 0,
@@ -933,7 +1039,7 @@ static void middle_pinch_does_not_cross_hands(void)
 	joints[1] = make_hand(1);
 	joints[1].tip[2][2] = 0.010f; /* gun hand (1): middle closed */
 	joints[0].tip[2][2] = 0.010f; /* off hand (0): middle closed */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].face_high == 1, "gun hand: middle pinch fills the high face button");
 	check(controls[1].trigger == 0.0f && controls[1].face_low == 0 && controls[1].grip == 0 &&
 		controls[1].stick_click == 0 && controls[1].stick_x == 0.0f && controls[1].stick_y == 0.0f &&
@@ -978,43 +1084,43 @@ static void prayer(void)
 	/* a 1.0 baseline keeps every timestamp strictly positive, away from the state's own
 	zero-means-idle sentinels (prayer_since, pulse/cooldown clocks) */
 	for (t = 1.0; t <= 1.55 + 1e-9; t += 0.05)
-		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: not yet at 0.55 s held");
 
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.6, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.6, controls, events, 16);
 	check(controls[1].menu == 1, "prayer: fires at 0.6 s held");
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.69, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.69, controls, events, 16);
 	check(controls[1].menu == 1, "prayer: Start still held at 0.69 s");
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.71, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.71, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: Start released by 0.71 s");
 	check(count == 1 && events[0].kind == HANDS_EVENT_START && events[0].on == 0,
 		"prayer: the Start pulse's end is logged, so its width shows");
 
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 3.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 3.0, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: no re-fire from a continued hold");
 	check(controls[0].menu == 0, "prayer: the off hand's menu is never set");
 
 	/* break the pose, then resume: the dwell restarts and does not fire early */
 	memset(&state, 0, sizeof(state));
 	for (t = 1.0; t <= 1.3; t += 0.05)
-		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 	joints[0].wrist[1] = 0.5f; /* the pose breaks: too far apart */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 16);
 	joints[0].wrist[1] = 0.05f; /* resumes */
 	for (t = 1.35; t <= 1.6 + 1e-9; t += 0.05)
-		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: a break restarts the dwell, no fire by the old schedule's 0.6 s");
 
 	/* a fresh hold starting inside the cooldown never fires */
 	memset(&state, 0, sizeof(state));
 	for (t = 1.0; t <= 1.6 + 1e-9; t += 0.05)
-		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 1, "prayer cooldown setup: the first hold fires");
 	joints[0].wrist[1] = 0.5f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.8, controls, events, 16); /* release */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.8, controls, events, 16); /* release */
 	joints[0].wrist[1] = 0.05f;
 	for (t = 1.8; t <= 1.8 + 0.2 + 0.6 + 1e-9; t += 0.05) /* a new hold 0.2 s after the fire */
-		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: a hold that begins inside the cooldown never fires");
 }
 
@@ -1036,19 +1142,19 @@ static void start_pulse_outlives_the_hands(void)
 	prayer_pose(joints);
 	joints[1].tip[1][2] = 0.010f; /* the gun hand's index closed too, to zero with the rest */
 	for (t = 1.0; t <= 1.6 + 1e-9; t += 0.05)
-		hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 1, "start pulse: the sign fires at 0.6 s held");
 
 	joints[0].tracked = joints[1].tracked = 0; /* both hands gone the very next sample */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.62, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.62, controls, events, 16);
 	check(controls[1].menu == 1, "start pulse: still held with both hands untracked inside the window");
 	check(controls[1].trigger == 1.0f, "start pulse: the gun hand's index is held by its own gap");
 
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.75, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.75, controls, events, 16);
 	check(controls[1].menu == 0, "start pulse: released once the window ends, hands or no hands");
 
 	/* and the hands' own gap runs out a little later, which is where the pinches go */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.8, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.8, controls, events, 16);
 	check(controls_all_zero(&controls[1]), "start pulse: every control of the gun hand zero past its gap");
 }
 
@@ -1068,20 +1174,20 @@ static void pinch_miss_logged(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* the gun hand's index pinch closed at t = 1.0 */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 
 	joints[1].tip_tracked[0] = 0; /* the thumb drops: every one of that hand's four pinches carries it */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "pinch miss: the closed pinch holds through the gap");
 	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX, "pinch miss: one miss-on event per carried pinch");
 
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.35, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.35, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "pinch miss: a gap of any length never opens the pinch");
 	check(count == 0, "pinch miss: a gap already logged says nothing more while it runs");
 
 	joints[1].tip_tracked[0] = 1; /* the thumb returns: each gap ends with its own length */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.4, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.4, controls, events, 16);
 	check(count == 4 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 0 &&
 		near(events[0].value, 0.35f, 1e-3f), "pinch miss: each gap's length is logged as it ends");
 }
@@ -1107,11 +1213,11 @@ static void pinch_hold_duration_logged(void)
 
 	/* a tap: pressed at t = 10.0, let go 80 ms later */
 	joints[1].tip[1][2] = 0.010f;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 10.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 10.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 1, "hold length: the tap's press, with no hold line behind it");
 
 	joints[1].tip[1][2] = 0.040f;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 10.08, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 10.08, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "hold length: the tap releases");
 	check(count == 3 && events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.08f, 1e-3f) &&
 		events[1].hand == 1 && events[1].finger == HANDS_PINCH_INDEX && events[1].on == 0 &&
@@ -1120,18 +1226,18 @@ static void pinch_hold_duration_logged(void)
 	/* a deliberate hold, with a blink in it: pressed at t = 11.0, the hand gone for one sample
 	well inside HANDS_HAND_GAP_SECONDS, released at t = 12.5 */
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 11.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 11.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "hold length: pressed again at t = 11.0");
 
 	joints[1].tracked = 0;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 11.05, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 11.05, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "hold length: a blink holds the trigger silently");
 	joints[1].tracked = 1;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 11.1, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 11.1, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "hold length: and the hand's return is not a fresh press");
 
 	joints[1].tip[1][2] = 0.040f;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 12.5, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 12.5, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "hold length: the hold releases");
 	check(count == 3 && events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 1.5f, 1e-3f),
 		"hold length: reporting the whole 1.5 s from the press, blink included");
@@ -1157,15 +1263,15 @@ static void event_capacity_clamped(void)
 		joints[0].tip[finger][2] = 0.010f;
 		joints[1].tip[finger][2] = 0.010f;
 	}
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 2); /* capacity matches the
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 2); /* capacity matches the
 		buffer on every call: this setup sample emits more than 2 events too, into the same events[2] */
 
 	joints[0].tracked = 0; /* both hands untracked: the sample their gaps start on holds everything */
 	joints[1].tracked = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.1, controls, events, 2);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.1, controls, events, 2);
 
 	/* past both gaps: every one of the 8 closed pinches opens at once */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.3, controls, events, 2);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.3, controls, events, 2);
 	check(count == 2, "event capacity: the return clamps to capacity, not the true 8");
 	check(events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0, "event capacity: events[0] is a valid pinch-off");
 	/* events[1] is that pinch's own hold line, since every release writes one right behind
@@ -1196,18 +1302,18 @@ static void pinch_parts_while_the_tip_is_hidden(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* the index pinch closes on a live reading at t = 1.0 */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 1 && events[0].path == HANDS_PATH_MEASURED,
 		"parts: the press is measured from the tips");
 
 	joints[1].tip_tracked[1] = 0; /* and the pinch hides the tip immediately, as on device */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
 		events[0].path == HANDS_PATH_CARRIED, "parts: the gap opens as a carried one");
 
 	for (t = 1.022; t <= 4.022 + 1e-9; t += 0.011) /* 3.0 s with the fingers still together */
 	{
-		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 		events_seen += count;
 		if (controls[1].trigger != 1.0f)
 			opened++;
@@ -1216,10 +1322,10 @@ static void pinch_parts_while_the_tip_is_hidden(void)
 	check(events_seen == 0, "parts: a gap with the fingers together says nothing at all");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f); /* the fingers part, the tip still hidden */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.033, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 4.033, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0,
 		"parts: the first sample past the margin arms the release rather than taking it");
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.044, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 4.044, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "parts: the trigger releases on the sample that confirms the parting");
 	check(count == 2 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 0 &&
 		events[0].path == HANDS_PATH_PARTED, "parts: one pinch-off event, named as the pair's");
@@ -1230,7 +1336,7 @@ static void pinch_parts_while_the_tip_is_hidden(void)
 	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 3.044f, 1e-3f) &&
 		events[1].path == HANDS_PATH_PARTED, "parts: with the 3.044 s of trigger the pair ended");
 
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 4.055, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 4.055, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 0,
 		"parts: the carry cannot close it again while the pair says apart");
 }
@@ -1255,13 +1361,13 @@ static void pinch_parts_at_the_intermediate_tip_alone(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "distal joint: pressed at t = 1.0");
 	memcpy(held_base, joints[1].intermediate_base[HANDS_PINCH_INDEX + 1], sizeof(held_base));
 	memcpy(held_knuckle, joints[1].knuckle[HANDS_PINCH_INDEX + 1], sizeof(held_knuckle));
 
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 
 	/* the one joint that travels, and nothing else: 2.0 cm clears the margin several times
 	over, so a failure here is the joint choice and not the margin */
@@ -1269,8 +1375,8 @@ static void pinch_parts_at_the_intermediate_tip_alone(void)
 	check(!memcmp(held_base, joints[1].intermediate_base[HANDS_PINCH_INDEX + 1], sizeof(held_base)) &&
 		!memcmp(held_knuckle, joints[1].knuckle[HANDS_PINCH_INDEX + 1], sizeof(held_knuckle)),
 		"distal joint: the middle knuckle and the knuckle really did not move");
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "distal joint: the joint behind the fingertip releases the pinch");
 	check(count == 2 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
 		"distal joint: the growth is that joint's own 2.0 cm");
@@ -1293,20 +1399,20 @@ static void pinch_part_margin_edges(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.054f); /* 4 mm, under the margin */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "margin: 4 mm of growth holds the pinch");
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "margin: and holds it for as long as it stays there");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.056f); /* 6 mm, over it */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.044, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "margin: 6 mm arms the release on the sample it appears");
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.055, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "margin: 6 mm releases on the very next sample, 11 ms later");
 	check(count == 2 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.006f, 1e-4f),
 		"margin: the release carries the 6 mm that earned it");
@@ -1335,19 +1441,19 @@ static void pinch_part_growth_logged(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.054f); /* 4 mm: not enough to release */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "growth: held on 4 mm, as the margin says");
 
 	/* the tip comes back apart, which is the release the device log was full of: the pinch
 	waited for the camera rather than for the fingers */
 	joints[1].tip_tracked[1] = 1;
 	joints[1].tip[1][2] = 0.040f;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 4,
 		"growth: the gap's end, the release, the hold's length and the growth behind it");
 	check(events[1].kind == HANDS_EVENT_PINCH && events[1].on == 0 && events[1].path == HANDS_PATH_MEASURED,
@@ -1367,9 +1473,9 @@ static void pinch_part_growth_logged(void)
 	/* a release with no gap before it: the reference is one sample old, so the growth is not a
 	measurement of anything, and the line says so by coming out off rather than on */
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.044, controls, events, 16);
 	joints[1].tip[1][2] = 0.040f;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.055, controls, events, 16);
 	check(count == 3 && events[2].kind == HANDS_EVENT_PART_GROWTH && events[2].on == 0 &&
 		near(events[2].value, 0.0f, 1e-4f), "growth: a release with no gap before it reports a growth of nothing");
 	check(events[1].kind == HANDS_EVENT_PINCH_HELD && near(events[1].value, 0.011f, 1e-3f),
@@ -1394,17 +1500,17 @@ static void pinch_tap_releases_on_the_confirming_sample(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tap: pressed at t = 1.0");
 
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "tap: held while the tip is hidden");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.065f); /* 1.5 cm of parting, 22 ms in */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0, "tap: the parting's first sample is the confirmation's");
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "tap: released 33 ms after the press, one sample after the parting showed");
 	check(count == 2 && events[0].on == 0 && events[0].path == HANDS_PATH_PARTED,
 		"tap: the release is the pair's, not a tip that came back");
@@ -1434,15 +1540,15 @@ static void pinch_hold_to_fire_never_releases(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "hold to fire: pressed, and the tip hidden by it");
 
 	for (t = 1.022; t <= 6.022 + 1e-9; t += 0.011) /* 5.0 s at 90 Hz, the hand moving throughout */
 	{
 		move_hand(&joints[1], 1.0f, along);
-		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, t, controls, events, 16);
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, t, controls, events, 16);
 		events_seen += count;
 		samples++;
 		if (controls[1].trigger != 1.0f)
@@ -1453,7 +1559,7 @@ static void pinch_hold_to_fire_never_releases(void)
 	check(events_seen == 0, "hold to fire: and nothing is logged against it");
 
 	joints[1].tip_tracked[1] = 1; /* the tip is seen again, still on the thumb */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 6.033, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 6.033, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS &&
 		events[0].on == 0, "hold to fire: still closed as the tip returns, with only the gap's length logged");
 }
@@ -1476,17 +1582,17 @@ static void pinch_part_uses_the_thumb_ladder(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "thumb ladder: starts closed with every level measured");
 
 	joints[1].tip_tracked[1] = 0;
 	joints[1].intermediate_tip_tracked[0] = 0; /* the thumb's own distal joint goes with the tip */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "thumb ladder: held with only the thumb's base left");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f, "thumb ladder: the level on the thumb's base releases it");
 	check(count == 2 && events[0].path == HANDS_PATH_PARTED && near(events[0].value, 0.020f, 1e-4f),
 		"thumb ladder: the growth is the same 2.0 cm, measured from that level's own reference");
@@ -1509,7 +1615,7 @@ static void pinch_part_falls_back_without_the_pair(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 
 	joints[1].tip_tracked[1] = 0;
 	/* the finger's whole half of the ladder, every joint of it: with none of its three left
@@ -1517,18 +1623,18 @@ static void pinch_part_falls_back_without_the_pair(void)
 	joints[1].intermediate_tip_tracked[1] = 0;
 	joints[1].intermediate_base_tracked[1] = 0;
 	joints[1].knuckle_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f); /* parted, but nothing can see it */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0,
 		"no pair: an unreadable pair holds the pinch, exactly as the carry alone did");
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 1.0f && count == 0,
 		"no pair: and holds it for as long as the pair stays unreadable");
 
 	joints[1].intermediate_tip_tracked[1] = 1; /* the joints come back, and the parting with them */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.044, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.055, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 2 && events[0].path == HANDS_PATH_PARTED,
 		"no pair: the release waits for the pair rather than being guessed without it");
 }
@@ -1550,19 +1656,19 @@ static void pinch_parts_with_nothing_to_carry(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 
 	joints[1].tip_tracked[1] = 0;
 	joints[1].metacarpal_tracked[0] = joints[1].metacarpal_tracked[1] = 0;
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "blind pinch: held with no palm frame to carry the tip in");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH_MISS && events[0].on == 1 &&
 		events[0].finger == HANDS_PINCH_INDEX && events[0].path == HANDS_PATH_BLIND,
 		"blind pinch: the index's gap is logged as a blind one, not as a carried one");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f);
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 2 && events[0].path == HANDS_PATH_PARTED,
 		"blind pinch: the pair releases it even with no reading of the tips at all");
 }
@@ -1585,21 +1691,21 @@ static void pinch_part_does_not_chatter(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.0, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.0, controls, events, 16);
 	joints[1].tip_tracked[1] = 0;
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.011, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.011, controls, events, 16);
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.070f); /* 2.0 cm: past the margin, released */
-	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.022, controls, events, 16);
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.033, controls, events, 16);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.022, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.033, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 2, "chatter: released past the margin");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.054f); /* 4 mm: inside the band, still apart */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.044, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.044, controls, events, 16);
 	check(controls[1].trigger == 0.0f && count == 0, "chatter: a pair back inside the band stays released");
 
 	set_part_pair(&joints[1], HANDS_PINCH_INDEX, 0.052f); /* 2 mm: together again, a real re-press */
-	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 1.055, controls, events, 16);
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 0.0f, 1.055, controls, events, 16);
 	check(controls[1].trigger == 1.0f, "chatter: the fingers back together close it again");
 	check(count == 1 && events[0].kind == HANDS_EVENT_PINCH && events[0].on == 1 &&
 		events[0].path == HANDS_PATH_CARRIED, "chatter: and that press is logged as the carry's, not the tips'");
@@ -1625,6 +1731,9 @@ int main(void)
 	aim_turn_untracked_gun_hand();
 	aim_elevation_smooth();
 	aim_elevation_ignores_snap();
+	aim_elevation_pitch_offset();
+	aim_elevation_without_pitch_offset();
+	aim_turn_ignores_pitch_offset();
 	aim_axes_do_not_interfere();
 	aim_turn_with_middle_pinch_closed();
 	middle_pinch_does_not_cross_hands();

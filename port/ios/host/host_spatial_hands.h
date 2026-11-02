@@ -273,7 +273,8 @@ struct hands_event { int kind, hand, finger, on, path; float value, threshold; }
 gun hand, the gun hand's aim forward in the game's axes (from
 halo_spatial_hand.aim, whose index 2 is up, so the aiming stick's turn comes
 off its yaw and its elevation off its rise), snap or smooth turning, the
-deadzone, the time;
+deadzone, input.aim_pitch_offset (degrees, the same trim
+controller_aim_game.c applies to the barrel ray), the time;
 fills both controls (index 0 left, 1 right) for host_spatial_gamepad_map,
 and up to `capacity` state-change events for the caller to log. Returns
 the event count, clamped to `capacity`: a caller's events[0..count) is
@@ -281,7 +282,8 @@ always in bounds, even when a sample changes more states than `capacity`
 holds. Never sets other->menu: there is no off-hand gesture for it, and
 host_spatial_gamepad_map reads that field as the pad's Back */
 int hands_recognize(struct hands_state *state, const struct host_spatial_hand_joints joints[2],
-	int aiming_hand, const float aim_forward[3], int turn_snap, float deadzone_degrees, double now,
+	int aiming_hand, const float aim_forward[3], int turn_snap, float deadzone_degrees,
+	float pitch_offset_degrees, double now,
 	struct host_spatial_controls controls[2], struct hands_event *events, int capacity);
 
 #ifdef __OBJC__
