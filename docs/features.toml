@@ -32,25 +32,32 @@ name = "Apple Vision Pro"
 deployment = "visionos"
 devices = ["M2 Vision Pro", "M5 Vision Pro"]
 bullets = [
-    "A whole new way to experience Halo",
-    "Full stereo VR with head tracking and foveated rendering",
-    "Gameplay elements reimagined for a first-class VR experience",
-    "Immersive cutscenes true to the directorial intent",
-    "Supports PlayStation VR2 Sense controllers for hand-tracked gunplay",
-    "Works on both M2 and M5 Vision Pro",
-    "visionOS {visionos_minimum} or later",
+    "Full stereo VR",
+    "Head tracking and foveated rendering",
+    "PlayStation VR2 Sense gunplay",
+    "M2 or M5, visionOS {visionos_minimum} or later",
 ]
 
-[platforms.iphone-and-ipad]
-name = "iPhone and iPad"
+[platforms.iphone]
+name = "iPhone"
 deployment = "ios"
-devices = ["iPhone 8 or newer", "iPad"]
+devices = ["iPhone 8 or newer"]
 bullets = [
-    "Built-in touch controls for an on-the-go experience",
+    "Touch controls built in",
     "Full controller support",
-    "Play on a TV or monitor via cable or AirPlay",
-    "iPhone 8 or newer",
-    "iOS/iPadOS {ios_minimum} or later",
+    "Play on a TV via cable or AirPlay",
+    "iPhone 8 or newer, iOS {ios_minimum} or later",
+]
+
+[platforms.ipad]
+name = "iPad"
+deployment = "ios"
+devices = ["iPad"]
+bullets = [
+    "Touch controls built in",
+    "Full controller support",
+    "Play on a TV via cable or AirPlay",
+    "iPadOS {ios_minimum} or later",
 ]
 
 [platforms.apple-tv]
@@ -58,10 +65,9 @@ name = "Apple TV"
 deployment = "tvos"
 devices = ["Apple TV"]
 bullets = [
-    "Full controller support",
     "Split-screen multiplayer on one TV",
-    "Apple TV HD or 4K",
-    "tvOS {tvos_minimum} or later",
+    "Full controller support",
+    "Apple TV HD or 4K, tvOS {tvos_minimum} or later",
 ]
 
 [platforms.mac]
@@ -69,9 +75,9 @@ name = "Mac"
 deployment = "macos"
 devices = ["Mac"]
 bullets = [
-    "Native AppKit app",
-    "Keyboard and mouse support",
-    "Any size, full screen or windowed",
+    "Native app",
+    "Keyboard and mouse",
+    "Windowed or full screen",
     "Any Apple Silicon Mac, macOS {macos_minimum} or later",
 ]
 

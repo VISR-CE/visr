@@ -50,7 +50,7 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .site-nav a:last-child { min-height: 44px; border-color: var(--hud-cyan); border-radius: 4px; color: var(--hud-cyan); }
 .site-nav a:last-child:hover { background: var(--hud-wash); color: var(--ink); }
 
-/* The floor and scan stay behind the hero content. */
+/* The floor stays behind the hero content. */
 .head { position: relative; isolation: isolate; max-width: none; display: flex; flex-direction: column; text-align: left; padding-block: 36px 26px; gap: 26px; }
 .head::before, .bench-head::before {
   content: "";
@@ -68,7 +68,6 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
     linear-gradient(var(--hud-blue), var(--hud-blue)) right bottom / 2px var(--hud-corner);
   background-repeat: no-repeat;
 }
-.head::after { content: ""; position: absolute; z-index: -1; top: 0; left: calc(50% - 50vw); width: 100vw; height: 120px; pointer-events: none; background: linear-gradient(transparent, color-mix(in srgb, var(--hud-cyan) 7%, transparent) 70%, color-mix(in srgb, var(--hud-cyan) 22%, transparent)); animation: a-scan 7s linear infinite; }
 .hero-floor { position: absolute; z-index: -1; pointer-events: none; top: 62%; left: calc(50% - 50vw); width: 100vw; height: 38%; perspective: 600px; perspective-origin: 50% 0; overflow: hidden; }
 .hero-floor::before { content: ""; position: absolute; top: 0; left: -50%; width: 200%; height: 900px; transform: rotateX(72deg); transform-origin: 50% 0; background-image: linear-gradient(var(--hud-floor) 1.5px, transparent 1.5px), linear-gradient(90deg, var(--hud-floor) 1.5px, transparent 1.5px); background-size: 80px 80px; mask-image: linear-gradient(transparent, #000 30%, transparent 90%); animation: c-run 3.2s linear infinite; }
 .hero-floor::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--hud-cyan), transparent); box-shadow: 0 0 30px var(--hud-cyan); opacity: 0.6; }
@@ -86,7 +85,29 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .head .lede + .lede { font-size: 16px; }
 .hero-media { order: 3; position: relative; width: 100%; margin: 0; align-self: center; filter: drop-shadow(0 0 18px #1fa9d480); animation: a-float 9s ease-in-out infinite; }
 .hero-media::before { content: ""; position: absolute; z-index: -1; inset: -20%; background: radial-gradient(closest-side, #1fa9d459, transparent 85%); pointer-events: none; }
-.hero-media > :is(img, video) { width: 100%; height: auto; display: block; aspect-ratio: 216 / 132; object-fit: cover; clip-path: url(#vp-clip); }
+/* The visor: media in the panorama's shape, under glass, with the gold rim. */
+.hero-media, .platforms .device-vision { container-type: inline-size; }
+.visor-face { position: relative; }
+.visor-face > :is(img, video) { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 0; clip-path: url(#vp-clip); }
+.visor-glass { --glare: 40%; position: absolute; inset: 0; pointer-events: none; clip-path: url(#vp-clip); background:
+  linear-gradient(var(--glare-angle), transparent calc(var(--glare) - 20%), #ffffff14 calc(var(--glare) - 9%), #ffffff3d var(--glare), #ffffff0f calc(var(--glare) + 5%), transparent calc(var(--glare) + 16%)),
+  radial-gradient(ellipse 75% 45% at 50% var(--sheen), #cfeaff33, transparent 100%); }
+.visor-glass svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: blur(1.25cqw); }
+.visor-glass path { fill: none; stroke: #00040acc; stroke-width: 6; }
+.visor-rim { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.visor-rim path { fill: none; stroke: var(--visr-gold); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.hero-media .visor-face { transform: perspective(220cqw) rotateX(-10deg) rotateY(-32deg); }
+/* The hero's headset has a dark glass front around a smaller screen. */
+.hero-media .visor-face { aspect-ratio: 2 / 1; }
+.hero-media .visor-face::before { content: ""; position: absolute; inset: 0; clip-path: url(#vp-clip); background: radial-gradient(ellipse 90% 90% at 40% 25%, #17242e, #05090e 75%); }
+.hero-media .visor-face > :is(img, video) { position: absolute; left: 3.75%; top: 6.5%; width: 92.5%; height: 87%; aspect-ratio: auto; }
+/* The inner shadow hugs the screen, with the dark glass outside it. The hero has no gold rim. */
+.hero-media .visor-rim { display: none; }
+.hero-media .visor-glass svg { inset: 6.5% auto auto 3.75%; width: 92.5%; height: 87%; }
+.visor-dome { position: absolute; left: -25%; top: -25%; width: 150%; height: 150%; pointer-events: none; }
+.hero-media.is-convex .visor-face { visibility: hidden; }
+.visor-wire { position: absolute; left: -50%; top: -50%; width: 200%; height: 200%; overflow: visible; pointer-events: none; }
+.visor-wire path { fill: none; stroke: var(--hud-cyan); stroke-width: 1; stroke-opacity: .75; vector-effect: non-scaling-stroke; }
 .head .platform-nav { order: 5; position: static; transform: none; width: 100%; max-width: none; justify-content: flex-start; margin: 4px 0 0; gap: 8px; }
 .platform-nav::after { content: ""; flex-basis: 100%; order: 2; }
 .platform-nav a { order: 3; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: var(--hud-cyan); font: 11px/1.4 var(--hud-mono); letter-spacing: 0.06em; text-transform: uppercase; }
@@ -100,9 +121,9 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .head blockquote p { margin: 0; min-width: 0; }
 
 /* Home cards and platform panels share the same blue glass. */
-.page > section[aria-labelledby="on-every-device"] { border: 0; padding-top: 0; margin-top: 44px; }
-#on-every-device { position: static; width: auto; height: auto; margin: 0 0 24px; padding: 0; overflow: visible; clip: auto; white-space: normal; }
-#on-every-device, .platforms-title, .bench h2, .method h2 { font: 600 clamp(19px, 2.5vw, 26px)/1.3 Orbitron, sans-serif; text-transform: uppercase; letter-spacing: 0.1em; color: var(--hud-blue); }
+.page > section[aria-labelledby="a-premium-experience-on-every-device"] { border: 0; padding-top: 0; margin-top: 44px; }
+#a-premium-experience-on-every-device { position: static; width: auto; height: auto; margin: 0 0 24px; padding: 0; overflow: visible; clip: auto; white-space: normal; }
+#a-premium-experience-on-every-device, .platforms-title, .bench h2, .method h2 { font: 600 clamp(19px, 2.5vw, 26px)/1.3 Orbitron, sans-serif; text-transform: uppercase; letter-spacing: 0.1em; color: var(--hud-blue); }
 .pillars { grid-template-columns: minmax(0, 1fr); gap: 14px; text-align: left; }
 .pillars li { padding: 18px; border: 2px solid var(--hud-blue); border-radius: 12px; background: var(--hud-panel); box-shadow: inset 0 0 24px var(--hud-glow), 0 0 18px color-mix(in srgb, var(--hud-glow) 50%, transparent); }
 .pillar-icon { width: 56px; height: 56px; margin: 0 0 18px; border-radius: 12px; }
@@ -126,23 +147,23 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .platforms .device :is(img, video) { display: block; width: 100%; height: auto; border: 0; border-radius: 6px; }
 .platforms .device-iphone { padding: 7px 18px; border-radius: 30px; }
 .platforms .device-iphone :is(img, video) { border-radius: 20px; }
-.platforms .device-ipad { width: 62%; justify-self: center; padding: 11px; border-radius: 20px; }
+.platforms .device-iphone { width: 100%; }
+.platforms .device-ipad { width: 74%; justify-self: center; padding: 11px; border-radius: 20px; }
+@media (min-width: 900px) {
+  .platforms .device-iphone { width: 100%; }
+}
 .platforms .device-ipad :is(img, video) { border-radius: 9px; }
 .platforms .device-tv { margin-bottom: 26px; padding: 6px; border-radius: 8px; }
 .platforms .device-tv :is(img, video) { border-radius: 3px; }
 .platforms .device-tv::after { content: ""; position: absolute; left: 32%; bottom: -25px; width: 36%; height: 24px; background: color-mix(in srgb, var(--hud-blue) 22%, transparent);
   clip-path: polygon(42% 0, 58% 0, 64% 78%, 100% 86%, 100% 100%, 0 100%, 0 86%, 36% 78%); }
-.platforms .device-mac { margin-bottom: 14px; padding: 8px 8px 12px; border-radius: 12px 12px 4px 4px; }
+.platforms .device-mac { width: 90%; justify-self: center; margin-bottom: 14px; padding: 8px 8px 12px; border-radius: 12px 12px 4px 4px; }
 .platforms .device-mac :is(img, video) { border-radius: 4px; }
 .platforms .device-mac::after { content: ""; position: absolute; left: -3%; bottom: -13px; width: 106%; height: 12px; border: 1px solid var(--outline); border-radius: 2px 2px 14px 14px;
   background: color-mix(in srgb, var(--hud-blue) 14%, transparent); }
-/* Vision Pro: the glass shape the hero uses (`#vp-clip`), with a thin glow along its edge. The clip is on the media and the
-   outline is a drop shadow on the figure, so it follows the clipped edge. */
-.platforms .device-vision { padding: 0; border: 0; border-radius: 0; box-shadow: none;
-  filter: drop-shadow(0 0 0.6px var(--hud-blue)) drop-shadow(0 0 0.6px var(--hud-blue)) drop-shadow(0 0 0.6px var(--hud-blue)) drop-shadow(0 0 12px var(--hud-glow)); }
-.platforms .device-vision :is(img, video) { aspect-ratio: 216 / 132; object-fit: cover; border-radius: 0; clip-path: url(#vp-clip); }
-.platforms .tablist { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 4px 4px 10px; min-width: 0; }
-.platforms .tablist::-webkit-scrollbar { display: none; }
+/* Vision Pro: the same visor as the hero and the panorama. */
+.platforms .device-vision { padding: 0; border: 0; border-radius: 0; box-shadow: none; background: none; filter: drop-shadow(0 0 12px var(--hud-glow)); }
+.platforms .tablist { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px 4px 10px; min-width: 0; }
 .platforms .tab { flex: none; min-height: 48px; padding: 0 14px; border: 2px solid transparent; border-radius: 8px; background: transparent; color: var(--hud-blue); font: 500 12px/1.5 Orbitron, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; text-align: left; cursor: pointer; }
 .platforms .tab[aria-selected="true"] { border-color: var(--hud-blue); color: var(--ink); background: var(--bg); }
 .platforms .tab:hover { background: var(--hud-wash); }
@@ -185,7 +206,7 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
 }
 @media (min-width: 900px) {
   :root { --hud-corner: 36px; }
-  .head { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: center; gap: 44px 32px; padding-bottom: 40px; }
+  .head { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: center; gap: 44px 32px; padding-block: 36px 40px; }
   .hero-copy { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
   .hero-copy > * { order: initial; }
   .kicker { font-size: 12px; }
@@ -200,18 +221,30 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
   .head blockquote p { flex: 1; }
   .head blockquote br { display: none; }
   .head blockquote a { float: right; margin-left: 12px; }
-  .page > section[aria-labelledby="on-every-device"] { margin-top: 64px; }
+  .page > section[aria-labelledby="a-premium-experience-on-every-device"] { margin-top: 64px; }
   .pillars { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .pillars li { padding: 24px; }
-  .platforms.is-tabbed { display: grid; grid-template-columns: 320px minmax(0, 1fr); align-items: start; border-bottom: 1px solid var(--hud-blue); background: linear-gradient(90deg, var(--hud-wash), transparent); }
+  .platforms.is-tabbed { display: grid; grid-template-columns: 216px minmax(0, 1fr); align-items: start; border-bottom: 1px solid var(--hud-blue); background: linear-gradient(90deg, var(--hud-wash), transparent); }
   .platforms.is-tabbed > .platforms-title { grid-column: 1 / -1; background: var(--bg); padding-bottom: 24px; margin-bottom: 0; border-bottom: 1px solid var(--hud-blue); }
-  .platforms.is-tabbed > .tablist { grid-column: 1; grid-row: 2; flex-direction: column; overflow: visible; padding: 28px 0 28px 20px; }
-  .platforms .tab { font-size: 15px; padding-inline: 18px; border-radius: 8px 0 0 8px; }
+  .platforms.is-tabbed > .tablist { display: flex; grid-column: 1; grid-row: 2; flex-direction: column; overflow: visible; padding: 46px 0 28px 8px; } /* Clears the panel's rounded corner. */
+  .platforms .tab { font-size: 13px; padding-inline: 12px; white-space: nowrap; border-radius: 8px 0 0 8px; }
   .platforms .tab[aria-selected="true"] { position: relative; z-index: 1; margin-right: -2px; border-right: 0; background: var(--hud-wash); }
   .platforms.is-tabbed > section { grid-column: 2; grid-row: 2; margin: 28px 0 28px -2px; }
+  /* The panel's left edge is the selected tab's color, so the two read as one surface. */
+  .platforms.is-tabbed > section { background: linear-gradient(90deg, var(--hud-wash), #08224000 35%), var(--hud-panel); box-shadow: none; }
   .platforms > section { padding: 26px; }
-  .platforms section .platform-layout { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 28px; }
+  .platforms section .platform-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .platform-copy ul { display: flex; flex-wrap: wrap; justify-content: center; list-style: none; padding: 0; gap: 4px 0; }
+  .platform-copy li { margin: 0; }
+  .platform-copy li + li::before { content: "\00b7"; margin: 0 10px; color: var(--hud-gold); }
   .bench-bar { position: sticky; top: 0; z-index: 20; }
+}
+/* With room in the gutters, the corners sit outside the content, level with the kicker line. */
+@media (min-width: 1240px) {
+  .head .platform-nav { flex-wrap: nowrap; width: max-content; }
+  .head .platform-nav::after { content: none; }
+  .head { padding-top: 14px; }
+  .head::before { inset: 6px -56px 32px; }
 }
 @media (max-width: 599px) {
   .site-header { padding-top: 12px; }
@@ -226,14 +259,25 @@ figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:fo
   .bench-bar label, .bench-bar .suite-label { flex: none; }
   .bench-bar label { font-size: 12px; }
 }
-@keyframes a-scan { from { transform: translateY(-120px); } to { transform: translateY(980px); } }
-@keyframes a-float { 0%, 100% { transform: perspective(1400px) rotateY(-14deg) rotateX(4deg) translateY(0); } 50% { transform: perspective(1400px) rotateY(-10deg) rotateX(3deg) translateY(-10px); } }
+@property --glare { syntax: "<percentage>"; inherits: true; initial-value: 40%; }
+@property --glare-angle { syntax: "<angle>"; inherits: true; initial-value: 112deg; }
+@property --sheen { syntax: "<percentage>"; inherits: true; initial-value: -8%; }
+@keyframes a-float {
+  0%, 100% { transform: perspective(1400px) translateY(0) rotateX(0deg) rotateY(-4deg) rotateZ(-1.2deg); }
+  50% { transform: perspective(1400px) translateY(-16px) rotateX(3deg) rotateY(4deg) rotateZ(1.2deg); }
+}
+/* The hero's glare follows the headset's angle in a-float: the streak shifts with its turn and leans with its roll, and the top sheen follows its tilt. */
+@keyframes a-glare { 0%, 100% { --glare: 40%; --glare-angle: 111deg; --sheen: -8%; } 50% { --glare: 46%; --glare-angle: 113deg; --sheen: -13%; } }
+.hero-media .visor-glass { animation: a-glare 9s ease-in-out infinite; }
 @keyframes a-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 @keyframes c-run { from { background-position: 0 0; } to { background-position: 0 80px; } }
 @keyframes c-stereo { 0%, 100% { text-shadow: -3px 0 0 color-mix(in srgb, var(--hud-cyan) 85%, transparent), 3px 0 0 color-mix(in srgb, var(--hud-gold) 85%, transparent); } 50% { text-shadow: -1px 0 0 color-mix(in srgb, var(--hud-cyan) 85%, transparent), 1px 0 0 color-mix(in srgb, var(--hud-gold) 85%, transparent); } }
 .head blockquote::before { color: #050e14; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-  .head::after { display: none; }
   .hero-media { transform: none; }
+}
+@media (max-width: 899px) {
+  .platforms .platform-media:has(.device-ipad) { gap: 18px; }
+  .platforms .device-ipad { width: 100%; }
 }

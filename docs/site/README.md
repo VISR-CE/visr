@@ -8,7 +8,7 @@ the portable suite runs this check too. Python 3.11 or newer is required.
 Include a platform's bullets with a standalone line:
 
 ```md
-{{ features: iphone-and-ipad }}
+{{ features: iphone }}
 ```
 
 The other platform names are `vision-pro`, `apple-tv` and `mac`.

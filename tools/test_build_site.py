@@ -75,10 +75,10 @@ def test_missing_brand_fails_build():
 
 def test_platform_navigation_is_a_labeled_group_of_links():
     source = SOURCE.replace('[GitHub](https://github.com/steverice/visr)',
-                            '[Vision Pro](#apple-vision-pro) • [iPad](#iphone-and-ipad) • [GitHub](https://github.com/steverice/visr)')
+                            '[Vision Pro](#apple-vision-pro) • [iPad](#ipad) • [GitHub](https://github.com/steverice/visr)')
     page = render_site(source)
     assert '<nav class="platform-nav" aria-label="Platforms">' in page
-    assert re.search(r'<a href="#iphone-and-ipad"><span class="nav-icon"><svg[^>]*>.*?</svg></span>iPad</a>', page)
+    assert re.search(r'<a href="#ipad"><span class="nav-icon"><svg[^>]*>.*?</svg></span>iPad</a>', page)
     assert ' • ' not in page
 
 
@@ -153,12 +153,12 @@ def test_device_image_before_a_section_fails_instead_of_moving():
 def test_shared_features_expand_from_facts():
     from tools.build_site import expand_includes, load_facts
     facts = load_facts()
-    source = '{{ features: iphone-and-ipad }}'
+    source = '{{ features: iphone }}'
     expanded = expand_includes(source, facts)
     assert '- Full controller support' in expanded
-    assert 'iOS/iPadOS 16 or later' in expanded
+    assert 'iOS 16 or later' in expanded
     assert '{{' not in expanded
-    facts['platforms']['iphone-and-ipad']['bullets'][1] = 'Changed controller support'
+    facts['platforms']['iphone']['bullets'][1] = 'Changed controller support'
     assert 'Changed controller support' in expand_includes(source, facts)
 
 
@@ -243,7 +243,7 @@ def test_feature_requirement_keeps_minor_deployment_version(tmp_path, monkeypatc
     (tmp_path / 'tools/ios_build.py').write_text(build, encoding='utf-8')
     (tmp_path / 'tools/macos_build.py').write_text((builder.ROOT / 'tools/macos_build.py').read_text(encoding='utf-8'), encoding='utf-8')
     monkeypatch.setattr(builder, 'ROOT', tmp_path)
-    assert 'iOS/iPadOS 18.5 or later' in builder.expand_includes('{{ features: iphone-and-ipad }}', facts)
+    assert 'iOS 18.5 or later' in builder.expand_includes('{{ features: iphone }}', facts)
 
 
 def test_native_mac_minimum_comes_from_appkit_build_not_catalyst():
@@ -259,7 +259,7 @@ def test_platform_links_carry_their_glyphs():
 
 def test_platform_headings_carry_their_glyphs():
     page = render_site((ROOT / 'docs/site/index.md').read_text(encoding='utf-8'))
-    for identifier, count in [('apple-vision-pro', 1), ('iphone-and-ipad', 2), ('apple-tv', 1), ('mac', 1)]:
+    for identifier, count in [('apple-vision-pro', 1), ('iphone', 1), ('ipad', 1), ('apple-tv', 1), ('mac', 1)]:
         heading = page.split(f'<h2 id="{identifier}">', 1)[1].split('</h2>', 1)[0]
         assert heading.count('<span class="nav-icon"><svg') == count
 
@@ -268,7 +268,7 @@ def test_platform_bullets_name_each_minimum_os_and_columns_render_links():
     from tools.build_site import deployment_versions, expand_includes, load_facts
     facts = load_facts()
     versions = deployment_versions((ROOT / 'tools/ios_build.py').read_text(encoding='utf-8'))
-    for platform, system in [('vision-pro', 'visionos'), ('apple-tv', 'tvos'), ('mac', 'macos'), ('iphone-and-ipad', 'ios')]:
+    for platform, system in [('vision-pro', 'visionos'), ('apple-tv', 'tvos'), ('mac', 'macos'), ('iphone', 'ios'), ('ipad', 'ios')]:
         text = expand_includes(f'{{{{ features: {platform} }}}}', facts)
         assert versions[system].removesuffix('.0') in text and '{' not in text
     page = render_site((ROOT / 'docs/site/index.md').read_text(encoding='utf-8'))
@@ -357,18 +357,18 @@ def test_malformed_media_video_annotation_fails_build(annotation, attributes):
 
 
 @pytest.mark.parametrize('committed', [False, True])
-def test_platforms_wrapper_contains_exactly_four_platform_sections(committed):
+def test_platforms_wrapper_contains_exactly_five_platform_sections(committed):
     site = ROOT / 'docs/site'
     page = ((site / 'index.html').read_text(encoding='utf-8') if committed else
             render_site((site / 'index.md').read_text(encoding='utf-8')))
     platforms = re.search(r'<div class="platforms" data-tabs>(.*?)\n  </div>', page, re.S).group(1)
     assert page.count('<div class="platforms" data-tabs>') == 1
-    assert '<h2 class="platforms-title">Platforms</h2>' in platforms
+    assert '<h2 class="platforms-title">Play on whichever platform you choose</h2>' in platforms
     assert re.findall(r'<section aria-labelledby="([^"]+)">', platforms) == [
-        'apple-vision-pro', 'iphone-and-ipad', 'apple-tv', 'mac']
-    assert platforms.count('</section>') == 4
-    assert 'On every device' not in platforms
-    assert '<section aria-labelledby="on-every-device">' in page
+        'apple-vision-pro', 'iphone', 'ipad', 'apple-tv', 'mac']
+    assert platforms.count('</section>') == 5
+    assert 'A premium experience on every device' not in platforms
+    assert '<section aria-labelledby="a-premium-experience-on-every-device">' in page
     if committed:  # only the clips that are committed render as video; the others keep their poster image
         clips = set(re.findall(r'<source src="([^"]+)"', page))
         assert clips == {f'video/{path.name}' for path in (site / 'video').glob('*.mp4')}
@@ -456,7 +456,7 @@ def test_look_around_surface_and_controls_have_accessible_names():
     assert 'role="group"' in stage
     assert 'aria-roledescription="panorama"' in stage
     assert re.search(r'\baria-label="Lifeboat[^"]*"', stage)
-    for identifier in ('look-motion', 'look-close', 'look-left', 'look-right'):
+    for identifier in ('look-motion', 'look-close'):
         control = re.search(rf'<button\b[^>]*id="{identifier}"[^>]*>(.*?)</button>', page, re.S)
         assert control is not None, identifier
         assert re.search(r'\baria-label="[^"]+"', control.group(0)) or re.sub(r'<[^>]+>', '', control.group(1)).strip(), identifier

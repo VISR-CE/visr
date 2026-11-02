@@ -8,9 +8,9 @@ function harness({reduced = true, saveData = false, webgl = false, hevc = true} 
   const images = [], timers = [], raf = [];
   const gl = new Proxy({}, {get: (_, k) => k === 'getShaderParameter' || k === 'getProgramParameter' ? () => true : () => ({})});
   const elements = {};
-  for (const id of ['look-stage', 'look-box', 'look-gl', 'look-video', 'look-poster', 'look-frame', 'look-frame-path', 'look-heading', 'look-ticks', 'look-hint', 'look-motion', 'look-close', 'look-left', 'look-right']) {
+  for (const id of ['look-stage', 'look-box', 'look-gl', 'look-video', 'look-poster', 'look-frame', 'look-frame-path', 'look-heading', 'look-ticks', 'look-hint', 'look-motion', 'look-close', 'look-glare', 'look-glare-rim', 'look-glare-edge']) {
     elements[id] = {
-      style: {}, handlers: {}, attributes: {}, classes: new Set(), textContent: '',
+      style: {setProperty() {}}, handlers: {}, attributes: {}, classes: new Set(), textContent: '',
       dataset: {scenes: JSON.stringify([{folder:'lifeboat',label:'Lifeboats over Halo'}]), assetBase:'https://media.visr.gg/look/'},
       setAttribute(k,v) { this.attributes[k] = v; },
       hasAttribute(k) { return Object.hasOwn(this.attributes,k) || k === 'src' && Boolean(this.src); },
@@ -27,17 +27,17 @@ function harness({reduced = true, saveData = false, webgl = false, hevc = true} 
     el.classList = {add(k) {el.classes.add(k);},remove(k) {el.classes.delete(k);}};
   }
   const doc = {hidden:false, documentElement:{style:{overflow:''}}, getElementById:k=>elements[k], querySelector:()=>({textContent:''}), addEventListener() {}};
-  let intersection;
+  const intersections = [];
   const context = {document:doc, navigator:{connection:{saveData,addEventListener(){}}}, matchMedia:q=>({matches:q.includes('coarse') ? false : reduced,addEventListener(){}}),
     window:{}, innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},getComputedStyle:el=>({display:el===elements['look-motion']?'none':'flex'}),
     addEventListener(){},removeEventListener(){},requestAnimationFrame:fn=>raf.push(fn),
     setTimeout:fn=>(timers.push(fn),timers.length),clearTimeout:id=>{if(id)timers[id-1]=null;},
-    ResizeObserver:class {observe(){}},IntersectionObserver:class {constructor(fn){intersection=fn;}observe(){}},
+    ResizeObserver:class {observe(){}},IntersectionObserver:class {constructor(fn){intersections.push(fn);}observe(){}},
     Image:class {set src(v){assert.equal(this.crossOrigin,'anonymous');images.push(v);}}, Uint8Array,Math,String,console,
   };
   vm.runInNewContext(source, context);
   function key(key, button = false) {for (const fn of elements['look-stage'].handlers.keydown) fn({key,target:{closest:()=>button},preventDefault(){}});}
-  return {elements,doc,key,images,timers,raf,near:()=>intersection([{isIntersecting:true}])};
+  return {elements,doc,key,images,timers,raf,near:()=>intersections[0]([{isIntersecting:true}]),visible:(isIntersecting=true)=>intersections[1]([{isIntersecting}])};
 }
 function check(name, fn) {try {fn();console.log('PASS',name);}catch(e){console.error('FAIL',name,e.message);process.exitCode=1;}}
 check('No heavy scene assets before intersection',()=>{const h=harness({webgl:true,reduced:false});assert.equal(h.images.length,0);assert.equal(h.elements['look-video'].src,undefined);});
@@ -55,6 +55,13 @@ check('Explicit entry cancels a pending keyboard collapse',()=>{
   for(const fn of h.timers) if(fn) fn();
   assert.equal(h.elements['look-stage'].classes.has('fixed'),true);
   h.elements['look-close'].onclick();assert.equal(h.doc.documentElement.style.overflow,'');
+});
+
+check('The video loads near the viewport but plays only once on screen',()=>{
+  const h=harness({webgl:true,reduced:false});h.near();
+  const v=h.elements['look-video'];
+  assert.match(v.src,/shape\.mp4$/);assert.equal(v.plays||0,0);
+  h.visible();assert.equal(v.plays,1);
 });
 
 check('Unsupported HEVC selects H.264 without trying HEVC',()=>{

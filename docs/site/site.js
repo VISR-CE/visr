@@ -34,7 +34,23 @@
     root.querySelector(".platforms-title").after(list);
     root.classList.add("is-tabbed");
 
+    // On a phone, iPhone and iPad share one tab, with both pictures stacked in its panel.
+    var narrow = window.matchMedia("(max-width: 899px)");
+    var findPanel = function (name) { return panels.findIndex(function (panel) { return panel.id === "panel-" + name; }); };
+    var iphone = findPanel("iphone"), ipad = findPanel("ipad"), selected = 0;
+    var combined = function () { return narrow.matches && iphone >= 0 && ipad >= 0; };
+    function arrangeDevices() {
+      if (iphone < 0 || ipad < 0) return;
+      var figure = root.querySelector(".device-ipad");
+      var home = combined() ? panels[iphone] : panels[ipad];
+      home.querySelector(".platform-media").appendChild(figure);
+      tabs[ipad].hidden = combined();
+      tabs[iphone].textContent = combined() ? "iPhone and iPad" : "iPhone";
+    }
+
     function select(index, focus) {
+      if (combined() && index === ipad) index = iphone;
+      selected = index;
       panels.forEach(function (panel, i) {
         panel.hidden = i !== index;
         tabs[i].setAttribute("aria-selected", String(i === index));
@@ -50,7 +66,9 @@
       var next = { ArrowRight: current + 1, ArrowLeft: current - 1, Home: 0, End: tabs.length - 1 }[event.key];
       if (next === undefined) return;
       event.preventDefault();
-      select((next + tabs.length) % tabs.length, true);
+      next = (next + tabs.length) % tabs.length;
+      if (combined() && next === ipad) next = (next + (event.key === "ArrowLeft" ? -1 : 1) + tabs.length) % tabs.length;
+      select(next, true);
     });
 
     // A link to a platform (#apple-tv, #mac, ...) opens that tab.
@@ -63,6 +81,8 @@
       return true;
     }
     window.addEventListener("hashchange", fromHash);
+    arrangeDevices();
+    narrow.addEventListener("change", function () { arrangeDevices(); select(selected, false); });
     if (!fromHash()) select(0, false);
   }
 
@@ -120,4 +140,22 @@
     if (tabs) setupTabs(tabs);
     setupClips();
   });
+})();
+
+// The hero's floor grid starts just below its last paragraph, wherever the layout puts that.
+(() => {
+  const head = document.querySelector('.head');
+  const floor = head && head.querySelector('.hero-floor');
+  const ledes = head ? head.querySelectorAll('.lede') : [];
+  if (!floor || !ledes.length) return;
+  const place = () => {
+    const box = head.getBoundingClientRect();
+    const top = ledes[ledes.length - 1].getBoundingClientRect().bottom - box.top + 16;
+    floor.style.top = `${top}px`;
+    floor.style.height = `${Math.max(0, box.height - top)}px`;
+  };
+  place();
+  addEventListener('resize', place);
+  addEventListener('load', place);
+  document.fonts?.ready.then(place);
 })();

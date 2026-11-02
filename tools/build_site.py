@@ -8,6 +8,7 @@ import ast
 import json
 from html import escape
 from pathlib import Path
+import math
 import re
 import struct
 from string import Template
@@ -81,18 +82,86 @@ NAV_ICONS = {"Get VISR": "download", "Vision Pro": "vision-pro", "iPhone": "ipho
              "Mac": "mac", "GitHub": "github"}
 
 
-SECTION_ICONS = {"apple-vision-pro": ["vision-pro"], "iphone-and-ipad": ["iphone", "ipad"],
+SECTION_ICONS = {"apple-vision-pro": ["vision-pro"], "iphone": ["iphone"], "ipad": ["ipad"],
                  "apple-tv": ["apple-tv"], "mac": ["mac"]}
 
 # The line above the wordmark, and the part of the tagline set in the accent color (the tagline itself is fixed copy).
 KICKER = "Apple Vision Pro · iPhone · iPad · Apple TV · Mac"
 HIGHLIGHT = "whole new dimension"
-# The Vision Pro front glass the hero's media is clipped to (the outline the benchmarks page also uses), in
-# objectBoundingBox units; `.hero-media` points its `clip-path` at it.
+# The visor shape, the same curve as `visorPath` in `docs/site/look.js`, on a 200x100 canvas.
+def visor_segments():
+    """The bottom has no flats: each side eases straight into the nose notch."""
+    w, h, cr, a, cx = 200, 100, 32, 5, 100
+    return [((cr, a), (w * .33, 0), (w * .67, 0), (w - cr, a)),
+            ((w - cr, a), (w - cr * .4, a * 1.6), (w, .16 * h), (w, .42 * h)),
+            ((w, .42 * h), (w, .76 * h), (.89 * w, h), (.75 * w, h)),
+            ((.75 * w, h), (.63 * w, h), (.61 * w, .79 * h), (cx, .79 * h)),
+            ((cx, .79 * h), (.39 * w, .79 * h), (.37 * w, h), (.25 * w, h)),
+            ((.25 * w, h), (.11 * w, h), (0, .76 * h), (0, .42 * h)),
+            ((0, .42 * h), (0, .16 * h), (cr * .4, a * 1.6), (cr, a))]
+
+
+def visor_path():
+    start = visor_segments()[0][0]
+    curves = " ".join(f"C{b[0]:.1f} {b[1]:.1f} {c[0]:.1f} {c[1]:.1f} {d[0]:.1f} {d[1]:.1f}" for _, b, c, d in visor_segments())
+    return f"M{start[0]:.1f} {start[1]:.1f} {curves}Z"
+
+
+def visor_outline_points(per_segment=8):
+    """Points around the visor, centered on the origin."""
+    points = []
+    for p0, p1, p2, p3 in visor_segments():
+        for step in range(per_segment):
+            t = step / per_segment
+            u = 1 - t
+            points.append(tuple(u ** 3 * p0[i] + 3 * u * u * t * p1[i] + 3 * u * t * t * p2[i] + t ** 3 * p3[i] for i in (0, 1)))
+    return [(x - 100, y - 50) for x, y in points]
+
+
+# The hero's tilt. `.hero-media .visor-face` applies the same transform, so the wireframe stays aligned with the glass.
+WIRE_PERSPECTIVE, WIRE_YAW, WIRE_PITCH = 440, -32, -10
+
+
+def wire_project(x, y, z):
+    yaw, pitch = math.radians(WIRE_YAW), math.radians(WIRE_PITCH)
+    x, z = x * math.cos(yaw) + z * math.sin(yaw), -x * math.sin(yaw) + z * math.cos(yaw)
+    y, z = y * math.cos(pitch) - z * math.sin(pitch), y * math.sin(pitch) + z * math.cos(pitch)
+    scale = WIRE_PERSPECTIVE / (WIRE_PERSPECTIVE - z)
+    return f"{x * scale:.1f} {y * scale:.1f}"
+
+
+def wire_line(points, close=False):
+    return "M" + "L".join(wire_project(*point) for point in points) + ("Z" if close else "")
+
+
+def headset_wireframe():
+    """An abstract headset drawn from the visor shape: shell rings, a seal and a head strap."""
+    outline = visor_outline_points()
+    rings = [(-8, 1), (-22, 1), (-36, .97), (-50, .9), (-62, .84)]
+    paths = [wire_line([(x * s, y * s, z) for x, y in outline], True) for z, s in rings]
+    for x, y in outline[::4]:
+        paths.append(wire_line([(x, y, 0)] + [(x * s, y * s, z) for z, s in rings]))
+    # The strap leaves the sides of the seal and loops around the back of the head.
+    loop = [(84 * math.cos(math.radians(a)), -62 - 95 * math.sin(math.radians(a))) for a in range(0, 181, 12)]
+    for height in (-15, 0, 15):
+        paths.append(wire_line([(x, height, z) for x, z in loop]))
+    for x, z in loop[::2]:
+        paths.append(wire_line([(x, -15, z), (x, 15, z)]))
+    return ('<svg class="visor-wire" viewBox="-200 -100 400 200" aria-hidden="true"><path d="' + "".join(paths) + '"/></svg>')
+
+
+def visor_slot(slot):
+    """Media in the visor shape, under glass, with the gold rim."""
+    path = visor_path()
+    return (f'<div class="visor-face">{slot}<div class="visor-glass" aria-hidden="true"><svg viewBox="0 0 200 100" preserveAspectRatio="none">'
+            f'<path d="{path}"/></svg></div><svg class="visor-rim" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">'
+            f'<path d="{path}"/></svg></div>')
+
+
+# `.visor-face` media points its `clip-path` at this, in objectBoundingBox units.
 HERO_CLIP = ('<svg class="clip-defs" width="0" height="0" aria-hidden="true"><defs>'
-             '<clipPath id="vp-clip" clipPathUnits="objectBoundingBox"><path transform="scale(0.046296 0.075758) translate(-1.2 -4.9)" '
-             'd="M2.5 10.5c0-2.5 2-4.5 4.5-4.5h10c2.5 0 4.5 2 4.5 4.5v1.2c0 3-2.1 5.3-4.8 5.3-1.6 0-2.7-.45-3.5-1.05'
-             '-.6-.4-1.8-.4-2.4 0-.8.6-1.9 1.05-3.5 1.05-2.7 0-4.8-2.3-4.8-5.3z"/></clipPath></defs></svg>')
+             '<clipPath id="vp-clip" clipPathUnits="objectBoundingBox"><path transform="scale(.005 .01)" '
+             f'd="{visor_path()}"/></clipPath></defs></svg>')
 MEDIA_ANNOTATION = re.compile(r"\{(?:device=(iphone|ipad|tv|mac|vision)|(hero))(?: video=([\w./-]+\.mp4))?\}")
 
 
@@ -214,7 +283,14 @@ def head_tags(metadata: dict[str, str]) -> dict[str, str]:
 
 
 LOOK_ASSET_BASE = "https://media.visr.gg/look/"
-LOOK_SCENES = [{"folder": "lifeboat", "label": "Lifeboats over Halo"}]
+LOOK_SCENES = [
+    {"folder": "lifeboat", "label": "Lifeboats over Halo", "yaw": 12},
+    {"folder": "b30-beach", "label": "The beach on The Silent Cartographer", "pitch": 7, "videoBand": 1228 / 2048, "drift": {"yaw": 5, "pitch": 0}},
+    {"folder": "b40-battlefield", "label": "The snowfield on Assault on the Control Room", "yaw": 315, "pitch": 60, "videoBand": 1252 / 2048, "drift": {"yaw": 2, "pitch": 0}},
+    {"folder": "a50-grav-lift", "label": "The gravity lift on The Truth and Reconciliation", "yaw": 176, "pitch": 60, "videoBand": 1348 / 2048, "drift": {"yaw": 0, "pitch": -2, "stop": -15}},
+    {"folder": "damnation", "label": "The waterfalls of Damnation", "yaw": 150, "pitch": -20, "videoBand": 1488 / 2048},
+    {"folder": "blood-gulch", "label": "The ridge above Blood Gulch", "still": True, "yaw": 100, "pitch": 2, "drift": {"yaw": -10, "pitch": 0}},
+]
 
 
 CURRENT = ' aria-current="page"'
@@ -349,12 +425,12 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
             identifiers.add(identifier)
             first.attrSet("id", identifier)
             if identifier in SECTION_ICONS and not platforms_open:
-                output.extend(['  <div class="platforms" data-tabs>', '  <h2 class="platforms-title">Platforms</h2>'])
+                output.extend(['  <div class="platforms" data-tabs>', '  <h2 class="platforms-title">Play on whichever platform you choose</h2>'])
                 platforms_open = True
             elif identifier not in SECTION_ICONS and platforms_open:
                 output.append("  </div>")
                 platforms_open = False
-            section_class = ' class="look-around"' if identifier == "stand-inside-the-level" else ""
+            section_class = ' class="look-around"' if identifier in ("stand-inside-the-level", "behind-the-visor-like-never-before") else ""
             output.append(f'  <section{section_class} aria-labelledby="{escape(identifier, quote=True)}">')
             section = True
             copy.append(heading_with_icons(md.renderer.render(block, md.options, {}).rstrip(), identifier))
@@ -383,12 +459,14 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
                 raise ValueError("Place the hero image before the first section")
             token = inline(block)[0]
             slot = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
-            hero_media.append(f'    <figure class="hero-media">{slot}</figure>')
+            hero_media.append(f'    <figure class="hero-media">{headset_wireframe()}{visor_slot(slot)}</figure>')
         elif index in device_blocks:
             if not section:
                 raise ValueError("Place a device image inside a section")
             token = inline(block)[0]
             image = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
+            if device_blocks[index] == "vision":
+                image = visor_slot(image)
             media.append(f'        <figure class="device device-{device_blocks[index]}">{image}</figure>')
         else:
             (copy if section else output).append(md.renderer.render(block, md.options, {}).rstrip())
@@ -415,7 +493,7 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
             label=escape(LOOK_SCENES[0]["label"], quote=True))
         page = page.replace("<p>{{ look-around }}</p>", widget)
         page = page.replace("</head>", '<link rel="stylesheet" href="look.css">\n</head>')
-        page = page.replace('<script src="site.js" defer></script>', '<script src="site.js" defer></script>\n<script src="look.js" defer></script>')
+        page = page.replace('<script src="site.js" defer></script>', '<script src="site.js" defer></script>\n<script src="look.js" defer></script>\n<script src="visor.js" defer></script>')
     return page
 
 

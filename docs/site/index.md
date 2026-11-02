@@ -11,17 +11,15 @@
 > "The first VISR systems date back to the early 21st century…"\
 > ["Dynasty" VISR, Halo 5: Guardians](https://www.halopedia.org/Armor_customization_(Halo_5:_Guardians)/Visor)
 
-![Halo on Vision Pro](./a30.png){hero video=video/hero.mp4}
+![Halo on Vision Pro](./a30-visor.png){hero video=video/hero.mp4}
 
-[Get VISR](https://github.com/steverice/visr/releases) • [Vision Pro](#apple-vision-pro) • [iPhone](#iphone-and-ipad) • [iPad](#iphone-and-ipad) • [Apple TV](#apple-tv) • [Mac](#mac) • [GitHub](https://github.com/steverice/visr)
+[Get VISR](https://github.com/steverice/visr/releases) • [Vision Pro](#apple-vision-pro) • [iPhone](#iphone) • [iPad](#ipad) • [Apple TV](#apple-tv) • [Mac](#mac) • [GitHub](https://github.com/steverice/visr)
 
-## Stand inside the level
-
-Full stereo VR with head tracking and foveated rendering on Apple Vision Pro.
+## Behind the visor like never before
 
 {{ look-around }}
 
-## On every device
+## A premium experience on every device
 
 {{ shared: every-device }}
 
@@ -29,13 +27,17 @@ Full stereo VR with head tracking and foveated rendering on Apple Vision Pro.
 
 {{ features: vision-pro }}
 
-![Halo on Vision Pro](./a30.png){device=vision video=video/vision-pro.mp4}
+![Halo on Vision Pro](./a30-visor.png){device=vision video=video/vision-pro.mp4}
 
-## iPhone and iPad
+## iPhone
 
-{{ features: iphone-and-ipad }}
+{{ features: iphone }}
 
 ![Halo on iPhone with touch controls during the Silent Cartographer beach battle](./iphone.jpg){device=iphone video=video/iphone.mp4}
+
+## iPad
+
+{{ features: ipad }}
 
 ![Halo on iPad](./ipad.jpg){device=ipad video=video/ipad.mp4}
 

@@ -4,15 +4,16 @@
 const stage = document.getElementById('look-stage');
 if (!stage) return;
 const box = document.getElementById('look-box'), canvas = document.getElementById('look-gl');
-const scene = JSON.parse(box.dataset.scenes)[0];
+const scenes = JSON.parse(box.dataset.scenes), scene = scenes[Math.floor(Math.random() * scenes.length)];
 const sceneAsset = name => `${box.dataset.assetBase}${scene.folder}/${name}`;
 const v = document.getElementById('look-video'), poster = document.getElementById('look-poster');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const TOUCH = matchMedia('(pointer: coarse)').matches, FOCAL = 700;
-let motion = false, head = null, yawOff = 0, pitchOff = 0, vx = 0, vy = 0;
-let fresh = true, downAt = 0, moved = 0, near = false, loaded = false, running = false;
-let yaw = 0, pitch = 22, last = null, mode = 'idle', idle, cx = 0, cy = 0, tcx = null, tcy = null;
+let sideways = 0, driftDirection = 1, dragVelocity = 0, movedAt = 0, inputAt = -Infinity, driftAt = 0, drift = 0, pitchDrift = 0, motion = false, head = null, yawOff = 0, pitchOff = 0, vx = 0, vy = 0;
+let fresh = true, downAt = 0, moved = 0, hoverX = 0, glareX = 40, near = false, visible = false, loaded = false, running = false;
+let yaw = scene.yaw ?? 0, pitch = scene.pitch ?? 22, last = null, mode = 'idle', idle, cx = 0, cy = 0, tcx = null, tcy = null;
 let hasStill = false, hasMask = false, videoReady = false;
+const onScreen = () => visible || mode !== 'idle';
 const autoplay = () => !reduced.matches && !navigator.connection?.saveData;
 // Video stays detached from layout, which avoids Safari's offscreen pause loop.
 v.muted = true;
@@ -23,13 +24,13 @@ const sources = [
 ];
 let sourceIndex = 0;
 function loadVideo() {
-  if (!autoplay() || !gl || !near || v.hasAttribute('src')) return;
+  if (scene.still || !autoplay() || !gl || !near || v.hasAttribute('src')) return;
   v.src = sceneAsset(sources[sourceIndex]);
   v.load();
   playVideo();
 }
 function playVideo() {
-  if (near && autoplay() && v.hasAttribute('src') && !document.hidden) v.play().catch(() => {});
+  if (onScreen() && autoplay() && v.hasAttribute('src') && !document.hidden) v.play().catch(() => {});
 }
 v.addEventListener('error', () => {
   videoReady = false;
@@ -63,7 +64,7 @@ if (gl) {
       void main(){vec2 c=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(c*2.-1.,0,1);}`));
     gl.attachShader(p, shader(gl.FRAGMENT_SHADER, `#version 300 es
       precision highp float;
-      uniform sampler2D t, s, m; uniform bool moving;
+      uniform sampler2D t, s, m; uniform bool moving; uniform float band;
       uniform vec2 center; uniform float focal, cy, sy, cp, sp; out vec4 o;
       void main(){
         vec3 d=normalize(vec3(gl_FragCoord.xy-center,-focal));
@@ -71,7 +72,7 @@ if (gl) {
         d=vec3(cy*d.x-sy*d.z,d.y,sy*d.x+cy*d.z);
         vec2 uv=vec2(atan(d.x,-d.z)/6.2831853+.5,acos(clamp(d.y,-1.,1.))/3.14159265);
         o=texture(s,uv);
-        if(moving && uv.y<.5) o=mix(o,texture(t,vec2(uv.x,uv.y*2.)),texture(m,uv).r);
+        if(moving && uv.y<band) o=mix(o,texture(t,vec2(uv.x,uv.y/band)),texture(m,uv).r);
       }`));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
@@ -111,13 +112,32 @@ function size() {
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
   return { dpr, w, h };
 }
+function driftView() {
+  const now = performance.now(), dt = Math.min(.1, (now - driftAt) / 1000); driftAt = now;
+  if (last) { drift = pitchDrift = 0; return; }
+  const on = onScreen() && !reduced.matches && !motion && now - inputAt > 600, speed = scene.drift ?? { yaw: 10, pitch: 0 };
+  const room = speed.stop === undefined ? 1 : Math.max(0, Math.min(1, (speed.stop - pitch) * Math.sign(speed.pitch) / 8));
+  const want = on ? speed.yaw * driftDirection : 0, wantPitch = on && room > .02 ? speed.pitch * room : 0;
+  drift += (want - drift) * Math.min(1, dt * 1.5);
+  pitchDrift += (wantPitch - pitchDrift) * Math.min(1, dt * 1.5);
+  if (want || Math.abs(drift) > .01) yaw += drift * dt; else drift = 0;
+  if (wantPitch || Math.abs(pitchDrift) > .01) pitch = Math.min(88, Math.max(-88, pitch + pitchDrift * dt)); else pitchDrift = 0;
+}
+function moveGlare() {
+  if (mode !== 'idle') return;
+  const r = box.getBoundingClientRect(), want = 15 + 70 * (r.top + r.height / 2) / innerHeight + 30 * hoverX;
+  glareX += (want - glareX) * (reduced.matches ? 1 : .08);
+  document.getElementById('look-glare').style.setProperty('--glare', `${glareX.toFixed(1)}%`);
+}
 function render() {
+  driftView();
+  moveGlare();
   if (motion && head) {
     const ty = head[0] + yawOff;
     yaw += (((ty - yaw + 540) % 360 + 360) % 360 - 180) * .25;
     pitch += (Math.min(88, Math.max(-88, head[1] + pitchOff)) - pitch) * .25;
   } else if (TOUCH && !last && (Math.abs(vx) > .01 || Math.abs(vy) > .01)) {
-    yaw += vx; if (mode === 'full') pitch = Math.min(88, Math.max(-88, pitch + vy));
+    if (mode === 'full') pitch = Math.min(88, Math.max(-88, pitch + vy));
     vx *= .93; vy *= .93;
   }
   if (gl && hasStill) {
@@ -128,6 +148,7 @@ function render() {
     else { cx += (tcx - cx) * .18; cy += (tcy - cy) * .18; }
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.uniform1i(u('moving'), videoReady && hasMask && autoplay());
+    gl.uniform1f(u('band'), scene.videoBand ?? .5);
     gl.uniform2f(u('center'), cx * dpr, (h - cy) * dpr); gl.uniform1f(u('focal'), FOCAL * dpr);
     const a = yaw * Math.PI / 180, b = pitch * Math.PI / 180;
     gl.uniform1f(u('cy'), Math.cos(a)); gl.uniform1f(u('sy'), Math.sin(a)); gl.uniform1f(u('cp'), Math.cos(b)); gl.uniform1f(u('sp'), Math.sin(b));
@@ -153,6 +174,7 @@ function unlockScroll() {
   scrollLocked = false; persistentFull = false;
 }
 function exitFull() {
+  if (motion) document.getElementById('look-motion').click();
   unlockScroll(); vx = vy = 0; last = null;
   collapse(); stage.focus({ preventScroll: true });
 }
@@ -163,12 +185,10 @@ function visorPath(x, y, w, h, k) {
     'M', x + cr, y + a,
     'C', x + w * .33, y, x + w * .67, y, x + w - cr, y + a,
     'C', x + w - cr * .4, y + a * 1.6, x + w, y + k * .16 * h, x + w, y + .42 * h * (k ? 1 : 1),
-    'C', x + w, y + h - k * .2 * h, x + w - k * .09 * w, y + h, x + w - cr * 1.25, y + h,
-    'L', cx + k * .13 * w, y + h,
-    'C', cx + k * .08 * w, y + h, cx + k * .07 * w, y + h - k * .24 * h, cx, y + h - k * .26 * h,
-    'C', cx - k * .07 * w, y + h - k * .24 * h, cx - k * .08 * w, y + h, cx - k * .13 * w, y + h,
-    'L', x + cr * 1.25, y + h,
-    'C', x + k * .09 * w, y + h, x, y + h - k * .2 * h, x, y + .42 * h,
+    'C', x + w, y + h - k * .24 * h, x + w - k * .11 * w, y + h, x + w - k * .25 * w, y + h,
+    'C', x + w - k * .37 * w, y + h, cx + k * .11 * w, y + h - k * .21 * h, cx, y + h - k * .21 * h,
+    'C', cx - k * .11 * w, y + h - k * .21 * h, x + k * .37 * w, y + h, x + k * .25 * w, y + h,
+    'C', x + k * .11 * w, y + h, x, y + h - k * .24 * h, x, y + .42 * h,
     'C', x, y + k * .16 * h, x + cr * .4, y + a * 1.6, x + cr, y + a, 'Z'];
   return p.map(t => typeof t === 'number' ? n(t) : t).join(' ');
 }
@@ -179,6 +199,10 @@ function idleShape() {
   setShape({ x: 0, y: 0, w: r.width, h: r.height, k: 1 });
   const f = document.getElementById('look-frame'); f.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
   document.getElementById('look-frame-path').setAttribute('d', visorPath(0, 0, r.width, r.height, 1));
+  document.getElementById('look-glare-rim').setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+  document.getElementById('look-glare-rim').style.filter = `blur(${(r.width * .0125).toFixed(1)}px)`;
+  document.getElementById('look-glare-edge').setAttribute('d', visorPath(0, 0, r.width, r.height, 1));
+  document.getElementById('look-glare-edge').setAttribute('stroke-width', (r.width * .03).toFixed(1));
 }
 function morph(to, ms, end) {
   ms = reduced.matches ? 0 : ms;
@@ -216,12 +240,14 @@ function collapse() {
 }
 addEventListener('resize', () => { if (mode === 'idle') idleShape(); else if (mode === 'full') { ++anim; setShape({ x: 0, y: 0, w: innerWidth, h: innerHeight, k: 0 }); stage.style.clipPath = 'none'; render(); } });
 function arm() { clearTimeout(idle); idle = setTimeout(collapse, 2000); }
-function look(dy, dp) { if (!TOUCH) { expand(); if (!persistentFull) arm(); } yaw += dy; if (motion) { yawOff += dy; pitchOff += dp; document.getElementById('look-hint').style.display = 'none'; return; } if (!TOUCH || mode === 'full') pitch = Math.min(88, Math.max(-88, pitch + dp)); document.getElementById('look-hint').style.display = 'none'; }
-stage.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; vx = vy = 0; downAt = performance.now(); moved = 0; last = [e.clientX, e.clientY]; stage.setPointerCapture(e.pointerId); playVideo(); });
-stage.addEventListener('pointermove', e => { if (!last) return; const dx = (last[0] - e.clientX) * .12, dp = (e.clientY - last[1]) * .12; moved += Math.abs(e.clientX - last[0]) + Math.abs(e.clientY - last[1]); vx = dx; vy = dp; look(dx, dp); last = [e.clientX, e.clientY]; });
-const up = () => { last = null; if (!TOUCH && !persistentFull) { clearTimeout(idle); collapse(); } };
+function look(dy, dp) { inputAt = performance.now(); if (!TOUCH) { expand(); if (!persistentFull) arm(); } yaw += dy; if (motion) { yawOff += dy; pitchOff += dp; document.getElementById('look-hint').style.display = 'none'; return; } if (!TOUCH || mode === 'full') pitch = Math.min(88, Math.max(-88, pitch + dp)); document.getElementById('look-hint').style.display = 'none'; }
+stage.addEventListener('pointerdown', e => { inputAt = performance.now(); if (e.target.closest('button')) return; vx = vy = 0; sideways = 0; dragVelocity = 0; movedAt = performance.now(); downAt = performance.now(); moved = 0; last = [e.clientX, e.clientY]; stage.setPointerCapture(e.pointerId); playVideo(); });
+stage.addEventListener('pointermove', e => { const box0 = box.getBoundingClientRect(); hoverX = (e.clientX - box0.left) / box0.width - .5; });
+stage.addEventListener('pointerleave', () => { hoverX = 0; });
+stage.addEventListener('pointermove', e => { if (!last) return; const moveNow = performance.now(), dx = (last[0] - e.clientX) * .12, dp = (e.clientY - last[1]) * .12; moved += Math.abs(e.clientX - last[0]) + Math.abs(e.clientY - last[1]); sideways += Math.abs(e.clientX - last[0]); if (TOUCH && mode === 'idle' && sideways >= 8) expand(true); vx = dx; vy = dp; if (moveNow > movedAt) dragVelocity = dragVelocity * .7 + Math.max(-240, Math.min(240, dx / ((moveNow - movedAt) / 1000))) * .3; movedAt = moveNow; look(dx, dp); last = [e.clientX, e.clientY]; });
+const up = () => { if (last) { drift = performance.now() - movedAt < 80 ? dragVelocity : 0; if (Math.abs(drift) > 1) driftDirection = Math.sign(drift); inputAt = -Infinity; } dragVelocity = 0; last = null; if (!TOUCH && !persistentFull) { clearTimeout(idle); collapse(); } };
 stage.addEventListener('pointerup', () => { if (TOUCH && mode === 'idle' && moved < 8 && performance.now() - downAt < 350) { expand(true); } up(); });
-stage.addEventListener('pointercancel', () => { vx = vy = 0; up(); });
+stage.addEventListener('pointercancel', () => { vx = vy = 0; dragVelocity = 0; up(); });
 function onTilt(e) {
   if (e.alpha == null || e.beta == null || e.gamma == null) return;
   const r = Math.PI / 180, A = e.alpha * r, B = e.beta * r, G = e.gamma * r;
@@ -231,18 +257,18 @@ function onTilt(e) {
   if (!head) { yawOff = yaw - h[0]; pitchOff = 0; }
   head = h;
 }
-v.addEventListener('pause', () => { if (!document.hidden && near) playVideo(); });
+v.addEventListener('pause', () => { if (!document.hidden && onScreen()) playVideo(); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && near) playVideo(); });
 document.getElementById('look-motion').onclick = async function () {
   if (motion) { motion = false; head = null; removeEventListener('deviceorientation', onTilt); this.setAttribute('aria-pressed', 'false'); this.textContent = 'LOOK WITH MOTION'; return; }
   if (window.DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) { try { if (await DeviceOrientationEvent.requestPermission() !== 'granted') { this.textContent = 'MOTION NOT ALLOWED'; return; } } catch (err) { this.textContent = 'MOTION UNAVAILABLE'; return; } }
   else if (!window.DeviceOrientationEvent) { this.textContent = 'MOTION UNAVAILABLE'; return; }
-  playVideo(); motion = true; head = null; vx = vy = 0; addEventListener('deviceorientation', onTilt); this.setAttribute('aria-pressed', 'true'); this.textContent = 'MOVE YOUR PHONE TO LOOK'; document.getElementById('look-hint').style.display = 'none';
+  playVideo(); if (mode !== 'full') expand(true); motion = true; head = null; vx = vy = 0; addEventListener('deviceorientation', onTilt); this.setAttribute('aria-pressed', 'true'); this.textContent = 'MOVE YOUR PHONE TO LOOK'; document.getElementById('look-hint').style.display = 'none';
 };
 if (TOUCH) { stage.classList.add('touch'); document.querySelector('#look-hint span').textContent = 'DRAG, OR TAP TO ENTER'; }
 document.getElementById('look-close').onclick = () => { exitFull(); };
 if (v.requestVideoFrameCallback) { const onFrame = () => { fresh = true; v.requestVideoFrameCallback(onFrame); }; v.requestVideoFrameCallback(onFrame); }
-stage.addEventListener('keydown', e => {
+stage.addEventListener('keydown', e => { inputAt = performance.now();
   if (e.key === 'Escape') { exitFull(); return; }
   if (e.key === 'Tab' && mode === 'full') {
     const focusable = [stage, ...stage.querySelectorAll('button')].filter(el => getComputedStyle(el).display !== 'none');
@@ -252,15 +278,19 @@ stage.addEventListener('keydown', e => {
   }
   if (e.target.closest('button')) return;
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expand(true); return; } const d = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, 5], ArrowDown: [0, -5] }[e.key]; if (d) { e.preventDefault(); look(d[0], d[1]); } });
-document.getElementById('look-left').onclick = () => look(-20, 0);
-document.getElementById('look-right').onclick = () => look(20, 0);
 
 idleShape();
 new ResizeObserver(() => { if (mode === 'idle') idleShape(); }).observe(box);
 const observer = new IntersectionObserver(entries => {
   near = entries[0].isIntersecting;
-  if (near) { loadScene(); playVideo(); startFrames(); } else if (mode === 'idle') v.pause();
+  if (near) { loadScene(); startFrames(); }
 }, { rootMargin: '100px' });
 observer.observe(box);
+// Assets load just ahead of the scroll; the video and idle motion wait until the scene is really on screen.
+const sightObserver = new IntersectionObserver(entries => {
+  visible = entries[0].isIntersecting;
+  if (visible) playVideo(); else if (mode === 'idle') v.pause();
+}, { threshold: .2 });
+sightObserver.observe(box);
 
 })();

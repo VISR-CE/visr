@@ -25,13 +25,10 @@ endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
 ## Apple Vision Pro
 
 <!-- generated: features: vision-pro -->
-- A whole new way to experience Halo
-- Full stereo VR with head tracking and foveated rendering
-- Gameplay elements reimagined for a first-class VR experience
-- Immersive cutscenes true to the directorial intent
-- Supports PlayStation VR2 Sense controllers for hand-tracked gunplay
-- Works on both M2 and M5 Vision Pro
-- visionOS 2 or later
+- Full stereo VR
+- Head tracking and foveated rendering
+- PlayStation VR2 Sense gunplay
+- M2 or M5, visionOS 2 or later
 <!-- end generated -->
 
 VISR also plays in 2D, in a window or on a virtual screen in the room (theater
@@ -42,31 +39,38 @@ Settings live in `config.toml` in the VISR folder in Files.
 [port/ios/README.md](port/ios/README.md) describes the display and renderer
 settings.
 
-## iPhone and iPad
+## iPhone
 
-<!-- generated: features: iphone-and-ipad -->
-- Built-in touch controls for an on-the-go experience
+<!-- generated: features: iphone -->
+- Touch controls built in
 - Full controller support
-- Play on a TV or monitor via cable or AirPlay
-- iPhone 8 or newer
-- iOS/iPadOS 16 or later
+- Play on a TV via cable or AirPlay
+- iPhone 8 or newer, iOS 16 or later
+<!-- end generated -->
+
+## iPad
+
+<!-- generated: features: ipad -->
+- Touch controls built in
+- Full controller support
+- Play on a TV via cable or AirPlay
+- iPadOS 16 or later
 <!-- end generated -->
 
 ## Apple TV
 
 <!-- generated: features: apple-tv -->
-- Full controller support
 - Split-screen multiplayer on one TV
-- Apple TV HD or 4K
-- tvOS 16 or later
+- Full controller support
+- Apple TV HD or 4K, tvOS 16 or later
 <!-- end generated -->
 
 ## Mac
 
 <!-- generated: features: mac -->
-- Native AppKit app
-- Keyboard and mouse support
-- Any size, full screen or windowed
+- Native app
+- Keyboard and mouse
+- Windowed or full screen
 - Any Apple Silicon Mac, macOS 14 or later
 <!-- end generated -->
 
