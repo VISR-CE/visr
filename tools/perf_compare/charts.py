@@ -52,13 +52,12 @@ def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
 
 
 def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
-    """The specs worth drawing for these rows. A spec marked `needs_data` (the frame-cost charts) is drawn only when
-    at least two builds report its metric, since a chart of one build compares nothing. A platform leads with its
-    `frame_cost` chart only when at least two ports report it; otherwise the frame-rate chart (`primary_*` keys) leads and
-    a frame-cost chart that is drawn follows it as a sub-section (`sub_heading`, `sub_order`)."""
+    """The specs worth drawing for these rows. A spec marked `needs_data` (the frame-cost charts) is drawn when at least
+    one build reports its metric. A platform with a drawn `frame_cost` chart leads with it and opens on the Frame Time
+    view; a platform without one leads with the frame-rate chart (`primary_*` keys)."""
     counts = {spec["name"]: _reporters(spec, rows) for spec in specs if spec.get("needs_data")}
-    kept = [spec for spec in specs if not spec.get("needs_data") or counts[spec["name"]][1] >= 2]
-    leads = {spec["query"]["platform"] for spec in kept if spec.get("frame_cost") and counts[spec["name"]][0] >= 2}
+    kept = [spec for spec in specs if not spec.get("needs_data") or counts[spec["name"]][1] >= 1]
+    leads = {spec["query"]["platform"] for spec in kept if spec.get("frame_cost") and counts[spec["name"]][0] >= 1}
     result = []
     for spec in kept:
         platform = spec["query"]["platform"]

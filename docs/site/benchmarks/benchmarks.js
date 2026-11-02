@@ -834,7 +834,7 @@ function buildSelector(group, sections, state, params, draw) {
   let stored = null;
   try { stored = localStorage.getItem("bench-view." + key); } catch (error) { /* storage can be blocked */ }
   const wanted = params.get("view." + key) || stored;
-  let current = kinds.includes(wanted) ? wanted : "fps";
+  let current = kinds.includes(wanted) ? wanted : (kinds.includes("ms") ? "ms" : "fps");
   if (!kinds.includes(current)) current = kinds[0];
   const wrap = el("div", { class: "bench-group", "data-group": key });
   lead.before(wrap);

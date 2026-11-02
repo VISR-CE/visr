@@ -43,7 +43,37 @@ Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v
 
 ### iPhone and iPad
 
-Measured on an M1 iPad Pro from runs presented at the display rate. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval. GPU and CPU time per frame are not reported for iPhone and iPad builds yet.
+Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. The FPS view shows average fps with the 1% low fps directly below it.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 860
+    height: 420
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#1fa9d4, #ffc24d"
+---
+xychart-beta horizontal
+    title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, M1 iPad Pro"
+    x-axis "Port and version" ["VISR 0.6.3"]
+    y-axis "Milliseconds per frame" 0 --> 8.3
+    bar [0]
+    bar [6.2]
+```
+
+🟦 Median CPU time 🟨 Median GPU time
+
+Lower is better.
+
+M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; 6.24 ms median GPU time per rendered frame, 7 ms 90th-percentile GPU time per rendered frame; a10 not measured yet).
+
+Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this platform's reference device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+
+#### iPhone and iPad: frame rate
+
+Measured on an M1 iPad Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.
 
 ```mermaid
 ---
@@ -103,35 +133,7 @@ Not measured: [VISR 0.6.3 (Apple TV HD)](https://github.com/steverice/visr/relea
 
 ### Vision Pro
 
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported. The Frame Time view shows median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget; a build that reports only one is drawn with that bar alone.
-
-```mermaid
----
-config:
-  xyChart:
-    width: 520
-    height: 276
-  themeVariables:
-    xyChart:
-      plotColorPalette: "#1fa9d4, #ffc24d"
----
-xychart-beta horizontal
-    title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
-    y-axis "Frames per second" 0 --> 150
-    bar [89.5, 21, 29.8]
-    bar [89.5, 16.2, 0]
-```
-
-🟦 Average fps 🟨 1% low fps
-
-Higher is better.
-
-M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
-
-#### Vision Pro: CPU and GPU time
-
-Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported.
+Measured on an M2 Vision Pro from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. The FPS view shows average fps with the 1% low fps directly below it.
 
 ```mermaid
 ---
@@ -159,6 +161,34 @@ M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/relea
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build reports neither CPU nor GPU time per frame.).
 
+#### Vision Pro: frame rate
+
+Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 520
+    height: 276
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#1fa9d4, #ffc24d"
+---
+xychart-beta horizontal
+    title "Campaign: fps at display rate, M2 Vision Pro"
+    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
+    y-axis "Frames per second" 0 --> 150
+    bar [89.5, 21, 29.8]
+    bar [89.5, 16.2, 0]
+```
+
+🟦 Average fps 🟨 1% low fps
+
+Higher is better.
+
+M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
+
 <!-- END CHARTS -->
 
 ## Methodology
@@ -181,7 +211,7 @@ master-chef runs at a fixed 30 fps as shipped, below the 90 Hz display, so it ha
 
 iPhone/iPad, Apple TV, and Vision Pro charts use runs presented at the device's display rate or, where its profile sets a lower frame cap, at that cap, not an uncapped mode. Their on-time share (frames within 5% of the display interval) is in the spreadsheet, and a device that holds its display rate shows an average near that rate. The Mac chart uses the uncapped, matched-stock runs described below.
 
-Where at least two ports report GPU time, a device section leads with the cost of a frame: median and 90th-percentile GPU time per rendered frame and median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget (1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. Frame rate and 1% low follow, since a missed frame still counts. A build that reports no GPU or CPU time is listed as not reported; otherwise the section leads with frame rate and 1% low, and a frame-cost chart that has at least two builds follows it.
+Where a build reports GPU or CPU time, a device section opens on the Frame Time view, the cost of a frame: median and 90th-percentile GPU time per rendered frame and median main-thread CPU time per frame, in milliseconds, on an axis that ends at the frame budget (1000 divided by the display rate or frame cap). Lower is better: less time per frame leaves more headroom before frames are missed and draws less power, which lengthens battery life and delays thermal throttling. GPU time on pipelined Metal can include time spent waiting for a drawable, so read it as a cost indicator. The FPS view shows frame rate and 1% low, since a missed frame still counts. A build that reports no GPU or CPU time is listed as not reported; a device section with no frame-cost data leads with frame rate and 1% low.
 
 Halo OG's frame rate is limited by its CPU command submission, not by a frame cap: its uncapped settings are in force (the frame limit is 0 and vsync is off), its GPU is about half idle, and its rate does not change with the drawable size. It lacks several settings the other ports expose, among them shadow size, model LOD and field of view; its rows use its defaults.
 
