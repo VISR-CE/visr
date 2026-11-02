@@ -10,7 +10,8 @@ const v = document.getElementById('look-video'), poster = document.getElementByI
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const TOUCH = matchMedia('(pointer: coarse)').matches, FOCAL = 700;
 // Narrow views shorten the focal length so a phone still sees about 70° across instead of a 30° slice.
-const focal = (w, h) => Math.min(FOCAL, Math.max(w * .72, h * .55));
+// A scene's `wide` shortens the focal length further for rooms that read better with more in view.
+const focal = (w, h) => Math.min(FOCAL, Math.max(w * .72, h * .55)) / (scene.wide ?? 1);
 let sideways = 0, driftDirection = 1, dragVelocity = 0, movedAt = 0, inputAt = -Infinity, driftAt = 0, drift = 0, pitchDrift = 0, motion = false, head = null, yawOff = 0, pitchOff = 0, vx = 0, vy = 0;
 let fresh = true, downAt = 0, moved = 0, hoverX = 0, glareX = 40, near = false, visible = false, loaded = false, running = false;
 let yaw = scene.yaw ?? 0, pitch = scene.pitch ?? 22, last = null, mode = 'idle', idle, cx = 0, cy = 0, tcx = null, tcy = null;
