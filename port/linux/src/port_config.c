@@ -1212,6 +1212,12 @@ static const struct config_setting config_settings[] =
 		"Split screen draws the Xbox's split screen HUD (its smaller elements, packed\n"
 		"against the screen's title-safe edges) instead of each player's full HUD laid\n"
 		"out in their own view as in a one-player game. Read at launch." },
+	{ "debug.split_hud_scale", _config_real, "1.0", "HALO_SPLIT_HUD_SCALE", _environment_value, _platform_all,
+		"With three or four players in split screen, the size of each player's HUD\n"
+		"against a one-player HUD's, 0.25 to 1.0 (default 1.0). Read at launch." },
+	{ "debug.split_tracker_scale", _config_real, "1.0", "HALO_SPLIT_TRACKER_SCALE", _environment_value, _platform_all,
+		"With three or four players in split screen, the size of each player's motion\n"
+		"sensor against the rest of their HUD, 0.25 to 1.0 (default 1.0). Read at launch." },
 	{ "debug.halt_screen", _config_boolean, "false", "HALO_HALT_SCREEN", _environment_value, _platform_ios,
 		"On a fatal game error (a failed assertion or a halt), stop on the game's\n"
 		"halt screen, its recent messages on a blue background, instead of crashing.\n"

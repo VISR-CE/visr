@@ -1146,6 +1146,7 @@ void hud_render_unit_interface(
 					/* port: the motion sensor is the tracker's group, inside the
 					unit's (halo_stereo.h) */
 					halo_hud_group_begin(HALO_HUD_GROUP_TRACKER);
+					hud_full_layout_tracker_begin(); /* port: debug.split_tracker_scale */
 					absolute_placement.corner = _hud_anchor_bottom_left;
 					SET_FLAG(
 						draw_flags,
@@ -1199,6 +1200,7 @@ void hud_render_unit_interface(
 						local_player_index,
 						hud_split_screen_layout(),
 						&corner);
+					hud_full_layout_tracker_end(); /* port */
 					halo_hud_group_end(); /* port */
 				}
 

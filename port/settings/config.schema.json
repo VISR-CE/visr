@@ -1641,6 +1641,28 @@
             "desktop"
           ]
         },
+        "split_hud_scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "With three or four players in split screen, the size of each player's HUD against a one-player HUD's, 0.25 to 1.0 (default 1.0). Read at launch.",
+          "x-environment": "HALO_SPLIT_HUD_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "split_tracker_scale": {
+          "type": "number",
+          "default": 1.0,
+          "description": "With three or four players in split screen, the size of each player's motion sensor against the rest of their HUD, 0.25 to 1.0 (default 1.0). Read at launch.",
+          "x-environment": "HALO_SPLIT_TRACKER_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "halt_screen": {
           "type": "boolean",
           "default": false,

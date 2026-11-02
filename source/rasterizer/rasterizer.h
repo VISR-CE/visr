@@ -412,6 +412,10 @@ void rasterizer_window_begin(
 	struct rasterizer_window_begin_parameters const *parameters);
 void rasterizer_window_end(
 	void);
+/* port: the render target's viewport while split screen's full HUD draws in a
+one-player layout (hud_full_layout_begin); NULL goes back to the camera's */
+void rasterizer_hud_layout_viewport(
+	rectangle2d const *viewport);
 void rasterizer_windows_end(void);
 void rasterizer_frame_end(void);
 
