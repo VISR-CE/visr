@@ -23,7 +23,7 @@ static rectangle2d seen_bounds;
 static struct bitmap_data bitmap={64,32};
 static real_rectangle2d sprite={0,.25f,.5f,.5f};
 static int game_time_get(void) {return 1;}
-static int local_player_count(void) {return 2;}
+static int hud_split_screen_layout(void) {return 1;} /* the Xbox split screen HUD (debug.split_screen_hud) */
 static void hud_retrieve_bitmap_and_bounding_rect(long group,short sequence,long frame,
  struct bitmap_data const **out,real_rectangle2d const **clip) {
  (void)group;(void)sequence;(void)frame;*out=&bitmap;*clip=&sprite;
