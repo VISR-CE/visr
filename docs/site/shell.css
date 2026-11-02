@@ -107,6 +107,8 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .hero-media .visor-glass svg { inset: 6.5% auto auto 3.75%; width: 92.5%; height: 87%; }
 .visor-dome { position: absolute; left: -25%; top: -25%; width: 150%; height: 150%; pointer-events: none; }
 .hero-media.is-convex .visor-face { visibility: hidden; }
+/* WebKit pauses muted autoplay video it considers invisible, so a hero clip stays nominally visible under the canvas. */
+.hero-media.is-convex .visor-face > video { visibility: visible; opacity: .01; }
 .visor-wire { position: absolute; left: -50%; top: -50%; width: 200%; height: 200%; overflow: visible; pointer-events: none; }
 .visor-wire path { fill: none; stroke: var(--hud-cyan); stroke-width: 1; stroke-opacity: .75; vector-effect: non-scaling-stroke; }
 .head .platform-nav { order: 5; position: static; transform: none; width: 100%; max-width: none; justify-content: flex-start; margin: 4px 0 0; gap: 8px; }
