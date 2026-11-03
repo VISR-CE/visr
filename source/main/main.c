@@ -1494,6 +1494,23 @@ void compute_window_bounds(
 	if (vertical_index+1==vertical_count)
 		pixel_bounds->y1 = rasterizer_globals.reserved04.screen_bounds.y1;
 
+	/* port: the camera's projection is centered on the window (render_camera_build_frustum_bounds), and
+	an outer view's pixels reach the screen's edge past the title-safe frame, so the window sat off its view's
+	center, toward the middle of the screen. The full split screen HUD draws each view as one player's screen,
+	with the reticle at the view's center (hud_full_layout_apply), so center the window on the view too: the
+	shots land under the reticle and the first-person weapon sits right of it, as in the one-player game. The
+	Xbox's split screen HUD (debug.split_screen_hud) keeps the original layout. */
+	if (num_players > 1 && !hud_split_screen_layout())
+	{
+		short dx = (short)(((pixel_bounds->x0 + pixel_bounds->x1) - (safe_frame_bounds->x0 + safe_frame_bounds->x1)) / 2);
+		short dy = (short)(((pixel_bounds->y0 + pixel_bounds->y1) - (safe_frame_bounds->y0 + safe_frame_bounds->y1)) / 2);
+
+		safe_frame_bounds->x0 += dx;
+		safe_frame_bounds->x1 += dx;
+		safe_frame_bounds->y0 += dy;
+		safe_frame_bounds->y1 += dy;
+	}
+
 	return;
 }
 
