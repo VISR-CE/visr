@@ -44,6 +44,7 @@ body {
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
 .site-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-3); color: var(--muted); font-size: 0.95rem; text-decoration: none; box-shadow: inset 0 -2px 0 transparent; }
 .site-nav a:hover { color: var(--ink); }
+.site-nav .ext-icon { width: 0.95em; height: 0.95em; margin-left: 0.4em; flex: none; }
 .site-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
 .site-nav a:last-child { min-height: 36px; border: 1px solid var(--accent); border-radius: var(--radius-pill); color: var(--accent); }
 .site-nav a:last-child:hover { background: var(--accent); color: var(--bg); }

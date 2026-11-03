@@ -918,10 +918,13 @@ def test_both_pages_share_the_site_header_stylesheet_and_footer():
     home, bench = (site / "index.html").read_text(), (site / "benchmarks.html").read_text()
     for page, current in ((home, "Home"), (bench, "Benchmarks")):
         header = re.search(r'<nav class="site-nav".*?</nav>', page, re.S).group(0)
-        assert re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', header) == [
+        links = re.findall(r'<a href="([^"]+)"([^>]*)>(.*?)</a>', header, re.S)
+        assert [(href, re.sub(r'<svg.*?</svg>|<span class="sr-only">.*?</span>', '', text)) for href, _, text in links] == [
             ("./", "Home"), ("benchmarks.html", "Benchmarks"),
             ("https://github.com/steverice/visr/milestones?sort=due_date&amp;direction=asc", "Roadmap"),
             ("https://forms.gle/bhjDV4XhRWbZjQet8", "Become a tester")]
+        assert [href for href, attrs, _ in links if 'target="_blank"' in attrs] == [
+            "https://github.com/steverice/visr/milestones?sort=due_date&amp;direction=asc", "https://forms.gle/bhjDV4XhRWbZjQet8"]
         assert re.findall(r'aria-current="page">([^<]+)<', header) == [current]
         assert '<link rel="stylesheet" href="style.css">' in page and "<style>" not in page
         assert "TestFlight" not in page and '<footer class="foot">' in page
