@@ -1431,6 +1431,10 @@ static struct
 
 double config_real(const char *name);
 
+/* port: TRUE while a scope overlay of the full split screen HUD is drawn
+with the Xbox's split screen layout (hud_full_layout_zoom_begin) */
+static boolean hud_split_layout_forced;
+
 boolean hud_split_screen_layout(
 	void)
 {
@@ -1438,7 +1442,7 @@ boolean hud_split_screen_layout(
 
 	if (enabled < 0)
 		enabled = config_boolean("debug.split_screen_hud") != 0;
-	return enabled && local_player_count() > 1;
+	return (enabled || hud_split_layout_forced) && local_player_count() > 1;
 }
 
 /* port: a split screen view's HUD is the one-player HUD laid out right at the
@@ -1593,6 +1597,35 @@ void hud_full_layout_tracker_end(
 {
 	if (hud_full_layout_held && hud_split_tracker_scale() < 1.0f)
 		hud_full_layout_apply(hud_split_hud_scale());
+}
+
+boolean hud_full_layout_active(
+	void)
+{
+	return hud_full_layout_held;
+}
+
+/* port: a scope overlay of the full split screen HUD (hud_weapon.c) is drawn
+with the Xbox's split screen layout, where the scope's split screen mask frames
+it: the view's own camera rectangles, at full size, and the split screen's
+element choices and scale. TRUE when the full layout was suspended for it */
+boolean hud_full_layout_zoom_begin(
+	void)
+{
+	if (!hud_full_layout_held)
+		return FALSE;
+	hud_full_layout_end();
+	hud_split_layout_forced = TRUE;
+	return TRUE;
+}
+
+void hud_full_layout_zoom_end(
+	boolean suspended)
+{
+	if (!suspended)
+		return;
+	hud_split_layout_forced = FALSE;
+	hud_full_layout_begin();
 }
 
 /* the window as it would be 640 wide, at the middle of the wide one (each

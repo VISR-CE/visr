@@ -397,6 +397,33 @@ static void hud_update_weapon_local_player(
 	long weapon_index,
 	long hud_index,
 	struct weapon_interface_state *weapon_state);
+/* port: a split screen view's scope overlays (the zoom rulers, the
+magnification) belong with the scope's split screen mask, which is drawn over
+the view at the Xbox's split screen size: while the full split screen HUD is
+on, they are drawn as the Xbox's split screen HUD draws them (its elements, its
+offsets and scale, in the view's own window: hud_full_layout_zoom_begin), and
+the rest of the HUD keeps the full layout */
+static short hud_weapon_zoom_map_type_flags(
+	short map_type_flags,
+	boolean zoomed)
+{
+	if (zoomed && hud_full_layout_active())
+	{
+		SET_FLAG(map_type_flags, 1, FALSE);
+		SET_FLAG(map_type_flags, 2, TRUE);
+	}
+	return map_type_flags;
+}
+
+static short hud_weapon_zoom_draw_flags(
+	short draw_flags,
+	boolean split_zoom)
+{
+	if (split_zoom)
+		SET_FLAG(draw_flags, _hud_draw_in_multiplayer_bit, TRUE);
+	return draw_flags;
+}
+
 static void render_weapon_hud(
 	long hud_index,
 	short local_player_index,
@@ -1723,16 +1750,20 @@ static void render_weapon_hud(
 			element_index,
 			struct weapon_hud_static_element);
 
+		boolean static_zoomed = hud_multitexture_overlays_follow_zoom(&element->static_element.multitexture_overlays);
+
 		if (!TEST_FLAG(element->header.runtime_flags, _hud_element_runtime_invalid_bit) &&
-			TEST_FLAG(map_type_flags, element->header.use_on_map_type) &&
+			TEST_FLAG(hud_weapon_zoom_map_type_flags(map_type_flags, static_zoomed), element->header.use_on_map_type) &&
 			weapon_hud_state_index_valid(element->header.state_type, NUMBER_OF_WEAPON_HUD_FLASH_REFERENCES))
 		{
 			/* (the zoomed view's, at the middle: hud_zoomed_layout_begin) */
 			rectangle2d window_bounds;
-			boolean zoomed_layout = hud_multitexture_overlays_follow_zoom(&element->static_element.multitexture_overlays);
+			boolean zoomed_layout = static_zoomed;
+			boolean split_zoom = FALSE;
 
 			if (zoomed_layout)
 			{
+				split_zoom = hud_full_layout_zoom_begin();
 				hud_zoomed_layout_begin(&window_bounds);
 				/* port: in stereo, while zoomed, into the zoomed picture; and
 				never part of the weapon group's rectangle, since unzoomed it
@@ -1745,13 +1776,14 @@ static void render_weapon_hud(
 				local_player_index,
 				&definition->absolute_placement,
 				&element->static_element,
-				state_flags[state_index],
+				hud_weapon_zoom_draw_flags(state_flags[state_index], split_zoom),
 				hud_state->last_weapon_flash_time[state_index]);
 			if (zoomed_layout)
 			{
 				halo_hud_group_measure(TRUE); /* port */
 				halo_stereo_zoom_overlay(FALSE);
 				hud_zoomed_layout_end(&window_bounds);
+				hud_full_layout_zoom_end(split_zoom);
 			}
 		}
 	}
@@ -1765,16 +1797,20 @@ static void render_weapon_hud(
 			element_index,
 			struct weapon_hud_meter_element);
 
+		boolean meter_zoomed = hud_multitexture_overlays_follow_zoom(&element->meter_element.multitexture_overlays);
+
 		if (!TEST_FLAG(element->header.runtime_flags, _hud_element_runtime_invalid_bit) &&
-			TEST_FLAG(map_type_flags, element->header.use_on_map_type) &&
+			TEST_FLAG(hud_weapon_zoom_map_type_flags(map_type_flags, meter_zoomed), element->header.use_on_map_type) &&
 			weapon_hud_state_index_valid(element->header.state_type, NUMBER_OF_WEAPON_HUD_FLASH_REFERENCES))
 		{
 			byte value;
 			rectangle2d window_bounds;
-			boolean zoomed_layout = hud_multitexture_overlays_follow_zoom(&element->meter_element.multitexture_overlays);
+			boolean zoomed_layout = meter_zoomed;
+			boolean split_zoom = FALSE;
 
 			if (zoomed_layout)
 			{
+				split_zoom = hud_full_layout_zoom_begin();
 				hud_zoomed_layout_begin(&window_bounds);
 				/* port: in stereo, while zoomed, into the zoomed picture, and not
 				measured for the weapon group (as above) */
@@ -1790,7 +1826,7 @@ static void render_weapon_hud(
 				&element->meter_element,
 				value,
 				value,
-				state_flags[state_index],
+				hud_weapon_zoom_draw_flags(state_flags[state_index], split_zoom),
 				(real)hud_state->last_weapon_flash_time[state_index],
 				0.0f);
 			if (zoomed_layout)
@@ -1798,6 +1834,7 @@ static void render_weapon_hud(
 				halo_hud_group_measure(TRUE); /* port */
 				halo_stereo_zoom_overlay(FALSE);
 				hud_zoomed_layout_end(&window_bounds);
+				hud_full_layout_zoom_end(split_zoom);
 			}
 		}
 	}
@@ -1811,15 +1848,18 @@ static void render_weapon_hud(
 			element_index,
 			struct weapon_hud_number_element);
 
+		boolean number_zoomed = hud_number_shows_only_when_zoomed(&element->number_element);
+
 		if (!TEST_FLAG(element->header.runtime_flags, _hud_element_runtime_invalid_bit) &&
-			TEST_FLAG(map_type_flags, element->header.use_on_map_type) &&
+			TEST_FLAG(hud_weapon_zoom_map_type_flags(map_type_flags, number_zoomed), element->header.use_on_map_type) &&
 			weapon_hud_state_index_valid(element->header.state_type, NUMBER_OF_WEAPON_HUD_FLASH_REFERENCES))
 		{
 			short magazine_size = 1;
 			short value;
 			short decimal_value;
 			rectangle2d window_bounds;
-			boolean zoomed_layout = hud_number_shows_only_when_zoomed(&element->number_element);
+			boolean zoomed_layout = number_zoomed;
+			boolean split_zoom = FALSE;
 
 			if (TEST_FLAG(
 				element->weapon_flags,
@@ -1866,6 +1906,7 @@ static void render_weapon_hud(
 
 			if (zoomed_layout)
 			{
+				split_zoom = hud_full_layout_zoom_begin();
 				hud_zoomed_layout_begin(&window_bounds);
 				/* port: in stereo, while zoomed, into the zoomed picture, and not
 				measured for the weapon group (as above) */
@@ -1878,7 +1919,7 @@ static void render_weapon_hud(
 				&element->number_element,
 				value,
 				decimal_value,
-				state_flags[state_index],
+				hud_weapon_zoom_draw_flags(state_flags[state_index], split_zoom),
 				hud_state->last_weapon_flash_time[state_index],
 				0.0f);
 			if (zoomed_layout)
@@ -1886,6 +1927,7 @@ static void render_weapon_hud(
 				halo_hud_group_measure(TRUE); /* port */
 				halo_stereo_zoom_overlay(FALSE);
 				hud_zoomed_layout_end(&window_bounds);
+				hud_full_layout_zoom_end(split_zoom);
 			}
 		}
 	}

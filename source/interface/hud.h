@@ -30,6 +30,9 @@ struct hud_scripted_globals_definition
 
 /* port: the Xbox's split screen HUD (debug.split_screen_hud with two or more
 local players) rather than each player's full HUD */
+boolean hud_full_layout_active(void);
+boolean hud_full_layout_zoom_begin(void);
+void hud_full_layout_zoom_end(boolean suspended);
 boolean hud_split_screen_layout(
 	void);
 /* port: interface_draw_hud, around a split screen view's HUD: the one-player
