@@ -164,7 +164,9 @@ HERO_CLIP = ('<svg class="clip-defs" width="0" height="0" aria-hidden="true"><de
              f'd="{visor_path()}"/></clipPath></defs></svg>')
 # The hero video's stand-in while it loads: the game's loading screen as a 6-column sprite sheet of 36 frames at 30 per second (`visor.js`).
 HERO_LOADING = ("loading-hero.webp", 6, 36, 30)
-MEDIA_ANNOTATION = re.compile(r"\{(?:device=(iphone|ipad|tv|mac|vision)|(hero))(?: video=([\w./-]+\.mp4))?\}")
+MEDIA_ANNOTATION = re.compile(r"\{(?:device=(iphone|ipad|tv|mac|vision)|(hero))(?: video=([\w-]+))?\}")
+# Clips live in the `visr-media` R2 bucket: a slot's `video=NAME` names `NAME-hevc.mp4`, `NAME-web.mp4` (H.264) and `NAME-poster.jpg`.
+CLIP_ASSET_BASE = "https://media.visr.gg/clips/"
 
 
 def glyph(name: str) -> str:
@@ -201,14 +203,18 @@ def every_device_columns(facts: dict) -> str:
     return "\n".join(['    <ul class="pillars">', *columns, '    </ul>'])
 
 
-def media_element(image_html: str, image, video: str | None, asset_root: Path) -> str:
-    """A media slot: a muted, looping `<video>` with the image as its poster when the clip exists in the site folder,
-    the image alone until then. `site.js` plays the clip only while it is on screen and motion is allowed."""
-    if not video or not (asset_root / video).is_file():
+def media_element(image_html: str, image, video: str | None) -> str:
+    """A media slot: a muted, looping `<video>` for the clip `video` on the media host (HEVC first, then H.264) with its
+    poster, or the image alone when the slot names no clip. `site.js` plays the clip only while it is on screen and
+    motion is allowed."""
+    if not video:
         return image_html
-    return (f'<video class="media-video" muted loop playsinline preload="none" poster="{escape(image.attrGet("src"), quote=True)}" '
+    base = escape(CLIP_ASSET_BASE + video, quote=True)
+    return (f'<video class="media-video" muted loop playsinline preload="none" crossorigin="anonymous" poster="{base}-poster.jpg" '
             f'width="{image.attrGet("width")}" height="{image.attrGet("height")}" role="img" '
-            f'aria-label="{escape(image.content, quote=True)}"><source src="{escape(video, quote=True)}" type="video/mp4"></video>')
+            f'aria-label="{escape(image.content, quote=True)}">'
+            f'<source src="{base}-hevc.mp4" type=\'video/mp4; codecs="hvc1"\'>'
+            f'<source src="{base}-web.mp4" type="video/mp4"></video>')
 
 
 def expand_includes(source: str, facts: dict) -> str:
@@ -292,6 +298,7 @@ LOOK_SCENES = [
     {"folder": "a50-grav-lift", "label": "The gravity lift on The Truth and Reconciliation", "yaw": 176, "pitch": 60, "videoBand": 1348 / 2048, "drift": {"yaw": 0, "pitch": -2, "stop": -15}},
     {"folder": "damnation", "label": "The waterfalls of Damnation", "yaw": 150, "pitch": -20, "videoBand": 1488 / 2048},
     {"folder": "control-room", "label": "The Control Room on Assault on the Control Room", "wide": 1.4, "yaw": 85, "pitch": 2, "videoBand": 1820 / 2048, "drift": {"yaw": 6, "pitch": 0}},
+    {"folder": "battle-creek", "label": "Capture the Flag on Battle Creek", "wide": 1.26, "yaw": 290, "pitch": 5, "videoBand": 1, "drift": {"yaw": 11.8033, "pitch": 0}},
     {"folder": "blood-gulch", "label": "The ridge above Blood Gulch", "still": True, "yaw": 100, "pitch": 2, "drift": {"yaw": -10, "pitch": 0}},
 ]
 
@@ -352,7 +359,7 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
         if annotation.startswith(("{device=", "{hero")):
             match = MEDIA_ANNOTATION.fullmatch(annotation)
             if not match:
-                raise ValueError("Use device=iphone, ipad, tv, mac or vision (or hero), with an optional video=NAME.mp4, on a standalone image")
+                raise ValueError("Use device=iphone, ipad, tv, mac or vision (or hero), with an optional video=NAME, on a standalone image")
             if match.group(2):
                 hero_block = index
             else:
@@ -462,7 +469,7 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
             if section:
                 raise ValueError("Place the hero image before the first section")
             token = inline(block)[0]
-            slot = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
+            slot = media_element(md.renderer.render([token], md.options, {}), token, video_names[index])
             if slot.startswith("<video") and (asset_root / HERO_LOADING[0]).is_file():
                 slot = slot.replace("<video ", f'<video data-loading="{" ".join(map(str, HERO_LOADING))}" ', 1)
                 hero_loading = True
@@ -471,7 +478,7 @@ def render_site(source: str, template: str | None = None, *, asset_root: Path | 
             if not section:
                 raise ValueError("Place a device image inside a section")
             token = inline(block)[0]
-            image = media_element(md.renderer.render([token], md.options, {}), token, video_names[index], asset_root)
+            image = media_element(md.renderer.render([token], md.options, {}), token, video_names[index])
             if device_blocks[index] == "vision":
                 image = visor_slot(image)
             media.append(f'        <figure class="device device-{device_blocks[index]}">{image}</figure>')

@@ -159,7 +159,7 @@ function loadingFirst() {
   if (reduced.matches) {
     // One loading frame, then the poster.
     phase = 'still'; frameAt(Math.floor(+spec[2] * .4));
-    const poster = new Image(); poster.onload = () => { source = poster; start(); }; poster.src = media.poster;
+    const poster = new Image(); poster.crossOrigin = 'anonymous'; poster.onload = () => { source = poster; start(); }; poster.src = media.poster;
     media.addEventListener('loadeddata', () => { if (poster.src) poster.src = media.poster; }, { once: true });
   } else frameAt(0);
   start();

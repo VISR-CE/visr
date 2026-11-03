@@ -319,23 +319,24 @@ def test_tagline_highlights_whole_new_dimension_and_preserves_other_copy():
 
 
 @pytest.mark.parametrize('annotation, figure', [('hero', 'hero-media'), ('device=iphone', 'device device-iphone')])
-@pytest.mark.parametrize('clip_exists', [False, True])
-def test_media_video_uses_poster_and_falls_back_to_image(tmp_path, annotation, figure, clip_exists):
+@pytest.mark.parametrize('clip', [None, 'game'])
+def test_media_video_uses_hosted_clip_sources_or_falls_back_to_image(tmp_path, annotation, figure, clip):
     import struct
     (tmp_path / 'game.png').write_bytes(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sII', 13, b'IHDR', 1600, 900))
-    if clip_exists:
-        (tmp_path / 'game.mp4').write_bytes(b'clip')
-    image = f'![Halo & touch controls](game.png){{{annotation} video=game.mp4}}'
+    option = f' video={clip}' if clip else ''
+    image = f'![Halo & touch controls](game.png){{{annotation}{option}}}'
     source = (SOURCE.replace('## Apple Vision Pro', image + '\n\n## Apple Vision Pro', 1)
               if annotation == 'hero' else SOURCE + '\n' + image + '\n')
     page = render_site(source, asset_root=tmp_path)
     slot = page.split(f'<figure class="{figure}">', 1)[1].split('</figure>', 1)[0]
     assert 'width="1600" height="900"' in slot
-    if clip_exists:
-        assert '<video class="media-video" muted loop playsinline preload="none"' in slot
-        assert 'poster="game.png"' in slot
+    if clip:
+        assert '<video class="media-video" muted loop playsinline preload="none" crossorigin="anonymous"' in slot
+        assert 'poster="https://media.visr.gg/clips/game-poster.jpg"' in slot
         assert 'role="img" aria-label="Halo &amp; touch controls"' in slot
-        assert '<source src="game.mp4" type="video/mp4"></video>' in slot
+        assert slot.index('game-hevc.mp4') < slot.index('game-web.mp4')
+        assert '<source src="https://media.visr.gg/clips/game-hevc.mp4" type=\'video/mp4; codecs="hvc1"\'>' in slot
+        assert '<source src="https://media.visr.gg/clips/game-web.mp4" type="video/mp4"></video>' in slot
         assert '<img' not in slot
     else:
         assert '<img src="game.png" alt="Halo &amp; touch controls"' in slot
@@ -350,7 +351,7 @@ def test_hero_image_after_a_section_fails_build():
 
 
 @pytest.mark.parametrize('annotation', ['hero', 'device=iphone'])
-@pytest.mark.parametrize('attributes', ['video=clip.webm', 'video=', 'video=bad clip.mp4', 'video=clip.mp4 extra=value'])
+@pytest.mark.parametrize('attributes', ['video=clip.mp4', 'video=', 'video=bad clip', 'video=clip extra=value'])
 def test_malformed_media_video_annotation_fails_build(annotation, attributes):
     with pytest.raises(ValueError, match='device'):
         render_site(SOURCE + f'\n![Gameplay](icon.png){{{annotation} {attributes}}}\n')
@@ -369,9 +370,9 @@ def test_platforms_wrapper_contains_exactly_five_platform_sections(committed):
     assert platforms.count('</section>') == 5
     assert 'A premium experience on every device' not in platforms
     assert '<section aria-labelledby="a-premium-experience-on-every-device">' in page
-    if committed:  # only the clips that are committed render as video; the others keep their poster image
-        clips = set(re.findall(r'<source src="([^"]+)"', page))
-        assert clips == {f'video/{path.name}' for path in (site / 'video').glob('*.mp4')}
+    if committed:  # every platform slot and the hero name a hosted clip with HEVC first, then H.264
+        assert re.findall(r'<source src="https://media\.visr\.gg/clips/([^"]+)"', page) == [
+            f'{name}-{kind}.mp4' for name in ('hero', 'vision', 'iphone', 'ipad', 'tv', 'mac') for kind in ('hevc', 'web')]
 
 
 def test_site_template_has_skip_target_shared_styles_and_deferred_script():
@@ -480,11 +481,11 @@ def test_hero_video_plays_the_loading_screen_until_it_can_play_through(tmp_path)
     import struct
     (tmp_path / 'game.png').write_bytes(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sII', 13, b'IHDR', 1600, 900))
     (tmp_path / 'game.mp4').write_bytes(b'clip')
-    source = SOURCE.replace('## Apple Vision Pro', '![Hero](game.png){hero video=game.mp4}\n\n## Apple Vision Pro', 1)
+    source = SOURCE.replace('## Apple Vision Pro', '![Hero](game.png){hero video=game}\n\n## Apple Vision Pro', 1)
     page = render_site(source, asset_root=tmp_path)
     assert '<video data-loading="' not in page  # no sheet in the folder: the plain video
     (tmp_path / 'loading-hero.webp').write_bytes(b'sheet')
     page = render_site(source, asset_root=tmp_path)
     assert '<video data-loading="loading-hero.webp 6 36 30" class="media-video"' in page
     assert page.index('<link rel="preload" as="image" href="loading-hero.webp"') < page.index('</head>')
-    assert 'loading-hero.webp' not in render_site(source.replace('{hero video=game.mp4}', '{hero}'), asset_root=tmp_path)
+    assert 'loading-hero.webp' not in render_site(source.replace('{hero video=game}', '{hero}'), asset_root=tmp_path)
