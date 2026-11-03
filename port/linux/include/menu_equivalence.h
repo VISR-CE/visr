@@ -15,6 +15,7 @@ static char const *const menu_screen_pairs[][2] = {
 	{"pc\\xbox\\settings\\controls_setup\\controls_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\controls_setup\\controls_settings_screen"},
 	{"pc\\xbox\\settings\\mouse_settings\\mouse_settings_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\mouse_settings\\mouse_settings_screen"},
 	{"pc\\xbox\\settings\\gamepad_setup\\gamepad_setup_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\gamepad_setup\\gamepad_setup_screen"},
+	{"pc\\xbox\\settings\\about\\about_screen", "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\about\\about_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\join_game_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen", "pc\\main_menu\\multiplayer_type_select\\join_game\\password\\password_screen"},

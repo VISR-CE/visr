@@ -1564,6 +1564,17 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
     buffer[size - 1] = 0;
 }
 
+void host_sdl_app_build(char *buffer, unsigned int size)
+{
+    CFTypeRef build = CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), CFSTR("CFBundleVersion"));
+
+    if (!size) return;
+    buffer[0] = 0;
+    if (build && CFGetTypeID(build) == CFStringGetTypeID())
+        CFStringGetCString((CFStringRef)build, buffer, (CFIndex)size, kCFStringEncodingUTF8);
+    buffer[size - 1] = 0;
+}
+
 void host_sdl_app_version(char *buffer, unsigned int size)
 {
     CFTypeRef version = host_app_version_string(CFBundleGetMainBundle());

@@ -53,6 +53,10 @@ int main(int argc, char **argv)
 	check("desktop", want_desktop);
 	check("android", want_android);
 	check("tv", -1);
+	/* (a "!" before a value: the builds that are not for it) */
+	check("!desktop", !want_desktop);
+	check("!android", !want_android);
+	check("!tv", -1);
 	check("", -1);
 	printf("%s (%s)\n", failures ? "menu platform probe FAILED" : "menu platform probe passed", kind);
 	return failures != 0;

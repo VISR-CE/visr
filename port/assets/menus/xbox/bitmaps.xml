@@ -176,6 +176,9 @@
 	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options">
 		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options__0.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/about/header_about.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/audio_settings/header_profile_audio_settings">
 		<frame png="ce/shell/main_menu/settings_select/player_setup/player_profile_edit/audio_settings/header_profile_audio_settings__0.png" width="512" height="64" />
 	</bitmap>

@@ -28,7 +28,8 @@ calls them from PC_MENU_FUNCTION_BASE on):
   (OK) writes those changed and applies the window's (the rest follow
   config.toml themselves), "port settings defaults" shows the defaults,
   "port settings help" the help of the row chosen (and Video Setup's
-  Resolution or Window Size, for the display mode shown);
+  Resolution or Window Size, for the display mode shown), and the About
+  screen's "port about version" and "port about build" (and its SEND LOG row's "port send log" and "port send log status");
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
@@ -97,6 +98,7 @@ int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 void host_sdl_app_version(char *buffer, unsigned int size);
+void host_sdl_app_build(char *buffer, unsigned int size);
 void host_sdl_send_log_start(void);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
@@ -1566,6 +1568,25 @@ static void cloud_saves_status_show(struct widget_instance *widget)
 	text_set_length(widget, text, NUMBEROF(text));
 #else
 	(void)widget;
+#endif
+}
+
+/* "port about version" and "port about build": the About screen's rows, the app's version and its build number.
+The host copies them into guest memory, as the cloud saves' status does */
+static void about_text_show(struct widget_instance *widget, boolean build)
+{
+#ifdef HALO_IOS
+	char shown[64];
+	wchar_t text[64];
+
+	if (build)
+		host_sdl_app_build(shown, sizeof(shown));
+	else
+		host_sdl_app_version(shown, sizeof(shown));
+	halo_menus_utf16(shown, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(widget, text, NUMBEROF(text));
+#else
+	(void)widget, (void)build;
 #endif
 }
 
@@ -6618,6 +6639,10 @@ void pc_menu_game_data_function_invoke(
 		cloud_saves_status_show(widget);
 	else if (!strcmp(name, "port send log status"))
 		send_log_status_show(widget);
+	else if (!strcmp(name, "port about version"))
+		about_text_show(widget, FALSE);
+	else if (!strcmp(name, "port about build"))
+		about_text_show(widget, TRUE);
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);

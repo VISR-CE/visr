@@ -14,7 +14,7 @@ MP = "ui\\shell\\main_menu\\multiplayer_type_select\\"
 # the Xbox's own rows of the multiplayer type list, in order, each with the description and picture of its place
 MP_ROWS = ["multiplayer_type_coop_item", "multiplayer_type_split_item", "multiplayer_type_conn_item",
            "multiplayer_type_gametypes_item"]
-PLATFORMS = {"tvos", "keyboard", "mac_app"}
+PLATFORMS = {"tvos", "keyboard", "mac_app", "!keyboard"}
 
 
 def table():
@@ -114,7 +114,7 @@ def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]
     assert texts == [("VIDEO", "mac_app"), ("AUDIO", None), ("NETWORK", None), ("KEYBOARD & MOUSE", "keyboard"),
-                     ("DELETE PROFILE", "tvos")]
+                     ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos")]
     keyboard = next(row for row in rows(patch) if row.get("platform") == "keyboard")
     assert keyboard.get("open").endswith("controls_settings_screen")
     delete = rows(patch)[-1]

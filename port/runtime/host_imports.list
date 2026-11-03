@@ -150,6 +150,7 @@ host_sdl_cloud_saves_status
 host_sdl_send_log_start
 host_sdl_send_log_status
 host_sdl_app_version
+host_sdl_app_build
 
 host_shader_observation_activate
 host_shader_observation_append

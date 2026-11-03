@@ -112,7 +112,7 @@ be a child of many).
 | `description` | A column list's extended description: a widget |
 | `controller` | `1` to `4`, or `any` (the default); a `<child>`'s or `child_controller`: the one it is for |
 | `auto_close`, `auto_close_fade` | It closes itself after this many milliseconds, fading for this many |
-| `platform` | `desktop`, `android`, `apple`, `cloud_saves` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `send_log`: Apple hosts that can send the log to iCloud (the SEND LOG row); `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it; `tvos`: the Apple TV, whose remote has no X or Y; `keyboard`: the desktop, the Mac app, and an iPhone or iPad with a keyboard attached as the game starts). Every element takes this. |
+| `platform` | `desktop`, `android`, `apple`, `cloud_saves` or `mac_app`: it is only there (Apple builds take the `android` elements too; `apple`: the Apple host's builds alone, whose lobby's Y shares the invite; `cloud_saves`: Apple hosts with cloud saves enabled at build time; `send_log`: Apple hosts that can send the log to iCloud (the About screen's SEND LOG row); `mac_app`: the Mac app alone, which honors `display.frame_rate`; Video Setup's Frame Rate row has it; `tvos`: the Apple TV, whose remote has no X or Y; `keyboard`: the desktop, the Mac app, and an iPhone or iPad with a keyboard attached as the game starts; a `!` before any of these, as `!keyboard`, is every build but it). Every element takes this. |
 
 Widget flags: `pass_unhandled_to_focused_child` (an event it does not handle
 goes to its focused child: a screen needs it for its list to get events),
@@ -172,8 +172,10 @@ them, `port settings defaults` shows the defaults, `port settings help` the
 help of the row chosen; Controls Setup's `controls ...` bind the keyboard
 and mouse's controls (Enter takes the next key or button pressed; left and
 right choose which of two; Escape cancels, Delete clears); Change Color's
-`color picker ...` (the Xbox's names) set the profile's colour. The others
-do nothing yet.
+`color picker ...` (the Xbox's names) set the profile's colour. The About
+screen (`tools/about_data.py`: the website, the credit line and the licenses)
+shows the app's version and build with the game data function `port about
+version`. The others do nothing yet.
 
 ### `<data>`, `<conditional>`, `<replace>`
 

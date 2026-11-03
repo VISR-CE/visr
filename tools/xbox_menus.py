@@ -26,7 +26,7 @@ FIRST_ROW, ROW_PITCH = 73, 30
 # the scroll arrows sit to the right of the 512-wide rows
 ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
-         'mouse_settings', 'gamepad_setup')
+         'mouse_settings', 'gamepad_setup', 'about')
 BLUE = '#FF2896FF'
 # the PC solo list's widgets the Xbox lobby shows beside its map
 LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
@@ -108,6 +108,8 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL'):
     """A/B icons post buttons to the current focus, as the Xbox legend does."""
     for button, caption, label, x in (('a_butn', '=accept', accept, 471),
                                        ('b_butn', '=cancel', cancel, 346)):
+        if label is None:  # (a screen whose A does nothing shows only the way back)
+            continue
         child(screen, f'{base}/{button}', x=x, y=414)
         child(screen, f'{base}/{caption}', x=x + 22, y=414)
         # the game's own button art (ui.map's a_butn/b_butn, PNG fallbacks), as the Xbox legends draw it
@@ -141,6 +143,14 @@ def settings_page(assets, folder, bitmaps):
     prefix = f'{PE}/{folder}'
     base = f'xbox/settings/{folder}'
     removed = ('button_bar', 'button_defaults', 'button_ok')
+    if folder == 'about':
+        # (the About screen has a BACK button on the PC look, the legend's B here, and the scroll arrows are
+        # placed again below for the rows this look fits)
+        removed += ('button_back', 'scroll_up_arrow', 'scroll_down_arrow')
+        for parent in root.iter():
+            for part in list(parent.findall('child')):
+                if part.get('widget', '').rsplit('/', 1)[-1] in removed:
+                    parent.remove(part)
     for element in list(root):
         if element.get('name', '').rsplit('/', 1)[-1] in removed:
             root.remove(element)
@@ -180,6 +190,9 @@ def settings_page(assets, folder, bitmaps):
             pending = fit_window(element, {w.get('name'): w for w in root.iter('widget')}, help_top, root, bitmaps)
     if pending:
         pending()
+    if folder == 'about':
+        legend(root, root[0], base, accept=None, cancel='BACK')
+        return root
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
            'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
@@ -968,6 +981,12 @@ def patch_document(names):
             attributes['model'] = PEP + 'color_profile_item'
         patch_row(edit, **attributes)
         anchor = f'profile_item_{key}'
+    # ABOUT: last of the settings pages, before SAVE CHANGES. With the keyboard's row and VIDEO's too (the Mac) the
+    # list would pass its footer (431 > 414), so a build with a keyboard has ABOUT in the PC look alone
+    patch_row(edit, name='profile_item_about', text='ABOUT', open='xbox/settings/about/about_screen',
+              description="VISR's version, credits and the\\nlicenses of its code." + current,
+              picture=f'png:{ART}/about.png', platform='!keyboard', before=PEP + 'save_changes_profile_item',
+              model=PEP + 'color_profile_item')
     patch_row(edit, after=PEP + 'save_changes_profile_item', platform='tvos', pitch=33,
               name='profile_item_delete', text='DELETE PROFILE', run='port delete request',
               open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=3,
@@ -1056,7 +1075,8 @@ def screen_pairs():
         pairs.append(('ui/shell/' + pe + suffix, pe + suffix))
     for page, screen in (('video_settings', 'video_settings_screen'), ('audio_settings', 'audio_settings_screen'),
                          ('network_setup', 'network_settings_screen'), ('controls_setup', 'controls_settings_screen'),
-                         ('mouse_settings', 'mouse_settings_screen'), ('gamepad_setup', 'gamepad_setup_screen')):
+                         ('mouse_settings', 'mouse_settings_screen'), ('gamepad_setup', 'gamepad_setup_screen'),
+                         ('about', 'about_screen')):
         pairs.append(('pc/xbox/settings/' + page + '/' + screen, pe + page + '/' + screen))
     for suffix in ('join_game/join_game_screen', 'join_game/filters/filters_screen',
                    'join_game/password/password_screen', 'join_game/code/code_screen',

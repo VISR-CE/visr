@@ -65,7 +65,9 @@ def test_settings_keep_pc_values_and_handlers():
         assert {e.get('run') for e in source.iter('on') if e.get('run')} <= {
             e.get('run') for e in output.iter('on') if e.get('run')}
         names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
-        assert {'a_butn', 'b_butn', '=accept', '=cancel'} <= names
+        # (the About screen's A does nothing: its legend is the way back alone)
+        assert ({'b_butn', '=cancel'} if folder == 'about' else
+                {'a_butn', 'b_butn', '=accept', '=cancel'}) <= names
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
@@ -90,6 +92,8 @@ def test_generator_rejects_map_widget_definitions(tmp_path):
 
 def test_save_is_a_focusable_action_separate_from_a_legend():
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        if path.name == 'settings.about.xml':  # (nothing to save)
+            continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
         save = next(w for n, w in widgets.items() if n.endswith('/button_ok'))
         # ui_mouse_key_button posts A to the existing focus; a SAVE item must

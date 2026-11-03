@@ -44,8 +44,8 @@ picture of Gamepad Setup: the Xbox's Controller Setup's pictures of the button s
 
 `tools/ce_menus.py` resolves the PC description frames before considering a placeholder.
 The profile editor's ABOUT row uses our information emblem (`xbox/art/about.svg`),
-in the palette and line weights of VIDEO, AUDIO, and INTERNET. The Xbox look does
-not have an ABOUT row or a dedicated ABOUT picture. MOUSE SETUP uses our mouse
+in the palette and line weights of VIDEO, AUDIO, and INTERNET, in both looks (the Xbox's
+own list has no ABOUT row; `xbox/patches.xml` adds it). MOUSE SETUP uses our mouse
 drawing (`xbox/art/mouse.svg`) with the same palette, glow, and line weights.
 
 The other gaps use the player's `ui.map` pictures with a transparent fallback and

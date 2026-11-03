@@ -13,7 +13,14 @@ settings defaults" shows the defaults. Controls Setup binds the keyboard and
 mouse's controls, by the functions the PC version names for it.
 """
 
+import re
+import sys
+import textwrap
+from pathlib import Path
 from xml.sax.saxutils import quoteattr
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import about_data  # noqa: E402
 
 PE = "main_menu/settings_select/player_setup/player_profile_edit"
 YES_NO = [("YES", "true"), ("NO", "false")]
@@ -197,7 +204,7 @@ STRING_OVERRIDES = {
         "Choose a window or the full\\nscreen, the frame rate and more.\\n\\nProfile:",
         "Internet play, updates and the\\nmultiplayer HUD.\\n\\nProfile:",
         "Change the current profile's\\nfree-for-all multiplayer color.\\n\\nProfile:",
-        "Halo: Combat Evolved, the Xbox\\ngame, on this computer.\\n\\nProfile:",
+        "VISR's version, credits and the\\nlicenses of its code.\\n\\nProfile:",
     ],
 }
 
@@ -248,13 +255,25 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
         y = spec.get("row_top", 73) + (place[0] if place else index) * spec["spacing"]
         children.append(f'<child{attributes([("widget", row), ("x", 54), ("y", y), ("platform", platform)])}/>')
     children.append(f'<child{attributes([("widget", f"{base}/button_bar"), ("y", 414)])}/>')
+    # (a list of more rows than fit shows a window of them and scrolls the rest in, with the arrows
+    # port/assets/menus/README.md describes: visible_rows)
+    window = spec.get("visible_rows")
+    arrows = []
+    if window:
+        first = spec.get("row_top", 73)
+        for direction, y in (("up", first), ("down", first + (window - 1) * spec["spacing"] + 6)):
+            arrow = f"{base}/scroll_{direction}_arrow"
+            arrows += _widget(arrow, [("width", 16), ("height", 16), ("bitmap", f"bitmaps/arrow_sm_{direction}")], [])
+            children.insert(len(children) - 1, f'<child{attributes([("widget", arrow), ("x", 574), ("y", y)])}/>')
     lines += _widget(f"{base}/options_menu",
                      [("type", "column_list"), ("width", 640), ("height", 480),
                       ("flags", "pass_unhandled_to_focused_child up_down_tabs_children"),
-                      ("description", f"{base}/help")], children)
+                      ("visible_rows", window), ("description", f"{base}/help")], children)
+    lines += arrows
     lines += _widget(f"{base}/button_bar",
                      [("type", "column_list"), ("width", 640), ("height", 28),
                       ("flags", "pass_unhandled_to_focused_child left_right_tabs_items")],
+                     spec.get("buttons") or
                      [f'<child{attributes([("widget", f"{base}/button_defaults"), ("y", 1)])}/>',
                       f'<child{attributes([("widget", f"{base}/button_ok"), ("x", 380), ("y", 1)])}/>',
                       '<child widget="common_button_cancel" x="510" y="1"/>'])
@@ -357,12 +376,80 @@ def _controls_screen() -> list:
                    extra)
 
 
+ABOUT = "about"
+ABOUT_ROWS = 8
+
+
+def about_help(text: str) -> str:
+    """a help of three lines at most (the help's width is 50 of the large font's characters)"""
+    lines = textwrap.wrap(text, 50)
+    assert len(lines) <= 3, text
+    return "\\n".join(lines)
+
+
+def _about_screen() -> list:
+    """Settings > ABOUT: the version and build, the website, the credit line, and a row for each license of the
+    code the app contains, in the settings screens' rows. The row chosen is described in the help (the credit
+    line, the copyright), and the list scrolls (visible_rows). The rows take no action"""
+    base = f"{PE}/{ABOUT}"
+    spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "help_top": 321, "help_height": 79,
+            "header": ("header_about", f"{base}/header_about"),
+            "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
+    entries = [("VERSION", None, about_data.VERSION_HELP, "version"),
+               ("BUILD", None, about_data.BUILD_HELP, "build"),
+               ("WEBSITE", about_data.WEBSITE, about_data.WEBSITE_HELP, "website"),
+               ("CREDITS", None, about_help(about_data.CREDIT), "credits")]
+    for name, license, copyright, *_ in about_data.LICENSES:
+        key = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+        entries.append((name, license, about_help(copyright), key))
+    rows, extra = [], []
+    values = []
+    for index, (label, value, help_text, key) in enumerate(entries):
+        row = f"{base}/op_{key}"
+        rows.append((row, None))
+        children = [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>']
+        if value or key in ("version", "build"):
+            children.append(f'<child{attributes([("widget", f"{base}/{key}_value"), ("x", 270), ("y", 1)])}/>')
+        extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                               ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                         ['<on event="a"/>', '<on event="start"/>', '<on event="left_mouse" run="mouse emit accept event"/>',
+                          *children])
+        extra += _widget(f"{base}/{key}_label",
+                         [("type", "text"), ("controller", 1), ("width", 255), ("height", 22),
+                          ("string_list", f"{base}/labels"), ("string_index", index or None), ("font", "ui\\large_ui"),
+                          ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+        if key in ("version", "build"):
+            # (the app's own: menu_functions.c's about_version_show and about_build_show)
+            extra += _widget(f"{base}/{key}_value",
+                             [("type", "text"), ("controller", 1), ("width", 235), ("height", 22), ("font", "ui\\small_ui"),
+                              ("color", "#FFFFFFFF"), ("text_y", 5), ("text_flags", "no_focus_test")],
+                             [f'<data input="port about {key}"/>'])
+        elif value:
+            values.append(value)
+            extra += _widget(f"{base}/{key}_value",
+                             [("type", "text"), ("controller", 1), ("width", 235), ("height", 22), ("font", "ui\\small_ui"),
+                              ("string_list", f"{base}/values"), ("string_index", len(values) - 1 or None),
+                              ("color", "#FFFFFFFF"), ("text_y", 5), ("text_flags", "no_focus_test")], [])
+    extra += _widget(f"{base}/button_back",
+                     [("type", "text"), ("width", 128), ("height", 24), ("bitmap", "bitmaps/text_button_background"),
+                      ("text", "BACK"), ("font", "ui\\small_ui"), ("color", "#FFFFFFFF"), ("align", "center"),
+                      ("text_y", 2)],
+                     ['<on event="a" back="true"/>', '<on event="start" back="true"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>'])
+    extra += _strings(f"{base}/labels", [label for label, *_ in entries])
+    extra += _strings(f"{base}/values", values)
+    # (the help of the row whose label is string n is n + 1: the buttons' is 0)
+    extra += _strings(f"{base}/help_strings", [""] + [help_text for _, _, help_text, _ in entries])
+    return _screen(ABOUT, spec, rows, ["port settings help"], [], extra)
+
+
 def settings_files() -> dict:
     """the files of the port's screens, by their names in ce/"""
     files = {}
     for folder, spec in SCREENS.items():
         files[f"{PE}/{folder}".replace("/", ".") + ".xml"] = _setting_screen(folder, spec)
     files[f"{PE}/controls_setup".replace("/", ".") + ".xml"] = _controls_screen()
+    files[f"{PE}/{ABOUT}".replace("/", ".") + ".xml"] = _about_screen()
     return {name: ['<?xml version="1.0" encoding="UTF-8"?>',
                    "<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->",
                    "<menus>", *lines, "</menus>", ""] for name, lines in files.items()}
@@ -503,6 +590,12 @@ MAP_KIND_CHOOSER = "main_menu/new_select/list_item_0_map_kind"
 # changes to the PC version's widgets (by our names): attributes set, all
 # their handlers replaced, children added, game data inputs added
 WIDGET_PATCHES = {
+    # (the PC version's ABOUT row only showed its description: it opens the port's About screen)
+    f"{PE}/about_item": {"handlers": [
+        f'<on event="a" open="{PE}/about/about_screen"/>',
+        f'<on event="start" open="{PE}/about/about_screen"/>',
+        '<on event="left_mouse" run="mouse emit accept event"/>',
+    ]},
     # Region names need more room than the former Ping column.
     **{f"{MT}/join_game/{name}": {"set": {"width": width}} for name, width in (
         ("op_sort_header_type", 80), ("sort_header_type", 80), ("server_item_type", 77),
@@ -645,6 +738,7 @@ BITMAP_FRAMES = {
 # the titles this port has that the PC version has not, set as its headers
 # are (port/assets/menus/port_svg): bitmap name, text
 TITLES = {
+    f"{PE}/about/header_about": "ABOUT",
     f"{MT}/join_game/header_server_browser": "SERVER BROWSER",
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
     f"{MT}/join_game/header_password": "PASSWORD",

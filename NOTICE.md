@@ -42,6 +42,9 @@ what they link into the app's `Licenses` folder (`tools/ios_build.py`).
 | [stb_truetype](https://github.com/nothings/stb) | MIT or public domain (Unlicense) | `port/third_party/stb/LICENSE` | Yes |
 | [tomlc17](https://github.com/cktan/tomlc17) | MIT | `port/third_party/tomlc17/LICENSE` | Yes |
 | [zlib](https://zlib.net/) 1.3.2 | zlib | `port/third_party/zlib/LICENSE` | Yes |
+| [SMAA](https://github.com/iryoku/smaa) by Jorge Jimenez and others, anti-aliasing shaders | MIT | `port/third_party/smaa/LICENSE` | Yes |
+| Surge AI's profanity list, the source of streamer mode's word table | MIT | `port/assets/text_filter/README.md` | Yes |
+| [english-words](https://github.com/dwyl/english-words), used to review the streamer words | Unlicense | `port/third_party/english-words/LICENSE.md` | Notice only |
 | [musl](https://musl.libc.org/) math functions | MIT | `port/third_party/musl-math/COPYRIGHT` | No, Linux build only (the Apple builds download musl itself) |
 | [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/) | Apache-2.0 or GPL-2.0-or-later (we use Apache-2.0) | `port/third_party/mbedtls/LICENSE` | No, desktop builds only |
 | [miniupnpc](https://miniupnp.tuxfamily.org/) | BSD-3-Clause | `port/third_party/miniupnpc/LICENSE` | No, desktop builds only |
