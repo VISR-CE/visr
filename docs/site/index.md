@@ -33,7 +33,7 @@
 
 {{ features: iphone }}
 
-![Halo on iPhone with touch controls during the Silent Cartographer beach battle](./iphone.jpg){device=iphone video=iphone}
+![Halo on iPhone in the snowfield of Assault on the Control Room](./iphone.jpg){device=iphone video=iphone}
 
 ## iPad
 
