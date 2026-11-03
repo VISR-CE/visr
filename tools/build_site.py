@@ -291,6 +291,7 @@ LOOK_SCENES = [
     {"folder": "b40-battlefield", "label": "The snowfield on Assault on the Control Room", "yaw": 315, "pitch": 60, "videoBand": 1252 / 2048, "drift": {"yaw": 2, "pitch": 0}},
     {"folder": "a50-grav-lift", "label": "The gravity lift on The Truth and Reconciliation", "yaw": 176, "pitch": 60, "videoBand": 1348 / 2048, "drift": {"yaw": 0, "pitch": -2, "stop": -15}},
     {"folder": "damnation", "label": "The waterfalls of Damnation", "yaw": 150, "pitch": -20, "videoBand": 1488 / 2048},
+    {"folder": "control-room", "label": "The Control Room on Assault on the Control Room", "wide": 1.4, "yaw": 85, "pitch": 2, "videoBand": 1820 / 2048, "drift": {"yaw": 6, "pitch": 0}},
     {"folder": "blood-gulch", "label": "The ridge above Blood Gulch", "still": True, "yaw": 100, "pitch": 2, "drift": {"yaw": -10, "pitch": 0}},
 ]
 
