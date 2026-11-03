@@ -148,6 +148,38 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.9 (2026-11-03)
+
+### Summary
+
+- Check dead bodies and weapons in scenes with many shadows. They should no longer show hard black silhouettes of other units, and the shadows should no longer jump around.
+- Open the shadow map size setting and try the higher values. Anything above 512 now clamps to 512, so 512 is the top option.
+- Compare shadow quality at 512 against lower sizes. Tell us if you notice any drop in how shadows look.
+- On iOS, import a map, then confirm it still installs and loads correctly.
+- On iOS, after the import finishes, check that the imported image no longer sits in the app's private Documents storage.
+- Play a busy firefight with many bodies and dropped weapons, such as the d40 Maw fight, and watch for any remaining shadow glitches.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **ios**: remove imported images from private Documents — verify installed maps before reclaiming the disc copy
+- **render**: draw overflow shadows in the game's own targets — `render_object_shadows` applied a shadow that found no deferred slot through the last applied deferred shadow's atlas tile and second target, with `deferred_shadow_applying` still set, so its blur was skipped and it was applied from that other object's blurred shadow: dead bodies and weapons showed hard black silhouettes of other units, which jumped as the order changed. It now calls `rasterizer_environment_shadows_apply_end` first. Overflow happens whenever a frame has more shadows than the atlas holds (3 at `display.shadow_map_size` 2048, 12 at 1024, about 90 at 512)
+
+### refactor
+
+- **render**: make 512 the largest `display.shadow_map_size` — values above 512 (settings, profiles including `[variable.display]`, `HALO_SHADOW_MAP_SIZE`, benchmark and knob overrides) now clamp to 512 in `offscreen_target_scale`, with a log line for the setting, instead of being used up to 2048, and `debug.knob_cycle` no longer offers 1024. The 1024 and 2048 sizes cost a lot, overflow the atlas after 12 and 3 shadows, and do not look noticeably better. Docs and generated schemas now say 128 to 512
+
+### test
+
+- **knob**: `knob_cycle_probe` expects the shadow map knob to stop at 512 — `debug.knob_cycle` no longer offers 1024
+
 ## visr-v0.6.8 (2026-10-31)
 
 ### Summary
