@@ -15,7 +15,7 @@ const focal = (w, h) => Math.min(FOCAL, Math.max(w * .72, h * .55)) / (scene.wid
 let sideways = 0, driftDirection = 1, dragVelocity = 0, movedAt = 0, inputAt = -Infinity, driftAt = 0, drift = 0, pitchDrift = 0, motion = false, head = null, yawOff = 0, pitchOff = 0, vx = 0, vy = 0;
 let fresh = true, downAt = 0, moved = 0, hoverX = 0, glareX = 40, near = false, visible = false, loaded = false, running = false;
 let yaw = scene.yaw ?? 0, pitch = scene.pitch ?? 22, last = null, mode = 'idle', idle, cx = 0, cy = 0, tcx = null, tcy = null;
-let hasStill = false, hasMask = false, videoReady = false, videoSize = '', glareValue = '', headingDeg = -1;
+let hasStill = false, hasMask = false, videoReady = false, glareValue = '', headingDeg = -1;
 const onScreen = () => visible || mode !== 'idle';
 const autoplay = () => !reduced.matches && !navigator.connection?.saveData;
 // Video stays detached from layout, which avoids Safari's offscreen pause loop.
@@ -147,12 +147,8 @@ function render(now) {
   }
   if (gl && hasStill) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, videoTexture);
-    // Reallocating a 4096-wide texture for every video frame stalls the frame; refill the same storage instead.
-    if (v.readyState >= 2 && fresh) {
-      if (videoSize !== `${v.videoWidth}x${v.videoHeight}`) { videoSize = `${v.videoWidth}x${v.videoHeight}`; gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); }
-      else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, v);
-      fresh = !v.requestVideoFrameCallback;
-    }
+    // Stay on texImage2D: WebKit copies video on the GPU only on that path; texSubImage2D dropped the pan to about 14 fps.
+    if (v.readyState >= 2 && fresh) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); fresh = !v.requestVideoFrameCallback; }
     const { dpr, w, h } = size();
     if (mode === 'idle') { tcx = w / 2; tcy = h / 2; cx = tcx; cy = tcy; }
     else { cx += (tcx - cx) * .18; cy += (tcy - cy) * .18; }
