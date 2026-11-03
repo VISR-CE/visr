@@ -43,8 +43,8 @@ v.addEventListener('loadeddata', () => { fresh = true; videoReady = true; });
 reduced.addEventListener('change', () => { if (!autoplay()) v.pause(); else { loadVideo(); playVideo(); } });
 navigator.connection?.addEventListener('change', () => { if (!autoplay()) v.pause(); else { loadVideo(); playVideo(); } });
 let gl;
-try { gl = canvas.getContext('webgl2', { antialias: false, alpha: false }); } catch (_) {}
-let u, videoTexture;
+try { gl = canvas.getContext('webgl2', { antialias: false, alpha: true }); } catch (_) {}
+let u, videoTexture, shapeTexture, rimTexture, glassReady = false, glassMix = 1;
 function texture(unit) {
   const t = gl.createTexture();
   gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -67,8 +67,14 @@ if (gl) {
       void main(){vec2 c=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(c*2.-1.,0,1);}`));
     gl.attachShader(p, shader(gl.FRAGMENT_SHADER, `#version 300 es
       precision highp float;
-      uniform sampler2D t, s, m; uniform bool moving; uniform float band;
-      uniform vec2 center; uniform float focal, cy, sy, cp, sp; out vec4 o;
+      uniform sampler2D t, s, m, shape, rim; uniform bool moving, glass; uniform float band, glare, glassMix;
+      uniform vec2 center, view; uniform float focal, cy, sy, cp, sp; out vec4 o;
+      // The visor's glare streak: look.css's 112° gradient, drawn here so no page layer repaints over the canvas.
+      float streak(vec2 p){
+        vec2 dir=vec2(.92718385,.37460659);
+        float t=dot(p-view*.5,dir)/(view.x*dir.x+view.y*dir.y)+.5-glare;
+        return t<-.2?0.:t<-.09?(t+.2)/.11*.047:t<0.?mix(.047,.141,(t+.09)/.09):t<.05?mix(.141,.035,t/.05):t<.16?mix(.035,0.,(t-.05)/.11):0.;
+      }
       void main(){
         vec3 d=normalize(vec3(gl_FragCoord.xy-center,-focal));
         d=vec3(d.x,cp*d.y-sp*d.z,sp*d.y+cp*d.z);
@@ -76,11 +82,18 @@ if (gl) {
         vec2 uv=vec2(atan(d.x,-d.z)/6.2831853+.5,acos(clamp(d.y,-1.,1.))/3.14159265);
         o=texture(s,uv);
         if(moving && uv.y<band) o=mix(o,texture(t,vec2(uv.x,uv.y/band)),texture(m,uv).r);
+        if(glass){
+          vec2 q=vec2(gl_FragCoord.x,view.y-gl_FragCoord.y)/view;
+          vec4 r=texture(rim,q); float k=texture(shape,q).r;
+          vec3 c=mix(o.rgb,r.rgb,r.a*glassMix); c=mix(c,vec3(1),streak(q*view)*glassMix);
+          o=vec4(c*k,k);
+        } else o.a=1.;
       }`));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     gl.useProgram(p); u = n => gl.getUniformLocation(p, n);
-    gl.uniform1i(u('t'), 0); gl.uniform1i(u('s'), 1); gl.uniform1i(u('m'), 2);
+    gl.uniform1i(u('t'), 0); gl.uniform1i(u('s'), 1); gl.uniform1i(u('m'), 2); gl.uniform1i(u('shape'), 3); gl.uniform1i(u('rim'), 4);
+    shapeTexture = texture(3); rimTexture = texture(4);
     videoTexture = texture(0);
   } catch (_) { gl = null; }
 }
@@ -98,7 +111,7 @@ function loadScene() {
       if (!gl) return;
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pic);
-      if (unit === 1) { hasStill = true; canvas.style.visibility = 'visible'; } else hasMask = true;
+      if (unit === 1) { hasStill = true; canvas.style.visibility = 'visible'; useGlass(); } else hasMask = true;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, videoTexture);
     };
     pic.crossOrigin = 'anonymous';
@@ -154,6 +167,10 @@ function render(now) {
     else { cx += (tcx - cx) * .18; cy += (tcy - cy) * .18; }
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.uniform1i(u('moving'), videoReady && hasMask && autoplay());
+    const glassOn = stage.classList.contains('gl-glass');
+    glassMix = glassOn ? Math.min(1, glassMix + (reduced.matches ? 1 : 1 / 48)) : 0;
+    gl.uniform1i(u('glass'), glassOn); gl.uniform1f(u('glassMix'), glassMix);
+    gl.uniform1f(u('glare'), glareX / 100); gl.uniform2f(u('view'), canvas.width, canvas.height);
     gl.uniform1f(u('band'), scene.videoBand ?? .5);
     gl.uniform2f(u('center'), cx * dpr, (h - cy) * dpr); gl.uniform1f(u('focal'), focal(w, h) * dpr);
     const a = yaw * Math.PI / 180, b = pitch * Math.PI / 180;
@@ -200,9 +217,33 @@ function visorPath(x, y, w, h, k) {
 }
 let cur = null, anim = 0;
 function setShape(c) { cur = c; stage.style.clipPath = `path("${visorPath(c.x, c.y, c.w, c.h, c.k)}")`; }
+// In the page the visor's outline, rim shadow and highlight are drawn into the WebGL frame from these two
+// textures, so the browser composites one plain layer instead of a clip path and blurred layers over live video.
+function drawGlass(w, h) {
+  if (!gl || !w || !h) return;
+  const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.round(w * dpr), H = Math.round(h * dpr), path = new Path2D(visorPath(0, 0, W, H, 1));
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  let x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fill(path);
+  gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, shapeTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+  x.clearRect(0, 0, W, H); x.save(); x.clip(path);
+  x.save(); x.translate(W / 2, -.08 * H); x.scale(.75 * W, .45 * H);
+  const g = x.createRadialGradient(0, 0, 0, 0, 0, 1); g.addColorStop(0, '#cfeaff1f'); g.addColorStop(1, '#cfeaff00');
+  x.fillStyle = g; x.fillRect(-2, -2, 4, 4); x.restore();
+  // The rim is the outline blurred by 1.25% of the width, as the SVG filter did; a shadow cast from off canvas blurs it.
+  x.shadowColor = '#00040acc'; x.shadowBlur = 2 * W * .0125; x.shadowOffsetX = W * 4; x.translate(-W * 4, 0);
+  x.lineWidth = W * .03; x.strokeStyle = '#000'; x.stroke(path); x.restore();
+  gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rimTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, videoTexture);
+  glassReady = true; useGlass();
+}
+function useGlass() { stage.classList.toggle('gl-glass', glassReady && hasStill && mode === 'idle'); }
 function idleShape() {
   const r = box.getBoundingClientRect();
   setShape({ x: 0, y: 0, w: r.width, h: r.height, k: 1 });
+  drawGlass(r.width, r.height);
   const f = document.getElementById('look-frame'); f.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
   document.getElementById('look-frame-path').setAttribute('d', visorPath(0, 0, r.width, r.height, 1));
   document.getElementById('look-glare-rim').setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
@@ -228,6 +269,7 @@ function expand(persistent = false) {
   stage.setAttribute('role', 'dialog'); stage.setAttribute('aria-modal', 'true');
   const r = box.getBoundingClientRect();
   if (mode === 'idle') {
+    stage.classList.remove('gl-glass');
     stage.classList.add('fixed'); setShape({ x: r.left, y: r.top, w: r.width, h: r.height, k: 1 });
     cx = r.left + r.width / 2; cy = r.top + r.height / 2;
   }
@@ -242,7 +284,7 @@ function collapse() {
   const r = box.getBoundingClientRect();
   if (stage.style.clipPath === 'none') setShape({ x: 0, y: 0, w: innerWidth, h: innerHeight, k: 0 });
   tcx = r.left + r.width / 2; tcy = r.top + r.height / 2;
-  morph({ x: r.left, y: r.top, w: r.width, h: r.height, k: 1 }, 450, () => { mode = 'idle'; stage.classList.remove('fixed'); idleShape(); render(); });
+  morph({ x: r.left, y: r.top, w: r.width, h: r.height, k: 1 }, 450, () => { mode = 'idle'; stage.classList.remove('fixed'); idleShape(); useGlass(); render(); });
 }
 addEventListener('resize', () => { if (mode === 'idle') idleShape(); else if (mode === 'full') { ++anim; setShape({ x: 0, y: 0, w: innerWidth, h: innerHeight, k: 0 }); stage.style.clipPath = 'none'; render(); } });
 function arm() { clearTimeout(idle); idle = setTimeout(collapse, 2000); }
