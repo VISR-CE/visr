@@ -919,7 +919,9 @@ def test_both_pages_share_the_site_header_stylesheet_and_footer():
     for page, current in ((home, "Home"), (bench, "Benchmarks")):
         header = re.search(r'<nav class="site-nav".*?</nav>', page, re.S).group(0)
         assert re.findall(r'<a href="([^"]+)"[^>]*>([^<]+)</a>', header) == [
-            ("./", "Home"), ("benchmarks.html", "Benchmarks"), ("https://forms.gle/bhjDV4XhRWbZjQet8", "Become a tester")]
+            ("./", "Home"), ("benchmarks.html", "Benchmarks"),
+            ("https://github.com/steverice/visr/milestones?sort=due_date&amp;direction=asc", "Roadmap"),
+            ("https://forms.gle/bhjDV4XhRWbZjQet8", "Become a tester")]
         assert re.findall(r'aria-current="page">([^<]+)<', header) == [current]
         assert '<link rel="stylesheet" href="style.css">' in page and "<style>" not in page
         assert "TestFlight" not in page and '<footer class="foot">' in page
