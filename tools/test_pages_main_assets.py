@@ -50,6 +50,10 @@ RECORDING_068 = (
     "docs/site/packs/tester/recordings-"
     "884e797b336ee160a71955d02fff76cedf57a42826f369b4636920ca311832b5.json"
 )
+RECORDING_069 = (
+    "docs/site/packs/tester/recordings-"
+    "ef68cbd68ddaf5e4bb038488a8521ee381ae44f7653e020e0b0325ceb81da5df.json"
+)
 RECORDING_067 = (
     "docs/site/packs/tester/recordings-"
     "3b35b4be4f2faa36c7e10fb4e340a5f5d8f599d0290cee5a9b251e7ff8a6c107.json"
@@ -223,7 +227,7 @@ def test_current_release_assets_are_checked_in_and_exact():
     assert not [path for path in assets if "/device-profiles-2/" in path]
     assert len([path for path in assets if "/device-profiles-3/" in path]) == 55
     assert len([path for path in assets if "/device-profiles-4/" in path]) == 55
-    assert len(recordings) == 10
+    assert len(recordings) == 11
     assert set(assets) == set(overlay.parse_receipt((root / RECEIPT).read_bytes()))
     assert hashlib.sha256(assets[RECORDING]).hexdigest() == (
         "8977e0e49588399d1c0f867d98f955b8a815b0c05e7463df2d1e92ae3ba64d89"
@@ -248,6 +252,9 @@ def test_current_release_assets_are_checked_in_and_exact():
     )
     assert hashlib.sha256(assets[RECORDING_068]).hexdigest() == (
         "e56ffa8cb6758eb9ead55e8ec6bbee5bc74be21dc0947462d2c5d6c3f2dcd99d"
+    )
+    assert hashlib.sha256(assets[RECORDING_069]).hexdigest() == (
+        "fae46709054e8da3e6a9bc68ed0259ae0760236d5c21f47729cbc965faead291"
     )
     assert hashlib.sha256(assets[RECORDING_067]).hexdigest() == (
         "f9ada51d7285787a4615635274999a50647f635256a727f578eaf86274278ced"
