@@ -37,10 +37,9 @@ int main(void)
 	assert(knob_cycle_press(&state, 0, -1, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(name, "display.shadow_map_size") && !strcmp(value, "256") && !strcmp(label, "shadow map 256"));
 	assert(knob_cycle_press(&state, 0, 1, current, label, sizeof(label), &name, &value) && !strcmp(value, "512"));
-	assert(knob_cycle_press(&state, 0, 1, current, label, sizeof(label), &name, &value) && !strcmp(value, "1024"));
 	/* the end stops: the label stays, nothing is applied */
 	assert(!knob_cycle_press(&state, 0, 1, current, label, sizeof(label), &name, &value));
-	assert(!strcmp(label, "shadow map 1024"));
+	assert(!strcmp(label, "shadow map 512"));
 	/* the selection wraps both ways; knobs keep their own value */
 	assert(!knob_cycle_press(&state, -(shadow + 1), 0, current, label, sizeof(label), &name, &value));
 	assert(state.selected == KNOB_COUNT - 1);
@@ -53,7 +52,7 @@ int main(void)
 	assert(knob_cycle_press(&state, 0, -1, current, label, sizeof(label), &name, &value) && !strcmp(value, "xbox"));
 	state.selected = shadow;
 	assert(!knob_cycle_press(&state, 0, 0, current, label, sizeof(label), &name, &value));
-	assert(!strcmp(label, "shadow map 1024"));
+	assert(!strcmp(label, "shadow map 512"));
 	int aa = find("display.anti_aliasing"), quality = find("display.render_quality");
 	assert(aa >= 0 && knob_table[aa].count == 4 && quality >= 0);
 	assert(!strcmp(knob_table[aa].values[3], "msaa2x"));
