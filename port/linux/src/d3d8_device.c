@@ -3023,9 +3023,19 @@ HRESULT WINAPI Direct3D_CreateDevice(UINT adapter, D3DDEVTYPE device_type, void 
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 {
 	static int pause_menu = -1;
+	static int pointer_free = -1;
 	int paused = menus_active && halo_scene_class() != CONFIG_SCENE_MENU;
 
 	(void)pointer;
+	/* A mouse looks only while the game is played: the host holds it (relative
+	mode, with the cursor hidden) outside the menus and lets it go in them. The
+	host ignores the request where there is no mouse to hold (touch screens);
+	only changes cross to the host. */
+	if ((menus_active != 0) != pointer_free)
+	{
+		pointer_free = menus_active != 0;
+		platform_mouse_capture(!pointer_free);
+	}
 	/* The native sender's audio picker belongs to the in-game menus. This
 	runs every frame, so only changes cross to the host. */
 	if (paused != pause_menu)
