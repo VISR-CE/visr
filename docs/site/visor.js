@@ -72,7 +72,7 @@ gl.attachShader(program, compile(gl.FRAGMENT_SHADER, `
     vec2 at = (uv - M) / S; at.y = .5 + (at.y - .5) * S.y / S.x;
     // Zoomed in and lifted so the reticle sits in the middle of the glass above the nose; the lost bottom is HUD.
     at = .5 + (at - .5) / ZOOM; at.y += lift;
-    vec3 picture = texture2D(screen, at).rgb * edge * mix(1., smoothstep(.05, .7, edge), low);
+    vec3 picture = step(at.y, 1.) * texture2D(screen, at).rgb * edge * mix(1., smoothstep(.05, .7, edge), low);
     vec3 c = mix(glass, picture, m.g);
     // A faint reflection of the room over the whole front, stronger where the dome turns away.
     c += vec3(.5, .55, .68) * .1 * smoothstep(.1, .75, length(N.xy));
@@ -162,10 +162,17 @@ function loadingFirst() {
     const poster = new Image(); poster.onload = () => { source = poster; start(); }; poster.src = media.poster;
     media.addEventListener('loadeddata', () => { if (poster.src) poster.src = media.poster; }, { once: true });
   } else frameAt(0);
-  begin();
+  start();
 }
-if (sheet && media.readyState < 4) { sheet.onload = loadingFirst; sheet.onerror = () => media.addEventListener('loadeddata', begin, { once: true }); sheet.src = spec[0]; }
-else if (media.tagName === 'VIDEO') { if (media.readyState >= 2) begin(); else media.addEventListener('loadeddata', begin, { once: true }); }
-else if (media.complete && media.naturalWidth) begin();
-else media.addEventListener('load', begin, { once: true });
+// The headset draws at once with a black screen, so its face is never missing; the picture arrives when it can.
+const show = () => {
+  source = media; phase = 'play';
+  if (media.tagName !== 'VIDEO') { gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, media); }
+  start();
+};
+tile.width = 2; tile.height = 1; tile.getContext('2d').fillRect(0, 0, 2, 1); source = tile; phase = 'still'; begin();
+if (sheet && media.readyState < 4) { sheet.onload = loadingFirst; sheet.onerror = () => media.addEventListener('loadeddata', show, { once: true }); sheet.src = spec[0]; }
+else if (media.tagName === 'VIDEO') { if (media.readyState >= 2) show(); else media.addEventListener('loadeddata', show, { once: true }); }
+else if (media.complete && media.naturalWidth) show();
+else media.addEventListener('load', show, { once: true });
 })();
