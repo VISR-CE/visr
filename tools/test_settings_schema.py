@@ -125,7 +125,7 @@ def test_schemas_are_well_formed_and_config_uses_config_limits():
 
 
 @pytest.mark.parametrize('relative,before,after', [
-    ('port/linux/src/port_config.c', '128 (as on the Xbox) to 2048', '128 (as on the Xbox) to 4096'),
+    ('port/linux/src/port_config.c', '128 (as on the Xbox) to 512', '128 (as on the Xbox) to 4096'),
     ('port/linux/src/port_profile_keys.h', 'shadow_map_size", 128, 1024', 'shadow_map_size", 128, 2048'),
 ])
 def test_source_edits_require_schema_and_document_regeneration(tmp_path, monkeypatch, relative, before, after):

@@ -166,7 +166,7 @@
         "shadow_map_size": {
           "type": "integer",
           "default": 512,
-          "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 2048: larger is smoother.",
+          "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512.",
           "x-environment": "HALO_SHADOW_MAP_SIZE",
           "x-environment-style": "value",
           "x-platforms": [

@@ -169,7 +169,7 @@ static const struct config_setting config_settings[] =
 		"weapon lights are always retained. Object lighting is unchanged." },
 	{ "display.shadow_map_size", _config_integer, "512", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
-		"128 (as on the Xbox) to 2048: larger is smoother." },
+		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
 	{ "display.effect_resolution", _config_string, "\"half\"", "HALO_EFFECT_RESOLUTION", _environment_value, _platform_all,
 		"The resolution of the 320x240 target the reflections in mirror floors and\n"
 		"the active camouflage are drawn into: \"xbox\" keeps the Xbox's 320x240,\n"

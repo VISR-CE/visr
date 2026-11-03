@@ -31,8 +31,8 @@ display.compressed_textures, display.renderer and display.foveation. */
 static const struct knob knob_table[] = {
 	{ "render lines", "display.render_height", KNOB_INTEGER, 5, { "0", "540", "720", "900", "1080" },
 		{ "profile", "540", "720", "900", "1080" } },
-	{ "shadow map", "display.shadow_map_size", KNOB_INTEGER, 4, { "128", "256", "512", "1024" },
-		{ "128", "256", "512", "1024" } },
+	{ "shadow map", "display.shadow_map_size", KNOB_INTEGER, 3, { "128", "256", "512" },
+		{ "128", "256", "512" } },
 	{ "anisotropy", "display.anisotropic_filtering", KNOB_INTEGER, 5, { "1", "2", "4", "8", "16" },
 		{ "1x", "2x", "4x", "8x", "16x" } },
 	{ "model detail", "display.model_lod", KNOB_STRING, 2, { "auto", "max" }, { "auto", "max" } },
