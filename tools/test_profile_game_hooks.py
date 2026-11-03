@@ -143,6 +143,9 @@ static struct { unsigned long frame; } device = { 1000 };
 static const char *config_string(const char *name) { (void)name; return effect==1 ? "half" : "full"; }
 static int effect_resolution_level(const char *value) { return !strcmp(value,"half") ? 1 : 2; }
 static void screen_scale_dense(float scale[2]) { scale[0]=scale[1]=2; }
+#define SHADOW_MAP_SIZE_MAX 512
+static int clamp_logs;
+static void platform_log(const char *format, ...) { (void)format; clamp_logs++; }
 ''' + actual + r'''
 int main(void) {
     float scale[2]={1,1};
@@ -161,6 +164,14 @@ int main(void) {
     assert(scale[0]==1 && anisotropy_in_force()==1);
     benchmark_shadow_size=benchmark_anisotropy=0;
     assert(anisotropy_in_force()==8);
+    /* (a size above 512, from a setting or profile, is used as 512 and logged; a knob or benchmark one just clamps) */
+    assert(!clamp_logs);
+    shadow=2048; revision++;
+    offscreen_target_scale(128,128,D3DFMT_R5G6B5,scale);
+    assert(scale[0]==4 && clamp_logs==1);
+    shadow=512; knob_shadow_size=1024; revision++;
+    offscreen_target_scale(128,128,D3DFMT_R5G6B5,scale);
+    assert(scale[0]==4);
 }
 ''')
     subprocess.run([str(binary)], check=True)

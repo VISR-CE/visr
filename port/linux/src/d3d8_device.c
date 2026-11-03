@@ -249,6 +249,8 @@ static double render_scale_live = -1.0;
 /* The device benchmark (benchmark_suite.c) sets these between its runs, in place of the settings: the render
 height in lines (the next frame's halo_screen_commit draws at it, as a render scale step does), the shadow maps'
 size and the anisotropy; 0 leaves the setting in force */
+/* port: the largest shadow map; larger values (settings, profiles, benchmark and knob overrides) clamp to it */
+#define SHADOW_MAP_SIZE_MAX 512
 static long benchmark_render_lines, benchmark_shadow_size, benchmark_anisotropy;
 /* debug.knob_cycle (halo_knob_apply): the same settings changed while the game runs, in place of the settings; the
 benchmark's values come first. 0 leaves the setting in force, and for the effect target -1 */
@@ -1227,7 +1229,13 @@ static void offscreen_target_scale(unsigned long width, unsigned long height, DW
 		long was = shadow_size;
 
 		shadow_size = config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY);
-		shadow_size = shadow_size < 128 ? 128 : shadow_size > 2048 ? 2048 : shadow_size;
+		shadow_size = shadow_size < 128 ? 128 : shadow_size;
+		if (shadow_size > SHADOW_MAP_SIZE_MAX)
+		{
+			platform_log("display.shadow_map_size: %ld is above the largest size, %d; using %d", shadow_size,
+				SHADOW_MAP_SIZE_MAX, SHADOW_MAP_SIZE_MAX);
+			shadow_size = SHADOW_MAP_SIZE_MAX;
+		}
 		/* (the targets of the size before are freed two seconds on, as the knob cycle's are) */
 		if (was >= 0 && was != shadow_size)
 			knob_release_frame = device.frame + 120;
@@ -1236,8 +1244,9 @@ static void offscreen_target_scale(unsigned long width, unsigned long height, DW
 	}
 	if (width == 128 && height == 128 && (format == D3DFMT_R5G6B5 || format == D3DFMT_LIN_R5G6B5))
 	{
-		scale[0] = scale[1] = (float)(benchmark_shadow_size > 0 ? benchmark_shadow_size :
-			knob_shadow_size > 0 ? knob_shadow_size : shadow_size) / 128.0f;
+		long size = benchmark_shadow_size > 0 ? benchmark_shadow_size : knob_shadow_size > 0 ? knob_shadow_size : shadow_size;
+
+		scale[0] = scale[1] = (float)(size > SHADOW_MAP_SIZE_MAX ? SHADOW_MAP_SIZE_MAX : size) / 128.0f;
 	}
 	else if (width == 320 && height == 240 && (knob_effect_level >= 0 ? knob_effect_level : effect_level) > 0)
 	{
