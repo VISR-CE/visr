@@ -4,7 +4,7 @@ const figure = document.querySelector('.hero-media');
 const media = figure && figure.querySelector('.visor-face > img, .visor-face > video');
 const canvas = document.createElement('canvas');
 const gl = media && canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true });
-if (!gl) return;
+if (!gl) { if (figure) figure.classList.add('is-flat'); return; }
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // A hero video's data-loading is "sheet cols frames fps": the game's loading screen, a sprite sheet preloaded in the head, plays on the screen until the clip can play through.
 const spec = media.tagName === 'VIDEO' && (media.dataset.loading || '').split(' ')[0] && media.dataset.loading.split(' ');
