@@ -6222,6 +6222,34 @@ static void gpu_metal_frame_start(void)
 	uint64_t total = atomic_load(&pacing_gpu_nanoseconds);
 
 	frame_pacer_gpu_time((double)(total - counted) / 1e9);
+	/* (the debug.rt_object_shadows spike's cost runs: HALO_RT_GPU_LOG in the app's environment logs the GPU time
+	of every 300 frames' completed command buffers, median and mean a frame) */
+	{
+		static int rt_gpu_log = -1;
+		static double times[300];
+		static int timed;
+		static unsigned long blocks;
+
+		if (rt_gpu_log < 0)
+			rt_gpu_log = getenv("HALO_RT_GPU_LOG") != NULL;
+		if (rt_gpu_log && counted)
+		{
+			times[timed++] = (double)(total - counted) / 1e6;
+			if (timed == 300)
+			{
+				double sorted[300], sum = 0.0;
+				int index;
+
+				memcpy(sorted, times, sizeof(sorted));
+				qsort(sorted, 300, sizeof(double), compare_times);
+				for (index = 0; index < 300; index++)
+					sum += times[index];
+				platform_log("rt-gpu: block %lu (frames to %lu): GPU median %.3f ms, mean %.3f ms, p90 %.3f ms", blocks++,
+					frames, sorted[150], sum / 300.0, sorted[270]);
+				timed = 0;
+			}
+		}
+	}
 	counted = total;
 	/* (debug.benchmark_offscreen: nothing waits on the display) */
 	if (!host_benchmark_offscreen_active())
