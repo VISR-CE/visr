@@ -220,7 +220,7 @@ function setShape(c) { cur = c; stage.style.clipPath = `path("${visorPath(c.x, c
 // In the page the visor's outline, rim shadow and highlight are drawn into the WebGL frame from these two
 // textures, so the browser composites one plain layer instead of a clip path and blurred layers over live video.
 function drawGlass(w, h) {
-  if (!gl || !w || !h) return;
+  if (!gl || !w || !h || typeof Path2D === "undefined") return;
   const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.round(w * dpr), H = Math.round(h * dpr), path = new Path2D(visorPath(0, 0, W, H, 1));
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   let x = c.getContext('2d');
@@ -239,7 +239,7 @@ function drawGlass(w, h) {
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, videoTexture);
   glassReady = true; useGlass();
 }
-function useGlass() { stage.classList.toggle('gl-glass', glassReady && hasStill && mode === 'idle'); }
+function useGlass() { if (glassReady && hasStill && mode === 'idle') stage.classList.add('gl-glass'); else stage.classList.remove('gl-glass'); }
 function idleShape() {
   const r = box.getBoundingClientRect();
   setShape({ x: 0, y: 0, w: r.width, h: r.height, k: 1 });
