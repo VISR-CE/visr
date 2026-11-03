@@ -1447,21 +1447,25 @@ percent of its height, so nothing touches the divider, rather than the one-playe
 which in a quarter of the screen leave the HUD crowded toward the middle
 (debug.split_hud_margin).
 With three or four players, debug.split_hud_scale sizes the whole HUD and
-debug.split_tracker_scale the motion sensor against one player's (1, the
-default, at its size) */
+debug.split_tracker_scale the motion sensor against one player's (the HUD
+at 0.75, the sensor at its size by default) */
 /* debug.split_hud_margin: the margin on every side of a view, in lines of
-the view's height times this fraction */
+the view's height times this fraction (automatic by default) */
 static short hud_split_view_inset(
 	rectangle2d const *view)
 {
 	static int set = FALSE;
-	static real fraction;
+	static real setting;
+	real fraction;
 
 	if (!set)
 	{
-		fraction = (real)PIN(config_real("debug.split_hud_margin"), 0.0, 0.2);
+		setting = (real)config_real("debug.split_hud_margin");
 		set = TRUE;
 	}
+	/* below 0, automatic: 5% with three or four players, whose views are
+	small, 3% with two */
+	fraction = setting < 0.0f ? (local_player_count() > 2 ? 0.05f : 0.03f) : (real)PIN(setting, 0.0, 0.2);
 	return (short)MAX(1, fast_ftol(fraction * (view->y1 - view->y0)));
 }
 

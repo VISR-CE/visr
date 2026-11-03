@@ -1643,8 +1643,8 @@
         },
         "split_hud_margin": {
           "type": "number",
-          "default": 0.03,
-          "description": "In split screen, the margin between each player's HUD and the edges of their view, as a fraction of the view's height, 0.0 to 0.2 (default 0.03). Read at launch.",
+          "default": -1,
+          "description": "In split screen, the margin between each player's HUD and the edges of their view, as a fraction of the view's height, 0.0 to 0.2. Below 0 (the default), 0.05 with three or four players and 0.03 with two. Read at launch.",
           "x-environment": "HALO_SPLIT_HUD_MARGIN",
           "x-environment-style": "value",
           "x-platforms": [
@@ -1654,8 +1654,8 @@
         },
         "split_hud_scale": {
           "type": "number",
-          "default": 1.0,
-          "description": "With three or four players in split screen, the size of each player's HUD against a one-player HUD's, 0.25 to 1.0 (default 1.0). Read at launch.",
+          "default": 0.75,
+          "description": "With three or four players in split screen, the size of each player's HUD against a one-player HUD's, 0.25 to 1.0 (default 0.75). Read at launch.",
           "x-environment": "HALO_SPLIT_HUD_SCALE",
           "x-environment-style": "value",
           "x-platforms": [
