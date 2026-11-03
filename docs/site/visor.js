@@ -133,8 +133,8 @@ function draw() {
   // --glare runs 40% to 46% and --sheen -8% to -13% with the headset's float.
   gl.uniform1f(u('glare'), -.16 + (parseFloat(style.getPropertyValue('--glare')) - 40) * .012);
   gl.uniform1f(u('sheen'), (parseFloat(style.getPropertyValue('--sheen')) + 8) * .01);
-  // The loading screen's LOADING sits low in its frame, so it lifts further than the clip.
-  gl.uniform1f(u('lift'), source === tile ? .2 : .08);
+  // The loading screen sits low enough that its picture reaches the bottom of the glass before the fade.
+  gl.uniform1f(u('lift'), source === tile ? .05 : .08);
   if (source !== media || (media.tagName === 'VIDEO' && media.readyState >= 2)) { gl.activeTexture(gl.TEXTURE0); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source); }
   gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 2);

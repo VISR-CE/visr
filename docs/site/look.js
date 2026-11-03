@@ -15,7 +15,7 @@ const focal = (w, h) => Math.min(FOCAL, Math.max(w * .72, h * .55)) / (scene.wid
 let sideways = 0, driftDirection = 1, dragVelocity = 0, movedAt = 0, inputAt = -Infinity, driftAt = 0, drift = 0, pitchDrift = 0, motion = false, head = null, yawOff = 0, pitchOff = 0, vx = 0, vy = 0;
 let fresh = true, downAt = 0, moved = 0, hoverX = 0, glareX = 40, near = false, visible = false, loaded = false, running = false;
 let yaw = scene.yaw ?? 0, pitch = scene.pitch ?? 22, last = null, mode = 'idle', idle, cx = 0, cy = 0, tcx = null, tcy = null;
-let hasStill = false, hasMask = false, videoReady = false;
+let hasStill = false, hasMask = false, videoReady = false, videoSize = '', glareValue = '', headingDeg = -1;
 const onScreen = () => visible || mode !== 'idle';
 const autoplay = () => !reduced.matches && !navigator.connection?.saveData;
 // Video stays detached from layout, which avoids Safari's offscreen pause loop.
@@ -115,8 +115,9 @@ function size() {
   if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
   return { dpr, w, h };
 }
-function driftView() {
-  const now = performance.now(), dt = Math.min(.1, (now - driftAt) / 1000); driftAt = now;
+// `now` is the frame's own timestamp when there is one, so each step matches the display's frame interval.
+function driftView(now = performance.now()) {
+  const dt = Math.max(0, Math.min(.1, (now - driftAt) / 1000)); driftAt = Math.max(driftAt, now);
   if (last) { drift = pitchDrift = 0; return; }
   const on = onScreen() && !reduced.matches && !motion && now - inputAt > 600, speed = scene.drift ?? { yaw: 10, pitch: 0 };
   const room = speed.stop === undefined ? 1 : Math.max(0, Math.min(1, (speed.stop - pitch) * Math.sign(speed.pitch) / 8));
@@ -130,10 +131,11 @@ function moveGlare() {
   if (mode !== 'idle') return;
   const r = box.getBoundingClientRect(), want = 15 + 70 * (r.top + r.height / 2) / innerHeight + 30 * hoverX;
   glareX += (want - glareX) * (reduced.matches ? 1 : .08);
-  document.getElementById('look-glare').style.setProperty('--glare', `${glareX.toFixed(1)}%`);
+  const value = `${glareX.toFixed(1)}%`;
+  if (value !== glareValue) { glareValue = value; document.getElementById('look-glare').style.setProperty('--glare', value); }
 }
-function render() {
-  driftView();
+function render(now) {
+  driftView(now);
   moveGlare();
   if (motion && head) {
     const ty = head[0] + yawOff;
@@ -145,7 +147,12 @@ function render() {
   }
   if (gl && hasStill) {
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, videoTexture);
-    if (v.readyState >= 2 && fresh) { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); fresh = !v.requestVideoFrameCallback; }
+    // Reallocating a 4096-wide texture for every video frame stalls the frame; refill the same storage instead.
+    if (v.readyState >= 2 && fresh) {
+      if (videoSize !== `${v.videoWidth}x${v.videoHeight}`) { videoSize = `${v.videoWidth}x${v.videoHeight}`; gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, v); }
+      else gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, v);
+      fresh = !v.requestVideoFrameCallback;
+    }
     const { dpr, w, h } = size();
     if (mode === 'idle') { tcx = w / 2; tcy = h / 2; cx = tcx; cy = tcy; }
     else { cx += (tcx - cx) * .18; cy += (tcy - cy) * .18; }
@@ -158,12 +165,12 @@ function render() {
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   const deg = ((Math.round(yaw) % 360) + 360) % 360;
-  document.getElementById('look-heading').textContent = String(deg).padStart(3, '0') + '°';
+  if (deg !== headingDeg) { headingDeg = deg; document.getElementById('look-heading').textContent = String(deg).padStart(3, '0') + '°'; }
   document.getElementById('look-ticks').style.backgroundPosition = (-yaw * 4) + 'px 0';
 }
-function frame() {
+function frame(now) {
   if ((!near && mode === 'idle') || document.hidden) { running = false; return; }
-  render(); requestAnimationFrame(frame);
+  render(now); requestAnimationFrame(frame);
 }
 function startFrames() { if (!running) { running = true; requestAnimationFrame(frame); } }
 let previousOverflow = '', scrollLocked = false, persistentFull = false;
