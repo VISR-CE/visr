@@ -112,6 +112,9 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 /* A clip with a loading screen waits, black, for the 3D headset: the flat face sits in a slightly different place
    and would jump, and its poster would flash. Without WebGL (.is-flat) the flat face shows as before. */
 .hero-media:not(.is-convex):not(.is-flat) .visor-face:has(> video[data-loading]) { visibility: hidden; }
+/* The wireframe and the face appear together: the whole headset waits for the 3D face, or shows anyway after 2 s. */
+.hero-media:has(video[data-loading]):not(.is-convex):not(.is-flat) { opacity: 0; animation: hero-reveal 0s 2s forwards; }
+@keyframes hero-reveal { to { opacity: 1; } }
 .visor-wire { position: absolute; left: -50%; top: -50%; width: 200%; height: 200%; overflow: visible; pointer-events: none; }
 .visor-wire path { fill: none; stroke: var(--hud-cyan); stroke-width: 1; stroke-opacity: .75; vector-effect: non-scaling-stroke; }
 .head .platform-nav { order: 5; position: static; transform: none; width: 100%; max-width: none; justify-content: flex-start; margin: 4px 0 0; gap: 8px; }
