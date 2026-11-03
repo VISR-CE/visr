@@ -293,7 +293,7 @@ stage.addEventListener('pointerdown', e => { inputAt = performance.now(); if (e.
 stage.addEventListener('pointermove', e => { const box0 = box.getBoundingClientRect(); hoverX = (e.clientX - box0.left) / box0.width - .5; });
 stage.addEventListener('pointerleave', () => { hoverX = 0; });
 stage.addEventListener('pointermove', e => { if (!last) return; const moveNow = performance.now(), dx = (last[0] - e.clientX) * .12, dp = (e.clientY - last[1]) * .12; moved += Math.abs(e.clientX - last[0]) + Math.abs(e.clientY - last[1]); sideways += Math.abs(e.clientX - last[0]); if (TOUCH && mode === 'idle' && sideways >= 8) expand(true); vx = dx; vy = dp; if (moveNow > movedAt) dragVelocity = dragVelocity * .7 + Math.max(-240, Math.min(240, dx / ((moveNow - movedAt) / 1000))) * .3; movedAt = moveNow; look(dx, dp); last = [e.clientX, e.clientY]; });
-const up = () => { if (last) { drift = performance.now() - movedAt < 80 ? dragVelocity : 0; if (Math.abs(drift) > 1) driftDirection = Math.sign(drift); inputAt = -Infinity; } dragVelocity = 0; last = null; if (!TOUCH && !persistentFull) { clearTimeout(idle); collapse(); } };
+const up = () => { if (last) { drift = performance.now() - movedAt < 80 ? dragVelocity : 0; if (Math.abs(drift) > 1) driftDirection = Math.sign(drift); inputAt = -Infinity; } dragVelocity = 0; last = null; if (!TOUCH && !persistentFull) arm(); };
 stage.addEventListener('pointerup', () => { if (TOUCH && mode === 'idle' && moved < 8 && performance.now() - downAt < 350) { expand(true); } up(); });
 stage.addEventListener('pointercancel', () => { vx = vy = 0; dragVelocity = 0; up(); });
 function onTilt(e) {
