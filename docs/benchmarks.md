@@ -2,7 +2,7 @@
 
 We try to make these comparisons fair, but numbers or projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues/new?template=benchmark.yml)
 
-Last measured: 2026-11-02.
+Last measured: 2026-11-03.
 
 The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
@@ -57,17 +57,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.3"]
-    y-axis "Milliseconds per frame" 0 --> 8.3
+    x-axis "Port and version" ["VISR 0.6.8"]
+    y-axis "Milliseconds per frame" 0 --> 10.2
     bar [0]
-    bar [6.2]
+    bar [9.7]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; 6.24 ms median GPU time per rendered frame, 7 ms 90th-percentile GPU time per rendered frame; a10 not measured yet).
+M1 iPad Pro. [VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.225906, measured 2026-11-03; 9.69 ms median GPU time per rendered frame, 14.46 ms 90th-percentile GPU time per rendered frame; a10 not measured yet).
 
 Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this platform's reference device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
@@ -87,17 +87,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M1 iPad Pro"
-    x-axis "Port and version" ["VISR 0.6.3", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
+    x-axis "Port and version" ["VISR 0.6.8", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.2.0 (pre-release)"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.4, 23.9, 119.4, 119.1]
-    bar [119.4, 21.6, 119.4, 119.1]
+    bar [115.8, 23.9, 119.4, 119.1]
+    bar [71.9, 21.6, 119.4, 119.1]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-M1 iPad Pro. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.084949, measured 2026-10-28; no on-time share reported; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-29; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-29; no on-time share reported; b30 not measured yet).
+M1 iPad Pro. [VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.225906, measured 2026-11-03; 96.5% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-29; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (build 0.8.0h-dev d7fafc8, measured 2026-10-29; no on-time share reported; b30 not measured yet).
 
 Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this platform's reference device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
@@ -221,7 +221,7 @@ M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/relea
 
 ## Methodology
 
-The snapshot holds 242 measured windows for 10 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 253 measured windows for 10 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 
