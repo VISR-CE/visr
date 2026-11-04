@@ -165,6 +165,7 @@ struct game_options;
 #include "objects/object_lights.h"
 #include "objects/objects.h"
 #include "objects/widgets/antenna.h"
+#include "objects/widgets/flags.h"
 #include "objects/widgets/widgets.h"
 #include "physics/breakable_surfaces.h"
 #include "physics/collision_usage.h"
@@ -266,6 +267,7 @@ PROFILE_SECTION(game_tick_actors_drive_section, "game_tick.actors_drive")
 PROFILE_SECTION(game_tick_players_before_section, "game_tick.players_before")
 PROFILE_SECTION(game_tick_effects_section, "game_tick.effects")
 PROFILE_SECTION(game_tick_antennas_section, "game_tick.antennas")
+PROFILE_SECTION(game_tick_flags_section, "game_tick.flags")
 PROFILE_SECTION(game_tick_first_person_section, "game_tick.first_person")
 PROFILE_SECTION(game_tick_game_engine_section, "game_tick.game_engine")
 PROFILE_SECTION(game_tick_editor_section, "game_tick.editor")
@@ -397,6 +399,11 @@ void game_tick(
 	speed swings it far wider than a tick's step does. The frames between the
 	ticks are drawn from what each tick leaves (antenna.c). */
 	profile_scope(game_tick_antennas_section, antennas_update(seconds_per_tick);)
+	/* A flag's cloth is stepped the same way: each step pulls every vertex
+	all the way to where its neighbors put it, so a step a frame is four
+	steps a tick at 120 fps and the cloth crumples. At 30 fps a frame is a
+	tick, so this is the retail step. */
+	profile_scope(game_tick_flags_section, flags_update(seconds_per_tick);)
 	profile_scope(game_tick_first_person_section,
 		lock_global_random_seed();
 		rumble_update();

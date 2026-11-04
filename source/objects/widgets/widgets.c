@@ -89,7 +89,10 @@ static struct widget_type_definition data_0030b2b0[NUMBER_OF_WIDGET_TYPES] =
 		flags_dispose,
 		flag_new,
 		flag_delete,
-		flags_update,
+		/* the cloth's step pulls every vertex all the way to its neighbors'
+		place, so a step a frame at 60 or 120 fps over-relaxes it: the tick
+		steps it, as it does an antenna (game.c) */
+		NULL,
 		flag_render
 	},
 	{
