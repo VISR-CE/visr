@@ -12,13 +12,12 @@ and_newer = true
 frame_rate = "60"
 render_height = 1080
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 anti_aliasing = "fxaa"
 dynamic_resolution = true
 
 [variable.display]
 frame_rate = "60"
-shadow_map_size = 128
 
 [external.display]
 output_height = 1600
@@ -33,8 +32,9 @@ basis = "assumed"
 why = "Free on the iPad Pro (M1); this phone's one benchmark ran a10 at 119 frames a second at its native 2622x1206 with 16x on (GPU 5.7 ms)."
 
 [evidence."display.shadow_map_size"]
-basis = "assumed"
-why = "The default. The phone's settings sweeps were stopped because it ran hot; nothing but the one benchmark is measured."
+basis = "measured"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Look test at a fixed 1080 lines, 60 frames a second, 64 players on Blood Gulch: 512 shadows 28% of frames on time (35 fps), 128 shadows 99.2% (56 fps). With the window down to 540 lines and 128 shadows, 32 players held 99.96% and 100%, 64 players 99.97% and 99.97% (59.7 to 60.0 fps, thermal state 0 or 1). Steve 2026-10-30: 128 is acceptable for the whole variable context."
+source = "VISR settings sweep look and mpshadow phases, build 20261029.192128 (main e77a24957), presented, 2026-10-30; Steve, 2026-11-04"
 
 [evidence."display.anti_aliasing"]
 basis = "measured"
@@ -75,11 +75,6 @@ source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented
 basis = "assumed"
 why = "Apple GPUs from the A14 on have the stage timing dynamic resolution needs (iPhone 12 Pro measured); at the ceiling it costs nothing, and it lowers the scene only in frames the GPU cannot finish in time."
 source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch (2nd generation) and iPad Pro M1, 2026-10-25"
-
-[evidence."variable.display.shadow_map_size"]
-basis = "measured"
-why = "Look test at a fixed 1080 lines, 60 frames a second, 64 players on Blood Gulch: 512 shadows 28% of frames on time (35 fps), 128 shadows 99.2% (56 fps). With the window down to 540 lines and 128 shadows, 32 players held 99.96% and 100%, 64 players 99.97% and 99.97% (59.7 to 60.0 fps, thermal state 0 or 1). Steve 2026-10-30: 128 is acceptable for the whole variable context."
-source = "VISR settings sweep look and mpshadow phases, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
 
 [evidence."network.full_rate_players"]
 basis = "measured"

@@ -22,13 +22,12 @@ models = ["iPhone16,1", "iPhone16,2", "iPhone17,1", "iPhone17,2", "iPhone18,3", 
 frame_rate = "120"
 render_height = 0
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 dynamic_resolution_floor = 1080
 
 [variable.display]
-shadow_map_size = 128
 frame_rate = "60"
 dynamic_resolution_floor = 540
 
@@ -61,9 +60,9 @@ why = "Retain the measured 16x baseline: all 20 UYY37PNG windows meet the native
 source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, campaign settings and renderer snapshots, 2026-10-24 UTC"
 
 [evidence."display.shadow_map_size"]
-basis = "measured"
-why = "Retain the measured 512 shadow target: all 20 UYY37PNG windows meet the native 60 fps presentation hold rule with it; XPBNZMAZ's complete window also holds. No matched active-gameplay sweep establishes a saving from smaller shadows sufficient for 120 fps at 1.5x enemies."
-source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, campaign settings and renderer snapshots, 2026-10-24 UTC"
+basis = "assumed"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Steve, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"
@@ -99,11 +98,6 @@ source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, native built-in 
 basis = "inherited"
 why = "Use the nearest measured weaker iPhone, the iPhone 12 Pro, as the shared profile's inherited capacity: its current-build minimum-settings ladder holds 64 reliably, while 128 has incomplete attempts. The iPhone 16 Pro's own current-build capacity ladder holds 128, but the other models in this shared profile were not measured; the common value conservatively stays at the weaker phone's 64. This replaces the older 32-player estimate from a stronger phone."
 source = "`iphone-12-pro.toml` network.player_capacity evidence and the iPhone 16 Pro presented capacity ladder, main e77a24957, 2026-10-29 to 2026-10-30"
-
-[evidence."variable.display.shadow_map_size"]
-basis = "assumed"
-why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPhone 17 Pro, inherited here without a run on this device."
-source = "Steve, 2026-10-30"
 
 [evidence."network.full_rate_players"]
 basis = "inherited"

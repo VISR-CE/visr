@@ -12,14 +12,13 @@ and_newer = true
 frame_rate = "120"
 render_height = 1080
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 effect_resolution = "half"
 dynamic_resolution = true
 upscaler = "metalfx"
 
 [variable.display]
 frame_rate = "60"
-shadow_map_size = 128
 
 [network]
 player_capacity = 128
@@ -32,8 +31,8 @@ source = "iPad settings sweep, a10 benchmark at 3180x2384, 2026-10-03"
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "1024 cost 0.9 to 2.7 ms of GPU time a frame and 2048 1.3 to 3.1 (the device warmed during the sweep); 128 against 512 made no difference."
-source = "iPad settings sweep, a10 benchmark, 2026-10-03"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Blood Gulch at a fixed 1080 lines and 60 frames a second, 128 shadows: 32 players 99.94% and 99.97% of frames on time, 64 players 99.93% and 99.93% (two rounds each, thermal state 0). At 512 shadows the 64-player game missed badly in the look test on the iPhone 17 Pro (28% on time, 35 fps) while 128 held 99.2%; the iPad Pro (M1) 64-player run at 512 was 50% on time at 60 frames a second in an earlier round. Steve 2026-10-30: 128 is acceptable for the whole variable context."
+source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30; Steve, 2026-11-04"
 
 [evidence."display.effect_resolution"]
 basis = "measured"
@@ -64,11 +63,6 @@ source = "VISR presented benchmark runs, build 20261025.132032, 2026-10-25"
 basis = "measured"
 why = "MetalFX spatial scaling from 1080 lines to the 3180x2384 panel kept every tier held: on time at 60 was 99.98% (d40), 99.93% (a10) and 99.97% (b30) against 99.98%, 99.83% and 100% with bilinear; at 120 it was 99.90% (a10) and 99.75% (d40, the device at thermal state 2) against 99.73% and 99.96%. The scaler adds about 1.0 ms of GPU time a frame (offscreen medians 6.6 against 5.6 ms on a10 and 6.4 against 5.5 on d40). Edges are smoother and detail sharper than the bilinear stretch in same-frame comparisons."
 source = "Providence a10-heroic, d40-maw-fight and b30 presented runs, build d290f06fe (20261026.002743), 2026-10-26; offscreen costs from the temporal-aa lane, 2026-10-25"
-
-[evidence."variable.display.shadow_map_size"]
-basis = "measured"
-why = "Blood Gulch at a fixed 1080 lines and 60 frames a second, 128 shadows: 32 players 99.94% and 99.97% of frames on time, 64 players 99.93% and 99.93% (two rounds each, thermal state 0). At 512 shadows the 64-player game missed badly in the look test on the iPhone 17 Pro (28% on time, 35 fps) while 128 held 99.2%; the iPad Pro (M1) 64-player run at 512 was 50% on time at 60 frames a second in an earlier round. Steve 2026-10-30: 128 is acceptable for the whole variable context."
-source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
 
 [evidence."variable.display.frame_rate"]
 basis = "measured"

@@ -15,12 +15,11 @@ models = ["iPad13,1"]
 frame_rate = "60"
 render_height = 1080
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 
 [variable.display]
-shadow_map_size = 128
 
 [network]
 player_capacity = 64
@@ -42,9 +41,9 @@ why = "16x against 2x cost 0.08 to 0.10 ms a frame at 900 lines."
 source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds on 20261023.144726, a10-heroic and d40-maw-fight offscreen windows plus one presented d40 run, 2026-10-23 to 2026-10-25"
 
 [evidence."display.shadow_map_size"]
-basis = "measured"
-why = "512 against 128 cost 0.05 to 0.06 ms a frame at 900 lines."
-source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds on 20261023.144726, a10-heroic and d40-maw-fight offscreen windows plus one presented d40 run, 2026-10-23 to 2026-10-25"
+basis = "assumed"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Steve, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"
@@ -60,11 +59,6 @@ source = "VISR presented capacity ladder, main e77a24957, build 20261029.192128,
 basis = "assumed"
 why = "The same A14 GPU family as the iPhone 12 Pro, where dynamic resolution ran with stage timing and cost nothing at the ceiling; on the A10X and M1 it held 60 frames a second in the Maw fight where the fixed resolution did not."
 source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch (2nd generation) and iPad Pro M1, 2026-10-25"
-
-[evidence."variable.display.shadow_map_size"]
-basis = "assumed"
-why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPad Pro (M1) and the iPhone 17 Pro, inherited here without a run on this device."
-source = "Steve, 2026-10-30"
 
 [evidence."network.full_rate_players"]
 basis = "measured"

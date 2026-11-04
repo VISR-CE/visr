@@ -21,13 +21,12 @@ models = ["iPhone17,5"]
 frame_rate = "60"
 render_height = 0
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 dynamic_resolution_floor = 1080
 
 [variable.display]
-shadow_map_size = 128
 dynamic_resolution_floor = 540
 
 [network]
@@ -40,9 +39,9 @@ why = "The quick suite recorded 16x at native 2532x1170 in the menu, a10 opening
 source = "Report HWZD3QQH, build 20261017.73634, quick suite, menu/a10-opening/b30-beach, 2026-10-18 UTC"
 
 [evidence."display.shadow_map_size"]
-basis = "measured"
-why = "The quick suite recorded a 512 shadow map at native 2532x1170 in the menu, a10 opening, and b30 beach runs. The report listed 59.97, 59.96, and 59.91 fps at 60 Hz with nominal thermal state; `stalls.count` reported zero frame-interval stalls over 50 ms. This is a measured baseline, not a comparison of shadow sizes."
-source = "Report HWZD3QQH, build 20261017.73634, quick suite, menu/a10-opening/b30-beach, 2026-10-18 UTC"
+basis = "assumed"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Steve, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"
@@ -78,11 +77,6 @@ source = "VISR presented benchmark runs on the iPhone 17 Pro, main c6f138a78, 20
 basis = "inherited"
 why = "Inherit 64 from the nearest measured weaker iPhone, the iPhone 12 Pro. Its current-build minimum-settings ladder holds 64 reliably; 128 has incomplete attempts. This model has not run the current capacity ladder. This replaces the older 32-player estimate from a stronger phone."
 source = "`iphone-12-pro.toml` network.player_capacity evidence, main e77a24957, 2026-10-29 to 2026-10-30"
-
-[evidence."variable.display.shadow_map_size"]
-basis = "assumed"
-why = "Steve 2026-10-30: 128-texel shadows are acceptable for the whole variable context (multiplayer, online co-op, campaign with an enemy multiplier); the visual gain above 128 is small and the cost is large in big games. Measured on the iPhone 17 Pro, inherited here without a run on this device."
-source = "Steve, 2026-10-30"
 
 [evidence."network.full_rate_players"]
 basis = "inherited"
