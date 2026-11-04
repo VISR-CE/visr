@@ -292,14 +292,16 @@ def head_tags(metadata: dict[str, str]) -> dict[str, str]:
 
 
 LOOK_ASSET_BASE = "https://media.visr.gg/look/"
+# Codec string of the scenes' shape-av1.mp4 (Main profile, level 5.1, 8-bit), which look.js tries before shape.mp4.
+LOOK_AV1 = "av01.0.13M.08"
 LOOK_SCENES = [
     {"folder": "lifeboat", "label": "Lifeboats over Halo", "yaw": 12},
-    {"folder": "b30-battle", "label": "The battle on the beach of The Silent Cartographer", "yaw": 125, "pitch": 2, "videoBand": 1, "drift": {"yaw": 10, "pitch": 0}},
-    {"folder": "b40-battlefield", "label": "The snowfield on Assault on the Control Room", "yaw": 315, "pitch": 60, "videoBand": 1252 / 2048, "drift": {"yaw": 2, "pitch": 0}},
+    {"folder": "b30-battle", "av1": LOOK_AV1, "label": "The battle on the beach of The Silent Cartographer", "yaw": 125, "pitch": 2, "videoBand": 1, "drift": {"yaw": 10, "pitch": 0}},
+    {"folder": "b40-battlefield", "av1": LOOK_AV1, "label": "The snowfield on Assault on the Control Room", "yaw": 315, "pitch": 60, "videoBand": 1252 / 2048, "drift": {"yaw": 2, "pitch": 0}},
     {"folder": "a50-grav-lift", "label": "The gravity lift on The Truth and Reconciliation", "yaw": 176, "pitch": 60, "videoBand": 1348 / 2048, "drift": {"yaw": 0, "pitch": -2, "stop": -15}},
     {"folder": "damnation", "label": "The waterfalls of Damnation", "yaw": 150, "pitch": -20, "videoBand": 1488 / 2048},
-    {"folder": "control-room", "label": "The Control Room on Assault on the Control Room", "wide": 1.4, "yaw": 85, "pitch": 2, "videoBand": 1820 / 2048, "drift": {"yaw": 6, "pitch": 0}},
-    {"folder": "battle-creek", "label": "Capture the Flag on Battle Creek", "wide": 1.26, "yaw": 290, "pitch": 5, "videoBand": 1, "drift": {"yaw": 11.8033, "pitch": 0}},
+    {"folder": "control-room", "av1": LOOK_AV1, "label": "The Control Room on Assault on the Control Room", "wide": 1.4, "yaw": 85, "pitch": 2, "videoBand": 1820 / 2048, "drift": {"yaw": 6, "pitch": 0}},
+    {"folder": "battle-creek", "av1": LOOK_AV1, "label": "Capture the Flag on Battle Creek", "wide": 1.26, "yaw": 290, "pitch": 5, "videoBand": 1, "drift": {"yaw": 11.8033, "pitch": 0}},
     {"folder": "blood-gulch", "label": "The ridge above Blood Gulch", "still": True, "yaw": 100, "pitch": 2, "drift": {"yaw": -10, "pitch": 0}},
 ]
 
