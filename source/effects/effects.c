@@ -1993,6 +1993,7 @@ static void effect_generate_particles(
 					particles->scale_b_flags,
 					_effect_particle_distribution_radius_bit);
 
+				csmemset(&data, 0, sizeof(data));
 				local_random_direction3d(&random_offset);
 				matrix4x3_transform_vector(
 					&instance->matrix,

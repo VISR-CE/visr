@@ -4891,6 +4891,7 @@ void ai_communication_finished(
 									{
 										struct unit_speech_item speech;
 
+										csmemset(&speech, 0, sizeof(speech));
 										speech.priority = speech_priority;
 										speech.vocalization_type = reply_vocalization_type;
 										speech.sound_definition_index = sound_definition_index;
@@ -7012,6 +7013,7 @@ void ai_communication_event(
 	{
 		struct ai_information_packet ai_packet;
 
+		csmemset(&ai_packet, 0, sizeof(ai_packet));
 		selected_possibility = possibilities;
 		if (any_forced_possibility)
 		{
@@ -7134,6 +7136,7 @@ void ai_communication_event(
 		{
 			struct unit_speech_item speech;
 
+			csmemset(&speech, 0, sizeof(speech));
 			speech.priority = selected_possibility->priority;
 			speech.vocalization_type = selected_possibility->vocalization_type;
 			speech.sound_definition_index = selected_possibility->sound_definition_index;
