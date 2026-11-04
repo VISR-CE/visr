@@ -149,6 +149,70 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.10 (2026-11-04)
+
+### Summary
+
+- Mouse look on Mac: the mouse should lock while you play and release when a menu opens. Check this in the iOS app running on a Mac too. F12 should still release the mouse, even after you leave the pause menu.
+- Unarmed play: in the opening of a10, try melee and grenade throws before you pick up your first weapon. Neither should work without a weapon.
+- Multiplayer weapon pickup: a second weapon should now be picked up with the action button, not by walking over it. Walk-over pickup stays in campaign.
+- Weapon swap: swap weapons while another weapon is still being switched in. You should drop the weapon in your hand.
+- Multiplayer deaths: after you die, the death camera should stay on instead of switching to a living player after about 15 seconds.
+- Team kills: the player who made the team kill should take the respawn penalty. The victim should respawn on the normal timer.
+- Infinite grenades: games with five or more players should no longer give infinite grenades. Grenades should spawn on the map, and each throw should use one up.
+- Grenade throws: while throwing in the air, your body should no longer turn with your aim.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **upscale**: classify replaced bitmaps as original and report which bitmaps no root reaches
+
+### fix
+
+- **shaders**: restore `alpha_test_samples` in `pixel_key_finish` — moving the key build out of `prepare_draw` dropped the block that sets it for multisampled, alpha-tested, non-blended draws, which turned off MSAA alpha-test edge coverage and the `shader_list_pixel_made` MSAA skip. `tools/test_pixel_key_samples.py` builds keys with the real `pixel_key_finish` and canonicalizer and checks the field is set, kept, and absent for single-sample, blended and sample-mask-less draws; it is in `ios_test.py`
+- **units**: drop the exception for a loadout of none from the melee and grenade prevention — a multiplayer game that spawns players with no weapon now prevents both too, as on the Xbox in every gametype (`weapon_prevents_melee_attack(NONE)` and `weapon_prevents_grenade_throwing(NONE)` are true); behavior described in Chupathingy's release notes and OpenH1 PR #551
+- **units**: prevent a grenade throw for a unit holding no weapon — a10's opening let the unarmed player throw; as on the Xbox, where `weapon_prevents_grenade_throwing(NONE)` is true, only a multiplayer game whose custom loadout gives no weapon keeps it; behavior described in Chupathingy's release notes
+- **bipeds**: prevent melee for a player holding no weapon — the unarmed melee added in `23b542601` started a swing at nothing in a10's opening; as on the Xbox, where `weapon_prevents_melee_attack(NONE)` is true, only a multiplayer game whose custom loadout gives no weapon (`game_engine_unarmed_loadout`, which the Xbox game has not) keeps it; behavior described in Chupathingy's release notes and OpenH1 PR #551
+- **camera**: keep a dead multiplayer player on the death camera — `dead_camera_new` no longer starts the 15 second switch to following a living player, as on the Xbox; a host option to allow the follow camera comes later; behavior described in Chupathingy's release notes
+- **players**: drop the weapon in hand when a swap comes during a weapon switch — `player_handle_weapon_swap` dropped the weapon the player had selected; a local player now drops the one in hand, as on the Xbox, while a remote player on the host keeps the selected-weapon rule because its choice reaches the host before the host's copy has finished switching; behavior described in Chupathingy's release notes
+- **bipeds**: keep the body from turning with the aim in the air while throwing a grenade — the `throwing_turn` enhancement now applies on the ground only, so the campaign's AI, which reacts to the body, matches the original; behavior described in OpenH1 PR #565
+- **game-engine**: give the team killer the respawn penalty, not the player killed — `game_engine_player_killed` charged the victim of a team kill the gametype's suicide penalty; the betrayer now takes it on the next respawn along with any friendly fire penalty, and the victim respawns on the normal timer, as on the Xbox; behavior described in Chupathingy's release notes (PR #677)
+- **game-engine**: turn infinite grenades off at five or more players — `game_engine_infinite_grenades_internal` and `game_engine_remap_equipment` check `_game_engine_5_or_more_players_bit` again, so grenades spawn on the map and a throw uses one up, as on the Xbox; behavior described in Chupathingy's release notes
+- **players**: pick up a second weapon in multiplayer with the action button, not by walking over it — `unit_should_autopick_weapon` again limits the walk-over into the empty slot to campaign, as on the Xbox; behavior described in Chupathingy's release notes and OpenH1 PR #552
+- **mac**: keep F12 working with the menu-driven mouse hold — `platform_mouse_menus_changed` closes a menu with a recapture only when F12 has not released the mouse, so leaving the pause menu no longer overrides the player's release
+- **mac**: hold the mouse in the iOS app run on a Mac as well — `host_sdl_set_relative_mouse` now also passes the request to SDL when `host_ios_app_on_mac` (`NSProcessInfo.isiOSAppOnMac`) is true, since a "Designed for iPad" run is the iOS binary and matches neither `HALO_NATIVE_MAC` nor `TARGET_OS_MACCATALYST`
+- **mac**: hold the mouse while the game is played — the iOS guest (`HALO_ILP32`) compiles out every `platform_mouse_capture` caller, so `SDL_SetWindowRelativeMouseMode` was never called and the cursor roamed free until it hit the screen edge and the view stopped turning; the guest's `halo_ui_pointer_update` now asks the host to hold the mouse when no menu is up and release it when one is, and `host_sdl_set_relative_mouse` passes the request to SDL only on the Mac (AppKit and Catalyst), where touch screens have no cursor to hold
+- **ai**: zero the AI packets, speech items and new particle data built on the stack — the reply speech item, the communication packet and the second speech item in `ai_communication.c`, and the `new_particle_data` in `effects.c` and `breakable_surfaces.c` were filled field by field and copied whole into hashed state, leaving padding and unused members (such as an unattached particle's `node_index`) as stack garbage; `tools/test_zero_init_structs.py` fails when such a local is used before being cleared (behavior described in OpenH1 PR #467 and its sibling zeroing commits)
+
+### perf
+
+- **metal**: track the vertex mirror in the write tracker's pages and back off the volatile re-watch — `MIRROR_PAGE_SIZE` was 4 KB while `host_memory.c` keeps one generation per 16 KB, so one write to a dynamic vertex page made its three neighbors look rewritten, uploaded them again and turned them volatile. `memory_watch_page.h` now gives every consumer the tracker's page (`MEMORY_WATCH_PAGE_SIZE`, `memory_watch_page_size()`), used by the mirror, `gpu_capture.c` and `gpu_validate.c`. A page that turns volatile again right after its period ran out now waits twice as long each time, up to 32 times `MIRROR_VOLATILE_FRAMES`.
+- **shaders**: regenerate `port/shader-lists/*.txt` with canonical pixel shader keys — 14,254 `ps` lines (5,927 distinct keys) become 1,620 (228), 17,357 pipelines 2,451, 9.0 MB 1.1 MB, with `python3 tools/shader_lists.py canonicalize`
+- **shaders**: zero the combiner registers past the combiner count in pixel shader keys, so one shader is one key — the translation runs only the stages below `D3DRS_PSCOMBINERCOUNT`, but `combiner_state` copied the leftovers of earlier shaders, which made 5,031 distinct keys of 218 shaders and unseen maps miss 32% of theirs; the warm path canonicalizes list keys and maps old pixel hashes to them so older lists and feeds still warm their pipelines
+- **upscale**: leave title art out of the upscale set and out of the Start playing gate when nothing draws it
+
+### refactor
+
+- **shaders**: `tools/shader_lists.py` canonicalizes pixel shader keys when it merges, rewriting each pipeline line to the canonical `ps` hash, and gains a `canonicalize` command
+
+### test
+
+- **memory**: report the in-window remap race beside a watched block — `memory_probe.c` loops `host_guest_mmap` beside a block the renderer protects in the same 16 KB page and counts writes that did not advance the generation (diagnostic; `HALO_PROBE_D_STRICT` makes it fail)
+- **input**: add `debug.test_input` `unarmed:<start>` — it stands still and presses melee and the grenade in turn, to check a10's opening before the first weapon
+- **shaders**: add `alias_count` to the `shader_list` stub in `test_network_shader_warmup.py` — `halo_shader_list_warm` now resets it, so the probe no longer compiled and `ios_test` failed
+
+### chore
+
+- **units**: log a melee or grenade press with no weapon once per press — the line printed on every tick the button was held; it now prints when the press starts, with no change in behavior
+- **units**: log a melee or grenade press that does nothing for lack of a weapon — `bipeds.c` and `units.c` say so once per press, which the a10 opening check reads
+
 ## visr-v0.6.9 (2026-11-03)
 
 ### Summary
