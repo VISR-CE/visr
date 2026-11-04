@@ -17,6 +17,7 @@
 "not reachable: no console" = "The app has no console a script can drive, so this suite cannot be started."
 "split screen has no stereo view on Vision Pro" = "Split-screen co-op is drawn flat, not in stereo, so the headset shows no presented frames for it: the game keeps its flat render path whenever there is more than one player window."
 "permission-denied" = "The system did not allow the measurement."
+"engine assertion (sound_dsound.h:35)" = "The game halts on a sound engine assertion during this window."
 
 [patterns]
 # {suite} and {suites} are filled from the code.
