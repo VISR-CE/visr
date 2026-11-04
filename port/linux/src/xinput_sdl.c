@@ -890,8 +890,17 @@ next press */
 #define ZOOM_GAP_POLLS 20
 #define ZOOM_SWAP_POLLS 90
 
+/* "unarmed:<start>": stands still and, from poll <start>, presses the melee
+button (B) for UNARMED_PRESS_POLLS polls every UNARMED_PERIOD_POLLS, and the
+grenade (the left trigger) in the half-period between: the opening of a10,
+where the player holds no weapon yet */
+#define UNARMED_PRESS_POLLS 4
+#define UNARMED_PERIOD_POLLS 120
+
 static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 {
+	static long unarmed_start = -1;
+	static unsigned long unarmed_polls;
 	static int checked;
 	static int seed = -1;
 	static int looking;
@@ -910,7 +919,9 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 		const char *setting = config_string("debug.test_input");
 
 		checked = 1;
-		if (!strncmp(setting, "bot:", 4))
+		if (!strncmp(setting, "unarmed:", 8))
+			unarmed_start = atol(setting + 8);
+		else if (!strncmp(setting, "bot:", 4))
 			seed = atoi(setting + 4);
 		else if (!strcmp(setting, "bot"))
 			seed = 0;
@@ -946,6 +957,16 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 			if (fields < 5)
 				zoom_unclicks = 0;
 		}
+	}
+	if (unarmed_start >= 0)
+	{
+		long since = (long)unarmed_polls++ - unarmed_start;
+
+		if (since >= 0 && since % UNARMED_PERIOD_POLLS < UNARMED_PRESS_POLLS)
+			pad->bAnalogButtons[XINPUT_GAMEPAD_B] = 255;
+		else if (since >= 0 && (since + UNARMED_PERIOD_POLLS / 2) % UNARMED_PERIOD_POLLS < UNARMED_PRESS_POLLS)
+			pad->bAnalogButtons[XINPUT_GAMEPAD_LEFT_TRIGGER] = 255;
+		return;
 	}
 	if (chording)
 	{

@@ -1978,7 +1978,7 @@
         "test_input": {
           "type": "string",
           "default": "",
-          "description": "\"bot:<seed>\" plays controller 1 with a scripted pattern (automated network tests); \"look:<seed>\" stands still, only turning and looking up and down; \"walklook:<seed>\" looks down, then walks; \"zoom:<start>,<swaps>,<clicks>[,<lights>[,<unclicks>]]\" stands still and from poll <start> swaps weapons <swaps> times, zooms <clicks> times, presses the flashlight <lights> times (night vision), then clicks the zoom <unclicks> times more (out of it); \"aachord:<start>,<period>\" presses the live anti-aliasing chord (Back and R1) from poll <start> and every <period> polls after; empty for none.",
+          "description": "\"bot:<seed>\" plays controller 1 with a scripted pattern (automated network tests); \"look:<seed>\" stands still, only turning and looking up and down; \"walklook:<seed>\" looks down, then walks; \"zoom:<start>,<swaps>,<clicks>[,<lights>[,<unclicks>]]\" stands still and from poll <start> swaps weapons <swaps> times, zooms <clicks> times, presses the flashlight <lights> times (night vision), then clicks the zoom <unclicks> times more (out of it); \"aachord:<start>,<period>\" presses the live anti-aliasing chord (Back and R1) from poll <start> and every <period> polls after; \"unarmed:<start>\" stands still and from poll <start> presses melee and, between, the grenade, every 120 polls (a10's opening, before the first weapon); empty for none.",
           "x-environment": "HALO_TEST_INPUT",
           "x-environment-style": "value",
           "x-platforms": [
