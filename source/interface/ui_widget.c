@@ -6168,7 +6168,10 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 					break;
 				case _ui_mouse_target_list_slot:
-					ui_mouse_step_list_to_slot(target->widget);
+					/* (a slot is chosen by a click: stepping the list to
+					it on a hover slides another card under the pointer,
+					and the next move steps again) */
+					ui_mouse_give_focus(target->widget->parent);
 					break;
 				}
 			}
