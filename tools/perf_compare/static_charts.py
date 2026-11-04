@@ -27,7 +27,7 @@ def main() -> int:
         page.add_script_tag(path=str(SITE / "benchmarks/benchmarks.js"))
         page.evaluate("mermaid.initialize(mermaidConfig(true))")  # the dark chart theme the live page uses
         for spec in specs:
-            text = charts.source(spec, charts.model(rows, spec["query"], charts.DEFAULT_SUITE), charts.DEFAULT_SUITE)
+            text = charts.source(spec, charts.model(rows, spec["query"], charts.DEFAULT_SUITE, spec.get("box")), charts.DEFAULT_SUITE)
             target = SITE / f"benchmarks/static-{slug(spec)}.svg"
             if text is None:
                 target.unlink(missing_ok=True)

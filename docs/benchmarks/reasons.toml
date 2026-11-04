@@ -2,7 +2,7 @@
 
 [exact]
 "console-unavailable" = "The app has no frame-time readout we could capture."
-"not measured on the reference box" = "Not run on this platform's reference device."
+"not measured on this device" = "Not run on this device."
 "no uncapped 2560×1920 matched-stock measurement" = "Only measured with the frame cap on, at another size or with other settings."
 "no uncapped matched-stock measurement" = "Only measured with the frame cap on or with other settings."
 "no measurement at the display rate" = "Only measured with other frame-rate or quality settings."

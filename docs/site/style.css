@@ -201,14 +201,17 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 /* The legend names the group for assistive technology only; taking no room, it leaves the bar's whole box to the ::before background.
    The visible "Suite" label is the first item of the pills' row, so it wraps with the pills and never takes a row of its own. */
 .bench-bar legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* The device switch of a platform is the suite switch's pills, in the section under its text. */
+.bench-device { border: 0; padding: 0; margin: var(--space-3) 0 0; min-width: 0; }
+.bench-device legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .suite-label { margin-right: 6px; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .suite-pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
-.bench-bar label { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--line);
+.bench-bar label, .bench-device label { position: relative; display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border: 1px solid var(--line);
   border-radius: var(--radius-pill); font-size: 0.9rem; cursor: pointer; user-select: none; }
-.bench-bar label:hover { border-color: var(--accent); }
-.bench-bar input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.bench-bar label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
-.bench-bar label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bench-bar label:hover, .bench-device label:hover { border-color: var(--accent); }
+.bench-bar input, .bench-device input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.bench-bar label:has(input:checked), .bench-device label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.bench-bar label:has(input:focus-visible), .bench-device label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* The selected suite's panel dissolves into the bar: its screenshots join the pills' row at the right, its description takes the row below. */
 .suite-info { display: none; }
@@ -229,7 +232,7 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
   .suite-pills { min-height: 50px; }
 }
 @media (min-width: 900px) and (max-width: 1059px) {
-  .bench-bar label { padding: 0 10px; }
+  .bench-bar label, .bench-device label { padding: 0 10px; }
   .suite-shots { gap: 6px; }
   .suite-shots li, .suite-shots img { width: 44px; } .suite-shots img { height: 28px; }
 }

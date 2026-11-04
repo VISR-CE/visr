@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "docs/benchmarks/results.csv"
 SPECS = ROOT / "docs/benchmarks/charts"
 REASONS = ROOT / "docs/benchmarks/reasons.toml"
+DEVICES = ROOT / "docs/benchmarks/devices.toml"
 SUITE_INFO = ROOT / "docs/benchmarks/suites.toml"
 PAGE = ROOT / "docs/benchmarks.md"
 BEGIN = "<!-- BEGIN CHARTS -->"
@@ -36,6 +37,66 @@ def load_snapshot(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
+def _without_device(row: dict) -> str:
+    """The row's label without a trailing " (host)": a build not measured on the device shown is named for the port and version,
+    not for another device. Mirrored by `withoutDevice` in benchmarks.js."""
+    suffix = f" ({row['host']})"
+    return row["label"].removesuffix(suffix) if row["host"] else row["label"]
+
+
+def device_id(row: dict) -> str:
+    """The device a row was measured on: its machine and chip (the hosts of one device can differ in spelling), or the
+    host when the row has neither. Mirrored by `deviceId` in benchmarks.js."""
+    machine, chip = row.get("machine", ""), row.get("chip", "")
+    return f"{machine}|{chip}" if machine or chip else row.get("host", "")
+
+
+def devices(platform_rows: list[dict], first: str = "") -> list[dict]:
+    """The platform's devices as {id, label}, the one named `first` (a label or id) leading and the rest by label. A device's
+    label is its host name that starts with its chip (`M6 Mac mini`) when it has one, else the first host by name.
+    Mirrored by `devices` in benchmarks.js."""
+    hosts: dict[str, set[str]] = {}
+    for row in platform_rows:
+        hosts.setdefault(device_id(row), set()).add(row["host"])
+    found = []
+    for ident, names in hosts.items():
+        chip = ident.partition("|")[2]
+        named = sorted(name for name in names if chip and name.startswith(chip + " "))
+        found.append({"id": ident, "label": (named or sorted(names))[0]})
+    found.sort(key=lambda d: (first not in (d["id"], d["label"]), d["label"]))
+    return found
+
+
+def pick_device(platform_rows: list[dict], wanted: str | None) -> dict | None:
+    """The device a chart shows: the one `wanted` names (a label or an id), else the platform's reference device (the rows
+    flagged `reference_box`), else none. Mirrored by `pickDevice` in benchmarks.js."""
+    found = devices(platform_rows)
+    if wanted:
+        return next((d for d in found if wanted in (d["id"], d["label"])), None)
+    flagged = next((row for row in platform_rows if row.get("reference_box", "").lower() == "true"), None)
+    return next((d for d in found if flagged and d["id"] == device_id(flagged)), None)
+
+
+def load_device_text(path: Path = DEVICES) -> dict:
+    """How the page's text names a device and the rate it was held to, for the devices whose default wording is wrong."""
+    return tomllib.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def with_article(name: str) -> str:
+    """`a Mac mini`, `an M1 iPad Pro`: M, N, F, H, L, R, S and X before a digit are read as letters. Mirrored by `withArticle`."""
+    return ("an " if re.match(r"[AEIOUaeiou]|[MNFHLRSXmnfhlrsx]\d", name) else "a ") + name
+
+
+def fill_device_text(text: str, label: str, device_text: dict, default_pace: str = "the display rate") -> str:
+    """A paragraph's {device} and {pace} placeholders for the device shown. Mirrored by `fillDeviceText` in benchmarks.js."""
+    info = device_text.get(label, {})
+    return text.replace("{device}", info.get("name") or with_article(label)).replace("{pace}", info.get("pace") or default_pace)
+
+
+def _on(row: dict, device: str) -> bool:
+    return device_id(row) == device
+
+
 def _has_value(row: dict, query: dict) -> bool:
     """Whether the row reports what the chart draws: its first metric, or for a `pair` chart (CPU and GPU time, two
     independent bars) either metric. Mirrored by `hasValue` in benchmarks.js."""
@@ -44,9 +105,11 @@ def _has_value(row: dict, query: dict) -> bool:
 
 
 def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
-    """(ports, builds) with a value for the spec's first metric among the reference-box rows its filter matches."""
+    """(ports, builds) with a value for the spec's first metric among the default device's rows its filter matches."""
     query = spec["query"]
-    found = [row for row in rows if row["platform"] == query["platform"] and row["reference_box"].lower() == "true"
+    platform_rows = [row for row in rows if row["platform"] == query["platform"]]
+    chosen = pick_device(platform_rows, spec.get("box"))
+    found = [row for row in platform_rows if chosen and _on(row, chosen["id"])
              and _matches(row, query["filter"]) and _has_value(row, query)]
     return len({row["port"] for row in found}), len({(row["port"], row["version"], row["build"]) for row in found})
 
@@ -169,16 +232,16 @@ def _details(rows: list[dict], query: dict) -> dict:
     return found
 
 
-def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | None, str, str]:
-    """Average and 1% low for one suite on the reference box, or None with the reason and its kind
+def _suite_value(group: list[dict], query: dict, suite: str, device: str) -> tuple[dict | None, str, str]:
+    """Average and 1% low for one suite on the chosen device, or None with the reason and its kind
     (`not_measured`, or `not_supported` when the port lacks what the suite needs)."""
-    box = [row for row in group if row["reference_box"].lower() == "true"]
+    box = [row for row in group if _on(row, device)]
     unsupported = [row for row in group if row["suite"] == suite and row["status"] == "not_supported"]
     if unsupported:
         return None, unsupported[0]["notes"] or "not supported", "not_supported"
     if not box:
         gone = [row["notes"] for row in group if row["status"] == "unavailable" and row["notes"]]
-        return None, gone[0] if gone else "not measured on the reference box", "not_measured"
+        return None, gone[0] if gone else "not measured on this device", "not_measured"
     mine = [row for row in box if row["suite"] == suite]
     if not mine:
         return None, f"no {suite} measurements yet", "not_measured"
@@ -186,7 +249,7 @@ def _suite_value(group: list[dict], query: dict, suite: str) -> tuple[dict | Non
     for row in sorted((r for r in mine if _matches(r, query["filter"]) and _has_value(r, query)), key=lambda r: r["date"]):
         usable[row["window"]] = row
     if not usable:
-        skipped = [row for row in mine if row["status"] == "not_measured" and row["notes"]]
+        skipped = [row for row in mine if row["status"] in ("not_measured", "unavailable") and row["notes"]]
         if skipped:
             return None, skipped[0]["notes"], "not_measured"
         return None, query.get("no_data_reason", "no matching measurement"), "not_measured"
@@ -233,23 +296,28 @@ def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
     return {port: items[index[port]] for port, items in candidates.items()}
 
 
-def model(rows: list[dict], query: dict, suite: str) -> dict:
-    """Every build of the platform's ports as an entry, with its values for the suite or the reason it has none."""
+def model(rows: list[dict], query: dict, suite: str, device: str | None = None) -> dict:
+    """Every build of the platform's ports as an entry, with its values for the suite on the device (a label or an id; the
+    platform's reference device when omitted) or the reason it has none."""
     platform_rows = [row for row in rows if row["platform"] == query["platform"]]
+    shown = pick_device(platform_rows, device)
+    device_key = shown["id"] if shown else "\0"
     groups: dict[tuple, list[dict]] = {}
     for row in platform_rows:
         groups.setdefault((row["port"], row["version"], row["build"]), []).append(row)
     entries = []
     for (port, version, build), group in groups.items():
+        # A build measured on several devices is named and dated by its rows on the one shown (its labels can carry the device).
+        here = [row for row in group if _on(row, device_key)]
         base = {"port": port, "port_name": group[0]["port_name"], "version": version, "build": build,
-                "label": group[0]["label"], "date": max(row["date"] for row in group),
+                "label": here[0]["label"] if here else _without_device(group[0]), "date": max(row["date"] for row in here or group),
                 "url": next((row.get("release_url", "") for row in group if row.get("release_url", "")), ""),
                 "gpu_note": query.get("no_gpu_notes", {}).get(port, ""),
                 "port_note": query.get("build_notes", {}).get(port, "")}
         if suite == "overall":
             # Which suites count is decided per chart, from the builds drawn (see `_drawn`); here each build keeps
             # its own suite values. A build with none is listed with the first suite's reason.
-            parts = {name: _suite_value(group, query, name) for name in SUITES}
+            parts = {name: _suite_value(group, query, name, device_key) for name in SUITES}
             found = {name: part[0] for name, part in parts.items() if part[0] is not None}
             if found:
                 value, reason, kind = {"avg": 0.0, "low": None, "details": {}, "rows": []}, "", ""
@@ -259,7 +327,7 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
                 kind = "not_supported" if {part[2] for part in parts.values()} == {"not_supported"} else "not_measured"
             base["suites"] = found
         else:
-            value, reason, kind = _suite_value(group, query, suite)
+            value, reason, kind = _suite_value(group, query, suite, device_key)
         entries.append({**base, "value": value, "reason": reason, "kind": kind})
     order = query.get("port_order", [])
     entries.sort(key=lambda e: (order.index(e["port"]) if e["port"] in order else len(order), e["port"],
@@ -267,18 +335,19 @@ def model(rows: list[dict], query: dict, suite: str) -> dict:
     chosen = _default_builds(entries, suite == "overall")
     for entry in entries:
         entry["default"] = chosen.get(entry["port"]) is entry
-    built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": next((r["host"] for r in platform_rows if r["reference_box"].lower() == "true"), "")}
+    built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": shown["label"] if shown else "",
+             "device": shown["id"] if shown else ""}
     if query.get("budget"):
-        built["budget_ms"] = _budget_ms(platform_rows, query)
+        built["budget_ms"] = _budget_ms(platform_rows, query, device_key)
     return built
 
 
-def _budget_ms(platform_rows: list[dict], query: dict) -> float | None:
+def _budget_ms(platform_rows: list[dict], query: dict, device: str) -> float | None:
     """The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted
-    reference-box runs that report the charted metric were held to (the frame cap, else the display rate). Mirrored by `budgetMs` in benchmarks.js."""
+    runs on the device that report the charted metric were held to (the frame cap, else the display rate). Mirrored by `budgetMs` in benchmarks.js."""
     rates = []
     for row in platform_rows:
-        if row["reference_box"].lower() != "true" or not _matches(row, query["filter"]) or not _has_value(row, query):
+        if not _on(row, device) or not _matches(row, query["filter"]) or not _has_value(row, query):
             continue
         for column in ("cap_fps", "display_hz"):
             try:
@@ -597,11 +666,17 @@ def _link(entry: dict) -> str:
     return f"[{entry['label']}]({entry['url']})" if entry.get("url") else entry["label"]
 
 
+def section_paragraph(spec: dict, built: dict, device_text: dict | None = None) -> str:
+    """The spec's paragraph with the device it is showing named in it. Mirrored by `sectionParagraph` in benchmarks.js."""
+    return fill_device_text(spec["paragraph"].strip(), built["box"] or spec.get("box", ""),
+                            load_device_text() if device_text is None else device_text)
+
+
 def render_section(spec: dict, rows: list[dict], suite: str = DEFAULT_SUITE, reasons: dict | None = None) -> str:
     """The Markdown for one platform's default view: the chart if any build has data, else why not."""
     reasons = reasons or load_reasons()
-    built = model(rows, spec["query"], suite)
-    parts = [("####" if spec.get("sub") else "###") + f" {spec['heading']}", "", spec["paragraph"].strip(), ""]
+    built = model(rows, spec["query"], suite, spec.get("box"))
+    parts = [("####" if spec.get("sub") else "###") + f" {spec['heading']}", "", section_paragraph(spec, built), ""]
     text = source(spec, built, suite)
     if text is None:
         parts.extend([empty_text(spec, built), ""])

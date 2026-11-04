@@ -3,10 +3,10 @@ sub = true
 heading = "Apple TV: frame rate"
 primary_heading = "Apple TV"
 primary_order = 30
-primary_paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
-paragraph = "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
+primary_paragraph = "Measured on {device} from runs presented at {pace}. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
+paragraph = "Measured on {device} from runs presented at {pace}. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval."
 empty = "No Apple TV results yet."
-box = "Apple TV HD"
+box = "Apple TV 4K"
 series_labels = ["Average fps", "1% low fps"]
 
 [chart]

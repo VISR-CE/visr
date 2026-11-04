@@ -149,8 +149,8 @@ def caption_html(table: dict | None) -> str:
             f'<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
 
 
-def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
-    built = charts.model(rows, spec["query"], suite)
+def section(spec: dict, rows: list[dict], suite: str, reasons: dict, device_text: dict | None = None) -> str:
+    built = charts.model(rows, spec["query"], suite, spec.get("box"))
     name = slug(spec)
     text = charts.source(spec, built, suite)
     if text is None:
@@ -179,7 +179,7 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict) -> str:
         classes = "bench"
     return f"""<section class="{classes}" data-platform="{name}" aria-labelledby="h-{name}">
 {title}
-<p>{escape(spec["paragraph"].strip())}</p>
+<p>{escape(charts.section_paragraph(spec, built, device_text))}</p>
 <div class="bench-grid">
 <div class="bench-media">{media}
 <p class="bench-legend">{swatches}</p>
@@ -201,7 +201,8 @@ def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_h
                       f"[results spreadsheet]({SHEET_URL}) holds every number. The methodology is at the bottom of this page.")
     panels = "".join(suite_info(name, info[name]) for name in charts.SUITE_CHOICES)
     method = md.render("\n".join(methodology(summary, rows)))
-    body = "\n".join(section(spec, rows, charts.DEFAULT_SUITE, reasons) for spec in specs)
+    device_text = charts.load_device_text()
+    body = "\n".join(section(spec, rows, charts.DEFAULT_SUITE, reasons, device_text) for spec in specs)
     head = head_tags({"description": DESCRIPTION, "og_title": TITLE, "path": "benchmarks.html"})
     return f"""<!doctype html>
 <html lang="en">
@@ -235,6 +236,7 @@ def render_site_page(summary: dict, rows: list[dict], specs: list[dict], legal_h
 </main>
 <script type="application/json" id="chart-specs">{spec_payload(specs)}</script>
 <script type="application/json" id="chart-reasons">{json.dumps(reasons, ensure_ascii=False)}</script>
+<script type="application/json" id="chart-devices">{json.dumps(device_text, ensure_ascii=False)}</script>
 <script src="{MERMAID}" integrity="{MERMAID_SRI}" crossorigin="anonymous"></script>
 <script src="benchmarks/benchmarks.js"></script>
 </body>

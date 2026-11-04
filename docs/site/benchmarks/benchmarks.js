@@ -64,13 +64,63 @@ const DETAILS = { p95_ms: { unit: " ms", text: "95th-percentile frame time", geo
 // bars) either metric. Mirrors _has_value in charts.py.
 const hasValue = (row, query) => (query.pair ? query.metrics : query.metrics.slice(0, 1)).some((name) => row[name] !== "");
 
-function suiteValue(group, query, suite) {
-  const box = group.filter((row) => String(row.reference_box).toLowerCase() === "true");
+// The device a row was measured on: its machine and chip (one device's hosts can differ in spelling), or the host when it
+// has neither. Mirrors device_id in charts.py.
+const deviceId = (row) => (row.machine || row.chip ? `${row.machine ?? ""}|${row.chip ?? ""}` : row.host ?? "");
+
+// The row's label without a trailing " (host)": a build not measured on the device shown is named for the port and version, not
+// for another device. Mirrors _without_device in charts.py.
+const withoutDevice = (row) => (row.host && row.label.endsWith(` (${row.host})`) ? row.label.slice(0, -(row.host.length + 3)) : row.label);
+
+// The platform's devices as {id, label}, the one named `first` (a label or an id) leading and the rest by label. A device's
+// label is its host name that starts with its chip ("M6 Mac mini") when it has one, else the first host by name.
+// Mirrors devices in charts.py.
+function devices(platformRows, first = "") {
+  const hosts = new Map();
+  for (const row of platformRows) {
+    const id = deviceId(row);
+    if (!hosts.has(id)) hosts.set(id, new Set());
+    hosts.get(id).add(row.host);
+  }
+  const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const found = [...hosts].map(([id, names]) => {
+    const chip = id.slice(id.indexOf("|") + 1);
+    const all = [...names].sort(byText);
+    const named = chip ? all.filter((name) => name.startsWith(chip + " ")) : [];
+    return { id, label: (named.length ? named : all)[0] };
+  });
+  const lead = (d) => (d.id === first || d.label === first ? 0 : 1);
+  return found.sort((a, b) => lead(a) - lead(b) || byText(a.label, b.label));
+}
+
+// The device a chart shows: the one `wanted` names (a label or an id), else the platform's reference device (the rows
+// flagged reference_box), else none. Mirrors pick_device in charts.py.
+function pickDevice(platformRows, wanted) {
+  const found = devices(platformRows);
+  if (wanted) return found.find((d) => d.id === wanted || d.label === wanted) || null;
+  const flagged = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
+  return (flagged && found.find((d) => d.id === deviceId(flagged))) || null;
+}
+
+// "a Mac mini", "an M1 iPad Pro": M, N, F, H, L, R, S and X before a digit are read as letters. Mirrors with_article.
+const withArticle = (name) => (/^([AEIOUaeiou]|[MNFHLRSXmnfhlrsx]\d)/.test(name) ? "an " : "a ") + name;
+
+// A paragraph's {device} and {pace} placeholders for the device shown. Mirrors fill_device_text in charts.py.
+function fillDeviceText(text, label, deviceText, defaultPace = "the display rate") {
+  const info = (deviceText || {})[label] || {};
+  return text.replaceAll("{device}", info.name || withArticle(label)).replaceAll("{pace}", info.pace || defaultPace);
+}
+
+// The spec's paragraph with the device it is showing named in it. Mirrors section_paragraph in charts.py.
+const sectionParagraph = (spec, built, deviceText) => fillDeviceText(spec.paragraph.trim(), built.box || spec.box || "", deviceText);
+
+function suiteValue(group, query, suite, device) {
+  const box = group.filter((row) => deviceId(row) === device);
   const unsupported = group.filter((row) => row.suite === suite && row.status === "not_supported");
   if (unsupported.length) return [null, unsupported[0].notes || "not supported", "not_supported"];
   if (!box.length) {
     const gone = group.filter((row) => row.status === "unavailable" && row.notes).map((row) => row.notes);
-    return [null, gone.length ? gone[0] : "not measured on the reference box", "not_measured"];
+    return [null, gone.length ? gone[0] : "not measured on this device", "not_measured"];
   }
   const mine = box.filter((row) => row.suite === suite);
   if (!mine.length) return [null, `no ${suite} measurements yet`, "not_measured"];
@@ -79,7 +129,7 @@ function suiteValue(group, query, suite) {
   candidates.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   for (const row of candidates) usable.set(row.window, row);
   if (!usable.size) {
-    const skipped = mine.filter((row) => row.status === "not_measured" && row.notes);
+    const skipped = mine.filter((row) => (row.status === "not_measured" || row.status === "unavailable") && row.notes);
     if (skipped.length) return [null, skipped[0].notes, "not_measured"];
     return [null, query.no_data_reason || "no matching measurement", "not_measured"];
   }
@@ -124,8 +174,10 @@ function defaultBuilds(entries, overall) {
   return new Map([...candidates].map(([port, items]) => [port, items[index.get(port)]]));
 }
 
-function model(rows, query, suite) {
+function model(rows, query, suite, device = null) {
   const platformRows = rows.filter((row) => row.platform === query.platform);
+  const shownDevice = pickDevice(platformRows, device);
+  const deviceKey = shownDevice ? shownDevice.id : "\0";
   const groups = new Map();
   for (const row of platformRows) {
     const key = JSON.stringify([row.port, row.version, row.build]);
@@ -135,13 +187,16 @@ function model(rows, query, suite) {
   const entries = [];
   for (const group of groups.values()) {
     const first = group[0];
+    // A build measured on several devices is named and dated by its rows on the one shown (its labels can carry the device).
+    const here = group.filter((row) => deviceId(row) === deviceKey);
+    const mine = here.length ? here : group;
     const entry = { port: first.port, port_name: first.port_name, version: first.version, build: first.build,
-      label: first.label, date: group.map((r) => r.date).reduce((a, b) => (a > b ? a : b)),
+      label: here.length ? here[0].label : withoutDevice(first), date: mine.map((r) => r.date).reduce((a, b) => (a > b ? a : b)),
       url: (group.find((r) => r.release_url) || {}).release_url || "",
       gpu_note: (query.no_gpu_notes || {})[first.port] || "", port_note: (query.build_notes || {})[first.port] || "" };
     if (suite === "overall") {
       // Which suites count is decided per chart, from the builds drawn (see drawn()); here each build keeps its own suite values.
-      const parts = SUITES.map((name) => suiteValue(group, query, name));
+      const parts = SUITES.map((name) => suiteValue(group, query, name, deviceKey));
       entry.suites = {};
       SUITES.forEach((name, i) => { if (parts[i][0] !== null) entry.suites[name] = parts[i][0]; });
       if (Object.keys(entry.suites).length) { entry.value = { avg: 0, low: null, details: {}, rows: [] }; entry.reason = ""; entry.kind = ""; }
@@ -149,7 +204,7 @@ function model(rows, query, suite) {
         entry.value = null; entry.reason = parts[0][1];
         entry.kind = new Set(parts.map((p) => p[2])).size === 1 && parts[0][2] === "not_supported" ? "not_supported" : "not_measured";
       }
-    } else [entry.value, entry.reason, entry.kind] = suiteValue(group, query, suite);
+    } else [entry.value, entry.reason, entry.kind] = suiteValue(group, query, suite, deviceKey);
     entries.push(entry);
   }
   const order = query.port_order || [];
@@ -159,18 +214,17 @@ function model(rows, query, suite) {
     || (a.build < b.build ? -1 : a.build > b.build ? 1 : 0));
   const chosen = defaultBuilds(entries, suite === "overall");
   for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
-  const reference = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
-  const built = { overall: suite === "overall", pair: Boolean(query.pair), entries, box: reference ? reference.host : "" };
-  if (query.budget) built.budget_ms = budgetMs(platformRows, query);
+  const built = { overall: suite === "overall", pair: Boolean(query.pair), entries, box: shownDevice ? shownDevice.label : "", device: shownDevice ? shownDevice.id : "" };
+  if (query.budget) built.budget_ms = budgetMs(platformRows, query, deviceKey);
   return built;
 }
 
-// The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted reference-box runs
+// The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted runs on the device
 // that report the metric were held to (the frame cap, else the display rate). Mirrors _budget_ms in charts.py.
-function budgetMs(platformRows, query) {
+function budgetMs(platformRows, query, device) {
   const rates = [];
   for (const row of platformRows) {
-    if (String(row.reference_box).toLowerCase() !== "true" || !matches(row, query.filter) || !hasValue(row, query)) continue;
+    if (deviceId(row) !== device || !matches(row, query.filter) || !hasValue(row, query)) continue;
     for (const column of ["cap_fps", "display_hz"]) {
       const rate = row[column] === "" || row[column] === undefined ? NaN : Number(row[column]);
       if (Number.isFinite(rate) && rate > 0) { rates.push(rate); break; }
@@ -403,7 +457,7 @@ function plainReason(reason, reasons) {
   return reason;
 }
 
-if (typeof module !== "undefined") module.exports = { captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
+if (typeof module !== "undefined") module.exports = { devices, pickDevice, deviceId, fillDeviceText, sectionParagraph, captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
 
 // ---- Page ----
 function readHash() {
@@ -415,6 +469,7 @@ function writeHash(state, specs) {
   const params = new URLSearchParams();
   if (state.suite !== DEFAULT_SUITE) params.set("suite", state.suite);
   for (const [platform, kind] of Object.entries(state.views || {})) if (kind !== "fps") params.set("view." + platform, kind);
+  for (const [platform, label] of Object.entries(state.devices || {})) if (label !== state.defaultDevices[platform]) params.set("device." + platform, label);
   for (const spec of specs) {
     const built = state.models[spec.slug];
     const defaults = built.entries.filter((e) => e.default).map(entryKey).sort().join(",");
@@ -759,11 +814,12 @@ async function start() {
   if (!root || typeof mermaid === "undefined") return;
   const specs = JSON.parse(document.getElementById("chart-specs").textContent);
   const reasons = JSON.parse(document.getElementById("chart-reasons").textContent);
+  const deviceText = JSON.parse(document.getElementById("chart-devices")?.textContent || "{}");
   const text = await (await fetch(root.dataset.csv)).text();
   const rows = parseCsv(text);
   const params = readHash();
   const state = { suite: SUITES.concat("overall").includes(params.get("suite")) ? params.get("suite") : DEFAULT_SUITE,
-    models: {}, selected: {}, refresh: null, reasons, open: new Set() };
+    models: {}, selected: {}, refresh: null, reasons, open: new Set(), devices: {}, defaultDevices: {} };
   const dark = window.matchMedia("(prefers-color-scheme: dark)");
   const theme = () => mermaid.initialize(mermaidConfig(true));
   theme();
@@ -771,9 +827,18 @@ async function start() {
   state.views = {};
   const shown = (spec) => !sections[spec.slug].hidden;
   const groups = groupByPlatform(specs);
+  // Each platform shows one device at a time: its charts' default (`box`), or the one the URL names.
+  for (const group of groups) {
+    const platform = group[0].query.platform;
+    const found = devices(rows.filter((row) => row.platform === platform));
+    const fallback = pickDevice(rows.filter((row) => row.platform === platform), group[0].box);
+    state.defaultDevices[platform] = fallback ? fallback.label : "";
+    const asked = params.get("device." + platform);
+    state.devices[platform] = found.some((d) => d.label === asked) ? asked : state.defaultDevices[platform];
+  }
 
   function recompute(spec, keepSelection) {
-    state.models[spec.slug] = model(rows, spec.query, state.suite);
+    state.models[spec.slug] = model(rows, spec.query, state.suite, state.devices[spec.query.platform]);
     const built = state.models[spec.slug];
     const requested = params.get(spec.slug);
     if (!keepSelection) {
@@ -815,7 +880,38 @@ async function start() {
   // Every platform's table spans the section's full width, under the chart and the builds list.
   for (const group of groups) if (group.length === 1) sections[group[0].slug].append(sections[group[0].slug].querySelector(".bench-caption"));
   for (const group of groups) if (group.length > 1) buildSelector(group, sections, state, params, async (spec) => { await refresh(spec); writeHash(state, specs); });
+  for (const group of groups) {
+    const platform = group[0].query.platform;
+    const lead = group.find((spec) => !spec.sub) || group[0];
+    const intro = (group.length > 1 ? document.querySelector(`.bench-group[data-group="${platform}"]`) : sections[lead.slug]).querySelector(":scope > p");
+    const setIntro = () => { if (intro) intro.textContent = sectionParagraph(lead, state.models[lead.slug], deviceText); };
+    setIntro();
+    const options = devices(rows.filter((row) => row.platform === platform), state.defaultDevices[platform]);
+    const picker = buildDevicePicker(platform, options, state.devices[platform], async (label) => {
+      state.devices[platform] = label;
+      state.touched = true;
+      for (const spec of group) recompute(spec, false);
+      setIntro();
+      for (const spec of group) if (shown(spec)) await refresh(spec);
+    });
+    if (picker && intro) intro.after(picker);
+  }
   for (const spec of specs) if (shown(spec)) await refresh(spec);
+}
+
+// A platform's device switch: the suite switch's pills, one per device with results on the platform. A platform with a
+// single device has nothing to switch.
+function buildDevicePicker(platform, options, current, onChange) {
+  if (options.length < 2) return null;
+  const name = "device-" + platform.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const pills = el("div", { class: "suite-pills" }, el("span", { class: "suite-label", "aria-hidden": "true" }, "Device"));
+  for (const option of options) {
+    const input = el("input", { type: "radio", name, value: option.label });
+    input.checked = option.label === current;
+    input.addEventListener("change", () => { if (input.checked) onChange(option.label); });
+    pills.append(el("label", {}, input, " " + option.label));
+  }
+  return el("fieldset", { class: "bench-device", "data-platform-devices": platform }, el("legend", {}, platform + " device"), pills);
 }
 
 function groupByPlatform(specs) {

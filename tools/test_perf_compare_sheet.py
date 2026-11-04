@@ -1161,3 +1161,125 @@ console.log(JSON.stringify(input.suites.map((suite) => m.buildGroups(m.model(inp
     done = subprocess.run(["node", "-e", script, str(ROOT)], capture_output=True, text=True, check=True, input=json.dumps({"rows": rows, "query": query, "suites": suites}))
     expected = [[[port, *values] for port, values in primaries(charts.model(rows, query, suite)).items()] for suite in suites]
     assert json.loads(done.stdout) == expected
+
+
+def snapshot():
+    return charts.load_snapshot(ROOT / "docs/benchmarks/results.csv")
+
+
+def apple_tv_rows():
+    return [row for row in snapshot() if row["platform"] == "Apple TV"]
+
+
+def test_a_platforms_devices_are_listed_by_label_with_the_default_first():
+    rows = apple_tv_rows()
+    assert [d["label"] for d in charts.devices(rows)] == ["Apple TV 4K", "Apple TV HD"]
+    assert [d["label"] for d in charts.devices(rows, "Apple TV HD")] == ["Apple TV HD", "Apple TV 4K"]
+    mac = [row for row in snapshot() if row["platform"] == "Mac"]
+    assert {d["label"] for d in charts.devices(mac)} == {"M4 Mac mini", "M6 Mac mini"}
+    # One device's hosts can differ in spelling; the label is the one that starts with the chip.
+    vision = [row for row in snapshot() if row["platform"] == "Vision Pro"]
+    assert [d["label"] for d in charts.devices(vision)] == ["M2 Vision Pro"]
+
+
+def test_every_chart_spec_names_a_default_device_that_has_rows():
+    rows = snapshot()
+    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
+        platform_rows = [row for row in rows if row["platform"] == item["query"]["platform"]]
+        assert charts.pick_device(platform_rows, item["box"])["label"] == item["box"], item["name"]
+
+
+def test_the_device_picked_decides_which_rows_a_chart_draws():
+    rows = apple_tv_rows()
+    query = next(s for s in charts.load_specs(ROOT / "docs/benchmarks/charts") if s["name"] == "30-apple-tv")["query"]
+    k4, hd = charts.model(rows, query, "campaign", "Apple TV 4K"), charts.model(rows, query, "campaign", "Apple TV HD")
+    assert (k4["box"], hd["box"]) == ("Apple TV 4K", "Apple TV HD")
+    drawn = lambda built: {charts.entry_key(e): e for e in built["entries"] if e["value"] is not None}
+    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341"}
+    assert drawn(k4)["visr@0.6.8@20261101.231341"]["value"]["avg"] != drawn(hd)["visr@0.6.8@20261101.231341"]["value"]["avg"]
+    assert len(drawn(hd)) > len(drawn(k4))
+    # A build measured on both devices is named for the device shown; one measured only elsewhere, for the port and version.
+    assert drawn(k4)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8 (Apple TV 4K)"
+    assert drawn(hd)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8 (Apple TV HD)"
+    only_hd = next(e for e in k4["entries"] if e["version"] == "0.6.3")
+    assert (only_hd["label"], only_hd["reason"]) == ("VISR 0.6.3", "not measured on this device")
+    # The frame budget follows the device's own runs.
+    assert k4["budget_ms"] and hd["budget_ms"]
+
+
+def test_the_device_can_be_named_by_label_or_id_and_unknown_names_draw_nothing():
+    rows = apple_tv_rows()
+    query = {"platform": "Apple TV", "metrics": ["fps_avg"], "filter": {"status": "ok"}}
+    by_id = charts.model(rows, query, "campaign", charts.devices(rows)[0]["id"])
+    assert by_id["box"] == "Apple TV 4K"
+    nowhere = charts.model(rows, query, "campaign", "Apple TV 9K")
+    assert nowhere["box"] == "" and all(e["value"] is None for e in nowhere["entries"])
+
+
+def test_paragraphs_name_the_device_shown_and_its_rate():
+    texts = charts.load_device_text()
+    paragraph = "Measured on {device} from runs presented at {pace}."
+    assert charts.fill_device_text(paragraph, "Apple TV HD", texts) == "Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps."
+    assert charts.fill_device_text(paragraph, "Apple TV 4K", texts) == (
+        "Measured on an Apple TV 4K (3rd generation) from runs presented at the frame caps of its profile: 60 fps in play, 30 fps in cutscenes.")
+    # No entry: the label with its article, and the display rate.
+    assert charts.fill_device_text(paragraph, "M1 iPad Pro", texts) == "Measured on an M1 iPad Pro from runs presented at the display rate."
+    assert charts.fill_device_text("{device}", "M6 Mac mini", texts) == "an M6 Mac mini"
+    assert charts.with_article("Mac mini") == "a Mac mini" and charts.with_article("A14 iPad Air") == "an A14 iPad Air"
+
+
+def test_no_chart_paragraph_hard_codes_a_device():
+    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
+        for key in ("paragraph", "primary_paragraph"):
+            if key in item:
+                assert "{device}" in item[key] and "Mac mini" not in item[key] and "Apple TV" not in item[key], (item["name"], key)
+
+
+def test_the_site_page_opens_on_each_charts_default_device_and_carries_the_device_text():
+    rows = snapshot()
+    specs = charts.load_specs(ROOT / "docs/benchmarks/charts", rows)
+    html = (ROOT / "docs/site/benchmarks.html").read_text(encoding="utf-8")
+    assert "Measured on an Apple TV 4K (3rd generation) from runs presented at the frame caps" in html
+    assert '<script type="application/json" id="chart-devices">' in html and "Apple TV HD" in html.split('id="chart-devices"')[1].split("</script>")[0]
+    assert "<caption>Apple TV 4K." in html and "<caption>Apple TV HD." not in html
+    assert all(item["box"] for item in specs)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_browser_draws_the_same_charts_as_python_for_every_device_and_suite():
+    rows = snapshot()
+    specs = charts.load_specs(ROOT / "docs/benchmarks/charts", rows)
+    script = """
+const fs = require('fs');
+const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
+const rows = m.parseCsv(fs.readFileSync(process.argv[1] + '/docs/benchmarks/results.csv', 'utf8'));
+const deviceText = JSON.parse(process.argv[2]);
+const out = {};
+for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) {
+  const platformRows = rows.filter((r) => r.platform === spec.query.platform);
+  out[spec.slug + '/devices'] = m.devices(platformRows, spec.box).map((d) => [d.id, d.label]);
+  for (const device of m.devices(platformRows)) for (const suite of m.SUITES.concat(['overall'])) {
+    const built = m.model(rows, spec.query, suite, device.label);
+    out[[spec.slug, device.label, suite].join('/')] = [built.box, built.device, built.budget_ms ?? null, m.chartSource(spec, built, suite),
+      built.entries.map((e) => [m.entryKey(e), e.label, e.date, e.default, e.kind, e.reason]), m.captionTable(built, null, spec.query.details, spec.query.windows),
+      m.sectionParagraph(spec, built, deviceText)];
+  }
+}
+console.log(JSON.stringify(out));
+"""
+    texts = charts.load_device_text()
+    payload = json.dumps([{**item, "slug": site_page.slug(item)} for item in specs])
+    done = subprocess.run(["node", "-e", script, str(ROOT), json.dumps(texts)], input=payload, capture_output=True, text=True, check=True)
+    browser = json.loads(done.stdout)
+    for item in specs:
+        platform_rows = [row for row in rows if row["platform"] == item["query"]["platform"]]
+        slug = site_page.slug(item)
+        assert browser[f"{slug}/devices"] == [[d["id"], d["label"]] for d in charts.devices(platform_rows, item["box"])]
+        for device in charts.devices(platform_rows):
+            for suite in charts.SUITE_CHOICES:
+                built = charts.model(rows, item["query"], suite, device["label"])
+                assert browser[f"{slug}/{device['label']}/{suite}"] == [
+                    built["box"], built["device"], built.get("budget_ms"), charts.source(item, built, suite),
+                    [[charts.entry_key(e), e["label"], e["date"], e["default"], e["kind"], e["reason"]] for e in built["entries"]],
+                    charts.caption_table(built, None, item["query"].get("details"), item["query"].get("windows")),
+                    charts.section_paragraph(item, built, texts)], (slug, device["label"], suite)
