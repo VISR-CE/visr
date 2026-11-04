@@ -93,6 +93,7 @@
     clips = Array.prototype.slice.call(document.querySelectorAll("video.media-video"));
     if (!clips.length) return;
     clips.forEach(function (clip) {
+      showPosterIfStill(clip);
       var holder = clip.parentElement;
       var button = document.createElement("button");
       button.type = "button";
@@ -116,8 +117,15 @@
       }, { threshold: 0.35 });
       clips.forEach(function (clip) { observer.observe(clip); });
     }
-    reduceMotion.addEventListener("change", playVisibleClips);
+    reduceMotion.addEventListener("change", function () { clips.forEach(showPosterIfStill); playVisibleClips(); });
     document.addEventListener("visibilitychange", playVisibleClips);
+  }
+
+  // A clip that will play stays black until its first frame; one held still by reduced motion or data saving shows
+  // its poster instead.
+  function showPosterIfStill(clip) {
+    var still = reduceMotion.matches || (navigator.connection && navigator.connection.saveData);
+    if (still && clip.dataset.poster && !clip.poster) clip.poster = clip.dataset.poster;
   }
 
   // Play a clip only while it is on screen, its tab is showing, the page is visible, motion is allowed and the

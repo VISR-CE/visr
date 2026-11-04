@@ -154,6 +154,7 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
   border: 1px solid var(--outline); border-radius: 14px; background: none; box-shadow: 0 0 18px var(--hud-glow), inset 0 0 0 1px color-mix(in srgb, var(--hud-blue) 14%, transparent); }
 .platforms .device::after { content: none; }
 .platforms .device :is(img, video) { display: block; width: 100%; height: auto; border: 0; border-radius: 6px; }
+video.media-video { background: #000; }
 .platforms .device-iphone { padding: 7px 18px; border-radius: 30px; }
 .platforms .device-iphone :is(img, video) { border-radius: 20px; }
 .platforms .device-iphone { width: 100%; }

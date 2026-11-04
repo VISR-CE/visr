@@ -206,11 +206,12 @@ def every_device_columns(facts: dict) -> str:
 def media_element(image_html: str, image, video: str | None) -> str:
     """A media slot: a muted, looping `<video>` for the clip `video` on the media host (HEVC first, then H.264) with its
     poster, or the image alone when the slot names no clip. `site.js` plays the clip only while it is on screen and
-    motion is allowed."""
+    motion is allowed; the poster (`data-poster`) is shown only when the clip will not play, so a playing slot stays
+    black until its first frame instead of flashing the poster."""
     if not video:
         return image_html
     base = escape(CLIP_ASSET_BASE + video, quote=True)
-    return (f'<video class="media-video" muted loop playsinline preload="none" crossorigin="anonymous" poster="{base}-poster.jpg" '
+    return (f'<video class="media-video" muted loop playsinline preload="none" crossorigin="anonymous" data-poster="{base}-poster.jpg" '
             f'width="{image.attrGet("width")}" height="{image.attrGet("height")}" role="img" '
             f'aria-label="{escape(image.content, quote=True)}">'
             f'<source src="{base}-hevc.mp4" type=\'video/mp4; codecs="hvc1"\'>'

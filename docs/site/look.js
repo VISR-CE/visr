@@ -37,10 +37,10 @@ function playVideo() {
 }
 v.addEventListener('error', () => {
   videoReady = false;
-  if (++sourceIndex < sources.length) { v.removeAttribute('src'); loadVideo(); }
+  if (++sourceIndex < sources.length) { v.removeAttribute('src'); loadVideo(); } else reveal(true);
 });
-v.addEventListener('loadeddata', () => { fresh = true; videoReady = true; });
-reduced.addEventListener('change', () => { if (!autoplay()) v.pause(); else { loadVideo(); playVideo(); } });
+v.addEventListener('loadeddata', () => { fresh = true; videoReady = true; reveal(); });
+reduced.addEventListener('change', () => { if (!autoplay()) v.pause(); else { loadVideo(); playVideo(); } reveal(); });
 navigator.connection?.addEventListener('change', () => { if (!autoplay()) v.pause(); else { loadVideo(); playVideo(); } });
 let gl;
 try { gl = canvas.getContext('webgl2', { antialias: false, alpha: true }); } catch (_) {}
@@ -98,7 +98,15 @@ if (gl) {
   } catch (_) { gl = null; }
 }
 if (!gl) box.classList.add('look-static');
-canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); gl = null; box.classList.add('look-static'); canvas.style.visibility = 'hidden'; v.pause(); });
+// Until the video's first frame is ready the stage stays black: no poster or still flashes in first. Without a
+// video to wait for (a still scene, reduced motion, no WebGL, or every source failing) the still shows at once.
+if (gl && !scene.still && autoplay()) stage.classList.add('look-wait');
+function reveal(force) {
+  if (!gl) { stage.classList.remove('look-wait'); return; }
+  if (!hasStill || !(force || videoReady || scene.still || !autoplay())) return;
+  canvas.style.visibility = 'visible'; stage.classList.remove('look-wait'); useGlass();
+}
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); gl = null; box.classList.add('look-static'); canvas.style.visibility = 'hidden'; stage.classList.remove('look-wait'); v.pause(); });
 function loadScene() {
   if (loaded) return;
   loaded = true;
@@ -111,7 +119,7 @@ function loadScene() {
       if (!gl) return;
       gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, pic);
-      if (unit === 1) { hasStill = true; canvas.style.visibility = 'visible'; useGlass(); } else hasMask = true;
+      if (unit === 1) { hasStill = true; reveal(); } else hasMask = true;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, videoTexture);
     };
     pic.crossOrigin = 'anonymous';
