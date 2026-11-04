@@ -4521,7 +4521,15 @@ boolean unit_throw_grenade_begin(
 			/* port: the Xbox game prevents the throw with no weapon
 			(weapon_prevents_grenade_throwing(NONE)), in every gametype */
 			if (weapon_index == NONE && unit->unit.player_index != NONE)
-				platform_log("unit: a grenade press with no weapon does nothing (the Xbox game's)");
+			{
+				/* (log only: once per press, not each tick the button is held) */
+				static long last_press_tick = -10;
+				long now = game_time_get();
+
+				if (now - last_press_tick > 1)
+					platform_log("unit: a grenade press with no weapon does nothing (the Xbox game's)");
+				last_press_tick = now;
+			}
 			if (weapon_index != NONE && !weapon_prevents_grenade_throwing(weapon_index))
 			{
 				struct animation_graph *animation_graph;

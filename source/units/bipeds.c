@@ -4349,7 +4349,15 @@ boolean biped_update(
 				gametype; not from a vehicle's seat, which holds no weapon
 				either) */
 				if (weapon_index == NONE && biped->unit.parent_seat_index == NONE)
-					platform_log("unit: a melee press with no weapon does nothing (the Xbox game's)");
+				{
+					/* (log only: once per press, not each tick the button is held) */
+					static long last_press_tick = -10;
+					long now = game_time_get();
+
+					if (now - last_press_tick > 1)
+						platform_log("unit: a melee press with no weapon does nothing (the Xbox game's)");
+					last_press_tick = now;
+				}
 				if ((weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index)) &&
 					biped->unit.current_zoom_level==NONE)
 				{
