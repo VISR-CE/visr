@@ -6,6 +6,10 @@ The AppKit target uses the macOS SDK, SDL3's Cocoa window and Metal view, and th
 python3 tools/macos_build.py --renderer metal
 ```
 
+`tools/mac_run.py run --runner appkit` plays this app for automated runs (screenshots, logs, frame logs and timing,
+Metal only), on the same data folder and pinned display as the Catalyst runner. Build it with `--data-packs off` for
+that, so a run does not change with a download; `mac_run.py` refuses a build with data-pack feeds or the App Sandbox. The Catalyst runner stays the default; this one runs only when named.
+
 `--local-routes` additionally lets the build run the unsigned `benchmark/local-routes` catalog that `tools/replay_check.py` writes (replay checks and whole-take window review); it bundles no recordings.
 
 The development product is `build/macos/app-native/host/Release/VISR.app`, bundle ID `org.steverice.visr.native`. The build signs it ad hoc and verifies the completed bundle; it does not use an Apple signing identity or provisioning profile. `--sandbox on` signs that development build with the App Sandbox entitlements (`VISR-macOS.entitlements`), so the sandboxed app can be tried without an account. An ad hoc build does not use CloudKit. `--cloud-saves --team YOUR_TEAM_ID` signs with Apple signing and adds the shared iCloud save engine; the profile must allow the selected container. `--unsigned --cloud-saves` checks compilation without signing or account access. The player must turn on **iCloud Saves** in Network Setup and relaunch before sync starts. The target does not bundle benchmark recordings. Signed profile, recording, and shader feeds are on by default through the existing verification path (`docs/data-packs.md`); `--data-packs off` leaves them out. The native target does not include the interactive benchmark panel or CPU/GPU timing graph.

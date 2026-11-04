@@ -1,6 +1,7 @@
 """Tests for the Mac runner's pure helpers (tools/mac_run.py)."""
 
 import argparse
+import os
 import plistlib
 import shutil
 import struct
@@ -946,7 +947,8 @@ def test_simulator_selects_ipad_unless_the_runner_was_explicit(tmp_path, monkeyp
     mac_run.run(native_args(tmp_path, None, simulator=None, runner=None))
     mac_run.run(native_args(tmp_path, None, simulator="sim-udid", runner="ipad"))
 
-    assert seen == [("simulator", "ipad"), ("native", "native"), ("simulator", "ipad")]
+    # a run that names no runner and no renderer is an OpenGL ES run (DEFAULTS): the Catalyst runner
+    assert seen == [("simulator", "ipad"), ("native", "catalyst"), ("simulator", "ipad")]
 
 
 def test_simulator_rejects_explicit_native_runner(monkeypatch):
@@ -1313,3 +1315,88 @@ def test_a_crashed_run_keeps_the_report_of_its_own_pid(tmp_path):
     copies = mac_run.collect_crash_reports(app, 0, out, reports=reports, wait=0)
     assert [path.name for path in copies] == ["VISR-2026-10-25-120001.ips"]
     assert (out / "crash-reports/VISR-2026-10-25-120001.ips").is_file()
+
+
+def make_appkit_app(root, info=None):
+    """a stand-in for the AppKit app, at its build path under root"""
+    app = root / "build/macos/app-native/host/Release/VISR.app"
+    (app / "Contents/MacOS").mkdir(parents=True)
+    (app / "Contents/MacOS/VISR").write_text("")
+    with (app / "Contents/Info.plist").open("wb") as file:
+        plistlib.dump({"CFBundleIdentifier": "org.steverice.visr.native", **(info or {})}, file)
+    return app
+
+
+METAL = ['display.renderer="metal"']
+
+
+def test_a_run_naming_no_runner_stays_on_catalyst_even_for_metal(tmp_path, monkeypatch, capsys):
+    make_appkit_app(tmp_path)
+    seen = []
+    monkeypatch.setattr(mac_run, "run_native", lambda args: seen.append(args.runner))
+    mac_run.run(native_args(tmp_path, None, runner=None, set=METAL))
+    assert seen == ["catalyst"]
+    assert "--runner appkit" in capsys.readouterr().out
+
+
+def test_renderer_setting_takes_the_last_assignment():
+    assert mac_run.renderer_setting([]) == "gl"
+    assert mac_run.renderer_setting(['display.renderer="metal"', "display.renderer = 'gl'"]) == "gl"
+    assert mac_run.renderer_setting(['display.vsync=false', 'display.renderer = "metal"']) == "metal"
+
+
+def test_the_appkit_runner_refuses_an_opengl_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(mac_run, "run_native", lambda args: pytest.fail("ran a GL run on AppKit"))
+    with pytest.raises(SystemExit, match="--runner appkit has no OpenGL ES"):
+        mac_run.run(native_args(tmp_path, None, runner="appkit"))
+
+
+def test_the_appkit_runner_runs_the_appkit_app_on_the_shared_data_folder(tmp_path, monkeypatch, native):
+    appkit = make_appkit_app(tmp_path)
+    monkeypatch.setattr(mac_run, "sandboxed_app", lambda app: False)
+    launches, apps = [], []
+    fake = fake_launches(launches)
+    monkeypatch.setattr(mac_run, "launch_native", lambda app, *rest: (apps.append(app), fake(app, *rest))[1])
+    mac_run.run_native(native_args(tmp_path, appkit, runner="appkit", set=METAL))
+    assert apps == [appkit]
+    assert launches[0]["config"].count('renderer = "metal"') == 1
+    assert (tmp_path / "out/runner.txt").read_text() == f"appkit {appkit}\n"
+    assert (tmp_path / "data/ios-runtime.log").is_file()
+
+
+def test_the_appkit_runner_refuses_a_build_that_downloads_data_packs(tmp_path, monkeypatch, native):
+    appkit = make_appkit_app(tmp_path, {"HaloProfileFeedURL": "https://packs.example/profiles"})
+    monkeypatch.setattr(mac_run, "launch_native", lambda *args: pytest.fail("launched"))
+    with pytest.raises(SystemExit, match="--data-packs off"):
+        mac_run.run_native(native_args(tmp_path, appkit, runner="appkit", set=METAL))
+
+
+def test_the_appkit_runner_refuses_a_sandboxed_build(tmp_path, monkeypatch, native):
+    appkit = make_appkit_app(tmp_path, {"HaloProfileFeedURL": ""})
+    monkeypatch.setattr(mac_run, "sandboxed_app", lambda app: True)
+    monkeypatch.setattr(mac_run, "launch_native", lambda *args: pytest.fail("launched"))
+    with pytest.raises(SystemExit, match="is sandboxed"):
+        mac_run.run_native(native_args(tmp_path, appkit, runner="appkit", set=METAL))
+
+
+def test_neither_runner_starts_while_the_other_runs_on_the_shared_folder(tmp_path, monkeypatch, native):
+    appkit = make_appkit_app(tmp_path)
+    monkeypatch.setattr(mac_run, "sandboxed_app", lambda app: False)
+    monkeypatch.setattr(mac_run, "native_pids", lambda app: [77] if Path(app) == mac_run.native_app_default() else [])
+    monkeypatch.setattr(mac_run, "launch_native", lambda *args: pytest.fail("launched"))
+    with pytest.raises(SystemExit, match=r"already running \(pid 77\)"):
+        mac_run.run_native(native_args(tmp_path, appkit, runner="appkit", set=METAL))
+
+
+def test_an_appkit_data_folder_of_its_own_seeds_from_the_catalyst_runner_s(tmp_path):
+    home_environment = {}
+    catalyst = mac_run.native_data_folder("org.steverice.visr.mac", home_environment)
+    args = native_args(tmp_path, None, maps=None)
+    expected = catalyst / "maps" if (catalyst / mac_run.SEED_MARKER).is_file() else None
+    assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", home_environment) == expected
+    # a shared folder ($HALO_NATIVE_DATA) and the Catalyst runner itself never borrow
+    shared = {"HALO_NATIVE_DATA": str(tmp_path / "d")}
+    assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", shared) is None
+    assert mac_run.seed_maps_source(args, "catalyst", "org.steverice.visr.mac", home_environment) is None
+    args.maps = tmp_path / "maps"
+    assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", home_environment) == tmp_path / "maps"

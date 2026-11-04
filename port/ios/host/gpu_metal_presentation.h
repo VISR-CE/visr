@@ -15,8 +15,8 @@ static inline void gpu_metal_presentation_configure(CAMetalLayer *primary_layer)
     host_benchmark_presentation_configure(HOST_PRESENTATION_SIMULATOR, -1, -1);
 #else
     int synchronized_display = -1, allows_tearing = -1;
-#if TARGET_OS_MACCATALYST
-    if (@available(macCatalyst 13.1, *))
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
+    if (@available(macCatalyst 13.1, macOS 10.13, *))
     {
         synchronized_display = primary_layer.displaySyncEnabled;
         allows_tearing = !synchronized_display;

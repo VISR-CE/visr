@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Run the game on this Mac, and compare runs. The native Mac Catalyst runner is the default;
-`run --runner ipad` runs the iPad build as a "Designed for iPad" app instead.
+"""Run the game on this Mac, and compare runs. `run` uses the Mac Catalyst runner (a test host with OpenGL ES and
+Metal) unless `--runner appkit` (the AppKit app players get, Metal only) or `--runner ipad` (the iPad build as a
+"Designed for iPad" app) is named; `--runner catalyst` names it (`native` is its old name).
 
 For the iPad runner: macOS launches an iPad app only if Xcode installed it. It also kills the app
 that port/ios's CMake project builds ("Code Signature Invalid"), although the
@@ -16,9 +17,10 @@ such result folders against each other.
 tools/ios_build.py --simulator) in that simulator instead, with the same
 config.toml, init.txt and result folders, so its runs compare with the Mac's.
 
-`run` (`--runner native`, the default) runs the Mac Catalyst build (tools/ios_build.py --mac): no Xcode,
-no device registration, started with `open` on a persistent data folder per host, with the
-display pinned to what the iPad runner sees, so its results compare with the iPad runner's.
+`run --runner catalyst` runs the Mac Catalyst test host (tools/ios_build.py --mac) and `run --runner appkit` the
+AppKit app (tools/macos_build.py --data-packs off): no Xcode, no device registration, started with `open` on a
+persistent data folder per host (both runners share it), with the display pinned to what the iPad runner sees, so
+their results compare with the iPad runner's and with each other's. Only the Catalyst runner has OpenGL ES.
 """
 
 import argparse
@@ -1137,8 +1139,17 @@ def clear_benchmark_folder(folder):
             entry.unlink()
 
 
+# the AppKit app tools/macos_build.py builds (an ad hoc signed development build)
+APPKIT_APP = ROOT / "build/macos/app-native/host/Release/VISR.app"
+# the two open-launched runners; "native" is the Catalyst runner's name from before the AppKit runner
+OPEN_RUNNERS = ("appkit", "catalyst", "native")
+# Info.plist keys a build with signed data-pack downloads fills in (port/macos/Info.plist): a runner's runs must
+# not change with a download
+DATA_PACK_KEYS = ("HaloProfileFeedURL", "HaloRecordingFeedURL", "HaloShaderFeedURL")
+
+
 def native_app_default(environment=None):
-    """the Catalyst app tools/ios_build.py --mac built: in the checkout, or under $HALO_MAC_BUILD (a host
+    """the Catalyst test host tools/ios_build.py --mac built: in the checkout, or under $HALO_MAC_BUILD (a host
     that runs developer-built apps only from one folder)"""
     environment = os.environ if environment is None else environment
     if environment.get("HALO_MAC_BUILD"):
@@ -1369,20 +1380,60 @@ def collect_crash_reports(app, since, out, reports=DIAGNOSTIC_REPORTS, wait=30):
     return copies
 
 
+def build_hint(runner):
+    return "tools/macos_build.py --data-packs off" if runner == "appkit" else "tools/ios_build.py --mac"
+
+
+def sandboxed_app(app):
+    """whether app is signed with the App Sandbox entitlement (a sandboxed app cannot use a runner's data folder)"""
+    result = subprocess.run(["codesign", "--display", "--entitlements", "-", "--xml", str(app)],
+                            capture_output=True)
+    return b"com.apple.security.app-sandbox" in result.stdout
+
+
+def check_appkit_app(app, info):
+    """an AppKit app the runner can use: no data-pack downloads, no App Sandbox"""
+    feeds = [key for key in DATA_PACK_KEYS if info.get(key)]
+    if feeds:
+        sys.exit(f"{app} downloads signed data packs ({', '.join(feeds)}), which would change a runner's runs; "
+                 f"build it with {build_hint('appkit')}")
+    if sandboxed_app(app):
+        sys.exit(f"{app} is sandboxed and cannot use the runner's data folder; build it without --sandbox on or --team")
+
+
+def seed_maps_source(args, runner, bundle_id, environment=None):
+    """where a new data folder's maps come from: --maps, else (the AppKit runner on a host whose data folder is its
+    own, such as this Mac) the Catalyst runner's seeded data folder"""
+    if args.maps or runner != "appkit":
+        return args.maps
+    catalyst = native_data_folder("org.steverice.visr.mac", environment)
+    if catalyst != native_data_folder(bundle_id, environment) and (catalyst / SEED_MARKER).is_file():
+        return catalyst / "maps"
+    return None
+
+
 def run_native(args):
-    args.app = args.app or native_app_default()
+    runner = "appkit" if args.runner == "appkit" else "catalyst"
+    args.app = args.app or (APPKIT_APP if runner == "appkit" else native_app_default())
     if not (args.app / NATIVE_EXECUTABLE).is_file():
-        sys.exit(f"no native app at {args.app}; run tools/ios_build.py --mac first")
+        sys.exit(f"no {runner} app at {args.app}; run {build_hint(runner)} first")
     with (args.app / "Contents/Info.plist").open("rb") as file:
-        bundle_id = plistlib.load(file)["CFBundleIdentifier"]
+        info = plistlib.load(file)
+    bundle_id = info["CFBundleIdentifier"]
     if args.bundle_id and args.bundle_id != bundle_id:
         sys.exit(f"{args.app} was built for {bundle_id}, not {args.bundle_id}; "
-                 f"rebuild it with tools/ios_build.py --mac --bundle-id {args.bundle_id}")
-    pids = native_pids(args.app)
-    if pids:
-        sys.exit(f"{args.app} is already running (pid {', '.join(map(str, pids))}); a second copy would "
-                 f"share its data folder. Stop it, or wait for it to finish")
+                 f"rebuild it with {build_hint(runner)} --bundle-id {args.bundle_id}")
+    if runner == "appkit":
+        check_appkit_app(args.app, info)
+    print(f"runner: {runner} ({args.app})", flush=True)
     data = native_data_folder(bundle_id)
+    # the two runners share a host's data folder: neither may start while the other's app runs on it
+    for app in dict.fromkeys([args.app, APPKIT_APP, native_app_default()]):
+        pids = native_pids(app)
+        if pids:
+            sys.exit(f"{app} is already running (pid {', '.join(map(str, pids))}); a second copy would "
+                     f"share its data folder. Stop it, or wait for it to finish")
+    args.maps = seed_maps_source(args, runner, bundle_id)
     if not (data / SEED_MARKER).is_file():
         seed_native_data(args, data)
     seed_native_movies(args, data)
@@ -1401,6 +1452,7 @@ def run_native(args):
     launched = time.time()
     finished = launch_native(args.app, data, args.out, environment, limit)
     collect(data, args.out)
+    (args.out / "runner.txt").write_text(f"{runner} {args.app}\n")
     if not finished:
         sys.exit(f"the native app was still running {limit} seconds after launch and was killed; "
                  f"logs are in {args.out}")
@@ -1413,19 +1465,32 @@ def run_native(args):
     print(f"results: {args.out}")
 
 
+def renderer_setting(settings):
+    """the display.renderer a run's --set leaves in force (DEFAULTS' "gl" without one)"""
+    value = DEFAULTS["display.renderer"]
+    for assignment in settings:
+        key, _, text = assignment.partition("=")
+        if key.strip() == "display.renderer":
+            value = text.strip()
+    return value.strip('"\'').lower()
+
+
 def run(args):
     if args.simulator:
-        if args.runner == "native":
-            sys.exit("--simulator runs the simulator app; drop --runner native")
+        if args.runner in OPEN_RUNNERS:
+            sys.exit(f"--simulator runs the simulator app; drop --runner {args.runner}")
         if args.runner is None:
             args.runner = "ipad"
         run_simulator(args)
         return
     if args.runner is None:
-        args.runner = "native"
-    if args.runner == "native":
+        args.runner = "catalyst"
+        print("runner: catalyst (the default); --runner appkit runs Metal runs on the AppKit app", flush=True)
+    if args.runner in OPEN_RUNNERS:
         if args.team or args.xiso:
-            sys.exit("--runner native needs no --team, and seeds its data folder from --maps, not --xiso")
+            sys.exit(f"--runner {args.runner} needs no --team, and seeds its data folder from --maps, not --xiso")
+        if args.runner == "appkit" and renderer_setting(args.set) != "metal":
+            sys.exit("--runner appkit has no OpenGL ES: set display.renderer=\"metal\", or use --runner catalyst")
         run_native(args)
         return
     args.bundle_id = args.bundle_id or "org.steverice.visr.macrunner"
@@ -1454,13 +1519,15 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     run_parser = commands.add_parser("run", help="run the game once and collect its results")
     run_parser.add_argument("--team", help="Apple development team ID (--runner ipad only)")
-    run_parser.add_argument("--runner", choices=("ipad", "native"), default=None,
-                            help="native: the Mac Catalyst app (tools/ios_build.py --mac), started with open "
-                                 "(the default without --simulator); "
+    run_parser.add_argument("--runner", choices=("appkit", "catalyst", "native", "ipad"), default=None,
+                            help="appkit: the AppKit app (tools/macos_build.py --data-packs off), Metal only; "
+                                 "catalyst (or its old name native): the Mac Catalyst test host (tools/ios_build.py "
+                                 "--mac), OpenGL ES and Metal; both started with open on the host's shared data "
+                                 "folder. Without --runner (and --simulator) the run uses catalyst; "
                                  'ipad: the "Designed for iPad" app, installed and started by Xcode, which needs --team')
     run_parser.add_argument("--bundle-id",
                             help="ipad: the runner's bundle ID (default org.steverice.visr.macrunner); "
-                                 "native: checked against the app's own")
+                                 "appkit, catalyst: checked against the app's own")
     run_parser.add_argument("--app", type=Path,
                             help="the CMake-built device app (tools/ios_build.py --team ...; the default), or "
                                  "with --simulator the simulator app (default: the visionOS one; an Apple TV "
@@ -1469,7 +1536,8 @@ def main():
                             help="run the simulator app in this simulator (xcrun simctl list devices)")
     run_parser.add_argument("--maps", type=Path,
                             help="a folder of extracted maps: with --simulator, copied into a new container; "
-                                 "with --runner native, cloned into a new data folder, in place of importing --xiso")
+                                 "with --runner appkit or catalyst, cloned into a new data folder, in place of importing "
+                                 "--xiso (appkit falls back to the Catalyst runner's seeded folder)")
     run_parser.add_argument("--out", type=Path, required=True, help="folder to copy the results to")
     run_parser.add_argument("--xiso", type=Path, help="the player's XISO, imported on the first run")
     run_parser.add_argument("--exit-after", type=float, default=60.0,

@@ -415,7 +415,7 @@ int main(int argc,char **argv) {
         /* iCloud saves (nothing without HALO_CLOUD_SAVES): begun before the import screen, whose
            time on a new or purged device is also the time the saves take to come back */
         host_cloud_saves_start(data_root,save_root);
-#if TARGET_OS_MACCATALYST
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
         /* a runner's run (tools/mac_run.py sets HALO_RUNNER) must not slow down when its window is covered
            or minimized: App Nap would throttle its timers and drawable presentation */
         static id runner_activity;
