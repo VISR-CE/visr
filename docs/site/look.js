@@ -22,7 +22,8 @@ const autoplay = () => !reduced.matches && !navigator.connection?.saveData;
 v.muted = true;
 v.crossOrigin = 'anonymous';
 const sources = [
-  ...(v.canPlayType('video/mp4; codecs="hvc1"') ? ['shape.mp4'] : []),
+  // Chrome and Firefox answer "" for a bare `hvc1` and only recognize the full codec string (HEVC Main, level 5.1).
+  ...(v.canPlayType('video/mp4; codecs="hvc1.1.6.L153.B0"') ? ['shape.mp4'] : []),
   'shape-h264.mp4'
 ];
 // A scene with `av1` (its codec string) also has shape-av1.mp4, tried first where the browser says it decodes that
