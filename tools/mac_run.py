@@ -1401,15 +1401,57 @@ def check_appkit_app(app, info):
         sys.exit(f"{app} is sandboxed and cannot use the runner's data folder; build it without --sandbox on or --team")
 
 
+def catalyst_bundle_ids(environment=None):
+    """the bundle IDs the Catalyst runner's app may have: the active family's ($HALO_MAC_BUNDLE_ID, or
+    $HALO_BUNDLE_ID.mac), then both families' defaults"""
+    environment = os.environ if environment is None else environment
+    candidates = [environment.get("HALO_MAC_BUNDLE_ID"),
+                  environment["HALO_BUNDLE_ID"] + ".mac" if environment.get("HALO_BUNDLE_ID") else None,
+                  "org.steverice.visr.mac", "org.steverice.haloce.mac"]
+    return list(dict.fromkeys(candidate for candidate in candidates if candidate))
+
+
 def seed_maps_source(args, runner, bundle_id, environment=None):
     """where a new data folder's maps come from: --maps, else (the AppKit runner on a host whose data folder is its
-    own, such as this Mac) the Catalyst runner's seeded data folder"""
+    own, such as this Mac) the first seeded Catalyst runner data folder of the active bundle family"""
     if args.maps or runner != "appkit":
         return args.maps
-    catalyst = native_data_folder("org.steverice.visr.mac", environment)
-    if catalyst != native_data_folder(bundle_id, environment) and (catalyst / SEED_MARKER).is_file():
-        return catalyst / "maps"
+    own = native_data_folder(bundle_id, environment)
+    for catalyst_id in catalyst_bundle_ids(environment):
+        catalyst = native_data_folder(catalyst_id, environment)
+        if catalyst != own and (catalyst / SEED_MARKER).is_file():
+            return catalyst / "maps"
     return None
+
+
+# LC_BUILD_VERSION and its platforms (mach-o/loader.h): which kind of app an executable was built as
+LC_BUILD_VERSION = 0x32
+BUILD_PLATFORMS = {1: "appkit", 6: "catalyst"}
+
+
+def app_kind(app, info):
+    """"appkit" or "catalyst" for an open-launched app: its executable's LC_BUILD_VERSION platform (macOS or Mac
+    Catalyst), else, for an executable that is not a thin 64-bit Mach-O, its Info.plist (a Catalyst app's names
+    UIDeviceFamily, which Xcode writes for iOS targets only)"""
+    try:
+        data = (Path(app) / NATIVE_EXECUTABLE).read_bytes()
+    except OSError:
+        data = b""
+    if len(data) >= 32 and struct.unpack_from("<I", data, 0)[0] == 0xFEEDFACF:
+        count = struct.unpack_from("<I", data, 16)[0]
+        offset = 32
+        for _ in range(count):
+            if offset + 8 > len(data):
+                break
+            command, size = struct.unpack_from("<II", data, offset)
+            if command == LC_BUILD_VERSION and offset + 12 <= len(data):
+                platform = struct.unpack_from("<I", data, offset + 8)[0]
+                if platform in BUILD_PLATFORMS:
+                    return BUILD_PLATFORMS[platform]
+            if size < 8:
+                break
+            offset += size
+    return "catalyst" if "UIDeviceFamily" in info or "LSRequiresIPhoneOS" in info else "appkit"
 
 
 def run_native(args):
@@ -1423,6 +1465,10 @@ def run_native(args):
     if args.bundle_id and args.bundle_id != bundle_id:
         sys.exit(f"{args.app} was built for {bundle_id}, not {args.bundle_id}; "
                  f"rebuild it with {build_hint(runner)} --bundle-id {args.bundle_id}")
+    kind = app_kind(args.app, info)
+    if kind != runner:
+        sys.exit(f"{args.app} is the {kind} app, not the {runner} app: --runner {runner} needs "
+                 f"{build_hint(runner)}'s app (an A/B would compare one app with itself)")
     if runner == "appkit":
         check_appkit_app(args.app, info)
     print(f"runner: {runner} ({args.app})", flush=True)

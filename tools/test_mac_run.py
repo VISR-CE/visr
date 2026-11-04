@@ -467,12 +467,12 @@ def test_simulator_run_refuses_a_missing_app(tmp_path):
 
 
 def make_native_app(root, bundle_id):
-    """a stand-in for the Catalyst app: its executable and Info.plist"""
+    """a stand-in for the Catalyst app: its executable and Info.plist (with UIDeviceFamily, as Xcode writes it)"""
     app = root / "build/VISR.app"
     (app / "Contents/MacOS").mkdir(parents=True)
     (app / "Contents/MacOS/VISR").write_text("")
     with (app / "Contents/Info.plist").open("wb") as file:
-        plistlib.dump({"CFBundleIdentifier": bundle_id}, file)
+        plistlib.dump({"CFBundleIdentifier": bundle_id, "UIDeviceFamily": [2, 6]}, file)
     return app
 
 
@@ -1400,3 +1400,48 @@ def test_an_appkit_data_folder_of_its_own_seeds_from_the_catalyst_runner_s(tmp_p
     assert mac_run.seed_maps_source(args, "catalyst", "org.steverice.visr.mac", home_environment) is None
     args.maps = tmp_path / "maps"
     assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", home_environment) == tmp_path / "maps"
+
+
+def mach_o(platform):
+    """a thin 64-bit Mach-O header with one LC_SEGMENT_64 and one LC_BUILD_VERSION for platform"""
+    segment = struct.pack("<II", 0x19, 72) + bytes(64)
+    build = struct.pack("<IIIIII", 0x32, 24, platform, 0x000E0000, 0x001B0000, 0)
+    header = struct.pack("<IiiIIIII", 0xFEEDFACF, 0x0100000C, 0, 2, 2, len(segment) + len(build), 0, 0)
+    return header + segment + build
+
+
+def test_app_kind_reads_the_executable_s_build_platform(tmp_path):
+    app = make_appkit_app(tmp_path)
+    executable = app / "Contents/MacOS/VISR"
+    executable.write_bytes(mach_o(6))
+    assert mac_run.app_kind(app, {}) == "catalyst"
+    executable.write_bytes(mach_o(1))
+    assert mac_run.app_kind(app, {"UIDeviceFamily": [2]}) == "appkit"
+    # not a Mach-O: the Info.plist decides
+    executable.write_text("")
+    assert mac_run.app_kind(app, {}) == "appkit"
+    assert mac_run.app_kind(app, {"UIDeviceFamily": [2, 6]}) == "catalyst"
+
+
+def test_each_runner_refuses_the_other_kind_of_app(tmp_path, monkeypatch, native):
+    appkit = make_appkit_app(tmp_path)
+    monkeypatch.setattr(mac_run, "sandboxed_app", lambda app: False)
+    monkeypatch.setattr(mac_run, "launch_native", lambda *args: pytest.fail("launched"))
+    with pytest.raises(SystemExit, match="is the catalyst app, not the appkit app"):
+        mac_run.run_native(native_args(tmp_path, native, runner="appkit", set=METAL))
+    with pytest.raises(SystemExit, match="is the appkit app, not the catalyst app"):
+        mac_run.run_native(native_args(tmp_path, appkit, runner="catalyst", set=METAL))
+
+
+def test_the_appkit_runner_seeds_from_the_active_family_s_catalyst_folder(tmp_path, monkeypatch):
+    environment = {"HALO_BUNDLE_ID": "org.steverice.haloce"}
+    assert mac_run.catalyst_bundle_ids(environment)[0] == "org.steverice.haloce.mac"
+    assert mac_run.catalyst_bundle_ids({"HALO_MAC_BUNDLE_ID": "org.example.mac"})[0] == "org.example.mac"
+    original = mac_run.native_data_folder
+    monkeypatch.setattr(mac_run, "native_data_folder",
+                        lambda bundle_id, environment=None, home=None: original(bundle_id, environment, tmp_path))
+    folder = mac_run.native_data_folder("org.steverice.haloce.mac", environment)
+    folder.mkdir(parents=True)
+    (folder / mac_run.SEED_MARKER).write_text("seeded\n")
+    args = native_args(tmp_path, None, maps=None)
+    assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", environment) == folder / "maps"
