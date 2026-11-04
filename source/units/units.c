@@ -4518,16 +4518,11 @@ boolean unit_throw_grenade_begin(
 			break;
 
 		default:
-			/* port: with no weapon only in a multiplayer game whose loadout is
-			none, as melee (bipeds.c); the Xbox game prevents the throw
-			(weapon_prevents_grenade_throwing(NONE)); not from a vehicle's
-			seat, which holds no weapon either */
-			if (weapon_index == NONE && unit->unit.parent_seat_index == NONE && unit->unit.player_index != NONE &&
-				!game_engine_unarmed_loadout())
+			/* port: the Xbox game prevents the throw with no weapon
+			(weapon_prevents_grenade_throwing(NONE)), in every gametype */
+			if (weapon_index == NONE && unit->unit.player_index != NONE)
 				platform_log("unit: a grenade press with no weapon does nothing (the Xbox game's)");
-			if ((weapon_index == NONE && unit->unit.parent_seat_index == NONE &&
-				game_engine_unarmed_loadout()) ||
-				(weapon_index != NONE && !weapon_prevents_grenade_throwing(weapon_index)))
+			if (weapon_index != NONE && !weapon_prevents_grenade_throwing(weapon_index))
 			{
 				struct animation_graph *animation_graph;
 				struct animation *animation;

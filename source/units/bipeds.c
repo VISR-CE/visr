@@ -4345,15 +4345,12 @@ boolean biped_update(
 					biped_index,
 					unit_get(biped_index)->unit.current_weapon_index);
 
-				/* (port: the Xbox game prevents it with no weapon; only a
-				gametype's loadout of none, which it has not, keeps the
-				melee; not from a vehicle's seat, which holds no weapon
+				/* (port: the Xbox game prevents it with no weapon, in every
+				gametype; not from a vehicle's seat, which holds no weapon
 				either) */
-				if (weapon_index == NONE && biped->unit.parent_seat_index == NONE && !game_engine_unarmed_loadout())
+				if (weapon_index == NONE && biped->unit.parent_seat_index == NONE)
 					platform_log("unit: a melee press with no weapon does nothing (the Xbox game's)");
-				if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE &&
-					game_engine_unarmed_loadout()) ||
-					(weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index))) &&
+				if ((weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index)) &&
 					biped->unit.current_zoom_level==NONE)
 				{
 					short melee_speedup_ticks;
