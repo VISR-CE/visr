@@ -189,7 +189,7 @@ def _conditions(runs, key):
 
 # Public names, in page order. Unknown ports follow in identifier order.
 PORTS = {"visr": "VISR", "opence-macos": "OpenCE-macOS", "corece": "CoreCE",
-         "chupathingy": "Chupathingy", "halo-og": "Halo OG"}
+         "chupathingy": "Chupathingy", "halo-og": "Halo OG", "openh1": "OpenH1"}
 SCHEMA = 2
 # Everything that distinguishes one measured set from another. Two records with the same key are the
 # same measurement, so a refresh adds records and never replaces one.
