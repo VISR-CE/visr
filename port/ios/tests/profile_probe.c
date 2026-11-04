@@ -507,7 +507,7 @@ static void check_shipped(const char *shipped)
 	profile = resolve(shipped, device("ios", "iPhone18,1", "", 10), NULL, "");
 	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "120") &&
 		has(&profile, "display.anisotropic_filtering", "16") &&
-		has(&profile, "display.shadow_map_size", "512") && has(&profile, "display.renderer", "metal") &&
+		has(&profile, "display.shadow_map_size", "128") && has(&profile, "display.renderer", "metal") &&
 		has(&profile, "display.anti_aliasing", "fxaa"));
 	profile = resolve(shipped, device("ios", "iPad13,9", "", 7), NULL, "");
 	assert(has(&profile, "display.render_height", "1080") && has(&profile, "display.frame_rate", "120") &&
@@ -537,7 +537,7 @@ static void check_shipped(const char *shipped)
 	assert(profile.count == 3 && has(&profile, "display.model_lod", "max") &&
 		has(&profile, "display.compressed_textures", "true") && has(&profile, "display.renderer", "metal"));
 	profile = resolve(shipped, device("mac", "Mac16,10", "Apple M4", 9), NULL, "");
-	assert(profile.count == 2 && has(&profile, "display.shadow_map_size", "512") && has(&profile, "display.renderer", "metal"));
+	assert(profile.count == 2 && has(&profile, "display.shadow_map_size", "128") && has(&profile, "display.renderer", "metal"));
 	profile = resolve(shipped, device("mac", "Mac17,1", "Apple M6", 11), NULL, "");
 	assert(profile.count == 1 && !strcmp(profile.model_file, "mac-m6.toml") && has(&profile, "display.renderer", "metal"));
 	/* a Mac, an iPhone and a headset nobody has measured: their class, nothing refused */
