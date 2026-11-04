@@ -320,7 +320,9 @@ def test_tagline_highlights_whole_new_dimension_and_preserves_other_copy():
 
 @pytest.mark.parametrize('annotation, figure', [('hero', 'hero-media'), ('device=iphone', 'device device-iphone')])
 @pytest.mark.parametrize('clip', [None, 'game'])
-def test_media_video_uses_hosted_clip_sources_or_falls_back_to_image(tmp_path, annotation, figure, clip):
+def test_media_video_uses_hosted_clip_sources_or_falls_back_to_image(tmp_path, monkeypatch, annotation, figure, clip):
+    import tools.build_site as builder
+    monkeypatch.setitem(builder.CLIP_HEVC_CODECS, 'game', 'hvc1.1.6.L123.90')
     import struct
     (tmp_path / 'game.png').write_bytes(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sII', 13, b'IHDR', 1600, 900))
     option = f' video={clip}' if clip else ''
@@ -335,7 +337,7 @@ def test_media_video_uses_hosted_clip_sources_or_falls_back_to_image(tmp_path, a
         assert 'poster="https://media.visr.gg/clips/game-poster.jpg"' in slot
         assert 'role="img" aria-label="Halo &amp; touch controls"' in slot
         assert slot.index('game-hevc.mp4') < slot.index('game-web.mp4')
-        assert '<source src="https://media.visr.gg/clips/game-hevc.mp4" type=\'video/mp4; codecs="hvc1"\'>' in slot
+        assert '<source src="https://media.visr.gg/clips/game-hevc.mp4" type=\'video/mp4; codecs="hvc1.1.6.L123.90"\'>' in slot
         assert '<source src="https://media.visr.gg/clips/game-web.mp4" type="video/mp4"></video>' in slot
         assert '<img' not in slot
     else:
@@ -477,8 +479,10 @@ def test_look_around_scene_list_supplies_the_poster_and_runtime_data(monkeypatch
     assert 'data-asset-base="https://media.visr.gg/look/"' in page
 
 
-def test_hero_video_plays_the_loading_screen_until_it_can_play_through(tmp_path):
+def test_hero_video_plays_the_loading_screen_until_it_can_play_through(tmp_path, monkeypatch):
     import struct
+    import tools.build_site as builder
+    monkeypatch.setitem(builder.CLIP_HEVC_CODECS, 'game', 'hvc1.1.6.L123.90')
     (tmp_path / 'game.png').write_bytes(b'\x89PNG\r\n\x1a\n' + struct.pack('>I4sII', 13, b'IHDR', 1600, 900))
     (tmp_path / 'game.mp4').write_bytes(b'clip')
     source = SOURCE.replace('## Apple Vision Pro', '![Hero](game.png){hero video=game}\n\n## Apple Vision Pro', 1)

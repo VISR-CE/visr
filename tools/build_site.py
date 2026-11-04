@@ -167,6 +167,17 @@ HERO_LOADING = ("loading-hero.webp", 6, 36, 30)
 MEDIA_ANNOTATION = re.compile(r"\{(?:device=(iphone|ipad|tv|mac|vision)|(hero))(?: video=([\w-]+))?\}")
 # Clips live in the `visr-media` R2 bucket: a slot's `video=NAME` names `NAME-hevc.mp4`, `NAME-web.mp4` (H.264) and `NAME-poster.jpg`.
 CLIP_ASSET_BASE = "https://media.visr.gg/clips/"
+# RFC 6381 codec string of each clip's `-hevc.mp4`, read from its `hvcC` box (profile, tier, level, constraint flags).
+# Chrome and Firefox reject a bare `hvc1` in a `<source type>`, so each clip names its own encode. Update the entry when
+# a clip is re-encoded.
+CLIP_HEVC_CODECS = {
+    "hero": "hvc1.1.6.L120.90",
+    "vision": "hvc1.1.6.L123.90",
+    "iphone": "hvc1.1.6.L123.90",
+    "ipad": "hvc1.1.6.L123.90",
+    "tv": "hvc1.1.6.L123.90",
+    "mac": "hvc1.1.6.L150.90",
+}
 
 
 def glyph(name: str) -> str:
@@ -210,11 +221,13 @@ def media_element(image_html: str, image, video: str | None) -> str:
     black until its first frame instead of flashing the poster."""
     if not video:
         return image_html
+    if video not in CLIP_HEVC_CODECS:
+        raise ValueError(f"clip {video!r} has no CLIP_HEVC_CODECS entry; read its codec string from {video}-hevc.mp4")
     base = escape(CLIP_ASSET_BASE + video, quote=True)
     return (f'<video class="media-video" muted loop playsinline preload="none" crossorigin="anonymous" data-poster="{base}-poster.jpg" '
             f'width="{image.attrGet("width")}" height="{image.attrGet("height")}" role="img" '
             f'aria-label="{escape(image.content, quote=True)}">'
-            f'<source src="{base}-hevc.mp4" type=\'video/mp4; codecs="hvc1"\'>'
+            f'<source src="{base}-hevc.mp4" type=\'video/mp4; codecs="{CLIP_HEVC_CODECS[video]}"\'>'
             f'<source src="{base}-web.mp4" type="video/mp4"></video>')
 
 
