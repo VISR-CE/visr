@@ -54,6 +54,17 @@ size_t texture_policy_classify(struct texture_policy_catalog *catalog,const stru
     *out=calloc(1,sizeof(**out));(*out)[0]=(struct texture_policy_decision){.hash=0x77,.width=4,.height=4,.result=TEXTURE_POLICY_S4G,.treatment=TEXTURE_POLICY_COLOR,.scale=2};
     return 1;
 }
+const struct texture_policy_replacement texture_title_replacements[]={{"ui\\shell\\x",0,1}};
+const size_t texture_title_replacement_count=1;
+void texture_policy_catalog_replace(struct texture_policy_catalog *catalog,const struct texture_policy_replacement *list,size_t count) {
+    (void)catalog;(void)list;(void)count;
+}
+void texture_policy_catalog_track_reach(struct texture_policy_catalog *catalog,const char *const *not_drawn,size_t count) {
+    (void)catalog;(void)not_drawn;(void)count;
+}
+size_t texture_policy_unreached(const struct texture_policy_catalog *catalog,struct texture_policy_key **out) {
+    (void)catalog;*out=NULL;return 0;
+}
 const char *texture_policy_kind_name(enum texture_policy_kind kind) {(void)kind;return "graphic";}
 const char *texture_policy_result_name(enum texture_policy_result result) {
     static const char *names[]={"s4g","bpf","original"};return names[result];
