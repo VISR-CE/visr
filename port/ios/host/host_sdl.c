@@ -413,6 +413,7 @@ static int synthetic_key(SDL_Event *event)
 		if (shortcut == HOST_MACOS_SHORTCUT_NONE)
 			return 0;
 		atomic_fetch_and(&synthetic_requests, ~(1 << shortcut));
+		host_logf(HOST_LOG_INFO, "menu: %s key pressed for the game", shortcut == HOST_MACOS_SHORTCUT_MOUSE ? "F12" : "F1");
 		pressed = shortcut == HOST_MACOS_SHORTCUT_MOUSE ? SDL_SCANCODE_F12 : SDL_SCANCODE_F1;
 		released_at = SDL_GetTicks() + SYNTHETIC_HOLD_MS;
 		SDL_zerop(event);
