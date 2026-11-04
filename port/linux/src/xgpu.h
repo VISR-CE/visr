@@ -169,6 +169,22 @@ static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_s
 	return key->alpha_test_samples ? sizeof(*key) : NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
 }
 
+/* the key as the translation reads it: the translation runs the combiner stages below the combiner count
+(D3DRS_PSCOMBINERCOUNT, at most 8) and reads nothing of the later stages' registers, which hold whatever an earlier
+shader left in them. Zeroing them makes one shader one key, whatever drew before it. */
+static inline void nv2a_pixel_shader_key_canonicalize(struct nv2a_pixel_shader_key *key)
+{
+	unsigned long count = key->combiner_state[D3DRS_PSCOMBINERCOUNT] & 0xff, stage;
+
+	for (stage = count < 8 ? count : 8; stage < 8; stage++)
+	{
+		key->combiner_state[D3DRS_PSALPHAINPUTS0 + stage] = 0;
+		key->combiner_state[D3DRS_PSALPHAOUTPUTS0 + stage] = 0;
+		key->combiner_state[D3DRS_PSRGBINPUTS0 + stage] = 0;
+		key->combiner_state[D3DRS_PSRGBOUTPUTS0 + stage] = 0;
+	}
+}
+
 char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const struct nv2a_pixel_shader_key *key);
 
 /* the Metal Shading Language frame around the shader bodies (nv2a_msl.c),
