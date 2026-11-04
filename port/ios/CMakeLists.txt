@@ -153,10 +153,16 @@ add_custom_command(
             "${ROOT}/port/assets/texture-policy.json" "${CMAKE_CURRENT_BINARY_DIR}/texture_policy_table.c"
     DEPENDS "${ROOT}/tools/embed_texture_policy.py" "${ROOT}/port/assets/texture-policy.json"
     COMMENT "Embedding the texture upscale policy")
+add_custom_command(
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/texture_title_replacements.c"
+    COMMAND Python3::Interpreter "${ROOT}/tools/embed_title_replacements.py"
+            "${ROOT}/port/assets/titles/titles.json" "${CMAKE_CURRENT_BINARY_DIR}/texture_title_replacements.c"
+    DEPENDS "${ROOT}/tools/embed_title_replacements.py" "${ROOT}/port/assets/titles/titles.json"
+    COMMENT "Embedding the menu titles the upscaler leaves alone")
 add_executable(VISR MACOSX_BUNDLE
     ${HALO_PLATFORM_SOURCES} "${ROOT}/port/runtime/xiso.c"
     "${ROOT}/port/runtime/texture_policy.c" "${ROOT}/port/runtime/texture_cache.c"
-    "${CMAKE_CURRENT_BINARY_DIR}/texture_policy_table.c"
+    "${CMAKE_CURRENT_BINARY_DIR}/texture_policy_table.c" "${CMAKE_CURRENT_BINARY_DIR}/texture_title_replacements.c"
     host/host_main.m host/host_crash.c host/host_memory.c host/host_loader.c host/host_syscall.c host/guest_call.S
     host/host_thread.c host/host_sdl.c host/host_audio_output.m host/host_gpu.c host/host_external.m host/host_external_mode.c host/host_gpu_dispatch.c host/host_low_power.m host/host_frame_pacer.c host/gpu_metal.m host/host_frame_counter.m host/host_frame_counter_stats.c host/host_lifecycle.m
     host/host_join_link.c host/host_config.c host/host_bink.c host/host_bonjour.m host/host_https.m host/host_share.m host/host_lan.c host/host_profile.c host/host_profile_catalog.c host/host_profile_delivery.c host/host_device.m host/host_memory_pressure.m

@@ -101,6 +101,7 @@ static uint64_t finisher_estimate;    /* the float top of the texture the finish
 static atomic_bool finisher_failed;
 static NSObject *state_token;    /* the manifest, texture_log and the files written from them */
 static atomic_bool catalog_ready;
+static BOOL catalog_titles_replaced;   /* the catalog was built with the title art standing in for its originals */
 /* steps the pump finishes before and between textures (the model made, a map classified), for the import phase's
    watchdog (texture_upscale_import_offer_skip) */
 static atomic_uint setup_steps;
@@ -239,8 +240,20 @@ static void order_maps(NSMutableArray<NSString *> *paths) {
     [paths sortWithOptions:NSSortStable usingComparator:^NSComparisonResult(NSString *a,NSString *b){
         NSInteger x=map_rank(a),y=map_rank(b);return x<y?NSOrderedAscending:x>y?NSOrderedDescending:NSOrderedSame;}];
 }
+/* VISR draws its own title pictures over the menu's while display.high_res_text is on, so the originals are never shown:
+   leave them out of the set (texture_title_replacements, from the list the game embeds). Off, they are upscaled as any. */
+static BOOL titles_replaced_now(void) {
+    char value[16];host_config_string("display.high_res_text","true",value,sizeof(value));
+    return !strcmp(value,"true")||!strcmp(value,"1");
+}
+static void apply_title_replacements(struct texture_policy_catalog *catalog,BOOL replace) {
+    texture_policy_catalog_replace(catalog,replace?texture_title_replacements:NULL,replace?texture_title_replacement_count:0);
+}
+/* widgets of the Xbox demo hold a wait screen the app never opens */
+static const char *const menu_not_drawn[]={"ui\\shell\\bitmaps\\xdemos_wait"};
 static BOOL build_catalog(void) {
     struct texture_policy_catalog *catalog=texture_policy_catalog_new();if(!catalog)return NO;
+    catalog_titles_replaced=titles_replaced_now();apply_title_replacements(catalog,catalog_titles_replaced);
     map_paths=[NSMutableArray new];decision_slots=[NSMutableDictionary new];
     atomic_store(&catalog_maps_done,0);atomic_store(&catalog_maps,0);
     host_texture_source_scan(upscale_root.fileSystemRepresentation,collect_map,NULL);
@@ -281,7 +294,8 @@ static struct texture_recipe_globals recipe_globals(void) {
 }
 /* One map's texture keys, from its own classification: what a level needs ready to play upscaled. Cached per map
    until the next catalog; nil when the map is not installed or cannot be read. Any thread. */
-static NSData *classify_map_keys(NSString *path,NSString *name);
+static NSData *classify_map_keys(NSString *path,NSString *name,NSData **gate);
+static NSString *gate_name(NSString *name) { return [name stringByAppendingString:@"#gate"]; }
 static int map_path_collect(void *context,const char *path);
 static NSData *keys_for_map(NSString *name) {
     if(!name.length)return nil;
@@ -295,23 +309,58 @@ static NSData *keys_for_map(NSString *name) {
         for(NSString *candidate in paths)if([map_base(candidate) isEqual:name]){path=candidate;break;}
     }
     if(!path)return nil;
-    NSData *keys=classify_map_keys(path,name);
-    if(keys)@synchronized(map_keys){map_keys[name]=keys;}
+    NSData *gate=nil;
+    NSData *keys=classify_map_keys(path,name,[name isEqual:@TEXTURE_UPSCALE_MENU_MAP]?&gate:NULL);
+    if(keys)@synchronized(map_keys){map_keys[name]=keys;if(gate)map_keys[gate_name(name)]=gate;}
     return keys;
 }
+/* The main menu's textures the import phase waits for (what "Start playing" is gated on): every one of its map's but
+   those nothing draws (menu_not_drawn, and what only the globals reach: grenades, first-person hands, a decal). They are
+   still made, after the rest of the map (menu_deferred). */
+static NSData *menu_gate_keys(void) {
+    NSData *all=keys_for_map(@TEXTURE_UPSCALE_MENU_MAP);
+    NSData *gate;@synchronized(map_keys){gate=map_keys[gate_name(@TEXTURE_UPSCALE_MENU_MAP)];}
+    return gate?gate:all;
+}
+static NSSet<NSString *> *menu_deferred(void) {
+    NSData *all=keys_for_map(@TEXTURE_UPSCALE_MENU_MAP),*gate=menu_gate_keys();
+    if(!all||gate==all)return nil;
+    NSMutableSet *gated=[NSMutableSet new],*deferred=[NSMutableSet new];
+    const struct texture_cache_key *g=gate.bytes;for(size_t i=0;i<gate.length/sizeof(*g);i++)[gated addObject:key(g[i].hash,g[i].width,g[i].height)];
+    const struct texture_cache_key *a=all.bytes;
+    for(size_t i=0;i<all.length/sizeof(*a);i++){NSString *name=key(a[i].hash,a[i].width,a[i].height);if(![gated containsObject:name])[deferred addObject:name];}
+    return deferred;
+}
 /* a map file's texture keys, from its own classification; nil if it cannot be read */
-static NSData *classify_map_keys(NSString *path,NSString *name) {
+static NSData *classify_map_keys(NSString *path,NSString *name,NSData **gate) {
     char error[256]={0};uint64_t size=0;FILE *map=host_texture_source_open_policy_map(path.fileSystemRepresentation,&size,error,sizeof(error));
     if(!map){host_logf(HOST_LOG_WARN,"Upscale level %s: %s",name.UTF8String,error);return nil;}
     const unsigned char *mapping=mmap(NULL,(size_t)size,PROT_READ,MAP_PRIVATE,fileno(map),0);
     struct texture_policy_catalog *catalog=texture_policy_catalog_new();struct texture_policy_decision *found=NULL;size_t count=0;
-    if(catalog&&mapping!=MAP_FAILED&&!texture_policy_add_map(catalog,mapping,(size_t)size,error,sizeof(error)))
+    struct texture_policy_key *unreached=NULL;size_t unreached_count=0;
+    if(catalog) {
+        apply_title_replacements(catalog,titles_replaced_now());
+        if(gate)texture_policy_catalog_track_reach(catalog,menu_not_drawn,sizeof(menu_not_drawn)/sizeof(*menu_not_drawn));
+    }
+    if(catalog&&mapping!=MAP_FAILED&&!texture_policy_add_map(catalog,mapping,(size_t)size,error,sizeof(error))) {
         count=texture_policy_classify(catalog,&texture_policy_embedded,&found,NULL,NULL);
+        if(gate)unreached_count=texture_policy_unreached(catalog,&unreached);
+    }
     if(mapping!=MAP_FAILED)munmap((void *)mapping,(size_t)size);fclose(map);texture_policy_catalog_free(catalog);
-    if(!found)return nil;
+    if(!found){free(unreached);return nil;}
     NSMutableData *keys=[NSMutableData dataWithLength:count*sizeof(struct texture_cache_key)];struct texture_cache_key *k=keys.mutableBytes;
     for(size_t i=0;i<count;i++)k[i]=(struct texture_cache_key){found[i].hash,found[i].width,found[i].height};
     free(found);
+    if(gate&&unreached_count) {
+        /* (the same keys without those no root reaches) */
+        NSMutableData *kept=[NSMutableData dataWithCapacity:keys.length];
+        for(size_t i=0;i<count;i++) {
+            BOOL skip=NO;for(size_t j=0;j<unreached_count&&!skip;j++)skip=unreached[j].hash==k[i].hash&&unreached[j].width==k[i].width&&unreached[j].height==k[i].height;
+            if(!skip)[kept appendBytes:&k[i] length:sizeof(*k)];
+        }
+        *gate=kept;
+    }
+    free(unreached);
     return keys;
 }
 /* how much of a level (keys) or of the whole game (nil) has current entries */
@@ -568,13 +617,13 @@ static BOOL thermal_may_run(void) {
     if(state<=NSProcessInfoThermalStateFair)atomic_store(&thermal_blocked,false);
     return !atomic_load(&thermal_blocked);
 }
-struct map_generation_context { unsigned serial; BOOL failed; };
+struct map_generation_context { unsigned serial; BOOL failed; __unsafe_unretained NSSet<NSString *> *skip; };
 static int generate_map_source(void *opaque,const struct host_texture_source *source) {
     struct map_generation_context *map=opaque;
     if(atomic_load(&finisher_failed)){map->failed=YES;return 0;}
     if(atomic_load(&upscale_playing)||!thermal_may_run()||atomic_load(&scan_pending)||map->serial!=atomic_load(&priority_serial))return 0;
     NSString *name=key(source->hash,source->width,source->height);NSNumber *slot=decision_slots[name];
-    if(!slot||[pass_hashes containsObject:name])return 1;
+    if(!slot||[pass_hashes containsObject:name]||[map->skip containsObject:name])return 1;
     const struct texture_policy_decision *decision=&decisions[slot.unsignedLongLongValue];
     if(decision->result==TEXTURE_POLICY_ORIGINAL)return 1;
     struct generation_context context={decision,NO,NO};generate_source(&context,source);
@@ -714,6 +763,7 @@ static void pump(void) {
             if(!texture_cache_manifest_load(cache_directory().fileSystemRepresentation,&loaded,&count))
                 @synchronized(state_token){free(manifest);manifest=loaded;manifest_count=count;}
         }
+        if(catalog_ready&&titles_replaced_now()!=catalog_titles_replaced)catalog_ready=NO;   /* (the setting changed: what is left to make changed) */
         if(!catalog_ready){atomic_store(&work_stage,"the catalog");catalog_ready=build_catalog();atomic_store(&work_stage,NULL);if(!catalog_ready){end=TEXTURE_UPSCALE_END_CATALOG;goto done;}
             BOOL reconciled;@synchronized(state_token){reconciled=reconcile_manifest();
                 /* (for readiness while the generator is off: texture_cache_decisions_load) */
@@ -735,10 +785,17 @@ static void pump(void) {
            once preserves shape grouping without inflating it for each texture. */
         for(NSString *path in ordered){@autoreleasepool {
             if(serial!=atomic_load(&priority_serial)||atomic_load(&scan_pending)||atomic_load(&upscale_playing)||!thermal_may_run()){complete=NO;break;}
-            struct map_generation_context context={serial,NO};
+            /* the main menu's map: what the import phase waits for first; the rest (nothing draws it) in a second walk */
+            NSSet<NSString *> *deferred=[map_base(path) isEqual:@TEXTURE_UPSCALE_MENU_MAP]?menu_deferred():nil;
+            struct map_generation_context context={serial,NO,deferred};
             int result=host_texture_source_walk_map(path.fileSystemRepresentation,generate_map_source,&context);
             if(result<0)host_logf(HOST_LOG_WARN,"Upscale: malformed source map");
             if(result!=1||context.failed){complete=NO;break;}
+            if(deferred.count){
+                struct map_generation_context rest={serial,NO,nil};
+                result=host_texture_source_walk_map(path.fileSystemRepresentation,generate_map_source,&rest);
+                if(result!=1||rest.failed){complete=NO;break;}
+            }
             /* the level being loaded is done once its last texture is encoded */
             if(path==first&&serial==atomic_load(&priority_serial)){dispatch_sync(finisher,^{});atomic_store(&level_walked_serial,serial);}
         }}
@@ -1009,7 +1066,7 @@ resume_import:
         BOOL menu_known=NO;
         if(catalog_ready){
             /* the main menu's textures first: until they are made the phase shows their progress and Skip is not offered */
-            if(!menu_checked){menu_keys=keys_for_map(@TEXTURE_UPSCALE_MENU_MAP);menu_checked=YES;}   /* (once: no menu map is not rescanned every poll) */
+            if(!menu_checked){menu_keys=menu_gate_keys();menu_checked=YES;}   /* (once: no menu map is not rescanned every poll) */
             menu_known=YES;
             if(menu_keys)menu=progress_of(menu_keys);
             p=progress_of(nil);
@@ -1208,7 +1265,7 @@ static int level_ready_without_generator(void) {
     NSMutableArray *paths=[NSMutableArray new];NSString *path=nil,*name=@(loading_name);
     host_texture_source_scan(any_root.fileSystemRepresentation,map_path_collect,(__bridge void *)paths);
     for(NSString *candidate in paths)if([map_base(candidate) isEqual:name]){path=candidate;break;}
-    NSData *keys=path?classify_map_keys(path,name):nil;
+    NSData *keys=path?classify_map_keys(path,name,NULL):nil;
     int ready=0;
     if(keys){
         if(!record_format){id<MTLDevice> device=MTLCreateSystemDefaultDevice();record_format=TEXTURE_RECORD_ASTC4X4;
