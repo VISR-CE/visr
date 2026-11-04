@@ -308,7 +308,7 @@ LOOK_ASSET_BASE = "https://media.visr.gg/look/"
 # Codec string of the scenes' shape-av1.mp4 (Main profile, level 5.1, 8-bit), which look.js tries before shape.mp4.
 LOOK_AV1 = "av01.0.13M.08"
 LOOK_SCENES = [
-    {"folder": "lifeboat", "label": "Lifeboats over Halo", "yaw": 12},
+    {"folder": "lifeboat", "av1": LOOK_AV1, "label": "Lifeboats over Halo", "yaw": 12},
     {"folder": "b30-battle", "av1": LOOK_AV1, "label": "The battle on the beach of The Silent Cartographer", "yaw": 125, "pitch": 2, "videoBand": 1, "drift": {"yaw": 10, "pitch": 0}},
     {"folder": "b40-battlefield", "av1": LOOK_AV1, "label": "The snowfield on Assault on the Control Room", "yaw": 315, "pitch": 60, "videoBand": 1252 / 2048, "drift": {"yaw": 2, "pitch": 0}},
     {"folder": "a50-grav-lift", "av1": LOOK_AV1, "label": "The gravity lift on The Truth and Reconciliation", "yaw": 176, "pitch": 60, "videoBand": 1348 / 2048, "drift": {"yaw": 0, "pitch": -2, "stop": -15}},
