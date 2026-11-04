@@ -636,6 +636,7 @@ static void breakable_surface_effect(
 								real distance;
 								struct new_particle_data particle;
 
+								csmemset(&particle, 0, sizeof(particle));
 								velocity = *global_zero_vector3d;
 								breaking_effect = breakable_surface_breaking_effect(damage_data);
 								vector_from_points3d(&damage_data->epicenter, &position, &outward_vector);
