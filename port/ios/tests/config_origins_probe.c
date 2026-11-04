@@ -139,14 +139,14 @@ static void check_first_launch(void)
 	assert(!strcmp(config_string("display.renderer"), "metal") && config_integer("display.render_height") == 1080);
 	assert(!config_boolean("display.upscaled_textures") && config_real("display.render_scale") == 0.5);
 	/* (a setting no profile names: its default) */
-	assert(config_integer("display.shadow_map_size") == 512 && config_real("display.render_quality") == 0.6);
+	assert(config_integer("display.shadow_map_size") == 128 && config_real("display.render_quality") == 0.6);
 	/* the file is written with the values in force, every line live as it always was */
 	assert(file_has(path, "\nrenderer = \"metal\"\n") && file_has(path, "\nrender_height = 1080\n"));
 	assert(file_has(path, "\nupscaled_textures = false\n") && file_has(path, "\nrender_scale = 0.5\n"));
-	assert(file_has(path, "\nshadow_map_size = 512\n") && file_has(path, "\nrender_quality = 0.6\n"));
+	assert(file_has(path, "\nshadow_map_size = 128\n") && file_has(path, "\nrender_quality = 0.6\n"));
 	/* and each recorded as a default the game wrote */
 	assert(file_has(origins, "display.render_height\tdefault\t1080\n") && file_has(origins, "display.renderer\tdefault\t\"metal\"\n"));
-	assert(file_has(origins, "display.shadow_map_size\tdefault\t512\n") && !file_has(origins, "\tchosen"));
+	assert(file_has(origins, "display.shadow_map_size\tdefault\t128\n") && !file_has(origins, "\tchosen"));
 	/* the log names the layer of each value a profile set, and only settings a profile may set */
 	assert(strstr(logged, "settings: display.render_height = 1080 [class Apple TV] over 0 [default]"));
 	assert(strstr(logged, "settings: display.render_scale = 0.5 [model Apple TV HD] over 1.0 [default]; menu 0.667 "
@@ -160,7 +160,7 @@ static void check_first_launch(void)
 
 		assert(config_default("display.render_height", shown, sizeof(shown)) && !strcmp(shown, "1080"));
 		assert(config_default("display.renderer", shown, sizeof(shown)) && !strcmp(shown, "metal"));
-		assert(config_default("display.shadow_map_size", shown, sizeof(shown)) && !strcmp(shown, "512"));
+		assert(config_default("display.shadow_map_size", shown, sizeof(shown)) && !strcmp(shown, "128"));
 	}
 
 	/* the same launch again changes nothing on disk and says nothing new */
@@ -211,8 +211,8 @@ static void check_profile_changes(void)
 
 	/* the drop-in file is deleted: the app's own values come back */
 	launch(TV_MODEL);
-	assert(config_integer("display.render_height") == 1080 && config_integer("display.shadow_map_size") == 512);
-	assert(file_has(path, "\nrender_height = 1080\n") && file_has(path, "\nshadow_map_size = 512\n"));
+	assert(config_integer("display.render_height") == 1080 && config_integer("display.shadow_map_size") == 128);
+	assert(file_has(path, "\nrender_height = 1080\n") && file_has(path, "\nshadow_map_size = 128\n"));
 	assert(config_boolean("display.upscaled_textures"));
 
 	/* debug.device_profile = "none" (the host passes no values): the built-in defaults, the choice still kept */
@@ -251,7 +251,7 @@ static void check_old_install(void)
 		"frame_pacing = \"tick\"\n"      /* a default main once shipped */
 		"foveation = false\n"            /* another */
 		"anisotropic_filtering = 4\n"    /* never a default: chosen */
-		"shadow_map_size = 512\n"
+		"shadow_map_size = 128\n"
 		"render_scale = 1.0\n"
 		"renderer = \"metal\"\n"         /* the default and what the profile says: follows it from now on */
 		"upscaled_textures = true\n"
@@ -399,8 +399,8 @@ static void check_menus(void)
 	assert(config_write("display.upscaled_textures", shown));
 	assert(file_has(origins, "display.shadow_map_size\tdefault\t256\n") && !file_has(origins, "display.upscaled_textures\tchosen"));
 	/* so a later profile reaches them again */
-	launch(TV_MODEL "display.shadow_map_size\t128\tmodel Apple TV HD\n");
-	assert(config_integer("display.shadow_map_size") == 128 && !config_boolean("display.upscaled_textures"));
+	launch(TV_MODEL "display.shadow_map_size\t512\tmodel Apple TV HD\n");
+	assert(config_integer("display.shadow_map_size") == 512 && !config_boolean("display.upscaled_textures"));
 	/* a setting no profile names behaves the same against its built-in default */
 	assert(config_write("input.snap_angle", "45"));
 	assert(config_explicit("input.snap_angle"));
@@ -602,7 +602,7 @@ static void check_workload(void)
 		"display.dynamic_resolution\ttrue\tmodel Apple TV HD\tvariable\n"
 		"display.dynamic_resolution_floor\t540\tmodel Apple TV HD\tvariable\n"
 		"display.render_scale\t0.4\tmodel Apple TV HD\tvariable\n"
-		"display.shadow_map_size\t128\tmodel Apple TV HD\tvariable\n"
+		"display.shadow_map_size\t256\tmodel Apple TV HD\tvariable\n"
 		"display.anti_aliasing\tfxaa\tmodel Apple TV HD\tvariable\n"
 		"display.frame_rate\t30\tmodel Apple TV HD\tvariable\n"
 		/* (not a PROFILE_VARIABLE setting: refused) */
@@ -619,11 +619,11 @@ static void check_workload(void)
 	assert(!config_scene_boolean("display.dynamic_resolution", CONFIG_SCENE_GAMEPLAY));
 	assert(config_scene_integer("display.dynamic_resolution_floor", CONFIG_SCENE_GAMEPLAY) == 960);
 	assert(config_scene_real("display.render_scale", CONFIG_SCENE_GAMEPLAY) == 0.5);
-	assert(config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY) == 512);
+	assert(config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY) == 128);
 	assert(!config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)));
 	assert(strstr(logged, "settings: display.dynamic_resolution_floor = 960 [model Apple TV HD] over 540 [default]; "
 		"variable 540 [model Apple TV HD]"));
-	assert(strstr(logged, "settings: display.shadow_map_size = 512 [default]; variable 128 [model Apple TV HD]"));
+	assert(strstr(logged, "settings: display.shadow_map_size = 128 [default]; variable 256 [model Apple TV HD]"));
 	/* the map becomes variable: once, logged, config_changes advances */
 	changes = config_changes();
 	logged[0] = 0;
@@ -631,22 +631,22 @@ static void check_workload(void)
 	assert(config_changes() == changes + 1 && config_workload_variable());
 	assert(strstr(logged, "workload: variable (multiplayer map): ") &&
 		strstr(logged, "display.dynamic_resolution true [model Apple TV HD]") &&
-		strstr(logged, "display.shadow_map_size 128 [model Apple TV HD]"));
+		strstr(logged, "display.shadow_map_size 256 [model Apple TV HD]"));
 	assert(!config_workload_set(1, "multiplayer map") && config_changes() == changes + 1);
 	assert(config_scene_boolean("display.dynamic_resolution", CONFIG_SCENE_GAMEPLAY));
 	assert(config_scene_integer("display.dynamic_resolution_floor", CONFIG_SCENE_GAMEPLAY) == 540);
 	assert(config_scene_real("display.render_scale", CONFIG_SCENE_GAMEPLAY) == 0.4);
-	assert(config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY) == 128);
+	assert(config_scene_integer("display.shadow_map_size", CONFIG_SCENE_GAMEPLAY) == 256);
 	assert(config_scene_string("display.anti_aliasing", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "fxaa"));
 	/* (a context's frame rate is held, as a scene class's is) */
 	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
 	/* the setting itself and config.toml keep the predictable value */
 	assert(config_real("display.render_scale") == 0.5 && file_has(path, "\nrender_scale = 0.5\n"));
-	assert(file_has(path, "\nshadow_map_size = 512\n"));
+	assert(file_has(path, "\nshadow_map_size = 128\n"));
 	/* a scene class's own value lies over the variable one; without one, the class takes the variable value */
 	assert(config_scene_real("display.render_scale", CONFIG_SCENE_MENU) == 0.667);
 	assert(config_scene_real("display.render_scale", CONFIG_SCENE_CUTSCENE) == 0.5);
-	assert(config_scene_integer("display.shadow_map_size", CONFIG_SCENE_CUTSCENE) == 128);
+	assert(config_scene_integer("display.shadow_map_size", CONFIG_SCENE_CUTSCENE) == 256);
 	assert(config_scene_describe(CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) &&
 		strstr(text, "display.render_scale 0.4 [model Apple TV HD, variable]"));
 	/* an external display's value lies over the variable one */
