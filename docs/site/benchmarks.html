@@ -65,21 +65,7 @@
 <h3 id="h-iphone-ipad-fps">iPhone and iPad: frame rate</h3>
 <p>Measured on an M1 iPad Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-ipad"><div class="bench-chart"><pre>---
-config:
-  xyChart:
-    width: 860
-    height: 420
-  themeVariables:
-    xyChart:
-      plotColorPalette: &quot;#1fa9d4, #ffc24d&quot;
----
-xychart-beta horizontal
-    title &quot;Campaign: fps at display rate, M1 iPad Pro&quot;
-    x-axis &quot;Port and version&quot; [&quot;VISR 0.6.8&quot;, &quot;117-vision b25332ef9&quot;, &quot;Beeman apple-v0.3.0&quot;, &quot;ChupathingyCE iOS v0.4.1&quot;]
-    y-axis &quot;Frames per second&quot; 0 --&gt; 150
-    bar [115.8, 23.9, 119.4, 119.9]
-    bar [71.9, 21.6, 119.4, 107.6]</pre></div></figure>
+<div class="bench-media"><figure class="device device-ipad"><div class="bench-chart"><img src="benchmarks/static-iphone-ipad-fps.svg" alt="iPhone and iPad: frame rate: average fps and 1% low fps per build, Campaign suite"></div></figure>
 <p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Average fps  <span class="swatch low" aria-hidden="true"></span> 1% low fps</p>
 <p class="bench-direction">Higher is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>M1 iPad Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">On time</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.8" rel="noopener">VISR 0.6.8</a> <span class="build-meta">build 20261101.225906</span></th><td data-label="Measured">2026-11-03</td><td data-label="On time">96.5%</td><td data-label="Notes">a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/zschwendi/117-vision/commit/b25332ef9" rel="noopener">117-vision b25332ef9</a> <span class="build-meta">build 130</span></th><td data-label="Measured">2026-10-29</td><td data-label="On time">–</td><td data-label="Notes">no on-time share reported; a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0" rel="noopener">Beeman apple-v0.3.0</a> <span class="build-meta">build unknown</span></th><td data-label="Measured">2026-11-04</td><td data-label="On time">–</td><td data-label="Notes">no on-time share reported; b30 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1" rel="noopener">ChupathingyCE iOS v0.4.1</a> <span class="build-meta">build unknown</span></th><td data-label="Measured">2026-11-03</td><td data-label="On time">95.9%</td><td data-label="Notes">a10 not measured yet</td></tr></tbody></table></div></div>
@@ -101,21 +87,7 @@ xychart-beta horizontal
 <h3 id="h-apple-tv-fps">Apple TV: frame rate</h3>
 <p>Measured on an Apple TV HD from runs presented at the frame cap of its profile, 30 fps. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-tv"><div class="bench-chart"><pre>---
-config:
-  xyChart:
-    width: 860
-    height: 420
-  themeVariables:
-    xyChart:
-      plotColorPalette: &quot;#1fa9d4, #ffc24d&quot;
----
-xychart-beta horizontal
-    title &quot;Campaign: fps at the profile&#x27;s frame cap, Apple TV HD&quot;
-    x-axis &quot;Port and version&quot; [&quot;VISR 0.6.8&quot;]
-    y-axis &quot;Frames per second&quot; 0 --&gt; 40
-    bar [29.8]
-    bar [25.2]</pre></div></figure>
+<div class="bench-media"><figure class="device device-tv"><div class="bench-chart"><img src="benchmarks/static-apple-tv-fps.svg" alt="Apple TV: frame rate: average fps and 1% low fps per build, Campaign suite"></div></figure>
 <p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Average fps  <span class="swatch low" aria-hidden="true"></span> 1% low fps</p>
 <p class="bench-direction">Higher is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>Apple TV HD.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">On time</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.8" rel="noopener">VISR 0.6.8 (Apple TV HD)</a> <span class="build-meta">build 20261101.231341</span></th><td data-label="Measured">2026-11-02</td><td data-label="On time">99.5%</td><td data-label="Notes"></td></tr></tbody></table></div></div>
@@ -137,21 +109,7 @@ xychart-beta horizontal
 <h3 id="h-vision-pro-fps">Vision Pro: frame rate</h3>
 <p>Measured on an M2 Vision Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps, with the 1% low fps directly below it where the app reports one; the table lists 95th-percentile frame time and the share of frames on time, within 5% of the display interval, where reported.</p>
 <div class="bench-grid">
-<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip-vision-pro-fps" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.005000 0.010000) translate(0 0)" d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></clipPath></defs><path d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></svg><div class="glass-screen" style="clip-path: url(#glass-clip-vision-pro-fps)"><div class="bench-chart"><pre>---
-config:
-  xyChart:
-    width: 980
-    height: 276
-  themeVariables:
-    xyChart:
-      plotColorPalette: &quot;#1fa9d4, #ffc24d&quot;
----
-xychart-beta horizontal
-    title &quot;Campaign: fps at display rate, M2 Vision Pro&quot;
-    x-axis &quot;&quot; [&quot;VISR 0.6.3&quot;, &quot;117-vision b25332ef9&quot;, &quot;master-chef 1.0.3&quot;]
-    y-axis &quot;Frames per second&quot; 0 --&gt; 150
-    bar [89.5, 21, 29.8]
-    bar [89.5, 16.2, 0]</pre></div></div></figure>
+<div class="bench-media"><figure class="device device-vision device-glass"><svg class="glass-shape" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="glass-clip-vision-pro-fps" clipPathUnits="objectBoundingBox"><path transform="translate(.5 .5) scale(0.98) translate(-.5 -.5) scale(0.005000 0.010000) translate(0 0)" d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></clipPath></defs><path d="M32 5C66 0 134 0 168 5C187.2 8 200 16 200 42C200 76 178 100 150 100C126 100 122 79 100 79C78 79 74 100 50 100C22 100 0 76 0 42C0 16 12.8 8 32 5Z"/></svg><div class="glass-screen" style="clip-path: url(#glass-clip-vision-pro-fps)"><div class="bench-chart"><img src="benchmarks/static-vision-pro-fps.svg" alt="Vision Pro: frame rate: average fps and 1% low fps per build, Campaign suite"></div></div></figure>
 <p class="bench-legend"><span class="swatch avg" aria-hidden="true"></span> Average fps  <span class="swatch low" aria-hidden="true"></span> 1% low fps</p>
 <p class="bench-direction">Higher is better.</p>
 <div class="bench-caption"><table class="bench-table"><caption>M2 Vision Pro.</caption><thead><tr><th scope="col">Build</th><th scope="col">Measured</th><th scope="col">95th-percentile frame time (ms)</th><th scope="col">On time</th><th scope="col">Notes</th></tr></thead><tbody><tr><th scope="row"><a href="https://github.com/steverice/visr/releases/tag/visr-v0.6.3" rel="noopener">VISR 0.6.3 (Vision Pro)</a> <span class="build-meta">build 20261028.91150</span></th><td data-label="Measured">2026-10-28</td><td data-label="95th-percentile frame time (ms)">11.1</td><td data-label="On time">99.8%</td><td data-label="Notes">Replays a recorded route; a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/zschwendi/117-vision/commit/b25332ef9" rel="noopener">117-vision b25332ef9</a> <span class="build-meta">build 130</span></th><td data-label="Measured">2026-10-29</td><td data-label="95th-percentile frame time (ms)">–</td><td data-label="On time">–</td><td data-label="Notes">no frame times reported; a10 not measured yet</td></tr><tr><th scope="row"><a href="https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3" rel="noopener">master-chef 1.0.3</a> <span class="build-meta">build 103</span></th><td data-label="Measured">2026-10-27</td><td data-label="95th-percentile frame time (ms)">–</td><td data-label="On time">–</td><td data-label="Notes">Runs with no input, fixed at 30 fps as shipped; it has no setting to run faster and reports no frame times</td></tr></tbody></table></div></div>
