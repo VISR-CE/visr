@@ -52,6 +52,17 @@ def test_ios_family_release_build_keeps_its_tester_flags(monkeypatch: pytest.Mon
     assert "--native-mac" not in command
 
 
+
+@pytest.mark.parametrize("platform", list(release.PLATFORMS))
+def test_no_release_platform_builds_the_catalyst_test_host(monkeypatch: pytest.MonkeyPatch, platform: str) -> None:
+    monkeypatch.setenv("APPLE_TEAM_ID", "TEAM")
+    monkeypatch.setenv("APPLE_BUNDLE_ID", "org.steverice.visr")
+    policy = asset_policy()
+    command = [str(part) for part in release.platform_build_command(
+        platform, manifest(policy), policy, "UUID", Path("pkg"))]
+    assert "--mac" not in command
+    assert release.PLATFORMS[platform][1] != "maccatalyst"
+
 def mac_bundle(app: Path, info: dict[str, Any]) -> None:
     (app / "Contents/MacOS").mkdir(parents=True)
     (app / "Contents/MacOS/VISR").write_bytes(b"mac executable")

@@ -69,13 +69,24 @@ Outputs:
 - `dist/VISR-iOS-unsigned.ipa` and its `.sha256` checksum when requested
 
 The default bundle identifier is `org.steverice.visr` on iOS, tvOS and visionOS, so one
-App Store Connect record (universal purchase) covers them all; `--mac` defaults to
-`org.steverice.visr.mac`. Set `--bundle-id` to one
+App Store Connect record (universal purchase) covers them all; `--mac` (the Mac
+Catalyst test host, see below) defaults to `org.steverice.visr.mac`. Set `--bundle-id` to one
 covered by your signing profile. `--ipa PATH` can also package a signed build;
 only unsigned builds are suitable for this project's public release workflow.
 Code signing and provisioning must succeed
 before installation. No jailbreak, JIT entitlement, or writable executable
 memory is used.
+
+### Mac Catalyst test host
+
+`--mac` builds the iOS host for Mac Catalyst. It is a test host only: the Mac
+runner (`tools/mac_run.py`) and the OpenGL ES reference runs
+that `check-metal` compares Metal against. It is never shipped; the Mac app is
+the AppKit app (`tools/macos_build.py`). The build refuses `--app-store-package`,
+`--archive-only`, `--upload`, `--signing-profile`, `--internal-only`,
+`--tester`, `--ipa` and the shipping bundle ID; its Xcode target skips install,
+so an archive holds no app; and `host_main.m` stops compiling for Mac Catalyst
+unless the CMake configuration defines `HALO_MAC_TEST_HOST`.
 
 ### Metal-only builds
 

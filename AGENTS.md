@@ -35,7 +35,8 @@ brew install cmake ninja llvm lld sdl3 pkgconf
 python3 tools/ios_build.py --simulator                      # iOS simulator, no signing
 python3 tools/ios_build.py --visionos --simulator           # visionOS simulator
 python3 tools/ios_build.py --tvos --unsigned --ipa dist/VISR-tvOS-unsigned.ipa
-python3 tools/ios_build.py --mac                            # the Mac app
+python3 tools/macos_build.py                               # the Mac app (AppKit)
+python3 tools/ios_build.py --mac                            # Mac Catalyst test host (runner, GL records), never shipped
 python3 tools/ios_build.py --visionos --team TEAM_ID --bundle-id BUNDLE_ID   # signed device build
 ```
 

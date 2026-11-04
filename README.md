@@ -140,8 +140,12 @@ python3 tools/ios_build.py --visionos --simulator
 # iPhone and iPad, Apple TV, Mac
 python3 tools/ios_build.py --team YOUR_TEAM_ID --bundle-id com.yourname.visr
 python3 tools/ios_build.py --tvos --team YOUR_TEAM_ID --bundle-id com.yourname.visr
-python3 tools/ios_build.py --mac
+python3 tools/macos_build.py
 ```
+
+The Mac app is the AppKit app (`tools/macos_build.py`, [port/macos](port/macos/README.md)).
+`tools/ios_build.py --mac` builds a Mac Catalyst test host for the Mac runner and the
+OpenGL ES reference runs; it is not a supported way to play and refuses release options.
 
 The build script downloads SDL, musl and the Khronos headers itself. The
 [build and install guide](port/ios/README.md) covers installing from the

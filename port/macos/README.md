@@ -1,6 +1,6 @@
 # Native macOS host
 
-The AppKit target uses the macOS SDK, SDL3's Cocoa window and Metal view, and the same compiled guest and Metal renderer as the other Apple targets. It requires an Apple silicon Mac running macOS 14 or later. Catalyst remains available through `tools/ios_build.py --mac`.
+The AppKit target uses the macOS SDK, SDL3's Cocoa window and Metal view, and the same compiled guest and Metal renderer as the other Apple targets. It requires an Apple silicon Mac running macOS 14 or later. This is the Mac app. `tools/ios_build.py --mac` builds a Mac Catalyst test host for the Mac runner and the OpenGL ES reference runs; it is never shipped.
 
 ```sh
 python3 tools/macos_build.py --renderer metal

@@ -28,6 +28,12 @@
 #include "host_astc_store.h"
 #include "host_data_updates.h"
 #include "host_quit_signals.h"
+/* The Mac Catalyst build is a test host (tools/mac_run.py, check-metal's GL records), never a
+   player's app: the Mac app is the AppKit host (HALO_NATIVE_MAC). Only port/ios/CMakeLists.txt's HALO_MAC
+   configuration, which refuses tester builds and archives, defines HALO_MAC_TEST_HOST. */
+#if TARGET_OS_MACCATALYST && !HALO_MAC_TEST_HOST
+#error "Mac Catalyst builds are test hosts only (tools/ios_build.py --mac); the Mac app is tools/macos_build.py"
+#endif
 #include "../../linux/include/halo_port_limits.h" /* HALO_PORT_NETWORK_VERSION, for the log */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>

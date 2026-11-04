@@ -584,3 +584,38 @@ def test_guest_build_flags_are_identical_for_runner_and_app_store(monkeypatch, t
         recorder_flags.append(flags)
     assert builds[0] == builds[1]
     assert recorder_flags[0] == recorder_flags[1]
+
+
+@pytest.mark.parametrize('arguments', [
+    ('--app-store-package', 'PACKAGE'), ('--app-store-package', 'PACKAGE', '--archive-only'),
+    ('--signing-profile', 'PROFILE-UUID'), ('--tester',), ('--ipa', 'VISR.ipa'),
+])
+def test_the_catalyst_test_host_refuses_every_distribution_option(monkeypatch, capsys, tmp_path, arguments):
+    arguments = tuple(str(tmp_path / part) if part in ('PACKAGE', 'VISR.ipa') else part for part in arguments)
+    with pytest.raises(SystemExit) as failure:
+        configure_with(monkeypatch, tmp_path, '--mac', *arguments)
+    assert failure.value.code == 2
+    assert 'Mac Catalyst test host, which never ships' in capsys.readouterr().err
+
+
+def test_the_catalyst_test_host_refuses_the_shipping_bundle_id(monkeypatch, capsys, tmp_path):
+    with pytest.raises(SystemExit):
+        configure_with(monkeypatch, tmp_path, '--mac', '--bundle-id', 'org.steverice.visr')
+    assert 'never ships under org.steverice.visr' in capsys.readouterr().err
+
+
+def test_the_catalyst_test_host_still_builds_for_the_runner(monkeypatch, tmp_path):
+    configure = configure_with(monkeypatch, tmp_path, '--mac')
+    assert '-DHALO_MAC=ON' in configure
+    assert '-DHALO_BUNDLE_IDENTIFIER=org.steverice.visr.mac' in configure
+
+
+def test_only_the_cmake_catalyst_configuration_lets_the_host_compile_for_catalyst():
+    root = Path(__file__).resolve().parents[1]
+    host_main = (root / 'port/ios/host/host_main.m').read_text()
+    assert '#if TARGET_OS_MACCATALYST && !HALO_MAC_TEST_HOST\n#error' in host_main
+    cmake = (root / 'port/ios/CMakeLists.txt').read_text()
+    assert 'target_compile_definitions(VISR PRIVATE HALO_MAC_TEST_HOST=1)' in cmake
+    assert 'if(HALO_MAC AND HALO_TESTER_BUILD)\n    message(FATAL_ERROR' in cmake
+    assert 'set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_SKIP_INSTALL YES)' in cmake
+

@@ -105,7 +105,7 @@ jobs:
         run: python3 tools/ios_test.py
       - name: Build unsigned device IPA
         run: python3 tools/ios_build.py --unsigned --jobs 3 --ipa dist/VISR-iOS-unsigned.ipa
-      - name: Build Mac Catalyst app
+      - name: Build Mac Catalyst test host (runner and GL reference only; never shipped)
         run: python3 tools/ios_build.py --mac --jobs 3
       - name: Build ARM64 simulator app
         run: python3 tools/ios_build.py --simulator --jobs 3

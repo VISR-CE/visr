@@ -14,7 +14,7 @@ sources preprocess to the same tokens as before).
 | Linux, Windows | `python3 configure.py --profile`, then build as usual |
 | iPhone, iPad | `python3 tools/ios_build.py --profile --team TEAM` (or `--unsigned`) |
 | Apple TV | `python3 tools/ios_build.py --profile --tvos --team TEAM` |
-| Mac (Catalyst runner) | `python3 tools/ios_build.py --profile --mac` |
+| Mac (Catalyst test host) | `python3 tools/ios_build.py --profile --mac` |
 | Mac (AppKit) | `python3 tools/ios_build.py --profile --native-mac` |
 
 On the Apple builds the switch applies to the game, which runs as the guest

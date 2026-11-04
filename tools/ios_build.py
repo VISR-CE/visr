@@ -85,7 +85,8 @@ def main():
     target.add_argument('--tvos', action='store_true', help='build for Apple TV instead of iPhone/iPad')
     target.add_argument('--visionos', action='store_true', help='build for Apple Vision Pro (Metal only) instead of iPhone/iPad')
     target.add_argument('--native-mac', action='store_true', help='build the separate local macOS AppKit host')
-    target.add_argument('--mac', action='store_true', help='build the iOS host for Mac Catalyst, ad hoc signed (the native Mac runner)')
+    target.add_argument('--mac', action='store_true', help='build the Mac Catalyst test host, ad hoc signed: the Mac runner\'s GL and '
+                        'Metal runs only (tools/mac_run.py), never shipped; the Mac app is --native-mac')
     parser.add_argument('--renderer', choices=('both', 'metal'),
                         help='renderer backends to compile: both (default except visionOS) lets config.toml select OpenGL ES or Metal; '
                              'metal omits OpenGL ES sources, headers and framework')
@@ -192,6 +193,11 @@ def main():
     parser.add_argument('--lld', default='/opt/homebrew/opt/lld/bin/ld.lld')
     parser.add_argument('--jobs', type=int, default=min(12,os.cpu_count() or 4))
     args = parser.parse_args()
+    if args.mac:
+        try:
+            validate_catalyst_test_host(args)  # before the other checks, so its refusal is what --mac reports
+        except ValueError as error:
+            parser.error(str(error))
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         parser.error('an Apple Silicon Mac with full Xcode is required')
     if not args.simulator and not args.unsigned and not args.team and not args.mac and not args.native_mac:
@@ -626,8 +632,27 @@ def feed_url_valid(url):
             parts.password is None and '@' not in parts.netloc)
 
 
+# the Catalyst build is a test host: what makes a build something a player could get is refused for it
+CATALYST_DISTRIBUTION_OPTIONS = (('app_store_package', '--app-store-package'), ('archive_only', '--archive-only'),
+                                 ('upload', '--upload'), ('signing_profile', '--signing-profile'),
+                                 ('internal_only', '--internal-only'), ('tester', '--tester'), ('ipa', '--ipa'))
+SHIPPING_BUNDLE_ID = 'org.steverice.visr'
+
+
+def validate_catalyst_test_host(args):
+    """--mac builds the Catalyst test host (the Mac runner's GL and Metal runs), which never ships: no archive,
+    export, upload, distribution profile, tester build or package, and not under the shipping bundle ID"""
+    refused = [flag for name, flag in CATALYST_DISTRIBUTION_OPTIONS if getattr(args, name, None)]
+    if refused:
+        raise ValueError(f'--mac builds the Mac Catalyst test host, which never ships; drop {", ".join(refused)} '
+                         f'(the Mac app players get is --native-mac, tools/macos_build.py)')
+    if args.bundle_id == SHIPPING_BUNDLE_ID:
+        raise ValueError(f'--mac builds the Mac Catalyst test host, which never ships under {SHIPPING_BUNDLE_ID}; '
+                         f'use its default bundle ID (org.steverice.visr.mac)')
+
+
 def mac_build_folder(environment=None):
-    """where the Catalyst build goes: build/mac/app in the checkout, or, on a host that runs developer-built
+    """where the Catalyst test host build goes: build/mac/app in the checkout, or, on a host that runs developer-built
     apps only from one folder (HALO_MAC_BUILD, set by that host's job runner), a folder per
     checkout there"""
     environment = os.environ if environment is None else environment
@@ -637,7 +662,8 @@ def mac_build_folder(environment=None):
 
 
 def build_mac(args, cloud, data_packs=()):
-    """The iOS project built for Mac Catalyst: configured as iOS, built with the macOS SDK"""
+    """The iOS project built for Mac Catalyst, the Mac runner's test host (never shipped): configured as iOS, built
+    with the macOS SDK"""
     build=mac_build_folder()
     renderer = args.renderer.upper() if args.renderer else 'BOTH'
     frameworks = opengles_framework(ROOT/'build/mac/frameworks') if renderer == 'BOTH' else ''

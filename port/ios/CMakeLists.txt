@@ -6,8 +6,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL "visionOS")
     enable_language(Swift)
 endif()
 set(HALO_BUNDLE_IDENTIFIER "org.steverice.visr" CACHE STRING "App bundle identifier")
-# Mac Catalyst (tools/ios_build.py --mac): configured as iOS, built with -sdk macosx SUPPORTS_MACCATALYST=YES
-option(HALO_MAC "Mac Catalyst build of the iOS host" OFF)
+# Mac Catalyst (tools/ios_build.py --mac): configured as iOS, built with -sdk macosx SUPPORTS_MACCATALYST=YES. It is a
+# test host only (the Mac runner's GL and Metal runs); the Mac app players get is HALO_NATIVE_MAC (port/macos).
+option(HALO_MAC "Mac Catalyst test host of the iOS host (never shipped)" OFF)
+if(HALO_MAC AND HALO_TESTER_BUILD)
+    message(FATAL_ERROR "HALO_MAC is the Catalyst test host and cannot be a tester build; the Mac app is HALO_NATIVE_MAC")
+endif()
 option(HALO_NATIVE_MAC "Native macOS AppKit host" OFF)
 if(HALO_NATIVE_MAC)
     if(HALO_MAC OR NOT CMAKE_SYSTEM_NAME STREQUAL "Darwin")
@@ -235,6 +239,10 @@ file(GLOB HALO_MBEDTLS_SOURCES CONFIGURE_DEPENDS "${ROOT}/port/third_party/mbedt
 target_sources(VISR PRIVATE "${ROOT}/port/linux/src/posix_dtls.c" ${HALO_MBEDTLS_SOURCES})
 target_include_directories(VISR PRIVATE "${ROOT}/port/third_party/mbedtls/include")
 target_compile_definitions(VISR PRIVATE HALO_IOS=1 st_mtim=st_mtimespec st_atim=st_atimespec st_ctim=st_ctimespec)
+if(HALO_MAC)
+    # host_main.m refuses to compile for Mac Catalyst without it
+    target_compile_definitions(VISR PRIVATE HALO_MAC_TEST_HOST=1)
+endif()
 if(HALO_RENDERER STREQUAL "METAL")
     target_compile_definitions(VISR PRIVATE HALO_METAL_ONLY=1)
 endif()
@@ -390,6 +398,10 @@ set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPI
 # install step, which leaves an archive with no app in it that no distribution method accepts; the app alone is
 # installed, so the archive is an app archive and not one with a static library beside the app.
 set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_SKIP_INSTALL NO XCODE_ATTRIBUTE_INSTALL_PATH "/Applications")
+if(HALO_MAC)
+    # the Catalyst test host is never archived: its archive holds no app, so it cannot be exported or uploaded
+    set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_SKIP_INSTALL YES)
+endif()
 # internet play's MQTT brokers (network.brokers_file): host_main.m writes them
 # beside config.toml at each start, as upstream's Android app does
 target_sources(VISR PRIVATE "${ROOT}/port/assets/network/brokers.txt")
