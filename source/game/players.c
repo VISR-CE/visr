@@ -3815,7 +3815,14 @@ static boolean player_handle_weapon_swap(
 	switch (player->action_result)
 	{
 	case _player_action_result_swap_for_weapon:
-		if (unit_drop_selected_weapon(player->unit_index) &&
+		/* a swap drops the weapon in hand, though another is being readied
+		(as on the Xbox). A remote player on this host drops the one it chose:
+		the choice reaches the host before the host's copy of the player has
+		finished switching, so the weapon in hand there is the one it has
+		already put away (unit_drop_selected_weapon) */
+		if ((player->local_player_index != NONE ?
+			unit_drop_current_weapon(player->unit_index, TRUE) :
+			unit_drop_selected_weapon(player->unit_index)) &&
 			unit_add_weapon_to_inventory(
 				player->unit_index,
 				player->action_object_index,
