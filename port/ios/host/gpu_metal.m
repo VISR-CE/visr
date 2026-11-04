@@ -820,7 +820,7 @@ static void native_unpark(void)
 			host_perf_hooks_gpu_complete(perf_frame, duration > 0.0 ? (uint64_t)(duration * 1e6) : 0,
 				completed.status == MTLCommandBufferStatusCompleted && completed.GPUStartTime > 0.0 && duration > 0.0);
 			if (completed.status == MTLCommandBufferStatusError)
-				platform_log("Metal: a command buffer ahead of the HUD's failed: %s", completed.error.description.UTF8String);
+				platform_log("Metal: a command buffer ahead of the HUD's or the scene's pass failed: %s", completed.error.description.UTF8String);
 			gpu_busy_count(completed);
 		}];
 		[commands commit];
@@ -1045,6 +1045,19 @@ static void use_texture(MetalTexture *record)
 				parent->used = current_serial;
 		}
 	}
+}
+
+/* a pass, blit or draw wrote the texture in the open command buffer (native_pass's
+checks); a view writes its parent's memory too */
+static void texture_written(MetalTexture *record)
+{
+	MetalTexture *parent;
+
+	if (!record)
+		return;
+	record->written = write_epoch;
+	if (record->view_parent && (parent = texture_view_parent(record)))
+		parent->written = write_epoch;
 }
 
 static void use_buffer(MetalBuffer *record)
@@ -1281,7 +1294,8 @@ static void gpu_metal_texture_destroy(gpu_texture texture)
 		/* a committed command buffer keeps what it uses. The handle can be
 		reused at once, so a pass still open on it ends first: a new target
 		with the same handle would otherwise continue the old one's pass */
-		if (texture && (texture == pass_color || texture == pass_depth))
+		if (texture && (texture == pass_color || texture == pass_depth || texture == native_pass.color ||
+			texture == native_pass.depth))
 			pass_end();
 		[textures remove:texture];
 	}
@@ -1478,6 +1492,7 @@ static BOOL texture_make_linear(MetalTexture *record)
 	[blit endEncoding];
 	use_texture(record);
 	record->texture = texture;
+	texture_written(record);
 	record->linear_buffer = buffer;
 	record->linear_pitch = pitch;
 	return YES;
@@ -1566,6 +1581,7 @@ static void gpu_metal_texture_copy_rects(gpu_texture source, const struct gpu_te
 				sourceSize:MTLSizeMake(copy->width, copy->height, 1) toTexture:to->texture destinationSlice:0
 				destinationLevel:0 destinationOrigin:MTLOriginMake(0, 0, 0)];
 			use_texture(to);
+			texture_written(to);
 		}
 		[blit endEncoding];
 	}
@@ -1606,7 +1622,7 @@ static void gpu_metal_texture_copy_level(gpu_texture source, gpu_texture destina
 		[blit endEncoding];
 		use_texture(from);
 		use_texture(to);
-		to->written = write_epoch;
+		texture_written(to);
 	}
 }
 
@@ -1638,7 +1654,7 @@ static void gpu_metal_texture_generate_mipmaps(gpu_texture texture, uint32_t bas
 		[blit generateMipmapsForTexture:levels];
 		[blit endEncoding];
 		use_texture(record);
-		record->written = write_epoch;
+		texture_written(record);
 	}
 }
 
@@ -2203,6 +2219,13 @@ them yet (a draw made before this one that sampled one would see what this
 pass draws) */
 static BOOL native_side_allowed(MetalTexture *color, MetalTexture *depth)
 {
+	MetalTexture *parent;
+
+	/* (a view's parent shares its memory) */
+	if (color && (parent = texture_view_parent(color)) && parent->used == current_serial)
+		return NO;
+	if (depth && (parent = texture_view_parent(depth)) && parent->used == current_serial)
+		return NO;
 	return !(color && color->used == current_serial) && !(depth && depth->used == current_serial);
 }
 
@@ -2418,10 +2441,8 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	pass_color = color;
 	pass_depth = depth;
 	pass_commands = 0;
-	if (color_record)
-		color_record->written = write_epoch;
-	if (depth_record)
-		depth_record->written = write_epoch;
+	texture_written(color_record);
+	texture_written(depth_record);
 	/* the scene's pass becomes the one a later pass may run ahead of */
 	if (!native_pass.color && scene_park_eligible(color_record, depth_record))
 	{
@@ -2837,7 +2858,7 @@ static void gpu_metal_texture_multisample(gpu_texture texture, uint32_t samples)
 			record->description.type != GPU_TEXTURE_2D || record->samples == samples)
 			return;
 		/* (the open pass on it resolves what it drew into the texture) */
-		if (texture == pass_color || texture == pass_depth)
+		if (texture == pass_color || texture == pass_depth || texture == native_pass.color || texture == native_pass.depth)
 			pass_end();
 		record->samples = samples;
 		record->multisample = nil;
@@ -4520,9 +4541,10 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 		}
 		/* display.native_hud and debug.metal_scene_park (native_pass): a
 		draw outside the display-sized or scene pass that samples its targets,
-		or (with it parked) anything written earlier in its command buffer,
-		must follow that pass's draws so far, so the pass ends here and the
-		frame goes on in order */
+		or anything written earlier in its command buffer (parked: that
+		buffer's epoch; still open: the open buffer is its own), must follow
+		that pass's draws so far, so the pass ends here and the frame goes on
+		in order */
 		if (native_pass.color && draw->color_target != native_pass.color)
 		{
 			int stage;
@@ -4534,11 +4556,13 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 
 				if (!sampled)
 					continue;
+				uint64_t epoch = native_pass.parked ? native_pass.epoch : write_epoch;
+
 				if (sampled == native_pass.color || (native_pass.depth && sampled == native_pass.depth) ||
-					(native_pass.parked && (sampled_record = texture_record(sampled)) &&
-					(sampled_record->written == native_pass.epoch ||
+					((sampled_record = texture_record(sampled)) &&
+					(sampled_record->written == epoch ||
 					(sampled_record->view_parent && texture_view_parent(sampled_record) &&
-					texture_view_parent(sampled_record)->written == native_pass.epoch))))
+					texture_view_parent(sampled_record)->written == epoch))))
 				{
 					native_pass.in_order++;
 					pass_end();
