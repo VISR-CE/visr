@@ -2891,6 +2891,16 @@ static boolean gametype_list_initialize(struct widget_instance *list)
 	return TRUE;
 }
 
+/* the frame of game_type_grafix a game engine's picture is (the Xbox's
+multiplayer_game_bitmap_frame: CTF, king, slayer, oddball, race, then the
+question mark) */
+static short gametype_picture_frame(long engine)
+{
+	static short const frames[] = { 5, 0, 2, 3, 1, 4 };
+
+	return frames[PIN(engine, 0, 5)];
+}
+
 /* a gametype's name, in a row's text (the name's own buffer is longer:
 playlist_profile_get_display_name fills MAX_GAMENAME characters) */
 static void gametype_display_name(long profile_index, wchar_t *text)
@@ -2975,7 +2985,7 @@ static void gametype_list_update(struct widget_instance *list)
 			long engine = PIN(variant.game_engine_index, 0, 5);
 
 			if ((widget = named(description, "gametype_right_pic", 0)) != NULL)
-				widget->animation.current_frame_index = (short)engine;
+				widget->animation.current_frame_index = gametype_picture_frame(engine);
 			usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n%s\r\nScore to win: %ld", engine_names[engine],
 				variant.universal_variant.teams ? L"Teams" : L"Free for all", variant.universal_variant.score_to_win);
 			text[NUMBEROF(text) - 1] = 0;
@@ -5980,7 +5990,7 @@ static void gametype_edit_list_update(struct widget_instance *list)
 			long engine = PIN(variant.game_engine_index, 0, 5);
 
 			if ((widget = named(description, "gametype_right_pic", 0)) != NULL)
-				widget->animation.current_frame_index = (short)engine;
+				widget->animation.current_frame_index = gametype_picture_frame(engine);
 			if (named(list, "scroll_up_arrow", 0))
 				gametype_card_text(named(description, "gametype_right_data", 0), &variant);
 			else
