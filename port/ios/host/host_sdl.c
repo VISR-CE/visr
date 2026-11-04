@@ -313,6 +313,12 @@ int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 	/* The guest asks for the mouse to be held while the game is played. */
 	return object ? SDL_SetWindowRelativeMouseMode(object, enabled != 0) : 0;
 #else
+#if TARGET_OS_IOS
+	/* (the iOS app run on a Mac as "Designed for iPad": SDL's UIKit backend holds the mouse through
+	GCMouse and prefersPointerLocked) */
+	if (host_ios_app_on_mac())
+		return object ? SDL_SetWindowRelativeMouseMode(object, enabled != 0) : 0;
+#endif
 	/* Touch screens have no cursor to hold, and SDL's relative mode would
 	reroute their synthesized mouse events. */
 	(void)enabled;

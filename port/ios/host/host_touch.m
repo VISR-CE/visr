@@ -19,6 +19,11 @@ static atomic_int controls_showing, controller_hide_pending;
 static atomic_int menu_up;
 int host_ios_touch_blocked(void) { return host_touch_replay_blocked(&replay_gate); }
 static int pause_pending;
+int host_ios_app_on_mac(void)
+{
+    if(@available(iOS 14.0,*)) return NSProcessInfo.processInfo.isiOSAppOnMac?1:0;
+    return 0;
+}
 void host_ios_touch_pause(void) { if (!host_touch_replay_blocked(&replay_gate)) pause_pending=1; }
 static SDL_Joystick *touch_joystick;
 static SDL_JoystickID touch_id, primary_hardware;

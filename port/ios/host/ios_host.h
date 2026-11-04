@@ -70,6 +70,8 @@ void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const flo
     const float *hand);
 void host_touch_replay_active(int active);
 void host_ios_touch_pause(void);
+/* whether this iOS binary runs on a Mac ("Designed for iPad"), where there is a mouse to hold */
+int host_ios_app_on_mac(void);
 /* debug.frame_counter (host_frame_counter.m): a label in the window's corner
 showing wall time and rendered frames, plus existing frame/CPU/GPU timings;
 these are not simulation ticks or replay time */
