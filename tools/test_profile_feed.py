@@ -276,7 +276,9 @@ def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
 
     options = profile_pr.SimpleNamespace(worktree=str(repo), signing_key="seed", out=str(tmp_path / "out"), sign_all=2**40)
     assert profile_pr.sign_all(options, run) == 0
-    assert {domain for domain, _ in calls} == {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_"}
+    # (the published target, plus every other model a profile matches: a model with no shard yet gets one)
+    assert {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
+    assert {"device-profiles-3:ios/iPad13,1/_", "device-profiles-4:ios/iPad13,1/_"} <= {domain for domain, _ in calls}
     sources = dict(calls)
     assert sources["device-profiles-4:ios/iPhone18,1/_"] == str(repo / "profiles")
     assert sources["device-profiles-3:ios/iPhone18,1/_"] != str(repo / "profiles")
