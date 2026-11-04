@@ -7,8 +7,7 @@ struct menu_picture_trace_metrics {
     size_t scratch_bytes;
     double seconds;
 };
-/* Recognize six approved 512x256 sources, five 512x512 controller maps, the six 256x128 gradient gametype icons and
-   the five 256x256 glowing gametype icons in decoded RGBA. -1 means plain bpf. */
+/* Recognize six approved 512x256 sources, five 512x512 controller maps, and the six 256x128 gradient gametype icons in decoded RGBA. -1 means plain bpf. */
 int menu_picture_trace_source(const uint8_t *source, unsigned width, unsigned height);
 /* Transactional: fallback (0) and cancellation (-1) leave bpf byte-identical. 1 means traced.
    Source is straight RGBA8, output is its 2x or 4x straight RGBA8 bpf. */

@@ -15,24 +15,20 @@ static uint64_t digest(const uint8_t *p, size_t n) {
     for(size_t i=0;i<n;i++) h=(h^p[i])*UINT64_C(1099511628211);
     return h;
 }
-/* Pictures 0-5 and 6-10 are the editor silhouettes and controller maps. 11-15 are the five gametype icons
-   with a gradient field (256 x 128, ui\\shell\\bitmaps\\game_type_grafix; the sixth frame is a plain question mark
-   and is also traced), 16-20 the same icons with an alpha glow (256 x 256, rules_options). */
+/* Pictures 0-5 and 6-10 are the editor silhouettes and controller maps. 11-16 are the six gametype icons with a
+   gradient field (256 x 128, ui\\shell\\bitmaps\\game_type_grafix; the sixth frame is a plain question mark). */
 int menu_picture_trace_source(const uint8_t *p, unsigned w, unsigned h) {
     static const uint64_t hashes[]={UINT64_C(0xf36bb16cd42f5bd6),UINT64_C(0xe632c00dd1625c3c),
         UINT64_C(0x7adcf52f208bec59),UINT64_C(0x6ea78954e953d88b),UINT64_C(0x7ce8581a05529296),UINT64_C(0xabbf90e26606d4ae),
         UINT64_C(0x10abeb8e84292ebb),UINT64_C(0x4f2391de207baaf5),UINT64_C(0xb21af00c0b190d4b),
         UINT64_C(0xe24cf6469a4cbaed),UINT64_C(0xa30fdfccfcf19037),
         UINT64_C(0xc6b773ef9f4465e8),UINT64_C(0x7a0bf259285a236c),UINT64_C(0x7d72ff39be91b80b),
-        UINT64_C(0x1bc31137c979f6ca),UINT64_C(0xb31f2f1343077074),UINT64_C(0x12d016601cc04f8c),
-        UINT64_C(0x2f017f392df5212e),UINT64_C(0x17af8a211f5bc5ec),UINT64_C(0x01d5d5206cff3c0f),
-        UINT64_C(0xc627c7e8b2de7e5c),UINT64_C(0xa8357025475e5aa0)};
+        UINT64_C(0x1bc31137c979f6ca),UINT64_C(0xb31f2f1343077074),UINT64_C(0x12d016601cc04f8c)};
     unsigned first,last;
     if(!p)return -1;
     if(w==512&&h==256){first=0;last=6;}
     else if(w==512&&h==512){first=6;last=11;}
     else if(w==256&&h==128){first=11;last=17;}
-    else if(w==256&&h==256){first=17;last=22;}
     else return -1;
     uint64_t hash=digest(p,(size_t)w*h*4);
     for(unsigned i=first;i<last;i++)if(hash==hashes[i])return (int)i;
@@ -163,7 +159,7 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
     if(cancel&&*cancel)return -1;
     /* Detection always runs at 4x; rendering at 2x uses the same fitted curves. */
     const unsigned w=sw*4,h=sh*4,n=w*h,cap=65536;
-    const int controller=picture>=6&&picture<11,icon=picture>=11,gradient=picture>=11&&picture<17;
+    const int controller=picture>=6&&picture<11,icon=picture>=11,gradient=icon;
     uint8_t *holes=NULL,*field=gradient?malloc((size_t)sw*sh*4):NULL;
     uint8_t (*field_rows)[3]=gradient?malloc((size_t)sh*3):NULL;
     if(gradient&&(!field||!field_rows||!field_coverage(source,sw,sh,field,field_rows))){free(field);free(field_rows);return 0;}
@@ -300,6 +296,13 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
         if(!mask_filter(outside,visited,sw,sh,2,0,1,cancel)||
            !mask_filter(visited,outside,sw,sh,2,1,1,cancel)){status=-1;goto done;}
     }
+    if(gradient) {
+        /* The alpha edge is the stroke's outer rim and the new line follows its center, so a pixel between them is
+           outside the line although inside the mask. Eroding the inside test by the stroke's half width puts its
+           edge on the line. */
+        if(!mask_filter(mask,outside,w,h,3,0,0,cancel)||!mask_filter(outside,visited,w,h,3,1,0,cancel)){status=-1;goto done;}
+        memcpy(mask,visited,n);
+    }
     unsigned ow=sw*scale,oh=sh*scale;
     memcpy(result,bpf,(size_t)ow*oh*4);
     for(unsigned y=0;y<oh;y++) {
@@ -323,11 +326,12 @@ int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bp
             if(gradient) {
                 /* The field has no glow to replace. The old soft stroke is covered with what lies on its side of
                    the new line: the row's field color outside, the figure's black inside. */
-                if(dist>=7.5f||source[((size_t)(y/scale)*sw+x/scale)*4+3]<128)continue;
+                const float band=inside?10.f:14.f;
+                if(dist>=band||source[((size_t)(y/scale)*sw+x/scale)*4+3]<128)continue;
                 uint8_t *out=result+((size_t)y*ow+x)*4;
                 float row=clampf((y+.5f)/scale-.5f,0,sh-1),frac=row-floorf(row);
                 unsigned r0=(unsigned)row,r1=r0+1<sh?r0+1:r0;
-                float pixel_width=4.f/scale,weight=clampf((7.5f-dist)/1.5f,0,1);
+                float pixel_width=4.f/scale,weight=clampf((band-dist)/1.5f,0,1);
                 float coverage=clampf((4.5f/2+pixel_width*.5f-dist)/pixel_width,0,1)*.95f;
                 for(int c=0;c<3;c++){
                     float fill=inside?0:field_rows[r0][c]*(1-frac)+field_rows[r1][c]*frac;
