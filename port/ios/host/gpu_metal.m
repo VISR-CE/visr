@@ -119,6 +119,7 @@ Handles index tables of these; 0 is none. */
 	NO): every pass resolves them and drops them, and a pass that loads them
 	first draws the resolved texture back into them (multisample_fill) */
 	BOOL multisample_memoryless;
+	uint64_t written;                /* the write_epoch of the last pass or blit that wrote it */
 }
 @end
 @implementation MetalTexture
@@ -723,12 +724,25 @@ interrupting pass neither reads what those earlier draws wrote nor writes
 what they read, which is checked: it may not sample the back buffer
 (gpu_metal_draw), and its targets may not have been used in the display-sized
 pass's command buffer (native_side_allowed). Otherwise the pass ends and
-reopens, in order. */
+reopens, in order.
+
+The scene's own pass (debug.metal_scene_park) is parked the same way: a pass
+with a depth target whose color target is screen-sized (scene_park_eligible),
+which the game leaves to draw object shadows into the shadow maps and small
+effect targets and then comes back to; at the display's size each return
+otherwise loads and stores tens of megabytes of color and depth. Its
+interrupting passes may also not sample its depth, nor anything a pass or blit
+wrote earlier in its command buffer (write_epoch). */
 static struct
 {
 	/* the back buffer whose pass is open or parked; 0: none */
 	gpu_texture color;
+	/* and its depth-stencil target (the scene's pass), or 0 (the HUD's) */
+	gpu_texture depth;
 	BOOL parked;
+	/* parked: the write_epoch of the parked pass's command buffer */
+	uint64_t epoch;
+	id<MTLTexture> depth_texture;
 	/* parked: the pass's command buffer, encoder and encoder state */
 	id<MTLCommandBuffer> commands;
 	id<MTLRenderCommandEncoder> encoder;
@@ -746,8 +760,18 @@ static struct
 
 static void pass_finish_open(BOOL frame_end);
 
+/* what passes and blits write is marked with the open command buffer's
+epoch: a new one at every commit and park (from epochs), the parked buffer's
+again at unpark; so a texture whose mark is native_pass.epoch was written in
+the parked pass's command buffer */
+static uint64_t write_epoch = 1, epochs = 1;
+
 static void native_park(void)
 {
+	native_pass.epoch = write_epoch;
+	write_epoch = ++epochs;
+	native_pass.depth_texture = pass_depth_texture;
+	pass_depth_texture = nil;
 	native_pass.commands = commands;
 	native_pass.encoder = encoder;
 	native_pass.cache = state_cache;
@@ -809,7 +833,10 @@ static void native_unpark(void)
 	pass_multisample_depth = native_pass.multisample_depth;
 	pass_multisample_depth_record = native_pass.multisample_depth_record;
 	pass_color = native_pass.color;
-	pass_depth = 0;
+	pass_depth = native_pass.depth;
+	pass_depth_texture = native_pass.depth_texture;
+	native_pass.depth_texture = nil;
+	write_epoch = native_pass.epoch;
 	native_pass.commands = nil;
 	native_pass.encoder = nil;
 	native_pass.parked = NO;
@@ -826,7 +853,7 @@ static void pass_finish(BOOL frame_end)
 	one, after the interrupting pass ahead of it */
 	if (native_pass.parked)
 		native_unpark();
-	native_pass.color = 0;
+	native_pass.color = native_pass.depth = 0;
 	pass_finish_open(frame_end);
 }
 
@@ -979,6 +1006,7 @@ static void commit(BOOL frame_end)
 	last_committed = committed;
 	commands = nil;
 	current_serial++;
+	write_epoch = ++epochs;
 	if (frame_end)
 	{
 		frame_started = 0;
@@ -1551,6 +1579,7 @@ static void gpu_metal_texture_copy_level(gpu_texture source, gpu_texture destina
 		[blit endEncoding];
 		use_texture(from);
 		use_texture(to);
+		to->written = write_epoch;
 	}
 }
 
@@ -1582,6 +1611,7 @@ static void gpu_metal_texture_generate_mipmaps(gpu_texture texture, uint32_t bas
 		[blit generateMipmapsForTexture:levels];
 		[blit endEncoding];
 		use_texture(record);
+		record->written = write_epoch;
 	}
 }
 
@@ -2155,6 +2185,25 @@ static void multisample_sources(MetalTexture *color, MetalTexture *depth, BOOL s
 static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFormat depth,
 	const struct multisample_sources *sources, BOOL fill_depth, BOOL fill_stencil);
 
+/* debug.metal_scene_park: a pass with a depth target whose color target is
+at least a million pixels (the screen's, at any render size a device
+draws) is parked when another pass interrupts it, as the HUD's is
+(native_pass); foveated eyes' passes are not */
+static int scene_park = -1;
+
+static BOOL scene_park_eligible(MetalTexture *color, MetalTexture *depth)
+{
+	if (scene_park < 0)
+	{
+		char value[16];
+
+		host_config_string("debug.metal_scene_park", "true", value, sizeof(value));
+		scene_park = !strcmp(value, "true");
+	}
+	return scene_park && color && depth && color->texture.width * color->texture.height >= 1000000 &&
+		!foveation_map(color) && !foveation_map(depth) && !color->samples && !depth->samples;
+}
+
 static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_clear *clear)
 {
 	MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
@@ -2181,13 +2230,13 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	}
 	/* display.native_hud (native_pass): the draws come back to the parked
 	pass; or leave it for a pass that may run ahead of it; or neither */
-	if (native_pass.parked && color == native_pass.color && !depth && !clear)
+	if (native_pass.parked && color == native_pass.color && depth == native_pass.depth && !clear)
 	{
 		native_unpark();
 		return YES;
 	}
 	if (native_pass.color && color != native_pass.color && native_side_allowed(color_record, depth_record) &&
-		(native_pass.parked || (encoder && pass_color == native_pass.color && !pass_depth)))
+		(native_pass.parked || (encoder && pass_color == native_pass.color && pass_depth == native_pass.depth)))
 	{
 		if (native_pass.parked)
 			pass_finish_open(NO);
@@ -2342,6 +2391,16 @@ static BOOL pass_begin(gpu_texture color, gpu_texture depth, const struct gpu_cl
 	pass_color = color;
 	pass_depth = depth;
 	pass_commands = 0;
+	if (color_record)
+		color_record->written = write_epoch;
+	if (depth_record)
+		depth_record->written = write_epoch;
+	/* the scene's pass becomes the one a later pass may run ahead of */
+	if (!native_pass.color && scene_park_eligible(color_record, depth_record))
+	{
+		native_pass.color = color;
+		native_pass.depth = depth;
+	}
 	pass_samples = samples ? samples : 1;
 	if (fill || fill_depth || fill_stencil)
 	{
@@ -4432,20 +4491,31 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 					draw->vertex_shader, draw->pixel_shader);
 			return 0;
 		}
-		/* display.native_hud (native_pass): a draw outside the display-sized
-		pass that samples the back buffer must follow that pass's draws so
-		far, so the pass ends here and the frame goes on in order */
+		/* display.native_hud and debug.metal_scene_park (native_pass): a
+		draw outside the display-sized or scene pass that samples its targets,
+		or (with it parked) anything written earlier in its command buffer,
+		must follow that pass's draws so far, so the pass ends here and the
+		frame goes on in order */
 		if (native_pass.color && draw->color_target != native_pass.color)
 		{
 			int stage;
 
 			for (stage = 0; stage < GPU_STAGE_COUNT; stage++)
-				if (draw->stages[stage].texture == native_pass.color)
+			{
+				gpu_texture sampled = draw->stages[stage].texture;
+				MetalTexture *sampled_record;
+
+				if (!sampled)
+					continue;
+				if (sampled == native_pass.color || (native_pass.depth && sampled == native_pass.depth) ||
+					(native_pass.parked && (sampled_record = texture_record(sampled)) &&
+					sampled_record->written == native_pass.epoch))
 				{
 					native_pass.in_order++;
 					pass_end();
 					break;
 				}
+			}
 		}
 		/* a multisampled pass's targets have in their textures only what
 		earlier passes resolved: a draw that samples one of them ends the
@@ -7826,8 +7896,8 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 				(double)pass_traffic.passes / 600.0, pass_traffic.loaded / 600.0 / 1e6, pass_traffic.stored / 600.0 / 1e6);
 			memset(&pass_traffic, 0, sizeof(pass_traffic));
 			if (native_pass.parks || native_pass.in_order)
-				platform_log("Metal: the HUD's display-sized pass was left %.1f times a frame for a pass that ran ahead of "
-					"it, and ended early %.1f times a frame", native_pass.parks / 600.0, native_pass.in_order / 600.0);
+				platform_log("Metal: the HUD's or the scene's pass was set aside %.1f times a frame for a pass that ran "
+					"ahead of it, and ended early %.1f times a frame", native_pass.parks / 600.0, native_pass.in_order / 600.0);
 			native_pass.parks = native_pass.in_order = 0;
 		}
 #if !TARGET_OS_VISION

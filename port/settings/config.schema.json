@@ -2554,6 +2554,16 @@
             "apple"
           ]
         },
+        "metal_scene_park": {
+          "type": "boolean",
+          "default": true,
+          "description": "The Metal renderer: when the game leaves the scene's pass to draw into another target (object shadows, small effect targets) and comes back, run that pass ahead of the scene's in a command buffer of its own instead of storing and reloading the scene's color and depth, where nothing in between reads them. False: end and reopen the pass, to compare.",
+          "x-environment": "HALO_METAL_SCENE_PARK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "metal_specialize": {
           "type": "boolean",
           "default": true,
