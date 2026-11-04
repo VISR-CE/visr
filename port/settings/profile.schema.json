@@ -70,7 +70,7 @@
           "type": "integer",
           "minimum": 128.0,
           "maximum": 1024.0,
-          "default": 512,
+          "default": 128,
           "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512. Profile values outside the accepted set are refused, not clamped."
         },
         "shadow_minimum_size": {
@@ -570,7 +570,7 @@
               "type": "integer",
               "minimum": 128.0,
               "maximum": 1024.0,
-              "default": 512,
+              "default": 128,
               "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512. Profile values outside the accepted set are refused, not clamped."
             },
             "anti_aliasing": {

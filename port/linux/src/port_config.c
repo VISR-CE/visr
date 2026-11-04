@@ -167,7 +167,7 @@ static const struct config_setting config_settings[] =
 		"Device-profile cap on specular lights among the level's selected dynamic\n"
 		"lights, 0 to 128. Zero keeps all selected lights' highlights. First-person\n"
 		"weapon lights are always retained. Object lighting is unchanged." },
-	{ "display.shadow_map_size", _config_integer, "512", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
+	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
 	{ "display.effect_resolution", _config_string, "\"half\"", "HALO_EFFECT_RESOLUTION", _environment_value, _platform_all,
