@@ -84,6 +84,11 @@ int platform_menu_keyboard(void)
 #endif
 }
 
+#ifdef HALO_ILP32
+/* port/runtime/guest/runtime/guest_host.h: whether the host is a development build */
+extern int host_development_hooks(void);
+#endif
+
 static SDL_Window *platform_window;
 static SDL_GLContext platform_gl_context;
 static SDL_ThreadID platform_event_thread;
@@ -1742,8 +1747,13 @@ void platform_pump_events(void)
 				if (event.key.down)
 					keys_pressed[event.key.scancode] = 1;
 			}
-			/* F9: display.late_look on and off while playing, to feel the difference */
-			if (event.key.down && !event.key.repeat && event.key.scancode == SDL_SCANCODE_F9)
+			/* F9: display.late_look on and off while playing, to feel the difference
+			(the Apple apps: development builds only) */
+			if (event.key.down && !event.key.repeat && event.key.scancode == SDL_SCANCODE_F9
+#ifdef HALO_ILP32
+				&& host_development_hooks()
+#endif
+				)
 				halo_late_look_toggle();
 			if (binding_capture == _binding_capture_waiting && event.key.down && !event.key.repeat &&
 				event.key.scancode != SDL_SCANCODE_F11 && event.key.scancode != SDL_SCANCODE_F12)

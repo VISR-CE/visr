@@ -15,6 +15,9 @@ struct SDL_Window;
 struct SDL_Gamepad;
 /* the guest's window (host_sdl.c), for the GPU backend's present (gpu_gl.c) */
 struct SDL_Window *host_sdl_window(void);
+/* the native Mac app's menu bar items (host_macos_menu.m): the guest's F12 (Release or
+Capture Mouse) or F1 (Back) pressed for it; the argument is a host_macos_shortcut */
+void host_sdl_request_key(int shortcut);
 /* host_main.m: watch for SDL's window left minimized by a scene that went
 away (theater mode's put-away window) and restore it */
 void host_extra_scene_restore_watch(void);
