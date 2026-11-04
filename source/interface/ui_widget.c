@@ -2230,12 +2230,20 @@ static void dispose_widget_stack(
 	return;
 }
 
+/* port: the pointer's remembered targets (pointing at widgets), and what it
+has pending, are dropped with a widget, so they cannot land on freed pool
+memory the next screen now uses (ui_widget.c, "pointer") */
+static void ui_mouse_forget_targets(
+	void);
+
 void ui_widget_delete(
 	struct widget_instance *widget)
 {
 	struct ui_widget_definition *definition;
 	long handler_index;
 	long widget_index;
+
+	ui_mouse_forget_targets();
 
 	match_assert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -5710,6 +5718,21 @@ static boolean ui_mouse_hover_pending = FALSE;
 static boolean ui_mouse_click_pending = FALSE;
 static short ui_mouse_hover_x, ui_mouse_hover_y;
 static short ui_mouse_click_x, ui_mouse_click_y;
+
+/* A screen that goes away (Save and Quit, restart, revert) leaves the
+targets its last draw noted, and the pointer's pending hover, click and
+presses, for the next frame's mouse handling: against widgets that are freed
+and a pool the next screen already uses. */
+static void ui_mouse_forget_targets(
+	void)
+{
+	ui_mouse_target_count = 0;
+	ui_mouse_press_count = 0;
+	ui_mouse_hover_pending = FALSE;
+	ui_mouse_click_pending = FALSE;
+
+	return;
+}
 
 static void ui_mouse_press(
 	short button_index)
