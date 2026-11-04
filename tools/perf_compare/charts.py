@@ -37,11 +37,12 @@ def load_snapshot(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _without_device(row: dict) -> str:
-    """The row's label without a trailing " (host)": a build not measured on the device shown is named for the port and version,
-    not for another device. Mirrored by `withoutDevice` in benchmarks.js."""
-    suffix = f" ({row['host']})"
-    return row["label"].removesuffix(suffix) if row["host"] else row["label"]
+def _without_device(row: dict, group: list[dict]) -> str:
+    """The row's label without a trailing " (device)", where the device is a host, machine or platform of the build's rows: the
+    picker already names the device. Mirrored by `withoutDevice` in benchmarks.js."""
+    names = {name for r in group for name in (r["host"], r.get("machine", ""), r["platform"]) if name}
+    match = re.fullmatch(r"(.*) \((.+)\)", row["label"])
+    return match[1] if match and match[2] in names else row["label"]
 
 
 def device_id(row: dict) -> str:
@@ -296,7 +297,7 @@ def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
     return {port: items[index[port]] for port, items in candidates.items()}
 
 
-def model(rows: list[dict], query: dict, suite: str, device: str | None = None) -> dict:
+def model(rows: list[dict], query: dict, suite: str, device: str | None = None, device_text: dict | None = None) -> dict:
     """Every build of the platform's ports as an entry, with its values for the suite on the device (a label or an id; the
     platform's reference device when omitted) or the reason it has none."""
     platform_rows = [row for row in rows if row["platform"] == query["platform"]]
@@ -310,7 +311,7 @@ def model(rows: list[dict], query: dict, suite: str, device: str | None = None) 
         # A build measured on several devices is named and dated by its rows on the one shown (its labels can carry the device).
         here = [row for row in group if _on(row, device_key)]
         base = {"port": port, "port_name": group[0]["port_name"], "version": version, "build": build,
-                "label": here[0]["label"] if here else _without_device(group[0]), "date": max(row["date"] for row in here or group),
+                "label": _without_device((here or group)[0], group), "date": max(row["date"] for row in here or group),
                 "url": next((row.get("release_url", "") for row in group if row.get("release_url", "")), ""),
                 "gpu_note": query.get("no_gpu_notes", {}).get(port, ""),
                 "port_note": query.get("build_notes", {}).get(port, "")}
@@ -338,13 +339,16 @@ def model(rows: list[dict], query: dict, suite: str, device: str | None = None) 
     built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": shown["label"] if shown else "",
              "device": shown["id"] if shown else ""}
     if query.get("budget"):
-        built["budget_ms"] = _budget_ms(platform_rows, query, device_key)
+        info = (load_device_text() if device_text is None else device_text).get(shown["label"] if shown else "", {})
+        built["budget_ms"] = _budget_ms(platform_rows, query, device_key, info.get("play_fps"))
     return built
 
 
-def _budget_ms(platform_rows: list[dict], query: dict, device: str) -> float | None:
+def _budget_ms(platform_rows: list[dict], query: dict, device: str, play_fps: float | None = None) -> float | None:
     """The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted
-    runs on the device that report the charted metric were held to (the frame cap, else the display rate). Mirrored by `budgetMs` in benchmarks.js."""
+    runs on the device that report the charted metric were held to (the frame cap, else the display rate), or of the device's
+    `play_fps` from devices.toml when it names one (a device whose runs hold different caps for play and cutscenes).
+    Mirrored by `budgetMs` in benchmarks.js."""
     rates = []
     for row in platform_rows:
         if not _on(row, device) or not _matches(row, query["filter"]) or not _has_value(row, query):
@@ -357,6 +361,8 @@ def _budget_ms(platform_rows: list[dict], query: dict, device: str) -> float | N
             if rate > 0:
                 rates.append(rate)
                 break
+    if play_fps and rates:
+        return 1000 / play_fps
     return 1000 / min(rates) if rates else None
 
 
@@ -593,7 +599,7 @@ def caption_parts(built: dict, selected: set[str] | None = None, columns: list[s
     # With no windows listed in the spec, a build that lacks a window another drawn build has is flagged.
     windows = windows or sorted({name for e in drawn for name in (e["value"].get("windows") or [])})
     note = overall_note(built, selected)
-    parts = [(f"{built['box']}. " + (note + " " if note else ""), "")]
+    parts = [(note + " " if note else "", "")]
     for index, e in enumerate(drawn):
         parts.append((e["label"], e.get("url", "")))
         parts.append((f" (build {e['build'] or 'unknown'}, measured {e['date']}"
@@ -626,7 +632,7 @@ def _detail_cells(entry: dict, columns: list[str]) -> tuple[list[str], str]:
 
 def caption_table(built: dict, selected: set[str] | None = None, columns: list[str] | None = None,
                   windows: list[str] | None = None) -> dict | None:
-    """The per-build figures under a chart as a table: a header line (box and Overall note), column headings and one row
+    """The per-build figures under a chart as a table: a header line (the Overall note), column headings and one row
     per drawn build. Mirrored by `captionTable` in benchmarks.js."""
     drawn = _drawn(built, selected)
     if not drawn:

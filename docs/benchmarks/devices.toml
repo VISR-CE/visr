@@ -1,10 +1,13 @@
 # How the benchmarks page's text names a device and the rate its runs were held to, for the devices whose default
 # wording (the article and the label, "the display rate") is wrong. A chart's paragraph holds {device} and {pace}.
+# `play_fps` is the frame rate in play, which sets the end of a frame-cost chart's axis where a device's runs hold more than one cap.
 
 ["Apple TV 4K"]
 name = "an Apple TV 4K (3rd generation)"
 pace = "the frame caps of its profile: 60 fps in play, 30 fps in cutscenes"
+play_fps = 60
 
 ["Apple TV HD"]
 name = "an Apple TV HD"
 pace = "the frame cap of its profile, 30 fps"
+play_fps = 30

@@ -37,7 +37,7 @@ xychart-beta horizontal
 
 Higher is better.
 
-M6 Mac mini. [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (build 0.8.0h, measured 2026-10-28; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
+[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (build 0.8.0h, measured 2026-10-28; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Only measured with the frame cap on, at another size or with other settings.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Only measured with the frame cap on, at another size or with other settings.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (The game halts on a sound engine assertion during this window.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (The two-player level did not start without a person at the keyboard.); [OpenH1 1240](https://github.com/OpenH1/OpenH1/releases/tag/build-1240) (Not run on this device.); [OpenH1 build-1240](https://github.com/OpenH1/OpenH1/releases/tag/build-1240) (The hosted match did not start without a person at the keyboard.).
 
@@ -67,7 +67,7 @@ xychart-beta horizontal
 
 Lower is better.
 
-M1 iPad Pro. [VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.225906, measured 2026-11-03; 9.69 ms median GPU time per rendered frame, 14.46 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet).
+[VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.225906, measured 2026-11-03; 9.69 ms median GPU time per rendered frame, 14.46 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet).
 
 Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
@@ -97,7 +97,7 @@ xychart-beta horizontal
 
 Higher is better.
 
-M1 iPad Pro. [VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.225906, measured 2026-11-03; 96.5% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet).
+[VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.225906, measured 2026-11-03; 96.5% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet).
 
 Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
@@ -116,9 +116,9 @@ config:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
-    title "Campaign: CPU and GPU Frame Time (ms) against the 33.3 ms frame budget, Apple TV 4K"
+    title "Campaign: CPU and GPU Frame Time (ms) against the 16.7 ms frame budget, Apple TV 4K"
     x-axis "Port and version" ["VISR 0.6.8"]
-    y-axis "Milliseconds per frame" 0 --> 33.3
+    y-axis "Milliseconds per frame" 0 --> 16.7
     bar [6.5]
     bar [14.1]
 ```
@@ -127,7 +127,7 @@ xychart-beta horizontal
 
 Lower is better.
 
-Apple TV 4K. [VISR 0.6.8 (Apple TV 4K)](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 6.47 ms median CPU time per frame, 14.07 ms median GPU time per rendered frame).
+[VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 6.47 ms median CPU time per frame, 14.07 ms median GPU time per rendered frame).
 
 Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.).
 
@@ -157,7 +157,7 @@ xychart-beta horizontal
 
 Higher is better.
 
-Apple TV 4K. [VISR 0.6.8 (Apple TV 4K)](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 99.9% of frames on time).
+[VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 99.9% of frames on time).
 
 Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.).
 
@@ -187,7 +187,7 @@ xychart-beta horizontal
 
 Lower is better.
 
-M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 3.53 ms median CPU time per frame, 7.07 ms median GPU time per rendered frame).
+[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 3.53 ms median CPU time per frame, 7.07 ms median GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build reports neither CPU nor GPU time per frame.).
 
@@ -217,7 +217,7 @@ xychart-beta horizontal
 
 Higher is better.
 
-M2 Vision Pro. [VISR 0.6.3 (Vision Pro)](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
+[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
 
 <!-- END CHARTS -->
 

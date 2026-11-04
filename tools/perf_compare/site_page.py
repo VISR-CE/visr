@@ -144,8 +144,8 @@ def caption_html(table: dict | None) -> str:
         cells = "".join(f'<td data-label="{escape(name, quote=True)}">{escape(cell)}</td>' for name, cell in zip(table["headings"], row["cells"]))
         body += (f'<tr><th scope="row">{anchor(row["label"], row["url"])} <span class="build-meta">build {escape(row["build"])}</span></th>'
                  f'<td data-label="Measured">{escape(row["measured"])}</td>{cells}<td data-label="Notes">{escape(row["notes"])}</td></tr>')
-    note = f" {escape(table['note'])}" if table["note"] else ""
-    return (f'<table class="bench-table"><caption>{escape(table["box"])}.{note}</caption>'
+    caption = f"<caption>{escape(table['note'])}</caption>" if table["note"] else ""
+    return (f'<table class="bench-table">{caption}'
             f'<thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
 
 

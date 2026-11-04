@@ -238,7 +238,7 @@ def test_caption_table_has_one_row_per_drawn_build_with_the_detail_columns_and_n
     assert table["rows"][0]["cells"] == ["4.15", "5"] and table["rows"][0]["notes"] == "b30 not measured yet"
     assert table["rows"][1]["cells"] == ["\u2013", "\u2013"] and table["rows"][1]["notes"] == "GPU time per frame not available (OpenGL)"
     html = site_page.caption_html(table)
-    assert html.count("<tr>") == 3 and "<caption>M6 Mac mini.</caption>" in html and 'data-label="Median GPU time (ms)"' in html
+    assert html.count("<tr>") == 3 and "<caption>" not in html and 'data-label="Median GPU time (ms)"' in html
     assert charts.caption_table({**built, "entries": [{**one, "value": None}]}, None, []) is None
 
 
@@ -1199,12 +1199,28 @@ def test_the_device_picked_decides_which_rows_a_chart_draws():
     assert drawn(k4)["visr@0.6.8@20261101.231341"]["value"]["avg"] != drawn(hd)["visr@0.6.8@20261101.231341"]["value"]["avg"]
     assert len(drawn(hd)) > len(drawn(k4))
     # A build measured on both devices is named for the device shown; one measured only elsewhere, for the port and version.
-    assert drawn(k4)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8 (Apple TV 4K)"
-    assert drawn(hd)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8 (Apple TV HD)"
+    # The picker names the device, so labels carry no device suffix.
+    assert drawn(k4)["visr@0.6.8@20261101.231341"]["label"] == drawn(hd)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8"
     only_hd = next(e for e in k4["entries"] if e["version"] == "0.6.3")
     assert (only_hd["label"], only_hd["reason"]) == ("VISR 0.6.3", "not measured on this device")
-    # The frame budget follows the device's own runs.
-    assert k4["budget_ms"] and hd["budget_ms"]
+    # The axis ends at the budget for the device's play cap: 60 fps on the 4K (its cutscene runs hold 30), 30 fps on the HD.
+    assert k4["budget_ms"] == pytest.approx(1000 / 60) and hd["budget_ms"] == pytest.approx(1000 / 30)
+
+
+def test_every_devices_frame_budget_is_its_play_cap_or_the_lowest_cap_of_its_runs():
+    rows = snapshot()
+    texts = charts.load_device_text()
+    expected = {"A10X iPad Pro": 30, "A14 iPad Air": 60, "A14 iPhone 12 Pro": 60, "A18 Pro iPhone 16 Pro": 60,
+                "A19 Pro iPhone 17 Pro": 60, "M1 iPad Pro": 120, "Apple TV 4K": 60, "Apple TV HD": 30, "M2 Vision Pro": 90}
+    seen = set()
+    for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows):
+        if not item["query"].get("budget"):
+            continue
+        for device in charts.devices([row for row in rows if row["platform"] == item["query"]["platform"]]):
+            built = charts.model(rows, item["query"], "campaign", device["label"], texts)
+            assert built["budget_ms"] == pytest.approx(1000 / expected[device["label"]]), device["label"]
+            seen.add(device["label"])
+    assert seen == set(expected)
 
 
 def test_the_device_can_be_named_by_label_or_id_and_unknown_names_draw_nothing():
@@ -1241,7 +1257,7 @@ def test_the_site_page_opens_on_each_charts_default_device_and_carries_the_devic
     html = (ROOT / "docs/site/benchmarks.html").read_text(encoding="utf-8")
     assert "Measured on an Apple TV 4K (3rd generation) from runs presented at the frame caps" in html
     assert '<script type="application/json" id="chart-devices">' in html and "Apple TV HD" in html.split('id="chart-devices"')[1].split("</script>")[0]
-    assert "<caption>Apple TV 4K." in html and "<caption>Apple TV HD." not in html
+    assert "<caption>Apple TV" not in html and "(Apple TV 4K)" not in html
     assert all(item["box"] for item in specs)
 
 
@@ -1259,7 +1275,7 @@ for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) {
   const platformRows = rows.filter((r) => r.platform === spec.query.platform);
   out[spec.slug + '/devices'] = m.devices(platformRows, spec.box).map((d) => [d.id, d.label]);
   for (const device of m.devices(platformRows)) for (const suite of m.SUITES.concat(['overall'])) {
-    const built = m.model(rows, spec.query, suite, device.label);
+    const built = m.model(rows, spec.query, suite, device.label, deviceText);
     out[[spec.slug, device.label, suite].join('/')] = [built.box, built.device, built.budget_ms ?? null, m.chartSource(spec, built, suite),
       built.entries.map((e) => [m.entryKey(e), e.label, e.date, e.default, e.kind, e.reason]), m.captionTable(built, null, spec.query.details, spec.query.windows),
       m.sectionParagraph(spec, built, deviceText)];
@@ -1283,3 +1299,33 @@ console.log(JSON.stringify(out));
                     [[charts.entry_key(e), e["label"], e["date"], e["default"], e["kind"], e["reason"]] for e in built["entries"]],
                     charts.caption_table(built, None, item["query"].get("details"), item["query"].get("windows")),
                     charts.section_paragraph(item, built, texts)], (slug, device["label"], suite)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_a_build_with_numbers_has_an_empty_note_in_the_table_not_not_measured():
+    rows = snapshot()
+    specs = [{**s, "slug": site_page.slug(s)} for s in charts.load_specs(ROOT / "docs/benchmarks/charts", rows) if s["query"]["platform"] == "Apple TV"]
+    script = """
+const fs = require('fs');
+const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
+const rows = m.parseCsv(fs.readFileSync(process.argv[1] + '/docs/benchmarks/results.csv', 'utf8'));
+const out = {};
+const specs = JSON.parse(fs.readFileSync(0, 'utf8'));
+const group = m.groupByPlatform(specs)[0];
+for (const device of ['Apple TV 4K', 'Apple TV HD']) {
+  const state = { models: {}, selected: {}, reasons: { exact: {}, patterns: {} } };
+  for (const spec of group) {
+    state.models[spec.slug] = m.model(rows, spec.query, 'campaign', device);
+    state.selected[spec.slug] = new Set(state.models[spec.slug].entries.filter((e) => e.default).map(m.entryKey));
+  }
+  const shared = m.sharedRows(group, state);
+  const spec = group[0];
+  const table = m.captionTable(state.models[spec.slug], state.selected[spec.slug], spec.query.details, spec.query.windows);
+  out[device] = m.unionTable(group, spec, shared, table, state).rows.map((r) => [r.label, r.notes]);
+}
+console.log(JSON.stringify(out));
+"""
+    done = subprocess.run(["node", "-e", script, str(ROOT)], input=json.dumps(specs), capture_output=True, text=True, check=True)
+    notes = json.loads(done.stdout)
+    for device in ("Apple TV 4K", "Apple TV HD"):
+        assert notes[device] == [["VISR 0.6.8", ""]], device

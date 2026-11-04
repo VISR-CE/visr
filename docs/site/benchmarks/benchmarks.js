@@ -70,7 +70,11 @@ const deviceId = (row) => (row.machine || row.chip ? `${row.machine ?? ""}|${row
 
 // The row's label without a trailing " (host)": a build not measured on the device shown is named for the port and version, not
 // for another device. Mirrors _without_device in charts.py.
-const withoutDevice = (row) => (row.host && row.label.endsWith(` (${row.host})`) ? row.label.slice(0, -(row.host.length + 3)) : row.label);
+const withoutDevice = (row, group) => {
+  const names = new Set(group.flatMap((r) => [r.host, r.machine, r.platform]).filter(Boolean));
+  const match = /^(.*) \((.+)\)$/.exec(row.label);
+  return match && names.has(match[2]) ? match[1] : row.label;
+};
 
 // The platform's devices as {id, label}, the one named `first` (a label or an id) leading and the rest by label. A device's
 // label is its host name that starts with its chip ("M6 Mac mini") when it has one, else the first host by name.
@@ -174,7 +178,7 @@ function defaultBuilds(entries, overall) {
   return new Map([...candidates].map(([port, items]) => [port, items[index.get(port)]]));
 }
 
-function model(rows, query, suite, device = null) {
+function model(rows, query, suite, device = null, deviceText = {}) {
   const platformRows = rows.filter((row) => row.platform === query.platform);
   const shownDevice = pickDevice(platformRows, device);
   const deviceKey = shownDevice ? shownDevice.id : "\0";
@@ -187,11 +191,11 @@ function model(rows, query, suite, device = null) {
   const entries = [];
   for (const group of groups.values()) {
     const first = group[0];
-    // A build measured on several devices is named and dated by its rows on the one shown (its labels can carry the device).
+    // A build measured on several devices is named and dated by its rows on the one shown; the label loses a trailing "(device)".
     const here = group.filter((row) => deviceId(row) === deviceKey);
     const mine = here.length ? here : group;
     const entry = { port: first.port, port_name: first.port_name, version: first.version, build: first.build,
-      label: here.length ? here[0].label : withoutDevice(first), date: mine.map((r) => r.date).reduce((a, b) => (a > b ? a : b)),
+      label: withoutDevice((here.length ? here : group)[0], group), date: mine.map((r) => r.date).reduce((a, b) => (a > b ? a : b)),
       url: (group.find((r) => r.release_url) || {}).release_url || "",
       gpu_note: (query.no_gpu_notes || {})[first.port] || "", port_note: (query.build_notes || {})[first.port] || "" };
     if (suite === "overall") {
@@ -215,13 +219,13 @@ function model(rows, query, suite, device = null) {
   const chosen = defaultBuilds(entries, suite === "overall");
   for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
   const built = { overall: suite === "overall", pair: Boolean(query.pair), entries, box: shownDevice ? shownDevice.label : "", device: shownDevice ? shownDevice.id : "" };
-  if (query.budget) built.budget_ms = budgetMs(platformRows, query, deviceKey);
+  if (query.budget) built.budget_ms = budgetMs(platformRows, query, deviceKey, ((deviceText || {})[built.box] || {}).play_fps);
   return built;
 }
 
 // The frame budget in milliseconds for a per-frame-cost chart: 1000 divided by the lowest rate the charted runs on the device
 // that report the metric were held to (the frame cap, else the display rate). Mirrors _budget_ms in charts.py.
-function budgetMs(platformRows, query, device) {
+function budgetMs(platformRows, query, device, playFps) {
   const rates = [];
   for (const row of platformRows) {
     if (deviceId(row) !== device || !matches(row, query.filter) || !hasValue(row, query)) continue;
@@ -230,6 +234,7 @@ function budgetMs(platformRows, query, device) {
       if (Number.isFinite(rate) && rate > 0) { rates.push(rate); break; }
     }
   }
+  if (playFps && rates.length) return 1000 / playFps;
   return rates.length ? 1000 / Math.min(...rates) : null;
 }
 const round1 = (value) => Math.floor(value * 10 + 0.5) / 10;
@@ -407,7 +412,7 @@ function captionParts(built, selected, columns, windows) {
   // With no windows listed in the spec, a build that lacks a window another drawn build has is flagged.
   if (!windows || !windows.length) windows = [...new Set(shown.flatMap((e) => e.value.windows || []))].sort();
   const note = overallNote(built, selected);
-  const parts = [[`${built.box}. ` + (note ? note + " " : ""), ""]];
+  const parts = [[note ? note + " " : "", ""]];
   shown.forEach((e, i) => {
     parts.push([e.label, e.url || ""]);
     parts.push([` (build ${e.build || "unknown"}, measured ${e.date}` + (columns.length ? `; ${detailText(e, columns)}` : "") + missingWindows(e, windows)
@@ -457,7 +462,7 @@ function plainReason(reason, reasons) {
   return reason;
 }
 
-if (typeof module !== "undefined") module.exports = { devices, pickDevice, deviceId, fillDeviceText, sectionParagraph, captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
+if (typeof module !== "undefined") module.exports = { unionTable, sharedRows, groupByPlatform, devices, pickDevice, deviceId, fillDeviceText, sectionParagraph, captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
 
 // ---- Page ----
 function readHash() {
@@ -711,7 +716,7 @@ function drawCaption(node, table) {
       el("span", { class: "build-meta" }, `build ${row.build}`)),
     cell("td", { "data-label": "Measured" }, row.measured), ...row.cells.map((text, i) => cell("td", { "data-label": table.headings[i] }, text)),
     cell("td", { "data-label": "Notes" }, row.notes)));
-  node.append(el("table", { class: "bench-table" }, el("caption", {}, `${table.box}.` + (table.note ? " " + table.note : "")),
+  node.append(el("table", { class: "bench-table" }, ...(table.note ? [el("caption", {}, table.note)] : []),
     el("thead", {}, head), el("tbody", {}, ...body)));
 }
 
@@ -763,7 +768,9 @@ function unionTable(group, spec, shared, table, state) {
       }
       const entry = state.models[spec.slug].entries.find((x) => entryKey(x) === entryKey(e));
       const missing = entry && /does not report (GPU|CPU)/.exec(entry.reason ? plainReason(entry.reason, state.reasons) : "");
-      const notes = parts.length ? parts.join("; ") : missing ? `${missing[1]} not reported` : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
+      // A build with numbers in any view and nothing to say has an empty note, not "not measured".
+      const hasNumbers = group.some((other) => state.models[other.slug].entries.some((x) => entryKey(x) === entryKey(e) && x.value !== null));
+      const notes = parts.length ? parts.join("; ") : missing ? `${missing[1]} not reported` : hasNumbers ? "" : entry && entry.reason ? plainReason(entry.reason, state.reasons) : "not measured";
       return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells: columns.map((c) => c.cells[i]), notes };
     }) };
 }
@@ -783,7 +790,7 @@ function drawUnionCaption(node, table) {
     el("td", { "data-label": "Measured" }, row.measured),
     ...row.cells.map((text, i) => el("td", { "data-label": table.headings[i], class: table.marks[i] ? "mark" : "" }, text)),
     el("td", { "data-label": "Notes" }, row.notes)));
-  node.append(el("table", { class: "bench-table fixed", style: "min-width:640px" }, el("caption", {}, `${table.box}.` + (table.note ? " " + table.note : "")),
+  node.append(el("table", { class: "bench-table fixed", style: "min-width:640px" }, ...(table.note ? [el("caption", {}, table.note)] : []),
     colgroup, el("thead", {}, head), el("tbody", {}, ...body)));
   if (table.footnote) node.append(el("p", { class: "bench-footnote" }, table.footnote));
 }
@@ -838,7 +845,7 @@ async function start() {
   }
 
   function recompute(spec, keepSelection) {
-    state.models[spec.slug] = model(rows, spec.query, state.suite, state.devices[spec.query.platform]);
+    state.models[spec.slug] = model(rows, spec.query, state.suite, state.devices[spec.query.platform], deviceText);
     const built = state.models[spec.slug];
     const requested = params.get(spec.slug);
     if (!keepSelection) {
