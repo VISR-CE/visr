@@ -51,10 +51,11 @@ static inline char const *halo_network_rejection_message(unsigned code)
 		return "This server doesn't allow VPN connections.";
 	case HALO_NETWORK_REJECTION_LINK_INVALID:
 		return "This server rejected your Discord link, which VISR does not support yet.";
+	case 13:
+		return "Too many players from your address are in this game.";
 	case 7:
 	case 11:
 	case 12:
-	case 13:
 		return "The server refused your join request.";
 	default:
 		return NULL;
