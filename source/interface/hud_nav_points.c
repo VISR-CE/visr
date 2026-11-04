@@ -696,10 +696,11 @@ void custom_render_nav_point(
 	position = *position_pointer;
 
 	{
-		real_point3d cam_pos;
-
-		unit_get_camera_position(local_player_get_player_index(local_player_index) == NONE ? NONE : player_get(local_player_get_player_index(local_player_index))->unit_index, &cam_pos);
-		distance = distance3d(&cam_pos, position_pointer);
+		/* port: from the camera as it is drawn, to the point as it is drawn.
+		The unit's camera position is its tick-state origin on foot but a seat
+		marker as drawn in a seat, so the number stepped once a tick while
+		strafing and mixed the two in a seat. */
+		distance = distance3d(&render.camera.position, position_pointer);
 	}
 
 	if (distance > 15.f)

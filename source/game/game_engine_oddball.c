@@ -848,6 +848,7 @@ static void oddball_engine_weapon_update(
 		NONE,
 		NONE,
 		oddball_globals.current_ball_owner[weapon->object.owner_team_index]);
+	game_engine_set_goal_object(weapon->object.owner_team_index, weapon_index);
 
 	/* (a client of the distributed netcode has the ball where the host
 	puts it) */

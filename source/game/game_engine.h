@@ -552,6 +552,12 @@ real_point3d *game_engine_get_goal_position(
 	real_point3d *position,
 	short goal_index);
 
+/* port: the goal's position comes from this object's tick state; drawn from
+where the object is drawn (game_engine_get_goal_position) */
+void game_engine_set_goal_object(
+	short goal_index,
+	long object_index);
+
 void game_engine_set_goal_position(
 	short goal_index,
 	union real_point3d const *position,

@@ -914,6 +914,10 @@ short debug_player_color = NONE;
 /* port: slayer's kill-in-order target uses the player's absolute index as
 its goal index, so every player needs a goal slot */
 struct netgame_goal global_goal[MAX(32, MULTIPLAYER_MAXIMUM_PLAYERS)] = { 0 };
+/* port: the object a goal's position was read from (NONE for none), so the
+frames between the ticks can draw the waypoint where the object is drawn.
+Kept apart from the goal, whose size is the game's. */
+static long global_goal_object_index[NUMBEROF(global_goal)]; /* the index plus one; 0 is none */
 struct game_variant global_variant = { 0 };
 struct game_engine *game_engine = NULL;
 
@@ -5176,6 +5180,7 @@ void game_engine_clear_goal_position(
 	if (!VALID_INDEX(goal_index, NUMBEROF(global_goal)))
 		return;
 	csmemset(&global_goal[goal_index], 0, sizeof(struct netgame_goal));
+	global_goal_object_index[goal_index] = 0;
 
 	return;
 }
@@ -5397,15 +5402,19 @@ void game_engine_render_nav_points(
 				{
 					if (goal_matches_player(player, player_index, goal_index))
 					{
-						short render_type = hud_get_nav_point_render_type(
+						real_point3d goal_position;
+						short render_type;
+
+						game_engine_get_goal_position(&goal_position, (short)goal_index);
+						render_type = hud_get_nav_point_render_type(
 							local_player_index,
 							&head_position,
-							&global_goal[goal_index].position,
+							&goal_position,
 							NONE);
 
 						custom_render_nav_point(
 							local_player_index,
-							&global_goal[goal_index].position,
+							&goal_position,
 							global_goal[goal_index].nav_index,
 							render_type);
 					}
@@ -6695,8 +6704,38 @@ real_point3d *game_engine_get_goal_position(
 		0xFE2,
 		global_goal[index].in_use);
 	*position = global_goal[index].position;
+	/* port: a goal is set in a tick, from the object's tick state, while the
+	frames between the ticks draw the object between its last two ticks. Moved
+	by how far the drawn object is from its tick state, the waypoint moves with
+	the object (a falling flag's waypoint no longer steps at 30 Hz). */
+	if (VALID_INDEX(index, NUMBEROF(global_goal)) &&
+		global_goal_object_index[index] != 0)
+	{
+		long object_index = global_goal_object_index[index] - 1;
+		real_matrix4x3 *drawn = render_interpolation_object_node_matrices(object_index);
+
+		if (drawn)
+		{
+			real_matrix4x3 *tick = (real_matrix4x3 *)object_header_block_get(
+				object_index, &object_get(object_index)->object.node_matrices);
+
+			position->x += drawn->position.x - tick->position.x;
+			position->y += drawn->position.y - tick->position.y;
+			position->z += drawn->position.z - tick->position.z;
+		}
+	}
 
 	return position;
+}
+
+void game_engine_set_goal_object(
+	short goal_index,
+	long object_index)
+{
+	if (VALID_INDEX(goal_index, NUMBEROF(global_goal)))
+		global_goal_object_index[goal_index] = object_index == NONE ? 0 : object_index + 1;
+
+	return;
 }
 
 void game_engine_set_goal_position(
@@ -6718,6 +6757,7 @@ void game_engine_set_goal_position(
 	global_goal[goal_index].team_index = team_index;
 	global_goal[goal_index].position.z += height + 0.63f;
 	global_goal[goal_index].player_index = player_index;
+	global_goal_object_index[goal_index] = 0;
 
 	return;
 }
@@ -6981,6 +7021,7 @@ void game_engine_initialize_for_new_map(
 		game_engine_verify_current_map();
 		game_engine_intialize_queued_sounds();
 		csmemset(global_goal, 0, sizeof(global_goal));
+		csmemset(global_goal_object_index, 0, sizeof(global_goal_object_index));
 		game_engine_globals.next_team_index = 0;
 		csmemset(game_engine_betrayal_penalty, 0, sizeof(game_engine_betrayal_penalty));
 		game_engine_vehicle_home_count = NONE;
