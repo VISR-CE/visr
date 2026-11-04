@@ -6,6 +6,7 @@
 #include "host_macos.h"
 #include "ios_host.h"
 #include "host_external.h"
+#include "host_external_session.h"
 #include "host_benchmark.h"
 #include "host_shader_upload.h"
 #include "host_frame_counter_stats.h"
@@ -182,6 +183,12 @@ void host_external_snapshot(struct host_external_snapshot *out) {
     out->refresh_hertz = (int)host_macos_refresh_rate();
     snprintf(out->name, sizeof(out->name), "Mac game window");
     snprintf(out->reason, sizeof(out->reason), "native");
+}
+/* (the Mac game window is a window: no external display and nothing to mirror) */
+void host_external_displays(struct host_external_displays *out) {
+    memset(out, 0, sizeof(*out));
+    out->accessory_available = -1;
+    out->use = HOST_EXTERNAL_DISPLAY_NONE;
 }
 int host_external_cycle(int direction) { (void)direction; return 0; }
 int host_external_force(const char *mode) { return !mode || !*mode || !strcmp(mode, "preferred"); }

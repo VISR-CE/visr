@@ -32,6 +32,7 @@
 #include "host_profile.h"
 #include "host_config.h"
 #include "host_external.h"
+#include "host_external_session.h"
 #include "host_low_power.h"
 #include "benchmark_metrics.h"
 #include "benchmark_plan.h"
@@ -202,7 +203,14 @@ static NSDictionary *output_now(void) {
     int capped = !output.external && host_sdl_output_cap(&capped_width, &capped_height);
     int requested = output.external ? 0 : host_sdl_output_cap_requested();
     if (capped) { drawable_width = capped_width; drawable_height = capped_height; }
+    /* the displays around the output: a display the system mirrors this device to while the game draws the device's
+       own size ("display_use": "mirrored") is neither a built-in run nor an external one (host_external_session.h) */
+    struct host_external_displays displays;
+    host_external_displays(&displays);
     return @{ @"kind": output.external ? @"external" : @"builtin", @"width": @(output.width),
+        @"display_use": @(host_external_display_use_name((enum host_external_display_use)displays.use)),
+        @"other_screens": @(displays.other_screens), @"mirroring_screens": @(displays.mirroring_screens),
+        @"video_route": @(displays.video_route), @"accessory_available": @(displays.accessory_available),
         @"height": @(output.height), @"refresh_hertz": @(output.refresh_hertz), @"name": @(output.name),
         @"reason": @(output.reason), @"offered_modes": modes, @"drawable_width": @(drawable_width),
         @"drawable_height": @(drawable_height), @"output_cap_height": @(capped ? capped_height : 0),
@@ -1646,6 +1654,7 @@ int host_benchmark_start(const char *mode, int drawable_lines, int base_lines, i
     suite_output = output_now();
     screen_hertz = [suite_output[@"refresh_hertz"] doubleValue];
     if (!output_waiting && screen_hertz != 60.0) flag(@"refresh_not_60");
+    if ([suite_output[@"display_use"] isEqual:@"mirrored"]) flag(@"external_display_mirrored");
     if(external_modes.count && !output_waiting && host_external_ready() &&
         host_benchmark_notice("Display mode selected","Waiting for the display to settle before measuring.",PAUSE_SECONDS,NULL)) {
         host_benchmark_request_finish();
@@ -2060,6 +2069,20 @@ void host_benchmark_end(const char *status_name, const char *note) {
         interrupted = 1;
         flag(@"output_changed");
         note = "the display connected, disconnected, or changed mode during this run";
+    }
+    /* (mirroring starts and stops without the output changing: a run mirrored at its start or its end is marked
+       mirrored, and is not evidence for the built-in screen's targets) */
+    {
+        NSDictionary *now = output_now();
+        BOOL mirrored = [run_output[@"display_use"] isEqual:@"mirrored"] || [now[@"display_use"] isEqual:@"mirrored"];
+        if (mirrored) {
+            flag(@"external_display_mirrored");
+            if (![run_output[@"display_use"] isEqual:@"mirrored"]) {
+                NSMutableDictionary *marked = [(run_output ?: now) mutableCopy];
+                marked[@"display_use"] = @"mirrored";
+                run_output = marked;
+            }
+        }
     }
     if (atomic_load(&run_low_power) || low_power_now() || host_low_power_notices() != run_power_notices) {
         interrupted = 1;
