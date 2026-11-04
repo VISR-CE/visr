@@ -5278,6 +5278,11 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 		key->coverage_alpha = 0;
 	}
 	key->alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
+	/* multisampled: an alpha-tested surface covers a pixel's samples by how
+	far its alpha is past the reference (nv2a_pixel_shader_key) */
+	if (target_samples > 1 && key->alpha_test_function && !D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
+		shader_dialect.sample_mask)
+		key->alpha_test_samples = (unsigned char)target_samples;
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&
