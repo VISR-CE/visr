@@ -115,8 +115,11 @@ void dead_camera_new(
 	}
 	else
 	{
+		/* port: a multiplayer player waiting to respawn stays on the death
+		camera, as on the Xbox; the follow camera after
+		multiplayer_switch_timer is off (a host's option comes later) */
 		switch_timer = game_engine_running()
-			? dead_camera_constants.multiplayer_switch_timer
+			? FLT_MAX
 			: dead_camera_constants.singleplayer_switch_timer;
 	}
 	camera->switch_timer = switch_timer;
