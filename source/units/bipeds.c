@@ -4343,10 +4343,12 @@ boolean biped_update(
 					biped_index,
 					unit_get(biped_index)->unit.current_weapon_index);
 
-				/* (port: and with no weapon, which prevents it in the
-				Xbox game: a gametype's loadout of none; not from a
-				vehicle's seat, which holds no weapon either) */
-				if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE) ||
+				/* (port: the Xbox game prevents it with no weapon; only a
+				gametype's loadout of none, which it has not, keeps the
+				melee; not from a vehicle's seat, which holds no weapon
+				either) */
+				if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE &&
+					game_engine_unarmed_loadout()) ||
 					(weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index))) &&
 					biped->unit.current_zoom_level==NONE)
 				{

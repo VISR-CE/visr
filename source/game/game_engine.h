@@ -573,6 +573,14 @@ boolean game_engine_allow_dynamic_lighting(
 boolean game_engine_infinite_grenades(
 	long player_index);
 
+/* port: TRUE in a multiplayer game whose custom loadout gives players no
+weapon (the PC version's loadout of none, which the Xbox game has not): the
+one case in which an unarmed player melees and throws grenades; the Xbox
+game prevents both without a weapon (weapon_prevents_melee_attack(NONE) and
+weapon_prevents_grenade_throwing(NONE) are TRUE) */
+boolean game_engine_unarmed_loadout(
+	void);
+
 boolean game_engine_has_shield(
 	long player_index);
 
