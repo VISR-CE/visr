@@ -25,9 +25,18 @@ const sources = [
   ...(v.canPlayType('video/mp4; codecs="hvc1"') ? ['shape.mp4'] : []),
   'shape-h264.mp4'
 ];
+// A scene with `av1` (its codec string) also has shape-av1.mp4, tried first where the browser says it decodes that
+// size smoothly and efficiently (a hardware decoder): software AV1 at 4096 wide and 60 fps would drop frames.
+let av1Settled = !scene.av1 || !navigator.mediaCapabilities;
+if (!av1Settled) {
+  navigator.mediaCapabilities.decodingInfo({type: 'file', video: {contentType: `video/mp4; codecs="${scene.av1}"`,
+    width: 4096, height: 2048, bitrate: 6e6, framerate: 60}})
+    .then(info => { if (info.supported && info.smooth && info.powerEfficient) sources.unshift('shape-av1.mp4'); }, () => {})
+    .then(() => { av1Settled = true; loadVideo(); });
+}
 let sourceIndex = 0;
 function loadVideo() {
-  if (scene.still || !autoplay() || !gl || !near || v.hasAttribute('src')) return;
+  if (!av1Settled || scene.still || !autoplay() || !gl || !near || v.hasAttribute('src')) return;
   v.src = sceneAsset(sources[sourceIndex]);
   v.load();
   playVideo();

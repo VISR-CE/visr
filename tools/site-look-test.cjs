@@ -4,14 +4,14 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../docs/site/look.js'), 'utf8');
 
-function harness({reduced = true, saveData = false, webgl = false, hevc = true} = {}) {
+function harness({reduced = true, saveData = false, webgl = false, hevc = true, av1 = null, caps = null} = {}) {
   const images = [], timers = [], raf = [];
   const gl = new Proxy({}, {get: (_, k) => k === 'getShaderParameter' || k === 'getProgramParameter' ? () => true : () => ({})});
   const elements = {};
   for (const id of ['look-stage', 'look-box', 'look-gl', 'look-video', 'look-poster', 'look-frame', 'look-frame-path', 'look-heading', 'look-ticks', 'look-hint', 'look-motion', 'look-close', 'look-glare', 'look-glare-rim', 'look-glare-edge']) {
     elements[id] = {
       style: {setProperty() {}}, handlers: {}, attributes: {}, classes: new Set(), textContent: '',
-      dataset: {scenes: JSON.stringify([{folder:'lifeboat',label:'Lifeboats over Halo'}]), assetBase:'https://media.visr.gg/look/'},
+      dataset: {scenes: JSON.stringify([{folder:'lifeboat',label:'Lifeboats over Halo',...(av1?{av1}:{})}]), assetBase:'https://media.visr.gg/look/'},
       setAttribute(k,v) { this.attributes[k] = v; },
       hasAttribute(k) { return Object.hasOwn(this.attributes,k) || k === 'src' && Boolean(this.src); },
       removeAttribute(k) { delete this.attributes[k]; if (k === 'src') delete this.src; },
@@ -28,7 +28,7 @@ function harness({reduced = true, saveData = false, webgl = false, hevc = true} 
   }
   const doc = {hidden:false, documentElement:{style:{overflow:''}}, getElementById:k=>elements[k], querySelector:()=>({textContent:''}), addEventListener() {}};
   const intersections = [];
-  const context = {document:doc, navigator:{connection:{saveData,addEventListener(){}}}, matchMedia:q=>({matches:q.includes('coarse') ? false : reduced,addEventListener(){}}),
+  const context = {document:doc, navigator:{connection:{saveData,addEventListener(){}},...(caps?{mediaCapabilities:{decodingInfo:async()=>caps}}:{})}, matchMedia:q=>({matches:q.includes('coarse') ? false : reduced,addEventListener(){}}),
     window:{}, innerWidth:1200,innerHeight:800,devicePixelRatio:1,performance:{now:()=>0},getComputedStyle:el=>({display:el===elements['look-motion']?'none':'flex'}),
     addEventListener(){},removeEventListener(){},requestAnimationFrame:fn=>raf.push(fn),
     setTimeout:fn=>(timers.push(fn),timers.length),clearTimeout:id=>{if(id)timers[id-1]=null;},
@@ -40,6 +40,7 @@ function harness({reduced = true, saveData = false, webgl = false, hevc = true} 
   return {elements,doc,key,images,timers,raf,near:()=>intersections[0]([{isIntersecting:true}]),visible:(isIntersecting=true)=>intersections[1]([{isIntersecting}])};
 }
 function check(name, fn) {try {fn();console.log('PASS',name);}catch(e){console.error('FAIL',name,e.message);process.exitCode=1;}}
+async function checkAsync(name, fn) {try {await fn();console.log('PASS',name);}catch(e){console.error('FAIL',name,e.message);process.exitCode=1;}}
 check('No heavy scene assets before intersection',()=>{const h=harness({webgl:true,reduced:false});assert.equal(h.images.length,0);assert.equal(h.elements['look-video'].src,undefined);});
 check('Reduced motion loads still and mask without video',()=>{const h=harness({webgl:true});h.near();assert.equal(h.images.length,2);assert.equal(h.elements['look-video'].src,undefined);});
 check('Save-Data loads still and mask without video',()=>{const h=harness({webgl:true,reduced:false,saveData:true});h.near();assert.equal(h.images.length,2);assert.equal(h.elements['look-video'].src,undefined);});
@@ -78,4 +79,19 @@ check('Scene textures and videos use the media base with anonymous CORS',()=>{
   v.handlers.error[0]();
   assert.equal(v.src,'https://media.visr.gg/look/lifeboat/shape-h264.mp4');
   assert.equal(h.elements['look-poster'].src,'look/lifeboat/poster.jpg');
+});
+
+checkAsync('Hardware AV1 is tried first, then HEVC',async()=>{
+  const h=harness({webgl:true,reduced:false,av1:'av01.0.13M.08',caps:{supported:true,smooth:true,powerEfficient:true}});h.near();
+  await new Promise(r=>setImmediate(r));
+  const v=h.elements['look-video'];
+  assert.equal(v.src,'https://media.visr.gg/look/lifeboat/shape-av1.mp4');
+  v.handlers.error[0]();
+  assert.equal(v.src,'https://media.visr.gg/look/lifeboat/shape.mp4');
+});
+
+checkAsync('AV1 without an efficient decoder is skipped',async()=>{
+  const h=harness({webgl:true,reduced:false,av1:'av01.0.13M.08',caps:{supported:true,smooth:true,powerEfficient:false}});h.near();
+  await new Promise(r=>setImmediate(r));
+  assert.equal(h.elements['look-video'].src,'https://media.visr.gg/look/lifeboat/shape.mp4');
 });
