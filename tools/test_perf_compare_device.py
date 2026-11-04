@@ -27,7 +27,7 @@ def test_battle_plan_hosts_the_level_and_holds_the_commands_until_it_runs():
 
 def test_cutscene_and_bot_plans():
     cut = device_plan.plan('x70-bridge')
-    assert cut['init'][-1] == '(begin (x70_bridge) (print "XPDONE"))' and cut['exit_after'] > 25 + 126
+    assert cut['init'][-1] == '(begin (sleep_until (>= (game_time) 2500) 1) (x70_bridge) (print "XPDONE"))' and cut['exit_after'] > 25 + (2500 + 3790) / 30
     bot = device_plan.plan('b30-bot')
     assert bot['debug']['test_input'] == '"bot:1"' and '(sleep 1800)' in bot['init'][-1]
     with pytest.raises(ValueError):

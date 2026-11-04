@@ -97,6 +97,10 @@ map = "d40"
 kind = "cutscene"
 script = "x70_bridge"
 expected_ticks = 3790
+# the level's own opening cinematic (cutscene_insertion) runs from tick 2 to about tick 2400 and shares the cinematic
+# state and camera with this script; called inside it, only the script's first half shows (the camera returns to the
+# player when the opening ends). The script starts once game time passes this tick, after the opening.
+start_tick = 2500
 reference_shot = "x70-bridge"
 
 [cutscene-rescue]

@@ -97,7 +97,7 @@ def test_cutscene_ends_on_the_print_and_calls_the_script_after_the_lead_in():
     hooks = Hooks(game)
     out = consolewin.run_window(window, game.console, hooks, game)
     call = [(t, line) for t, line in game.sent_at if 'x70_bridge' in line]
-    assert call and call[0][1] == '(begin (x70_bridge) (print "XPDONE"))' and call[0][0] >= 20
+    assert call and call[0][1] == '(begin (sleep_until (>= (game_time) 2500) 1) (x70_bridge) (print "XPDONE"))' and call[0][0] >= 20
     assert out['ended'] == 'print' and out['seconds'] == pytest.approx(126.3, abs=0.2)
     assert [name for name, _ in hooks.log] == ['prepare', 'begin', 'mid', 'end']
 
@@ -120,7 +120,7 @@ def test_cutscene_without_prints_ends_when_game_time_reaches_the_expected_tick()
     window = WINDOWS['x70-bridge']
     game = FakeGame(lambda line, t: str(int((t - 20) * 30) + 100) if line == '(game_time)' else None, prints=True)
     out = consolewin.run_window(window, game.console, Hooks(game), game, prints=False)
-    assert out['ended'] == 'ticks' and out['seconds'] == pytest.approx(window['expected_ticks'] / 30, abs=1.0)
+    assert out['ended'] == 'ticks' and out['seconds'] == pytest.approx((window['start_tick'] + window['expected_ticks'] - 100) / 30, abs=1.0)
 
 
 def test_bot_window_runs_from_start_to_end_print_and_reads_fingerprints_at_both_ends():

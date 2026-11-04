@@ -16,7 +16,7 @@ COMMON = {'suite', 'map', 'kind', 'reference_shot', 'fingerprints'}
 ALLOWED = {
     'opening': COMMON | {'warmup_s', 'sample_s'},
     'battle': COMMON | {'warmup_s', 'sample_s', 'commands', 'encounters'},
-    'cutscene': COMMON | {'script', 'expected_ticks'},
+    'cutscene': COMMON | {'script', 'expected_ticks', 'start_tick'},
     'bot': COMMON | {'test_input', 'start_tick', 'ticks'},
     'match': COMMON | {'warmup_s', 'sample_s', 'test_input', 'players'},
     'coop': COMMON | {'warmup_s', 'sample_s', 'players'},

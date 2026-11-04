@@ -159,10 +159,12 @@ def run_cutscene(window, console, hooks, clock, prints=True, lead_in=20.0):
     clock.sleep(lead_in)
     hooks.prepare()
     expected = window['expected_ticks']
-    budget = expected / TICKS_PER_SECOND
     start_tick = number(console.query('(game_time)', clock))
+    wait_ticks = max(0, window.get('start_tick', 0) - (start_tick or 0))
+    budget = (expected + wait_ticks) / TICKS_PER_SECOND
     mark = console.mark()
-    console.send(f'(begin ({window["script"]}) (print "XPDONE"))')
+    wait = f'(sleep_until (>= (game_time) {window["start_tick"]}) 1) ' if 'start_tick' in window else ''
+    console.send(f'(begin {wait}({window["script"]}) (print "XPDONE"))')
     hooks.begin()
     started = clock.now()
     shot_done, ended = False, 'timeout'
@@ -176,7 +178,7 @@ def run_cutscene(window, console, hooks, clock, prints=True, lead_in=20.0):
             break
         if not prints and start_tick is not None:
             now_tick = number(console.query('(game_time)', clock, timeout=1.0))
-            if now_tick is not None and now_tick >= start_tick + expected:
+            if now_tick is not None and now_tick >= start_tick + wait_ticks + expected:
                 ended = 'ticks'
                 break
         clock.sleep(0.1)

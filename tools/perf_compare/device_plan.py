@@ -35,8 +35,9 @@ def plan(key: str, table: dict | None = None) -> dict:
             init += win['commands']
             length = INIT_AFTER_S + win['warmup_s'] + win['sample_s'] + SLACK_S
         elif kind == 'cutscene':
-            init.append(f'(begin ({win["script"]}) (print "XPDONE"))')
-            length = INIT_AFTER_S + win['expected_ticks'] / TICKS_PER_SECOND * 1.5 + SLACK_S
+            wait = f'(sleep_until (>= (game_time) {win["start_tick"]}) 1) ' if 'start_tick' in win else ''
+            init.append(f'(begin {wait}({win["script"]}) (print "XPDONE"))')
+            length = INIT_AFTER_S + (win.get('start_tick', 0) + win['expected_ticks'] * 1.5) / TICKS_PER_SECOND + SLACK_S
         else:
             init.append(f'(begin (sleep_until (>= (game_time) {win["start_tick"]}) 1) (print "XP_START") '
                         f'(sleep {win["ticks"]}) (print "XP_END") (game_speed 0))')

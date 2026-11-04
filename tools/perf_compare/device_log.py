@@ -89,7 +89,8 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
         return {'note': 'no window start in the logs'}
     # Console windows start at the init marker; openings count from the level's first frames.
     if kind == 'cutscene':
-        first, last = marker, marker + window['expected_ticks'] / 30
+        first = marker + window.get('start_tick', 0) / 30
+        last = first + window['expected_ticks'] / 30
     elif kind == 'bot':
         first = marker + window['start_tick'] / 30
         last = first + window['ticks'] / 30
