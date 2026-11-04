@@ -46,8 +46,9 @@ int main(void)
 	for (code = 7; code <= 13; code++)
 		assert(halo_network_rejection_message(code) != NULL);
 	assert(!strcmp(halo_network_rejection_message(7), "The server refused your join request."));
-	for (code = 11; code <= 13; code++)
+	for (code = 11; code <= 12; code++)
 		assert(!strcmp(halo_network_rejection_message(code), "The server refused your join request."));
+	assert(!strcmp(halo_network_rejection_message(13), "Too many players from your address are in this game."));
 	assert(halo_network_rejection_message(14) == NULL);
 	assert(halo_network_rejection_message(UINT32_MAX) == NULL);
 	assert(refusal[0] == 1 && refusal[3] == 5);
