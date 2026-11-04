@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zlib.h>
 #include "texture_policy.h"
 
 static const char *const names[] = { "decal", "decals", "display", "monitor", "monitors", "registry", "keypad",
@@ -272,6 +273,134 @@ static void main_menu_art(void)
 	texture_policy_catalog_free(c);
 }
 
+
+/* A tiny cache-version-5 map: a scenario reaching a shader that holds bitmap 3, and the globals reaching another that
+holds bitmap 5. Tag i has id 0xE1740000 + i, its data at relative 0x200 + 0x100 * i. */
+#define MAP_BASE 0x803A6000u
+static void put32(unsigned char *map, size_t at, uint32_t value)
+{
+	map[at] = (unsigned char)value; map[at + 1] = (unsigned char)(value >> 8);
+	map[at + 2] = (unsigned char)(value >> 16); map[at + 3] = (unsigned char)(value >> 24);
+}
+static void put_ref(unsigned char *map, size_t at, const char *group, unsigned target)
+{
+	int k;
+
+	for (k = 0; k < 4; k++)
+		map[at + k] = (unsigned char)group[3 - k];
+	put32(map, at + 12, 0xE1740000u + target);
+}
+static size_t tiny_map(unsigned char *map, const unsigned char pixels[2][8])
+{
+	static const char *const groups[6] = { "scnr", "soso", "matg", "bitm", "soso", "bitm" };
+	static const char *const names[6] = { "levels\\ui\\ui", "shaders\\scene", "globals\\globals", "bitmaps\\scene",
+		"shaders\\globals", "bitmaps\\globals" };
+	const size_t base = 0x800;
+	size_t i;
+
+	memset(map, 0, 0x1500);
+	put32(map, 4, 5);
+	put32(map, 0x10, (uint32_t)base);
+	put32(map, base, MAP_BASE + 0x20);
+	put32(map, base + 12, 6);
+	for (i = 0; i < 6; i++)
+	{
+		size_t entry = base + 0x20 + i * 0x20, data = 0x200 + i * 0x100;
+		int k;
+
+		for (k = 0; k < 4; k++)
+			map[entry + 3 - k] = (unsigned char)groups[i][k];
+		put32(map, entry + 0xC, 0xE1740000u + (uint32_t)i);
+		put32(map, entry + 0x10, MAP_BASE + 0x100 + (uint32_t)i * 0x20);
+		put32(map, entry + 0x14, MAP_BASE + (uint32_t)data);
+		memcpy(map + base + 0x100 + i * 0x20, names[i], strlen(names[i]) + 1);
+		if (i == 3 || i == 5)   /* one 4x4 DXT1 bitmap, level 0 at the end of the map */
+		{
+			size_t at = base + data, array = 0xA00 + (i - 3) * 0x40;
+			size_t bitmap = base + array;
+
+			put32(map, at + 0x60, 1);
+			put32(map, at + 0x64, MAP_BASE + (uint32_t)array);
+			map[bitmap + 4] = 4; map[bitmap + 6] = 4; map[bitmap + 12] = 14; map[bitmap + 14] = 1;
+			put32(map, bitmap + 0x18, (uint32_t)(0x1400 + (i - 3) * 8));
+		}
+	}
+	put_ref(map, base + 0x200 + 1 * 0x100 + 0xA4, "bitm", 3);   /* the scene's shader holds bitmap 3 as its base */
+	put_ref(map, base + 0x200 + 0 * 0x100 + 0x20, "soso", 1);   /* the scenario reaches the shader */
+	put_ref(map, base + 0x200 + 4 * 0x100 + 0xA4, "bitm", 5);
+	put_ref(map, base + 0x200 + 2 * 0x100 + 0x20, "soso", 4);   /* the globals reach the other */
+	memcpy(map + 0x1400, pixels[0], 8);
+	memcpy(map + 0x1408, pixels[1], 8);
+	return 0x1410;
+}
+
+static void replacements_and_reach(void)
+{
+	static const unsigned char pixels[2][8] = { { 1, 2, 3, 4, 5, 6, 7, 8 }, { 9, 10, 11, 12, 13, 14, 15, 16 } };
+	static unsigned char map[0x1500];
+	struct texture_policy_table t = table(NULL, 0);
+	struct texture_policy_replacement scene = { "BITMAPS\\Scene", 0, 0 }, other = { "bitmaps\\globals", 0, 0 };
+	struct texture_policy_catalog *c;
+	struct texture_policy_decision *d;
+	struct texture_policy_key *keys;
+	char error[128];
+	uint64_t scene_hash = 0, globals_hash = 0;
+	size_t size = tiny_map(map, pixels), n, i;
+
+	scene.crc = (uint32_t)crc32(0L, pixels[0], 8);
+	other.crc = (uint32_t)crc32(0L, pixels[1], 8) ^ 1;   /* pixels other than the ones it was drawn for */
+	/* plain: both are upscaled, and no tracking lists nothing as unreached */
+	c = texture_policy_catalog_new();
+	assert(texture_policy_add_map(c, map, size, error, sizeof(error)) == 0);
+	assert(texture_policy_unreached(c, &keys) == 0);
+	free(keys);
+	n = texture_policy_classify(c, &t, &d, NULL, NULL);
+	assert(n == 2);
+	for (i = 0; i < n; i++)
+	{
+		assert(d[i].result != TEXTURE_POLICY_ORIGINAL);
+		if (!scene_hash) scene_hash = d[i].hash; else globals_hash = d[i].hash;
+	}
+	free(d);
+	/* the replacement list: the scene bitmap (tag folded by case) is original, the one with other pixels is not */
+	{
+		struct texture_policy_replacement list[2];
+
+		list[0] = scene; list[1] = other;
+		texture_policy_catalog_replace(c, list, 2);
+		n = texture_policy_classify(c, &t, &d, NULL, NULL);
+		assert(n == 2);
+		for (i = 0; i < n; i++)
+			assert((d[i].result == TEXTURE_POLICY_ORIGINAL) == (d[i].hash == scene_hash));
+		free(d);
+		texture_policy_catalog_replace(c, NULL, 0);
+		n = texture_policy_classify(c, &t, &d, NULL, NULL);
+		for (i = 0; i < n; i++)
+			assert(d[i].result != TEXTURE_POLICY_ORIGINAL);
+		free(d);
+	}
+	texture_policy_catalog_free(c);
+	/* tracking: the scenario reaches the scene's bitmap; only the globals reach the other */
+	c = texture_policy_catalog_new();
+	texture_policy_catalog_track_reach(c, NULL, 0);
+	assert(texture_policy_add_map(c, map, size, error, sizeof(error)) == 0);
+	assert(texture_policy_unreached(c, &keys) == 1);
+	assert(keys[0].hash == globals_hash && keys[0].hash != scene_hash);
+	free(keys);
+	texture_policy_catalog_free(c);
+	/* a bitmap a reached widget holds but the app never shows is listed too (tag path folded by case) */
+	{
+		static const char *const never[] = { "BITMAPS\\Scene" };
+
+		c = texture_policy_catalog_new();
+		texture_policy_catalog_track_reach(c, never, 1);
+		assert(texture_policy_add_map(c, map, size, error, sizeof(error)) == 0);
+		assert(texture_policy_unreached(c, &keys) == 2);
+		free(keys);
+		texture_policy_catalog_free(c);
+	}
+}
+
 int main(void)
 {
 	main_menu_art();
@@ -282,6 +411,7 @@ int main(void)
 	ascii_case_and_pin_logs();
 	material_rule();
 	embedded_material_block();
+	replacements_and_reach();
 	puts("texture_policy_probe: ok");
 	return 0;
 }

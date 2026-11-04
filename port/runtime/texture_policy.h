@@ -103,7 +103,22 @@ struct texture_policy_bitmap
 	int alpha_tested;
 	const struct texture_policy_reference *refs;
 	size_t ref_count;
+	int has_crc;     /* crc is the CRC-32 of the level-0 pixels (the checksum port/assets/titles records) */
+	uint32_t crc;
+	int unreached;   /* the map's tag graph does not reach this bitmap from its roots (set only while tracking) */
 };
+
+/* A bitmap the game draws a replacement over instead of its own pixels (VISR's title art): the level-0 CRC-32 of the
+original pixels, so another language's or a modified map, whose pixels differ, is not taken for it. */
+struct texture_policy_replacement
+{
+	const char *tag;
+	int index;
+	uint32_t crc;
+};
+/* the titles port/assets/titles/titles.json lists, by tools/embed_title_replacements.py */
+extern const struct texture_policy_replacement texture_title_replacements[];
+extern const size_t texture_title_replacement_count;
 
 struct texture_policy_decision
 {
@@ -129,6 +144,19 @@ int texture_policy_add_map(struct texture_policy_catalog *catalog, const unsigne
 /* reads and inflates a .map file, then texture_policy_add_map */
 int texture_policy_add_map_file(struct texture_policy_catalog *catalog, const char *path, char *error,
 	size_t error_size);
+/* A texture none of whose bitmaps stands in the list is as before; one all of whose bitmaps do (matching tag, index
+and level-0 CRC) is classified original: the replacement is drawn, so upscaling the original is wasted work. The list
+must outlive texture_policy_classify. Call before it; NULL clears. */
+void texture_policy_catalog_replace(struct texture_policy_catalog *catalog,
+	const struct texture_policy_replacement *list, size_t count);
+/* Before adding a map: follow the map's tag references from its roots (the scenario and the UI widget collections)
+and record which bitmaps they reach, for texture_policy_unreached. not_drawn lists tag paths a widget holds but
+the app never shows (the Xbox demo's wait screen): reached or not, they count as unreached. */
+void texture_policy_catalog_track_reach(struct texture_policy_catalog *catalog, const char *const *not_drawn,
+	size_t not_drawn_count);
+/* The keys of the textures no root reaches (nothing draws them): never the case unless tracking, and a key any
+bitmap reaches is not listed. Free *out. */
+size_t texture_policy_unreached(const struct texture_policy_catalog *catalog, struct texture_policy_key **out);
 /* the decisions for every keyed bitmap, sorted by hash, width and height; free() *out. log may be NULL */
 size_t texture_policy_classify(struct texture_policy_catalog *catalog, const struct texture_policy_table *table,
 	struct texture_policy_decision **out, texture_policy_log_proc log, void *log_context);
