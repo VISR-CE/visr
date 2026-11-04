@@ -28,12 +28,19 @@ struct entry
 	unsigned flags;
 	int out_of_scope;
 	enum texture_policy_treatment treatment;
+	int has_crc, drawn;       /* drawn: some bitmap of it is reached (or reach is not tracked) */
+	uint32_t crc;
 };
 struct texture_policy_catalog
 {
 	struct entry *entries;
 	size_t count, capacity;
 	unsigned *slots;          /* open addressing: entry index + 1, 0 empty */
+	const struct texture_policy_replacement *replacements;
+	size_t replacement_count;
+	int track_reach;
+	const char *const *not_drawn;
+	size_t not_drawn_count;
 };
 
 static const char *const hud_groups[] = { "unhi", "wphi", "grhi", "hudg", "hud#", "DeLa", "mgs2", "vcky", "mply", 0 };
@@ -318,6 +325,9 @@ int texture_policy_add_bitmap(struct texture_policy_catalog *c, const struct tex
 		c->slots[slot] = (unsigned)c->count;
 	}
 	e->alpha_tested |= b->alpha_tested;
+	if (b->has_crc && !e->has_crc)
+		e->has_crc = 1, e->crc = b->crc;
+	e->drawn |= !b->unreached;
 	for (i = 0; i < e->tag_count; i++)
 		if (e->tags[i].index == b->index && !strcmp(e->tags[i].tag, b->tag))
 			break;
@@ -343,6 +353,68 @@ int texture_policy_add_bitmap(struct texture_policy_catalog *c, const struct tex
 	}
 	rescope(e);
 	return 0;
+}
+
+void texture_policy_catalog_replace(struct texture_policy_catalog *c, const struct texture_policy_replacement *list,
+	size_t count)
+{
+	c->replacements = list;
+	c->replacement_count = list ? count : 0;
+}
+
+void texture_policy_catalog_track_reach(struct texture_policy_catalog *c, const char *const *not_drawn,
+	size_t not_drawn_count)
+{
+	c->track_reach = 1;
+	c->not_drawn = not_drawn;
+	c->not_drawn_count = not_drawn ? not_drawn_count : 0;
+}
+
+static int listed_not_drawn(const struct texture_policy_catalog *c, const char *tag)
+{
+	size_t i;
+
+	for (i = 0; i < c->not_drawn_count; i++)
+		if (same_text(c->not_drawn[i], tag))
+			return 1;
+	return 0;
+}
+
+size_t texture_policy_unreached(const struct texture_policy_catalog *c, struct texture_policy_key **out)
+{
+	size_t i, n = 0;
+
+	*out = NULL;
+	if (!c->track_reach || !(*out = calloc(c->count ? c->count : 1, sizeof(**out))))
+		return 0;
+	for (i = 0; i < c->count; i++)
+		if (c->entries[i].has_hash && !c->entries[i].drawn)
+		{
+			(*out)[n].hash = c->entries[i].hash;
+			(*out)[n].width = c->entries[i].width;
+			(*out)[n].height = c->entries[i].height;
+			n++;
+		}
+	return n;
+}
+
+/* every bitmap of the texture is one the list replaces */
+static int replaced(const struct texture_policy_catalog *c, const struct entry *e)
+{
+	size_t i, j;
+
+	if (!c->replacement_count || !e->has_crc || !e->tag_count)
+		return 0;
+	for (i = 0; i < e->tag_count; i++)
+	{
+		for (j = 0; j < c->replacement_count; j++)
+			if (c->replacements[j].index == e->tags[i].index && c->replacements[j].crc == e->crc &&
+				same_text(c->replacements[j].tag, e->tags[i].tag))
+				break;
+		if (j == c->replacement_count)
+			return 0;
+	}
+	return 1;
 }
 
 /* ---------- reading a map (xbox_map.py) */
@@ -402,6 +474,9 @@ int texture_policy_add_map(struct texture_policy_catalog *c, const unsigned char
 	struct map_tag *tags = NULL, **placed = NULL;
 	struct holder *holders = NULL;
 	size_t holder_count = 0, holder_capacity = 0, placed_count = 0, k;
+	uint32_t (*edges)[2] = NULL;   /* tag index to tag index, while tracking reach */
+	size_t edge_count = 0, edge_capacity = 0;
+	char *reached = NULL;
 	int result = -1;
 
 #define OFF(p) ((size_t)tag_data + ((size_t)(uint32_t)(p) - TAG_BASE))
@@ -457,6 +532,30 @@ int texture_policy_add_map(struct texture_policy_catalog *c, const unsigned char
 			const unsigned char *at = data + start + position;
 			uint32_t target, j;
 
+			if (c->track_reach && position + 16 <= end - start)
+			{
+				/* any tag reference: the reversed group, then a name pointer and length, then the tag's id,
+				whose low half is its index in the tag table */
+				uint32_t id = u32(data, start + position + 12), to = id & 0xFFFFu;
+
+				if (to < count && tags[to].id == id && at[0] == (unsigned char)tags[to].group[3] &&
+					at[1] == (unsigned char)tags[to].group[2] && at[2] == (unsigned char)tags[to].group[1] &&
+					at[3] == (unsigned char)tags[to].group[0] && to != (uint32_t)(t - tags))
+				{
+					if (edge_count == edge_capacity)
+					{
+						size_t capacity = edge_capacity ? edge_capacity * 2 : 4096;
+						uint32_t (*grown)[2] = realloc(edges, capacity * sizeof(*grown));
+
+						if (!grown)
+							FAIL("out of memory");
+						edges = grown;
+						edge_capacity = capacity;
+					}
+					edges[edge_count][0] = (uint32_t)(t - tags);
+					edges[edge_count++][1] = to;
+				}
+			}
 			if (memcmp(at, "mtib", 4) || position + 16 > end - start)
 				continue;
 			target = u32(data, start + position + 12);
@@ -487,6 +586,30 @@ int texture_policy_add_map(struct texture_policy_catalog *c, const unsigned char
 				h->alpha_tested = alpha_tested && !strcmp(h->ref.slot, "env.base");
 			}
 		}
+	}
+	if (c->track_reach)   /* what the scenario and the UI widget collections reach, through any tag reference */
+	{
+		size_t head = 0, queue_count = 0, e;
+		uint32_t *queue = malloc((count ? count : 1) * sizeof(*queue));
+
+		reached = calloc(count ? count : 1, 1);
+		if (!queue || !reached)
+		{
+			free(queue);
+			FAIL("out of memory");
+		}
+		for (i = 0; i < count; i++)
+			if (!strcmp(tags[i].group, "scnr") || !strcmp(tags[i].group, "Soul"))
+				reached[i] = 1, queue[queue_count++] = i;
+		while (head < queue_count)
+		{
+			uint32_t from = queue[head++];
+
+			for (e = 0; e < edge_count; e++)
+				if (edges[e][0] == from && !reached[edges[e][1]])
+					reached[edges[e][1]] = 1, queue[queue_count++] = edges[e][1];
+		}
+		free(queue);
 	}
 	for (i = 0; i < count; i++)   /* xbox_map.bitmaps */
 	{
@@ -532,6 +655,7 @@ int texture_policy_add_map(struct texture_policy_catalog *c, const unsigned char
 			bitmap.alpha_tested = tested;
 			bitmap.refs = refs;
 			bitmap.ref_count = ref_count;
+			bitmap.unreached = reached && (!reached[i] || listed_not_drawn(c, tags[i].name));
 			if (bitmap.type == 0 && !(bitmap.flags & LINEAR))
 			{
 				int32_t pixels = (int32_t)u32(data, b + 0x18);
@@ -544,6 +668,8 @@ int texture_policy_add_map(struct texture_policy_catalog *c, const unsigned char
 
 					bitmap.has_hash = 1;
 					bitmap.hash = texture_override_hash(data + start, bytes < size - start ? bytes : size - start);
+					if (bytes <= size - start)
+						bitmap.has_crc = 1, bitmap.crc = (uint32_t)crc32(0L, data + start, (uInt)bytes);
 				}
 			}
 			if (texture_policy_add_bitmap(c, &bitmap))
@@ -560,6 +686,8 @@ done:
 	free(tags);
 	free(placed);
 	free(holders);
+	free(edges);
+	free(reached);
 	return result;
 #undef OFF
 #undef FAIL
@@ -782,6 +910,8 @@ size_t texture_policy_classify(struct texture_policy_catalog *c, const struct te
 		int companion = e->treatment == TEXTURE_POLICY_EMISSIVE || e->treatment == TEXTURE_POLICY_MULTIPURPOSE;
 
 		if (e->out_of_scope)
+			results[i] = TEXTURE_POLICY_ORIGINAL, kinds[i] = TEXTURE_POLICY_KIND_ORIGINAL;
+		else if (replaced(c, e))   /* a drawn replacement stands in for it: nothing to upscale */
 			results[i] = TEXTURE_POLICY_ORIGINAL, kinds[i] = TEXTURE_POLICY_KIND_ORIGINAL;
 		else if (pins[i])
 		{
