@@ -702,11 +702,11 @@ def gametype_select_layout(root, widgets, bitmaps):
         if leaf == 'locked_gametype_icon':
             c.attrib.update(x=str(left + (width - 140) // 2 + 6), y=str(top + 14 + 114 - 20))
     name = widgets['xbox/main_menu/gametype_select/gametype_right_name']
-    name.attrib.update(left=str(left + 19), top=str(top + 152), width=str(width - 38), height='30',
+    name.attrib.update(left=str(left + 19), top=str(top + 138), width=str(width - 38), height='30',
                        font=r'ui\large_ui', color=BLUE)
     # (the PC rules lines, empty here: the rules text below replaces them)
     data = widgets['xbox/main_menu/gametype_select/gametype_right_data']
-    data.attrib.update(left=str(left + 19), top=str(top + 190), width=str(width - 38), height='160',
+    data.attrib.update(left=str(left + 19), top=str(top + 172), width=str(width - 38), height='180',
                        font=r'ui\large_ui', color=BLUE)
     # the action bar, as the server browser's: X, Y, B and A with their captions
     items = (('y_butn', 'CREATE NEW', 132, 'playlist_button_new'),
