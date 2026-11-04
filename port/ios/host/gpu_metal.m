@@ -107,6 +107,9 @@ Handles index tables of these; 0 is none. */
 	view's offset in its buffer */
 	id<MTLTexture> view_parent;
 	unsigned long view_offset;
+	/* and that texture's handle, so that using or checking the view uses or checks its parent too
+	(native_side_allowed, the native_pass draw check) */
+	gpu_texture view_parent_handle;
 	/* multisampling (gpu_texture_multisample): the multisampled storage
 	draws go to, which every pass resolves into texture as it ends; its
 	samples a pixel (0: none); and whether it lacks texture's pixels (new, or
@@ -1015,10 +1018,32 @@ static void commit(BOOL frame_end)
 	}
 }
 
+/* a view's parent (gpu_metal_texture_copy_rects), while the view still is one of it; else nil */
+static MetalTexture *texture_view_parent(MetalTexture *record)
+{
+	MetalTexture *parent;
+
+	if (!record || !record->view_parent)
+		return nil;
+	parent = texture_record(record->view_parent_handle);
+	return parent && parent->texture == record->view_parent ? parent : nil;
+}
+
 static void use_texture(MetalTexture *record)
 {
 	if (record)
+	{
 		record->used = current_serial;
+		/* (a view shares its parent's memory: a pass that writes the parent
+		is no longer independent of what used the view) */
+		if (record->view_parent)
+		{
+			MetalTexture *parent = texture_view_parent(record);
+
+			if (parent)
+				parent->used = current_serial;
+		}
+	}
 }
 
 static void use_buffer(MetalBuffer *record)
@@ -1512,6 +1537,7 @@ static void gpu_metal_texture_copy_rects(gpu_texture source, const struct gpu_te
 							pass_end();
 						to->texture = texture;
 						to->view_parent = from->texture;
+						to->view_parent_handle = source;
 						to->view_offset = offset;
 					}
 				}
@@ -4509,7 +4535,9 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 					continue;
 				if (sampled == native_pass.color || (native_pass.depth && sampled == native_pass.depth) ||
 					(native_pass.parked && (sampled_record = texture_record(sampled)) &&
-					sampled_record->written == native_pass.epoch))
+					(sampled_record->written == native_pass.epoch ||
+					(sampled_record->view_parent && texture_view_parent(sampled_record) &&
+					texture_view_parent(sampled_record)->written == native_pass.epoch))))
 				{
 					native_pass.in_order++;
 					pass_end();
