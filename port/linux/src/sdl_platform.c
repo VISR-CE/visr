@@ -1922,6 +1922,15 @@ int platform_binding_capture_poll(int *input)
 	return result;
 }
 
+#ifdef HALO_ILP32
+/* the Apple guest has no menu pointer of its own (the host holds the mouse in
+play and lets it go while a menu is up; F12 still releases and recaptures it) */
+void platform_mouse_menus_changed(BOOL up)
+{
+	platform_mouse_capture(!up && !input_state.mouse_released);
+}
+#endif
+
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
 /* ---------- the menus' pointer */
 

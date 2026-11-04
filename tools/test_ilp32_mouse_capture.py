@@ -1,7 +1,7 @@
 """The iOS and Mac guest holds the mouse while the game is played and lets it go in the menus.
 
 The guest's `halo_ui_pointer_update` (the ILP32 build, d3d8_device.c) asks the host to hold the mouse
-(`platform_mouse_capture`) when no menu is up, and to release it when one is, once per change.
+(`platform_mouse_menus_changed`) when no menu is up, and to release it when one is, once per change.
 """
 from pathlib import Path
 import shutil
@@ -23,7 +23,7 @@ static int scene = 0, captures, held = -1;
 static int halo_scene_class(void) { return scene; }
 static void host_sdl_set_hint(const char *name, const char *value) { (void)name; (void)value; }
 static void platform_menus_set_active(BOOL active) { (void)active; }
-static void platform_mouse_capture(BOOL capture) { captures++; held = capture; }
+static void platform_mouse_menus_changed(BOOL up) { captures++; held = !up; }
 '''
 MAIN = r'''
 int main(void) {
@@ -48,9 +48,9 @@ def run_probe(tmp_path, *, fault=False):
     assert compiler, "A C compiler is required for the mouse capture probe"
     tmp_path.mkdir(parents=True, exist_ok=True)
     stub = function(SOURCE, "halo_ui_pointer_update")
-    assert "platform_mouse_capture(!pointer_free)" in stub
+    assert "platform_mouse_menus_changed(pointer_free)" in stub
     if fault:
-        stub = mutated(stub, "platform_mouse_capture(!pointer_free)", "(void)pointer_free")
+        stub = mutated(stub, "platform_mouse_menus_changed(pointer_free)", "(void)pointer_free")
     source = tmp_path / "probe.c"
     source.write_text(PRELUDE + "\n" + stub + "\n" + MAIN)
     binary = tmp_path / "probe"

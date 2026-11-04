@@ -95,6 +95,10 @@ float halo_look_read_age(void);
 /* render_interpolation.c: display.late_look on and off while playing (F9) */
 void halo_late_look_toggle(void);
 void platform_mouse_capture(BOOL capture);
+#ifdef HALO_ILP32
+/* a menu came up or went away (d3d8_device.c, halo_ui_pointer_update) */
+void platform_mouse_menus_changed(BOOL up);
+#endif
 
 /* main thread only; a no-op elsewhere */
 void platform_pump_events(void);

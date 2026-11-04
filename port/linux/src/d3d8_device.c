@@ -3034,7 +3034,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	if ((menus_active != 0) != pointer_free)
 	{
 		pointer_free = menus_active != 0;
-		platform_mouse_capture(!pointer_free);
+		platform_mouse_menus_changed(pointer_free);
 	}
 	/* The native sender's audio picker belongs to the in-game menus. This
 	runs every frame, so only changes cross to the host. */
