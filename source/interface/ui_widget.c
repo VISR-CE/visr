@@ -6632,9 +6632,12 @@ static void ui_widgets_process_mouse(
 					}
 					break;
 				case _ui_mouse_target_list_slot:
-					if (!ui_mouse_widget_has_focus(target->widget))
+					/* (a slot is chosen by a click: stepping the list to
+					it on a hover slides another card under the pointer,
+					and the next move steps again) */
+					if (!ui_mouse_widget_has_focus(target->widget->parent))
 						halo_ui_pointer_feedback(1);
-					ui_mouse_step_list_to_slot(target->widget);
+					ui_mouse_give_focus(target->widget->parent);
 					break;
 				}
 			}
