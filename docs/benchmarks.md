@@ -14,7 +14,7 @@ Campaign suite, newest build of each port.
 
 ### Mac
 
-Measured on a Mac mini M6 with the matched-stock settings and a 2560×1920 drawable, the frame cap and vsync off. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. A build with no uncapped run is drawn from its display-locked run, marked in its label, with its settings named in the table. The FPS view shows average fps with the 1% low fps directly below it.
+Measured on a Mac mini M6 with the matched-stock settings and a 2560×1920 drawable, the frame cap and vsync off. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. A build with no uncapped run is drawn from its run tied to the display's refresh rate, with the display rate and its settings named in the table. The FPS view shows average fps.
 
 ```mermaid
 ---

@@ -1425,12 +1425,12 @@ def test_a_port_with_only_display_locked_runs_on_a_device_shows_in_the_cpu_and_g
     specs = {s["name"]: s for s in charts.load_specs(ROOT / "docs/benchmarks/charts", rows)}
     built = charts.model(rows, specs["1-mac"]["query"], "campaign", "M4 Mac mini", texts)
     entry = next(e for e in built["entries"] if e["port"] == "openh1")
-    assert entry["value"]["fallback"]["cap"] == "60" and "display-locked" in entry["value"]["fallback"]["note"]
-    assert "defaults settings, not matched-stock" in entry["value"]["fallback"]["note"]
-    assert entry["value"]["avg"] == pytest.approx(7.06, abs=0.01) and entry["value"]["low"] == pytest.approx(6.66, abs=0.01)
-    assert "OpenH1 1240 (capped 60)" in charts.source(specs["1-mac"], built, "campaign")
+    assert entry["value"]["fallback"]["note"] == "60 Hz display (presents once per refresh); defaults settings, not matched-stock"
+    assert entry["value"]["avg"] == pytest.approx(7.06, abs=0.01) and entry["value"]["low"] == pytest.approx(5.92, abs=0.01)
+    assert '"OpenH1 1240"' in charts.source(specs["1-mac"], built, "campaign")
     note = charts.caption_table(built, None, specs["1-mac"]["query"]["details"], None)["rows"][-1]["notes"]
-    assert "display-locked" in note
+    assert "60 Hz display (presents once per refresh)" in note
+    assert specs["1-mac"]["paragraph"].endswith("The FPS view shows average fps.") and "1% low" not in specs["1-mac"]["paragraph"]
     # Ports with uncapped runs keep drawing only those, and the frame-rate view never draws a display-locked run.
     visr = next(e for e in built["entries"] if e["port"] == "visr" and e["value"])
     assert "fallback" not in visr["value"]

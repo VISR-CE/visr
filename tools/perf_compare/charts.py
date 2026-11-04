@@ -150,7 +150,7 @@ def select_specs(specs: list[dict], rows: list[dict]) -> list[dict]:
                     "name": spec["name"] + "-ms"}
         elif spec.get("frame_cost") and platform in leads:
             spec = {**spec, "paragraph": spec["paragraph"].strip()
-                    + " The FPS view shows average fps with the 1% low fps directly below it."}
+                    + " " + spec.get("fps_note", "The FPS view shows average fps with the 1% low fps directly below it.")}
         result.append(spec)
     return sorted(result, key=lambda spec: (spec.get("order", 1000), spec["name"]))
 
@@ -293,13 +293,13 @@ def _suite_value(group: list[dict], query: dict, suite: str, device: str) -> tup
 
 
 def _fallback(rows: list[dict], query: dict) -> dict:
-    """How a fallback build's runs were taken: the frame cap (else the display rate), the settings preset, and the sentence for
+    """How a fallback build's runs were taken: the display rate (else the frame cap), the settings preset, and the sentence for
     the table's notes. Mirrored by `fallbackInfo` in benchmarks.js."""
-    cap = next((r["cap_fps"] for r in rows if r.get("cap_fps", "") not in ("", "0")), "") or next((r["display_hz"] for r in rows if r.get("display_hz", "")), "")
+    cap = next((r["display_hz"] for r in rows if r.get("display_hz", "")), "") or next((r["cap_fps"] for r in rows if r.get("cap_fps", "") not in ("", "0")), "")
     cap = _number(float(cap)) if cap else ""
     presets = sorted({r.get("quality_preset", "") for r in rows if r.get("quality_preset", "")})
     matched = query["filter"].get("quality_preset", "")
-    note = f"capped at {cap} fps (display-locked), not an uncapped run" if cap else "capped, not an uncapped run"
+    note = f"{cap} Hz display (presents once per refresh)" if cap else "presents once per display refresh"
     if presets and presets != [matched]:
         note += f"; {', '.join(presets)} settings, not {matched}" if matched else f"; {', '.join(presets)} settings"
     return {"cap": cap, "preset": ", ".join(presets), "note": note}
@@ -537,8 +537,7 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
         return None
     chart, rename = spec["chart"], spec.get("rename", {})
     labels = [(f"{rename.get(e['port_name'], e['port_name'])} {e['version']}"
-               + (" (pre-release)" if e["label"].endswith("(pre-release)") else "")
-               + _capped_suffix(e)).replace('"', "'") for e in drawn]
+               + (" (pre-release)" if e["label"].endswith("(pre-release)") else "")).replace('"', "'") for e in drawn]
     # A pair chart's missing value is a bar that is not drawn: Mermaid gets 0 and the page hides a zero-length bar.
     averages = [e["value"]["avg"] if e["value"]["avg"] is not None else 0 for e in drawn]
     known = [e["value"]["low"] for e in drawn if e["value"]["low"] is not None]
@@ -563,12 +562,6 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
              f"    bar [{', '.join(_number(v) for v in averages)}]",
              f"    bar [{', '.join(_number(v) for v in lows)}]" if with_lows else ""]
     return "\n".join(line for line in lines if line)
-
-
-def _capped_suffix(entry: dict) -> str:
-    """" (capped 60)" on a build drawn from its capped runs, so it is never read as an uncapped number. Mirrored by `cappedSuffix`."""
-    fallback = (entry.get("value") or {}).get("fallback")
-    return f" (capped {fallback['cap']})" if fallback and fallback["cap"] else (" (capped)" if fallback else "")
 
 
 def _lower_is_better(column: str) -> bool:

@@ -126,21 +126,18 @@ function visibleRows(platformRows, deviceText) {
   return platformRows.filter((row) => !hidden.has(deviceId(row)));
 }
 
-// How a fallback build's runs were taken: the frame cap (else the display rate), the settings preset and the table's note.
+// How a fallback build's runs were taken: the display rate (else the frame cap), the settings preset and the table's note.
 // Mirrors _fallback in charts.py.
 function fallbackInfo(rows, query) {
   const found = (column, skip) => (rows.find((r) => r[column] && !skip.includes(r[column])) || {})[column] || "";
-  const raw = found("cap_fps", ["0"]) || found("display_hz", []);
+  const raw = found("display_hz", []) || found("cap_fps", ["0"]);
   const cap = raw ? number(parseFloat(raw)) : "";
   const presets = [...new Set(rows.map((r) => r.quality_preset).filter(Boolean))].sort();
   const matched = query.filter.quality_preset || "";
-  let note = cap ? `capped at ${cap} fps (display-locked), not an uncapped run` : "capped, not an uncapped run";
+  let note = cap ? `${cap} Hz display (presents once per refresh)` : "presents once per display refresh";
   if (presets.length && !(presets.length === 1 && presets[0] === matched)) note += matched ? `; ${presets.join(", ")} settings, not ${matched}` : `; ${presets.join(", ")} settings`;
   return { cap, preset: presets.join(", "), note };
 }
-
-// " (capped 60)" on a build drawn from its capped runs, so it is never read as an uncapped number. Mirrors _capped_suffix.
-const cappedSuffix = (e) => { const f = e.value && e.value.fallback; return f ? (f.cap ? ` (capped ${f.cap})` : " (capped)") : ""; };
 
 function suiteValue(group, query, suite, device) {
   const box = group.filter((row) => deviceId(row) === device);
@@ -381,7 +378,7 @@ function chartSource(spec, built, suite, selected, palette, rows = null) {
   if (!shown.length) return null;
   const chart = spec.chart, rename = spec.rename || {};
   const labels = shown.map((e) => (`${rename[e.port_name] || e.port_name} ${e.version}`
-    + (e.label.endsWith("(pre-release)") ? " (pre-release)" : "") + cappedSuffix(e)).replaceAll('"', "'"));
+    + (e.label.endsWith("(pre-release)") ? " (pre-release)" : "")).replaceAll('"', "'"));
   // A pair chart's missing value is a bar that is not drawn: Mermaid gets 0 and a zero-length bar is hidden.
   const averages = shown.map((e) => (e.value.avg === null ? 0 : e.value.avg));
   const known = shown.map((e) => e.value.low).filter((low) => low !== null);
