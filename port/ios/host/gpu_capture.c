@@ -14,6 +14,7 @@ texture, a shader or a page of a segment writes it into the file first.
 */
 
 #include "gpu_capture.h"
+#include "memory_watch_page.h"
 
 #if HALO_RENDER_VALIDATION
 
@@ -22,7 +23,7 @@ texture, a shader or a page of a segment writes it into the file first.
 #include <string.h>
 #include <zlib.h>
 
-#define PAGE_SHIFT 12
+#define PAGE_SHIFT MEMORY_WATCH_PAGE_SHIFT
 #define PAGE_SIZE (1u << PAGE_SHIFT)
 #define HANDLE_LIMIT (1u << 22)
 enum { LEVELS = 16, WINDOWS = 16, STREAM_RANGES = 256 };

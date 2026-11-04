@@ -10,6 +10,11 @@ handling in the iOS process, so the tracking itself lives there
 #include "platform.h"
 #include "guest_host.h"
 
+unsigned long memory_watch_page_size(void)
+{
+	return MEMORY_WATCH_PAGE_SIZE;
+}
+
 void memory_watch_initialize(void)
 {
 	host_memory_watch_initialize();

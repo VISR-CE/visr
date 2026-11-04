@@ -5756,14 +5756,19 @@ while, and draws that use it stream their data as before. */
 
 #define MIRROR_SEGMENT_SIZE 0x400000UL
 #define MIRROR_SEGMENT_COUNT (PLATFORM_CONTIGUOUS_SIZE / MIRROR_SEGMENT_SIZE)
-#define MIRROR_PAGE_SIZE 0x1000UL
+/* the mirror's pages are the write tracker's (memory_watch_page.h): the
+tracker has one generation per page, so smaller pages would all look rewritten
+when one of them is, and be uploaded again for nothing */
+#define MIRROR_PAGE_SIZE MEMORY_WATCH_PAGE_SIZE
 #define MIRROR_PAGE_COUNT (PLATFORM_CONTIGUOUS_SIZE / MIRROR_PAGE_SIZE)
 /* rewrites no more than this many frames apart ... */
 #define MIRROR_REWRITE_FRAMES 2
 /* ... this many times in a row make a page volatile ... */
 #define MIRROR_VOLATILE_REWRITES 4
-/* ... for this many frames */
+/* ... for this many frames, and for twice as many each time the page turns
+volatile again after the period ran out, up to this many times as long */
 #define MIRROR_VOLATILE_FRAMES 600
+#define MIRROR_VOLATILE_BACKOFF_LIMIT 32
 
 enum
 {
@@ -5777,10 +5782,35 @@ static struct
 	gpu_buffer buffers[MIRROR_SEGMENT_COUNT];
 	unsigned char state[MIRROR_PAGE_COUNT];
 	unsigned char rewrites[MIRROR_PAGE_COUNT];
+	/* how many times MIRROR_VOLATILE_FRAMES the page stays volatile (0: once),
+	and whether its last volatile period ran out */
+	unsigned char backoff[MIRROR_PAGE_COUNT];
+	unsigned char expired[MIRROR_PAGE_COUNT];
+	unsigned long expired_frame[MIRROR_PAGE_COUNT];
 	/* the page's memory_watch generation when it was uploaded */
 	unsigned long generation[MIRROR_PAGE_COUNT];
 	unsigned long rewritten_frame[MIRROR_PAGE_COUNT];
 } mirror;
+
+static void mirror_make_volatile(unsigned long page)
+{
+	if (mirror.expired[page])
+	{
+		/* rewritten again soon after the last period ran out: wait longer;
+		after a quiet spell, start over */
+		unsigned long backoff = mirror.backoff[page] ? mirror.backoff[page] : 1UL;
+
+		if (device.frame - mirror.expired_frame[page] < MIRROR_VOLATILE_FRAMES)
+			backoff *= 2;
+		else
+			backoff = 1;
+		mirror.backoff[page] = (unsigned char)(backoff > MIRROR_VOLATILE_BACKOFF_LIMIT ?
+			MIRROR_VOLATILE_BACKOFF_LIMIT : backoff);
+		mirror.expired[page] = 0;
+	}
+	mirror.state[page] = _mirror_page_volatile;
+	mirror.rewritten_frame[page] = device.frame;
+}
 
 void d3d8_vertex_buffer_prepare_write(unsigned long address, unsigned long size)
 {
@@ -5797,8 +5827,7 @@ void d3d8_vertex_buffer_prepare_write(unsigned long address, unsigned long size)
 		of making mirror_refresh rename and copy the entire segment. */
 		if (mirror.state[page] != _mirror_page_absent)
 		{
-			mirror.state[page] = _mirror_page_volatile;
-			mirror.rewritten_frame[page] = device.frame;
+			mirror_make_volatile(page);
 		}
 	}
 }
@@ -5838,7 +5867,7 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 			mirror.rewritten_frame[page] = device.frame;
 			if (mirror.rewrites[page] >= MIRROR_VOLATILE_REWRITES)
 			{
-				mirror.state[page] = _mirror_page_volatile;
+				mirror_make_volatile(page);
 				volatile_page = TRUE;
 			}
 		}
@@ -5911,9 +5940,12 @@ static BOOL mirror_range(unsigned long address, unsigned long size, gpu_buffer *
 	{
 		if (mirror.state[page] == _mirror_page_volatile)
 		{
-			if (device.frame - mirror.rewritten_frame[page] < MIRROR_VOLATILE_FRAMES)
+			if (device.frame - mirror.rewritten_frame[page] <
+				MIRROR_VOLATILE_FRAMES * (mirror.backoff[page] ? mirror.backoff[page] : 1UL))
 				return FALSE;
 			mirror.state[page] = _mirror_page_absent;
+			mirror.expired[page] = 1;
+			mirror.expired_frame[page] = device.frame;
 		}
 		if (mirror.state[page] != _mirror_page_present)
 		{
