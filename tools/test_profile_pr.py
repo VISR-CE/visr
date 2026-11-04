@@ -141,3 +141,10 @@ def test_pull_request_keeps_pictures_out_of_main(tmp_path, monkeypatch):
     assert any(call[0] == "gh" and "--body-file" in call for call in runner.calls)
     body = (tmp_path / "out/body.md").read_text()
     assert "/profile-pr-assets/test-pad-" in body
+
+
+def test_every_non_mac_profile_model_has_a_publish_target(tmp_path):
+    (tmp_path / "profiles").mkdir()
+    (tmp_path / "profiles/air.toml").write_text('[match]\nplatform = "ios"\nmodels = ["iPad13,1"]\n')
+    (tmp_path / "profiles/mini.toml").write_text('[match]\nplatform = "mac"\nchips = ["Apple M4"]\n')
+    assert pr.published_targets(tmp_path) == ["ios/iPad13,1/_"]

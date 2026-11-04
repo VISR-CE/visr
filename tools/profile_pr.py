@@ -289,8 +289,13 @@ def install_shards(repo, shards):
 
 
 def published_targets(repo):
-    """Every target with a shard in any published generation, as PLATFORM/MODEL/CHIP."""
+    """Every target with a shard in any published generation, plus every model a non-Mac profile matches, as
+    PLATFORM/MODEL/CHIP. Reading the profiles too means a new profile's models get shards without a hand edit."""
     found = set()
+    for path in sorted((Path(repo) / "profiles").glob("*.toml")):
+        match = tomllib.loads(path.read_text()).get("match", {}) if path.name != "TEMPLATE.toml" else {}
+        if match.get("platform") != "mac":
+            found.update(f"{match['platform']}/{model}/_" for model in match.get("models", []))
     for domain in GENERATIONS:
         folder = Path(repo) / FEED / domain
         found.update(str(path.relative_to(folder).with_suffix("")) for path in folder.rglob("*.json"))
