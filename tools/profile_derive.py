@@ -146,12 +146,21 @@ def describe(run):
             f"at the 95th percentile")
 
 
+def mirrored(run):
+    """A run made while the system mirrored the device to another display (the report's output display_use).
+
+    The game drew the device's own size at the device's rate while the system scaled each frame to that display, so
+    the run is neither the built-in screen's measurement nor the external display's."""
+    return (run.get("output") or {}).get("display_use") == "mirrored"
+
+
 def usable_runs(reports):
-    """every run of every report, tagged with its report's code; runs that say nothing about speed are left out"""
+    """every run of every report, tagged with its report's code; runs that say nothing about speed, and runs made
+    while the device was mirrored to another display, are left out"""
     runs = []
     for report in reports:
         for run in report["runs"]:
-            if run.get("status") in ("skipped",):
+            if run.get("status") in ("skipped",) or mirrored(run):
                 continue
             runs.append(dict(run, report=report["code"]))
     return runs
@@ -245,6 +254,10 @@ def derive(reports):
     if flags:
         notes.append("Flags on these reports: " + ", ".join(flags) + ". Runs that ended thermal, interrupted, diverged, "
                      "crashed or killed are not used as evidence that a setting holds.")
+    left_out = sum(mirrored(run) for report in reports for run in report["runs"])
+    if left_out:
+        notes.append(f"{left_out} run{'s' if left_out != 1 else ''} made while the device was mirrored to another display "
+                     "left out: the game drew the device's own size while the system scaled it to that display.")
     runs = usable_runs(reports)
     key, status, evidence, play_notes = choose_play(runs)
     notes += play_notes
@@ -342,7 +355,8 @@ def run_table(reports):
             measured = "interval_ms" in run
             rows.append("| " + " | ".join(str(cell) for cell in (
                 report["code"], run["index"], run["stage"], run["scene"], settings["render_lines"],
-                settings["anisotropic_filtering"], settings["shadow_map_size"], settings["model_lod"], run["status"],
+                settings["anisotropic_filtering"], settings["shadow_map_size"], settings["model_lod"],
+                run["status"] + (" (mirrored, not evidence)" if mirrored(run) else ""),
                 f"{run['frames_a_second']:.1f}" if measured else "", f"{100 * run['on_time_full']:.0f}%" if measured else "",
                 p90_text(run) if measured else "", f"{run['interval_ms']['p99']:.1f}" if measured else "",
                 p90_text(run, "cpu_ms", "frame_cpu") if measured else "", f"{run['cpu_ms']['p95']:.1f}" if measured else "",
