@@ -3334,10 +3334,13 @@ static void biped_update_turning(
 		/* port: a player throwing a grenade turns with the aim, as one
 		meleeing does: the melee plays over the moving or idle state, the
 		throw is a state of its own, which the original never turned in
-		(game.enhanced_animations: unit_animation_enhanced) */
+		(game.enhanced_animations: unit_animation_enhanced). Not in the air:
+		the body stays as the original left it there, and the campaign's
+		AI, which reacts to the body, plays as it did */
 		boolean throwing_turn =
 			biped->unit.player_index!=NONE &&
 			biped->unit.animation.state==_unit_state_throw_grenade &&
+			!TEST_FLAG(biped->biped.flags, _biped_airborne_bit) &&
 			unit_animation_enhanced(biped_index);
 		real_vector3d turn_axis;
 		real turn_error;
