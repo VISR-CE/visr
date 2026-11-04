@@ -1384,7 +1384,9 @@ static const struct config_setting config_settings[] =
 		"presses the flashlight <lights> times (night vision), then clicks the\n"
 		"zoom <unclicks> times more (out of it); \"aachord:<start>,<period>\"\n"
 		"presses the live anti-aliasing chord (Back and R1) from poll <start> and\n"
-		"every <period> polls after; empty for none." },
+		"every <period> polls after; \"unarmed:<start>\" stands still and from poll\n"
+		"<start> presses melee and, between, the grenade, every 120 polls (a10's\n"
+		"opening, before the first weapon); empty for none." },
 	{ "debug.side_by_side_screen", _config_boolean, "false", "HALO_SIDE_BY_SIDE_SCREEN", _environment_set_is_true,
 		_platform_ios,
 		"With display.stereo = \"side_by_side\": show the eyes SCREEN mode's\n"
