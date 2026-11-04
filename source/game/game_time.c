@@ -514,7 +514,14 @@ void game_time_update(
 		(port/linux/game/render_interpolation.c). The frames of one tick share
 		the fraction, so what they hang off is drawn where they put it. */
 		render_interpolation_frame_begin();
+		/* What a frame makes (the decals of a particle that strikes, a
+		particle's sprites) is only drawn, but it draws local random numbers
+		in a count that follows how many frames run in a tick: from the
+		render's own seed, the tick's local sequence advances only by the
+		tick's own draws (port/linux/game/render_random.c). */
+		halo_render_random_begin();
 		profile_scope(game_time_game_frame_section, game_frame(game_time_get_speed()*time_delta_sec);)
+		halo_render_random_end();
 		render_interpolation_frame_end();
 	}
 	else
