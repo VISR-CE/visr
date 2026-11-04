@@ -1390,3 +1390,49 @@ def test_the_picker_and_paragraph_use_each_devices_plain_name():
     # The name or the label picks the device alike.
     phones = [row for row in rows if row["platform"] == "iPhone/iPad"]
     assert charts.pick_device(phones, "iPhone 17 Pro", texts)["label"] == "A19 Pro iPhone 17 Pro"
+
+
+def test_every_published_row_with_cpu_or_gpu_time_appears_on_the_page_or_is_an_intentional_exclusion():
+    """A row (status ok, with a CPU or GPU time) is drawn for its device in some view of its platform, unless it is one of two
+    intentional exclusions: its drawable size was not recorded (rows from before the column, whose geometry cannot be
+    matched), or its build lacks other windows of the suite, which a suite bar needs for every port."""
+    rows, texts = snapshot(), charts.load_device_text()
+    specs = charts.load_specs(ROOT / "docs/benchmarks/charts", rows)
+    missed = []
+    for platform in sorted({row["platform"] for row in rows}):
+        visible = charts.visible_rows([row for row in rows if row["platform"] == platform], texts)
+        for device in charts.devices(visible, "", texts):
+            for row in visible:
+                if charts.device_id(row) != device["id"] or row["status"] != "ok" or not (row["gpu_p50_ms"] or row["cpu_p50_ms"]):
+                    continue
+                drawn = any(any(entry["value"] and any(r is row for r in entry["value"]["rows"]) for entry in
+                                charts.model(rows, spec["query"], row["suite"], device["label"], texts)["entries"])
+                            for spec in specs if spec["query"]["platform"] == platform)
+                if drawn:
+                    continue
+                build = [r for r in visible if charts.device_id(r) == device["id"] and (r["port"], r["version"], r["build"]) == (row["port"], row["version"], row["build"])
+                         and r["suite"] == row["suite"] and r["status"] == "ok"]
+                required = next((s["query"].get("suite_windows", {}).get(row["suite"], []) for s in specs if s["query"]["platform"] == platform), [])
+                no_drawable = row["drawable"] == ""
+                lacks_windows = bool(set(required) - {r["window"] for r in build})
+                if not (no_drawable or lacks_windows):
+                    missed.append((platform, device["label"], row["label"], row["suite"], row["window"]))
+    assert missed == []
+
+
+def test_a_port_with_only_display_locked_runs_on_a_device_shows_in_the_cpu_and_gpu_view():
+    rows, texts = snapshot(), charts.load_device_text()
+    specs = {s["name"]: s for s in charts.load_specs(ROOT / "docs/benchmarks/charts", rows)}
+    built = charts.model(rows, specs["1-mac"]["query"], "campaign", "M4 Mac mini", texts)
+    entry = next(e for e in built["entries"] if e["port"] == "openh1")
+    assert entry["value"]["fallback"]["cap"] == "60" and "display-locked" in entry["value"]["fallback"]["note"]
+    assert "defaults settings, not matched-stock" in entry["value"]["fallback"]["note"]
+    assert entry["value"]["avg"] == pytest.approx(7.06, abs=0.01) and entry["value"]["low"] == pytest.approx(6.66, abs=0.01)
+    assert "OpenH1 1240 (capped 60)" in charts.source(specs["1-mac"], built, "campaign")
+    note = charts.caption_table(built, None, specs["1-mac"]["query"]["details"], None)["rows"][-1]["notes"]
+    assert "display-locked" in note
+    # Ports with uncapped runs keep drawing only those, and the frame-rate view never draws a display-locked run.
+    visr = next(e for e in built["entries"] if e["port"] == "visr" and e["value"])
+    assert "fallback" not in visr["value"]
+    fps = charts.model(rows, specs["2-mac-fps"]["query"], "campaign", "M4 Mac mini", texts)
+    assert next(e for e in fps["entries"] if e["port"] == "openh1")["value"] is None

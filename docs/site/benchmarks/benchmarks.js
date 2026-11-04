@@ -126,6 +126,22 @@ function visibleRows(platformRows, deviceText) {
   return platformRows.filter((row) => !hidden.has(deviceId(row)));
 }
 
+// How a fallback build's runs were taken: the frame cap (else the display rate), the settings preset and the table's note.
+// Mirrors _fallback in charts.py.
+function fallbackInfo(rows, query) {
+  const found = (column, skip) => (rows.find((r) => r[column] && !skip.includes(r[column])) || {})[column] || "";
+  const raw = found("cap_fps", ["0"]) || found("display_hz", []);
+  const cap = raw ? number(parseFloat(raw)) : "";
+  const presets = [...new Set(rows.map((r) => r.quality_preset).filter(Boolean))].sort();
+  const matched = query.filter.quality_preset || "";
+  let note = cap ? `capped at ${cap} fps (display-locked), not an uncapped run` : "capped, not an uncapped run";
+  if (presets.length && !(presets.length === 1 && presets[0] === matched)) note += matched ? `; ${presets.join(", ")} settings, not ${matched}` : `; ${presets.join(", ")} settings`;
+  return { cap, preset: presets.join(", "), note };
+}
+
+// " (capped 60)" on a build drawn from its capped runs, so it is never read as an uncapped number. Mirrors _capped_suffix.
+const cappedSuffix = (e) => { const f = e.value && e.value.fallback; return f ? (f.cap ? ` (capped ${f.cap})` : " (capped)") : ""; };
+
 function suiteValue(group, query, suite, device) {
   const box = group.filter((row) => deviceId(row) === device);
   const unsupported = group.filter((row) => row.suite === suite && row.status === "not_supported");
@@ -137,7 +153,12 @@ function suiteValue(group, query, suite, device) {
   const mine = box.filter((row) => row.suite === suite);
   if (!mine.length) return [null, `no ${suite} measurements yet`, "not_measured"];
   const usable = new Map();
-  const candidates = mine.filter((row) => matches(row, query.filter) && hasValue(row, query));
+  // A port with no run on the device that meets `filter` (an app that cannot run uncapped) is drawn from the runs that meet
+  // `fallback_filter`, marked as such. Mirrors _suite_value in charts.py.
+  const fallback = query.fallback_filter;
+  const useFallback = Boolean(fallback) && !box.some((row) => matches(row, query.filter) && hasValue(row, query));
+  const wanted = useFallback ? fallback : query.filter;
+  const candidates = mine.filter((row) => matches(row, wanted) && hasValue(row, query));
   candidates.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   for (const row of candidates) usable.set(row.window, row);
   if (!usable.size) {
@@ -161,6 +182,7 @@ function suiteValue(group, query, suite, device) {
   // A `pair` chart's two values are independent: each is null unless every window reports it.
   const value = { avg: !query.pair || rows.every((r) => r[main] !== "") ? geometricMean(rows.map((r) => parseFloat(r[main]))) : null, details, windows: [...usable.keys()].sort(), low: second && rows.every((r) => r[second] !== "") ? geometricMean(rows.map((r) => parseFloat(r[second]))) : null, rows };
   if (value.avg === null && value.low === null) return [null, query.no_data_reason || "no matching measurement", "not_measured"];
+  if (useFallback) value.fallback = fallbackInfo(rows, query);
   return [value, "", ""];
 }
 
@@ -359,7 +381,7 @@ function chartSource(spec, built, suite, selected, palette, rows = null) {
   if (!shown.length) return null;
   const chart = spec.chart, rename = spec.rename || {};
   const labels = shown.map((e) => (`${rename[e.port_name] || e.port_name} ${e.version}`
-    + (e.label.endsWith("(pre-release)") ? " (pre-release)" : "")).replaceAll('"', "'"));
+    + (e.label.endsWith("(pre-release)") ? " (pre-release)" : "") + cappedSuffix(e)).replaceAll('"', "'"));
   // A pair chart's missing value is a bar that is not drawn: Mermaid gets 0 and a zero-length bar is hidden.
   const averages = shown.map((e) => (e.value.avg === null ? 0 : e.value.avg));
   const known = shown.map((e) => e.value.low).filter((low) => low !== null);
@@ -453,7 +475,7 @@ function captionTable(built, selected, columns, windows) {
     let note = columns.length && cells.every((c) => c === "\u2013") ? detailText(e, columns) : "";
     if (note.endsWith(" reported") && (e.port_note || "").includes(note.slice(0, -" reported".length))) note = "";
     const gaps = missingWindows(e, windows).replace(/^; /, "");
-    return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells, notes: [e.port_note, note, gaps].filter(Boolean).map((part) => part.replace(/\.$/, "")).join("; ") };
+    return { label: e.label, url: e.url || "", build: e.build || "unknown", measured: e.date, cells, notes: [e.port_note, e.value.fallback ? e.value.fallback.note : "", note, gaps].filter(Boolean).map((part) => part.replace(/\.$/, "")).join("; ") };
   });
   return { box: built.box, note: overallNote(built, selected), headings: columns.map((c) => DETAIL_HEADINGS[c]), rows };
 }
@@ -649,7 +671,7 @@ function sharedRows(group, state) {
   const keys = [...found.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b));
   return Object.fromEntries(group.map((spec) => {
     const mine = new Map(drawn(state.models[spec.slug], state.selected[spec.slug]).map((e) => [entryKey(e), e]));
-    return [spec.slug, keys.map((key) => mine.get(key) || { ...found.get(key), value: { avg: 0, low: null }, placeholder: true })];
+    return [spec.slug, keys.map((key) => mine.get(key) || { ...found.get(key), value: { avg: 0, low: null, fallback: found.get(key).value && found.get(key).value.fallback }, placeholder: true })];
   }));
 }
 
@@ -753,6 +775,7 @@ function unionTable(group, spec, shared, table, state) {
   const fps = kindSpec("fps");
   const HEADINGS = { p95_ms: "p95 frame time (ms)", on_time_pct: DETAIL_HEADINGS.on_time_pct };
   for (const column of (fps && fps.query.details) || []) {
+    if (!HEADINGS[column]) continue;  // the CPU and GPU columns come from the frame-time chart
     add("fps", HEADINGS[column], (e) => (e.value.details || {})[column], column === "on_time_pct" ? percent : num);
   }
   add("ms", "CPU median (ms)", (e) => e.value.avg, num);

@@ -14,7 +14,37 @@ Campaign suite, newest build of each port.
 
 ### Mac
 
-Measured on a Mac mini M6 with the frame cap and vsync off, the matched-stock settings and a 2560×1920 drawable. Bars show average fps; the table lists median and 90th-percentile GPU time per rendered frame.
+Measured on a Mac mini M6 with the matched-stock settings and a 2560×1920 drawable, the frame cap and vsync off. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. A build with no uncapped run is drawn from its display-locked run, marked in its label, with its settings named in the table. The FPS view shows average fps with the 1% low fps directly below it.
+
+```mermaid
+---
+config:
+  xyChart:
+    width: 520
+    height: 328
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#1fa9d4, #ffc24d"
+---
+xychart-beta horizontal
+    title "Campaign: CPU and GPU Frame Time (ms), Mac mini M6"
+    x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.0", "Halo OG v0.5.1"]
+    y-axis "Milliseconds per frame" 0 --> 8
+    bar [0, 0, 0, 0]
+    bar [4.9, 5.2, 2.6, 4.1]
+```
+
+🟦 Median CPU time 🟨 Median GPU time
+
+Lower is better.
+
+[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
+
+Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Not reported: this build reports neither CPU nor GPU time per frame.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (The game halts on a sound engine assertion during this window.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (The two-player level did not start without a person at the keyboard.); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (Not reported: this build reports neither CPU nor GPU time per frame.); [OpenH1 1240](https://github.com/OpenH1/OpenH1/releases/tag/build-1240) (Not run on this device.); [OpenH1 build-1240](https://github.com/OpenH1/OpenH1/releases/tag/build-1240) (The hosted match did not start without a person at the keyboard.).
+
+#### Mac: frame rate
+
+Measured on a Mac mini M6 with the frame cap and vsync off, the matched-stock settings and a 2560×1920 drawable. Uncapped frame rate in frames per second; a build with no uncapped run has no bar here. Bars show average fps; the table lists median and 90th-percentile GPU time per rendered frame.
 
 ```mermaid
 ---

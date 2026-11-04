@@ -257,8 +257,14 @@ def _suite_value(group: list[dict], query: dict, suite: str, device: str) -> tup
     mine = [row for row in box if row["suite"] == suite]
     if not mine:
         return None, f"no {suite} measurements yet", "not_measured"
+    # A port with no run on the device that meets `filter` (an app that cannot run uncapped) is drawn from the runs that meet
+    # `fallback_filter`, marked as such: its numbers are comparable but its label and notes say how they were taken.
+    fallback = query.get("fallback_filter")
+    primary = [r for r in box if _matches(r, query["filter"]) and _has_value(r, query)]
+    use_fallback = bool(fallback) and not primary
+    wanted = fallback if use_fallback else query["filter"]
     usable = {}
-    for row in sorted((r for r in mine if _matches(r, query["filter"]) and _has_value(r, query)), key=lambda r: r["date"]):
+    for row in sorted((r for r in mine if _matches(r, wanted) and _has_value(r, query)), key=lambda r: r["date"]):
         usable[row["window"]] = row
     if not usable:
         skipped = [row for row in mine if row["status"] in ("not_measured", "unavailable") and row["notes"]]
@@ -281,7 +287,22 @@ def _suite_value(group: list[dict], query: dict, suite: str, device: str) -> tup
              "details": _details(rows, query), "windows": sorted(usable), "rows": rows}
     if value["avg"] is None and value["low"] is None:
         return None, query.get("no_data_reason", "no matching measurement"), "not_measured"
+    if use_fallback:
+        value["fallback"] = _fallback(rows, query)
     return value, "", ""
+
+
+def _fallback(rows: list[dict], query: dict) -> dict:
+    """How a fallback build's runs were taken: the frame cap (else the display rate), the settings preset, and the sentence for
+    the table's notes. Mirrored by `fallbackInfo` in benchmarks.js."""
+    cap = next((r["cap_fps"] for r in rows if r.get("cap_fps", "") not in ("", "0")), "") or next((r["display_hz"] for r in rows if r.get("display_hz", "")), "")
+    cap = _number(float(cap)) if cap else ""
+    presets = sorted({r.get("quality_preset", "") for r in rows if r.get("quality_preset", "")})
+    matched = query["filter"].get("quality_preset", "")
+    note = f"capped at {cap} fps (display-locked), not an uncapped run" if cap else "capped, not an uncapped run"
+    if presets and presets != [matched]:
+        note += f"; {', '.join(presets)} settings, not {matched}" if matched else f"; {', '.join(presets)} settings"
+    return {"cap": cap, "preset": ", ".join(presets), "note": note}
 
 
 def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
@@ -516,7 +537,8 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
         return None
     chart, rename = spec["chart"], spec.get("rename", {})
     labels = [(f"{rename.get(e['port_name'], e['port_name'])} {e['version']}"
-               + (" (pre-release)" if e["label"].endswith("(pre-release)") else "")).replace('"', "'") for e in drawn]
+               + (" (pre-release)" if e["label"].endswith("(pre-release)") else "")
+               + _capped_suffix(e)).replace('"', "'") for e in drawn]
     # A pair chart's missing value is a bar that is not drawn: Mermaid gets 0 and the page hides a zero-length bar.
     averages = [e["value"]["avg"] if e["value"]["avg"] is not None else 0 for e in drawn]
     known = [e["value"]["low"] for e in drawn if e["value"]["low"] is not None]
@@ -541,6 +563,12 @@ def source(spec: dict, built: dict, suite: str, selected: set[str] | None = None
              f"    bar [{', '.join(_number(v) for v in averages)}]",
              f"    bar [{', '.join(_number(v) for v in lows)}]" if with_lows else ""]
     return "\n".join(line for line in lines if line)
+
+
+def _capped_suffix(entry: dict) -> str:
+    """" (capped 60)" on a build drawn from its capped runs, so it is never read as an uncapped number. Mirrored by `cappedSuffix`."""
+    fallback = (entry.get("value") or {}).get("fallback")
+    return f" (capped {fallback['cap']})" if fallback and fallback["cap"] else (" (capped)" if fallback else "")
 
 
 def _lower_is_better(column: str) -> bool:
@@ -594,6 +622,11 @@ def _detail_text(entry: dict, columns: list[str]) -> str:
     return f"no {what} reported"
 
 
+def _fallback_text(entry: dict) -> str:
+    fallback = (entry.get("value") or {}).get("fallback")
+    return f"; {fallback['note']}" if fallback else ""
+
+
 def _missing_windows(entry: dict, windows: list[str]) -> str:
     """"; b30 not measured yet" for the windows a chart expects and a build has no result for."""
     have = entry["value"].get("windows")
@@ -615,7 +648,7 @@ def caption_parts(built: dict, selected: set[str] | None = None, columns: list[s
     for index, e in enumerate(drawn):
         parts.append((e["label"], e.get("url", "")))
         parts.append((f" (build {e['build'] or 'unknown'}, measured {e['date']}"
-                      + (f"; {_detail_text(e, columns)}" if columns else "") + _missing_windows(e, windows) + ")"
+                      + (f"; {_detail_text(e, columns)}" if columns else "") + _fallback_text(e) + _missing_windows(e, windows) + ")"
                       + ("; " if index < len(drawn) - 1 else "."), ""))
     return parts
 
@@ -658,7 +691,8 @@ def caption_table(built: dict, selected: set[str] | None = None, columns: list[s
         port_note = e.get("port_note", "")
         if note.endswith(" reported") and note.removesuffix(" reported") in port_note:
             note = ""  # the port's own note already says it
-        parts = [part.rstrip(".") for part in (port_note, note, gaps) if part]
+        fallback = (e.get("value") or {}).get("fallback")
+        parts = [part.rstrip(".") for part in (port_note, fallback["note"] if fallback else "", note, gaps) if part]
         rows.append({"label": e["label"], "url": e.get("url", ""), "build": e["build"] or "unknown", "measured": e["date"],
                      "cells": cells, "notes": "; ".join(parts)})
     return {"box": built["box"], "note": overall_note(built, selected), "headings": [DETAIL_HEADINGS[c] for c in columns], "rows": rows}
