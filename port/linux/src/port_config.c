@@ -1526,6 +1526,12 @@ static const struct config_setting config_settings[] =
 		"app's caches between launches. Off until writing it works: in the Mac app\n"
 		"it fails with \"cannot create temporary file\" (Metal's own shader cache\n"
 		"still keeps compiled shaders between launches)." },
+	{ "debug.metal_scene_park", _config_boolean, "true", "HALO_METAL_SCENE_PARK", _environment_value, _platform_ios,
+		"The Metal renderer: when the game leaves the scene's pass to draw into\n"
+		"another target (object shadows, small effect targets) and comes back,\n"
+		"run that pass ahead of the scene's in a command buffer of its own instead\n"
+		"of storing and reloading the scene's color and depth, where nothing in\n"
+		"between reads them. False: end and reopen the pass, to compare." },
 	{ "debug.metal_specialize", _config_boolean, "true", "HALO_METAL_SPECIALIZE", _environment_value, _platform_ios,
 		"With the Metal renderer, specialize each pipeline's vertex shader for its\n"
 		"attribute formats; false uses the unspecialized shaders, which read the\n"
