@@ -49,7 +49,7 @@ struct network_game {
     struct { boolean game_objects_loaded; } local_data;
     struct network_player players[NETWORK_GAME_PLAYER_SLOTS];
 };
-static struct { char map[256]; } shader_list;
+static struct { char map[256]; unsigned long alias_count; } shader_list;
 static struct { int gl_ready; } device;
 static int connection, load_ok, spawn_ok, initialized, spawned;
 static int config_boolean(const char *key) { (void)key; return 0; }
