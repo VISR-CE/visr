@@ -419,6 +419,33 @@ void host_external_snapshot(struct host_external_snapshot *out) {
     }
 }
 int host_external_active(void) { return snapshot.external; }
+void host_external_displays(struct host_external_displays *out) {
+    memset(out,0,sizeof(*out));
+    out->accessory_available=-1;
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    /* (UIScreen.screens still lists a mirroring display, with the device's screen as its mirroredScreen) */
+    for(UIScreen *screen in UIScreen.screens) {
+        if(screen==UIScreen.mainScreen)continue;
+        out->other_screens++;
+        if(screen.mirroredScreen)out->mirroring_screens++;
+    }
+#pragma clang diagnostic pop
+    for(AVAudioSessionPortDescription *port in AVAudioSession.sharedInstance.currentRoute.outputs) {
+        if([port.portType isEqualToString:AVAudioSessionPortHDMI]){snprintf(out->video_route,sizeof(out->video_route),"hdmi");break;}
+        if([port.portType isEqualToString:AVAudioSessionPortAirPlay])snprintf(out->video_route,sizeof(out->video_route),"airplay");
+    }
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+    if(@available(iOS 27.0,*)) {
+        UISceneAccessoryRegistration *registration=accessory_registration;
+        if(registration)out->accessory_available=registration.available?1:0;
+    }
+#endif
+#endif
+    out->use=host_external_display_use(snapshot.external,out->other_screens,out->mirroring_screens,
+        !strcmp(out->video_route,"hdmi"));
+}
 void *host_external_phone_layer(void) { return companion_on?phone_layer:NULL; }
 void *host_external_screen(void) { return (__bridge void *)(output_screen?:UIScreen.mainScreen); }
 /* The window scene the renderer presents in: the external display's while the game is on it, else the game
@@ -820,6 +847,9 @@ void host_external_attach(void *window,int metal) { (void)window;(void)metal; }
 void host_external_poll(void) {}
 void host_external_commit(int allow_pause) { (void)allow_pause; }
 int host_external_active(void) { return 0; }
+void host_external_displays(struct host_external_displays *out) {
+    memset(out,0,sizeof(*out));out->accessory_available=-1;out->use=HOST_EXTERNAL_DISPLAY_NONE;
+}
 int host_external_size(int *width,int *height) { (void)width;(void)height;return 0; }
 void *host_external_phone_layer(void) { return NULL; }
 void *host_external_screen(void) { return NULL; }

@@ -1,6 +1,7 @@
 #include "host_external_session.h"
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 int main(void) {
     struct host_external_session session={0};
@@ -41,4 +42,21 @@ int main(void) {
     assert(!host_external_refresh_due(&refresh,1,1,0,30.0) && !refresh.seen_at && !refresh.attempts);
     assert(!host_external_refresh_due(&refresh,1,0,1,31.0) && !refresh.seen_at);
     puts("PASS: the scene accessory is registered again for a display that was never offered a scene");
+    /* how a connected display is used: the game's own, a mirror of the device, or another screen */
+    assert(host_external_display_use(0,0,0,0)==HOST_EXTERNAL_DISPLAY_NONE);
+    assert(host_external_display_use(1,1,0,1)==HOST_EXTERNAL_DISPLAY_IN_USE);
+    /* (the game on the display wins over a mirror seen in the same moment, as while the scene takes over) */
+    assert(host_external_display_use(1,1,1,1)==HOST_EXTERNAL_DISPLAY_IN_USE);
+    assert(host_external_display_use(0,1,1,0)==HOST_EXTERNAL_DISPLAY_MIRRORED);
+    /* an HDMI route with no screen listed is a cabled display mirroring the device */
+    assert(host_external_display_use(0,0,0,1)==HOST_EXTERNAL_DISPLAY_MIRRORED);
+    /* a second screen that neither mirrors nor shows the game (Stage Manager's extended display) is not a mirror,
+       even with HDMI sound */
+    assert(host_external_display_use(0,1,0,0)==HOST_EXTERNAL_DISPLAY_OTHER);
+    assert(host_external_display_use(0,1,0,1)==HOST_EXTERNAL_DISPLAY_OTHER);
+    assert(!strcmp(host_external_display_use_name(HOST_EXTERNAL_DISPLAY_MIRRORED),"mirrored"));
+    assert(!strcmp(host_external_display_use_name(HOST_EXTERNAL_DISPLAY_IN_USE),"in_use"));
+    assert(!strcmp(host_external_display_use_name(HOST_EXTERNAL_DISPLAY_OTHER),"other"));
+    assert(!strcmp(host_external_display_use_name(HOST_EXTERNAL_DISPLAY_NONE),"none"));
+    puts("PASS: a mirrored display is told apart from the game's own display and from no display");
 }

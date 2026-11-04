@@ -29,3 +29,27 @@ static inline int host_external_refresh_due(struct host_external_refresh *r,int 
     if(now-r->seen_at<1.5 || r->attempts>=2)return 0;
     r->attempts++;r->seen_at=now;return 1;
 }
+/* How a connected display is being used, for the benchmark report. A display the system mirrors this device to
+   while the game is not on it shows the device's picture scaled to that display: the game still draws the device's
+   own size at the device's rate, so such a run says nothing about the external display and is not a built-in run
+   either. A second screen that is neither the game's nor a mirror (an iPad's extended display under Stage Manager)
+   is "other". An HDMI output in the audio route with no second screen listed is a cabled display mirroring this
+   device too: an iPhone has no extended display, and the system may list no screen for a display it only mirrors.
+   AirPlay does not count on its own, since an AirPlay speaker routes sound the same way. */
+enum host_external_display_use {
+    HOST_EXTERNAL_DISPLAY_NONE, HOST_EXTERNAL_DISPLAY_IN_USE, HOST_EXTERNAL_DISPLAY_MIRRORED, HOST_EXTERNAL_DISPLAY_OTHER
+};
+static inline enum host_external_display_use host_external_display_use(int game_external,int other_screens,
+    int mirroring_screens,int hdmi_route) {
+    if(game_external)return HOST_EXTERNAL_DISPLAY_IN_USE;
+    if(mirroring_screens>0 || (hdmi_route && other_screens==0))return HOST_EXTERNAL_DISPLAY_MIRRORED;
+    return other_screens>0?HOST_EXTERNAL_DISPLAY_OTHER:HOST_EXTERNAL_DISPLAY_NONE;
+}
+static inline const char *host_external_display_use_name(enum host_external_display_use use) {
+    switch(use) {
+    case HOST_EXTERNAL_DISPLAY_IN_USE: return "in_use";
+    case HOST_EXTERNAL_DISPLAY_MIRRORED: return "mirrored";
+    case HOST_EXTERNAL_DISPLAY_OTHER: return "other";
+    default: return "none";
+    }
+}

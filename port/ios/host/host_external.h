@@ -23,6 +23,15 @@ void *host_external_screen(void);
 void *host_external_scene(void);
 double host_external_companion_dim(void);
 void host_external_snapshot(struct host_external_snapshot *out);
+/* The displays the system knows of, read now (main thread): the screens besides this device's, how many of them mirror
+   it, the video output in the audio route ("hdmi", "airplay" or ""), whether the external scene accessory is
+   available (-1 where there is none), and the use host_external_display_use makes of all that
+   (host_external_session.h). */
+struct host_external_displays {
+    int other_screens, mirroring_screens, accessory_available, use;
+    char video_route[16];
+};
+void host_external_displays(struct host_external_displays *out);
 int host_external_cycle(int direction);
 int host_external_force(const char *mode);
 int host_external_ready(void);
