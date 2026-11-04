@@ -110,6 +110,21 @@ def test_spoiled_runs_are_not_evidence_and_flags_are_reported():
     assert any("throttled" in note for note in notes)
 
 
+def test_runs_mirrored_to_another_display_are_not_evidence():
+    solo = scenes("A", 1080, 6.0)
+    fast = [run(4, "B", "a10-crew", "gameplay", 1440, gpu=6.0), run(5, "B", "b30-beach", "gameplay", 1440, gpu=7.0)]
+    for entry in fast:
+        entry["output"] = {"kind": "builtin", "display_use": "mirrored", "mirroring_screens": 1, "video_route": "hdmi"}
+    proposal, notes = profile_derive.derive([report(solo + fast, flags=["external_display_mirrored"])])
+    assert proposal == profile_derive.derive([report(solo)])[0]          # 1440 was seen only while mirrored: 1080 stands
+    assert any("2 runs made while the device was mirrored" in note for note in notes)
+    assert any("external_display_mirrored" in note for note in notes)
+    # the game's own external display and a plain built-in run are not left out
+    for use in ("in_use", "none", "other"):
+        assert not profile_derive.mirrored(dict(fast[0], output={"display_use": use}))
+    assert not profile_derive.mirrored({"status": "ok"})
+
+
 def test_synthetic_multiplayer_does_not_change_profile_proposals():
     solo = scenes("A", 1080, 6.0)
     multiplayer = run(4, "MP", "mp-chillout-4", "multiplayer_synthetic", 2160, gpu=1.0)
