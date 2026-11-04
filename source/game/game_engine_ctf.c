@@ -724,6 +724,7 @@ static void ctf_engine_weapon_update(
 		NONE,
 		other_team_index,
 		carrier_player_index);
+	game_engine_set_goal_object(team_index, weapon_index);
 	if (carrier_player_index != NONE)
 	{
 		position = ctf_globals.flags[other_team_index]->position;
