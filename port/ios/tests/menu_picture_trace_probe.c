@@ -23,6 +23,18 @@ int main(int argc,char **argv)
     assert(!menu_picture_shapes(2,source,top,4,&cancel));
     assert(!memcmp(top,saved,top_size));
     assert(menu_picture_trace_source(source,1,1)==-1);
+    {   /* the gametype icons' sizes: unknown pixels of those sizes are rejected without touching the output */
+        static const unsigned sizes[2][2]={{256,128},{256,256}};
+        for(int k=0;k<2;k++) {
+            size_t bytes=(size_t)sizes[k][0]*sizes[k][1]*4;
+            uint8_t *blank=calloc(bytes,1),*mine=malloc(bytes*16),*mine_saved=malloc(bytes*16);
+            assert(blank&&mine&&mine_saved);memset(mine,91,bytes*16);memcpy(mine_saved,mine,bytes*16);
+            assert(menu_picture_trace_source(blank,sizes[k][0],sizes[k][1])==-1);
+            assert(menu_picture_trace(blank,sizes[k][0],sizes[k][1],mine,4,&cancel,&metrics)==0);
+            assert(!memcmp(mine,mine_saved,bytes*16));
+            free(blank);free(mine);free(mine_saved);
+        }
+    }
     assert(menu_picture_trace(source,512,height,top,4,&cancel,&metrics)==0);
     assert(!memcmp(top,saved,top_size));
     assert(menu_picture_trace(source,512,height,top,4,&cancel,&metrics)==0);
