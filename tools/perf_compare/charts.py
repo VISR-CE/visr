@@ -94,6 +94,14 @@ def fill_device_text(text: str, label: str, device_text: dict, default_pace: str
     return text.replace("{device}", info.get("name") or with_article(label)).replace("{pace}", info.get("pace") or default_pace)
 
 
+def visible_rows(platform_rows: list[dict], device_text: dict) -> list[dict]:
+    """The platform's rows without those of a device that devices.toml marks `hidden` (merged into a similar device): such a
+    device has no picker entry and its builds do not appear. The rows stay in the snapshot and the sheet. Mirrored by
+    `visibleRows` in benchmarks.js."""
+    hidden = {d["id"] for d in devices(platform_rows) if device_text.get(d["label"], {}).get("hidden")}
+    return [row for row in platform_rows if device_id(row) not in hidden]
+
+
 def _on(row: dict, device: str) -> bool:
     return device_id(row) == device
 
@@ -108,7 +116,7 @@ def _has_value(row: dict, query: dict) -> bool:
 def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
     """(ports, builds) with a value for the spec's first metric among the default device's rows its filter matches."""
     query = spec["query"]
-    platform_rows = [row for row in rows if row["platform"] == query["platform"]]
+    platform_rows = visible_rows([row for row in rows if row["platform"] == query["platform"]], load_device_text())
     chosen = pick_device(platform_rows, spec.get("box"))
     found = [row for row in platform_rows if chosen and _on(row, chosen["id"])
              and _matches(row, query["filter"]) and _has_value(row, query)]
@@ -300,7 +308,8 @@ def _default_builds(entries: list[dict], overall: bool) -> dict[str, dict]:
 def model(rows: list[dict], query: dict, suite: str, device: str | None = None, device_text: dict | None = None) -> dict:
     """Every build of the platform's ports as an entry, with its values for the suite on the device (a label or an id; the
     platform's reference device when omitted) or the reason it has none."""
-    platform_rows = [row for row in rows if row["platform"] == query["platform"]]
+    device_text = load_device_text() if device_text is None else device_text
+    platform_rows = visible_rows([row for row in rows if row["platform"] == query["platform"]], device_text)
     shown = pick_device(platform_rows, device)
     device_key = shown["id"] if shown else "\0"
     groups: dict[tuple, list[dict]] = {}
@@ -339,7 +348,7 @@ def model(rows: list[dict], query: dict, suite: str, device: str | None = None, 
     built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": shown["label"] if shown else "",
              "device": shown["id"] if shown else ""}
     if query.get("budget"):
-        info = (load_device_text() if device_text is None else device_text).get(shown["label"] if shown else "", {})
+        info = device_text.get(shown["label"] if shown else "", {})
         built["budget_ms"] = _budget_ms(platform_rows, query, device_key, info.get("play_fps"))
     return built
 

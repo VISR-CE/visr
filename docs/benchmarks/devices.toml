@@ -11,3 +11,13 @@ play_fps = 60
 name = "an Apple TV HD"
 pace = "the frame cap of its profile, 30 fps"
 play_fps = 30
+
+# `hidden = true` merges a device into a similar one: it has no picker entry and its builds do not appear on the page. Its rows
+# stay in results.csv and the sheet. Add one line to merge another device; a device with no entry is shown.
+# Steve's merges (Nov 4, 2026): the A18 Pro iPhone 16 Pro into the A19 Pro iPhone 17 Pro, and the A14 iPhone 12 Pro into the A14 iPad Air.
+
+["A18 Pro iPhone 16 Pro"]
+hidden = true
+
+["A14 iPhone 12 Pro"]
+hidden = true

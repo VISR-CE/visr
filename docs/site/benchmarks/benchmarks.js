@@ -118,6 +118,13 @@ function fillDeviceText(text, label, deviceText, defaultPace = "the display rate
 // The spec's paragraph with the device it is showing named in it. Mirrors section_paragraph in charts.py.
 const sectionParagraph = (spec, built, deviceText) => fillDeviceText(spec.paragraph.trim(), built.box || spec.box || "", deviceText);
 
+// The platform's rows without those of a device that devices.toml marks `hidden` (merged into a similar device): such a device
+// has no picker entry and its builds do not appear. Mirrors visible_rows in charts.py.
+function visibleRows(platformRows, deviceText) {
+  const hidden = new Set(devices(platformRows).filter((d) => ((deviceText || {})[d.label] || {}).hidden).map((d) => d.id));
+  return platformRows.filter((row) => !hidden.has(deviceId(row)));
+}
+
 function suiteValue(group, query, suite, device) {
   const box = group.filter((row) => deviceId(row) === device);
   const unsupported = group.filter((row) => row.suite === suite && row.status === "not_supported");
@@ -179,7 +186,7 @@ function defaultBuilds(entries, overall) {
 }
 
 function model(rows, query, suite, device = null, deviceText = {}) {
-  const platformRows = rows.filter((row) => row.platform === query.platform);
+  const platformRows = visibleRows(rows.filter((row) => row.platform === query.platform), deviceText);
   const shownDevice = pickDevice(platformRows, device);
   const deviceKey = shownDevice ? shownDevice.id : "\0";
   const groups = new Map();
@@ -462,7 +469,7 @@ function plainReason(reason, reasons) {
   return reason;
 }
 
-if (typeof module !== "undefined") module.exports = { unionTable, sharedRows, groupByPlatform, devices, pickDevice, deviceId, fillDeviceText, sectionParagraph, captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
+if (typeof module !== "undefined") module.exports = { visibleRows, unionTable, sharedRows, groupByPlatform, devices, pickDevice, deviceId, fillDeviceText, sectionParagraph, captionParts, headerText, plainReason, parseCsv, model, chartSource, legendText, captionText, captionTable, entryKey, buildGroups, listStatus, overallSplit, SUITES };
 
 // ---- Page ----
 function readHash() {
@@ -837,8 +844,8 @@ async function start() {
   // Each platform shows one device at a time: its charts' default (`box`), or the one the URL names.
   for (const group of groups) {
     const platform = group[0].query.platform;
-    const found = devices(rows.filter((row) => row.platform === platform));
-    const fallback = pickDevice(rows.filter((row) => row.platform === platform), group[0].box);
+    const found = devices(visibleRows(rows.filter((row) => row.platform === platform), deviceText));
+    const fallback = pickDevice(visibleRows(rows.filter((row) => row.platform === platform), deviceText), group[0].box);
     state.defaultDevices[platform] = fallback ? fallback.label : "";
     const asked = params.get("device." + platform);
     state.devices[platform] = found.some((d) => d.label === asked) ? asked : state.defaultDevices[platform];
@@ -893,7 +900,7 @@ async function start() {
     const intro = (group.length > 1 ? document.querySelector(`.bench-group[data-group="${platform}"]`) : sections[lead.slug]).querySelector(":scope > p");
     const setIntro = () => { if (intro) intro.textContent = sectionParagraph(lead, state.models[lead.slug], deviceText); };
     setIntro();
-    const options = devices(rows.filter((row) => row.platform === platform), state.defaultDevices[platform]);
+    const options = devices(visibleRows(rows.filter((row) => row.platform === platform), deviceText), state.defaultDevices[platform]);
     const picker = buildDevicePicker(platform, options, state.devices[platform], async (label) => {
       state.devices[platform] = label;
       state.touched = true;

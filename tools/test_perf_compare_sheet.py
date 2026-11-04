@@ -1210,13 +1210,12 @@ def test_the_device_picked_decides_which_rows_a_chart_draws():
 def test_every_devices_frame_budget_is_its_play_cap_or_the_lowest_cap_of_its_runs():
     rows = snapshot()
     texts = charts.load_device_text()
-    expected = {"A10X iPad Pro": 30, "A14 iPad Air": 60, "A14 iPhone 12 Pro": 60, "A18 Pro iPhone 16 Pro": 60,
-                "A19 Pro iPhone 17 Pro": 60, "M1 iPad Pro": 120, "Apple TV 4K": 60, "Apple TV HD": 30, "M2 Vision Pro": 90}
+    expected = {"A10X iPad Pro": 30, "A14 iPad Air": 60, "A19 Pro iPhone 17 Pro": 60, "M1 iPad Pro": 120, "Apple TV 4K": 60, "Apple TV HD": 30, "M2 Vision Pro": 90}
     seen = set()
     for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows):
         if not item["query"].get("budget"):
             continue
-        for device in charts.devices([row for row in rows if row["platform"] == item["query"]["platform"]]):
+        for device in charts.devices(charts.visible_rows([row for row in rows if row["platform"] == item["query"]["platform"]], texts)):
             built = charts.model(rows, item["query"], "campaign", device["label"], texts)
             assert built["budget_ms"] == pytest.approx(1000 / expected[device["label"]]), device["label"]
             seen.add(device["label"])
@@ -1273,8 +1272,9 @@ const deviceText = JSON.parse(process.argv[2]);
 const out = {};
 for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) {
   const platformRows = rows.filter((r) => r.platform === spec.query.platform);
-  out[spec.slug + '/devices'] = m.devices(platformRows, spec.box).map((d) => [d.id, d.label]);
-  for (const device of m.devices(platformRows)) for (const suite of m.SUITES.concat(['overall'])) {
+  const visible = m.visibleRows(platformRows, deviceText);
+  out[spec.slug + '/devices'] = m.devices(visible, spec.box).map((d) => [d.id, d.label]);
+  for (const device of m.devices(visible)) for (const suite of m.SUITES.concat(['overall'])) {
     const built = m.model(rows, spec.query, suite, device.label, deviceText);
     out[[spec.slug, device.label, suite].join('/')] = [built.box, built.device, built.budget_ms ?? null, m.chartSource(spec, built, suite),
       built.entries.map((e) => [m.entryKey(e), e.label, e.date, e.default, e.kind, e.reason]), m.captionTable(built, null, spec.query.details, spec.query.windows),
@@ -1288,7 +1288,7 @@ console.log(JSON.stringify(out));
     done = subprocess.run(["node", "-e", script, str(ROOT), json.dumps(texts)], input=payload, capture_output=True, text=True, check=True)
     browser = json.loads(done.stdout)
     for item in specs:
-        platform_rows = [row for row in rows if row["platform"] == item["query"]["platform"]]
+        platform_rows = charts.visible_rows([row for row in rows if row["platform"] == item["query"]["platform"]], texts)
         slug = site_page.slug(item)
         assert browser[f"{slug}/devices"] == [[d["id"], d["label"]] for d in charts.devices(platform_rows, item["box"])]
         for device in charts.devices(platform_rows):
@@ -1329,3 +1329,40 @@ console.log(JSON.stringify(out));
     notes = json.loads(done.stdout)
     for device in ("Apple TV 4K", "Apple TV HD"):
         assert notes[device] == [["VISR 0.6.8", ""]], device
+
+
+def test_merged_devices_have_no_picker_entry_and_no_builds_on_the_page():
+    rows, texts = snapshot(), charts.load_device_text()
+    phones = [row for row in rows if row["platform"] == "iPhone/iPad"]
+    assert [d["label"] for d in charts.devices(charts.visible_rows(phones, texts), "M1 iPad Pro")] == [
+        "M1 iPad Pro", "A10X iPad Pro", "A14 iPad Air", "A19 Pro iPhone 17 Pro"]
+    assert {d["label"] for d in charts.devices(phones)} - {d["label"] for d in charts.devices(charts.visible_rows(phones, texts))} == {
+        "A14 iPhone 12 Pro", "A18 Pro iPhone 16 Pro"}
+    query = {"platform": "iPhone/iPad", "metrics": ["fps_avg"], "filter": {}}
+    hidden_hosts = {row["host"] for row in phones if row["machine"] in ("iPhone 12 Pro", "iPhone 16 Pro")}
+    for device in ("M1 iPad Pro", "A19 Pro iPhone 17 Pro"):
+        built = charts.model(rows, query, "campaign", device, texts)
+        assert not [e for e in built["entries"] if e["label"] in hidden_hosts]
+    assert charts.pick_device(charts.visible_rows(phones, texts), "A18 Pro iPhone 16 Pro") is None
+
+
+def test_no_chart_defaults_to_a_merged_device():
+    rows, texts = snapshot(), charts.load_device_text()
+    for item in charts.load_specs(ROOT / "docs/benchmarks/charts"):
+        platform_rows = charts.visible_rows([row for row in rows if row["platform"] == item["query"]["platform"]], texts)
+        assert charts.pick_device(platform_rows, item["box"]), item["name"]
+
+
+def test_hidden_devices_leave_no_port_or_build_out_of_the_page_silently():
+    """Lists the builds whose rows are all on merged devices, so each one is a decision. Today there are none; a new case fails
+    here until it is added to the list (or its device is shown)."""
+    rows, texts = snapshot(), charts.load_device_text()
+    only_hidden = {}
+    for platform in {row["platform"] for row in rows}:
+        platform_rows = [row for row in rows if row["platform"] == platform]
+        shown = {(row["port"], row["version"], row["build"]) for row in charts.visible_rows(platform_rows, texts)}
+        for row in platform_rows:
+            key = (row["port"], row["version"], row["build"])
+            if key not in shown:
+                only_hidden.setdefault((platform, *key), set()).add(row["host"])
+    assert only_hidden == {}
