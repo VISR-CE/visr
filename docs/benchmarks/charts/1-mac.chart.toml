@@ -17,8 +17,8 @@ header = '''
 ---
 config:
   xyChart:
-    width: 860
-    height: 420
+    width: 520
+    height: 290
   themeVariables:
     xyChart:
       plotColorPalette: "__PALETTE__"
