@@ -79,7 +79,7 @@ const withoutDevice = (row, group) => {
 // The platform's devices as {id, label}, the one named `first` (a label or an id) leading and the rest by label. A device's
 // label is its host name that starts with its chip ("M6 Mac mini") when it has one, else the first host by name.
 // Mirrors devices in charts.py.
-function devices(platformRows, first = "") {
+function devices(platformRows, first = "", deviceText = {}) {
   const hosts = new Map();
   for (const row of platformRows) {
     const id = deviceId(row);
@@ -91,17 +91,18 @@ function devices(platformRows, first = "") {
     const chip = id.slice(id.indexOf("|") + 1);
     const all = [...names].sort(byText);
     const named = chip ? all.filter((name) => name.startsWith(chip + " ")) : [];
-    return { id, label: (named.length ? named : all)[0] };
+    const label = (named.length ? named : all)[0];
+    return { id, label, name: ((deviceText || {})[label] || {}).display || label };
   });
   const lead = (d) => (d.id === first || d.label === first ? 0 : 1);
-  return found.sort((a, b) => lead(a) - lead(b) || byText(a.label, b.label));
+  return found.sort((a, b) => lead(a) - lead(b) || byText(a.name, b.name));
 }
 
 // The device a chart shows: the one `wanted` names (a label or an id), else the platform's reference device (the rows
 // flagged reference_box), else none. Mirrors pick_device in charts.py.
-function pickDevice(platformRows, wanted) {
-  const found = devices(platformRows);
-  if (wanted) return found.find((d) => d.id === wanted || d.label === wanted) || null;
+function pickDevice(platformRows, wanted, deviceText = {}) {
+  const found = devices(platformRows, "", deviceText);
+  if (wanted) return found.find((d) => d.id === wanted || d.label === wanted || d.name === wanted) || null;
   const flagged = platformRows.find((row) => String(row.reference_box).toLowerCase() === "true");
   return (flagged && found.find((d) => d.id === deviceId(flagged))) || null;
 }
@@ -112,7 +113,7 @@ const withArticle = (name) => (/^([AEIOUaeiou]|[MNFHLRSXmnfhlrsx]\d)/.test(name)
 // A paragraph's {device} and {pace} placeholders for the device shown. Mirrors fill_device_text in charts.py.
 function fillDeviceText(text, label, deviceText, defaultPace = "the display rate") {
   const info = (deviceText || {})[label] || {};
-  return text.replaceAll("{device}", info.name || withArticle(label)).replaceAll("{pace}", info.pace || defaultPace);
+  return text.replaceAll("{device}", info.name || withArticle(info.display || label)).replaceAll("{pace}", info.pace || defaultPace);
 }
 
 // The spec's paragraph with the device it is showing named in it. Mirrors section_paragraph in charts.py.
@@ -187,7 +188,7 @@ function defaultBuilds(entries, overall) {
 
 function model(rows, query, suite, device = null, deviceText = {}) {
   const platformRows = visibleRows(rows.filter((row) => row.platform === query.platform), deviceText);
-  const shownDevice = pickDevice(platformRows, device);
+  const shownDevice = pickDevice(platformRows, device, deviceText);
   const deviceKey = shownDevice ? shownDevice.id : "\0";
   const groups = new Map();
   for (const row of platformRows) {
@@ -225,7 +226,7 @@ function model(rows, query, suite, device = null, deviceText = {}) {
     || (a.build < b.build ? -1 : a.build > b.build ? 1 : 0));
   const chosen = defaultBuilds(entries, suite === "overall");
   for (const entry of entries) entry.default = chosen.get(entry.port) === entry;
-  const built = { overall: suite === "overall", pair: Boolean(query.pair), entries, box: shownDevice ? shownDevice.label : "", device: shownDevice ? shownDevice.id : "" };
+  const built = { overall: suite === "overall", pair: Boolean(query.pair), entries, box: shownDevice ? shownDevice.label : "", name: shownDevice ? shownDevice.name : "", device: shownDevice ? shownDevice.id : "" };
   if (query.budget) built.budget_ms = budgetMs(platformRows, query, deviceKey, ((deviceText || {})[built.box] || {}).play_fps);
   return built;
 }
@@ -373,7 +374,7 @@ function chartSource(spec, built, suite, selected, palette, rows = null) {
   const head = chart.horizontal ? "xychart-beta horizontal" : "xychart-beta";
   // A chart sharing a frame keeps a short title, so it fits the same width as its siblings' titles.
   const unit = (chart.title_unit || "uncapped fps") + (built.budget_ms && !rows ? ` against the ${number(built.budget_ms)} ms frame budget` : "");
-  const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.box || spec.box || ""}`.replaceAll('"', "'");
+  const title = `${SUITE_NAMES[suite]}: ${unit}, ${built.name || built.box || spec.box || ""}`.replaceAll('"', "'");
   // Both series share one band per build; `groupBars` splits each band between the two bars. Mirrors `source` in charts.py.
   const lows = shown.map((e) => (e.value.low === null ? 0 : lower ? e.value.low : Math.min(e.value.low, e.value.avg)));
   return [headerText(chart, palette, shown.length * (withLows || rows ? 2 : 1)), head, `    title "${title}"`,
@@ -845,7 +846,7 @@ async function start() {
   for (const group of groups) {
     const platform = group[0].query.platform;
     const found = devices(visibleRows(rows.filter((row) => row.platform === platform), deviceText));
-    const fallback = pickDevice(visibleRows(rows.filter((row) => row.platform === platform), deviceText), group[0].box);
+    const fallback = pickDevice(visibleRows(rows.filter((row) => row.platform === platform), deviceText), group[0].box, deviceText);
     state.defaultDevices[platform] = fallback ? fallback.label : "";
     const asked = params.get("device." + platform);
     state.devices[platform] = found.some((d) => d.label === asked) ? asked : state.defaultDevices[platform];
@@ -900,7 +901,7 @@ async function start() {
     const intro = (group.length > 1 ? document.querySelector(`.bench-group[data-group="${platform}"]`) : sections[lead.slug]).querySelector(":scope > p");
     const setIntro = () => { if (intro) intro.textContent = sectionParagraph(lead, state.models[lead.slug], deviceText); };
     setIntro();
-    const options = devices(visibleRows(rows.filter((row) => row.platform === platform), deviceText), state.defaultDevices[platform]);
+    const options = devices(visibleRows(rows.filter((row) => row.platform === platform), deviceText), state.defaultDevices[platform], deviceText);
     const picker = buildDevicePicker(platform, options, state.devices[platform], async (label) => {
       state.devices[platform] = label;
       state.touched = true;
@@ -923,7 +924,7 @@ function buildDevicePicker(platform, options, current, onChange) {
     const input = el("input", { type: "radio", name, value: option.label });
     input.checked = option.label === current;
     input.addEventListener("change", () => { if (input.checked) onChange(option.label); });
-    pills.append(el("label", {}, input, " " + option.label));
+    pills.append(el("label", {}, input, " " + option.name));
   }
   return el("fieldset", { class: "bench-device", "data-platform-devices": platform }, el("legend", {}, platform + " device"), pills);
 }

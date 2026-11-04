@@ -52,8 +52,9 @@ def device_id(row: dict) -> str:
     return f"{machine}|{chip}" if machine or chip else row.get("host", "")
 
 
-def devices(platform_rows: list[dict], first: str = "") -> list[dict]:
-    """The platform's devices as {id, label}, the one named `first` (a label or id) leading and the rest by label. A device's
+def devices(platform_rows: list[dict], first: str = "", device_text: dict | None = None) -> list[dict]:
+    """The platform's devices as {id, label, name}, the one named `first` (a label or id) leading and the rest by name; the name is
+    the `display` text devices.toml gives the device, else its label (the picker's pill). A device's
     label is its host name that starts with its chip (`M6 Mac mini`) when it has one, else the first host by name.
     Mirrored by `devices` in benchmarks.js."""
     hosts: dict[str, set[str]] = {}
@@ -64,16 +65,18 @@ def devices(platform_rows: list[dict], first: str = "") -> list[dict]:
         chip = ident.partition("|")[2]
         named = sorted(name for name in names if chip and name.startswith(chip + " "))
         found.append({"id": ident, "label": (named or sorted(names))[0]})
-    found.sort(key=lambda d: (first not in (d["id"], d["label"]), d["label"]))
+    for d in found:
+        d["name"] = (device_text or {}).get(d["label"], {}).get("display") or d["label"]
+    found.sort(key=lambda d: (first not in (d["id"], d["label"]), d["name"]))
     return found
 
 
-def pick_device(platform_rows: list[dict], wanted: str | None) -> dict | None:
+def pick_device(platform_rows: list[dict], wanted: str | None, device_text: dict | None = None) -> dict | None:
     """The device a chart shows: the one `wanted` names (a label or an id), else the platform's reference device (the rows
     flagged `reference_box`), else none. Mirrored by `pickDevice` in benchmarks.js."""
-    found = devices(platform_rows)
+    found = devices(platform_rows, "", device_text)
     if wanted:
-        return next((d for d in found if wanted in (d["id"], d["label"])), None)
+        return next((d for d in found if wanted in (d["id"], d["label"], d["name"])), None)
     flagged = next((row for row in platform_rows if row.get("reference_box", "").lower() == "true"), None)
     return next((d for d in found if flagged and d["id"] == device_id(flagged)), None)
 
@@ -91,7 +94,7 @@ def with_article(name: str) -> str:
 def fill_device_text(text: str, label: str, device_text: dict, default_pace: str = "the display rate") -> str:
     """A paragraph's {device} and {pace} placeholders for the device shown. Mirrored by `fillDeviceText` in benchmarks.js."""
     info = device_text.get(label, {})
-    return text.replace("{device}", info.get("name") or with_article(label)).replace("{pace}", info.get("pace") or default_pace)
+    return text.replace("{device}", info.get("name") or with_article(info.get("display") or label)).replace("{pace}", info.get("pace") or default_pace)
 
 
 def visible_rows(platform_rows: list[dict], device_text: dict) -> list[dict]:
@@ -117,7 +120,7 @@ def _reporters(spec: dict, rows: list[dict]) -> tuple[int, int]:
     """(ports, builds) with a value for the spec's first metric among the default device's rows its filter matches."""
     query = spec["query"]
     platform_rows = visible_rows([row for row in rows if row["platform"] == query["platform"]], load_device_text())
-    chosen = pick_device(platform_rows, spec.get("box"))
+    chosen = pick_device(platform_rows, spec.get("box"), load_device_text())
     found = [row for row in platform_rows if chosen and _on(row, chosen["id"])
              and _matches(row, query["filter"]) and _has_value(row, query)]
     return len({row["port"] for row in found}), len({(row["port"], row["version"], row["build"]) for row in found})
@@ -310,7 +313,7 @@ def model(rows: list[dict], query: dict, suite: str, device: str | None = None, 
     platform's reference device when omitted) or the reason it has none."""
     device_text = load_device_text() if device_text is None else device_text
     platform_rows = visible_rows([row for row in rows if row["platform"] == query["platform"]], device_text)
-    shown = pick_device(platform_rows, device)
+    shown = pick_device(platform_rows, device, device_text)
     device_key = shown["id"] if shown else "\0"
     groups: dict[tuple, list[dict]] = {}
     for row in platform_rows:
@@ -345,7 +348,7 @@ def model(rows: list[dict], query: dict, suite: str, device: str | None = None, 
     chosen = _default_builds(entries, suite == "overall")
     for entry in entries:
         entry["default"] = chosen.get(entry["port"]) is entry
-    built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": shown["label"] if shown else "",
+    built = {"overall": suite == "overall", "pair": bool(query.get("pair")), "entries": entries, "box": shown["label"] if shown else "", "name": shown["name"] if shown else "",
              "device": shown["id"] if shown else ""}
     if query.get("budget"):
         info = device_text.get(shown["label"] if shown else "", {})
@@ -490,7 +493,7 @@ def list_status(built: dict, selected: set[str] | None = None) -> dict[str, dict
 
 
 def chart_title(spec: dict, built: dict, suite: str) -> str:
-    box = built["box"] or spec.get("box", "")
+    box = built.get("name") or built["box"] or spec.get("box", "")
     unit = spec.get("chart", {}).get("title_unit", "uncapped fps")
     if built.get("budget_ms"):
         unit += f" against the {_number(built['budget_ms'])} ms frame budget"

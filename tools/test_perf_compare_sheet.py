@@ -282,7 +282,7 @@ def test_overall_suite_set_follows_the_ticked_builds():
     only_opence = charts.overall_note(built, {"opence-macos@v1.0.2@2"})
     assert only_opence == "Overall covers Campaign."
     text = charts.source(spec(), built, "overall", {"visr@0.5.1@7"})
-    assert 'title "Overall: uncapped fps, M6 Mac mini"' in text and '["VISR 0.5.1"]' in text
+    assert 'title "Overall: uncapped fps, Mac mini M6"' in text and '["VISR 0.5.1"]' in text
     assert charts.source(spec(), built, "overall", set()) is None
 
 
@@ -345,7 +345,7 @@ def test_chart_source_draws_average_then_low_for_the_ticked_builds():
     text = charts.source(spec(), built, "campaign")
     lines = text.splitlines()
     assert lines[:4] == ["---", "config: {}", "---", "xychart-beta horizontal"]
-    assert 'title "Campaign: uncapped fps, M6 Mac mini"' in text
+    assert 'title "Campaign: uncapped fps, Mac mini M6"' in text
     assert 'x-axis "X" ["VISR 0.5.1", "OpenCE v1.0.2"]' in text
     assert "    bar [547.7, 547.7]" in text and "    bar [200, 200]" in text
     chosen = charts.source(spec(), built, "campaign", {"visr@main@5"})
@@ -442,8 +442,9 @@ const fs = require('fs');
 const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
 const rows = m.parseCsv(fs.readFileSync(process.argv[1] + '/docs/benchmarks/results.csv', 'utf8'));
 const out = {};
+const deviceText = JSON.parse(process.argv[2]);
 for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) for (const suite of m.SUITES.concat(['overall'])) {
-  const built = m.model(rows, spec.query, suite);
+  const built = m.model(rows, spec.query, suite, null, deviceText);
   out[spec.slug + '/' + suite] = [m.chartSource(spec, built, suite), m.captionText(built, null, spec.query.details, spec.query.windows), built.entries.map((e) => [m.entryKey(e), e.default, e.kind, e.reason]),
     m.buildGroups(built).map((g) => [g.port, m.entryKey(g.primary), g.others.map(m.entryKey)]), m.captionTable(built, null, spec.query.details, spec.query.windows)];
   const firstKey = built.entries.length ? new Set([m.entryKey(built.entries[0])]) : new Set();
@@ -452,7 +453,7 @@ for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) for (const suite of m
 console.log(JSON.stringify(out));
 """
     payload = json.dumps([{**item, "slug": site_page.slug(item)} for item in specs])
-    done = subprocess.run(["node", "-e", script, str(ROOT)], input=payload, capture_output=True, text=True, check=True)
+    done = subprocess.run(["node", "-e", script, str(ROOT), json.dumps(charts.load_device_text())], input=payload, capture_output=True, text=True, check=True)
     browser = json.loads(done.stdout)
     for item in specs:
         for suite in charts.SUITE_CHOICES:
@@ -769,7 +770,7 @@ def test_browser_overall_matches_python_on_mixed_suites():
 const fs = require('fs');
 const m = require(process.argv[1] + '/docs/site/benchmarks/benchmarks.js');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-const built = m.model(input.rows, input.spec.query, 'overall');
+const built = m.model(input.rows, input.spec.query, 'overall', null, input.deviceText);
 console.log(JSON.stringify(input.selections.map((keys) => {
   const picked = keys === null ? null : new Set(keys);
   return [m.chartSource(input.spec, built, 'overall', picked), m.captionText(built, picked, [])];
@@ -777,7 +778,7 @@ console.log(JSON.stringify(input.selections.map((keys) => {
 """
     selections = [None, ["visr@0.5.1@7"], ["visr@0.5.1@7", "opence-macos@v1.0.2@2"], []]
     done = subprocess.run(["node", "-e", script, str(ROOT)], capture_output=True, text=True, check=True,
-                          input=json.dumps({"rows": rows, "spec": spec(), "selections": selections}))
+                          input=json.dumps({"rows": rows, "spec": spec(), "selections": selections, "deviceText": charts.load_device_text()}))
     built = charts.model(rows, QUERY, "overall")
     expected = [[charts.source(spec(), built, "overall", None if keys is None else set(keys)),
                  charts.caption(built, None if keys is None else set(keys), [])] for keys in selections]
@@ -1243,8 +1244,8 @@ def test_paragraphs_name_the_device_shown_and_its_rate():
     assert charts.fill_device_text(paragraph, "Apple TV 4K", texts) == (
         "Measured on an Apple TV 4K (3rd generation) from runs presented at the frame caps of its profile: 60 fps in play, 30 fps in cutscenes.")
     # No entry: the label with its article, and the display rate.
-    assert charts.fill_device_text(paragraph, "M1 iPad Pro", texts) == "Measured on an M1 iPad Pro from runs presented at the display rate."
-    assert charts.fill_device_text("{device}", "M6 Mac mini", texts) == "an M6 Mac mini"
+    assert charts.fill_device_text(paragraph, "M1 iPad Pro", texts) == "Measured on an iPad Pro M1 from runs presented at the display rate."
+    assert charts.fill_device_text("{device}", "M6 Mac mini", texts) == "a Mac mini M6"
     assert charts.with_article("Mac mini") == "a Mac mini" and charts.with_article("A14 iPad Air") == "an A14 iPad Air"
 
 
@@ -1278,8 +1279,8 @@ const out = {};
 for (const spec of JSON.parse(fs.readFileSync(0, 'utf8'))) {
   const platformRows = rows.filter((r) => r.platform === spec.query.platform);
   const visible = m.visibleRows(platformRows, deviceText);
-  out[spec.slug + '/devices'] = m.devices(visible, spec.box).map((d) => [d.id, d.label]);
-  for (const device of m.devices(visible)) for (const suite of m.SUITES.concat(['overall'])) {
+  out[spec.slug + '/devices'] = m.devices(visible, spec.box, deviceText).map((d) => [d.id, d.label, d.name]);
+  for (const device of m.devices(visible, '', deviceText)) for (const suite of m.SUITES.concat(['overall'])) {
     const built = m.model(rows, spec.query, suite, device.label, deviceText);
     out[[spec.slug, device.label, suite].join('/')] = [built.box, built.device, built.budget_ms ?? null, m.chartSource(spec, built, suite),
       built.entries.map((e) => [m.entryKey(e), e.label, e.date, e.default, e.kind, e.reason]), m.captionTable(built, null, spec.query.details, spec.query.windows),
@@ -1295,10 +1296,10 @@ console.log(JSON.stringify(out));
     for item in specs:
         platform_rows = charts.visible_rows([row for row in rows if row["platform"] == item["query"]["platform"]], texts)
         slug = site_page.slug(item)
-        assert browser[f"{slug}/devices"] == [[d["id"], d["label"]] for d in charts.devices(platform_rows, item["box"])]
-        for device in charts.devices(platform_rows):
+        assert browser[f"{slug}/devices"] == [[d["id"], d["label"], d["name"]] for d in charts.devices(platform_rows, item["box"], texts)]
+        for device in charts.devices(platform_rows, "", texts):
             for suite in charts.SUITE_CHOICES:
-                built = charts.model(rows, item["query"], suite, device["label"])
+                built = charts.model(rows, item["query"], suite, device["label"], texts)
                 assert browser[f"{slug}/{device['label']}/{suite}"] == [
                     built["box"], built["device"], built.get("budget_ms"), charts.source(item, built, suite),
                     [[charts.entry_key(e), e["label"], e["date"], e["default"], e["kind"], e["reason"]] for e in built["entries"]],
@@ -1339,8 +1340,8 @@ console.log(JSON.stringify(out));
 def test_merged_devices_have_no_picker_entry_and_no_builds_on_the_page():
     rows, texts = snapshot(), charts.load_device_text()
     phones = [row for row in rows if row["platform"] == "iPhone/iPad"]
-    assert [d["label"] for d in charts.devices(charts.visible_rows(phones, texts), "M1 iPad Pro")] == [
-        "M1 iPad Pro", "A10X iPad Pro", "A14 iPad Air", "A19 Pro iPhone 17 Pro"]
+    assert [d["label"] for d in charts.devices(charts.visible_rows(phones, texts), "M1 iPad Pro", texts)] == [
+        "M1 iPad Pro", "A14 iPad Air", "A10X iPad Pro", "A19 Pro iPhone 17 Pro"]
     assert {d["label"] for d in charts.devices(phones)} - {d["label"] for d in charts.devices(charts.visible_rows(phones, texts))} == {
         "A14 iPhone 12 Pro", "A18 Pro iPhone 16 Pro"}
     query = {"platform": "iPhone/iPad", "metrics": ["fps_avg"], "filter": {}}
@@ -1371,3 +1372,21 @@ def test_hidden_devices_leave_no_port_or_build_out_of_the_page_silently():
             if key not in shown:
                 only_hidden.setdefault((platform, *key), set()).add(row["host"])
     assert only_hidden == {}
+
+
+def test_the_picker_and_paragraph_use_each_devices_plain_name():
+    rows, texts = snapshot(), charts.load_device_text()
+    names = {}
+    for platform in ("iPhone/iPad", "Mac", "Apple TV", "Vision Pro"):
+        platform_rows = charts.visible_rows([row for row in rows if row["platform"] == platform], texts)
+        names[platform] = [d["name"] for d in charts.devices(platform_rows, "", texts)]
+    assert names == {"iPhone/iPad": ["iPad Air (4th generation)", "iPad Pro (2nd generation)", "iPad Pro M1", "iPhone 17 Pro"],
+                     "Mac": ["Mac mini M4", "Mac mini M6"], "Apple TV": ["Apple TV 4K", "Apple TV HD"], "Vision Pro": ["M2 Vision Pro"]}
+    query = {"platform": "iPhone/iPad", "metrics": ["fps_avg"], "filter": {}}
+    built = charts.model(rows, query, "campaign", "A19 Pro iPhone 17 Pro", texts)
+    assert (built["box"], built["name"]) == ("A19 Pro iPhone 17 Pro", "iPhone 17 Pro")
+    assert charts.chart_title({"chart": {}}, built, "campaign").endswith(", iPhone 17 Pro")
+    assert charts.fill_device_text("{device}", built["box"], texts) == "an iPhone 17 Pro"
+    # The name or the label picks the device alike.
+    phones = [row for row in rows if row["platform"] == "iPhone/iPad"]
+    assert charts.pick_device(phones, "iPhone 17 Pro", texts)["label"] == "A19 Pro iPhone 17 Pro"

@@ -14,7 +14,7 @@ Campaign suite, newest build of each port.
 
 ### Mac
 
-Measured on an M6 Mac mini with the frame cap and vsync off, the matched-stock settings and a 2560×1920 drawable. Bars show average fps; the table lists median and 90th-percentile GPU time per rendered frame.
+Measured on a Mac mini M6 with the frame cap and vsync off, the matched-stock settings and a 2560×1920 drawable. Bars show average fps; the table lists median and 90th-percentile GPU time per rendered frame.
 
 ```mermaid
 ---
@@ -27,7 +27,7 @@ config:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
-    title "Campaign: uncapped fps, M6 Mac mini"
+    title "Campaign: uncapped fps, Mac mini M6"
     x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.0", "Chupathingy v0.8.0h", "Halo OG v0.5.1"]
     y-axis "Frames per second" 0 --> 500
     bar [338.1, 332.8, 244, 174.7, 95.8]
@@ -43,7 +43,7 @@ Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v
 
 ### iPhone and iPad
 
-Measured on an M1 iPad Pro from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. The FPS view shows average fps with the 1% low fps directly below it.
+Measured on an iPad Pro M1 from runs presented at the display rate. Bars show median CPU time and median GPU time per frame in milliseconds, CPU above GPU for each build, on an axis that ends at the frame budget at the display rate. Lower is better. A build that reports only one of the two is drawn with that bar alone; builds that report neither are listed as not reported. The FPS view shows average fps with the 1% low fps directly below it.
 
 ```mermaid
 ---
@@ -56,7 +56,7 @@ config:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
-    title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, M1 iPad Pro"
+    title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, iPad Pro M1"
     x-axis "Port and version" ["VISR 0.6.8", "ChupathingyCE iOS v0.4.1"]
     y-axis "Milliseconds per frame" 0 --> 10.2
     bar [0, 4.3]
@@ -73,7 +73,7 @@ Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v
 
 #### iPhone and iPad: frame rate
 
-Measured on an M1 iPad Pro from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.
+Measured on an iPad Pro M1 from runs presented at the display rate. Frame rate in frames per second; a missed frame shows here even when the work per frame above is low. Bars show average fps and 1% low fps (the slowest 1% of frames); the table lists the share of frames that arrive on time, within 5% of the display interval.
 
 ```mermaid
 ---
@@ -86,7 +86,7 @@ config:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
-    title "Campaign: fps at display rate, M1 iPad Pro"
+    title "Campaign: fps at display rate, iPad Pro M1"
     x-axis "Port and version" ["VISR 0.6.8", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1"]
     y-axis "Frames per second" 0 --> 150
     bar [115.8, 23.9, 119.4, 119.9]

@@ -1,5 +1,7 @@
 # How the benchmarks page's text names a device and the rate its runs were held to, for the devices whose default
 # wording (the article and the label, "the display rate") is wrong. A chart's paragraph holds {device} and {pace}.
+# `display` is the device's plain name in the picker, the chart title and the paragraph; without it the label (the host name in
+# the results) is shown. `name` is the paragraph's whole phrase, article included, when "a/an <display>" is wrong.
 # `play_fps` is the frame rate in play, which sets the end of a frame-cost chart's axis where a device's runs hold more than one cap.
 
 ["Apple TV 4K"]
@@ -21,3 +23,23 @@ hidden = true
 
 ["A14 iPhone 12 Pro"]
 hidden = true
+
+# Plain names for the picker, the chart titles and the paragraphs (Steve, Nov 4, 2026).
+
+["A19 Pro iPhone 17 Pro"]
+display = "iPhone 17 Pro"
+
+["A14 iPad Air"]
+display = "iPad Air (4th generation)"
+
+["M1 iPad Pro"]
+display = "iPad Pro M1"
+
+["A10X iPad Pro"]
+display = "iPad Pro (2nd generation)"
+
+["M4 Mac mini"]
+display = "Mac mini M4"
+
+["M6 Mac mini"]
+display = "Mac mini M6"
