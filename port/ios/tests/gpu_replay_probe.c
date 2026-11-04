@@ -13,6 +13,7 @@ HALO_RENDER_VALIDATION=1 under the address sanitizer (tools/ios_test.py).
 #include "gpu_capture.h"
 #include "gpu_replay_fuzz.h"
 #include "gpu_validate.h"
+#include "memory_watch_page.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -142,7 +143,8 @@ static const char pixel_source[] = "uniform sampler2D tex0;\nvoid main()\n{\n\tt
 depth-only one) with a clear and a visibility test, drawn frames times */
 static struct gpu_constant_store constants;
 static struct gpu_uniforms uniforms;
-static float game_memory[4096];
+/* three of the write tracker's pages (memory_watch_page.h) */
+static float game_memory[3 * MEMORY_WATCH_PAGE_SIZE / sizeof(float)];
 
 static void frames_draw(struct gpu_backend *gpu, int frames)
 {
@@ -159,7 +161,7 @@ static void frames_draw(struct gpu_backend *gpu, int frames)
 
 	for (index = 0; index < (int)sizeof(texels); index++)
 		texels[index] = (unsigned char)(index * 7);
-	for (index = 0; index < 4096; index++)
+	for (index = 0; index < (int)(sizeof(game_memory) / sizeof(float)); index++)
 		game_memory[index] = (float)index * 0.5f;
 	if (mock_astc)
 		texture_description.format = GPU_FORMAT_ASTC4X4;
@@ -187,7 +189,7 @@ static void frames_draw(struct gpu_backend *gpu, int frames)
 	vertex = gpu->shader_create(GPU_SHADER_VERTEX, vertex_source);
 	pixel = gpu->shader_create(GPU_SHADER_PIXEL, pixel_source);
 	mirror = gpu->buffer_create(0x10000);
-	gpu->buffer_write(mirror, 0, 0x4000, game_memory, GPU_WRITE_UNUSED);
+	gpu->buffer_write(mirror, 0, sizeof(game_memory), game_memory, GPU_WRITE_UNUSED);
 	constants.serial = 1;
 	uniforms.serial = 1;
 	uniforms.point_size[0][0] = 1.0f;
@@ -233,7 +235,7 @@ static void frames_draw(struct gpu_backend *gpu, int frames)
 		uniforms.fog_color[0][1] = (float)frame * 0.25f;
 		uniforms.serial++;
 		draw.streams[0].buffer = mirror;
-		draw.streams[0].offset = 0x1000 + 64;
+		draw.streams[0].offset = MEMORY_WATCH_PAGE_SIZE + 64;
 		draw.index_offset = gpu->stream(GPU_STREAM_KIND_INDEX, indices, sizeof(indices), &draw.index_buffer);
 		draw.base_vertex = 2;
 		gpu->draw(&draw, &constants, &uniforms);
@@ -378,7 +380,8 @@ int main(void)
 		{
 			char wanted[64];
 
-			snprintf(wanted, sizeof(wanted), "buffer_write 00001000 %08x", hash_bytes((const char *)game_memory + 0x1000, 0x1000));
+			snprintf(wanted, sizeof(wanted), "buffer_write %08x %08x", (unsigned)MEMORY_WATCH_PAGE_SIZE,
+				hash_bytes((const char *)game_memory + MEMORY_WATCH_PAGE_SIZE, MEMORY_WATCH_PAGE_SIZE));
 			EXPECT(strstr(notes, wanted) != NULL, "the mirrored page is the game's memory, read where it lies");
 		}
 	}

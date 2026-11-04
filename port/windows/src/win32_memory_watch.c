@@ -62,6 +62,11 @@ static LONG CALLBACK watch_handler(EXCEPTION_POINTERS *exception)
 	return EXCEPTION_CONTINUE_SEARCH;
 }
 
+unsigned long memory_watch_page_size(void)
+{
+	return WATCH_PAGE_SIZE;
+}
+
 void memory_watch_initialize(void)
 {
 	if (watch_active)

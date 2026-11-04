@@ -21,6 +21,7 @@ Host only: it is compiled into the app, never into the guest.
 */
 
 #include "gpu_validate.h"
+#include "memory_watch_page.h"
 
 #if HALO_RENDER_VALIDATION && !HALO_ILP32
 
@@ -32,7 +33,7 @@ Host only: it is compiled into the app, never into the guest.
 
 /* ---------- what the validator knows */
 
-#define PAGE_SHIFT 12
+#define PAGE_SHIFT MEMORY_WATCH_PAGE_SHIFT
 #define HANDLE_LIMIT (1u << 22)
 
 struct texture_entry

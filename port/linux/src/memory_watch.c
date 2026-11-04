@@ -342,6 +342,11 @@ from the start (below). A library that installed a SIGSEGV handler in
 between (the GL driver's, as the window opened) would get the protected
 pages' faults, and crash or hang at the first write to a texture: the
 handler goes in again, chained to that one */
+unsigned long memory_watch_page_size(void)
+{
+	return WATCH_PAGE_SIZE;
+}
+
 void memory_watch_initialize(void)
 {
 	watch_active = crash_handlers_install();

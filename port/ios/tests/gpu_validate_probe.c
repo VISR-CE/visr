@@ -7,6 +7,7 @@ and a good draw none. Built with HALO_RENDER_VALIDATION=1 (tools/ios_test.py).
 */
 
 #include "gpu_validate.h"
+#include "memory_watch_page.h"
 
 #include <math.h>
 #include <setjmp.h>
@@ -167,7 +168,7 @@ static struct
 	struct gpu_constant_store constants;
 	struct gpu_uniforms uniforms;
 	/* the "game's memory" a mirror segment uploads from: two pages */
-	float memory[2048];
+	float memory[2 * MEMORY_WATCH_PAGE_SIZE / sizeof(float)];
 	uint16_t indices[6];
 	float vertices[4][8];
 } scene;
@@ -202,10 +203,10 @@ static void scene_make(int mode, const char *allow)
 	scene.vertex = gpu.shader_create(GPU_SHADER_VERTEX, vertex_source);
 	scene.pixel = gpu.shader_create(GPU_SHADER_PIXEL, pixel_source);
 	scene.mirror = gpu.buffer_create(0x400000);
-	for (index = 0; index < 2048; index++)
+	for (index = 0; index < (int)(sizeof(scene.memory) / sizeof(float)); index++)
 		scene.memory[index] = (float)index;
-	/* the segment's first page alone is uploaded */
-	gpu.buffer_write(scene.mirror, 0, 4096, scene.memory, GPU_WRITE_UNUSED);
+	/* the segment's first page (the write tracker's, memory_watch_page.h) alone is uploaded */
+	gpu.buffer_write(scene.mirror, 0, MEMORY_WATCH_PAGE_SIZE, scene.memory, GPU_WRITE_UNUSED);
 	scene.indices[0] = 0; scene.indices[1] = 1; scene.indices[2] = 2;
 	scene.indices[3] = 2; scene.indices[4] = 1; scene.indices[5] = 3;
 	for (index = 0; index < 4 * 8; index++)
@@ -298,7 +299,7 @@ int main(void)
 	draw_make(&draw);
 	draw.index_buffer = 0;
 	draw.streams[0].buffer = scene.mirror;
-	draw.streams[0].offset = 4096 - 64;
+	draw.streams[0].offset = MEMORY_WATCH_PAGE_SIZE - 64;
 	draw.count = 3;
 	submit(&draw);
 	EXPECT_ONLY(VERTEX_RANGE_OUT_OF_RANGE, "vertices on a page the mirror never uploaded");
@@ -307,16 +308,16 @@ int main(void)
 	draw_make(&draw);
 	draw.index_buffer = 0;
 	draw.streams[0].buffer = scene.mirror;
-	draw.streams[0].offset = 4096 - 96;
+	draw.streams[0].offset = MEMORY_WATCH_PAGE_SIZE - 96;
 	draw.count = 3;
 	submit(&draw);
 	EXPECT(findings() == 0, "the mirror's uploaded page is good");
 	/* a NaN the game writes there afterwards is seen once the page is uploaded again, not before: the
 	clean scan is kept until then */
-	scene.memory[1000] = nan_value;
+	scene.memory[(MEMORY_WATCH_PAGE_SIZE - 96) / sizeof(float)] = nan_value;
 	submit(&draw);
 	EXPECT(findings() == 0, "a clean mirrored range is not scanned again until it is uploaded again");
-	gpu.buffer_write(scene.mirror, 0, 4096, scene.memory, 0);
+	gpu.buffer_write(scene.mirror, 0, MEMORY_WATCH_PAGE_SIZE, scene.memory, 0);
 	submit(&draw);
 	EXPECT_ONLY(VERTEX_NONFINITE, "a NaN in a mirrored vertex, read from the game's memory");
 

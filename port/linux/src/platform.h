@@ -15,6 +15,7 @@ against the SDK prototype it replaces.
 types (select, fd_set, timeval, ...) are then moved out of glibc's way while
 the SDK headers are read, exactly as game code sees them. */
 #include <pthread.h>
+#include "memory_watch_page.h"
 #include <stdlib.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -164,6 +165,9 @@ Page generations let a cache entry tell whether any of its pages changed
 since it was built. */
 
 void memory_watch_initialize(void);
+/* the tracker's page size (memory_watch_page.h): the smallest range whose
+writes it tells apart. Ranges that share a page share a generation. */
+unsigned long memory_watch_page_size(void);
 #if defined(__linux__) && !defined(HALO_ANDROID) && !defined(HALO_ARM64_GUEST) && !defined(HALO_ILP32)
 void memory_watch_begin_frame(void);
 #endif
