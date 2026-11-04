@@ -69,11 +69,18 @@ struct gpu_pipeline_description {
 };
 static struct vertex_shader_object programs[2];
 static struct vertex_shader_object *vertex_shader_objects = programs;
-static struct { char map[256]; } shader_list;
+static struct {
+    char map[256];
+    struct { uint64_t hash; gpu_shader shader; } *aliases;
+    unsigned long alias_count, alias_capacity;
+} shader_list;
 static struct { int gl_ready; } device;
 static struct { int msl; } shader_dialect;
 static struct { int vertex_bgra; } device_capabilities;
 static int shader_list_warming;
+static void nv2a_pixel_shader_key_canonicalize(struct nv2a_pixel_shader_key *key) { (void)key; }
+static unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_shader_key *key) { (void)key; return 1; }
+static uint64_t hash64(const void *bytes, unsigned long size) { (void)bytes; (void)size; return 0x2222222222222222ULL; }
 static int warm_enabled = 1;
 static const char *record_directory;
 static unsigned char *bundled_text;

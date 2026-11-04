@@ -4039,6 +4039,10 @@ static struct
 	char record_map[64];
 	uint64_t *recorded;
 	unsigned long recorded_count, recorded_capacity;
+	/* the hashes ps lines name, where they are not their canonical key's (a list from before keys were
+	canonical: pipeline lines still name the old hash) */
+	struct { uint64_t hash; gpu_shader shader; } *aliases;
+	unsigned long alias_count, alias_capacity;
 } shader_list;
 
 #ifdef HALO_ILP32
@@ -4295,6 +4299,12 @@ static gpu_shader shader_list_pixel(uint64_t hash)
 {
 	unsigned long index;
 
+	for (index = 0; index < shader_list.alias_count; index++)
+	{
+		if (shader_list.aliases[index].hash == hash)
+			return shader_list.aliases[index].shader;
+	}
+
 #ifdef HALO_ILP32
 	if (observation_capture)
 	{
@@ -4403,6 +4413,7 @@ void halo_shader_list_warm(char const *map_name)
 	if (observation_capture) base = observation_map_key;
 #endif
 	snprintf(shader_list.map, sizeof(shader_list.map), "%s", base);
+	shader_list.alias_count = 0;
 	if (!shader_list.map[0] || !device.gl_ready || !config_boolean("debug.shader_list_warm"))
 		return;
 	/* a run that dumps its shaders (debug.gpu_dump_shaders: check-metal's) compiles each at its first draw, as
@@ -4510,6 +4521,7 @@ void halo_shader_list_warm(char const *map_name)
 			{
 				struct nv2a_pixel_shader_key key;
 				unsigned char *bytes = (unsigned char *)&key;
+				gpu_shader shader;
 
 				memset(&key, 0, sizeof(key));
 				if (sscanf(line, "ps %63s %599s", second, first) != 2 ||
@@ -4519,7 +4531,19 @@ void halo_shader_list_warm(char const *map_name)
 					missing++;
 					continue;
 				}
-				fragment_shader_get(&key);
+				nv2a_pixel_shader_key_canonicalize(&key);
+				shader = fragment_shader_get(&key);
+				if (shader && strtoull(second, NULL, 16) != hash64(&key, nv2a_pixel_shader_key_size(&key)))
+				{
+					if (shader_list.alias_count == shader_list.alias_capacity)
+					{
+						shader_list.alias_capacity = shader_list.alias_capacity ? 2 * shader_list.alias_capacity : 256;
+						shader_list.aliases = realloc(shader_list.aliases,
+							shader_list.alias_capacity * sizeof(*shader_list.aliases));
+					}
+					shader_list.aliases[shader_list.alias_count].hash = strtoull(second, NULL, 16);
+					shader_list.aliases[shader_list.alias_count++].shader = shader;
+				}
 				pixel_count++;
 			}
 			else if (pass == 1 && !strcmp(kind, "pipeline"))
@@ -5129,6 +5153,46 @@ counts the conversions */
 static DWORD draw_uniform_inputs[DRAW_UNIFORM_INPUT_COUNT];
 static struct gpu_uniforms draw_uniforms;
 
+/* the pixel shader key of the render state as set: the part that does not
+depend on the bound textures (pixel_key_begin), then the part that follows
+the textures' sampler types and coverage flags (stages_fill sets those between
+the two). The key is canonical (nv2a_pixel_shader_key_canonicalize): a shader
+the draws reach after different earlier ones is one key. */
+static void pixel_key_begin(struct nv2a_pixel_shader_key *key)
+{
+	memset(key, 0, sizeof(*key));
+	memcpy(key->combiner_state, D3D__RenderState, sizeof(key->combiner_state));
+	/* constants are uniforms, not part of the program */
+	memset(&key->combiner_state[D3DRS_PSCONSTANT0_0], 0, 16 * sizeof(DWORD));
+	key->combiner_state[D3DRS_PSFINALCOMBINERCONSTANT0] = 0;
+	key->combiner_state[D3DRS_PSFINALCOMBINERCONSTANT1] = 0;
+	key->texture_modes = D3D__RenderState[D3DRS_PSTEXTUREMODES];
+}
+
+static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
+{
+	int stage;
+
+	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+	{
+		key->alpha_kill[stage] = D3D__TextureState[stage][D3DTSS_ALPHAKILL] == D3DTALPHAKILL_ENABLE;
+		key->color_sign[stage] = (unsigned char)((D3D__TextureState[stage][D3DTSS_COLORSIGN] >> 28) & 0xf);
+	}
+	/* (only with the meter's blend: hud_hires.h, nv2a_pixel_shader_key) */
+	if (!((key->coverage_alpha & XGPU_COVERAGE_ALPHA) && D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
+		D3D__RenderState[D3DRS_SRCBLEND] == D3DBLEND_CONSTANTCOLOR &&
+		D3D__RenderState[D3DRS_DESTBLEND] == D3DBLEND_SRCALPHA))
+	{
+		key->coverage_alpha = 0;
+	}
+	key->alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
+	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
+	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
+	key->count_samples = device.visibility_test_active &&
+		device_capabilities.occlusion_mode == GPU_OCCLUSION_SHADER_COUNTER;
+	nv2a_pixel_shader_key_canonicalize(key);
+}
+
 /* fills a draw's packet but for its streams, attributes, indices and
 primitive, and brings the draw uniforms up to date; FALSE when the draw is
 skipped */
@@ -5175,36 +5239,9 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		native_depth_asks++;
 	raster_state_fill(has_depth, &draw->viewport, &draw->scissor, &draw->depth_stencil, &draw->blend, &draw->raster);
 
-	memset(&key, 0, sizeof(key));
-	memcpy(key.combiner_state, D3D__RenderState, sizeof(key.combiner_state));
-	/* constants are uniforms, not part of the program */
-	memset(&key.combiner_state[D3DRS_PSCONSTANT0_0], 0, 16 * sizeof(DWORD));
-	key.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT0] = 0;
-	key.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT1] = 0;
-	key.texture_modes = D3D__RenderState[D3DRS_PSTEXTUREMODES];
+	pixel_key_begin(&key);
 	stages_fill(&key, texture_scale, draw->stages);
-	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
-	{
-		key.alpha_kill[stage] = D3D__TextureState[stage][D3DTSS_ALPHAKILL] == D3DTALPHAKILL_ENABLE;
-		key.color_sign[stage] = (unsigned char)((D3D__TextureState[stage][D3DTSS_COLORSIGN] >> 28) & 0xf);
-	}
-	/* (only with the meter's blend: hud_hires.h, nv2a_pixel_shader_key) */
-	if (!((key.coverage_alpha & XGPU_COVERAGE_ALPHA) && D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
-		D3D__RenderState[D3DRS_SRCBLEND] == D3DBLEND_CONSTANTCOLOR &&
-		D3D__RenderState[D3DRS_DESTBLEND] == D3DBLEND_SRCALPHA))
-	{
-		key.coverage_alpha = 0;
-	}
-	key.alpha_test_function = D3D__RenderState[D3DRS_ALPHATESTENABLE] ? D3D__RenderState[D3DRS_ALPHAFUNC] : 0;
-	/* multisampled: an alpha-tested surface covers a pixel's samples by how
-	far its alpha is past the reference (nv2a_pixel_shader_key) */
-	if (target_samples > 1 && key.alpha_test_function && !D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
-		shader_dialect.sample_mask)
-		key.alpha_test_samples = (unsigned char)target_samples;
-	key.fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
-	key.fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
-	key.count_samples = device.visibility_test_active &&
-		device_capabilities.occlusion_mode == GPU_OCCLUSION_SHADER_COUNTER;
+	pixel_key_finish(&key);
 
 	draw->vertex_shader = vertex_shader_get(program, immediate);
 	draw->pixel_shader = fragment_shader_get(&key);
@@ -5212,6 +5249,7 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	{
 		key.combiner_state[D3DRS_PSRGBINPUTS0] = 0x01200000;
 		key.combiner_state[D3DRS_PSALPHAINPUTS0] = 0x11200000;
+		nv2a_pixel_shader_key_canonicalize(&key);
 		companion_flash_shader = fragment_shader_get(&key);
 	}
 	VALIDATION_VERTEX_SHADER(program, immediate ? 1 : 0);
