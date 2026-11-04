@@ -3063,6 +3063,21 @@ static void ui_point_from_surface(const struct host_ui_pointer *host, float surf
 		halo_ui_pointer_map(&g, surface_x * UI_POINTER_SCALE, surface_y * UI_POINTER_SCALE, x, y);
 }
 
+/* A mouse looks only while the game is played: the host holds it (relative
+mode, with the cursor hidden) outside the menus and lets it go in them. The
+host ignores the request where there is no mouse to hold (touch screens); only
+changes cross to the host. */
+static void ui_mouse_hold_update(int menus_active)
+{
+	static int pointer_free = -1;
+
+	if ((menus_active != 0) != pointer_free)
+	{
+		pointer_free = menus_active != 0;
+		platform_mouse_menus_changed(pointer_free);
+	}
+}
+
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 {
 	static int pause_menu = -1, menu_up = -1;
@@ -3081,6 +3096,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		menu_up = menus_active != 0;
 		host_sdl_set_hint("VISR_MENU_ACTIVE", menu_up ? "1" : "0");
 	}
+	ui_mouse_hold_update(menus_active);
 	platform_menus_set_active(menus_active != 0);
 	halo_controller_glyph_pointer_activity(menus_active, NULL);
 	if (!menus_active)

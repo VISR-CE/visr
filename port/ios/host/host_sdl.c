@@ -309,7 +309,15 @@ int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 {
 	SDL_Window *object = handle_get(window, _handle_window);
 
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
+	/* The guest asks for the mouse to be held while the game is played. */
 	return object ? SDL_SetWindowRelativeMouseMode(object, enabled != 0) : 0;
+#else
+	/* Touch screens have no cursor to hold, and SDL's relative mode would
+	reroute their synthesized mouse events. */
+	(void)enabled;
+	return object ? 1 : 0;
+#endif
 }
 
 int host_sdl_gl_set_attribute(int attribute, int value)
