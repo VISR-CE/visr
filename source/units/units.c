@@ -3323,6 +3323,7 @@ void unit_impulse(
 int config_boolean(const char *name);
 unsigned long config_changes(void);
 int input_replay_enhanced_animations(int configured);
+void platform_log(const char *format, ...);
 
 /* port: the animation enhancements (game.enhanced_animations, on unless
 config.toml turns them off) are for the player bipeds (cyborg and
@@ -4521,6 +4522,9 @@ boolean unit_throw_grenade_begin(
 			none, as melee (bipeds.c); the Xbox game prevents the throw
 			(weapon_prevents_grenade_throwing(NONE)); not from a vehicle's
 			seat, which holds no weapon either */
+			if (weapon_index == NONE && unit->unit.parent_seat_index == NONE && unit->unit.player_index != NONE &&
+				!game_engine_unarmed_loadout())
+				platform_log("unit: a grenade press with no weapon does nothing (the Xbox game's)");
 			if ((weapon_index == NONE && unit->unit.parent_seat_index == NONE &&
 				game_engine_unarmed_loadout()) ||
 				(weapon_index != NONE && !weapon_prevents_grenade_throwing(weapon_index)))

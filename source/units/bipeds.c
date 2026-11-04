@@ -523,6 +523,8 @@ static void biped_update_physics(
 	struct biped_physics *physics);
 /* units.c's: whether the unit gets the animation enhancements */
 boolean unit_animation_enhanced(long unit_index);
+/* the platform layer's */
+void platform_log(const char *format, ...);
 static void biped_snap_facing(
 	long biped_index);
 
@@ -4347,6 +4349,8 @@ boolean biped_update(
 				gametype's loadout of none, which it has not, keeps the
 				melee; not from a vehicle's seat, which holds no weapon
 				either) */
+				if (weapon_index == NONE && biped->unit.parent_seat_index == NONE && !game_engine_unarmed_loadout())
+					platform_log("unit: a melee press with no weapon does nothing (the Xbox game's)");
 				if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE &&
 					game_engine_unarmed_loadout()) ||
 					(weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index))) &&
