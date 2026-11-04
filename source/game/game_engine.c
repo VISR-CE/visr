@@ -4534,6 +4534,7 @@ void game_engine_player_killed(
 	boolean player_kill;
 	boolean same_player;
 	boolean valid_players;
+	boolean team_kill;
 	long message = NONE;
 
 	match_assert(
@@ -4594,7 +4595,12 @@ void game_engine_player_killed(
 		}
 	}
 
-	if (!player_kill)
+	/* port: a team kill's penalty is the betrayer's, on his next death's
+	respawn (below); the player he killed respawns on the normal timer. A
+	suicide or a death nobody caused keeps the suicide penalty. */
+	team_kill = friendly_fire && valid_players && !same_player && global_variant.universal_variant.teams &&
+		DATUM_INDEX_TO_ABSOLUTE_INDEX(killing_player_index) < HALO_PORT_MAXIMUM_NETWORK_PLAYERS;
+	if (!player_kill && !team_kill)
 		dead_player->respawn_timer += global_variant.universal_variant.suicide_penalty;
 
 	/* port: the gametype's auto team balance (game_variant_options): the host
@@ -4639,11 +4645,11 @@ void game_engine_player_killed(
 			dead_player->respawn_timer += game_engine_betrayal_penalty[dead_absolute];
 			game_engine_betrayal_penalty[dead_absolute] = 0;
 		}
-		if (friendly_fire && valid_players && !same_player && global_variant.universal_variant.teams &&
-			DATUM_INDEX_TO_ABSOLUTE_INDEX(killing_player_index) < HALO_PORT_MAXIMUM_NETWORK_PLAYERS)
+		if (team_kill)
 		{
 			game_engine_betrayal_penalty[DATUM_INDEX_TO_ABSOLUTE_INDEX(killing_player_index)] =
-				(short)(game_variant_options_get()->friendly_fire_penalty * TICKS_PER_SECOND);
+				(short)(global_variant.universal_variant.suicide_penalty +
+					game_variant_options_get()->friendly_fire_penalty * TICKS_PER_SECOND);
 		}
 	}
 
