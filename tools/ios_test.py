@@ -961,6 +961,7 @@ run('python3', 'tools/ios_xiso_test.py')
 run('python3', 'tools/test_network_light_state.py')
 run('python3', 'tools/test_network_shader_warmup.py')
 run('python3', 'tools/test_shader_list_warmup.py')
+run('python3', 'tools/test_pixel_key_samples.py')
 run('python3', 'tools/test_shader_list_record.py')
 # AppKit import publication, SDL event services, and native/mobile window flags.
 run('python3', 'tools/macos_test.py')
