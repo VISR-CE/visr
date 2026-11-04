@@ -300,6 +300,35 @@ static int write_x2(struct targets *t, const struct texture_upscale_tile *tile, 
     free(rows);
     return 0;
 }
+/* infer_color's outputs from a plain bicubic resize: no model prediction, for results the caller overwrites whole. */
+static int infer_plain(const struct texture_upscale_generate_input *input, const struct texture_upscale_rgba_level *source,
+    struct image *x4, int x4_half, struct image *x2, struct texture_upscale_generate_times *times,
+    char *error, size_t error_size)
+{
+    double start = seconds();
+    unsigned channels = channels_for(input);
+    uint32_t w = source->width, h = source->height;
+    struct image reference = unit(source), plane = {0}, full = allocate(w * 4, h * 4, channels);
+    int result = -1;
+    if (x4) *x4 = x4_half ? allocate_half(w * 4, h * 4, channels) : allocate(w * 4, h * 4, channels);
+    if (x2) *x2 = allocate(w * 2, h * 2, channels);
+    if (!reference.pixels || !full.pixels || (x4 && !allocated(x4)) || (x2 && !x2->pixels)) goto done;
+    plane = channels == 4 ? reference : select_channels(&reference, channels);
+    if (!plane.pixels || texture_upscale_resize(plane.pixels, w, h, channels, 4, input->wrap, full.pixels)) goto done;
+    for (size_t i = 0; i < count(w * 4, h * 4, channels); i++) full.pixels[i] = fminf(1, fmaxf(0, full.pixels[i]));
+    if (x4) for (size_t i = 0; i < count(w * 4, h * 4, channels); i++) set_value(x4, i, full.pixels[i]);
+    if (x2 && texture_upscale_down2(full.pixels, w * 4, h * 4, channels, input->wrap, x2->pixels)) goto done;
+    result = 0;
+done:
+    if (plane.pixels != reference.pixels) release(&plane);
+    release(&reference); release(&full);
+    if (result) {
+        if (x4) release(x4);
+        if (x2) release(x2);
+        fail(error, error_size, "could not resize a redrawn texture");
+    } else if (times) times->predict += seconds() - start;
+    return result;
+}
 static int consume_tile(void *context, const struct texture_upscale_tile *tile, uint32_t channel)
 {
     struct targets *t = context;
@@ -619,7 +648,10 @@ int texture_upscale_generate_begin(struct texture_upscale_generator *generator,
     } else {
         /* One prediction of the original serves every level made from it: the 2x base and a 4x top (kept as half),
            or a 4x base and its S4g 2x mip. */
-        if (job->base == 2 ? infer_color(generator, input, input->levels, job->requested == 4 ? &job->high : NULL, 1, &job->top,
+        if (input->synthetic ? (job->base == 2 ? infer_plain(input, input->levels, job->requested == 4 ? &job->high : NULL, 1,
+                &job->top, &output->seconds, error, error_size) :
+            infer_plain(input, input->levels, &job->top, 0, &job->mip, &output->seconds, error, error_size)) :
+            job->base == 2 ? infer_color(generator, input, input->levels, job->requested == 4 ? &job->high : NULL, 1, &job->top,
                 &output->seconds, error, error_size) :
             infer_color(generator, input, input->levels, &job->top, 0, &job->mip, &output->seconds, error, error_size)) goto done;
     }
