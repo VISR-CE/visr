@@ -176,13 +176,36 @@ struct flag_definition
 	struct tag_block attachment_points;
 };
 
+/* A flag's cloth after each of the last two ticks, relative to the point its
+object's first attachment marker carries the cloth by: a frame between the
+ticks draws the part of the way between the two that it is, as an antenna's
+chain is (antenna.c) and an object is (port/linux/game/render_interpolation.c). */
+struct flag_shape
+{
+	short count;
+	boolean has_previous;
+	real_point3d previous[MAXIMUM_FLAG_VERTICES];
+	real_point3d latest[MAXIMUM_FLAG_VERTICES];
+};
+
 /* ---------- prototypes */
+
+static void flag_record_shape(
+	long flag_index,
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition,
+	boolean fresh);
+static boolean flag_get_base(
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition,
+	real_point3d *base);
 
 void flag_update(
 	struct flag_datum_prefix *flag,
 	struct flag_definition *flag_definition,
 	real time);
 void flag_render_proper(
+	long flag_index,
 	struct flag_datum_prefix *flag,
 	struct flag_definition *definition,
 	struct render_lighting const *lighting,
@@ -214,6 +237,7 @@ void flag_set_trailing_shape(
 /* ---------- globals */
 
 struct data_array *flag_data;
+static struct flag_shape flag_shapes[2];
 
 /* ---------- public code */
 
@@ -279,6 +303,7 @@ void flags_update(
 			delta != 0.0f)
 		{
 			flag_update(flag, definition, delta);
+			flag_record_shape(flag_index, flag, definition, FALSE);
 		}
 	}
 
@@ -302,12 +327,14 @@ void flag_render(
 	if (flag->updates_since_last_render > 5 || !flag->initialized)
 	{
 		flag_update(flag, definition, 5.0f);
+		/* (the cloth was just put in place: nothing to draw it from) */
+		flag_record_shape(flag_index, flag, definition, TRUE);
 		flag->initialized = TRUE;
 	}
 
 	flag->updates_since_last_render = 0;
 	if (!flag->noop)
-		flag_render_proper(flag, definition, lighting, animation);
+		flag_render_proper(flag_index, flag, definition, lighting, animation);
 
 	return;
 }
@@ -731,7 +758,74 @@ struct flag_cell_datum *flag_datum_get_cell(
 	return &flag->cells[x * (definition->height - 1) + y];
 }
 
+static boolean flag_get_base(
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition,
+	real_point3d *base)
+{
+	struct object_marker marker;
+
+	if (definition->attachment_points.count <= 0 || flag->object_index == NONE)
+		return FALSE;
+
+	object_get_marker_by_name(
+		flag->object_index,
+		TAG_BLOCK_GET_ELEMENT(&definition->attachment_points, 0, struct flag_attachment_point)->marker_name,
+		&marker,
+		1);
+	*base = marker.matrix.position;
+
+	return TRUE;
+}
+
+/* the cloth this tick leaves, against the first attachment's point (the
+cloth's own first vertex is pinned to it) */
+static void flag_record_shape(
+	long flag_index,
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition,
+	boolean fresh)
+{
+	long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(flag_index);
+	struct flag_shape *shape;
+	short count;
+	short vertex_index;
+	real_point3d const *base;
+
+	if (flag->noop || absolute_index < 0 || absolute_index >= 2)
+		return;
+
+	count = (short)(definition->width * definition->height);
+	if (count <= 0 || count > MAXIMUM_FLAG_VERTICES)
+		return;
+
+	shape = &flag_shapes[absolute_index];
+	if (!fresh && shape->count == count)
+	{
+		csmemcpy(shape->previous, shape->latest, sizeof(real_point3d) * count);
+		shape->has_previous = TRUE;
+	}
+	else
+	{
+		shape->count = count;
+		shape->has_previous = FALSE;
+	}
+
+	base = &flag->vertices[0].position;
+	for (vertex_index = 0; vertex_index < count; vertex_index++)
+	{
+		real_point3d const *position = &flag->vertices[vertex_index].position;
+
+		shape->latest[vertex_index].x = position->x - base->x;
+		shape->latest[vertex_index].y = position->y - base->y;
+		shape->latest[vertex_index].z = position->z - base->z;
+	}
+
+	return;
+}
+
 void flag_render_proper(
+	long flag_index,
 	struct flag_datum_prefix *flag,
 	struct flag_definition *definition,
 	struct render_lighting const *lighting,
@@ -772,6 +866,30 @@ void flag_render_proper(
 		short i;
 		short x;
 		short y;
+		real_point3d drawn[MAXIMUM_FLAG_VERTICES];
+		struct flag_shape const *shape = &flag_shapes[PIN(DATUM_INDEX_TO_ABSOLUTE_INDEX(flag_index), 0, 1)];
+		real_point3d base;
+		real fraction = render_interpolation_fraction();
+		boolean interpolate = shape->count == definition->width * definition->height &&
+			shape->has_previous && flag_get_base(flag, definition, &base);
+
+		/* The cloth between the ticks: the part of the way between the two
+		shapes the ticks left that this frame is, carried by the point the
+		object's marker is drawn at now. With no earlier shape, the last
+		tick's. */
+		for (i = 0; i < definition->width * definition->height; i++)
+		{
+			if (interpolate)
+			{
+				drawn[i].x = base.x + shape->previous[i].x + (shape->latest[i].x - shape->previous[i].x) * fraction;
+				drawn[i].y = base.y + shape->previous[i].y + (shape->latest[i].y - shape->previous[i].y) * fraction;
+				drawn[i].z = base.z + shape->previous[i].z + (shape->latest[i].z - shape->previous[i].z) * fraction;
+			}
+			else
+			{
+				drawn[i] = flag->vertices[i].position;
+			}
+		}
 
 		object_definition_get(object_get(flag->object_index)->definition_index);
 		vertices = rasterizer_dynamic_vertices_lock(vertex_buffer_index);
@@ -793,12 +911,14 @@ void flag_render_proper(
 				real_vector3d horizontal;
 				real_vector3d vertical;
 
-				vector_from_points3d(&origin->position, &across->position, &horizontal);
-				vector_from_points3d(&origin->position, &down->position, &vertical);
+				(void)origin; (void)across; (void)down;
+				vector_from_points3d(&drawn[x0 * definition->height + y0], &drawn[(x0 + 1) * definition->height + y0], &horizontal);
+				vector_from_points3d(&drawn[x0 * definition->height + y0], &drawn[x0 * definition->height + y0 + 1], &vertical);
 				cross_product3d(&horizontal, &vertical, &vertex.normal);
 				normalize3d(&vertex.normal);
 
-				vertex.position = point->position;
+				vertex.position = drawn[x * definition->height + y];
+				(void)point;
 				vertex.texcoord.x = x * one_over_width;
 				vertex.texcoord.y = y * one_over_height;
 				rasterizer_geometry_compress_vertices(
