@@ -5,6 +5,7 @@ A multisampled, alpha-tested, non-blended draw must carry `alpha_test_samples`
 keep it. Blended, single-sample and sample-mask-less draws must not get it.
 The GPU is replaced by stubs; no game data is needed.
 """
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -84,6 +85,9 @@ int main(void)
 	return 0;
 }
 '''
+    if os.uname().sysname != "Darwin":
+        print("SKIP: the probe compiles with Xcode's clang and its sanitizers")
+        return
     with tempfile.TemporaryDirectory() as directory:
         source, binary = Path(directory) / "probe.c", Path(directory) / "probe"
         source.write_text(program)
