@@ -4836,16 +4836,6 @@ boolean game_engine_infinite_grenades(
 	return infinite_grenades;
 }
 
-boolean game_engine_unarmed_loadout(
-	void)
-{
-	struct game_variant_options const *options = game_variant_options_get();
-
-	return game_engine_running() && options->loadout == _loadout_custom &&
-		options->primary_weapon == _loadout_weapon_none &&
-		options->secondary_weapon == _loadout_weapon_none;
-}
-
 boolean game_engine_has_shield(
 	long player_index)
 {
