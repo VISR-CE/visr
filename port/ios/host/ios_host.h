@@ -15,6 +15,9 @@ struct SDL_Window;
 struct SDL_Gamepad;
 /* the guest's window (host_sdl.c), for the GPU backend's present (gpu_gl.c) */
 struct SDL_Window *host_sdl_window(void);
+/* the native Mac app's menu bar items (host_macos_menu.m): the guest's F12 (Release or
+Capture Mouse) or F1 (Back) pressed for it; the argument is a host_macos_shortcut */
+void host_sdl_request_key(int shortcut);
 /* a message box over the game (host_sdl.c; the guest's SDL_ShowSimpleMessageBox
 comes here too) */
 int host_sdl_show_simple_message_box(unsigned int flags, const char *title, const char *message);

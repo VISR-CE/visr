@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <string.h>
 
+void host_macos_menu_add(NSMenu *bar);
 static atomic_int modal_depth;
 static _Atomic double cached_refresh_rate = 60.0;
 static void require_main(void) {
@@ -83,6 +84,7 @@ void host_macos_window_ready(void *sdl_window) {
     quit.target = actions;
     [menu addItem:quit];
     application.submenu = menu;
+    host_macos_menu_add(bar);
     NSApp.mainMenu = bar;
     [NSApp activateIgnoringOtherApps:YES];
 }

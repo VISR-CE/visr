@@ -30,6 +30,9 @@ def main():
         '-framework', 'CoreGraphics', *sdl_flags, '-o', BUILD / 'services-probe')
     run(BUILD / 'services-probe')
     run('python3', 'tools/test_menu_display_rate.py')
+    run(*common, 'tools/macos_shortcuts_test.c', *sdl_flags, '-o', BUILD / 'shortcuts-probe')
+    run(BUILD / 'shortcuts-probe')
+    run('python3', 'tools/test_mac_shortcuts.py')
     # Verify both the native overrides and the shared host's original mobile flags.
     for native, name in ((1, 'window-native-probe'), (0, 'window-mobile-probe')):
         run(*common, f'-DHALO_NATIVE_MAC={native}', 'tools/macos_window_test.c',

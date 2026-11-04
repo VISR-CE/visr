@@ -32,6 +32,7 @@ so the audio callback is handed to a thread that has one.
 #include "ios_host.h"
 #if HALO_NATIVE_MAC
 #include "host_macos_event.h"
+#include "host_macos_shortcuts.h"
 #include "host_macos.h"
 #endif
 #include "host_join_link.h"
@@ -376,6 +377,53 @@ static int held_back(const SDL_Event *event)
 	}
 }
 
+#if HALO_NATIVE_MAC
+/* The menu bar's Release Mouse and Back are the guest's F12 and F1 keys, pressed
+for it (the physical keys are removed, below): the guest's own toggle runs, and
+a press lasts several frames so a held-key reader sees it. */
+#define SYNTHETIC_HOLD_MS 80
+static atomic_int synthetic_requests;
+static struct host_macos_key_state mac_key_state;
+
+void host_sdl_request_key(int shortcut)
+{
+	atomic_fetch_or(&synthetic_requests, 1 << shortcut);
+}
+
+static int synthetic_key(SDL_Event *event)
+{
+	static SDL_Scancode pressed;
+	static Uint64 released_at;
+
+	if (pressed)
+	{
+		if (SDL_GetTicks() < released_at)
+			return 0;
+		SDL_zerop(event);
+		event->type = SDL_EVENT_KEY_UP;
+		event->key.scancode = pressed;
+		pressed = SDL_SCANCODE_UNKNOWN;
+		return 1;
+	}
+	{
+		int requests = atomic_load(&synthetic_requests);
+		int shortcut = (requests & (1 << HOST_MACOS_SHORTCUT_MOUSE)) ? HOST_MACOS_SHORTCUT_MOUSE :
+			(requests & (1 << HOST_MACOS_SHORTCUT_BACK)) ? HOST_MACOS_SHORTCUT_BACK : HOST_MACOS_SHORTCUT_NONE;
+
+		if (shortcut == HOST_MACOS_SHORTCUT_NONE)
+			return 0;
+		atomic_fetch_and(&synthetic_requests, ~(1 << shortcut));
+		pressed = shortcut == HOST_MACOS_SHORTCUT_MOUSE ? SDL_SCANCODE_F12 : SDL_SCANCODE_F1;
+		released_at = SDL_GetTicks() + SYNTHETIC_HOLD_MS;
+		SDL_zerop(event);
+		event->type = SDL_EVENT_KEY_DOWN;
+		event->key.scancode = pressed;
+		event->key.down = true;
+		return 1;
+	}
+}
+#endif
+
 int host_sdl_poll_event(void *event)
 {
 	SDL_Event host_event;
@@ -442,18 +490,33 @@ int host_sdl_poll_event(void *event)
 	text_input_update();
 	/* (a malformed join link's message, between frames: host_join_link.c) */
 	host_join_link_poll();
+#if HALO_NATIVE_MAC
+	if (synthetic_key(&host_event))
+	{
+		memcpy(event, &host_event, sizeof(host_event));
+		return 1;
+	}
+#endif
 	do
 	{
 		if (!SDL_PollEvent(&host_event))
 			return 0;
 	}
+#if HALO_NATIVE_MAC
+	/* the chords and the removed function keys never reach the game (the menu
+	bar items carry the chords out) */
+	while (((host_event.type == SDL_EVENT_KEY_DOWN || host_event.type == SDL_EVENT_KEY_UP) &&
+		host_macos_key_swallow(&mac_key_state, &host_event.key)) || held_back(&host_event));
+#else
 	while (held_back(&host_event));
+#endif
 #if HALO_NATIVE_MAC
     host_macos_normalize_event(&host_event);
 #endif
-#if HALO_FRAME_PACING && (TARGET_OS_MACCATALYST || HALO_NATIVE_MAC)
+#if HALO_FRAME_PACING && (TARGET_OS_MACCATALYST || HALO_NATIVE_MAC) && defined(HALO_DEVELOPMENT_HOOKS)
 	/* the Mac app's F8: the frame pacer's late start on and off while
-	playing, to feel the difference (display.late_start) */
+	playing, to feel the difference (display.late_start). Development builds
+	only: a release build has no such key. */
 	if (host_event.type == SDL_EVENT_KEY_DOWN && !host_event.key.repeat && host_event.key.scancode == SDL_SCANCODE_F8)
 		frame_pacer_late_start_toggle();
 #endif

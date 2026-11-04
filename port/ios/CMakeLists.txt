@@ -85,6 +85,7 @@ set(HALO_MARKETING_VERSION "0.1.2" CACHE STRING "CFBundleShortVersionString supp
 if(HALO_NATIVE_MAC)
     set(HALO_NATIVE_DIR "${CMAKE_CURRENT_LIST_DIR}/../macos")
     set(HALO_PLATFORM_SOURCES "${HALO_NATIVE_DIR}/host_macos_services.m"
+        "${HALO_NATIVE_DIR}/host_macos_menu.m"
         "${HALO_NATIVE_DIR}/host_macos_import.m")
     set(HALO_INFO_PLIST "${HALO_NATIVE_DIR}/Info.plist")
     set(HALO_RENDER_HEIGHT 0 CACHE STRING "Internal render height")
