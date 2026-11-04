@@ -461,7 +461,14 @@
 		<string text="RED TEAM" />
 		<string text="BLUE TEAM" />
 	</strings>
-	<widget name="xbox/main_menu/new_select/sel_list_desc_bkd" controller="1" left="323" top="115" width="254" height="286" bitmap="xbox/bitmaps/list_field">
+	<widget name="xbox/main_menu/new_select/list_item_0" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd_top" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+		<on event="a" run="single prev cl item activated" />
+		<on event="start" run="single prev cl item activated" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/new_select/list_item_text" x="25" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
 	</widget>
 	<widget name="xbox/main_menu/new_select/list_item_1" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
 		<on event="a" run="single prev cl item activated" />
@@ -581,6 +588,22 @@
 		<on event="a" run="mouse emit back event" />
 		<on event="start" run="mouse emit back event" />
 		<on event="left_mouse" run="mouse emit back event" />
+	</widget>
+	<widget name="xbox/main_menu/new_select/sel_list_desc_bkd" controller="1" left="323" top="115" width="254" height="286" bitmap="xbox/bitmaps/list_field">
+	</widget>
+	<widget name="xbox/main_menu/gametype_select/gametype_right_item" controller="1" left="275" top="78" width="320" height="362">
+		<child widget="xbox/main_menu/gametype_select/gametype_right_name" />
+		<child widget="xbox/main_menu/gametype_select/gametype_right_pic" />
+		<child widget="xbox/main_menu/gametype_select/gametype_right_data" />
+		<child widget="xbox/main_menu/gametype_select/locked_gametype_icon" x="371" y="186" />
+	</widget>
+	<widget name="xbox/main_menu/gametype_select/gametype_right_name" type="text" controller="1" left="294" top="230" width="282" height="30" font="ui\large_ui" color="#FF2896FF">
+	</widget>
+	<widget name="xbox/main_menu/gametype_select/gametype_right_pic" controller="1" left="365" top="92" width="140" height="114" bitmap="xbox/bitmaps/game_type_grafix">
+	</widget>
+	<widget name="xbox/main_menu/gametype_select/gametype_right_data" type="text" controller="1" left="294" top="268" width="282" height="160" font="ui\large_ui" color="#FF2896FF">
+	</widget>
+	<widget name="xbox/main_menu/gametype_select/locked_gametype_icon" controller="1" width="16" height="16" bitmap="xbox/bitmaps/locked_gametype">
 	</widget>
 	<widget name="xbox/main_menu/current_profile_name" type="text" controller="1" left="10" top="446" width="340" height="34" font="ui\large_ui" color="#FF2896FF">
 	</widget>

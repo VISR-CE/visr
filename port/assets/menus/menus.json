@@ -220,6 +220,7 @@
   "xbox/main_menu.new_select.port.xml",
   "xbox/main_menu.quit_select.xml",
   "xbox/main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml",
+  "xbox/main_menu.settings_select.multiplayer_setup.playlist_select.xml",
   "xbox/multiplayer.shared.xml",
   "xbox/patches.xml",
   "xbox/settings.audio_settings.xml",

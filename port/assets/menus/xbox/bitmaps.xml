@@ -27,6 +27,14 @@
 	<bitmap name="xbox/bitmaps/black">
 		<frame png="ce/shell/bitmaps/black__0.png" width="4" height="4" map="ui\shell\bitmaps\black" index="0" />
 	</bitmap>
+	<bitmap name="xbox/bitmaps/game_type_grafix">
+		<frame png="ce/shell/bitmaps/game_type_grafix__0.png" width="256" height="128" map="ui\shell\bitmaps\game_type_grafix" index="0" />
+		<frame png="ce/shell/bitmaps/game_type_grafix__1.png" width="256" height="128" map="ui\shell\bitmaps\game_type_grafix" index="1" />
+		<frame png="ce/shell/bitmaps/game_type_grafix__2.png" width="256" height="128" map="ui\shell\bitmaps\game_type_grafix" index="2" />
+		<frame png="ce/shell/bitmaps/game_type_grafix__3.png" width="256" height="128" map="ui\shell\bitmaps\game_type_grafix" index="3" />
+		<frame png="ce/shell/bitmaps/game_type_grafix__4.png" width="256" height="128" map="ui\shell\bitmaps\game_type_grafix" index="4" />
+		<frame png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" map="ui\shell\bitmaps\game_type_grafix" index="5" />
+	</bitmap>
 	<bitmap name="xbox/bitmaps/gradient">
 		<frame png="ce/shell/bitmaps/gradient__0.png" width="4" height="512" map="ui\shell\bitmaps\gradient" index="0" />
 	</bitmap>
@@ -46,6 +54,10 @@
 	<bitmap name="xbox/bitmaps/list_item_bkd_top">
 		<frame png="ce/shell/bitmaps/list_item_bkd_top__0.png" width="256" height="32" map="ui\shell\bitmaps\list_item_bkd_top" index="0" />
 		<frame png="ce/shell/bitmaps/list_item_bkd_top__1.png" width="256" height="32" map="ui\shell\bitmaps\list_item_bkd_top" index="1" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/locked_gametype">
+		<frame png="ce/shell/bitmaps/locked_gametype__0.png" width="16" height="16" />
+		<frame png="ce/shell/bitmaps/locked_gametype__1.png" width="16" height="16" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/option_bkds">
 		<frame png="ce/shell/bitmaps/option_bkds__0.png" width="512" height="32" map="ui\shell\bitmaps\option_bkds" index="0" />
@@ -158,6 +170,9 @@
 	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/server_settings/header_server_settings__0.png" width="512" height="64" />
+	</bitmap>
+	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit">
+		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit__0.png" width="512" height="64" />
 	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options">
 		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options__0.png" width="512" height="64" />

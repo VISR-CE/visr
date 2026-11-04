@@ -5884,15 +5884,56 @@ static void gametype_edit_read(void)
 	gametype_edit.stale = FALSE;
 }
 
+/* the number of rows a list has (its children named list_item_N), at most
+maximum: a screen's rows are as many as its layout fits */
+static short list_rows(struct widget_instance *list, short maximum)
+{
+	struct widget_instance *child;
+	short rows = 0;
+
+	for (child = list->child; child && rows < maximum; child = child->next)
+	{
+		if (strncmp(child->name, "list_item_", 10))
+			break;
+		rows++;
+	}
+	return (short)MAX(1, rows);
+}
+
+/* a gametype's description, as the Xbox's cards show it: a standard
+gametype's own (ui\shell\strings\game_variant_descriptions, from the tenth,
+by its number), a custom one's by its type and whether it has teams */
+static void gametype_card_text(struct widget_instance *text_box, struct game_variant const *variant)
+{
+	long tag_index = tag_loaded('ustr', "ui\\shell\\strings\\game_variant_descriptions");
+	wchar_t const *string;
+	short index;
+
+	if (!text_box || tag_index == NONE)
+		return;
+	if (variant->flags & 1)
+		index = (short)((variant->flags >> 8) + 10);
+	else
+	{
+		/* (none and the types after race: the first) */
+		short engine = (short)PIN(variant->game_engine_index, 1, 5);
+
+		index = (short)((engine - 1) * 2 + (variant->universal_variant.teams ? 1 : 0));
+	}
+	string = unicode_string_list_get_string(tag_index, index);
+	text_set_length(text_box, string ? string : L"", 256);
+}
+
 /* "mp profiles list initialize" (Edit Gametypes'): on the gametype used last */
 static boolean gametype_edit_list_initialize(struct widget_instance *list)
 {
 	short last;
+	short rows = list_rows(list, GAMETYPE_EDIT_ROWS);
 
 	gametype_edit.setup = FALSE;
 	gametype_edit.count = ui_widget_port_gametypes(gametype_edit.gametypes, MAXIMUM_GAMETYPES, &last);
 	gametype_edit.chosen = last;
-	gametype_edit.first = (short)MAX(0, MIN(last - GAMETYPE_EDIT_ROWS / 2, gametype_edit.count - GAMETYPE_EDIT_ROWS));
+	gametype_edit.first = (short)MAX(0, MIN(last - rows / 2, gametype_edit.count - rows));
 	gametype_edit.stale = FALSE;
 	focus_row(list, (short)(gametype_edit.chosen - gametype_edit.first));
 	return TRUE;
@@ -5910,13 +5951,19 @@ static void gametype_edit_list_update(struct widget_instance *list)
 	struct widget_instance *description = list->parameters.list.extended_description;
 	struct widget_instance *widget;
 	short focused;
+	short rows = list_rows(list, GAMETYPE_EDIT_ROWS);
 
 	if (gametype_edit.stale)
 		gametype_edit_read();
-	focused = list_scroll(list, &gametype_edit.first, gametype_edit.count, GAMETYPE_EDIT_ROWS);
+	focused = list_scroll(list, &gametype_edit.first, gametype_edit.count, rows);
 	if (focused != NONE)
 		gametype_edit.chosen = (short)MIN(focused, gametype_edit.count - 1);
-	rows_update(list, (short)MIN(gametype_edit.count, GAMETYPE_EDIT_ROWS), gametype_edit_row_text);
+	rows_update(list, (short)MIN(gametype_edit.count, rows), gametype_edit_row_text);
+	/* (the Xbox look's arrows, while gametypes are above or below the rows) */
+	if ((widget = named(list, "scroll_up_arrow", 0)) != NULL)
+		widget->visible = gametype_edit.first > 0;
+	if ((widget = named(list, "scroll_down_arrow", 0)) != NULL)
+		widget->visible = gametype_edit.first + rows < gametype_edit.count;
 	visible_set(named(description, "gametype_right_item", 0), gametype_edit.count > 0);
 	if (gametype_edit.chosen < gametype_edit.count)
 	{
@@ -5934,10 +5981,16 @@ static void gametype_edit_list_update(struct widget_instance *list)
 
 			if ((widget = named(description, "gametype_right_pic", 0)) != NULL)
 				widget->animation.current_frame_index = (short)engine;
-			usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n%s\r\nScore to win: %ld", engine_names[engine],
-				variant.universal_variant.teams ? L"Teams" : L"Free for all", variant.universal_variant.score_to_win);
-			text[NUMBEROF(text) - 1] = 0;
-			text_set(named(description, "gametype_right_data", 0), text);
+			if (named(list, "scroll_up_arrow", 0))
+				gametype_card_text(named(description, "gametype_right_data", 0), &variant);
+			else
+			{
+				usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n%s\r\nScore to win: %ld", engine_names[engine],
+					variant.universal_variant.teams ? L"Teams" : L"Free for all",
+					variant.universal_variant.score_to_win);
+				text[NUMBEROF(text) - 1] = 0;
+				text_set(named(description, "gametype_right_data", 0), text);
+			}
 		}
 	}
 	profile_name_show(description);

@@ -30,7 +30,8 @@ BLUE = '#FF2896FF'
 MP = 'main_menu/multiplayer_type_select'
 MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
     'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby')) + (
-    'main_menu.quit_select', 'main_menu.new_select.port')
+    'main_menu.quit_select', 'main_menu.new_select.port',
+    'main_menu.settings_select.multiplayer_setup.playlist_select')
 # Bounds from tags/widgets.json: connected/server_list, advanced_controls,
 # and error/confirm_buttons. The probe omits colors; ui.map's text_color
 # at 0x10C confirms server_list_item0 = ARGB(1, 0, .5, 1), description
@@ -576,6 +577,7 @@ def multiplayer_documents(assets, bitmaps):
     # with the server-list column, and the connected pregame's right column.
     # Unlike static options, the campaign's data function scrolls its entries.
     selection_layout(widgets, bitmaps)
+    gametype_select_layout(documents['main_menu.settings_select.multiplayer_setup.playlist_select.xml'], widgets, bitmaps)
     for filename in ('main_menu.multiplayer_type_select.lobby.xml', 'main_menu.new_select.port.xml'):
         root = documents[filename]
         for w in list(root.findall('widget')):
@@ -629,6 +631,118 @@ def selection_layout(widgets, bitmaps):
             # The original bottom-right help shares the action bar's line.
             # The Xbox pregame message field is above the roster instead.
             w.attrib.update(left='323', top='78', width='254', height='31')
+
+GT = 'xbox/main_menu/settings_select/multiplayer_setup/playlist_select'
+# rows that fit between the header and the action bar, at the profile list's 33-unit pitch
+GT_ROWS = 9
+GT_LIST_X, GT_LIST_Y, GT_PITCH = 51, 78, 33
+GT_PANEL = (275, 78, 320, 362)
+
+
+def gametype_select_layout(root, widgets, bitmaps):
+    """SELECT GAMETYPE TO EDIT in the Xbox look: a vertical list of tabs and a
+    panel, laid out as Edit Profile Settings' (the same row art, pitch and
+    panel). The rows and the panel are filled by the PC screen's data
+    function, "gt edit list update"; the game's own three-card carousel (the
+    Xbox's screen) is not used."""
+    screen = widgets[GT + '/gametype_select_screen']
+    rows = widgets[GT + '/playlist_select_list']
+    bitmap = bitmap_ref('bitmaps/list_item_bkd', bitmaps)
+    bitmap_ref('bitmaps/list_field', bitmaps)
+    pc_row = widgets['xbox/main_menu/new_select/list_item_1']
+    for c in list(rows.findall('child')):
+        rows.remove(c)
+    for c in list(screen.findall('child')):
+        screen.remove(c)
+    for existing in list(root):
+        if existing.get('name') in (GT + '/playlist_button_bar',):
+            root.remove(existing)
+    header = GT + '/header_select_gametype_to_edit'
+    child(screen, header)
+    child(screen, rows.get('name'))
+    # (the text the data function fills, named as it looks for it)
+    widget(root, GT + '/list_item_text', type='text', controller=1, width=214, height=28,
+           font=r'ui\large_ui', color=BLUE, text_flags='no_focus_test')
+    for index in range(GT_ROWS):
+        row = widget(root, f'{GT}/list_item_{index}', controller=1, width=232, height=32,
+                     bitmap=bitmap, font=r'ui\large_ui', color=BLUE)
+        for event in pc_row.findall('on'):
+            row.append(deepcopy(event))
+        child(row, GT + '/list_item_text', x=13, y=4)
+        child(rows, row.get('name'), x=GT_LIST_X, y=GT_LIST_Y + index * GT_PITCH)
+    # (the arrows that show while gametypes are above or below the rows: ui_widget.c names them)
+    for direction, y in (('up', GT_LIST_Y + 8), ('down', GT_LIST_Y + (GT_ROWS - 1) * GT_PITCH + 8)):
+        arrow = f'{GT}/scroll_{direction}_arrow'
+        widget(root, arrow, width=16, height=16, bitmap=bitmap_ref(f'bitmaps/arrow_sm_{direction}', bitmaps))
+        child(rows, arrow, x=GT_LIST_X + 204, y=y)
+    rows.set('height', '400')
+    rows.set('description', GT + '/gametype_extended_desc')
+    # Create New and Delete are the Y and X buttons, as in the game's own
+    # screen; the PC buttons' events are reused on the list and their captions
+    ET.SubElement(rows, 'on', event='y', run='create&edit playlist profile',
+                  open=r'ui\shell\main_menu\settings_select\multiplayer_setup\create_and_edit_new_gametype_screen')
+    for event in ('b', 'back'):
+        ET.SubElement(screen, 'on', event=event, back='true')
+    # the panel: the gametype's picture, lock, name and what it plays like
+    left, top, width, height = GT_PANEL
+    description = widgets[GT + '/gametype_extended_desc']
+    description.attrib.update(left=str(left), top=str(top), width=str(width), height=str(height),
+                              bitmap='xbox/bitmaps/list_field')
+    for c in description.findall('child'):
+        c.set('x', '0')
+        c.set('y', '0')
+    card = widgets['xbox/main_menu/gametype_select/gametype_right_item']
+    card.attrib.update(left=str(left), top=str(top), width=str(width), height=str(height))
+    card.attrib.pop('bitmap', None)
+    picture = widgets['xbox/main_menu/gametype_select/gametype_right_pic']
+    # (the picture is drawn at its own 140 by 114, centered over the panel)
+    picture.attrib.update(left=str(left + (width - 140) // 2), top=str(top + 14), width='140', height='114')
+    for c in card.findall('child'):
+        leaf = c.get('widget').rsplit('/', 1)[-1]
+        if leaf == 'locked_gametype_icon':
+            c.attrib.update(x=str(left + (width - 140) // 2 + 6), y=str(top + 14 + 114 - 20))
+    name = widgets['xbox/main_menu/gametype_select/gametype_right_name']
+    name.attrib.update(left=str(left + 19), top=str(top + 152), width=str(width - 38), height='30',
+                       font=r'ui\large_ui', color=BLUE)
+    # (the PC rules lines, empty here: the rules text below replaces them)
+    data = widgets['xbox/main_menu/gametype_select/gametype_right_data']
+    data.attrib.update(left=str(left + 19), top=str(top + 190), width=str(width - 38), height='160',
+                       font=r'ui\large_ui', color=BLUE)
+    # the action bar, as the server browser's: X, Y, B and A with their captions
+    items = (('y_butn', 'CREATE NEW', 132, 'playlist_button_new'),
+             ('x_butn', 'DELETE', 80, 'playlist_button_delete'),
+             ('b_butn', 'BACK', 52, None),
+             ('a_butn', 'SELECT', 70, None))
+    x = 66
+    for icon, caption, caption_width, button in items:
+        art = f'{GT}/legend/{icon}'
+        child(screen, art, x=x, y=414)
+        widget(root, art, type='container', width=21, height=26, bitmap=f'xbox/browser/{icon}')
+        label = f'{GT}/legend/={caption.lower().replace(" ", "_")}'
+        if button:
+            source = widgets[f'{GT}/{button}']
+            source.attrib.pop('string_list', None)
+            source.attrib.pop('string_index', None)
+            source.attrib.update(text=caption, width=str(caption_width), height='22', font=r'ui\large_ui',
+                                 align='left', text_y='0', color=BLUE)
+            source.attrib.pop('bitmap', None)
+            if button == 'playlist_button_new':
+                # (a click on the caption creates, as Y does; the PC button's click posted A)
+                for event in source.findall("on[@event='left_mouse']"):
+                    event.attrib.pop('run')
+                    event.set('run', 'create&edit playlist profile')
+                    event.set('open', r'ui\shell\main_menu\settings_select\multiplayer_setup\create_and_edit_new_gametype_screen')
+            child(screen, source.get('name'), x=x + 21, y=414)
+        else:
+            text = text_widget(root, label, caption, width=caption_width, height=22)
+            ET.SubElement(text, 'on', event='left_mouse',
+                          run='mouse emit back event' if icon == 'b_butn' else 'mouse emit accept event')
+            child(screen, label, x=x + 21, y=414)
+        x += 21 + caption_width + 27
+    # (the PC bar's OK and BACK are not used: this bar has its own)
+    for existing in list(root):
+        if existing.get('name') in (GT + '/playlist_button_ok',):
+            root.remove(existing)
 
 
 def browser_layout(root, widgets, bitmaps):
@@ -937,6 +1051,8 @@ def screen_pairs():
                    'direct_ip/direct_ip_screen', 'server_settings/server_settings_screen',
                    'coop_options/coop_options_screen', 'lobby/lobby_screen'):
         pairs.append(('pc/xbox/' + MP + '/' + suffix, MP + '/' + suffix))
+    pairs.append(('pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen',
+                  'main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen'))
     pairs.append(('pc/xbox/main_menu/quit_select/quit_screen', 'main_menu/quit_select/quit_screen'))
     pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))
     for group in ('vehicle', 'teamplay'):
@@ -945,14 +1061,29 @@ def screen_pairs():
     return [(x.replace('/', '\\'), ('pc/' + pc).replace('/', '\\')) for x, pc in pairs]
 
 
+SCREEN_REPLACED = (('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen',
+                    'pc/xbox/main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen'),)
+
+
 def equivalence_header():
     lines = ['/* Generated by tools/xbox_menus.py from the Xbox menu design inventory. */',
              '#ifndef MENU_EQUIVALENCE_H', '#define MENU_EQUIVALENCE_H', '#include <string.h>',
+             '#include <stdlib.h>',
              'static char const *const menu_screen_pairs[][2] = {']
     for xbox, pc in screen_pairs():
         lines.append('\t{' + json.dumps(xbox) + ', ' + json.dumps(pc) + '},')
+    # (the game's own screens that an Xbox-look screen of ours replaces: not on the Apple TV, whose
+    # Siri Remote has no X and Y buttons for CREATE NEW and DELETE)
+    lines += ['};', 'static char const *const menu_screen_replaced[][2] = {']
+    for original, ours in SCREEN_REPLACED:
+        lines.append('\t{' + json.dumps(original.replace('/', '\\')) + ', ' + json.dumps(ours.replace('/', '\\')) + '},')
     lines += ['};', 'static char const *menu_screen_equivalent(char const *name, int use_xbox)', '{',
-              '\tunsigned int index;', '\tfor (index = 0; index < sizeof(menu_screen_pairs) / sizeof(menu_screen_pairs[0]); index++)',
+              '\tunsigned int index;',
+              '\tchar const *tv = getenv("HALO_HOST_TVOS");',
+              '\tfor (index = 0; use_xbox && !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)',
+              '\t\tif (!strcmp(name, menu_screen_replaced[index][0]))',
+              '\t\t\treturn menu_screen_replaced[index][1];',
+              '\tfor (index = 0; index < sizeof(menu_screen_pairs) / sizeof(menu_screen_pairs[0]); index++)',
               '\t\tif (!strcmp(name, menu_screen_pairs[index][0]) || !strcmp(name, menu_screen_pairs[index][1]))',
               '\t\t\treturn menu_screen_pairs[index][use_xbox ? 0 : 1];', '\treturn NULL;', '}', '#endif', '']
     return '\n'.join(lines)
