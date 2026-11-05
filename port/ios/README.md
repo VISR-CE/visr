@@ -684,9 +684,19 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
   game as Back plus Start, which ends a `debug.input_record` recording,
   and is not the chord that leaves the immersive space (that one reads Back
   and Start from a gamepad's own buttons, held together for a second).
-  `debug.hand_log` logs every gesture's state change with the value measured
-  against its threshold. Unlike the Sense controllers, hand tracking needs no
-  visionOS 27 feature.
+  A hand that goes out of sight keeps aiming where it last pointed for
+  `input.hand_aim_gap` seconds, so a dropout of a few frames costs no aim
+  at all. `input.hand_aim_loss` says what happens after that, `"hold"` (the
+  default) to keep pointing for as long as the hand is gone or `"head"` to
+  hand the aim to the view centre: holding is the default because the head
+  taking over moves the aim somewhere else and then moves it back, where a
+  held aim stays where you left it and clears as soon as the hand is seen
+  again. `debug.hand_log` logs every gesture's state change with the value
+  measured against its threshold, each hand's aim condition as it changes
+  (measured, held, held past the gap, carried or lost, with how long the
+  run that ended lasted), and, for a prayer sign that is refused, which
+  term refused it and what that term measured. Unlike the Sense
+  controllers, hand tracking needs no visionOS 27 feature.
 - **Game data.** As on iPhone: the setup screen offers the Files picker, and
   an XISO placed in the app's Documents folder is imported.
 - **Closing the window pauses the game**, sound included, and reopening Halo
