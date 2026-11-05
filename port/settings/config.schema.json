@@ -1143,6 +1143,16 @@
             "apple"
           ]
         },
+        "hand_aim_gap": {
+          "type": "number",
+          "default": 0.15,
+          "description": "With input.aim = \"hands\": seconds a hand's aim is held through a tracking dropout before the head takes it, 0 to 1, where 0 holds nothing. Hand tracking drops a hand for a few samples at a time, and a dropout that reaches the game costs far more aim than the dropout itself: the tracking a recovery is made to wait for grows with each loss soon after the last, and the aim keeps easing toward the head while that wait runs, so a single lost sample can cost a third of a second of head aim. A dropout shorter than this gap never reaches the game at all, which is what keeps that from building up. The aim's position goes stale for the length of a hold, so a longer gap trades a little lag for fewer snaps. A hand genuinely gone for longer than the gap still hands the aim over to the head. Size it from debug.hand_log, whose \"hands: aim\" lines report each dropout as held, meaning this gap absorbed it and the game never saw it, with how long it ran, or as lost, with how long it ran past the gap. Held runs pressed up against the gap, with lost runs behind them, are a gap that wants widening.",
+          "x-environment": "HALO_HAND_AIM_GAP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "aim_pitch_offset": {
           "type": "number",
           "default": 0.0,

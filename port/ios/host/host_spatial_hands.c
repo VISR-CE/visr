@@ -305,6 +305,30 @@ void hands_tip_distances(struct hands_state *state, int hand, const struct host_
 		distance3(joints->intermediate_tip[1], joints->tip[1]) : 0.0f;
 }
 
+/* one hand's aim through a dropout (host_spatial_hands.h, which carries the reasoning).
+Deliberately the same shape as hand_lost below, since the two time the same blink: a readable
+sample clears the run, an unreadable one starts it and is answered against the gap. The
+differences are that hand_lost's gap is a constant where this one's is the caller's setting,
+and that this one has nothing to hold before the first readable sample of a session */
+int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, double now)
+{
+	if (readable)
+	{
+		hold->known = 1;
+		hold->lost_since = 0.0;
+		return HANDS_AIM_GOOD;
+	}
+	/* nothing has pointed yet, so there is no pose to hold: the aim is gone whatever the gap
+	says, which is what hand_of's own "a wrist on its own can't aim" case needs */
+	if (!hold->known)
+		return HANDS_AIM_LOST;
+	if (hold->lost_since == 0.0)
+		hold->lost_since = now;
+	/* a NaN gap_seconds compares false and falls to LOST, as a 0 does, so neither a hand-edited
+	setting nor an uninitialized one can hold an aim indefinitely */
+	return now - hold->lost_since < (double)gap_seconds ? HANDS_AIM_HELD : HANDS_AIM_LOST;
+}
+
 /* whether one hand counts as gone this sample, which is what everything
 below acts on rather than the anchor's own tracked flag. ARKit can stop
 reporting a whole hand for a sample or two, and reading that as a hand put

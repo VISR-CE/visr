@@ -457,6 +457,23 @@ static const struct config_setting config_settings[] =
 		"input.hand_elevation_deadzone to a turret's full up or down, 5 to 60.\n"
 		"With both defaults the gun is at its stop 23 degrees above the corrected\n"
 		"zero." },
+	{ "input.hand_aim_gap", _config_real, "0.15", "HALO_HAND_AIM_GAP", _environment_value, _platform_ios,
+		"With input.aim = \"hands\": seconds a hand's aim is held through a\n"
+		"tracking dropout before the head takes it, 0 to 1, where 0 holds\n"
+		"nothing. Hand tracking drops a hand for a few samples at a time, and a\n"
+		"dropout that reaches the game costs far more aim than the dropout\n"
+		"itself: the tracking a recovery is made to wait for grows with each loss\n"
+		"soon after the last, and the aim keeps easing toward the head while that\n"
+		"wait runs, so a single lost sample can cost a third of a second of head\n"
+		"aim. A dropout shorter than this gap never reaches the game at all,\n"
+		"which is what keeps that from building up. The aim's position goes stale\n"
+		"for the length of a hold, so a longer gap trades a little lag for fewer\n"
+		"snaps. A hand genuinely gone for longer than the gap still hands the aim\n"
+		"over to the head. Size it from debug.hand_log, whose \"hands: aim\" lines\n"
+		"report each dropout as held, meaning this gap absorbed it and the game\n"
+		"never saw it, with how long it ran, or as lost, with how long it ran past\n"
+		"the gap. Held runs pressed up against the gap, with lost runs behind\n"
+		"them, are a gap that wants widening." },
 	{ "input.aim_pitch_offset", _config_real, "0.0", "HALO_AIM_PITCH_OFFSET", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": degrees the barrel ray and gun tilt down\n"
 		"from the aim axis (-10 to 45), for aiming from the hip with the forearm\n"

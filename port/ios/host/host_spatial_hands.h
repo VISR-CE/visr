@@ -143,7 +143,11 @@ Inside this gap every pinch of that hand holds its state and the controls
 those pinches drive hold with it, so a single sample in which ARKit loses the
 hand is not a release (host_spatial_hands.c's hand_lost). Short on purpose:
 long enough to swallow a tracking artifact of a few frames at 90 Hz, short
-enough that a player lowering their hands releases the trigger at once */
+enough that a player lowering their hands releases the trigger at once.
+
+This gap is the pinches' alone. The aim has its own, input.hand_aim_gap,
+decided by hands_aim_hold below: the two cover the same blink but answer to
+different costs, so the aim's is a setting and this one is a constant */
 #define HANDS_HAND_GAP_SECONDS 0.15f
 /* the aim turn's ramp, degrees of arm past the deadzone to full deflection. A span, not an
 absolute angle: the deadzone itself is input.hand_turn_deadzone, anywhere from 5 to 60
@@ -401,6 +405,42 @@ run for the same state and the same joints changes nothing that call did not alr
 change. Called only for debug.hand_distance_log */
 void hands_tip_distances(struct hands_state *state, int hand, const struct host_spatial_hand_joints *joints,
 	struct hands_tip_distances *out);
+
+/* One hand's aim through a dropout: whether this sample's aim is the hand's own reading, the
+last one held over, or nothing at all. Plain C and no ARKit, so hands_probe.c can check the
+three answers; host_spatial_hands.m's hand_of keeps the pose and does the holding.
+
+Why a hold here at all. The aim had none: the first sample in which the hand anchor, its
+skeleton or its wrist joint is missing used to reach the guest as HALO_SPATIAL_UNTRACKED,
+where the pinches on the same hand already got HANDS_HAND_GAP_SECONDS to ride the same blink
+out. That asymmetry is expensive out of all proportion to the blink, because of what the
+guest does with a loss rather than anything here: a recovery is gated on a dwell that
+lengthens with every loss soon after the last, and the aim keeps easing toward the head for
+as long as that dwell makes it wait. Measured in port/ios/tests/controller_aim_probe.c's
+brief_loss_reaches_the_head: by the third loss inside five seconds the dwell is a whole
+second, and a dropout of a single sample costs about 300 ms of head aim and a 200 ms ease
+back, which is the snap a player sees and reports.
+
+So a blink shorter than the gap never reaches the guest at all, and the dwell never starts
+climbing. That is the property worth having, and it does not depend on knowing the blink
+lengths in advance: whatever they are, the ones inside the gap cost nothing, and a hand
+genuinely gone for longer still hands the aim over on the sample the gap runs out, exactly as
+it did before this existed.
+
+readable is 1 on a sample this hand's own joints could build an aim from, which is the only
+thing that ends a gap. gap_seconds is input.hand_aim_gap, already clamped by the caller; at 0
+every unreadable sample is LOST on the spot, which is the behaviour this replaced, and a NaN
+answers the same way rather than holding forever. HELD needs a pose to hold, so the first
+unreadable samples of a session are LOST however long the gap is (hold->known) */
+enum { HANDS_AIM_GOOD, HANDS_AIM_HELD, HANDS_AIM_LOST };
+
+/* one hand's hold. known says a readable sample has been seen, so there is a pose to hold;
+lost_since is the start of the current unreadable run, 0 while the hand is being read. Zeroed
+is the right starting state, and zeroed again whenever hands stop being the aim source, so no
+run is ever measured across a gap in which this file was not being asked */
+struct hands_aim_hold { int known; double lost_since; };
+
+int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, double now);
 
 #ifdef __OBJC__
 #import <CompositorServices/CompositorServices.h>

@@ -81,6 +81,12 @@ sideways sweep. Two settings rather than two constants so the feel can be conver
 rebuild, which is how input.hand_turn_deadzone itself was settled */
 static float elevation_deadzone = 9.0f;
 static float elevation_span = 14.0f;
+/* input.hand_aim_gap, clamped to 0 to 1: seconds a hand's aim is held through a tracking
+dropout before the guest is told the hand is gone (hands_aim_hold, host_spatial_hands.h).
+Defaults to the pinches' own HANDS_HAND_GAP_SECONDS, since the two cover the same blink, and
+is a setting rather than a second constant because the blink lengths this has to cover have
+not been measured on device yet: 0 asks for the behaviour before the gap existed */
+static float aim_gap = 0.15f;
 static float pitch_offset;     /* input.aim_pitch_offset, clamped to -10 to 45: the same trim
 	controller_aim_game.c reads for the barrel ray, read again here so the arm's elevation can
 	take it too (host_spatial_hands.c's hands_recognize) */
@@ -141,6 +147,19 @@ it was rather than spinning (aim_up, which squares it against the barrel it
 is standing in for) */
 static simd_float3 last_up[2];
 static int up_known[2];
+/* each hand's last wrist transform, which is the aim's position and the grip
+outright: kept for the same reason the barrel and the up are, so a sample
+inside input.hand_aim_gap has a whole pose to hold and not just a direction
+(hand_unreadable). Valid exactly while aim_hold[hand].known is set, since
+both are written on the same samples */
+static simd_float4x4 last_wrist[2];
+/* each hand's aim gap (host_spatial_hands.h's hands_aim_hold): per hand and
+independent, so one hand blinking never costs the other its aim */
+static struct hands_aim_hold aim_hold[2];
+/* what hands_aim_hold answered for each hand on the last game sample, for
+debug.hand_log's own line: the reduced joints cannot tell a dropout being
+held from one that has run out, since both arrive with tracked 0 */
+static int aim_outcome[2];
 /* the reduced joints of the last game sample (host_spatial_hands.h): what a
 gesture recognizer reads, while the aim itself needs only the wrist and the
 forearm */
@@ -154,7 +173,7 @@ run started: debug.hand_log's own line below (log_aim_condition), reset with
 the gesture state because a run cannot span a gap in which hands were not the
 source at all. -1 is "no game sample yet", which writes no line, where 0
 would read as a run of lost that never happened */
-enum { AIM_CONDITION_LOST, AIM_CONDITION_CARRIED, AIM_CONDITION_MEASURED };
+enum { AIM_CONDITION_LOST, AIM_CONDITION_HELD, AIM_CONDITION_CARRIED, AIM_CONDITION_MEASURED };
 static int aim_condition[2] = { -1, -1 };
 static double aim_condition_since[2];
 /* 1 while the hands source filled the game sample it was last given */
@@ -255,6 +274,21 @@ static void read_settings(void)
 			host_logf(HOST_LOG_WARN, "spatial: input.hand_elevation_span %g is outside 5 to 60; using %g",
 				(double)elevation_span, (double)clamped);
 		elevation_span = clamped;
+	}
+	aim_gap = (float)host_config_real("input.hand_aim_gap", 0.15);
+	if (!(aim_gap >= 0.0f && aim_gap <= 1.0f))
+	{
+		float clamped = aim_gap > 1.0f ? 1.0f : 0.0f;
+
+		/* gated on aim_hands as the deadzones above are, and clamped the same two ways. The low
+		end is 0 and not a floor, because 0 is a meaningful answer here rather than a bad one: it
+		asks for the behaviour before the gap existed, where every dropout reaches the guest. A
+		NaN lands there too, which is the safe direction, since the other end of this clamp is
+		what would hold a stale barrel for a whole second */
+		if (aim_hands)
+			host_logf(HOST_LOG_WARN, "spatial: input.hand_aim_gap %g is outside 0 to 1; using %g",
+				(double)aim_gap, (double)clamped);
+		aim_gap = clamped;
 	}
 	pitch_offset = (float)host_config_real("input.aim_pitch_offset", 0.0);
 	if (!(pitch_offset >= -10.0f && pitch_offset <= 45.0f))
@@ -421,6 +455,13 @@ static void drain(void)
 		forward_known[0] = forward_known[1] = 0;
 		last_up[0] = last_up[1] = (simd_float3){ 0.0f, 0.0f, 0.0f };
 		up_known[0] = up_known[1] = 0;
+		/* and the kept wrist with them, which is a position in the old
+		session's origin and the one part of the held pose that would be
+		plainly wrong rather than merely stale. The gap's own run goes too, so
+		no hold survives into a session that has not seen the hand yet */
+		memset(last_wrist, 0, sizeof(last_wrist));
+		memset(aim_hold, 0, sizeof(aim_hold));
+		aim_outcome[0] = aim_outcome[1] = HANDS_AIM_LOST;
 		host_logf(HOST_LOG_INFO, "spatial: ARKit's session ended; the hand provider starts again with the next");
 	}
 	if (!session)
@@ -535,11 +576,53 @@ static simd_float3 aim_up(int hand, simd_float3 forward)
 	return simd_normalize(reference - simd_dot(reference, forward) * forward);
 }
 
+/* a sample hand_of could not build an aim from, answered by input.hand_aim_gap
+(hands_aim_hold). Inside the gap the last barrel, up and wrist are given out again and the
+guest is told the hand is tracked, so a blink of a few samples never reaches it as a loss at
+all and the recovery dwell that turns a blink into a visible snap never starts climbing
+(host_spatial_hands.h's hands_aim_hold carries the measurement). Past the gap this returns
+having written nothing, which leaves out->state at the UNTRACKED hand_of already set, exactly
+as before the gap existed.
+
+What is deliberately stale for the length of a hold: the position. The wrist is wherever it
+was last seen, so a player whose hand is moving while the anchor blinks aims from a point a
+few centimeters behind the hand, and the barrel is the direction it last pointed. Over a
+default gap at 90 Hz that is at most thirteen samples of lag on a hand that is in flight, and
+the alternative is the head taking the aim outright, which is the thing being fixed. held
+stays 1 as it is on the live path: the guest's zoom stabilizer counts an unheld hand as lost
+(controller_aim_game.c's hand_sightline), so clearing it here would spend the gap it is
+holding */
+static void hand_unreadable(int hand, const float *head_position, struct halo_spatial_hand *out, double now)
+{
+	simd_float4x4 aim = matrix_identity_float4x4;
+
+	/* the gap's decision and the log's record of it in one place, so the three callers below
+	cannot take one without the other or take them in the wrong order */
+	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 0, aim_gap, now);
+	if (aim_outcome[hand] != HANDS_AIM_HELD)
+		return;
+	out->state = HALO_SPATIAL_TRACKED;
+	out->held = 1;
+	/* the same two columns the live path fills, from the kept pose rather than this sample's */
+	aim.columns[1].xyz = last_up[hand];
+	aim.columns[2].xyz = -last_forward[hand];
+	aim.columns[3] = last_wrist[hand].columns[3];
+	location_of(aim, head_position, &out->aim);
+	location_of(last_wrist[hand], head_position, &out->grip);
+}
+
 /* one hand from the anchor the provider filled: the state, held, the
 chirality, the reduced joints and both locations. hand is the anchor's slot
-(0 left, 1 right), which is what keeps each hand's last barrel direction */
+(0 left, 1 right), which is what keeps each hand's last barrel direction.
+
+now is the clock the aim gap is timed on, one reading per sample shared by
+both hands (fill). A sample this function cannot build an aim from falls to
+hand_unreadable, which holds the last pose for up to input.hand_aim_gap. The
+reduced joints are not held with it: they are this sample's own reading or
+nothing, so the gesture recognizer keeps deciding its pinches on its own
+HANDS_HAND_GAP_SECONDS and the two gaps stay independent */
 static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_position,
-	struct halo_spatial_hand *out, struct host_spatial_hand_joints *reduced)
+	struct halo_spatial_hand *out, struct host_spatial_hand_joints *reduced, double now)
 {
 	simd_float4x4 origin_from_anchor, room[NUMBER_OF_HAND_JOINTS], wrist, aim = matrix_identity_float4x4;
 	int tracked[NUMBER_OF_HAND_JOINTS];
@@ -560,7 +643,10 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	}
 	skeleton = ar_hand_anchor_get_hand_skeleton(anchor);
 	if (!ar_hand_anchor_is_tracked(anchor) || !skeleton)
+	{
+		hand_unreadable(hand, head_position, out, now);
 		return;
+	}
 	/* the rendering-corrected transforms, which are what a hand the player
 	sees in passthrough is drawn against (hand_tracking.h, skeleton_joint.h) */
 	origin_from_anchor = ar_hand_anchor_get_origin_from_anchor_transform(anchor);
@@ -574,7 +660,10 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	/* no wrist is no hand, whatever the anchor says: every one of the
 	skeleton's transforms is relative to it (skeleton_joint.h) */
 	if (!tracked[JOINT_WRIST])
+	{
+		hand_unreadable(hand, head_position, out, now);
 		return;
+	}
 	wrist = room[JOINT_WRIST];
 	/* the reduced joints first, and whatever the aim below can make of them:
 	a hand whose forearm hasn't come yet still has fingers worth reading, and
@@ -615,8 +704,12 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	else if (forward_known[hand])
 		forward = last_forward[hand];
 	else
-		/* nothing has pointed yet: a wrist on its own can't aim */
+	{
+		/* nothing has pointed yet: a wrist on its own can't aim, and there is no pose to hold
+		either, so hands_aim_hold answers LOST however wide the gap is (its own !known branch) */
+		hand_unreadable(hand, head_position, out, now);
 		return;
+	}
 	out->state = HALO_SPATIAL_TRACKED;
 	/* the zoom stabilizer counts an unheld hand as lost
 	(controller_aim_game.c's hand_sightline), and a tracked bare hand is as
@@ -627,6 +720,11 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	up = aim_up(hand, forward);
 	last_up[hand] = up;
 	up_known[hand] = 1;
+	/* the whole pose kept, and the gap's run ended: all three of the barrel, the up and the
+	wrist are stored by the time hands_aim_hold is told this sample was readable, so
+	aim_hold[hand].known never promises hand_unreadable a pose that was not written */
+	last_wrist[hand] = wrist;
+	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 1, aim_gap, now);
 	/* a room transform in the convention location_of reads: -z the barrel,
 	+y the up, the wrist the position. host_spatial_location squares the up
 	against the barrel itself (host_spatial_pose.c's location_axes), so only
@@ -643,9 +741,15 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 /* both hands from the two anchors, and the reason for them. predict_to above
 0 asks for that instant; a query that can't answer it falls back to the
 latest anchors, as the Sense tracker's failed prediction keeps the latest
-anchor, so one bad frame time doesn't read as a lost hand */
+anchor, so one bad frame time doesn't read as a lost hand.
+
+now is the wall clock the aim gap is timed on, read once by each caller and
+passed to both hands. Not predict_to: the gap asks how long ago this hand was
+last seen, which is a question about now and not about the instant the
+anchors were predicted to. Both samples advance the same gap, as both already
+share last_forward and last_up, so either one seeing the hand ends the run */
 static int fill(double predict_to, const float *head_position, struct halo_spatial_hand hands[2], int *reason,
-	struct host_spatial_hand_joints reduced[2])
+	struct host_spatial_hand_joints reduced[2], double now)
 {
 	int filled = 0;
 
@@ -665,8 +769,8 @@ static int fill(double predict_to, const float *head_position, struct halo_spati
 		*reason = HALO_SPATIAL_WAITING;
 		return 0;
 	}
-	hand_of(0, anchors[0], head_position, &hands[0], &reduced[0]);
-	hand_of(1, anchors[1], head_position, &hands[1], &reduced[1]);
+	hand_of(0, anchors[0], head_position, &hands[0], &reduced[0], now);
+	hand_of(1, anchors[1], head_position, &hands[1], &reduced[1], now);
 	return 1;
 }
 
@@ -808,18 +912,26 @@ the run that just ended had lasted. Three conditions, following hand_of's own th
 	carried   the anchor and the wrist are reported and the forearm is not, so the barrel is
 	          last_forward, a direction frozen in the room from whenever the forearm was last
 	          seen. Still TRACKED to the guest, which never learns the barrel is stale
-	lost      no anchor, no skeleton or no wrist, so hand_of returns with the aim zeroed and
-	          HALO_SPATIAL_UNTRACKED, and the guest's own grace and ease are all that hold the
-	          aim (controller_aim.c's controller_track_update)
+	held      no anchor, no skeleton or no wrist, but inside input.hand_aim_gap, so
+	          hand_unreadable gives out the last whole pose and the guest is still told
+	          TRACKED. Every one of
+	          these runs is a dropout the gap absorbed and the guest never saw, which is what
+	          the gap is for and what sizing it needs counted
+	lost      the same dropout past the gap (or with no pose ever to hold), so the aim is zeroed
+	          and HALO_SPATIAL_UNTRACKED, and the guest's own grace and ease are all that hold
+	          the aim (controller_aim.c's controller_track_update)
 
-Why these three and not the anchor's flag alone: a player reports the gun occasionally
-following the head and coming back, and the two dropouts that could do it are different
-faults with different fixes. A forearm-only drop freezes the barrel where it was and the
-guest sees nothing wrong; a wrist or anchor drop hands the guest a loss, and there the loss's
-cost is not the dropout's length but the recovery dwell it triggers, which a hand dropping
-repeatedly walks up to a whole second (port/ios/tests/controller_aim_probe.c's
-brief_loss_reaches_the_head measures what that costs). Separating the two is the point of the
-line: it says which of them the player is actually hitting, how often, and for how long.
+Why these four and not the anchor's flag alone: a player reports the gun occasionally
+following the head and coming back, and the dropouts that could do it are different faults
+with different fixes. A forearm-only drop freezes the barrel where it was and the guest sees
+nothing wrong; a wrist or anchor drop reaching the guest is a loss, and there the cost is not
+the dropout's length but the recovery dwell it triggers, which a hand dropping repeatedly
+walks up to a whole second (port/ios/tests/controller_aim_probe.c's
+brief_loss_reaches_the_head measures what that costs). Separating them is the point of the
+line: it says which the player is actually hitting, how often, and for how long, and with the
+gap in place it says how much of it the gap is already absorbing. A session whose held runs
+cluster well under the gap says the gap is wide enough; held runs pressed up against it, with
+lost runs following them, say it is not.
 
 Transitions only, so an unbroken run writes nothing however long it lasts, where the per-hand
 sample rate would be 90 lines a second. Greppable on "hands: aim " and every field after the
@@ -827,10 +939,13 @@ side is in a fixed column. host_logf and the guest's platform_log share stderr (
 host_logf writes both it and the runtime log), so these lines and the guest's "controller aim:
 hand lost" and "head aims %.3f s after the loss" sort into one stream and can be read against
 each other */
-static void log_aim_condition(int hand, const struct host_spatial_hand_joints *reduced, double now)
+static void log_aim_condition(int hand, const struct host_spatial_hand_joints *reduced, int outcome, double now)
 {
-	static const char *const names[] = { "lost", "carried", "measured" };
-	int condition = !reduced->tracked ? AIM_CONDITION_LOST :
+	static const char *const names[] = { "lost", "held", "carried", "measured" };
+	/* the outcome first: a held sample and a lost one both arrive with reduced->tracked 0, so
+	only hands_aim_hold's answer tells them apart */
+	int condition = outcome == HANDS_AIM_HELD ? AIM_CONDITION_HELD :
+		outcome != HANDS_AIM_GOOD ? AIM_CONDITION_LOST :
 		reduced->forearm_tracked ? AIM_CONDITION_MEASURED : AIM_CONDITION_CARRIED;
 
 	if (aim_condition[hand] == condition)
@@ -853,7 +968,7 @@ void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[
 	drain();
 	/* the drawing sample's joints are thrown away: a gesture reads the game
 	sample's, which is the one the buttons would share an instant with */
-	fill(predict_to, head_position, draw_hands, &draw_reason, drawn);
+	fill(predict_to, head_position, draw_hands, &draw_reason, drawn, CACurrentMediaTime());
 	draw_fresh = 1;
 }
 
@@ -861,6 +976,10 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 {
 	struct host_spatial_hand_joints drawn[2];
 	int reason = HALO_SPATIAL_WAITING, filled;
+	/* one reading of the clock for this sample, shared by the aim gap in fill, the gesture
+	recognizer and the aim condition's log, so a gap's run and a pinch's hold are measured
+	against the same instant */
+	double now = CACurrentMediaTime();
 
 	if (!hands_on())
 		return 0;
@@ -875,7 +994,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 	}
 	drain();
 	filled = fill(0.0, head_position, sample->hands, &reason,
-		kind == HALO_SPATIAL_SAMPLE_GAME ? joints : drawn);
+		kind == HALO_SPATIAL_SAMPLE_GAME ? joints : drawn, now);
 	sample->reason = reason;
 	if (kind != HALO_SPATIAL_SAMPLE_GAME)
 		return filled;
@@ -915,18 +1034,14 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		drops log lines rather than overrunning, and those two are the lines this size exists
 		to keep */
 		struct hands_event events[32];
-		/* one reading of the clock for this sample, shared by the recognizer and the aim
-		condition's log below, so a run's length is measured against the same instant the
-		pinches are */
-		double now = CACurrentMediaTime();
 		int count, i;
 
 		/* before the recognizer, so a line about this sample's joints comes out whether or not
 		the recognizer has anything to say about them */
 		if (hand_log)
 		{
-			log_aim_condition(0, &joints[0], now);
-			log_aim_condition(1, &joints[1], now);
+			log_aim_condition(0, &joints[0], aim_outcome[0], now);
+			log_aim_condition(1, &joints[1], aim_outcome[1], now);
 		}
 
 		/* the aim the recognizer turns from is the sample's own, with no fallback: an anchor
@@ -977,5 +1092,10 @@ void host_spatial_hands_idle(void)
 	until the next game sample has said what the hands are doing (log_aim_condition) */
 	aim_condition[0] = aim_condition[1] = -1;
 	aim_condition_since[0] = aim_condition_since[1] = 0.0;
+	/* and the aim gap, for the reason its own struct comment gives: hands were not the source
+	for some stretch here, and a run timed across that stretch would hold an aim on the strength
+	of a sample from before it. The next readable sample starts a fresh hold */
+	memset(aim_hold, 0, sizeof(aim_hold));
+	aim_outcome[0] = aim_outcome[1] = HANDS_AIM_LOST;
 }
 #endif

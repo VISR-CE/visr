@@ -2064,6 +2064,80 @@ static void aim_elevation_setting_ends(void)
 	check(near(controls[1].stick_y, 0.5f, 1e-3f), "elevation ends: and half way 30 degrees into a 60 degree span");
 }
 
+/* the aim's hold through a dropout (host_spatial_hands.c's hands_aim_hold), which is the half
+of the aim gap that is not ARKit's: a blink inside the gap holds the last aim, a lapse past it
+gives it up, and a gap of 0 gives it up on the first unreadable sample, which is the behaviour
+the setting defaults away from and must still be able to ask for */
+static void aim_hold_through_a_blink(void)
+{
+	struct hands_aim_hold hold;
+	int t;
+
+	/* nothing readable yet: no pose to hold, so no gap can hold one */
+	memset(&hold, 0, sizeof(hold));
+	check(hands_aim_hold(&hold, 0, 0.15f, 1.0) == HANDS_AIM_LOST,
+		"aim hold: an unreadable first sample is lost whatever the gap");
+	check(hands_aim_hold(&hold, 1, 0.15f, 1.01) == HANDS_AIM_GOOD, "aim hold: and a readable one is good");
+
+	/* a blink well inside the gap: held every sample of it, then good again, and the run leaves
+	nothing behind that could shorten the next one */
+	memset(&hold, 0, sizeof(hold));
+	check(hands_aim_hold(&hold, 1, 0.15f, 1.0) == HANDS_AIM_GOOD, "aim hold: readable to start");
+	for (t = 1; t <= 13; t++)
+		check(hands_aim_hold(&hold, 0, 0.15f, 1.0 + t * 0.011) == HANDS_AIM_HELD,
+			"aim hold: a blink inside the gap holds the aim");
+	check(hands_aim_hold(&hold, 1, 0.15f, 1.145) == HANDS_AIM_GOOD, "aim hold: the hand's return ends the gap");
+	check(hold.lost_since == 0.0, "aim hold: and the run is cleared, so the next gap is a whole gap");
+
+	/* the edges, timed from the first unreadable sample as hand_lost's own gap is and not from
+	the last readable one: the hold runs right up to the gap and gives up at it, so a hand
+	genuinely gone hands the aim over rather than keeping a stale barrel forever. The run below
+	starts at 1.001, so it runs out around 1.151, and the checks sit a sample either side of
+	that rather than on it: the gap arrives as a float and widens to a double a hair above the
+	decimal it was written as, so the exact boundary sample is a fact about the representation
+	and not about this function */
+	memset(&hold, 0, sizeof(hold));
+	hands_aim_hold(&hold, 1, 0.15f, 1.0);
+	check(hands_aim_hold(&hold, 0, 0.15f, 1.001) == HANDS_AIM_HELD, "aim hold: held on the sample the run starts");
+	check(hands_aim_hold(&hold, 0, 0.15f, 1.150) == HANDS_AIM_HELD, "aim hold: still held a sample under the gap");
+	check(hands_aim_hold(&hold, 0, 0.15f, 1.162) == HANDS_AIM_LOST, "aim hold: lost a sample past the gap");
+	check(hands_aim_hold(&hold, 0, 0.15f, 4.0) == HANDS_AIM_LOST, "aim hold: and stays lost through a real loss");
+	check(hands_aim_hold(&hold, 1, 0.15f, 4.011) == HANDS_AIM_GOOD, "aim hold: a hand back after seconds is good");
+
+	/* a gap of 0 is the behaviour this replaced: the first unreadable sample is already lost */
+	memset(&hold, 0, sizeof(hold));
+	hands_aim_hold(&hold, 1, 0.0f, 1.0);
+	check(hands_aim_hold(&hold, 0, 0.0f, 1.001) == HANDS_AIM_LOST, "aim hold: a gap of 0 loses the first sample");
+	check(hands_aim_hold(&hold, 0, 0.0f, 1.012) == HANDS_AIM_LOST, "aim hold: and every sample after it");
+
+	/* the widest the setting allows, and a NaN from a hand-edited config: the first holds a
+	whole second from the run's start (1.999, so out around 2.999) and the second holds for
+	nothing, since a gap nobody can read must not hold an aim indefinitely */
+	memset(&hold, 0, sizeof(hold));
+	hands_aim_hold(&hold, 1, 1.0f, 1.0);
+	check(hands_aim_hold(&hold, 0, 1.0f, 1.999) == HANDS_AIM_HELD, "aim hold: a gap of 1 holds from the run's start");
+	check(hands_aim_hold(&hold, 0, 1.0f, 2.998) == HANDS_AIM_HELD, "aim hold: and a whole second of it");
+	check(hands_aim_hold(&hold, 0, 1.0f, 3.010) == HANDS_AIM_LOST, "aim hold: and gives up past it");
+	memset(&hold, 0, sizeof(hold));
+	hands_aim_hold(&hold, 1, 1.0f, 1.0);
+	check(hands_aim_hold(&hold, 0, (float)NAN, 1.001) == HANDS_AIM_LOST, "aim hold: a NaN gap holds nothing");
+
+	/* per hand and nothing shared: one hand blinking past its gap while the other is read */
+	{
+		struct hands_aim_hold holds[2];
+
+		memset(holds, 0, sizeof(holds));
+		hands_aim_hold(&holds[0], 1, 0.15f, 1.0);
+		hands_aim_hold(&holds[1], 1, 0.15f, 1.0);
+		check(hands_aim_hold(&holds[0], 0, 0.15f, 1.1) == HANDS_AIM_HELD &&
+			hands_aim_hold(&holds[1], 1, 0.15f, 1.1) == HANDS_AIM_GOOD,
+			"aim hold: one hand's blink leaves the other good");
+		check(hands_aim_hold(&holds[0], 0, 0.15f, 1.5) == HANDS_AIM_LOST &&
+			hands_aim_hold(&holds[1], 1, 0.15f, 1.5) == HANDS_AIM_GOOD,
+			"aim hold: and one hand's loss is not the other's");
+	}
+}
+
 int main(void)
 {
 	pinch_hysteresis();
@@ -2113,6 +2187,7 @@ int main(void)
 	aim_turn_unchanged_by_the_elevation_settings();
 	aim_elevation_setting_ends();
 	event_capacity_clamped();
+	aim_hold_through_a_blink();
 	if (failures)
 	{
 		printf("hands probe: %d FAILED\n", failures);
