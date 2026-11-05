@@ -4998,7 +4998,7 @@ static float pacing_link_rate(float screen_rate)
 		if (!_measured++)
 			_first = link.timestamp;
 		else if (_measured == 241 && link.timestamp > _first)
-			platform_log("Metal: frame pacing follows %s at %.2f Hz measured (the screen offers %.0f Hz, the link asks %.0f)",
+			host_logf(HOST_LOG_INFO, "Metal: frame pacing follows %s at %.2f Hz measured (the screen offers %.0f Hz, the link asks %.0f)",
 				_source ? _source.UTF8String : "the display", 240.0 / (link.timestamp - _first), _asked,
 				(double)link.preferredFrameRateRange.preferred);
 	}
@@ -6327,7 +6327,7 @@ int gpu_metal_output(void *new_layer, void *screen, int width, int height)
         fprintf(frame_log.file,"output-change size=%dx%d skip_next=1\n",width,height);
         fflush(frame_log.file);
     }
-    platform_log("Metal: output changed to %dx%d",width,height);
+    host_logf(HOST_LOG_INFO,"Metal: output changed to %dx%d",width,height);
     return 1;
 }
 
