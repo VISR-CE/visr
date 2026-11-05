@@ -149,6 +149,14 @@ static struct host_spatial_hand_joints joints[2];
 dwell): host_spatial_hands_idle resets it whenever hands were not the game
 sample's source, so no pinch or dwell survives into the next one they fill */
 static struct hands_state gesture_state;
+/* what each hand's aim was built from on the last game sample, and when that
+run started: debug.hand_log's own line below (log_aim_condition), reset with
+the gesture state because a run cannot span a gap in which hands were not the
+source at all. -1 is "no game sample yet", which writes no line, where 0
+would read as a run of lost that never happened */
+enum { AIM_CONDITION_LOST, AIM_CONDITION_CARRIED, AIM_CONDITION_MEASURED };
+static int aim_condition[2] = { -1, -1 };
+static double aim_condition_since[2];
 /* 1 while the hands source filled the game sample it was last given */
 static int active;
 /* the joints the aim and a gesture recognizer need, in struct
@@ -788,6 +796,52 @@ static void log_distance_sample(int hand, const struct host_spatial_hand_joints 
 	host_logf(HOST_LOG_INFO, "%s", line);
 }
 
+/* debug.hand_log: one line per change in what a hand's aim is being built from, with how long
+the run that just ended had lasted. Three conditions, following hand_of's own three outcomes:
+
+	measured  the anchor, the wrist and the forearm are all ARKit's reading, so the barrel is
+	          this sample's own and the aim reaches the guest HALO_SPATIAL_TRACKED. A forearm
+	          tracked but shorter than FOREARM_MINIMUM_METERS reads as measured here and is
+	          carried by hand_of, which is the one place the three names are not exactly its
+	          outcomes: a degenerate length is a reading this line has no way to tell from a
+	          sound one, and hand_of's own guard is what the number would be read against
+	carried   the anchor and the wrist are reported and the forearm is not, so the barrel is
+	          last_forward, a direction frozen in the room from whenever the forearm was last
+	          seen. Still TRACKED to the guest, which never learns the barrel is stale
+	lost      no anchor, no skeleton or no wrist, so hand_of returns with the aim zeroed and
+	          HALO_SPATIAL_UNTRACKED, and the guest's own grace and ease are all that hold the
+	          aim (controller_aim.c's controller_track_update)
+
+Why these three and not the anchor's flag alone: a player reports the gun occasionally
+following the head and coming back, and the two dropouts that could do it are different
+faults with different fixes. A forearm-only drop freezes the barrel where it was and the
+guest sees nothing wrong; a wrist or anchor drop hands the guest a loss, and there the loss's
+cost is not the dropout's length but the recovery dwell it triggers, which a hand dropping
+repeatedly walks up to a whole second (port/ios/tests/controller_aim_probe.c's
+brief_loss_reaches_the_head measures what that costs). Separating the two is the point of the
+line: it says which of them the player is actually hitting, how often, and for how long.
+
+Transitions only, so an unbroken run writes nothing however long it lasts, where the per-hand
+sample rate would be 90 lines a second. Greppable on "hands: aim " and every field after the
+side is in a fixed column. host_logf and the guest's platform_log share stderr (host_main.m's
+host_logf writes both it and the runtime log), so these lines and the guest's "controller aim:
+hand lost" and "head aims %.3f s after the loss" sort into one stream and can be read against
+each other */
+static void log_aim_condition(int hand, const struct host_spatial_hand_joints *reduced, double now)
+{
+	static const char *const names[] = { "lost", "carried", "measured" };
+	int condition = !reduced->tracked ? AIM_CONDITION_LOST :
+		reduced->forearm_tracked ? AIM_CONDITION_MEASURED : AIM_CONDITION_CARRIED;
+
+	if (aim_condition[hand] == condition)
+		return;
+	if (aim_condition[hand] >= 0)
+		host_logf(HOST_LOG_INFO, "hands: aim %s %s for %.3f s, now %s", hand ? "right" : "left",
+			names[aim_condition[hand]], now - aim_condition_since[hand], names[condition]);
+	aim_condition[hand] = condition;
+	aim_condition_since[hand] = now;
+}
+
 void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[3], double predict_to)
 {
 	struct host_spatial_hand_joints drawn[2];
@@ -861,7 +915,19 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		drops log lines rather than overrunning, and those two are the lines this size exists
 		to keep */
 		struct hands_event events[32];
+		/* one reading of the clock for this sample, shared by the recognizer and the aim
+		condition's log below, so a run's length is measured against the same instant the
+		pinches are */
+		double now = CACurrentMediaTime();
 		int count, i;
+
+		/* before the recognizer, so a line about this sample's joints comes out whether or not
+		the recognizer has anything to say about them */
+		if (hand_log)
+		{
+			log_aim_condition(0, &joints[0], now);
+			log_aim_condition(1, &joints[1], now);
+		}
 
 		/* the aim the recognizer turns from is the sample's own, with no fallback: an anchor
 		dropout zeroes aim.forward and the recognizer gates the whole aim turn (its event and
@@ -874,7 +940,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		one snap can fire the instant the forearm first appears already past the deadzone. That
 		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
-			elevation_deadzone, elevation_span, pitch_offset, CACurrentMediaTime(), controls, events, 32);
+			elevation_deadzone, elevation_span, pitch_offset, now, controls, events, 32);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
 		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
 		merges into port 0 like a Sense sample but remaps differently in menus
@@ -906,5 +972,10 @@ int host_spatial_hands_active(void)
 void host_spatial_hands_idle(void)
 {
 	memset(&gesture_state, 0, sizeof(gesture_state));
+	/* and the aim condition's run, which is not memset with the rest: 0 is the lost condition
+	and would date the next line from a run that never happened, where -1 writes no line at all
+	until the next game sample has said what the hands are doing (log_aim_condition) */
+	aim_condition[0] = aim_condition[1] = -1;
+	aim_condition_since[0] = aim_condition_since[1] = 0.0;
 }
 #endif
