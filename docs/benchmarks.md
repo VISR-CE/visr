@@ -207,17 +207,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 11.1 ms frame budget, M2 Vision Pro"
-    x-axis "" ["VISR 0.6.3"]
+    x-axis "" ["VISR 0.6.10"]
     y-axis "Milliseconds per frame" 0 --> 11.1
-    bar [3.5]
-    bar [7.1]
+    bar [4.5]
+    bar [9.7]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 3.53 ms median CPU time per frame, 7.07 ms median GPU time per rendered frame).
+VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 4.53 ms median CPU time per frame, 9.72 ms median GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build reports neither CPU nor GPU time per frame.).
 
@@ -237,23 +237,23 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, M2 Vision Pro"
-    x-axis "" ["VISR 0.6.3", "117-vision b25332ef9", "master-chef 1.0.3"]
+    x-axis "" ["VISR 0.6.10", "117-vision b25332ef9", "master-chef 1.0.3"]
     y-axis "Frames per second" 0 --> 150
-    bar [89.5, 21, 29.8]
-    bar [89.5, 16.2, 0]
+    bar [89.4, 21, 29.8]
+    bar [89.4, 16.2, 0]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
+VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 11.1 ms 95th-percentile frame time, 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no frame times reported; a10 not measured yet); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (build 103, measured 2026-10-27; no frame times reported).
 
 <!-- END CHARTS -->
 
 ## Methodology
 
-The snapshot holds 322 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 329 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 
