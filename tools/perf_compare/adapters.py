@@ -257,7 +257,7 @@ def native_display(target_id, frame_mode='capped', quality_preset='defaults', dr
 HOSTED_KINDS = ('match', 'coop')
 # Where each port takes its hosted-game switches. Chupathingy has no config.toml, so it takes the documented
 # environment names; the others take the same keys in config.toml (Halo OG documents no environment names).
-COOP_ENEMIES_NONE = ('opence-macos', 'corece', 'chupathingy')
+COOP_ENEMIES_NONE = ('visr', 'opence-macos', 'corece', 'chupathingy')
 
 
 def hosted_spec(window):

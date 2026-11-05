@@ -178,7 +178,8 @@ def test_hosted_settings_per_port():
     assert adapters.hosted_spec(coop) == 'host:levels\\c10\\c10:coop'
     debug, network, env = adapters.hosted_settings('visr', coop)
     assert 'network_test = "host:levels\\\\c10\\\\c10:coop"' in debug  # escaped for TOML
-    assert 'enemy_multiplier = 1' in debug and 'network_test_players = 2' in debug and not network and not env
+    assert 'enemy_multiplier = 1' in debug and 'network_test_players = 2' in debug and not env
+    assert network == ['coop_enemies_mode = "none"']  # standard enemy settings, as in the other ports
     assert not any('test_input' in line for line in debug)  # co-op takes no input
     debug, network, env = adapters.hosted_settings('opence-macos', coop)
     assert network == ['coop_enemies_mode = "none"'] and 'enemy_multiplier = 1' not in debug
