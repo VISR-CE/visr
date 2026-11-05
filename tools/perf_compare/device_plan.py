@@ -1,7 +1,10 @@
 """What a VISR device run needs for one window: `init.txt` lines, debug keys and the run length.
 
 Console windows start the level as a one-player hosted game (`debug.network_test`) and hold `init.txt` back with
-`debug.init_after` until the level runs, so `init.txt` can carry console commands. Used by the device runner in
+`debug.init_after` until the level runs, so `init.txt` can carry console commands. The hosted game sets
+`network.coop_enemies_mode = "none"`: with the default extra enemies the workload context is "variable" (the profile's
+multiplayer frame rate and settings), while the other ports and a single-player start run the "predictable" campaign
+context at standard settings. Used by the device runner in
 step-tools; the in-app VISR suite is not involved.
 """
 from __future__ import annotations
@@ -24,6 +27,7 @@ def plan(key: str, table: dict | None = None) -> dict:
     kind, level = win['kind'], win['map']
     deathless = '(set cheat_deathless_player true)'
     debug = {'frame_log': '"on"', 'gpu_stats': 'true'}
+    network: dict[str, str] = {}
     if kind == 'opening':
         init = ['game_difficulty_set normal', f'map_name {level}', deathless]
         length = win['warmup_s'] + win['sample_s'] + SLACK_S
@@ -31,6 +35,7 @@ def plan(key: str, table: dict | None = None) -> dict:
         init = [deathless]
         debug['network_test'] = "'host:levels\\" + level + '\\' + level + ":coop'"
         debug['init_after'] = f'{INIT_AFTER_S}'
+        network['coop_enemies_mode'] = '"none"'
         if kind == 'battle':
             init += win['commands']
             length = INIT_AFTER_S + win['warmup_s'] + win['sample_s'] + SLACK_S
@@ -44,7 +49,7 @@ def plan(key: str, table: dict | None = None) -> dict:
             debug['test_input'] = f'"{win["test_input"]}"'
             length = INIT_AFTER_S + (win['start_tick'] + win['ticks']) / TICKS_PER_SECOND * 1.5 + SLACK_S
     debug['exit_after'] = f'{round(length)}.0'
-    return {'window': key, 'kind': kind, 'map': level, 'init': init, 'debug': debug, 'exit_after': float(round(length))}
+    return {'window': key, 'kind': kind, 'map': level, 'init': init, 'debug': debug, 'network': network, 'exit_after': float(round(length))}
 
 
 def main() -> int:
@@ -52,12 +57,15 @@ def main() -> int:
     parser.add_argument('window')
     parser.add_argument('--init-out', help='write init.txt here')
     parser.add_argument('--debug-out', help='write the [debug] keys (one `key = value` per line) here')
+    parser.add_argument('--network-out', help='write the [network] keys (one `key = value` per line) here')
     args = parser.parse_args()
     result = plan(args.window)
     if args.init_out:
         open(args.init_out, 'w').write('\n'.join(result['init']) + '\n')
     if args.debug_out:
         open(args.debug_out, 'w').write(''.join(f'{k} = {v}\n' for k, v in result['debug'].items()))
+    if args.network_out:
+        open(args.network_out, 'w').write(''.join(f'{k} = {v}\n' for k, v in result['network'].items()))
     print(json.dumps({'exit_after': result['exit_after'], 'kind': result['kind']}))
     return 0
 

@@ -15,13 +15,14 @@ def test_opening_plan_has_the_level_and_a_deathless_player():
     plan = device_plan.plan('c10')
     assert plan['init'] == ['game_difficulty_set normal', 'map_name c10', '(set cheat_deathless_player true)']
     assert plan['debug']['frame_log'] == '"on"' and plan['debug']['gpu_stats'] == 'true'
-    assert 'network_test' not in plan['debug'] and plan['exit_after'] == 105.0
+    assert 'network_test' not in plan['debug'] and plan['network'] == {} and plan['exit_after'] == 105.0
 
 
 def test_battle_plan_hosts_the_level_and_holds_the_commands_until_it_runs():
     plan = device_plan.plan('a50-hangar')
     assert plan['debug']['network_test'] == "'host:levels\\a50\\a50:coop'"
     assert plan['debug']['init_after'] == '25.0' and plan['exit_after'] == 130.0
+    assert plan['network'] == {'coop_enemies_mode': '"none"'}   # standard settings: the predictable workload context
     assert plan['init'][0] == '(set cheat_deathless_player true)' and plan['init'][1:] == W['a50-hangar']['commands']
 
 
