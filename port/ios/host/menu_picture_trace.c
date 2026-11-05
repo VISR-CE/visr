@@ -170,7 +170,10 @@ static int icon_components(uint8_t *mask,unsigned w,unsigned h,unsigned min,unsi
     return icon_components_fat(mask,w,h,min,NULL,0,0,queue,cancel);
 }
 #ifndef HYST_LOW
-#define HYST_LOW .18f   /* faint stretches of a line that touch a strong one stay in it (a one pixel line that only half covers its pixels) */
+#define HYST_LOW .34f   /* faint stretches of a line that touch a strong one stay in it */
+#endif
+#ifndef HYST_FAINT
+#define HYST_FAINT .18f   /* a one pixel line that only half covers its pixels is followed this far, but only from a free end */
 #endif
 #ifndef BLOB_OPEN
 #define BLOB_OPEN 1.3f   /* thinner than this many stroke half-widths is a stroke, not a filled shape: a thin divider between dark pockets stays part of its shape */
@@ -507,6 +510,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
      cl_dist(node,1,D1,uw,uh);float dmax=base_half*3+6;
      for(size_t i=0;i<un;i++){blob[i]=D2[i]<=rb;aux[i]=grown[i]&&!blob[i]&&D1[i]<=dmax;}
      if(icon_components(aux,uw,uh,30,queue,cancel)){status=-1;goto done;}}
+    for(int pass=0;pass<2;pass++){
     memcpy(sk,aux,un);memset(aux,0,un);
     cl_thin(sk,uw,uh,queue,cancel,&stopped);if(stopped){status=-1;goto done;}
     /* spurs: short branches with one free end are skeleton noise, not art */
@@ -536,6 +540,29 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
         c->tip=1;
         for(unsigned t=0;t<c->n;t++){int px=(int)c->p[2*t],py=(int)c->p[2*t+1];
             for(int dy=-7;dy<=7;dy++)for(int dx=-7;dx<=7;dx++){int x=px+dx,y=py+dy;if(x>=0&&y>=0&&x<(int)uw&&y<(int)uh)prim[(size_t)y*uw+x]=1;}}
+    }
+    if(pass==0){
+        /* A faint line that only half covers its pixels stops following at the usual floor. From each free end only, follow
+           it at a lower floor, up to about ten source pixels: junctions and halos elsewhere keep the usual floor. */
+        float dm=base_half*3+6;size_t added=0;
+        memcpy(aux,grown,un);
+        for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->closed)continue;
+            for(int k=0;k<2;k++){if((k==0&&c->ja)||(k==1&&c->jb))continue;
+                const float *e=k==0?c->p:c->p+2*(c->n-1);int sx=(int)e[0],sy=(int)e[1];
+                size_t head=0,tail=0;
+                for(int dy=-3;dy<=3;dy++)for(int dx=-3;dx<=3;dx++){int x=sx+dx,y=sy+dy;if(x<0||y<0||x>=(int)uw||y>=(int)uh)continue;
+                    size_t t=(size_t)y*uw+x;if(!aux[t]&&S[t]>HYST_FAINT&&!blob[t]&&D1[t]<=dm){aux[t]=2;queue[tail++]=(unsigned)t;added++;}}
+                while(head<tail){unsigned j=queue[head++],x=j%uw,y=j/uw;
+                    for(int q=0;q<8;q++){int nx=(int)x+cl_dx[q],ny=(int)y+cl_dy[q];if(nx<0||ny<0||nx>=(int)uw||ny>=(int)uh)continue;
+                        size_t t=(size_t)ny*uw+nx;if(aux[t])continue;if(hypotf(nx-sx,ny-sy)>80.f)continue;
+                        if(S[t]>HYST_FAINT&&!blob[t]&&D1[t]<=dm){aux[t]=2;queue[tail++]=(unsigned)t;added++;}}}}}
+        if(!added)break;
+        cl_free_paths(paths,np);paths=NULL;np=0;
+        for(size_t i=0;i<un;i++)aux[i]=aux[i]&&!blob[i]&&D1[i]<=dm;
+        if(icon_components(aux,uw,uh,30,queue,cancel)){status=-1;goto done;}
+        continue;
+    }
+    break;
     }
     /* bridge small breaks: free ends within 3 source pixels that point at each other */
     {unsigned nend=0,*eid=malloc((size_t)np*2*sizeof(unsigned));float (*et)[2]=malloc((size_t)np*2*sizeof(*et));
@@ -633,15 +660,19 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
         if(only<width*width*3.0f){
             /* a short branch that is an arc of a circle (the inner line of a nested ring) is drawing, not skeleton noise;
                a tick or a straight hair is not */
-            float acx=0,acy=0,aR=0,aerr=0;int arc=0;const float *q=c->p;unsigned qn=c->n;   /* the raw skeleton: smoothing would flatten a path this short */
-            if(qn>=16&&cl_circle_fit(q,qn,&acx,&acy,&aR,&aerr)&&aR>=.8f*width&&aR<=10*width&&aerr<=1.4f*cl_arc_tol(aR,width)&&
-               fabsf(cl_arc_span(q,qn,acx,acy))>=.5f&&cl_length(q,qn)>=2.5f*width){
-                /* nested ring: the branch lies on a circle concentric with an arc already drawn, so it is that ring's inner or
-                   outer line, snapped to the shared center */
+            int arc=0;const float *q=c->p;unsigned qn=c->n;   /* the raw skeleton: smoothing would flatten a path this short */
+            const float *je=c->ja?c->p:c->p+2*(c->n-1);       /* where the branch joins the rest of the drawing */
+            if(qn>=16&&cl_length(q,qn)>=2.5f*width){
+                /* nested ring: the branch lies on a circle concentric with an arc it attaches to (one whose own points pass
+                   within three stroke widths of the branch's joint), so it is that ring's inner or outer line, snapped to the
+                   shared center. A tick, a straight hair or a hook around some other center is not. */
                 for(unsigned a=0;a<narcs&&!arc;a++){
+                    const float *P=sp[arcs[a].path];float near=1e9f;
+                    for(unsigned t=arcs[a].i0;t<=arcs[a].i1;t++){float d=hypotf(P[2*t]-je[0],P[2*t+1]-je[1]);if(d<near)near=d;}
+                    if(near>3.f*width)continue;
                     double ds=0,ds2=0;for(unsigned t=0;t<qn;t++){double d=hypot(q[2*t]-arcs[a].cx,q[2*t+1]-arcs[a].cy);ds+=d;ds2+=d*d;}
                     double mean=ds/qn,sd=sqrt(fmax(ds2/qn-mean*mean,0));
-                    if(sd<=.35*width&&mean>=.8*width&&mean<2.5*arcs[a].R){
+                    if(sd<=.35*width&&mean>=.8*width&&mean<2.5*arcs[a].R&&fabsf(cl_arc_span(q,qn,arcs[a].cx,arcs[a].cy))>=.5f){
                         double Rs=mean;for(unsigned b=0;b<narcs;b++)if(arcs[b].group==arcs[a].group&&fabs(arcs[b].R-mean)<.5*width)Rs=arcs[b].R;   /* the same circle as an arc already drawn */
                         float *np2=malloc((size_t)qn*2*sizeof(float));
                         if(np2){for(unsigned t=0;t<qn;t++){double dx=q[2*t]-arcs[a].cx,dy=q[2*t+1]-arcs[a].cy,d=hypot(dx,dy);np2[2*t]=(float)(arcs[a].cx+dx*Rs/d);np2[2*t+1]=(float)(arcs[a].cy+dy*Rs/d);}
