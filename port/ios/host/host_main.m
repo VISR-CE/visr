@@ -38,6 +38,7 @@
 #include <os/proc.h>
 #include <errno.h>
 #include <fcntl.h>
+#include "host_log_file.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,11 +48,13 @@
 
 static char data_root[1024],save_root[1024];
 static FILE *log_file;
+/* ios-runtime.log: host_log_file.c keeps it to 8 MB and the session before it as ios-runtime.previous.log */
+#define LOG_FILE_LIMIT (8L<<20)
 void host_logf(int priority,const char *format,...) {
     (void)priority;va_list ap;va_start(ap,format);
     char text[4096];vsnprintf(text,sizeof(text),format,ap);va_end(ap);
     fprintf(stderr,"halo-ios: %s\n",text);
-    if(log_file){flockfile(log_file);fprintf(log_file,"%s\n",text);fflush(log_file);funlockfile(log_file);}
+    host_log_file_line(text);
 }
 void host_log(int priority,const char *text) { host_logf(priority,"%s",text); }
 #if HALO_RENDER_VALIDATION
@@ -320,7 +323,7 @@ int main(int argc,char **argv) {
             snprintf(save_root,sizeof(save_root),"%s/benchmark/run/save",data_root);mkdir(save_root,0755);
         }
         chdir(data_root);
-        log_file=fopen("ios-runtime.log","w");setvbuf(stderr,NULL,_IONBF,0);
+        log_file=host_log_file_open(LOG_FILE_LIMIT);setvbuf(stderr,NULL,_IONBF,0);
         /* fatal errors as native crashes (host_crash.h): before the benchmark's crash marker and the memory
            watch install theirs, so each of those passes on to it what is not its own */
         host_crash_install(log_file?fileno(log_file):-1);

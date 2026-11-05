@@ -479,6 +479,11 @@ run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,
     'port/runtime/game_perf.c', '-lz',
     '-o', BUILD/'perf-reports-probe')
 run(BUILD/'perf-reports-probe')
+# the host's log file: the previous session is kept, and a log past its limit rotates
+run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-fobjc-arc', '-fblocks', '-Iport/ios/host', '-framework', 'Foundation', 'port/ios/tests/log_file_probe.m',
+    '-o', BUILD/'log-file-probe')
+run(BUILD/'log-file-probe')
 # Explicit identity initialization serves ASTC even without report collectors; lazy lookup stays inert.
 for perf_reports in (1, 0):
     probe = BUILD/f'map-identity-probe-{perf_reports}'
