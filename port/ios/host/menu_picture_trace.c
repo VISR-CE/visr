@@ -167,6 +167,316 @@ static int icon_components(uint8_t *mask,unsigned w,unsigned h,unsigned min,unsi
 static float icon_edge(float f,float level,float gx,float gy) {
     float fw=fmaxf(hypotf(gx,gy),1e-4f);return clampf((f-level)/fw+.5f,0,1);
 }
+/* ---- Centerline strokes for the gradient gametype icons. The line art is continuous lines of one constant width, so
+   the line is found as curves and drawn as strokes: a thinned skeleton of the line mask, its graph of end points and
+   junctions, short spurs and crumbs removed, small breaks bridged, corner-preserving smoothing, then every curve
+   rasterized with round caps and joins at the one width the art measures to. Parts of the mask thicker than the
+   stroke (the ring, the skull, the bolt) are filled shapes drawn from their level set instead. */
+static const int cl_dx[8]={0,1,1,1,0,-1,-1,-1},cl_dy[8]={-1,-1,0,1,1,1,0,-1};   /* N NE E SE S SW W NW */
+struct cl_path { float *p; unsigned n; int closed,ja,jb; };
+static void cl_thin(uint8_t *m,unsigned w,unsigned h,unsigned *queue,const volatile int *cancel,int *stopped) {
+    /* Zhang-Suen thinning; the border row and column are never set */
+    for(int again=1;again;) {
+        again=0;
+        for(int step=0;step<2;step++) {
+            size_t count=0;
+            if(cancel&&*cancel){*stopped=1;return;}
+            for(unsigned y=1;y+1<h;y++)for(unsigned x=1;x+1<w;x++) {
+                size_t i=(size_t)y*w+x;if(!m[i])continue;
+                unsigned P[8];for(int k=0;k<8;k++)P[k]=m[i+(size_t)cl_dy[k]*w+cl_dx[k]]!=0;
+                unsigned B=0,A=0;for(int k=0;k<8;k++){B+=P[k];A+=(!P[k]&&P[(k+1)&7]);}
+                if(B<2||B>6||A!=1)continue;
+                /* P2=N P4=E P6=S P8=W */
+                int c3=step?(!(P[0]&&P[2]&&P[6])&&!(P[0]&&P[4]&&P[6])):(!(P[0]&&P[2]&&P[4])&&!(P[2]&&P[4]&&P[6]));
+                if(c3)queue[count++]=(unsigned)i;
+            }
+            for(size_t k=0;k<count;k++)m[queue[k]]=0;
+            if(count)again=1;
+        }
+    }
+}
+/* chamfer distance to the nearest zero pixel (inside mask) or to the nearest one pixel (target=1) */
+static void cl_dist(const uint8_t *m,int target,float *d,unsigned w,unsigned h) {
+    const float inf=1e9f,a=1.f,b=1.41421356f;
+    for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++) {
+        size_t i=(size_t)y*w+x;float v=(m[i]==target)?0.f:inf;
+        if(v>0){ if(x)v=fminf(v,d[i-1]+a); if(y){v=fminf(v,d[i-w]+a); if(x)v=fminf(v,d[i-w-1]+b); if(x+1<w)v=fminf(v,d[i-w+1]+b);} }
+        d[i]=v;
+    }
+    for(unsigned yy=h;yy-->0;)for(unsigned xx=w;xx-->0;) {
+        size_t i=(size_t)yy*w+xx;float v=d[i];
+        if(xx+1<w)v=fminf(v,d[i+1]+a);
+        if(yy+1<h){v=fminf(v,d[i+w]+a); if(xx+1<w)v=fminf(v,d[i+w+1]+b); if(xx)v=fminf(v,d[i+w-1]+b);}
+        d[i]=v;
+    }
+}
+static void cl_neighbors(const uint8_t *sk,unsigned w,size_t i,unsigned *nb,unsigned *cn) {
+    unsigned P[8],n=0,c=0;
+    for(int k=0;k<8;k++){P[k]=sk[i+(size_t)cl_dy[k]*w+cl_dx[k]]!=0;n+=P[k];}
+    for(int k=0;k<8;k++)c+=(!P[k]&&P[(k+1)&7]);
+    *nb=n;*cn=c;
+}
+/* the skeleton's graph as paths between end points and junction pixels; node[] marks them */
+static int cl_graph(const uint8_t *sk,uint8_t *node,uint8_t *visited,unsigned w,unsigned h,struct cl_path **paths,unsigned *count) {
+    size_t n=(size_t)w*h;unsigned cap=64,np=0;
+    struct cl_path *out=malloc(cap*sizeof(*out));if(!out)return 0;
+    memset(node,0,n);memset(visited,0,n);
+    for(unsigned y=1;y+1<h;y++)for(unsigned x=1;x+1<w;x++){size_t i=(size_t)y*w+x;if(!sk[i])continue;unsigned nb,cn;cl_neighbors(sk,w,i,&nb,&cn);
+        if(nb==1||cn>=3)node[i]=1;}
+    unsigned *buf=malloc(sizeof(unsigned)*65536);if(!buf){free(out);return 0;}
+    for(unsigned y=1;y+1<h;y++)for(unsigned x=1;x+1<w;x++) {
+        size_t s=(size_t)y*w+x;if(!node[s])continue;
+        for(int k=0;k<8;k++) {
+            size_t q=s+(size_t)cl_dy[k]*w+cl_dx[k];
+            if(!sk[q]||node[q]||visited[q])continue;
+            unsigned len=0;buf[len++]=(unsigned)s;buf[len++]=(unsigned)q;visited[q]=1;
+            size_t cur=q,prev=s;
+            for(;;) {
+                size_t hit=0,pick=0;int hitf=0,pickd=99;
+                for(int j=0;j<8;j++){size_t r=cur+(size_t)cl_dy[j]*w+cl_dx[j];
+                    if(!sk[r]||r==prev)continue;
+                    if(len>=3&&r==buf[len-3])continue;
+                    if(node[r]){if(!hitf){hit=r;hitf=1;}continue;}
+                    if(visited[r])continue;
+                    int dd=abs(cl_dx[j])+abs(cl_dy[j]);if(dd<pickd){pickd=dd;pick=r;}}
+                if(hitf){buf[len++]=(unsigned)hit;break;}
+                if(!pickd||pickd==99)break;
+                prev=cur;cur=pick;if(len>=65530)break;buf[len++]=(unsigned)cur;visited[cur]=1;
+            }
+            if(np==cap){cap*=2;struct cl_path *t=realloc(out,cap*sizeof(*out));if(!t){free(buf);goto fail;}out=t;}
+            struct cl_path *pp=&out[np++];pp->n=len;pp->p=malloc((size_t)len*2*sizeof(float));pp->closed=0;
+            if(!pp->p){np--;free(buf);goto fail;}
+            for(unsigned t=0;t<len;t++){pp->p[2*t]=(float)(buf[t]%w);pp->p[2*t+1]=(float)(buf[t]/w);}
+            unsigned nb,cn;cl_neighbors(sk,w,buf[0],&nb,&cn);pp->ja=cn>=3;cl_neighbors(sk,w,buf[len-1],&nb,&cn);pp->jb=cn>=3;
+        }
+    }
+    /* loops with no node */
+    for(unsigned y=1;y+1<h;y++)for(unsigned x=1;x+1<w;x++) {
+        size_t s=(size_t)y*w+x;if(!sk[s]||node[s]||visited[s])continue;
+        unsigned len=0;buf[len++]=(unsigned)s;visited[s]=1;size_t cur=s;
+        for(;;){size_t pick=0;int pickd=99;
+            for(int j=0;j<8;j++){size_t r=cur+(size_t)cl_dy[j]*w+cl_dx[j];if(!sk[r]||node[r]||visited[r])continue;
+                int dd=abs(cl_dx[j])+abs(cl_dy[j]);if(dd<pickd){pickd=dd;pick=r;}}
+            if(pickd==99||len>=65530)break;cur=pick;buf[len++]=(unsigned)cur;visited[cur]=1;}
+        if(len>8){
+            if(np==cap){cap*=2;struct cl_path *t=realloc(out,cap*sizeof(*out));if(!t){free(buf);goto fail;}out=t;}
+            struct cl_path *pp=&out[np++];pp->n=len;pp->p=malloc((size_t)len*2*sizeof(float));pp->closed=1;pp->ja=pp->jb=0;
+            if(!pp->p){np--;free(buf);goto fail;}
+            for(unsigned t=0;t<len;t++){pp->p[2*t]=(float)(buf[t]%w);pp->p[2*t+1]=(float)(buf[t]/w);}
+        }
+    }
+    free(buf);*paths=out;*count=np;return 1;
+fail:
+    for(unsigned i=0;i<np;i++)free(out[i].p);free(out);return 0;
+}
+static void cl_free_paths(struct cl_path *p,unsigned n){for(unsigned i=0;i<n;i++)free(p[i].p);free(p);}
+static float cl_length(const float *p,unsigned n){float s=0;for(unsigned i=1;i<n;i++)s+=hypotf(p[2*i]-p[2*i-2],p[2*i+1]-p[2*i-1]);return s;}
+/* uniform 1 pixel resampling along the arc */
+static unsigned cl_resample(const float *p,unsigned n,int closed,float *out,unsigned cap) {
+    float total=0;unsigned m=0;
+    unsigned segs=closed?n:n-1;if(n<2)return 0;
+    float *cum=malloc((size_t)(segs+1)*sizeof(float));if(!cum)return 0;cum[0]=0;
+    for(unsigned i=0;i<segs;i++){const float *a=p+2*i,*b=p+2*((i+1)%n);total+=hypotf(b[0]-a[0],b[1]-a[1]);cum[i+1]=total;}
+    unsigned seg=0;
+    for(float t=0;t<=total&&m<cap;t+=1.f){
+        while(seg+1<segs&&cum[seg+1]<t)seg++;
+        const float *a=p+2*seg,*b=p+2*((seg+1)%n);float span=cum[seg+1]-cum[seg];float u=span>1e-6f?(t-cum[seg])/span:0;
+        out[2*m]=a[0]+(b[0]-a[0])*u;out[2*m+1]=a[1]+(b[1]-a[1])*u;m++;
+    }
+    free(cum);return m;
+}
+/* Gaussian smoothing of an open piece with fixed end points (point reflection) or of a closed loop */
+static void cl_gauss(const float *p,unsigned n,float sigma,int closed,float *out) {
+    if(sigma>n/6.f)sigma=n/6.f;
+    if(sigma<=.8f||n<4){memcpy(out,p,(size_t)n*2*sizeof(float));return;}
+    int r=(int)ceilf(sigma*3);if(r>40)r=40;float k[81],sum=0;for(int i=-r;i<=r;i++){k[i+r]=expf(-.5f*i*i/(sigma*sigma));sum+=k[i+r];}
+    for(int i=0;i<=2*r;i++)k[i]/=sum;
+    for(unsigned i=0;i<n;i++){float sx=0,sy=0;
+        for(int j=-r;j<=r;j++){int q=(int)i+j;float x,y;
+            if(closed){q=((q%(int)n)+(int)n)%(int)n;x=p[2*q];y=p[2*q+1];}
+            else{ if(q<0){int rq=-q;if(rq>=(int)n)rq=(int)n-1;x=2*p[0]-p[2*rq];y=2*p[1]-p[2*rq+1];}
+                  else if(q>=(int)n){int rq=2*((int)n-1)-q;if(rq<0)rq=0;x=2*p[2*(n-1)]-p[2*rq];y=2*p[2*(n-1)+1]-p[2*rq+1];}
+                  else{x=p[2*q];y=p[2*q+1];} }
+            sx+=k[j+r]*x;sy+=k[j+r]*y;}
+        out[2*i]=sx;out[2*i+1]=sy;}
+}
+/* smooths a curve where it bends gently and leaves its real corners: splits at turns above 50 degrees */
+static unsigned cl_smooth(const float *p,unsigned n,int closed,float width,float *out,unsigned cap) {
+    float *R=malloc((size_t)(n*2+8)*2*sizeof(float)),*T=malloc((size_t)(n*2+8)*2*sizeof(float));
+    unsigned m=0;if(!R||!T)goto done;
+    m=cl_resample(p,n,closed,R,n*2+8);
+    if(m<2){m=0;goto done;}
+    if(m<7){if(m>cap)m=cap;memcpy(out,R,(size_t)m*2*sizeof(float));goto done;}
+    int k=(int)lroundf(width*.9f);if(k<2)k=2;
+    unsigned corners[256],nc=0;
+    for(unsigned i=0;i<m&&nc<255;i++){
+        int ia=closed?(int)((i+m*4-(unsigned)k)%m):(int)i-k,ib=closed?(int)((i+(unsigned)k)%m):(int)i+k;
+        if(!closed){if(ia<0)ia=0;if(ib>(int)m-1)ib=(int)m-1;}
+        float ax=R[2*ia]-R[2*i],ay=R[2*ia+1]-R[2*i+1],bx=R[2*ib]-R[2*i],by=R[2*ib+1]-R[2*i+1];
+        float na=hypotf(ax,ay),nb=hypotf(bx,by);if(na<1e-3f||nb<1e-3f)continue;
+        float turn=180.f-acosf(clampf((ax*bx+ay*by)/(na*nb),-1,1))*57.29578f;
+        if(turn<=50.f)continue;
+        /* a local maximum within k */
+        int best=1;for(int j=-k;j<=k&&best;j++){int q=(int)i+j;if(closed)q=((q%(int)m)+(int)m)%(int)m;else if(q<1||q>=(int)m-1)continue;
+            int qa=closed?(int)(((unsigned)q+m*4-(unsigned)k)%m):q-k,qb=closed?(int)(((unsigned)q+(unsigned)k)%m):q+k;if(!closed){if(qa<0)qa=0;if(qb>(int)m-1)qb=(int)m-1;}
+            float cx=R[2*qa]-R[2*q],cy=R[2*qa+1]-R[2*q+1],dx=R[2*qb]-R[2*q],dy=R[2*qb+1]-R[2*q+1];float nc2=hypotf(cx,cy),nd=hypotf(dx,dy);if(nc2<1e-3f||nd<1e-3f)continue;
+            float t2=180.f-acosf(clampf((cx*dx+cy*dy)/(nc2*nd),-1,1))*57.29578f;if(t2>turn+1e-3f)best=0;}
+        if(best&&(!closed||1)&&(nc==0||(int)(i-corners[nc-1])>k))corners[nc++]=i;
+    }
+    float sigma=width*.7f;
+    if(!closed){
+        unsigned cuts[258],ncuts=0;cuts[ncuts++]=0;for(unsigned c=0;c<nc;c++)if(corners[c]>0&&corners[c]<m-1)cuts[ncuts++]=corners[c];cuts[ncuts++]=m-1;
+        unsigned o=0;
+        for(unsigned c=0;c+1<ncuts;c++){unsigned len=cuts[c+1]-cuts[c]+1;if(len<2)continue;
+            cl_gauss(R+2*cuts[c],len,sigma,0,T);if(o+len>cap)break;memcpy(out+2*o,T,(size_t)len*2*sizeof(float));o+=len;}
+        m=o;
+    } else if(!nc) {
+        cl_gauss(R,m,sigma,1,T);if(m>cap)m=cap;memcpy(out,T,(size_t)m*2*sizeof(float));
+    } else {
+        unsigned c0=corners[0],o=0;
+        float *Q=malloc((size_t)(m+1)*2*sizeof(float));if(!Q){m=0;goto done;}
+        for(unsigned i=0;i<=m;i++){unsigned q=(c0+i)%m;Q[2*i]=R[2*q];Q[2*i+1]=R[2*q+1];}
+        unsigned cuts[258],ncuts=0;cuts[ncuts++]=0;
+        for(unsigned c=1;c<nc;c++)cuts[ncuts++]=(corners[c]+m-c0)%m;cuts[ncuts++]=m;
+        for(unsigned a=1;a<ncuts;a++)for(unsigned b=a;b>0&&cuts[b]<cuts[b-1];b--){unsigned t=cuts[b];cuts[b]=cuts[b-1];cuts[b-1]=t;}
+        for(unsigned c=0;c+1<ncuts;c++){unsigned len=cuts[c+1]-cuts[c]+1;if(len<2)continue;
+            cl_gauss(Q+2*cuts[c],len,sigma,0,T);if(o+len>cap)break;memcpy(out+2*o,T,(size_t)len*2*sizeof(float));o+=len;}
+        free(Q);m=o;
+    }
+done:
+    free(R);free(T);return m;
+}
+/* anti-aliased coverage of the segment a-b thickened to `width` with round caps, max-combined into cov */
+static void cl_stroke_segment(float *cov,unsigned w,unsigned h,float ax,float ay,float bx,float by,float half) {
+    int x0=(int)floorf(fminf(ax,bx)-half-1.5f),x1=(int)ceilf(fmaxf(ax,bx)+half+1.5f),y0=(int)floorf(fminf(ay,by)-half-1.5f),y1=(int)ceilf(fmaxf(ay,by)+half+1.5f);
+    if(x0<0)x0=0;if(y0<0)y0=0;if(x1>=(int)w)x1=(int)w-1;if(y1>=(int)h)y1=(int)h-1;
+    float vx=bx-ax,vy=by-ay,l2=vx*vx+vy*vy;
+    for(int y=y0;y<=y1;y++)for(int x=x0;x<=x1;x++){
+        float px=x+.5f-ax,py=y+.5f-ay,t=l2>1e-8f?clampf((px*vx+py*vy)/l2,0,1):0;
+        float dx=px-t*vx,dy=py-t*vy,d=sqrtf(dx*dx+dy*dy);
+        float c=clampf(half+.5f-d,0,1);size_t i=(size_t)y*w+x;if(c>cov[i])cov[i]=c;}
+}
+/* coverage of the strokes and filled shapes in AL, of the dark fill in AK (both at the 8x working size); 1 on success,
+   0 when the line art cannot be read as strokes (the caller falls back), -1 on cancellation */
+static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *line,const uint8_t *black,unsigned uw,unsigned uh,
+    float *AL,float *AK,unsigned *queue,const volatile int *cancel) {
+    const size_t un=(size_t)uw*uh;int status=0,stopped=0;
+    uint8_t *grown=calloc(un,1),*blob=calloc(un,1),*sk=calloc(un,1),*node=calloc(un,1),*vis=calloc(un,1),*aux=calloc(un,1);
+    float *D1=malloc(un*sizeof(float)),*D2=malloc(un*sizeof(float));
+    struct cl_path *paths=NULL;unsigned np=0;
+    if(!grown||!blob||!sk||!node||!vis||!aux||!D1||!D2)goto done;
+    /* faint stretches of a line that touch a strong one belong to it: hysteresis closes breaks where the art is thin */
+    {size_t head=0,tail=0;for(size_t i=0;i<un;i++)if(line[i]&&S[i]>.34f){grown[i]=1;queue[tail++]=(unsigned)i;}
+     while(head<tail){unsigned j=queue[head++],x=j%uw,y=j/uw;
+        for(int k=0;k<8;k++){int nx=(int)x+cl_dx[k],ny=(int)y+cl_dy[k];if(nx<0||ny<0||nx>=(int)uw||ny>=(int)uh)continue;
+            size_t t=(size_t)ny*uw+nx;if(!grown[t]&&S[t]>.34f){grown[t]=1;queue[tail++]=(unsigned)t;}}}}
+    if(cancel&&*cancel){status=-1;goto done;}
+    /* the stroke half-width is the commonest distance to the edge along the skeleton of the whole mask */
+    float base_half;
+    {memcpy(sk,line,un);cl_thin(sk,uw,uh,queue,cancel,&stopped);if(stopped){status=-1;goto done;}
+     cl_dist(line,0,D1,uw,uh);
+     unsigned hist[64]={0},total=0;for(size_t i=0;i<un;i++)if(sk[i]){int b=(int)(D1[i]*4);if(b<0)b=0;if(b>63)b=63;hist[b]++;total++;}
+     if(!total)goto done;
+     unsigned acc=0;int bm=0;for(int b=0;b<64;b++){acc+=hist[b];if(acc>=total*.3f){bm=b;break;}}
+     base_half=(bm+.5f)*.25f;}
+    /* parts thicker than the stroke are filled shapes, drawn from their level set */
+    {int r=(int)ceilf(base_half*1.9f);
+     for(size_t i=0;i<un;i++)aux[i]=D1[i]>r;
+     cl_dist(aux,1,D2,uw,uh);
+     for(size_t i=0;i<un;i++)blob[i]=D2[i]<=r;
+     if(icon_components(blob,uw,uh,700,queue,cancel)){status=-1;goto done;}
+     cl_dist(blob,1,D2,uw,uh);int rb=(int)base_half+1;
+     for(size_t i=0;i<un;i++){blob[i]=D2[i]<=rb;aux[i]=grown[i]&&!blob[i];}
+     if(icon_components(aux,uw,uh,30,queue,cancel)){status=-1;goto done;}}
+    memcpy(sk,aux,un);memset(aux,0,un);
+    cl_thin(sk,uw,uh,queue,cancel,&stopped);if(stopped){status=-1;goto done;}
+    /* spurs: short branches with one free end are skeleton noise, not art */
+    for(int round=0;round<3;round++){
+        if(cl_graph(sk,node,vis,uw,uh,&paths,&np)==0)goto done;
+        unsigned killed=0;float spur=base_half*2*.9f;
+        for(unsigned i=0;i<np;i++){struct cl_path *c=&paths[i];if(c->closed)continue;
+            if((!c->ja)!=(!c->jb)&&c->n<spur){killed++;
+                for(unsigned t=0;t<c->n;t++){if((t==0&&c->ja)||(t==c->n-1&&c->jb))continue;sk[(size_t)c->p[2*t+1]*uw+(size_t)c->p[2*t]]=0;}}}
+        cl_free_paths(paths,np);paths=NULL;np=0;
+        if(!killed)break;
+        cl_thin(sk,uw,uh,queue,cancel,&stopped);if(stopped){status=-1;goto done;}
+    }
+    /* crumbs: skeleton pieces shorter than 60 pixels */
+    memcpy(aux,sk,un);if(icon_components(aux,uw,uh,60,queue,cancel)){status=-1;goto done;}
+    memcpy(sk,aux,un);memset(aux,0,un);
+    if(cl_graph(sk,node,vis,uw,uh,&paths,&np)==0)goto done;
+    if(!np)goto done;
+    /* bridge small breaks: free ends within 3 source pixels that point at each other */
+    {unsigned nend=0,*eid=malloc((size_t)np*2*sizeof(unsigned));float (*et)[2]=malloc((size_t)np*2*sizeof(*et));
+     if(!eid||!et){free(eid);free(et);goto done;}
+     unsigned *epath=malloc((size_t)np*2*sizeof(unsigned));char *eside=malloc((size_t)np*2);
+     if(!epath||!eside){free(eid);free(et);free(epath);free(eside);goto done;}
+     for(unsigned i=0;i<np;i++){struct cl_path *c=&paths[i];if(c->closed||c->n<2)continue;unsigned k=c->n-1<14?c->n-1:14;
+        if(!c->ja){float dx=c->p[0]-c->p[2*k],dy=c->p[1]-c->p[2*k+1],l=hypotf(dx,dy)+1e-6f;epath[nend]=i;eside[nend]=0;et[nend][0]=dx/l;et[nend][1]=dy/l;eid[nend++]=i;}
+        if(!c->jb){unsigned e=c->n-1;float dx=c->p[2*e]-c->p[2*(e-k)],dy=c->p[2*e+1]-c->p[2*(e-k)+1],l=hypotf(dx,dy)+1e-6f;epath[nend]=i;eside[nend]=1;et[nend][0]=dx/l;et[nend][1]=dy/l;eid[nend++]=i;}}
+     char *used=calloc(nend?nend:1,1);
+     unsigned bridges=0;struct cl_path *extra=NULL;unsigned cap=0;
+     for(;;){float bd=1e9f;int ba=-1,bb=-1;
+        for(unsigned a=0;a<nend;a++){if(used[a])continue;
+            for(unsigned b=a+1;b<nend;b++){if(used[b])continue;
+                if(epath[a]==epath[b]&&paths[epath[a]].n<80)continue;
+                const struct cl_path *pa=&paths[epath[a]],*pb=&paths[epath[b]];
+                const float *A=pa->p+(eside[a]?2*(pa->n-1):0),*B=pb->p+(eside[b]?2*(pb->n-1):0);
+                float vx=B[0]-A[0],vy=B[1]-A[1],d=hypotf(vx,vy);if(d>24.f||d<1e-3f)continue;
+                float ux=vx/d,uy=vy/d;
+                if(et[a][0]*ux+et[a][1]*uy>.6f&&-(et[b][0]*ux+et[b][1]*uy)>.6f&&d<bd){bd=d;ba=(int)a;bb=(int)b;}}}
+        if(ba<0)break;used[ba]=used[bb]=1;
+        if(bridges==cap){cap=cap?cap*2:8;struct cl_path *t=realloc(extra,cap*sizeof(*extra));if(!t)break;extra=t;}
+        const struct cl_path *pa=&paths[epath[ba]],*pb=&paths[epath[bb]];
+        const float *A=pa->p+(eside[ba]?2*(pa->n-1):0),*B=pb->p+(eside[bb]?2*(pb->n-1):0);
+        struct cl_path *nbp=&extra[bridges];nbp->p=malloc(4*sizeof(float));if(!nbp->p)break;nbp->n=2;nbp->closed=0;nbp->ja=nbp->jb=0;
+        nbp->p[0]=A[0];nbp->p[1]=A[1];nbp->p[2]=B[0];nbp->p[3]=B[1];bridges++;}
+     free(used);free(eid);free(et);free(epath);free(eside);
+     if(bridges){struct cl_path *t=realloc(paths,(size_t)(np+bridges)*sizeof(*paths));
+        if(t){paths=t;for(unsigned i=0;i<bridges;i++)paths[np+i]=extra[i];np+=bridges;}else for(unsigned i=0;i<bridges;i++)free(extra[i].p);}
+     free(extra);}
+    /* the one stroke width: the blue the line carries per unit of length, measured on the curves as found */
+    float width;
+    {float total=0;memset(aux,0,un);
+     for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];total+=cl_length(c->p,c->n);
+        for(unsigned t=0;t+1<c->n;t++){for(int s=0;s<=2;s++){float u=s*.5f;int x=(int)lroundf(c->p[2*t]+(c->p[2*t+2]-c->p[2*t])*u),y=(int)lroundf(c->p[2*t+1]+(c->p[2*t+3]-c->p[2*t+1])*u);
+            if(x>=0&&y>=0&&x<(int)uw&&y<(int)uh)aux[(size_t)y*uw+x]=1;}}}
+     if(total<20.f)goto done;
+     cl_dist(aux,1,D2,uw,uh);double blue=0;
+     for(size_t i=0;i<un;i++)if(D2[i]<=12.f&&!blob[i])blue+=clampf(S[i],0,1);
+     width=(float)(blue/total);
+     if(width<2.f||width>24.f)goto done;}
+    /* strokes: every curve smoothed where it bends gently, then rasterized at that one width with round caps and joins */
+    memset(AL,0,un*sizeof(float));
+    for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2)continue;
+        unsigned cap=c->n*2+16;float *sm=malloc((size_t)cap*2*sizeof(float));if(!sm)goto done;
+        unsigned m=cl_smooth(c->p,c->n,c->closed,width,sm,cap);
+        for(unsigned t=0;t+1<m;t++)cl_stroke_segment(AL,uw,uh,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,width*.5f);
+        if(c->closed&&m>2)cl_stroke_segment(AL,uw,uh,sm[2*m-2]+.5f,sm[2*m-1]+.5f,sm[0]+.5f,sm[1]+.5f,width*.5f);
+        free(sm);}
+    /* filled shapes: the level set of the line field inside the thick parts */
+    for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;if(!blob[u])continue;
+        float gx=(S[u+1]-S[u-1])*.5f,gy=(S[u+uw]-S[u-uw])*.5f;float aB=icon_edge(S[u],.48f,gx,gy);AL[u]=AL[u]+aB-AL[u]*aB;}
+    /* the dark fill: the figure's darkness, reaching under the strokes, and only where the strokes enclose it */
+    for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;
+        float gx=(K[u+1]-K[u-1])*.5f,gy=(K[u+uw]-K[u-uw])*.5f;AK[u]=black[u]?icon_edge(K[u],.3f,gx,gy):0;}
+    for(size_t i=0;i<un;i++)aux[i]=AK[i]>.5f;
+    cl_dist(aux,1,D2,uw,uh);
+    for(size_t i=0;i<un;i++)if(D2[i]<=6.f&&AK[i]<1.f)AK[i]=1.f;
+    {memset(blob,0,un);size_t head=0,tail=0;
+     if(AL[0]<.5f){blob[0]=1;queue[tail++]=0;}
+     while(head<tail){unsigned j=queue[head++],x=j%uw,y=j/uw;
+        static const int ox[4]={1,-1,0,0},oy[4]={0,0,1,-1};
+        for(int k=0;k<4;k++){int nx=(int)x+ox[k],ny=(int)y+oy[k];if(nx<0||ny<0||nx>=(int)uw||ny>=(int)uh)continue;
+            size_t t=(size_t)ny*uw+nx;if(!blob[t]&&AL[t]<.5f){blob[t]=1;queue[tail++]=(unsigned)t;}}}
+     for(size_t i=0;i<un;i++)if(blob[i])AK[i]=0;}
+    status=1;
+done:
+    if(paths)cl_free_paths(paths,np);
+    free(grown);free(blob);free(sk);free(node);free(vis);free(aux);free(D1);free(D2);
+    return status;
+}
+
 static int menu_icon_levelset(const uint8_t *src,unsigned sw,unsigned sh,uint8_t *out,unsigned scale,
     const volatile int *cancel,struct menu_picture_trace_metrics *metrics) {
     unsigned W=0,H=0;
@@ -175,7 +485,7 @@ static int menu_icon_levelset(const uint8_t *src,unsigned sw,unsigned sh,uint8_t
     const unsigned pw=W+2*ipad,ph=H+2*ipad,uw=pw*iu,uh=ph*iu;const size_t un=(size_t)uw*uh;
     float *rgb=malloc((size_t)pw*ph*3*sizeof(float)),*s1=malloc((size_t)pw*ph*sizeof(float)),*k1=malloc((size_t)pw*ph*sizeof(float));
     float *ref=malloc((size_t)ph*3*sizeof(float)),*S=malloc(un*sizeof(float)),*K=malloc(un*sizeof(float)),*tmp=malloc(un*sizeof(float));
-    float *L=malloc(un*sizeof(float));uint8_t *line=malloc(un),*black=malloc(un),*result=malloc((size_t)W*scale*H*scale*4);unsigned *queue=malloc(un*sizeof(unsigned));
+    float *L=malloc(un*sizeof(float)),*AL=NULL,*AK=NULL;uint8_t *line=malloc(un),*black=malloc(un),*result=malloc((size_t)W*scale*H*scale*4);unsigned *queue=malloc(un*sizeof(unsigned));
     int status=0;
     if(!rgb||!s1||!k1||!ref||!S||!K||!tmp||!L||!line||!black||!result||!queue)goto done;
     if(metrics)metrics->scratch_bytes=un*(4*4+2+4)+(size_t)pw*ph*5*sizeof(float);
@@ -205,8 +515,13 @@ static int menu_icon_levelset(const uint8_t *src,unsigned sw,unsigned sh,uint8_t
      /* line level 0.48 of the field, the width the art measures to (see the approaches study) */
      for(size_t i=0;i<un;i++){line[i]=S[i]>.48f;black[i]=K[i]>.3f;}
      if(icon_components(line,uw,uh,60,queue,cancel)||icon_components(black,uw,uh,1500,queue,cancel)){status=-1;goto done;}
-     for(size_t i=0;i<un;i++)L[i]=line[i];
-     icon_blur(L,uw,uh,2.5f,tmp);
+     /* strokes first; the picture is smoothed level sets when its line art cannot be read as strokes */
+     AL=malloc(un*sizeof(float));AK=malloc(un*sizeof(float));
+     if(AL&&AK){int made=icon_centerline_alpha(S,K,line,black,uw,uh,AL,AK,queue,cancel);
+         if(made<0){status=-1;goto done;}
+         if(!made){free(AL);free(AK);AL=AK=NULL;}}
+     else {free(AL);free(AK);AL=AK=NULL;}
+     if(!AL){for(size_t i=0;i<un;i++)L[i]=line[i];icon_blur(L,uw,uh,2.5f,tmp);}
      /* composition: a coverage for the line and for the figure, edges anti-aliased from the level's own gradient */
      const unsigned f=iu/scale,ow=sw*scale;(void)ow;
      for(unsigned oy=0;oy<H*scale;oy++){
@@ -215,10 +530,12 @@ static int menu_icon_levelset(const uint8_t *src,unsigned sw,unsigned sh,uint8_t
              double acc3[3]={0,0,0};
              for(unsigned j=0;j<f;j++)for(unsigned i=0;i<f;i++){
                  unsigned x=ipad*iu+ox*f+i,y=ipad*iu+oy*f+j;size_t u=(size_t)y*uw+x;
-                 float gx=(L[u+1]-L[u-1])*.5f,gy=(L[u+uw]-L[u-uw])*.5f;
-                 float aL=icon_edge(L[u],.5f,gx,gy);
-                 gx=(K[u+1]-K[u-1])*.5f;gy=(K[u+uw]-K[u-uw])*.5f;
-                 float aK=black[u]?icon_edge(K[u],.3f,gx,gy):0;
+                 float aL,aK;
+                 if(AL){aL=AL[u];aK=AK[u];}
+                 else {float gx=(L[u+1]-L[u-1])*.5f,gy=(L[u+uw]-L[u-uw])*.5f;
+                     aL=icon_edge(L[u],.5f,gx,gy);
+                     gx=(K[u+1]-K[u-1])*.5f;gy=(K[u+uw]-K[u-uw])*.5f;
+                     aK=black[u]?icon_edge(K[u],.3f,gx,gy):0;}
                  /* the field's row color, interpolated between rows at 8x */
                  float fy=(y+.5f)/iu-.5f;int y0=(int)floorf(fy);float t=fy-y0;int ya=(int)clampf(y0,0,ph-1),yb=(int)clampf(y0+1,0,ph-1);
                  for(int c=0;c<3;c++){float bg=ref[ya*3+c]*(1-t)+ref[yb*3+c]*t;
@@ -233,7 +550,7 @@ static int menu_icon_levelset(const uint8_t *src,unsigned sw,unsigned sh,uint8_t
     for(unsigned oy=0;oy<H*scale;oy++)memcpy(out+((size_t)oy*sw*scale)*4,result+((size_t)oy*W*scale)*4,(size_t)W*scale*4);
     status=1;
 done:
-    free(result);free(rgb);free(s1);free(k1);free(ref);free(S);free(K);free(tmp);free(L);free(line);free(black);free(queue);
+    free(result);free(rgb);free(s1);free(k1);free(ref);free(S);free(K);free(tmp);free(L);free(AL);free(AK);free(line);free(black);free(queue);
     return status;
 }
 int menu_picture_trace(const uint8_t *source,unsigned sw,unsigned sh,uint8_t *bpf,unsigned scale,
