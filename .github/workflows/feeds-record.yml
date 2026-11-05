@@ -1,0 +1,55 @@
+name: Feeds record
+
+# Pushes the feeds checked into main's docs/site/packs to their public record, steverice/visr-feeds, after each
+# Pages deployment, and once a day to catch up after a failed run. visr-feeds' own workflow copies its tree to the R2
+# bucket behind https://feeds.visr.gg/ (docs/data-packs.md, "Feed hosts"). A failure here never turns main red: the job
+# warns in its summary and the next run records whatever main holds.
+#
+# FEEDS_DEPLOY_KEY lives in the github-pages environment, so each run also adds a deployment entry there.
+
+on:
+  workflow_run:
+    workflows: [Pages]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feeds-record
+  cancel-in-progress: false
+
+jobs:
+  record:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    environment: github-pages
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.11.8'
+      - name: Push the checked-in feeds to steverice/visr-feeds
+        env:
+          FEEDS_DEPLOY_KEY: ${{ secrets.FEEDS_DEPLOY_KEY }}
+          FEEDS_PYTHON: uv run --python 3.11 --no-project --with-requirements tools/release-requirements.txt python
+        run: tools/feeds_record.sh
+      - name: Warn that visr-feeds was not updated
+        if: failure()
+        run: |
+          echo "::warning::visr-feeds was not updated; feeds.visr.gg may lag main until the next run"
+          {
+            echo '## :warning: visr-feeds was not updated'
+            echo
+            echo "The feeds of steverice/visr@$(git rev-parse HEAD) did not reach steverice/visr-feeds, so feeds.visr.gg may lag main."
+            echo 'See the step above. The daily run and the next Pages deployment try again; Actions > Feeds record > Run workflow retries now.'
+          } >> "$GITHUB_STEP_SUMMARY"

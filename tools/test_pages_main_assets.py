@@ -299,3 +299,15 @@ def test_actual_main_site_stages_exact_checked_in_assets_without_network(tmp_pat
         staged = destination / Path(name).relative_to("docs/site")
         assert hashlib.sha256(staged.read_bytes()).hexdigest() == hashlib.sha256(expected).hexdigest()
     assert (destination / "index.html").read_bytes() == (Path(__file__).resolve().parents[1] / "docs/site/index.html").read_bytes()
+
+
+def test_dry_run_validates_outside_the_workflow_and_stages_nothing(tmp_path, monkeypatch, capsys):
+    assets = configure_main_site(monkeypatch, tmp_path)
+    monkeypatch.setattr(overlay, "trusted_source", lambda: pytest.fail("dry run needs no workflow"))
+
+    overlay.main(["--dry-run"])
+
+    report = json.loads(capsys.readouterr().out)
+    assert report["assets"] == len(assets) and report["bytes"] == sum(map(len, assets.values()))
+    assert report["published_at"] == "https://code.steverice.org/visr/packs/tester/"
+    assert not (tmp_path / "build").exists()

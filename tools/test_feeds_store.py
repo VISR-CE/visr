@@ -317,6 +317,47 @@ def test_the_record_publishes_the_same_files_as_this_checkout(checked_in, tmp_pa
     assert store.overlay.ROOT == ROOT
 
 
+def test_the_record_workflow_pushes_the_record_and_visr_feeds_publishes_it():
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/feeds-record.yml").read_text())
+    triggers = workflow[True]
+    assert triggers["workflow_run"]["workflows"] == ["Pages"] and "schedule" in triggers and "workflow_dispatch" in triggers
+    job = workflow["jobs"]["record"]
+    assert job["continue-on-error"] is True and job["environment"] == "github-pages"
+    steps = job["steps"]
+    assert "secrets.FEEDS_DEPLOY_KEY" in str(steps) and steps[2]["run"] == "tools/feeds_record.sh"
+    assert steps[3]["if"] == "failure()" and "GITHUB_STEP_SUMMARY" in steps[3]["run"]
+    assert "feeds" not in (ROOT / ".github/workflows/pages.yml").read_text().split("jobs:")[1]
+    script = (ROOT / "tools/feeds_record.sh").read_text()
+    assert "feeds_store.py record" in script and "push --quiet origin HEAD:refs/heads/main" in script
+    assert "--force" not in script and "+HEAD" not in script
+    publish = yaml.safe_load((ROOT / "tools/visr_feeds/publish.yml").read_text())
+    job = publish["jobs"]["publish"]
+    script = "\n".join(step.get("run", "") for step in job["steps"])
+    assert job["environment"]["name"] == "r2-publish"
+    assert "feeds_store.py publish --backend s3 --tree feeds" in script and "feeds_store.py verify --tree feeds" in script
+    assert publish[True]["push"]["branches"] == ["main"]
+
+
+def test_the_record_script_commits_once_and_never_forces(tmp_path):
+    remote = tmp_path / "remote.git"
+    # a default branch other than main, as on a host whose init.defaultBranch is master
+    subprocess.run(["git", "init", "--quiet", "--bare", "--initial-branch=master", str(remote)], check=True)
+    environment = {**os.environ, "FEEDS_DEPLOY_KEY": "unused for a local remote", "FEEDS_REMOTE": str(remote),
+                   "FEEDS_ATTEMPTS": "2", "FEEDS_RETRY_SECONDS": "0", "FEEDS_PYTHON": sys.executable}
+    for _ in range(2):
+        run = subprocess.run([str(ROOT / "tools/feeds_record.sh")], cwd=ROOT, env=environment, capture_output=True, text=True)
+        assert run.returncode == 0, run.stdout + run.stderr
+    log = subprocess.run(["git", "--git-dir", str(remote), "log", "--format=%s", "main"], check=True,
+                         capture_output=True, text=True).stdout.splitlines()
+    assert len(log) == 1 and log[0].startswith("Feeds from steverice/visr@")
+    missing = subprocess.run([str(ROOT / "tools/feeds_record.sh")], cwd=ROOT, capture_output=True, text=True,
+                             env={**environment, "FEEDS_REMOTE": str(tmp_path / "missing.git")})
+    assert missing.returncode == 1 and missing.stderr.count("could not reach visr-feeds") == 2
+
+
+
 def envelope(compatibility: str, sequence: int, note: str = "") -> bytes:
     manifest = json.dumps({"compatibility": compatibility, "sequence": sequence, "note": note}).encode()
     return json.dumps({"manifest": base64.b64encode(manifest).decode(), "payload": "", "signature": ""}).encode()

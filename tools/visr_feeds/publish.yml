@@ -1,0 +1,61 @@
+# steverice/visr-feeds: .github/workflows/publish.yml (kept in steverice/visr at tools/visr_feeds/publish.yml).
+# Copies this repository's tree, the public record of VISR's signed feeds, to the R2 bucket behind
+# https://feeds.visr.gg/ with steverice/visr's tools/feeds_store.py: every file validated, archives first, the
+# receipt last, no envelope replaced by a lower signed sequence, nothing deleted, everything read back.
+name: Publish to feeds.visr.gg
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tester/**'
+      - 'staging/**'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r2-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: r2-publish
+      url: https://feeds.visr.gg/tester/publication.json
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.sha }}
+          path: feeds
+          persist-credentials: false
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: steverice/visr
+          ref: main
+          path: visr
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: '0.11.8'
+      - name: Upload to the bucket and read it back
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -o errexit -o nounset -o pipefail
+          if [ ! -d feeds/tester ]; then
+            echo "::notice::no feeds recorded yet; nothing to publish"
+            exit 0
+          fi
+          echo "Validated with steverice/visr@$(git -C visr rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          uv run --python 3.11 --no-project --with-requirements visr/tools/release-requirements.txt \
+            python visr/tools/feeds_store.py publish --backend s3 --tree feeds
+          uv run --python 3.11 --no-project --with-requirements visr/tools/release-requirements.txt \
+            python visr/tools/feeds_store.py verify --tree feeds

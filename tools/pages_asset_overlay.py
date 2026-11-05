@@ -589,9 +589,17 @@ def stage_site(
     return destination
 
 
-def main() -> None:
+def main(arguments=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.parse_args()
+    parser.add_argument("--dry-run", action="store_true",
+                        help="validate the checked-in feeds and print what Pages would publish, outside the workflow")
+    args = parser.parse_args(arguments)
+    if args.dry_run:
+        assets = checked_in_assets()
+        print(json.dumps({"assets": len(assets), "bytes": sum(map(len, assets.values())),
+                          "receipt_sha256": hashlib.sha256((ROOT / RECEIPT).read_bytes()).hexdigest(),
+                          "published_at": SITE_URL + "/packs/tester/"}))
+        return
     result = stage_main_site()
     receipt = (result / "packs/tester/publication.json").read_bytes()
     print(
