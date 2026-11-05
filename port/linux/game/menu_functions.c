@@ -87,10 +87,10 @@ their handlers open opens.
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
 #include "../src/halo_internet.h"
+#include "../include/menu_gametype.h"
 #ifdef HALO_IOS
 #include "../src/halo_lan_targets.h"
 #include "../src/posix.h"
-#include "../include/menu_gametype.h"
 /* These host imports are declared here because game sources do not include
    the guest runtime headers (guest/runtime/guest_host.h). */
 int host_sdl_cloud_saves_enabled(void);
