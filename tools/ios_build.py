@@ -30,9 +30,11 @@ HEADERS = {
 }
 
 # signed profile and recording updates (docs/data-packs.md): the key the publisher's seed pairs with, and the
-# feeds on the project's site, one folder per channel
+# feeds' host, one folder per channel. From 0.6.12 builds read the R2 bucket behind feeds.visr.gg; GitHub Pages keeps
+# serving the same files at PAGES_DATA_PACK_FEED for earlier builds (docs/data-packs.md, "Feed hosts").
 DATA_PACK_PUBLIC_KEY = 'b57463a3c1b157fdb49a4df5c2041b88cabf07b4ba733d0c7290b90d85e3b5ea'
-DATA_PACK_FEED = 'https://code.steverice.org/visr/packs/{channel}/{kind}.json'
+DATA_PACK_FEED = 'https://feeds.visr.gg/{channel}/{kind}.json'
+PAGES_DATA_PACK_FEED = 'https://code.steverice.org/visr/packs/{channel}/{kind}.json'
 # the device-profile shards' directory for this source's feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
 PROFILE_FEED_DIRECTORY = 'device-profiles-4'
 
