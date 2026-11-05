@@ -178,7 +178,7 @@ static float icon_edge(float f,float level,float gx,float gy) {
    rasterized with round caps and joins at the one width the art measures to. Parts of the mask thicker than the
    stroke (the ring, the skull, the bolt) are filled shapes drawn from their level set instead. */
 static const int cl_dx[8]={0,1,1,1,0,-1,-1,-1},cl_dy[8]={-1,-1,0,1,1,1,0,-1};   /* N NE E SE S SW W NW */
-struct cl_path { float *p; unsigned n; int closed,ja,jb; };
+struct cl_path { float *p; unsigned n; int closed,ja,jb,tip; };
 static void cl_thin(uint8_t *m,unsigned w,unsigned h,unsigned *queue,const volatile int *cancel,int *stopped) {
     /* Zhang-Suen thinning; the border row and column are never set */
     for(int again=1;again;) {
@@ -249,7 +249,7 @@ static int cl_graph(const uint8_t *sk,uint8_t *node,uint8_t *visited,unsigned w,
                 prev=cur;cur=pick;if(len>=65530)break;buf[len++]=(unsigned)cur;visited[cur]=1;
             }
             if(np==cap){cap*=2;struct cl_path *t=realloc(out,cap*sizeof(*out));if(!t){free(buf);goto fail;}out=t;}
-            struct cl_path *pp=&out[np++];pp->n=len;pp->p=malloc((size_t)len*2*sizeof(float));pp->closed=0;
+            struct cl_path *pp=&out[np++];pp->n=len;pp->p=malloc((size_t)len*2*sizeof(float));pp->closed=0;pp->tip=0;
             if(!pp->p){np--;free(buf);goto fail;}
             for(unsigned t=0;t<len;t++){pp->p[2*t]=(float)(buf[t]%w);pp->p[2*t+1]=(float)(buf[t]/w);}
             unsigned nb,cn;cl_neighbors(sk,w,buf[0],&nb,&cn);pp->ja=cn>=3;cl_neighbors(sk,w,buf[len-1],&nb,&cn);pp->jb=cn>=3;
@@ -265,7 +265,7 @@ static int cl_graph(const uint8_t *sk,uint8_t *node,uint8_t *visited,unsigned w,
             if(pickd==99||len>=65530)break;cur=pick;buf[len++]=(unsigned)cur;visited[cur]=1;}
         if(len>8){
             if(np==cap){cap*=2;struct cl_path *t=realloc(out,cap*sizeof(*out));if(!t){free(buf);goto fail;}out=t;}
-            struct cl_path *pp=&out[np++];pp->n=len;pp->p=malloc((size_t)len*2*sizeof(float));pp->closed=1;pp->ja=pp->jb=0;
+            struct cl_path *pp=&out[np++];pp->n=len;pp->p=malloc((size_t)len*2*sizeof(float));pp->closed=1;pp->ja=pp->jb=0;pp->tip=0;
             if(!pp->p){np--;free(buf);goto fail;}
             for(unsigned t=0;t<len;t++){pp->p[2*t]=(float)(buf[t]%w);pp->p[2*t+1]=(float)(buf[t]/w);}
         }
@@ -447,6 +447,18 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
     memcpy(sk,aux,un);memset(aux,0,un);
     if(cl_graph(sk,node,vis,uw,uh,&paths,&np)==0)goto done;
     if(!np)goto done;
+    /* a thin end that runs out of a filled shape (the bolt's sharp tip) is part of that shape: its level set draws it */
+    memset(prim,0,un);
+    for(unsigned i=0;i<np;i++){struct cl_path *c=&paths[i];if(c->closed||c->n>=70||(!c->ja)==(!c->jb))continue;
+        const float *q=c->ja?c->p+2*(c->n-1):c->p;   /* the free end is the far one */
+        const float *e=c->ja?c->p:c->p+2*(c->n-1);    /* the joined end */
+        (void)q;int touches=0;int ex=(int)e[0],ey=(int)e[1];
+        for(int dy=-14;dy<=14&&!touches;dy++)for(int dx=-14;dx<=14;dx++){int x=ex+dx,y=ey+dy;if(x<0||y<0||x>=(int)uw||y>=(int)uh)continue;if(blob[(size_t)y*uw+x]){touches=1;break;}}
+        if(!touches){continue;}
+        c->tip=1;
+        for(unsigned t=0;t<c->n;t++){int px=(int)c->p[2*t],py=(int)c->p[2*t+1];
+            for(int dy=-7;dy<=7;dy++)for(int dx=-7;dx<=7;dx++){int x=px+dx,y=py+dy;if(x>=0&&y>=0&&x<(int)uw&&y<(int)uh)prim[(size_t)y*uw+x]=1;}}
+    }
     /* bridge small breaks: free ends within 3 source pixels that point at each other */
     {unsigned nend=0,*eid=malloc((size_t)np*2*sizeof(unsigned));float (*et)[2]=malloc((size_t)np*2*sizeof(*et));
      if(!eid||!et){free(eid);free(et);goto done;}
@@ -470,7 +482,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
         if(bridges==cap){cap=cap?cap*2:8;struct cl_path *t=realloc(extra,cap*sizeof(*extra));if(!t)break;extra=t;}
         const struct cl_path *pa=&paths[epath[ba]],*pb=&paths[epath[bb]];
         const float *A=pa->p+(eside[ba]?2*(pa->n-1):0),*B=pb->p+(eside[bb]?2*(pb->n-1):0);
-        struct cl_path *nbp=&extra[bridges];nbp->p=malloc(4*sizeof(float));if(!nbp->p)break;nbp->n=2;nbp->closed=0;nbp->ja=nbp->jb=0;
+        struct cl_path *nbp=&extra[bridges];nbp->p=malloc(4*sizeof(float));if(!nbp->p)break;nbp->n=2;nbp->closed=0;nbp->ja=nbp->jb=0;nbp->tip=0;
         nbp->p[0]=A[0];nbp->p[1]=A[1];nbp->p[2]=B[0];nbp->p[3]=B[1];bridges++;}
      free(used);free(eid);free(et);free(epath);free(eside);
      if(bridges){struct cl_path *t=realloc(paths,(size_t)(np+bridges)*sizeof(*paths));
@@ -479,7 +491,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
     /* the one stroke width: the blue the line carries per unit of length, measured on the curves as found */
     float width;
     {float total=0;memset(aux,0,un);
-     for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];total+=cl_length(c->p,c->n);
+     for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->tip)continue;total+=cl_length(c->p,c->n);
         for(unsigned t=0;t+1<c->n;t++){for(int s=0;s<=2;s++){float u=s*.5f;int x=(int)lroundf(c->p[2*t]+(c->p[2*t+2]-c->p[2*t])*u),y=(int)lroundf(c->p[2*t+1]+(c->p[2*t+3]-c->p[2*t+1])*u);
             if(x>=0&&y>=0&&x<(int)uw&&y<(int)uh)aux[(size_t)y*uw+x]=1;}}}
      if(total<20.f)goto done;
@@ -489,7 +501,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
      if(width<2.f||width>24.f)goto done;}
     /* strokes: every curve smoothed where it bends gently, then rasterized at that one width with round caps and joins */
     memset(AL,0,un*sizeof(float));
-    for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2)continue;
+    for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2||c->tip)continue;
         unsigned cap=c->n*2+16;float *sm=malloc((size_t)cap*2*sizeof(float));if(!sm)goto done;
         unsigned m=cl_smooth(c->p,c->n,c->closed,width,sm,cap);
         if(c->closed&&m>=24){   /* a closed curve that is a circle within a small error is drawn as one */
@@ -510,7 +522,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
             float c=clampf((1.f-u)*Rm+.5f,0,1)*(p->k>0?clampf((u-p->k)*Rm+.5f,0,1):1.f);
             size_t q=(size_t)y*uw+x;AL[q]=AL[q]+c-AL[q]*c;}}
     /* filled shapes: the level set of the line field inside the thick parts */
-    for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;if(!blob[u]||primd[u])continue;
+    for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;if((!blob[u]&&!prim[u])||primd[u])continue;
         float gx=(S[u+1]-S[u-1])*.5f,gy=(S[u+uw]-S[u-uw])*.5f;float aB=icon_edge(S[u],.48f,gx,gy);AL[u]=AL[u]+aB-AL[u]*aB;}
     /* the dark fill: the figure's darkness, reaching under the strokes, and only where the strokes enclose it */
     for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;
