@@ -147,19 +147,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 16.7 ms frame budget, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.8"]
+    x-axis "Port and version" ["VISR 0.6.10"]
     y-axis "Milliseconds per frame" 0 --> 16.7
-    bar [6.5]
-    bar [14.1]
+    bar [6.4]
+    bar [13.6]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 6.47 ms median CPU time per frame, 14.07 ms median GPU time per rendered frame).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 6.42 ms median CPU time per frame, 13.65 ms median GPU time per rendered frame).
 
-Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.).
+Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release ships a tvOS app, but no tvOS development profile for it lists this Apple TV, so it cannot be installed here, and its timing hook that records frame times exists only for iOS.).
 
 #### Apple TV: frame rate
 
@@ -177,19 +177,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.8"]
+    x-axis "Port and version" ["VISR 0.6.10"]
     y-axis "Frames per second" 0 --> 80
-    bar [58.1]
-    bar [54.8]
+    bar [57.9]
+    bar [53.6]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.8](https://github.com/steverice/visr/releases/tag/visr-v0.6.8) (build 20261101.231341, measured 2026-11-02; 99.9% of frames on time).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 99.9% of frames on time).
 
-Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.).
+Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release ships a tvOS app, but no tvOS development profile for it lists this Apple TV, so it cannot be installed here, and its timing hook that records frame times exists only for iOS.).
 
 ### Vision Pro
 
@@ -253,7 +253,7 @@ Higher is better.
 
 ## Methodology
 
-The snapshot holds 311 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 322 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 

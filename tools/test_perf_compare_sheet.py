@@ -1201,12 +1201,13 @@ def test_the_device_picked_decides_which_rows_a_chart_draws():
     k4, hd = charts.model(rows, query, "campaign", "Apple TV 4K"), charts.model(rows, query, "campaign", "Apple TV HD")
     assert (k4["box"], hd["box"]) == ("Apple TV 4K", "Apple TV HD")
     drawn = lambda built: {charts.entry_key(e): e for e in built["entries"] if e["value"] is not None}
-    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341"}
+    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341", "visr@0.6.10@20261104.114703"}
     assert drawn(k4)["visr@0.6.8@20261101.231341"]["value"]["avg"] != drawn(hd)["visr@0.6.8@20261101.231341"]["value"]["avg"]
     assert len(drawn(hd)) > len(drawn(k4))
     # A build measured on both devices is named for the device shown; one measured only elsewhere, for the port and version.
     # The picker names the device, so labels carry no device suffix.
     assert drawn(k4)["visr@0.6.8@20261101.231341"]["label"] == drawn(hd)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8"
+    assert drawn(k4)["visr@0.6.10@20261104.114703"]["label"] == "VISR 0.6.10"
     only_hd = next(e for e in k4["entries"] if e["version"] == "0.6.3")
     assert (only_hd["label"], only_hd["reason"]) == ("VISR 0.6.3", "not measured on this device")
     # The axis ends at the budget for the device's play cap: 60 fps on the 4K (its cutscene runs hold 30), 30 fps on the HD.
@@ -1333,8 +1334,8 @@ console.log(JSON.stringify(out));
 """
     done = subprocess.run(["node", "-e", script, str(ROOT)], input=json.dumps(specs), capture_output=True, text=True, check=True)
     notes = json.loads(done.stdout)
-    for device in ("Apple TV 4K", "Apple TV HD"):
-        assert notes[device] == [["VISR 0.6.8", ""]], device
+    assert notes["Apple TV 4K"] == [["VISR 0.6.10", ""]]
+    assert notes["Apple TV HD"] == [["VISR 0.6.8", ""]]
 
 
 def test_merged_devices_have_no_picker_entry_and_no_builds_on_the_page():
