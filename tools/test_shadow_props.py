@@ -10,25 +10,36 @@ PROGRAM = r'''
 #include <assert.h>
 #include "source/render/shadow_props.h"
 int main(void) {
+    float d[6] = {9.f, 1.f, 4.f, 1.f, 16.f, 0.25f};
+    unsigned char keep[6];
     /* the setting off (and no debug bits): nothing the game made shadowless casts, whatever it is */
-    assert(!shadow_prop_allowed(1, 0, 0, 1.f, 0, 0, 1));
-    assert(!shadow_prop_allowed(0, 1, 0, 1.f, 0, 0, 0));
-    assert(!shadow_prop_allowed(0, 0, 1, 1.f, 0, 0, 0));
-    /* on: devices, and scenery only by name */
-    assert(shadow_prop_allowed(0, 1, 0, 1.f, 1, 0, 0));
-    assert(shadow_prop_allowed(1, 0, 0, 1.f, 1, 0, 1));
-    assert(!shadow_prop_allowed(1, 0, 0, 1.f, 1, 0, 0));
-    assert(!shadow_prop_allowed(0, 0, 1, 1.f, 1, 0, 0));
-    /* too large (a planet, a ship): none, even a device or a whitelisted name */
-    assert(!shadow_prop_allowed(0, 1, 0, 5.5f, 1, 0, 0));
-    assert(!shadow_prop_allowed(1, 0, 0, 5.5f, 1, 0, 1));
-    assert(shadow_prop_allowed(1, 0, 0, 5.f, 1, 0, 1));
-    /* the debug bits work without the setting, one class each, and ignore the size and the names */
-    assert(shadow_prop_allowed(1, 0, 0, 50.f, 0, SHADOW_PROP_DEBUG_SCENERY, 0));
-    assert(!shadow_prop_allowed(0, 1, 0, 1.f, 0, SHADOW_PROP_DEBUG_SCENERY, 0));
-    assert(shadow_prop_allowed(0, 1, 0, 1.f, 0, SHADOW_PROP_DEBUG_DEVICES, 0));
-    assert(shadow_prop_allowed(0, 0, 1, 1.f, 0, SHADOW_PROP_DEBUG_ITEMS, 0));
-    assert(!shadow_prop_allowed(1, 0, 0, 1.f, 0, SHADOW_PROP_DEBUG_ITEMS, 1));
+    assert(!shadow_prop_allowed(1, 0, 0, 0, 0, 1, 1));
+    assert(!shadow_prop_allowed(0, 1, 0, 0, 0, 1, 1));
+    assert(!shadow_prop_allowed(0, 0, 1, 0, 0, 1, 1));
+    /* on: only what is eligible and among the view's nearest */
+    assert(shadow_prop_allowed(0, 1, 0, 0, 1, 1, 1));
+    assert(!shadow_prop_allowed(0, 1, 0, 0, 1, 1, 0));
+    assert(!shadow_prop_allowed(0, 1, 0, 0, 1, 0, 1));
+    /* eligible: a device, or scenery by name, at or under the radius cap (3 units) */
+    assert(shadow_prop_eligible(0, 1, 1.f, 0));
+    assert(shadow_prop_eligible(1, 0, 1.f, 1));
+    assert(!shadow_prop_eligible(1, 0, 1.f, 0));
+    assert(!shadow_prop_eligible(0, 0, 1.f, 1));
+    assert(shadow_prop_eligible(0, 1, SHADOW_PROP_MAXIMUM_RADIUS, 0));
+    assert(!shadow_prop_eligible(0, 1, SHADOW_PROP_MAXIMUM_RADIUS + 0.01f, 0));
+    assert(!shadow_prop_eligible(1, 0, 50.f, 1));
+    /* the debug bits work without the setting, one class each, and ignore the size, the names and the limit */
+    assert(shadow_prop_allowed(1, 0, 0, SHADOW_PROP_DEBUG_SCENERY, 0, 0, 0));
+    assert(!shadow_prop_allowed(0, 1, 0, SHADOW_PROP_DEBUG_SCENERY, 0, 1, 1));
+    assert(shadow_prop_allowed(0, 1, 0, SHADOW_PROP_DEBUG_DEVICES, 0, 0, 0));
+    assert(shadow_prop_allowed(0, 0, 1, SHADOW_PROP_DEBUG_ITEMS, 0, 0, 0));
+    /* the nearest four of six, a tie keeping the earlier; fewer candidates than the limit keep them all */
+    assert(shadow_prop_select_nearest(d, 6, 4, keep) == 4);
+    assert(!keep[0] && keep[1] && keep[2] && keep[3] && !keep[4] && keep[5]);
+    assert(shadow_prop_select_nearest(d, 6, 1, keep) == 1 && keep[5] && !keep[1] && !keep[3]);
+    assert(shadow_prop_select_nearest(d, 2, 4, keep) == 2 && keep[0] && keep[1]);
+    assert(shadow_prop_select_nearest(d, 0, 4, keep) == 0);
+    assert(SHADOW_PROP_MAXIMUM_PER_VIEW == 4);
     /* the names: the Covenant props of b30 and c10, and not the vegetation, rocks or the game's weapons */
     assert(shadow_prop_scenery_name_matches("scenery\\c_storage\\c_storage"));
     assert(shadow_prop_scenery_name_matches("scenery\\c_storage_large\\c_storage_large"));
