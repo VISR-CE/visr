@@ -9,7 +9,8 @@ HALO_HOST_MAC: the one Apple build with a setting the others ignore
 (display.frame_rate). "apple" is every Apple host build (HALO_IOS): the
 lobby's Y, which shares the invite link. "cloud_saves" requires an Apple host
 with the cloud-saves capability, advertised through HALO_HOST_CLOUD_SAVES.
-"tvos" is the Apple TV, whose host sets HALO_HOST_TVOS (its remote has no X
+"send_log" is an Apple host that can send its log (HALO_HOST_SEND_LOG: the builds that deliver
+performance reports). "tvos" is the Apple TV, whose host sets HALO_HOST_TVOS (its remote has no X
 or Y). "keyboard" is a build with a keyboard: the desktop ports, and an Apple
 host that says it has one (HALO_HOST_KEYBOARD: always on the Mac, on an iPad
 or iPhone when one is attached as the game starts). Returns -1 for a value
@@ -39,6 +40,16 @@ static int menu_platform_matches(char const *platform)
 	{
 #if defined(HALO_IOS)
 		char const *capability = getenv("HALO_HOST_CLOUD_SAVES");
+
+		return capability && !strcmp(capability, "1");
+#else
+		return 0;
+#endif
+	}
+	if (!strcmp(platform, "send_log"))
+	{
+#if defined(HALO_IOS)
+		char const *capability = getenv("HALO_HOST_SEND_LOG");
 
 		return capability && !strcmp(capability, "1");
 #else

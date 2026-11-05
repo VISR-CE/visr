@@ -97,6 +97,8 @@ int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 void host_sdl_app_version(char *buffer, unsigned int size);
+void host_sdl_send_log_start(void);
+void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
 #include <stdlib.h>
@@ -1561,6 +1563,22 @@ static void cloud_saves_status_show(struct widget_instance *widget)
 
 	host_sdl_cloud_saves_status(status, sizeof(status));
 	halo_menus_utf16(status, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(widget, text, NUMBEROF(text));
+#else
+	(void)widget;
+#endif
+}
+
+/* "port send log status": the About screen's SEND LOG row's value, the upload's progress, its code or why it failed
+(host_log_send.m) */
+static void send_log_status_show(struct widget_instance *widget)
+{
+#ifdef HALO_IOS
+	char shown[96];
+	wchar_t text[96];
+
+	host_sdl_send_log_status(shown, sizeof(shown));
+	halo_menus_utf16(shown, (unsigned short *)text, NUMBEROF(text));
 	text_set_length(widget, text, NUMBEROF(text));
 #else
 	(void)widget;
@@ -6500,6 +6518,12 @@ boolean pc_menu_event_function_invoke(
 		{
 			return ui_widget_port_delete_finish(widget, widget_deleted);
 		}
+		else if (!strcmp(name, "port send log"))
+		{
+#ifdef HALO_IOS
+			host_sdl_send_log_start();
+#endif
+		}
 		else if (!strcmp(name, "port delete request"))
 		{
 			return ui_widget_port_delete_request();
@@ -6592,6 +6616,8 @@ void pc_menu_game_data_function_invoke(
 		lobby_update(widget);
 	else if (!strcmp(name, "port cloud saves status"))
 		cloud_saves_status_show(widget);
+	else if (!strcmp(name, "port send log status"))
+		send_log_status_show(widget);
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);

@@ -33,6 +33,11 @@ int main(int argc, char **argv)
 	check("cloud_saves", 0);
 #endif
 #if defined(HALO_IOS)
+	check("send_log", getenv("HALO_HOST_SEND_LOG") && !strcmp(getenv("HALO_HOST_SEND_LOG"), "1"));
+#else
+	check("send_log", 0);
+#endif
+#if defined(HALO_IOS)
 	check("tvos", getenv("HALO_HOST_TVOS") && !strcmp(getenv("HALO_HOST_TVOS"), "1"));
 #else
 	check("tvos", 0);

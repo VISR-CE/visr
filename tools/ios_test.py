@@ -1053,7 +1053,7 @@ for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
         subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
-                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud,
+                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud, 'HALO_HOST_SEND_LOG': cloud,
                             'HALO_HOST_KEYBOARD': '1' if mac else '0'})
 # Every platform keeps four evenly spaced rows and inert root cancel handlers.
 main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()

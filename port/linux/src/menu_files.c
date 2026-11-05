@@ -405,7 +405,7 @@ static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 
 			if (matches < 0)
 			{
-				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"quit\", \"mac_app\", \"tvos\" or \"keyboard\"", platform);
+				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"send_log\", \"quit\", \"mac_app\", \"tvos\" or \"keyboard\"", platform);
 				return 1;
 			}
 			return matches;
