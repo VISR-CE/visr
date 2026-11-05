@@ -51,7 +51,7 @@ Measured on a Mac mini M6 with the frame cap and vsync off, the matched-stock se
 config:
   xyChart:
     width: 520
-    height: 290
+    height: 297
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
@@ -80,7 +80,7 @@ Measured on an iPad Pro M1 from runs presented at the display rate. Bars show me
 config:
   xyChart:
     width: 520
-    height: 335
+    height: 373
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
@@ -110,7 +110,7 @@ Measured on an iPad Pro M1 from runs presented at the display rate. Frame rate i
 config:
   xyChart:
     width: 520
-    height: 335
+    height: 373
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
@@ -140,7 +140,7 @@ Measured on an Apple TV 4K (3rd generation) from runs presented at the frame cap
 config:
   xyChart:
     width: 520
-    height: 250
+    height: 260
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
@@ -170,7 +170,7 @@ Measured on an Apple TV 4K (3rd generation) from runs presented at the frame cap
 config:
   xyChart:
     width: 520
-    height: 250
+    height: 260
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
@@ -200,7 +200,7 @@ Measured on an M2 Vision Pro from runs presented at the display rate. Bars show 
 config:
   xyChart:
     width: 520
-    height: 270
+    height: 200
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"

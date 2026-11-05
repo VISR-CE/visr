@@ -672,9 +672,33 @@ function sharedRows(group, state) {
   }));
 }
 
+// Mermaid lays a chart out on a fixed canvas, so a canvas of the wrong shape leaves bands around the plot once the SVG is
+// scaled into its device screen. This resizes the canvas to the screen's own shape: the view box `finishChart` builds adds
+// 22 on every side and 40 on the right (for value labels), and the text is drawn at about its natural size (the view is at
+// least 400 and at most 620 wide). A hidden screen has no size and keeps the spec's canvas. The title's font shrinks until
+// the title fits the canvas.
+function fitCanvas(text, container) {
+  const style = getComputedStyle(container);
+  const width = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const height = container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  if (!(width > 0 && height > 0)) return text;
+  const view = Math.min(620, Math.max(460, width));
+  const canvas = Math.round(view - 84);
+  // Each bar needs about 24 units, so a short, wide screen (Vision Pro) with several builds keeps the bars apart and
+  // letterboxes the sides a little instead of overlapping the value labels.
+  const bars = /^\s*bar \[([^\]]*)\]/m.exec(text), pair = /^\s*bar \[[^\]]*\]\s*[\r\n]+\s*bar \[/m.test(text);
+  const needed = bars ? 24 * bars[1].split(",").length * (pair ? 2 : 1) + 110 : 120;
+  const tall = Math.max(needed, Math.round(height * view / width - 44));
+  const title = /^\s*title "([^"]*)"/m.exec(text);
+  const titleSize = title ? Math.max(11, Math.min(16, Math.floor(canvas / (title[1].length * 0.56)))) : 16;
+  return text.replace(/width: \d+/, "width: " + canvas).replace(/height: \d+/, "height: " + tall + "\n    titleFontSize: " + titleSize
+    + (canvas < 440 ? "\n    xAxis:\n      labelFontSize: 10\n    yAxis:\n      labelFontSize: 10" : ""));
+}
+
 let renderCount = 0;
 async function drawChart(container, spec, built, suite, selected, rows = null) {
-  const text = chartSource(spec, built, suite, selected, themePalette(), rows);
+  let text = chartSource(spec, built, suite, selected, themePalette(), rows);
+  if (text !== null) text = fitCanvas(text, container);
   container.replaceChildren();
   if (text === null) {
     const anyData = built.entries.some((e) => e.value !== null);
