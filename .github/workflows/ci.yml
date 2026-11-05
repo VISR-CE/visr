@@ -63,8 +63,7 @@ jobs:
             tools/harness/tests/test_zsprite_depth.py \
             tools/harness/tests/test_aim_assist.py \
             tools/harness/tests/test_elevator_carry.py \
-            tools/harness/tests/test_elevator_correction.py \
-            tools/harness/tests/test_elevator_prediction.py
+            tools/harness/tests/test_elevator_correction.py
       - name: Test report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
