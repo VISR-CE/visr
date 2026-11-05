@@ -85,6 +85,24 @@ static void levels_and_examples(void)
 	assert(p.levels == 1);
 }
 
+/* an external display's ceiling under the profile's floor still leaves the planner room */
+static void external_floor(void)
+{
+	struct dynamic_resolution p;
+	assert(dynamic_resolution_output_floor(1080, 1080, 0) == 1080);   /* the device's own screen: the profile's floor */
+	assert(dynamic_resolution_output_floor(1080, 1290, 0) == 1080);
+	assert(dynamic_resolution_output_floor(1080, 1080, 1) == 540);    /* a 1080-line TV under a 1080 floor */
+	assert(dynamic_resolution_output_floor(1080, 1440, 1) == 720);
+	assert(dynamic_resolution_output_floor(540, 1080, 1) == 540);     /* a floor already at half is kept */
+	assert(dynamic_resolution_output_floor(400, 1080, 1) == 400);     /* and a lower one too */
+	assert(dynamic_resolution_output_floor(1080, 1081, 1) == 541);
+	assert(dynamic_resolution_output_floor(1080, 0, 1) == 1080);      /* no ceiling yet */
+	dynamic_resolution_init(&p, 1920, 1080, 1080, 0, 0);
+	assert(p.levels == 1);                                            /* what 0.6.10 did on that TV */
+	dynamic_resolution_init(&p, 1920, 1080, dynamic_resolution_output_floor(1080, 1080, 1), 0, 0);
+	assert(p.levels == 15 && p.lines[p.levels - 1] == 540);
+}
+
 static void ceiling_and_cpu(void)
 {
 	struct dynamic_resolution p;
@@ -437,6 +455,7 @@ int main(void)
 	recorded_spikes();
 	sustained_pressure();
 	levels_and_examples();
+	external_floor();
 	ceiling_and_cpu();
 	panic_and_settle();
 	ignore_windows();

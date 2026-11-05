@@ -5,7 +5,8 @@
  * ceiling one level at a time; a refusal returns to the ceiling at once.
  * "pin" and "sweep" (argv[1]) check the debug overrides; "profile" turns it on from a
  * device profile alone, installed after the first question; "notiming" is a GPU
- * without stage-boundary timing, where it stays off. */
+ * without stage-boundary timing, where it stays off; "external" is a 1080-line external display under a
+ * 1080-line context floor, which still gets room to lower. */
 #include "host_perf_hooks.h"
 #include "host_perf_reports.h"
 #include "dynamic_resolution.h"
@@ -16,11 +17,13 @@
 #include <string.h>
 static double load = 1.0;
 static unsigned rows, drops, recoveries;
-static int profile_installed = 1, profile_on, profile_variable_on, stage_timing = 1, ineligible;
+static int profile_installed = 1, profile_on, profile_variable_on, stage_timing = 1, ineligible, external_on;
 /* the floor the renderer passes (gpu_metal.m passes 0: the session's, or the context's) */
 static int frame_floor = 540;
 int host_config_profile_installed(void) { return profile_installed; }
 int host_perf_metal_timing_supported(void) { return stage_timing; }
+int host_external_active(void) { return external_on; }
+void host_logf(int priority, const char *format, ...) { (void)priority; (void)format; }
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     /* the device profile's value, once installed */
     if (profile_on && profile_installed && !strcmp(name, "display.dynamic_resolution")) { snprintf(out, size, "true"); return; }
@@ -85,6 +88,23 @@ int main(int count, char **arguments) {
         assert(frame(1080) == 1080);
         for (i = 0; i < 30; i++) assert(frame(1080) == 1080);
         printf("dynamic resolution by workload: lowest %d\n", lowest);
+        return 0;
+    }
+    else if (!strcmp(mode, "external")) {
+        /* the iPhone 15 Pro class's predictable floor (1080) on a 1080-line TV */
+        profile_on = 1;
+        frame_floor = 0;
+        assert(host_perf_hooks_dynamic_actuates() && host_dynamic_resolution_lines(-1) == 1);
+        host_dynamic_resolution_scene(1, 1080);
+        load = 1.6;
+        /* on the device's own screen that floor pins the ceiling */
+        for (i = 0; i < 240; i++) assert(frame(1080) == 1080);
+        /* on the external display the planner may go down to half the ceiling */
+        external_on = 1;
+        host_dynamic_resolution_scene(1, 1080);
+        for (i = 0; i < 240; i++) { lines = frame(1080); if (lines < lowest) lowest = lines; }
+        assert(drops >= 1 && lowest < 1080 && lowest >= 540);
+        printf("dynamic resolution on an external display under a 1080 floor: lowest %d\n", lowest);
         return 0;
     }
     else if (!strcmp(mode, "profile")) {
