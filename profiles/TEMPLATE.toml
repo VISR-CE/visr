@@ -33,7 +33,7 @@ models = ["Example1,1"]
 # The values. Only what differs from the device's class profile needs to be here, and only settings listed
 # in port/linux/src/port_profile_keys.h can be: the check refuses anything else.
 [display]
-shadow_map_size = 512
+shadow_map_size = 128
 
 # One table for each value above, named for the setting, saying why:
 #   basis   "measured" (you timed it on this device), "assumed" (a reasoned guess) or "inherited" (copied

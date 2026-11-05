@@ -15,7 +15,7 @@ models = ["iPad13,1"]
 frame_rate = "60"
 render_height = 1080
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 
@@ -39,8 +39,8 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "512 against 128 cost 0.05 to 0.06 ms a frame at 900 lines."
-source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds on 20261023.144726, a10-heroic and d40-maw-fight offscreen windows plus one presented d40 run, 2026-10-23 to 2026-10-25"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small. 512 against 128 cost 0.05 to 0.06 ms a frame at 900 lines."
+source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds on 20261023.144726, a10-heroic and d40-maw-fight offscreen windows plus one presented d40 run, 2026-10-23 to 2026-10-25; Steve, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"

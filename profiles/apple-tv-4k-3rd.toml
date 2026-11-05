@@ -19,7 +19,7 @@ and_newer = true
 [display]
 upscaled_textures = true
 render_scale = 1.0
-shadow_map_size = 512
+shadow_map_size = 128
 texture_idle_seconds = 60
 model_lod = "max"
 render_height = 1080
@@ -71,7 +71,7 @@ why = "Pinned to the built-in default so the Apple TV class profile's floor (the
 
 [evidence."display.shadow_map_size"]
 basis = "assumed"
-why = "Pinned to the built-in default so the Apple TV class profile's floor (the Apple TV HD's value) does not reach this model; not separately measured."
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small. Pinned to the built-in default so the Apple TV class profile's floor (the Apple TV HD's value) does not reach this model; not separately measured."
 
 [evidence."display.texture_idle_seconds"]
 basis = "assumed"

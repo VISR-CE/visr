@@ -12,7 +12,7 @@ and_newer = true
 frame_rate = "120"
 render_height = 1080
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 anti_aliasing = "fxaa"
 dynamic_resolution = true
 
@@ -32,7 +32,7 @@ why = "Free on the iPad Pro (M1); this phone's one benchmark ran a10 at 119 fram
 
 [evidence."display.shadow_map_size"]
 basis = "assumed"
-why = "The default. The phone's settings sweeps were stopped because it ran hot; nothing but the one benchmark is measured."
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small. The default. The phone's settings sweeps were stopped because it ran hot; nothing but the one benchmark is measured."
 
 [evidence."display.anti_aliasing"]
 basis = "measured"

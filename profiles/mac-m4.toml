@@ -7,9 +7,9 @@ platform = "mac"
 chips = ["Apple M4"]
 
 [display]
-shadow_map_size = 512
+shadow_map_size = 128
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "GPU time was flat from 128 to 1024 (about 0.6 ms at 640x480, 1.0 ms at 1920x1440); 2048 added about 0.1 ms."
-source = "Mac mini shadow size benchmark, 2026-10-06"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small. GPU time was flat from 128 to 1024 (about 0.6 ms at 640x480, 1.0 ms at 1920x1440); 2048 added about 0.1 ms."
+source = "Mac mini shadow size benchmark, 2026-10-06; Steve, 2026-11-04"

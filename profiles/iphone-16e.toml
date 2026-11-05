@@ -21,7 +21,7 @@ models = ["iPhone17,5"]
 frame_rate = "60"
 render_height = 0
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 model_lod = "max"
 dynamic_resolution = true
 dynamic_resolution_floor = 1080
@@ -39,8 +39,8 @@ source = "Report HWZD3QQH, build 20261017.73634, quick suite, menu/a10-opening/b
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "The quick suite recorded a 512 shadow map at native 2532x1170 in the menu, a10 opening, and b30 beach runs. The report listed 59.97, 59.96, and 59.91 fps at 60 Hz with nominal thermal state; `stalls.count` reported zero frame-interval stalls over 50 ms. This is a measured baseline, not a comparison of shadow sizes."
-source = "Report HWZD3QQH, build 20261017.73634, quick suite, menu/a10-opening/b30-beach, 2026-10-18 UTC"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small. The quick suite recorded a 512 shadow map at native 2532x1170 in the menu, a10 opening, and b30 beach runs. The report listed 59.97, 59.96, and 59.91 fps at 60 Hz with nominal thermal state; `stalls.count` reported zero frame-interval stalls over 50 ms. This is a measured baseline, not a comparison of shadow sizes."
+source = "Report HWZD3QQH, build 20261017.73634, quick suite, menu/a10-opening/b30-beach, 2026-10-18 UTC; Steve, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"

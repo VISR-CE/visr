@@ -12,7 +12,7 @@ and_newer = true
 frame_rate = "120"
 render_height = 1080
 anisotropic_filtering = 16
-shadow_map_size = 512
+shadow_map_size = 128
 effect_resolution = "half"
 dynamic_resolution = true
 upscaler = "metalfx"
@@ -27,8 +27,8 @@ source = "iPad settings sweep, a10 benchmark at 3180x2384, 2026-10-03"
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "1024 cost 0.9 to 2.7 ms of GPU time a frame and 2048 1.3 to 3.1 (the device warmed during the sweep); 128 against 512 made no difference."
-source = "iPad settings sweep, a10 benchmark, 2026-10-03"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small. 1024 cost 0.9 to 2.7 ms of GPU time a frame and 2048 1.3 to 3.1 (the device warmed during the sweep); 128 against 512 made no difference."
+source = "iPad settings sweep, a10 benchmark, 2026-10-03; Steve, 2026-11-04"
 
 [evidence."display.effect_resolution"]
 basis = "measured"
