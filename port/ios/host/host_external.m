@@ -218,10 +218,14 @@ static void begin_modes(void) {
     for(int i=0;i<candidate_count;i++) {
         UIScreenMode *mode=offered[i];
         candidates[i]=(struct host_external_mode){(int)mode.size.width,(int)mode.size.height,mode.pixelAspectRatio,0};
-        if(mode==candidate_screen.preferredMode)preferred_index=i;
         host_logf(HOST_LOG_INFO,"external display: offered %dx%d, pixel aspect %.4f",
             candidates[i].width,candidates[i].height,candidates[i].pixel_aspect);
     }
+    /* (by size, not by object: preferredMode need not be the same object as its availableModes entry, and a miss sent
+       the choice to the largest mode, asking a 1080p TV for 4K first) */
+    UIScreenMode *preferred=candidate_screen.preferredMode;
+    preferred_index=host_external_mode_preferred(candidates,(size_t)candidate_count,(int)preferred.size.width,
+        (int)preferred.size.height,preferred.pixelAspectRatio);
     first_low=-1;accepting_low=0;mode_accepted=CGSizeZero;mode_refusals=0;
     requested_index=-1;
     host_external_session_connect(&session_state,(uintptr_t)(__bridge void *)external_window.windowScene);

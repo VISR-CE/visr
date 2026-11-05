@@ -25,6 +25,18 @@ int main(void) {
     assert(host_external_mode_choose(oversized,2,0,1080,0,0)==1);
     oversized[1].refused=1;
     assert(host_external_mode_choose(oversized,2,0,1080,0,0)==-1);
+    /* the preferred mode by size: a 1080p TV's own mode, never its larger 4K one first */
+    struct host_external_mode tv[] = {
+        {640,480,1,0}, {720,480,1,0}, {720,576,1,0}, {1280,720,1,0}, {1920,1080,1,0}, {3840,2160,1,0}
+    };
+    int preferred=host_external_mode_preferred(tv,6,1920,1080,1.0);
+    assert(preferred==4);
+    assert(host_external_mode_choose(tv,6,preferred,0,0,0)==4);
+    assert(host_external_mode_choose(tv,6,-1,0,0,0)==5);       /* (what an identity miss did) */
+    assert(host_external_mode_preferred(tv,6,1920,1080,0.9)==-1);
+    assert(host_external_mode_preferred(tv,6,2560,1440,1.0)==-1);
+    assert(host_external_mode_preferred(tv,6,0,0,1.0)==-1);
+    assert(host_external_mode_preferred(tv,0,1920,1080,1.0)==-1);
     int width=0,height=0;
     assert(host_external_mode_drawable(3840,2160,1080,&width,&height));
     assert(width==1920 && height==1080);

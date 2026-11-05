@@ -2,6 +2,11 @@
 #pragma once
 #include <stddef.h>
 struct host_external_mode { int width, height; double pixel_aspect; int refused; };
+/* The offered mode that is the display's preferred one, by size and pixel aspect: UIKit can hand back a preferredMode that
+   is a different object from the matching entry of availableModes. -1 when none matches (a preferred mode of 0x0, or
+   one the display does not list). When several entries match, the first. */
+int host_external_mode_preferred(const struct host_external_mode *modes, size_t count,
+    int preferred_width, int preferred_height, double preferred_pixel_aspect);
 int host_external_mode_choose(const struct host_external_mode *modes, size_t count,
     int preferred, int cap, int forced_width, int forced_height);
 /* Parse and validate the entire comma-separated list before selecting index.
