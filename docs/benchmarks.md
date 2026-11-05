@@ -159,7 +159,7 @@ Lower is better.
 
 [VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 6.42 ms median CPU time per frame, 13.65 ms median GPU time per rendered frame).
 
-Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
+Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
 #### Apple TV: frame rate
 
@@ -189,7 +189,7 @@ Higher is better.
 
 [VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 99.9% of frames on time).
 
-Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
+Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
 ### Vision Pro
 
