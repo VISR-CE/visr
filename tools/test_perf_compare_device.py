@@ -26,6 +26,17 @@ def test_battle_plan_hosts_the_level_and_holds_the_commands_until_it_runs():
     assert plan['init'][0] == '(set cheat_deathless_player true)' and plan['init'][1:] == W['a50-hangar']['commands']
 
 
+def test_co_op_and_match_plans_host_the_level_with_standard_enemy_settings():
+    coop = device_plan.plan('coop-c10')
+    assert coop['debug']['network_test'] == "'host:levels\\c10\\c10:coop'" and coop['debug']['network_test_players'] == '2'
+    assert coop['debug']['enemy_multiplier'] == '1' and coop['network'] == {'coop_enemies_mode': '"none"'}
+    assert coop['init'][0] == '(set cheat_deathless_player true)' and 'XP_START' in coop['init'][-1]
+    match = device_plan.plan('mp-chillout')
+    assert match['debug']['network_test'] == "'host:chillout'" and match['debug']['test_input'] == '"bot:1"'
+    assert 'network_test_players' not in match['debug'] and 'enemy_multiplier' not in match['debug']
+    assert coop['exit_after'] == 25 + W['coop-c10']['warmup_s'] + W['coop-c10']['sample_s'] + device_plan.SLACK_S
+
+
 def test_cutscene_and_bot_plans():
     cut = device_plan.plan('x70-bridge')
     assert cut['init'][-1] == '(begin (sleep_until (>= (game_time) 2500) 1) (x70_bridge) (print "XPDONE"))' and cut['exit_after'] > 25 + (2500 + 3790) / 30
