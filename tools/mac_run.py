@@ -1253,7 +1253,64 @@ def end_native(app, opener, grace=TERM_GRACE, run=subprocess.run, sleep=time.sle
         opener.kill()
 
 
+# how long a new launch waits for the previous instance of the same app to finish exiting: open --new
+# right after a kill can race the old process's teardown and fail with a launchd error
+PREVIOUS_EXIT_WAIT = 20
+
+
+def wait_for_previous_instance(app, limit=PREVIOUS_EXIT_WAIT, pids=None, sleep=time.sleep):
+    """waits up to limit seconds for earlier instances of app to exit; logs what it waited for"""
+    pids = native_pids if pids is None else pids
+    waited = 0
+    found = pids(app)
+    if found:
+        print(f"waiting up to {limit} s for the previous {Path(app).name} (pid "
+              f"{', '.join(map(str, found))}) to exit", flush=True)
+    while found and waited < limit:
+        sleep(1)
+        waited += 1
+        found = pids(app)
+    if waited:
+        outcome = f"still running (pid {', '.join(map(str, found))})" if found else "gone"
+        print(f"previous {Path(app).name}: {outcome} after {waited} s", flush=True)
+
+
+def console_user():
+    """the user logged in at this Mac's screen ('root' or 'loginwindow' when nobody is)"""
+    import pwd
+    try:
+        return pwd.getpwuid(os.stat("/dev/console").st_uid).pw_name
+    except (OSError, KeyError):
+        return ""
+
+
+RBS_ERROR = re.compile(r"(RBSRequestError|launchd|Launch Services|_LSOpenURLs|POSIX|NSOSStatusError|"
+                       r"error[: ])", re.IGNORECASE)
+
+
+def open_failure_message(app, status, data, out, user=None):
+    """why open failed: its real stderr, the launchd/RBS error lines it holds, and the logged-in-user
+    hint only when no user is at the console"""
+    user = console_user() if user is None else user
+    stderr_path = data / "open-stderr.log"
+    stderr = stderr_path.read_text(errors="replace").strip() if stderr_path.is_file() else ""
+    lines = [f"open could not start {app} (exit {status})"]
+    if stderr:
+        lines.append("open stderr:\n" + stderr)
+        details = [line.strip() for line in stderr.splitlines() if RBS_ERROR.search(line)]
+        if details and details != [line.strip() for line in stderr.splitlines()]:
+            lines.append("RBS/launchd error text:\n" + "\n".join(details))
+    else:
+        lines.append("open wrote nothing to stderr")
+    if user in ("root", "loginwindow"):
+        lines.append(f"nobody is logged in at this Mac's screen (console user: {user}); a user must be "
+                     "logged in for open to start a GUI app")
+    lines.append(f"see {out}/open-stderr.log")
+    return "\n".join(lines)
+
+
 def _launch_native(app, data, out, environment, limit):
+    wait_for_previous_instance(app)
     command = native_command(app, data, out, environment)
     print("+", " ".join(command), flush=True)
     opener = subprocess.Popen(command)
@@ -1263,8 +1320,7 @@ def _launch_native(app, data, out, environment, limit):
         end_native(app, opener)
         return False
     if status != 0:
-        sys.exit(f"open could not start {app} (exit {status}): a user must be logged in to this Mac's "
-                 f"screen; see {out}/open-stderr.log")
+        sys.exit(open_failure_message(app, status, data, out))
     return True
 
 

@@ -547,6 +547,8 @@ def fake_open(monkeypatch, stdout, stderr, status=0):
             return status
 
     monkeypatch.setattr(mac_run.subprocess, "Popen", Opener)
+    monkeypatch.setattr(mac_run, "native_pids", lambda app: [])
+    monkeypatch.setattr(mac_run, "console_user", lambda: "steve")
 
 
 def test_launch_native_copies_the_open_logs_into_out_and_replaces_the_old_ones(tmp_path, monkeypatch):
@@ -571,6 +573,56 @@ def test_launch_native_copies_the_open_logs_when_open_fails(tmp_path, monkeypatc
         mac_run.launch_native(Path("/b/VISR.app"), data, out, {}, 10)
     assert (out / "open-stderr.log").read_text() == "open: -10810\n"
     assert (data / "open-stderr.log").read_text() == "open: -10810\n"
+
+
+def test_wait_for_previous_instance_polls_until_the_old_pid_is_gone(capsys):
+    seen = iter([[7], [7], []])
+    sleeps = []
+    mac_run.wait_for_previous_instance(Path("/b/VISR.app"), limit=20, pids=lambda app: next(seen),
+                                       sleep=sleeps.append)
+    assert sleeps == [1, 1]
+    out = capsys.readouterr().out
+    assert "pid 7" in out and "gone after 2 s" in out
+
+
+def test_wait_for_previous_instance_gives_up_after_the_limit(capsys):
+    sleeps = []
+    mac_run.wait_for_previous_instance(Path("/b/VISR.app"), limit=3, pids=lambda app: [9], sleep=sleeps.append)
+    assert len(sleeps) == 3
+    assert "still running (pid 9) after 3 s" in capsys.readouterr().out
+
+
+def test_wait_for_previous_instance_is_silent_when_nothing_runs(capsys):
+    mac_run.wait_for_previous_instance(Path("/b/VISR.app"), pids=lambda app: [], sleep=lambda s: 1 / 0)
+    assert capsys.readouterr().out == ""
+
+
+def test_open_failure_prints_open_s_stderr_not_the_login_hint(tmp_path):
+    (tmp_path / "open-stderr.log").write_text(
+        "The application cannot be opened.\nRBSRequestErrorDomain Code=5 (POSIX 162)\n")
+    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="steve")
+    assert "RBSRequestErrorDomain Code=5" in message
+    assert "RBS/launchd error text" in message
+    assert "logged in" not in message
+
+
+def test_open_failure_gives_the_login_hint_only_without_a_console_user(tmp_path):
+    for user, hinted in (("root", True), ("loginwindow", True), ("steve", False)):
+        message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user=user)
+        assert ("nobody is logged in" in message) is hinted
+        assert "open wrote nothing to stderr" in message
+
+
+def test_launch_native_waits_for_the_previous_instance_before_open(tmp_path, monkeypatch):
+    data, out = tmp_path / "data", tmp_path / "out"
+    data.mkdir()
+    order = []
+    monkeypatch.setattr(mac_run, "wait_for_previous_instance", lambda app: order.append("wait"))
+    fake_open(monkeypatch, "", "")
+    real = mac_run.subprocess.Popen
+    monkeypatch.setattr(mac_run.subprocess, "Popen", lambda *a, **k: (order.append("open"), real(*a, **k))[1])
+    assert mac_run.launch_native(Path("/b/VISR.app"), data, out, {}, 10)
+    assert order == ["wait", "open"]
 
 
 def test_native_pattern_escapes_the_app_path():
