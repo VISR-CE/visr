@@ -80,6 +80,18 @@ struct dynamic_resolution
 	unsigned long long last_frame_id;
 };
 
+/* The absolute floor dynamic resolution works to on this output. A device profile's floor is chosen for the device's
+own screen; an external display's ceiling is that display's drawable, which can sit at or under it (a 1080-line TV under
+the iPhone 15 Pro class's 1080-line predictable floor), leaving the planner no level below the ceiling. On an external
+output the floor is therefore at most half the ceiling, the planner's own lowest default; it only renders lower when
+frames miss. */
+static inline int dynamic_resolution_output_floor(int floor, int ceiling, int external)
+{
+	if (external && ceiling > 0 && floor > (ceiling + 1) / 2)
+		return (ceiling + 1) / 2;
+	return floor;
+}
+
 /* Width and height are the ceiling's content size. Fractional Q is rounded
 independently at each level; the exact floor is appended if Q misses it.
 An absolute floor above the ceiling pins the planner at the ceiling. */

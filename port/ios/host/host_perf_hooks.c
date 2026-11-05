@@ -10,6 +10,12 @@
 #include "host_config.h"
 #include "host_perf_metal.h"
 #include "dynamic_resolution_shadow.h"
+#include "host_external.h"
+/* host.h's (it pulls in the guest ABI, which the hooks' probes build without) */
+void host_logf(int priority, const char *format, ...) __attribute__((format(printf, 2, 3)));
+#ifndef HOST_LOG_INFO
+#define HOST_LOG_INFO 4
+#endif
 static uint64_t began, previous, interval, phases[3], sums[3], network_nested;
 static uint64_t budget = GAME_PERF_UNAVAILABLE, serial;
 static unsigned marked, ticks, loading;
@@ -130,7 +136,19 @@ void host_perf_hooks_dynamic_config(int enabled, int width, int height, int actu
     pending.drs.actual_lines = actual > 0 && actual <= height ? (uint32_t)actual : pending.drs.ceiling_lines;
     /* (HALO_DYNAMIC_RESOLUTION_FLOOR is the floor in every class) */
     if (floor <= 0) floor = dynamic_scene_floor > 0 && !getenv("HALO_DYNAMIC_RESOLUTION_FLOOR") ? dynamic_scene_floor : dynamic_floor;
-    pending.drs.floor_lines = floor > 0 ? (uint32_t)floor : 540;
+    if (floor <= 0) floor = 540;
+    /* (an external display's ceiling can sit at or under the profile's floor: dynamic_resolution_output_floor) */
+    {
+        int output_floor = dynamic_resolution_output_floor(floor, height, host_external_active());
+        static int logged_height, logged_floor;
+        if (output_floor != floor && (height != logged_height || output_floor != logged_floor)) {
+            host_logf(HOST_LOG_INFO, "DRS: external display ceiling %d lines; floor %d lines (the profile's %d)",
+                height, output_floor, floor);
+            logged_height = height; logged_floor = output_floor;
+        }
+        floor = output_floor;
+    }
+    pending.drs.floor_lines = (uint32_t)floor;
     if ((height + 1) / 2 > (int)pending.drs.floor_lines) pending.drs.floor_lines = (height + 1) / 2;
     if (height > 0 && pending.drs.floor_lines > (uint32_t)height) pending.drs.floor_lines = height;
     pending.drs.thermal = thermal >= 0 && thermal <= 3 ? (uint32_t)thermal : 0;
