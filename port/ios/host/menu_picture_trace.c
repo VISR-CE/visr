@@ -169,6 +169,9 @@ static int icon_components_fat(uint8_t *mask,unsigned w,unsigned h,unsigned min,
 static int icon_components(uint8_t *mask,unsigned w,unsigned h,unsigned min,unsigned *queue,const volatile int *cancel) {
     return icon_components_fat(mask,w,h,min,NULL,0,0,queue,cancel);
 }
+#ifndef HYST_LOW
+#define HYST_LOW .18f   /* faint stretches of a line that touch a strong one stay in it (a one pixel line that only half covers its pixels) */
+#endif
 #ifndef BLOB_OPEN
 #define BLOB_OPEN 1.3f   /* thinner than this many stroke half-widths is a stroke, not a filled shape: a thin divider between dark pockets stays part of its shape */
 #endif
@@ -401,7 +404,8 @@ static float cl_arc_span(const float *p,unsigned n,float cx,float cy) {
     return span;
 }
 /* returns the number of points written to out (capacity cap), or 0 when nothing changed */
-static unsigned cl_arcs(const float *p,unsigned m,float width,float *out,unsigned cap) {
+struct cl_arcrec { float cx,cy,R,span;unsigned i0,i1,path;int group; };
+static unsigned cl_arcs(const float *p,unsigned m,float width,float *out,unsigned cap,struct cl_arcrec *rec,unsigned *nrec,unsigned maxrec,unsigned path) {
     const unsigned first=32;unsigned o=0,i=0,arcs=0,nj=0;static unsigned jn[512];
     while(i<m){
         float cx,cy,R,err;int ok=0;unsigned j=i;
@@ -415,6 +419,7 @@ static unsigned cl_arcs(const float *p,unsigned m,float width,float *out,unsigne
                 float a0=atan2f(p[2*i+1]-cy,p[2*i]-cx);unsigned cnt=(unsigned)ceilf(R*fabsf(span))+1;
                 if(o+cnt+2>cap)return 0;
                 if(nj+2<=512){jn[nj++]=o;}
+                if(rec&&*nrec<maxrec){rec[*nrec]=(struct cl_arcrec){cx,cy,R,span,o,o+cnt,path,-1};(*nrec)++;}
                 for(unsigned t=0;t<=cnt;t++){float a=a0+span*t/cnt;out[2*o]=cx+R*cosf(a);out[2*o+1]=cy+R*sinf(a);o++;}
                 if(nj+2<=512){jn[nj++]=o-1;}
                 arcs++;i=j;continue;}
@@ -474,10 +479,10 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
     struct cl_path *paths=NULL;unsigned np=0;
     if(!grown||!blob||!sk||!node||!vis||!aux||!prim||!primd||!shp||!D1||!D2)goto done;
     /* faint stretches of a line that touch a strong one belong to it: hysteresis closes breaks where the art is thin */
-    {size_t head=0,tail=0;for(size_t i=0;i<un;i++)if(line[i]&&S[i]>.34f){grown[i]=1;queue[tail++]=(unsigned)i;}
+    {size_t head=0,tail=0;for(size_t i=0;i<un;i++)if(line[i]&&S[i]>HYST_LOW){grown[i]=1;queue[tail++]=(unsigned)i;}
      while(head<tail){unsigned j=queue[head++],x=j%uw,y=j/uw;
         for(int k=0;k<8;k++){int nx=(int)x+cl_dx[k],ny=(int)y+cl_dy[k];if(nx<0||ny<0||nx>=(int)uw||ny>=(int)uh)continue;
-            size_t t=(size_t)ny*uw+nx;if(!grown[t]&&S[t]>.34f){grown[t]=1;queue[tail++]=(unsigned)t;}}}}
+            size_t t=(size_t)ny*uw+nx;if(!grown[t]&&S[t]>HYST_LOW){grown[t]=1;queue[tail++]=(unsigned)t;}}}}
     if(cancel&&*cancel){status=-1;goto done;}
     /* the stroke half-width is the commonest distance to the edge along the skeleton of the whole mask */
     float base_half;
@@ -576,6 +581,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
     memset(AL,0,un*sizeof(float));
     {
      float **sp=calloc(np,sizeof(float *));unsigned *sn=calloc(np,sizeof(unsigned));char *drop=calloc(np,1);int ok=sp&&sn&&drop;
+     struct cl_arcrec arcs[128];unsigned narcs=0;
      if(ok)for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2||c->tip)continue;
         unsigned cap=c->n*2+16;float *sm=malloc((size_t)cap*2*sizeof(float));if(!sm){ok=0;break;}
         unsigned m=cl_smooth(c->p,c->n,c->closed,width,sm,cap);
@@ -587,9 +593,34 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
             if(rm>=6&&dev<fmaxf(.03*rm,.5*cl_arc_tol((float)rm,width))&&want>=24&&want<cap){for(unsigned t=0;t<want;t++){double a=2*M_PI*t/want;sm[2*t]=(float)(mx+rm*cos(a));sm[2*t+1]=(float)(my+rm*sin(a));}m=want;}
         }
         if(m>=24){unsigned acap=m*2+64;float *ar=malloc((size_t)acap*2*sizeof(float));
-            if(ar){unsigned k=cl_arcs(sm,m,width,ar,acap);if(k&&k<=cap){memcpy(sm,ar,(size_t)k*2*sizeof(float));m=k;}free(ar);}}
+            if(ar){unsigned n0=narcs;unsigned k=cl_arcs(sm,m,width,ar,acap,arcs,&narcs,128,i);
+                if(k&&k<=cap){memcpy(sm,ar,(size_t)k*2*sizeof(float));m=k;}else narcs=n0;free(ar);}}
         sp[i]=sm;sn[i]=m;}
      if(!ok){if(sp)for(unsigned i=0;i<np;i++)free(sp[i]);free(sp);free(sn);free(drop);goto done;}
+     /* Concentric circles: arcs whose centers nearly coincide are one circle family. They snap to one exact shared center;
+        arcs of about the same radius around it share that radius, and each is still drawn only over the span the art has. */
+     {int parent[128];for(unsigned a=0;a<narcs;a++)parent[a]=(int)a;
+      for(unsigned a=0;a<narcs;a++)for(unsigned b=a+1;b<narcs;b++){
+          float rmax=fmaxf(arcs[a].R,arcs[b].R),d=hypotf(arcs[a].cx-arcs[b].cx,arcs[a].cy-arcs[b].cy);
+          if(d<=.15f*rmax){int ra=(int)a,rb2=(int)b;while(parent[ra]!=ra)ra=parent[ra];while(parent[rb2]!=rb2)rb2=parent[rb2];if(ra!=rb2)parent[rb2]=ra;}}
+      for(unsigned a=0;a<narcs;a++){int r=(int)a;while(parent[r]!=r)r=parent[r];arcs[a].group=r;}
+      for(unsigned g=0;g<narcs;g++){
+          double wsum=0,gx=0,gy=0;unsigned members=0;
+          for(unsigned a=0;a<narcs;a++)if(arcs[a].group==(int)g){double w=fabsf(arcs[a].span)*arcs[a].R;wsum+=w;gx+=w*arcs[a].cx;gy+=w*arcs[a].cy;members++;}
+          if(members<2)continue;gx/=wsum;gy/=wsum;
+          for(unsigned a=0;a<narcs;a++)if(arcs[a].group==(int)g){arcs[a].cx=(float)gx;arcs[a].cy=(float)gy;}
+          /* radii around the shared center: arcs within 12 percent of each other share one radius */
+          for(unsigned a=0;a<narcs;a++){if(arcs[a].group!=(int)g)continue;
+              float *P=sp[arcs[a].path];double rs=0;unsigned cnt=0;
+              for(unsigned t=arcs[a].i0;t<=arcs[a].i1;t++){rs+=hypot(P[2*t]-gx,P[2*t+1]-gy);cnt++;}
+              arcs[a].R=(float)(rs/cnt);}
+          for(unsigned a=0;a<narcs;a++){if(arcs[a].group!=(int)g)continue;double w=0,rr=0;
+              for(unsigned b=0;b<narcs;b++)if(arcs[b].group==(int)g&&fabsf(arcs[b].R-arcs[a].R)<.12f*arcs[a].R){double ww=fabsf(arcs[b].span)*arcs[b].R;w+=ww;rr+=ww*arcs[b].R;}
+              arcs[a].span=arcs[a].span;arcs[a].cy=arcs[a].cy;
+              float Rn=(float)(rr/w);float *P=sp[arcs[a].path];
+              for(unsigned t=arcs[a].i0;t<=arcs[a].i1;t++){double dx=P[2*t]-gx,dy=P[2*t+1]-gy,d=hypot(dx,dy);if(d>1e-3){P[2*t]=(float)(gx+dx*Rn/d);P[2*t+1]=(float)(gy+dy*Rn/d);}}
+              arcs[a].R=Rn;}
+      }}
      /* Every outline here is a closed loop, so a branch with a free end that adds almost no blue of its own is skeleton
         noise: redraw the strokes without it. The blue it alone covers has to come to at least one stroke width of
         stroke; genuine open ends (a slit's closed tip, a finger) cover blue that would vanish and stay. */
@@ -599,7 +630,23 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
      for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(!sp[i]||c->closed||(c->ja&&c->jb))continue;
         int bb[4];cl_stamp(AK,uw,uh,sp[i],sn[i],0,width*.5f,bb);unsigned only=0;
         for(int y=bb[1];y<=bb[3];y++)for(int x=bb[0];x<=bb[2];x++){size_t u=(size_t)y*uw+x;if(AK[u]>.5f&&vis[u]==1&&grown[u])only++;AK[u]=0;}
-        if(only<width*width*3.0f)drop[i]=1;}
+        if(only<width*width*3.0f){
+            /* a short branch that is an arc of a circle (the inner line of a nested ring) is drawing, not skeleton noise;
+               a tick or a straight hair is not */
+            float acx=0,acy=0,aR=0,aerr=0;int arc=0;const float *q=c->p;unsigned qn=c->n;   /* the raw skeleton: smoothing would flatten a path this short */
+            if(qn>=16&&cl_circle_fit(q,qn,&acx,&acy,&aR,&aerr)&&aR>=.8f*width&&aR<=10*width&&aerr<=1.4f*cl_arc_tol(aR,width)&&
+               fabsf(cl_arc_span(q,qn,acx,acy))>=.5f&&cl_length(q,qn)>=2.5f*width){
+                /* nested ring: the branch lies on a circle concentric with an arc already drawn, so it is that ring's inner or
+                   outer line, snapped to the shared center */
+                for(unsigned a=0;a<narcs&&!arc;a++){
+                    double ds=0,ds2=0;for(unsigned t=0;t<qn;t++){double d=hypot(q[2*t]-arcs[a].cx,q[2*t+1]-arcs[a].cy);ds+=d;ds2+=d*d;}
+                    double mean=ds/qn,sd=sqrt(fmax(ds2/qn-mean*mean,0));
+                    if(sd<=.35*width&&mean>=.8*width&&mean<2.5*arcs[a].R){
+                        double Rs=mean;for(unsigned b=0;b<narcs;b++)if(arcs[b].group==arcs[a].group&&fabs(arcs[b].R-mean)<.5*width)Rs=arcs[b].R;   /* the same circle as an arc already drawn */
+                        float *np2=malloc((size_t)qn*2*sizeof(float));
+                        if(np2){for(unsigned t=0;t<qn;t++){double dx=q[2*t]-arcs[a].cx,dy=q[2*t+1]-arcs[a].cy,d=hypot(dx,dy);np2[2*t]=(float)(arcs[a].cx+dx*Rs/d);np2[2*t+1]=(float)(arcs[a].cy+dy*Rs/d);}
+                            free(sp[i]);sp[i]=np2;sn[i]=qn;arc=1;}}}}
+            if(!arc)drop[i]=1;}}
      for(unsigned i=0;i<np;i++){if(!sp[i])continue;
         if(!drop[i]){const float *sm=sp[i];unsigned m=sn[i];
             for(unsigned t=0;t+1<m;t++)cl_stroke_segment(AL,uw,uh,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,width*.5f);
