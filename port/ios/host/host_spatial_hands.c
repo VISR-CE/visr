@@ -694,13 +694,78 @@ static int prayer_ready(const struct host_spatial_hand_joints joints[2])
 	return 1;
 }
 
+/* every term of the prayer sign at once, with the first one that refuses it and that term's
+own measurement: what the log needs in order to name a failure rather than print a constant
+against an unrelated number (host_spatial_hands.h's HANDS_EVENT_PRAYER_GATE). The terms are
+asked in the order they become meaningful, since each one needs the one before it: both hands
+tracked with their metacarpals, then the palm centres close enough, then both sets of fingers
+up, then the palms opposed.
+
+near is the geometry gate as the PRAYER line has always reported it, the first three terms
+without the fourth, so that line keeps its meaning. dot is the opposed pair with the mirroring
+taken out, written whenever the frames could be built at all */
+struct prayer_terms
+{
+	int gate;                  /* HANDS_PRAYER_GATE_*, or NONE while every term passes */
+	float value, threshold;    /* the refusing term's own measurement and constant */
+	float dot;                 /* the opposed dot, for the PRAYER line */
+	int near;                  /* the geometry gate: tracked, centres close, fingers up */
+};
+
+static void prayer_evaluate(const struct host_spatial_hand_joints joints[2], struct prayer_terms *out)
+{
+	float center[2][3], normal[2][3], finger_direction[2][3];
+	float distance, up;
+	int hand;
+
+	memset(out, 0, sizeof(*out));
+	if (!prayer_ready(joints))
+	{
+		/* no value worth printing: the term is a pair of tracked flags, and which joint of which
+		hand is missing is what the aim condition's own line already reports */
+		out->gate = HANDS_PRAYER_GATE_TRACKED;
+		return;
+	}
+	for (hand = 0; hand < 2; hand++)
+		palm_frame(&joints[hand], center[hand], normal[hand], finger_direction[hand]);
+	out->dot = -dot3(normal[0], normal[1]);
+	distance = distance3(center[0], center[1]);
+	/* the less upright of the two hands, so the value printed is the one that refused */
+	up = finger_direction[0][2] < finger_direction[1][2] ? finger_direction[0][2] : finger_direction[1][2];
+	if (distance > HANDS_PRAYER_DISTANCE_METERS)
+	{
+		out->gate = HANDS_PRAYER_GATE_DISTANCE;
+		out->value = distance;
+		out->threshold = HANDS_PRAYER_DISTANCE_METERS;
+		return;
+	}
+	if (up < HANDS_PRAYER_FINGERS_UP)
+	{
+		out->gate = HANDS_PRAYER_GATE_FINGERS;
+		out->value = up;
+		out->threshold = HANDS_PRAYER_FINGERS_UP;
+		return;
+	}
+	out->near = 1;
+	/* the opposed term's own numbers either way, refusing or not: it is the last gate, so once
+	it passes nothing is refusing and the dot is the sign's own measurement. That is what the
+	line reporting a term as no longer refusing then carries, rather than the zeros it would
+	carry if only a refusal filled these in (hands_recognize) */
+	out->value = out->dot;
+	out->threshold = HANDS_PRAYER_OPPOSED_DOT;
+	if (out->dot > HANDS_PRAYER_OPPOSED_DOT)
+		out->gate = HANDS_PRAYER_GATE_OPPOSED;
+}
+
 /* the prayer sign's geometry gate alone: palm centers close and both hands' fingers pointed
 up, independent of the palm normals' sign. *dot is the measured dot product whenever this
 returns 1 (undefined otherwise, as prayer_ready already failed and the frames were never
 built); separating this from the sign test is what lets hands_recognize log the dot it
 measured even while the sign convention is wrong, rather than the gesture staying silent
 until a device run has already settled it: a gate armed off joints that stay tracked can
-report itself, where the sign cannot */
+report itself, where the sign cannot.
+Kept beside prayer_evaluate above, which is what hands_recognize asks now, because
+hands_probe.c's prayer_normals_are_mirrored pins the sign through this one directly */
 static int prayer_near(const struct host_spatial_hand_joints joints[2], float *dot)
 {
 	float center[2][3], normal[2][3], finger_direction[2][3];
@@ -960,21 +1025,40 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	}
 
 	/* the prayer sign: both hands held together fires the Start pulse once per dwell. The
-	geometry gate (prayer_near) is logged on its own on/off transition with the dot it
-	measured against HANDS_PRAYER_OPPOSED_DOT: gating that log on the sign itself, like
-	prayer_holds used to, would mean a wrong sign convention never logs anything, which is
-	exactly what the device measurement that settles the sign has to read */
-	{
-		float dot = 0.0f;
-		int near = prayer_near(joints, &dot);
+	geometry gate is logged on its own on/off transition with the dot it measured against
+	HANDS_PRAYER_OPPOSED_DOT, and which term is refusing the sign on its own transition beside
+	it (prayer_evaluate, HANDS_EVENT_PRAYER_GATE): the on/off line alone prints the dot
+	whatever refused, so a session of failed attempts could not say which term moved.
 
-		if (near != state->prayer_near)
+	term refusing it on its own transition beside it */
+	{
+		struct prayer_terms terms;
+		/* the geometry gate as it stood on the last sample, read before the line below moves it:
+		it is what says an attempt was under way, and the gate line's scope needs both */
+		int was_near = state->prayer_near;
+
+		prayer_evaluate(joints, &terms);
+		if (terms.near != state->prayer_near)
 		{
-			state->prayer_near = near;
-			emit(events, capacity, &count, HANDS_EVENT_PRAYER, 0, 0, near, dot, HANDS_PRAYER_OPPOSED_DOT,
-				HANDS_PATH_NONE);
+			state->prayer_near = terms.near;
+			emit(events, capacity, &count, HANDS_EVENT_PRAYER, 0, 0, terms.near, terms.dot,
+				HANDS_PRAYER_OPPOSED_DOT, HANDS_PATH_NONE);
 		}
-		if (near && dot <= HANDS_PRAYER_OPPOSED_DOT)
+		/* which term refuses it, on the change alone, and only about an attempt: the gate is
+		tracked while the player's hands are simply apart or one of them is out of sight, which
+		is almost every sample of a session and says nothing about the gesture. So the line is
+		written only while the geometry gate is up, which is the attempt, or on the one sample it
+		falls, which is what names the term that ended it. The state is kept either way, so the
+		term that refuses outside an attempt is still the one a later change is measured from */
+		if (terms.gate != state->prayer_gate)
+		{
+			if (terms.near || was_near)
+				emit(events, capacity, &count, HANDS_EVENT_PRAYER_GATE, 0,
+					terms.gate != HANDS_PRAYER_GATE_NONE ? terms.gate : state->prayer_gate,
+					terms.gate != HANDS_PRAYER_GATE_NONE, terms.value, terms.threshold, HANDS_PATH_NONE);
+			state->prayer_gate = terms.gate;
+		}
+		if (terms.gate == HANDS_PRAYER_GATE_NONE)
 		{
 			if (state->prayer_since == 0.0)
 			{
@@ -1027,7 +1111,9 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	bounds, even when a sample emits more lines than capacity allows. The worst sample is
 	eight pinches each ending a carried gap, releasing from their own fingertips, and
 	reporting both the pair's growth for that release and the length of the hold it ended,
-	which reaches 32: what host_spatial_hands.m sizes its buffer to, since the growth and the
-	hold are the lines worth keeping */
+	which reaches 32; the prayer sign can add three more on one sample (its geometry gate, the
+	term refusing it, and either the Start pulse or the dwell being given up), and the two aim
+	axes one each, so 40 is what host_spatial_hands.m sizes its buffer to. The clamp is what
+	makes the number a budget rather than a correctness condition */
 	return count < capacity ? count : capacity;
 }

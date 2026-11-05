@@ -788,6 +788,10 @@ identically */
 static void gesture_name(int kind, int finger, char *buffer, size_t size)
 {
 	static const char *const finger_names[NUMBER_OF_HANDS_PINCHES] = { "index", "middle", "ring", "little" };
+	/* indexed by HANDS_PRAYER_GATE_* (host_spatial_hands.h), so the enum's own values read
+	straight into it. "ok" is the NONE entry and never reaches a line: a gate that stops
+	refusing is logged under the term that was refusing, not under nothing */
+	static const char *const prayer_gate_names[] = { "ok", "tracked", "distance", "fingers", "opposed" };
 
 	switch (kind)
 	{
@@ -822,6 +826,13 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	counted off the log on their own (host_spatial_hands.h's HANDS_EVENT_AIM_ELEVATION) */
 	case HANDS_EVENT_AIM_ELEVATION: snprintf(buffer, size, "aim elevation"); break;
 	case HANDS_EVENT_PRAYER: snprintf(buffer, size, "prayer"); break;
+	/* "prayer <term>", so the one word after "prayer" is the gate and a session's refusals of
+	one term pull out with a single pattern (host_spatial_hands.h's HANDS_EVENT_PRAYER_GATE) */
+	case HANDS_EVENT_PRAYER_GATE:
+		snprintf(buffer, size, "prayer %s",
+			finger >= 0 && finger < (int)(sizeof(prayer_gate_names) / sizeof(prayer_gate_names[0])) ?
+				prayer_gate_names[finger] : "?");
+		break;
 	case HANDS_EVENT_START: snprintf(buffer, size, "start"); break;
 	default: snprintf(buffer, size, "?"); break;
 	}
@@ -845,11 +856,14 @@ is always 0 (host_spatial_hands.c's emit calls: it is both hands together, neith
 logs as "both" rather than a side */
 static void log_event(const struct hands_event *event)
 {
-	char gesture[16];
+	/* "prayer distance" is the longest name this writes, at fifteen characters: 24 leaves the
+	next gate name room rather than silently clipping it */
+	char gesture[24];
 
 	gesture_name(event->kind, event->finger, gesture, sizeof(gesture));
 	host_logf(HOST_LOG_INFO, "hands: %s %s %s %.3f against %.3f%s", gesture,
-		event->kind == HANDS_EVENT_PRAYER ? "both" : (event->hand ? "right" : "left"),
+		event->kind == HANDS_EVENT_PRAYER || event->kind == HANDS_EVENT_PRAYER_GATE ?
+			"both" : (event->hand ? "right" : "left"),
 		event->on ? "on" : "off", (double)event->value, (double)event->threshold,
 		path_name(event->path));
 }
@@ -1061,12 +1075,13 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		int g = sample->aiming_hand ? 1 : 0;
 		const float *forward = sample->hands[g].aim.forward;
 		struct host_spatial_controls controls[2];
-		/* 32 is the worst sample the recognizer can fill: eight pinches each ending a carried
+		/* 40 is the worst sample the recognizer can fill: eight pinches each ending a carried
 		gap, releasing, and reporting both the pair's growth for that release and how long the
-		hold it ended had run (host_spatial_hands.c's pinch_update). Below that the recognizer
-		drops log lines rather than overrunning, and those two are the lines this size exists
-		to keep */
-		struct hands_event events[32];
+		hold it ended had run, which is 32, plus the prayer sign's three (its geometry gate, the
+		term refusing it, and either the Start pulse or its dwell being given up) and the two aim
+		axes' one each (host_spatial_hands.c's own comment on the clamp). Below that the
+		recognizer drops log lines rather than overrunning */
+		struct hands_event events[40];
 		int count, i;
 
 		/* before the recognizer, so a line about this sample's joints comes out whether or not
@@ -1088,7 +1103,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 		one snap can fire the instant the forearm first appears already past the deadzone. That
 		is the turn the arm is pointing at, so it is left alone. */
 		count = hands_recognize(&gesture_state, joints, sample->aiming_hand, forward, turn_snap, deadzone,
-			elevation_deadzone, elevation_span, pitch_offset, now, controls, events, 32);
+			elevation_deadzone, elevation_span, pitch_offset, now, controls, events, 40);
 		host_spatial_gamepad_map(&controls[0], &controls[1], sample->aiming_hand, &sample->gamepad);
 		/* the 2 marks the sample as the hands source's, which xinput_sdl.c
 		merges into port 0 like a Sense sample but remaps differently in menus
@@ -1098,7 +1113,7 @@ int host_spatial_hands_sample(int kind, struct halo_spatial_sample *sample, cons
 			for (i = 0; i < count; i++)
 				log_event(&events[i]);
 		/* its own route, not these events: the gesture log above is capacity-bounded
-		(events[32], hands_recognize's own clamp) for lines worth keeping even on the busiest
+		(events[40], hands_recognize's own clamp) for lines worth keeping even on the busiest
 		sample, and a periodic raw-distance line has nothing to do with that budget and no
 		business crowding it. host_logf has no such cap, so this costs nothing events does not
 		already cost and nothing when debug.hand_distance_log is off */

@@ -32,6 +32,18 @@ static int near(float value, float wanted, float tolerance)
 	return fabsf(value - wanted) <= tolerance;
 }
 
+/* the first event of a kind in a sample's own events, with the finger (or prayer gate) it
+names, or NULL: what a case asserting one line out of several reads it through */
+static const struct hands_event *event_of(const struct hands_event *events, int count, int kind, int finger)
+{
+	int i;
+
+	for (i = 0; i < count; i++)
+		if (events[i].kind == kind && events[i].finger == finger)
+			return &events[i];
+	return NULL;
+}
+
 /* a tracked, open hand: the thumb tip at the origin, the other four tips
 5 cm away along up, a neutral wrist and an arbitrary open-hand metacarpal
 pose. Tests move one tip, the wrist or the metacarpals to build the case
@@ -1177,6 +1189,7 @@ static void prayer(void)
 
 	/* break the pose, then resume: the dwell restarts and does not fire early */
 	memset(&state, 0, sizeof(state));
+	prayer_pose(joints);
 	for (t = 1.0; t <= 1.3; t += 0.05)
 		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
 	joints[0].wrist[1] = 0.5f; /* the pose breaks: too far apart */
@@ -1186,8 +1199,27 @@ static void prayer(void)
 		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 0, "prayer: a break restarts the dwell, no fire by the old schedule's 0.6 s");
 
-	/* a fresh hold starting inside the cooldown never fires */
+	/* the gate line names the term that refused an attempt, which is the whole point of it:
+	the pose broken by distance reports the distance it measured against its own threshold,
+	not the opposed dot against a constant it had nothing to do with */
 	memset(&state, 0, sizeof(state));
+	prayer_pose(joints);
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.0, controls, events, 16);
+	joints[0].wrist[1] = 0.5f;
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.05, controls, events, 16);
+	{
+		const struct hands_event *gate = event_of(events, count, HANDS_EVENT_PRAYER_GATE,
+			HANDS_PRAYER_GATE_DISTANCE);
+
+		check(gate && gate->on == 1 && gate->value > HANDS_PRAYER_DISTANCE_METERS &&
+			near(gate->threshold, HANDS_PRAYER_DISTANCE_METERS, 1e-6f),
+			"prayer gate: a pose broken by distance names the distance term and its own measurement");
+	}
+
+	/* a fresh hold starting inside the cooldown never fires. Builds its own pose, as every
+	block here now does: the cases above deliberately break it and do not put it back */
+	memset(&state, 0, sizeof(state));
+	prayer_pose(joints);
 	for (t = 1.0; t <= 1.6 + 1e-9; t += 0.05)
 		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
 	check(controls[1].menu == 1, "prayer cooldown setup: the first hold fires");

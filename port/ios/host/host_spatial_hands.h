@@ -303,6 +303,11 @@ struct hands_state
 	palm normals' unmeasured sign: its own on/off transition is what carries the measured dot
 	in the log (host_spatial_hands.c's prayer_near) */
 	int prayer_near;
+	/* which term last refused the sign (HANDS_PRAYER_GATE_*), so the line above is written on a
+	change and not per sample. Kept on every sample, logged only about an attempt
+	(hands_recognize): hands apart refuse the distance term for almost the whole of a session
+	and that is not worth a line, but it is still what the next change is measured from */
+	int prayer_gate;
 	double prayer_since; int prayer_fired; double prayer_cooldown_until;
 	double start_until;                                      /* the Start pulse */
 };
@@ -343,9 +348,23 @@ the elevation it measured against the deadzone it crossed, which is
 input.hand_elevation_deadzone and not the turn's. Unlike the turn it has no snap
 mode, so it reports on both settings of input.hand_turn_snap
 (host_spatial_hands.c's hands_recognize) */
+/* PRAYER_GATE is which term of the prayer sign is refusing it, which the PRAYER line above
+cannot say. That line's on and off are the geometry gate as a whole (both hands tracked, the
+palm centres close, both sets of fingers up) and its value is the opposed dot whatever that
+gate did, so a refusal prints a constant threshold against an unrelated quantity and names
+nothing: a device session of seven failed attempts showed the gate going on and off with the
+dot either side of the same numbers and no way to tell which term moved.
+
+So this line carries the first term that refuses, in `finger` (HANDS_PRAYER_GATE_*), with that
+term's own measurement in value and its own constant in threshold. `on` is 1 as a term starts
+refusing and 0 when nothing is refusing any more, and it is emitted only when which term is
+refusing changes, so a hand held still writes one line and not ninety a second.
+ */
+enum { HANDS_PRAYER_GATE_NONE, HANDS_PRAYER_GATE_TRACKED, HANDS_PRAYER_GATE_DISTANCE,
+	HANDS_PRAYER_GATE_FINGERS, HANDS_PRAYER_GATE_OPPOSED };
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
 	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH, HANDS_EVENT_AIM_ELEVATION,
-	HANDS_EVENT_PINCH_HELD };
+	HANDS_EVENT_PINCH_HELD, HANDS_EVENT_PRAYER_GATE };
 /* which reading decided a pinch's event, so the log says which of this file's three paths
 moved it: the two fingertips as ARKit reported them, a position carried in the palm's frame,
 or the still-visible pair behind a hidden fingertip (HANDS_PART_LEVEL_*). HAND_LOST is the
