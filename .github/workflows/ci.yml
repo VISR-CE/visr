@@ -48,6 +48,23 @@ jobs:
           cache-dependency-glob: tools/requirements-ci.txt
       - name: Python tooling, schema, catalog, and Linux probes
         run: uv run --no-project --with-requirements tools/requirements-ci.txt python tools/ci_test.py --linux --junit reports/tooling.xml
+      - name: Game-code probes (compiled 32-bit, no game build)
+        run: |
+          uv run --no-project --with-requirements tools/requirements-ci.txt python -m pytest --quiet \
+            tools/harness/tests/test_unicode_line_breaks.py \
+            tools/harness/tests/test_sound_orphan.py \
+            tools/harness/tests/test_queue_reset.py \
+            tools/harness/tests/test_coop_monitor.py \
+            tools/harness/tests/test_button_presets.py \
+            tools/harness/tests/test_biped_discard.py \
+            tools/harness/tests/test_text_filter.py \
+            tools/harness/tests/test_text_filter_runtime.py \
+            tools/harness/tests/test_contrail_cleanup.py \
+            tools/harness/tests/test_zsprite_depth.py \
+            tools/harness/tests/test_aim_assist.py \
+            tools/harness/tests/test_elevator_carry.py \
+            tools/harness/tests/test_elevator_correction.py \
+            tools/harness/tests/test_elevator_prediction.py
       - name: Test report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
