@@ -14,16 +14,24 @@ the host it runs in on iOS and tvOS.
 
 /* the guest's platform_log (xbox_kernel.c), prefix and stream included, so
 the backend's lines land in stderr.log among the guest's: stderr is
-unbuffered (host_main.m) and both sides write it from the GL thread */
+unbuffered (host_main.m) and both sides write it from the GL thread; each line is formatted whole first */
 void platform_log(const char *format, ...)
 {
 	va_list arguments;
+	char text[1024];
 
-	fputs("halo-linux: ", stderr);
 	va_start(arguments, format);
-	vfprintf(stderr, format, arguments);
+	vsnprintf(text, sizeof(text), format, arguments);
 	va_end(arguments);
-	fputc('\n', stderr);
+	fprintf(stderr, "halo-linux: %s\n", text);
+	/* ... and ios-runtime.log, which iOS keeps and stderr it does not: frame pacing, the external display's
+	rate and the resolution planner's lines reach the log a tester sends */
+	{
+		char line[1100];
+
+		snprintf(line, sizeof(line), "halo-linux: %s", text);
+		host_log_file_line(line);
+	}
 }
 
 void platform_video_drawable_size(int *width, int *height)

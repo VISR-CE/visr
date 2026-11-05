@@ -459,7 +459,9 @@ or the two networks can't connect directly. With internet play off, it says
 so. Once a link opens, the game's own log goes to `stderr.log` in Documents
 (created if needed; started anew past 4 MB at launch), with each step and its
 time (`Internet play:` lines); `ios-runtime.log`, which each launch starts
-anew, has the link itself (`join link:` lines).
+anew (the launch before it stays as `ios-runtime.previous.log`, and a log past 8 MB continues in a new file with
+the earlier part as `ios-runtime.rotated.log`), has the link itself (`join link:` lines) and the renderer's own
+lines (`halo-linux:`: frame pacing, the external display's rate, dynamic resolution).
 Internet play reaches the brokers and the host over the internet, which
 needs no Local Network permission; only a host on the same network as the
 device is reached through it, and the join keeps trying for 90 seconds,

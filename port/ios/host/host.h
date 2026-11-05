@@ -18,6 +18,8 @@ port/runtime/include/halo_guest_abi.h for the guest contract.
 /* ---------- logging */
 
 void host_logf(int priority, const char *format, ...) __attribute__((format(printf, 2, 3)));
+/* one line (no newline) into ios-runtime.log alone: host_log_file.c, which bounds the file */
+void host_log_file_line(const char *text);
 #define HOST_LOG_INFO 4
 #define HOST_LOG_WARN 5
 #define HOST_LOG_ERROR 6
