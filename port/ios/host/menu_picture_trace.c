@@ -169,6 +169,12 @@ static int icon_components_fat(uint8_t *mask,unsigned w,unsigned h,unsigned min,
 static int icon_components(uint8_t *mask,unsigned w,unsigned h,unsigned min,unsigned *queue,const volatile int *cancel) {
     return icon_components_fat(mask,w,h,min,NULL,0,0,queue,cancel);
 }
+#ifndef BLOB_OPEN
+#define BLOB_OPEN 1.3f   /* thinner than this many stroke half-widths is a stroke, not a filled shape: a thin divider between dark pockets stays part of its shape */
+#endif
+#ifndef BLOB_LEVEL
+#define BLOB_LEVEL .36f   /* halfway between a filled shape's blue and the black beside it: neither color wins at thin features */
+#endif
 static float icon_edge(float f,float level,float gx,float gy) {
     float fw=fmaxf(hypotf(gx,gy),1e-4f);return clampf((f-level)/fw+.5f,0,1);
 }
@@ -370,7 +376,15 @@ static void cl_stamp(float *cov,unsigned w,unsigned h,const float *sm,unsigned m
     for(unsigned t=0;t+1<m;t++)cl_stroke_segment(cov,w,h,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,half);
     if(closed&&m>2)cl_stroke_segment(cov,w,h,sm[2*m-2]+.5f,sm[2*m-1]+.5f,sm[0]+.5f,sm[1]+.5f,half);
 }
-/* Arcs: any stretch of a curve that fits a circular arc within a small error is drawn as that exact arc. */
+/* Arcs: any stretch of a curve that fits a circular arc within a small error is drawn as that exact arc. The error allowed
+   grows as the radius shrinks: a small loop is much more likely a drawn circle than a large wobbly outline is an arc. */
+#ifndef ARC_SMALL
+#define ARC_SMALL 3.0f   /* the most the tolerance is widened, for the smallest radii */
+#endif
+static float cl_arc_tol(float R,float width) {
+    float f=3.f*width/(R>width?R:width);if(f<1)f=1;if(f>ARC_SMALL)f=ARC_SMALL;   /* only radii under three stroke widths get more room */
+    return .16f*width*f;
+}
 static int cl_circle_fit(const float *p,unsigned n,float *cx,float *cy,float *R,float *maxerr) {
     double mx=0,my=0;for(unsigned i=0;i<n;i++){mx+=p[2*i];my+=p[2*i+1];}mx/=n;my/=n;
     double suu=0,suv=0,svv=0,suuu=0,svvv=0,suvv=0,svuu=0;
@@ -388,13 +402,13 @@ static float cl_arc_span(const float *p,unsigned n,float cx,float cy) {
 }
 /* returns the number of points written to out (capacity cap), or 0 when nothing changed */
 static unsigned cl_arcs(const float *p,unsigned m,float width,float *out,unsigned cap) {
-    const float tol=.16f*width;const unsigned first=32;unsigned o=0,i=0,arcs=0,nj=0;static unsigned jn[512];
+    const unsigned first=32;unsigned o=0,i=0,arcs=0,nj=0;static unsigned jn[512];
     while(i<m){
         float cx,cy,R,err;int ok=0;unsigned j=i;
-        if(i+first<=m&&cl_circle_fit(p+2*i,first,&cx,&cy,&R,&err)&&err<=tol&&R>=.8f*width&&R<=10*width){
+        if(i+first<=m&&cl_circle_fit(p+2*i,first,&cx,&cy,&R,&err)&&err<=cl_arc_tol(R,width)&&R>=.8f*width&&R<=10*width){
             ok=1;j=i+first;
             for(;;){unsigned k=j+4>m?m:j+4;if(k==j)break;float c2,d2,R2,e2;
-                if(cl_circle_fit(p+2*i,k-i,&c2,&d2,&R2,&e2)&&e2<=tol&&R2>=.8f*width&&R2<=10*width){j=k;cx=c2;cy=d2;R=R2;}else break;}
+                if(cl_circle_fit(p+2*i,k-i,&c2,&d2,&R2,&e2)&&e2<=cl_arc_tol(R2,width)&&R2>=.8f*width&&R2<=10*width){j=k;cx=c2;cy=d2;R=R2;}else break;}
             float span=cl_arc_span(p+2*i,j-i,cx,cy);
             if(fabsf(span)<1.05f)ok=0;   /* about 60 degrees: shallower is a line, left to the smoothing */
             else{
@@ -474,7 +488,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
      unsigned acc=0;int bm=0;for(int b=0;b<64;b++){acc+=hist[b];if(acc>=total*.3f){bm=b;break;}}
      base_half=(bm+.5f)*.25f;}
     /* parts thicker than the stroke are filled shapes, drawn from their level set */
-    {int r=(int)ceilf(base_half*1.9f);
+    {int r=(int)ceilf(base_half*BLOB_OPEN);
      for(size_t i=0;i<un;i++)aux[i]=D1[i]>r;
      cl_dist(aux,1,D2,uw,uh);
      for(size_t i=0;i<un;i++)blob[i]=D2[i]<=r;
@@ -570,7 +584,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
             double rm=0;for(unsigned t=0;t<m;t++)rm+=hypot(sm[2*t]-mx,sm[2*t+1]-my);rm/=m;
             double dev=0;for(unsigned t=0;t<m;t++){double e=hypot(sm[2*t]-mx,sm[2*t+1]-my)-rm;dev+=e*e;}dev=sqrt(dev/m);
             unsigned want=(unsigned)lround(2*M_PI*rm);
-            if(rm>=6&&dev<.03*rm&&want>=24&&want<cap){for(unsigned t=0;t<want;t++){double a=2*M_PI*t/want;sm[2*t]=(float)(mx+rm*cos(a));sm[2*t+1]=(float)(my+rm*sin(a));}m=want;}
+            if(rm>=6&&dev<fmaxf(.03*rm,.5*cl_arc_tol((float)rm,width))&&want>=24&&want<cap){for(unsigned t=0;t<want;t++){double a=2*M_PI*t/want;sm[2*t]=(float)(mx+rm*cos(a));sm[2*t+1]=(float)(my+rm*sin(a));}m=want;}
         }
         if(m>=24){unsigned acap=m*2+64;float *ar=malloc((size_t)acap*2*sizeof(float));
             if(ar){unsigned k=cl_arcs(sm,m,width,ar,acap);if(k&&k<=cap){memcpy(sm,ar,(size_t)k*2*sizeof(float));m=k;}free(ar);}}
@@ -604,7 +618,7 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
             size_t q=(size_t)y*uw+x;AL[q]=AL[q]+c-AL[q]*c;}}
     /* filled shapes: the level set of the line field inside the thick parts */
     for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;if((!blob[u]&&!prim[u])||primd[u])continue;
-        float gx=(S[u+1]-S[u-1])*.5f,gy=(S[u+uw]-S[u-uw])*.5f;float aB=icon_edge(S[u],.48f,gx,gy);AL[u]=AL[u]+aB-AL[u]*aB;}
+        float gx=(S[u+1]-S[u-1])*.5f,gy=(S[u+uw]-S[u-uw])*.5f;float aB=icon_edge(S[u],BLOB_LEVEL,gx,gy);AL[u]=AL[u]+aB-AL[u]*aB;}
     for(size_t i=0;i<un;i++)shp[i]=blob[i]||prim[i]||primd[i];
     /* the dark fill: the figure's darkness, reaching under the strokes, and only where the strokes enclose it */
     for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;
