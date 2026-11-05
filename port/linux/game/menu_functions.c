@@ -5965,6 +5965,9 @@ static void gametype_edit_list_update(struct widget_instance *list)
 		widget->visible = gametype_edit.first > 0;
 	if ((widget = named(list, "scroll_down_arrow", 0)) != NULL)
 		widget->visible = gametype_edit.first + rows < gametype_edit.count;
+	/* (the Xbox look's short line that joins the first row's tab to the panel's border) */
+	if ((widget = named(list, "first_row_seam", 0)) != NULL)
+		widget->visible = focused_row(list) == 0;
 	visible_set(named(description, "gametype_right_item", 0), gametype_edit.count > 0);
 	if (gametype_edit.chosen < gametype_edit.count)
 	{

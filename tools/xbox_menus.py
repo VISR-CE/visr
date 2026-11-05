@@ -675,6 +675,12 @@ def gametype_select_layout(root, widgets, bitmaps):
         arrow = f'{GT}/scroll_{direction}_arrow'
         widget(root, arrow, width=16, height=16, bitmap=bitmap_ref(f'bitmaps/arrow_sm_{direction}', bitmaps))
         child(rows, arrow, x=GT_LIST_X + 204, y=y)
+    # With the first row chosen its tab's top line stops 6 units short of the panel's, which starts after its
+    # rounded corner (the tab covers the corner): a short line across the seam, with a patch of the panel's dark under it that hides the corner's remnant, shown only then
+    seam = ET.SubElement(root, 'bitmap', name='xbox/bitmaps/gametype_seam')
+    ET.SubElement(seam, 'frame', png=f'{ART}/gametype_seam.png', width='10', height='6')
+    widget(root, GT + '/first_row_seam', width=10, height=6, bitmap='xbox/bitmaps/gametype_seam')
+    child(rows, GT + '/first_row_seam', x=GT_PANEL[0] + 1, y=GT_LIST_Y)
     rows.set('height', '400')
     rows.set('description', GT + '/gametype_extended_desc')
     # Create New and Delete are the Y and X buttons, as in the game's own

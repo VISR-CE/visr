@@ -47,6 +47,7 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/list_item_8" x="51" y="342" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/scroll_up_arrow" x="255" y="86" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/scroll_down_arrow" x="255" y="350" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/first_row_seam" x="276" y="78" />
 		<on event="y" run="create&amp;edit playlist profile" open="ui\shell\main_menu\settings_select\multiplayer_setup\create_and_edit_new_gametype_screen" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/list_item_text" type="text" controller="1" width="214" height="28" font="ui\large_ui" color="#FF2896FF" text_flags="no_focus_test" />
@@ -106,6 +107,10 @@
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
+	<bitmap name="xbox/bitmaps/gametype_seam">
+		<frame png="xbox/art/gametype_seam.png" width="10" height="6" />
+	</bitmap>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/first_row_seam" width="10" height="6" bitmap="xbox/bitmaps/gametype_seam" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/x_butn" type="container" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
