@@ -537,8 +537,9 @@ static void aim_turn_silent_in_a_hand_gap(void)
 }
 
 /* the off hand's index pinch moves the stick forward, middle back (index wins when both are
-closed), ring clicks the stick; the gun hand's index fires, ring is the low face button and
-middle is the high face button. Both hands' little fingers stay unbound */
+closed), ring clicks the stick, little is its low face button (the weapon swap, the pad's Y
+once host_spatial_gamepad_map has had it); the gun hand's index fires, ring is the low face
+button and middle is the high face button, and its own little finger stays unbound */
 static void off_hand_mapping(void)
 {
 	struct hands_state state;
@@ -567,6 +568,29 @@ static void off_hand_mapping(void)
 	joints[0].tip[3][2] = 0.010f; /* ring: stick click */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[0].stick_click == 1, "off hand: ring closes the stick click");
+
+	/* the little finger, bound the way the three above are: its own pinch, its own ruler, and
+	the off hand's low face button, which is the swap */
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[0].tip[4][2] = 0.010f; /* little: the weapon swap */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[0].face_low == 1, "off hand: little closes the weapon swap");
+	check(controls[0].stick_y == 0.0f && controls[0].stick_click == 0 && controls[0].face_high == 0,
+		"off hand: and moves nothing else of the off hand's");
+
+	/* and the gun hand's little finger still reaching nothing, which is the half of the pair
+	the reach gesture is still owed: the gun hand's own face_low is the ring pinch's jump, so a
+	little pinch landing there would jump, and controls[o] belongs to the other hand entirely */
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].tip[4][2] = 0.010f; /* the gun hand's little finger */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.0, controls, events, 16);
+	check(controls[1].face_low == 0 && controls[1].face_high == 0 && controls[1].trigger == 0.0f &&
+		controls[1].stick_click == 0, "off hand: the gun hand's little finger is still unbound");
+	check(controls[0].face_low == 0, "off hand: and does not cross to the off hand's swap");
 }
 
 /* mirrored: aiming_hand = 0, so the gun is on hand 0 and the off hand is hand 1 */
@@ -590,8 +614,11 @@ static void mirror_aim(void)
 	joints[0] = make_hand(0);
 	joints[1] = make_hand(1);
 	joints[1].tip[1][2] = 0.010f; /* walk forward with the off hand (now hand 1) */
+	joints[1].tip[4][2] = 0.010f; /* and swap weapons with it, mirrored the same way */
 	hands_recognize(&state, joints, 0, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.0, controls, events, 16);
 	check(controls[1].stick_y == 1.0f, "mirror: hand 1's index walks forward as the off hand");
+	check(controls[1].face_low == 1 && controls[0].face_low == 0,
+		"mirror: hand 1's little finger swaps weapons as the off hand, and hand 0's does not");
 	check(controls[1].menu == 0, "mirror: the off hand's menu is never set, mirrored too");
 }
 

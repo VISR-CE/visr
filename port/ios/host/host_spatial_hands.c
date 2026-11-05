@@ -753,9 +753,18 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		}
 	}
 
-	/* the gun hand's buttons, and the off hand's stick and click. Both hands' little fingers
-	stay unbound: switching and picking up a weapon is reserved for a reach-toward-the-ear
-	gesture, not a pinch, so it is not this finger's to take */
+	/* the gun hand's buttons, and the off hand's stick, click and weapon swap. The gun hand's
+	little finger stays unbound: switching and picking a weapon up is reserved for a
+	reach-toward-the-ear gesture, not a pinch, so it is not that finger's to take.
+
+	The off hand's little finger takes the swap in the meantime, on controls[o].face_low, which
+	host_spatial_gamepad_map maps to the pad's Y, the off hand's low face button in
+	host_spatial_gamepad.h's table and the game's switch weapon. Several controls on that table
+	still have no gesture at all (the grenade, melee, the flashlight, switching grenades, zoom,
+	Back); this is the one a player cannot play without, since carrying two weapons and having
+	no way to change between them leaves the second one dead weight. face_low was also the last
+	field of the off hand's controls nothing was filling, so the swap costs no other gesture its
+	own control. Interim: it comes back off this finger once the reach gesture exists */
 	controls[g].trigger = state->pinch[g][HANDS_PINCH_INDEX].closed ? 1.0f : 0.0f;
 	controls[g].face_low = state->pinch[g][HANDS_PINCH_RING].closed ? 1 : 0;
 	controls[g].face_high = state->pinch[g][HANDS_PINCH_MIDDLE].closed ? 1 : 0;
@@ -764,6 +773,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	else if (state->pinch[o][HANDS_PINCH_MIDDLE].closed)
 		controls[o].stick_y = -1.0f;
 	controls[o].stick_click = state->pinch[o][HANDS_PINCH_RING].closed ? 1 : 0;
+	controls[o].face_low = state->pinch[o][HANDS_PINCH_LITTLE].closed ? 1 : 0;
 
 	/* an untracked gun hand has no aim to turn from, and nothing below cleans up after one:
 	the zeroing at the end of this function spares a hand that is only inside its gap, so this
