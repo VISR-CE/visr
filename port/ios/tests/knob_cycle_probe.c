@@ -29,7 +29,7 @@ int main(void)
 	int shadow = find("display.shadow_map_size");
 
 	knob_state_reset(&state);
-	assert(KNOB_COUNT == 8 && shadow >= 0);
+	assert(KNOB_COUNT == 9 && shadow >= 0);
 	/* choosing a knob shows it at the setting's value and changes nothing */
 	assert(!knob_cycle_press(&state, shadow, 0, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(label, "shadow map 512") && state.selected == shadow);

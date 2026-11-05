@@ -2386,6 +2386,9 @@ float halo_knob_render_quality(void)
 /* One setting of debug.knob_cycle's chord (xinput_sdl.c), by its config name and value text.
 The targets that depend on it are allocated again on the next frame; changes last until the app quits.
 Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
+/* debug.knob_cycle's "ambient occlusion" (debug.ssao spike, halo_ssao_after_lightmaps), -1: the setting */
+static int ssao_live = -1;
+
 int halo_knob_apply(const char *name, const char *value)
 {
 	if (!strcmp(name, "display.render_height"))
@@ -2413,6 +2416,8 @@ int halo_knob_apply(const char *name, const char *value)
 	}
 	else if (!strcmp(name, "display.effect_resolution"))
 		knob_effect_level = effect_resolution_level(value);
+	else if (!strcmp(name, "debug.ssao"))
+		ssao_live = atoi(value);
 	else if (!strcmp(name, "display.graphics"))
 		return config_graphics_try(value);
 	else
@@ -2616,6 +2621,99 @@ void halo_render_scene_end(void)
 
 /* what the shader translators emit for this context */
 static struct nv2a_dialect shader_dialect;
+
+/* ---------- debug.ssao (spike): screen-space ambient occlusion (~/code/agent-specs, 2026-11-05 ssao design)
+
+Right after the level's lightmap pass (render_window, source/render/render.c) the frame holds the level's lightmap
+light (multiplied by the diffuse textures later) and the objects' finished pixels, and its depth buffer has every
+opaque surface. The lightmap pass marks the pixels it wrote with stencil 0x10 (halo_ssao_lightmaps_mark), and
+halo_ssao_after_lightmaps hands the scene's color and depth targets to the backend, which computes AO from the depth
+and multiplies it into the level's light and, weaker, into the objects' pixels (gpu_metal.m, host_ssao_apply).
+Metal only, a player's or the menu's own view only, not multisampled and not stereo; off: nothing changes. */
+
+/* the view whose lightmap pass marked the stencil, so halo_ssao_after_lightmaps may run */
+static BOOL ssao_view_marked;
+
+static int ssao_mode(void)
+{
+	return ssao_live >= 0 ? ssao_live : (int)config_integer("debug.ssao");
+}
+
+/* whether the view being drawn takes AO: the same answer at the mark and at the pass */
+static BOOL ssao_view_wanted(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+	struct render_target_entry *color, *depth;
+
+	if (!native_scene || !device.gl_ready || !shader_dialect.msl || ssao_mode() <= 0)
+		return FALSE;
+	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
+		return FALSE;
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || !depth->target.depth || color->samples || depth->samples)
+		return FALSE;
+	return TRUE;
+}
+
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (0x10) */
+int halo_ssao_lightmaps_mark(int begin)
+{
+	if (begin)
+		ssao_view_marked = ssao_view_wanted();
+	return ssao_view_marked;
+}
+
+void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
+	float p21)
+{
+	struct render_target_entry *color, *depth;
+	float parameters[20];
+	int mode = ssao_mode();
+
+	(void)rasterizer_target;
+	if (!ssao_view_marked)
+		return;
+	ssao_view_marked = FALSE;
+	if (!ssao_view_wanted())
+		return;
+	IMMEDIATE_FLUSH();
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	parameters[0] = floorf((float)native_scene_bounds[0] * color->target.scale[0] + 0.5f);
+	parameters[1] = floorf((float)native_scene_bounds[1] * color->target.scale[1] + 0.5f);
+	parameters[2] = floorf((float)native_scene_bounds[2] * color->target.scale[0] + 0.5f) - parameters[0];
+	parameters[3] = floorf((float)native_scene_bounds[3] * color->target.scale[1] + 0.5f) - parameters[1];
+	parameters[4] = z_near;
+	parameters[5] = z_far;
+	parameters[6] = p00;
+	parameters[7] = p11;
+	parameters[8] = p20;
+	parameters[9] = p21;
+	parameters[10] = (float)config_real("debug.ssao_radius");
+	parameters[11] = (float)config_real("debug.ssao_strength");
+	parameters[12] = (float)config_real("debug.ssao_objects");
+	parameters[13] = (float)config_real("debug.ssao_static_weight");
+	parameters[14] = (float)mode;
+	parameters[15] = config_boolean("debug.ssao_high") ? 1.0f : 0.0f;
+	parameters[16] = (float)config_real("debug.ssao_max_pixels");
+	parameters[17] = (float)config_real("debug.ssao_fade_distance");
+	parameters[18] = (float)config_real("debug.ssao_level_floor");
+	parameters[19] = (float)config_real("debug.ssao_object_floor");
+	if (parameters[2] <= 0.0f || parameters[3] <= 0.0f)
+		return;
+	{
+		static unsigned long passes;
+
+		if (!passes++ || !(passes % 7200))
+			platform_log("ssao: pass %lu, mode %d, %gx%g at %g,%g, near %g far %g, radius %g", passes, mode,
+				(double)parameters[2], (double)parameters[3], (double)parameters[0], (double)parameters[1],
+				(double)z_near, (double)z_far, (double)parameters[10]);
+	}
+#ifdef HALO_ILP32
+	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 20);
+#endif
+}
 
 /* debug.rate_map_test, on Metal outside a stereo frame */
 static int rate_map_test(void)

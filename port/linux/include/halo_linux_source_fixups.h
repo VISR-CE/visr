@@ -82,6 +82,12 @@ these spans (the HUD, the flash, menus, bars, loading screens, movies) is
 drawn at the display's size when the scene's is smaller */
 void halo_render_scene_begin(short rasterizer_target, long x0, long y0, long x1, long y1);
 void halo_render_scene_end(void);
+/* debug.ssao (spike, port/linux/src/d3d8_device.c): the level's lightmap pass marks its pixels in stencil (0x10)
+when halo_ssao_lightmaps_mark(TRUE) says so (rasterizer_xbox_environment.c), and after it the view's ambient
+occlusion runs (render_window), with the window's depth range and its projection's scale and offset */
+int halo_ssao_lightmaps_mark(int begin);
+void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
+	float p21);
 /* a map has loaded and its first frame is next (main_new_map): the shaders
 and pipelines its list names are compiled now, under the loading screen
 (port/linux/src/d3d8_device.c) */

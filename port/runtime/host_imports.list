@@ -108,6 +108,8 @@ host_gpu_frame_context
 host_gpu_compiles_outstanding
 host_gpu_compile_progress
 host_gpu_initialize
+# debug.ssao (spike; d3d8_device.c, gpu_metal.m)
+host_ssao_apply
 # stereo (halo_stereo.h)
 host_stereo_frame
 host_stereo_entered
