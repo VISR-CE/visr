@@ -7523,6 +7523,9 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 		/* debug.ssao_path: 0 full-resolution upsample, 1 the blurred half-resolution AO sampled bilinearly in the
 		composite, 2 the raw half-resolution AO (no blur); modes 2-4 always take path 0 */
 		int path = count >= 23 && mode == 1 ? (int)values[22] : 0;
+		/* debug.ssao_stop (cost bisection): 1 prepare only, 2 prepare and gather, 3 every dispatch; none of them
+		composite; 0 everything */
+		int stop = count >= 24 && mode == 1 ? (int)values[23] : 0;
 		width = color_record->content_width ? color_record->content_width : color_record->texture.width;
 		height = color_record->content_height ? color_record->content_height : color_record->texture.height;
 		width = MIN(width, depth_record->texture.width);
@@ -7590,17 +7593,19 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			[compute setTexture:ssao.stencil_view atIndex:1];
 			[compute setTexture:ssao.half_depth atIndex:2];
 			ssao_dispatch(compute, ssao.prepare, p.hw, p.hh);
+			if (stop != 1)
+			{
 			[compute setTexture:ssao.half_depth atIndex:0];
 			[compute setTexture:ssao.raw atIndex:1];
 			ssao_dispatch(compute, ssao.gather, p.hw, p.hh);
-			if (path != 2)
+			if (path != 2 && stop != 2)
 			{
 				[compute setTexture:ssao.half_depth atIndex:0];
 				[compute setTexture:ssao.raw atIndex:1];
 				[compute setTexture:ssao.blurred atIndex:2];
 				ssao_dispatch(compute, ssao.blur, p.hw, p.hh);
 			}
-			if (path == 0)
+			if (path == 0 && stop != 2)
 			{
 			[compute setTexture:depth_record->texture atIndex:0];
 			[compute setTexture:ssao.stencil_view atIndex:1];
@@ -7610,12 +7615,13 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			[compute setTexture:ssao.debug_image atIndex:5];
 			ssao_dispatch(compute, ssao.upsample, p.w, p.h);
 			}
+			}
 			[compute endEncoding];
 		}
 		/* the scene's pass again, loaded, with the composite first */
 		if (!pass_begin(color, depth, NULL) || !encoder)
 			return;
-		if (mode != 5)
+		if (mode != 5 && !stop)
 		{
 			c.ox = (uint32_t)area.x;
 			c.oy = (uint32_t)area.y;

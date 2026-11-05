@@ -2668,7 +2668,7 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 	float p21, float p22, float p32)
 {
 	struct render_target_entry *color, *depth;
-	float parameters[23];
+	float parameters[24];
 	int mode = ssao_mode();
 
 	(void)rasterizer_target;
@@ -2704,6 +2704,7 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 	parameters[20] = p22;
 	parameters[21] = p32;
 	parameters[22] = (float)config_integer("debug.ssao_path");
+	parameters[23] = (float)config_integer("debug.ssao_stop");
 	if (parameters[2] <= 0.0f || parameters[3] <= 0.0f)
 		return;
 	{
@@ -2716,7 +2717,7 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 				(double)parameters[10]);
 	}
 #ifdef HALO_ILP32
-	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 23);
+	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 24);
 #endif
 }
 

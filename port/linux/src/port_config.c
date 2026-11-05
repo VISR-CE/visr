@@ -1727,6 +1727,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.ssao_path", _config_integer, "0", "HALO_SSAO_PATH", _environment_value, _platform_ios,
 		"With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled\n"
 		"bilinearly as it is applied, 2 the same without the blur." },
+	{ "debug.ssao_stop", _config_integer, "0", "HALO_SSAO_STOP", _environment_value, _platform_ios,
+		"With debug.ssao 1, to measure the stages: 1 only the depth preparation, 2 also the gather, 3 every dispatch;\n"
+		"none of them applies the occlusion. 0 everything." },
 	{ "debug.ssao_view_flag", _config_boolean, "false", "HALO_SSAO_VIEW_FLAG", _environment_value, _platform_ios,
 		"With debug.ssao off: make depth targets readable as stencil views anyway (to measure that alone)." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,
