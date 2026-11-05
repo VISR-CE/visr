@@ -1166,10 +1166,14 @@ static void gpu_gl_texture_upload(gpu_texture texture, uint32_t face, uint32_t l
 	}
 }
 
+static void framebuffers_forget(GLuint texture);
+
 static void gpu_gl_texture_destroy(gpu_texture texture)
 {
 	GLuint name = texture;
 
+	/* (the cached framebuffers that attach it go first: GL hands the name out again) */
+	framebuffers_forget(name);
 	glDeleteTextures(1, &name);
 	/* deleting a bound texture unbinds it */
 	state_invalidate();
@@ -1199,6 +1203,24 @@ struct framebuffer_entry
 };
 
 static struct framebuffer_entry *framebuffers;
+
+/* deletes the cached framebuffers that attach a texture, before the texture is deleted */
+static void framebuffers_forget(GLuint texture)
+{
+	struct framebuffer_entry *entry, **link = &framebuffers;
+
+	while ((entry = *link) != NULL)
+	{
+		if (entry->color == texture || entry->depth == texture)
+		{
+			*link = entry->next;
+			glDeleteFramebuffers(1, &entry->framebuffer);
+			free(entry);
+		}
+		else
+			link = &entry->next;
+	}
+}
 
 static GLuint framebuffer_get(GLuint color, GLuint depth)
 {

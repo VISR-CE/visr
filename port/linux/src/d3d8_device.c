@@ -783,6 +783,8 @@ struct render_target_entry
 	struct render_target_entry *next_in_bucket;
 	struct xgpu_render_target target;
 	unsigned long last_rendered;
+	/* the frame it was made in (+ 1, as last_rendered counts): a target not drawn into yet is not an old one */
+	unsigned long created;
 	/* the stereo layer a screen-sized target is for (halo_stereo.h), else
 	HALO_STEREO_LAYER_MONO */
 	int layer;
@@ -1548,6 +1550,7 @@ static struct render_target_entry *render_target_get_layer(const D3DSurface *sur
 	}
 	entry = calloc(1, sizeof(*entry));
 	entry->layer = layer;
+	entry->created = device.frame + 1;
 	/* (multisampling's screen buffers: the mono back buffer and depth buffer, foveated by debug.rate_map_test
 	or not, and in stereo each eye's and the zoomed picture's, which replaces the eyes while scoped; never the
 	HUD's or the other stereo layers) */
@@ -2079,6 +2082,9 @@ static BOOL draw_targets(gpu_texture *color_texture, gpu_texture *depth_texture)
 		color->last_rendered = device.frame + 1;
 		color->target.written = ++render_target_write_serial;
 	}
+	/* (the depth's too: superseded_targets_release tells a depth target in use from a resized-away one) */
+	if (depth)
+		depth->last_rendered = device.frame + 1;
 	if (color && color->layer == HALO_STEREO_LAYER_RETICLE)
 		halo_stereo_reticle_drew();
 	target_hud_layer = color && layer_is_hud(color->layer);
@@ -7361,6 +7367,85 @@ static void native_targets_release(void)
 	}
 }
 
+/* debug.render_scale_sweep: every this many frames the render scale moves 0.005 down a 100-step ramp (1.0 to 0.505)
+and wraps to 1.0, each step a size no target has had, as a window being dragged larger and smaller makes: the live
+targets (debug.gpu_stats' "render targets:" line) show whether the old ones are freed */
+static void render_scale_sweep_frame(void)
+{
+	static long interval = -1;
+	long step;
+
+	if (interval < 0)
+		interval = config_integer("debug.render_scale_sweep");
+	if (interval <= 0 || device.frame == 0 || device.frame % (unsigned long)interval)
+		return;
+	step = (long)(device.frame / (unsigned long)interval) % 100;
+	render_scale_live = 1.0 - 0.005 * (double)step;
+	platform_log("render scale %.3f (sweep step %ld)", render_scale_live, step);
+}
+
+/* The screen's targets a resize left behind: render_target_get_layer makes a new target when the screen's size or
+scale (a window resize, a fold, a render scale step, the dynamic resolution ceiling, an anti-aliasing change) differs
+from the one a surface's target has, and the old one is never asked for again. One that nothing has drawn into for two
+seconds' frames, while another target of the same surface, layer and kind has been drawn into since, is freed: a
+target that still alternates with its sibling (a mono layer going between the theater picture's size and the
+screen's) is drawn into every few frames and stays, with its contents. The recent targets forget first (they name
+entries), and the backend holds a texture until the frames using it are done (the GL backend also drops the
+framebuffers that name it). Called once a second. */
+static void superseded_targets_release(void)
+{
+	struct render_target_entry **link = &render_targets;
+	unsigned long freed = 0, bytes = 0;
+
+	while (*link)
+	{
+		struct render_target_entry *entry = *link, *newer;
+
+		if ((entry->target.data != device.back_buffer.Data && entry->target.data != device.depth_buffer.Data) ||
+			entry->target.height != SCREEN_HEIGHT || entry->last_rendered + 120 > device.frame ||
+			entry->created + 120 > device.frame)
+		{
+			link = &entry->next;
+			continue;
+		}
+		for (newer = *render_target_bucket(entry->target.data); newer; newer = newer->next_in_bucket)
+			if (newer != entry && newer->target.data == entry->target.data && newer->layer == entry->layer &&
+				newer->target.depth == entry->target.depth && newer->target.foveated_eye == entry->target.foveated_eye &&
+				newer->target.pooled == entry->target.pooled && newer->last_rendered > entry->last_rendered &&
+				newer->last_rendered + 120 > device.frame)
+				break;
+		if (!newer)
+		{
+			link = &entry->next;
+			continue;
+		}
+		if (!freed)
+			recent_render_targets_forget();
+		*link = entry->next;
+		bytes += entry->target.allocated_width * entry->target.allocated_height * (entry->target.depth ? 5 : 4);
+		render_target_entry_free(entry);
+		freed++;
+	}
+	if (freed)
+		platform_log("screen: freed %lu superseded targets of an older size (%lu KB)", freed, bytes >> 10);
+}
+
+/* the targets alive and their bytes (the allocated size; the multisampled storage is the backend's), for
+debug.gpu_stats */
+static unsigned long render_targets_live(unsigned long *bytes)
+{
+	const struct render_target_entry *entry;
+	unsigned long count = 0;
+
+	*bytes = 0;
+	for (entry = render_targets; entry; entry = entry->next)
+	{
+		count++;
+		*bytes += entry->target.allocated_width * entry->target.allocated_height * (entry->target.depth ? 5 : 4);
+	}
+	return count;
+}
+
 /* the back buffer's texture for a stereo layer if something drew it this
 frame, else NULL (without creating it) */
 static struct render_target_entry *back_buffer_drawn_this_frame(int layer)
@@ -7743,7 +7828,11 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 	native_scene = FALSE;
 	companion_records_reset(&companion_records);
 	if (device.frame % 60 == 0)
+	{
 		native_targets_release();
+		superseded_targets_release();
+	}
+	render_scale_sweep_frame();
 	if (knob_release_frame && device.frame >= knob_release_frame)
 		knob_targets_release();
 	device.frame++;
@@ -7766,8 +7855,13 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 			stats.target_changes / stats.presents, stats.skipped_no_program, stats.skipped_no_target, stats.skipped_link,
 			stats.mirrored_bytes / stats.presents / 1024, stats.streamed_bytes / stats.presents / 1024,
 			calls / stats.presents);
-		platform_log("render targets: %lu lookups a frame, %lu of them from the recent targets; %lu made in all",
-			stats.render_target_lookups / stats.presents, stats.render_target_recent / stats.presents, render_targets_made);
+		{
+			unsigned long live_bytes, live = render_targets_live(&live_bytes);
+
+			platform_log("render targets: %lu lookups a frame, %lu of them from the recent targets; %lu made in all; "
+				"%lu live, %lu KB", stats.render_target_lookups / stats.presents,
+				stats.render_target_recent / stats.presents, render_targets_made, live, live_bytes >> 10);
+		}
 		memset(&stats, 0, sizeof(stats));
 		/* and how stereo's HUD layer took its draws (hud_layer_blend) */
 		if (hud_layer_exact || hud_layer_inexact)
