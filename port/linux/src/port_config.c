@@ -1715,7 +1715,9 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that);\n"
 		"objects always occlude fully." },
 	{ "debug.ssao_high", _config_boolean, "true", "HALO_SSAO_HIGH", _environment_value, _platform_ios,
-		"With debug.ssao: two directions and six steps a side per pixel; false, one direction and four steps." },
+		"With debug.ssao: two directions and four steps a side per pixel; false, one direction and three steps." },
+	{ "debug.ssao_steps", _config_integer, "0", "HALO_SSAO_STEPS", _environment_value, _platform_ios,
+		"With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own." },
 	{ "debug.ssao_max_pixels", _config_real, "0.12", "HALO_SSAO_MAX_PIXELS", _environment_value, _platform_ios,
 		"With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height." },
 	{ "debug.ssao_fade_distance", _config_real, "35", "HALO_SSAO_FADE_DISTANCE", _environment_value, _platform_ios,
@@ -1724,12 +1726,16 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black)." },
 	{ "debug.ssao_object_floor", _config_real, "0.6", "HALO_SSAO_OBJECT_FLOOR", _environment_value, _platform_ios,
 		"With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it)." },
-	{ "debug.ssao_path", _config_integer, "0", "HALO_SSAO_PATH", _environment_value, _platform_ios,
+	{ "debug.ssao_path", _config_integer, "1", "HALO_SSAO_PATH", _environment_value, _platform_ios,
 		"With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled\n"
 		"bilinearly as it is applied, 2 the same without the blur." },
 	{ "debug.ssao_stop", _config_integer, "0", "HALO_SSAO_STOP", _environment_value, _platform_ios,
 		"With debug.ssao 1, to measure the stages: 1 only the depth preparation, 2 also the gather, 3 every dispatch;\n"
 		"none of them applies the occlusion. 0 everything." },
+	{ "debug.ssao_gather_v1", _config_boolean, "false", "HALO_SSAO_GATHER_V1", _environment_value, _platform_ios,
+		"With debug.ssao 1: the first spike's depth preparation and gather, to time them against the current ones." },
+	{ "debug.ssao_scale", _config_integer, "4", "HALO_SSAO_SCALE", _environment_value, _platform_ios,
+		"With debug.ssao 1 and debug.ssao_path 1 or 2: compute the occlusion at half (2) or quarter (4) resolution." },
 	{ "debug.ssao_view_flag", _config_boolean, "false", "HALO_SSAO_VIEW_FLAG", _environment_value, _platform_ios,
 		"With debug.ssao off: make depth targets readable as stencil views anyway (to measure that alone)." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,
