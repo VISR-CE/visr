@@ -361,6 +361,15 @@ static void cl_stroke_segment(float *cov,unsigned w,unsigned h,float ax,float ay
         float dx=px-t*vx,dy=py-t*vy,d=sqrtf(dx*dx+dy*dy);
         float c=clampf(half+.5f-d,0,1);size_t i=(size_t)y*w+x;if(c>cov[i])cov[i]=c;}
 }
+/* the stroke set of one curve, anti-aliased into cov (which must be zero where it is drawn); bb gets the touched box */
+static void cl_stamp(float *cov,unsigned w,unsigned h,const float *sm,unsigned m,int closed,float half,int bb[4]) {
+    float x0=1e9f,y0=1e9f,x1=-1e9f,y1=-1e9f;
+    for(unsigned t=0;t<m;t++){if(sm[2*t]<x0)x0=sm[2*t];if(sm[2*t]>x1)x1=sm[2*t];if(sm[2*t+1]<y0)y0=sm[2*t+1];if(sm[2*t+1]>y1)y1=sm[2*t+1];}
+    bb[0]=(int)floorf(x0-half-3);bb[1]=(int)floorf(y0-half-3);bb[2]=(int)ceilf(x1+half+3);bb[3]=(int)ceilf(y1+half+3);
+    if(bb[0]<0)bb[0]=0;if(bb[1]<0)bb[1]=0;if(bb[2]>=(int)w)bb[2]=(int)w-1;if(bb[3]>=(int)h)bb[3]=(int)h-1;
+    for(unsigned t=0;t+1<m;t++)cl_stroke_segment(cov,w,h,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,half);
+    if(closed&&m>2)cl_stroke_segment(cov,w,h,sm[2*m-2]+.5f,sm[2*m-1]+.5f,sm[0]+.5f,sm[1]+.5f,half);
+}
 /* Round parts: a thick component that is an ellipse or an elliptical ring within a small error (a circle when the
    axes agree) is drawn exactly; k is the ring's inner size as a fraction of the outer, 0 for a solid dot. */
 struct cl_prim { float cx,cy,Rx,Ry,k; };
@@ -501,8 +510,10 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
      if(width<2.f||width>24.f)goto done;}
     /* strokes: every curve smoothed where it bends gently, then rasterized at that one width with round caps and joins */
     memset(AL,0,un*sizeof(float));
-    for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2||c->tip)continue;
-        unsigned cap=c->n*2+16;float *sm=malloc((size_t)cap*2*sizeof(float));if(!sm)goto done;
+    {
+     float **sp=calloc(np,sizeof(float *));unsigned *sn=calloc(np,sizeof(unsigned));char *drop=calloc(np,1);int ok=sp&&sn&&drop;
+     if(ok)for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2||c->tip)continue;
+        unsigned cap=c->n*2+16;float *sm=malloc((size_t)cap*2*sizeof(float));if(!sm){ok=0;break;}
         unsigned m=cl_smooth(c->p,c->n,c->closed,width,sm,cap);
         if(c->closed&&m>=24){   /* a closed curve that is a circle within a small error is drawn as one */
             double mx=0,my=0;for(unsigned t=0;t<m;t++){mx+=sm[2*t];my+=sm[2*t+1];}mx/=m;my/=m;
@@ -511,9 +522,27 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
             unsigned want=(unsigned)lround(2*M_PI*rm);
             if(rm>=6&&dev<.03*rm&&want>=24&&want<cap){for(unsigned t=0;t<want;t++){double a=2*M_PI*t/want;sm[2*t]=(float)(mx+rm*cos(a));sm[2*t+1]=(float)(my+rm*sin(a));}m=want;}
         }
-        for(unsigned t=0;t+1<m;t++)cl_stroke_segment(AL,uw,uh,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,width*.5f);
-        if(c->closed&&m>2)cl_stroke_segment(AL,uw,uh,sm[2*m-2]+.5f,sm[2*m-1]+.5f,sm[0]+.5f,sm[1]+.5f,width*.5f);
-        free(sm);}
+        sp[i]=sm;sn[i]=m;}
+     if(!ok){if(sp)for(unsigned i=0;i<np;i++)free(sp[i]);free(sp);free(sn);free(drop);goto done;}
+     /* Every outline here is a closed loop, so a branch with a free end that adds almost no blue of its own is skeleton
+        noise: redraw the strokes without it. The blue it alone covers has to come to at least one stroke width of
+        stroke; genuine open ends (a slit's closed tip, a finger) cover blue that would vanish and stay. */
+     memset(vis,0,un);
+     for(unsigned i=0;i<np;i++){if(!sp[i])continue;int bb[4];cl_stamp(AK,uw,uh,sp[i],sn[i],paths[i].closed,width*.5f,bb);
+        for(int y=bb[1];y<=bb[3];y++)for(int x=bb[0];x<=bb[2];x++){size_t u=(size_t)y*uw+x;if(AK[u]>.5f&&vis[u]<255)vis[u]++;AK[u]=0;}}
+     for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(!sp[i]||c->closed||(c->ja&&c->jb))continue;
+        int bb[4];cl_stamp(AK,uw,uh,sp[i],sn[i],0,width*.5f,bb);unsigned only=0;
+        for(int y=bb[1];y<=bb[3];y++)for(int x=bb[0];x<=bb[2];x++){size_t u=(size_t)y*uw+x;if(AK[u]>.5f&&vis[u]==1&&grown[u])only++;AK[u]=0;}
+        if(only<width*width*3.0f)drop[i]=1;}
+     for(unsigned i=0;i<np;i++){if(!sp[i])continue;
+        if(!drop[i]){const float *sm=sp[i];unsigned m=sn[i];
+            for(unsigned t=0;t+1<m;t++)cl_stroke_segment(AL,uw,uh,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,width*.5f);
+            if(paths[i].closed&&m>2)cl_stroke_segment(AL,uw,uh,sm[2*m-2]+.5f,sm[2*m-1]+.5f,sm[0]+.5f,sm[1]+.5f,width*.5f);}
+        free(sp[i]);}
+     free(sp);free(sn);free(drop);
+    }
+    /* where a stroke meets a filled shape the shape takes over: no cap, join or node inside the shape's span */
+    for(size_t i=0;i<un;i++)if(blob[i]||prim[i])AL[i]=0;
     /* round parts: a stroked ring or a dot, exact */
     for(unsigned k=0;k<nprim;k++){const struct cl_prim *p=&prims[k];float Rm=sqrtf(p->Rx*p->Ry);
         int x0=(int)floorf(p->cx-p->Rx-2),x1=(int)ceilf(p->cx+p->Rx+2),y0=(int)floorf(p->cy-p->Ry-2),y1=(int)ceilf(p->cy+p->Ry+2);
