@@ -104,14 +104,13 @@ def retain_xbox_files(menus, files):
     return sorted(names)
 
 
-def legend(root, screen, base, accept='SELECT', cancel='CANCEL'):
+def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None):
     """A/B icons post buttons to the current focus, as the Xbox legend does."""
     for button, caption, label, x in (('a_butn', '=accept', accept, 471),
                                        ('b_butn', '=cancel', cancel, 346)):
-        if label is None:  # (a screen whose A does nothing shows only the way back)
-            continue
-        child(screen, f'{base}/{button}', x=x, y=414)
-        child(screen, f'{base}/{caption}', x=x + 22, y=414)
+        only = {'platform': accept_platform} if accept_platform and button == 'a_butn' else {}
+        child(screen, f'{base}/{button}', x=x, y=414, **only)
+        child(screen, f'{base}/{caption}', x=x + 22, y=414, **only)
         # the game's own button art (ui.map's a_butn/b_butn, PNG fallbacks), as the Xbox legends draw it
         widget(root, f'{base}/{button}', type='container', width=21, height=26, bitmap=f'xbox/browser/{button}')
         text_widget(root, f'{base}/{caption}', label, width=100, height=22)
@@ -182,6 +181,8 @@ def settings_page(assets, folder, bitmaps):
                 if row.get('widget').endswith('/button_bar'):
                     continue
                 old_y = row.get('y')
+                if folder == 'about':
+                    continue  # (already in this look's places: the rows below SEND LOG have two, by platform)
                 if old_y != previous:
                     place += 1
                 previous = old_y
@@ -191,7 +192,8 @@ def settings_page(assets, folder, bitmaps):
     if pending:
         pending()
     if folder == 'about':
-        legend(root, root[0], base, accept=None, cancel='BACK')
+        # (A does something on one row, SEND LOG, in the builds that have it: the legend shows SELECT only there)
+        legend(root, root[0], base, accept='SELECT', cancel='BACK', accept_platform='send_log')
         return root
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',

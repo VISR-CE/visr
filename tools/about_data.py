@@ -18,6 +18,9 @@ CREDIT = ("VISR builds on the community's work decompiling Halo: Combat Evolved 
 VERSION_HELP = "The version of this app."
 BUILD_HELP = "The build number of this app."
 
+# the SEND LOG row (three lines of the help at most): it uploads the game's log to iCloud and shows a code
+SEND_LOG_HELP = "Sends this game's log to the VISR team through iCloud and shows a code to give them."
+
 LICENSES_HELP = "The full license texts are in the app's Licenses folder and at github.com/steverice/visr."
 
 # (name, license, copyright, file, holder)

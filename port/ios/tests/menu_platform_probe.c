@@ -34,8 +34,10 @@ int main(int argc, char **argv)
 #endif
 #if defined(HALO_IOS)
 	check("send_log", getenv("HALO_HOST_SEND_LOG") && !strcmp(getenv("HALO_HOST_SEND_LOG"), "1"));
+	check("!send_log", !(getenv("HALO_HOST_SEND_LOG") && !strcmp(getenv("HALO_HOST_SEND_LOG"), "1")));
 #else
 	check("send_log", 0);
+	check("!send_log", 1);
 #endif
 #if defined(HALO_IOS)
 	check("tvos", getenv("HALO_HOST_TVOS") && !strcmp(getenv("HALO_HOST_TVOS"), "1"));

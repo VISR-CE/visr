@@ -378,6 +378,9 @@ def _controls_screen() -> list:
 
 ABOUT = "about"
 ABOUT_ROWS = 8
+# SEND LOG sits after VERSION and BUILD, in the builds that can send a log (menu_platform.h: send_log)
+SEND_LOG_PLATFORM = "send_log"
+SEND_LOG_INDEX = 2
 
 
 def about_help(text: str) -> str:
@@ -397,6 +400,7 @@ def _about_screen() -> list:
             "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
     entries = [("VERSION", None, about_data.VERSION_HELP, "version"),
                ("BUILD", None, about_data.BUILD_HELP, "build"),
+               ("SEND LOG", None, about_data.SEND_LOG_HELP, "send_log"),
                ("WEBSITE", about_data.WEBSITE, about_data.WEBSITE_HELP, "website"),
                ("CREDITS", None, about_help(about_data.CREDIT), "credits")]
     for name, license, copyright, *_ in about_data.LICENSES:
@@ -406,24 +410,32 @@ def _about_screen() -> list:
     values = []
     for index, (label, value, help_text, key) in enumerate(entries):
         row = f"{base}/op_{key}"
-        rows.append((row, None))
+        if key == "send_log":
+            rows.append((row, SEND_LOG_PLATFORM, index))
+        elif index > SEND_LOG_INDEX:
+            # (the rows below SEND LOG, which only some builds have, sit a row higher in the others)
+            rows += [(row, SEND_LOG_PLATFORM, index), (row, "!" + SEND_LOG_PLATFORM, index - 1)]
+        else:
+            rows.append((row, None))
         children = [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>']
-        if value or key in ("version", "build"):
+        if value or key in ("version", "build", "send_log"):
             children.append(f'<child{attributes([("widget", f"{base}/{key}_value"), ("x", 270), ("y", 1)])}/>')
         extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                         ['<on event="a"/>', '<on event="start"/>', '<on event="left_mouse" run="mouse emit accept event"/>',
-                          *children])
+                         ['<on event="a" run="port send log"/>' if key == "send_log" else '<on event="a"/>',
+                          '<on event="start" run="port send log"/>' if key == "send_log" else '<on event="start"/>',
+                          '<on event="left_mouse" run="mouse emit accept event"/>', *children])
         extra += _widget(f"{base}/{key}_label",
                          [("type", "text"), ("controller", 1), ("width", 255), ("height", 22),
                           ("string_list", f"{base}/labels"), ("string_index", index or None), ("font", "ui\\large_ui"),
                           ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-        if key in ("version", "build"):
-            # (the app's own: menu_functions.c's about_version_show and about_build_show)
+        if key in ("version", "build", "send_log"):
+            # (the app's own: menu_functions.c's about_text_show, and send_log_status_show for SEND LOG)
             extra += _widget(f"{base}/{key}_value",
                              [("type", "text"), ("controller", 1), ("width", 235), ("height", 22), ("font", "ui\\small_ui"),
                               ("color", "#FFFFFFFF"), ("text_y", 5), ("text_flags", "no_focus_test")],
-                             [f'<data input="port about {key}"/>'])
+                             [f'<data input="port send log status"/>' if key == "send_log"
+                              else f'<data input="port about {key}"/>'])
         elif value:
             values.append(value)
             extra += _widget(f"{base}/{key}_value",

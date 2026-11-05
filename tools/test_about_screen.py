@@ -66,6 +66,7 @@ def test_help_of_each_row_fits_three_lines():
     for _, _, copyright, *_ in about_data.LICENSES:
         assert len(textwrap.wrap(copyright, 50)) <= 3, copyright
     assert len(textwrap.wrap(about_data.CREDIT, 50)) <= 3
+    assert len(textwrap.wrap(about_data.SEND_LOG_HELP, 50)) <= 3
 
 
 def test_pc_screen_is_what_the_generator_writes():
@@ -84,7 +85,7 @@ def test_both_looks_list_the_same_rows():
     xbox = labels(XBOX_SCREEN, "xbox/settings/about")
     assert pc == xbox
     label, helps, values = pc
-    assert label[:4] == ["VERSION", "BUILD", "WEBSITE", "CREDITS"] and label[4:] == names()
+    assert label[:5] == ["VERSION", "BUILD", "SEND LOG", "WEBSITE", "CREDITS"] and label[5:] == names()
     assert len(helps) == len(label) + 1
     assert about_data.WEBSITE in values
     assert any("punpckhdq" in help_text for help_text in helps)
@@ -112,3 +113,47 @@ def test_about_has_a_scroll_window_and_back():
     lists = [w for w in root.iter("widget") if w.get("name", "").endswith("/options_menu")]
     assert lists[0].get("visible_rows") == "8"
     assert any(w.get("text") == "BACK" for w in root.iter("widget"))
+
+
+def rows_by_platform(path, prefix):
+    """the rows each build shows, by their y: ('send_log' builds, other builds)"""
+    root = ET.parse(path).getroot()
+    options = next(w for w in root.iter("widget") if w.get("name", "").endswith("/options_menu"))
+    shown = {"on": [], "off": []}
+    for child in options.findall("child"):
+        widget = child.get("widget", "")
+        if "/op_" not in widget:
+            continue
+        platform = child.get("platform")
+        for build, matches in (("on", platform in (None, "send_log")), ("off", platform in (None, "!send_log"))):
+            if matches:
+                shown[build].append((int(child.get("y")), widget.rsplit("/op_", 1)[1]))
+    return shown
+
+
+def test_send_log_row_is_there_only_in_builds_that_can_send_a_log():
+    for path, prefix in ((PC_SCREEN, f"{port_settings.PE}/about"), (XBOX_SCREEN, "xbox/settings/about")):
+        shown = rows_by_platform(path, prefix)
+        on, off = shown["on"], shown["off"]
+        assert [name for _, name in on][:4] == ["version", "build", "send_log", "website"]
+        assert "send_log" not in [name for _, name in off]
+        assert [name for _, name in on if name != "send_log"] == [name for _, name in off]
+        # each build's rows are a row apart with no gap where the row is missing
+        for rows in (on, off):
+            assert [y for y, _ in rows] == [73 + 30 * index for index in range(len(rows))]
+    text = PC_SCREEN.read_text()
+    assert text.count('run="port send log"') == 2 and 'input="port send log status"' in text
+
+
+def test_send_log_is_wired_through_the_game_and_the_host():
+    functions = (ROOT / "port/linux/game/menu_functions.c").read_text()
+    tags = (ROOT / "port/linux/game/menu_tags.c").read_text()
+    assert '"port send log"' in tags and '"port send log status"' in tags
+    assert '"port send log"' in functions and '"port send log status"' in functions
+    imports = (ROOT / "port/runtime/host_imports.list").read_text().split()
+    assert "host_sdl_send_log_start" in imports and "host_sdl_send_log_status" in imports
+    platform = (ROOT / "port/linux/src/menu_platform.h").read_text()
+    assert "HALO_HOST_SEND_LOG" in platform
+    assert "HALO_HOST_SEND_LOG" in (ROOT / "port/ios/host/host_main.m").read_text()
+    # the Xbox look's legend shows SELECT only where the row is
+    assert 'platform="send_log"' in XBOX_SCREEN.read_text()
