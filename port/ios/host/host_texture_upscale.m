@@ -525,9 +525,10 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     if(large)memcpy((uint8_t *)large,matching,companion_bytes);
     struct texture_upscale_generate_input input={*d,policy,levels,source->level_count,alpha,d->wrap,dilate,d->pinned};
     /* Pictures the redraws below rebuild from the player's pixels alone (the keyboard, the carousel arrows, the menu
-       band, small difficulty icons that a matching large frame replaces) keep nothing of the model's prediction. */
+       band, the gradient gametype icons, small difficulty icons that a matching large frame replaces) keep nothing of the model's prediction. */
     input.synthetic=(d->result==TEXTURE_POLICY_BPF&&(menu_picture_redraw_source(owned,d->width,d->height)==0||
-        menu_carousel_shapes_source(owned,d->width,d->height)>=0||menu_background_redraw_source(owned,d->width,d->height)>=0))||
+        menu_carousel_shapes_source(owned,d->width,d->height)>=0||menu_background_redraw_source(owned,d->width,d->height)>=0||
+        menu_picture_trace_source(owned,d->width,d->height)>=11))||
         (d->result==TEXTURE_POLICY_S4G&&large);
     if(input.synthetic)host_logf(HOST_LOG_INFO,"Upscale %016llx: redrawn from the source, no model prediction",(unsigned long long)d->hash);
     char error[512]={0};double start=now();
