@@ -314,23 +314,34 @@ Deliberately the same shape as hand_lost below, since the two time the same blin
 sample clears the run, an unreadable one starts it and is answered against the gap. The
 differences are that hand_lost's gap is a constant where this one's is the caller's setting,
 and that this one has nothing to hold before the first readable sample of a session */
-int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, double now)
+int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, int loss_mode, double now)
 {
 	if (readable)
 	{
 		hold->known = 1;
 		hold->lost_since = 0.0;
+		hold->past_gap = 0;
 		return HANDS_AIM_GOOD;
 	}
-	/* nothing has pointed yet, so there is no pose to hold: the aim is gone whatever the gap
-	says, which is what hand_of's own "a wrist on its own can't aim" case needs */
+	/* nothing has pointed yet, so there is no pose to hold: the aim is gone in either mode,
+	which is what hand_of's own "a wrist on its own can't aim" case needs */
 	if (!hold->known)
+	{
+		hold->past_gap = 0;
 		return HANDS_AIM_LOST;
+	}
 	if (hold->lost_since == 0.0)
 		hold->lost_since = now;
-	/* a NaN gap_seconds compares false and falls to LOST, as a 0 does, so neither a hand-edited
-	setting nor an uninitialized one can hold an aim indefinitely */
-	return now - hold->lost_since < (double)gap_seconds ? HANDS_AIM_HELD : HANDS_AIM_LOST;
+	/* written as the negation of the inside-the-gap test rather than as a >= so that a NaN
+	gap_seconds reads as past the gap: a NaN compares false both ways, and the safe answer is
+	the one where a gap nobody can read holds nothing in HEAD mode rather than everything */
+	hold->past_gap = !(now - hold->lost_since < (double)gap_seconds);
+	/* and the mode decides only what being past it costs. HOLD never gives the aim up, so the
+	gap is left measuring the run for the log and nothing else; HEAD gives it up there, which is
+	the behaviour the gap was built for */
+	if (hold->past_gap && loss_mode == HANDS_AIM_LOSS_HEAD)
+		return HANDS_AIM_LOST;
+	return HANDS_AIM_HELD;
 }
 
 /* whether one hand counts as gone this sample, which is what everything

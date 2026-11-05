@@ -474,6 +474,23 @@ static const struct config_setting config_settings[] =
 		"never saw it, with how long it ran, or as lost, with how long it ran past\n"
 		"the gap. Held runs pressed up against the gap, with lost runs behind\n"
 		"them, are a gap that wants widening." },
+	{ "input.hand_aim_loss", _config_string, "\"hold\"", "HALO_HAND_AIM_LOSS", _environment_value,
+		_platform_ios,
+		"With input.aim = \"hands\": what aims once a hand has been out of view\n"
+		"for longer than input.hand_aim_gap, \"hold\" (default) or \"head\".\n"
+		"Anything else holds. \"hold\" keeps the hand's last direction for as long\n"
+		"as the hand is gone and never lets the head take the aim from a hand:\n"
+		"the head taking over was the single most disruptive thing in play,\n"
+		"because it does not lag the aim, it moves it somewhere else and then\n"
+		"moves it back, where a frozen aim is at least legible and the player can\n"
+		"simply lower the hand and raise it again. That is the trade a player\n"
+		"chose on device and it is the default. \"head\" hands the aim to the view\n"
+		"centre at the end of the gap instead, for anyone who would rather have a\n"
+		"live aim than a held one. Either way the gap goes on measuring, so\n"
+		"debug.hand_log sorts the dropouts the same under both. Neither setting\n"
+		"covers hand tracking itself stopping (a withdrawn permission, a session\n"
+		"that ends): the head aims then whatever this says, or there would be no\n"
+		"way to aim at all." },
 	{ "input.aim_pitch_offset", _config_real, "0.0", "HALO_AIM_PITCH_OFFSET", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": degrees the barrel ray and gun tilt down\n"
 		"from the aim axis (-10 to 45), for aiming from the hip with the forearm\n"

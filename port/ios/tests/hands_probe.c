@@ -2114,7 +2114,10 @@ static void tip_distances_report_each_ruler(void)
 /* the aim's hold through a dropout (host_spatial_hands.c's hands_aim_hold), which is the half
 of the aim gap that is not ARKit's: a blink inside the gap holds the last aim, a lapse past it
 gives it up, and a gap of 0 gives it up on the first unreadable sample, which is the behaviour
-the setting defaults away from and must still be able to ask for */
+the setting defaults away from and must still be able to ask for.
+
+Every case here runs HANDS_AIM_LOSS_HEAD, the mode where passing the gap costs the aim.
+aim_hold_never_gives_up_in_hold_mode below is the default mode, where it does not */
 static void aim_hold_through_a_blink(void)
 {
 	struct hands_aim_hold hold;
@@ -2122,18 +2125,18 @@ static void aim_hold_through_a_blink(void)
 
 	/* nothing readable yet: no pose to hold, so no gap can hold one */
 	memset(&hold, 0, sizeof(hold));
-	check(hands_aim_hold(&hold, 0, 0.15f, 1.0) == HANDS_AIM_LOST,
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0) == HANDS_AIM_LOST,
 		"aim hold: an unreadable first sample is lost whatever the gap");
-	check(hands_aim_hold(&hold, 1, 0.15f, 1.01) == HANDS_AIM_GOOD, "aim hold: and a readable one is good");
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.01) == HANDS_AIM_GOOD, "aim hold: and a readable one is good");
 
 	/* a blink well inside the gap: held every sample of it, then good again, and the run leaves
 	nothing behind that could shorten the next one */
 	memset(&hold, 0, sizeof(hold));
-	check(hands_aim_hold(&hold, 1, 0.15f, 1.0) == HANDS_AIM_GOOD, "aim hold: readable to start");
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0) == HANDS_AIM_GOOD, "aim hold: readable to start");
 	for (t = 1; t <= 13; t++)
-		check(hands_aim_hold(&hold, 0, 0.15f, 1.0 + t * 0.011) == HANDS_AIM_HELD,
+		check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0 + t * 0.011) == HANDS_AIM_HELD,
 			"aim hold: a blink inside the gap holds the aim");
-	check(hands_aim_hold(&hold, 1, 0.15f, 1.145) == HANDS_AIM_GOOD, "aim hold: the hand's return ends the gap");
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.145) == HANDS_AIM_GOOD, "aim hold: the hand's return ends the gap");
 	check(hold.lost_since == 0.0, "aim hold: and the run is cleared, so the next gap is a whole gap");
 
 	/* the edges, timed from the first unreadable sample as hand_lost's own gap is and not from
@@ -2144,45 +2147,92 @@ static void aim_hold_through_a_blink(void)
 	decimal it was written as, so the exact boundary sample is a fact about the representation
 	and not about this function */
 	memset(&hold, 0, sizeof(hold));
-	hands_aim_hold(&hold, 1, 0.15f, 1.0);
-	check(hands_aim_hold(&hold, 0, 0.15f, 1.001) == HANDS_AIM_HELD, "aim hold: held on the sample the run starts");
-	check(hands_aim_hold(&hold, 0, 0.15f, 1.150) == HANDS_AIM_HELD, "aim hold: still held a sample under the gap");
-	check(hands_aim_hold(&hold, 0, 0.15f, 1.162) == HANDS_AIM_LOST, "aim hold: lost a sample past the gap");
-	check(hands_aim_hold(&hold, 0, 0.15f, 4.0) == HANDS_AIM_LOST, "aim hold: and stays lost through a real loss");
-	check(hands_aim_hold(&hold, 1, 0.15f, 4.011) == HANDS_AIM_GOOD, "aim hold: a hand back after seconds is good");
+	hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0);
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.001) == HANDS_AIM_HELD, "aim hold: held on the sample the run starts");
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.150) == HANDS_AIM_HELD, "aim hold: still held a sample under the gap");
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.162) == HANDS_AIM_LOST, "aim hold: lost a sample past the gap");
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 4.0) == HANDS_AIM_LOST, "aim hold: and stays lost through a real loss");
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HEAD, 4.011) == HANDS_AIM_GOOD, "aim hold: a hand back after seconds is good");
 
 	/* a gap of 0 is the behaviour this replaced: the first unreadable sample is already lost */
 	memset(&hold, 0, sizeof(hold));
-	hands_aim_hold(&hold, 1, 0.0f, 1.0);
-	check(hands_aim_hold(&hold, 0, 0.0f, 1.001) == HANDS_AIM_LOST, "aim hold: a gap of 0 loses the first sample");
-	check(hands_aim_hold(&hold, 0, 0.0f, 1.012) == HANDS_AIM_LOST, "aim hold: and every sample after it");
+	hands_aim_hold(&hold, 1, 0.0f, HANDS_AIM_LOSS_HEAD, 1.0);
+	check(hands_aim_hold(&hold, 0, 0.0f, HANDS_AIM_LOSS_HEAD, 1.001) == HANDS_AIM_LOST, "aim hold: a gap of 0 loses the first sample");
+	check(hands_aim_hold(&hold, 0, 0.0f, HANDS_AIM_LOSS_HEAD, 1.012) == HANDS_AIM_LOST, "aim hold: and every sample after it");
 
 	/* the widest the setting allows, and a NaN from a hand-edited config: the first holds a
 	whole second from the run's start (1.999, so out around 2.999) and the second holds for
 	nothing, since a gap nobody can read must not hold an aim indefinitely */
 	memset(&hold, 0, sizeof(hold));
-	hands_aim_hold(&hold, 1, 1.0f, 1.0);
-	check(hands_aim_hold(&hold, 0, 1.0f, 1.999) == HANDS_AIM_HELD, "aim hold: a gap of 1 holds from the run's start");
-	check(hands_aim_hold(&hold, 0, 1.0f, 2.998) == HANDS_AIM_HELD, "aim hold: and a whole second of it");
-	check(hands_aim_hold(&hold, 0, 1.0f, 3.010) == HANDS_AIM_LOST, "aim hold: and gives up past it");
+	hands_aim_hold(&hold, 1, 1.0f, HANDS_AIM_LOSS_HEAD, 1.0);
+	check(hands_aim_hold(&hold, 0, 1.0f, HANDS_AIM_LOSS_HEAD, 1.999) == HANDS_AIM_HELD, "aim hold: a gap of 1 holds from the run's start");
+	check(hands_aim_hold(&hold, 0, 1.0f, HANDS_AIM_LOSS_HEAD, 2.998) == HANDS_AIM_HELD, "aim hold: and a whole second of it");
+	check(hands_aim_hold(&hold, 0, 1.0f, HANDS_AIM_LOSS_HEAD, 3.010) == HANDS_AIM_LOST, "aim hold: and gives up past it");
 	memset(&hold, 0, sizeof(hold));
-	hands_aim_hold(&hold, 1, 1.0f, 1.0);
-	check(hands_aim_hold(&hold, 0, (float)NAN, 1.001) == HANDS_AIM_LOST, "aim hold: a NaN gap holds nothing");
+	hands_aim_hold(&hold, 1, 1.0f, HANDS_AIM_LOSS_HEAD, 1.0);
+	check(hands_aim_hold(&hold, 0, (float)NAN, HANDS_AIM_LOSS_HEAD, 1.001) == HANDS_AIM_LOST, "aim hold: a NaN gap holds nothing");
 
 	/* per hand and nothing shared: one hand blinking past its gap while the other is read */
 	{
 		struct hands_aim_hold holds[2];
 
 		memset(holds, 0, sizeof(holds));
-		hands_aim_hold(&holds[0], 1, 0.15f, 1.0);
-		hands_aim_hold(&holds[1], 1, 0.15f, 1.0);
-		check(hands_aim_hold(&holds[0], 0, 0.15f, 1.1) == HANDS_AIM_HELD &&
-			hands_aim_hold(&holds[1], 1, 0.15f, 1.1) == HANDS_AIM_GOOD,
+		hands_aim_hold(&holds[0], 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0);
+		hands_aim_hold(&holds[1], 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0);
+		check(hands_aim_hold(&holds[0], 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.1) == HANDS_AIM_HELD &&
+			hands_aim_hold(&holds[1], 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.1) == HANDS_AIM_GOOD,
 			"aim hold: one hand's blink leaves the other good");
-		check(hands_aim_hold(&holds[0], 0, 0.15f, 1.5) == HANDS_AIM_LOST &&
-			hands_aim_hold(&holds[1], 1, 0.15f, 1.5) == HANDS_AIM_GOOD,
+		check(hands_aim_hold(&holds[0], 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.5) == HANDS_AIM_LOST &&
+			hands_aim_hold(&holds[1], 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.5) == HANDS_AIM_GOOD,
 			"aim hold: and one hand's loss is not the other's");
 	}
+}
+
+/* input.hand_aim_loss = "hold", the default for bare hands: the gap stops costing the aim
+altogether and a hand out of view keeps pointing where it last pointed for as long as it is
+out of view. The gap itself stays live as a measurement, which is what lets a hold-mode
+session still say how long the dropouts ran and which of them a head-mode player would have
+lost the aim to (hands_aim_hold's past_gap) */
+static void aim_hold_never_gives_up_in_hold_mode(void)
+{
+	struct hands_aim_hold hold;
+	int t;
+
+	/* a lapse of many seconds, far past any gap the setting allows: still held, every sample */
+	memset(&hold, 0, sizeof(hold));
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HOLD, 1.0) == HANDS_AIM_GOOD,
+		"aim hold mode: readable to start");
+	for (t = 1; t <= 30; t++)
+		check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HOLD, 1.0 + t * 1.0) == HANDS_AIM_HELD,
+			"aim hold mode: thirty seconds out of view is still held");
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HOLD, 40.0) == HANDS_AIM_GOOD,
+		"aim hold mode: and the hand's return still ends the run");
+
+	/* the same lapse in head mode falls, which is the whole difference between them */
+	memset(&hold, 0, sizeof(hold));
+	hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HEAD, 1.0);
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 1.001) == HANDS_AIM_HELD &&
+		hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HEAD, 5.0) == HANDS_AIM_LOST,
+		"aim hold mode: head mode still gives the aim up past the gap");
+
+	/* the gap goes on measuring in hold mode, which is what keeps a hold-mode session able to
+	size the setting: inside the gap past_gap is clear, past it set, and the aim is held either
+	way. The log is the only reader of it */
+	memset(&hold, 0, sizeof(hold));
+	hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HOLD, 1.0);
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HOLD, 1.050) == HANDS_AIM_HELD && !hold.past_gap,
+		"aim hold mode: a blink inside the gap is held and not past it");
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HOLD, 1.400) == HANDS_AIM_HELD && hold.past_gap,
+		"aim hold mode: a lapse past the gap is held and marked past it");
+	check(hands_aim_hold(&hold, 1, 0.15f, HANDS_AIM_LOSS_HOLD, 1.500) == HANDS_AIM_GOOD && !hold.past_gap,
+		"aim hold mode: and the hand's return clears the mark");
+
+	/* nothing has pointed yet: no pose to hold, so hold mode gives the aim up too. The one
+	case where the head takes it from a hand even in hold mode, and it has to, since there is
+	no hand pose in existence to hold */
+	memset(&hold, 0, sizeof(hold));
+	check(hands_aim_hold(&hold, 0, 0.15f, HANDS_AIM_LOSS_HOLD, 1.0) == HANDS_AIM_LOST,
+		"aim hold mode: with nothing ever pointed, hold mode is still lost");
 }
 
 int main(void)
@@ -2236,6 +2286,7 @@ int main(void)
 	event_capacity_clamped();
 	tip_distances_report_each_ruler();
 	aim_hold_through_a_blink();
+	aim_hold_never_gives_up_in_hold_mode();
 	if (failures)
 	{
 		printf("hands probe: %d FAILED\n", failures);

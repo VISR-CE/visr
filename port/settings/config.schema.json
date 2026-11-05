@@ -1153,6 +1153,16 @@
             "apple"
           ]
         },
+        "hand_aim_loss": {
+          "type": "string",
+          "default": "hold",
+          "description": "With input.aim = \"hands\": what aims once a hand has been out of view for longer than input.hand_aim_gap, \"hold\" (default) or \"head\". Anything else holds. \"hold\" keeps the hand's last direction for as long as the hand is gone and never lets the head take the aim from a hand: the head taking over was the single most disruptive thing in play, because it does not lag the aim, it moves it somewhere else and then moves it back, where a frozen aim is at least legible and the player can simply lower the hand and raise it again. That is the trade a player chose on device and it is the default. \"head\" hands the aim to the view centre at the end of the gap instead, for anyone who would rather have a live aim than a held one. Either way the gap goes on measuring, so debug.hand_log sorts the dropouts the same under both. Neither setting covers hand tracking itself stopping (a withdrawn permission, a session that ends): the head aims then whatever this says, or there would be no way to aim at all.",
+          "x-environment": "HALO_HAND_AIM_LOSS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "aim_pitch_offset": {
           "type": "number",
           "default": 0.0,

@@ -440,19 +440,46 @@ genuinely gone for longer still hands the aim over on the sample the gap runs ou
 it did before this existed.
 
 readable is 1 on a sample this hand's own joints could build an aim from, which is the only
-thing that ends a gap. gap_seconds is input.hand_aim_gap, already clamped by the caller; at 0
-every unreadable sample is LOST on the spot, which is the behaviour this replaced, and a NaN
-answers the same way rather than holding forever. HELD needs a pose to hold, so the first
-unreadable samples of a session are LOST however long the gap is (hold->known) */
+thing that ends a run. gap_seconds is input.hand_aim_gap, already clamped by the caller.
+HELD needs a pose to hold, so the first unreadable samples of a session are LOST however the
+rest of this is set (hold->known).
+
+loss_mode is input.hand_aim_loss, and it decides what happens once a run passes the gap.
+HANDS_AIM_LOSS_HEAD gives the aim up there, which is what the gap above was built to do.
+HANDS_AIM_LOSS_HOLD, the default for bare hands, never gives it up: a hand out of view keeps
+pointing where it last pointed for as long as it is out of view, and the head never takes the
+aim from a hand at all.
+
+Why holding is the default. The gap made brief dropouts free, and a device session with it
+still read as better rather than fixed: the head taking the aim remained the one thing in
+play that broke aiming outright, because it does not merely lag the aim, it moves it somewhere
+else and then moves it back. A frozen aim is legible (the gun stops following the hand, and
+the player waits or lowers and raises the hand) where a hand-off is not. So the choice is the
+player's and it is held, with HEAD kept because it is a real preference and because every
+reason the gap exists still applies to anyone who wants it.
+
+What holding does not do: it cannot keep the aim when hand tracking itself goes away rather
+than a hand going out of view. A provider that stops, a permission withdrawn and a session
+that ends all reach the guest as a sample that is not READY, which is a lost hand on the
+guest's own side (controller_aim_game.c), and host_spatial_hands_idle clears the hold with it.
+That path is deliberately left alone: a player whose hand tracking has died needs the head
+back, or there is no aiming at all and nothing to recover with.
+
+hold->past_gap is for the log alone and no decision reads it: 1 once the current run has
+passed gap_seconds, whichever mode is set, so a session still sorts the dropouts the gap would
+have absorbed from the ones it would not and the setting can still be sized from a hold-mode
+session (host_spatial_hands.m's log_aim_condition) */
 enum { HANDS_AIM_GOOD, HANDS_AIM_HELD, HANDS_AIM_LOST };
+enum { HANDS_AIM_LOSS_HOLD, HANDS_AIM_LOSS_HEAD };
 
 /* one hand's hold. known says a readable sample has been seen, so there is a pose to hold;
-lost_since is the start of the current unreadable run, 0 while the hand is being read. Zeroed
-is the right starting state, and zeroed again whenever hands stop being the aim source, so no
-run is ever measured across a gap in which this file was not being asked */
-struct hands_aim_hold { int known; double lost_since; };
+lost_since is the start of the current unreadable run, 0 while the hand is being read;
+past_gap is the log's own flag described above. Zeroed is the right starting state, and zeroed
+again whenever hands stop being the aim source, so no run is ever measured across a gap in
+which this file was not being asked */
+struct hands_aim_hold { int known; double lost_since; int past_gap; };
 
-int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, double now);
+int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, int loss_mode, double now);
 
 #ifdef __OBJC__
 #import <CompositorServices/CompositorServices.h>

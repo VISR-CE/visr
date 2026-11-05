@@ -87,6 +87,11 @@ Defaults to the pinches' own HANDS_HAND_GAP_SECONDS, since the two cover the sam
 is a setting rather than a second constant because the blink lengths this has to cover have
 not been measured on device yet: 0 asks for the behaviour before the gap existed */
 static float aim_gap = 0.15f;
+/* input.hand_aim_loss: HANDS_AIM_LOSS_HOLD or HANDS_AIM_LOSS_HEAD (host_spatial_hands.h, which
+carries why holding is the default). Read with the same idiom input.aim and input.turn use for
+their own values, a comparison against the one non-default spelling with everything else taking
+the default, so an unreadable setting holds the aim rather than dropping it */
+static int aim_loss = HANDS_AIM_LOSS_HOLD;
 static float pitch_offset;     /* input.aim_pitch_offset, clamped to -10 to 45: the same trim
 	controller_aim_game.c reads for the barrel ray, read again here so the arm's elevation can
 	take it too (host_spatial_hands.c's hands_recognize) */
@@ -173,7 +178,8 @@ run started: debug.hand_log's own line below (log_aim_condition), reset with
 the gesture state because a run cannot span a gap in which hands were not the
 source at all. -1 is "no game sample yet", which writes no line, where 0
 would read as a run of lost that never happened */
-enum { AIM_CONDITION_LOST, AIM_CONDITION_HELD, AIM_CONDITION_CARRIED, AIM_CONDITION_MEASURED };
+enum { AIM_CONDITION_LOST, AIM_CONDITION_HELD, AIM_CONDITION_HELD_PAST, AIM_CONDITION_CARRIED,
+	AIM_CONDITION_MEASURED };
 static int aim_condition[2] = { -1, -1 };
 static double aim_condition_since[2];
 /* 1 while the hands source filled the game sample it was last given */
@@ -290,6 +296,8 @@ static void read_settings(void)
 				(double)aim_gap, (double)clamped);
 		aim_gap = clamped;
 	}
+	host_config_string("input.hand_aim_loss", "hold", value, sizeof(value));
+	aim_loss = !strcmp(value, "head") ? HANDS_AIM_LOSS_HEAD : HANDS_AIM_LOSS_HOLD;
 	pitch_offset = (float)host_config_real("input.aim_pitch_offset", 0.0);
 	if (!(pitch_offset >= -10.0f && pitch_offset <= 45.0f))
 	{
@@ -598,7 +606,7 @@ static void hand_unreadable(int hand, const float *head_position, struct halo_sp
 
 	/* the gap's decision and the log's record of it in one place, so the three callers below
 	cannot take one without the other or take them in the wrong order */
-	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 0, aim_gap, now);
+	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 0, aim_gap, aim_loss, now);
 	if (aim_outcome[hand] != HANDS_AIM_HELD)
 		return;
 	out->state = HALO_SPATIAL_TRACKED;
@@ -724,7 +732,7 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	wrist are stored by the time hands_aim_hold is told this sample was readable, so
 	aim_hold[hand].known never promises hand_unreadable a pose that was not written */
 	last_wrist[hand] = wrist;
-	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 1, aim_gap, now);
+	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 1, aim_gap, aim_loss, now);
 	/* a room transform in the convention location_of reads: -z the barrel,
 	+y the up, the wrist the position. host_spatial_location squares the up
 	against the barrel itself (host_spatial_pose.c's location_axes), so only
@@ -931,12 +939,17 @@ the run that just ended had lasted. Three conditions, following hand_of's own th
 	          seen. Still TRACKED to the guest, which never learns the barrel is stale
 	held      no anchor, no skeleton or no wrist, but inside input.hand_aim_gap, so
 	          hand_unreadable gives out the last whole pose and the guest is still told
-	          TRACKED. Every one of
-	          these runs is a dropout the gap absorbed and the guest never saw, which is what
-	          the gap is for and what sizing it needs counted
-	lost      the same dropout past the gap (or with no pose ever to hold), so the aim is zeroed
-	          and HALO_SPATIAL_UNTRACKED, and the guest's own grace and ease are all that hold
-	          the aim (controller_aim.c's controller_track_update)
+	          TRACKED. Every one of these runs is a dropout the gap absorbed and the guest
+	          never saw, which is what the gap is for and what sizing it needs counted
+	held_past the same dropout once it has run past the gap, with input.hand_aim_loss = "hold"
+	          still giving the pose out. Named apart from held for one reason: it is the split
+	          the gap would have made, so a hold-mode session still says which dropouts a
+	          head-mode player would have lost the aim to. One dropout therefore writes at most
+	          held, then held_past, then its return, however long it lasts
+	lost      the dropout past the gap with input.hand_aim_loss = "head", or a dropout with no
+	          pose ever to hold in either mode, so the aim is zeroed and HALO_SPATIAL_UNTRACKED
+	          and the guest's own grace and ease are all that hold the aim (controller_aim.c's
+	          controller_track_update)
 
 Why these four and not the anchor's flag alone: a player reports the gun occasionally
 following the head and coming back, and the dropouts that could do it are different faults
@@ -946,9 +959,10 @@ the dropout's length but the recovery dwell it triggers, which a hand dropping r
 walks up to a whole second (port/ios/tests/controller_aim_probe.c's
 brief_loss_reaches_the_head measures what that costs). Separating them is the point of the
 line: it says which the player is actually hitting, how often, and for how long, and with the
-gap in place it says how much of it the gap is already absorbing. A session whose held runs
-cluster well under the gap says the gap is wide enough; held runs pressed up against it, with
-lost runs following them, say it is not.
+gap in place it says how much of it the gap is already absorbing. A session whose dropouts end
+on held says the gap absorbed all of them; dropouts going on to held_past (or, in head mode,
+to lost) are the ones it did not, and their held_past runs are how much wider it would have to
+be.
 
 Transitions only, so an unbroken run writes nothing however long it lasts, where the per-hand
 sample rate would be 90 lines a second. Greppable on "hands: aim " and every field after the
@@ -958,10 +972,12 @@ hand lost" and "head aims %.3f s after the loss" sort into one stream and can be
 each other */
 static void log_aim_condition(int hand, const struct host_spatial_hand_joints *reduced, int outcome, double now)
 {
-	static const char *const names[] = { "lost", "held", "carried", "measured" };
+	static const char *const names[] = { "lost", "held", "held_past", "carried", "measured" };
 	/* the outcome first: a held sample and a lost one both arrive with reduced->tracked 0, so
-	only hands_aim_hold's answer tells them apart */
-	int condition = outcome == HANDS_AIM_HELD ? AIM_CONDITION_HELD :
+	only hands_aim_hold's answer tells them apart. One word for held_past rather than two, so
+	the line's fields stay one per column as the rest of it does */
+	int condition = outcome == HANDS_AIM_HELD ?
+			(aim_hold[hand].past_gap ? AIM_CONDITION_HELD_PAST : AIM_CONDITION_HELD) :
 		outcome != HANDS_AIM_GOOD ? AIM_CONDITION_LOST :
 		reduced->forearm_tracked ? AIM_CONDITION_MEASURED : AIM_CONDITION_CARRIED;
 
