@@ -1,6 +1,17 @@
 #include "host_external_mode.h"
 #include <math.h>
 
+int host_external_mode_preferred(const struct host_external_mode *modes, size_t count,
+    int preferred_width, int preferred_height, double preferred_pixel_aspect)
+{
+    if (preferred_width <= 0 || preferred_height <= 0) return -1;
+    for (size_t i = 0; i < count; ++i)
+        if (modes[i].width == preferred_width && modes[i].height == preferred_height &&
+            fabs(modes[i].pixel_aspect - preferred_pixel_aspect) <= 0.001)
+            return (int)i;
+    return -1;
+}
+
 int host_external_mode_choose(const struct host_external_mode *modes, size_t count,
     int preferred, int cap, int forced_width, int forced_height)
 {
