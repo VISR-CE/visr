@@ -2665,10 +2665,10 @@ int halo_ssao_lightmaps_mark(int begin)
 }
 
 void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
-	float p21)
+	float p21, float p22, float p32)
 {
 	struct render_target_entry *color, *depth;
-	float parameters[20];
+	float parameters[23];
 	int mode = ssao_mode();
 
 	(void)rasterizer_target;
@@ -2700,18 +2700,23 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 	parameters[17] = (float)config_real("debug.ssao_fade_distance");
 	parameters[18] = (float)config_real("debug.ssao_level_floor");
 	parameters[19] = (float)config_real("debug.ssao_object_floor");
+	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), which the host linearizes depth with */
+	parameters[20] = p22;
+	parameters[21] = p32;
+	parameters[22] = (float)config_integer("debug.ssao_path");
 	if (parameters[2] <= 0.0f || parameters[3] <= 0.0f)
 		return;
 	{
 		static unsigned long passes;
 
 		if (!passes++ || !(passes % 7200))
-			platform_log("ssao: pass %lu, mode %d, %gx%g at %g,%g, near %g far %g, radius %g", passes, mode,
-				(double)parameters[2], (double)parameters[3], (double)parameters[0], (double)parameters[1],
-				(double)z_near, (double)z_far, (double)parameters[10]);
+			platform_log("ssao: pass %lu, mode %d, %gx%g at %g,%g, near %g far %g (projection: near %g far %g), radius %g",
+				passes, mode, (double)parameters[2], (double)parameters[3], (double)parameters[0], (double)parameters[1],
+				(double)z_near, (double)z_far, (double)(p32 / (p22 - 1.0f)), (double)(p32 / (p22 + 1.0f)),
+				(double)parameters[10]);
 	}
 #ifdef HALO_ILP32
-	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 20);
+	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 23);
 #endif
 }
 

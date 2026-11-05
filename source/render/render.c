@@ -485,7 +485,8 @@ static void render_window(
 		diffuse textures, and over the objects drawn above */
 		halo_ssao_after_lightmaps(rasterizer_target, rasterizer_camera->z_near, rasterizer_camera->z_far,
 			rasterizer_frustum->projection_matrix[0][0], rasterizer_frustum->projection_matrix[1][1],
-			rasterizer_frustum->projection_matrix[2][0], rasterizer_frustum->projection_matrix[2][1]);
+			rasterizer_frustum->projection_matrix[2][0], rasterizer_frustum->projection_matrix[2][1],
+			rasterizer_frustum->projection_matrix[2][2], rasterizer_frustum->projection_matrix[3][2]);
 		rasterizer_lens_flares_submit_occlusion_tests();
 		render_object_shadows();
 		lights_render_diffuse();

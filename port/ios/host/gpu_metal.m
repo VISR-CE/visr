@@ -7111,7 +7111,7 @@ static NSString *const ssao_source =
 	"\tfloat noise_step = (float(bayer4[(index * 5u + 3u) & 15u]) + 0.5) / 16.0;\n"
 	"\t/* two horizons a side: from objects only, and from everything; a level pixel blends their visibilities by\n"
 	"\tstatic_weight (its lightmap holds the level's own occlusion), an object pixel takes everything's */\n"
-	"\tfloat visibility_objects = 0.0, visibility_all = 0.0;\n"
+	"\tfloat visibility_objects = 0.0, visibility_all = 0.0, unoccluded = 0.0;\n"
 	"\tconst float half_pi = 1.5707963;\n"
 	"\n"
 	"\tfor (uint s = 0; s < p.slices; s++)\n"
@@ -7128,6 +7128,9 @@ static NSString *const ssao_source =
 	"\t\tfloat n = sign_n * acos(cos_n);\n"
 	"\t\tfloat low0 = cos(n + half_pi), low1 = cos(n - half_pi);\n"
 	"\t\tfloat horizon0 = low0, horizon1 = low1, object0 = low0, object1 = low1;\n"
+	"\t\t/* the slice's integral with nothing in the way: 1 only on average over slice angles, so dividing by it\n"
+	"\t\tkeeps open ground at exactly 1 at every pixel instead of clamping the values above 1 away */\n"
+	"\t\tunoccluded += projected_length * (cos_n + n * sin(n));\n"
 	"\n"
 	"\t\tfor (uint k = 0; k < p.steps; k++)\n"
 	"\t\t{\n"
@@ -7178,8 +7181,8 @@ static NSString *const ssao_source =
 	"\t\t\t\tvisibility_all += slice;\n"
 	"\t\t}\n"
 	"\t}\n"
-	"\tvisibility_all = saturate(visibility_all / float(p.slices));\n"
-	"\tvisibility_objects = saturate(visibility_objects / float(p.slices));\n"
+	"\tvisibility_all = saturate(visibility_all / max(unoccluded, 1.0e-4));\n"
+	"\tvisibility_objects = saturate(visibility_objects / max(unoccluded, 1.0e-4));\n"
 	"\tfloat visibility = cls == 1 ? min(visibility_objects, mix(visibility_objects, visibility_all, p.static_weight)) :\n"
 	"\t\tvisibility_all;\n"
 	"\tvisibility = mix(visibility, 1.0, smoothstep(0.6 * p.fade_distance, p.fade_distance, z));\n"
@@ -7303,6 +7306,8 @@ static NSString *const ssao_source =
 	"{\n"
 	"\tuint ox, oy, w, h;\n"
 	"\tfloat amount;\n"
+	"\t/* the half-resolution path (debug.ssao_path 1, 2): the texture's size, the power and the floor */\n"
+	"\tfloat half_w, half_h, strength, floor;\n"
 	"\tuint pad[3];\n"
 	"};\n"
 	"\n"
@@ -7319,6 +7324,17 @@ static NSString *const ssao_source =
 	"{\n"
 	"\tuint2 q = min(uint2(in.position.xy) - uint2(c.ox, c.oy), uint2(c.w - 1, c.h - 1));\n"
 	"\treturn float4(image.read(q).rgb, 1.0);\n"
+	"}\n"
+	"\n"
+	"/* debug.ssao_path 1 and 2: the half-resolution AO sampled bilinearly, no full-resolution upsample */\n"
+	"fragment float4 ssao_composite_half(ssao_vertex_out in [[stage_in]], texture2d<float> ao [[texture(0)]],\n"
+	"\tsampler linear_clamp [[sampler(0)]], constant ssao_composite_parameters &c [[buffer(0)]])\n"
+	"{\n"
+	"\tfloat2 q = (in.position.xy - float2(c.ox, c.oy)) * 0.5;\n"
+	"\tfloat a = ao.sample(linear_clamp, q / float2(c.half_w, c.half_h)).r;\n"
+	"\ta = max(pow(saturate(a), c.strength), c.floor);\n"
+	"\ta = mix(1.0, a, c.amount);\n"
+	"\treturn float4(a, a, a, 1.0);\n"
 	"}\n";
 
 struct ssao_parameters
@@ -7334,6 +7350,7 @@ struct ssao_composite_parameters
 {
 	uint32_t ox, oy, w, h;
 	float amount;
+	float half_w, half_h, strength, floor;
 	uint32_t pad[3];
 };
 
@@ -7341,7 +7358,8 @@ static struct
 {
 	BOOL tried, failed;
 	id<MTLComputePipelineState> prepare, gather, blur, upsample;
-	id<MTLRenderPipelineState> multiply, replace, debug;
+	id<MTLRenderPipelineState> multiply, replace, debug, multiply_half;
+	id<MTLSamplerState> linear_clamp;
 	id<MTLDepthStencilState> level, objects, everything;
 	/* half resolution: depth and class (RG32Float), raw and blurred AO (R16Float); full: AO (R8), the debug image */
 	id<MTLTexture> half_depth, raw, blurred, full, debug_image;
@@ -7410,10 +7428,20 @@ static BOOL ssao_programs(void)
 	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
 	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
 	ssao.multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite_half"];
+	ssao.multiply_half = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
 	pipeline.colorAttachments[0].blendingEnabled = NO;
 	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_debug"];
 	ssao.debug = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
-	if (!ssao.prepare || !ssao.gather || !ssao.blur || !ssao.upsample || !ssao.replace || !ssao.multiply || !ssao.debug)
+	{
+		MTLSamplerDescriptor *sampler = [MTLSamplerDescriptor new];
+
+		sampler.minFilter = sampler.magFilter = MTLSamplerMinMagFilterLinear;
+		sampler.sAddressMode = sampler.tAddressMode = MTLSamplerAddressModeClampToEdge;
+		ssao.linear_clamp = [device newSamplerStateWithDescriptor:sampler];
+	}
+	if (!ssao.prepare || !ssao.gather || !ssao.blur || !ssao.upsample || !ssao.replace || !ssao.multiply || !ssao.debug ||
+		!ssao.multiply_half)
 	{
 		platform_log("ssao: a pipeline cannot be made: %s", error ? error.localizedDescription.UTF8String : "?");
 		return NO;
@@ -7492,6 +7520,9 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			return;
 		}
 		mode = (int)values[14];
+		/* debug.ssao_path: 0 full-resolution upsample, 1 the blurred half-resolution AO sampled bilinearly in the
+		composite, 2 the raw half-resolution AO (no blur); modes 2-4 always take path 0 */
+		int path = count >= 23 && mode == 1 ? (int)values[22] : 0;
 		width = color_record->content_width ? color_record->content_width : color_record->texture.width;
 		height = color_record->content_height ? color_record->content_height : color_record->texture.height;
 		width = MIN(width, depth_record->texture.width);
@@ -7517,6 +7548,12 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			p.hh = (p.h + 1) / 2;
 			p.z_near = values[4];
 			p.z_far = values[5];
+			/* the projection's own depth row (GL-style), when given: the near and far the depth was made with */
+			if (count >= 22 && values[20] != 1.0f && values[20] != -1.0f && values[21] != 0.0f)
+			{
+				p.z_near = values[21] / (values[20] - 1.0f);
+				p.z_far = values[21] / (values[20] + 1.0f);
+			}
 			p.p00 = values[6];
 			p.p11 = values[7];
 			p.p20 = values[8];
@@ -7556,10 +7593,15 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			[compute setTexture:ssao.half_depth atIndex:0];
 			[compute setTexture:ssao.raw atIndex:1];
 			ssao_dispatch(compute, ssao.gather, p.hw, p.hh);
-			[compute setTexture:ssao.half_depth atIndex:0];
-			[compute setTexture:ssao.raw atIndex:1];
-			[compute setTexture:ssao.blurred atIndex:2];
-			ssao_dispatch(compute, ssao.blur, p.hw, p.hh);
+			if (path != 2)
+			{
+				[compute setTexture:ssao.half_depth atIndex:0];
+				[compute setTexture:ssao.raw atIndex:1];
+				[compute setTexture:ssao.blurred atIndex:2];
+				ssao_dispatch(compute, ssao.blur, p.hw, p.hh);
+			}
+			if (path == 0)
+			{
 			[compute setTexture:depth_record->texture atIndex:0];
 			[compute setTexture:ssao.stencil_view atIndex:1];
 			[compute setTexture:ssao.half_depth atIndex:2];
@@ -7567,6 +7609,7 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			[compute setTexture:ssao.full atIndex:4];
 			[compute setTexture:ssao.debug_image atIndex:5];
 			ssao_dispatch(compute, ssao.upsample, p.w, p.h);
+			}
 			[compute endEncoding];
 		}
 		/* the scene's pass again, loaded, with the composite first */
@@ -7594,14 +7637,20 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 			}
 			else
 			{
-				[encoder setRenderPipelineState:mode == 2 ? ssao.replace : ssao.multiply];
-				[encoder setFragmentTexture:ssao.full atIndex:0];
+				[encoder setRenderPipelineState:path ? ssao.multiply_half : mode == 2 ? ssao.replace : ssao.multiply];
+				[encoder setFragmentTexture:path == 0 ? ssao.full : path == 1 ? ssao.blurred : ssao.raw atIndex:0];
+				[encoder setFragmentSamplerState:ssao.linear_clamp atIndex:0];
+				c.half_w = (float)(path == 1 ? ssao.blurred : ssao.raw).width;
+				c.half_h = (float)(path == 1 ? ssao.blurred : ssao.raw).height;
+				c.strength = p.strength;
+				c.floor = p.level_floor;
 				c.amount = 1.0f;
 				[encoder setDepthStencilState:ssao.level];
 				[encoder setStencilReferenceValue:0x10];
 				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
 				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 				c.amount = values[12];
+				c.floor = p.object_floor;
 				[encoder setDepthStencilState:ssao.objects];
 				[encoder setStencilReferenceValue:0];
 				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];

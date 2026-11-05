@@ -1711,7 +1711,7 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao: the power the visibility is raised to; higher darkens more." },
 	{ "debug.ssao_objects", _config_real, "0.3", "HALO_SSAO_OBJECTS", _environment_value, _platform_ios,
 		"With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included)." },
-	{ "debug.ssao_static_weight", _config_real, "0.25", "HALO_SSAO_STATIC_WEIGHT", _environment_value, _platform_ios,
+	{ "debug.ssao_static_weight", _config_real, "0", "HALO_SSAO_STATIC_WEIGHT", _environment_value, _platform_ios,
 		"With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that);\n"
 		"objects always occlude fully." },
 	{ "debug.ssao_high", _config_boolean, "true", "HALO_SSAO_HIGH", _environment_value, _platform_ios,
@@ -1724,6 +1724,9 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black)." },
 	{ "debug.ssao_object_floor", _config_real, "0.6", "HALO_SSAO_OBJECT_FLOOR", _environment_value, _platform_ios,
 		"With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it)." },
+	{ "debug.ssao_path", _config_integer, "0", "HALO_SSAO_PATH", _environment_value, _platform_ios,
+		"With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled\n"
+		"bilinearly as it is applied, 2 the same without the blur." },
 	{ "debug.ssao_view_flag", _config_boolean, "false", "HALO_SSAO_VIEW_FLAG", _environment_value, _platform_ios,
 		"With debug.ssao off: make depth targets readable as stencil views anyway (to measure that alone)." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,

@@ -87,7 +87,7 @@ when halo_ssao_lightmaps_mark(TRUE) says so (rasterizer_xbox_environment.c), and
 occlusion runs (render_window), with the window's depth range and its projection's scale and offset */
 int halo_ssao_lightmaps_mark(int begin);
 void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
-	float p21);
+	float p21, float p22, float p32);
 /* a map has loaded and its first frame is next (main_new_map): the shaders
 and pipelines its list names are compiled now, under the loading screen
 (port/linux/src/d3d8_device.c) */
