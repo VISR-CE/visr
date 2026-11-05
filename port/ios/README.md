@@ -694,8 +694,10 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
   again. `debug.hand_log` logs every gesture's state change with the value
   measured against its threshold, each hand's aim condition as it changes
   (measured, held, held past the gap, carried or lost, with how long the
-  run that ended lasted), and, for a prayer sign that is refused, which
-  term refused it and what that term measured. Unlike the Sense
+  run that ended lasted, what refused the sample, the wrist joint's own
+  tracking flag, the hand's tracking fidelity and where the hand was last
+  seen relative to your head), and, for a prayer sign that is refused,
+  which term refused it and what that term measured. Unlike the Sense
   controllers, hand tracking needs no visionOS 27 feature.
 - **Game data.** As on iPhone: the setup screen offers the Files picker, and
   an XISO placed in the app's Documents folder is imported.
