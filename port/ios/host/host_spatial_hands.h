@@ -391,6 +391,18 @@ struct hands_tip_distances
 {
 	float distance[NUMBER_OF_HANDS_PINCHES];
 	int path[NUMBER_OF_HANDS_PINCHES];
+	/* the ruler each finger's own band is scaled off as its window now stands, meters, indexed
+	as distance and path are: HANDS_PINCH_CLOSE_RULER_FRACTION and
+	HANDS_PINCH_OPEN_RULER_FRACTION times this are the two thresholds that finger was actually
+	judged against on this sample. Logged because index_distal below measures one finger and
+	every finger has its own: the outer three are shorter than the index, and a finger whose
+	distal segment reads near HANDS_RULER_MINIMUM_METERS has every reading of it dropped by
+	ruler_push and keeps HANDS_RULER_DEFAULT_METERS forever, which would put its pinch at
+	roughly twice the distance it should be. A reading of exactly HANDS_RULER_DEFAULT_METERS to
+	four decimals is that case: a median of real readings will not land on the default, so the
+	default showing up in this field is the window saying it has nothing it trusts. Always
+	known, since ruler_meters answers with the default rather than nothing */
+	float ruler[NUMBER_OF_HANDS_PINCHES];
 	float palm_width;
 	int palm_width_known;
 	float index_distal;

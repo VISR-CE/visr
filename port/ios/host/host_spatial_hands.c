@@ -284,6 +284,10 @@ void hands_tip_distances(struct hands_state *state, int hand, const struct host_
 	{
 		int tip_index = finger + 1; /* tip[0] is the thumb, as tips_resolve's own array is */
 
+		/* the band this finger would be judged against right now, read off the same window
+		hands_recognize reads and with no reading pushed into it here: this function is the log's
+		and must not move a threshold it is only reporting */
+		out->ruler[finger] = ruler_meters(&state->pinch[hand][finger]);
 		if (usable[0] && usable[tip_index])
 		{
 			out->distance[finger] = distance3(tip[0], tip[tip_index]);

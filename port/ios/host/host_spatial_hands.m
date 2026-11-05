@@ -859,30 +859,47 @@ the distributions this line measured). Each
 of the four pinches carries its distance, which of HANDS_DISTANCE_MEASURED/CARRIED/
 UNAVAILABLE it is, and whether that pinch is closed right now, so a session's lines sort
 into the resting and the pinching distributions without correlating against any other line.
+Each pinch also carries the ruler its own band was scaled off on this sample
+(host_spatial_hands.c's ruler_meters), because a distance means nothing without the threshold
+it was judged against and every finger's threshold is its own. It is the field that says
+whether a finger's window is working: HANDS_RULER_MINIMUM_METERS is 10 mm and a small little
+finger's distal segment is about that, so such a finger has every reading of it dropped by
+ruler_push and keeps HANDS_RULER_DEFAULT_METERS forever, which puts its pinch at roughly twice
+the distance it should be. Exactly 0.0224 in this field is that case, since a median of real
+readings does not land on the default.
+
 palm_width and index_distal close the line: two measures of this hand's own size, "unavailable"
 rather than a number on a sample ARKit doesn't give them, since the question this line was added
 to answer was whether the two thresholds belong in a fraction of one of these rather than in an
 absolute distance. They do, and the distal segment is the one they are in now
 (host_spatial_hands.c's ruler_meters); both stay on the line, palm width because it is what
-says the hand is being seen at the right scale at all.
+says the hand is being seen at the right scale at all. index_distal is the index finger's raw
+segment where the ruler fields above are each finger's own smoothed window, so the two are not
+the same number and neither replaces the other.
 
 Greppable on "hands: distance ", and every field after the side is in a fixed column, so an
-awk invocation can pull any of them by number without parsing the line (the report at
-.superpowers/sdd/2026-10-28-visr-hands-plan/distance-log-report.md has the exact ones) */
+awk invocation can pull any of them by number without parsing the line. The ruler field adds
+one column to each finger's group, so a reader counting columns from an earlier session's
+lines counts five per finger now and not four */
 static void log_distance_sample(int hand, const struct host_spatial_hand_joints *joints)
 {
 	static const char *const finger_names[NUMBER_OF_HANDS_PINCHES] = { "index", "middle", "ring", "little" };
 	struct hands_tip_distances distances;
-	char line[256];
+	/* five fields per finger with "unavailable" in the longest of them, plus the two closing
+	measures: 320 keeps the whole line rather than letting the guards below truncate the end of
+	it, which is where the hand's own scale sits */
+	char line[320];
 	size_t used;
 	int finger;
 
 	hands_tip_distances(&gesture_state, hand, joints, &distances);
 	used = (size_t)snprintf(line, sizeof(line), "hands: distance %s", hand ? "right" : "left");
 	for (finger = 0; finger < NUMBER_OF_HANDS_PINCHES && used < sizeof(line); finger++)
-		used += (size_t)snprintf(line + used, sizeof(line) - used, " %s %.4f %s %s", finger_names[finger],
-			(double)distances.distance[finger], distance_path_names[distances.path[finger]],
-			gesture_state.pinch[hand][finger].closed ? "closed" : "open");
+		used += (size_t)snprintf(line + used, sizeof(line) - used, " %s %.4f %s %s ruler %.4f",
+			finger_names[finger], (double)distances.distance[finger],
+			distance_path_names[distances.path[finger]],
+			gesture_state.pinch[hand][finger].closed ? "closed" : "open",
+			(double)distances.ruler[finger]);
 	if (used < sizeof(line))
 	{
 		if (distances.palm_width_known)

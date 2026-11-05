@@ -2064,6 +2064,53 @@ static void aim_elevation_setting_ends(void)
 	check(near(controls[1].stick_y, 0.5f, 1e-3f), "elevation ends: and half way 30 degrees into a 60 degree span");
 }
 
+/* the distance log's own reading (host_spatial_hands.c's hands_tip_distances), which decides
+nothing but has to report the band each finger was actually judged against. The ruler field is
+what says whether a finger's own window is working at all: HANDS_RULER_MINIMUM_METERS is 10 mm
+and the header's own range puts a small little finger's distal segment at about that, so such a
+finger has every reading of it dropped by ruler_push and keeps HANDS_RULER_DEFAULT_METERS, the
+index finger's, which puts its pinch at nearly twice the distance it should be. The field is on
+the line so a device session can say whether that is happening rather than leaving it argued */
+static void tip_distances_report_each_ruler(void)
+{
+	struct hands_state state;
+	struct host_spatial_hand_joints joints[2];
+	struct hands_tip_distances distances;
+
+	/* a window with nothing in it yet: every finger reports the default, since that is the
+	ruler those fingers are genuinely being judged against */
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	hands_tip_distances(&state, 1, &joints[1], &distances);
+	check(near(distances.ruler[HANDS_PINCH_INDEX], HANDS_RULER_DEFAULT_METERS, 1e-6f) &&
+		near(distances.ruler[HANDS_PINCH_LITTLE], HANDS_RULER_DEFAULT_METERS, 1e-6f),
+		"tip distances: an unfilled window reports the default ruler");
+
+	/* a measured index finger beside a little finger whose segment sits under the plausible
+	floor: the index reports its own and the little keeps the default, which is exactly the case
+	worth catching, since the two bands then differ by nearly a factor of two on one hand.
+
+	The little finger is put under the floor on a fresh state and before any sample runs, not
+	with a second fill_ruler after the index's: a real small finger is small from the first
+	sample, and filling the index's window first would saturate the little finger's with the
+	fixture's own plausible segment along the way and never exercise the drop at all */
+	memset(&state, 0, sizeof(state));
+	joints[0] = make_hand(0);
+	joints[1] = make_hand(1);
+	joints[1].intermediate_tip[HANDS_PINCH_LITTLE + 1][2] = joints[1].tip[HANDS_PINCH_LITTLE + 1][2] - 0.0080f;
+	fill_ruler(&state, joints, 1, HANDS_PINCH_INDEX, 0.0300f);
+	hands_tip_distances(&state, 1, &joints[1], &distances);
+	check(near(distances.ruler[HANDS_PINCH_INDEX], 0.0300f, 1e-6f),
+		"tip distances: a measured finger reports its own ruler");
+	check(near(distances.ruler[HANDS_PINCH_LITTLE], HANDS_RULER_DEFAULT_METERS, 1e-6f),
+		"tip distances: a segment under the floor leaves the little finger on the default");
+	/* and reading the line never moves a threshold: the field is a report, not a reading */
+	hands_tip_distances(&state, 1, &joints[1], &distances);
+	check(near(distances.ruler[HANDS_PINCH_LITTLE], HANDS_RULER_DEFAULT_METERS, 1e-6f),
+		"tip distances: and asking twice changes neither finger's window");
+}
+
 /* the aim's hold through a dropout (host_spatial_hands.c's hands_aim_hold), which is the half
 of the aim gap that is not ARKit's: a blink inside the gap holds the last aim, a lapse past it
 gives it up, and a gap of 0 gives it up on the first unreadable sample, which is the behaviour
@@ -2187,6 +2234,7 @@ int main(void)
 	aim_turn_unchanged_by_the_elevation_settings();
 	aim_elevation_setting_ends();
 	event_capacity_clamped();
+	tip_distances_report_each_ruler();
 	aim_hold_through_a_blink();
 	if (failures)
 	{
