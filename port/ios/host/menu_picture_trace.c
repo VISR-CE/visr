@@ -148,21 +148,26 @@ static void icon_blur(float *f,unsigned w,unsigned h,float sigma,float *tmp) {
     for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++){float v=0;for(int i=-r;i<=r;i++)v+=k[i+r]*f[(size_t)y*w+(unsigned)clampf((int)x+i,0,w-1)];tmp[(size_t)y*w+x]=v;}
     for(unsigned y=0;y<h;y++)for(unsigned x=0;x<w;x++){float v=0;for(int i=-r;i<=r;i++)v+=k[i+r]*tmp[(size_t)(unsigned)clampf((int)y+i,0,h-1)*w+x];f[(size_t)y*w+x]=v;}
 }
-/* keeps only the 8-connected components of mask that have at least min pixels */
-static int icon_components(uint8_t *mask,unsigned w,unsigned h,unsigned min,unsigned *queue,const volatile int *cancel) {
+/* keeps only the 8-connected components of mask that have at least min pixels; with dist, a component also has to
+   be 'fat': at least big pixels, or an inscribed radius of need */
+static int icon_components_fat(uint8_t *mask,unsigned w,unsigned h,unsigned min,const float *dist,float need,unsigned big,
+    unsigned *queue,const volatile int *cancel) {
     const size_t n=(size_t)w*h;
     for(size_t i=0;i<n;i++){
         if(mask[i]!=1)continue;
         if(cancel&&*cancel&&(i&0xffff)==0)return -1;
-        size_t head=0,tail=0;queue[tail++]=(unsigned)i;mask[i]=2;
-        while(head<tail){unsigned j=queue[head++],x=j%w,y=j/w;
+        size_t head=0,tail=0;queue[tail++]=(unsigned)i;mask[i]=2;float widest=0;
+        while(head<tail){unsigned j=queue[head++],x=j%w,y=j/w;if(dist&&dist[j]>widest)widest=dist[j];
             for(int dy=-1;dy<=1;dy++)for(int dx=-1;dx<=1;dx++){int nx=(int)x+dx,ny=(int)y+dy;
                 if(nx<0||ny<0||nx>=(int)w||ny>=(int)h)continue;size_t t=(size_t)ny*w+nx;
                 if(mask[t]==1){mask[t]=2;queue[tail++]=(unsigned)t;}}}
-        if(tail<min)for(size_t k=0;k<tail;k++)mask[queue[k]]=0;
+        if(tail<min||(dist&&tail<big&&widest<need))for(size_t k=0;k<tail;k++)mask[queue[k]]=0;
     }
     for(size_t i=0;i<n;i++)mask[i]=mask[i]==2;
     return 0;
+}
+static int icon_components(uint8_t *mask,unsigned w,unsigned h,unsigned min,unsigned *queue,const volatile int *cancel) {
+    return icon_components_fat(mask,w,h,min,NULL,0,0,queue,cancel);
 }
 static float icon_edge(float f,float level,float gx,float gy) {
     float fw=fmaxf(hypotf(gx,gy),1e-4f);return clampf((f-level)/fw+.5f,0,1);
@@ -356,15 +361,45 @@ static void cl_stroke_segment(float *cov,unsigned w,unsigned h,float ax,float ay
         float dx=px-t*vx,dy=py-t*vy,d=sqrtf(dx*dx+dy*dy);
         float c=clampf(half+.5f-d,0,1);size_t i=(size_t)y*w+x;if(c>cov[i])cov[i]=c;}
 }
+/* Round parts: a thick component that is an ellipse or an elliptical ring within a small error (a circle when the
+   axes agree) is drawn exactly; k is the ring's inner size as a fraction of the outer, 0 for a solid dot. */
+struct cl_prim { float cx,cy,Rx,Ry,k; };
+static unsigned cl_fit_circles(const uint8_t *blob,uint8_t *prim,uint8_t *mark,unsigned w,unsigned h,unsigned *queue,
+    struct cl_prim *out,unsigned cap) {
+    const size_t n=(size_t)w*h;unsigned count=0;memset(mark,0,n);
+    for(size_t i=0;i<n;i++){
+        if(!blob[i]||mark[i])continue;
+        size_t head=0,tail=0;queue[tail++]=(unsigned)i;mark[i]=2;
+        unsigned minx=w,maxx=0,miny=h,maxy=0;
+        while(head<tail){unsigned j=queue[head++],x=j%w,y=j/w;
+            if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+            for(int dy=-1;dy<=1;dy++)for(int dx=-1;dx<=1;dx++){int nx=(int)x+dx,ny=(int)y+dy;if(nx<0||ny<0||nx>=(int)w||ny>=(int)h)continue;
+                size_t t=(size_t)ny*w+nx;if(blob[t]&&!mark[t]){mark[t]=2;queue[tail++]=(unsigned)t;}}}
+        double A=(double)tail,F=M_PI*((maxx-minx+1)/2.0)*((maxy-miny+1)/2.0);
+        float cx=(minx+maxx+1)*.5f,cy=(miny+maxy+1)*.5f,Rx=(maxx-minx+1)*.5f,Ry=(maxy-miny+1)*.5f;
+        /* the hole of a ring: the filled ellipse's area minus the component's */
+        double Hh=F-A;float k=Hh>.08*F?(float)sqrt(Hh/F):0.f;
+        double bad=0;
+        for(int y=(int)miny-2;y<=(int)maxy+2;y++)for(int x=(int)minx-2;x<=(int)maxx+2;x++){
+            if(x<0||y<0||x>=(int)w||y>=(int)h)continue;
+            float u=hypotf((x+.5f-cx)/Rx,(y+.5f-cy)/Ry);int ideal=u<=1.f&&(k<=0||u>=k);int is=mark[(size_t)y*w+x]==2;
+            if(ideal!=is)bad++;}
+        int fits=fminf(Rx,Ry)>=8.f&&bad<.10*A&&count<cap;
+        for(size_t q=0;q<tail;q++){mark[queue[q]]=1;if(fits)prim[queue[q]]=1;}
+        if(fits){out[count].cx=cx;out[count].cy=cy;out[count].Rx=Rx;out[count].Ry=Ry;out[count].k=k;count++;}
+    }
+    return count;
+}
 /* coverage of the strokes and filled shapes in AL, of the dark fill in AK (both at the 8x working size); 1 on success,
    0 when the line art cannot be read as strokes (the caller falls back), -1 on cancellation */
 static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *line,const uint8_t *black,unsigned uw,unsigned uh,
     float *AL,float *AK,unsigned *queue,const volatile int *cancel) {
     const size_t un=(size_t)uw*uh;int status=0,stopped=0;
-    uint8_t *grown=calloc(un,1),*blob=calloc(un,1),*sk=calloc(un,1),*node=calloc(un,1),*vis=calloc(un,1),*aux=calloc(un,1);
+    uint8_t *grown=calloc(un,1),*blob=calloc(un,1),*sk=calloc(un,1),*node=calloc(un,1),*vis=calloc(un,1),*aux=calloc(un,1),*prim=calloc(un,1),*primd=calloc(un,1);
+    struct cl_prim prims[16];unsigned nprim=0;
     float *D1=malloc(un*sizeof(float)),*D2=malloc(un*sizeof(float));
     struct cl_path *paths=NULL;unsigned np=0;
-    if(!grown||!blob||!sk||!node||!vis||!aux||!D1||!D2)goto done;
+    if(!grown||!blob||!sk||!node||!vis||!aux||!prim||!primd||!D1||!D2)goto done;
     /* faint stretches of a line that touch a strong one belong to it: hysteresis closes breaks where the art is thin */
     {size_t head=0,tail=0;for(size_t i=0;i<un;i++)if(line[i]&&S[i]>.34f){grown[i]=1;queue[tail++]=(unsigned)i;}
      while(head<tail){unsigned j=queue[head++],x=j%uw,y=j/uw;
@@ -384,9 +419,15 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
      for(size_t i=0;i<un;i++)aux[i]=D1[i]>r;
      cl_dist(aux,1,D2,uw,uh);
      for(size_t i=0;i<un;i++)blob[i]=D2[i]<=r;
-     if(icon_components(blob,uw,uh,700,queue,cancel)){status=-1;goto done;}
-     cl_dist(blob,1,D2,uw,uh);int rb=(int)base_half+1;
-     for(size_t i=0;i<un;i++){blob[i]=D2[i]<=rb;aux[i]=grown[i]&&!blob[i];}
+     if(icon_components_fat(blob,uw,uh,700,D1,13.f,3000,queue,cancel)){status=-1;goto done;}
+     nprim=cl_fit_circles(blob,prim,vis,uw,uh,queue,prims,16);memset(vis,0,un);
+     cl_dist(prim,1,D2,uw,uh);int rb=(int)base_half+1;
+     for(size_t i=0;i<un;i++)primd[i]=D2[i]<=rb+1;
+     cl_dist(blob,1,D2,uw,uh);
+     /* a point of the line is only valid where it borders the dark fill: the stroke follows the silhouette */
+     for(size_t i=0;i<un;i++)node[i]=K[i]>.3f;
+     cl_dist(node,1,D1,uw,uh);float dmax=base_half*3+6;
+     for(size_t i=0;i<un;i++){blob[i]=D2[i]<=rb;aux[i]=grown[i]&&!blob[i]&&D1[i]<=dmax;}
      if(icon_components(aux,uw,uh,30,queue,cancel)){status=-1;goto done;}}
     memcpy(sk,aux,un);memset(aux,0,un);
     cl_thin(sk,uw,uh,queue,cancel,&stopped);if(stopped){status=-1;goto done;}
@@ -451,11 +492,25 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
     for(unsigned i=0;i<np;i++){const struct cl_path *c=&paths[i];if(c->n<2)continue;
         unsigned cap=c->n*2+16;float *sm=malloc((size_t)cap*2*sizeof(float));if(!sm)goto done;
         unsigned m=cl_smooth(c->p,c->n,c->closed,width,sm,cap);
+        if(c->closed&&m>=24){   /* a closed curve that is a circle within a small error is drawn as one */
+            double mx=0,my=0;for(unsigned t=0;t<m;t++){mx+=sm[2*t];my+=sm[2*t+1];}mx/=m;my/=m;
+            double rm=0;for(unsigned t=0;t<m;t++)rm+=hypot(sm[2*t]-mx,sm[2*t+1]-my);rm/=m;
+            double dev=0;for(unsigned t=0;t<m;t++){double e=hypot(sm[2*t]-mx,sm[2*t+1]-my)-rm;dev+=e*e;}dev=sqrt(dev/m);
+            unsigned want=(unsigned)lround(2*M_PI*rm);
+            if(rm>=6&&dev<.03*rm&&want>=24&&want<cap){for(unsigned t=0;t<want;t++){double a=2*M_PI*t/want;sm[2*t]=(float)(mx+rm*cos(a));sm[2*t+1]=(float)(my+rm*sin(a));}m=want;}
+        }
         for(unsigned t=0;t+1<m;t++)cl_stroke_segment(AL,uw,uh,sm[2*t]+.5f,sm[2*t+1]+.5f,sm[2*t+2]+.5f,sm[2*t+3]+.5f,width*.5f);
         if(c->closed&&m>2)cl_stroke_segment(AL,uw,uh,sm[2*m-2]+.5f,sm[2*m-1]+.5f,sm[0]+.5f,sm[1]+.5f,width*.5f);
         free(sm);}
+    /* round parts: a stroked ring or a dot, exact */
+    for(unsigned k=0;k<nprim;k++){const struct cl_prim *p=&prims[k];float Rm=sqrtf(p->Rx*p->Ry);
+        int x0=(int)floorf(p->cx-p->Rx-2),x1=(int)ceilf(p->cx+p->Rx+2),y0=(int)floorf(p->cy-p->Ry-2),y1=(int)ceilf(p->cy+p->Ry+2);
+        for(int y=y0<0?0:y0;y<=y1&&y<(int)uh;y++)for(int x=x0<0?0:x0;x<=x1&&x<(int)uw;x++){
+            float u=hypotf((x+.5f-p->cx)/p->Rx,(y+.5f-p->cy)/p->Ry);
+            float c=clampf((1.f-u)*Rm+.5f,0,1)*(p->k>0?clampf((u-p->k)*Rm+.5f,0,1):1.f);
+            size_t q=(size_t)y*uw+x;AL[q]=AL[q]+c-AL[q]*c;}}
     /* filled shapes: the level set of the line field inside the thick parts */
-    for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;if(!blob[u])continue;
+    for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;if(!blob[u]||primd[u])continue;
         float gx=(S[u+1]-S[u-1])*.5f,gy=(S[u+uw]-S[u-uw])*.5f;float aB=icon_edge(S[u],.48f,gx,gy);AL[u]=AL[u]+aB-AL[u]*aB;}
     /* the dark fill: the figure's darkness, reaching under the strokes, and only where the strokes enclose it */
     for(unsigned y=1;y+1<uh;y++)for(unsigned x=1;x+1<uw;x++){size_t u=(size_t)y*uw+x;
@@ -469,11 +524,22 @@ static int icon_centerline_alpha(const float *S,const float *K,const uint8_t *li
         static const int ox[4]={1,-1,0,0},oy[4]={0,0,1,-1};
         for(int k=0;k<4;k++){int nx=(int)x+ox[k],ny=(int)y+oy[k];if(nx<0||ny<0||nx>=(int)uw||ny>=(int)uh)continue;
             size_t t=(size_t)ny*uw+nx;if(!blob[t]&&AL[t]<.5f){blob[t]=1;queue[tail++]=(unsigned)t;}}}
-     for(size_t i=0;i<un;i++)if(blob[i])AK[i]=0;}
+     for(size_t i=0;i<un;i++)if(blob[i])AK[i]=0;
+     /* pockets of field no bigger than a speck that touch the dark fill are fill as well (a slit's tip, walled by strokes only, stays) */
+     for(size_t i=0;i<un;i++){
+         if(blob[i]||AL[i]>=.5f||AK[i]>=.5f||blob[i]==2)continue;
+         head=0;tail=0;queue[tail++]=(unsigned)i;blob[i]=2;int small=1,dark=0;
+         while(head<tail){unsigned j=queue[head++],x=j%uw,y=j/uw;
+            static const int ox[4]={1,-1,0,0},oy[4]={0,0,1,-1};
+            for(int k=0;k<4;k++){int nx=(int)x+ox[k],ny=(int)y+oy[k];if(nx<0||ny<0||nx>=(int)uw||ny>=(int)uh)continue;
+                size_t t=(size_t)ny*uw+nx;if(AK[t]>=.5f&&blob[t]!=1)dark=1;if(blob[t]||AL[t]>=.5f||AK[t]>=.5f)continue;blob[t]=2;
+                if(tail>=400){small=0;}else queue[tail++]=(unsigned)t;}}
+         if(small&&dark&&tail<400)for(size_t k=0;k<tail;k++)AK[queue[k]]=1.f;
+     }}
     status=1;
 done:
     if(paths)cl_free_paths(paths,np);
-    free(grown);free(blob);free(sk);free(node);free(vis);free(aux);free(D1);free(D2);
+    free(grown);free(blob);free(sk);free(node);free(vis);free(aux);free(prim);free(primd);free(D1);free(D2);
     return status;
 }
 
