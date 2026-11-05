@@ -89,7 +89,7 @@ xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, iPad Pro M1"
     x-axis "Port and version" ["VISR 0.6.10", "ChupathingyCE iOS v0.4.1"]
     y-axis "Milliseconds per frame" 0 --> 8.3
-    bar [0, 4.3]
+    bar [3, 4.3]
     bar [6, 0]
 ```
 
@@ -97,7 +97,7 @@ xychart-beta horizontal
 
 Lower is better.
 
-[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-05; 6.02 ms median GPU time per rendered frame, 6.52 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-05; 3.03 ms median CPU time per frame, 6.02 ms median GPU time per rendered frame, 6.52 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet).
 
 Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
