@@ -791,7 +791,7 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	/* indexed by HANDS_PRAYER_GATE_* (host_spatial_hands.h), so the enum's own values read
 	straight into it. "ok" is the NONE entry and never reaches a line: a gate that stops
 	refusing is logged under the term that was refusing, not under nothing */
-	static const char *const prayer_gate_names[] = { "ok", "tracked", "distance", "fingers", "opposed" };
+	static const char *const prayer_gate_names[] = { "ok", "tracked", "distance", "fingers", "opposed", "dwell" };
 
 	switch (kind)
 	{
@@ -827,7 +827,8 @@ static void gesture_name(int kind, int finger, char *buffer, size_t size)
 	case HANDS_EVENT_AIM_ELEVATION: snprintf(buffer, size, "aim elevation"); break;
 	case HANDS_EVENT_PRAYER: snprintf(buffer, size, "prayer"); break;
 	/* "prayer <term>", so the one word after "prayer" is the gate and a session's refusals of
-	one term pull out with a single pattern (host_spatial_hands.h's HANDS_EVENT_PRAYER_GATE) */
+	one term pull out with a single pattern. The dwell's entry is the one that is not a term of
+	the gate but the dwell being given up (host_spatial_hands.h's HANDS_EVENT_PRAYER_GATE) */
 	case HANDS_EVENT_PRAYER_GATE:
 		snprintf(buffer, size, "prayer %s",
 			finger >= 0 && finger < (int)(sizeof(prayer_gate_names) / sizeof(prayer_gate_names[0])) ?

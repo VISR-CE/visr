@@ -1187,17 +1187,58 @@ static void prayer(void)
 	check(controls[1].menu == 0, "prayer: no re-fire from a continued hold");
 	check(controls[0].menu == 0, "prayer: the off hand's menu is never set");
 
-	/* break the pose, then resume: the dwell restarts and does not fire early */
+	/* a break shorter than HANDS_HAND_GAP_SECONDS no longer restarts the dwell. Pressing two
+	palms together hides one hand behind the other, so the gesture refuses itself partway
+	through by its own shape, and a dwell that restarted on the first refusing sample could
+	never finish. The dwell's clock is not paused by the lapse either, so the sign still fires
+	0.6 s after it was first held and not 0.6 s of clean samples later */
 	memset(&state, 0, sizeof(state));
 	prayer_pose(joints);
-	for (t = 1.0; t <= 1.3; t += 0.05)
+	for (t = 1.0; t <= 1.25 + 1e-9; t += 0.05)
 		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
-	joints[0].wrist[1] = 0.5f; /* the pose breaks: too far apart */
+	joints[0].wrist[1] = 0.5f; /* one sample of the pose breaking: too far apart */
 	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.3, controls, events, 16);
-	joints[0].wrist[1] = 0.05f; /* resumes */
-	for (t = 1.35; t <= 1.6 + 1e-9; t += 0.05)
+	joints[0].wrist[1] = 0.05f; /* and held again */
+	for (t = 1.35; t <= 1.55 + 1e-9; t += 0.05)
 		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
-	check(controls[1].menu == 0, "prayer: a break restarts the dwell, no fire by the old schedule's 0.6 s");
+	check(controls[1].menu == 0, "prayer blink: a one-sample break has not fired early either");
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.6, controls, events, 16);
+	check(controls[1].menu == 1, "prayer blink: and the sign still fires 0.6 s after it was first held");
+
+	/* a lapse that runs past the gap does give the dwell up, and says how far it had got, which
+	is the measurement for whether 0.6 s is too long for this gesture. The lapse starts at 1.3
+	and the gap is 0.15, so the checks sit a sample either side of 1.45 rather than on it: the
+	gap is a float widening to a double a hair above the decimal it reads as, exactly as the aim
+	gap's own edge does */
+	memset(&state, 0, sizeof(state));
+	prayer_pose(joints);
+	for (t = 1.0; t <= 1.25 + 1e-9; t += 0.05)
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
+	joints[0].wrist[1] = 0.5f;
+	for (t = 1.3; t <= 1.40 + 1e-9; t += 0.05)
+	{
+		count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
+		check(!event_of(events, count, HANDS_EVENT_PRAYER_GATE, HANDS_PRAYER_GATE_DWELL),
+			"prayer blink: the dwell is not given up inside the gap");
+	}
+	count = hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 1.5, controls, events, 16);
+	{
+		const struct hands_event *given = event_of(events, count, HANDS_EVENT_PRAYER_GATE,
+			HANDS_PRAYER_GATE_DWELL);
+
+		check(given && given->on == 0 && near(given->value, 0.5f, 1e-3f) &&
+			near(given->threshold, (float)HANDS_PRAYER_DWELL_SECONDS, 1e-6f),
+			"prayer blink: past the gap it is given up, reporting the 0.5 s it had reached");
+	}
+	joints[0].wrist[1] = 0.05f; /* held again, from scratch this time */
+	for (t = 1.55; t <= 1.75 + 1e-9; t += 0.05)
+		hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, t, controls, events, 16);
+	check(controls[1].menu == 0, "prayer blink: a lapse past the gap restarts the dwell, no fire on the old schedule");
+	/* an explicit instant rather than the end of an accumulating loop: the dwell's edge is
+	exactly 0.6 s after the sign was taken up again, and a t summed in 0.05 steps can land a
+	fraction under it */
+	hands_recognize(&state, joints, 1, forward, 1, 18.0f, 18.0f, 27.0f, 0.0f, 2.2, controls, events, 16);
+	check(controls[1].menu == 1, "prayer blink: and fires 0.6 s after the sign was taken up again");
 
 	/* the gate line names the term that refused an attempt, which is the whole point of it:
 	the pose broken by distance reports the distance it measured against its own threshold,

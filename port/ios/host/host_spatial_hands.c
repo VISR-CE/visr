@@ -1030,7 +1030,18 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 	it (prayer_evaluate, HANDS_EVENT_PRAYER_GATE): the on/off line alone prints the dot
 	whatever refused, so a session of failed attempts could not say which term moved.
 
-	term refusing it on its own transition beside it */
+	The dwell survives a lapse of up to HANDS_HAND_GAP_SECONDS, which is the fix the gesture's
+	own shape demands: pressing two palms together puts one hand behind the other from the
+	cameras' point of view, so the hand that is hidden stops being reported in the middle of
+	the very gesture being held, and a dwell that restarts on the first refusing sample can
+	never finish. The pinches on the same hand already ride that out on this constant and this
+	is the same blink, so it is the pinch gap and not input.hand_aim_gap: that setting is about
+	the aim, a player may legitimately set it to 0, and the prayer sign silently stopping
+	working because of it is a coupling nobody would look for.
+
+	The dwell's clock is not paused by a lapse, only its firing: a sign held, blinked through
+	and held again fires at HANDS_PRAYER_DWELL_SECONDS of wall time, which is what "held for
+	0.6 s" means to the player holding it */
 	{
 		struct prayer_terms terms;
 		/* the geometry gate as it stood on the last sample, read before the line below moves it:
@@ -1060,6 +1071,7 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 		}
 		if (terms.gate == HANDS_PRAYER_GATE_NONE)
 		{
+			state->prayer_lapse_since = 0.0;
 			if (state->prayer_since == 0.0)
 			{
 				state->prayer_since = now;
@@ -1075,10 +1087,27 @@ int hands_recognize(struct hands_state *state, const struct host_spatial_hand_jo
 					HANDS_PATH_NONE);
 			}
 		}
+		else if (state->prayer_since > 0.0)
+		{
+			/* a dwell is running and the sign has lapsed: carried for the gap, then given up
+			with how far it had got, which is the measurement for whether the dwell is too long
+			for a gesture that hides a hand by its own shape */
+			if (state->prayer_lapse_since == 0.0)
+				state->prayer_lapse_since = now;
+			if (now - state->prayer_lapse_since >= (double)HANDS_HAND_GAP_SECONDS)
+			{
+				emit(events, capacity, &count, HANDS_EVENT_PRAYER_GATE, 0, HANDS_PRAYER_GATE_DWELL, 0,
+					(float)(now - state->prayer_since), (float)HANDS_PRAYER_DWELL_SECONDS,
+					HANDS_PATH_NONE);
+				state->prayer_since = 0.0;
+				state->prayer_fired = 0;
+				state->prayer_lapse_since = 0.0;
+			}
+		}
 		else
 		{
-			state->prayer_since = 0.0;
 			state->prayer_fired = 0;
+			state->prayer_lapse_since = 0.0;
 		}
 	}
 	controls[g].menu = now < state->start_until;

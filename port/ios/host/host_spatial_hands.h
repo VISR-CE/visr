@@ -308,6 +308,11 @@ struct hands_state
 	(hands_recognize): hands apart refuse the distance term for almost the whole of a session
 	and that is not worth a line, but it is still what the next change is measured from */
 	int prayer_gate;
+	/* when the current lapse in the sign began while a dwell was running, 0 while the sign is
+	being held: what HANDS_HAND_GAP_SECONDS is measured against so the dwell rides out the hand
+	that this gesture hides from the cameras by its own shape (hands_recognize). The dwell's own
+	clock is prayer_since and is not paused by a lapse */
+	double prayer_lapse_since;
 	double prayer_since; int prayer_fired; double prayer_cooldown_until;
 	double start_until;                                      /* the Start pulse */
 };
@@ -359,9 +364,14 @@ So this line carries the first term that refuses, in `finger` (HANDS_PRAYER_GATE
 term's own measurement in value and its own constant in threshold. `on` is 1 as a term starts
 refusing and 0 when nothing is refusing any more, and it is emitted only when which term is
 refusing changes, so a hand held still writes one line and not ninety a second.
- */
+
+DWELL is the one entry that is not a term of the gate: it is reported when a dwell that was
+already running is given up, with how far it had got in seconds against HANDS_PRAYER_DWELL_
+SECONDS. That is the measurement for whether the dwell is simply too long for a gesture which
+hides a hand from the cameras by its very shape, and it is the number to change the dwell
+against rather than guessing at it */
 enum { HANDS_PRAYER_GATE_NONE, HANDS_PRAYER_GATE_TRACKED, HANDS_PRAYER_GATE_DISTANCE,
-	HANDS_PRAYER_GATE_FINGERS, HANDS_PRAYER_GATE_OPPOSED };
+	HANDS_PRAYER_GATE_FINGERS, HANDS_PRAYER_GATE_OPPOSED, HANDS_PRAYER_GATE_DWELL };
 enum { HANDS_EVENT_PINCH, HANDS_EVENT_AIM_TURN, HANDS_EVENT_PRAYER, HANDS_EVENT_START,
 	HANDS_EVENT_PINCH_MISS, HANDS_EVENT_PART_GROWTH, HANDS_EVENT_AIM_ELEVATION,
 	HANDS_EVENT_PINCH_HELD, HANDS_EVENT_PRAYER_GATE };
