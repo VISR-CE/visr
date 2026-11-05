@@ -195,6 +195,17 @@
             "desktop"
           ]
         },
+        "shadow_props": {
+          "type": "boolean",
+          "default": false,
+          "description": "Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. Costs one more object shadow each; off draws what the Xbox drew.",
+          "x-environment": "HALO_SHADOW_PROPS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "effect_resolution": {
           "type": "string",
           "default": "half",
@@ -2856,6 +2867,17 @@
           "default": "",
           "description": "A folder to save frames to (with screenshot_every); empty none.",
           "x-environment": "HALO_SCREENSHOT_DIR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "shadow_scenery": {
+          "type": "integer",
+          "default": 0,
+          "description": "For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all scenery, bit 2 all devices, bit 4 equipment and garbage).",
+          "x-environment": "HALO_SHADOW_SCENERY",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

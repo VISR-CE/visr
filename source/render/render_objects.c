@@ -91,6 +91,7 @@ symbols in this file:
 #include "bitmaps/bitmaps.h"
 #include "render/render.h"
 #include "render/shadow_minimum_size.h"
+#include "render/shadow_props.h"
 #include "camera/camera_scripting.h"
 #include "editor/editor_stubs.h"
 #include "rasterizer/rasterizer.h"
@@ -286,6 +287,47 @@ extern short debug_rasterizer_light_count;
 
 boolean render_shadows = TRUE;
 
+/* port: display.shadow_props and debug.shadow_scenery (port/linux/src/port_config.c). The game marks every scenery
+object, device, piece of equipment and garbage object shadowless when it makes it (scenery_new, device_new,
+equipment_new, garbage_new), whatever its tag says, so none of them cast. With the setting on, the Covenant crates and
+emitters named in shadow_prop_scenery_names, and every device of a size that fits, cast one: a render-only choice that
+reads and changes no game state. What a definition's answer is stays until the next map. */
+#define SHADOW_PROP_CACHE_SIZE 512
+static boolean shadow_props_on = FALSE;
+static long shadow_props_debug_mask = 0;
+static long shadow_prop_cache_definition[SHADOW_PROP_CACHE_SIZE];
+static byte shadow_prop_cache_answer[SHADOW_PROP_CACHE_SIZE]; /* 0 unknown, 1 no, 2 yes */
+
+static boolean shadow_prop_scenery_whitelisted(
+	long definition_index)
+{
+	long slot = definition_index & (SHADOW_PROP_CACHE_SIZE - 1);
+
+	if (shadow_prop_cache_answer[slot] == 0 || shadow_prop_cache_definition[slot] != definition_index)
+	{
+		shadow_prop_cache_definition[slot] = definition_index;
+		shadow_prop_cache_answer[slot] = shadow_prop_scenery_name_matches(tag_get_name(definition_index)) ? 2 : 1;
+	}
+	return shadow_prop_cache_answer[slot] == 2;
+}
+
+static boolean shadow_prop_object_allowed(
+	struct object_datum *object)
+{
+	boolean is_scenery = object->object.type == _object_type_scenery;
+
+	if (!shadow_props_on && !shadow_props_debug_mask)
+		return FALSE;
+	return shadow_prop_allowed(
+		is_scenery,
+		TEST_FLAG(_object_mask_device, object->object.type),
+		object->object.type == _object_type_equipment || object->object.type == _object_type_garbage,
+		object->object.bounding_sphere_radius,
+		shadow_props_on,
+		shadow_props_debug_mask,
+		is_scenery && shadow_prop_scenery_whitelisted(object->definition_index));
+}
+
 /* port: deferred object shadows (rasterizer_xbox_shadows.c): a window's
 shadows are all generated, each into targets of its own, before any is
 applied, so the picture's pass is not split around every shadow; in stereo
@@ -441,6 +483,7 @@ void render_objects_initialize(
 void render_objects_initialize_for_new_map(
 	void)
 {
+	csmemset(shadow_prop_cache_answer, 0, sizeof(shadow_prop_cache_answer));
 	data_make_valid(cached_object_render_states);
 
 	return;
@@ -540,6 +583,8 @@ void render_object_shadows(
 	{
 		struct object_render_data data;
 
+		shadow_props_on = config_boolean("display.shadow_props") != FALSE;
+		shadow_props_debug_mask = config_integer("debug.shadow_scenery");
 		shadow_minimum_size_begin();
 		rasterizer_environment_shadows_begin();
 
@@ -1474,7 +1519,7 @@ static void render_object(
 		if ((!object_is_first_person_camera(data->object_index) ||
 				(halo_first_person_body(data->object_index) && !render.camera.mirrored) ||
 				first_person_legs_shadow(data->object_index)) &&
-			!TEST_FLAG(object->object.flags, _object_shadowless_bit) &&
+			(!TEST_FLAG(object->object.flags, _object_shadowless_bit) || shadow_prop_object_allowed(object)) &&
 			(!TEST_FLAG(object->object.flags, _object_invisible_bit) ||
 				object->object.first_child_object_index != NONE))
 		{

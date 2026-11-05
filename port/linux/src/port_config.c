@@ -186,6 +186,10 @@ static const struct config_setting config_settings[] =
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
+	{ "display.shadow_props", _config_boolean, "false", "HALO_SHADOW_PROPS", _environment_value, _platform_all,
+		"Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and\n"
+		"light fixtures) a shadow of their own, which the original game never drew for scenery or devices.\n"
+		"Costs one more object shadow each; off draws what the Xbox drew." },
 	{ "display.effect_resolution", _config_string, "\"half\"", "HALO_EFFECT_RESOLUTION", _environment_value, _platform_all,
 		"The resolution of the 320x240 target the reflections in mirror floors and\n"
 		"the active camouflage are drawn into: \"xbox\" keeps the Xbox's 320x240,\n"
@@ -1681,6 +1685,9 @@ static const struct config_setting config_settings[] =
 		"Draw the companion HUD without an external display and save it with screenshots." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
+	{ "debug.shadow_scenery", _config_integer, "0", "HALO_SHADOW_SCENERY", _environment_value, _platform_all,
+		"For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all\n"
+		"scenery, bit 2 all devices, bit 4 equipment and garbage)." },
 	{ "debug.shadow_blur", _config_string, "\"footprint\"", "HALO_SHADOW_BLUR", _environment_value, _platform_all,
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
