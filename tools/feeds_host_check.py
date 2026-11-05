@@ -5,7 +5,8 @@ port/ios/tests/feeds_host_probe.m against it with the build's key and URLs.
 
 The URLs are the ones a release from this source gets: the current release policy moved to feeds.visr.gg
 (feeds_store.py policy). Every file it names must be staged; its hashes are pinned again for each release, so they are
-not compared here. The recording feed is the one in the format this source's app reads.
+not compared here. The recording feed is the one in the format this source's app reads. Development builds' defaults
+must name the same host.
 
 The bucket is always published from main. A release branch keeps an older docs/site, so on one, pass main's
 docs/site/packs, or a steverice/visr-feeds checkout, with --packs (Pages, the record and the bucket hold the same
@@ -78,6 +79,14 @@ def release_urls(staged: Path) -> tuple[str, str, str, str]:
     return policy["profile_feed_url"], policy["shader_feed_url"], recording, f"benchmark-catalog-{catalog[1]}:{guest}"
 
 
+def development_defaults() -> None:
+    args = argparse.Namespace(data_pack_public_key=None, profile_feed_url=None, recording_feed_url=None,
+                              shader_feed_url=None, data_packs="on", mac=False, tester=True, data_pack_channel=None)
+    _, *urls = ios_build.data_pack_settings(args)
+    for url in urls:
+        key_of(url)
+
+
 def copy_packs(packs: Path, staged: Path) -> None:
     for channel in ("tester", "staging"):
         source = packs / channel
@@ -107,6 +116,7 @@ def main(arguments=None) -> int:
     parser.add_argument("probe", type=Path)
     parser.add_argument("--packs", type=Path, help="main's docs/site/packs or a visr-feeds checkout, staged as it is (for a release branch)")
     args = parser.parse_args(arguments)
+    development_defaults()
     with tempfile.TemporaryDirectory(prefix="feeds-host-") as temporary:
         staged = Path(temporary) / "bucket"
         # The files as they are: the probe checks each signature with the app's own code, and the Tooling suite checks

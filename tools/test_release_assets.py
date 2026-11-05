@@ -12,16 +12,17 @@ def asset_policy():
     value = policy()
     value.pop("profile_feed_sha256")
     value.update(
-        profile_feed_url="https://example.invalid/tester/profiles",
+        profile_feed_url="https://feeds.visr.gg/tester/profiles",
         profile_feed_sha256s={"ios/iPhone13,3/_": "d" * 64},
-        shader_feed_url="https://example.invalid/tester/shaders.json",
+        recording_feed_url=value["recording_feed_url"].replace("https://example.invalid/", "https://feeds.visr.gg/"),
+        shader_feed_url="https://feeds.visr.gg/tester/shaders.json",
         shader_feed_sha256="f" * 64,
     )
     return value
 
 
 def test_new_policy_pins_device_shards_and_shader_feed():
-    value = {**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-4"}
+    value = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-4"}
     assert validation.load_policy(json.dumps(value)) == value
     validation.require_asset_policy(value)
     with pytest.raises(ValueError, match="asset"):
@@ -32,7 +33,7 @@ def test_new_policy_pins_device_shards_and_shader_feed():
         validation.require_asset_policy(asset_policy())
     # nor the retired device-profiles-2 directory 0.6.0 to 0.6.3 read
     with pytest.raises(ValueError, match="device-profiles-4"):
-        validation.require_asset_policy({**asset_policy(), "profile_feed_url": "https://example.invalid/tester/device-profiles-2"})
+        validation.require_asset_policy({**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-2"})
 
 
 @pytest.mark.parametrize("url, domain", [
@@ -353,3 +354,20 @@ def test_release_rejects_an_unexpected_encryption_approval_code():
             "ITSAppUsesNonExemptEncryption": False,
             "ITSEncryptionExportComplianceCode": "unreviewed-code",
         })
+
+
+@pytest.mark.parametrize("field", ["profile_feed_url", "recording_feed_url", "shader_feed_url"])
+@pytest.mark.parametrize("url", [
+    "https://code.steverice.org/visr/packs/tester/feed",
+    "http://feeds.visr.gg/tester/feed",
+    "https://feeds.visr.gg:8443/tester/feed",
+    "https://user@feeds.visr.gg/tester/feed",
+    "https://feeds.visr.gg.example.invalid/tester/feed",
+])
+def test_new_releases_read_their_feeds_from_feeds_visr_gg(field, url):
+    value = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-4"}
+    validation.require_asset_policy(value)
+    if field == "profile_feed_url":
+        url += "/device-profiles-4"
+    with pytest.raises(ValueError, match="feeds.visr.gg"):
+        validation.require_asset_policy({**value, field: url})

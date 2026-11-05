@@ -265,6 +265,7 @@ def test_a_release_policy_moves_to_feeds_visr_gg_with_its_pins():
     for name in ("profile_feed_url", "recording_feed_url", "shader_feed_url"):
         assert moved[name] == current[name].replace("https://code.steverice.org/visr/packs/", "https://feeds.visr.gg/")
     validation.load_policy(json.dumps(moved))
+    validation.require_feed_host(moved)
     assert store.move_policy(moved) == moved
     with pytest.raises(ValueError, match="neither feed host"):
         store.move_policy({**current, "shader_feed_url": "https://example.invalid/tester/shaders.json"})
@@ -280,6 +281,7 @@ def test_publish_without_credentials_stops_before_any_upload(monkeypatch, capsys
 def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path):
     from tools import feeds_host_check as check
 
+    check.development_defaults()
     assert check.key_of("https://feeds.visr.gg/tester/device-profiles-4/ios/iPad11%2C3/_.json") == "tester/device-profiles-4/ios/iPad11,3/_.json"
     for url in ("https://code.steverice.org/visr/packs/tester/shaders.json", "http://feeds.visr.gg/tester/shaders.json"):
         with pytest.raises(ValueError):

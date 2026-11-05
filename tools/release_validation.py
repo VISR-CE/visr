@@ -80,11 +80,29 @@ def check_credentials(env: Any, selected: list[str]) -> None:
         raise ValueError("Missing release configuration: " + ", ".join(missing))
 
 
+# From 0.6.12 every release reads its feeds from the R2 bucket behind this host (docs/data-packs.md, "Feed hosts");
+# GitHub Pages keeps serving the same files to earlier builds.
+FEED_HOST = "feeds.visr.gg"
+
+
+def require_feed_host(policy: dict[str, Any]) -> None:
+    for name in sorted(name for name in policy if name.endswith("_feed_url")):
+        url = urllib.parse.urlsplit(policy[name])
+        try:
+            port = url.port
+        except ValueError:
+            port = -1
+        if (url.scheme != "https" or url.hostname != FEED_HOST or url.netloc != FEED_HOST or port is not None
+                or url.query or url.fragment):
+            raise ValueError(f"{name} must be on https://{FEED_HOST}/, where new releases read their feeds")
+
+
 def require_asset_policy(policy: dict[str, Any]) -> None:
     if not {"profile_feed_sha256s", "shader_feed_url", "shader_feed_sha256"} <= set(
         policy
     ):
         raise ValueError("New releases require device-profile and shader asset pins")
+    require_feed_host(policy)
     if profile_feed_domain(policy) != packs.data_pack.PROFILE_FEED_DOMAIN:
         raise ValueError(
             "profile_feed_url must name this source's profile feed directory, "
