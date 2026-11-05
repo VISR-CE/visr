@@ -325,6 +325,7 @@ function drawn(built, selected) {
   const shown = pool(built, selected);
   if (!built.overall) return shown;
   const { suites, kept } = overallSplit(shown);
+  if (!suites.length) return [];
   return kept.map((e) => ({ ...e, value: overallValue(e, suites) }));
 }
 

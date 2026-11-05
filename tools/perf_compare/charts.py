@@ -470,6 +470,8 @@ def _drawn(built: dict, selected: set[str] | None) -> list[dict]:
     if not built.get("overall"):
         return pool
     suites, kept, _ = overall_split(pool)
+    if not suites:
+        return []
     return [{**e, "value": _overall_value(e, suites)} for e in kept]
 
 
