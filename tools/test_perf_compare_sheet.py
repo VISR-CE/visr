@@ -1421,19 +1421,17 @@ def test_every_published_row_with_cpu_or_gpu_time_appears_on_the_page_or_is_an_i
     assert missed == []
 
 
-def test_a_port_with_only_display_locked_runs_on_a_device_shows_in_the_cpu_and_gpu_view():
+def test_a_port_measured_uncapped_on_a_faster_display_draws_like_any_other_in_the_cpu_and_gpu_view():
     rows, texts = snapshot(), charts.load_device_text()
     specs = {s["name"]: s for s in charts.load_specs(ROOT / "docs/benchmarks/charts", rows)}
     built = charts.model(rows, specs["1-mac"]["query"], "campaign", "M4 Mac mini", texts)
     entry = next(e for e in built["entries"] if e["port"] == "openh1")
-    assert entry["value"]["fallback"]["note"] == "60 Hz display (presents once per refresh); defaults settings, not matched-stock"
-    assert entry["value"]["avg"] == pytest.approx(7.06, abs=0.01) and entry["value"]["low"] == pytest.approx(5.92, abs=0.01)
-    assert '"OpenH1 1240"' in charts.source(specs["1-mac"], built, "campaign")
-    note = charts.caption_table(built, None, specs["1-mac"]["query"]["details"], None)["rows"][-1]["notes"]
-    assert "60 Hz display (presents once per refresh)" in note
+    assert "fallback" not in entry["value"]
+    assert entry["value"]["avg"] == pytest.approx(3.05, abs=0.01) and entry["value"]["low"] == pytest.approx(7.91, abs=0.01)
+    assert '"OpenH1 build-1463"' in charts.source(specs["1-mac"], built, "campaign")
+    assert {row["display_hz"] for row in entry["value"]["rows"]} == {"240"}
     assert specs["1-mac"]["paragraph"].endswith("The FPS view shows average fps.") and "1% low" not in specs["1-mac"]["paragraph"]
-    # Ports with uncapped runs keep drawing only those, and the frame-rate view never draws a display-locked run.
-    visr = next(e for e in built["entries"] if e["port"] == "visr" and e["value"])
-    assert "fallback" not in visr["value"]
+    # Its uncapped rows also draw in the frame-rate view, with an average and no 1% low (it reports per-second counts only).
     fps = charts.model(rows, specs["2-mac-fps"]["query"], "campaign", "M4 Mac mini", texts)
-    assert next(e for e in fps["entries"] if e["port"] == "openh1")["value"] is None
+    value = next(e for e in fps["entries"] if e["port"] == "openh1")["value"]
+    assert value["avg"] == pytest.approx(152.1, abs=0.1) and value["low"] is None
