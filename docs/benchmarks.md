@@ -2,7 +2,7 @@
 
 We try to make these comparisons fair, but numbers or projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues/new?template=benchmark.yml)
 
-Last measured: 2026-11-04.
+Last measured: 2026-11-05.
 
 The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
@@ -28,17 +28,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms), Mac mini M6"
-    x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.0", "Halo OG v0.5.1"]
+    x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.67", "Halo OG v0.5.1"]
     y-axis "Milliseconds per frame" 0 --> 8
     bar [0, 0, 0, 0]
-    bar [4.9, 5.2, 2.6, 4.1]
+    bar [4.9, 5.2, 2.7, 4.1]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
+[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.67](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-67) (build 67, measured 2026-11-05; 2.68 ms median GPU time per rendered frame, 3.52 ms 90th-percentile GPU time per rendered frame); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Not reported: this build reports neither CPU nor GPU time per frame.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (The game halts on a sound engine assertion during this window.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (Not reported: this build reports neither CPU nor GPU time per frame.); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (Not reported: this build reports neither CPU nor GPU time per frame.); [OpenH1 build-1463](https://github.com/OpenH1/OpenH1/releases/tag/build-1463) (Not run on this device.).
 
@@ -58,16 +58,16 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: uncapped fps, Mac mini M6"
-    x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.0", "Chupathingy v0.8.1d", "Halo OG v0.5.1"]
+    x-axis "Port and version" ["VISR 0.6.3", "OpenCE-macOS v1.0.2", "CoreCE 0.3.67", "Chupathingy v0.8.1d", "Halo OG v0.5.1"]
     y-axis "Frames per second" 0 --> 500
-    bar [338.1, 332.8, 244, 205.5, 95.8]
+    bar [338.1, 332.8, 260, 205.5, 95.8]
 ```
 
 🟦 Average fps
 
 Higher is better.
 
-[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.0](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44) (build 44, measured 2026-10-28; 2.63 ms median GPU time per rendered frame, 3.38 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (build 0.8.1d, measured 2026-11-04; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
+[VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (build 20261028.91150, measured 2026-10-28; 4.94 ms median GPU time per rendered frame, 5.7 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.67](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-67) (build 67, measured 2026-11-05; 2.68 ms median GPU time per rendered frame, 3.52 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (build 0.8.1d, measured 2026-11-04; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
 
 Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Only measured with the frame cap on, at another size or with other settings.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Only measured with the frame cap on, at another size or with other settings.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (The game halts on a sound engine assertion during this window.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [OpenH1 build-1463](https://github.com/OpenH1/OpenH1/releases/tag/build-1463) (Not run on this device.).
 
@@ -253,7 +253,7 @@ VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 11.1 ms 95th-percentile
 
 ## Methodology
 
-The snapshot holds 329 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 334 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 ### Timing by platform
 
