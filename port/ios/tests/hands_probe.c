@@ -1081,9 +1081,21 @@ static void middle_pinch_does_not_cross_hands(void)
 	check(controls[0].face_high == 0, "off hand: the gun hand's face button stays off the off hand");
 }
 
-/* both hands in the prayer sign: palms together and opposed per the pinned formula,
-normal = normalize(cross(index_mc - wrist, little_mc - wrist)); swapping which metacarpal is
-"index" between the two hands gives opposed normals without needing a measured sign */
+/* both hands in the prayer sign: wrists 10 cm apart along the room's left axis, metacarpals
+above each wrist so both hands' fingers point up, and the palms turned toward each other.
+
+The two hands get the SAME metacarpal positions about their own wrists, which is what makes
+this a real left and right hand rather than a convenient one. A left and a right hand are
+mirror images, so in this pose the index side of both hands points the same way in the room,
+and normal = cross(index_mc - wrist, little_mc - wrist) therefore comes out of one palm and
+into the other: the raw pair reads +1 for palms perfectly opposed. prayer_near negates it,
+which is where the mirroring is taken out (host_spatial_hands.c).
+
+This fixture used to swap which metacarpal was called "index" between the two hands, which
+cancelled that mirroring and handed the recognizer a raw dot of -1. The gate passed, the test
+passed, and on device the gesture could not fire at all, because a real hand pair reads the
+other sign. prayer_normals_are_mirrored below pins the raw sign so the two cannot drift apart
+again */
 static void prayer_pose(struct host_spatial_hand_joints joints[2])
 {
 	joints[0] = make_hand(0);
@@ -1094,8 +1106,38 @@ static void prayer_pose(struct host_spatial_hand_joints joints[2])
 	joints[0].metacarpal[1][0] = -0.03f; joints[0].metacarpal[1][1] = 0.05f; joints[0].metacarpal[1][2] = 0.05f;
 
 	joints[1].wrist[1] = -0.05f;
-	joints[1].metacarpal[0][0] = -0.03f; joints[1].metacarpal[0][1] = -0.05f; joints[1].metacarpal[0][2] = 0.05f;
-	joints[1].metacarpal[1][0] = 0.03f; joints[1].metacarpal[1][1] = -0.05f; joints[1].metacarpal[1][2] = 0.05f;
+	joints[1].metacarpal[0][0] = 0.03f; joints[1].metacarpal[0][1] = -0.05f; joints[1].metacarpal[0][2] = 0.05f;
+	joints[1].metacarpal[1][0] = -0.03f; joints[1].metacarpal[1][1] = -0.05f; joints[1].metacarpal[1][2] = 0.05f;
+}
+
+/* the sign the device session caught, pinned from both ends so neither half can move alone:
+a real mirrored hand pair's RAW normals are parallel, not opposed, and the gate's own dot is
+the negation of that. Written against palm_frame and prayer_near directly rather than through
+a fired gesture, because a gesture that fires says only that the two signs agree, which is
+exactly what it said while both were wrong */
+static void prayer_normals_are_mirrored(void)
+{
+	struct host_spatial_hand_joints joints[2];
+	float center[2][3], normal[2][3], finger_direction[2][3];
+	float raw, gated = 0.0f;
+	int hand;
+
+	prayer_pose(joints);
+	for (hand = 0; hand < 2; hand++)
+		palm_frame(&joints[hand], center[hand], normal[hand], finger_direction[hand]);
+	raw = dot3(normal[0], normal[1]);
+	check(near(raw, 1.0f, 1e-3f), "prayer sign: a real mirrored pair's raw normals are parallel, not opposed");
+	check(prayer_near(joints, &gated) == 1, "prayer sign: and the geometry gate passes on that pose");
+	check(near(gated, -raw, 1e-6f), "prayer sign: the gate's dot is the raw pair negated");
+	check(gated <= HANDS_PRAYER_OPPOSED_DOT,
+		"prayer sign: which clears the opposed threshold, where the raw pair never could");
+	/* both palms turned the same way, which is not the sign: the raw pair reads -1 there and
+	the gate's dot +1, so the gesture is refused. The case that would fire by accident if the
+	negation were ever dropped */
+	joints[1].metacarpal[0][0] = -0.03f;
+	joints[1].metacarpal[1][0] = 0.03f;
+	check(prayer_near(joints, &gated) == 1 && gated > HANDS_PRAYER_OPPOSED_DOT,
+		"prayer sign: palms facing the same way are inside the geometry but refused as unopposed");
 }
 
 /* the prayer sign: both palms together, fingers up, a 0.6 s dwell that fires once and holds
@@ -2261,6 +2303,7 @@ int main(void)
 	aim_axes_do_not_interfere();
 	aim_turn_with_middle_pinch_closed();
 	middle_pinch_does_not_cross_hands();
+	prayer_normals_are_mirrored();
 	prayer();
 	start_pulse_outlives_the_hands();
 	pinch_miss_logged();

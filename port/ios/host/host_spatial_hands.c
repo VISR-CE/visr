@@ -141,10 +141,20 @@ static float ruler_meters(const struct hands_pinch *pinch)
 
 /* the prayer sign's palm frame for one hand: center, normal and finger
 direction, built from the wrist and the index and little metacarpals only,
-the joints that stay tracked when two hands come together. The palm normal's
-sign is measured on device, not reasoned; if the measurement disagrees with
-the formula below, flip the sign here, nowhere else, since every caller of
-this function reads the same convention */
+the joints that stay tracked when two hands come together.
+
+The normal this returns is not "out of the palm" for both hands, and no change
+here could make it so. A left and a right hand are mirror images, so the index
+and little metacarpals sit on opposite sides of the palm in body terms but the
+same way round in the room when the two palms face each other, and one cross
+product therefore comes out of the palm while the other goes into it. Flipping
+the sign here would flip both and change nothing any caller sees: the only
+reader of the sign is the dot of the two normals, and negating both leaves that
+dot exactly as it was. So the asymmetry is handled once, where the pair is
+compared (prayer_near), and this function stays the plain formula. Nothing else
+reads the sign: palm_basis_build wants an orthonormal frame for the carried
+fingertips and encodes and decodes through the same one, so a flipped axis
+round-trips identically */
 static void palm_frame(const struct host_spatial_hand_joints *hand, float center[3], float normal[3],
 	float finger_direction[3])
 {
@@ -700,7 +710,16 @@ static int prayer_near(const struct host_spatial_hand_joints joints[2], float *d
 		return 0;
 	for (hand = 0; hand < 2; hand++)
 		palm_frame(&joints[hand], center[hand], normal[hand], finger_direction[hand]);
-	*dot = dot3(normal[0], normal[1]);
+	/* negated, which is the whole of the mirroring (palm_frame's comment): one hand's computed
+	normal comes out of its palm and the other's goes into it, so the raw dot of the two reads
+	+1 for palms that are perfectly opposed and -1 for palms that face the same way, which is
+	backwards from what this gate is written against. A device session with debug.hand_log
+	measured seven attempts at the sign and every one of them printed a raw dot between +0.80
+	and +0.99 while the distance and fingers-up terms were passing, so the gesture could never
+	fire: dot <= -0.4 was being asked of a number that was never going to be negative. Negating
+	the pair is sign-correct whichever hand is the mirrored one, which is why it is done here
+	rather than by guessing a chirality in palm_frame */
+	*dot = -dot3(normal[0], normal[1]);
 	if (distance3(center[0], center[1]) > HANDS_PRAYER_DISTANCE_METERS)
 		return 0;
 	if (finger_direction[0][2] < HANDS_PRAYER_FINGERS_UP || finger_direction[1][2] < HANDS_PRAYER_FINGERS_UP)

@@ -169,6 +169,15 @@ nothing has asked for the turn to change */
 /* the prayer sign's geometry and timing, measured on device (see the
 comment on palm_frame in host_spatial_hands.c for the measurement) */
 #define HANDS_PRAYER_DISTANCE_METERS 0.16f
+/* how opposed the two palms must be, as the dot of their normals with the mirroring already
+taken out (host_spatial_hands.c's prayer_near, which negates the raw pair). -1 is palms
+perfectly facing each other and +1 is palms facing the same way, so this asks for rather less
+than halfway toward opposed and is deliberately loose: the hands do not have to be flat
+against each other, only turned toward each other.
+A device session that measured this found the sign itself inverted, the raw pair reading
+between +0.80 and +0.99 on seven attempts at the gesture, which after the negation is -0.80 to
+-0.99 and clears -0.4 with room to spare. The threshold is therefore left where it was: the
+measurement says the gate was never the problem, the sign was */
 #define HANDS_PRAYER_OPPOSED_DOT -0.4f
 #define HANDS_PRAYER_FINGERS_UP 0.5f
 #define HANDS_PRAYER_DWELL_SECONDS 0.6
