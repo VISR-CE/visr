@@ -165,6 +165,45 @@ static struct hands_aim_hold aim_hold[2];
 debug.hand_log's own line: the reduced joints cannot tell a dropout being
 held from one that has run out, since both arrive with tracked 0 */
 static int aim_outcome[2];
+/* which of hand_of's bail paths the last sample took, the wrist joint's own
+flag on that sample, and the anchor's fidelity: all three for the aim
+condition's line alone (log_aim_condition), and all three written by hand_of
+on every sample exactly as aim_outcome is, so the game sample's reading is
+the one the line carries.
+
+Why the fault is recorded at all: hand_of refuses a sample for four separate
+reasons and every one of them reaches the guest as the same untracked hand,
+so a session of dropouts could be counted but not diagnosed. The fixes are
+different for each, which is the point of telling them apart.
+
+Why the wrist's flag is recorded even on a sample the anchor already refused:
+the skeleton is still there to ask, and whether a hand ARKit calls untracked
+still reports a tracked wrist is what says whether the anchor's flag can be
+read as advice rather than as an answer. Nothing decides on it yet; it is a
+count the next session produces.
+
+Why the fidelity: it is the only thing in the hand tracking API that is not a
+boolean (hand_tracking.h's ar_hand_fidelity, visionOS 26), so it is the only
+field that can say a hand was being read poorly before it was lost rather
+than merely that it was lost. visionOS 2.0 is the deployment target, so the
+read is guarded and the unknown entry below is what a device older than the
+API leaves on the line */
+enum { AIM_FAULT_NONE, AIM_FAULT_ANCHOR, AIM_FAULT_SKELETON, AIM_FAULT_WRIST, AIM_FAULT_BARREL };
+enum { AIM_WRIST_UNKNOWN, AIM_WRIST_UNTRACKED, AIM_WRIST_TRACKED };
+enum { AIM_FIDELITY_UNKNOWN, AIM_FIDELITY_NOMINAL, AIM_FIDELITY_HIGH };
+static int aim_fault[2];
+static int aim_wrist[2];
+static int aim_fidelity[2];
+/* where each hand was, in the game's axes from the head (position_of: x
+forward, y left, z up, meters), on the last sample its wrist was read. Kept
+for the aim condition's line, which reports it on every transition: the
+device tracks hands inside a volume in front of the headset, so a session
+whose dropouts all happen with the hand at one offset from the head is a
+posture problem and not a code one, and there is no way to tell that from a
+line carrying only the dropout's length. The last reading rather than this
+sample's, because the question a loss asks is where the hand was when it was
+last seen */
+static float last_seen[2][3];
 /* the reduced joints of the last game sample (host_spatial_hands.h): what a
 gesture recognizer reads, while the aim itself needs only the wrist and the
 forearm */
@@ -470,6 +509,10 @@ static void drain(void)
 		memset(last_wrist, 0, sizeof(last_wrist));
 		memset(aim_hold, 0, sizeof(aim_hold));
 		aim_outcome[0] = aim_outcome[1] = HANDS_AIM_LOST;
+		/* and the log's own record of where the hand was, which is an offset from a head in the
+		old session's origin: the line would otherwise report the new session's first dropout at
+		a position measured in the one before it */
+		memset(last_seen, 0, sizeof(last_seen));
 		host_logf(HOST_LOG_INFO, "spatial: ARKit's session ended; the hand provider starts again with the next");
 	}
 	if (!session)
@@ -636,11 +679,21 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	int tracked[NUMBER_OF_HAND_JOINTS];
 	ar_hand_skeleton_t skeleton;
 	simd_float3 forward, up, direction;
+	int anchor_tracked;
 	int i;
 
 	memset(out, 0, sizeof(*out));
 	memset(reduced, 0, sizeof(*reduced));
 	out->state = HALO_SPATIAL_UNTRACKED;
+	/* the log's three fields at their least informative, so a path out of
+	this function that has not reached the reading they describe leaves the
+	line saying so rather than repeating the last sample's */
+	aim_fault[hand] = AIM_FAULT_NONE;
+	aim_wrist[hand] = AIM_WRIST_UNKNOWN;
+	aim_fidelity[hand] = AIM_FIDELITY_UNKNOWN;
+	if (@available(visionOS 26.0, *))
+		aim_fidelity[hand] = ar_hand_anchor_get_fidelity(anchor) == ar_hand_fidelity_high ?
+			AIM_FIDELITY_HIGH : AIM_FIDELITY_NOMINAL;
 	/* ARKit's hand chirality is right 0 and left 1, the other way around
 	from the accessory enum: mapped by name, never by value */
 	switch (ar_hand_anchor_get_chirality(anchor))
@@ -650,8 +703,17 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	default: out->chirality = 0; break;
 	}
 	skeleton = ar_hand_anchor_get_hand_skeleton(anchor);
-	if (!ar_hand_anchor_is_tracked(anchor) || !skeleton)
+	anchor_tracked = ar_hand_anchor_is_tracked(anchor);
+	if (!anchor_tracked || !skeleton)
 	{
+		/* the anchor named ahead of the skeleton, since a refusing anchor is
+		the common one and a skeleton that is simply absent is the case this
+		has no way to distinguish from it today. The wrist is still asked for
+		on a skeleton that is there: see aim_wrist's own comment above */
+		aim_fault[hand] = !anchor_tracked ? AIM_FAULT_ANCHOR : AIM_FAULT_SKELETON;
+		if (skeleton)
+			aim_wrist[hand] = ar_skeleton_joint_is_tracked(ar_hand_skeleton_get_joint_named(skeleton,
+				ar_hand_skeleton_joint_name_wrist)) ? AIM_WRIST_TRACKED : AIM_WRIST_UNTRACKED;
 		hand_unreadable(hand, head_position, out, now);
 		return;
 	}
@@ -665,10 +727,12 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 		tracked[i] = ar_skeleton_joint_is_tracked(joint);
 		room[i] = simd_mul(origin_from_anchor, ar_skeleton_joint_get_anchor_from_joint_transform(joint));
 	}
+	aim_wrist[hand] = tracked[JOINT_WRIST] ? AIM_WRIST_TRACKED : AIM_WRIST_UNTRACKED;
 	/* no wrist is no hand, whatever the anchor says: every one of the
 	skeleton's transforms is relative to it (skeleton_joint.h) */
 	if (!tracked[JOINT_WRIST])
 	{
+		aim_fault[hand] = AIM_FAULT_WRIST;
 		hand_unreadable(hand, head_position, out, now);
 		return;
 	}
@@ -679,6 +743,9 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	reduced->tracked = 1;
 	reduced->forearm_tracked = tracked[JOINT_FOREARM_ARM];
 	position_of(wrist.columns[3].xyz, head_position, reduced->wrist);
+	/* the same vector the reduced joints carry, kept for the aim condition's
+	line: this is the reading a loss is measured back from (last_seen) */
+	memcpy(last_seen[hand], reduced->wrist, sizeof(last_seen[hand]));
 	position_of(room[JOINT_FOREARM_ARM].columns[3].xyz, head_position, reduced->forearm_arm);
 	for (i = 0; i < 5; i++)
 	{
@@ -715,6 +782,7 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	{
 		/* nothing has pointed yet: a wrist on its own can't aim, and there is no pose to hold
 		either, so hands_aim_hold answers LOST however wide the gap is (its own !known branch) */
+		aim_fault[hand] = AIM_FAULT_BARREL;
 		hand_unreadable(hand, head_position, out, now);
 		return;
 	}
@@ -984,10 +1052,36 @@ sample rate would be 90 lines a second. Greppable on "hands: aim " and every fie
 side is in a fixed column. host_logf and the guest's platform_log share stderr (host_main.m's
 host_logf writes both it and the runtime log), so these lines and the guest's "controller aim:
 hand lost" and "head aims %.3f s after the loss" sort into one stream and can be read against
-each other */
+each other.
+
+Four fields close the line, all of them about the sample the new condition starts on, and all
+of them appended rather than inserted so a reader counting columns from an earlier session's
+lines finds the first nine where they were:
+
+	fault     which of hand_of's four refusals this sample took: "anchor", "skeleton", "wrist"
+	          or "barrel", and "none" on a sample that was read. The condition alone cannot say
+	          it, and the three refusals have three different fixes, so a session of dropouts
+	          that was countable is now diagnosable (aim_fault's own comment above)
+	wrist     the wrist joint's own flag on this sample, "tracked" or "untracked", or "unknown"
+	          where there was no skeleton to ask. "anchor untracked wrist tracked" is the pair
+	          worth counting: it would say a hand ARKit refuses still reports a wrist, and so
+	          that the anchor's flag could be read as advice. Nothing decides on it yet
+	fidelity  the anchor's own, "nominal" or "high" (hand_tracking.h, visionOS 26), or
+	          "unknown" below that API. The one non-boolean the hand API has, so the one field
+	          that can say a hand was being read badly before it went rather than only after
+	at        where the hand was when its wrist was last read, in the game's axes from the head
+	          (meters, x forward, y left, z up: position_of). The device reads hands inside a
+	          volume in front of it, and this port's aim pitch trim says the player holds the
+	          gun low, so a session whose dropouts cluster at one offset is a posture problem
+	          with a posture answer and not a code one. Without this field there is nothing in
+	          the log that could tell those two apart */
 static void log_aim_condition(int hand, const struct host_spatial_hand_joints *reduced, int outcome, double now)
 {
 	static const char *const names[] = { "lost", "held", "held_past", "carried", "measured" };
+	/* each indexed by its own enum above, so the values read straight in */
+	static const char *const fault_names[] = { "none", "anchor", "skeleton", "wrist", "barrel" };
+	static const char *const wrist_names[] = { "unknown", "untracked", "tracked" };
+	static const char *const fidelity_names[] = { "unknown", "nominal", "high" };
 	/* the outcome first: a held sample and a lost one both arrive with reduced->tracked 0, so
 	only hands_aim_hold's answer tells them apart. One word for held_past rather than two, so
 	the line's fields stay one per column as the rest of it does */
@@ -999,8 +1093,11 @@ static void log_aim_condition(int hand, const struct host_spatial_hand_joints *r
 	if (aim_condition[hand] == condition)
 		return;
 	if (aim_condition[hand] >= 0)
-		host_logf(HOST_LOG_INFO, "hands: aim %s %s for %.3f s, now %s", hand ? "right" : "left",
-			names[aim_condition[hand]], now - aim_condition_since[hand], names[condition]);
+		host_logf(HOST_LOG_INFO, "hands: aim %s %s for %.3f s, now %s fault %s wrist %s fidelity %s "
+			"at %.3f forward %.3f left %.3f up", hand ? "right" : "left",
+			names[aim_condition[hand]], now - aim_condition_since[hand], names[condition],
+			fault_names[aim_fault[hand]], wrist_names[aim_wrist[hand]], fidelity_names[aim_fidelity[hand]],
+			(double)last_seen[hand][0], (double)last_seen[hand][1], (double)last_seen[hand][2]);
 	aim_condition[hand] = condition;
 	aim_condition_since[hand] = now;
 }
@@ -1146,5 +1243,12 @@ void host_spatial_hands_idle(void)
 	of a sample from before it. The next readable sample starts a fresh hold */
 	memset(aim_hold, 0, sizeof(aim_hold));
 	aim_outcome[0] = aim_outcome[1] = HANDS_AIM_LOST;
+	/* the log's four fields with the run they described: hands were not the source for some
+	stretch here, so the fault, the wrist, the fidelity and the position are all readings from
+	before it and none of them describes the next sample (log_aim_condition) */
+	aim_fault[0] = aim_fault[1] = AIM_FAULT_NONE;
+	aim_wrist[0] = aim_wrist[1] = AIM_WRIST_UNKNOWN;
+	aim_fidelity[0] = aim_fidelity[1] = AIM_FIDELITY_UNKNOWN;
+	memset(last_seen, 0, sizeof(last_seen));
 }
 #endif
