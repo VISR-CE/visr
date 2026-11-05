@@ -24,6 +24,8 @@ texture_idle_seconds = 60
 model_lod = "max"
 render_height = 1080
 anisotropic_filtering = 16
+dynamic_resolution = true
+dynamic_resolution_floor = 720
 
 [variable.display]
 dynamic_resolution = true
@@ -117,3 +119,13 @@ source = "VISR context qualification on Apple TV 4K (3rd generation), build from
 basis = "measured"
 why = "The same wide window, 1080 lines down to 540, passed; see `variable.display.dynamic_resolution`."
 source = "VISR context qualification on Apple TV 4K (3rd generation), build from main e77a24957, 2026-11-01"
+
+[evidence."display.dynamic_resolution"]
+basis = "measured"
+why = "Fixed at 1080 lines, 128 shadows and 60 frames a second, a50-hangar held only 66.2% of frames on time on 0.6.10 (72.8% on 0.6.8) with a median GPU time of 23.8 ms against a 16.7 ms budget, while the other campaign windows held 99.8% to 99.9% (c10, b30, b40-exta, b30-bot). The extra cost is fragment work in the hangar; the investigation found no code regression to fix. Dynamic resolution lets the planner drop only the hangar's frames to the lines they need and leaves the other windows at the 1080 ceiling."
+source = "docs/benchmarks/results.csv, VISR 0.6.8 (2026-11-02) and 0.6.10 (2026-11-04) combat and campaign windows on Apple TV 4K (3rd generation); Steve 2026-11-04"
+
+[evidence."display.dynamic_resolution_floor"]
+basis = "measured"
+why = "Presented a50-hangar on 0.6.10, two rounds each, alternating: with the window off, 43.1 and 48.1 frames a second with 68.0% and 81.6% of frames on time; with it on (floor 720), 56.1 and 53.9 with 98.5% and 89.7%. The planner settled at 720 from about frame 2400 to the end of both rounds and would have gone lower; at 720 the second round still ran 17.9 ms of GPU a frame against a 16.7 ms budget. The window lifts the hangar by about 19 points but does not yet hold it; a 540 floor (the ladder's minimum) would likely close the gap and is untested."
+source = "presented a50-hangar pair on Apple TV 4K (3rd generation), VISR 0.6.10, 2026-11-05"
