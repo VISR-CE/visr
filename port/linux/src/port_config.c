@@ -1159,6 +1159,10 @@ static const struct config_setting config_settings[] =
 		"While Back is held, the D-pad's left and right step the render scale\n"
 		"(display.render_scale) down and up by 0.05 as the game runs, shown on\n"
 		"screen for two seconds; the game doesn't see the D-pad meanwhile." },
+	{ "debug.render_scale_sweep", _config_integer, "0", "HALO_RENDER_SCALE_SWEEP", _environment_value, _platform_ios,
+		"Every this many frames, step the render scale 0.005 down a 100-step ramp\n"
+		"from 1.0 and wrap to 1.0, each step a new render target size, for checking that\n"
+		"debug.gpu_stats' live render targets stay flat (0, the default: off)." },
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
