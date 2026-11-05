@@ -441,6 +441,8 @@ static char const *const port_function_names[] =
 	"coop options save",
 	/* (the About screen's SEND LOG row) */
 	"port send log",
+	/* (the About screen's website row) */
+	"port open website",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from

@@ -310,6 +310,8 @@ void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 /* the menus' SEND LOG row: starts the upload of the log to iCloud; the row's text (its progress, the code or why not) */
 void host_sdl_send_log_start(void);
+/* the About screen's website row: opens https://visr.gg/ in the default browser (not on the Apple TV) */
+void host_sdl_open_website(void);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 /* the app's build description (numeric version for releases), copied into guest memory: the main menu shows it */
 void host_sdl_app_version(char *buffer, unsigned int size);

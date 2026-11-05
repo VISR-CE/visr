@@ -248,7 +248,7 @@ def test_menus_are_well_formed():
             assert element.tag in MENU_ATTRIBUTES, where
             assert set(element.attrib) <= MENU_ATTRIBUTES[element.tag], where
             assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "mac_app",
-                                               "tvos", "keyboard", "!keyboard", "send_log", "!send_log"), where
+                                               "tvos", "keyboard", "!keyboard", "!tvos", "send_log", "!send_log"), where
             # (menu_files.c's whole numbers, which the tags keep in shorts,
             # its true/false attributes, and no text but whitespace outside
             # <string>s)

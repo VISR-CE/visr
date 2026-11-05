@@ -9,8 +9,11 @@ for (the copyright holder).
 """
 
 # the site's public address (README.md, docs/site): shown without the scheme
-WEBSITE = "code.steverice.org/visr"
-WEBSITE_HELP = "Releases, benchmarks and the privacy\\npolicy: https://" + WEBSITE
+WEBSITE = "visr.gg"
+WEBSITE_URL = "https://visr.gg/"
+# (the row's label is the address, in the capitals of the other labels; it opens the site except on the Apple TV)
+WEBSITE_LABEL = WEBSITE.upper()
+WEBSITE_HELP = "Visit VISR on the web."
 
 CREDIT = ("VISR builds on the community's work decompiling Halo: Combat Evolved and porting it: "
           "punpckhdq, bnunu, OpenCE, NicholasDominici and pfista.")

@@ -85,9 +85,9 @@ def test_both_looks_list_the_same_rows():
     xbox = labels(XBOX_SCREEN, "xbox/settings/about")
     assert pc == xbox
     label, helps, values = pc
-    assert label[:5] == ["VERSION", "BUILD", "SEND LOG", "WEBSITE", "CREDITS"] and label[5:] == names()
+    assert label[:5] == ["VERSION", "BUILD", "SEND LOG", "VISR.GG", "CREDITS"] and label[5:] == names()
     assert len(helps) == len(label) + 1
-    assert about_data.WEBSITE in values
+    assert about_data.WEBSITE_URL == "https://visr.gg/" and helps[4] == "Visit VISR on the web."
     assert any("punpckhdq" in help_text for help_text in helps)
 
 
@@ -157,3 +157,14 @@ def test_send_log_is_wired_through_the_game_and_the_host():
     assert "HALO_HOST_SEND_LOG" in (ROOT / "port/ios/host/host_main.m").read_text()
     # the Xbox look's legend shows SELECT only where the row is
     assert 'platform="send_log"' in XBOX_SCREEN.read_text()
+
+
+def test_website_row_opens_the_site_except_on_the_apple_tv():
+    for path in (PC_SCREEN, XBOX_SCREEN):
+        text = path.read_text()
+        assert text.count('run="port open website" platform="!tvos"') == 2, path
+    tags = (ROOT / "port/linux/game/menu_tags.c").read_text()
+    assert '"port open website"' in tags and '"port open website"' in (ROOT / "port/linux/game/menu_functions.c").read_text()
+    assert "host_sdl_open_website" in (ROOT / "port/runtime/host_imports.list").read_text().split()
+    host = (ROOT / "port/ios/host/host_open_website.m").read_text()
+    assert about_data.WEBSITE_URL in host.replace('@"', '"') and "NSWorkspace" in host and "openURL" in host

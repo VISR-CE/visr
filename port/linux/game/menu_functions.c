@@ -100,6 +100,7 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 void host_sdl_app_version(char *buffer, unsigned int size);
 void host_sdl_app_build(char *buffer, unsigned int size);
 void host_sdl_send_log_start(void);
+void host_sdl_open_website(void);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
@@ -6538,6 +6539,12 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port delete finish"))
 		{
 			return ui_widget_port_delete_finish(widget, widget_deleted);
+		}
+		else if (!strcmp(name, "port open website"))
+		{
+#ifdef HALO_IOS
+			host_sdl_open_website();
+#endif
 		}
 		else if (!strcmp(name, "port send log"))
 		{

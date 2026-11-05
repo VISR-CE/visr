@@ -401,7 +401,7 @@ def _about_screen() -> list:
     entries = [("VERSION", None, about_data.VERSION_HELP, "version"),
                ("BUILD", None, about_data.BUILD_HELP, "build"),
                ("SEND LOG", None, about_data.SEND_LOG_HELP, "send_log"),
-               ("WEBSITE", about_data.WEBSITE, about_data.WEBSITE_HELP, "website"),
+               (about_data.WEBSITE_LABEL, None, about_data.WEBSITE_HELP, "website"),
                ("CREDITS", None, about_help(about_data.CREDIT), "credits")]
     for name, license, copyright, *_ in about_data.LICENSES:
         key = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
@@ -422,8 +422,10 @@ def _about_screen() -> list:
             children.append(f'<child{attributes([("widget", f"{base}/{key}_value"), ("x", 270), ("y", 1)])}/>')
         extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                         ['<on event="a" run="port send log"/>' if key == "send_log" else '<on event="a"/>',
-                          '<on event="start" run="port send log"/>' if key == "send_log" else '<on event="start"/>',
+                         [*(['<on event="a" run="port open website" platform="!tvos"/>',
+                             '<on event="start" run="port open website" platform="!tvos"/>'] if key == "website" else
+                            ['<on event="a" run="port send log"/>' if key == "send_log" else '<on event="a"/>',
+                             '<on event="start" run="port send log"/>' if key == "send_log" else '<on event="start"/>']),
                           '<on event="left_mouse" run="mouse emit accept event"/>', *children])
         extra += _widget(f"{base}/{key}_label",
                          [("type", "text"), ("controller", 1), ("width", 255), ("height", 22),
