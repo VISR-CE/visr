@@ -277,6 +277,36 @@ def test_publish_without_credentials_stops_before_any_upload(monkeypatch, capsys
         store.main(["publish", "--backend", "s3"])
 
 
+def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path):
+    from tools import feeds_host_check as check
+
+    assert check.key_of("https://feeds.visr.gg/tester/device-profiles-4/ios/iPad11%2C3/_.json") == "tester/device-profiles-4/ios/iPad11,3/_.json"
+    for url in ("https://code.steverice.org/visr/packs/tester/shaders.json", "http://feeds.visr.gg/tester/shaders.json"):
+        with pytest.raises(ValueError):
+            check.key_of(url)
+    store.stage(tmp_path / "bucket", checked_in)
+    try:
+        profile, shaders, recording, compatibility = check.release_urls(tmp_path / "bucket")
+    except check.Stale:
+        pytest.skip("this checkout's docs/site predates its release policy (a release branch)")
+    assert all(url.startswith("https://feeds.visr.gg/tester/") for url in (profile, shaders, recording))
+    assert (tmp_path / "bucket" / check.key_of(recording)).is_file()
+    assert re.fullmatch(r"benchmark-catalog-[12]:[0-9a-f]{64}", compatibility)
+
+
+def test_the_host_check_stages_mains_packs_as_they_are(tmp_path):
+    from tools import feeds_host_check as check
+
+    check.copy_packs(ROOT / "docs/site/packs", tmp_path / "bucket")
+    receipt = json.loads((tmp_path / "bucket/tester/publication.json").read_bytes())["assets"]
+    for path, digest in receipt.items():
+        assert hashlib.sha256((tmp_path / "bucket" / store.key_for(path)).read_bytes()).hexdigest() == digest
+    with pytest.raises(check.Stale):
+        check.release_urls(tmp_path / "empty")
+    with pytest.raises(ValueError, match="packs folder"):
+        check.copy_packs(tmp_path / "nothing", tmp_path / "other")
+
+
 def test_record_mirrors_the_feeds_into_a_visr_feeds_checkout(checked_in, tmp_path):
     checkout = tmp_path / "visr-feeds"
     (checkout / ".git").mkdir(parents=True)
@@ -396,4 +426,3 @@ def test_staging_feeds_never_go_back_in_sequence(host, live_sequence, refused):
     garbage = host({key: b"not an envelope"})
     with pytest.raises(ValueError, match="Not a signed feed envelope"):
         store.publish(store.DryRun(), garbage.url, [new])
-
