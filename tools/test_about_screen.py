@@ -142,7 +142,12 @@ def test_send_log_row_is_there_only_in_builds_that_can_send_a_log():
         for rows in (on, off):
             assert [y for y, _ in rows] == [73 + 30 * index for index in range(len(rows))]
     text = PC_SCREEN.read_text()
-    assert text.count('run="port send log"') == 2 and 'input="port send log status"' in text
+    # pressing it asks first (the Xbox look's confirmation, which both looks open): SEND runs it and goes back
+    assert text.count('open="xbox/settings/send_log_confirm"') == 2 and 'input="port send log status"' in text
+    assert 'run="port send log"' not in text
+    xbox = XBOX_SCREEN.read_text()
+    assert xbox.count('run="port send log" back="true"') == 2 and 'text="SEND LOG?"' in xbox
+    assert "Your log goes to the\\nVISR team via iCloud." in xbox
 
 
 def test_send_log_is_wired_through_the_game_and_the_host():

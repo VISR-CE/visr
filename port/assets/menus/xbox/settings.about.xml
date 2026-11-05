@@ -102,8 +102,8 @@
 		<data input="port about build" />
 	</widget>
 	<widget name="xbox/settings/about/op_send_log" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a" run="port send log" />
-		<on event="start" run="port send log" />
+		<on event="a" open="xbox/settings/send_log_confirm" />
+		<on event="start" open="xbox/settings/send_log_confirm" />
 		<on event="left_mouse" run="mouse emit accept event" />
 		<child widget="xbox/settings/about/send_log_label" />
 		<child widget="xbox/settings/about/send_log_value" x="270" y="1" />
@@ -502,4 +502,31 @@
 	<widget name="xbox/settings/about/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/about/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/settings/about/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/send_log_confirm" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/semi_transparent_grey">
+		<on event="b" back="true" />
+		<on event="back" back="true" />
+		<child widget="xbox/settings/send_log_confirm/message" x="192" y="176" />
+		<child widget="xbox/settings/send_log_confirm/title" x="201" y="180" />
+		<child widget="xbox/settings/send_log_confirm/buttons" x="256" y="310" />
+	</widget>
+	<widget name="xbox/settings/send_log_confirm/message" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" text="Your log goes to the\nVISR team via iCloud." font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
+	<widget name="xbox/settings/send_log_confirm/title" type="text" width="170" height="20" text="SEND LOG?" font="ui\large_ui" color="#FF2896FF" />
+	<widget name="xbox/settings/send_log_confirm/buttons" type="column_list" width="172" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items up_down_tabs_items">
+		<child widget="xbox/settings/send_log_confirm/cancel" x="0" />
+		<child widget="xbox/settings/send_log_confirm/send" x="86" />
+	</widget>
+	<widget name="xbox/settings/send_log_confirm/cancel" type="text" text="=CANCEL" width="84" height="22" font="ui\small_ui" color="#FF2896FF" text_x="16" text_y="0">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/settings/send_log_confirm/cancel/icon" />
+	</widget>
+	<widget name="xbox/settings/send_log_confirm/cancel/icon" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
+	<widget name="xbox/settings/send_log_confirm/send" type="text" text="=SEND" width="84" height="22" font="ui\small_ui" color="#FF2896FF" text_x="16" text_y="0">
+		<on event="a" run="port send log" back="true" />
+		<on event="start" run="port send log" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/settings/send_log_confirm/send/icon" />
+	</widget>
+	<widget name="xbox/settings/send_log_confirm/send/icon" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
 </menus>

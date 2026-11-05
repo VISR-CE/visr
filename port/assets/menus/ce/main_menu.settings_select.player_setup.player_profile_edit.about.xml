@@ -106,8 +106,8 @@
 		<data input="port about build"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_send_log" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a" run="port send log"/>
-		<on event="start" run="port send log"/>
+		<on event="a" open="xbox/settings/send_log_confirm"/>
+		<on event="start" open="xbox/settings/send_log_confirm"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_value" x="270" y="1"/>

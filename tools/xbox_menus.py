@@ -194,11 +194,46 @@ def settings_page(assets, folder, bitmaps):
     if folder == 'about':
         # (A does something on one row, SEND LOG, in the builds that have it: the legend shows SELECT only there)
         legend(root, root[0], base, accept='SELECT', cancel='BACK', accept_platform='send_log')
+        send_log_confirmation(root, bitmaps)
         return root
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
            'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
     return root
+
+
+def send_log_confirmation(root, bitmaps):
+    """SEND LOG's question, laid out as the game's own confirmations are (as the Discord unlink one is): the title in
+    the alert panel's header band, the message below it, B =CANCEL and A =SEND at its foot. B, CANCEL and Back go
+    back with the row unchanged; SEND starts the upload and goes back"""
+    base = 'xbox/settings/send_log_confirm'
+    modal = widget(root, base, width=640, height=480, flags='pass_unhandled_to_focused_child pause_game',
+                   bitmap=bitmap_ref('bitmaps/semi_transparent_grey', bitmaps))
+    for event in ('b', 'back'):
+        ET.SubElement(modal, 'on', event=event, back='true')
+    child(modal, base + '/message', x=192, y=176)
+    widget(root, base + '/message', type='text', width=239, height=159,
+           bitmap=bitmap_ref('bitmaps/alert_bkd', bitmaps), text='Your log goes to the\\nVISR team via iCloud.',
+           font=r'ui\large_ui', color=BLUE, text_x=9, text_y=36)
+    child(modal, base + '/title', x=201, y=180)
+    widget(root, base + '/title', type='text', width=170, height=20, text='SEND LOG?', font=r'ui\large_ui', color=BLUE)
+    child(modal, base + '/buttons', x=256, y=310)
+    bar = widget(root, base + '/buttons', type='column_list', width=172, height=22,
+                 flags='pass_unhandled_to_focused_child left_right_tabs_items up_down_tabs_items')
+    for index, (button, caption) in enumerate((('b', '=CANCEL'), ('a', '=SEND'))):
+        name = base + '/' + caption.strip('=').lower()
+        child(bar, name, x=index * 86)
+        item = widget(root, name, type='text', text=caption, width=84, height=22,
+                      font=r'ui\small_ui', color=BLUE, text_x=16, text_y=0)
+        for event in ('a', 'start'):
+            if button == 'b':
+                ET.SubElement(item, 'on', event=event, run='mouse emit back event')
+            else:
+                ET.SubElement(item, 'on', event=event, run='port send log', back='true')
+        ET.SubElement(item, 'on', event='left_mouse',
+                      run='mouse emit back event' if button == 'b' else 'mouse emit accept event')
+        child(item, name + '/icon')
+        widget(root, name + '/icon', width=16, height=20, bitmap='xbox/browser/' + button + '_butn_sm')
 
 
 def arrows_needed(options, root, bitmaps, first, fit):

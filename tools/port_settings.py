@@ -377,6 +377,8 @@ def _controls_screen() -> list:
 
 
 ABOUT = "about"
+# the question SEND LOG asks first (tools/xbox_menus.py: send_log_confirmation, which both looks open)
+SEND_LOG_CONFIRM = "xbox/settings/send_log_confirm"
 ABOUT_ROWS = 8
 # SEND LOG sits after VERSION and BUILD, in the builds that can send a log (menu_platform.h: send_log)
 SEND_LOG_PLATFORM = "send_log"
@@ -424,8 +426,8 @@ def _about_screen() -> list:
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
                          [*(['<on event="a" run="port open website" platform="!tvos"/>',
                              '<on event="start" run="port open website" platform="!tvos"/>'] if key == "website" else
-                            ['<on event="a" run="port send log"/>' if key == "send_log" else '<on event="a"/>',
-                             '<on event="start" run="port send log"/>' if key == "send_log" else '<on event="start"/>']),
+                            [f'<on event="a" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else '<on event="a"/>',
+                             f'<on event="start" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else '<on event="start"/>']),
                           '<on event="left_mouse" run="mouse emit accept event"/>', *children])
         extra += _widget(f"{base}/{key}_label",
                          [("type", "text"), ("controller", 1), ("width", 255), ("height", 22),
