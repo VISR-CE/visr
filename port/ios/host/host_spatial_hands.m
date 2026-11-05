@@ -171,16 +171,17 @@ condition's line alone (log_aim_condition), and all three written by hand_of
 on every sample exactly as aim_outcome is, so the game sample's reading is
 the one the line carries.
 
-Why the fault is recorded at all: hand_of refuses a sample for four separate
+Why the fault is recorded at all: hand_of refuses a sample for three separate
 reasons and every one of them reaches the guest as the same untracked hand,
 so a session of dropouts could be counted but not diagnosed. The fixes are
 different for each, which is the point of telling them apart.
 
-Why the wrist's flag is recorded even on a sample the anchor already refused:
-the skeleton is still there to ask, and whether a hand ARKit calls untracked
-still reports a tracked wrist is what says whether the anchor's flag can be
-read as advice rather than as an answer. Nothing decides on it yet; it is a
-count the next session produces.
+Why the wrist's flag is recorded although nothing refuses a sample on it any
+more: it counts what dropping that refusal recovered, and on a sample the
+anchor itself refused the skeleton is still there to ask, so a hand ARKit
+calls untracked that still reports a tracked wrist would say the anchor's flag
+can be read as advice rather than as an answer. Nothing decides on that yet;
+it is a count the next session produces.
 
 Why the fidelity: it is the only thing in the hand tracking API that is not a
 boolean (hand_tracking.h's ar_hand_fidelity, visionOS 26), so it is the only
@@ -188,7 +189,7 @@ field that can say a hand was being read poorly before it was lost rather
 than merely that it was lost. visionOS 2.0 is the deployment target, so the
 read is guarded and the unknown entry below is what a device older than the
 API leaves on the line */
-enum { AIM_FAULT_NONE, AIM_FAULT_ANCHOR, AIM_FAULT_SKELETON, AIM_FAULT_WRIST, AIM_FAULT_BARREL };
+enum { AIM_FAULT_NONE, AIM_FAULT_ANCHOR, AIM_FAULT_SKELETON, AIM_FAULT_BARREL };
 enum { AIM_WRIST_UNKNOWN, AIM_WRIST_UNTRACKED, AIM_WRIST_TRACKED };
 enum { AIM_FIDELITY_UNKNOWN, AIM_FIDELITY_NOMINAL, AIM_FIDELITY_HIGH };
 static int aim_fault[2];
@@ -728,14 +729,19 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 		room[i] = simd_mul(origin_from_anchor, ar_skeleton_joint_get_anchor_from_joint_transform(joint));
 	}
 	aim_wrist[hand] = tracked[JOINT_WRIST] ? AIM_WRIST_TRACKED : AIM_WRIST_UNTRACKED;
-	/* no wrist is no hand, whatever the anchor says: every one of the
-	skeleton's transforms is relative to it (skeleton_joint.h) */
-	if (!tracked[JOINT_WRIST])
-	{
-		aim_fault[hand] = AIM_FAULT_WRIST;
-		hand_unreadable(hand, head_position, out, now);
-		return;
-	}
+	/* The wrist's own flag is not asked whether this is a hand, which is
+	where it used to be asked. It cannot answer that: the wrist is the
+	skeleton's root, index 0 with no parent, so its transform into the anchor
+	is the identity and the room pose on the next line is the anchor's own
+	transform and nothing else (hand_skeleton.h, skeleton_joint.h: every other
+	joint's transform is relative to this one, and a root joint's own is a
+	constant). ar_hand_anchor_is_tracked has already vouched for that
+	transform, and the joint getter hands back a root's constant whatever the
+	flag says, so refusing the sample here threw away a pose that was in hand
+	and began a dropout ARKit had not reported. Every other joint is a real
+	reading and keeps its flag; this is the one flag in the skeleton that
+	describes nothing the aim reads. It is still recorded for the log
+	(aim_wrist above), which is what counts how often this used to fire. */
 	wrist = room[JOINT_WRIST];
 	/* the reduced joints first, and whatever the aim below can make of them:
 	a hand whose forearm hasn't come yet still has fingers worth reading, and
@@ -1011,16 +1017,16 @@ static void log_distance_sample(int hand, const struct host_spatial_hand_joints 
 /* debug.hand_log: one line per change in what a hand's aim is being built from, with how long
 the run that just ended had lasted. Three conditions, following hand_of's own three outcomes:
 
-	measured  the anchor, the wrist and the forearm are all ARKit's reading, so the barrel is
-	          this sample's own and the aim reaches the guest HALO_SPATIAL_TRACKED. A forearm
+	measured  the anchor and the forearm are both ARKit's reading, so the barrel is this
+	          sample's own and the aim reaches the guest HALO_SPATIAL_TRACKED. A forearm
 	          tracked but shorter than FOREARM_MINIMUM_METERS reads as measured here and is
 	          carried by hand_of, which is the one place the three names are not exactly its
 	          outcomes: a degenerate length is a reading this line has no way to tell from a
 	          sound one, and hand_of's own guard is what the number would be read against
-	carried   the anchor and the wrist are reported and the forearm is not, so the barrel is
-	          last_forward, a direction frozen in the room from whenever the forearm was last
-	          seen. Still TRACKED to the guest, which never learns the barrel is stale
-	held      no anchor, no skeleton or no wrist, but inside input.hand_aim_gap, so
+	carried   the anchor is reported and the forearm is not, so the barrel is last_forward, a
+	          direction frozen in the room from whenever the forearm was last seen. Still
+	          TRACKED to the guest, which never learns the barrel is stale
+	held      no anchor or no skeleton, but inside input.hand_aim_gap, so
 	          hand_unreadable gives out the last whole pose and the guest is still told
 	          TRACKED. Every one of these runs is a dropout the gap absorbed and the guest
 	          never saw, which is what the gap is for and what sizing it needs counted
@@ -1058,14 +1064,16 @@ Four fields close the line, all of them about the sample the new condition start
 of them appended rather than inserted so a reader counting columns from an earlier session's
 lines finds the first nine where they were:
 
-	fault     which of hand_of's four refusals this sample took: "anchor", "skeleton", "wrist"
-	          or "barrel", and "none" on a sample that was read. The condition alone cannot say
-	          it, and the three refusals have three different fixes, so a session of dropouts
-	          that was countable is now diagnosable (aim_fault's own comment above)
+	fault     which of hand_of's three refusals this sample took: "anchor", "skeleton" or
+	          "barrel", and "none" on a sample that was read. The condition alone cannot say
+	          it, and the three have three different fixes, so a session of dropouts that was
+	          countable is now diagnosable (aim_fault's own comment above)
 	wrist     the wrist joint's own flag on this sample, "tracked" or "untracked", or "unknown"
-	          where there was no skeleton to ask. "anchor untracked wrist tracked" is the pair
-	          worth counting: it would say a hand ARKit refuses still reports a wrist, and so
-	          that the anchor's flag could be read as advice. Nothing decides on it yet
+	          where there was no skeleton to ask. Two pairs are worth counting. "fault none
+	          wrist untracked" is a sample that was refused outright before the wrist's flag
+	          stopped being a refusal, so the count is what that change recovered. "fault
+	          anchor wrist tracked" would say a hand ARKit refuses still reports a wrist, and
+	          so that the anchor's flag could be read as advice; nothing decides on it yet
 	fidelity  the anchor's own, "nominal" or "high" (hand_tracking.h, visionOS 26), or
 	          "unknown" below that API. The one non-boolean the hand API has, so the one field
 	          that can say a hand was being read badly before it went rather than only after
@@ -1079,7 +1087,7 @@ static void log_aim_condition(int hand, const struct host_spatial_hand_joints *r
 {
 	static const char *const names[] = { "lost", "held", "held_past", "carried", "measured" };
 	/* each indexed by its own enum above, so the values read straight in */
-	static const char *const fault_names[] = { "none", "anchor", "skeleton", "wrist", "barrel" };
+	static const char *const fault_names[] = { "none", "anchor", "skeleton", "barrel" };
 	static const char *const wrist_names[] = { "unknown", "untracked", "tracked" };
 	static const char *const fidelity_names[] = { "unknown", "nominal", "high" };
 	/* the outcome first: a held sample and a lost one both arrive with reduced->tracked 0, so
