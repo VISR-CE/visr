@@ -7552,6 +7552,29 @@ static struct render_target_entry *companion_reissue(void)
 	return target;
 }
 
+/* debug.screenshot_frames ("900-1200;1800-2100"): with debug.screenshot_every, save only frames in these ranges
+(motion clips of the rt-object-shadows spike); empty saves every one */
+static BOOL screenshot_frame_wanted(unsigned long frame)
+{
+	const char *text = config_string("debug.screenshot_frames");
+	unsigned long first, last;
+	int used;
+
+	if (!text || !*text)
+		return TRUE;
+	while (sscanf(text, "%lu-%lu%n", &first, &last, &used) == 2)
+	{
+		if (frame >= first && frame <= last)
+			return TRUE;
+		text += used;
+		if (*text != ',' && *text != ';')
+			break;
+		text++;
+	}
+	return FALSE;
+}
+
+
 void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destination_rectangle,
 	void *unused, void *unused2)
 {
@@ -7667,9 +7690,12 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,
 				back_buffer->target.texture);
-		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0)
+		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0 && screenshot_frame_wanted(device.frame))
 		{
-			write_screenshot(back_buffer, "");
+			/* debug.screenshot_scene_only: only the scene as drawn when it has its own target (clip captures) */
+			if (!(config_boolean("debug.screenshot_scene_only") && back_buffer->layer == HALO_STEREO_LAYER_NATIVE &&
+				back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO)))
+				write_screenshot(back_buffer, "");
 			if (companion && companion_capture)
 				write_screenshot(companion, "-companion");
 			/* display.native_hud: and the scene as drawn, before its stretch */

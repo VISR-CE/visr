@@ -1693,6 +1693,12 @@ static const struct config_setting config_settings[] =
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur." },
+	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
+		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
+		"empty saves every one." },
+	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
+		_platform_all,
+		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,
 		"Save every this many frames to screenshot_directory; 0 none." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,
