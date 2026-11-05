@@ -7,7 +7,7 @@
 		<child widget="main_menu/multiplayer_type_select/coop_options/header_coop_options"/>
 		<child widget="main_menu/multiplayer_type_select/coop_options/options_menu"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/coop_options/header_coop_options" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/coop_options/header_coop_options">
+	<widget name="main_menu/multiplayer_type_select/coop_options/header_coop_options" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/multiplayer_type_select/coop_options/header_coop_options">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/coop_options/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="main_menu/multiplayer_type_select/server_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>

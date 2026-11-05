@@ -749,6 +749,13 @@ the Xbox's map has.
                for name, count in unwired]
     report += ["", "Wired: " + ", ".join(f"`{name}`" for name in sorted(WIRED)) + ".", ""]
     (MENUS / "UNWIRED.md").write_text("\n".join(report))
+    # (every header is drawn at its picture's size, as the Xbox look's are)
+    frames = xbox_menus.header_frames(MENUS)
+    for path in sorted(CE.glob("*.xml")):
+        text = path.read_text()
+        fixed = xbox_menus.native_header_text(text, frames)
+        if fixed != text:
+            path.write_text(fixed)
     files = sorted(path.relative_to(MENUS).as_posix() for path in MENUS.rglob("*.xml"))
     files += sorted(art.pngs)
     files = xbox_menus.retain_xbox_files(MENUS, files)

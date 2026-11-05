@@ -23,7 +23,7 @@
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype">
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules">
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<data input="common button bar update"/>

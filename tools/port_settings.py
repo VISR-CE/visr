@@ -236,7 +236,7 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
                       f'<child{attributes([("widget", f"{base}/options_menu")])}/>'] +
                      ([f'<child widget="{base}/cloud_saves_status" platform="cloud_saves"/>']
                       if spec.get("cloud_status") else []))
-    lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 605), ("height", 59),
+    lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                                           ("bitmap", header_bitmap)], [])
     lines += _widget(f"{base}/help", [("type", "text"), ("controller", 1), ("left", 68),
                                       ("top", spec.get("help_top", 350)), ("width", 482),
@@ -710,7 +710,7 @@ TITLE_COLOR = (0x29, 0x95, 0xFD, 255)
 
 
 def _header(name: str, bitmap: str, platform=None) -> list:
-    return _widget(name, [("controller", 1), ("left", 35), ("top", 11), ("width", 363), ("height", 59),
+    return _widget(name, [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                           ("bitmap", bitmap), ("platform", platform)], [])
 
 

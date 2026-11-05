@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 from copy import deepcopy
 import json
+import re
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -996,26 +997,55 @@ def patch_document(names):
     return root
 
 
+def header_frames(assets):
+    """each bitmap's first frame, by name, from the PC look's bitmaps"""
+    return {b.get('name'): b.find('frame') for b in ET.parse(Path(assets) / 'ce/bitmaps.xml').getroot()}
+
+
+def native_header_size(name, bitmap, widget_type, frames):
+    """The (width, height) a header widget is drawn at, or None to leave it.
+    Every header widget is as large as its bitmap's frame. The engine scales a
+    bitmap to its widget, and the PC screens' headers are 605 or 363 wide and
+    59 high for 512x64 pictures: drawn so they stretch the title 1.18 times
+    wide (or squeeze it to 0.71), where the Xbox's own widgets show the
+    picture as it is. Both looks draw their titles through this rule
+    (the PC look's files get it from tools/ce_menus.py)."""
+    leaf = name.rsplit('/', 1)[-1]
+    bitmap = bitmap.removeprefix('xbox/')
+    if widget_type is not None or not (leaf == 'header' or leaf.startswith('header_')):
+        return None
+    if bitmap in frames:
+        frame = frames[bitmap]
+        if (frame.get('width'), frame.get('height')) != ('512', '64'):
+            return None  # (a wider picture, as the PC's 1024-wide gametype header, is drawn squeezed on purpose)
+        return 512, 64
+    if leaf == 'header_join_game' and not bitmap:
+        return 512, 64  # (holds the browser's four titles)
+    return None
+
+
 def native_header_sizes(documents, assets):
-    """Every header widget is as large as its bitmap's frame. The engine
-    scales a bitmap to its widget, and the PC screens' headers are 605 or 363
-    wide and 59 high for 512x64 pictures: drawn so they stretch the title
-    1.18 times wide (or squeeze it to 0.71), where the Xbox's own widgets show
-    the picture as it is."""
-    frames = {b.get('name'): b.find('frame') for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
+    frames = header_frames(assets)
     for root in documents.values():
         for w in root.iter('widget'):
-            leaf = w.get('name', '').rsplit('/', 1)[-1]
-            bitmap = w.get('bitmap', '').removeprefix('xbox/')
-            if (leaf == 'header' or leaf.startswith('header_')) and w.get('type') is None and bitmap in frames:
-                frame = frames[bitmap]
-                if (frame.get('width'), frame.get('height')) != ('512', '64'):
-                    continue  # (a wider picture, as the PC's 1024-wide gametype header, is drawn squeezed on purpose)
-                w.set('width', frame.get('width'))
-                w.set('height', frame.get('height'))
-            elif leaf == 'header_join_game' and not bitmap:
-                w.set('width', '512')
-                w.set('height', '64')  # (holds the browser's four titles)
+            size = native_header_size(w.get('name', ''), w.get('bitmap', ''), w.get('type'), frames)
+            if size:
+                w.set('width', str(size[0]))
+                w.set('height', str(size[1]))
+
+
+def native_header_text(text, frames):
+    """the same rule for a menus file's text (the PC look's, written by
+    tools/ce_menus.py): each <widget> opening tag keeps its other attributes"""
+    def fix(match):
+        tag = match.group(0)
+        attrs = dict(re.findall(r'(\w+)="([^"]*)"', tag))
+        size = native_header_size(attrs.get('name', ''), attrs.get('bitmap', ''), attrs.get('type'), frames)
+        if not size:
+            return tag
+        tag = re.sub(r'\bwidth="[^"]*"', f'width="{size[0]}"', tag, count=1)
+        return re.sub(r'\bheight="[^"]*"', f'height="{size[1]}"', tag, count=1)
+    return re.sub(r'<widget\b[^>]*>', fix, text)
 
 
 # Safe pairs from the design inventory, sections 1 and 4. Campaign and profile
