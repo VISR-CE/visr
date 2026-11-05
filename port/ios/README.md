@@ -671,7 +671,10 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
   automatic fire; thumb to middle is action (use, reload, enter a vehicle);
   thumb to ring jumps; holding the arm past `input.hand_turn_deadzone` degrees
   to one side turns, governed by `input.turn`, `input.snap_angle` and
-  `input.smooth_turn_speed` the same way the Sense stick is. The off hand's
+  `input.smooth_turn_speed` the same way the Sense stick is. In a vehicle's
+  driving seat the car steers where the head looks, past a small deadzone,
+  and the arm's sweep does nothing there, so the gun hand can rest; a
+  network or co-op driver still steers by the arm for now. The off hand's
   thumb to index walks forward where you look, thumb to middle walks
   backward, thumb to ring crouches, and thumb to little switches weapons.
   Both palms together, fingers up, held for 0.6 seconds, pauses. In a menu
