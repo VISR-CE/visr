@@ -33,17 +33,36 @@ static inline int host_external_refresh_due(struct host_external_refresh *r,int 
    while the game is not on it shows the device's picture scaled to that display: the game still draws the device's
    own size at the device's rate, so such a run says nothing about the external display and is not a built-in run
    either. A second screen that is neither the game's nor a mirror (an iPad's extended display under Stage Manager)
-   is "other". An HDMI output in the audio route with no second screen listed is a cabled display mirroring this
-   device too: an iPhone has no extended display, and the system may list no screen for a display it only mirrors.
-   AirPlay does not count on its own, since an AirPlay speaker routes sound the same way. */
+   is "other". Signs of a mirror, any one enough:
+   - a second screen whose mirroredScreen is set;
+   - an HDMI output in the audio route with no second screen listed: an iPhone has no extended display, and the
+     system may list no screen for a display it only mirrors (AirPlay alone does not count, since an AirPlay speaker
+     routes sound the same way);
+   - the external scene accessory offered for HOST_EXTERNAL_OFFER_SETTLE seconds or more with no scene of VISR's
+     connected and the game not on the display (AirPlay mirroring to a TV or an Apple TV): shorter offers are VISR's
+     own scene on its way.
+   An iPhone or iPad app running on a Mac ("Designed for iPad") has no external display and never reports a mirror. */
+#define HOST_EXTERNAL_OFFER_SETTLE 3.0
 enum host_external_display_use {
     HOST_EXTERNAL_DISPLAY_NONE, HOST_EXTERNAL_DISPLAY_IN_USE, HOST_EXTERNAL_DISPLAY_MIRRORED, HOST_EXTERNAL_DISPLAY_OTHER
 };
-static inline enum host_external_display_use host_external_display_use(int game_external,int other_screens,
-    int mirroring_screens,int hdmi_route) {
-    if(game_external)return HOST_EXTERNAL_DISPLAY_IN_USE;
-    if(mirroring_screens>0 || (hdmi_route && other_screens==0))return HOST_EXTERNAL_DISPLAY_MIRRORED;
-    return other_screens>0?HOST_EXTERNAL_DISPLAY_OTHER:HOST_EXTERNAL_DISPLAY_NONE;
+struct host_external_display_signals {
+    int game_external, other_screens, mirroring_screens, hdmi_route, ios_app_on_mac;
+    double accessory_offered_seconds;   /* how long the accessory has been offered with the game not on it; 0 if not */
+};
+static inline enum host_external_display_use host_external_display_use(const struct host_external_display_signals *s) {
+    if(s->game_external)return HOST_EXTERNAL_DISPLAY_IN_USE;
+    if(s->ios_app_on_mac)return HOST_EXTERNAL_DISPLAY_NONE;
+    if(s->mirroring_screens>0 || (s->hdmi_route && s->other_screens==0) ||
+        s->accessory_offered_seconds>=HOST_EXTERNAL_OFFER_SETTLE)return HOST_EXTERNAL_DISPLAY_MIRRORED;
+    return s->other_screens>0?HOST_EXTERNAL_DISPLAY_OTHER:HOST_EXTERNAL_DISPLAY_NONE;
+}
+/* (the time the accessory has been offered with the game off the display: since the first poll that saw it, reset
+   whenever it is not offered or the game is on the display) */
+static inline double host_external_offer_track(double *since,int offered,double now) {
+    if(!offered){*since=0;return 0;}
+    if(*since<=0)*since=now;
+    return now-*since;
 }
 static inline const char *host_external_display_use_name(enum host_external_display_use use) {
     switch(use) {

@@ -74,6 +74,8 @@ static CGSize mode_accepted;
 static int mode_reissued;
 static int first_low=-1, accepting_low;
 static id accessory_registration;
+/* when the scene accessory was first seen offered with the game off the display (host_external_offer_track) */
+static double accessory_offer_since;
 static int accessory_available_logged=-1;
 static struct host_external_refresh accessory_refresh;
 static struct host_audio_route audio_route;
@@ -422,29 +424,40 @@ int host_external_active(void) { return snapshot.external; }
 void host_external_displays(struct host_external_displays *out) {
     memset(out,0,sizeof(*out));
     out->accessory_available=-1;
+    struct host_external_display_signals signals={.game_external=snapshot.external};
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+    /* ("Designed for iPad" on a Mac: the Mac's monitors are not external displays of this app) */
+    signals.ios_app_on_mac=NSProcessInfo.processInfo.iOSAppOnMac;
+    if(!signals.ios_app_on_mac) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    /* (UIScreen.screens still lists a mirroring display, with the device's screen as its mirroredScreen) */
-    for(UIScreen *screen in UIScreen.screens) {
-        if(screen==UIScreen.mainScreen)continue;
-        out->other_screens++;
-        if(screen.mirroredScreen)out->mirroring_screens++;
-    }
+        /* (UIScreen.screens still lists a mirroring display, with the device's screen as its mirroredScreen) */
+        for(UIScreen *screen in UIScreen.screens) {
+            if(screen==UIScreen.mainScreen)continue;
+            out->other_screens++;
+            if(screen.mirroredScreen)out->mirroring_screens++;
+        }
 #pragma clang diagnostic pop
-    for(AVAudioSessionPortDescription *port in AVAudioSession.sharedInstance.currentRoute.outputs) {
-        if([port.portType isEqualToString:AVAudioSessionPortHDMI]){snprintf(out->video_route,sizeof(out->video_route),"hdmi");break;}
-        if([port.portType isEqualToString:AVAudioSessionPortAirPlay])snprintf(out->video_route,sizeof(out->video_route),"airplay");
-    }
+        for(AVAudioSessionPortDescription *port in AVAudioSession.sharedInstance.currentRoute.outputs) {
+            if([port.portType isEqualToString:AVAudioSessionPortHDMI]){snprintf(out->video_route,sizeof(out->video_route),"hdmi");break;}
+            if([port.portType isEqualToString:AVAudioSessionPortAirPlay])snprintf(out->video_route,sizeof(out->video_route),"airplay");
+        }
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
-    if(@available(iOS 27.0,*)) {
-        UISceneAccessoryRegistration *registration=accessory_registration;
-        if(registration)out->accessory_available=registration.available?1:0;
+        if(@available(iOS 27.0,*)) {
+            UISceneAccessoryRegistration *registration=accessory_registration;
+            if(registration) {
+                out->accessory_available=registration.available?1:0;
+                /* (the clock host_external_poll keeps; read here for the current offer only) */
+                if(registration.available && !snapshot.external && !candidate_screen && accessory_offer_since>0)
+                    signals.accessory_offered_seconds=CACurrentMediaTime()-accessory_offer_since;
+            }
+        }
+#endif
     }
 #endif
-#endif
-    out->use=host_external_display_use(snapshot.external,out->other_screens,out->mirroring_screens,
-        !strcmp(out->video_route,"hdmi"));
+    signals.other_screens=out->other_screens;signals.mirroring_screens=out->mirroring_screens;
+    signals.hdmi_route=!strcmp(out->video_route,"hdmi");
+    out->use=host_external_display_use(&signals);
 }
 void *host_external_phone_layer(void) { return companion_on?phone_layer:NULL; }
 void *host_external_screen(void) { return (__bridge void *)(output_screen?:UIScreen.mainScreen); }
@@ -633,6 +646,10 @@ void host_external_poll(void) {
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
     if(@available(iOS 27.0,*)) {
         UISceneAccessoryRegistration *registration=accessory_registration;
+        /* (offered with no scene of ours on the display: a scene that connected is VISR's even while its mode is
+           still being chosen, which can take several seconds) */
+        host_external_offer_track(&accessory_offer_since,registration && registration.available && !snapshot.external &&
+            !candidate_screen,CACurrentMediaTime());
         if(registration && accessory_available_logged!=(int)registration.available) {
             accessory_available_logged=registration.available;
             host_logf(HOST_LOG_INFO,"external display: scene accessory %s (%lu screens, route %s)",
