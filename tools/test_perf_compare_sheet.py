@@ -1201,9 +1201,9 @@ def test_the_device_picked_decides_which_rows_a_chart_draws():
     k4, hd = charts.model(rows, query, "campaign", "Apple TV 4K"), charts.model(rows, query, "campaign", "Apple TV HD")
     assert (k4["box"], hd["box"]) == ("Apple TV 4K", "Apple TV HD")
     drawn = lambda built: {charts.entry_key(e): e for e in built["entries"] if e["value"] is not None}
-    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341", "visr@0.6.10@20261104.114703"}
+    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341", "visr@0.6.10@20261104.114703", "beeman@main e3abbd1@"}
     assert drawn(k4)["visr@0.6.8@20261101.231341"]["value"]["avg"] != drawn(hd)["visr@0.6.8@20261101.231341"]["value"]["avg"]
-    assert len(drawn(hd)) > len(drawn(k4))
+    assert set(drawn(hd)) - set(drawn(k4))  # a build measured only on the HD
     # A build measured on both devices is named for the device shown; one measured only elsewhere, for the port and version.
     # The picker names the device, so labels carry no device suffix.
     assert drawn(k4)["visr@0.6.8@20261101.231341"]["label"] == drawn(hd)["visr@0.6.8@20261101.231341"]["label"] == "VISR 0.6.8"
@@ -1334,7 +1334,7 @@ console.log(JSON.stringify(out));
 """
     done = subprocess.run(["node", "-e", script, str(ROOT)], input=json.dumps(specs), capture_output=True, text=True, check=True)
     notes = json.loads(done.stdout)
-    assert notes["Apple TV 4K"] == [["VISR 0.6.10", ""]]
+    assert notes["Apple TV 4K"] == [["VISR 0.6.10", ""], ["Beeman main e3abbd1", ""]]
     assert notes["Apple TV HD"] == [["VISR 0.6.8", ""]]
 
 
