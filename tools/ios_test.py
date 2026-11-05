@@ -563,6 +563,13 @@ run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,
     '-fobjc-arc', '-fblocks', '-Iport/ios/host', '-framework', 'Foundation', 'port/ios/tests/log_file_probe.m',
     '-o', BUILD/'log-file-probe')
 run(BUILD/'log-file-probe')
+# SEND LOG's file order and look-alike-free codes, without an iCloud entitlement
+run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-fobjc-arc', '-fblocks', '-DHALO_PERF_REPORTS=1', '-DHALO_NATIVE_MAC=1',
+    '-DHALO_PERF_CLOUD="iCloud.org.steverice.visr"', '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation',
+    '-framework', 'AppKit', '-framework', 'CloudKit', 'port/ios/tests/log_send_probe.m', '-lz',
+    '-o', BUILD/'log-send-probe')
+run(BUILD/'log-send-probe')
 # Explicit identity initialization serves ASTC even without report collectors; lazy lookup stays inert.
 for perf_reports in (1, 0):
     probe = BUILD/f'map-identity-probe-{perf_reports}'

@@ -20,6 +20,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_app_version.h"
 #include "host_config.h"
 #include "host_cloud_saves.h"
+#include "host_log_send.h"
 #include "host_frame_pacer.h"
 
 #include <SDL3/SDL.h>
@@ -1543,6 +1544,17 @@ int host_sdl_cloud_saves_enabled(void)
 void host_sdl_cloud_saves_set_enabled(int enabled)
 {
     host_cloud_saves_set_enabled(enabled);
+}
+
+/* the menus' SEND LOG row (host_log_send.m) */
+void host_sdl_send_log_start(void)
+{
+    host_log_send_start();
+}
+
+void host_sdl_send_log_status(char *buffer, unsigned int size)
+{
+    host_log_send_status(buffer, size);
 }
 
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size)

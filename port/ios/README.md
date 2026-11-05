@@ -462,6 +462,8 @@ time (`Internet play:` lines); `ios-runtime.log`, which each launch starts
 anew (the launch before it stays as `ios-runtime.previous.log`, and a log past 8 MB continues in a new file with
 the earlier part as `ios-runtime.rotated.log`), has the link itself (`join link:` lines) and the renderer's own
 lines (`halo-linux:`: frame pacing, the external display's rate, dynamic resolution).
+In the builds that deliver performance reports, the menus' SEND LOG row uploads these logs to the app's iCloud
+container (a `GameLog` record, `host/host_log_send.m`) when the player presses it, and shows a code, which names the record.
 Internet play reaches the brokers and the host over the internet, which
 needs no Local Network permission; only a host on the same network as the
 device is reached through it, and the join keeps trying for 90 seconds,

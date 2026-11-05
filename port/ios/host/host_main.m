@@ -43,6 +43,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include "host_log_file.h"
+#include "host_log_send.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -562,6 +563,13 @@ int main(int argc,char **argv) {
         snprintf(env_build,sizeof(env_build),"HALO_APP_BUILD=%s",
             [[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"] description].UTF8String?:"");
         env[env_count++]=env_build;
+#if HALO_PERF_REPORTS
+        /* The menus' SEND LOG row (platform="send_log"): the same CloudKit container as the reports */
+        env[env_count++]="HALO_HOST_SEND_LOG=1";
+        (void)host_log_send_available();   /* (arms HALO_SEND_LOG_AUTO in development builds) */
+#else
+        env[env_count++]=host_log_send_available()?"HALO_HOST_SEND_LOG=1":"HALO_HOST_SEND_LOG=0";
+#endif
 #if HALO_CLOUD_SAVES
         /* The shared guest only offers cloud controls when this host can sync saves. */
         env[env_count++]="HALO_HOST_CLOUD_SAVES=1";

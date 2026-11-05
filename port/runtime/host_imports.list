@@ -147,6 +147,8 @@ host_memory_available_megabytes
 host_sdl_cloud_saves_enabled
 host_sdl_cloud_saves_set_enabled
 host_sdl_cloud_saves_status
+host_sdl_send_log_start
+host_sdl_send_log_status
 host_sdl_app_version
 
 host_shader_observation_activate
