@@ -1,3 +1,67 @@
+## visr-v0.6.11 (2026-11-05)
+
+### Summary
+
+- Relaunch the game and check that your last session's log is kept instead of being erased. Logs now also include more frame pacing and display details (iOS).
+- On Mac, try the new Game and View menus and shortcuts: Release Mouse (Control-Command-M), Back (Command-[), and Enter Full Screen (Control-Command-F). F1, F11, and F12 no longer reach the game.
+- Connect an iPhone or iPad to a 1080p TV. It should now pick a sensible display mode without a slow refused switch, and dynamic resolution should have room to lower resolution, so fewer frames should be presented late.
+- Run a benchmark while mirroring to a TV. Mirrored runs should now be flagged and left out of profile proposals.
+- Check that a benchmark on an iPad app running on a Mac isn't reported as mirrored.
+- Try the menus with a pointer: hovering over a carousel slot should focus its list without stepping it, and deleting a widget should no longer leave stale pointer input behind.
+- Join a game that gets refused with code 13. You should see a specific message about the address limit.
+- Look at flag cloth, HUD goal waypoints and distances, and effects with random elements. They should draw correctly.
+- Check that the default shadow quality now uses a smaller shadow map (128) on devices without a profile.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **log**: keep the last session's log and the renderer's lines in `ios-runtime.log` — `ios-runtime.log` was opened with `w` at every launch, so a relaunch erased the session a tester needed; `host_log_file_open` now renames the last log to `ios-runtime.previous.log`, `host_log_file_line` keeps the log to 8 MB by moving a full one to `ios-runtime.rotated.log` and continuing over the same descriptor that `host_crash.c` writes to, and `platform_log` (the renderer's frame pacing, external display rate and resolution planner lines, which iOS does not keep on stderr) now also lands in the log; `log_file_probe.m` covers both
+- **mac**: Command-key shortcuts and Game and View menus in the native Mac app — `host_macos_menu.m` adds Release Mouse (Control-Command-M), Back (Command-[) and Enter Full Screen (Control-Command-F), `host_macos_shortcuts.h` keeps those keystrokes and the removed F1, F11 and F12 from the game, and F8 and F9 now exist only in development builds
+
+### fix
+
+- **logging**: put the output change, the pacing rate and a DRS summary in the runtime log — the renderer wrote them through `platform_log` to stderr, which iOS does not keep, so a player's `ios-runtime.log` showed neither the frame rate the display link really ran at nor what dynamic resolution did; `Metal: output changed` and `Metal: frame pacing follows ... measured` now go through `host_logf`, and `dynamic_minute` adds one line a minute while dynamic resolution acts: frames, late frames, frames below the ceiling, the lines' range, ceiling, floor and thermal state
+- **external**: find a display's preferred mode by size — `begin_modes` matched `preferredMode` against `availableModes` by object, UIKit handed back a different object, and with no preferred index `host_external_mode_choose` asked a 1080p TV for its 3840x2160 mode first (a refused switch of about a second) and labeled the mode it kept `[capped]`; `host_external_mode_preferred` matches size and pixel aspect, with probe cases
+- **drs**: give dynamic resolution room on an external display — a device profile's floor is chosen for the device's own screen, and on a 1080-line TV the iPhone 15 Pro class's 1080-line predictable floor equaled the ceiling, so every frame rendered 1080 lines and a session presented a third of its frames a refresh late with no level to drop to; `dynamic_resolution_output_floor` holds the floor at most at half the ceiling while `host_external_active()`, `host_perf_hooks_dynamic_config` applies it and logs the floor it uses once per ceiling, the device's own screen keeps the profile's floor, and the planner probe and a new `external` actuation case cover it
+- **external**: log the refresh rate of the mode a display connects in and of a kept sub-60 Hz mode — `UIScreenMode` carries no rate, so the connect line now gives the current mode's `maximumFramesPerSecond` and says whether it is the preferred mode, and keeping a mode below 60 Hz names the mode, its rate and whether it is the display's preferred one; with the existing `physical ... at N Hz, drawable ...` line, a log shows the preferred and chosen modes with their rates
+- **benchmark**: count AirPlay mirroring and never report a mirror for an iPad app on a Mac — the scene accessory offered for 3 s (`HOST_EXTERNAL_OFFER_SETTLE`) with no scene of VISR's connected and the game not on the display now counts as mirrored, which catches AirPlay mirroring to a TV without counting AirPlay speakers; `host_external_poll` keeps the offer clock (`host_external_offer_track`), so VISR's own scene connecting or choosing its mode is never flagged; `host_external_display_use` takes a `host_external_display_signals` struct, and `NSProcessInfo.iOSAppOnMac` ("Designed for iPad" on a Mac) reports no external display at all; probe cases for the settle time, the offer clock and the Mac case
+- **profiles**: leave runs mirrored to another display out of profile proposals — `profile_derive.usable_runs` skips runs whose `output.display_use` is `mirrored`, `derive` says how many it left out, and `run_table` marks them, since such a run measured neither the built-in screen nor the external display
+- **benchmark**: record when the system mirrors the device to a display the game is not on — a TV attached without an external scene leaves the game drawing the device's own size at the device's rate while the system scales each frame to the TV, and the report said only `builtin`, so such runs were judged against the device's targets; `host_external_displays` now reads the other screens, how many mirror the device, the HDMI or AirPlay output in the audio route and the scene accessory's availability, `host_external_display_use` (in `host_external_session.h`, with probe cases) calls a run `in_use`, `mirrored`, `other` or `none` (an HDMI route with no screen listed counts as mirrored; AirPlay alone does not, since speakers route the same way), `output_now` adds `display_use`, `other_screens`, `mirroring_screens`, `video_route` and `accessory_available` to the report's `output`, and a suite or run mirrored at its start or end gets the `external_display_mirrored` flag
+- **metal**: close the remaining ordering gaps in scene pass parking
+- **metal**: treat a rectangle view as its parent when deciding whether a pass may run ahead of the scene
+- **flags**: draw the flag cloth between the last two ticks' shapes — behavior described in OpenH1 PR #540
+- **network**: a specific message for join refusal code 13 — code 13 is OpenCE's address limit, as described in Chupathingy's public release notes
+- **menus**: a pointer passing over a carousel slot focuses its list and does not step it — behavior described in OpenH1 PR #531
+- **menus**: drop the pointer's targets and pending input when a widget is deleted — behavior described in OpenH1 PR #524
+- **effects**: draw a frame's local random numbers from the render seed — behavior described in OpenH1 PR #547
+- **hud**: draw goal waypoints and their distance from drawn state — behavior described in OpenH1 PR #540
+
+### perf
+
+- **display**: default `display.shadow_map_size` to 128 — devices without a profile get the same shadow size; regenerate the schemas and settings tables and update the README text
+- **profiles**: set `display.shadow_map_size` to 128 in every bundled profile — the visual gain above 128 is small and the cost is large in big games, and the bundled profiles now match the served ones; the evidence notes say why and the profile set revision is bumped to 17
+- **metal**: run passes that interrupt the scene ahead of it instead of storing and reloading the scene
+- **flags**: step flag cloth once per game tick — behavior described in OpenH1 PR #540
+
+### test
+
+- **profiles**: expect the 128 default in `config_origins_probe` and `profile_probe` — and keep the workload-context check meaningful with a 256 variable override
+
+### ci
+
+- **release**: accept the Xcode 27.2 release (`27B52`) — the `xcode-27` runner image now carries only 27B52, so `tools/xcode_select.py` stopped the release probe there
+
+### chore
+
+- **mac**: log the key a menu bar item presses for the game
+
 ## visr-v0.6.10 (2026-11-04)
 
 ### Summary
