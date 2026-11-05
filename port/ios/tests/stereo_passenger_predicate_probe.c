@@ -2,6 +2,9 @@
 #include <string.h>
 
 #define NONE (-1)
+typedef int boolean;
+#define FALSE 0
+#define TRUE 1
 #define FLAG(bit) (1UL << (bit))
 #define TEST_FLAG(flags, bit) (((flags) & FLAG(bit)) != 0)
 #define TAG_BLOCK_GET_ELEMENT(block, index, type) (&((type *)(block)->address)[index])
@@ -47,6 +50,9 @@ static long unit_inventory_get_weapon(long index, short slot)
 static struct object_datum *object_get(long index) { return index == 5 ? &weapon : NULL; }
 
 #include "aiming_unit.inc"
+/* the engine's own seat role tests, which the driving predicate asks */
+#include "seat_roles.inc"
+#include "driving.inc"
 #include "under_test.inc"
 #include "zoom_aim.inc"
 
@@ -121,6 +127,41 @@ int main(void)
 		weapon.object.parent_object_index = 2;
 		rider.object.parent_object_index = NONE;
 		check(halo_zoom_ordinary_aim_ray(0, ray), "an on-foot weapon still uses ordinary unit aim");
+	}
+	/* the seat that steers the vehicle under it, which is the seat whose
+	look is the whole of the vehicle's steering (halo_seat_driving) */
+	{
+		player.unit_index = 2;
+		rider.object.parent_object_index = 3;
+		seats[1].flags = FLAG(_unit_seat_third_person_camera_bit) | FLAG(_unit_seat_driver_bit);
+		check(halo_seat_driving(), "a driver seat drives, chase camera and all");
+		seats[1].flags = FLAG(_unit_seat_first_person_camera_bit) | FLAG(_unit_seat_driver_bit);
+		check(halo_seat_driving(), "a first-person driver seat drives too: the camera is not the test");
+		seats[1].flags |= FLAG(_unit_seat_gunner_bit);
+		check(!halo_seat_driving(), "a seat that is a gunner's as well aims, and is left to its own rules");
+		seats[1].flags = FLAG(_unit_seat_third_person_camera_bit) | FLAG(_unit_seat_gunner_bit);
+		check(!halo_seat_driving(), "a gunner's seat does not drive");
+		seats[1].flags = FLAG(_unit_seat_first_person_camera_bit);
+		check(!halo_seat_driving(), "a passenger's seat does not drive");
+		seats[1].flags = FLAG(_unit_seat_driver_bit);
+		vehicle.unit.driver_object_index = NONE;
+		check(halo_seat_driving(), "the seat's flag decides it, not the vehicle's driver index");
+		vehicle.unit.driver_object_index = 99;
+		rider.unit.parent_seat_index = 7;
+		check(!halo_seat_driving(), "a seat index past the vehicle's seats answers no");
+		rider.unit.parent_seat_index = 1;
+		parent_is_vehicle = 0;
+		check(!halo_seat_driving(), "a parent that is no vehicle does not drive");
+		parent_is_vehicle = 1;
+		rider.object.parent_object_index = NONE;
+		check(!halo_seat_driving(), "leaving the seat ends it");
+		rider.object.parent_object_index = 3;
+		player.unit_index = NONE;
+		check(!halo_seat_driving(), "death ends it");
+		player.unit_index = 2;
+		player_present = 0;
+		check(!halo_seat_driving(), "no local player, no driving seat");
+		player_present = 1;
 	}
 	return failures ? 1 : 0;
 }

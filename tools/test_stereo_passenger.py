@@ -18,6 +18,14 @@ with tempfile.TemporaryDirectory(prefix="visr-seat-predicate-") as folder:
     (temporary / "aiming_unit.inc").write_text(
         function(read("source/units/units.c"), "unit_get_aiming_unit_index")
     )
+    (temporary / "seat_roles.inc").write_text(
+        function(read("source/units/units.c"), "unit_seat_is_driver")
+        + "\n\n"
+        + function(read("source/units/units.c"), "unit_seat_is_gunner")
+    )
+    (temporary / "driving.inc").write_text(
+        function(read("port/linux/game/cinematic_screen.c"), "halo_seat_driving")
+    )
     (temporary / "zoom_aim.inc").write_text(
         function(read("port/linux/game/cinematic_screen.c"), "halo_zoom_ordinary_aim_ray")
     )
