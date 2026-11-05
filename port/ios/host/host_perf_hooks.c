@@ -153,6 +153,24 @@ void host_perf_hooks_dynamic_config(int enabled, int width, int height, int actu
     if (height > 0 && pending.drs.floor_lines > (uint32_t)height) pending.drs.floor_lines = height;
     pending.drs.thermal = thermal >= 0 && thermal <= 3 ? (uint32_t)thermal : 0;
 }
+/* One line a minute in the runtime log while dynamic resolution acts: the renderer's own DRS lines go to stderr, which
+ * iOS does not keep, so a player's log otherwise says nothing about the lines a game rendered at or its late frames. */
+static void dynamic_minute(const game_perf_frame *frame) {
+    static uint64_t started_us, frames, late, lowered;
+    static uint32_t lowest, highest;
+    if (!shadow.actuate || !frame->drs.ceiling_lines) return;
+    if (!frames) { started_us = frame->elapsed_us; lowest = highest = frame->drs.actual_lines; }
+    frames++;
+    late += frame->drs.late != 0;
+    lowered += frame->drs.actual_lines < frame->drs.ceiling_lines;
+    if (frame->drs.actual_lines < lowest) lowest = frame->drs.actual_lines;
+    if (frame->drs.actual_lines > highest) highest = frame->drs.actual_lines;
+    if (frame->elapsed_us < started_us || frame->elapsed_us - started_us < 60000000) return;
+    host_logf(HOST_LOG_INFO, "DRS: last minute: %llu frames, %llu late, %llu below the ceiling; %u to %u lines "
+        "(ceiling %u, floor %u, thermal %u)", (unsigned long long)frames, (unsigned long long)late,
+        (unsigned long long)lowered, lowest, highest, frame->drs.ceiling_lines, frame->drs.floor_lines, frame->drs.thermal);
+    frames = late = lowered = 0;
+}
 static void dynamic_drain_locked(uint64_t frame_id) {
     while (delayed_read != delayed_write) {
         unsigned slot = delayed_read % 16;
@@ -172,6 +190,7 @@ static void dynamic_drain_locked(uint64_t frame_id) {
                 (unsigned long long)frame->budget_us, frame->drs.late, frame->drs.ignore, frame->drs.available, frame->drs.thermal,
                 shadow.actuate ? "actuated" : "unvalidated_fixed_pixels");
         }
+        dynamic_minute(frame);
         host_perf_reports_frame(frame);
         ++delayed_read;
     }
