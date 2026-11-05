@@ -233,9 +233,13 @@ static void begin_modes(void) {
         snapshot.modes[i].width=candidates[i].width;snapshot.modes[i].height=candidates[i].height;
     }
     pthread_mutex_unlock(&snapshot_lock);
-    host_logf(HOST_LOG_INFO,"external display: connected, \"%s\", %d modes, preferred %.0fx%.0f, current %.0fx%.0f",
+    /* (UIScreenMode carries no refresh rate: the screen's rate is the current mode's, the preferred one's when the
+       display connected in it) */
+    host_logf(HOST_LOG_INFO,"external display: connected, \"%s\", %d modes, preferred %.0fx%.0f, current %.0fx%.0f at %ld Hz%s",
         port_name().UTF8String,candidate_count,candidate_screen.preferredMode.size.width,
-        candidate_screen.preferredMode.size.height,candidate_screen.currentMode.size.width,candidate_screen.currentMode.size.height);
+        candidate_screen.preferredMode.size.height,candidate_screen.currentMode.size.width,candidate_screen.currentMode.size.height,
+        (long)candidate_screen.maximumFramesPerSecond,
+        candidate_screen.currentMode==candidate_screen.preferredMode?" (the preferred mode)":"");
 }
 /* The launch menu's artwork (icon over the VISR wordmark on the menu background), scaled to the display. */
 static UIWindow *splash_window(UIWindowScene *scene) {
@@ -740,7 +744,9 @@ void host_external_poll(void) {
             candidates[requested_index].refused=1;requested_index=-1;return;
         }
         if(candidate_screen.maximumFramesPerSecond<60)
-            host_logf(HOST_LOG_WARN,"external display: keeping mode below 60 Hz");
+            host_logf(HOST_LOG_WARN,"external display: keeping %.0fx%.0f at %ld Hz, below 60 Hz%s",current.width,
+                current.height,(long)candidate_screen.maximumFramesPerSecond,
+                requested_index==preferred_index?" (the display's preferred mode)":"");
         mode_accept();return;
     }
     /* wait the whole second: the system may move the display to another mode of its own first */
