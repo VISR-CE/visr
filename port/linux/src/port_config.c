@@ -1025,6 +1025,32 @@ static const struct config_setting config_settings[] =
 		"The server browser: public games are listed through the signalling\n"
 		"brokers, and Join Game > Server Browser shows them. False lists no\n"
 		"game of this machine's and shows none." },
+	{ "network.browser_sort", _config_string, "\"players\"", "HALO_NET_BROWSER_SORT", _environment_value,
+		_platform_all,
+		"The server browser's order: \"players\" (most first), \"name\", \"map\"\n"
+		"or \"game\" (A to Z). Games this build can join always come before\n"
+		"those it cannot. A column title, or SORT BY in FILTERS, writes it." },
+	{ "network.browser_games", _config_string, "\"all\"", "HALO_NET_BROWSER_GAMES", _environment_value,
+		_platform_all,
+		"Which games the server browser lists: \"all\", \"multiplayer\" or\n"
+		"\"coop\" (FILTERS' GAMES writes it)." },
+	{ "network.browser_show_full", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_FULL", _environment_value,
+		_platform_all,
+		"Whether the server browser lists full or closed games (FILTERS' FULL\n"
+		"GAMES)." },
+	{ "network.browser_show_locked", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_LOCKED",
+		_environment_value, _platform_all,
+		"Whether the server browser lists games with a password (FILTERS'\n"
+		"PASSWORD GAMES)." },
+	{ "network.browser_show_unjoinable", _config_boolean, "false", "HALO_NET_BROWSER_SHOW_UNJOINABLE",
+		_environment_value, _platform_all,
+		"Whether the server browser lists games this build cannot join: another\n"
+		"network version, a mode it does not play, or a join that failed this run\n"
+		"(FILTERS' GAMES I CAN'T JOIN). Their count stays in the list's footer." },
+	{ "network.browser_dedicated_only", _config_boolean, "false", "HALO_NET_BROWSER_DEDICATED_ONLY",
+		_environment_value, _platform_all,
+		"Whether the server browser lists only dedicated servers (FILTERS'\n"
+		"DEDICATED ONLY)." },
 	{ "network.delta_browse", _config_boolean, "true", "HALO_NET_DELTA_BROWSE", _environment_value, _platform_all,
 		"The server browser also lists the games of Delta's public list\n"
 		"(network.delta_url), run by others, with the network version of each;\n"
@@ -1609,6 +1635,12 @@ static const struct config_setting config_settings[] =
 		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
 		"network.full_rate_players below 16, or network.player_capacity below\n"
 		"16 when full_rate_players is 0. App Store packages ignore it." },
+	{ "debug.browser_fake_games", _config_boolean, "false", "HALO_BROWSER_FAKE_GAMES", _environment_value,
+		_platform_all,
+		"Development builds only: the server browser lists a fixed set of\n"
+		"fourteen made-up games instead of the live list, so its sort, filters\n"
+		"and empty result look the same on every run. App Store packages ignore\n"
+		"it." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },

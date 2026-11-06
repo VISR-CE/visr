@@ -76,6 +76,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" type="column_list" width="640" height="402" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/screen_stats_container" visible_rows="9">
 		<data input="gamespy screen update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/op_browser_mode" x="10" y="55" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_filters" x="264" y="64" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_header" y="86" x="48" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" x="48" y="108" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" x="48" y="132" />
@@ -97,7 +98,6 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" y="-21" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/gamespy_error_fullscreen" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/legend/a_butn" x="498" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/legend/=accept" x="519" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/legend/b_butn" x="398" y="414" />
@@ -455,6 +455,13 @@
 	<bitmap name="xbox/browser/list_field">
 		<frame map="ui\shell\bitmaps\list_field" index="0" png="ce/shell/bitmaps/list_field__0.png" width="884" height="102" />
 	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filters" type="column_list" width="112" height="22" bitmap="xbox/bitmaps/option_bkds_sm2" color="#FF2896FF">
+		<on event="a" run="gamespy select button" />
+		<on event="start" run="gamespy select button" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_filters_label" x="0" y="0" />
+	</widget>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_filters_label" type="text" width="112" height="22" text="FILTERS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3" text_flags="no_focus_test" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" width="640" height="402" flags="pass_unhandled_to_focused_child">
 		<on event="x" run="gamespy select button" />
 		<on event="y" run="join controller to mp game" />

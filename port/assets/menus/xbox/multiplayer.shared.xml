@@ -842,48 +842,6 @@
 		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2304." />
 		<string text="Enter a password for the server you want\nto connect to." />
 	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_ping">
-		<string text="ANY" />
-		<string text="&lt; 50" />
-		<string text="&lt; 100" />
-		<string text="&lt; 150" />
-		<string text="&lt; 200" />
-		<string text="&lt; 300" />
-	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options">
-		<string text="SHOW EMPTY SERVERS" />
-		<string text="SHOW FULL SERVERS" />
-		<string text="PING" />
-		<string text="GAME TYPE" />
-		<string text="TEAMPLAY OPTIONS" />
-		<string text="SHOW MISSING MAPS" />
-	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_gametype">
-		<string text="ANY" />
-		<string text="CTF" />
-		<string text="SLAYER" />
-		<string text="ODDBALL" />
-		<string text="KING" />
-		<string text="RACE" />
-	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_game_options">
-		<string text="ANY" />
-		<string text="FREE-FOR-ALL" />
-		<string text="TEAMPLAY" />
-	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/cap_filter_options">
-		<string text="Do not show empty servers." />
-		<string text="Show empty servers." />
-		<string text="Do not show full servers." />
-		<string text="Show full servers." />
-		<string text="Filter servers by connection latency (in ms).\nLatency is how fast data travels from the server." />
-		<string text="Show only games matching the selected\ngame type." />
-		<string text="Show servers running both free-for-all\nand teamplay modes." />
-		<string text="Show only servers running free-for-all modes." />
-		<string text="Show only servers running teamplay modes." />
-		<string text="Show only servers with custom maps that are\ncurrently installed." />
-		<string text="Show servers with custom maps that are not\ncurrently installed." />
-	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
 		<string text="Players" />
 		<string text="Rules" />

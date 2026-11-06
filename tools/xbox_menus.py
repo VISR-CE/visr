@@ -771,6 +771,27 @@ def browser_layout(root, widgets, bitmaps):
             get(leaf).set('type', 'column_list')
             if leaf.startswith('item_ticker_'):
                 c.attrib.update(x='61', y='348' if leaf.endswith('player_info') else '374')
+    # FILTERS (the server browser's sort and filters) stands where the page
+    # count was, above the column titles: Up from the first row reaches the
+    # titles (sorting by the one chosen), then FILTERS; a tap or click works
+    # too. The original browser-mode spinner's pill frames
+    # it, outlined while focused (menu_functions.c's browser_filters_button_update).
+    # (a list of its own, as the tickers are, so the nine-row window does not
+    # take it for a server row)
+    filters = widget(root, base + '/browser_filters', type='column_list', width=112, height=22,
+                     bitmap='xbox/bitmaps/option_bkds_sm2', color=BLUE)
+    for event in ('a', 'start'):
+        ET.SubElement(filters, 'on', event=event, run='gamespy select button')
+    ET.SubElement(filters, 'on', event='left_mouse', run='mouse emit accept event')
+    child(filters, base + '/browser_filters_label', x=0, y=0)
+    widget(root, base + '/browser_filters_label', type='text', width=112, height=22, text='FILTERS',
+           font=r'ui\small_ui', color=BLUE, align='center', text_y='3', text_flags='no_focus_test')
+    header_index = list(rows).index(rows.find(f"child[@widget='{base}/join_game_header']"))
+    rows.insert(header_index, ET.Element('child', widget=filters.get('name'), x='264', y='64'))
+    # FILTERS is its own screen here, not the PC browser's hidden panel.
+    for c in list(screen.findall('child')):
+        if c.get('widget') == base + '/filters/filters_screen':
+            screen.remove(c)
     # Retain even the unused row definitions and their handlers so the PC
     # browser's named-widget contract stays intact.
     for index in range(1, 16):

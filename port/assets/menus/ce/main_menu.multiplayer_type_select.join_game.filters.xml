@@ -1,86 +1,115 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The PC version's menus: ui\shell\main_menu\multiplayer_type_select\join_game\filters (tools/ce_menus.py) -->
+<!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/empty_servers_label" type="text" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/filter_options" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/filters_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/header_filters"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/options_menu"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/empty_servers_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/header_filters" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/join_game/filters/header_filters">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="main_menu/multiplayer_type_select/join_game/filters/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/join_game/filters/help">
+		<data input="port settings help"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_sort" x="54" y="73"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_games" x="54" y="103"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_full" x="54" y="133"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_locked" x="54" y="163"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_unjoinable" x="54" y="193"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_dedicated" x="54" y="223"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/button_bar" y="414"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/button_ok" x="380" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_sort" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/sort_label"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/sort_spinner" x="286" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/sort_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/sort_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PLAYERS|NAME|MAP|GAME" setting="network.browser_sort" values="players|name|map|game" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load"/>
+		<on event="deleted" run="port setting save"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/filters_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<data input="common button bar update"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/filters_button_ok" x="380" y="1"/>
-		<child widget="common_button_cancel" x="510" y="1"/>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_games" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/games_label"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/games_spinner" x="286" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/filters_button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
-		<on event="a" run="gamespy update filter settings"/>
-		<on event="start" run="gamespy update filter settings"/>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/games_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/games_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ALL|MULTIPLAYER|CO-OP" setting="network.browser_games" values="all|multiplayer|coop" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load"/>
+		<on event="deleted" run="port setting save"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_full" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/full_label"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/full_spinner" x="286" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/full_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/full_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_full" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load"/>
+		<on event="deleted" run="port setting save"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_locked" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/locked_label"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/locked_spinner" x="286" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/locked_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/locked_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_locked" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load"/>
+		<on event="deleted" run="port setting save"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_unjoinable" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/unjoinable_label"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/unjoinable_spinner" x="286" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/unjoinable_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/unjoinable_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HIDE|SHOW" setting="network.browser_show_unjoinable" values="false|true" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load"/>
+		<on event="deleted" run="port setting save"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_dedicated" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/dedicated_label"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/filters/dedicated_spinner" x="286" y="1"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/dedicated_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/dedicated_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ON" setting="network.browser_dedicated_only" values="false|true" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
+		<on event="created" run="port setting load"/>
+		<on event="deleted" run="port setting save"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</widget>
+	<strings name="main_menu/multiplayer_type_select/join_game/filters/labels">
+		<string text="SORT BY"/>
+		<string text="GAMES"/>
+		<string text="FULL GAMES"/>
+		<string text="PASSWORD GAMES"/>
+		<string text="GAMES I CAN'T JOIN"/>
+		<string text="DEDICATED ONLY"/>
+	</strings>
+	<strings name="main_menu/multiplayer_type_select/join_game/filters/help_strings">
+		<string text=""/>
+		<string text="The order of the list. Games you can join always come first."/>
+		<string text="Multiplayer games, co-op campaigns, or both."/>
+		<string text="Games that are full or about to start."/>
+		<string text="Games that need a password to join."/>
+		<string text="Games on another network version, in a mode VISR does not\nplay, or that could not be reached."/>
+		<string text="Only games on dedicated servers, which stay up between\nmatches and have no host player."/>
+	</strings>
+	<widget name="main_menu/multiplayer_type_select/join_game/filters/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" back="true"/>
+		<on event="start" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/filters_help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="main_menu/multiplayer_type_select/join_game/filters/cap_filter_options" font="ui\large_ui" color="#FFFFFFFF">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/filters_options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/join_game/filters/filters_help">
-		<data input="game settings lists text update"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_empty_servers" x="54" y="73"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_full_servers" x="54" y="103"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_ping" x="54" y="133"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_game_type" x="54" y="163"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_game_options" x="54" y="193"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/op_installed_maps" x="54" y="223"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/filters_button_bar" y="449"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/filters_screen" width="640" height="480" flags="pass_unhandled_to_focused_child force_handle_mouse" bitmap="bitmaps/gradient_big">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/header_filters" y="-21"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/filters_options_menu"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/full_servers_label" type="text" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/full_servers_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/game_options_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/game_options_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/multiplayer_type_select/join_game/filters/var_filter_game_options" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/game_type_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/game_type_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/multiplayer_type_select/join_game/filters/var_filter_gametype" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/header_filters" controller="1" left="35" top="11" width="395" height="59" bitmap="main_menu/multiplayer_type_select/join_game/filters/header_filters">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/installed_maps_label" type="text" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/installed_maps_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_empty_servers" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/empty_servers_label"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/empty_servers_spinner" x="300" y="1"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_full_servers" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/full_servers_label"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/full_servers_spinner" x="300" y="1"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_game_options" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/game_options_label"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/game_options_spinner" x="300" y="1"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_game_type" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/game_type_label"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/game_type_spinner" x="300" y="1"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_installed_maps" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/installed_maps_label"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/installed_maps_spinner" x="300" y="1"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/op_ping" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/ping_label"/>
-		<child widget="main_menu/multiplayer_type_select/join_game/filters/ping_spinner" x="300" y="1"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/ping_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/filters/ping_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/multiplayer_type_select/join_game/filters/var_filter_ping" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
 </menus>
