@@ -154,9 +154,9 @@ int main(void)
     struct widget_instance *sync = spinner(op_sync, "vsync_spinner", "display.vsync", "true|false");
     wchar_t text[16];
     struct widget_instance *row_help = make("row_help", screen, 1);
-    struct widget_instance *op_hud = make("op_high_res_hud", list, 0);
-    struct widget_instance *hud = spinner(op_hud, "high_res_hud_spinner", "display.high_res_hud", "true|false");
-    struct widget_instance *hud_replaced = make("high_res_hud_replaced", op_hud, 1);
+    struct widget_instance *op_motion = make("op_interpolation", list, 0);
+    struct widget_instance *motion = spinner(op_motion, "interpolation_spinner", "display.interpolation", "true|false");
+    struct widget_instance *motion_replaced = make("interpolation_replaced", op_motion, 1);
     char line[300];
 
     list->parameters.list.extended_description = help;
@@ -211,7 +211,7 @@ int main(void)
     /* (the value in force, as the spinner names it: 30 is the second of display|30|60; OFF the second of true|false) */
     assert(!rate->visible && rate_replaced->visible && op_rate->disabled);
     assert(rate_replaced->parameters.text_box.string_list_index == 1);
-    assert(!hud->visible && hud_replaced->visible && hud_replaced->parameters.text_box.string_list_index == 1);
+    assert(!motion->visible && motion_replaced->visible && motion_replaced->parameters.text_box.string_list_index == 1);
     /* vertical sync is no setting the mode replaces */
     assert(sync->visible && !op_sync->disabled);
     /* a fixed row can be chosen, for its help, and says what it is fixed to */
@@ -220,10 +220,10 @@ int main(void)
     assert(row_help->visible && !help->visible && !mode_help->visible);
     text_value_of(row_help->parameters.text_box.text, line);
     assert(!strcmp(line, "Fixed to 30 FPS in Hardcore mode."));
-    list->focused_child = op_hud;
+    list->focused_child = op_motion;
     graphics_rows_show(list);
     text_value_of(row_help->parameters.text_box.text, line);
-    assert(!strncmp(line, "HUD is drawn at original resolution in Hardcore", 47));
+    assert(!strcmp(line, "Frames are drawn at the game's 30 ticks a second in Hardcore mode."));
     list->focused_child = op_sync;
     graphics_rows_show(list);
     assert(!row_help->visible && help->visible);

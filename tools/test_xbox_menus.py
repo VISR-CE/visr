@@ -1114,13 +1114,45 @@ def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_r
         assert widgets[f'{base}/options_menu'].get('row_pitch'), path
 
 
+@pytest.mark.parametrize('look', ['ce', 'xbox'])
+@pytest.mark.parametrize('page', ['video_settings', 'graphics'])
+def test_hires_rows_are_absent_and_remaining_rows_keep_their_layout_and_strings(look, page):
+    import port_settings
+
+    base = f'xbox/settings/{page}' if look == 'xbox' else f'{port_settings.PE}/{page}'
+    filename = f'settings.{page}.xml' if look == 'xbox' else base.replace('/', '.') + '.xml'
+    root = ET.parse(MENUS / look / filename).getroot()
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    assert not any('high_res_' in name for name in widgets)
+    assert not any(w.get('setting') in ('display.high_res_hud', 'display.high_res_text')
+                   for w in widgets.values())
+    labels = [s.get('text') for s in root.find(f"strings[@name='{base}/labels']")]
+    helps = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")]
+    rows = port_settings.SCREENS[page]['rows']
+    assert labels == [row[0] for row in rows]
+    assert helps == [''] + [row[3].replace('\n', r'\n') for row in rows]
+    options = widgets[f'{base}/options_menu']
+    children = [c for c in options.findall('child') if c.get('widget').startswith(f'{base}/op_')]
+    assert len(children) == len(rows)
+    slots = sorted({int(c.get('y')) for c in children})
+    pitch = int(options.get('row_pitch'))
+    assert slots == list(range(int(options.get('row_top')), slots[-1] + 1, pitch))
+    visible = min(len(slots), int(options.get('visible_rows')))
+    assert slots[visible - 1] + 28 <= int(widgets[f'{base}/help'].get('top'))
+    assert int(widgets[f'{base}/help'].get('top')) + int(widgets[f'{base}/help'].get('height')) <= 414
+    for index, (_, setting, *_rest) in enumerate(rows):
+        key = setting.split('.', 1)[1]
+        assert widgets[f'{base}/{key}_label'].get('string_index') == str(index)
+
+
 def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_spinner():
     """Every Video Settings row whose setting the mode table replaces has a text in its spinner's place that shows one
     of the spinner's own strings (menu_functions.c's graphics_rows_show chooses it and hides the spinner), and the
     screen has the line of help the game writes for a fixed or profile-set row"""
     import port_settings
     replaced = port_settings.graphics_replaced()
-    assert {'display.frame_rate', 'display.interpolation', 'display.high_res_hud', 'display.high_res_text'} <= replaced
+    video_settings = {row[1] for row in port_settings.SCREENS['video_settings']['rows']}
+    assert {'display.frame_rate', 'display.interpolation'} <= replaced & video_settings
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
                        (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):

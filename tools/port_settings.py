@@ -102,10 +102,6 @@ SCREENS = {
              "Draw a frame for every display refresh, blending\nbetween the game's 30 ticks a second.", None),
             ("INSTANT AIM:", "display.direct_camera", ON_OFF,
              "In first person, turn the view the moment the\nmouse moves, not up to two ticks later.", "desktop"),
-            ("HIGH-RES HUD:", "display.high_res_hud", ON_OFF,
-             "Draw the HUD from the high-res redraws; off\ndraws the game's own pictures.", None),
-            ("HIGH-RES TEXT:", "display.high_res_text", ON_OFF,
-             "Draw text and titles with high-res fonts; off\ndraws the game's own.", None),
         ],
     },
     # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): laid out as CONTROLLER SETUP is, A

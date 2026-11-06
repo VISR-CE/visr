@@ -78,6 +78,10 @@ int main(int argc, char **argv) {
     if (!strcmp(argv[2],"locale")) { (void)config_boolean("debug.settings_dump"); assert(setlocale(LC_NUMERIC,"fr_FR.UTF-8")); }
     external = !strcmp(argv[2],"external");
     if (!strcmp(argv[2],"environment")) setenv("HALO_RENDER_SCALE","0.9",1);
+    if (!strcmp(argv[2],"hires-environment")) {
+        setenv("HALO_HIGH_RES_HUD","true",1);
+        setenv("HALO_HIGH_RES_TEXT","true",1);
+    }
     struct game_perf_graphics_snapshot snapshot;
     if (!config_loaded) {
         capturing=1; assert(!config_graphics_settings_snapshot(CONFIG_SCENE_MENU,&snapshot)); capturing=0;
@@ -104,6 +108,7 @@ int main(int argc, char **argv) {
     assert(kinds==30);
     capturing=1; assert(!config_graphics_settings_snapshot(-1,&snapshot)); capturing=0;
     assert(!snapshot.valid && !snapshot.count && !capture_calls);
+    if (!strncmp(argv[2],"hires-",6)) return 0;
     char escaped[64]; struct graphics_json encoded = {escaped,sizeof(escaped),0,1};
     graphics_string(&encoded,"quote\"slash\\\n");
     assert(encoded.valid && !strcmp(escaped,"\"quote\\\"slash\\\\\\u000a\""));
@@ -131,13 +136,22 @@ int main(int argc, char **argv) {
     cases = [("profile", None, 0.5), ("external", None, 0.4),
              ("chosen", '[display]\nrender_scale=0.8\n', 0.8),
              ("environment", '[display]\nrender_scale=0.8\n', 0.9)]
+    for graphics in ("hardcore", "classic", "enhanced"):
+        cases.append((f"hires-{graphics}", f'[display]\ngraphics="{graphics}"\n',
+                      1.0 if graphics == "hardcore" else 0.5))
+    for graphics in ("classic", "enhanced"):
+        cases.append((f"hires-override-{graphics}",
+                      f'[display]\ngraphics="{graphics}"\nhigh_res_hud=false\nhigh_res_text=false\n', 0.5))
+    cases.append(("hires-environment", '[display]\ngraphics="hardcore"\n', 1.0))
     if sys.platform == "darwin":
         cases.append(("locale", None, 0.5))
     for mode, config, expected in cases:
         folder = tmp_path / mode; folder.mkdir()
         if config:
             (folder / "config.toml").write_text(config)
-        env = os.environ.copy(); env.pop("HALO_RENDER_SCALE",None)
+        env = os.environ.copy()
+        for name in ("HALO_RENDER_SCALE", "HALO_GRAPHICS", "HALO_HIGH_RES_HUD", "HALO_HIGH_RES_TEXT"):
+            env.pop(name, None)
         result = subprocess.run([str(binary),str(folder),mode],env=env,capture_output=True,text=True,check=True)
         json_line, scale_line = result.stdout.splitlines()
         assert float(scale_line.split("=",1)[1].replace(",", ".")) == expected
@@ -154,6 +168,11 @@ int main(int argc, char **argv) {
                     "display.upscaled_textures", "display.native_hud", "display.high_res_hud", "display.high_res_text",
                     "display.stereo", "display.foveation", "display.render_quality"}
         assert required <= values.keys()
+        if mode.startswith("hires-"):
+            # Menu removal leaves the mode defaults and manual overrides available to reports and play.
+            expected_hires = mode not in ("hires-hardcore", "hires-override-classic", "hires-override-enhanced")
+            assert values["display.high_res_hud"] is expected_hires
+            assert values["display.high_res_text"] is expected_hires
         assert snapshot["scene"] == "menu"
         safe = set(re.findall(r'X\("([^"]+)"\)', (ROOT / "port/runtime/graphics_capture.h").read_text()))
         assert all(key.startswith("display.") or key in safe for key in values)

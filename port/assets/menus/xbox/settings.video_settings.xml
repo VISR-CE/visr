@@ -32,8 +32,6 @@
 		<child widget="xbox/settings/video_settings/op_frame_rate" x="54" y="253" platform="mac_app" />
 		<child widget="xbox/settings/video_settings/op_interpolation" x="54" y="283" />
 		<child widget="xbox/settings/video_settings/op_direct_camera" x="54" y="313" platform="desktop" />
-		<child widget="xbox/settings/video_settings/op_high_res_hud" x="54" y="343" />
-		<child widget="xbox/settings/video_settings/op_high_res_text" x="54" y="373" />
 		<child widget="xbox/settings/video_settings/button_bar" y="414" />
 		<child widget="xbox/settings/video_settings/scroll_up_arrow" x="574" y="73" />
 		<child widget="xbox/settings/video_settings/scroll_down_arrow" x="574" y="289" />
@@ -168,38 +166,6 @@
 	<widget name="xbox/settings/video_settings/direct_camera_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.direct_camera" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_high_res_hud" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/video_settings/high_res_hud_label" />
-		<child widget="xbox/settings/video_settings/high_res_hud_spinner" x="320" y="1" />
-		<child widget="xbox/settings/video_settings/high_res_hud_replaced" x="320" y="1" />
-	</widget>
-	<widget name="xbox/settings/video_settings/high_res_hud_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/high_res_hud_shown">
-	</widget>
-	<strings name="xbox/settings/video_settings/high_res_hud_shown">
-		<string text="ON" />
-		<string text="OFF" />
-	</strings>
-	<widget name="xbox/settings/video_settings/high_res_hud_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/settings/video_settings/high_res_hud_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.high_res_hud" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
-		<on event="created" run="port setting load" />
-	</widget>
-	<widget name="xbox/settings/video_settings/op_high_res_text" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/video_settings/high_res_text_label" />
-		<child widget="xbox/settings/video_settings/high_res_text_spinner" x="320" y="1" />
-		<child widget="xbox/settings/video_settings/high_res_text_replaced" x="320" y="1" />
-	</widget>
-	<widget name="xbox/settings/video_settings/high_res_text_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/high_res_text_shown">
-	</widget>
-	<strings name="xbox/settings/video_settings/high_res_text_shown">
-		<string text="ON" />
-		<string text="OFF" />
-	</strings>
-	<widget name="xbox/settings/video_settings/high_res_text_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="12" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/settings/video_settings/high_res_text_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.high_res_text" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
-		<on event="created" run="port setting load" />
-	</widget>
 	<widget name="xbox/settings/video_settings/row_help" type="text" controller="1" left="68" top="335" width="482" height="75" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/video_settings/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
@@ -222,8 +188,6 @@
 		<string text="FRAME RATE:" />
 		<string text="SMOOTH MOTION:" />
 		<string text="INSTANT AIM:" />
-		<string text="HIGH-RES HUD:" />
-		<string text="HIGH-RES TEXT:" />
 	</strings>
 	<strings name="xbox/settings/video_settings/help_strings">
 		<string text="" />
@@ -238,8 +202,6 @@
 		<string text="Unlimited can tear and uses more power. Applies\nthe next time the game starts." />
 		<string text="Draw a frame for every display refresh, blending\nbetween the game's 30 ticks a second." />
 		<string text="In first person, turn the view the moment the\nmouse moves, not up to two ticks later." />
-		<string text="Draw the HUD from the high-res redraws; off\ndraws the game's own pictures." />
-		<string text="Draw text and titles with high-res fonts; off\ndraws the game's own." />
 	</strings>
 	<widget name="xbox/settings/video_settings/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/video_settings/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />

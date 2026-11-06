@@ -1725,8 +1725,6 @@ static void graphics_fixed_help(struct widget_instance *help, short mode, char c
 	char message[200], name[16];
 	char const *what = !strcmp(setting, "display.frame_rate") ? "Fixed to %s FPS in %s mode." :
 		!strcmp(setting, "display.interpolation") ? "Frames are drawn at the game's 30 ticks a second in %.0s%s mode." :
-		!strcmp(setting, "display.high_res_hud") ? "HUD is drawn at original resolution in %.0s%s mode." :
-		!strcmp(setting, "display.high_res_text") ? "Text is drawn with the original fonts in %.0s%s mode." :
 		"Fixed to %s in %s mode.";
 
 	snprintf(name, sizeof(name), "%s", graphics_mode_names[mode]);
