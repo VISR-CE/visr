@@ -149,6 +149,9 @@ Handles index tables of these; 0 is none. */
 	NSString *source;
 	id<MTLFunction> exact[16];
 	uint16_t exact_tried;
+	/* a pixel shader lit per pixel (nv2a_lighting_pixel_block): it reads the
+	vertex constants at fragment buffer 4 (bind_constants) */
+	BOOL reads_constants;
 	/* a vertex shader's library, and its function specialized for each set
 	of attribute kinds it is drawn with (vertex_function) */
 	id<MTLLibrary> library;
@@ -1907,6 +1910,7 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 		id<MTLLibrary> library;
 
 		record->compiled = dispatch_group_create();
+		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on
@@ -4271,7 +4275,8 @@ static uint32_t attribute_size(uint8_t format)
 /* c[192] and struct gpu_uniforms, as the shaders read them, shared by the
 frame's draws until a serial moves: a Metal draw reads everything bound, so
 each snapshot is whole */
-static void bind_constants(const struct gpu_constant_store *constants, const struct gpu_uniforms *uniforms)
+static void bind_constants(const struct gpu_constant_store *constants, const struct gpu_uniforms *uniforms,
+	BOOL pixel_constants)
 {
 	__unsafe_unretained MetalBuffer *record;
 
@@ -4303,6 +4308,12 @@ static void bind_constants(const struct gpu_constant_store *constants, const str
 	if (metal_state_object(&state_cache, METAL_STATE_FRAGMENT_BUFFER, (__bridge void *)record->buffer,
 		snapshot.offset + sizeof(constants->c)))
 		[encoder setFragmentBuffer:record->buffer offset:snapshot.offset + sizeof(constants->c) atIndex:0];
+	/* per-pixel lighting's pixel shaders read c[] too */
+	if (pixel_constants && metal_state_object(&state_cache, METAL_STATE_FRAGMENT_CONSTANTS,
+		(__bridge void *)record->buffer, snapshot.offset))
+	{
+		[encoder setFragmentBuffer:record->buffer offset:snapshot.offset atIndex:4];
+	}
 }
 
 static void bind_attributes(const struct gpu_draw *draw, const struct draw_attributes *attributes)
@@ -4752,7 +4763,7 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 			[encoder setFragmentBytes:soft.parameters length:sizeof(soft.parameters) atIndex:5];
 			metal_state_always(&state_cache);
 		}
-		bind_constants(constants, uniforms);
+		bind_constants(constants, uniforms, pixel && pixel->reads_constants);
 		bind_attributes(draw, &attributes);
 		pass_commands++;
 		/* the draw call itself, made below unless a conversion leaves nothing */

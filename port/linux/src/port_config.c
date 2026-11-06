@@ -170,6 +170,11 @@ static const struct config_setting config_settings[] =
 		"world, and in stereo lay one eye's shadows in the other too: the picture's\n"
 		"pass is no longer interrupted for each shadow. False keeps the Xbox's\n"
 		"order, to compare." },
+	{ "display.per_pixel_lighting", _config_boolean, "false", "HALO_PER_PIXEL_LIGHTING", _environment_value, _platform_all,
+		"Light characters, weapons and vehicles per pixel: the game's own lights,\n"
+		"colors, ranges and falloff, with its reflection tint and direction, worked\n"
+		"out for each pixel instead of at each vertex and blended across the\n"
+		"triangle. Metal only. False lights them per vertex, as the Xbox does." },
 	{ "display.shadow_minimum_size", _config_integer, "0", "HALO_SHADOW_MINIMUM_SIZE", _environment_value, _platform_all,
 		"Device-profile floor on how small a character or vehicle may look and still\n"
 		"cast its shadow, in pixels of the 480-line picture, 0 to 240. Shadows fade\n"
@@ -1250,8 +1255,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
-		"anti-aliasing, effect resolution, mirror resolution) and left and right\n"
-		"step its value as the game runs, from the next frame, shown on screen for\n"
+		"anti-aliasing, effect resolution, mirror resolution, per-pixel lighting)\n"
+		"and left and right step its value as the game runs, from the next frame,\n"
+		"shown on screen for\n"
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
 		"the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and\n"
 		"debug.sense_tuning_chord's D-pad step get none of its presses. Not saved." },

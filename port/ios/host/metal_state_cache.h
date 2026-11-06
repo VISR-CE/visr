@@ -53,6 +53,14 @@ enum
 table and the draw (and, opening a visibility test, a visibility mode) */
 enum { METAL_STATE_DRAW_CALLS = METAL_STATE_SLOTS + 2 };
 
+/* slots only some draws set, past the ones every draw sets: c[] at fragment
+buffer 4, for per-pixel lighting's pixel shaders */
+enum
+{
+	METAL_STATE_FRAGMENT_CONSTANTS = METAL_STATE_SLOTS,
+	METAL_STATE_ALL_SLOTS,
+};
+
 /* the largest value: a viewport's 6 doubles */
 #define METAL_STATE_VALUE_BYTES 48
 
@@ -60,13 +68,13 @@ struct metal_state_cache
 {
 	int enabled;
 	uint64_t known; /* a bit per slot */
-	unsigned char values[METAL_STATE_SLOTS][METAL_STATE_VALUE_BYTES];
+	unsigned char values[METAL_STATE_ALL_SLOTS][METAL_STATE_VALUE_BYTES];
 	/* since the last metal_state_take_counts: the draws, and their encoder
 	calls made and skipped */
 	unsigned long draws, issued, skipped;
 };
 
-_Static_assert(METAL_STATE_SLOTS <= 64, "a bit per slot");
+_Static_assert(METAL_STATE_ALL_SLOTS <= 64, "a bit per slot");
 
 static inline void metal_state_initialize(struct metal_state_cache *cache, int enabled)
 {
@@ -129,7 +137,7 @@ static inline void metal_state_clear_quad(struct metal_state_cache *cache)
 {
 	static const int slots[] = { METAL_STATE_PIPELINE, METAL_STATE_DEPTH_STENCIL, METAL_STATE_STENCIL_REFERENCE,
 		METAL_STATE_CULL_MODE, METAL_STATE_DEPTH_BIAS, METAL_STATE_VIEWPORT, METAL_STATE_SCISSOR,
-		METAL_STATE_VERTEX_BUFFER, METAL_STATE_FRAGMENT_BUFFER };
+		METAL_STATE_VERTEX_BUFFER, METAL_STATE_FRAGMENT_BUFFER, METAL_STATE_FRAGMENT_CONSTANTS };
 	size_t index;
 
 	for (index = 0; index < sizeof(slots) / sizeof(slots[0]); index++)

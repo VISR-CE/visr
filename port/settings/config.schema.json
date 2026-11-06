@@ -151,6 +151,17 @@
             "desktop"
           ]
         },
+        "per_pixel_lighting": {
+          "type": "boolean",
+          "default": false,
+          "description": "Light characters, weapons and vehicles per pixel: the game's own lights, colors, ranges and falloff, with its reflection tint and direction, worked out for each pixel instead of at each vertex and blended across the triangle. Metal only. False lights them per vertex, as the Xbox does.",
+          "x-environment": "HALO_PER_PIXEL_LIGHTING",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_minimum_size": {
           "type": "integer",
           "default": 0,
@@ -1708,7 +1719,7 @@
         "knob_cycle": {
           "type": "boolean",
           "default": false,
-          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
+          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
           "x-environment": "HALO_KNOB_CYCLE",
           "x-environment-style": "value",
           "x-platforms": [

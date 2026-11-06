@@ -272,11 +272,550 @@ static int reversed_depth_operands(struct xgpu_text *text, unsigned long z_op, u
 	return 1;
 }
 
+/* an instruction's operands and both units' results (mac, ilu), written by
+instruction_writes */
+static void instruction_compute(struct xgpu_text *text, const DWORD *instruction, unsigned long index)
+{
+	unsigned long mac = field(instruction, 1, 21, 4);
+	unsigned long ilu = field(instruction, 1, 25, 3);
+	int relative = (int)field(instruction, 3, 1, 1);
+
+	xgpu_text_append(text, "\t/* %lu */\n", index);
+	xgpu_text_append(text, "\tA = "); operand(text, instruction, 'A', relative); xgpu_text_append(text, ";\n");
+	xgpu_text_append(text, "\tB = "); operand(text, instruction, 'B', relative); xgpu_text_append(text, ";\n");
+	xgpu_text_append(text, "\tC = "); operand(text, instruction, 'C', relative); xgpu_text_append(text, ";\n");
+
+	switch (mac)
+	{
+	case _mac_nop: break;
+	case _mac_mov: xgpu_text_append(text, "\tmac = A;\n"); break;
+	case _mac_mul: xgpu_text_append(text, "\tmac = A * B;\n"); break;
+	case _mac_add: xgpu_text_append(text, "\tmac = A + C;\n"); break;
+	case _mac_mad: xgpu_text_append(text, "\tmac = A * B + C;\n"); break;
+	case _mac_dp3: xgpu_text_append(text, "\tmac = vec4(dot(A.xyz, B.xyz));\n"); break;
+	case _mac_dph: xgpu_text_append(text, "\tmac = vec4(dot(A.xyz, B.xyz) + B.w);\n"); break;
+	case _mac_dp4: xgpu_text_append(text, "\tmac = vec4(dot(A, B));\n"); break;
+	case _mac_dst: xgpu_text_append(text, "\tmac = vec4(1.0, A.y * B.y, A.z, B.w);\n"); break;
+	case _mac_min: xgpu_text_append(text, "\tmac = min(A, B);\n"); break;
+	case _mac_max: xgpu_text_append(text, "\tmac = max(A, B);\n"); break;
+	case _mac_slt: xgpu_text_append(text, "\tmac = vec4(lessThan(A, B));\n"); break;
+	case _mac_sge: xgpu_text_append(text, "\tmac = vec4(greaterThanEqual(A, B));\n"); break;
+	case _mac_arl: xgpu_text_append(text, "\tmac = A;\n"); break;
+	default: xgpu_text_append(text, "\tmac = vec4(0.0);\n"); break;
+	}
+	switch (ilu)
+	{
+	case _ilu_nop: break;
+	case _ilu_mov: xgpu_text_append(text, "\tilu = C;\n"); break;
+	case _ilu_rcp: xgpu_text_append(text, "\tilu = vec4(1.0 / C.x);\n"); break;
+	case _ilu_rcc: xgpu_text_append(text, "\tilu = nv2a_rcc(C.x);\n"); break;
+	case _ilu_rsq: xgpu_text_append(text, "\tilu = vec4(inversesqrt(abs(C.x)));\n"); break;
+	case _ilu_exp: xgpu_text_append(text, "\tilu = nv2a_exp(C.x);\n"); break;
+	case _ilu_log: xgpu_text_append(text, "\tilu = nv2a_log(C.x);\n"); break;
+	case _ilu_lit: xgpu_text_append(text, "\tilu = nv2a_lit(C);\n"); break;
+	default: xgpu_text_append(text, "\tilu = vec4(0.0);\n"); break;
+	}
+}
+
+/* an instruction's results into its registers and outputs, after both units
+have read their operands; outputs (a mask of 1 oD0, 2 oD1, 4 oT3) limits the
+outputs written to those, 0 all (the pixel shader's slice, nv2a_lighting_slice,
+writes only the ones it replaces) */
+static void instruction_writes(struct xgpu_text *text, const DWORD *instruction, unsigned long outputs)
+{
+	unsigned long mac = field(instruction, 1, 21, 4);
+	unsigned long ilu = field(instruction, 1, 25, 3);
+	unsigned long mac_mask = field(instruction, 3, 24, 4);
+	unsigned long temporary = field(instruction, 3, 20, 4);
+	unsigned long ilu_mask = field(instruction, 3, 16, 4);
+	unsigned long output_mask = field(instruction, 3, 12, 4);
+	unsigned long output_is_register = field(instruction, 3, 11, 1);
+	unsigned long output_address = field(instruction, 3, 3, 8);
+	unsigned long output_from_ilu = field(instruction, 3, 2, 1);
+	char mask[5];
+
+	/* results are written only after both units have read their inputs */
+	if (mac == _mac_arl)
+	{
+		xgpu_text_append(text, "\ta0 = int(floor(mac.x + 0.001));\n");
+	}
+	else if (mac != _mac_nop && mac_mask)
+	{
+		write_mask(mac_mask, mask);
+		if (temporary == 12)
+			xgpu_text_append(text, "\toPos.%s = mac.%s;\n", mask, mask);
+		else
+			xgpu_text_append(text, "\tr%lu.%s = mac.%s;\n", temporary, mask, mask);
+	}
+	if (ilu != _ilu_nop && ilu_mask)
+	{
+		unsigned long ilu_temporary = mac != _mac_nop ? 1 : temporary;
+
+		write_mask(ilu_mask, mask);
+		if (ilu_temporary == 12)
+			xgpu_text_append(text, "\toPos.%s = ilu.%s;\n", mask, mask);
+		else
+			xgpu_text_append(text, "\tr%lu.%s = ilu.%s;\n", ilu_temporary, mask, mask);
+	}
+	if (outputs && output_is_register && !((output_address == 3 && (outputs & 1)) ||
+		(output_address == 4 && (outputs & 2)) || (output_address == 12 && (outputs & 4))))
+	{
+		output_mask = 0;
+	}
+	if (output_mask && (output_from_ilu ? ilu : mac) != 0)
+	{
+		const char *source = output_from_ilu ? "ilu" : "mac";
+
+		write_mask(output_mask, mask);
+		if (output_is_register)
+			xgpu_text_append(text, "\t%s.%s = %s.%s;\n", output_name(output_address), mask, source, mask);
+		/* writes to constant memory are not used by Halo's shaders */
+	}
+}
+
+/* ---------- per-pixel lighting (nv2a_lighting_slice, xgpu.h) */
+
+/* a register in the slice's numbering: 0-11 r0-r11, 12 oPos (r12), 16-31
+v0-v15 */
+#define LIGHTING_REGISTERS 32
+/* operand_register's constant for a relatively addressed one */
+#define LIGHTING_RELATIVE 1000
+
+/* an operand's register in that numbering (-1 for none: *constant is then
+the constant it reads, or -1) and its swizzle */
+static int operand_register(const DWORD *instruction, char which, unsigned long *swizzle, int *constant)
+{
+	unsigned long index, mux;
+
+	switch (which)
+	{
+	case 'A':
+		swizzle[0] = field(instruction, 1, 6, 2);
+		swizzle[1] = field(instruction, 1, 4, 2);
+		swizzle[2] = field(instruction, 1, 2, 2);
+		swizzle[3] = field(instruction, 1, 0, 2);
+		index = field(instruction, 2, 28, 4);
+		mux = field(instruction, 2, 26, 2);
+		break;
+	case 'B':
+		swizzle[0] = field(instruction, 2, 23, 2);
+		swizzle[1] = field(instruction, 2, 21, 2);
+		swizzle[2] = field(instruction, 2, 19, 2);
+		swizzle[3] = field(instruction, 2, 17, 2);
+		index = field(instruction, 2, 13, 4);
+		mux = field(instruction, 2, 11, 2);
+		break;
+	default:
+		swizzle[0] = field(instruction, 2, 8, 2);
+		swizzle[1] = field(instruction, 2, 6, 2);
+		swizzle[2] = field(instruction, 2, 4, 2);
+		swizzle[3] = field(instruction, 2, 2, 2);
+		index = (field(instruction, 2, 0, 2) << 2) | field(instruction, 3, 30, 2);
+		mux = field(instruction, 3, 28, 2);
+		break;
+	}
+	*constant = -1;
+	switch (mux)
+	{
+	case _mux_temporary:
+		return index <= 12 ? (int)index : -1;
+	case _mux_input:
+		return 16 + (int)field(instruction, 1, 9, 4);
+	case _mux_constant:
+		*constant = field(instruction, 3, 1, 1) ? LIGHTING_RELATIVE : (int)field(instruction, 1, 13, 8);
+		return -1;
+	default:
+		return -1;
+	}
+}
+
+/* a hardware write mask (bit 3 x) as components (bit 0 x) */
+static unsigned long mask_components(unsigned long mask)
+{
+	return ((mask >> 3) & 1) | (((mask >> 2) & 1) << 1) | (((mask >> 1) & 1) << 2) | ((mask & 1) << 3);
+}
+
+/* the backward walk's state: each register's components still needed, and
+what the latest step read */
+struct lighting_reads
+{
+	unsigned long needed[LIGHTING_REGISTERS];
+	int reads_lighting;
+	int relative;
+};
+
+/* the operand's components that components (of the unit's result) read,
+marked needed */
+static void lighting_read(const DWORD *instruction, char which, unsigned long components, struct lighting_reads *reads)
+{
+	unsigned long swizzle[4], read = 0;
+	int reg, constant, axis;
+
+	if (!components)
+		return;
+	reg = operand_register(instruction, which, swizzle, &constant);
+	for (axis = 0; axis < 4; axis++)
+		if (components & (1UL << axis))
+			read |= 1UL << swizzle[axis];
+	if (reg >= 0)
+		reads->needed[reg] |= read;
+	else if (constant == LIGHTING_RELATIVE)
+		reads->relative = 1;
+	else if (constant == 4 || (constant >= 17 && constant <= 27))
+		reads->reads_lighting = 1;
+}
+
+/* one step back over an instruction: whether it writes anything still
+needed (registers in reads; outputs, the components of oD0, oD1 and oT3 still
+to be written, in outputs), and if so its operands become needed */
+static int lighting_step(const DWORD *instruction, unsigned long *outputs, struct lighting_reads *reads)
+{
+	unsigned long mac = field(instruction, 1, 21, 4);
+	unsigned long ilu = field(instruction, 1, 25, 3);
+	unsigned long mac_mask = mask_components(field(instruction, 3, 24, 4));
+	unsigned long temporary = field(instruction, 3, 20, 4);
+	unsigned long ilu_mask = mask_components(field(instruction, 3, 16, 4));
+	unsigned long output_mask = mask_components(field(instruction, 3, 12, 4));
+	unsigned long output_address = field(instruction, 3, 3, 8);
+	unsigned long output_from_ilu = field(instruction, 3, 2, 1);
+	unsigned long mac_needed = 0, ilu_needed = 0;
+	int output = output_address == 3 ? 0 : output_address == 4 ? 1 : output_address == 12 ? 2 : -1;
+
+	/* the writes, last first (instruction_writes' order) */
+	if (output_mask && field(instruction, 3, 11, 1) && output >= 0 && (output_from_ilu ? ilu : mac) != 0)
+	{
+		unsigned long wanted = outputs[output] & output_mask;
+
+		outputs[output] &= ~wanted;
+		*(output_from_ilu ? &ilu_needed : &mac_needed) |= wanted;
+	}
+	if (ilu != _ilu_nop && ilu_mask)
+	{
+		unsigned long reg = mac != _mac_nop ? 1 : temporary;
+
+		if (reg <= 12)
+		{
+			ilu_needed |= reads->needed[reg] & ilu_mask;
+			reads->needed[reg] &= ~ilu_mask;
+		}
+	}
+	if (mac != _mac_nop && mac != _mac_arl && mac_mask && temporary <= 12)
+	{
+		mac_needed |= reads->needed[temporary] & mac_mask;
+		reads->needed[temporary] &= ~mac_mask;
+	}
+	if (!mac_needed && !ilu_needed)
+		return 0;
+	switch (mac)
+	{
+	case _mac_nop:
+		break;
+	case _mac_mov:
+		lighting_read(instruction, 'A', mac_needed, reads);
+		break;
+	case _mac_add:
+		lighting_read(instruction, 'A', mac_needed, reads);
+		lighting_read(instruction, 'C', mac_needed, reads);
+		break;
+	case _mac_mad:
+		lighting_read(instruction, 'C', mac_needed, reads);
+		/* fall through */
+	case _mac_mul: case _mac_min: case _mac_max: case _mac_slt: case _mac_sge:
+		lighting_read(instruction, 'A', mac_needed, reads);
+		lighting_read(instruction, 'B', mac_needed, reads);
+		break;
+	case _mac_dp3:
+		if (mac_needed) { lighting_read(instruction, 'A', 7, reads); lighting_read(instruction, 'B', 7, reads); }
+		break;
+	case _mac_dph:
+		if (mac_needed) { lighting_read(instruction, 'A', 7, reads); lighting_read(instruction, 'B', 15, reads); }
+		break;
+	case _mac_dp4:
+		if (mac_needed) { lighting_read(instruction, 'A', 15, reads); lighting_read(instruction, 'B', 15, reads); }
+		break;
+	case _mac_dst:
+		if (mac_needed) { lighting_read(instruction, 'A', 6, reads); lighting_read(instruction, 'B', 10, reads); }
+		break;
+	default:
+		/* (arl: a0 is not carried to the pixel shader) */
+		if (mac_needed)
+			reads->relative = 1;
+		break;
+	}
+	switch (ilu)
+	{
+	case _ilu_nop:
+		break;
+	case _ilu_mov:
+		lighting_read(instruction, 'C', ilu_needed, reads);
+		break;
+	case _ilu_lit:
+		if (ilu_needed)
+			lighting_read(instruction, 'C', 11, reads);
+		break;
+	default:
+		if (ilu_needed)
+			lighting_read(instruction, 'C', 1, reads);
+		break;
+	}
+	return 1;
+}
+
+/* the instructions that run: up to the one marked final */
+static unsigned long lighting_length(const DWORD *instructions, unsigned long instruction_count)
+{
+	unsigned long index;
+
+	for (index = 0; index < instruction_count; index++)
+		if (field(instructions + index * 4, 3, 0, 1))
+			return index + 1;
+	return instruction_count;
+}
+
+int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_count, struct nv2a_lighting_slice *slice)
+{
+	struct lighting_reads reads;
+	unsigned long outputs[3], length = lighting_length(instructions, instruction_count), index;
+	long cut = -1, scan;
+	int reg, ambient = 0;
+
+	memset(slice, 0, sizeof(*slice));
+	slice->normal = -1;
+	if (!length || length > NV2A_LIGHTING_MAX_INSTRUCTIONS)
+		return 0;
+	/* a model lighting program reads the ambient color, c[27] */
+	for (index = 0; index < length; index++)
+	{
+		unsigned long swizzle[4];
+		int constant;
+		char which;
+
+		for (which = 'A'; which <= 'C'; which++)
+		{
+			operand_register(instructions + index * 4, which, swizzle, &constant);
+			ambient |= constant == 27;
+		}
+	}
+	if (!ambient)
+		return 0;
+	/* first the whole program's slice, to find where it starts: its first
+	instruction that reads the camera position (c[4]) or a light (c[17] to
+	c[27]), by which the world position and normal are made */
+	memset(&reads, 0, sizeof(reads));
+	outputs[0] = outputs[1] = outputs[2] = 15;
+	for (scan = (long)length - 1; scan >= 0; scan--)
+	{
+		reads.reads_lighting = 0;
+		if (lighting_step(instructions + scan * 4, outputs, &reads) && reads.reads_lighting)
+			cut = scan;
+	}
+	if (cut < 0)
+		return 0;
+	/* then the slice from there on, and what it reads from before */
+	memset(&reads, 0, sizeof(reads));
+	outputs[0] = outputs[1] = outputs[2] = 15;
+	for (scan = (long)length - 1; scan >= cut; scan--)
+		slice->in_slice[scan] = (unsigned char)lighting_step(instructions + scan * 4, outputs, &reads);
+	if (reads.relative)
+		return 0;
+	for (index = 0; index < 3; index++)
+		if (outputs[index] != 15)
+			slice->outputs |= 1UL << index;
+	if (!slice->outputs)
+		return 0;
+	for (reg = 0; reg < LIGHTING_REGISTERS; reg++)
+	{
+		if (!reads.needed[reg])
+			continue;
+		if (slice->live_count == NV2A_LIGHTING_MAX_VARYINGS)
+			return 0;
+		slice->live[slice->live_count++] = (unsigned char)reg;
+	}
+	slice->cut = (unsigned long)cut;
+	/* the normal: what the first distant light's dot product (with c[23])
+	takes, back through scalings and moves to a register from before the cut */
+	for (index = (unsigned long)cut; index < length; index++)
+	{
+		const DWORD *instruction = instructions + index * 4;
+		unsigned long swizzle[4], live;
+		int a, b, constant_a, constant_b;
+
+		if (!slice->in_slice[index] || field(instruction, 1, 21, 4) != _mac_dp3)
+			continue;
+		a = operand_register(instruction, 'A', swizzle, &constant_a);
+		b = operand_register(instruction, 'B', swizzle, &constant_b);
+		reg = constant_b == 23 ? a : constant_a == 23 ? b : -1;
+		if (reg < 0)
+			continue;
+		for (scan = (long)index - 1; scan >= cut && reg >= 0; scan--)
+		{
+			const DWORD *writer = instructions + scan * 4;
+			unsigned long mac = field(writer, 1, 21, 4);
+			int constant;
+
+			/* (a write of its x, y or z) */
+			if (!slice->in_slice[scan] || mac == _mac_nop || mac == _mac_arl ||
+				(int)field(writer, 3, 20, 4) != reg || !(field(writer, 3, 24, 4) & 0xe))
+			{
+				continue;
+			}
+			reg = mac == _mac_mov || mac == _mac_mul ? operand_register(writer, 'A', swizzle, &constant) : -1;
+		}
+		for (live = 0; reg >= 0 && live < slice->live_count; live++)
+			if (slice->live[live] == reg)
+				slice->normal = (int)live;
+		break;
+	}
+	return 1;
+}
+
+static void lighting_register_name(struct xgpu_text *text, int reg)
+{
+	if (reg < 12)
+		xgpu_text_append(text, "r%d", reg);
+	else if (reg == 12)
+		xgpu_text_append(text, "oPos");
+	else
+		xgpu_text_append(text, "v%d", reg - 16);
+}
+
+/* the vertex shader's side: the live registers as they stand at the cut */
+static void lighting_capture(struct xgpu_text *text, const struct nv2a_lighting_slice *slice)
+{
+	unsigned long index;
+
+	xgpu_text_append(text, "\t/* per-pixel lighting: what the pixel shader's lighting reads */\n");
+	for (index = 0; index < slice->live_count; index++)
+	{
+		xgpu_text_append(text, "\txL%lu = ", index);
+		lighting_register_name(text, slice->live[index]);
+		xgpu_text_append(text, ";\n");
+	}
+	if (slice->normal >= 0)
+		xgpu_text_append(text, "\txLn = length(xL%d.xyz);\n", slice->normal);
+}
+
+void nv2a_lighting_pixel_helpers(struct xgpu_text *text)
+{
+	xgpu_text_append(text, "%s", shader_helpers);
+}
+
+void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions, unsigned long instruction_count,
+	const struct nv2a_lighting_slice *slice)
+{
+	unsigned long index, length = lighting_length(instructions, instruction_count);
+
+	xgpu_text_append(text,
+		"\t/* per-pixel lighting: the vertex program's lighting again, for this pixel */\n"
+		"\t{\n"
+		"\tvec4 r0 = vec4(0.0), r1 = vec4(0.0), r2 = vec4(0.0), r3 = vec4(0.0);\n"
+		"\tvec4 r4 = vec4(0.0), r5 = vec4(0.0), r6 = vec4(0.0), r7 = vec4(0.0);\n"
+		"\tvec4 r8 = vec4(0.0), r9 = vec4(0.0), r10 = vec4(0.0), r11 = vec4(0.0);\n"
+		"\tvec4 v0 = vec4(0.0, 0.0, 0.0, 1.0), v1 = v0, v2 = v0, v3 = v0, v4 = v0, v5 = v0, v6 = v0, v7 = v0;\n"
+		"\tvec4 v8 = v0, v9 = v0, v10 = v0, v11 = v0, v12 = v0, v13 = v0, v14 = v0, v15 = v0;\n"
+		"\tvec4 oPos = vec4(0.0, 0.0, 0.0, 1.0), oD0 = xD0, oD1 = xD1, oT3 = xT3;\n"
+		"\tvec4 oB0 = oPos, oB1 = oPos, oT0 = oPos, oT1 = oPos, oT2 = oPos;\n"
+		"\tvec4 oFog = vec4(1.0), oPts = vec4(1.0), oUnused = vec4(0.0);\n"
+		"\tint a0 = 0;\n"
+		"\tvec4 A, B, C, mac, ilu;\n");
+	for (index = 0; index < slice->live_count; index++)
+	{
+		xgpu_text_append(text, "\t");
+		lighting_register_name(text, slice->live[index]);
+		xgpu_text_append(text, " = in.xL%lu;\n", index);
+	}
+	/* interpolated, the normal is shorter between vertices: as long as the
+	vertices' normals again, in its own direction */
+	if (slice->normal >= 0)
+	{
+		xgpu_text_append(text, "\tif (length(");
+		lighting_register_name(text, slice->live[slice->normal]);
+		xgpu_text_append(text, ".xyz) > 0.0)\n\t\t");
+		lighting_register_name(text, slice->live[slice->normal]);
+		xgpu_text_append(text, ".xyz *= in.xLn / length(");
+		lighting_register_name(text, slice->live[slice->normal]);
+		xgpu_text_append(text, ".xyz);\n");
+	}
+	for (index = slice->cut; index < length; index++)
+	{
+		if (!slice->in_slice[index])
+			continue;
+		instruction_compute(text, instructions + index * 4, index);
+		instruction_writes(text, instructions + index * 4, slice->outputs);
+	}
+	/* as the vertex shader hands them over */
+	if (slice->outputs & 1)
+		xgpu_text_append(text, "\txD0 = clamp(oD0, 0.0, 1.0);\n");
+	if (slice->outputs & 2)
+		xgpu_text_append(text, "\txD1 = clamp(oD1, 0.0, 1.0);\n");
+	if (slice->outputs & 4)
+		xgpu_text_append(text, "\txT3 = oT3;\n");
+	xgpu_text_append(text, "\t}\n");
+}
+
+/* the lit programs, by program hash (nv2a_lighting_register) */
+struct lighting_program
+{
+	uint64_t hash;
+	DWORD *instructions;
+	unsigned long instruction_count;
+	struct lighting_program *next;
+};
+
+static struct lighting_program *lighting_programs;
+
+void nv2a_lighting_register(uint64_t program_hash, const DWORD *instructions, unsigned long instruction_count)
+{
+	struct lighting_program *program;
+
+	for (program = lighting_programs; program; program = program->next)
+		if (program->hash == program_hash)
+			return;
+	program = calloc(1, sizeof(*program));
+	if (!program)
+		return;
+	program->instructions = malloc(instruction_count * 4 * sizeof(DWORD));
+	if (!program->instructions)
+	{
+		free(program);
+		return;
+	}
+	memcpy(program->instructions, instructions, instruction_count * 4 * sizeof(DWORD));
+	program->hash = program_hash;
+	program->instruction_count = instruction_count;
+	program->next = lighting_programs;
+	lighting_programs = program;
+}
+
+int nv2a_lighting_find(uint64_t program_hash, const DWORD **instructions, unsigned long *instruction_count,
+	struct nv2a_lighting_slice *slice)
+{
+	struct lighting_program *program;
+
+	for (program = lighting_programs; program; program = program->next)
+	{
+		if (program->hash != program_hash)
+			continue;
+		*instructions = program->instructions;
+		*instruction_count = program->instruction_count;
+		return nv2a_lighting_slice(program->instructions, program->instruction_count, slice);
+	}
+	return 0;
+}
+
 char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWORD *instructions,
 	unsigned long instruction_count, unsigned long packed_attribute_mask)
 {
+	return nv2a_vertex_shader_translate_lit(dialect, instructions, instruction_count, packed_attribute_mask, 0);
+}
+
+char *nv2a_vertex_shader_translate_lit(const struct nv2a_dialect *dialect, const DWORD *instructions,
+	unsigned long instruction_count, unsigned long packed_attribute_mask, int lit)
+{
 	struct xgpu_text text = { 0 };
 	unsigned long index;
+	struct nv2a_lighting_slice slice;
+	const struct nv2a_lighting_slice *lighting = NULL;
 	/* the dot products (_mac_dp3, _mac_dph, _mac_dp4; 0 none) that last
 	wrote the clip position's z and w (r12), for reversed_depth_operands */
 	unsigned long depth_z_op = 0, depth_w_op = 0;
@@ -288,12 +827,15 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 		platform_log("vertex shader translated before the dialect was set");
 		return NULL;
 	}
+	/* (Metal only: the pixel shader reads the vertex constants) */
+	if (lit && dialect->msl && nv2a_lighting_slice(instructions, instruction_count, &slice))
+		lighting = &slice;
 	if (dialect->msl)
 	{
 		nv2a_msl_prelude(&text, GPU_UNIFORM_VERTEX);
-		nv2a_msl_vertex_outputs(&text);
+		nv2a_msl_vertex_outputs(&text, lighting);
 		xgpu_text_append(&text, "%s", shader_helpers);
-		nv2a_msl_vertex_main(&text, dialect, packed_attribute_mask);
+		nv2a_msl_vertex_main(&text, dialect, packed_attribute_mask, lighting);
 	}
 	else
 	{
@@ -344,51 +886,10 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 		const DWORD *instruction = instructions + index * 4;
 		unsigned long mac = field(instruction, 1, 21, 4);
 		unsigned long ilu = field(instruction, 1, 25, 3);
-		unsigned long mac_mask = field(instruction, 3, 24, 4);
-		unsigned long temporary = field(instruction, 3, 20, 4);
-		unsigned long ilu_mask = field(instruction, 3, 16, 4);
-		unsigned long output_mask = field(instruction, 3, 12, 4);
-		unsigned long output_is_register = field(instruction, 3, 11, 1);
-		unsigned long output_address = field(instruction, 3, 3, 8);
-		unsigned long output_from_ilu = field(instruction, 3, 2, 1);
-		int relative = (int)field(instruction, 3, 1, 1);
-		char mask[5];
 
-		xgpu_text_append(&text, "\t/* %lu */\n", index);
-		xgpu_text_append(&text, "\tA = "); operand(&text, instruction, 'A', relative); xgpu_text_append(&text, ";\n");
-		xgpu_text_append(&text, "\tB = "); operand(&text, instruction, 'B', relative); xgpu_text_append(&text, ";\n");
-		xgpu_text_append(&text, "\tC = "); operand(&text, instruction, 'C', relative); xgpu_text_append(&text, ";\n");
-
-		switch (mac)
-		{
-		case _mac_nop: break;
-		case _mac_mov: xgpu_text_append(&text, "\tmac = A;\n"); break;
-		case _mac_mul: xgpu_text_append(&text, "\tmac = A * B;\n"); break;
-		case _mac_add: xgpu_text_append(&text, "\tmac = A + C;\n"); break;
-		case _mac_mad: xgpu_text_append(&text, "\tmac = A * B + C;\n"); break;
-		case _mac_dp3: xgpu_text_append(&text, "\tmac = vec4(dot(A.xyz, B.xyz));\n"); break;
-		case _mac_dph: xgpu_text_append(&text, "\tmac = vec4(dot(A.xyz, B.xyz) + B.w);\n"); break;
-		case _mac_dp4: xgpu_text_append(&text, "\tmac = vec4(dot(A, B));\n"); break;
-		case _mac_dst: xgpu_text_append(&text, "\tmac = vec4(1.0, A.y * B.y, A.z, B.w);\n"); break;
-		case _mac_min: xgpu_text_append(&text, "\tmac = min(A, B);\n"); break;
-		case _mac_max: xgpu_text_append(&text, "\tmac = max(A, B);\n"); break;
-		case _mac_slt: xgpu_text_append(&text, "\tmac = vec4(lessThan(A, B));\n"); break;
-		case _mac_sge: xgpu_text_append(&text, "\tmac = vec4(greaterThanEqual(A, B));\n"); break;
-		case _mac_arl: xgpu_text_append(&text, "\tmac = A;\n"); break;
-		default: xgpu_text_append(&text, "\tmac = vec4(0.0);\n"); break;
-		}
-		switch (ilu)
-		{
-		case _ilu_nop: break;
-		case _ilu_mov: xgpu_text_append(&text, "\tilu = C;\n"); break;
-		case _ilu_rcp: xgpu_text_append(&text, "\tilu = vec4(1.0 / C.x);\n"); break;
-		case _ilu_rcc: xgpu_text_append(&text, "\tilu = nv2a_rcc(C.x);\n"); break;
-		case _ilu_rsq: xgpu_text_append(&text, "\tilu = vec4(inversesqrt(abs(C.x)));\n"); break;
-		case _ilu_exp: xgpu_text_append(&text, "\tilu = nv2a_exp(C.x);\n"); break;
-		case _ilu_log: xgpu_text_append(&text, "\tilu = nv2a_log(C.x);\n"); break;
-		case _ilu_lit: xgpu_text_append(&text, "\tilu = nv2a_lit(C);\n"); break;
-		default: xgpu_text_append(&text, "\tilu = vec4(0.0);\n"); break;
-		}
+		if (lighting && index == lighting->cut)
+			lighting_capture(&text, lighting);
+		instruction_compute(&text, instruction, index);
 		/* the screen-space conversion takes the reciprocal of the clip-space
 		position's w (rcc of r12.w); keep the position it converts */
 		if (dialect->clip_capture && ilu == _ilu_rcc && field(instruction, 3, 28, 2) == _mux_temporary &&
@@ -401,38 +902,7 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 		if (dialect->msl)
 			depth_rows_track(&text, instruction, mac, ilu, &depth_z_op, &depth_w_op);
 
-		/* results are written only after both units have read their inputs */
-		if (mac == _mac_arl)
-		{
-			xgpu_text_append(&text, "\ta0 = int(floor(mac.x + 0.001));\n");
-		}
-		else if (mac != _mac_nop && mac_mask)
-		{
-			write_mask(mac_mask, mask);
-			if (temporary == 12)
-				xgpu_text_append(&text, "\toPos.%s = mac.%s;\n", mask, mask);
-			else
-				xgpu_text_append(&text, "\tr%lu.%s = mac.%s;\n", temporary, mask, mask);
-		}
-		if (ilu != _ilu_nop && ilu_mask)
-		{
-			unsigned long ilu_temporary = mac != _mac_nop ? 1 : temporary;
-
-			write_mask(ilu_mask, mask);
-			if (ilu_temporary == 12)
-				xgpu_text_append(&text, "\toPos.%s = ilu.%s;\n", mask, mask);
-			else
-				xgpu_text_append(&text, "\tr%lu.%s = ilu.%s;\n", ilu_temporary, mask, mask);
-		}
-		if (output_mask && (output_from_ilu ? ilu : mac) != 0)
-		{
-			const char *source = output_from_ilu ? "ilu" : "mac";
-
-			write_mask(output_mask, mask);
-			if (output_is_register)
-				xgpu_text_append(&text, "\t%s.%s = %s.%s;\n", output_name(output_address), mask, source, mask);
-			/* writes to constant memory are not used by Halo's shaders */
-		}
+		instruction_writes(&text, instruction, 0);
 		if (field(instruction, 3, 0, 1))
 			break;
 	}
@@ -518,7 +988,7 @@ char *nv2a_vertex_shader_translate(const struct nv2a_dialect *dialect, const DWO
 		"\txT3 = oT3;\n"
 		"\txFog = oFog.x;\n");
 	if (dialect->msl)
-		nv2a_msl_vertex_return(&text);
+		nv2a_msl_vertex_return(&text, lighting);
 	xgpu_text_append(&text, "}\n");
 	return text.buffer;
 }

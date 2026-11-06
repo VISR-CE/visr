@@ -771,13 +771,17 @@ struct vertex_shader_object
 	struct vertex_element elements[XGPU_VERTEX_ATTRIBUTE_COUNT];
 	unsigned long element_count;
 	unsigned long packed_mask;
-	/* [0] streams per the declaration, [1] immediate mode (all floats) */
-	gpu_shader shader[2];
+	/* [0] streams per the declaration, [1] immediate mode (all floats);
+	[2] and [3] the same lit per pixel (display.per_pixel_lighting) */
+	gpu_shader shader[4];
 	/* the packed-attribute mask each was translated with */
-	unsigned long shader_packed_mask[2];
+	unsigned long shader_packed_mask[4];
 	/* debug.gpu_dump_shaders, for each compiled at map load: its source,
 	dumped at its first draw (shader_dump_pending) */
-	char *dump_source[2];
+	char *dump_source[4];
+	/* a model lighting program per-pixel lighting can light
+	(nv2a_lighting_slice) */
+	BOOL lit;
 	/* every object, newest first, and its instructions' hash: its name in
 	the shader lists (shader_list_warm) */
 	struct vertex_shader_object *next_object;
@@ -4127,6 +4131,13 @@ HRESULT WINAPI D3DDevice_CreateVertexShader(CONST DWORD *declaration, CONST DWOR
 		object->instructions = malloc(object->instruction_count * 4 * sizeof(DWORD));
 		memcpy(object->instructions, function + 1, object->instruction_count * 4 * sizeof(DWORD));
 		object->program_hash = hash64(object->instructions, object->instruction_count * 4 * sizeof(DWORD));
+		{
+			struct nv2a_lighting_slice slice;
+
+			object->lit = nv2a_lighting_slice(object->instructions, object->instruction_count, &slice);
+			if (object->lit)
+				nv2a_lighting_register(object->program_hash, object->instructions, object->instruction_count);
+		}
 	}
 	parse_declaration(object, declaration);
 	object->next_object = vertex_shader_objects;
@@ -4312,7 +4323,8 @@ static gpu_shader vertex_shader_compile(struct vertex_shader_object *program, in
 {
 	if (!program->shader[variant])
 	{
-		char *source = nv2a_vertex_shader_translate(&shader_dialect, program->instructions, program->instruction_count, packed_mask);
+		char *source = nv2a_vertex_shader_translate_lit(&shader_dialect, program->instructions,
+			program->instruction_count, packed_mask, variant >= 2);
 
 		program->shader[variant] = source ? gpu_shader_create(GPU_SHADER_VERTEX, source) : 0;
 		program->shader_packed_mask[variant] = packed_mask;
@@ -4325,9 +4337,9 @@ static gpu_shader vertex_shader_compile(struct vertex_shader_object *program, in
 	return program->shader[variant];
 }
 
-static gpu_shader vertex_shader_get(struct vertex_shader_object *program, BOOL immediate)
+static gpu_shader vertex_shader_get(struct vertex_shader_object *program, BOOL immediate, BOOL lit)
 {
-	int variant = immediate ? 1 : 0;
+	int variant = (immediate ? 1 : 0) + (lit ? 2 : 0);
 
 	if (program->shader[variant])
 	{
@@ -4759,7 +4771,7 @@ static struct vertex_shader_object *shader_list_program(struct vertex_shader_obj
 		if (!object->instructions || object->program_hash != hash)
 			continue;
 		if (compiled ? object->shader[variant] && object->shader_packed_mask[variant] == mask :
-			(variant ? mask == 0 : object->packed_mask == mask))
+			((variant & 1) ? mask == 0 : object->packed_mask == mask) && (variant < 2 || object->lit))
 			return object;
 	}
 	return NULL;
@@ -4921,7 +4933,8 @@ void halo_shader_list_warm(char const *map_name)
 				struct vertex_shader_object *program = NULL;
 				BOOL used = FALSE;
 
-				if (sscanf(line, "vs %llx %d %lx", &hash, &variant, &mask) != 3 || variant < 0 || variant > 1)
+				if (sscanf(line, "vs %llx %d %lx", &hash, &variant, &mask) != 3 || variant < 0 || variant > 3 ||
+					(variant >= 2 && !shader_dialect.msl))
 				{
 					missing++;
 					continue;
@@ -4945,7 +4958,8 @@ void halo_shader_list_warm(char const *map_name)
 
 				memset(&key, 0, sizeof(key));
 				if (sscanf(line, "ps %63s %599s", second, first) != 2 ||
-					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
+					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE &&
+						strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
 					!hex_bytes(first, bytes, strlen(first) / 2))
 				{
 					missing++;
@@ -5620,6 +5634,21 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 	nv2a_pixel_shader_key_canonicalize(key);
 }
 
+/* display.per_pixel_lighting, read once a frame so that a change (the
+graphics mode, a debug A/B) takes effect at the next frame */
+static BOOL per_pixel_lighting(void)
+{
+	static unsigned long read_frame = (unsigned long)-1;
+	static BOOL enabled;
+
+	if (read_frame != device.frame)
+	{
+		read_frame = device.frame;
+		enabled = config_boolean("display.per_pixel_lighting") != FALSE;
+	}
+	return enabled;
+}
+
 /* fills a draw's packet but for its streams, attributes, indices and
 primitive, and brings the draw uniforms up to date; FALSE when the draw is
 skipped */
@@ -5628,7 +5657,7 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	struct vertex_shader_object *program = current_program();
 	struct nv2a_pixel_shader_key key;
 	float texture_scale[4][4];
-	BOOL has_depth = FALSE;
+	BOOL has_depth = FALSE, lit;
 	int stage;
 
 	if (!device.gl_ready || !program || !device.vertex_shader || !program->instructions)
@@ -5670,7 +5699,15 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	stages_fill(&key, texture_scale, draw->stages);
 	pixel_key_finish(&key);
 
-	draw->vertex_shader = vertex_shader_get(program, immediate);
+	/* per-pixel lighting: a lit program's lit shader, and its pixel shader
+	named by it (nv2a_pixel_shader_key lighting_program) */
+	lit = program->lit && shader_dialect.msl && per_pixel_lighting();
+	if (lit)
+	{
+		key.lighting_program[0] = (unsigned int)program->program_hash;
+		key.lighting_program[1] = (unsigned int)(program->program_hash >> 32);
+	}
+	draw->vertex_shader = vertex_shader_get(program, immediate, lit);
 	draw->pixel_shader = fragment_shader_get(&key);
 	if (companion_flash_adapt && companion_active() && target_native)
 	{

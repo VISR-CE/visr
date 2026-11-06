@@ -55,12 +55,14 @@ struct vertex_shader_object {
     struct vertex_shader_object *next_object;
     uint64_t program_hash;
     void *instructions;
-    gpu_shader shader[2];
-    unsigned long shader_packed_mask[2];
+    gpu_shader shader[4];
+    unsigned long shader_packed_mask[4];
     unsigned long packed_mask;
+    BOOL lit;
 };
 struct nv2a_pixel_shader_key { unsigned char byte; };
 #define NV2A_PIXEL_SHADER_KEY_BASE_SIZE sizeof(struct nv2a_pixel_shader_key)
+#define NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE sizeof(struct nv2a_pixel_shader_key)
 struct gpu_pipeline_description {
     gpu_shader vertex_shader, pixel_shader;
     unsigned char attribute_kinds[GPU_ATTRIBUTE_COUNT];

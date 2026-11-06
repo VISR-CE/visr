@@ -140,6 +140,20 @@ static const char msl_vertex_fetch[] =
 static const char *const varyings[] = { "xD0", "xD1", "xB0", "xB1", "xT0", "xT1", "xT2", "xT3" };
 #define VARYING_COUNT (sizeof(varyings) / sizeof(varyings[0]))
 
+/* per-pixel lighting's varyings (nv2a_lighting_slice): a float4 xL0 onward
+for each live register and, with a normal, its length xLn */
+static void lighting_members(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting)
+{
+	unsigned long index;
+
+	if (!lighting)
+		return;
+	for (index = 0; index < lighting->live_count; index++)
+		xgpu_text_append(text, "	float4 xL%lu [[user(xL%lu)]];\n", index, index);
+	if (lighting->normal >= 0)
+		xgpu_text_append(text, "	float xLn [[user(xLn)]];\n");
+}
+
 /* the uniforms, in gpu_uniforms.h's order and C's layout: every row a
 float[count][4] in struct gpu_uniforms, so float4 name[count] here. Both
 stages declare the whole struct, since the backend binds the same bytes to
@@ -182,7 +196,7 @@ static void msl_uniform_locals(struct xgpu_text *text, const struct nv2a_dialect
 #undef BIND_UNIFORM
 }
 
-void nv2a_msl_vertex_outputs(struct xgpu_text *text)
+void nv2a_msl_vertex_outputs(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting)
 {
 	unsigned long index;
 
@@ -193,11 +207,12 @@ void nv2a_msl_vertex_outputs(struct xgpu_text *text)
 		"\tfloat gl_PointSize [[point_size]];\n");
 	for (index = 0; index < VARYING_COUNT; index++)
 		xgpu_text_append(text, "\tfloat4 %s [[user(%s)]];\n", varyings[index], varyings[index]);
+	lighting_members(text, lighting);
 	xgpu_text_append(text, "\tfloat xFog [[user(xFog)]];\n};\n");
 }
 
 void nv2a_msl_vertex_main(struct xgpu_text *text, const struct nv2a_dialect *dialect,
-	unsigned long packed_attribute_mask)
+	unsigned long packed_attribute_mask, const struct nv2a_lighting_slice *lighting)
 {
 	unsigned long index;
 
@@ -223,30 +238,45 @@ void nv2a_msl_vertex_main(struct xgpu_text *text, const struct nv2a_dialect *dia
 	for (index = 0; index < VARYING_COUNT; index++)
 		xgpu_text_append(text, "\tvec4 %s;\n", varyings[index]);
 	xgpu_text_append(text, "\tfloat xFog;\n");
+	if (lighting)
+	{
+		for (index = 0; index < lighting->live_count; index++)
+			xgpu_text_append(text, "\tvec4 xL%lu = vec4(0.0);\n", index);
+		if (lighting->normal >= 0)
+			xgpu_text_append(text, "\tfloat xLn = 0.0;\n");
+	}
 }
 
-void nv2a_msl_vertex_return(struct xgpu_text *text)
+void nv2a_msl_vertex_return(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting)
 {
 	unsigned long index;
 
 	xgpu_text_append(text, "\tVertexOut out;\n\tout.gl_Position = gl_Position;\n\tout.gl_PointSize = gl_PointSize;\n");
 	for (index = 0; index < VARYING_COUNT; index++)
 		xgpu_text_append(text, "\tout.%s = %s;\n", varyings[index], varyings[index]);
+	if (lighting)
+	{
+		for (index = 0; index < lighting->live_count; index++)
+			xgpu_text_append(text, "\tout.xL%lu = xL%lu;\n", index, index);
+		if (lighting->normal >= 0)
+			xgpu_text_append(text, "\tout.xLn = xLn;\n");
+	}
 	xgpu_text_append(text, "\tout.xFog = xFog;\n\treturn out;\n");
 }
 
-void nv2a_msl_fragment_inputs(struct xgpu_text *text)
+void nv2a_msl_fragment_inputs(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting)
 {
 	unsigned long index;
 
 	xgpu_text_append(text, "struct FragmentIn\n{\n");
 	for (index = 0; index < VARYING_COUNT; index++)
 		xgpu_text_append(text, "\tfloat4 %s [[user(%s)]];\n", varyings[index], varyings[index]);
+	lighting_members(text, lighting);
 	xgpu_text_append(text, "\tfloat xFog [[user(xFog)]];\n};\n");
 }
 
 void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *dialect,
-	const struct nv2a_pixel_shader_key *key, BOOL writes_depth)
+	const struct nv2a_pixel_shader_key *key, BOOL writes_depth, const struct nv2a_lighting_slice *lighting)
 {
 	unsigned long index;
 	int stage, foveated = 0;
@@ -325,6 +355,10 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 	if (key->soft_depth)
 		xgpu_text_append(text, ",\n\ttexture2d<float, access::read> soft_depth [[texture(8)]],"
 			"\n\tconstant float4 &soft [[buffer(5)]], float4 soft_position [[position]]");
+	/* per-pixel lighting reads the vertex constants (gpu_metal.m binds them
+	to every pixel shader at buffer 4) */
+	if (lighting)
+		xgpu_text_append(text, ",\n\tconstant float4 *c [[buffer(4)]]");
 	xgpu_text_append(text, "\n#if EXACT_BORDERS\n\t, constant Borders &borders [[buffer(3)]]\n#endif\n");
 	for (stage = 0; stage < 4; stage++)
 		xgpu_text_append(text, "#if EXACT_BORDERS & %d\n\t, sampler tex%d_white [[sampler(%d)]]\n#endif\n",

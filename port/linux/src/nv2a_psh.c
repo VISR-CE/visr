@@ -603,6 +603,11 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	DWORD final_efg = state[D3DRS_PSFINALCOMBINERINPUTSEFG];
 	int stage;
 	BOOL writes_depth = writes_replaced_depth(dialect, key);
+	/* per-pixel lighting (Metal only): the lit program the key names */
+	struct nv2a_lighting_slice slice;
+	const struct nv2a_lighting_slice *lighting = NULL;
+	const DWORD *lighting_instructions = NULL;
+	unsigned long lighting_count = 0;
 
 	if (combiner_count > 8)
 		combiner_count = 8;
@@ -612,10 +617,18 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		platform_log("pixel shader translated before the dialect was set");
 		return NULL;
 	}
+	if (dialect->msl && (key->lighting_program[0] || key->lighting_program[1]) &&
+		nv2a_lighting_find(((uint64_t)key->lighting_program[1] << 32) | key->lighting_program[0],
+			&lighting_instructions, &lighting_count, &slice))
+	{
+		lighting = &slice;
+	}
 	if (dialect->msl)
 	{
 		nv2a_msl_prelude(&text, GPU_UNIFORM_PIXEL);
-		nv2a_msl_fragment_inputs(&text);
+		nv2a_msl_fragment_inputs(&text, lighting);
+		if (lighting)
+			nv2a_lighting_pixel_helpers(&text);
 	}
 	else if (dialect->es)
 	{
@@ -670,9 +683,11 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		"	return vec3(signed_byte(x.r), signed_byte(x.g), signed_byte(x.b));\n"
 		"}\n");
 	if (dialect->msl)
-		nv2a_msl_fragment_main(&text, dialect, key, writes_depth);
+		nv2a_msl_fragment_main(&text, dialect, key, writes_depth, lighting);
 	else
 		xgpu_text_append(&text, "void main()\n{\n");
+	if (lighting)
+		nv2a_lighting_pixel_block(&text, lighting_instructions, lighting_count, lighting);
 	xgpu_text_append(&text,
 		"\tvec4 v0 = xD0;\n"
 		"\tvec4 v1 = xD1;\n"
