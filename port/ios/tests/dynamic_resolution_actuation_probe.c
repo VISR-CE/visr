@@ -107,6 +107,22 @@ int main(int count, char **arguments) {
         printf("dynamic resolution on an external display under a 1080 floor: lowest %d\n", lowest);
         return 0;
     }
+    else if (!strcmp(mode, "graphics")) {
+        assert(!host_perf_hooks_dynamic_actuates());
+        host_dynamic_resolution_scene(0, 0);
+        assert(!host_perf_hooks_dynamic_actuates());
+        host_dynamic_resolution_scene(1, 540);
+        assert(host_perf_hooks_dynamic_actuates() && host_dynamic_resolution_lines(-1) == 1);
+        load = 1.6;
+        for (i = 0; i < 240; i++) { lines = frame(1080); if (lines < lowest) lowest = lines; }
+        assert(drops && lowest < 1080 && lowest >= 540);
+        host_dynamic_resolution_scene(0, 0);
+        assert(frame(1080) == 1080);
+        host_dynamic_resolution_scene(1, 540);
+        assert(frame(1080) == 1080);
+        puts("dynamic resolution graphics mode transitions: ok");
+        return 0;
+    }
     else if (!strcmp(mode, "profile")) {
         /* asked before the profile is installed: not settled yet, and off */
         profile_installed = 0; profile_on = 1;

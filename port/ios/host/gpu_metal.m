@@ -2496,36 +2496,15 @@ static id<MTLRenderPipelineState> upscale_pipeline;
 /* display.crt_effect: the present pass's CRT television in Hardcore graphics (crt_shader.h) */
 static id<MTLRenderPipelineState> crt_pipeline;
 
-/* Hardcore graphics with display.crt_effect on, as config.toml has them: read again when the file changes (the
-menus write it while the game runs), at most once a second. A benchmark suite draws Enhanced
-(host_config_graphics_mode), so never this */
-static BOOL crt_wanted(void)
+/* The guest commits the effective mode and switch before rendering, including unsaved previews. */
+static BOOL crt_enabled;
+void gpu_metal_set_crt(int enabled)
 {
-	static BOOL wanted;
-	static CFTimeInterval checked;
-	static struct timespec seen;
-	CFTimeInterval now = CACurrentMediaTime();
-	struct stat file;
-
-	if (now - checked < 1.0)
-		return wanted;
-	checked = now;
-	if (stat("config.toml", &file) != 0)
-		return wanted = NO;
-	if (file.st_mtimespec.tv_sec == seen.tv_sec && file.st_mtimespec.tv_nsec == seen.tv_nsec)
-		return wanted;
-	seen = file.st_mtimespec;
-	{
-		char text[16];
-		BOOL was = wanted;
-
-		host_config_string("display.crt_effect", "false", text, sizeof(text));
-		wanted = host_config_graphics_mode() == GRAPHICS_MODE_HARDCORE && !strcmp(text, "true");
-		if (wanted != was)
-			platform_log("Metal: CRT effect %s", wanted ? "on" : "off");
-	}
-	return wanted;
+	if (crt_enabled != (enabled != 0))
+		platform_log("Metal: CRT effect %s", enabled ? "on" : "off");
+	crt_enabled = enabled != 0;
 }
+
 static id<MTLSamplerState> present_sampler;
 
 static NSString *const utility_source =
@@ -8957,7 +8936,7 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 					load_name(pass.colorAttachments[0].loadAction), store_name(pass.colorAttachments[0].storeAction)];
 			/* (the CRT only over Hardcore's 480-line picture: until the next level a mode change can leave the
 			picture at the device's size) */
-			if (crt_pipeline && picture.height <= 540 && crt_wanted())
+			if (crt_pipeline && picture.height <= 540 && crt_enabled)
 			{
 				float sizes[4] = { (float)picture.width, (float)picture.height, (float)width, (float)height };
 

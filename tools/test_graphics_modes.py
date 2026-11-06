@@ -76,3 +76,49 @@ def test_crt_effect_is_off_by_default_and_not_a_profile_key():
     assert 'display.crt_effect' not in profile_check.profile_keys()
     # Hardcore's own sub-setting: the mode table leaves it alone
     assert 'display.crt_effect' not in [name for name, _, _ in rows()]
+
+
+def test_live_consumers(tmp_path):
+    """Execute the production caches with the real resolver, without the Xbox SDK or a renderer."""
+    import platform
+    import shlex
+    import subprocess
+    import pytest
+
+    if platform.system() != 'Darwin':
+        pytest.skip('Apple config probe uses xcrun and SDL3')
+
+    def function(path, name):
+        text = (ROOT / path).read_text()
+        signature = re.search(rf'^(?:static )?(?:void|int|long|double|uint32_t|boolean) {name}\s*\([^)]*\)\s*\{{', text, re.M)
+        assert signature, name
+        end = signature.end()
+        depth = 1
+        while depth:
+            depth += (text[end] == '{') - (text[end] == '}')
+            end += 1
+        return text[signature.start():end]
+
+    consumers = [
+        ('port/linux/src/d3d8_device.c', 'frame_rate_flags'),
+        ('port/linux/src/d3d8_device.c', 'graphics_settings_read'),
+        ('port/linux/src/d3d8_device.c', 'render_scale_now'),
+        ('port/linux/src/d3d8_device.c', 'screen_mode_choose'),
+        ('port/linux/src/d3d8_device.c', 'native_hud_commit'),
+        ('port/linux/src/d3d8_device.c', 'halo_screen_commit'),
+        ('port/linux/src/xbox_textures.c', 'texture_upscale_settings_read'),
+        ('port/linux/src/xbox_textures.c', 'xgpu_texture_cache_settings_read'),
+        ('source/interface/hud_draw.c', 'hud_split_screen_layout'),
+        ('source/models/models.c', 'model_lod_is_max'),
+        ('port/linux/src/sdl_platform.c', 'halo_interpolation_enabled'),
+        ('port/linux/src/text_hires.c', 'text_hires_enabled'),
+        ('port/linux/src/ui_redraw.c', 'ui_redraw_enabled'),
+    ]
+    (tmp_path / 'graphics_live_consumers.h').write_text('\n'.join(function(*entry) for entry in consumers))
+    sdl = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'sdl3'], text=True))
+    probe = tmp_path / 'graphics-live-probe'
+    subprocess.run(['xcrun', 'clang', '-O1', '-fsanitize=address', '-DHALO_ILP32=1',
+                    '-Iport/linux/src', '-Iport/third_party/tomlc17', f'-I{tmp_path}',
+                    'port/ios/tests/graphics_live_probe.c', *sdl, '-o', str(probe)], cwd=ROOT, check=True)
+    result = subprocess.run([str(probe)], cwd=ROOT, check=True, capture_output=True, text=True)
+    assert 'graphics_live_probe: ok' in result.stdout

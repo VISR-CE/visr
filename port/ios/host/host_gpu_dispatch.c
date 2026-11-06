@@ -644,3 +644,24 @@ void gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities)
 #define DISPATCH_FUNCTION(type, name, parameters, arguments) type gpu_##name parameters { return backend->name arguments; }
 #define DISPATCH_PROCEDURE(name, parameters, arguments) void gpu_##name parameters { backend->name arguments; }
 GPU_OPERATIONS(DISPATCH_FUNCTION, DISPATCH_PROCEDURE)
+
+/* The guest resolver includes unsaved graphics previews and environment overrides. */
+void host_graphics_apply(int metalfx, int crt, int frame_rate)
+{
+	static int previous_upscaler = -1, previous_frame_rate = -2;
+
+	if (previous_frame_rate != frame_rate)
+	{
+		host_frame_rate_profile(frame_rate);
+		previous_frame_rate = frame_rate;
+	}
+
+	if (!host_gpu_metal_active())
+		return;
+	if (previous_upscaler != metalfx)
+	{
+		gpu_metal_set_upscaler(metalfx);
+		previous_upscaler = metalfx;
+	}
+	gpu_metal_set_crt(crt);
+}

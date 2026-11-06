@@ -1,7 +1,7 @@
 /* Upscaled textures, per level (spec 2026-10-04 "Cache and versioning", "Settings"): a level loads upscaled textures
-only if the switch was on and nothing asked for originals when it loaded; a skipped or low-storage level loads none,
+only if its assets are ready and nothing asked for originals when it loaded; a skipped or low-storage level loads none,
 not even cached ones, so it never shows upscaled and original textures side by side. Header-only for a host probe.
-debug.upscaled_textures_toggle shows a level's originals in place of all its upscaled textures, and back, while it
+A graphics mode change can select originals or prepare a ready level again. debug.upscaled_textures_toggle shows a level's originals in place of all its upscaled textures, and back, while it
 plays: both stay resident, so only the texture drawn changes. */
 #pragma once
 
@@ -73,4 +73,12 @@ static inline void texture_upscale_state_compare(struct texture_upscale_state *s
 {
 	s->compare = configured && s->level_enabled;
 	s->higher = s->fallback = s->show_original = 0;
+}
+
+/* A mode change uses the same live selection as the debug toggle, without flipping it accidentally on unrelated
+settings changes. A level rejected for incomplete assets still needs a new readiness check before enabling. */
+static inline void texture_upscale_state_switch(struct texture_upscale_state *s, int switch_on)
+{
+	s->switch_on = switch_on;
+	s->show_original = !switch_on;
 }

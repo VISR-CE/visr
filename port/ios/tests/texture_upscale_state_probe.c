@@ -51,6 +51,16 @@ int main(void)
 	texture_upscale_state_map_loaded(&s, 0);
 	texture_upscale_state_compare(&s, 1);
 	assert(!s.compare && !texture_upscale_state_toggle(&s));
+	/* Effective mode transitions select originals without discarding the loaded replacements. */
+	texture_upscale_state_map_loaded(&s, 1);
+	texture_upscale_state_replaced(&s);
+	texture_upscale_state_switch(&s, 0);
+	assert(s.level_enabled && !s.switch_on && s.show_original && s.replaced == 1);
+	texture_upscale_state_switch(&s, 1);
+	assert(s.level_enabled && s.switch_on && !s.show_original && s.replaced == 1);
+	texture_upscale_state_map_loaded(&s, 0);
+	texture_upscale_state_switch(&s, 1);
+	assert(!s.level_enabled); /* incomplete assets cannot be enabled by selection alone */
 	puts("texture_upscale_state_probe: ok");
 	return 0;
 }

@@ -1182,6 +1182,7 @@ void halo_loading_picture_upscaled_free(unsigned char *levels)
 }
 
 static struct texture_upscale_state texture_upscale;
+static unsigned long texture_upscale_read_at = (unsigned long)-1;
 /* the upscaled textures' cache (texture_record.h) is this level's first set
 when nonzero: the records its manifest lists */
 static size_t texture_records_listed;
@@ -1233,6 +1234,7 @@ void texture_upscale_map_loaded(void)
 		texture_upscale_state_request_original(&texture_upscale);
 #endif
 	texture_upscale_state_map_loaded(&texture_upscale, switch_on);
+	texture_upscale_read_at = config_changes();
 	/* debug.texture_override_directory wins over the cache, whose manifest is read again at each level load */
 	texture_records_listed = 0;
 	if (*override || !texture_upscale_state_enabled(&texture_upscale) || !format)
@@ -1256,6 +1258,40 @@ void texture_upscale_map_loaded(void)
 	if (config_boolean("debug.texture_log"))
 		platform_log("textures: upscaled textures %s for this level",
 			texture_upscale_state_enabled(&texture_upscale) ? "on" : "off");
+}
+
+/* Read the effective switch once per config revision. Preparing a level that started with originals also
+refreshes existing entries on demand, so they acquire replacement hashes without changing the game's pixels. */
+static void texture_upscale_settings_read(void)
+{
+	char profile[16] = "true";
+	int switch_on;
+	unsigned long index;
+
+	if (texture_upscale_read_at == config_changes())
+		return;
+	texture_upscale_read_at = config_changes();
+	menu_picture_refresh = 0;
+	config_default("display.upscaled_textures", profile, sizeof(profile));
+	switch_on = config_boolean("display.upscaled_textures") && !strcmp(profile, "true");
+	if (switch_on == texture_upscale.switch_on)
+		return;
+	if (switch_on && !texture_upscale_state_enabled(&texture_upscale))
+	{
+		texture_upscale_map_loaded();
+		if (texture_upscale_state_enabled(&texture_upscale))
+		{
+			for (index = 0; index < TEXTURE_BUCKET_COUNT; index++)
+			{
+				struct texture_entry *entry;
+
+				for (entry = texture_buckets[index]; entry; entry = entry->next)
+					entry->generation = 0;
+			}
+			memset(recent_textures, 0, sizeof(recent_textures));
+		}
+	}
+	texture_upscale_state_switch(&texture_upscale, switch_on);
 }
 
 /* source/render/render_debug.c: text the frame's debug pass draws */
@@ -2194,12 +2230,12 @@ static void texture_trim_if_requested(void)
 		texture_drop_serial - count, bytes >> 20, before, after);
 }
 
-void xgpu_texture_cache_begin_frame(void)
+void xgpu_texture_cache_settings_read(void)
 {
-	unsigned long index, idle_since, sweeps;
+	unsigned long index;
 	unsigned long changed = hud_hires_settings_changed();
-	Uint64 now;
 
+	texture_upscale_settings_read();
 	/* Refresh only map bitmaps belonging to the setting that changed. Keep
 	 * decoded replacement art and world textures; rebuild native pixels on
 	 * demand too, since an override may have skipped their first upload. */
@@ -2217,6 +2253,14 @@ void xgpu_texture_cache_begin_frame(void)
 		/* Recent hits bypass the generation check. Forget lookups, not textures. */
 		memset(recent_textures, 0, sizeof(recent_textures));
 	}
+}
+
+void xgpu_texture_cache_begin_frame(void)
+{
+	unsigned long index, idle_since, sweeps;
+	Uint64 now;
+
+	xgpu_texture_cache_settings_read();
 #ifdef HALO_IOS
 	texture_astc_swap_ready();
 #endif

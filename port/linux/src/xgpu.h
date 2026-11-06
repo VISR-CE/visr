@@ -226,6 +226,8 @@ unsigned long xgpu_texture_level_pitch(const struct xgpu_texture_description *de
 guest memory as needed; *type receives a GPU_TEXTURE_* */
 gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uint32_t *type,
 	struct xgpu_texture_description *description);
+/* Also called before rendering, after input may have changed the effective graphics mode. */
+void xgpu_texture_cache_settings_read(void);
 void xgpu_texture_cache_begin_frame(void);
 /* a small 2D texture's mean alpha (0 to 1), decoded from guest memory: 1 and
 *alpha set for one of at most 4096 texels (palettized ones excepted), else 0 */

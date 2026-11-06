@@ -30,6 +30,7 @@ Conventions carried over from the Xbox:
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
 #include "port_config.h"
+#include "port_graphics_modes.h"
 #include "halo_display.h"
 #ifdef HALO_ILP32
 #include "guest_host.h"
@@ -365,6 +366,7 @@ static double render_scale_now(void)
 static int dynamic_resolution_refused(void);
 #endif
 static void screen_targets_release(int pooled);
+static void recent_render_targets_forget(void);
 
 /* ceiling: the scale the scene's targets are allocated at (scale itself but
 under dynamic resolution); dynamic: 1 while dynamic resolution renders the
@@ -1001,6 +1003,27 @@ static BOOL companion_active(void)
             lroundf(SCREEN_HEIGHT*screen_scale_native[1]),width,height,companion_scale);
 	}
 	return companion_enabled;
+}
+
+/* Settings are committed before screen_mode_choose, whose DRS refusal uses native_hud_wanted. */
+static void graphics_settings_read(void)
+{
+	static unsigned long read_at = (unsigned long)-1;
+
+	if (!device.gl_ready || read_at == config_changes())
+		return;
+	read_at = config_changes();
+	/* Recent shadow and effect hits otherwise bypass offscreen_target_scale. */
+	recent_render_targets_forget();
+	xgpu_texture_cache_settings_read();
+	knob_release_frame = device.frame + 120;
+	native_hud_wanted = config_boolean("display.native_hud") && device_capabilities.upscale;
+#ifdef HALO_ILP32
+	uint32_t rate = frame_rate_flags() >> GPU_INITIALIZE_FRAME_RATE_SHIFT;
+	host_graphics_apply(!strcmp(config_string("display.upscaler"), "metalfx"),
+		config_graphics_mode() == GRAPHICS_MODE_HARDCORE && config_boolean("display.crt_effect"),
+		rate == GPU_INITIALIZE_FRAME_RATE_UNLIMITED ? -1 : (int)rate);
+#endif
 }
 
 static BOOL native_hud_active(void)
@@ -2759,11 +2782,15 @@ static int dynamic_resolution_refused(void)
 	const struct halo_stereo_frame *stereo = halo_stereo_frame();
 	static const char *said;
 	static int on = -1;
+	static unsigned long read_at = (unsigned long)-1;
 	const char *why = NULL;
 
-	/* (off: nothing to refuse or say; asked once the renderer, and the device's profile, are up) */
-	if (on < 0 && device.gl_ready)
+	/* Recheck the session capability when a mode or profile changes; the planner keeps its existing pool policy. */
+	if (device.gl_ready && (on < 0 || read_at != config_changes()))
+	{
 		on = host_dynamic_resolution_lines(-1) > 0;
+		read_at = config_changes();
+	}
 	if (on <= 0)
 		return 2;
 	if (native_hud_wanted < 0 && device.gl_ready)
@@ -3371,6 +3398,7 @@ long halo_screen_commit(void)
 	/* (display.anti_aliasing, as config.toml has it now) */
 	if (device.gl_ready)
 		anti_aliasing_read();
+	graphics_settings_read();
 	if (!screen_width)
 		return halo_screen_width();
 	screen_mode_choose(&width, scale, native, ceiling, &dynamic);

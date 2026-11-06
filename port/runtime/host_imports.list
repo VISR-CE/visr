@@ -108,6 +108,8 @@ host_gpu_frame_context
 host_gpu_compiles_outstanding
 host_gpu_compile_progress
 host_gpu_initialize
+# the effective graphics mode's presentation settings, committed between frames (d3d8_device.c, host_gpu_dispatch.c)
+host_graphics_apply
 # debug.ssao (spike; d3d8_device.c, gpu_metal.m)
 host_ssao_apply
 # stereo (halo_stereo.h)

@@ -113,6 +113,7 @@ int gpu_metal_output_cap_settled(void);
 /* Game-thread query after GPU initialization, including validation wrappers. */
 int host_gpu_metal_active(void);
 void gpu_metal_set_upscaler(int metalfx);
+void gpu_metal_set_crt(int enabled);
 int gpu_metal_upscaler(void);
 /* display.frame_rate (host_gpu_dispatch.c), any cap or "unlimited" in the Mac
 app, a cap under the display's rate on an iPhone, an iPad or an Apple TV:

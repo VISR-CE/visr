@@ -262,6 +262,8 @@ void host_gpu_frame_context(uint32_t scene_class, uint32_t frame_rate, const cha
 uint32_t host_gpu_compiles_outstanding(void);
 void host_gpu_compile_progress(uint32_t action, struct gpu_compile_progress *progress);
 void host_gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities);
+/* Effective presentation settings, committed between frames by halo_screen_commit. */
+void host_graphics_apply(int metalfx, int crt, int frame_rate);
 /* debug.ssao (spike; port/linux/src/d3d8_device.c, gpu_metal.m): ambient occlusion from the scene's depth into its
 color, after the level's lightmap pass; count floats of the view's rectangle, camera and tuning */
 void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *parameters, uint32_t count);

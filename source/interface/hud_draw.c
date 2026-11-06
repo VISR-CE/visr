@@ -1417,6 +1417,7 @@ laid out in their own view: debug.split_screen_hud brings back the Xbox's
 split screen HUD (its own elements, fonts and scales, packed against the
 screen's title-safe edges, for a 480-line television) */
 int config_boolean(const char *name);
+unsigned long config_changes(void);
 
 static boolean hud_full_layout_held = FALSE;
 /* the HUD's size against one player's while it is held (1 at full size) */
@@ -1438,10 +1439,14 @@ static boolean hud_split_layout_forced;
 boolean hud_split_screen_layout(
 	void)
 {
-	static int enabled = -1;
+	static int enabled;
+	static unsigned long read_at = (unsigned long)-1;
 
-	if (enabled < 0)
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
 		enabled = config_boolean("debug.split_screen_hud") != 0;
+	}
 	return (enabled || hud_split_layout_forced) && local_player_count() > 1;
 }
 
