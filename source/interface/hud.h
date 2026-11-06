@@ -30,9 +30,6 @@ struct hud_scripted_globals_definition
 
 /* port: the Xbox's split screen HUD (debug.split_screen_hud with two or more
 local players) rather than each player's full HUD */
-boolean hud_full_layout_active(void);
-boolean hud_full_layout_zoom_begin(void);
-void hud_full_layout_zoom_end(boolean suspended);
 boolean hud_split_screen_layout(
 	void);
 /* port: interface_draw_hud, around a split screen view's HUD: the one-player
@@ -48,6 +45,16 @@ void hud_full_layout_tracker_begin(
 	void);
 void hud_full_layout_tracker_end(
 	void);
+/* port: hud_weapon.c, around a scope overlay of a split screen view's HUD:
+TRUE while the view's HUD is held; zoom_begin draws the overlay with the
+Xbox's split screen layout, where the scope's split screen mask frames it,
+and zoom_end, given what zoom_begin returned, holds the view's HUD again */
+boolean hud_full_layout_active(
+	void);
+boolean hud_full_layout_zoom_begin(
+	void);
+void hud_full_layout_zoom_end(
+	boolean suspended);
 
 /* ---------- prototypes/HUD.C */
 
