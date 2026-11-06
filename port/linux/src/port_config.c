@@ -583,6 +583,24 @@ static const struct config_setting config_settings[] =
 		"where the animation puts it) to 1.0 (it moves with the hand, as far as\n"
 		"the arm reaches); default 0.5. With debug.sense_tuning_chord, hold Back (Create) and press A (Cross)\n"
 		"to switch between 0.0 and 0.5." },
+	{ "input.arms_level_mount", _config_string, "\"auto\"", "HALO_ARMS_LEVEL_MOUNT", _environment_value,
+		_platform_ios,
+		"HEAD mode with controller aim, input.first_person_arms \"solved\":\n"
+		"whether the drawn gun and arms hang off your level forward rather than\n"
+		"off wherever you are looking, \"auto\" (default), \"on\" or \"off\".\n"
+		"Anything else is \"auto\", which is on with input.aim = \"hands\" and off\n"
+		"with a Sense pair. The game animated this model for a gun carried by\n"
+		"the head, so the whole of it, the grip included, swings about your eyes\n"
+		"as you look up and down: hold your arm still, look up, and the gun\n"
+		"rises with your gaze even though the hand aiming it has not moved. On,\n"
+		"the model is mounted level instead, keeping the way you are facing and\n"
+		"losing your pitch and roll, so the gun stays where your arm holds it\n"
+		"and the view pans over it. Under bare hands the arm is the only thing\n"
+		"holding the gun, which is why it is the default there. Off is the\n"
+		"mounting as it was, for anyone who prefers the gun in front of the\n"
+		"face. The gun's own aim, the reticle and the shots come from the hand\n"
+		"either way, and the four arms limits are then measured from the level\n"
+		"forward rather than from the view's center." },
 	{ "input.arms_turn_limit", _config_real, "35", "HALO_ARMS_TURN_LIMIT", _environment_value, _platform_ios,
 		"HEAD mode with controller aim, input.first_person_arms \"solved\":\n"
 		"how far across the view, in degrees, the drawn gun turns with the\n"

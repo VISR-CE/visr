@@ -1304,6 +1304,16 @@
             "apple"
           ]
         },
+        "arms_level_mount": {
+          "type": "string",
+          "default": "auto",
+          "description": "HEAD mode with controller aim, input.first_person_arms \"solved\": whether the drawn gun and arms hang off your level forward rather than off wherever you are looking, \"auto\" (default), \"on\" or \"off\". Anything else is \"auto\", which is on with input.aim = \"hands\" and off with a Sense pair. The game animated this model for a gun carried by the head, so the whole of it, the grip included, swings about your eyes as you look up and down: hold your arm still, look up, and the gun rises with your gaze even though the hand aiming it has not moved. On, the model is mounted level instead, keeping the way you are facing and losing your pitch and roll, so the gun stays where your arm holds it and the view pans over it. Under bare hands the arm is the only thing holding the gun, which is why it is the default there. Off is the mounting as it was, for anyone who prefers the gun in front of the face. The gun's own aim, the reticle and the shots come from the hand either way, and the four arms limits are then measured from the level forward rather than from the view's center.",
+          "x-environment": "HALO_ARMS_LEVEL_MOUNT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "arms_turn_limit": {
           "type": "number",
           "default": 35,

@@ -125,6 +125,15 @@ no up square to forward */
 int controller_weapon_frame(const float camera_forward[3], const float camera_up[3], const float sightline[3],
 	const float barrel_up[3], float blend, float forward[3], float up[3]);
 
+/* input.arms_level_mount: whether the "solved" model hangs off a levelled
+copy of the view instead of the view itself (first_person_arms.c's
+level_frame). "on" and "off" say so outright; "auto", the default, and
+anything unreadable level it only while a bare hand aims, where the arm is
+the only thing holding the gun up and where a Sense pair's mounting, which
+nobody has asked to change, is left as it was. aim_hands is 1 while
+input.aim = "hands" */
+int controller_level_mount(const char *setting, int aim_hands);
+
 /* The aim point's range, eased (input.reticle_ease). The reticle marks
 where the barrel's ray meets the world, seen from the eyes, and the ray
 starts below them: when it moves from a far surface onto a near one (an

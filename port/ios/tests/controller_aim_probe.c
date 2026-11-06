@@ -6,7 +6,8 @@ the eye with its near low-pass; the angles' pitch clamp; the
 facing offset packed into player_action.pad; the yaw blend the short way;
 tracking loss and recovery with the growing dwell; the gate's ease; the
 pending flags and the press latch; the resets; the first-person
-gun's frame; and where a direction shows in the zoomed picture. */
+gun's frame; input.arms_level_mount's three answers; and where a direction
+shows in the zoomed picture. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -1086,6 +1087,24 @@ static void weapon_frame(void)
 	}
 }
 
+/* input.arms_level_mount: "on" and "off" outright, and "auto" (with
+anything unreadable) levelled only while a bare hand aims */
+static void level_mount(void)
+{
+	check(controller_level_mount("on", 0) == 1, "level mount: on with a Sense pair");
+	check(controller_level_mount("on", 1) == 1, "level mount: on with bare hands");
+	check(controller_level_mount("off", 0) == 0, "level mount: off with a Sense pair");
+	check(controller_level_mount("off", 1) == 0, "level mount: off with bare hands");
+	check(controller_level_mount("auto", 0) == 0, "level mount: auto with a Sense pair");
+	check(controller_level_mount("auto", 1) == 1, "level mount: auto with bare hands");
+	check(controller_level_mount("", 1) == 1 && controller_level_mount("", 0) == 0,
+		"level mount: an empty value is auto");
+	check(controller_level_mount("ON", 1) == 1 && controller_level_mount("ON", 0) == 0,
+		"level mount: a misspelling is auto");
+	check(controller_level_mount(NULL, 1) == 1 && controller_level_mount(NULL, 0) == 0,
+		"level mount: no value is auto");
+}
+
 /* a camera's frame turned to yaw and pitch (radians, the game's convention:
 +X forward, +Y left, +Z up): forward, up and right */
 static void zoom_camera(double yaw, double pitch, float forward[3], float up[3], float right[3])
@@ -1402,6 +1421,7 @@ int main(void)
 	latch();
 	resets();
 	weapon_frame();
+	level_mount();
 	weapon_smooth();
 	range_ease();
 	weapon_limit();
