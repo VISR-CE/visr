@@ -64,6 +64,7 @@ of MAXIMUM_QUEUED; the rest is dropped (hosts publish again).
 #include "halo_network_join.h"
 #include "halo_network_content.h"
 #include "delta_list.h"
+#include "delta_platform.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1274,6 +1275,16 @@ void p2p_lobby_delta_games(const struct delta_game *games, int count)
 	lobby.delta_time = p2p_now() ? p2p_now() : 1;
 }
 
+#ifdef HALO_IOS
+void host_sdl_app_version(char *buffer, unsigned int size);
+
+static int delta_host_flag(const char *name)
+{
+	const char *value = getenv(name);
+	return value && !strcmp(value, "1");
+}
+#endif
+
 int p2p_lobby_delta_wanted(struct delta_announce *announce)
 {
 	unsigned char bytes[P2P_KEY_HASH_SIZE + P2P_TOKEN_SIZE];
@@ -1292,6 +1303,20 @@ int p2p_lobby_delta_wanted(struct delta_announce *announce)
 	announce->open = (lobby.flags & _listing_open) != 0;
 	announce->teams = (lobby.flags & _listing_has_teams) != 0;
 	announce->version = HALO_PORT_NETWORK_VERSION;
+#ifdef HALO_IOS
+	delta_platform_key(announce->platform_key, delta_platform_current(delta_host_flag("HALO_HOST_MAC"),
+		delta_host_flag("HALO_HOST_TVOS"), delta_host_flag("HALO_HOST_VISIONOS")), 0, 0, 0);
+	host_sdl_app_version(announce->build, sizeof(announce->build));
+#else
+	delta_platform_key(announce->platform_key, delta_platform_current(0, 0, 0), 0, 0, 0);
+#ifdef HALO_BUILD_NUMBER
+	snprintf(announce->build, sizeof(announce->build), "%d", HALO_BUILD_NUMBER);
+#else
+	snprintf(announce->build, sizeof(announce->build), "unknown");
+#endif
+#endif
+	snprintf(announce->arch, sizeof(announce->arch), "%s", delta_platform_arch());
+	/* Delta Peer has not run: delta and capabilities remain zero. */
 	return 1;
 }
 

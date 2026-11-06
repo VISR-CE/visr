@@ -264,7 +264,8 @@ def test_the_thread_browses_announces_and_withdraws(worker, server):
 
     def form(letter, players):
         return (f"invite={invite[letter]}&name=Checked%20game&map=bloodgulch&engine=2&players={players}"
-                "&maximum_players=16&open=1&version=29&teams=0&delta=0")
+                "&maximum_players=16&open=1&version=29&teams=0&delta=0"
+                "&platform_key=0000000000000000&arch=&build=&capabilities=00000000")
 
     # (the games are asked for again every 15 seconds, and when internet play comes back on)
     assert requests[0] == ("GET", "/v1/games", "")
@@ -287,11 +288,12 @@ def test_plain_http_needs_the_test_hook(transport, server):
     assert result.stdout.startswith("status=0\n") and not server.requests
 
 
-def test_the_probe_of_the_list_and_announcing(tmp_path):
+@pytest.mark.parametrize("defines", [[], ["-DHALO_IOS=1"]])
+def test_the_probe_of_the_list_and_announcing(tmp_path, defines):
     program = tmp_path / "delta_probe"
     compile_native(["-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter",
                     "-fsanitize=address,undefined", "-Iport/linux/src", "-iquote", "port/linux/include",
-                    "port/ios/tests/delta_probe.c", "port/linux/src/delta_list.c"], program)
+                    "port/ios/tests/delta_probe.c", "port/linux/src/delta_list.c", "port/linux/src/delta_platform.c", *defines], program)
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=60)
     assert result.returncode == 0 and "delta probe ok" in result.stdout, result.stderr
 
