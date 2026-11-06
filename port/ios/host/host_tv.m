@@ -178,7 +178,7 @@ static char text_prompt_result[512];
 /* the dialog as UIKit has it, until it is gone (text_prompt is nil from the
    moment Done or Cancel is chosen, while the dialog still animates away) */
 static __weak UIAlertController *text_prompt_shown;
-static bool text_prompt_gate, text_prompt_hint_set, text_prompt_hint_had;
+static bool text_prompt_gate, text_prompt_hint_set, text_prompt_hint_had, text_prompt_held;
 static char text_prompt_hint_saved[16];
 
 static bool text_prompt_up(void) {
@@ -226,6 +226,8 @@ static bool text_input_blocked(void) {
         return true;
     }
     if(text_prompt_hint_set)text_prompt_hint(false);
+    /* (the dialog has gone, its animations too: frames join the frame workgroup again) */
+    if(text_prompt_held){text_prompt_held=false;gpu_metal_frame_deadline_hold(0);}
     if(!text_prompt_gate)return false;
     if(hardware_held())return true;
     text_prompt_gate=false;
@@ -354,6 +356,12 @@ int host_tv_text_prompt(int on, const char *title, const char *text, int masked)
     text_prompt_gate=true;
     text_prompt_hint(true);
     host_ios_touch_reset();
+    /* (the game draws on under the dialog, and its event pump runs the
+    dialog's animations: UIKit raises "Failed to create work interval" when
+    they begin on a thread in the frame workgroup, so the thread is out of it
+    until the dialog has gone) */
+    text_prompt_held=true;
+    gpu_metal_frame_deadline_hold(1);
     /* (the field is chosen with the remote, which brings tvOS's full-screen
     keyboard up; a keyboard brought up from here instead stayed on screen
     after the dialog went, in the simulator) */
@@ -369,6 +377,8 @@ int host_tv_text_prompt(int on, const char *title, const char *text, int masked)
         if(!refusals++)host_logf(HOST_LOG_INFO,"keyboard: tvOS's text dialog could not be shown yet; asking again");
         text_prompt=nil;
         text_prompt_hint(false);
+        text_prompt_held=false;
+        gpu_metal_frame_deadline_hold(0);
         return 0;
     }
     host_logf(HOST_LOG_INFO,"keyboard: tvOS's text dialog up for a text field");

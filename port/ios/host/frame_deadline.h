@@ -32,10 +32,12 @@ static inline int frame_deadline_leave_wanted(int state, int on_joined_thread)
 	return state == FRAME_DEADLINE_JOINED && on_joined_thread;
 }
 
-/* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out */
-static inline int frame_deadline_rejoin_wanted(int state, int offscreen)
+/* a frame that is shown joins again after a leave; an offscreen benchmark frame has no deadline and stays out, and so
+   does every frame while a UIKit dialog is up over the game (held: gpu_metal_frame_deadline_hold), whose animations
+   run in the event pump between the game's frames */
+static inline int frame_deadline_rejoin_wanted(int state, int offscreen, int held)
 {
-	return state == FRAME_DEADLINE_LEFT && !offscreen;
+	return state == FRAME_DEADLINE_LEFT && !offscreen && !held;
 }
 
 #endif
