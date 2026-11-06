@@ -5733,6 +5733,7 @@ static struct
 	struct os_workgroup_join_token_opaque_s token;
 	pthread_t thread;        /* the thread that joined: a workgroup is left on the thread that joined it */
 	int open, start_failed;
+	int held;                /* a UIKit dialog is up over the game: no frame joins (gpu_metal_frame_deadline_hold) */
 	mach_timebase_info_data_t timebase;
 } frame_deadline;
 
@@ -5741,7 +5742,7 @@ static void frame_deadline_begin(BOOL offscreen)
 {
 	double period;
 
-	if (!frame_deadline.state && !offscreen)
+	if (!frame_deadline.state && !offscreen && !frame_deadline.held)
 	{
 		char value[8];
 
@@ -5768,7 +5769,7 @@ static void frame_deadline_begin(BOOL offscreen)
 		else
 			host_logf(HOST_LOG_INFO, "Metal: display.frame_deadline is off");
 	}
-	if (frame_deadline_rejoin_wanted(frame_deadline.state, offscreen))
+	if (frame_deadline_rejoin_wanted(frame_deadline.state, offscreen, frame_deadline.held))
 	{
 		/* (after gpu_metal_frame_deadline_leave: the same interval, joined again on this thread) */
 		if (@available(iOS 14.0, tvOS 14.0, macOS 11.0, *))
@@ -5832,6 +5833,17 @@ void gpu_metal_frame_deadline_leave(void)
 		os_workgroup_leave(frame_deadline.interval, &frame_deadline.token);
 	frame_deadline.state = FRAME_DEADLINE_LEFT;
 }
+
+/* A UIKit dialog goes up over the game, which keeps presenting frames while it is up (host_tv.m's text dialog): the
+   game's event pump runs the dialog's animations between frames, and UIKit raises from its own interval there as in
+   gpu_metal_frame_deadline_leave (an Apple TV crashed as the text dialog came up). Held, the thread leaves the
+   workgroup and no frame joins again until the hold ends; the next shown frame after it joins. */
+void gpu_metal_frame_deadline_hold(int held)
+{
+	frame_deadline.held = held != 0;
+	if (held)
+		gpu_metal_frame_deadline_leave();
+}
 #else
 void gpu_metal_frame_deadline_end(void)
 {
@@ -5839,6 +5851,11 @@ void gpu_metal_frame_deadline_end(void)
 
 void gpu_metal_frame_deadline_leave(void)
 {
+}
+
+void gpu_metal_frame_deadline_hold(int held)
+{
+	(void)held;
 }
 #endif
 

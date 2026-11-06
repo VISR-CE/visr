@@ -44,11 +44,14 @@ static void membership(void) {
     CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_NEW, 1));
     CHECK(!frame_deadline_leave_wanted(FRAME_DEADLINE_OFF, 1));
     /* a shown frame rejoins; an offscreen benchmark frame, or a thread never joined, does not */
-    CHECK(frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 0));
-    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 1));
-    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_JOINED, 0));
-    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_NEW, 0));
-    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_OFF, 0));
+    CHECK(frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 0, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 1, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_JOINED, 0, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_NEW, 0, 0));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_OFF, 0, 0));
+    /* while a dialog is up over the game (an Apple TV's text dialog), shown frames stay out until the hold ends */
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 0, 1));
+    CHECK(!frame_deadline_rejoin_wanted(FRAME_DEADLINE_LEFT, 1, 1));
 }
 
 /* the calls gpu_metal.m makes: join once on the drawing thread, then a start and a finish around each frame's work */
