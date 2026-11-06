@@ -546,17 +546,27 @@ def png_chunks(png):
         offset += 12 + length
 
 
-def test_join_warning_uses_xbox_confirmation_art_and_cancel_first():
+def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
+    """The legend shows A beside OK and B beside CANCEL, so the modal itself takes A (join) and B (cancel), as the
+    delete confirmations do. A focusable CANCEL under the A glyph turned A into cancel and every join into a no-op."""
     widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
                for w in ET.parse(path).iter('widget')}
     base = 'xbox/error/confirm_join_big'
     modal = widgets[base + '_modal_fullscreen']
-    assert modal.find('on[@event="a"]') is None, 'accept must reach the focused CANCEL or OK'
+    for event in ('a', 'start'):
+        assert modal.find(f'on[@event="{event}"]').get('run') == 'port browser join big confirm'
     for event in ('b', 'back'):
         assert modal.find(f'on[@event="{event}"]').get('run') == 'port browser join big back'
+    # (nothing inside the modal takes A or Start first: no focusable buttons)
+    for element in modal.iter('child'):
+        assert 'button' not in element.get('widget')
+    assert not any(name.startswith(base + '_button') for name in widgets)
     panel = widgets[base]
     delete = widgets['xbox/error/confirm_delete_profile']
     assert panel.get('bitmap') == delete.get('bitmap')
+    placed = lambda w: [(c.get('widget').rsplit('/', 1)[-1], c.get('x'), c.get('y')) for c in w.findall('child')]
+    assert placed(panel) == [(name.replace('confirm_delete_profile', 'confirm_join_big'), x, y)
+                             for name, x, y in placed(delete)]
     text = widgets[base + '_text_box']
     reference = widgets['xbox/error/confirm_delete_profile_text_box']
     for attr in ('bitmap', 'width', 'height', 'text_x', 'text_y', 'font', 'color'):
@@ -565,18 +575,11 @@ def test_join_warning_uses_xbox_confirmation_art_and_cancel_first():
                for s in ET.parse(path).iter('strings')}
     assert strings[text.get('string_list')][int(text.get('string_index'))].get('text').replace(r'\n', ' ') == (
         'This game allows more players than this device runs smoothly. Join anyway?')
-    bar_child = modal.find(f"child[@widget='{base}_button_bar']")
-    assert (bar_child.get('x'), bar_child.get('y')) == ('268', '310')
-    bar = widgets[base + '_button_bar']
-    cancel, ok = (widgets[c.get('widget')] for c in bar.findall('child'))
-    assert cancel.get('text') == 'CANCEL' and ok.get('text') == 'OK'
-    assert int(bar[0].get('x', '0')) < int(bar[1].get('x', '0'))
-    for event in ('a', 'start'):
-        assert cancel.find(f'on[@event="{event}"]').get('run') == 'mouse emit back event'
-        assert ok.find(f'on[@event="{event}"]').get('run') == 'port browser join big confirm'
-    for button, icon in ((cancel, 'b'), (ok, 'a')):
-        art = widgets[button.find('child').get('widget')]
-        assert art.get('bitmap') == f'xbox/browser/{icon}_butn_sm'
+    for icon, caption, emitted in (('b', '=CANCEL', 'back'), ('a', '=OK', 'accept')):
+        assert widgets[f'{base}/{icon}_butn'].get('bitmap') == f'xbox/browser/{icon}_butn_sm'
+        label = widgets[f'{base}/{icon}_caption']
+        assert label.get('text') == caption
+        assert label.find('on[@event="left_mouse"]').get('run') == f'mouse emit {emitted} event'
     assert (r'pc\xbox\error\confirm_join_big_modal_fullscreen',
             r'pc\error\confirm_join_big_modal_fullscreen') in generator().screen_pairs()
 

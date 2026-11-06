@@ -442,16 +442,20 @@ def multiplayer_documents(assets, bitmaps):
         for e in ET.parse(assets / 'ce' / filename).getroot():
             shared.append(deepcopy(e))
             owned.add((e.tag, e.get('name')))
-    # Match the Xbox modal: fixed button art inside the alert, with A handled by the modal itself.
-    for kind, message in (('profile', 24), ('gametype', 25)):
-        base = 'error/confirm_delete_' + kind
+    # Match the Xbox modal: fixed button art inside the alert, with A handled by the modal itself. The join
+    # warning is one of them: its legend shows A beside OK and B beside CANCEL, so A always joins and B (or Back)
+    # always cancels, whatever was focused (a focusable CANCEL took A as cancel).
+    for kind, message, accept, cancel in (
+            ('delete_profile', 24, {'run': 'port delete finish'}, {'run': 'cancel profile delete', 'back': 'true'}),
+            ('delete_gametype', 25, {'run': 'port delete finish'}, {'run': 'cancel profile delete', 'back': 'true'}),
+            ('join_big', 60, {'run': 'port browser join big confirm'}, {'run': 'port browser join big back'})):
+        base = 'error/confirm_' + kind
         modal = widget(shared, base + '_modal_fullscreen', width=640, height=480,
                        flags='pass_unhandled_to_focused_child')
         for event in ('a', 'start'):
-            ET.SubElement(modal, 'on', event=event, run='port delete finish', sound=r'sound\sfx\ui\forward')
+            ET.SubElement(modal, 'on', event=event, **accept, sound=r'sound\sfx\ui\forward')
         for event in ('b', 'back'):
-            ET.SubElement(modal, 'on', event=event, run='cancel profile delete', back='true',
-                          sound=r'sound\sfx\ui\back')
+            ET.SubElement(modal, 'on', event=event, **cancel, sound=r'sound\sfx\ui\back')
         panel = widget(shared, base, width=640, height=480, bitmap='bitmaps/semi_transparent_grey')
         child(modal, base)
         child(panel, base + '_text_box', x=192, y=176)
@@ -470,32 +474,6 @@ def multiplayer_documents(assets, bitmaps):
             ET.SubElement(shared[-1], 'on', event='left_mouse',
                           run='mouse emit back event' if button == 'b' else 'mouse emit accept event')
         owned.update((e.tag, e.get('name')) for e in shared)
-    # Keep the join warning's CANCEL-first focus while drawing the Xbox confirmation art.
-    base = 'error/confirm_join_big'
-    for (tag, name), element in definitions.items():
-        if tag == 'widget' and name.startswith(base):
-            shared.append(deepcopy(element))
-            owned.add((tag, name))
-    warning = {e.get('name'): e for e in shared if e.tag == 'widget' and e.get('name', '').startswith(base)}
-    warning[base + '_text_box'].set('width', '239')
-    bar_child = warning[base + '_modal_fullscreen'].find(f"child[@widget='{base}_button_bar']")
-    bar_child.set('x', '268')
-    bar_child.set('y', '310')
-    for index, (button, caption, icon) in enumerate((('cancel', 'CANCEL', 'b'), ('ok', 'OK', 'a'))):
-        name = base + '_button_' + button
-        warning[base + '_button_bar'].find(f"child[@widget='{name}']").set('x', str(index * 88))
-        label = warning[name]
-        label.attrib.pop('string_list')
-        label.attrib.pop('string_index')
-        label.set('text', caption)
-        label.set('width', '85')
-        label.set('align', 'left')
-        label.set('text_x', '16')
-        label.set('text_y', '0')
-        art = base + '/' + icon + '_butn'
-        child(label, art)
-        widget(shared, art, width=16, height=20, bitmap='xbox/browser/' + icon + '_butn_sm')
-        owned.add(('widget', art))
     pending = [e for root in documents.values() for e in root]
     while pending:
         element = pending.pop()
@@ -564,7 +542,7 @@ def multiplayer_documents(assets, bitmaps):
         for c in w.findall('child'):
             leaf = c.get('widget', '').rsplit('/', 1)[-1]
             if 'button_bar' in leaf:
-                c.set('y', '310' if leaf == 'confirm_join_big_button_bar' else '449')
+                c.set('y', '449')
 
     # menu_functions.c looks up map names and browser stats by PC tag path,
     # independently of the widgets' string_list references.
