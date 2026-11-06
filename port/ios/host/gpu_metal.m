@@ -9796,11 +9796,13 @@ static NSString *const soft_depth_source =
 	"\t\tfor (uint x = 0; x < scale; x++)\n"
 	"\t\t{\n"
 	"\t\t\tuint2 c = min(gid * scale + uint2(x, y), last);\n"
-	"\t\t\tif (stencil.read(c).r & 0x10u)\n"
+	"\t\t\tif (!(stencil.read(c).r & 0x10u))\n"
 	"\t\t\t{\n"
-	"\t\t\t\tfloat stored = depth.read(c);\n"
-	"\t\t\t\tnearest = min(nearest, p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x)));\n"
+	"\t\t\t\tdistances.write(float4(1.0e30), gid);\n"
+	"\t\t\t\treturn;\n"
 	"\t\t\t}\n"
+	"\t\t\tfloat stored = depth.read(c);\n"
+	"\t\t\tnearest = min(nearest, p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x)));\n"
 	"\t\t}\n"
 	"\tdistances.write(float4(nearest), gid);\n"
 	"}\n";
@@ -9853,7 +9855,8 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		if (!soft.stencil_view)
 			return 0;
 		/* debug.soft_particle_scale: 2 keeps the distances at half resolution, the nearest level surface of each 2x2
-		block (the particles' shader reads them at half its coordinates); 1 full resolution */
+		block, or far away when any of its pixels is not the level, so an object's edge never fades a glow drawn over
+		it (the particles' shader reads them at half its coordinates); 1 full resolution */
 		soft_scale = count >= 6 && values[5] >= 2.0f ? 2 : 1;
 		width = (record->texture.width + soft_scale - 1) / soft_scale;
 		height = (record->texture.height + soft_scale - 1) / soft_scale;
