@@ -45,6 +45,7 @@ typedef unsigned char byte;
 #define PREVIEW_NAME "preview"
 #define PASSWORD_NAME "password"
 #define JOIN_BIG_NAME "warning"
+#define FILTERS_NAME "filters"
 #define csmemcpy memcpy
 enum { _multiplayer_mode_lan, _multiplayer_mode_server_browser, _multiplayer_mode_direct_link };
 struct event_record { int unused; };
@@ -69,6 +70,10 @@ void p2p_lobby_browse(int active) { if (!active) stops++; }
 static void server_browser_initialize(struct widget_instance *w) { (void)w; }
 static void visible_set(struct widget_instance *w, boolean v) { (void)w; (void)v; }
 static boolean browser_item_usable(struct widget_instance *w) { (void)w; return 1; }
+static boolean browser_filters_returning;
+static int filter_opens, filter_focuses;
+static void browser_headers_usable(struct widget_instance *w) { (void)w; }
+static void browser_filters_focus(struct widget_instance *w) { (void)w; filter_focuses++; }
 static void browser_focus(struct widget_instance *w) { (void)w; }
 static boolean ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *d) { (void)w; (void)e; (void)d; return 1; }
 
@@ -81,7 +86,7 @@ static int network_game_client_advertised_game_compatible(void *c, struct advert
 static int advertised_in_progress(struct advertised_game *g) { return g->live; }
 static int multiplayer_player(short c) { controller_seen=c; return 1; }
 static int ui_widget_port_join(struct widget_instance *w, struct advertised_game *g, char const *name, boolean *deleted) { (void)w; (void)g; (void)name; (void)deleted; joins++; return 1; }
-static int ui_widget_port_open(struct widget_instance *w, char const *name, boolean *deleted) { (void)w; *deleted=1; if (!strcmp(name, JOIN_BIG_NAME)) { warnings++; lobby_browser_end(); } else if (!strcmp(name, PASSWORD_NAME)) passwords++; else if (!strcmp(name, PREVIEW_NAME)) previews++; else assert(0); return 1; }
+static int ui_widget_port_open(struct widget_instance *w, char const *name, boolean *deleted) { (void)w; *deleted=1; if (!strcmp(name, JOIN_BIG_NAME)) { warnings++; lobby_browser_end(); } else if (!strcmp(name, PASSWORD_NAME)) passwords++; else if (!strcmp(name, PREVIEW_NAME)) previews++; else if (!strcmp(name, FILTERS_NAME)) { filter_opens++; lobby_browser_end(); } else assert(0); return 1; }
 static void ui_widget_port_go_back(struct widget_instance *w) { boolean deleted=0; backs++; browser_initialize(w,NULL,&deleted); }
 static struct widget_instance *ui_widget_port_active_screen(short p) { (void)p; return xbox_look ? &xbox_screen : &join_button; }
 static struct widget_instance *named(struct widget_instance *w, char const *name, int n) { (void)w; (void)n; return !xbox_look && !strcmp(name,"join_game_button_join") ? &join_button : NULL; }
@@ -196,7 +201,19 @@ int main(void)
     assert(!warnings && joins==1); lan.player_count=4;
     reset(2); multiplayer.game_count=1; multiplayer.games[0]=&lan; lan.live=0;
     browser_select(&row,NULL,1,&deleted); assert(!warnings && joins==1);
-    puts("join warning: row/Join, LAN/server, confirm once, cancel, capacity, password order, stale/reordered games, preview, Direct Link, Xbox screen without JOIN passed");
+    /* FILTERS keeps the server browser's session: opening it neither stops browsing nor, on the way back, starts it
+    again, and the focus returns to FILTERS. */
+    reset(_multiplayer_mode_server_browser);
+    {
+        struct widget_instance filters={.name="browser_filters", .row=NONE};
+        deleted=0;
+        assert(browser_select(&filters,NULL,0,&deleted) && filter_opens==1 && stops==0 && browser_filters_returning);
+        ui_widget_port_go_back(&filters);
+        assert(begins==0 && filter_focuses==1 && !browser_filters_returning && joins==0);
+        lobby_browser_end();
+        assert(stops==1);
+    }
+    puts("join warning: row/Join, LAN/server, confirm once, cancel, capacity, password order, stale/reordered games, preview, Direct Link, Xbox screen without JOIN, FILTERS round trip passed");
 }
 '''
     program = harness.replace('/* STATE */', state).replace('/* PRODUCTION */', production)

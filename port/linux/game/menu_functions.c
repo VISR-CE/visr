@@ -3724,6 +3724,40 @@ static char const *const browser_sort_headers[NUMBER_OF_BROWSER_SORTS] = {
 cleared: lobby_browser_end) */
 static boolean browser_filters_returning;
 
+/* the column titles: those the server browser sorts by take the focus (and clicks), the rest do not */
+static void browser_headers_usable(struct widget_instance *headers)
+{
+	struct widget_instance *child;
+
+	for (child = headers ? headers->child : NULL; child; child = child->next)
+	{
+		short sort;
+
+		child->disabled = TRUE;
+		for (sort = 0; sort < NUMBER_OF_BROWSER_SORTS; sort++)
+		{
+			if (!strcmp(child->name, browser_sort_headers[sort]))
+				child->disabled = multiplayer.mode != _multiplayer_mode_server_browser;
+		}
+	}
+}
+
+/* the list's focus on FILTERS (back from its screen) */
+static void browser_filters_focus(struct widget_instance *list)
+{
+	struct widget_instance *child;
+	short child_index = 0;
+
+	for (child = list ? list->child : NULL; child; child = child->next, child_index++)
+	{
+		if (!strcmp(child->name, "browser_filters"))
+		{
+			list->focused_child = child;
+			list->parameters.list.selected_index = child_index;
+		}
+	}
+}
+
 /* (the server browser's: below) */
 static void lobby_browser_begin(void);
 static void lobby_browser_update(struct widget_instance *list);
@@ -3758,21 +3792,7 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 		take focus: not the other titles, nor the ticker) */
 		for (child = list ? list->child : NULL; child; child = child->next)
 			child->disabled = !browser_item_usable(child);
-		{
-			struct widget_instance *headers = named(screen, "join_game_header", 0);
-
-			for (child = headers ? headers->child : NULL; child; child = child->next)
-			{
-				short sort;
-
-				child->disabled = TRUE;
-				for (sort = 0; sort < NUMBER_OF_BROWSER_SORTS; sort++)
-				{
-					if (!strcmp(child->name, browser_sort_headers[sort]))
-						child->disabled = multiplayer.mode != _multiplayer_mode_server_browser;
-				}
-			}
-		}
+		browser_headers_usable(named(screen, "join_game_header", 0));
 		if (list)
 			browser_focus(list);
 	}
@@ -3785,19 +3805,8 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	/* (back from FILTERS: the same browsing session, its list kept, and the focus on FILTERS again) */
 	if (browser_filters_returning)
 	{
-		struct widget_instance *list = named(screen, "join_game_items_list", 0);
-		struct widget_instance *child;
-		short child_index = 0;
-
 		browser_filters_returning = FALSE;
-		for (child = list ? list->child : NULL; child; child = child->next, child_index++)
-		{
-			if (!strcmp(child->name, "browser_filters"))
-			{
-				list->focused_child = child;
-				list->parameters.list.selected_index = child_index;
-			}
-		}
+		browser_filters_focus(named(screen, "join_game_items_list", 0));
 		return ui_widget_port_browse(screen, event, widget_deleted);
 	}
 	if (!browser_join_big.returning)
