@@ -2200,6 +2200,8 @@ void xgpu_texture_cache_begin_frame(void)
 	unsigned long changed = hud_hires_settings_changed();
 	Uint64 now;
 
+	text_hires_begin_frame();
+
 	/* Refresh only map bitmaps belonging to the setting that changed. Keep
 	 * decoded replacement art and world textures; rebuild native pixels on
 	 * demand too, since an override may have skipped their first upload. */
