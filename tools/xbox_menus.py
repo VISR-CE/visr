@@ -622,6 +622,7 @@ def multiplayer_documents(assets, bitmaps):
         shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
     quit_layout(documents['main_menu.quit_select.xml'], widgets)
+    map_screen_layout(documents['main_menu.multiplayer_type_select.mp_map_select.xml'], widgets)
     # The PC roster needs eleven slots. Use the advanced-controls row pitch
     # with the server-list column, and the connected pregame's right column.
     # Unlike static options, the campaign's data function scrolls its entries.
@@ -639,6 +640,47 @@ def multiplayer_documents(assets, bitmaps):
             if w.get('name', '').endswith('_screen'):
                 legend(root, w, w.get('name') + '/legend')
     return documents
+
+
+def map_screen_layout(root, widgets):
+    """The Map screen's long names (campaign levels such as "The Truth and Reconciliation") fit: this screen's
+    rows and its campaign title use the small font, in copies of the shared widgets (the other screens keep
+    theirs), and the description sits in the one panel the screen draws, as the other Xbox lists' do (the PC
+    layout's own dark block beside it is gone)."""
+    base = 'xbox/' + MP + '/mp_map_select'
+    small = r'ui\small_ui'
+
+    def copy(source, name, **attributes):
+        element = deepcopy(widgets[source])
+        element.set('name', name)
+        element.attrib.update({k: str(v) for k, v in attributes.items()})
+        root.append(element)
+        widgets[name] = element
+        return element
+
+    copy('xbox/main_menu/new_select/list_item_text', base + '/list_item_text', font=small, text_y=6)
+    rows = widgets[base + '/mp_map_select_list_2']
+    for c in rows.findall('child'):
+        leaf = c.get('widget').rsplit('/', 1)[-1]
+        if leaf.startswith('list_item_') and leaf[10:].isdigit() and leaf != 'list_item_0':
+            row = copy(c.get('widget'), base + '/' + leaf)
+            for inner in row.findall('child'):
+                if inner.get('widget').endswith('/list_item_text'):
+                    inner.set('widget', base + '/list_item_text')
+            c.set('widget', row.get('name'))
+    title = copy('xbox/main_menu/solo_level_select/replay_level_right_name', base + '/replay_level_right_name',
+                 font=small, height=22, text_y=3)
+    right = widgets[base + '/mp_map_right_item']
+    right.attrib.update(left='323', top='115', width='254', height='286')
+    right.attrib.pop('bitmap', None)
+    for c in right.findall('child'):
+        if c.get('widget').endswith('/solo_level_select/replay_level_right_name'):
+            c.set('widget', title.get('name'))
+    for e in root.findall('widget'):
+        if e.get('name', '').endswith('/mp_map_extended_desc'):
+            for c in e.findall('child'):
+                c.set('x', '0')
+                c.set('y', '0')
 
 
 def selection_layout(widgets, bitmaps):
