@@ -67,7 +67,7 @@ def setup(tmp_path, monkeypatch, key=None):
     monkeypatch.setattr(pr.propose, "read_ranking", lambda: RANKING)
     monkeypatch.setattr(pr.check, "profile_keys", lambda: {SHADOW: ("integer", 128, 1024, None), ANISO: ("integer", 1, 16, None)})
     options = pr.argparse.Namespace(model="Test Pad", report=str(report), dry_run=True, out=str(tmp_path / "out"),
-                                    workload="gameplay", output_class="handheld", signing_key=key, worktree=str(tmp_path),
+                                    workload="gameplay", output_class="handheld", signing_key=key, worktree=str(tmp_path), feeds_tree=str(tmp_path / "feeds"),
                                     map="a10", recording=None, frames=600, exit_after=20.0, time_limit=900.0, skip_screenshots=False, maps=None, app=None, host=None)
     return options
 
@@ -130,13 +130,13 @@ def test_pull_request_keeps_pictures_out_of_main(tmp_path, monkeypatch):
     options = setup(tmp_path, monkeypatch, key="seed")
     options.dry_run = False
     (tmp_path / "profiles").mkdir(exist_ok=True)
-    receipt = tmp_path / pr.RECEIPT
+    receipt = pr.feed_file(tmp_path / "feeds", pr.RECEIPT)
     receipt.parent.mkdir(parents=True)
     receipt.write_text(json.dumps({"assets": {}, "schema": 1}))
     runner = Runner()
     assert pr.build(options, runner) == 0
     adds = [call for call in runner.calls if call[:4] == ["git", "-C", str(tmp_path), "add"]]
-    assert len(adds) == 1 and not any(".png" in part for part in adds[0])
+    assert len(adds) == 1 and not any(".png" in part or "tester" in part for part in adds[0])
     assert any("profile-pr-assets" in " ".join(call) and "push" in call for call in runner.calls)
     assert any(call[0] == "gh" and "--body-file" in call for call in runner.calls)
     body = (tmp_path / "out/body.md").read_text()
@@ -147,4 +147,4 @@ def test_every_non_mac_profile_model_has_a_publish_target(tmp_path):
     (tmp_path / "profiles").mkdir()
     (tmp_path / "profiles/air.toml").write_text('[match]\nplatform = "ios"\nmodels = ["iPad13,1"]\n')
     (tmp_path / "profiles/mini.toml").write_text('[match]\nplatform = "mac"\nchips = ["Apple M4"]\n')
-    assert pr.published_targets(tmp_path) == ["ios/iPad13,1/_"]
+    assert pr.published_targets(tmp_path, tmp_path / "feeds") == ["ios/iPad13,1/_"]

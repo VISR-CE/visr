@@ -9,8 +9,7 @@ import http.server
 import json
 import os
 import re
-import subprocess
-import sys
+import shutil
 from pathlib import Path
 import threading
 
@@ -332,8 +331,9 @@ def test_a_release_policy_moves_to_feeds_visr_gg_with_its_pins():
 def test_publish_without_credentials_stops_before_any_upload(monkeypatch, capsys):
     for name in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"):
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(store, "items_from", lambda tree: [])
     with pytest.raises(ValueError, match="R2_ACCOUNT_ID"):
-        store.main(["publish", "--backend", "s3"])
+        store.main(["publish", "--tree", "unused", "--backend", "s3"])
 
 
 def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path):
@@ -367,90 +367,47 @@ def test_the_host_check_stages_the_feeds_tree_as_it_is(tmp_path, feeds_tree):
         check.copy_packs(tmp_path / "nothing", tmp_path / "other")
 
 
-def test_record_mirrors_the_feeds_into_a_visr_feeds_checkout(checked_in, tmp_path):
-    checkout = tmp_path / "visr-feeds"
-    (checkout / ".git").mkdir(parents=True)
-    (checkout / "README.md").write_bytes(b"kept")
-    (checkout / ".github/workflows").mkdir(parents=True)
-    (checkout / ".github/workflows/publish.yml").write_bytes(b"kept")
-    (checkout / "tester/retired").mkdir(parents=True)
-    (checkout / "tester/retired/old.json").write_bytes(b"gone")
-    changed = store.record(checkout, checked_in)
-    assert "tester/retired/old.json" in changed and not (checkout / "tester/retired").exists()
-    assert (checkout / "README.md").read_bytes() == b"kept" and (checkout / ".github/workflows/publish.yml").exists()
-    record = {path.relative_to(checkout).as_posix() for path in checkout.rglob("*")
-              if path.is_file() and path.parts[len(checkout.parts)] in ("tester", "staging")}
-    assert record == {entry.key for entry in checked_in} - {store.STAGING_RECEIPT}
-    assert store.record(checkout, checked_in) == []
-    shaders = checkout / "tester/shaders.json"
-    shaders.write_bytes(b"edited")
-    assert store.record(checkout, checked_in) == ["tester/shaders.json"]
-    with pytest.raises(ValueError, match="checkout"):
-        store.record(tmp_path / "not-a-checkout", checked_in)
+def test_a_feeds_tree_is_read_with_the_same_validation(checked_in, feeds_tree, tmp_path, host):
+    # hard links on the tree's own volume: a copy of every legacy envelope would be 400 MB
+    checkout = feeds_tree.parent / "validation-copy"
+    shutil.rmtree(checkout, ignore_errors=True)
+    shutil.copytree(feeds_tree, checkout, ignore=shutil.ignore_patterns(".git"), copy_function=os.link)
+    try:
+        from_tree = store.items_from(checkout)
+        assert store.overlay.ROOT == ROOT
+        assert {(entry.key, entry.sha256, entry.content_type, entry.cache_control) for entry in from_tree} == \
+            {(entry.key, entry.sha256, entry.content_type, entry.cache_control) for entry in checked_in}
+        served = host({entry.key: entry.data for entry in from_tree})
+        assert store.verify(served.url, from_tree) == []
+        with pytest.raises(ValueError, match="tester"):
+            store.items_from(tmp_path / "empty")
+        (checkout / "tester/shaders.json").unlink()
+        (checkout / "tester/shaders.json").write_bytes(b"not an envelope")
+        with pytest.raises(ValueError):
+            store.items_from(checkout)
+        assert store.overlay.ROOT == ROOT
+    finally:
+        shutil.rmtree(checkout, ignore_errors=True)
 
 
-def test_the_record_publishes_the_same_files_as_this_checkout(checked_in, tmp_path, host):
-    checkout = tmp_path / "visr-feeds"
-    (checkout / ".git").mkdir(parents=True)
-    store.record(checkout, checked_in)
-    from_tree = store.items_from(checkout)
-    assert store.overlay.ROOT == ROOT
-    assert {(entry.key, entry.sha256, entry.content_type, entry.cache_control) for entry in from_tree} == \
-        {(entry.key, entry.sha256, entry.content_type, entry.cache_control) for entry in checked_in}
-    served = host({entry.key: entry.data for entry in from_tree})
-    assert store.verify(served.url, from_tree) == []
-    with pytest.raises(ValueError, match="tester"):
-        store.items_from(tmp_path / "empty")
-    (checkout / "tester/shaders.json").write_bytes(b"not an envelope")
-    with pytest.raises(ValueError):
-        store.items_from(checkout)
-    assert store.overlay.ROOT == ROOT
+def test_the_commands_need_a_feeds_tree_and_there_is_no_record_command(capsys):
+    for command in ("publish", "verify"):
+        with pytest.raises(SystemExit):
+            store.main([command])
+    with pytest.raises(SystemExit):
+        store.main(["record", "--checkout", "."])
+    assert "--tree" in capsys.readouterr().err
 
 
-def test_the_record_workflow_pushes_the_record_and_visr_feeds_publishes_it():
+def test_visr_feeds_publishes_its_own_tree():
     import yaml
 
-    workflow = yaml.safe_load((ROOT / ".github/workflows/feeds-record.yml").read_text())
-    triggers = workflow[True]
-    assert triggers["workflow_run"]["workflows"] == ["Pages"] and "schedule" in triggers and "workflow_dispatch" in triggers
-    job = workflow["jobs"]["record"]
-    assert job["continue-on-error"] is True and job["environment"] == "github-pages"
-    steps = job["steps"]
-    assert "secrets.FEEDS_DEPLOY_KEY" in str(steps) and steps[2]["run"] == "tools/feeds_record.sh"
-    assert steps[3]["if"] == "failure()" and "GITHUB_STEP_SUMMARY" in steps[3]["run"]
-    assert "feeds" not in (ROOT / ".github/workflows/pages.yml").read_text().split("jobs:")[1]
-    script = (ROOT / "tools/feeds_record.sh").read_text()
-    assert "feeds_store.py record" in script and "push --quiet origin HEAD:refs/heads/main" in script
-    assert "--force" not in script and "+HEAD" not in script
     publish = yaml.safe_load((ROOT / "tools/visr_feeds/publish.yml").read_text())
     job = publish["jobs"]["publish"]
     script = "\n".join(step.get("run", "") for step in job["steps"])
     assert job["environment"]["name"] == "r2-publish"
     assert "feeds_store.py publish --backend s3 --tree feeds" in script and "feeds_store.py verify --tree feeds" in script
     assert publish[True]["push"]["branches"] == ["main"]
-
-
-def test_the_record_script_commits_once_and_never_forces(tmp_path):
-    remote = tmp_path / "remote.git"
-    # a default branch other than main, as on a host whose init.defaultBranch is master
-    subprocess.run(["git", "init", "--quiet", "--bare", "--initial-branch=master", str(remote)], check=True)
-    environment = {**os.environ, "FEEDS_DEPLOY_KEY": "unused for a local remote", "FEEDS_REMOTE": str(remote),
-                   "FEEDS_ATTEMPTS": "2", "FEEDS_RETRY_SECONDS": "0", "FEEDS_PYTHON": sys.executable}
-    for _ in range(2):
-        run = subprocess.run([str(ROOT / "tools/feeds_record.sh")], cwd=ROOT, env=environment, capture_output=True, text=True)
-        assert run.returncode == 0, run.stdout + run.stderr
-    log = subprocess.run(["git", "--git-dir", str(remote), "log", "--format=%s", "main"], check=True,
-                         capture_output=True, text=True).stdout.splitlines()
-    assert len(log) == 1 and log[0].startswith("Feeds from steverice/visr@")
-    missing = subprocess.run([str(ROOT / "tools/feeds_record.sh")], cwd=ROOT, capture_output=True, text=True,
-                             env={**environment, "FEEDS_REMOTE": str(tmp_path / "missing.git")})
-    assert missing.returncode == 1 and missing.stderr.count("could not reach visr-feeds") == 2
-
-
-
-def envelope(compatibility: str, sequence: int, note: str = "") -> bytes:
-    manifest = json.dumps({"compatibility": compatibility, "sequence": sequence, "note": note}).encode()
-    return json.dumps({"manifest": base64.b64encode(manifest).decode(), "payload": "", "signature": ""}).encode()
 
 
 def test_the_pinned_feeds_hold_every_release_exactly(feeds_tree):
@@ -515,6 +472,11 @@ def test_the_pinned_feeds_hold_every_release_exactly(feeds_tree):
     assert manifest["compatibility"] == "shader-lists-2"
     assert len(payload["files"]) == 24
     assert "b40.txt" in payload["files"]
+
+
+def envelope(compatibility: str, sequence: int, note: str = "") -> bytes:
+    manifest = json.dumps({"compatibility": compatibility, "sequence": sequence, "note": note}).encode()
+    return json.dumps({"manifest": base64.b64encode(manifest).decode(), "payload": "", "signature": ""}).encode()
 
 
 def test_every_live_envelope_is_checked_even_when_no_receipt_names_it(checked_in, host, monkeypatch):

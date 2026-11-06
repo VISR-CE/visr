@@ -4,7 +4,7 @@
 The record tells a build which VISR version is newest on its platform (docs/data-packs.md, "Latest release record").
 This tool merges the released platforms into the previous record and never lowers a version. It does not sign:
 the data-pack seed stays outside the repository, so the key holder signs the folder it writes with tools/data_pack.py
-and lands the envelope on main under docs/site/packs/tester/latest.json.
+and lands the envelope as tester/latest.json in a steverice/visr-feeds checkout (with its publication.json updated).
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ if __package__:
 else:
     from data_pack import LATEST_NAME, LATEST_PLATFORMS, LATEST_VERSION, canonical, validate_latest_record
 
-FEED_URL = "https://code.steverice.org/visr/packs/tester/latest.json"
+FEED_URL = "https://feeds.visr.gg/tester/latest.json"
 FEED_LIMIT = 16 * 1024
 
 

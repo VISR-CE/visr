@@ -1,25 +1,22 @@
 #!/usr/bin/env python3
-"""Copy the signed feeds to their public record, steverice/visr-feeds, and from it to the R2 bucket behind
+"""Copy the signed feeds from their public record, steverice/visr-feeds, to the R2 bucket behind
 https://feeds.visr.gg/.
 
-From 0.6.12 builds read every feed from feeds.visr.gg (docs/data-packs.md, "Feed hosts"). GitHub Pages keeps serving
-the same bytes at https://code.steverice.org/visr/packs/ for earlier builds, so every feed writer still lands its
-files under docs/site/packs/ on main. After each Pages deployment, `record` writes that tree into a visr-feeds
-checkout, which the workflow commits and pushes; visr-feeds' own workflow then runs `publish --tree` and
-`verify --tree` to copy its tree to the bucket. The tree's layout is the bucket's: tester/... and staging/....
+Builds read every feed from feeds.visr.gg (docs/data-packs.md, "Feed hosts"). The record is a visr-feeds checkout whose
+tree is the bucket's layout: tester/... and staging/.... Feed writers (profile_pr.py, data_pack.py, latest_release.py)
+write into it, it is merged to visr-feeds' main, and visr-feeds' own workflow runs `publish --tree` and `verify --tree`.
 
-Bucket keys mirror the URL path without the packs/ prefix: docs/site/packs/tester/shaders.json is
+Bucket keys mirror the URL path: tester/shaders.json is
 https://feeds.visr.gg/tester/shaders.json. Uploads go in an order that never lets a client read an index before the
 files it names (content-addressed archives, profile shards, feed envelopes, the format marker, the receipt last), skip
 what the bucket already serves, refuse to replace a live envelope with a lower signed sequence, and never delete.
 
-  feeds_store.py record --checkout DIR           mirror main's validated tester/ and staging/ into a visr-feeds checkout
-  feeds_store.py publish --dry-run               what would be uploaded, and nothing else
-  feeds_store.py publish --backend s3            CI: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
-  feeds_store.py publish --backend wrangler      a local `wrangler login`
-  feeds_store.py verify                          every published file, byte for byte, with redirects refused
-  feeds_store.py stage --output DIR              the bucket's tree as files, for a local stand-in server
-  publish, verify and stage take --tree DIR to read a visr-feeds checkout instead of this checkout's docs/site/packs
+  feeds_store.py publish --tree DIR --dry-run    what would be uploaded, and nothing else
+  feeds_store.py publish --tree DIR --backend s3 CI: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
+  feeds_store.py publish --tree DIR --backend wrangler   a local `wrangler login`
+  feeds_store.py verify --tree DIR               every published file, byte for byte, with redirects refused
+  feeds_store.py stage --tree DIR --output DIR   the bucket's tree as files, for a local stand-in server
+  DIR is a steverice/visr-feeds checkout (tester/, staging/)
   feeds_store.py policy --input policy.json      a release policy with its feed URLs moved to feeds.visr.gg
 """
 from __future__ import annotations
@@ -113,8 +110,8 @@ def tester_items() -> list[Item]:
 
 
 def staging_items() -> list[Item]:
-    """Development recording feeds for unreleased guests: outside tester/, never read by a release. Pages serves them
-    as checked in; here they get the same bounds as tester files and a receipt of their own."""
+    """Development recording feeds for unreleased guests: outside tester/, never read by a release. They get the same
+    bounds as tester files and a receipt of their own."""
     directory = overlay.ROOT / STAGING
     if not directory.exists():
         return []
@@ -148,18 +145,14 @@ def receipt_bytes(assets: dict[str, str]) -> bytes:
     return json.dumps({"schema": 1, "assets": dict(sorted(assets.items()))}, sort_keys=True, separators=(",", ":")).encode() + b"\n"
 
 
-def checked_in_items() -> list[Item]:
+def feed_items() -> list[Item]:
     return tester_items() + staging_items()
 
 
 @contextlib.contextmanager
-def tree_root(tree: Path | None):
-    """Read the feeds from a tree in the bucket's layout (a visr-feeds checkout) with the same validation as this
-    checkout's docs/site/packs: the validators read under their ROOT, so it points at a folder whose docs/site/packs is
-    the tree."""
-    if tree is None:
-        yield
-        return
+def tree_root(tree: Path):
+    """Read the feeds from a tree in the bucket's layout (a visr-feeds checkout): the validators read under their
+    ROOT, so it points at a folder whose docs/site/packs is the tree."""
     if not (tree / "tester").is_dir() or (tree / "tester").is_symlink():
         raise ValueError(f"{tree} has no tester/ folder")
     saved = overlay.ROOT
@@ -173,42 +166,9 @@ def tree_root(tree: Path | None):
             overlay.ROOT = saved
 
 
-def items_from(tree: Path | None) -> list[Item]:
+def items_from(tree: Path) -> list[Item]:
     with tree_root(tree):
-        return checked_in_items()
-
-
-def record(checkout: Path, items: list[Item] | None = None) -> list[str]:
-    """Make checkout's tester/ and staging/ exactly the validated feeds, and return the keys written or removed.
-    The staging receipt is the bucket's own and is generated again from the tree, so it stays out of the record."""
-    items = checked_in_items() if items is None else items
-    if not (checkout / ".git").exists():
-        raise ValueError(f"{checkout} is not a visr-feeds checkout")
-    wanted = {entry.key: entry.data for entry in items if entry.key != STAGING_RECEIPT}
-    changed = []
-    for channel in ("tester", "staging"):
-        folder = checkout / channel
-        if folder.is_symlink():
-            raise ValueError(f"{folder} cannot be a symbolic link")
-        for path in sorted(folder.rglob("*")) if folder.is_dir() else ():
-            key = path.relative_to(checkout).as_posix()
-            if (path.is_file() or path.is_symlink()) and key not in wanted:
-                path.unlink()
-                changed.append(key)
-    for key, data in sorted(wanted.items()):
-        target = checkout / key
-        if target.is_file() and not target.is_symlink() and target.read_bytes() == data:
-            continue
-        if target.is_symlink():
-            target.unlink()
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-        changed.append(key)
-    for channel in ("tester", "staging"):
-        for path in sorted((checkout / channel).rglob("*"), reverse=True) if (checkout / channel).is_dir() else ():
-            if path.is_dir() and not any(path.iterdir()):
-                path.rmdir()
-    return changed
+        return feed_items()
 
 
 def url_for(base: str, key: str) -> str:
@@ -379,8 +339,7 @@ class Wrangler:
             file.unlink()
 
 
-def publish(backend, base: str = FEEDS_URL, items: list[Item] | None = None) -> list[Item]:
-    items = checked_in_items() if items is None else items
+def publish(backend, base: str, items: list[Item]) -> list[Item]:
     live = live_receipts(base)
     changes = plan(items, live)
     refuse_rollback(changes, base)
@@ -389,14 +348,12 @@ def publish(backend, base: str = FEEDS_URL, items: list[Item] | None = None) -> 
     return changes
 
 
-def verify(base: str = FEEDS_URL, items: list[Item] | None = None) -> list[str]:
+def verify(base: str, items: list[Item]) -> list[str]:
     """Keys the host does not serve byte for byte."""
-    items = checked_in_items() if items is None else items
     return [entry.key for entry in items if fetch(base, entry.key, len(entry.data)) != entry.data]
 
 
-def stage(output: Path, items: list[Item] | None = None) -> list[Item]:
-    items = checked_in_items() if items is None else items
+def stage(output: Path, items: list[Item]) -> list[Item]:
     if output.exists():
         raise ValueError("Staging destination already exists")
     for entry in items:
@@ -436,9 +393,7 @@ def main(arguments=None) -> int:
     staging = commands.add_parser("stage", help="write the bucket's tree to a folder")
     staging.add_argument("--output", type=Path, required=True)
     for command in (publishing, checking, staging):
-        command.add_argument("--tree", type=Path, help="a visr-feeds checkout (tester/, staging/) instead of docs/site/packs")
-    recording = commands.add_parser("record", help="mirror the validated feeds into a visr-feeds checkout")
-    recording.add_argument("--checkout", type=Path, required=True)
+        command.add_argument("--tree", type=Path, required=True, help="a steverice/visr-feeds checkout (tester/, staging/)")
     policy = commands.add_parser("policy", help="move a release policy's feed URLs to feeds.visr.gg")
     policy.add_argument("--input", type=Path, help="policy JSON (default: standard input)")
     args = parser.parse_args(arguments)
@@ -446,12 +401,6 @@ def main(arguments=None) -> int:
     if args.command == "policy":
         text = args.input.read_text() if args.input else sys.stdin.read()
         print(json.dumps(move_policy(json.loads(text)), separators=(",", ":")))
-        return 0
-    if args.command == "record":
-        changed = record(args.checkout)
-        print(f"{len(changed)} files changed in {args.checkout}")
-        if changed:
-            print("\n".join("  " + key for key in changed))
         return 0
     items = items_from(args.tree)
     if args.command == "stage":

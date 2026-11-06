@@ -261,7 +261,8 @@ def test_a_profile_with_the_key_reaches_both_generations(tmp_path):
 def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
     repo = tmp_path / "repo"
     profiles_with_full_rate(repo / "profiles")
-    tester = repo / profile_pr.FEED
+    feeds = tmp_path / "feeds"
+    tester = feeds / "tester"
     existing = tester / "device-profiles-3/ios/iPhone18,1/_.json"
     existing.parent.mkdir(parents=True)
     existing_bytes = json.dumps({"manifest": base64.b64encode(json.dumps({"sequence": 5}).encode()).decode()}).encode()
@@ -275,7 +276,7 @@ def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
         Path(args[args.index("--output") + 1]).write_bytes(existing_bytes)
         return profile_pr.SimpleNamespace(returncode=0)
 
-    options = profile_pr.SimpleNamespace(worktree=str(repo), signing_key="seed", out=str(tmp_path / "out"), sign_all=2**40)
+    options = profile_pr.SimpleNamespace(worktree=str(repo), feeds_tree=str(feeds), signing_key="seed", out=str(tmp_path / "out"), sign_all=2**40)
     assert profile_pr.sign_all(options, run) == 0
     # (the published target, plus every other model a profile matches: a model with no shard yet gets one)
     assert {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
@@ -286,7 +287,7 @@ def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
     assets = json.loads((tester / "publication.json").read_text())["assets"]
     for domain in profile_pr.GENERATIONS:
         name = f"docs/site/packs/tester/{domain}/ios/iPhone18,1/_.json"
-        assert assets[name] == hashlib.sha256((repo / name).read_bytes()).hexdigest()
+        assert assets[name] == hashlib.sha256(profile_pr.feed_file(feeds, name).read_bytes()).hexdigest()
     # a sequence the feed has already passed is refused before anything is signed for that shard
     options.sign_all = 1
     with pytest.raises(profile_pr.Failure, match="already at sequence"):

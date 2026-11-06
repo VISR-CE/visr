@@ -28,7 +28,10 @@ else:
 
 ROOT = Path(__file__).resolve().parent.parent
 PROFILES = ROOT / "profiles"
+# the feed's names in publication.json (the receipt keeps the paths Pages served); the files live under tester/ in a
+# steverice/visr-feeds checkout
 FEED = Path("docs/site/packs/tester")
+PACKS = Path("docs/site/packs")
 # this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
 PROFILE_DOMAIN = "device-profiles-4"
 # Every generation published from these sources, newest first, with the keys that generation's released validators
@@ -252,7 +255,12 @@ def generation_profiles(profiles, domain, folder):
     return folder
 
 
-def build_feed(targets, profiles, out, signing_key, run, repo=ROOT, sequence=None):
+def feed_file(tree, name):
+    """Where a receipt path (docs/site/packs/tester/...) lives in a visr-feeds checkout."""
+    return Path(tree) / Path(name).relative_to(PACKS)
+
+
+def build_feed(targets, profiles, out, signing_key, run, tree, repo=ROOT, sequence=None):
     """Sign a tester shard for each target in every published generation; returns {feed path: (shard path, sequence)}.
     Each shard takes the given sequence, else the next after its own."""
     shards = {}
@@ -260,7 +268,7 @@ def build_feed(targets, profiles, out, signing_key, run, repo=ROOT, sequence=Non
         source = generation_profiles(profiles, domain, out / "generation-profiles" / domain)
         for target in targets:
             destination = FEED / domain / f"{target}.json"
-            current = manifest_sequence(repo / destination)
+            current = manifest_sequence(feed_file(tree, destination))
             number = current + 1 if sequence is None else sequence
             if number <= current:
                 raise Failure(f"{destination} is already at sequence {current}")
@@ -275,20 +283,22 @@ def build_feed(targets, profiles, out, signing_key, run, repo=ROOT, sequence=Non
     return shards
 
 
-def install_shards(repo, shards):
-    """Copy signed shards into repo's feed and name them in its publication receipt; returns the changed paths."""
-    repo = Path(repo)
-    raw = (repo / RECEIPT).read_text()
+def install_shards(tree, shards):
+    """Copy signed shards into a visr-feeds checkout and name them in its publication receipt; returns the changed
+    paths (relative to the checkout)."""
+    receipt_file = feed_file(tree, RECEIPT)
+    raw = receipt_file.read_text()
     receipt = json.loads(raw)
     for destination, (path, _) in shards.items():
-        (repo / destination).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(path, repo / destination)
+        target = feed_file(tree, destination)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
         receipt["assets"][str(destination)] = hashlib.sha256(Path(path).read_bytes()).hexdigest()
-    (repo / RECEIPT).write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + ("\n" if raw.endswith("\n") else ""))
-    return [*shards, RECEIPT]
+    receipt_file.write_text(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + ("\n" if raw.endswith("\n") else ""))
+    return [feed_file(".", name) for name in [*shards, RECEIPT]]
 
 
-def published_targets(repo):
+def published_targets(repo, tree):
     """Every target with a shard in any published generation, plus every model a non-Mac profile matches, as
     PLATFORM/MODEL/CHIP. Reading the profiles too means a new profile's models get shards without a hand edit."""
     found = set()
@@ -297,24 +307,25 @@ def published_targets(repo):
         if match.get("platform") != "mac":
             found.update(f"{match['platform']}/{model}/_" for model in match.get("models", []))
     for domain in GENERATIONS:
-        folder = Path(repo) / FEED / domain
+        folder = feed_file(tree, FEED / domain)
         found.update(str(path.relative_to(folder).with_suffix("")) for path in folder.rglob("*.json"))
     return sorted(found)
 
 
 def sign_all(options, run=None):
     """Sign every published target in every published generation from the worktree's profiles, at one sequence, and
-    update the worktree's feed and receipt. Commits and pushes nothing."""
+    update the visr-feeds checkout's shards and receipt. Commits and pushes nothing."""
     run = run or run_command
     repo = Path(options.worktree)
     if not options.signing_key:
         raise Failure("--sign-all needs --signing-key")
-    targets = published_targets(repo)
+    tree = Path(options.feeds_tree)
+    targets = published_targets(repo, tree)
     if not targets:
         raise Failure("no published targets")
     out = Path(options.out) if options.out else repo / "build/profile-feed"
-    shards = build_feed(targets, repo / "profiles", out, options.signing_key, run, repo=repo, sequence=options.sign_all)
-    install_shards(repo, shards)
+    shards = build_feed(targets, repo / "profiles", out, options.signing_key, run, tree, repo=repo, sequence=options.sign_all)
+    install_shards(tree, shards)
     print(f"signed {len(targets)} targets in {len(GENERATIONS)} generations at sequence {options.sign_all}; nothing committed")
     return 0
 
@@ -428,7 +439,7 @@ def build(options, run=None):
 
     shards = {}
     if options.signing_key:
-        shards = build_feed(feed_targets(target, platform), work, out, options.signing_key, run)
+        shards = build_feed(feed_targets(target, platform), work, out, options.signing_key, run, Path(options.feeds_tree))
     elif not options.dry_run:
         raise Failure("a pull request needs --signing-key to regenerate the tester shards")
     else:
@@ -453,7 +464,7 @@ def open_pull_request(options, out, target, evidence, shards, branch, key, devic
         shutil.copyfile(target.parent / revision.NAME, repo / paths[1])
     if (evidence / "before.png").exists():
         publish_assets(evidence, key, run, out)
-    paths.extend(install_shards(repo, shards))
+    written = install_shards(Path(options.feeds_tree), shards)
     if run(sys.executable, repo / "tools/profile_check.py").returncode:
         raise Failure("tools/profile_check.py rejected the profile folder; nothing was committed")
     title = f"Update the {device.model} profile"
@@ -465,6 +476,8 @@ def open_pull_request(options, out, target, evidence, shards, branch, key, devic
     for step in steps:
         if run(*step).returncode:
             raise Failure(f"{step[0]} failed; stopped before the pull request")
+    if written:
+        print(f"the tester shards are in {options.feeds_tree}; commit them to steverice/visr-feeds main to publish")
     return 0
 
 
@@ -479,6 +492,8 @@ def main(arguments=None):
     parser.add_argument("--workload", default="gameplay")
     parser.add_argument("--output-class", default="handheld", choices=["handheld", "tv"])
     parser.add_argument("--signing-key", help="the tester feed's signing seed file")
+    parser.add_argument("--feeds-tree", required=True,
+                        help="a steverice/visr-feeds checkout; the tester shards and receipt are written there")
     parser.add_argument("--worktree", default=str(ROOT), help="worktree the runner job and the pull request use")
     parser.add_argument("--map", default="a10", help="map for the screenshots when no --recording is given")
     parser.add_argument("--recording", help="input recording the screenshots replay")
