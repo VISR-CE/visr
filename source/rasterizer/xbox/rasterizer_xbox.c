@@ -2442,16 +2442,20 @@ static void rasterizer_screen_width_update(
 {
 	long width = halo_screen_commit();
 
+	/* the display's safe area can change without the width (a fold, a rotation) */
+	halo_screen_hud_frame(width, &rasterizer_globals.reserved04.frame_bounds.x0,
+		&rasterizer_globals.reserved04.frame_bounds.y0, &rasterizer_globals.reserved04.frame_bounds.x1,
+		&rasterizer_globals.reserved04.frame_bounds.y1);
+
 	if (width != rasterizer_globals.reserved04.screen_bounds.x1 - rasterizer_globals.reserved04.screen_bounds.x0)
 	{
 		short frame_index;
 
 		rasterizer_globals.reserved04.screen_bounds.x0 = 0;
 		rasterizer_globals.reserved04.screen_bounds.x1 = (short)width;
-		rasterizer_globals.reserved04.frame_bounds.x0 =
-			(short)(RASTERIZER_FRAME_BOUNDS_X0 * width / RASTERIZER_SCREEN_WIDTH);
-		rasterizer_globals.reserved04.frame_bounds.x1 =
-			(short)(width - rasterizer_globals.reserved04.frame_bounds.x0);
+		halo_screen_hud_frame(width, &rasterizer_globals.reserved04.frame_bounds.x0,
+			&rasterizer_globals.reserved04.frame_bounds.y0, &rasterizer_globals.reserved04.frame_bounds.x1,
+			&rasterizer_globals.reserved04.frame_bounds.y1);
 		if (global_d3d_surface_render_primary)
 		{
 			DWORD size = global_d3d_surface_render_primary->Size;
@@ -3098,12 +3102,9 @@ boolean _rasterizer_initialize(
 		widened in proportion */
 		rasterizer_globals.reserved04.screen_bounds.x1 = (short)halo_screen_width();
 		rasterizer_globals.reserved04.screen_bounds.y1 = RASTERIZER_SCREEN_HEIGHT;
-		rasterizer_globals.reserved04.frame_bounds.x0 =
-			(short)(RASTERIZER_FRAME_BOUNDS_X0 * halo_screen_width() / RASTERIZER_SCREEN_WIDTH);
-		rasterizer_globals.reserved04.frame_bounds.x1 =
-			(short)(halo_screen_width() - rasterizer_globals.reserved04.frame_bounds.x0);
-		rasterizer_globals.reserved04.frame_bounds.y0 = RASTERIZER_FRAME_BOUNDS_Y0;
-		rasterizer_globals.reserved04.frame_bounds.y1 = RASTERIZER_FRAME_BOUNDS_Y1;
+		halo_screen_hud_frame(halo_screen_width(), &rasterizer_globals.reserved04.frame_bounds.x0,
+			&rasterizer_globals.reserved04.frame_bounds.y0, &rasterizer_globals.reserved04.frame_bounds.x1,
+			&rasterizer_globals.reserved04.frame_bounds.y1);
 		rasterizer_globals.fps_accumulation_frame_index = 1;
 		csmemset(&d3d_present_parameters, 0, sizeof(d3d_present_parameters));
 		d3d_present_parameters.Flags = D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;

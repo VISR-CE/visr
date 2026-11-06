@@ -49,6 +49,7 @@ void halo_screen_commit_stereo_scale(void) {}
 /* main.c: one player window (split screen keeps the mono path) */
 short main_get_window_count(void) { return 1; }
 void platform_video_drawable_size(int *width, int *height) { *width = 1920; *height = 1080; }
+void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 int platform_fixed_timestep(void) { return 1; }
 unsigned long platform_clock_frames(void) { return clock_frames; }
 double halo_frame_trace_milliseconds(void) { return 0.0; }

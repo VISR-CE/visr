@@ -604,8 +604,35 @@ static void audio_reopen(const char *why) {
     host_sdl_audio_route_changed();
 }
 #endif
+/* The built-in display's safe-area insets as fractions of the window (left, right, top, bottom), for the HUD's frame:
+   the camera hole and status pill of the iPhone Duo's outer display, the Dynamic Island, the home indicator. Refreshed on
+   the main thread; the game thread reads a copy. Zero while the game is on an external display. */
+static float safe_insets[4];
+static pthread_mutex_t safe_insets_lock=PTHREAD_MUTEX_INITIALIZER;
+static void safe_insets_refresh(void) {
+    float next[4]={0,0,0,0};
+    if(!companion_on && phone_window) {
+        UIEdgeInsets inset=phone_window.safeAreaInsets;
+        CGSize size=phone_window.bounds.size;
+        if(size.width>0 && size.height>0) {
+            next[0]=(float)(inset.left/size.width);next[1]=(float)(inset.right/size.width);
+            next[2]=(float)(inset.top/size.height);next[3]=(float)(inset.bottom/size.height);
+        }
+    }
+    pthread_mutex_lock(&safe_insets_lock);
+    BOOL changed=memcmp(next,safe_insets,sizeof(next))!=0;
+    memcpy(safe_insets,next,sizeof(next));
+    pthread_mutex_unlock(&safe_insets_lock);
+    if(changed)host_logf(HOST_LOG_INFO,"safe area: left %.4f right %.4f top %.4f bottom %.4f of the window",next[0],next[1],next[2],next[3]);
+}
+void host_external_safe_insets(float *insets) {
+    pthread_mutex_lock(&safe_insets_lock);
+    memcpy(insets,safe_insets,sizeof(safe_insets));
+    pthread_mutex_unlock(&safe_insets_lock);
+}
 void host_external_poll(void) {
     host_hinge_poll();
+    safe_insets_refresh();
     if(atomic_exchange(&audio_changed,0)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
         AVAudioSession *audio=AVAudioSession.sharedInstance;
@@ -881,6 +908,7 @@ void host_external_displays(struct host_external_displays *out) {
     memset(out,0,sizeof(*out));out->accessory_available=-1;out->use=HOST_EXTERNAL_DISPLAY_NONE;
 }
 int host_external_size(int *width,int *height) { (void)width;(void)height;return 0; }
+void host_external_safe_insets(float *insets) { memset(insets,0,4*sizeof(float)); }
 void *host_external_phone_layer(void) { return NULL; }
 void *host_external_screen(void) { return NULL; }
 void *host_external_scene(void) { return NULL; }

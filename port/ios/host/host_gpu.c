@@ -41,6 +41,11 @@ void platform_video_drawable_size(int *width, int *height)
     if(!host_external_size(width,height))SDL_GetWindowSizeInPixels(host_sdl_window(), width, height);
 }
 
+void platform_video_safe_insets(float *insets)
+{
+	host_external_safe_insets(insets);
+}
+
 void platform_video_swap(void)
 {
 	/* display.frame_rate's cap (host_gpu_dispatch.c) */

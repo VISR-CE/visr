@@ -190,6 +190,7 @@ void host_external_poll(void) {
 void host_external_commit(int allow_pause) { (void)allow_pause; }
 int host_external_active(void) { return 0; }
 int host_external_size(int *width, int *height) { (void)width; (void)height; return 0; }
+void host_external_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 void *host_external_phone_layer(void) { return NULL; }
 void *host_external_screen(void) { return (__bridge void *)game_window().screen; }
 double host_external_companion_dim(void) { return 0; }

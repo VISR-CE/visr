@@ -17,6 +17,8 @@ void host_external_poll(void);
 void host_external_commit(int allow_pause);
 int host_external_active(void);
 int host_external_size(int *width, int *height);
+/* the built-in display's safe-area insets as fractions of the window: left, right, top, bottom (zeros on an external display) */
+void host_external_safe_insets(float *insets);
 void *host_external_phone_layer(void);
 void *host_external_screen(void);
 /* the UIWindowScene the renderer presents in (its display's clock drives frame pacing); NULL if unknown */

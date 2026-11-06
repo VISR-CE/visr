@@ -1045,6 +1045,11 @@ void platform_video_drawable_size(int *width, int *height)
 	SDL_GetWindowSizeInPixels(platform_window, width, height);
 }
 
+void platform_video_safe_insets(float *insets)
+{
+	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
+}
+
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
 /* with vsync off, the time between frames display.max_fps asks for (0:
 twice the display's refresh rate), or 0 for no limit. A GPU never left idle
