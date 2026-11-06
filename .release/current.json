@@ -1,21 +1,21 @@
 {
   "schema": 1,
-  "tag": "visr-v0.6.11",
-  "version": "0.6.11",
-  "build_number": "20261105.90817",
-  "source_sha": "eb7ddc87b10c44eb946842945a26a6426bc4ccdf",
-  "source_branch": "release/0.6.11-rc4",
+  "tag": "visr-v0.6.12",
+  "version": "0.6.12",
+  "build_number": "20261106.62728",
+  "source_sha": "fdad16aca9185234e1ff96336901ff1b1dda970a",
+  "source_branch": "release/0.6.12",
   "platforms": [
     "ios",
     "tvos",
     "macos"
   ],
-  "notes_sha256": "5d20b2edbce6feff4e70630bf3b0a3e84fcab2c0e1cc31c7f134222ea6fb2e9a",
-  "testflight_summary": "- Relaunch the game and check that your last session's log is kept instead of being erased. Logs now also include more frame pacing and display details (iOS).\n- On Mac, try the new Game and View menus and shortcuts: Release Mouse (Control-Command-M), Back (Command-[), and Enter Full Screen (Control-Command-F). F1, F11, and F12 no longer reach the game.\n- Connect an iPhone or iPad to a 1080p TV. It should now pick a sensible display mode without a slow refused switch, and dynamic resolution should have room to lower resolution, so fewer frames should be presented late.\n- Run a benchmark while mirroring to a TV. Mirrored runs should now be flagged and left out of profile proposals.\n- Check that a benchmark on an iPad app running on a Mac isn't reported as mirrored.\n- Try the menus with a pointer: hovering over a carousel slot should focus its list without stepping it, and deleting a widget should no longer leave stale pointer input behind.\n- Join a game that gets refused with code 13. You should see a specific message about the address limit.\n- Look at flag cloth, HUD goal waypoints and distances, and effects with random elements. They should draw correctly.\n- Check that the default shadow quality now uses a smaller shadow map (128) on devices without a profile.\n\niCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.\n\nVISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.\n\nVISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.",
-  "testflight_summary_sha256": "c6b3e2fbae7cd09fef0b1ddef45d4a86417a9d82ef591850489e62c0d836f807",
+  "notes_sha256": "c4a47e6753a2f68eec82eb861df019e5780a0d309c6b02f45c06eb5d20e5b399",
+  "testflight_summary": "- Resize your window or change display scale several times during a long session, and let us know if anything looks off afterward. This build fixes screen memory that was never freed after a resize.\n- Play for an extended stretch after resizing, and tell us if the game feels any less smooth than before.\n- Check that builds and releases load their feeds as expected. Feeds now come from a new feeds.visr.gg source, so report any feed content that fails to load or looks out of date.\n\niCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.\n\nVISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.\n\nVISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.",
+  "testflight_summary_sha256": "ef4792857bf837b1f4a03dcff986ee448fbb9aca756ba06b0ded0f494fd8421c",
   "testflight_summary_model": "claude-sonnet-5-5",
   "bootstrap_since": "",
-  "source_date_epoch": "1793869697",
+  "source_date_epoch": "1793946448",
   "guest_source_date_epoch": "1792454334",
   "internal_only": true,
   "build_policy": {
@@ -23,7 +23,7 @@
     "cloud_saves": "on",
     "guest_compiler_version": "Homebrew clang version 23.1.4",
     "guest_profile_sha256": "663efd5f4da9d29f092231e23c818319bc0ed0625c26305dd1d0489c66b55c16",
-    "guest_sha256": "67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437",
+    "guest_sha256": "814ba59a492ffc4b5aaa1a7d03429f5017ba18aad19b6427e1c1b86b77d33e37",
     "guest_source_date_epoch": "1792454334",
     "host_profile_sha256": "787d98fb1650fdb7892174aa9a3ee1cc154eb6fc0bd1a150961a36b82b1ff4b1",
     "perf_reports": "on",
@@ -85,12 +85,12 @@
       "tvos/AppleTV6,2/_": "12556e43b7bf0500565080571bea580d472b30be50403bb26fe028b3ba9e8e3b",
       "visionos/RealityDevice14,1/_": "8fac22f6eb99a4003c37ad9b7e5ceffa1298051924a9eff9d95197c7b90dabed"
     },
-    "profile_feed_url": "https://code.steverice.org/visr/packs/tester/device-profiles-4",
+    "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-4",
     "recording_feed_required": "on",
-    "recording_feed_sha256": "92274608883049fccd316c54367ad0e883688eb3bf141950c0e1246482d83a7b",
-    "recording_feed_url": "https://code.steverice.org/visr/packs/tester/recordings-67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437.json",
-    "shader_feed_sha256": "9081844b656a01895f973d1df51f8cd47b14f37f174d4785871051403699c039",
-    "shader_feed_url": "https://code.steverice.org/visr/packs/tester/shaders.json",
+    "recording_feed_sha256": "b2ff82f8443e45e2b97e7c2be945885cd9a14e508ebaecf6e59ad2ce7df1363f",
+    "recording_feed_url": "https://feeds.visr.gg/tester/recordings-814ba59a492ffc4b5aaa1a7d03429f5017ba18aad19b6427e1c1b86b77d33e37.json",
+    "shader_feed_sha256": "337f9c9b550ca6bf81111baac2795fd5d1506cf21cbb2f3519648ea818421a62",
+    "shader_feed_url": "https://feeds.visr.gg/tester/shaders.json",
     "shader_upload": "on"
   }
 }
