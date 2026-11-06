@@ -77,10 +77,12 @@ def test_shadow_props_under_the_sanitizers(tmp_path):
     build_and_run(tmp_path, ['-std=c99', '-fsanitize=address,undefined'])
 
 
-def test_shadow_props_setting_is_off_by_default_and_documented():
+def test_shadow_props_setting_is_on_by_default_behind_the_graphics_mode_and_documented():
     config = (ROOT / 'port/linux/src/port_config.c').read_text()
-    assert '{ "display.shadow_props", _config_boolean, "false"' in config
+    assert '{ "display.shadow_props", _config_boolean, "true"' in config
+    # Enhanced graphics only: Classic and Hardcore turn it off
+    assert 'X("display.shadow_props", "false", "false")' in (ROOT / 'port/linux/src/port_graphics_modes.h').read_text()
     assert '{ "debug.shadow_scenery", _config_integer, "0"' in config
     readme = (ROOT / 'port/linux/README.md').read_text()
-    assert '| `display.shadow_props` | boolean | `false` |' in readme
+    assert '| `display.shadow_props` | boolean | `true` |' in readme
     assert '| `debug.shadow_scenery` | integer | `0` |' in readme

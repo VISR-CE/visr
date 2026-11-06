@@ -197,8 +197,8 @@
         },
         "shadow_props": {
           "type": "boolean",
-          "default": false,
-          "description": "Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. At most the four nearest to the camera in a view, none over 3 units across; off draws what the Xbox drew.",
+          "default": true,
+          "description": "Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. At most the four nearest to the camera in a view, none over 3 units across; false draws what the Xbox drew. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
           "x-environment": "HALO_SHADOW_PROPS",
           "x-environment-style": "value",
           "x-platforms": [

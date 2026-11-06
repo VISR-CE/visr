@@ -61,6 +61,7 @@ enum graphics_mode
 	X("debug.split_screen_hud", "true", NULL) \
 	/* additions the Xbox never drew: off in Classic too */ \
 	X("display.first_person_legs", "false", "false") \
+	X("display.shadow_props", "false", "false") \
 	/* a profile's cost caps remove original content: none in Hardcore */ \
 	X("display.dynamic_light_limit", "0", NULL) \
 	X("display.specular_light_limit", "0", NULL) \

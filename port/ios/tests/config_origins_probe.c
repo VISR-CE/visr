@@ -824,11 +824,14 @@ static void check_graphics_modes(void)
 	assert(config_integer("display.specular_light_limit") == 2 && !config_graphics_replaces("display.render_height"));
 	assert(config_write("display.first_person_legs", "true") && config_boolean("display.first_person_legs"));
 	assert(config_write("display.anti_aliasing", "smaa") && !strcmp(config_string("display.anti_aliasing"), "smaa"));
+	/* (prop shadows are on by default, in Enhanced) */
+	assert(config_boolean("display.shadow_props"));
 
 	/* Classic: the additions off, even one the player turned on; everything else as before */
 	assert(config_write("display.graphics", "classic") && config_graphics_mode() == GRAPHICS_MODE_CLASSIC);
 	assert(strstr(logged, "graphics: classic (was enhanced)"));
 	assert(!config_boolean("display.first_person_legs") && !strcmp(config_graphics_replaces("display.first_person_legs"), "classic"));
+	assert(!config_boolean("display.shadow_props") && !strcmp(config_graphics_replaces("display.shadow_props"), "classic"));
 	assert(!strcmp(config_string("display.anti_aliasing"), "smaa") && config_integer("display.render_height") == 1080);
 	assert(file_has(path, "\nfirst_person_legs = true\n"));
 
