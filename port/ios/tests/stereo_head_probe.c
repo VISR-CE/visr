@@ -400,6 +400,12 @@ static void restart(const char *turn, double snap_angle, double smooth_turn_spee
 	game_cryo_pod = 0;
 	game_driving = 0;
 	drive_steer_yaw = 0.0f;
+	/* and a third-person camera's own anchor, which the steer's deadzone is
+	measured from: a restart stands for a fresh game, so a seat held over
+	from the check before must not leave the head already turned off it, nor
+	hand the next check the yaw the eyes were keeping for it */
+	third_person_head = 0;
+	third_person_yaw = third_person_pitch_from = 0.0f;
 	set_pose(0.0f, 0.0f, 0.0f);
 	/* a frame with the Compositor's eyes: the head drives the view */
 	halo_stereo_frame_begin();
@@ -3119,11 +3125,21 @@ facing alone. With input.aim = "hands" the player has no thumbstick to make
 up the difference, so there the head's turn past the deadzone turns the look
 at a rate, as the stick's turn would, and the car comes around to what the
 player is looking at. The picture stays the head's throughout, and nothing
-but a driving seat under bare hands is touched. */
+but a driving seat under bare hands is touched.
+
+That turn rotates the whole world about a head that is holding still, so it
+takes the comfort vignette the stick's own smooth turn already takes, under
+the one switch there is for it: input.comfort_vignette, which ships off. The
+whole of this case runs with it off first, where the steer's every number is
+what it always was and the view never narrows by a pixel, and then with it
+on, where the same numbers come out of the steer and the view narrows with
+the turn and clears again inside the deadzone. The strength is the share of
+VIGNETTE_FULL_RATE the turn asks for, which is the scale
+halo_stereo_vignette_ease is handed on foot. */
 static void driving_seat_head_steer(void)
 {
 	const char *aim_was = setting_aim;
-	float facing_yaw = 0.0f, facing_pitch = 0.0f, held, dim, blur;
+	float facing_yaw = 0.0f, facing_pitch = 0.0f, held, dim, blur, peak = 0.0f;
 	struct loop_frame f;
 	int frame, turned = 0;
 
@@ -3134,8 +3150,11 @@ static void driving_seat_head_steer(void)
 	restart("smooth", 30.0, 120.0, 0);
 	game_third_person = 0;
 	game_driving = 1;
-	for (frame = 1; frame <= 20; frame++)
+	for (frame = 1; frame <= 20; frame++) {
 		f = loop(&facing_yaw, &facing_pitch, 2.0f * frame, 0.0f, 0.0f);
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
 	f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
 	printf("  on foot with bare hands, the head at 40 deg left: the look is %.3f deg\n", facing_yaw / DEGREES);
 	check(f.look_turned && fabsf(facing_yaw / DEGREES - 40.0f) < 0.01f,
@@ -3151,6 +3170,8 @@ static void driving_seat_head_steer(void)
 	for (frame = 1; frame <= 30; frame++) {
 		f = loop(&facing_yaw, &facing_pitch, 10.0f, 0.0f, 0.0f);
 		turned |= f.look_turned;
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
 	}
 	printf("  the head 10 deg left: the facing moved %.4f deg\n", facing_yaw / DEGREES);
 	check(!turned && facing_yaw == 0.0f, "inside the deadzone the head steers nothing");
@@ -3162,8 +3183,11 @@ static void driving_seat_head_steer(void)
 	for (frame = 1; frame <= 3; frame++)
 		f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
 	held = facing_yaw;
-	for (frame = 1; frame <= 90; frame++)
+	for (frame = 1; frame <= 90; frame++) {
 		f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
 	printf("  the head 40 deg left for a second: the facing moved %.3f deg, the picture %.3f deg off it\n",
 		(facing_yaw - held) / DEGREES, f.view_yaw - facing_yaw / DEGREES);
 	check(fabsf((facing_yaw - held) / DEGREES - 120.0f) < 0.5f,
@@ -3205,18 +3229,95 @@ static void driving_seat_head_steer(void)
 	for (frame = 1; frame <= 3; frame++)
 		f = loop(&facing_yaw, &facing_pitch, -40.0f, 0.0f, 0.0f);
 	held = facing_yaw;
-	for (frame = 1; frame <= 90; frame++)
+	for (frame = 1; frame <= 90; frame++) {
 		f = loop(&facing_yaw, &facing_pitch, -40.0f, 0.0f, 0.0f);
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
 	printf("  the head 40 deg right for a second: the facing moved %.3f deg\n", (facing_yaw - held) / DEGREES);
 	check(fabsf((facing_yaw - held) / DEGREES + 120.0f) < 0.5f, "the head to the right turns the look right");
 	for (frame = 1; frame <= 3; frame++)
 		f = loop(&facing_yaw, &facing_pitch, -25.0f, 0.0f, 0.0f);
 	held = facing_yaw;
-	for (frame = 1; frame <= 90; frame++)
+	for (frame = 1; frame <= 90; frame++) {
 		f = loop(&facing_yaw, &facing_pitch, -25.0f, 0.0f, 0.0f);
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
 	printf("  the head 25 deg right for a second: the facing moved %.3f deg\n", (facing_yaw - held) / DEGREES);
 	check(fabsf((facing_yaw - held) / DEGREES + 80.0f) < 0.5f,
 		"inside the ramp the rate is its share: 25 degrees of head is two thirds of the turn");
+	/* every frame of the above was read as the eye shader reads it, on foot
+	and in the seat, inside the deadzone and through three full seconds of
+	steering: with input.comfort_vignette off, which is how it ships, not one
+	of them narrowed the view. The steering numbers printed above are the
+	same numbers as before the vignette was wired in at all */
+	printf("  input.comfort_vignette off throughout: the vignette peaked at %.3f\n", peak);
+	check(peak == 0.0f, "with input.comfort_vignette off the steer veils nothing, ever");
+
+	/* the same steer with the switch on. It is upstream's own switch for its
+	own smooth turn on foot, and a head steer is a smooth turn the body did
+	not make, so it inherits that mechanism rather than getting one: the same
+	halo_stereo_vignette_ease, the same ease in and out, the same strength
+	scale. The steer itself is untouched by it, which the repeated 120 and 80
+	degrees a second below are here to say */
+	restart("smooth", 30.0, 120.0, 1);
+	game_third_person = 1;
+	game_driving = 1;
+	facing_yaw = facing_pitch = 0.0f;
+	for (frame = 1; frame <= 3; frame++)
+		f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
+	held = facing_yaw;
+	for (frame = 1; frame <= 90; frame++)
+		f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
+	printf("  with input.comfort_vignette, the head 40 deg left for a second: the facing moved %.3f deg, "
+		"the vignette %.3f\n", (facing_yaw - held) / DEGREES, halo_stereo_vignette());
+	check(fabsf((facing_yaw - held) / DEGREES - 120.0f) < 0.5f,
+		"the setting veils the view and does not touch the steer: the same whole turn rate");
+	check(fabsf(halo_stereo_vignette() - 1.0f) < 0.001f,
+		"and the vignette rises with the steer: a turn at VIGNETTE_FULL_RATE is full");
+
+	/* its share through the ramp, the share the rate takes: 25 degrees of
+	head is two thirds over the span, so two thirds of the turn and two
+	thirds of the vignette with it */
+	for (frame = 1; frame <= 3; frame++)
+		f = loop(&facing_yaw, &facing_pitch, 25.0f, 0.0f, 0.0f);
+	held = facing_yaw;
+	for (frame = 1; frame <= 90; frame++)
+		f = loop(&facing_yaw, &facing_pitch, 25.0f, 0.0f, 0.0f);
+	printf("  the head 25 deg left: the facing moved %.3f deg, the vignette %.3f\n",
+		(facing_yaw - held) / DEGREES, halo_stereo_vignette());
+	check(fabsf((facing_yaw - held) / DEGREES - 80.0f) < 0.5f,
+		"the ramp's share of the turn is what it was with the setting off");
+	check(fabsf(halo_stereo_vignette() - 2.0f / 3.0f) < 0.005f,
+		"and the vignette follows the ramp with it: two thirds of full");
+
+	/* and clears once the head is back inside the deadzone, where nothing is
+	turning, within the ease out's own 0.2 s (30 frames of the 90 Hz clock) */
+	for (frame = 1; frame <= 30; frame++)
+		f = loop(&facing_yaw, &facing_pitch, 5.0f, 0.0f, 0.0f);
+	printf("  the head back to 5 deg: the vignette %.3f\n", halo_stereo_vignette());
+	check(halo_stereo_vignette() == 0.0f, "the vignette clears inside the deadzone, where nothing turns");
+
+	/* and on foot the switch changes nothing either: what it veils there is
+	the stick's own turn, and no stick is turning, so a head driving the look
+	whole veils nothing */
+	restart("smooth", 30.0, 120.0, 1);
+	game_third_person = 0;
+	game_driving = 1;
+	facing_yaw = facing_pitch = 0.0f;
+	peak = 0.0f;
+	for (frame = 1; frame <= 20; frame++) {
+		f = loop(&facing_yaw, &facing_pitch, 2.0f * frame, 0.0f, 0.0f);
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
+	f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
+	printf("  on foot with input.comfort_vignette, the head at 40 deg left: the look is %.3f deg, "
+		"the vignette peaked at %.3f\n", facing_yaw / DEGREES, peak);
+	check(f.look_turned && fabsf(facing_yaw / DEGREES - 40.0f) < 0.01f,
+		"on foot the setting leaves the head driving the look whole");
+	check(peak == 0.0f, "and veils nothing on foot: there is no steer to veil");
 
 	/* a seat that doesn't drive (a Warthog's turret, a passenger's bench)
 	keeps the rule it had: the head turns the picture and nothing else, so
@@ -3248,6 +3349,46 @@ static void driving_seat_head_steer(void)
 	printf("  a driving seat with a Sense controller, the head 40 deg left: the facing moved %.4f deg\n",
 		facing_yaw / DEGREES);
 	check(!turned && facing_yaw == 0.0f, "an aim source with a stick drives the seat with the stick");
+
+	/* and neither of those two takes the vignette with the switch on, for
+	the same reason neither takes the turn: nothing there is steering, and
+	the vignette is for the steer and nothing else. A gunner's bench and a
+	driving seat with a stick keep the clear view they have always had,
+	whichever way the player has set input.comfort_vignette */
+	setting_aim = "hands";
+	restart("smooth", 30.0, 120.0, 1);
+	game_third_person = 1;
+	game_driving = 0;
+	facing_yaw = facing_pitch = 0.0f;
+	turned = 0;
+	peak = 0.0f;
+	for (frame = 1; frame <= 60; frame++) {
+		f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
+		turned |= f.look_turned;
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
+	printf("  a seat that doesn't drive, with input.comfort_vignette: the facing moved %.4f deg, "
+		"the vignette peaked at %.3f\n", facing_yaw / DEGREES, peak);
+	check(!turned && facing_yaw == 0.0f && peak == 0.0f,
+		"a gunner's seat takes neither the turn nor the veil, whichever way the switch is set");
+	setting_aim = "controller";
+	restart("smooth", 30.0, 120.0, 1);
+	game_third_person = 1;
+	game_driving = 1;
+	facing_yaw = facing_pitch = 0.0f;
+	turned = 0;
+	peak = 0.0f;
+	for (frame = 1; frame <= 60; frame++) {
+		f = loop(&facing_yaw, &facing_pitch, 40.0f, 0.0f, 0.0f);
+		turned |= f.look_turned;
+		if (halo_stereo_vignette() > peak)
+			peak = halo_stereo_vignette();
+	}
+	printf("  a driving seat with a Sense controller, with input.comfort_vignette: the facing moved %.4f deg, "
+		"the vignette peaked at %.3f\n", facing_yaw / DEGREES, peak);
+	check(!turned && facing_yaw == 0.0f && peak == 0.0f,
+		"and a driving seat with a stick takes neither: the steer is for a hand with no stick");
 	setting_aim = aim_was;
 	seat_look_fade_setting = 0;
 	seat_look_fade_blur_setting = 0;
