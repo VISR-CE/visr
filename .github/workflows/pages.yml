@@ -1,8 +1,9 @@
 name: Pages
 
 # Publishes the static landing page in docs/site to GitHub Pages. There is no
-# application build step. Signed asset feeds are validated before upload. Enable it under
-# Settings > Pages > Source: GitHub Actions.
+# application build step. The signed data feeds are not served from here: they live in
+# steverice/visr-feeds and are published to feeds.visr.gg (docs/data-packs.md, "Feed hosts").
+# Enable it under Settings > Pages > Source: GitHub Actions.
 
 on:
   push:
@@ -13,12 +14,6 @@ on:
       - 'tools/build_site.py'
       - 'tools/site_template.html'
       - 'tools/requirements-ci.*'
-      - 'tools/pages_asset_overlay.py'
-      - 'tools/pages_recording_overlay.py'
-      - 'tools/release_validation.py'
-      - 'tools/data_pack.py'
-      - 'tools/data_pack_sign.c'
-      - 'port/third_party/monocypher/**'
   workflow_dispatch:
 
 permissions:
@@ -51,10 +46,10 @@ jobs:
         run: |
           uv run --python 3.11 --no-project --with-requirements tools/requirements-ci.txt \
             python tools/build_site.py
-      - name: Validate and stage checked-in main assets
+      - name: Stage the site
         run: |
-          uv run --python 3.11 --no-project --with-requirements tools/release-requirements.txt \
-            python tools/pages_asset_overlay.py
+          mkdir --parents build
+          cp --recursive docs/site build/pages
           rm -- build/pages/index.md build/pages/README.md
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

@@ -410,6 +410,12 @@ def test_visr_feeds_publishes_its_own_tree():
     assert publish[True]["push"]["branches"] == ["main"]
 
 
+def test_pages_serves_no_feeds_and_nothing_records_them_from_main():
+    pages = (ROOT / ".github/workflows/pages.yml").read_text()
+    assert "pages_asset_overlay" not in pages and "docs/site/packs" not in pages
+    assert not (ROOT / ".github/workflows/feeds-record.yml").exists() and not (ROOT / "tools/feeds_record.sh").exists()
+
+
 def test_the_pinned_feeds_hold_every_release_exactly(feeds_tree):
     with store.tree_root(feeds_tree):
         assets = overlay.checked_in_assets()

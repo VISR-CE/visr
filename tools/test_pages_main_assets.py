@@ -175,7 +175,7 @@ def test_workflow_has_no_alternate_asset_inputs_or_live_fetch():
     assert "asset_commit:" not in workflow
     assert "inputs." not in workflow
     assert "workflow_dispatch:" in workflow
-    assert "python tools/pages_asset_overlay.py" in workflow
+    assert "pages_asset_overlay" not in workflow
     assert "--asset-commit" not in workflow
     assert "--recording-commit" not in workflow
     assert "RECORDING_COMMIT" not in workflow
