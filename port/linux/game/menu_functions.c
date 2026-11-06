@@ -4399,7 +4399,7 @@ static boolean lobby_browser_select(struct widget_instance *widget, short contro
 		ui_play_audio_feedback_sound(SOUND_FORWARD);
 		return TRUE;
 	}
-	if (row == NONE && !strstr(widget->name, "button_join"))
+	if (row == NONE && !confirmed && !strstr(widget->name, "button_join"))
 		return TRUE;
 	if (lobby_browser.joining)
 		return TRUE;
@@ -4791,7 +4791,7 @@ static boolean browser_pick(struct widget_instance *widget, short controller,
 		return lobby_browser_select(widget, controller, row, widget_deleted, confirmed);
 	if (row != NONE)
 		multiplayer.game_chosen = row;
-	if (row != NONE || strstr(widget->name, "button_join"))
+	if (row != NONE || confirmed || strstr(widget->name, "button_join"))
 	{
 		if (multiplayer.game_chosen < multiplayer.game_count &&
 			!network_game_client_advertised_game_compatible(global_network_game_client_get(),
@@ -4846,8 +4846,11 @@ static boolean browser_join_big_finish(struct widget_instance *widget, boolean *
 		return TRUE;
 	if (multiplayer.mode != browser_join_big.mode)
 		return campaign_fail();
+	/* (the Xbox look's browser has no JOIN button, A on a row joins: the replay then runs on the screen) */
 	screen = ui_widget_port_active_screen(0);
 	join = screen ? named(screen, "join_game_button_join", 0) : NULL;
+	if (!join)
+		join = screen;
 	if (!join)
 		return campaign_fail();
 	if (multiplayer.mode == _multiplayer_mode_server_browser)

@@ -58,6 +58,9 @@ static int joins, passwords, warnings, previews, failures, backs, controller_see
 static struct p2p_listing joined, available[4];
 static int available_count;
 static struct widget_instance join_button = { .name="join_game_button_join", .row=NONE };
+/* the Xbox look's browser screen, which has no JOIN button (A on a row joins) */
+static struct widget_instance xbox_screen = { .name="join_game_screen", .row=NONE };
+static int xbox_look;
 /* STATE */
 static boolean browser_initialize(struct widget_instance *, struct event_record *, boolean *);
 static void lobby_browser_end(void);
@@ -80,8 +83,8 @@ static int multiplayer_player(short c) { controller_seen=c; return 1; }
 static int ui_widget_port_join(struct widget_instance *w, struct advertised_game *g, char const *name, boolean *deleted) { (void)w; (void)g; (void)name; (void)deleted; joins++; return 1; }
 static int ui_widget_port_open(struct widget_instance *w, char const *name, boolean *deleted) { (void)w; *deleted=1; if (!strcmp(name, JOIN_BIG_NAME)) { warnings++; lobby_browser_end(); } else if (!strcmp(name, PASSWORD_NAME)) passwords++; else if (!strcmp(name, PREVIEW_NAME)) previews++; else assert(0); return 1; }
 static void ui_widget_port_go_back(struct widget_instance *w) { boolean deleted=0; backs++; browser_initialize(w,NULL,&deleted); }
-static struct widget_instance *ui_widget_port_active_screen(short p) { (void)p; return &join_button; }
-static struct widget_instance *named(struct widget_instance *w, char const *name, int n) { (void)w; (void)n; return !strcmp(name,"join_game_button_join") ? &join_button : NULL; }
+static struct widget_instance *ui_widget_port_active_screen(short p) { (void)p; return xbox_look ? &xbox_screen : &join_button; }
+static struct widget_instance *named(struct widget_instance *w, char const *name, int n) { (void)w; (void)n; return !xbox_look && !strcmp(name,"join_game_button_join") ? &join_button : NULL; }
 static short browser_row_index(struct widget_instance *w) { return w->row; }
 static void browser_games_read(void) { }
 int p2p_lobby_games(struct p2p_listing *out, int max) { assert(available_count<=max); memcpy(out, available, sizeof(available)); return available_count; }
@@ -98,7 +101,7 @@ static void reset(int mode)
     memset(&browser_join_big, 0, sizeof(browser_join_big));
     memset(&multiplayer, 0, sizeof(multiplayer));
     memset(&lobby_browser, 0, sizeof(lobby_browser));
-    joins=passwords=warnings=previews=failures=backs=begins=stops=0; capacity=8; full_rate=0;
+    joins=passwords=warnings=previews=failures=backs=begins=stops=0; capacity=8; full_rate=0; xbox_look=0;
     multiplayer.mode=mode;
     available_count=lobby_browser.count=1;
     memset(available, 0, sizeof(available));
@@ -156,6 +159,19 @@ int main(void)
         assert(!browser_join_big_finish(&join_button,&deleted,TRUE)); assert(!joins && failures==1 && !browser_join_big.active);
         lan.key_id[0]=9;
     }
+    /* The Xbox look's browser has no JOIN button: OK still joins the game the warning asked about. */
+    for (int mode=0; mode<=1; mode++)
+    {
+        reset(mode); xbox_look=1; multiplayer.game_count=1; multiplayer.games[0]=&lan;
+        assert(browser_select(&row,NULL,2,&deleted));
+        assert(warnings==1 && !joins);
+        assert(browser_join_big_finish(&xbox_screen,&deleted,TRUE));
+        assert(joins==1 && !failures && controller_seen==2 && !browser_join_big.active);
+        if (mode==1) assert(!strcmp(joined.invite,"original invite"));
+        reset(mode); xbox_look=1; multiplayer.game_count=1; multiplayer.games[0]=&lan;
+        browser_select(&row,NULL,2,&deleted);
+        assert(browser_join_big_finish(&xbox_screen,&deleted,FALSE)); assert(!joins && backs==1);
+    }
     reset(1); lobby_browser.games[0].locked=available[0].locked=1;
     browser_select(&row,NULL,3,&deleted); assert(warnings==1 && !passwords);
     assert(browser_join_big_finish(&join_button,&deleted,TRUE));
@@ -180,7 +196,7 @@ int main(void)
     assert(!warnings && joins==1); lan.player_count=4;
     reset(2); multiplayer.game_count=1; multiplayer.games[0]=&lan; lan.live=0;
     browser_select(&row,NULL,1,&deleted); assert(!warnings && joins==1);
-    puts("join warning: row/Join, LAN/server, confirm once, cancel, capacity, password order, stale/reordered games, preview, Direct Link passed");
+    puts("join warning: row/Join, LAN/server, confirm once, cancel, capacity, password order, stale/reordered games, preview, Direct Link, Xbox screen without JOIN passed");
 }
 '''
     program = harness.replace('/* STATE */', state).replace('/* PRODUCTION */', production)
