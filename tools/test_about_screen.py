@@ -85,9 +85,9 @@ def test_both_looks_list_the_same_rows():
     xbox = labels(XBOX_SCREEN, "xbox/settings/about")
     assert pc == xbox
     label, helps, values = pc
-    assert label[:5] == ["VERSION", "BUILD", "SEND LOG", "VISR.GG", "CREDITS"] and label[5:] == names()
+    assert label[:4] == ["BUILD", "SEND LOG", "VISR.GG", "CREDITS"] and label[4:] == names()
     assert len(helps) == len(label) + 1
-    assert about_data.WEBSITE_URL == "https://visr.gg/" and helps[4] == "Visit VISR on the web."
+    assert about_data.WEBSITE_URL == "https://visr.gg/" and helps[3] == "Visit VISR on the web."
     assert any("punpckhdq" in help_text for help_text in helps)
 
 
@@ -111,7 +111,10 @@ def test_the_version_row_has_a_game_data_function():
 def test_about_has_a_scroll_window_and_back():
     root = ET.parse(PC_SCREEN).getroot()
     lists = [w for w in root.iter("widget") if w.get("name", "").endswith("/options_menu")]
-    assert lists[0].get("visible_rows") == "8"
+    assert lists[0].get("visible_rows") == "6"
+    # (the title lines: the app's version, from the game data function, and what VISR is)
+    assert any(w.get("text") == about_data.TAGLINE for w in root.iter("widget"))
+    assert [d.get("input") for w in root.iter("widget") if w.get("name", "").endswith("/title_version") for d in w.iter("data")] == ["port about version"]
     assert any(w.get("text") == "BACK" for w in root.iter("widget"))
 
 
@@ -135,12 +138,12 @@ def test_send_log_row_is_there_only_in_builds_that_can_send_a_log():
     for path, prefix in ((PC_SCREEN, f"{port_settings.PE}/about"), (XBOX_SCREEN, "xbox/settings/about")):
         shown = rows_by_platform(path, prefix)
         on, off = shown["on"], shown["off"]
-        assert [name for _, name in on][:4] == ["version", "build", "send_log", "website"]
+        assert [name for _, name in on][:3] == ["build", "send_log", "website"]
         assert "send_log" not in [name for _, name in off]
         assert [name for _, name in on if name != "send_log"] == [name for _, name in off]
         # each build's rows are a row apart with no gap where the row is missing
         for rows in (on, off):
-            assert [y for y, _ in rows] == [73 + 30 * index for index in range(len(rows))]
+            assert [y for y, _ in rows] == [port_settings.ABOUT_ROW_TOP + 30 * index for index in range(len(rows))]
     text = PC_SCREEN.read_text()
     # pressing it asks first (the Xbox look's confirmation, which both looks open): SEND runs it and goes back
     assert text.count('open="xbox/settings/send_log_confirm"') == 2 and 'input="port send log status"' in text

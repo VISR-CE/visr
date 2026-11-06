@@ -18,7 +18,7 @@ WEBSITE_HELP = "Visit VISR on the web."
 CREDIT = ("VISR builds on the community's work decompiling Halo: Combat Evolved and porting it: "
           "punpckhdq, bnunu, OpenCE, NicholasDominici and pfista.")
 
-VERSION_HELP = "The version of this app."
+TAGLINE = "An unofficial port of Halo: Combat Evolved"
 BUILD_HELP = "The build number of this app."
 
 # the SEND LOG row (three lines of the help at most): it uploads the game's log to iCloud and shows a code

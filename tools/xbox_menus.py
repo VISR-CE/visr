@@ -174,7 +174,7 @@ def settings_page(assets, folder, bitmaps):
         if element.get('name') == f'{base}/options_menu':
             # Keep the PC platform-sharing slots. A page with more rows than fit
             # above its help scrolls them (visible_rows).
-            first, pitch = FIRST_ROW, ROW_PITCH
+            first, pitch = (128 if folder == 'about' else FIRST_ROW), ROW_PITCH
             place = -1
             previous = None
             for row in element.findall('child'):
@@ -1021,7 +1021,7 @@ def patch_document(names):
     # ABOUT: last of the settings pages, before SAVE CHANGES. With the keyboard's row and VIDEO's too (the Mac) the
     # list would pass its footer (431 > 414), so a build with a keyboard has ABOUT in the PC look alone
     patch_row(edit, name='profile_item_about', text='ABOUT', open='xbox/settings/about/about_screen',
-              description="VISR's version, credits and the\\nlicenses of its code." + current,
+              description="An unofficial port of Halo:\\nCombat Evolved." + current,
               picture=f'png:{ART}/about.png', platform='!keyboard', before=PEP + 'save_changes_profile_item',
               model=PEP + 'color_profile_item')
     patch_row(edit, after=PEP + 'save_changes_profile_item', platform='tvos', pitch=33,

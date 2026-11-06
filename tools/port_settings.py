@@ -204,7 +204,7 @@ STRING_OVERRIDES = {
         "Choose a window or the full\\nscreen, the frame rate and more.\\n\\nProfile:",
         "Internet play, updates and the\\nmultiplayer HUD.\\n\\nProfile:",
         "Change the current profile's\\nfree-for-all multiplayer color.\\n\\nProfile:",
-        "VISR's version, credits and the\\nlicenses of its code.\\n\\nProfile:",
+        "An unofficial port of Halo:\\nCombat Evolved.\\n\\nProfile:",
     ],
 }
 
@@ -379,10 +379,12 @@ def _controls_screen() -> list:
 ABOUT = "about"
 # the question SEND LOG asks first (tools/xbox_menus.py: send_log_confirmation, which both looks open)
 SEND_LOG_CONFIRM = "xbox/settings/send_log_confirm"
-ABOUT_ROWS = 8
-# SEND LOG sits after VERSION and BUILD, in the builds that can send a log (menu_platform.h: send_log)
+ABOUT_ROWS = 6
+# the rows start below the two title lines (the app's version and what VISR is)
+ABOUT_ROW_TOP = 128
+# SEND LOG sits after BUILD, in the builds that can send a log (menu_platform.h: send_log)
 SEND_LOG_PLATFORM = "send_log"
-SEND_LOG_INDEX = 2
+SEND_LOG_INDEX = 1
 
 
 def about_help(text: str) -> str:
@@ -397,11 +399,10 @@ def _about_screen() -> list:
     code the app contains, in the settings screens' rows. The row chosen is described in the help (the credit
     line, the copyright), and the list scrolls (visible_rows). The rows take no action"""
     base = f"{PE}/{ABOUT}"
-    spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "help_top": 321, "help_height": 79,
+    spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP, "help_top": 321, "help_height": 79,
             "header": ("header_about", f"{base}/header_about"),
             "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
-    entries = [("VERSION", None, about_data.VERSION_HELP, "version"),
-               ("BUILD", None, about_data.BUILD_HELP, "build"),
+    entries = [("BUILD", None, about_data.BUILD_HELP, "build"),
                ("SEND LOG", None, about_data.SEND_LOG_HELP, "send_log"),
                (about_data.WEBSITE_LABEL, None, about_data.WEBSITE_HELP, "website"),
                ("CREDITS", None, about_help(about_data.CREDIT), "credits")]
@@ -420,7 +421,7 @@ def _about_screen() -> list:
         else:
             rows.append((row, None))
         children = [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>']
-        if value or key in ("version", "build", "send_log"):
+        if value or key in ("build", "send_log"):
             children.append(f'<child{attributes([("widget", f"{base}/{key}_value"), ("x", 270), ("y", 1)])}/>')
         extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -433,7 +434,7 @@ def _about_screen() -> list:
                          [("type", "text"), ("controller", 1), ("width", 255), ("height", 22),
                           ("string_list", f"{base}/labels"), ("string_index", index or None), ("font", "ui\\large_ui"),
                           ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-        if key in ("version", "build", "send_log"):
+        if key in ("build", "send_log"):
             # (the app's own: menu_functions.c's about_text_show, and send_log_status_show for SEND LOG)
             extra += _widget(f"{base}/{key}_value",
                              [("type", "text"), ("controller", 1), ("width", 235), ("height", 22), ("font", "ui\\small_ui"),
@@ -456,7 +457,20 @@ def _about_screen() -> list:
     extra += _strings(f"{base}/values", values)
     # (the help of the row whose label is string n is n + 1: the buttons' is 0)
     extra += _strings(f"{base}/help_strings", [""] + [help_text for _, _, help_text, _ in entries])
-    return _screen(ABOUT, spec, rows, ["port settings help"], [], extra)
+    lines = _screen(ABOUT, spec, rows, ["port settings help"], [], extra)
+    # the title block: "VISR" and the app's version, and what VISR is, over the list (the version is the app's own:
+    # menu_functions.c's about_text_show)
+    header = f'\t\t<child widget="{base}/header_about"/>'
+    block = [f'\t\t<child widget="{base}/title_version" x="54" y="78"/>',
+             f'\t\t<child widget="{base}/title_port" x="54" y="102"/>']
+    lines[lines.index(header) + 1:lines.index(header) + 1] = block
+    extra_title = _widget(f"{base}/title_version", [("type", "text"), ("controller", 1), ("width", 512), ("height", 24),
+                                                     ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("text_x", 13)],
+                          ['<data input="port about version"/>'])
+    extra_title += _widget(f"{base}/title_port", [("type", "text"), ("controller", 1), ("width", 512), ("height", 24),
+                                                   ("font", "ui\\large_ui"), ("color", "#FFFFFFFF"), ("text_x", 13),
+                                                   ("text", about_data.TAGLINE)], [])
+    return lines + extra_title
 
 
 def settings_files() -> dict:

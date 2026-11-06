@@ -1577,13 +1577,16 @@ The host copies them into guest memory, as the cloud saves' status does */
 static void about_text_show(struct widget_instance *widget, boolean build)
 {
 #ifdef HALO_IOS
-	char shown[64];
-	wchar_t text[64];
+	char shown[80], version[64];
+	wchar_t text[80];
 
 	if (build)
 		host_sdl_app_build(shown, sizeof(shown));
 	else
-		host_sdl_app_version(shown, sizeof(shown));
+	{
+		host_sdl_app_version(version, sizeof(version));
+		snprintf(shown, sizeof(shown), "VISR %s", version);
+	}
 	halo_menus_utf16(shown, (unsigned short *)text, NUMBEROF(text));
 	text_set_length(widget, text, NUMBEROF(text));
 #else
