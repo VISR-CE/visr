@@ -153,7 +153,13 @@ struct nv2a_pixel_shader_key
 	reference, not all of the pixel or none of it, so that cut-out edges
 	(foliage, grates) are smoothed too */
 	unsigned char alpha_test_samples;
-	unsigned char pad[3];
+	/* a camera-facing particle sprite with soft edges (display.soft_particles,
+	d3d8_device.c's halo_soft_particles_mode; Metal only): it fades where it is
+	near the surface behind it, toward what leaves the frame unchanged under
+	its blend: 1 alpha, 2 color toward white, 3 color toward gray, 4 color,
+	5 color and alpha */
+	unsigned char soft_depth;
+	unsigned char pad[2];
 };
 #define XGPU_COVERAGE_ALPHA 1
 #define XGPU_COVERAGE_POINT_THRESHOLD 2
@@ -166,7 +172,7 @@ NV2A_PIXEL_SHADER_KEY_BASE_SIZE bytes, as it was recorded */
 
 static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_shader_key *key)
 {
-	return key->alpha_test_samples ? sizeof(*key) : NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
+	return key->alpha_test_samples || key->soft_depth ? sizeof(*key) : NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
 }
 
 /* the key as the translation reads it: the translation runs the combiner stages below the combiner count

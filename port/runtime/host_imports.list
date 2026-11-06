@@ -112,6 +112,9 @@ host_gpu_initialize
 host_graphics_apply
 # debug.ssao (spike; d3d8_device.c, gpu_metal.m)
 host_ssao_apply
+# soft particle edges (d3d8_device.c, gpu_metal.m)
+host_soft_depth_prepare
+host_soft_depth_finish
 # stereo (halo_stereo.h)
 host_stereo_frame
 host_stereo_entered

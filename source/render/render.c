@@ -553,7 +553,13 @@ static void render_window(
 		rasterizer_decals_end();
 
 		structure_render_detail_objects();
+		/* port: soft particle edges (display.soft_particles): the depth of
+		every opaque surface (the water's queue, drawn above, writes none),
+		for the particles among the transparent geometry drawn next */
+		halo_soft_particles_prepare(rasterizer_camera->z_near, rasterizer_camera->z_far,
+			rasterizer_frustum->projection_matrix[2][2], rasterizer_frustum->projection_matrix[3][2]);
 		rasterizer_transparent_geometry_draw(FALSE);
+		halo_soft_particles_finish();
 		rasterizer_transparent_geometry_stop();
 		structure_render_fog_screen();
 		rasterizer_lens_flares_draw();

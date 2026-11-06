@@ -750,6 +750,31 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 
 	if (key->coverage_alpha)
 		xgpu_text_append(&text, "\tresult.a = mix(1.0, result.a, t0.g);\n");
+	/* soft particle edges (nv2a_pixel_shader_key soft_depth, Metal only): the
+	sprite fades over the last debug.soft_particle_distance in front of the
+	surface behind it, toward what its blend leaves unchanged. Depth is
+	reversed (1 at the near plane), as the backend draws it */
+	if (key->soft_depth && dialect->msl)
+	{
+		static const char *const fades[] =
+		{
+			"",
+			"\tresult.a = clamp(result.a, 0.0, 1.0) * soft_fade;\n",
+			"\tresult.rgb = mix(vec3(1.0), clamp(result.rgb, 0.0, 1.0), soft_fade);\n",
+			"\tresult.rgb = mix(vec3(0.5), clamp(result.rgb, 0.0, 1.0), soft_fade);\n",
+			"\tresult.rgb = clamp(result.rgb, 0.0, 1.0) * soft_fade;\n",
+			"\tresult = clamp(result, 0.0, 1.0) * soft_fade;\n",
+		};
+
+		xgpu_text_append(&text,
+			"\tuint2 soft_texel = min(uint2(soft_position.xy), uint2(soft_depth.get_width() - 1, soft_depth.get_height() - 1));\n"
+			"\tfloat soft_scene = soft_depth.read(soft_texel).r;\n"
+			"\tfloat soft_view = soft.x * soft.y / (soft.y - (1.0 - soft_position.z) * (soft.y - soft.x));\n"
+			"\tfloat soft_fade = clamp((soft_scene - soft_view) * soft.z, 0.0, 1.0);\n"
+			"\tsoft_fade = soft_fade * soft_fade * (3.0 - 2.0 * soft_fade);\n");
+		if (key->soft_depth < sizeof(fades) / sizeof(fades[0]))
+			xgpu_text_append(&text, "%s", fades[key->soft_depth]);
+	}
 	if (key->alpha_test_function)
 	{
 		const char *comparison = comparison_operator(key->alpha_test_function);

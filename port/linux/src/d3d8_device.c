@@ -2754,6 +2754,93 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 #endif
 }
 
+/* ---------- soft particle edges (display.soft_particles)
+
+Before a view's transparent geometry (render_window, source/render/render.c), every opaque surface is in the depth
+buffer. halo_soft_particles_prepare hands it to the backend, which keeps a copy as view distances (gpu_metal.m,
+host_soft_depth_prepare); a camera-facing particle sprite's draw then names its blend's fade
+(halo_soft_particles_mode, rasterizer_xbox_transparent_geometry.c), which goes into its pixel shader's key
+(nv2a_pixel_shader_key soft_depth): the shader fades the sprite where it is closer to the surface behind it than
+debug.soft_particle_distance. Metal only, a player's or the menu's own view only, not multisampled and not stereo;
+off: nothing changes. */
+static BOOL soft_view_ready;
+static int soft_draw_mode;
+/* the groups drawn soft since the last log line (halo_soft_particles_prepare) */
+static unsigned long soft_groups;
+
+static BOOL soft_view_wanted(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+	struct render_target_entry *color, *depth;
+
+	if (!native_scene || !device.gl_ready || !shader_dialect.msl || !config_boolean("display.soft_particles"))
+		return FALSE;
+	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
+		return FALSE;
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || !depth->target.depth || color->samples || depth->samples)
+		return FALSE;
+	return TRUE;
+}
+
+unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32)
+{
+	struct render_target_entry *depth;
+	float parameters[5];
+
+	soft_view_ready = FALSE;
+	soft_draw_mode = 0;
+	if (!soft_view_wanted())
+		return FALSE;
+	IMMEDIATE_FLUSH();
+	depth = render_target_get(device.depth_stencil);
+	parameters[0] = z_near;
+	parameters[1] = z_far;
+	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), the near and far the depth was made with */
+	parameters[2] = p22;
+	parameters[3] = p32;
+	parameters[4] = (float)config_real("debug.soft_particle_distance");
+#ifdef HALO_ILP32
+	soft_view_ready = host_soft_depth_prepare(depth->target.texture, parameters, 5) != 0;
+#else
+	(void)depth;
+#endif
+	{
+		static unsigned long views;
+
+		if (!views++ || !(views % 1800))
+		{
+			platform_log("soft particles: view %lu, %s, near %g far %g, distance %g; %lu groups drawn soft", views,
+				soft_view_ready ? "depth kept" : "refused", (double)z_near, (double)z_far, (double)parameters[4],
+				soft_groups);
+			soft_groups = 0;
+		}
+	}
+	return (unsigned char)soft_view_ready;
+}
+
+void halo_soft_particles_mode(int mode)
+{
+	if (mode != soft_draw_mode)
+		IMMEDIATE_FLUSH();
+	soft_draw_mode = soft_view_ready ? mode : 0;
+	if (soft_draw_mode)
+		soft_groups++;
+}
+
+void halo_soft_particles_finish(void)
+{
+	if (!soft_view_ready)
+		return;
+	IMMEDIATE_FLUSH();
+	soft_view_ready = FALSE;
+	soft_draw_mode = 0;
+#ifdef HALO_ILP32
+	host_soft_depth_finish();
+#endif
+}
+
 /* debug.rate_map_test, on Metal outside a stereo frame */
 static int rate_map_test(void)
 {
@@ -4527,7 +4614,7 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 
 	/* (a multisampled alpha test's shader is not listed or observed: the
 	lists and catalogs hold the shaders of draws without multisampling) */
-	if (!name || key->alpha_test_samples)
+	if (!name || key->alpha_test_samples || key->soft_depth)
 		return;
 	name->kind = 2;
 	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
@@ -5507,6 +5594,8 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 	if (target_samples > 1 && key->alpha_test_function && !D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
 		shader_dialect.sample_mask)
 		key->alpha_test_samples = (unsigned char)target_samples;
+	/* soft particle edges (halo_soft_particles_mode): Metal's translation only */
+	key->soft_depth = shader_dialect.msl ? (unsigned char)soft_draw_mode : 0;
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&

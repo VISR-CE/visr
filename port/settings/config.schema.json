@@ -184,6 +184,17 @@
             "desktop"
           ]
         },
+        "soft_particles": {
+          "type": "boolean",
+          "default": false,
+          "description": "Smoke, dust and plasma fade where they meet the ground and walls instead of cutting a hard line (camera-facing particles; Metal, not in stereo or with multisampling). A spike: off by default.",
+          "x-environment": "HALO_SOFT_PARTICLES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "effect_limits": {
           "type": "string",
           "default": "raised",
@@ -2943,6 +2954,17 @@
           "description": "With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame.",
           "x-environment": "HALO_SCREENSHOT_SCENE_ONLY",
           "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "soft_particle_distance": {
+          "type": "number",
+          "default": 0.15,
+          "description": "With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet).",
+          "x-environment": "HALO_SOFT_PARTICLE_DISTANCE",
+          "x-environment-style": "value",
           "x-platforms": [
             "apple",
             "desktop"

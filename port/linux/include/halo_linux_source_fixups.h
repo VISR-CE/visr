@@ -118,6 +118,19 @@ int benchmark_suite_skips_drawing(void);
 the native builds' larger decal pools and every split-screen player's whole
 share of an effect's particles; FALSE ("xbox") for the Xbox's */
 unsigned char halo_effect_limits_raised(void);
+/* soft particle edges (display.soft_particles, port/linux/src/d3d8_device.c):
+before a view's transparent geometry, the scene's depth is kept for the
+particles drawn after it (TRUE when it was); each particle group's draw names
+its blend function's fade (1 alpha, 2 toward white, 3 toward gray, 4 color,
+5 both; 0 none), and the view's transparent geometry ends. Camera-facing
+sprites are marked for it: build_sprites_begin's HALO_BUILD_SPRITES_SOFT_BIT
+becomes their transparent group's HALO_GEOMETRY_SOFT_BIT; sprites lying in
+a plane (a splash on the ground) are not faded, which would erase them */
+#define HALO_BUILD_SPRITES_SOFT_BIT 15
+#define HALO_GEOMETRY_SOFT_BIT 24
+unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32);
+void halo_soft_particles_mode(int mode);
+void halo_soft_particles_finish(void);
 /* the mouse in the menus (source/interface/ui_widget.c) */
 #include "halo_ui_pointer.h"
 /* the frame's stereo state: source/render/render.c renders each eye and the

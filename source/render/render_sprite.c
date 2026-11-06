@@ -267,6 +267,11 @@ void build_sprites_end(
 					geometry_flags,
 					_rasterizer_geometry_first_person_bit,
 					TEST_FLAG(data->flags, _build_sprites_first_person_bit));
+				/* port: soft particle edges (halo_linux_source_fixups.h) */
+				SET_FLAG(
+					geometry_flags,
+					HALO_GEOMETRY_SOFT_BIT,
+					TEST_FLAG(data->flags, HALO_BUILD_SPRITES_SOFT_BIT));
 				rasterizer_dynamic_unlit_geometry_draw(
 					(struct shader const *)data->shader,
 					group->bitmap,

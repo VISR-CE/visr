@@ -4333,6 +4333,16 @@ static struct
 	__unsafe_unretained id<MTLSamplerState> sampler;
 } stage_samplers[GPU_STAGE_COUNT];
 
+/* soft particle edges (host_soft_depth_prepare): the scene's view distances, bound to every draw while a view's
+transparent geometry is drawn; only shaders with soft edges read them (nv2a_msl.c) */
+static struct
+{
+	id<MTLComputePipelineState> linearize;
+	id<MTLTexture> distances;
+	float parameters[4];
+	BOOL active, tried, failed;
+} soft;
+
 static void bind_stages(const struct gpu_draw *draw, unsigned exact)
 {
 	int stage;
@@ -4715,6 +4725,15 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 			}
 		}
 		bind_stages(draw, exact);
+		/* soft particle edges (host_soft_depth_prepare): the scene's distances, on every draw while they last (the
+		state cache doesn't track them); only shaders with soft edges read them */
+		if (soft.active)
+		{
+			[encoder setFragmentTexture:soft.distances atIndex:8];
+			metal_state_always(&state_cache);
+			[encoder setFragmentBytes:soft.parameters length:sizeof(soft.parameters) atIndex:5];
+			metal_state_always(&state_cache);
+		}
 		bind_constants(constants, uniforms);
 		bind_attributes(draw, &attributes);
 		pass_commands++;
@@ -9732,6 +9751,108 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		capabilities->clip_z_remap = 0;
 		GPU_CAPABILITIES_LOG(platform_log, capabilities);
 	}
+}
+
+/* ---------- soft particle edges (display.soft_particles; d3d8_device.c's halo_soft_particles_prepare)
+
+Before a view's transparent geometry the front end hands over its depth target: the pass ends, a compute pass turns
+every pixel's reversed depth into its view distance (R32Float, the target's size), and until host_soft_depth_finish
+every draw binds it as fragment texture 8, with the near, far and 1 / fade distance as fragment buffer 5. The next
+draw reopens the pass, its depth loaded, as after any pass break. */
+static NSString *const soft_depth_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
+	"\ttexture2d<float, access::write> distances [[texture(1)]], constant float4 &p [[buffer(0)]],\n"
+	"\tuint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
+	"\t\treturn;\n"
+	"\tfloat stored = depth.read(gid);\n"
+	"\tdistances.write(float4(p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x))), gid);\n"
+	"}\n";
+
+static BOOL soft_depth_program(void)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library;
+	id<MTLFunction> function;
+
+	if (soft.tried)
+		return !soft.failed;
+	soft.tried = YES;
+	soft.failed = YES;
+	library = [device newLibraryWithSource:soft_depth_source options:nil error:&error];
+	function = library ? [library newFunctionWithName:@"soft_depth_linearize"] : nil;
+	soft.linearize = function ? [device newComputePipelineStateWithFunction:function error:&error] : nil;
+	if (!soft.linearize)
+	{
+		platform_log("soft particles: the depth program failed: %s",
+			error ? error.localizedDescription.UTF8String : "no function");
+		return NO;
+	}
+	soft.failed = NO;
+	return YES;
+}
+
+uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
+		MetalTexture *record = texture_record(depth);
+		id<MTLComputeCommandEncoder> compute;
+		MTLTextureDescriptor *descriptor;
+		float near_plane, far_plane;
+		unsigned long width, height;
+
+		soft.active = NO;
+		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
+			record->samples || foveation_map(record) || !soft_depth_program())
+			return 0;
+		width = record->texture.width;
+		height = record->texture.height;
+		if (!soft.distances || soft.distances.width != width || soft.distances.height != height)
+		{
+			descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR32Float width:width
+				height:height mipmapped:NO];
+			descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+			descriptor.storageMode = MTLStorageModePrivate;
+			soft.distances = [device newTextureWithDescriptor:descriptor];
+			soft.distances.label = @"soft particle distances";
+		}
+		if (!soft.distances)
+			return 0;
+		/* the near and far the depth was made with: the projection's own depth row (GL-style), when given */
+		near_plane = values[0];
+		far_plane = values[1];
+		if (values[2] != 1.0f && values[2] != -1.0f && values[3] != 0.0f)
+		{
+			near_plane = values[3] / (values[2] - 1.0f);
+			far_plane = values[3] / (values[2] + 1.0f);
+		}
+		soft.parameters[0] = near_plane;
+		soft.parameters[1] = far_plane;
+		soft.parameters[2] = values[4] > 0.0f ? 1.0f / values[4] : 1.0e6f;
+		soft.parameters[3] = 0.0f;
+		pass_end();
+		if (pass_log)
+			[pass_log appendFormat:@"\n  soft particle distances: %lux%lu", width, height];
+		compute = [command_buffer() computeCommandEncoder];
+		compute.label = @"soft particle distances";
+		[compute setComputePipelineState:soft.linearize];
+		[compute setTexture:record->texture atIndex:0];
+		[compute setTexture:soft.distances atIndex:1];
+		[compute setBytes:soft.parameters length:sizeof(soft.parameters) atIndex:0];
+		[compute dispatchThreads:MTLSizeMake(width, height, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+		[compute endEncoding];
+		soft.active = YES;
+		return 1;
+	}
+}
+
+void host_soft_depth_finish(void)
+{
+	soft.active = NO;
 }
 
 #define GPU_METAL_FUNCTION(type, name, parameters, arguments) .name = gpu_metal_##name,

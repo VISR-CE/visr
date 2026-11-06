@@ -183,6 +183,10 @@ static const struct config_setting config_settings[] =
 		"Device-profile cap on specular lights among the level's selected dynamic\n"
 		"lights, 0 to 128. Zero keeps all selected lights' highlights. First-person\n"
 		"weapon lights are always retained. Object lighting is unchanged." },
+	{ "display.soft_particles", _config_boolean, "false", "HALO_SOFT_PARTICLES", _environment_value, _platform_all,
+		"Smoke, dust and plasma fade where they meet the ground and walls instead of\n"
+		"cutting a hard line (camera-facing particles; Metal, not in stereo or with\n"
+		"multisampling). A spike: off by default." },
 	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
 		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
 		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"
@@ -1720,6 +1724,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
+	{ "debug.soft_particle_distance", _config_real, "0.15", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
+		"With display.soft_particles: how far in front of a surface a particle starts to fade, in world units\n"
+		"(1 is 10 feet)." },
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,
 		"Save every this many frames to screenshot_directory; 0 none." },
 	{ "debug.ssao", _config_integer, "0", "HALO_SSAO", _environment_value, _platform_ios,

@@ -267,6 +267,11 @@ void host_graphics_apply(int metalfx, int crt, int frame_rate);
 /* debug.ssao (spike; port/linux/src/d3d8_device.c, gpu_metal.m): ambient occlusion from the scene's depth into its
 color, after the level's lightmap pass; count floats of the view's rectangle, camera and tuning */
 void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *parameters, uint32_t count);
+/* soft particle edges (display.soft_particles; port/linux/src/d3d8_device.c, gpu_metal.m): the scene's depth kept
+as view distances for the transparent geometry drawn next (count floats: near, far, the projection's depth row, the
+fade distance); 1 when it was. Finish ends it */
+uint32_t host_soft_depth_prepare(gpu_texture depth, const float *parameters, uint32_t count);
+void host_soft_depth_finish(void);
 
 /* ---------- stereo (port/linux/game/stereo.c; the host's port/ios/host/host_stereo.m)
 

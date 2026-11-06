@@ -47,12 +47,13 @@ enum { D3DTSS_ALPHAKILL, D3DTSS_COLORSIGN, D3DTSS_MAXSTAGES = 4 };
 struct nv2a_pixel_shader_key {
 	DWORD combiner_state[D3DRS_MAX];
 	unsigned char alpha_kill[D3DTSS_MAXSTAGES], color_sign[D3DTSS_MAXSTAGES];
-	unsigned char coverage_alpha, alpha_test_function, alpha_test_samples, fog_enable, fog_table_mode, count_samples;
+	unsigned char coverage_alpha, alpha_test_function, alpha_test_samples, fog_enable, fog_table_mode, count_samples, soft_depth;
 };
 static DWORD D3D__RenderState[D3DRS_MAX];
 static DWORD D3D__TextureState[D3DTSS_MAXSTAGES][2];
 static uint32_t target_samples;
-static struct { int sample_mask; } shader_dialect;
+static struct { int sample_mask, msl; } shader_dialect;
+static int soft_draw_mode;
 static struct { int visibility_test_active; } device;
 static struct { int occlusion_mode; } device_capabilities;
 ''' + canonicalize + "\n" + finish + r'''

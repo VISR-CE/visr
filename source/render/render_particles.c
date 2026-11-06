@@ -262,9 +262,13 @@ void render_particles(
 						particle_count,
 						definition->bitmap.index,
 						&definition->shader,
-						rendered_particle->attached_to_first_person_weapon
+						(rendered_particle->attached_to_first_person_weapon
 							? FLAG(_build_sprites_first_person_bit)
-							: 0);
+							: 0) |
+						/* port: camera-facing sprites take soft edges (halo_soft_particles_prepare) */
+						(definition->sprite_orientation == _build_sprite_normal
+							? FLAG(HALO_BUILD_SPRITES_SOFT_BIT)
+							: 0));
 
 					while (particle_count-- > 0)
 					{
