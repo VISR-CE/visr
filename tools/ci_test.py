@@ -20,6 +20,7 @@ APPLE_PROBES = {
     "test_astc_rewrite.py",
     "test_astc_encode.py",
     "test_benchmark_menu.py",
+    "test_frame_workgroup_uikit.py",
     "test_menu_cancel.py",
     "test_menu_display_rate.py",
     "test_loading_progress.py",

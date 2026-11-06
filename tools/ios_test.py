@@ -492,6 +492,8 @@ run(BUILD/'dynamic-resolution-probe')
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     '-framework', 'AudioToolbox', 'port/ios/tests/frame_deadline_probe.c', '-o', BUILD/'frame-deadline-probe')
 run(BUILD/'frame-deadline-probe')
+# UIKit's animations with the frame workgroup: tvOS's text dialog holds the drawing thread out (host_tv.m)
+run('python3', 'tools/test_frame_workgroup_uikit.py')
 # visibility answers by fixed latency (visibility_history.h): from the expected frames, whatever the GPU's timing
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/visibility_history_probe.c', '-o', BUILD/'visibility-history-probe')
