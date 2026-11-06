@@ -10,9 +10,9 @@ tools/crt_stills.m for look checks. Written from published descriptions of how a
   following the line's brightness, normalized so the average brightness holds;
 - an aperture grille splits each display pixel column into red, green and blue phosphor stripes: a three-column
   mask at the display's own pixels, only where a line covers at least two display pixels (finer would alias);
-- bright phosphors glow onto their neighbors: a little of the picture's brightest light, blurred, is added back.
-
-No screen curvature. The picture is assumed sRGB-like and worked in gamma 2.0 for speed. The present pass passes
+- bright phosphors glow onto their neighbors: a little of the picture's brightest light, blurred, is added back;
+- the tube's face bulges slightly (a 0.02 barrel, black beyond the curved edge) and its light falls off toward the
+  corners (a soft vignette). The picture is assumed sRGB-like and worked in gamma 2.0 for speed. The present pass passes
 the picture's size and the drawn area's size in pixels (CrtSizes). */
 #pragma once
 
@@ -53,7 +53,12 @@ the picture's size and the drawn area's size in pixels (CrtSizes). */
 	"fragment float4 crt_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]],\n" \
 	"\tsampler linear [[sampler(0)]], constant CrtSizes &sizes [[buffer(0)]])\n" \
 	"{\n" \
-	"\tfloat2 uv = in.coordinates;\n" \
+	/* the tube's face: a slight barrel, the picture's corners pulled in, black beyond them */ \
+	"\tfloat2 face = in.coordinates * 2.0 - 1.0;\n" \
+	"\tface *= 1.0 + 0.02 * dot(face, face);\n" \
+	"\tfloat2 uv = face * 0.5 + 0.5;\n" \
+	"\tif (any(uv < 0.0) || any(uv > 1.0))\n" \
+	"\t\treturn float4(0.0, 0.0, 0.0, 1.0);\n" \
 	"\tfloat texel = 1.0 / sizes.source.x;\n" \
 	"\tfloat y = uv.y * sizes.source.y - 0.5;\n" \
 	"\tfloat row = floor(y), f = y - row;\n" \
@@ -78,5 +83,7 @@ the picture's size and the drawn area's size in pixels (CrtSizes). */
 	"\t\tmask[column] = 1.0;\n" \
 	"\t\tcolor *= mask * 1.25;\n" \
 	"\t}\n" \
+	/* the tube's light falls off toward its edges and corners: a soft vignette (corners about 13% darker) */ \
+	"\tcolor *= pow(saturate(16.0 * uv.x * uv.y * (1.0 - uv.x) * (1.0 - uv.y)), 0.09);\n" \
 	"\treturn float4(sqrt(saturate(color)), 1.0);\n" \
 	"}\n"
