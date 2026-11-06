@@ -5645,6 +5645,10 @@ static BOOL per_pixel_lighting(void)
 	{
 		read_frame = device.frame;
 		enabled = config_boolean("display.per_pixel_lighting") != FALSE;
+		/* matched stills: on in odd frames only, so that two frames of a paused
+		game show the same picture lit both ways */
+		if (config_boolean("debug.per_pixel_lighting_alternate"))
+			enabled = (device.frame & 1) != 0;
 	}
 	return enabled;
 }

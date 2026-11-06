@@ -2386,6 +2386,17 @@
             "desktop"
           ]
         },
+        "per_pixel_lighting_alternate": {
+          "type": "boolean",
+          "default": false,
+          "description": "Light objects per pixel in odd frames only and per vertex in even ones, whatever display.per_pixel_lighting says: with the game paused, two frames in a row are the same picture lit both ways.",
+          "x-environment": "HALO_PER_PIXEL_LIGHTING_ALTERNATE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "fixed_timestep": {
           "type": "boolean",
           "default": false,

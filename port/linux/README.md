@@ -606,6 +606,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.init_after` | number | `0.0` | apple, desktop | `HALO_INIT_AFTER` | Run init.txt's commands this many seconds after start-up instead of at once, so a test can wait at the main menu and then start a level ('map_name a10') in the same launch; 0 at once. |
 | `debug.benchmark_window_marker` | boolean | `false` | apple, desktop | `HALO_BENCHMARK_WINDOW_MARKER` | Show the measured benchmark window and a five-second countdown onscreen. |
 | `debug.benchmark_review_take` | boolean | `false` | apple, desktop | `HALO_BENCHMARK_REVIEW_TAKE` | In an onscreen benchmark replay, play the rest of the recorded input after the measured window closes. |
+| `debug.per_pixel_lighting_alternate` | boolean | `false` | apple, desktop | `HALO_PER_PIXEL_LIGHTING_ALTERNATE` | Light objects per pixel in odd frames only and per vertex in even ones, whatever display.per_pixel_lighting says: with the game paused, two frames in a row are the same picture lit both ways. |
 | `debug.fixed_timestep` | boolean | `false` | apple, desktop | `HALO_FIXED_TIMESTEP` | Advance the game's clock 1/30 s per frame, however long the frame took, so two runs show the same frames; debug.exit_after then counts seconds of game time, 30 frames each (600 = 18,000 frames). |
 | `debug.hidden_window` | boolean | `false` | desktop | `HALO_HIDDEN_WINDOW` | Keep the window hidden (and never fullscreen). |
 | `debug.null_renderer` | boolean | `false` | apple, desktop | `HALO_NULL_RENDERER` | Run without a window, drawing nothing. |
