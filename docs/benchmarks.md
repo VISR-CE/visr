@@ -4,7 +4,7 @@ We try to make these comparisons fair, but numbers or projects may be wrong or o
 
 Last measured: 2026-11-06.
 
-The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://code.steverice.org/visr/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
+The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://visr.gg/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
 ## Results
 

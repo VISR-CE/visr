@@ -75,7 +75,7 @@ def fact_block(kind: str, name: str, facts: dict) -> str:
     raise ValueError(f"Unknown facts block: {kind}: {name}")
 
 
-SITE_URL = "https://code.steverice.org/visr"
+SITE_URL = "https://visr.gg"
 PAGES = ("index",)
 
 NAV_ICONS = {"Get VISR": "download", "Vision Pro": "vision-pro", "iPhone": "iphone", "iPad": "ipad", "Apple TV": "apple-tv",

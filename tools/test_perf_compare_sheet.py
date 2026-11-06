@@ -580,7 +580,7 @@ def test_chart_palette_is_applied_to_every_spec_and_the_site_uses_the_icon_color
 def test_home_page_links_to_the_benchmarks_page_and_the_readme_to_its_site_address():
     assert 'href="benchmarks.html"' in (ROOT / "docs/site/index.html").read_text()
     readme = (ROOT / "README.md").read_text()
-    assert "(https://code.steverice.org/visr/benchmarks.html)" in readme and "docs/benchmarks.md" not in readme
+    assert "(https://visr.gg/benchmarks.html)" in readme and "docs/benchmarks.md" not in readme
 
 
 def test_pages_chart_script_fits_an_even_margin_and_draws_no_gridlines():
