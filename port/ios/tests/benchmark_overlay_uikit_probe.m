@@ -27,6 +27,7 @@ void host_benchmark_live(struct benchmark_live_snapshot *out) {
     out->fps = 60; out->cpu_ms = 4.0; out->gpu_ms = 6.0; out->cpu_available = out->gpu_available = 1;
 }
 int host_benchmark_finish_requested(void) { return finished; }
+void gpu_metal_frame_deadline_leave(void) {}
 void host_benchmark_request_finish(void) { finished = 1; }
 static void host_logf(int priority, const char *format, ...) {
     (void)priority;
