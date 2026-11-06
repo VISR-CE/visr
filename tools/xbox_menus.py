@@ -769,11 +769,12 @@ def browser_layout(root, widgets, bitmaps):
     # The Xbox's nine-row list needs a wider column for the PC browser's
     # five live fields. Keep the updater's row names and all its children.
     # Region ends 36 pixels before the cap, matching the Server Name inset.
-    # Players is wide enough for its title and the sort arrow after it.
+    # Players is wide enough for its title and the sort arrow at its edge
+    # (Map, whose long names are cut short anyway, gives up the room).
     columns = {'locked': (0, 16), 'dedicated': (16, 16),
-               'server_name': (36, 138), 'map': (178, 132),
-               'classic': (310, 10), 'type': (322, 62),
-               'players': (386, 68), 'ping': (458, 50)}
+               'server_name': (36, 138), 'map': (178, 124),
+               'classic': (302, 10), 'type': (314, 62),
+               'players': (378, 68), 'ping': (450, 58)}
     for c in list(rows.findall('child')):
         leaf = c.get('widget').rsplit('/', 1)[-1]
         if leaf.startswith('server_item_') and leaf[12:].isdigit():
