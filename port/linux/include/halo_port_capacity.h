@@ -25,14 +25,15 @@ window (0x80000000-0xA0000000, Android's to 0x88000000:
 port/linux/src/platform.h) and below everything the window hands out
 top-down (texture and sound caches, Direct3D resources).
 
-The CPU part holds about 17.2 MB of pools at the sizes below (the Xbox pools
+The CPU part holds about 17.7 MB of pools at the sizes below (the Xbox pools
 fill 3,165,260 of its 0x305000 bytes); the GPU part holds only the decal
-vertices, as on the Xbox. A change to a pool's size changes the game state's
+vertices, as on the Xbox, four times as many (HALO_PORT_DECAL_VERTEX_PAGES).
+A change to a pool's size changes the game state's
 layout: saved games of builds before it no longer load. */
 
 #define HALO_PORT_GAME_STATE_BASE_ADDRESS 0x81A00000 /* (0x80061000) */
 #define HALO_PORT_GAME_STATE_CPU_SIZE 0x13C0000 /* (0x305000) */
-#define HALO_PORT_GAME_STATE_GPU_SIZE 0x40000 /* (0x40000) */
+#define HALO_PORT_GAME_STATE_GPU_SIZE 0xA0000 /* (0x40000) */
 #define HALO_PORT_GAME_STATE_SIZE (HALO_PORT_GAME_STATE_CPU_SIZE+HALO_PORT_GAME_STATE_GPU_SIZE)
 
 /* What a saved game's contents mean, beyond what the game checks before loading one (the map,
@@ -125,6 +126,19 @@ without its widget */
 #define HALO_PORT_MAXIMUM_CONTRAIL_POINTS 8192 /* (1024) */
 #define HALO_PORT_MAXIMUM_LIGHTS_PER_MAP 4096 /* (896) */
 #define HALO_PORT_MAXIMUM_GAME_LOOPING_SOUNDS 4096 /* (1024) */
+
+/* ---------- decals
+
+Bullet holes, scorch marks and blood on the level: each decal's vertices take
+pages of 64 bytes in a cache in the game state's GPU part, and a new decal
+takes the place of the one least recently drawn when the decals or the pages
+run out. The pools hold four times the Xbox's; display.effect_limits "xbox"
+uses only the Xbox's share of them from the next map
+(rasterizer_xbox_decals.c), so the battle damage of a big fight stays */
+#define HALO_PORT_MAXIMUM_DECALS 8192 /* (2048) */
+#define HALO_PORT_DECAL_VERTEX_PAGES 10240 /* (2560) */
+#define HALO_PORT_XBOX_DECALS 2048
+#define HALO_PORT_XBOX_DECAL_VERTEX_PAGES 2560
 
 /* ---------- rasterizer
 

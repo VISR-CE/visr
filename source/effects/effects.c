@@ -2451,7 +2451,10 @@ static void effect_update(
 
 				effect->particle_counts[particle_index] = count;
 
-				if (count > MAXIMUM_SPLIT_SCREEN_PARTICLE_COUNT)
+				/* port: display.effect_limits "raised": every split-screen
+				player sees the effect's whole count (the particles are each
+				machine's own, made with the local random seed) */
+				if (count > MAXIMUM_SPLIT_SCREEN_PARTICLE_COUNT && !halo_effect_limits_raised())
 				{
 					effect->particle_counts[particle_index] = (byte)(long)
 						(((real)count - MAXIMUM_SPLIT_SCREEN_PARTICLE_COUNT) /

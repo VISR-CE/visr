@@ -198,9 +198,10 @@ enum
 
 enum
 {
-	MAXIMUM_DECALS_PER_MAP = 2048,
+	/* port: the native builds' larger decal pools (halo_port_capacity.h) */
+	MAXIMUM_DECALS_PER_MAP = HALO_PORT_MAXIMUM_DECALS,
 	DECAL_VERTEX_CACHE_PAGE_SIZE_BITS = 6,
-	DECAL_VERTEX_CACHE_PAGE_COUNT = 2560,
+	DECAL_VERTEX_CACHE_PAGE_COUNT = HALO_PORT_DECAL_VERTEX_PAGES,
 	DECAL_VERTEX_CACHE_SIZE = DECAL_VERTEX_CACHE_PAGE_COUNT << DECAL_VERTEX_CACHE_PAGE_SIZE_BITS
 };
 
@@ -391,9 +392,48 @@ void _rasterizer_decal_vertices_unlock(
 	return;
 }
 
+/* port: the decal vertex pages in use and the cache's pages (decals_update's log) */
+void rasterizer_decal_vertices_usage(
+	long *pages,
+	long *page_limit)
+{
+	struct data_iterator iterator;
+	struct lruv_cache_block *block;
+
+	*pages = 0;
+	*page_limit = local_vertex_cache ? local_vertex_cache->page_count : 0;
+	if (!local_vertex_cache)
+		return;
+	data_iterator_new(&iterator, local_vertex_cache->blocks);
+	while ((block = data_iterator_next(&iterator)) != NULL)
+		*pages += block->page_count;
+}
+
+/* port: display.effect_limits (halo_effect_limits_raised): "raised" uses
+the whole of the native builds' decal pools, "xbox" only the Xbox's share, so
+the decals of a long fight are kept or taken back as on the Xbox. The cache
+is empty between maps (_rasterizer_decals_dispose_from_old_map), so its
+blocks and pages are set again there: every block slot is cleared at the
+full size before the smaller one is set */
 void _rasterizer_decals_initialize_for_new_map(
 	void)
 {
+	boolean raised = halo_effect_limits_raised();
+	struct data_array *blocks;
+
+	match_assert(
+		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_decals.c",
+		0,
+		local_vertex_cache);
+	blocks = local_vertex_cache->blocks;
+	lruv_flush(local_vertex_cache);
+	local_vertex_cache->first_block_index = NONE;
+	local_vertex_cache->last_block_index = NONE;
+	blocks->maximum_count = MAXIMUM_DECALS_PER_MAP;
+	data_delete_all(blocks);
+	blocks->maximum_count = raised ? MAXIMUM_DECALS_PER_MAP : HALO_PORT_XBOX_DECALS;
+	local_vertex_cache->page_count = raised ? DECAL_VERTEX_CACHE_PAGE_COUNT : HALO_PORT_XBOX_DECAL_VERTEX_PAGES;
+
 	return;
 }
 

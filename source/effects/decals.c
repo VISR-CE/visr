@@ -244,7 +244,8 @@ symbols in this file:
 enum
 {
 	NUMBER_OF_DECAL_LAYERS = 5,
-	MAXIMUM_DECALS_PER_MAP = 2048,
+	/* port: the native builds' larger decal pool (halo_port_capacity.h) */
+	MAXIMUM_DECALS_PER_MAP = HALO_PORT_MAXIMUM_DECALS,
 	MAXIMUM_DECAL_VERTICES = 1024,
 	MAXIMUM_DECAL_SURFACE_QUEUE_SIZE = 1024
 };
@@ -271,6 +272,12 @@ enum
 /* ---------- macros */
 
 #define DECAL_GET(index) ((struct decal_datum *)datum_get(global_decal_data, (index)))
+/* the platform layer's (port/linux/src/platform.h) */
+void platform_log(const char *format, ...);
+/* port: rasterizer_xbox_decals.c's */
+void rasterizer_decal_vertices_usage(long *pages, long *page_limit);
+/* port: display.effect_limits' share of the native builds' decals */
+#define DECAL_LOCKED_SCALE() (halo_effect_limits_raised() ? HALO_PORT_MAXIMUM_DECALS / HALO_PORT_XBOX_DECALS : 1)
 
 /* ---------- structures */
 
@@ -860,6 +867,16 @@ void decals_update(
 		while (data_iterator_next(&iterator))
 		{
 			decal_update(iterator.datum_index);
+		}
+
+		/* port: display.effect_limits' evidence, every 20 seconds of play */
+		if (!(game_time_get() % 600))
+		{
+			long pages = 0, page_limit = 0;
+
+			rasterizer_decal_vertices_usage(&pages, &page_limit);
+			platform_log("decals: %d (%d locked), vertex pages %ld of %ld", global_decal_data->actual_count,
+				(int)decal_globals->locked_count, pages, page_limit);
 		}
 	}
 
@@ -2478,12 +2495,15 @@ static long decal_insert(
 			new_decal->flags = FLAG(_decal_locked_bit);
 			decal_globals->locked_count++;
 
-			if (decal_globals->locked_count > 512)
+			/* port: the locked decals (kept from the cache's reuse until their
+			lifetime ends) in proportion to the decals display.effect_limits
+			allows: 512, unlocked to 256, of the Xbox's 2048 */
+			if (decal_globals->locked_count > 512 * DECAL_LOCKED_SCALE())
 			{
 				short restart_count = 0;
 
 				data_iterator_new(&iterator, global_decal_data);
-				while (decal_globals->locked_count > 256)
+				while (decal_globals->locked_count > 256 * DECAL_LOCKED_SCALE())
 				{
 					struct decal_datum *decal = data_iterator_next(&iterator);
 

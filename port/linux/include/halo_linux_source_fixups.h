@@ -114,6 +114,10 @@ moves a frame (port/linux/src/xbox_kernel.c) */
 void platform_clock_unpresented_frame(void);
 /* an offscreen benchmark lead-in's frames that draw nothing (port/linux/src/benchmark_suite.c) */
 int benchmark_suite_skips_drawing(void);
+/* display.effect_limits (port/linux/src/port_config.c): TRUE ("raised") for
+the native builds' larger decal pools and every split-screen player's whole
+share of an effect's particles; FALSE ("xbox") for the Xbox's */
+unsigned char halo_effect_limits_raised(void);
 /* the mouse in the menus (source/interface/ui_widget.c) */
 #include "halo_ui_pointer.h"
 /* the frame's stereo state: source/render/render.c renders each eye and the

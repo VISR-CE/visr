@@ -183,6 +183,12 @@ static const struct config_setting config_settings[] =
 		"Device-profile cap on specular lights among the level's selected dynamic\n"
 		"lights, 0 to 128. Zero keeps all selected lights' highlights. First-person\n"
 		"weapon lights are always retained. Object lighting is unchanged." },
+	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
+		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
+		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"
+		"four times the Xbox's decals and every player the effect's whole count;\n"
+		"\"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change\n"
+		"at the next map. Drawing only: the game plays the same." },
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
@@ -972,6 +978,12 @@ static const struct config_setting config_settings[] =
 	{ "game.loading_screen_seconds", _config_real, "1.5", "HALO_LOADING_SCREEN_SECONDS", _environment_value, _platform_all,
 		"The least time the loading screen stays up, in seconds (0 to 30), so a\n"
 		"level that is ready at once doesn't flash it." },
+	{ "game.garbage_limit", _config_string, "\"raised\"", "HALO_GARBAGE_LIMIT", _environment_value, _platform_all,
+		"How many bodies and dropped weapons a game keeps before the ones no player\n"
+		"sees are removed: \"raised\" (default) four times the Xbox's in a game on\n"
+		"this device alone, the Xbox's in a network game and while an input\n"
+		"recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for\n"
+		"16 players)." },
 	{ "game.enhanced_animations", _config_boolean, "true", "HALO_ENHANCED_ANIMATIONS", _environment_value, _platform_all,
 		"The player bipeds' grenade throws keep their legs moving (crouched,\n"
 		"in the air and in a vehicle's seat too), riders' hands leave the grips\n"
@@ -4396,4 +4408,12 @@ const char *config_string(const char *name)
 	const char *string = config_value(name, _config_string)->string;
 
 	return string ? string : "";
+}
+
+/* display.effect_limits (halo_linux_source_fixups.h): anything but "xbox" raises them */
+unsigned char halo_effect_limits_raised(void)
+{
+	const char *limits = config_string("display.effect_limits");
+
+	return !limits || strcmp(limits, "xbox") != 0;
 }

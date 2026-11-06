@@ -184,6 +184,17 @@
             "desktop"
           ]
         },
+        "effect_limits": {
+          "type": "string",
+          "default": "raised",
+          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same.",
+          "x-environment": "HALO_EFFECT_LIMITS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_map_size": {
           "type": "integer",
           "default": 128,
@@ -4057,6 +4068,17 @@
           "default": 1.5,
           "description": "The least time the loading screen stays up, in seconds (0 to 30), so a level that is ready at once doesn't flash it.",
           "x-environment": "HALO_LOADING_SCREEN_SECONDS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "garbage_limit": {
+          "type": "string",
+          "default": "raised",
+          "description": "How many bodies and dropped weapons a game keeps before the ones no player sees are removed: \"raised\" (default) four times the Xbox's in a game on this device alone, the Xbox's in a network game and while an input recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for 16 players).",
+          "x-environment": "HALO_GARBAGE_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

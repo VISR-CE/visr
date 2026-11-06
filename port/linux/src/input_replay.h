@@ -21,6 +21,8 @@ unsigned char input_replay_controls_facing(short local_player_index);
 unsigned char input_replay_action_camera_active(void);
 /* A loaded input recording owns simulation; preserve its original damage rules. */
 unsigned char input_replay_playing(void);
+/* An input recording is made (or set to be): the game keeps to what its replay can repeat. */
+unsigned char input_replay_recording(void);
 /* Effective animation mode only while a validated replay owns simulation. */
 int input_replay_enhanced_animations(int configured);
 int input_replay_suite_suspend(void);

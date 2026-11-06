@@ -1322,6 +1322,13 @@ unsigned char input_replay_playing(void)
 	return replay.state_count != 0 || replay.action_count != 0;
 }
 
+/* whether an input recording is being made, or will be (debug.input_record): the game keeps to what a replay of it
+can repeat (objects.c's game.garbage_limit) */
+unsigned char input_replay_recording(void)
+{
+	return !replay.record_ended && (*replay.record_path || *replay.record_actions_path);
+}
+
 /* whether a replay is under way: its sounds play, but the mixer sets nothing the simulation reads (a unit's mouth,
 game_sound_set_mouth_aperture) */
 unsigned char input_replay_mixer_detached(void)
