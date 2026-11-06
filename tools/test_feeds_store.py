@@ -18,8 +18,60 @@ import pytest
 
 from tools import feeds_store as store
 from tools import release_validation as validation
+from tools import visr_feeds_tree
 
 ROOT = Path(__file__).resolve().parents[1]
+overlay = store.overlay
+SHADER = "docs/site/packs/tester/shaders.json"
+RECORDING = "docs/site/packs/tester/recordings.json"
+RECORDING_060 = (
+    "docs/site/packs/tester/recordings-"
+    "28b14010a886a159afff1bec13ec7f516b5235f270934906f15ff59ff10b0fd1.json"
+)
+RECORDING_061 = (
+    "docs/site/packs/tester/recordings-"
+    "c7fe63a3433bb5ef215fbd498679caf5688f56663b65879d496d39981f482b91.json"
+)
+RECORDING_062 = (
+    "docs/site/packs/tester/recordings-"
+    "36970174a94fd63fb36d43dadf6011911db23fb49f68291beca46b4d71963c0f.json"
+)
+RECORDING_063 = (
+    "docs/site/packs/tester/recordings-"
+    "c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json"
+)
+RECORDING_065 = (
+    "docs/site/packs/tester/recordings-"
+    "cd6918f423702083087fddf32473d31340014fb565fd96c90b995dddf43cd350.json"
+)
+RECORDING_066 = (
+    "docs/site/packs/tester/recordings-"
+    "af40aee1ede971d28a67d3532084184f8192ea9bb887978807e17a63d3ebe5b1.json"
+)
+RECORDING_068 = (
+    "docs/site/packs/tester/recordings-"
+    "884e797b336ee160a71955d02fff76cedf57a42826f369b4636920ca311832b5.json"
+)
+RECORDING_0611 = (
+    "docs/site/packs/tester/recordings-"
+    "67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437.json"
+)
+RECORDING_0612 = (
+    "docs/site/packs/tester/recordings-"
+    "814ba59a492ffc4b5aaa1a7d03429f5017ba18aad19b6427e1c1b86b77d33e37.json"
+)
+RECORDING_0610 = (
+    "docs/site/packs/tester/recordings-"
+    "73c231e484545195f01d5b86454e8ff6b933b2da5f455adc0d16b8a8ede53edd.json"
+)
+RECORDING_069 = (
+    "docs/site/packs/tester/recordings-"
+    "ef68cbd68ddaf5e4bb038488a8521ee381ae44f7653e020e0b0325ceb81da5df.json"
+)
+RECORDING_067 = (
+    "docs/site/packs/tester/recordings-"
+    "3b35b4be4f2faa36c7e10fb4e340a5f5d8f599d0290cee5a9b251e7ff8a6c107.json"
+)
 
 
 class Host:
@@ -76,8 +128,14 @@ def host():
 
 
 @pytest.fixture(scope="module")
-def checked_in():
-    return store.checked_in_items()
+def feeds_tree():
+    """The pinned steverice/visr-feeds tree, every file (tools/visr_feeds_tree.py)."""
+    return visr_feeds_tree.feeds_tree(full=True)
+
+
+@pytest.fixture(scope="module")
+def checked_in(feeds_tree):
+    return store.items_from(feeds_tree)
 
 
 def synthetic() -> list[store.Item]:
@@ -125,9 +183,9 @@ def test_only_what_the_bucket_lacks_is_uploaded():
     assert [entry.key for entry in store.plan(items, live)] == ["tester/shaders.json"]
 
 
-def test_the_checked_in_tree_mirrors_the_pages_receipt(checked_in):
+def test_the_feeds_tree_mirrors_its_receipt(checked_in, feeds_tree):
     keys = {entry.key for entry in checked_in}
-    receipt = json.loads((ROOT / "docs/site/packs/tester/publication.json").read_bytes())["assets"]
+    receipt = json.loads((feeds_tree / "tester/publication.json").read_bytes())["assets"]
     assert {store.key_for(path) for path in receipt} | {"tester/publication.json", "tester/publication-format.txt"} <= keys
     assert all(key.startswith(("tester/", "staging/")) for key in keys)
     staging = [entry for entry in checked_in if entry.key == store.STAGING_RECEIPT]
@@ -290,22 +348,22 @@ def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path)
     try:
         profile, shaders, recording, compatibility = check.release_urls(tmp_path / "bucket")
     except check.Stale:
-        pytest.skip("this checkout's docs/site predates its release policy (a release branch)")
+        pytest.skip("the pinned feeds tree predates this checkout's release policy")
     assert all(url.startswith("https://feeds.visr.gg/tester/") for url in (profile, shaders, recording))
     assert (tmp_path / "bucket" / check.key_of(recording)).is_file()
     assert re.fullmatch(r"benchmark-catalog-[12]:[0-9a-f]{64}", compatibility)
 
 
-def test_the_host_check_stages_mains_packs_as_they_are(tmp_path):
+def test_the_host_check_stages_the_feeds_tree_as_it_is(tmp_path, feeds_tree):
     from tools import feeds_host_check as check
 
-    check.copy_packs(ROOT / "docs/site/packs", tmp_path / "bucket")
+    check.copy_packs(feeds_tree, tmp_path / "bucket")
     receipt = json.loads((tmp_path / "bucket/tester/publication.json").read_bytes())["assets"]
     for path, digest in receipt.items():
         assert hashlib.sha256((tmp_path / "bucket" / store.key_for(path)).read_bytes()).hexdigest() == digest
     with pytest.raises(check.Stale):
         check.release_urls(tmp_path / "empty")
-    with pytest.raises(ValueError, match="packs folder"):
+    with pytest.raises(ValueError, match="feeds tree"):
         check.copy_packs(tmp_path / "nothing", tmp_path / "other")
 
 
@@ -393,6 +451,70 @@ def test_the_record_script_commits_once_and_never_forces(tmp_path):
 def envelope(compatibility: str, sequence: int, note: str = "") -> bytes:
     manifest = json.dumps({"compatibility": compatibility, "sequence": sequence, "note": note}).encode()
     return json.dumps({"manifest": base64.b64encode(manifest).decode(), "payload": "", "signature": ""}).encode()
+
+
+def test_the_pinned_feeds_hold_every_release_exactly(feeds_tree):
+    with store.tree_root(feeds_tree):
+        assets = overlay.checked_in_assets()
+        receipt = overlay.parse_receipt((feeds_tree / "tester/publication.json").read_bytes())
+    profiles = [path for path in assets if "/profiles/" in path]
+    recordings = [path for path in assets if "recordings" in Path(path).name]
+    assert len(profiles) == 20
+    assert not [path for path in assets if "/device-profiles-2/" in path]
+    assert len([path for path in assets if "/device-profiles-3/" in path]) == 56
+    assert len([path for path in assets if "/device-profiles-4/" in path]) == 56
+    assert len(recordings) == 14
+    assert set(assets) == set(receipt)
+    assert hashlib.sha256(assets[RECORDING]).hexdigest() == (
+        "8977e0e49588399d1c0f867d98f955b8a815b0c05e7463df2d1e92ae3ba64d89"
+    )
+    assert hashlib.sha256(assets[RECORDING_060]).hexdigest() == (
+        "4ef803888532401d66d132d2963ac9ff8ef9cef017fd0769f576452b38b7f5b4"
+    )
+    assert hashlib.sha256(assets[RECORDING_061]).hexdigest() == (
+        "b0f48ea1d1eeb77f8872d9fd0149e2e40e1d93913727a3dce4e000aa8b4d363d"
+    )
+    assert hashlib.sha256(assets[RECORDING_062]).hexdigest() == (
+        "be6dddab12c382837eb40090e1cbaa3d614736cffef5de68ccf0981b526e516f"
+    )
+    assert hashlib.sha256(assets[RECORDING_063]).hexdigest() == (
+        "e12d281950aa9d212e61fc8e934ddf8c32fdedfd0e1913918b3ecf8fc39cfc03"
+    )
+    assert hashlib.sha256(assets[RECORDING_065]).hexdigest() == (
+        "549bd0661c3f370a89fa48e9e81b9b462c1692fffbe8ae29b38f98d5bf1cad79"
+    )
+    assert hashlib.sha256(assets[RECORDING_066]).hexdigest() == (
+        "09d805fb76aed3d5c03e40e61bb5e186f28604aea8b5db9620c04e3ddb7ed027"
+    )
+    assert hashlib.sha256(assets[RECORDING_068]).hexdigest() == (
+        "e56ffa8cb6758eb9ead55e8ec6bbee5bc74be21dc0947462d2c5d6c3f2dcd99d"
+    )
+    assert hashlib.sha256(assets[RECORDING_0610]).hexdigest() == (
+        "e833453029389f5e4dd768dcb388f42f63a140a69b542793dd8846e8a76ebaeb"
+    )
+    assert hashlib.sha256(assets[RECORDING_0611]).hexdigest() == (
+        "92274608883049fccd316c54367ad0e883688eb3bf141950c0e1246482d83a7b"
+    )
+    assert hashlib.sha256(assets[RECORDING_0612]).hexdigest() == (
+        "b2ff82f8443e45e2b97e7c2be945885cd9a14e508ebaecf6e59ad2ce7df1363f"
+    )
+    assert hashlib.sha256(assets[RECORDING_069]).hexdigest() == (
+        "fae46709054e8da3e6a9bc68ed0259ae0760236d5c21f47729cbc965faead291"
+    )
+    assert hashlib.sha256(assets[RECORDING_067]).hexdigest() == (
+        "f9ada51d7285787a4615635274999a50647f635256a727f578eaf86274278ced"
+    )
+    envelope = json.loads(assets[SHADER])
+    manifest = overlay.validation.packs.decode_json(
+        overlay.validation.packs.decode_base64(envelope["manifest"], 65536)
+    )
+    payload = overlay.validation.packs.decode_json(
+        overlay.validation.packs.decode_base64(envelope["payload"], 16 * 1024 * 1024)
+    )
+    assert manifest["sequence"] == 1793945199
+    assert manifest["compatibility"] == "shader-lists-2"
+    assert len(payload["files"]) == 24
+    assert "b40.txt" in payload["files"]
 
 
 def test_every_live_envelope_is_checked_even_when_no_receipt_names_it(checked_in, host, monkeypatch):

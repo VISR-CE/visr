@@ -288,7 +288,7 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="tes
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'profile-feed-probe')
-run(BUILD / 'profile-feed-probe', ROOT,
+run(BUILD / 'profile-feed-probe', ROOT, feeds_tree / 'tester/profiles',
     re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
     probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json',
     BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
@@ -311,7 +311,10 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Wall', '-Wextra',
     '-o', BUILD / 'recording-download-probe')
 run(BUILD / 'recording-download-probe', recording_archive)
 # the published catalog-2 feed expands, through the real store and catalog loader, to the catalog-1 files byte for byte
-published = ROOT / 'docs/site/packs/tester'
+# (the published feeds are the steverice/visr-feeds commit tools/visr-feeds.pin names, fetched by tools/visr_feeds_tree.py)
+feeds_tree = Path(subprocess.run(
+    ['python3', 'tools/visr_feeds_tree.py', '--extra', 'tester/recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'], check=True, capture_output=True, text=True, cwd=ROOT).stdout.strip())
+published = feeds_tree / 'tester'
 published_feed = published / 'recordings-2-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'
 published_originals = BUILD / 'recording-catalog-originals'
 shutil.rmtree(published_originals, ignore_errors=True)

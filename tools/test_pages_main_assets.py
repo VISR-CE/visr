@@ -22,54 +22,6 @@ RECORDING_SECOND = (
     "docs/site/packs/tester/recordings-"
     "6c831c00ef902ff90589f77cd834291dfde17dcec189cd3bdff22fd168f3334e.json"
 )
-RECORDING_060 = (
-    "docs/site/packs/tester/recordings-"
-    "28b14010a886a159afff1bec13ec7f516b5235f270934906f15ff59ff10b0fd1.json"
-)
-RECORDING_061 = (
-    "docs/site/packs/tester/recordings-"
-    "c7fe63a3433bb5ef215fbd498679caf5688f56663b65879d496d39981f482b91.json"
-)
-RECORDING_062 = (
-    "docs/site/packs/tester/recordings-"
-    "36970174a94fd63fb36d43dadf6011911db23fb49f68291beca46b4d71963c0f.json"
-)
-RECORDING_063 = (
-    "docs/site/packs/tester/recordings-"
-    "c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json"
-)
-RECORDING_065 = (
-    "docs/site/packs/tester/recordings-"
-    "cd6918f423702083087fddf32473d31340014fb565fd96c90b995dddf43cd350.json"
-)
-RECORDING_066 = (
-    "docs/site/packs/tester/recordings-"
-    "af40aee1ede971d28a67d3532084184f8192ea9bb887978807e17a63d3ebe5b1.json"
-)
-RECORDING_068 = (
-    "docs/site/packs/tester/recordings-"
-    "884e797b336ee160a71955d02fff76cedf57a42826f369b4636920ca311832b5.json"
-)
-RECORDING_0611 = (
-    "docs/site/packs/tester/recordings-"
-    "67c55749538c7f6d52151bd9d5025dea4959ba0374108828f7917cf6fd0c0437.json"
-)
-RECORDING_0612 = (
-    "docs/site/packs/tester/recordings-"
-    "814ba59a492ffc4b5aaa1a7d03429f5017ba18aad19b6427e1c1b86b77d33e37.json"
-)
-RECORDING_0610 = (
-    "docs/site/packs/tester/recordings-"
-    "73c231e484545195f01d5b86454e8ff6b933b2da5f455adc0d16b8a8ede53edd.json"
-)
-RECORDING_069 = (
-    "docs/site/packs/tester/recordings-"
-    "ef68cbd68ddaf5e4bb038488a8521ee381ae44f7653e020e0b0325ceb81da5df.json"
-)
-RECORDING_067 = (
-    "docs/site/packs/tester/recordings-"
-    "3b35b4be4f2faa36c7e10fb4e340a5f5d8f599d0290cee5a9b251e7ff8a6c107.json"
-)
 RECEIPT = "docs/site/packs/tester/publication.json"
 MARKER = "docs/site/packs/tester/publication-format.txt"
 
@@ -228,84 +180,6 @@ def test_workflow_has_no_alternate_asset_inputs_or_live_fetch():
     assert "--recording-commit" not in workflow
     assert "RECORDING_COMMIT" not in workflow
     assert "ASSET_COMMIT" not in workflow
-
-
-def test_current_release_assets_are_checked_in_and_exact():
-    root = Path(__file__).resolve().parents[1]
-    assets = overlay.checked_in_assets()
-    profiles = [path for path in assets if "/profiles/" in path]
-    recordings = [path for path in assets if "recordings" in Path(path).name]
-    assert len(profiles) == 20
-    assert not [path for path in assets if "/device-profiles-2/" in path]
-    assert len([path for path in assets if "/device-profiles-3/" in path]) == 56
-    assert len([path for path in assets if "/device-profiles-4/" in path]) == 56
-    assert len(recordings) == 14
-    assert set(assets) == set(overlay.parse_receipt((root / RECEIPT).read_bytes()))
-    assert hashlib.sha256(assets[RECORDING]).hexdigest() == (
-        "8977e0e49588399d1c0f867d98f955b8a815b0c05e7463df2d1e92ae3ba64d89"
-    )
-    assert hashlib.sha256(assets[RECORDING_060]).hexdigest() == (
-        "4ef803888532401d66d132d2963ac9ff8ef9cef017fd0769f576452b38b7f5b4"
-    )
-    assert hashlib.sha256(assets[RECORDING_061]).hexdigest() == (
-        "b0f48ea1d1eeb77f8872d9fd0149e2e40e1d93913727a3dce4e000aa8b4d363d"
-    )
-    assert hashlib.sha256(assets[RECORDING_062]).hexdigest() == (
-        "be6dddab12c382837eb40090e1cbaa3d614736cffef5de68ccf0981b526e516f"
-    )
-    assert hashlib.sha256(assets[RECORDING_063]).hexdigest() == (
-        "e12d281950aa9d212e61fc8e934ddf8c32fdedfd0e1913918b3ecf8fc39cfc03"
-    )
-    assert hashlib.sha256(assets[RECORDING_065]).hexdigest() == (
-        "549bd0661c3f370a89fa48e9e81b9b462c1692fffbe8ae29b38f98d5bf1cad79"
-    )
-    assert hashlib.sha256(assets[RECORDING_066]).hexdigest() == (
-        "09d805fb76aed3d5c03e40e61bb5e186f28604aea8b5db9620c04e3ddb7ed027"
-    )
-    assert hashlib.sha256(assets[RECORDING_068]).hexdigest() == (
-        "e56ffa8cb6758eb9ead55e8ec6bbee5bc74be21dc0947462d2c5d6c3f2dcd99d"
-    )
-    assert hashlib.sha256(assets[RECORDING_0610]).hexdigest() == (
-        "e833453029389f5e4dd768dcb388f42f63a140a69b542793dd8846e8a76ebaeb"
-    )
-    assert hashlib.sha256(assets[RECORDING_0611]).hexdigest() == (
-        "92274608883049fccd316c54367ad0e883688eb3bf141950c0e1246482d83a7b"
-    )
-    assert hashlib.sha256(assets[RECORDING_0612]).hexdigest() == (
-        "b2ff82f8443e45e2b97e7c2be945885cd9a14e508ebaecf6e59ad2ce7df1363f"
-    )
-    assert hashlib.sha256(assets[RECORDING_069]).hexdigest() == (
-        "fae46709054e8da3e6a9bc68ed0259ae0760236d5c21f47729cbc965faead291"
-    )
-    assert hashlib.sha256(assets[RECORDING_067]).hexdigest() == (
-        "f9ada51d7285787a4615635274999a50647f635256a727f578eaf86274278ced"
-    )
-    envelope = json.loads(assets[SHADER])
-    manifest = overlay.validation.packs.decode_json(
-        overlay.validation.packs.decode_base64(envelope["manifest"], 65536)
-    )
-    payload = overlay.validation.packs.decode_json(
-        overlay.validation.packs.decode_base64(envelope["payload"], 16 * 1024 * 1024)
-    )
-    assert manifest["sequence"] == 1793945199
-    assert manifest["compatibility"] == "shader-lists-2"
-    assert len(payload["files"]) == 24
-    assert "b40.txt" in payload["files"]
-
-
-def test_actual_main_site_stages_exact_checked_in_assets_without_network(tmp_path, monkeypatch):
-    monkeypatch.setattr(overlay, "trusted_source", lambda: "f" * 40)
-    monkeypatch.setattr(overlay, "fetch", lambda *_args, **_kwargs: pytest.fail("network fetch used"))
-    monkeypatch.setattr(overlay, "live_assets", lambda: pytest.fail("live overlay used"))
-    monkeypatch.setattr(overlay, "candidate_assets", lambda *_args: pytest.fail("commit overlay used"))
-    destination = tmp_path / "build/pages"
-
-    overlay.stage_main_site(destination=destination)
-
-    for name, expected in overlay.checked_in_assets().items():
-        staged = destination / Path(name).relative_to("docs/site")
-        assert hashlib.sha256(staged.read_bytes()).hexdigest() == hashlib.sha256(expected).hexdigest()
-    assert (destination / "index.html").read_bytes() == (Path(__file__).resolve().parents[1] / "docs/site/index.html").read_bytes()
 
 
 def test_dry_run_validates_outside_the_workflow_and_stages_nothing(tmp_path, monkeypatch, capsys):

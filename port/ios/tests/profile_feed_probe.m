@@ -2,8 +2,8 @@
    key, network.player_capacity included, with a stale device-profiles-1 shard on disk, with a current
    device-profiles-4 shard, and after an update makes a cached shard older than its bundled profiles; an Apple TV 4K
    (3rd generation) likewise keeps display.upscaled_textures on, which its live device-profiles-1 shard turns off.
-   Usage: profile-feed-probe REPOSITORY V1_PUBLIC_KEY V2_PUBLIC_KEY V2_IPHONE_SHARD V2_APPLE_TV_SHARD
-   (the device-profiles-1 shards are the live ones checked in under docs/site/packs/tester/profiles) */
+   Usage: profile-feed-probe REPOSITORY LIVE_PROFILES V1_PUBLIC_KEY V2_PUBLIC_KEY V2_IPHONE_SHARD V2_APPLE_TV_SHARD
+   (LIVE_PROFILES is tester/profiles of a steverice/visr-feeds checkout: the live device-profiles-1 shards) */
 #import "../host/host_data_updates.m"
 #include <stdarg.h>
 #import <objc/runtime.h>
@@ -83,8 +83,8 @@ static void writeRevision(NSString *profiles, long long revision)
 int main(int argc, char **argv)
 {
     @autoreleasepool {
-        if (argc != 6 && argc != 7) { fprintf(stderr, "usage: %s REPOSITORY V1_KEY V3_KEY V3_IPHONE_SHARD V3_APPLE_TV_SHARD [V3_APPLE_TV_UPSCALING_OFF_SHARD]\n", argv[0]); return 2; }
-        NSString *live = [@(argv[1]) stringByAppendingPathComponent:@"docs/site/packs/tester/profiles"];
+        if (argc != 7 && argc != 8) { fprintf(stderr, "usage: %s REPOSITORY LIVE_PROFILES V1_KEY V3_KEY V3_IPHONE_SHARD V3_APPLE_TV_SHARD [V3_APPLE_TV_UPSCALING_OFF_SHARD]\n", argv[0]); return 2; }
+        NSString *live = @(argv[2]);
         NSFileManager *fm = NSFileManager.defaultManager;
         NSString *base = [NSTemporaryDirectory() stringByAppendingPathComponent:NSUUID.UUID.UUIDString];
         NSString *bundled = [base stringByAppendingPathComponent:@"Resources/profiles"];
@@ -98,38 +98,38 @@ int main(int argc, char **argv)
 
         // Apple TV 4K (3rd generation): its live device-profiles-1 shard predates upscaled textures there.
         struct host_device tv = appleTV();
-        if (argc == 7) {
+        if (argc == 8) {
             // A downloaded shard decides the upscaling gate of the launch it is used in: the look before the launch menu
             // reads it from disk (no store opened, nothing written), here a shard that turns upscaled textures off.
             dataPackCacheOverride = [base stringByAppendingPathComponent:@"Caches-peek"];
-            dataPackKeyOverride = publicKey(@(argv[3]));
+            dataPackKeyOverride = publicKey(@(argv[4]));
             CHECK([[profileStore(bundled, tv) beginLaunch] isEqual:bundled] && [upscaling(bundled) isEqual:@"true"], "the bundled profiles upscale on the Apple TV 4K (3rd generation)");
-            CHECK([profileStore(bundled, tv) stageEnvelope:[NSData dataWithContentsOfFile:@(argv[6])] error:&error], "a shard turning upscaled textures off stages");
+            CHECK([profileStore(bundled, tv) stageEnvelope:[NSData dataWithContentsOfFile:@(argv[7])] error:&error], "a shard turning upscaled textures off stages");
             [HostDataPackStore forgetSharedStores];
             NSString *peeked = host_profile_peek_folder(bundled, &tv);
             CHECK(![peeked isEqual:bundled] && [upscaling(peeked) isEqual:@"false"], "the next launch's look before the menu reads that shard: upscaled textures off");
             dataPackCacheOverride = [base stringByAppendingPathComponent:@"Caches"];
         }
         CHECK([upscaling(bundled) isEqual:@"true"], "the bundled profiles turn upscaled textures on for the Apple TV 4K (3rd generation)");
-        dataPackKeyOverride = publicKey(@(argv[2]));
+        dataPackKeyOverride = publicKey(@(argv[3]));
         HostDataPackStore *tvOld = generationOne(bundled, tv);
         CHECK([tvOld stageEnvelope:[NSData dataWithContentsOfFile:[live stringByAppendingPathComponent:@"tvos/AppleTV14,1/_.json"]] error:&error],
             "the Apple TV's live device-profiles-1 shard stages as it did on 0.5.1");
         NSString *tvOldFolder = [tvOld beginLaunch]; [tvOld markHealthy];
         CHECK(![tvOldFolder isEqual:bundled] && ![upscaling(tvOldFolder) isEqual:@"true"], "resolving that shard leaves upscaled textures off");
-        dataPackKeyOverride = publicKey(@(argv[3]));
+        dataPackKeyOverride = publicKey(@(argv[4]));
         HostDataPackStore *tvCurrent = profileStore(bundled, tv);
         NSString *tvLaunch = [tvCurrent beginLaunch];
         CHECK([fm fileExistsAtPath:tvOldFolder] && [tvLaunch isEqual:bundled] && [upscaling(tvLaunch) isEqual:@"true"],
             "0.6.0 on the Apple TV ignores the stored v1 shard and keeps upscaled textures on");
-        CHECK([tvCurrent stageEnvelope:[NSData dataWithContentsOfFile:@(argv[5])] error:&error], "the Apple TV's device-profiles-4 shard stages");
+        CHECK([tvCurrent stageEnvelope:[NSData dataWithContentsOfFile:@(argv[6])] error:&error], "the Apple TV's device-profiles-4 shard stages");
         NSString *tvNext = [profileStore(bundled, tv) beginLaunch];
         CHECK(![tvNext isEqual:bundled] && [upscaling(tvNext) isEqual:@"true"], "the Apple TV's v2 shard keeps upscaled textures on");
 
         struct host_device d = phone();
 
         // 0.5.1 left its live device-profiles-1 shard active in the cache: the audit's masking.
-        dataPackKeyOverride = publicKey(@(argv[2]));
+        dataPackKeyOverride = publicKey(@(argv[3]));
         HostDataPackStore *old = generationOne(bundled, d);
         CHECK([old stageEnvelope:[NSData dataWithContentsOfFile:[live stringByAppendingPathComponent:@"ios/iPhone18,1/_.json"]] error:&error],
             "the live device-profiles-1 shard stages as it did on 0.5.1");
@@ -137,14 +137,14 @@ int main(int argc, char **argv)
         CHECK(![oldFolder isEqual:bundled] && !capacity(oldFolder), "resolving the live v1 shard loses network.player_capacity (the 0.5.1 bug)");
 
         // 0.6.0 on the same device: a new store for its own generation, the v1 shard still on disk.
-        dataPackKeyOverride = publicKey(@(argv[3]));
+        dataPackKeyOverride = publicKey(@(argv[4]));
         HostDataPackStore *current = profileStore(bundled, d);
         NSString *launch = [current beginLaunch];
         CHECK([fm fileExistsAtPath:oldFolder], "the stale v1 shard is still on disk");
         CHECK([launch isEqual:bundled] && [capacity(launch) isEqual:@"128"], "0.6.0 ignores the v1 shard and keeps network.player_capacity 128");
 
         // A device-profiles-4 shard signed from these sources stages, activates and keeps every key.
-        NSData *v2 = [NSData dataWithContentsOfFile:@(argv[4])];
+        NSData *v2 = [NSData dataWithContentsOfFile:@(argv[5])];
         CHECK([current stageEnvelope:v2 error:&error] && !current.lastFeedSuperseded, "the device-profiles-4 shard at the bundled revision stages");
         HostDataPackStore *next = profileStore(bundled, d);
         NSString *v2Folder = [next beginLaunch]; [next markHealthy];

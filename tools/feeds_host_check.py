@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Prove a build reads every feed from feeds.visr.gg: stage the bucket's tree (the checked-in docs/site/packs files
-under the keys tools/feeds_store.py uploads them to), serve it on this machine, and run
+"""Prove a build reads every feed from feeds.visr.gg: stage the bucket's tree (a steverice/visr-feeds checkout, whose
+layout is the bucket's), serve it on this machine, and run
 port/ios/tests/feeds_host_probe.m against it with the build's key and URLs.
 
 The URLs are the ones a release from this source gets: the current release policy moved to feeds.visr.gg
@@ -8,10 +8,10 @@ The URLs are the ones a release from this source gets: the current release polic
 not compared here. The recording feed is the one in the format this source's app reads. Development builds' defaults
 must name the same host.
 
-The bucket is always published from main. A release branch keeps an older docs/site, so on one, pass main's
-docs/site/packs, or a steverice/visr-feeds checkout, with --packs (Pages, the record and the bucket hold the same
-bytes). Without --packs, a checkout whose tree predates its release policy is reported and skipped.
-Usage: feeds_host_check.py FEEDS_HOST_PROBE [--packs MAIN/docs/site/packs | VISR_FEEDS_CHECKOUT]
+Without --packs the tree is the one tools/visr_feeds_tree.py returns: the commit pinned in tools/visr-feeds.pin, or the
+checkout in VISR_FEEDS_TREE. A checkout whose release policy is newer than the tree is reported and skipped; move the
+pin, or pass the current steverice/visr-feeds checkout with --packs.
+Usage: feeds_host_check.py FEEDS_HOST_PROBE [--packs VISR_FEEDS_CHECKOUT]
 """
 from __future__ import annotations
 
@@ -28,12 +28,13 @@ import threading
 import urllib.parse
 
 if __package__:
-    from . import feeds_store, ios_build
+    from . import feeds_store, ios_build, visr_feeds_tree
     from . import release_validation as validation
 else:
     import feeds_store
     import ios_build
     import release_validation as validation
+    import visr_feeds_tree
 
 ROOT = Path(__file__).resolve().parents[1]
 FEED_HOST = urllib.parse.urlsplit(feeds_store.FEEDS_URL).netloc
@@ -98,7 +99,7 @@ def copy_packs(packs: Path, staged: Path) -> None:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(path.read_bytes())
     if not (staged / "tester/publication.json").is_file():
-        raise ValueError(f"{packs} is not a docs/site/packs folder")
+        raise ValueError(f"{packs} is not a feeds tree (no tester/publication.json)")
 
 
 def serve(folder: Path) -> http.server.ThreadingHTTPServer:
@@ -114,21 +115,21 @@ def serve(folder: Path) -> http.server.ThreadingHTTPServer:
 def main(arguments=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("probe", type=Path)
-    parser.add_argument("--packs", type=Path, help="main's docs/site/packs or a visr-feeds checkout, staged as it is (for a release branch)")
+    parser.add_argument("--packs", type=Path, help="a steverice/visr-feeds checkout, staged as it is (default: the pinned tree)")
     args = parser.parse_args(arguments)
     development_defaults()
     with tempfile.TemporaryDirectory(prefix="feeds-host-") as temporary:
         staged = Path(temporary) / "bucket"
         # The files as they are: the probe checks each signature with the app's own code, and the Tooling suite checks
         # that feeds_store.py uploads exactly these keys (ios_test's Python has no cryptography package).
-        copy_packs(args.packs or ROOT / "docs/site/packs", staged)
+        copy_packs(args.packs or visr_feeds_tree.feeds_tree(), staged)
         try:
             profile, shaders, recording, compatibility = release_urls(staged)
         except Stale as error:
             if args.packs:
                 raise
-            print(f"SKIP: {error}; this checkout's docs/site predates its release policy (a release branch). "
-                  "Run tools/feeds_host_check.py with --packs <main checkout>/docs/site/packs.")
+            print(f"SKIP: {error}; this checkout's release policy is newer than tools/visr-feeds.pin. "
+                  "Move the pin, or run tools/feeds_host_check.py with --packs <visr-feeds checkout>.")
             return 0
         server = serve(staged)
         try:
