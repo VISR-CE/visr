@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
 # the Xbox's option rows: where the first sits and the pitch to the next
-FIRST_ROW, ROW_PITCH = 73, 30
+FIRST_ROW, ROW_HEIGHT, ROW_PITCH = 73, 28, 30
 # the scroll arrows sit to the right of the 512-wide rows
 ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
@@ -166,6 +166,8 @@ def settings_page(assets, folder, bitmaps):
             element.set('bitmap', bitmap_ref(original, bitmaps))
         if element.get('string_list') == 'strings/common_button_captions':
             raise ValueError('PC button captions escaped footer replacement')
+        if element.get('bitmap') == 'xbox/bitmaps/option_bkds':
+            element.set('height', str(ROW_HEIGHT))
         if element.get('name') == f'{base}/help' and folder != 'about':
             element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
             element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
@@ -589,6 +591,9 @@ def multiplayer_documents(assets, bitmaps):
                     e.set('bitmap', bitmap_ref('bitmaps/gradient', bitmaps))
     widgets = {e.get('name'): e for root in documents.values() for e in root if e.tag == 'widget'}
 
+    for page in ('server_settings', 'coop_options'):
+        hosting_layout(documents[f'main_menu.multiplayer_type_select.{page}.xml'], widgets, page)
+
     # A static option list with more rows than fit above its help scrolls
     # them (visible_rows); its height is the room above the help.
     for w in widgets.values():
@@ -606,7 +611,7 @@ def multiplayer_documents(assets, bitmaps):
                     if c.get('y') and 'button_bar' not in c.get('widget'):
                         # Preserve the co-op/competitive shared slots, using
                         # advanced_controls' 73 origin and 30-unit pitch.
-                        c.set('y', str(73 + (int(c.get('y')) - 73) // 24 * 30))
+                        c.set('y', str(FIRST_ROW + (int(c.get('y')) - FIRST_ROW) // 24 * ROW_PITCH))
                 pending = fit_window(w, widgets, limit, next(r for r in documents.values() if w in list(r)), bitmaps)
                 if pending:
                     pending()
@@ -643,6 +648,43 @@ def multiplayer_documents(assets, bitmaps):
     return documents
 
 
+def hosting_layout(root, widgets, page):
+    """Use one option-row geometry while preserving the PC runtime bindings."""
+    base = 'xbox/' + MP + '/' + page
+    options = widgets[base + '/options_menu']
+    for c in list(options.findall('child')):
+        if c.get('widget') == base + '/button_bar':
+            options.remove(c)
+    # Keep the old button definitions for their named bindings, but draw only
+    # the list action. The shared CANCEL widget still serves other screens.
+    action = deepcopy(widgets[base + '/button_ok'])
+    action.set('name', base + ('/op_start_game' if page == 'server_settings' else '/op_save'))
+    for key in ('string_list', 'string_index', 'align'):
+        action.attrib.pop(key, None)
+    action.attrib.update(width='512', height=str(ROW_HEIGHT), bitmap='xbox/bitmaps/option_bkds',
+                         font=r'ui\large_ui', color=BLUE, text_x='13', text_y='4',
+                         text='START GAME' if page == 'server_settings' else 'SAVE')
+    root.append(action)
+    widgets[action.get('name')] = action
+    last = max(int(c.get('y')) for c in options.findall('child'))
+    child(options, action.get('name'), x=54, y=last + (24 if page == 'server_settings' else ROW_PITCH))
+    for c in options.findall('child'):
+        row = widgets[c.get('widget')]
+        row.set('height', str(ROW_HEIGHT))
+        for inner in row.findall('child'):
+            item = widgets[inner.get('widget')]
+            leaf = item.get('name').rsplit('/', 1)[-1]
+            if leaf.endswith('_label'):
+                inner.set('y', '0')
+                item.attrib.update(font=r'ui\large_ui', text_y='4')
+            elif leaf.endswith(('_spinner', '_value')):
+                inner.attrib.update(x='286', y='1')
+                item.attrib.update(font=r'ui\large_ui', color='#FFFFFFFF', width='206',
+                                   height='20', left='3', top='2', text_y='1')
+                if item.get('type') == 'spinner':
+                    item.attrib.update(header_bounds='7 -6 19 0', footer_bounds='7 209 19 215')
+
+
 def map_screen_layout(root, widgets, shared):
     """The Map screen's long names (campaign levels such as "The Truth and Reconciliation") fit: this screen's
     rows and its campaign title use the small font, in copies of the shared widgets (the other screens keep
@@ -650,7 +692,6 @@ def map_screen_layout(root, widgets, shared):
     layout's own dark block beside it is gone)."""
     base = 'xbox/' + MP + '/mp_map_select'
     small = r'ui\small_ui'
-
     def copy(source, name, **attributes):
         element = deepcopy(widgets[source])
         element.set('name', name)

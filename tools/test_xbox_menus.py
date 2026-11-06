@@ -636,3 +636,38 @@ def test_title_icon_drawn_by_the_name_the_generator_gives_it():
     assert '"' + tag.replace('\\', '\\\\') + '"' in source
     # the titles' capitals (22 units tall from 33 units down, 30 units in) which the 36-unit picture's helmet matches
     assert 'size = 36 * scale_y;' in source and 'bounds->y0 + 44 * scale_y - size / 2' in source
+
+
+@pytest.mark.parametrize('page', ('server_settings', 'coop_options'))
+def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
+    module = generator()
+    root = ET.parse(MENUS / 'xbox' / f'main_menu.multiplayer_type_select.{page}.xml')
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    base = 'xbox/' + module.MP + '/' + page
+    options = widgets[base + '/options_menu']
+    rows = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')]
+    assert not any(c.get('widget').endswith('/button_bar') for c in rows)
+    action = widgets[rows[-1].get('widget')]
+    assert action.get('name') == base + ('/op_start_game' if page == 'server_settings' else '/op_save')
+    assert action.get('text') == ('START GAME' if page == 'server_settings' else 'SAVE')
+    old = widgets[base + '/button_ok']
+    assert [e.attrib for e in action.findall('on')] == [e.attrib for e in old.findall('on')]
+    assert action.get('bitmap') == widgets[base + ('/op_coop_options' if page == 'server_settings'
+                                                  else '/op_fireteam')].get('bitmap')
+    for c in rows:
+        row = widgets[c.get('widget')]
+        assert int(row.get('height')) == module.ROW_HEIGHT == 28
+        for inner in row.findall('child'):
+            value = widgets[inner.get('widget')]
+            leaf = value.get('name').rsplit('/', 1)[-1]
+            if leaf.endswith(('_value', '_spinner')):
+                assert value.get('font') == r'ui\large_ui'
+                assert value.get('color') == '#FFFFFFFF'
+                assert (inner.get('x'), value.get('left'), value.get('width')) == ('286', '3', '206')
+                label = widgets[value.get('name').rsplit('_', 1)[0] + '_label']
+                assert int(inner.get('y')) + int(value.get('top')) + int(value.get('text_y')) == int(label.get('text_y'))
+                if value.get('type') == 'spinner':
+                    assert value.get('header_bounds') == '7 -6 19 0'
+                    assert value.get('footer_bounds') == '7 209 19 215'
+    accept = widgets[base + '/' + page + '_screen/legend/=accept']
+    assert accept.get('text') == 'SELECT'
