@@ -618,6 +618,69 @@
 	</strings>
 	<widget name="xbox/error/header_are_you_sure" type="text" controller="1" width="170" height="20" string_list="xbox/error/error_headers" string_index="2" font="ui\large_ui" color="#FF2896FF">
 	</widget>
+	<strings name="xbox/main_menu/mp_map_list">
+		<string text="Battle Creek" />
+		<string text="Sidewinder" />
+		<string text="Damnation" />
+		<string text="Rat Race" />
+		<string text="Prisoner" />
+		<string text="Hang 'Em High" />
+		<string text="Chill Out" />
+		<string text="Derelict" />
+		<string text="Boarding Action" />
+		<string text="Blood Gulch" />
+		<string text="Wizard" />
+		<string text="Chiron TL34" />
+		<string text="Longest" />
+		<string text="Ice Fields" />
+		<string text="Death Island" />
+		<string text="Danger Canyon" />
+		<string text="Infinity" />
+		<string text="Timberland" />
+		<string text="Gephyrophobia" />
+		<string text="Unknown Level" />
+		<string text=" " />
+	</strings>
+	<widget name="xbox/main_menu/solo_level_select/replay_level_right_data" type="text" controller="1" left="336" top="253" width="260" height="144" string_list="xbox/main_menu/solo_level_select/map_data" string_index="2" font="ui\small_ui" color="#FF2896FF">
+	</widget>
+	<strings name="xbox/main_menu/solo_level_select/map_data">
+		<string text="Escape intact as \nCovenant forces \nboard your ship." />
+		<string text="Seek out surviving \nMarines and help \nthem fight the Cove-\nnant." />
+		<string text="Board a Covenant \nship in an attempt to \nrescue Captain \nKeyes." />
+		<string text="Search for the map \nroom that will lead \nyou to the secrets of \nHalo." />
+		<string text="Defend the Control \nRoom against wave \nafter wave of Cove-\nnant troops." />
+		<string text="Creep through a \nswamp to meet the \nonly enemy the \nCovenant fear." />
+		<string text="Fight your way \nthrough an ancient \nsecurity facility in \nsearch of the Index." />
+		<string text="Reactivate the wea-\npon at the heart of \nHalo...and learn the \ntruth." />
+		<string text="Stage a one-cyborg \nassault on a Cove-\nnant ship and bring \nback the Captain." />
+		<string text="Destroy Halo before \nHalo destroys all life \nin the galaxy." />
+		<string text="You cannot play\nthis level... yet!" />
+		<string text="You have a game in\nprogress on this\nlevel. Select to\ncontinue your game." />
+	</strings>
+	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/map_data">
+		<string text="Splash Splash\nBang Bang\n\n2-8 players" />
+		<string text="Red Blood\nWhite Snow\n\n4-16 players\n\nSupports vehicles" />
+		<string text="Covenant Hydro-\nProcessing Center\n\n4-8 players" />
+		<string text="Up the Ramps\nDown the Tubes\n\n2-6 players" />
+		<string text="Get on Top\n\n\n2-8 players" />
+		<string text="Tombstones for\nEverybody\n\n4-16 players" />
+		<string text="Dude, you really\nneed to...\n\n2-8 players" />
+		<string text="Deep-Space\nAnomaly #0198\n\n4-8 players" />
+		<string text="Ship-to-Ship\nCombat\n\n4-16 players" />
+		<string text="The Quick \nand the Dead\n\n4-16 players\n\nSupports vehicles" />
+		<string text="Round and Round \nand Round\n\n2-8 players" />
+		<string text="Spartan Clone\nTraining Complex\n\n2-6 players" />
+		<string text="A long walk\ndown a short hall...\n\n2-8 players" />
+		<string text="Slipping and\nSliding\n\n4-16 players\n\nSupports vehicles" />
+		<string text="Sand, Surf, and \nSpent Shells\n\n4-16 players\n\nSupports vehicles" />
+		<string text="Don't Look Down...\nUnless You Fall\n\n4-16 players\n\nSupports vehicles" />
+		<string text="I Imagined it\nWould Be Bigger\n\n4-16 players\n\nSupports vehicles" />
+		<string text="An Enemy Behind\nEvery Tree\n\n4-16 players\n\nSupports vehicles" />
+		<string text="Scary, huh?\n\n\n2-12 players\n\nSupports vehicles" />
+		<string text="UNKNOWN LEVEL\n\n\n" />
+	</strings>
+	<widget name="xbox/main_menu/current_profile_name" type="text" controller="1" left="10" top="446" width="340" height="34" font="ui\large_ui" color="#FF2896FF">
+	</widget>
 	<widget name="xbox/main_menu/profile_manager/player_profile_extended_desc" width="640" height="480">
 		<child widget="xbox/main_menu/current_profile_name" />
 		<child widget="xbox/main_menu/player_profiles_select/player_profile_right_item" x="22" y="2" />
@@ -709,8 +772,6 @@
 		<on event="start" run="emit custom activation event" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/current_profile_name" type="text" controller="1" left="10" top="446" width="340" height="34" font="ui\large_ui" color="#FF2896FF">
-	</widget>
 	<widget name="xbox/main_menu/player_profiles_select/player_profile_right_item" controller="1" left="406" top="75" width="162" height="326" bitmap="xbox/bitmaps/spinner_list_3_wide_item_background">
 		<child widget="xbox/main_menu/player_profiles_select/player_profile_right_name" x="415" y="83" />
 		<child widget="xbox/main_menu/multiplayer_type_select/connected/4way_profile_select/qtr_screen_profile_color_pic" x="438" y="82" />
@@ -760,29 +821,6 @@
 		<string text="Normal" />
 		<string text="Heroic" />
 		<string text="Legendary" />
-	</strings>
-	<strings name="xbox/main_menu/mp_map_list">
-		<string text="Battle Creek" />
-		<string text="Sidewinder" />
-		<string text="Damnation" />
-		<string text="Rat Race" />
-		<string text="Prisoner" />
-		<string text="Hang 'Em High" />
-		<string text="Chill Out" />
-		<string text="Derelict" />
-		<string text="Boarding Action" />
-		<string text="Blood Gulch" />
-		<string text="Wizard" />
-		<string text="Chiron TL34" />
-		<string text="Longest" />
-		<string text="Ice Fields" />
-		<string text="Death Island" />
-		<string text="Danger Canyon" />
-		<string text="Infinity" />
-		<string text="Timberland" />
-		<string text="Gephyrophobia" />
-		<string text="Unknown Level" />
-		<string text=" " />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
 		<string text="SERVER NAME" />

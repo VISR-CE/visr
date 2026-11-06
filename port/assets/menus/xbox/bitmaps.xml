@@ -164,6 +164,9 @@
 	<bitmap name="xbox/main_menu/multiplayer_type_select/lobby/header_lobby">
 		<frame png="ce/port/main_menu/multiplayer_type_select/lobby/header_lobby.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/multiplayer_type_select/mp_map_select/header_select_map">
+		<frame png="ce/shell/main_menu/multiplayer_type_select/mp_map_select/header_select_map__0.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings">
 		<frame png="ce/shell/main_menu/multiplayer_type_select/server_settings/header_server_settings__0.png" width="512" height="64" />
 	</bitmap>

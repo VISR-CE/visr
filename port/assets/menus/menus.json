@@ -218,6 +218,7 @@
   "xbox/main_menu.multiplayer_type_select.join_game.port.xml",
   "xbox/main_menu.multiplayer_type_select.join_game.xml",
   "xbox/main_menu.multiplayer_type_select.lobby.xml",
+  "xbox/main_menu.multiplayer_type_select.mp_map_select.xml",
   "xbox/main_menu.multiplayer_type_select.server_settings.xml",
   "xbox/main_menu.new_select.port.xml",
   "xbox/main_menu.quit_select.xml",

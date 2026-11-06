@@ -24,6 +24,7 @@ static char const *const menu_screen_pairs[][2] = {
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen", "pc\\main_menu\\multiplayer_type_select\\server_settings\\server_settings_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen", "pc\\main_menu\\multiplayer_type_select\\coop_options\\coop_options_screen"},
 	{"pc\\xbox\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen", "pc\\main_menu\\multiplayer_type_select\\lobby\\lobby_screen"},
+	{"pc\\xbox\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper", "pc\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"},
 	{"pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
 	{"pc\\xbox\\main_menu\\quit_select\\quit_screen", "pc\\main_menu\\quit_select\\quit_screen"},
 	{"pc\\xbox\\error\\confirm_join_big_modal_fullscreen", "pc\\error\\confirm_join_big_modal_fullscreen"},
@@ -33,9 +34,15 @@ static char const *const menu_screen_pairs[][2] = {
 static char const *const menu_screen_replaced[][2] = {
 	{"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen", "pc\\xbox\\main_menu\\settings_select\\multiplayer_setup\\playlist_select\\gametype_select_screen"},
 };
+static char const *const menu_screen_always[][2] = {
+	{"ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper", "pc\\xbox\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"},
+};
 static char const *menu_screen_equivalent(char const *name, int use_xbox)
 {
 	unsigned int index;
+	for (index = 0; use_xbox && index < sizeof(menu_screen_always) / sizeof(menu_screen_always[0]); index++)
+		if (!strcmp(name, menu_screen_always[index][0]))
+			return menu_screen_always[index][1];
 	char const *tv = getenv("HALO_HOST_TVOS");
 	for (index = 0; use_xbox && !(tv && !strcmp(tv, "1")) && index < sizeof(menu_screen_replaced) / sizeof(menu_screen_replaced[0]); index++)
 		if (!strcmp(name, menu_screen_replaced[index][0]))
