@@ -362,6 +362,8 @@ int host_benchmark_notice(const char *heading, const char *detail, double second
         if ([candidate isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)candidate; break; }
     controller.heading = @(heading);
     controller.detail = @(detail);
+    /* out of the frame workgroup until the next frame, as the benchmark menu's ask() */
+    gpu_metal_frame_deadline_leave();
     if (scene) {
         window = [[UIWindow alloc] initWithWindowScene:scene];
         window.frame = scene.coordinateSpace.bounds;
@@ -401,6 +403,8 @@ void host_benchmark_page(const char *report_path, const char *summary, const cha
     for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
         if ([candidate isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)candidate; break; }
     if (!scene) { host_logf(HOST_LOG_INFO, "benchmark: no window scene for the report screen"); return; }
+    /* the report screen scrolls: out of the frame workgroup until the next frame, as the benchmark menu's ask() */
+    gpu_metal_frame_deadline_leave();
     controller = [HaloBenchmarkPageController new];
     controller.summary = @(summary);
     controller.code = @(code);

@@ -156,6 +156,10 @@ int host_alert(const char *title, const char *message, const char *first, const 
 	which the caller falls back on, takes any other there itself) */
 	if (!NSThread.isMainThread)
 		return -1;
+	/* the main thread drew the game and is in the frame workgroup, and UIKit raises from its own interval when an
+	animation begins on such a thread (an Apple TV's alert animates a collection view): out until the next frame,
+	for SDL's box too when there is no window here */
+	gpu_metal_frame_deadline_leave();
 	window = host_present_window();
 	if (!window)
 		return -1;
@@ -173,6 +177,14 @@ int host_alert(const char *title, const char *message, const char *first, const 
 	[window.rootViewController presentViewController:alert animated:YES completion:nil];
 	/* (the caller waits, as SDL's message box does) */
 	while (answer < 0)
+	{
+		@autoreleasepool
+		{
+			CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, true);
+		}
+	}
+	/* (the alert animates away before the game draws, and joins, again) */
+	for (int i = 0; i < 20 && (alert.presentingViewController || alert.beingDismissed); i++)
 	{
 		@autoreleasepool
 		{
