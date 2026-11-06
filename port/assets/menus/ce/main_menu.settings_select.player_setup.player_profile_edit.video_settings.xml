@@ -10,7 +10,7 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="10" description="main_menu/settings_select/player_setup/player_profile_edit/video_settings/help" row_top="73" row_pitch="26">
 		<data input="port settings help"/>
@@ -179,7 +179,7 @@
 		<on event="start" run="port settings save" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_help_strings">
 		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel."/>

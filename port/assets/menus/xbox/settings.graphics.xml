@@ -14,9 +14,9 @@
 	</widget>
 	<widget name="xbox/settings/graphics/header_graphics" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics">
 	</widget>
-	<widget name="xbox/settings/graphics/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/settings/graphics/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/graphics/help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/graphics/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/settings/graphics/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="9" description="xbox/settings/graphics/help" row_top="73" row_pitch="30">
+	<widget name="xbox/settings/graphics/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="8" description="xbox/settings/graphics/help" row_top="73" row_pitch="30">
 		<data input="port settings help" />
 		<child widget="xbox/settings/graphics/op_graphics" x="54" y="73" />
 		<child widget="xbox/settings/graphics/op_crt_effect" x="54" y="103" platform="apple" />
@@ -45,7 +45,7 @@
 	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/graphics/graphics_help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/settings/graphics/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/graphics/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/graphics/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<strings name="xbox/settings/graphics/graphics_help_strings">
 		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel." />

@@ -204,8 +204,11 @@ def settings_page(assets, folder, bitmaps):
         if element.get('bitmap') == 'xbox/bitmaps/option_bkds':
             element.set('height', str(ROW_HEIGHT))
         if element.get('name') == f'{base}/help' and folder != 'about':
-            element.set('top', '350' if folder in ('video_settings', 'controls_setup', 'graphics') else '321')
-            element.set('height', '60' if folder in ('video_settings', 'controls_setup', 'graphics') else '79')
+            # (the graphics modes' help is three lines: video_settings and graphics start it higher)
+            element.set('top', '335' if folder in ('video_settings', 'graphics') else
+                        '350' if folder == 'controls_setup' else '321')
+            element.set('height', '75' if folder in ('video_settings', 'graphics') else
+                        '60' if folder == 'controls_setup' else '79')
         if element.get('name') == f'{base}/cloud_saves_status':
             element.set('top', '393')
             element.set('height', '20')

@@ -2897,6 +2897,10 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 	struct ui_widget_child_reference const *rows = list->child_widgets.address;
 	struct ui_widget_definition *spinners[64];
 	struct ui_widget_child_reference *places[64];
+	/* (HARDCORE, drawn where a replaced setting's spinner is: it takes the spinner's place and width) */
+	struct ui_widget_definition *shown[64];
+	struct ui_widget_child_reference *shown_places[64];
+	long shown_spinner[64], shown_count = 0;
 	short widest = 0, right = 0, labels = 0, x;
 	long row, count = 0;
 
@@ -2919,7 +2923,15 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 
 			/* (HARDCORE, shown in a replaced setting's spinner's place: menu_functions.c's graphics_rows_show) */
 			if (strstr(pieces[piece].name, "_replaced"))
+			{
+				if (part && count > 0 && shown_count < 64)
+				{
+					shown[shown_count] = part;
+					shown_places[shown_count] = &pieces[piece];
+					shown_spinner[shown_count++] = count - 1;
+				}
 				continue;
+			}
 			if (!part || part->text_font.index == NONE || part->text_label_string_list.index == NONE)
 				continue;
 			strings = tag_get(UNICODE_STRING_LIST_TAG, part->text_label_string_list.index);
@@ -2965,6 +2977,11 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 		spinners[row]->list_footer_bounds.x0 = (short)(widest + 3);
 		spinners[row]->list_footer_bounds.x1 = (short)(widest + 9);
 		places[row]->horizontal_offset = (short)(right - left - widest);
+	}
+	for (row = 0; row < shown_count; row++)
+	{
+		shown[row]->bounds.x1 = spinners[shown_spinner[row]]->bounds.x1;
+		shown_places[row]->horizontal_offset = places[shown_spinner[row]]->horizontal_offset;
 	}
 	x = (short)(right - widest);
 	/* (the left arrow is 6 wide, before the spinner) */

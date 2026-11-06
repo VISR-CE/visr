@@ -61,6 +61,8 @@ def graphics_replaced() -> set:
 SCREENS = {
     "video_settings": {
         "screen": "video_settings_screen",
+        # (the help of a graphics mode is three lines)
+        "help_top": 335, "help_height": 75,
         "header": ("header_profile_video_settings", f"{PE}/video_settings/header_profile_video_settings"),
         "spacing": 26,
         # (rows in the place of the row before them: Window Size in
@@ -110,6 +112,7 @@ SCREENS = {
     # accepts and B cancels (xbox_menus.py's ACCEPT_PAGES); the PC look has the rows in Video Settings
     "graphics": {
         "screen": "graphics_screen",
+        "help_top": 335, "help_height": 75,
         "header": ("header_graphics", f"{PE}/graphics/header_graphics"),
         "spacing": 30,
         "rows": graphics_rows("MODE:"),

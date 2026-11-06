@@ -16,9 +16,9 @@
 	</widget>
 	<widget name="xbox/settings/video_settings/header_profile_video_settings" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings">
 	</widget>
-	<widget name="xbox/settings/video_settings/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/settings/video_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/video_settings/help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/video_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/settings/video_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="9" description="xbox/settings/video_settings/help" row_top="73" row_pitch="30">
+	<widget name="xbox/settings/video_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="8" description="xbox/settings/video_settings/help" row_top="73" row_pitch="30">
 		<data input="port settings help" />
 		<child widget="xbox/settings/video_settings/op_graphics" x="54" y="73" />
 		<child widget="xbox/settings/video_settings/op_crt_effect" x="54" y="103" platform="apple" />
@@ -35,7 +35,7 @@
 		<child widget="xbox/settings/video_settings/op_high_res_text" x="54" y="373" />
 		<child widget="xbox/settings/video_settings/button_bar" y="414" />
 		<child widget="xbox/settings/video_settings/scroll_up_arrow" x="574" y="73" />
-		<child widget="xbox/settings/video_settings/scroll_down_arrow" x="574" y="319" />
+		<child widget="xbox/settings/video_settings/scroll_down_arrow" x="574" y="289" />
 	</widget>
 	<widget name="xbox/settings/video_settings/op_graphics" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/settings/video_settings/graphics_label" />
@@ -172,7 +172,7 @@
 	<widget name="xbox/settings/video_settings/high_res_text_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.high_res_text" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/video_settings/graphics_help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/settings/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/video_settings/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<strings name="xbox/settings/video_settings/graphics_help_strings">
 		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel." />
