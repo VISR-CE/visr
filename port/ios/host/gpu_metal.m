@@ -6229,8 +6229,22 @@ static void gpu_metal_frame_start(void)
 				qsort(sorted, 300, sizeof(double), compare_times);
 				for (index = 0; index < 300; index++)
 					sum += times[index];
-				platform_log("rt-gpu: block %lu (frames to %lu): GPU median %.3f ms, mean %.3f ms, p90 %.3f ms", blocks++,
-					frames, sorted[150], sum / 300.0, sorted[270]);
+				/* and the process's CPU time (every thread, user and system) and the wall time a frame, over the block */
+				{
+					static double cpu_before, wall_before;
+					struct rusage usage;
+					double cpu_now, wall_now = CACurrentMediaTime();
+
+					getrusage(RUSAGE_SELF, &usage);
+					cpu_now = (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1e6 +
+						(double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1e6;
+					platform_log("rt-gpu: block %lu (frames to %lu): GPU median %.3f ms, mean %.3f ms, p90 %.3f ms; "
+						"process CPU %.3f ms, wall %.3f ms a frame", blocks++, frames, sorted[150], sum / 300.0, sorted[270],
+						cpu_before > 0.0 ? (cpu_now - cpu_before) * 1000.0 / 300.0 : 0.0,
+						wall_before > 0.0 ? (wall_now - wall_before) * 1000.0 / 300.0 : 0.0);
+					cpu_before = cpu_now;
+					wall_before = wall_now;
+				}
 				timed = 0;
 			}
 		}
