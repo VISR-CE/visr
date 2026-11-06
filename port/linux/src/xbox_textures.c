@@ -2252,6 +2252,7 @@ void xgpu_texture_cache_settings_read(void)
 	unsigned long index;
 	unsigned long changed = hud_hires_settings_changed();
 
+	text_hires_begin_frame();
 	texture_upscale_settings_read();
 	/* Refresh only map bitmaps belonging to the setting that changed. Keep
 	 * decoded replacement art and world textures; rebuild native pixels on
