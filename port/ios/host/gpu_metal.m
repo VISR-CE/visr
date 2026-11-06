@@ -9775,7 +9775,8 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 
 Before a view's transparent geometry the front end hands over its depth target: the pass ends, a compute pass turns
 every pixel's reversed depth into its view distance (R32Float, the target's size), and until host_soft_depth_finish
-every draw binds it as fragment texture 8, with the near, far and 1 / fade distance as fragment buffer 5. A pixel the
+every draw binds it as fragment texture 8, with the near, far, 1 / fade distance and the texture's scale (1, or 2 at
+half resolution: debug.soft_particle_scale) as fragment buffer 5. A pixel the
 level did not draw (no stencil 0x10: an object, the sky) is stored as far away, so particles fade against the level
 alone. The next
 draw reopens the pass, its depth loaded, as after any pass break. */
@@ -9788,13 +9789,20 @@ static NSString *const soft_depth_source =
 	"{\n"
 	"\tif (gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
 	"\t\treturn;\n"
-	"\tif (!(stencil.read(gid).r & 0x10u))\n"
-	"\t{\n"
-	"\t\tdistances.write(float4(1.0e30), gid);\n"
-	"\t\treturn;\n"
-	"\t}\n"
-	"\tfloat stored = depth.read(gid);\n"
-	"\tdistances.write(float4(p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x))), gid);\n"
+	"\tuint scale = uint(p.w);\n"
+	"\tuint2 last = uint2(depth.get_width() - 1, depth.get_height() - 1);\n"
+	"\tfloat nearest = 1.0e30;\n"
+	"\tfor (uint y = 0; y < scale; y++)\n"
+	"\t\tfor (uint x = 0; x < scale; x++)\n"
+	"\t\t{\n"
+	"\t\t\tuint2 c = min(gid * scale + uint2(x, y), last);\n"
+	"\t\t\tif (stencil.read(c).r & 0x10u)\n"
+	"\t\t\t{\n"
+	"\t\t\t\tfloat stored = depth.read(c);\n"
+	"\t\t\t\tnearest = min(nearest, p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x)));\n"
+	"\t\t\t}\n"
+	"\t\t}\n"
+	"\tdistances.write(float4(nearest), gid);\n"
 	"}\n";
 
 static BOOL soft_depth_program(void)
@@ -9828,7 +9836,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		id<MTLComputeCommandEncoder> compute;
 		MTLTextureDescriptor *descriptor;
 		float near_plane, far_plane;
-		unsigned long width, height;
+		unsigned long width, height, soft_scale;
 
 		soft.active = NO;
 		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
@@ -9844,8 +9852,11 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		}
 		if (!soft.stencil_view)
 			return 0;
-		width = record->texture.width;
-		height = record->texture.height;
+		/* debug.soft_particle_scale: 2 keeps the distances at half resolution, the nearest level surface of each 2x2
+		block (the particles' shader reads them at half its coordinates); 1 full resolution */
+		soft_scale = count >= 6 && values[5] >= 2.0f ? 2 : 1;
+		width = (record->texture.width + soft_scale - 1) / soft_scale;
+		height = (record->texture.height + soft_scale - 1) / soft_scale;
 		if (!soft.distances || soft.distances.width != width || soft.distances.height != height)
 		{
 			descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR32Float width:width
@@ -9868,7 +9879,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		soft.parameters[0] = near_plane;
 		soft.parameters[1] = far_plane;
 		soft.parameters[2] = values[4] > 0.0f ? 1.0f / values[4] : 1.0e6f;
-		soft.parameters[3] = 0.0f;
+		soft.parameters[3] = (float)soft_scale;
 		pass_end();
 		if (pass_log)
 			[pass_log appendFormat:@"\n  soft particle distances: %lux%lu", width, height];

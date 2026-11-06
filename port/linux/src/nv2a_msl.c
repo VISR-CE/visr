@@ -318,7 +318,8 @@ void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *d
 		xgpu_text_append(text, ",\n\tconstant rasterization_rate_map_data &rate_map [[buffer(1)]],"
 			"\n\tconstant float4 *foveation [[buffer(2)]]");
 	/* soft particle edges (nv2a_pixel_shader_key soft_depth): the scene's view
-	distances (texture 8) and the near, far and 1 / fade distance (buffer 5),
+	distances (texture 8) and the near, far, 1 / fade distance and the distances'
+	scale (buffer 5),
 	which gpu_metal.m binds while a view's transparent geometry is drawn
 	(host_soft_depth_prepare) */
 	if (key->soft_depth)

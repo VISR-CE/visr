@@ -2799,7 +2799,7 @@ int halo_soft_particles_lightmaps_mark(int begin)
 unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32)
 {
 	struct render_target_entry *depth;
-	float parameters[5];
+	float parameters[6];
 
 	soft_view_ready = FALSE;
 	soft_draw_mode = 0;
@@ -2817,8 +2817,9 @@ unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, 
 	parameters[2] = p22;
 	parameters[3] = p32;
 	parameters[4] = (float)config_real("debug.soft_particle_distance");
+	parameters[5] = (float)config_integer("debug.soft_particle_scale");
 #ifdef HALO_ILP32
-	soft_view_ready = host_soft_depth_prepare(depth->target.texture, parameters, 5) != 0;
+	soft_view_ready = host_soft_depth_prepare(depth->target.texture, parameters, 6) != 0;
 #else
 	(void)depth;
 #endif

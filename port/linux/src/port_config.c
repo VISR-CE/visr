@@ -1727,6 +1727,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.soft_particle_distance", _config_real, "0.06", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
 		"With display.soft_particles: how far in front of a surface a particle starts to fade, in world units\n"
 		"(1 is 10 feet)." },
+	{ "debug.soft_particle_scale", _config_integer, "2", "HALO_SOFT_PARTICLE_SCALE", _environment_value, _platform_all,
+		"With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half\n"
+		"(2, the nearest level surface of each 2x2 block)." },
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,
 		"Save every this many frames to screenshot_directory; 0 none." },
 	{ "debug.ssao", _config_integer, "0", "HALO_SSAO", _environment_value, _platform_ios,

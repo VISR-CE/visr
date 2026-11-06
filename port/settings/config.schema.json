@@ -2970,6 +2970,17 @@
             "desktop"
           ]
         },
+        "soft_particle_scale": {
+          "type": "integer",
+          "default": 2,
+          "description": "With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half (2, the nearest level surface of each 2x2 block).",
+          "x-environment": "HALO_SOFT_PARTICLE_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "screenshot_every": {
           "type": "integer",
           "default": 0,

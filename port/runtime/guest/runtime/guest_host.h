@@ -269,7 +269,7 @@ color, after the level's lightmap pass; count floats of the view's rectangle, ca
 void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *parameters, uint32_t count);
 /* soft particle edges (display.soft_particles; port/linux/src/d3d8_device.c, gpu_metal.m): the scene's depth kept
 as view distances for the transparent geometry drawn next (count floats: near, far, the projection's depth row, the
-fade distance); 1 when it was. Finish ends it */
+fade distance, the distances' scale); 1 when it was. Finish ends it */
 uint32_t host_soft_depth_prepare(gpu_texture depth, const float *parameters, uint32_t count);
 void host_soft_depth_finish(void);
 

@@ -767,7 +767,7 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		};
 
 		xgpu_text_append(&text,
-			"\tuint2 soft_texel = min(uint2(soft_position.xy), uint2(soft_depth.get_width() - 1, soft_depth.get_height() - 1));\n"
+			"\tuint2 soft_texel = min(uint2(soft_position.xy / max(soft.w, 1.0)), uint2(soft_depth.get_width() - 1, soft_depth.get_height() - 1));\n"
 			"\tfloat soft_scene = soft_depth.read(soft_texel).r;\n"
 			"\tfloat soft_view = soft.x * soft.y / (soft.y - (1.0 - soft_position.z) * (soft.y - soft.x));\n"
 			"\tfloat soft_fade = clamp((soft_scene - soft_view) * soft.z, 0.0, 1.0);\n"
