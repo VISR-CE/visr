@@ -37,7 +37,9 @@ def pinned() -> str:
 
 
 def git(folder: Path, *arguments: str, stdin: str | None = None) -> None:
-    subprocess.run(["git", "-C", str(folder), *arguments], check=True, input=stdin, text=True, capture_output=True)
+    result = subprocess.run(["git", "-C", str(folder), *arguments], input=stdin, text=True, capture_output=True)
+    if result.returncode:
+        raise RuntimeError(f"git {' '.join(arguments)} failed ({result.returncode}): {result.stderr.strip()}")
 
 
 def feeds_tree(full: bool = False, extra: tuple[str, ...] = ()) -> Path:
@@ -73,6 +75,6 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
     try:
         print(feeds_tree(arguments.full, tuple(arguments.extra)))
-    except (ValueError, subprocess.CalledProcessError, OSError) as error:
+    except (ValueError, RuntimeError, subprocess.CalledProcessError, OSError) as error:
         print(f"visr_feeds_tree: {error}", file=sys.stderr)
         sys.exit(1)
