@@ -315,7 +315,7 @@ LOOK_SCENES = [
     {"folder": "damnation", "av1": LOOK_AV1, "label": "The waterfalls of Damnation", "yaw": 150, "pitch": -20, "videoBand": 1488 / 2048},
     {"folder": "control-room", "av1": LOOK_AV1, "label": "The Control Room on Assault on the Control Room", "wide": 1.4, "yaw": 85, "pitch": 2, "videoBand": 1820 / 2048, "drift": {"yaw": 6, "pitch": 0}},
     {"folder": "battle-creek", "av1": LOOK_AV1, "label": "Capture the Flag on Battle Creek", "wide": 1.26, "yaw": 290, "pitch": 5, "videoBand": 1, "drift": {"yaw": 11.8033, "pitch": 0}},
-    {"folder": "blood-gulch", "av1": LOOK_AV1, "label": "Capture the Flag on Blood Gulch", "yaw": 100, "pitch": 2, "videoBand": 1904 / 2048, "drift": {"yaw": -10, "pitch": 0}},
+    {"folder": "blood-gulch", "av1": LOOK_AV1, "label": "Capture the Flag on Blood Gulch", "yaw": 128, "pitch": 2, "videoBand": 1904 / 2048, "drift": {"yaw": 28.8, "pitch": 0}},
 ]
 
 
