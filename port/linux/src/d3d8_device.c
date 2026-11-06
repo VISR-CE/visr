@@ -2758,7 +2758,9 @@ void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_fa
 
 Before a view's transparent geometry (render_window, source/render/render.c), every opaque surface is in the depth
 buffer. halo_soft_particles_prepare hands it to the backend, which keeps a copy as view distances (gpu_metal.m,
-host_soft_depth_prepare); a camera-facing particle sprite's draw then names its blend's fade
+host_soft_depth_prepare), with every pixel the level did not draw (its lightmap pass marks its pixels with stencil
+0x10, halo_soft_particles_lightmaps_mark) as far away, so objects never fade a particle; a camera-facing particle
+sprite's draw then names its blend's fade
 (halo_soft_particles_mode, rasterizer_xbox_transparent_geometry.c), which goes into its pixel shader's key
 (nv2a_pixel_shader_key soft_depth): the shader fades the sprite where it is closer to the surface behind it than
 debug.soft_particle_distance. Metal only, a player's or the menu's own view only, not multisampled and not stereo;
@@ -2784,6 +2786,16 @@ static BOOL soft_view_wanted(void)
 	return TRUE;
 }
 
+/* the view whose lightmap pass marked the level in stencil (0x10), so its particles may fade against it */
+static BOOL soft_view_marked;
+
+int halo_soft_particles_lightmaps_mark(int begin)
+{
+	if (begin)
+		soft_view_marked = soft_view_wanted();
+	return soft_view_marked;
+}
+
 unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32)
 {
 	struct render_target_entry *depth;
@@ -2791,6 +2803,10 @@ unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, 
 
 	soft_view_ready = FALSE;
 	soft_draw_mode = 0;
+	/* (only a view whose level is marked: the fade is against the level alone) */
+	if (!soft_view_marked)
+		return FALSE;
+	soft_view_marked = FALSE;
 	if (!soft_view_wanted())
 		return FALSE;
 	IMMEDIATE_FLUSH();

@@ -128,6 +128,9 @@ becomes their transparent group's HALO_GEOMETRY_SOFT_BIT; sprites lying in
 a plane (a splash on the ground) are not faded, which would erase them */
 #define HALO_BUILD_SPRITES_SOFT_BIT 15
 #define HALO_GEOMETRY_SOFT_BIT 24
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark the
+level's pixels in stencil (0x10), which the particles fade against */
+int halo_soft_particles_lightmaps_mark(int begin);
 unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32);
 void halo_soft_particles_mode(int mode);
 void halo_soft_particles_finish(void);

@@ -1133,6 +1133,23 @@ static void level_layout(uint32_t format, unsigned long width, unsigned long hei
 
 /* debug.ssao (spike, host_ssao_apply): whether depth-stencil targets are made readable as stencil views */
 static BOOL ssao_view_flag(void);
+/* soft particle edges (host_soft_depth_prepare): whether depth-stencil targets are made readable as stencil views,
+decided once at launch from display.soft_particles */
+static BOOL soft_view_flag(void)
+{
+	static int flag = -1;
+
+	if (flag < 0)
+	{
+		char value[32];
+
+		host_config_string("display.soft_particles", "false", value, sizeof(value));
+		flag = !strcmp(value, "true");
+		if (flag)
+			platform_log("soft particles: depth-stencil targets are made with stencil views (pixel format view)");
+	}
+	return flag != 0;
+}
 
 /* the storage a texture's description asks for */
 static id<MTLTexture> texture_storage(MetalTexture *record)
@@ -1151,8 +1168,9 @@ static id<MTLTexture> texture_storage(MetalTexture *record)
 	{
 		storage.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
 		storage.storageMode = MTLStorageModePrivate;
-		/* debug.ssao (spike): its passes read the stencil through an X32_Stencil8 view (host_ssao_apply) */
-		if (storage.pixelFormat == MTLPixelFormatDepth32Float_Stencil8 && ssao_view_flag())
+		/* debug.ssao and soft particle edges read the stencil through an X32_Stencil8 view (host_ssao_apply,
+		host_soft_depth_prepare) */
+		if (storage.pixelFormat == MTLPixelFormatDepth32Float_Stencil8 && (ssao_view_flag() || soft_view_flag()))
 			storage.usage |= MTLTextureUsagePixelFormatView;
 	}
 	else
@@ -4338,7 +4356,7 @@ transparent geometry is drawn; only shaders with soft edges read them (nv2a_msl.
 static struct
 {
 	id<MTLComputePipelineState> linearize;
-	id<MTLTexture> distances;
+	id<MTLTexture> distances, stencil_view, stencil_source;
 	float parameters[4];
 	BOOL active, tried, failed;
 } soft;
@@ -9757,17 +9775,24 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 
 Before a view's transparent geometry the front end hands over its depth target: the pass ends, a compute pass turns
 every pixel's reversed depth into its view distance (R32Float, the target's size), and until host_soft_depth_finish
-every draw binds it as fragment texture 8, with the near, far and 1 / fade distance as fragment buffer 5. The next
+every draw binds it as fragment texture 8, with the near, far and 1 / fade distance as fragment buffer 5. A pixel the
+level did not draw (no stencil 0x10: an object, the sky) is stored as far away, so particles fade against the level
+alone. The next
 draw reopens the pass, its depth loaded, as after any pass break. */
 static NSString *const soft_depth_source =
 	@"#include <metal_stdlib>\n"
 	"using namespace metal;\n"
 	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
-	"\ttexture2d<float, access::write> distances [[texture(1)]], constant float4 &p [[buffer(0)]],\n"
-	"\tuint2 gid [[thread_position_in_grid]])\n"
+	"\ttexture2d<float, access::write> distances [[texture(1)]], texture2d<uint, access::read> stencil [[texture(2)]],\n"
+	"\tconstant float4 &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
 	"{\n"
 	"\tif (gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
 	"\t\treturn;\n"
+	"\tif (!(stencil.read(gid).r & 0x10u))\n"
+	"\t{\n"
+	"\t\tdistances.write(float4(1.0e30), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
 	"\tfloat stored = depth.read(gid);\n"
 	"\tdistances.write(float4(p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x))), gid);\n"
 	"}\n";
@@ -9807,7 +9832,17 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 
 		soft.active = NO;
 		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
-			record->samples || foveation_map(record) || !soft_depth_program())
+			record->samples || foveation_map(record) || !(record->texture.usage & MTLTextureUsagePixelFormatView) ||
+			!soft_depth_program())
+			return 0;
+		/* the level's stencil mark (halo_soft_particles_lightmaps_mark): a view per depth texture, kept until it
+		changes */
+		if (soft.stencil_source != record->texture || !soft.stencil_view)
+		{
+			soft.stencil_view = [record->texture newTextureViewWithPixelFormat:MTLPixelFormatX32_Stencil8];
+			soft.stencil_source = record->texture;
+		}
+		if (!soft.stencil_view)
 			return 0;
 		width = record->texture.width;
 		height = record->texture.height;
@@ -9842,6 +9877,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		[compute setComputePipelineState:soft.linearize];
 		[compute setTexture:record->texture atIndex:0];
 		[compute setTexture:soft.distances atIndex:1];
+		[compute setTexture:soft.stencil_view atIndex:2];
 		[compute setBytes:soft.parameters length:sizeof(soft.parameters) atIndex:0];
 		[compute dispatchThreads:MTLSizeMake(width, height, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
 		[compute endEncoding];
