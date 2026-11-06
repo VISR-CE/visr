@@ -914,7 +914,7 @@ def _coop_options() -> list:
 # setting, values written, help)
 BROWSER_FILTERS = [
     ("sort", "SORT BY", ["PLAYERS", "NAME", "MAP", "GAME"], "network.browser_sort",
-     ["players", "name", "map", "game"], "The order of the list. Games you can join always come first."),
+     ["players", "name", "map", "game"], "The order of the list.\\nGames you can join always come first."),
     ("games", "GAMES", ["ALL", "MULTIPLAYER", "CO-OP"], "network.browser_games", ["all", "multiplayer", "coop"],
      "Multiplayer games, co-op campaigns, or both."),
     ("full", "FULL GAMES", ["SHOW", "HIDE"], "network.browser_show_full", ["true", "false"],
@@ -922,9 +922,9 @@ BROWSER_FILTERS = [
     ("locked", "PASSWORD GAMES", ["SHOW", "HIDE"], "network.browser_show_locked", ["true", "false"],
      "Games that need a password to join."),
     ("unjoinable", "GAMES I CAN'T JOIN", ["HIDE", "SHOW"], "network.browser_show_unjoinable", ["false", "true"],
-     "Games on another network version, in a mode VISR does not\\nplay, or that could not be reached."),
+     "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."),
     ("dedicated", "DEDICATED ONLY", ["OFF", "ON"], "network.browser_dedicated_only", ["false", "true"],
-     "Only games on dedicated servers, which stay up between\\nmatches and have no host player."),
+     "Only games on dedicated servers, which stay up\\nbetween matches and have no host player."),
 ]
 
 

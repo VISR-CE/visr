@@ -100,12 +100,12 @@
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/join_game/filters/help_strings">
 		<string text=""/>
-		<string text="The order of the list. Games you can join always come first."/>
+		<string text="The order of the list.\nGames you can join always come first."/>
 		<string text="Multiplayer games, co-op campaigns, or both."/>
 		<string text="Games that are full or about to start."/>
 		<string text="Games that need a password to join."/>
-		<string text="Games on another network version, in a mode VISR does not\nplay, or that could not be reached."/>
-		<string text="Only games on dedicated servers, which stay up between\nmatches and have no host player."/>
+		<string text="Games on another network version, in a mode\nVISR does not play, or that failed to connect."/>
+		<string text="Only games on dedicated servers, which stay up\nbetween matches and have no host player."/>
 	</strings>
 	<widget name="main_menu/multiplayer_type_select/join_game/filters/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" back="true"/>

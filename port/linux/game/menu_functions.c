@@ -4432,6 +4432,16 @@ static void browser_filters_button_update(struct widget_instance *list)
 		visible_set(arrows, shown);
 		visible_set(named(arrows, "header_sort_up_arrow", 0), sort != _browser_sort_players);
 		visible_set(named(arrows, "header_sort_down_arrow", 0), sort == _browser_sort_players);
+		/* (the arrows' bright frame: their first is the dim one the PC version drew under a pointer-less title) */
+		{
+			struct widget_instance *up = named(arrows, "header_sort_up_arrow", 0);
+			struct widget_instance *down = named(arrows, "header_sort_down_arrow", 0);
+
+			if (up)
+				up->animation.current_frame_index = 1;
+			if (down)
+				down->animation.current_frame_index = 1;
+		}
 	}
 }
 

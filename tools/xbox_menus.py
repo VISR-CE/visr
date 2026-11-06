@@ -833,11 +833,15 @@ def browser_layout(root, widgets, bitmaps):
         header = widgets[c.get('widget')]
         header.set('width', str(width))
         header.attrib.pop('bitmap', None)
-        # (the sort arrow: at the title's right edge, inside its 18-unit row)
+        # (the text titles start at their column's values, after room for the
+        # sort arrow, which sits before the title as on the PC version's
+        # browser: menu_functions.c shows it on the sorted column only)
         for arrows in header.findall('child'):
             if arrows.get('widget').endswith('/header_sort_arrows'):
-                arrows.attrib.update(x=str(width - 14), y='1')
+                arrows.attrib.update(x='0', y='2')
         get('sort_header_' + field).set('width', str(width))
+        if field not in ('locked', 'dedicated', 'classic'):
+            get('sort_header_' + field).attrib.update(align='left', text_x='13')
     # (the arrows at their art's 16-unit size: a bitmap fills its widget)
     for leaf in ('header_sort_arrows', 'header_sort_up_arrow', 'header_sort_down_arrow'):
         get(leaf).attrib.update(width='16', height='16')
