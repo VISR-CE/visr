@@ -45,6 +45,18 @@ int config_default(const char *name, char *text, size_t size);
 /* Whether a player or developer explicitly selected this setting. */
 int config_explicit(const char *name);
 
+/* the graphics mode in force (display.graphics, port_graphics_modes.h): enum graphics_mode, and its name.
+Hardcore reads as Classic while a frame is in head-tracked stereo */
+int config_graphics_mode(void);
+const char *config_graphics_mode_name(void);
+/* the mode by name for this run only, unsaved (debug.knob_cycle): 0 for a name that is no mode */
+int config_graphics_try(const char *name);
+/* 1 while the frames are head-tracked stereo (Apple Vision Pro), where Hardcore acts as Classic */
+void config_graphics_head_stereo(int head);
+/* the mode's name while it replaces this setting's own value (the menus show it instead of the
+stored value), else NULL */
+const char *config_graphics_replaces(const char *name);
+
 /* Gameplay breaks at which a verified pending profile may replace profile defaults. */
 enum
 {

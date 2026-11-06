@@ -120,6 +120,7 @@ double config_real(const char *name)
 	return setting_snap_angle;
 }
 int config_boolean(const char *name) { return !strcmp(name, "input.comfort_vignette") && setting_comfort_vignette; }
+void config_graphics_head_stereo(int head) { (void)head; }
 void platform_video_drawable_size(int *width, int *height) { *width = probe_drawable[0]; *height = probe_drawable[1]; }
 void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 void platform_log(const char *format, ...)

@@ -13,6 +13,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #import "host_texture_upscale.h"
 #import "host_astc_store.h"
 #include "host_config.h"
+#include "../../linux/src/port_graphics_modes.h"
 #include <pthread/qos.h>
 #include "texture_upscale_priority.h"
 #include "ios_host.h"
@@ -1031,6 +1032,9 @@ void host_texture_upscale_init(const char *root) {
         if(environment)snprintf(player,sizeof(player),"%s",environment);else host_config_string("display.upscaled_textures",profile_upscales?"true":"false",player,sizeof(player));
         player_upscales=text_true(player);
         if(upscale_mode==TEXTURE_UPSCALE_MODE_OFF){host_logf(HOST_LOG_INFO,"Upscale: off (debug.texture_upscale_generate is \"off\")");return;}
+        /* Hardcore graphics draw the maps' own textures: no import step, background work or pre-level wait, as a
+           profile that turns them off; what is made stays on disk for Classic and Enhanced */
+        if(!environment&&host_config_graphics_mode()==GRAPHICS_MODE_HARDCORE){host_logf(HOST_LOG_INFO,"Upscale: off (Hardcore graphics)");return;}
         int model=texture_upscale_model_available();
         if(!texture_upscale_gate(upscale_mode,profile_upscales,player_upscales,model)){
             /* (the model's line says which is missing: a build without the model is not a device without a Neural Engine) */

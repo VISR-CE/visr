@@ -24,6 +24,7 @@ config_origin_decide.
 #include "platform.h"
 #include "port_config.h"
 #include "port_profile_apply.h"
+#include "port_graphics_modes.h"
 #include "tomlc17.h"
 
 #include <SDL3/SDL.h>
@@ -108,6 +109,15 @@ nothing reaches a server before the player agrees (halo_internet.h) */
 
 static const struct config_setting config_settings[] =
 {
+	{ "display.graphics", _config_string, "\"enhanced\"", "HALO_GRAPHICS", _environment_value, _platform_all,
+		"The game's look: \"enhanced\" (default) is the original game tastefully\n"
+		"enhanced, with ambient occlusion and shadows under props; \"classic\" draws\n"
+		"only what the original Xbox drew, at this device's resolution and frame\n"
+		"rate, with upscaled textures and a sharp HUD; \"hardcore\" is the original\n"
+		"Xbox exactly: 640x480 at 30 frames a second, nothing added. The mode wins\n"
+		"over the settings it replaces (port_graphics_modes.h), which keep their\n"
+		"values for when it changes back. The picture's size and rate change at\n"
+		"the next level." },
 	{ "display.fullscreen", _config_boolean, "true", "HALO_FULLSCREEN", _environment_value, _platform_desktop,
 		"Where display.mode is empty: start borderless over the whole display;\n"
 		"false starts in a window. F11 switches." },
@@ -1921,6 +1931,26 @@ static struct config_setting_state
 
 static int config_origins_changed;
 
+/* ---------- the graphics mode (port_graphics_modes.h)
+
+display.graphics is a layer over the player's own choices and the profile's
+(scene class and variable context too) and under the environment: a setting
+the mode replaces reads as the mode's value, while config_values keeps the
+stored one for when the mode changes back. */
+
+/* the mode display.graphics names (an unknown one: Enhanced) */
+static int config_graphics_stored = GRAPHICS_MODE_ENHANCED;
+/* head-tracked stereo this frame (config_graphics_head_stereo): Hardcore acts as Classic */
+static int config_graphics_head;
+/* each setting's value in each mode, where the mode replaces it */
+static struct config_value config_mode_values[NUMBER_OF_CONFIG_SETTINGS][NUMBER_OF_GRAPHICS_MODES];
+static unsigned char config_mode_replaces[NUMBER_OF_CONFIG_SETTINGS][NUMBER_OF_GRAPHICS_MODES];
+/* display.graphics as it reads: the mode in force (a benchmark suite's Enhanced, Enhanced for an unknown name), so
+reports record the mode that drew the frame, not only the one stored */
+static long config_graphics_index = -1;
+static struct config_value config_graphics_reported[NUMBER_OF_GRAPHICS_MODES] =
+	{ { .string = "hardcore" }, { .string = "classic" }, { .string = "enhanced" } };
+
 /* ---------- the file */
 
 static void config_path(char *path, size_t size)
@@ -3106,6 +3136,130 @@ static void config_set_from_environment(size_t index)
 	config_states[index].source = _source_environment;
 }
 
+static const struct config_value *config_value(const char *name, enum config_type type);
+
+/* the mode table's values as settings, once */
+static void config_graphics_build(void)
+{
+	static int built;
+	size_t row;
+
+	if (built)
+		return;
+	built = 1;
+	for (row = 0; row < NUMBER_OF_GRAPHICS_MODE_SETTINGS; row++)
+	{
+		long index = config_setting_index(graphics_mode_settings[row].name);
+		int mode;
+
+		if (index < 0)
+		{
+			platform_log("graphics: the mode table names %s, which is no setting", graphics_mode_settings[row].name);
+			continue;
+		}
+		for (mode = 0; mode < NUMBER_OF_GRAPHICS_MODES; mode++)
+		{
+			if (!graphics_mode_settings[row].value[mode])
+				continue;
+			config_set_from_text(&config_mode_values[index][mode], config_settings[index].type,
+				graphics_mode_settings[row].value[mode]);
+			config_mode_replaces[index][mode] = 1;
+		}
+	}
+}
+
+/* display.graphics read again, after the file or a write changed it */
+static void config_graphics_update(void)
+{
+	long index = config_setting_index("display.graphics");
+	const char *text;
+	int mode;
+
+	config_graphics_build();
+	config_graphics_index = index;
+	if (index < 0)
+		return;
+	text = config_values[index].string ? config_values[index].string : "";
+	mode = graphics_mode_parse(text);
+	if (mode < 0)
+	{
+		platform_log("graphics: display.graphics \"%s\" is no mode this build has; drawing enhanced", text);
+		mode = GRAPHICS_MODE_ENHANCED;
+	}
+	/* a benchmark suite measures the profile's mode, Enhanced, whatever the player plays in, unless its own
+	environment names one (HALO_GRAPHICS) */
+	if (config_benchmark_isolated() && config_states[index].source != _source_environment && mode != GRAPHICS_MODE_ENHANCED)
+	{
+		platform_log("graphics: a benchmark suite draws enhanced (display.graphics is %s)", graphics_mode_names[mode]);
+		mode = GRAPHICS_MODE_ENHANCED;
+	}
+	if (mode != config_graphics_stored)
+		platform_log("graphics: %s (was %s)", graphics_mode_names[mode], graphics_mode_names[config_graphics_stored]);
+	config_graphics_stored = mode;
+}
+
+/* the mode's value for a setting it replaces, or NULL: the setting's own value stands (the environment always
+wins) */
+static const struct config_value *config_mode_value(size_t index)
+{
+	int mode = graphics_mode_effective(config_graphics_stored, config_graphics_head);
+
+	if ((long)index == config_graphics_index)
+		return &config_graphics_reported[config_graphics_stored];
+	if (!config_mode_replaces[index][mode] || config_states[index].source == _source_environment)
+		return NULL;
+	return &config_mode_values[index][mode];
+}
+
+int config_graphics_mode(void)
+{
+	(void)config_boolean("display.vsync");   /* the first load */
+	return graphics_mode_effective(config_graphics_stored, config_graphics_head);
+}
+
+const char *config_graphics_mode_name(void)
+{
+	return graphics_mode_names[config_graphics_mode()];
+}
+
+int config_graphics_try(const char *name)
+{
+	int mode = graphics_mode_parse(name);
+
+	(void)config_boolean("display.vsync");   /* the first load */
+	if (mode < 0)
+		return 0;
+	pthread_mutex_lock(&config_lock);
+	if (mode != config_graphics_stored)
+		platform_log("graphics: %s for this run (was %s)", graphics_mode_names[mode], graphics_mode_names[config_graphics_stored]);
+	config_graphics_stored = mode;
+	config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+	return 1;
+}
+
+void config_graphics_head_stereo(int head)
+{
+	head = head != 0;
+	if (head == config_graphics_head)
+		return;
+	pthread_mutex_lock(&config_lock);
+	config_graphics_head = head;
+	if (config_graphics_stored == GRAPHICS_MODE_HARDCORE)
+		config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+}
+
+const char *config_graphics_replaces(const char *name)
+{
+	long index = config_setting_index(name);
+
+	if (index < 0)
+		return NULL;
+	(void)config_value(name, config_settings[index].type);
+	return index != config_graphics_index && config_mode_value((size_t)index) ? config_graphics_mode_name() : NULL;
+}
+
 /* the log's account of where the settings a profile may set got their
 values: one line for each that anything but its default set (all of them
 with debug.settings_dump), highest layer first. Other settings (network,
@@ -3300,6 +3454,7 @@ static void config_load(void)
 
 	for (index = 0; index < NUMBER_OF_CONFIG_SETTINGS; index++)
 		config_set_from_environment(index);
+	config_graphics_update();
 	config_dump();
 }
 
@@ -3321,7 +3476,11 @@ static const struct config_value *config_value(const char *name, enum config_typ
 		platform_log("settings: no %s setting %s", type == _config_string ? "string" : "such", name);
 		return &none;
 	}
-	return &config_values[index];
+	{
+		const struct config_value *mode = config_mode_value((size_t)index);
+
+		return mode ? mode : &config_values[index];
+	}
 }
 
 /* ---------- writing a setting */
@@ -3496,6 +3655,8 @@ int config_write(const char *name, const char *value)
 	out = config_text_set(text, name, line_text);
 	succeeded = out && config_write_file(path, out);
 	config_origins_write();
+	if (!strcmp(name, "display.graphics"))
+		config_graphics_update();
 	config_change_count++;
 	pthread_mutex_unlock(&config_lock);
 	free(out);
@@ -3743,6 +3904,11 @@ static long config_frame_rate_index = -1;
 static const struct config_value *config_scene_value_uncapped(size_t index, int scene, int external)
 {
 	const struct config_setting_state *state = &config_states[index];
+	/* (the graphics mode wins over a scene class's, the external display's and the variable context's values) */
+	const struct config_value *mode = config_mode_value(index);
+
+	if (mode)
+		return mode;
 	if (state->source == _source_default || state->source == _source_profile)
 	{
 		if (external)
@@ -4143,7 +4309,7 @@ int config_reload_boolean(const char *name)
 		toml_free(result);
 	}
 	config_set_from_environment((size_t)index);
-	value = config_values[index].boolean;
+	value = config_mode_value((size_t)index) ? config_mode_value((size_t)index)->boolean : config_values[index].boolean;
 	pthread_mutex_unlock(&config_lock);
 	free(text);
 	return value;

@@ -2413,6 +2413,8 @@ int halo_knob_apply(const char *name, const char *value)
 	}
 	else if (!strcmp(name, "display.effect_resolution"))
 		knob_effect_level = effect_resolution_level(value);
+	else if (!strcmp(name, "display.graphics"))
+		return config_graphics_try(value);
 	else
 		return 0;
 	knob_ab_changed();

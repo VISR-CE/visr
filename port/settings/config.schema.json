@@ -6,6 +6,17 @@
     "display": {
       "type": "object",
       "properties": {
+        "graphics": {
+          "type": "string",
+          "default": "enhanced",
+          "description": "The game's look: \"enhanced\" (default) is the original game tastefully enhanced, with ambient occlusion and shadows under props; \"classic\" draws only what the original Xbox drew, at this device's resolution and frame rate, with upscaled textures and a sharp HUD; \"hardcore\" is the original Xbox exactly: 640x480 at 30 frames a second, nothing added. The mode wins over the settings it replaces (port_graphics_modes.h), which keep their values for when it changes back. The picture's size and rate change at the next level.",
+          "x-environment": "HALO_GRAPHICS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "fullscreen": {
           "type": "boolean",
           "default": true,

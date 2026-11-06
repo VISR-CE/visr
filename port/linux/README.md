@@ -242,6 +242,7 @@ the setting for one start of the game. It has priority over the file.
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
+| `display.graphics` | string | `"enhanced"` | apple, desktop | `HALO_GRAPHICS` | The game's look: "enhanced" (default) is the original game tastefully enhanced, with ambient occlusion and shadows under props; "classic" draws only what the original Xbox drew, at this device's resolution and frame rate, with upscaled textures and a sharp HUD; "hardcore" is the original Xbox exactly: 640x480 at 30 frames a second, nothing added. |
 | `display.fullscreen` | boolean | `true` | desktop | `HALO_FULLSCREEN` | Where display.mode is empty: start borderless over the whole display; false starts in a window. |
 | `display.mode` | string | `""` | desktop | `HALO_DISPLAY_MODE` | "fullscreen" takes the display (at display.resolution's mode), "borderless" is a window over the whole desktop, "windowed" a window (display.window_size). |
 | `display.resolution` | string | `"native"` | desktop | `HALO_RESOLUTION` | What fullscreen and borderless draw at: "native", the display's own, or "<width>x<height>" ("1920x1080"), 640x480 or more. |

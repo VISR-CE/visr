@@ -3,7 +3,10 @@
 #define CONFIG_GRAPHICS_MAXIMUM_BYTES (32 * 1024)
 #define CONFIG_GRAPHICS_MAXIMUM_STRING_BYTES 256
 #define CONFIG_GRAPHICS_MAXIMUM_KEYS 128
+/* Every display.* setting, and these: debug settings that change what is drawn or how it is timed, and
+   game.enhanced_animations, which the graphics mode (display.graphics) turns off in Hardcore */
 #define GRAPHICS_CAPTURE_DEBUG_KEYS(X) \
+    X("game.enhanced_animations") \
     X("debug.foveation_eye_passes") \
     X("debug.anti_aliasing_folded") \
     X("debug.rate_map_test") \

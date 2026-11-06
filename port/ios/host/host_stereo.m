@@ -110,6 +110,12 @@ static int head_configured(void)
 	return host_stereo_mode() == HALO_STEREO_HEAD;
 }
 
+/* (Hardcore graphics act as Classic in HEAD mode: host_config.c asks) */
+__attribute__((constructor)) static void head_stereo_install(void)
+{
+	host_config_set_head_stereo(head_configured);
+}
+
 static id<MTLRenderPipelineState> eye_pipeline, eye_foveated_pipeline, hud_pipeline;
 /* the immersive cutscene's blur (Task 12k): its pipelines, and each eye's
 two quarter-size targets (the blur ends in the first) */

@@ -29,7 +29,7 @@ int main(void)
 	int shadow = find("display.shadow_map_size");
 
 	knob_state_reset(&state);
-	assert(KNOB_COUNT == 7 && shadow >= 0);
+	assert(KNOB_COUNT == 8 && shadow >= 0);
 	/* choosing a knob shows it at the setting's value and changes nothing */
 	assert(!knob_cycle_press(&state, shadow, 0, current, label, sizeof(label), &name, &value));
 	assert(!strcmp(label, "shadow map 512") && state.selected == shadow);
@@ -59,6 +59,10 @@ int main(void)
 	assert(!strcmp(knob_table[aa].shown[3], "MSAA 2x"));
 	assert(knob_value_find(&knob_table[quality], "0.60") == 1);
 	assert(knob_value_find(&knob_table[quality], "0.68") == 2);
+	/* the graphics mode, lowest first */
+	int graphics = find("display.graphics");
+	assert(graphics == KNOB_COUNT - 1 && knob_table[graphics].count == 3);
+	assert(!strcmp(knob_table[graphics].values[0], "hardcore") && !strcmp(knob_table[graphics].values[2], "enhanced"));
 	puts("PASS: knob cycle selects, steps, stops at the ends and wraps");
 	return 0;
 }

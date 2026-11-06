@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 const struct texture_policy_table texture_policy_embedded={.low=12,.high=30,.sigma=1,.iterations=3,.damage_share=.1f,
     .damage_structure_loss=-1,.damage_bpf_structure_loss=-1,.damage_measure_version=1};
+int host_config_graphics_mode(void) {return GRAPHICS_MODE_ENHANCED;}
 void host_config_string(const char *name,const char *fallback,char *out,size_t size) {
     snprintf(out,size,"%s",!strcmp(name,"debug.texture_upscale_generate")?"true":fallback);
 }

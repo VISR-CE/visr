@@ -10,6 +10,11 @@ double host_config_real(const char *name, double fallback);
 void host_config_set_profile(int (*value)(const char *name, char *text, size_t size));
 /* 1 once the device profile is installed: a setting a profile may give is settled from then on */
 int host_config_profile_installed(void);
+/* the graphics mode in force (display.graphics: enum graphics_mode in port/linux/src/port_graphics_modes.h). A
+   setting the mode replaces reads as the mode's value from every host_config_ reader, as it does in the game */
+int host_config_graphics_mode(void);
+/* how the host tells a head-tracked stereo frame, where Hardcore acts as Classic (host_stereo.m installs it) */
+void host_config_set_head_stereo(int (*head)(void));
 /* section.key as a string, unquoted, or fallback */
 void host_config_string(const char *name, const char *fallback, char *out, size_t size);
 /* section.key set to true or false in config.toml, every other line kept (the section added when missing);

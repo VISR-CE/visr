@@ -113,6 +113,8 @@ static void launch(const char *profile)
 	config_loaded = 0;
 	config_workload_is_variable = 0;
 	config_workload_hold_30 = 0;
+	config_graphics_stored = GRAPHICS_MODE_ENHANCED;
+	config_graphics_head = 0;
 	logged[0] = 0;
 	/* (any question loads) */
 	(void)config_boolean("display.vsync");
@@ -797,6 +799,131 @@ static void check_effect_resolution_migration(void)
 	assert(!strcmp(config_string("display.effect_resolution"), "half") && !file_has(path, "mirror_resolution"));
 }
 
+
+/* the graphics mode (port_graphics_modes.h): a layer over the player's choices, the profile and its scene and
+variable values, under the environment; the stored values kept for when it changes back */
+static void check_graphics_modes(void)
+{
+	char text[64];
+	const char *variable = TV_MODEL "display.render_height\t900\tmodel Apple TV HD\tvariable\n"
+		"display.dynamic_resolution\ttrue\tmodel Apple TV HD\tvariable\n"
+		"display.specular_light_limit\t2\tmodel Apple TV HD\n" "display.clutter_distance\t40\tmodel Apple TV HD\n";
+	size_t row;
+
+	/* every row of the table names a setting, and display.graphics is no profile key */
+	for (row = 0; row < NUMBER_OF_GRAPHICS_MODE_SETTINGS; row++)
+		assert(config_setting_index(graphics_mode_settings[row].name) >= 0);
+	assert(config_setting_index("display.graphics") >= 0 && !config_is_profile_setting((size_t)config_setting_index("display.graphics")));
+
+	/* a first launch: Enhanced, written as a default, replacing nothing */
+	fresh();
+	launch(variable);
+	assert(!strcmp(config_string("display.graphics"), "enhanced") && config_graphics_mode() == GRAPHICS_MODE_ENHANCED);
+	assert(file_has(path, "\ngraphics = \"enhanced\"\n") && file_has(origins, "display.graphics\tdefault\t\"enhanced\"\n"));
+	assert(config_integer("display.render_height") == 1080 && config_real("display.render_scale") == 0.5);
+	assert(config_integer("display.specular_light_limit") == 2 && !config_graphics_replaces("display.render_height"));
+	assert(config_write("display.first_person_legs", "true") && config_boolean("display.first_person_legs"));
+	assert(config_write("display.anti_aliasing", "smaa") && !strcmp(config_string("display.anti_aliasing"), "smaa"));
+
+	/* Classic: the additions off, even one the player turned on; everything else as before */
+	assert(config_write("display.graphics", "classic") && config_graphics_mode() == GRAPHICS_MODE_CLASSIC);
+	assert(strstr(logged, "graphics: classic (was enhanced)"));
+	assert(!config_boolean("display.first_person_legs") && !strcmp(config_graphics_replaces("display.first_person_legs"), "classic"));
+	assert(!strcmp(config_string("display.anti_aliasing"), "smaa") && config_integer("display.render_height") == 1080);
+	assert(file_has(path, "\nfirst_person_legs = true\n"));
+
+	/* Hardcore: the Xbox's 640x480 at 30 over the profile, its scene classes, the variable context and the
+	player's own choices */
+	assert(config_write("display.graphics", "hardcore") && config_graphics_mode() == GRAPHICS_MODE_HARDCORE);
+	assert(config_integer("display.render_height") == 480 && config_integer("display.screen_width") == 640);
+	assert(config_real("display.render_scale") == 1.0 && config_scene_real("display.render_scale", CONFIG_SCENE_MENU) == 1.0);
+	assert(config_scene_real("display.render_scale", CONFIG_SCENE_CUTSCENE) == 1.0);
+	assert(!strcmp(config_string("display.frame_rate"), "30") && !config_boolean("display.interpolation"));
+	assert(!config_boolean("display.dynamic_resolution") && !config_boolean("display.direct_camera"));
+	assert(!strcmp(config_string("display.anti_aliasing"), "off") && config_integer("display.anisotropic_filtering") == 1);
+	assert(!config_boolean("display.upscaled_textures") && !config_reload_boolean("display.upscaled_textures"));
+	assert(!config_boolean("display.high_res_hud") && !config_boolean("display.native_hud") && !config_boolean("game.enhanced_animations"));
+	assert(!strcmp(config_string("display.effect_resolution"), "xbox") && !strcmp(config_string("display.model_lod"), "auto"));
+	assert(config_boolean("debug.split_screen_hud") && !strcmp(config_string("debug.shadow_blur"), "xbox"));
+	/* (the profile's cost caps lifted) */
+	assert(config_integer("display.specular_light_limit") == 0 && config_real("display.clutter_distance") == 0.0);
+	assert(!strcmp(config_graphics_replaces("display.render_height"), "hardcore") && !config_graphics_replaces("display.vsync"));
+	config_workload_set(1, "probe");
+	assert(config_scene_integer("display.render_height", CONFIG_SCENE_GAMEPLAY) == 480);
+	assert(!config_scene_boolean("display.dynamic_resolution", CONFIG_SCENE_GAMEPLAY));
+	assert(config_scene_string("display.frame_rate", CONFIG_SCENE_GAMEPLAY, text, sizeof(text)) && !strcmp(text, "30"));
+	config_workload_set(0, "probe");
+	external_active = 1;
+	assert(config_scene_integer("display.render_height", CONFIG_SCENE_MENU) == 480);
+	external_active = 0;
+	/* reports show what drew the frame */
+	{
+		char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
+
+		assert(config_graphics_settings_json(CONFIG_SCENE_GAMEPLAY, json, sizeof(json)));
+		assert(strstr(json, "\"display.graphics\":\"hardcore\"") && strstr(json, "\"display.render_height\":480"));
+	}
+	/* a choice made in Hardcore is stored, and in force once the mode changes back */
+	assert(config_write("display.anti_aliasing", "fxaa") && !strcmp(config_string("display.anti_aliasing"), "off"));
+	assert(file_has(path, "\nanti_aliasing = \"fxaa\"\n") && file_has(origins, "display.anti_aliasing\tchosen\n"));
+
+	/* head-tracked stereo: Hardcore acts as Classic */
+	config_graphics_head_stereo(1);
+	assert(config_graphics_mode() == GRAPHICS_MODE_CLASSIC && config_integer("display.render_height") == 1080);
+	assert(!config_boolean("display.first_person_legs"));
+	config_graphics_head_stereo(0);
+	assert(config_integer("display.render_height") == 480);
+
+	/* the mode lasts across launches; the environment wins over it */
+	launch(variable);
+	assert(config_graphics_mode() == GRAPHICS_MODE_HARDCORE && config_integer("display.render_height") == 480);
+	assert(file_has(origins, "display.graphics\tchosen\n"));
+	setenv("HALO_RENDER_HEIGHT", "720", 1);
+	setenv("HALO_ANTI_ALIASING", "smaa", 1);
+	launch(variable);
+	assert(config_integer("display.render_height") == 720 && config_scene_integer("display.render_height", CONFIG_SCENE_MENU) == 720);
+	assert(!strcmp(config_string("display.anti_aliasing"), "smaa") && !config_graphics_replaces("display.anti_aliasing"));
+	assert(config_real("display.render_scale") == 1.0);
+	unsetenv("HALO_RENDER_HEIGHT");
+	unsetenv("HALO_ANTI_ALIASING");
+	setenv("HALO_GRAPHICS", "enhanced", 1);
+	launch(variable);
+	assert(config_graphics_mode() == GRAPHICS_MODE_ENHANCED && !strcmp(config_string("display.anti_aliasing"), "fxaa"));
+	unsetenv("HALO_GRAPHICS");
+	/* a benchmark suite measures Enhanced whatever the player plays in, unless its environment names a mode */
+	setenv("HALO_BENCHMARK_SUITE", "quick", 1);
+	launch(variable);
+	assert(config_graphics_mode() == GRAPHICS_MODE_ENHANCED && config_integer("display.render_height") == 1080);
+	assert(strstr(logged, "graphics: a benchmark suite draws enhanced (display.graphics is hardcore)"));
+	/* (the report records the mode that drew, not the stored one) */
+	assert(!strcmp(config_string("display.graphics"), "enhanced"));
+	{
+		char json[CONFIG_GRAPHICS_MAXIMUM_BYTES];
+
+		assert(config_graphics_settings_json(CONFIG_SCENE_GAMEPLAY, json, sizeof(json)));
+		assert(strstr(json, "\"display.graphics\":\"enhanced\"") && strstr(json, "\"display.render_height\":1080"));
+	}
+	setenv("HALO_GRAPHICS", "classic", 1);
+	launch(variable);
+	assert(config_graphics_mode() == GRAPHICS_MODE_CLASSIC);
+	unsetenv("HALO_GRAPHICS");
+	unsetenv("HALO_BENCHMARK_SUITE");
+
+	/* back to Enhanced: every stored value in force again */
+	launch(variable);
+	assert(config_write("display.graphics", "enhanced") && config_integer("display.render_height") == 1080);
+	assert(!strcmp(config_string("display.anti_aliasing"), "fxaa") && config_boolean("display.first_person_legs"));
+	assert(config_integer("display.specular_light_limit") == 2 && config_boolean("display.upscaled_textures") == 0);
+
+	/* a mode this build does not know (a newer build's): Enhanced, and said */
+	assert(config_write("display.graphics", "rt") && config_graphics_mode() == GRAPHICS_MODE_ENHANCED);
+	assert(!strcmp(config_string("display.graphics"), "enhanced") && !config_graphics_replaces("display.graphics"));
+	assert(strstr(logged, "graphics: display.graphics \"rt\" is no mode this build has; drawing enhanced"));
+	launch(variable);
+	assert(config_graphics_mode() == GRAPHICS_MODE_ENHANCED && file_has(path, "\ngraphics = \"rt\"\n"));
+	fresh();
+}
+
 int main(void)
 {
 	snprintf(directory, sizeof(directory), "/tmp/config-origins-probe-XXXXXX");
@@ -823,8 +950,9 @@ int main(void)
 	check_workload();
 	check_workload_frame_rate();
 	check_effect_resolution_migration();
+	check_graphics_modes();
 	fresh();
 	rmdir(directory);
-	puts("PASS: settings layers: default, device profile, a chosen value, the environment; config.origins; scene classes; workload contexts");
+	puts("PASS: settings layers: default, device profile, a chosen value, the environment; config.origins; scene classes; workload contexts; graphics modes");
 	return 0;
 }
