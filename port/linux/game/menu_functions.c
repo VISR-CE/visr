@@ -4229,8 +4229,8 @@ static short browser_fake_games(struct p2p_listing *games)
 		short version;
 	} const fakes[] = {
 		{ "Spartan Wars", "bloodgulch", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 1, 0 },
-		{ "24/7 Campaign", "b40", "Co-op", "", 11, 16, 0, 1, 0, 0, 0, 1, 0 },
-		{ "Dungeon Soup", "c10", "Co-op", "", 4, 16, 0, 1, 0, 0, 0, 1, 0 },
+		{ "24/7 Campaign", "b40", "Co-op", "", 16, 16, 0, 1, 0, 0, 0, 1, 0 },
+		{ "Dungeon Soup", "c10", "Co-op", "", 4, 16, 0, 1, 1, 0, 0, 1, 0 },
 		{ "MLG TS 2v2 US4", "chillout", "MLG 2v2", "na-east", 4, 4, 2, 0, 0, 1, 1, 1, 0 },
 		{ "MLG TS 2v2 US1", "hangemhigh", "MLG 2v2", "na-east", 0, 4, 2, 1, 0, 1, 1, 1, 0 },
 		{ "OpenCE CTF", "sidewinder", "CTF", "eu", 6, 127, 1, 1, 0, 1, 1, 1, 0 },
@@ -4240,7 +4240,7 @@ static short browser_fake_games(struct p2p_listing *games)
 		{ "Urdatorn Hejlaa", "bloodgulch", "Slayer", "", 1, 16, 2, 1, 1, 0, 0, 1, 0 },
 		{ "Beaver Creek Kings", "beavercreek", "King", "", 3, 8, 4, 1, 0, 0, 0, 1, 0 },
 		{ "Halo Night (v42)", "prisoner", "Slayer", "", 5, 16, 2, 1, 0, 0, 0, 0, 42 },
-		{ "Pillar of Autumn", "a10", "Co-op", "", 2, 4, 0, 1, 0, 0, 0, 1, 0 },
+		{ "Pillar of Autumn", "a10", "Co-op", "", 4, 4, 0, 1, 0, 0, 0, 1, 0 },
 		{ "Race Day", "ratrace", "Race", "eu", 0, 16, 5, 1, 0, 1, 1, 1, 0 },
 	};
 	short index;
