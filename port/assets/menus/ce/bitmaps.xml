@@ -334,6 +334,9 @@
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/about/header_open_source_notices">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/about/header_open_source_notices.png" width="512" height="64"/>
 	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png" width="512" height="64"/>
+	</bitmap>
 	<bitmap name="pause/pausebox_left">
 		<frame png="ce/port/pause/pausebox_left__0.png" width="16" height="256"/>
 		<frame png="ce/port/pause/pausebox_left__1.png" width="16" height="256"/>

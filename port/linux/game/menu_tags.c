@@ -458,7 +458,7 @@ static char const *const port_game_data_input_names[] =
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",
-	"port cloud saves status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
+	"port cloud saves status", "port graphics state", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
 	"port lobby preview update",
 	/* (the gametype editor's: the Xbox's stops the game on the buttons'
 	row; the Xbox's read only player_ui's gametype, not Server Setup's) */
@@ -2917,6 +2917,9 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 			struct string_list const *strings;
 			long index;
 
+			/* (HARDCORE, shown in a replaced setting's spinner's place: menu_functions.c's graphics_rows_show) */
+			if (strstr(pieces[piece].name, "_replaced"))
+				continue;
 			if (!part || part->text_font.index == NONE || part->text_label_string_list.index == NONE)
 				continue;
 			strings = tag_get(UNICODE_STRING_LIST_TAG, part->text_label_string_list.index);

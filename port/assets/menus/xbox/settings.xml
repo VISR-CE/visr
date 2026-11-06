@@ -4,6 +4,7 @@
 	<strings name="xbox/settings/hub_descriptions">
 		<string text="Look, sensitivity, vibration and\nthe button layout.\n\nCurrent Profile:" />
 		<string text="Frame rate, resolution and how\nthe picture is drawn.\n\nCurrent Profile:" platform="mac_app" />
+		<string text="The game's look.\n\nCurrent Profile:" platform="!mac_app" />
 		<string text="Volume and sound for the\ngame on this device.\n\nCurrent Profile:" />
 		<string text="Online play, custom maps\nand player names.\n\nCurrent Profile:" />
 		<string text="The keys and mouse buttons\nfor each action.\n\nCurrent Profile:" platform="keyboard" />
@@ -11,6 +12,7 @@
 	<bitmap name="xbox/settings/hub_pictures">
 		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="1" cache="cache/xbox/v1/controls.png" png="xbox/art/none.png" width="512" height="256" />
 		<frame png="xbox/art/video.png" width="512" height="256" platform="mac_app" />
+		<frame png="xbox/art/none.png" width="512" height="256" platform="!mac_app" />
 		<frame png="xbox/art/audio.png" width="512" height="256" />
 		<frame png="xbox/art/internet.png" width="512" height="256" />
 		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/xbox/v1/keyboard.png" png="xbox/art/none.png" width="512" height="256" platform="keyboard" />
@@ -40,6 +42,7 @@
 		<data input="plyr prof edit select menu upd8" />
 		<child widget="xbox/settings/controls" x="51" y="78" />
 		<child widget="xbox/settings/video" x="51" y="111" platform="mac_app" />
+		<child widget="xbox/settings/graphics" x="51" y="111" platform="!mac_app" />
 		<child widget="xbox/settings/audio" x="51" y="111" />
 		<child widget="xbox/settings/network" x="51" y="144" />
 		<child widget="xbox/settings/keyboard" x="51" y="177" platform="keyboard" />
@@ -51,6 +54,14 @@
 	<widget name="xbox/settings/video" type="text" text="VIDEO" font="ui\large_ui" color="#FF2896FF" width="232" height="32" bitmap="xbox/bitmaps/list_item_bkd" text_x="13" text_y="4">
 		<on event="a" open="xbox/settings/video_settings/video_settings_screen" />
 		<on event="start" open="xbox/settings/video_settings/video_settings_screen" />
+	</widget>
+	<widget name="xbox/settings/graphics" type="text" text="GRAPHICS" font="ui\large_ui" color="#FF2896FF" width="232" height="32" bitmap="xbox/bitmaps/list_item_bkd" text_x="13" text_y="4">
+		<child widget="xbox/settings/graphics_state" x="107" y="5" />
+		<on event="a" open="xbox/settings/graphics/graphics_screen" />
+		<on event="start" open="xbox/settings/graphics/graphics_screen" />
+	</widget>
+	<widget name="xbox/settings/graphics_state" type="text" width="112" height="22" font="ui\large_ui" color="#FF2896FF" align="right">
+		<data input="port graphics state" />
 	</widget>
 	<widget name="xbox/settings/audio" type="text" text="AUDIO" font="ui\large_ui" color="#FF2896FF" width="232" height="32" bitmap="xbox/bitmaps/list_item_bkd" text_x="13" text_y="4">
 		<on event="a" open="xbox/settings/audio_settings/audio_settings_screen" />

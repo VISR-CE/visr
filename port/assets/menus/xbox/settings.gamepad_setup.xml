@@ -17,7 +17,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="xbox/settings/gamepad_setup/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/settings/gamepad_setup/help" row_top="73" row_pitch="30" visible_rows="8">
+	<widget name="xbox/settings/gamepad_setup/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="8" description="xbox/settings/gamepad_setup/help" row_top="73" row_pitch="30">
 		<data input="port settings help" />
 		<child widget="xbox/settings/gamepad_setup/op_look_sensitivity" x="54" y="73" />
 		<child widget="xbox/settings/gamepad_setup/op_invert_look" x="54" y="103" />

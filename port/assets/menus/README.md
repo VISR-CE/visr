@@ -176,7 +176,16 @@ right choose which of two; Escape cancels, Delete clears); Change Color's
 `color picker ...` (the Xbox's names) set the profile's colour. The About
 screen (`tools/about_data.py`: the website, the credit line and the licenses)
 shows the app's version and build with the game data function `port about
-version`. The others do nothing yet.
+version`. The others do nothing yet. The graphics modes (`display.graphics`):
+`port graphics state` writes the mode in force into the settings hub's GRAPHICS
+row, and on a screen with the mode's row (Video Settings, and the Xbox look's
+GRAPHICS screen) `port settings help` also shows the CRT effect's row only while
+Hardcore is shown, reads HARDCORE (a `<key>_replaced` text beside the spinner,
+the row passed over) for each setting the Hardcore column of
+`port/linux/src/port_graphics_modes.h` replaces, and shows the help of the mode
+shown (`graphics_help`) while the mode's row is chosen. A `platform` value
+led by `!` is for every build the value is not for (`!mac_app`: the hub's
+GRAPHICS row, which the Mac has as the first row of VIDEO).
 
 ### `<data>`, `<conditional>`, `<replace>`
 

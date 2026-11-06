@@ -89,6 +89,7 @@ their handlers open opens.
 #include "text_filter.h"
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
+#include "../src/port_graphics_modes.h"
 #include "../src/halo_internet.h"
 #include "../include/menu_gametype.h"
 #ifdef HALO_IOS
@@ -106,6 +107,7 @@ void host_sdl_open_website(int page);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <xtl.h>
@@ -129,6 +131,11 @@ int config_boolean(char const *name);
 long config_integer(char const *name);
 int config_default(char const *name, char *text, unsigned int size);
 char const *config_string(char const *name);
+/* the graphics mode in force (enum graphics_mode, port_graphics_modes.h) and its name; the mode's name while it
+replaces a setting's own value, else NULL (port_config.h) */
+int config_graphics_mode(void);
+char const *config_graphics_mode_name(void);
+char const *config_graphics_replaces(char const *name);
 void platform_display_apply(void);
 void platform_binding_capture_begin(void);
 int platform_binding_capture_poll(int *input);
@@ -1610,6 +1617,105 @@ static void send_log_status_show(struct widget_instance *widget)
 #else
 	(void)widget;
 #endif
+}
+
+/* ---------- the graphics modes (display.graphics): the settings hub's GRAPHICS row, and the mode's row and the
+CRT effect's in Video Settings and on the GRAPHICS screen (tools/port_settings.py) */
+
+/* "port graphics state": the settings hub's GRAPHICS row shows the mode in force, as the settings screens' rows
+show their values */
+static void graphics_state_show(struct widget_instance *widget)
+{
+	char name[16];
+	wchar_t text[16];
+	short index;
+
+	snprintf(name, sizeof(name), "%s", config_graphics_mode_name());
+	for (index = 0; name[index]; index++)
+		name[index] = (char)toupper((unsigned char)name[index]);
+	halo_menus_utf16(name, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(widget, text, NUMBEROF(text));
+}
+
+/* the mode the screen's mode row shows (enum graphics_mode), or NONE */
+static short graphics_mode_shown(struct widget_instance *list)
+{
+	struct widget_instance *spinner = named(list, "graphics_spinner", 0);
+	struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+	short index = spinner ? spinner->parameters.list.selected_index : NONE;
+
+	if (!setting || index < 0 || index >= setting->value_count)
+		return NONE;
+	index = (short)graphics_mode_parse(setting->values[index]);
+	return index < 0 ? NONE : index;
+}
+
+/* whether the mode replaces the setting's own value: the game's answer for the mode in force (which has Hardcore
+acting as Classic in head-tracked stereo), else the table's for the mode the row shows before it is saved */
+static boolean graphics_replaces(short mode, char const *setting)
+{
+	if (mode == config_graphics_mode())
+		return config_graphics_replaces(setting) != NULL;
+	return graphics_mode_value(mode, setting) != NULL;
+}
+
+/* "port settings help" on a screen with the mode's row: the CRT effect's row only while Hardcore is shown (the
+list's window closes the rows below it up), a setting the mode shown replaces reading HARDCORE in its spinner's
+place with its row passed over (so that it does not change), and the help of the mode shown while its row is
+chosen, in the help's place */
+static void graphics_rows_show(struct widget_instance *list)
+{
+	short mode = graphics_mode_shown(list);
+	struct widget_instance *help = list->parameters.list.extended_description;
+	struct widget_instance *mode_help = named(screen_of(list), "graphics_help", 0);
+	struct widget_instance *crt = named(list, "op_crt_effect", 0);
+	struct widget_instance *row;
+	boolean on_mode;
+
+	if (mode == NONE)
+		return;
+	if (crt)
+	{
+		crt->visible = mode == GRAPHICS_MODE_HARDCORE;
+		if (!crt->visible && list->focused_child == crt)
+		{
+			/* (the mode's row, the list's first) */
+			list->focused_child = list->child;
+			list->parameters.list.selected_index = 0;
+		}
+	}
+	for (row = list->child; row; row = row->next)
+	{
+		struct widget_instance *spinner = NULL, *replaced = NULL, *part;
+		struct pc_menu_setting *setting = NULL;
+		boolean replaces;
+
+		if (strncmp(row->name, "op_", 3))
+			continue;
+		for (part = row->child; part; part = part->next)
+		{
+			if (strstr(part->name, "_replaced"))
+				replaced = part;
+			else if (part->type == 2 && !spinner_item(part) && !setting)
+			{
+				setting = pc_menu_setting_get(part->definition_tag_index);
+				spinner = part;
+			}
+		}
+		if (!replaced || !setting)
+			continue;
+		replaces = graphics_replaces(mode, setting->setting);
+		replaced->visible = replaces;
+		spinner->visible = !replaces;
+		row->disabled = replaces;
+	}
+	on_mode = list->focused_child && !strcmp(list->focused_child->name, "op_graphics");
+	if (mode_help && help)
+	{
+		mode_help->visible = on_mode;
+		help->visible = !on_mode;
+		mode_help->parameters.text_box.string_list_index = mode;
+	}
 }
 
 /* Video Setup's Resolution and Window Size, in the one row's place
@@ -6860,9 +6966,12 @@ void pc_menu_game_data_function_invoke(
 		about_text_show(widget, FALSE);
 	else if (!strcmp(name, "port about build"))
 		about_text_show(widget, TRUE);
+	else if (!strcmp(name, "port graphics state"))
+		graphics_state_show(widget);
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);
+		graphics_rows_show(widget);
 		settings_help(widget);
 	}
 	else if (!strcmp(name, "controls update menu"))

@@ -28,6 +28,31 @@ ON_OFF = [("ON", "true"), ("OFF", "false")]
 SENSITIVITIES = [(f"{value:g}", f"{value:g}") for value in (0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4)]
 VOLUMES = [(str(step), f"{step / 10:g}") for step in range(11)]
 
+# The graphics modes (display.graphics, port/linux/src/port_graphics_modes.h): the mode's row and the CRT effect's, in
+# Video Settings (first) and on the GRAPHICS screen. The help of each mode is a text of its own, by the mode shown
+# (menu_functions.c's graphics_help_show); the CRT effect's is its row's, and only Hardcore shows the row.
+GRAPHICS_MODES = [("HARDCORE", "hardcore"), ("CLASSIC", "classic"), ("ENHANCED", "enhanced")]
+GRAPHICS_HELP = [
+    "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel.",
+    "The original Xbox look at this device's resolution\nand frame rate, with sharper textures and HUD.",
+    "Tastefully enhanced: the original game with soft\nshading where things meet the ground and shadows\nunder props.",
+]
+CRT_HELP = "The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color."
+
+
+def graphics_rows(mode_label: str) -> list:
+    return [(mode_label, "display.graphics", GRAPHICS_MODES, "", None),
+            ("CRT EFFECT:", "display.crt_effect", ON_OFF, CRT_HELP, "apple")]
+
+
+def graphics_replaced() -> set:
+    """the settings Hardcore replaces (the table in port_graphics_modes.h): their rows show HARDCORE, unchanged,
+    while the mode shown replaces them"""
+    header = Path(__file__).resolve().parent.parent / "port/linux/src/port_graphics_modes.h"
+    table = header.read_text().split("#define GRAPHICS_MODE_SETTINGS(X)", 1)[1].split("\nstruct graphics_mode_setting", 1)[0]
+    return set(re.findall(r'X\("([a-z_.0-9]+)", "', table))
+
+
 # each screen: its folder below PE, its screen's widget (the name the profile
 # menu opens), its header (widget, bitmap), the row spacing, and its rows:
 # (label, setting, [(shown, value)], help, platform)
@@ -43,6 +68,7 @@ SCREENS = {
         # builds': no build shows both)
         "same_place": ["display.window_size", "display.frame_rate"],
         "rows": [
+            *graphics_rows("GRAPHICS:"),
             ("DISPLAY MODE:", "display.mode",
              [("FULLSCREEN", "fullscreen"), ("BORDERLESS", "borderless"), ("WINDOWED", "windowed")],
              "Fullscreen takes the display; borderless covers it\nwith a window. F11 switches to the window.",
@@ -77,6 +103,14 @@ SCREENS = {
             ("HIGH-RES TEXT:", "display.high_res_text", ON_OFF,
              "Draw text and titles with high-res fonts; off\ndraws the game's own.", None),
         ],
+    },
+    # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): laid out as CONTROLLER SETUP is, A
+    # accepts and B cancels (xbox_menus.py's ACCEPT_PAGES); the PC look has the rows in Video Settings
+    "graphics": {
+        "screen": "graphics_screen",
+        "header": ("header_graphics", f"{PE}/graphics/header_graphics"),
+        "spacing": 30,
+        "rows": graphics_rows("MODE:"),
     },
     "mouse_settings": {
         "screen": "mouse_settings_screen",
@@ -224,6 +258,13 @@ def _strings(name: str, texts: list) -> list:
             *[f"\t\t<string{attributes([('text', text)])}/>" for text in texts], "\t</strings>"]
 
 
+# a state shown where a row's spinner shows its value: the spinner's place, font and alignment, without its arrows
+STATE_VALUE = [("type", "text"), ("left", 3), ("top", 2), ("width", 147), ("height", 20), ("font", "ui\\large_ui"),
+               ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1)]
+# and the row of a setting the mode replaces shows this in its place
+REPLACED_VALUE = STATE_VALUE + [("text", "HARDCORE")]
+
+
 def _button(name: str, caption: int, handlers: list) -> list:
     pairs = [("type", "text"), ("width", 128), ("height", 24), ("bitmap", "bitmaps/text_button_background"),
              ("string_list", "strings/common_button_captions"), ("string_index", caption), ("font", "ui\\small_ui"),
@@ -246,7 +287,7 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
                      ([f'<child widget="{base}/cloud_saves_status" platform="cloud_saves"/>']
                       if spec.get("cloud_status") else []) +
                      # (a fixed text is no row's description, so the screen holds it itself)
-                     ([f'<child widget="{base}/help"/>'] if spec.get("help_text") else []))
+                     ([f'<child widget="{base}/help"/>'] if spec.get("help_text") else []) + spec.get("screen_children", []))
     lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                                           ("bitmap", header_bitmap)], [])
     fixed = spec.get("help_text")  # (a text that stays, in the small font, in place of the rows' help)
@@ -311,10 +352,17 @@ def _setting_screen(folder: str, spec: dict) -> list:
         if setting not in spec.get("same_place", ()):
             place += 1
         rows.append((row, platform, place))
+        # (a setting the graphics mode replaces: HARDCORE where the spinner is while the mode shown replaces it,
+        # menu_functions.c's graphics_rows_show)
+        replaced = setting in graphics_replaced()
         extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF"), ("platform", platform)],
                          [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>',
-                          f'<child{attributes([("widget", f"{base}/{key}_spinner"), ("x", 320), ("y", 1)])}/>'])
+                          f'<child{attributes([("widget", f"{base}/{key}_spinner"), ("x", 320), ("y", 1)])}/>'] +
+                         ([f'<child{attributes([("widget", f"{base}/{key}_replaced"), ("x", 320), ("y", 1)])}/>']
+                          if replaced else []))
+        if replaced:
+            extra += _widget(f"{base}/{key}_replaced", REPLACED_VALUE, [])
         extra += _widget(f"{base}/{key}_label",
                          [("type", "text"), ("controller", 1), ("width", 300), ("height", 22),
                           ("string_list", f"{base}/labels"), ("string_index", index), ("font", "ui\\large_ui"),
@@ -338,6 +386,15 @@ def _setting_screen(folder: str, spec: dict) -> list:
                                                     '<on event="start" run="port settings defaults"/>'])
     extra += _button(f"{base}/button_ok", 1, ['<on event="a" run="port settings save" back="true"/>',
                                               '<on event="start" run="port settings save" back="true"/>'])
+    if any(setting == "display.graphics" for _, setting, *_ in spec["rows"]):
+        # (the help of the mode shown, in the help's place while the mode's row is chosen: graphics_help_show)
+        extra += _widget(f"{base}/graphics_help", [("type", "text"), ("controller", 1), ("left", 68),
+                                                   ("top", spec.get("help_top", 350)), ("width", 482),
+                                                   ("height", spec.get("help_height", 60)),
+                                                   ("string_list", f"{base}/graphics_help_strings"),
+                                                   ("font", "ui\\large_ui"), ("color", "#FFFFFFFF")], [])
+        extra += _strings(f"{base}/graphics_help_strings", [text.replace("\n", "\\n") for text in GRAPHICS_HELP])
+        spec = dict(spec, screen_children=[f'<child widget="{base}/graphics_help"/>'])
     extra += _strings(f"{base}/labels", [label for label, *_ in spec["rows"]])
     # (the help of the row whose label is string n is n + 1: the buttons' is 0)
     extra += _strings(f"{base}/help_strings",
@@ -788,6 +845,7 @@ BITMAP_FRAMES = {
 TITLES = {
     f"{PE}/about/header_about": "ABOUT",
     f"{PE}/about/header_open_source_notices": "OPEN SOURCE NOTICES",
+    f"{PE}/graphics/header_graphics": "GRAPHICS",
     f"{MT}/join_game/header_server_browser": "SERVER BROWSER",
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
     f"{MT}/join_game/header_password": "PASSWORD",

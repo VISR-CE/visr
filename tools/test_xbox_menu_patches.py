@@ -63,7 +63,7 @@ def test_row_names_are_unique_and_short_and_platforms_known():
                 names.append(row.get("name"))
                 assert len(row.get("name")) <= 31, row.get("name")
             if row.get("platform"):
-                assert row.get("platform") in PLATFORMS
+                assert row.get("platform").removeprefix("!") in PLATFORMS
     assert len(names) == len(set(names))
 
 
@@ -113,8 +113,8 @@ def test_multiplayer_modes_follow_the_row_names():
 def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]
-    assert texts == [("VIDEO", "mac_app"), ("AUDIO", None), ("NETWORK", None), ("KEYBOARD & MOUSE", "keyboard"),
-                     ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos")]
+    assert texts == [("VIDEO", "mac_app"), ("GRAPHICS", "!mac_app"), ("AUDIO", None), ("NETWORK", None),
+                     ("KEYBOARD & MOUSE", "keyboard"), ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos")]
     keyboard = next(row for row in rows(patch) if row.get("platform") == "keyboard")
     assert keyboard.get("open").endswith("controls_settings_screen")
     delete = rows(patch)[-1]

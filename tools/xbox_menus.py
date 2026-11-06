@@ -28,7 +28,9 @@ FIRST_ROW, ROW_HEIGHT, ROW_PITCH = 73, 28, 30
 # the scroll arrows sit to the right of the 512-wide rows
 ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
-         'mouse_settings', 'gamepad_setup', 'about')
+         'mouse_settings', 'gamepad_setup', 'about', 'graphics')
+# pages laid out as the Xbox's CONTROLLER SETUP: no SAVE or DEFAULTS, A on a row accepts and B cancels
+ACCEPT_PAGES = ('graphics',)
 BLUE = '#FF2896FF'
 # the PC solo list's widgets the Xbox lobby shows beside its map
 LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
@@ -182,6 +184,11 @@ def settings_page(assets, folder, bitmaps):
     for element in list(root):
         if element.get('name', '').rsplit('/', 1)[-1] in removed:
             root.remove(element)
+    if folder in ACCEPT_PAGES:
+        for parent in root.iter('widget'):
+            for part in list(parent.findall('child')):
+                if part.get('widget', '').rsplit('/', 1)[-1] == 'button_bar':
+                    parent.remove(part)
     for element in root.iter():
         for key, value in list(element.attrib.items()):
             if value.startswith(prefix):
@@ -197,8 +204,8 @@ def settings_page(assets, folder, bitmaps):
         if element.get('bitmap') == 'xbox/bitmaps/option_bkds':
             element.set('height', str(ROW_HEIGHT))
         if element.get('name') == f'{base}/help' and folder != 'about':
-            element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
-            element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
+            element.set('top', '350' if folder in ('video_settings', 'controls_setup', 'graphics') else '321')
+            element.set('height', '60' if folder in ('video_settings', 'controls_setup', 'graphics') else '79')
         if element.get('name') == f'{base}/cloud_saves_status':
             element.set('top', '393')
             element.set('height', '20')
@@ -230,6 +237,14 @@ def settings_page(assets, folder, bitmaps):
         legend(root, root[0], base, accept='SELECT', cancel='BACK')
         send_log_confirmation(root, bitmaps)
         notices_screen(root, bitmaps)
+        return root
+    if folder in ACCEPT_PAGES:
+        for row in root.iter('widget'):
+            if row.get('name', '').rsplit('/', 1)[-1].startswith('op_'):
+                for event in ('a', 'start'):
+                    ET.SubElement(row, 'on', event=event, run='port settings save', back='true')
+                ET.SubElement(row, 'on', event='left_mouse', run='mouse emit accept event')
+        legend(root, root[0], base, accept='ACCEPT')
         return root
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
@@ -407,6 +422,10 @@ PAGE_ROWS = (
      'Look, sensitivity, vibration and\\nthe button layout.' + CURRENT),
     ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
      'Frame rate, resolution and how\\nthe picture is drawn.' + CURRENT),
+    # (the Mac's VIDEO screen has this mode as its first row; the hub row shows the mode, port/linux/game/
+    # menu_functions.c's "port graphics state")
+    ('graphics', 'GRAPHICS', 'graphics', 'graphics_screen', '!mac_app',
+     "The game's look." + CURRENT),
     ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
      'Volume and sound for the\\ngame on this device.' + CURRENT),
     ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None,
@@ -442,7 +461,7 @@ PICTURE_SOURCES = {
 
 # the rows whose picture ships as our own art (xbox/art/<name>.png, from tools/xbox_menu_art.py), by the name it has:
 # NETWORK shows the INTERNET picture
-REDRAW_NAMES = {'video': 'video', 'audio': 'audio', 'network': 'internet'}
+REDRAW_NAMES = {'video': 'video', 'audio': 'audio', 'network': 'internet', 'graphics': 'none'}
 
 
 def picture_frame(assets, key):
@@ -455,6 +474,13 @@ def picture_frame(assets, key):
     tag, index = PICTURE_SOURCES[key]
     return {'map': tag, 'index': str(index), 'cache': f'{CACHE}/{key}.png', 'png': NONE_PNG,
             'width': str(width), 'height': str(height)}
+
+
+# the hub rows' places (a row filtered out by its platform leaves its slot to the row after) and the rows that show
+# a state: the game data input that writes it, and where it sits in the row (right-aligned to the row's text_x)
+HUB_SLOTS = {'controls': 0, 'video': 1, 'graphics': 1, 'audio': 1, 'network': 2, 'keyboard': 3}
+HUB_STATES = {'graphics': 'port graphics state'}
+HUB_STATE_X, HUB_STATE_Y, HUB_STATE_WIDTH = 107, 5, 112
 
 
 def hub_documents(assets):
@@ -510,12 +536,18 @@ def settings_hub(bitmaps, assets=MENUS):
                      flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5,
                      description=f'{base}/description')
     ET.SubElement(options, 'data', input='plyr prof edit select menu upd8')
-    for i, (key, caption, folder, screen_name, platform, _) in enumerate(PAGE_ROWS):
+    for key, caption, folder, screen_name, platform, _ in PAGE_ROWS:
         attrs = {'platform': platform} if platform else {}
-        # VIDEO shares AUDIO's slot so filtering it preserves the 33-unit pitch.
-        child(options, f'{base}/{key}', x=51, y=78 + max(1, i - 1) * 33 if i else 78, **attrs)
+        # VIDEO, GRAPHICS and AUDIO share a slot so filtering them preserves the 33-unit pitch.
+        child(options, f'{base}/{key}', x=51, y=78 + HUB_SLOTS[key] * 33, **attrs)
         row = text_widget(root, f'{base}/{key}', caption, width=232, height=32,
                           bitmap=bitmap_ref('bitmaps/list_item_bkd', bitmaps), text_x=13, text_y=4)
+        if key in HUB_STATES:
+            # a row with a state shows it at its right end, where the settings screens' rows show their values
+            child(row, f'{base}/{key}_state', x=HUB_STATE_X, y=HUB_STATE_Y)
+            state = widget(root, f'{base}/{key}_state', type='text', width=HUB_STATE_WIDTH, height=22,
+                           font=r'ui\large_ui', color=BLUE, align='right')
+            ET.SubElement(state, 'data', input=HUB_STATES[key])
         for event in ('a', 'start'):
             ET.SubElement(row, 'on', event=event, open=f'xbox/settings/{folder}/{screen_name}')
     legend(root, screen, base, cancel='BACK')
@@ -1391,14 +1423,14 @@ def patch_document(names):
     pages = tuple(row for row in PAGE_ROWS if row[0] != 'controls')
     # Multiplayer's split-screen and system-link diagrams; profile's tuning and keyboard art.
     pictures = {'video': f'png:{ART}/video.png', 'audio': f'png:{ART}/audio.png',
-                'network': f'png:{ART}/internet.png', 'keyboard': 0}
+                'network': f'png:{ART}/internet.png', 'keyboard': 0, 'graphics': f'png:{NONE_PNG}'}
     anchor = None
     for key, caption, folder, screen, platform, description in pages:
         attributes = {'name': f'profile_item_{key}', 'text': caption,
                       'open': f'xbox/settings/{folder}/{screen}', 'description': description, 'picture': pictures[key]}
         if platform:
             attributes['platform'] = platform
-        if anchor and key != 'audio':
+        if anchor and key not in ('audio', 'graphics'):
             attributes['after'] = anchor
         else:
             attributes['before'] = PEP + 'save_changes_profile_item'
@@ -1500,7 +1532,8 @@ def screen_pairs():
     for page, screen in (('video_settings', 'video_settings_screen'), ('audio_settings', 'audio_settings_screen'),
                          ('network_setup', 'network_settings_screen'), ('controls_setup', 'controls_settings_screen'),
                          ('mouse_settings', 'mouse_settings_screen'), ('gamepad_setup', 'gamepad_setup_screen'),
-                         ('about', 'about_screen')):
+                         ('about', 'about_screen'),
+                         ('graphics', 'graphics_screen')):
         pairs.append(('pc/xbox/settings/' + page + '/' + screen, pe + page + '/' + screen))
     for suffix in ('join_game/join_game_screen', 'join_game/filters/filters_screen',
                    'join_game/password/password_screen', 'join_game/code/code_screen',

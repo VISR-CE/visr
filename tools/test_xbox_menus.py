@@ -62,7 +62,9 @@ def test_settings_keep_pc_values_and_handlers():
         actual = {w.get('setting'): (w.get('values'), w.get('strings'))
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
-        assert {e.get('run') for e in source.iter('on') if e.get('run')} <= {
+        # (a page laid out as CONTROLLER SETUP has no DEFAULTS: A accepts)
+        skipped = {'port settings defaults'} if folder in module.ACCEPT_PAGES else set()
+        assert {e.get('run') for e in source.iter('on') if e.get('run')} - skipped <= {
             e.get('run') for e in output.iter('on') if e.get('run')}
         names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
         # (the About screen's A does nothing: its legend is the way back alone)
@@ -71,7 +73,7 @@ def test_settings_keep_pc_values_and_handlers():
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
-        'CONTROLS', 'VIDEO', 'AUDIO', 'NETWORK', 'KEYBOARD & MOUSE'}
+        'CONTROLS', 'VIDEO', 'GRAPHICS', 'AUDIO', 'NETWORK', 'KEYBOARD & MOUSE'}
     keyboard = next(w for w in hub.iter('child') if w.get('widget') == 'xbox/settings/keyboard')
     assert keyboard.get('platform') == 'keyboard'
 
@@ -91,10 +93,19 @@ def test_generator_rejects_map_widget_definitions(tmp_path):
 
 
 def test_save_is_a_focusable_action_separate_from_a_legend():
+    module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':  # (nothing to save)
             continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
+        if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:
+            # (CONTROLLER SETUP's layout: A on any row accepts, so the legend's A, posted to the focus, does too)
+            assert not any(n.endswith('/button_ok') for n in widgets)
+            assert next(w for n, w in widgets.items() if n.endswith('/=accept')).get('text') == 'ACCEPT'
+            rows = [w for n, w in widgets.items() if n.rsplit('/', 1)[-1].startswith('op_')]
+            assert rows and all(w.find('on[@event="a"][@run="port settings save"][@back="true"]') is not None
+                                for w in rows)
+            continue
         save = next(w for n, w in widgets.items() if n.endswith('/button_ok'))
         # ui_mouse_key_button posts A to the existing focus; a SAVE item must
         # get the normal item target, which focuses it before posting A.
@@ -323,6 +334,12 @@ def window_rows(options, widgets):
     return slots, window, slots[0] + (window - 1) * pitch + height
 
 
+def shown_children(options):
+    """The most rows of a list one platform shows: the Mac's VIDEO and every other platform's GRAPHICS share a slot."""
+    children = options.findall('child')
+    return max(len([c for c in children if c.get('platform') != hidden]) for hidden in ('mac_app', '!mac_app'))
+
+
 def test_scrolling_lists_fit_above_their_help():
     seen = []
     for path in (MENUS / 'xbox').glob('*.xml'):
@@ -333,7 +350,7 @@ def test_scrolling_lists_fit_above_their_help():
             slots, window, bottom = window_rows(w, widgets)
             # (the hub's description is a panel beside the rows, not help text under them)
             if not w.get('description') or w.get('name') == 'xbox/settings/settings_list':
-                assert len(w.findall('child')) <= window and bottom <= 414, w.get('name')
+                assert shown_children(w) <= window and bottom <= 414, w.get('name')
                 continue
             help_top = int(widgets[w.get('description')].get('top'))
             # (a settings list keeps its window when its rows fit: rows its code hides close up)
@@ -373,7 +390,7 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
             if 'visible_rows' not in w.attrib or w.get('name').endswith('/join_game_items_list'):
                 continue
             # A short list can use the viewport only to pack platform-filtered rows.
-            if len(w.findall('child')) <= int(w.get('visible_rows')):
+            if shown_children(w) <= int(w.get('visible_rows')):
                 continue
             # (nor arrows for a settings list whose rows fit its window: it closes hidden rows up)
             slots = {c.get('y') for c in w.findall('child')
@@ -493,11 +510,11 @@ def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
     frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
     pngs = [frame.get('png') for frame in frames]
-    assert pngs[1:4] == ['xbox/art/video.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
-    assert all(frame.get('cache') is None for frame in frames[1:4])
+    assert pngs[1:5] == ['xbox/art/video.png', 'xbox/art/none.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
+    assert all(frame.get('cache') is None for frame in frames[1:5])
     # Both pictures use the player's map; the importer redraws the recognized keyboard.
     assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache')
-    assert pngs[4] == 'xbox/art/none.png' and frames[4].get('cache') == 'cache/xbox/v1/keyboard.png'
+    assert pngs[5] == 'xbox/art/none.png' and frames[5].get('cache') == 'cache/xbox/v1/keyboard.png'
     bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
     assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
 
@@ -538,8 +555,11 @@ def test_hub_has_the_profile_editors_framed_panel():
 def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
     # no redraw for the others: the player's cache over the transparent PNG (menu_files.c tries cache first)
     _, frames = hub_panel(tmp_path / 'a', redraws=('audio',))
-    by_key = dict(zip(('controls', 'video', 'audio', 'network', 'keyboard'), frames))
+    by_key = dict(zip(('controls', 'video', 'graphics', 'audio', 'network', 'keyboard'), frames))
     assert by_key['audio'].attrib == {'png': 'xbox/art/audio.png', 'width': '512', 'height': '256'}
+    # GRAPHICS has no picture of the player's: a transparent one, so its panel is text only
+    assert by_key['graphics'].attrib == {'png': 'xbox/art/none.png', 'width': '512', 'height': '256',
+                                         'platform': '!mac_app'}
     for key in ('controls', 'video', 'network', 'keyboard'):
         frame = by_key[key]
         assert frame.get('cache') == f'cache/xbox/v1/{key}.png'
@@ -1009,3 +1029,114 @@ def test_visible_action_bars_use_glyph_caption_pairs():
             continue  # Confirmation bars already pair icons and captions.
         for action in children:
             assert any(c.get('widget').endswith('_butn') for c in action.findall('child')), action.attrib
+
+
+# ---------- the graphics modes (display.graphics): the hub's row, the GRAPHICS screen, VIDEO's and the PC look's rows
+
+def settings_widgets(path):
+    return {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
+
+
+def test_hub_has_a_graphics_row_with_the_mode_word_between_controls_and_audio():
+    hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
+    options = hub.find("widget[@name='xbox/settings/settings_list']")
+    rows = [(c.get('widget').rsplit('/', 1)[-1], c.get('platform')) for c in options.findall('child')]
+    assert rows == [('controls', None), ('video', 'mac_app'), ('graphics', '!mac_app'), ('audio', None),
+                    ('network', None), ('keyboard', 'keyboard')]
+    # the Mac keeps VIDEO, which has the mode as its first row: GRAPHICS shares its slot elsewhere
+    by_name = {c.get('widget').rsplit('/', 1)[-1]: c for c in options.findall('child')}
+    assert by_name['graphics'].get('y') == by_name['video'].get('y') == by_name['audio'].get('y')
+    strings = hub.find("strings[@name='xbox/settings/hub_descriptions']")
+    assert [s.get('text') for s in strings if s.get('platform') == '!mac_app'] == [
+        "The game's look.\\n\\nCurrent Profile:"]
+    row = hub.find("widget[@name='xbox/settings/graphics']")
+    assert row.get('text') == 'GRAPHICS'
+    assert row.find('on[@event="a"]').get('open') == 'xbox/settings/graphics/graphics_screen'
+    # the mode word is a text the game fills in (menu_functions.c's "port graphics state"), right-aligned in the row
+    state = hub.find("widget[@name='xbox/settings/graphics_state']")
+    assert state.find('data').get('input') == 'port graphics state' and state.get('align') == 'right'
+    assert row.find('child').get('widget') == 'xbox/settings/graphics_state'
+    assert int(row.find('child').get('x')) + int(state.get('width')) <= int(row.get('width'))
+
+
+def test_graphics_screen_is_controller_setups_layout_with_the_modes_help():
+    widgets = settings_widgets(MENUS / 'xbox/settings.graphics.xml')
+    base = 'xbox/settings/graphics'
+    options = widgets[f'{base}/options_menu']
+    assert [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')] == ['op_graphics', 'op_crt_effect']
+    # the CRT effect is an Apple setting, shown by the game only while the mode row shows Hardcore
+    assert options.findall('child')[1].get('platform') == 'apple'
+    mode = widgets[f'{base}/graphics_spinner']
+    assert mode.get('setting') == 'display.graphics'
+    assert mode.get('strings') == 'HARDCORE|CLASSIC|ENHANCED' and mode.get('values') == 'hardcore|classic|enhanced'
+    crt = widgets[f'{base}/crt_effect_spinner']
+    assert (crt.get('setting'), crt.get('strings'), crt.get('values')) == ('display.crt_effect', 'ON|OFF', 'true|false')
+    labels = ET.parse(MENUS / 'xbox/settings.graphics.xml').getroot().find(f"strings[@name='{base}/labels']")
+    assert [s.get('text') for s in labels] == ['MODE:', 'CRT EFFECT:']
+    # the help of the mode shown: the three texts of the design, and the CRT effect's under its row
+    root = ET.parse(MENUS / 'xbox/settings.graphics.xml').getroot()
+    helps = [s.get('text') for s in root.find(f"strings[@name='{base}/graphics_help_strings']")]
+    flat = [' '.join(text.split('\\n')) for text in helps]
+    assert flat == [
+        'The original Xbox exactly: 640x480 at 30 frames a second, nothing added. Takes effect at the next level.',
+        "The original Xbox look at this device's resolution and frame rate, with sharper textures and HUD.",
+        'Tastefully enhanced: the original game with soft shading where things meet the ground and shadows under '
+        'props.']
+    crt_help = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")][-1]
+    assert ' '.join(crt_help.split('\\n')) == (
+        'The picture as a CRT television showed it: scanlines, phosphor glow and soft color.')
+    # A accepts on any row, B goes back (ACCEPT_PAGES): no SAVE or DEFAULTS
+    assert widgets[f'{base}/graphics_screen'].find('on[@event="b"]').get('back') == 'true'
+    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' not in widgets
+
+
+def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_row_beneath_it():
+    for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
+                       (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                        'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
+        widgets = settings_widgets(path)
+        rows = [c.get('widget').rsplit('/', 1)[-1] for c in widgets[f'{base}/options_menu'].findall('child')]
+        assert rows[:3] == ['op_graphics', 'op_crt_effect', 'op_mode'], path
+        assert widgets[f'{base}/graphics_spinner'].get('values') == 'hardcore|classic|enhanced'
+        # a page's row is packed from the top, so the CRT effect's closing up when it is hidden leaves no gap
+        assert widgets[f'{base}/options_menu'].get('row_pitch'), path
+
+
+def test_rows_the_hardcore_mode_replaces_read_hardcore_beside_their_spinner():
+    """Every Video Settings row whose setting the mode table replaces has a HARDCORE text in its spinner's place
+    (menu_functions.c's graphics_rows_show shows it, passes the row over and hides the spinner)"""
+    import port_settings
+    replaced = port_settings.graphics_replaced()
+    assert {'display.frame_rate', 'display.interpolation', 'display.high_res_hud', 'display.high_res_text'} <= replaced
+    for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
+                       (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                        'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
+        widgets = settings_widgets(path)
+        spinners = [w for w in widgets.values() if w.get('type') == 'spinner']
+        for spinner in spinners:
+            key = spinner.get('name').rsplit('/', 1)[-1].removesuffix('_spinner')
+            overlay = widgets.get(f'{base}/{key}_replaced')
+            assert (overlay is not None) == (spinner.get('setting') in replaced), spinner.get('setting')
+            if overlay is not None:
+                assert overlay.get('text') == 'HARDCORE' and overlay.get('type') == 'text'
+                row = widgets[f'{base}/op_{key}']
+                assert [c.get('widget').rsplit('/', 1)[-1] for c in row.findall('child')] == [
+                    f'{key}_label', f'{key}_spinner', f'{key}_replaced']
+    # the settings the mode does not replace keep their spinner alone
+    assert 'display.vsync' not in replaced and 'display.graphics' not in replaced
+
+
+def test_the_pc_looks_graphics_screen_is_the_xbox_looks_source_and_pairs_with_it():
+    pairs = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
+    assert r'{"pc\\xbox\\settings\\graphics\\graphics_screen", ' in pairs
+    manifest = json.loads((MENUS / 'menus.json').read_text())['files']
+    for name in ('xbox/settings.graphics.xml', 'ce/main_menu.settings_select.player_setup.player_profile_edit.graphics.xml',
+                 'ce/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
+        assert name in manifest, name
+
+
+def test_profile_edit_has_a_graphics_row_where_there_is_no_video_row():
+    patches = ET.parse(MENUS / 'xbox/patches.xml').getroot()
+    row = next(r for r in patches.iter('row') if r.get('name') == 'profile_item_graphics')
+    assert (row.get('platform'), row.get('text')) == ('!mac_app', 'GRAPHICS')
+    assert row.get('open') == 'xbox/settings/graphics/graphics_screen'
