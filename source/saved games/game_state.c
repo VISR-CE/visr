@@ -832,26 +832,21 @@ static boolean game_state_image_lruv_cache_valid(
 {
 	struct lruv_cache *cache = game_state_image_pointer(image, live);
 	struct data_array *blocks_live = (struct data_array *)(live + 1);
-	struct data_array *blocks = game_state_image_pointer(image, blocks_live);
 	char const *name;
 
 	cache->name[NUMBEROF(cache->name) - 1] = 0;
 	name = cache->name;
 	if (cache->signature != 'weee')
 		return game_state_image_refuse(name, "is a cache of another signature");
-	/* (port: a cache may use fewer pages and blocks than it was made with:
-	the decals' under display.effect_limits "xbox", rasterizer_xbox_decals.c) */
-	if (cache->blocks != blocks_live || cache->page_count <= 0 || cache->page_count > allocation->page_count ||
+	if (cache->blocks != blocks_live || cache->page_count != allocation->page_count ||
 		cache->page_size_bits != allocation->page_size_bits)
 	{
 		return game_state_image_refuse(name, "is a cache of another size or place");
 	}
-	if (blocks->maximum_count <= 0 || blocks->maximum_count > allocation->maximum_count)
-		return game_state_image_refuse(name, "is a cache of another capacity");
 	cache->delete_block_proc = allocation->delete_block_proc;
 	cache->locked_block_proc = allocation->locked_block_proc;
 
-	return game_state_image_data_valid(image, blocks_live, blocks->maximum_count, sizeof(struct lruv_cache_block));
+	return game_state_image_data_valid(image, blocks_live, allocation->maximum_count, sizeof(struct lruv_cache_block));
 }
 
 boolean game_state_image_accept(

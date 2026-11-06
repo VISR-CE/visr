@@ -198,11 +198,12 @@ enum
 
 enum
 {
-	/* port: the native builds' larger decal pools (halo_port_capacity.h) */
-	MAXIMUM_DECALS_PER_MAP = HALO_PORT_MAXIMUM_DECALS,
+	MAXIMUM_DECALS_PER_MAP = 2048,
 	DECAL_VERTEX_CACHE_PAGE_SIZE_BITS = 6,
-	DECAL_VERTEX_CACHE_PAGE_COUNT = HALO_PORT_DECAL_VERTEX_PAGES,
-	DECAL_VERTEX_CACHE_SIZE = DECAL_VERTEX_CACHE_PAGE_COUNT << DECAL_VERTEX_CACHE_PAGE_SIZE_BITS
+	DECAL_VERTEX_CACHE_PAGE_COUNT = 2560,
+	DECAL_VERTEX_CACHE_SIZE = DECAL_VERTEX_CACHE_PAGE_COUNT << DECAL_VERTEX_CACHE_PAGE_SIZE_BITS,
+	/* port: display.effect_limits' raised set, outside the game state (halo_port_capacity.h) */
+	RAISED_DECAL_VERTEX_CACHE_SIZE = HALO_PORT_DECAL_VERTEX_PAGES << DECAL_VERTEX_CACHE_PAGE_SIZE_BITS
 };
 
 /* ---------- macros */
@@ -285,6 +286,11 @@ static short rasterizer_decal_cached_bitmap_index = 0;
 static short local_framebuffer_blend_function = 0;
 static D3DVertexBuffer *local_d3d_vertex_buffer = NULL;
 static struct lruv_cache *local_vertex_cache = NULL;
+/* port: the two sets display.effect_limits picks between (rasterizer_decals_select): the game state's, as on the
+Xbox, and the raised one, outside it; local_d3d_vertex_buffer and local_vertex_cache name the one in use */
+void decals_after_load(void);
+static D3DVertexBuffer *xbox_d3d_vertex_buffer = NULL, *raised_d3d_vertex_buffer = NULL;
+static struct lruv_cache *xbox_vertex_cache = NULL, *raised_vertex_cache = NULL;
 static boolean locked_decal_reported = FALSE;
 static boolean permanent_decal_reported = FALSE;
 static boolean local_filthy_decal_fog_hack_enabled = FALSE;
@@ -409,32 +415,27 @@ void rasterizer_decal_vertices_usage(
 		*pages += block->page_count;
 }
 
-/* port: display.effect_limits (halo_effect_limits_raised): "raised" uses
-the whole of the native builds' decal pools, "xbox" only the Xbox's share, so
-the decals of a long fight are kept or taken back as on the Xbox. The cache
-is empty between maps (_rasterizer_decals_dispose_from_old_map), so its
-blocks and pages are set again there: every block slot is cleared at the
-full size before the smaller one is set */
 void _rasterizer_decals_initialize_for_new_map(
 	void)
 {
-	boolean raised = halo_effect_limits_raised();
-	struct data_array *blocks;
-
-	match_assert(
-		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_decals.c",
-		0,
-		local_vertex_cache);
-	blocks = local_vertex_cache->blocks;
-	lruv_flush(local_vertex_cache);
-	local_vertex_cache->first_block_index = NONE;
-	local_vertex_cache->last_block_index = NONE;
-	blocks->maximum_count = MAXIMUM_DECALS_PER_MAP;
-	data_delete_all(blocks);
-	blocks->maximum_count = raised ? MAXIMUM_DECALS_PER_MAP : HALO_PORT_XBOX_DECALS;
-	local_vertex_cache->page_count = raised ? DECAL_VERTEX_CACHE_PAGE_COUNT : HALO_PORT_XBOX_DECAL_VERTEX_PAGES;
-
 	return;
+}
+
+/* port: the set the decals draw from (display.effect_limits): FALSE the game state's, TRUE the raised one
+(decals.c's decals_select); before the raised set exists, the game state's */
+void rasterizer_decals_select(
+	boolean raised)
+{
+	if (raised && raised_vertex_cache && raised_d3d_vertex_buffer)
+	{
+		local_vertex_cache = raised_vertex_cache;
+		local_d3d_vertex_buffer = raised_d3d_vertex_buffer;
+	}
+	else
+	{
+		local_vertex_cache = xbox_vertex_cache;
+		local_d3d_vertex_buffer = xbox_d3d_vertex_buffer;
+	}
 }
 
 void _rasterizer_decals_dispose_from_old_map(
@@ -465,10 +466,13 @@ void _rasterizer_decals_update_function_pointers(
 		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_decals.c",
 		116,
 		local_vertex_cache);
+	/* port: the game state's cache is the one a loaded game state holds (local_vertex_cache may be the raised one) */
 	lruv_update_function_pointers(
-		local_vertex_cache,
+		xbox_vertex_cache,
 		rasterizer_decal_vertices_purge_proc,
 		rasterizer_decal_vertices_locked_proc);
+	/* port: the raised set is no part of the game state; it is cleared after a load */
+	decals_after_load();
 
 	return;
 }
@@ -512,6 +516,34 @@ void _rasterizer_decals_initialize(
 		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_decals.c",
 		106,
 		local_vertex_cache);
+	xbox_d3d_vertex_buffer = local_d3d_vertex_buffer;
+	xbox_vertex_cache = local_vertex_cache;
+
+	/* port: display.effect_limits' raised set: its vertices in the contiguous window (vertex buffers are addressed
+	there), its cache in the heap, neither in the game state; without either, decals keep the game state's set */
+	raised_d3d_vertex_buffer = match_malloc(
+		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_decals.c",
+		0,
+		sizeof(D3DVertexBuffer));
+	if (raised_d3d_vertex_buffer)
+	{
+		void *vertices = XPhysicalAlloc(RAISED_DECAL_VERTEX_CACHE_SIZE, (ULONG_PTR)-1, 0, PAGE_READWRITE);
+
+		raised_d3d_vertex_buffer->Common = 1;
+		raised_d3d_vertex_buffer->Data = (unsigned long)vertices;
+		raised_d3d_vertex_buffer->Lock = 0;
+		if (vertices)
+		{
+			IDirect3DVertexBuffer8_Register(raised_d3d_vertex_buffer, NULL);
+			raised_vertex_cache = lruv_new(
+				"decal vertex cache (raised)",
+				HALO_PORT_DECAL_VERTEX_PAGES,
+				DECAL_VERTEX_CACHE_PAGE_SIZE_BITS,
+				HALO_PORT_MAXIMUM_DECALS,
+				rasterizer_decal_vertices_purge_proc,
+				rasterizer_decal_vertices_locked_proc);
+		}
+	}
 
 	return;
 }

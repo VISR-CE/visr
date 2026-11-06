@@ -244,8 +244,7 @@ symbols in this file:
 enum
 {
 	NUMBER_OF_DECAL_LAYERS = 5,
-	/* port: the native builds' larger decal pool (halo_port_capacity.h) */
-	MAXIMUM_DECALS_PER_MAP = HALO_PORT_MAXIMUM_DECALS,
+	MAXIMUM_DECALS_PER_MAP = 2048,
 	MAXIMUM_DECAL_VERTICES = 1024,
 	MAXIMUM_DECAL_SURFACE_QUEUE_SIZE = 1024
 };
@@ -276,8 +275,10 @@ enum
 void platform_log(const char *format, ...);
 /* port: rasterizer_xbox_decals.c's */
 void rasterizer_decal_vertices_usage(long *pages, long *page_limit);
-/* port: display.effect_limits' share of the native builds' decals */
-#define DECAL_LOCKED_SCALE() (halo_effect_limits_raised() ? HALO_PORT_MAXIMUM_DECALS / HALO_PORT_XBOX_DECALS : 1)
+void rasterizer_decals_select(boolean raised);
+void structure_decals_reconnect_to_structure_bsp(void);
+/* port: the locked decals in proportion to the set in use (display.effect_limits, decals_select) */
+#define DECAL_LOCKED_SCALE() (decals_raised ? HALO_PORT_MAXIMUM_DECALS / MAXIMUM_DECALS_PER_MAP : 1)
 
 /* ---------- structures */
 
@@ -478,6 +479,13 @@ extern struct data_array *global_decal_data;
 boolean decals_enabled= TRUE;
 static real_point2d decal_points2d_temp[2][12];
 static struct decal_globals *decal_globals;
+/* port: display.effect_limits. The game state holds the Xbox's decal set (xbox_*), so saved games keep their
+layout; "raised" draws from a set four times that size outside the game state (raised_*), chosen at each map
+(decals_initialize_for_new_map). global_decal_data and decal_globals name the set in use (decals_select). A loaded
+game state brings back the game state's set; the raised one is cleared then (decals_after_load) */
+static struct data_array *xbox_decal_data, *raised_decal_data;
+static struct decal_globals *xbox_decal_globals, *raised_decal_globals;
+static boolean decals_raised;
 static struct decal_geometry decal_geometry = {0};
 static boolean decal_locked_count_reported = FALSE;
 static boolean decal_insert_locked_count_reported = FALSE;
@@ -516,6 +524,17 @@ void decals_initialize(
 		NULL,
 		sizeof(struct decal_globals));
 	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 596, decal_globals);
+	xbox_decal_data = global_decal_data;
+	xbox_decal_globals = decal_globals;
+
+	/* port: the raised set (display.effect_limits), outside the game state; without it, decals keep the game
+	state's set */
+	raised_decal_data = data_new("decals (raised)", HALO_PORT_MAXIMUM_DECALS, sizeof(struct decal_datum));
+	raised_decal_globals = match_malloc("c:\\halo\\SOURCE\\effects\\decals.c", 0, sizeof(struct decal_globals));
+	if (raised_decal_data)
+		raised_decal_data->identifier_zero_invalid = TRUE;
+	if (raised_decal_globals)
+		csmemset(raised_decal_globals, 0, sizeof(*raised_decal_globals));
 
 	rasterizer_decals_initialize();
 
@@ -525,12 +544,23 @@ void decals_initialize(
 	return;
 }
 
-void decals_initialize_for_new_map(
+/* port: the set the decals draw from (display.effect_limits): FALSE the game state's, TRUE the raised one (the game
+state's when there is none) */
+static boolean decals_select(
+	boolean raised)
+{
+	raised = raised && raised_decal_data && raised_decal_globals;
+	global_decal_data = raised ? raised_decal_data : xbox_decal_data;
+	decal_globals = raised ? raised_decal_globals : xbox_decal_globals;
+	rasterizer_decals_select(raised);
+
+	return raised;
+}
+
+/* port: one set made ready for a map (its cluster lists empty and its array valid) */
+static void decals_set_initialize_for_new_map(
 	void)
 {
-	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 610, global_decal_data);
-	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 611, decal_globals);
-
 	csmemset(
 		decal_globals->first_decal_indices,
 		NONE,
@@ -541,6 +571,21 @@ void decals_initialize_for_new_map(
 
 	data_make_valid(global_decal_data);
 	rasterizer_decals_initialize_for_new_map();
+}
+
+void decals_initialize_for_new_map(
+	void)
+{
+	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 610, global_decal_data);
+	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 611, decal_globals);
+
+	/* port: both sets ready (a saved game's set is always valid for its map), the one display.effect_limits
+	picks in use */
+	decals_select(FALSE);
+	decals_set_initialize_for_new_map();
+	if (decals_select(TRUE))
+		decals_set_initialize_for_new_map();
+	decals_raised = decals_select(halo_effect_limits_raised());
 
 	decal_geometry.decal_vertex_count = 0;
 	decal_geometry.decal_surface_count = 0;
@@ -553,10 +598,33 @@ void decals_dispose_from_old_map(
 {
 	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 777, global_decal_data);
 	match_assert("c:\\halo\\SOURCE\\effects\\decals.c", 778, decal_globals);
+	/* port: both sets emptied (a loaded game state may have filled the one not in use) */
+	decals_select(FALSE);
 	rasterizer_decals_dispose_from_old_map();
 	data_make_invalid(global_decal_data);
+	if (decals_select(TRUE))
+	{
+		rasterizer_decals_dispose_from_old_map();
+		data_make_invalid(global_decal_data);
+	}
+	decals_select(decals_raised);
 
 	return;
+}
+
+/* port: a game state was loaded (a checkpoint revert or a saved game; rasterizer_xbox_decals.c's after-load
+procedure). The game state's set came back with it. The raised set, which is no part of it, may name clusters of
+another bsp: it is emptied, and the level's own decals are made again for the clusters in view */
+void decals_after_load(
+	void)
+{
+	if (!decals_raised || !global_decal_data || !global_decal_data->valid)
+		return;
+	rasterizer_decals_dispose_from_old_map();
+	decals_set_initialize_for_new_map();
+	decal_geometry.decal_vertex_count = 0;
+	decal_geometry.decal_surface_count = 0;
+	structure_decals_reconnect_to_structure_bsp();
 }
 
 void decals_dispose(
