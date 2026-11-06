@@ -173,6 +173,17 @@
             "desktop"
           ]
         },
+        "point_light_limit": {
+          "type": "integer",
+          "default": 2,
+          "description": "With display.per_pixel_lighting: how many of the dynamic lights near a character, weapon or vehicle light it, strongest first, 2 (the game's own) to 8. The ones past the game's two are chosen and lit the same way, for drawing only; the game itself still keeps two.",
+          "x-environment": "HALO_POINT_LIGHT_LIMIT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_minimum_size": {
           "type": "integer",
           "default": 0,
@@ -1730,7 +1741,7 @@
         "knob_cycle": {
           "type": "boolean",
           "default": false,
-          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
+          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
           "x-environment": "HALO_KNOB_CYCLE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -2398,9 +2409,9 @@
           ]
         },
         "per_pixel_lighting_alternate": {
-          "type": "boolean",
-          "default": false,
-          "description": "Light objects per pixel in odd frames only and per vertex in even ones, whatever display.per_pixel_lighting says: with the game paused, two frames in a row are the same picture lit both ways.",
+          "type": "integer",
+          "default": 0,
+          "description": "Matched stills: odd frames lit as the display settings say, even frames the plain way, so that with the game paused two frames in a row are the same picture both ways. 1: even frames per vertex; 2: even frames per pixel with no point-light highlight and the game's two point lights; 0 none.",
           "x-environment": "HALO_PER_PIXEL_LIGHTING_ALTERNATE",
           "x-environment-style": "value",
           "x-platforms": [

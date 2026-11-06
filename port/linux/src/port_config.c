@@ -181,6 +181,11 @@ static const struct config_setting config_settings[] =
 		"flashes, plasma, flashlights), in their own color and range, added to the\n"
 		"surface's reflection so its own tint and specular mask apply. 0 none; 1 to\n"
 		"4 brighter and broader in turn, 1 the dimmest and tightest." },
+	{ "display.point_light_limit", _config_integer, "2", "HALO_POINT_LIGHT_LIMIT", _environment_value, _platform_all,
+		"With display.per_pixel_lighting: how many of the dynamic lights near a\n"
+		"character, weapon or vehicle light it, strongest first, 2 (the game's\n"
+		"own) to 8. The ones past the game's two are chosen and lit the same way,\n"
+		"for drawing only; the game itself still keeps two." },
 	{ "display.shadow_minimum_size", _config_integer, "0", "HALO_SHADOW_MINIMUM_SIZE", _environment_value, _platform_all,
 		"Device-profile floor on how small a character or vehicle may look and still\n"
 		"cast its shadow, in pixels of the 480-line picture, 0 to 240. Shadows fade\n"
@@ -1262,7 +1267,7 @@ static const struct config_setting config_settings[] =
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
 		"anti-aliasing, effect resolution, mirror resolution, per-pixel lighting,\n"
-		"point-light highlight)\n"
+		"point-light highlight, point light limit)\n"
 		"and left and right step its value as the game runs, from the next frame,\n"
 		"shown on screen for\n"
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
@@ -1540,10 +1545,12 @@ static const struct config_setting config_settings[] =
 		"Show the measured benchmark window and a five-second countdown onscreen." },
 	{ "debug.benchmark_review_take", _config_boolean, "false", "HALO_BENCHMARK_REVIEW_TAKE", _environment_set_is_true, _platform_all,
 		"In an onscreen benchmark replay, play the rest of the recorded input after the measured window closes. Log take position every ten seconds." },
-	{ "debug.per_pixel_lighting_alternate", _config_boolean, "false", "HALO_PER_PIXEL_LIGHTING_ALTERNATE", _environment_value, _platform_all,
-		"Light objects per pixel in odd frames only and per vertex in even ones,\n"
-		"whatever display.per_pixel_lighting says: with the game paused, two\n"
-		"frames in a row are the same picture lit both ways." },
+	{ "debug.per_pixel_lighting_alternate", _config_integer, "0", "HALO_PER_PIXEL_LIGHTING_ALTERNATE", _environment_value, _platform_all,
+		"Matched stills: odd frames lit as the display settings say, even frames\n"
+		"the plain way, so that with the game paused two frames in a row are the\n"
+		"same picture both ways. 1: even frames per vertex; 2: even frames per\n"
+		"pixel with no point-light highlight and the game's two point lights;\n"
+		"0 none." },
 	{ "debug.fixed_timestep", _config_boolean, "false", "HALO_FIXED_TIMESTEP", _environment_set_is_true, _platform_all,
 		"Advance the game's clock 1/30 s per frame, however long the frame took, so\n"
 		"two runs show the same frames; debug.exit_after then counts seconds of\n"
