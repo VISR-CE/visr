@@ -24,9 +24,7 @@ def test_fireteam_generated_screen():
     assert spinner.get('values') == 'true|false'
     rows = {r.get('widget').removeprefix(BASE): r for r in widgets[BASE + 'options_menu'].findall('child')}
     positions = {'op_friendly_fire': 73, 'op_extra_enemies': 103,
-                 'op_enemies_per_player': 133, 'op_enemies_multiplier': 133,
-                 'op_player_collisions': 163, 'op_ally_friendly_fire': 193,
-                 'op_fireteam': 223}
+                 'op_player_collisions': 133, 'op_fireteam': 163}
     for name, y in positions.items():
         assert int(rows[name].get('y')) == y
     row = rows['op_fireteam']
@@ -109,10 +107,38 @@ def test_coop_page_navigation_and_hosting_rows():
                 assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
 
 
-def test_coop_choices_and_dependent_rows():
-    from harness import build, function, read, run
+def coop_generated_code():
+    from harness import function, read
     source = read('port/linux/game/menu_functions.c')
     constants = source[source.index('#define COOPERATIVE_FRIENDLY_FIRE_HELP'):source.index('/* the most players Server Setup shows')]
-    status, output = run(build('coop_options_menu', (('constants.inc', constants),
-                         ('update.inc', function(source, 'coop_options_update') + '\n' + function(source, 'server_coop_rules_apply')))), '')
+    return (('constants.inc', constants), ('update.inc', function(source, 'coop_options_update') + '\n'
+            + function(source, 'server_coop_rules_apply')))
+
+
+def test_coop_choices_and_mappings():
+    from harness import build, run
+    status, output = run(build('coop_options_menu', coop_generated_code()), '')
     assert status == 0, output
+
+
+def test_coop_choices_host_native(tmp_path):
+    # These functions do not depend on the game's 32-bit ABI.
+    import subprocess
+    for name, text in coop_generated_code():
+        (tmp_path / name).write_text(text)
+    binary = tmp_path / 'coop_options_menu'
+    subprocess.run(['clang', '-std=gnu99', '-Wall', '-Werror', '-Wno-unused-function',
+                    '-Wno-unused-variable', '-I', str(ROOT / 'tools/harness/include'),
+                    '-I', str(tmp_path), str(ROOT / 'tools/harness/tests/coop_options_menu.c'),
+                    '-o', str(binary)], check=True, capture_output=True, text=True)
+    subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+
+
+def test_merged_friendly_fire_help():
+    root = ET.fromstring('\n'.join(port_settings.multiplayer_files()[SETUP]))
+    strings = root.find(f"strings[@name='{SETUP_BASE}help_strings']").findall('string')
+    assert len(strings) == 36
+    assert strings[31].get('text') == 'Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies.'
+    for item in strings[32:]:
+        lines = item.get('text').split('\\n')
+        assert len(lines) == 2 and max(map(len, lines)) <= 50

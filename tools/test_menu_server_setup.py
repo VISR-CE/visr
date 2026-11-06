@@ -169,3 +169,19 @@ int main(void)
     source.write_text(program)
     subprocess.run(['cc', '-Wall', '-Werror', str(source), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_coop_merged_setting_dispatch():
+    source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    tags = (ROOT / 'port/linux/game/menu_tags.c').read_text()
+    assert '"coop options init"' in tags and '"coop options save"' in tags
+    init = block(source, 'else if (!strcmp(name, "coop options init"))')
+    save = block(source, 'else if (!strcmp(name, "coop options save"))')
+    assert 'coop_options_init(screen_of(widget));' in init
+    assert 'settings_each(screen_of(widget), setting_changed_save);' in save
+    assert 'coop_options_save(screen_of(widget));' in save
+    settings = block(source, 'static void settings_each(')
+    assert 'pc_menu_setting_get(child->definition_tag_index)' in settings
+    assert 'if (setting)' in settings and 'visit(child, setting);' in settings
+    metadata = block(tags, 'if (source->setting)')
+    assert 'setting_add(source, build.widget_tags[widget_index]);' in metadata

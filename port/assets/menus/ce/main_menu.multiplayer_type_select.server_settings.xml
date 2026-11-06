@@ -162,5 +162,9 @@
 		<string text="Players can leave and join at any time.\nPlayers always respawn in place upon death."/>
 		<string text="Fireteam cannot change after level start.\nIf the whole team dies, revert to checkpoint."/>
 		<string text="Friendly fire, extra enemies, player collisions\nand what happens when everyone dies."/>
+		<string text="Players and friendly AI are protected from\nplayers' weapons and explosives."/>
+		<string text="Players can hurt each other. Friendly AI is\nprotected from players."/>
+		<string text="Players can hurt friendly AI and vehicles.\nPlayers are protected from each other."/>
+		<string text="Players can hurt each other, friendly AI and\nvehicles."/>
 	</strings>
 </menus>

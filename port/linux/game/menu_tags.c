@@ -443,6 +443,7 @@ static char const *const port_function_names[] =
 	"port send log",
 	/* (the About screen's website row) */
 	"port open website", "port open privacy", "port open license",
+	"coop options init",
 	/* Server Setup opens the stock gametype editor without editing a saved profile. */
 	"close if not editing profile", "mp profile change name", "mp profile end editing",
 };

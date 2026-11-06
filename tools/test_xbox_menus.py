@@ -765,3 +765,40 @@ def test_server_setup_rows_invite_and_gametype_editor(look):
     for name in ('labels', 'help_strings'):
         expected = generated.find(f'strings[@name="main_menu/multiplayer_type_select/server_settings/{name}"]')
         assert [e.attrib for e in root.find(f'strings[@name="{base}/{name}"]')] == [e.attrib for e in expected]
+
+
+def test_merged_rows_and_bindings():
+    import port_settings
+    BASE = 'main_menu/multiplayer_type_select/coop_options/'
+    NAME = 'main_menu.multiplayer_type_select.coop_options.xml'
+    for look in ('ce', 'xbox'):
+        prefix = 'xbox/' if look == 'xbox' else ''
+        base = prefix + BASE
+        root = ET.parse(ROOT / 'port/assets/menus' / look / NAME).getroot()
+        widgets = {w.get('name'): w for w in root.findall('widget')}
+        rows = widgets[base + 'options_menu'].findall('child')
+        assert [c.get('widget').removeprefix(base) for c in rows] == [
+            'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam',
+            'op_save' if look == 'xbox' else 'button_bar']
+        assert [int(c.get('y')) for c in rows[:4]] == [73, 103, 133, 163]
+        assert all(widgets[base + name].get('height') == '28' for name in (
+            'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam'))
+        for key, expected in (
+            ('friendly_fire', ['OFF', 'PLAYERS ONLY', 'AI ALLIES ONLY', 'ON']),
+            ('extra_enemies', ['NONE'] + [f'+{x}% PER PLAYER' for x in port_settings.COOP_ENEMIES_PERCENTAGES]
+             + [f'{x}X' for x in port_settings.COOP_ENEMIES_MULTIPLIERS])):
+            spinner = widgets[base + key + '_spinner']
+            assert spinner.get('strings').split('|') == expected
+            assert spinner.get('width') == '206'
+            assert spinner.get('setting') is None and spinner.get('values') is None
+            assert spinner.find("on[@event='created']") is None
+            assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
+        assert widgets[base + 'coop_options_screen'].find("on[@event='created']").get('run') == 'coop options init'
+        action = widgets[base + ('op_save' if look == 'xbox' else 'button_ok')]
+        for event in ('a', 'start'):
+            assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
+        if look == 'xbox':
+            assert action.get('text') == 'SAVE'
+            assert int(rows[-1].get('y')) == 193
+        assert all(not any(w.get('name').endswith('/' + name) for w in widgets.values())
+                   for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))

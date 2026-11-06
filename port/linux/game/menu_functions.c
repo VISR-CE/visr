@@ -3053,33 +3053,121 @@ static char const *const server_settings_gametype_rows[] =
 
 /* the most players a co-op game hosted starts with (maximum_players') */
 #define COOPERATIVE_DEFAULT_PLAYERS 16
-/* CO-OP OPTIONS shares Server Setup's help strings for FRIENDLY FIRE and
-EXTRA ENEMIES, by their choices, and EXTRA ENEMIES' PER PLAYER and MULTIPLIER (its
-help_strings, tools/port_settings.py) */
-#define COOPERATIVE_FRIENDLY_FIRE_HELP 12
+/* Shared help indices stay stable when rows are merged (port_settings.py). */
+#define COOPERATIVE_FRIENDLY_FIRE_HELP 32
 #define COOPERATIVE_EXTRA_ENEMIES_HELP 16
-#define COOPERATIVE_ENEMIES_PER_PLAYER_HELP 19
-#define COOPERATIVE_ENEMIES_MULTIPLIER_HELP 20
 #define COOPERATIVE_PLAYER_COLLISIONS_HELP 21
 #define SERVER_PASSWORD_HELP 23
-/* ... and for MAXIMUM PLAYERS past player_capacity()'s warning threshold */
 #define MAXIMUM_PLAYERS_SLOW_HELP 28
-#define COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP 26
 #define COOPERATIVE_FIRETEAM_HELP 29
 #define COOPERATIVE_OPTIONS_HELP 31
 
-/* co-op's EXTRA ENEMIES' choices (port_settings.COOP_ENEMIES_MODES, in this
-order): its amount's row is the choice's */
-enum
-{
-	_cooperative_enemies_none,
-	_cooperative_enemies_per_player,
-	_cooperative_enemies_multiplier,
-	NUMBER_OF_COOPERATIVE_ENEMIES_MODES
-};
+static long const cooperative_enemies_percentages[] = {25, 50, 100, 150, 200};
+static long const cooperative_enemies_multipliers[] = {2, 4, 8, 16, 32};
 
-/* co-op's FRIENDLY FIRE's choices (network.coop_friendly_fire's values,
-port_settings.COOP_FRIENDLY_FIRE_VALUES, in this order) */
+/* Return the nearest listed amount; ties keep the smaller choice. */
+static short coop_enemies_choice(char const *mode, long per_player, long multiplier)
+{
+	long const *amounts;
+	long value;
+	short index, best = 0, offset, count;
+
+	if (!_stricmp(mode, "per_player"))
+	{
+		amounts = cooperative_enemies_percentages;
+		count = NUMBEROF(cooperative_enemies_percentages);
+		value = per_player;
+		offset = 1;
+	}
+	else if (!_stricmp(mode, "multiplier"))
+	{
+		amounts = cooperative_enemies_multipliers;
+		count = NUMBEROF(cooperative_enemies_multipliers);
+		value = multiplier;
+		offset = 1 + NUMBEROF(cooperative_enemies_percentages);
+	}
+	else
+		return 0;
+	for (index = 1; index < count; index++)
+		if ((double)value > ((double)amounts[index] + amounts[best]) / 2.0)
+			best = index;
+	return offset + best;
+}
+
+/* Amount zero means NONE: neither amount key is written. */
+static char const *coop_enemies_apply(short choice, long *amount)
+{
+	choice = (short)PIN(choice, 0, NUMBEROF(cooperative_enemies_percentages) + NUMBEROF(cooperative_enemies_multipliers));
+	*amount = 0;
+	if (!choice)
+		return "none";
+	if (choice <= NUMBEROF(cooperative_enemies_percentages))
+	{
+		*amount = cooperative_enemies_percentages[choice - 1];
+		return "per_player";
+	}
+	*amount = cooperative_enemies_multipliers[choice - 1 - NUMBEROF(cooperative_enemies_percentages)];
+	return "multiplier";
+}
+
+static short coop_friendly_fire_choice(char const *players, boolean allies)
+{
+	return (_stricmp(players, "off") ? 1 : 0) | (allies ? 2 : 0);
+}
+
+static char const *coop_friendly_fire_apply(short choice, char const *players, boolean *allies)
+{
+	*allies = (choice & 2) != 0;
+	if (!(choice & 1))
+		return "off";
+	if (!_stricmp(players, "shields_only") || !_stricmp(players, "explosives_only"))
+		return players;
+	return "on";
+}
+
+static void coop_options_init(struct widget_instance *screen)
+{
+	struct widget_instance *spinner = named(screen, "extra_enemies_spinner", 0);
+
+	if (spinner)
+		spinner->parameters.list.selected_index = coop_enemies_choice(config_string("network.coop_enemies_mode"),
+			config_integer("network.coop_enemies"), config_integer("network.coop_enemies_multiplier"));
+	spinner = named(screen, "friendly_fire_spinner", 0);
+	if (spinner)
+		spinner->parameters.list.selected_index = coop_friendly_fire_choice(config_string("network.coop_friendly_fire"),
+			config_boolean("network.coop_ally_friendly_fire"));
+}
+
+static void coop_options_save(struct widget_instance *screen)
+{
+	struct widget_instance *spinner = named(screen, "extra_enemies_spinner", 0);
+
+	if (spinner)
+	{
+		long amount;
+		char text[32];
+		char const *mode = coop_enemies_apply(spinner->parameters.list.selected_index, &amount);
+
+		config_write("network.coop_enemies_mode", mode);
+		if (amount)
+		{
+			snprintf(text, sizeof(text), "%ld", amount);
+			config_write(!strcmp(mode, "per_player") ? "network.coop_enemies" : "network.coop_enemies_multiplier", text);
+		}
+	}
+	spinner = named(screen, "friendly_fire_spinner", 0);
+	if (spinner)
+	{
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 3);
+		boolean allies;
+		char const *players = coop_friendly_fire_apply(choice, config_string("network.coop_friendly_fire"), &allies);
+
+		config_write("network.coop_friendly_fire", players);
+		config_write("network.coop_ally_friendly_fire", allies ? "true" : "false");
+	}
+}
+
+/* Legacy player-only rules remain valid config values for the server. */
 static short const cooperative_friendly_fire_modes[] =
 {
 	_friendly_fire_off, _friendly_fire_on, _friendly_fire_shields_only, _friendly_fire_explosives_only
@@ -3184,36 +3272,21 @@ static void coop_options_update(struct widget_instance *list)
 	/* Each rule's help follows its spinner choice. */
 	if ((spinner = named(list, "friendly_fire_spinner", 0)) != NULL)
 	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0,
-			NUMBEROF(cooperative_friendly_fire_modes) - 1);
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 3);
 		struct widget_instance *help = list->parameters.list.extended_description;
 
 		if (help && list->focused_child == named(list, "op_friendly_fire", 0))
 			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FRIENDLY_FIRE_HELP + choice);
 	}
-	/* ... and its EXTRA ENEMIES, with the row of the amount of the one
-	chosen below it (network.coop_enemies_mode and its amounts, which the
-	host reads as the game begins: coop_enemies.c) */
+	if ((spinner = named(list, "extra_enemies_spinner", 0)) != NULL)
 	{
 		struct widget_instance *help = list->parameters.list.extended_description;
-		short mode = _cooperative_enemies_none;
+		long amount;
+		char const *mode = coop_enemies_apply(spinner->parameters.list.selected_index, &amount);
+		short mode_index = !strcmp(mode, "none") ? 0 : !strcmp(mode, "per_player") ? 1 : 2;
 
-		if ((spinner = named(list, "extra_enemies_spinner", 0)) != NULL)
-		{
-			mode = (short)PIN(spinner->parameters.list.selected_index, 0,
-				NUMBER_OF_COOPERATIVE_ENEMIES_MODES - 1);
-		}
-		visible_set(named(list, "op_enemies_per_player", 0), mode == _cooperative_enemies_per_player);
-		visible_set(named(list, "op_enemies_multiplier", 0), mode == _cooperative_enemies_multiplier);
-		if (help)
-		{
-			if (list->focused_child == named(list, "op_extra_enemies", 0))
-				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_ENEMIES_HELP + mode);
-			else if (list->focused_child == named(list, "op_enemies_per_player", 0))
-				help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_PER_PLAYER_HELP;
-			else if (list->focused_child == named(list, "op_enemies_multiplier", 0))
-				help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_MULTIPLIER_HELP;
-		}
+		if (help && list->focused_child == named(list, "op_extra_enemies", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_ENEMIES_HELP + mode_index);
 	}
 	/* ... and its PLAYER COLLISIONS, below them: ON or OFF, its help its
 	choice's */
@@ -3232,14 +3305,6 @@ static void coop_options_update(struct widget_instance *list)
 
 		if (help && list->focused_child == named(list, "op_fireteam", 0))
 			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FIRETEAM_HELP + choice);
-	}
-	if ((spinner = named(list, "ally_friendly_fire_spinner", 0)) != NULL)
-	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
-		struct widget_instance *help = list->parameters.list.extended_description;
-
-		if (help && list->focused_child == named(list, "op_ally_friendly_fire", 0))
-			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP + choice);
 	}
 }
 
@@ -6441,9 +6506,14 @@ boolean pc_menu_event_function_invoke(
 		{
 			item_activated(widget, event_controller(widget, event), widget_deleted);
 		}
+		else if (!strcmp(name, "coop options init"))
+		{
+			coop_options_init(screen_of(widget));
+		}
 		else if (!strcmp(name, "coop options save"))
 		{
 			settings_each(screen_of(widget), setting_changed_save);
+			coop_options_save(screen_of(widget));
 		}
 		else if (!strcmp(name, "port settings save"))
 		{
