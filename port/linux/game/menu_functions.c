@@ -4112,8 +4112,6 @@ static boolean browser_listing_shown(struct p2p_listing const *game)
 		return FALSE;
 	if (!config_boolean("network.browser_show_unjoinable") && !browser_listing_can_join(game))
 		return FALSE;
-	if (config_boolean("network.browser_dedicated_only") && p2p_listing_server_kind(game) != P2P_SERVER_DEDICATED)
-		return FALSE;
 	return TRUE;
 }
 
@@ -4123,8 +4121,7 @@ static short browser_filters_changed(void)
 	char const *games = config_string("network.browser_games");
 
 	return (short)((games && strcmp(games, "all")) + !config_boolean("network.browser_show_full") +
-		!config_boolean("network.browser_show_locked") + config_boolean("network.browser_show_unjoinable") +
-		config_boolean("network.browser_dedicated_only"));
+		!config_boolean("network.browser_show_locked") + config_boolean("network.browser_show_unjoinable"));
 }
 
 static void map_display_name(char const *map_name, wchar_t *text);

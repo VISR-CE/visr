@@ -3344,17 +3344,6 @@
             "desktop"
           ]
         },
-        "browser_dedicated_only": {
-          "type": "boolean",
-          "default": false,
-          "description": "Whether the server browser lists only dedicated servers (FILTERS' DEDICATED ONLY).",
-          "x-environment": "HALO_NET_BROWSER_DEDICATED_ONLY",
-          "x-environment-style": "value",
-          "x-platforms": [
-            "apple",
-            "desktop"
-          ]
-        },
         "delta_browse": {
           "type": "boolean",
           "default": true,

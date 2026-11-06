@@ -923,8 +923,6 @@ BROWSER_FILTERS = [
      "Games that need a password to join."),
     ("unjoinable", "GAMES I CAN'T JOIN", ["HIDE", "SHOW"], "network.browser_show_unjoinable", ["false", "true"],
      "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."),
-    ("dedicated", "DEDICATED ONLY", ["OFF", "ON"], "network.browser_dedicated_only", ["false", "true"],
-     "Only games on dedicated servers, which stay up\\nbetween matches and have no host player."),
 ]
 
 
