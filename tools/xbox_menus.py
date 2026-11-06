@@ -678,8 +678,11 @@ def hosting_layout(root, widgets, page):
                 inner.set('y', '0')
                 item.attrib.update(font=r'ui\large_ui', text_y='4')
             elif leaf.endswith(('_spinner', '_value')):
-                inner.attrib.update(x='286', y='1')
-                item.attrib.update(font=r'ui\large_ui', color='#FFFFFFFF', width='206',
+                # (text values, such as the join code, are wider than a spinner's 206 units: centered on
+                # the same line, in a 250-unit field)
+                wide = item.get('type') != 'spinner'
+                inner.attrib.update(x='264' if wide else '286', y='1')
+                item.attrib.update(font=r'ui\large_ui', color='#FFFFFFFF', width='250' if wide else '206',
                                    height='20', left='3', top='2', text_y='1')
                 if item.get('type') == 'spinner':
                     item.attrib.update(header_bounds='7 -6 19 0', footer_bounds='7 209 19 215')

@@ -663,7 +663,10 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
             if leaf.endswith(('_value', '_spinner')):
                 assert value.get('font') == r'ui\large_ui'
                 assert value.get('color') == '#FFFFFFFF'
-                assert (inner.get('x'), value.get('left'), value.get('width')) == ('286', '3', '206')
+                # (a text value is centered on the spinner's line in a wider field: 264 + 250 / 2 = 286 + 206 / 2)
+                wide = value.get('type') != 'spinner'
+                assert (inner.get('x'), value.get('left'), value.get('width')) == (
+                    ('264', '3', '250') if wide else ('286', '3', '206'))
                 label = widgets[value.get('name').rsplit('_', 1)[0] + '_label']
                 assert int(inner.get('y')) + int(value.get('top')) + int(value.get('text_y')) == int(label.get('text_y'))
                 if value.get('type') == 'spinner':
