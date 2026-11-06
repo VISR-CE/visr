@@ -497,6 +497,12 @@ def multiplayer_documents(assets, bitmaps):
     maps = documents['main_menu.multiplayer_type_select.mp_map_select.xml']
     wrapper = definitions['widget', MP + '/connected/connected_map_select_wrapper']
     maps.append(deepcopy(wrapper))
+    # (the legend's A and B replace the PC list's OK and BACK bar, which would draw under it)
+    for e in maps:
+        if e.get('name', '').endswith('/mp_map_select_list_2'):
+            for c in e.findall('child'):
+                if c.get('widget', '').endswith('mp_map_select_button_bar'):
+                    e.remove(c)
     owned.add(('widget', wrapper.get('name')))
     shared = ET.Element('menus')
     documents['multiplayer.shared.xml'] = shared

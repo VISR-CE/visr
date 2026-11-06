@@ -49,7 +49,6 @@
 		<child widget="xbox/main_menu/new_select/list_item_8" x="48" y="313" />
 		<child widget="xbox/main_menu/new_select/list_item_9" x="48" y="343" />
 		<child widget="xbox/main_menu/new_select/list_item_10" x="48" y="373" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_button_bar" y="449" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/gradient">
 		<on event="created" run="net server defer start" />
