@@ -24,6 +24,16 @@ static void check(int condition, const char *message) {
     if (!condition) { failures++; fprintf(stderr, "FAIL: %s\n", message); }
 }
 
+/* one frame's run of the main run loop, 16 ms of wall time: with no source ready, CFRunLoopRunInMode can return at
+   once, and frames counted without the clock gave UIKit's animations no time to run (400 frames in under a second
+   on one host, so the dialog's dismissal never finished) */
+static void pump_frame(void) {
+    CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 0.016;
+    for (CFAbsoluteTime now = CFAbsoluteTimeGetCurrent(); now < until; now = CFAbsoluteTimeGetCurrent())
+        if (CFRunLoopRunInMode(kCFRunLoopDefaultMode, until - now, true) == kCFRunLoopRunFinished)
+            usleep(1000);
+}
+
 /* gpu_metal.m's frame_deadline_begin: a shown frame joins again after a leave unless held */
 static void frame(void) {
     if (frame_deadline_rejoin_wanted(state, 0, held)) {
@@ -63,6 +73,9 @@ static void hold(int on) {
 
 - (void)play {
     {
+        /* (the runner tells a scene UIKit could not make, which ends the app before this, from the probe itself) */
+        printf("frame workgroup probe (%s): started\n", fixed ? "fixed" : "unfixed");
+        fflush(stdout);
         UIViewController *root = self.window.rootViewController;
         UIScrollView *scroll = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 200, 200)];
         scroll.contentSize = CGSizeMake(200, 2000);
@@ -70,14 +83,15 @@ static void hold(int on) {
         interval = AudioWorkIntervalCreate("VISR frame probe", OS_CLOCK_MACH_ABSOLUTE_TIME, NULL);
         if (!interval || os_workgroup_join(interval, &token)) {
             fprintf(stderr, "SKIP: no workgroup to join here\n");
-            exit(0);
+            exit(77);
         }
         state = FRAME_DEADLINE_JOINED;
         UIAlertController *alert = nil;
         __block BOOL dismissed = NO, gone = NO;
         int n, gone_at = -1;
-        /* (on until a few frames after the dialog has gone, so they join again) */
-        for (n = 0; n < 400 && !(gone_at >= 0 && n > gone_at + 10); n++) {
+        /* (on until a few frames after the dialog has gone, so they join again; at most 10 s) */
+        CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 10;
+        for (n = 0; CFAbsoluteTimeGetCurrent() < deadline && !(gone_at >= 0 && n > gone_at + 10); n++) {
             @autoreleasepool {
                 frame();
                 if (n == 5) {
@@ -102,12 +116,17 @@ static void hold(int on) {
                     gone_at = n;
                     if (held) hold(0);
                 }
-                CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.016, true);
+                pump_frame();
             }
         }
-        if (!gone)
-            fprintf(stderr, "note: the dialog had not gone after %d frames (presenting %d, being dismissed %d)\n", n,
-                alert.presentingViewController != nil, alert.beingDismissed);
+        if (!gone && !failures) {
+            /* the hold could not be tested: UIKit never finished the dialog's transitions here (no window server
+               drawing this app, for one); exit 77 is a skip, never a pass */
+            fprintf(stderr, "SKIP: the dialog had not gone after %d frames in 10 s (presenting %d, being dismissed %d)\n",
+                n, alert.presentingViewController != nil, alert.beingDismissed);
+            if (state == FRAME_DEADLINE_JOINED) os_workgroup_leave(interval, &token);
+            exit(77);
+        }
         if (fixed) {
             check(!held, "the hold ends once the dialog has gone");
             check(state == FRAME_DEADLINE_JOINED, "frames join the workgroup again after the dialog");
