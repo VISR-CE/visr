@@ -22,13 +22,13 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_lan" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_lan">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_arrows" width="64" height="32">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_arrows" width="16" height="16">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_sort_down_arrow" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_down_arrow" width="64" height="32" bitmap="xbox/bitmaps/arrow_sm_down">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" width="64" height="32" bitmap="xbox/bitmaps/arrow_sm_up">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/item_ticker_player_info" controller="1" width="518" height="24" color="#FF2896FF" type="column_list">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/ticker_player_info" x="0" y="0" />

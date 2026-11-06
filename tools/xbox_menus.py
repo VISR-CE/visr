@@ -838,6 +838,9 @@ def browser_layout(root, widgets, bitmaps):
             if arrows.get('widget').endswith('/header_sort_arrows'):
                 arrows.attrib.update(x=str(width - 14), y='1')
         get('sort_header_' + field).set('width', str(width))
+    # (the arrows at their art's 16-unit size: a bitmap fills its widget)
+    for leaf in ('header_sort_arrows', 'header_sort_up_arrow', 'header_sort_down_arrow'):
+        get(leaf).attrib.update(width='16', height='16')
     for leaf in ('item_ticker_player_info', 'item_ticker_rules_info'):
         item = get(leaf)
         item.attrib.update(width='518', height='24')

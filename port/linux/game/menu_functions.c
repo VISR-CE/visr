@@ -4397,7 +4397,21 @@ static void browser_filters_button_update(struct widget_instance *list)
 	{
 		struct widget_instance *headers = named(list, "join_game_header", 0);
 		struct widget_instance *header, *child;
+		short header_index = 0;
 
+		/* (the titles reached from the rows: the focus on the sorted column's, not on the first title, which
+		sorts nothing) */
+		if (headers && list->focused_child == headers && (!headers->focused_child || headers->focused_child->disabled))
+		{
+			for (header = headers->child; header; header = header->next, header_index++)
+			{
+				if (!strcmp(header->name, browser_sort_headers[sort]))
+				{
+					headers->focused_child = header;
+					headers->parameters.list.selected_index = header_index;
+				}
+			}
+		}
 		for (header = headers ? headers->child : NULL; header; header = header->next)
 		{
 			boolean focused = list->focused_child == headers && headers->focused_child == header && !header->disabled;
