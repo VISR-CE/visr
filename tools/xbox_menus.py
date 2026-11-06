@@ -769,10 +769,11 @@ def browser_layout(root, widgets, bitmaps):
     # The Xbox's nine-row list needs a wider column for the PC browser's
     # five live fields. Keep the updater's row names and all its children.
     # Region ends 36 pixels before the cap, matching the Server Name inset.
+    # Players is wide enough for its title and the sort arrow after it.
     columns = {'locked': (0, 16), 'dedicated': (16, 16),
                'server_name': (36, 138), 'map': (178, 132),
                'classic': (310, 10), 'type': (322, 62),
-               'players': (386, 60), 'ping': (450, 58)}
+               'players': (386, 68), 'ping': (458, 50)}
     for c in list(rows.findall('child')):
         leaf = c.get('widget').rsplit('/', 1)[-1]
         if leaf.startswith('server_item_') and leaf[12:].isdigit():
@@ -833,15 +834,15 @@ def browser_layout(root, widgets, bitmaps):
         header = widgets[c.get('widget')]
         header.set('width', str(width))
         header.attrib.pop('bitmap', None)
-        # (the text titles start at their column's values, after room for the
-        # sort arrow, which sits before the title as on the PC version's
-        # browser: menu_functions.c shows it on the sorted column only)
+        # (the text titles start where their column's values do; the sort
+        # arrow sits at the column's right edge, clear of the longest title,
+        # and menu_functions.c shows it on the sorted column only)
         for arrows in header.findall('child'):
             if arrows.get('widget').endswith('/header_sort_arrows'):
-                arrows.attrib.update(x='0', y='2')
+                arrows.attrib.update(x=str(width - 12), y='2')
         get('sort_header_' + field).set('width', str(width))
         if field not in ('locked', 'dedicated', 'classic'):
-            get('sort_header_' + field).attrib.update(align='left', text_x='13')
+            get('sort_header_' + field).attrib.update(align='left', text_x='0')
     # (the arrows at their art's 16-unit size: a bitmap fills its widget)
     for leaf in ('header_sort_arrows', 'header_sort_up_arrow', 'header_sort_down_arrow'):
         get(leaf).attrib.update(width='16', height='16')
