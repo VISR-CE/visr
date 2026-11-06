@@ -3798,6 +3798,19 @@ int config_explicit(const char *name)
 	return config_states[index].origin == _origin_chosen || config_states[index].source == _source_environment;
 }
 
+/* 1 when a device profile layer gives the setting a value (what the menus show as "optimized for your device" until
+the player chooses one): the profile's own value, which is its campaign (predictable) value, whatever a scene class or
+the variable context gives the setting while a map is loaded */
+int config_profile_sets(const char *name)
+{
+	long index = config_setting_index(name);
+
+	if (index < 0)
+		return 0;
+	(void)config_value(name, config_settings[index].type);
+	return config_states[index].profile_count > 0;
+}
+
 int config_text(const char *name, char *text, size_t size)
 {
 	long index = config_setting_index(name);

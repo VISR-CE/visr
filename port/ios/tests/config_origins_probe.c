@@ -403,6 +403,9 @@ static void check_menus(void)
 	/* so a later profile reaches them again */
 	launch(TV_MODEL "display.shadow_map_size\t512\tmodel Apple TV HD\n");
 	assert(config_integer("display.shadow_map_size") == 512 && !config_boolean("display.upscaled_textures"));
+	/* the menus ask whether a profile sets a setting (its campaign value, config_default, is then the device's) */
+	assert(config_profile_sets("display.shadow_map_size") && config_profile_sets("display.render_scale"));
+	assert(!config_profile_sets("input.snap_angle") && !config_profile_sets("no.such.setting"));
 	/* a setting no profile names behaves the same against its built-in default */
 	assert(config_write("input.snap_angle", "45"));
 	assert(config_explicit("input.snap_angle"));

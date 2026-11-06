@@ -133,6 +133,7 @@ int config_default(char const *name, char *text, unsigned int size);
 char const *config_string(char const *name);
 /* the graphics mode in force (enum graphics_mode, port_graphics_modes.h) and its name; the mode's name while it
 replaces a setting's own value, else NULL (port_config.h) */
+int config_profile_sets(char const *name);
 int config_graphics_mode(void);
 char const *config_graphics_mode_name(void);
 char const *config_graphics_replaces(char const *name);
@@ -1622,19 +1623,33 @@ static void send_log_status_show(struct widget_instance *widget)
 /* ---------- the graphics modes (display.graphics): the settings hub's GRAPHICS row, and the mode's row and the
 CRT effect's in Video Settings and on the GRAPHICS screen (tools/port_settings.py) */
 
-/* "port graphics state": the settings hub's GRAPHICS row shows the mode in force, as the settings screens' rows
-show their values */
+/* "port graphics state": the settings hub's status line "Graphics: <Mode>" while GRAPHICS is chosen (the word, in the
+profile name's place) */
 static void graphics_state_show(struct widget_instance *widget)
 {
 	char name[16];
 	wchar_t text[16];
-	short index;
 
 	snprintf(name, sizeof(name), "%s", config_graphics_mode_name());
-	for (index = 0; name[index]; index++)
-		name[index] = (char)toupper((unsigned char)name[index]);
+	name[0] = (char)toupper((unsigned char)name[0]);
 	halo_menus_utf16(name, (unsigned short *)text, NUMBEROF(text));
 	text_set_length(widget, text, NUMBEROF(text));
+}
+
+/* "port hub status" on the settings hub's list: the mode's word where the profile's name is while GRAPHICS is the
+row chosen, else the profile's name */
+static void hub_status_show(struct widget_instance *list)
+{
+	struct widget_instance *screen = screen_of(list);
+	struct widget_instance *profile = named(screen, "profile_label", 0);
+	struct widget_instance *mode = named(screen, "graphics_label", 0);
+	boolean on_graphics = list->focused_child && !strcmp(list->focused_child->name, "graphics");
+
+	if (!mode)
+		return;
+	mode->visible = on_graphics;
+	if (profile)
+		profile->visible = !on_graphics;
 }
 
 /* the mode the screen's mode row shows (enum graphics_mode), or NONE */
@@ -1667,18 +1682,73 @@ static boolean graphics_in_vr(void)
 	return vision && !strcmp(vision, "1");
 }
 
+/* what the device is called in a row's help (menu_platform.h's host variables) */
+static char const *graphics_device_name(void)
+{
+	char const *mac = getenv("HALO_HOST_MAC"), *tv = getenv("HALO_HOST_TVOS");
+
+	if (mac && !strcmp(mac, "1"))
+		return "Mac";
+	if (tv && !strcmp(tv, "1"))
+		return "Apple TV";
+	if (graphics_in_vr())
+		return "Apple Vision Pro";
+	return getenv("HALO_HOST_PHONE_SCALE") ? "iPhone" : "iPad";
+}
+
+/* a help line broken to the help's width, two lines of the screens' large font at most 48 characters */
+static void graphics_help_text(struct widget_instance *help, char const *message)
+{
+	char wrapped[240];
+	wchar_t text[240];
+	short column = 0, last_space = NONE, index;
+
+	snprintf(wrapped, sizeof(wrapped), "%s", message);
+	for (index = 0; wrapped[index]; index++, column++)
+	{
+		if (wrapped[index] == ' ')
+			last_space = index;
+		if (column >= 48 && last_space != NONE)
+		{
+			wrapped[last_space] = '\n';
+			column = (short)(index - last_space);
+			last_space = NONE;
+		}
+	}
+	halo_menus_utf16(wrapped, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(help, text, NUMBEROF(text));
+}
+
+/* the help of a row the mode fixes: what it is fixed to, from the mode's table */
+static void graphics_fixed_help(struct widget_instance *help, short mode, char const *setting, char const *value)
+{
+	char message[200], name[16];
+	char const *what = !strcmp(setting, "display.frame_rate") ? "Fixed to %s FPS in %s mode." :
+		!strcmp(setting, "display.interpolation") ? "Frames are drawn at the game's 30 ticks a second in %.0s%s mode." :
+		!strcmp(setting, "display.high_res_hud") ? "HUD is drawn at original resolution in %.0s%s mode." :
+		!strcmp(setting, "display.high_res_text") ? "Text is drawn with the original fonts in %.0s%s mode." :
+		"Fixed to %s in %s mode.";
+
+	snprintf(name, sizeof(name), "%s", graphics_mode_names[mode]);
+	name[0] = (char)toupper((unsigned char)name[0]);
+	snprintf(message, sizeof(message), what, value, name);
+	graphics_help_text(help, message);
+}
+
 /* "port settings help" on a screen with the mode's row: the CRT effect's row only while Hardcore is shown (the
-list's window closes the rows below it up), a setting the mode shown replaces reading HARDCORE in its spinner's
-place with its row passed over (so that it does not change), and the help of the mode shown while its row is
-chosen, in the help's place */
+list's window closes the rows below it up); a setting the mode shown fixes shown as its value in force in the row's
+value place (its spinner hidden, so it does not change; its row can still be chosen, for its help); a setting the
+device's profile sets, which the player has not chosen, shown at the profile's campaign value; and, in the help's
+place, the help of the mode while its row is chosen, or of a fixed or profile-set row while it is */
 static void graphics_rows_show(struct widget_instance *list)
 {
 	short mode = graphics_mode_shown(list);
 	struct widget_instance *help = list->parameters.list.extended_description;
 	struct widget_instance *mode_help = named(screen_of(list), "graphics_help", 0);
+	struct widget_instance *row_help = named(screen_of(list), "row_help", 0);
 	struct widget_instance *crt = named(list, "op_crt_effect", 0);
 	struct widget_instance *row;
-	boolean on_mode;
+	boolean on_mode, row_helped = FALSE;
 
 	if (mode == NONE)
 		return;
@@ -1710,18 +1780,67 @@ static void graphics_rows_show(struct widget_instance *list)
 				spinner = part;
 			}
 		}
-		if (!replaced || !setting)
+		if (!setting || !strcmp(setting->setting, "display.graphics"))
 			continue;
-		replaces = graphics_replaces(mode, setting->setting);
-		replaced->visible = replaces;
-		spinner->visible = !replaces;
-		row->disabled = replaces;
+		replaces = replaced && graphics_replaces(mode, setting->setting);
+		if (replaced)
+		{
+			replaced->visible = replaces;
+			spinner->visible = !replaces;
+			/* (the cursor passes over a fixed row: it cannot rest on a row with nothing to change, and the focus
+			stopped at the row before the first one when it was let to) */
+			row->disabled = replaces;
+		}
+		if (replaces)
+		{
+			char value[64];
+			char const *table = graphics_mode_value(mode, setting->setting);
+
+			/* (Hardcore acting as Classic in stereo: the setting's own value stands) */
+			if (table)
+				snprintf(value, sizeof(value), "%s", table);
+			else if (!config_text(setting->setting, value, sizeof(value)))
+				value[0] = 0;
+			replaced->parameters.text_box.string_list_index = setting_value_index(setting, value);
+			if (row == list->focused_child && row_help)
+			{
+				graphics_fixed_help(row_help, mode, setting->setting, value);
+				row_helped = TRUE;
+			}
+		}
+		else if (config_profile_sets(setting->setting) && !config_explicit(setting->setting))
+		{
+			char campaign[64];
+
+			if (config_default(setting->setting, campaign, sizeof(campaign)))
+			{
+				short index = setting_value_index(setting, campaign);
+
+				/* (until the player turns it, the spinner shows the profile's campaign value, as it was loaded) */
+				if (spinner->parameters.list.selected_index == setting->loaded_index)
+				{
+					spinner->parameters.list.selected_index = index;
+					setting->loaded_index = index;
+				}
+				if (row == list->focused_child && row_help && spinner->parameters.list.selected_index == index)
+				{
+					char message[200];
+
+					snprintf(message, sizeof(message), "Optimized setting for your %s. Certain modes like "
+						"Multiplayer or Co-Op may change this for better performance.", graphics_device_name());
+					graphics_help_text(row_help, message);
+					row_helped = TRUE;
+				}
+			}
+		}
 	}
 	on_mode = list->focused_child && !strcmp(list->focused_child->name, "op_graphics");
+	if (row_help)
+		row_help->visible = row_helped;
 	if (mode_help && help)
 	{
 		mode_help->visible = on_mode;
-		help->visible = !on_mode;
+		help->visible = !on_mode && !row_helped;
 		/* (the string after the three modes': Hardcore's with a note, as it draws as Classic in VR) */
 		mode_help->parameters.text_box.string_list_index = mode == GRAPHICS_MODE_HARDCORE && graphics_in_vr() ?
 			NUMBER_OF_GRAPHICS_MODES : mode;
@@ -6978,6 +7097,8 @@ void pc_menu_game_data_function_invoke(
 		about_text_show(widget, TRUE);
 	else if (!strcmp(name, "port graphics state"))
 		graphics_state_show(widget);
+	else if (!strcmp(name, "port hub status"))
+		hub_status_show(widget);
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);

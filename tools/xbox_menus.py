@@ -425,8 +425,8 @@ PAGE_ROWS = (
      'Look, sensitivity, vibration and\\nthe button layout.' + CURRENT),
     ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
      'Frame rate, resolution and how\\nthe picture is drawn.' + CURRENT),
-    # (the Mac's VIDEO screen has this mode as its first row; the hub row shows the mode, port/linux/game/
-    # menu_functions.c's "port graphics state")
+    # (the Mac's VIDEO screen has this mode as its first row; in the hub, the panel's status line names the mode
+    # while this row is chosen: HUB_DESCRIPTIONS, "port hub status")
     ('graphics', 'GRAPHICS', 'graphics', 'graphics_screen', '!mac_app',
      # (a blank line more than the one-line text needs: the profile's name sits beside "Current Profile:" as on the
      # other rows, whose text is two lines)
@@ -481,11 +481,12 @@ def picture_frame(assets, key):
             'width': str(width), 'height': str(height)}
 
 
-# the hub rows' places (a row filtered out by its platform leaves its slot to the row after) and the rows that show
-# a state: the game data input that writes it, and where it sits in the row (right-aligned to the row's text_x)
+# the hub rows' places (a row filtered out by its platform leaves its slot to the row after)
 HUB_SLOTS = {'controls': 0, 'video': 1, 'graphics': 1, 'audio': 1, 'network': 2, 'keyboard': 3}
-HUB_STATES = {'graphics': 'port graphics state'}
-HUB_STATE_X, HUB_STATE_Y, HUB_STATE_WIDTH = 107, 5, 112
+# a hub row whose panel text ends with another status line than "Current Profile:": GRAPHICS names its mode there
+# (menu_functions.c's "port hub status" shows the mode's word, in place of the profile's name, while it is chosen)
+HUB_DESCRIPTIONS = {'graphics': "The game's look.\\n\\n\\nGraphics:"}
+GRAPHICS_STATUS_X = 384
 
 
 def hub_documents(assets):
@@ -495,7 +496,7 @@ def hub_documents(assets):
     bitmap = ET.Element('bitmap', name='xbox/settings/hub_pictures')
     for key, _, _, _, platform, description in PAGE_ROWS:
         attrs = {'platform': platform} if platform else {}
-        ET.SubElement(strings, 'string', text=description, **attrs)
+        ET.SubElement(strings, 'string', text=HUB_DESCRIPTIONS.get(key, description), **attrs)
         ET.SubElement(bitmap, 'frame', **picture_frame(assets, key), **attrs)
     return strings, bitmap
 
@@ -521,12 +522,17 @@ def settings_hub(bitmaps, assets=MENUS):
     child(screen, f'{base}/header')
     child(screen, f'{base}/settings_list')
     child(screen, f'{base}/profile_label', x=432, y=353)
+    child(screen, f'{base}/graphics_label', x=GRAPHICS_STATUS_X, y=353, platform='!mac_app')
     header = f'{PE}/header_edit_profile_settings'
     widget(root, f'{base}/header', left=35, top=11, width=605, height=59,
            bitmap=bitmap_ref(header, bitmaps))
     label = widget(root, f'{base}/profile_label', type='text', width=200, height=22, font=r'ui\large_ui',
                    color='#FFFFFFFF')
     ET.SubElement(label, 'data', input='get edit plyr profile name')
+    # the mode's word beside "Graphics:", in the profile name's place while GRAPHICS is chosen
+    status = widget(root, f'{base}/graphics_label', type='text', width=200, height=22, font=r'ui\large_ui',
+                    color='#FFFFFFFF')
+    ET.SubElement(status, 'data', input='port graphics state')
     # The panel: the frame, then (in this order, which the list's description update expects) the text and the
     # picture, at the Xbox's places
     panel = widget(root, f'{base}/description', left=275, top=78, width=320, height=362,
@@ -541,18 +547,13 @@ def settings_hub(bitmaps, assets=MENUS):
                      flags='pass_unhandled_to_focused_child up_down_tabs_children', visible_rows=5,
                      description=f'{base}/description')
     ET.SubElement(options, 'data', input='plyr prof edit select menu upd8')
+    ET.SubElement(options, 'data', input='port hub status')
     for key, caption, folder, screen_name, platform, _ in PAGE_ROWS:
         attrs = {'platform': platform} if platform else {}
         # VIDEO, GRAPHICS and AUDIO share a slot so filtering them preserves the 33-unit pitch.
         child(options, f'{base}/{key}', x=51, y=78 + HUB_SLOTS[key] * 33, **attrs)
         row = text_widget(root, f'{base}/{key}', caption, width=232, height=32,
                           bitmap=bitmap_ref('bitmaps/list_item_bkd', bitmaps), text_x=13, text_y=4)
-        if key in HUB_STATES:
-            # a row with a state shows it at its right end, where the settings screens' rows show their values
-            child(row, f'{base}/{key}_state', x=HUB_STATE_X, y=HUB_STATE_Y)
-            state = widget(root, f'{base}/{key}_state', type='text', width=HUB_STATE_WIDTH, height=18,
-                           font=r'ui\small_ui', color=BLUE, align='right')
-            ET.SubElement(state, 'data', input=HUB_STATES[key])
         for event in ('a', 'start'):
             ET.SubElement(row, 'on', event=event, open=f'xbox/settings/{folder}/{screen_name}')
     legend(root, screen, base, cancel='BACK')

@@ -16,6 +16,8 @@ PROGRAM = r'''
 #include <string.h>
 /* (the game's wide characters are 16 bits) */
 #define wchar_t unsigned short
+#define _stricmp strcasecmp
+#include <strings.h>
 typedef int boolean;
 typedef unsigned short word;
 #define TRUE 1
@@ -42,6 +44,7 @@ struct pc_menu_setting { long definition_index; char const *setting; long value_
                          char const *values[MAXIMUM_STRINGS]; short loaded_index; };
 static struct pc_menu_setting settings[16];
 static int setting_total;
+static struct pc_menu_setting *setting_for(struct widget_instance const *spinner);
 struct pc_menu_setting *pc_menu_setting_get(long definition_index)
 {
     for (int i = 0; i < setting_total; i++)
@@ -56,11 +59,31 @@ char const *config_graphics_replaces(char const *name)
 {
     return graphics_mode_value(stored_mode, name) ? graphics_mode_names[stored_mode] : NULL;
 }
+/* the game's settings: a profile that sets some, and what the player chose */
+static char const *profile_sets_name, *profile_campaign, *explicit_name;
+int config_profile_sets(char const *name) { return profile_sets_name && !strcmp(name, profile_sets_name); }
+int config_explicit(char const *name) { return explicit_name && !strcmp(name, explicit_name); }
+int config_default(char const *name, char *text, unsigned int size)
+{
+    (void)name; snprintf(text, size, "%s", profile_campaign ? profile_campaign : ""); return 1;
+}
+int config_text(char const *name, char *text, unsigned int size) { (void)name; snprintf(text, size, "stereo"); return 1; }
+static short text_value_of(wchar_t const *line, char *out)
+{
+    short n = 0;
+    for (; line[n]; n++) out[n] = (char)line[n];
+    out[n] = 0;
+    /* (the help's line breaks are read as the spaces they replaced) */
+    for (short i = 0; i < n; i++) if (out[i] == '\n' || out[i] == '\r') out[i] = ' ';
+    return n;
+}
 long halo_menus_utf16(char const *utf8, unsigned short *out, long capacity)
 {
     long n = 0;
     for (; utf8[n] && n < capacity - 1; n++) out[n] = (unsigned char)utf8[n];
     out[n] = 0;
+    /* (the help's line breaks are read as the spaces they replaced) */
+    for (short i = 0; i < n; i++) if (out[i] == '\n' || out[i] == '\r') out[i] = ' ';
     return n;
 }
 static void text_set_length(struct widget_instance *box, wchar_t const *text, short length)
@@ -80,6 +103,10 @@ static struct widget_instance *screen_of(struct widget_instance *widget)
 /* PRODUCTION */
 
 static struct widget_instance widgets[64];
+static struct pc_menu_setting *setting_for(struct widget_instance const *spinner)
+{
+    return pc_menu_setting_get(spinner->definition_tag_index);
+}
 static int widget_total;
 static struct widget_instance *make(char const *name, struct widget_instance *parent, short type)
 {
@@ -126,19 +153,38 @@ int main(void)
     struct widget_instance *op_sync = make("op_vsync", list, 0);
     struct widget_instance *sync = spinner(op_sync, "vsync_spinner", "display.vsync", "true|false");
     wchar_t text[16];
+    struct widget_instance *row_help = make("row_help", screen, 1);
+    struct widget_instance *op_hud = make("op_high_res_hud", list, 0);
+    struct widget_instance *hud = spinner(op_hud, "high_res_hud_spinner", "display.high_res_hud", "true|false");
+    struct widget_instance *hud_replaced = make("high_res_hud_replaced", op_hud, 1);
+    char line[300];
 
     list->parameters.list.extended_description = help;
     list->focused_child = op_mode;
     spinner(op_crt, "crt_effect_spinner", "display.crt_effect", "true|false");
 
-    /* the hub's row: the mode in force, in capitals */
+    /* the hub's status line: "Graphics: <Mode>", the word as a name (Hardcore) */
     for (stored_mode = 0; stored_mode < NUMBER_OF_GRAPHICS_MODES; stored_mode++)
     {
-        struct widget_instance *state = make("graphics_state", NULL, 1);
+        struct widget_instance *state = make("graphics_label", NULL, 1);
         graphics_state_show(state);
         for (int i = 0; i < 16; i++) text[i] = state->parameters.text_box.text[i];
         for (char const *expected = graphics_mode_names[stored_mode]; *expected; expected++)
-            assert(text[expected - graphics_mode_names[stored_mode]] == (wchar_t)toupper(*expected));
+            assert(text[expected - graphics_mode_names[stored_mode]] ==
+                (wchar_t)(expected == graphics_mode_names[stored_mode] ? toupper(*expected) : *expected));
+    }
+    /* the word replaces the profile's name while GRAPHICS is the hub's row chosen */
+    {
+        struct widget_instance *hub = make("settings_screen", NULL, 0), *hub_list = make("settings_list", hub, 5);
+        struct widget_instance *name = make("profile_label", hub, 1), *word = make("graphics_label", hub, 1);
+        struct widget_instance *controls = make("controls", hub_list, 1), *graphics = make("graphics", hub_list, 1);
+
+        hub_list->focused_child = controls;
+        hub_status_show(hub_list);
+        assert(name->visible && !word->visible);
+        hub_list->focused_child = graphics;
+        hub_status_show(hub_list);
+        assert(!name->visible && word->visible);
     }
 
     /* Enhanced, stored and shown: the CRT row hidden, the frame rate row ordinary */
@@ -147,8 +193,8 @@ int main(void)
     list->focused_child = op_rate;
     graphics_rows_show(list);
     assert(!op_crt->visible);
-    assert(rate->visible && !rate_replaced->visible && !op_rate->disabled);
-    assert(sync->visible && !op_sync->disabled);
+    assert(rate->visible && !rate_replaced->visible);
+    assert(sync->visible);
     /* the help is the row's own while another row is chosen, the mode's while the mode's is */
     assert(help->visible && !mode_help->visible);
     list->focused_child = op_mode;
@@ -162,9 +208,25 @@ int main(void)
     mode->parameters.list.selected_index = 0;
     graphics_rows_show(list);
     assert(op_crt->visible);
+    /* (the value in force, as the spinner names it: 30 is the second of display|30|60; OFF the second of true|false) */
     assert(!rate->visible && rate_replaced->visible && op_rate->disabled);
+    assert(rate_replaced->parameters.text_box.string_list_index == 1);
+    assert(!hud->visible && hud_replaced->visible && hud_replaced->parameters.text_box.string_list_index == 1);
     /* vertical sync is no setting the mode replaces */
     assert(sync->visible && !op_sync->disabled);
+    /* a fixed row can be chosen, for its help, and says what it is fixed to */
+    list->focused_child = op_rate;
+    graphics_rows_show(list);
+    assert(row_help->visible && !help->visible && !mode_help->visible);
+    text_value_of(row_help->parameters.text_box.text, line);
+    assert(!strcmp(line, "Fixed to 30 FPS in Hardcore mode."));
+    list->focused_child = op_hud;
+    graphics_rows_show(list);
+    text_value_of(row_help->parameters.text_box.text, line);
+    assert(!strncmp(line, "HUD is drawn at original resolution in Hardcore", 47));
+    list->focused_child = op_sync;
+    graphics_rows_show(list);
+    assert(!row_help->visible && help->visible);
     list->focused_child = op_mode;
     graphics_rows_show(list);
     assert(mode_help->visible && mode_help->parameters.text_box.string_list_index == 0);
@@ -172,7 +234,7 @@ int main(void)
     /* Hardcore saved: the game's own answer */
     stored_mode = GRAPHICS_MODE_HARDCORE;
     graphics_rows_show(list);
-    assert(op_crt->visible && !rate->visible && rate_replaced->visible && op_rate->disabled);
+    assert(op_crt->visible && !rate->visible && rate_replaced->visible);
 
     /* Classic replaces none of these rows, and hides the CRT effect's */
     mode->parameters.list.selected_index = 1;
@@ -182,6 +244,42 @@ int main(void)
     assert(!op_crt->visible && list->focused_child == op_mode && list->parameters.list.selected_index == 0);
     assert(rate->visible && !rate_replaced->visible && !op_rate->disabled);
     assert(mode_help->parameters.text_box.string_list_index == 1);
+
+    /* a setting the device's profile sets (display|30|60: campaign 60) and the player has not chosen shows the
+    profile's campaign value, with a help that says so; the rows are not fixed */
+    profile_sets_name = "display.frame_rate";
+    profile_campaign = "60";
+    rate->parameters.list.selected_index = 0;
+    setting_for(rate)->loaded_index = 0;
+    list->focused_child = op_rate;
+    setenv("HALO_HOST_PHONE_SCALE", "3.00", 1);
+    graphics_rows_show(list);
+    assert(rate->visible && rate->parameters.list.selected_index == 2 && setting_for(rate)->loaded_index == 2);
+    assert(row_help->visible && !help->visible);
+    text_value_of(row_help->parameters.text_box.text, line);
+    assert(!strncmp(line, "Optimized setting for your iPhone. Certain modes like", 53));
+    assert(strstr(line, "Multiplayer or Co-Op may change this for better performance."));
+    unsetenv("HALO_HOST_PHONE_SCALE");
+    graphics_rows_show(list);
+    text_value_of(row_help->parameters.text_box.text, line);
+    assert(strstr(line, "your iPad."));
+    setenv("HALO_HOST_TVOS", "1", 1);
+    graphics_rows_show(list);
+    text_value_of(row_help->parameters.text_box.text, line);
+    assert(strstr(line, "your Apple TV."));
+    unsetenv("HALO_HOST_TVOS");
+    /* once the player turns it, the chosen value shows with the row's normal help */
+    rate->parameters.list.selected_index = 1;
+    graphics_rows_show(list);
+    assert(rate->parameters.list.selected_index == 1 && !row_help->visible && help->visible);
+    /* and a value the player chose earlier (config_explicit) is left as it was loaded */
+    rate->parameters.list.selected_index = 1;
+    setting_for(rate)->loaded_index = 1;
+    explicit_name = "display.frame_rate";
+    graphics_rows_show(list);
+    assert(rate->parameters.list.selected_index == 1 && !row_help->visible);
+    explicit_name = NULL;
+    profile_sets_name = NULL;
 
     /* on visionOS the Hardcore help carries the note (the string after the modes') */
     setenv("HALO_HOST_VISIONOS", "1", 1);
@@ -211,12 +309,14 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     functions = '\n'.join(block(source, marker) for marker in (
         'static struct widget_instance *descendant(', 'static struct widget_instance *named(',
-        'static void graphics_state_show(', 'static boolean graphics_in_vr(', 'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
-        'static void graphics_rows_show('))
+        'static boolean text_is_number(', 'static short setting_value_index(',
+        'static void graphics_state_show(', 'static void hub_status_show(', 'static boolean graphics_in_vr(',
+        'static short graphics_mode_shown(', 'static boolean graphics_replaces(', 'static char const *graphics_device_name(',
+        'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_rows_show('))
     # the hook that runs them is the settings screens' data function, ahead of the help
     invoke = block(source[source.rindex('void pc_menu_game_data_function_invoke('):],
                    'void pc_menu_game_data_function_invoke(')
-    assert 'graphics_state_show(widget)' in invoke
+    assert 'graphics_state_show(widget)' in invoke and 'hub_status_show(widget)' in invoke
     assert invoke.index('graphics_rows_show(widget)') < invoke.index('settings_help(widget)')
     program = PROGRAM.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h')).replace(
         '/* PRODUCTION */', functions)

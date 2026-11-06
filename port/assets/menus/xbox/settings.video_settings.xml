@@ -7,6 +7,7 @@
 		<child widget="xbox/settings/video_settings/header_profile_video_settings" />
 		<child widget="xbox/settings/video_settings/options_menu" />
 		<child widget="xbox/settings/video_settings/graphics_help" />
+		<child widget="xbox/settings/video_settings/row_help" />
 		<on event="x" run="port settings defaults" />
 		<on event="y" run="port settings save" back="true" />
 		<child widget="xbox/settings/video_settings/a_butn" x="477" y="414" />
@@ -87,8 +88,12 @@
 		<child widget="xbox/settings/video_settings/resolution_scaling_spinner" x="320" y="1" />
 		<child widget="xbox/settings/video_settings/resolution_scaling_replaced" x="320" y="1" />
 	</widget>
-	<widget name="xbox/settings/video_settings/resolution_scaling_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" text="HARDCORE">
+	<widget name="xbox/settings/video_settings/resolution_scaling_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/resolution_scaling_shown">
 	</widget>
+	<strings name="xbox/settings/video_settings/resolution_scaling_shown">
+		<string text="NATIVE" />
+		<string text="ORIGINAL" />
+	</strings>
 	<widget name="xbox/settings/video_settings/resolution_scaling_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/video_settings/resolution_scaling_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NATIVE|ORIGINAL" setting="display.resolution_scaling" values="native|original" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
@@ -117,8 +122,15 @@
 		<child widget="xbox/settings/video_settings/frame_rate_spinner" x="320" y="1" />
 		<child widget="xbox/settings/video_settings/frame_rate_replaced" x="320" y="1" />
 	</widget>
-	<widget name="xbox/settings/video_settings/frame_rate_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" text="HARDCORE">
+	<widget name="xbox/settings/video_settings/frame_rate_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/frame_rate_shown">
 	</widget>
+	<strings name="xbox/settings/video_settings/frame_rate_shown">
+		<string text="DISPLAY" />
+		<string text="30" />
+		<string text="60" />
+		<string text="120" />
+		<string text="UNLIMITED" />
+	</strings>
 	<widget name="xbox/settings/video_settings/frame_rate_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="8" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/video_settings/frame_rate_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DISPLAY|30|60|120|UNLIMITED" setting="display.frame_rate" values="display|30|60|120|unlimited" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
@@ -129,8 +141,12 @@
 		<child widget="xbox/settings/video_settings/interpolation_spinner" x="320" y="1" />
 		<child widget="xbox/settings/video_settings/interpolation_replaced" x="320" y="1" />
 	</widget>
-	<widget name="xbox/settings/video_settings/interpolation_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" text="HARDCORE">
+	<widget name="xbox/settings/video_settings/interpolation_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/interpolation_shown">
 	</widget>
+	<strings name="xbox/settings/video_settings/interpolation_shown">
+		<string text="ON" />
+		<string text="OFF" />
+	</strings>
 	<widget name="xbox/settings/video_settings/interpolation_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/video_settings/interpolation_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.interpolation" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
@@ -141,8 +157,12 @@
 		<child widget="xbox/settings/video_settings/direct_camera_spinner" x="320" y="1" />
 		<child widget="xbox/settings/video_settings/direct_camera_replaced" x="320" y="1" />
 	</widget>
-	<widget name="xbox/settings/video_settings/direct_camera_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" text="HARDCORE">
+	<widget name="xbox/settings/video_settings/direct_camera_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/direct_camera_shown">
 	</widget>
+	<strings name="xbox/settings/video_settings/direct_camera_shown">
+		<string text="ON" />
+		<string text="OFF" />
+	</strings>
 	<widget name="xbox/settings/video_settings/direct_camera_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="10" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/video_settings/direct_camera_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.direct_camera" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
@@ -153,8 +173,12 @@
 		<child widget="xbox/settings/video_settings/high_res_hud_spinner" x="320" y="1" />
 		<child widget="xbox/settings/video_settings/high_res_hud_replaced" x="320" y="1" />
 	</widget>
-	<widget name="xbox/settings/video_settings/high_res_hud_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" text="HARDCORE">
+	<widget name="xbox/settings/video_settings/high_res_hud_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/high_res_hud_shown">
 	</widget>
+	<strings name="xbox/settings/video_settings/high_res_hud_shown">
+		<string text="ON" />
+		<string text="OFF" />
+	</strings>
 	<widget name="xbox/settings/video_settings/high_res_hud_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/video_settings/high_res_hud_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.high_res_hud" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
@@ -165,12 +189,18 @@
 		<child widget="xbox/settings/video_settings/high_res_text_spinner" x="320" y="1" />
 		<child widget="xbox/settings/video_settings/high_res_text_replaced" x="320" y="1" />
 	</widget>
-	<widget name="xbox/settings/video_settings/high_res_text_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" text="HARDCORE">
+	<widget name="xbox/settings/video_settings/high_res_text_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/high_res_text_shown">
 	</widget>
+	<strings name="xbox/settings/video_settings/high_res_text_shown">
+		<string text="ON" />
+		<string text="OFF" />
+	</strings>
 	<widget name="xbox/settings/video_settings/high_res_text_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="12" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/video_settings/high_res_text_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.high_res_text" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load" />
+	</widget>
+	<widget name="xbox/settings/video_settings/row_help" type="text" controller="1" left="68" top="335" width="482" height="75" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/video_settings/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>

@@ -44,6 +44,8 @@ device's profile (profiles/) over it; 0 if there is no such setting */
 int config_default(const char *name, char *text, size_t size);
 /* Whether a player or developer explicitly selected this setting. */
 int config_explicit(const char *name);
+/* Whether a device profile layer gives this setting a value (config_default's is then the profile's campaign value). */
+int config_profile_sets(const char *name);
 
 /* the graphics mode in force (display.graphics, port_graphics_modes.h): enum graphics_mode, and its name.
 Hardcore reads as Classic while a frame is in head-tracked stereo */

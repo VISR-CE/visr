@@ -4,7 +4,7 @@
 	<strings name="xbox/settings/hub_descriptions">
 		<string text="Look, sensitivity, vibration and\nthe button layout.\n\nCurrent Profile:" />
 		<string text="Frame rate, resolution and how\nthe picture is drawn.\n\nCurrent Profile:" platform="mac_app" />
-		<string text="The game's look.\n\n\nCurrent Profile:" platform="!mac_app" />
+		<string text="The game's look.\n\n\nGraphics:" platform="!mac_app" />
 		<string text="Volume and sound for the\ngame on this device.\n\nCurrent Profile:" />
 		<string text="Online play, custom maps\nand player names.\n\nCurrent Profile:" />
 		<string text="The keys and mouse buttons\nfor each action.\n\nCurrent Profile:" platform="keyboard" />
@@ -23,6 +23,7 @@
 		<child widget="xbox/settings/header" />
 		<child widget="xbox/settings/settings_list" />
 		<child widget="xbox/settings/profile_label" x="432" y="353" />
+		<child widget="xbox/settings/graphics_label" x="384" y="353" platform="!mac_app" />
 		<child widget="xbox/settings/a_butn" x="471" y="414" />
 		<child widget="xbox/settings/accept" x="493" y="414" />
 		<child widget="xbox/settings/b_butn" x="326" y="414" />
@@ -32,6 +33,9 @@
 	<widget name="xbox/settings/profile_label" type="text" width="200" height="22" font="ui\large_ui" color="#FFFFFFFF">
 		<data input="get edit plyr profile name" />
 	</widget>
+	<widget name="xbox/settings/graphics_label" type="text" width="200" height="22" font="ui\large_ui" color="#FFFFFFFF">
+		<data input="port graphics state" />
+	</widget>
 	<widget name="xbox/settings/description" left="275" top="78" width="320" height="362" bitmap="xbox/bitmaps/list_field">
 		<child widget="xbox/settings/description_text" />
 		<child widget="xbox/settings/description_picture" x="4" />
@@ -40,6 +44,7 @@
 	<widget name="xbox/settings/description_picture" left="288" top="85" width="279" height="202" bitmap="xbox/settings/hub_pictures" />
 	<widget name="xbox/settings/settings_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="5" description="xbox/settings/description">
 		<data input="plyr prof edit select menu upd8" />
+		<data input="port hub status" />
 		<child widget="xbox/settings/controls" x="51" y="78" />
 		<child widget="xbox/settings/video" x="51" y="111" platform="mac_app" />
 		<child widget="xbox/settings/graphics" x="51" y="111" platform="!mac_app" />
@@ -56,12 +61,8 @@
 		<on event="start" open="xbox/settings/video_settings/video_settings_screen" />
 	</widget>
 	<widget name="xbox/settings/graphics" type="text" text="GRAPHICS" font="ui\large_ui" color="#FF2896FF" width="232" height="32" bitmap="xbox/bitmaps/list_item_bkd" text_x="13" text_y="4">
-		<child widget="xbox/settings/graphics_state" x="107" y="5" />
 		<on event="a" open="xbox/settings/graphics/graphics_screen" />
 		<on event="start" open="xbox/settings/graphics/graphics_screen" />
-	</widget>
-	<widget name="xbox/settings/graphics_state" type="text" width="112" height="18" font="ui\small_ui" color="#FF2896FF" align="right">
-		<data input="port graphics state" />
 	</widget>
 	<widget name="xbox/settings/audio" type="text" text="AUDIO" font="ui\large_ui" color="#FF2896FF" width="232" height="32" bitmap="xbox/bitmaps/list_item_bkd" text_x="13" text_y="4">
 		<on event="a" open="xbox/settings/audio_settings/audio_settings_screen" />

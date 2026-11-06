@@ -266,8 +266,9 @@ def _strings(name: str, texts: list) -> list:
 # a state shown where a row's spinner shows its value: the spinner's place, font and alignment, without its arrows
 STATE_VALUE = [("type", "text"), ("left", 3), ("top", 2), ("width", 147), ("height", 20), ("font", "ui\\large_ui"),
                ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1)]
-# and the row of a setting the mode replaces shows this in its place
-REPLACED_VALUE = STATE_VALUE + [("text", "HARDCORE")]
+# and the row of a setting the mode replaces shows the value in force there, named as its spinner names it: a text
+# of the spinner's strings, the one the game chooses (menu_functions.c's graphics_rows_show)
+REPLACED_VALUE = STATE_VALUE
 
 
 def _button(name: str, caption: int, handlers: list) -> list:
@@ -367,7 +368,9 @@ def _setting_screen(folder: str, spec: dict) -> list:
                          ([f'<child{attributes([("widget", f"{base}/{key}_replaced"), ("x", 320), ("y", 1)])}/>']
                           if replaced else []))
         if replaced:
-            extra += _widget(f"{base}/{key}_replaced", REPLACED_VALUE, [])
+            extra += _widget(f"{base}/{key}_replaced",
+                             REPLACED_VALUE + [("string_list", f"{base}/{key}_shown")], [])
+            extra += _strings(f"{base}/{key}_shown", [shown for shown, _ in choices])
         extra += _widget(f"{base}/{key}_label",
                          [("type", "text"), ("controller", 1), ("width", 300), ("height", 22),
                           ("string_list", f"{base}/labels"), ("string_index", index), ("font", "ui\\large_ui"),
@@ -392,6 +395,11 @@ def _setting_screen(folder: str, spec: dict) -> list:
     extra += _button(f"{base}/button_ok", 1, ['<on event="a" run="port settings save" back="true"/>',
                                               '<on event="start" run="port settings save" back="true"/>'])
     if any(setting == "display.graphics" for _, setting, *_ in spec["rows"]):
+        # (the help of a row the mode fixes or the profile sets, written by the game: row_help, in the help's place)
+        extra += _widget(f"{base}/row_help", [("type", "text"), ("controller", 1), ("left", 68),
+                                              ("top", spec.get("help_top", 350)), ("width", 482),
+                                              ("height", spec.get("help_height", 60)),
+                                              ("font", "ui\\large_ui"), ("color", "#FFFFFFFF")], [])
         # (the help of the mode shown, in the help's place while the mode's row is chosen: graphics_help_show)
         extra += _widget(f"{base}/graphics_help", [("type", "text"), ("controller", 1), ("left", 68),
                                                    ("top", spec.get("help_top", 350)), ("width", 482),
@@ -399,7 +407,8 @@ def _setting_screen(folder: str, spec: dict) -> list:
                                                    ("string_list", f"{base}/graphics_help_strings"),
                                                    ("font", "ui\\large_ui"), ("color", "#FFFFFFFF")], [])
         extra += _strings(f"{base}/graphics_help_strings", [text.replace("\n", "\\n") for text in GRAPHICS_HELP])
-        spec = dict(spec, screen_children=[f'<child widget="{base}/graphics_help"/>'])
+        spec = dict(spec, screen_children=[f'<child widget="{base}/graphics_help"/>',
+                                           f'<child widget="{base}/row_help"/>'])
     extra += _strings(f"{base}/labels", [label for label, *_ in spec["rows"]])
     # (the help of the row whose label is string n is n + 1: the buttons' is 0)
     extra += _strings(f"{base}/help_strings",

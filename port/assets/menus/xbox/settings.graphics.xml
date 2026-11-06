@@ -7,6 +7,7 @@
 		<child widget="xbox/settings/graphics/header_graphics" />
 		<child widget="xbox/settings/graphics/options_menu" />
 		<child widget="xbox/settings/graphics/graphics_help" />
+		<child widget="xbox/settings/graphics/row_help" />
 		<child widget="xbox/settings/graphics/a_butn" x="471" y="414" />
 		<child widget="xbox/settings/graphics/accept" x="493" y="414" />
 		<child widget="xbox/settings/graphics/b_butn" x="326" y="414" />
@@ -44,6 +45,8 @@
 	</widget>
 	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load" />
+	</widget>
+	<widget name="xbox/settings/graphics/row_help" type="text" controller="1" left="68" top="335" width="482" height="75" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/graphics/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/graphics/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>

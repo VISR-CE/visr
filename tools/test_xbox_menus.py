@@ -549,7 +549,8 @@ def test_hub_has_the_profile_editors_framed_panel():
     frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
     assert [c.get('platform') for c in rows] == [s.get('platform') for s in strings] == [
         f.get('platform') for f in frames]
-    assert all(s.get('text').endswith('Current Profile:') for s in strings)
+    # (GRAPHICS' panel names its mode there, in the profile name's place, while it is chosen)
+    assert all(s.get('text').endswith(('Current Profile:', 'Graphics:')) for s in strings)
 
 
 def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
@@ -1037,7 +1038,7 @@ def settings_widgets(path):
     return {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
 
 
-def test_hub_has_a_graphics_row_with_the_mode_word_between_controls_and_audio():
+def test_hub_has_a_graphics_row_between_controls_and_audio_with_its_mode_in_the_status_line():
     hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
     options = hub.find("widget[@name='xbox/settings/settings_list']")
     rows = [(c.get('widget').rsplit('/', 1)[-1], c.get('platform')) for c in options.findall('child')]
@@ -1047,16 +1048,25 @@ def test_hub_has_a_graphics_row_with_the_mode_word_between_controls_and_audio():
     by_name = {c.get('widget').rsplit('/', 1)[-1]: c for c in options.findall('child')}
     assert by_name['graphics'].get('y') == by_name['video'].get('y') == by_name['audio'].get('y')
     strings = hub.find("strings[@name='xbox/settings/hub_descriptions']")
+    # (a blank line more than the text needs, so the status line sits where the other rows' do)
     assert [s.get('text') for s in strings if s.get('platform') == '!mac_app'] == [
-        "The game's look.\\n\\n\\nCurrent Profile:"]
+        "The game's look.\\n\\n\\nGraphics:"]
     row = hub.find("widget[@name='xbox/settings/graphics']")
-    assert row.get('text') == 'GRAPHICS'
+    # the row shows only its name, like the others: no mode word, no children
+    assert row.get('text') == 'GRAPHICS' and row.find('child') is None
     assert row.find('on[@event="a"]').get('open') == 'xbox/settings/graphics/graphics_screen'
-    # the mode word is a text the game fills in (menu_functions.c's "port graphics state"), right-aligned in the row
-    state = hub.find("widget[@name='xbox/settings/graphics_state']")
-    assert state.find('data').get('input') == 'port graphics state' and state.get('align') == 'right'
-    assert row.find('child').get('widget') == 'xbox/settings/graphics_state'
-    assert int(row.find('child').get('x')) + int(state.get('width')) <= int(row.get('width'))
+    assert hub.find("widget[@name='xbox/settings/graphics_state']") is None
+    # the panel's status line: "Graphics:" ends the description, and the mode's word is a text the game fills in
+    # (menu_functions.c's "port graphics state") in the profile name's place, which "port hub status" swaps while
+    # GRAPHICS is the row chosen
+    status = hub.find("widget[@name='xbox/settings/graphics_label']")
+    assert status.find('data').get('input') == 'port graphics state'
+    profile = hub.find("widget[@name='xbox/settings/profile_label']")
+    placed = {c.get('widget'): c for c in hub.find("widget[@name='xbox/settings/settings_screen']").findall('child')}
+    assert placed['xbox/settings/graphics_label'].get('y') == placed['xbox/settings/profile_label'].get('y')
+    assert placed['xbox/settings/graphics_label'].get('platform') == '!mac_app'
+    assert (status.get('font'), status.get('color')) == (profile.get('font'), profile.get('color'))
+    assert [d.get('input') for d in options.findall('data')] == ['plyr prof edit select menu upd8', 'port hub status']
 
 
 def test_graphics_screen_is_controller_setups_layout_with_the_modes_help():
@@ -1104,23 +1114,30 @@ def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_r
         assert widgets[f'{base}/options_menu'].get('row_pitch'), path
 
 
-def test_rows_the_hardcore_mode_replaces_read_hardcore_beside_their_spinner():
-    """Every Video Settings row whose setting the mode table replaces has a HARDCORE text in its spinner's place
-    (menu_functions.c's graphics_rows_show shows it, passes the row over and hides the spinner)"""
+def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_spinner():
+    """Every Video Settings row whose setting the mode table replaces has a text in its spinner's place that shows one
+    of the spinner's own strings (menu_functions.c's graphics_rows_show chooses it and hides the spinner), and the
+    screen has the line of help the game writes for a fixed or profile-set row"""
     import port_settings
     replaced = port_settings.graphics_replaced()
     assert {'display.frame_rate', 'display.interpolation', 'display.high_res_hud', 'display.high_res_text'} <= replaced
     for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
                        (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
                         'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
-        widgets = settings_widgets(path)
+        root = ET.parse(path).getroot()
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        assert widgets[f'{base}/row_help'].get('type') == 'text'
+        assert widgets[f'{base}/row_help'].get('string_list') is None
         spinners = [w for w in widgets.values() if w.get('type') == 'spinner']
         for spinner in spinners:
             key = spinner.get('name').rsplit('/', 1)[-1].removesuffix('_spinner')
             overlay = widgets.get(f'{base}/{key}_replaced')
             assert (overlay is not None) == (spinner.get('setting') in replaced), spinner.get('setting')
             if overlay is not None:
-                assert overlay.get('text') == 'HARDCORE' and overlay.get('type') == 'text'
+                assert overlay.get('type') == 'text' and overlay.get('text') is None
+                assert overlay.get('string_list') == f'{base}/{key}_shown'
+                shown = [s.get('text') for s in root.find(f"strings[@name='{base}/{key}_shown']")]
+                assert shown == spinner.get('strings').split('|')
                 row = widgets[f'{base}/op_{key}']
                 assert [c.get('widget').rsplit('/', 1)[-1] for c in row.findall('child')] == [
                     f'{key}_label', f'{key}_spinner', f'{key}_replaced']
