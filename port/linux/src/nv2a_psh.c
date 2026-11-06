@@ -688,7 +688,8 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		xgpu_text_append(&text, "void main()\n{\n");
 	if (lighting)
 		nv2a_lighting_pixel_block(&text, lighting_instructions, lighting_count, lighting,
-			stage_mode(key, 3) == _mode_cubemap && key->sampler_type[3] == _xgpu_sampler_cube ? key->lighting_highlight : 0);
+			stage_mode(key, 3) == _mode_cubemap && key->sampler_type[3] == _xgpu_sampler_cube ? key->lighting_highlight : 0,
+			key->lighting_point_lights);
 	xgpu_text_append(&text,
 		"\tvec4 v0 = xD0;\n"
 		"\tvec4 v1 = xD1;\n"

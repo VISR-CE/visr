@@ -407,6 +407,7 @@ symbols in this file:
 #include "render/render.h"
 #include "render/render_cameras.h"
 #include "models/model_definitions.h" /* port: MAXIMUM_NODES_PER_MODEL */
+#include "objects/object_lights.h" /* port: lights_port_point_lights_for_object */
 
 /* The January object retains out-of-line copies of the D3D inline wrappers.
  * The stock XDK definition of D3DINLINE (static __forceinline) reproduces
@@ -1181,6 +1182,65 @@ void rasterizer_set_model_lighting_distant_light(
 	return;
 }
 
+/* port: per-pixel lighting's longer point light list (display.point_light_limit,
+d3d8_device.c and nv2a_lighting_pixel_block). The object being drawn
+(render_objects.c sets it around an object and its attachments, NONE
+otherwise) has its strongest lights gathered again past the game's two
+(lights_port_point_lights_for_object), and those the game did not keep go to
+vertex constants 39 to 57, which no vertex program reads: c[39].x the count,
+then three constants a light, as the game's own two. Written only while the
+setting asks for more than two lights; the lit pixel shaders read them */
+long rasterizer_port_point_light_object = NONE;
+
+enum
+{
+	PORT_EXTRA_POINT_LIGHT_CONSTANT = -57,
+	PORT_EXTRA_POINT_LIGHTS = LIGHTS_PORT_MAXIMUM_POINT_LIGHTS - MAXIMUM_RENDERED_POINT_LIGHTS,
+};
+
+boolean config_boolean(const char *name);
+long config_integer(const char *name);
+
+static void rasterizer_port_extra_point_lights(
+	struct render_lighting const *lighting)
+{
+	struct
+	{
+		real header[4];
+		struct rasterizer_point_light_constants lights[PORT_EXTRA_POINT_LIGHTS];
+	} constants;
+	long limit = config_integer("display.point_light_limit");
+	long indices[LIGHTS_PORT_MAXIMUM_POINT_LIGHTS];
+	short count = 0, index, extra = 0;
+
+	if (limit <= MAXIMUM_RENDERED_POINT_LIGHTS || !config_boolean("display.per_pixel_lighting"))
+		return;
+	if (limit > LIGHTS_PORT_MAXIMUM_POINT_LIGHTS)
+		limit = LIGHTS_PORT_MAXIMUM_POINT_LIGHTS;
+	if (rasterizer_port_point_light_object != NONE && lighting->point_light_count >= MAXIMUM_RENDERED_POINT_LIGHTS)
+		count = lights_port_point_lights_for_object(rasterizer_port_point_light_object, indices, (short)limit);
+	for (index = 0; index < count && extra < limit - MAXIMUM_RENDERED_POINT_LIGHTS; index++)
+	{
+		struct rasterizer_model_lighting_constants one;
+		short kept;
+
+		/* (the game's own two are already in its constants) */
+		for (kept = 0; kept < lighting->point_light_count; kept++)
+			if (lighting->point_light_indices[kept] == indices[index])
+				break;
+		if (kept < lighting->point_light_count || indices[index] < 0 || indices[index] >= rasterizer_lights.light_count)
+			continue;
+		rasterizer_set_model_lighting_point_light(indices[index], 0, &one);
+		constants.lights[extra++] = one.point_lights[0];
+	}
+	csmemset(constants.header, 0, sizeof(constants.header));
+	constants.header[0] = (real)extra;
+	D3DDevice_SetVertexShaderConstant(
+		PORT_EXTRA_POINT_LIGHT_CONSTANT,
+		&constants,
+		1 + 3 * extra);
+}
+
 void rasterizer_set_model_lighting(
 	struct render_lighting const *lighting)
 {
@@ -1227,6 +1287,7 @@ void rasterizer_set_model_lighting(
 		-79,
 		&lighting_constants,
 		NUMBER_OF_MODEL_LIGHTING_CONSTANTS);
+	rasterizer_port_extra_point_lights(lighting);
 	if (rasterizer_debug_options.statistics_mode)
 		rasterizer_frame_statistics.vertex_shader_lighting_constant_bytes +=
 			sizeof(lighting_constants);

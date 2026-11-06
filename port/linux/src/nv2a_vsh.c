@@ -582,6 +582,7 @@ int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_cou
 	memset(slice, 0, sizeof(*slice));
 	slice->normal = -1;
 	slice->position = -1;
+	slice->normal_scale = -1;
 	if (!length || length > NV2A_LIGHTING_MAX_INSTRUCTIONS)
 		return 0;
 	/* a model lighting program reads the ambient color, c[27] */
@@ -661,6 +662,15 @@ int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_cou
 				continue;
 			}
 			reg = mac == _mac_mov || mac == _mac_mul ? operand_register(writer, 'A', swizzle, &constant) : -1;
+			if (mac == _mac_mul && reg >= 0)
+			{
+				unsigned long scale_swizzle[4];
+				int scale_constant;
+
+				operand_register(writer, 'B', scale_swizzle, &scale_constant);
+				slice->normal_scale = scale_constant >= 0 && scale_constant < LIGHTING_RELATIVE ?
+					scale_constant * 4 + (int)scale_swizzle[0] : -1;
+			}
 		}
 		for (live = 0; reg >= 0 && live < slice->live_count; live++)
 			if (slice->live[live] == reg)
@@ -772,8 +782,46 @@ static void lighting_highlight(struct xgpu_text *text, const struct nv2a_lightin
 	xgpu_text_append(text, "\t}\n");
 }
 
+/* the longer point light list's lights past the game's two (vertex
+constants 39 to 57, rasterizer_set_model_lighting): each lit as the vertex
+program lights its two (color, distance falloff, spot cone and the clamped
+dot product with the normal it uses), added to the diffuse light, and to the
+highlight when there is one */
+static void lighting_more_point_lights(struct xgpu_text *text, const struct nv2a_lighting_slice *slice,
+	int point_lights, int highlight)
+{
+	static const char components[] = "xyzw";
+
+	/* (from the varyings: the slice has used its registers by now) */
+	xgpu_text_append(text, "\t{\n\tvec3 ep = in.xL%d.xyz, en = normalize(in.xL%d.xyz) * in.xLn", slice->position,
+		slice->normal);
+	if (slice->normal_scale >= 0)
+		xgpu_text_append(text, " * c[%d].%c;\n", slice->normal_scale / 4, components[slice->normal_scale % 4]);
+	else
+		xgpu_text_append(text, ";\n");
+	xgpu_text_append(text,
+		"\tvec3 ev = normalize(c[4].xyz - ep), eh = normalize(en);\n"
+		"\tint count = min(int(c[39].x + 0.5), %d);\n"
+		"\tfor (int i = 0; i < count; i++)\n"
+		"\t{\n"
+		"\t\tint b = 40 + 3 * i;\n"
+		"\t\tvec3 l = c[b].xyz - ep;\n"
+		"\t\tfloat d2 = dot(l, l);\n"
+		"\t\tvec3 ln = l * rsqrt(max(d2, 1.0e-8));\n"
+		"\t\tfloat falloff = max(1.0 - d2 * c[b].w, 0.0);\n"
+		"\t\tfloat cone = clamp(dot(ln, -c[b + 1].xyz) * c[b + 1].w + c[b + 2].w, 0.0, 1.0);\n"
+		"\t\toD0.xyz += c[b + 2].xyz * (falloff * clamp(dot(ln, en), 0.0, 1.0) * cone);\n",
+		point_lights);
+	if (highlight > 0 && highlight <= NV2A_HIGHLIGHT_PRESETS)
+		xgpu_text_append(text,
+			"\t\tfloat lobe = pow(clamp(dot(eh, normalize(ln + ev)), 0.0, 1.0), %.1f);\n"
+			"\t\tppl_highlight += c[b + 2].xyz * (min(falloff, 1.0) * cone * (dot(eh, ln) > 0.0 ? lobe : 0.0) * %.3f);\n",
+			highlight_presets[highlight - 1][1], highlight_presets[highlight - 1][0]);
+	xgpu_text_append(text, "\t}\n\t}\n");
+}
+
 void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions, unsigned long instruction_count,
-	const struct nv2a_lighting_slice *slice, int highlight)
+	const struct nv2a_lighting_slice *slice, int highlight, int point_lights)
 {
 	unsigned long index, length = lighting_length(instructions, instruction_count);
 
@@ -818,6 +866,8 @@ void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions
 		instruction_compute(text, instructions + index * 4, index);
 		instruction_writes(text, instructions + index * 4, slice->outputs);
 	}
+	if (point_lights > 0 && (slice->outputs & 1) && slice->position >= 0 && slice->normal >= 0)
+		lighting_more_point_lights(text, slice, point_lights, highlight);
 	/* as the vertex shader hands them over */
 	if (slice->outputs & 1)
 		xgpu_text_append(text, "\txD0 = clamp(oD0, 0.0, 1.0);\n");

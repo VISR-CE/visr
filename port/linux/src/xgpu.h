@@ -131,6 +131,9 @@ struct nv2a_lighting_slice
 	or -1: a point-light highlight (nv2a_pixel_shader_key lighting_highlight)
 	needs it and the normal */
 	int position;
+	/* the constant the normal is scaled by on its way to the light's dot
+	products (index * 4 + component), or -1 for none */
+	int normal_scale;
 };
 
 /* display.point_light_highlight's presets (1 to NV2A_HIGHLIGHT_PRESETS): the
@@ -154,7 +157,7 @@ int nv2a_lighting_find(uint64_t program_hash, const DWORD **instructions, unsign
 xT3 (nv2a_psh.c) */
 void nv2a_lighting_pixel_helpers(struct xgpu_text *text);
 void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions, unsigned long instruction_count,
-	const struct nv2a_lighting_slice *slice, int highlight);
+	const struct nv2a_lighting_slice *slice, int highlight, int point_lights);
 
 /* ---------- pixel shaders */
 
@@ -223,7 +226,10 @@ struct nv2a_pixel_shader_key
 	the reflection (stage 3's cube map lookup), where the shader's own Fresnel
 	tint and specular mask then apply */
 	unsigned char lighting_highlight;
-	unsigned char pad[1];
+	/* display.point_light_limit, past the game's two: 0 for the game's own
+	two, else up to this many lights the game's model lighting constants do
+	not hold (vertex constants 39 to 57, rasterizer_set_model_lighting) */
+	unsigned char lighting_point_lights;
 	/* (later still: nv2a_pixel_shader_key_size) per-pixel lighting
 	(display.per_pixel_lighting): the program hash (d3d8_device.c's
 	program_hash) of the lit vertex program this pixel shader is drawn with,

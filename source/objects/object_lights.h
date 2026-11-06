@@ -57,6 +57,12 @@ void lights_disconnect_from_structure_bsp(
 	void);
 void lights_reconnect_to_structure_bsp(
 	void);
+/* port: per-pixel lighting's longer point light list (object_lights.c) */
+enum { LIGHTS_PORT_MAXIMUM_POINT_LIGHTS = 8 };
+short lights_port_point_lights_for_object(
+	long object_index,
+	long *rasterizer_light_indices,
+	short maximum_count);
 void lights_prepare_for_object_dynamic(
 	long object_index,
 	struct render_lighting *lighting);

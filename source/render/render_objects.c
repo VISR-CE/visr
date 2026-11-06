@@ -282,6 +282,8 @@ static boolean clutter_lowest_lod = FALSE;
 
 extern boolean debug_objects;
 extern short debug_rasterizer_light_count;
+/* port: rasterizer_xbox.c (per-pixel lighting's longer point light list) */
+extern long rasterizer_port_point_light_object;
 
 /* ---------- globals */
 
@@ -1704,7 +1706,11 @@ static void render_object(
 						&object->object.bounding_sphere_center) >
 						definition->object.bounding_radius;
 
+				/* port: the object whose lights a longer point light list is gathered for, while it and its
+				attachments are drawn (rasterizer_set_model_lighting) */
+				rasterizer_port_point_light_object = data->object_index;
 				render_object_list(data, &model_effect, data->object_index);
+				rasterizer_port_point_light_object = NONE;
 			}
 		}
 	}

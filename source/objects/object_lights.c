@@ -2459,6 +2459,104 @@ void lights_illumination_at_point(
 	return;
 }
 
+/* port: per-pixel lighting's longer point light list (display.point_light_limit): an
+object's strongest maximum_count dynamic lights, chosen as
+find_point_light_for_object chooses its two (the light reaches the object's
+bounding sphere, not the object's own light when its definition says so,
+strongest by color brightness times the game's attenuation), as rasterizer
+light indices, strongest first. It changes no game state: the lights it has
+seen are kept here rather than marked on the lights (light_mark), so the
+markers the game's own passes use stay as they were */
+#define LIGHTS_PORT_LONG_LIST_SEEN 256
+
+static void lights_port_long_list_light(
+	long object_index,
+	long light_index,
+	real_point3d const *center,
+	real radius,
+	long *seen,
+	short *seen_count,
+	long *light_indices,
+	real *light_intensities,
+	short *light_count,
+	short maximum_count)
+{
+	struct light_datum *light;
+	short index;
+
+	for (index = 0; index < *seen_count; index++)
+		if (seen[index] == light_index)
+			return;
+	if (*seen_count < LIGHTS_PORT_LONG_LIST_SEEN)
+		seen[(*seen_count)++] = light_index;
+	light = light_get(light_index);
+	if (light->rasterizer_light_index != NONE
+		&& (light->object_index != object_index
+			|| !TEST_FLAG(light_definition_get(light->definition_index)->flags,
+				_light_definition_dont_light_own_object_bit)))
+	{
+		real distance = distance3d(&light->position, center);
+
+		if (distance < radius + light->radius)
+		{
+			real intensity = real_rgb_color_brightness(&light->color) * light_attenuation(light->radius, distance);
+
+			/* in order, strongest first; the dimmest falls off the end */
+			for (index = *light_count; index > 0 && light_intensities[index - 1] < intensity; index--)
+			{
+				if (index < maximum_count)
+				{
+					light_indices[index] = light_indices[index - 1];
+					light_intensities[index] = light_intensities[index - 1];
+				}
+			}
+			if (index < maximum_count)
+			{
+				light_indices[index] = light_index;
+				light_intensities[index] = intensity;
+				if (*light_count < maximum_count)
+					(*light_count)++;
+			}
+		}
+	}
+}
+
+short lights_port_point_lights_for_object(
+	long object_index,
+	long *rasterizer_light_indices,
+	short maximum_count)
+{
+	struct object_cluster_iterator iterator;
+	real_point3d center;
+	real radius;
+	long seen[LIGHTS_PORT_LONG_LIST_SEEN];
+	long light_indices[LIGHTS_PORT_MAXIMUM_POINT_LIGHTS];
+	real light_intensities[LIGHTS_PORT_MAXIMUM_POINT_LIGHTS];
+	short seen_count = 0, light_count = 0, cluster_index, index;
+
+	if (maximum_count > LIGHTS_PORT_MAXIMUM_POINT_LIGHTS)
+		maximum_count = LIGHTS_PORT_MAXIMUM_POINT_LIGHTS;
+	object_get_bounding_sphere(object_index, &center, &radius);
+	for (cluster_index = object_get_first_cluster(&iterator, object_index);
+		cluster_index != NONE;
+		cluster_index = object_get_next_cluster(&iterator, object_index))
+	{
+		long reference_index;
+		long light_index;
+
+		for (light_index = cluster_partition_get_first_datum(&light_cluster_partition, &reference_index, cluster_index);
+			light_index != NONE;
+			light_index = cluster_partition_get_next_datum(&light_cluster_partition, &reference_index))
+		{
+			lights_port_long_list_light(object_index, light_index, &center, radius, seen, &seen_count,
+				light_indices, light_intensities, &light_count, maximum_count);
+		}
+	}
+	for (index = 0; index < light_count; index++)
+		rasterizer_light_indices[index] = light_get(light_indices[index])->rasterizer_light_index;
+	return light_count;
+}
+
 void lights_prepare_for_object_dynamic(
 	long object_index,
 	struct render_lighting *lighting)
