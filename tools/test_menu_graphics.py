@@ -183,6 +183,18 @@ int main(void)
     assert(rate->visible && !rate_replaced->visible && !op_rate->disabled);
     assert(mode_help->parameters.text_box.string_list_index == 1);
 
+    /* on visionOS the Hardcore help carries the note (the string after the modes') */
+    setenv("HALO_HOST_VISIONOS", "1", 1);
+    mode->parameters.list.selected_index = 0;
+    stored_mode = GRAPHICS_MODE_HARDCORE;
+    list->focused_child = op_mode;
+    graphics_rows_show(list);
+    assert(mode_help->parameters.text_box.string_list_index == 3);
+    mode->parameters.list.selected_index = 2;
+    graphics_rows_show(list);
+    assert(mode_help->parameters.text_box.string_list_index == 2);
+    unsetenv("HALO_HOST_VISIONOS");
+
     /* a screen without the mode's row is left alone */
     {
         struct widget_instance *other = make("options_menu", NULL, 5);
@@ -199,7 +211,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     functions = '\n'.join(block(source, marker) for marker in (
         'static struct widget_instance *descendant(', 'static struct widget_instance *named(',
-        'static void graphics_state_show(', 'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
+        'static void graphics_state_show(', 'static boolean graphics_in_vr(', 'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
         'static void graphics_rows_show('))
     # the hook that runs them is the settings screens' data function, ahead of the help
     invoke = block(source[source.rindex('void pc_menu_game_data_function_invoke('):],

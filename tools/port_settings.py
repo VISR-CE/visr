@@ -36,6 +36,8 @@ GRAPHICS_HELP = [
     "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel.",
     "The original Xbox look at this device's resolution\nand frame rate, with sharper textures and HUD.",
     "Tastefully enhanced: the original game with soft\nshading where things meet the ground and shadows\nunder props.",
+    # (Hardcore's on visionOS, where it draws as Classic: menu_functions.c's graphics_rows_show)
+    "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel. In VR, Hardcore draws as Classic.",
 ]
 CRT_HELP = "The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color."
 

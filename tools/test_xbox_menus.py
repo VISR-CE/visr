@@ -1077,11 +1077,13 @@ def test_graphics_screen_is_controller_setups_layout_with_the_modes_help():
     root = ET.parse(MENUS / 'xbox/settings.graphics.xml').getroot()
     helps = [s.get('text') for s in root.find(f"strings[@name='{base}/graphics_help_strings']")]
     flat = [' '.join(text.split('\\n')) for text in helps]
-    assert flat == [
+    assert flat[3] == flat[0] + ' In VR, Hardcore draws as Classic.'
+    assert flat[:3] == [
         'The original Xbox exactly: 640x480 at 30 frames a second, nothing added. Takes effect at the next level.',
         "The original Xbox look at this device's resolution and frame rate, with sharper textures and HUD.",
         'Tastefully enhanced: the original game with soft shading where things meet the ground and shadows under '
         'props.']
+    assert len(flat) == 4
     crt_help = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")][-1]
     assert ' '.join(crt_help.split('\\n')) == (
         'The picture as a CRT television showed it: scanlines, phosphor glow and soft color.')

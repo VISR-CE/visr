@@ -1659,6 +1659,14 @@ static boolean graphics_replaces(short mode, char const *setting)
 	return graphics_mode_value(mode, setting) != NULL;
 }
 
+/* the Apple Vision Pro's host (menu_platform.h), where a stereo view cannot be the Xbox's 4:3 picture */
+static boolean graphics_in_vr(void)
+{
+	char const *vision = getenv("HALO_HOST_VISIONOS");
+
+	return vision && !strcmp(vision, "1");
+}
+
 /* "port settings help" on a screen with the mode's row: the CRT effect's row only while Hardcore is shown (the
 list's window closes the rows below it up), a setting the mode shown replaces reading HARDCORE in its spinner's
 place with its row passed over (so that it does not change), and the help of the mode shown while its row is
@@ -1714,7 +1722,9 @@ static void graphics_rows_show(struct widget_instance *list)
 	{
 		mode_help->visible = on_mode;
 		help->visible = !on_mode;
-		mode_help->parameters.text_box.string_list_index = mode;
+		/* (the string after the three modes': Hardcore's with a note, as it draws as Classic in VR) */
+		mode_help->parameters.text_box.string_list_index = mode == GRAPHICS_MODE_HARDCORE && graphics_in_vr() ?
+			NUMBER_OF_GRAPHICS_MODES : mode;
 	}
 }
 
