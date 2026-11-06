@@ -190,7 +190,8 @@ MENU_ATTRIBUTES = {
     "widget": {"name", "type", "controller", "flags", "bitmap", "text", "strings", "values", "setting", "font",
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
-               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows"},
+               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows",
+               "row_top", "row_pitch"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
@@ -215,7 +216,7 @@ def c_strings(path: Path, start: str, end: str) -> list:
 
 # menu_files.c's attributes read as whole numbers (its tables' { name, NULL, &long })
 MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "left", "string_index", "text_x",
-                           "text_y", "top", "visible_rows", "width", "x", "y"}
+                           "text_y", "top", "visible_rows", "row_top", "row_pitch", "width", "x", "y"}
 
 
 def test_menus_are_well_formed():
@@ -247,8 +248,9 @@ def test_menus_are_well_formed():
             where = f"{path.name}: <{element.tag} {element.get('name', '')}>"
             assert element.tag in MENU_ATTRIBUTES, where
             assert set(element.attrib) <= MENU_ATTRIBUTES[element.tag], where
-            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "mac_app",
-                                               "tvos", "keyboard", "!keyboard", "!tvos", "send_log", "!send_log"), where
+            # (a value led by "!": every build it is not for)
+            assert (element.get("platform") or "").lstrip("!") in ("", "desktop", "android", "apple", "cloud_saves",
+                                                                  "mac_app", "tvos", "keyboard", "send_log"), where
             # (menu_files.c's whole numbers, which the tags keep in shorts,
             # its true/false attributes, and no text but whitespace outside
             # <string>s)
@@ -613,3 +615,25 @@ def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
         if capability is not None:
             current["HALO_HOST_CLOUD_SAVES"] = capability
         subprocess.run([str(probe), kind], env=current, check=True)
+
+
+def test_settings_lists_pack_rows_and_keep_a_window():
+    """Every settings list packs its rows from its top at its pitch (menu_tags.c rows_pack) and keeps a window
+    (visible_rows), so rows for another platform, or hidden as the screen is shown, leave no gap."""
+    import xml.etree.ElementTree as ElementTree
+
+    for folder in ("video_settings", "audio_settings", "mouse_settings", "gamepad_setup"):
+        for look, name in (("ce", f"{port_settings.PE.replace('/', '.')}.{folder}.xml"),
+                           ("xbox", f"settings.{folder}.xml")):
+            root = ElementTree.parse(MENUS / look / name).getroot()
+            options = next(w for w in root.findall("widget") if w.get("name").endswith("/options_menu"))
+            assert options.get("row_top") == "73" and int(options.get("row_pitch")) in (26, 30), (look, folder)
+            assert int(options.get("visible_rows")) >= 1, (look, folder)
+
+
+def test_menu_platform_negation():
+    """menu_platform.h: "!value" is every build the value is not for; an unknown value stays unknown."""
+    header = (Path(__file__).resolve().parent.parent / "port/linux/src/menu_platform.h").read_text()
+    start = header.index("static int menu_platform_matches")
+    assert "platform[0] == '!'" in header[start:]
+    assert "return matches < 0 ? -1 : !matches;" in header[start:]

@@ -114,6 +114,8 @@ SCREENS = {
         # above the buttons at 414 only this close)
         "spacing": 20,
         "same_place": ["host.cloud_saves"],
+        # (its rows keep the places the file gives them: the status line below them is placed by hand)
+        "pack": False,
         "row_top": 71,
         "cloud_status_top": 339,
         "help_top": 360,
@@ -271,10 +273,21 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
             arrow = f"{base}/scroll_{direction}_arrow"
             arrows += _widget(arrow, [("width", 16), ("height", 16), ("bitmap", f"bitmaps/arrow_sm_{direction}")], [])
             children.insert(len(children) - (0 if spec.get("list_action") else 1), f'<child{attributes([("widget", arrow), ("x", 574), ("y", y)])}/>')
+    # A settings list packs its rows (menu_tags.c): those for another platform
+    # leave no gap, and the first shown is at the top. Its window
+    # (visible_rows=, ui_widget.c) closes up rows hidden as it is shown and
+    # scrolls those that do not fit above the help.
+    packed = []
+    if spec.get("pack"):
+        bottom = spec.get("cloud_status_top", spec.get("help_top", 350)) if spec.get("cloud_status") else \
+            spec.get("help_top", 350)
+        fit = (bottom - 28 - spec.get("row_top", 73)) // spec["spacing"] + 1
+        packed = [("row_top", spec.get("row_top", 73)), ("row_pitch", spec["spacing"])]
+        window = window or fit
     lines += _widget(f"{base}/options_menu",
                      [("type", "column_list"), ("width", 640), ("height", 480),
                       ("flags", "pass_unhandled_to_focused_child up_down_tabs_children"),
-                      ("visible_rows", window), ("description", None if fixed else f"{base}/help")], children)
+                      ("visible_rows", window), ("description", None if fixed else f"{base}/help")] + packed, children)
     lines += arrows
     if not spec.get("list_action"):
         lines += _widget(f"{base}/button_bar",
@@ -329,7 +342,7 @@ def _setting_screen(folder: str, spec: dict) -> list:
     # (the help of the row whose label is string n is n + 1: the buttons' is 0)
     extra += _strings(f"{base}/help_strings",
                       [""] + [help_text.replace("\n", "\\n") for _, _, _, help_text, _ in spec["rows"]])
-    return _screen(folder, spec, rows, ["port settings help"], [], extra)
+    return _screen(folder, dict(spec, pack=spec.get("pack", True)), rows, ["port settings help"], [], extra)
 
 
 def _controls_screen() -> list:

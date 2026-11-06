@@ -336,7 +336,8 @@ def test_scrolling_lists_fit_above_their_help():
                 assert len(w.findall('child')) <= window and bottom <= 414, w.get('name')
                 continue
             help_top = int(widgets[w.get('description')].get('top'))
-            assert window < len(slots) and bottom <= help_top, w.get('name')
+            # (a settings list keeps its window when its rows fit: rows its code hides close up)
+            assert (window < len(slots) or w.get('row_pitch')) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
     assert any(name.endswith('network_setup/options_menu') for name in seen)
 
@@ -373,6 +374,11 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
                 continue
             # A short list can use the viewport only to pack platform-filtered rows.
             if len(w.findall('child')) <= int(w.get('visible_rows')):
+                continue
+            # (nor arrows for a settings list whose rows fit its window: it closes hidden rows up)
+            slots = {c.get('y') for c in w.findall('child')
+                     if c.get('y') and 'button_bar' not in c.get('widget') and '/scroll_' not in c.get('widget')}
+            if w.get('row_pitch') and len(slots) <= int(w.get('visible_rows')):
                 continue
             arrows = {c.get('widget').rsplit('/', 1)[-1]: c for c in w.findall('child') if '/scroll_' in c.get('widget')}
             assert set(arrows) == {'scroll_up_arrow', 'scroll_down_arrow'}, w.get('name')

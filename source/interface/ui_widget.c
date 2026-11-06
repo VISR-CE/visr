@@ -5448,6 +5448,26 @@ static short ui_widget_port_text_width(wchar_t const *text)
 	return MAX(ink.x1, cursor.x0);
 }
 
+/* port: a string's width in a font, for the menus' layout (menu_tags.c
+sizes the settings lists' value columns with it as the menus are made). */
+short ui_widget_port_font_text_width(long font_index, void const *text)
+{
+	long old_font = draw_string_get_font();
+	short width;
+
+	if (font_index == NONE || !text)
+		return 0;
+	draw_string_set_font(font_index);
+	draw_string_set_format(NONE, 0, 0);
+	draw_string_set_indents(0, 0);
+	width = ui_widget_port_text_width((wchar_t const *)text);
+	/* (before anything is drawn the font is the zeroed global's, 0: no font,
+	which draw_string_set_font refuses; the next text drawn sets its own) */
+	if (old_font != NONE && old_font != 0)
+		draw_string_set_font(old_font);
+	return width;
+}
+
 /* port: browser cells share this path for both menu looks. Use the rendered
 font's metrics and glyph table so a cut name ends visibly in an ellipsis. */
 void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text, short capacity)

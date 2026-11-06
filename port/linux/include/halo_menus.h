@@ -117,6 +117,10 @@ struct halo_menu_widget
 	long has_width, has_height;
 	/* a column list's rows shown at once (0: all) */
 	long visible_rows;
+	/* a settings list's rows (children named op_*): the first one's y and the
+	pitch they are packed at, so rows for another platform leave no gap (0: as
+	placed) */
+	long row_top, row_pitch;
 	/* indices in their arrays, or HALO_MENU_NONE */
 	long parent, first_child, first_handler, first_input, first_conditional, first_replace;
 	char const *file;

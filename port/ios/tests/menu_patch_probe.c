@@ -250,6 +250,18 @@ static long map_count;
 static struct cache_file_tag_instance *table;
 static long table_count;
 
+/* (the game's measure: here 8 for each character) */
+short ui_widget_port_font_text_width(long font_index, void const *text)
+{
+	unsigned short const *characters = text;
+	short width = 0;
+
+	(void)font_index;
+	while (characters && *characters++)
+		width += 8;
+	return width;
+}
+
 void *cache_files_tag_instances(long *count)
 {
 	*count = table_count;

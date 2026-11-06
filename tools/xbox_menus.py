@@ -219,7 +219,11 @@ def settings_page(assets, folder, bitmaps):
                 previous = old_y
                 row.set('y', str(first + place * pitch))
             help_top = int(next(w for w in root.iter('widget') if w.get('name') == f'{base}/help').get('top'))
-            pending = fit_window(element, {w.get('name'): w for w in root.iter('widget')}, help_top, root, bitmaps)
+            if element.get('row_pitch'):
+                element.set('row_top', str(first))
+                element.set('row_pitch', str(pitch))
+            pending = fit_window(element, {w.get('name'): w for w in root.iter('widget')}, help_top, root, bitmaps,
+                                 always=bool(element.get('row_pitch')))
     if pending:
         pending()
     if folder == 'about':
@@ -329,8 +333,10 @@ def arrows_needed(options, root, bitmaps, first, fit):
     return add
 
 
-def fit_window(options, widgets, help_top, root=None, bitmaps=None):
-    """Show as many of a list's rows as fit above its help; the rest scroll."""
+def fit_window(options, widgets, help_top, root=None, bitmaps=None, always=False):
+    """Show as many of a list's rows as fit above its help; the rest scroll.
+    always: a settings list keeps its window when every row fits, so that
+    rows its code hides close up (ui_widget.c)."""
     rows = [c for c in options.findall('child')
             if c.get('y') and 'button_bar' not in c.get('widget') and c.get('widget') in widgets
             and not c.get('widget').rsplit('/', 1)[-1].startswith('scroll_')]
@@ -343,6 +349,8 @@ def fit_window(options, widgets, help_top, root=None, bitmaps=None):
         options.set('visible_rows', str(fit))
         if root is not None:
             return arrows_needed(options, root, bitmaps, slots[0], fit)
+    elif always:
+        options.set('visible_rows', str(fit))
     else:
         options.attrib.pop('visible_rows', None)
 

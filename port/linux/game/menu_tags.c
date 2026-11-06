@@ -1234,6 +1234,46 @@ static long font_tag(char const *font, char const *file, long line)
 	return map_tag(FONT_TAG, path, file, line);
 }
 
+/* a settings list's rows (its op_ children) packed from row_top at
+row_pitch, in the order of the y the file gives them: a row for another
+platform is never read, so the rows after it move up into its place; rows
+the file gives one y (one of them shown at a time) keep sharing it */
+static void rows_pack(struct halo_menu_widget const *source, struct ui_widget_child_reference *children, long count)
+{
+	long placed = 0, slot = -1;
+	short previous = 0;
+
+	if (source->type == NULL || strcmp(source->type, "column_list") || source->row_pitch < 1)
+	{
+		problem(source->file, source->line, "row_pitch is for a column list:", source->name);
+		return;
+	}
+	while (placed < count)
+	{
+		long child, lowest = NONE;
+
+		/* (the next row by its y as written; children are few) */
+		for (child = 0; child < count; child++)
+		{
+			if (strncmp(children[child].name, "op_", 3) || children[child].flags & 0x80000000UL)
+				continue;
+			if (lowest == NONE || children[child].vertical_offset < children[lowest].vertical_offset)
+				lowest = child;
+		}
+		if (lowest == NONE)
+			break;
+		if (slot < 0 || children[lowest].vertical_offset != previous)
+			slot++;
+		previous = children[lowest].vertical_offset;
+		/* (marked while packing, so it is not taken again) */
+		children[lowest].flags |= 0x80000000UL;
+		children[lowest].vertical_offset = (short)(source->row_top + slot * source->row_pitch);
+		placed++;
+	}
+	for (placed = 0; placed < count; placed++)
+		children[placed].flags &= ~0x80000000UL;
+}
+
 static void *widget_build(long widget_index)
 {
 	struct halo_menus const *menus = build.menus;
@@ -1445,6 +1485,8 @@ static void *widget_build(long widget_index)
 			}
 			count++;
 		}
+		if (children && source->row_pitch)
+			rows_pack(source, children, count);
 	}
 	/* the conditional widgets */
 	for (conditional = source->first_conditional; conditional != HALO_MENU_NONE;
@@ -2835,6 +2877,98 @@ static long patch_tag_count(struct halo_menus const *menus)
 	return count;
 }
 
+/* ui_widget.c's: how wide a UTF-16 string is drawn in a font (the game's
+own measure, with its glyphs' overhang) */
+short ui_widget_port_font_text_width(long font_index, void const *text);
+
+/* the space a settings spinner keeps between its text and each arrow */
+#define OPTION_VALUE_MARGIN 16
+#define OPTION_VALUE_MINIMUM_WIDTH 80
+#define OPTION_MAX(a, b) ((a) > (b) ? (a) : (b))
+
+/* a settings list's value column (each op_ row's spinner) as wide as the
+widest value of any of its rows, measured in its font, and the same for
+every row; the column keeps its right edge, so the spinners and their
+arrows stay where the rows' ends are and the labels keep the rest. Values
+set here and nowhere else (the display's rate, its resolutions) are in the
+spinners' lists by now, so they are measured too. */
+static void option_columns_fit(struct ui_widget_definition const *list, char const *name)
+{
+	struct ui_widget_child_reference const *rows = list->child_widgets.address;
+	struct ui_widget_definition *spinners[64];
+	struct ui_widget_child_reference *places[64];
+	short widest = 0, right = 0, labels = 0, x;
+	long row, count = 0;
+
+	for (row = 0; row < list->child_widgets.count && count < NUMBEROF(spinners); row++)
+	{
+		struct ui_widget_definition *definition;
+		struct ui_widget_child_reference *pieces;
+		long piece;
+
+		if (strncmp(rows[row].name, "op_", 3) || rows[row].widget_tag.index == NONE)
+			continue;
+		definition = tag_get(UI_WIDGET_DEFINITION_TAG, rows[row].widget_tag.index);
+		pieces = definition->child_widgets.address;
+		for (piece = 0; piece < definition->child_widgets.count && count < NUMBEROF(spinners); piece++)
+		{
+			struct ui_widget_definition *part = pieces[piece].widget_tag.index == NONE ? NULL :
+				tag_get(UI_WIDGET_DEFINITION_TAG, pieces[piece].widget_tag.index);
+			struct string_list const *strings;
+			long index;
+
+			if (!part || part->text_font.index == NONE || part->text_label_string_list.index == NONE)
+				continue;
+			strings = tag_get(UNICODE_STRING_LIST_TAG, part->text_label_string_list.index);
+			if (part->type == _widget_type_text_box && part->string_list_index >= 0 &&
+				part->string_list_index < strings->strings.count)
+			{
+				/* (the label: how far it reaches) */
+				struct string_list_entry const *entries = strings->strings.address;
+				short reach = (short)(pieces[piece].horizontal_offset + part->horizontal_offset +
+					ui_widget_port_font_text_width(part->text_font.index, entries[part->string_list_index].string.address));
+
+				labels = OPTION_MAX(labels, reach);
+			}
+			if (part->type != _widget_type_spinner_list || part->child_widgets.count)
+				continue;
+			for (index = 0; index < strings->strings.count; index++)
+			{
+				struct string_list_entry const *entries = strings->strings.address;
+
+				widest = OPTION_MAX(widest, ui_widget_port_font_text_width(part->text_font.index, entries[index].string.address));
+				if (entries[index].string.address == display_rate_unicode)
+				{
+					/* (the display's rate, at its widest: three digits) */
+					unsigned short widest_rate[32];
+
+					halo_menus_utf16("DISPLAY (888 HZ)", widest_rate, NUMBEROF(widest_rate));
+					widest = OPTION_MAX(widest, ui_widget_port_font_text_width(part->text_font.index, widest_rate));
+				}
+			}
+			right = OPTION_MAX(right, (short)(pieces[piece].horizontal_offset + part->bounds.x1));
+			spinners[count] = part;
+			places[count++] = &pieces[piece];
+		}
+	}
+	if (!count)
+		return;
+	widest = OPTION_MAX((short)(widest + 2 * OPTION_VALUE_MARGIN), (short)OPTION_VALUE_MINIMUM_WIDTH);
+	for (row = 0; row < count; row++)
+	{
+		short left = spinners[row]->bounds.x0;
+
+		spinners[row]->bounds.x1 = (short)(left + widest);
+		spinners[row]->list_footer_bounds.x0 = (short)(widest + 3);
+		spinners[row]->list_footer_bounds.x1 = (short)(widest + 9);
+		places[row]->horizontal_offset = (short)(right - left - widest);
+	}
+	x = (short)(right - widest);
+	/* (the left arrow is 6 wide, before the spinner) */
+	if (labels + 6 > x - 6)
+		platform_log("menus: %s: its longest label reaches %d, past its values at %d", name, labels, x);
+}
+
 void menu_tags_loaded(
 	char const *map_name)
 {
@@ -2919,8 +3053,12 @@ void menu_tags_loaded(
 			long count = spinner_split(widget, FALSE, pieces);
 			struct string_list *list = string_list_build(pieces, count);
 
-			if (widget->setting && !strcmp(widget->setting, "display.frame_rate") &&
-				count > 0 && !build.failed && pc_menu_display_rate_refresh() > 0)
+			/* (DISPLAY names the display's rate where it is known, and follows
+			the window to another display: its entry is the label's buffer,
+			which option_columns_fit measures at its widest) */
+			if (widget->setting && !strcmp(widget->setting, "display.frame_rate") && count > 0 && !build.failed &&
+				(pc_menu_display_rate_refresh() > 0 ||
+					halo_menus_utf16(pieces[0], display_rate_unicode, NUMBEROF(display_rate_unicode)) >= 0))
 			{
 				struct string_list_entry *entries = list->strings.address;
 
@@ -2946,6 +3084,12 @@ void menu_tags_loaded(
 		instances[DATUM_INDEX_TO_ABSOLUTE_INDEX(build.widget_tags[index])].base_address = widget_build(index);
 	if (build.failed)
 		goto failed;
+	for (index = 0; index < widget_count; index++)
+	{
+		if (menus->widgets[index].row_pitch)
+			option_columns_fit(instances[DATUM_INDEX_TO_ABSOLUTE_INDEX(build.widget_tags[index])].base_address,
+				menus->widgets[index].name);
+	}
 	if (game_map)
 	{
 		pause_patch(instances);

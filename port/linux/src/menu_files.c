@@ -405,7 +405,7 @@ static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 
 			if (matches < 0)
 			{
-				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"send_log\", \"quit\", \"mac_app\", \"tvos\" or \"keyboard\"", platform);
+				reader_error(reader, "platform=\"%s\" is not \"desktop\", \"android\", \"apple\", \"cloud_saves\", \"send_log\", \"quit\", \"mac_app\", \"tvos\" or \"keyboard\", or one of them led by \"!\"", platform);
 				return 1;
 			}
 			return matches;
@@ -630,6 +630,7 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 		{ "text_y", NULL, &widget.text_y }, { "auto_close", NULL, &widget.auto_close },
 		{ "auto_close_fade", NULL, &widget.auto_close_fade }, { "string_index", NULL, &widget.string_index },
 		{ "visible_rows", NULL, &widget.visible_rows },
+		{ "row_top", NULL, &widget.row_top }, { "row_pitch", NULL, &widget.row_pitch },
 	};
 
 	memset(&widget, 0, sizeof(widget));
