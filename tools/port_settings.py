@@ -646,6 +646,7 @@ BITMAP_FRAMES = {
 # are (port/assets/menus/port_svg): bitmap name, text
 TITLES = {
     f"{MT}/join_game/header_server_browser": "SERVER BROWSER",
+    f"{MT}/join_game/filters/header_sort_filter": "SORT & FILTER",
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
     f"{MT}/join_game/header_password": "PASSWORD",
     f"{MT}/lobby/header_lobby": "GAME LOBBY",

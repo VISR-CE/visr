@@ -406,6 +406,9 @@ static char const *const port_function_names[] =
 	"mp level select", "mp profiles list initialize", "mp profiles list dispose", "mp profile set for game",
 	"port lobby preview join",
 	"port browser join big confirm", "port browser join big back",
+	"port browser chip select", "port browser chips navigation", "port browser rows up", "port browser rows down",
+	"port browser detail navigation", "port browser legend navigation",
+	"port browser filters reset", "port browser filters open",
 	"port setup edit",
 	"port map list back",
 	"port pause end game",
@@ -450,7 +453,7 @@ static char const *const port_game_data_input_names[] =
 {
 	"unwired",
 	"pause game set textbox inverted", "dim unless two controllers", "controls update menu",
-	"video menu update", "gamespy screen update", "common button bar update", "gamepad update menu",
+	"video menu update", "gamespy screen update", "port browser filters update", "common button bar update", "gamepad update menu",
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",

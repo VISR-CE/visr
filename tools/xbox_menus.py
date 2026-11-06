@@ -2,6 +2,7 @@
 """Generate Xbox-look settings and multiplayer screens from the shipped PC rows (no game data needed).
 
     python3 tools/xbox_menus.py
+    python3 tools/xbox_menus.py --redraw-browser-title  # after changing its title text
 
 Widget geometry follows ui.map's advanced_controls_screen and profile edit
 list. Colors were checked against advanced_controls/invert_joystick_label
@@ -381,6 +382,9 @@ def bitmap_document(assets, names):
     source = {b.get('name'): b for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
     root = ET.Element('menus')
     for name in sorted(names | {f'pause/pausebox_{side}' for side in ('left', 'center', 'right')}):
+        if name == 'browser/header_sort_filter':
+            browser_title_assets(root)
+            continue
         if name == 'main_menu/menu_custom_campaign':
             # (drawn by tools/xbox_menu_art.py, in the lettering of the main menu's other labels)
             bitmap = ET.SubElement(root, 'bitmap', name='xbox/' + name)
@@ -571,22 +575,42 @@ def multiplayer_documents(assets, bitmaps):
 
 
 def filters_layout(root, widgets):
-    """The server browser's FILTERS: each spinner applies as it changes, so the
-    screen has only B BACK (its PC OK button and A SELECT have nothing to do)."""
+    """Keep the PC spinners, with four larger Xbox rows and immediate changes."""
     base = 'xbox/' + MP + '/join_game/filters'
     screen = widgets[base + '/filters_screen']
+    screen.set('type', 'column_list')
     for c in list(screen.findall('child')):
-        if c.get('widget').endswith(('/legend/a_butn', '/legend/=accept')):
+        if '/legend/' in c.get('widget', ''):
             screen.remove(c)
-        elif c.get('widget').endswith('/legend/b_butn'):
-            c.set('x', '471')
-        elif c.get('widget').endswith('/legend/=cancel'):
-            c.set('x', '493')
-    root.find(f"widget[@name='{base}/filters_screen/legend/=cancel']").set('text', 'BACK')
+    ET.SubElement(screen, 'on', event='x', run='port browser filters reset')
+    ET.SubElement(screen, 'data', input='port browser filters update')
+    child(screen, base + '/browser_filter_status', x=340, y=21)
+    widget(root, base + '/browser_filter_status', type='text', width=276, height=22,
+           font=r'ui\small_ui', color='#7fc4ff', align='right')
     menu = widgets[base + '/options_menu']
     for c in list(menu.findall('child')):
-        if c.get('widget') == base + '/button_bar':
+        if c.get('widget') in (base + '/button_bar', base + '/op_games'):
             menu.remove(c)
+    for index, key in enumerate(('sort', 'full', 'locked', 'unjoinable')):
+        menu.find(f"child[@widget='{base}/op_{key}']").attrib.update(x='54', y=str(73 + index * 58))
+        row = widgets[base + '/op_' + key]
+        row.attrib.update(width='532', height='54', bitmap='xbox/browser/option')
+        row.find(f"child[@widget='{base}/{key}_spinner']").attrib.update(x='302', y='0')
+        label = widgets[base + '/' + key + '_label']
+        label.attrib.update(height='54', text_y='16', font=r'ui\large_ui')
+        spinner = widgets[base + '/' + key + '_spinner']
+        # Spinner drawing ignores text_y; its bounds place the text baseline.
+        spinner.attrib.update(width='198', height='24', top='16', text_y='0', font=r'ui\large_ui',
+                              header_bounds='20 -28 34 -16', footer_bounds='20 214 34 226')
+        if key == 'sort':
+            spinner.set('strings', 'MOST PLAYERS|NAME|MAP|GAME')
+    menu.set('height', '305')
+    widgets[base + '/help'].attrib.update(top='317', height='80', font=r'ui\small_ui', color='#7fc4ff')
+    # The title is generated without map data by browser_title_assets().
+    widgets[base + '/header_filters'].attrib.update(bitmap='xbox/browser/header_sort_filter', width='512', height='64')
+    browser_legend(root, screen, base, (
+        ('browser_reset', 'x', 'RESET', 342, 132, 'port browser filters reset'),
+        ('browser_done', 'b', 'DONE', 490, 126, 'mouse emit back event')))
 
 
 def selection_layout(widgets, bitmaps):
@@ -749,7 +773,218 @@ def gametype_select_layout(root, widgets, bitmaps):
             root.remove(existing)
 
 
+def browser_bitmap(root, name, width, height, frames):
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + name)
+    for filename in frames:
+        ET.SubElement(bitmap, 'frame', png='xbox/art/browser/' + filename + '.png',
+                      width=str(width), height=str(height))
+
+
+def browser_legend(root, screen, base, entries, navigate=False):
+    """Give the complete icon and caption one finger-sized action target."""
+    for leaf, button, caption, x, width, run in entries:
+        target = widget(root, base + '/' + leaf, width=width, height=53,
+                        flags='pass_unhandled_to_focused_child')
+        ET.SubElement(target, 'on', event='a', run=run)
+        if navigate:
+            for event in ('up', 'stick_up'):
+                ET.SubElement(target, 'on', event=event, run='port browser chips navigation')
+            for event in ('left', 'stick_left', 'right', 'stick_right'):
+                ET.SubElement(target, 'on', event=event, run='port browser legend navigation')
+        child(target, base + '/' + leaf + '_icon', x=0, y=11)
+        widget(root, base + '/' + leaf + '_icon', width=32, height=32,
+               bitmap='xbox/browser/' + button + '_butn')
+        child(target, base + '/' + leaf + '_caption', x=30, y=17)
+        widget(root, base + '/' + leaf + '_caption', type='text', text=caption,
+               font=r'ui\large_ui', color='#4aa8ff', width=width - 30, height=26)
+        child(screen, target.get('name'), x=x, y=427)
+
+
+def browser_title_assets(root):
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/header_sort_filter')
+    ET.SubElement(bitmap, 'frame',
+                  png='ce/port/' + MP + '/join_game/filters/header_sort_filter.png', width='512', height='64')
+
+
+def redraw_browser_title():
+    """Optional art regeneration uses the same OpenCE font and plate as PC titles."""
+    from ce_menus import Art
+    from port_settings import TITLES
+    name = MP + '/join_game/filters/header_sort_filter'
+    # Art.title only needs its PNG bookkeeping and the shipped font/backdrop.
+    art = object.__new__(Art)
+    art.pngs = []
+    art.title(name, TITLES[name])
+
+
 def browser_layout(root, widgets, bitmaps):
+    """Layout C for Internet, retaining the old table for Direct Link."""
+    legacy_browser_layout(root, widgets, bitmaps)
+    base = 'xbox/' + MP + '/join_game'
+    legacy = 'xbox/' + MP + '/join_game_legacy'
+    originals = [e for e in root if e.tag == 'widget' and e.get('name', '').startswith(base + '/')]
+    names = {e.get('name') for e in originals}
+    for original in originals:
+        copied = deepcopy(original)
+        for e in copied.iter():
+            for key in ('name', 'widget', 'description'):
+                if e.get(key) in names:
+                    e.set(key, legacy + e.get(key)[len(base):])
+        root.append(copied)
+        root.remove(original)
+    for name, width, height, frames in (
+            ('c_row', 270, 54, ['row__0', 'row__1']),
+            ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
+            ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
+            ('detail', 312, 339, ['detail']), ('join', 294, 53, ['join__0', 'join__1']),
+            ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge']),
+            ('option', 532, 54, ['option__0', 'option__1'])):
+        browser_bitmap(root, name, width, height, frames)
+    for name, width in (('chip_all', 78), ('chip_multiplayer', 144), ('chip_coop', 100), ('toggle', 174)):
+        browser_bitmap(root, name, width, 54, [f'{name}__{i}' for i in range(4)])
+    bitmaps.add('browser/header_sort_filter')
+    screen = widget(root, base + '/join_game_screen', type='column_list', width=640, height=480,
+                    flags='pass_unhandled_to_focused_child', bitmap='xbox/bitmaps/gradient')
+    for event, run in (('created', 'gamespy screen init'), ('deleted', 'gamespy screen dispose'),
+                       ('b', 'gamespy back handler'), ('back', 'gamespy back handler'),
+                       ('x', 'port browser filters open')):
+        ET.SubElement(screen, 'on', event=event, run=run)
+    child(screen, base + '/header_join_game', y=-21)
+    # Reuse title widgets verbatim, including the updater's mode-specific names.
+    for original in originals:
+        if original.get('name').rsplit('/', 1)[-1].startswith('header_'):
+            root.append(deepcopy(original))
+    child(screen, base + '/browser_status', x=330, y=18)
+    widget(root, base + '/browser_status', type='text', width=286, height=22,
+           font=r'ui\small_ui', color='#7fc4ff', align='right')
+    child(screen, base + '/button_refresh_create_inter')
+    actions = widget(root, base + '/button_refresh_create_inter', width=640, height=480,
+                     flags='pass_unhandled_to_focused_child')
+    ET.SubElement(actions, 'on', event='x', run='port browser filters open')
+    ET.SubElement(actions, 'on', event='y', run='join controller to mp game')
+    ET.SubElement(actions, 'on', event='y', run='mp type set mode',
+                  open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
+    child(actions, base + '/join_game_items_list')
+    child(actions, base + '/browser_chips')
+    child(actions, base + '/browser_detail')
+    rows = widget(root, base + '/join_game_items_list', type='column_list', width=294, height=421,
+                  visible_rows=6, flags='pass_unhandled_to_focused_child')
+    ET.SubElement(rows, 'data', input='gamespy screen update')
+    for event, run in (('up', 'port browser rows up'), ('stick_up', 'port browser rows up'),
+                       ('down', 'port browser rows down'), ('stick_down', 'port browser rows down'),
+                       ('right', 'port browser detail navigation'), ('stick_right', 'port browser detail navigation')):
+        ET.SubElement(rows, 'on', event=event, run=run)
+    for index in range(6):
+        child(rows, base + f'/server_item_{index + 1}', x=24, y=82 + index * 57)
+        row = widget(root, base + f'/server_item_{index + 1}', width=270, height=54,
+                     bitmap='xbox/browser/c_row', color='#FFFFFF')
+        ET.SubElement(row, 'on', event='a', run='gamespy select item')
+        ET.SubElement(row, 'on', event='start', run='gamespy select item')
+        for leaf, x, y in (('type', 6, 9), ('server_name', 48, 7), ('map', 48, 30),
+                           ('gauge', 222, 6), ('players', 226, 11), ('capacity', 226, 27)):
+            child(row, base + '/server_item_' + leaf, x=x, y=y)
+    for leaf, width, height, font, color, bitmap in (
+            ('type', 36, 36, None, None, 'gametype'),
+            ('gauge', 42, 42, None, None, 'gauge'),
+            ('server_name', 168, 24, 'large', '#ffffff', None),
+            ('map', 168, 18, 'small', '#7fc4ff', None),
+            ('players', 34, 16, 'small', '#ffffff', None),
+            ('capacity', 34, 16, 'small', '#7fc4ff', None)):
+        attributes = dict(width=width, height=height)
+        if font:
+            attributes.update(type='text', font='ui\\' + font + '_ui', color=color)
+            if leaf in ('players', 'capacity'):
+                attributes['align'] = 'center'
+        if bitmap:
+            attributes['bitmap'] = 'xbox/browser/' + bitmap
+        widget(root, base + '/server_item_' + leaf, **attributes)
+    chips = widget(root, base + '/browser_chips', type='column_list', width=640, height=79,
+                   flags='pass_unhandled_to_focused_child left_right_tabs_items')
+    for event in ('down', 'stick_down'):
+        ET.SubElement(chips, 'on', event=event, run='port browser chips navigation')
+    for leaf, art, x, width in (
+            ('browser_chip_all', 'chip_all', 24, 78),
+            ('browser_chip_multiplayer', 'chip_multiplayer', 107, 144),
+            ('browser_chip_coop', 'chip_coop', 256, 100),
+            ('browser_toggle', 'toggle', 442, 174)):
+        child(chips, base + '/' + leaf, x=x, y=25)
+        chip = widget(root, base + '/' + leaf, width=width, height=54, bitmap='xbox/browser/' + art)
+        ET.SubElement(chip, 'on', event='a', run='port browser chip select')
+        child(chip, base + '/' + leaf + '_label', y=29)
+        widget(root, base + '/' + leaf + '_label', type='text',
+               width=width, height=23, font=r'ui\small_ui', color='#7fc4ff', align='center')
+        child(chip, base + '/' + leaf + '_white', y=29)
+        widget(root, base + '/' + leaf + '_white', type='text',
+               width=width, height=23, font=r'ui\small_ui', color='#ffffff', align='center')
+    detail = widget(root, base + '/browser_detail', type='column_list', left=304, top=82, width=312, height=339,
+                    bitmap='xbox/browser/detail', flags='pass_unhandled_to_focused_child')
+    for event in ('left', 'stick_left'):
+        ET.SubElement(detail, 'on', event=event, run='port browser chips navigation')
+    # A content container breaks focus inheritance so descriptive colors stay blue.
+    content = widget(root, base + '/browser_detail_content', left=304, top=82, width=312, height=257,
+                     flags='no_focused_child')
+    # Child coordinates are absolute menu coordinates: bounds do not offset children.
+    for leaf, art, source, count in (
+            ('lobby_map_pic', 'preview_mp', r'ui\shell\bitmaps\mp_map_grafix', 20),
+            ('replay_level_right_pic', 'preview_sp', r'ui\shell\bitmaps\sp_levels', 10)):
+        child(content, base + '/' + leaf, x=305, y=83)
+        widget(root, base + '/' + leaf, width=310, height=75, bitmap='xbox/browser/' + art)
+        bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + art)
+        for index in range(count):
+            # Scaled map frames keep their 2:1 aspect; the 75-unit widget cuts the height.
+            # Xbox has thirteen map pictures, then its unknown-map picture.
+            frame = min(index, 13) if art == 'preview_mp' else index
+            ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
+                          width='310', height='155')
+    for leaf, x, y, width, height, font, color, text in (
+            ('browser_detail_name', 313, 163, 294, 25, 'large', '#ffffff', ''),
+            ('browser_detail_type', 313, 190, 294, 20, 'small', '#7fc4ff', ''),
+            ('browser_rules_label', 313, 217, 76, 18, 'small', '#2f73c4', 'RULES'),
+            ('browser_detail_rules', 389, 217, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_equipment_label', 313, 239, 76, 18, 'small', '#2f73c4', 'EQUIPMENT'),
+            ('browser_detail_equipment', 389, 239, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_host_label', 313, 239, 76, 18, 'small', '#2f73c4', 'HOST'),
+            ('browser_detail_host', 389, 239, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_connection_status', 313, 261, 294, 26, 'small', '#7fc4ff', ''),
+            ('browser_detail_big', 313, 287, 294, 20, 'small', '#0a2245', ''),
+            ('browser_detail_net', 313, 319, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_password', 441, 319, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_status', 317, 175, 286, 170, 'small', '#7fc4ff', '')):
+        child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
+        item = widget(root, base + '/' + leaf, type='text', width=width, height=height,
+                      font='ui\\' + font + '_ui', color=color)
+        if text:
+            item.set('text', text)
+        if leaf == 'browser_detail_big':
+            item.attrib.update(bitmap='xbox/browser/big', text_x='5', text_y='2')
+        elif leaf in ('browser_detail_net', 'browser_detail_password'):
+            item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1')
+    child(detail, base + '/join_game_button_join', x=313, y=359)
+    # JOIN stays the first eligible child; the content never takes focus.
+    join_ref = detail.find(f"child[@widget='{base}/join_game_button_join']")
+    detail.remove(join_ref)
+    detail.insert(0, join_ref)
+    detail.insert(1, ET.Element('child', widget=base + '/browser_detail_content'))
+    join = widget(root, base + '/join_game_button_join', width=294, height=53, bitmap='xbox/browser/join')
+    ET.SubElement(join, 'on', event='a', run='gamespy select button')
+    child(join, base + '/browser_join_icon', x=65, y=11)
+    widget(root, base + '/browser_join_icon', width=32, height=32, bitmap='xbox/browser/a_butn')
+    child(join, base + '/browser_join_caption', x=98, y=16)
+    widget(root, base + '/browser_join_caption', type='text', width=190, height=25,
+           font=r'ui\large_ui', color='#ffffff')
+    child(join, base + '/browser_join_reason', x=7, y=5)
+    widget(root, base + '/browser_join_reason', type='text', width=280, height=44,
+           font=r'ui\small_ui', color='#7fc4ff', align='center')
+    browser_legend(root, actions, base, (
+        ('browser_sort_filter', 'x', 'SORT & FILTER', 190, 210, 'port browser filters open'),
+        ('browser_create_inter', 'y', 'CREATE', 410, 112, 'join controller to mp game'),
+        ('browser_back', 'b', 'BACK', 532, 84, 'mouse emit back event')), navigate=True)
+    create = root.find(f"widget[@name='{base}/browser_create_inter']")
+    ET.SubElement(create, 'on', event='a', run='mp type set mode',
+                  open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
+
+
+def legacy_browser_layout(root, widgets, bitmaps):
     base = 'xbox/' + MP + '/join_game'
     get = lambda leaf: widgets[base + '/' + leaf]
     screen = get('join_game_screen')
@@ -1000,7 +1235,7 @@ def patch_document(names):
               run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description='Browse games on the Internet,\\njoin one, or host your own.')
     patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_join_direct', text='DIRECT LINK',
-              run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
+              run='mp type set mode', open=browser.replace('/join_game/', '/join_game_legacy/'), picture=f'png:{ART}/internet.png',
               description="Join a friend's game with\\nits join code or invite link.")
     # Profile edit: the settings pages that are not the profile's before SAVE CHANGES (the keyboard's only where
     # one is), and DELETE PROFILE after it on the Apple TV, whose remote has no X
@@ -1179,7 +1414,11 @@ def generate(assets=MENUS):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--menus', type=Path, default=MENUS, help='menu assets folder')
+    parser.add_argument('--redraw-browser-title', action='store_true',
+                        help='redraw SORT & FILTER using OpenCE (requires the title art dependencies)')
     args = parser.parse_args()
+    if args.redraw_browser_title:
+        redraw_browser_title()
     generate(args.menus)
     (ROOT / 'port/linux/include/menu_equivalence.h').write_text(equivalence_header(), encoding='utf-8')
 
