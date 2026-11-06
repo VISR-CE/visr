@@ -4,7 +4,7 @@
 	<strings name="xbox/settings/hub_descriptions">
 		<string text="Look, sensitivity, vibration and\nthe button layout.\n\nCurrent Profile:" />
 		<string text="Frame rate, resolution and how\nthe picture is drawn.\n\nCurrent Profile:" platform="mac_app" />
-		<string text="The game's look.\n\nCurrent Profile:" platform="!mac_app" />
+		<string text="The game's look.\n\n\nCurrent Profile:" platform="!mac_app" />
 		<string text="Volume and sound for the\ngame on this device.\n\nCurrent Profile:" />
 		<string text="Online play, custom maps\nand player names.\n\nCurrent Profile:" />
 		<string text="The keys and mouse buttons\nfor each action.\n\nCurrent Profile:" platform="keyboard" />
@@ -60,7 +60,7 @@
 		<on event="a" open="xbox/settings/graphics/graphics_screen" />
 		<on event="start" open="xbox/settings/graphics/graphics_screen" />
 	</widget>
-	<widget name="xbox/settings/graphics_state" type="text" width="112" height="22" font="ui\large_ui" color="#FF2896FF" align="right">
+	<widget name="xbox/settings/graphics_state" type="text" width="112" height="18" font="ui\small_ui" color="#FF2896FF" align="right">
 		<data input="port graphics state" />
 	</widget>
 	<widget name="xbox/settings/audio" type="text" text="AUDIO" font="ui\large_ui" color="#FF2896FF" width="232" height="32" bitmap="xbox/bitmaps/list_item_bkd" text_x="13" text_y="4">

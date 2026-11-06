@@ -428,7 +428,9 @@ PAGE_ROWS = (
     # (the Mac's VIDEO screen has this mode as its first row; the hub row shows the mode, port/linux/game/
     # menu_functions.c's "port graphics state")
     ('graphics', 'GRAPHICS', 'graphics', 'graphics_screen', '!mac_app',
-     "The game's look." + CURRENT),
+     # (a blank line more than the one-line text needs: the profile's name sits beside "Current Profile:" as on the
+     # other rows, whose text is two lines)
+     "The game's look.\\n" + CURRENT),
     ('audio', 'AUDIO', 'audio_settings', 'audio_settings_screen', None,
      'Volume and sound for the\\ngame on this device.' + CURRENT),
     ('network', 'NETWORK', 'network_setup', 'network_settings_screen', None,
@@ -548,8 +550,8 @@ def settings_hub(bitmaps, assets=MENUS):
         if key in HUB_STATES:
             # a row with a state shows it at its right end, where the settings screens' rows show their values
             child(row, f'{base}/{key}_state', x=HUB_STATE_X, y=HUB_STATE_Y)
-            state = widget(root, f'{base}/{key}_state', type='text', width=HUB_STATE_WIDTH, height=22,
-                           font=r'ui\large_ui', color=BLUE, align='right')
+            state = widget(root, f'{base}/{key}_state', type='text', width=HUB_STATE_WIDTH, height=18,
+                           font=r'ui\small_ui', color=BLUE, align='right')
             ET.SubElement(state, 'data', input=HUB_STATES[key])
         for event in ('a', 'start'):
             ET.SubElement(row, 'on', event=event, open=f'xbox/settings/{folder}/{screen_name}')

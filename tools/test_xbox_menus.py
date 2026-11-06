@@ -1048,7 +1048,7 @@ def test_hub_has_a_graphics_row_with_the_mode_word_between_controls_and_audio():
     assert by_name['graphics'].get('y') == by_name['video'].get('y') == by_name['audio'].get('y')
     strings = hub.find("strings[@name='xbox/settings/hub_descriptions']")
     assert [s.get('text') for s in strings if s.get('platform') == '!mac_app'] == [
-        "The game's look.\\n\\nCurrent Profile:"]
+        "The game's look.\\n\\n\\nCurrent Profile:"]
     row = hub.find("widget[@name='xbox/settings/graphics']")
     assert row.get('text') == 'GRAPHICS'
     assert row.find('on[@event="a"]').get('open') == 'xbox/settings/graphics/graphics_screen'
