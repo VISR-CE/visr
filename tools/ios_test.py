@@ -274,7 +274,9 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="tes
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'profile-feed-probe')
-run(BUILD / 'profile-feed-probe', ROOT,
+# (the published feeds are the steverice/visr-feeds commit tools/visr-feeds.pin names, fetched by tools/visr_feeds_tree.py)
+feeds_tree = Path(subprocess.run(['python3', 'tools/visr_feeds_tree.py'], check=True, capture_output=True, text=True, cwd=ROOT).stdout.strip())
+run(BUILD / 'profile-feed-probe', ROOT, feeds_tree / 'tester/profiles',
     re.search(r"^DATA_PACK_PUBLIC_KEY = '([0-9a-f]{64})'", (ROOT / 'tools/ios_build.py').read_text(), re.M)[1],
     probe_key, BUILD / 'profile-feed-probe-iphone.json', BUILD / 'profile-feed-probe-apple-tv.json',
     BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
