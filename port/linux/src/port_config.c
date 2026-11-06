@@ -1724,7 +1724,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
 		_platform_all,
 		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
-	{ "debug.soft_particle_distance", _config_real, "0.15", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
+	{ "debug.soft_particle_distance", _config_real, "0.06", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
 		"With display.soft_particles: how far in front of a surface a particle starts to fade, in world units\n"
 		"(1 is 10 feet)." },
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,

@@ -2961,7 +2961,7 @@
         },
         "soft_particle_distance": {
           "type": "number",
-          "default": 0.15,
+          "default": 0.06,
           "description": "With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet).",
           "x-environment": "HALO_SOFT_PARTICLE_DISTANCE",
           "x-environment-style": "value",
