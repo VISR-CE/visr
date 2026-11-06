@@ -1428,15 +1428,15 @@ def test_a_port_measured_uncapped_on_a_faster_display_draws_like_any_other_in_th
     entry = next(e for e in built["entries"] if e["port"] == "openh1" and e["build"] == "1463")
     assert "fallback" not in entry["value"]
     assert entry["value"]["avg"] == pytest.approx(3.05, abs=0.01) and entry["value"]["low"] == pytest.approx(7.91, abs=0.01)
-    assert '"OpenH1 build-1463"' in charts.source(specs["1-mac"], built, "campaign")
+    assert '"OpenH1 build-1662"' in charts.source(specs["1-mac"], built, "campaign")  # the chart draws a port's newest build
     assert {row["display_hz"] for row in entry["value"]["rows"]} == {"240"}
     assert specs["1-mac"]["paragraph"].endswith("The FPS view shows average fps.") and "1% low" not in specs["1-mac"]["paragraph"]
     # Its uncapped rows also draw in the frame-rate view, with an average and no 1% low (it reports per-second counts only).
     fps = charts.model(rows, specs["2-mac-fps"]["query"], "campaign", "M4 Mac mini", texts)
     value = next(e for e in fps["entries"] if e["port"] == "openh1" and e["build"] == "1463")["value"]
     assert value["avg"] == pytest.approx(152.1, abs=0.1) and value["low"] is None
-    # A later build measured for the frame rate alone has no GPU or CPU time: it has no value in the CPU and GPU view and draws in the frame-rate view.
+    # A later build carries its own Instruments pass: it draws in both views with its own numbers.
     newer = next(e for e in built["entries"] if e["port"] == "openh1" and e["build"] == "1662")
-    assert newer["value"] is None
+    assert newer["value"]["avg"] == pytest.approx(3.02, abs=0.01) and newer["value"]["low"] == pytest.approx(6.21, abs=0.01)
     newer_fps = next(e for e in fps["entries"] if e["port"] == "openh1" and e["build"] == "1662")["value"]
     assert newer_fps["avg"] == pytest.approx(163.15, abs=0.1) and newer_fps["low"] is None
