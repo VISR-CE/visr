@@ -620,6 +620,7 @@ void decals_after_load(
 {
 	if (!decals_raised || !global_decal_data || !global_decal_data->valid)
 		return;
+	platform_log("decals: a game state was loaded; the raised set's %d decals are cleared", global_decal_data->actual_count);
 	rasterizer_decals_dispose_from_old_map();
 	decals_set_initialize_for_new_map();
 	decal_geometry.decal_vertex_count = 0;
