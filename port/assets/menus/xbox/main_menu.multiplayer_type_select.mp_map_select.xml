@@ -7,7 +7,7 @@
 		<child widget="xbox/main_menu/current_profile_name" x="0" y="0" />
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_item" x="0" y="0" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_data" type="text" controller="1" left="336" top="253" width="260" height="144" string_list="xbox/main_menu/multiplayer_type_select/mp_map_select/map_data" string_index="2" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_data" type="text" controller="1" left="336" top="253" width="260" height="144" string_list="xbox/main_menu/multiplayer_type_select/mp_map_select/player_counts" string_index="2" font="ui\small_ui" color="#FF2896FF">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_item" controller="1" left="323" top="115" width="254" height="286">
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_right_name" />
@@ -63,6 +63,28 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/connected/connected_map_select_wrapper" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game main_menu_if_no_history tag_controller_index force_handle_mouse">
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen" />
 	</widget>
+	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/player_counts">
+		<string text="2-8 players" />
+		<string text="4-16 players" />
+		<string text="4-8 players" />
+		<string text="2-6 players" />
+		<string text="2-8 players" />
+		<string text="4-16 players" />
+		<string text="2-8 players" />
+		<string text="4-8 players" />
+		<string text="4-16 players" />
+		<string text="4-16 players" />
+		<string text="2-8 players" />
+		<string text="2-6 players" />
+		<string text="2-8 players" />
+		<string text="4-16 players" />
+		<string text="4-16 players" />
+		<string text="4-16 players" />
+		<string text="4-16 players" />
+		<string text="4-16 players" />
+		<string text="2-12 players" />
+		<string text="" />
+	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" type="text" controller="1" width="230" height="28" font="ui\small_ui" color="#FF2896FF" align="center" text_flags="no_focus_test" text_y="6">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_1" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">

@@ -692,6 +692,18 @@ def map_screen_layout(root, widgets, shared):
     layout's own dark block beside it is gone)."""
     base = 'xbox/' + MP + '/mp_map_select'
     small = r'ui\small_ui'
+    # Multiplayer prose includes placeholder text. Keep only player counts
+    # in this screen's own strings; campaign descriptions keep their source.
+    data = widgets[base + '/mp_map_right_data']
+    source = next(e for e in shared if e.tag == 'strings' and e.get('name') == data.get('string_list'))
+    counts = deepcopy(source)
+    counts.set('name', base + '/player_counts')
+    for entry in counts:
+        entry.set('text', next((line.strip() for line in entry.get('text').split(r'\n')
+                                if line.strip().endswith(' players')), ''))
+    root.append(counts)
+    data.set('string_list', counts.get('name'))
+
     def copy(source, name, **attributes):
         element = deepcopy(widgets[source])
         element.set('name', name)

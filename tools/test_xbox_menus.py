@@ -671,3 +671,26 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
                     assert value.get('footer_bounds') == '7 209 19 215'
     accept = widgets[base + '/' + page + '_screen/legend/=accept']
     assert accept.get('text') == 'SELECT'
+
+
+def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
+    base = 'xbox/main_menu/multiplayer_type_select/mp_map_select'
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.mp_map_select.xml')
+    data = root.find(f'widget[@name="{base}/mp_map_right_data"]')
+    counts = root.find(f'strings[@name="{data.get("string_list")}"]')
+    assert counts is not None
+    source = ET.parse(MENUS / 'ce/strings.xml').find(
+        'strings[@name="main_menu/multiplayer_type_select/mp_map_select/map_data"]')
+    assert len(counts) == len(source)
+    for actual, original in zip(counts, source):
+        lines = original.get('text').split(r'\n')
+        expected = [line.strip() for line in lines if line.strip().endswith(' players')]
+        assert actual.get('text') == (expected[0] if expected else '')
+    assert counts[6].get('text') == '2-8 players'  # Chill Out keeps its capacity.
+    panel = root.find(f'widget[@name="{base}/mp_map_right_item"]')
+    assert panel.find('child[@widget="xbox/main_menu/solo_level_select/replay_level_right_data"]') is not None
+    shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
+    campaign = shared.find('strings[@name="xbox/main_menu/solo_level_select/map_data"]')
+    pc_campaign = ET.parse(MENUS / 'ce/strings.xml').find(
+        'strings[@name="main_menu/solo_level_select/map_data"]')
+    assert [s.get('text') for s in campaign] == [s.get('text') for s in pc_campaign]
