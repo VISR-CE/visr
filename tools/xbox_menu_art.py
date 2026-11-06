@@ -8,6 +8,7 @@ The files are written to port/assets/menus/xbox/art.
 from __future__ import annotations
 
 import argparse
+import base64
 from pathlib import Path
 import subprocess
 
@@ -58,12 +59,35 @@ def redraw_art(output):
                         str(output / f'{name}.svg')], check=True)
 
 
+# the app icon beside every screen's title: as tall as the titles' capitals (22 menu units), drawn at 4 times that
+ICON_SOURCE = ROOT / 'port/ios/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png'
+TITLE_ICON, TITLE_ICON_SIZE = 'visr_title_icon', 22
+
+
+def title_icon(output, source=ICON_SOURCE):
+    """The app icon, reduced from its 1024-pixel picture, with the rounded corners the Home Screen gives it."""
+    size = TITLE_ICON_SIZE * 4
+    image = base64.b64encode(Path(source).read_bytes()).decode('ascii')
+    # (iOS rounds an icon's corners by about 22.4% of its side)
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{size}" '
+           f'height="{size}" viewBox="0 0 1024 1024"><defs><clipPath id="corners">'
+           '<rect width="1024" height="1024" rx="229"/></clipPath></defs>'
+           f'<image width="1024" height="1024" clip-path="url(#corners)" xlink:href="data:image/png;base64,{image}"/>'
+           '</svg>\n')
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / f'{TITLE_ICON}.svg'
+        path.write_text(svg)
+        subprocess.run(['rsvg-convert', '--width', str(size), '--height', str(size), '--output',
+                        str(output / f'{TITLE_ICON}.png'), str(path)], check=True)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     output = menus / 'xbox/art'
     output.mkdir(parents=True, exist_ok=True)
     browser_art(output)
     redraw_art(output)
+    title_icon(output)
 
 
 def main():

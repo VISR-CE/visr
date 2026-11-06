@@ -6869,6 +6869,53 @@ static void column_list_window_end(
 		child->visible = saved[index++];
 }
 
+/* port: the app icon left of a screen's title. The titles are pictures
+(header_*, in ui.map and in the menus' files, of both looks), 64 units high,
+whose capitals stand 22 units tall from 33 units down and start 30 units in.
+The icon (xbox/bitmaps/visr_title_icon, tools/xbox_menus.py) is as tall as
+the capitals, centered on them, half its width before the first letter.
+Dialogs' headers (ui\\shell\\error\\...) are not screens' titles. */
+static void menu_title_icon_draw(
+	long bitmap_tag,
+	struct bitmap_data const *picture,
+	rectangle2d const *bounds,
+	rectangle2d *clip,
+	pixel32 color)
+{
+	char const *name;
+	char const *leaf;
+	long icon_tag;
+	struct bitmap_data *icon;
+	rectangle2d rect;
+	long scale_x = 1, scale_y = 1, size, left;
+
+	if (bitmap_tag == NONE || !picture || picture->height != 64 || picture->width < 256)
+		return;
+	name = tag_get_name(bitmap_tag);
+	if (!name || (strncmp(name, "ui\\shell\\", 9) && strncmp(name, "pc\\", 3)) || strstr(name, "\\error\\"))
+		return;
+	leaf = strrchr(name, '\\');
+	leaf = leaf ? leaf + 1 : name;
+	if (strncmp(leaf, "header", 6))
+		return;
+	icon_tag = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\visr_title_icon");
+	icon = icon_tag == NONE ? NULL : bitmap_group_get_bitmap_from_sequence(icon_tag, 0, 0);
+	if (!icon)
+		return;
+	/* (a picture smaller than its widget is drawn stretched over it) */
+	if (bounds->x1 - bounds->x0 > picture->width)
+		scale_x = (bounds->x1 - bounds->x0) / picture->width;
+	if (bounds->y1 - bounds->y0 > picture->height)
+		scale_y = (bounds->y1 - bounds->y0) / picture->height;
+	size = 22 * scale_y;
+	left = bounds->x0 + 30 * scale_x - size / 2 - size;
+	rect.x0 = (short)left;
+	rect.x1 = (short)(left + size);
+	rect.y0 = (short)(bounds->y0 + 33 * scale_y);
+	rect.y1 = (short)(rect.y0 + size);
+	draw_bitmap_in_rect(icon, &rect, NULL, clip, color, NULL, FALSE);
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -7051,6 +7098,8 @@ static void widget_instance_render_recursive(
 					color,
 					&multitexture_params,
 					FALSE);
+				if (!custom_edition_picture)
+					menu_title_icon_draw(definition->background_bitmap.index, bitmap, &bounds, clip, color);
 			}
 		}
 		if (use_nifty_plasma_fx)

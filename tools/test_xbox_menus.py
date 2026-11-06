@@ -591,3 +591,43 @@ def test_keyboard_picture_is_generated_at_import_without_a_shipped_png():
     redraw = (ROOT / 'port/ios/host/menu_picture_redraw.m').read_text()
     assert '@"keyboard"' not in redraw
     assert 'keyboard.png' not in (ROOT / 'port/ios/CMakeLists.txt').read_text()
+
+
+def png_header_and_first_pixel(path):
+    """An 8-bit RGBA PNG's size and its top-left pixel (row 0's first pixel is stored raw under every filter)."""
+    data = path.read_bytes()
+    assert data[:8] == b'\x89PNG\r\n\x1a\n'
+    position, idat, size = 8, b'', None
+    while position < len(data):
+        length = int.from_bytes(data[position:position + 4], 'big')
+        kind = data[position + 4:position + 8]
+        body = data[position + 8:position + 8 + length]
+        if kind == b'IHDR':
+            size = (int.from_bytes(body[:4], 'big'), int.from_bytes(body[4:8], 'big'), body[8], body[9])
+        elif kind == b'IDAT':
+            idat += body
+        position += 12 + length
+    return size, tuple(zlib.decompress(idat)[1:5])
+
+
+def test_title_icon_is_the_rounded_app_icon_at_four_times_the_title_capitals():
+    module = generator()
+    bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
+    icon = bitmaps.find(f"bitmap[@name='{module.TITLE_ICON}']")
+    frame = icon.find('frame')
+    assert (frame.get('width'), frame.get('height')) == (str(module.TITLE_ICON_SIZE),) * 2 == ('22', '22')
+    (width, height, depth, color), corner = png_header_and_first_pixel(MENUS / frame.get('png'))
+    assert (width, height, depth, color) == (88, 88, 8, 6)
+    # (rounded: the corner is transparent)
+    assert corner[3] == 0
+    assert frame.get('png') in json.loads((MENUS / 'menus.json').read_text())['files']
+
+
+def test_title_icon_drawn_by_the_name_the_generator_gives_it():
+    """The game finds the icon by its tag name (the menus' tags are named pc\\<name>, with backslashes)."""
+    module = generator()
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    tag = 'pc\\' + module.TITLE_ICON.replace('/', '\\')
+    assert '"' + tag.replace('\\', '\\\\') + '"' in source
+    # the titles' capitals, which the icon matches: 22 units tall from 33 units down, 30 units in
+    assert 'size = 22 * scale_y;' in source and 'bounds->y0 + 33 * scale_y' in source
