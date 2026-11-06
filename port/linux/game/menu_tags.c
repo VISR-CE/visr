@@ -443,6 +443,8 @@ static char const *const port_function_names[] =
 	"port send log",
 	/* (the About screen's website row) */
 	"port open website", "port open privacy", "port open license",
+	/* Server Setup opens the stock gametype editor without editing a saved profile. */
+	"close if not editing profile", "mp profile change name", "mp profile end editing",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -736,6 +738,39 @@ static long game_data_input_index(char const *name, char const *file, long line)
 		return index;
 	problem(file, line, "there is no game data input", name);
 	return NONE;
+}
+
+/* Stock Xbox widgets keep numeric function references. In Server Setup,
+route the editor's profile-dependent functions through the copy-aware handlers. */
+long pc_menu_setup_event_function(long function)
+{
+	extern boolean pc_menu_gametype_setup_active(void);
+	char const *name;
+	long index;
+
+	if (!pc_menu_gametype_setup_active() || function >= PC_MENU_FUNCTION_BASE)
+		return function;
+	name = ui_widget_event_handler_function_name(function);
+	if (!name || (strncmp(name, "mp prof", 7) && strcmp(name, "close if not editing profile")))
+		return function;
+	index = name ? name_index(name, port_function_names, NUMBEROF(port_function_names)) : NONE;
+	return index == NONE ? function : PC_MENU_FUNCTION_BASE + index;
+}
+
+long pc_menu_setup_data_function(long function)
+{
+	extern boolean pc_menu_gametype_setup_active(void);
+	long index;
+
+	if (!pc_menu_gametype_setup_active() || function < 0 || function >= NUMBEROF(game_data_input_names))
+		return function;
+	if (strcmp(game_data_input_names[function], "get edit game settings name") &&
+		strcmp(game_data_input_names[function], "mp edit profile set rule text") &&
+		strcmp(game_data_input_names[function], "game settings lists text update"))
+		return function;
+	index = name_index(game_data_input_names[function], port_game_data_input_names,
+		NUMBEROF(port_game_data_input_names));
+	return index == NONE ? function : PC_MENU_FUNCTION_BASE + index;
 }
 
 static long hex_digit(char character)

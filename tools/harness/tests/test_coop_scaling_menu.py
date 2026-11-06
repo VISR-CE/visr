@@ -97,9 +97,9 @@ def test_coop_page_navigation_and_hosting_rows():
             assert accept.get('run') == 'coop options save'
         rows = {c.get('widget').split('/')[-1]: c for c in setup[setup_base + 'options_menu'].findall('child')}
         assert not any(key in rows for key in ('op_friendly_fire', 'op_extra_enemies', 'op_fireteam'))
-        assert int(rows['op_map_share'].get('y')) == (223 if look == 'xbox' else 193)
-        assert rows['op_coop_options'].get('y') == rows['op_game_type'].get('y')
-        assert list(rows).index('op_map_share') < list(rows).index('op_coop_options')
+        assert 'op_map_share' not in rows
+        assert rows['op_coop_options'].get('y') == rows['op_gametype_options'].get('y')
+        assert int(rows['op_game_type'].get('y')) < int(rows['op_coop_options'].get('y'))
         for key, _ in port_settings.SETUP_OPTION_SCREENS:
             assert setup[setup_base + 'op_' + key].find("on[@event='a']").get('run') == 'port setup edit'
         for spinner in page.values():

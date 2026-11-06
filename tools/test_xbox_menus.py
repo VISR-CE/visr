@@ -332,19 +332,23 @@ def test_scrolling_lists_fit_above_their_help():
             help_top = int(widgets[w.get('description')].get('top'))
             assert window < len(slots) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
-    assert any(name.endswith('server_settings/options_menu') for name in seen)
     assert any(name.endswith('network_setup/options_menu') for name in seen)
 
 
-def test_server_settings_and_network_rows_fit_with_scrolling():
-    for filename, name in (('main_menu.multiplayer_type_select.server_settings', 'server_settings'),
-                           ('settings.network_setup', 'network_setup')):
-        widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox' / (filename + '.xml')).getroot().iter('widget')}
-        options = next(w for w in widgets.values() if w.get('name').endswith(name + '/options_menu'))
-        slots, window, bottom = window_rows(options, widgets)
-        assert 'visible_rows' in options.attrib
-        assert bottom <= int(widgets[options.get('description')].get('top'))
-        assert len(slots) > window
+def test_server_settings_rows_fit_without_scrolling_and_network_rows_scroll():
+    # (Server Setup's seven rows fit above its help)
+    widgets = {w.get('name'): w for w in ET.parse(
+        MENUS / 'xbox/main_menu.multiplayer_type_select.server_settings.xml').getroot().iter('widget')}
+    options = next(w for w in widgets.values() if w.get('name').endswith('server_settings/options_menu'))
+    slots, window, bottom = window_rows(options, widgets)
+    assert 'visible_rows' not in options.attrib
+    assert bottom <= int(widgets[options.get('description')].get('top'))
+    widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox/settings.network_setup.xml').getroot().iter('widget')}
+    options = next(w for w in widgets.values() if w.get('name').endswith('network_setup/options_menu'))
+    slots, window, bottom = window_rows(options, widgets)
+    assert 'visible_rows' in options.attrib
+    assert bottom <= int(widgets[options.get('description')].get('top'))
+    assert len(slots) > window
 
 
 def test_only_column_lists_scroll():
@@ -650,8 +654,11 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
     action = widgets[rows[-1].get('widget')]
     assert action.get('name') == base + ('/op_start_game' if page == 'server_settings' else '/op_save')
     assert action.get('text') == ('START GAME' if page == 'server_settings' else 'SAVE')
-    old = widgets[base + '/button_ok']
-    assert [e.attrib for e in action.findall('on')] == [e.attrib for e in old.findall('on')]
+    if page == 'coop_options':
+        old = widgets[base + '/button_ok']
+        assert [e.attrib for e in action.findall('on')] == [e.attrib for e in old.findall('on')]
+    else:
+        assert action.find('on[@event="a"]').get('run') == 'ss start game'
     assert action.get('bitmap') == widgets[base + ('/op_coop_options' if page == 'server_settings'
                                                   else '/op_fireteam')].get('bitmap')
     for c in rows:
@@ -697,3 +704,64 @@ def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
     pc_campaign = ET.parse(MENUS / 'ce/strings.xml').find(
         'strings[@name="main_menu/solo_level_select/map_data"]')
     assert [s.get('text') for s in campaign] == [s.get('text') for s in pc_campaign]
+
+
+@pytest.mark.parametrize('look', ('ce', 'xbox'))
+def test_server_setup_rows_invite_and_gametype_editor(look):
+    base = ('xbox/' if look == 'xbox' else '') + 'main_menu/multiplayer_type_select/server_settings'
+    root = ET.parse(MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml')
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    options = widgets[base + '/options_menu']
+    screen = widgets[base + '/server_settings_screen']
+    rows = [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')
+            if '/scroll_' not in c.get('widget')]
+    assert [r for r in rows if r != 'op_coop_options'] == [
+        'op_server_name', 'op_max_players', 'op_game_type', 'op_gametype_options',
+        'op_listing', 'op_password', 'op_start_game']
+    assert [r for r in rows if r not in ('op_game_type', 'op_gametype_options')] == [
+        'op_server_name', 'op_max_players', 'op_coop_options', 'op_listing', 'op_password', 'op_start_game']
+    assert not any(base + '/' + r in widgets for r in (
+        'op_invite', 'op_map_share', 'op_player_options', 'op_item_options', 'op_vehicle_options',
+        'op_indicator_options', 'op_team_options', 'op_friendly_fire', 'op_extra_enemies',
+        'op_enemies_per_player', 'op_enemies_multiplier', 'op_player_collisions', 'op_ally_friendly_fire', 'op_fireteam'))
+    invite = widgets[base + '/invite_value']
+    assert invite.get('color') == '#FFFFFFFF'
+    assert int(invite.get('height')) >= 53
+    assert invite.find('on[@event="left_mouse"]').get('run') == 'ss copy invite'
+    assert 'invite_value' not in rows
+    position = screen.find(f'child[@widget="{base}/x_butn_invite"]')
+    assert position is not None
+    hit = widgets[position.get('widget')]
+    assert hit.find(f'child[@widget="{base}/invite_value"]') is not None
+    assert hit.get('height') == invite.get('height')
+    assert hit.get('bitmap') is None
+    assert hit.find('on[@event="left_mouse"]').get('run') == 'ss copy invite'
+    help_panel = widgets[options.get('description')]
+    assert int(help_panel.get('top')) + int(help_panel.get('height')) <= int(position.get('y'))
+    assert screen.find('on[@event="x"]').get('run') == 'ss copy invite'
+    editor = widgets[base + '/op_gametype_options']
+    for event in ('a', 'start'):
+        handler = editor.find(f'on[@event="{event}"]')
+        assert handler.get('run') == 'port setup edit'
+        target = 'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen'
+        assert handler.get('open') == ('ui\\shell\\' + target.replace('/', '\\') if look == 'xbox' else target)
+    assert widgets[base + '/op_game_type'].find(f'child[@widget="{base}/game_type_value"]') is not None
+    if look == 'xbox':
+        legend = base + '/server_settings_screen/legend'
+        assert widgets[legend + '/=copy'].get('text') == 'COPY INVITE'
+        keys = [screen.find(f'child[@widget="{legend}/{key}_butn"]') for key in ('x', 'b', 'a')]
+        assert int(position.get('x')) + int(invite.get('width')) <= int(keys[0].get('x'))
+        for i, key in enumerate(keys):
+            target = widgets[key.get('widget')]
+            assert int(target.get('height')) >= 53
+            assert int(key.get('x')) + int(target.get('width')) <= (int(keys[i + 1].get('x')) if i < 2 else 640)
+        assert widgets[legend + '/x_butn'].find('on[@event="left_mouse"]').get('run') == 'ss copy invite'
+    # Hard-coded help and label indices remain available to the runtime.
+    import port_settings
+    generated_text = '\n'.join(port_settings.multiplayer_files()['main_menu.multiplayer_type_select.server_settings.xml'])
+    if look == 'ce':
+        assert (MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml').read_text() == generated_text
+    generated = ET.fromstring(generated_text)
+    for name in ('labels', 'help_strings'):
+        expected = generated.find(f'strings[@name="main_menu/multiplayer_type_select/server_settings/{name}"]')
+        assert [e.attrib for e in root.find(f'strings[@name="{base}/{name}"]')] == [e.attrib for e in expected]

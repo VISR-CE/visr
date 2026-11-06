@@ -193,6 +193,11 @@ boolean pc_menu_profile_edit_begin(void)
 	return TRUE;
 }
 
+boolean pc_menu_gametype_setup_active(void)
+{
+	return FALSE;
+}
+
 boolean pc_menu_gametype_edit_begin(void)
 {
 	return TRUE;

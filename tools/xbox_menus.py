@@ -107,8 +107,24 @@ def retain_xbox_files(menus, files):
 
 def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None):
     """A/B icons post buttons to the current focus, as the Xbox legend does."""
-    for button, caption, label, x in (('a_butn', '=accept', accept, 471),
-                                       ('b_butn', '=cancel', cancel, 346)):
+    hosting = screen.get('name').endswith('/server_settings_screen')
+    items = (('x_butn', '=copy', 'COPY INVITE', 300),
+             ('b_butn', '=cancel', cancel, 452),
+             ('a_butn', '=accept', accept, 546)) if hosting else (
+                 ('a_butn', '=accept', accept, 471), ('b_butn', '=cancel', cancel, 346))
+    for button, caption, label, x in items:
+        if hosting:
+            # One tall target includes both the icon and its caption.
+            key = widget(root, f'{base}/{button}', width=148 if button == 'x_butn' else 94, height=53)
+            child(screen, key.get('name'), x=x, y=410)
+            art = widget(root, f'{base}/{button}/{button}', width=21, height=26,
+                         bitmap=f'xbox/browser/{button}')
+            child(key, art.get('name'), y=4)
+            text_widget(root, f'{base}/{caption}', label, width=126 if button == 'x_butn' else 72, height=22)
+            child(key, f'{base}/{caption}', x=22, y=4)
+            ET.SubElement(key, 'on', event='left_mouse', run='ss copy invite' if button == 'x_butn' else
+                          ('mouse emit accept event' if button == 'a_butn' else 'mouse emit back event'))
+            continue
         only = {'platform': accept_platform} if accept_platform and button == 'a_butn' else {}
         child(screen, f'{base}/{button}', x=x, y=414, **only)
         child(screen, f'{base}/{caption}', x=x + 22, y=414, **only)
@@ -657,17 +673,22 @@ def hosting_layout(root, widgets, page):
             options.remove(c)
     # Keep the old button definitions for their named bindings, but draw only
     # the list action. The shared CANCEL widget still serves other screens.
-    action = deepcopy(widgets[base + '/button_ok'])
+    action = widgets[base + '/op_start_game'] if page == 'server_settings' else deepcopy(widgets[base + '/button_ok'])
     action.set('name', base + ('/op_start_game' if page == 'server_settings' else '/op_save'))
     for key in ('string_list', 'string_index', 'align'):
         action.attrib.pop(key, None)
     action.attrib.update(width='512', height=str(ROW_HEIGHT), bitmap='xbox/bitmaps/option_bkds',
                          font=r'ui\large_ui', color=BLUE, text_x='13', text_y='4',
                          text='START GAME' if page == 'server_settings' else 'SAVE')
-    root.append(action)
+    if page != 'server_settings':
+        root.append(action)
     widgets[action.get('name')] = action
-    last = max(int(c.get('y')) for c in options.findall('child'))
-    child(options, action.get('name'), x=54, y=last + (24 if page == 'server_settings' else ROW_PITCH))
+    if page != 'server_settings':
+        last = max(int(c.get('y')) for c in options.findall('child'))
+        child(options, action.get('name'), x=54, y=last + ROW_PITCH)
+    else:
+        widgets[base + '/invite_value'].attrib.update(width='238', height='53', font=r'ui\large_ui', color='#FFFFFFFF')
+        widgets[base + '/x_butn_invite'].attrib.update(width='238', height='53')
     for c in options.findall('child'):
         row = widgets[c.get('widget')]
         row.set('height', str(ROW_HEIGHT))
@@ -1247,6 +1268,8 @@ def screen_pairs():
                   'main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen'))
     pairs.append(('pc/xbox/main_menu/quit_select/quit_screen', 'main_menu/quit_select/quit_screen'))
     pairs.append(('pc/xbox/error/confirm_join_big_modal_fullscreen', 'error/confirm_join_big_modal_fullscreen'))
+    pairs.append(('ui/shell/main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen',
+                  'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen'))
     for group in ('vehicle', 'teamplay'):
         name = f'main_menu/settings_select/multiplayer_setup/{group}_options_edit/{group}_options_screen'
         pairs.append(('ui/shell/' + name, name))

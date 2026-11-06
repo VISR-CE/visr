@@ -3048,8 +3048,7 @@ static boolean hosting_cooperative(void)
 /* Server Setup's gametype rows, which co-op hides */
 static char const *const server_settings_gametype_rows[] =
 {
-	"op_game_type", "op_player_options", "op_item_options", "op_vehicle_options", "op_indicator_options",
-	"op_team_options",
+	"op_game_type", "op_gametype_options",
 };
 
 /* the most players a co-op game hosted starts with (maximum_players') */
@@ -3065,8 +3064,6 @@ help_strings, tools/port_settings.py) */
 #define SERVER_PASSWORD_HELP 23
 /* ... and for MAXIMUM PLAYERS past player_capacity()'s warning threshold */
 #define MAXIMUM_PLAYERS_SLOW_HELP 28
-/* ... and for SHARE MAPS, by its choice (port/linux/game/map_share.c) */
-#define MAP_SHARE_HELP 24
 #define COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP 26
 #define COOPERATIVE_FIRETEAM_HELP 29
 #define COOPERATIVE_OPTIONS_HELP 31
@@ -3276,7 +3273,7 @@ static void server_settings_update(struct widget_instance *list)
 		snprintf(code, sizeof(code), "%s", text);
 		snprintf(text, sizeof(text), "JOIN CODE %s", code);
 	}
-	text_field_show(named(list, "invite_value", 0), text, FALSE);
+	text_field_show(named(screen_of(list), "invite_value", 0), text, FALSE);
 	{
 		wchar_t type[ROW_TEXT_LENGTH];
 
@@ -3284,6 +3281,10 @@ static void server_settings_update(struct widget_instance *list)
 		text_set(named(list, "game_type_value", 0), type);
 	}
 	settings_help(list);
+	if (list->parameters.list.extended_description &&
+		(list->focused_child == named(list, "op_game_type", 0) ||
+		list->focused_child == named(list, "op_gametype_options", 0)))
+		list->parameters.list.extended_description->parameters.text_box.string_list_index = 4;
 	/* MAXIMUM PLAYERS past the warning threshold (player_capacity()) says so */
 	if (spinner && list->focused_child == named(list, "op_max_players", 0) && list->parameters.list.extended_description &&
 		player_capacity_exceeded(maximum_players[*server_settings_maximum_players_index()]))
@@ -3298,16 +3299,6 @@ static void server_settings_update(struct widget_instance *list)
 		if (cooperative && list->parameters.list.extended_description &&
 			list->focused_child == named(list, "op_coop_options", 0))
 			list->parameters.list.extended_description->parameters.text_box.string_list_index = COOPERATIVE_OPTIONS_HELP;
-	}
-	/* SHARE MAPS (any game's: map_share.c), ON or OFF: its help is its
-	choice's. Its spinner keeps network.map_share itself */
-	if ((spinner = named(list, "map_share_spinner", 0)) != NULL)
-	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
-		struct widget_instance *help = list->parameters.list.extended_description;
-
-		if (help && list->focused_child == named(list, "op_map_share", 0))
-			help->parameters.text_box.string_list_index = (short)(MAP_SHARE_HELP + choice);
 	}
 	/* LISTING (an internet game's): PUBLIC, listed in everyone's server
 	browser, or PRIVATE, for this game. Its help is its choice's */
@@ -5454,6 +5445,12 @@ static struct
 	short vehicle_side;
 } gametype_edit = { { 0 }, 0, 0, 0, TRUE, NONE, FALSE };
 
+/* The stock Xbox editor's handlers also edit this game's copy in setup mode. */
+boolean pc_menu_gametype_setup_active(void)
+{
+	return gametype_edit.setup;
+}
+
 static struct game_variant *edit_variant(void)
 {
 	return gametype_edit.setup ? &gametype_edit.setup_variant : player_ui_get_edit_playlist_profile();
@@ -6283,7 +6280,26 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "mp profile save changes"))
 		{
+			if (gametype_edit.setup)
+			{
+				/* The setup copy survives returning to Server Setup; START GAME applies it. */
+				ui_widget_port_go_back(widget);
+				*widget_deleted = TRUE;
+				return TRUE;
+			}
 			return ui_widget_port_gametype_save(widget, widget_deleted);
+		}
+		else if (!strcmp(name, "close if not editing profile"))
+		{
+			return gametype_edit.setup || game_function(name, widget, event, widget_deleted);
+		}
+		else if (!strcmp(name, "mp profile change name"))
+		{
+			return gametype_edit.setup ? campaign_fail() : game_function(name, widget, event, widget_deleted);
+		}
+		else if (!strcmp(name, "mp profile end editing"))
+		{
+			return gametype_edit.setup || game_function(name, widget, event, widget_deleted);
 		}
 		else if (!strcmp(name, "mp profile begin editing"))
 		{
@@ -6559,7 +6575,7 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "port delete request"))
 		{
-			return ui_widget_port_delete_request();
+			return gametype_edit.setup ? campaign_fail() : ui_widget_port_delete_request();
 		}
 		else if (!strcmp(name, "initialize sp level list solo"))
 		{

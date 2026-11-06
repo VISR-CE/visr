@@ -3475,6 +3475,11 @@ boolean ui_widget_event_handler_function_invoke(
 	run what changes the player's files or settings: ui_widget_function_denied */
 	if (ui_widget_function_denied(widget, function_index))
 		return TRUE;
+	/* port: the stock editor can edit Server Setup's copy without a saved profile. */
+	{
+		extern long pc_menu_setup_event_function(long function);
+		function_index = (word)pc_menu_setup_event_function(function_index);
+	}
 	/* port: preserve the initiating controller across the keyboard's event flush. */
 	virtual_keyboard_set_controller_context(event && event->controller_index >= 0 && event->controller_index < 4 ?
 		event->controller_index : widget->local_player_index);
