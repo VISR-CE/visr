@@ -566,7 +566,27 @@ def multiplayer_documents(assets, bitmaps):
         for w in list(root.findall('widget')):
             if w.get('name', '').endswith('_screen'):
                 legend(root, w, w.get('name') + '/legend')
+    filters_layout(documents['main_menu.multiplayer_type_select.join_game.filters.xml'], widgets)
     return documents
+
+
+def filters_layout(root, widgets):
+    """The server browser's FILTERS: each spinner applies as it changes, so the
+    screen has only B BACK (its PC OK button and A SELECT have nothing to do)."""
+    base = 'xbox/' + MP + '/join_game/filters'
+    screen = widgets[base + '/filters_screen']
+    for c in list(screen.findall('child')):
+        if c.get('widget').endswith(('/legend/a_butn', '/legend/=accept')):
+            screen.remove(c)
+        elif c.get('widget').endswith('/legend/b_butn'):
+            c.set('x', '471')
+        elif c.get('widget').endswith('/legend/=cancel'):
+            c.set('x', '493')
+    root.find(f"widget[@name='{base}/filters_screen/legend/=cancel']").set('text', 'BACK')
+    menu = widgets[base + '/options_menu']
+    for c in list(menu.findall('child')):
+        if c.get('widget') == base + '/button_bar':
+            menu.remove(c)
 
 
 def selection_layout(widgets, bitmaps):
@@ -778,16 +798,16 @@ def browser_layout(root, widgets, bitmaps):
     # it, outlined while focused (menu_functions.c's browser_filters_button_update).
     # (a list of its own, as the tickers are, so the nine-row window does not
     # take it for a server row)
-    filters = widget(root, base + '/browser_filters', type='column_list', width=112, height=22,
+    filters = widget(root, base + '/browser_filters', type='column_list', width=128, height=28,
                      bitmap='xbox/bitmaps/option_bkds_sm2', color=BLUE)
     for event in ('a', 'start'):
         ET.SubElement(filters, 'on', event=event, run='gamespy select button')
     ET.SubElement(filters, 'on', event='left_mouse', run='mouse emit accept event')
     child(filters, base + '/browser_filters_label', x=0, y=0)
-    widget(root, base + '/browser_filters_label', type='text', width=112, height=22, text='FILTERS',
-           font=r'ui\small_ui', color=BLUE, align='center', text_y='3', text_flags='no_focus_test')
+    widget(root, base + '/browser_filters_label', type='text', width=128, height=28, text='FILTERS',
+           font=r'ui\small_ui', color=BLUE, align='center', text_y='6', text_flags='no_focus_test')
     header_index = list(rows).index(rows.find(f"child[@widget='{base}/join_game_header']"))
-    rows.insert(header_index, ET.Element('child', widget=filters.get('name'), x='264', y='64'))
+    rows.insert(header_index, ET.Element('child', widget=filters.get('name'), x='256', y='60'))
     # FILTERS is its own screen here, not the PC browser's hidden panel.
     for c in list(screen.findall('child')):
         if c.get('widget') == base + '/filters/filters_screen':
@@ -813,6 +833,10 @@ def browser_layout(root, widgets, bitmaps):
         header = widgets[c.get('widget')]
         header.set('width', str(width))
         header.attrib.pop('bitmap', None)
+        # (the sort arrow: at the title's right edge, inside its 18-unit row)
+        for arrows in header.findall('child'):
+            if arrows.get('widget').endswith('/header_sort_arrows'):
+                arrows.attrib.update(x=str(width - 14), y='1')
         get('sort_header_' + field).set('width', str(width))
     for leaf in ('item_ticker_player_info', 'item_ticker_rules_info'):
         item = get(leaf)

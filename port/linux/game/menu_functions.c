@@ -4199,9 +4199,21 @@ static short browser_filter_and_sort(struct p2p_listing *games, short count, sho
 	return written;
 }
 
-#ifdef HALO_DEVELOPMENT_HOOKS
+/* whether development-only switches apply: the host's build says so (HALO_DEVELOPMENT_HOOKS, off in App Store
+packages; the guest is not compiled with it) */
+#ifdef HALO_ILP32
+extern int host_development_hooks(void);
+#else
+static int host_development_hooks(void)
+{
+	char const *value = getenv("HALO_DEVELOPMENT_HOOKS");
+
+	return value && !strcmp(value, "1");
+}
+#endif
+
 /* debug.browser_fake_games: a fixed list in place of the live one, so the browser's sort, filters and empty
-result can be screenshot the same each time. Compiled out of App Store packages. */
+result can be screenshot the same each time. Development builds only (host_development_hooks). */
 static short browser_fake_games(struct p2p_listing *games)
 {
 	static struct
@@ -4251,7 +4263,6 @@ static short browser_fake_games(struct p2p_listing *games)
 	}
 	return index;
 }
-#endif
 
 /* A development build lists one extra marked game when debug.browser_fake_big is set, so the join warning can be
 screenshot without a real host (set HALO_NET_PLAYER_CAPACITY below 16 as well). Compiled out of App Store packages. */
@@ -4259,12 +4270,10 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 {
 	short count;
 
-#ifdef HALO_DEVELOPMENT_HOOKS
-	if (config_boolean("debug.browser_fake_games"))
+	if (config_boolean("debug.browser_fake_games") && host_development_hooks())
 		count = browser_fake_games(games);
 	else
-#endif
-	count = lobby_browser_valid_games(games, (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES));
+		count = lobby_browser_valid_games(games, (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES));
 #ifdef HALO_DEVELOPMENT_HOOKS
 	if (config_boolean("debug.browser_fake_big") && count < LOBBY_BROWSER_GAMES)
 	{
@@ -4382,6 +4391,24 @@ static void browser_filters_button_update(struct widget_instance *list)
 			usnprintf(text, NUMBEROF(text) - 1, L"FILTERS");
 		text_set(named(button, "browser_filters_label", 0), text);
 		button->animation.current_frame_index = list->focused_child == button ? 1 : 0;
+	}
+	/* (the column title with the focus drawn white, as a focused item's text is: the engine whitens only a list's
+	focused child, so each title's own list points at its text while the title has the focus) */
+	{
+		struct widget_instance *headers = named(list, "join_game_header", 0);
+		struct widget_instance *header, *child;
+
+		for (header = headers ? headers->child : NULL; header; header = header->next)
+		{
+			boolean focused = list->focused_child == headers && headers->focused_child == header && !header->disabled;
+
+			header->focused_child = NULL;
+			for (child = focused ? header->child : NULL; child; child = child->next)
+			{
+				if (!strncmp(child->name, "sort_header_", 12))
+					header->focused_child = child;
+			}
+		}
 	}
 	for (index = 0; screen && named(screen, "header_sort_arrows", index); index++)
 	{
