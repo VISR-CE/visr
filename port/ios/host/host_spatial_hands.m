@@ -203,8 +203,15 @@ whose dropouts all happen with the hand at one offset from the head is a
 posture problem and not a code one, and there is no way to tell that from a
 line carrying only the dropout's length. The last reading rather than this
 sample's, because the question a loss asks is where the hand was when it was
-last seen */
+last seen.
+
+last_seen_known says a head was placed when that reading was taken, which is what the line's
+own "from" field reports. Without one there is no offset from the head to record, so nothing
+is written and the line says so rather than carrying a position measured from nothing: a hand
+has never once been at the head, so three zeros would read as a reading rather than as the
+absence of one */
 static float last_seen[2][3];
+static int last_seen_known[2];
 /* the reduced joints of the last game sample (host_spatial_hands.h): what a
 gesture recognizer reads, while the aim itself needs only the wrist and the
 forearm */
@@ -514,6 +521,7 @@ static void drain(void)
 		old session's origin: the line would otherwise report the new session's first dropout at
 		a position measured in the one before it */
 		memset(last_seen, 0, sizeof(last_seen));
+		memset(last_seen_known, 0, sizeof(last_seen_known));
 		host_logf(HOST_LOG_INFO, "spatial: ARKit's session ended; the hand provider starts again with the next");
 	}
 	if (!session)
@@ -564,6 +572,11 @@ static int reason_of(void)
 	return HALO_SPATIAL_READY;
 }
 
+/* the stand-in for a head that was never placed, for the one subtraction below that is right
+to make against nothing (position_of, which says why). Never handed to the guest: location_of
+refuses a position rather than measuring one from this */
+static const float no_head[3] = { 0.0f, 0.0f, 0.0f };
+
 /* a room transform into the room's level frame from the head, as
 host_spatial.m's location_of. debug.controller_aim_axes has nothing to
 calibrate on a transform this file builds itself, so the barrel is always its
@@ -573,21 +586,38 @@ static void location_of(simd_float4x4 transform, const float *head_position, str
 	float room_from_location[16];
 
 	memcpy(room_from_location, &transform, sizeof(room_from_location));
-	host_spatial_location(room_from_location, head_position, HOST_SPATIAL_AXIS_MINUS_Z, HOST_SPATIAL_AXIS_PLUS_Y,
-		location);
+	host_spatial_location(room_from_location, head_position ? head_position : no_head,
+		HOST_SPATIAL_AXIS_MINUS_Z, HOST_SPATIAL_AXIS_PLUS_Y, location);
 	/* The head and every hand position must share one origin correction,
 	as the Sense tracker's locations do. */
 	host_stereo_room_vector(location->forward);
 	host_stereo_room_vector(location->left);
 	host_stereo_room_vector(location->up);
 	host_stereo_room_vector(location->position);
+	/* With no head there is no position, and the room's own would be taken for one: the axes
+	stand, since nothing in them is measured from the head, and the position is left at
+	nothing. That is what the ORIENTATION state hand_of sets alongside it tells the guest to
+	expect ("position is the last good one", halo_spatial.h). This is the one place the
+	refusal has to happen, because this is the only position that crosses to the guest. */
+	if (!head_position)
+		memset(location->position, 0, sizeof(location->position));
 }
 
 /* a joint's room position in the room's level frame from the head, exactly
-as a location's position is */
+as a location's position is.
+
+With no head the room's own coordinates come through, which is deliberate and is the opposite
+of what location_of does with them. Only the reduced joints reach here on such a sample, and
+nothing reads one of those as a position in its own right: a pinch is the distance between two
+of them, the prayer sign compares two palms' normals, and a carried fingertip is stored and
+read back through the same palm frame (host_spatial_hands.c), so an offset common to the whole
+hand cancels in every one of them. Zeroing them instead would collapse every distance the
+recognizer measures and take the menus' own pinches and arm sweep with it, which are read from
+exactly these samples */
 static void position_of(simd_float3 room, const float *head_position, float game[3])
 {
-	float offset[3] = { room.x - head_position[0], room.y - head_position[1], room.z - head_position[2] };
+	const float *head = head_position ? head_position : no_head;
+	float offset[3] = { room.x - head[0], room.y - head[1], room.z - head[2] };
 
 	host_spatial_room_to_game(offset, game);
 	host_stereo_room_vector(game);
@@ -653,7 +683,9 @@ static void hand_unreadable(int hand, const float *head_position, struct halo_sp
 	aim_outcome[hand] = hands_aim_hold(&aim_hold[hand], 0, aim_gap, aim_loss, now);
 	if (aim_outcome[hand] != HANDS_AIM_HELD)
 		return;
-	out->state = HALO_SPATIAL_TRACKED;
+	/* ORIENTATION without a head, for the reason hand_of gives: the kept barrel is still the
+	barrel, and the position location_of leaves at nothing is not a position */
+	out->state = head_position ? HALO_SPATIAL_TRACKED : HALO_SPATIAL_ORIENTATION;
 	out->held = 1;
 	/* the same two columns the live path fills, from the kept pose rather than this sample's */
 	aim.columns[1].xyz = last_up[hand];
@@ -750,8 +782,14 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 	reduced->forearm_tracked = tracked[JOINT_FOREARM_ARM];
 	position_of(wrist.columns[3].xyz, head_position, reduced->wrist);
 	/* the same vector the reduced joints carry, kept for the aim condition's
-	line: this is the reading a loss is measured back from (last_seen) */
-	memcpy(last_seen[hand], reduced->wrist, sizeof(last_seen[hand]));
+	line: this is the reading a loss is measured back from (last_seen). From a sample that had
+	a head only, since the line reports it as an offset from the head and the reduced joints of
+	a sample without one are the room's own coordinates instead */
+	if (head_position)
+	{
+		memcpy(last_seen[hand], reduced->wrist, sizeof(last_seen[hand]));
+		last_seen_known[hand] = 1;
+	}
 	position_of(room[JOINT_FOREARM_ARM].columns[3].xyz, head_position, reduced->forearm_arm);
 	for (i = 0; i < 5; i++)
 	{
@@ -792,7 +830,14 @@ static void hand_of(int hand, ar_hand_anchor_t anchor, const float *head_positio
 		hand_unreadable(hand, head_position, out, now);
 		return;
 	}
-	out->state = HALO_SPATIAL_TRACKED;
+	/* TRACKED is a promise about the position as much as about the hand, and with no head
+	there is no position to promise (location_of below leaves it at nothing). ORIENTATION is
+	the state for precisely that: the guest takes this sample's barrel and keeps the last
+	position it had, and places nothing at all before the first (halo_spatial.h's own note on
+	the state, and controller_aim_game.c's hand_sightline, which remembers a location from a
+	TRACKED sample alone). The gestures are untouched either way, since they read the reduced
+	joints above and those are filled on both paths */
+	out->state = head_position ? HALO_SPATIAL_TRACKED : HALO_SPATIAL_ORIENTATION;
 	/* the zoom stabilizer counts an unheld hand as lost
 	(controller_aim_game.c's hand_sightline), and a tracked bare hand is as
 	held as hand aim gets */
@@ -1082,7 +1127,12 @@ lines finds the first nine where they were:
 	          volume in front of it, and this port's aim pitch trim says the player holds the
 	          gun low, so a session whose dropouts cluster at one offset is a posture problem
 	          with a posture answer and not a code one. Without this field there is nothing in
-	          the log that could tell those two apart */
+	          the log that could tell those two apart
+	from      what the three numbers above were measured from: "head", or "none" where no head
+	          had been placed when the wrist was last read and they are therefore zeros and not
+	          a reading. Appended after at so its own three columns stay where they were. The
+	          first session to carry the at field read "none" as a position and reported hands
+	          more than a metre above the head all through the menus (hands_head_hold) */
 static void log_aim_condition(int hand, const struct host_spatial_hand_joints *reduced, int outcome, double now)
 {
 	static const char *const names[] = { "lost", "held", "held_past", "carried", "measured" };
@@ -1102,10 +1152,11 @@ static void log_aim_condition(int hand, const struct host_spatial_hand_joints *r
 		return;
 	if (aim_condition[hand] >= 0)
 		host_logf(HOST_LOG_INFO, "hands: aim %s %s for %.3f s, now %s fault %s wrist %s fidelity %s "
-			"at %.3f forward %.3f left %.3f up", hand ? "right" : "left",
+			"at %.3f forward %.3f left %.3f up from %s", hand ? "right" : "left",
 			names[aim_condition[hand]], now - aim_condition_since[hand], names[condition],
 			fault_names[aim_fault[hand]], wrist_names[aim_wrist[hand]], fidelity_names[aim_fidelity[hand]],
-			(double)last_seen[hand][0], (double)last_seen[hand][1], (double)last_seen[hand][2]);
+			(double)last_seen[hand][0], (double)last_seen[hand][1], (double)last_seen[hand][2],
+			last_seen_known[hand] ? "head" : "none");
 	aim_condition[hand] = condition;
 	aim_condition_since[hand] = now;
 }
@@ -1258,5 +1309,6 @@ void host_spatial_hands_idle(void)
 	aim_wrist[0] = aim_wrist[1] = AIM_WRIST_UNKNOWN;
 	aim_fidelity[0] = aim_fidelity[1] = AIM_FIDELITY_UNKNOWN;
 	memset(last_seen, 0, sizeof(last_seen));
+	memset(last_seen_known, 0, sizeof(last_seen_known));
 }
 #endif

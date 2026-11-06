@@ -519,6 +519,31 @@ struct hands_aim_hold { int known; double lost_since; int past_gap; };
 
 int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds, int loss_mode, double now);
 
+/* The head a hand's position is measured from, held across the samples that have no latch of
+their own.
+
+Every position this file's callers hand out is an offset from the head, so a sample taken with
+no head has no position to give: subtracting nothing leaves the room's own coordinates, which
+are a different quantity in the same units and read as a hand a metre or more from where it
+is. The stereo side latches the head only while the head drives the view, so on the screen
+(the menus, a cinematic, a level load) and on any frame the compositor refuses there is no
+latch at all, while the hand anchors keep arriving and the gestures keep being read from them.
+That is the sample this exists for.
+
+A head that was latched is remembered and given back for those samples, which bounds the error
+at the player's own movement since the last latch rather than at their distance from the
+room's origin. Before the first latch of a run there is nothing to remember and this answers
+NULL, which is the caller's signal that no position can be expressed at all this sample: the
+hand reaches the guest orientation-only (host_spatial_hands.m's hand_of). NULL rather than a
+zero vector on purpose, since a zero vector is a legal head position and is the one that
+caused this.
+
+Zeroed is the right starting state. latched is the head placed this sample, or NULL where none
+was; the vector returned is this hold's own copy and stays valid until the next call */
+struct hands_head_hold { int known; float position[3]; };
+
+const float *hands_head_hold(struct hands_head_hold *hold, const float *latched);
+
 #ifdef __OBJC__
 #import <CompositorServices/CompositorServices.h>
 
@@ -528,7 +553,11 @@ for the drawing sample that follows in this frame; a NULL drawable drops the
 held one, as host_spatial_frame's does. The hold through a pending recenter
 is the caller's instead: host_spatial.m's hands_frame returns without calling
 in at all, drawable or not, so the held sample stays paired with the head it
-was made against until the origin rebases */
+was made against until the origin rebases.
+
+head_position is hands_head_hold's answer: the head every position in the
+sample is measured from, or NULL where no head has been placed yet. Both of
+these take it, and both treat NULL the same way (hand_of) */
 void host_spatial_hands_frame(cp_drawable_t drawable, const float head_position[3], double predict_to);
 /* fills the sample's hands, reason and (game sample) the gamepad from the
 latest hand anchors; returns 1 when it filled, 0 when hands are not the

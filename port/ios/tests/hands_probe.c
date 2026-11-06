@@ -7,9 +7,10 @@ on, the length of the hold every release reports behind itself, the gun and
 off hand's button and stick mapping, the aim turn (smooth and snap) and the
 arm's elevation beside it on the same stick, with the sign that makes a
 raised arm raise the gun, the prayer sign's dwell and Start pulse, the
-whole-hand gap a blink is held through, and that a hand untracked past that
+whole-hand gap a blink is held through, that a hand untracked past that
 gap opens every one of its pinches and zeros every one of its own
-controls. */
+controls, and the held head a hand's position is measured from across the
+samples the stereo side latches none for. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -2350,6 +2351,50 @@ static void aim_hold_never_gives_up_in_hold_mode(void)
 		"aim hold mode: with nothing ever pointed, hold mode is still lost");
 }
 
+/* the head a hand's position is measured from, held across the samples that have no latch
+(hands_head_hold). The fault this guards: on the screen -- the menus, a cinematic, a level
+load -- the stereo side latches no head, the caller's buffer was left at the zero it was
+declared with, and a zero head is a legal head, so every hand position in those samples came
+out as the room's own coordinates with nothing to say so. The whole point of answering NULL
+before the first latch is that no vector can carry that meaning */
+static void head_hold_stands_in_for_a_missing_latch(void)
+{
+	struct hands_head_hold hold;
+	float latch[3] = { 0.5f, 1.6f, -0.25f };
+	const float *head;
+
+	memset(&hold, 0, sizeof(hold));
+	/* before the first latch of a run there is nothing to stand in with, and the caller has to
+	be told rather than handed a position it cannot tell from a real one */
+	check(hands_head_hold(&hold, NULL) == NULL, "head hold: nothing placed yet is nothing, not a zero");
+	check(hands_head_hold(&hold, NULL) == NULL, "head hold: and asking again does not invent one");
+
+	head = hands_head_hold(&hold, latch);
+	check(head != NULL && near(head[0], 0.5f, 1e-6f) && near(head[1], 1.6f, 1e-6f) &&
+		near(head[2], -0.25f, 1e-6f), "head hold: a latched head comes straight back");
+
+	/* the caller's buffer is its own sample's and is overwritten or left stale by the next;
+	the hold keeps a copy, so the samples that follow are measured from the head and not from
+	whatever that buffer happens to hold */
+	latch[0] = 99.0f;
+	latch[1] = 99.0f;
+	latch[2] = 99.0f;
+	head = hands_head_hold(&hold, NULL);
+	check(head != NULL && near(head[0], 0.5f, 1e-6f) && near(head[1], 1.6f, 1e-6f) &&
+		near(head[2], -0.25f, 1e-6f), "head hold: a sample with no latch keeps the last head");
+	check(head != latch, "head hold: and never hands back the caller's own buffer");
+
+	/* and the next latch replaces it, however long the run without one lasted */
+	head = hands_head_hold(&hold, latch);
+	check(head != NULL && near(head[0], 99.0f, 1e-6f) && near(head[1], 99.0f, 1e-6f) &&
+		near(head[2], 99.0f, 1e-6f), "head hold: a fresh latch replaces the held one");
+
+	/* zeroed again is the start of a run again: a session that ended takes its head with it,
+	since the origin the next one places the hands in is not the one that head was read in */
+	memset(&hold, 0, sizeof(hold));
+	check(hands_head_hold(&hold, NULL) == NULL, "head hold: zeroed is a fresh run with no head");
+}
+
 int main(void)
 {
 	pinch_hysteresis();
@@ -2403,6 +2448,7 @@ int main(void)
 	tip_distances_report_each_ruler();
 	aim_hold_through_a_blink();
 	aim_hold_never_gives_up_in_hold_mode();
+	head_hold_stands_in_for_a_missing_latch();
 	if (failures)
 	{
 		printf("hands probe: %d FAILED\n", failures);

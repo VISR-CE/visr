@@ -116,6 +116,14 @@ and not asked of the hands source, because the Sense tracker takes the sample
 back the moment it is READY and then the hands source is never called again
 to notice */
 static int hands_filled_sample;
+/* the head every hand position in a sample is measured from, across the samples that have no
+latch of their own (hands_head_hold, which carries the reasoning). Both samples go through it,
+the drawing one from its drawable's device anchor and the game one from the stereo latch, so
+the two are never measured from different heads for want of one. Both of those run on the game
+thread and in that order (this file's own opening note: the drawing sample is taken at the
+frame's begin, inside host_stereo_frame, and the game sample follows), so this has the one
+writer the provider's anchors have */
+static struct hands_head_hold head_hold;
 #endif
 /* 1 while controller aim owns the Sense controllers: the tracker runs with
 both loaded, so their buttons merge into port 0 (the game sample's
@@ -259,6 +267,8 @@ gates, so it runs with or without the Sense SDK */
 static void hands_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device)
 {
 	float back[3], position[3] = { 0.0f, 0.0f, 0.0f };
+	const float *head = NULL;
+	int latched = 0;
 	double time = 0.0;
 
 	/* the same gate tracker_start runs under (read_settings): a synthetic controller or a
@@ -283,13 +293,19 @@ static void hands_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 			position[0] = origin_from_device->columns[3].x;
 			position[1] = origin_from_device->columns[3].y;
 			position[2] = origin_from_device->columns[3].z;
+			latched = 1;
 		}
 		else
-			host_stereo_last_head(back, position);
+			latched = host_stereo_last_head(back, position);
 		time = cp_time_to_cf_time_interval(cp_frame_timing_get_trackable_anchor_time(
 			cp_drawable_get_frame_timing(drawable)));
 	}
-	host_spatial_hands_frame(drawable, position, time);
+	/* the latch's own answer rather than the buffer it wrote into: host_stereo_last_head
+	leaves the buffer untouched when it has nothing, which left a zero vector standing in for
+	the head and every hand position in the sample measured from the room's origin instead of
+	from the player. hands_head_hold is where that is decided now */
+	head = hands_head_hold(&head_hold, latched ? position : NULL);
+	host_spatial_hands_frame(drawable, head, time);
 }
 #endif
 
@@ -1251,6 +1267,13 @@ void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 {
 	float back[3], position[3] = { 0.0f, 0.0f, 0.0f };
+	/* one reading of the latch for this whole sample: the turn it gives the guest and the head
+	the hand positions are measured from are two questions about it, and a second reading could
+	answer them from two different frames */
+	int latched;
+#if TARGET_OS_VISION
+	const float *head;
+#endif
 
 	if (!settings_read)
 		read_settings();
@@ -1259,13 +1282,34 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 	/* the head at the last host_stereo_frame's latch: for the drawing
 	sample, taken after it, this frame's */
 	sample->head_level = 1;
-	if (host_stereo_last_head(back, position))
+	latched = host_stereo_last_head(back, position);
+	if (latched)
 	{
 		int level;
 
 		sample->head_yaw = host_spatial_head_yaw(back, &level) + host_stereo_room_yaw_offset();
 		sample->head_level = level;
 	}
+#if TARGET_OS_VISION
+	/* and the head the hand positions below are measured from, which is not the same question.
+	The latch above is cleared for every frame the head does not drive the view: the menus, a
+	cinematic and a level load all run on the screen, and there host_stereo_last_head answers
+	nothing and leaves position at the zero it was declared with. A zero head is a legal head,
+	so nothing downstream could tell it from a player standing on the room's origin, and every
+	hand position in the sample came out as the room's own coordinates: a session's log showed
+	the gun hand a metre and a half above the head for the whole of the menus and an honest
+	third of a metre below it from the first frame of play onward. hands_head_hold holds the
+	last head that was placed for those samples, and answers nothing at all before the first,
+	which the hands source reads as a hand it can orient but not place */
+	head = hands_head_hold(&head_hold, latched ? position : NULL);
+	/* the Sense tracker's own positions are measured from the same head and were zeroed on the
+	same samples. It is given the held head, which is strictly closer than the room's origin;
+	it is not given the no-head case, since its sample carries an accessory anchor's own
+	position and host_spatial_misplaced_update already refuses to judge one without a live
+	latch. A tracker that should decline the sample outright there is its own change */
+	if (head)
+		memcpy(position, head, sizeof(position));
+#endif
 	if (replay_on && host_spatial_replay_next(kind, sample))
 		;
 	else if (synthetic_on)
@@ -1295,7 +1339,7 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 		however many controllers are tracked */
 		if (aim_hands)
 		{
-			host_spatial_hands_sample(kind, sample, position);
+			host_spatial_hands_sample(kind, sample, head);
 			if (kind == HALO_SPATIAL_SAMPLE_GAME)
 			{
 				hands_filled_sample = host_spatial_hands_active();
@@ -1331,7 +1375,10 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 		sample->gamepad_valid != 2)
 	{
 		const struct halo_spatial_hand *hand = &sample->hands[sample->aiming_hand ? 1 : 0];
-		int has_head = sample->synthetic == 2 ? sample->head_yaw != 0.0f : host_stereo_last_head(back, position);
+		/* the live latch, which is what this test means by a head: a held one says where the
+		player was and not that the two readings are in one frame, which is the whole question
+		here (host_spatial_pose.h's misplaced test) */
+		int has_head = sample->synthetic == 2 ? sample->head_yaw != 0.0f : latched;
 		int change = host_spatial_misplaced_update(&misplaced, hand, has_head, seconds_now());
 
 		if (change > 0)

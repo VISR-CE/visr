@@ -354,6 +354,24 @@ int hands_aim_hold(struct hands_aim_hold *hold, int readable, float gap_seconds,
 	return HANDS_AIM_HELD;
 }
 
+/* the head a hand's position is measured from (host_spatial_hands.h, which carries the
+reasoning). Deliberately the same shape as hands_aim_hold above, and for the same reason: a
+reading arrives or it does not, the last good one stands in while it does not, and before the
+first there is nothing to stand in with and the caller is told so rather than handed a zero */
+const float *hands_head_hold(struct hands_head_hold *hold, const float *latched)
+{
+	if (latched)
+	{
+		hold->position[0] = latched[0];
+		hold->position[1] = latched[1];
+		hold->position[2] = latched[2];
+		hold->known = 1;
+	}
+	/* the hold's own copy either way, never the caller's pointer: the latch the caller read
+	into lives for one sample and the hand positions of the next are measured from this */
+	return hold->known ? hold->position : NULL;
+}
+
 /* whether one hand counts as gone this sample, which is what everything
 below acts on rather than the anchor's own tracked flag. ARKit can stop
 reporting a whole hand for a sample or two, and reading that as a hand put
