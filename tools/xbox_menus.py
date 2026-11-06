@@ -622,7 +622,8 @@ def multiplayer_documents(assets, bitmaps):
         shared.append(deepcopy(definitions['strings', name]))
     browser_layout(documents['main_menu.multiplayer_type_select.join_game.xml'], widgets, bitmaps)
     quit_layout(documents['main_menu.quit_select.xml'], widgets)
-    map_screen_layout(documents['main_menu.multiplayer_type_select.mp_map_select.xml'], widgets)
+    map_screen_layout(documents['main_menu.multiplayer_type_select.mp_map_select.xml'], widgets,
+                      documents['multiplayer.shared.xml'])
     # The PC roster needs eleven slots. Use the advanced-controls row pitch
     # with the server-list column, and the connected pregame's right column.
     # Unlike static options, the campaign's data function scrolls its entries.
@@ -642,7 +643,7 @@ def multiplayer_documents(assets, bitmaps):
     return documents
 
 
-def map_screen_layout(root, widgets):
+def map_screen_layout(root, widgets, shared):
     """The Map screen's long names (campaign levels such as "The Truth and Reconciliation") fit: this screen's
     rows and its campaign title use the small font, in copies of the shared widgets (the other screens keep
     theirs), and the description sits in the one panel the screen draws, as the other Xbox lists' do (the PC
@@ -668,8 +669,15 @@ def map_screen_layout(root, widgets):
                 if inner.get('widget').endswith('/list_item_text'):
                     inner.set('widget', base + '/list_item_text')
             c.set('widget', row.get('name'))
+    # (the campaign names carry a line break for the PC panel's narrow column: one line here)
+    names = next(e for e in shared if e.tag == 'strings' and e.get('name') == 'xbox/main_menu/map_list')
+    one_line = deepcopy(names)
+    one_line.set('name', base + '/map_list_one_line')
+    for string in one_line:
+        string.set('text', ' '.join(string.get('text').replace('\\n', ' ').replace('\n', ' ').split()))
+    root.append(one_line)
     title = copy('xbox/main_menu/solo_level_select/replay_level_right_name', base + '/replay_level_right_name',
-                 font=small, height=22, text_y=3)
+                 font=small, height=22, text_y=3, string_list=one_line.get('name'))
     right = widgets[base + '/mp_map_right_item']
     right.attrib.update(left='323', top='115', width='254', height='286')
     right.attrib.pop('bitmap', None)

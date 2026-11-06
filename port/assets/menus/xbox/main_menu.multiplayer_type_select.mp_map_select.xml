@@ -155,7 +155,20 @@
 		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
 		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/replay_level_right_name" type="text" controller="1" left="323" top="115" width="254" height="22" string_list="xbox/main_menu/map_list" string_index="2" font="ui\small_ui" color="#FF2896FF" text_y="3">
+	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/map_list_one_line">
+		<string text="The Pillar of Autumn" />
+		<string text="Halo" />
+		<string text="The Truth and Reconciliation" />
+		<string text="The Silent Cartographer" />
+		<string text="Assault on the Control Room" />
+		<string text="343 Guilty Spark" />
+		<string text="The Library" />
+		<string text="Two Betrayals" />
+		<string text="Keyes" />
+		<string text="The Maw" />
+		<string text="This Level Unavailable" />
+	</strings>
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/replay_level_right_name" type="text" controller="1" left="323" top="115" width="254" height="22" string_list="xbox/main_menu/multiplayer_type_select/mp_map_select/map_list_one_line" string_index="2" font="ui\small_ui" color="#FF2896FF" text_y="3">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
