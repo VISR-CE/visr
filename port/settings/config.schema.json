@@ -1984,6 +1984,17 @@
             "desktop"
           ]
         },
+        "network_test_weapon": {
+          "type": "string",
+          "default": "",
+          "description": "In an automated test game, the host puts the first weapon whose tag name has this in it (\"sniper\", say) in the hands of each of its own local players (split screen), again after each respawn; empty none.",
+          "x-environment": "HALO_NETWORK_TEST_WEAPON",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "network_test_public": {
           "type": "boolean",
           "default": false,

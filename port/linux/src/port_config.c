@@ -1349,6 +1349,11 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"The weapon network_test_pickup stands the player on: the first whose tag\n"
 		"name has this in it (\"sniper\", say); empty any." },
+	{ "debug.network_test_weapon", _config_string, "\"\"", "HALO_NETWORK_TEST_WEAPON", _environment_value,
+		_platform_all,
+		"In an automated test game, the host puts the first weapon whose tag name\n"
+		"has this in it (\"sniper\", say) in the hands of each of its own local\n"
+		"players (split screen), again after each respawn; empty none." },
 	{ "debug.network_test_public", _config_boolean, "false", "HALO_NETWORK_TEST_PUBLIC", _environment_value,
 		_platform_all,
 		"The network test's host lists its game in the server browser; browse joins it." },
