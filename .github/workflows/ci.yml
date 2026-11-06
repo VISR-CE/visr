@@ -46,6 +46,11 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
           cache-dependency-glob: tools/requirements-ci.txt
+      - name: Cache the pinned visr-feeds tree
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: build/visr-feeds
+          key: visr-feeds-${{ hashFiles('tools/visr-feeds.pin') }}
       - name: Python tooling, schema, catalog, and Linux probes
         run: uv run --no-project --with-requirements tools/requirements-ci.txt python tools/ci_test.py --linux --junit reports/tooling.xml
       - name: Game-code probes (compiled 32-bit, no game build)
