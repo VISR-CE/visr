@@ -126,7 +126,16 @@ struct nv2a_lighting_slice
 	int normal;
 	/* the outputs the pixel shader replaces: bit 0 oD0, 1 oD1, 2 oT3 */
 	unsigned long outputs;
+	/* the live register that holds the world position (the one the point
+	lights' and the camera's vectors are taken from, c[17] - P and c[4] - P),
+	or -1: a point-light highlight (nv2a_pixel_shader_key lighting_highlight)
+	needs it and the normal */
+	int position;
 };
+
+/* display.point_light_highlight's presets (1 to NV2A_HIGHLIGHT_PRESETS): the
+highlight's brightness and its Blinn-Phong exponent, dim and tight first */
+#define NV2A_HIGHLIGHT_PRESETS 4
 
 int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_count, struct nv2a_lighting_slice *slice);
 /* the programs a lit pixel shader key (nv2a_pixel_shader_key lighting_program)
@@ -145,7 +154,7 @@ int nv2a_lighting_find(uint64_t program_hash, const DWORD **instructions, unsign
 xT3 (nv2a_psh.c) */
 void nv2a_lighting_pixel_helpers(struct xgpu_text *text);
 void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions, unsigned long instruction_count,
-	const struct nv2a_lighting_slice *slice);
+	const struct nv2a_lighting_slice *slice, int highlight);
 
 /* ---------- pixel shaders */
 
@@ -209,7 +218,12 @@ struct nv2a_pixel_shader_key
 	its blend: 1 alpha, 2 color toward white, 3 color toward gray, 4 color,
 	5 color and alpha */
 	unsigned char soft_depth;
-	unsigned char pad[2];
+	/* (later still, with lighting_program) display.point_light_highlight's
+	preset: 0 none, else a highlight from the program's point lights added to
+	the reflection (stage 3's cube map lookup), where the shader's own Fresnel
+	tint and specular mask then apply */
+	unsigned char lighting_highlight;
+	unsigned char pad[1];
 	/* (later still: nv2a_pixel_shader_key_size) per-pixel lighting
 	(display.per_pixel_lighting): the program hash (d3d8_device.c's
 	program_hash) of the lit vertex program this pixel shader is drawn with,

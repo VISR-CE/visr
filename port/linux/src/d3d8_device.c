@@ -5636,6 +5636,8 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 
 /* display.per_pixel_lighting, read once a frame so that a change (the
 graphics mode, a debug A/B) takes effect at the next frame */
+static int point_light_highlight;
+
 static BOOL per_pixel_lighting(void)
 {
 	static unsigned long read_frame = (unsigned long)-1;
@@ -5643,7 +5645,11 @@ static BOOL per_pixel_lighting(void)
 
 	if (read_frame != device.frame)
 	{
+		long highlight = config_integer("display.point_light_highlight");
+
 		read_frame = device.frame;
+		point_light_highlight = highlight < 0 ? 0 : highlight > NV2A_HIGHLIGHT_PRESETS ? NV2A_HIGHLIGHT_PRESETS :
+			(int)highlight;
 		enabled = config_boolean("display.per_pixel_lighting") != FALSE;
 		/* matched stills: on in odd frames only, so that two frames of a paused
 		game show the same picture lit both ways */
@@ -5710,6 +5716,7 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	{
 		key.lighting_program[0] = (unsigned int)program->program_hash;
 		key.lighting_program[1] = (unsigned int)(program->program_hash >> 32);
+		key.lighting_highlight = (unsigned char)point_light_highlight;
 	}
 	draw->vertex_shader = vertex_shader_get(program, immediate, lit);
 	draw->pixel_shader = fragment_shader_get(&key);

@@ -175,6 +175,12 @@ static const struct config_setting config_settings[] =
 		"colors, ranges and falloff, with its reflection tint and direction, worked\n"
 		"out for each pixel instead of at each vertex and blended across the\n"
 		"triangle. Metal only. False lights them per vertex, as the Xbox does." },
+	{ "display.point_light_highlight", _config_integer, "0", "HALO_POINT_LIGHT_HIGHLIGHT", _environment_value, _platform_all,
+		"With display.per_pixel_lighting: a highlight on shiny surfaces from the\n"
+		"two point lights the game already lights each object with (muzzle\n"
+		"flashes, plasma, flashlights), in their own color and range, added to the\n"
+		"surface's reflection so its own tint and specular mask apply. 0 none; 1 to\n"
+		"4 brighter and broader in turn, 1 the dimmest and tightest." },
 	{ "display.shadow_minimum_size", _config_integer, "0", "HALO_SHADOW_MINIMUM_SIZE", _environment_value, _platform_all,
 		"Device-profile floor on how small a character or vehicle may look and still\n"
 		"cast its shadow, in pixels of the 480-line picture, 0 to 240. Shadows fade\n"
@@ -1255,7 +1261,8 @@ static const struct config_setting config_settings[] =
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
-		"anti-aliasing, effect resolution, mirror resolution, per-pixel lighting)\n"
+		"anti-aliasing, effect resolution, mirror resolution, per-pixel lighting,\n"
+		"point-light highlight)\n"
 		"and left and right step its value as the game runs, from the next frame,\n"
 		"shown on screen for\n"
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"

@@ -162,6 +162,17 @@
             "desktop"
           ]
         },
+        "point_light_highlight": {
+          "type": "integer",
+          "default": 0,
+          "description": "With display.per_pixel_lighting: a highlight on shiny surfaces from the two point lights the game already lights each object with (muzzle flashes, plasma, flashlights), in their own color and range, added to the surface's reflection so its own tint and specular mask apply. 0 none; 1 to 4 brighter and broader in turn, 1 the dimmest and tightest.",
+          "x-environment": "HALO_POINT_LIGHT_HIGHLIGHT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_minimum_size": {
           "type": "integer",
           "default": 0,
@@ -1719,7 +1730,7 @@
         "knob_cycle": {
           "type": "boolean",
           "default": false,
-          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
+          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
           "x-environment": "HALO_KNOB_CYCLE",
           "x-environment-style": "value",
           "x-platforms": [

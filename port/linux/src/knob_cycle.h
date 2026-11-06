@@ -42,6 +42,8 @@ static const struct knob knob_table[] = {
 	{ "render quality", "display.render_quality", KNOB_REAL, 3, { "0.5", "0.6", "0.7" }, { "0.5", "0.6", "0.7" } },
 	{ "effect resolution", "display.effect_resolution", KNOB_STRING, 3, { "xbox", "half", "full" }, { "xbox", "half", "full" } },
 	{ "per-pixel lighting", "display.per_pixel_lighting", KNOB_BOOLEAN, 2, { "false", "true" }, { "off", "on" } },
+	{ "light highlight", "display.point_light_highlight", KNOB_INTEGER, 5, { "0", "1", "2", "3", "4" },
+		{ "off", "1 dim", "2", "3", "4 bright" } },
 	/* debug.ssao (spike): off, on, the AO term alone (d3d8_device.c) */
 	{ "ambient occlusion", "debug.ssao", KNOB_INTEGER, 3, { "0", "1", "2" }, { "off", "on", "AO only" } },
 	/* (display.graphics: per-frame settings change on the next frame; Hardcore's picture size and rate at the next

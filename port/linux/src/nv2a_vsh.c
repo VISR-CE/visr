@@ -581,6 +581,7 @@ int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_cou
 
 	memset(slice, 0, sizeof(*slice));
 	slice->normal = -1;
+	slice->position = -1;
 	if (!length || length > NV2A_LIGHTING_MAX_INSTRUCTIONS)
 		return 0;
 	/* a model lighting program reads the ambient color, c[27] */
@@ -666,6 +667,39 @@ int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_cou
 				slice->normal = (int)live;
 		break;
 	}
+	/* the world position: the register both the first point light's vector
+	(c[17] - P) and the camera's (c[4] - P) subtract, read as it stands at
+	the cut */
+	{
+		int light_from = -1, camera_from = -1;
+
+		for (index = (unsigned long)cut; index < length; index++)
+		{
+			const DWORD *instruction = instructions + index * 4;
+			unsigned long swizzle[4];
+			int a, c, constant_a, constant_c;
+
+			if (field(instruction, 1, 21, 4) != _mac_add)
+				continue;
+			a = operand_register(instruction, 'A', swizzle, &constant_a);
+			c = operand_register(instruction, 'C', swizzle, &constant_c);
+			/* (the register operand is the negated one) */
+			if (constant_a == 17 && c >= 0 && field(instruction, 2, 10, 1))
+				light_from = c;
+			else if (constant_c == 4 && a >= 0 && field(instruction, 1, 8, 1))
+				camera_from = a;
+			else if (constant_a == 4 && c >= 0 && field(instruction, 2, 10, 1))
+				camera_from = c;
+		}
+		if (light_from >= 0 && light_from == camera_from)
+		{
+			unsigned long live;
+
+			for (live = 0; live < slice->live_count; live++)
+				if (slice->live[live] == light_from)
+					slice->position = (int)live;
+		}
+	}
 	return 1;
 }
 
@@ -700,11 +734,52 @@ void nv2a_lighting_pixel_helpers(struct xgpu_text *text)
 	xgpu_text_append(text, "%s", shader_helpers);
 }
 
+/* display.point_light_highlight's presets: brightness, Blinn-Phong exponent */
+static const float highlight_presets[NV2A_HIGHLIGHT_PRESETS][2] =
+{
+	{ 0.35f, 96.0f }, { 0.5f, 64.0f }, { 0.75f, 48.0f }, { 1.0f, 32.0f },
+};
+
+/* the point-light highlight: for each of the program's two point lights, the
+game's own color, distance falloff and spot cone (as the vertex program's
+lighting computes them), times a Blinn-Phong lobe toward the camera; the
+pixel shader adds it to the reflection (nv2a_pixel_shader_key
+lighting_highlight) */
+static void lighting_highlight(struct xgpu_text *text, const struct nv2a_lighting_slice *slice, int preset)
+{
+	int light;
+
+	xgpu_text_append(text, "\t{\n\tvec3 hp = in.xL%d.xyz, hn = normalize(in.xL%d.xyz);\n"
+		"\tvec3 hv = normalize(c[4].xyz - hp);\n", slice->position, slice->normal);
+	for (light = 0; light < 2; light++)
+	{
+		int base = 17 + 3 * light;
+
+		xgpu_text_append(text,
+			"\t{\n"
+			"\t\tvec3 l = c[%d].xyz - hp;\n"
+			"\t\tfloat d2 = dot(l, l);\n"
+			"\t\tvec3 ln = l * rsqrt(max(d2, 1.0e-8));\n"
+			"\t\tfloat falloff = clamp(1.0 - d2 * c[%d].w, 0.0, 1.0);\n"
+			"\t\tfloat cone = clamp(dot(ln, -c[%d].xyz) * c[%d].w + c[%d].w, 0.0, 1.0);\n"
+			"\t\tfloat facing = clamp(dot(hn, ln), 0.0, 1.0);\n"
+			"\t\tfloat lobe = pow(clamp(dot(hn, normalize(ln + hv)), 0.0, 1.0), %.1f);\n"
+			"\t\tppl_highlight += c[%d].xyz * (falloff * cone * (facing > 0.0 ? lobe : 0.0) * %.3f);\n"
+			"\t}\n",
+			base, base, base + 1, base + 1, base + 2, highlight_presets[preset - 1][1], base + 2,
+			highlight_presets[preset - 1][0]);
+	}
+	xgpu_text_append(text, "\t}\n");
+}
+
 void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions, unsigned long instruction_count,
-	const struct nv2a_lighting_slice *slice)
+	const struct nv2a_lighting_slice *slice, int highlight)
 {
 	unsigned long index, length = lighting_length(instructions, instruction_count);
 
+	xgpu_text_append(text, "\tvec3 ppl_highlight = vec3(0.0);\n");
+	if (highlight > 0 && highlight <= NV2A_HIGHLIGHT_PRESETS && slice->position >= 0 && slice->normal >= 0)
+		lighting_highlight(text, slice, highlight);
 	xgpu_text_append(text,
 		"\t/* per-pixel lighting: the vertex program's lighting again, for this pixel */\n"
 		"\t{\n"

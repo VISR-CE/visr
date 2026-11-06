@@ -687,7 +687,8 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	else
 		xgpu_text_append(&text, "void main()\n{\n");
 	if (lighting)
-		nv2a_lighting_pixel_block(&text, lighting_instructions, lighting_count, lighting);
+		nv2a_lighting_pixel_block(&text, lighting_instructions, lighting_count, lighting,
+			stage_mode(key, 3) == _mode_cubemap && key->sampler_type[3] == _xgpu_sampler_cube ? key->lighting_highlight : 0);
 	xgpu_text_append(&text,
 		"\tvec4 v0 = xD0;\n"
 		"\tvec4 v1 = xD1;\n"
@@ -698,6 +699,13 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 
 	for (stage = 0; stage < 4; stage++)
 		texture_stage(&text, dialect, key, stage);
+	/* the point-light highlight goes into the reflection, before the shader's
+	Fresnel tint and specular mask (nv2a_pixel_shader_key lighting_highlight) */
+	if (lighting && key->lighting_highlight && stage_mode(key, 3) == _mode_cubemap &&
+		key->sampler_type[3] == _xgpu_sampler_cube)
+	{
+		xgpu_text_append(&text, "\tt3.rgb += ppl_highlight;\n");
+	}
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)
