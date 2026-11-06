@@ -17,6 +17,16 @@
             "desktop"
           ]
         },
+        "crt_effect": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.graphics = \"hardcore\": show the 640x480 picture as a composite CRT television did, with scanlines, a phosphor mask, soft sideways color and a glow on bright light; false (default) shows the clean picture. Ignored in the other modes, and on Apple Vision Pro in head-tracked stereo.",
+          "x-environment": "HALO_CRT_EFFECT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "fullscreen": {
           "type": "boolean",
           "default": true,

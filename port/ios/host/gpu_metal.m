@@ -240,6 +240,9 @@ static float reversed_depth(float depth);
 static BOOL foveation_sizes(MetalTexture *record, MTLSize *screen, MTLSize *physical);
 static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, NSUInteger height);
 #include "host_config.h"
+#include "crt_shader.h"
+#include "../../linux/src/port_graphics_modes.h"
+#include <sys/stat.h>
 #include "host_frame_pacer.h"
 #include "frame_deadline.h"
 #include "visibility_history.h"
@@ -2484,6 +2487,39 @@ static NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *fill_pipelin
 static id<MTLRenderPipelineState> present_pipeline, companion_pipeline;
 /* gpu_upscale's: the present quad into a BGRA8 render target with no depth */
 static id<MTLRenderPipelineState> upscale_pipeline;
+/* display.crt_effect: the present pass's CRT television in Hardcore graphics (crt_shader.h) */
+static id<MTLRenderPipelineState> crt_pipeline;
+
+/* Hardcore graphics with display.crt_effect on, as config.toml has them: read again when the file changes (the
+menus write it while the game runs), at most once a second. A benchmark suite draws Enhanced
+(host_config_graphics_mode), so never this */
+static BOOL crt_wanted(void)
+{
+	static BOOL wanted;
+	static CFTimeInterval checked;
+	static struct timespec seen;
+	CFTimeInterval now = CACurrentMediaTime();
+	struct stat file;
+
+	if (now - checked < 1.0)
+		return wanted;
+	checked = now;
+	if (stat("config.toml", &file) != 0)
+		return wanted = NO;
+	if (file.st_mtimespec.tv_sec == seen.tv_sec && file.st_mtimespec.tv_nsec == seen.tv_nsec)
+		return wanted;
+	seen = file.st_mtimespec;
+	{
+		char text[16];
+		BOOL was = wanted;
+
+		host_config_string("display.crt_effect", "false", text, sizeof(text));
+		wanted = host_config_graphics_mode() == GRAPHICS_MODE_HARDCORE && !strcmp(text, "true");
+		if (wanted != was)
+			platform_log("Metal: CRT effect %s", wanted ? "on" : "off");
+	}
+	return wanted;
+}
 static id<MTLSamplerState> present_sampler;
 
 static NSString *const utility_source =
@@ -2528,7 +2564,9 @@ static NSString *const utility_source =
 	"fragment float4 fill_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]])\n"
 	"{\n"
 	"\treturn picture.read(uint2(in.position.xy));\n"
-	"}\n";
+	"}\n"
+	/* display.crt_effect (crt_shader.h) */
+	CRT_SHADER_SOURCE;
 
 static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelFormat depth, uint32_t mask,
 	uint32_t samples)
@@ -7804,7 +7842,17 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 				[pass_log appendFormat:@"\n  present: texture %u %lux%lu into %ldx%ld of drawable %ldx%ld %s/%s", back_buffer,
 					(unsigned long)picture.width, (unsigned long)picture.height, width, height, window_width, window_height,
 					load_name(pass.colorAttachments[0].loadAction), store_name(pass.colorAttachments[0].storeAction)];
-			[present setRenderPipelineState:present_pipeline];
+			/* (the CRT only over Hardcore's 480-line picture: until the next level a mode change can leave the
+			picture at the device's size) */
+			if (crt_pipeline && picture.height <= 540 && crt_wanted())
+			{
+				float sizes[4] = { (float)picture.width, (float)picture.height, (float)width, (float)height };
+
+				[present setRenderPipelineState:crt_pipeline];
+				[present setFragmentBytes:sizes length:sizeof(sizes) atIndex:0];
+			}
+			else
+				[present setRenderPipelineState:present_pipeline];
 			[present setViewport:(MTLViewport){ (double)((window_width - width) / 2), (double)((window_height - height) / 2),
 				(double)width, (double)height, 0.0, 1.0 }];
 			[present setFragmentTexture:picture atIndex:0];
@@ -8362,6 +8410,12 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		upscale_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
 		if (!upscale_pipeline)
 			host_fatal("Metal: cannot create the upscale pipeline: %s", error.description.UTF8String);
+		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"crt_fragment"];
+		present_descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat;
+		crt_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
+		/* (no CRT is no reason to stop the game) */
+		if (!crt_pipeline)
+			platform_log("Metal: cannot create the CRT pipeline: %s", error.description.UTF8String);
 		linear.minFilter = MTLSamplerMinMagFilterLinear;
 		linear.magFilter = MTLSamplerMinMagFilterLinear;
 		present_sampler = [device newSamplerStateWithDescriptor:linear];

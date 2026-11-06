@@ -118,6 +118,12 @@ static const struct config_setting config_settings[] =
 		"over the settings it replaces (port_graphics_modes.h), which keep their\n"
 		"values for when it changes back. The picture's size and rate change at\n"
 		"the next level." },
+	{ "display.crt_effect", _config_boolean, "false", "HALO_CRT_EFFECT", _environment_value, _platform_ios,
+		"With display.graphics = \"hardcore\": show the 640x480 picture as a\n"
+		"composite CRT television did, with scanlines, a phosphor mask, soft\n"
+		"sideways color and a glow on bright light; false (default) shows the\n"
+		"clean picture. Ignored in the other modes, and on Apple Vision Pro in\n"
+		"head-tracked stereo." },
 	{ "display.fullscreen", _config_boolean, "true", "HALO_FULLSCREEN", _environment_value, _platform_desktop,
 		"Where display.mode is empty: start borderless over the whole display;\n"
 		"false starts in a window. F11 switches." },

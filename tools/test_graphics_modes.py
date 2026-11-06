@@ -68,3 +68,11 @@ def test_profiles_may_not_set_the_mode(tmp_path):
                     '[display]\ngraphics="classic"\n')
     errors = profile_check.check_profile(path, profile_check.profile_keys())[0]
     assert any('display.graphics' in error for error in errors)
+
+
+def test_crt_effect_is_off_by_default_and_not_a_profile_key():
+    setting = settings_schema.config_settings()['display.crt_effect']
+    assert setting['type'] == 'boolean' and setting['default'] is False
+    assert 'display.crt_effect' not in profile_check.profile_keys()
+    # Hardcore's own sub-setting: the mode table leaves it alone
+    assert 'display.crt_effect' not in [name for name, _, _ in rows()]

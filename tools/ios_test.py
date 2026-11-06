@@ -143,6 +143,24 @@ for probe in ('external_session', 'external_splash', 'audio_route'):
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/knob_cycle_probe.c', '-o', BUILD/'knob-cycle-probe')
 run(BUILD/'knob-cycle-probe')
+# display.crt_effect's shader (port/ios/host/crt_shader.h) compiles for Metal, and the CRT picture of a checker
+# test card differs from the plain stretch (tools/crt_stills.m, which draws through the same source)
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', 'tools/crt_stills.m', '-framework', 'Foundation',
+    '-framework', 'Metal', '-framework', 'ImageIO', '-framework', 'CoreGraphics', '-framework', 'UniformTypeIdentifiers',
+    '-o', BUILD/'crt-stills')
+def _crt_card(path):
+    import struct, zlib
+    rows = b''.join(b'\0' + b''.join(bytes((x * 255 // 640, y * 255 // 480, 255 if (x // 40 + y // 40) % 2 else 30))
+                                    for x in range(640)) for y in range(480))
+    chunk = lambda kind, data: struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+    path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 640, 480, 8, 2, 0, 0, 0)) +
+                     chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
+_crt_card(BUILD/'crt-card.png')
+run(BUILD/'crt-stills', BUILD/'crt-card.png', BUILD/'crt-on.png', '1080', 'on')
+run(BUILD/'crt-stills', BUILD/'crt-card.png', BUILD/'crt-off.png', '1080', 'off')
+if (BUILD/'crt-on.png').read_bytes() == (BUILD/'crt-off.png').read_bytes():
+    raise SystemExit('crt-stills: the CRT picture is the plain stretch')
+print('CRT effect shader: compiles and draws')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/external_request_probe.c', 'port/ios/host/host_external_mode.c',
     '-o', BUILD/'external-request-probe')
