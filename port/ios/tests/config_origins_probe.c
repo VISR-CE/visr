@@ -832,6 +832,7 @@ static void check_graphics_modes(void)
 	assert(strstr(logged, "graphics: classic (was enhanced)"));
 	assert(!config_boolean("display.first_person_legs") && !strcmp(config_graphics_replaces("display.first_person_legs"), "classic"));
 	assert(!config_boolean("display.shadow_props") && !strcmp(config_graphics_replaces("display.shadow_props"), "classic"));
+	assert(!strcmp(config_graphics_replaces("display.ambient_occlusion"), "classic"));
 	assert(!strcmp(config_string("display.anti_aliasing"), "smaa") && config_integer("display.render_height") == 1080);
 	assert(file_has(path, "\nfirst_person_legs = true\n"));
 

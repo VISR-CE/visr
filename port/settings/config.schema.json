@@ -195,6 +195,16 @@
             "desktop"
           ]
         },
+        "ambient_occlusion": {
+          "type": "boolean",
+          "default": false,
+          "description": "Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space ambient occlusion over the level's light and, weaker, the objects), which the original game never drew. Metal, one view, not multisampled and not in stereo. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). debug.ssao, when set, wins over it.",
+          "x-environment": "HALO_AMBIENT_OCCLUSION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "shadow_props": {
           "type": "boolean",
           "default": true,
@@ -2895,6 +2905,28 @@
             "desktop"
           ]
         },
+        "screenshot_frames": {
+          "type": "string",
+          "default": "",
+          "description": "With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them); empty saves every one.",
+          "x-environment": "HALO_SCREENSHOT_FRAMES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "screenshot_scene_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame.",
+          "x-environment": "HALO_SCREENSHOT_SCENE_ONLY",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "screenshot_every": {
           "type": "integer",
           "default": 0,
@@ -2904,6 +2936,166 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ]
+        },
+        "ssao": {
+          "type": "integer",
+          "default": 0,
+          "description": "A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only).",
+          "x-environment": "HALO_SSAO",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_radius": {
+          "type": "number",
+          "default": 0.3,
+          "description": "With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet).",
+          "x-environment": "HALO_SSAO_RADIUS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_strength": {
+          "type": "number",
+          "default": 1.5,
+          "description": "With debug.ssao: the power the visibility is raised to; higher darkens more.",
+          "x-environment": "HALO_SSAO_STRENGTH",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_objects": {
+          "type": "number",
+          "default": 0.3,
+          "description": "With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included).",
+          "x-environment": "HALO_SSAO_OBJECTS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_static_weight": {
+          "type": "number",
+          "default": 0,
+          "description": "With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that); objects always occlude fully.",
+          "x-environment": "HALO_SSAO_STATIC_WEIGHT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_high": {
+          "type": "boolean",
+          "default": true,
+          "description": "With debug.ssao: two directions and four steps a side per pixel; false, one direction and three steps.",
+          "x-environment": "HALO_SSAO_HIGH",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_steps": {
+          "type": "integer",
+          "default": 0,
+          "description": "With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own.",
+          "x-environment": "HALO_SSAO_STEPS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_max_pixels": {
+          "type": "number",
+          "default": 0.12,
+          "description": "With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height.",
+          "x-environment": "HALO_SSAO_MAX_PIXELS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_fade_distance": {
+          "type": "number",
+          "default": 35,
+          "description": "With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units).",
+          "x-environment": "HALO_SSAO_FADE_DISTANCE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_level_floor": {
+          "type": "number",
+          "default": 0.35,
+          "description": "With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black).",
+          "x-environment": "HALO_SSAO_LEVEL_FLOOR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_object_floor": {
+          "type": "number",
+          "default": 0.6,
+          "description": "With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it).",
+          "x-environment": "HALO_SSAO_OBJECT_FLOOR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_path": {
+          "type": "integer",
+          "default": 1,
+          "description": "With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled bilinearly as it is applied, 2 the same without the blur.",
+          "x-environment": "HALO_SSAO_PATH",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_stop": {
+          "type": "integer",
+          "default": 0,
+          "description": "With debug.ssao 1, to measure the stages: 1 only the depth preparation, 2 also the gather, 3 every dispatch; none of them applies the occlusion. 0 everything.",
+          "x-environment": "HALO_SSAO_STOP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_gather_v1": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.ssao 1: the first spike's depth preparation and gather, to time them against the current ones.",
+          "x-environment": "HALO_SSAO_GATHER_V1",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_scale": {
+          "type": "integer",
+          "default": 4,
+          "description": "With debug.ssao 1 and debug.ssao_path 1 or 2: compute the occlusion at half (2) or quarter (4) resolution.",
+          "x-environment": "HALO_SSAO_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_view_flag": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.ssao off: make depth targets readable as stencil views anyway (to measure that alone).",
+          "x-environment": "HALO_SSAO_VIEW_FLAG",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
           ]
         },
         "texture_astc": {

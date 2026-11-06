@@ -2636,7 +2636,14 @@ static BOOL ssao_view_marked;
 
 static int ssao_mode(void)
 {
-	return ssao_live >= 0 ? ssao_live : (int)config_integer("debug.ssao");
+	long debug;
+
+	if (ssao_live >= 0)
+		return ssao_live;
+	/* debug.ssao (the spike's modes) wins; otherwise the player's setting, which the graphics mode turns off
+	outside Enhanced */
+	debug = config_integer("debug.ssao");
+	return debug ? (int)debug : config_boolean("display.ambient_occlusion") ? 1 : 0;
 }
 
 /* whether the view being drawn takes AO: the same answer at the mark and at the pass */
