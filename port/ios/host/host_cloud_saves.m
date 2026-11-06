@@ -281,6 +281,9 @@ static BOOL cloud_wait(double seconds, void (^block)(void)) {
     return YES;
 }
 
+/* gpu_metal.m: out of the frame workgroup until the next shown frame (ios_host.h) */
+void gpu_metal_frame_deadline_leave(void);
+
 /* a message with one or two buttons; returns the button's index */
 static int cloud_ask(NSString *message, const char *first, const char *second) {
     SDL_MessageBoxButtonData buttons[2] = {
@@ -289,6 +292,9 @@ static int cloud_ask(NSString *message, const char *first, const char *second) {
     SDL_MessageBoxData box = { SDL_MESSAGEBOX_INFORMATION, NULL, "iCloud saves", message.UTF8String, second ? 2 : 1,
         buttons, NULL };
     int pressed = 0;
+    /* SDL's box runs UIKit's loop on the drawing thread, and UIKit raises from its own interval when an animation
+       begins on a thread in the frame workgroup (the benchmark menu's ask(), #51) */
+    gpu_metal_frame_deadline_leave();
     if (!SDL_ShowMessageBox(&box, &pressed)) {
         host_logf(HOST_LOG_WARN, "cloud saves: could not show a message: %s", SDL_GetError());
         return 0;
