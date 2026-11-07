@@ -185,3 +185,10 @@ def test_coop_merged_setting_dispatch():
     assert 'if (setting)' in settings and 'visit(child, setting);' in settings
     metadata = block(tags, 'if (source->setting)')
     assert 'setting_add(source, build.widget_tags[widget_index]);' in metadata
+
+
+def test_lan_game_server_setup_join_code_line_is_blank():
+    source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    update = block(source, 'static void server_settings_update(')
+    assert 'NONE: A LAN GAME' not in source
+    assert 'if (multiplayer.mode != _multiplayer_mode_host_internet)\n\t\ttext[0] = 0;' in update
