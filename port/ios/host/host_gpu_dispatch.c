@@ -247,10 +247,16 @@ static struct
 	uint64_t interval;
 } frame_rate_configured;
 
+/* 1 while a benchmark case's rate is in force: it stands in for the profile's scene-class and workload rates too */
+static int overridden;
+
+int host_frame_rate_overridden(void)
+{
+	return overridden;
+}
+
 static void frame_rate_override(double rate)
 {
-	static int overridden;
-
 	if (!overridden)
 	{
 		frame_rate_configured.unlimited = frame_rate.unlimited;
@@ -329,7 +335,7 @@ static double scene_frame_rate;
 /* the configured rate: display.frame_rate's cap together with the scene class's rate, 0 for the display's */
 static double frame_rate_configured_target(void)
 {
-	return scene_frame_rate > 0.0 && (frame_rate.cap <= 0.0 || scene_frame_rate < frame_rate.cap) ? scene_frame_rate :
+	return !overridden && scene_frame_rate > 0.0 && (frame_rate.cap <= 0.0 || scene_frame_rate < frame_rate.cap) ? scene_frame_rate :
 		frame_rate.cap;
 }
 

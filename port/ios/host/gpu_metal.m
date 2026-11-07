@@ -5672,7 +5672,7 @@ static long frame_context_refreshes(CFTimeInterval period)
 {
 	double refreshes;
 
-	if (!frame_context.rate || period <= 0.0)
+	if (!frame_context.rate || period <= 0.0 || host_frame_rate_overridden())
 		return 1;
 	refreshes = ceil(1.0 / (period * (double)frame_context.rate) - 0.05);
 	return refreshes < 1.0 ? 1 : refreshes > 8.0 ? 8 : (long)refreshes;
