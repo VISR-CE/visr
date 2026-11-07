@@ -65,6 +65,7 @@ of MAXIMUM_QUEUED; the rest is dropped (hosts publish again).
 #include "halo_network_content.h"
 #include "delta_list.h"
 #include "delta_platform.h"
+#include "halo_delta_peer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1316,7 +1317,8 @@ int p2p_lobby_delta_wanted(struct delta_announce *announce)
 #endif
 #endif
 	snprintf(announce->arch, sizeof(announce->arch), "%s", delta_platform_arch());
-	/* Delta Peer has not run: delta and capabilities remain zero. */
+	announce->delta = delta_peer_host_open() ? DELTA_MAJOR : 0;
+	announce->capabilities = announce->delta ? DELTA_CAP_PLATFORM : 0;
 	return 1;
 }
 

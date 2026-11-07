@@ -504,6 +504,7 @@ the setting for one start of the game. It has priority over the file.
 | `network.background_grace` | integer | `60` | apple, desktop | `HALO_NET_BACKGROUND_GRACE` | Seconds the other players of an internet game wait for this machine when its app goes to the background (an Apple device suspends it, its game held) before they drop it. |
 | `network.public_lobby` | boolean | `true` | apple, desktop | `HALO_NET_PUBLIC_LOBBY` | The server browser: public games are listed through the signalling brokers, and Join Game > Server Browser shows them. |
 | `network.delta_browse` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_BROWSE` | The server browser also lists the games of Delta's public list (network.delta_url), run by others, with the network version of each; games of a version this build can't join are shown and not joined. |
+| `network.delta_peer` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_PEER` | Exchange Delta handshakes and platform claims after joining a host that advertises Delta. |
 | `network.delta_announce` | boolean | `false` | apple, desktop | `HALO_NET_DELTA_ANNOUNCE` | List the public game this machine hosts for the internet (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. |
 | `network.delta_url` | string | `"https://halo.milenko.org"` | apple, desktop | `HALO_NET_DELTA_URL` | The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). |
 | `network.host_public` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_HOST_PUBLIC` | Whether a new game of Create Game > Internet starts as PUBLIC (listed in everyone's server browser: anyone can see and join it) or, false, PRIVATE (only players with its invite link can join). |
@@ -997,11 +998,20 @@ left out. A game that a broker also lists is shown once.
   `network.online` is off; the list drops the game in 75 seconds). It sends
   the invite (anyone who has it can join the game), the name, map, game type
   number (not its name), player counts, whether it is open and has teams,
-  this build's network version, and `delta=0` (the game's own protocol
-  alone), and the list's server sees this machine's internet address. It
-  sends no player's name, platform, build or address of the machine. The list tries
-  to reach a new game before it lists it, and refuses it for two minutes if
-  it cannot: this build waits and tries again.
+  this build's network version, platform key, architecture, build, and
+  capabilities. With `network.delta_peer` on, this setting also opens the
+  Delta socket on port 5160 for hosted LAN and internet games. The list's
+  `delta` field is the major while that socket is open, otherwise 0. A busy
+  port leaves the game on legacy. The list's server sees this machine's
+  internet address; no player's name, roster, profile, or stats are sent.
+  The list tries to reach a new game before it lists it, and refuses it for
+  two minutes if it cannot: this build waits and tries again.
+- Delta Peer (`network.delta_peer`, on): after joining an advertised Delta
+  host and receiving a machine index, exchange a handshake, build string,
+  and platform key with that host. HELLO repeats every 500 ms; after 4
+  seconds without an answer, that game stays on legacy. The host relays
+  platform claims in a bounded roster. This runs beside the game and never
+  blocks play. Turning it off also disables hosting a Delta socket.
 - `network.delta_url = ""` turns both off. The requests are made on a
   thread of their own (`src/p2p_delta.c`) with the system's TLS (Mbed TLS
   and the system's certificate authorities on Linux, WinHTTP on Windows,

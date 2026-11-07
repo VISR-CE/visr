@@ -473,6 +473,15 @@ for platform_defines in ([], ['-DHALO_IOS=1']):
         '-iquote', 'port/linux/include', 'port/ios/tests/delta_probe.c', 'port/linux/src/delta_list.c',
         'port/linux/src/delta_platform.c', *platform_defines, '-o', BUILD/'delta-probe')
     run(BUILD/'delta-probe')
+# Delta Peer uses the same pure codec and fake-clock sessions on every target.
+run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_probe.c',
+    'port/linux/src/delta_peer.c', '-o', BUILD/'delta-peer-probe')
+run(BUILD/'delta-peer-probe')
+run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_game_probe.c',
+    'port/linux/src/delta_peer.c', 'port/linux/src/delta_platform.c', '-o', BUILD/'delta-peer-game-probe')
+run(BUILD/'delta-peer-game-probe')
 # and the call sites the probe can't see: the tunnel waits for a peer that said it is away instead of timing it out,
 # the game's server and connections wait for it too, the app asks the system for its background time, and the
 # game's loop shows the notices and joins a lost game again

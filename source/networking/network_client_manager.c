@@ -395,6 +395,8 @@ symbols in this file:
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
 void platform_show_message(char const *title, char const *message);
 #include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
+#include "halo_delta.h" /* port: Delta advertisement metadata */
+#include "halo_delta_peer.h" /* port: optional handshake beside the game */
 #include "halo_network_join_wire.h" /* port: join padding and refusals */
 #include "halo_network_content.h" /* port: game-kind refusal */
 
@@ -820,6 +822,7 @@ static struct
 	byte flags;
 	byte kind;
 	boolean dedicated;
+	byte delta_major;
 } network_game_client_advertised_versions[MAXIMUM_NETWORK_ADVERTISED_GAMES];
 
 /* port: the network version of the host this client joined (this machine's
@@ -925,6 +928,9 @@ static boolean check_networking_and_generate_error(
 void network_game_client_dispose(
 	struct network_game_client *client)
 {
+	/* port: say BYE before the game releases its connection. */
+	delta_peer_game_client_stop();
+
 	if (client)
 	{
 		if (client->connection)
@@ -1276,6 +1282,21 @@ boolean network_game_client_idle(
 			0xEE,
 			!"unknown client state");
 		break;
+	}
+
+	/* port: run beside the game; a timeout never delays its network state. */
+	if (client->state >= _network_game_client_state_pregame)
+	{
+		unsigned char has_players[HALO_PORT_MAXIMUM_NETWORK_MACHINES] = {0};
+		int i;
+		for (i = 0; i < HALO_PORT_MAXIMUM_NETWORK_PLAYERS; i++)
+		{
+			struct network_player *player = &client->game.players[i];
+			if (network_player_is_valid(player) && player->machine_index >= 0 &&
+				player->machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES)
+				has_players[(unsigned char)player->machine_index] = 1;
+		}
+		delta_peer_game_client_idle(client->machine_index, has_players, system_milliseconds());
 	}
 
 	return success;
@@ -2117,6 +2138,10 @@ boolean network_game_client_initiate_join_game(
 
 		network_game_client_host_version = game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES ?
 			network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION;
+		/* port: Delta starts only after this legacy join supplies a machine index. */
+		delta_peer_game_join(address->address.long_words[0], address->port,
+			game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
+			network_game_client_advertised_versions[game_index].delta_major != 0);
 	}
 
 	csmemcpy(
@@ -2275,6 +2300,9 @@ void network_game_client_reset(
 		"c:\\halo\\SOURCE\\networking\\network_client_manager.c",
 		0x4EE,
 		client);
+
+	/* port: a new game gets a new Delta session, even at the same address. */
+	delta_peer_game_client_stop();
 
 	network_game_invalidate(&client->game);
 
@@ -2602,6 +2630,8 @@ static boolean add_advertised_game(
 			network_game_client_advertised_versions[game_index].version = (word)(
 				advertisement->__unknown5A[HALO_PORT_ADVERTISED_VERSION_OFFSET] |
 				(advertisement->__unknown5A[HALO_PORT_ADVERTISED_VERSION_OFFSET + 1] << 8));
+			network_game_client_advertised_versions[game_index].delta_major = (byte)
+				delta_advertised_peer_major(advertisement->__unknown5A, sizeof(advertisement->__unknown5A));
 			network_game_client_advertised_versions[game_index].flags =
 				advertisement->__unknown5A[HALO_PORT_ADVERTISED_FLAGS_OFFSET];
 			/* port: only a Delta signature marks a Delta host. Other ports

@@ -5,6 +5,7 @@
 #include "halo_port_limits.h"
 
 #define DELTA_MAJOR 1
+#define DELTA_CAP_PLATFORM 1U
 /* Hosting stays at OpenCE 38: chupa-38a plays with chupa-28a and newer. */
 #define DELTA_WIRE_NUMBER 38
 #define DELTA_WIRE_LETTER 'a'
@@ -93,5 +94,22 @@ static inline int delta_advertised_tag_parse(const unsigned char *reserved, unsi
 	result->major = tag[2]; result->wire_number = tag[4]; result->wire_letter = tag[5];
 	result->oldest_number = tag[6]; result->oldest_letter = tag[7];
 	return 1;
+}
+/* Read the tag first. Before OpenCE 39, 0x04 was Delta's flag; afterward
+an old host also needs its chupa wire ID so a dedicated OpenCE host stays legacy. */
+static inline unsigned delta_advertised_peer_major(const unsigned char *reserved, unsigned size)
+{
+	struct delta_advertised_tag tag;
+	unsigned version, i;
+	if (delta_advertised_tag_parse(reserved, size, &tag)) return tag.major;
+	if (!reserved || size < 20 || !(reserved[2] & 0x04) || !reserved[3]) return 0;
+	version = reserved[0] | ((unsigned)reserved[1] << 8);
+	if (version < 39) return reserved[3];
+	if (reserved[4] != 'c' || reserved[5] != 'h' || reserved[6] != 'u' ||
+		reserved[7] != 'p' || reserved[8] != 'a' || reserved[9] != '-') return 0;
+	i = 10;
+	while (i < 19 && reserved[i] >= '0' && reserved[i] <= '9') i++;
+	return i > 10 && i < 19 && reserved[i] >= 'a' && reserved[i] <= 'z' &&
+		reserved[i + 1] == 0 ? reserved[3] : 0;
 }
 #endif

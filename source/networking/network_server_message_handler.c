@@ -249,6 +249,7 @@ symbols in this file:
 
 /* port: Delta uses only the advertisement tail. */
 #include "halo_delta.h"
+#include "halo_delta_peer.h"
 #include "cseries.h"
 #include "bungie_net/common/message_header.h"
 #include "bungie_net/network/transport.h"
@@ -1735,7 +1736,9 @@ static boolean network_game_server_handle_message_client_broadcast_game_search(
 			/* port: VISR hosts only ordinary modes; version 37 carries
 			the kind at payload offset 93 (wire offset 96). */
 			advertisement.reserved[HALO_PORT_ADVERTISED_KIND_OFFSET] = 0;
-			delta_advertise(advertisement.reserved);
+			/* port: an unavailable side port must not advertise a handshake. */
+			if (delta_peer_host_open())
+				delta_advertise(advertisement.reserved);
 			advertisement.reserved[HALO_PORT_ADVERTISED_FLAGS_OFFSET] =
 				HALO_PORT_ADVERTISED_DISTRIBUTED_FLAG;
 			if (network_game_server_get_state(server, NULL) != _network_game_server_state_pregame ||

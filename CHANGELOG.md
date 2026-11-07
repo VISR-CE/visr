@@ -4,6 +4,8 @@
 
 ### feat
 
+- **network**: add the Delta Peer handshake and platform roster — `network.delta_peer` joins advertised Delta hosts by default, retries HELLO every 500 ms and falls back silently after 4 seconds; hosting opens port 5160 only with `network.delta_announce`, advertises Delta only while that socket is open, and checks every peer against the game's machines before parsing
+
 - **network**: add the Delta advertisement tail tag and host platform fields — hosts advertise wire `38a` compatible back to `28a`, leaving OpenCE’s front bytes intact; opt-in Delta listings add `platform_key`, `arch`, `build` and `capabilities`, with `delta=0` until Delta Peer runs and no machines, roster, profile or stats
 
 - **hud**: give each split screen player the full one-player HUD — `hud_full_layout_begin` lays a view's HUD out as a one-player screen in the view's shape, so the elements, fonts and scales are the one-player game's; with three or four players the HUD is drawn at 75% of its size (`debug.split_hud_scale`) with a 5% margin from the view's edges (`debug.split_hud_margin`, 3% with two players), `debug.split_tracker_scale` sizes the motion sensor and `debug.split_screen_hud` brings back the Xbox's split screen HUD

@@ -238,6 +238,9 @@ static void hear(const unsigned char *payload, int size, int retained, const cha
 
 /* Delta's list: the game hosted as it is announced, and the list's games shown with the brokers' (own_invite: the
 64 hex digits of the game hosted, which the browser has taken) */
+static int delta_peer_open_for_test;
+int delta_peer_host_open(void) { return delta_peer_open_for_test; }
+
 static void delta_checks(const char *own_invite)
 {
 	static const char *const other = "00112233445566778899aabbccddeeff00000000000000000000000000000001";
@@ -255,6 +258,15 @@ static void delta_checks(const char *own_invite)
 	check(wanted && !strcmp(announce.name, "Test game") && !strcmp(announce.map, "bloodgulch") &&
 		announce.engine == 2 && announce.players == 3 && announce.maximum_players == 16 && announce.open &&
 		announce.teams && announce.version == HALO_PORT_NETWORK_VERSION, "the game hosted is announced as it is");
+
+	check(!announce.delta && !announce.capabilities, "a closed Delta socket is not announced");
+	delta_peer_open_for_test = 1;
+	pthread_mutex_lock(&p2p_lock);
+	wanted = p2p_lobby_delta_wanted(&announce);
+	pthread_mutex_unlock(&p2p_lock);
+	check(wanted && announce.delta == 1 && announce.capabilities == 1,
+		"an open Delta socket announces its major and platform capability");
+	delta_peer_open_for_test = 0;
 
 	memset(list, 0, sizeof(list));
 	/* (the same host listed twice, with another token: shown once) */
