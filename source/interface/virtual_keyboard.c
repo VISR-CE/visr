@@ -720,14 +720,16 @@ static void virtual_keyboard_render_internal(
 		/* port: on a screen wider than the Xbox's 640 columns the picture's
 		panel band and its rules would stop at the centered 640; its first
 		and last texel columns are stretched over the extra width on each
-		side, so the band runs to the screen's edges. */
+		side, so the band runs to the screen's edges. The source rows and
+		columns are the 640x480 picture's own, not the bitmap's padded size
+		(the stock picture's texture is larger than 640x480). */
 		if (halo_screen_width() > 640 && bitmap->width > 0)
 		{
 			long extra = (halo_screen_width() - 640) / 2 + 1;
 			rectangle2d left_bounds = {0, (short)-extra, 480, 0};
 			rectangle2d right_bounds = {0, 640, 480, (short)(640 + extra)};
-			rectangle2d left_source = {0, 0, bitmap->height, 1};
-			rectangle2d right_source = {0, bitmap->width - 1, bitmap->height, bitmap->width};
+			rectangle2d left_source = {0, 0, 480, 1};
+			rectangle2d right_source = {0, 639, 480, 640};
 
 			controller_glyph_blit(bitmap, &left_bounds, &left_source, NULL, 0xffffffff, _controller_glyph_blend_menu);
 			controller_glyph_blit(bitmap, &right_bounds, &right_source, NULL, 0xffffffff, _controller_glyph_blend_menu);
