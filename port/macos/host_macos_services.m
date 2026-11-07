@@ -41,9 +41,23 @@ const char *host_macos_data_root(void) {
     return root;
 }
 @interface VISRMacActions : NSObject
+- (void)about:(id)sender;
 - (void)quit:(id)sender;
 @end
 @implementation VISRMacActions
+- (void)about:(id)sender {
+    (void)sender;
+    /* The standard panel: the app's icon, name, version and build from Info.plist, with the website as credits. */
+    NSMutableParagraphStyle *centered = [NSMutableParagraphStyle new];
+    centered.alignment = NSTextAlignmentCenter;
+    NSAttributedString *credits = [[NSAttributedString alloc] initWithString:@"visr.gg" attributes:@{
+        NSLinkAttributeName: [NSURL URLWithString:@"https://visr.gg/"],
+        NSFontAttributeName: [NSFont systemFontOfSize:NSFont.smallSystemFontSize],
+        NSParagraphStyleAttributeName: centered,
+    }];
+    [NSApp orderFrontStandardAboutPanelWithOptions:@{ NSAboutPanelOptionCredits: credits }];
+    [NSApp activateIgnoringOtherApps:YES];
+}
 - (void)quit:(id)sender {
     (void)sender;
     SDL_Event event = { .type = SDL_EVENT_QUIT };
@@ -81,6 +95,10 @@ void host_macos_window_ready(void *sdl_window) {
     NSMenuItem *application = [NSMenuItem new];
     [bar addItem:application];
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@"VISR"];
+    NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:@"About VISR" action:@selector(about:) keyEquivalent:@""];
+    about.target = actions;
+    [menu addItem:about];
+    [menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit VISR" action:@selector(quit:) keyEquivalent:@"q"];
     quit.target = actions;
     [menu addItem:quit];
