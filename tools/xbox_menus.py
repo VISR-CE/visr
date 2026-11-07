@@ -108,19 +108,19 @@ def retain_xbox_files(menus, files):
 def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None):
     """A/B icons post buttons to the current focus, as the Xbox legend does."""
     hosting = screen.get('name').endswith('/server_settings_screen')
-    items = (('x_butn', '=copy', 'COPY INVITE', 300),
-             ('b_butn', '=cancel', cancel, 452),
-             ('a_butn', '=accept', accept, 546)) if hosting else (
+    items = (('x_butn', '=copy', 'INVITE', 295),
+             ('b_butn', '=cancel', cancel, 402),
+             ('a_butn', '=accept', accept, 520)) if hosting else (
                  ('a_butn', '=accept', accept, 471), ('b_butn', '=cancel', cancel, 346))
     for button, caption, label, x in items:
         if hosting:
             # One tall target includes both the icon and its caption.
-            key = widget(root, f'{base}/{button}', width=148 if button == 'x_butn' else 94, height=53)
+            key = widget(root, f'{base}/{button}', width=106 if button == 'x_butn' else 112, height=53)
             child(screen, key.get('name'), x=x, y=410)
             art = widget(root, f'{base}/{button}/{button}', width=21, height=26,
                          bitmap=f'xbox/browser/{button}')
             child(key, art.get('name'), y=4)
-            text_widget(root, f'{base}/{caption}', label, width=126 if button == 'x_butn' else 72, height=22)
+            text_widget(root, f'{base}/{caption}', label, width=84 if button == 'x_butn' else 90, height=22)
             child(key, f'{base}/{caption}', x=22, y=4)
             ET.SubElement(key, 'on', event='left_mouse', run='ss copy invite' if button == 'x_butn' else
                           ('mouse emit accept event' if button == 'a_butn' else 'mouse emit back event'))

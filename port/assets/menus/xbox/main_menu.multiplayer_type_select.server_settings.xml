@@ -8,9 +8,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/options_menu" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/x_butn_invite" x="54" y="410" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/x_butn" x="300" y="410" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" x="452" y="410" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" x="546" y="410" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/x_butn" x="295" y="410" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" x="402" y="410" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" x="520" y="410" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/server_settings/header_server_settings">
 	</widget>
@@ -170,25 +170,25 @@
 		<string text="Players can hurt friendly AI and vehicles.\nPlayers are protected from each other." />
 		<string text="Players can hurt each other, friendly AI and\nvehicles." />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/x_butn" width="148" height="53">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/x_butn" width="106" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/x_butn/x_butn" y="4" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=copy" x="22" y="4" />
 		<on event="left_mouse" run="ss copy invite" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/x_butn/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=copy" type="text" text="COPY INVITE" font="ui\large_ui" color="#FF2896FF" width="126" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" width="94" height="53">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=copy" type="text" text="INVITE" font="ui\large_ui" color="#FF2896FF" width="84" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn" width="112" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn/b_butn" y="4" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=cancel" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="72" height="22" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" width="94" height="53">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" width="112" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn/a_butn" y="4" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="72" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 </menus>

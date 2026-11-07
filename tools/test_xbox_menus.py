@@ -748,7 +748,7 @@ def test_server_setup_rows_invite_and_gametype_editor(look):
     assert widgets[base + '/op_game_type'].find(f'child[@widget="{base}/game_type_value"]') is not None
     if look == 'xbox':
         legend = base + '/server_settings_screen/legend'
-        assert widgets[legend + '/=copy'].get('text') == 'COPY INVITE'
+        assert widgets[legend + '/=copy'].get('text') == 'INVITE'
         keys = [screen.find(f'child[@widget="{legend}/{key}_butn"]') for key in ('x', 'b', 'a')]
         assert int(position.get('x')) + int(invite.get('width')) <= int(keys[0].get('x'))
         for i, key in enumerate(keys):
