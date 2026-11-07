@@ -1,3 +1,36 @@
+## visr-v0.6.13 (2026-11-07)
+
+### Summary
+
+- Apple TV: Enter an address for a direct join or a game password in the text dialog. It should no longer crash.
+- iOS: Open the iCloud saves prompt and confirm your choice. It should no longer raise a "Failed to create work interval" error.
+- iOS: Trigger in-game alerts and open the benchmark notice and report screens. Try dragging the report screen. None of these should raise that error, and alerts should animate away cleanly.
+- Apple TV: Check that alerts with animated lists, such as the alert's collection view, open and close without an error.
+- iOS and Apple TV: After dismissing any of these dialogs, confirm that normal gameplay and animations continue as usual.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **feeds**: report git's error when fetching the `visr-feeds` tree fails — `visr_feeds_tree.py` captured git's output, so a failed fetch showed only the exit code
+- **ios**: leave the frame workgroup before an iCloud saves message — `cloud_ask`'s `SDL_ShowMessageBox` runs UIKit's loop on the drawing thread, which is still in the `VISR frame` workgroup, so an animation there could raise "Failed to create work interval" as in #51; it now calls `gpu_metal_frame_deadline_leave` first, and the next shown frame joins again
+- **ios**: leave the frame workgroup before the game's alerts and the benchmark notice and report screens — like the benchmark menu's `ask()` (#51), `host_alert`, `host_benchmark_notice` and `host_benchmark_page` run UIKit's loop on the drawing thread, which is still in the `VISR frame` workgroup, so an animation there (an Apple TV alert's collection view, a drag of the report screen) could raise "Failed to create work interval"; each now calls `gpu_metal_frame_deadline_leave` first, the next shown frame joins again, and `host_alert` lets its alert animate away before it returns
+- **tvos**: stay out of the frame workgroup while the text dialog is up — the game keeps drawing under tvOS's text dialog, and its event pump (`D3DDevice_Present` → `platform_pump_events` → `SDL_PollEvent`) runs the dialog's presentation on the main thread, which is in the `VISR frame` workgroup; the alert's collection view animates its content offset there and UIKit raises "Failed to create work interval" from `_beginInterval`, so entering an address for a direct join or a game password crashed an Apple TV. `host_tv_text_prompt` now calls `gpu_metal_frame_deadline_hold(1)` before presenting, which leaves the workgroup and keeps every frame out until `text_input_blocked` sees the dialog gone and ends the hold; `frame_deadline_rejoin_wanted` takes the hold, and `frame_deadline_probe` checks it. Same class as #51.
+
+### test
+
+- **release**: skip the legacy recording feed check on a tree without `docs/site/packs` — `test_pages_overlay_keeps_the_published_legacy_feed_unchanged` read the checked-in `recordings-4d6924ec.json`, which the history rewrite removed with the rest of the feeds
+- **feeds**: skip the feeds' publication tests on a tree without `docs/site/packs` — the history rewrite took the feeds out of this repository, including the rewritten `visr-v0.6.12` tree, so on this release branch `test_feeds_store.py` keeps the tag's tests and its `checked_in` fixture (and the two tests that read the checked-in feeds without it) skip; main runs them against the pinned `steverice/visr-feeds` tree
+- **feeds**: read the published feeds from a pinned `steverice/visr-feeds` tree instead of `docs/site/packs` — `tools/visr_feeds_tree.py` fetches the commit in `tools/visr-feeds.pin` (or uses `VISR_FEEDS_TREE`) into `build/visr-feeds`, and `ios_test.py`, `feeds_host_check.py`, `profile_feed_probe.m`, `test_feeds_store.py` and `test_profile_feed.py` read it; the two `test_pages_main_assets.py` tests that staged main's checked-in feeds are removed, the release-hash pins move to `test_feeds_store.py`
+- **ios**: pace the frame workgroup probe by the clock and skip where UIKit cannot run it — `frame_workgroup_uikit_probe.m` counted 400 frames of `CFRunLoopRunInMode`, which returns at once when no source is ready, so on some hosts the frames ran out in under a second, before the dialog's dismissal finished, and "fixed" failed; each frame now runs the loop for 16 ms of wall time, within 10 s. A dialog that has not gone by then, a host without a workgroup, or a scene UIKit cannot make (a hosted CI runner raised while connecting it, before the probe started) is a SKIP line from `tools/test_frame_workgroup_uikit.py`, never a pass
+- **ios**: reproduce UIKit's work interval exception with the frame workgroup — `frame_workgroup_uikit_probe.m`, a small Mac Catalyst app run by `tools/test_frame_workgroup_uikit.py` from `ios_test.py`, runs frames around a nested run loop while a text dialog is up and a scroll view animates; "fixed" holds the thread out of the workgroup by `frame_deadline.h`'s rules, as `host_tv.m` does, and must finish cleanly, and "unfixed" keeps it joined and is expected to end with "Failed to create work interval" (only a warning if a UIKit update stops raising)
+
 ## visr-v0.6.12 (2026-11-06)
 
 ### Summary
