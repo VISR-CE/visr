@@ -34,6 +34,7 @@ def test_cancel_preserves_the_main_menu_and_keeps_back_navigation(tmp_path):
     functions = "\n".join(block(source, signature) for signature in (
         "static void widget_instance_go_back_to_previous(\n\tstruct widget_instance *widget)\n{",
         "static void event_handler_dispatch(\n\tstruct widget_instance *widget,\n\tstruct ui_widget_definition *definition,\n\tstruct event_record *event,\n\tstruct ui_widget_event_handler_reference *handler,\n\tboolean *calling_widget_deleted)\n{",
+        "static boolean widget_instance_port_refuse_graphics_edit(\n\tstruct widget_instance *widget,\n\tstruct event_record *event)\n{",
         "static void widget_instance_process_one_event_recursive(\n\tstruct widget_instance *widget,\n\tstruct ui_widget_definition *definition,\n\tstruct event_record *event,\n\tboolean *return_widget_deleted)\n{"))
     main_menu = ElementTree.parse(ROOT / "port/assets/menus/ce/main_menu.xml").getroot()
     root = main_menu.find("widget[@name='main_menu/main_menu']")

@@ -1674,6 +1674,30 @@ static boolean graphics_replaces(short mode, char const *setting)
 	return graphics_mode_value(mode, setting) != NULL;
 }
 
+/* The row stays focusable; ui_widget.c rejects edits before dispatching to its hidden spinner. Read the mode
+shown on this screen so an unsaved mode choice locks and unlocks the controls immediately. */
+boolean ui_widget_port_graphics_locked(struct widget_instance *widget)
+{
+	struct widget_instance *row = widget->type == 2 ? widget->parent : widget;
+	struct widget_instance *part;
+	short mode;
+
+	if (!row || !row->parent || strncmp(row->name, "op_", 3))
+		return FALSE;
+	mode = graphics_mode_shown(row->parent);
+	if (mode == NONE)
+		return FALSE;
+	for (part = row->child; part; part = part->next)
+	{
+		struct pc_menu_setting *setting = part->type == 2 && !spinner_item(part) ?
+			pc_menu_setting_get(part->definition_tag_index) : NULL;
+
+		if (setting && graphics_replaces(mode, setting->setting))
+			return TRUE;
+	}
+	return FALSE;
+}
+
 /* the Apple Vision Pro's host (menu_platform.h), where a stereo view cannot be the Xbox's 4:3 picture */
 static boolean graphics_in_vr(void)
 {
@@ -1785,9 +1809,8 @@ static void graphics_rows_show(struct widget_instance *list)
 		{
 			replaced->visible = replaces;
 			spinner->visible = !replaces;
-			/* (the cursor passes over a fixed row: it cannot rest on a row with nothing to change, and the focus
-			stopped at the row before the first one when it was let to) */
-			row->disabled = replaces;
+			/* Keep the row focusable so its fixed-value help is reachable. */
+			row->disabled = FALSE;
 		}
 		if (replaces)
 		{

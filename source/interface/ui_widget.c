@@ -1390,6 +1390,9 @@ boolean pc_menu_patch_list_index(
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
 	struct widget_instance *widget);
+/* port: a graphics-mode override locks editing without disabling the row (menu_functions.c). */
+boolean ui_widget_port_graphics_locked(
+	struct widget_instance *widget);
 /* port: where in its widget, and how large, the menus draw a frame of
 ui.map's that they scale (port/linux/game/menu_tags.c) */
 boolean pc_menu_frame_placement(
@@ -2815,6 +2818,23 @@ static void widget_instance_give_focus_by_tag(
 	return;
 }
 
+/* port: a locked row still receives focus and help, but its edit presses must stop before the hidden spinner's
+handlers run. Mouse clicks and taps arrive as A or left/right button events through ui_widgets_process_mouse. */
+static boolean widget_instance_port_refuse_graphics_edit(
+	struct widget_instance *widget,
+	struct event_record *event)
+{
+	boolean edit = event->type == _event_type_button && event->data.button.value == 1 &&
+		(event->data.button.index == _gamepad_analog_button_a ||
+		 event->data.button.index == _widget_event_dpad_left || event->data.button.index == _widget_event_dpad_right);
+
+	edit = edit || (event->type == _event_type_left_stick && event->data.stick.x != 0);
+	if (!edit || !ui_widget_port_graphics_locked(widget))
+		return FALSE;
+	ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+	return TRUE;
+}
+
 boolean widget_event_function_list_widget_goto_next_item(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -2829,6 +2849,12 @@ boolean widget_event_function_list_widget_goto_next_item(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
 		1230,
 		widget);
+	/* port: direct cycle handlers must obey the same lock as input dispatch. */
+	if (ui_widget_port_graphics_locked(widget))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -2967,6 +2993,12 @@ boolean widget_event_function_list_widget_goto_previous_item(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
 		1359,
 		widget);
+	/* port: direct cycle handlers must obey the same lock as input dispatch. */
+	if (ui_widget_port_graphics_locked(widget))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -7607,6 +7639,24 @@ static void column_list_update(
 	return;
 }
 
+/* port: child tabs and item steps share a column list's selection. A stale index can make the next item step
+wrap before the focused row reaches the end. Pointer focus uses the same physical child indices. */
+static void widget_instance_port_focus_child(
+	struct widget_instance *widget,
+	struct widget_instance *child)
+{
+	struct widget_instance *item;
+	short index = 0;
+
+	widget->focused_child = child;
+	if (widget->type == _ui_widget_type_column_list && pc_menu_tag(widget->definition_tag_index))
+	{
+		for (item = widget->child; item && item != child; item = item->next)
+			index++;
+		widget->parameters.list.selected_index = index;
+	}
+}
+
 static void widget_instance_tab_to_next_valid_widget(
 	struct widget_instance *widget)
 {
@@ -7629,7 +7679,7 @@ static void widget_instance_tab_to_next_valid_widget(
 			!(widget->type == _ui_widget_type_column_list && pc_menu_tag(widget->definition_tag_index) &&
 				widget_instance_port_is_label(child)))
 		{
-			widget->focused_child = child;
+			widget_instance_port_focus_child(widget, child);
 			break;
 		}
 		child = child->next;
@@ -7671,7 +7721,7 @@ static void widget_instance_tab_to_previous_valid_widget(
 			!(widget->type == _ui_widget_type_column_list && pc_menu_tag(widget->definition_tag_index) &&
 				widget_instance_port_is_label(child)))
 		{
-			widget->focused_child = child;
+			widget_instance_port_focus_child(widget, child);
 			break;
 		}
 		if (child->previous)
@@ -7737,6 +7787,12 @@ static void widget_instance_process_one_event_recursive(
 			DPAD_EVENT_REPEAT_MILLISECONDS)
 	{
 		event->data.button.value = 1;
+	}
+	/* port: navigation remains available on fixed graphics rows; only editing is refused. */
+	if (event_for_this_widget && widget_instance_port_refuse_graphics_edit(widget, event))
+	{
+		*return_widget_deleted = FALSE;
+		return;
 	}
 	if (widget->close_if_local_player_controller_present == TRUE)
 	{

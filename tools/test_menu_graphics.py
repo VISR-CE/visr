@@ -1,6 +1,6 @@
 """Exercise the graphics modes' menu rows with the production functions of port/linux/game/menu_functions.c: the
 hub's mode word, the CRT effect's row shown only in Hardcore, the settings Hardcore replaces reading HARDCORE with
-their rows passed over, and the help of the mode shown."""
+their rows selectable, and the help of the mode shown."""
 from pathlib import Path
 import subprocess
 
@@ -30,9 +30,9 @@ struct widget_instance
 {
     long definition_tag_index;
     char const *name;
-    short type;
+    short type, local_player_index;
     boolean visible, disabled;
-    struct widget_instance *next, *parent, *child, *focused_child;
+    struct widget_instance *next, *previous, *parent, *child, *focused_child;
     union
     {
         struct { wchar_t *text; short string_list_index; } text_box;
@@ -89,7 +89,9 @@ long halo_menus_utf16(char const *utf8, unsigned short *out, long capacity)
 static void text_set_length(struct widget_instance *box, wchar_t const *text, short length)
 {
     if (!box->parameters.text_box.text) box->parameters.text_box.text = calloc(length, sizeof(wchar_t));
-    for (short i = 0; i < length - 1 && text[i]; i++) box->parameters.text_box.text[i] = text[i];
+    short i = 0;
+    for (; i < length - 1 && text[i]; i++) box->parameters.text_box.text[i] = text[i];
+    box->parameters.text_box.text[i] = 0;
 }
 static boolean spinner_item(struct widget_instance const *widget)
 {
@@ -99,6 +101,41 @@ static struct widget_instance *screen_of(struct widget_instance *widget)
 {
     while (widget->parent) widget = widget->parent;
     return widget;
+}
+#define _ui_widget_type_spinner_list 2
+#define _ui_widget_type_column_list 5
+#define _widget_pass_unhandled_events_to_children_bit 0
+#define _widget_dpad_updown_tabs_thru_children_bit 1
+#define _widget_dpad_leftright_tabs_thru_children_bit 2
+#define _ui_audio_feedback_cursor 1
+#define TEST_FLAG(f, b) (((f) >> (b)) & 1)
+#define _list_items_generated_from_string_list_tag 0
+#define _error_silent 0
+#define _ui_audio_feedback_flag_failure 4
+#define _gamepad_analog_button_a 0
+#define _event_type_button 3
+#define _event_type_left_stick 1
+#define _widget_event_dpad_left 10
+#define _widget_event_dpad_right 11
+#define match_assert(file, line, condition) assert(condition)
+#define match_vassert(file, line, condition, ...) assert(condition)
+struct event_record { short type; union { struct { short index, value; } button; struct { short x, y; } stick; } data; };
+struct ui_widget_definition { long flags, list_flags; struct { long count; } event_handlers, child_widgets; };
+static int refusals;
+static void ui_play_audio_feedback_sound(short sound) { if (sound == 4) refusals++; else assert(sound == 1); }
+static void error(int level, char const *message, ...) { abort(); }
+static struct widget_instance *widget_instance_get_topmost_parent(struct widget_instance *widget)
+{ return screen_of(widget); }
+static struct widget_instance *widget_instance_get_nth_child(struct widget_instance *widget, long index)
+{ struct widget_instance *child = widget->child; while (child && index--) child = child->next; return child; }
+static struct ui_widget_definition definitions[64];
+static struct ui_widget_definition *ui_widget_definition_get(long tag) { return &definitions[tag]; }
+static boolean pc_menu_tag(long tag) { (void)tag; return TRUE; }
+static struct widget_instance *widget_instance_get_tail_child_widget(struct widget_instance *widget)
+{
+    struct widget_instance *child = widget->child;
+    while (child && child->next) child = child->next;
+    return child;
 }
 /* PRODUCTION */
 
@@ -116,11 +153,12 @@ static struct widget_instance *make(char const *name, struct widget_instance *pa
     widget->name = name;
     widget->type = type;
     widget->visible = TRUE;
+    definitions[widget->definition_tag_index].flags = 1;
     widget->parent = parent;
     if (parent)
     {
         struct widget_instance **tail = &parent->child;
-        while (*tail) tail = &(*tail)->next;
+        while (*tail) { widget->previous = *tail; tail = &(*tail)->next; }
         *tail = widget;
     }
     return widget;
@@ -209,9 +247,84 @@ int main(void)
     graphics_rows_show(list);
     assert(op_crt->visible);
     /* (the value in force, as the spinner names it: 30 is the second of display|30|60; OFF the second of true|false) */
-    assert(!rate->visible && rate_replaced->visible && op_rate->disabled);
+    assert(!rate->visible && rate_replaced->visible && !op_rate->disabled);
     assert(rate_replaced->parameters.text_box.string_list_index == 1);
+    assert(!op_motion->disabled);
     assert(!motion->visible && motion_replaced->visible && motion_replaced->parameters.text_box.string_list_index == 1);
+    /* Child-tab navigation must preserve both the row and its physical index, including wrap-around. */
+    list->focused_child = op_crt;
+    list->parameters.list.selected_index = 1;
+    widget_instance_tab_to_next_valid_widget(list);
+    assert(list->focused_child == op_rate && list->parameters.list.selected_index == 2);
+    widget_instance_tab_to_next_valid_widget(list);
+    assert(list->focused_child == op_sync && list->parameters.list.selected_index == 3);
+    widget_instance_tab_to_next_valid_widget(list);
+    assert(list->focused_child == op_motion && list->parameters.list.selected_index == 4);
+    widget_instance_tab_to_next_valid_widget(list);
+    assert(list->focused_child == op_mode && list->parameters.list.selected_index == 0);
+    widget_instance_tab_to_previous_valid_widget(list);
+    assert(list->focused_child == op_motion && list->parameters.list.selected_index == 4);
+    widget_instance_tab_to_previous_valid_widget(list);
+    widget_instance_tab_to_previous_valid_widget(list);
+    assert(list->focused_child == op_rate && list->parameters.list.selected_index == 2);
+    /* Mix pointer focus, child tabs and item steps: the old stale index wrapped early to the first row. */
+    list->parameters.list.number_of_items = 5;
+    ui_mouse_give_focus(op_motion);
+    widget_instance_tab_to_previous_valid_widget(list);
+    widget_instance_tab_to_previous_valid_widget(list);
+    {
+        boolean deleted = FALSE;
+        widget_event_function_list_widget_goto_next_item(list, NULL, &deleted);
+        assert(list->focused_child == op_sync && list->parameters.list.selected_index == 3);
+    }
+    /* Pointer hover and tap focus the row even though its spinner is hidden. */
+    for (struct widget_instance *target = op_rate; target; target = target == op_rate ? op_motion : NULL)
+    {
+        assert(ui_mouse_widget_is_item(target));
+        ui_mouse_give_focus(target);
+        assert(list->focused_child == target);
+        assert(list->parameters.list.selected_index == (target == op_rate ? 2 : 4));
+        graphics_rows_show(list);
+        assert(row_help->visible && !help->visible);
+    }
+    /* Even a direct spinner step (including A-to-cycle handlers) cannot wrap a locked value. */
+    definitions[rate->definition_tag_index].list_flags = 1;
+    for (int i = 0; i < 3; i++)
+    {
+        boolean deleted = FALSE;
+        struct event_record event = { .type = _event_type_button, .data.button = { _widget_event_dpad_right, 1 } };
+        rate->parameters.list.number_of_items = 3;
+        rate->parameters.list.selected_index = i;
+        assert(widget_instance_port_refuse_graphics_edit(op_rate, &event));
+        assert(widget_event_function_list_widget_goto_next_item(rate, &event, &deleted));
+        assert(rate->parameters.list.selected_index == i);
+        assert(widget_event_function_list_widget_goto_previous_item(rate, &event, &deleted));
+        assert(rate->parameters.list.selected_index == i && !deleted);
+        event.data.button.index = _gamepad_analog_button_a;
+        assert(widget_instance_port_refuse_graphics_edit(op_rate, &event));
+        event.data.button.index = _widget_event_dpad_left;
+        assert(widget_instance_port_refuse_graphics_edit(op_rate, &event));
+        event.type = _event_type_left_stick;
+        event.data.stick.x = -32768;
+        assert(widget_instance_port_refuse_graphics_edit(op_rate, &event));
+        event.data.stick.x = 0;
+        event.data.stick.y = 32767;
+        assert(!widget_instance_port_refuse_graphics_edit(op_rate, &event));
+        assert(!ui_widget_port_graphics_locked(op_sync));
+    }
+    assert(refusals == 18);
+    assert(ui_widget_port_graphics_locked(motion));
+    definitions[motion->definition_tag_index].list_flags = 1;
+    motion->parameters.list.number_of_items = 2;
+    for (int i = 0; i < 2; i++)
+    {
+        boolean deleted = FALSE;
+        motion->parameters.list.selected_index = i;
+        widget_event_function_list_widget_goto_next_item(motion, NULL, &deleted);
+        widget_event_function_list_widget_goto_previous_item(motion, NULL, &deleted);
+        assert(motion->parameters.list.selected_index == i);
+    }
+    assert(refusals == 22);
     /* vertical sync is no setting the mode replaces */
     assert(sync->visible && !op_sync->disabled);
     /* a fixed row can be chosen, for its help, and says what it is fixed to */
@@ -245,6 +358,16 @@ int main(void)
     assert(rate->visible && !rate_replaced->visible && !op_rate->disabled);
     assert(mode_help->parameters.text_box.string_list_index == 1);
 
+    assert(!ui_widget_port_graphics_locked(rate));
+    {
+        boolean deleted = FALSE;
+        rate->parameters.list.selected_index = 2;
+        definitions[rate->definition_tag_index].list_flags = 1;
+        widget_event_function_list_widget_goto_next_item(rate, NULL, &deleted);
+        assert(rate->parameters.list.selected_index == 0);
+        widget_event_function_list_widget_goto_previous_item(rate, NULL, &deleted);
+        assert(rate->parameters.list.selected_index == 2);
+    }
     /* a setting the device's profile sets (display|30|60: campaign 60) and the player has not chosen shows the
     profile's campaign value, with a help that says so; the rows are not fixed */
     profile_sets_name = "display.frame_rate";
@@ -311,8 +434,27 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static struct widget_instance *descendant(', 'static struct widget_instance *named(',
         'static boolean text_is_number(', 'static short setting_value_index(',
         'static void graphics_state_show(', 'static void hub_status_show(', 'static boolean graphics_in_vr(',
-        'static short graphics_mode_shown(', 'static boolean graphics_replaces(', 'static char const *graphics_device_name(',
+        'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
+        'boolean ui_widget_port_graphics_locked(', 'static char const *graphics_device_name(',
         'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_rows_show('))
+    ui = (ROOT / 'source/interface/ui_widget.c').read_text()
+    functions += '\n' + '\n'.join(block(ui[ui.rindex(marker):], marker) for marker in (
+        'static __inline boolean widget_instance_can_handle_events(',
+        'static boolean widget_instance_port_is_label(',
+        'static boolean widget_instance_can_receive_events(',
+        'static long ui_mouse_child_index(',
+        'static boolean ui_mouse_widget_is_item(',
+        'static boolean ui_mouse_widget_has_focus(',
+        'static struct widget_instance *widget_instance_find_by_tag_index_recursive(',
+        'static void widget_instance_give_focus_directly(',
+        'static void ui_mouse_give_focus(',
+        'static void widget_instance_give_focus_by_tag(',
+        'static boolean widget_instance_port_refuse_graphics_edit(',
+        'boolean widget_event_function_list_widget_goto_next_item(',
+        'boolean widget_event_function_list_widget_goto_previous_item(',
+        'static void widget_instance_port_focus_child(',
+        'static void widget_instance_tab_to_next_valid_widget(',
+        'static void widget_instance_tab_to_previous_valid_widget('))
     # the hook that runs them is the settings screens' data function, ahead of the help
     invoke = block(source[source.rindex('void pc_menu_game_data_function_invoke('):],
                    'void pc_menu_game_data_function_invoke(')
