@@ -4969,7 +4969,7 @@ static void lobby_browser_update(struct widget_instance *list)
 		}
 		else if (!lobby_browser.count && lobby_browser.hidden)
 		{
-			usnprintf(text, NUMBEROF(text) - 1, L"No games match the filters: %d hidden (FILTERS)",
+			usnprintf(text, NUMBEROF(text) - 1, L"No games match: %d hidden by filters",
 				lobby_browser.hidden);
 		}
 		else if (!lobby_browser.count)
