@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "halo_network_version.h"
+#include "halo_delta.h"
 typedef unsigned char byte;
 typedef unsigned short word;
 typedef int boolean;

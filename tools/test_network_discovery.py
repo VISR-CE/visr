@@ -48,6 +48,7 @@ def test_lan_kind_is_retained_and_older_reserved_bytes_are_ignored(tmp_path):
     program = fixture.replace("/* DECLARATIONS */", declarations).replace("/* PRODUCTION */", production)
     program = program.replace('"halo_network_version.h"',
                               '"' + str(ROOT / "port/linux/include/halo_network_version.h") + '"')
+    program = program.replace('"halo_delta.h"', '"' + str(ROOT / "port/linux/include/halo_delta.h") + '"')
     probe, binary = tmp_path / "advertisement.c", tmp_path / "advertisement"
     probe.write_text(program)
     subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
