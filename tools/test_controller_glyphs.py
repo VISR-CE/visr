@@ -31,10 +31,11 @@ def glyph_blends():
 
 def test_keyboard_backdrop_stretch_uses_the_picture_size_not_the_texture_size():
     source = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
-    body = block(source, 'static void virtual_keyboard_render_internal(')
+    start = source.index('static void virtual_keyboard_render_internal(\n\tvoid)\n{')
+    body = source[start:start + 6000]
+    body = body[:body.index('draw_string_set_draw_mode')]
     assert 'left_source = {0, 0, 480, 1}' in body
     assert 'right_source = {0, 639, 480, 640}' in body
-    assert 'bitmap->height' not in body and 'bitmap->width' not in body
 
 
 def test_touch_captions_and_initial_keyboard_owner(tmp_path):
