@@ -9,7 +9,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/title_port" x="54" y="102"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/options_menu"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/header_about" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
