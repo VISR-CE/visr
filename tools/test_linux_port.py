@@ -603,3 +603,19 @@ def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
         if capability is not None:
             current["HALO_HOST_CLOUD_SAVES"] = capability
         subprocess.run([str(probe), kind], env=current, check=True)
+
+
+@pytest.mark.parametrize("probe", ["delta_peer", "delta_peer_game"])
+def test_delta_peer_codec_and_sessions(tmp_path, probe):
+    """Reject malformed wire packets and nonmembers; retry without holding up the game."""
+    clang = shutil.which("clang")
+    if not clang:
+        pytest.skip("needs clang")
+    program = tmp_path / "delta-peer-probe"
+    result = subprocess.run([clang, "-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror",
+                             "-fsanitize=address,undefined", "-Iport/linux/src", "-iquote", "port/linux/include",
+                             f"port/ios/tests/{probe}_probe.c", "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c", "-o", str(program)],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr

@@ -333,3 +333,13 @@ def test_signed_get_rejects_header_injection_and_large_body(signed_transport, se
     fields = signed_request(signed_transport, server, "/signed", "", "5")
     assert fields["status"] == "0" and fields["size"] == "0"
     assert signed_request(signed_transport, server, "/signed", "", "6")["status"] == "200"
+
+
+@pytest.mark.parametrize("probe", ["delta_peer", "delta_peer_game"])
+def test_delta_peer_handshake(tmp_path, probe):
+    program = tmp_path / "delta-peer-probe"
+    compile_native(["-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined",
+                    "-Iport/linux/src", "-iquote", "port/linux/include", f"port/ios/tests/{probe}_probe.c",
+                    "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c"], program)
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr

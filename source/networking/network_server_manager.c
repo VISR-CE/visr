@@ -461,6 +461,7 @@ symbols in this file:
 #include "networking/network_client_manager.h"
 #include "networking/network_connection.h"
 #include "networking/network_game_globals.h"
+#include "halo_delta_peer.h"
 #include "networking/network_game_manager.h"
 #include "networking/network_game_protocol.h"
 #include "networking/network_game_ui.h"
@@ -1261,6 +1262,9 @@ struct network_game_server *network_game_server_create(
 void network_game_server_dispose(
 	struct network_game_server *server)
 {
+	/* port: close the advertised Delta socket with this game. */
+	delta_peer_game_host_stop();
+
 	match_assert(NETWORK_SERVER_MANAGER_FILE, 0x120, server);
 
 	/* port: a won co-op round's next level belongs to this server alone */
@@ -1455,6 +1459,23 @@ boolean network_game_server_idle(
 			success = FALSE;
 			goto exit;
 		}
+	}
+
+	/* port: supply only machines still in this game; Delta checks their
+	addresses before parsing and uses the same xnet socket layer as Halo. */
+	{
+		unsigned int addresses[HALO_PORT_MAXIMUM_NETWORK_MACHINES] = {0};
+		unsigned char present[HALO_PORT_MAXIMUM_NETWORK_MACHINES] = {0};
+		int i, local = NONE;
+		for (i = 0; i < HALO_PORT_MAXIMUM_NETWORK_MACHINES; i++)
+		{
+			struct network_game_server_client_machine *machine = &server->client_machines[i];
+			if (!network_game_server_client_machine_is_joined_to_game(server, machine)) continue;
+			present[i] = 1;
+			addresses[i] = network_game_server_machine_address(i);
+			if (network_game_server_client_machine_is_local(server, machine)) local = i;
+		}
+		delta_peer_game_host_idle(addresses, present, local, server->game.maximum_players, system_milliseconds());
 	}
 
 	/* (what Discord shows of a game hosted for internet play, and the

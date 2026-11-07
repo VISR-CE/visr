@@ -1015,15 +1015,22 @@ static const struct config_setting config_settings[] =
 		"network.public_lobby on. It asks the list for its games every 15\n"
 		"seconds and sends nothing else: the list's server sees this machine's\n"
 		"internet address, as the signalling brokers do." },
+	{ "network.delta_peer", _config_boolean, "true", "HALO_NET_DELTA_PEER", _environment_value, _platform_all,
+		"Exchange Delta handshakes and platform claims after joining a host that\n"
+		"advertises Delta. A silent host falls back to legacy after 4 seconds.\n"
+		"Hosting opens the Delta socket only when network.delta_announce is\n"
+		"also on; a busy side port hosts without Delta. False disables both." },
 	{ "network.delta_announce", _config_boolean, "false", "HALO_NET_DELTA_ANNOUNCE", _environment_value, _platform_all,
 		"List the public game this machine hosts for the internet (Create Game >\n"
 		"Internet, PUBLIC, no password) in Delta's public list\n"
 		"(network.delta_url), so that players using it find it. Off by default:\n"
 		"it sends the list's server, run by others, the game's invite (anyone who\n"
 		"has it can join), name, map, engine (game type number), players,\n"
-		"maximum_players, open, version (network version), teams, delta (0\n"
-		"until Delta Peer runs), platform_key, arch, build and capabilities\n"
-		"(0 for now). No machines, roster, profile or stats are sent. The server sees this machine's\n"
+		"maximum_players, open, version (network version), teams, delta (the\n"
+		"major while its Delta socket is open, otherwise 0), platform_key, arch,\n"
+		"build and capabilities (platform only). With network.delta_peer on,\n"
+		"also open the Delta socket for LAN and internet games. No machines,\n"
+		"roster, profile or stats are sent to the list. The server sees this machine's\n"
 		"internet address. The game is withdrawn when it ends or goes private." },
 	{ "network.delta_url", _config_string, "\"https://halo.milenko.org\"", "HALO_NET_DELTA_URL", _environment_value,
 		_platform_all,
