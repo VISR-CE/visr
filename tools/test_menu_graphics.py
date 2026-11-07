@@ -33,6 +33,7 @@ struct widget_instance
     short type, local_player_index;
     boolean visible, disabled;
     struct widget_instance *next, *previous, *parent, *child, *focused_child;
+    struct { short current_frame_index, first_frame_index, last_frame_index, number_of_sprite_frames; } animation;
     union
     {
         struct { wchar_t *text; short string_list_index; } text_box;
@@ -77,22 +78,10 @@ static short text_value_of(wchar_t const *line, char *out)
     for (short i = 0; i < n; i++) if (out[i] == '\n' || out[i] == '\r') out[i] = ' ';
     return n;
 }
-long halo_menus_utf16(char const *utf8, unsigned short *out, long capacity)
-{
-    long n = 0;
-    for (; utf8[n] && n < capacity - 1; n++) out[n] = (unsigned char)utf8[n];
-    out[n] = 0;
-    /* (the help's line breaks are read as the spaces they replaced) */
-    for (short i = 0; i < n; i++) if (out[i] == '\n' || out[i] == '\r') out[i] = ' ';
-    return n;
-}
-static void text_set_length(struct widget_instance *box, wchar_t const *text, short length)
-{
-    if (!box->parameters.text_box.text) box->parameters.text_box.text = calloc(length, sizeof(wchar_t));
-    short i = 0;
-    for (; i < length - 1 && text[i]; i++) box->parameters.text_box.text[i] = text[i];
-    box->parameters.text_box.text[i] = 0;
-}
+static void *ui_widget_realloc(void *pointer, size_t size, char const *file, int line)
+{ (void)file; (void)line; return realloc(pointer, size); }
+static void ustrncpy(wchar_t *out, wchar_t const *text, short length)
+{ short i = 0; for (; i < length && text[i]; i++) out[i] = text[i]; for (; i < length; i++) out[i] = 0; }
 static boolean spinner_item(struct widget_instance const *widget)
 {
     return widget->parent && widget->parent->definition_tag_index == widget->definition_tag_index;
@@ -153,6 +142,7 @@ static struct widget_instance *make(char const *name, struct widget_instance *pa
     widget->name = name;
     widget->type = type;
     widget->visible = TRUE;
+    widget->animation.number_of_sprite_frames = 2;
     definitions[widget->definition_tag_index].flags = 1;
     widget->parent = parent;
     if (parent)
@@ -251,6 +241,19 @@ int main(void)
     assert(rate_replaced->parameters.text_box.string_list_index == 1);
     assert(!op_motion->disabled);
     assert(!motion->visible && motion_replaced->visible && motion_replaced->parameters.text_box.string_list_index == 1);
+    /* Event dispatch updates the bitmap BEFORE navigation; render-time help must agree with its outline. */
+    list->focused_child = op_mode;
+    list->parameters.list.selected_index = 0;
+    for (int i = 0; i < 10; i++)
+    {
+        column_list_update(list, ui_widget_definition_get(list->definition_tag_index));
+        if (i < 5) widget_instance_tab_to_next_valid_widget(list);
+        else widget_instance_tab_to_previous_valid_widget(list);
+        graphics_rows_show(list);
+        for (struct widget_instance *row = list->child; row; row = row->next)
+            assert(row->animation.current_frame_index == (row == list->focused_child));
+        assert(row_help->visible == (list->focused_child == op_rate || list->focused_child == op_motion));
+    }
     /* Child-tab navigation must preserve both the row and its physical index, including wrap-around. */
     list->focused_child = op_crt;
     list->parameters.list.selected_index = 1;
@@ -286,6 +289,8 @@ int main(void)
         assert(list->parameters.list.selected_index == (target == op_rate ? 2 : 4));
         graphics_rows_show(list);
         assert(row_help->visible && !help->visible);
+        assert(target->animation.current_frame_index == 1);
+        assert(op_sync->animation.current_frame_index == 0);
     }
     /* Even a direct spinner step (including A-to-cycle handlers) cannot wrap a locked value. */
     definitions[rate->definition_tag_index].list_flags = 1;
@@ -353,7 +358,10 @@ int main(void)
     mode->parameters.list.selected_index = 1;
     stored_mode = GRAPHICS_MODE_CLASSIC;
     list->focused_child = op_crt;
+    /* Hiding a focused CRT row moves focus during drawing, after the animation update. */
+    column_list_update(list, ui_widget_definition_get(list->definition_tag_index));
     graphics_rows_show(list);
+    assert(op_mode->animation.current_frame_index == 1 && op_crt->animation.current_frame_index == 0);
     assert(!op_crt->visible && list->focused_child == op_mode && list->parameters.list.selected_index == 0);
     assert(rate->visible && !rate_replaced->visible && !op_rate->disabled);
     assert(mode_help->parameters.text_box.string_list_index == 1);
@@ -431,12 +439,13 @@ int main(void)
 def test_the_graphics_rows_follow_the_mode(tmp_path):
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     functions = '\n'.join(block(source, marker) for marker in (
-        'static struct widget_instance *descendant(', 'static struct widget_instance *named(',
+        'static void text_set_length(', 'static struct widget_instance *descendant(', 'static struct widget_instance *named(',
         'static boolean text_is_number(', 'static short setting_value_index(',
         'static void graphics_state_show(', 'static void hub_status_show(', 'static boolean graphics_in_vr(',
         'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
         'boolean ui_widget_port_graphics_locked(', 'static char const *graphics_device_name(',
         'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_rows_show('))
+    functions = block((ROOT / 'port/linux/src/menu_files.c').read_text(), 'long halo_menus_utf16(') + '\n' + functions
     ui = (ROOT / 'source/interface/ui_widget.c').read_text()
     functions += '\n' + '\n'.join(block(ui[ui.rindex(marker):], marker) for marker in (
         'static __inline boolean widget_instance_can_handle_events(',
@@ -452,7 +461,7 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static boolean widget_instance_port_refuse_graphics_edit(',
         'boolean widget_event_function_list_widget_goto_next_item(',
         'boolean widget_event_function_list_widget_goto_previous_item(',
-        'static void widget_instance_port_focus_child(',
+        'static void column_list_update(', 'static void widget_instance_port_focus_child(',
         'static void widget_instance_tab_to_next_valid_widget(',
         'static void widget_instance_tab_to_previous_valid_widget('))
     # the hook that runs them is the settings screens' data function, ahead of the help
@@ -466,4 +475,56 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
     probe.write_text(program)
     subprocess.run(['cc', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-unused-const-variable',
                     '-fsanitize=address,undefined', str(probe), '--output=' + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
+def test_fixed_help_preserves_complete_text_and_renderable_line_breaks(tmp_path):
+    source = (ROOT / "port/linux/game/menu_functions.c").read_text()
+    functions = "\n".join(block(source, marker) for marker in (
+        "static void text_set_length(", "static void graphics_help_text(", "static void graphics_fixed_help("))
+    functions += "\n" + block((ROOT / "port/linux/src/menu_files.c").read_text(), "long halo_menus_utf16(")
+    # Keep the real UTF-16 conversion and text allocation/copy; a raw LF is not
+    # a line break in draw_string.c's parse_string, whereas CR is.
+    boundary = PROGRAM[:PROGRAM.index("/* PRODUCTION */")]
+    boundary = boundary.replace('#define wchar_t unsigned short',
+                                '#define wchar_t unsigned short\nlong halo_menus_utf16(char const *, unsigned short *, long);')
+    program = boundary + functions + r'''
+int main(void)
+{
+    struct widget_instance help = {0};
+    char line[300];
+    struct { char const *setting, *value, *expected; int length, breaks; } cases[] = {
+        {"display.interpolation", "false", "Frames are drawn at the game's 30 ticks a second in Hardcore mode.", 66, 1},
+        {"display.frame_rate", "30", "Fixed to 30 FPS in Hardcore mode.", 33, 0},
+        {"display.direct_camera", "false", "Fixed to false in Hardcore mode.", 32, 0},
+        {"display.resolution_scaling", "original", "Fixed to original in Hardcore mode.", 35, 0},
+        {"display.interpolation", "false", "Frames are drawn at the game's 30 ticks a second in Hardcore mode.", 66, 1},
+    };
+    for (int i = 0; i < NUMBEROF(cases); i++)
+    {
+        graphics_fixed_help(&help, GRAPHICS_MODE_HARDCORE, cases[i].setting, cases[i].value);
+        short length = text_value_of(help.parameters.text_box.text, line);
+        assert(length == cases[i].length);
+        assert(!strcmp(line, cases[i].expected));
+        int breaks = 0, column = 0;
+        for (int j = 0; j < length; j++)
+        {
+            wchar_t ch = help.parameters.text_box.text[j];
+            assert(ch != '\n');
+            if (ch == '\r') { assert(column <= 48); breaks++; column = 0; }
+            else column++;
+        }
+        assert(column <= 48);
+        assert(breaks == cases[i].breaks);
+    }
+    free(help.parameters.text_box.text);
+    return 0;
+}
+'''
+    program = program.replace('PORT_GRAPHICS_MODES', str(ROOT / 'port/linux/src/port_graphics_modes.h'))
+    probe, binary = tmp_path / "help.c", tmp_path / "help"
+    probe.write_text(program)
+    subprocess.run(['cc', '-Wall', '-Werror', '-Wno-unused-function', '-Wno-unused-variable',
+                    '-Wno-unused-const-variable', '-fsanitize=address,undefined', str(probe),
+                    '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)

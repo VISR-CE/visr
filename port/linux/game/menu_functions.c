@@ -1720,7 +1720,7 @@ static char const *graphics_device_name(void)
 	return getenv("HALO_HOST_PHONE_SCALE") ? "iPhone" : "iPad";
 }
 
-/* a help line broken to the help's width, two lines of the screens' large font at most 48 characters */
+/* Help uses the same carriage-return line breaks as draw_string.c's parser. */
 static void graphics_help_text(struct widget_instance *help, char const *message)
 {
 	char wrapped[240];
@@ -1734,7 +1734,7 @@ static void graphics_help_text(struct widget_instance *help, char const *message
 			last_space = index;
 		if (column >= 48 && last_space != NONE)
 		{
-			wrapped[last_space] = '\n';
+			wrapped[last_space] = '\r';
 			column = (short)(index - last_space);
 			last_space = NONE;
 		}
@@ -1792,6 +1792,10 @@ static void graphics_rows_show(struct widget_instance *list)
 
 		if (strncmp(row->name, "op_", 3))
 			continue;
+		/* column_list_update runs before event navigation. Match the outline to the focus used for help
+		during this draw, including when hiding the CRT row moves focus back to GRAPHICS. */
+		if (row->animation.number_of_sprite_frames == 2)
+			row->animation.current_frame_index = row == list->focused_child ? 1 : 0;
 		for (part = row->child; part; part = part->next)
 		{
 			if (strstr(part->name, "_replaced"))
