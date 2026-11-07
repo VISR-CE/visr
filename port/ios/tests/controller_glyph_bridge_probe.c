@@ -37,6 +37,16 @@ int main(void) {
  assert(host_sdl_gamepad_glyph(21,0,"mfi",label,sizeof(label),0,0)==2 && !strcmp(label,"a.circle"));
  assert(host_sdl_gamepad_glyph(21,0,"touch",label,sizeof(label),0,0)==1);
  assert(host_sdl_gamepad_glyph(21,0,"keyboard",label,sizeof(label),0,0)==3);
+ /* A disconnected iPhone/iPad hides glyphs before any touch activity. */
+ physical=NULL;keyboard=0;
+#if !TARGET_OS_TV
+ assert(host_sdl_gamepad_glyph(21,0,"",label,sizeof(label),0,1)==HALO_GLYPH_HIDDEN);
+ assert(host_sdl_gamepad_glyph(0,1,"",label,sizeof(label),0,1)==HALO_GLYPH_HIDDEN);
+#endif
+ assert(host_sdl_gamepad_glyph(21,0,"xbox",label,sizeof(label),0,1)==HALO_GLYPH_ORIGINAL);
+ assert(host_sdl_gamepad_glyph(21,0,"missing",label,sizeof(label),0,1)==HALO_GLYPH_ORIGINAL);
+ physical=(void *)(uintptr_t)31;
+ assert(host_sdl_gamepad_glyph(21,5,"",label,sizeof(label),0,1)==HALO_GLYPH_SYMBOL);
  physical=NULL;keyboard=1;
 #if TARGET_OS_TV
  assert(host_sdl_gamepad_glyph(21,0,"",label,sizeof(label),0,0)==0); /* remote fallback */

@@ -6293,6 +6293,22 @@ static void ui_mouse_note_target(
 			bounds.y0 = MIN(bounds.y0, label_bounds.y0);
 			bounds.y1 = MAX(bounds.y1, label_bounds.y1);
 		}
+		/* port: touch legends keep the existing caption drawing. Pad only
+		the target: 60 menu units exceed 44 pt at 375/480 pt per unit on
+		the smallest supported iPhone in landscape. */
+		{
+			short owner = widget->local_player_index == NONE ?
+				local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+			if (controller_glyph_hidden(owner, button_index))
+			{
+				short width = MAX(0, 60 - (bounds.x1 - bounds.x0));
+				short height = MAX(0, 60 - (bounds.y1 - bounds.y0));
+				bounds.x0 -= width / 2;
+				bounds.x1 += width - width / 2;
+				bounds.y0 -= height / 2;
+				bounds.y1 += height - height / 2;
+			}
+		}
 	}
 	else if (parent && ui_mouse_list_shows_several(parent))
 	{

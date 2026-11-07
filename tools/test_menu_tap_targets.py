@@ -120,3 +120,22 @@ def test_carousel_arrows_are_targets():
     note = source[source.index("static void ui_mouse_note_target("):]
     note = note[:note.index("\n}\n")]
     assert "ui_mouse_note_carousel_arrows(widget, offset)" in note
+
+
+def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
+    from test_controller_glyphs import block
+
+    source = (ROOT / "source/interface/ui_widget.c").read_text()
+    program = (ROOT / "port/ios/tests/menu_legend_touch_probe.c").read_text()
+    program = program.replace("/* NOTE */", block(source, "static void ui_mouse_note_target("))
+    start = source.index("/* the squared distance from a point to a rectangle")
+    end = source.index("static boolean ui_mouse_widget_has_focus(", start)
+    program = program.replace("/* SEARCH */", source[start:end])
+    compiler = shutil.which("clang") or shutil.which("cc")
+    if not compiler:
+        raise SkipTest("A C compiler is required for the legend tap probe")
+    probe, binary = tmp_path / "legend.c", tmp_path / "legend"
+    probe.write_text(program)
+    subprocess.run([compiler, "-Wall", "-Werror", "-fsanitize=address,undefined",
+                    str(probe), "--output=" + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
