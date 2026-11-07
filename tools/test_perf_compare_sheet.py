@@ -1447,7 +1447,8 @@ def test_a_port_measured_uncapped_on_a_faster_display_draws_like_any_other_in_th
 
 
 def test_a_build_measured_on_another_device_is_not_run_here_not_blamed_on_that_devices_unavailable_note():
-    rows = snapshot()
+    # Drop the M6 rows of the newest Chupathingy release so the build is measured on the M4 only.
+    rows = [row for row in snapshot() if not (row["port"] == "chupathingy" and row["version"] == "v0.9.0" and row["host"] == "M6 Mac mini")]
     query = next(s for s in charts.load_specs(ROOT / "docs/benchmarks/charts") if s["name"] == "2-mac-fps")["query"]
     m6 = charts.model(rows, query, "co-op", "M6 Mac mini")
     m4 = charts.model(rows, query, "co-op", "M4 Mac mini")
