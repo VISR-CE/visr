@@ -3042,6 +3042,9 @@ static boolean hosting_cooperative(void)
 {
 	void *server = global_network_game_server_get();
 
+	/* (debug.menu_open_coop: Server Setup as a co-op host's, with no server) */
+	if (config_boolean("debug.menu_open_coop"))
+		return TRUE;
 	return server && game_cooperative(network_game_server_get_game(server));
 }
 

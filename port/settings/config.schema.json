@@ -2637,6 +2637,17 @@
             "desktop"
           ]
         },
+        "menu_open_coop": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.menu_open on Server Setup, show it as a co-op host's, though no game is hosted (for screenshots).",
+          "x-environment": "HALO_MENU_OPEN_COOP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "gpu_flush_draws": {
           "type": "integer",
           "default": -1,
