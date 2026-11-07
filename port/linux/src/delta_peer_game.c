@@ -142,7 +142,12 @@ static void roster_send(unsigned limit, unsigned now)
 			if (agreed & target->agreed & DELTA_CAP_PLATFORM)
 			{ e->flags |= 2; memcpy(e->key, key, 8); }
 		}
-		if (p.count) packet_send(host.socket, &host.endpoints[recipient], &p);
+		if (p.count)
+		{
+			packet_send(host.socket, &host.endpoints[recipient], &p);
+			if (host.dirty || !host.roster_sent)
+				platform_log("Delta Peer: ROSTER sent to machine %d (%u entries, room 0x%x)", recipient, p.count, room);
+		}
 	}
 	host.roster_sent = 1; host.roster_time = now; host.dirty = 0;
 }
@@ -193,6 +198,8 @@ void delta_peer_game_host_idle(const unsigned *addresses, const unsigned char *p
 		if (changed) host.dirty = 1;
 		if (reply.type)
 		{
+			if (reply.type == DELTA_PEER_WELCOME)
+				platform_log("Delta Peer: HELLO from machine %d, WELCOME sent", machine);
 			host.endpoints[machine] = from;
 			packet_send(host.socket, &host.endpoints[machine], &reply);
 		}
@@ -244,9 +251,10 @@ void delta_peer_game_client_idle(int machine, const unsigned char *has_players, 
 		struct delta_peer_packet p = client.identity;
 		p.type = DELTA_PEER_HELLO; p.machine = (unsigned char)machine; p.session = client.session.session;
 		packet_send(client.socket, &client.endpoint, &p);
+		platform_log("Delta Peer: HELLO sent (machine %d)", machine);
 	}
 	if (client.session.state == DELTA_PEER_FALLBACK)
-	{ delta_peer_game_client_stop(); return; }
+	{ platform_log("Delta Peer: no WELCOME, playing without it"); delta_peer_game_client_stop(); return; }
 	for (i = 0; i < 64; i++)
 	{
 		struct sockaddr_in from;
@@ -260,6 +268,8 @@ void delta_peer_game_client_idle(int machine, const unsigned char *has_players, 
 			from.sin_addr.s_addr != client.endpoint.sin_addr.s_addr || from.sin_port != client.endpoint.sin_port ||
 			!delta_peer_decode(&p, bytes, (unsigned)n) || !delta_peer_client_receive(&client.session, &p, now)) continue;
 		if (client.session.state == DELTA_PEER_FALLBACK) { delta_peer_game_client_stop(); return; }
+		if (p.type == DELTA_PEER_WELCOME)
+			platform_log("Delta Peer: WELCOME received (host platform %u, agreed 0x%x)", p.key[0], client.session.agreed);
 		if (p.type == DELTA_PEER_WELCOME && (client.session.agreed & DELTA_CAP_PLATFORM))
 		{
 			if (has_players[machine]) client.platforms[machine] = client.identity.key[0];
@@ -274,6 +284,7 @@ void delta_peer_game_client_idle(int machine, const unsigned char *has_players, 
 			client.platform_seen[e->machine] = now;
 			client.platforms[e->machine] = has_players[e->machine] && (e->flags & 3) == 3 &&
 				(e->agreed & client.session.agreed & DELTA_CAP_PLATFORM) ? e->key[0] : 0;
+			platform_log("Delta Peer: ROSTER entry machine %u platform %u", e->machine, client.platforms[e->machine]);
 		}
 	}
 }
