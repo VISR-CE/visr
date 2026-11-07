@@ -7018,12 +7018,17 @@ static void widget_instance_render_recursive(
 
 			if (pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
 			{
-				bounds.x0 += frame_x;
-				bounds.y0 += frame_y;
-				texels.x0 = 0;
-				texels.y0 = 0;
-				texels.x1 = (short)((long)(bounds.x1 - bounds.x0) * bitmap->width / frame_width);
-				texels.y1 = (short)((long)(bounds.y1 - bounds.y0) * bitmap->height / frame_height);
+				/* a negative place slides the picture up and left inside the
+				widget (a banner cut from the middle of a taller picture) */
+				short shift_x = frame_x < 0 ? -frame_x : 0;
+				short shift_y = frame_y < 0 ? -frame_y : 0;
+
+				bounds.x0 += frame_x > 0 ? frame_x : 0;
+				bounds.y0 += frame_y > 0 ? frame_y : 0;
+				texels.x0 = (short)((long)shift_x * bitmap->width / frame_width);
+				texels.y0 = (short)((long)shift_y * bitmap->height / frame_height);
+				texels.x1 = (short)(texels.x0 + (long)(bounds.x1 - bounds.x0) * bitmap->width / frame_width);
+				texels.y1 = (short)(texels.y0 + (long)(bounds.y1 - bounds.y0) * bitmap->height / frame_height);
 				shown = bounds.x1 > bounds.x0 && bounds.y1 > bounds.y0;
 			}
 			/* port: the menus' redraw draws this frame's texture at the

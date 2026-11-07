@@ -931,11 +931,12 @@ def browser_layout(root, widgets, bitmaps):
         widget(root, base + '/' + leaf, width=310, height=75, bitmap='xbox/browser/' + art)
         bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + art)
         for index in range(count):
-            # Scaled map frames keep their 2:1 aspect; the 75-unit widget cuts the height.
+            # The Xbox's map pictures are 140x114 in the corner of a 256x128 texture. Scale that to
+            # the widget's width (310/140) and slide it up to cut the 75-unit banner from its middle.
             # Xbox has thirteen map pictures, then its unknown-map picture.
             frame = min(index, 13) if art == 'preview_mp' else index
             ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
-                          width='310', height='155')
+                          x='0', y='-88', width='567', height='284')
     for leaf, x, y, width, height, font, color, text in (
             ('browser_detail_name', 313, 163, 294, 25, 'large', '#ffffff', ''),
             ('browser_detail_type', 313, 190, 294, 20, 'small', '#7fc4ff', ''),
