@@ -531,6 +531,9 @@ long halo_screen_width(void)
 
 void halo_screen_hud_frame(long width, short *x0, short *y0, short *x1, short *y1)
 {
+	static long logged_width;
+	static float logged_insets[4];
+	static short logged_frame[4];
 	/* the Xbox's 7.5% title-safe inset, widened in proportion to the screen */
 	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 	long left = 48 * width / 640, right = left, top = 36, bottom = 480 - 444;
@@ -549,6 +552,19 @@ void halo_screen_hud_frame(long width, short *x0, short *y0, short *x1, short *y
 	*x1 = (short)(width - right);
 	*y0 = (short)top;
 	*y1 = (short)(SCREEN_HEIGHT - bottom);
+	if (logged_width != width || memcmp(logged_insets, insets, sizeof(insets)) ||
+		logged_frame[0] != *x0 || logged_frame[1] != *x1 ||
+		logged_frame[2] != *y0 || logged_frame[3] != *y1)
+	{
+		platform_log("HUD frame: width %ld, insets left %.4f right %.4f top %.4f bottom %.4f, x0 %d x1 %d y0 %d y1 %d",
+			width, insets[0], insets[1], insets[2], insets[3], *x0, *x1, *y0, *y1);
+		logged_width = width;
+		memcpy(logged_insets, insets, sizeof(insets));
+		logged_frame[0] = *x0;
+		logged_frame[1] = *x1;
+		logged_frame[2] = *y0;
+		logged_frame[3] = *y1;
+	}
 }
 
 /* the display's pixels for each of the 480 lines (text_hires.c): those of

@@ -26,6 +26,8 @@ layouts).
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size);
 void host_device_profile_applied(int point, int networked, int changed, int metalfx, int frame_rate);
 int host_external_active(void);
+/* Fractions of the window: left, right, top, bottom; zero on an external display. */
+void host_external_safe_insets(float *insets);
 void host_external_commit(int allow_pause);
 /* dynamic resolution (port/ios/host/host_perf_hooks.c): asked between frames
 (d3d8_device.c's screen_mode_choose) with the lines the scene would render at

@@ -1047,7 +1047,14 @@ void platform_video_drawable_size(int *width, int *height)
 
 void platform_video_safe_insets(float *insets)
 {
+#ifdef HALO_IOS
+	/* The HUD frame runs in the guest; host_gpu.c's platform function is
+	for the host backend and cannot supply its insets here. */
+	extern void host_external_safe_insets(float *insets);
+	host_external_safe_insets(insets);
+#else
 	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
+#endif
 }
 
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)

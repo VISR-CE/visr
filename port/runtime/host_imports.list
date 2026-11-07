@@ -131,6 +131,7 @@ host_benchmark_worker_wait
 
 # Wired external display lifecycle and test controls
 host_external_active
+host_external_safe_insets
 host_external_commit
 host_external_cycle
 host_external_force
