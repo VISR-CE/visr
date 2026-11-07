@@ -881,7 +881,7 @@ def browser_layout(root, widgets, bitmaps):
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
         for leaf, x, y in (('type', 6, 9), ('server_name', 48, 7), ('map', 48, 30),
-                           ('gauge', 222, 6), ('players', 226, 11), ('capacity', 226, 27)):
+                           ('gauge', 222, 6), ('players', 226, 10), ('capacity', 226, 26)):
             child(row, base + '/server_item_' + leaf, x=x, y=y)
     for leaf, width, height, font, color, bitmap in (
             ('type', 36, 36, None, None, 'gametype'),
