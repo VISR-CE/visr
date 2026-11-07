@@ -222,7 +222,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         assert widgets[leaf].get('bitmap') == 'xbox/browser/' + art
         frames = bitmaps['xbox/browser/' + art].findall('frame')
         assert len(frames) == count
-        assert all((f.get('width'), f.get('height'), f.get('y')) == ('310', '155', None) for f in frames)
+        assert all((f.get('width'), f.get('height'), f.get('y')) == ('567', '284', '-88') for f in frames)
         assert all(f.get('map') and f.get('png') for f in frames)
     assert [int(f.get('index')) for f in bitmaps['xbox/browser/preview_mp']] == list(range(13)) + [13] * 7
     for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_toggle'):
