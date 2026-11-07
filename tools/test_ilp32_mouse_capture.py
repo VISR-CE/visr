@@ -1,6 +1,6 @@
 """The iOS and Mac guest holds the mouse while the game is played and lets it go in the menus.
 
-The guest's `halo_ui_pointer_update` (the ILP32 build, d3d8_device.c) asks the host to hold the mouse
+The guest's `ui_mouse_hold_update` (the ILP32 build, d3d8_device.c, called from `halo_ui_pointer_update`) asks the host to hold the mouse
 (`platform_mouse_menus_changed`) when no menu is up, and to release it when one is, once per change.
 """
 from pathlib import Path
@@ -18,7 +18,6 @@ PRELUDE = r'''
 typedef int BOOL;
 #define CONFIG_SCENE_MENU 1
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "check failed: %s\n", #x); return 1; } } while (0)
-struct halo_ui_pointer { int unused; };
 static int scene = 0, captures, held = -1;
 static int halo_scene_class(void) { return scene; }
 static void host_sdl_set_hint(const char *name, const char *value) { (void)name; (void)value; }
@@ -27,16 +26,15 @@ static void platform_mouse_menus_changed(BOOL up) { captures++; held = !up; }
 '''
 MAIN = r'''
 int main(void) {
-    struct halo_ui_pointer pointer;
-    halo_ui_pointer_update(0, &pointer);
+    ui_mouse_hold_update(0);
     CHECK(held == 1 && captures == 1);
-    halo_ui_pointer_update(0, &pointer);
+    ui_mouse_hold_update(0);
     CHECK(captures == 1);
-    halo_ui_pointer_update(1, &pointer);
+    ui_mouse_hold_update(1);
     CHECK(held == 0 && captures == 2);
-    halo_ui_pointer_update(1, &pointer);
+    ui_mouse_hold_update(1);
     CHECK(captures == 2);
-    halo_ui_pointer_update(0, &pointer);
+    ui_mouse_hold_update(0);
     CHECK(held == 1 && captures == 3);
     return 0;
 }
@@ -47,7 +45,7 @@ def run_probe(tmp_path, *, fault=False):
     compiler = shutil.which("clang") or shutil.which("cc")
     assert compiler, "A C compiler is required for the mouse capture probe"
     tmp_path.mkdir(parents=True, exist_ok=True)
-    stub = function(SOURCE, "halo_ui_pointer_update")
+    stub = function(SOURCE, "ui_mouse_hold_update")
     assert "platform_mouse_menus_changed(pointer_free)" in stub
     if fault:
         stub = mutated(stub, "platform_mouse_menus_changed(pointer_free)", "(void)pointer_free")
