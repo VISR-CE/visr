@@ -717,6 +717,21 @@ static void virtual_keyboard_render_internal(
 			1046,
 			bitmap);
 #ifdef HALO_IOS
+		/* port: on a screen wider than the Xbox's 640 columns the picture's
+		panel band and its rules would stop at the centered 640; its first
+		and last texel columns are stretched over the extra width on each
+		side, so the band runs to the screen's edges. */
+		if (halo_screen_width() > 640 && bitmap->width > 0)
+		{
+			long extra = (halo_screen_width() - 640) / 2 + 1;
+			rectangle2d left_bounds = {0, (short)-extra, 480, 0};
+			rectangle2d right_bounds = {0, 640, 480, (short)(640 + extra)};
+			rectangle2d left_source = {0, 0, bitmap->height, 1};
+			rectangle2d right_source = {0, bitmap->width - 1, bitmap->height, bitmap->width};
+
+			controller_glyph_blit(bitmap, &left_bounds, &left_source, NULL, 0xffffffff, _controller_glyph_blend_menu);
+			controller_glyph_blit(bitmap, &right_bounds, &right_source, NULL, 0xffffffff, _controller_glyph_blend_menu);
+		}
 		/* port: only the two buttons baked into the stock backdrop change.
 		The 410..444 legend band is uniform translucent black; sample an
 		empty part to retain that opacity behind each replacement. */
