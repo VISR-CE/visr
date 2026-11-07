@@ -144,7 +144,8 @@ function suiteValue(group, query, suite, device) {
   const unsupported = group.filter((row) => row.suite === suite && row.status === "not_supported");
   if (unsupported.length) return [null, unsupported[0].notes || "not supported", "not_supported"];
   if (!box.length) {
-    const gone = group.filter((row) => row.status === "unavailable" && row.notes).map((row) => row.notes);
+    const measuredElsewhere = group.some((row) => row.status === "ok");
+    const gone = measuredElsewhere ? [] : group.filter((row) => row.status === "unavailable" && row.notes).map((row) => row.notes);
     return [null, gone.length ? gone[0] : "not measured on this device", "not_measured"];
   }
   const mine = box.filter((row) => row.suite === suite);

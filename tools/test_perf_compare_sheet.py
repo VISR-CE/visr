@@ -1440,3 +1440,14 @@ def test_a_port_measured_uncapped_on_a_faster_display_draws_like_any_other_in_th
     assert newer["value"]["avg"] == pytest.approx(3.02, abs=0.01) and newer["value"]["low"] == pytest.approx(6.21, abs=0.01)
     newer_fps = next(e for e in fps["entries"] if e["port"] == "openh1" and e["build"] == "1662")["value"]
     assert newer_fps["avg"] == pytest.approx(163.15, abs=0.1) and newer_fps["low"] is None
+
+
+def test_a_build_measured_on_another_device_is_not_run_here_not_blamed_on_that_devices_unavailable_note():
+    rows = snapshot()
+    query = next(s for s in charts.load_specs(ROOT / "docs/benchmarks/charts") if s["name"] == "2-mac-fps")["query"]
+    m6 = charts.model(rows, query, "co-op", "M6 Mac mini")
+    m4 = charts.model(rows, query, "co-op", "M4 Mac mini")
+    newest = lambda built: next(e for e in built["entries"] if e["port"] == "chupathingy" and e["version"] == "v0.9.0")
+    assert newest(m6)["reason"] == "not measured on this device"
+    # Where the newest release was measured, it is the drawn build and the older ones sit behind it.
+    assert newest(m4)["default"] is True

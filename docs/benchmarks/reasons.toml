@@ -24,6 +24,7 @@
 "match did not start" = "The hosted match did not start without a person at the keyboard."
 "engine assertion (sound_dsound.h:35)" = "The game halts on a sound engine assertion during this window."
 "no tvOS development profile for this port" = "The release ships a tvOS app, but no tvOS development profile for it lists this Apple TV, so it cannot be installed here, and its timing hook that records frame times exists only for iOS."
+"second split-screen player never joined" = "The host never had both local split-screen players in any of the three rounds, so the co-op window could not be measured."
 
 [patterns]
 # {suite} and {suites} are filled from the code.

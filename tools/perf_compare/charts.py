@@ -252,7 +252,9 @@ def _suite_value(group: list[dict], query: dict, suite: str, device: str) -> tup
     if unsupported:
         return None, unsupported[0]["notes"] or "not supported", "not_supported"
     if not box:
-        gone = [row["notes"] for row in group if row["status"] == "unavailable" and row["notes"]]
+        # A build measured on another device is simply not run here; another device's unavailable note is not this one's reason.
+        measured_elsewhere = any(row["status"] == "ok" for row in group)
+        gone = [] if measured_elsewhere else [row["notes"] for row in group if row["status"] == "unavailable" and row["notes"]]
         return None, gone[0] if gone else "not measured on this device", "not_measured"
     mine = [row for row in box if row["suite"] == suite]
     if not mine:
