@@ -27,6 +27,7 @@ static unsigned char queued[1201];
 static struct sockaddr_in queued_from;
 static struct delta_peer_packet sent[200];
 static int sent_count;
+void platform_log(const char *format, ...) { (void)format; }
 int config_boolean(const char *name)
 {
 	return !strcmp(name, "network.delta_announce") ? announcing : enabled;
