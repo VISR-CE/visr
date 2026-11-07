@@ -256,7 +256,8 @@ def test_browser_gauge_text_fits_inside_ring():
         assert text.get('align') == 'center'
         assert int(text.get('width')) == 34
         assert positions[leaf][0] + 17 == positions['server_item_gauge'][0] + 21
-    assert positions['server_item_players'][1] + 16 <= positions['server_item_capacity'][1]
+    assert (positions['server_item_players'][1] + int(widgets['server_item_players'].get('height'))
+            <= positions['server_item_capacity'][1])
 
 def test_browser_direct_link_keeps_the_legacy_table():
     root, _ = browser_c_widgets()
