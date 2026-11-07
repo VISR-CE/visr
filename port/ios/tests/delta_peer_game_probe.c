@@ -72,12 +72,93 @@ static void incoming(int socket, unsigned address, unsigned short port, const st
 	queued_from.sin_family = AF_INET; queued_from.sin_addr.s_addr = halo_ws_htonl(address);
 	queued_from.sin_port = halo_ws_htons(port);
 }
+static void roster_changes(void)
+{
+	unsigned addresses[128] = {0};
+	unsigned char present[128] = {0};
+	struct delta_peer_packet p;
+	int socket, before, i;
+	present[0] = present[7] = present[8] = 1;
+	addresses[7] = 42; addresses[8] = 43;
+	delta_peer_game_host_idle(addresses, present, 0, 128, 0); socket = next_socket;
+	memset(&p, 0, sizeof(p)); p.major = 1; p.type = DELTA_PEER_HELLO;
+	p.session = 33; p.machine = 7; p.capabilities = 1; p.key[0] = 20;
+	incoming(socket, 42, 6000, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 250);
+	assert(!host.dirty);
+	for (i = 1; i <= 3; i++)
+	{
+		before = sent_count; incoming(socket, 42, 6000, &p);
+		delta_peer_game_host_idle(addresses, present, 0, 128, 250 + 250 * i);
+		assert(!host.dirty && sent_count == before + 1);
+		assert(sent[before].type == DELTA_PEER_WELCOME);
+	}
+	/* A foreign major falls back; junk and repeated refusals must not fan out. */
+	p.major = 2; p.machine = 8; p.session = 44;
+	incoming(socket, 43, 6001, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 1250);
+	assert(host.peers[8].state == DELTA_PEER_FALLBACK && !host.dirty);
+	before = sent_count;
+	for (i = 1; i <= 3; i++)
+	{
+		incoming(socket, 43, 6001, &p); queued[0] = '?';
+		delta_peer_game_host_idle(addresses, present, 0, 128, 1250 + 250 * i);
+		assert(!host.dirty && sent_count == before);
+	}
+	incoming(socket, 43, 6001, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 2250);
+	assert(!host.dirty && sent_count == before + 1);
+	/* Actual key and capability changes still publish a roster. */
+	p.major = 1; p.machine = 7; p.session = 33; p.key[0] = 21;
+	before = sent_count; incoming(socket, 42, 6000, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 2500);
+	assert(sent_count == before + 2 && sent[before + 1].type == DELTA_PEER_ROSTER);
+	p.capabilities = 0; before = sent_count; incoming(socket, 42, 6000, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 2750);
+	assert(sent_count == before + 2 && sent[before + 1].entries[1].agreed == 0);
+	/* Same address and session, different machine: keep each return endpoint. */
+	addresses[8] = 42; p.machine = 8;
+	incoming(socket, 42, 6002, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 3000);
+	assert(host.endpoints[7].sin_port == halo_ws_htons(6000));
+	assert(host.endpoints[8].sin_port == halo_ws_htons(6002));
+	p.major = 2; before = sent_count; incoming(socket, 42, 6002, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 3250);
+	assert(sent_count == before && host.peers[7].state == DELTA_PEER_ACTIVE &&
+		host.peers[8].state == DELTA_PEER_ACTIVE);
+	/* Give machine 8 a distinct session before exercising its BYE. */
+	p.major = 1; p.session = 44; before = sent_count;
+	incoming(socket, 42, 6002, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 4000);
+	assert(sent_count == before + 1 && sent[before].type == DELTA_PEER_WELCOME);
+	/* BYE dirties once even when no reply is needed. */
+	p.type = DELTA_PEER_BYE; before = sent_count;
+	incoming(socket, 42, 6002, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 4250);
+	assert(sent_count == before + 1 && sent[before].type == DELTA_PEER_ROSTER);
+	before = sent_count; incoming(socket, 42, 6002, &p);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 4500);
+	assert(sent_count == before);
+	/* Quiet rooms still get the periodic five-second refresh. */
+	delta_peer_game_host_idle(addresses, present, 0, 128, 9249);
+	assert(sent_count == before);
+	delta_peer_game_host_idle(addresses, present, 0, 128, 9250);
+	assert(sent_count == before + 1 && sent[before].type == DELTA_PEER_ROSTER);
+	delta_peer_game_host_stop(); sent_count = 0; next_socket = 0; closes = 0;
+	enabled = 0;
+	delta_peer_game_host_idle(NULL, NULL, 0, 128, 0);
+	delta_peer_game_host_idle(NULL, NULL, 0, 128, 1);
+	assert(!host.attempted && !next_socket && !closes && !sent_count);
+	enabled = 1;
+}
+
 int main(void)
 {
 	unsigned addresses[128] = {0};
 	unsigned char present[128] = {0};
 	struct delta_peer_packet p;
 	int socket, before;
+	roster_changes();
 	addresses[7] = 42; present[0] = present[7] = 1;
 	busy = 1; delta_peer_game_host_idle(addresses, present, 0, 128, 0);
 	assert(!delta_peer_host_open() && bound_port == 5160 && closes == 1);

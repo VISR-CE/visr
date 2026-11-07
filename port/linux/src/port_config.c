@@ -1102,10 +1102,10 @@ static const struct config_setting config_settings[] =
 		"advertises Delta. A silent host falls back to legacy after 4 seconds.\n"
 		"Hosting opens the Delta socket only when network.delta_announce is\n"
 		"also on; a busy side port hosts without Delta. False disables both." },
-	{ "network.delta_announce", _config_boolean, "false", "HALO_NET_DELTA_ANNOUNCE", _environment_value, _platform_all,
-		"List the public game this machine hosts for the internet (Create Game >\n"
+	{ "network.delta_announce", _config_boolean, "true", "HALO_NET_DELTA_ANNOUNCE", _environment_value, _platform_all,
+		"Publish the public internet game this machine hosts (Create Game >\n"
 		"Internet, PUBLIC, no password) in Delta's public list\n"
-		"(network.delta_url), so that players using it find it. Off by default:\n"
+		"(network.delta_url), so that players using it find it. On by default:\n"
 		"it sends the list's server, run by others, the game's invite (anyone who\n"
 		"has it can join), name, map, engine (game type number), players,\n"
 		"maximum_players, open, version (network version), teams, delta (the\n"

@@ -5,6 +5,7 @@ is read by the listing worker. All datagrams go through xnet.c's tunnel path. */
 #include "delta_peer.h"
 #include "delta_platform.h"
 #include "halo_delta_peer.h"
+#include "../../../source/networking/network_game_protocol.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -97,6 +98,7 @@ static void host_bye(int machine)
 void delta_peer_game_host_stop(void)
 {
 	int i;
+	if (!host.attempted) return;
 	__atomic_store_n(&host_open, 0, __ATOMIC_RELAXED);
 	if (host.initialized)
 	{
@@ -153,7 +155,7 @@ void delta_peer_game_host_idle(const unsigned *addresses, const unsigned char *p
 	{ delta_peer_game_host_stop(); return; }
 	if (!host.attempted)
 	{
-		host.attempted = 1; host.socket = socket_open(5150 + DELTA_PEER_PORT_OFFSET);
+		host.attempted = 1; host.socket = socket_open(NETWORK_GAME_SERVER_PORT + DELTA_PEER_PORT_OFFSET);
 		if (host.socket == INVALID_SOCKET) return;
 		host.initialized = 1; identity_make(&host.identity);
 		__atomic_store_n(&host_open, 1, __ATOMIC_RELAXED);
@@ -177,7 +179,7 @@ void delta_peer_game_host_idle(const unsigned *addresses, const unsigned char *p
 	{
 		struct sockaddr_in from;
 		struct delta_peer_packet reply;
-		int length = sizeof(from), n, machine;
+		int length = sizeof(from), n, machine, changed;
 		unsigned sender;
 		memset(&from, 0, sizeof(from));
 		n = halo_ws_recvfrom(host.socket, (char *)bytes, sizeof(bytes), 0, (struct sockaddr *)&from, &length);
@@ -185,19 +187,14 @@ void delta_peer_game_host_idle(const unsigned *addresses, const unsigned char *p
 		if (length != sizeof(from) || from.sin_family != AF_INET) continue;
 		sender = halo_ws_ntohl(from.sin_addr.s_addr);
 		/* delta_peer_host_receive checks membership before parsing any bytes. */
-		if (delta_peer_host_receive(host.peers, host.addresses, sender, bytes, (unsigned)n, now, &host.identity, &reply))
+		machine = delta_peer_host_receive(host.peers, host.addresses, sender, bytes, (unsigned)n,
+			now, &host.identity, &reply, &changed);
+		if (machine < 0) continue;
+		if (changed) host.dirty = 1;
+		if (reply.type)
 		{
-			for (machine = 0; machine < DELTA_PEER_MACHINES; machine++)
-				if (host.addresses[machine] == sender && host.peers[machine].session == reply.session)
-				{ host.endpoints[machine] = from; break; }
-			packet_send(host.socket, &from, &reply); host.dirty = 1;
-		}
-		/* BYE changes state without a reply. */
-		else
-		{
-			for (machine = 0; machine < DELTA_PEER_MACHINES; machine++)
-				if (host.addresses[machine] == sender && host.peers[machine].state == DELTA_PEER_FALLBACK)
-					host.dirty = 1;
+			host.endpoints[machine] = from;
+			packet_send(host.socket, &host.endpoints[machine], &reply);
 		}
 	}
 	roster_send((unsigned)limit, now);

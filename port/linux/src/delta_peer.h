@@ -7,6 +7,8 @@
 #define DELTA_PEER_MAX_PACKET 1200
 #define DELTA_PEER_MAX_ENTRIES 32
 #define DELTA_PEER_MACHINES 128
+typedef char delta_peer_machine_count_matches_game[
+	HALO_PORT_MAXIMUM_NETWORK_MACHINES == DELTA_PEER_MACHINES ? 1 : -1];
 #define DELTA_PEER_HELLO 1
 #define DELTA_PEER_WELCOME 2
 #define DELTA_PEER_LEGACY 3
@@ -50,9 +52,11 @@ int delta_peer_rate_take(struct delta_peer_rate *rate, unsigned now, unsigned pe
 void delta_peer_client_start(struct delta_peer_session *state, unsigned session, unsigned now);
 int delta_peer_client_tick(struct delta_peer_session *state, unsigned now, int machine);
 int delta_peer_client_receive(struct delta_peer_session *state, const struct delta_peer_packet *packet, unsigned now);
-/* Address membership is checked before even the common header is parsed. */
+/* Returns the machine acted on, or -1 if ignored. changed reports roster
+state changes; reply->type is zero when no reply is needed (BYE).
+Address membership is checked before even the common header is parsed. */
 int delta_peer_host_receive(struct delta_peer_session peers[DELTA_PEER_MACHINES],
 	const unsigned int addresses[DELTA_PEER_MACHINES], unsigned sender,
 	const unsigned char *bytes, unsigned size, unsigned now,
-	const struct delta_peer_packet *identity, struct delta_peer_packet *reply);
+	const struct delta_peer_packet *identity, struct delta_peer_packet *reply, int *changed);
 #endif

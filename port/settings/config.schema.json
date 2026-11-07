@@ -3701,8 +3701,8 @@
         },
         "delta_announce": {
           "type": "boolean",
-          "default": false,
-          "description": "List the public game this machine hosts for the internet (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. Off by default: it sends the list's server, run by others, the game's invite (anyone who has it can join), name, map, engine (game type number), players, maximum_players, open, version (network version), teams, delta (the major while its Delta socket is open, otherwise 0), platform_key, arch, build and capabilities (platform only). With network.delta_peer on, also open the Delta socket for LAN and internet games. No machines, roster, profile or stats are sent to the list. The server sees this machine's internet address. The game is withdrawn when it ends or goes private.",
+          "default": true,
+          "description": "Publish the public internet game this machine hosts (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. On by default: it sends the list's server, run by others, the game's invite (anyone who has it can join), name, map, engine (game type number), players, maximum_players, open, version (network version), teams, delta (the major while its Delta socket is open, otherwise 0), platform_key, arch, build and capabilities (platform only). With network.delta_peer on, also open the Delta socket for LAN and internet games. No machines, roster, profile or stats are sent to the list. The server sees this machine's internet address. The game is withdrawn when it ends or goes private.",
           "x-environment": "HALO_NET_DELTA_ANNOUNCE",
           "x-environment-style": "value",
           "x-platforms": [

@@ -72,7 +72,7 @@ static void sessions(void)
 	unsigned addresses[128] = {0};
 	unsigned char bytes[1200];
 	unsigned now;
-	int n;
+	int n, changed;
 	memset(peers, 0, sizeof(peers)); memset(&identity, 0, sizeof(identity));
 	memset(&hello, 0, sizeof(hello));
 	identity.major = 1; identity.capabilities = 1; identity.key[0] = 2; identity.machine = 0;
@@ -80,17 +80,28 @@ static void sessions(void)
 	addresses[7] = 42;
 	n = delta_peer_encode(bytes, sizeof(bytes), &hello);
 	assert(n);
-	assert(!delta_peer_host_receive(peers, addresses, 41, bytes, n, 0, &identity, &reply));
+	assert(delta_peer_host_receive(peers, addresses, 41, bytes, n, 0, &identity, &reply, &changed) == -1);
 	assert(!peers[7].state);
-	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 0, &identity, &reply));
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 0, &identity, &reply, &changed) == 7);
 	assert(reply.type == 2 && reply.agreed == 1 && reply.session == 123);
-	assert(peers[7].key[0] == 20);
+	assert(peers[7].key[0] == 20 && changed);
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 500, &identity, &reply, &changed) == 7);
+	assert(!changed && reply.type == DELTA_PEER_WELCOME);
 	hello.session++; n = delta_peer_encode(bytes, sizeof(bytes), &hello);
-	assert(!delta_peer_host_receive(peers, addresses, 42, bytes, n, 999, &identity, &reply));
-	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 1000, &identity, &reply));
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 999, &identity, &reply, &changed) == -1);
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 1000, &identity, &reply, &changed) == 7);
+	assert(!changed); /* A session change alone does not change the roster. */
 	hello.major = 2; hello.session++; n = delta_peer_encode(bytes, sizeof(bytes), &hello);
-	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 2000, &identity, &reply));
-	assert(reply.type == 3 && reply.major == 1);
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 2000, &identity, &reply, &changed) == 7);
+	assert(reply.type == 3 && reply.major == 1 && changed);
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 2500, &identity, &reply, &changed) == 7);
+	assert(!changed && reply.type == DELTA_PEER_LEGACY);
+	addresses[8] = 42;
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 3000, &identity, &reply, &changed) == -1);
+	assert(!changed && !reply.type && peers[8].state == 0);
+	bytes[0] = '?'; changed = 1;
+	assert(delta_peer_host_receive(peers, addresses, 42, bytes, n, 3000, &identity, &reply, &changed) == -1);
+	assert(!changed && !reply.type);
 	delta_peer_client_start(&client, 123, 0);
 	assert(!delta_peer_client_tick(&client, 0, -1));
 	for (now = 0; now < 4000; now += 500)
