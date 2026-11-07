@@ -182,42 +182,55 @@ int delta_peer_client_receive(struct delta_peer_session *s, const struct delta_p
 int delta_peer_host_receive(struct delta_peer_session peers[DELTA_PEER_MACHINES],
 	const unsigned addresses[DELTA_PEER_MACHINES], unsigned sender,
 	const unsigned char *bytes, unsigned size, unsigned now,
-	const struct delta_peer_packet *identity, struct delta_peer_packet *reply)
+	const struct delta_peer_packet *identity, struct delta_peer_packet *reply, int *changed)
 {
 	struct delta_peer_packet p;
 	struct delta_peer_session *s;
-	int i, member = 0;
-	if (!sender) return 0;
+	int i, machine = -1, members = 0;
+	*changed = 0; reply->type = 0;
+	if (!sender) return -1;
 	for (i = 0; i < DELTA_PEER_MACHINES; i++)
-		if (addresses[i] == sender) { member = 1; break; }
-	if (!member || !delta_peer_decode(&p, bytes, size)) return 0;
-	/* HELLO's machine byte stays at its v1 offset only for our major. A foreign
-	major can still be refused using the address's first machine. */
-	if (p.major == DELTA_MAJOR && p.type == DELTA_PEER_HELLO)
+		if (addresses[i] == sender) { machine = i; members++; }
+	if (!members || !delta_peer_decode(&p, bytes, size)) return -1;
+	/* A foreign major shares only the header, so its machine cannot be
+	identified safely when several machines share the address. */
+	if (p.type == DELTA_PEER_HELLO)
 	{
-		i = p.machine;
-		if (!machine_valid(i) || addresses[i] != sender) return 0;
+		if (p.major == DELTA_MAJOR)
+		{
+			machine = p.machine;
+			if (!machine_valid(machine) || addresses[machine] != sender) return -1;
+		}
+		else if (members != 1) return -1;
 	}
-	else if (p.type != DELTA_PEER_HELLO)
+	else
 	{
-		for (i = 0; i < DELTA_PEER_MACHINES; i++)
-			if (addresses[i] == sender && peers[i].session == p.session) break;
-		if (i == DELTA_PEER_MACHINES) return 0;
+		for (machine = 0; machine < DELTA_PEER_MACHINES; machine++)
+			if (addresses[machine] == sender && peers[machine].session == p.session) break;
+		if (machine == DELTA_PEER_MACHINES) return -1;
 	}
-	s = &peers[i];
-	if (!delta_peer_rate_take(&s->rate, now, 10, 20)) return 0;
+	s = &peers[machine];
+	if (!delta_peer_rate_take(&s->rate, now, 10, 20)) return -1;
 	if (p.type == DELTA_PEER_BYE && p.major == DELTA_MAJOR && p.session == s->session)
-	{ s->state = DELTA_PEER_FALLBACK; return 0; }
-	if (p.type != DELTA_PEER_HELLO) return 0;
+	{
+		*changed = s->state != DELTA_PEER_FALLBACK;
+		s->state = DELTA_PEER_FALLBACK; return machine;
+	}
+	if (p.type != DELTA_PEER_HELLO) return -1;
 	if (p.session != s->session)
 	{
-		if (s->has_changed && now - s->changed < 1000) return 0;
+		if (s->has_changed && now - s->changed < 1000) return -1;
 		s->changed = now; s->has_changed = 1; s->session = p.session;
 	}
 	*reply = *identity; reply->session = p.session;
 	if (p.major != DELTA_MAJOR)
-	{ reply->type = DELTA_PEER_LEGACY; s->state = DELTA_PEER_FALLBACK; return 1; }
+	{
+		*changed = s->state != DELTA_PEER_FALLBACK;
+		reply->type = DELTA_PEER_LEGACY; s->state = DELTA_PEER_FALLBACK; return machine;
+	}
+	*changed = s->state != DELTA_PEER_ACTIVE ||
+		s->agreed != (p.capabilities & identity->capabilities) || memcmp(s->key, p.key, 8) != 0;
 	s->state = DELTA_PEER_ACTIVE; s->agreed = p.capabilities & identity->capabilities;
 	memcpy(s->key, p.key, 8); reply->type = DELTA_PEER_WELCOME; reply->agreed = s->agreed;
-	return 1;
+	return machine;
 }

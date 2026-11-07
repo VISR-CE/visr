@@ -491,7 +491,7 @@ the setting for one start of the game. It has priority over the file.
 | `network.public_lobby` | boolean | `true` | apple, desktop | `HALO_NET_PUBLIC_LOBBY` | The server browser: public games are listed through the signalling brokers, and Join Game > Server Browser shows them. |
 | `network.delta_browse` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_BROWSE` | The server browser also lists the games of Delta's public list (network.delta_url), run by others, with the network version of each; games of a version this build can't join are shown and not joined. |
 | `network.delta_peer` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_PEER` | Exchange Delta handshakes and platform claims after joining a host that advertises Delta. |
-| `network.delta_announce` | boolean | `false` | apple, desktop | `HALO_NET_DELTA_ANNOUNCE` | List the public game this machine hosts for the internet (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. |
+| `network.delta_announce` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_ANNOUNCE` | Publish the public internet game this machine hosts (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. |
 | `network.delta_url` | string | `"https://halo.milenko.org"` | apple, desktop | `HALO_NET_DELTA_URL` | The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). |
 | `network.host_public` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_HOST_PUBLIC` | Whether a new game of Create Game > Internet starts as PUBLIC (listed in everyone's server browser: anyone can see and join it) or, false, PRIVATE (only players with its invite link can join). |
 | `network.player_capacity` | integer | `0` | apple, desktop | `HALO_NET_PLAYER_CAPACITY` | The most players this device holds at 30 frames a second at the lowest settings, 2 to 128; 0 (default) names no limit. |
@@ -940,8 +940,8 @@ left out. A game that a broker also lists is shown once.
   pressed. It sends nothing but the request (the program name VISR, and no
   language, setting, name or game). The list's server sees this machine's
   internet address, as the brokers do.
-- Announcing (`network.delta_announce`, off): the PUBLIC game this machine
-  hosts for the internet, without a password, is also listed in the list
+- Announcing (`network.delta_announce`, on by default): the PUBLIC game this machine
+  hosts for the internet, without a password, is published to `network.delta_url`
   (`POST /v1/announce`), every minute and when the game changes (the list
   drops a game it has not heard of in 75 seconds), and withdrawn
   (`POST /v1/withdraw`) when the game ends, goes private, gets a password
@@ -951,8 +951,8 @@ left out. A game that a broker also lists is shown once.
   number (not its name), player counts, whether it is open and has teams,
   this build's network version, platform key, architecture, build, and
   capabilities. With `network.delta_peer` on, this setting also opens the
-  Delta socket on port 5160 for hosted LAN and internet games. The list's
-  `delta` field is the major while that socket is open, otherwise 0. A busy
+  Delta socket on the game server port plus 10 (normally 5160) for hosted LAN
+  and internet games. The list's `delta` field is the major while that socket is open, otherwise 0. A busy
   port leaves the game on legacy. The list's server sees this machine's
   internet address; no player's name, roster, profile, or stats are sent.
   The list tries to reach a new game before it lists it, and refuses it for
@@ -969,10 +969,10 @@ left out. A game that a broker also lists is shown once.
   `NSURLSession` on Apple devices) and never follow a redirect. The answer
   is read as untrusted text (`src/delta_list.c`).
 
-Delta Peer (the version and capability exchange on UDP port 5160), the
-signed table of network versions, the statistics and link calls and the
-control interface are not used: a game joined from the list is joined by
-its invite, as any other, and plays the game's own protocol.
+A game joined from the list is joined by its invite, as any other, and
+plays the game's own protocol with the optional Delta Peer exchange above.
+The signed table of network versions, statistics, link calls and control
+interface are not used.
 
 How it operates (`src/p2p_lobby.c`):
 
