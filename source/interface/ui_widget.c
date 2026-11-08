@@ -5451,8 +5451,9 @@ void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	if (definition->text_font.index == NONE)
 		return;
-	/* draw_unicode_string requires a glyph to end strictly before x1. */
-	width = definition->bounds.x1 - definition->bounds.x0 - definition->horizontal_offset - 1;
+	/* draw_unicode_string requires a glyph to end strictly before x1, and the last dot of the suffix was clipped at
+	the edge (rows showed ".." for "..."), so keep a 3 pixel margin. */
+	width = definition->bounds.x1 - definition->bounds.x0 - definition->horizontal_offset - 1 - 3;
 	old_font = draw_string_get_font();
 	draw_string_set_font(definition->text_font.index);
 	draw_string_set_format(NONE, 0, 0);

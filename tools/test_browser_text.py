@@ -34,7 +34,7 @@ struct widget_instance { long definition_tag_index; };
 struct ui_widget_definition { rectangle2d bounds; struct { long index; } text_font; short horizontal_offset; };
 struct font_header { int ellipsis; };
 static struct font_header fonts[2] = {{0}, {1}};
-static struct ui_widget_definition cell_definition = {{0,0,18,30}, {0}, 2};
+static struct ui_widget_definition cell_definition = {{0,0,18,33}, {0}, 2};
 static long current_font;
 #define ui_widget_definition_get(index) (&cell_definition)
 #define font_definition_get(index) (&fonts[index])
@@ -113,15 +113,15 @@ int main(void) {
     wcscpy(text, L"iiiiiiii");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(!wcscmp(text, L"iiiiiiii"));
-    cell_definition.bounds.x1=29; cell_definition.horizontal_offset=0;
+    cell_definition.bounds.x1=32; cell_definition.horizontal_offset=0;
     wcscpy(text, L"WWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(!wcscmp(text, L"WW\x2026"));
-    cell_definition.bounds.x1=25;
+    cell_definition.bounds.x1=28;
     wcscpy(text, L"WWWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(!wcscmp(text, L"WW\x2026"));
-    cell_definition.bounds.x1=3;
+    cell_definition.bounds.x1=6;
     wcscpy(text, L"WWWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(text[0] == 0);

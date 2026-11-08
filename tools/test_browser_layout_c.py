@@ -491,3 +491,5 @@ def test_backdrop_runs_to_the_bottom_edge():
     assert alpha[height * 3 // 4] == alpha[-1]     # no bottom rule or fade
     text = (root / 'main_menu.multiplayer_type_select.join_game.xml').read_text()
     assert 'bitmap="xbox/browser/backdrop"' in text
+    filters = (root / 'main_menu.multiplayer_type_select.join_game.filters.xml').read_text()
+    assert 'bitmap="xbox/browser/backdrop"' in filters

@@ -4266,7 +4266,7 @@ static short browser_fake_games(struct p2p_listing *games)
 		short version;
 	} const fakes[] = {
 		{ "Spartan Wars", "bloodgulch", "Ranked TS", "na-east", 13, 128, 2, 1, 0, 1, 1, 1, 0 },
-		{ "24/7 Campaign", "b40", "Co-op", "", 16, 16, 0, 1, 0, 0, 0, 1, 0 },
+		{ "24/7 Campaign", "b40", "Co-op", "", 16, 16, 0, 1, 1, 0, 0, 1, 0 },
 		{ "Dungeon Soup", "c10", "Co-op", "", 4, 16, 0, 1, 1, 0, 0, 1, 0 },
 		{ "MLG TS 2v2 US4", "chillout", "MLG 2v2", "na-east", 4, 4, 2, 0, 0, 1, 1, 1, 0 },
 		{ "MLG TS 2v2 US1", "hangemhigh", "MLG 2v2", "na-east", 0, 4, 2, 1, 0, 1, 1, 1, 0 },
@@ -4531,7 +4531,8 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	map_display_name(game->map, map);
 	usnprintf(text, NUMBEROF(text) - 1, L"%s · %s", types[PIN(game->engine_type, 0, 5)], map);
 	browser_name_set(named(detail, "browser_detail_type", 0), text);
-	text_set(named(detail, "browser_detail_rules", 0), game->has_teams ? L"Teams" : L"Free for all");
+	text_set(named(detail, "browser_detail_rules", 0), browser_listing_cooperative(game) ? L"Co-op campaign" :
+		game->has_teams ? L"Teams" : L"Free for all");
 	/* Listings do not advertise loadouts, tracker settings, score limits, or time limits. */
 	visible_set(named(detail, "browser_detail_equipment", 0), FALSE);
 	visible_set(named(detail, "browser_equipment_label", 0), FALSE);
