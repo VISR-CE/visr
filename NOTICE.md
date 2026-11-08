@@ -47,7 +47,7 @@ what they link into the app's `Licenses` folder (`tools/ios_build.py`).
 | Surge AI's profanity list, the source of streamer mode's word table | MIT | `port/assets/text_filter/README.md` | Yes |
 | [english-words](https://github.com/dwyl/english-words), used to review the streamer words | Unlicense | `port/third_party/english-words/LICENSE.md` | Notice only |
 | [musl](https://musl.libc.org/) math functions | MIT | `port/third_party/musl-math/COPYRIGHT` | No, Linux build only (the Apple builds download musl itself) |
-| [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/) | Apache-2.0 or GPL-2.0-or-later (we use Apache-2.0) | `port/third_party/mbedtls/LICENSE` | No, desktop builds only |
+| [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/) | Apache-2.0 or GPL-2.0-or-later (we use Apache-2.0) | `port/third_party/mbedtls/LICENSE` | Yes |
 | [miniupnpc](https://miniupnp.tuxfamily.org/) | BSD-3-Clause | `port/third_party/miniupnpc/LICENSE` | No, desktop builds only |
 | zlib, as the game shipped it | zlib | `source/memory/zlib/` | Part of the decompiled source tree |
 | libtiff, as the game shipped it | libtiff (Sam Leffler and Silicon Graphics, notice in each file) | `source/bitmaps/libtiff/` | Part of the decompiled source tree |
