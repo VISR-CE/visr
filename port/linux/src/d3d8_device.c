@@ -3395,6 +3395,26 @@ long halo_screen_commit(void)
 #ifdef HALO_ILP32
     host_external_commit(halo_external_pause_allowed());
 #endif
+	/* debug.graphics_cycle: the next graphics mode every so many frames of a level, unsaved */
+	{
+		static long every = -1;
+		static unsigned long last_switch;
+
+		if (every < 0)
+			every = config_integer("debug.graphics_cycle");
+		if (every > 0 && device.gl_ready && halo_scene_class() != CONFIG_SCENE_MENU && device.frame >= last_switch + (unsigned long)every)
+		{
+			static const char *const modes[] = { "hardcore", "classic", "enhanced" };
+			int next = (config_graphics_mode() + 1) % 3;
+
+			if (last_switch)
+			{
+				config_graphics_try(modes[next]);
+				platform_log("graphics cycle: frame %lu, %s", device.frame, modes[next]);
+			}
+			last_switch = device.frame;
+		}
+	}
 	/* (display.anti_aliasing, as config.toml has it now) */
 	if (device.gl_ready)
 		anti_aliasing_read();

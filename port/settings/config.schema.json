@@ -1673,6 +1673,16 @@
             "apple"
           ]
         },
+        "graphics_cycle": {
+          "type": "integer",
+          "default": 0,
+          "description": "Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved, wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame without leaks or stalls. 0 (default) does nothing.",
+          "x-environment": "HALO_GRAPHICS_CYCLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "knob_cycle": {
           "type": "boolean",
           "default": false,

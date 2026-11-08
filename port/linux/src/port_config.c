@@ -1227,6 +1227,10 @@ static const struct config_setting config_settings[] =
 		"Every this many frames, step the render scale 0.005 down a 100-step ramp\n"
 		"from 1.0 and wrap to 1.0, each step a new render target size, for checking that\n"
 		"debug.gpu_stats' live render targets stay flat (0, the default: off)." },
+	{ "debug.graphics_cycle", _config_integer, "0", "HALO_GRAPHICS_CYCLE", _environment_value, _platform_ios,
+		"Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved,\n"
+		"wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame\n"
+		"without leaks or stalls. 0 (default) does nothing." },
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
