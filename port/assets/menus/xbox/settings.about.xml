@@ -8,6 +8,7 @@
 		<child widget="xbox/settings/about/title_version" x="54" y="78" />
 		<child widget="xbox/settings/about/title_port" x="54" y="102" />
 		<child widget="xbox/settings/about/options_menu" />
+		<child widget="xbox/settings/about/help" />
 		<child widget="xbox/settings/about/a_butn" x="471" y="414" platform="!tvos" />
 		<child widget="xbox/settings/about/=accept" x="493" y="414" platform="!tvos" />
 		<child widget="xbox/settings/about/b_butn" x="346" y="414" />

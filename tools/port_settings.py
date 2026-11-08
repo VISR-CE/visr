@@ -242,7 +242,9 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
                       f'<child{attributes([("widget", f"{base}/{header}")])}/>',
                       f'<child{attributes([("widget", f"{base}/options_menu")])}/>'] +
                      ([f'<child widget="{base}/cloud_saves_status" platform="cloud_saves"/>']
-                      if spec.get("cloud_status") else []))
+                      if spec.get("cloud_status") else []) +
+                     # (a fixed text is no row's description, so the screen holds it itself)
+                     ([f'<child widget="{base}/help"/>'] if spec.get("help_text") else []))
     lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                                           ("bitmap", header_bitmap)], [])
     fixed = spec.get("help_text")  # (a text that stays, in the small font, in place of the rows' help)
