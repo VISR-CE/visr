@@ -8,7 +8,7 @@ typedef struct {short y0,x0,y1,x1;} rectangle2d;
 struct bitmap_data {int unused;};
 enum {_gamepad_analog_button_a,_gamepad_analog_button_b};
 static short virtual_keyboard_glyph_player=2;
-static int ready[2],hidden[2],originals,patches,glyphs,strips;
+static int ready[2],hidden[2],originals,patches,glyphs,strips,separators;
 static int patch_right[2];
 static int controller_glyph_hidden(short player,short physical) { assert(player==2);return hidden[physical]; }
 static int controller_glyph_ready(short player,short semantic,short physical,rectangle2d const *bounds) {
@@ -17,7 +17,9 @@ static int controller_glyph_ready(short player,short semantic,short physical,rec
 static void controller_glyph_blit(struct bitmap_data *b,rectangle2d const *bounds,rectangle2d const *source,
  rectangle2d const *clip,unsigned long color,short blend) {
  (void)b;(void)bounds;assert(color==0xffffffff && blend==0);
- if(clip)strips++;else {assert(source->x0==0 && source->y0==414);patch_right[patches++]=bounds->x1;}
+ if(clip)strips++;else if(bounds->x0==397 || bounds->x0==498) {
+ assert(bounds->x1-bounds->x0==11 && bounds->y0==414 && bounds->y1==440);separators++;
+ } else {assert(source->x0==0 && source->y0==414);patch_right[patches++]=bounds->x1;}
 }
 static int controller_glyph_draw(short player,short semantic,short physical,rectangle2d const *bounds,
  rectangle2d const *clip,unsigned long color,short blend) {
@@ -32,7 +34,7 @@ static void draw_bitmap_in_rect(struct bitmap_data *b,rectangle2d *bounds,rectan
 int main(void) {
  struct bitmap_data b;rectangle2d bounds={0,0,480,640};
  virtual_keyboard_draw_background(&b,&bounds,"ui\\bkd_virtual_keyboard");
- assert(originals==1 && !patches && !glyphs && !strips); /* Xbox and missing: unchanged */
+ assert(originals==1 && !patches && !glyphs && !strips && separators==2); /* Xbox and missing keep their glyphs, with plain captions. */
  ready[0]=ready[1]=1;virtual_keyboard_draw_background(&b,&bounds,"ui\\bkd_virtual_keyboard");
  assert(originals==1 && patches==2 && glyphs==2 && strips==5);
  ready[0]=0;patches=glyphs=strips=0;virtual_keyboard_draw_background(&b,&bounds,"ui\\bkd_virtual_keyboard");

@@ -9,15 +9,27 @@ enum { HALO_GLYPH_ORIGINAL, HALO_GLYPH_HIDDEN, HALO_GLYPH_SYMBOL, HALO_GLYPH_KEY
 	X(0, SDL_SCANCODE_RETURN, "Enter") \
 	X(1, SDL_SCANCODE_ESCAPE, "Escape") \
 	X(2, SDL_SCANCODE_E, "E") \
-	X(3, SDL_SCANCODE_TAB, "Tab")
+	X(3, SDL_SCANCODE_TAB, "Tab") \
+	X(4, SDL_SCANCODE_R, "R") \
+	X(5, SDL_SCANCODE_Q, "Q")
 
 static inline const char *halo_glyph_menu_key(int physical)
 {
-#define MENU_LABEL(button, scancode, label) label,
-	static const char *const keys[] = {HALO_GLYPH_MENU_BINDINGS(MENU_LABEL)
-		"", "", "", "", "Up", "Down", "Left", "Right", "Escape", "F1", "", "", "WASD", "Mouse"};
+#define MENU_LABEL(button, scancode, label) case button: return label;
+	switch (physical)
+	{
+		HALO_GLYPH_MENU_BINDINGS(MENU_LABEL)
+		case 8: return "Up";
+		case 9: return "Down";
+		case 10: return "Left";
+		case 11: return "Right";
+		case 12: return "Escape";
+		case 13: return "F1";
+		case 16: return "WASD";
+		case 17: return "Mouse";
+		default: return "";
+	}
 #undef MENU_LABEL
-	return physical >= 0 && physical < 18 ? keys[physical] : "";
 }
 
 enum { HALO_GLYPH_INPUT_TOUCH = -2, HALO_GLYPH_INPUT_CONTROLLER = 0, HALO_GLYPH_INPUT_KEYBOARD = 1 };

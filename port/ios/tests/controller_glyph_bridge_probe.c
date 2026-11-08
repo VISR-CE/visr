@@ -38,6 +38,13 @@ int main(void) {
  assert(host_sdl_gamepad_glyph(21,0,"touch",label,sizeof(label),0,0)==1);
  assert(host_sdl_gamepad_glyph(21,0,"keyboard",label,sizeof(label),0,0)==3);
  /* A disconnected iPhone/iPad hides glyphs before any touch activity. */
+ type=SDL_GAMEPAD_TYPE_XBOXONE;
+ for(int shoulder=4;shoulder<=5;shoulder++) {
+  assert(host_sdl_gamepad_glyph(21,shoulder,"",label,sizeof(label),0,1)==HALO_GLYPH_SYMBOL);
+  assert(!strcmp(label,shoulder==4?"r1.rectangle.roundedbottom":"l1.rectangle.roundedbottom"));
+  assert(host_sdl_gamepad_glyph(21,shoulder,"xbox",label,sizeof(label),0,1)==HALO_GLYPH_SYMBOL);
+ }
+ type=SDL_GAMEPAD_TYPE_PS5;
  physical=NULL;keyboard=0;
 #if !TARGET_OS_TV
  assert(host_sdl_gamepad_glyph(21,0,"",label,sizeof(label),0,1)==HALO_GLYPH_HIDDEN);

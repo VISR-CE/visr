@@ -36,7 +36,7 @@ static boolean ui_mouse_widget_is_item(struct widget_instance *w) {(void)w;retur
 static void ui_mouse_note_carousel_arrows(struct widget_instance *w,point2d p) {(void)w;(void)p;}
 static long ui_redraw_touch_target_units(void) {return 0;}
 static int __attribute__((unused)) controller_glyph_hidden(short owner,short button) {
- assert(owner==0 && button>=0 && button<4);return hidden;
+ assert(owner==0 && button>=0 && button<6);return hidden;
 }
 typedef float real;
 typedef unsigned int pixel32;
@@ -87,7 +87,7 @@ int main(void) {
  ui_widget_draw_touch_legend(&visual,&clip,1);
  assert(drawn_bounds.x0>=clip.x0 && drawn_bounds.x1<=clip.x1);
  assert(drawn_bounds.y0>=clip.y0 && drawn_bounds.y1<=clip.y1);
- for(int face=0;face<4;face++) {
+ for(int face=0;face<6;face++) {
   button.button=face;ui_mouse_target_count=0;
   ui_mouse_note_target(&button,&definitions[0],offset);
   assert(target->button_index==face);

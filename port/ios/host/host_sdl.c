@@ -634,7 +634,14 @@ int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, c
 			"r2.rectangle.roundedtop", "dpad.up.filled", "dpad.down.filled", "dpad.left.filled",
 			"dpad.right.filled", "line.3.horizontal.circle", "rectangle.on.rectangle.circle",
 			"l.joystick.press.down", "r.joystick.press.down", "l.joystick", "r.joystick" };
-		if (!strcmp(family, "xbox") || !strcmp(family, "missing")) return HALO_GLYPH_ORIGINAL;
+		if (!strcmp(family, "missing")) return HALO_GLYPH_ORIGINAL;
+		if (!strcmp(family, "xbox"))
+		{
+			/* These action-row buttons have no packaged Xbox bitmap. */
+			if (menus && (physical == 4 || physical == 5))
+				symbol = physical == 5 ? "l1.rectangle.roundedbottom" : "r1.rectangle.roundedbottom";
+			else return HALO_GLYPH_ORIGINAL;
+		}
 		if (!strcmp(family, "touch")) return HALO_GLYPH_HIDDEN;
 		if (!strcmp(family, "keyboard")) return HALO_GLYPH_KEYCAP;
 		if (!strcmp(family, "playstation") || !strcmp(family, "switch") || !strcmp(family, "mfi"))
@@ -668,8 +675,12 @@ int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, c
 		}
 		SDL_GamepadType type = SDL_GetGamepadType(pad);
 		if (type == SDL_GAMEPAD_TYPE_XBOX360 || type == SDL_GAMEPAD_TYPE_XBOXONE)
-			return HALO_GLYPH_ORIGINAL;
-		symbol = halo_glyph_is_axis(physical)
+		{
+			if (menus && (physical == 4 || physical == 5))
+				symbol = physical == 5 ? "l1.rectangle.roundedbottom" : "r1.rectangle.roundedbottom";
+			else return HALO_GLYPH_ORIGINAL;
+		}
+		else symbol = halo_glyph_is_axis(physical)
 			? SDL_GetGamepadAppleSFSymbolsNameForAxis(pad, (SDL_GamepadAxis)element)
 			: SDL_GetGamepadAppleSFSymbolsNameForButton(pad, (SDL_GamepadButton)element);
 	}

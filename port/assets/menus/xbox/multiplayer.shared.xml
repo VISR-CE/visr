@@ -71,8 +71,8 @@
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<data input="common button bar update" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_ok" x="380" y="1" />
-		<child widget="xbox/common_button_cancel" x="510" y="1" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok" x="60" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel" x="260" y="0" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mp prof save vehicle options" back="true" />
@@ -93,11 +93,12 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_rwarthog" x="54" y="255" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_banshee" x="54" y="281" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_cgturret" x="54" y="307" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar" y="449" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar" y="430" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/header_vehicle_options" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu" />
+		<on event="x" run="mp prof save vehicle options" back="true" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_presets_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
@@ -145,8 +146,8 @@
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<data input="common button bar update" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_ok" x="380" y="1" />
-		<child widget="xbox/common_button_cancel" x="510" y="1" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok" x="60" y="0" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel" x="260" y="0" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mp prof save teamplay options" back="true" />
@@ -161,11 +162,12 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire" x="54" y="73" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty" x="54" y="103" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" x="54" y="133" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" y="449" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" y="430" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" />
+		<on event="x" run="mp prof save teamplay options" back="true" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port delete finish" sound="sound\sfx\ui\forward" />
@@ -764,8 +766,8 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<data input="common button bar update" />
-		<child widget="xbox/main_menu/profile_manager/profile_manager_button_ok" x="380" y="1" />
-		<child widget="xbox/common_button_back" x="510" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/profile_manager_button_ok" x="60" y="0" />
+		<child widget="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/common_button_back" x="260" y="0" />
 	</widget>
 	<widget name="xbox/main_menu/profile_manager/profile_manager_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="emit custom activation event" />
@@ -911,7 +913,7 @@
 		<child widget="xbox/error/header_error" x="202" y="180" />
 	</widget>
 	<widget name="xbox/error/error_modal_button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
-		<child widget="xbox/error/error_modal_button_ok" x="64" />
+		<child widget="xbox/error/error_modal_button_bar/error_modal_button_ok" x="60" y="0" />
 	</widget>
 	<widget name="xbox/error/error_modal_button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -973,4 +975,68 @@
 		<string text="PAGE" />
 		<string text="TODO: MOTD URL" />
 	</strings>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp prof save vehicle options" back="true" />
+		<on event="start" run="mp profile set item options" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok/x_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok/caption" x="21" />
+		<on event="x" run="mp prof save vehicle options" back="true" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/common_button_cancel/caption" x="21" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mp prof save teamplay options" back="true" />
+		<on event="start" back="true" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/x_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/teamplay_button_ok/caption" x="21" />
+		<on event="x" run="mp prof save teamplay options" back="true" />
+	</widget>
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/b_butn" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar/common_button_cancel/caption" x="21" />
+	</widget>
+	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/profile_manager_button_ok/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/profile_manager_button_ok/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/profile_manager_button_ok" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="emit custom activation event" />
+		<on event="start" run="emit custom activation event" />
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/profile_manager_button_ok/x_butn" />
+		<child widget="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/profile_manager_button_ok/caption" x="21" />
+		<on event="x" run="emit custom activation event" />
+	</widget>
+	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/common_button_back/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" />
+	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/common_button_back/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
+	<widget name="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/common_button_back" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="mouse emit back event" />
+		<on event="start" run="mouse emit back event" />
+		<on event="left_mouse" run="mouse emit back event" />
+		<child widget="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/common_button_back/b_butn" />
+		<child widget="xbox/main_menu/multiplayer_type_select/coop/player_2_button_bar/common_button_back/caption" x="21" />
+	</widget>
+	<widget name="xbox/error/error_modal_button_bar/error_modal_button_ok/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
+	<widget name="xbox/error/error_modal_button_bar/error_modal_button_ok/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/error/error_modal_button_bar/error_modal_button_ok" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="left_mouse" run="mouse emit accept event" />
+		<child widget="xbox/error/error_modal_button_bar/error_modal_button_ok/x_butn" />
+		<child widget="xbox/error/error_modal_button_bar/error_modal_button_ok/caption" x="21" />
+	</widget>
 </menus>

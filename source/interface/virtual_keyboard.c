@@ -676,6 +676,13 @@ static void virtual_keyboard_draw_background(struct bitmap_data *bitmap, rectang
 		}
 	}
 	else draw_bitmap_in_rect(bitmap, bounds, bounds, NULL, 0xffffffff, NULL, FALSE);
+	/* port: the original backdrop bakes a separator beside each legend.
+	Cover just those pixels for every input family; the typed key stays. */
+	{
+		rectangle2d separators[2] = {{414,397,440,408}, {414,498,440,509}};
+		for (index = 0; index < 2; index++)
+			controller_glyph_blit(bitmap, &separators[index], &sample, NULL, 0xffffffff, _controller_glyph_blend_menu);
+	}
 }
 #endif
 

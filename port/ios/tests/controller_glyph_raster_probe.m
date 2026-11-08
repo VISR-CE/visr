@@ -15,6 +15,15 @@ int main(void) {
   assert(host_controller_glyph_raster(3,"Escape",64,32,escape));
   assert(host_controller_glyph_raster(3,"Esc",64,32,short_escape));
   assert(!memcmp(escape,short_escape,sizeof(escape)) && memcmp(escape,pixels,sizeof(escape)));
+  unsigned char key[64*64*4],symbol[64*64*4];
+  assert(host_controller_glyph_raster(3,"A",64,64,key));
+  assert(host_controller_glyph_raster(2,"a.square",64,64,symbol));
+  assert(!memcmp(key,symbol,sizeof(key)));
+  assert(host_controller_glyph_raster(3,"1",64,64,key));
+  assert(host_controller_glyph_raster(2,"1.square",64,64,symbol));
+  assert(!memcmp(key,symbol,sizeof(key)));
+  assert(host_controller_glyph_raster(2,"square",64,32,symbol));
+  assert(memcmp(escape,symbol,sizeof(escape))); /* Escape includes its symbol inside the square. */
   assert(!host_controller_glyph_raster(2,"visr.missing.symbol",64,64,pixels));
   assert(!host_controller_glyph_raster(2,"a.circle",0,64,pixels));
   assert(!host_controller_glyph_raster(2,"a.circle",1024,64,pixels));

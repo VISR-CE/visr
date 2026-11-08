@@ -672,6 +672,7 @@ def multiplayer_documents(assets, bitmaps):
         for w in list(root.findall('widget')):
             if w.get('name', '').endswith('_screen'):
                 legend(root, w, w.get('name') + '/legend')
+    lobby_action_layout(documents['main_menu.multiplayer_type_select.lobby.xml'])
     return documents
 
 
@@ -777,6 +778,163 @@ def map_screen_layout(root, widgets, shared):
             for c in e.findall('child'):
                 c.set('x', '0')
                 c.set('y', '0')
+
+
+def lobby_action_layout(root):
+    """Keep the live lobby shortcuts and touch controls on one bottom row."""
+    base = 'xbox/main_menu/multiplayer_type_select/lobby'
+    widgets = {w.get('name'): w for w in root.findall('widget')}
+    screen = widgets[base + '/lobby_screen']
+    bar = widgets[base + '/lobby_button_bar']
+    for c in list(screen.findall('child')):
+        if '/legend/' in c.get('widget'):
+            screen.remove(c)
+    for w in list(root.findall('widget')):
+        if w.get('name').startswith(base + '/lobby_screen/legend/'):
+            root.remove(w)
+    # The roster ends at 406; a 60-unit button centered at 443 ends at 473.
+    rows = widgets[base + '/lobby_list']
+    rows.find(f"child[@widget='{bar.get('name')}']").set('y', '430')
+    bar.set('height', '26')
+    for c in list(bar):
+        bar.remove(c)
+    for e in list(screen.findall('on')):
+        if e.get('event') in ('x', 'y', 'white'):
+            screen.remove(e)
+    actions = (
+        ('team', 'white', 'SWITCH TEAM', 20, 100, 'swap player team'),
+        ('start', 'x', 'START NOW', 162, 90, 'net game speed start'),
+        ('add', 'black', 'ADD PLAYER', 294, 100, 'port lobby add player'),
+        ('leave', 'b', 'LEAVE', 436, 50, 'port lobby leave'),
+        ('share', 'y', 'SHARE', 528, 55, 'port lobby share'),
+    )
+    for action, button, caption, x, width, run in actions:
+        name = base + '/lobby_button_' + action
+        target = widgets.get(name)
+        if target is None:
+            target = widget(root, name)
+        target.attrib.clear()
+        target.attrib.update(name=name, type='container', width=str(21 + width), height='26')
+        for c in list(target):
+            target.remove(c)
+        child(bar, name, x=x)
+        icon = name + '/' + button + '_butn'
+        child(target, icon)
+        child(target, name + '/caption', x=21)
+        widget(root, icon, width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
+        text_widget(root, name + '/caption', caption, width=width, height=26).set('font', r'ui\small_ui')
+        attrs = {'run': run}
+        if action == 'leave':
+            attrs['back'] = 'true'
+        if action == 'share':
+            attrs['platform'] = 'apple'
+        for event in dict.fromkeys(('a', button, 'start') if action != 'share' else ('a', button)):
+            ET.SubElement(target, 'on', event=event, **attrs)
+        ET.SubElement(target, 'on', event='left_mouse', run='mouse emit accept event')
+        if button != 'b':  # B already leaves, including the engine's Back alternative.
+            ET.SubElement(screen, 'on', event=button, **attrs)
+    # Runtime controller symbols supply these two buttons, including maps
+    # without Xbox art. No SF Symbol images are packaged with the menus.
+    for button in ('white', 'black'):
+        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{button}_butn')
+        ET.SubElement(bitmap, 'frame', png=NONE_PNG, width='21', height='26')
+
+
+def action_bar_legends(documents):
+    """Decorate the remaining visible action bars, retaining their handlers."""
+    owners = {w.get('name'): root for root in documents.values() for w in root.findall('widget')}
+    widgets = {w.get('name'): w for root in documents.values() for w in root.findall('widget')}
+    parents = {}
+    for name, w in widgets.items():
+        for c in w.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+
+    def screens(name, seen):
+        if name in seen:
+            return set()
+        seen.add(name)
+        if name.endswith('screen'):
+            return {name}
+        result = set()
+        for parent in parents.get(name, []):
+            result |= screens(parent, seen)
+        return result
+
+    for name, bar in list(widgets.items()):
+        targets = screens(name, set())
+        if 'button_bar' not in name.rsplit('/', 1)[-1] or not targets:
+            continue
+        placements = bar.findall('child')
+        actions = [widgets[c.get('widget')] for c in placements]
+        if any(a.get('name').endswith('_butn') or a.findall('child') for a in actions):
+            continue
+        root = owners[name]
+        forward = 0
+        for index, (placement, original) in enumerate(zip(placements, actions)):
+            cancel = original.get('name').rsplit('/', 1)[-1].endswith(('_cancel', '_back'))
+            button = 'b' if cancel else ('x', 'y')[forward]
+            if not cancel:
+                forward += 1
+            # Keep the original action name and event context under a unique
+            # bar prefix; shared common-button definitions stay untouched.
+            action_name = name + '/' + original.get('name').rsplit('/', 1)[-1]
+            action = deepcopy(original)
+            action.set('name', action_name)
+            action.set('type', 'container')
+            action.set('width', '121')
+            action.set('height', '26')
+            caption = widget(root, action_name + '/caption', type='text', width=100, height=26,
+                             font=r'ui\small_ui', color=BLUE)
+            for key in ('text', 'string_list', 'string_index'):
+                if original.get(key) is not None:
+                    caption.set(key, original.get(key))
+                action.attrib.pop(key, None)
+            action.attrib.pop('bitmap', None)
+            icon_name = action_name + '/' + button + '_butn'
+            child(action, icon_name)
+            child(action, caption.get('name'), x=21)
+            widget(root, icon_name, width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
+            handlers = [e for e in original.findall('on') if e.get('event') == 'a']
+            # X/Y shortcuts invoke the same actions as accepting the focused
+            # button. B retains the engine's standard back behavior.
+            if not cancel:
+                shortcuts = []
+                for handler in handlers:
+                    shortcut = deepcopy(handler)
+                    shortcut.set('event', button)
+                    action.append(shortcut)
+                    shortcuts.append(shortcut)
+                for target_name in targets:
+                    target = widgets[target_name]
+                    if target.find(f"on[@event='{button}']") is None:
+                        target.extend(deepcopy(shortcuts))
+            root.append(action)
+            placement.set('widget', action_name)
+            placement.set('x', str(60 + index * 200))
+            placement.set('y', '0')
+        for parent_name in parents.get(name, []):
+            for c in widgets[parent_name].findall('child'):
+                if c.get('widget') == name:
+                    c.set('y', '430')
+        for target_name in targets:
+            screen = widgets[target_name]
+            # Replace the duplicate B caption with the actual Back/Cancel
+            # action; keep SELECT only when a two-action row has room.
+            for c in list(screen.findall('child')):
+                leaf = c.get('widget').rsplit('/', 1)[-1]
+                if '/legend/' in c.get('widget'):
+                    if leaf in ('b_butn', 'cancel') or len(actions) > 2:
+                        screen.remove(c)
+                    else:
+                        c.set('y', '430')
+        referenced = {c.get('widget') for w in widgets.values() for c in w.findall('child')}
+        for target_name in targets:
+            for candidate in list(owners[target_name].findall('widget')):
+                candidate_name = candidate.get('name')
+                if candidate_name.startswith(target_name + '/legend/') and candidate_name not in referenced:
+                    owners[target_name].remove(candidate)
+
+
 
 
 def selection_layout(widgets, bitmaps):
@@ -1362,6 +1520,7 @@ def generate(assets=MENUS):
         assets, names)
     documents['patches.xml'] = patch_document(names)
     documents['bitmaps.xml'] = bitmap_document(assets, names)
+    action_bar_legends(documents)
     native_header_sizes(documents, assets)
     for root in documents.values():
         validate(root, assets)

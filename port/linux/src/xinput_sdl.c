@@ -649,12 +649,14 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 
 	/* (escape backs out, as backspace does: the pause menu's B resumes the
 	game, the main menu's asks to quit; Start would choose, as A does) */
-#define MENU_SCANCODE(button, scancode, label) scancode,
-	static const int menu_scancodes[] = {HALO_GLYPH_MENU_BINDINGS(MENU_SCANCODE)};
+#define MENU_SCANCODE(button, scancode, label) {button, scancode},
+	static const struct { int button, scancode; } menu_scancodes[] = {HALO_GLYPH_MENU_BINDINGS(MENU_SCANCODE)};
 #undef MENU_SCANCODE
 	int button;
-	for (button = 0; button < 4; button++)
-		pad->bAnalogButtons[button] |= analog(k[menu_scancodes[button]]);
+	for (button = 0; button < (int)(sizeof(menu_scancodes) / sizeof(menu_scancodes[0])); button++)
+	{
+		pad->bAnalogButtons[menu_scancodes[button].button] |= analog(k[menu_scancodes[button].scancode]);
+	}
 	pad->bAnalogButtons[XINPUT_GAMEPAD_A] |= analog(k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_KP_ENTER]);
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_BACKSPACE] ||
 		(mouse && m[SDL_BUTTON_X1]));

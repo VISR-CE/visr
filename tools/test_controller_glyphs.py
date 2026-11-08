@@ -197,8 +197,21 @@ int main(void) {
     subprocess.run([str(binary)], check=True)
 
 
+def test_keyboard_symbol_and_original_legend_policy(tmp_path):
+    if not shutil.which('xcrun'):
+        import pytest
+        pytest.skip('Apple compiler and frameworks are required')
+    binary = tmp_path / 'keyboard-symbol-policy'
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-fsanitize=address,undefined',
+                    '-iquote', str(ROOT / 'port/linux/include'),
+                    str(ROOT / 'port/ios/tests/keyboard_symbol_policy_probe.c'),
+                    '--output=' + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory() as directory:
+        test_keyboard_symbol_and_original_legend_policy(Path(directory))
         test_controller_glyph_policy(Path(directory))
         test_controller_glyph_requests(Path(directory))
         test_controller_glyph_draw_cache_and_clipping(Path(directory))

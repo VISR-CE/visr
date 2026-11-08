@@ -153,8 +153,13 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
                 name = 'xbox/main_menu/quit_select/quit_panel'
             copied = widgets[name]
             for tag, key in (('on', 'run'), ('data', 'input')):
-                assert [(e.get('event'), e.get(key)) for e in original.findall(tag)] == [
-                    (e.get('event'), e.get(key)) for e in copied.findall(tag)]
+                expected = [(e.get('event'), e.get(key)) for e in original.findall(tag)]
+                actual = [(e.get('event'), e.get(key)) for e in copied.findall(tag)]
+                if '/lobby/lobby_button_' in name or name.endswith('/lobby/lobby_screen'):
+                    # The distinct shortcuts are checked by the lobby action test.
+                    if tag == 'on':
+                        continue
+                assert all(item in actual for item in expected), (name, expected, actual)
             if '/header_' in original.get('name'):
                 # (their size is their picture's: tools/test_xbox_titles.py)
                 for key in ('left', 'top'):
@@ -842,13 +847,24 @@ def test_legend_touch_rectangles_fit_without_overlapping():
                     return px + int(c.get('x', 0)), py + int(c.get('y', 0))
         return 0, 0
 
+    parents = {}
+    for name, widget in widgets.items():
+        for c in widget.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+    def screens(name, seen=()):
+        if name in seen:
+            return set()
+        if name.endswith('screen'):
+            return {name}
+        return {screen for parent in parents.get(name, []) for screen in screens(parent, (*seen, name))}
+    screen_rectangles = {}
     count = 0
     for parent in widgets.values():
         children = parent.findall('child')
         rectangles = []
         for icon in children:
             name = icon.get('widget')
-            if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn'):
+            if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn', 'white_butn', 'black_butn'):
                 continue
             art = widgets[name]
             x, y = int(icon.get('x', 0)), int(icon.get('y', 0))
@@ -870,6 +886,10 @@ def test_legend_touch_rectangles_fit_without_overlapping():
             for previous in rectangles:
                 assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (name, rect, previous)
             rectangles.append(rect)
+            for screen in screens(parent.get('name')):
+                for previous in screen_rectangles.get(screen, []):
+                    assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (screen, name, rect, previous)
+                screen_rectangles.setdefault(screen, []).append(rect)
             count += 1
     assert count > 40
 
@@ -912,13 +932,13 @@ def test_every_legend_button_has_a_key_and_action():
     import re
     keys = dict((int(button), label) for button, label in
                 re.findall(r'X\((\d+), SDL_SCANCODE_\w+, "([^"]+)"\)', header))
-    buttons = dict(a=0, b=1, x=2, y=3)
+    buttons = dict(a=0, b=1, x=2, y=3, black=4, white=5)
     count = 0
     for name in widgets:
         leaf = name.rsplit('/', 1)[-1]
         if leaf not in tuple(button + '_butn' for button in buttons):
             continue
-        button = leaf[0]
+        button = leaf.removesuffix('_butn')
         assert keys[buttons[button]]
         family = set()
         ancestors(name, family)
@@ -931,3 +951,44 @@ def test_every_legend_button_has_a_key_and_action():
         assert button in events or button == 'b', name
         count += 1
     assert count > 40
+
+
+def test_lobby_actions_have_distinct_live_shortcuts_and_glyphs():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.lobby.xml')
+    widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
+    expected = {'team': 'white', 'start': 'x', 'add': 'black', 'leave': 'b', 'share': 'y'}
+    screen = widgets['lobby_screen']
+    for action, button in expected.items():
+        target = widgets['lobby_button_' + action]
+        assert target.get('type') != 'text', action
+        assert target.find(f'on[@event="{button}"]') is not None, action
+        assert any(c.get('widget').endswith('/' + button + '_butn') for c in target.findall('child'))
+        assert screen.find(f'on[@event="{button}"]') is not None
+    assert len({screen.find(f'on[@event="{button}"]').get('run') for button in expected.values()}) == 5
+    assert not any('/legend/' in c.get('widget') for c in screen.findall('child'))
+    assert screen.find('on[@event="start"][@run="port lobby join"]') is not None
+
+
+def test_visible_action_bars_use_glyph_caption_pairs():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    parents = {}
+    for name, w in widgets.items():
+        for c in w.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+    def screens(name, seen):
+        if name in seen:
+            return set()
+        seen.add(name)
+        result = {name} if name.endswith('_screen') else set()
+        for parent in parents.get(name, []):
+            result |= screens(parent, seen)
+        return result
+    for name, w in widgets.items():
+        if 'button_bar' not in name.rsplit('/', 1)[-1] or not screens(name, set()):
+            continue
+        children = [widgets[c.get('widget')] for c in w.findall('child')]
+        if any(c.get('name').endswith('_butn') for c in children):
+            continue  # Confirmation bars already pair icons and captions.
+        for action in children:
+            assert any(c.get('widget').endswith('_butn') for c in action.findall('child')), action.attrib
