@@ -26,6 +26,7 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
     )
     production = "\n".join(function(source, signature) for signature in signatures)
     harness = r'''
+#define HALO_IOS 1
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +45,13 @@ enum { _browser_sort_players, _browser_sort_name, _browser_sort_map, _browser_so
 static struct { short chip_counts[3]; } lobby_browser;
 static int show_full=1, show_locked=1, show_unjoinable=0;
 static char const *game_type="all", *frame_rate="auto";
+static char const *base_rate="30";   /* the predictable/in-force value: must never be read for the target */
+static int display_refresh=0;
+static int host_sdl_display_max_fps(void) { return display_refresh; }
+static int config_variable_string(char const *key, char *text, size_t size)
+{
+    assert(!strcmp(key,"display.frame_rate")); snprintf(text,size,"%s",frame_rate); return 1;
+}
 static int config_boolean(char const *key)
 {
     if (!strcmp(key,"network.browser_show_full")) return show_full;
@@ -52,7 +60,7 @@ static int config_boolean(char const *key)
 }
 static char const *config_string(char const *key)
 {
-    if (!strcmp(key,"display.frame_rate")) return frame_rate;
+    if (!strcmp(key,"display.frame_rate")) return base_rate;
     assert(!strcmp(key,"network.browser_games")); return game_type;
 }
 static short browser_sort(void) { return _browser_sort_players; }
@@ -138,18 +146,21 @@ int main(void)
     struct p2p_listing empty[1]; short hidden=-1;
     assert(browser_filter_and_sort(empty,0,&hidden)==0 && hidden==0);
     assert(!lobby_browser.chip_counts[0] && !lobby_browser.chip_counts[1] && !lobby_browser.chip_counts[2]);
-    /* Only the normal cap is exposed: a prior scene hold at 30 cannot affect this target. */
+    /* The target is the profile's variable-workload rate, not the in-force (predictable) one. */
     frame_rate="60"; assert(browser_target_fps()==60);
     char const *rates[]={"30","60","90","120","240","1000"};
     for (unsigned i=0;i<sizeof(rates)/sizeof(rates[0]);i++)
     {
         frame_rate=rates[i]; assert(browser_target_fps()==strtol(rates[i],NULL,10));
     }
-    char const *fallbacks[]={"auto","uncapped","","0","29","1001","-60","60fps"};
-    for (unsigned i=0;i<sizeof(fallbacks)/sizeof(fallbacks[0]);i++)
+    /* "display" and "unlimited" read the display's refresh where known, else 60. */
+    char const *open[]={"display","unlimited","auto","","0","29","1001","-60","60fps"};
+    for (unsigned i=0;i<sizeof(open)/sizeof(open[0]);i++)
     {
-        frame_rate=fallbacks[i]; assert(browser_target_fps()==60);
+        display_refresh=0; frame_rate=open[i]; assert(browser_target_fps()==60);
+        display_refresh=120; assert(browser_target_fps()==120);
     }
+    display_refresh=0;
     puts("browser layout C: filters, type chips, incompatibility reasons, empty counts, gameplay target FPS passed");
 }
 '''

@@ -2374,6 +2374,7 @@ void platform_clipboard_set(char const *text);
 void platform_text_field(int typing, char const *title, char const *text, int masked);
 int platform_text_field_result(char *text, int size);
 int config_boolean(char const *name);
+int config_variable_string(char const *name, char *text, size_t size);
 void ui_widget_port_post_button(short controller_index, short button_index);
 
 /* Match the warning and hosted-game default to the 30 fps hold threshold. Profiles without a full-rate
@@ -4471,15 +4472,30 @@ static void browser_c_controls_update(struct widget_instance *list)
 	}
 }
 
-/* Use the normal cap, before the previous match's workload hold can reduce it to 30 fps.
-Auto/uncapped has no numeric refresh target available to this guest menu. */
+/* The frame rate the device's profile targets in a variable workload, which is what multiplayer and online
+co-op run in, with the player's own display.frame_rate winning as it would in that game. "display" means one
+frame for each refresh, so it is the display's refresh rate where the guest can read it (the Mac) and 60
+elsewhere; "unlimited" has no target, so it also reads as the display's rate. The hold of a large game to 30 fps
+is the reason for the warning, not the target. */
+#ifdef HALO_IOS
+int host_sdl_display_max_fps(void);
+#endif
 static long browser_target_fps(void)
 {
-	char const *text = config_string("display.frame_rate");
-	char *end;
-	long rate;
+	char text[32], *end;
+	long rate, refresh;
+
+	if (!config_variable_string("display.frame_rate", text, sizeof(text)))
+		return 60;
 	rate = strtol(text, &end, 10);
-	return *text && !*end && rate >= 30 && rate <= 1000 ? rate : 60;
+	if (*text && !*end && rate >= 30 && rate <= 1000)
+		return rate;
+#ifdef HALO_IOS
+	refresh = host_sdl_display_max_fps();
+#else
+	refresh = 0;
+#endif
+	return refresh >= 30 && refresh <= 1000 ? refresh : 60;
 }
 
 static void browser_c_detail_update(struct widget_instance *list, wchar_t const *status)
@@ -4533,7 +4549,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	browser_name_set(named(detail, "browser_detail_host", 0), text);
 	visible_set(named(detail, "browser_host_label", 0), text[0] != 0);
 	visible_set(named(detail, "browser_detail_host", 0), text[0] != 0);
-	usnprintf(text, NUMBEROF(text) - 1, L"BIG GAME · MAY DROP BELOW %ld FPS", browser_target_fps());
+	usnprintf(text, NUMBEROF(text) - 1, L"BIG GAME · MAY NOT HOLD %ld FPS", browser_target_fps());
 	text_set(named(detail, "browser_detail_big", 0), text);
 	visible_set(named(detail, "browser_detail_big", 0),
 		player_capacity_marked(game->player_count, game->maximum_player_count));

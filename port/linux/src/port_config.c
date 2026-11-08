@@ -3853,6 +3853,24 @@ int config_workload_variable(void)
 	return config_workload_is_variable;
 }
 
+/* The string setting's value in a variable workload (multiplayer, online co-op), whatever map is in force: the
+profile's [variable.display] value when the setting comes from its default or the profile, else the value in
+force (a player's or the environment's explicit choice wins in every workload). Returns 1 when the setting exists. */
+int config_variable_string(const char *name, char *text, size_t size)
+{
+	long index = config_setting_index(name);
+	const struct config_value *value;
+
+	if (index < 0 || config_settings[index].type != _config_string || !size)
+		return 0;
+	value = config_value(name, _config_string);
+	if (config_states[index].variable.text &&
+		(config_states[index].source == _source_default || config_states[index].source == _source_profile))
+		value = &config_states[index].variable_value;
+	snprintf(text, size, "%s", value->string ? value->string : "");
+	return 1;
+}
+
 int config_workload_set(int variable, const char *reasons)
 {
 	return config_workload_set_limited(variable, 0, reasons);
