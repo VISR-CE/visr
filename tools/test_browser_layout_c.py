@@ -481,13 +481,15 @@ def _png_alpha_column(path, x):
     return [row[x * 4 + 3] for row in rows]
 
 
-def test_backdrop_runs_to_the_bottom_edge():
+def test_backdrop_has_bottom_rule_above_the_legend_strip():
     root = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
     alpha = _png_alpha_column(root / 'art/browser/backdrop.png', 1)
-    height = len(alpha)
+    assert len(alpha) == 960                       # 480 design lines at scale 2
     assert alpha[10] == 0                          # clear under the title
-    assert alpha[-1] > 150                         # opaque dark fill at the bottom edge
-    assert alpha[height * 3 // 4] == alpha[-1]     # no bottom rule or fade
+    assert alpha[88] > 150                         # top rule at y=44
+    assert alpha[818] > 150                        # bottom rule at y=409, above the legend
+    assert 150 < alpha[830] < 255                 # dark strip 410..444 behind the legend
+    assert alpha[-1] == 0                          # nothing below the strip
     text = (root / 'main_menu.multiplayer_type_select.join_game.xml').read_text()
     assert 'bitmap="xbox/browser/backdrop"' in text
     filters = (root / 'main_menu.multiplayer_type_select.join_game.filters.xml').read_text()
