@@ -4566,11 +4566,12 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		else
 			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULD NOT REACH GAME" :
 				!game->open ? L"FULL OR STARTING" : !config_boolean("network.online") ? L"INTERNET PLAY IS OFF" :
-				lobby_browser.joining ? L"CONNECTING..." : L"JOIN GAME");
-		visible_set(named(join, "browser_join_caption", 0), usable);
-		visible_set(named(join, "browser_join_icon", 0), usable);
-		visible_set(named(join, "browser_join_reason", 0), !usable);
-		text_set(named(join, usable ? "browser_join_caption" : "browser_join_reason", 0), text);
+				lobby_browser.joining ? L"CONNECTING..." : L"");
+		/* the button lives in the legend and always reads JOIN GAME (dimmed when unusable); why it is
+		   unusable shows in the detail box */
+		text_set(named(join, "browser_join_caption", 0), lobby_browser.joining ? L"CONNECTING" : L"JOIN GAME");
+		visible_set(named(detail, "browser_join_reason", 0), !usable && text[0] != 0);
+		text_set(named(detail, "browser_join_reason", 0), text);
 	}
 }
 
