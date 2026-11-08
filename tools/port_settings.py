@@ -397,10 +397,12 @@ NOTICE_LINES = 6
 
 def about_notice(text: str) -> str:
     """the fixed notice, wrapped for its box (the engine does not wrap)"""
-    lines = textwrap.wrap(text, NOTICE_WIDTH)
+    # (the small font draws the copyright sign with almost no side space, so its spaces get a second one; the
+    # sign and its neighbors stay on one line, since a space at a line break is lost)
+    text = text.replace(" \u00a9 ", "\x00\u00a9\x00")
+    lines = textwrap.wrap(text, NOTICE_WIDTH - 4)
     assert len(lines) <= NOTICE_LINES, text
-    # (the small font draws the copyright sign with almost no side space, so its spaces get a second one)
-    return "\\n".join(lines).replace(" \u00a9 ", "  \u00a9  ")
+    return "\\n".join(lines).replace("\x00", "  ")
 
 
 def _about_screen() -> list:
