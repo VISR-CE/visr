@@ -386,7 +386,7 @@ ABOUT = "about"
 SEND_LOG_CONFIRM = "xbox/settings/send_log_confirm"
 ABOUT_ROWS = 6
 # the rows start below the two title lines (the app's version and what VISR is)
-ABOUT_ROW_TOP = 128
+ABOUT_ROW_TOP = 102
 # SEND LOG is the last row, in the builds that can send a log (menu_platform.h: send_log)
 SEND_LOG_PLATFORM = "send_log"
 # the trademark notice under the rows: the small font's characters that fit the width of its box (calibrated from
@@ -411,7 +411,7 @@ def _about_screen() -> list:
     show the app's own text; the others show a fixed value and open a page (not on the Apple TV)"""
     base = f"{PE}/{ABOUT}"
     spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP,
-            "help_top": 284, "help_height": 125, "help_text": about_notice(about_data.NOTICE),
+            "help_top": 260, "help_height": 125, "help_text": about_notice(about_data.NOTICE),
             "header": ("header_about", f"{base}/header_about"),
             "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
     # (label, the value shown, key, the page it opens)

@@ -15,14 +15,14 @@
 	</widget>
 	<widget name="xbox/settings/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
-	<widget name="xbox/settings/about/help" type="text" controller="1" left="68" top="284" width="482" height="125" text="Halo, Halo: Combat Evolved, Master Chief and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries) or Bungie." font="ui\small_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/about/help" type="text" controller="1" left="68" top="260" width="482" height="125" text="Halo, Halo: Combat Evolved, Master Chief and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries) or Bungie." font="ui\small_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/about/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children">
-		<child widget="xbox/settings/about/op_build" x="54" y="128" />
-		<child widget="xbox/settings/about/op_website" x="54" y="158" />
-		<child widget="xbox/settings/about/op_privacy" x="54" y="188" />
-		<child widget="xbox/settings/about/op_license" x="54" y="218" />
-		<child widget="xbox/settings/about/op_send_log" x="54" y="248" platform="send_log" />
+		<child widget="xbox/settings/about/op_build" x="54" y="102" />
+		<child widget="xbox/settings/about/op_website" x="54" y="132" />
+		<child widget="xbox/settings/about/op_privacy" x="54" y="162" />
+		<child widget="xbox/settings/about/op_license" x="54" y="192" />
+		<child widget="xbox/settings/about/op_send_log" x="54" y="222" platform="send_log" />
 	</widget>
 	<widget name="xbox/settings/about/op_build" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<on event="a" />
