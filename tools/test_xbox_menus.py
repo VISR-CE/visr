@@ -258,6 +258,13 @@ def test_browser_gauge_text_fits_inside_ring():
         assert positions[leaf][0] + 17 == positions['server_item_gauge'][0] + 21
     assert (positions['server_item_players'][1] + int(widgets['server_item_players'].get('height'))
             <= positions['server_item_capacity'][1])
+    # both lines sit inside the 42-unit ring, as a block centered on it (a three-digit capacity is the widest line)
+    ring_top = positions['server_item_gauge'][1]
+    top = positions['server_item_players'][1]
+    bottom = positions['server_item_capacity'][1] + int(widgets['server_item_capacity'].get('height'))
+    assert top >= ring_top + 8 and bottom <= ring_top + 42 - 4
+    assert abs((top + bottom) / 2 - (ring_top + 21)) <= 2
+
 
 def test_browser_direct_link_keeps_the_legacy_table():
     root, _ = browser_c_widgets()
