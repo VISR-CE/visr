@@ -734,6 +734,248 @@ function drawLegend(node, spec, count) {
   });
 }
 
+// Screenshot links mirror the thumbnail in build_item in site_page.py. A row links only a frame from its own device.
+function buildShot(entry, shots, device) {
+  const key = `${entry.port}@${entry.version}@${device}`;
+  const build = shots?.builds?.[key];
+  if (!build) return null;
+  return el("a", { class: "build-shot", href: "benchmarks/shots/" + build.scenes[build.thumb_scene],
+    "data-shot": key, "aria-label": "Screenshots of " + build.label, title: "Captured on " + build.device },
+  el("img", { src: "benchmarks/shots/" + build.thumb, width: "56", height: "42", alt: "", loading: "lazy", decoding: "async" }));
+}
+
+// One dialog serves every build row, including rows replaced when a chart or device changes.
+function screenshotCarousel(root, shots) {
+  let dialog, title, picker, image, missing, caption, strip, live, opener, currentBuild, currentScene;
+  // Comparison: a second port's frame of the same scene over the first, revealed from the split to the right edge.
+  let comparer, compareImage, compareMissing, splitInput, divider, mainTag, compareTag, compareBuild = "", split = 50, holding = false;
+  // The manifest's rev changes whenever frames are re-encoded (aligned), so browsers never show a stale frame.
+  const path = (file) => "benchmarks/shots/" + file + (shots.rev ? "?v=" + shots.rev : "");
+  const available = () => shots.scenes.filter((scene) => shots.builds[currentBuild].scenes[scene.key]);
+  function neighbor(step) {
+    const scenes = available();
+    const ordered = step > 0 ? shots.scenes : [...shots.scenes].reverse();
+    const start = ordered.findIndex((scene) => scene.key === currentScene);
+    for (let offset = 1; offset <= ordered.length; offset++) {
+      const scene = ordered[(start + offset) % ordered.length];
+      if (scenes.some((item) => item.key === scene.key)) return scene.key;
+    }
+    return currentScene;
+  }
+  function preload() {
+    if (!dialog.open) return;
+    const build = shots.builds[currentBuild];
+    for (const step of [-1, 1]) {
+      const file = build.scenes[neighbor(step)];
+      if (file) { const next = new Image(); next.src = path(file); }
+    }
+  }
+  function draw() {
+    if (!dialog.open) return;
+    const build = shots.builds[currentBuild];
+    const scene = shots.scenes.find((item) => item.key === currentScene);
+    title.textContent = build.label;
+    picker.value = currentBuild;
+    const file = build.scenes[currentScene];
+    image.hidden = !file;
+    missing.hidden = Boolean(file);
+    image.removeAttribute("src");
+    if (file) {
+      const [width, height] = build.size[currentScene];
+      image.width = width;
+      image.height = height;
+      image.alt = `${build.label}: ${scene.suite}, ${scene.label}`;
+      image.src = path(file);
+    } else {
+      missing.textContent = `No screenshot of this scene for ${build.label}.`;
+    }
+    // A port with no frame of this scene can't be picked in either dropdown.
+    const hasScene = (key) => Boolean(shots.builds[key]?.scenes[currentScene]);
+    if (compareBuild === currentBuild || (compareBuild && !hasScene(compareBuild))) compareBuild = "";
+    for (const option of picker.options) {
+      option.disabled = option.value !== currentBuild && !hasScene(option.value);
+      option.textContent = shots.builds[option.value].label + (hasScene(option.value) ? "" : " (no screenshot)");
+    }
+    comparer.value = compareBuild;
+    for (const option of comparer.options) {
+      if (option.value === "") continue;
+      option.disabled = option.value === currentBuild || !hasScene(option.value);
+      option.textContent = shots.builds[option.value].label + (hasScene(option.value) ? "" : " (no screenshot)");
+    }
+    drawCompare(build, scene);
+    caption.replaceChildren(el("span", {}, `${scene.suite} · ${scene.label}`), el("span", {}, `Captured on ${build.device}`));
+    if (strip.dataset.build !== currentBuild) strip.replaceChildren(...shots.scenes.map((item) => {
+      const hasFrame = Boolean(build.scenes[item.key]);
+      const button = el("button", { type: "button", "data-scene": item.key,
+        title: hasFrame ? `${item.suite} · ${item.label}` : `No screenshot: ${item.suite} · ${item.label}` }, `${item.suite} · ${item.label}`);
+      button.disabled = !hasFrame;
+      button.addEventListener("click", () => { currentScene = item.key; draw(); });
+      return button;
+    }));
+    strip.dataset.build = currentBuild;
+    for (const button of strip.children) button.setAttribute("aria-current", button.dataset.scene === currentScene ? "true" : "false");
+    const scenes = available();
+    const index = scenes.findIndex((item) => item.key === currentScene);
+    live.textContent = `${build.label}: ${scene.suite}, ${scene.label}, ${index < 0 ? "no screenshot" : `${index + 1} of ${scenes.length}`}`;
+  }
+  function drawCompare(build, scene) {
+    const other = compareBuild ? shots.builds[compareBuild] : null;
+    const on = Boolean(other);
+    for (const node of [compareImage, compareMissing, divider, mainTag, compareTag]) node.hidden = !on;
+    splitInput.parentElement.hidden = !on;
+    dialog.classList.toggle("comparing", on);
+    if (!on) { compareImage.removeAttribute("src"); return; }
+    const file = other.scenes[currentScene];
+    compareImage.hidden = !file;
+    compareMissing.hidden = Boolean(file);
+    if (file) {
+      const [width, height] = other.size[currentScene];
+      compareImage.width = width;
+      compareImage.height = height;
+      compareImage.alt = `${other.label}: ${scene.suite}, ${scene.label}`;
+      if (compareImage.getAttribute("src") !== path(file)) compareImage.src = path(file);
+    } else {
+      compareImage.removeAttribute("src");
+      compareMissing.textContent = `No screenshot of this scene for ${other.label}.`;
+    }
+    mainTag.textContent = build.label;
+    compareTag.textContent = other.label;
+    placeSplit();
+  }
+  // Holding Space shows the comparison across the whole frame; letting go returns to the split.
+  function placeSplit() {
+    const at = holding ? 0 : split;
+    const clip = `inset(0 0 0 ${at}%)`;
+    compareImage.style.clipPath = clip;
+    compareMissing.style.clipPath = clip;
+    divider.style.left = `${at}%`;
+    divider.hidden = !compareBuild || holding;
+    splitInput.value = String(split);
+  }
+  function setSplit(value) { split = Math.min(100, Math.max(0, value)); placeSplit(); }
+  function move(step) { currentScene = neighbor(step); draw(); }
+  // Left and Right step through the ports in the picker's order, keeping the scene, so the same moment can be
+  // compared port to port; Up and Down step through the scenes.
+  function movePort(step) {
+    const values = Array.from(picker.options, (option) => option.value);
+    const index = values.indexOf(currentBuild);
+    if (index < 0) return;
+    for (let offset = 1; offset < values.length; offset++) {
+      const key = values[(index + step * offset + values.length * offset) % values.length];
+      if (shots.builds[key].scenes[currentScene]) { currentBuild = key; draw(); return; }
+    }
+  }
+  function create() {
+    title = el("h2", { id: "shot-title" });
+    const close = el("button", { type: "button", "aria-label": "Close", autofocus: "" }, "Close");
+    close.addEventListener("click", () => dialog.close());
+    picker = el("select", { id: "shot-port" });
+    picker.addEventListener("change", () => { currentBuild = picker.value; draw(); });
+    image = el("img", { decoding: "async", alt: "", draggable: "false" });
+    image.addEventListener("load", preload);
+    image.addEventListener("error", () => {
+      if (!dialog.open) return;
+      image.hidden = true;
+      missing.hidden = false;
+      missing.textContent = "This screenshot could not be loaded.";
+    });
+    missing = el("p", { class: "shot-missing" });
+    comparer = el("select", { id: "shot-compare" });
+    comparer.addEventListener("change", () => { compareBuild = comparer.value; holding = false; draw(); });
+    compareImage = el("img", { class: "shot-compare-image", decoding: "async", alt: "", draggable: "false" });
+    compareMissing = el("p", { class: "shot-missing shot-compare-missing" });
+    divider = el("div", { class: "shot-divider", "aria-hidden": "true" }, el("span", { class: "shot-handle" }));
+    mainTag = el("span", { class: "shot-tag shot-tag-main", "aria-hidden": "true" });
+    compareTag = el("span", { class: "shot-tag shot-tag-compare", "aria-hidden": "true" });
+    splitInput = el("input", { type: "range", min: "0", max: "100", step: "1", value: "50", id: "shot-split",
+      "aria-label": "Comparison split: drag left to show more of the comparison" });
+    splitInput.addEventListener("input", () => setSplit(Number(splitInput.value)));
+    const stage = el("div", { class: "shot-stage" }, image, missing, compareImage, compareMissing, divider, mainTag, compareTag);
+    let pointer;
+    const splitAt = (event) => {
+      const box = stage.getBoundingClientRect();
+      setSplit(((event.clientX - box.left) / box.width) * 100);
+    };
+    let dragging = false;
+    // The images would otherwise start the browser's own image drag instead of moving the split.
+    stage.addEventListener("dragstart", (event) => event.preventDefault());
+    stage.addEventListener("pointerdown", (event) => {
+      if (compareBuild && event.isPrimary) {
+        event.preventDefault();
+        dragging = true;
+        stage.setPointerCapture(event.pointerId);
+        splitAt(event);
+        return;
+      }
+      if (event.pointerType !== "touch" || !event.isPrimary) return;
+      pointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      stage.setPointerCapture(event.pointerId);
+    });
+    stage.addEventListener("pointermove", (event) => { if (dragging) splitAt(event); });
+    stage.addEventListener("pointercancel", () => { pointer = null; dragging = false; });
+    stage.addEventListener("pointerup", (event) => {
+      if (dragging) { dragging = false; return; }
+      if (!pointer || pointer.id !== event.pointerId) return;
+      const dx = event.clientX - pointer.x, dy = event.clientY - pointer.y;
+      pointer = null;
+      if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy)) move(dx < 0 ? 1 : -1);
+    });
+    const previous = el("button", { type: "button" }, "Previous");
+    const next = el("button", { type: "button" }, "Next");
+    previous.addEventListener("click", () => move(-1));
+    next.addEventListener("click", () => move(1));
+    caption = el("p", { class: "shot-caption" });
+    strip = el("div", { class: "shot-scenes", role: "group", "aria-label": "Scenes" });
+    live = el("p", { class: "shot-live", "aria-live": "polite", "aria-atomic": "true" });
+    dialog = el("dialog", { class: "shot-dialog", "aria-labelledby": "shot-title" },
+      el("div", { class: "shot-header" }, title, close),
+      el("div", { class: "shot-picker" }, el("label", { for: "shot-port" }, "Port"), picker,
+        el("label", { for: "shot-compare" }, "Compare"), comparer),
+      stage, el("div", { class: "shot-split", hidden: "" }, splitInput,
+        el("p", { class: "shot-hint" }, "Hold Space to see the comparison in full.")), caption, el("div", { class: "shot-controls" }, previous, next), strip, live);
+    dialog.addEventListener("keydown", (event) => {
+      if (event.key === " " && compareBuild && !event.altKey && !event.ctrlKey && !event.metaKey
+          && !(event.target instanceof HTMLSelectElement)) {
+        event.preventDefault();
+        if (!holding) { holding = true; placeSplit(); }
+        return;
+      }
+      if (event.target === picker || event.target === comparer || event.target === splitInput
+          || event.altKey || event.ctrlKey || event.metaKey) return;
+      const port = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+      if (port) { event.preventDefault(); movePort(port); return; }
+      if (event.target.closest(".shot-scenes")) return;
+      const scene = { ArrowUp: -1, ArrowDown: 1 }[event.key];
+      if (scene) { event.preventDefault(); move(scene); }
+    });
+    const release = () => { if (holding) { holding = false; placeSplit(); } };
+    dialog.addEventListener("keyup", (event) => { if (event.key === " ") { event.preventDefault(); release(); } });
+    window.addEventListener("blur", release);
+    dialog.addEventListener("close", () => { release(); image.removeAttribute("src"); compareImage.removeAttribute("src"); opener?.focus(); });
+    document.body.append(dialog);
+  }
+  root.addEventListener("click", (event) => {
+    const link = event.target.closest("a.build-shot");
+    if (!link || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const build = shots.builds[link.dataset.shot];
+    if (!build || typeof HTMLDialogElement === "undefined" || !HTMLDialogElement.prototype.showModal) return;
+    event.preventDefault();
+    if (!dialog) create();
+    opener = link;
+    currentBuild = link.dataset.shot;
+    currentScene = build.thumb_scene;
+    // Only ports with frames from this same device are offered.
+    const sameDevice = Object.entries(shots.builds).filter(([, other]) => other.device_id === build.device_id);
+    picker.replaceChildren(...sameDevice.map(([key, other]) => el("option", { value: key }, other.label)));
+    comparer.replaceChildren(el("option", { value: "" }, "None"),
+      ...sameDevice.map(([key, other]) => el("option", { value: key }, other.label)));
+    compareBuild = "";
+    holding = false;
+    dialog.showModal();
+    draw();
+  });
+}
+
 // One build's row. A build with no data for the chart is dimmed and disabled, tagged briefly, with the full reason in the
 // row's tooltip and for screen readers. Mirrors build_item in site_page.py.
 function buildItem(entry, spec, state, off) {
@@ -742,10 +984,11 @@ function buildItem(entry, spec, state, off) {
   const name = el("span", { class: "build-name" }, entry.url ? el("a", { href: entry.url, rel: "noopener" }, entry.label) : entry.label);
   const meta = el("span", { class: "build-meta" }, `build ${entry.build || "unknown"}, ${entry.date}`);
   const label = el("label", { class: "build-label" }, input, " ", name, " ", meta);
+  const shot = buildShot(entry, state.shots, state.models[spec.slug].device);
   if (off) {
     input.disabled = true;
     const reason = plainReason(off.reason, state.reasons);
-    return el("div", { class: "build off", title: reason }, label,
+    return el("div", { class: "build off", title: reason }, label, ...(shot ? [shot] : []),
       el("details", { class: "why" }, el("summary", { class: "tag" }, off.tag), el("p", {}, reason)));
   }
   input.checked = state.selected[spec.slug].has(key);
@@ -754,7 +997,7 @@ function buildItem(entry, spec, state, off) {
     // Overall's suite set follows the ticked builds, so the rows that are drawn can change with a tick.
     state.refresh(spec, state.models[spec.slug].overall, key);
   });
-  return el("div", { class: "build" }, label);
+  return el("div", { class: "build" }, label, ...(shot ? [shot] : []));
 }
 
 // Built when the suite changes, not on every tick, so keyboard focus and the open disclosures stay where they are.
@@ -872,7 +1115,14 @@ function drawList(list, spec, built, state) {
 
 async function start() {
   const root = document.getElementById("bench-root");
-  if (!root || typeof mermaid === "undefined") return;
+  if (!root) return;
+  const shotsPromise = fetch(root.dataset.shots).then((response) => {
+    if (!response.ok) throw new Error("Screenshots unavailable");
+    return response.json();
+  }).catch(() => null);
+  const shots = await shotsPromise;
+  if (shots) screenshotCarousel(root, shots);
+  if (typeof mermaid === "undefined") return;
   const specs = JSON.parse(document.getElementById("chart-specs").textContent);
   const reasons = JSON.parse(document.getElementById("chart-reasons").textContent);
   const deviceText = JSON.parse(document.getElementById("chart-devices")?.textContent || "{}");
@@ -880,7 +1130,7 @@ async function start() {
   const rows = parseCsv(text);
   const params = readHash();
   const state = { suite: SUITES.concat("overall").includes(params.get("suite")) ? params.get("suite") : DEFAULT_SUITE,
-    models: {}, selected: {}, refresh: null, reasons, open: new Set(), devices: {}, defaultDevices: {} };
+    models: {}, selected: {}, refresh: null, shots, reasons, open: new Set(), devices: {}, defaultDevices: {} };
   const dark = window.matchMedia("(prefers-color-scheme: dark)");
   const theme = () => mermaid.initialize(mermaidConfig(true));
   theme();

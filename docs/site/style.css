@@ -311,7 +311,12 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .bench-rows legend { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
 .build-group { padding: 8px 0; border-top: 1px solid var(--line); }
 .build-group:first-of-type { border-top: 0; }
-.build { padding: 4px 0; line-height: 1.35; }
+.build { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center; padding: 4px 0; line-height: 1.35; }
+.build-shot { grid-column: 2; grid-row: 1; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 4px; border-radius: var(--radius-sm); }
+.build-shot img { display: block; width: 56px; height: 42px; object-fit: cover; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.build-shot:hover { background: var(--code-bg); }
+.build-shot:hover img { border-color: var(--accent); }
+.build-shot:focus-visible, .shot-dialog :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .build-label { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px; cursor: pointer; }
 .build-label input { flex: none; align-self: center; width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .build-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
@@ -320,7 +325,7 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .build.off .build-label { cursor: default; opacity: 0.5; }
 .build.off .build-name { font-weight: 500; }
 .build.off input { cursor: not-allowed; }
-.why { margin: 2px 0 0 26px; font-size: 0.8rem; }
+.why { grid-column: 1 / -1; margin: 2px 0 0 26px; font-size: 0.8rem; }
 .why summary.tag { display: inline-block; cursor: pointer; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; line-height: 1.7; color: var(--muted); list-style: none; }
 .why summary.tag::-webkit-details-marker { display: none; }
 .why summary.tag::after { content: " \25BE"; }
@@ -328,6 +333,46 @@ section > p > img { display: block; width: 100%; border-radius: 16px; }
 .why summary.tag:hover { border-color: var(--accent); color: var(--ink); }
 .why p { margin: 6px 0 4px; line-height: 1.45; color: var(--muted); }
 .older { margin: 2px 0 0 26px; }
+/* A fixed 4:3 stage contains every port's frame without changing the scene layout. */
+.shot-dialog { width: min(800px, calc(100vw - 24px)); max-width: none; max-height: calc(100dvh - 24px); padding: var(--space-4); overflow-x: hidden; overflow-y: auto; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-md); }
+.shot-dialog::backdrop { background: #000b; }
+.shot-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.shot-header h2 { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.shot-dialog button, .shot-dialog select { min-width: 44px; min-height: 44px; padding: var(--space-2); border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--code-bg); color: var(--ink); font: inherit; }
+.shot-dialog button { cursor: pointer; }
+.shot-dialog button:hover, .shot-dialog select:hover { border-color: var(--accent); }
+.shot-dialog button:disabled { opacity: 0.5; cursor: default; }
+.shot-picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block: var(--space-3); }
+.shot-picker select { flex: 1; min-width: 0; max-width: 100%; }
+/* The port picker draws its own chevron: the system arrow sits tight against the edge and doesn't match the site. */
+.shot-dialog select { appearance: none; -webkit-appearance: none; padding-right: calc(var(--space-2) + 28px);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 6 8 10.5 12.5 6' fill='none' stroke='%233fd6ff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; background-size: 16px 16px; cursor: pointer; }
+.shot-stage { position: relative; width: min(100%, 80dvh); max-height: 60dvh; aspect-ratio: 4 / 3; margin-inline: auto; background: #000; color: #fff; touch-action: pan-y; }
+.shot-stage img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+/* Comparison: the second port's frame sits over the first and shows from the split to the right edge. */
+.shot-picker label + select + label { margin-left: var(--space-2); }
+.shot-stage .shot-compare-image, .shot-compare-missing { background: #000; }
+.comparing .shot-stage { touch-action: none; cursor: ew-resize; }
+.shot-divider { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--accent); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5); pointer-events: none; }
+.shot-handle { position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); border: 2px solid var(--accent); border-radius: 50%; background: rgba(0, 0, 0, 0.75) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 7 4 12l5 5M15 7l5 5-5 5' fill='none' stroke='%233fd6ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 24px 24px no-repeat; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+.comparing .shot-stage img { user-select: none; -webkit-user-drag: none; }
+.shot-tag { position: absolute; top: var(--space-2); max-width: 45%; padding: 2px var(--space-2); border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.7); color: #fff; font-size: var(--text-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.shot-tag-main { left: var(--space-2); }
+.shot-tag-compare { right: var(--space-2); }
+.shot-split { margin-top: var(--space-2); }
+.shot-split input { display: block; width: 100%; min-height: 44px; accent-color: var(--accent); }
+.shot-hint { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+@media (hover: none) { .shot-hint { display: none; } }
+.shot-missing { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: var(--space-4); text-align: center; overflow-wrap: anywhere; }
+.shot-caption { margin-block: var(--space-2); font-size: var(--text-sm); }
+.shot-caption span { display: block; }
+.shot-caption span + span { color: var(--muted); }
+.shot-controls { display: flex; justify-content: space-between; gap: var(--space-2); }
+.shot-scenes { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-3); }
+.shot-scenes button { max-width: 100%; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.shot-scenes [aria-current="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.shot-live { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .older summary { cursor: pointer; font-size: 0.85rem; color: var(--accent); padding: 4px 0; min-height: 28px; }
 .older[open] summary { margin-bottom: 2px; }
 .older .build { padding-left: 0; }

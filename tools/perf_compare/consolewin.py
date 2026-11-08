@@ -343,6 +343,13 @@ def run_shot(window, console, hooks, clock, prints=True):
     else:
         clock.sleep(5.0)  # a console that prints nothing cannot sync; its numeric replies still come back
     now = number(console.query('(game_time)', clock, timeout=10.0, numeric=True))
+    if now is None and window['kind'] in ('match', 'coop'):
+        # A hosted game starts a few seconds after launch, and on some ports the console answers only once it runs.
+        for _ in range(24):
+            clock.sleep(5.0)
+            now = number(console.query('(game_time)', clock, timeout=10.0, numeric=True))
+            if now is not None:
+                break
     first = min(target, shot_start(window) or target)
     if now is None or now >= first:
         return {'kind': 'shot', 'ended': 'late' if now is not None else 'no-reply', 'tick': now, 'target_tick': target}

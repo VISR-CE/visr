@@ -161,7 +161,7 @@ fingerprints = [
 reference_shot = "mp-chillout"
 
 [mp-chillout.shot]
-tick = 900
+tick = 6000
 
 [mp-bloodgulch]
 suite = "multiplayer"
@@ -179,7 +179,7 @@ fingerprints = [
 reference_shot = "mp-bloodgulch"
 
 [mp-bloodgulch.shot]
-tick = 900
+tick = 6000
 
 [coop-c10]
 suite = "co-op"
@@ -192,7 +192,7 @@ fingerprints = ["(list_count (players))", "(game_time)"]
 reference_shot = "coop-c10"
 
 [coop-c10.shot]
-tick = 900
+tick = 6000
 
 [coop-b30]
 suite = "co-op"
@@ -205,4 +205,4 @@ fingerprints = ["(list_count (players))", "(game_time)"]
 reference_shot = "coop-b30"
 
 [coop-b30.shot]
-tick = 900
+tick = 6000

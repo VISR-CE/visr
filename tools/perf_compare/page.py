@@ -220,6 +220,7 @@ def methodology(summary: dict, rows: list[dict]) -> list[str]:
              "omitted for uncapped rows and does not establish a display tier. The methods measure different events and are "
              "not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each "
              "column.", ""]
+    lines.extend(["A build's screenshots come from runs on the device shown for it, and a row without a frame from that device has none.", ""])
     lines.extend(timing_section(rows))
     lines.extend(device_section(rows))
     lines.extend(uncapped_section(rows))

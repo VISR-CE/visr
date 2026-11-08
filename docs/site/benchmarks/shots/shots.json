@@ -1,0 +1,823 @@
+{
+ "scenes": [
+  {
+   "key": "c10",
+   "suite": "Campaign",
+   "label": "c10"
+  },
+  {
+   "key": "b30",
+   "suite": "Campaign",
+   "label": "b30"
+  },
+  {
+   "key": "a50-hangar",
+   "suite": "Combat",
+   "label": "a50 hangar"
+  },
+  {
+   "key": "b40-exta",
+   "suite": "Combat",
+   "label": "b40 exterior"
+  },
+  {
+   "key": "b30-bot",
+   "suite": "Combat",
+   "label": "b30 bot"
+  },
+  {
+   "key": "x70-bridge",
+   "suite": "Cutscenes",
+   "label": "x70 bridge"
+  },
+  {
+   "key": "cutscene-rescue",
+   "suite": "Cutscenes",
+   "label": "a50 rescue"
+  },
+  {
+   "key": "mp-chillout",
+   "suite": "Multiplayer",
+   "label": "Chill Out"
+  },
+  {
+   "key": "mp-bloodgulch",
+   "suite": "Multiplayer",
+   "label": "Blood Gulch"
+  },
+  {
+   "key": "coop-c10",
+   "suite": "Split-screen co-op",
+   "label": "c10"
+  },
+  {
+   "key": "coop-b30",
+   "suite": "Split-screen co-op",
+   "label": "b30"
+  }
+ ],
+ "builds": {
+  "visr@0.6.13@Mac mini|M4": {
+   "port": "visr",
+   "version": "0.6.13",
+   "device_id": "Mac mini|M4",
+   "label": "VISR 0.6.13",
+   "build": "20261106.201647",
+   "device": "Mac mini M4",
+   "scenes": {
+    "c10": "visr-0.6.13-m4/c10.webp",
+    "b30": "visr-0.6.13-m4/b30.webp",
+    "a50-hangar": "visr-0.6.13-m4/a50-hangar.webp",
+    "b40-exta": "visr-0.6.13-m4/b40-exta.webp",
+    "b30-bot": "visr-0.6.13-m4/b30-bot.webp",
+    "x70-bridge": "visr-0.6.13-m4/x70-bridge.webp",
+    "cutscene-rescue": "visr-0.6.13-m4/cutscene-rescue.webp",
+    "mp-chillout": "visr-0.6.13-m4/mp-chillout.webp",
+    "mp-bloodgulch": "visr-0.6.13-m4/mp-bloodgulch.webp",
+    "coop-c10": "visr-0.6.13-m4/coop-c10.webp",
+    "coop-b30": "visr-0.6.13-m4/coop-b30.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "coop-b30": [
+     960,
+     720
+    ],
+    "coop-c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "visr-0.6.13-m4/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "visr@0.6.11@Mac mini|M6": {
+   "port": "visr",
+   "version": "0.6.11",
+   "device_id": "Mac mini|M6",
+   "label": "VISR 0.6.11",
+   "build": "20261105.90817",
+   "device": "Mac mini M6",
+   "scenes": {
+    "c10": "visr-0.6.11-m6/c10.webp",
+    "b30": "visr-0.6.11-m6/b30.webp",
+    "a50-hangar": "visr-0.6.11-m6/a50-hangar.webp",
+    "b40-exta": "visr-0.6.11-m6/b40-exta.webp",
+    "b30-bot": "visr-0.6.11-m6/b30-bot.webp",
+    "x70-bridge": "visr-0.6.11-m6/x70-bridge.webp",
+    "cutscene-rescue": "visr-0.6.11-m6/cutscene-rescue.webp",
+    "mp-chillout": "visr-0.6.11-m6/mp-chillout.webp",
+    "mp-bloodgulch": "visr-0.6.11-m6/mp-bloodgulch.webp",
+    "coop-c10": "visr-0.6.11-m6/coop-c10.webp",
+    "coop-b30": "visr-0.6.11-m6/coop-b30.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "coop-b30": [
+     960,
+     720
+    ],
+    "coop-c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     630
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     630
+    ]
+   },
+   "thumb": "visr-0.6.11-m6/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "visr@0.6.8@Mac mini|M6": {
+   "port": "visr",
+   "version": "0.6.8",
+   "device_id": "Mac mini|M6",
+   "label": "VISR 0.6.8",
+   "build": "20261031.85252",
+   "device": "Mac mini M6",
+   "scenes": {
+    "c10": "visr-0.6.8-m6/c10.webp",
+    "b30": "visr-0.6.8-m6/b30.webp",
+    "a50-hangar": "visr-0.6.8-m6/a50-hangar.webp",
+    "b40-exta": "visr-0.6.8-m6/b40-exta.webp",
+    "b30-bot": "visr-0.6.8-m6/b30-bot.webp",
+    "x70-bridge": "visr-0.6.8-m6/x70-bridge.webp",
+    "cutscene-rescue": "visr-0.6.8-m6/cutscene-rescue.webp",
+    "mp-chillout": "visr-0.6.8-m6/mp-chillout.webp",
+    "mp-bloodgulch": "visr-0.6.8-m6/mp-bloodgulch.webp",
+    "coop-c10": "visr-0.6.8-m6/coop-c10.webp",
+    "coop-b30": "visr-0.6.8-m6/coop-b30.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "coop-b30": [
+     960,
+     720
+    ],
+    "coop-c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     630
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     630
+    ]
+   },
+   "thumb": "visr-0.6.8-m6/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "visr@0.6.3@Mac mini|M6": {
+   "port": "visr",
+   "version": "0.6.3",
+   "device_id": "Mac mini|M6",
+   "label": "VISR 0.6.3",
+   "build": "20261028.91150",
+   "device": "Mac mini M6",
+   "scenes": {
+    "c10": "visr-0.6.3-m6/c10.webp",
+    "b30": "visr-0.6.3-m6/b30.webp",
+    "a50-hangar": "visr-0.6.3-m6/a50-hangar.webp",
+    "b40-exta": "visr-0.6.3-m6/b40-exta.webp",
+    "b30-bot": "visr-0.6.3-m6/b30-bot.webp",
+    "x70-bridge": "visr-0.6.3-m6/x70-bridge.webp",
+    "cutscene-rescue": "visr-0.6.3-m6/cutscene-rescue.webp",
+    "mp-chillout": "visr-0.6.3-m6/mp-chillout.webp",
+    "mp-bloodgulch": "visr-0.6.3-m6/mp-bloodgulch.webp",
+    "coop-c10": "visr-0.6.3-m6/coop-c10.webp",
+    "coop-b30": "visr-0.6.3-m6/coop-b30.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "coop-b30": [
+     960,
+     720
+    ],
+    "coop-c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     630
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     630
+    ]
+   },
+   "thumb": "visr-0.6.3-m6/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "chupathingy@v0.9.0@Mac mini|M4": {
+   "port": "chupathingy",
+   "version": "v0.9.0",
+   "device_id": "Mac mini|M4",
+   "label": "Chupathingy v0.9.0",
+   "build": "0.9.0",
+   "device": "Mac mini M4",
+   "scenes": {
+    "c10": "chupathingy-v0.9.0-m4/c10.webp",
+    "b30": "chupathingy-v0.9.0-m4/b30.webp",
+    "a50-hangar": "chupathingy-v0.9.0-m4/a50-hangar.webp",
+    "b40-exta": "chupathingy-v0.9.0-m4/b40-exta.webp",
+    "b30-bot": "chupathingy-v0.9.0-m4/b30-bot.webp",
+    "x70-bridge": "chupathingy-v0.9.0-m4/x70-bridge.webp",
+    "cutscene-rescue": "chupathingy-v0.9.0-m4/cutscene-rescue.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "chupathingy-v0.9.0-m4/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "chupathingy@v0.8.1d@Mac mini|M6": {
+   "port": "chupathingy",
+   "version": "v0.8.1d",
+   "device_id": "Mac mini|M6",
+   "label": "Chupathingy v0.8.1d",
+   "build": "0.8.1d",
+   "device": "Mac mini M6",
+   "scenes": {
+    "c10": "chupathingy-v0.8.1d-m6/c10.webp",
+    "b30": "chupathingy-v0.8.1d-m6/b30.webp",
+    "a50-hangar": "chupathingy-v0.8.1d-m6/a50-hangar.webp",
+    "b40-exta": "chupathingy-v0.8.1d-m6/b40-exta.webp",
+    "b30-bot": "chupathingy-v0.8.1d-m6/b30-bot.webp",
+    "x70-bridge": "chupathingy-v0.8.1d-m6/x70-bridge.webp",
+    "cutscene-rescue": "chupathingy-v0.8.1d-m6/cutscene-rescue.webp",
+    "mp-chillout": "chupathingy-v0.8.1d-m6/mp-chillout.webp",
+    "mp-bloodgulch": "chupathingy-v0.8.1d-m6/mp-bloodgulch.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     720
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "chupathingy-v0.8.1d-m6/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "corece@0.3.75@Mac mini|M4": {
+   "port": "corece",
+   "version": "0.3.75",
+   "device_id": "Mac mini|M4",
+   "label": "CoreCE 0.3.75",
+   "build": "75",
+   "device": "Mac mini M4",
+   "scenes": {
+    "c10": "corece-0.3.75-m4/c10.webp",
+    "b30": "corece-0.3.75-m4/b30.webp",
+    "a50-hangar": "corece-0.3.75-m4/a50-hangar.webp",
+    "b40-exta": "corece-0.3.75-m4/b40-exta.webp",
+    "b30-bot": "corece-0.3.75-m4/b30-bot.webp",
+    "x70-bridge": "corece-0.3.75-m4/x70-bridge.webp",
+    "cutscene-rescue": "corece-0.3.75-m4/cutscene-rescue.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "corece-0.3.75-m4/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "corece@0.3.67@Mac mini|M6": {
+   "port": "corece",
+   "version": "0.3.67",
+   "device_id": "Mac mini|M6",
+   "label": "CoreCE 0.3.67",
+   "build": "67",
+   "device": "Mac mini M6",
+   "scenes": {
+    "c10": "corece-0.3.67-m6/c10.webp",
+    "b30": "corece-0.3.67-m6/b30.webp",
+    "a50-hangar": "corece-0.3.67-m6/a50-hangar.webp",
+    "b40-exta": "corece-0.3.67-m6/b40-exta.webp",
+    "b30-bot": "corece-0.3.67-m6/b30-bot.webp",
+    "x70-bridge": "corece-0.3.67-m6/x70-bridge.webp",
+    "cutscene-rescue": "corece-0.3.67-m6/cutscene-rescue.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     656
+    ],
+    "cutscene-rescue": [
+     960,
+     605
+    ],
+    "x70-bridge": [
+     960,
+     515
+    ]
+   },
+   "thumb": "corece-0.3.67-m6/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "corece@0.3.0@Mac mini|M6": {
+   "port": "corece",
+   "version": "0.3.0",
+   "device_id": "Mac mini|M6",
+   "label": "CoreCE 0.3.0",
+   "build": "44",
+   "device": "Mac mini M6",
+   "scenes": {
+    "mp-chillout": "corece-0.3.0-m6/mp-chillout.webp",
+    "mp-bloodgulch": "corece-0.3.0-m6/mp-bloodgulch.webp"
+   },
+   "size": {
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ]
+   },
+   "thumb": "corece-0.3.0-m6/thumb.webp",
+   "thumb_scene": "mp-bloodgulch"
+  },
+  "halo-og@v0.5.1@Mac mini|M4": {
+   "port": "halo-og",
+   "version": "v0.5.1",
+   "device_id": "Mac mini|M4",
+   "label": "Halo OG v0.5.1",
+   "build": "97.1",
+   "device": "Mac mini M4",
+   "scenes": {
+    "c10": "halo-og-v0.5.1-m4/c10.webp",
+    "b30": "halo-og-v0.5.1-m4/b30.webp",
+    "a50-hangar": "halo-og-v0.5.1-m4/a50-hangar.webp",
+    "b40-exta": "halo-og-v0.5.1-m4/b40-exta.webp",
+    "b30-bot": "halo-og-v0.5.1-m4/b30-bot.webp",
+    "x70-bridge": "halo-og-v0.5.1-m4/x70-bridge.webp",
+    "cutscene-rescue": "halo-og-v0.5.1-m4/cutscene-rescue.webp",
+    "coop-c10": "halo-og-v0.5.1-m4/coop-c10.webp",
+    "coop-b30": "halo-og-v0.5.1-m4/coop-b30.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "coop-b30": [
+     960,
+     720
+    ],
+    "coop-c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "halo-og-v0.5.1-m4/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "opence-macos@v1.0.2@Mac mini|M4": {
+   "port": "opence-macos",
+   "version": "v1.0.2",
+   "device_id": "Mac mini|M4",
+   "label": "OpenCE-macOS v1.0.2",
+   "build": "2",
+   "device": "Mac mini M4",
+   "scenes": {
+    "c10": "opence-macos-v1.0.2-m4/c10.webp",
+    "b30": "opence-macos-v1.0.2-m4/b30.webp",
+    "a50-hangar": "opence-macos-v1.0.2-m4/a50-hangar.webp",
+    "b40-exta": "opence-macos-v1.0.2-m4/b40-exta.webp",
+    "b30-bot": "opence-macos-v1.0.2-m4/b30-bot.webp",
+    "x70-bridge": "opence-macos-v1.0.2-m4/x70-bridge.webp",
+    "cutscene-rescue": "opence-macos-v1.0.2-m4/cutscene-rescue.webp",
+    "mp-chillout": "opence-macos-v1.0.2-m4/mp-chillout.webp",
+    "mp-bloodgulch": "opence-macos-v1.0.2-m4/mp-bloodgulch.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "opence-macos-v1.0.2-m4/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "opence-macos@v1.0.2@Mac mini|M6": {
+   "port": "opence-macos",
+   "version": "v1.0.2",
+   "device_id": "Mac mini|M6",
+   "label": "OpenCE-macOS v1.0.2",
+   "build": "2",
+   "device": "Mac mini M6",
+   "scenes": {
+    "mp-chillout": "opence-macos-v1.0.2-m6/mp-chillout.webp",
+    "mp-bloodgulch": "opence-macos-v1.0.2-m6/mp-bloodgulch.webp"
+   },
+   "size": {
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ]
+   },
+   "thumb": "opence-macos-v1.0.2-m6/thumb.webp",
+   "thumb_scene": "mp-bloodgulch"
+  },
+  "openh1@build-1901@Mac mini|M4": {
+   "port": "openh1",
+   "version": "build-1901",
+   "device_id": "Mac mini|M4",
+   "label": "OpenH1 build-1901",
+   "build": "1901",
+   "device": "Mac mini M4",
+   "scenes": {
+    "c10": "openh1-build-1901-m4/c10.webp",
+    "b30": "openh1-build-1901-m4/b30.webp",
+    "a50-hangar": "openh1-build-1901-m4/a50-hangar.webp",
+    "b40-exta": "openh1-build-1901-m4/b40-exta.webp",
+    "b30-bot": "openh1-build-1901-m4/b30-bot.webp",
+    "x70-bridge": "openh1-build-1901-m4/x70-bridge.webp",
+    "cutscene-rescue": "openh1-build-1901-m4/cutscene-rescue.webp",
+    "coop-c10": "openh1-build-1901-m4/coop-c10.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "coop-c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ],
+    "x70-bridge": [
+     960,
+     540
+    ]
+   },
+   "thumb": "openh1-build-1901-m4/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "openh1@build-1683@Mac mini|M6": {
+   "port": "openh1",
+   "version": "build-1683",
+   "device_id": "Mac mini|M6",
+   "label": "OpenH1 build-1683",
+   "build": "1683",
+   "device": "Mac mini M6",
+   "scenes": {
+    "c10": "openh1-build-1683-m6/c10.webp",
+    "b30": "openh1-build-1683-m6/b30.webp",
+    "a50-hangar": "openh1-build-1683-m6/a50-hangar.webp",
+    "b40-exta": "openh1-build-1683-m6/b40-exta.webp",
+    "b30-bot": "openh1-build-1683-m6/b30-bot.webp",
+    "x70-bridge": "openh1-build-1683-m6/x70-bridge.webp",
+    "cutscene-rescue": "openh1-build-1683-m6/cutscene-rescue.webp",
+    "mp-chillout": "openh1-build-1683-m6/mp-chillout.webp",
+    "mp-bloodgulch": "openh1-build-1683-m6/mp-bloodgulch.webp"
+   },
+   "size": {
+    "a50-hangar": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "b30-bot": [
+     960,
+     720
+    ],
+    "b40-exta": [
+     960,
+     720
+    ],
+    "c10": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     626
+    ],
+    "mp-bloodgulch": [
+     960,
+     720
+    ],
+    "mp-chillout": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     626
+    ]
+   },
+   "thumb": "openh1-build-1683-m6/thumb.webp",
+   "thumb_scene": "c10"
+  }
+ },
+ "rev": "1794142899"
+}
