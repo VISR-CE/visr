@@ -136,6 +136,7 @@ int host_sdl_controller_aim_owns(uint32_t id);
 int host_ios_gamepad_type(struct SDL_Gamepad *pad);
 int host_ios_gamepad_axis(struct SDL_Gamepad *pad, int axis);
 int host_ios_gamepad_button(struct SDL_Gamepad *pad, int button);
+void host_ios_touch_frame(void);
 int host_linux_errno(int native_errno);
 /* posix_net.c: the system link interface's address and netmask, network byte order; 0 if none */
 int host_ranked_interface(uint32_t *address, uint32_t *netmask);

@@ -441,6 +441,10 @@ static int synthetic_key(SDL_Event *event)
 
 int host_sdl_poll_event(void *event)
 {
+#if TARGET_OS_IOS
+	/* Retire only presses returned by the previous guest input frame. */
+	host_ios_touch_frame();
+#endif
 	SDL_Event host_event;
 	static int test_extra_scene = -1;
 	static unsigned long polls;
