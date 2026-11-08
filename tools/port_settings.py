@@ -386,6 +386,7 @@ def _controls_screen() -> list:
 ABOUT = "about"
 # the question SEND LOG asks first (tools/xbox_menus.py: send_log_confirmation, which both looks open)
 SEND_LOG_CONFIRM = "xbox/settings/send_log_confirm"
+NOTICES_SCREEN = "xbox/settings/about/notices_screen"
 ABOUT_ROWS = 6
 # the rows start below the two title lines (the app's version and what VISR is)
 ABOUT_ROW_TOP = 102
@@ -408,12 +409,12 @@ def about_notice(text: str) -> str:
 
 
 def _about_screen() -> list:
-    """Settings > ABOUT: the version and build, the site, its privacy page, the license, SEND LOG where the build
-    has it, and the trademark notice, which is fixed under the rows (no row's help replaces it). BUILD and SEND LOG
-    show the app's own text; the others show a fixed value and open a page (not on the Apple TV)"""
+    """Settings > ABOUT: the version and build, website, privacy, license, open source notices, and SEND LOG where
+    supported. The trademark notice stays below the rows. The notices row opens an in-game screen on every platform;
+    the website, privacy, and license rows open browser pages except on the Apple TV."""
     base = f"{PE}/{ABOUT}"
     spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP,
-            "help_top": 260, "help_height": 125, "help_text": about_notice(about_data.NOTICE),
+            "help_top": 286, "help_height": 120, "help_text": about_notice(about_data.NOTICE),
             "header": ("header_about", f"{base}/header_about"),
             "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
     # (label, the value shown, key, the page it opens)
@@ -421,6 +422,7 @@ def _about_screen() -> list:
                ("ONLINE", about_data.WEBSITE, "website", "port open website"),
                ("PRIVACY", about_data.PRIVACY, "privacy", "port open privacy"),
                ("LICENSE", about_data.LICENSE, "license", "port open license"),
+               ("OPEN SOURCE NOTICES", None, "notices", None),
                ("SEND LOG", None, "send_log", None)]
     rows, extra = [], []
     values = []
@@ -434,11 +436,13 @@ def _about_screen() -> list:
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
                          [*([f'<on event="a" run="{opens}" platform="!tvos"/>',
                              f'<on event="start" run="{opens}" platform="!tvos"/>'] if opens else
-                            [f'<on event="a" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else '<on event="a"/>',
-                             f'<on event="start" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else '<on event="start"/>']),
+                            [f'<on event="a" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else
+                             f'<on event="a" open="{NOTICES_SCREEN}"/>' if key == "notices" else '<on event="a"/>',
+                             f'<on event="start" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else
+                             f'<on event="start" open="{NOTICES_SCREEN}"/>' if key == "notices" else '<on event="start"/>']),
                           '<on event="left_mouse" run="mouse emit accept event"/>', *children])
         extra += _widget(f"{base}/{key}_label",
-                         [("type", "text"), ("controller", 1), ("width", 255), ("height", 22),
+                         [("type", "text"), ("controller", 1), ("width", 500 if key == "notices" else 255), ("height", 22),
                           ("string_list", f"{base}/labels"), ("string_index", index or None), ("font", "ui\\large_ui"),
                           ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
         if key in ("build", "send_log"):

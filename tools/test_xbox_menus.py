@@ -381,7 +381,9 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
             up, down = int(arrows['scroll_up_arrow'].get('y')), int(arrows['scroll_down_arrow'].get('y'))
             assert up == min(rows) and up < down
             window = int(w.get('visible_rows'))
-            assert down <= min(rows) + window * 30
+            slots = sorted(set(rows))
+            pitch = slots[1] - slots[0]
+            assert down <= min(rows) + window * pitch
             for leaf, frame in (('scroll_up_arrow', 'arrow_sm_up'), ('scroll_down_arrow', 'arrow_sm_down')):
                 art = widgets[arrows[leaf].get('widget')]
                 assert art.get('bitmap') == 'xbox/bitmaps/' + frame

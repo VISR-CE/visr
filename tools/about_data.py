@@ -3,9 +3,8 @@ builds contain. tools/port_settings.py writes the screen from this; tools/test_a
 against its license file and against NOTICE.md.
 
 Each license entry: the name shown, the license shown, the copyright line (a short one: the screen shows three
-lines), the license file in this repository that holds it (None: downloaded at build time by tools/ios_build.py,
-which copies its notice into the app's Licenses folder), and the word the file must contain, which the test looks
-for (the copyright holder).
+lines), the license file in this repository that holds it (including snapshots of downloaded components' notices),
+and the word the file must contain, which the test looks for (the copyright holder).
 """
 
 # the site's public address (README.md, docs/site): shown without the scheme
@@ -37,8 +36,8 @@ LICENSES = [
     ("ORIGIN PROJECTS", "CC0 1.0",
      "punpckhdq/halo, bnunu/halo-1, OpenCE, NicholasDominici/halo-ce-ios and pfista/halo-og. Public domain "
      "dedication.", "LICENSES/CC0-1.0.txt", "CC0 1.0"),
-    ("SDL", "ZLIB", "Copyright (C) 1997-2026 Sam Lantinga.", None, "Sam Lantinga"),
-    ("MUSL", "MIT", "Copyright (c) 2005-2020 Rich Felker, et al.", None, "Rich Felker"),
+    ("SDL", "ZLIB", "Copyright (C) 1997-2026 Sam Lantinga.", "LICENSES/SDL.txt", "Sam Lantinga"),
+    ("MUSL", "MIT", "Copyright (c) 2005-2020 Rich Felker, et al.", "LICENSES/musl.txt", "Rich Felker"),
     ("MBED TLS", "APACHE-2.0", "Copyright The Mbed TLS Contributors.", "port/third_party/mbedtls/LICENSE",
      "Apache License"),
     ("FFMPEG", "LGPL-2.1+", "Copyright the FFmpeg developers. Bink decoding only, linked statically; its source is "
@@ -51,6 +50,8 @@ LICENSES = [
     ("TOMLC17", "MIT", "Copyright (c) 2024-2026 CK Tan.", "port/third_party/tomlc17/LICENSE", "CK Tan"),
     ("STB_TRUETYPE", "MIT OR PUBLIC DOMAIN", "Copyright (c) 2017 Sean Barrett.", "port/third_party/stb/LICENSE",
      "Sean Barrett"),
+    ("STB_VORBIS", "MIT OR PUBLIC DOMAIN", "Copyright (c) 2017 Sean Barrett.",
+     "port/third_party/stb_vorbis/LICENSE", "Sean Barrett"),
     ("MONOCYPHER", "BSD-2-CLAUSE OR CC0", "Copyright (c) 2017-2023 Loup Vaillant, Michael Savage and Fabio Scotoni.",
      "port/third_party/monocypher/LICENCE.md", "Loup Vaillant"),
     ("XXHASH", "BSD-2-CLAUSE", "Copyright (c) 2012-2021 Yann Collet.", "port/third_party/xxhash/LICENSE",
@@ -69,7 +70,7 @@ LICENSES = [
      "port/assets/text_filter/README.md", "Surge AI"),
     ("ENGLISH WORD LIST", "UNLICENSE", "Public domain. Used to review the streamer words.",
      "port/third_party/english-words/LICENSE.md", "public domain"),
-    ("KHRONOS HEADERS", "MIT, APACHE-2.0", "Copyright The Khronos Group Inc. OpenGL ES and EGL headers.", None,
+    ("KHRONOS HEADERS", "MIT, APACHE-2.0", "Copyright The Khronos Group Inc. OpenGL ES and EGL headers.", "LICENSES/Khronos.txt",
      "Khronos"),
     ("OVERPASS", "SIL OFL 1.1", "Copyright 2021 The Overpass Project Authors.", "port/assets/fonts/Overpass-OFL.txt",
      "Overpass Project Authors"),

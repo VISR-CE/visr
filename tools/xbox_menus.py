@@ -12,9 +12,11 @@ The map+PNG frame parser/build support is supplied by the fallback lane.
 from __future__ import annotations
 
 import argparse
+import about_data
 from copy import deepcopy
 import json
 import re
+import textwrap
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
@@ -113,6 +115,8 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
              ('a_butn', 'accept', accept, 520)) if hosting else (
                  ('a_butn', 'accept', accept, 471), ('b_butn', 'cancel', cancel, 326))
     for button, caption, label, x in items:
+        if label is None:
+            continue
         if hosting:
             # One tall target includes both the icon and its caption.
             key = widget(root, f'{base}/{button}', width=106 if button == 'x_butn' else 112, height=53)
@@ -219,15 +223,62 @@ def settings_page(assets, folder, bitmaps):
     if pending:
         pending()
     if folder == 'about':
-        # (A opens a page on three rows and asks about SEND LOG on one: the legend shows SELECT except on the Apple TV,
-        # which has no browser and no log to send)
-        legend(root, root[0], base, accept='SELECT', cancel='BACK', accept_platform='!tvos')
+        legend(root, root[0], base, accept='SELECT', cancel='BACK')
         send_log_confirmation(root, bitmaps)
+        notices_screen(root, bitmaps)
         return root
     footer(root, base,
            'controls screen change set' if folder == 'controls_setup' else 'port settings save',
            'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
     return root
+
+
+def notices_screen(root, bitmaps):
+    """The notices list shares settings_help's label-index lookup and the scrolling list's arrows."""
+    base = 'xbox/settings/about'
+    prefix = base + '/notices'
+    screen = widget(root, base + '/notices_screen', width=640, height=480,
+                    flags='pass_unhandled_to_focused_child pause_game',
+                    bitmap=bitmap_ref('bitmaps/gradient', bitmaps))
+    for event in ('b', 'back'):
+        ET.SubElement(screen, 'on', event=event, back='true')
+    child(screen, prefix + '/title', x=67, y=24)
+    text_widget(root, prefix + '/title', 'OPEN SOURCE NOTICES', width=512, height=36)
+    child(screen, prefix + '/options_menu')
+    options = widget(root, prefix + '/options_menu', type='column_list', width=640, height=480,
+                     visible_rows=7, description=prefix + '/help',
+                     flags='pass_unhandled_to_focused_child up_down_tabs_children')
+    ET.SubElement(options, 'data', input='port settings help')
+    widget(root, prefix + '/help', type='text', left=68, top=350, width=482, height=60,
+           string_list=prefix + '/help_strings', font=r'ui\small_ui', color='#FFFFFFFF')
+    for index, _ in enumerate(about_data.LICENSES):
+        row = prefix + f'/op_{index}'
+        child(options, row, x=54, y=73 + index * 39)
+        item = widget(root, row, width=512, height=36, bitmap=bitmap_ref('bitmaps/option_bkds', bitmaps),
+                      color=BLUE, flags='pass_unhandled_to_focused_child')
+        ET.SubElement(item, 'on', event='a')
+        ET.SubElement(item, 'on', event='left_mouse', run='mouse emit accept event')
+        child(item, row + '/label')
+        child(item, row + '/value', x=250)
+        widget(root, row + '/label', type='text', width=250, height=36,
+               string_list=prefix + '/labels', string_index=index,
+               font=r'ui\large_ui', color='#FFFFFFFF', text_x=13, text_y=7)
+        widget(root, row + '/value', type='text', width=252, height=36,
+               string_list=prefix + '/values', string_index=index,
+               font=r'ui\small_ui', color=BLUE, align='right', text_y=9,
+               text_flags='no_focus_test')
+    for direction, y in (('up', 73), ('down', 313)):
+        name = prefix + f'/scroll_{direction}_arrow'
+        child(options, name, x=ARROW_X, y=y)
+        widget(root, name, width=16, height=16, bitmap=bitmap_ref(f'bitmaps/arrow_sm_{direction}', bitmaps))
+    for name, texts in (
+            ('labels', [entry[0] for entry in about_data.LICENSES]),
+            ('values', [entry[1] for entry in about_data.LICENSES]),
+            ('help_strings', [''] + ['\\n'.join(textwrap.wrap(entry[2], 64, break_long_words=False, break_on_hyphens=False)) for entry in about_data.LICENSES])):
+        strings = ET.SubElement(root, 'strings', name=prefix + '/' + name)
+        for text in texts:
+            ET.SubElement(strings, 'string', text=text)
+    legend(root, screen, prefix, accept=None, cancel='BACK')
 
 
 def send_log_confirmation(root, bitmaps):

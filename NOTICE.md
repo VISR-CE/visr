@@ -40,6 +40,7 @@ what they link into the app's `Licenses` folder (`tools/ios_build.py`).
 | [KCP](https://github.com/skywind3000/kcp) | MIT | `port/third_party/kcp/LICENSE` | Yes |
 | [Monocypher](https://monocypher.org/) | BSD-2-Clause or CC0 1.0 | `port/third_party/monocypher/LICENCE.md` | Yes |
 | [stb_truetype](https://github.com/nothings/stb) | MIT or public domain (Unlicense) | `port/third_party/stb/LICENSE` | Yes |
+| [stb_vorbis](https://github.com/nothings/stb), Custom Edition audio decoder | MIT or public domain (Unlicense) | `port/third_party/stb_vorbis/LICENSE` | Yes |
 | [tomlc17](https://github.com/cktan/tomlc17) | MIT | `port/third_party/tomlc17/LICENSE` | Yes |
 | [zlib](https://zlib.net/) 1.3.2 | zlib | `port/third_party/zlib/LICENSE` | Yes |
 | [SMAA](https://github.com/iryoku/smaa) by Jorge Jimenez and others, anti-aliasing shaders | MIT | `port/third_party/smaa/LICENSE` | Yes |
@@ -87,6 +88,9 @@ its own notice.
 | [SDL](https://libsdl.org/) 3.4.16 | zlib |
 | [musl](https://musl.libc.org/) 1.2.5 | MIT, with the component notices in its `COPYRIGHT` |
 | Khronos OpenGL ES and EGL headers | MIT and Apache-2.0, as their registries state in each header |
+
+Their license texts are also kept in `LICENSES/` so `tools/notices_text.py`
+can generate the bundled `Licenses/NOTICES.txt` without a build.
 
 ## Fonts
 

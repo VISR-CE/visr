@@ -12,6 +12,8 @@ MENUS = ROOT / "port/assets/menus"
 sys.path.insert(0, str(ROOT / "tools"))
 import about_data  # noqa: E402
 import port_settings  # noqa: E402
+import notices_text  # noqa: E402
+import xbox_menus  # noqa: E402
 
 PC_SCREEN = MENUS / "ce/main_menu.settings_select.player_setup.player_profile_edit.about.xml"
 XBOX_SCREEN = MENUS / "xbox/settings.about.xml"
@@ -20,7 +22,7 @@ XBOX_SCREEN = MENUS / "xbox/settings.about.xml"
 COVERED = {
     "xxHash": "XXHASH", "bc7enc_rdo": "BC7ENC", "bc7enc16": "BC7 DECODER", "Arm astc-encoder": "ASTC ENCODER",
     "PBRify_Remix": "PBRIFY", "FFmpeg": "FFMPEG", "Expat": "EXPAT", "KCP": "KCP", "Monocypher": "MONOCYPHER",
-    "stb_truetype": "STB_TRUETYPE", "tomlc17": "TOMLC17", "zlib": "ZLIB", "SMAA": "SMAA", "Surge AI": "STREAMER",
+    "stb_truetype": "STB_TRUETYPE", "stb_vorbis": "STB_VORBIS", "tomlc17": "TOMLC17", "zlib": "ZLIB", "SMAA": "SMAA", "Surge AI": "STREAMER",
     "english-words": "ENGLISH", "SDL": "SDL", "musl": "MUSL", "Khronos": "KHRONOS", "Overpass": "OVERPASS",
     "OpenCE": "OPENCE", "Newtown": "NEWTOWN", "Orbitron": "ORBITRON", "Mbed TLS": "MBED",
 }
@@ -85,7 +87,7 @@ def test_both_looks_list_the_same_rows():
     xbox = labels(XBOX_SCREEN, "xbox/settings/about")
     assert pc == xbox
     label, values = pc
-    assert label == ["BUILD", "ONLINE", "PRIVACY", "LICENSE", "SEND LOG"]
+    assert label == ["BUILD", "ONLINE", "PRIVACY", "LICENSE", "OPEN SOURCE NOTICES", "SEND LOG"]
     assert "visr.gg" in values and about_data.PRIVACY in values and about_data.LICENSE in values
     for path in (PC_SCREEN, XBOX_SCREEN):
         text = path.read_text()
@@ -139,7 +141,7 @@ def test_send_log_row_is_there_only_in_builds_that_can_send_a_log():
     for path, prefix in ((PC_SCREEN, f"{port_settings.PE}/about"), (XBOX_SCREEN, "xbox/settings/about")):
         shown = rows_by_platform(path, prefix)
         on, off = shown["on"], shown["off"]
-        assert [name for _, name in on] == ["build", "website", "privacy", "license", "send_log"]
+        assert [name for _, name in on] == ["build", "website", "privacy", "license", "notices", "send_log"]
         assert "send_log" not in [name for _, name in off]
         assert [name for _, name in on if name != "send_log"] == [name for _, name in off]
         assert [name for _, name in on][-1] == "send_log"
@@ -165,7 +167,7 @@ def test_send_log_is_wired_through_the_game_and_the_host():
     platform = (ROOT / "port/linux/src/menu_platform.h").read_text()
     assert "HALO_HOST_SEND_LOG" in platform
     assert "HALO_HOST_SEND_LOG" in (ROOT / "port/ios/host/host_main.m").read_text()
-    # the Xbox look's legend shows SELECT only where the row is
+    # SEND LOG remains restricted to builds that support uploads.
     assert 'platform="send_log"' in XBOX_SCREEN.read_text()
 
 
@@ -178,3 +180,82 @@ def test_website_row_opens_the_site_except_on_the_apple_tv():
     assert "host_sdl_open_website" in (ROOT / "port/runtime/host_imports.list").read_text().split()
     host = (ROOT / "port/ios/host/host_open_website.m").read_text()
     assert about_data.WEBSITE_URL in host.replace('@"', '"') and "NSWorkspace" in host and "openURL" in host
+
+
+def test_notices_text_is_current_and_contains_full_licenses():
+    text = notices_text.OUTPUT.read_text(encoding="utf-8")
+    assert text == notices_text.generate()
+    for name, license, copyright, file, holder in about_data.LICENSES:
+        assert f"{name}\n{license}\n{copyright}\n\n" in text
+        source = (ROOT / file).read_text(encoding="utf-8").strip()
+        if name == "STREAMER WORDS":
+            source = source.split("```\n", 1)[1].split("```", 1)[0].strip()
+        assert source in text, name
+        assert holder.lower() in text.lower()
+    assert "STB_VORBIS" in names()
+
+
+def test_notices_and_vorbis_are_copied_into_the_bundle():
+    build = (ROOT / "tools/ios_build.py").read_text()
+    assert "('port/ios/Licenses/NOTICES.txt', 'NOTICES.txt')" in build
+    assert "('port/third_party/stb_vorbis/LICENSE', 'stb_vorbis.txt')" in build
+    cmake = (ROOT / "port/ios/CMakeLists.txt").read_text()
+    assert 'file(GLOB HALO_LICENSES "${ROOT}/build/ios/licenses/*.txt")' in cmake
+    assert 'MACOSX_PACKAGE_LOCATION Resources/Licenses' in cmake
+
+
+def test_notices_screen_rows_scroll_help_and_back():
+    root = ET.parse(XBOX_SCREEN).getroot()
+    widgets = {w.get("name"): w for w in root.iter("widget")}
+    base = "xbox/settings/about/notices"
+    screen = widgets[port_settings.NOTICES_SCREEN]
+    for event in ("b", "back"):
+        assert screen.find(f'on[@event="{event}"]').get("back") == "true"
+    for path, prefix in ((PC_SCREEN, f"{port_settings.PE}/about"), (XBOX_SCREEN, "xbox/settings/about")):
+        row = next(w for w in ET.parse(path).iter("widget") if w.get("name") == prefix + "/op_notices")
+        for event in ("a", "start"):
+            assert row.find(f'on[@event="{event}"]').get("open") == port_settings.NOTICES_SCREEN
+    options = widgets[base + "/options_menu"]
+    assert options.get("type") == "column_list" and options.get("visible_rows") == "7"
+    assert options.get("description") == base + "/help"
+    assert options.find('data[@input="port settings help"]') is not None
+    rows = [c for c in options.findall("child") if "/op_" in c.get("widget")]
+    assert len(rows) == len(about_data.LICENSES)
+    assert [int(c.get("y")) for c in rows] == [73 + 39 * i for i in range(len(rows))]
+    assert labels(XBOX_SCREEN, base) == ([e[0] for e in about_data.LICENSES], [e[1] for e in about_data.LICENSES])
+    strings = {s.get("name"): [x.get("text") for x in s] for s in root.iter("strings")}
+    for index, row in enumerate(rows):
+        item = widgets[row.get("widget")]
+        assert item.get("height") == "36"
+        assert item.find('on[@event="left_mouse"]').get("run") == "mouse emit accept event"
+        label, value = [widgets[c.get("widget")] for c in item.findall("child")]
+        assert label.get("color") == "#FFFFFFFF" and value.get("color") == xbox_menus.BLUE
+        assert int(label.get("string_index")) == index
+        help_text = strings[base + "/help_strings"][index + 1]
+        assert help_text.replace("\\n", " ") == about_data.LICENSES[index][2]
+        assert len(help_text.split("\\n")) <= 3
+    for direction, y in (("up", 73), ("down", 313)):
+        arrow = base + f"/scroll_{direction}_arrow"
+        assert options.find(f'child[@widget="{arrow}"]').get("y") == str(y)
+        assert widgets[arrow].get("bitmap") == f"xbox/bitmaps/arrow_sm_{direction}"
+    assert widgets[base + "/=cancel"].get("text") == "BACK"
+    assert base + "/a_butn" not in widgets
+    assert all("=" not in w.get("text", "") for name, w in widgets.items() if name.startswith(base + "/"))
+
+
+def test_about_and_notices_layout_clears_help_and_legend():
+    root = ET.parse(XBOX_SCREEN).getroot()
+    widgets = {w.get("name"): w for w in root.iter("widget")}
+    base = "xbox/settings/about"
+    help = widgets[base + "/help"]
+    for child in widgets[base + "/options_menu"].findall("child"):
+        assert int(child.get("y")) + int(widgets[child.get("widget")].get("height")) <= int(help.get("top"))
+    assert int(help.get("top")) + int(help.get("height")) <= 414
+    help = widgets[base + "/notices/help"]
+    assert 73 + 6 * 39 + 36 <= int(help.get("top"))
+    assert int(help.get("top")) + int(help.get("height")) <= 414
+
+
+def test_xbox_about_is_current():
+    expected = xbox_menus.serialize(xbox_menus.settings_page(MENUS, "about", set()))
+    assert XBOX_SCREEN.read_text() == expected
