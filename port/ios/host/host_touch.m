@@ -7,6 +7,7 @@
 #import "host_orientation.h"
 #include <math.h>
 #include "host_touch_replay.h"
+#include "host_touch_latch.h"
 #include "host_touch_controller.h"
 #include "host_menu_pointer.h"
 
@@ -19,6 +20,8 @@ static atomic_int controls_showing, controller_hide_pending;
 static atomic_int menu_up;
 int host_ios_touch_blocked(void) { return host_touch_replay_blocked(&replay_gate); }
 static int pause_pending;
+static struct host_touch_latch button_latches[SDL_GAMEPAD_BUTTON_COUNT];
+static struct host_touch_latch trigger_latches[2];
 int host_ios_app_on_mac(void)
 {
     if(@available(iOS 14.0,*)) return NSProcessInfo.processInfo.isiOSAppOnMac?1:0;
@@ -31,13 +34,17 @@ static atomic_int glyph_touch_active = 1;
 
 static void button_state(int button, BOOL down) {
     if(down)atomic_store(&glyph_touch_active,1);
-    if(touch_joystick) SDL_SetJoystickVirtualButton(touch_joystick,button,
-        host_touch_replay_blocked(&replay_gate)?NO:down);
+    if(host_touch_replay_blocked(&replay_gate))down=NO;
+    if(down && button>=0 && button<SDL_GAMEPAD_BUTTON_COUNT)
+        host_touch_latch_press(&button_latches[button]);
+    if(touch_joystick) SDL_SetJoystickVirtualButton(touch_joystick,button,down);
 }
 static void axis_state(int axis, float value) {
     if((axis<SDL_GAMEPAD_AXIS_LEFT_TRIGGER && fabsf(value)>.27f) ||
         (axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && value>0))atomic_store(&glyph_touch_active,1);
     if(host_touch_replay_blocked(&replay_gate))value=axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER?-1:0;
+    if(value>0 && axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && axis<=SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)
+        host_touch_latch_press(&trigger_latches[axis-SDL_GAMEPAD_AXIS_LEFT_TRIGGER]);
     if(touch_joystick) SDL_SetJoystickVirtualAxis(touch_joystick,axis,(Sint16)(fmaxf(-1,fminf(1,value))*32767));
 }
 void host_ios_touch_initialize(void) {
@@ -93,6 +100,10 @@ static int touch_menu_button(int button) {
 }
 int host_ios_gamepad_axis(SDL_Gamepad *pad,int axis) {
     int value=SDL_GetGamepadAxis(pad,axis);
+    if(SDL_GetGamepadID(pad)==touch_id && !host_touch_replay_blocked(&replay_gate) && !touch_menu_up() &&
+        axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && axis<=SDL_GAMEPAD_AXIS_RIGHT_TRIGGER &&
+        host_touch_latch_read(&trigger_latches[axis-SDL_GAMEPAD_AXIS_LEFT_TRIGGER]))
+        value=32767;
     if(SDL_GetGamepadID(pad)==touch_id && (host_touch_replay_blocked(&replay_gate) ||
         (axis>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER && touch_menu_up())))
         value=0;
@@ -110,11 +121,19 @@ int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
         pause_pending=0;return 1;
     }
     return (!(SDL_GetGamepadID(pad)==touch_id && (host_touch_replay_blocked(&replay_gate) ||
-                (touch_menu_up() && !touch_menu_button(button)))) && SDL_GetGamepadButton(pad,button)) ||
+                (touch_menu_up() && !touch_menu_button(button)))) &&
+            ((SDL_GetGamepadID(pad)==touch_id && button>=0 && button<SDL_GAMEPAD_BUTTON_COUNT &&
+              host_touch_latch_read(&button_latches[button])) || SDL_GetGamepadButton(pad,button))) ||
         (SDL_GetGamepadID(pad)==touch_id && primary_hardware &&
          SDL_GetGamepadButton(SDL_GetGamepadFromID(primary_hardware),button));
 }
+void host_ios_touch_frame(void) {
+    for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)host_touch_latch_frame(&button_latches[i]);
+    for(int i=0;i<2;i++)host_touch_latch_frame(&trigger_latches[i]);
+}
 void host_ios_touch_reset(void) {
+    for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)atomic_store(&button_latches[i].state,0);
+    for(int i=0;i<2;i++)atomic_store(&trigger_latches[i].state,0);
     pause_pending=0;
     for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)button_state(i,NO);
     for(int i=0;i<SDL_GAMEPAD_AXIS_COUNT;i++)axis_state(i,i>=SDL_GAMEPAD_AXIS_LEFT_TRIGGER?-1:0);
