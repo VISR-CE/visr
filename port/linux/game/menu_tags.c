@@ -394,7 +394,7 @@ static char const *const port_function_names[] =
 	"difficulty item select",
 	"gamespy get patch", "video screen dispose", "campaign menu init", "campaign menu continue",
 	"load game menu init", "load game menu dispose", "load game menu activated", "solo menu save checkpoint",
-	"mp type set mode", "direct ip connect init",
+	"mp type set mode", "mp map kind previous", "mp map kind next", "direct ip connect init",
 	"direct ip connect go", "direct ip edit field", "network settings edit a port", "network settings defaults",
 	"load game menu delete request", "load game menu delete finish",
 	"initialize sp level list solo", "dispose sp level list", "solo level set map", "set difficulty",
