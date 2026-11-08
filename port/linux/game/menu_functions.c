@@ -3311,6 +3311,30 @@ static void coop_options_update(struct widget_instance *list)
 	}
 }
 
+/* Server Setup's rows in order. Rows that are hidden (a co-op game's gametype rows, a LAN game's listing and
+password) close up: each shown row takes the next slot, at the pitch of the first two rows' offsets. */
+static void server_settings_pack_rows(struct widget_instance *list)
+{
+	static char const *const rows[] =
+	{
+		"op_server_name", "op_max_players", "op_game_type", "op_coop_options", "op_gametype_options",
+		"op_listing", "op_password", "op_start_game",
+	};
+	struct widget_instance *first = named(list, rows[0], 0);
+	struct widget_instance *second = named(list, rows[1], 0);
+	short slot = 0, row;
+
+	if (!first || !second || second->vertical_offset <= first->vertical_offset)
+		return;
+	for (row = 0; row < NUMBEROF(rows); row++)
+	{
+		struct widget_instance *widget = named(list, rows[row], 0);
+
+		if (widget && widget->visible)
+			widget->vertical_offset = first->vertical_offset + slot++ * (second->vertical_offset - first->vertical_offset);
+	}
+}
+
 /* "server settings update" */
 static void server_settings_update(struct widget_instance *list)
 {
@@ -3400,6 +3424,7 @@ static void server_settings_update(struct widget_instance *list)
 		if (help && list->focused_child == row)
 			help->parameters.text_box.string_list_index = SERVER_PASSWORD_HELP;
 	}
+	server_settings_pack_rows(list);
 }
 
 static void server_password_done(char const *text)

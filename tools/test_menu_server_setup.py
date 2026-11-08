@@ -192,3 +192,14 @@ def test_lan_game_server_setup_join_code_line_is_blank():
     update = block(source, 'static void server_settings_update(')
     assert 'NONE: A LAN GAME' not in source
     assert 'if (multiplayer.mode != _multiplayer_mode_host_internet)\n\t\ttext[0] = 0;' in update
+
+
+def test_server_setup_packs_visible_rows_without_gaps():
+    source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    update = block(source, 'static void server_settings_update(')
+    pack = block(source, 'static void server_settings_pack_rows(')
+    assert 'server_settings_pack_rows(list);' in update
+    for row in ('op_game_type', 'op_coop_options', 'op_gametype_options',
+                'op_listing', 'op_password', 'op_start_game'):
+        assert '"%s"' % row in pack
+    assert 'widget->visible' in pack
