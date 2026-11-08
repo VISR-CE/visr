@@ -65,7 +65,7 @@ def test_every_component_the_apple_apps_contain_is_listed():
 def test_notice_is_exact_fits_and_has_the_copyright_sign():
     lines = port_settings.about_notice(about_data.NOTICE).split("\\n")
     assert len(lines) <= port_settings.NOTICE_LINES
-    assert " ".join(lines) == about_data.NOTICE and "\u00a9" in about_data.NOTICE
+    assert " ".join(lines).replace("  ", " ") == about_data.NOTICE and "\u00a9" in about_data.NOTICE
     assert about_data.NOTICE.startswith("Halo, Halo: Combat Evolved, Master Chief")
 
 

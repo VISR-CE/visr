@@ -391,7 +391,7 @@ ABOUT_ROW_TOP = 128
 SEND_LOG_PLATFORM = "send_log"
 # the trademark notice under the rows: the small font's characters that fit the width of its box (calibrated from
 # screenshots), and the lines the box holds
-NOTICE_WIDTH = 66
+NOTICE_WIDTH = 68
 NOTICE_LINES = 6
 
 
@@ -399,7 +399,8 @@ def about_notice(text: str) -> str:
     """the fixed notice, wrapped for its box (the engine does not wrap)"""
     lines = textwrap.wrap(text, NOTICE_WIDTH)
     assert len(lines) <= NOTICE_LINES, text
-    return "\\n".join(lines)
+    # (the small font draws the copyright sign with almost no side space, so its spaces get a second one)
+    return "\\n".join(lines).replace(" \u00a9 ", "  \u00a9  ")
 
 
 def _about_screen() -> list:
@@ -408,7 +409,7 @@ def _about_screen() -> list:
     show the app's own text; the others show a fixed value and open a page (not on the Apple TV)"""
     base = f"{PE}/{ABOUT}"
     spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP,
-            "help_top": 330, "help_height": 80, "help_text": about_notice(about_data.NOTICE),
+            "help_top": 284, "help_height": 125, "help_text": about_notice(about_data.NOTICE),
             "header": ("header_about", f"{base}/header_about"),
             "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
     # (label, the value shown, key, the page it opens)

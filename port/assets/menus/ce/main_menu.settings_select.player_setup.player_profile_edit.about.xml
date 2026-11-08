@@ -12,7 +12,7 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="330" width="482" height="80" text="Halo, Halo: Combat Evolved, Master Chief and the related names and\nlogos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved © Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries) or Bungie." font="ui\small_ui" color="#FFFFFFFF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="284" width="482" height="125" text="Halo, Halo: Combat Evolved, Master Chief and the related names and\nlogos are trademarks of Microsoft Corporation. Halo: Combat Evolved\n© Microsoft Corporation. VISR is an unofficial fan project. It is\nnot affiliated with, sponsored by or endorsed by Microsoft, Xbox\nGame Studios, Halo Studios (formerly 343 Industries) or Bungie." font="ui\small_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="6">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_build" x="54" y="128"/>
