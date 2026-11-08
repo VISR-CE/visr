@@ -6869,11 +6869,13 @@ static void column_list_window_end(
 		child->visible = saved[index++];
 }
 
-/* port: the app icon left of a screen's title. The titles are pictures
+/* port: the VISR helmet left of a screen's title. The titles are pictures
 (header_*, in ui.map and in the menus' files, of both looks), 64 units high,
 whose capitals stand 22 units tall from 33 units down and start 30 units in.
-The icon (xbox/bitmaps/visr_title_icon, tools/xbox_menus.py) is as tall as
-the capitals, centered on them, half its width before the first letter.
+The picture (xbox/bitmaps/visr_title_icon, tools/xbox_menus.py) is 36 units
+square; the helmet in it is 22 units tall like the capitals and 29 wide, and
+the picture is centered on them with 11 units between the helmet and the first
+letter.
 Dialogs' headers (ui\\shell\\error\\...) are not screens' titles. */
 static void menu_title_icon_draw(
 	long bitmap_tag,
@@ -6907,11 +6909,12 @@ static void menu_title_icon_draw(
 		scale_x = (bounds->x1 - bounds->x0) / picture->width;
 	if (bounds->y1 - bounds->y0 > picture->height)
 		scale_y = (bounds->y1 - bounds->y0) / picture->height;
-	size = 22 * scale_y;
-	left = bounds->x0 + 30 * scale_x - size / 2 - size;
+	/* (the helmet is 29 of the picture's 36 units wide, 3.5 units in from each side) */
+	size = 36 * scale_y;
+	left = bounds->x0 + (30 - 11 - 29) * scale_x - (36 - 29) * scale_x / 2;
 	rect.x0 = (short)left;
 	rect.x1 = (short)(left + size);
-	rect.y0 = (short)(bounds->y0 + 33 * scale_y);
+	rect.y0 = (short)(bounds->y0 + 44 * scale_y - size / 2);
 	rect.y1 = (short)(rect.y0 + size);
 	draw_bitmap_in_rect(icon, &rect, NULL, clip, color, NULL, FALSE);
 }

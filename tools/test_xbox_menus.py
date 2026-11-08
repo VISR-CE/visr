@@ -610,15 +610,16 @@ def png_header_and_first_pixel(path):
     return size, tuple(zlib.decompress(idat)[1:5])
 
 
-def test_title_icon_is_the_rounded_app_icon_at_four_times_the_title_capitals():
+def test_title_icon_is_the_outline_helmet_drawn_at_four_times_its_size():
     module = generator()
     bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
     icon = bitmaps.find(f"bitmap[@name='{module.TITLE_ICON}']")
     frame = icon.find('frame')
-    assert (frame.get('width'), frame.get('height')) == (str(module.TITLE_ICON_SIZE),) * 2 == ('22', '22')
+    assert (frame.get('width'), frame.get('height')) == (str(module.TITLE_ICON_SIZE),) * 2 == ('36', '36')
     (width, height, depth, color), corner = png_header_and_first_pixel(MENUS / frame.get('png'))
-    assert (width, height, depth, color) == (88, 88, 8, 6)
-    # (rounded: the corner is transparent)
+    assert (width, height, depth, color) == (144, 144, 8, 6)
+    # (the helmet is drawn from art/visr_title_icon.svg, which is in the checked-in set; the corner is transparent)
+    assert (MENUS / 'xbox/art/visr_title_icon.svg').is_file()
     assert corner[3] == 0
     assert frame.get('png') in json.loads((MENUS / 'menus.json').read_text())['files']
 
@@ -629,5 +630,5 @@ def test_title_icon_drawn_by_the_name_the_generator_gives_it():
     source = (ROOT / 'source/interface/ui_widget.c').read_text()
     tag = 'pc\\' + module.TITLE_ICON.replace('/', '\\')
     assert '"' + tag.replace('\\', '\\\\') + '"' in source
-    # the titles' capitals, which the icon matches: 22 units tall from 33 units down, 30 units in
-    assert 'size = 22 * scale_y;' in source and 'bounds->y0 + 33 * scale_y' in source
+    # the titles' capitals (22 units tall from 33 units down, 30 units in) which the 36-unit picture's helmet matches
+    assert 'size = 36 * scale_y;' in source and 'bounds->y0 + 44 * scale_y - size / 2' in source

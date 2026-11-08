@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>VISR helmet title icon</title>
+  <desc>A front-facing Spartan helmet with two raised side ridges, a wide outlined visor, and a thin visor highlight.</desc>
+  <defs>
+    <linearGradient id="surface" gradientUnits="userSpaceOnUse" x1="6" y1="11" x2="58" y2="53">
+      <stop stop-color="#2f3f4e"/><stop offset="1" stop-color="#0e141a"/>
+    </linearGradient>
+    <filter id="halo" filterUnits="userSpaceOnUse" x="0" y="0" width="64" height="64" color-interpolation-filters="sRGB">
+      <feComponentTransfer in="SourceAlpha"><feFuncA type="linear" slope="1.153846"/></feComponentTransfer>
+      <feMorphology operator="dilate" radius="1.5"/>
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#2396ff" flood-opacity="0.56"/>
+      <feComposite in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <path id="shell" d="M6 29.5 7.6 26.8 7.2 25.3 12 17.7Q12.5 16.8 13.8 16.8H17L18.4 14.9 27.2 12.5 32 12.8 36.8 12.5 45.6 14.9 47 16.8H50.2Q51.5 16.8 52 17.7L56.8 25.3 56.4 26.8 58 29.5 55.7 35.8V43.4L53.1 47.1 48 50.5Q46.7 51.5 44.4 51.5H20Q17.3 51.5 15.8 49.5L10.9 47.1 8.3 43.4V35.8Z"/>
+    <path id="visor" d="M15.3 30.4C18.7 30.1 24.6 28.7 28.1 28.7L32 28.9C37.4 28.4 42.4 29.7 46.5 30.1Q50.7 30.6 51.8 32.4C53 34.5 53.5 39.7 53.1 42.4C52.7 45.7 49.7 49.8 47.4 51Q46.2 51.5 44.4 51.5H20Q16.4 51.5 14.8 49.3L11.8 45.4C10.2 43.1 10.7 35.5 12 33.2Q13.2 30.8 15.3 30.4Z"/>
+  </defs>
+  <use href="#shell" fill="url(#surface)" fill-opacity="0.333333"/>
+  <use href="#visor" fill="#080c10" fill-opacity="0.333333"/>
+  <g fill="none" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
+    <use href="#shell"/>
+    <use href="#visor"/>
+  </g>
+  <g fill="none" stroke="#298eef" stroke-opacity="0.8" stroke-width="0.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13.8 16.8 23.4 16.6 24.2 17.2 24.4 23.9 23.8 26.2H22.9L22.4 21Q21.8 20 20.4 20.1L16.3 21Q14.6 21.4 13.7 23L11.8 25.2 9 27.3"/>
+    <path d="M50.2 16.8 40.6 16.6 39.8 17.2 39.6 23.9 40.2 26.2H41.1L41.6 21Q42.2 20 43.6 20.1L47.7 21Q49.4 21.4 50.3 23L52.2 25.2 55 27.3"/>
+  </g>
+  <path d="M14.1 35.3C22.8 30.5 35.8 29.7 48.9 34.8" fill="none" stroke="#2996ff" stroke-opacity="0.733333" stroke-width="0.6" stroke-linecap="round"/>
+</svg>

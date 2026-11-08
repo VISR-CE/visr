@@ -222,6 +222,6 @@
 		<frame map="ui\shell\main_menu\multiplayer_type_select\mp_options" index="3" png="xbox/art/none.png" width="460" height="230" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/visr_title_icon">
-		<frame png="xbox/art/visr_title_icon.png" width="22" height="22" />
+		<frame png="xbox/art/visr_title_icon.png" width="36" height="36" />
 	</bitmap>
 </menus>

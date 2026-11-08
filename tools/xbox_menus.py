@@ -282,8 +282,9 @@ PAGE_ROWS = (
 # tries a frame's cache before its png, so a frame is "cache + png" only where no redraw is shipped; a redraw added
 # later takes the place by regenerating (test_generation_is_deterministic_and_checked_in).
 ART = 'xbox/art'
-# the title icon's bitmap (its name is menu_tags.c's MENU_TITLE_ICON) and its size, the titles' capital height
-TITLE_ICON, TITLE_ICON_SIZE = 'xbox/bitmaps/visr_title_icon', 22
+# the title icon's bitmap (its name is menu_tags.c's MENU_TITLE_ICON) and its size, the picture's size in menu units (its drawn helmet is as tall as the
+# titles' capitals, 22 units)
+TITLE_ICON, TITLE_ICON_SIZE = 'xbox/bitmaps/visr_title_icon', 36
 # Bump this directory to rebuild saved pictures after the decode or save format changes.
 CACHE = 'cache/xbox/v1'
 NONE_PNG = f'{ART}/none.png'
@@ -406,7 +407,7 @@ def bitmap_document(assets, names):
         ET.SubElement(bitmap, 'frame', map=r'ui\shell\main_menu\multiplayer_type_select\mp_options',
                       index=str(index), png=NONE_PNG,
                       width='460', height='230')
-    # The app icon left of every screen's title (drawn by tools/xbox_menu_art.py; placed by the game,
+    # The VISR helmet left of every screen's title (drawn by tools/xbox_menu_art.py; placed by the game,
     # menu_title_icon_draw in port/linux/game/menu_tags.c, beside each title picture of both looks)
     bitmap = ET.SubElement(root, 'bitmap', name=TITLE_ICON)
     ET.SubElement(bitmap, 'frame', png=f'{ART}/visr_title_icon.png', width=str(TITLE_ICON_SIZE),
