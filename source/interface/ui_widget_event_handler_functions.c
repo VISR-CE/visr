@@ -4129,8 +4129,10 @@ static boolean player_profile_set_for_game_1wide(
 	if (player_profile_get(available_profiles[spinner_list->data3C.selected_index], &profile))
 	{
 		/* port: not a profile whose name the host's ban command could not
-		name (one made before names were checked: player_name_valid) */
-		if (!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
+		name (one made before names were checked: player_name_valid); a built-in
+		default profile stores none and is named by the host */
+		if (!TEST_FLAG(profile.flags, _player_profile_default_profile_bit) &&
+			!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
 		{
 			display_error_text_deferred(
 				L"Sorry, this profile's\r\nname can't be used in\r\nmultiplayer. Please\r\nrename the profile.",
@@ -6227,7 +6229,10 @@ boolean ui_widget_port_multiplayer_player(
 
 	if (controller_index < 0 || controller_index >= 4 || !player_profile_get(profile_index, &profile))
 		return FALSE;
-	if (!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
+	/* a built-in default profile stores no name; it joins with an empty one and
+	the host names it, as on the Xbox */
+	if (!TEST_FLAG(profile.flags, _player_profile_default_profile_bit) &&
+		!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
 	{
 		display_error_text_deferred(
 			L"Sorry, this profile's\r\nname can't be used in\r\nmultiplayer. Please\r\nrename the profile.",
