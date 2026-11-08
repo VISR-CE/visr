@@ -1175,21 +1175,6 @@ static char const *custom_map_level_name(short kind, short entry)
 	return custom_edition_maps_level_name(map_kind_display_index(kind, entry));
 }
 
-/* the main menu's CUSTOM CAMPAIGN (the Xbox look's patch): shown when there are Custom Edition campaign maps, and
-the list it opens starts on them */
-static boolean custom_campaign_entry;
-
-/* "disable if no custom campaigns" (the row's creation) */
-static boolean custom_campaigns_disable(struct widget_instance *row)
-{
-	if (custom_edition_maps_count(TRUE) < 1)
-	{
-		row->disabled = TRUE;
-		row->visible = FALSE;
-	}
-	return TRUE;
-}
-
 /* "initialize sp level list solo" starts on the level last played */
 static boolean level_list_initialize(struct widget_instance *list, short controller)
 {
@@ -1209,14 +1194,6 @@ static boolean level_list_initialize(struct widget_instance *list, short control
 	level_list.kind = MAP_KIND_SINGLEPLAYER;
 	level_list.chosen = level;
 	level_list.first = map_kind_first(level, NUMBER_OF_SINGLE_PLAYER_LEVELS);
-	/* (opened from the main menu's CUSTOM CAMPAIGN: on the Custom Edition campaigns) */
-	if (custom_campaign_entry && custom_edition_maps_count(TRUE) > 0)
-	{
-		level_list.kind = MAP_KIND_CUSTOM_SINGLEPLAYER;
-		level_list.chosen = 0;
-		level_list.first = 0;
-	}
-	custom_campaign_entry = FALSE;
 	map_kind_set(list, level_list.kind);
 	map_kind_focus(list, level_list.first, level_list.chosen);
 	return TRUE;
@@ -6510,10 +6487,6 @@ boolean pc_menu_event_function_invoke(
 		{
 			return campaign_continue(controller);
 		}
-		else if (!strcmp(name, "disable if no custom campaigns"))
-		{
-			return custom_campaigns_disable(widget);
-		}
 		else if (!strcmp(name, "port option row init"))
 		{
 			/* (an option row of the Xbox look's Item Options, which its own functions do not know) */
@@ -6530,10 +6503,6 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port delete request"))
 		{
 			return ui_widget_port_delete_request();
-		}
-		else if (!strcmp(name, "port custom campaign begin"))
-		{
-			custom_campaign_entry = TRUE;
 		}
 		else if (!strcmp(name, "initialize sp level list solo"))
 		{

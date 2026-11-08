@@ -116,10 +116,6 @@
 		<frame png="ce/shell/bitmaps/text_button_background__0.png" width="128" height="32" />
 		<frame png="ce/shell/bitmaps/text_button_background__1.png" width="128" height="32" />
 	</bitmap>
-	<bitmap name="xbox/main_menu/menu_custom_campaign">
-		<frame png="xbox/art/menu_custom_campaign__0.png" width="256" height="64" />
-		<frame png="xbox/art/menu_custom_campaign__1.png" width="256" height="64" />
-	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options">
 		<frame png="ce/port/main_menu/multiplayer_type_select/coop_options/header_coop_options.png" width="512" height="64" />
 	</bitmap>
@@ -201,9 +197,6 @@
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings">
 		<frame png="ce/shell/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings__0.png" width="512" height="64" />
 	</bitmap>
-	<bitmap name="xbox/main_menu/solo_level_select/header_load_level">
-		<frame png="ce/shell/main_menu/solo_level_select/header_load_level__0.png" width="512" height="64" />
-	</bitmap>
 	<bitmap name="pause/pausebox_center">
 		<frame png="ce/port/pause/pausebox_center__0.png" width="4" height="256" />
 		<frame png="ce/port/pause/pausebox_center__1.png" width="4" height="256" />
@@ -224,9 +217,6 @@
 	</bitmap>
 	<bitmap name="xbox/map/ui/shell/bitmaps/sp_levels">
 		<frame map="ui\shell\bitmaps\sp_levels" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
-	</bitmap>
-	<bitmap name="xbox/map/ui/shell/main_menu/difficulty_select/difficulty_options_small">
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" png="ce/shell/bitmaps/game_type_grafix__5.png" width="256" height="128" />
 	</bitmap>
 	<bitmap name="xbox/pictures/gametype">
 		<frame map="ui\shell\main_menu\multiplayer_type_select\mp_options" index="3" png="xbox/art/none.png" width="460" height="230" />

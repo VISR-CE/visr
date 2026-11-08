@@ -28,6 +28,9 @@ ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
          'mouse_settings', 'gamepad_setup')
 BLUE = '#FF2896FF'
+# the PC solo list's widgets the Xbox lobby shows beside its map
+LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
+                     'main_menu/solo_level_select/replay_level_right_name')
 MP = 'main_menu/multiplayer_type_select'
 MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
     'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby')) + (
@@ -382,13 +385,6 @@ def bitmap_document(assets, names):
     source = {b.get('name'): b for b in ET.parse(assets / 'ce/bitmaps.xml').getroot()}
     root = ET.Element('menus')
     for name in sorted(names | {f'pause/pausebox_{side}' for side in ('left', 'center', 'right')}):
-        if name == 'main_menu/menu_custom_campaign':
-            # (drawn by tools/xbox_menu_art.py, in the lettering of the main menu's other labels)
-            bitmap = ET.SubElement(root, 'bitmap', name='xbox/' + name)
-            for frame in (0, 1):
-                ET.SubElement(bitmap, 'frame', png=f'xbox/art/menu_custom_campaign__{frame}.png', width='256',
-                              height='64')
-            continue
         if '\\' in name:
             bitmap = ET.SubElement(root, 'bitmap', name='xbox/map/' + name.replace('\\', '/'))
             ET.SubElement(bitmap, 'frame', map=name, index='0',
@@ -428,12 +424,13 @@ def multiplayer_documents(assets, bitmaps):
         root = deepcopy(ET.parse(assets / 'ce' / (filename + '.xml')).getroot())
         documents[filename + '.xml'] = root
         owned.update((e.tag, e.get('name')) for e in root)
-    # new_select.port supplies the chooser, not a screen. Reuse the PC solo
-    # list and its data functions for the custom-campaign entry point.
+    # new_select.port supplies the chooser, not a screen. The lobby borrows the PC solo list's map picture and
+    # name widgets.
     campaign = documents['main_menu.new_select.port.xml']
     for e in ET.parse(assets / 'ce/main_menu.solo_level_select.xml').getroot():
-        campaign.append(deepcopy(e))
-        owned.add((e.tag, e.get('name')))
+        if e.get('name') in LOBBY_MAP_WIDGETS:
+            campaign.append(deepcopy(e))
+            owned.add((e.tag, e.get('name')))
     shared = ET.Element('menus')
     documents['multiplayer.shared.xml'] = shared
     # Xbox item options combine vehicles with weapons; these two PC-only
@@ -929,13 +926,6 @@ def patch_row(parent, tag='row', **attributes):
 def patch_document(names):
     """The patch table (port/linux/game/menu_tags.c): VISR's rows in the Xbox's own lists."""
     root = ET.Element('menus')
-    # Add custom campaigns after SETTINGS; the map's hidden GAME DEMOS stays last.
-    main = patch(root, MM + 'main_menu_select_list', MM + 'main_menu')
-    main.set('footer', '480')
-    patch_row(main, after=MM + 'main_menu_item_settings', model=MM + 'main_menu_item_settings',
-              name='main_menu_item_custom', text='CUSTOM CAMPAIGN', run='port custom campaign begin',
-              open='xbox/main_menu/solo_level_select/solo_level_select_screen',
-              created='disable if no custom campaigns', bitmap=bitmap_ref('main_menu/menu_custom_campaign', names))
     # Multiplayer type: SYSTEM LINK sets the mode (LAN) before the Xbox's own flow; INTERNET and DIRECT LINK open
     # the Xbox-look browser, which shows each mode's header, rows and buttons
     mp = patch(root, MPT + 'multiplayer_type_select_list', MPT + 'multiplayer_type_select_screen')

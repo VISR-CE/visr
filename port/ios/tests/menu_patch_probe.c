@@ -54,12 +54,6 @@ static char const patches_xml[] =
 	"       run=\"request del player profile\"\n"
 	"       description=\"Delete.\" picture=\"0\"/>\n"
 	"</patch>\n"
-	/* Exercise insertion with a custom campaign row, never an exit action. */
-	"<patch list=\"ui\\shell\\main_menu\\main_menu_select_list\" screen=\"ui\\shell\\main_menu\\main_menu\">\n"
-	"  <row after=\"ui\\shell\\main_menu\\main_menu_item_game_demos\" model=\"ui\\shell\\main_menu\\main_menu_item_settings\"\n"
-	"       name=\"main_menu_item_custom\" text=\"CUSTOM CAMPAIGN\" run=\"port custom campaign begin\"\n"
-	"       created=\"mouse emit accept event\"/>\n"
-	"</patch>\n"
 	/* a row out of the settings list: those after it move up, keeping their descriptions */
 	"<patch list=\"ui\\shell\\settings\\settings_list\" screen=\"ui\\shell\\settings\\settings_screen\">\n"
 	"  <remove child=\"ui\\shell\\settings\\settings_item_1\"/>\n"
@@ -792,23 +786,6 @@ static void check_apple(boolean tvos)
 		check(child_top(pe_screen, 3) == 353, "the profile's name stayed (right of the list, %d)", child_top(pe_screen, 3));
 		check(child_top(pe_screen, 5) == 414 && child_top(pe_screen, 4) == 414 && child_top(pe_screen, 1) == 414,
 			"the legend stayed at 414");
-	}
-	/* the main menu: CUSTOM CAMPAIGN, a row below GAME DEMOS, its own created handler; the build number stays */
-	{
-		short const tops[5] = { 247, 283, 319, 355, 391 };
-		struct ui_widget_definition const *custom = row_definition(mm_list, 4);
-		struct ui_widget_event_handler_reference const *handlers = custom->event_handlers.address;
-		long custom_function = PC_MENU_FUNCTION_BASE + name_index("port custom campaign begin", port_function_names,
-			NUMBEROF(port_function_names));
-
-		check_rows("main menu", mm_list, tops, 5);
-		check(children_of(mm_list)[4].horizontal_offset == 192, "CUSTOM CAMPAIGN is in line with GAME DEMOS (%d)",
-			children_of(mm_list)[4].horizontal_offset);
-		check_row_copy(mm_list, 4, "main_menu_item_custom", "CUSTOM CAMPAIGN", custom_function, NONE);
-		check(custom->event_handlers.count == 3 && handlers[2].event_type == 24 &&
-			handlers[2].function == PC_MENU_FUNCTION_BASE + name_index("mouse emit accept event", port_function_names,
-				NUMBEROF(port_function_names)), "CUSTOM CAMPAIGN has its own created handler, not GAME DEMOS'");
-		check(child_top(mm_screen, 2) == 400 && child_top(mm_screen, 0) == 28, "the logo and build number stayed");
 	}
 	/* a row taken out: those after it a row higher, with their own descriptions */
 	{

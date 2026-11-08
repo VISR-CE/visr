@@ -433,9 +433,6 @@ static char const *const port_function_names[] =
 	"port code open", "port code init", "port code edit", "port code join", "port code back",
 	/* (the lobby's Y: the invite link in the share sheet, Apple builds) */
 	"port lobby share",
-	/* (the Xbox look's main menu: CUSTOM CAMPAIGN is there only with Custom Edition campaign maps, and opens
-	their list) */
-	"disable if no custom campaigns", "port custom campaign begin",
 	/* (the Apple TV's DELETE PROFILE and DELETE GAMETYPE rows: the one being edited is the one the Xbox's
 	confirmation deletes) */
 	"port delete request", "port delete finish",

@@ -110,20 +110,6 @@ def test_multiplayer_modes_follow_the_row_names():
                                                                                        "join_lan", "join_direct"))
 
 
-def test_main_menu_adds_only_custom_campaign():
-    """The custom row follows SETTINGS without adding an exit action."""
-    patch = next(p for p in table() if p.get("screen") == "ui\\shell\\main_menu\\main_menu")
-    custom, = rows(patch)
-    settings = "ui\\shell\\main_menu\\main_menu_item_settings"
-    assert custom.get("text") == "CUSTOM CAMPAIGN" and custom.get("created") == "disable if no custom campaigns"
-    assert custom.get("run") == "port custom campaign begin" and not custom.get("platform")
-    assert custom.get("after") == settings
-    # (their labels are pictures, as the main menu's are, with the two frames the highlight switches between)
-    bitmaps = {b.get("name"): b for b in ET.parse(MENUS / "bitmaps.xml").getroot()}
-    for row in (custom,):
-        assert len(bitmaps[row.get("bitmap")].findall("frame")) == 2, row.get("bitmap")
-
-
 def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]

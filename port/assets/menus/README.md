@@ -189,10 +189,10 @@ The Xbox look's files (`xbox/`) change some of `ui.map`'s own lists with
 patches, made as `ui.map` loads (`port/linux/game/menu_tags.c`):
 
 ```xml
-<patch list="ui\shell\main_menu\main_menu_select_list" screen="ui\shell\main_menu\main_menu">
-	<row after="ui\shell\main_menu\main_menu_item_settings" model="ui\shell\main_menu\main_menu_item_settings"
-	     name="main_menu_item_custom" text="CUSTOM CAMPAIGN" run="port custom campaign begin"
-	     open="xbox/main_menu/solo_level_select/solo_level_select_screen"/>
+<patch list="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_edit_select_list"
+       screen="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\player_profile_edit_screen">
+	<row after="profile_item_network" platform="keyboard" name="profile_item_keyboard" text="KEYBOARD"
+	     open="xbox/test_screen" description="Keyboard." picture="4"/>
 </patch>
 ```
 
