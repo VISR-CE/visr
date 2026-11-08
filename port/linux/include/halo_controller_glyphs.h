@@ -4,6 +4,41 @@
 
 enum { HALO_GLYPH_ORIGINAL, HALO_GLYPH_HIDDEN, HALO_GLYPH_SYMBOL, HALO_GLYPH_KEYCAP };
 
+/* One table drives the menu key presses and the labels on their keycaps. */
+#define HALO_GLYPH_MENU_BINDINGS(X) \
+	X(0, SDL_SCANCODE_RETURN, "Enter") \
+	X(1, SDL_SCANCODE_ESCAPE, "Escape") \
+	X(2, SDL_SCANCODE_E, "E") \
+	X(3, SDL_SCANCODE_TAB, "Tab")
+
+static inline const char *halo_glyph_menu_key(int physical)
+{
+#define MENU_LABEL(button, scancode, label) label,
+	static const char *const keys[] = {HALO_GLYPH_MENU_BINDINGS(MENU_LABEL)
+		"", "", "", "", "Up", "Down", "Left", "Right", "Escape", "F1", "", "", "WASD", "Mouse"};
+#undef MENU_LABEL
+	return physical >= 0 && physical < 18 ? keys[physical] : "";
+}
+
+enum { HALO_GLYPH_INPUT_TOUCH = -2, HALO_GLYPH_INPUT_CONTROLLER = 0, HALO_GLYPH_INPUT_KEYBOARD = 1 };
+struct halo_glyph_input { int source; unsigned int gamepad; };
+
+/* Events, rather than held state, select the device. Idle and key-repeat
+samples cannot steal the prompts from a more recently used device. */
+static inline struct halo_glyph_input halo_glyph_input_note(
+	struct halo_glyph_input previous, int source, unsigned int gamepad, int active)
+{
+	if (active)
+	{
+		previous.source = source;
+		previous.gamepad = source == HALO_GLYPH_INPUT_CONTROLLER ? gamepad : 0;
+	}
+	return previous;
+}
+
+union SDL_Event;
+void halo_controller_glyph_input_event(union SDL_Event const *event);
+
 /* Icon indices are HUD identities, not frames in the maps' sprite atlases. */
 static inline int halo_glyph_keyboard_action(int semantic)
 {

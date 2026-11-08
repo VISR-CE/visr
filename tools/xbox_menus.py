@@ -108,10 +108,10 @@ def retain_xbox_files(menus, files):
 def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform=None):
     """A/B icons post buttons to the current focus, as the Xbox legend does."""
     hosting = screen.get('name').endswith('/server_settings_screen')
-    items = (('x_butn', '=copy', 'INVITE', 295),
-             ('b_butn', '=cancel', cancel, 402),
-             ('a_butn', '=accept', accept, 520)) if hosting else (
-                 ('a_butn', '=accept', accept, 471), ('b_butn', '=cancel', cancel, 346))
+    items = (('x_butn', 'copy', 'INVITE', 295),
+             ('b_butn', 'cancel', cancel, 402),
+             ('a_butn', 'accept', accept, 520)) if hosting else (
+                 ('a_butn', 'accept', accept, 471), ('b_butn', 'cancel', cancel, 326))
     for button, caption, label, x in items:
         if hosting:
             # One tall target includes both the icon and its caption.
@@ -134,22 +134,30 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
 
 
 def footer(root, base, save, defaults):
-    # SAVE is an ordinary item target. Putting the a_butn leaf inside it
-    # would make pointer taps post A to the old focus instead of saving.
-    bar = widget(root, f'{base}/button_bar', type='column_list', width=340, height=28,
+    # X/Y are screen-level shortcuts, so they work while an option row is focused.
+    screen = root[0]
+    bar = widget(root, f'{base}/button_bar', type='column_list', width=320, height=28,
                  flags='pass_unhandled_to_focused_child left_right_tabs_items')
-    child(bar, f'{base}/button_defaults', x=54)
-    child(bar, f'{base}/button_ok', x=220)
-    default = text_widget(root, f'{base}/button_defaults', 'DEFAULTS', width=160, height=26)
-    ok = text_widget(root, f'{base}/button_ok', 'SAVE', width=120, height=26)
-    for target, run in ((default, defaults), (ok, save)):
-        for event in ('a', 'start'):
-            attrs = {'event': event, 'run': run}
-            if target is ok:
-                attrs['back'] = 'true'
-            ET.SubElement(target, 'on', attrs)
-        ET.SubElement(target, 'on', event='left_mouse', run='mouse emit accept event')
-    legend(root, root[0], base)
+    for button, target, caption, x, width, run in (
+            ('x', 'button_defaults', 'DEFAULTS', 40, 132, defaults),
+            ('y', 'button_ok', 'SAVE', 217, 70, save)):
+        icon = f'{base}/{button}_butn'
+        child(bar, f'{base}/{target}', x=x)
+        action = widget(root, f'{base}/{target}', width=21 + width, height=26)
+        child(action, icon)
+        child(action, f'{base}/{target}_caption', x=21)
+        widget(root, icon, width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
+        text_widget(root, f'{base}/{target}_caption', caption, width=width, height=26)
+        attrs = {'run': run}
+        if button == 'y':
+            attrs['back'] = 'true'
+        for event in ('a', 'start', button):
+            ET.SubElement(action, 'on', event=event, **attrs)
+        ET.SubElement(screen, 'on', event=button, **attrs)
+        ET.SubElement(action, 'on', event='left_mouse', run='mouse emit accept event')
+    legend(root, screen, base)
+    for leaf, x in (('b_butn', 332), ('cancel', 354), ('a_butn', 477), ('accept', 499)):
+        screen.find(f"child[@widget='{base}/{leaf}']").set('x', str(x))
 
 
 def settings_page(assets, folder, bitmaps):
@@ -240,7 +248,7 @@ def send_log_confirmation(root, bitmaps):
     child(modal, base + '/buttons', x=256, y=310)
     bar = widget(root, base + '/buttons', type='column_list', width=172, height=22,
                  flags='pass_unhandled_to_focused_child left_right_tabs_items up_down_tabs_items')
-    for index, (button, caption) in enumerate((('b', '=CANCEL'), ('a', '=SEND'))):
+    for index, (button, caption) in enumerate((('b', 'CANCEL'), ('a', 'SEND'))):
         name = base + '/' + caption.strip('=').lower()
         child(bar, name, x=index * 86)
         item = widget(root, name, type='text', text=caption, width=84, height=22,
@@ -555,7 +563,7 @@ def multiplayer_documents(assets, bitmaps):
         widget(shared, base + '_text_box', type='text', width=239, height=159,
                bitmap='bitmaps/alert_bkd', string_list='strings/displayed_error_messages', string_index=message,
                font=r'ui\large_ui', color=BLUE, text_x=9, text_y=36)
-        for button, caption, x in (('b', '=CANCEL', 268), ('a', '=OK', 356)):
+        for button, caption, x in (('b', 'CANCEL', 244), ('a', 'OK', 356)):
             icon = base + '/' + button + '_butn'
             child(panel, icon, x=x, y=310)
             widget(shared, icon, width=16, height=20, bitmap='xbox/browser/' + button + '_butn_sm')
@@ -904,7 +912,7 @@ def gametype_select_layout(root, widgets, bitmaps):
         art = f'{GT}/legend/{icon}'
         child(screen, art, x=x, y=414)
         widget(root, art, type='container', width=21, height=26, bitmap=f'xbox/browser/{icon}')
-        label = f'{GT}/legend/={caption.lower().replace(" ", "_")}'
+        label = f'{GT}/legend/{caption.lower().replace(" ", "_")}'
         if button:
             source = widgets[f'{GT}/{button}']
             source.attrib.pop('string_list', None)
@@ -1045,9 +1053,9 @@ def browser_layout(root, widgets, bitmaps):
     for index in (0, 1):
         ET.SubElement(bitmap, 'frame', png=f'xbox/art/browser_row__{index}.png', width='544', height='24')
     child(screen, base + '/y_butn', x=180, y=414)
-    child(screen, base + '/=create', x=202, y=414)
+    child(screen, base + '/create', x=202, y=414)
     widget(root, base + '/y_butn', width=21, height=26, bitmap='xbox/browser/y_butn')
-    text_widget(root, base + '/=create', 'CREATE GAME', width=144, height=22)
+    text_widget(root, base + '/create', 'CREATE GAME', width=144, height=22)
     child(screen, base + '/x_butn', x=48, y=414)
     widget(root, base + '/x_butn', width=21, height=26, bitmap='xbox/browser/x_butn')
     # Reuse the refresh action as the legend's clickable caption.
@@ -1060,9 +1068,9 @@ def browser_layout(root, widgets, bitmaps):
     # button_key advances 21 pixels from icon to caption. Leave the same
     # 27-pixel gap after each caption, including the longer CREATE GAME.
     items = (('x_butn', 'join_game_button_refresh', 104),
-             ('y_butn', '=create', 132),
-             ('legend/b_butn', 'legend/=cancel', 52),
-             ('legend/a_butn', 'legend/=accept', 70))
+             ('y_butn', 'create', 132),
+             ('legend/b_butn', 'legend/cancel', 52),
+             ('legend/a_butn', 'legend/accept', 70))
     x = 66
     for icon, caption, width in items:
         for leaf, offset in ((icon, 0), (caption, 21)):
@@ -1080,7 +1088,7 @@ def quit_layout(root, widgets):
     bar.attrib.pop('flags', None)
     # Share the delete confirmation's icon and cancel widgets; keep Quit's action.
     bar[:] = []
-    for button, x in (('b', 268), ('a', 356)):
+    for button, x in (('b', 244), ('a', 356)):
         shared = 'xbox/error/confirm_delete_profile/'
         child(bar, shared + button + '_butn', x=x, y=310)
         target = shared + 'b_caption' if button == 'b' else base + '/quit_button_ok'
@@ -1088,7 +1096,7 @@ def quit_layout(root, widgets):
     action = widgets[base + '/quit_button_ok']
     action.attrib.pop('string_list', None)
     action.attrib.pop('string_index', None)
-    action.attrib.update(text='=OK', width='70', height='22', align='left', text_y='0')
+    action.attrib.update(text='OK', width='70', height='22', align='left', text_y='0')
     screen = widgets[base + '/quit_screen']
     # The message uses the delete confirmation's panel and padding. Keep the
     # legend and title in screen coordinates, outside the offset text widget.

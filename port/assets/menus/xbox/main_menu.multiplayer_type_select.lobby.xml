@@ -14,9 +14,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/header_lobby" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_join_help" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/a_butn" x="471" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/=accept" x="493" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/b_butn" x="346" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/=cancel" x="368" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/accept" x="493" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/b_butn" x="326" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/cancel" x="348" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/header_lobby" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/lobby/header_lobby">
 	</widget>
@@ -143,9 +143,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/header_add_player" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_help" x="20" y="416" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/a_butn" x="471" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/=accept" x="493" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/b_butn" x="346" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/=cancel" x="368" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/accept" x="493" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/b_butn" x="326" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/cancel" x="348" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/header_add_player" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/lobby/header_add_player">
 	</widget>
@@ -179,9 +179,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/header_lobby" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/lobby_join_help" />
 		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/a_butn" x="471" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/=accept" x="493" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/b_butn" x="346" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/=cancel" x="368" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/accept" x="493" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/b_butn" x="326" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/cancel" x="348" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_list" type="column_list" width="640" height="400" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/lobby/lobby_desc">
 		<data input="port lobby preview update" />
@@ -211,15 +211,15 @@
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/player_profile_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

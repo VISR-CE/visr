@@ -62,6 +62,7 @@ extern unsigned char network_aim_assist_block_mouse(void);
 #ifdef HALO_IOS
 static int glyph_keyboard_active;
 static int glyph_menus_active;
+static struct halo_glyph_input glyph_menu_input;
 #endif
 #define VK_OEM_3_BACKQUOTE 0xc0
 
@@ -648,16 +649,20 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 
 	/* (escape backs out, as backspace does: the pause menu's B resumes the
 	game, the main menu's asks to quit; Start would choose, as A does) */
-	pad->bAnalogButtons[XINPUT_GAMEPAD_A] |= analog(k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_RETURN] ||
-		k[SDL_SCANCODE_KP_ENTER]);
-	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE] ||
+#define MENU_SCANCODE(button, scancode, label) scancode,
+	static const int menu_scancodes[] = {HALO_GLYPH_MENU_BINDINGS(MENU_SCANCODE)};
+#undef MENU_SCANCODE
+	int button;
+	for (button = 0; button < 4; button++)
+		pad->bAnalogButtons[button] |= analog(k[menu_scancodes[button]]);
+	pad->bAnalogButtons[XINPUT_GAMEPAD_A] |= analog(k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_KP_ENTER]);
+	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_BACKSPACE] ||
 		(mouse && m[SDL_BUTTON_X1]));
 #ifdef HALO_ILP32
 	/* the system back key (gesture or button) backs out of menus */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_AC_BACK]);
 #endif
-	pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(k[SDL_SCANCODE_DELETE] || k[SDL_SCANCODE_E]);
-	pad->bAnalogButtons[XINPUT_GAMEPAD_Y] |= analog(k[SDL_SCANCODE_TAB]);
+	pad->bAnalogButtons[XINPUT_GAMEPAD_X] |= analog(k[SDL_SCANCODE_DELETE]);
 }
 
 /* the keys held when the game and the menus switch count as up until let go
@@ -1314,6 +1319,56 @@ static SDL_Gamepad *port_gamepad(SDL_Gamepad *gamepads[PORT_COUNT], int count, i
 	return port < count ? gamepads[port] : NULL;
 }
 
+/* Menu hints follow the last actual device event, including a second pad.
+The game's port assignment remains unchanged. */
+void halo_controller_glyph_input_event(union SDL_Event const *event)
+{
+#ifdef HALO_IOS
+	int source = HALO_GLYPH_INPUT_CONTROLLER, active = 0;
+	unsigned int gamepad = 0;
+	int platform_menu_keyboard(void);
+	switch (event->type)
+	{
+	case SDL_EVENT_KEY_DOWN:
+		source = HALO_GLYPH_INPUT_KEYBOARD;
+		active = !event->key.repeat && platform_menu_keyboard();
+		break;
+	case SDL_EVENT_MOUSE_MOTION:
+		source = HALO_GLYPH_INPUT_KEYBOARD;
+		active = event->motion.which != SDL_TOUCH_MOUSEID && event->motion.which != SDL_PEN_MOUSEID &&
+			(event->motion.xrel != 0 || event->motion.yrel != 0);
+		break;
+	case SDL_EVENT_MOUSE_BUTTON_DOWN:
+		source = HALO_GLYPH_INPUT_KEYBOARD;
+		active = event->button.which != SDL_TOUCH_MOUSEID && event->button.which != SDL_PEN_MOUSEID;
+		break;
+	case SDL_EVENT_MOUSE_WHEEL:
+		source = HALO_GLYPH_INPUT_KEYBOARD;
+		active = event->wheel.x != 0 || event->wheel.y != 0;
+		break;
+	case SDL_EVENT_FINGER_DOWN:
+	case SDL_EVENT_FINGER_MOTION:
+		source = HALO_GLYPH_INPUT_TOUCH;
+		active = 1;
+		break;
+	case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+		gamepad = event->gbutton.which;
+		active = 1;
+		break;
+	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+		gamepad = event->gaxis.which;
+		active = event->gaxis.axis >= SDL_GAMEPAD_AXIS_LEFT_TRIGGER ?
+			event->gaxis.value > 9000 : abs(event->gaxis.value) > 9000;
+		break;
+	default:
+		break;
+	}
+	glyph_menu_input = halo_glyph_input_note(glyph_menu_input, source, gamepad, active);
+#else
+	(void)event;
+#endif
+}
+
 /* Native pointer activity is authoritative: a positive radius is a finger
 or pinch, and an installed but idle pointer does not change the source. */
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer)
@@ -1323,6 +1378,10 @@ void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer co
 	if (!menus || !pointer || !pointer->active ||
 		!(pointer->moved || pointer->left_clicks || pointer->right_clicks || pointer->wheel_steps)) return;
 	glyph_keyboard_active = pointer->radius > 0.0f ? -2 : 1;
+	/* SDL already orders mouse events. This hook supplies UIKit finger and
+	Vision Pro gaze/pinch activity, which do not necessarily emit SDL events. */
+	if (pointer->radius > 0.0f)
+		glyph_menu_input = halo_glyph_input_note(glyph_menu_input, HALO_GLYPH_INPUT_TOUCH, 0, 1);
 #else
 	(void)menus; (void)pointer;
 #endif
@@ -1366,8 +1425,6 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	int count, kind, action;
 	int host_development_hooks(void);
 	int host_sdl_gamepad_glyph(unsigned int gamepad, int physical, const char *family, char *label, unsigned int size, int player, int menus);
-	static const char *const menu_keys[] = {"Enter", "Escape", "E", "Tab", "", "", "", "",
-		"Up", "Down", "Left", "Right", "Escape", "F1", "", "", "WASD", "Mouse"};
 
 	if (!label || size < 2 || size > 128 || player < 0 || player >= PORT_COUNT ||
 		physical < 0 || physical >= 18) return HALO_GLYPH_ORIGINAL;
@@ -1388,16 +1445,22 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 			memcpy(family, part, length);
 		}
 	}
-	if (!family[0] && player == 0)
+	if (!family[0] && (player == 0 || glyph_menus_active))
 	{
-		if (glyph_keyboard_active == 1) strcpy(family, "keyboard");
-		else if (glyph_keyboard_active == -2) strcpy(family, "touch");
+		int source = glyph_menus_active ? glyph_menu_input.source : glyph_keyboard_active;
+		if (source == HALO_GLYPH_INPUT_KEYBOARD) strcpy(family, "keyboard");
+		else if (source == HALO_GLYPH_INPUT_TOUCH) strcpy(family, "touch");
 	}
 	count = sdl_gamepads(gamepads);
 	pad = port_gamepad(gamepads, count, player);
+	if (glyph_menus_active && !family[0] && glyph_menu_input.gamepad)
+	{
+		SDL_Gamepad *last = SDL_GetGamepadFromID(glyph_menu_input.gamepad);
+		if (last) pad = last;
+	}
 	kind = host_sdl_gamepad_glyph((unsigned int)(uintptr_t)pad, physical, family, label, size, player, glyph_menus_active);
-	/* A keyboard belongs to port 0 only, except for explicit capture overrides. */
-	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && strcmp(family, "keyboard")))
+	/* Gameplay bindings belong to port 0; shared menus follow the last device. */
+	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && !glyph_menus_active && strcmp(family, "keyboard")))
 		return kind == HALO_GLYPH_KEYCAP ? HALO_GLYPH_ORIGINAL : kind;
 	action = halo_glyph_keyboard_action(semantic);
 	if (!glyph_menus_active && semantic == physical && (physical == 12 || physical == 13))
@@ -1421,7 +1484,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	else if (semantic == 30 || semantic == 31)
 		snprintf(label, size, "%s", semantic == 30 ? "WASD" : "Mouse");
 	else
-		snprintf(label, size, "%s", menu_keys[physical]);
+		snprintf(label, size, "%s", halo_glyph_menu_key(physical));
 	return *label ? HALO_GLYPH_KEYCAP : HALO_GLYPH_ORIGINAL;
 #else
 	(void)player; (void)semantic; (void)physical; (void)label; (void)size;

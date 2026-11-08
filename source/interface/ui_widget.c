@@ -5543,44 +5543,6 @@ static boolean ui_widget_port_text_wrap(
 	return fits;
 }
 
-/* port: '=' joins a button to its caption in the Xbox legends. A hidden
-button leaves the actionable caption, without changing the stored string. */
-static wchar_t const *ui_widget_touch_caption(struct widget_instance *widget, wchar_t const *text)
-{
-	struct widget_instance *child;
-	struct ui_widget_definition *definition;
-	short best_button = NONE, owner = NONE;
-	int closest = 64;
-
-	if (!text || text[0] != L'=' || !widget->parent) return text;
-	definition = ui_widget_definition_get(widget->definition_tag_index);
-	for (child = widget->parent->child; child; child = child->next)
-	{
-		short button = ui_mouse_key_button(child);
-		struct ui_widget_definition *button_definition;
-		int dx, dy;
-		if (button == NONE || !child->visible) continue;
-		button_definition = ui_widget_definition_get(child->definition_tag_index);
-		dx = widget->horizontal_offset + definition->bounds.x0 -
-			child->horizontal_offset - button_definition->bounds.x0;
-		dy = widget->vertical_offset + definition->bounds.y0 -
-			child->vertical_offset - button_definition->bounds.y0;
-		if (dx > 0 && dx < closest && abs(dy) < 16)
-		{
-			closest = dx;
-			best_button = button;
-			owner = child->local_player_index == NONE ?
-				local_player_index_for_draw_string_and_hack_in_icons : child->local_player_index;
-		}
-	}
-	if (best_button != NONE && controller_glyph_hidden(owner, best_button))
-	{
-		text++;
-		while (*text == L' ') text++;
-	}
-	return text;
-}
-
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5755,7 +5717,7 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
-	wchar_t const *display_text = ui_widget_touch_caption(widget, *text);
+	wchar_t const *display_text = *text;
 	if (string_has_icons_to_draw(display_text))
 	{
 		short saved_player = local_player_index_for_draw_string_and_hack_in_icons;
@@ -6226,6 +6188,112 @@ static void ui_mouse_note_carousel_arrows(
 	return;
 }
 
+/* port: the legend's visible button and pointer target share one rectangle.
+Pair by position, so captions stay ordinary text without a sentinel prefix. */
+static boolean ui_mouse_legend_bounds(
+	struct widget_instance *widget,
+	struct ui_widget_definition const *definition,
+	point2d offset,
+	rectangle2d *bounds)
+{
+	struct widget_instance *parent = widget->parent;
+	short button = ui_mouse_key_button(widget);
+	short owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	struct widget_instance *sibling;
+	rectangle2d label_bounds;
+	short best_distance = 17;
+
+	*bounds = definition->bounds;
+	bounds->x0 += offset.x;
+	bounds->x1 += offset.x;
+	bounds->y0 += offset.y;
+	bounds->y1 += offset.y;
+	for (sibling = parent ? parent->child : NULL; sibling; sibling = sibling->next)
+	{
+		struct ui_widget_definition *sibling_definition;
+		rectangle2d sibling_bounds;
+		short distance;
+
+		if (sibling->type != _ui_widget_type_text_box || !sibling->visible)
+			continue;
+		sibling_definition = ui_widget_definition_get(sibling->definition_tag_index);
+		sibling_bounds = sibling_definition->bounds;
+		sibling_bounds.x0 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
+		sibling_bounds.x1 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
+		sibling_bounds.y0 += offset.y - widget->vertical_offset + sibling->vertical_offset;
+		sibling_bounds.y1 += offset.y - widget->vertical_offset + sibling->vertical_offset;
+		distance = (short)ABS(sibling_bounds.x0 - bounds->x1);
+		if (distance < best_distance &&
+			sibling_bounds.y0 < bounds->y1 && sibling_bounds.y1 > bounds->y0)
+		{
+			best_distance = distance;
+			label_bounds = sibling_bounds;
+		}
+	}
+	if (best_distance < 17)
+	{
+		bounds->x1 = MAX(bounds->x1, label_bounds.x1);
+		bounds->y0 = MIN(bounds->y0, label_bounds.y0);
+		bounds->y1 = MAX(bounds->y1, label_bounds.y1);
+	}
+
+	if (best_distance >= 17 || button == NONE || !controller_glyph_hidden(owner, button))
+		return FALSE;
+	/* 60 menu units are 46.875 pt at the smallest landscape scale (375/480).
+	Eight units of side padding keep the caption away from the outline. */
+	{
+		short width = MAX(16, 60 - (bounds->x1 - bounds->x0));
+		short height = MAX(0, 60 - (bounds->y1 - bounds->y0));
+		bounds->x0 -= width / 2;
+		bounds->x1 += width - width / 2;
+		bounds->y0 -= height / 2;
+		bounds->y1 += height - height / 2;
+	}
+	return TRUE;
+}
+
+/* port: scanline quads preserve the menu renderer's alpha blending and clip.
+The eight-unit corner radius and HUD blue outline match the game's controls. */
+static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d const *clip, real alpha)
+{
+	static short const insets[8] = {5, 3, 2, 1, 1, 0, 0, 0};
+	short y;
+	for (y = bounds->y0; y < bounds->y1;)
+	{
+		short edge = MIN(y - bounds->y0, bounds->y1 - 1 - y);
+		short inset = edge < 8 ? insets[edge] : 0;
+		short end = edge >= 8 ? bounds->y1 - 8 : y + 1;
+		short part;
+		for (part = 0; part < 3; part++)
+		{
+			rectangle2d row = {y, bounds->x0 + inset, end, bounds->x1 - inset};
+			pixel32 color = modulate_pixel32_by_real_alpha(0xff2996ff, alpha);
+			if (edge >= 2)
+			{
+				if (part == 0) row.x1 = row.x0 + 2;
+				else if (part == 1)
+				{
+					row.x0 += 2;
+					row.x1 -= 2;
+					color = modulate_pixel32_by_real_alpha(0xb0102030, alpha);
+				}
+				else row.x0 = row.x1 - 2;
+			}
+			else if (part) continue;
+			if (clip)
+			{
+				row.x0 = MAX(row.x0, clip->x0);
+				row.x1 = MIN(row.x1, clip->x1);
+				row.y0 = MAX(row.y0, clip->y0);
+				row.y1 = MIN(row.y1, clip->y1);
+			}
+			if (row.x0 < row.x1 && row.y0 < row.y1) draw_quad(&row, color);
+		}
+		y = end;
+	}
+}
+
 static void ui_mouse_note_target(
 	struct widget_instance *widget,
 	struct ui_widget_definition const *definition,
@@ -6259,56 +6327,8 @@ static void ui_mouse_note_target(
 	}
 	else if (button_index != NONE)
 	{
-		/* the icon and its label: the text beginning just right of it */
-		struct widget_instance *sibling;
-		rectangle2d label_bounds;
-		short best_distance = 17;
-
 		kind = _ui_mouse_target_button;
-		for (sibling = parent ? parent->child : NULL; sibling; sibling = sibling->next)
-		{
-			struct ui_widget_definition *sibling_definition;
-			rectangle2d sibling_bounds;
-			short distance;
-
-			if (sibling->type != _ui_widget_type_text_box || !sibling->visible)
-				continue;
-			sibling_definition = ui_widget_definition_get(sibling->definition_tag_index);
-			sibling_bounds = sibling_definition->bounds;
-			sibling_bounds.x0 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
-			sibling_bounds.x1 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
-			sibling_bounds.y0 += offset.y - widget->vertical_offset + sibling->vertical_offset;
-			sibling_bounds.y1 += offset.y - widget->vertical_offset + sibling->vertical_offset;
-			distance = (short)ABS(sibling_bounds.x0 - bounds.x1);
-			if (distance < best_distance &&
-				sibling_bounds.y0 < bounds.y1 && sibling_bounds.y1 > bounds.y0)
-			{
-				best_distance = distance;
-				label_bounds = sibling_bounds;
-			}
-		}
-		if (best_distance < 17)
-		{
-			bounds.x1 = MAX(bounds.x1, label_bounds.x1);
-			bounds.y0 = MIN(bounds.y0, label_bounds.y0);
-			bounds.y1 = MAX(bounds.y1, label_bounds.y1);
-		}
-		/* port: touch legends keep the existing caption drawing. Pad only
-		the target: 60 menu units exceed 44 pt at 375/480 pt per unit on
-		the smallest supported iPhone in landscape. */
-		{
-			short owner = widget->local_player_index == NONE ?
-				local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
-			if (controller_glyph_hidden(owner, button_index))
-			{
-				short width = MAX(0, 60 - (bounds.x1 - bounds.x0));
-				short height = MAX(0, 60 - (bounds.y1 - bounds.y0));
-				bounds.x0 -= width / 2;
-				bounds.x1 += width - width / 2;
-				bounds.y0 -= height / 2;
-				bounds.y1 += height - height / 2;
-			}
-		}
+		ui_mouse_legend_bounds(widget, definition, offset, &bounds);
 	}
 	else if (parent && ui_mouse_list_shows_several(parent))
 	{
@@ -6976,6 +6996,12 @@ static void widget_instance_render_recursive(
 	if (!widget->visible)
 		return;
 	ui_mouse_note_target(widget, definition, offset);
+	{
+		rectangle2d legend_bounds;
+		if (ui_mouse_key_button(widget) != NONE &&
+			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds))
+			ui_widget_draw_touch_legend(&legend_bounds, clip_rect, alpha_modifier);
+	}
 	/* port: a Custom Edition map's picture, drawn over the whole widget, or
 	the unknown level's frame for a map without one
 	(port/linux/game/custom_edition_maps.c) */

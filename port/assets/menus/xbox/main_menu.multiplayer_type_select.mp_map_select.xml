@@ -58,9 +58,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2" />
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/header_select_map" />
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/a_butn" x="471" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/=accept" x="493" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/b_butn" x="346" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/=cancel" x="368" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/accept" x="493" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/b_butn" x="326" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/cancel" x="348" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/connected/connected_map_select_wrapper" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game main_menu_if_no_history tag_controller_index force_handle_mouse">
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen" />
@@ -195,7 +195,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/replay_level_right_name" type="text" controller="1" left="323" top="115" width="254" height="22" string_list="xbox/main_menu/multiplayer_type_select/mp_map_select/map_list_one_line" string_index="2" font="ui\small_ui" color="#FF2896FF" text_y="3">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

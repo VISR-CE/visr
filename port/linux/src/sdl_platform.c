@@ -9,6 +9,7 @@ mouse state gathered here feeds the controller emulation in xinput_sdl.c
 and the debug keyboard that the game's console reads.
 */
 
+#include "halo_controller_glyphs.h"
 #include "platform.h"
 #include "sdl_platform.h"
 #include "menu_input.h"
@@ -1732,6 +1733,7 @@ void platform_pump_events(void)
 	pthread_mutex_lock(&input_lock);
 	while (SDL_PollEvent(&event))
 	{
+		if (input_state.focused) halo_controller_glyph_input_event(&event);
 		switch (event.type)
 		{
 		case SDL_EVENT_QUIT:

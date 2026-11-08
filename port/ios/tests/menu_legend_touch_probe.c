@@ -36,8 +36,23 @@ static boolean ui_mouse_widget_is_item(struct widget_instance *w) {(void)w;retur
 static void ui_mouse_note_carousel_arrows(struct widget_instance *w,point2d p) {(void)w;(void)p;}
 static long ui_redraw_touch_target_units(void) {return 0;}
 static int __attribute__((unused)) controller_glyph_hidden(short owner,short button) {
- assert(owner==0 && button==1);return hidden;
+ assert(owner==0 && button>=0 && button<4);return hidden;
 }
+typedef float real;
+typedef unsigned int pixel32;
+static int draw_count;
+static rectangle2d drawn_bounds;
+static pixel32 modulate_pixel32_by_real_alpha(pixel32 color, real alpha) {(void)alpha;return color;}
+static void draw_quad(rectangle2d *bounds,pixel32 color) {
+ assert(color==0xff2996ff || color==0xb0102030);
+ if(!draw_count++)drawn_bounds=*bounds;
+ drawn_bounds.x0=MIN(drawn_bounds.x0,bounds->x0);
+ drawn_bounds.x1=MAX(drawn_bounds.x1,bounds->x1);
+ drawn_bounds.y0=MIN(drawn_bounds.y0,bounds->y0);
+ drawn_bounds.y1=MAX(drawn_bounds.y1,bounds->y1);
+}
+/* GEOMETRY */
+/* DRAW */
 /* NOTE */
 /* SEARCH */
 int main(void) {
@@ -62,6 +77,23 @@ int main(void) {
  assert(ui_mouse_target_at(420,455)==target);
  assert(!ui_mouse_target_at(420,390));
  assert(!ui_mouse_target_at(480,427));
+ /* Drawing and hit testing use the identical screen-space rectangle. */
+ rectangle2d visual=definitions[0].bounds;
+ assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&visual));
+ assert(!memcmp(&visual,&target->bounds,sizeof(visual)));
+ ui_widget_draw_touch_legend(&visual,NULL,1);
+ assert(draw_count>0 && !memcmp(&visual,&drawn_bounds,sizeof(visual)));
+ rectangle2d clip={410,360,440,450};draw_count=0;
+ ui_widget_draw_touch_legend(&visual,&clip,1);
+ assert(drawn_bounds.x0>=clip.x0 && drawn_bounds.x1<=clip.x1);
+ assert(drawn_bounds.y0>=clip.y0 && drawn_bounds.y1<=clip.y1);
+ for(int face=0;face<4;face++) {
+  button.button=face;ui_mouse_target_count=0;
+  ui_mouse_note_target(&button,&definitions[0],offset);
+  assert(target->button_index==face);
+  assert(target->bounds.y1-target->bounds.y0>=60);
+ }
+ button.button=1;
  /* Even a short caption receives enough width. */
  definitions[1].bounds.x1=10;ui_mouse_target_count=0;
  ui_mouse_note_target(&button,&definitions[0],offset);

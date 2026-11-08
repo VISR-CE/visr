@@ -127,6 +127,8 @@ def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
 
     source = (ROOT / "source/interface/ui_widget.c").read_text()
     program = (ROOT / "port/ios/tests/menu_legend_touch_probe.c").read_text()
+    program = program.replace("/* GEOMETRY */", block(source, "static boolean ui_mouse_legend_bounds("))
+    program = program.replace("/* DRAW */", block(source, "static void ui_widget_draw_touch_legend("))
     program = program.replace("/* NOTE */", block(source, "static void ui_mouse_note_target("))
     start = source.index("/* the squared distance from a point to a rectangle")
     end = source.index("static boolean ui_mouse_widget_has_focus(", start)

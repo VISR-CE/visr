@@ -6,10 +6,12 @@
 		<on event="back" back="true" />
 		<child widget="xbox/settings/video_settings/header_profile_video_settings" />
 		<child widget="xbox/settings/video_settings/options_menu" />
-		<child widget="xbox/settings/video_settings/a_butn" x="471" y="414" />
-		<child widget="xbox/settings/video_settings/=accept" x="493" y="414" />
-		<child widget="xbox/settings/video_settings/b_butn" x="346" y="414" />
-		<child widget="xbox/settings/video_settings/=cancel" x="368" y="414" />
+		<on event="x" run="port settings defaults" />
+		<on event="y" run="port settings save" back="true" />
+		<child widget="xbox/settings/video_settings/a_butn" x="477" y="414" />
+		<child widget="xbox/settings/video_settings/accept" x="499" y="414" />
+		<child widget="xbox/settings/video_settings/b_butn" x="332" y="414" />
+		<child widget="xbox/settings/video_settings/cancel" x="354" y="414" />
 	</widget>
 	<widget name="xbox/settings/video_settings/header_profile_video_settings" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings">
 	</widget>
@@ -156,22 +158,32 @@
 		<string text="Draw the HUD from the high-res redraws; off\ndraws the game's own pictures." />
 		<string text="Draw text and titles with high-res fonts; off\ndraws the game's own." />
 	</strings>
-	<widget name="xbox/settings/video_settings/button_bar" type="column_list" width="340" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<child widget="xbox/settings/video_settings/button_defaults" x="54" />
-		<child widget="xbox/settings/video_settings/button_ok" x="220" />
+	<widget name="xbox/settings/video_settings/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="xbox/settings/video_settings/button_defaults" x="40" />
+		<child widget="xbox/settings/video_settings/button_ok" x="217" />
 	</widget>
-	<widget name="xbox/settings/video_settings/button_defaults" type="text" text="DEFAULTS" font="ui\large_ui" color="#FF2896FF" width="160" height="26">
+	<widget name="xbox/settings/video_settings/button_defaults" width="153" height="26">
+		<child widget="xbox/settings/video_settings/x_butn" />
+		<child widget="xbox/settings/video_settings/button_defaults_caption" x="21" />
 		<on event="a" run="port settings defaults" />
 		<on event="start" run="port settings defaults" />
+		<on event="x" run="port settings defaults" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/settings/video_settings/button_ok" type="text" text="SAVE" font="ui\large_ui" color="#FF2896FF" width="120" height="26">
+	<widget name="xbox/settings/video_settings/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/settings/video_settings/button_defaults_caption" type="text" text="DEFAULTS" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
+	<widget name="xbox/settings/video_settings/button_ok" width="91" height="26">
+		<child widget="xbox/settings/video_settings/y_butn" />
+		<child widget="xbox/settings/video_settings/button_ok_caption" x="21" />
 		<on event="a" run="port settings save" back="true" />
 		<on event="start" run="port settings save" back="true" />
+		<on event="y" run="port settings save" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
+	<widget name="xbox/settings/video_settings/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
+	<widget name="xbox/settings/video_settings/button_ok_caption" type="text" text="SAVE" font="ui\large_ui" color="#FF2896FF" width="70" height="26" />
 	<widget name="xbox/settings/video_settings/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/video_settings/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/video_settings/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/video_settings/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/video_settings/=cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/video_settings/cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

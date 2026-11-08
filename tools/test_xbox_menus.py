@@ -66,8 +66,8 @@ def test_settings_keep_pc_values_and_handlers():
             e.get('run') for e in output.iter('on') if e.get('run')}
         names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
         # (the About screen's A does nothing: its legend is the way back alone)
-        assert ({'b_butn', '=cancel'} if folder == 'about' else
-                {'a_butn', 'b_butn', '=accept', '=cancel'}) <= names
+        assert ({'b_butn', 'cancel'} if folder == 'about' else
+                {'a_butn', 'b_butn', 'accept', 'cancel'}) <= names
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
@@ -98,11 +98,12 @@ def test_save_is_a_focusable_action_separate_from_a_legend():
         save = next(w for n, w in widgets.items() if n.endswith('/button_ok'))
         # ui_mouse_key_button posts A to the existing focus; a SAVE item must
         # get the normal item target, which focuses it before posting A.
-        assert save.get('type') == 'text'
-        assert save.get('text') == 'SAVE'
-        assert not save.findall('child')
+        assert save.get('type') is None
+        caption = widgets[next(c.get('widget') for c in save.findall('child') if c.get('widget').endswith('_caption'))]
+        assert caption.get('text') == 'SAVE'
+        assert len(save.findall('child')) == 2
         assert save.find('on[@event="a"][@back="true"]') is not None
-        accept = next(w for n, w in widgets.items() if n.endswith('/=accept'))
+        accept = next(w for n, w in widgets.items() if n.endswith('/accept'))
         assert accept.get('text') == 'SELECT'
 
 
@@ -268,7 +269,7 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
-    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 310), (284, 310), (356, 310), (372, 310)]
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(244, 310), (260, 310), (356, 310), (372, 310)]
     children = bar.findall('child')
     assert children[0].get('widget') == 'xbox/error/confirm_delete_profile/b_butn'
     assert children[2].get('widget') == 'xbox/error/confirm_delete_profile/a_butn'
@@ -404,8 +405,8 @@ def test_browser_buttons_draw_map_art_with_shipped_fallbacks():
     screen = widgets['join_game_screen']
     positions = {c.get('widget').rsplit('/', 1)[-1]: int(c.get('x', 0))
                  for c in screen.findall('child')}
-    items = [('x_butn', 'join_game_button_refresh'), ('y_butn', '=create'),
-             ('b_butn', '=cancel'), ('a_butn', '=accept')]
+    items = [('x_butn', 'join_game_button_refresh'), ('y_butn', 'create'),
+             ('b_butn', 'cancel'), ('a_butn', 'accept')]
     gaps, previous_end = [], None
     for icon, caption in items:
         assert positions[caption] - positions[icon] == 21
@@ -583,7 +584,7 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
                for s in ET.parse(path).iter('strings')}
     assert strings[text.get('string_list')][int(text.get('string_index'))].get('text').replace(r'\n', ' ') == (
         'This game allows more players than this device runs smoothly. Join anyway?')
-    for icon, caption, emitted in (('b', '=CANCEL', 'back'), ('a', '=OK', 'accept')):
+    for icon, caption, emitted in (('b', 'CANCEL', 'back'), ('a', 'OK', 'accept')):
         assert widgets[f'{base}/{icon}_butn'].get('bitmap') == f'xbox/browser/{icon}_butn_sm'
         label = widgets[f'{base}/{icon}_caption']
         assert label.get('text') == caption
@@ -802,3 +803,131 @@ def test_merged_rows_and_bindings():
             assert int(rows[-1].get('y')) == 193
         assert all(not any(w.get('name').endswith('/' + name) for w in widgets.values())
                    for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))
+
+
+def test_settings_legends_have_global_button_bindings():
+    for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        root = ET.parse(path).getroot()
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
+        for button, target in (('x', 'button_defaults'), ('y', 'button_ok')):
+            action = next(w for name, w in widgets.items() if name.endswith('/' + target))
+            handler = action.find(f'on[@event="{button}"]')
+            assert handler is not None, (path, button)
+            global_handler = screen.find(f'on[@event="{button}"]')
+            assert global_handler is not None
+            assert global_handler.get('run') == handler.get('run')
+            assert global_handler.get('back') == handler.get('back')
+            assert any(name.endswith('/' + button + '_butn') for name in widgets)
+            for event in ('a', 'start'):
+                assert action.find(f'on[@event="{event}"]').get('run') == handler.get('run')
+
+
+def test_generated_menu_text_and_names_do_not_contain_equals():
+    for path in (MENUS / 'xbox').glob('*.xml'):
+        for element in ET.parse(path).iter():
+            for attr in ('text', 'name', 'widget'):
+                assert '=' not in element.get(attr, ''), (path, element.attrib)
+
+
+def test_legend_touch_rectangles_fit_without_overlapping():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    def origin(name, seen=()):
+        assert name not in seen
+        for widget in widgets.values():
+            for c in widget.findall('child'):
+                if c.get('widget') == name:
+                    px, py = origin(widget.get('name'), (*seen, name))
+                    return px + int(c.get('x', 0)), py + int(c.get('y', 0))
+        return 0, 0
+
+    count = 0
+    for parent in widgets.values():
+        children = parent.findall('child')
+        rectangles = []
+        for icon in children:
+            name = icon.get('widget')
+            if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn'):
+                continue
+            art = widgets[name]
+            x, y = int(icon.get('x', 0)), int(icon.get('y', 0))
+            right = x + int(art.get('width', 0))
+            labels = [c for c in children if widgets[c.get('widget')].get('type') == 'text'
+                      and int(c.get('y', 0)) == y and 0 <= int(c.get('x', 0)) - right < 17]
+            assert len(labels) == 1, name
+            label = labels[0]
+            end = int(label.get('x')) + int(widgets[label.get('widget')].get('width'))
+            # The C helper pads by eight horizontally and centers a 60-unit height.
+            width = max(60, end - x + 16)
+            parent_x, parent_y = origin(parent.get('name'))
+            x += parent_x
+            end += parent_x
+            y += parent_y
+            rect = (x - (width - (end - x)) // 2, y - 17, x - (width - (end - x)) // 2 + width, y + 43)
+            assert 0 <= rect[0] < rect[2] <= 640, (name, rect)
+            assert 0 <= rect[1] < rect[3] <= 480, (name, rect)
+            for previous in rectangles:
+                assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (name, rect, previous)
+            rectangles.append(rect)
+            count += 1
+    assert count > 40
+
+
+def test_settings_footer_focus_only_visits_actions():
+    for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
+        bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
+        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults', 'button_ok']
+        for placement in bar.findall('child'):
+            action = widgets[placement.get('widget')]
+            assert action.find('on[@event="a"]') is not None
+            assert len(action.findall('child')) == 2
+
+
+def test_every_legend_button_has_a_key_and_action():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    parents = {}
+    for name, widget in widgets.items():
+        for c in widget.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+
+    def ancestors(name, seen):
+        if name in seen:
+            return
+        seen.add(name)
+        for parent in parents.get(name, []):
+            ancestors(parent, seen)
+
+    def descendants(name, seen):
+        if name in seen:
+            return
+        seen.add(name)
+        for c in widgets[name].findall('child'):
+            if c.get('widget') in widgets:
+                descendants(c.get('widget'), seen)
+
+    header = (ROOT / 'port/linux/include/halo_controller_glyphs.h').read_text()
+    import re
+    keys = dict((int(button), label) for button, label in
+                re.findall(r'X\((\d+), SDL_SCANCODE_\w+, "([^"]+)"\)', header))
+    buttons = dict(a=0, b=1, x=2, y=3)
+    count = 0
+    for name in widgets:
+        leaf = name.rsplit('/', 1)[-1]
+        if leaf not in tuple(button + '_butn' for button in buttons):
+            continue
+        button = leaf[0]
+        assert keys[buttons[button]]
+        family = set()
+        ancestors(name, family)
+        graph = set()
+        for root in family:
+            if not parents.get(root):
+                descendants(root, graph)
+        events = {event.get('event') for n in graph for event in widgets[n].findall('on')}
+        # B without a screen-specific handler uses the engine's built-in back action.
+        assert button in events or button == 'b', name
+        count += 1
+    assert count > 40

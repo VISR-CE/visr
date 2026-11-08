@@ -163,7 +163,7 @@ def test_delete_confirmations_finish_both_edit_flows():
             assert cancel.get('run') == 'cancel profile delete' and cancel.get('back') == 'true'
         assert not any('button_bar' in c.get('widget', '') for c in modal.findall('child'))
         panel = widgets[f'xbox/error/confirm_delete_{kind}']
-        for button, caption in (('a', '=OK'), ('b', '=CANCEL')):
+        for button, caption in (('a', 'OK'), ('b', 'CANCEL')):
             icon = f'xbox/error/confirm_delete_{kind}/{button}_butn'
             assert panel.find(f'child[@widget="{icon}"][@y="310"]') is not None
             assert widgets[icon].get('bitmap') == f'xbox/browser/{button}_butn_sm'

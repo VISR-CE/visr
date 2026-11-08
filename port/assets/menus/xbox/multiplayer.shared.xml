@@ -177,18 +177,18 @@
 	<widget name="xbox/error/confirm_delete_profile" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/confirm_delete_profile_text_box" x="192" y="176" />
 		<child widget="xbox/error/header_warning" x="201" y="180" />
-		<child widget="xbox/error/confirm_delete_profile/b_butn" x="268" y="310" />
-		<child widget="xbox/error/confirm_delete_profile/b_caption" x="284" y="310" />
+		<child widget="xbox/error/confirm_delete_profile/b_butn" x="244" y="310" />
+		<child widget="xbox/error/confirm_delete_profile/b_caption" x="260" y="310" />
 		<child widget="xbox/error/confirm_delete_profile/a_butn" x="356" y="310" />
 		<child widget="xbox/error/confirm_delete_profile/a_caption" x="372" y="310" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile_text_box" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
 	<widget name="xbox/error/confirm_delete_profile/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
-	<widget name="xbox/error/confirm_delete_profile/b_caption" type="text" text="=CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_delete_profile/b_caption" type="text" text="CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
-	<widget name="xbox/error/confirm_delete_profile/a_caption" type="text" text="=OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_delete_profile/a_caption" type="text" text="OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_gametype_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
@@ -201,18 +201,18 @@
 	<widget name="xbox/error/confirm_delete_gametype" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/confirm_delete_gametype_text_box" x="192" y="176" />
 		<child widget="xbox/error/header_warning" x="201" y="180" />
-		<child widget="xbox/error/confirm_delete_gametype/b_butn" x="268" y="310" />
-		<child widget="xbox/error/confirm_delete_gametype/b_caption" x="284" y="310" />
+		<child widget="xbox/error/confirm_delete_gametype/b_butn" x="244" y="310" />
+		<child widget="xbox/error/confirm_delete_gametype/b_caption" x="260" y="310" />
 		<child widget="xbox/error/confirm_delete_gametype/a_butn" x="356" y="310" />
 		<child widget="xbox/error/confirm_delete_gametype/a_caption" x="372" y="310" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_gametype_text_box" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
 	<widget name="xbox/error/confirm_delete_gametype/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
-	<widget name="xbox/error/confirm_delete_gametype/b_caption" type="text" text="=CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_delete_gametype/b_caption" type="text" text="CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_gametype/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
-	<widget name="xbox/error/confirm_delete_gametype/a_caption" type="text" text="=OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_delete_gametype/a_caption" type="text" text="OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/error/confirm_join_big_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
@@ -225,18 +225,18 @@
 	<widget name="xbox/error/confirm_join_big" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/confirm_join_big_text_box" x="192" y="176" />
 		<child widget="xbox/error/header_warning" x="201" y="180" />
-		<child widget="xbox/error/confirm_join_big/b_butn" x="268" y="310" />
-		<child widget="xbox/error/confirm_join_big/b_caption" x="284" y="310" />
+		<child widget="xbox/error/confirm_join_big/b_butn" x="244" y="310" />
+		<child widget="xbox/error/confirm_join_big/b_caption" x="260" y="310" />
 		<child widget="xbox/error/confirm_join_big/a_butn" x="356" y="310" />
 		<child widget="xbox/error/confirm_join_big/a_caption" x="372" y="310" />
 	</widget>
 	<widget name="xbox/error/confirm_join_big_text_box" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" string_list="xbox/strings/displayed_error_messages" string_index="60" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
 	<widget name="xbox/error/confirm_join_big/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
-	<widget name="xbox/error/confirm_join_big/b_caption" type="text" text="=CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_join_big/b_caption" type="text" text="CANCEL" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/error/confirm_join_big/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
-	<widget name="xbox/error/confirm_join_big/a_caption" type="text" text="=OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_join_big/a_caption" type="text" text="OK" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<strings name="xbox/strings/displayed_error_messages">
