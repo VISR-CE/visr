@@ -239,10 +239,10 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/lobby_button_share/caption" type="text" text="SHARE" font="ui\small_ui" color="#FF2896FF" width="55" height="26" />
 	<bitmap name="xbox/browser/white_butn">
-		<frame png="xbox/art/none.png" width="21" height="26" />
+		<frame png="xbox/art/none.png" width="512" height="256" />
 	</bitmap>
 	<bitmap name="xbox/browser/black_butn">
-		<frame png="xbox/art/none.png" width="21" height="26" />
+		<frame png="xbox/art/none.png" width="512" height="256" />
 	</bitmap>
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_join/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" text="JOIN GAME" />
 	<widget name="xbox/main_menu/multiplayer_type_select/lobby/preview_button_bar/preview_button_join/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />

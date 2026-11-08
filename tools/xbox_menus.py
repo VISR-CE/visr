@@ -837,7 +837,7 @@ def lobby_action_layout(root):
     # without Xbox art. No SF Symbol images are packaged with the menus.
     for button in ('white', 'black'):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{button}_butn')
-        ET.SubElement(bitmap, 'frame', png=NONE_PNG, width='21', height='26')
+        ET.SubElement(bitmap, 'frame', png=NONE_PNG, width='512', height='256')
 
 
 def action_bar_legends(documents):
