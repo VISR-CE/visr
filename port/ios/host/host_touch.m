@@ -10,6 +10,7 @@
 #include "host_touch_latch.h"
 #include "host_touch_controller.h"
 #include "host_menu_pointer.h"
+#include "host_audio_output.h"
 
 static struct host_touch_replay_gate replay_gate;
 static void touch_replay_ui_update(void);
@@ -115,8 +116,24 @@ int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
          SDL_GetGamepadButton(SDL_GetGamepadFromID(primary_hardware),button));
 }
 void host_ios_touch_frame(void) {
-    for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)host_touch_latch_frame(&button_latches[i]);
-    for(int i=0;i<2;i++)host_touch_latch_frame(&trigger_latches[i]);
+    /* The game's input waits under a share sheet or the audio output panel;
+       a tap made there must not reach the game when it closes. */
+    if(host_window_up() || host_audio_output_up()) {
+        for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)atomic_store(&button_latches[i].state,0);
+        for(int i=0;i<2;i++)atomic_store(&trigger_latches[i].state,0);
+        return;
+    }
+    /* Under a pause menu, presses the menu does not read are dropped too, so
+       fire or reload tapped there does not act when the menu closes. */
+    int menu=touch_menu_up();
+    for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++) {
+        if(menu && !touch_menu_button(i))atomic_store(&button_latches[i].state,0);
+        else host_touch_latch_frame(&button_latches[i]);
+    }
+    for(int i=0;i<2;i++) {
+        if(menu)atomic_store(&trigger_latches[i].state,0);
+        else host_touch_latch_frame(&trigger_latches[i]);
+    }
 }
 void host_ios_touch_reset(void) {
     for(int i=0;i<SDL_GAMEPAD_BUTTON_COUNT;i++)atomic_store(&button_latches[i].state,0);
