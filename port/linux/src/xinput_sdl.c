@@ -646,6 +646,7 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	if (k[SDL_SCANCODE_LEFT]) pad->wButtons |= XINPUT_GAMEPAD_DPAD_LEFT;
 	if (k[SDL_SCANCODE_RIGHT]) pad->wButtons |= XINPUT_GAMEPAD_DPAD_RIGHT;
 	if (k[SDL_SCANCODE_F1]) pad->wButtons |= XINPUT_GAMEPAD_BACK;
+	if (k[HALO_GLYPH_MENU_WILDCARD_SCANCODE]) pad->wButtons |= XINPUT_GAMEPAD_LEFT_THUMB;
 
 	/* (escape backs out, as backspace does: the pause menu's B resumes the
 	game, the main menu's asks to quit; Start would choose, as A does) */

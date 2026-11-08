@@ -6077,6 +6077,7 @@ static short ui_mouse_key_button(
 		{ "y_butn", _gamepad_analog_button_y },
 		{ "black_butn", _gamepad_analog_button_black },
 		{ "white_butn", _gamepad_analog_button_white },
+		{ "left_thumb_butn", _gamepad_binary_button_left_thumb },
 		{ "start_butn", _gamepad_binary_button_start },
 		{ "back_butn", _gamepad_binary_button_back },
 	};

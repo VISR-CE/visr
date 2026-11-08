@@ -120,7 +120,7 @@ int main(void) {
  assert(halo_controller_glyph_request(0,-1,2,label,sizeof(label))==2 && !strcmp(label,"pad.22"));
  event.type=SDL_EVENT_KEY_DOWN;event.key.repeat=0;
  halo_controller_glyph_input_event(&event);
- for(int face=0;face<6;face++) {
+ for(int face=0;face<4;face++) {
   assert(halo_controller_glyph_request(0,-1,face,label,sizeof(label))==3);
   assert(!strcmp(label,halo_glyph_menu_key(face)));
  }

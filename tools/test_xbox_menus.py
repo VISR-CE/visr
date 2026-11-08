@@ -864,7 +864,7 @@ def test_legend_touch_rectangles_fit_without_overlapping():
         rectangles = []
         for icon in children:
             name = icon.get('widget')
-            if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn', 'white_butn', 'black_butn'):
+            if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn', 'left_thumb_butn'):
                 continue
             art = widgets[name]
             x, y = int(icon.get('x', 0)), int(icon.get('y', 0))
@@ -932,7 +932,8 @@ def test_every_legend_button_has_a_key_and_action():
     import re
     keys = dict((int(button), label) for button, label in
                 re.findall(r'X\((\d+), SDL_SCANCODE_\w+, "([^"]+)"\)', header))
-    buttons = dict(a=0, b=1, x=2, y=3, black=4, white=5)
+    buttons = dict(a=0, b=1, x=2, y=3, left_thumb=14)
+    keys[14] = 'R'
     count = 0
     for name in widgets:
         leaf = name.rsplit('/', 1)[-1]
@@ -956,15 +957,16 @@ def test_every_legend_button_has_a_key_and_action():
 def test_lobby_actions_have_distinct_live_shortcuts_and_glyphs():
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.lobby.xml')
     widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
-    expected = {'team': 'white', 'start': 'x', 'add': 'black', 'leave': 'b', 'share': 'y'}
+    expected = {'start': 'a', 'team': 'x', 'add': 'y', 'leave': 'b', 'share': 'left_thumb'}
     screen = widgets['lobby_screen']
     for action, button in expected.items():
         target = widgets['lobby_button_' + action]
         assert target.get('type') != 'text', action
         assert target.find(f'on[@event="{button}"]') is not None, action
         assert any(c.get('widget').endswith('/' + button + '_butn') for c in target.findall('child'))
-        assert screen.find(f'on[@event="{button}"]') is not None
-    assert len({screen.find(f'on[@event="{button}"]').get('run') for button in expected.values()}) == 5
+        if action != 'start':  # A acts on the focused button only
+            assert screen.find(f'on[@event="{button}"]') is not None
+    assert len({screen.find(f'on[@event="{b}"]').get('run') for a, b in expected.items() if a != 'start'}) == 4
     assert not any('/legend/' in c.get('widget') for c in screen.findall('child'))
     assert screen.find('on[@event="start"][@run="port lobby join"]') is not None
 

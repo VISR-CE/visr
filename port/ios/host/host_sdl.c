@@ -638,8 +638,8 @@ int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, c
 		if (!strcmp(family, "xbox"))
 		{
 			/* These action-row buttons have no packaged Xbox bitmap. */
-			if (menus && (physical == 4 || physical == 5))
-				symbol = physical == 5 ? "l1.rectangle.roundedbottom" : "r1.rectangle.roundedbottom";
+			if (menus && physical == 14)
+				symbol = "l.joystick.press.down";
 			else return HALO_GLYPH_ORIGINAL;
 		}
 		if (!strcmp(family, "touch")) return HALO_GLYPH_HIDDEN;
@@ -676,8 +676,8 @@ int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, c
 		SDL_GamepadType type = SDL_GetGamepadType(pad);
 		if (type == SDL_GAMEPAD_TYPE_XBOX360 || type == SDL_GAMEPAD_TYPE_XBOXONE)
 		{
-			if (menus && (physical == 4 || physical == 5))
-				symbol = physical == 5 ? "l1.rectangle.roundedbottom" : "r1.rectangle.roundedbottom";
+			if (menus && physical == 14)
+				symbol = "l.joystick.press.down";
 			else return HALO_GLYPH_ORIGINAL;
 		}
 		else symbol = halo_glyph_is_axis(physical)

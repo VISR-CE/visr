@@ -11,9 +11,9 @@ def test_menu_button_keys_match_the_keycap_labels():
     assert rows == [('0', 'SDL_SCANCODE_RETURN', 'Enter'),
                     ('1', 'SDL_SCANCODE_ESCAPE', 'Escape'),
                     ('2', 'SDL_SCANCODE_E', 'E'),
-                    ('3', 'SDL_SCANCODE_TAB', 'Tab'),
-                    ('4', 'SDL_SCANCODE_R', 'R'),
-                    ('5', 'SDL_SCANCODE_Q', 'Q')]
+                    ('3', 'SDL_SCANCODE_TAB', 'Tab')]
+    assert 'HALO_GLYPH_MENU_WILDCARD_SCANCODE SDL_SCANCODE_R' in header
+    assert 'case 14: return "R";' in header
     source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
     assert 'HALO_GLYPH_MENU_BINDINGS(MENU_SCANCODE)' in source
     assert 'halo_glyph_menu_key(physical)' in source

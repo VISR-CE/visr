@@ -799,14 +799,16 @@ def lobby_action_layout(root):
     for c in list(bar):
         bar.remove(c)
     for e in list(screen.findall('on')):
-        if e.get('event') in ('x', 'y', 'white'):
+        if e.get('event') in ('x', 'y', 'white', 'black', 'left_thumb'):
             screen.remove(e)
+    # Button roles: A the main action, B back, Y create, X miscellaneous, and
+    # the left stick click the fifth action. Never Black or White.
     actions = (
-        ('team', 'white', 'SWITCH TEAM', 20, 100, 'swap player team'),
-        ('start', 'x', 'START NOW', 162, 90, 'net game speed start'),
-        ('add', 'black', 'ADD PLAYER', 294, 100, 'port lobby add player'),
+        ('start', 'a', 'START NOW', 20, 90, 'net game speed start'),
+        ('team', 'x', 'SWITCH TEAM', 152, 100, 'swap player team'),
+        ('add', 'y', 'ADD PLAYER', 294, 100, 'port lobby add player'),
         ('leave', 'b', 'LEAVE', 436, 50, 'port lobby leave'),
-        ('share', 'y', 'SHARE', 528, 55, 'port lobby share'),
+        ('share', 'left_thumb', 'SHARE', 528, 55, 'port lobby share'),
     )
     for action, button, caption, x, width, run in actions:
         name = base + '/lobby_button_' + action
@@ -831,13 +833,12 @@ def lobby_action_layout(root):
         for event in dict.fromkeys(('a', button, 'start') if action != 'share' else ('a', button)):
             ET.SubElement(target, 'on', event=event, **attrs)
         ET.SubElement(target, 'on', event='left_mouse', run='mouse emit accept event')
-        if button != 'b':  # B already leaves, including the engine's Back alternative.
+        if button not in ('a', 'b'):  # A acts on the focused button; B already leaves.
             ET.SubElement(screen, 'on', event=button, **attrs)
-    # Runtime controller symbols supply these two buttons, including maps
+    # Runtime controller symbols supply the left stick click, including maps
     # without Xbox art. No SF Symbol images are packaged with the menus.
-    for button in ('white', 'black'):
-        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{button}_butn')
-        ET.SubElement(bitmap, 'frame', png=NONE_PNG, width='512', height='256')
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/left_thumb_butn')
+    ET.SubElement(bitmap, 'frame', png=NONE_PNG, width='512', height='256')
 
 
 def action_bar_legends(documents):
@@ -870,9 +871,23 @@ def action_bar_legends(documents):
             continue
         root = owners[name]
         forward = 0
+        used, primary_used = set(), False
         for index, (placement, original) in enumerate(zip(placements, actions)):
             cancel = original.get('name').rsplit('/', 1)[-1].endswith(('_cancel', '_back'))
-            button = 'b' if cancel else ('x', 'y')[forward]
+            leaf_name = original.get('name').rsplit('/', 1)[-1]
+            # Button roles: A the main action, Y creating something, X anything
+            # else, the left stick click a fifth action. Never Black or White.
+            if cancel:
+                button = 'b'
+            elif any(w in leaf_name for w in ('create', 'add', 'new')):
+                button = 'y'
+            elif not primary_used and any(w in leaf_name for w in ('ok', 'join', 'start')):
+                button, primary_used = 'a', True
+            elif 'x' not in used:
+                button = 'x'
+            else:
+                button = 'left_thumb'
+            used.add(button)
             if not cancel:
                 forward += 1
             # Keep the original action name and event context under a unique
@@ -897,7 +912,7 @@ def action_bar_legends(documents):
             handlers = [e for e in original.findall('on') if e.get('event') == 'a']
             # X/Y shortcuts invoke the same actions as accepting the focused
             # button. B retains the engine's standard back behavior.
-            if not cancel:
+            if not cancel and button != 'a':  # A already accepts the focused button.
                 shortcuts = []
                 for handler in handlers:
                     shortcut = deepcopy(handler)

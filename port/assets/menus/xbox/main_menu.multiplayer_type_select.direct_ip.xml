@@ -29,7 +29,6 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_menu" />
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/a_butn" x="471" y="430" />
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/accept" x="493" y="430" />
-		<on event="x" run="direct ip connect go" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/direct_ip/header_direct_ip">
 	</widget>
@@ -58,14 +57,13 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options" string_index="4" />
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="direct ip connect go" />
 		<on event="start" run="direct ip connect go" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/x_butn" />
+		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/a_butn" />
 		<child widget="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/caption" x="21" />
-		<on event="x" run="direct ip connect go" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/common_button_cancel/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="2" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/common_button_cancel/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
