@@ -7,6 +7,8 @@ host_guest_halt
 host_map_load_failed
 host_exit
 host_development_hooks
+host_photo_mode_available
+host_photo_mode_overlay
 host_benchmark_start
 host_benchmark_next
 host_benchmark_phase

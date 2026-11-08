@@ -23,6 +23,7 @@ and the debug keyboard that the game's console reads.
 #include "halo_internet.h"
 #include "xiso.h"
 #include "../game/text_filter.h"
+#include "../game/photo_mode.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -556,7 +557,7 @@ int halo_interpolation_enabled(void)
 		read_at = config_changes();
 		enabled = config_boolean("display.interpolation");
 	}
-	return enabled;
+	return enabled && !photo_mode_active();
 }
 
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
@@ -1777,6 +1778,35 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
+#ifdef HALO_ILP32
+			/* port: host_photo_mode_available admits only the development AppKit host. */
+			{
+				static unsigned char held[SDL_SCANCODE_COUNT];
+				int key = event.key.scancode, action = 0;
+				switch (key)
+				{
+				case SDL_SCANCODE_F6: action = PHOTO_TOGGLE; break;
+				case SDL_SCANCODE_F7: action = PHOTO_GUIDES; break;
+				case SDL_SCANCODE_F10: action = PHOTO_SAVE; break;
+				case SDL_SCANCODE_F5: action = PHOTO_LOAD; break;
+				case SDL_SCANCODE_F4: action = PHOTO_RENDER_CHECK; break;
+				case SDL_SCANCODE_LEFTBRACKET: action = PHOTO_SLOWER; break;
+				case SDL_SCANCODE_RIGHTBRACKET: action = PHOTO_FASTER; break;
+				case SDL_SCANCODE_MINUS: action = PHOTO_FOV_DOWN; break;
+				case SDL_SCANCODE_EQUALS: action = PHOTO_FOV_UP; break;
+				}
+				if (key > 0 && key < SDL_SCANCODE_COUNT && held[key])
+				{
+					if (!event.key.down) held[key] = 0;
+					break;
+				}
+				if (action && event.key.down && !event.key.repeat && !(event.key.mod & (SDL_KMOD_GUI | SDL_KMOD_CTRL | SDL_KMOD_ALT)) && photo_mode_key(action))
+				{
+					held[key] = 1;
+					break;
+				}
+			}
+#endif
 			if (event.key.down && !event.key.repeat)
 			{
 				if (key_counts_as_press(event.key.scancode, event.key.mod))

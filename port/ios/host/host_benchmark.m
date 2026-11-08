@@ -78,6 +78,26 @@ int host_development_hooks(void)
 #endif
 }
 
+/* Photo controls are compiled out of distribution hosts, regardless of config. */
+int host_photo_mode_available(void)
+{
+#if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
+    return 1;
+#else
+    return 0;
+#endif
+}
+
+void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y)
+{
+#if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
+    extern void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
+    host_macos_photo_overlay(fov, speed, guides, focus_x, focus_y);
+#else
+    (void)fov; (void)speed; (void)guides; (void)focus_x; (void)focus_y;
+#endif
+}
+
 static double window_wall_cap(void);
 
 static os_unfair_lock lock = OS_UNFAIR_LOCK_INIT;

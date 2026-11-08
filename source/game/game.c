@@ -118,6 +118,8 @@ struct game_options;
 
 /* ---------- headers */
 
+/* port: restore the framing session before engine subsystems tear down. */
+#include "photo_mode.h"
 #include "cseries/cseries.h"
 #include "game/game.h"
 #include "ai/ai.h"
@@ -1007,6 +1009,7 @@ void game_precache_new_map(
 void game_dispose_from_old_map(
 	void)
 {
+	photo_mode_end();
 	rasterizer_dispose_from_old_map();
 	game_state_dispose_from_old_map();
 	cheats_dispose_from_old_map();

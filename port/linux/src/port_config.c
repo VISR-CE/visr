@@ -576,6 +576,8 @@ static const struct config_setting config_settings[] =
 		"With input.laser = \"close\": how near the reticle's surface is, in\n"
 		"meters from the eyes (1 to 20), for the line to show. It fades in over\n"
 		"the last half meter inside this distance." },
+	{ "debug.photo_mode", _config_boolean, "false", "HALO_PHOTO_MODE", _environment_value, _platform_all,
+		"Enable developer map framing controls in the development AppKit Mac host." },
 	{ "debug.test_controller", _config_string, "\"\"", "HALO_TEST_CONTROLLER", _environment_value, _platform_ios,
 		"A synthetic right Sense controller in place of the real ones, to check\n"
 		"controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\"\n"

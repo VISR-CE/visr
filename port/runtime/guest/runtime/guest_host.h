@@ -45,6 +45,8 @@ void host_touch_replay_active(int active);
 
 /* 1 when the host target was built with development hooks, otherwise 0. */
 int host_development_hooks(void);
+int host_photo_mode_available(void);
+void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
 
 /* performs a Linux system call on the guest's behalf, converting the
 structures whose layout differs; returns the raw result (-errno on failure) */

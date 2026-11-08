@@ -346,6 +346,7 @@ the setting for one start of the game. It has priority over the file.
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
+| `debug.photo_mode` | boolean | `false` | apple, desktop | `HALO_PHOTO_MODE` | Enable developer map framing controls in the development AppKit Mac host. |
 | `debug.test_controller` | string | `""` | apple | `HALO_TEST_CONTROLLER` | A synthetic right Sense controller in place of the real ones, to check controller aim on the Mac and in the simulator: "fixed:<yaw>,<pitch>" holds it still in the room at those degrees from the room's forward (yaw right, pitch up positive; "fixed:30,0"), "sweep" turns it 30 degrees each way over 4 s, and "loss:<seconds>" holds it at fixed:0,0 but untracked for that long every 10 s, then orientation-only as long (up to 5). |
 | `debug.controller_record` | string | `""` | apple | `HALO_CONTROLLER_RECORD` | Write every pose sample the host hands the game (both hands, the buttons, the head's yaw) to NAME.poses in the data folder (a headset's Documents folder), flushed once a second. |
 | `debug.controller_replay` | string | `""` | apple | `HALO_CONTROLLER_REPLAY` | Answer the game's pose samples from NAME.poses (debug.controller_record) instead of the controllers or debug.test_controller, each kind in its own order, holding the last at the end; works on any host. |

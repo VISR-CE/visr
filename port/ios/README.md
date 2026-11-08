@@ -790,3 +790,38 @@ The iPhone/iPad display path follows Apple's
 [connected-display lifecycle](https://developer.apple.com/documentation/uikit/presenting-content-on-a-connected-display).
 Audio selection uses the system's
 [route picker](https://developer.apple.com/documentation/avkit/avroutepickerview).
+
+### Debug map photo mode (AppKit Mac)
+
+In a development AppKit build, set `debug.photo_mode = true` in `config.toml`,
+then load a local map. F6 enters or exits photo mode. Entering hides the HUD,
+disables player input, erases AI, removes letterboxing, and freezes simulation
+after 30 ticks. Exiting restores the camera, HUD, input, cinematic state, and
+game speed, including the original BSP after a load switches it. AI and deleted projectiles cannot be restored: reload the map to play.
+
+Hold the right mouse button or Tab to use the existing flying camera: mouse
+look, W/A/S/D to move, R/F to rise or descend. Roll stays level. `[` and `]`
+change speed by powers of two (steps −4 through 4); `-` and `=` change FOV by
+0.02 radians within 0.2–2.6. The screen shows FOV in radians and degrees and the
+speed step. F7 toggles guides: white 2:1 master, yellow 1.23:1 safe region, and
+a dashed cyan D crop. The D crop assumes a square centered on the saved focus,
+clamped inside the master. These AppKit guides sit outside the Metal drawable
+and are absent from engine captures.
+
+F10 writes a numeric fragment under the data folder's `framings/<map key>.json`
+with the next revision and also calls `debug_camera_save` to write `camera.txt`.
+Stock maps use their lowercase scenario names; custom maps use their file's
+BLAKE2b hash. F5 loads the first saved shot, or `camera.txt` when a fragment does
+not exist. Loads validate the BSP index, switch to it, and reject positions outside its
+bounds, restoring the previous BSP on rejection. Saves also check BSP bounds. Loading keeps roll lock on.
+The fragment records the current game variant and defaults to 30 settle ticks,
+erased AI, center focus, and `[0.19, 0, 0.81, 1]` safe bounds. F4 logs the render
+check stub; offscreen renders and preview stills are deferred to the render path.
+
+Validate or merge fragments with `python3 tools/map_framing.py validate PATH`
+and `python3 tools/map_framing.py merge --into port/assets/map-framings.json
+FRAGMENT...`. Revisions must rise unless `--force` is supplied. To convert an
+engine camera file, use `python3 tools/map_framing.py import-camera --map
+stock:example --format visr CAMERA_FILE` and redirect stdout to a fragment.
+`halopc` uses the same layout; `h1aek` provisionally assumes it until a sample
+confirms the format. `--fov RADIANS` overrides the file's FOV.

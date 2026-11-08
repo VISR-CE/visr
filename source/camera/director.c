@@ -128,6 +128,8 @@ symbols in this file:
 #include "following_camera.h"
 #include "observer.h"
 #include "orbiting_camera.h"
+/* port: debug-only Mac framing controls. */
+#include "photo_mode.h"
 
 #include "editor/editor_stubs.h"
 #include "game/players.h"
@@ -1027,11 +1029,16 @@ void director_update(
 			director->inhibited_input = FALSE;
 			switch_camera =
 				director_update_controls(local_player_index, &controls);
-			director_choose_camera(
-				local_player_index,
-				director_globals.initialize_camera,
-				switch_camera);
+			/* port: keep the flying camera data while photo mode owns it. */
+			if (local_player_index != 0 || !photo_mode_active())
+				director_choose_camera(
+					local_player_index,
+					director_globals.initialize_camera,
+					switch_camera);
 			director_globals.initialize_camera = FALSE;
+			/* port: the existing flying controls also run while game speed is zero. */
+			if (local_player_index == 0)
+				photo_mode_update(director, &controls.position_delta.i, &controls.facing_delta.roll);
 			csmemset(&command, 0, sizeof(command));
 
 			if (director->camera_proc &&

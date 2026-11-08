@@ -1391,6 +1391,17 @@
     "debug": {
       "type": "object",
       "properties": {
+        "photo_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable developer map framing controls in the development AppKit Mac host.",
+          "x-environment": "HALO_PHOTO_MODE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "test_controller": {
           "type": "string",
           "default": "",

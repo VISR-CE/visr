@@ -32,6 +32,7 @@ a few world units of it: further is a jump). A local player's view glides so
 with their unit, and with what it rides.
 */
 
+#include "photo_mode.h"
 #include "cseries.h"
 #include "math/real_math.h"
 #include "objects/objects.h"
@@ -1038,6 +1039,8 @@ struct observer_result const *render_interpolation_camera(
 
 	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS)
 		return observer;
+	/* port: use the live flying observer throughout the frozen framing session. */
+	if (photo_mode_active()) return observer;
 	camera_note.source = NULL;
 	result = render_interpolation_direct_camera(local_player_index,
 		render_interpolation_blended_camera(local_player_index, observer));
