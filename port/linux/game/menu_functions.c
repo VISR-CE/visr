@@ -4474,11 +4474,11 @@ static void browser_c_controls_update(struct widget_instance *list)
 
 /* The frame rate the device's profile targets in a variable workload, which is what multiplayer and online
 co-op run in, with the player's own display.frame_rate winning as it would in that game. "display" means one
-frame for each refresh, so it is the display's refresh rate where the guest can read it (the Mac) and 60
-elsewhere; "unlimited" has no target, so it also reads as the display's rate. The hold of a large game to 30 fps
+frame for each refresh, so it is what the host says frames aim for at the display's refresh rate (halved in
+Low Power Mode, host_frame_rate_display_target) and 60 where the host cannot tell; "unlimited" has no target, so it also reads as the display's rate. The hold of a large game to 30 fps
 is the reason for the warning, not the target. */
 #ifdef HALO_IOS
-int host_sdl_display_max_fps(void);
+int host_sdl_display_target_fps(void);
 #endif
 static long browser_target_fps(void)
 {
@@ -4491,7 +4491,7 @@ static long browser_target_fps(void)
 	if (*text && !*end && rate >= 30 && rate <= 1000)
 		return rate;
 #ifdef HALO_IOS
-	refresh = host_sdl_display_max_fps();
+	refresh = host_sdl_display_target_fps();
 #else
 	refresh = 0;
 #endif

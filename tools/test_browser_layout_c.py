@@ -47,7 +47,7 @@ static int show_full=1, show_locked=1, show_unjoinable=0;
 static char const *game_type="all", *frame_rate="auto";
 static char const *base_rate="30";   /* the predictable/in-force value: must never be read for the target */
 static int display_refresh=0;
-static int host_sdl_display_max_fps(void) { return display_refresh; }
+static int host_sdl_display_target_fps(void) { return display_refresh; }
 static int config_variable_string(char const *key, char *text, size_t size)
 {
     assert(!strcmp(key,"display.frame_rate")); snprintf(text,size,"%s",frame_rate); return 1;
@@ -159,6 +159,8 @@ int main(void)
     {
         display_refresh=0; frame_rate=open[i]; assert(browser_target_fps()==60);
         display_refresh=120; assert(browser_target_fps()==120);
+        display_refresh=60; assert(browser_target_fps()==60);  /* a 60 Hz display, or 120 Hz halved by Low Power Mode */
+        display_refresh=30; assert(browser_target_fps()==30);  /* 60 Hz halved by Low Power Mode */
     }
     display_refresh=0;
     puts("browser layout C: filters, type chips, incompatibility reasons, empty counts, gameplay target FPS passed");

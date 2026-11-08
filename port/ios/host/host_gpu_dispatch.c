@@ -445,6 +445,20 @@ double host_frame_rate_effective(void)
 	return target;
 }
 
+double host_frame_rate_display_target(void)
+{
+#if !TARGET_OS_VISION
+	double display = low_power.display;
+
+	if (display <= 0.0)
+		return 0.0;
+	/* (Low Power Mode halves what frames aim for at the display's rate: 120 is 60, 60 is 30) */
+	return low_power.state.on ? low_power_cap(0.0, display, host_low_power_display_limited(), 0) : display;
+#else
+	return 0.0;
+#endif
+}
+
 int host_frame_rate_low_power(void)
 {
 #if !TARGET_OS_VISION
