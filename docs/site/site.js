@@ -94,19 +94,14 @@
     if (!clips.length) return;
     clips.forEach(function (clip) {
       showPosterIfStill(clip);
-      var holder = clip.parentElement;
-      var button = document.createElement("button");
-      button.type = "button";
-      button.className = "clip-toggle";
-      button.setAttribute("aria-label", "Pause video");
-      button.addEventListener("click", function () {
-        clip.dataset.userPaused = clip.paused ? "" : "1";
-        if (clip.paused) clip.play().catch(function () {}); else clip.pause();
-      });
-      clip.addEventListener("play", function () { button.setAttribute("aria-label", "Pause video"); button.dataset.state = "playing"; });
-      clip.addEventListener("pause", function () { button.setAttribute("aria-label", "Play video"); button.dataset.state = "paused"; });
-      button.dataset.state = "paused";
-      holder.appendChild(button);
+      // Safari does not always start fetching when preload changes after load, and a play() issued before data
+      // arrives can be rejected; retry once the clip has data, and reload once if the fetch failed.
+      clip.addEventListener("canplay", playVisibleClips);
+      clip.addEventListener("error", function () {
+        if (clip.dataset.retried) return;
+        clip.dataset.retried = "1";
+        setTimeout(function () { clip.load(); playVisibleClips(); }, 1500);
+      }, true);
     });
     if ("IntersectionObserver" in window) {
       var observer = new IntersectionObserver(function (entries) {
@@ -132,12 +127,13 @@
   // visitor has not paused it. Everything else holds still on the poster.
   function playVisibleClips() {
     clips.forEach(function (clip) {
-      if (!clip.dataset.loaded && clip.dataset.onScreen) {
+      if (!clip.dataset.loaded && clip.dataset.onScreen && !reduceMotion.matches) {
         clip.preload = "auto";
+        clip.load();
         clip.dataset.loaded = "1";
       }
       var shown = clip.dataset.onScreen && !clip.closest("[hidden]") && !document.hidden;
-      var wanted = shown && !reduceMotion.matches && !clip.dataset.userPaused;
+      var wanted = shown && !reduceMotion.matches;
       if (wanted && clip.paused) clip.play().catch(function () {});
       else if (!wanted && !clip.paused) clip.pause();
     });

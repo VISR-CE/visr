@@ -155,6 +155,13 @@ body:has(.page-bench, .page-privacy)::before { height: 420px; }
 .platforms .device::after { content: none; }
 .platforms .device :is(img, video) { display: block; width: 100%; height: auto; border: 0; border-radius: 6px; }
 video.media-video { background: #000; }
+/* No native controls or start-playback overlay on the clips; the page starts and stops them itself. */
+video.media-video { pointer-events: none; }
+video.media-video::-webkit-media-controls,
+video.media-video::-webkit-media-controls-panel,
+video.media-video::-webkit-media-controls-overlay-play-button,
+video.media-video::-webkit-media-controls-start-playback-button,
+video.media-video::-webkit-media-controls-play-button { display: none !important; -webkit-appearance: none; opacity: 0; }
 .platforms .device-iphone { padding: 7px 18px; border-radius: 30px; }
 .platforms .device-iphone :is(img, video) { border-radius: 20px; }
 .platforms .device-iphone { width: 100%; }
@@ -178,11 +185,6 @@ video.media-video { background: #000; }
 .platforms .tab[aria-selected="true"] { border-color: var(--hud-blue); color: var(--ink); background: var(--bg); }
 .platforms .tab:hover { background: var(--hud-wash); }
 .platforms.is-tabbed > section { margin-top: 2px; }
-.clip-toggle { position: absolute; bottom: 10px; right: 10px; z-index: 2; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid #3fd6ff; border-radius: 8px; background: #051426e6; color: #3fd6ff; cursor: pointer; opacity: 0; transition: opacity 150ms ease; }
-.clip-toggle::before { content: ""; display: block; width: 14px; height: 18px; border-inline: 5px solid currentColor; }
-.clip-toggle[data-state="paused"]::before { width: 0; height: 0; border: 0; border-top: 9px solid transparent; border-bottom: 9px solid transparent; border-left: 14px solid currentColor; margin-left: 3px; }
-figure:hover > .clip-toggle, figure:focus-within > .clip-toggle, .clip-toggle:focus-visible { opacity: 1; }
-@media (hover: none) { .clip-toggle { opacity: 1; } }
 .foot { max-width: 760px; border-color: var(--hud-blue); font-size: 13px; line-height: 1.65; margin-top: 56px; }
 
 /* Benchmark styling stops at the surrounding shell. */
