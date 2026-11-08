@@ -262,7 +262,7 @@ def test_browser_gauge_text_fits_inside_ring():
     ring_top = positions['server_item_gauge'][1]
     top = positions['server_item_players'][1]
     bottom = positions['server_item_capacity'][1] + int(widgets['server_item_capacity'].get('height'))
-    assert top >= ring_top + 8 and bottom <= ring_top + 42 - 4
+    assert top >= ring_top + 4 and bottom <= ring_top + 42 - 2
     assert abs((top + bottom) / 2 - (ring_top + 21)) <= 2
 
 

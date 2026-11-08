@@ -881,15 +881,15 @@ def browser_layout(root, widgets, bitmaps):
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
         for leaf, x, y in (('type', 6, 9), ('server_name', 48, 7), ('map', 48, 30),
-                           ('gauge', 222, 6), ('players', 226, 15), ('capacity', 226, 26)):
+                           ('gauge', 222, 6), ('players', 226, 11), ('capacity', 226, 27)):
             child(row, base + '/server_item_' + leaf, x=x, y=y)
     for leaf, width, height, font, color, bitmap in (
             ('type', 36, 36, None, None, 'gametype'),
             ('gauge', 42, 42, None, None, 'gauge'),
             ('server_name', 168, 24, 'large', '#ffffff', None),
             ('map', 168, 18, 'small', '#7fc4ff', None),
-            ('players', 34, 11, 'small', '#ffffff', None),
-            ('capacity', 34, 11, 'small', '#7fc4ff', None)):
+            ('players', 34, 16, 'small', '#ffffff', None),
+            ('capacity', 34, 16, 'small', '#7fc4ff', None)):
         attributes = dict(width=width, height=height)
         if font:
             attributes.update(type='text', font='ui\\' + font + '_ui', color=color)
