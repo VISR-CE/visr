@@ -10,6 +10,7 @@
 "not measured yet" = "Not run on this device yet."
 "no unattended console" = "This port has no way to start this suite without a person at the keyboard."
 "no frames in the trace" = "The timing trace held no frames for this window."
+"second split screen player missing" = "The second split-screen player never joined, so the co-op window could not be measured."
 "engine assertion (terminal.c:413)" = "The game halts on an engine assertion during this window."
 "engine assertion (data.c:412)" = "The game halts on an engine assertion when the match starts."
 "co-op level did not start" = "The two-player level did not start without a person at the keyboard."
