@@ -149,6 +149,41 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.14 (2026-11-08)
+
+### Summary
+
+- On iPhone and iPad, tap and drag through the menus. Touching an item highlights it, and lifting your finger without moving taps it.
+- Drag a list to scroll it. Menu taps also work if your finger lands a little off an item.
+- On iPad and Mac, try navigating the menus with a mouse or trackpad, including the scroll wheel, which follows your system's scroll direction.
+- You should feel haptic ticks when an item is highlighted and when you activate it.
+- While a menu is open, the on-screen touch controls shrink to A, B, X, Y, the arrows, and PAUSE.
+- Trackpad clicks in menus should register once, not as both a tap and a click.
+- On iPhone and iPad, benchmark runs should now use the frame rate set for each case, including on 120 Hz displays.
+- The scores screen after a game should now appear without getting stuck waiting.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **touch**: tap and drag the menus on iPhone and iPad, and drive them with a mouse or trackpad — the iOS guest's `halo_ui_pointer_update` was a stub, so the pointer driver in `ui_widget.c` never ran; a UIKit recognizer (`host_menu_pointer.m`, rules in the plain-C `host_menu_pointer.h`) now feeds it through the new `host_ui_pointer_read` import: touch-down focuses, a lift without travel clicks, travel past the slop scrolls the list, a 22 pt reach finds the nearest item, SDL mouse events do the same on iPad and Mac, and the Taptic Engine ticks on focus and taps on activation; the touch controls shrink to A, B, X, Y, the arrows and PAUSE while a menu is up (`VISR_MENU_ACTIVE`), and the letterbox inverse moves to `halo_ui_pointer_map.h`, shared with the desktop build
+
+### fix
+
+- **ios**: a benchmark case's frame rate replaces the profile's scene and workload rate — the variable context's 60 stayed in `frame_context.rate`, so `frame_context_refreshes` held every frame two refreshes on a 120 Hz display while `display.frame_rate` 120 was in force
+- **mac**: hold the mouse through `ui_mouse_hold_update` so `test_ilp32_mouse_capture.py` probes it alone — the backported `halo_ui_pointer_update` pulled the host pointer types into the probe's stub; the hold request moves to its own function, as on main
+- **touch**: menu pointer review fixes and a scripted pointer for runs with no finger — `d3d8_device.c` includes `halo_host_pointer.h` only in the iOS guest branch so the Linux and Windows builds still compile; the scores after a game no longer wait for a menu draw that never comes; the recognizer takes direct touches only (a trackpad click was both a tap and an SDL click) and leaves a button's touch to it; the wheel follows the system's scroll direction as the desktop build does; the `VISR_MENU_ACTIVE` hint is noted and applied on the next poll instead of running UIKit under SDL's hint lock; the Mac host forwards replay blocking; haptics follow what the tap did; `HALO_MENU_POINTER_SCRIPT` drives taps, drags, clicks and wheel by fractions of the window, and `test_menu_tap_targets.py` now runs in `ios_test.py` and pins the first-draw gate
+
+### perf
+
+- **shaders**: add one pipeline to the `a10` shader list — the Apple TV 4K (3rd generation) opening campaign interval drew `4c3a0e7d9fdef693.1.0` with pixel shader `7be6a1c242c0a93d`, a pipeline already listed for `ui` and `sidewinder`; its vertex and pixel shader lines come from those known records
+
 ## visr-v0.6.13 (2026-11-07)
 
 ### Summary
