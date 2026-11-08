@@ -9,7 +9,7 @@
         "graphics": {
           "type": "string",
           "default": "enhanced",
-          "description": "The game's look: \"enhanced\" (default) is the original game tastefully enhanced, with ambient occlusion and shadows under props; \"classic\" draws only what the original Xbox drew, at this device's resolution and frame rate, with upscaled textures and a sharp HUD; \"hardcore\" is the original Xbox exactly: 640x480 at 30 frames a second, nothing added. The mode wins over the settings it replaces (port_graphics_modes.h), which keep their values for when it changes back. The picture's size and rate change at the next level.",
+          "description": "The game's look: \"enhanced\" (default) is the original game tastefully enhanced, with ambient occlusion, shadows under props and per-pixel lighting; \"classic\" draws only what the original Xbox drew, at this device's resolution and frame rate, with upscaled textures, a sharp HUD, more room for decals, bodies and particles, and soft particle edges; \"hardcore\" is the original Xbox exactly: 640x480 at 30 frames a second, the Xbox's limits, nothing added. The mode wins over the settings it replaces (port_graphics_modes.h), which keep their values for when it changes back. The picture's size and rate change at the next level.",
           "x-environment": "HALO_GRAPHICS",
           "x-environment-style": "value",
           "x-platforms": [
@@ -153,8 +153,8 @@
         },
         "per_pixel_lighting": {
           "type": "boolean",
-          "default": false,
-          "description": "Light characters, weapons and vehicles per pixel: the game's own lights, colors, ranges and falloff, with its reflection tint and direction, worked out for each pixel instead of at each vertex and blended across the triangle. Metal only. False lights them per vertex, as the Xbox does.",
+          "default": true,
+          "description": "Light characters, weapons and vehicles per pixel: the game's own lights, colors, ranges and falloff, with its reflection tint and direction, worked out for each pixel instead of at each vertex and blended across the triangle. Metal only. False lights them per vertex, as the Xbox does. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
           "x-environment": "HALO_PER_PIXEL_LIGHTING",
           "x-environment-style": "value",
           "x-platforms": [
@@ -164,8 +164,8 @@
         },
         "point_light_highlight": {
           "type": "integer",
-          "default": 0,
-          "description": "With display.per_pixel_lighting: a highlight on shiny surfaces from the two point lights the game already lights each object with (muzzle flashes, plasma, flashlights), in their own color and range, added to the surface's reflection so its own tint and specular mask apply. 0 none; 1 to 4 brighter and broader in turn, 1 the dimmest and tightest.",
+          "default": 2,
+          "description": "With display.per_pixel_lighting: a highlight on shiny surfaces from the two point lights the game already lights each object with (muzzle flashes, plasma, flashlights), in their own color and range, added to the surface's reflection so its own tint and specular mask apply. 0 none; 1 to 4 brighter and broader in turn, 1 the dimmest and tightest; 2 by default.",
           "x-environment": "HALO_POINT_LIGHT_HIGHLIGHT",
           "x-environment-style": "value",
           "x-platforms": [
@@ -219,8 +219,8 @@
         },
         "soft_particles": {
           "type": "boolean",
-          "default": false,
-          "description": "Smoke, dust and plasma fade where they meet the ground and walls instead of cutting a hard line (camera-facing particles; Metal, not in stereo or with multisampling). A spike: off by default.",
+          "default": true,
+          "description": "Smoke, dust and plasma fade where they meet the ground and walls instead of cutting a hard line (camera-facing particles; Metal, not in stereo or with multisampling). Hardcore turns it off (display.graphics).",
           "x-environment": "HALO_SOFT_PARTICLES",
           "x-environment-style": "value",
           "x-platforms": [
@@ -231,7 +231,7 @@
         "effect_limits": {
           "type": "string",
           "default": "raised",
-          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same.",
+          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics).",
           "x-environment": "HALO_EFFECT_LIMITS",
           "x-environment-style": "value",
           "x-platforms": [
@@ -4154,7 +4154,7 @@
         "garbage_limit": {
           "type": "string",
           "default": "raised",
-          "description": "How many bodies and dropped weapons a game keeps before the ones no player sees are removed: \"raised\" (default) four times the Xbox's in a game on this device alone, the Xbox's in a network game and while an input recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for 16 players).",
+          "description": "How many bodies and dropped weapons a game keeps before the ones no player sees are removed: \"raised\" (default) four times the Xbox's in a game on this device alone, the Xbox's in a network game and while an input recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for 16 players). Hardcore uses \"xbox\" (display.graphics).",
           "x-environment": "HALO_GARBAGE_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [

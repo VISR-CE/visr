@@ -59,10 +59,15 @@ enum graphics_mode
 	X("display.shadow_map_size", "128", NULL) \
 	X("debug.shadow_blur", "xbox", NULL) \
 	X("debug.split_screen_hud", "true", NULL) \
+	/* the Xbox's limits and hard particle edges: more decals, bodies and particles and soft edges in Classic too */ \
+	X("display.effect_limits", "xbox", NULL) \
+	X("game.garbage_limit", "xbox", NULL) \
+	X("display.soft_particles", "false", NULL) \
 	/* additions the Xbox never drew: off in Classic too */ \
 	X("display.first_person_legs", "false", "false") \
 	X("display.shadow_props", "false", "false") \
 	X("display.ambient_occlusion", "false", "false") \
+	X("display.per_pixel_lighting", "false", "false") \
 	/* a profile's cost caps remove original content: none in Hardcore */ \
 	X("display.dynamic_light_limit", "0", NULL) \
 	X("display.specular_light_limit", "0", NULL) \

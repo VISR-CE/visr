@@ -111,10 +111,12 @@ static const struct config_setting config_settings[] =
 {
 	{ "display.graphics", _config_string, "\"enhanced\"", "HALO_GRAPHICS", _environment_value, _platform_all,
 		"The game's look: \"enhanced\" (default) is the original game tastefully\n"
-		"enhanced, with ambient occlusion and shadows under props; \"classic\" draws\n"
-		"only what the original Xbox drew, at this device's resolution and frame\n"
-		"rate, with upscaled textures and a sharp HUD; \"hardcore\" is the original\n"
-		"Xbox exactly: 640x480 at 30 frames a second, nothing added. The mode wins\n"
+		"enhanced, with ambient occlusion, shadows under props and per-pixel\n"
+		"lighting; \"classic\" draws only what the original Xbox drew, at this\n"
+		"device's resolution and frame rate, with upscaled textures, a sharp HUD,\n"
+		"more room for decals, bodies and particles, and soft particle edges;\n"
+		"\"hardcore\" is the original Xbox exactly: 640x480 at 30 frames a second,\n"
+		"the Xbox's limits, nothing added. The mode wins\n"
 		"over the settings it replaces (port_graphics_modes.h), which keep their\n"
 		"values for when it changes back. The picture's size and rate change at\n"
 		"the next level." },
@@ -170,17 +172,18 @@ static const struct config_setting config_settings[] =
 		"world, and in stereo lay one eye's shadows in the other too: the picture's\n"
 		"pass is no longer interrupted for each shadow. False keeps the Xbox's\n"
 		"order, to compare." },
-	{ "display.per_pixel_lighting", _config_boolean, "false", "HALO_PER_PIXEL_LIGHTING", _environment_value, _platform_all,
+	{ "display.per_pixel_lighting", _config_boolean, "true", "HALO_PER_PIXEL_LIGHTING", _environment_value, _platform_all,
 		"Light characters, weapons and vehicles per pixel: the game's own lights,\n"
 		"colors, ranges and falloff, with its reflection tint and direction, worked\n"
 		"out for each pixel instead of at each vertex and blended across the\n"
-		"triangle. Metal only. False lights them per vertex, as the Xbox does." },
-	{ "display.point_light_highlight", _config_integer, "0", "HALO_POINT_LIGHT_HIGHLIGHT", _environment_value, _platform_all,
+		"triangle. Metal only. False lights them per vertex, as the Xbox does.\n"
+		"Enhanced graphics only: Classic and Hardcore turn it off (display.graphics)." },
+	{ "display.point_light_highlight", _config_integer, "2", "HALO_POINT_LIGHT_HIGHLIGHT", _environment_value, _platform_all,
 		"With display.per_pixel_lighting: a highlight on shiny surfaces from the\n"
 		"two point lights the game already lights each object with (muzzle\n"
 		"flashes, plasma, flashlights), in their own color and range, added to the\n"
 		"surface's reflection so its own tint and specular mask apply. 0 none; 1 to\n"
-		"4 brighter and broader in turn, 1 the dimmest and tightest." },
+		"4 brighter and broader in turn, 1 the dimmest and tightest; 2 by default." },
 	{ "display.point_light_limit", _config_integer, "2", "HALO_POINT_LIGHT_LIMIT", _environment_value, _platform_all,
 		"With display.per_pixel_lighting: how many of the dynamic lights near a\n"
 		"character, weapon or vehicle light it, strongest first, 2 (the game's\n"
@@ -199,16 +202,17 @@ static const struct config_setting config_settings[] =
 		"Device-profile cap on specular lights among the level's selected dynamic\n"
 		"lights, 0 to 128. Zero keeps all selected lights' highlights. First-person\n"
 		"weapon lights are always retained. Object lighting is unchanged." },
-	{ "display.soft_particles", _config_boolean, "false", "HALO_SOFT_PARTICLES", _environment_value, _platform_all,
+	{ "display.soft_particles", _config_boolean, "true", "HALO_SOFT_PARTICLES", _environment_value, _platform_all,
 		"Smoke, dust and plasma fade where they meet the ground and walls instead of\n"
 		"cutting a hard line (camera-facing particles; Metal, not in stereo or with\n"
-		"multisampling). A spike: off by default." },
+		"multisampling). Hardcore turns it off (display.graphics)." },
 	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
 		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
 		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"
 		"four times the Xbox's decals and every player the effect's whole count;\n"
 		"\"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change\n"
-		"at the next map. Drawing only: the game plays the same." },
+		"at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\"\n"
+		"(display.graphics)." },
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
@@ -1003,7 +1007,7 @@ static const struct config_setting config_settings[] =
 		"sees are removed: \"raised\" (default) four times the Xbox's in a game on\n"
 		"this device alone, the Xbox's in a network game and while an input\n"
 		"recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for\n"
-		"16 players)." },
+		"16 players). Hardcore uses \"xbox\" (display.graphics)." },
 	{ "game.enhanced_animations", _config_boolean, "true", "HALO_ENHANCED_ANIMATIONS", _environment_value, _platform_all,
 		"The player bipeds' grenade throws keep their legs moving (crouched,\n"
 		"in the air and in a vehicle's seat too), riders' hands leave the grips\n"

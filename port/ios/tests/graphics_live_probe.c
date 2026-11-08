@@ -82,6 +82,16 @@ static void texture_upscale_map_loaded(void)
 }
 #include "graphics_live_consumers.h"
 
+/* the additions each mode keeps: limits and soft edges in Classic and Enhanced, per-pixel lighting in Enhanced */
+static void check_additions(int mode)
+{
+	assert(halo_effect_limits_raised() == (mode != GRAPHICS_MODE_HARDCORE));
+	assert(!strcmp(config_string("game.garbage_limit"), mode == GRAPHICS_MODE_HARDCORE ? "xbox" : "raised"));
+	assert(config_boolean("display.soft_particles") == (mode != GRAPHICS_MODE_HARDCORE));
+	assert(config_boolean("display.per_pixel_lighting") == (mode == GRAPHICS_MODE_ENHANCED));
+	assert(config_integer("display.point_light_highlight") == 2);
+}
+
 static void check_consumers(int hardcore)
 {
 	struct halo_display_size size;
@@ -126,7 +136,11 @@ int main(void)
 	assert(config_write("display.crt_effect", "true"));
 	assert(config_write("display.graphics", "enhanced"));
 	check_consumers(0);
+	check_additions(GRAPHICS_MODE_ENHANCED);
+	assert(config_graphics_try("classic"));
+	check_additions(GRAPHICS_MODE_CLASSIC);
 	assert(config_graphics_try("hardcore"));
+	check_additions(GRAPHICS_MODE_HARDCORE);
 	assert(halo_screen_commit() == 640);
 	assert(screen_scale[0] == 1 && screen_scale[1] == 1 && !screen_dynamic);
 	assert(released == 1 && release_pooled == 1);
@@ -135,6 +149,7 @@ int main(void)
 	check_consumers(1);
 	assert(config_graphics_try("enhanced"));
 	check_consumers(0);
+	check_additions(GRAPHICS_MODE_ENHANCED);
 	assert(config_write("display.graphics", "hardcore"));
 	check_consumers(1);
 	config_graphics_head_stereo(1);
