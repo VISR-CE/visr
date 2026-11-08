@@ -69,7 +69,6 @@
     "b30": "visr-0.6.13-m4/b30.webp",
     "a50-hangar": "visr-0.6.13-m4/a50-hangar.webp",
     "b40-exta": "visr-0.6.13-m4/b40-exta.webp",
-    "b30-bot": "visr-0.6.13-m4/b30-bot.webp",
     "x70-bridge": "visr-0.6.13-m4/x70-bridge.webp",
     "cutscene-rescue": "visr-0.6.13-m4/cutscene-rescue.webp",
     "mp-chillout": "visr-0.6.13-m4/mp-chillout.webp",
@@ -83,10 +82,6 @@
      720
     ],
     "b30": [
-     960,
-     720
-    ],
-    "b30-bot": [
      960,
      720
     ],
@@ -345,7 +340,6 @@
     "b30": "chupathingy-v0.9.0-m4/b30.webp",
     "a50-hangar": "chupathingy-v0.9.0-m4/a50-hangar.webp",
     "b40-exta": "chupathingy-v0.9.0-m4/b40-exta.webp",
-    "b30-bot": "chupathingy-v0.9.0-m4/b30-bot.webp",
     "x70-bridge": "chupathingy-v0.9.0-m4/x70-bridge.webp",
     "cutscene-rescue": "chupathingy-v0.9.0-m4/cutscene-rescue.webp"
    },
@@ -355,10 +349,6 @@
      720
     ],
     "b30": [
-     960,
-     720
-    ],
-    "b30-bot": [
      960,
      720
     ],
@@ -453,7 +443,6 @@
     "b30": "corece-0.3.75-m4/b30.webp",
     "a50-hangar": "corece-0.3.75-m4/a50-hangar.webp",
     "b40-exta": "corece-0.3.75-m4/b40-exta.webp",
-    "b30-bot": "corece-0.3.75-m4/b30-bot.webp",
     "x70-bridge": "corece-0.3.75-m4/x70-bridge.webp",
     "cutscene-rescue": "corece-0.3.75-m4/cutscene-rescue.webp"
    },
@@ -463,10 +452,6 @@
      720
     ],
     "b30": [
-     960,
-     720
-    ],
-    "b30-bot": [
      960,
      720
     ],
@@ -575,7 +560,6 @@
     "b30": "halo-og-v0.5.1-m4/b30.webp",
     "a50-hangar": "halo-og-v0.5.1-m4/a50-hangar.webp",
     "b40-exta": "halo-og-v0.5.1-m4/b40-exta.webp",
-    "b30-bot": "halo-og-v0.5.1-m4/b30-bot.webp",
     "x70-bridge": "halo-og-v0.5.1-m4/x70-bridge.webp",
     "cutscene-rescue": "halo-og-v0.5.1-m4/cutscene-rescue.webp",
     "coop-c10": "halo-og-v0.5.1-m4/coop-c10.webp",
@@ -587,10 +571,6 @@
      720
     ],
     "b30": [
-     960,
-     720
-    ],
-    "b30-bot": [
      960,
      720
     ],
@@ -634,11 +614,8 @@
     "b30": "opence-macos-v1.0.2-m4/b30.webp",
     "a50-hangar": "opence-macos-v1.0.2-m4/a50-hangar.webp",
     "b40-exta": "opence-macos-v1.0.2-m4/b40-exta.webp",
-    "b30-bot": "opence-macos-v1.0.2-m4/b30-bot.webp",
     "x70-bridge": "opence-macos-v1.0.2-m4/x70-bridge.webp",
-    "cutscene-rescue": "opence-macos-v1.0.2-m4/cutscene-rescue.webp",
-    "mp-chillout": "opence-macos-v1.0.2-m4/mp-chillout.webp",
-    "mp-bloodgulch": "opence-macos-v1.0.2-m4/mp-bloodgulch.webp"
+    "cutscene-rescue": "opence-macos-v1.0.2-m4/cutscene-rescue.webp"
    },
    "size": {
     "a50-hangar": [
@@ -646,10 +623,6 @@
      720
     ],
     "b30": [
-     960,
-     720
-    ],
-    "b30-bot": [
      960,
      720
     ],
@@ -664,14 +637,6 @@
     "cutscene-rescue": [
      960,
      540
-    ],
-    "mp-bloodgulch": [
-     960,
-     720
-    ],
-    "mp-chillout": [
-     960,
-     720
     ],
     "x70-bridge": [
      960,
@@ -717,7 +682,6 @@
     "b30": "openh1-build-1901-m4/b30.webp",
     "a50-hangar": "openh1-build-1901-m4/a50-hangar.webp",
     "b40-exta": "openh1-build-1901-m4/b40-exta.webp",
-    "b30-bot": "openh1-build-1901-m4/b30-bot.webp",
     "x70-bridge": "openh1-build-1901-m4/x70-bridge.webp",
     "cutscene-rescue": "openh1-build-1901-m4/cutscene-rescue.webp",
     "coop-c10": "openh1-build-1901-m4/coop-c10.webp"
@@ -728,10 +692,6 @@
      720
     ],
     "b30": [
-     960,
-     720
-    ],
-    "b30-bot": [
      960,
      720
     ],
@@ -818,6 +778,5 @@
    "thumb": "openh1-build-1683-m6/thumb.webp",
    "thumb_scene": "c10"
   }
- },
- "rev": "1794142899"
+ }
 }
