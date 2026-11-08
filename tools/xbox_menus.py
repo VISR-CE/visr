@@ -857,9 +857,6 @@ def browser_layout(root, widgets, bitmaps):
     for original in originals:
         if original.get('name').rsplit('/', 1)[-1].startswith('header_'):
             root.append(deepcopy(original))
-    child(screen, base + '/browser_status', x=330, y=18)
-    widget(root, base + '/browser_status', type='text', width=286, height=22,
-           font=r'ui\small_ui', color='#7fc4ff', align='right')
     child(screen, base + '/button_refresh_create_inter')
     actions = widget(root, base + '/button_refresh_create_inter', width=640, height=480,
                      flags='pass_unhandled_to_focused_child')

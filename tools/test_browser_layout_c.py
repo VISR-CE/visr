@@ -322,7 +322,6 @@ static wchar_t const *const browser_toggle_show_all = L"SHOW ALL";
 static wchar_t const *const browser_toggle_joinable_only = L"JOINABLE ONLY";
 static char const *config_string(char const *key) { (void)key; return "all"; }
 static boolean config_boolean(char const *key) { return strcmp(key,"network.browser_show_unjoinable")!=0; }
-static short browser_sort(void) { return 0; }
 static void text_set(struct widget_instance *widget, wchar_t const *text) { (void)widget; (void)text; }
 static void visible_set(struct widget_instance *widget, boolean visible) { if (widget) widget->visible=visible; }
 static void usnprintf(wchar_t *text, int size, wchar_t const *format, ...) {

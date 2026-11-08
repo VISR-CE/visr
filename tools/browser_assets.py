@@ -52,8 +52,8 @@ def generate(output, icons):
          '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
          '<stop offset="0" stop-color="#072751" stop-opacity="0.69"/>'
          '<stop offset="1" stop-color="#062348" stop-opacity="0.69"/></linearGradient></defs>'
-         '<rect x="0" y="66" width="4" height="414" fill="url(#g)"/>'
-         '<rect x="0" y="66" width="4" height="1" fill="#36afff"/>'), scale=2)
+         '<rect x="0" y="44" width="4" height="436" fill="url(#g)"/>'
+         '<rect x="0" y="44" width="4" height="1" fill="#36afff"/>'), scale=2)
 
     for index, (fill, border) in enumerate((("#0a2245", "none"),
                                            ("#12396e", "#7fc4ff"))):

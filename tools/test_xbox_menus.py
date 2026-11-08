@@ -238,7 +238,7 @@ def test_browser_code_filled_text_has_no_definition_string():
     dynamic = {name: w for name, w in widgets.items() if w.get('type') == 'text' and name not in static}
     assert {'browser_detail_name', 'browser_detail_status', 'browser_join_caption',
             'browser_chip_all_label', 'browser_chip_all_white', 'browser_toggle_label',
-            'server_item_players', 'server_item_capacity', 'browser_status'} <= dynamic.keys()
+            'server_item_players', 'server_item_capacity'} <= dynamic.keys()
     # widget_instance_render_text_box reloads a definition string every frame,
     # overwriting text_set even when that definition string is empty.
     for name, widget in dynamic.items():

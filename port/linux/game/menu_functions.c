@@ -4428,20 +4428,12 @@ static void browser_c_controls_update(struct widget_instance *list)
 	struct widget_instance *screen = screen_of(list);
 	struct widget_instance *chips = named(screen, "browser_chips", 0);
 	wchar_t const *const labels[] = { L"ALL", L"MULTIPLAYER", L"CO-OP" };
-	wchar_t const *const sorts[] = { L"MOST PLAYERS", L"BY NAME", L"BY MAP", L"BY GAME" };
 	wchar_t text[ROW_TEXT_LENGTH];
 	char const *games = config_string("network.browser_games");
-	short index, changed = (short)(!config_boolean("network.browser_show_full") +
-		!config_boolean("network.browser_show_locked") + config_boolean("network.browser_show_unjoinable"));
+	short index;
 
 	if (!chips)
 		return;
-	if (changed)
-		usnprintf(text, NUMBEROF(text) - 1, L"%s · %d %s", sorts[browser_sort()], changed,
-			changed == 1 ? L"FILTER" : L"FILTERS");
-	else
-		usnprintf(text, NUMBEROF(text) - 1, L"%s", sorts[browser_sort()]);
-	text_set(named(screen, "browser_status", 0), text);
 	for (index = 0; index < NUMBEROF(browser_chip_names); index++)
 	{
 		struct widget_instance *chip = named(chips, browser_chip_names[index], 0);

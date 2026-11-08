@@ -595,7 +595,6 @@
 		<on event="back" run="gamespy back handler" />
 		<on event="x" run="port browser filters open" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" y="-21" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_status" x="330" y="18" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
@@ -616,7 +615,6 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_status" type="text" width="286" height="22" font="ui\small_ui" color="#7fc4ff" align="right" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" width="640" height="480" flags="pass_unhandled_to_focused_child">
 		<on event="x" run="port browser filters open" />
 		<on event="y" run="join controller to mp game" />
