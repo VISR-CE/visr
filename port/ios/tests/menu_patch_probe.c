@@ -890,8 +890,8 @@ static void check_apple(boolean tvos)
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
 	/* Four widgets, two bitmaps and the two PC description lists precede patch tags. */
-	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1 + 1) + 2;
-	used = 6 + 2 * (3 + 4 + 1 + 1) + 2;
+	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
+	used = 6 + 2 * (3 + 4 + 1) + 2;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
