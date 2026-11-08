@@ -492,4 +492,4 @@ def test_backdrop_runs_to_the_bottom_edge():
     text = (root / 'main_menu.multiplayer_type_select.join_game.xml').read_text()
     assert 'bitmap="xbox/browser/backdrop"' in text
     filters = (root / 'main_menu.multiplayer_type_select.join_game.filters.xml').read_text()
-    assert 'bitmap="xbox/browser/backdrop"' in filters
+    assert 'bitmap="xbox/browser/filters_backdrop"' in filters

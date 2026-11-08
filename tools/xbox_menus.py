@@ -579,8 +579,8 @@ def filters_layout(root, widgets):
     base = 'xbox/' + MP + '/join_game/filters'
     screen = widgets[base + '/filters_screen']
     screen.set('type', 'column_list')
-    screen.set('bitmap', 'xbox/browser/backdrop')
-    browser_bitmap(root, 'backdrop', 4, 480, ['backdrop'])
+    screen.set('bitmap', 'xbox/browser/filters_backdrop')
+    browser_bitmap(root, 'filters_backdrop', 4, 480, ['backdrop'])
     for c in list(screen.findall('child')):
         if '/legend/' in c.get('widget', ''):
             screen.remove(c)

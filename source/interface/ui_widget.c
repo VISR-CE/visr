@@ -5460,8 +5460,8 @@ void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text
 	draw_string_set_indents(0, 0);
 	if (ui_widget_port_text_width(text) > width)
 	{
-		suffix = font_get_character_by_ascii_code(font_definition_get(definition->text_font.index), 0x2026) ?
-			L"\x2026" : L"...";
+		/* the font's U+2026 slot draws as two dots, so always use three plain periods */
+		suffix = L"...";
 		suffix_length = suffix[1] ? 3 : 1;
 		while (text[length] && length < capacity - 1)
 			length++;
