@@ -521,6 +521,9 @@ def multiplayer_documents(assets, bitmaps):
             for c in e.findall('child'):
                 if c.get('widget', '').endswith('mp_map_select_button_bar'):
                     e.remove(c)
+            # (left and right turn the chooser from any row: it is the first row, scrolled away from)
+            ET.SubElement(e, 'on', event='left', run='mp map kind previous')
+            ET.SubElement(e, 'on', event='right', run='mp map kind next')
     owned.add(('widget', wrapper.get('name')))
     shared = ET.Element('menus')
     documents['multiplayer.shared.xml'] = shared

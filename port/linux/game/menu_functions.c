@@ -6333,6 +6333,14 @@ boolean pc_menu_event_function_invoke(
 			if (deleted)
 				*widget_deleted = TRUE;
 		}
+		else if (!strcmp(name, "mp map kind previous") || !strcmp(name, "mp map kind next"))
+		{
+			/* (left and right from any row of the Map screen's list turn the chooser,
+			which is only reachable by scrolling the list back to its top) */
+			if (map_list.step == MAP_STEP_MAPS)
+				map_kind_set(widget, (short)((map_list.kind + (strstr(name, "next") ? 1 : NUMBER_OF_MAP_KINDS - 1)) %
+					NUMBER_OF_MAP_KINDS));
+		}
 		else if (!strcmp(name, "mp type set mode"))
 		{
 			lan_mode = strstr(widget->name, "_lan_") != NULL;
