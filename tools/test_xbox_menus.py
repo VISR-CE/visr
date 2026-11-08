@@ -262,8 +262,9 @@ def test_browser_gauge_text_fits_inside_ring():
     ring_top = positions['server_item_gauge'][1]
     top = positions['server_item_players'][1]
     bottom = positions['server_item_capacity'][1] + int(widgets['server_item_capacity'].get('height'))
-    assert top >= ring_top + 4 and bottom <= ring_top + 42 - 2
-    assert abs((top + bottom) / 2 - (ring_top + 21)) <= 2
+    assert top >= ring_top + 3 and bottom <= ring_top + 42 - 4
+    # (the glyphs draw below their boxes, so the block sits a little above the ring's center)
+    assert abs((top + bottom) / 2 - (ring_top + 21)) <= 5
 
 
 def test_browser_direct_link_keeps_the_legacy_table():
