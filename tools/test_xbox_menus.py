@@ -62,10 +62,10 @@ def test_settings_keep_pc_values_and_handlers():
         actual = {w.get('setting'): (w.get('values'), w.get('strings'))
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
-        # (a page laid out as CONTROLLER SETUP has no DEFAULTS: A accepts)
-        skipped = {'port settings defaults'} if folder in module.ACCEPT_PAGES else set()
-        assert {e.get('run') for e in source.iter('on') if e.get('run')} - skipped <= {
-            e.get('run') for e in output.iter('on') if e.get('run')}
+        retained = {e.get('run') for e in source.iter('on') if e.get('run')} - {
+            'port settings save', 'port settings defaults', 'controls screen change set',
+            'controls screen defaults', 'controls screen init'}
+        assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')}
         names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
         # (the About screen's A does nothing: its legend is the way back alone)
         assert ({'b_butn', 'cancel'} if folder == 'about' else
@@ -92,30 +92,45 @@ def test_generator_rejects_map_widget_definitions(tmp_path):
         module.validate(root, tmp_path)
 
 
-def test_save_is_a_focusable_action_separate_from_a_legend():
+def test_settings_apply_without_save_and_offer_defaults_on_x():
     module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
-        if path.name == 'settings.about.xml':  # (nothing to save)
+        if path.name == 'settings.about.xml':  # (nothing to apply or reset)
             continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
-        if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:
-            # (CONTROLLER SETUP's layout: A on any row accepts, so the legend's A, posted to the focus, does too)
-            assert not any(n.endswith('/button_ok') for n in widgets)
-            assert next(w for n, w in widgets.items() if n.endswith('/accept')).get('text') == 'ACCEPT'
-            rows = [w for n, w in widgets.items() if n.rsplit('/', 1)[-1].startswith('op_')]
-            assert rows and all(w.find('on[@event="a"][@run="port settings save"][@back="true"]') is not None
-                                for w in rows)
-            continue
-        save = next(w for n, w in widgets.items() if n.endswith('/button_ok'))
-        # ui_mouse_key_button posts A to the existing focus; a SAVE item must
-        # get the normal item target, which focuses it before posting A.
-        assert save.get('type') is None
-        caption = widgets[next(c.get('widget') for c in save.findall('child') if c.get('widget').endswith('_caption'))]
-        assert caption.get('text') == 'SAVE'
-        assert len(save.findall('child')) == 2
-        assert save.find('on[@event="a"][@back="true"]') is not None
-        accept = next(w for n, w in widgets.items() if n.endswith('/accept'))
-        assert accept.get('text') == 'SELECT'
+        root = ET.parse(path).getroot()
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        screen = root.find('widget')
+        assert not any(w.get('text') == 'SAVE' for w in widgets.values())
+        assert screen.find('on[@event="x"][@run]') is not None
+        for event in ('b', 'back'):
+            assert screen.find(f'on[@event="{event}"][@back="true"]') is not None
+        captions = {w.get('text') for w in widgets.values() if w.get('type') == 'text'}
+        assert {'SELECT', 'DEFAULTS', 'BACK'} <= captions
+        assert not any(text and '=' in text for text in captions)
+        defaults = next(w for n, w in widgets.items() if n.endswith('/button_defaults'))
+        assert defaults.find('on[@event="left_mouse"]') is not None
+        assert defaults.find('on[@event="a"][@run]').get('run') == screen.find('on[@event="x"]').get('run')
+        assert any(w.get('bitmap') == 'xbox/browser/x_butn' for w in widgets.values())
+        for spinner in root.iter('widget'):
+            if not spinner.get('setting'):
+                continue
+            for event in ('left', 'right', 'stick_left', 'stick_right'):
+                assert spinner.find(f'on[@event="{event}"][@run="port setting changed"]') is not None
+            assert spinner.find('on[@event="deleted"]') is None
+        if 'video_settings' in path.name:
+            assert screen.find('on[@event="deleted"][@run="port settings close"]') is not None
+
+
+def test_hosting_spinners_apply_on_change_without_an_ok_action():
+    for page in ('server_settings', 'coop_options'):
+        root = ET.parse(MENUS / f'xbox/main_menu.multiplayer_type_select.{page}.xml')
+        for spinner in root.iter('widget'):
+            if spinner.get('setting'):
+                for event in ('left', 'right', 'stick_left', 'stick_right'):
+                    assert spinner.find(f'on[@event="{event}"][@run="port setting changed"]') is not None
+                assert spinner.find('on[@event="deleted"]') is None
+        assert not any(e.get('run') == 'coop options save' for e in root.iter('on'))
 
 
 @pytest.mark.parametrize('path', sorted((MENUS / 'xbox').glob('settings.*_*.xml')))
@@ -165,8 +180,13 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
             # Quit's original text panel sits inside a new confirmation modal.
             if name == 'xbox/main_menu/quit_select/quit_screen':
                 name = 'xbox/main_menu/quit_select/quit_panel'
+            if filename.endswith('coop_options') and name.endswith(('/button_bar', '/button_ok')):
+                continue
             copied = widgets[name]
             for tag, key in (('on', 'run'), ('data', 'input')):
+                if original.get('setting') and filename.endswith(('server_settings', 'coop_options')) and tag == 'on':
+                    assert copied.find('on[@event="created"][@run="port setting load"]') is not None
+                    continue
                 expected = [(e.get('event'), e.get(key)) for e in original.findall(tag)]
                 actual = [(e.get('event'), e.get(key)) for e in copied.findall(tag)]
                 if '/lobby/lobby_button_' in name or name.endswith('/lobby/lobby_screen'):
@@ -714,15 +734,15 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
     rows = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')]
     assert not any(c.get('widget').endswith('/button_bar') for c in rows)
     action = widgets[rows[-1].get('widget')]
-    assert action.get('name') == base + ('/op_start_game' if page == 'server_settings' else '/op_save')
-    assert action.get('text') == ('START GAME' if page == 'server_settings' else 'SAVE')
-    if page == 'coop_options':
-        old = widgets[base + '/button_ok']
-        assert [e.attrib for e in action.findall('on')] == [e.attrib for e in old.findall('on')]
-    else:
+    if page == 'server_settings':
+        assert action.get('name') == base + '/op_start_game'
+        assert action.get('text') == 'START GAME'
         assert action.find('on[@event="a"]').get('run') == 'ss start game'
-    assert action.get('bitmap') == widgets[base + ('/op_coop_options' if page == 'server_settings'
-                                                  else '/op_fireteam')].get('bitmap')
+        assert action.get('bitmap') == widgets[base + '/op_coop_options'].get('bitmap')
+    else:
+        # (co-op rows apply as they change: the list ends with its last option)
+        assert action.get('name') == base + '/op_fireteam'
+        assert base + '/op_save' not in widgets and base + '/button_ok' not in widgets
     for c in rows:
         row = widgets[c.get('widget')]
         assert int(row.get('height')) == module.ROW_HEIGHT == 28
@@ -744,8 +764,12 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
                 if value.get('type') == 'spinner':
                     assert value.get('header_bounds') == '7 -6 19 0'
                     assert value.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
-    accept = widgets[base + '/' + page + '_screen/legend/accept']
-    assert accept.get('text') == 'SELECT'
+    if page == 'coop_options':
+        # (every co-op row applies as it changes, so the legend has nothing to select)
+        assert base + '/' + page + '_screen/legend/accept' not in widgets
+    else:
+        accept = widgets[base + '/' + page + '_screen/legend/accept']
+        assert accept.get('text') == 'SELECT'
 
 
 def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
@@ -844,7 +868,7 @@ def test_merged_rows_and_bindings():
         rows = widgets[base + 'options_menu'].findall('child')
         assert [c.get('widget').removeprefix(base) for c in rows] == [
             'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam',
-            'op_save' if look == 'xbox' else 'button_bar']
+            ] + ([] if look == 'xbox' else ['button_bar'])
         assert [int(c.get('y')) for c in rows[:4]] == [73, 103, 133, 163]
         assert all(widgets[base + name].get('height') == '28' for name in (
             'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam'))
@@ -858,13 +882,14 @@ def test_merged_rows_and_bindings():
             assert spinner.get('setting') is None and spinner.get('values') is None
             assert spinner.find("on[@event='created']") is None
             assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
+            if look == 'xbox':
+                for event in ('left', 'right', 'stick_left', 'stick_right'):
+                    assert spinner.find(f"on[@event='{event}']").get('run') == 'coop options changed'
         assert widgets[base + 'coop_options_screen'].find("on[@event='created']").get('run') == 'coop options init'
-        action = widgets[base + ('op_save' if look == 'xbox' else 'button_ok')]
-        for event in ('a', 'start'):
-            assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
-        if look == 'xbox':
-            assert action.get('text') == 'SAVE'
-            assert int(rows[-1].get('y')) == 193
+        if look == 'ce':
+            action = widgets[base + 'button_ok']
+            for event in ('a', 'start'):
+                assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
         assert all(not any(w.get('name').endswith('/' + name) for w in widgets.values())
                    for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))
 
@@ -874,12 +899,13 @@ def test_settings_legends_have_global_button_bindings():
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
             continue
-        if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:  # (A accepts on any row: no DEFAULTS or SAVE)
-            continue
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
         screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
-        for button, target in (('x', 'button_defaults'), ('y', 'button_ok')):
+        # (each change applies and saves as it is made: X DEFAULTS is the bar's only action)
+        assert not any(name.endswith('/button_ok') for name in widgets), path
+        assert screen.find('on[@event="y"]') is None, path
+        for button, target in (('x', 'button_defaults'),):
             action = next(w for name, w in widgets.items() if name.endswith('/' + target))
             handler = action.find(f'on[@event="{button}"]')
             assert handler is not None, (path, button)
@@ -966,11 +992,9 @@ def test_settings_footer_focus_only_visits_actions():
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
             continue
-        if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:  # (A accepts on any row: no DEFAULTS or SAVE)
-            continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
         bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
-        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults', 'button_ok']
+        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults']
         for placement in bar.findall('child'):
             action = widgets[placement.get('widget')]
             assert action.find('on[@event="a"]') is not None
@@ -1105,11 +1129,12 @@ def test_hub_has_a_graphics_row_between_controls_and_audio_with_its_mode_in_the_
     assert [d.get('input') for d in options.findall('data')] == ['plyr prof edit select menu upd8', 'port hub status']
 
 
-def test_graphics_screen_is_controller_setups_layout_with_the_modes_help():
+def test_graphics_screen_applies_each_change_with_the_modes_help():
     widgets = settings_widgets(MENUS / 'xbox/settings.graphics.xml')
     base = 'xbox/settings/graphics'
     options = widgets[f'{base}/options_menu']
-    assert [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')] == ['op_graphics', 'op_crt_effect']
+    assert [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')] == [
+        'op_graphics', 'op_crt_effect', 'button_bar']
     # the CRT effect is an Apple setting, shown by the game only while the mode row shows Hardcore
     assert options.findall('child')[1].get('platform') == 'apple'
     mode = widgets[f'{base}/graphics_spinner']
@@ -1133,9 +1158,16 @@ def test_graphics_screen_is_controller_setups_layout_with_the_modes_help():
     crt_help = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")][-1]
     assert ' '.join(crt_help.split('\\n')) == (
         'The picture as a CRT television showed it: scanlines, phosphor glow and soft color.')
-    # A accepts on any row, B goes back (ACCEPT_PAGES): no SAVE or DEFAULTS
-    assert widgets[f'{base}/graphics_screen'].find('on[@event="b"]').get('back') == 'true'
-    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' not in widgets
+    # each change applies as it is made, as on the other settings screens: B just leaves, X restores the defaults
+    screen = widgets[f'{base}/graphics_screen']
+    assert screen.find('on[@event="b"]').get('back') == 'true'
+    assert screen.find('on[@event="x"]').get('run') == 'port settings defaults apply'
+    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' in widgets
+    assert widgets[f'{base}/cancel'].get('text') == 'BACK'
+    for spinner in (mode, crt):
+        assert spinner.find('on[@event="left"][@run="port setting changed"]') is not None
+        assert spinner.find('on[@event="deleted"]') is None
+    assert not any(on.get('run') == 'port settings save' for on in root.iter('on'))
 
 
 def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_row_beneath_it():

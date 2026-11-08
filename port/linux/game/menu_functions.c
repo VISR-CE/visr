@@ -30,11 +30,16 @@ calls them from PC_MENU_FUNCTION_BASE on):
   "port settings help" the help of the row chosen (and Video Setup's
   Resolution or Window Size, for the display mode shown), and the About
   screen's "port about version" and "port about build" (and its SEND LOG row's "port send log" and "port send log status");
+- Xbox settings (tools/xbox_menus.py) run "port setting changed" after each
+  direction press and "port settings defaults apply" on X. Video applies
+  its window on "port settings close"; controller changes save the profile.
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
   right choose ("controls binding slot"); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults.
+  writes them, "controls screen defaults" shows the defaults. The Xbox
+  screen ("port controls init") saves each capture or clear; "port controls
+  defaults" resets and saves.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -1536,6 +1541,54 @@ static boolean setting_changed_save(struct widget_instance *spinner, struct pc_m
 	return TRUE;
 }
 
+/* Saving ends profile editing (player_ui.c). Keep name/color edits pending
+for the hub's SAVE CHANGES, and start editing again with the saved controls
+as the new baseline so Back cannot discard them. */
+static boolean profile_controls_save(void)
+{
+	struct player_profile *edit = player_ui_get_edit_player_profile();
+	struct player_profile pending, saved;
+	long index = player_ui_get_edit_profile_index();
+	boolean result;
+
+	if (!edit || index == NONE || !player_profile_get(index, &saved))
+		return FALSE;
+	pending = *edit;
+	saved.controller_settings = pending.controller_settings;
+	*edit = saved;
+	result = player_ui_save_profile();
+	player_ui_begin_editing_profile(index);
+	edit = player_ui_get_edit_player_profile();
+	if (!edit)
+		return FALSE;
+	*edit = pending;
+	return result;
+}
+
+/* Xbox spinners run this after the engine steps them, for d-pad, stick,
+keyboard, and pointer input alike. The loaded index also suppresses repeat
+writes and keeps Internet Play's ask-first reset intact. */
+static boolean setting_apply_now(struct widget_instance *spinner, struct pc_menu_setting *setting)
+{
+	short loaded = setting->loaded_index;
+	short index = spinner->parameters.list.selected_index;
+
+	if (index < 0 || index >= setting->value_count || loaded == NONE || index == loaded)
+		return TRUE;
+	if (!setting_changed_save(spinner, setting))
+		return FALSE;
+	if (spinner->parameters.list.selected_index != index)
+		return TRUE;
+	if (!strncmp(setting->setting, "profile.", 8) && !profile_controls_save())
+	{
+		setting->loaded_index = loaded;
+		return FALSE;
+	}
+	if (strcmp(screen_of(spinner)->name, "video_settings_screen"))
+		platform_display_apply();
+	return TRUE;
+}
+
 /* "port settings defaults" */
 static boolean setting_default_show(struct widget_instance *spinner, struct pc_menu_setting *setting)
 {
@@ -2374,13 +2427,14 @@ static struct
 
 static struct
 {
-	/* the bindings shown, until OK writes them */
+	/* PC bindings wait for OK; Xbox bindings save after capture or clear. */
 	char bindings[NUMBEROF(controls)][CONTROL_BINDINGS][CONTROL_NAME_LENGTH];
 	/* the binding left and right choose, and the one being set */
 	short slot;
 	short capturing_control;
 	short capturing_slot;
-} controls_screen = { { { { 0 } } }, 0, NONE, 0 };
+	boolean apply_now;
+} controls_screen = { { { { 0 } } }, 0, NONE, 0, FALSE };
 
 /* a setting's bindings ("Left Ctrl, C") into the control's */
 static void control_bindings_read(short control, char const *text)
@@ -2531,6 +2585,8 @@ static void control_capture_poll(void)
 	{
 		controls_screen.bindings[control][slot][0] = 0;
 	}
+	if (controls_screen.apply_now && (result == 1 || result == 2))
+		controls_save();
 }
 
 /* "controls update menu": the group's rows, their bindings (the one left
@@ -6934,6 +6990,36 @@ boolean pc_menu_event_function_invoke(
 		{
 			coop_options_init(screen_of(widget));
 		}
+		else if (!strcmp(name, "port setting changed"))
+		{
+			struct pc_menu_setting *setting = pc_menu_setting_get(widget->definition_tag_index);
+
+			if (spinner_item(widget))
+				return TRUE;
+			return setting ? setting_apply_now(widget, setting) : FALSE;
+		}
+		else if (!strcmp(name, "port settings close"))
+		{
+			platform_display_apply();
+		}
+		else if (!strcmp(name, "port settings defaults apply"))
+		{
+			settings_each(screen_of(widget), setting_default_show);
+			settings_each(screen_of(widget), setting_apply_now);
+		}
+		else if (!strcmp(name, "port controls init"))
+		{
+			controls_screen.apply_now = TRUE;
+			return controls_load(FALSE);
+		}
+		else if (!strcmp(name, "port controls defaults"))
+		{
+			return controls_load(TRUE) && controls_save();
+		}
+		else if (!strcmp(name, "coop options changed"))
+		{
+			coop_options_save(screen_of(widget));
+		}
 		else if (!strcmp(name, "coop options save"))
 		{
 			settings_each(screen_of(widget), setting_changed_save);
@@ -6950,6 +7036,7 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "controls screen init") || !strcmp(name, "controls screen defaults"))
 		{
+			controls_screen.apply_now = FALSE;
 			return controls_load(!strcmp(name, "controls screen defaults"));
 		}
 		else if (!strcmp(name, "controls screen change set"))

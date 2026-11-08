@@ -98,7 +98,13 @@ static char const screen_xml[] =
 	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/v1/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
 	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/v1/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
 	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/v1/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
-	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
+	"<widget name=\"xbox/test_screen\"><on event=\"x\" run=\"port settings defaults apply\"/>"
+	"<on event=\"deleted\" run=\"port settings close\"/></widget>"
+	"<widget name=\"xbox/test_spinner\" type=\"spinner\" strings=\"OFF|ON\" setting=\"audio.master\" values=\"0|1\">"
+	"<on event=\"created\" run=\"port setting load\"/>"
+	"<on event=\"left\" run=\"port setting changed\"/><on event=\"right\" run=\"port setting changed\"/>"
+	"<on event=\"stick_left\" run=\"port setting changed\"/><on event=\"stick_right\" run=\"port setting changed\"/></widget>"
+	"<widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
 static char const pc_xml[] =
@@ -478,6 +484,8 @@ static void adopt_build(void);
 static void map_build(void)
 {
 	adopt_build();
+	/* The spinner resolves its default font, but this probe does not render it. */
+	map_add(FONT_TAG, "ui\\large_ui", calloc(1, 1));
 	/* the multiplayer type screen (bounds and offsets as the Xbox's ui.map has them) */
 	{
 		long rows[4], children[4];
@@ -922,9 +930,9 @@ static void check_apple(boolean tvos)
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Five widgets, two bitmaps and the two PC description lists precede patch tags. */
-	counted = 7 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
-	used = 7 + 2 * (3 + 4 + 1) + 2;
+	/* Six widgets, two bitmaps, spinner strings, and the two PC description lists precede patch tags. */
+	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
+	used = 9 + 2 * (3 + 4 + 1) + 2;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1143,6 +1151,28 @@ int main(int argc, char **argv)
 	else
 	{
 		check(menu_tags.loaded, "the menus loaded");
+		{
+			long tag = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\test_spinner");
+			struct ui_widget_definition *definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+			struct ui_widget_event_handler_reference *handlers = definition->event_handlers.address;
+			short events[] = { 24, 10, 11, 18, 19 };
+			long i, changed = PC_MENU_FUNCTION_BASE + name_index("port setting changed", port_function_names,
+				NUMBEROF(port_function_names));
+
+			check(definition->event_handlers.count == 5, "spinner loads once and saves on four direction events");
+			for (i = 0; i < definition->event_handlers.count && i < 5; i++)
+				check(handlers[i].event_type == events[i] &&
+					(i == 0 || handlers[i].function == changed), "spinner direction handler resolves");
+			tag = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\test_screen");
+			definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+			handlers = definition->event_handlers.address;
+			check(definition->event_handlers.count == 2 && handlers[0].event_type == 2 &&
+				handlers[0].function == PC_MENU_FUNCTION_BASE + name_index("port settings defaults apply", port_function_names,
+					NUMBEROF(port_function_names)), "X defaults resolves without a SAVE item");
+			check(handlers[1].event_type == 25 && handlers[1].function == PC_MENU_FUNCTION_BASE +
+				name_index("port settings close", port_function_names, NUMBEROF(port_function_names)),
+				"Video applies when deleted");
+		}
 		{
 			struct halo_menus const *menus = halo_menus_load();
 			long i, found = 0;

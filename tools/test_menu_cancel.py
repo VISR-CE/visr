@@ -74,6 +74,23 @@ def test_cancel_preserves_the_main_menu_and_keeps_back_navigation(tmp_path):
     subprocess.run([str(binary)], check=True)
 
 
+def test_settings_back_keeps_changes_and_video_applies_on_close():
+    menus = ROOT / 'port/assets/menus/xbox'
+    for path in menus.glob('settings.*.xml'):
+        root = ElementTree.parse(path).getroot()
+        screen = root.find('widget')
+        for event in ('b', 'back'):
+            # Back only closes; it must neither discard edits nor resave the
+            # whole page (which could reopen the Internet Play question).
+            on = screen.find(f'on[@event="{event}"]')
+            assert on.attrib == {'event': event, 'back': 'true'}
+        close = screen.find('on[@event="deleted"]')
+        if 'video_settings' in path.name:
+            assert close is not None and close.get('run') == 'port settings close'
+        else:
+            assert close is None
+
+
 if __name__ == "__main__":
     import tempfile
 

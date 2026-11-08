@@ -22,6 +22,13 @@ from xml.sax.saxutils import quoteattr
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import about_data  # noqa: E402
 
+# The dispatcher steps a spinner before its direction handlers run. Xbox pages
+# add these handlers to save that value; PC pages keep their explicit OK flow.
+def apply_now_spinner_handlers():
+    return [f'<on event="{event}" run="port setting changed"/>'
+            for event in ('left', 'right', 'stick_left', 'stick_right')]
+
+
 PE = "main_menu/settings_select/player_setup/player_profile_edit"
 YES_NO = [("YES", "true"), ("NO", "false")]
 ON_OFF = [("ON", "true"), ("OFF", "false")]
@@ -104,8 +111,8 @@ SCREENS = {
              "In first person, turn the view the moment the\nmouse moves, not up to two ticks later.", "desktop"),
         ],
     },
-    # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): laid out as CONTROLLER SETUP is, A
-    # accepts and B cancels (xbox_menus.py's ACCEPT_PAGES); the PC look has the rows in Video Settings
+    # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): each change applies as it is made, as
+    # on the other settings screens; the PC look has the rows in Video Settings
     "graphics": {
         "screen": "graphics_screen",
         "help_top": 335, "help_height": 75,

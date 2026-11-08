@@ -21,6 +21,8 @@ import textwrap
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from port_settings import apply_now_spinner_handlers
+
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
@@ -34,8 +36,6 @@ ROW_PITCH = COMFORTABLE_PITCH
 ARROW_X = 574
 PAGES = ('video_settings', 'audio_settings', 'network_setup', 'controls_setup',
          'mouse_settings', 'gamepad_setup', 'about', 'graphics')
-# pages laid out as the Xbox's CONTROLLER SETUP: no SAVE or DEFAULTS, A on a row accepts and B cancels
-ACCEPT_PAGES = ('graphics',)
 BLUE = '#FF2896FF'
 # the PC solo list's widgets the Xbox lobby shows beside its map
 LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
@@ -144,14 +144,14 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
         text_widget(root, f'{base}/{caption}', label, width=max(100, 12 * len(label)), height=22)
 
 
-def footer(root, base, save, defaults):
-    # X/Y are screen-level shortcuts, so they work while an option row is focused.
+def footer(root, base, defaults):
+    # X is a screen-level shortcut, so it works while an option row is focused.
+    # Each change applies and saves as it is made, so the bar has no SAVE.
     screen = root[0]
     bar = widget(root, f'{base}/button_bar', type='column_list', width=320, height=28,
                  flags='pass_unhandled_to_focused_child left_right_tabs_items')
     for button, target, caption, x, width, run in (
-            ('x', 'button_defaults', 'DEFAULTS', 40, 132, defaults),
-            ('y', 'button_ok', 'SAVE', 217, 70, save)):
+            ('x', 'button_defaults', 'DEFAULTS', 40, 132, defaults),):
         icon = f'{base}/{button}_butn'
         child(bar, f'{base}/{target}', x=x)
         action = widget(root, f'{base}/{target}', width=21 + width, height=26)
@@ -159,16 +159,23 @@ def footer(root, base, save, defaults):
         child(action, f'{base}/{target}_caption', x=21)
         widget(root, icon, width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
         text_widget(root, f'{base}/{target}_caption', caption, width=width, height=26)
-        attrs = {'run': run}
-        if button == 'y':
-            attrs['back'] = 'true'
         for event in ('a', 'start', button):
-            ET.SubElement(action, 'on', event=event, **attrs)
-        ET.SubElement(screen, 'on', event=button, **attrs)
+            ET.SubElement(action, 'on', event=event, run=run)
+        ET.SubElement(screen, 'on', event=button, run=run)
         ET.SubElement(action, 'on', event='left_mouse', run='mouse emit accept event')
-    legend(root, screen, base)
+    legend(root, screen, base, cancel='BACK')
     for leaf, x in (('b_butn', 332), ('cancel', 354), ('a_butn', 477), ('accept', 499)):
         screen.find(f"child[@widget='{base}/{leaf}']").set('x', str(x))
+
+
+def apply_now_spinners(root):
+    for spinner in root.iter('widget'):
+        if spinner.get('type') != 'spinner' or not spinner.get('setting'):
+            continue
+        for on in list(spinner.findall('on[@event="deleted"]')):
+            spinner.remove(on)
+        for handler in apply_now_spinner_handlers():
+            spinner.append(ET.fromstring(handler))
 
 
 # Every value control (spinner: value box plus arrows) takes one of these widths by its longest value, so arrows
@@ -265,11 +272,6 @@ def settings_page(assets, folder, bitmaps):
     for element in list(root):
         if element.get('name', '').rsplit('/', 1)[-1] in removed:
             root.remove(element)
-    if folder in ACCEPT_PAGES:
-        for parent in root.iter('widget'):
-            for part in list(parent.findall('child')):
-                if part.get('widget', '').rsplit('/', 1)[-1] == 'button_bar':
-                    parent.remove(part)
     for element in root.iter():
         for key, value in list(element.attrib.items()):
             if value.startswith(prefix):
@@ -322,17 +324,15 @@ def settings_page(assets, folder, bitmaps):
         send_log_confirmation(root, bitmaps)
         notices_screen(root, bitmaps)
         return root
-    if folder in ACCEPT_PAGES:
-        for row in root.iter('widget'):
-            if row.get('name', '').rsplit('/', 1)[-1].startswith('op_'):
-                for event in ('a', 'start'):
-                    ET.SubElement(row, 'on', event=event, run='port settings save', back='true')
-                ET.SubElement(row, 'on', event='left_mouse', run='mouse emit accept event')
-        legend(root, root[0], base, accept='ACCEPT')
-        return root
+    apply_now_spinners(root)
+    if folder == 'controls_setup':
+        for on in root.iter('on'):
+            if on.get('run') == 'controls screen init':
+                on.set('run', 'port controls init')
+    if folder == 'video_settings':
+        ET.SubElement(root[0], 'on', event='deleted', run='port settings close')
     footer(root, base,
-           'controls screen change set' if folder == 'controls_setup' else 'port settings save',
-           'controls screen defaults' if folder == 'controls_setup' else 'port settings defaults')
+           'port controls defaults' if folder == 'controls_setup' else 'port settings defaults apply')
     return root
 
 
@@ -860,6 +860,23 @@ def multiplayer_documents(assets, bitmaps):
             for c in list(parent.findall('child')):
                 if c.get('widget', '').endswith('/player_2_button_bar'):
                     parent.remove(c)
+    for page in ('server_settings', 'coop_options'):
+        root = documents['main_menu.multiplayer_type_select.' + page + '.xml']
+        apply_now_spinners(root)
+        if page == 'coop_options':
+            base = 'xbox/' + MP + '/coop_options'
+            for w in list(root.findall('widget')):
+                if w.get('name') in (base + '/button_bar', base + '/button_ok'):
+                    root.remove(w)
+            # The merged rows span config keys, so "coop options changed" writes them (menu_functions.c).
+            for leaf in ('friendly_fire_spinner', 'extra_enemies_spinner'):
+                spinner = root.find(f"widget[@name='{base}/{leaf}']")
+                for event in ('left', 'right', 'stick_left', 'stick_right'):
+                    spinner.append(ET.fromstring(f'<on event="{event}" run="coop options changed"/>'))
+            for w in root.iter('widget'):
+                for c in list(w.findall('child')):
+                    if c.get('widget') == base + '/button_bar':
+                        w.remove(c)
     for filename in ('join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options'):
         root = documents['main_menu.multiplayer_type_select.' + filename + '.xml']
         for w in list(root.findall('widget')):
@@ -884,7 +901,10 @@ def multiplayer_documents(assets, bitmaps):
                             parent.remove(c)
                 continue
             if name.endswith('_screen'):
-                legend(root, w, name + '/legend')
+                # (co-op options apply as they change: no A action, so no A in the legend)
+                legend(root, w, name + '/legend',
+                       accept=None if filename == 'coop_options' else 'SELECT',
+                       cancel='BACK' if filename in ('server_settings', 'coop_options') else 'CANCEL')
     lobby_action_layout(documents['main_menu.multiplayer_type_select.lobby.xml'])
     return documents
 
@@ -897,22 +917,14 @@ def hosting_layout(root, widgets, page):
         if c.get('widget') == base + '/button_bar':
             options.remove(c)
     # Keep the old button definitions for their named bindings, but draw only
-    # the list action. The shared CANCEL widget still serves other screens.
-    action = widgets[base + '/op_start_game'] if page == 'server_settings' else deepcopy(widgets[base + '/button_ok'])
-    action.set('name', base + ('/op_start_game' if page == 'server_settings' else '/op_save'))
-    for key in ('string_list', 'string_index', 'align'):
-        action.attrib.pop(key, None)
-    action.attrib.update(width='512', height=str(ROW_HEIGHT), bitmap='xbox/bitmaps/option_bkds',
-                         font=r'ui\large_ui', color=BLUE, text_x='13', text_y='4',
-                         text='START GAME' if page == 'server_settings' else 'SAVE')
-    if page != 'server_settings':
-        root.append(action)
-    widgets[action.get('name')] = action
-    if page != 'server_settings':
-        # (the action follows the list's own pitch; the density pass sets the final one)
-        ys = sorted({int(c.get('y')) for c in options.findall('child') if c.get('y')})
-        child(options, action.get('name'), x=54, y=ys[-1] + (ys[1] - ys[0] if len(ys) > 1 else ROW_PITCH))
-    else:
+    # the list action. Co-op options apply each change as it is made, so that
+    # page has no action row. The shared CANCEL widget still serves other screens.
+    if page == 'server_settings':
+        action = widgets[base + '/op_start_game']
+        for key in ('string_list', 'string_index', 'align'):
+            action.attrib.pop(key, None)
+        action.attrib.update(width='512', height=str(ROW_HEIGHT), bitmap='xbox/bitmaps/option_bkds',
+                             font=r'ui\large_ui', color=BLUE, text_x='13', text_y='4', text='START GAME')
         widgets[base + '/invite_value'].attrib.update(width='238', height='53', font=r'ui\large_ui', color='#FFFFFFFF')
         widgets[base + '/x_butn_invite'].attrib.update(width='238', height='53')
     for c in options.findall('child'):

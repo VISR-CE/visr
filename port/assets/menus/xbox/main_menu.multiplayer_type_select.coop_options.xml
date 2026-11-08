@@ -7,8 +7,6 @@
 		<on event="back" back="true" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/options_menu" />
-		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/a_butn" x="471" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/accept" x="493" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/b_butn" x="326" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/cancel" x="348" y="414" />
 	</widget>
@@ -22,11 +20,6 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/op_extra_enemies" x="54" y="103" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/op_player_collisions" x="54" y="133" />
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/op_fireteam" x="54" y="163" />
-		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/op_save" x="54" y="193" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
-		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/button_ok" x="380" y="1" />
-		<child widget="xbox/common_button_cancel" x="510" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_friendly_fire" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/friendly_fire_label" y="0" />
@@ -36,6 +29,10 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/friendly_fire_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|PLAYERS ONLY|AI ALLIES ONLY|ON" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215" left="3">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
+		<on event="left" run="coop options changed" />
+		<on event="right" run="coop options changed" />
+		<on event="stick_left" run="coop options changed" />
+		<on event="stick_right" run="coop options changed" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_extra_enemies" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/extra_enemies_label" y="0" />
@@ -45,6 +42,10 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/extra_enemies_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|+25% PER PLAYER|+50% PER PLAYER|+100% PER PLAYER|+150% PER PLAYER|+200% PER PLAYER|2X|4X|8X|16X|32X" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215" left="3">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
+		<on event="left" run="coop options changed" />
+		<on event="right" run="coop options changed" />
+		<on event="stick_left" run="coop options changed" />
+		<on event="stick_right" run="coop options changed" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_player_collisions" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/player_collisions_label" y="0" />
@@ -55,6 +56,10 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/player_collisions_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="network.coop_player_collisions" values="true|false" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89" left="66">
 		<on event="created" run="port setting load" />
 		<on event="left_mouse" run="mouse spinner 1wide click" />
+		<on event="left" run="port setting changed" />
+		<on event="right" run="port setting changed" />
+		<on event="stick_left" run="port setting changed" />
+		<on event="stick_right" run="port setting changed" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_fireteam" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/coop_options/fireteam_label" y="0" />
@@ -65,19 +70,11 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/fireteam_spinner" type="spinner" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DROP-IN|CLASSIC" setting="network.coop_late_join" values="true|false" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112" left="54">
 		<on event="created" run="port setting load" />
 		<on event="left_mouse" run="mouse spinner 1wide click" />
+		<on event="left" run="port setting changed" />
+		<on event="right" run="port setting changed" />
+		<on event="stick_left" run="port setting changed" />
+		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/button_ok" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
-		<on event="a" run="coop options save" back="true" />
-		<on event="start" run="coop options save" back="true" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/op_save" type="text" width="512" height="28" font="ui\large_ui" color="#FF2896FF" text_y="4" bitmap="xbox/bitmaps/option_bkds" text_x="13" text="SAVE">
-		<on event="a" run="coop options save" back="true" />
-		<on event="start" run="coop options save" back="true" />
-		<on event="left_mouse" run="mouse emit accept event" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/coop_options/coop_options_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

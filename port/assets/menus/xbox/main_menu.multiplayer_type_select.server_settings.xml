@@ -183,7 +183,7 @@
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/b_butn/b_butn" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn" width="112" height="53">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/a_butn/a_butn" y="4" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_screen/legend/accept" x="22" y="4" />

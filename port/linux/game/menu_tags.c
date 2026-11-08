@@ -442,6 +442,8 @@ static char const *const port_function_names[] =
 	/* (the Xbox look's Item Options rows the Xbox's functions have no fields for: map weapons, loadout) */
 	"port option row init", "port option row save",
 	"coop options save",
+	/* (the Xbox look's co-op rows apply each change) */
+	"coop options changed",
 	/* (the About screen's SEND LOG row) */
 	"port send log",
 	/* (the About screen's website row) */
@@ -449,6 +451,8 @@ static char const *const port_function_names[] =
 	"coop options init",
 	/* Server Setup opens the stock gametype editor without editing a saved profile. */
 	"close if not editing profile", "mp profile change name", "mp profile end editing",
+	"port setting changed", "port settings close", "port settings defaults apply",
+	"port controls init", "port controls defaults",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from

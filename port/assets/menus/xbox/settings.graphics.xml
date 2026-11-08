@@ -8,10 +8,11 @@
 		<child widget="xbox/settings/graphics/options_menu" />
 		<child widget="xbox/settings/graphics/graphics_help" />
 		<child widget="xbox/settings/graphics/row_help" />
-		<child widget="xbox/settings/graphics/a_butn" x="471" y="414" />
-		<child widget="xbox/settings/graphics/accept" x="493" y="414" />
-		<child widget="xbox/settings/graphics/b_butn" x="326" y="414" />
-		<child widget="xbox/settings/graphics/cancel" x="348" y="414" />
+		<on event="x" run="port settings defaults apply" />
+		<child widget="xbox/settings/graphics/a_butn" x="477" y="414" />
+		<child widget="xbox/settings/graphics/accept" x="499" y="414" />
+		<child widget="xbox/settings/graphics/b_butn" x="332" y="414" />
+		<child widget="xbox/settings/graphics/cancel" x="354" y="414" />
 	</widget>
 	<widget name="xbox/settings/graphics/header_graphics" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics">
 	</widget>
@@ -21,30 +22,33 @@
 		<data input="port settings help" />
 		<child widget="xbox/settings/graphics/op_graphics" x="54" y="73" />
 		<child widget="xbox/settings/graphics/op_crt_effect" x="54" y="112" platform="apple" />
+		<child widget="xbox/settings/graphics/button_bar" y="414" />
 	</widget>
 	<widget name="xbox/settings/graphics/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<child widget="xbox/settings/graphics/graphics_label" y="5" />
 		<child widget="xbox/settings/graphics/graphics_spinner" x="320" y="6" />
-		<on event="a" run="port settings save" back="true" />
-		<on event="start" run="port settings save" back="true" />
-		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/settings/graphics/graphics_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/graphics/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/graphics/graphics_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HARDCORE|CLASSIC|ENHANCED" setting="display.graphics" values="hardcore|classic|enhanced" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="created" run="port setting load" />
+		<on event="left" run="port setting changed" />
+		<on event="right" run="port setting changed" />
+		<on event="stick_left" run="port setting changed" />
+		<on event="stick_right" run="port setting changed" />
 	</widget>
 	<widget name="xbox/settings/graphics/op_crt_effect" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="apple" top="0">
 		<child widget="xbox/settings/graphics/crt_effect_label" y="5" />
 		<child widget="xbox/settings/graphics/crt_effect_spinner" x="319" y="6" />
-		<on event="a" run="port settings save" back="true" />
-		<on event="start" run="port settings save" back="true" />
-		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/settings/graphics/crt_effect_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/graphics/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
+		<on event="left" run="port setting changed" />
+		<on event="right" run="port setting changed" />
+		<on event="stick_left" run="port setting changed" />
+		<on event="stick_right" run="port setting changed" />
 	</widget>
 	<widget name="xbox/settings/graphics/row_help" type="text" controller="1" left="68" top="335" width="482" height="75" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
@@ -65,8 +69,21 @@
 		<string text="" />
 		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color." />
 	</strings>
+	<widget name="xbox/settings/graphics/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="xbox/settings/graphics/button_defaults" x="40" />
+	</widget>
+	<widget name="xbox/settings/graphics/button_defaults" width="153" height="26">
+		<child widget="xbox/settings/graphics/x_butn" />
+		<child widget="xbox/settings/graphics/button_defaults_caption" x="21" />
+		<on event="a" run="port settings defaults apply" />
+		<on event="start" run="port settings defaults apply" />
+		<on event="x" run="port settings defaults apply" />
+		<on event="left_mouse" run="mouse emit accept event" />
+	</widget>
+	<widget name="xbox/settings/graphics/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
+	<widget name="xbox/settings/graphics/button_defaults_caption" type="text" text="DEFAULTS" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
 	<widget name="xbox/settings/graphics/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/graphics/accept" type="text" text="ACCEPT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/graphics/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/graphics/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/graphics/cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/graphics/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>
