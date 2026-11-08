@@ -18,6 +18,7 @@ detail values. Map pictures come from the player's own game data.
 | `toggle__0` through `__3` | 174 × 54 | Same states |
 | `preview_none` | 310 × 75 | Transparent map-picture fallback |
 | `detail` | 312 × 339 | Detail panel |
+| `backdrop` | 4 × 480 | Screen backdrop: clear under the title, a rule at y=66, dark blue to the bottom edge (stretched to the display) |
 | `big` | 294 × 20 | Capacity warning band |
 | `badge` | 120 × 18 | Outlined badge |
 | `join__0`, `join__1` | 294 × 53 | Normal, focused |

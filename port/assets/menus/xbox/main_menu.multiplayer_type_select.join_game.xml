@@ -585,7 +585,10 @@
 		<frame png="xbox/art/browser/toggle__2.png" width="174" height="54" />
 		<frame png="xbox/art/browser/toggle__3.png" width="174" height="54" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_screen" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/gradient">
+	<bitmap name="xbox/browser/backdrop">
+		<frame png="xbox/art/browser/backdrop.png" width="4" height="480" />
+	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_screen" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/browser/backdrop">
 		<on event="created" run="gamespy screen init" />
 		<on event="deleted" run="gamespy screen dispose" />
 		<on event="b" run="gamespy back handler" />

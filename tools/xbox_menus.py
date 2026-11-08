@@ -843,8 +843,9 @@ def browser_layout(root, widgets, bitmaps):
     for name, width in (('chip_all', 78), ('chip_multiplayer', 144), ('chip_coop', 100), ('toggle', 174)):
         browser_bitmap(root, name, width, 54, [f'{name}__{i}' for i in range(4)])
     bitmaps.add('browser/header_sort_filter')
+    browser_bitmap(root, 'backdrop', 4, 480, ['backdrop'])
     screen = widget(root, base + '/join_game_screen', type='column_list', width=640, height=480,
-                    flags='pass_unhandled_to_focused_child', bitmap='xbox/bitmaps/gradient')
+                    flags='pass_unhandled_to_focused_child', bitmap='xbox/browser/backdrop')
     for event, run in (('created', 'gamespy screen init'), ('deleted', 'gamespy screen dispose'),
                        ('b', 'gamespy back handler'), ('back', 'gamespy back handler'),
                        ('x', 'port browser filters open')):

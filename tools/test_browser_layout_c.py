@@ -442,3 +442,16 @@ if __name__ == "__main__":
         test_browser_layout_c_filters_counts_and_target(path)
         test_browser_map_picture_lookup(path)
         test_browser_controller_navigation(path)
+
+
+def test_backdrop_runs_to_the_bottom_edge():
+    from PIL import Image
+    root = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
+    image = Image.open(root / 'art/browser/backdrop.png').convert('RGBA')
+    height = image.height
+    column = [image.getpixel((1, y)) for y in range(height)]
+    assert column[10][3] == 0                      # clear under the title
+    assert column[-1][3] > 150                     # opaque dark fill at the bottom edge
+    assert column[height * 3 // 4][3] == column[-1][3]   # no bottom rule or fade
+    text = (root / 'main_menu.multiplayer_type_select.join_game.xml').read_text()
+    assert 'bitmap="xbox/browser/backdrop"' in text

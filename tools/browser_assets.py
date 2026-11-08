@@ -45,6 +45,16 @@ def generate(output, icons):
     def draw(name, width, height, document, scale=SCALE):
         render(output, name, width, height, document, scale)
 
+    # Backdrop band: transparent under the title, a bright rule, then the dark
+    # blue fill to the bottom of the screen, behind the legend. The menu widens
+    # it to the display and it stretches over the 480 design lines.
+    draw("backdrop", 4, 480, svg(4, 480,
+         '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
+         '<stop offset="0" stop-color="#072751" stop-opacity="0.69"/>'
+         '<stop offset="1" stop-color="#062348" stop-opacity="0.69"/></linearGradient></defs>'
+         '<rect x="0" y="66" width="4" height="414" fill="url(#g)"/>'
+         '<rect x="0" y="66" width="4" height="1" fill="#36afff"/>'), scale=2)
+
     for index, (fill, border) in enumerate((("#0a2245", "none"),
                                            ("#12396e", "#7fc4ff"))):
         draw(f"row__{index}", 270, 54, rounded(270, 54, fill, border))
