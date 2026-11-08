@@ -54,7 +54,9 @@ enum { SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY, SDL_GAMEPAD_AXIS_RIGHTX,
        SDL_GAMEPAD_AXIS_RIGHTY, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, SDL_GAMEPAD_AXIS_COUNT };
 __LATCHES__
 static struct host_touch_replay_gate replay_gate;
-static int touch_id = 1, primary_hardware, paused;
+static int touch_id = 1, primary_hardware, paused, sheet_up, audio_panel_up;
+static int host_window_up(void) { return sheet_up; }
+static int host_audio_output_up(void) { return audio_panel_up; }
 static SDL_Gamepad touch = {1, {12000, -18000, 14000, -20000, 9000, 15000}, {0}};
 static SDL_Gamepad hardware = {2, {-24000, 26000, -28000, 30000, 18000, 21000}, {0}};
 static int SDL_GetGamepadButton(SDL_Gamepad *pad, int button) { return pad->buttons[button]; }
@@ -123,7 +125,7 @@ int main(void) {
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_START) == 1);
     /* A released tap survives event polls until a read, then all reads in
        that input frame agree. Removing the latch must fail these checks. */
-    host_ios_touch_reset();
+    host_ios_touch_reset(); paused = 0;
     for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; b++) {
         button_state(b, YES); button_state(b, NO);
         host_ios_touch_frame(); host_ios_touch_frame();
@@ -162,14 +164,25 @@ int main(void) {
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_SOUTH) == 0);
     assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) == 0);
 
-    /* Filters do not consume pending presses. Reset clears both pending and
-       seen presses, and replay-blocked delivery must never create one. */
+    /* A pause menu drops pending presses it does not read, so reload or fire
+       tapped over it does not act when it closes; menu buttons stay latched.
+       Replay blocking does not consume a pending press. Reset clears both
+       pending and seen presses, and replay-blocked delivery must never
+       create one. */
     button_state(SDL_GAMEPAD_BUTTON_WEST, YES); button_state(SDL_GAMEPAD_BUTTON_WEST, NO);
     axis_state(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, 1); axis_state(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, -1);
+    button_state(SDL_GAMEPAD_BUTTON_SOUTH, YES); button_state(SDL_GAMEPAD_BUTTON_SOUTH, NO);
     paused = 1;
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 0);
     assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) == 0);
+    host_ios_touch_frame(); host_ios_touch_frame();
+    assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_SOUTH) == 1);
     host_ios_touch_frame(); paused = 0;
+    assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 0);
+    assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) == 0);
+    assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_SOUTH) == 0);
+    button_state(SDL_GAMEPAD_BUTTON_WEST, YES); button_state(SDL_GAMEPAD_BUTTON_WEST, NO);
+    axis_state(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, 1); axis_state(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, -1);
     atomic_store(&replay_gate.active, 1);
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 0);
     assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_LEFT_TRIGGER) == 0);
@@ -191,6 +204,24 @@ int main(void) {
     atomic_store(&replay_gate.active, 0);
     assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_SOUTH) == 0);
     assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) == 0);
+
+    /* A share sheet or the audio output panel drops every latch, pending
+       ones too, so a tap made over it never reaches the game afterward. */
+    for (int gate = 0; gate < 2; gate++) {
+        button_state(SDL_GAMEPAD_BUTTON_WEST, YES); button_state(SDL_GAMEPAD_BUTTON_WEST, NO);
+        axis_state(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, 1); axis_state(SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, -1);
+        if (gate) audio_panel_up = 1; else sheet_up = 1;
+        host_ios_touch_frame();
+        sheet_up = 0; audio_panel_up = 0;
+        host_ios_touch_frame();
+        assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 0);
+        assert(host_ios_gamepad_axis(&touch, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) == 0);
+    }
+    /* Without a gate the same tap survives the frame. */
+    button_state(SDL_GAMEPAD_BUTTON_WEST, YES); button_state(SDL_GAMEPAD_BUTTON_WEST, NO);
+    host_ios_touch_frame();
+    assert(host_ios_gamepad_button(&touch, SDL_GAMEPAD_BUTTON_WEST) == 1);
+    host_ios_touch_reset();
 
     /* Touch latches cannot press a separate hardware pad. */
     button_state(SDL_GAMEPAD_BUTTON_SOUTH, YES); button_state(SDL_GAMEPAD_BUTTON_SOUTH, NO);
