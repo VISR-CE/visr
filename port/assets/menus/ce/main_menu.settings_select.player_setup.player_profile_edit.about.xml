@@ -6,7 +6,6 @@
 		<on event="back" back="true"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/header_about"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/title_version" x="54" y="78"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/title_port" x="54" y="102"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/options_menu"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/help"/>
 	</widget>
@@ -107,7 +106,5 @@
 	</strings>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/title_version" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FF2896FF" text_x="13">
 		<data input="port about version"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/title_port" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text="An unofficial port of Halo: Combat Evolved">
 	</widget>
 </menus>

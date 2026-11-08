@@ -114,7 +114,7 @@ def test_the_version_row_has_a_game_data_function():
 
 def test_about_has_title_lines_and_back():
     root = ET.parse(PC_SCREEN).getroot()
-    assert any(w.get("text") == about_data.TAGLINE for w in root.iter("widget"))
+    assert not any(w.get("name", "").endswith("/title_port") for w in root.iter("widget"))
     assert [d.get("input") for w in root.iter("widget") if w.get("name", "").endswith("/title_version") for d in w.iter("data")] == ["port about version"]
     assert any(w.get("text") == "BACK" for w in root.iter("widget"))
 

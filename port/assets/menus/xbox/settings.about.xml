@@ -6,7 +6,6 @@
 		<on event="back" back="true" />
 		<child widget="xbox/settings/about/header_about" />
 		<child widget="xbox/settings/about/title_version" x="54" y="78" />
-		<child widget="xbox/settings/about/title_port" x="54" y="102" />
 		<child widget="xbox/settings/about/options_menu" />
 		<child widget="xbox/settings/about/help" />
 		<child widget="xbox/settings/about/a_butn" x="471" y="414" platform="!tvos" />
@@ -96,8 +95,6 @@
 	</strings>
 	<widget name="xbox/settings/about/title_version" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FF2896FF" text_x="13">
 		<data input="port about version" />
-	</widget>
-	<widget name="xbox/settings/about/title_port" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text="An unofficial port of Halo: Combat Evolved">
 	</widget>
 	<widget name="xbox/settings/about/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/settings/about/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />

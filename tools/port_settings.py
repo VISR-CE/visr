@@ -461,18 +461,14 @@ def _about_screen() -> list:
     extra += _strings(f"{base}/labels", [label for label, *_ in entries])
     extra += _strings(f"{base}/values", values)
     lines = _screen(ABOUT, spec, rows, [], [], extra)
-    # the title block: "VISR" and the app's version, and what VISR is, over the list (the version is the app's own:
+    # the title block: the app's version over the list (the version is the app's own:
     # menu_functions.c's about_text_show)
     header = f'\t\t<child widget="{base}/header_about"/>'
-    block = [f'\t\t<child widget="{base}/title_version" x="54" y="78"/>',
-             f'\t\t<child widget="{base}/title_port" x="54" y="102"/>']
+    block = [f'\t\t<child widget="{base}/title_version" x="54" y="78"/>']
     lines[lines.index(header) + 1:lines.index(header) + 1] = block
     extra_title = _widget(f"{base}/title_version", [("type", "text"), ("controller", 1), ("width", 512), ("height", 24),
                                                      ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("text_x", 13)],
                           ['<data input="port about version"/>'])
-    extra_title += _widget(f"{base}/title_port", [("type", "text"), ("controller", 1), ("width", 512), ("height", 24),
-                                                   ("font", "ui\\large_ui"), ("color", "#FFFFFFFF"), ("text_x", 13),
-                                                   ("text", about_data.TAGLINE)], [])
     return lines + extra_title
 
 
