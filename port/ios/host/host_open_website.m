@@ -8,14 +8,20 @@
 #import <UIKit/UIKit.h>
 #endif
 
-#define WEBSITE_URL @"https://visr.gg/"
+static NSString *const kPages[] = {
+    @"https://visr.gg/",
+    @"https://visr.gg/privacy",
+    @"https://github.com/steverice/visr/blob/main/LICENSE",
+};
 
-void host_open_website(void) {
+void host_open_website(int page) {
 #if TARGET_OS_TV
+    (void)page;
     return;
 #else
+    if (page < 0 || page >= (int)(sizeof(kPages) / sizeof(kPages[0]))) return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSURL *url = [NSURL URLWithString:WEBSITE_URL];
+        NSURL *url = [NSURL URLWithString:kPages[page]];
 #if HALO_NATIVE_MAC
         [NSWorkspace.sharedWorkspace openURL:url];
 #else

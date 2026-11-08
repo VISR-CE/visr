@@ -1548,9 +1548,9 @@ void host_sdl_cloud_saves_set_enabled(int enabled)
 }
 
 /* the menus' SEND LOG row (host_log_send.m) */
-void host_sdl_open_website(void)
+void host_sdl_open_website(int page)
 {
-    host_open_website();
+    host_open_website(page);
 }
 
 void host_sdl_send_log_start(void)

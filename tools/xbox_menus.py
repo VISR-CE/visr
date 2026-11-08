@@ -165,7 +165,7 @@ def settings_page(assets, folder, bitmaps):
             element.set('bitmap', bitmap_ref(original, bitmaps))
         if element.get('string_list') == 'strings/common_button_captions':
             raise ValueError('PC button captions escaped footer replacement')
-        if element.get('name') == f'{base}/help':
+        if element.get('name') == f'{base}/help' and folder != 'about':
             element.set('top', '350' if folder in ('video_settings', 'controls_setup') else '321')
             element.set('height', '60' if folder in ('video_settings', 'controls_setup') else '79')
         if element.get('name') == f'{base}/cloud_saves_status':
@@ -192,8 +192,9 @@ def settings_page(assets, folder, bitmaps):
     if pending:
         pending()
     if folder == 'about':
-        # (A does something on one row, SEND LOG, in the builds that have it: the legend shows SELECT only there)
-        legend(root, root[0], base, accept='SELECT', cancel='BACK', accept_platform='send_log')
+        # (A opens a page on three rows and asks about SEND LOG on one: the legend shows SELECT except on the Apple TV,
+        # which has no browser and no log to send)
+        legend(root, root[0], base, accept='SELECT', cancel='BACK', accept_platform='!tvos')
         send_log_confirmation(root, bitmaps)
         return root
     footer(root, base,

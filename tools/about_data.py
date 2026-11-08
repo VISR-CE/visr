@@ -11,9 +11,15 @@ for (the copyright holder).
 # the site's public address (README.md, docs/site): shown without the scheme
 WEBSITE = "visr.gg"
 WEBSITE_URL = "https://visr.gg/"
-# (the row's label is the address, in the capitals of the other labels; it opens the site except on the Apple TV)
-WEBSITE_LABEL = WEBSITE.upper()
-WEBSITE_HELP = "Visit VISR on the web."
+PRIVACY = "visr.gg/privacy"
+# VISR's own license, shown by its name; the row opens LICENSE in the repository (the site has no page for it)
+LICENSE = "Apache-2.0"
+
+# fixed under the rows, never hidden
+NOTICE = ("Halo, Halo: Combat Evolved, Master Chief and the related names and logos are trademarks of Microsoft "
+          "Corporation. Halo: Combat Evolved \u00a9 Microsoft Corporation. VISR is an unofficial fan project. It is not "
+          "affiliated with, sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios (formerly 343 "
+          "Industries) or Bungie.")
 
 CREDIT = ("VISR builds on the community's work decompiling Halo: Combat Evolved and porting it: "
           "punpckhdq, bnunu, OpenCE, NicholasDominici and pfista.")

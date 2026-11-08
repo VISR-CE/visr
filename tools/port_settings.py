@@ -245,10 +245,13 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
                       if spec.get("cloud_status") else []))
     lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                                           ("bitmap", header_bitmap)], [])
+    fixed = spec.get("help_text")  # (a text that stays, in the small font, in place of the rows' help)
     lines += _widget(f"{base}/help", [("type", "text"), ("controller", 1), ("left", 68),
                                       ("top", spec.get("help_top", 350)), ("width", 482),
-                                      ("height", spec.get("help_height", 60)), ("string_list", f"{base}/help_strings"),
-                                      ("font", "ui\\large_ui"), ("color", "#FFFFFFFF")], [])
+                                      ("height", spec.get("help_height", 60)),
+                                      *([("text", fixed), ("font", "ui\\small_ui")] if fixed else
+                                        [("string_list", f"{base}/help_strings"), ("font", "ui\\large_ui")]),
+                                      ("color", "#FFFFFFFF")], [])
     children = [f'<data input="{name}"/>' for name in list_inputs] + list_handlers
     # (each row: its widget, platform, and the place it is in, else the next)
     for index, (row, platform, *place) in enumerate(rows):
@@ -268,7 +271,7 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
     lines += _widget(f"{base}/options_menu",
                      [("type", "column_list"), ("width", 640), ("height", 480),
                       ("flags", "pass_unhandled_to_focused_child up_down_tabs_children"),
-                      ("visible_rows", window), ("description", f"{base}/help")], children)
+                      ("visible_rows", window), ("description", None if fixed else f"{base}/help")], children)
     lines += arrows
     lines += _widget(f"{base}/button_bar",
                      [("type", "column_list"), ("width", 640), ("height", 28),
@@ -382,51 +385,48 @@ SEND_LOG_CONFIRM = "xbox/settings/send_log_confirm"
 ABOUT_ROWS = 6
 # the rows start below the two title lines (the app's version and what VISR is)
 ABOUT_ROW_TOP = 128
-# SEND LOG sits after BUILD, in the builds that can send a log (menu_platform.h: send_log)
+# SEND LOG is the last row, in the builds that can send a log (menu_platform.h: send_log)
 SEND_LOG_PLATFORM = "send_log"
-SEND_LOG_INDEX = 1
+# the trademark notice under the rows: the small font's characters that fit the width of its box (calibrated from
+# screenshots), and the lines the box holds
+NOTICE_WIDTH = 66
+NOTICE_LINES = 6
 
 
-def about_help(text: str) -> str:
-    """a help of three lines at most (the help's width is 50 of the large font's characters)"""
-    lines = textwrap.wrap(text, 50)
-    assert len(lines) <= 3, text
+def about_notice(text: str) -> str:
+    """the fixed notice, wrapped for its box (the engine does not wrap)"""
+    lines = textwrap.wrap(text, NOTICE_WIDTH)
+    assert len(lines) <= NOTICE_LINES, text
     return "\\n".join(lines)
 
 
 def _about_screen() -> list:
-    """Settings > ABOUT: the version and build, the website, the credit line, and a row for each license of the
-    code the app contains, in the settings screens' rows. The row chosen is described in the help (the credit
-    line, the copyright), and the list scrolls (visible_rows). The rows take no action"""
+    """Settings > ABOUT: the version and build, the site, its privacy page, the license, SEND LOG where the build
+    has it, and the trademark notice, which is fixed under the rows (no row's help replaces it). BUILD and SEND LOG
+    show the app's own text; the others show a fixed value and open a page (not on the Apple TV)"""
     base = f"{PE}/{ABOUT}"
-    spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP, "help_top": 321, "help_height": 79,
+    spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP,
+            "help_top": 330, "help_height": 80, "help_text": about_notice(about_data.NOTICE),
             "header": ("header_about", f"{base}/header_about"),
             "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
-    entries = [("BUILD", None, about_data.BUILD_HELP, "build"),
-               ("SEND LOG", None, about_data.SEND_LOG_HELP, "send_log"),
-               (about_data.WEBSITE_LABEL, None, about_data.WEBSITE_HELP, "website"),
-               ("CREDITS", None, about_help(about_data.CREDIT), "credits")]
-    for name, license, copyright, *_ in about_data.LICENSES:
-        key = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-        entries.append((name, license, about_help(copyright), key))
+    # (label, the value shown, key, the page it opens)
+    entries = [("BUILD", None, "build", None),
+               ("ONLINE", about_data.WEBSITE, "website", "port open website"),
+               ("PRIVACY", about_data.PRIVACY, "privacy", "port open privacy"),
+               ("LICENSE", about_data.LICENSE, "license", "port open license"),
+               ("SEND LOG", None, "send_log", None)]
     rows, extra = [], []
     values = []
-    for index, (label, value, help_text, key) in enumerate(entries):
+    for index, (label, value, key, opens) in enumerate(entries):
         row = f"{base}/op_{key}"
-        if key == "send_log":
-            rows.append((row, SEND_LOG_PLATFORM, index))
-        elif index > SEND_LOG_INDEX:
-            # (the rows below SEND LOG, which only some builds have, sit a row higher in the others)
-            rows += [(row, SEND_LOG_PLATFORM, index), (row, "!" + SEND_LOG_PLATFORM, index - 1)]
-        else:
-            rows.append((row, None))
+        rows.append((row, SEND_LOG_PLATFORM if key == "send_log" else None, index))
         children = [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>']
         if value or key in ("build", "send_log"):
             children.append(f'<child{attributes([("widget", f"{base}/{key}_value"), ("x", 270), ("y", 1)])}/>')
         extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                         [*(['<on event="a" run="port open website" platform="!tvos"/>',
-                             '<on event="start" run="port open website" platform="!tvos"/>'] if key == "website" else
+                         [*([f'<on event="a" run="{opens}" platform="!tvos"/>',
+                             f'<on event="start" run="{opens}" platform="!tvos"/>'] if opens else
                             [f'<on event="a" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else '<on event="a"/>',
                              f'<on event="start" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else '<on event="start"/>']),
                           '<on event="left_mouse" run="mouse emit accept event"/>', *children])
@@ -455,9 +455,7 @@ def _about_screen() -> list:
                       '<on event="left_mouse" run="mouse emit accept event"/>'])
     extra += _strings(f"{base}/labels", [label for label, *_ in entries])
     extra += _strings(f"{base}/values", values)
-    # (the help of the row whose label is string n is n + 1: the buttons' is 0)
-    extra += _strings(f"{base}/help_strings", [""] + [help_text for _, _, help_text, _ in entries])
-    lines = _screen(ABOUT, spec, rows, ["port settings help"], [], extra)
+    lines = _screen(ABOUT, spec, rows, [], [], extra)
     # the title block: "VISR" and the app's version, and what VISR is, over the list (the version is the app's own:
     # menu_functions.c's about_text_show)
     header = f'\t\t<child widget="{base}/header_about"/>'

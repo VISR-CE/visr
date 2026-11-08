@@ -100,7 +100,7 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 void host_sdl_app_version(char *buffer, unsigned int size);
 void host_sdl_app_build(char *buffer, unsigned int size);
 void host_sdl_send_log_start(void);
-void host_sdl_open_website(void);
+void host_sdl_open_website(int page);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
@@ -6543,10 +6543,12 @@ boolean pc_menu_event_function_invoke(
 		{
 			return ui_widget_port_delete_finish(widget, widget_deleted);
 		}
-		else if (!strcmp(name, "port open website"))
+		else if (!strcmp(name, "port open website") || !strcmp(name, "port open privacy") ||
+			!strcmp(name, "port open license"))
 		{
 #ifdef HALO_IOS
-			host_sdl_open_website();
+			/* (pages in host_open_website.h: 0 the site, 1 its privacy page, 2 the license) */
+			host_sdl_open_website(!strcmp(name, "port open privacy") ? 1 : !strcmp(name, "port open license") ? 2 : 0);
 #endif
 		}
 		else if (!strcmp(name, "port send log"))

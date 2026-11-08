@@ -11,66 +11,14 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="330" width="482" height="80" text="Halo, Halo: Combat Evolved, Master Chief and the related names and\nlogos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved © Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries) or Bungie." font="ui\small_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="6" description="main_menu/settings_select/player_setup/player_profile_edit/about/help">
-		<data input="port settings help"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="6">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_build" x="54" y="128"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_send_log" x="54" y="158" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_website" x="54" y="188" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_website" x="54" y="158" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_credits" x="54" y="218" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_credits" x="54" y="188" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_visr" x="54" y="248" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_visr" x="54" y="218" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_origin_projects" x="54" y="278" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_origin_projects" x="54" y="248" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_sdl" x="54" y="308" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_sdl" x="54" y="278" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_musl" x="54" y="338" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_musl" x="54" y="308" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_mbed_tls" x="54" y="368" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_mbed_tls" x="54" y="338" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_ffmpeg" x="54" y="398" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_ffmpeg" x="54" y="368" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_expat" x="54" y="428" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_expat" x="54" y="398" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_zlib" x="54" y="458" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_zlib" x="54" y="428" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_kcp" x="54" y="488" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_kcp" x="54" y="458" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_tomlc17" x="54" y="518" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_tomlc17" x="54" y="488" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_stb_truetype" x="54" y="548" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_stb_truetype" x="54" y="518" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_monocypher" x="54" y="578" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_monocypher" x="54" y="548" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_xxhash" x="54" y="608" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_xxhash" x="54" y="578" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_bc7enc" x="54" y="638" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_bc7enc" x="54" y="608" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_bc7_decoder" x="54" y="668" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_bc7_decoder" x="54" y="638" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_astc_encoder" x="54" y="698" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_astc_encoder" x="54" y="668" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_smaa" x="54" y="728" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_smaa" x="54" y="698" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_pbrify_upscaler" x="54" y="758" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_pbrify_upscaler" x="54" y="728" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_streamer_words" x="54" y="788" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_streamer_words" x="54" y="758" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_english_word_list" x="54" y="818" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_english_word_list" x="54" y="788" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_khronos_headers" x="54" y="848" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_khronos_headers" x="54" y="818" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_overpass" x="54" y="878" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_overpass" x="54" y="848" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_opence_font" x="54" y="908" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_opence_font" x="54" y="878" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_newtown" x="54" y="938" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_newtown" x="54" y="908" platform="!send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_orbitron" x="54" y="968" platform="send_log"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_orbitron" x="54" y="938" platform="!send_log"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_website" x="54" y="158"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_privacy" x="54" y="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_license" x="54" y="218"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_send_log" x="54" y="248" platform="send_log"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/scroll_up_arrow" x="574" y="128"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/scroll_down_arrow" x="574" y="284"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/button_bar" y="414"/>
@@ -94,6 +42,39 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/build_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
 		<data input="port about build"/>
 	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_website" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<on event="a" run="port open website" platform="!tvos"/>
+		<on event="start" run="port open website" platform="!tvos"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/website_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/website_value" x="270" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/website_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/website_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_privacy" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<on event="a" run="port open privacy" platform="!tvos"/>
+		<on event="start" run="port open privacy" platform="!tvos"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/privacy_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/privacy_value" x="270" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/privacy_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/privacy_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="1" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_license" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<on event="a" run="port open license" platform="!tvos"/>
+		<on event="start" run="port open license" platform="!tvos"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/license_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/license_value" x="270" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/license_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/license_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="2" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
+	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_send_log" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<on event="a" open="xbox/settings/send_log_confirm"/>
 		<on event="start" open="xbox/settings/send_log_confirm"/>
@@ -101,301 +82,10 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_value" x="270" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
 		<data input="port send log status"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_website" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a" run="port open website" platform="!tvos"/>
-		<on event="start" run="port open website" platform="!tvos"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/website_label"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/website_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_credits" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/credits_label"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/credits_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_visr" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/visr_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/visr_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/visr_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/visr_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_origin_projects" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/origin_projects_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/origin_projects_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/origin_projects_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/origin_projects_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="1" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_sdl" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/sdl_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/sdl_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/sdl_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/sdl_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="2" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_musl" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/musl_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/musl_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/musl_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/musl_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="3" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_mbed_tls" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/mbed_tls_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/mbed_tls_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/mbed_tls_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="8" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/mbed_tls_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="4" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_ffmpeg" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/ffmpeg_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/ffmpeg_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/ffmpeg_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/ffmpeg_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="5" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_expat" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/expat_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/expat_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/expat_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="10" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/expat_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="6" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_zlib" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/zlib_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/zlib_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/zlib_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/zlib_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="7" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_kcp" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/kcp_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/kcp_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/kcp_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="12" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/kcp_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="8" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_tomlc17" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/tomlc17_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/tomlc17_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/tomlc17_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="13" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/tomlc17_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="9" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_stb_truetype" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/stb_truetype_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/stb_truetype_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/stb_truetype_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="14" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/stb_truetype_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="10" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_monocypher" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/monocypher_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/monocypher_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/monocypher_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="15" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/monocypher_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="11" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_xxhash" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/xxhash_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/xxhash_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/xxhash_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="16" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/xxhash_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="12" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_bc7enc" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/bc7enc_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/bc7enc_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/bc7enc_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="17" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/bc7enc_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="13" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_bc7_decoder" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/bc7_decoder_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/bc7_decoder_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/bc7_decoder_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="18" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/bc7_decoder_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="14" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_astc_encoder" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/astc_encoder_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/astc_encoder_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/astc_encoder_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="19" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/astc_encoder_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="15" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_smaa" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/smaa_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/smaa_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/smaa_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="20" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/smaa_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="16" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_pbrify_upscaler" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/pbrify_upscaler_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/pbrify_upscaler_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/pbrify_upscaler_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="21" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/pbrify_upscaler_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="17" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_streamer_words" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/streamer_words_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/streamer_words_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/streamer_words_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/streamer_words_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="18" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_english_word_list" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/english_word_list_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/english_word_list_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/english_word_list_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="23" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/english_word_list_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="19" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_khronos_headers" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/khronos_headers_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/khronos_headers_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/khronos_headers_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/khronos_headers_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="20" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_overpass" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/overpass_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/overpass_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/overpass_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/overpass_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="21" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_opence_font" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/opence_font_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/opence_font_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/opence_font_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="26" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/opence_font_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="22" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_newtown" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/newtown_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/newtown_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/newtown_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="27" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/newtown_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="23" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/op_orbitron" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<on event="a"/>
-		<on event="start"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/orbitron_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/orbitron_value" x="270" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/orbitron_label" type="text" controller="1" width="255" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/labels" string_index="28" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/orbitron_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" string_list="main_menu/settings_select/player_setup/player_profile_edit/about/values" string_index="24" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" back="true"/>
@@ -404,93 +94,15 @@
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/about/labels">
 		<string text="BUILD"/>
+		<string text="ONLINE"/>
+		<string text="PRIVACY"/>
+		<string text="LICENSE"/>
 		<string text="SEND LOG"/>
-		<string text="VISR.GG"/>
-		<string text="CREDITS"/>
-		<string text="VISR"/>
-		<string text="ORIGIN PROJECTS"/>
-		<string text="SDL"/>
-		<string text="MUSL"/>
-		<string text="MBED TLS"/>
-		<string text="FFMPEG"/>
-		<string text="EXPAT"/>
-		<string text="ZLIB"/>
-		<string text="KCP"/>
-		<string text="TOMLC17"/>
-		<string text="STB_TRUETYPE"/>
-		<string text="MONOCYPHER"/>
-		<string text="XXHASH"/>
-		<string text="BC7ENC"/>
-		<string text="BC7 DECODER"/>
-		<string text="ASTC ENCODER"/>
-		<string text="SMAA"/>
-		<string text="PBRIFY UPSCALER"/>
-		<string text="STREAMER WORDS"/>
-		<string text="ENGLISH WORD LIST"/>
-		<string text="KHRONOS HEADERS"/>
-		<string text="OVERPASS"/>
-		<string text="OPENCE FONT"/>
-		<string text="NEWTOWN"/>
-		<string text="ORBITRON"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/about/values">
-		<string text="APACHE-2.0"/>
-		<string text="CC0 1.0"/>
-		<string text="ZLIB"/>
-		<string text="MIT"/>
-		<string text="APACHE-2.0"/>
-		<string text="LGPL-2.1+"/>
-		<string text="MIT"/>
-		<string text="ZLIB"/>
-		<string text="MIT"/>
-		<string text="MIT"/>
-		<string text="MIT OR PUBLIC DOMAIN"/>
-		<string text="BSD-2-CLAUSE OR CC0"/>
-		<string text="BSD-2-CLAUSE"/>
-		<string text="MIT OR PUBLIC DOMAIN"/>
-		<string text="MIT, PUBLIC DOMAIN, ISC"/>
-		<string text="APACHE-2.0"/>
-		<string text="MIT"/>
-		<string text="CC0 1.0"/>
-		<string text="MIT"/>
-		<string text="UNLICENSE"/>
-		<string text="MIT, APACHE-2.0"/>
-		<string text="SIL OFL 1.1"/>
-		<string text="SIL OFL 1.1"/>
-		<string text="PUBLIC DOMAIN"/>
-		<string text="SIL OFL 1.1"/>
-	</strings>
-	<strings name="main_menu/settings_select/player_setup/player_profile_edit/about/help_strings">
-		<string text=""/>
-		<string text="The build number of this app."/>
-		<string text="Sends this game's log to the VISR team through iCloud and shows a code to give them."/>
-		<string text="Visit VISR on the web."/>
-		<string text="VISR builds on the community's work decompiling\nHalo: Combat Evolved and porting it: punpckhdq,\nbnunu, OpenCE, NicholasDominici and pfista."/>
-		<string text="Licensed under the Apache License, Version 2.0."/>
-		<string text="punpckhdq/halo, bnunu/halo-1, OpenCE,\nNicholasDominici/halo-ce-ios and pfista/halo-og.\nPublic domain dedication."/>
-		<string text="Copyright (C) 1997-2026 Sam Lantinga."/>
-		<string text="Copyright (c) 2005-2020 Rich Felker, et al."/>
-		<string text="Copyright The Mbed TLS Contributors."/>
-		<string text="Copyright the FFmpeg developers. Bink decoding\nonly, linked statically; its source is at\ngithub.com/steverice/visr."/>
-		<string text="Copyright (c) 1998-2000 Thai Open Source Software\nCenter Ltd and Clark Cooper; 2001-2025 Expat\nmaintainers."/>
-		<string text="Copyright (C) 1995-2026 Jean-loup Gailly and Mark\nAdler."/>
-		<string text="Copyright (c) 2017 Lin Wei."/>
-		<string text="Copyright (c) 2024-2026 CK Tan."/>
-		<string text="Copyright (c) 2017 Sean Barrett."/>
-		<string text="Copyright (c) 2017-2023 Loup Vaillant, Michael\nSavage and Fabio Scotoni."/>
-		<string text="Copyright (c) 2012-2021 Yann Collet."/>
-		<string text="Copyright (c) 2018-2021 Richard Geldreich, Jr."/>
-		<string text="Copyright (c) 2018 Richard Geldreich, Jr.; (c)\n2015 Harm Hanemaaijer."/>
-		<string text="Copyright Arm Limited."/>
-		<string text="Copyright (C) 2013 Jorge Jimenez, Jose I.\nEchevarria, Belen Masia, Fernando Navarro and\nDiego Gutierrez."/>
-		<string text="Kim2091's 4x-PBRify_UpscalerSPANV4 weights,\nconverted to Core ML. Public domain dedication."/>
-		<string text="Copyright (c) Surge AI. The profanity list\nstreamer mode's words derive from."/>
-		<string text="Public domain. Used to review the streamer words."/>
-		<string text="Copyright The Khronos Group Inc. OpenGL ES and EGL\nheaders."/>
-		<string text="Copyright 2021 The Overpass Project Authors."/>
-		<string text="Copyright 2026 The OpenCE Project Authors. Newtown\nwith respaced glyphs."/>
-		<string text="Roger White, 1994, released by its author into the\npublic domain."/>
-		<string text="Copyright 2018 The Orbitron Project Authors."/>
+		<string text="visr.gg"/>
+		<string text="visr.gg/privacy"/>
+		<string text="Apache-2.0"/>
 	</strings>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/title_version" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FF2896FF" text_x="13">
 		<data input="port about version"/>

@@ -62,11 +62,11 @@ def test_every_component_the_apple_apps_contain_is_listed():
         assert any(COVERED[key].lower() in name.lower() for name in names()), (row, COVERED[key])
 
 
-def test_help_of_each_row_fits_three_lines():
-    for _, _, copyright, *_ in about_data.LICENSES:
-        assert len(textwrap.wrap(copyright, 50)) <= 3, copyright
-    assert len(textwrap.wrap(about_data.CREDIT, 50)) <= 3
-    assert len(textwrap.wrap(about_data.SEND_LOG_HELP, 50)) <= 3
+def test_notice_is_exact_fits_and_has_the_copyright_sign():
+    lines = port_settings.about_notice(about_data.NOTICE).split("\\n")
+    assert len(lines) <= port_settings.NOTICE_LINES
+    assert " ".join(lines) == about_data.NOTICE and "\u00a9" in about_data.NOTICE
+    assert about_data.NOTICE.startswith("Halo, Halo: Combat Evolved, Master Chief")
 
 
 def test_pc_screen_is_what_the_generator_writes():
@@ -77,18 +77,22 @@ def test_pc_screen_is_what_the_generator_writes():
 def labels(path, prefix):
     root = ET.parse(path).getroot()
     lists = {s.get("name"): [x.get("text") for x in s] for s in root.iter("strings")}
-    return lists[f"{prefix}/labels"], lists[f"{prefix}/help_strings"], lists[f"{prefix}/values"]
+    return lists[f"{prefix}/labels"], lists[f"{prefix}/values"]
 
 
 def test_both_looks_list_the_same_rows():
     pc = labels(PC_SCREEN, f"{port_settings.PE}/about")
     xbox = labels(XBOX_SCREEN, "xbox/settings/about")
     assert pc == xbox
-    label, helps, values = pc
-    assert label[:4] == ["BUILD", "SEND LOG", "VISR.GG", "CREDITS"] and label[4:] == names()
-    assert len(helps) == len(label) + 1
-    assert about_data.WEBSITE_URL == "https://visr.gg/" and helps[3] == "Visit VISR on the web."
-    assert any("punpckhdq" in help_text for help_text in helps)
+    label, values = pc
+    assert label == ["BUILD", "ONLINE", "PRIVACY", "LICENSE", "SEND LOG"]
+    assert "visr.gg" in values and about_data.PRIVACY in values and about_data.LICENSE in values
+    for path in (PC_SCREEN, XBOX_SCREEN):
+        text = path.read_text()
+        assert "CREDITS" not in text and "op_credits" not in text and "op_sdl" not in text
+        assert 'type="text"' in text and about_data.NOTICE.split(",")[0] in text and "\u00a9" in text
+        for tag in ("website", "privacy", "license"):
+            assert text.count(f'run="port open {tag}" platform="!tvos"') == 2
 
 
 def test_the_profile_editor_opens_it_in_both_looks():
@@ -108,11 +112,8 @@ def test_the_version_row_has_a_game_data_function():
     assert "host_sdl_app_build" in (ROOT / "port/runtime/host_imports.list").read_text()
 
 
-def test_about_has_a_scroll_window_and_back():
+def test_about_has_title_lines_and_back():
     root = ET.parse(PC_SCREEN).getroot()
-    lists = [w for w in root.iter("widget") if w.get("name", "").endswith("/options_menu")]
-    assert lists[0].get("visible_rows") == "6"
-    # (the title lines: the app's version, from the game data function, and what VISR is)
     assert any(w.get("text") == about_data.TAGLINE for w in root.iter("widget"))
     assert [d.get("input") for w in root.iter("widget") if w.get("name", "").endswith("/title_version") for d in w.iter("data")] == ["port about version"]
     assert any(w.get("text") == "BACK" for w in root.iter("widget"))
@@ -138,9 +139,10 @@ def test_send_log_row_is_there_only_in_builds_that_can_send_a_log():
     for path, prefix in ((PC_SCREEN, f"{port_settings.PE}/about"), (XBOX_SCREEN, "xbox/settings/about")):
         shown = rows_by_platform(path, prefix)
         on, off = shown["on"], shown["off"]
-        assert [name for _, name in on][:3] == ["build", "send_log", "website"]
+        assert [name for _, name in on] == ["build", "website", "privacy", "license", "send_log"]
         assert "send_log" not in [name for _, name in off]
         assert [name for _, name in on if name != "send_log"] == [name for _, name in off]
+        assert [name for _, name in on][-1] == "send_log"
         # each build's rows are a row apart with no gap where the row is missing
         for rows in (on, off):
             assert [y for y, _ in rows] == [port_settings.ABOUT_ROW_TOP + 30 * index for index in range(len(rows))]
