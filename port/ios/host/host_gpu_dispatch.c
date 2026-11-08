@@ -17,6 +17,7 @@ visionOS has no OpenGL ES, and its build leaves the GL backend out.
 #include "host_external.h"
 #include "host_config.h"
 #include "host_low_power.h"
+#include "host_stereo.h"
 #include "low_power.h"
 #if HALO_RENDER_VALIDATION
 #include "gpu_validate.h"
@@ -455,7 +456,8 @@ double host_frame_rate_display_target(void)
 	/* (Low Power Mode halves what frames aim for at the display's rate: 120 is 60, 60 is 30) */
 	return low_power.state.on ? low_power_cap(0.0, display, host_low_power_display_limited(), 0) : display;
 #else
-	return 0.0;
+	/* (the Compositor's rate: 90 Hz, 45 where stereo repeats frames; theater mode's mono screen keeps every refresh) */
+	return low_power_vision_rate(host_stereo_frame_repeat());
 #endif
 }
 

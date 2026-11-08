@@ -36,6 +36,17 @@ static inline enum low_power_override low_power_override_setting(const char *val
 	return LOW_POWER_FOLLOW;
 }
 
+/* the rate the Vision Pro's Compositor gives frames: its 90 Hz refreshes, each frame staying up for repeat more of
+   them (display.frame_repeat 0..3; 1 is 45). Low Power Mode does not apply there */
+static inline double low_power_vision_rate(int repeat)
+{
+	if (repeat < 0)
+		repeat = 0;
+	if (repeat > 3)
+		repeat = 3;
+	return 90.0 / (double)(repeat + 1);
+}
+
 /* the display's highest rate while Low Power Mode is on (display: its highest otherwise, 0 unknown; limited: 1 where
    Low Power Mode turns faster rates off, an iPhone or iPad). 0 when unknown */
 static inline double low_power_display_rate(double display, int limited)

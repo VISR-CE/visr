@@ -27,6 +27,11 @@ static void post(int on)
 static void caps(void)
 {
     /* a ProMotion iPhone: "display" (0) and 120 go to 60; a profile's 60 to 30 */
+    CHECK(low_power_vision_rate(0) == 90.0);
+    CHECK(low_power_vision_rate(1) == 45.0);
+    CHECK(low_power_vision_rate(3) == 22.5);
+    CHECK(low_power_vision_rate(-1) == 90.0);
+    CHECK(low_power_vision_rate(9) == 22.5);
     CHECK(low_power_cap(0.0, 120.0, 1, GAMEPLAY) == 60.0);
     CHECK(low_power_cap(120.0, 120.0, 1, GAMEPLAY) == 60.0);
     CHECK(low_power_cap(60.0, 120.0, 1, GAMEPLAY) == 30.0);
