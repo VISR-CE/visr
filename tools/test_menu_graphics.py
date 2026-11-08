@@ -341,7 +341,7 @@ int main(void)
     list->focused_child = op_motion;
     graphics_rows_show(list);
     text_value_of(row_help->parameters.text_box.text, line);
-    assert(!strcmp(line, "Frames are drawn at the game's 30 ticks a second in Hardcore mode."));
+    assert(!strcmp(line, "Frames are drawn at the game's 30 ticks per second in Hardcore mode."));
     list->focused_child = op_sync;
     graphics_rows_show(list);
     assert(!row_help->visible && help->visible);
@@ -494,11 +494,11 @@ int main(void)
     struct widget_instance help = {0};
     char line[300];
     struct { char const *setting, *value, *expected; int length, breaks; } cases[] = {
-        {"display.interpolation", "false", "Frames are drawn at the game's 30 ticks a second in Hardcore mode.", 66, 1},
+        {"display.interpolation", "false", "Frames are drawn at the game's 30 ticks per second in Hardcore mode.", 68, 1},
         {"display.frame_rate", "30", "Fixed to 30 FPS in Hardcore mode.", 33, 0},
         {"display.direct_camera", "false", "Fixed to false in Hardcore mode.", 32, 0},
         {"display.resolution_scaling", "original", "Fixed to original in Hardcore mode.", 35, 0},
-        {"display.interpolation", "false", "Frames are drawn at the game's 30 ticks a second in Hardcore mode.", 66, 1},
+        {"display.interpolation", "false", "Frames are drawn at the game's 30 ticks per second in Hardcore mode.", 68, 1},
     };
     for (int i = 0; i < NUMBEROF(cases); i++)
     {
