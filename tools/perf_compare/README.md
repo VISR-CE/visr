@@ -47,6 +47,14 @@ python3 tools/perf_compare/refresh.py render --check
 
 `windows.toml` defines each sampling window (suite, level, kind, console commands, expected cutscene length, fingerprints); `windows.py` validates it, and a refresh config names windows with `windows = [...]`. Battle, cutscene and bot windows drive the game's telnet console (`consolewin.py`) and are checked by `rejects.py`: a cutscene must print within 1.5 times its expected length and run at least 95% of it, a battle must have placed its encounters and not reloaded a checkpoint, and the bot window must cover 1,800 ± 2 ticks with a grenade thrown. Targets without an unattended console (`console = false`) record those windows as `not_measured`. `device_plan.py` turns a window into the `init.txt` lines and debug keys a VISR device run needs (a hosted one-player game plus `debug.init_after` for console windows), and `device_log.py` reads that run's logs into the results columns plus `cpu_ms_p50`, `gpu_ms_p50` and the 95th percentiles `cpu_ms_p95`, `gpu_ms_p95`, with windows placed in seconds on the frame log clock.
 
+### Screenshots for the public page
+
+The page's split slider compares one frame of each scene across ports, so every port's frame shows the same view at the same game state. A window's `[<window>.shot]` table in `windows.toml` holds `tick`, the game tick to freeze on, and `camera`, the ten numbers `debug_camera_load` reads (position, forward, up, field of view). The shot runs after the timed run, never during it, and a shots-only run (`shots_only` in the refresh config) skips timing and the Metal performance overlay entirely.
+
+`consolewin.run_shot` plays the window to its shot tick in game: battle commands and cutscene scripts fire on fixed ticks (`sleep_until (game_time)`), and `(game_speed 0)` freezes the game on the shot tick, so the console line's arrival time does not matter. Then it hides the HUD with `(show_hud 0)` and `(show_hud_help_text 0)`, writes the pose to the port's `camera.txt` (the console's `d:\camera.txt`), runs `(debug_camera_load)`, reads the pose back with `(debug_camera_save)` and compares it, clears the console with `(cls)`, waits, and captures `shot.png`, then `shot-check.png` two seconds later to show the frame stayed frozen. Ports whose console does not print are synchronized by waiting and by numeric queries. With `harvest_camera` set, it saves the port's own camera at the shot tick first, which is how the stored poses were taken.
+
+A port that does not reach the tick, freeze, or take the pose gets no frame for that scene (`window.json` records why): a frame from another view is never published. In co-op windows the pose applies to player 0's view only.
+
 ### Results spreadsheet, snapshot and charts
 
 Results live in a public Google Sheet; `docs/benchmarks.md` holds only headline charts and the methodology. Data and chart definitions change independently:

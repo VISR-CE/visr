@@ -45,6 +45,13 @@ def test_shipped_windows_are_valid_and_cover_the_suites():
     (lambda w: w['coop-c10'].update(players=1), 'two local players'),
     (lambda w: w['coop-c10'].update(suite='multiplayer'), 'kind and suite disagree'),
     (lambda w: w['coop-b30'].update(test_input='bot:1'), 'unknown keys test_input'),
+    (lambda w: w['c10'].update(shot=3), 'shot must be a table'),
+    (lambda w: w['c10']['shot'].update(angle=1), 'unknown shot keys angle'),
+    (lambda w: w['c10']['shot'].pop('tick'), 'shot.tick must be a positive integer'),
+    (lambda w: w['a50-hangar']['shot'].pop('start'), 'needs a start tick'),
+    (lambda w: w['a50-hangar']['shot'].update(tick=500), 'after the start tick'),
+    (lambda w: w['c10']['shot'].update(camera=[1, 2, 3]), 'ten numbers'),
+    (lambda w: w['c10']['shot'].update(camera=[True] * 10), 'ten numbers'),
 ])
 def test_validation_rejects(mutate, message):
     t = table()

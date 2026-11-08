@@ -9,6 +9,11 @@
 # kind = "bot":      a scripted player (`test_input`) for `ticks` game ticks from `start_tick`.
 #
 # `reference_shot` names the qualification image kept beside the mid-window screenshot.
+# `shot`:           the frame the public page shows for the window, taken by a shots-only run (no timing): the
+#                    game plays to `tick` (battle commands and cutscene scripts fire in-game at `start`, or at the
+#                    window's `start_tick`), freezes with `game_speed 0`, and every port loads the same `camera`
+#                    pose (position, forward, up, field of view, as `debug_camera_save` writes it). The pose is
+#                    harvested from VISR's own view at the tick; until then the table has no `camera`.
 
 [c10]
 suite = "campaign"
@@ -18,6 +23,9 @@ warmup_s = 15
 sample_s = 60
 reference_shot = "c10-opening"
 
+[c10.shot]
+tick = 1800
+
 [b30]
 suite = "campaign"
 map = "b30"
@@ -25,6 +33,9 @@ kind = "opening"
 warmup_s = 15
 sample_s = 60
 reference_shot = "b30-opening"
+
+[b30.shot]
+tick = 1800
 
 [a50-hangar]
 suite = "combat"
@@ -55,6 +66,10 @@ fingerprints = [
 ]
 reference_shot = "a50-hangar"
 
+[a50-hangar.shot]
+start = 600
+tick = 1050
+
 [b40-exta]
 suite = "combat"
 map = "b40"
@@ -77,6 +92,10 @@ fingerprints = [
 ]
 reference_shot = "b40-exta"
 
+[b40-exta.shot]
+start = 600
+tick = 1050
+
 [b30-bot]
 suite = "combat"
 map = "b30"
@@ -91,6 +110,9 @@ fingerprints = [
 ]
 reference_shot = "b30-bot"
 
+[b30-bot.shot]
+tick = 1800
+
 [x70-bridge]
 suite = "cutscenes"
 map = "d40"
@@ -103,6 +125,9 @@ expected_ticks = 3790
 start_tick = 2500
 reference_shot = "x70-bridge"
 
+[x70-bridge.shot]
+tick = 3700
+
 [cutscene-rescue]
 suite = "cutscenes"
 map = "a50"
@@ -110,6 +135,10 @@ kind = "cutscene"
 script = "cutscene_rescue"
 expected_ticks = 3180
 reference_shot = "cutscene-rescue"
+
+[cutscene-rescue.shot]
+start = 900
+tick = 2490
 
 # kind = "match":    a hosted Slayer match on a multiplayer map: the host starts the game by itself; `players` local
 #                    players, played by the scripted bot `test_input`. Warm up after player readiness, then sample.
@@ -131,6 +160,9 @@ fingerprints = [
 ]
 reference_shot = "mp-chillout"
 
+[mp-chillout.shot]
+tick = 900
+
 [mp-bloodgulch]
 suite = "multiplayer"
 map = "bloodgulch"
@@ -146,6 +178,9 @@ fingerprints = [
 ]
 reference_shot = "mp-bloodgulch"
 
+[mp-bloodgulch.shot]
+tick = 900
+
 [coop-c10]
 suite = "co-op"
 map = "c10"
@@ -156,6 +191,9 @@ sample_s = 60
 fingerprints = ["(list_count (players))", "(game_time)"]
 reference_shot = "coop-c10"
 
+[coop-c10.shot]
+tick = 900
+
 [coop-b30]
 suite = "co-op"
 map = "b30"
@@ -165,3 +203,6 @@ warmup_s = 15
 sample_s = 60
 fingerprints = ["(list_count (players))", "(game_time)"]
 reference_shot = "coop-b30"
+
+[coop-b30.shot]
+tick = 900

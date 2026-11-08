@@ -188,3 +188,178 @@ def test_hosted_settings_per_port():
     debug, network, env = adapters.hosted_settings('chupathingy', coop)
     assert env['HALO_NETWORK_TEST_LOCAL_PLAYERS'] == '2' and env['HALO_NET_COOP_ENEMIES_MODE'] == 'none' and not debug
     assert adapters.hosted_settings('chupathingy', match)[2]['HALO_START_WITH_ONE_PLAYER'] == '1'
+
+
+class ShotHooks(Hooks):
+    takes_shots = True
+
+    def shot(self):
+        self.log.append(('shot', self.game.t))
+
+
+def test_the_screenshot_pass_runs_after_the_window_has_closed():
+    window = WINDOWS['b40-exta']
+    game = FakeGame(lambda line, t: {'(game_time)': str(int(t * 30))}.get(line))
+    hooks = ShotHooks(game)
+    consolewin.run_window(window, game.console, hooks, game)
+    names = [name for name, _ in hooks.log]
+    assert names == ['prepare', 'begin', 'mid', 'end', 'shot']
+    assert hooks.log[-1][1] >= hooks.log[-2][1]
+
+
+def test_a_cutscene_screenshot_replays_the_script_after_the_window_and_captures_its_middle():
+    window = WINDOWS['x70-bridge']
+    game = FakeGame({'(game_time)': '100'}, timed=[(20 + 126.3, 'xpdone\r\n')])
+    hooks = ShotHooks(game)
+    consolewin.run_window(window, game.console, hooks, game)
+    end_at, shot_at = dict(hooks.log)['end'], dict(hooks.log)['shot']
+    replay = [t for t, line in game.sent_at if line == '(begin (x70_bridge) (print "XPSHOT"))']
+    assert replay and replay[0] >= end_at and shot_at - replay[0] == pytest.approx(8.0)
+
+
+def test_without_the_screenshot_pass_nothing_is_replayed_or_captured():
+    window = WINDOWS['x70-bridge']
+    game = FakeGame({'(game_time)': '100'}, timed=[(20 + 126.3, 'xpdone\r\n')])
+    hooks = Hooks(game)
+    consolewin.run_window(window, game.console, hooks, game)
+    assert not any('XPSHOT' in line for _, line in game.sent_at)
+    assert [name for name, _ in hooks.log] == ['prepare', 'begin', 'mid', 'end']
+
+
+POSE = [1.0, 2.0, 3.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.2]
+PLAYER_VIEW = [5.0, 6.0, 7.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]
+
+
+class CameraFile(consolewin.ShotHooks):
+    """camera.txt as a port sees it, plus the captures taken."""
+
+    def __init__(self, game, harvesting=False):
+        self.game, self.harvesting, self.text, self.shots = game, harvesting, None, []
+
+    def place(self, camera):
+        self.text = consolewin.camera_text(camera)
+
+    def clear(self):
+        self.text = None
+
+    def harvest(self):
+        return self.text
+
+    def readback(self):
+        return self.text
+
+    def shot(self, name):
+        self.shots.append((name, self.game.t))
+
+
+def shot_game(window, now=100, camera_commands=True, prints=True, freezes=True):
+    """A game at tick `now` that freezes on the shot tick once told to, and whose debug camera commands work
+    unless `camera_commands` is off."""
+    state = {'frozen': False, 'view': list(PLAYER_VIEW)}
+    start_t = [None]
+    files = []
+
+    def tick(t):
+        ticks = now + int(t * 30)
+        target = window['shot']['tick']
+        return min(ticks, target) if state['frozen'] else ticks
+
+    def reply(line, t):
+        if line == '(print "XPSYNC")':
+            return 'xpsync' if prints else None  # CoreCE and Chupathingy print nothing; numbers still come back
+        if line == '(game_time)':
+            return str(tick(t))
+        if line.endswith('(game_speed 0))') and freezes:
+            state['frozen'] = True
+        if camera_commands and line == '(debug_camera_load)' and files[0].text:
+            state['view'] = consolewin.parse_camera(files[0].text)
+        if camera_commands and line == '(debug_camera_save)':
+            files[0].text = consolewin.camera_text(state['view'])
+        return None
+
+    game = FakeGame(reply)
+    files.append(None)
+    return game, files, start_t
+
+
+def run_shot_with(window, harvesting=False, **kwargs):
+    game, files, _ = shot_game(window, **kwargs)
+    hooks = CameraFile(game, harvesting)
+    files[0] = hooks
+    out = consolewin.run_shot(window, game.console, hooks, game, prints=kwargs.get('prints', True))
+    return out, hooks, [line for _, line in game.sent_at]
+
+
+def with_camera(window, camera=POSE):
+    return dict(window, shot=dict(window['shot'], camera=camera))
+
+
+def test_every_window_has_a_shot_tick_after_its_start():
+    for key, window in WINDOWS.items():
+        shot = window.get('shot')
+        assert shot, key
+        start = consolewin.shot_start(window)
+        assert start is None or shot['tick'] > start, key
+
+
+def test_shot_lines_fire_commands_and_scripts_on_a_tick_and_freeze_on_the_shot_tick():
+    battle = WINDOWS['b40-exta']
+    lines = consolewin.shot_lines(battle)
+    assert lines[0] == '(set cheat_deathless_player true)'
+    assert lines[1].startswith('(begin (sleep_until (>= (game_time) 600) 1) ' + battle['commands'][0])
+    assert lines[-1] == '(begin (sleep_until (>= (game_time) 1050) 1) (game_speed 0))'
+    cutscene = WINDOWS['cutscene-rescue']
+    assert consolewin.shot_lines(cutscene)[0] == f'(begin (sleep_until (>= (game_time) 900) 1) ({cutscene["script"]}))'
+    assert consolewin.shot_lines(WINDOWS['mp-chillout']) == ['(begin (sleep_until (>= (game_time) 900) 1) (game_speed 0))']
+
+
+def test_camera_text_round_trips_and_rejects_other_text():
+    assert consolewin.parse_camera(consolewin.camera_text(POSE)) == pytest.approx(POSE)
+    assert consolewin.parse_camera('1 2 3') is None and consolewin.parse_camera(None) is None
+    assert consolewin.parse_camera('a b c d e f g h i j') is None
+    assert consolewin.same_camera(POSE, [v + 0.0005 for v in POSE]) and not consolewin.same_camera(POSE, PLAYER_VIEW)
+
+
+def test_a_shot_freezes_on_its_tick_places_the_pose_hides_the_hud_and_captures_twice():
+    window = with_camera(WINDOWS['mp-chillout'])
+    out, hooks, sent = run_shot_with(window)
+    assert out['ended'] == 'frozen' and out['tick'] == 900 and out['camera'] == 'placed'
+    assert '(show_hud 0)' in sent and '(show_hud_help_text 0)' in sent
+    assert sent.index('(debug_camera_load)') < sent.index('(cls)')
+    assert [name for name, _ in hooks.shots] == ['shot.png', 'shot-check.png']
+    cls_at = [t for t, line in hooks.game.sent_at if line == '(cls)'][0]
+    assert hooks.shots[0][1] - cls_at == pytest.approx(consolewin.SHOT_SETTLE_S)
+
+
+def test_a_port_without_the_camera_commands_is_marked_not_placed():
+    out, _, _ = run_shot_with(with_camera(WINDOWS['mp-chillout']), camera_commands=False)
+    assert out['camera'] == 'not-placed'
+
+
+def test_harvesting_takes_the_players_view_and_then_places_it_like_a_stored_pose():
+    out, hooks, sent = run_shot_with(WINDOWS['mp-chillout'], harvesting=True)
+    assert out['harvested'] == pytest.approx(PLAYER_VIEW) and out['camera'] == 'placed'
+    assert sent.count('(debug_camera_save)') == 2 and '(debug_camera_load)' in sent
+
+
+def test_without_a_pose_or_harvest_the_shot_is_taken_without_a_camera_verdict():
+    out, hooks, sent = run_shot_with(WINDOWS['mp-chillout'])
+    assert out['ended'] == 'frozen' and 'camera' not in out and '(debug_camera_load)' not in sent
+    assert len(hooks.shots) == 2
+
+
+def test_a_game_already_past_the_start_is_late_and_takes_no_shot():
+    out, hooks, sent = run_shot_with(with_camera(WINDOWS['a50-hangar']), now=700)
+    assert out['ended'] == 'late' and not hooks.shots
+    assert not any('game_speed' in line for line in sent)
+
+
+def test_a_game_that_never_freezes_takes_no_shot():
+    out, hooks, _ = run_shot_with(with_camera(WINDOWS['mp-chillout']), freezes=False)
+    assert out['ended'] == 'never-froze' and not hooks.shots
+
+
+def test_a_console_that_does_not_print_skips_the_sync_but_still_freezes_by_tick():
+    out, hooks, sent = run_shot_with(with_camera(WINDOWS['mp-chillout']), prints=False)
+    assert '(print "XPSYNC")' not in sent
+    assert out['ended'] == 'frozen' and out['camera'] == 'placed' and len(hooks.shots) == 2

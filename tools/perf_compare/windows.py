@@ -12,7 +12,8 @@ KINDS = ('opening', 'battle', 'cutscene', 'bot', 'match', 'coop')
 LEGACY = ('a10', 'b30')
 DEFAULT_WINDOWS = ['c10', 'b30']
 
-COMMON = {'suite', 'map', 'kind', 'reference_shot', 'fingerprints'}
+COMMON = {'suite', 'map', 'kind', 'reference_shot', 'fingerprints', 'shot'}
+SHOT_KEYS = {'tick', 'start', 'camera'}
 ALLOWED = {
     'opening': COMMON | {'warmup_s', 'sample_s'},
     'battle': COMMON | {'warmup_s', 'sample_s', 'commands', 'encounters'},
@@ -34,6 +35,34 @@ KEY = re.compile(r'[a-z0-9][a-z0-9-]*')
 MAP = re.compile(r'[a-d][0-9]{2}|chillout|bloodgulch')
 MULTIPLAYER_MAPS = ('chillout', 'bloodgulch')
 SCRIPT = re.compile(r'[a-z0-9_]+')
+
+
+def _count(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def check_shot(window, bad):
+    """A `shot` table: the game tick the frame is taken at, the tick a battle's commands or a cutscene's script fire
+    at (`start`), and the camera pose as `debug_camera_save` writes it (position, forward, up, field of view)."""
+    shot = window['shot']
+    if not isinstance(shot, dict):
+        bad('shot must be a table')
+    unknown = set(shot) - SHOT_KEYS
+    if unknown:
+        bad('unknown shot keys ' + ', '.join(sorted(unknown)))
+    if not _count(shot.get('tick')):
+        bad('shot.tick must be a positive integer')
+    if 'start' in shot and not _count(shot['start']):
+        bad('shot.start must be a positive integer')
+    start = shot.get('start', window.get('start_tick'))
+    if window['kind'] in ('battle', 'cutscene') and start is None:
+        bad('a battle or cutscene shot needs a start tick')
+    if start is not None and shot['tick'] <= start:
+        bad('shot.tick must come after the start tick')
+    camera = shot.get('camera')
+    if camera is not None and (not isinstance(camera, list) or len(camera) != 10
+                               or not all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in camera)):
+        bad('shot.camera must be ten numbers')
 
 
 def validate(table: dict) -> dict:
@@ -77,6 +106,8 @@ def validate(table: dict) -> dict:
         shot = window.get('reference_shot')
         if shot is not None and not (isinstance(shot, str) and KEY.fullmatch(shot)):
             bad('reference_shot must be an image name')
+        if 'shot' in window:
+            check_shot(window, bad)
         if kind in ('opening', 'battle', 'match', 'coop') and window['sample_s'] != 60:
             bad('sample_s must be 60')
         if kind == 'match' and window['map'] not in MULTIPLAYER_MAPS:
