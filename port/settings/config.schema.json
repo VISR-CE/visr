@@ -3186,11 +3186,11 @@
             "apple"
           ]
         },
-        "ssao_view_flag": {
+        "stencil_views": {
           "type": "boolean",
-          "default": false,
-          "description": "With debug.ssao off: make depth targets readable as stencil views anyway (to measure that alone).",
-          "x-environment": "HALO_SSAO_VIEW_FLAG",
+          "default": true,
+          "description": "Make depth targets readable as stencil views, which SSAO and soft particle edges need; false to measure what that costs (neither then runs).",
+          "x-environment": "HALO_STENCIL_VIEWS",
           "x-environment-style": "value",
           "x-platforms": [
             "apple"

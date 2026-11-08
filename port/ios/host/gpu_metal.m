@@ -1134,11 +1134,11 @@ static void level_layout(uint32_t format, unsigned long width, unsigned long hei
 	}
 }
 
-/* debug.ssao (spike, host_ssao_apply): whether depth-stencil targets are made readable as stencil views */
-static BOOL ssao_view_flag(void);
-/* soft particle edges (host_soft_depth_prepare): whether depth-stencil targets are made readable as stencil views,
-decided once at launch from display.soft_particles */
-static BOOL soft_view_flag(void)
+/* SSAO (host_ssao_apply) and soft particle edges (host_soft_depth_prepare) read the level's stencil mark through an
+X32_Stencil8 view, so every depth-stencil target is made able to give one: both can switch on mid-game (display.graphics,
+display.ambient_occlusion, display.soft_particles) after the targets exist. debug.stencil_views = false leaves the flag
+off, to measure what it costs (neither feature then runs). */
+static BOOL stencil_view_flag(void)
 {
 	static int flag = -1;
 
@@ -1146,12 +1146,26 @@ static BOOL soft_view_flag(void)
 	{
 		char value[32];
 
-		host_config_string("display.soft_particles", "false", value, sizeof(value));
-		flag = !strcmp(value, "true");
-		if (flag)
-			platform_log("soft particles: depth-stencil targets are made with stencil views (pixel format view)");
+		host_config_string("debug.stencil_views", "true", value, sizeof(value));
+		flag = strcmp(value, "false") != 0;
+		if (!flag)
+			platform_log("stencil views: off (debug.stencil_views); SSAO and soft particle edges cannot run");
 	}
 	return flag != 0;
+}
+
+/* the level's stencil mark (halo_ssao_lightmaps_mark, halo_soft_particles_lightmaps_mark) as one X32_Stencil8 view of
+the depth target, which SSAO and soft particle edges share, kept until the target changes; nil when the target cannot
+give one */
+static id<MTLTexture> level_stencil_view(id<MTLTexture> depth)
+{
+	static id<MTLTexture> view;
+
+	if (!depth || !(depth.usage & MTLTextureUsagePixelFormatView))
+		return nil;
+	if (!view || view.parentTexture != depth)
+		view = [depth newTextureViewWithPixelFormat:MTLPixelFormatX32_Stencil8];
+	return view;
 }
 
 /* the storage a texture's description asks for */
@@ -1171,9 +1185,7 @@ static id<MTLTexture> texture_storage(MetalTexture *record)
 	{
 		storage.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
 		storage.storageMode = MTLStorageModePrivate;
-		/* debug.ssao and soft particle edges read the stencil through an X32_Stencil8 view (host_ssao_apply,
-		host_soft_depth_prepare) */
-		if (storage.pixelFormat == MTLPixelFormatDepth32Float_Stencil8 && (ssao_view_flag() || soft_view_flag()))
+		if (storage.pixelFormat == MTLPixelFormatDepth32Float_Stencil8 && stencil_view_flag())
 			storage.usage |= MTLTextureUsagePixelFormatView;
 	}
 	else
@@ -4367,7 +4379,7 @@ transparent geometry is drawn; only shaders with soft edges read them (nv2a_msl.
 static struct
 {
 	id<MTLComputePipelineState> linearize;
-	id<MTLTexture> distances, stencil_view, stencil_source;
+	id<MTLTexture> distances, stencil_view;
 	float parameters[4];
 	BOOL active, tried, failed;
 } soft;
@@ -7623,29 +7635,8 @@ static struct
 	id<MTLTexture> half_depth, raw, blurred, full, debug_image, half_v1;
 	/* the stencil view and the depth-stencil texture it views */
 	id<MTLTexture> stencil_view;
-	__unsafe_unretained id<MTLTexture> stencil_source;
 	unsigned long passes;
 } ssao;
-
-static BOOL ssao_view_flag(void)
-{
-	static int flag = -1;
-
-	if (flag < 0)
-	{
-		char value[32];
-
-		host_config_string("debug.ssao", "0", value, sizeof(value));
-		flag = atoi(value) != 0;
-		host_config_string("debug.knob_cycle", "false", value, sizeof(value));
-		flag |= !strcmp(value, "true");
-		host_config_string("debug.ssao_view_flag", "false", value, sizeof(value));
-		flag |= !strcmp(value, "true");
-		if (flag)
-			platform_log("ssao: depth-stencil targets are made with stencil views (pixel format view)");
-	}
-	return flag != 0;
-}
 
 static BOOL ssao_programs(void)
 {
@@ -7966,11 +7957,7 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 				ssao.debug_image = ssao_texture(ssao.debug_image, MTLPixelFormatRGBA8Unorm, p.w, p.h);
 			else if (!ssao.debug_image)
 				ssao.debug_image = ssao_texture(nil, MTLPixelFormatRGBA8Unorm, 1, 1);
-			if (ssao.stencil_source != depth_record->texture || !ssao.stencil_view)
-			{
-				ssao.stencil_view = [depth_record->texture newTextureViewWithPixelFormat:MTLPixelFormatX32_Stencil8];
-				ssao.stencil_source = depth_record->texture;
-			}
+			ssao.stencil_view = level_stencil_view(depth_record->texture);
 			{
 				id<MTLCounterSampleBuffer> timing = nil;
 				unsigned stages = 0;
@@ -9856,13 +9843,8 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 			record->samples || foveation_map(record) || !(record->texture.usage & MTLTextureUsagePixelFormatView) ||
 			!soft_depth_program())
 			return 0;
-		/* the level's stencil mark (halo_soft_particles_lightmaps_mark): a view per depth texture, kept until it
-		changes */
-		if (soft.stencil_source != record->texture || !soft.stencil_view)
-		{
-			soft.stencil_view = [record->texture newTextureViewWithPixelFormat:MTLPixelFormatX32_Stencil8];
-			soft.stencil_source = record->texture;
-		}
+		/* the level's stencil mark, shared with SSAO */
+		soft.stencil_view = level_stencil_view(record->texture);
 		if (!soft.stencil_view)
 			return 0;
 		/* debug.soft_particle_scale: 2 keeps the distances at half resolution, the nearest level surface of each 2x2

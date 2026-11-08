@@ -1791,8 +1791,9 @@ static const struct config_setting config_settings[] =
 		"With debug.ssao 1: the first spike's depth preparation and gather, to time them against the current ones." },
 	{ "debug.ssao_scale", _config_integer, "4", "HALO_SSAO_SCALE", _environment_value, _platform_ios,
 		"With debug.ssao 1 and debug.ssao_path 1 or 2: compute the occlusion at half (2) or quarter (4) resolution." },
-	{ "debug.ssao_view_flag", _config_boolean, "false", "HALO_SSAO_VIEW_FLAG", _environment_value, _platform_ios,
-		"With debug.ssao off: make depth targets readable as stencil views anyway (to measure that alone)." },
+	{ "debug.stencil_views", _config_boolean, "true", "HALO_STENCIL_VIEWS", _environment_value, _platform_ios,
+		"Make depth targets readable as stencil views, which SSAO and soft particle\n"
+		"edges need; false to measure what that costs (neither then runs)." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,
 		"DXT-to-ASTC texture preparation: \"auto\" (default) converts on GPUs without BC\n"
 		"once the release enables it, \"force\" emulates a GPU without BC for validation, \"off\" disables it. Requires compressed_textures." },
