@@ -13,6 +13,7 @@ typedef unsigned char BYTE, CHAR;
 typedef short SHORT;
 #include <SDL3/SDL_mouse.h>
 #include "sdl_platform.h"
+#include "halo_controller_glyphs.h"
 enum { XINPUT_GAMEPAD_A, XINPUT_GAMEPAD_B, XINPUT_GAMEPAD_X, XINPUT_GAMEPAD_Y };
 enum { XINPUT_GAMEPAD_DPAD_UP = 1, XINPUT_GAMEPAD_DPAD_DOWN = 2,
 	XINPUT_GAMEPAD_DPAD_LEFT = 4, XINPUT_GAMEPAD_DPAD_RIGHT = 8, XINPUT_GAMEPAD_BACK = 32 };
