@@ -444,14 +444,50 @@ if __name__ == "__main__":
         test_browser_controller_navigation(path)
 
 
+def _png_alpha_column(path, x):
+    import struct
+    import zlib
+    data = path.read_bytes()
+    pos, idat, header = 8, b'', None
+    while pos < len(data):
+        length, kind = struct.unpack('>I4s', data[pos:pos + 8])
+        body = data[pos + 8:pos + 8 + length]
+        if kind == b'IHDR':
+            header = struct.unpack('>IIBBBBB', body)
+        elif kind == b'IDAT':
+            idat += body
+        pos += 12 + length
+    width, height, depth, color, _, _, interlace = header
+    assert (depth, color, interlace) == (8, 6, 0), 'expected 8-bit RGBA, not interlaced'
+    stride, raw = width * 4, zlib.decompress(idat)
+    rows, prev = [], bytearray(stride)
+    for y in range(height):
+        ft, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride):
+            a = line[i - 4] if i >= 4 else 0
+            b = prev[i]
+            c = prev[i - 4] if i >= 4 else 0
+            if ft == 1:
+                line[i] = (line[i] + a) & 255
+            elif ft == 2:
+                line[i] = (line[i] + b) & 255
+            elif ft == 3:
+                line[i] = (line[i] + (a + b) // 2) & 255
+            elif ft == 4:
+                pa, pb, pc = abs(b - c), abs(a - c), abs(a + b - 2 * c)
+                pred = a if pa <= pb and pa <= pc else (b if pb <= pc else c)
+                line[i] = (line[i] + pred) & 255
+        rows.append(line)
+        prev = line
+    return [row[x * 4 + 3] for row in rows]
+
+
 def test_backdrop_runs_to_the_bottom_edge():
-    from PIL import Image
     root = Path(__file__).resolve().parents[1] / 'port/assets/menus/xbox'
-    image = Image.open(root / 'art/browser/backdrop.png').convert('RGBA')
-    height = image.height
-    column = [image.getpixel((1, y)) for y in range(height)]
-    assert column[10][3] == 0                      # clear under the title
-    assert column[-1][3] > 150                     # opaque dark fill at the bottom edge
-    assert column[height * 3 // 4][3] == column[-1][3]   # no bottom rule or fade
+    alpha = _png_alpha_column(root / 'art/browser/backdrop.png', 1)
+    height = len(alpha)
+    assert alpha[10] == 0                          # clear under the title
+    assert alpha[-1] > 150                         # opaque dark fill at the bottom edge
+    assert alpha[height * 3 // 4] == alpha[-1]     # no bottom rule or fade
     text = (root / 'main_menu.multiplayer_type_select.join_game.xml').read_text()
     assert 'bitmap="xbox/browser/backdrop"' in text
