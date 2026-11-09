@@ -684,6 +684,11 @@ static int generate_source(void *opaque,const struct host_texture_source *source
 }
 static BOOL thermal_may_run(void) {
     NSProcessInfoThermalState state=NSProcessInfo.processInfo.thermalState;
+#ifdef HALO_DEVELOPMENT_HOOKS
+    /* Development only: HALO_TEXTURE_UPSCALE_THERMAL_STATE (0-3) replaces the real state so tests do not depend on the host's heat. */
+    const char *fake_thermal=getenv("HALO_TEXTURE_UPSCALE_THERMAL_STATE");
+    if(fake_thermal&&fake_thermal[0])state=(NSProcessInfoThermalState)atoi(fake_thermal);
+#endif
     if(state==NSProcessInfoThermalStateCritical)atomic_store(&thermal_blocked,true);
     if(state<=NSProcessInfoThermalStateFair)atomic_store(&thermal_blocked,false);
     return !atomic_load(&thermal_blocked);
