@@ -301,9 +301,9 @@ def main():
         include=ROOT/'build/ios/gl_include'
         for name,(registry,revision,source) in HEADERS.items():
             target=include/name;target.parent.mkdir(parents=True,exist_ok=True)
+            if target.exists():continue  # pinned revision: a header already fetched never changes
             url=f'https://raw.githubusercontent.com/KhronosGroup/{registry}/{revision}/{source}'
-            data=urllib.request.urlopen(url,timeout=30).read()
-            if not target.exists() or target.read_bytes()!=data:target.write_bytes(data)
+            target.write_bytes(urllib.request.urlopen(url,timeout=30).read())
     validation = args.render_validation == 'on'
     run(sys.executable,'configure.py','--ios',f'--pgo={args.pgo}',f'--lto={args.lto}','--ios-llvm',args.llvm,'--ios-lld',args.lld,
         *(['--render-validation'] if validation else []),*(['--collision-log'] if args.collision_log else []),
