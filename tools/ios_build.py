@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the iPhone/iPad (or, with --tvos, Apple TV; with --visionos, Apple Vision Pro) app from source on an Apple Silicon Mac."""
+"""Build the iPhone/iPad (or, with --tvos, Apple TV; with --visionos, Apple Vision Pro) app from source on a Mac (Apple Silicon or Intel)."""
 from __future__ import annotations
 
 import argparse
@@ -14,9 +14,9 @@ import urllib.parse
 import urllib.request
 
 if __package__:
-    from . import release_signing
+    from . import host_toolchain, release_signing
 else:
-    import release_signing
+    import host_toolchain, release_signing
 
 ROOT = Path(__file__).resolve().parents[1]
 GL_REVISION = '1cdd228e34966dd6b95bd203e9f84faba0f371a1'
@@ -191,8 +191,10 @@ def main():
                         help='profile-guided optimization of the host (the app, the Metal backend, SDL): use (the '
                              'default) builds with pgo/visr_host.profdata, off without, generate builds the '
                              'instrumented app that tools/host_pgo_train.py records the profile with')
-    parser.add_argument('--llvm', default='/opt/homebrew/opt/llvm')
-    parser.add_argument('--lld', default='/opt/homebrew/opt/lld/bin/ld.lld')
+    parser.add_argument('--llvm', default=host_toolchain.find_llvm(),
+                        help='LLVM installation with arm64_32 clang (default: found under the Homebrew prefix)')
+    parser.add_argument('--lld', default=host_toolchain.find_lld(),
+                        help='ELF linker for the guest (default: found under the Homebrew prefix)')
     parser.add_argument('--jobs', type=int, default=min(12,os.cpu_count() or 4))
     args = parser.parse_args()
     if args.mac:
@@ -200,8 +202,9 @@ def main():
             validate_catalyst_test_host(args)  # before the other checks, so its refusal is what --mac reports
         except ValueError as error:
             parser.error(str(error))
-    if platform.system() != 'Darwin' or platform.machine() != 'arm64':
-        parser.error('an Apple Silicon Mac with full Xcode is required')
+    host_problem = host_toolchain.check_build_host()
+    if host_problem:
+        parser.error(host_problem)
     if not args.simulator and not args.unsigned and not args.team and not args.mac and not args.native_mac:
         parser.error('use --team YOUR_TEAM_ID to sign, or --unsigned to sign later')
     if args.team and (args.unsigned or args.simulator):

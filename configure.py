@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
-from tools import ninja_syntax
+from tools import host_toolchain, ninja_syntax
 from tools.ios_guest_build import generate_ios_guest_build, ios_guest_configure_inputs
 from tools.linux_build import check_profile_options, generate_linux_build, linux_configure_inputs
 from tools.windows_build import generate_windows_build, windows_configure_inputs
@@ -76,8 +76,8 @@ parser.add_argument(
     help="profile-guided optimisation from this profile instead",
 )
 parser.add_argument("--ios", action="store_true", help="build the native iOS, tvOS and visionOS guest (`ninja ios_guest`)")
-parser.add_argument("--ios-llvm", default="/opt/homebrew/opt/llvm", help="LLVM installation with arm64_32 clang")
-parser.add_argument("--ios-lld", default="/opt/homebrew/opt/lld/bin/ld.lld", help="ELF linker for the iOS guest")
+parser.add_argument("--ios-llvm", default=host_toolchain.find_llvm(), help="LLVM installation with arm64_32 clang (default: found under the Homebrew prefix)")
+parser.add_argument("--ios-lld", default=host_toolchain.find_lld(), help="ELF linker for the iOS guest (default: found under the Homebrew prefix)")
 parser.add_argument(
     "--render-validation",
     action="store_true",

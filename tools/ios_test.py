@@ -8,6 +8,12 @@ import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
 
+import host_toolchain
+
+_problem = host_toolchain.check_run_host('tools/ios_test.py (the guest probe runner)')
+if _problem:
+    raise SystemExit(_problem)
+
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build/ios/probe'
 BUILD.mkdir(parents=True, exist_ok=True)
@@ -44,8 +50,8 @@ for probe in ('network_version', 'network_join_wire', 'menu_gametype'):
         f'port/ios/tests/{probe}_probe.c', '-o', executable)
     run(executable)
 
-clang = '/opt/homebrew/opt/llvm/bin/clang'
-lld = '/opt/homebrew/opt/lld/bin/ld.lld'
+clang = host_toolchain.llvm_tool('clang')
+lld = host_toolchain.find_lld()
 run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',
     '-mllvm', '-aarch64-enable-compress-jump-tables=false', '-fno-stack-protector', '-ffreestanding',
     '-O2', '-S', 'port/ios/tests/guest_probe.c', '-o', BUILD/'probe.darwin.s')
