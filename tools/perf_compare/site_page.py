@@ -95,7 +95,15 @@ def anchor(text: str, url: str) -> str:
     return (f'<a href="{escape(url)}" rel="noopener">{escape(text)}</a>' if url else escape(text))
 
 
-def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: bool = False, shots: dict | None = None, device: str = "") -> str:
+def shot_scene(build: dict | None, shots: dict, suite: str) -> str | None:
+    """The first scene of the selected suite that the build has a frame for, or None. Mirrors `shotScene` in benchmarks.js."""
+    if not build or suite not in charts.SUITES:
+        return None
+    name = charts.SUITE_NAMES[suite]
+    return next((s["key"] for s in shots.get("scenes", []) if s["suite"] == name and s["key"] in build["scenes"]), None)
+
+
+def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: bool = False, shots: dict | None = None, device: str = "", suite: str = "") -> str:
     """One build's row. A build the chart does not draw (`off`, from `charts.list_status`) is grayed out and cannot be
     ticked, tagged briefly; the tag opens the full reason in place (a `details` element, so it works by keyboard, by
     touch and without scripts), and the row's tooltip carries it too. Mirrored by `buildItem` in benchmarks.js."""
@@ -105,14 +113,15 @@ def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: boo
     # Only a frame from this row's own device, port and version; never another device's.
     shot_key = f"{entry['port']}@{entry['version']}@{device}"
     shot = (shots or {}).get("builds", {}).get(shot_key)
+    scene = shot_scene(shot, shots or {}, suite)
     thumbnail = ""
-    if shot:
-        href = "benchmarks/shots/" + shot["scenes"][shot["thumb_scene"]]
+    if scene:
+        href = "benchmarks/shots/" + shot["scenes"][scene]
         thumbnail = (f'<a class="build-shot" href="{escape(href, quote=True)}" data-shot="{escape(shot_key, quote=True)}" '
-                     f'aria-label="{escape("Screenshots of " + shot["label"], quote=True)}" '
+                     f'data-scene="{escape(scene, quote=True)}" '
+                     f'aria-label="{escape("Screenshots of " + shot["label"] + ", " + charts.SUITE_NAMES[suite] + " suite", quote=True)}" '
                      f'title="{escape("Captured on " + shot["device"], quote=True)}">'
-                     f'<img src="benchmarks/shots/{escape(shot["thumb"], quote=True)}" width="56" height="42" '
-                     'alt="" loading="lazy" decoding="async"></a>')
+                     f'<img src="{escape(href, quote=True)}" width="56" height="42" alt="" loading="lazy" decoding="async"></a>')
     if off is None:
         mark = " checked" if checked else ""
         return (f'<div class="build"><label class="build-label"><input type="checkbox" value="{key}"{mark}> '
@@ -123,14 +132,14 @@ def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: boo
             f'<details class="why"><summary class="tag">{off["tag"]}</summary><p>{escape(reason)}</p></details></div>')
 
 
-def builds_list(built: dict, reasons: dict, selected: set[str] | None = None, shots: dict | None = None) -> str:
+def builds_list(built: dict, reasons: dict, selected: set[str] | None = None, shots: dict | None = None, suite: str = "") -> str:
     """The Builds box: one group per port with its newest version, the port's other versions folded away. Its ticked,
     available rows are the builds the chart draws."""
     status = charts.list_status(built, selected)
 
     def item(entry: dict) -> str:
         key = charts.entry_key(entry)
-        return build_item(entry, reasons, status.get(key), key not in status and (key in selected if selected is not None else entry["default"]), shots, built.get("device", ""))
+        return build_item(entry, reasons, status.get(key), key not in status and (key in selected if selected is not None else entry["default"]), shots, built.get("device", ""), suite)
 
     parts = ["<legend>Builds</legend>"]
     for group in charts.build_groups(built):
@@ -172,7 +181,7 @@ def section(spec: dict, rows: list[dict], suite: str, reasons: dict, device_text
                  f'{escape(charts.SUITE_NAMES[suite])} suite">')
     else:
         chart = f"<pre>{escape(text)}</pre>"
-    rows_html = builds_list(built, reasons, shots=shots)
+    rows_html = builds_list(built, reasons, shots=shots, suite=suite)
     swatches = ""
     if built["entries"]:
         swatches = "  ".join(f'<span class="swatch {kind}" aria-hidden="true"></span> {escape(label)}'

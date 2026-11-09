@@ -92,11 +92,13 @@ def test_rendered_build_rows_link_only_to_available_screenshots():
         key = link["data-shot"]
         build = DATA["builds"][key]
         assert "@".join(row["key"].split("@")[:2]) == "@".join(key.split("@")[:2])
-        assert link["aria-label"] == f'Screenshots of {build["label"]}'
+        assert link["aria-label"].startswith(f'Screenshots of {build["label"]}, Campaign')
         assert f'Captured on {build["device"]}' in link["title"]
-        assert link["href"] == "benchmarks/shots/" + build["scenes"][build["thumb_scene"]]
+        scene = next(x for x in DATA["scenes"] if x["key"] == link["data-scene"])
+        assert scene["suite"] == "Campaign"
+        assert link["href"] == "benchmarks/shots/" + build["scenes"][scene["key"]]
         assert (SITE / link["href"]).is_file()
-        assert image["src"] == "benchmarks/shots/" + build["thumb"]
+        assert image["src"] == link["href"]
         assert (image["width"], image["height"], image["loading"], image["decoding"], image["alt"]) == ("56", "42", "lazy", "async", "")
     assert matched
 
@@ -105,22 +107,47 @@ def test_rendered_build_rows_link_only_to_available_screenshots():
 def test_build_screenshots_need_the_rows_own_device_port_and_version(off):
     entry = {"port": "visr", "version": "0.6.11", "build": "different", "date": "2026-11-06", "label": "VISR 0.6.11"}
     parsed = BuildRows()
-    parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device="Mac mini|M6"))
+    parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device="Mac mini|M6", suite="campaign"))
     assert len(parsed.rows[0]["shots"]) == 1
     for other in ("Mac mini|M1", "Apple TV 4K|A15", ""):
         parsed = BuildRows()
-        parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device=other))
+        parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device=other, suite="campaign"))
         assert not parsed.rows[0]["shots"]
     entry["version"] = "unavailable"
     parsed = BuildRows()
-    parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device="Mac mini|M6"))
+    parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device="Mac mini|M6", suite="campaign"))
     assert not parsed.rows[0]["shots"]
 
 
 def test_python_and_javascript_screenshot_markup_contract():
     python = (ROOT / "tools/perf_compare/site_page.py").read_text(encoding="utf-8")
     javascript = (SITE / "benchmarks/benchmarks.js").read_text(encoding="utf-8")
-    for name in ("build-shot", "data-shot", "aria-label", "loading", "decoding", "thumb_scene"):
+    for name in ("build-shot", "data-shot", "aria-label", "loading", "decoding", "data-scene"):
         assert name in python and name in javascript
     assert 'width="56" height="42"' in python
     assert 'width: "56", height: "42"' in javascript
+
+
+def test_thumbnail_follows_the_selected_suite_and_needs_a_frame_in_it():
+    entry = {"port": "visr", "version": "0.6.11", "build": "x", "date": "2026-11-06", "label": "VISR 0.6.11"}
+    reasons = {"exact": {}, "patterns": {}}
+    build = DATA["builds"]["visr@0.6.11@Mac mini|M6"]
+    by_suite = {}
+    for scene in DATA["scenes"]:
+        by_suite.setdefault(scene["suite"], []).append(scene["key"])
+    for suite, name in charts.SUITE_NAMES.items():
+        parsed = BuildRows()
+        parsed.feed(site_page.build_item(entry, reasons, None, shots=DATA, device="Mac mini|M6", suite=suite))
+        have = [k for k in by_suite.get(name, []) if k in build["scenes"]]
+        if suite in charts.SUITES and have:
+            [link] = parsed.rows[0]["shots"]
+            assert link["data-scene"] == have[0]
+        else:
+            assert not parsed.rows[0]["shots"], suite
+    # A build with no frame for the suite shows nothing.
+    trimmed = {**DATA, "builds": {"visr@0.6.11@Mac mini|M6": {**build, "scenes": {"c10": build["scenes"]["c10"]}}}}
+    parsed = BuildRows()
+    parsed.feed(site_page.build_item(entry, reasons, None, shots=trimmed, device="Mac mini|M6", suite="multiplayer"))
+    assert not parsed.rows[0]["shots"]
+    javascript = (SITE / "benchmarks/benchmarks.js").read_text(encoding="utf-8")
+    assert "state.suite)" in javascript and "function shotScene" in javascript

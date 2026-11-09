@@ -734,14 +734,23 @@ function drawLegend(node, spec, count) {
   });
 }
 
-// Screenshot links mirror the thumbnail in build_item in site_page.py. A row links only a frame from its own device.
-function buildShot(entry, shots, device) {
+// Screenshot links mirror the thumbnail in build_item in site_page.py. A row links only a frame from its own device, and
+// only one of the selected suite's scenes (the first the build has a frame for); no such frame, no thumbnail.
+function shotScene(build, shots, suite) {
+  const name = SUITE_NAMES[suite];
+  if (!build || suite === "overall") return null;
+  return (shots.scenes || []).find((scene) => scene.suite === name && build.scenes[scene.key])?.key || null;
+}
+
+function buildShot(entry, shots, device, suite) {
   const key = `${entry.port}@${entry.version}@${device}`;
   const build = shots?.builds?.[key];
-  if (!build) return null;
-  return el("a", { class: "build-shot", href: "benchmarks/shots/" + build.scenes[build.thumb_scene],
-    "data-shot": key, "aria-label": "Screenshots of " + build.label, title: "Captured on " + build.device },
-  el("img", { src: "benchmarks/shots/" + build.thumb, width: "56", height: "42", alt: "", loading: "lazy", decoding: "async" }));
+  const scene = shotScene(build, shots, suite);
+  if (!scene) return null;
+  const path = "benchmarks/shots/" + build.scenes[scene];
+  return el("a", { class: "build-shot", href: path, "data-shot": key, "data-scene": scene,
+    "aria-label": `Screenshots of ${build.label}, ${SUITE_NAMES[suite]} suite`, title: "Captured on " + build.device },
+  el("img", { src: path, width: "56", height: "42", alt: "", loading: "lazy", decoding: "async" }));
 }
 
 // One dialog serves every build row, including rows replaced when a chart or device changes.
@@ -963,7 +972,7 @@ function screenshotCarousel(root, shots) {
     if (!dialog) create();
     opener = link;
     currentBuild = link.dataset.shot;
-    currentScene = build.thumb_scene;
+    currentScene = link.dataset.scene || build.thumb_scene;
     // Only ports with frames from this same device are offered.
     const sameDevice = Object.entries(shots.builds).filter(([, other]) => other.device_id === build.device_id);
     picker.replaceChildren(...sameDevice.map(([key, other]) => el("option", { value: key }, other.label)));
@@ -984,7 +993,7 @@ function buildItem(entry, spec, state, off) {
   const name = el("span", { class: "build-name" }, entry.url ? el("a", { href: entry.url, rel: "noopener" }, entry.label) : entry.label);
   const meta = el("span", { class: "build-meta" }, `build ${entry.build || "unknown"}, ${entry.date}`);
   const label = el("label", { class: "build-label" }, input, " ", name, " ", meta);
-  const shot = buildShot(entry, state.shots, state.models[spec.slug].device);
+  const shot = buildShot(entry, state.shots, state.models[spec.slug].device, state.suite);
   if (off) {
     input.disabled = true;
     const reason = plainReason(off.reason, state.reasons);
