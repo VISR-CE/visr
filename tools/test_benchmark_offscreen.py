@@ -154,7 +154,7 @@ def test_progress_for_all_offscreen_suites():
     assert switch.index("host_benchmark_overlay_presented(on)") < switch.index("gpu_metal_benchmark_realtime(on)")
     ui = (ROOT / "port/ios/host/host_benchmark_page.m").read_text()
     assert "self.view.hidden=progress.presented!=0;" in ui
-    assert "dispatch_sync(dispatch_get_main_queue(),update)" in ui
+    assert "host_main_sync(update)" in ui
     assert "host_benchmark_progress_visible(&progress)" in ui
     assert "scheduledTimerWithTimeInterval:0.25" in ui
     assert "scroll.contentLayoutGuide" in ui and "screen.safeAreaLayoutGuide" in ui
@@ -184,5 +184,7 @@ def test_overlay_window_lifecycle(tmp_path):
     source.write_text(template.replace("// PRODUCTION_OVERLAY", production))
     program = tmp_path / "overlay"
     subprocess.run([compiler, "-fobjc-arc", "-fblocks", "-Wall", "-Werror",
-                    "-framework", "Foundation", str(source), "-o", str(program)], check=True)
+                    "-framework", "Foundation", "-I" + str(ROOT / "port/ios/host"),
+                    str(source),
+                    str(ROOT / "port/ios/host/host_main_thread.c"), "-o", str(program)], check=True)
     subprocess.run([str(program)], check=True, timeout=10)

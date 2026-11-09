@@ -5,6 +5,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "host_benchmark.h"
 #include "host_external.h"
 #include "benchmark_plan.h"
@@ -43,8 +44,7 @@ static NSString *delivery_status;
    controller samples this string only on the main thread. */
 void host_benchmark_menu_status(const char *message) {
     NSString *status = message ? @(message) : nil;
-    if (NSThread.isMainThread) delivery_status = status;
-    else dispatch_async(dispatch_get_main_queue(), ^{ delivery_status = status; });
+    host_main_async(^{ delivery_status = status; });
 }
 
 static void retry_pending_reports(void) {

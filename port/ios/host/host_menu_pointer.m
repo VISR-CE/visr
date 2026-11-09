@@ -4,6 +4,7 @@
 #import <UIKit/UIKit.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "host_menu_pointer.h"
 
 #define pointer_state (*host_menu_pointer_shared())
@@ -73,8 +74,10 @@ static UIImpactFeedbackGenerator *impact_feedback;
    confirm it) */
 static void pointer_feedback(int kind) {
 #if !TARGET_OS_VISION
-    if(kind==HOST_UI_POINTER_FEEDBACK_FOCUS)[selection_feedback selectionChanged];
-    else if(kind==HOST_UI_POINTER_FEEDBACK_ACTIVATE)[impact_feedback impactOccurred];
+    host_main_async(^{
+        if(kind==HOST_UI_POINTER_FEEDBACK_FOCUS)[selection_feedback selectionChanged];
+        else if(kind==HOST_UI_POINTER_FEEDBACK_ACTIVATE)[impact_feedback impactOccurred];
+    });
 #else
     (void)kind;
 #endif
@@ -82,7 +85,7 @@ static void pointer_feedback(int kind) {
 
 static void menus_changed(int menus) {
 #if !TARGET_OS_VISION
-    if(menus){[selection_feedback prepare];[impact_feedback prepare];}
+    if(menus)host_main_async(^{[selection_feedback prepare];[impact_feedback prepare];});
 #endif
     host_ios_touch_menu_changed(menus);
 }

@@ -12,6 +12,7 @@
 #import <UIKit/UIKit.h>
 #include <Network/Network.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "host_benchmark.h"
 #include "host_benchmark_live.h"
 #include <arpa/inet.h>
@@ -705,7 +706,7 @@ void host_benchmark_page(const char *report_path, const char *summary, const cha
 static HaloBenchmarkOverlayWindow *benchmark_overlay;
 static id benchmark_overlay_activation;
 void host_benchmark_overlay_show(int visible) {
-    if(!NSThread.isMainThread) { dispatch_async(dispatch_get_main_queue(),^{ host_benchmark_overlay_show(visible); }); return; }
+    if(!host_on_main_thread()) { host_main_async(^{ host_benchmark_overlay_show(visible); }); return; }
     if(!visible) {
         if(benchmark_overlay_activation) [NSNotificationCenter.defaultCenter removeObserver:benchmark_overlay_activation];
         benchmark_overlay_activation=nil;
@@ -739,6 +740,5 @@ void host_benchmark_overlay_presented(int presented) {
         benchmark_overlay.rootViewController.view.hidden=presented!=0;
         [(HaloBenchmarkOverlayController *)benchmark_overlay.rootViewController refreshProgress];
     };
-    if(NSThread.isMainThread)update();
-    else dispatch_sync(dispatch_get_main_queue(),update);
+    host_main_sync(update);
 }

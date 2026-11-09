@@ -4,6 +4,7 @@
 #import <UIKit/UIKit.h>
 #import <os/lock.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "host_frame_counter_stats.h"
 #include <stdatomic.h>
 #include <time.h>
@@ -22,12 +23,8 @@ static double wall_seconds(void) {
     clock_gettime(CLOCK_MONOTONIC, &now);
     return (double)now.tv_sec + now.tv_nsec / 1e9;
 }
-static void on_main(dispatch_block_t block) {
-    if (NSThread.isMainThread) block();
-    else dispatch_async(dispatch_get_main_queue(), block);
-}
 static void remove_label(unsigned token) {
-    on_main(^{
+    host_main_async(^{
         if (token != atomic_load(&generation)) return;
         [label removeFromSuperview];
         label = nil;
@@ -111,7 +108,7 @@ void host_frame_counter_show(unsigned long frame) {
     token = atomic_load(&generation); name = renderer;
     clock_fixed = fixed;
     os_unfair_lock_unlock(&sample_lock);
-    on_main(^{ @autoreleasepool {
+    host_main_async(^{ @autoreleasepool {
         atomic_store(&update_pending, 0);
         if (!atomic_load(&enabled) || token != atomic_load(&generation)) return;
         UIView *root = overlay_root();

@@ -1,6 +1,7 @@
 /* Asset-free UIKit stand-ins for the production overlay's window lifecycle. */
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
+#include "host_main_thread.h"
 #include <assert.h>
 #include <stdarg.h>
 
