@@ -4,6 +4,7 @@
 #import <UIKit/UIKit.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "host_menu_pointer.h"
 
 #define pointer_state (*host_menu_pointer_shared())
@@ -57,12 +58,14 @@ static UIImpactFeedbackGenerator *impact_feedback;
 /* a tick when the focus lands on an item, a light tap when something is pressed; the iPad has no Taptic Engine
    and these do nothing there */
 static void pointer_feedback(int kind) {
-    if(kind==HOST_UI_POINTER_FEEDBACK_FOCUS)[selection_feedback selectionChanged];
-    else if(kind==HOST_UI_POINTER_FEEDBACK_ACTIVATE)[impact_feedback impactOccurred];
+    host_main_async(^{
+        if(kind==HOST_UI_POINTER_FEEDBACK_FOCUS)[selection_feedback selectionChanged];
+        else if(kind==HOST_UI_POINTER_FEEDBACK_ACTIVATE)[impact_feedback impactOccurred];
+    });
 }
 
 static void menus_changed(int menus) {
-    if(menus){[selection_feedback prepare];[impact_feedback prepare];}
+    if(menus)host_main_async(^{[selection_feedback prepare];[impact_feedback prepare];});
     host_ios_touch_menu_changed(menus);
 }
 

@@ -77,7 +77,7 @@ def main():
         "-target", "arm64-apple-ios17.0-simulator", "-fobjc-arc", "-fblocks",
         "-I", str(ROOT / "port/ios/host"), "-framework", "UIKit", "-framework", "Foundation",
         "-framework", "CoreGraphics",
-        str(source), "-o", str(app / "OverlayProbe"))
+        str(source), str(ROOT / "port/ios/host/host_main_thread.c"), "-o", str(app / "OverlayProbe"))
     run("codesign", "--sign", "-", str(app))
     for kind, device in (("phone", phone), ("ipad", tablet)):
         if device is None:

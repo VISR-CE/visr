@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include "host_benchmark.h"
+#include "host_main_thread.h"
 #include "host_benchmark_live.h"
 
 #define HOST_LOG_INFO 4

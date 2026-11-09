@@ -10,6 +10,7 @@
 #include "host_benchmark.h"
 #include "host_shader_upload.h"
 #include "host_frame_counter_stats.h"
+#include "host_main_thread.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -210,12 +211,11 @@ static void benchmark_progress_refresh(void) {
 }
 void host_benchmark_overlay_presented(int presented) {
     void (^update)(void) = ^{ benchmark_progress_view.hidden = presented != 0; benchmark_progress_refresh(); };
-    if (NSThread.isMainThread) update();
-    else dispatch_sync(dispatch_get_main_queue(), update);
+    host_main_sync(update);
 }
 void host_benchmark_overlay_show(int visible) {
-    if (!NSThread.isMainThread) {
-        dispatch_async(dispatch_get_main_queue(), ^{ host_benchmark_overlay_show(visible); });
+    if (!host_on_main_thread()) {
+        host_main_async(^{ host_benchmark_overlay_show(visible); });
         return;
     }
     if (!visible) {
