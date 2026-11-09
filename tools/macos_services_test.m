@@ -48,13 +48,13 @@ void host_crash(const char *format, ...) {
     @throw [NSException exceptionWithName:@"MainThreadRequired" reason:@"expected thread guard" userInfo:nil];
 }
 void host_logf(int priority,const char *format,...) { (void)priority;(void)format; }
-SDL_Window *host_sdl_window(void) { window_reads++; return NULL; }
+SDL_Window *host_sdl_window(void) { assert(NSThread.isMainThread);window_reads++; return NULL; }
 SDL_PropertiesID SDL_GetWindowProperties(SDL_Window *window) { (void)window;window_reads++;return 0; }
 void *SDL_GetPointerProperty(SDL_PropertiesID props,const char *name,void *fallback) {
     (void)props;(void)name;window_reads++;return fallback;
 }
 bool SDL_PushEvent(SDL_Event *event) { pushes++;last_event=event->type;return true; }
-bool SDL_Init(SDL_InitFlags flags) { (void)flags;assert(!"SDL initialization must not be reached from worker");return false; }
+bool SDL_Init(SDL_InitFlags flags) { (void)flags;assert(NSThread.isMainThread);return true; }
 bool SDL_SetHint(const char *name,const char *value) { (void)name;(void)value;return true; }
 const char *SDL_GetError(void) { return "test"; }
 SDL_DisplayID SDL_GetDisplayForWindow(SDL_Window *window) { (void)window;window_reads++;return 0; }
@@ -70,7 +70,12 @@ static void run_worker(void (^action)(void)) {
         dispatch_semaphore_signal(finished);
     }];
     [thread start];
-    assert(dispatch_semaphore_wait(finished,dispatch_time(DISPATCH_TIME_NOW,5*NSEC_PER_SEC))==0);
+    /* Main must service synchronous UI requests while the worker runs. */
+    double end = CFAbsoluteTimeGetCurrent() + 5.0;
+    while (dispatch_semaphore_wait(finished, DISPATCH_TIME_NOW) != 0) {
+        assert(CFAbsoluteTimeGetCurrent() < end);
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.001, true);
+    }
 }
 static void expect_main_guard(void (^action)(void)) {
     __block BOOL guarded=NO;
@@ -91,19 +96,29 @@ int main(void) {
         assert(mode_copies == 2 && mode_releases == 1);
         display_pixel_size(0, &width, &height);
         assert(width == 0 && height == 0 && mode_copies == 2);
-        expect_main_guard(^{int w, h; host_macos_screen_size(&w, &h);});
-        expect_main_guard(^{host_macos_install();});
-        expect_main_guard(^{host_macos_window_ready(NULL);});
-        expect_main_guard(^{(void)host_macos_display_link(nil,NULL);});
-        expect_main_guard(^{(void)host_external_screen();});
-        expect_main_guard(^{struct host_external_snapshot out;host_external_snapshot(&out);});
-        expect_main_guard(^{host_frame_counter_start(0,1);});
-        expect_main_guard(^{host_frame_counter_stop();});
+        expect_main_guard(^{(void)game_window();});
+        run_worker(^{
+            int w = -1, h = -1;
+            host_macos_screen_size(&w, &h);
+            assert(w >= 0 && h >= 0);
+            host_macos_install();
+            assert(host_external_screen() == NULL);
+            struct host_external_snapshot out;
+            host_external_snapshot(&out);
+            assert(out.width == 0 && out.height == 0 && out.refresh_hertz >= 60);
+            assert(strcmp(out.name, "Mac game window") == 0);
+            host_frame_counter_start(0, 1);
+            host_frame_counter_sample(0.016, 0.002, 0.003);
+            host_frame_counter_show(1);
+            host_frame_counter_stop();
+            assert(!counter_enabled && counter_label == nil);
+        });
+        int reads_before_worker = window_reads;
         run_worker(^{
             assert(host_macos_refresh_rate()==60.0);
             assert(host_alert("test","test","OK",NULL)==-1);
         });
-        assert(window_reads==0);
+        assert(window_reads==reads_before_worker);
         assert(host_lifecycle_background_milliseconds()==0);
         assert([[VISRMacActions new] respondsToSelector:@selector(about:)]);
         [[VISRMacActions new]quit:nil];
@@ -132,7 +147,7 @@ int main(void) {
         finish_requested = 1;
         assert(benchmark_notice_stopped());
         assert(NSApp==nil);
-        puts("Native service physical pixels, main-thread guards, cached worker rate, and normal quit contracts passed");
+        puts("Native service physical pixels, main-thread marshaling, cached worker rate, and normal quit contracts passed");
     }
     return 0;
 }

@@ -67,47 +67,51 @@ const char *host_macos_data_root(void) {
 }
 @end
 void host_macos_install(void) {
-    require_main();
-    /* SDL must create its Cocoa application/delegate before an open panel creates NSApp. */
-    SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"0");
-    if (!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMEPAD))
-        host_fatal("SDL initialization: %s",SDL_GetError());
-    [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    host_main_sync(^{
+        require_main();
+        /* SDL must create its Cocoa application/delegate before an open panel creates NSApp. */
+        SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS,"0");
+        if (!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMEPAD))
+            host_fatal("SDL initialization: %s",SDL_GetError());
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+    });
 }
 void host_macos_window_ready(void *sdl_window) {
-    require_main();
-    (void)sdl_window;
-    host_macos_refresh_rate();
-    static id screen_observer, rate_observer;
-    if (!screen_observer) {
-        NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
-        screen_observer = [center addObserverForName:NSWindowDidChangeScreenNotification
-            object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
-                (void)note; host_macos_refresh_rate();
-            }];
-        rate_observer = [center addObserverForName:NSApplicationDidChangeScreenParametersNotification
-            object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
-                (void)note; host_macos_refresh_rate();
-            }];
-    }
-    static VISRMacActions *actions;
-    if (actions) return;
-    actions = [VISRMacActions new];
-    NSMenu *bar = [NSMenu new];
-    NSMenuItem *application = [NSMenuItem new];
-    [bar addItem:application];
-    NSMenu *menu = [[NSMenu alloc] initWithTitle:@"VISR"];
-    NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:@"About VISR" action:@selector(about:) keyEquivalent:@""];
-    about.target = actions;
-    [menu addItem:about];
-    [menu addItem:NSMenuItem.separatorItem];
-    NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit VISR" action:@selector(quit:) keyEquivalent:@"q"];
-    quit.target = actions;
-    [menu addItem:quit];
-    application.submenu = menu;
-    host_macos_menu_add(bar);
-    NSApp.mainMenu = bar;
-    [NSApp activateIgnoringOtherApps:YES];
+    host_main_sync(^{
+        require_main();
+        (void)sdl_window;
+        host_macos_refresh_rate();
+        static id screen_observer, rate_observer;
+        if (!screen_observer) {
+            NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+            screen_observer = [center addObserverForName:NSWindowDidChangeScreenNotification
+                object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+                    (void)note; host_macos_refresh_rate();
+                }];
+            rate_observer = [center addObserverForName:NSApplicationDidChangeScreenParametersNotification
+                object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note) {
+                    (void)note; host_macos_refresh_rate();
+                }];
+        }
+        static VISRMacActions *actions;
+        if (actions) return;
+        actions = [VISRMacActions new];
+        NSMenu *bar = [NSMenu new];
+        NSMenuItem *application = [NSMenuItem new];
+        [bar addItem:application];
+        NSMenu *menu = [[NSMenu alloc] initWithTitle:@"VISR"];
+        NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:@"About VISR" action:@selector(about:) keyEquivalent:@""];
+        about.target = actions;
+        [menu addItem:about];
+        [menu addItem:NSMenuItem.separatorItem];
+        NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit VISR" action:@selector(quit:) keyEquivalent:@"q"];
+        quit.target = actions;
+        [menu addItem:quit];
+        application.submenu = menu;
+        host_macos_menu_add(bar);
+        NSApp.mainMenu = bar;
+        [NSApp activateIgnoringOtherApps:YES];
+    });
 }
 double host_macos_refresh_rate(void) {
     if (!NSThread.isMainThread) return atomic_load(&cached_refresh_rate);
@@ -128,17 +132,23 @@ static void display_pixel_size(CGDirectDisplayID display, int *width, int *heigh
     if (mode) CGDisplayModeRelease(mode);
 }
 void host_macos_screen_size(int *width, int *height) {
-    require_main();
-    NSScreen *screen = game_window().screen ?: NSScreen.mainScreen;
-    CGDirectDisplayID display = [screen.deviceDescription[@"NSScreenNumber"] unsignedIntValue];
-    display_pixel_size(display, width, height);
+    host_main_sync(^{
+        require_main();
+        NSScreen *screen = game_window().screen ?: NSScreen.mainScreen;
+        CGDirectDisplayID display = [screen.deviceDescription[@"NSScreenNumber"] unsignedIntValue];
+        display_pixel_size(display, width, height);
+    });
 }
 CADisplayLink *host_macos_display_link(id target, SEL selector) {
-    require_main();
-    NSWindow *window = game_window();
-    if (!window) host_fatal("The native display clock has no SDL window");
-    /* NSWindow's display link follows the window across screens. It does not take over its delegate. */
-    return [window displayLinkWithTarget:target selector:selector];
+    __block CADisplayLink *link;
+    host_main_sync(^{
+        require_main();
+        NSWindow *window = game_window();
+        if (!window) host_fatal("The native display clock has no SDL window");
+        /* NSWindow's display link follows the window across screens. It does not take over its delegate. */
+        link = [window displayLinkWithTarget:target selector:selector];
+    });
+    return link;
 }
 int host_alert(const char *title, const char *message, const char *first, const char *second) {
     if (!NSThread.isMainThread) return -1;
@@ -156,9 +166,14 @@ int posix_show_invite(const char *link, const char *code) { (void)link; (void)co
 void posix_update_invite(const char *link, const char *code) { (void)link; (void)code; }
 void posix_invite_menu_ready(void) {}
 int posix_share_link(const char *link) {
-    if (!NSThread.isMainThread || !link) return 0;
-    [NSPasteboard.generalPasteboard clearContents];
-    if (![NSPasteboard.generalPasteboard setString:@(link) forType:NSPasteboardTypeString]) return 0;
+    if (!link) return 0;
+    __block BOOL copied;
+    host_main_sync(^{
+        require_main();
+        [NSPasteboard.generalPasteboard clearContents];
+        copied = [NSPasteboard.generalPasteboard setString:@(link) forType:NSPasteboardTypeString];
+    });
+    if (!copied) return 0;
     host_alert("Invite link copied", "Paste this link to invite another player.", "OK", NULL);
     return 1;
 }
@@ -194,16 +209,22 @@ int host_external_active(void) { return 0; }
 int host_external_size(int *width, int *height) { (void)width; (void)height; return 0; }
 void host_external_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 void *host_external_phone_layer(void) { return NULL; }
-void *host_external_screen(void) { return (__bridge void *)game_window().screen; }
+void *host_external_screen(void) {
+    __block void *screen;
+    host_main_sync(^{ screen = (__bridge void *)game_window().screen; });
+    return screen;
+}
 double host_external_companion_dim(void) { return 0; }
 void host_external_snapshot(struct host_external_snapshot *out) {
-    require_main();
-    memset(out, 0, sizeof(*out));
-    SDL_Window *window = host_sdl_window();
-    if (window) SDL_GetWindowSizeInPixels(window, &out->width, &out->height);
-    out->refresh_hertz = (int)host_macos_refresh_rate();
-    snprintf(out->name, sizeof(out->name), "Mac game window");
-    snprintf(out->reason, sizeof(out->reason), "native");
+    host_main_sync(^{
+        require_main();
+        memset(out, 0, sizeof(*out));
+        SDL_Window *window = host_sdl_window();
+        if (window) SDL_GetWindowSizeInPixels(window, &out->width, &out->height);
+        out->refresh_hertz = (int)host_macos_refresh_rate();
+        snprintf(out->name, sizeof(out->name), "Mac game window");
+        snprintf(out->reason, sizeof(out->reason), "native");
+    });
 }
 /* (the Mac game window is a window: no external display and nothing to mirror) */
 void host_external_displays(struct host_external_displays *out) {
@@ -286,17 +307,21 @@ static int counter_fixed;
 static double counter_first, counter_next;
 static NSString *counter_renderer;
 void host_frame_counter_stop(void) {
-    require_main();
-    counter_enabled = 0;
-    [counter_label removeFromSuperview]; counter_label = nil;
+    host_main_sync(^{
+        require_main();
+        counter_enabled = 0;
+        [counter_label removeFromSuperview]; counter_label = nil;
+    });
 }
 void host_frame_counter_start(int fixed, int metal) {
-    require_main();
-    host_frame_counter_stop();
-    if (!counter_lock) counter_lock = [NSLock new];
-    [counter_lock lock]; host_frame_counter_stats_reset(&counter); [counter_lock unlock];
-    counter_fixed = fixed; counter_renderer = metal ? @"Metal" : @"GL";
-    counter_first = CACurrentMediaTime(); counter_next = counter_first; counter_enabled = 1;
+    host_main_sync(^{
+        require_main();
+        host_frame_counter_stop();
+        if (!counter_lock) counter_lock = [NSLock new];
+        [counter_lock lock]; host_frame_counter_stats_reset(&counter); [counter_lock unlock];
+        counter_fixed = fixed; counter_renderer = metal ? @"Metal" : @"GL";
+        counter_first = CACurrentMediaTime(); counter_next = counter_first; counter_enabled = 1;
+    });
 }
 void host_frame_counter_sample(double interval, double cpu, double gpu) {
     if (!atomic_load(&counter_enabled)) return;
@@ -305,27 +330,30 @@ void host_frame_counter_sample(double interval, double cpu, double gpu) {
     [counter_lock unlock];
 }
 void host_frame_counter_show(unsigned long frame) {
-    if (!counter_enabled || !NSThread.isMainThread) return;
-    double now = CACurrentMediaTime();
-    if (now < counter_next) return;
-    counter_next = now + 0.25;
-    [counter_lock lock];
-    struct host_frame_counter_summary value = host_frame_counter_stats_read(&counter);
-    host_frame_counter_stats_reset(&counter); [counter_lock unlock];
-    NSView *view = game_window().contentView;
-    if (!view) return;
-    if (!counter_label) {
-        counter_label = [NSTextField labelWithString:@""];
-        counter_label.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightSemibold];
-        counter_label.textColor = NSColor.whiteColor; counter_label.backgroundColor = NSColor.blackColor;
-        counter_label.drawsBackground = YES; counter_label.frame = NSMakeRect(8, 8, 440, 64);
-        [view addSubview:counter_label];
-    }
-    char clock[160]; host_frame_counter_clock(clock, sizeof(clock), counter_fixed, frame, now - counter_first);
-    NSString *cpu=value.cpu_ms>=0 ? [NSString stringWithFormat:@"%.2f ms",value.cpu_ms] : @"n/a";
-    NSString *gpu=value.gpu_ms>=0 ? [NSString stringWithFormat:@"%.2f ms",value.gpu_ms] : @"n/a";
-    counter_label.stringValue = [NSString stringWithFormat:@"%@ | %s\n%.1f FPS | frame avg %.2f / max %.2f ms\nCPU %@ / GPU %@ (async)",
-        counter_renderer, clock, value.fps, value.average_ms, value.worst_ms, cpu, gpu];
+    host_main_sync(^{
+        require_main();
+        if (!counter_enabled) return;
+        double now = CACurrentMediaTime();
+        if (now < counter_next) return;
+        counter_next = now + 0.25;
+        [counter_lock lock];
+        struct host_frame_counter_summary value = host_frame_counter_stats_read(&counter);
+        host_frame_counter_stats_reset(&counter); [counter_lock unlock];
+        NSView *view = game_window().contentView;
+        if (!view) return;
+        if (!counter_label) {
+            counter_label = [NSTextField labelWithString:@""];
+            counter_label.font = [NSFont monospacedDigitSystemFontOfSize:12 weight:NSFontWeightSemibold];
+            counter_label.textColor = NSColor.whiteColor; counter_label.backgroundColor = NSColor.blackColor;
+            counter_label.drawsBackground = YES; counter_label.frame = NSMakeRect(8, 8, 440, 64);
+            [view addSubview:counter_label];
+        }
+        char clock[160]; host_frame_counter_clock(clock, sizeof(clock), counter_fixed, frame, now - counter_first);
+        NSString *cpu=value.cpu_ms>=0 ? [NSString stringWithFormat:@"%.2f ms",value.cpu_ms] : @"n/a";
+        NSString *gpu=value.gpu_ms>=0 ? [NSString stringWithFormat:@"%.2f ms",value.gpu_ms] : @"n/a";
+        counter_label.stringValue = [NSString stringWithFormat:@"%@ | %s\n%.1f FPS | frame avg %.2f / max %.2f ms\nCPU %@ / GPU %@ (async)",
+            counter_renderer, clock, value.fps, value.average_ms, value.worst_ms, cpu, gpu];
+    });
 }
 
 /* Peek without consuming quit, window, or controller events needed by the guest. */

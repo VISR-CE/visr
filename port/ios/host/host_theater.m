@@ -22,6 +22,7 @@ to read the eyes' poses and presents it full view. */
 #include "host_stereo_entry.h"
 #include "host.h"
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -394,19 +395,21 @@ static void window_adopt(UIWindowScene *scene)
 
 static void window_park(void)
 {
-	UIWindow *window = sdl_window();
-	UIWindowScene *scene = window.windowScene;
+	host_main_sync(^{
+		UIWindow *window = sdl_window();
+		UIWindowScene *scene = window.windowScene;
 
-	if (parked_window || !window || !scene)
-		return;
-	parked_window = window;
-	parked_size = scene.coordinateSpace.bounds.size;
-	host_logf(HOST_LOG_INFO, "theater: putting the game's window away while VR is open (%.0fx%.0f)",
-		parked_size.width, parked_size.height);
-	[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil
-		errorHandler:^(NSError *error) {
-			host_logf(HOST_LOG_WARN, "theater: the game's window didn't close: %s", error.localizedDescription.UTF8String);
-		}];	host_extra_scene_restore_watch();
+		if (parked_window || !window || !scene)
+			return;
+		parked_window = window;
+		parked_size = scene.coordinateSpace.bounds.size;
+		host_logf(HOST_LOG_INFO, "theater: putting the game's window away while VR is open (%.0fx%.0f)",
+			parked_size.width, parked_size.height);
+		[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil
+			errorHandler:^(NSError *error) {
+				host_logf(HOST_LOG_WARN, "theater: the game's window didn't close: %s", error.localizedDescription.UTF8String);
+			}];	host_extra_scene_restore_watch();
+	});
 }
 
 static void window_unpark(void)
@@ -469,15 +472,17 @@ static BOOL scene_is_space(UIScene *scene)
 
 static void scenes_close(BOOL (*which)(UIScene *), const char *what)
 {
-	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
-	{
-		if (!which(scene))
-			continue;
-		host_logf(HOST_LOG_INFO, "theater: closing %s", what);
-		[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil errorHandler:^(NSError *error) {
-			host_logf(HOST_LOG_WARN, "theater: %s didn't close: %s", what, error.localizedDescription.UTF8String);
-		}];
-	}
+	host_main_sync(^{
+		for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+		{
+			if (!which(scene))
+				continue;
+			host_logf(HOST_LOG_INFO, "theater: closing %s", what);
+			[UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil errorHandler:^(NSError *error) {
+				host_logf(HOST_LOG_WARN, "theater: %s didn't close: %s", what, error.localizedDescription.UTF8String);
+			}];
+		}
+	});
 }
 
 void host_theater_close(void)
