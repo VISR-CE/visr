@@ -149,7 +149,7 @@ def test_invite_pointer_target_posts_x_without_list_focus(tmp_path):
 #define NUMBEROF(a) (sizeof(a) / sizeof((a)[0]))
 enum { _gamepad_analog_button_a, _gamepad_analog_button_b, _gamepad_analog_button_x,
     _gamepad_analog_button_y, _gamepad_analog_button_black, _gamepad_analog_button_white,
-    _gamepad_binary_button_start, _gamepad_binary_button_back };
+    _gamepad_binary_button_start, _gamepad_binary_button_back, _gamepad_binary_button_left_thumb };
 struct widget_instance { long definition_tag_index; };
 static char const *name;
 static char const *tag_get_name(long tag) { return name; }
