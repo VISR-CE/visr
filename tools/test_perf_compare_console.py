@@ -310,7 +310,8 @@ def test_shot_lines_fire_commands_and_scripts_on_a_tick_and_freeze_on_the_shot_t
     assert lines[-1] == '(begin (sleep_until (>= (game_time) 1050) 1) (game_speed 0))'
     cutscene = WINDOWS['cutscene-rescue']
     assert consolewin.shot_lines(cutscene)[0] == f'(begin (sleep_until (>= (game_time) 900) 1) ({cutscene["script"]}))'
-    assert consolewin.shot_lines(WINDOWS['mp-chillout']) == ['(begin (sleep_until (>= (game_time) 900) 1) (game_speed 0))']
+    chill_tick = WINDOWS['mp-chillout']['shot']['tick']
+    assert consolewin.shot_lines(WINDOWS['mp-chillout']) == [f'(begin (sleep_until (>= (game_time) {chill_tick}) 1) (game_speed 0))']
 
 
 def test_camera_text_round_trips_and_rejects_other_text():
@@ -323,7 +324,7 @@ def test_camera_text_round_trips_and_rejects_other_text():
 def test_a_shot_freezes_on_its_tick_places_the_pose_hides_the_hud_and_captures_twice():
     window = with_camera(WINDOWS['mp-chillout'])
     out, hooks, sent = run_shot_with(window)
-    assert out['ended'] == 'frozen' and out['tick'] == 900 and out['camera'] == 'placed'
+    assert out['ended'] == 'frozen' and out['tick'] == window['shot']['tick'] and out['camera'] == 'placed'
     assert '(show_hud 0)' in sent and '(show_hud_help_text 0)' in sent
     assert sent.index('(debug_camera_load)') < sent.index('(cls)')
     assert [name for name, _ in hooks.shots] == ['shot.png', 'shot-check.png']
