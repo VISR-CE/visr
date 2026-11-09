@@ -6,13 +6,17 @@
    animates no scroll view, so the scroll view stands in for the tvOS alert's).
    argv[1] "fixed": the dialog holds the thread out of the workgroup (frame_deadline.h's rules, as host_tv.m holds it)
    until it has gone, then frames join again; exits 0, or 1 when a rule is broken.
-   argv[1] "unfixed": the thread stays joined, as before the fix; UIKit's exception ends the app (the control). */
+   argv[1] "unfixed": the thread stays joined, as before the fix; UIKit's exception ends the app (the control). The
+   exception's reason is logged before abort(); the control then leaves from its SIGABRT handler with _exit(3), so
+   the expected crash writes no crash report on the machine running the tests. */
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
 #include <mach/mach_time.h>
 #include <os/workgroup.h>
 #include <stdio.h>
+#include <signal.h>
 #include <string.h>
+#include <unistd.h>
 #include "frame_deadline.h"
 
 static int fixed, failures;
@@ -138,7 +142,13 @@ static void hold(int on) {
 }
 @end
 
+static void control_abort(int signal_number) {
+    (void)signal_number;
+    _exit(3);
+}
+
 int main(int argc, char **argv) {
     fixed = argc > 1 && !strcmp(argv[1], "fixed");
+    if (!fixed) signal(SIGABRT, control_abort);
     @autoreleasepool { return UIApplicationMain(argc, argv, nil, nil); }
 }
