@@ -87,6 +87,9 @@ def test_live_consumers(tmp_path):
 
     if platform.system() != 'Darwin':
         pytest.skip('Apple config probe uses xcrun and SDL3')
+    import shutil
+    if shutil.which('pkg-config') is None or subprocess.run(['pkg-config', '--exists', 'sdl3']).returncode != 0:
+        pytest.skip('Apple config probe needs SDL3 from pkg-config')
 
     def function(path, name):
         text = (ROOT / path).read_text()
