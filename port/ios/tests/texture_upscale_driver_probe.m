@@ -196,6 +196,8 @@ int main(void) {@autoreleasepool {
     NSString *capacity=[@(directory) stringByAppendingPathComponent:@"capacity.txt"];
     assert([@"0,64" writeToFile:capacity atomically:YES encoding:NSUTF8StringEncoding error:nil]);
     setenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE",capacity.fileSystemRepresentation,1);
+    /* Pin nominal thermal state: a hot host would refuse for heat first and never report the storage need. */
+    setenv("HALO_TEXTURE_UPSCALE_THERMAL_STATE","0",1);
     uint64_t found=0;
     assert(storage_available(cache,&found)==0&&found==(64ull<<20));
     upscale_worker=dispatch_queue_create("test.upscale.retry",DISPATCH_QUEUE_SERIAL);
@@ -210,7 +212,7 @@ int main(void) {@autoreleasepool {
     assert(continued_begins==2&&continued_ends==2&&atomic_load(&import_shown)==-1);
     assert(atomic_load(&retry_scheduled)); /* manual retry never replaces or cancels the timer */
     assert(storage_available(cache,&found)>0&&found==(9000ull<<20));
-    unsetenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE");upscale_enabled=NO;
+    unsetenv("HALO_TEXTURE_UPSCALE_CAPACITY_FILE");unsetenv("HALO_TEXTURE_UPSCALE_THERMAL_STATE");upscale_enabled=NO;
     free(decisions);free(manifest);decisions=NULL;manifest=NULL;
     assert([NSFileManager.defaultManager removeItemAtPath:upscale_root error:nil]);
     puts("texture upscale driver: publication rollback, original reconciliation, failure JSON, unavailable model, menu wake, gameplay stop, pause, level wait, readiness, the no-mix rule, storage estimates and import retry PASS");
