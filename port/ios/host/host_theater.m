@@ -21,6 +21,7 @@ to read the eyes' poses and presents it full view. */
 #include "host_stereo.h"
 #include "host.h"
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>

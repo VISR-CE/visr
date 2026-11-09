@@ -7,6 +7,7 @@
 #import <UIKit/UIKit.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "host_config.h"
 #include <stdlib.h>
 
@@ -97,35 +98,37 @@ void host_ios_touch_reset(void) {
 }
 
 void host_ios_touch_attach(SDL_Window *window) {
-    UIWindow *native=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
-    /* Same launch-window retirement as the iOS host (host_touch.m). */
-    for(UIWindow *candidate in native.windowScene.windows) {
-        if(candidate!=native && [NSStringFromClass(candidate.rootViewController.class) hasPrefix:@"SDLLaunch"])
-            candidate.hidden=YES;
-    }
-    [native makeKeyAndVisible];
+    host_main_sync(^{
+        UIWindow *native=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
+        /* Same launch-window retirement as the iOS host (host_touch.m). */
+        for(UIWindow *candidate in native.windowScene.windows) {
+            if(candidate!=native && [NSStringFromClass(candidate.rootViewController.class) hasPrefix:@"SDLLaunch"])
+                candidate.hidden=YES;
+        }
+        [native makeKeyAndVisible];
 #if TARGET_OS_VISION
-    controller_note=[UILabel new];
-    controller_note.text=@"Connect a game controller to play Halo.";
-    controller_note.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2];
-    controller_note.textColor=UIColor.whiteColor;
-    controller_note.backgroundColor=[UIColor colorWithWhite:0 alpha:0.6];
-    controller_note.textAlignment=NSTextAlignmentCenter;
-    controller_note.layer.cornerRadius=12;controller_note.clipsToBounds=YES;
-    controller_note.translatesAutoresizingMaskIntoConstraints=NO;
-    UIView *root=native.rootViewController.view;
-    [root addSubview:controller_note];
-    [controller_note.centerXAnchor constraintEqualToAnchor:root.centerXAnchor].active=YES;
-    [controller_note.bottomAnchor constraintEqualToAnchor:root.bottomAnchor constant:-40].active=YES;
-    /* 520 points, or the window's width less a margin if the window is narrower */
-    NSLayoutConstraint *preferred=[controller_note.widthAnchor constraintEqualToConstant:520];
-    preferred.priority=UILayoutPriorityDefaultHigh;preferred.active=YES;
-    [controller_note.widthAnchor constraintLessThanOrEqualToAnchor:root.widthAnchor constant:-32].active=YES;
-    [controller_note.heightAnchor constraintEqualToConstant:64].active=YES;
-    host_logf(HOST_LOG_INFO,"visionOS window attached, %.0fx%.0f",native.bounds.size.width,native.bounds.size.height);
+        controller_note=[UILabel new];
+        controller_note.text=@"Connect a game controller to play Halo.";
+        controller_note.font=[UIFont preferredFontForTextStyle:UIFontTextStyleTitle2];
+        controller_note.textColor=UIColor.whiteColor;
+        controller_note.backgroundColor=[UIColor colorWithWhite:0 alpha:0.6];
+        controller_note.textAlignment=NSTextAlignmentCenter;
+        controller_note.layer.cornerRadius=12;controller_note.clipsToBounds=YES;
+        controller_note.translatesAutoresizingMaskIntoConstraints=NO;
+        UIView *root=native.rootViewController.view;
+        [root addSubview:controller_note];
+        [controller_note.centerXAnchor constraintEqualToAnchor:root.centerXAnchor].active=YES;
+        [controller_note.bottomAnchor constraintEqualToAnchor:root.bottomAnchor constant:-40].active=YES;
+        /* 520 points, or the window's width less a margin if the window is narrower */
+        NSLayoutConstraint *preferred=[controller_note.widthAnchor constraintEqualToConstant:520];
+        preferred.priority=UILayoutPriorityDefaultHigh;preferred.active=YES;
+        [controller_note.widthAnchor constraintLessThanOrEqualToAnchor:root.widthAnchor constant:-32].active=YES;
+        [controller_note.heightAnchor constraintEqualToConstant:64].active=YES;
+        host_logf(HOST_LOG_INFO,"visionOS window attached, %.0fx%.0f",native.bounds.size.width,native.bounds.size.height);
 #else
-    host_logf(HOST_LOG_INFO,"tvOS window attached, %.0fx%.0f",native.bounds.size.width,native.bounds.size.height);
+        host_logf(HOST_LOG_INFO,"tvOS window attached, %.0fx%.0f",native.bounds.size.width,native.bounds.size.height);
 #endif
+    });
 }
 
 /* Port assignment and merging mirror host_touch.m, with the remote in place of touch. */

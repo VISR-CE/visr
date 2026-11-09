@@ -66,7 +66,7 @@ static void pointer_feedback(int kind) {
 
 static void menus_changed(int menus) {
     if(menus)host_main_async(^{[selection_feedback prepare];[impact_feedback prepare];});
-    host_ios_touch_menu_changed(menus);
+    host_main_sync(^{ host_ios_touch_menu_changed(menus); });
 }
 
 void host_menu_pointer_attach(void *root_view) {

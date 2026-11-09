@@ -8,6 +8,7 @@
 #endif
 #import <Metal/Metal.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #include "guest_image.h"
 #include "host_display_pin.h"
 #include "host_output_cap.h"
@@ -176,20 +177,24 @@ int host_scene_is_games(void *scene) {
 (SDL's plain UIWindow, from the SDL window's properties); NO until that
 window exists, since before then the game's scene could be any of them */
 static BOOL close_extra_window_scenes(void) {
+    __block BOOL closed;
+    host_main_sync(^{
 #if !TARGET_OS_TV
-    UIWindowScene *game_scene=game_window_scene();
-    if(!game_scene)return NO;
-    for(UIScene *scene in UIApplication.sharedApplication.connectedScenes){
-        /* SDL's window scenes only, never theater mode's immersive space */
-        if(scene==game_scene || ![scene isKindOfClass:UIWindowScene.class] ||
-            ![NSStringFromClass([(NSObject *)scene.delegate class]) isEqualToString:@"SDLUIKitSceneDelegate"])continue;
-        host_logf(HOST_LOG_INFO,"closing an extra window scene (%s)",scene.session.role.UTF8String);
-        [UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil
-            errorHandler:^(NSError *error){host_logf(HOST_LOG_WARN,"the extra window scene didn't close: %s",
-                error.description.UTF8String);}];
-    }
+        UIWindowScene *game_scene=game_window_scene();
+        if(!game_scene){closed=NO;return;}
+        for(UIScene *scene in UIApplication.sharedApplication.connectedScenes){
+            /* SDL's window scenes only, never theater mode's immersive space */
+            if(scene==game_scene || ![scene isKindOfClass:UIWindowScene.class] ||
+                ![NSStringFromClass([(NSObject *)scene.delegate class]) isEqualToString:@"SDLUIKitSceneDelegate"])continue;
+            host_logf(HOST_LOG_INFO,"closing an extra window scene (%s)",scene.session.role.UTF8String);
+            [UIApplication.sharedApplication requestSceneSessionDestruction:scene.session options:nil
+                errorHandler:^(NSError *error){host_logf(HOST_LOG_WARN,"the extra window scene didn't close: %s",
+                    error.description.UTF8String);}];
+        }
 #endif
-    return YES;
+        closed=YES;
+    });
+    return closed;
 }
 
 /* the game's event poll (host_sdl.c), on the main thread outside any SDL
@@ -211,8 +216,10 @@ void host_extra_scene_poll(void) {
                nothing there); its foreground notifications give the window
                back its focus and send it RESTORED, which clears the flag and
                enters fullscreen again */
-            SDL_OnApplicationWillEnterForeground();
-            SDL_OnApplicationDidEnterForeground();
+            host_main_sync(^{
+                SDL_OnApplicationWillEnterForeground();
+                SDL_OnApplicationDidEnterForeground();
+            });
             if(SDL_GetWindowFlags(window)&SDL_WINDOW_MINIMIZED)
                 host_logf(HOST_LOG_WARN,"the game's window is still minimized after the extra scene's close");
             else
@@ -223,7 +230,7 @@ void host_extra_scene_poll(void) {
     if(!extra_scene_pending)return;
     if(extra_scene_pending==1){
         char directory[1024];
-        SDL_SetiOSEventPump(true);
+        host_main_sync(^{ SDL_SetiOSEventPump(true); });
         host_logf(HOST_LOG_INFO,"the event pump is back on after the extra window scene's start");
         /* SDL's scene delegate also changed the working directory to the app's
            resources for the new scene; the host's relative paths (config.toml,
@@ -374,7 +381,7 @@ int main(int argc,char **argv) {
                 host_exit(0);}];
 #endif
 #if !HALO_NATIVE_MAC
-        UIApplication.sharedApplication.idleTimerDisabled=YES;
+        host_main_sync(^{ UIApplication.sharedApplication.idleTimerDisabled=YES; });
 #endif
         /* iCloud saves (nothing without HALO_CLOUD_SAVES): begun before the import screen, whose
            time on a new or purged device is also the time the saves take to come back */

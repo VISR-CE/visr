@@ -4,6 +4,7 @@
 #import <GameController/GameController.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 #import "host_orientation.h"
 #include <math.h>
 #include "host_touch_replay.h"
@@ -389,27 +390,29 @@ static bool SDLCALL controller_input_watch(void *userdata,SDL_Event *event) {
 }
 
 void host_ios_touch_attach(SDL_Window *window) {
-    UIWindow *native=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
-    /* Retire SDL's temporary launch window before entering the non-returning
-       game loop. Its fade animation can otherwise keep accessibility/input
-       attached to the launch controller on recent scene-based iOS versions. */
-    for(UIWindow *candidate in native.windowScene.windows) {
-        if(candidate!=native && [NSStringFromClass(candidate.rootViewController.class) hasPrefix:@"SDLLaunch"])
-            candidate.hidden=YES;
-    }
-    [native makeKeyAndVisible];
-    host_ios_require_landscape(native);
-    /* Keep the shared controller bridge active while Mac input uses no touch overlay. */
-    if(NSProcessInfo.processInfo.isMacCatalystApp || NSProcessInfo.processInfo.isiOSAppOnMac)return;
-    touch_latency_watch();
-    UIView *root=native.rootViewController.view;
-    HaloControls *controls=[[HaloControls alloc]initWithFrame:root.bounds];
-    [root addSubview:controls];
-    if(!attached_controls)attached_controls=[NSHashTable weakObjectsHashTable];
-    [attached_controls addObject:controls];
-    static bool watching;
-    if(!watching){watching=true;SDL_AddEventWatch(controller_input_watch,NULL);}
-    touch_replay_ui_update();
-    host_menu_pointer_attach((__bridge void *)root);
-    host_logf(HOST_LOG_INFO,"touch controls attached, %.0fx%.0f",root.bounds.size.width,root.bounds.size.height);
+    host_main_sync(^{
+        UIWindow *native=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
+        /* Retire SDL's temporary launch window before entering the non-returning
+           game loop. Its fade animation can otherwise keep accessibility/input
+           attached to the launch controller on recent scene-based iOS versions. */
+        for(UIWindow *candidate in native.windowScene.windows) {
+            if(candidate!=native && [NSStringFromClass(candidate.rootViewController.class) hasPrefix:@"SDLLaunch"])
+                candidate.hidden=YES;
+        }
+        [native makeKeyAndVisible];
+        host_ios_require_landscape(native);
+        /* Keep the shared controller bridge active while Mac input uses no touch overlay. */
+        if(NSProcessInfo.processInfo.isMacCatalystApp || NSProcessInfo.processInfo.isiOSAppOnMac)return;
+        touch_latency_watch();
+        UIView *root=native.rootViewController.view;
+        HaloControls *controls=[[HaloControls alloc]initWithFrame:root.bounds];
+        [root addSubview:controls];
+        if(!attached_controls)attached_controls=[NSHashTable weakObjectsHashTable];
+        [attached_controls addObject:controls];
+        static bool watching;
+        if(!watching){watching=true;SDL_AddEventWatch(controller_input_watch,NULL);}
+        touch_replay_ui_update();
+        host_menu_pointer_attach((__bridge void *)root);
+        host_logf(HOST_LOG_INFO,"touch controls attached, %.0fx%.0f",root.bounds.size.width,root.bounds.size.height);
+    });
 }
