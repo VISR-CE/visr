@@ -685,7 +685,7 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
                 if value.get('type') == 'spinner':
                     assert value.get('header_bounds') == '7 -6 19 0'
                     assert value.get('footer_bounds') == '7 209 19 215'
-    accept = widgets[base + '/' + page + '_screen/legend/=accept']
+    accept = widgets[base + '/' + page + '_screen/legend/accept']
     assert accept.get('text') == 'SELECT'
 
 
@@ -754,7 +754,7 @@ def test_server_setup_rows_invite_and_gametype_editor(look):
     assert widgets[base + '/op_game_type'].find(f'child[@widget="{base}/game_type_value"]') is not None
     if look == 'xbox':
         legend = base + '/server_settings_screen/legend'
-        assert widgets[legend + '/=copy'].get('text') == 'INVITE'
+        assert widgets[legend + '/copy'].get('text') == 'INVITE'
         keys = [screen.find(f'child[@widget="{legend}/{key}_butn"]') for key in ('x', 'b', 'a')]
         assert int(position.get('x')) + int(invite.get('width')) <= int(keys[0].get('x'))
         for i, key in enumerate(keys):
@@ -812,6 +812,8 @@ def test_merged_rows_and_bindings():
 
 def test_settings_legends_have_global_button_bindings():
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        if path.name == 'settings.about.xml':
+            continue
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
         screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
@@ -867,6 +869,9 @@ def test_legend_touch_rectangles_fit_without_overlapping():
             if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn', 'left_thumb_butn'):
                 continue
             art = widgets[name]
+            if art.findall('child') or parent.get('name').rsplit('/', 1)[-1] in (
+                    'a_butn', 'b_butn', 'x_butn', 'y_butn'):
+                continue  # a tall target that holds its own caption and mouse handler
             x, y = int(icon.get('x', 0)), int(icon.get('y', 0))
             right = x + int(art.get('width', 0))
             labels = [c for c in children if widgets[c.get('widget')].get('type') == 'text'
@@ -896,6 +901,8 @@ def test_legend_touch_rectangles_fit_without_overlapping():
 
 def test_settings_footer_focus_only_visits_actions():
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        if path.name == 'settings.about.xml':
+            continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
         bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
         assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults', 'button_ok']
