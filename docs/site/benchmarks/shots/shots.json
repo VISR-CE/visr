@@ -670,55 +670,6 @@
    "thumb": "opence-macos-v1.0.2-m6/thumb.webp",
    "thumb_scene": "mp-bloodgulch"
   },
-  "openh1@build-1901@Mac mini|M4": {
-   "port": "openh1",
-   "version": "build-1901",
-   "device_id": "Mac mini|M4",
-   "label": "OpenH1 build-1901",
-   "build": "1901",
-   "device": "Mac mini M4",
-   "scenes": {
-    "c10": "openh1-build-1901-m4/c10.webp",
-    "b30": "openh1-build-1901-m4/b30.webp",
-    "a50-hangar": "openh1-build-1901-m4/a50-hangar.webp",
-    "b40-exta": "openh1-build-1901-m4/b40-exta.webp",
-    "x70-bridge": "openh1-build-1901-m4/x70-bridge.webp",
-    "cutscene-rescue": "openh1-build-1901-m4/cutscene-rescue.webp",
-    "coop-c10": "openh1-build-1901-m4/coop-c10.webp"
-   },
-   "size": {
-    "a50-hangar": [
-     960,
-     720
-    ],
-    "b30": [
-     960,
-     720
-    ],
-    "b40-exta": [
-     960,
-     720
-    ],
-    "c10": [
-     960,
-     720
-    ],
-    "coop-c10": [
-     960,
-     720
-    ],
-    "cutscene-rescue": [
-     960,
-     540
-    ],
-    "x70-bridge": [
-     960,
-     540
-    ]
-   },
-   "thumb": "openh1-build-1901-m4/thumb.webp",
-   "thumb_scene": "c10"
-  },
   "openh1@build-1683@Mac mini|M6": {
    "port": "openh1",
    "version": "build-1683",
