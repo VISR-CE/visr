@@ -418,6 +418,7 @@ symbols in this file:
 
 #include "rasterizer_xbox.h"
 #include "rasterizer/xbox/rasterizer_xbox_pixel_shader.h"
+#include "interface/hud.h" /* port: hud_split_screen_layout */
 #include "rasterizer_xbox_internal.h"
 #include "rasterizer_xbox_vertex_shaders.h"
 
@@ -2985,6 +2986,42 @@ static void rasterizer_first_person_offset(
 	return;
 }
 
+/* port: split screen's first-person weapon sits where the Xbox drew the top
+view's. The Xbox centered each view's projection on its title-safe window,
+so the top view's picture, gun included, sat 16 of its 240 lines lower than
+the bottom view's; the port centers the projection on the view instead
+(compute_window_bounds), keeping each view's reticle on its center. Only the
+weapon's draws take the top view's window: the window's camera with its
+window moved down by a fifteenth of the view's height, its projection's x
+and y columns into the window's frustum, the view unchanged. Mono only; the
+Xbox's own split HUD layout keeps its windows as they were */
+static boolean rasterizer_first_person_split_screen(
+	void)
+{
+	struct render_camera camera = global_window_parameters.camera;
+	struct render_frustum frustum;
+	short view_height = camera.viewport_bounds.y1 - camera.viewport_bounds.y0;
+	short shift;
+	short row;
+
+	if (main_get_window_count() < 2 || hud_split_screen_layout() || halo_stereo_frame()->eye_count != 0 ||
+		view_height <= 0)
+	{
+		return FALSE;
+	}
+	shift = (short)((view_height + 7) / 15);
+	camera.window_bounds.y0 += shift;
+	camera.window_bounds.y1 += shift;
+	render_camera_build_frustum(&camera, NULL, &frustum, TRUE);
+	for (row = 0; row < 4; row++)
+	{
+		global_window_parameters.frustum.projection_matrix[row][0] = frustum.projection_matrix[row][0];
+		global_window_parameters.frustum.projection_matrix[row][1] = frustum.projection_matrix[row][1];
+	}
+	first_person_eye_applied = TRUE;
+	return TRUE;
+}
+
 void rasterizer_set_frustum_z(
 	real z_near,
 	real z_far)
@@ -3000,9 +3037,11 @@ void rasterizer_set_frustum_z(
 	/* port: in a SCREEN mode eye (gameplay or the film) the first-person
 	weapon has its own eye, nearly flat with its nearest point on the
 	screen's surface (stereo.c); in HEAD mode's full view its draws may move
-	down and back instead (rasterizer_first_person_offset). The window's
+	down and back instead (rasterizer_first_person_offset), and in mono split
+screen they take the Xbox top view's lower placement
+(rasterizer_first_person_split_screen). The window's
 	save call keeps the view and projection, and the restore call puts them
-	back beside the depth range. Mono never changes them */
+	back beside the depth range. A single mono view never changes them */
 	if (z_near == -1.0f && z_far == -1.0f)
 	{
 		first_person_saved_world_to_view = global_window_parameters.frustum.world_to_view;
@@ -3036,6 +3075,8 @@ void rasterizer_set_frustum_z(
 			rasterizer_first_person_eye(&weapon_eye);
 		else if (halo_stereo_weapon_offset(&down, &back))
 			rasterizer_first_person_offset(down, back);
+		else
+			rasterizer_first_person_split_screen();
 	}
 	render_camera_hack_frustum_z(
 		&global_window_parameters.frustum,
