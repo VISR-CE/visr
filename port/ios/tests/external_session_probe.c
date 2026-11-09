@@ -80,4 +80,17 @@ int main(void) {
     assert(!strcmp(host_external_display_use_name(HOST_EXTERNAL_DISPLAY_OTHER),"other"));
     assert(!strcmp(host_external_display_use_name(HOST_EXTERNAL_DISPLAY_NONE),"none"));
     puts("PASS: a mirrored display is told apart from the game's own display and from no display");
+    /* which screens are external: the iPhone Duo's second panel is built in, whichever panel is the main screen */
+#define EXT(...) host_external_screen_is_external(&(struct host_external_screen_signals){__VA_ARGS__})
+    assert(!EXT(.main_screen=1,.phone=1));
+    assert(!EXT(.phone=1));                         /* the Duo's inner display while the cover is the main screen */
+    assert(!EXT(.main_screen=1));
+    assert(EXT(.phone=1,.mirroring=1));             /* a monitor or TV mirroring the phone */
+    assert(EXT(.phone=1,.external_scene=1));        /* VISR's external scene on a monitor, TV or AirPlay receiver */
+    assert(EXT(.external_scene=1));
+    assert(EXT(0));                                 /* Stage Manager's extended display on an iPad */
+    assert(EXT(.mirroring=1));
+    assert(!EXT(.mac=1,.external_scene=1,.mirroring=1));   /* a Mac's monitors hold windows */
+#undef EXT
+    puts("PASS: the iPhone Duo's panels are built in; mirrors, VISR's external scene and iPad extended displays are external");
 }

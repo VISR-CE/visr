@@ -34,10 +34,28 @@ static int output_width, output_height;
 static void *phone_layer;
 static int output_failures;
 
-/* The Mac app's window on a second monitor is a window, not an external output. */
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+static UIScreen *candidate_screen;   /* the screen of the external scene offered to VISR */
+#endif
+/* Whether a screen is an external display rather than one of this device's panels (host_external_screen_is_external:
+   the iPhone Duo's cover and inner displays are both built in, whichever of them UIScreen.mainScreen names).
+   The Mac app's window on a second monitor is a window, not an external output. */
 static int screen_is_external(UIScreen *screen) {
 #if TARGET_OS_MACCATALYST
     (void)screen;return 0;
+#elif TARGET_OS_IOS
+    if(!screen)return 0;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    struct host_external_screen_signals signals={
+        .main_screen=screen==UIScreen.mainScreen,
+        .external_scene=screen==candidate_screen,
+        .mirroring=screen.mirroredScreen!=nil,
+        .phone=UIDevice.currentDevice.userInterfaceIdiom==UIUserInterfaceIdiomPhone,
+        .mac=NSProcessInfo.processInfo.iOSAppOnMac,
+    };
+#pragma clang diagnostic pop
+    return host_external_screen_is_external(&signals);
 #else
     return screen && screen!=UIScreen.mainScreen;
 #endif
@@ -63,7 +81,6 @@ static unsigned long test_output_frame;
 static UIWindow *external_window;
 static UIWindowScene *waiting_scene;
 static struct host_external_splash splash_state;
-static UIScreen *candidate_screen;
 static NSArray<UIScreenMode *> *offered;
 static struct host_external_mode candidates[64];
 static int candidate_count, preferred_index, requested_index = -1;
@@ -443,7 +460,7 @@ void host_external_displays(struct host_external_displays *out) {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         /* (UIScreen.screens still lists a mirroring display, with the device's screen as its mirroredScreen) */
         for(UIScreen *screen in UIScreen.screens) {
-            if(screen==UIScreen.mainScreen)continue;
+            if(!screen_is_external(screen))continue;   /* (this device's own panels, as the iPhone Duo's two) */
             out->other_screens++;
             if(screen.mirroredScreen)out->mirroring_screens++;
         }
@@ -696,7 +713,11 @@ void host_external_poll(void) {
         /* a display plugged in while the game runs can be left mirrored with the registration never available:
            register it again (at most twice) so the system offers the scene */
         if(registration && metal_enabled) {
-            int seen=UIScreen.screens.count>1 || audio_route_has_video();
+            int seen=audio_route_has_video();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            for(UIScreen *screen in UIScreen.screens)if(screen_is_external(screen))seen=1;
+#pragma clang diagnostic pop
             if(host_external_refresh_due(&accessory_refresh,seen,registration.available,candidate_screen!=nil,
                 CACurrentMediaTime())) {
                 host_logf(HOST_LOG_INFO,"external display: a display is connected but the scene accessory is not available; registering it again");
