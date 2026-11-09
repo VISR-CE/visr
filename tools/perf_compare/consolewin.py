@@ -342,11 +342,15 @@ def run_shot(window, console, hooks, clock, prints=True):
         console.sync(clock, timeout=150.0)
     else:
         clock.sleep(5.0)  # a console that prints nothing cannot sync; its numeric replies still come back
+    if window['kind'] in ('match', 'coop'):
+        # The frozen host would otherwise time out its network connection and cover the frame with a dialog.
+        console.send('(set global_connection_dont_timeout true)')
     now = number(console.query('(game_time)', clock, timeout=10.0, numeric=True))
     if now is None and window['kind'] in ('match', 'coop'):
         # A hosted game starts a few seconds after launch, and on some ports the console answers only once it runs.
         for _ in range(24):
             clock.sleep(5.0)
+            console.send('(set global_connection_dont_timeout true)')
             now = number(console.query('(game_time)', clock, timeout=10.0, numeric=True))
             if now is not None:
                 break
