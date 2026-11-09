@@ -561,9 +561,7 @@
     "a50-hangar": "halo-og-v0.5.1-m4/a50-hangar.webp",
     "b40-exta": "halo-og-v0.5.1-m4/b40-exta.webp",
     "x70-bridge": "halo-og-v0.5.1-m4/x70-bridge.webp",
-    "cutscene-rescue": "halo-og-v0.5.1-m4/cutscene-rescue.webp",
-    "coop-c10": "halo-og-v0.5.1-m4/coop-c10.webp",
-    "coop-b30": "halo-og-v0.5.1-m4/coop-b30.webp"
+    "cutscene-rescue": "halo-og-v0.5.1-m4/cutscene-rescue.webp"
    },
    "size": {
     "a50-hangar": [
@@ -579,14 +577,6 @@
      720
     ],
     "c10": [
-     960,
-     720
-    ],
-    "coop-b30": [
-     960,
-     720
-    ],
-    "coop-c10": [
      960,
      720
     ],

@@ -103,8 +103,8 @@ def test_rendered_build_rows_link_only_to_available_screenshots():
     assert matched
 
 
-@pytest.mark.parametrize("off", [None, {"reason": "not measured", "tag": "not measured"}])
-def test_build_screenshots_need_the_rows_own_device_port_and_version(off):
+def test_build_screenshots_need_the_rows_own_device_port_and_version():
+    off = None
     entry = {"port": "visr", "version": "0.6.11", "build": "different", "date": "2026-11-06", "label": "VISR 0.6.11"}
     parsed = BuildRows()
     parsed.feed(site_page.build_item(entry, {"exact": {}, "patterns": {}}, off, shots=DATA, device="Mac mini|M6", suite="campaign"))
@@ -151,3 +151,25 @@ def test_thumbnail_follows_the_selected_suite_and_needs_a_frame_in_it():
     assert not parsed.rows[0]["shots"]
     javascript = (SITE / "benchmarks/benchmarks.js").read_text(encoding="utf-8")
     assert "state.suite)" in javascript and "function shotScene" in javascript
+
+
+@pytest.mark.parametrize("tag", ["not measured here", "not supported"])
+def test_grayed_out_rows_show_no_thumbnail(tag):
+    entry = {"port": "visr", "version": "0.6.11", "build": "x", "date": "2026-11-06", "label": "VISR 0.6.11"}
+    reasons = {"exact": {}, "patterns": {}}
+    off = {"reason": tag, "tag": tag}
+    parsed = BuildRows()
+    parsed.feed(site_page.build_item(entry, reasons, off, shots=DATA, device="Mac mini|M6", suite="campaign"))
+    assert not parsed.rows[0]["shots"] and not parsed.rows[0]["images"]
+    javascript = (SITE / "benchmarks/benchmarks.js").read_text(encoding="utf-8")
+    assert "off ? null : buildShot(" in javascript
+
+
+def test_bad_halo_og_m4_coop_frames_stay_out_of_the_manifest():
+    # Both captures show the "Xbox System Link connection is experiencing difficulties" dialog over the
+    # scene, and coop-c10 is also near-black (mean luminance 13 against about 31 for a normal frame).
+    build = DATA["builds"]["halo-og@v0.5.1@Mac mini|M4"]
+    assert not {"coop-c10", "coop-b30"} & set(build["scenes"])
+    assert not {"coop-c10", "coop-b30"} & set(build["size"])
+    for name in build["scenes"].values():
+        assert (SHOTS / name).is_file()

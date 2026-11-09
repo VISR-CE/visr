@@ -113,7 +113,8 @@ def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: boo
     # Only a frame from this row's own device, port and version; never another device's.
     shot_key = f"{entry['port']}@{entry['version']}@{device}"
     shot = (shots or {}).get("builds", {}).get(shot_key)
-    scene = shot_scene(shot, shots or {}, suite)
+    # A frame accompanies a measured result: a grayed-out row has none.
+    scene = None if off is not None else shot_scene(shot, shots or {}, suite)
     thumbnail = ""
     if scene:
         href = "benchmarks/shots/" + shot["scenes"][scene]
@@ -128,7 +129,7 @@ def build_item(entry: dict, reasons: dict, off: dict | None = None, checked: boo
                 f'<span class="build-name">{link}</span> <span class="build-meta">{escape(meta)}</span></label>{thumbnail}</div>')
     reason = charts.plain_reason(off["reason"], reasons)
     return (f'<div class="build off" title="{escape(reason, quote=True)}"><label class="build-label"><input type="checkbox" value="{key}" disabled> '
-            f'<span class="build-name">{link}</span> <span class="build-meta">{escape(meta)}</span></label>{thumbnail}'
+            f'<span class="build-name">{link}</span> <span class="build-meta">{escape(meta)}</span></label>'
             f'<details class="why"><summary class="tag">{off["tag"]}</summary><p>{escape(reason)}</p></details></div>')
 
 

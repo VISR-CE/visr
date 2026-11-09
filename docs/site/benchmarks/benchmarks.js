@@ -993,11 +993,12 @@ function buildItem(entry, spec, state, off) {
   const name = el("span", { class: "build-name" }, entry.url ? el("a", { href: entry.url, rel: "noopener" }, entry.label) : entry.label);
   const meta = el("span", { class: "build-meta" }, `build ${entry.build || "unknown"}, ${entry.date}`);
   const label = el("label", { class: "build-label" }, input, " ", name, " ", meta);
-  const shot = buildShot(entry, state.shots, state.models[spec.slug].device, state.suite);
+  // A frame accompanies a measured result: a grayed-out row (not measured here, not supported) has none.
+  const shot = off ? null : buildShot(entry, state.shots, state.models[spec.slug].device, state.suite);
   if (off) {
     input.disabled = true;
     const reason = plainReason(off.reason, state.reasons);
-    return el("div", { class: "build off", title: reason }, label, ...(shot ? [shot] : []),
+    return el("div", { class: "build off", title: reason }, label,
       el("details", { class: "why" }, el("summary", { class: "tag" }, off.tag), el("p", {}, reason)));
   }
   input.checked = state.selected[spec.slug].has(key);
