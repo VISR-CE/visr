@@ -97,6 +97,13 @@ int main(void) {
         display_pixel_size(0, &width, &height);
         assert(width == 0 && height == 0 && mode_copies == 2);
         expect_main_guard(^{(void)game_window();});
+        /* Before anything reads the display on main, a worker sees the cached default rate. */
+        int reads_before_worker = window_reads;
+        run_worker(^{
+            assert(host_macos_refresh_rate()==60.0);
+            assert(host_alert("test","test","OK",NULL)==-1);
+        });
+        assert(window_reads==reads_before_worker);
         run_worker(^{
             int w = -1, h = -1;
             host_macos_screen_size(&w, &h);
@@ -113,12 +120,6 @@ int main(void) {
             host_frame_counter_stop();
             assert(!counter_enabled && counter_label == nil);
         });
-        int reads_before_worker = window_reads;
-        run_worker(^{
-            assert(host_macos_refresh_rate()==60.0);
-            assert(host_alert("test","test","OK",NULL)==-1);
-        });
-        assert(window_reads==reads_before_worker);
         assert(host_lifecycle_background_milliseconds()==0);
         [[VISRMacActions new]quit:nil];
         assert(pushes==1 && last_event==SDL_EVENT_QUIT);
