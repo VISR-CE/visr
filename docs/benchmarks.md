@@ -86,7 +86,7 @@ config:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
-    title "Campaign: CPU and GPU Frame Time (ms) against the 16.7 ms frame budget, iPad Pro M1"
+    title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, iPad Pro M1"
     x-axis "Port and version" ["VISR 0.6.14", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
     y-axis "Milliseconds per frame" 0 --> 25.7
     bar [0, 5.3, 4.3, 24.4]
