@@ -718,6 +718,108 @@
    },
    "thumb": "openh1-build-1683-m6/thumb.webp",
    "thumb_scene": "c10"
+  },
+  "visr@0.6.14@iPhone 17 Pro|A19 Pro": {
+   "port": "visr",
+   "version": "0.6.14",
+   "device_id": "iPhone 17 Pro|A19 Pro",
+   "label": "VISR 0.6.14",
+   "build": "0.6.14",
+   "device": "iPhone 17 Pro A19 Pro",
+   "scenes": {
+    "c10": "visr-0.6.14-iphone17pro/c10.webp",
+    "b30": "visr-0.6.14-iphone17pro/b30.webp",
+    "b40-exta": "visr-0.6.14-iphone17pro/b40-exta.webp",
+    "x70-bridge": "visr-0.6.14-iphone17pro/x70-bridge.webp",
+    "cutscene-rescue": "visr-0.6.14-iphone17pro/cutscene-rescue.webp"
+   },
+   "size": {
+    "c10": [
+     960,
+     442
+    ],
+    "b30": [
+     960,
+     442
+    ],
+    "b40-exta": [
+     960,
+     442
+    ],
+    "x70-bridge": [
+     960,
+     442
+    ],
+    "cutscene-rescue": [
+     960,
+     442
+    ]
+   },
+   "thumb": "visr-0.6.14-iphone17pro/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "visr@0.6.14@iPad Pro 12.9-inch (5th generation)|M1": {
+   "port": "visr",
+   "version": "0.6.14",
+   "device_id": "iPad Pro 12.9-inch (5th generation)|M1",
+   "label": "VISR 0.6.14",
+   "build": "0.6.14",
+   "device": "iPad Pro 12.9-inch (5th generation) M1",
+   "scenes": {
+    "c10": "visr-0.6.14-ipad-pro-m1/c10.webp",
+    "b30": "visr-0.6.14-ipad-pro-m1/b30.webp",
+    "x70-bridge": "visr-0.6.14-ipad-pro-m1/x70-bridge.webp",
+    "cutscene-rescue": "visr-0.6.14-ipad-pro-m1/cutscene-rescue.webp"
+   },
+   "size": {
+    "c10": [
+     960,
+     720
+    ],
+    "b30": [
+     960,
+     720
+    ],
+    "x70-bridge": [
+     960,
+     720
+    ],
+    "cutscene-rescue": [
+     960,
+     720
+    ]
+   },
+   "thumb": "visr-0.6.14-ipad-pro-m1/thumb.webp",
+   "thumb_scene": "c10"
+  },
+  "visr@0.6.14@Apple TV 4K|A15": {
+   "port": "visr",
+   "version": "0.6.14",
+   "device_id": "Apple TV 4K|A15",
+   "label": "VISR 0.6.14",
+   "build": "0.6.14",
+   "device": "Apple TV 4K A15",
+   "scenes": {
+    "c10": "visr-0.6.14-appletv4k/c10.webp",
+    "b30": "visr-0.6.14-appletv4k/b30.webp",
+    "cutscene-rescue": "visr-0.6.14-appletv4k/cutscene-rescue.webp"
+   },
+   "size": {
+    "c10": [
+     960,
+     540
+    ],
+    "b30": [
+     960,
+     540
+    ],
+    "cutscene-rescue": [
+     960,
+     540
+    ]
+   },
+   "thumb": "visr-0.6.14-appletv4k/thumb.webp",
+   "thumb_scene": "c10"
   }
  }
 }

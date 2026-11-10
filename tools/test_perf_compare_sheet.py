@@ -1203,7 +1203,7 @@ def test_the_device_picked_decides_which_rows_a_chart_draws():
     k4, hd = charts.model(rows, query, "campaign", "Apple TV 4K"), charts.model(rows, query, "campaign", "Apple TV HD")
     assert (k4["box"], hd["box"]) == ("Apple TV 4K", "Apple TV HD")
     drawn = lambda built: {charts.entry_key(e): e for e in built["entries"] if e["value"] is not None}
-    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341", "visr@0.6.10@20261104.114703", "beeman@main e3abbd1@"}
+    assert set(drawn(k4)) == {"visr@0.6.8@20261101.231341", "visr@0.6.10@20261104.114703", "visr@0.6.14@20261108.25946", "beeman@main e3abbd1@"}
     assert drawn(k4)["visr@0.6.8@20261101.231341"]["value"]["avg"] != drawn(hd)["visr@0.6.8@20261101.231341"]["value"]["avg"]
     assert set(drawn(hd)) - set(drawn(k4))  # a build measured only on the HD
     # A build measured on both devices is named for the device shown; one measured only elsewhere, for the port and version.
