@@ -387,6 +387,8 @@ static void bink_draw_frame(
 	void);
 static boolean bink_query_analog_controller_buttons(
 	void);
+extern unsigned int platform_input_press_count(void);
+static unsigned int bink_start_press_count;
 static void bink_free_texture_cache(
 	void);
 static void bink_decompress_video_frame(
@@ -446,6 +448,7 @@ void bink_playback_stop(
 {
 	boolean saved_frame_rate_throttle;
 
+	bink_start_press_count= platform_input_press_count();
 	if (!bink_globals.initialized)
 		return;
 
@@ -1031,7 +1034,8 @@ static void bink_playback_update__internal(
 			boolean allow_skipping= TEST_FLAG(bink_globals.flags, _bink_playback_dont_allow_skipping_if_filesystem_check_thread_is_active_bit) ?
 				!filesystem_check_thread_is_active() : TRUE;
 
-			if (allow_skipping && bink_query_analog_controller_buttons())
+			if (allow_skipping && (bink_query_analog_controller_buttons() ||
+				platform_input_press_count()!=bink_start_press_count))
 			{
 				bink_playback_stop();
 				return;
