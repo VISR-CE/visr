@@ -20,7 +20,21 @@ static void probe_release_mode(CGDisplayModeRef mode) { assert(mode); mode_relea
 #define CGDisplayModeRelease probe_release_mode
 #define CGDisplayPixelsWide probe_logical_size
 #define CGDisplayPixelsHigh probe_logical_size
+/* Substitute only the native dialog boundary; the real service marshals and returns the answer. */
+static NSModalResponse alert_response = NSAlertFirstButtonReturn;
+static int alert_runs;
+@interface ProbeAlert : NSObject
+@property(nonatomic, copy) NSString *messageText, *informativeText;
+- (void)addButtonWithTitle:(NSString *)title;
+- (NSModalResponse)runModal;
+@end
+@implementation ProbeAlert
+- (void)addButtonWithTitle:(NSString *)title { assert(NSThread.isMainThread && title.length); }
+- (NSModalResponse)runModal { assert(NSThread.isMainThread); alert_runs++; return alert_response; }
+@end
+#define NSAlert ProbeAlert
 #include "../port/macos/host_macos_services.m"
+#undef NSAlert
 
 void host_macos_menu_add(NSMenu *bar) { (void)bar; }
 static int finish_requested;
@@ -101,9 +115,12 @@ int main(void) {
         int reads_before_worker = window_reads;
         run_worker(^{
             assert(host_macos_refresh_rate()==60.0);
-            assert(host_alert("test","test","OK",NULL)==-1);
+            assert(host_alert("test","test","OK",NULL)==0);
         });
-        assert(window_reads==reads_before_worker);
+        assert(window_reads==reads_before_worker && alert_runs == 1 && modal_depth == 0);
+        alert_response = NSAlertSecondButtonReturn;
+        run_worker(^{ assert(host_alert("test", "test", "OK", "Cancel") == 1); });
+        assert(alert_runs == 2 && modal_depth == 0);
         run_worker(^{
             int w = -1, h = -1;
             host_macos_screen_size(&w, &h);
