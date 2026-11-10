@@ -17,7 +17,8 @@ def main():
         'xcrun', 'clang', '-fobjc-arc', '-target', 'arm64-apple-ios15.0-macabi', '-isysroot', SDK,
         '-iframework', f'{SDK}/System/iOSSupport/System/Library/Frameworks',
         '-Iport/ios/host', '-Iport/runtime', '-Iport/runtime/include', '-DHALO_BENCHMARK_CLOUD=1',
-        'port/ios/tests/benchmark_menu_probe.m', '-framework', 'UIKit', '-framework', 'Foundation', '-framework', 'CoreText', '-framework', 'CoreGraphics', '-framework', 'QuartzCore',
+        'port/ios/tests/benchmark_menu_probe.m',
+        'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', '-framework', 'UIKit', '-framework', 'Foundation', '-framework', 'CoreText', '-framework', 'CoreGraphics', '-framework', 'QuartzCore',
         '-o', str(MACOS / 'BenchmarkMenuProbe'),
     ], cwd=ROOT, check=True)
     with (CONTENTS / 'Info.plist').open('wb') as output:

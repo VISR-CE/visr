@@ -1,4 +1,5 @@
 /* What this device is, and the device profile chosen for it (host_profile.h). */
+#include "host_startup.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #if HALO_NATIVE_MAC
@@ -77,19 +78,13 @@ void host_device_identify(struct host_device *device)
 					device->gpu_family = family;
 			}
 		}
-#if HALO_NATIVE_MAC
+#if HALO_NATIVE_MAC || !TARGET_OS_VISION
         {
-            host_macos_screen_size(&device->pixel_width, &device->pixel_height);
-            device->refresh_rate=(int)host_macos_refresh_rate();
+            const struct host_startup_info *startup = host_startup_get();
+            device->pixel_width = (int)startup->pixel_width;
+            device->pixel_height = (int)startup->pixel_height;
+            device->refresh_rate = (int)startup->maximum_frames_per_second;
         }
-#elif !TARGET_OS_VISION
-		{
-			UIScreen *screen = UIScreen.mainScreen;
-
-			device->pixel_width = (int)screen.nativeBounds.size.width;
-			device->pixel_height = (int)screen.nativeBounds.size.height;
-			device->refresh_rate = (int)screen.maximumFramesPerSecond;
-		}
 #endif
 	}
 }

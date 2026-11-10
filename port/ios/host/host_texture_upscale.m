@@ -2,6 +2,7 @@
 3): the device profile is asked first; at import the work runs behind a progress bar with Skip, then in menus, while
 a level loads and in pauses, never while a level is played; the level being loaded goes first and its loading screen
 waits for it unless the player skips. One texture at a time; the manifest is the durable progress record. */
+#include "host_startup.h"
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 #import <TargetConditionals.h>
@@ -140,7 +141,7 @@ static uint64_t footprint(void) {
 static NSString *cache_folder_for(NSString *root) {
 #if (TARGET_OS_IOS && !TARGET_OS_MACCATALYST) || TARGET_OS_VISION
     (void)root;
-    return [NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@TEXTURE_CACHE_DIRECTORY];
+    return [@(host_startup_get()->caches_root) stringByAppendingPathComponent:@TEXTURE_CACHE_DIRECTORY];
 #else
     return [root stringByAppendingPathComponent:@TEXTURE_CACHE_DIRECTORY];
 #endif
@@ -985,7 +986,7 @@ void host_texture_upscale_init(const char *root) {
                 if([name.pathExtension isEqual:@"mlmodelc"])[files removeItemAtPath:[base stringByAppendingPathComponent:name] error:nil];
             /* and Core ML's compiled copies of the model, so the next load compiles it for this Neural Engine again as on
                a fresh install */
-            NSString *caches=NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject;
+            NSString *caches=@(host_startup_get()->caches_root);
             NSString *compiled=[[caches stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier?:@""] stringByAppendingPathComponent:@"com.apple.e5rt.e5bundlecache"];
             if([files fileExistsAtPath:compiled]&&![files removeItemAtPath:compiled error:nil])host_logf(HOST_LOG_WARN,"Upscale: could not remove Core ML's compiled model cache");
             /* and the import screen's shown flag, so the next launch shows it again as a first import would */

@@ -26,7 +26,8 @@ def main():
         '-framework', 'UniformTypeIdentifiers', '-o', BUILD / 'import-probe')
     run(BUILD / 'import-probe')
     run(*common, '-DHALO_NATIVE_MAC=1', *objc, 'tools/macos_services_test.m',
-        'port/ios/host/host_frame_counter_stats.c', 'port/ios/host/host_main_thread.c', '-framework', 'QuartzCore',
+        'port/ios/host/host_frame_counter_stats.c', 'port/ios/host/host_main_thread.c',
+        'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', '-framework', 'QuartzCore',
         '-framework', 'CoreGraphics', *sdl_flags, '-o', BUILD / 'services-probe')
     run(BUILD / 'services-probe')
     run('python3', 'tools/test_menu_display_rate.py')

@@ -137,6 +137,12 @@ run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fblock
     'port/ios/tests/main_thread_probe.c', 'port/ios/host/host_main_thread.c',
     '-o', BUILD/'main-thread-probe')
 run(BUILD/'main-thread-probe')
+# Process snapshots use live main-thread fallback until main captures startup.
+run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fblocks',
+    '-fsanitize=address,undefined', '-Iport/ios/host', '-framework', 'CoreFoundation',
+    'port/ios/tests/startup_probe.c', 'port/ios/host/host_startup.c',
+    'port/ios/host/host_main_thread.c', '-o', BUILD/'startup-probe')
+run(BUILD/'startup-probe')
 (BUILD / 'external_output_under_test.inc').write_text(
     extracted_definition('port/ios/host/host_external.m', 'output_switch'))
 run('xcrun', 'clang', '-fobjc-arc', '-fsanitize=address,undefined', f'--include-directory={BUILD}',
@@ -273,7 +279,8 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fobjc-arc', '-fblo
 run(BUILD / 'data-pack-launch-mac-probe')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
-    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/data_updates_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/data_updates_probe.m',
+    'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
@@ -314,7 +321,8 @@ run('python3', 'tools/data_pack.py', '--kind', 'profiles', '--channel', 'tester'
     '--output', BUILD / 'profile-feed-probe-apple-tv-upscale-off.json')
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="test-guest"',
     '-Iport/ios/host', '-Iport/runtime/include', '-Iport/third_party/tomlc17', '-framework', 'Foundation',
-    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/profile_feed_probe.m', 'port/ios/host/host_data_pack.m',
+    '-framework', 'Network', '-lz', '-lcompression', 'port/ios/tests/profile_feed_probe.m',
+    'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', 'port/ios/host/host_data_pack.m',
     'port/ios/host/host_profile.c', 'port/ios/host/host_profile_catalog.c', 'port/ios/host/host_profile_delivery.c',
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
@@ -1146,7 +1154,8 @@ run("python3", "tools/shader_worker_probe.py")
 
 # Bounded model tile packing, numerical pixel parity, and gated cache records.
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host',
-    'port/ios/tests/texture_upscale_model_probe.m', '-framework', 'Foundation', '-framework', 'CoreML',
+    'port/ios/tests/texture_upscale_model_probe.m', 'port/ios/host/host_startup.c',
+    'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c', '-framework', 'Foundation', '-framework', 'CoreML',
     '-o', BUILD/'texture-upscale-model-probe')
 run(BUILD/'texture-upscale-model-probe')
 run('xcrun', 'clang', '-O2', '-Iport/ios/host', 'port/ios/tests/texture_upscale_pixels_probe.c',
@@ -1170,6 +1179,7 @@ run(BUILD/'texture-upscale-tiles-probe')
 
 run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', '-Iport/runtime',
     '-Iport/runtime/include', '-Iport/linux/src', 'port/ios/tests/texture_upscale_driver_probe.m',
+    'port/ios/host/host_startup.c', 'port/ios/host/host_startup_platform.m', 'port/ios/host/host_main_thread.c',
     'port/runtime/texture_cache.c', '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'AppKit',
     '-o', BUILD/'texture-upscale-driver-probe')
 run(BUILD/'texture-upscale-driver-probe')

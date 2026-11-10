@@ -1,3 +1,4 @@
+#include "host_startup.h"
 #include "host_app_version.h"
 /* Cloud saves in the host (host_cloud_saves.h): when they run, the queue the sync rules run on,
    the wait before the game starts, what the player is told, and the Settings page's rows.
@@ -222,7 +223,7 @@ void host_cloud_saves_start(const char *data_root, const char *save_root) {
     NSString *device = @"Mac";
     const char *platform = "macOS";
 #else
-    NSString *device = UIDevice.currentDevice.model;
+    NSString *device = @(host_startup_get()->device_model);
     const char *platform = TARGET_OS_TV ? "tvOS" : TARGET_OS_VISION ? "visionOS" : "iOS";
 #endif
     NSString *app = [NSString stringWithFormat:@"%@ (%@)",
