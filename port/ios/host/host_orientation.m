@@ -59,7 +59,7 @@ void host_ios_orientation_configure(void) {
         debug_orientation[0] = 0;
     }
     if (allow_portrait)
-        SDL_SetHint(SDL_HINT_ORIENTATIONS, "Portrait LandscapeLeft LandscapeRight");
+        SDL_SetHint(SDL_HINT_ORIENTATIONS, "Portrait PortraitUpsideDown LandscapeLeft LandscapeRight");
     dispatch_async(dispatch_get_main_queue(), ^{
         for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
             if (![scene isKindOfClass:UIWindowScene.class]) continue;
@@ -128,7 +128,7 @@ static BOOL landscape_lock(UIViewController *controller) {
 - (BOOL)prefersInterfaceOrientationLocked { return landscape_lock(self); }
 
 @implementation HaloLandscapeController
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return host_ios_allows_portrait() ? UIInterfaceOrientationMaskAllButUpsideDown : UIInterfaceOrientationMaskLandscape; }
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return host_ios_allows_portrait() ? UIInterfaceOrientationMaskAll : UIInterfaceOrientationMaskLandscape; }
 HALO_LANDSCAPE_PREFERENCES
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
@@ -137,7 +137,7 @@ HALO_LANDSCAPE_PREFERENCES
 @end
 
 @implementation HaloLandscapeDocumentPicker
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return host_ios_allows_portrait() ? UIInterfaceOrientationMaskAllButUpsideDown : UIInterfaceOrientationMaskLandscape; }
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return host_ios_allows_portrait() ? UIInterfaceOrientationMaskAll : UIInterfaceOrientationMaskLandscape; }
 HALO_LANDSCAPE_PREFERENCES
 @end
 
@@ -152,7 +152,7 @@ HALO_LANDSCAPE_PREFERENCES
 @implementation SDLUIKitSceneDelegate (HaloLandscape)
 /* iPadOS 27 consults the scene delegate in preference to Info.plist. */
 - (UIInterfaceOrientationMask)supportedInterfaceOrientationsForWindowScene:(UIWindowScene *)scene {
-    if (host_ios_allows_portrait()) return UIInterfaceOrientationMaskAllButUpsideDown;
+    if (host_ios_allows_portrait()) return UIInterfaceOrientationMaskAll;
     /* Only the native launch menu supports portrait; gameplay keeps its landscape contract. */
     Class menuClass = NSClassFromString(@"HaloBenchmarkMenuController");
     if (menuClass) for (UIWindow *window in scene.windows)
