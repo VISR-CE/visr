@@ -10,6 +10,7 @@
 #include "host_touch_replay.h"
 #include "host_touch_latch.h"
 #include "host_touch_controller.h"
+#include "host_posture_layout.h"
 #include "host_menu_pointer.h"
 #include "host_audio_output.h"
 
@@ -248,6 +249,10 @@ static void touch_latency_watch(void) {
 @property(nonatomic,strong) HaloStick *lookStick;
 @property(nonatomic,strong) NSMutableArray<HaloButton *> *buttons;
 @property(nonatomic,strong) UIButton *toggle;
+@property(nonatomic) BOOL laptop;
+@property(nonatomic) unsigned postureGeneration;
+@property(nonatomic,strong) UIView *postureBackdrop;
+@property(nonatomic,strong) UIButton *posturePause;
 /* the player's own Hide controls choice, and the overlay stepping aside for a hardware controller */
 @property(nonatomic) BOOL manuallyHidden;
 @property(nonatomic) BOOL controllerHidden;
@@ -304,13 +309,13 @@ static void touch_latency_watch(void) {
 }
 - (void)applyVisibility {
     [self reset];
-    BOOL hidden=self.manuallyHidden||self.controllerHidden;
+    BOOL hidden=self.laptop||self.manuallyHidden||self.controllerHidden;
     /* menus take touch themselves (host_menu_pointer.m): no controls, and no offer to show them */
     BOOL menu=atomic_load(&menu_up)!=0;
     self.moveStick.hidden=self.lookStick.hidden=hidden||menu;
     for(HaloButton *button in self.buttons)button.hidden=hidden||menu;
-    self.toggle.hidden=self.controllerHidden||menu;
-    atomic_store(&controls_showing,!self.controllerHidden);
+    self.toggle.hidden=self.laptop||self.controllerHidden||menu;
+    atomic_store(&controls_showing,!self.laptop&&!self.controllerHidden);
     [self.toggle setTitle:self.manuallyHidden?@"Show controls":@"Hide controls" forState:UIControlStateNormal];
     /* the guest pumps the run loop without letting it wait: commit now, not at the next touch */
     [CATransaction flush];
@@ -323,6 +328,7 @@ static void touch_latency_watch(void) {
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG")){CGPoint p=[touches.anyObject locationInView:self];fprintf(stderr,"halo-ios: host_touch began %.1f,%.1f menu_up=%d hidden=%d\n",p.x,p.y,(int)atomic_load(&menu_up),(int)self.controllerHidden);}
+    if(self.laptop)return;
     /* a tap on a menu is the menu's (host_menu_pointer.m); it does not bring the controls back */
     if(atomic_load(&menu_up))return;
     if(self.controllerHidden){self.controllerHidden=NO;self.manuallyHidden=NO;[self applyVisibility];return;}
@@ -332,6 +338,46 @@ static void touch_latency_watch(void) {
     host_ios_touch_reset();[self.moveStick cancelTrackingWithEvent:nil];[self.lookStick cancelTrackingWithEvent:nil];
     for(HaloButton *button in self.buttons)[button cancelTrackingWithEvent:nil];
     [self.toggle cancelTrackingWithEvent:nil];
+    [self.posturePause cancelTrackingWithEvent:nil];
+}
+/* Keep the temporary flat-half appearance in one place for screenshot review. */
+- (void)stylePostureBackdrop {
+    self.postureBackdrop.backgroundColor=[UIColor colorWithRed:0x08/255.0 green:0x12/255.0 blue:0x16/255.0 alpha:1];
+    [self.posturePause setTitle:@"Ⅱ" forState:UIControlStateNormal];
+    [self.posturePause setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    self.posturePause.titleLabel.font=[UIFont systemFontOfSize:22];
+    self.posturePause.accessibilityLabel=@"Pause";
+}
+- (void)posturePausePressed { host_ios_touch_pause(); }
+- (void)updatePosture {
+    struct host_posture_layout layout;
+    host_posture_layout_snapshot(&layout);
+    if((self.laptop || layout.laptop) &&
+        (self.postureGeneration!=layout.generation || self.laptop!=layout.laptop)) {
+        host_menu_pointer_set_blocked(host_menu_pointer_shared(),
+            host_touch_replay_blocked(&replay_gate) || layout.laptop);
+        host_menu_pointer_clear(host_menu_pointer_shared());
+        self.laptop=layout.laptop;
+        [self applyVisibility];
+    }
+    self.postureGeneration=layout.generation;
+    if(self.laptop && !self.postureBackdrop) {
+        self.postureBackdrop=[[UIView alloc]init];
+        self.postureBackdrop.userInteractionEnabled=NO;
+        [self addSubview:self.postureBackdrop];
+        self.posturePause=[UIButton buttonWithType:UIButtonTypeCustom];
+        [self.posturePause addTarget:self action:@selector(posturePausePressed) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:self.posturePause];
+        [self stylePostureBackdrop];
+    }
+    self.postureBackdrop.hidden=self.posturePause.hidden=!self.laptop;
+    struct host_posture_rect r=layout.backdrop, b=layout.pause_button;
+    self.postureBackdrop.frame=CGRectMake(r.x,r.y,r.width,r.height);
+    self.posturePause.frame=CGRectMake(b.x,b.y,b.width,b.height);
+    self.posturePause.hidden=!self.laptop || b.width<44 || b.height<44;
+    self.posturePause.enabled=!host_touch_replay_blocked(&replay_gate);
+    self.hidden=host_touch_replay_blocked(&replay_gate) && !self.laptop;
+    self.userInteractionEnabled=self.laptop || !host_touch_replay_blocked(&replay_gate);
 }
 - (void)toggleControls {
     if(host_touch_replay_blocked(&replay_gate))return;
@@ -363,6 +409,7 @@ static void touch_latency_watch(void) {
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG"))fprintf(stderr,"halo-ios: host_touch hittest %.1f,%.1f\n",point.x,point.y);
+    if(self.laptop)return YES; /* Swallow picture, fold and flat-half touches. */
     if(host_touch_replay_blocked(&replay_gate) || atomic_load(&menu_up))return NO;
     if(self.controllerHidden)return YES;   /* a touch brings the overlay back (touchesBegan:) */
     for(UIView *view in self.subviews)if(!view.hidden && [view pointInside:[self convertPoint:point toView:view] withEvent:event])return YES;
@@ -371,6 +418,9 @@ static void touch_latency_watch(void) {
 @end
 
 static NSHashTable<HaloControls *> *attached_controls;
+void host_ios_touch_posture_changed(void) {
+    for(HaloControls *controls in attached_controls)[controls updatePosture];
+}
 void host_ios_touch_menu_changed(int menus) {
     if(atomic_exchange(&menu_up,menus!=0)==(menus!=0))return;
     for(HaloControls *controls in attached_controls)[controls applyVisibility];
@@ -379,8 +429,9 @@ static void touch_replay_ui_update(void) {
     BOOL blocked=host_touch_replay_blocked(&replay_gate);
     for(HaloControls *controls in attached_controls) {
         [controls reset];
-        controls.hidden=blocked;
-        controls.userInteractionEnabled=!blocked;
+        controls.hidden=blocked && !controls.laptop;
+        controls.userInteractionEnabled=controls.laptop || !blocked;
+        controls.posturePause.enabled=!blocked;
     }
 }
 

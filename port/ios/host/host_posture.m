@@ -1,8 +1,9 @@
-#include "host_posture.h"
+#include "host_posture_layout.h"
 #include <TargetConditionals.h>
 #include <pthread.h>
 
 static struct host_posture_snapshot snapshot;
+static struct host_posture_layout layout;
 static pthread_mutex_t snapshot_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION
@@ -80,6 +81,13 @@ void host_posture_poll(void)
         snapshot.upper_half = classifier.upper_half;
         ++snapshot.generation;
     }
+    UIEdgeInsets safe = root.safeAreaInsets;
+    struct host_posture_layout next_layout = host_posture_layout_make(enabled, snapshot,
+        in.hinge, root.bounds.size.width, root.bounds.size.height,
+        (struct host_posture_insets){safe.top, safe.left, safe.bottom, safe.right}, root.window.screen.scale);
+    next_layout.generation = layout.generation;
+    if (host_posture_layout_changed(&next_layout, &layout)) ++next_layout.generation;
+    layout = next_layout;
     pthread_mutex_unlock(&snapshot_lock);
     if (posture_changed) {
         const char *names[] = {"flat", "laptop-l", "book-l", "closed"};
@@ -100,5 +108,13 @@ void host_posture_snapshot(struct host_posture_snapshot *out)
     if (!out) return;
     pthread_mutex_lock(&snapshot_lock);
     *out = snapshot;
+    pthread_mutex_unlock(&snapshot_lock);
+}
+
+void host_posture_layout_snapshot(struct host_posture_layout *out)
+{
+    if (!out) return;
+    pthread_mutex_lock(&snapshot_lock);
+    *out = layout;
     pthread_mutex_unlock(&snapshot_lock);
 }

@@ -6,6 +6,7 @@
 #include "ios_host.h"
 #include "host_main_thread.h"
 #include "host_menu_pointer.h"
+#include "host_posture_layout.h"
 
 #define pointer_state (*host_menu_pointer_shared())
 /* HALO_TOUCH_DEBUG=1 logs every touch the recognizer sees (debug only) */
@@ -38,11 +39,16 @@ static UIImpactFeedbackGenerator *medium_feedback;
     /* only the game's own view, or the controls' view where it claims every touch (controller in use); a button
        (the audio output picker, a control) keeps its touch */
     TOUCH_LOG("receive? view=%s type=%ld\n",NSStringFromClass(touch.view.class).UTF8String,(long)touch.type);
+    struct host_posture_layout layout;
+    host_posture_layout_snapshot(&layout);
+    if(layout.laptop)return NO;
     return touch.view==self.view || [NSStringFromClass(touch.view.class) isEqualToString:@"HaloControls"];
 }
 - (void)track {
     UIView *root=self.view;
-    host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked());
+    struct host_posture_layout layout;
+    host_posture_layout_snapshot(&layout);
+    host_menu_pointer_set_blocked(&pointer_state,host_ios_touch_blocked() || layout.laptop);
     host_menu_pointer_set_surface(&pointer_state,(float)root.bounds.size.width,(float)root.bounds.size.height);
 }
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
