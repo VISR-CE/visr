@@ -671,6 +671,15 @@ int main(int argc,char **argv) {
             snprintf(env_anti_aliasing,sizeof(env_anti_aliasing),"HALO_ANTI_ALIASING=%s",launch_anti_aliasing);
             env[env_count++]=env_anti_aliasing;
         }
+#if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
+        /* photo mode (development builds): the guest gets only named variables, so HALO_PHOTO_MODE from the launch must be passed on */
+        static char env_photo[sizeof("HALO_PHOTO_MODE=")+16];
+        const char *photo_mode=getenv("HALO_PHOTO_MODE");
+        if(photo_mode&&*photo_mode){
+            snprintf(env_photo,sizeof(env_photo),"HALO_PHOTO_MODE=%s",photo_mode);
+            env[env_count++]=env_photo;
+        }
+#endif
         static char env_external[sizeof("HALO_EXTERNAL_MODE=")+512];
         const char *external_mode=getenv("HALO_EXTERNAL_MODE");
         if(external_mode && *external_mode) {

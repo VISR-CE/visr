@@ -44,18 +44,23 @@ static struct photo_shot metadata;
 
 int photo_mode_active(void) { return active; }
 
+void photo_mode_trace_key(int scancode, int action)
+{
+	error(_error_silent, "photo key: scancode %d action %d (host available %d, debug.photo_mode %d)", scancode, action, host_photo_mode_available(), config_boolean("debug.photo_mode") ? 1 : 0);
+}
+
 int photo_mode_key(int action)
 {
 	if (!host_photo_mode_available() || !config_boolean("debug.photo_mode"))
 	{
-		if (action == PHOTO_TOGGLE) platform_log("photo mode: key ignored (host available %d, debug.photo_mode %d)", host_photo_mode_available(), config_boolean("debug.photo_mode") ? 1 : 0);
+		if (action == PHOTO_TOGGLE) error(_error_silent, "photo mode: key ignored (host available %d, debug.photo_mode %d)", host_photo_mode_available(), config_boolean("debug.photo_mode") ? 1 : 0);
 		return 0;
 	}
 	if (action != PHOTO_TOGGLE && !active) return 0;
 	if (!active && (!game_map_loaded() || !global_scenario ||
 		global_scenario->type == _scenario_type_main_menu || game_connection() != _game_connection_local))
 	{
-		platform_log("photo mode: key ignored (no local map is running)");
+		error(_error_silent, "photo mode: key ignored (no local map is running)");
 		return 0;
 	}
 	pending = action;
@@ -77,7 +82,7 @@ void photo_mode_end(void)
 	if (current_director) *current_director = saved_director;
 	current_director = NULL;
 	host_photo_mode_overlay(0,0,0,0.5f,0.5f);
-	platform_log("photo mode: exited; reload the map to play (AI and projectiles cannot be restored)");
+	error(_error_silent, "photo mode: exited; reload the map to play (AI and projectiles cannot be restored)");
 }
 
 static int map_key(char *key, size_t size)
@@ -97,7 +102,7 @@ static int map_key(char *key, size_t size)
 	}
 	if (!map_share_map_hash(path,hash))
 	{
-		platform_log("photo mode: cannot hash custom map; framing was not saved or loaded");
+		error(_error_silent, "photo mode: cannot hash custom map; framing was not saved or loaded");
 		return 0;
 	}
 	return photo_map_key(name,1,hash,key,size);
@@ -136,11 +141,11 @@ static void file_action(int action, struct flying_camera *camera)
 	camera_shot(camera,&shot);
 	if (action == PHOTO_SAVE)
 	{
-		if (!inside_bsp(&shot)) { platform_log("photo mode: camera is outside the current BSP bounds; save refused"); return; }
+		if (!inside_bsp(&shot)) { error(_error_silent, "photo mode: camera is outside the current BSP bounds; save refused"); return; }
 		_mkdir(folder);
-		if (!photo_fragment_write(path,key,&shot)) { platform_log("photo mode: fragment save failed"); return; }
+		if (!photo_fragment_write(path,key,&shot)) { error(_error_silent, "photo mode: fragment save failed"); return; }
 		director_save_camera();
-		platform_log("photo mode: saved framing and camera.txt");
+		error(_error_silent, "photo mode: saved framing and camera.txt");
 	}
 	else
 	{
@@ -151,14 +156,14 @@ static void file_action(int action, struct flying_camera *camera)
 		if (!(exists ? photo_fragment_read(path,key,&shot,&revision) : photo_camera_read(camera_path,&shot)) ||
 			shot.bsp >= global_scenario->structure_bsp_references.count || shot.bsp > 32767)
 		{
-			platform_log("photo mode: invalid framing or BSP index; load refused"); return;
+			error(_error_silent, "photo mode: invalid framing or BSP index; load refused"); return;
 		}
 		if (shot.bsp != previous_bsp && !scenario_switch_structure_bsp((short)shot.bsp))
-		{ platform_log("photo mode: BSP switch failed; load refused"); return; }
+		{ error(_error_silent, "photo mode: BSP switch failed; load refused"); return; }
 		if (!inside_bsp(&shot))
 		{
 			if (previous_bsp != global_structure_bsp_index_get()) scenario_switch_structure_bsp((short)previous_bsp);
-			platform_log("photo mode: position outside BSP bounds; load refused"); return;
+			error(_error_silent, "photo mode: position outside BSP bounds; load refused"); return;
 		}
 		if (previous_bsp != shot.bsp)
 		{
@@ -173,7 +178,7 @@ static void file_action(int action, struct flying_camera *camera)
 		metadata = shot;
 		/* AI was already erased on entry; retain an honest recipe on the next save. */
 		metadata.erase_ai = 1;
-		platform_log("photo mode: loaded first shot (roll lock on)");
+		error(_error_silent, "photo mode: loaded first shot (roll lock on)");
 	}
 }
 
@@ -192,7 +197,7 @@ void photo_mode_update(struct director *director, float *translation, float *rol
 	{
 		if (active) { photo_mode_end(); return; }
 		if (!game_map_loaded() || !global_scenario || global_scenario->type == _scenario_type_main_menu || game_connection() != _game_connection_local)
-		{ platform_log("photo mode: load a local map first"); return; }
+		{ error(_error_silent, "photo mode: load a local map first"); return; }
 		{
 			const struct observer_result *view = observer_get_camera(0);
 			saved_director = *director; current_director = director;
@@ -219,7 +224,7 @@ void photo_mode_update(struct director *director, float *translation, float *rol
 		ai_scripting_erase_all();
 		game_time_set_speed(1);
 		settle_until = game_time_get() + metadata.settle_ticks;
-		platform_log("photo mode: entered; AI erased; reload the map to play");
+		error(_error_silent, "photo mode: entered; AI erased; reload the map to play");
 	}
 	if (!active) return;
 	/* Scripted cutscenes cannot take the camera back while framing. */
@@ -238,6 +243,6 @@ void photo_mode_update(struct director *director, float *translation, float *rol
 	camera->field_of_view = fov; camera->roll = 0; *roll_delta = 0;
 	for (i=0;i<3;i++) translation[i] *= powf(2.f,(float)speed_step);
 	if (action == PHOTO_SAVE || action == PHOTO_LOAD) file_action(action,camera);
-	if (action == PHOTO_RENDER_CHECK) platform_log("photo mode: render check not implemented (phase 5)");
+	if (action == PHOTO_RENDER_CHECK) error(_error_silent, "photo mode: render check not implemented (phase 5)");
 	host_photo_mode_overlay(fov,speed_step,guides,metadata.focus[0],metadata.focus[1]);
 }

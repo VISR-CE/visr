@@ -1795,7 +1795,7 @@ void platform_pump_events(void)
 				case SDL_SCANCODE_MINUS: action = PHOTO_FOV_DOWN; break;
 				case SDL_SCANCODE_EQUALS: action = PHOTO_FOV_UP; break;
 				}
-				if (action && event.key.down) platform_log("photo key: scancode %d action %d", key, action);
+				if (action && event.key.down) photo_mode_trace_key((int)key, (int)action);
 				if (key > 0 && key < SDL_SCANCODE_COUNT && held[key])
 				{
 					if (!event.key.down) held[key] = 0;
