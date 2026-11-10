@@ -55,8 +55,10 @@ def main():
         definition(source, 'static void quit_signal(int number)'),
         source[source.index('struct game_thread_start {'):source.index('#endif /* supported game thread startup */')],
     ]))
-    for native, name in ((1, 'game-thread-start-probe'), (0, 'ios-game-thread-start-probe')):
-        run(*common, '-Wall', '-Wextra', '-Werror', f'-DHALO_NATIVE_MAC={native}',
+    for native, tv, name in ((1, 0, 'game-thread-start-probe'),
+                            (0, 0, 'ios-game-thread-start-probe'),
+                            (0, 1, 'tvos-game-thread-start-probe')):
+        run(*common, '-Wall', '-Wextra', '-Werror', f'-DHALO_NATIVE_MAC={native}', f'-DGAME_THREAD_PROBE_TV={tv}',
             *objc, f'-I{BUILD}', 'port/ios/tests/game_thread_start_probe.m',
             'port/ios/host/host_main_thread.c', 'port/ios/host/host_quit_signals.c',
             '-framework', 'CoreFoundation', '-o', BUILD / name)
