@@ -24,7 +24,10 @@ capped() {
 step() { echo "$(date +%T) $*"; }
 [ -f "$maps/ui.map" ] || { echo "no maps at $maps"; exit 1; }
 app=$tree/build/ios/app-simulator/Release-iphonesimulator/VISR.app
-step build; (cd "$tree" && python3 tools/ios_build.py --simulator > "$out/build.log" 2>&1) || { tail -n 40 "$out/build.log"; echo "build failed"; exit 1; }
+# the build can wipe untracked files in the worktree, including a relative OUT inside it: log elsewhere, then recreate OUT
+blog=$(mktemp "${TMPDIR:-/tmp}/portrait-build.XXXXXX")
+step build; (cd "$tree" && python3 tools/ios_build.py --simulator > "$blog" 2>&1) || { tail -n 40 "$blog"; echo "build failed"; exit 1; }
+mkdir -p "$out"; cp "$blog" "$out/build.log"
 # the build is only linker-signed (CODE_SIGNING_ALLOWED=NO); this simulator refuses that bundle ("code has no resources but signature indicates they must be present"), so seal it ad hoc
 codesign --force --sign - --timestamp=none "$app" > "$out/codesign.txt" 2>&1 && codesign --verify --deep --strict "$app" >> "$out/codesign.txt" 2>&1 || { cat "$out/codesign.txt"; echo "codesign failed"; exit 1; }
 bundle=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$app/Info.plist")
