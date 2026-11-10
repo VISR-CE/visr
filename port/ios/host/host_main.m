@@ -10,6 +10,10 @@
 #import <Metal/Metal.h>
 #include "ios_host.h"
 #include "host_main_thread.h"
+#include "host_game_thread.h"
+#if HALO_NATIVE_MAC
+#include <pthread.h>
+#endif
 #include "guest_image.h"
 #include "host_display_pin.h"
 #include "host_output_cap.h"
@@ -98,6 +102,13 @@ void host_fatal(const char *format,...) {
 }
 /* host_abort, the guest runtime's own fatal errors, is host_crash.c's */
 void host_exit(int code) {
+#if HALO_NATIVE_MAC
+    if (!host_on_main_thread() && host_game_thread_enabled()) {
+        host_main_async(^{ host_exit(code); });
+        /* Leave guest state parked while main finishes shutdown callbacks. */
+        for (;;) pause();
+    }
+#endif
     host_logf(HOST_LOG_INFO,"game exit %d",code);
     host_spatial_rumble_hold(1);
     /* a save made just before the app is left still goes up (nothing without HALO_CLOUD_SAVES) */
@@ -307,6 +318,60 @@ static void quit_signal(int number) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(2*NSEC_PER_SEC)),dispatch_get_main_queue(),^{host_exit(0);});
 }
 #endif
+
+#if HALO_NATIVE_MAC
+struct game_thread_start {
+    uintptr_t entry;
+    uint32_t boot;
+    uintptr_t arena;
+    void *stack;
+};
+
+static void *game_thread_main(void *context) {
+    @autoreleasepool {
+        struct game_thread_start start = *(struct game_thread_start *)context;
+        free(context);
+        if (pthread_setname_np("game") ||
+            pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0))
+            host_crash("could not configure game thread");
+        if (host_crash_thread_install()) host_crash("could not install game crash stack");
+        host_guest_on_stack(start.entry, start.boot, start.arena, start.stack);
+        host_exit(0);
+    }
+    return NULL;
+}
+
+static void game_thread_run(uintptr_t entry, uint32_t boot, uintptr_t arena, void *stack)
+    __attribute__((noreturn));
+static void game_thread_run(uintptr_t entry, uint32_t boot, uintptr_t arena, void *stack) {
+    struct game_thread_start *start = malloc(sizeof(*start));
+    if (!start) host_crash("could not allocate game thread startup");
+    *start = (struct game_thread_start){ entry, boot, arena, stack };
+    pthread_attr_t attributes;
+    pthread_t thread;
+    if (pthread_attr_init(&attributes)) host_crash("could not initialize game thread attributes");
+    size_t stack_size = pthread_get_stacksize_np(pthread_self());
+    if (stack_size < PTHREAD_STACK_MIN) stack_size = PTHREAD_STACK_MIN;
+    int error = pthread_attr_setstacksize(&attributes, stack_size);
+    if (!error) error = pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+    if (!error) error = pthread_create(&thread, &attributes, game_thread_main, start);
+    pthread_attr_destroy(&attributes);
+    if (error) { free(start); host_crash("could not start game thread"); }
+    /* SDL's Cocoa pump dispatches AppKit events. A timer also wakes an idle
+       run loop so controllers update while the game waits on a frame. */
+    CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault,
+        CFAbsoluteTimeGetCurrent(), 1.0 / 240.0, 0, 0, ^(CFRunLoopTimerRef fired) {
+            (void)fired;
+            @autoreleasepool { host_event_pump(); }
+        });
+    if (!timer) host_crash("could not create game event timer");
+    CFRunLoopAddTimer(CFRunLoopGetMain(), timer, kCFRunLoopCommonModes);
+    CFRelease(timer);
+    for (;;) {
+        @autoreleasepool { CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0e10, false); }
+    }
+}
+#endif /* native game thread */
 
 int main(int argc,char **argv) {
     (void)argc;(void)argv;
@@ -753,6 +818,10 @@ int main(int argc,char **argv) {
         host_cloud_saves_before_game();
         host_logf(HOST_LOG_INFO,"entering guest at %08x, data %s",host_image.header->start,data_root);
         host_shader_upload_prepare();
+#if HALO_NATIVE_MAC
+        if (host_game_thread_enabled())
+            game_thread_run((uintptr_t)host_pointer(host_image.header->start),guest_pointer(boot),host_arena,(char *)stack+stack_size+0x4000);
+#endif
         host_guest_on_stack((uintptr_t)host_pointer(host_image.header->start),guest_pointer(boot),host_arena,(char *)stack+stack_size+0x4000);
     }
     return 0;
