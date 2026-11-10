@@ -786,13 +786,13 @@
 		<frame map="ui\shell\bitmaps\mp_map_grafix" index="10" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
 		<frame map="ui\shell\bitmaps\mp_map_grafix" index="11" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
 		<frame map="ui\shell\bitmaps\mp_map_grafix" index="12" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
 	</bitmap>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" width="310" height="118" bitmap="xbox/browser/preview_sp" />
 	<bitmap name="xbox/browser/preview_sp">

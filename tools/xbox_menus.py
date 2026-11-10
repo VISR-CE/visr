@@ -947,8 +947,13 @@ def browser_layout(root, widgets, bitmaps):
             # the widget's width (310/140) and slide it up to cut the 118-unit banner from its middle.
             # Xbox has thirteen map pictures, then its unknown-map picture.
             frame = min(index, 13) if art == 'preview_mp' else index
+            geometry = dict(x='0', y='-67', width='567', height='284')
+            if art == 'preview_mp' and frame == 13:
+                # The unknown-map picture is a whole "?" in the 140x114 corner: fit its height to the
+                # 118-unit banner (118/114) and center it, instead of cutting the banner from the middle.
+                geometry = dict(x='83', y='0', width='265', height='133')
             ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
-                          x='0', y='-67', width='567', height='284')
+                          **geometry)
     for leaf, x, y, width, height, font, color, text in (
             ('browser_detail_name', 313, 207, 294, 25, 'large', '#ffffff', ''),
             ('browser_detail_type', 313, 232, 294, 20, 'small', '#7fc4ff', ''),
