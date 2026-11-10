@@ -486,8 +486,9 @@ void game_time_update(
 					maximum_possible_server_time = game_time_held() ?
 						game_time_globals->server_time : final_local_time;
 				}
-				else if (main_menu_is_active() && main_port_main_menu_loaded())
-					maximum_possible_server_time = final_local_time; /* backdrop: no host updates in the lobby */
+				/* (a host ticks only as far as its update queue, menu backdrop
+				or not: its queue stays empty until the game starts, and a tick
+				with no update halts in players_update_before_game) */
 				else
 					maximum_possible_server_time = update_client_get_maximum_possible_server_time();
 				if (maximum_possible_server_time > game_time_globals->server_time)
