@@ -247,13 +247,13 @@
 		<frame png="xbox/art/dropdown_check.png" width="12" height="12" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/dropdown_panel">
-		<frame png="xbox/art/dropdown_panel__0.png" width="165" height="29" />
-		<frame png="xbox/art/dropdown_panel__1.png" width="165" height="55" />
-		<frame png="xbox/art/dropdown_panel__2.png" width="165" height="81" />
-		<frame png="xbox/art/dropdown_panel__3.png" width="165" height="107" />
-		<frame png="xbox/art/dropdown_panel__4.png" width="165" height="133" />
-		<frame png="xbox/art/dropdown_panel__5.png" width="165" height="159" />
-		<frame png="xbox/art/dropdown_panel__6.png" width="165" height="185" />
+		<frame png="xbox/art/dropdown_panel__0.png" width="165" height="55" />
+		<frame png="xbox/art/dropdown_panel__1.png" width="165" height="107" />
+		<frame png="xbox/art/dropdown_panel__2.png" width="165" height="159" />
+		<frame png="xbox/art/dropdown_panel__3.png" width="165" height="211" />
+		<frame png="xbox/art/dropdown_panel__4.png" width="165" height="263" />
+		<frame png="xbox/art/dropdown_panel__5.png" width="165" height="315" />
+		<frame png="xbox/art/dropdown_panel__6.png" width="165" height="367" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/toggle_switch">
 		<frame png="xbox/art/toggle_switch__0.png" width="32" height="17" />

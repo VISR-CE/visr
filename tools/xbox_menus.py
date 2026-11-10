@@ -23,6 +23,8 @@ from xml.etree import ElementTree as ET
 
 import menu_catalog
 from port_settings import apply_now_spinner_handlers
+# Dropdown option row pitch in menu units; matches HALO_DROPDOWN_PITCH in halo_menu_dropdown.h.
+DROPDOWN_PITCH = 52
 
 ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / 'port/assets/menus'
@@ -699,7 +701,7 @@ def bitmap_document(assets, names):
         for frame in range(count):
             suffix = f'__{frame}' if count > 1 else ''
             ET.SubElement(bitmap, 'frame', png=f'xbox/art/{name}{suffix}.png', width=str(width),
-                          height=str((frame + 1) * 26 + 3 if count > 1 else height))
+                          height=str((frame + 1) * DROPDOWN_PITCH + 3 if count > 1 else height))
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/bitmaps/toggle_switch')
     for on in (0, 1):
         ET.SubElement(bitmap, 'frame', png=f'xbox/art/toggle_switch__{on}.png', width='32', height='17')

@@ -86,6 +86,10 @@ def toggle_art(output):
                         str(output / f'toggle_switch__{on}.png'), str(svg)], check=True)
 
 
+# Option row pitch in menu units; matches HALO_DROPDOWN_PITCH in halo_menu_dropdown.h.
+DROPDOWN_PITCH = 52
+
+
 def dropdown_art(output):
     """Menu-blue pointer controls; panel frames keep the 1.5-unit border at every height."""
     shapes = [
@@ -95,7 +99,7 @@ def dropdown_art(output):
          '<path d="M2 6 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2"/>'),
     ]
     for rows in range(1, 8):
-        height = rows * 26 + 3
+        height = rows * DROPDOWN_PITCH + 3
         shapes.append((f'dropdown_panel__{rows - 1}', 165, height,
                        f'<rect x=".75" y=".75" width="163.5" height="{height - 1.5}" '
                        'fill="#001125" stroke="#4ea0ff" stroke-width="1.5"/>'))

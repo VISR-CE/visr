@@ -207,26 +207,28 @@ def test_dropdown_geometry_and_modal_state(tmp_path):
 int main(void) {
  struct halo_menu_dropdown d = {0};
  halo_menu_dropdown_open(&d, 500, 100, 128, 20, 18);
- assert(d.open && d.x == 475 && d.y == 128 && d.rows == 7);
- assert(d.first == 12 && d.highlight == 18);
- assert(halo_menu_dropdown_option(&d, 477, 130) == 12);
- assert(halo_menu_dropdown_option(&d, 477, 156) == 13);
+ assert(d.open && d.x == 475 && d.y == 128 && d.rows == 6);
+ assert(d.first == 13 && d.highlight == 18);
+ assert(halo_menu_dropdown_option(&d, 477, 130) == 13);
+ assert(halo_menu_dropdown_option(&d, 477, 182) == 14);
  assert(halo_menu_dropdown_option(&d, 475, 129) == -1);
  assert(halo_menu_dropdown_option(&d, 640, 130) == -1);
- halo_menu_dropdown_scroll(&d, 50); assert(d.first == 13);
+ halo_menu_dropdown_scroll(&d, 50); assert(d.first == 14);
  halo_menu_dropdown_scroll(&d, -100); assert(d.first == 0);
- assert(halo_menu_dropdown_click(&d, 477, 156) == 1 && !d.open);
+ assert(halo_menu_dropdown_click(&d, 477, 182) == 1 && !d.open);
+ /* No room under a bottom row: the panel opens above it. */
  halo_menu_dropdown_open(&d, -10, 450, 478, 3, 1);
- assert(d.x == 0 && d.y == 369 && d.rows == 3 && d.first == 0);
+ assert(d.x == 0 && d.y == 291 && d.rows == 3 && d.first == 0);
  assert(halo_menu_dropdown_click(&d, 200, 400) == -1 && !d.open);
+ /* A long list keeps to the rows that fit under the value and scrolls. */
  halo_menu_dropdown_open(&d, 80, 200, 228, 100, 99);
- assert(d.rows == 7 && d.first == 93 && d.y == 228);
- assert(halo_menu_dropdown_option(&d, 90, 410) == 99);
- assert(halo_menu_dropdown_option(&d, 90, 412) == -1);
- halo_menu_dropdown_open(&d, 10, 250, 278, 8, 0);
- assert(d.y == 278 && d.rows == 7);
+ assert(d.rows == 4 && d.first == 96 && d.y == 228);
+ assert(halo_menu_dropdown_option(&d, 90, 437) == 99);
+ assert(halo_menu_dropdown_option(&d, 90, 438) == -1);
  halo_menu_dropdown_open(&d, 10, 300, 328, 8, 0);
- assert(d.y == 115 && d.rows == 7);
+ assert(d.y == 328 && d.rows == 2);
+ halo_menu_dropdown_open(&d, 10, 400, 428, 8, 0);
+ assert(d.y == 33 && d.rows == 7);
  halo_menu_dropdown_open(&d, 10, 0, 28, 0, 0); assert(!d.open);
  return 0;
 }
@@ -307,7 +309,7 @@ int main(void) {
  int index;
  widget.parameters.list.number_of_items = 30;
  halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 30, 25);
- pointer.wheel_steps = -2;
+ pointer.wheel_steps = -1;
  assert(ui_dropdown_process_pointer(&pointer) && ui_dropdown.first == 21 && presses == 0);
  pointer.wheel_steps = 0; pointer.left_clicks = 1; pointer.click_x = 104; pointer.click_y = 132;
  assert(ui_dropdown_process_pointer(&pointer) && !ui_dropdown.open && ui_dropdown_selection == 21);
@@ -397,15 +399,15 @@ void draw_bitmap_in_rect(struct bitmap_data *bitmap, rectangle2d *bounds, rectan
  assert(!source->x0 && !source->y0);
  assert(source->x1 == bounds->x1 - bounds->x0 && source->y1 == bounds->y1 - bounds->y0);
  if (bitmap->tag == 1) {
-  panels++; assert(bitmap->frame == 6 && source->x1 == 165 && source->y1 == 185);
+  panels++; assert(bitmap->frame == 5 && source->x1 == 165 && source->y1 == 315);
   assert(bounds->x0 == 100 && bounds->y0 == 128);
  } else if (bitmap->tag == 2) {
   checks++; assert(!bitmap->frame && source->x1 == 12 && source->y1 == 12);
-  assert(bounds->y0 == 293);
+  assert(bounds->y0 == 410);
  } else { chevrons++; assert(source->x1 == 12 && source->y1 == 8); }
 }
 void draw_quad(rectangle2d *bounds, unsigned long color) {
- assert(bounds->y0 == 286 && bounds->y1 == 312 && color == 0x7f1f4fa3); highlights++;
+ assert(bounds->y0 == 390 && bounds->y1 == 442 && color == 0x7f1f4fa3); highlights++;
 }
 void draw_string_set_draw_mode(int font, int style, int align, int flags, real_argb_color *color) {
  assert(font == 42 && style == NONE && align == 0 && !flags && color->alpha == .5f);
@@ -430,7 +432,7 @@ int main(void) {
  definition.text_font.index = 42; definition.text_label_string_list.index = 43;
  halo_menu_dropdown_open(&ui_dropdown, 100, 100, 128, 20, 18);
  ui_dropdown_draw();
- assert(panels == 1 && checks == 1 && strings == 7 && first_string == 12 && highlights == 1);
+ assert(panels == 1 && checks == 1 && strings == 6 && first_string == 13 && highlights == 1);
  ui_widget_row_draw_chevron(&widget, &definition, offset, &clip); assert(chevrons == 1);
  valid = 0; ui_dropdown_draw(); assert(panels == 1);
  assert(halo_menu_dropdown_click(&ui_dropdown, 0, 0) == -1);

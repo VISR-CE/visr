@@ -8046,13 +8046,14 @@ static void ui_dropdown_draw(void)
 			draw_quad(&bounds, (fast_ftol(color.alpha * 255.0f) << 24) | 0x001F4FA3);
 		text = bounds;
 		text.x0 += 6; text.x1 -= 22;
+		text.y0 += (HALO_DROPDOWN_PITCH - 26) / 2;
 		draw_string_set_draw_mode(definition->text_font.index, NONE, 0, 0, &color);
 		rasterizer_draw_unicode_string(&text, &text, NULL, 0,
 			spinner_string_list_get_string(definition->text_label_string_list.index, (short)option));
 		if (option == ui_dropdown_widget->parameters.list.selected_index)
 		{
 			bounds.x0 = bounds.x1 - 18; bounds.x1 = bounds.x0 + 12;
-			bounds.y0 += 7; bounds.y1 = bounds.y0 + 12;
+			bounds.y0 += (HALO_DROPDOWN_PITCH - 12) / 2; bounds.y1 = bounds.y0 + 12;
 			ui_dropdown_bitmap(ui_dropdown_widget, "pc\\xbox\\bitmaps\\dropdown_check", 0, &bounds, &clip);
 		}
 	}
