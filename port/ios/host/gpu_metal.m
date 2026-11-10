@@ -5850,6 +5850,10 @@ void gpu_metal_frame_deadline_end(void)
    shown frame joins again. Does nothing on any thread but the one that joined. */
 void gpu_metal_frame_deadline_leave(void)
 {
+#if HALO_NATIVE_MAC
+	/* Main handles UI independently; the game thread keeps its membership. */
+	if (host_game_thread_enabled()) return;
+#endif
 	int on_joined_thread = frame_deadline.state == FRAME_DEADLINE_JOINED && pthread_equal(frame_deadline.thread, pthread_self());
 
 	if (!frame_deadline_leave_wanted(frame_deadline.state, on_joined_thread))
@@ -5866,6 +5870,10 @@ void gpu_metal_frame_deadline_leave(void)
    workgroup and no frame joins again until the hold ends; the next shown frame after it joins. */
 void gpu_metal_frame_deadline_hold(int held)
 {
+#if HALO_NATIVE_MAC
+	/* Main handles UI independently; the game thread keeps its membership. */
+	if (host_game_thread_enabled()) return;
+#endif
 	frame_deadline.held = held != 0;
 	if (held)
 		gpu_metal_frame_deadline_leave();
