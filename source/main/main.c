@@ -3957,7 +3957,10 @@ void main_loop(
 					/* frames between ticks too (render_interpolation.c) */
 					if (halo_interpolation_enabled())
 						render_frame = main_globals.main_menu_scenario_loaded || main_globals.halt_time_scale;
-					render_frame &= !game_engine_running() || (game_time_get()>=3 && !main_network_view_waiting()); /* port: and the player's view */
+					/* port: and the player's view. Not the menu backdrop: the multiplayer menus set up a game engine while the
+					backdrop plays, and the player's view wait would stop its frames (the display then showed two old frames) */
+					if (!(main_globals.main_menu_scenario_loaded && main_menu_is_active()))
+						render_frame &= !game_engine_running() || (game_time_get()>=3 && !main_network_view_waiting());
 
 					profile_scope_enter(main_non_deterministic_update_section)
 					collision_log_continue_period(1);
