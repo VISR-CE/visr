@@ -1228,9 +1228,11 @@ void set_window_camera_values(
 		angle just enough that the horizontal one stays at least 60 degrees */
 		{
 			extern int halo_portrait_field_of_view_minimum(void);
+			extern real halo_cinematic_portrait_letterbox(real width, real height, real *bar_fraction);
 			rectangle2d const *view = &window->rasterizer_camera.viewport_bounds;
 			real width = (real)(view->x1 - view->x0);
 			real height = (real)(view->y1 - view->y0);
+			real base_vertical_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
 
 			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f &&
 				halo_portrait_field_of_view_minimum())
@@ -1240,6 +1242,24 @@ void set_window_camera_values(
 
 				if (vertical_tangent < minimum_tangent)
 					window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(minimum_tangent, 1.0f);
+			}
+
+			/* port: a letterboxed cinematic in a portrait view keeps the landscape cinematic's picture: the
+			4:3 view's horizontal angle across the width, in the 16:9 band the bars leave (cinematics.c), blended
+			in and out with the bars */
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f)
+			{
+				real bar_fraction;
+				real blend = halo_cinematic_portrait_letterbox(width, height, &bar_fraction);
+
+				if (blend > 0.0f)
+				{
+					real portrait_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
+					real cinematic_tangent = base_vertical_tangent / 0.75f * (height / width);
+
+					window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(
+						portrait_tangent + (cinematic_tangent - portrait_tangent) * blend, 1.0f);
+				}
 			}
 		}
 
