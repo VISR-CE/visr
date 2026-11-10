@@ -55,17 +55,13 @@ class BuildRows(HTMLParser):
                 self.row = None
 
 
-# Released builds whose device frames are published before their benchmark rows: the row appears with the rows.
-FRAMES_BEFORE_ROWS = {"visr@0.6.14"}
-
-
 def test_screenshot_assets_exist_fit_budgets_and_use_known_scenes():
     scenes = {scene["key"] for scene in DATA["scenes"]}
     with (ROOT / "docs/benchmarks/results.csv").open(newline="", encoding="utf-8") as source:
         released = {f'{row["port"]}@{row["version"]}' for row in csv.DictReader(source)
                     if row["release_kind"] in ("release", "pinned source build")}
     for key, build in DATA["builds"].items():
-        assert "@".join(key.split("@")[:2]) in released | FRAMES_BEFORE_ROWS
+        assert "@".join(key.split("@")[:2]) in released
         assert key.endswith("@" + build["device_id"])
         assert set(build["scenes"]) <= scenes
         assert build["thumb_scene"] in build["scenes"]

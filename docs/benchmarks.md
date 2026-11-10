@@ -87,19 +87,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, iPad Pro M1"
-    x-axis "Port and version" ["VISR 0.6.14", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
+    x-axis "Port and version" ["VISR 0.6.10", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
     y-axis "Milliseconds per frame" 0 --> 25.7
-    bar [0, 5.3, 4.3, 24.4]
-    bar [5.9, 0, 0, 0]
+    bar [3, 5.3, 4.3, 24.4]
+    bar [6, 0, 0, 0]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.14](https://github.com/steverice/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 5.87 ms median GPU time per rendered frame, 7.24 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; 5.27 ms median CPU time per frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 24.4 ms median CPU time per frame; a10 not measured yet).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-05; 3.03 ms median CPU time per frame, 6.02 ms median GPU time per rendered frame, 6.52 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; 5.27 ms median CPU time per frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 24.4 ms median CPU time per frame; a10 not measured yet).
 
-Not measured: [VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+Not measured: [VISR 0.6.14](https://github.com/steverice/visr/releases/tag/visr-v0.6.14) (Not run on this device.); [VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 #### iPhone and iPad: frame rate
 
@@ -117,19 +117,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, iPad Pro M1"
-    x-axis "Port and version" ["VISR 0.6.14", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
+    x-axis "Port and version" ["VISR 0.6.10", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.4, 23.9, 106.9, 119.9, 11.8]
-    bar [119.4, 21.6, 66.6, 107.6, 3.7]
+    bar [119.7, 23.9, 106.9, 119.9, 11.8]
+    bar [119.7, 21.6, 66.6, 107.6, 3.7]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.14](https://github.com/steverice/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; no on-time share reported); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 18.2% of frames on time; a10 not measured yet).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-05; 100% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; no on-time share reported); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 18.2% of frames on time; a10 not measured yet).
 
-Not measured: [VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+Not measured: [VISR 0.6.14](https://github.com/steverice/visr/releases/tag/visr-v0.6.14) (Not run on this device.); [VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 ### Apple TV
 
@@ -147,9 +147,9 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 16.7 ms frame budget, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.14", "Beeman main e3abbd1"]
+    x-axis "Port and version" ["VISR 0.6.10", "Beeman main e3abbd1"]
     y-axis "Milliseconds per frame" 0 --> 16.7
-    bar [4.6, 8.4]
+    bar [6.4, 8.4]
     bar [13.6, 0]
 ```
 
@@ -157,7 +157,7 @@ xychart-beta horizontal
 
 Lower is better.
 
-[VISR 0.6.14](https://github.com/steverice/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 4.57 ms median CPU time per frame, 13.62 ms median GPU time per rendered frame); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 8.43 ms median CPU time per frame).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 6.42 ms median CPU time per frame, 13.65 ms median GPU time per rendered frame); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 8.43 ms median CPU time per frame).
 
 Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
@@ -177,17 +177,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.14", "Beeman main e3abbd1"]
+    x-axis "Port and version" ["VISR 0.6.10", "Beeman main e3abbd1"]
     y-axis "Frames per second" 0 --> 80
-    bar [58.4, 59.7]
-    bar [32.9, 48.6]
+    bar [57.9, 59.7]
+    bar [53.6, 48.6]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.14](https://github.com/steverice/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 97.8% of frames on time); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 53.5% of frames on time).
+[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 99.9% of frames on time); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 53.5% of frames on time).
 
 Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
@@ -253,7 +253,7 @@ VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 11.1 ms 95th-percentile
 
 ## Methodology
 
-The snapshot holds 498 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 477 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 A build's screenshots come from runs on the device shown for it, and a row without a frame from that device has none.
 
@@ -266,7 +266,7 @@ A build's screenshots come from runs on the device shown for it, and a row witho
 - **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
 - **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The phone's on-device Metal performance trace, read with `metalperftrace`: each frame's presented interval and GPU time, used where Instruments Metal System Trace cannot record a full window. Against Instruments Metal System Trace on an iPad Pro, average rate agreed within 0.01 fps and GPU p90 within 2%. Ports: VISR, Beeman, HaloPad.
 - **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: 117-vision.
-- **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Another method, named in the `method` column. Ports: ChupathingyCE iOS, Beeman, HaloPad, VISR.
+- **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Another method, named in the `method` column. Ports: ChupathingyCE iOS, Beeman, HaloPad.
 - **Apple TV** (Apple TV 4K, Apple TV HD; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR.
 - **Apple TV** (Apple TV 4K, Apple TV HD; frame cap on): Another method, named in the `method` column. Ports: VISR, Beeman.
 - **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR, 117-vision.
