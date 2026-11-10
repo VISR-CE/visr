@@ -238,7 +238,7 @@ def test_notices_screen_rows_scroll_help_and_back():
         arrow = base + f"/scroll_{direction}_arrow"
         assert options.find(f'child[@widget="{arrow}"]').get("y") == str(y)
         assert widgets[arrow].get("bitmap") == f"xbox/bitmaps/arrow_sm_{direction}"
-    assert widgets[base + "/=cancel"].get("text") == "BACK"
+    assert widgets[base + "/cancel"].get("text") == "BACK"
     assert base + "/a_butn" not in widgets
     assert all("=" not in w.get("text", "") for name, w in widgets.items() if name.startswith(base + "/"))
 
