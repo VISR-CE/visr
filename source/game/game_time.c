@@ -77,6 +77,9 @@ symbols in this file:
 #include "saved games/game_state.h"
 #include "main/main.h"
 #include "cseries/profile_sections.h"
+
+/* port: whether the main menu scenario is loaded (main.c) */
+boolean main_port_main_menu_loaded(void);
 /* port/linux/game/network_distributed.c's */
 void network_distributed_tick(void);
 /* port: aligned diagnostic samples, port/linux/game/network_test.c */
@@ -346,6 +349,10 @@ boolean game_time_held(
 {
 	struct network_game_client *client;
 
+	/* the menu backdrop's clock never waits for a host: the multiplayer
+	menus keep their lobby connection while the backdrop plays */
+	if (main_menu_is_active() && main_port_main_menu_loaded())
+		return FALSE;
 	if (game_connection() != _game_connection_network_client)
 		return FALSE;
 	client = global_network_game_client_get();
@@ -479,6 +486,8 @@ void game_time_update(
 					maximum_possible_server_time = game_time_held() ?
 						game_time_globals->server_time : final_local_time;
 				}
+				else if (main_menu_is_active() && main_port_main_menu_loaded())
+					maximum_possible_server_time = final_local_time; /* backdrop: no host updates in the lobby */
 				else
 					maximum_possible_server_time = update_client_get_maximum_possible_server_time();
 				if (maximum_possible_server_time > game_time_globals->server_time)
