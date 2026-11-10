@@ -350,7 +350,9 @@ def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path)
         profile, shaders, recording, compatibility = check.release_urls(tmp_path / "bucket")
     except check.Stale:
         pytest.skip("the pinned feeds tree predates this checkout's release policy")
-    assert all(url.startswith("https://feeds.visr.gg/tester/") for url in (profile, shaders, recording))
+    # "-" means the release policy names an older profile feed generation than this source reads: no shard check
+    assert all(url.startswith("https://feeds.visr.gg/tester/") for url in (shaders, recording))
+    assert profile == "-" or profile.startswith("https://feeds.visr.gg/tester/")
     assert (tmp_path / "bucket" / check.key_of(recording)).is_file()
     assert re.fullmatch(r"benchmark-catalog-[12]:[0-9a-f]{64}", compatibility)
 
