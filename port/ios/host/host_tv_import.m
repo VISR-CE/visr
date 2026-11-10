@@ -8,6 +8,7 @@
 #import <CoreImage/CoreImage.h>
 #include <Network/Network.h>
 #include "ios_host.h"
+#include "host_modal_wait.h"
 #include "xiso.h"
 #include "host_astc_store.h"
 #include "host_texture_upscale.h"
@@ -649,21 +650,35 @@ void host_tv_import(const char *root) {
     server_queue=dispatch_queue_create("halo.import",DISPATCH_QUEUE_SERIAL);
     start_listener(IMPORT_PORT);
 
-    UIWindowScene *scene=nil;
-    for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
-        if([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
-    if(!scene)host_fatal("Could not open the game import screen.");
-    HaloTVImportController *controller=[HaloTVImportController new];
-    UIWindow *window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
-    window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
-    host_logf(HOST_LOG_INFO,"waiting for an XISO upload");
-    while(![controller refresh]) {
-        @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}
+    __block HaloTVImportController *controller;
+    __block UIWindow *window;
+    host_main_sync(^{
+        UIWindowScene *scene=nil;
+        for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
+        if(!scene)host_fatal("Could not open the game import screen.");
+        controller=[HaloTVImportController new];
+        window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
+        window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
+        host_logf(HOST_LOG_INFO,"waiting for an XISO upload");
+    });
+    if (!window) return;
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.1, ^bool { return [controller refresh]; });
+    } else {
+        while(![controller refresh]) {
+            @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}
+        }
     }
     /* Let the browser's last status poll see "done" before the server stops. */
-    for(int i=0;i<15;i++) @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}
+    if (host_on_main_thread()) {
+        for(int i=0;i<15;i++) @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}
+    } else {
+        CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + 1.5;
+        host_modal_wait(0.1, ^bool { return CFAbsoluteTimeGetCurrent() >= deadline; });
+    }
     dispatch_sync(server_queue,^{nw_listener_cancel(listener);listener=nil;});
-    window.hidden=YES;window.rootViewController=nil;
+    host_main_sync(^{ window.hidden=YES;window.rootViewController=nil; });
 }
 
 /* an already-imported game's one-time upscaling bar (host_texture_upscale_first_run_phase): the import screen with
@@ -672,20 +687,29 @@ static void host_tv_upscale_only(const char *root) {
     documents=[NSString stringWithUTF8String:root];
     atomic_store(&skip_textures,0);atomic_store(&preparing_textures,1);atomic_store(&menu_phase_textures,1);
     status_set(import_extracting,0,0,@"Upscaling textures");
-    UIWindowScene *scene=nil;
-    for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
-        if([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
-    if(!scene)return;
-    HaloTVImportController *controller=[HaloTVImportController new];
-    UIWindow *window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
-    window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
-        host_texture_upscale_prepare_import(documents.fileSystemRepresentation,upscale_progress,NULL);
-        atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);atomic_store(&upscale_detail,NULL);
-        status_set(import_done,1,1,@"Done");
+    __block HaloTVImportController *controller;
+    __block UIWindow *window;
+    host_main_sync(^{
+        UIWindowScene *scene=nil;
+        for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
+        if(!scene)return;
+        controller=[HaloTVImportController new];
+        window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
+        window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
+            host_texture_upscale_prepare_import(documents.fileSystemRepresentation,upscale_progress,NULL);
+            atomic_store(&preparing_textures,0);atomic_store(&menu_phase_textures,0);atomic_store(&upscale_tick,-1);atomic_store(&upscale_detail,NULL);
+            status_set(import_done,1,1,@"Done");
+        });
     });
-    while(![controller refresh]) @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}
-    window.hidden=YES;window.rootViewController=nil;
+    if (!window) return;
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.1, ^bool { return [controller refresh]; });
+    } else {
+        while(![controller refresh]) @autoreleasepool {CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);}
+    }
+    host_main_sync(^{ window.hidden=YES;window.rootViewController=nil; });
 }
 
 /* tvOS: the player's XISO is imported into root/maps over the local network
