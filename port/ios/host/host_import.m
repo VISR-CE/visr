@@ -2,6 +2,7 @@
 #import <UIKit/UIKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include "ios_host.h"
+#include "host_modal_wait.h"
 #include "xiso.h"
 #import "host_orientation.h"
 #include "host_astc_store.h"
@@ -435,31 +436,39 @@ void host_ios_prepare_assets(const char *root) {
         if (!host_texture_upscale_enabled()) return;
         upscale_phase=YES;
     }
-    UIWindowScene *scene=nil;
-    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
-        if ([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
-    if (!scene) host_fatal("Could not open the game import screen.");
-    HaloImportController *controller=[HaloImportController new];controller.documents=documents;
-    /* Dropping an XISO into the app with Finder/Files also works. Only choose
-       automatically when exactly one image is present; cleanup follows verified import. */
-    NSMutableArray<NSURL *> *images=[NSMutableArray new];
-    for (NSString *directory in @[documents,[documents stringByAppendingPathComponent:@"Inbox"]]) {
-        for (NSURL *url in [files contentsOfDirectoryAtURL:[NSURL fileURLWithPath:directory] includingPropertiesForKeys:@[NSURLIsRegularFileKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:nil]) {
-            NSString *extension=url.pathExtension.lowercaseString;NSNumber *regular=nil;[url getResourceValue:&regular forKey:NSURLIsRegularFileKey error:nil];
-            if (regular.boolValue && ([extension isEqualToString:@"iso"] || [extension isEqualToString:@"xiso"])) [images addObject:url];
+    __block HaloImportController *controller;
+    __block UIWindow *window;
+    host_main_sync(^{
+        UIWindowScene *scene=nil;
+        for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if ([candidate isKindOfClass:UIWindowScene.class]) {scene=(UIWindowScene *)candidate;break;}
+        if (!scene) host_fatal("Could not open the game import screen.");
+        controller=[HaloImportController new];controller.documents=documents;
+        /* Dropping an XISO into the app with Finder/Files also works. Only choose
+           automatically when exactly one image is present; cleanup follows verified import. */
+        NSMutableArray<NSURL *> *images=[NSMutableArray new];
+        for (NSString *directory in @[documents,[documents stringByAppendingPathComponent:@"Inbox"]]) {
+            for (NSURL *url in [files contentsOfDirectoryAtURL:[NSURL fileURLWithPath:directory] includingPropertiesForKeys:@[NSURLIsRegularFileKey] options:NSDirectoryEnumerationSkipsHiddenFiles error:nil]) {
+                NSString *extension=url.pathExtension.lowercaseString;NSNumber *regular=nil;[url getResourceValue:&regular forKey:NSURLIsRegularFileKey error:nil];
+                if (regular.boolValue && ([extension isEqualToString:@"iso"] || [extension isEqualToString:@"xiso"])) [images addObject:url];
+            }
+        }
+        if (images.count==1 && !upscale_phase) controller.pendingImage=images.firstObject;
+        window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
+        window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
+        if (upscale_phase) [controller upscalePhaseOnly];
+    });
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.01, ^bool { return controller.ready; });
+    } else {
+        while (!controller.ready) {
+            @autoreleasepool {
+                /* Like SDL's UIKit event pump, service tracking as well as the
+                   default mode so controls inside the scroll view receive taps. */
+                CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.01,true);
+                CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode,0.01,true);
+            }
         }
     }
-    if (images.count==1 && !upscale_phase) controller.pendingImage=images.firstObject;
-    UIWindow *window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
-    window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
-    if (upscale_phase) [controller upscalePhaseOnly];
-    while (!controller.ready) {
-        @autoreleasepool {
-            /* Like SDL's UIKit event pump, service tracking as well as the
-               default mode so controls inside the scroll view receive taps. */
-            CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.01,true);
-            CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode,0.01,true);
-        }
-    }
-    window.hidden=YES;window.rootViewController=nil;
+    host_main_sync(^{ window.hidden=YES;window.rootViewController=nil; });
 }

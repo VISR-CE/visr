@@ -68,10 +68,11 @@ def main() -> int:
             shutil.copyfile(icon, app / "AppIcon60x60.png")
         sdk = run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-path", capture=True)
         run("xcrun", "--sdk", "iphonesimulator", "clang", "-target", "arm64-apple-ios16.0-simulator",
-            "-isysroot", sdk, "-fobjc-arc", "-fmodules", "-Wno-incompatible-pointer-types",
+            "-isysroot", sdk, "-fobjc-arc", "-fblocks", "-fmodules", "-Wno-incompatible-pointer-types",
             "-I", str(ROOT / "port/ios/host"), "-I", str(ROOT / "port/runtime"),
             "-I", str(ROOT / "port/runtime/include"),
             str(ROOT / "port/ios/tests/import_layout_probe.m"),
+            str(ROOT / "port/ios/host/host_main_thread.c"),
             str(ROOT / "port/ios/host/host_orientation.m"), str(ROOT / "port/ios/host/host_upscale_tick.m"),
             "-framework", "UIKit", "-framework", "Foundation", "-framework", "QuartzCore",
             "-framework", "UniformTypeIdentifiers", "-o", str(app / "ImportLayout"))
