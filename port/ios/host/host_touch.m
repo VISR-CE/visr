@@ -467,6 +467,7 @@ void host_ios_touch_attach(SDL_Window *window) {
         touch_latency_watch();
         UIView *root=native.rootViewController.view;
         HaloControls *controls=[[HaloControls alloc]initWithFrame:root.bounds];
+        controls.autoresizingMask=UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
         [root addSubview:controls];
         if(!attached_controls)attached_controls=[NSHashTable weakObjectsHashTable];
         [attached_controls addObject:controls];
