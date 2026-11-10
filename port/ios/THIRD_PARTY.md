@@ -19,7 +19,7 @@ Builds that play the game's intro and credits movies (the default; not those
 made with `--bink off`) use libraries from the FFmpeg project (9.0.2, its
 Bink demuxer and decoders) under the LGPLv2.1, statically linked. The
 complete source of this app, including the FFmpeg code in
-`port/third_party/ffmpeg-bink`, is at https://github.com/steverice/visr. To
+`port/third_party/ffmpeg-bink`, is at https://github.com/VISR-CE/visr. To
 rebuild the app with a modified FFmpeg, change those files and run
 `python3 tools/ios_build.py --unsigned --ipa dist/VISR-iOS-unsigned.ipa` from
 the repository root. The license is in `Licenses/FFmpeg-LGPL-2.1.txt`. Their complete notices are copied into the built app's `Licenses`

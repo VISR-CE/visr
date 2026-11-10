@@ -655,7 +655,7 @@ def test_pinned_source_builds_link_to_their_commit():
 
 
 def test_release_urls_name_each_ports_release_page_and_never_a_download():
-    cases = [("visr", "0.6.0", "", "https://github.com/steverice/visr/releases/tag/visr-v0.6.0"),
+    cases = [("visr", "0.6.0", "", "https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0"),
              ("beeman", "0.3.0", "", "https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0"),
              ("corece", "0.3.0", "44", "https://github.com/mastercheese-dev/CoreCE/releases/tag/build-44"),
              ("snailbbq", "0.2.118-beta", "", "https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta"),
@@ -674,7 +674,7 @@ def test_a_builds_label_links_to_its_release_in_the_caption_and_the_builds_list(
     spec = next(item for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows) if item["query"]["platform"] == "Apple TV")
     built = charts.model(rows, spec["query"], "campaign")
     entry = next(e for e in built["entries"] if e["port"] == "visr" and e["default"])
-    url = f"https://github.com/steverice/visr/releases/tag/visr-v{entry['version']}"
+    url = f"https://github.com/VISR-CE/visr/releases/tag/visr-v{entry['version']}"
     assert entry["url"] == url
     assert f"]({url}) (build" in charts.caption(built, None, None, "markdown")
     assert charts.caption(built) == "".join(text for text, _ in charts.caption_parts(built))
@@ -923,10 +923,10 @@ def test_both_pages_share_the_site_header_stylesheet_and_footer():
         links = re.findall(r'<a href="([^"]+)"([^>]*)>(.*?)</a>', header, re.S)
         assert [(href, re.sub(r'<svg.*?</svg>|<span class="sr-only">.*?</span>', '', text)) for href, _, text in links] == [
             ("./", "Home"), ("benchmarks.html", "Benchmarks"),
-            ("https://github.com/steverice/visr/milestones?sort=due_date&amp;direction=asc", "Roadmap"),
+            ("https://github.com/VISR-CE/visr/milestones?sort=due_date&amp;direction=asc", "Roadmap"),
             ("https://forms.gle/bhjDV4XhRWbZjQet8", "Become a tester")]
         assert [href for href, attrs, _ in links if 'target="_blank"' in attrs] == [
-            "https://github.com/steverice/visr/milestones?sort=due_date&amp;direction=asc", "https://forms.gle/bhjDV4XhRWbZjQet8"]
+            "https://github.com/VISR-CE/visr/milestones?sort=due_date&amp;direction=asc", "https://forms.gle/bhjDV4XhRWbZjQet8"]
         assert re.findall(r'aria-current="page">([^<]+)<', header) == [current]
         assert '<link rel="stylesheet" href="style.css">' in page and "<style>" not in page
         assert "TestFlight" not in page and '<footer class="foot">' in page

@@ -19,7 +19,7 @@ endorsed by Microsoft, Halo Studios or Bungie. See [Legal](#legal).
 - **Cross-device sync:** Your saves and player profiles sync across all your devices through iCloud. Zero setup required.
 - **It just works:** VISR is specifically optimized for each Apple device for [unmatched performance](https://visr.gg/benchmarks.html) out of the box.
 - **Compatible with the community:** VISR aims for cross-play with the popular Halo: CE ports like [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) and [Chupathingy](https://chupathingy.org).
-- **Permissive license:** All VISR code is [Apache-2.0](https://github.com/steverice/visr/blob/main/LICENSE), so you can use it in any port, mod, tool or server, under any license.
+- **Permissive license:** All VISR code is [Apache-2.0](https://github.com/VISR-CE/visr/blob/main/LICENSE), so you can use it in any port, mod, tool or server, under any license.
 <!-- end generated -->
 
 ## Apple Vision Pro
@@ -76,7 +76,7 @@ settings.
 
 ## Get the app
 
-Each run of the [iOS workflow](https://github.com/steverice/visr/actions/workflows/ios.yml)
+Each run of the [iOS workflow](https://github.com/VISR-CE/visr/actions/workflows/ios.yml)
 uploads unsigned IPAs as artifacts: `visr-visionos-unsigned` for Apple Vision
 Pro, `visr-ios-unsigned` and `visr-tvos-unsigned` for the others. GitHub keeps
 them for 14 days. Sign one with your own Apple account
@@ -125,7 +125,7 @@ toolchain is Xcode 27 with Homebrew LLVM and LLD 23.1.2. Add your Apple account
 in Xcode > Settings > Accounts before a signed build.
 
 ```sh
-git clone https://github.com/steverice/visr.git
+git clone https://github.com/VISR-CE/visr.git
 cd visr
 brew install cmake ninja llvm lld sdl3 pkgconf
 
@@ -171,7 +171,7 @@ See [ROADMAP.md](ROADMAP.md).
 
 ## Reporting bugs and contributing
 
-[Open an issue](https://github.com/steverice/visr/issues) with your device, OS
+[Open an issue](https://github.com/VISR-CE/visr/issues) with your device, OS
 version, the app's version and what you were doing. `ios-runtime.log` and
 `debug.txt` in the VISR folder help; skim them for anything personal first, and
 do not attach game files or disc images. Security problems go through
@@ -225,7 +225,7 @@ sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
 
 VISR does not include or distribute the game's maps, sounds, textures, videos or other content, and it does not help you obtain them. You need a disc image of the original Xbox game, made from your own disc. VISR is free and is not sold.
 
-It builds on the Halo: CE decompilation, [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) and the other projects in its [credits](https://github.com/steverice/visr#credits). The code is licensed under [Apache-2.0](https://github.com/steverice/visr/blob/main/LICENSE). It includes code that originated in CC0 1.0 projects, credited in the [notices](https://github.com/steverice/visr/blob/main/NOTICE.md).
+It builds on the Halo: CE decompilation, [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) and the other projects in its [credits](https://github.com/VISR-CE/visr#credits). The code is licensed under [Apache-2.0](https://github.com/VISR-CE/visr/blob/main/LICENSE). It includes code that originated in CC0 1.0 projects, credited in the [notices](https://github.com/VISR-CE/visr/blob/main/NOTICE.md).
 
 All VISR code is licensed under Apache-2.0 so you can use it in any project under any license: another port, a mod, a tool, a dedicated server, a GPL or AGPL project, or something closed. There is no obligation to distribute your code just to play with others. And you're safe from any patent claims by VISR's contributors.
 

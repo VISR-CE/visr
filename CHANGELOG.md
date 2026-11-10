@@ -212,8 +212,8 @@ VISR automatically sends game performance data to improve the game. Reports excl
 ### test
 
 - **release**: skip the legacy recording feed check on a tree without `docs/site/packs` — `test_pages_overlay_keeps_the_published_legacy_feed_unchanged` read the checked-in `recordings-4d6924ec.json`, which the history rewrite removed with the rest of the feeds
-- **feeds**: skip the feeds' publication tests on a tree without `docs/site/packs` — the history rewrite took the feeds out of this repository, including the rewritten `visr-v0.6.12` tree, so on this release branch `test_feeds_store.py` keeps the tag's tests and its `checked_in` fixture (and the two tests that read the checked-in feeds without it) skip; main runs them against the pinned `steverice/visr-feeds` tree
-- **feeds**: read the published feeds from a pinned `steverice/visr-feeds` tree instead of `docs/site/packs` — `tools/visr_feeds_tree.py` fetches the commit in `tools/visr-feeds.pin` (or uses `VISR_FEEDS_TREE`) into `build/visr-feeds`, and `ios_test.py`, `feeds_host_check.py`, `profile_feed_probe.m`, `test_feeds_store.py` and `test_profile_feed.py` read it; the two `test_pages_main_assets.py` tests that staged main's checked-in feeds are removed, the release-hash pins move to `test_feeds_store.py`
+- **feeds**: skip the feeds' publication tests on a tree without `docs/site/packs` — the history rewrite took the feeds out of this repository, including the rewritten `visr-v0.6.12` tree, so on this release branch `test_feeds_store.py` keeps the tag's tests and its `checked_in` fixture (and the two tests that read the checked-in feeds without it) skip; main runs them against the pinned `VISR-CE/visr-feeds` tree
+- **feeds**: read the published feeds from a pinned `VISR-CE/visr-feeds` tree instead of `docs/site/packs` — `tools/visr_feeds_tree.py` fetches the commit in `tools/visr-feeds.pin` (or uses `VISR_FEEDS_TREE`) into `build/visr-feeds`, and `ios_test.py`, `feeds_host_check.py`, `profile_feed_probe.m`, `test_feeds_store.py` and `test_profile_feed.py` read it; the two `test_pages_main_assets.py` tests that staged main's checked-in feeds are removed, the release-hash pins move to `test_feeds_store.py`
 - **ios**: pace the frame workgroup probe by the clock and skip where UIKit cannot run it — `frame_workgroup_uikit_probe.m` counted 400 frames of `CFRunLoopRunInMode`, which returns at once when no source is ready, so on some hosts the frames ran out in under a second, before the dialog's dismissal finished, and "fixed" failed; each frame now runs the loop for 16 ms of wall time, within 10 s. A dialog that has not gone by then, a host without a workgroup, or a scene UIKit cannot make (a hosted CI runner raised while connecting it, before the probe started) is a SKIP line from `tools/test_frame_workgroup_uikit.py`, never a pass
 - **ios**: reproduce UIKit's work interval exception with the frame workgroup — `frame_workgroup_uikit_probe.m`, a small Mac Catalyst app run by `tools/test_frame_workgroup_uikit.py` from `ios_test.py`, runs frames around a nested run loop while a text dialog is up and a scroll view animates; "fixed" holds the thread out of the workgroup by `frame_deadline.h`'s rules, as `host_tv.m` does, and must finish cleanly, and "unfixed" keeps it joined and is expected to end with "Failed to create work interval" (only a warning if a UIKit update stops raising)
 
@@ -236,7 +236,7 @@ VISR automatically sends game performance data to improve the game. Reports excl
 ### feat
 
 - **feeds**: builds and releases read their feeds from feeds.visr.gg (#112)
-- **feeds**: `tools/feeds_store.py` records the feeds in steverice/visr-feeds and copies them to the feeds.visr.gg bucket (#112)
+- **feeds**: `tools/feeds_store.py` records the feeds in VISR-CE/visr-feeds and copies them to the feeds.visr.gg bucket (#112)
 
 ### fix
 
@@ -2871,7 +2871,7 @@ VISR automatically sends game performance data to improve the game. Reports excl
 - **site**: add a static landing page for VISR in `docs/site` and a `pages.yml` workflow that publishes it to GitHub Pages — what VISR is, the platforms, the bring-your-own-disc model, how to get started, credits and the trademark disclaimer
 - add `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` and GitHub issue and pull request templates for the public repository
 - **license**: mark `LICENSE.md` as a draft pending the license choice and add `NOTICE.md` for the third-party components — every upstream is CC0 1.0, and the vendored libraries, fonts and build-time downloads keep their own licenses
-- **readme**: rewrite the README for the public `steverice/visr` repository — what VISR is, the bring-your-own-disc model, features, status, device requirements, building from source, credits and a trademark disclaimer
+- **readme**: rewrite the README for the public `VISR-CE/visr` repository — what VISR is, the bring-your-own-disc model, features, status, device requirements, building from source, credits and a trademark disclaimer
 - **nv2a**: say that color sign on sampling stages only is our inference — `cc0a6faa` called it xemu-confirmed, but xemu does not implement COLORSIGN (its TEXFILTER signed bits are `NV2A_UNIMPLEMENTED`); only the alpha kill rule comes from xemu's `psh.c`
 - **readme**: credit pfista/halo-og — Michael Pfister's port, whose native Metal renderer gave us exact border colors, combiner fixes and the pre-HUD hook's spot
 - **ios**: the README covers the Metal renderer's settings and the benchmark recorder — render scale and MetalFX, compressed textures, anisotropic filtering, shadow and camouflage sizes, frame pacing and live aim, and how to record, replay and time a stretch of play

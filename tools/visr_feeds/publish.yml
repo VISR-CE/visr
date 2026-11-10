@@ -1,6 +1,6 @@
-# steverice/visr-feeds: .github/workflows/publish.yml (kept in steverice/visr at tools/visr_feeds/publish.yml).
+# VISR-CE/visr-feeds: .github/workflows/publish.yml (kept in VISR-CE/visr at tools/visr_feeds/publish.yml).
 # Copies this repository's tree, the public record of VISR's signed feeds, to the R2 bucket behind
-# https://feeds.visr.gg/ with steverice/visr's tools/feeds_store.py: every file validated, archives first, the
+# https://feeds.visr.gg/ with VISR-CE/visr's tools/feeds_store.py: every file validated, archives first, the
 # receipt last, no envelope replaced by a lower signed sequence, nothing deleted, everything read back.
 name: Publish to feeds.visr.gg
 
@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: steverice/visr
+          repository: VISR-CE/visr
           ref: main
           path: visr
           persist-credentials: false
@@ -54,7 +54,7 @@ jobs:
             echo "::notice::no feeds recorded yet; nothing to publish"
             exit 0
           fi
-          echo "Validated with steverice/visr@$(git -C visr rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Validated with VISR-CE/visr@$(git -C visr rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
           uv run --python 3.11 --no-project --with-requirements visr/tools/release-requirements.txt \
             python visr/tools/feeds_store.py publish --backend s3 --tree feeds
           uv run --python 3.11 --no-project --with-requirements visr/tools/release-requirements.txt \

@@ -14,7 +14,7 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
 
 PINNED_REF = "main"  # replace with the merged commit that holds the harness the numbers came from
-CODE_URL = f"https://github.com/steverice/visr/blob/{PINNED_REF}/tools/perf_compare"
+CODE_URL = f"https://github.com/VISR-CE/visr/blob/{PINNED_REF}/tools/perf_compare"
 SITE_PAGE_URL = "https://visr.gg/benchmarks.html"
 
 

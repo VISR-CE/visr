@@ -2,7 +2,7 @@
 
 Updated: 2026-09-28. This runtime is based on upstream `16514a13`.
 Build-specific observations are distinguished below. Automated build results
-are visible in [GitHub Actions](https://github.com/steverice/visr/actions/workflows/ios.yml).
+are visible in [GitHub Actions](https://github.com/VISR-CE/visr/actions/workflows/ios.yml).
 
 ## Observed coverage
 

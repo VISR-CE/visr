@@ -28,7 +28,7 @@ BUILD_HELP = "The build number of this app."
 # the SEND LOG row (three lines of the help at most): it uploads the game's log to iCloud and shows a code
 SEND_LOG_HELP = "Sends this game's log to the VISR team through iCloud and shows a code to give them."
 
-LICENSES_HELP = "The full license texts are in the app's Licenses folder and at github.com/steverice/visr."
+LICENSES_HELP = "The full license texts are in the app's Licenses folder and at github.com/VISR-CE/visr."
 
 # (name, license, copyright, file, holder)
 LICENSES = [
@@ -41,7 +41,7 @@ LICENSES = [
     ("MBED TLS", "APACHE-2.0", "Copyright The Mbed TLS Contributors.", "port/third_party/mbedtls/LICENSE",
      "Apache License"),
     ("FFMPEG", "LGPL-2.1+", "Copyright the FFmpeg developers. Bink decoding only, linked statically; its source is "
-     "at github.com/steverice/visr.", "port/third_party/ffmpeg-bink/COPYING.LGPLv2.1", "GNU LESSER GENERAL PUBLIC"),
+     "at github.com/VISR-CE/visr.", "port/third_party/ffmpeg-bink/COPYING.LGPLv2.1", "GNU LESSER GENERAL PUBLIC"),
     ("EXPAT", "MIT", "Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and Clark Cooper; "
      "2001-2025 Expat maintainers.", "port/third_party/expat/COPYING", "Clark Cooper"),
     ("ZLIB", "ZLIB", "Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler.", "port/third_party/zlib/LICENSE",

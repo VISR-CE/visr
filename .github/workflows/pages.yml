@@ -2,7 +2,7 @@ name: Pages
 
 # Publishes the static landing page in docs/site to GitHub Pages. There is no
 # application build step. The signed data feeds are not served from here: they live in
-# steverice/visr-feeds and are published to feeds.visr.gg (docs/data-packs.md, "Feed hosts").
+# VISR-CE/visr-feeds and are published to feeds.visr.gg (docs/data-packs.md, "Feed hosts").
 # Enable it under Settings > Pages > Source: GitHub Actions.
 
 on:

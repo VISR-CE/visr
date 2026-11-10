@@ -11,7 +11,7 @@
 static NSString *const kPages[] = {
     @"https://visr.gg/",
     @"https://visr.gg/privacy",
-    @"https://github.com/steverice/visr/blob/main/LICENSE",
+    @"https://github.com/VISR-CE/visr/blob/main/LICENSE",
 };
 
 void host_open_website(int page) {

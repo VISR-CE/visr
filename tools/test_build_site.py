@@ -17,7 +17,7 @@ An introduction with **emphasis**.
 
 > A quote with a [citation](https://example.com).
 
-[GitHub](https://github.com/steverice/visr)
+[GitHub](https://github.com/VISR-CE/visr)
 
 ## Apple Vision Pro
 
@@ -45,7 +45,7 @@ def test_layout_preserves_markdown_and_unique_section_ids():
     assert '<h1>Experience <em>Halo: Combat Evolved</em></h1>' in page
     assert '<p class="lede">An introduction with <strong>emphasis</strong>.</p>' in page
     assert '<blockquote>\n<p>A quote with' in page
-    assert '<p class="links"><a href="https://github.com/steverice/visr">GitHub</a></p>' in page
+    assert '<p class="links"><a href="https://github.com/VISR-CE/visr">GitHub</a></p>' in page
     for identifier in ("apple-vision-pro", "apple-vision-pro-2"):
         assert f'<section aria-labelledby="{identifier}">' in page
         assert re.search(rf'<h2 id="{identifier}">(<span class="nav-icon">.*?</span>)*Apple Vision Pro</h2>', page)
@@ -74,8 +74,8 @@ def test_missing_brand_fails_build():
 
 
 def test_platform_navigation_is_a_labeled_group_of_links():
-    source = SOURCE.replace('[GitHub](https://github.com/steverice/visr)',
-                            '[Vision Pro](#apple-vision-pro) • [iPad](#ipad) • [GitHub](https://github.com/steverice/visr)')
+    source = SOURCE.replace('[GitHub](https://github.com/VISR-CE/visr)',
+                            '[Vision Pro](#apple-vision-pro) • [iPad](#ipad) • [GitHub](https://github.com/VISR-CE/visr)')
     page = render_site(source)
     assert '<nav class="platform-nav" aria-label="Platforms">' in page
     assert re.search(r'<a href="#ipad"><span class="nav-icon"><svg[^>]*>.*?</svg></span>iPad</a>', page)
@@ -285,8 +285,8 @@ def test_home_page_keeps_its_own_url_and_links_the_benchmarks_page():
 
 @pytest.mark.parametrize('with_media', [False, True])
 def test_hero_structure_keeps_copy_media_and_quote_in_order(with_media):
-    source = SOURCE.replace('[GitHub](https://github.com/steverice/visr)',
-                            '[Vision Pro](#apple-vision-pro) • [GitHub](https://github.com/steverice/visr)')
+    source = SOURCE.replace('[GitHub](https://github.com/VISR-CE/visr)',
+                            '[Vision Pro](#apple-vision-pro) • [GitHub](https://github.com/VISR-CE/visr)')
     if with_media:
         source = source.replace('## Apple Vision Pro', '![Hero](a30.png){hero}\n\n## Apple Vision Pro', 1)
     page = render_site(source)

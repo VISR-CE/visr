@@ -673,8 +673,8 @@ def _require_release_wif_job(environ: Mapping[str, str]) -> None:
         "GITHUB_ACTIONS": "true",
         "GITHUB_EVENT_NAME": "workflow_dispatch",
         "GITHUB_REF": "refs/heads/main",
-        "GITHUB_REPOSITORY": "steverice/visr",
-        "GITHUB_WORKFLOW_REF": "steverice/visr/.github/workflows/release.yml@refs/heads/main",
+        "GITHUB_REPOSITORY": "VISR-CE/visr",
+        "GITHUB_WORKFLOW_REF": "VISR-CE/visr/.github/workflows/release.yml@refs/heads/main",
     }
     if any(environ.get(name) != value for name, value in expected.items()):
         raise ValueError(
@@ -727,12 +727,12 @@ def _github_oidc_claims(assertion: str) -> dict[str, Any]:
         raise TypeError("GitHub OIDC endpoint returned malformed token claims")
     expected = {
         "iss": "https://token.actions.githubusercontent.com",
-        "sub": "repo:steverice@1423851/visr@1408152155:environment:release",
-        "repository": "steverice/visr",
-        "repository_owner": "steverice",
+        "sub": "repo:VISR-CE@355119662/visr@1408152155:environment:release",
+        "repository": "VISR-CE/visr",
+        "repository_owner": "VISR-CE",
         "ref": "refs/heads/main",
         "event_name": "workflow_dispatch",
-        "workflow_ref": "steverice/visr/.github/workflows/release.yml@refs/heads/main",
+        "workflow_ref": "VISR-CE/visr/.github/workflows/release.yml@refs/heads/main",
         "environment": "release",
     }
     audience = claims.get("aud")

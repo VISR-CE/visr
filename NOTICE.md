@@ -69,7 +69,7 @@ its own notice.
   `--enable-nonfree`, and no external libraries.
 - FFmpeg is linked statically into the app's executable. The complete source
   of the app, including the FFmpeg code it is built with, is at
-  <https://github.com/steverice/visr>.
+  <https://github.com/VISR-CE/visr>.
 - To rebuild the app with a modified FFmpeg, change the files in
   `port/third_party/ffmpeg-bink/`, then build from the repository root with
   `python3 tools/ios_build.py --unsigned --ipa dist/VISR-iOS-unsigned.ipa`

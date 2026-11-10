@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prove a build reads every feed from feeds.visr.gg: stage the bucket's tree (a steverice/visr-feeds checkout, whose
+"""Prove a build reads every feed from feeds.visr.gg: stage the bucket's tree (a VISR-CE/visr-feeds checkout, whose
 layout is the bucket's), serve it on this machine, and run
 port/ios/tests/feeds_host_probe.m against it with the build's key and URLs.
 
@@ -10,7 +10,7 @@ must name the same host.
 
 Without --packs the tree is the one tools/visr_feeds_tree.py returns: the commit pinned in tools/visr-feeds.pin, or the
 checkout in VISR_FEEDS_TREE. A checkout whose release policy is newer than the tree is reported and skipped; move the
-pin, or pass the current steverice/visr-feeds checkout with --packs.
+pin, or pass the current VISR-CE/visr-feeds checkout with --packs.
 Usage: feeds_host_check.py FEEDS_HOST_PROBE [--packs VISR_FEEDS_CHECKOUT]
 """
 from __future__ import annotations
@@ -115,7 +115,7 @@ def serve(folder: Path) -> http.server.ThreadingHTTPServer:
 def main(arguments=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("probe", type=Path)
-    parser.add_argument("--packs", type=Path, help="a steverice/visr-feeds checkout, staged as it is (default: the pinned tree)")
+    parser.add_argument("--packs", type=Path, help="a VISR-CE/visr-feeds checkout, staged as it is (default: the pinned tree)")
     args = parser.parse_args(arguments)
     development_defaults()
     with tempfile.TemporaryDirectory(prefix="feeds-host-") as temporary:

@@ -29,7 +29,7 @@ else:
 ROOT = Path(__file__).resolve().parent.parent
 PROFILES = ROOT / "profiles"
 # the feed's names in publication.json (the receipt keeps the paths Pages served); the files live under tester/ in a
-# steverice/visr-feeds checkout
+# VISR-CE/visr-feeds checkout
 FEED = Path("docs/site/packs/tester")
 PACKS = Path("docs/site/packs")
 # this source's device-profile feed generation (tools/data_pack.py, PROFILE_FEED_DOMAIN)
@@ -39,7 +39,7 @@ PROFILE_DOMAIN = "device-profiles-4"
 GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-3": ("network.full_rate_players",)}
 RECEIPT = FEED / "publication.json"
 RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
-REPOSITORY = "steverice/visr"
+REPOSITORY = "VISR-CE/visr"
 ASSETS_BRANCH = "profile-pr-assets"
 # the cost model's name for a knob, where the profile's differs
 PROFILE_KEY = {cost.RESOLUTION_KEY: "display.render_height"}
@@ -477,7 +477,7 @@ def open_pull_request(options, out, target, evidence, shards, branch, key, devic
         if run(*step).returncode:
             raise Failure(f"{step[0]} failed; stopped before the pull request")
     if written:
-        print(f"the tester shards are in {options.feeds_tree}; commit them to steverice/visr-feeds main to publish")
+        print(f"the tester shards are in {options.feeds_tree}; commit them to VISR-CE/visr-feeds main to publish")
     return 0
 
 
@@ -493,7 +493,7 @@ def main(arguments=None):
     parser.add_argument("--output-class", default="handheld", choices=["handheld", "tv"])
     parser.add_argument("--signing-key", help="the tester feed's signing seed file")
     parser.add_argument("--feeds-tree", required=True,
-                        help="a steverice/visr-feeds checkout; the tester shards and receipt are written there")
+                        help="a VISR-CE/visr-feeds checkout; the tester shards and receipt are written there")
     parser.add_argument("--worktree", default=str(ROOT), help="worktree the runner job and the pull request use")
     parser.add_argument("--map", default="a10", help="map for the screenshots when no --recording is given")
     parser.add_argument("--recording", help="input recording the screenshots replay")

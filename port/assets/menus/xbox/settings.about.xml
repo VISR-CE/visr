@@ -451,7 +451,7 @@
 		<string text="Copyright (C) 1997-2026 Sam Lantinga." />
 		<string text="Copyright (c) 2005-2020 Rich Felker, et al." />
 		<string text="Copyright The Mbed TLS Contributors." />
-		<string text="Copyright the FFmpeg developers. Bink decoding only, linked\nstatically; its source is at github.com/steverice/visr." />
+		<string text="Copyright the FFmpeg developers. Bink decoding only, linked\nstatically; its source is at github.com/VISR-CE/visr." />
 		<string text="Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and\nClark Cooper; 2001-2025 Expat maintainers." />
 		<string text="Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler." />
 		<string text="Copyright (c) 2017 Lin Wei." />

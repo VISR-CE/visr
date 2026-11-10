@@ -67,10 +67,10 @@ def _configure_wif_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     monkeypatch.setenv("GITHUB_EVENT_NAME", "workflow_dispatch")
     monkeypatch.setenv("GITHUB_REF", "refs/heads/main")
-    monkeypatch.setenv("GITHUB_REPOSITORY", "steverice/visr")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "VISR-CE/visr")
     monkeypatch.setenv(
         "GITHUB_WORKFLOW_REF",
-        "steverice/visr/.github/workflows/release.yml@refs/heads/main",
+        "VISR-CE/visr/.github/workflows/release.yml@refs/heads/main",
     )
     monkeypatch.setenv("GITHUB_JOB", "prepare")
 
@@ -79,12 +79,12 @@ def _github_oidc_jwt_fixture(**changes: Any) -> str:
     claims: dict[str, Any] = {
         "iss": "https://token.actions.githubusercontent.com",
         "aud": "https://api.anthropic.com",
-        "sub": "repo:steverice@1423851/visr@1408152155:environment:release",
-        "repository": "steverice/visr",
-        "repository_owner": "steverice",
+        "sub": "repo:VISR-CE@355119662/visr@1408152155:environment:release",
+        "repository": "VISR-CE/visr",
+        "repository_owner": "VISR-CE",
         "ref": "refs/heads/main",
         "event_name": "workflow_dispatch",
-        "workflow_ref": "steverice/visr/.github/workflows/release.yml@refs/heads/main",
+        "workflow_ref": "VISR-CE/visr/.github/workflows/release.yml@refs/heads/main",
         "environment": "release",
     }
     claims.update(changes)
@@ -1473,10 +1473,10 @@ def test_workload_identity_rejects_oidc_claim_mismatch_before_exchange(
 @pytest.mark.parametrize(
     ("claim", "value", "expected_name"),
     [
-        ("sub", "repo:steverice/visr:environment:release", "sub"),
+        ("sub", "repo:VISR-CE/visr:environment:release", "sub"),
         (
             "sub",
-            "repo:other@1423851/visr@1408152155:environment:release",
+            "repo:other@355119662/visr@1408152155:environment:release",
             "sub",
         ),
         ("environment", "other", "environment"),
@@ -1495,7 +1495,7 @@ def test_workload_identity_rejects_wrong_subject_and_reports_claim_name_only(
 
 def test_workload_identity_accepts_github_immutable_subject_claim() -> None:
     assert release._github_oidc_claims(_github_oidc_jwt_fixture())["sub"] == (
-        "repo:steverice@1423851/visr@1408152155:environment:release"
+        "repo:VISR-CE@355119662/visr@1408152155:environment:release"
     )
 
 

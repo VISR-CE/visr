@@ -42,7 +42,7 @@ NUMERIC = ("gpu_p50_ms", "gpu_p90_ms", "cpu_p50_ms", "fingerprint", "resolution"
 # Where each port publishes a build: its release page (never a download), or the hosted page for a web build.
 # `{tag}` is the version with a leading v, `{bare}` the version without one, `{build}` the build identifier.
 RELEASE_PAGES = {
-    "visr": "https://github.com/steverice/visr/releases/tag/visr-v{bare}",
+    "visr": "https://github.com/VISR-CE/visr/releases/tag/visr-v{bare}",
     "opence-macos": "https://github.com/channelramble/OpenCE-macOS/releases/tag/{tag}",
     "opence-web": "https://halocombatevolved.com/",
     "corece": "https://github.com/mastercheese-dev/CoreCE/releases/tag/build-{build}",
