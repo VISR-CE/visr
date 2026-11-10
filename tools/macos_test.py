@@ -37,13 +37,14 @@ def main():
         definition(crash, 'int host_crash_thread_install(void)'),
         definition(source, 'void host_exit(int code)'),
         definition(source, 'static void quit_signal(int number)'),
-        source[source.index('struct game_thread_start {'):source.index('#endif /* native game thread */')],
+        source[source.index('struct game_thread_start {'):source.index('#endif /* supported game thread startup */')],
     ]))
-    run(*common, '-Wall', '-Wextra', '-Werror', *objc, f'-I{BUILD}',
-        'port/ios/tests/game_thread_start_probe.m', 'port/ios/host/host_main_thread.c',
-        'port/ios/host/host_quit_signals.c',
-        '-framework', 'CoreFoundation', '-o', BUILD / 'game-thread-start-probe')
-    run(BUILD / 'game-thread-start-probe')
+    for native, name in ((1, 'game-thread-start-probe'), (0, 'ios-game-thread-start-probe')):
+        run(*common, '-Wall', '-Wextra', '-Werror', f'-DHALO_NATIVE_MAC={native}',
+            *objc, f'-I{BUILD}', 'port/ios/tests/game_thread_start_probe.m',
+            'port/ios/host/host_main_thread.c', 'port/ios/host/host_quit_signals.c',
+            '-framework', 'CoreFoundation', '-o', BUILD / name)
+        run(BUILD / name)
     # These include the real implementation and replace only its SDL/file boundaries.
     run(*common, '-DHALO_NATIVE_MAC=1', *objc, 'tools/macos_import_test.m', 'port/ios/host/host_main_thread.c',
         '-framework', 'UniformTypeIdentifiers', '-o', BUILD / 'import-probe')
