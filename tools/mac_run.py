@@ -1168,10 +1168,15 @@ GAME_EXIT = re.compile(r"game exit (-?\d+)$")
 ERE_SPECIAL = re.compile(r"([.^$*+?()\[\]{}|\\])")
 
 
-def native_data_folder(bundle_id, environment=None, home=None):
-    """the native runner's data folder (one per host, kept between runs): $HALO_NATIVE_DATA (a remote
-    host's, set by its job runner), else ~/Library/Application Support/BUNDLE_ID/runner-data"""
+def native_data_folder(bundle_id, environment=None, home=None, runner=None):
+    """the native runner's data folder (one per host, kept between runs): for the Catalyst runner
+    $HALO_CATALYST_DATA when set (a host whose $HALO_NATIVE_DATA is on a removable volume: an unsandboxed
+    Catalyst app reading it asks for removable-volume access, a prompt nobody answers on a job host, and a
+    request left waiting there stalls every other launch), else $HALO_NATIVE_DATA (a remote host's, set by
+    its job runner), else ~/Library/Application Support/BUNDLE_ID/runner-data"""
     environment = os.environ if environment is None else environment
+    if runner == "catalyst" and environment.get("HALO_CATALYST_DATA"):
+        return Path(environment["HALO_CATALYST_DATA"])
     if environment.get("HALO_NATIVE_DATA"):
         return Path(environment["HALO_NATIVE_DATA"])
     return (home or Path.home()) / "Library/Application Support" / bundle_id / "runner-data"
@@ -1187,7 +1192,8 @@ def native_command(app, data, out, environment):
     # open's own stdout and stderr go to files in the data folder, not to out: launchd opens them, and
     # macOS's TCC denies its helper (xpcproxy) access to removable volumes, so a path on one (a
     # baselines symlink to an external drive) fails the launch with -10810 before the app starts. The
-    # data folder is on the internal disk on every host; launch_native copies the logs into out afterward
+    # data folder is on the internal disk, or on a removable volume only for an app granted access to it
+    # (native_data_folder); launch_native copies the logs into out afterward
     # (-ApplePersistenceIgnoreState: after a run that crashed, AppKit would otherwise ask, before the app
     # starts, whether to reopen its windows, and the next run would wait on that question until killed)
     return command + ["--stdout", str(data / "open-stdout.log"), "--stderr", str(data / "open-stderr.log"),
@@ -1470,10 +1476,19 @@ def catalyst_bundle_ids(environment=None):
 
 
 def seed_maps_source(args, runner, bundle_id, environment=None):
-    """where a new data folder's maps come from: --maps, else (the AppKit runner on a host whose data folder is its
-    own, such as this Mac) the first seeded Catalyst runner data folder of the active bundle family"""
-    if args.maps or runner != "appkit":
+    """where a new data folder's maps come from: --maps, else for the Catalyst runner with a folder of its own
+    ($HALO_CATALYST_DATA) the shared folder's maps ($HALO_NATIVE_DATA, copied by this script, which needs no
+    removable-volume access), else (the AppKit runner on a host whose data folder is its own, such as this Mac)
+    the first seeded Catalyst runner data folder of the active bundle family"""
+    environment = os.environ if environment is None else environment
+    if args.maps:
         return args.maps
+    if runner != "appkit":
+        shared = environment.get("HALO_NATIVE_DATA")
+        own = native_data_folder(bundle_id, environment, runner=runner)
+        if shared and Path(shared) != own and (Path(shared) / "maps").is_dir():
+            return Path(shared) / "maps"
+        return None
     own = native_data_folder(bundle_id, environment)
     for catalyst_id in catalyst_bundle_ids(environment):
         catalyst = native_data_folder(catalyst_id, environment)
@@ -1530,7 +1545,7 @@ def run_native(args):
     if runner == "appkit":
         check_appkit_app(args.app, info)
     print(f"runner: {runner} ({args.app})", flush=True)
-    data = native_data_folder(bundle_id)
+    data = native_data_folder(bundle_id, runner=runner)
     # the two runners share a host's data folder: neither may start while the other's app runs on it
     for app in dict.fromkeys([args.app, APPKIT_APP, native_app_default()]):
         pids = native_pids(app)

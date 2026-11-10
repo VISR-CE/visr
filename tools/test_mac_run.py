@@ -1454,6 +1454,23 @@ def test_an_appkit_data_folder_of_its_own_seeds_from_the_catalyst_runner_s(tmp_p
     assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", home_environment) == tmp_path / "maps"
 
 
+def test_the_catalyst_runner_keeps_its_own_folder_and_copies_the_shared_maps(tmp_path):
+    shared = tmp_path / "shared"
+    (shared / "maps").mkdir(parents=True)
+    environment = {"HALO_NATIVE_DATA": str(shared), "HALO_CATALYST_DATA": str(tmp_path / "catalyst")}
+    assert mac_run.native_data_folder("org.example.mac", environment, runner="catalyst") == tmp_path / "catalyst"
+    # the AppKit runner, and callers that name no runner, keep the shared folder
+    assert mac_run.native_data_folder("org.example.mac", environment, runner="appkit") == shared
+    assert mac_run.native_data_folder("org.example.mac", environment) == shared
+    args = native_args(tmp_path, None, maps=None)
+    assert mac_run.seed_maps_source(args, "catalyst", "org.example.mac", environment) == shared / "maps"
+    # without a folder of its own the Catalyst runner is the shared folder and has nothing to borrow
+    alone = {"HALO_NATIVE_DATA": str(shared)}
+    assert mac_run.seed_maps_source(args, "catalyst", "org.example.mac", alone) is None
+    args.maps = tmp_path / "maps"
+    assert mac_run.seed_maps_source(args, "catalyst", "org.example.mac", environment) == tmp_path / "maps"
+
+
 def mach_o(platform):
     """a thin 64-bit Mach-O header with one LC_SEGMENT_64 and one LC_BUILD_VERSION for platform"""
     segment = struct.pack("<II", 0x19, 72) + bytes(64)
