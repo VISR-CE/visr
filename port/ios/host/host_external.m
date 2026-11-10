@@ -10,6 +10,7 @@
 #include "ios_host.h"
 #include "host_external.h"
 #include "host_main_thread.h"
+#include "host_game_thread.h"
 #include "host_external_mode.h"
 #include "host_external_session.h"
 #include "host_external_splash.h"
@@ -33,6 +34,10 @@ static UIScreen *output_screen;
 static int output_width, output_height;
 static void *phone_layer;
 static int output_failures;
+static _Atomic unsigned long long published_size;
+static void publish_size(void) {
+    atomic_store(&published_size,companion_on?((unsigned long long)(unsigned)output_width<<32)|(unsigned)output_height:0);
+}
 
 /* The Mac app's window on a second monitor is a window, not an external output. */
 static int screen_is_external(UIScreen *screen) {
@@ -102,6 +107,8 @@ static Class configuration_class[2];
    (bars only where the shapes differ), whatever size the system gives the scene. */
 static VISRExternalView *external_metal_view;
 static CGSize external_drawable;
+static int external_fit_pending;
+static int external_fit_fenced;
 static void external_fit(UIView *root);
 static void external_log_geometry(const char *when) {
     UIView *root=external_window.rootViewController.view;
@@ -142,6 +149,11 @@ static void external_fit(UIView *root) {
         (int)external_drawable.height,rect))return;
     CGRect frame=CGRectMake(rect[0],rect[1],rect[2],rect[3]);
     CAMetalLayer *layer=(CAMetalLayer *)external_metal_view.layer;
+    if(host_game_thread_enabled() && !external_fit_fenced) {
+        if(!CGRectEqualToRect(external_metal_view.frame,frame) || !CGSizeEqualToSize(layer.drawableSize,external_drawable))
+            external_fit_pending=1;
+        return;
+    }
     layer.contentsGravity=kCAGravityResize;
     if(!CGRectEqualToRect(external_metal_view.frame,frame))external_metal_view.frame=frame;
     /* (a size UIKit changed with the frame goes back to the renderer's) */
@@ -424,8 +436,13 @@ static void snapshot_output(int external,int width,int height,const char *reason
     pthread_mutex_unlock(&snapshot_lock);
 }
 void host_external_snapshot(struct host_external_snapshot *out) {
-    pthread_mutex_lock(&snapshot_lock);*out=snapshot;pthread_mutex_unlock(&snapshot_lock);
+    if(!host_game_thread_enabled()) {
+        pthread_mutex_lock(&snapshot_lock);*out=snapshot;pthread_mutex_unlock(&snapshot_lock);
+    }
     host_main_sync(^{
+        if(host_game_thread_enabled()) {
+            pthread_mutex_lock(&snapshot_lock);*out=snapshot;pthread_mutex_unlock(&snapshot_lock);
+        }
         if(!companion_on && phone_window) {
             SDL_GetWindowSizeInPixels(host_sdl_window(),&out->width,&out->height);
             out->refresh_hertz=(int)phone_window.windowScene.screen.maximumFramesPerSecond;
@@ -433,8 +450,12 @@ void host_external_snapshot(struct host_external_snapshot *out) {
         }
     });
 }
-int host_external_active(void) { return snapshot.external; }
-void host_external_displays(struct host_external_displays *out) {
+int host_external_active(void) {
+    if(!host_game_thread_enabled())return snapshot.external;
+    pthread_mutex_lock(&snapshot_lock);int active=snapshot.external;pthread_mutex_unlock(&snapshot_lock);
+    return active;
+}
+static void host_external_displays_main(struct host_external_displays *out) {
     memset(out,0,sizeof(*out));
     out->accessory_available=-1;
     struct host_external_display_signals signals={.game_external=snapshot.external};
@@ -472,13 +493,13 @@ void host_external_displays(struct host_external_displays *out) {
     signals.hdmi_route=!strcmp(out->video_route,"hdmi");
     out->use=host_external_display_use(&signals);
 }
-void *host_external_phone_layer(void) { return companion_on?phone_layer:NULL; }
-void *host_external_screen(void) { return (__bridge void *)(output_screen?:UIScreen.mainScreen); }
+static void * host_external_phone_layer_main(void) { return companion_on?phone_layer:NULL; }
+static void * host_external_screen_main(void) { return (__bridge void *)(output_screen?:UIScreen.mainScreen); }
 /* The window scene the renderer presents in: the external display's while the game is on it, else the game
    window's (which Stage Manager may have moved to another screen). Its display link runs on that display's clock;
    UIScreen's own display link is deprecated in iOS 27 and is not tied to the scene's display. nil before the game
    window exists. */
-void *host_external_scene(void) {
+static void * host_external_scene_main(void) {
     UIWindowScene *scene=nil;
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
     if(external_window && candidate_screen && output_screen==candidate_screen)scene=external_window.windowScene;
@@ -499,13 +520,18 @@ int host_external_size(int *width,int *height) {
         *width=w;*height=h;return 1;
     }
 #endif
+    if(host_game_thread_enabled() && !host_on_main_thread()) {
+        unsigned long long size=atomic_load(&published_size);
+        if(!size)return 0;
+        *width=(int)(size>>32);*height=(int)(unsigned)size;return 1;
+    }
     if(!companion_on)return 0;
     *width=output_width;*height=output_height;return 1;
 }
 
 /* A list is retained for live chords and suite iteration. Repeating it does
    not reset the player's current selection. An empty list restores policy. */
-int host_external_force(const char *mode) {
+static int host_external_force_main(const char *mode) {
     if(!mode)mode="";
     if(strlen(mode)>=sizeof(mode_list))return 0;
     int width=0,height=0,count=0;
@@ -524,7 +550,7 @@ int host_external_force(const char *mode) {
 #endif
     return 1;
 }
-int host_external_cycle(int direction) {
+static int host_external_cycle_main(int direction) {
     if(!mode_list[0])return 0;
     int width=0,height=0,count=0;
     if(!host_external_mode_parse(mode_list,0,&width,&height,&count))return 0;
@@ -536,11 +562,11 @@ int host_external_cycle(int direction) {
 #endif
     return 1;
 }
-void host_external_mode_label(char *text,size_t size) {
+static void host_external_mode_label_main(char *text,size_t size) {
     if(forced_width)snprintf(text,size,"%dx%d",forced_width,forced_height);
     else snprintf(text,size,"preferred");
 }
-int host_external_ready(void) {
+static int host_external_ready_main(void) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
     return snapshot.external && !session_state.negotiating && !session_state.pending &&
         (!forced_width || (snapshot.width==forced_width && snapshot.height==forced_height));
@@ -607,7 +633,7 @@ static void audio_reopen(const char *why) {
     host_sdl_audio_route_changed();
 }
 #endif
-void host_external_poll(void) {
+static void host_external_poll_main(void) {
     if(atomic_exchange(&audio_changed,0)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
         AVAudioSession *audio=AVAudioSession.sharedInstance;
@@ -774,7 +800,120 @@ void host_external_poll(void) {
     }
 #endif
 }
+/* The worker retains the destination across the GPU drain. Main never drains
+   frame_slots or calls renderer code while the worker waits for it. A scene
+   change during the drain leaves a new pending transaction for the next frame. */
+static void external_commit_threaded(int allow_pause) {
+    gpu_metal_output_cap_commit();
+#if TARGET_OS_MACCATALYST
+    host_main_sync(^{ test_output_frame++; });
+#endif
+    __block CAMetalLayer *destination=nil;
+    __block UIScreen *screen=nil;
+    __block UIScreen *previous=nil;
+    __block int width=0,height=0,companion=0,was_external=0;
+    __block unsigned generation=0;
+    struct { char reason[32]; } plan_storage;
+    char *reason=plan_storage.reason;
+    host_main_sync(^{
+        previous=output_screen;
+        was_external=snapshot.external;
+        generation=snapshot.generation;
+        snprintf(reason,32,"preferred");
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+        if(session_state.pending || (companion_on && external_fit_pending && !session_state.negotiating)) {
+            if(candidate_screen && !session_state.negotiating && external_metal_view) {
+                if(!host_external_mode_drawable((int)candidate_screen.currentMode.size.width,
+                    (int)candidate_screen.currentMode.size.height,drawable_cap,&width,&height))return;
+                destination=(CAMetalLayer *)external_metal_view.layer;
+                screen=candidate_screen;companion=1;
+                snprintf(reason,32,"%s",snapshot.reason[0]?snapshot.reason:"preferred");
+            } else if(companion_on) {
+                destination=(__bridge CAMetalLayer *)phone_layer;
+                screen=phone_window.windowScene.screen;
+                SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+            } else {
+                host_external_session_complete(&session_state);
+                external_window.hidden=YES;
+                if(!candidate_screen){external_window=nil;offered=nil;first_low=-1;accepting_low=0;}
+                snapshot_output(screen_is_external(output_screen),output_width,output_height,"preferred");
+            }
+        }
+#endif
+        if(!destination && metal_enabled && !companion_on && phone_window &&
+            output_screen!=phone_window.windowScene.screen) {
+            destination=(__bridge CAMetalLayer *)phone_layer;
+            screen=phone_window.windowScene.screen;
+            SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+        }
+        if(destination)output_screen=screen; /* pacing_start reads this destination on main */
+    });
+    if(!destination)return;
+    int accepted=gpu_metal_output((__bridge void *)destination,(__bridge void *)screen,width,height);
+    host_main_sync(^{
+        if(!accepted){output_screen=previous;return;}
+        output_failures=0;output_screen=screen;output_width=width;output_height=height;companion_on=companion;
+        publish_size();
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+        int scene_current=generation==snapshot.generation;
+        if(scene_current) {
+            host_external_session_complete(&session_state);
+            if(companion) {
+                external_window.hidden=NO;
+                if(!playing_label) {
+                    playing_label=[UILabel new];playing_label.textColor=UIColor.lightGrayColor;
+                    playing_label.font=[UIFont systemFontOfSize:11];playing_label.numberOfLines=2;
+                    playing_label.textAlignment=NSTextAlignmentCenter;playing_label.userInteractionEnabled=NO;
+                    [phone_window.rootViewController.view addSubview:playing_label];
+                    VISRCompanionTouch *touch=[VISRCompanionTouch new];touch.cancelsTouchesInView=NO;
+                    [phone_window addGestureRecognizer:touch];
+                }
+                playing_label.text=[NSString stringWithFormat:@"Playing on %@",port_name()];
+                playing_label.hidden=NO;last_touch=CACurrentMediaTime();
+                verify_at=CACurrentMediaTime()+2;verify_left=2;
+            } else {
+                external_window.hidden=YES;playing_label.hidden=YES;
+                if(!candidate_screen){external_window=nil;offered=nil;first_low=-1;accepting_low=0;}
+                if(was_external && allow_pause)host_ios_touch_pause();
+            }
+        } else session_state.pending=1;
+#else
+        (void)generation;(void)was_external;(void)allow_pause;
+#endif
+        snapshot_output(screen_is_external(screen),width,height,reason);
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+        if(companion && scene_current) {
+            pthread_mutex_lock(&snapshot_lock);
+            snapshot.mode_count=candidate_count;
+            snprintf(snapshot.name,sizeof(snapshot.name),"%s",port_name().UTF8String);
+            for(int i=0;i<candidate_count;i++) {
+                snapshot.modes[i].width=candidates[i].width;snapshot.modes[i].height=candidates[i].height;
+            }
+            pthread_mutex_unlock(&snapshot_lock);
+            external_log_geometry("the renderer was moved to the display");
+            external_log_verified("at the move");
+        }
+        label_layout();
+#endif
+    });
+}
+
+/* Called by gpu_metal_output on main, after the worker has drained every slot.
+   A stale destination from a disconnected scene is retained by the renderer but
+   must not resize the replacement scene's view. */
+void host_external_output_resize(void *target,int width,int height) {
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
+    if(target!=(__bridge void *)external_metal_view.layer)return;
+    external_drawable=CGSizeMake(width,height);
+    external_fit_fenced=1;
+    external_fit(external_window.rootViewController.view);
+    external_fit_fenced=0;external_fit_pending=0;
+#else
+    (void)target;(void)width;(void)height;
+#endif
+}
 void host_external_commit(int allow_pause) {
+    if(host_game_thread_enabled()){external_commit_threaded(allow_pause);return;}
     (void)allow_pause;
     /* (a benchmark display variant's built-in output cap, before the frame's first draw) */
     gpu_metal_output_cap_commit();
@@ -870,7 +1009,7 @@ void host_external_commit(int allow_pause) {
             (long)output_screen.maximumFramesPerSecond);
     }
 }
-double host_external_companion_dim(void) {
+static double host_external_companion_dim_main(void) {
     int count=0;SDL_JoystickID *ids=SDL_GetGamepads(&count);int hardware=0;
     for(int i=0;i<count;i++) {
         const char *name=SDL_GetGamepadNameForID(ids[i]);
@@ -880,7 +1019,65 @@ double host_external_companion_dim(void) {
     return hardware && CACurrentMediaTime()-last_touch>=10 ? 0.3 : 1.0;
 }
 
+/* Scene callbacks and these adapters share main-thread ownership. No state lock
+   is held while the game waits for the main executor. */
+void host_external_poll(void) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){host_external_poll_main();return;}
+    host_main_sync(^{ host_external_poll_main(); });
+}
+void host_external_displays(struct host_external_displays *out) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){host_external_displays_main(out);return;}
+    host_main_sync(^{ host_external_displays_main(out); });
+}
+int host_external_force(const char *mode) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_force_main(mode);}
+    __block int result=0;
+    host_main_sync(^{ result=host_external_force_main(mode); });
+    return result;
+}
+int host_external_cycle(int direction) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_cycle_main(direction);}
+    __block int result=0;
+    host_main_sync(^{ result=host_external_cycle_main(direction); });
+    return result;
+}
+int host_external_ready(void) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_ready_main();}
+    __block int result=0;
+    host_main_sync(^{ result=host_external_ready_main(); });
+    return result;
+}
+void host_external_mode_label(char *text,size_t size) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){host_external_mode_label_main(text,size);return;}
+    host_main_sync(^{ host_external_mode_label_main(text,size); });
+}
+double host_external_companion_dim(void) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_companion_dim_main();}
+    __block double result=1.0;
+    host_main_sync(^{ result=host_external_companion_dim_main(); });
+    return result;
+}
+void * host_external_screen(void) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_screen_main();}
+    __block void * result=NULL;
+    host_main_sync(^{ result=host_external_screen_main(); });
+    return result;
+}
+void * host_external_scene(void) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_scene_main();}
+    __block void * result=NULL;
+    host_main_sync(^{ result=host_external_scene_main(); });
+    return result;
+}
+void * host_external_phone_layer(void) {
+    if(!host_game_thread_enabled() || host_on_main_thread()){return host_external_phone_layer_main();}
+    __block void * result=NULL;
+    host_main_sync(^{ result=host_external_phone_layer_main(); });
+    return result;
+}
+
 #else
+void host_external_output_resize(void *target,int width,int height) {(void)target;(void)width;(void)height;}
 void host_external_install(void) {}
 void host_external_menu_splash(void) {}
 void host_external_attach(void *window,int metal) { (void)window;(void)metal; }
