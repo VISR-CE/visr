@@ -275,7 +275,19 @@ void host_cloud_saves_start(const char *data_root, const char *save_root) {
 static BOOL cloud_wait(double seconds, void (^block)(void)) {
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
     if (block) dispatch_async(cloud_queue, ^{ block(); dispatch_semaphore_signal(done); });
+    /* A launch pass is already ahead of this marker on the serial cloud queue. */
+    if (!NSThread.isMainThread && !block)
+        dispatch_async(cloud_queue, ^{ dispatch_semaphore_signal(done); });
     CFAbsoluteTime deadline = CFAbsoluteTimeGetCurrent() + seconds;
+    if (!NSThread.isMainThread) {
+        while (block ? dispatch_semaphore_wait(done, DISPATCH_TIME_NOW) != 0 : !atomic_load(&cloud_launch_done)) {
+            if (!atomic_load(&cloud_active) || !host_cloud_saves_enabled() || CFAbsoluteTimeGetCurrent() >= deadline) return NO;
+            double remaining = MIN(0.05, MAX(0, deadline - CFAbsoluteTimeGetCurrent()));
+            if (dispatch_semaphore_wait(done, dispatch_time(DISPATCH_TIME_NOW, (int64_t)(remaining * NSEC_PER_SEC))) == 0)
+                return YES;
+        }
+        return YES;
+    }
     while (block ? dispatch_semaphore_wait(done, DISPATCH_TIME_NOW) != 0 : !atomic_load(&cloud_launch_done)) {
         if (!atomic_load(&cloud_active) || !host_cloud_saves_enabled() || CFAbsoluteTimeGetCurrent() >= deadline) return NO;
         @autoreleasepool { CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, true); }
