@@ -1,6 +1,10 @@
 #import "host_orientation.h"
 #include "ios_host.h"
 #include "host_config.h"
+#include "host_geometry.h"
+#include "host_geometry_debounce.h"
+#import <QuartzCore/QuartzCore.h>
+#include <pthread.h>
 #include <SDL3/SDL.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +14,23 @@
 /* UIKit may ask before host_main.m installs the profile. Only configure
    after that point; early queries keep the existing landscape policy. */
 static BOOL allow_portrait;
+static struct host_geometry_debounce geometry_debounce;
+static struct host_geometry settled_geometry;
+static unsigned settled_generation;
+static pthread_mutex_t geometry_lock = PTHREAD_MUTEX_INITIALIZER;
+
+unsigned host_geometry_settled_generation(void) {
+    return host_geometry_settled_size(NULL, NULL);
+}
+
+unsigned host_geometry_settled_size(double *width, double *height) {
+    pthread_mutex_lock(&geometry_lock);
+    if (width) *width = settled_geometry.width;
+    if (height) *height = settled_geometry.height;
+    unsigned generation = settled_generation;
+    pthread_mutex_unlock(&geometry_lock);
+    return generation;
+}
 
 BOOL host_ios_allows_portrait(void) {
     return allow_portrait;
@@ -107,6 +128,19 @@ static const char *orientation_name(UIInterfaceOrientation orientation) {
     }
 }
 
+void host_geometry_poll(void) {
+    if (!NSThread.isMainThread) return;
+    struct host_geometry geometry;
+    if (!host_geometry_debounce_settled(&geometry_debounce, CACurrentMediaTime(), &geometry)) return;
+    pthread_mutex_lock(&geometry_lock);
+    settled_geometry = geometry;
+    unsigned generation = ++settled_generation;
+    pthread_mutex_unlock(&geometry_lock);
+    host_logf(HOST_LOG_INFO, "scene geometry settled %.0fx%.0f orientation=%d (%s) generation=%u",
+        geometry.width, geometry.height, geometry.orientation,
+        orientation_name((UIInterfaceOrientation)geometry.orientation), generation);
+}
+
 /* SDL 3.4.16 owns these controllers. These categories add only orientation
    preferences inherited from UIKit, never replace SDL's own methods. Recheck
    the selectors when upgrading SDL; no runtime class mutation is needed. */
@@ -176,6 +210,10 @@ HALO_LANDSCAPE_PREFERENCES
         size.width,size.height,(long)scene.effectiveGeometry.interfaceOrientation,
         orientation_name(scene.effectiveGeometry.interfaceOrientation),
         scene.effectiveGeometry.isInterfaceOrientationLocked);
+    /* External-display scene callbacks must not replace the game's geometry. */
+    if ([scene.session.role isEqualToString:UIWindowSceneSessionRoleApplication])
+        host_geometry_debounce_note(&geometry_debounce, CACurrentMediaTime(),
+            size.width, size.height, (int)scene.effectiveGeometry.interfaceOrientation);
 }
 #endif
 @end

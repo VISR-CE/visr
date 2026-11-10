@@ -244,6 +244,10 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/display_probe.c', '-o', BUILD/'display-probe')
 run(BUILD/'display-probe')
 
+run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
+    'port/ios/tests/posture_probe.c', '-o', BUILD/'posture-probe')
+run(BUILD/'posture-probe')
+
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/companion_probe.c', '-o', BUILD/'companion-probe')
 run(BUILD/'companion-probe')

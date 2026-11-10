@@ -15,6 +15,8 @@
 #include "host_external_session.h"
 #include "host_external_splash.h"
 #include "host_hinge.h"
+#include "host_posture.h"
+#include "host_geometry.h"
 #include "renderer_build.h"
 #include "host_audio_route.h"
 #include "host_audio_stall.h"
@@ -411,6 +413,7 @@ void host_external_attach(void *window_pointer,int metal) {
         phone_window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
             SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
         host_hinge_attach((__bridge void *)phone_window.rootViewController.view);
+        host_posture_attach((__bridge void *)phone_window.rootViewController.view);
         phone_layer=host_sdl_metal_layer();
         output_screen=phone_window.windowScene.screen;
         SDL_GetWindowSizeInPixels(window,&output_width,&output_height);
@@ -687,6 +690,10 @@ void host_external_safe_insets(float *insets) {
 }
 static void host_external_poll_main(void) {
     host_hinge_poll();
+#if TARGET_OS_IOS && !TARGET_OS_TV
+    host_geometry_poll();
+#endif
+    host_posture_poll();
     safe_insets_refresh();
     if(atomic_exchange(&audio_changed,0)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
