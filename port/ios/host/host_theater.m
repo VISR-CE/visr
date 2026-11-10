@@ -239,24 +239,26 @@ it back (host_dismiss_window), and without a key window a keyboard's keys
 go nowhere */
 static void window_hidden(BOOL hidden)
 {
-	BOOL present_up = NO;
-	UIWindow *game = (__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(host_sdl_window()),
-		SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, NULL);
+	host_main_sync(^{
+		BOOL present_up = NO;
+		UIWindow *game = (__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(host_sdl_window()),
+			SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, NULL);
 
-	for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
-	{
-		if (![scene isKindOfClass:UIWindowScene.class])
-			continue;
-		for (UIWindow *window in ((UIWindowScene *)scene).windows)
+		for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
 		{
-			if (!host_is_present_window(window))
-				window.hidden = hidden;
-			else if (!window.hidden)
-				present_up = YES;
+			if (![scene isKindOfClass:UIWindowScene.class])
+				continue;
+			for (UIWindow *window in ((UIWindowScene *)scene).windows)
+			{
+				if (!host_is_present_window(window))
+					window.hidden = hidden;
+				else if (!window.hidden)
+					present_up = YES;
+			}
 		}
-	}
-	if (!hidden && !present_up && game && !game.isKeyWindow)
-		[game makeKeyWindow];
+		if (!hidden && !present_up && game && !game.isKeyWindow)
+			[game makeKeyWindow];
+	});
 }
 
 void host_theater_load_settings(void)
@@ -334,15 +336,17 @@ static UIWindow *sdl_window(void)
 /* the window's Enter VR ornament, shown while the game is in its window */
 static void enter_ornament_shown(BOOL shown)
 {
-	if (@available(visionOS 26.0, *))
-	{
-		UIViewController *controller = sdl_window().rootViewController;
+	host_main_sync(^{
+		if (@available(visionOS 26.0, *))
+		{
+			UIViewController *controller = sdl_window().rootViewController;
 
-		if (!controller || shown == ornament_shown)
-			return;
-		host_theater_ornament((__bridge void *)controller, shown);
-		ornament_shown = shown;
-	}
+			if (!controller || shown == ornament_shown)
+				return;
+			host_theater_ornament((__bridge void *)controller, shown);
+			ornament_shown = shown;
+		}
+	});
 }
 
 /* While VR is open the game's window is dismissed, as visionOS apps put
@@ -414,27 +418,29 @@ static void window_park(void)
 
 static void window_unpark(void)
 {
-	if (!parked_window || window_restoring)
-		return;
-	window_restoring = YES;
-	if (!scene_connect_observer)
-		scene_connect_observer = [NSNotificationCenter.defaultCenter addObserverForName:UISceneWillConnectNotification
-			object:nil queue:nil usingBlock:^(NSNotification *notification) {
-				UIScene *scene = notification.object;
+	host_main_sync(^{
+		if (!parked_window || window_restoring)
+			return;
+		window_restoring = YES;
+		if (!scene_connect_observer)
+			scene_connect_observer = [NSNotificationCenter.defaultCenter addObserverForName:UISceneWillConnectNotification
+				object:nil queue:nil usingBlock:^(NSNotification *notification) {
+					UIScene *scene = notification.object;
 
-				if (window_restoring && [scene isKindOfClass:UIWindowScene.class] &&
-					![scene.session.role hasSuffix:@"ImmersiveSpaceApplication"])
-					window_adopt((UIWindowScene *)scene);
+					if (window_restoring && [scene isKindOfClass:UIWindowScene.class] &&
+						![scene.session.role hasSuffix:@"ImmersiveSpaceApplication"])
+						window_adopt((UIWindowScene *)scene);
+				}];
+		host_logf(HOST_LOG_INFO, "theater: asking for a window scene for the game's window");
+		[UIApplication.sharedApplication requestSceneSessionActivation:nil userActivity:nil options:nil
+			errorHandler:^(NSError *error) {
+				/* no window to come back to: as when the player closes the game's
+				window (host_main.m), the game ends; it saves at checkpoints */
+				host_logf(HOST_LOG_WARN, "theater: no window scene for the game's window (%s); quitting",
+					error.localizedDescription.UTF8String);
+				host_exit(0);
 			}];
-	host_logf(HOST_LOG_INFO, "theater: asking for a window scene for the game's window");
-	[UIApplication.sharedApplication requestSceneSessionActivation:nil userActivity:nil options:nil
-		errorHandler:^(NSError *error) {
-			/* no window to come back to: as when the player closes the game's
-			window (host_main.m), the game ends; it saves at checkpoints */
-			host_logf(HOST_LOG_WARN, "theater: no window scene for the game's window (%s); quitting",
-				error.localizedDescription.UTF8String);
-			host_exit(0);
-		}];
+	});
 }
 
 static void space_open(void)
@@ -519,7 +525,9 @@ void host_theater_test_toggle(void)
 		host_theater_close();
 		return;
 	}
-	host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: %s", ornament_shown ? "pressing Enter VR" :
+	__block BOOL shown;
+	host_main_sync(^{ shown=ornament_shown; });
+	host_logf(HOST_LOG_INFO, "debug.test_theater_reopen: %s", shown ? "pressing Enter VR" :
 		"no Enter VR button; entering anyway");
 	host_theater_enter();
 }
