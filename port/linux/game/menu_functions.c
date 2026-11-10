@@ -5233,8 +5233,8 @@ static void preview_update(struct widget_instance *list)
 		ustrncpy(name, game->game_name, NUMBEROF(game->game_name));
 		name[NUMBEROF(game->game_name)] = 0;
 		/* (the text box does not wrap: lines of up to 28 characters) */
-		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n\r\nThis game is under way.\r\n\r\n%s", name,
-			game->open ? L"JOIN GAME joins it now;\r\nits players show then." :
+		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n\r\nThis game has already\r\nstarted.\r\n\r\n%s", name,
+			game->open ? L"Select JOIN GAME\r\nto jump in." :
 			L"It cannot be joined now:\r\nit is loading, over or full.");
 		text[NUMBEROF(text) - 1] = 0;
 		preview_players_text(text, NUMBEROF(text));
