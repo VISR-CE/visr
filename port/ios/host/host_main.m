@@ -241,7 +241,7 @@ void host_extra_scene_poll(void) {
        background (SDL_uikitappdelegate.m: SDL_OnApplicationDidEnterBackground),
        which minimizes the game's window though its own scene stays active, and
        no restore follows: restore it */
-    if(extra_scene_watch>0){
+    if(extra_scene_watch>0)host_main_sync(^{
         SDL_Window *window=host_sdl_window();
         extra_scene_watch--;
         if(window&&(SDL_GetWindowFlags(window)&SDL_WINDOW_MINIMIZED)){
@@ -259,7 +259,7 @@ void host_extra_scene_poll(void) {
                 host_logf(HOST_LOG_INFO,"the game's window is restored after the extra scene's close minimized it");
             extra_scene_watch=0;
         }
-    }
+    });
     if(!extra_scene_pending)return;
     if(extra_scene_pending==1){
         char directory[1024];
