@@ -116,6 +116,7 @@ symbols in this file:
 
 #include "cseries.h"
 #include "bink_playback.h"
+#include "bink_movie_fit.h"
 #include "bitmaps/bitmap_group.h"
 #include "bitmaps/bitmaps.h"
 #include "cache/cache_files.h"
@@ -129,6 +130,8 @@ symbols in this file:
 #include "main/main.h"
 #include "math/integer_math.h"
 #include "rasterizer/rasterizer.h"
+#include <xtl.h>
+#include "rasterizer/xbox/rasterizer_xbox.h"
 #include "sound/sound_dsound.h"
 #include "text/draw_string.h"
 #include "text/text_group.h"
@@ -409,6 +412,12 @@ static struct bitmap_data bink_bitmap = { 0 };
 static D3DBaseTexture bink_texture = { 0 };
 boolean debug_bink = FALSE;
 struct bink_playback_globals bink_globals = { 0 };
+/* bars around a movie take the movie's own edge color: each frame's outer 8 pixels on the
+left/right and top/bottom are averaged and smoothed over a few frames (rgb, 0..255) */
+#define BINK_EDGE_DEPTH 8
+#define BINK_EDGE_SMOOTHING 0.3f
+static real bink_edge_color[2][3]; /* [0]= left/right, [1]= top/bottom */
+static boolean bink_edge_primed = FALSE;
 /* January .bss +0x160: entries used in bink_pointer_blocks */
 static long bink_pointer_block_count = 0;
 
@@ -474,6 +483,7 @@ void bink_playback_stop(
 
 	saved_frame_rate_throttle = bink_saved_frame_rate_throttle;
 	bink_globals.flags = 0;
+	bink_edge_primed = FALSE;
 	global_frame_rate_throttle = saved_frame_rate_throttle;
 	attract_mode_reset_timer();
 
@@ -628,6 +638,7 @@ void bink_playback_start(
 			bink_globals.screen_geometry.map[0]= &bink_bitmap;
 
 			bink_globals.flags= flags;
+			bink_edge_primed= FALSE;
 			if (TEST_FLAG(flags, _bink_playback_prevent_events_to_ui_bit))
 			{
 				bink_get_memory_available("begin event_manager");
@@ -687,6 +698,9 @@ static void bink_draw_frame(
 	rectangle2d screen_bounds;
 	short vertex_index;
 
+	struct bink_movie_fit fit;
+	real u0= 0.0f, v0= 0.0f, u1= (real)bink_globals.width, v1= (real)bink_globals.height;
+
 	if (TEST_FLAG(bink_globals.flags, _bink_playback_full_screen_bit))
 	{
 		screen_bounds= rasterizer_globals.reserved04.screen_bounds;
@@ -698,16 +712,73 @@ static void bink_draw_frame(
 		short screen_height= rasterizer_globals.reserved04.screen_bounds.y1-
 			rasterizer_globals.reserved04.screen_bounds.y0;
 
-		screen_bounds.x0= (short)((screen_width-bink_globals.width)/2);
-		screen_bounds.x1= (short)((screen_width+bink_globals.width)/2);
-		screen_bounds.y0= (short)((screen_height-bink_globals.height)/2);
-		screen_bounds.y1= (short)((screen_height+bink_globals.height)/2);
+		bink_movie_fit_compute(bink_globals.width, bink_globals.height, screen_width, screen_height, &fit);
+		screen_bounds.x0= (short)fit.x0;
+		screen_bounds.x1= (short)fit.x1;
+		screen_bounds.y0= (short)fit.y0;
+		screen_bounds.y1= (short)fit.y1;
+		u0= fit.u0;
+		v0= fit.v0;
+		u1= fit.u1;
+		v1= fit.v1;
+
+		if (fit.has_bars)
+		{
+			D3DRECT bars[2];
+			long axis;
+
+			/* left/right bars (axis 0) and top/bottom bars (axis 1) each get their own color */
+			for (axis= 0; axis<2; axis++)
+			{
+				long bar_count= 0;
+				unsigned long color;
+
+				if (axis==0)
+				{
+					if (screen_bounds.x0>0)
+					{
+						bars[bar_count].x1= 0; bars[bar_count].y1= 0;
+						bars[bar_count].x2= screen_bounds.x0; bars[bar_count].y2= screen_height;
+						bar_count++;
+					}
+					if (screen_bounds.x1<screen_width)
+					{
+						bars[bar_count].x1= screen_bounds.x1; bars[bar_count].y1= 0;
+						bars[bar_count].x2= screen_width; bars[bar_count].y2= screen_height;
+						bar_count++;
+					}
+				}
+				else
+				{
+					if (screen_bounds.y0>0)
+					{
+						bars[bar_count].x1= 0; bars[bar_count].y1= 0;
+						bars[bar_count].x2= screen_width; bars[bar_count].y2= screen_bounds.y0;
+						bar_count++;
+					}
+					if (screen_bounds.y1<screen_height)
+					{
+						bars[bar_count].x1= 0; bars[bar_count].y1= screen_bounds.y1;
+						bars[bar_count].x2= screen_width; bars[bar_count].y2= screen_height;
+						bar_count++;
+					}
+				}
+				if (bar_count)
+				{
+					color= 0xFF000000|
+						((unsigned long)(bink_edge_color[axis][0]+0.5f)<<16)|
+						((unsigned long)(bink_edge_color[axis][1]+0.5f)<<8)|
+						(unsigned long)(bink_edge_color[axis][2]+0.5f);
+					IDirect3DDevice8_Clear(global_d3d_device, bar_count, bars, D3DCLEAR_TARGET, color, 1.0f, 0);
+				}
+			}
+		}
 	}
 
 	for (vertex_index= 0; vertex_index<4; vertex_index++)
 	{
-		real u= ((vertex_index+1)&2) ? (real)bink_globals.width : 0.0f;
-		real v= vertex_index>1 ? (real)bink_globals.height : 0.0f;
+		real u= ((vertex_index+1)&2) ? u1 : u0;
+		real v= vertex_index>1 ? v1 : v0;
 		real x= ((vertex_index+1)&2) ? (real)screen_bounds.x1 : (real)screen_bounds.x0;
 		real y= vertex_index>1 ? (real)screen_bounds.y1 : (real)screen_bounds.y0;
 
@@ -964,6 +1035,63 @@ static boolean is_all_bink_memory_free(
 	return result;
 }
 
+/* average of the frame's outer edges (BGRA bytes), every other pixel, blended into bink_edge_color */
+static void bink_sample_edge_colors(
+	const byte *bits,
+	long pitch)
+{
+	long width= bink_globals.width;
+	long height= bink_globals.height;
+	long depth= BINK_EDGE_DEPTH;
+	real raw[2][3]= { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
+	long count[2]= { 0, 0 };
+	long x, y, axis, channel;
+
+	if (!bits || width<2*depth || height<2*depth)
+		return;
+
+	for (y= 0; y<height; y+= 2)
+	{
+		boolean on_top= y<depth || y>=height-depth;
+
+		/* rows away from the top and bottom only contribute their edge columns */
+		for (x= 0; x<width; x+= 2)
+		{
+			const byte *pixel;
+			boolean on_side= x<depth || x>=width-depth;
+
+			if (!on_top && !on_side)
+			{
+				x= width-depth-2; /* the loop's += 2 lands on the first right edge column */
+				continue;
+			}
+			pixel= bits+y*pitch+x*4;
+			axis= on_side ? 0 : 1;
+			raw[axis][0]+= pixel[2];
+			raw[axis][1]+= pixel[1];
+			raw[axis][2]+= pixel[0];
+			count[axis]++;
+		}
+	}
+
+	for (axis= 0; axis<2; axis++)
+	{
+		if (!count[axis])
+			continue;
+		for (channel= 0; channel<3; channel++)
+		{
+			real average= raw[axis][channel]/count[axis];
+
+			bink_edge_color[axis][channel]= bink_edge_primed ?
+				bink_edge_color[axis][channel]+(average-bink_edge_color[axis][channel])*BINK_EDGE_SMOOTHING :
+				average;
+		}
+	}
+	bink_edge_primed= TRUE;
+
+	return;
+}
+
 static void bink_decompress_video_frame(
 	void)
 {
@@ -976,6 +1104,7 @@ static void bink_decompress_video_frame(
 	IDirect3DTexture8_LockRect(bink_globals.texture, 0, &locked_rect, NULL, 0);
 	BinkCopyToBuffer(bink_globals.bink, locked_rect.pBits, locked_rect.Pitch, bink_globals.bink->Height,
 		0, 0, bink_globals.surface_type|BINKCOPYALL);
+	bink_sample_edge_colors((const byte *)locked_rect.pBits, locked_rect.Pitch);
 	IDirect3DTexture8_UnlockRect(bink_globals.texture, 0);
 	rasterizer_globals.current_lock_operation= _rasterizer_lock_none;
 
