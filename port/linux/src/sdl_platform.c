@@ -1785,16 +1785,17 @@ void platform_pump_events(void)
 				int key = event.key.scancode, action = 0;
 				switch (key)
 				{
-				case SDL_SCANCODE_F6: action = PHOTO_TOGGLE; break;
-				case SDL_SCANCODE_F7: action = PHOTO_GUIDES; break;
-				case SDL_SCANCODE_F10: action = PHOTO_SAVE; break;
-				case SDL_SCANCODE_F5: action = PHOTO_LOAD; break;
-				case SDL_SCANCODE_F4: action = PHOTO_RENDER_CHECK; break;
+				case SDL_SCANCODE_P: action = PHOTO_TOGGLE; break;
+				case SDL_SCANCODE_O: action = PHOTO_GUIDES; break;
+				case SDL_SCANCODE_I: action = PHOTO_SAVE; break;
+				case SDL_SCANCODE_L: action = PHOTO_LOAD; break;
+				case SDL_SCANCODE_K: action = PHOTO_RENDER_CHECK; break;
 				case SDL_SCANCODE_LEFTBRACKET: action = PHOTO_SLOWER; break;
 				case SDL_SCANCODE_RIGHTBRACKET: action = PHOTO_FASTER; break;
 				case SDL_SCANCODE_MINUS: action = PHOTO_FOV_DOWN; break;
 				case SDL_SCANCODE_EQUALS: action = PHOTO_FOV_UP; break;
 				}
+				if (action && event.key.down) platform_log("photo key: scancode %d action %d", key, action);
 				if (key > 0 && key < SDL_SCANCODE_COUNT && held[key])
 				{
 					if (!event.key.down) held[key] = 0;

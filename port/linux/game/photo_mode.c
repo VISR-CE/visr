@@ -46,10 +46,18 @@ int photo_mode_active(void) { return active; }
 
 int photo_mode_key(int action)
 {
-	if (!host_photo_mode_available() || !config_boolean("debug.photo_mode")) return 0;
+	if (!host_photo_mode_available() || !config_boolean("debug.photo_mode"))
+	{
+		if (action == PHOTO_TOGGLE) platform_log("photo mode: key ignored (host available %d, debug.photo_mode %d)", host_photo_mode_available(), config_boolean("debug.photo_mode") ? 1 : 0);
+		return 0;
+	}
 	if (action != PHOTO_TOGGLE && !active) return 0;
 	if (!active && (!game_map_loaded() || !global_scenario ||
-		global_scenario->type == _scenario_type_main_menu || game_connection() != _game_connection_local)) return 0;
+		global_scenario->type == _scenario_type_main_menu || game_connection() != _game_connection_local))
+	{
+		platform_log("photo mode: key ignored (no local map is running)");
+		return 0;
+	}
 	pending = action;
 	return 1;
 }
