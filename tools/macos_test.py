@@ -33,6 +33,22 @@ def main():
             depth += (text[end] == '{') - (text[end] == '}')
             end += 1
         return text[start:end]
+    def declaration(name):
+        return next(line for line in source.splitlines()
+                    if line.startswith('static ') and line.endswith(f' {name};'))
+    entered = source.index('    static int entered;')
+    entered_end = source.index('    #endif\n    @autoreleasepool', entered)
+    (BUILD / 'extra_scene.inc').write_text('\n'.join([
+        declaration('extra_scene_pending'),
+        declaration('extra_scene_watch'),
+        definition(source, 'void host_extra_scene_restore_watch(void)'),
+        definition(source, 'void host_extra_scene_poll(void)'),
+        'static int scene_start(void) {\n' + source[entered:entered_end] + '\nreturn 0;\n}',
+    ]))
+    run(*common, '-Wall', '-Wextra', '-Werror', *objc, f'-I{BUILD}',
+        'port/ios/tests/extra_scene_probe.m', 'port/ios/host/host_main_thread.c',
+        '-framework', 'CoreFoundation', '-o', BUILD / 'extra-scene-probe')
+    run(BUILD / 'extra-scene-probe')
     (BUILD / 'game_thread_start.inc').write_text('\n'.join([
         definition(crash, 'int host_crash_thread_install(void)'),
         definition(source, 'void host_exit(int code)'),
