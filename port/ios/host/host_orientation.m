@@ -134,6 +134,8 @@ static const char *orientation_name(UIInterfaceOrientation orientation) {
    can leave SDL's view, the layer's drawable and the SDL window at the old
    screen's size. After the geometry settles, force the view to layout and make
    the layer and the window agree with the scene's bounds. */
+static double last_relayout_log;
+static double relayout_again_at;
 static void relayout_to_scene(void) {
 #if !TARGET_OS_VISION && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
     SDL_Window *sdl = host_sdl_window();
@@ -150,25 +152,35 @@ static void relayout_to_scene(void) {
             CGRect bounds = windowScene.coordinateSpace.bounds;
             if (!CGRectEqualToRect(window.frame, bounds)) window.frame = bounds;
             UIView *view = window.rootViewController.view;
-            view.frame = window.bounds;
-            for (UIView *sub in view.subviews) if ([NSStringFromClass(sub.class) isEqualToString:@"HaloControls"]) { sub.frame = view.bounds; [sub setNeedsLayout]; }
-            [view setNeedsLayout];
-            [view layoutIfNeeded];
+            BOOL changed = NO;
+            if (!CGRectEqualToRect(view.frame, window.bounds)) { view.frame = window.bounds; changed = YES; }
+            for (UIView *sub in view.subviews) {
+                if (![NSStringFromClass(sub.class) isEqualToString:@"HaloControls"]) continue;
+                if (!CGRectEqualToRect(sub.frame, view.bounds)) { sub.frame = view.bounds; [sub setNeedsLayout]; changed = YES; }
+            }
             CGFloat scale = windowScene.screen.nativeScale > 0 ? windowScene.screen.nativeScale : windowScene.screen.scale;
-            if (layer.contentsScale != scale) layer.contentsScale = scale;
             CGSize want = CGSizeMake(round(bounds.size.width * scale), round(bounds.size.height * scale));
-            if (!CGSizeEqualToSize(layer.drawableSize, want)) {
-                host_logf(HOST_LOG_INFO, "relayout: drawable %.0fx%.0f -> %.0fx%.0f",
+            int width = 0, height = 0;
+            SDL_GetWindowSize(sdl, &width, &height);
+            BOOL layer_off = !CGSizeEqualToSize(layer.drawableSize, want);
+            BOOL sdl_off = width != (int)bounds.size.width || height != (int)bounds.size.height;
+            if (changed) { [view setNeedsLayout]; [view layoutIfNeeded]; }
+            if (layer.contentsScale != scale) layer.contentsScale = scale;
+            double now = CACurrentMediaTime();
+            BOOL log_it = (changed || layer_off || sdl_off) && now - last_relayout_log > 0.25;
+            if (log_it) last_relayout_log = now;
+            if (layer_off) {
+                if (log_it) host_logf(HOST_LOG_INFO, "relayout: drawable %.0fx%.0f -> %.0fx%.0f",
                     layer.drawableSize.width, layer.drawableSize.height, want.width, want.height);
                 layer.drawableSize = want;
             }
-            int width = 0, height = 0;
-            SDL_GetWindowSize(sdl, &width, &height);
-            if (width != (int)bounds.size.width || height != (int)bounds.size.height) {
-                host_logf(HOST_LOG_INFO, "relayout: SDL window %dx%d -> %.0fx%.0f", width, height,
+            if (sdl_off) {
+                if (log_it) host_logf(HOST_LOG_INFO, "relayout: SDL window %dx%d -> %.0fx%.0f", width, height,
                     bounds.size.width, bounds.size.height);
                 SDL_SetWindowSize(sdl, (int)bounds.size.width, (int)bounds.size.height);
             }
+            if (log_it && changed && !layer_off && !sdl_off)
+                host_logf(HOST_LOG_INFO, "relayout: views resized to %.0fx%.0f", bounds.size.width, bounds.size.height);
             return;
         }
     }
@@ -178,15 +190,26 @@ static void relayout_to_scene(void) {
 void host_geometry_poll(void) {
     if (!NSThread.isMainThread) return;
     struct host_geometry geometry;
-    if (!host_geometry_debounce_settled(&geometry_debounce, CACurrentMediaTime(), &geometry)) return;
-    pthread_mutex_lock(&geometry_lock);
-    settled_geometry = geometry;
-    unsigned generation = ++settled_generation;
-    pthread_mutex_unlock(&geometry_lock);
+    double now = CACurrentMediaTime();
+    if (host_geometry_debounce_settled(&geometry_debounce, now, &geometry)) {
+        pthread_mutex_lock(&geometry_lock);
+        settled_geometry = geometry;
+        unsigned generation = ++settled_generation;
+        pthread_mutex_unlock(&geometry_lock);
+        relayout_to_scene();
+        relayout_again_at = now + 0.4;    /* the display move and rotation can finish after the first settle */
+        host_logf(HOST_LOG_INFO, "scene geometry settled %.0fx%.0f orientation=%d (%s) generation=%u",
+            geometry.width, geometry.height, geometry.orientation,
+            orientation_name((UIInterfaceOrientation)geometry.orientation), generation);
+        return;
+    }
+    /* Safety net: every frame, make the views, layer and SDL window agree with the scene.
+       The check only writes on a mismatch, so a steady frame costs a few comparisons. */
     relayout_to_scene();
-    host_logf(HOST_LOG_INFO, "scene geometry settled %.0fx%.0f orientation=%d (%s) generation=%u",
-        geometry.width, geometry.height, geometry.orientation,
-        orientation_name((UIInterfaceOrientation)geometry.orientation), generation);
+    if (relayout_again_at > 0 && now >= relayout_again_at) {
+        relayout_again_at = 0;
+        relayout_to_scene();
+    }
 }
 
 /* SDL 3.4.16 owns these controllers. These categories add only orientation
