@@ -1,3 +1,4 @@
+#include "host_startup.h"
 #import <CoreML/CoreML.h>
 #include "texture_upscale_model.h"
 #include <mach/mach.h>
@@ -101,7 +102,7 @@ static NSURL *model_url(void)
     if (override && *override) {
         NSString *path = @(override);
         if (!path.isAbsolutePath)
-            path = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject
+            path = [@(host_startup_get()->documents_root)
                 stringByAppendingPathComponent:path];
         if ([NSFileManager.defaultManager fileExistsAtPath:path]) return [NSURL fileURLWithPath:path];
     }

@@ -1,4 +1,5 @@
 /* Start the statically compiled guest on the iOS UI thread and persist its log. */
+#include "host_startup.h"
 #import <Foundation/Foundation.h>
 #if HALO_NATIVE_MAC
 #import <AppKit/AppKit.h>
@@ -300,9 +301,10 @@ int main(int argc,char **argv) {
 #endif
         [NSNotificationCenter.defaultCenter addObserverForName:resume_notification object:nil queue:nil usingBlock:^(NSNotification *note){(void)note;host_perf_hooks_dynamic_resume();}];
         host_external_install();
+        host_startup_capture();
 #if TARGET_OS_TV
         /* tvOS apps may only write to Caches (purgeable). */
-        NSString *documents=[NSSearchPathForDirectoriesInDomains(NSCachesDirectory,NSUserDomainMask,YES).firstObject stringByAppendingPathComponent:@"Halo"];
+        NSString *documents=[@(host_startup_get()->caches_root) stringByAppendingPathComponent:@"Halo"];
         [NSFileManager.defaultManager createDirectoryAtPath:documents withIntermediateDirectories:YES attributes:nil error:nil];
 #elif HALO_NATIVE_MAC
         NSString *documents=@(host_macos_data_root());
@@ -310,11 +312,11 @@ int main(int argc,char **argv) {
         /* Not sandboxed, so NSDocumentDirectory would be the user's own ~/Documents:
            HALO_DATA_ROOT (a runner's data folder), else Application Support/<bundle ID>. */
         NSString *documents=NSProcessInfo.processInfo.environment[@"HALO_DATA_ROOT"];
-        if(!documents.length)documents=[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,NSUserDomainMask,YES).firstObject
+        if(!documents.length)documents=[@(host_startup_get()->application_support_root)
             stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier];
         [NSFileManager.defaultManager createDirectoryAtPath:documents withIntermediateDirectories:YES attributes:nil error:nil];
 #else
-        NSString *documents=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES).firstObject;
+        NSString *documents=@(host_startup_get()->documents_root);
 #endif
 #if HALO_NATIVE_MAC
         if (strlen(documents.fileSystemRepresentation) + sizeof("/save") >= sizeof(data_root))
@@ -575,9 +577,9 @@ int main(int argc,char **argv) {
            (port/linux/game/menu_tags.c). */
         static char env_max_fps[48];
 #if HALO_NATIVE_MAC
-        snprintf(env_max_fps,sizeof(env_max_fps),"HALO_DISPLAY_MAX_FPS=%.0f",host_macos_refresh_rate());
+        snprintf(env_max_fps,sizeof(env_max_fps),"HALO_DISPLAY_MAX_FPS=%.0f",host_startup_get()->maximum_frames_per_second);
 #else
-        snprintf(env_max_fps,sizeof(env_max_fps),"HALO_DISPLAY_MAX_FPS=%ld",(long)UIScreen.mainScreen.maximumFramesPerSecond);
+        snprintf(env_max_fps,sizeof(env_max_fps),"HALO_DISPLAY_MAX_FPS=%ld",(long)host_startup_get()->maximum_frames_per_second);
 #endif
         env[env_count++]="HALO_HOST_MAC=1";env[env_count++]=env_max_fps;
 #endif

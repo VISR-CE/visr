@@ -1,3 +1,4 @@
+#include "host_startup.h"
 #include "astc_policy.h"
 #include "host_perf_hooks.h"
 #include "host_perf_metal.h"
@@ -3334,7 +3335,7 @@ static void archive_open(void)
 	NSFileManager *files = [NSFileManager defaultManager];
 	/* (the bundle's own folder: an app outside a sandbox, the Mac app, shares
 	its caches folder with every other) */
-	NSURL *folder = [[[files URLsForDirectory:NSCachesDirectory inDomains:NSUserDomainMask].firstObject
+	NSURL *folder = [[[NSURL fileURLWithPath:@(host_startup_get()->caches_root) isDirectory:YES]
 		URLByAppendingPathComponent:[NSBundle mainBundle].bundleIdentifier ?: @"VISR" isDirectory:YES]
 		URLByAppendingPathComponent:@"metal-pipelines" isDirectory:YES];
 	NSString *build = [NSBundle mainBundle].infoDictionary[@"CFBundleVersion"] ?: @"0";

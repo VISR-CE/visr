@@ -1,4 +1,5 @@
 /* AppKit adapters for the native host. SDL retains its Cocoa delegate and window. */
+#include "host_startup.h"
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
 #include <SDL3/SDL.h>
@@ -30,8 +31,7 @@ static NSWindow *game_window(void) {
 const char *host_macos_data_root(void) {
     static char root[4096];
     NSString *path = NSProcessInfo.processInfo.environment[@"HALO_DATA_ROOT"];
-    if (!path.length) path = [NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,
-        NSUserDomainMask, YES).firstObject stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier];
+    if (!path.length) path = [@(host_startup_get()->application_support_root) stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier];
     NSError *error = nil;
     if (![path isAbsolutePath] || ![NSFileManager.defaultManager createDirectoryAtPath:path
         withIntermediateDirectories:YES attributes:nil error:&error])

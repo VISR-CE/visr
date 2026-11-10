@@ -1,4 +1,5 @@
 /* Recordings and shaders stay fixed for a launch; verified profiles may be offered at gameplay breaks. */
+#include "host_startup.h"
 #import "host_data_updates.h"
 #import "host_data_pack.h"
 #import <CommonCrypto/CommonDigest.h>
@@ -152,7 +153,7 @@ static NSString *storeRoot(NSString *kind, NSString *compatibility, NSString **c
     if (![channel isEqual:@"tester"] && ![channel isEqual:@"stable"]) channel = @"stable";
     *channelOut = channel;
     *keyOut = dataPackKeyOverride ?: publicKey([bundle objectForInfoDictionaryKey:@"HaloDataPackPublicKey"]);
-    NSString *cache = dataPackCacheOverride ?: NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *cache = dataPackCacheOverride ?: @(host_startup_get()->caches_root);
     return [[[[cache stringByAppendingPathComponent:@"visr-data-packs"] stringByAppendingPathComponent:kind] stringByAppendingPathComponent:channel] stringByAppendingPathComponent:digest([compatibility dataUsingEncoding:NSUTF8StringEncoding])];
 }
 static HostDataPackStore *store(NSString *kind, NSString *bundled, NSString *compatibility, HostPackValidator validator)
@@ -692,7 +693,7 @@ void host_data_updates_menu_start(void)
     @synchronized(selectionLock()) { menuRequested = YES; menuVisible = YES; }
     static dispatch_once_t once;
     dispatch_once(&once, ^{
-        // host_device_identify reads UIScreen; capture it without waiting for the presentation thread.
+        // Capture the device identity without waiting for the presentation thread.
         dispatch_async(dispatch_get_main_queue(), ^{
             struct host_device device; host_device_identify(&device);
             dispatch_async(updatesQueue(), ^{ initializeMenu(device); });

@@ -2,6 +2,7 @@
    the system ending the app), the question whether to carry on. Buttons a Siri
    Remote's focus, a controller or a touch can press. Ordinary builds do not
    compile this in: there the benchmark is debug.benchmark_suite's alone. */
+#include "host_startup.h"
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 #include "ios_host.h"
@@ -73,7 +74,7 @@ static NSString *benchmark_menu_detail(void) {
 #elif TARGET_OS_VISION
     name = @"Apple Vision Pro";
 #else
-    name = UIDevice.currentDevice.model;
+    name = @(host_startup_get()->device_model);
 #endif
     return [NSString stringWithFormat:NSLocalizedString(@"Benchmarking collects performance data so we can deliver a more optimized experience for your %@.",
         @"Launch menu benchmark explanation; %@ is the device family name"), name];
