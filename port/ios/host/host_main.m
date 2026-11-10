@@ -51,6 +51,7 @@
 #include "host_log_file.h"
 #include "host_log_send.h"
 #include <stdio.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -182,12 +183,14 @@ pumps the run loop (SDL_PollEvent), and would start a second guest inside the
 first, nested on the main thread, until the system kills the hung app. Only
 the first call runs the game. A later one returns at once, and its
 postFinishLaunch then turns SDL's iOS event pump off (SDL_SetiOSEventPump),
-which is global: the running game would never run the main run loop again,
-so no UIKit event, lifecycle notification or main-queue block would reach it.
-host_extra_scene_poll, from the game's event poll, turns the pump back on and
-closes the extra scene. */
+which is global. When the game runs on main, host_extra_scene_poll turns the
+pump back on so UIKit events, lifecycle notifications and main-queue blocks
+still run. With debug.game_thread, main has returned into UIKit's normal run
+loop; the nested SDL pump stays off. Both paths close the extra scene. */
 #if !HALO_NATIVE_MAC
-static int extra_scene_pending;
+/* Sequentially consistent requests from main; the game thread claims 1 -> 2
+   before recovery and clears only 2 -> 0, preserving a newer main() call. */
+static _Atomic int extra_scene_pending;
 
 /* the scene holding the game's window, or nil before it exists */
 static UIWindowScene *game_window_scene(void) {
@@ -234,11 +237,11 @@ static BOOL close_extra_window_scenes(void) {
     return closed;
 }
 
-/* the game's event poll (host_sdl.c), on the main thread outside any SDL
-call: after a later main call, the event pump comes back on, and the extra
-scene closes once the game's window exists */
+/* the game's event poll (host_sdl.c), outside any SDL call, runs on main or
+the game thread: after a later main call, recover the working directory and
+close the extra scene once the game's window exists */
 /* polls left to watch the game's window after an extra scene closed */
-static int extra_scene_watch;
+static _Atomic int extra_scene_watch;
 
 /* theater mode (host_theater.m): the game's window was put away or came
 back in a new scene, and SDL's delegate for the old scene told the app it
@@ -272,10 +275,17 @@ void host_extra_scene_poll(void) {
         }
     });
     if(!extra_scene_pending)return;
-    if(extra_scene_pending==1){
+    int threaded=host_game_thread_enabled()&&!host_on_main_thread();
+    int pending=extra_scene_pending;
+    if(threaded){
+        pending=1;
+        if(!atomic_compare_exchange_strong(&extra_scene_pending,&pending,2)&&!pending)return;
+    }
+    if(pending==1){
         char directory[1024];
-        host_main_sync(^{ SDL_SetiOSEventPump(true); });
-        host_logf(HOST_LOG_INFO,"the event pump is back on after the extra window scene's start");
+        if(!threaded)host_main_sync(^{ SDL_SetiOSEventPump(true); });
+        host_logf(HOST_LOG_INFO,threaded ? "UIKit's main run loop stays active after the extra window scene's start" :
+            "the event pump is back on after the extra window scene's start");
         /* SDL's scene delegate also changed the working directory to the app's
            resources for the new scene; the host's relative paths (config.toml,
            host_config.c) are the data folder's */
@@ -288,10 +298,13 @@ void host_extra_scene_poll(void) {
         }
         /* a block on the main queue runs only when the main run loop does */
         dispatch_async(dispatch_get_main_queue(),^{host_logf(HOST_LOG_INFO,"the main queue runs again");});
-        extra_scene_pending=2;
+        if(!threaded)extra_scene_pending=2;
     }
     if(close_extra_window_scenes()){
-        extra_scene_pending=0;
+        if(threaded){
+            int expected=2;
+            atomic_compare_exchange_strong(&extra_scene_pending,&expected,0);
+        }else extra_scene_pending=0;
         extra_scene_watch=600;
     }
 }
