@@ -1,6 +1,8 @@
 #include "host_posture_layout.h"
 #include <TargetConditionals.h>
 #include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
 
 static struct host_posture_snapshot snapshot;
 static struct host_posture_layout layout;
@@ -45,6 +47,20 @@ void host_posture_poll(void)
         host_hinge_snapshot(&in.hinge);
         in.view_width = root.bounds.size.width;
         in.view_height = root.bounds.size.height;
+        /* Debug only: the simulator cannot fold, so VISR_POSTURE_OVERRIDE=laptop-l
+           (passed as SIMCTL_CHILD_VISR_POSTURE_OVERRIDE) fakes a half-open laptop L
+           with a 10 pt division across the middle. */
+        const char *forced = getenv("VISR_POSTURE_OVERRIDE");
+        if (forced && strcmp(forced, "laptop-l") == 0 && in.view_width > 0 && in.view_height > 0) {
+            in.hinge.available = 1;
+            in.hinge.status = HOST_HINGE_PARTIALLY_OPEN;
+            in.hinge.angle = 2.0;
+            in.hinge.division_active = 1;
+            in.hinge.division_x = 0;
+            in.hinge.division_width = in.view_width;
+            in.hinge.division_height = 10;
+            in.hinge.division_y = in.view_height * 0.5 - 5;
+        }
         CMDeviceMotion *sample = motion.deviceMotion;
         /* A suspended or failed sensor must become unknown rather than keep
            classifying a new fold with an old gravity vector. */
