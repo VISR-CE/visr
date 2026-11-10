@@ -2,17 +2,23 @@
 on visionOS closing the window only backgrounds the app, with the game still
 playing. So while the scene is in the background the game's audio is paused
 and the game holds at its next Present (host_gpu_dispatch.c), pumping the run
-loop until the scene returns; the game resumes where it was. Not on a Mac. */
+loop until the scene returns; the game resumes where it was. With
+ debug.game_thread, the worker waits for foreground publication instead.
+ Not on a Mac. */
 #import <UIKit/UIKit.h>
 #include "ios_host.h"
 #include "host_socket_revival.h"
 #include "host_config.h"
+#include "host_game_thread.h"
+#include "host_main_thread.h"
+#include "host_lifecycle_wait.h"
 #include <string.h>
 #include <stdatomic.h>
 #include <time.h>
 #include <pthread.h>
 
 static _Atomic int backgrounded;
+static struct host_lifecycle_wait foreground_wait = HOST_LIFECYCLE_WAIT_INIT;
 /* the time spent in the background: finished stays (ms), and when the one
 under way began (CLOCK_MONOTONIC ms, 0 for none), for the game's clock, which
 stands still there (posix_background_milliseconds, xbox_kernel.c) */
@@ -59,6 +65,10 @@ static int host_theater_window_parked(void) { return 0; }
 #endif
 
 void host_lifecycle_install(void) {
+    if(host_game_thread_enabled() && !host_on_main_thread()){
+        host_main_sync(^{ host_lifecycle_install(); });
+        return;
+    }
     /* an iPad app on a Mac (tools/mac_run.py) may draw in the background, and
        a test run must not stop because its window went behind another */
     if(NSProcessInfo.processInfo.isiOSAppOnMac || NSProcessInfo.processInfo.isMacCatalystApp)return;
@@ -69,7 +79,8 @@ void host_lifecycle_install(void) {
                 host_logf(HOST_LOG_INFO,"the game's put-away window went to the background; VR plays on");
                 return;
             }
-            atomic_store(&backgrounded,1);
+            if(host_game_thread_enabled())host_lifecycle_wait_set(&foreground_wait,&backgrounded,1);
+            else atomic_store(&backgrounded,1);
             pthread_mutex_lock(&background_lock);
             if(!background_began)background_began=monotonic_milliseconds();
             pthread_mutex_unlock(&background_lock);
@@ -99,7 +110,8 @@ void host_lifecycle_install(void) {
                 background_began=0;
             }
             pthread_mutex_unlock(&background_lock);
-            atomic_store(&backgrounded,0);
+            if(host_game_thread_enabled())host_lifecycle_wait_set(&foreground_wait,&backgrounded,0);
+            else atomic_store(&backgrounded,0);
             host_sdl_audio_pause(0);
             host_spatial_rumble_hold(0);
             background_task_end();
@@ -118,6 +130,10 @@ int host_lifecycle_in_background(void) {
 }
 
 void host_lifecycle_hold(void) {
+    if(host_game_thread_enabled() && !host_on_main_thread()){
+        host_lifecycle_wait_until_foreground(&foreground_wait,&backgrounded);
+        return;
+    }
     while(atomic_load(&backgrounded)) {
         @autoreleasepool {
             CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.1,true);
