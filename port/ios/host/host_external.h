@@ -1,4 +1,4 @@
-/* External output lifecycle. UIKit and the game call these on the main thread.
+/* External output lifecycle. Scene state is owned by main; game adapters marshal to it.
    A pending output becomes current only at the guest's screen commit. */
 #pragma once
 #include <stddef.h>
@@ -20,6 +20,7 @@ int host_external_size(int *width, int *height);
 /* the built-in display's safe-area insets as fractions of the window: left, right, top, bottom (zeros on an external display) */
 void host_external_safe_insets(float *insets);
 void *host_external_phone_layer(void);
+/* Borrowed UIKit objects: consume screen and scene on main while the flag is on. */
 void *host_external_screen(void);
 /* the UIWindowScene the renderer presents in (its display's clock drives frame pacing); NULL if unknown */
 void *host_external_scene(void);
@@ -40,6 +41,8 @@ int host_external_ready(void);
 void host_external_mode_label(char *text, size_t size);
 /* gpu_metal.m: drains the old output before exchanging layers. */
 int gpu_metal_output(void *layer, void *screen, int width, int height);
+/* Main-only layer geometry update, inside the renderer's drained output fence. */
+void host_external_output_resize(void *layer, int width, int height);
 /* host_sdl.c: close and reopen the output streams (and so the device) after an audio route change. */
 void host_sdl_audio_route_changed(void);
 /* host_sdl.c: a stream that should be playing has had no callback for over 1.5 s (now: SDL_GetTicksNS). */
