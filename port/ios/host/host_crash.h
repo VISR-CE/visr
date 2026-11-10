@@ -19,6 +19,9 @@ so that the memory watch's handler sees its own faults first and only passes
 on the rest; descriptor is ios-runtime.log's, written in a signal handler */
 void host_crash_install(int descriptor);
 
+/* Once on a process-lifetime game thread, before entering guest code. */
+int host_crash_thread_install(void);
+
 /* host_crash (a host bug, or a guest failure the host is told of) is
 declared in host.h, beside host_fatal */
 
