@@ -9,10 +9,14 @@
 #include <stdatomic.h>
 #include <time.h>
 
+/* Main owns label and all scene/view access, including removal. */
 static UILabel *label;
 static _Atomic int enabled, update_pending;
 static _Atomic unsigned generation, text_updates;
 static os_unfair_lock sample_lock = OS_UNFAIR_LOCK_INIT;
+/* sample_lock protects stats, first, next_update, renderer, and fixed.
+   show captures values (and a strong immutable renderer name) before posting
+   to main; its block never reads those mutable fields. */
 static struct host_frame_counter_stats stats;
 static double first, next_update;
 static NSString *renderer;
