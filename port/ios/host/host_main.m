@@ -1,4 +1,4 @@
-/* Start the statically compiled guest on the iOS UI thread and persist its log. */
+/* Start the statically compiled guest and persist its log. */
 #include "host_startup.h"
 #import <Foundation/Foundation.h>
 #if HALO_NATIVE_MAC
@@ -11,7 +11,7 @@
 #include "ios_host.h"
 #include "host_main_thread.h"
 #include "host_game_thread.h"
-#if HALO_NATIVE_MAC
+#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
 #include <pthread.h>
 #endif
 #include "guest_image.h"
@@ -77,7 +77,7 @@ void host_fatal(const char *format,...) {
 }
 /* host_abort, the guest runtime's own fatal errors, is host_crash.c's */
 void host_exit(int code) {
-#if HALO_NATIVE_MAC
+#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
     if (!host_on_main_thread() && host_game_thread_enabled()) {
         host_main_async(^{ host_exit(code); });
         /* Leave guest state parked while main finishes shutdown callbacks. */
@@ -287,7 +287,7 @@ static void quit_signal(int number) {
 }
 #endif
 
-#if HALO_NATIVE_MAC
+#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
 struct game_thread_start {
     uintptr_t entry;
     uint32_t boot;
@@ -309,8 +309,10 @@ static void *game_thread_main(void *context) {
     return NULL;
 }
 
+#if HALO_NATIVE_MAC
 static void game_thread_run(uintptr_t entry, uint32_t boot, uintptr_t arena, void *stack)
     __attribute__((noreturn));
+#endif
 static void game_thread_run(uintptr_t entry, uint32_t boot, uintptr_t arena, void *stack) {
     struct game_thread_start *start = malloc(sizeof(*start));
     if (!start) host_crash("could not allocate game thread startup");
@@ -325,21 +327,33 @@ static void game_thread_run(uintptr_t entry, uint32_t boot, uintptr_t arena, voi
     if (!error) error = pthread_create(&thread, &attributes, game_thread_main, start);
     pthread_attr_destroy(&attributes);
     if (error) { free(start); host_crash("could not start game thread"); }
+#if HALO_NATIVE_MAC
+    double pump_rate = 240.0;
+#else
+    /* UIKit runs normally after SDL_main returns. SDL's delegate disables its
+       nested UIKit pump then; SDL_PumpEvents still updates controllers and the
+       window cache. Bound wakeups to the startup display rate, at most 120 Hz. */
+    double pump_rate = host_startup_get()->maximum_frames_per_second;
+    if (!(pump_rate > 0.0)) pump_rate = 60.0;
+    if (pump_rate > 120.0) pump_rate = 120.0;
+#endif
     /* SDL's Cocoa pump dispatches AppKit events. A timer also wakes an idle
        run loop so controllers update while the game waits on a frame. */
     CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(kCFAllocatorDefault,
-        CFAbsoluteTimeGetCurrent(), 1.0 / 240.0, 0, 0, ^(CFRunLoopTimerRef fired) {
+        CFAbsoluteTimeGetCurrent(), 1.0 / pump_rate, 0, 0, ^(CFRunLoopTimerRef fired) {
             (void)fired;
             @autoreleasepool { host_event_pump(); }
         });
     if (!timer) host_crash("could not create game event timer");
     CFRunLoopAddTimer(CFRunLoopGetMain(), timer, kCFRunLoopCommonModes);
     CFRelease(timer);
+#if HALO_NATIVE_MAC
     for (;;) {
         @autoreleasepool { CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0e10, false); }
     }
+#endif
 }
-#endif /* native game thread */
+#endif /* supported game thread startup */
 
 int main(int argc,char **argv) {
     (void)argc;(void)argv;
@@ -729,9 +743,13 @@ int main(int argc,char **argv) {
         host_cloud_saves_before_game();
         host_logf(HOST_LOG_INFO,"entering guest at %08x, data %s",host_image.header->start,data_root);
         host_shader_upload_prepare();
-#if HALO_NATIVE_MAC
-        if (host_game_thread_enabled())
+#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+        if (host_game_thread_enabled()) {
             game_thread_run((uintptr_t)host_pointer(host_image.header->start),guest_pointer(boot),host_arena,(char *)stack+stack_size+0x4000);
+            /* SDLUIKitDelegate/SDLUIKitSceneDelegate support setup-only main:
+               returning resumes UIApplicationMain without quitting SDL. */
+            return 0;
+        }
 #endif
         host_guest_on_stack((uintptr_t)host_pointer(host_image.header->start),guest_pointer(boot),host_arena,(char *)stack+stack_size+0x4000);
     }
