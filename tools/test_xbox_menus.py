@@ -690,7 +690,7 @@ def test_filters_title_sits_with_the_other_titles_and_the_count_inside_the_panel
     screen = root.find(f"widget[@name='{base}/filters/filters_screen']")
     placed = {c.get('widget').rsplit('/', 1)[-1]: (c.get('x'), c.get('y')) for c in screen.findall('child')}
     # The server browser lifts its title 26 units; the same title spot here is 26 above the original top of 11.
-    assert placed['header_filters'][1] == '-15'
+    assert placed['header_filters'][1] == '-22'
     x, y = (int(v) for v in placed['browser_filter_status'])
     assert 44 <= y and y + 22 <= 73  # below the band line, above the first option row
     assert x + 276 <= 586  # right-aligned to the option rows' edge

@@ -590,7 +590,7 @@ def filters_layout(root, widgets):
     # the count sits inside the panel, between the band and the first row.
     title = screen.find(f"child[@widget='{base}/header_filters']")
     if title is not None:
-        title.set('y', '-15')
+        title.set('y', '-22')
     child(screen, base + '/browser_filter_status', x=310, y=48)
     widget(root, base + '/browser_filter_status', type='text', width=276, height=22,
            font=r'ui\small_ui', color='#7fc4ff', align='right')
