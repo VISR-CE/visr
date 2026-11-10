@@ -670,6 +670,7 @@ void ui_redraw_end_screen(void);
 void halo_screen_menu_window(int active);
 #include "menu_scale.h" /* port: shared content bounds and padding */
 void halo_screen_menu_content(float top, float bottom);
+void halo_screen_menu_visible_bounds(float *top, float *bottom);
 static void ui_widget_menu_content(struct widget_instance *widget);
 void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
 long ui_redraw_touch_target_units(void);
@@ -8009,6 +8010,22 @@ static boolean ui_dropdown_owner_valid(void)
 
 static void ui_dropdown_open(struct ui_mouse_target *target)
 {
+	float visible_top, visible_bottom;
+	int limit_top, limit_bottom;
+	long index;
+
+	halo_screen_menu_visible_bounds(&visible_top, &visible_bottom);
+	limit_top = (int)ceilf(visible_top);
+	limit_bottom = (int)floorf(visible_bottom);
+	/* port: ui_mouse_note_target records each legend icon together with its
+	caption in screen menu units (414 at the top of the Xbox settings bar).
+	Use those drawn bounds so scroll arrows and carousel buttons do not count. */
+	for (index = 0; index < ui_mouse_target_count; index++)
+		if (ui_mouse_targets[index].kind == _ui_mouse_target_button &&
+			ui_mouse_key_button(ui_mouse_targets[index].widget) != NONE &&
+			ui_mouse_targets[index].bounds.y0 >= target->value_bounds.y1)
+			limit_bottom = MIN(limit_bottom, ui_mouse_targets[index].bounds.y0);
+
 	ui_dropdown_widget = target->widget;
 	ui_dropdown_creation_time = target->widget->creation_time;
 	ui_dropdown_selection = -1;
@@ -8016,7 +8033,7 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	halo_menu_dropdown_open(&ui_dropdown, target->value_bounds.x0,
 		target->value_bounds.y0, target->value_bounds.y1,
 		target->widget->parameters.list.number_of_items,
-		target->widget->parameters.list.selected_index);
+		target->widget->parameters.list.selected_index, limit_top, limit_bottom);
 }
 
 /* port: post one normal spinner step each frame, as ui_mouse_step_list_to_slot

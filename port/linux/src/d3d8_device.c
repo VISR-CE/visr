@@ -700,6 +700,14 @@ float halo_screen_menu_pixel_scale(void)
 	return halo_screen_pixel_scale() * zoom;
 }
 
+/* Menu-space limits of the widget viewport, including minimum-scale crop. */
+void halo_screen_menu_visible_bounds(float *top, float *bottom)
+{
+	float zoom;
+	menu_window_geometry(top, &zoom);
+	*bottom = *top + 480.0f / zoom;
+}
+
 /* Undo precisely the widget-only viewport zoom after the display blit and
 widescreen centering have been undone by halo_ui_pointer_map. */
 static void menu_window_pointer(struct halo_ui_pointer *pointer)

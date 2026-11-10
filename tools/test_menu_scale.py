@@ -100,6 +100,10 @@ int main(void) {
         check(0, 33); check(320, 240); check(640, 447);
         float top, zoom;
         menu_window_geometry(&top, &zoom);
+        float visible_top, visible_bottom;
+        halo_screen_menu_visible_bounds(&visible_top, &visible_bottom);
+        assert(fabsf(visible_top - top) < 0.001f);
+        assert(fabsf(visible_bottom - (top + 480 / zoom)) < 0.001f);
         halo_screen_menu_window(1);
         assert(menu_window_drawing && fabsf(halo_screen_menu_pixel_scale() - 3 * zoom) < 0.001f);
         halo_screen_menu_window(0);
@@ -132,6 +136,9 @@ int main(void) {
         float top, zoom;
         menu_window_geometry(&top, &zoom);
         assert(top == 0 && zoom == 1);
+        float visible_top, visible_bottom;
+        halo_screen_menu_visible_bounds(&visible_top, &visible_bottom);
+        assert(visible_top == 0 && visible_bottom == 480);
         check(320, 240);
     }
 #ifdef HALO_ILP32
@@ -141,6 +148,9 @@ int main(void) {
     float top, zoom;
     menu_window_geometry(&top, &zoom);
     assert(top == 0 && zoom == 1);
+    float visible_top, visible_bottom;
+    halo_screen_menu_visible_bounds(&visible_top, &visible_bottom);
+    assert(visible_top == 0 && visible_bottom == 480);
 #endif
     return 0;
 }

@@ -20,25 +20,31 @@ static void halo_menu_dropdown_scroll(struct halo_menu_dropdown *d, int steps)
 	if (d->first < 0) d->first = 0;
 }
 
-/* The panel hangs under the value area when at least two options (or the
-whole list) fit there, otherwise above it, and shows as many rows as fit on
-that side; the rest scroll. */
+/* Prefer a full panel below, then above. If neither side fits, shift it
+within the visible band above the legend, reducing rows only when necessary. */
 static void halo_menu_dropdown_open(struct halo_menu_dropdown *d,
-	int left, int top, int bottom, int count, int selected)
+	int left, int top, int bottom, int count, int selected,
+	int limit_top, int limit_bottom)
 {
-	int below = (480 - bottom - 3) / HALO_DROPDOWN_PITCH;
-	int above = (top - 3) / HALO_DROPDOWN_PITCH;
 	int wanted = count < HALO_DROPDOWN_MAX_ROWS ? count : HALO_DROPDOWN_MAX_ROWS;
-	int under = below >= (wanted < 2 ? wanted : 2) || below >= above;
-	int fit = under ? below : above;
-	d->open = count > 0;
+	int fit = (limit_bottom - limit_top - 3) / HALO_DROPDOWN_PITCH;
+	int height;
+
 	d->count = count;
 	d->rows = wanted < fit ? wanted : fit;
-	if (d->rows < 1) d->rows = 1;
+	if (d->rows < 0) d->rows = 0;
+	d->open = count > 0 && d->rows > 0;
+	height = d->rows * HALO_DROPDOWN_PITCH + 3;
+
 	d->x = left < 0 ? 0 : left > 640 - HALO_DROPDOWN_WIDTH ? 640 - HALO_DROPDOWN_WIDTH : left;
-	d->y = under ? bottom : top - (d->rows * HALO_DROPDOWN_PITCH + 3);
-	if (d->y < 0) d->y = 0;
-	if (d->y > 480 - (d->rows * HALO_DROPDOWN_PITCH + 3)) d->y = 480 - (d->rows * HALO_DROPDOWN_PITCH + 3);
+	if (bottom >= limit_top && bottom + height <= limit_bottom)
+		d->y = bottom;
+	else if (top <= limit_bottom && top - height >= limit_top)
+		d->y = top - height;
+	else
+		d->y = limit_bottom - height;
+	if (d->y < limit_top) d->y = limit_top;
+
 	d->highlight = selected;
 	d->first = selected - d->rows + 1;
 	halo_menu_dropdown_scroll(d, 0);
