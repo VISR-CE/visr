@@ -425,11 +425,13 @@ static void snapshot_output(int external,int width,int height,const char *reason
 }
 void host_external_snapshot(struct host_external_snapshot *out) {
     pthread_mutex_lock(&snapshot_lock);*out=snapshot;pthread_mutex_unlock(&snapshot_lock);
-    if(!companion_on && phone_window) {
-        SDL_GetWindowSizeInPixels(host_sdl_window(),&out->width,&out->height);
-        out->refresh_hertz=(int)phone_window.windowScene.screen.maximumFramesPerSecond;
-        snprintf(out->reason,sizeof(out->reason),"preferred");
-    }
+    host_main_sync(^{
+        if(!companion_on && phone_window) {
+            SDL_GetWindowSizeInPixels(host_sdl_window(),&out->width,&out->height);
+            out->refresh_hertz=(int)phone_window.windowScene.screen.maximumFramesPerSecond;
+            snprintf(out->reason,sizeof(out->reason),"preferred");
+        }
+    });
 }
 int host_external_active(void) { return snapshot.external; }
 void host_external_displays(struct host_external_displays *out) {
@@ -859,7 +861,7 @@ void host_external_commit(int allow_pause) {
     if(metal_enabled && !companion_on && phone_window && output_screen!=phone_window.windowScene.screen) {
         UIScreen *previous_screen=output_screen;
         output_screen=phone_window.windowScene.screen;
-        SDL_GetWindowSizeInPixels(host_sdl_window(),&output_width,&output_height);
+        host_sdl_window_pixels(host_sdl_window(),&output_width,&output_height);
         if(!output_switch(phone_layer,output_screen,output_width,output_height)) {
             output_screen=previous_screen;return;
         }
@@ -896,7 +898,7 @@ double host_external_companion_dim(void) { return 1.0; }
 void host_external_snapshot(struct host_external_snapshot *out) {
     memset(out,0,sizeof(*out));
     SDL_Window *window=host_sdl_window();
-    if(window)SDL_GetWindowSizeInPixels(window,&out->width,&out->height);
+    if(window)host_sdl_window_pixels(window,&out->width,&out->height);
     out->refresh_hertz=90;
     snprintf(out->reason,sizeof(out->reason),"preferred");
 }
