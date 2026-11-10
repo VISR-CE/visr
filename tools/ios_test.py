@@ -113,6 +113,11 @@ run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
 run(BUILD/'external-mode-probe')
 # Main-thread marshaling stays inline on main and dispatches worker calls.
 run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fblocks',
+    '-Iport/ios/host', 'port/ios/tests/modal_wait_probe.c', 'port/ios/host/host_main_thread.c',
+    '-framework', 'CoreFoundation', '-o', BUILD/'modal-wait-probe')
+run(BUILD/'modal-wait-probe')
+
+run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fblocks',
     '-fsanitize=address,undefined', '-Iport/ios/host', '-framework', 'CoreFoundation',
     'port/ios/tests/main_thread_probe.c', 'port/ios/host/host_main_thread.c',
     '-o', BUILD/'main-thread-probe')
