@@ -395,6 +395,24 @@ static void crash_signal(int number, siginfo_t *info, void *context)
 		raise(number);
 }
 
+/* Alternate signal stacks are per thread. This storage lives until process exit,
+   as does the dedicated game thread; the main thread keeps its existing stack. */
+int host_crash_thread_install(void)
+{
+#if !TARGET_OS_TV
+	void *alternate = malloc(64 * 1024);
+	if (!alternate)
+		return -1;
+	stack_t stack = { .ss_sp = alternate, .ss_size = 64 * 1024, .ss_flags = 0 };
+	if (sigaltstack(&stack, NULL))
+	{
+		free(alternate);
+		return -1;
+	}
+#endif
+	return 0;
+}
+
 void host_crash_install(int descriptor)
 {
 #if !TARGET_OS_TV
