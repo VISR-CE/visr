@@ -12,6 +12,7 @@
 #import <UIKit/UIKit.h>
 #include <Network/Network.h>
 #include "ios_host.h"
+#include "host_modal_wait.h"
 #include "host_main_thread.h"
 #include "host_benchmark.h"
 #include "host_benchmark_live.h"
@@ -353,44 +354,59 @@ static NSString *local_address(void) {
 @end
 
 int host_benchmark_notice(const char *heading, const char *detail, double seconds, int (*until)(void)) {
-    UIWindowScene *scene = nil;
-    HaloBenchmarkNoticeController *controller = [HaloBenchmarkNoticeController new];
-    UIWindow *window = nil;
-    CFAbsoluteTime end = CFAbsoluteTimeGetCurrent() + seconds;
-    int stopped;
+    BOOL on_main = host_on_main_thread();
+    __block HaloBenchmarkNoticeController *controller;
+    __block UIWindow *window;
+    __block CFAbsoluteTime end;
+    __block int stopped;
+    host_main_sync(^{
+        UIWindowScene *scene = nil;
+        controller = [HaloBenchmarkNoticeController new];
+        end = CFAbsoluteTimeGetCurrent() + seconds;
 
-    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
-        if ([candidate isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)candidate; break; }
-    controller.heading = @(heading);
-    controller.detail = @(detail);
-    /* out of the frame workgroup until the next frame, as the benchmark menu's ask() */
-    gpu_metal_frame_deadline_leave();
-    if (scene) {
-        window = [[UIWindow alloc] initWithWindowScene:scene];
-        window.frame = scene.coordinateSpace.bounds;
-        window.windowLevel = UIWindowLevelNormal + 2;
-        window.rootViewController = controller;
-        [window makeKeyAndVisible];
-    }
-    while (!controller.stopped && !host_benchmark_finish_requested() && CFAbsoluteTimeGetCurrent() < end && !(until && until())) {
-        @autoreleasepool {
-            if (CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true) == kCFRunLoopRunFinished) usleep(100000);
-#if !TARGET_OS_TV
-            CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
-#endif
+        for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if ([candidate isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)candidate; break; }
+        controller.heading = @(heading);
+        controller.detail = @(detail);
+        /* out of the frame workgroup until the next frame, as the benchmark menu's ask() */
+        if (on_main) gpu_metal_frame_deadline_leave();
+        if (scene) {
+            window = [[UIWindow alloc] initWithWindowScene:scene];
+            window.frame = scene.coordinateSpace.bounds;
+            window.windowLevel = UIWindowLevelNormal + 2;
+            window.rootViewController = controller;
+            [window makeKeyAndVisible];
         }
+    });
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.1, ^bool {
+            stopped = controller.stopped || host_benchmark_finish_requested();
+            return stopped || CFAbsoluteTimeGetCurrent() >= end || (until && until());
+        });
+    } else {
+        while (!controller.stopped && !host_benchmark_finish_requested() && CFAbsoluteTimeGetCurrent() < end && !(until && until())) {
+            @autoreleasepool {
+                if (CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true) == kCFRunLoopRunFinished) usleep(100000);
+#if !TARGET_OS_TV
+                CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
+#endif
+            }
+        }
+        stopped = controller.stopped || host_benchmark_finish_requested();
     }
-    stopped = controller.stopped || host_benchmark_finish_requested();
-    window.hidden = YES;
-    window.rootViewController = nil;
+    host_main_sync(^{
+        window.hidden = YES;
+        window.rootViewController = nil;
+    });
     return stopped;
 }
 
 void host_benchmark_page(const char *report_path, const char *summary, const char *code, int minutes) {
+    BOOL on_main = host_on_main_thread();
     NSData *report = [NSData dataWithContentsOfFile:@(report_path)];
-    UIWindowScene *scene = nil;
-    HaloBenchmarkPageController *controller;
-    UIWindow *window;
+    __block UIWindowScene *scene;
+    __block HaloBenchmarkPageController *controller;
+    __block UIWindow *window;
     CFAbsoluteTime until = CFAbsoluteTimeGetCurrent() + 60.0 * minutes;
 
     report_gzip = report ? gzip(report) : nil;
@@ -401,32 +417,45 @@ void host_benchmark_page(const char *report_path, const char *summary, const cha
     atomic_store(&page_port, 0);
     start_listener(PAGE_PORT);
 
-    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
-        if ([candidate isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)candidate; break; }
-    if (!scene) { host_logf(HOST_LOG_INFO, "benchmark: no window scene for the report screen"); return; }
-    /* the report screen scrolls: out of the frame workgroup until the next frame, as the benchmark menu's ask() */
-    gpu_metal_frame_deadline_leave();
-    controller = [HaloBenchmarkPageController new];
-    controller.summary = @(summary);
-    controller.code = @(code);
-    window = [[UIWindow alloc] initWithWindowScene:scene];
-    window.frame = scene.coordinateSpace.bounds;
-    window.windowLevel = UIWindowLevelNormal + 2;
-    window.rootViewController = controller;
-    [window makeKeyAndVisible];
-    host_logf(HOST_LOG_INFO, "benchmark: showing the report screen for up to %d minutes", minutes);
-    while (!controller.dismissed && CFAbsoluteTimeGetCurrent() < until) {
-        @autoreleasepool {
+    host_main_sync(^{
+        for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if ([candidate isKindOfClass:UIWindowScene.class]) { scene = (UIWindowScene *)candidate; break; }
+        if (!scene) { host_logf(HOST_LOG_INFO, "benchmark: no window scene for the report screen"); return; }
+        /* the report screen scrolls: out of the frame workgroup until the next frame, as the benchmark menu's ask() */
+        if (on_main) gpu_metal_frame_deadline_leave();
+        controller = [HaloBenchmarkPageController new];
+        controller.summary = @(summary);
+        controller.code = @(code);
+        window = [[UIWindow alloc] initWithWindowScene:scene];
+        window.frame = scene.coordinateSpace.bounds;
+        window.windowLevel = UIWindowLevelNormal + 2;
+        window.rootViewController = controller;
+        [window makeKeyAndVisible];
+        host_logf(HOST_LOG_INFO, "benchmark: showing the report screen for up to %d minutes", minutes);
+    });
+    if (!scene) return;
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.25, ^bool {
+            if (controller.dismissed || CFAbsoluteTimeGetCurrent() >= until) return true;
             [controller refresh];
-            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.25, true);
+            return false;
+        });
+    } else {
+        while (!controller.dismissed && CFAbsoluteTimeGetCurrent() < until) {
+            @autoreleasepool {
+                [controller refresh];
+                CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.25, true);
 #if !TARGET_OS_TV
-            CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
+                CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
 #endif
+            }
         }
     }
     dispatch_sync(page_queue, ^{ if (listener) nw_listener_cancel(listener); listener = nil; });
-    window.hidden = YES;
-    window.rootViewController = nil;
+    host_main_sync(^{
+        window.hidden = YES;
+        window.rootViewController = nil;
+    });
     host_logf(HOST_LOG_INFO, "benchmark: the report screen closed");
 }
 
