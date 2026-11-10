@@ -27,6 +27,7 @@ so the audio callback is handed to a thread that has one.
 #include "host_main_thread.h"
 
 #include <SDL3/SDL.h>
+#include <assert.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -164,6 +165,152 @@ int64_t host_sdl_thread_id(void)
 /* the Metal window's view (display.renderer = "metal"), whose layer the Metal
 backend draws into (gpu_metal.m) */
 static SDL_MetalView metal_view;
+static _Atomic(void *) metal_layer;
+
+/* Main publishes each dimension pair in one atomic value. The handle table
+   already protects window identity; no SDL query runs while its lock is held. */
+struct window_cache
+{
+	_Atomic uint64_t pixels, points;
+	_Atomic SDL_WindowID id;
+	_Atomic SDL_PropertiesID properties;
+};
+static struct window_cache window_cache[HANDLE_COUNT];
+
+static uint64_t window_dimensions(int width, int height)
+{
+	return ((uint64_t)(uint32_t)width << 32) | (uint32_t)height;
+}
+
+static struct window_cache *window_cache_for(SDL_Window *window)
+{
+	struct window_cache *cache = NULL;
+
+	pthread_mutex_lock(&handle_lock);
+	for (unsigned i = 1; i < HANDLE_COUNT; i++)
+		if (handles[i].type == _handle_window && handles[i].object == window)
+		{
+			cache = &window_cache[i];
+			break;
+		}
+	pthread_mutex_unlock(&handle_lock);
+	return cache;
+}
+
+/* host_event_pump calls this after SDL finishes updating native windows.
+   Creation seeds the cache before returning the handle to the game. */
+void host_sdl_refresh_window_cache(void)
+{
+	assert(host_on_main_thread());
+	for (unsigned i = 1; i < HANDLE_COUNT; i++)
+	{
+		SDL_Window *window = handle_get(i, _handle_window);
+		int width = 0, height = 0;
+
+		if (!window)
+			continue;
+		bool valid = SDL_GetWindowSizeInPixels(window, &width, &height);
+		atomic_store(&window_cache[i].pixels, valid ? window_dimensions(width, height) : UINT64_MAX);
+		valid = SDL_GetWindowSize(window, &width, &height);
+		atomic_store(&window_cache[i].points, valid ? window_dimensions(width, height) : UINT64_MAX);
+		atomic_store(&window_cache[i].properties, SDL_GetWindowProperties(window));
+		atomic_store(&window_cache[i].id, SDL_GetWindowID(window));
+	}
+}
+
+static bool cached_window_dimensions(SDL_Window *window, int *width, int *height, int pixels)
+{
+	struct window_cache *cache = window_cache_for(window);
+	uint64_t size = cache ? atomic_load(pixels ? &cache->pixels : &cache->points) : UINT64_MAX;
+
+	if (size == UINT64_MAX)
+		return false;
+	*width = (int)(size >> 32);
+	*height = (int)(uint32_t)size;
+	return true;
+}
+
+void host_sdl_window_pixels(SDL_Window *window, int *width, int *height)
+{
+	if (host_on_main_thread())
+		SDL_GetWindowSizeInPixels(window, width, height);
+	else
+		cached_window_dimensions(window, width, height, 1);
+}
+
+static bool window_size(SDL_Window *window, int *width, int *height)
+{
+	return host_on_main_thread() ? SDL_GetWindowSize(window, width, height) :
+		cached_window_dimensions(window, width, height, 0);
+}
+
+static SDL_Window *window_from_id(SDL_WindowID id)
+{
+	if (host_on_main_thread())
+		return SDL_GetWindowFromID(id);
+	if (id)
+		for (unsigned i = 1; i < HANDLE_COUNT; i++)
+			if (atomic_load(&window_cache[i].id) == id)
+				return handle_get(i, _handle_window);
+	return NULL;
+}
+
+struct window_create
+{
+	const char *title;
+	int width, height;
+	SDL_WindowFlags flags;
+	uint32_t handle;
+	char error[256];
+};
+
+static void window_create_main(void *context)
+{
+	struct window_create *request = context;
+	SDL_Window *window = SDL_CreateWindow(request->title, request->width, request->height, request->flags);
+
+	/* SDL_Metal_CreateView replaces the root view; controls must attach after it. */
+	if (window && (request->flags & SDL_WINDOW_METAL))
+	{
+		metal_view = SDL_Metal_CreateView(window);
+		atomic_store(&metal_layer, metal_view ? SDL_Metal_GetLayer(metal_view) : NULL);
+		if (!metal_view)
+			host_logf(HOST_LOG_ERROR, "SDL_Metal_CreateView failed: %s", SDL_GetError());
+		host_ios_touch_attach(window);
+		host_external_attach(window, 1);
+	}
+	if (!window)
+		snprintf(request->error, sizeof(request->error), "%s", SDL_GetError());
+	request->handle = handle_new(_handle_window, window);
+	if (request->handle)
+		host_sdl_refresh_window_cache();
+}
+
+#if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC || TARGET_OS_IOS
+struct window_relative_mouse
+{
+	SDL_Window *window;
+	int enabled, result;
+};
+
+static void window_relative_mouse_main(void *context)
+{
+	struct window_relative_mouse *request = context;
+
+	request->result = SDL_SetWindowRelativeMouseMode(request->window, request->enabled != 0);
+}
+
+static int window_relative_mouse(SDL_Window *window, int enabled)
+{
+	struct window_relative_mouse request = { .window = window, .enabled = enabled };
+
+	if (!window)
+		return 0;
+	host_main_sync_f(&request, window_relative_mouse_main);
+	return request.result;
+}
+
+#endif
 
 #if HALO_NATIVE_MAC
 /* The shared ILP32 guest requests fullscreen on every Apple target. Native Mac
@@ -205,25 +352,18 @@ uint32_t host_sdl_create_window(const char *title, int width, int height, int64_
         (unsigned long long)requested, (unsigned long long)flags,
         (flags & SDL_WINDOW_FULLSCREEN) ? "explicit fullscreen" : "resizable window");
 #endif
-	SDL_Window *window = SDL_CreateWindow(title, width, height, (SDL_WindowFlags)flags);
+	struct window_create request = { .title = title, .width = width, .height = height, .flags = (SDL_WindowFlags)flags };
 
-	/* a GL window gets its view, and then its touch controls, from
-	host_sdl_gl_create_context. A Metal window has no context, so both
-	happen here, in the same order: SDL_Metal_CreateView replaces the
-	window's root view, which would drop controls attached before it */
-	if (window && (flags & SDL_WINDOW_METAL))
-	{
-		metal_view = SDL_Metal_CreateView(window);
-		if (!metal_view)
-			host_logf(HOST_LOG_ERROR, "SDL_Metal_CreateView failed: %s", SDL_GetError());
-		host_ios_touch_attach(window);
-        host_external_attach(window,1);
-	}
-	return handle_new(_handle_window, window);
+	host_main_sync_f(&request, window_create_main);
+	if (request.error[0] && !host_on_main_thread())
+		SDL_SetError("%s", request.error);
+	return request.handle;
 }
 
 void *host_sdl_metal_layer(void)
 {
+	if (!host_on_main_thread())
+		return atomic_load(&metal_layer);
 	return metal_view ? SDL_Metal_GetLayer(metal_view) : NULL;
 }
 
@@ -307,7 +447,7 @@ void host_sdl_window_size_in_pixels(uint32_t window, int *width, int *height)
 		return;
 	}
 	if (object)
-		SDL_GetWindowSizeInPixels(object, width, height);
+		host_sdl_window_pixels(object, width, height);
 }
 
 /* Menu units are sized in the current window's points, independent of its
@@ -338,13 +478,13 @@ int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 
 #if TARGET_OS_MACCATALYST || HALO_NATIVE_MAC
 	/* The guest asks for the mouse to be held while the game is played. */
-	return object ? SDL_SetWindowRelativeMouseMode(object, enabled != 0) : 0;
+	return window_relative_mouse(object, enabled);
 #else
 #if TARGET_OS_IOS
 	/* (the iOS app run on a Mac as "Designed for iPad": SDL's UIKit backend holds the mouse through
 	GCMouse and prefersPointerLocked) */
 	if (host_ios_app_on_mac())
-		return object ? SDL_SetWindowRelativeMouseMode(object, enabled != 0) : 0;
+		return window_relative_mouse(object, enabled);
 #endif
 	/* Touch screens have no cursor to hold, and SDL's relative mode would
 	reroute their synthesized mouse events. */
@@ -1179,20 +1319,20 @@ static void menu_pointer_event(const SDL_Event *event)
 	case SDL_EVENT_MOUSE_MOTION:
 		if (event->motion.which == SDL_TOUCH_MOUSEID || event->motion.which == SDL_PEN_MOUSEID)
 			return;
-		window = SDL_GetWindowFromID(event->motion.windowID);
+		window = window_from_id(event->motion.windowID);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		if (event->button.which == SDL_TOUCH_MOUSEID || event->button.which == SDL_PEN_MOUSEID || !event->button.down)
 			return;
-		window = SDL_GetWindowFromID(event->button.windowID);
+		window = window_from_id(event->button.windowID);
 		break;
 	case SDL_EVENT_MOUSE_WHEEL:
-		window = SDL_GetWindowFromID(event->wheel.windowID);
+		window = window_from_id(event->wheel.windowID);
 		break;
 	default:
 		return;
 	}
-	if (window && SDL_GetWindowSize(window, &width, &height))
+	if (window && window_size(window, &width, &height))
 		host_menu_pointer_set_surface(&menu_pointer, (float)width, (float)height);
 	switch (event->type)
 	{
@@ -1440,7 +1580,7 @@ static void menu_script_run(void)
 		menu_script_next();
 	}
 	menu_script.frame++;
-	if (!menu_script.kind || !window || !SDL_GetWindowSize(window, &width, &height) ||
+	if (!menu_script.kind || !window || !window_size(window, &width, &height) ||
 		menu_script.frame < menu_script.start + (unsigned long)menu_script.step)
 		return;
 	if (menu_script.kind >= 6 && menu_script_pinch())
@@ -1537,8 +1677,11 @@ SDL_Window *host_sdl_window(void)
 	unsigned index;
 
 	for (index = 1; index < HANDLE_COUNT; index++)
-		if (handles[index].type == _handle_window)
-			return handles[index].object;
+	{
+		SDL_Window *window = handle_get(index, _handle_window);
+		if (window)
+			return window;
+	}
 	return NULL;
 }
 
@@ -1547,8 +1690,16 @@ uint32_t host_ios_default_framebuffer(void)
 {
 	SDL_Window *window = host_sdl_window();
 
-	return window ? (uint32_t)SDL_GetNumberProperty(SDL_GetWindowProperties(window),
-		SDL_PROP_WINDOW_UIKIT_OPENGL_FRAMEBUFFER_NUMBER, 0) : 0;
+	if (!window)
+		return 0;
+	/* Property values are thread-safe; obtaining the window's property group
+	   is main-only and can lazily allocate it (SDL_video.c). Keep the GL value
+	   live, since creating or resizing its view can replace the framebuffer. */
+	struct window_cache *cache = window_cache_for(window);
+	SDL_PropertiesID properties = host_on_main_thread() ? SDL_GetWindowProperties(window) :
+		(cache ? atomic_load(&cache->properties) : 0);
+	return (uint32_t)SDL_GetNumberProperty(properties,
+		SDL_PROP_WINDOW_UIKIT_OPENGL_FRAMEBUFFER_NUMBER, 0);
 }
 
 /* ---------- messages for the player (sdl_platform.c, guest_sdl.c) */
