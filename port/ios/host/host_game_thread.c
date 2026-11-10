@@ -1,4 +1,5 @@
 #include "host_game_thread.h"
+#include "ios_host.h"
 #include "host_config.h"
 #include "host_main_thread.h"
 #include <SDL3/SDL_events.h>
@@ -18,4 +19,5 @@ int host_game_thread_enabled(void) {
 void host_event_pump(void) {
     assert(host_on_main_thread());
     SDL_PumpEvents();
+    host_sdl_refresh_window_cache();
 }
