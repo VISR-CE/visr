@@ -12,6 +12,7 @@
 #include "host_shader_upload.h"
 #include "host_frame_counter_stats.h"
 #include "host_main_thread.h"
+#include "host_modal_wait.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -132,7 +133,16 @@ CADisplayLink *host_macos_display_link(id target, SEL selector) {
     return link;
 }
 int host_alert(const char *title, const char *message, const char *first, const char *second) {
-    if (!NSThread.isMainThread) return -1;
+    if (!host_on_main_thread()) {
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        __block int answer;
+        host_main_async(^{
+            answer = host_alert(title, message, first, second);
+            dispatch_semaphore_signal(done);
+        });
+        dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+        return answer;
+    }
     NSAlert *alert = [NSAlert new];
     alert.messageText = @(title ?: "VISR"); alert.informativeText = @(message ?: "");
     [alert addButtonWithTitle:@(first ?: "OK")];
@@ -353,21 +363,35 @@ static int benchmark_notice_stopped(void) {
 }
 
 int host_benchmark_notice(const char *heading, const char *detail, double seconds, int (*until)(void)) {
-    if (!NSThread.isMainThread) return 0;
-    NSPanel *panel=[[NSPanel alloc]initWithContentRect:NSMakeRect(0,0,520,160)
-        styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
-    panel.title=@(heading ?: "VISR");
-    NSTextField *text=[NSTextField wrappingLabelWithString:@(detail ?: "")];
-    text.frame=NSMakeRect(20,20,480,120);[panel.contentView addSubview:text];
-    [panel center];[panel makeKeyAndOrderFront:nil];
-    double end=CACurrentMediaTime()+seconds;int stopped=0;
-    while(CACurrentMediaTime()<end && !(until && until())) {
-        @autoreleasepool {
+    __block NSPanel *panel;
+    __block double end;
+    __block int stopped = 0;
+    host_main_sync(^{
+        panel=[[NSPanel alloc]initWithContentRect:NSMakeRect(0,0,520,160)
+            styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+        panel.title=@(heading ?: "VISR");
+        NSTextField *text=[NSTextField wrappingLabelWithString:@(detail ?: "")];
+        text.frame=NSMakeRect(20,20,480,120);[panel.contentView addSubview:text];
+        [panel center];[panel makeKeyAndOrderFront:nil];
+        end=CACurrentMediaTime()+seconds;
+    });
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.01, ^bool {
+            if (CACurrentMediaTime() >= end || (until && until())) return true;
             SDL_PumpEvents();
             stopped = benchmark_notice_stopped();
-            if(stopped)break;
-            [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
+            return stopped != 0;
+        });
+    } else {
+        while(CACurrentMediaTime()<end && !(until && until())) {
+            @autoreleasepool {
+                SDL_PumpEvents();
+                stopped = benchmark_notice_stopped();
+                if(stopped)break;
+                [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
+            }
         }
     }
-    [panel orderOut:nil];return stopped || host_benchmark_finish_requested();
+    host_main_sync(^{ [panel orderOut:nil]; });
+    return stopped || host_benchmark_finish_requested();
 }
