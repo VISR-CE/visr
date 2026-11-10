@@ -1644,6 +1644,18 @@ int host_sdl_text_result(char *buffer, uint32_t size)
 #endif
 }
 
+#if !TARGET_OS_TV
+static void text_input_start_main(void *window)
+{
+	SDL_StartTextInput((SDL_Window *)window);
+}
+
+static void text_input_stop_main(void *window)
+{
+	SDL_StopTextInput((SDL_Window *)window);
+}
+#endif
+
 static void text_input_update(void)
 {
 	SDL_Window *window;
@@ -1658,15 +1670,11 @@ static void text_input_update(void)
 		text_input_on = text_input_wanted;
 #else
 	text_input_on = text_input_wanted;
+	/* SDL builds and removes a Cocoa or UIKit text view here, so it runs on the
+	   main thread when the game thread owns this loop */
+	host_main_sync_f(window, text_input_on ? text_input_start_main : text_input_stop_main);
 	if (text_input_on)
-	{
-		SDL_StartTextInput(window);
 		host_logf(HOST_LOG_INFO, "keyboard: up for a text field");
-	}
-	else
-	{
-		SDL_StopTextInput(window);
-	}
 #endif
 }
 
