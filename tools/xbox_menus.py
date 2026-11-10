@@ -265,13 +265,19 @@ def standardize_spinners(documents):
                 part.set('x', str(int(part.get('x', '0')) - shift))
 
 
+# PC-look rows the Xbox look leaves out; their config keys stay.
+XBOX_DROPPED_ROWS = {
+    'video_settings': ('op_resolution_scaling', 'resolution_scaling_label', 'resolution_scaling_spinner'),
+}
+
+
 def settings_page(assets, folder, bitmaps):
     source = ET.parse(assets / 'ce' / f'{PE.replace("/", ".")}.{folder}.xml').getroot()
     root = deepcopy(source)
     pending = None
     prefix = f'{PE}/{folder}'
     base = f'xbox/settings/{folder}'
-    removed = ('button_bar', 'button_defaults', 'button_ok')
+    removed = ('button_bar', 'button_defaults', 'button_ok') + XBOX_DROPPED_ROWS.get(folder, ())
     if folder == 'about':
         # (the About screen has a BACK button on the PC look, the legend's B here, and the scroll arrows are
         # placed again below for the rows this look fits)
@@ -283,6 +289,10 @@ def settings_page(assets, folder, bitmaps):
     for element in list(root):
         if element.get('name', '').rsplit('/', 1)[-1] in removed:
             root.remove(element)
+    for parent in root.iter():
+        for row in list(parent.findall('child')):
+            if row.get('widget', '').rsplit('/', 1)[-1] in XBOX_DROPPED_ROWS.get(folder, ()):
+                parent.remove(row)
     for element in root.iter():
         for key, value in list(element.attrib.items()):
             if value.startswith(prefix):

@@ -58,7 +58,8 @@ def test_settings_keep_pc_values_and_handlers():
         source = ET.parse(MENUS / 'ce' / f'{module.PE.replace("/", ".")}.{folder}.xml')
         output = ET.parse(MENUS / 'xbox' / f'settings.{folder}.xml')
         expected = {w.get('setting'): (w.get('values'), w.get('strings'))
-                    for w in source.iter('widget') if w.get('setting')}
+                    for w in source.iter('widget') if w.get('setting')
+                    and w.get('name').rsplit('/', 1)[-1] not in module.XBOX_DROPPED_ROWS.get(folder, ())}
         actual = {w.get('setting'): (w.get('values'), w.get('strings'))
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
@@ -72,6 +73,9 @@ def test_settings_keep_pc_values_and_handlers():
         assert ({'b_butn', 'cancel'} if folder == 'about' else
                 {'a_butn', 'b_butn', 'accept', 'cancel'}) <= names
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
+    video = ET.parse(MENUS / 'xbox/settings.video_settings.xml')
+    assert not [w for w in video.iter('widget') if w.get('setting') == 'display.resolution_scaling']
+    assert not [c for c in video.iter('child') if 'resolution_scaling' in c.get('widget', '')]
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
         'CONTROLS', 'VIDEO', 'GRAPHICS', 'AUDIO', 'NETWORK', 'KEYBOARD & MOUSE'}

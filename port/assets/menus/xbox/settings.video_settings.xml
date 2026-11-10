@@ -26,12 +26,11 @@
 		<child widget="xbox/settings/video_settings/op_mode" x="54" y="151" platform="desktop" />
 		<child widget="xbox/settings/video_settings/op_resolution" x="54" y="190" platform="desktop" />
 		<child widget="xbox/settings/video_settings/op_window_size" x="54" y="190" platform="desktop" />
-		<child widget="xbox/settings/video_settings/op_resolution_scaling" x="54" y="229" platform="desktop" />
-		<child widget="xbox/settings/video_settings/op_vsync" x="54" y="268" />
-		<child widget="xbox/settings/video_settings/op_max_fps" x="54" y="307" platform="desktop" />
-		<child widget="xbox/settings/video_settings/op_frame_rate" x="54" y="307" platform="mac_app" />
-		<child widget="xbox/settings/video_settings/op_interpolation" x="54" y="346" />
-		<child widget="xbox/settings/video_settings/op_direct_camera" x="54" y="385" platform="desktop" />
+		<child widget="xbox/settings/video_settings/op_vsync" x="54" y="229" />
+		<child widget="xbox/settings/video_settings/op_max_fps" x="54" y="268" platform="desktop" />
+		<child widget="xbox/settings/video_settings/op_frame_rate" x="54" y="268" platform="mac_app" />
+		<child widget="xbox/settings/video_settings/op_interpolation" x="54" y="307" />
+		<child widget="xbox/settings/video_settings/op_direct_camera" x="54" y="346" platform="desktop" />
 		<child widget="xbox/settings/video_settings/button_bar" y="414" />
 		<child widget="xbox/settings/video_settings/options_menu/scroll_up_arrow" x="574" y="73" />
 		<child widget="xbox/settings/video_settings/options_menu/scroll_down_arrow" x="574" y="274" />
@@ -101,26 +100,12 @@
 		<on event="stick_left" run="port setting changed" />
 		<on event="stick_right" run="port setting changed" />
 	</widget>
-	<widget name="xbox/settings/video_settings/op_resolution_scaling" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="desktop" top="0">
-		<child widget="xbox/settings/video_settings/resolution_scaling_label" y="5" />
-		<child widget="xbox/settings/video_settings/resolution_scaling_spinner" x="286" y="6" />
-		<child widget="xbox/settings/video_settings/resolution_scaling_replaced" x="320" y="6" />
-	</widget>
 	<widget name="xbox/settings/video_settings/resolution_scaling_replaced" type="text" left="3" top="2" width="147" height="20" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" string_list="xbox/settings/video_settings/resolution_scaling_shown">
 	</widget>
 	<strings name="xbox/settings/video_settings/resolution_scaling_shown">
 		<string text="NATIVE" id="xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_shown.native" />
 		<string text="ORIGINAL" id="xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_shown.original" />
 	</strings>
-	<widget name="xbox/settings/video_settings/resolution_scaling_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/video_settings/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="xbox/settings/video_settings/resolution_scaling_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NATIVE|ORIGINAL" strings_ids="xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_spinner.s0|xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_spinner.s1" setting="display.resolution_scaling" values="native|original" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 45 19 51" footer_bounds="7 160 19 166">
-		<on event="created" run="port setting load" />
-		<on event="left" run="port setting changed" />
-		<on event="right" run="port setting changed" />
-		<on event="stick_left" run="port setting changed" />
-		<on event="stick_right" run="port setting changed" />
-	</widget>
 	<widget name="xbox/settings/video_settings/op_vsync" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<child widget="xbox/settings/video_settings/vsync_label" y="5" />
 		<child widget="xbox/settings/video_settings/vsync_spinner" x="286" y="6" />

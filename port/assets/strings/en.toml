@@ -2174,10 +2174,6 @@ s2 = "WINDOWED"
 native = "NATIVE"
 original = "ORIGINAL"
 
-[xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_spinner]
-s0 = "NATIVE"
-s1 = "ORIGINAL"
-
 [xbox.settings_video_settings.xbox_settings_video_settings_resolution_spinner]
 s0 = "NATIVE"
 
