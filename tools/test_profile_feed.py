@@ -25,7 +25,7 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
-                   5: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3"}
+                   5: "f0c2dda38e02337e445792dcfb883d4b60249c0cda6eaa1ef43ccc7b2323bcd4"}
 
 
 def key_table_sha256(text):
@@ -232,7 +232,7 @@ def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
     profiles = tmp_path / "profiles"
     shutil.copytree(ROOT / "profiles", profiles)
     for path in profiles.glob("*.toml"):
-        path.write_text(profile_pr.strip_keys(path.read_text(), ("network.full_rate_players",)))
+        path.write_text(profile_pr.strip_keys(path.read_text(), ("network.full_rate_players", "display.allow_portrait")))
     for domain in profile_pr.GENERATIONS:
         assert profile_pr.generation_profiles(profiles, domain, tmp_path / domain) == profiles
 
@@ -243,7 +243,10 @@ def test_a_profile_with_the_key_reaches_current_and_older_generations(tmp_path):
     profiles = profiles_with_full_rate(tmp_path / "profiles")
     stripped = profile_pr.generation_profiles(profiles, "device-profiles-3", tmp_path / "generation-3")
     assert profile_revision.read(stripped)[0] == profile_revision.read(profiles)[0]
-    assert profile_pr.generation_profiles(profiles, "device-profiles-4", tmp_path / "generation-4") == profiles
+    generation_4 = profile_pr.generation_profiles(profiles, "device-profiles-4", tmp_path / "generation-4")
+    assert generation_4 != profiles and profile_revision.read(generation_4)[0] == profile_revision.read(profiles)[0]
+    assert b"allow_portrait" not in (generation_4 / "iphone-duo.toml").read_bytes()
+    assert b"full_rate_players = 64" in (generation_4 / "iphone-17-pro.toml").read_bytes()
     assert profile_pr.generation_profiles(profiles, "device-profiles-5", tmp_path / "generation-5") == profiles
     # the released validators refuse the key, and every one of them accepts the stripped shard
     bare = data_pack.device_profile_snapshot(profiles, "ios", "iPhone18,1", generation=3)
@@ -286,7 +289,7 @@ def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
     assert {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_", "device-profiles-5:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
     assert {"device-profiles-3:ios/iPad13,1/_", "device-profiles-4:ios/iPad13,1/_", "device-profiles-5:ios/iPad13,1/_"} <= {domain for domain, _ in calls}
     sources = dict(calls)
-    assert sources["device-profiles-4:ios/iPhone18,1/_"] == str(repo / "profiles")
+    assert sources["device-profiles-4:ios/iPhone18,1/_"] != str(repo / "profiles")
     assert sources["device-profiles-5:ios/iPhone18,1/_"] == str(repo / "profiles")
     assert sources["device-profiles-3:ios/iPhone18,1/_"] != str(repo / "profiles")
     assets = json.loads((tester / "publication.json").read_text())["assets"]

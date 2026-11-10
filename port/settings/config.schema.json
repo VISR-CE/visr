@@ -343,6 +343,16 @@
             "apple"
           ]
         },
+        "allow_portrait": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, gameplay and menus follow the device into portrait. Device profiles turn it on where portrait play is supported (the iPhone Duo); on other devices set it in config.toml for testing. Read at launch.",
+          "x-environment": "HALO_ALLOW_PORTRAIT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "dynamic_resolution_floor": {
           "type": "integer",
           "default": 540,
@@ -1497,6 +1507,16 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ]
+        },
+        "orientation": {
+          "type": "string",
+          "default": "",
+          "description": "Request \"portrait\" or \"landscape\" once the first window scene is active; empty leaves the device's orientation alone. Portrait requires display.allow_portrait. For simulator captures. Read at launch.",
+          "x-environment": "HALO_ORIENTATION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
           ]
         },
         "test_controller": {

@@ -261,6 +261,10 @@ static const struct config_setting config_settings[] =
 		"cannot keep up and raise it again when it can, between frames, from\n"
 		"display.render_height (the ceiling) down to display.dynamic_resolution_floor.\n"
 		"The HUD and menus stay at the display's resolution. Read at launch." },
+	{ "display.allow_portrait", _config_boolean, "false", "HALO_ALLOW_PORTRAIT", _environment_value, _platform_ios,
+		"When true, gameplay and menus follow the device into portrait. Device\n"
+		"profiles turn it on where portrait play is supported (the iPhone Duo);\n"
+		"on other devices set it in config.toml for testing. Read at launch." },
 	{ "display.dynamic_resolution_floor", _config_integer, "540", "HALO_DYNAMIC_RESOLUTION_FLOOR", _environment_value, _platform_ios,
 		"The fewest lines display.dynamic_resolution draws the 3D view at; never\n"
 		"fewer than half the ceiling's. Read at launch." },
@@ -634,6 +638,10 @@ static const struct config_setting config_settings[] =
 		"the last half meter inside this distance." },
 	{ "debug.photo_mode", _config_boolean, "false", "HALO_PHOTO_MODE", _environment_value, _platform_all,
 		"Enable developer map framing controls in the development AppKit Mac host." },
+	{ "debug.orientation", _config_string, "\"\"", "HALO_ORIENTATION", _environment_value, _platform_ios,
+		"Request \"portrait\" or \"landscape\" once the first window scene is active;\n"
+		"empty leaves the device's orientation alone. Portrait requires\n"
+		"display.allow_portrait. For simulator captures. Read at launch." },
 	{ "debug.test_controller", _config_string, "\"\"", "HALO_TEST_CONTROLLER", _environment_value, _platform_ios,
 		"A synthetic right Sense controller in place of the real ones, to check\n"
 		"controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\"\n"

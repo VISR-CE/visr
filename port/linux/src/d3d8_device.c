@@ -381,14 +381,16 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 	const char *pixels_x = getenv("HALO_DISPLAY_PIXEL_WIDTH");
 	const char *pixels_y = getenv("HALO_DISPLAY_PIXEL_HEIGHT");
 	long requested_width = config_integer("display.screen_width");
+	int allow_portrait = config_boolean("display.allow_portrait") && host_display_supports_portrait() && !host_external_active();
+	long minimum_width = allow_portrait ? 240 : 640;
 	int drawable_width = 0, drawable_height = 0;
 	struct halo_display_size pixels, native_pixels;
 
 	*width = requested_width;
 	if (*width <= 0)
 		*width = display ? atol(display) : 640;
-	if (*width < 640)
-		*width = 640;
+	if (*width < minimum_width)
+		*width = minimum_width;
 	if (*width > 1600)
 		*width = 1600;
 	*width &= ~1L;
@@ -399,9 +401,9 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		drawable_width = pixels_x ? atoi(pixels_x) : (int)*width;
 		drawable_height = pixels_y ? atoi(pixels_y) : SCREEN_HEIGHT;
 	}
-	*width = halo_display_layout_width(drawable_width, drawable_height, requested_width, *width);
+	*width = halo_display_layout_width(drawable_width, drawable_height, requested_width, *width, allow_portrait);
 	native_pixels = halo_display_render_size(drawable_width, drawable_height, *width, requested_width, 0,
-		screen_maximum_texture_size);
+		screen_maximum_texture_size, allow_portrait);
 	{
 		/* display.render_scale: a fraction of the display's pixels each way
 		(display.upscaler scales the picture back up). Not for foveated eyes:
@@ -419,7 +421,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 	}
 	pixels = halo_display_render_size(drawable_width, drawable_height, *width,
 		requested_width, benchmark_render_lines > 0 ? benchmark_render_lines : knob_render_lines > 0 ? knob_render_lines :
-		config_scene_integer("display.render_height", halo_scene_class()), screen_maximum_texture_size);
+		config_scene_integer("display.render_height", halo_scene_class()), screen_maximum_texture_size, allow_portrait);
 	{
 		/* head-tracked stereo: the screen's targets are the eyes' pictures,
 		each view's size and shape times display.render_scale, which needn't
@@ -461,7 +463,7 @@ static void screen_mode_choose(long *width, float scale[2], float native[2], flo
 		*dynamic = lines > 0 || refused == 1;
 		if (lines > 0 && lines < pixels.height)
 			pixels = halo_display_render_size(drawable_width, drawable_height, *width, requested_width, lines,
-				screen_maximum_texture_size);
+				screen_maximum_texture_size, allow_portrait);
 	}
 	scale[0] = (float)pixels.width / (float)*width;
 	scale[1] = (float)pixels.height / (float)SCREEN_HEIGHT;

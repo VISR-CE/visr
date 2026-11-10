@@ -36,7 +36,8 @@ PACKS = Path("docs/site/packs")
 PROFILE_DOMAIN = "device-profiles-5"
 # Every generation published from these sources, newest first, with the keys that generation's released validators
 # refuse: 0.6.4 to 0.6.7 read device-profiles-3 and refuse a whole shard that names network.full_rate_players.
-GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-4": (), "device-profiles-3": ("network.full_rate_players",)}
+GENERATIONS = {PROFILE_DOMAIN: (), "device-profiles-4": ("display.allow_portrait",),
+               "device-profiles-3": ("network.full_rate_players", "display.allow_portrait")}
 RECEIPT = FEED / "publication.json"
 RUN_JOB = Path.home() / "code/halovision/step-tools/run-job.sh"
 REPOSITORY = "VISR-CE/visr"

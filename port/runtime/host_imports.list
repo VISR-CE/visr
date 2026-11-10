@@ -140,6 +140,9 @@ host_benchmark_offscreen_request
 host_benchmark_presented
 host_benchmark_worker_wait
 
+# Whether the host permits portrait display shapes (host_sdl.c)
+host_display_supports_portrait
+
 # Wired external display lifecycle and test controls
 host_external_active
 host_external_safe_insets

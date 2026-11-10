@@ -6,16 +6,17 @@
 struct halo_display_size { long width, height; };
 
 /* The guest layout follows a changed output only between frames. */
-static inline long halo_display_layout_width(long pixels_x, long pixels_y, long requested, long fallback)
+static inline long halo_display_layout_width(long pixels_x, long pixels_y, long requested, long fallback, int allow_portrait)
 {
+    long minimum_width = allow_portrait ? 240 : 640;
     long width = requested > 0 ? requested : pixels_x > 0 && pixels_y > 0 ?
         (480 * pixels_x / pixels_y) : fallback;
-    return (width < 640 ? 640 : width > 1600 ? 1600 : width) & ~1L;
+    return (width < minimum_width ? minimum_width : width > 1600 ? 1600 : width) & ~1L;
 }
 
 static inline struct halo_display_size halo_display_render_size(
     long display_width, long display_height, long logical_width,
-    long requested_width, long requested_height, long maximum_dimension)
+    long requested_width, long requested_height, long maximum_dimension, int allow_portrait)
 {
     struct halo_display_size size;
     double ratio, height;
@@ -27,7 +28,8 @@ static inline struct halo_display_size halo_display_render_size(
        of logical columns. Explicit screen_width keeps its chosen aspect. */
     ratio = requested_width <= 0 ? (double)display_width / display_height :
         (double)logical_width / 480.0;
-    if (ratio < 4.0 / 3.0) ratio = 4.0 / 3.0;
+    double minimum_ratio = allow_portrait ? 0.5 : 4.0 / 3.0;
+    if (ratio < minimum_ratio) ratio = minimum_ratio;
     if (ratio > 1600.0 / 480.0) ratio = 1600.0 / 480.0;
     height = fmin((double)display_height, (double)display_width / ratio);
     if (requested_height > 0) height = fmin(height, fmax(240.0, (double)requested_height));

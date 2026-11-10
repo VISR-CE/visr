@@ -503,6 +503,16 @@ int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 #endif
 }
 
+/* Guest display math must keep landscape limits on the other Apple hosts. */
+int host_display_supports_portrait(void)
+{
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION && !HALO_NATIVE_MAC
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 int host_sdl_gl_set_attribute(int attribute, int value)
 {
 	/* EAGL exposes ES 3.0; capabilities are queried from the created context. */
