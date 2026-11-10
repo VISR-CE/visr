@@ -14,7 +14,7 @@ def main():
     MACOS.mkdir(parents=True, exist_ok=True)
     SDK = subprocess.check_output(['xcrun', '--sdk', 'macosx', '--show-sdk-path'], text=True).strip()
     subprocess.run([
-        'xcrun', 'clang', '-fobjc-arc', '-target', 'arm64-apple-ios15.0-macabi', '-isysroot', SDK,
+        'xcrun', 'clang', '-fobjc-arc', '-fblocks', '-target', 'arm64-apple-ios15.0-macabi', '-isysroot', SDK,
         '-iframework', f'{SDK}/System/iOSSupport/System/Library/Frameworks',
         '-Iport/ios/host', '-Iport/runtime', '-Iport/runtime/include', '-DHALO_BENCHMARK_CLOUD=1',
         'port/ios/tests/benchmark_menu_probe.m',

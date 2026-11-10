@@ -6,6 +6,7 @@
 #import <UIKit/UIKit.h>
 #import <CoreText/CoreText.h>
 #include "ios_host.h"
+#include "host_modal_wait.h"
 #include "host_main_thread.h"
 #include "host_benchmark.h"
 #include "host_external.h"
@@ -476,57 +477,77 @@ static UIFont *menuFont(UIFontTextStyle style, UITraitCollection *traits, CGFloa
 
 /* shows a question and waits for its answer: the index of the choice pressed */
 static NSInteger ask(NSString *heading, NSString *detail, NSArray<NSString *> *choices, BOOL launchMenu) {
-    UIWindowScene *scene = nil;
-    HaloBenchmarkMenuController *controller = [HaloBenchmarkMenuController new];
-    UIWindow *window;
-    NSInteger chosen;
+    BOOL on_main = host_on_main_thread();
+    __block UIWindowScene *scene;
+    __block HaloBenchmarkMenuController *controller;
+    __block UIWindow *window;
+    __block NSInteger chosen;
+    host_main_sync(^{
+        scene = nil;
+        controller = [HaloBenchmarkMenuController new];
 
-    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
-        if ([candidate isKindOfClass:UIWindowScene.class]
+        for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+            if ([candidate isKindOfClass:UIWindowScene.class]
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
-            /* an external display's scene is not the phone's */
-            && ![candidate.session.role isEqualToString:UIWindowSceneSessionRoleExternalDisplayNonInteractive]
+                /* an external display's scene is not the phone's */
+                && ![candidate.session.role isEqualToString:UIWindowSceneSessionRoleExternalDisplayNonInteractive]
 #endif
-            ) { scene = (UIWindowScene *)candidate; break; }
+                ) { scene = (UIWindowScene *)candidate; break; }
+        if (!scene) return;
+        if (launchMenu) host_external_menu_splash();
+        /* the thread that drew the game is in the frame workgroup, and UIKit raises from its own interval when it begins on
+           such a thread (a drag of this menu's scroll view crashed an iPad Pro): out until the next frame */
+        if (on_main) gpu_metal_frame_deadline_leave();
+        controller.heading = heading;
+        controller.detail = detail;
+        controller.choices = choices;
+        controller.launchMenu = launchMenu;
+        window = [[UIWindow alloc] initWithWindowScene:scene];
+        window.frame = scene.coordinateSpace.bounds;
+        window.windowLevel = UIWindowLevelNormal + 2;
+        window.rootViewController = controller;
+        [window makeKeyAndVisible];
+        if (launchMenu) retry_pending_reports();
+    });
     if (!scene) return 0;
-    if (launchMenu) host_external_menu_splash();
-    /* the thread that drew the game is in the frame workgroup, and UIKit raises from its own interval when it begins on
-       such a thread (a drag of this menu's scroll view crashed an iPad Pro): out until the next frame */
-    gpu_metal_frame_deadline_leave();
-    controller.heading = heading;
-    controller.detail = detail;
-    controller.choices = choices;
-    controller.launchMenu = launchMenu;
-    window = [[UIWindow alloc] initWithWindowScene:scene];
-    window.frame = scene.coordinateSpace.bounds;
-    window.windowLevel = UIWindowLevelNormal + 2;
-    window.rootViewController = controller;
-    [window makeKeyAndVisible];
-    if (launchMenu) retry_pending_reports();
-    while (controller.chosen < 0) {
-        @autoreleasepool {
-            /* (an exception raised inside UIKit cannot unwind through the guest's frames below: it ends the app, so it
-               stops here and the menu carries on) */
-            @try {
-                [controller refreshBenchmark];
-                CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
-#if !TARGET_OS_TV
-                CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
-#endif
-            } @catch (NSException *exception) {
+    if (!host_on_main_thread()) {
+        host_modal_wait(0.1, ^bool {
+            if (controller.chosen >= 0) { chosen = controller.chosen; return true; }
+            @try { [controller refreshBenchmark]; }
+            @catch (NSException *exception) {
                 host_logf(HOST_LOG_ERROR, "benchmark menu: UIKit raised %s: %s", exception.name.UTF8String,
                     exception.reason.UTF8String ?: "");
             }
-        }
-    }
-    chosen = controller.chosen;
-    window.hidden = YES;
-    window.rootViewController = nil;
-#if !TARGET_OS_TV && !TARGET_OS_VISION
-    if (@available(iOS 16.0, macCatalyst 16.0, *))
-        for (UIWindow *candidate in scene.windows)
-            if (!candidate.hidden) [candidate.rootViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+            return false;
+        });
+    } else {
+        while (controller.chosen < 0) {
+            @autoreleasepool {
+                /* (an exception raised inside UIKit cannot unwind through the guest's frames below: it ends the app, so it
+                   stops here and the menu carries on) */
+                @try {
+                    [controller refreshBenchmark];
+                    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true);
+#if !TARGET_OS_TV
+                    CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode, 0.01, true);
 #endif
+                } @catch (NSException *exception) {
+                    host_logf(HOST_LOG_ERROR, "benchmark menu: UIKit raised %s: %s", exception.name.UTF8String,
+                        exception.reason.UTF8String ?: "");
+                }
+            }
+        }
+        chosen = controller.chosen;
+    }
+    host_main_sync(^{
+        window.hidden = YES;
+        window.rootViewController = nil;
+#if !TARGET_OS_TV && !TARGET_OS_VISION
+        if (@available(iOS 16.0, macCatalyst 16.0, *))
+            for (UIWindow *candidate in scene.windows)
+                if (!candidate.hidden) [candidate.rootViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+#endif
+    });
     return chosen;
 }
 
