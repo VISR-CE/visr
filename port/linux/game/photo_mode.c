@@ -58,9 +58,9 @@ int photo_mode_key(int action)
 	}
 	if (action != PHOTO_TOGGLE && !active) return 0;
 	if (!active && (!game_map_loaded() || !global_scenario ||
-		global_scenario->type == _scenario_type_main_menu || game_connection() != _game_connection_local))
+		global_scenario->type == _scenario_type_main_menu || (game_connection() != _game_connection_local && game_connection() != _game_connection_network_server)))
 	{
-		error(_error_silent, "photo mode: key ignored (no local map is running)");
+		error(_error_silent, "photo mode: key ignored (no map is running on this machine as the host)");
 		return 0;
 	}
 	pending = action;
@@ -196,8 +196,8 @@ void photo_mode_update(struct director *director, float *translation, float *rol
 	if (action == PHOTO_TOGGLE)
 	{
 		if (active) { photo_mode_end(); return; }
-		if (!game_map_loaded() || !global_scenario || global_scenario->type == _scenario_type_main_menu || game_connection() != _game_connection_local)
-		{ error(_error_silent, "photo mode: load a local map first"); return; }
+		if (!game_map_loaded() || !global_scenario || global_scenario->type == _scenario_type_main_menu || (game_connection() != _game_connection_local && game_connection() != _game_connection_network_server))
+		{ error(_error_silent, "photo mode: host a map first"); return; }
 		{
 			const struct observer_result *view = observer_get_camera(0);
 			saved_director = *director; current_director = director;
