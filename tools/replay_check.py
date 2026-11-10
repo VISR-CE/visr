@@ -102,7 +102,7 @@ def newest_take(folder, map_name):
 
 def route_text(take_route, scene, window, anchor=None, lead=0):
     """the take's .route as a suite scene's: named, and measured for window seconds from its first tick"""
-    kept = [line for line in take_route.read_text().splitlines() if not line.startswith(("scene", "lead", "window", "kind"))]
+    kept = [line for line in take_route.read_text().splitlines() if not line.startswith(("scene", "lead", "window", "kind", "anchor"))]
     return "\n".join([f"scene = {scene}", "kind = gameplay", f"lead = {lead}", f"window = {window}",
                        *([f"anchor = {anchor}"] if anchor else []), *kept]) + "\n"
 
