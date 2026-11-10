@@ -9,6 +9,7 @@
 #include <math.h>
 #include "ios_host.h"
 #include "host_external.h"
+#include "host_main_thread.h"
 #include "host_external_mode.h"
 #include "host_external_session.h"
 #include "host_external_splash.h"
@@ -392,43 +393,45 @@ void host_external_menu_splash(void) {
 }
 static void snapshot_output(int external,int width,int height,const char *reason);
 void host_external_attach(void *window_pointer,int metal) {
-    SDL_Window *window=window_pointer;
-    metal_enabled=metal;
-    phone_window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
-        SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
-    host_hinge_attach((__bridge void *)phone_window.rootViewController.view);
-    phone_layer=host_sdl_metal_layer();
-    output_screen=phone_window.windowScene.screen;
-    SDL_GetWindowSizeInPixels(window,&output_width,&output_height);
-    snapshot_output(screen_is_external(output_screen),output_width,output_height,"preferred");
-    last_touch=CACurrentMediaTime();
-    host_external_install();
-    atomic_store(&audio_changed,1);
+    host_main_sync(^{
+        SDL_Window *window=window_pointer;
+        metal_enabled=metal;
+        phone_window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+            SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
+        host_hinge_attach((__bridge void *)phone_window.rootViewController.view);
+        phone_layer=host_sdl_metal_layer();
+        output_screen=phone_window.windowScene.screen;
+        SDL_GetWindowSizeInPixels(window,&output_width,&output_height);
+        snapshot_output(screen_is_external(output_screen),output_width,output_height,"preferred");
+        last_touch=CACurrentMediaTime();
+        host_external_install();
+        atomic_store(&audio_changed,1);
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
-    host_audio_route_update(&audio_route,audio_route_text().UTF8String,AVAudioSession.sharedInstance.sampleRate,
-        (int)AVAudioSession.sharedInstance.outputNumberOfChannels,audio_route_external(),0);
+        host_audio_route_update(&audio_route,audio_route_text().UTF8String,AVAudioSession.sharedInstance.sampleRate,
+            (int)AVAudioSession.sharedInstance.outputNumberOfChannels,audio_route_external(),0);
 #endif
-    const char *forced=getenv("HALO_EXTERNAL_MODE");
-    char config[512];
-    host_config_string("debug.external_mode","",config,sizeof(config));
-    host_external_force(forced&&*forced?forced:config);
+        const char *forced=getenv("HALO_EXTERNAL_MODE");
+        char config[512];
+        host_config_string("debug.external_mode","",config,sizeof(config));
+        host_external_force(forced&&*forced?forced:config);
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
-    host_external_splash_attach(&splash_state);
-    if(waiting_scene) {
-        UIWindowScene *scene=waiting_scene;waiting_scene=nil;
-        [(VISRExternalSceneDelegate *)scene.delegate scene:scene willConnectToSession:scene.session options:nil];
-    }
-    if(!metal)host_logf(HOST_LOG_INFO,"external display: renderer is OpenGL ES; the system mirrors this device");
-    /* UISceneAccessory is in the iOS 27 SDK; an app built with an earlier SDK (the CI's) mirrors on iOS 27 */
+        host_external_splash_attach(&splash_state);
+        if(waiting_scene) {
+            UIWindowScene *scene=waiting_scene;waiting_scene=nil;
+            [(VISRExternalSceneDelegate *)scene.delegate scene:scene willConnectToSession:scene.session options:nil];
+        }
+        if(!metal)host_logf(HOST_LOG_INFO,"external display: renderer is OpenGL ES; the system mirrors this device");
+        /* UISceneAccessory is in the iOS 27 SDK; an app built with an earlier SDK (the CI's) mirrors on iOS 27 */
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
-    if (@available(iOS 27.0,*)) {
-        if(metal && !accessory_registration)
-            accessory_registration=[phone_window.rootViewController registerSceneAccessory:
-                [UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:external_configuration()]];
-        accessory_available_logged=-1;
-    }
+        if (@available(iOS 27.0,*)) {
+            if(metal && !accessory_registration)
+                accessory_registration=[phone_window.rootViewController registerSceneAccessory:
+                    [UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:external_configuration()]];
+            accessory_available_logged=-1;
+        }
 #endif
 #endif
+    });
 }
 static void snapshot_output(int external,int width,int height,const char *reason) {
     pthread_mutex_lock(&snapshot_lock);
@@ -838,14 +841,15 @@ void host_external_commit(int allow_pause) {
                 session_state.pending=1;return;
             }
             external_drawable=CGSizeMake(width,height);
-            if(!output_switch((__bridge void *)external_metal_view.layer,
-                candidate_screen,width,height)) {
+            __block CAMetalLayer *destination_layer;
+            host_main_sync(^{ destination_layer=(CAMetalLayer *)external_metal_view.layer; });
+            if(!output_switch((__bridge void *)destination_layer,candidate_screen,width,height)) {
                 session_state.pending=1;return;
             }
             output_screen=candidate_screen;output_width=width;output_height=height;
             char reason[32];snprintf(reason,sizeof(reason),"%s",snapshot.reason[0]?snapshot.reason:"preferred");
             companion_on=1;
-            external_window.hidden=NO;
+            host_main_sync(^{ external_window.hidden=NO; });
             snapshot_output(1,output_width,output_height,reason);
             pthread_mutex_lock(&snapshot_lock);
             snapshot.mode_count=candidate_count;
@@ -854,41 +858,48 @@ void host_external_commit(int allow_pause) {
                 snapshot.modes[i].width=candidates[i].width;snapshot.modes[i].height=candidates[i].height;
             }
             pthread_mutex_unlock(&snapshot_lock);
-            if(!playing_label) {
-                playing_label=[UILabel new];playing_label.text=@"Playing on display";
-                playing_label.textColor=UIColor.lightGrayColor;playing_label.font=[UIFont systemFontOfSize:11];
-                playing_label.numberOfLines=2;playing_label.textAlignment=NSTextAlignmentCenter;
-                playing_label.userInteractionEnabled=NO;
-                [phone_window.rootViewController.view addSubview:playing_label];
-                VISRCompanionTouch *touch=[VISRCompanionTouch new];touch.cancelsTouchesInView=NO;
-                [phone_window addGestureRecognizer:touch];
-            }
-            playing_label.text=[NSString stringWithFormat:@"Playing on %@",port_name()];
-            playing_label.hidden=NO;last_touch=CACurrentMediaTime();label_layout();
-            external_fit(external_window.rootViewController.view);
-            external_log_geometry("the renderer was moved to the display");
-            external_log_verified("at the move");
+            host_main_sync(^{
+                if(!playing_label) {
+                    playing_label=[UILabel new];playing_label.text=@"Playing on display";
+                    playing_label.textColor=UIColor.lightGrayColor;playing_label.font=[UIFont systemFontOfSize:11];
+                    playing_label.numberOfLines=2;playing_label.textAlignment=NSTextAlignmentCenter;
+                    playing_label.userInteractionEnabled=NO;
+                    [phone_window.rootViewController.view addSubview:playing_label];
+                    VISRCompanionTouch *touch=[VISRCompanionTouch new];touch.cancelsTouchesInView=NO;
+                    [phone_window addGestureRecognizer:touch];
+                }
+                playing_label.text=[NSString stringWithFormat:@"Playing on %@",port_name()];
+                playing_label.hidden=NO;last_touch=CACurrentMediaTime();label_layout();
+                external_fit(external_window.rootViewController.view);
+                external_log_geometry("the renderer was moved to the display");
+                external_log_verified("at the move");
+            });
             verify_at=CACurrentMediaTime()+2;verify_left=2;
             host_logf(HOST_LOG_INFO,"external display: the renderer presents to the display's layer (drawable %dx%d); the verified lines say what is on screen",output_width,output_height);
         } else if(!companion_on) {
             /* the display went away before the game moved to it: the renderer never left this device */
-            external_window.hidden=YES;
+            host_main_sync(^{ external_window.hidden=YES; });
             if(!candidate_screen) {external_window=nil;offered=nil;first_low=-1;accepting_low=0;}
             snapshot_output(screen_is_external(output_screen),output_width,output_height,"preferred");
             if(!candidate_screen)host_logf(HOST_LOG_INFO,"external display: disconnected before the game moved to it");
         } else {
             int width=0,height=0;
-            UIScreen *local_screen=phone_window.windowScene.screen;
-            SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+            __block UIScreen *local_screen;
+            __block int local_width,local_height;
+            host_main_sync(^{
+                local_screen=phone_window.windowScene.screen;
+                SDL_GetWindowSizeInPixels(host_sdl_window(),&local_width,&local_height);
+            });
+            width=local_width;height=local_height;
             if(!output_switch(phone_layer,local_screen,width,height)) {
                 session_state.pending=1;return;    /* retry before the next frame */
             }
             output_screen=local_screen;output_width=width;output_height=height;
             companion_on=0;
             snapshot_output(screen_is_external(output_screen),output_width,output_height,"preferred");
-            external_window.hidden=YES;
+            host_main_sync(^{ external_window.hidden=YES; });
             if(!candidate_screen) {external_window=nil;offered=nil;first_low=-1;accepting_low=0;}
-            playing_label.hidden=YES;
+            host_main_sync(^{ playing_label.hidden=YES; });
             if(was_external && allow_pause)host_ios_touch_pause();
             host_logf(HOST_LOG_INFO,"external display: disconnected; the game is back on this device%s",
                 was_external&&allow_pause?", paused":"");
