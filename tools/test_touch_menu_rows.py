@@ -524,7 +524,7 @@ int main(void) {
 
 
 def test_slider_art_registration_and_regeneration(tmp_path):
-    from PIL import Image
+    import struct
     from tools import xbox_menus, xbox_menu_art
     generated = xbox_menus.bitmap_document(ROOT / 'port/assets/menus', set())
     registered = ET.parse(ROOT / 'port/assets/menus/xbox/bitmaps.xml')
@@ -536,9 +536,11 @@ def test_slider_art_registration_and_regeneration(tmp_path):
         frame = b.find('frame')
         relative = frame.get('png')
         assert relative in manifest
-        with Image.open(ROOT / 'port/assets/menus' / relative) as art:
-            assert art.mode == 'RGBA'
-            assert art.size == (int(frame.get('width')) * 4, int(frame.get('height')) * 4)
+        header = (ROOT / 'port/assets/menus' / relative).read_bytes()[:26]
+        assert header[:8] == b'\x89PNG\r\n\x1a\n' and header[12:16] == b'IHDR'
+        width, height, depth, color_type = struct.unpack('>IIBB', header[16:26])
+        assert (depth, color_type) == (8, 6)  # 8-bit RGBA
+        assert (width, height) == (int(frame.get('width')) * 4, int(frame.get('height')) * 4)
     if shutil.which('rsvg-convert'):
         xbox_menu_art.slider_art(tmp_path)
         for artifact in tmp_path.iterdir():
