@@ -1577,7 +1577,7 @@ void host_menu_gaze_spatial_event(intptr_t id, int phase, int has_ray, const flo
 
 /* HALO_MENU_POINTER_SCRIPT, for runs with no finger: ops separated by ';', each "FRAME KIND ARGS", where FRAME counts
 the frames a menu has been up (reads), and positions are fractions of the window: "60 tap 0.5 0.4", "90 drag 0.5 0.7
-0.5 0.3", "120 click 0.5 0.4", "130 right 0.5 0.4", "140 wheel 2". A tap is a finger down, then up on the next frame;
+0.5 0.3" (or "90 drag 0.5 0.7 0.5 0.3 600" to hold the finger down 600 frames at the end), "120 click 0.5 0.4", "130 right 0.5 0.4", "140 wheel 2". A tap is a finger down, then up on the next frame;
 a drag moves in six steps. On the Vision Pro, "150 pinch 0.5 0.4" looks at that fraction of the menus' surface in
 the room (from where the eyes were when it was drawn) and pinches, letting go on the next frame or after a count of
 frames given after the position ("150 pinch 0.5 0.4 90"), and "160 pinchdrag 0.5 0.4 0 6" pinches there and
@@ -1591,7 +1591,7 @@ static struct
 	const char *cursor;
 	unsigned long frame;
 	/* the op running */
-	int kind, step, steps;
+	int kind, step, steps, hold;
 	unsigned long start;
 	float x0, y0, x1, y1;
 } menu_script;
@@ -1617,6 +1617,7 @@ static void menu_script_next(void)
 	menu_script.start = frame;
 	menu_script.step = 0;
 	menu_script.steps = 1;
+	menu_script.hold = 0;
 	if (!strcmp(kind, "tap") || !strcmp(kind, "click") || !strcmp(kind, "right"))
 	{
 		menu_script.kind = !strcmp(kind, "tap") ? 1 : !strcmp(kind, "click") ? 3 : 4;
@@ -1639,6 +1640,10 @@ static void menu_script_next(void)
 		menu_script.steps = 8;
 		sscanf(menu_script.cursor, "%f %f %f %f%n", &menu_script.x0, &menu_script.y0, &menu_script.x1, &menu_script.y1,
 			&used);
+		menu_script.cursor += used;
+		used = 0;
+		if (sscanf(menu_script.cursor, " %d%n", &menu_script.hold, &used) < 1 || menu_script.hold < 0)
+			menu_script.hold = 0;
 	}
 	else if (!strcmp(kind, "wheel"))
 	{
@@ -1756,10 +1761,10 @@ static void menu_script_run(void)
 			host_menu_pointer_touch_move(&menu_pointer, 9000, x, y);
 		if (menu_script.kind == 1 && menu_script.step == 1)
 			host_menu_pointer_touch_end(&menu_pointer, 9000);
-		if (menu_script.kind == 2 && menu_script.step == menu_script.steps)
+		if (menu_script.kind == 2 && menu_script.step == menu_script.steps + menu_script.hold)
 			host_menu_pointer_touch_end(&menu_pointer, 9000);
 		menu_script.step++;
-		if (menu_script.kind == 1 ? menu_script.step > 1 : menu_script.step > menu_script.steps)
+		if (menu_script.kind == 1 ? menu_script.step > 1 : menu_script.step > menu_script.steps + menu_script.hold)
 			menu_script_next();
 		return;
 	case 3:
