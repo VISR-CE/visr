@@ -130,11 +130,11 @@
 	</widget>
 	<widget name="xbox/settings/network_setup/op_scoreboard_team_layout" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<child widget="xbox/settings/network_setup/scoreboard_team_layout_label" y="5" />
-		<child widget="xbox/settings/network_setup/scoreboard_team_layout_spinner" x="320" y="6" />
+		<child widget="xbox/settings/network_setup/scoreboard_team_layout_spinner" x="319" y="6" />
 	</widget>
 	<widget name="xbox/settings/network_setup/scoreboard_team_layout_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/network_setup/labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/network_setup/scoreboard_team_layout_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="TEAMS|BY SCORE" strings_ids="xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner.s0|xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner.s1" setting="display.scoreboard_team_layout" values="teams|score" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 45 19 51" footer_bounds="7 160 19 166">
+	<widget name="xbox/settings/network_setup/scoreboard_team_layout_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner.s0|xbox.settings_network_setup.xbox_settings_network_setup_scoreboard_team_layout_spinner.s1" setting="display.scoreboard_team_layout" values="teams|score" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 57 19 63" footer_bounds="7 149 19 155">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -230,7 +230,7 @@
 		<string text="ICLOUD SAVES:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.icloud_saves" />
 		<string text="PLAYER NAMES:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.player_names" />
 		<string text="PLAYER NAME SIZE:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.player_name_size" />
-		<string text="SCOREBOARD LAYOUT:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.scoreboard_layout" />
+		<string text="GROUP BY TEAM:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.group_by_team" />
 		<string text="SCOREBOARD PANEL:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.scoreboard_panel" />
 		<string text="CUSTOM MAPS:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.custom_maps" />
 		<string text="DOWNLOAD MAPS:" id="xbox.settings_network_setup.xbox_settings_network_setup_labels.download_maps" />
@@ -247,7 +247,7 @@
 		<string text="Sync saves with iCloud. Turning on applies next\nlaunch; turning off stops syncing now." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.sync_saves_with_icloud_turning_o_9960ef" />
 		<string text="In multiplayer, whose names are drawn above their\nheads." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.in_multiplayer_whose_names_are_d_56dd26" />
 		<string text="How large the players' names are drawn." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.how_large_the_players_names_are_drawn" />
-		<string text="A team game's scoreboard: a column for each team,\nor every player in order of score." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.a_team_game_s_scoreboard_a_colum_22814e" />
+		<string text="A team game's scoreboard: on, a column for each\nteam; off, every player in order of score." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.a_team_game_s_scoreboard_on_a_co_aa6c55" />
 		<string text="Draw a panel behind the scoreboard, for clearer\ntext." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.draw_a_panel_behind_the_scoreboa_6a6448" />
 		<string text="Experimental: show games on Custom Edition maps.\nThese are not fully supported yet." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.experimental_show_games_on_custo_85c92c" />
 		<string text="Joining a game on a Custom Edition map you do not\nhave: download it from the players (if shared)." id="xbox.settings_network_setup.xbox_settings_network_setup_help_strings.joining_a_game_on_a_custom_editi_be4229" />

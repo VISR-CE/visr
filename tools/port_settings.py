@@ -190,8 +190,8 @@ SCREENS = {
             ("PLAYER NAME SIZE:", "display.player_name_scale",
              [(f"{value:g}x", f"{value:g}") for value in (0.5, 0.75, 1, 1.25, 1.5, 2)],
              "How large the players' names are drawn.", None),
-            ("SCOREBOARD LAYOUT:", "display.scoreboard_team_layout", [("TEAMS", "teams"), ("BY SCORE", "score")],
-             "A team game's scoreboard: a column for each team,\nor every player in order of score.", None),
+            ("GROUP BY TEAM:", "display.scoreboard_team_layout", [("ON", "teams"), ("OFF", "score")],
+             "A team game's scoreboard: on, a column for each\nteam; off, every player in order of score.", None),
             ("SCOREBOARD PANEL:", "display.scoreboard_background", ON_OFF,
              "Draw a panel behind the scoreboard, for clearer\ntext.", None),
             # (map sharing, port/linux/game/map_share.c: this machine's part in
