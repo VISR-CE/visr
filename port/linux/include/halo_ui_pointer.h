@@ -28,6 +28,7 @@ struct halo_ui_pointer
 	unsigned char back_swipes;
 	/* a finger is down and still a tap candidate */
 	unsigned char down;
+	unsigned char held;
 };
 
 /* frees the mouse for the menus while menus_active, and captures it again

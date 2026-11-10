@@ -3558,6 +3558,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		}
 	}
 	menu_window_pointer(pointer);
+	pointer->held = host.held != 0;
 	pointer->moved = host.moved != 0;
 	pointer->left_clicks = (unsigned char)(host.left_clicks < 0 ? 0 : host.left_clicks < 255 ? host.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(host.right_clicks < 0 ? 0 : host.right_clicks < 255 ? host.right_clicks : 255);
@@ -3600,6 +3601,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	ui_point_from_window(state.x, state.y, &pointer->x, &pointer->y);
 	ui_point_from_window(state.click_x, state.click_y, &pointer->click_x, &pointer->click_y);
 	menu_window_pointer(pointer);
+	pointer->held = state.held != FALSE;
 	pointer->moved = state.moved != FALSE;
 	pointer->left_clicks = (unsigned char)(state.left_clicks < 255 ? state.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(state.right_clicks < 255 ? state.right_clicks : 255);

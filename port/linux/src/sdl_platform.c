@@ -1940,9 +1940,12 @@ void platform_pump_events(void)
 			that resumes the game does not also fire */
 			if (input_state.ui_pointer)
 			{
-				if (event.button.down && event.button.button == SDL_BUTTON_LEFT)
+				if (event.button.button == SDL_BUTTON_LEFT)
 				{
-					ui_pointer.left_clicks++;
+					if (!event.button.down && ui_pointer.held) ui_pointer.left_clicks++;
+					ui_pointer.held = event.button.down;
+					ui_pointer.x = event.button.x;
+					ui_pointer.y = event.button.y;
 					ui_pointer.click_x = event.button.x;
 					ui_pointer.click_y = event.button.y;
 				}
@@ -2018,6 +2021,9 @@ void platform_pump_events(void)
 			input_state.mouse_wheel += event.wheel.y;
 			break;
 		case SDL_EVENT_WINDOW_FOCUS_LOST:
+#if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
+			ui_pointer.held = FALSE;
+#endif
 			memset(input_state.keys, 0, sizeof(input_state.keys));
 			memset(input_state.mouse_buttons, 0, sizeof(input_state.mouse_buttons));
 			memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));

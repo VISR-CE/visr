@@ -696,7 +696,10 @@ def bitmap_document(assets, names):
                   height=str(TITLE_ICON_SIZE))
     for name, width, height, count in [('dropdown_chevron', 12, 8, 1),
                                         ('dropdown_check', 12, 12, 1),
-                                        ('dropdown_panel', 165, 0, 7)]:
+                                        ('dropdown_panel', 165, 0, 7),
+                                        ('slider_track', 1, 5, 1),
+                                        ('slider_fill', 1, 5, 1),
+                                        ('slider_thumb', 25, 25, 1)]:
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/bitmaps/{name}')
         for frame in range(count):
             suffix = f'__{frame}' if count > 1 else ''

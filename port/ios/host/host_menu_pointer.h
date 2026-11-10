@@ -38,7 +38,7 @@ struct host_menu_pointer {
     int menus_active, blocked;
     float surface_width, surface_height;
     /* the finger being followed, if any */
-    int tracking;
+    int tracking, device_held;
     intptr_t finger;
     float down_x, down_y, anchor_y;
     unsigned long long down_ms;
@@ -53,6 +53,7 @@ struct host_menu_pointer {
 };
 
 static inline void host_menu_pointer_clear(struct host_menu_pointer *m) {
+    m->device_held = 0;
     m->tracking = 0;
     m->scrolling = 0;
     m->swiped = m->back_swipes = 0;
@@ -108,6 +109,8 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
         m->back_swipes++;
         return;
     }
+    m->x = x;
+    m->y = y;
     if (!m->scrolling) {
         float slop = m->touch == 2 ? HOST_MENU_POINTER_GAZE_SLOP : HOST_MENU_POINTER_SLOP;
         if (m->touch == 1 && host_menu_pointer_now_ms() - m->down_ms >= HOST_MENU_POINTER_HOLD_AFTER_MS)
@@ -124,8 +127,6 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
         m->wheel_steps -= steps;
         m->anchor_y += (float)steps * HOST_MENU_POINTER_NOTCH;
     }
-    m->x = x;
-    m->y = y;
 }
 static inline void host_menu_pointer_touch_end(struct host_menu_pointer *m, intptr_t finger) {
     if (!m->tracking || m->finger != finger) return;
@@ -162,6 +163,15 @@ static inline void host_menu_pointer_device_click(struct host_menu_pointer *m, i
     m->click_x = x;
     m->click_y = y;
 }
+/* Physical mouse clicks are reported on release so sliders can distinguish a tap
+   from a held drag. Scripted instantaneous clicks retain device_click above. */
+static inline void host_menu_pointer_device_button(struct host_menu_pointer *m, int down, float x, float y) {
+    if (!host_menu_pointer_listening(m)) return;
+    host_menu_pointer_device_move(m, x, y);
+    if (!down && m->device_held) host_menu_pointer_device_click(m, 0, x, y);
+    m->device_held = down != 0;
+}
+
 /* notches of a wheel: positive away from the user, as the desktop's wheel (up the list) */
 static inline void host_menu_pointer_device_wheel(struct host_menu_pointer *m, int notches) {
     if (!host_menu_pointer_listening(m)) return;
@@ -185,6 +195,7 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
         host_menu_pointer_clear(m);
         return;
     }
+    out->held = m->tracking || m->device_held;
     out->moved = m->moved;
     out->left_clicks = m->left_clicks;
     out->right_clicks = m->right_clicks;

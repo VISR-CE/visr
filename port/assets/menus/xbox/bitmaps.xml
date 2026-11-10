@@ -255,6 +255,15 @@
 		<frame png="xbox/art/dropdown_panel__5.png" width="165" height="315" />
 		<frame png="xbox/art/dropdown_panel__6.png" width="165" height="367" />
 	</bitmap>
+	<bitmap name="xbox/bitmaps/slider_track">
+		<frame png="xbox/art/slider_track.png" width="1" height="5" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/slider_fill">
+		<frame png="xbox/art/slider_fill.png" width="1" height="5" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/slider_thumb">
+		<frame png="xbox/art/slider_thumb.png" width="25" height="25" />
+	</bitmap>
 	<bitmap name="xbox/bitmaps/toggle_switch">
 		<frame png="xbox/art/toggle_switch__0.png" width="32" height="17" />
 		<frame png="xbox/art/toggle_switch__1.png" width="32" height="17" />

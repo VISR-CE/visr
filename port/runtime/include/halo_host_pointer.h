@@ -42,9 +42,11 @@ struct host_ui_pointer
 	int32_t back_swipes;
 	/* a finger is down and still a tap candidate (not scrolling, not an edge swipe): the menus time a press-and-hold from it */
 	int32_t down;
+	/* Persistent finger/pinch or left mouse button state; reads do not clear it. */
+	int32_t held;
 };
 
-_Static_assert(sizeof(struct host_ui_pointer) == 60, "host_ui_pointer crosses between the guest and the host");
+_Static_assert(sizeof(struct host_ui_pointer) == 64, "host_ui_pointer crosses between the guest and the host");
 
 /* host_ui_pointer_feedback(kind) */
 enum host_ui_pointer_feedback_kind

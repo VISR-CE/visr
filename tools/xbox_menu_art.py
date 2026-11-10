@@ -115,12 +115,34 @@ def dropdown_art(output):
         Image.open(png).convert('RGBA').save(png)
 
 
+def slider_art(output):
+    """Slider track pieces and a white 15-unit thumb with a soft blue halo."""
+    from PIL import Image
+    shapes = [
+        ('slider_track', 1, 5, '<rect width="1" height="5" fill="#17304d"/>'),
+        ('slider_fill', 1, 5, '<rect width="1" height="5" fill="#4ea0ff"/>'),
+        ('slider_thumb', 25, 25,
+         '<defs><radialGradient id="halo"><stop offset="0.5" stop-color="#4ea0ff" stop-opacity=".6"/>'
+         '<stop offset="1" stop-color="#4ea0ff" stop-opacity="0"/></radialGradient></defs>'
+         '<circle cx="12.5" cy="12.5" r="12.5" fill="url(#halo)"/>'
+         '<circle cx="12.5" cy="12.5" r="7.5" fill="#fff"/>'),
+    ]
+    for name, width, height, shape in shapes:
+        svg = output / f'{name}.svg'
+        svg.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+                       f'viewBox="0 0 {width} {height}">{shape}</svg>\n')
+        png = svg.with_suffix('.png')
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(png), str(svg)], check=True)
+        Image.open(png).convert('RGBA').save(png)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     output = menus / 'xbox/art'
     output.mkdir(parents=True, exist_ok=True)
     toggle_art(output)
     dropdown_art(output)
+    slider_art(output)
     browser_art(output)
     redraw_art(output)
     title_icon(output)

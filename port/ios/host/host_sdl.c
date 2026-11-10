@@ -1456,13 +1456,17 @@ static void menu_pointer_event(const SDL_Event *event)
 #endif
 	switch (event->type)
 	{
+	case SDL_EVENT_WINDOW_FOCUS_LOST:
+		host_menu_pointer_clear(&menu_pointer);
+		return;
 	case SDL_EVENT_MOUSE_MOTION:
 		if (event->motion.which == SDL_TOUCH_MOUSEID || event->motion.which == SDL_PEN_MOUSEID)
 			return;
 		window = window_from_id(event->motion.windowID);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-		if (event->button.which == SDL_TOUCH_MOUSEID || event->button.which == SDL_PEN_MOUSEID || !event->button.down)
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+		if (event->button.which == SDL_TOUCH_MOUSEID || event->button.which == SDL_PEN_MOUSEID)
 			return;
 		window = window_from_id(event->button.windowID);
 		break;
@@ -1480,9 +1484,11 @@ static void menu_pointer_event(const SDL_Event *event)
 		host_menu_pointer_device_move(&menu_pointer, event->motion.x, event->motion.y);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-		if (event->button.button == SDL_BUTTON_LEFT || event->button.button == SDL_BUTTON_RIGHT)
-			host_menu_pointer_device_click(&menu_pointer, event->button.button == SDL_BUTTON_RIGHT,
-				event->button.x, event->button.y);
+	case SDL_EVENT_MOUSE_BUTTON_UP:
+		if (event->button.button == SDL_BUTTON_LEFT)
+			host_menu_pointer_device_button(&menu_pointer, event->button.down, event->button.x, event->button.y);
+		else if (event->button.down && event->button.button == SDL_BUTTON_RIGHT)
+			host_menu_pointer_device_click(&menu_pointer, 1, event->button.x, event->button.y);
 		break;
 	default:
 		wheel += event->wheel.y;

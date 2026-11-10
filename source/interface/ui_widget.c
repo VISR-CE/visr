@@ -693,6 +693,7 @@ long ui_redraw_safe_left_units(long width);
 #include "interface/controller_glyphs.h"
 #include "halo_menu_row.h" /* port: runtime settings control policy */
 #include "halo_menu_dropdown.h"
+#include "halo_menu_slider.h"
 #include "halo_controller_glyphs.h"
 #include "halo_menus.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -5997,6 +5998,40 @@ static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 		&parameters, TRUE);
 }
 
+/* port: RANGE rows draw directly from the live string without a frame allocation. */
+static void ui_widget_row_draw_slider(struct widget_instance *widget,
+	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip)
+{
+	struct halo_menu_slider slider;
+	struct halo_slider_rect thumb;
+	rectangle2d bounds = definition->bounds;
+	real_argb_color color = definition->text_color;
+	int selected = widget->parameters.list.selected_index;
+	int count = widget->parameters.list.number_of_items;
+	bounds.x0 += offset.x; bounds.x1 += offset.x;
+	bounds.y0 += offset.y; bounds.y1 += offset.y;
+	if (spinner_string_list_extra_count(definition->text_label_string_list.index))
+		bounds.x0 -= SPINNER_EXTRA_WIDTH;
+	halo_menu_slider_geometry(&slider, bounds.x0, bounds.y0, bounds.x1, bounds.y1);
+	thumb = halo_menu_slider_thumb(&slider, selected, count);
+	bounds.x0 = slider.left; bounds.x1 = slider.right;
+	bounds.y0 = slider.y - 2; bounds.y1 = bounds.y0 + 5;
+	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\slider_track", 0, &bounds, clip);
+	bounds.x1 = thumb.x0 + 7;
+	if (bounds.x1 > bounds.x0)
+		ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\slider_fill", 0, &bounds, clip);
+	bounds.x0 = thumb.x0 - 5; bounds.x1 = bounds.x0 + 25;
+	bounds.y0 = thumb.y0 - 5; bounds.y1 = bounds.y0 + 25;
+	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\slider_thumb", 0, &bounds, clip);
+	bounds = definition->bounds;
+	bounds.x0 = slider.right + 15; bounds.x1 += offset.x;
+	bounds.y0 += offset.y; bounds.y1 += offset.y;
+	color.alpha *= widget_instance_get_cumulative_alpha_modifier(widget);
+	draw_string_set_draw_mode(definition->text_font.index, NONE, 1, 0, &color);
+	rasterizer_draw_unicode_string(&bounds, clip, NULL, 0,
+		spinner_string_list_get_string(definition->text_label_string_list.index, (short)selected));
+}
+
 static void widget_instance_render_spinner_list(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -6008,6 +6043,7 @@ static void widget_instance_render_spinner_list(
 	int pointer_controls = halo_menu_pointer_controls();
 	boolean toggle = pointer_controls && row.kind == HALO_ROW_TOGGLE;
 	boolean dropdown = pointer_controls && ui_widget_row_has_dropdown(widget);
+	boolean slider = pointer_controls && row.kind == HALO_ROW_RANGE;
 	long header_frame_index = 0;
 	long footer_frame_index = 0;
 	real alpha_modifier = widget_instance_get_cumulative_alpha_modifier(widget);
@@ -6039,7 +6075,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_header_bitmap.index,
 		0,
 		header_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown) && pointer_controls == 2))
+	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown || slider) && pointer_controls == 2))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6052,6 +6088,14 @@ static void widget_instance_render_spinner_list(
 		{
 			bounds.x0 -= SPINNER_EXTRA_WIDTH;
 			bounds.x1 -= SPINNER_EXTRA_WIDTH;
+		}
+		if (slider)
+		{
+			int width = definition->bounds.x1 - definition->bounds.x0;
+			int padding;
+			if (spinner_string_list_extra_count(definition->text_label_string_list.index)) width += SPINNER_EXTRA_WIDTH;
+			padding = MAX(0, HALO_MENU_SLIDER_WIDTH - width);
+			bounds.x0 -= padding; bounds.x1 -= padding;
 		}
 		bounds.x0 += offset.x;
 		bounds.y0 += offset.y;
@@ -6070,7 +6114,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_footer_bitmap.index,
 		0,
 		footer_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown) && pointer_controls == 2))
+	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown || slider) && pointer_controls == 2))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6089,6 +6133,11 @@ static void widget_instance_render_spinner_list(
 			(alpha << 24) | 0x00FFFFFF,
 			&parameters,
 			FALSE);
+	}
+	if (slider)
+	{
+		ui_widget_row_draw_slider(widget, definition, offset, clip_rect);
+		return;
 	}
 	if (dropdown)
 		ui_widget_row_draw_chevron(widget, definition, offset, clip_rect);
@@ -6271,6 +6320,13 @@ struct ui_mouse_target
 };
 
 static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
+static struct widget_instance *ui_slider_widget;
+static long ui_slider_creation_time;
+static struct halo_menu_slider ui_slider_geometry;
+static int ui_slider_down_x, ui_slider_down_y, ui_slider_dragging;
+static int ui_slider_was_held;
+static int ui_slider_selection = -1, ui_slider_last_selection = -1;
+
 static long ui_mouse_target_count = 0;
 static boolean ui_mouse_noting_targets = FALSE;
 /* port: a finger's reach (halo_ui_pointer.radius, menu units; 0 for a mouse), and
@@ -6358,6 +6414,9 @@ and a pool the next screen already uses. */
 static void ui_mouse_forget_targets(
 	void)
 {
+	ui_slider_widget = NULL;
+	ui_slider_selection = -1;
+	ui_slider_was_held = FALSE;
 	ui_dropdown.open = FALSE;
 	ui_dropdown_widget = NULL;
 	ui_dropdown_selection = -1;
@@ -7691,6 +7750,14 @@ static void ui_mouse_note_target(
 		target->back_arrow_end -= SPINNER_EXTRA_WIDTH;
 	}
 
+	/* port: the pointer slider's wider value area and left arrow move together. */
+	if (halo_menu_pointer_controls() && ui_widget_row_control(widget).kind == HALO_ROW_RANGE)
+	{
+		int padding = MAX(0, HALO_MENU_SLIDER_WIDTH - (target->value_bounds.x1 - target->value_bounds.x0));
+		target->bounds.x0 = MIN(target->bounds.x0, target->value_bounds.x0 - padding - 10);
+		target->back_arrow_end -= padding;
+	}
+
 	return;
 }
 
@@ -8059,6 +8126,89 @@ static void ui_dropdown_draw(void)
 	}
 }
 
+/* port: capture consumes touch-generated wheel steps in the guest. The host
+can keep its ordinary list-scroll recognition; none reaches the page here. */
+static boolean ui_slider_process_pointer(struct halo_ui_pointer *pointer)
+{
+	struct ui_mouse_target *target = NULL;
+	long index;
+	int pressed = pointer->held && !ui_slider_was_held;
+	int tap_only = FALSE;
+	ui_slider_was_held = pointer->held;
+	if (!halo_menu_pointer_controls() || pointer->right_clicks)
+	{
+		ui_slider_widget = NULL;
+		ui_slider_selection = -1;
+		return FALSE;
+	}
+	if (ui_slider_widget)
+	{
+		for (index = 0; index < ui_mouse_target_count; index++)
+			if (ui_mouse_targets[index].widget == ui_slider_widget)
+			{
+				target = &ui_mouse_targets[index];
+				break;
+			}
+		if (!target || target->widget->creation_time != ui_slider_creation_time ||
+			ui_widget_row_control(target->widget).kind != HALO_ROW_RANGE)
+		{
+			ui_slider_widget = NULL;
+			ui_slider_selection = -1;
+			return TRUE;
+		}
+	}
+	else if (pressed || pointer->left_clicks)
+	{
+		int x = pressed ? pointer->x : pointer->click_x;
+		int y = pressed ? pointer->y : pointer->click_y;
+		target = ui_mouse_target_at((short)x, (short)y);
+		if (!target || target->kind != _ui_mouse_target_value ||
+			ui_widget_row_control(target->widget).kind != HALO_ROW_RANGE) return FALSE;
+		halo_menu_slider_geometry(&ui_slider_geometry, target->value_bounds.x0,
+			target->value_bounds.y0, target->value_bounds.x1, target->value_bounds.y1);
+		if (!halo_menu_slider_hit(&ui_slider_geometry, x, y)) return FALSE;
+		ui_slider_widget = target->widget;
+		ui_slider_creation_time = target->widget->creation_time;
+		ui_slider_down_x = x; ui_slider_down_y = y;
+		ui_slider_dragging = FALSE;
+		ui_slider_selection = ui_slider_last_selection = -1;
+		tap_only = !pressed;
+	}
+	else return FALSE;
+	if (pointer->held || pointer->left_clicks)
+	{
+		if (!tap_only && halo_menu_slider_dragged(ui_slider_down_x, ui_slider_down_y, pointer->x, pointer->y))
+			ui_slider_dragging = TRUE;
+		if (ui_slider_dragging)
+			ui_slider_selection = halo_menu_slider_value(&ui_slider_geometry, pointer->x,
+				ui_slider_widget->parameters.list.number_of_items);
+		else if (!pointer->held && pointer->left_clicks)
+		{
+			int selected = ui_slider_widget->parameters.list.selected_index;
+			int count = ui_slider_widget->parameters.list.number_of_items;
+			ui_slider_selection = selected + halo_menu_slider_tap(&ui_slider_geometry, selected, count, ui_slider_down_x);
+			if (ui_slider_selection < 0) ui_slider_selection = 0;
+			if (ui_slider_selection >= count) ui_slider_selection = count - 1;
+		}
+	}
+	if (ui_slider_selection >= 0 && !ui_mouse_press_count)
+	{
+		int selected = ui_slider_widget->parameters.list.selected_index;
+		if (selected != ui_slider_selection && selected != ui_slider_last_selection)
+		{
+			short back, forward;
+			ui_mouse_give_focus(ui_slider_widget);
+			ui_mouse_list_directions(ui_slider_widget, &back, &forward);
+			ui_slider_last_selection = selected;
+			ui_mouse_press(selected < ui_slider_selection ? forward : back);
+			halo_ui_pointer_feedback(2);
+		}
+		else if (!pointer->held) ui_slider_selection = -1;
+	}
+	if (!pointer->held && ui_slider_selection < 0) ui_slider_widget = NULL;
+	return TRUE;
+}
+
 /* port: enum and range controls share this dispatch with toggles. */
 static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 	short back, short forward, boolean first_half)
@@ -8109,6 +8259,9 @@ static void ui_widgets_process_mouse(
 	{
 		if (virtual_keyboard_active() || !ui_dropdown_owner_valid()) ui_dropdown.open = FALSE;
 		ui_dropdown_selection = -1;
+		ui_slider_widget = NULL;
+		ui_slider_selection = -1;
+		ui_slider_was_held = FALSE;
 		ui_mouse_menu_drawn = FALSE;
 		ui_mouse_radius = 0;
 		ui_mouse_press_count = 0;
@@ -8124,6 +8277,11 @@ static void ui_widgets_process_mouse(
 			goto post_pointer_presses;
 		}
 		ui_mouse_radius = pointer.radius;
+		if (ui_slider_process_pointer(&pointer))
+		{
+			ui_mouse_hover_pending = ui_mouse_click_pending = FALSE;
+			goto post_pointer_presses;
+		}
 		/* (a screen with no menu widget, the scores after a game, has nothing to draw first) */
 		if (!ui_mouse_menu())
 			ui_mouse_menu_drawn = TRUE;

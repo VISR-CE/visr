@@ -110,6 +110,7 @@ void platform_input_read(struct platform_input_state *state, BOOL consume_motion
 /* the pointer in the menus (d3d8_device.c, halo_ui_pointer_update) */
 struct platform_ui_pointer
 {
+	BOOL held;
 	/* in window coordinates, as SDL reports them */
 	float x, y;
 	float click_x, click_y;

@@ -444,3 +444,292 @@ int main(void) {
     subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
+
+
+def test_slider_geometry(tmp_path):
+    """Track endpoints, step snapping, thumb taps, and drag slop stay consistent."""
+    source = tmp_path / 'slider.c'
+    source.write_text(r'''
+#include <assert.h>
+#include <stddef.h>
+#include "halo_menu_slider.h"
+int main(void) {
+ struct halo_menu_slider s;
+ struct halo_slider_rect thumb;
+ halo_menu_slider_geometry(&s, 100, 20, 265, 48);
+ assert(s.left == 110 && s.right == 213 && s.y == 34);
+ assert(halo_menu_slider_value(&s, -100, 11) == 0);
+ assert(halo_menu_slider_value(&s, 900, 11) == 10);
+ assert(halo_menu_slider_value(&s, 161, 11) == 5);
+ assert(halo_menu_slider_value(&s, 200, 1) == 0);
+ thumb = halo_menu_slider_thumb(&s, 5, 11);
+ assert(thumb.x1 - thumb.x0 == 15 && thumb.y1 - thumb.y0 == 15);
+ assert(halo_menu_slider_tap(&s, 5, 11, thumb.x0) == 0);
+ assert(halo_menu_slider_tap(&s, 5, 11, thumb.x1 - 1) == 0);
+ assert(halo_menu_slider_tap(&s, 5, 11, thumb.x0 - 1) == -1);
+ assert(halo_menu_slider_tap(&s, 5, 11, thumb.x1) == 1);
+ assert(!halo_menu_slider_dragged(100, 20, 102, 22));
+ assert(halo_menu_slider_dragged(100, 20, 105, 20));
+ assert(halo_menu_slider_hit(&s, 110, 34));
+ assert(!halo_menu_slider_hit(&s, 250, 34));
+ halo_menu_slider_geometry(&s, 185, 20, 265, 48);
+ assert(s.left == 110 && s.right == 213);
+ return 0;
+}
+''')
+    binary = tmp_path / 'slider'
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-std=c89', '-pedantic',
+                    '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
+def test_slider_held_pointer_and_layout(tmp_path):
+    source = tmp_path / 'held.c'
+    source.write_text(r'''
+#include <assert.h>
+#include <stddef.h>
+#include "host_menu_pointer.h"
+int main(void) {
+ struct host_menu_pointer m = {0}; struct host_ui_pointer p;
+ assert(sizeof(p) == 64 && offsetof(struct host_ui_pointer, held) == 60);
+ host_menu_pointer_set_menus(&m, 1);
+ host_menu_pointer_touch_begin(&m, 1, 100, 100);
+ host_menu_pointer_read(&m, &p); assert(p.held && p.moved);
+ host_menu_pointer_touch_move(&m, 1, 102, 101);
+ host_menu_pointer_read(&m, &p); assert(p.held && p.x == 102 && p.y == 101 && !p.moved);
+ host_menu_pointer_read(&m, &p); assert(p.held && !p.moved);
+ host_menu_pointer_touch_end(&m, 1);
+ host_menu_pointer_read(&m, &p); assert(!p.held && p.left_clicks == 1);
+ host_menu_pointer_gaze_begin(&m, 2, 20, 20);
+ host_menu_pointer_touch_move(&m, 2, 40, 21);
+ host_menu_pointer_read(&m, &p); assert(p.held && p.picture && p.x == 40);
+ host_menu_pointer_touch_cancel(&m, 2);
+ host_menu_pointer_read(&m, &p); assert(!p.held && !p.left_clicks);
+ host_menu_pointer_device_button(&m, 1, 40, 50);
+ host_menu_pointer_read(&m, &p); assert(p.held && !p.left_clicks);
+ host_menu_pointer_device_move(&m, 80, 50);
+ host_menu_pointer_read(&m, &p); assert(p.held && p.x == 80);
+ host_menu_pointer_device_button(&m, 0, 80, 50);
+ host_menu_pointer_read(&m, &p); assert(!p.held && p.left_clicks == 1);
+ host_menu_pointer_touch_begin(&m, 3, 0, 0);
+ host_menu_pointer_set_blocked(&m, 1);
+ host_menu_pointer_read(&m, &p); assert(!p.held);
+ return 0;
+}
+''')
+    binary = tmp_path / 'held'
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/ios/host'),
+                    '-iquote', str(ROOT / 'port/runtime/include'), str(source), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
+def test_slider_art_registration_and_regeneration(tmp_path):
+    from PIL import Image
+    from tools import xbox_menus, xbox_menu_art
+    generated = xbox_menus.bitmap_document(ROOT / 'port/assets/menus', set())
+    registered = ET.parse(ROOT / 'port/assets/menus/xbox/bitmaps.xml')
+    manifest = json.loads((ROOT / 'port/assets/menus/menus.json').read_text())['files']
+    for name in ('slider_track', 'slider_fill', 'slider_thumb'):
+        a = generated.find(f"bitmap[@name='xbox/bitmaps/{name}']")
+        b = registered.find(f"bitmap[@name='xbox/bitmaps/{name}']")
+        assert a is not None and b is not None
+        frame = b.find('frame')
+        relative = frame.get('png')
+        assert relative in manifest
+        with Image.open(ROOT / 'port/assets/menus' / relative) as art:
+            assert art.mode == 'RGBA'
+            assert art.size == (int(frame.get('width')) * 4, int(frame.get('height')) * 4)
+    if shutil.which('rsvg-convert'):
+        xbox_menu_art.slider_art(tmp_path)
+        for artifact in tmp_path.iterdir():
+            assert artifact.read_bytes() == (ROOT / 'port/assets/menus/xbox/art' / artifact.name).read_bytes()
+
+
+def test_slider_capture_and_normal_spinner_events(tmp_path):
+    """A held slider consumes scroll, taps step once, and drags use normal events."""
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    program = r'''
+#include <assert.h>
+#include <stddef.h>
+#include "halo_menu_slider.h"
+#include "halo_ui_pointer.h"
+#define TRUE 1
+#define FALSE 0
+#define HALO_ROW_RANGE 3
+#define _ui_mouse_target_value 1
+typedef int boolean;
+typedef struct { short y0, x0, y1, x1; } rectangle2d;
+struct widget_instance { long creation_time; struct { struct { int selected_index, number_of_items; } list; } parameters; };
+struct ui_mouse_target { struct widget_instance *widget; rectangle2d value_bounds; int kind; };
+struct row { int kind; };
+static struct widget_instance widget;
+static struct ui_mouse_target ui_mouse_targets[1];
+static struct widget_instance *ui_slider_widget;
+static long ui_slider_creation_time;
+static struct halo_menu_slider ui_slider_geometry;
+static int ui_slider_down_x, ui_slider_down_y, ui_slider_dragging, ui_slider_was_held;
+static int ui_slider_selection = -1, ui_slider_last_selection = -1;
+static int ui_mouse_target_count = 1, ui_mouse_press_count, controls = 2, presses, last_press;
+int halo_menu_pointer_controls(void) { return controls; }
+struct row ui_widget_row_control(struct widget_instance *w) { struct row r = {3}; assert(w == &widget); return r; }
+struct ui_mouse_target *ui_mouse_target_at(short x, short y) {
+ return x >= 100 && x <= 265 && y >= 20 && y <= 48 ? ui_mouse_targets : 0;
+}
+void ui_mouse_give_focus(struct widget_instance *w) { assert(w == &widget); }
+void ui_mouse_list_directions(struct widget_instance *w, short *back, short *forward) {
+ assert(w == &widget); *back = 10; *forward = 11;
+}
+void ui_mouse_press(short event) { presses++; last_press = event; }
+void halo_ui_pointer_feedback(int kind) { assert(kind == 2); }
+''' + block(source, 'static boolean ui_slider_process_pointer(') + r'''
+int main(void) {
+ struct halo_ui_pointer p = {0};
+ struct halo_slider_rect thumb;
+ int i;
+ widget.creation_time = 20; widget.parameters.list.number_of_items = 11;
+ widget.parameters.list.selected_index = 5;
+ ui_mouse_targets[0].widget = &widget;
+ ui_mouse_targets[0].kind = 1;
+ ui_mouse_targets[0].value_bounds.x0 = 100; ui_mouse_targets[0].value_bounds.x1 = 265;
+ ui_mouse_targets[0].value_bounds.y0 = 20; ui_mouse_targets[0].value_bounds.y1 = 48;
+ /* Stationary thumb press and release does not step. */
+ p.held = 1; p.x = 161; p.y = 34;
+ assert(ui_slider_process_pointer(&p) && presses == 0);
+ p.held = 0; p.left_clicks = 1; p.click_x = p.x; p.click_y = p.y;
+ assert(ui_slider_process_pointer(&p) && presses == 0 && !ui_slider_widget);
+ /* Track tap steps once, rather than jumping to the pointer's fraction. */
+ p.x = 500; p.click_x = 200;
+ assert(ui_slider_process_pointer(&p) && presses == 1 && last_press == 11);
+ widget.parameters.list.selected_index++;
+ p.left_clicks = 0;
+ assert(ui_slider_process_pointer(&p) && !ui_slider_widget && presses == 1);
+ /* Capture survives movement off the row and consumes wheel input. */
+ p.held = 1; p.x = 170;
+ assert(ui_slider_process_pointer(&p));
+ p.x = 500; p.y = 300; p.wheel_steps = 8;
+ for (i = 6; i < 10; i++) {
+  widget.parameters.list.selected_index = i;
+  assert(ui_slider_process_pointer(&p) && last_press == 11);
+ }
+ assert(presses == 5);
+ widget.parameters.list.selected_index = 10;
+ assert(ui_slider_process_pointer(&p) && presses == 5);
+ p.held = 0; p.wheel_steps = 0;
+ assert(ui_slider_process_pointer(&p) && !ui_slider_widget);
+ /* Left track tap at the minimum clamps instead of wrapping. */
+ widget.parameters.list.selected_index = 0;
+ p.x = p.click_x = 103; p.y = p.click_y = 34; p.left_clicks = 1;
+ assert(ui_slider_process_pointer(&p) && presses == 5 && !ui_slider_widget);
+ /* Cancellation without a click does not step a stationary press. */
+ p.left_clicks = 0; p.held = 1; p.x = 140;
+ assert(ui_slider_process_pointer(&p));
+ p.held = 0;
+ assert(ui_slider_process_pointer(&p) && presses == 5 && !ui_slider_widget);
+ /* Stale instances and switching to keyboard/controller drop capture. */
+ p.held = 1; assert(ui_slider_process_pointer(&p));
+ widget.creation_time++;
+ assert(ui_slider_process_pointer(&p) && !ui_slider_widget);
+ p.held = 0; assert(!ui_slider_process_pointer(&p));
+ p.held = 1; assert(ui_slider_process_pointer(&p));
+ controls = 0; assert(!ui_slider_process_pointer(&p) && !ui_slider_widget);
+ /* Exercise the shared thumb math here as in the drawing path. */
+ thumb = halo_menu_slider_thumb(&ui_slider_geometry, 0, 11);
+ assert(thumb.x0 == 103);
+ return 0;
+}
+'''
+    probe, binary = tmp_path / 'capture.c', tmp_path / 'capture'
+    probe.write_text(program)
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+                    str(probe), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
+def test_slider_pointer_abi_for_guest_and_host(tmp_path):
+    compiler = shutil.which('clang')
+    if not compiler:
+        pytest.skip('cross-target layout checks require clang')
+    source = tmp_path / 'layout.c'
+    source.write_text(r'''
+#include <stddef.h>
+#include "halo_host_pointer.h"
+#include "halo_ui_pointer.h"
+_Static_assert(sizeof(struct host_ui_pointer) == 64, "host size");
+_Static_assert(offsetof(struct host_ui_pointer, x) == 20, "position offset");
+_Static_assert(offsetof(struct host_ui_pointer, picture) == 48, "picture offset");
+_Static_assert(offsetof(struct host_ui_pointer, held) == 60, "held offset");
+_Static_assert(sizeof(struct halo_ui_pointer) == 18, "guest size");
+_Static_assert(offsetof(struct halo_ui_pointer, held) == 16, "guest held offset");
+''')
+    for target in ('arm64-apple-macos', 'arm64_32-apple-watchos'):
+        subprocess.run([compiler, '--target=' + target, '-isysroot', str(tmp_path), '-ffreestanding', '-fsyntax-only', '-Wall', '-Werror',
+                        '-iquote', str(ROOT / 'port/runtime/include'),
+                        '-iquote', str(ROOT / 'port/linux/include'), str(source)], check=True)
+
+
+def test_slider_drawing_uses_menu_art_and_live_number(tmp_path):
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    program = r'''
+#include <assert.h>
+#include <stddef.h>
+#include <string.h>
+#include <wchar.h>
+#include "halo_menu_slider.h"
+#define NONE -1
+typedef struct { short y0, x0, y1, x1; } rectangle2d;
+typedef struct { short x, y; } point2d;
+typedef struct { float alpha, red, green, blue; } real_argb_color;
+struct widget_instance { struct { struct { int selected_index, number_of_items; } list; } parameters; };
+struct ui_widget_definition { rectangle2d bounds; real_argb_color text_color; struct { int index; } text_font, text_label_string_list; };
+#define SPINNER_EXTRA_WIDTH 20
+static int draws, strings;
+int spinner_string_list_extra_count(int index) { assert(index == 43); return 0; }
+float widget_instance_get_cumulative_alpha_modifier(struct widget_instance *widget) { (void)widget; return .5f; }
+void ui_dropdown_bitmap(struct widget_instance *widget, char const *name, short frame,
+ rectangle2d *bounds, rectangle2d *clip) {
+ (void)widget; assert(!frame && clip);
+ if (!draws) {
+  assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_track"));
+  assert(bounds->x0 == 120 && bounds->x1 == 223 && bounds->y0 == 52 && bounds->y1 == 57);
+ } else if (draws == 1) {
+  assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_fill"));
+  assert(bounds->x0 == 120 && bounds->x1 == 171 && bounds->y1 - bounds->y0 == 5);
+ } else {
+  assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_thumb"));
+  assert(bounds->x0 == 159 && bounds->x1 == 184 && bounds->y0 == 42 && bounds->y1 == 67);
+ }
+ draws++;
+}
+void draw_string_set_draw_mode(int font, int style, int align, int flags, real_argb_color *color) {
+ assert(font == 42 && style == NONE && align == 1 && !flags && color->alpha == .4f);
+}
+wchar_t *spinner_string_list_get_string(int tag, short index) {
+ assert(tag == 43 && index == 5); return L"5";
+}
+void rasterizer_draw_unicode_string(rectangle2d *bounds, rectangle2d *clip, void *cursor,
+ int flags, wchar_t const *text) {
+ assert(clip && !cursor && !flags && !wcscmp(text, L"5"));
+ assert(bounds->x0 == 238 && bounds->x1 == 275 && bounds->y0 == 40 && bounds->y1 == 68); strings++;
+}
+''' + block(source, 'static void ui_widget_row_draw_slider(') + r'''
+int main(void) {
+ struct widget_instance w = {0}; struct ui_widget_definition d = {0};
+ rectangle2d clip = {0, 0, 480, 640}; point2d offset = {10, 20};
+ w.parameters.list.selected_index = 5; w.parameters.list.number_of_items = 11;
+ d.bounds.x0 = 100; d.bounds.x1 = 265; d.bounds.y0 = 20; d.bounds.y1 = 48;
+ d.text_color.alpha = .8f; d.text_font.index = 42; d.text_label_string_list.index = 43;
+ ui_widget_row_draw_slider(&w, &d, offset, &clip);
+ assert(draws == 3 && strings == 1);
+ /* Hit geometry is consumed by dispatch, not this isolated drawing probe. */
+ assert(halo_menu_slider_dragged(0, 0, 5, 0));
+ { struct halo_menu_slider s; halo_menu_slider_geometry(&s, 100, 20, 265, 48);
+ assert(halo_menu_slider_value(&s, 110, 11) == 0);
+ assert(halo_menu_slider_hit(&s, 110, 34)); assert(halo_menu_slider_tap(&s, 0, 11, 200) == 1); }
+ return 0;
+}
+'''
+    probe, binary = tmp_path / 'slider-draw.c', tmp_path / 'slider-draw'
+    probe.write_text(program)
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+                    str(probe), '-o', str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
