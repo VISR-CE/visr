@@ -18,6 +18,7 @@ def test_browser_layout_c_filters_counts_and_target(tmp_path):
         "static boolean browser_listing_cooperative(",
         "static boolean browser_listing_can_join(",
         "static boolean browser_listing_other_filters(",
+        "static boolean browser_listing_in_chip(",
         "static boolean browser_listing_shown(",
         "static int browser_key_compare(",
         "static int browser_order_compare(",
@@ -95,7 +96,8 @@ static void counts(char const *type, short shown, short all, short multiplayer, 
     games[6]=listing(2,7); games[6].kind=1;
     game_type=type;
     assert(browser_filter_and_sort(games,7,&hidden)==shown);
-    assert(hidden==7-shown);
+    /* only the selected chip's games count as hidden: the other chips' games are not hidden by a filter */
+    assert(hidden==(!strcmp(type,"all")?7:!strcmp(type,"coop")?3:4)-shown);
     assert(lobby_browser.chip_counts[0]==all);
     assert(lobby_browser.chip_counts[1]==multiplayer);
     assert(lobby_browser.chip_counts[2]==coop);

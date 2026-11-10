@@ -4137,13 +4137,18 @@ static boolean browser_listing_other_filters(struct p2p_listing const *game)
 	return TRUE;
 }
 
-static boolean browser_listing_shown(struct p2p_listing const *game)
+/* whether the selected type chip (All, Multiplayer, Co-op) includes the game */
+static boolean browser_listing_in_chip(struct p2p_listing const *game)
 {
 	char const *games = config_string("network.browser_games");
 
-	return browser_listing_other_filters(game) &&
-		(!games || strcmp(games, "coop") || browser_listing_cooperative(game)) &&
+	return (!games || strcmp(games, "coop") || browser_listing_cooperative(game)) &&
 		(!games || strcmp(games, "multiplayer") || !browser_listing_cooperative(game));
+}
+
+static boolean browser_listing_shown(struct p2p_listing const *game)
+{
+	return browser_listing_other_filters(game) && browser_listing_in_chip(game);
 }
 
 /* how many of FILTERS' choices differ from their defaults (the button's count) */
@@ -4195,10 +4200,11 @@ static int browser_order_compare(void const *first, void const *second)
 	return difference ? difference : a - b;
 }
 
-/* the games filtered, then sorted; returns how many are shown, and how many the filters hid */
+/* the games filtered, then sorted; returns how many are shown, and how many of the selected chip's games the
+other filters hid */
 static short browser_filter_and_sort(struct p2p_listing *games, short count, short *hidden)
 {
-	short read, written = 0;
+	short read, written = 0, in_chip = 0;
 
 	memset(lobby_browser.chip_counts, 0, sizeof(lobby_browser.chip_counts));
 	for (read = 0; read < count; read++)
@@ -4208,13 +4214,15 @@ static short browser_filter_and_sort(struct p2p_listing *games, short count, sho
 			lobby_browser.chip_counts[0]++;
 			lobby_browser.chip_counts[browser_listing_cooperative(&games[read]) ? 2 : 1]++;
 		}
+		if (browser_listing_in_chip(&games[read]))
+			in_chip++;
 		if (!browser_listing_shown(&games[read]))
 			continue;
 		if (written != read)
 			games[written] = games[read];
 		written++;
 	}
-	*hidden = (short)(count - written);
+	*hidden = (short)(in_chip - written);
 	browser_sorting.games = games;
 	browser_sorting.sort = browser_sort();
 	for (read = 0; read < written; read++)
