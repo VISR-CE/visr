@@ -7,6 +7,7 @@ theater mode hides the game's window for the immersive space
 #include <TargetConditionals.h>
 #include <SDL3/SDL.h>
 #include "ios_host.h"
+#include "host_modal_wait.h"
 #include "posix.h"
 #if !TARGET_OS_TV
 #import "host_orientation.h"
@@ -147,51 +148,59 @@ void host_dismiss_window(UIWindow *window)
 
 int host_alert(const char *title, const char *message, const char *first, const char *second)
 {
+	BOOL on_main = host_on_main_thread();
+	dispatch_semaphore_t answered = on_main ? nil : dispatch_semaphore_create(0);
 	__block int answer = -1;
-	UIWindow *window;
-	UIAlertController *alert;
-	UIAlertAction *preferred;
+	__block UIWindow *window;
+	__block UIAlertController *alert;
 
-	/* (UIKit only on the main thread, where the game's boxes come; SDL's box,
-	which the caller falls back on, takes any other there itself) */
-	if (!NSThread.isMainThread)
-		return -1;
-	/* the main thread drew the game and is in the frame workgroup, and UIKit raises from its own interval when an
-	animation begins on such a thread (an Apple TV's alert animates a collection view): out until the next frame,
-	for SDL's box too when there is no window here */
-	gpu_metal_frame_deadline_leave();
-	window = host_present_window();
-	if (!window)
-		return -1;
-	host_logf(HOST_LOG_INFO, "alert: \"%s\" up", title ? title : "");
-	alert = [HostAlert alertControllerWithTitle:@(title ? title : "") message:@(message ? message : "")
-		preferredStyle:UIAlertControllerStyleAlert];
-	preferred = [UIAlertAction actionWithTitle:@(first ? first : "OK") style:UIAlertActionStyleDefault
-		handler:^(UIAlertAction *action) { (void)action; answer = 0; }];
-	[alert addAction:preferred];
-	if (second)
-		[alert addAction:[UIAlertAction actionWithTitle:@(second) style:UIAlertActionStyleCancel
-			handler:^(UIAlertAction *action) { (void)action; answer = 1; }]];
-	/* (the first button answers Return, as SDL's box made it) */
-	alert.preferredAction = preferred;
-	[window.rootViewController presentViewController:alert animated:YES completion:nil];
-	/* (the caller waits, as SDL's message box does) */
-	while (answer < 0)
-	{
-		@autoreleasepool
+	host_main_sync(^{
+		/* the main thread drew the game and is in the frame workgroup, and UIKit raises from its own interval when an
+		animation begins on such a thread (an Apple TV's alert animates a collection view): out until the next frame,
+		for SDL's box too when there is no window here */
+		if (on_main) gpu_metal_frame_deadline_leave();
+		window = host_present_window();
+		if (!window)
+			return;
+		host_logf(HOST_LOG_INFO, "alert: \"%s\" up", title ? title : "");
+		alert = [HostAlert alertControllerWithTitle:@(title ? title : "") message:@(message ? message : "")
+			preferredStyle:UIAlertControllerStyleAlert];
+		UIAlertAction *preferred = [UIAlertAction actionWithTitle:@(first ? first : "OK") style:UIAlertActionStyleDefault
+			handler:^(UIAlertAction *action) { (void)action; answer = 0; if (answered) dispatch_semaphore_signal(answered); }];
+		[alert addAction:preferred];
+		if (second)
+			[alert addAction:[UIAlertAction actionWithTitle:@(second) style:UIAlertActionStyleCancel
+				handler:^(UIAlertAction *action) { (void)action; answer = 1; if (answered) dispatch_semaphore_signal(answered); }]];
+		/* (the first button answers Return, as SDL's box made it) */
+		alert.preferredAction = preferred;
+		[window.rootViewController presentViewController:alert animated:YES completion:nil];
+	});
+	if (!window) return -1;
+	if (!host_on_main_thread()) {
+		dispatch_semaphore_wait(answered, DISPATCH_TIME_FOREVER);
+		__block int ticks = 0;
+		host_modal_wait(0.05, ^bool {
+			return ticks++ >= 20 || !(alert.presentingViewController || alert.beingDismissed);
+		});
+	} else {
+		/* (the caller waits, as SDL's message box does) */
+		while (answer < 0)
 		{
-			CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, true);
+			@autoreleasepool
+			{
+				CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, true);
+			}
+		}
+		/* (the alert animates away before the game draws, and joins, again) */
+		for (int i = 0; i < 20 && (alert.presentingViewController || alert.beingDismissed); i++)
+		{
+			@autoreleasepool
+			{
+				CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, true);
+			}
 		}
 	}
-	/* (the alert animates away before the game draws, and joins, again) */
-	for (int i = 0; i < 20 && (alert.presentingViewController || alert.beingDismissed); i++)
-	{
-		@autoreleasepool
-		{
-			CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.05, true);
-		}
-	}
-	host_dismiss_window(window);
+	host_main_sync(^{ host_dismiss_window(window); });
 	host_logf(HOST_LOG_INFO, "alert: \"%s\" answered with button %d", title ? title : "", answer);
 	return answer;
 }
@@ -247,7 +256,7 @@ int posix_share_link(const char *link)
 	UIWindow *window;
 	UIActivityViewController *sheet;
 
-	/* (UIKit only on the main thread, as host_alert) */
+	/* This asynchronous sheet still keeps its state on main. */
 	if (!url || !NSThread.isMainThread)
 		return 0;
 	/* (one sheet at a time) */
