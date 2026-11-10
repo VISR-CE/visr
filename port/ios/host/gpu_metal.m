@@ -5850,7 +5850,7 @@ void gpu_metal_frame_deadline_end(void)
    shown frame joins again. Does nothing on any thread but the one that joined. */
 void gpu_metal_frame_deadline_leave(void)
 {
-#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+#if HALO_NATIVE_MAC || TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION)
 	/* Main handles UI independently; the game thread keeps its membership. */
 	if (host_game_thread_enabled()) return;
 #endif
@@ -5870,7 +5870,7 @@ void gpu_metal_frame_deadline_leave(void)
    workgroup and no frame joins again until the hold ends; the next shown frame after it joins. */
 void gpu_metal_frame_deadline_hold(int held)
 {
-#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+#if HALO_NATIVE_MAC || TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION)
 	/* Main handles UI independently; the game thread keeps its membership. */
 	if (host_game_thread_enabled()) return;
 #endif
