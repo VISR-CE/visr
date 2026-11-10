@@ -52,9 +52,9 @@ mkdir -p "$data/maps"; for map in "$maps"/*.map; do capped 300 cp -c "$map" "$da
 for mode in ${MODES:-hold horizontal_minimum}; do
 	sub=$out/$mode; mkdir -p "$sub"
 	fov=$mode; [ "$mode" = hold ] && fov=""
-	orient="orientation = 'portrait'"; override=""
+	orient='orientation = "portrait"'; override=""
 	# laptopl: landscape with a faked half-open laptop L (VISR_POSTURE_OVERRIDE), for screenshots
-	[ "$mode" = laptopl ] && { fov=""; orient="orientation = 'landscape'"; override=laptop-l; }
+	[ "$mode" = laptopl ] && { fov=""; override=laptop-l; }
 	cat > "$data/config.toml" <<TOML
 [display]
 upscaled_textures = false
@@ -70,7 +70,7 @@ TOML
 	cp "$data/config.toml" "$sub/config.toml"
 	rm -f "$data/ios-runtime.log" "$data/stderr.log"
 	step "launch $mode"
-	[ "$mode" = hold ] && sleep 45
+	sleep 45
 	launched=0
 	for attempt in 1 2 3; do
 		if SIMCTL_CHILD_VISR_POSTURE_OVERRIDE=$override capped 60 xcrun simctl launch --terminate-running-process "--stdout=$sub/stdout.log" "--stderr=$sub/stderr.log" "$udid" "$bundle" > "$sub/launch$attempt.txt" 2>&1; then launched=1; break; fi
@@ -78,7 +78,7 @@ TOML
 	done
 	[ "$launched" = 1 ] || { echo "launch failed"; capped 60 xcrun simctl spawn "$udid" log show --last 5m --predicate 'process == "VISR"' > "$sub/sim-log.txt" 2>&1; cp "$data/ios-runtime.log" "$sub/" 2> /dev/null; exit 1; }
 	start=$SECONDS
-	for at in 12 30 50 75; do
+	for at in 12 50 90 130; do
 		while [ $((SECONDS - start)) -lt "$at" ]; do sleep 2; done
 		for display in 1 3; do capped 60 xcrun simctl io "$udid" screenshot "--display=$display" "$sub/shot-$at-d$display.png" > /dev/null 2>&1 || step "shot $at d$display failed"; done
 		step "$mode shot at $at s"
