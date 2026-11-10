@@ -23,6 +23,8 @@ so the audio callback is handed to a thread that has one.
 #include "host_log_send.h"
 #include "host_open_website.h"
 #include "host_frame_pacer.h"
+#include "host_game_thread.h"
+#include "host_main_thread.h"
 
 #include <SDL3/SDL.h>
 #include <limits.h>
@@ -467,6 +469,16 @@ static int synthetic_key(SDL_Event *event)
 }
 #endif
 
+static int next_event(SDL_Event *event)
+{
+	if (!host_game_thread_enabled())
+		return SDL_PollEvent(event);
+	/* Phase 4 pumps from the main run loop while the game drains events. */
+	if (host_on_main_thread())
+		host_event_pump();
+	return SDL_PeepEvents(event, 1, SDL_GETEVENT, SDL_EVENT_FIRST, SDL_EVENT_LAST) == 1;
+}
+
 int host_sdl_poll_event(void *event)
 {
 #if TARGET_OS_IOS
@@ -541,7 +553,7 @@ int host_sdl_poll_event(void *event)
 #endif
 	do
 	{
-		if (!SDL_PollEvent(&host_event))
+		if (!next_event(&host_event))
 			return 0;
 	}
 #if HALO_NATIVE_MAC
