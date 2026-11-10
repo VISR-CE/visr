@@ -21,6 +21,29 @@ def main():
               '-DHALO_IOS=1', '-Iport/macos', '-Iport/ios/host', '-Iport/runtime',
               '-Iport/runtime/include', '-Wl,-dead_strip']
     objc = ['-fobjc-arc', '-fblocks', '-framework', 'AppKit']
+    # Keep the startup probe asset-free; use the production thread, timer, and exit bodies.
+    source = (ROOT / 'port/ios/host/host_main.m').read_text()
+    crash = (ROOT / 'port/ios/host/host_crash.c').read_text()
+    def definition(text, signature):
+        start = text.index(signature)
+        opening = text.index('{', start)
+        depth = 1
+        end = opening + 1
+        while depth:
+            depth += (text[end] == '{') - (text[end] == '}')
+            end += 1
+        return text[start:end]
+    (BUILD / 'game_thread_start.inc').write_text('\n'.join([
+        definition(crash, 'int host_crash_thread_install(void)'),
+        definition(source, 'void host_exit(int code)'),
+        definition(source, 'static void quit_signal(int number)'),
+        source[source.index('struct game_thread_start {'):source.index('#endif /* native game thread */')],
+    ]))
+    run(*common, '-Wall', '-Wextra', '-Werror', *objc, f'-I{BUILD}',
+        'port/ios/tests/game_thread_start_probe.m', 'port/ios/host/host_main_thread.c',
+        'port/ios/host/host_quit_signals.c',
+        '-framework', 'CoreFoundation', '-o', BUILD / 'game-thread-start-probe')
+    run(BUILD / 'game-thread-start-probe')
     # These include the real implementation and replace only its SDL/file boundaries.
     run(*common, '-DHALO_NATIVE_MAC=1', *objc, 'tools/macos_import_test.m', 'port/ios/host/host_main_thread.c',
         '-framework', 'UniformTypeIdentifiers', '-o', BUILD / 'import-probe')
