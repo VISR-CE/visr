@@ -1,4 +1,5 @@
 #include "host_startup.h"
+#include "host_main_thread.h"
 #include "astc_policy.h"
 #include "host_perf_hooks.h"
 #include "host_perf_metal.h"
@@ -5086,33 +5087,50 @@ static void pacing_start(uint32_t flags)
     CADisplayLink *native_link=host_macos_display_link([PacingClock new],@selector(refresh:));
     float native_rate=(float)host_macos_refresh_rate();
 #endif
+    BOOL create_on_worker=host_on_main_thread();
+    __block CADisplayLink *created_link;
 #if !HALO_NATIVE_MAC && !TARGET_OS_VISION
-    /* (read here, on the thread that moves the output, not on the link's) */
-    UIScreen *screen=(__bridge UIScreen *)host_external_screen();
-    PacingClock *clock=[PacingClock new];
-    CADisplayLink *scene_link=nil;
+    __block UIScreen *screen;
+    __block PacingClock *clock;
+    __block CADisplayLink *scene_link=nil;
+    __block float screen_rate;
+    host_main_sync(^{
+        /* (read here, on the thread that moves the output, not on the link's) */
+        screen=(__bridge UIScreen *)host_external_screen();
+        clock=[PacingClock new];
+
 #if !TARGET_OS_MACCATALYST && ((TARGET_OS_IOS && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000) || \
-    (TARGET_OS_TV && __TV_OS_VERSION_MAX_ALLOWED >= 270000))
-    /* The frames go to the scene's display, so they are paced by that display's own refreshes: an external
-       monitor's 60 Hz, not the phone panel's. UIScreen's link (deprecated in iOS 27) is not tied to the display
-       the scene is on; frames paced against another display's clock drift through the monitor's refreshes,
-       smooth while the two line up and stuttering while they don't. */
-    if (@available(iOS 27.0, tvOS 27.0, *)) {
-        UIWindowScene *scene=(__bridge UIWindowScene *)host_external_scene();
-        if(scene)scene_link=[scene displayLinkWithTarget:clock selector:@selector(refresh:)];
-    }
+        (TARGET_OS_TV && __TV_OS_VERSION_MAX_ALLOWED >= 270000))
+        /* The frames go to the scene's display, so they are paced by that display's own refreshes: an external
+           monitor's 60 Hz, not the phone panel's. UIScreen's link (deprecated in iOS 27) is not tied to the display
+           the scene is on; frames paced against another display's clock drift through the monitor's refreshes,
+           smooth while the two line up and stuttering while they don't. */
+        if (@available(iOS 27.0, tvOS 27.0, *)) {
+            UIWindowScene *scene=(__bridge UIWindowScene *)host_external_scene();
+            if(scene)scene_link=[scene displayLinkWithTarget:clock selector:@selector(refresh:)];
+        }
 #endif
-    clock.source=scene_link?@"the window scene's display":@"the screen";
-    clock.asked=(double)screen.maximumFramesPerSecond;
+        clock.source=scene_link?@"the window scene's display":@"the screen";
+        clock.asked=(double)screen.maximumFramesPerSecond;
+        if(!create_on_worker)screen_rate=(float)screen.maximumFramesPerSecond;
+    });
 #endif
-	NSThread *thread = [[NSThread alloc] initWithBlock:^{
+    dispatch_block_t create_link=^{
 #if HALO_NATIVE_MAC
-        CADisplayLink *link=native_link;
+        created_link=native_link;
 #elif TARGET_OS_VISION
-        CADisplayLink *link=[CADisplayLink displayLinkWithTarget:[PacingClock new] selector:@selector(refresh:)];
+        created_link=[CADisplayLink displayLinkWithTarget:[PacingClock new] selector:@selector(refresh:)];
 #else
-        CADisplayLink *link=scene_link?:[screen displayLinkWithTarget:clock selector:@selector(refresh:)];
+        created_link=scene_link?:[screen displayLinkWithTarget:clock selector:@selector(refresh:)];
 #endif
+    };
+    /* Keep today's main-thread caller's worker ordering. An off-main caller
+       creates on main before the startup wait, so the worker cannot deadlock
+       against that wait by synchronously asking main for its link. */
+    if(!create_on_worker)host_main_sync(create_link);
+	NSThread *thread = [[NSThread alloc] initWithBlock:^{
+        if(create_on_worker)create_link();
+        CADisplayLink *link=created_link;
         pacing_link=link;
 
 #if !TARGET_OS_VISION
@@ -5122,7 +5140,7 @@ static void pacing_start(uint32_t flags)
 #if HALO_NATIVE_MAC
         float rate=native_rate;
 #else
-        float rate=(float)screen.maximumFramesPerSecond;
+        float rate=create_on_worker?(float)screen.maximumFramesPerSecond:screen_rate;
         /* display.frame_rate's cap (pacing_link_rate); the Mac app keeps the display's
         rate and holds its caps by host_frame_rate_limit */
 #if !TARGET_OS_MACCATALYST
@@ -6272,13 +6290,16 @@ static void system_frames_start(void)
 #if HALO_NATIVE_MAC
         float native_rate=(float)host_macos_refresh_rate();
 #endif
-		thread = [[NSThread alloc] initWithBlock:^{
-			CAMetalDisplayLink *link = [[CAMetalDisplayLink alloc] initWithMetalLayer:output_layer];
-			SystemFrames *frames_delegate = [SystemFrames new];
+        BOOL create_on_worker=host_on_main_thread();
+        __block CAMetalDisplayLink *created_link;
+        __block SystemFrames *frames_delegate;
+        dispatch_block_t create_link=^{
+			created_link = [[CAMetalDisplayLink alloc] initWithMetalLayer:output_layer];
+			frames_delegate = [SystemFrames new];
 
-			link.delegate = frames_delegate;
+			created_link.delegate = frames_delegate;
 			if (latency)
-				link.preferredFrameLatency = (float)latency;
+				created_link.preferredFrameLatency = (float)latency;
 #if HALO_NATIVE_MAC
             float rate=native_rate;
 #elif TARGET_OS_VISION
@@ -6287,7 +6308,12 @@ static void system_frames_start(void)
             float rate=(float)((__bridge UIScreen *)host_external_screen()).maximumFramesPerSecond;
 #endif
             if(rate<60)rate=60;
-			link.preferredFrameRateRange = CAFrameRateRangeMake(MIN(80,rate), rate, rate);
+			created_link.preferredFrameRateRange = CAFrameRateRangeMake(MIN(80,rate), rate, rate);
+        };
+        if(!create_on_worker)host_main_sync(create_link);
+		thread = [[NSThread alloc] initWithBlock:^{
+            if(create_on_worker)create_link();
+            CAMetalDisplayLink *link=created_link;
 			[link addToRunLoop:NSRunLoop.currentRunLoop forMode:NSDefaultRunLoopMode];
             system_frames_link=link;
             dispatch_semaphore_signal(started);
@@ -6335,8 +6361,10 @@ int gpu_metal_output(void *new_layer, void *screen, int width, int height)
 #endif
     perf_output = screen ? 3 : 1;
     layer=(__bridge CAMetalLayer *)new_layer;
-    layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;
-    layer.drawableSize=CGSizeMake(width,height);
+    host_main_sync(^{
+        layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;
+        layer.drawableSize=CGSizeMake(width,height);
+    });
     for(int slot=0;slot<FRAMES;slot++)dispatch_semaphore_signal(frame_slots);
     pacing.last_present=0;pacing.due=0;pacing.refreshes=1;
     pacing_start(output_initialize_flags);
@@ -6363,17 +6391,21 @@ static _Atomic int output_cap_pending = -1;
 only, but an iPhone's or iPad's layer may still be portrait when the renderer starts) */
 static BOOL output_cap_layer(CAMetalLayer *target, int width, int height)
 {
-	CGSize bounds = target.bounds.size;
-	(void)width;
+	__block BOOL changed = NO;
+	host_main_sync(^{
+		CGSize bounds = target.bounds.size;
+		(void)width;
 #if TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST)
-	if (bounds.width <= 0 || bounds.height <= 0)
-		bounds = UIScreen.mainScreen.bounds.size;
+		if (bounds.width <= 0 || bounds.height <= 0)
+			bounds = UIScreen.mainScreen.bounds.size;
 #endif
-	CGFloat shorter = bounds.width < bounds.height ? bounds.width : bounds.height;
-	if (shorter <= 0)
-		return NO;
-	target.contentsScale = (CGFloat)height / shorter;
-	return YES;
+		CGFloat shorter = bounds.width < bounds.height ? bounds.width : bounds.height;
+		if (shorter <= 0)
+			return;
+		target.contentsScale = (CGFloat)height / shorter;
+		changed = YES;
+	});
+	return changed;
 }
 
 void gpu_metal_request_output_cap(int cap)
@@ -6393,7 +6425,7 @@ void gpu_metal_output_cap_commit(void)
 {
 #if TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST)
 	int cap = atomic_load(&output_cap_pending), native_width, native_height, width, height;
-	CAMetalLayer *built_in;
+	__block CAMetalLayer *built_in;
 
 	if (cap < 0 || host_external_active())
 		return;
@@ -6403,7 +6435,7 @@ void gpu_metal_output_cap_commit(void)
 		atomic_store(&output_cap_pending, -1);
 		return;
 	}
-	built_in = (__bridge CAMetalLayer *)host_sdl_metal_layer();
+	host_main_sync(^{ built_in = (__bridge CAMetalLayer *)host_sdl_metal_layer(); });
 	host_sdl_native_output(&native_width, &native_height);
 	if (!built_in || native_width <= 0 || native_height <= 0)
 	{
@@ -8278,7 +8310,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 #if HALO_FRAME_PACING
 		frame_load_passes = (long)host_config_real("debug.frame_load_gpu", 0.0);
 #endif
-		layer = (__bridge CAMetalLayer *)host_sdl_metal_layer();
+		host_main_sync(^{ layer = (__bridge CAMetalLayer *)host_sdl_metal_layer(); });
 		device = MTLCreateSystemDefaultDevice();
 		if (!layer || !device)
 			host_fatal("Metal is unavailable (layer %p, device %p)", (__bridge void *)layer, (__bridge void *)device);
@@ -8295,30 +8327,34 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 			host_theater_open();
 		}
 #endif
-		/* SDL's view sets the layer's scale and drawableSize (from layoutSubviews) */
-		layer.device = device;
-		layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-		layer.framebufferOnly = YES;
-		gpu_metal_presentation_configure(layer);
+		__block MTLPixelFormat layer_format;
+		host_main_sync(^{
+			/* SDL's view sets the layer's scale and drawableSize (from layoutSubviews) */
+			layer.device = device;
+			layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+			layer.framebufferOnly = YES;
+			layer_format = layer.pixelFormat;
+			gpu_metal_presentation_configure(layer);
 #if TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST)
-		{
-			/* the built-in output cap (a tvOS profile's display.output_height or debug.output_height;
-			   host_output_cap.h, host_main.m): the layer's scale is
-			   lowered so SDL's view, which sets the drawable to bounds times scale at each layout, keeps the
-			   capped size; the system scales the drawable to the TV */
-			int capped_width, capped_height;
-
-			if (host_sdl_output_cap(&capped_width, &capped_height))
 			{
-				if (output_cap_layer(layer, capped_width, capped_height))
+				/* the built-in output cap (a tvOS profile's display.output_height or debug.output_height;
+				   host_output_cap.h, host_main.m): the layer's scale is
+				   lowered so SDL's view, which sets the drawable to bounds times scale at each layout, keeps the
+				   capped size; the system scales the drawable to the TV */
+				int capped_width, capped_height;
+
+				if (host_sdl_output_cap(&capped_width, &capped_height))
 				{
-					layer.drawableSize = CGSizeMake(capped_width, capped_height);
-					platform_log("Metal: built-in output capped: drawable %dx%d (layer scale %.4f)", capped_width,
-						capped_height, (double)layer.contentsScale);
+					if (output_cap_layer(layer, capped_width, capped_height))
+					{
+						layer.drawableSize = CGSizeMake(capped_width, capped_height);
+						platform_log("Metal: built-in output capped: drawable %dx%d (layer scale %.4f)", capped_width,
+							capped_height, (double)layer.contentsScale);
+					}
 				}
 			}
-		}
 #endif
+		});
 		textures = [MetalTable new];
 		buffers = [MetalTable new];
 		shaders = [MetalTable new];
@@ -8336,7 +8372,7 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		fill_pipelines = [NSMutableDictionary dictionary];
 		present_descriptor.vertexFunction = present_vertex;
 		present_descriptor.fragmentFunction = present_fragment;
-		present_descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat;
+		present_descriptor.colorAttachments[0].pixelFormat = layer_format;
 		present_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
 		if (!present_pipeline)
 			host_fatal("Metal: cannot create the present pipeline: %s", error.description.UTF8String);
