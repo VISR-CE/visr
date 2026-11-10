@@ -692,6 +692,7 @@ long ui_redraw_safe_left_units(long width);
 #include "ui_widget.h"
 #include "interface/controller_glyphs.h"
 #include "halo_menu_row.h" /* port: runtime settings control policy */
+#include "halo_menu_dropdown.h"
 #include "halo_controller_glyphs.h"
 #include "halo_menus.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -5926,6 +5927,54 @@ static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget
 		ui_widget_row_string, definition);
 }
 
+/* port: only string-backed Xbox settings rows own a dropdown. The classifier's
+fallback enum also covers PC lists and carousels, which retain their behavior. */
+static boolean ui_widget_row_has_dropdown(struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+	char const *name = tag_get_name(widget->definition_tag_index);
+	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5)) &&
+		!definition->child_widgets.count && definition->text_label_string_list.index != NONE &&
+		widget->parameters.list.number_of_items > 1 && ui_widget_row_control(widget).kind == HALO_ROW_ENUM;
+}
+
+static struct halo_menu_dropdown ui_dropdown;
+static struct widget_instance *ui_dropdown_widget;
+static long ui_dropdown_creation_time;
+static int ui_dropdown_selection = -1;
+static int ui_dropdown_last_selection = -1;
+
+/* port: bitmap controls share the game's font/bitmap pipeline, with no host widgets. */
+static void ui_dropdown_bitmap(struct widget_instance *widget, char const *name,
+	short frame, rectangle2d *bounds, rectangle2d *clip)
+{
+	long tag = tag_loaded('bitm', name);
+	struct bitmap_data *bitmap;
+	struct rasterizer_dynamic_screen_geometry_parameters parameters;
+	rectangle2d source;
+	if (tag == NONE) return;
+	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, frame);
+	if (!bitmap) return;
+	source.x0 = source.y0 = 0;
+	source.x1 = bounds->x1 - bounds->x0;
+	source.y1 = bounds->y1 - bounds->y0;
+	csmemset(&parameters, 0, sizeof(parameters));
+	draw_bitmap_in_rect(bitmap, bounds, &source, clip,
+		(fast_ftol(widget_instance_get_cumulative_alpha_modifier(widget) * 255.0f) << 24) | 0x00FFFFFF,
+		&parameters, TRUE);
+}
+
+static void ui_widget_row_draw_chevron(struct widget_instance *widget,
+	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip)
+{
+	rectangle2d bounds;
+	bounds.x1 = definition->bounds.x1 + offset.x - 8;
+	bounds.x0 = bounds.x1 - 12;
+	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 8) / 2;
+	bounds.y1 = bounds.y0 + 8;
+	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\dropdown_chevron", 0, &bounds, clip);
+}
+
 static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on)
 {
@@ -5958,6 +6007,7 @@ static void widget_instance_render_spinner_list(
 	struct halo_menu_row row = ui_widget_row_control(widget);
 	int pointer_controls = halo_menu_pointer_controls();
 	boolean toggle = pointer_controls && row.kind == HALO_ROW_TOGGLE;
+	boolean dropdown = pointer_controls && ui_widget_row_has_dropdown(widget);
 	long header_frame_index = 0;
 	long footer_frame_index = 0;
 	real alpha_modifier = widget_instance_get_cumulative_alpha_modifier(widget);
@@ -5989,7 +6039,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_header_bitmap.index,
 		0,
 		header_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !(toggle && pointer_controls == 2))
+	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown) && pointer_controls == 2))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6020,7 +6070,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_footer_bitmap.index,
 		0,
 		footer_frame_index);
-	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !(toggle && pointer_controls == 2))
+	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !((toggle || dropdown) && pointer_controls == 2))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -6040,6 +6090,8 @@ static void widget_instance_render_spinner_list(
 			&parameters,
 			FALSE);
 	}
+	if (dropdown)
+		ui_widget_row_draw_chevron(widget, definition, offset, clip_rect);
 	if (toggle)
 		ui_widget_row_draw_toggle(widget, definition, offset, clip_rect,
 			widget->parameters.list.selected_index == row.on_index);
@@ -6163,6 +6215,7 @@ static void widget_instance_render_spinner_list(
 						color.alpha;
 				}
 				if (toggle) bounds.x1 -= 38;
+				if (dropdown) bounds.x1 -= 24;
 				draw_string_set_draw_mode(
 					definition->text_font.index,
 					NONE,
@@ -6214,6 +6267,7 @@ struct ui_mouse_target
 	short button_index;
 	short back_arrow_end;
 	short forward_arrow_start;
+	rectangle2d value_bounds;
 };
 
 static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
@@ -6304,6 +6358,9 @@ and a pool the next screen already uses. */
 static void ui_mouse_forget_targets(
 	void)
 {
+	ui_dropdown.open = FALSE;
+	ui_dropdown_widget = NULL;
+	ui_dropdown_selection = -1;
 	ui_mouse_target_count = 0;
 	ui_mouse_press_count = 0;
 	ui_mouse_hover_pending = FALSE;
@@ -7599,7 +7656,7 @@ static void ui_mouse_note_target(
 		kind = _ui_mouse_target_value;
 		/* port: retain the row band even before pointer activity, so the first
 		tap after using a controller can land on the label. */
-		if (ui_widget_row_control(widget).kind == HALO_ROW_TOGGLE)
+		if (ui_widget_row_control(widget).kind == HALO_ROW_TOGGLE || ui_widget_row_has_dropdown(widget))
 		{
 			struct ui_widget_definition *row = ui_widget_definition_get(parent->definition_tag_index);
 			bounds.x0 = row->bounds.x0 + offset.x - widget->horizontal_offset;
@@ -7623,6 +7680,16 @@ static void ui_mouse_note_target(
 	target->button_index = button_index;
 	target->back_arrow_end = definition->list_header_bounds.x1 + offset.x;
 	target->forward_arrow_start = definition->list_footer_bounds.x0 + offset.x;
+	target->value_bounds = definition->bounds;
+	target->value_bounds.x0 += offset.x;
+	target->value_bounds.x1 += offset.x;
+	target->value_bounds.y0 += offset.y;
+	target->value_bounds.y1 += offset.y;
+	if (spinner_string_list_extra_count(definition->text_label_string_list.index))
+	{
+		target->value_bounds.x0 -= SPINNER_EXTRA_WIDTH;
+		target->back_arrow_end -= SPINNER_EXTRA_WIDTH;
+	}
 
 	return;
 }
@@ -7861,10 +7928,149 @@ void ui_widget_port_post_button(
 	return;
 }
 
+/* port: the previous draw must still contain this instance before it is read.
+Deleting any widget clears the owner through ui_mouse_forget_targets(). */
+static boolean ui_dropdown_owner_valid(void)
+{
+	long index;
+	for (index = 0; index < ui_mouse_target_count; index++)
+		if (ui_mouse_targets[index].widget == ui_dropdown_widget)
+			return ui_dropdown_widget->creation_time == ui_dropdown_creation_time &&
+				ui_widget_row_has_dropdown(ui_dropdown_widget);
+	return FALSE;
+}
+
+static void ui_dropdown_open(struct ui_mouse_target *target)
+{
+	ui_dropdown_widget = target->widget;
+	ui_dropdown_creation_time = target->widget->creation_time;
+	ui_dropdown_selection = -1;
+	ui_dropdown_last_selection = -1;
+	halo_menu_dropdown_open(&ui_dropdown, target->value_bounds.x0,
+		target->value_bounds.y0, target->value_bounds.y1,
+		target->widget->parameters.list.number_of_items,
+		target->widget->parameters.list.selected_index);
+}
+
+/* port: post one normal spinner step each frame, as ui_mouse_step_list_to_slot
+would, without truncating a long enum to UI_MOUSE_MAXIMUM_PRESSES. Each event
+runs the usual handlers and the next frame observes their result. */
+static void ui_dropdown_step_pending(void)
+{
+	int selected = ui_dropdown_widget->parameters.list.selected_index;
+	short back, forward;
+	if (selected == ui_dropdown_selection || selected == ui_dropdown_last_selection ||
+		ui_dropdown_selection >= ui_dropdown_widget->parameters.list.number_of_items)
+	{
+		ui_dropdown_selection = -1;
+		return;
+	}
+	ui_mouse_give_focus(ui_dropdown_widget);
+	ui_mouse_list_directions(ui_dropdown_widget, &back, &forward);
+	ui_dropdown_last_selection = selected;
+	ui_mouse_press(selected < ui_dropdown_selection ? forward : back);
+}
+
+/* port: all non-pointer input dismisses the modal without reaching the page.
+The null event still updates animations and settings. */
+static boolean ui_dropdown_filter_event(struct event_record *event)
+{
+	if (ui_dropdown.open && event->type != _event_type_null)
+	{
+		ui_dropdown.open = FALSE;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+/* port: consume modal input before ordinary row hit-testing. Touch drags
+already arrive as wheel steps from host_menu_pointer_touch_move(). */
+static boolean ui_dropdown_process_pointer(struct halo_ui_pointer *pointer)
+{
+	if (!ui_dropdown.open && ui_dropdown_selection < 0) return FALSE;
+	if (!ui_dropdown_owner_valid())
+	{
+		ui_dropdown.open = FALSE;
+		ui_dropdown_selection = -1;
+		return TRUE;
+	}
+	if (ui_dropdown.open)
+	{
+		/* Keyboard ownership can change before its event arrives. Keep the
+		modal alive until ui_dropdown_filter_event() consumes that event. */
+		if (pointer->right_clicks) ui_dropdown.open = FALSE;
+		else if (pointer->left_clicks)
+		{
+			ui_dropdown_selection = halo_menu_dropdown_click(&ui_dropdown, pointer->click_x, pointer->click_y);
+			ui_dropdown_last_selection = -1;
+			halo_ui_pointer_feedback(2);
+		}
+		else
+		{
+			if (pointer->wheel_steps)
+				halo_menu_dropdown_scroll(&ui_dropdown, -pointer->wheel_steps);
+			if (pointer->moved || pointer->wheel_steps)
+			{
+				int option = halo_menu_dropdown_option(&ui_dropdown, pointer->x, pointer->y);
+				if (option >= 0) ui_dropdown.highlight = option;
+			}
+		}
+		return TRUE;
+	}
+	if (!halo_menu_pointer_controls()) ui_dropdown_selection = -1;
+	else ui_dropdown_step_pending();
+	return TRUE;
+}
+
+static void ui_dropdown_draw(void)
+{
+	struct ui_widget_definition *definition;
+	rectangle2d bounds, clip = {0, 0, 480, 640};
+	real_argb_color color = {1.0f, 1.0f, 1.0f, 1.0f};
+	int slot;
+	if (!ui_dropdown.open || !ui_dropdown_owner_valid()) return;
+	definition = ui_widget_definition_get(ui_dropdown_widget->definition_tag_index);
+	bounds.x0 = ui_dropdown.x; bounds.x1 = bounds.x0 + HALO_DROPDOWN_WIDTH;
+	bounds.y0 = ui_dropdown.y; bounds.y1 = bounds.y0 + ui_dropdown.rows * HALO_DROPDOWN_PITCH + 3;
+	ui_dropdown_bitmap(ui_dropdown_widget, "pc\\xbox\\bitmaps\\dropdown_panel",
+		ui_dropdown.rows - 1, &bounds, &clip);
+	color.alpha = widget_instance_get_cumulative_alpha_modifier(ui_dropdown_widget);
+	for (slot = 0; slot < ui_dropdown.rows; slot++)
+	{
+		int option = ui_dropdown.first + slot;
+		rectangle2d text;
+		bounds.x0 = ui_dropdown.x + 2; bounds.x1 = ui_dropdown.x + HALO_DROPDOWN_WIDTH - 2;
+		bounds.y0 = ui_dropdown.y + 2 + slot * HALO_DROPDOWN_PITCH;
+		bounds.y1 = bounds.y0 + HALO_DROPDOWN_PITCH;
+		if (option == ui_dropdown.highlight)
+			draw_quad(&bounds, (fast_ftol(color.alpha * 255.0f) << 24) | 0x001F4FA3);
+		text = bounds;
+		text.x0 += 6; text.x1 -= 22;
+		draw_string_set_draw_mode(definition->text_font.index, NONE, 0, 0, &color);
+		rasterizer_draw_unicode_string(&text, &text, NULL, 0,
+			spinner_string_list_get_string(definition->text_label_string_list.index, (short)option));
+		if (option == ui_dropdown_widget->parameters.list.selected_index)
+		{
+			bounds.x0 = bounds.x1 - 18; bounds.x1 = bounds.x0 + 12;
+			bounds.y0 += 7; bounds.y1 = bounds.y0 + 12;
+			ui_dropdown_bitmap(ui_dropdown_widget, "pc\\xbox\\bitmaps\\dropdown_check", 0, &bounds, &clip);
+		}
+	}
+}
+
 /* port: enum and range controls share this dispatch with toggles. */
 static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 	short back, short forward, boolean first_half)
 {
+	if (halo_menu_pointer_controls() && ui_widget_row_has_dropdown(target->widget))
+	{
+		if (halo_menu_pointer_controls() == 1 && x >= target->back_arrow_end - 6 && x < target->back_arrow_end)
+			ui_mouse_press(back);
+		else if (halo_menu_pointer_controls() == 1 && x >= target->forward_arrow_start && x < target->forward_arrow_start + 6)
+			ui_mouse_press(forward);
+		else ui_dropdown_open(target);
+		return;
+	}
 	/* port: one dispatch for each runtime row control. A row flip
 	uses the controller step toward the other value, even on clamped lists. */
 	if (halo_menu_pointer_controls())
@@ -7900,6 +8106,8 @@ static void ui_widgets_process_mouse(
 	if (!halo_ui_pointer_update(ui_mouse_menus_active(), &pointer) ||
 		virtual_keyboard_active())
 	{
+		if (virtual_keyboard_active() || !ui_dropdown_owner_valid()) ui_dropdown.open = FALSE;
+		ui_dropdown_selection = -1;
 		ui_mouse_menu_drawn = FALSE;
 		ui_mouse_radius = 0;
 		ui_mouse_press_count = 0;
@@ -7909,6 +8117,11 @@ static void ui_widgets_process_mouse(
 	else
 	{
 		halo_menu_pointer_activity(&pointer);
+		if (ui_dropdown_process_pointer(&pointer))
+		{
+			ui_mouse_hover_pending = ui_mouse_click_pending = FALSE;
+			goto post_pointer_presses;
+		}
 		ui_mouse_radius = pointer.radius;
 		/* (a screen with no menu widget, the scores after a game, has nothing to draw first) */
 		if (!ui_mouse_menu())
@@ -8251,6 +8464,7 @@ static void ui_widgets_process_mouse(
 				}
 			}
 		}
+	post_pointer_presses:
 		if (ui_mouse_press_count)
 		{
 			event_manager_post_button(claim_controller != NONE ? claim_controller : controller_index, ui_mouse_presses[0]);
@@ -9136,6 +9350,7 @@ void render_ui_widgets(
 					offset,
 					TRUE,
 					FALSE);
+				if (ui_mouse_noting_targets) ui_dropdown_draw();
 				ui_redraw_end_screen();
 				/* the popup draws in the menu window's space, like the rows it lifts and their
 				tap targets, so its glow sits on the drawn row where the safe-area zoom applies */
@@ -10311,7 +10526,9 @@ void process_ui_widgets(
 
 		return;
 	}
-	pause_pressed = ui_check_for_pause_game();
+	/* port: Start dismisses the dropdown through the event filter before it
+	can close an in-game pause screen. */
+	pause_pressed = ui_dropdown.open ? FALSE : ui_check_for_pause_game();
 	any_modal_widget_active = FALSE;
 	for (widget_index = 0;
 		widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS;
@@ -10360,7 +10577,7 @@ void process_ui_widgets(
 			{
 				do
 				{
-					if (!pause_pressed)
+					if (!pause_pressed && !ui_dropdown_filter_event(&event))
 					{
 						widget_instance_process_one_event_recursive(
 							widget,

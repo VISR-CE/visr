@@ -86,11 +86,33 @@ def toggle_art(output):
                         str(output / f'toggle_switch__{on}.png'), str(svg)], check=True)
 
 
+def dropdown_art(output):
+    """Menu-blue pointer controls; panel frames keep the 1.5-unit border at every height."""
+    shapes = [
+        ('dropdown_chevron', 12, 8,
+         '<path d="M2 2 L6 6 L10 2" fill="none" stroke="#4ea0ff" stroke-width="2"/>'),
+        ('dropdown_check', 12, 12,
+         '<path d="M2 6 L5 9 L10 3" fill="none" stroke="#fff" stroke-width="2"/>'),
+    ]
+    for rows in range(1, 8):
+        height = rows * 26 + 3
+        shapes.append((f'dropdown_panel__{rows - 1}', 165, height,
+                       f'<rect x=".75" y=".75" width="163.5" height="{height - 1.5}" '
+                       'fill="#001125" stroke="#4ea0ff" stroke-width="1.5"/>'))
+    for name, width, height, shape in shapes:
+        svg = output / f'{name}.svg'
+        svg.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+                       f'viewBox="0 0 {width} {height}">{shape}</svg>\n')
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output',
+                        str(output / f'{name}.png'), str(svg)], check=True)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     output = menus / 'xbox/art'
     output.mkdir(parents=True, exist_ok=True)
     toggle_art(output)
+    dropdown_art(output)
     browser_art(output)
     redraw_art(output)
     title_icon(output)

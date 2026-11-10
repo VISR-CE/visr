@@ -240,6 +240,21 @@
 	<bitmap name="xbox/bitmaps/visr_title_icon">
 		<frame png="xbox/art/visr_title_icon.png" width="36" height="36" />
 	</bitmap>
+	<bitmap name="xbox/bitmaps/dropdown_chevron">
+		<frame png="xbox/art/dropdown_chevron.png" width="12" height="8" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/dropdown_check">
+		<frame png="xbox/art/dropdown_check.png" width="12" height="12" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/dropdown_panel">
+		<frame png="xbox/art/dropdown_panel__0.png" width="165" height="29" />
+		<frame png="xbox/art/dropdown_panel__1.png" width="165" height="55" />
+		<frame png="xbox/art/dropdown_panel__2.png" width="165" height="81" />
+		<frame png="xbox/art/dropdown_panel__3.png" width="165" height="107" />
+		<frame png="xbox/art/dropdown_panel__4.png" width="165" height="133" />
+		<frame png="xbox/art/dropdown_panel__5.png" width="165" height="159" />
+		<frame png="xbox/art/dropdown_panel__6.png" width="165" height="185" />
+	</bitmap>
 	<bitmap name="xbox/bitmaps/toggle_switch">
 		<frame png="xbox/art/toggle_switch__0.png" width="32" height="17" />
 		<frame png="xbox/art/toggle_switch__1.png" width="32" height="17" />

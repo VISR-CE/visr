@@ -692,6 +692,14 @@ def bitmap_document(assets, names):
     bitmap = ET.SubElement(root, 'bitmap', name=TITLE_ICON)
     ET.SubElement(bitmap, 'frame', png=f'{ART}/visr_title_icon.png', width=str(TITLE_ICON_SIZE),
                   height=str(TITLE_ICON_SIZE))
+    for name, width, height, count in [('dropdown_chevron', 12, 8, 1),
+                                        ('dropdown_check', 12, 12, 1),
+                                        ('dropdown_panel', 165, 0, 7)]:
+        bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/bitmaps/{name}')
+        for frame in range(count):
+            suffix = f'__{frame}' if count > 1 else ''
+            ET.SubElement(bitmap, 'frame', png=f'xbox/art/{name}{suffix}.png', width=str(width),
+                          height=str((frame + 1) * 26 + 3 if count > 1 else height))
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/bitmaps/toggle_switch')
     for on in (0, 1):
         ET.SubElement(bitmap, 'frame', png=f'xbox/art/toggle_switch__{on}.png', width='32', height='17')
