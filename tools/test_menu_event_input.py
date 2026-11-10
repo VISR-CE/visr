@@ -21,6 +21,7 @@ def test_keyboard_activity_requires_hardware_on_ios(tmp_path, ios):
 #include "menu_input.h"
 static struct menu_input_tracker state;
 static int hardware_keyboard;
+static unsigned int input_press_count;
 int host_menu_keyboard(void) { return hardware_keyboard; }
 static void platform_menu_activity(int pad, float dx, float dy, int motion) {
     menu_input_activity(&state, pad, dx, dy, motion);
@@ -69,6 +70,7 @@ def test_pen_mouse_events_follow_touch_classification(tmp_path, event_kind):
 #define SDL_PEN_MOUSEID ((unsigned int)-2)
 static struct menu_input_tracker state;
 static int menu_ignore_warp;
+static unsigned int input_press_count;
 static float menu_warp_x, menu_warp_y;
 static void platform_menu_activity(int pad, float dx, float dy, int motion) {
     menu_input_activity(&state, pad, dx, dy, motion);
