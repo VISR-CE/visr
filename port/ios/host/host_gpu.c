@@ -38,7 +38,7 @@ void platform_video_drawable_size(int *width, int *height)
 {
 	*width = 0;
 	*height = 0;
-    if(!host_external_size(width,height))SDL_GetWindowSizeInPixels(host_sdl_window(), width, height);
+    if(!host_external_size(width,height))host_sdl_window_pixels(host_sdl_window(), width, height);
 }
 
 void platform_video_safe_insets(float *insets)
