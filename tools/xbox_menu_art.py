@@ -92,6 +92,8 @@ DROPDOWN_PITCH = 52
 
 def dropdown_art(output):
     """Menu-blue pointer controls; panel frames keep the 1.5-unit border at every height."""
+    from PIL import Image
+
     shapes = [
         ('dropdown_chevron', 12, 8,
          '<path d="M2 2 L6 6 L10 2" fill="none" stroke="#4ea0ff" stroke-width="2"/>'),
@@ -107,8 +109,10 @@ def dropdown_art(output):
         svg = output / f'{name}.svg'
         svg.write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
                        f'viewBox="0 0 {width} {height}">{shape}</svg>\n')
-        subprocess.run(['rsvg-convert', '--zoom', '4', '--output',
-                        str(output / f'{name}.png'), str(svg)], check=True)
+        png = output / f'{name}.png'
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(png), str(svg)], check=True)
+        # rsvg-convert drops the alpha channel from fully opaque art; embed_assets.py needs RGBA.
+        Image.open(png).convert('RGBA').save(png)
 
 
 def generate(menus=MENUS):
