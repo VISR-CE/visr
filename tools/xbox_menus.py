@@ -842,6 +842,7 @@ def browser_layout(root, widgets, bitmaps):
     for name, width, height, frames in (
             ('c_row', 270, 50, ['row__0', 'row__1']),
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
+            ('gametype_large', 145, 118, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
             ('detail', 312, 322, ['detail']), ('join', 162, 53, ['join__0', 'join__1']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge']),
@@ -939,21 +940,20 @@ def browser_layout(root, widgets, bitmaps):
     for leaf, art, source, count in (
             ('lobby_map_pic', 'preview_mp', r'ui\shell\bitmaps\mp_map_grafix', 20),
             ('replay_level_right_pic', 'preview_sp', r'ui\shell\bitmaps\sp_levels', 10)):
-        child(content, base + '/' + leaf, x=305, y=83)
-        widget(root, base + '/' + leaf, width=310, height=118, bitmap='xbox/browser/' + art)
+        child(content, base + '/' + leaf, x=311, y=83)
+        widget(root, base + '/' + leaf, width=145, height=118, bitmap='xbox/browser/' + art)
         bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + art)
         for index in range(count):
-            # The Xbox's map pictures are 140x114 in the corner of a 256x128 texture. Scale that to
-            # the widget's width (310/140) and slide it up to cut the 118-unit banner from its middle.
+            # The Xbox's map pictures are 140x114 in the corner of a 256x128 texture.
             # Xbox has thirteen map pictures, then its unknown-map picture.
             frame = min(index, 13) if art == 'preview_mp' else index
-            geometry = dict(x='0', y='-67', width='567', height='284')
-            if art == 'preview_mp' and frame == 13:
-                # The unknown-map picture is a whole "?" in the 140x114 corner: fit its height to the
-                # 118-unit banner (118/114) and center it, instead of cutting the banner from the middle.
-                geometry = dict(x='83', y='0', width='265', height='133')
+            # The picture shares the panel with the gametype picture, so it is 145x118: the 140x114
+            # corner scaled by 118/114, which makes the whole 256x128 texture 265x133.
+            geometry = dict(x='0', y='0', width='265', height='133')
             ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
                           **geometry)
+    child(content, base + '/browser_detail_gametype', x=464, y=83)
+    widget(root, base + '/browser_detail_gametype', width=145, height=118, bitmap='xbox/browser/gametype_large')
     for leaf, x, y, width, height, font, color, text in (
             ('browser_detail_name', 313, 207, 294, 25, 'large', '#ffffff', ''),
             ('browser_detail_type', 313, 232, 294, 20, 'small', '#7fc4ff', ''),

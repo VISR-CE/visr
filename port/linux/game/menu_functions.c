@@ -4498,6 +4498,14 @@ static long browser_target_fps(void)
 	return refresh >= 30 && refresh <= 1000 ? refresh : 60;
 }
 
+static void browser_detail_gametype_set(struct widget_instance *detail, short frame)
+{
+	struct widget_instance *picture = named(detail, "browser_detail_gametype", 0);
+
+	if (picture)
+		picture->animation.current_frame_index = frame;
+}
+
 static void browser_c_detail_update(struct widget_instance *list, wchar_t const *status)
 {
 	struct widget_instance *screen = screen_of(list);
@@ -4539,6 +4547,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		short index;
 
 		lobby_map_show(detail, "");
+		browser_detail_gametype_set(detail, 6);
 		for (index = 0; index < NUMBEROF(blank); index++)
 			text_set(named(detail, blank[index], 0), L"");
 		for (index = 0; index < NUMBEROF(hidden); index++)
@@ -4550,6 +4559,8 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	}
 	game = &lobby_browser.games[lobby_browser.chosen];
 	lobby_map_show(detail, game->map);
+	/* The row icon's frames, drawn large; frame 6 is the "?" for no game. */
+	browser_detail_gametype_set(detail, PIN(game->engine_type, 0, 5));
 	text_to_wide(game->name, text, ROW_TEXT_LENGTH);
 	browser_name_set(named(detail, "browser_detail_name", 0), text);
 	map_display_name(game->map, map);

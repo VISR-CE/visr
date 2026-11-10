@@ -218,15 +218,21 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert widgets['server_item_map'].get('font') == r'ui\small_ui'
     assert len(bitmaps['xbox/browser/gauge'].findall('frame')) == 33
     assert len(bitmaps['xbox/browser/gametype'].findall('frame')) == 6
+    # The detail panel's gametype picture: six gametypes plus the "?" frame, beside the map picture.
+    assert len(bitmaps['xbox/browser/gametype_large'].findall('frame')) == 7
+    picture = widgets['browser_detail_gametype']
+    assert picture.get('bitmap') == 'xbox/browser/gametype_large'
+    assert (picture.get('width'), picture.get('height')) == ('145', '118')
+    placed = {c.get('widget').rsplit('/', 1)[-1]: c for c in content.findall('child')}
+    assert int(placed['lobby_map_pic'].get('x')) + 145 < int(placed['browser_detail_gametype'].get('x'))
+    assert placed['browser_detail_gametype'].get('y') == placed['lobby_map_pic'].get('y')
     for leaf, art, count in (('lobby_map_pic', 'preview_mp', 20), ('replay_level_right_pic', 'preview_sp', 10)):
         assert widgets[leaf].get('bitmap') == 'xbox/browser/' + art
         frames = bitmaps['xbox/browser/' + art].findall('frame')
         assert len(frames) == count
-        real = frames[:13] if art == 'preview_mp' else frames
-        assert all((f.get('width'), f.get('height'), f.get('y')) == ('567', '284', '-67') for f in real)
-        for f in (frames[13:] if art == 'preview_mp' else []):
-            # The unknown-map "?" is fitted whole and centered in the banner, not cut from the middle.
-            assert (f.get('x'), f.get('y'), f.get('width'), f.get('height')) == ('83', '0', '265', '133')
+        assert all((f.get('x'), f.get('y'), f.get('width'), f.get('height')) == ('0', '0', '265', '133')
+                   for f in frames)
+        assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == ('145', '118')
         assert all(f.get('map') and f.get('png') for f in frames)
     assert [int(f.get('index')) for f in bitmaps['xbox/browser/preview_mp']] == list(range(13)) + [13] * 7
     for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_toggle'):

@@ -86,6 +86,18 @@ def generate(output, icons):
         icon.set("height", "36")
         draw(f"gametype__{index}", 36, 36, ET.tostring(icon, encoding="unicode"))
 
+    # The detail panel's gametype picture: the same redraws at the map picture's 145x118, then a "?"
+    # for when no game is chosen. Two pixels per unit keeps seven frames cheap on small devices.
+    for index, name in enumerate(GAMETYPES):
+        icon = ET.parse(icons / f"{name}-nobg.svg").getroot()
+        icon.set("width", "145")
+        icon.set("height", "118")
+        draw(f"gametype_large__{index}", 145, 118, ET.tostring(icon, encoding="unicode"), scale=2)
+    draw("gametype_large__6", 145, 118, svg(145, 118,
+         '<g fill="none" stroke="#4aa8ff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">'
+         '<path d="M56 41 C56 24 67 17 79 17 C92 17 101 25 101 37 C101 50 90 54 82 62 C78 66 77 70 77 77"/></g>'
+         '<circle cx="77" cy="98" r="6" fill="#4aa8ff"/>'), scale=2)
+
     circumference = 2 * math.pi * 17.5
     for index in range(33):
         track = '<circle cx="21" cy="21" r="17.5" fill="none" stroke="#133e75" stroke-width="3.5"/>'

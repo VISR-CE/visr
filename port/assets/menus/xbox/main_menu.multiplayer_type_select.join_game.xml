@@ -509,6 +509,15 @@
 		<frame png="xbox/art/browser/gametype__4.png" width="36" height="36" />
 		<frame png="xbox/art/browser/gametype__5.png" width="36" height="36" />
 	</bitmap>
+	<bitmap name="xbox/browser/gametype_large">
+		<frame png="xbox/art/browser/gametype_large__0.png" width="145" height="118" />
+		<frame png="xbox/art/browser/gametype_large__1.png" width="145" height="118" />
+		<frame png="xbox/art/browser/gametype_large__2.png" width="145" height="118" />
+		<frame png="xbox/art/browser/gametype_large__3.png" width="145" height="118" />
+		<frame png="xbox/art/browser/gametype_large__4.png" width="145" height="118" />
+		<frame png="xbox/art/browser/gametype_large__5.png" width="145" height="118" />
+		<frame png="xbox/art/browser/gametype_large__6.png" width="145" height="118" />
+	</bitmap>
 	<bitmap name="xbox/browser/gauge">
 		<frame png="xbox/art/browser/gauge__00.png" width="42" height="42" />
 		<frame png="xbox/art/browser/gauge__01.png" width="42" height="42" />
@@ -755,8 +764,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_status" x="317" y="175" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_content" left="304" top="82" width="312" height="322" flags="no_focused_child">
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" x="305" y="83" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" x="305" y="83" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" x="311" y="83" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" x="311" y="83" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_gametype" x="464" y="83" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_name" x="313" y="207" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_type" x="313" y="232" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_rules_label" x="313" y="256" />
@@ -771,42 +781,43 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_net" x="313" y="378" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_password" x="441" y="378" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" width="310" height="118" bitmap="xbox/browser/preview_mp" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/lobby_map_pic" width="145" height="118" bitmap="xbox/browser/preview_mp" />
 	<bitmap name="xbox/browser/preview_mp">
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="0" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="1" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="2" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="3" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="4" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="5" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="6" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="7" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="8" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="9" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="10" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="11" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="12" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
-		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="83" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="0" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="1" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="2" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="3" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="4" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="5" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="6" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="7" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="8" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="9" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="10" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="11" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="12" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\mp_map_grafix" index="13" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" width="310" height="118" bitmap="xbox/browser/preview_sp" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/replay_level_right_pic" width="145" height="118" bitmap="xbox/browser/preview_sp" />
 	<bitmap name="xbox/browser/preview_sp">
-		<frame map="ui\shell\bitmaps\sp_levels" index="0" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="1" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="2" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="3" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="4" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="5" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="6" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="7" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="8" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
-		<frame map="ui\shell\bitmaps\sp_levels" index="9" png="xbox/art/browser/preview_none.png" x="0" y="-67" width="567" height="284" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" png="xbox/art/browser/preview_none.png" x="0" y="0" width="265" height="133" />
 	</bitmap>
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_gametype" width="145" height="118" bitmap="xbox/browser/gametype_large" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_name" type="text" width="294" height="25" font="ui\large_ui" color="#ffffff" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_detail_type" type="text" width="294" height="20" font="ui\small_ui" color="#7fc4ff" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_rules_label" type="text" width="76" height="18" font="ui\small_ui" color="#2f73c4" text="RULES" />
