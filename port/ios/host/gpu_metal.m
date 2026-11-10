@@ -48,6 +48,8 @@ build with render validation; nothing otherwise */
 #include "gpu_metal_presentation.h"
 #include "halo_display.h"
 #include "host_output_cap.h"
+#include "host_output_sync.h"
+#include "host_game_thread.h"
 #include "host_external.h"
 
 #import <Metal/Metal.h>
@@ -5367,8 +5369,10 @@ static void virtual_display_start(void)
 		return;
 #if !TARGET_OS_VISION && !TARGET_OS_MACCATALYST && !HALO_NATIVE_MAC
 	{
-		UIScreen *screen = (__bridge UIScreen *)host_external_screen();
-		float screen_rate = (float)screen.maximumFramesPerSecond;
+		__block float screen_rate;
+        if(host_game_thread_enabled())
+            host_main_sync(^{ screen_rate=(float)((__bridge UIScreen *)host_external_screen()).maximumFramesPerSecond; });
+        else screen_rate=(float)((__bridge UIScreen *)host_external_screen()).maximumFramesPerSecond;
 
 		pacing_screen_rate = screen_rate;
 		frame_pacer_panel_period(screen_rate > 0 ? 1.0 / screen_rate : 0.0);
@@ -6470,26 +6474,47 @@ static id<CAMetalDrawable> system_frame_take(void)
 #endif
 
 /* Called by host_external_commit before the next frame's first draw. */
-int gpu_metal_output(void *new_layer, void *screen, int width, int height)
+static void output_slot_wait(void *context) {
+    (void)context;dispatch_semaphore_wait(frame_slots,DISPATCH_TIME_FOREVER);
+}
+static void output_slot_release(void *context) {
+    (void)context;dispatch_semaphore_signal(frame_slots);
+}
+static void output_mutate(void *context) {
+    dispatch_block_t mutation=(__bridge dispatch_block_t)context;
+    mutation();
+}
+static BOOL output_cap_layer(CAMetalLayer *target, int width, int height);
+static int output_change(void *new_layer, void *screen, int width, int height, int change_scale)
 {
     if(!device || !new_layer || width<=0 || height<=0)return 0;
     if(frame_started)commit(YES);
-    for(int slot=0;slot<FRAMES;slot++)dispatch_semaphore_wait(frame_slots,DISPATCH_TIME_FOREVER);
-    output_link_stop(pacing_link,pacing_thread);pacing_link=nil;pacing_thread=nil;
+    __block BOOL applied=YES;
+    dispatch_block_t mutation=^{
+        output_link_stop(pacing_link,pacing_thread);pacing_link=nil;pacing_thread=nil;
 #if HALO_FRAME_PACING && !TARGET_OS_SIMULATOR
-    output_link_stop(system_frames_link,system_frames_thread);
-    system_frames_link=nil;system_frames_thread=nil;
-    void *stale=atomic_exchange(&system_frames.ready,NULL);
-    if(stale)(void)(__bridge_transfer id<CAMetalDrawable>)stale;
-    system_frames.active=NO;
+        output_link_stop(system_frames_link,system_frames_thread);
+        system_frames_link=nil;system_frames_thread=nil;
+        void *stale=atomic_exchange(&system_frames.ready,NULL);
+        if(stale)(void)(__bridge_transfer id<CAMetalDrawable>)stale;
+        system_frames.active=NO;
 #endif
-    perf_output = screen ? 3 : 1;
-    layer=(__bridge CAMetalLayer *)new_layer;
-    host_main_sync(^{
-        layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;
-        layer.drawableSize=CGSizeMake(width,height);
-    });
-    for(int slot=0;slot<FRAMES;slot++)dispatch_semaphore_signal(frame_slots);
+        /* Reject a phone drawable fetched before this output/size transaction.
+           The helper releases its lock before main changes layer properties. */
+        if(host_game_thread_enabled())companion_drawable_request(nil);
+        perf_output = screen ? 3 : 1;
+        layer=(__bridge CAMetalLayer *)new_layer;
+        host_main_sync(^{
+            /* Both scale and drawable size change after the old frames complete. */
+            if(change_scale && !output_cap_layer(layer,width,height)){applied=NO;return;}
+            layer.device=device;layer.pixelFormat=MTLPixelFormatBGRA8Unorm;layer.framebufferOnly=YES;
+#if !HALO_NATIVE_MAC && !TARGET_OS_VISION
+            if(host_game_thread_enabled())host_external_output_resize(new_layer,width,height);
+#endif
+            layer.drawableSize=CGSizeMake(width,height);
+        });
+    };
+    host_output_fence((__bridge void *)mutation,FRAMES,output_slot_wait,output_mutate,output_slot_release);
     pacing.last_present=0;pacing.due=0;pacing.refreshes=1;
     pacing_start(output_initialize_flags);
 #if HALO_FRAME_PACING && !TARGET_OS_SIMULATOR
@@ -6501,7 +6526,12 @@ int gpu_metal_output(void *new_layer, void *screen, int width, int height)
         fflush(frame_log.file);
     }
     host_logf(HOST_LOG_INFO,"Metal: output changed to %dx%d",width,height);
-    return 1;
+    return applied;
+}
+
+int gpu_metal_output(void *new_layer, void *screen, int width, int height)
+{
+    return output_change(new_layer,screen,width,height,0);
 }
 
 /* The built-in output cap as the game runs (ios_host.h): the drawable is drained and resized as for an external
@@ -6510,6 +6540,7 @@ at or above the panel's height gives the panel's own size. It is the built-in ou
 size is the external mode and its profile's [external.display] output_height, so while one is in use a cap asked for
 waits for the game to come back to the device's screen. */
 static _Atomic int output_cap_pending = -1;
+static struct host_output_request output_cap_request = HOST_OUTPUT_REQUEST_INIT;
 
 /* (height is the drawable's shorter side, and the scale comes from the bounds' shorter side: the app is landscape
 only, but an iPhone's or iPad's layer may still be portrait when the renderer starts) */
@@ -6535,20 +6566,25 @@ static BOOL output_cap_layer(CAMetalLayer *target, int width, int height)
 void gpu_metal_request_output_cap(int cap)
 {
 	/* (below zero: forget one still waiting) */
-	atomic_store(&output_cap_pending, cap < 0 ? -1 : cap);
+	if(host_game_thread_enabled())host_output_request_set(&output_cap_request,cap);
+	else atomic_store(&output_cap_pending, cap < 0 ? -1 : cap);
 }
 
 /* (a cap is for the built-in output: while an external output is in use one asked for waits, and counts as settled,
    until the game is back on the device's own screen) */
 int gpu_metal_output_cap_settled(void)
 {
-	return atomic_load(&output_cap_pending) < 0 || host_external_active();
+	return (host_game_thread_enabled()?host_output_request_cap(host_output_request_read(&output_cap_request)):
+        atomic_load(&output_cap_pending)) < 0 || host_external_active();
 }
 
 void gpu_metal_output_cap_commit(void)
 {
 #if TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST)
-	int cap = atomic_load(&output_cap_pending), native_width, native_height, width, height;
+	int threaded=host_game_thread_enabled();
+    uint64_t ticket=host_output_request_read(&output_cap_request);
+    int cap = threaded?host_output_request_cap(ticket):atomic_load(&output_cap_pending);
+    int native_width, native_height, width, height;
 	__block CAMetalLayer *built_in;
 
 	if (cap < 0 || host_external_active())
@@ -6556,28 +6592,38 @@ void gpu_metal_output_cap_commit(void)
 	if (!device)
 	{
 		/* (the OpenGL ES renderer: the cap is Metal's) */
-		atomic_store(&output_cap_pending, -1);
+		if(host_game_thread_enabled())host_output_request_complete(&output_cap_request,ticket);
+		else atomic_store(&output_cap_pending, -1);
 		return;
 	}
 	host_main_sync(^{ built_in = (__bridge CAMetalLayer *)host_sdl_metal_layer(); });
 	host_sdl_native_output(&native_width, &native_height);
 	if (!built_in || native_width <= 0 || native_height <= 0)
 	{
-		atomic_store(&output_cap_pending, -1);
+		if(host_game_thread_enabled())host_output_request_complete(&output_cap_request,ticket);
+		else atomic_store(&output_cap_pending, -1);
 		return;
 	}
 	int capped = host_output_cap_apply(native_width, native_height, cap, &width, &height);
-	if (!output_cap_layer(built_in, width, height) || !gpu_metal_output((__bridge void *)built_in, NULL, width, height))
+	if (threaded ? !output_change((__bridge void *)built_in, NULL, width, height, 1) :
+        (!output_cap_layer(built_in, width, height) || !gpu_metal_output((__bridge void *)built_in, NULL, width, height)))
 		return;
-	if (capped)
-		host_sdl_cap_output(width, height);
-	else
-		host_sdl_uncap_output();
-	host_sdl_output_native(native_width, native_height, cap);
-	atomic_store(&output_cap_pending, -1);
+    dispatch_block_t publish=^{
+        if (capped)
+            host_sdl_cap_output(width, height);
+        else
+            host_sdl_uncap_output();
+        host_sdl_output_native(native_width, native_height, cap);
+    };
+    /* Benchmark UI reads this metadata on main; the game is paused here. */
+    if(threaded)host_main_sync(publish);
+    else publish();
+	if(host_game_thread_enabled())host_output_request_complete(&output_cap_request,ticket);
+	else atomic_store(&output_cap_pending, -1);
 	platform_log("Metal: built-in output %s: drawable %dx%d", capped ? "capped" : "at the panel's size", width, height);
 #else
-	atomic_store(&output_cap_pending, -1);
+	if(host_game_thread_enabled())host_output_request_complete(&output_cap_request,host_output_request_read(&output_cap_request));
+	else atomic_store(&output_cap_pending, -1);
 #endif
 }
 
