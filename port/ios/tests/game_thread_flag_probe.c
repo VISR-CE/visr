@@ -6,7 +6,7 @@
 #include <string.h>
 
 static const char *configured;
-static int config_reads, pumps, polls, peeps;
+static int config_reads, pumps, polls, peeps, window_refreshes;
 static int on_main = 1, peep_result = 1;
 
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
@@ -18,6 +18,11 @@ void host_config_string(const char *name, const char *fallback, char *out, size_
 
 int host_on_main_thread(void) {
     return on_main;
+}
+
+void host_sdl_refresh_window_cache(void) {
+    assert(on_main && pumps == window_refreshes + 1);
+    window_refreshes++;
 }
 
 void SDL_PumpEvents(void) {
@@ -71,6 +76,7 @@ int main(int argc, char **argv) {
     assert(polls == (expected ? 0 : 4));
     assert(peeps == (expected ? 4 : 0));
     assert(config_reads == 1);
+    assert(window_refreshes == pumps);
     puts("PASS: cached game-thread flag; legacy poll or main pump and peep drain");
     return 0;
 }
