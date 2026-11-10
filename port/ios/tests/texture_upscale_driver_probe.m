@@ -88,10 +88,12 @@ static int retry_progress(void *opaque,const struct host_texture_upscale_import_
     assert(status->needed_bytes>=TEXTURE_CACHE_FALLBACK_HEADROOM);
     assert(status->found_bytes==(64ull<<20));
     if(!status->can_retry){test->disabled++;return HOST_TEXTURE_UPSCALE_WAIT;}
-    if(test->presses==0){test->presses++;return HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
+    /* The note's deadline starts when the host sees this press, so time the note from the press, not from when this
+       callback first happens to observe it: a slow runner can delay that observation, which only shortens the span. */
+    if(test->presses==0){test->presses++;test->note_began=now();return HOST_TEXTURE_UPSCALE_TRY_AGAIN;}
     if(status->retry_note){
         assert(!strcmp(status->retry_note,"Still not enough free storage."));
-        if(!test->saw_note)test->note_began=now();test->saw_note=1;
+        test->saw_note=1;
         return HOST_TEXTURE_UPSCALE_WAIT;
     }
     assert(test->saw_note&&now()-test->note_began>=2.8);
