@@ -194,6 +194,11 @@ SPINNER_MINIMUM_HALF_WIDTH = 39
 SPINNER_RUNTIME_VALUES = {'frame_rate_spinner': ('DISPLAY (240 HZ)',)}
 
 
+# Spinners whose values are wider than their character count suggests (capital M, T and W run wide in the menu font:
+# "MOVEMENT" clipped its last letter in the medium class) take the wide class
+SPINNER_WIDTH_FLOOR = {'group_spinner': 206}
+
+
 def spinner_width_class(longest):
     for name, width, limit in SPINNER_WIDTHS:
         if longest <= limit:
@@ -224,6 +229,7 @@ def spinner_longest_values(documents):
 def standardize_spinners(documents):
     for spinner, longest in spinner_longest_values(documents):
         width = spinner_width_class(longest)[1]
+        width = max(width, SPINNER_WIDTH_FLOOR.get(spinner.get('name').rsplit('/', 1)[-1], 0))
         # Centered on the wide slot's center line (the generator's source left edge plus half the wide width), so the
         # values of every control on a screen share one vertical center and the arrows stagger symmetrically
         wide = max(w for _, w, _ in SPINNER_WIDTHS)
