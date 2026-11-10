@@ -1,0 +1,106 @@
+#:schema ../port/settings/profile.schema.json
+# iPhone Duo (iPhone19,4): built-in 2669x1878 at 120 Hz. Campaign runs at the
+# native ceiling with dynamic resolution down to 1080 lines (Steve, 2026-11-09);
+# variable games keep the iPhone 17 Pro's 60 frames a second at 1080 lines.
+# render_height 0 means the active display's own height, so the cover display
+# and external displays never get the inner display's line count.
+
+schema = 1
+name = "iPhone Duo"
+kind = "model"
+status = "provisional"
+
+[match]
+platform = "ios"
+models = ["iPhone19,4"]
+
+[display]
+frame_rate = "120"
+render_height = 0
+anisotropic_filtering = 16
+shadow_map_size = 128
+anti_aliasing = "fxaa"
+dynamic_resolution = true
+dynamic_resolution_floor = 1080
+
+[variable.display]
+frame_rate = "60"
+render_height = 1080
+dynamic_resolution_floor = 540
+
+[external.display]
+output_height = 1600
+render_height = 1600
+
+[network]
+player_capacity = 128
+full_rate_players = 64
+
+[evidence."display.frame_rate"]
+basis = "assumed"
+why = "Steve 2026-11-09: enable the Duo at native resolution and 120. Measured on this model at the native 2669x1878 built-in output with dynamic resolution off: a10 99.46% of frames on time, a50 98.65%, d40 98.1%, b30 90.6%, with 1.5x and 2x enemy windows near 60 fps (GPU p95 15 to 17 ms) and thermal state 2 in five windows. At a fixed 1080 lines and 120 Hz a10 held 99.89%. Dynamic resolution down to 1080 should recover the misses; confirm with a rerun on the published profile."
+source = "Steve, 2026-11-09; VISR Duo benchmark runs CEHKY4BW and BBHUXU8M, 2026-11-09"
+
+[evidence."display.render_height"]
+basis = "assumed"
+why = "Steve 2026-11-09: native ceiling. 0 resolves to the active display's height (1878 lines on the inner display), so the cover display and external displays are never given the inner display's line count. Fixed native held a10 at 99.46% only; b30 at 90.6% needs the dynamic window."
+source = "Steve, 2026-11-09; VISR Duo benchmark run BBHUXU8M"
+
+[evidence."display.dynamic_resolution_floor"]
+basis = "assumed"
+why = "Steve 2026-11-09: dynamic resolution down to 1080 in campaign. Variable games (multiplayer, co-op, enemy multipliers) keep the iPhone 17 Pro's 1080 ceiling with the 540 floor."
+source = "Steve, 2026-11-09; profiles/README.md, Dynamic resolution in both workloads"
+
+[evidence."variable.display.render_height"]
+basis = "inherited"
+why = "Same as the iPhone 17 Pro: 60 frames a second at a fixed 1080 lines held at 1.5x and 2x enemies there. The Duo's 1.5x and 2x windows at native ran near 60 fps with GPU p95 15 to 17 ms, so the 1080 ceiling keeps the headroom."
+source = "iPhone 17 Pro profile evidence; VISR Duo benchmark run BBHUXU8M"
+
+[evidence."variable.display.dynamic_resolution_floor"]
+basis = "inherited"
+why = "The 17 Pro's variable window: half of the 1080-line ceiling."
+source = "iPhone 17 Pro profile"
+
+[evidence."display.anisotropic_filtering"]
+basis = "assumed"
+why = "Free on the iPad Pro (M1); this phone's one benchmark ran a10 at 119 frames a second at its native 2622x1206 with 16x on (GPU 5.7 ms)."
+
+[evidence."display.shadow_map_size"]
+basis = "measured"
+why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Look test at a fixed 1080 lines, 60 frames a second, 64 players on Blood Gulch: 512 shadows 28% of frames on time (35 fps), 128 shadows 99.2% (56 fps). With the window down to 540 lines and 128 shadows, 32 players held 99.96% and 100%, 64 players 99.97% and 99.97% (59.7 to 60.0 fps, thermal state 0 or 1). Steve 2026-10-30: 128 is acceptable for the whole variable context."
+source = "VISR settings sweep look and mpshadow phases, build 20261029.192128 (main e77a24957), presented, 2026-10-30; Steve, 2026-11-04"
+
+[evidence."display.anti_aliasing"]
+basis = "measured"
+why = "FXAA on cost almost nothing on this phone at its native 2622x1206 (Metal, 120 Hz quick suite); every scene held 120 frames a second with it on. GPU mean/p95 in ms, off then on: menu 2.62/2.8 then 5.36/5.8, a10 opening 3.96/6.3 then 4.94/6.4, b30 beach 5.28/6.5 then 5.37/6.3, a10 crew 5.26/6.6 then 5.35/6.6, c40 bridge 5.24/6.5 then 5.45/6.6. The menu's cost is the largest (about 2.7 ms), and still leaves 2.6 ms of the 8.3 ms frame. On by the user's decision."
+source = "Reports NMYSEQ6R (off) and 47PS5LC2 (on), iPhone18,1, quick suite, 2026-10-15."
+
+[evidence."external.display.output_height"]
+basis = "assumed"
+why = "Estimated from built-in measurements, not measured on a wired display. A 2560x1600 monitor at its full 1600 lines draws 2560x1600 (4.1 million pixels), 1.3 times the 3.2 million of this phone's native 2622x1206. At native the b30 and a10 scenes cost 5.3 and about 5 ms of GPU at 120 Hz (FXAA on), so about 7 ms scaled by pixel count, against the 16.7 ms budget at the external display's 60 Hz. A 4K monitor is capped to 1600 lines too (2844x1600 at most). The earlier 1080 cap was a placeholder pending measurements."
+source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15; presented iPhone 17 Pro runs, main c6f138a78, 2026-10-26; Steve, 2026-10-27"
+
+[evidence."external.display.render_height"]
+basis = "assumed"
+why = "Rendering follows the output cap: the drawable is the monitor's own shape at up to 1600 lines, scaled to the monitor by the layer. Estimated, not measured on a wired display; dynamic resolution (on, floor 1080) is the safety net if a monitor proves heavier than estimated."
+source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15; presented iPhone 17 Pro runs, main c6f138a78, 2026-10-26; Steve, 2026-10-27"
+
+[evidence."network.player_capacity"]
+basis = "measured"
+why = "At 30 frames a second, 540 lines and minimum settings every rung held in two rounds (frames on time): Blood Gulch with 8, 16 and 24 players 99.94% to 100%, 32 players 99.97% and 100%, 48 players 100% and 100%, 64 players 100% and 99.97%, 128 players 100% and 99.94%; Sidewinder with 32 and 64 players 100%, 128 players 100% and 100%. 128 is the schema maximum. At the profile's 1080 lines with fixed resolution Blood Gulch with 128 players missed 30 frames a second (90.0% and 93.1% on time, thermal state 1), so large games need fewer lines than 1080. Blood Gulch with 32 and 64 players at 1080 lines held 100% at 30. Multiplayer at 60 frames a second, the variable context's rate, is not yet measured."
+source = "VISR settings sweep, build 20261029.192128 (main e77a24957), presented, warm device, 2026-10-30"
+
+[evidence."display.dynamic_resolution"]
+basis = "assumed"
+why = "Apple GPUs from the A14 on have the stage timing dynamic resolution needs (iPhone 12 Pro measured); at the ceiling it costs nothing, and it lowers the scene only in frames the GPU cannot finish in time."
+source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch (2nd generation) and iPad Pro M1, 2026-10-25"
+
+[evidence."network.full_rate_players"]
+basis = "measured"
+why = "At 60 frames a second, a 1080-line ceiling, dynamic resolution down to 540 lines and 128 shadows, Blood Gulch with 64 players holds a median 99.97% of frames on time across two presented rounds. At 128 the median is 93.895%, below the 99.5% bar. 64 is the largest passing ladder count; counts between 64 and 128 and Sidewinder at 64 were not run. These runs used anti-aliasing off; the profile uses FXAA. The 64-player result is retained from the accepted current-build multiplayer evidence."
+source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
+
+[evidence."variable.display.frame_rate"]
+basis = "inherited"
+why = "Same as the iPhone 17 Pro: multiplayer misses 60 from 32 players up and 1.5x and 2x campaign windows hold 60 at 1080 lines there. The Duo's own 1.5x and 2x windows at native ran near 60 fps; no Duo multiplayer window has run yet."
+source = "iPhone 17 Pro profile evidence; VISR Duo benchmark run BBHUXU8M"
