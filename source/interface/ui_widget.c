@@ -5977,8 +5977,9 @@ static void ui_widget_row_draw_chevron(struct widget_instance *widget,
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\dropdown_chevron", 0, &bounds, clip);
 }
 
+#define UI_TOGGLE_ARROW_GAP 6
 static void ui_widget_row_draw_toggle(struct widget_instance *widget,
-	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on)
+	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on, int inset)
 {
 	long tag = tag_loaded('bitm', "pc\\xbox\\bitmaps\\toggle_switch");
 	struct bitmap_data *bitmap;
@@ -5987,7 +5988,7 @@ static void ui_widget_row_draw_toggle(struct widget_instance *widget,
 	if (tag == NONE) return;
 	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, on);
 	if (!bitmap) return;
-	bounds.x1 = definition->bounds.x1 + offset.x;
+	bounds.x1 = definition->bounds.x1 + offset.x - inset;
 	bounds.x0 = bounds.x1 - 32;
 	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 17) / 2;
 	bounds.y1 = bounds.y0 + 17;
@@ -6143,8 +6144,10 @@ static void widget_instance_render_spinner_list(
 	if (dropdown)
 		ui_widget_row_draw_chevron(widget, definition, offset, clip_rect);
 	if (toggle)
+		/* port: with the mouse the arrows stay, so the switch keeps the slider value's gap from the right arrow */
 		ui_widget_row_draw_toggle(widget, definition, offset, clip_rect,
-			widget->parameters.list.selected_index == row.on_index);
+			widget->parameters.list.selected_index == row.on_index,
+			pointer_controls == 1 ? UI_TOGGLE_ARROW_GAP : 0);
 	if (definition->child_widgets.count == 0)
 	{
 		wchar_t *item_text;

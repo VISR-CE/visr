@@ -166,10 +166,11 @@ int main(void) {
  struct ui_mouse_target target = {&widget, 100, 200};
  struct ui_widget_definition definition = {{0, 100, 28, 180}};
  point2d offset = {10, 20};
- ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 1);
+ ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 1, 0);
  assert(draws == 1 && last_frame == 1);
  assert(drawn.x0 == 158 && drawn.x1 == 190 && drawn.y0 == 25 && drawn.y1 == 42);
- ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 0); assert(last_frame == 0);
+ ui_widget_row_draw_toggle(&widget, &definition, offset, 0, 0, 6); assert(last_frame == 0);
+ assert(drawn.x0 == 152 && drawn.x1 == 184);
  row.kind = HALO_ROW_TOGGLE; controls = 2;
  ui_mouse_row_step(&target, 30, 10, 11, 1); assert(step == 11);
  widget.parameters.list.selected_index = 1;
