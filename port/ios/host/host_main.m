@@ -11,7 +11,7 @@
 #include "ios_host.h"
 #include "host_main_thread.h"
 #include "host_game_thread.h"
-#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+#if HALO_NATIVE_MAC || TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION)
 #include <pthread.h>
 #endif
 #include "guest_image.h"
@@ -78,7 +78,7 @@ void host_fatal(const char *format,...) {
 }
 /* host_abort, the guest runtime's own fatal errors, is host_crash.c's */
 void host_exit(int code) {
-#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+#if HALO_NATIVE_MAC || TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION)
     if (!host_on_main_thread() && host_game_thread_enabled()) {
         host_main_async(^{ host_exit(code); });
         /* Leave guest state parked while main finishes shutdown callbacks. */
@@ -300,7 +300,7 @@ static void quit_signal(int number) {
 }
 #endif
 
-#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+#if HALO_NATIVE_MAC || TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION)
 struct game_thread_start {
     uintptr_t entry;
     uint32_t boot;
@@ -756,7 +756,7 @@ int main(int argc,char **argv) {
         host_cloud_saves_before_game();
         host_logf(HOST_LOG_INFO,"entering guest at %08x, data %s",host_image.header->start,data_root);
         host_shader_upload_prepare();
-#if HALO_NATIVE_MAC || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV && !TARGET_OS_VISION)
+#if HALO_NATIVE_MAC || TARGET_OS_TV || (TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_VISION)
         if (host_game_thread_enabled()) {
             game_thread_run((uintptr_t)host_pointer(host_image.header->start),guest_pointer(boot),host_arena,(char *)stack+stack_size+0x4000);
             /* SDLUIKitDelegate/SDLUIKitSceneDelegate support setup-only main:
