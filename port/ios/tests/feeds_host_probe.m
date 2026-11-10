@@ -117,7 +117,9 @@ int main(int argc, char **argv)
     @autoreleasepool {
         if (argc != 8) { fprintf(stderr, "usage: %s HOST PORT PUBLIC_KEY PROFILE_FEED_URL SHADER_FEED_URL RECORDING_FEED_URL RECORDING_COMPATIBILITY\n", argv[0]); return 2; }
         feedHost = @(argv[1]); localBase = [NSString stringWithFormat:@"http://127.0.0.1:%s", argv[2]]; key = hex(argv[3]);
-        NSURL *profileBase = [NSURL URLWithString:@(argv[4])], *shaders = [NSURL URLWithString:@(argv[5])], *recordings = [NSURL URLWithString:@(argv[6])];
+        // "-" for the profile directory skips the shard check: the source reads a generation not published yet
+        BOOL skipProfile = strcmp(argv[4], "-") == 0;
+        NSURL *profileBase = [NSURL URLWithString:skipProfile ? @"https://invalid/" : @(argv[4])], *shaders = [NSURL URLWithString:@(argv[5])], *recordings = [NSURL URLWithString:@(argv[6])];
         NSString *recordingCompatibility = @(argv[7]);
         requested = [NSMutableArray array]; foreign = [NSMutableArray array];
         CHECK(key.length == 32, "the build's data-pack key is 32 bytes");
@@ -133,10 +135,13 @@ int main(int argc, char **argv)
         NSURL *profile = profileBase;
         for (NSString *part in [@(deviceKey) componentsSeparatedByString:@"/"]) profile = [profile URLByAppendingPathComponent:part];
         profile = [profile URLByAppendingPathExtension:@"json"];
+        if (skipProfile) printf("SKIP: the profile shard check; the release policy names an older profile feed generation\n");
+        else {
         NSString *profileFolder = fetched(@"profiles", [@HOST_PROFILE_FEED_DOMAIN ":" stringByAppendingString:@(deviceKey)], profile, ^BOOL(NSString *folder, NSError **error) {
             (void)error; return host_profile_validate_feed_folder(folder.fileSystemRepresentation, &device, HOST_PROFILE_FEED_GENERATION, NULL);
         });
         CHECK(profileFolder != nil, "the iPhone 17 Pro's device-profile shard downloads, verifies and activates");
+        }
 
         NSString *shaderFolder = fetched(@"shaders", @HOST_SHADER_PACK_COMPATIBILITY, shaders, ^BOOL(NSString *folder, NSError **error) {
             (void)error; return host_shader_pack_validate(folder.fileSystemRepresentation, NULL, NULL);
