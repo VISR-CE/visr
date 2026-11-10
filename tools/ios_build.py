@@ -666,6 +666,19 @@ def mac_build_folder(environment=None):
     return ROOT / 'build/mac/app'
 
 
+def host_signature(environment=None):
+    """codesign arguments for a host's stable development identity, or None: a job host's runner sets
+    HALO_MAC_SIGN_IDENTITY (and HALO_MAC_SIGN_KEYCHAIN). macOS privacy approvals (removable volumes, files) key on the
+    signature's designated requirement; an ad hoc app's is its hash, so every new build would ask again and an
+    unanswered prompt stalls unattended runs. Signed by the stable identity, every build shares one requirement."""
+    environment = os.environ if environment is None else environment
+    identity = environment.get('HALO_MAC_SIGN_IDENTITY')
+    if not identity:
+        return None
+    keychain = environment.get('HALO_MAC_SIGN_KEYCHAIN')
+    return ['--sign', identity, *(['--keychain', keychain] if keychain else [])]
+
+
 def build_mac(args, cloud, data_packs=()):
     """The iOS project built for Mac Catalyst, the Mac runner's test host (never shipped): configured as iOS, built
     with the macOS SDK"""
@@ -692,7 +705,12 @@ def build_mac(args, cloud, data_packs=()):
     run('cmake','--build',build,'--config','Release','--target','VISR','--','-quiet',
         '-sdk','macosx','SDK_VARIANT=iosmac','SUPPORTS_MACCATALYST=YES','DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER=NO',
         *signing)
-    print(f'App: {build}/Release-maccatalyst/VISR.app')
+    app = build / 'Release-maccatalyst/VISR.app'
+    host = host_signature()
+    if host and 'CODE_SIGN_IDENTITY=-' in signing:
+        run('codesign', '--force', *host, '--preserve-metadata=entitlements', app)
+        run('codesign', '--verify', '--deep', '--strict', app)
+    print(f'App: {app}')
 
 
 if __name__=='__main__':main()

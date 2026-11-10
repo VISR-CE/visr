@@ -84,10 +84,16 @@ def native_commands(args, data_packs):
     return configure, build
 
 
-def ad_hoc_sign(args):
-    """the local development signature, with the sandbox entitlements when asked for"""
+def ad_hoc_sign(args, environment=None):
+    """the local development signature, with the sandbox entitlements when asked for: the host's stable
+    development identity when its runner names one (ios_build.host_signature), else ad hoc"""
+    if __package__:
+        from . import ios_build
+    else:
+        import ios_build
     entitlements = ['--entitlements', ENTITLEMENTS] if sandboxed(args) else []
-    return ['codesign', '--force', '--sign', '-', *entitlements, APP]
+    signature = ios_build.host_signature(environment) or ['--sign', '-']
+    return ['codesign', '--force', *signature, *entitlements, APP]
 
 
 def build_native(args, data_packs):

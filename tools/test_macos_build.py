@@ -50,6 +50,7 @@ def test_native_rejects_other_platform_and_account_flows(change):
 
 
 def test_build_native_signs_and_verifies_bundle_before_reporting_success(monkeypatch):
+    monkeypatch.delenv('HALO_MAC_SIGN_IDENTITY', raising=False)
     app = macos_build.ROOT / 'build/macos/app-native/host/Release/VISR.app'
     events = []
     monkeypatch.setattr(macos_build, 'native_commands', lambda args, packs: (['configure'], ['build']))
@@ -69,9 +70,19 @@ def test_build_native_signs_and_verifies_bundle_before_reporting_success(monkeyp
 
 def test_ad_hoc_sandbox_signs_with_the_sandbox_entitlements_only_when_asked():
     app = macos_build.APP
-    assert macos_build.ad_hoc_sign(options()) == ['codesign', '--force', '--sign', '-', app]
-    assert macos_build.ad_hoc_sign(options(sandbox='on')) == [
+    assert macos_build.ad_hoc_sign(options(), {}) == ['codesign', '--force', '--sign', '-', app]
+    assert macos_build.ad_hoc_sign(options(sandbox='on'), {}) == [
         'codesign', '--force', '--sign', '-', '--entitlements', macos_build.ENTITLEMENTS, app]
+
+
+def test_local_signature_uses_the_hosts_stable_identity_when_its_runner_names_one():
+    app = macos_build.APP
+    host = {'HALO_MAC_SIGN_IDENTITY': 'ABC123', 'HALO_MAC_SIGN_KEYCHAIN': '/k/build.keychain-db'}
+    assert macos_build.ad_hoc_sign(options(sandbox='on'), host) == [
+        'codesign', '--force', '--sign', 'ABC123', '--keychain', '/k/build.keychain-db',
+        '--entitlements', macos_build.ENTITLEMENTS, app]
+    assert macos_build.ad_hoc_sign(options(), {'HALO_MAC_SIGN_IDENTITY': 'ABC123'}) == [
+        'codesign', '--force', '--sign', 'ABC123', app]
 
 
 def test_team_build_signs_in_xcode_with_the_existing_profile_and_no_provisioning_updates():
@@ -146,6 +157,7 @@ def test_mac_app_icon_has_every_mac_size():
 
 
 def test_build_native_does_not_report_success_when_strict_verification_fails(monkeypatch):
+    monkeypatch.delenv('HALO_MAC_SIGN_IDENTITY', raising=False)
     events = []
     app = macos_build.ROOT / 'build/macos/app-native/host/Release/VISR.app'
     monkeypatch.setattr(macos_build, 'native_commands', lambda args, packs: (['configure'], ['build']))
