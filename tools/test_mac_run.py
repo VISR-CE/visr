@@ -1514,3 +1514,11 @@ def test_the_appkit_runner_seeds_from_the_active_family_s_catalyst_folder(tmp_pa
     (folder / mac_run.SEED_MARKER).write_text("seeded\n")
     args = native_args(tmp_path, None, maps=None)
     assert mac_run.seed_maps_source(args, "appkit", "org.steverice.visr.native", environment) == folder / "maps"
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("metal", '"metal"'), ("off", '"off"'), ("", '""'), ("true", "true"), ("0.5", "0.5"), ("60", "60"),
+    ('"metal"', '"metal"'), ("[1, 2]", "[1, 2]"), ("a/b c", '"a/b c"'),
+])
+def test_toml_value_quotes_bare_strings(raw, expected):
+    assert mac_run.toml_value(raw) == expected

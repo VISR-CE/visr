@@ -85,6 +85,21 @@ def coalesce_tables(lines):
     return out
 
 
+def toml_value(text):
+    """a --set value as TOML: numbers, booleans, quoted strings, arrays and tables pass through,
+    anything else (metal, off, an empty value) is a bare string and gets quoted"""
+    text = text.strip()
+    if text in ("true", "false") or text[:1] in ('"', "'", "[", "{"):
+        return text
+    try:
+        float(text)
+        return text
+    except ValueError:
+        pass
+    escaped = text.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
 def merge_config(text, settings):
     """config.toml text with each dotted key in settings set to its raw TOML value"""
     lines = coalesce_tables(text.splitlines())
@@ -1035,7 +1050,7 @@ def prepare(args, documents, rewrite=False):
         clear_benchmark_folder(documents / "benchmark")
     for assignment in args.set:
         key, value = assignment.split("=", 1)
-        settings[key.strip()] = value.strip()
+        settings[key.strip()] = toml_value(value)
     # Explicit controller replays opt into the benchmark takes' simulated mouths. Shader replay is unrelated.
     if settings["debug.input_replay"].strip('"'):
         if not any(item.split("=", 1)[0].strip() == "debug.benchmark_lip_sync" for item in args.set):
