@@ -203,7 +203,8 @@ display.resolution), and 640 where display.resolution_scaling is "original".
 The game's camera derives its horizontal field of view from the viewport, so
 the 3D view simply widens. The menus and full-screen overlays are laid out
 for 640 columns; while they draw (halo_screen_ui_offset), everything shifts
-right to center them.
+right to center them. Portrait UI spans instead fit the full layout to the
+width and center it vertically; the HUD keeps its separate layout.
 
 The native ports also draw at the display's resolution: render
 targets the size of the screen get that many pixels (screen_scale), and
@@ -240,6 +241,7 @@ display's own size and the picture's size never toggles their path. */
 static float screen_scale_ceiling[2] = { 1.0f, 1.0f };
 static int screen_dynamic;
 static long ui_offset;
+static float ui_scale = 1.0f, ui_y_offset;
 static int32_t screen_maximum_texture_size = 8192;
 #define UI_OFFSET ((int32_t)ui_offset)
 
@@ -594,7 +596,31 @@ float halo_screen_scale(void)
 
 void halo_screen_ui_offset(unsigned char centered)
 {
-	ui_offset = centered ? (halo_screen_width() - 640) / 2 : 0;
+	long width = halo_screen_width();
+
+	ui_scale = centered ? halo_ui_layout_scale(width) : 1.0f;
+	ui_y_offset = centered ? halo_ui_layout_y_offset(width) : 0.0f;
+	ui_offset = centered && width >= 640 ? (width - 640) / 2 : 0;
+}
+
+unsigned char halo_screen_ui_portrait(void)
+{
+	return ui_scale < 1.0f;
+}
+
+/* Full-screen widget backgrounds cover portrait by height, cropping their
+640 columns symmetrically. Called only around the bitmap, never its children;
+the UI span (and stereo's layer selection) stays in force. */
+void halo_screen_ui_backdrop(unsigned char cover)
+{
+	if (cover)
+	{
+		ui_scale = 1.0f;
+		ui_y_offset = 0.0f;
+		ui_offset = (halo_screen_width() - 640) / 2;
+	}
+	else
+		halo_screen_ui_offset(TRUE);
 }
 
 /* Only widget draws opt in; the world, HUD, console and loading screens
@@ -620,7 +646,7 @@ static void menu_window_geometry(float *top, float *zoom)
 	*top = 0.0f;
 	*zoom = 1.0f;
 	menu_height_points = 0.0f;
-	if (!config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
+	if (halo_screen_ui_portrait() || !config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
 		return;
 #ifdef HALO_ILP32
 	/* A spatial surface has its own apparent size, unrelated to window points. */
@@ -3600,7 +3626,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 				screen_width, &pointer->click_x, &pointer->click_y);
 			if (host.radius > 0.0f)
 			{
-				float radius = host.radius * 480.0f / host.surface_height;
+				float radius = host.radius * 480.0f / host.surface_height / halo_ui_layout_scale(screen_width);
 
 				pointer->radius = (short)(radius < 1.0f ? 1 : radius > 64.0f ? 64 : radius);
 			}
@@ -5972,7 +5998,7 @@ static void raster_state_fill(BOOL has_depth, struct gpu_viewport *viewport, str
 
 /* the uniforms of the latest draws, converted from these inputs; the serial
 counts the conversions */
-#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 2 + 7 * D3DTSS_MAXSTAGES)
+#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 4 + 7 * D3DTSS_MAXSTAGES)
 
 static DWORD draw_uniform_inputs[DRAW_UNIFORM_INPUT_COUNT];
 static struct gpu_uniforms draw_uniforms;
@@ -6179,6 +6205,8 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		inputs[count++] = (DWORD)UI_OFFSET;
 		memcpy(&inputs[count++], &menu_top, sizeof(menu_top));
 		memcpy(&inputs[count++], &menu_zoom, sizeof(menu_zoom));
+		memcpy(&inputs[count++], &ui_scale, sizeof(ui_scale));
+		memcpy(&inputs[count++], &ui_y_offset, sizeof(ui_y_offset));
 		for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
 		{
 			DWORD *state = D3D__TextureState[stage];
@@ -6235,6 +6263,9 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 				converted->texture_lod_bias[0][stage] = dword_to_float(state[D3DTSS_MIPMAPLODBIAS]);
 			}
 			converted->screen_offset[0][0] = (float)UI_OFFSET;
+			converted->screen_ui_transform[0][0] = ui_scale;
+			converted->screen_ui_transform[0][1] = ui_y_offset;
+			converted->screen_ui_transform[0][2] = converted->screen_ui_transform[0][3] = 0.0f;
 		}
 	}
 	return TRUE;
@@ -7111,6 +7142,11 @@ static void hud_draw_extent(const float *vertices, unsigned long count)
 			(const float (*)[4])constant_store.c, (const float (*)[4])(vertices + index * floats), position);
 		x = position[0] + 0.5f + (float)UI_OFFSET;
 		y = position[1] + 0.5f;
+		if (ui_scale != 1.0f)
+		{
+			x *= ui_scale;
+			y = y * ui_scale + ui_y_offset;
+		}
 		if (!isfinite(x) || !isfinite(y))
 			continue;
 		extent[0] = fminf(extent[0], x);
@@ -7480,6 +7516,30 @@ void WINAPI D3DDevice_Clear(DWORD count, CONST D3DRECT *rectangles, DWORD flags,
 	{
 		for (index = 0; index < count; index++)
 		{
+			if (ui_scale != 1.0f)
+			{
+				float rect[4] = {rectangles[index].x1, rectangles[index].y1, rectangles[index].x2, rectangles[index].y2};
+				float viewport[4] = {device.viewport.X, device.viewport.Y,
+					device.viewport.X + device.viewport.Width, device.viewport.Y + device.viewport.Height};
+				float bounds[4];
+				int32_t x0, y0;
+
+				if (!halo_ui_layout_clip_rect(ui_scale, ui_y_offset, rect, viewport, bounds))
+					continue;
+				x0 = target_pixel(bounds[0], 0);
+				y0 = target_pixel(bounds[1], 1);
+				list[listed].x = x0;
+				list[listed].y = y0;
+				list[listed].width = target_pixel(bounds[2], 0) - x0;
+				list[listed].height = target_pixel(bounds[3], 1) - y0;
+				if (record_companion)
+				{
+					struct companion_record *item = companion_record_add(&companion_records, bounds);
+					if (item) { item->is_clear = 1; item->clear = clear; }
+				}
+				listed++;
+				continue;
+			}
 			INT left = rectangles[index].x1 > device.viewport.X ? rectangles[index].x1 : device.viewport.X;
 			INT top = rectangles[index].y1 > device.viewport.Y ? rectangles[index].y1 : device.viewport.Y;
 			INT right = rectangles[index].x2 < device.viewport.X + device.viewport.Width ?

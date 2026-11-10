@@ -24,7 +24,8 @@ enum
 };
 
 /* screen_offset: columns the menus shift by to center on a wide screen
-(d3d8_device.c). ps_c0 through texture_scale: the combiner registers that live in
+(d3d8_device.c). screen_ui_transform: portrait scale and vertical offset
+(x and y); identity outside portrait UI spans. ps_c0 through texture_scale: the combiner registers that live in
 uniforms rather than in the program (C0/C1 of each stage and the final
 combiner) and texture constants. texture_lod_bias: one component per stage. */
 #define GPU_UNIFORMS(X) \
@@ -33,6 +34,7 @@ combiner) and texture constants. texture_lod_bias: one component per stage. */
 	X(viewport_offset, vec4, 1, GPU_UNIFORM_VERTEX) \
 	X(point_size, float, 1, GPU_UNIFORM_VERTEX) \
 	X(screen_offset, float, 1, GPU_UNIFORM_VERTEX) \
+	X(screen_ui_transform, vec4, 1, GPU_UNIFORM_VERTEX) \
 	X(ps_c0, vec4, 8, GPU_UNIFORM_PIXEL) \
 	X(ps_c1, vec4, 8, GPU_UNIFORM_PIXEL) \
 	X(ps_final_c0, vec4, 1, GPU_UNIFORM_PIXEL) \

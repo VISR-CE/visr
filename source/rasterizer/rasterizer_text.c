@@ -489,13 +489,26 @@ rasterizer_draw_string(
 					&window_bounds,
 					-render.camera.viewport_bounds.x0,
 					-render.camera.viewport_bounds.y0);
+				/* port: UI layout precedes the portrait shader fit; the HUD
+				continues to use its own camera bounds. */
+				if (halo_screen_ui_portrait())
+					set_rectangle2d(&window_bounds, 0, 0, 640, 480);
 			}
 			else
 			{
 				window_bounds = *bounds;
 			}
 
-			if (!clip)
+			/* port: clipping to the narrow camera before fitting would
+			remove the menu's right half, even when its widget clip is 640. */
+			if (halo_screen_ui_portrait())
+			{
+				set_rectangle2d(&viewport_bounds, clip ? FLOOR(clip->x0, 0) : 0,
+					clip ? FLOOR(clip->y0, 0) : 0,
+					clip ? MIN(640, clip->x1) : 640,
+					clip ? MIN(480, clip->y1) : 480);
+			}
+			else if (!clip)
 			{
 				viewport_bounds = render.camera.viewport_bounds;
 				offset_rectangle2d(
@@ -620,13 +633,26 @@ rasterizer_draw_unicode_string(
 					&window_bounds,
 					-render.camera.viewport_bounds.x0,
 					-render.camera.viewport_bounds.y0);
+				/* port: UI layout precedes the portrait shader fit; the HUD
+				continues to use its own camera bounds. */
+				if (halo_screen_ui_portrait())
+					set_rectangle2d(&window_bounds, 0, 0, 640, 480);
 			}
 			else
 			{
 				window_bounds = *bounds;
 			}
 
-			if (!clip)
+			/* port: clipping to the narrow camera before fitting would
+			remove the menu's right half, even when its widget clip is 640. */
+			if (halo_screen_ui_portrait())
+			{
+				set_rectangle2d(&viewport_bounds, clip ? FLOOR(clip->x0, 0) : 0,
+					clip ? FLOOR(clip->y0, 0) : 0,
+					clip ? MIN(640, clip->x1) : 640,
+					clip ? MIN(480, clip->y1) : 480);
+			}
+			else if (!clip)
 			{
 				viewport_bounds = render.camera.viewport_bounds;
 				offset_rectangle2d(
