@@ -8,6 +8,7 @@
 #include <SDL3/SDL.h>
 #include "ios_host.h"
 #include "host_main_thread.h"
+#include "host_game_thread.h"
 #include "host_config.h"
 #include <stdlib.h>
 
@@ -43,8 +44,8 @@ static bool text_input_blocked(void);
 #define text_input_blocked() false
 #endif
 /* Remote presses latch until the game reads them: a swipe's key down and up
-   arrive together, and a slow frame could otherwise miss a short press. Key
-   events are pumped by the game's own poll, so all of this is on one thread. */
+   arrive together, and a slow frame could otherwise miss a short press. On
+   tvOS, reads marshal to main, where the event pump writes the latches. */
 static bool remote_down[SDL_GAMEPAD_BUTTON_COUNT], remote_latched[SDL_GAMEPAD_BUTTON_COUNT];
 
 static int remote_button(SDL_Scancode key) {
@@ -80,6 +81,14 @@ static bool SDLCALL remote_event(void *userdata,SDL_Event *event) {
     return false;
 }
 static bool remote_read(int button) {
+#if TARGET_OS_TV
+    if(host_game_thread_enabled() && !host_on_main_thread()) {
+        __block bool result;
+        host_main_sync(^{ result=remote_read(button); });
+        return result;
+    }
+#endif
+
     if(button<0 || button>=SDL_GAMEPAD_BUTTON_COUNT)return false;
     bool pressed=remote_down[button] || remote_latched[button];
     remote_latched[button]=false;
@@ -188,7 +197,7 @@ int host_ios_gamepad_button(SDL_Gamepad *pad,int button) {
    own dialog, a text field over its full-screen keyboard (SDL's hidden text
    field brings none up on an Apple TV). Done gives the text whole, Cancel
    nothing (host_tv_text_result); a field put away by the game dismisses it.
-   On the main thread, as host_sdl_poll_event is. */
+   Dialog state stays on main even when the game polls from its pthread. */
 static UIAlertController *text_prompt;
 static int text_prompt_state;
 static char text_prompt_result[512];
@@ -238,6 +247,12 @@ static void text_prompt_hint(bool on) {
 }
 
 static bool text_input_blocked(void) {
+    if(host_game_thread_enabled() && !host_on_main_thread()) {
+        __block bool result;
+        host_main_sync(^{ result=text_input_blocked(); });
+        return result;
+    }
+
     if(text_prompt_up()) {
         text_prompt_gate=true;
         return true;
@@ -322,6 +337,12 @@ static bool SDLCALL text_prompt_watch(void *userdata,SDL_Event *event) {
 @end
 
 int host_tv_text_prompt(int on, const char *title, const char *text, int masked) {
+    if(host_game_thread_enabled() && !host_on_main_thread()) {
+        __block int result;
+        host_main_sync(^{ result=host_tv_text_prompt(on,title,text,masked); });
+        return result;
+    }
+
     if(!on){
         if(text_prompt)text_prompt_dismiss(text_prompt);
         text_prompt=nil;
@@ -418,6 +439,12 @@ int host_tv_text_prompt(int on, const char *title, const char *text, int masked)
 }
 
 int host_tv_text_result(char *buffer, uint32_t size) {
+    if(host_game_thread_enabled() && !host_on_main_thread()) {
+        __block int result;
+        host_main_sync(^{ result=host_tv_text_result(buffer,size); });
+        return result;
+    }
+
     int state=text_prompt_state;
     if(state==1 && buffer && size)SDL_strlcpy(buffer,text_prompt_result,size);
     text_prompt_state=0;
