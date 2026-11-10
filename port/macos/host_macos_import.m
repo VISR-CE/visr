@@ -2,6 +2,7 @@
 #import <AppKit/AppKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #include "ios_host.h"
+#include "host_modal_wait.h"
 #include "xiso.h"
 #include "host_astc_store.h"
 #include "host_texture_upscale.h"
@@ -98,76 +99,101 @@ static int upscale_progress(void *context, const struct host_texture_upscale_imp
     return HOST_TEXTURE_UPSCALE_WAIT;
 }
 static void upscale_phase(NSString *root) {
-    VISRUpscalePhase *phase = [VISRUpscalePhase new];
-    atomic_store(&phase->tick, -1.0); atomic_store(&phase->menu_phase, 1);
-    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 680, 170)
-        styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
-    window.title = @"VISR"; window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-    window.backgroundColor = [NSColor colorWithSRGBRed:0.025 green:0.045 blue:0.055 alpha:1];
-    NSView *content = window.contentView;
-    NSTextField *status = [NSTextField labelWithString:@"Upscaling textures"];
-    status.frame = NSMakeRect(24, 116, 632, 20); status.alignment = NSTextAlignmentCenter;
-    status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
-    /* (in the bar's place when the work is refused: the line under the message) */
-    NSTextField *detail = [NSTextField labelWithString:@""];
-    detail.frame = NSMakeRect(24, 66, 632, 44);
-    detail.maximumNumberOfLines=2;detail.lineBreakMode=NSLineBreakByClipping; detail.alignment = NSTextAlignmentCenter;
-    detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.secondaryLabelColor;
-    detail.hidden = YES; [content addSubview:detail];
-    VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 632, 46)];
-    bar.tick = -1; [content addSubview:bar];
-    NSButton *start = [VISRFirstClickButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
-    start.frame = NSMakeRect(275, 22, 130, 24);   /* (the height a rounded bezel draws in a 32-point frame, to match Try Again) */
-    /* Filled in the bar's blue with a black title, drawn by its own layer: a rounded bezel's color turns gray whenever
-       the window is not key, which left black on dark gray (black on the blue measures about 12:1, white about 1.7:1) */
-    start.bordered = NO; start.wantsLayer = YES;
-    start.layer.backgroundColor = bar_blue().CGColor; start.layer.cornerRadius = 6;
-    start.attributedTitle=[[NSAttributedString alloc] initWithString:@"Start playing" attributes:@{
-        NSForegroundColorAttributeName: NSColor.blackColor, NSFontAttributeName: [NSFont systemFontOfSize:NSFont.systemFontSize]}];
-    start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
-    NSButton *retry=[VISRFirstClickButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
-    retry.frame=NSMakeRect(209,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
-    retry.alphaValue=0;retry.enabled=NO;[content addSubview:retry];
-    [window center];
-    /* (the work is the player's own request: keep App Nap from slowing it while the window is behind another app) */
-    id activity = [NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiatedAllowingIdleSystemSleep
-        reason:@"Upscaling textures"];
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        host_texture_upscale_prepare_import(root.fileSystemRepresentation, upscale_progress, (__bridge void *)phase);
-        atomic_store(&phase->done, 1);
-    });
-    /* (frontmost and key, so the first click and Return reach it) */
-    [NSApp activateIgnoringOtherApps:YES]; [window makeKeyAndOrderFront:nil];
-    NSModalSession session = [NSApp beginModalSessionForWindow:window];
-    while (!atomic_load(&phase->done)) {
-        [NSApp runModalSession:session];
-        BOOL menu = atomic_load(&phase->menu_phase);
-        double shown = atomic_load(&phase->fraction);
-        bar.fraction = shown; bar.tick = atomic_load(&phase->tick); bar.ready = !menu; bar.needsDisplay = YES;
-        /* (rounded down: 100% only when every texture is made) */
-        const char *message = atomic_load(&phase->message);
-        status.stringValue = message ? @(message) : [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
-        status.textColor = message ? NSColor.labelColor : NSColor.secondaryLabelColor;
-        const char *more = atomic_load(&phase->detail);
-        NSString *detailText=more?@(more):@"";
-        uint64_t needed=atomic_load(&phase->needed_bytes),found=atomic_load(&phase->found_bytes);
-        const char *note=atomic_load(&phase->retry_note);if(note)detailText=@(note);
-        if(needed){
-            NSString *freeText=[NSByteCountFormatter stringFromByteCount:(int64_t)found countStyle:NSByteCountFormatterCountStyleFile];
-            NSString *needText=[NSByteCountFormatter stringFromByteCount:(int64_t)needed countStyle:NSByteCountFormatterCountStyleFile];
-            char line[512];
-            texture_upscale_import_storage_line(line,sizeof(line),freeText.UTF8String,needText.UTF8String,note!=NULL);
-            detailText=[NSString stringWithFormat:@"%s\n%s",line,TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL];
+    BOOL on_main = host_on_main_thread();
+    dispatch_semaphore_t finished = on_main ? nil : dispatch_semaphore_create(0);
+    host_main_async(^{
+        VISRUpscalePhase *phase = [VISRUpscalePhase new];
+        atomic_store(&phase->tick, -1.0); atomic_store(&phase->menu_phase, 1);
+        NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 680, 170)
+            styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+        window.title = @"VISR"; window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+        window.backgroundColor = [NSColor colorWithSRGBRed:0.025 green:0.045 blue:0.055 alpha:1];
+        NSView *content = window.contentView;
+        NSTextField *status = [NSTextField labelWithString:@"Upscaling textures"];
+        status.frame = NSMakeRect(24, 116, 632, 20); status.alignment = NSTextAlignmentCenter;
+        status.textColor = NSColor.secondaryLabelColor; [content addSubview:status];
+        /* (in the bar's place when the work is refused: the line under the message) */
+        NSTextField *detail = [NSTextField labelWithString:@""];
+        detail.frame = NSMakeRect(24, 66, 632, 44);
+        detail.maximumNumberOfLines=2;detail.lineBreakMode=NSLineBreakByClipping; detail.alignment = NSTextAlignmentCenter;
+        detail.font = [NSFont systemFontOfSize:NSFont.smallSystemFontSize]; detail.textColor = NSColor.secondaryLabelColor;
+        detail.hidden = YES; [content addSubview:detail];
+        VISRUpscaleBar *bar = [[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24, 64, 632, 46)];
+        bar.tick = -1; [content addSubview:bar];
+        NSButton *start = [VISRFirstClickButton buttonWithTitle:@"Start playing" target:phase action:@selector(skip:)];
+        start.frame = NSMakeRect(275, 22, 130, 24);   /* (the height a rounded bezel draws in a 32-point frame, to match Try Again) */
+        /* Filled in the bar's blue with a black title, drawn by its own layer: a rounded bezel's color turns gray whenever
+           the window is not key, which left black on dark gray (black on the blue measures about 12:1, white about 1.7:1) */
+        start.bordered = NO; start.wantsLayer = YES;
+        start.layer.backgroundColor = bar_blue().CGColor; start.layer.cornerRadius = 6;
+        start.attributedTitle=[[NSAttributedString alloc] initWithString:@"Start playing" attributes:@{
+            NSForegroundColorAttributeName: NSColor.blackColor, NSFontAttributeName: [NSFont systemFontOfSize:NSFont.systemFontSize]}];
+        start.alphaValue=0;start.enabled=NO;start.keyEquivalent=@"\r";[content addSubview:start];
+        NSButton *retry=[VISRFirstClickButton buttonWithTitle:@"Try Again" target:phase action:@selector(retry:)];
+        retry.frame=NSMakeRect(209,18,120,32);retry.bezelStyle=NSBezelStyleRounded;
+        retry.alphaValue=0;retry.enabled=NO;[content addSubview:retry];
+        [window center];
+        /* (the work is the player's own request: keep App Nap from slowing it while the window is behind another app) */
+        id activity = [NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiatedAllowingIdleSystemSleep
+            reason:@"Upscaling textures"];
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            host_texture_upscale_prepare_import(root.fileSystemRepresentation, upscale_progress, (__bridge void *)phase);
+            atomic_store(&phase->done, 1);
+        });
+        /* (frontmost and key, so the first click and Return reach it) */
+        [NSApp activateIgnoringOtherApps:YES]; [window makeKeyAndOrderFront:nil];
+        NSModalSession session = [NSApp beginModalSessionForWindow:window];
+        void (^refresh)(void) = ^{
+            [NSApp runModalSession:session];
+            BOOL menu = atomic_load(&phase->menu_phase);
+            double shown = atomic_load(&phase->fraction);
+            bar.fraction = shown; bar.tick = atomic_load(&phase->tick); bar.ready = !menu; bar.needsDisplay = YES;
+            /* (rounded down: 100% only when every texture is made) */
+            const char *message = atomic_load(&phase->message);
+            status.stringValue = message ? @(message) : [NSString stringWithFormat:@"Upscaling textures · %d%%", (int)floor(shown * 100)];
+            status.textColor = message ? NSColor.labelColor : NSColor.secondaryLabelColor;
+            const char *more = atomic_load(&phase->detail);
+            NSString *detailText=more?@(more):@"";
+            uint64_t needed=atomic_load(&phase->needed_bytes),found=atomic_load(&phase->found_bytes);
+            const char *note=atomic_load(&phase->retry_note);if(note)detailText=@(note);
+            if(needed){
+                NSString *freeText=[NSByteCountFormatter stringFromByteCount:(int64_t)found countStyle:NSByteCountFormatterCountStyleFile];
+                NSString *needText=[NSByteCountFormatter stringFromByteCount:(int64_t)needed countStyle:NSByteCountFormatterCountStyleFile];
+                char line[512];
+                texture_upscale_import_storage_line(line,sizeof(line),freeText.UTF8String,needText.UTF8String,note!=NULL);
+                detailText=[NSString stringWithFormat:@"%s\n%s",line,TEXTURE_UPSCALE_IMPORT_NO_STORAGE_DETAIL];
+            }
+            bar.alphaValue=message?0:1;detail.alphaValue=message?1:0;detail.hidden=NO;detail.stringValue=detailText;
+            start.frame=NSMakeRect(message?341:275,22,130,24);
+            start.alphaValue=menu?0:1;start.enabled=!menu;
+            retry.alphaValue=message?1:0;retry.enabled=message&&atomic_load(&phase->can_retry)&&!atomic_load(&phase->retry_busy);
+        };
+        if (!on_main) {
+            CFRunLoopTimerRef timer = CFRunLoopTimerCreateWithHandler(NULL, CFAbsoluteTimeGetCurrent(), 0.1, 0, 0,
+                ^(CFRunLoopTimerRef source) {
+                    if (atomic_load(&phase->done)) {
+                        CFRunLoopTimerInvalidate(source);
+                        [NSApp endModalSession:session];
+                        [NSProcessInfo.processInfo endActivity:activity];
+                        [window orderOut:nil];
+                        dispatch_semaphore_signal(finished);
+                        return;
+                    }
+                    refresh();
+                });
+            CFRunLoopAddTimer(CFRunLoopGetMain(), timer, kCFRunLoopCommonModes);
+            CFRelease(timer);
+            return;
         }
-        bar.alphaValue=message?0:1;detail.alphaValue=message?1:0;detail.hidden=NO;detail.stringValue=detailText;
-        start.frame=NSMakeRect(message?341:275,22,130,24);
-        start.alphaValue=menu?0:1;start.enabled=!menu;
-        retry.alphaValue=message?1:0;retry.enabled=message&&atomic_load(&phase->can_retry)&&!atomic_load(&phase->retry_busy);
-        [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
-    }
-    [NSApp endModalSession:session];
-    [NSProcessInfo.processInfo endActivity:activity];
-    [window orderOut:nil];
+        while (!atomic_load(&phase->done)) {
+            refresh();
+            [NSRunLoop.currentRunLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        }
+        [NSApp endModalSession:session];
+        [NSProcessInfo.processInfo endActivity:activity];
+        [window orderOut:nil];
+    });
+    if (!on_main) dispatch_semaphore_wait(finished, DISPATCH_TIME_FOREVER);
 }
 /* Publishing is separate from extraction. A failed move must retain the previous maps. */
 static BOOL publish(NSString *staging, NSString *root, NSError **error) {
@@ -231,6 +257,24 @@ static NSURL *remembered(NSString *root, BOOL *stale) {
     return url;
 }
 static NSURL *choose(void) {
+    if (!host_on_main_thread()) {
+        dispatch_semaphore_t done = dispatch_semaphore_create(0);
+        __block NSURL *url;
+        host_main_async(^{
+            NSOpenPanel *picker = [NSOpenPanel openPanel];
+            picker.title = @"Choose your Halo disc image";
+            picker.message = @"Select an original Xbox PAL or NTSC-US ISO or XISO. No game files are included.";
+            picker.canChooseDirectories = NO; picker.allowsMultipleSelection = NO;
+            picker.allowedContentTypes = @[UTTypeData];
+            [picker beginWithCompletionHandler:^(NSModalResponse response) {
+                if (response != NSModalResponseOK) host_exit(0);
+                url = picker.URL;
+                dispatch_semaphore_signal(done);
+            }];
+        });
+        dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
+        return url;
+    }
     NSOpenPanel *picker = [NSOpenPanel openPanel];
     picker.title = @"Choose your Halo disc image";
     picker.message = @"Select an original Xbox PAL or NTSC-US ISO or XISO. No game files are included.";
@@ -252,36 +296,58 @@ static BOOL import_disc(NSURL *url, NSString *root, BOOL save_bookmark, NSString
         *failure = error.localizedDescription ?: @"Could not start the import.";
         return NO;
     }
-    NSAlert *dialog = [NSAlert new]; dialog.messageText = @"Importing Halo";
-    dialog.informativeText = @"Your original disc image stays unchanged.";
-    [dialog addButtonWithTitle:@"Cancel"];
-    NSProgressIndicator *spinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(0, 0, 240, 20)];
-    spinner.indeterminate = YES; spinner.style = NSProgressIndicatorStyleBar;
-    spinner.accessibilityLabel = @"Import progress";
-    dialog.accessoryView = spinner; [spinner startAnimation:nil];
-    VISRMacImport *operation = [VISRMacImport new];
-    NSButton *cancel = dialog.buttons.firstObject; cancel.target = operation; cancel.action = @selector(cancel:);
+    __block NSAlert *dialog;
+    __block VISRMacImport *operation;
+    host_main_sync(^{
+        dialog = [NSAlert new]; dialog.messageText = @"Importing Halo";
+        dialog.informativeText = @"Your original disc image stays unchanged.";
+        [dialog addButtonWithTitle:@"Cancel"];
+        NSProgressIndicator *spinner = [[NSProgressIndicator alloc] initWithFrame:NSMakeRect(0, 0, 240, 20)];
+        spinner.indeterminate = YES; spinner.style = NSProgressIndicatorStyleBar;
+        spinner.accessibilityLabel = @"Import progress";
+        dialog.accessoryView = spinner; [spinner startAnimation:nil];
+        operation = [VISRMacImport new];
+        NSButton *cancel = dialog.buttons.firstObject; cancel.target = operation; cancel.action = @selector(cancel:);
+    });
+    dispatch_semaphore_t completed = host_on_main_thread() ? nil : dispatch_semaphore_create(0);
     __block BOOL modal_running = YES;
     __block BOOL imported = NO;
     __block NSString *message_text;
-    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        @autoreleasepool {
-            char message[1024] = {0};
-            imported = xiso_extract_maps(url.fileSystemRepresentation, staging.fileSystemRepresentation,
-                progress, (__bridge void *)operation, message, sizeof(message));
-            if (!imported) message_text = @(message);
-            if (atomic_load(&operation->canceled)) { imported = NO; message_text = @"Import canceled."; }
-            atomic_store(&operation->completed, 1);
-            dispatch_async(dispatch_get_main_queue(), ^{ if (modal_running) [NSApp stopModal]; });
-        }
+    dispatch_semaphore_t dismissed = host_on_main_thread() ? nil : dispatch_semaphore_create(0);
+    host_main_async(^{
+        dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+            @autoreleasepool {
+                char message[1024] = {0};
+                imported = xiso_extract_maps(url.fileSystemRepresentation, staging.fileSystemRepresentation,
+                    progress, (__bridge void *)operation, message, sizeof(message));
+                if (!imported) message_text = @(message);
+                if (atomic_load(&operation->canceled)) { imported = NO; message_text = @"Import canceled."; }
+                atomic_store(&operation->completed, 1);
+                if (completed) dispatch_semaphore_signal(completed);
+                if (completed) {
+                    /* runModal occupies a main-queue block here; its modal run loop can service this stop directly. */
+                    CFRunLoopPerformBlock(CFRunLoopGetMain(), (__bridge CFStringRef)NSModalPanelRunLoopMode,
+                        ^{ if (modal_running) [NSApp stopModal]; });
+                    CFRunLoopWakeUp(CFRunLoopGetMain());
+                } else {
+                    dispatch_async(dispatch_get_main_queue(), ^{ if (modal_running) [NSApp stopModal]; });
+                }
+            }
+        });
+        [dialog runModal];
+        modal_running = NO;
+        if (dismissed) dispatch_semaphore_signal(dismissed);
     });
-    [dialog runModal];
-    modal_running = NO;
+    if (dismissed) dispatch_semaphore_wait(dismissed, DISPATCH_TIME_FOREVER);
     if (!atomic_load(&operation->completed)) atomic_store(&operation->canceled, 1);
     /* A keyboard dismissal must not release security scope or staging while the worker still reads them. */
-    while (!atomic_load(&operation->completed))
-        [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
-    [dialog.window orderOut:nil];
+    if (host_on_main_thread()) {
+        while (!atomic_load(&operation->completed))
+            [NSRunLoop.currentRunLoop runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.01]];
+    } else {
+        dispatch_semaphore_wait(completed, DISPATCH_TIME_FOREVER);
+    }
+    host_main_sync(^{ [dialog.window orderOut:nil]; });
     /* The bookmark is made while the panel's (or the old bookmark's) access is still open. */
     if (imported && save_bookmark) remember(url, root);
     if (scoped) [url stopAccessingSecurityScopedResource];

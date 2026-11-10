@@ -22,7 +22,7 @@ def main():
               '-Iport/runtime/include', '-Wl,-dead_strip']
     objc = ['-fobjc-arc', '-fblocks', '-framework', 'AppKit']
     # These include the real implementation and replace only its SDL/file boundaries.
-    run(*common, '-DHALO_NATIVE_MAC=1', *objc, 'tools/macos_import_test.m',
+    run(*common, '-DHALO_NATIVE_MAC=1', *objc, 'tools/macos_import_test.m', 'port/ios/host/host_main_thread.c',
         '-framework', 'UniformTypeIdentifiers', '-o', BUILD / 'import-probe')
     run(BUILD / 'import-probe')
     run(*common, '-DHALO_NATIVE_MAC=1', *objc, 'tools/macos_services_test.m',
