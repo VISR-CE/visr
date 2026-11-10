@@ -2526,6 +2526,37 @@ void halo_anti_aliasing_toggle(void)
 	knob_ab_changed();
 }
 
+/* Portrait field of view (source/main/main.c set_window_camera_values): a
+view narrower than 4:3 keeps the game's vertical angle ("hold vertical", the
+default) or, with debug.portrait_field_of_view = "horizontal_minimum", widens
+the vertical angle so the horizontal one never drops below 60 degrees. The
+live chord (xinput_sdl.c: hold Back and press L1, where portrait is allowed)
+switches between the two until the app quits, with the mode on the HUD's
+message line and in the log */
+static int portrait_field_of_view_mode = -1;
+
+int halo_portrait_field_of_view_minimum(void)
+{
+	if (portrait_field_of_view_mode < 0)
+	{
+		const char *mode = config_string("debug.portrait_field_of_view");
+		portrait_field_of_view_mode = mode && strcmp(mode, "horizontal_minimum") == 0;
+		if (portrait_field_of_view_mode)
+			platform_log("portrait field of view: horizontal minimum (debug.portrait_field_of_view)");
+	}
+	return portrait_field_of_view_mode;
+}
+
+void halo_portrait_field_of_view_toggle(void)
+{
+	int minimum = !halo_portrait_field_of_view_minimum();
+	portrait_field_of_view_mode = minimum;
+	if (game_in_progress())
+		hud_print_message(0, minimum ? L"FOV: horizontal minimum" : L"FOV: hold vertical");
+	platform_log("portrait field of view: %s (the live chord, until the app quits)",
+		minimum ? "horizontal minimum" : "hold vertical");
+}
+
 /* debug.knob_cycle's anti-aliasing: the method named from the next frame, until the app quits */
 static void anti_aliasing_live_set(const char *method)
 {

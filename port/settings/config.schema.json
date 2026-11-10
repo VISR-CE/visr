@@ -2364,6 +2364,16 @@
             "apple"
           ]
         },
+        "portrait_field_of_view": {
+          "type": "string",
+          "default": "",
+          "description": "Field of view in a view narrower than 4:3 (portrait play): empty keeps the game's vertical angle and narrows the horizontal one; \"horizontal_minimum\" widens the vertical angle so the horizontal one stays at least 60 degrees. Where portrait is allowed, hold Back and press L1 to switch between the two until the app quits.",
+          "x-environment": "HALO_PORTRAIT_FIELD_OF_VIEW",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "anti_aliasing_folded": {
           "type": "boolean",
           "default": false,

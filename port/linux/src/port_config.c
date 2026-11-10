@@ -1556,6 +1556,12 @@ static const struct config_setting config_settings[] =
 		"foveated view's full size, and only the last step that fills each view\n"
 		"goes through the Compositor's rate map (composite-only foveation, the\n"
 		"reference the full path is compared against)." },
+	{ "debug.portrait_field_of_view", _config_string, "\"\"", "HALO_PORTRAIT_FIELD_OF_VIEW", _environment_value, _platform_ios,
+		"Field of view in a view narrower than 4:3 (portrait play): empty keeps\n"
+		"the game's vertical angle and narrows the horizontal one;\n"
+		"\"horizontal_minimum\" widens the vertical angle so the horizontal one\n"
+		"stays at least 60 degrees. Where portrait is allowed, hold Back and\n"
+		"press L1 to switch between the two until the app quits." },
 	{ "debug.anti_aliasing_folded", _config_boolean, "false", "HALO_ANTI_ALIASING_FOLDED", _environment_value, _platform_all,
 		"With display.anti_aliasing = \"fxaa\" and the HUD at the display's size:\n"
 		"run FXAA inside the stretch to the display's size (Metal), at each of\n"

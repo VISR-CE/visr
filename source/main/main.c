@@ -1222,6 +1222,27 @@ void set_window_camera_values(
 					1.0f);
 		}
 
+		/* port: a view narrower than 4:3 (portrait) keeps the vertical angle
+		and narrows the horizontal one; debug.portrait_field_of_view's
+		"horizontal_minimum" (or its live chord) instead widens the vertical
+		angle just enough that the horizontal one stays at least 60 degrees */
+		{
+			extern int halo_portrait_field_of_view_minimum(void);
+			rectangle2d const *view = &window->rasterizer_camera.viewport_bounds;
+			real width = (real)(view->x1 - view->x0);
+			real height = (real)(view->y1 - view->y0);
+
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f &&
+				halo_portrait_field_of_view_minimum())
+			{
+				real vertical_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
+				real minimum_tangent = 0.57735027f / (width / height); /* tan(30 degrees) */
+
+				if (vertical_tangent < minimum_tangent)
+					window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(minimum_tangent, 1.0f);
+			}
+		}
+
 		if (window->local_player_index != NONE &&
 			!console_is_active() &&
 			!game_time_get_paused() &&

@@ -101,6 +101,32 @@ static void anti_aliasing_chord(XINPUT_GAMEPAD *pad)
 	pad->bAnalogButtons[XINPUT_GAMEPAD_BLACK] = 0;
 }
 
+/* d3d8_device.c */
+void halo_portrait_field_of_view_toggle(void);
+
+/* while Back is held, L1 (the Xbox's White) switches the portrait field of
+view between hold vertical and horizontal minimum, only where portrait play
+is allowed (display.allow_portrait), and the game doesn't see L1 */
+static void portrait_field_of_view_chord(XINPUT_GAMEPAD *pad)
+{
+	static int allowed = -1;
+	static int held;
+	int pressed;
+
+	if (allowed < 0)
+		allowed = config_boolean("display.allow_portrait") != 0;
+	if (!allowed || !(pad->wButtons & XINPUT_GAMEPAD_BACK))
+	{
+		held = 0;
+		return;
+	}
+	pressed = pad->bAnalogButtons[XINPUT_GAMEPAD_WHITE] > 64;
+	if (pressed && !held)
+		halo_portrait_field_of_view_toggle();
+	held = pressed;
+	pad->bAnalogButtons[XINPUT_GAMEPAD_WHITE] = 0;
+}
+
 #ifdef HALO_IOS
 int host_external_cycle(int direction);
 int host_external_force(const char *mode);
@@ -1945,6 +1971,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		back_dpad(&state->Gamepad);
 		aim_pitch_offset_chord(&state->Gamepad);
 		anti_aliasing_chord(&state->Gamepad);
+		portrait_field_of_view_chord(&state->Gamepad);
 
 		/* (display.late_look: what the stick was when the game read it; not
 		a test's or a replay's input) */
