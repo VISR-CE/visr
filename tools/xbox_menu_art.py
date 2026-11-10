@@ -72,10 +72,25 @@ def title_icon(output, source=ICON_SOURCE):
                     str(output / f'{TITLE_ICON}.png'), str(source)], check=True)
 
 
+def toggle_art(output):
+    """A 32 by 17 menu-unit pill, rasterized at 4x for larger displays."""
+    for on in (0, 1):
+        svg = output / f'toggle_switch__{on}.svg'
+        color = '#4ea0ff' if on else '#424b57'
+        center = 23.5 if on else 8.5
+        svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="17" '
+                       'viewBox="0 0 32 17">'
+                       f'<rect width="32" height="17" rx="8.5" fill="{color}"/>'
+                       f'<circle cx="{center}" cy="8.5" r="6.5" fill="#fff"/></svg>\n')
+        subprocess.run(['rsvg-convert', '--zoom', '4', '--output',
+                        str(output / f'toggle_switch__{on}.png'), str(svg)], check=True)
+
+
 def generate(menus=MENUS):
     menus = Path(menus)
     output = menus / 'xbox/art'
     output.mkdir(parents=True, exist_ok=True)
+    toggle_art(output)
     browser_art(output)
     redraw_art(output)
     title_icon(output)

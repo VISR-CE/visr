@@ -691,6 +691,7 @@ long ui_redraw_safe_left_units(long width);
 #include "text/unicode.h"
 #include "ui_widget.h"
 #include "interface/controller_glyphs.h"
+#include "halo_menu_row.h" /* port: runtime settings control policy */
 #include "halo_controller_glyphs.h"
 #include "halo_menus.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -5901,6 +5902,52 @@ static void widget_instance_render_text_box(
 	return;
 }
 
+/* port: read the live tag strings, including values appended by the port. */
+static wchar_t const *ui_widget_row_string(void *context, int index)
+{
+	struct ui_widget_definition *definition = context;
+	return spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
+}
+
+static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget)
+{
+	struct halo_menu_row row = { HALO_ROW_ENUM, -1 };
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+	char const *name = tag_get_name(widget->definition_tag_index);
+	struct string_list *strings;
+	/* Keep the original PC look and carousels intact. */
+	if (!name || (strncmp(name, "pc\\xbox\\", 8) && strncmp(name, "xbox/", 5)) ||
+		definition->child_widgets.count || definition->text_label_string_list.index == NONE)
+		return row;
+	strings = unicode_string_list_definition_get(definition->text_label_string_list.index);
+	if (!strings) return row;
+	return halo_menu_row_classify(strings->strings.count +
+		spinner_string_list_extra_count(definition->text_label_string_list.index),
+		ui_widget_row_string, definition);
+}
+
+static void ui_widget_row_draw_toggle(struct widget_instance *widget,
+	struct ui_widget_definition *definition, point2d offset, rectangle2d *clip, int on)
+{
+	long tag = tag_loaded('bitm', "pc\\xbox\\bitmaps\\toggle_switch");
+	struct bitmap_data *bitmap;
+	struct rasterizer_dynamic_screen_geometry_parameters parameters;
+	rectangle2d bounds, source;
+	if (tag == NONE) return;
+	bitmap = bitmap_group_get_bitmap_from_sequence(tag, 0, on);
+	if (!bitmap) return;
+	bounds.x1 = definition->bounds.x1 + offset.x;
+	bounds.x0 = bounds.x1 - 32;
+	bounds.y0 = definition->bounds.y0 + offset.y + (definition->bounds.y1 - definition->bounds.y0 - 17) / 2;
+	bounds.y1 = bounds.y0 + 17;
+	source.x0 = source.y0 = 0;
+	source.x1 = 32; source.y1 = 17;
+	csmemset(&parameters, 0, sizeof(parameters));
+	draw_bitmap_in_rect(bitmap, &bounds, &source, clip,
+		(fast_ftol(widget_instance_get_cumulative_alpha_modifier(widget) * 255.0f) << 24) | 0x00FFFFFF,
+		&parameters, TRUE);
+}
+
 static void widget_instance_render_spinner_list(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5908,6 +5955,9 @@ static void widget_instance_render_spinner_list(
 	point2d offset,
 	boolean focus)
 {
+	struct halo_menu_row row = ui_widget_row_control(widget);
+	int pointer_controls = halo_menu_pointer_controls();
+	boolean toggle = pointer_controls && row.kind == HALO_ROW_TOGGLE;
 	long header_frame_index = 0;
 	long footer_frame_index = 0;
 	real alpha_modifier = widget_instance_get_cumulative_alpha_modifier(widget);
@@ -5939,7 +5989,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_header_bitmap.index,
 		0,
 		header_frame_index);
-	if (bitmap)
+	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !(toggle && pointer_controls == 2))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -5970,7 +6020,7 @@ static void widget_instance_render_spinner_list(
 		definition->list_footer_bitmap.index,
 		0,
 		footer_frame_index);
-	if (bitmap)
+	if (bitmap && !(pointer_controls && row.kind == HALO_ROW_STATIC) && !(toggle && pointer_controls == 2))
 	{
 		struct rasterizer_dynamic_screen_geometry_parameters parameters;
 		long alpha = fast_ftol(alpha_modifier * 255.0f);
@@ -5990,6 +6040,9 @@ static void widget_instance_render_spinner_list(
 			&parameters,
 			FALSE);
 	}
+	if (toggle)
+		ui_widget_row_draw_toggle(widget, definition, offset, clip_rect,
+			widget->parameters.list.selected_index == row.on_index);
 	if (definition->child_widgets.count == 0)
 	{
 		wchar_t *item_text;
@@ -6109,6 +6162,7 @@ static void widget_instance_render_spinner_list(
 							SECONDS_PER_MILLISECOND * 3.0f) + 1.0f) * 0.5f) *
 						color.alpha;
 				}
+				if (toggle) bounds.x1 -= 38;
 				draw_string_set_draw_mode(
 					definition->text_font.index,
 					NONE,
@@ -6158,6 +6212,8 @@ struct ui_mouse_target
 	rectangle2d bounds;
 	short kind;
 	short button_index;
+	short back_arrow_end;
+	short forward_arrow_start;
 };
 
 static struct ui_mouse_target ui_mouse_targets[UI_MOUSE_MAXIMUM_TARGETS];
@@ -7541,6 +7597,16 @@ static void ui_mouse_note_target(
 		if (!parent || ui_mouse_list_shows_several(widget) || !widget_instance_can_receive_events(widget))
 			return;
 		kind = _ui_mouse_target_value;
+		/* port: retain the row band even before pointer activity, so the first
+		tap after using a controller can land on the label. */
+		if (ui_widget_row_control(widget).kind == HALO_ROW_TOGGLE)
+		{
+			struct ui_widget_definition *row = ui_widget_definition_get(parent->definition_tag_index);
+			bounds.x0 = row->bounds.x0 + offset.x - widget->horizontal_offset;
+			bounds.x1 = row->bounds.x1 + offset.x - widget->horizontal_offset;
+			bounds.y0 = row->bounds.y0 + offset.y - widget->vertical_offset;
+			bounds.y1 = row->bounds.y1 + offset.y - widget->vertical_offset;
+		}
 	}
 	else if (ui_mouse_widget_is_item(widget))
 	{
@@ -7555,6 +7621,8 @@ static void ui_mouse_note_target(
 	target->bounds = bounds;
 	target->kind = kind;
 	target->button_index = button_index;
+	target->back_arrow_end = definition->list_header_bounds.x1 + offset.x;
+	target->forward_arrow_start = definition->list_footer_bounds.x0 + offset.x;
 
 	return;
 }
@@ -7793,6 +7861,32 @@ void ui_widget_port_post_button(
 	return;
 }
 
+/* port: enum and range controls share this dispatch with toggles. */
+static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
+	short back, short forward, boolean first_half)
+{
+	/* port: one dispatch for each runtime row control. A row flip
+	uses the controller step toward the other value, even on clamped lists. */
+	if (halo_menu_pointer_controls())
+		switch (ui_widget_row_control(target->widget).kind)
+		{
+		case HALO_ROW_STATIC: break;
+		case HALO_ROW_TOGGLE:
+			if (halo_menu_pointer_controls() == 1 &&
+				x >= target->back_arrow_end - 6 &&
+				x < target->back_arrow_end)
+				ui_mouse_press(back);
+			else if (halo_menu_pointer_controls() == 1 &&
+				x >= target->forward_arrow_start &&
+				x < target->forward_arrow_start + 6)
+				ui_mouse_press(forward);
+			else ui_mouse_press(target->widget->parameters.list.selected_index ? back : forward);
+			break;
+		default: ui_mouse_press(first_half ? back : forward); break;
+		}
+	else ui_mouse_press(first_half ? back : forward);
+}
+
 static void ui_widgets_process_mouse(
 	void)
 {
@@ -7814,6 +7908,7 @@ static void ui_widgets_process_mouse(
 	}
 	else
 	{
+		halo_menu_pointer_activity(&pointer);
 		ui_mouse_radius = pointer.radius;
 		/* (a screen with no menu widget, the scores after a game, has nothing to draw first) */
 		if (!ui_mouse_menu())
@@ -8106,7 +8201,7 @@ static void ui_widgets_process_mouse(
 					first_half = back == _widget_event_dpad_left ?
 						ui_mouse_click_x < (target->bounds.x0 + target->bounds.x1) / 2 :
 						ui_mouse_click_y < (target->bounds.y0 + target->bounds.y1) / 2;
-					ui_mouse_press(first_half ? back : forward);
+					ui_mouse_row_step(target, ui_mouse_click_x, back, forward, first_half);
 					break;
 				}
 				case _ui_mouse_target_list_slot:

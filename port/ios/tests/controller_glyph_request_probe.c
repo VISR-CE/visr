@@ -19,6 +19,7 @@ typedef struct {unsigned short wButtons;unsigned char bAnalogButtons[8];short sT
 static int dev, kind = 2, lookup_player = -1, split, keyboard_active, last_menus;
 static int platform_menu_keyboard(void) { return keyboard_active; }
 static int glyph_keyboard_active;
+static int glyph_mouse_active;
 static int glyph_menus_active;
 static int glyph_x_destructive;
 static struct halo_glyph_input glyph_menu_input;

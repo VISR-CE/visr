@@ -682,6 +682,9 @@ def bitmap_document(assets, names):
     bitmap = ET.SubElement(root, 'bitmap', name=TITLE_ICON)
     ET.SubElement(bitmap, 'frame', png=f'{ART}/visr_title_icon.png', width=str(TITLE_ICON_SIZE),
                   height=str(TITLE_ICON_SIZE))
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/bitmaps/toggle_switch')
+    for on in (0, 1):
+        ET.SubElement(bitmap, 'frame', png=f'xbox/art/toggle_switch__{on}.png', width='32', height='17')
     return root
 
 

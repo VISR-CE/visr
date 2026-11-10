@@ -1,0 +1,66 @@
+/* Runtime spinner classification shared by menu rendering and pointer dispatch. */
+#ifndef HALO_MENU_ROW_H
+#define HALO_MENU_ROW_H
+#include <wchar.h>
+#include <stdlib.h>
+#include <math.h>
+
+enum halo_menu_row_kind { HALO_ROW_STATIC, HALO_ROW_TOGGLE, HALO_ROW_ENUM, HALO_ROW_RANGE };
+struct halo_menu_row { enum halo_menu_row_kind kind; int on_index; };
+typedef wchar_t const *(*halo_menu_row_string)(void *context, int index);
+
+static inline int halo_menu_row_word(wchar_t const *text, char const *word)
+{
+	if (!text) return 0;
+	for (; *word; text++, word++)
+	{
+		unsigned int ch = *text;
+		if (ch >= 'a' && ch <= 'z') ch -= 'a' - 'A';
+		if (ch != (unsigned char)*word) return 0;
+	}
+	return !*text;
+}
+
+static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_row_string string, void *context)
+{
+	struct halo_menu_row row = { HALO_ROW_ENUM, -1 };
+	int index;
+	double previous = 0;
+	if (count == 1) { row.kind = HALO_ROW_STATIC; return row; }
+	if (count == 2)
+	{
+		static char const *const pairs[][2] = {{"ON", "OFF"}, {"YES", "NO"}, {"ENABLED", "DISABLED"}};
+		for (index = 0; index < 3; index++)
+		{
+			int on;
+			for (on = 0; on < 2; on++)
+				if (halo_menu_row_word(string(context, on), pairs[index][0]) &&
+					halo_menu_row_word(string(context, 1 - on), pairs[index][1]))
+				{ row.kind = HALO_ROW_TOGGLE; row.on_index = on; return row; }
+		}
+	}
+	if (count < 4) return row;
+	for (index = 0; index < count; index++)
+	{
+		/* Parse ASCII numbers directly: guest wchar_t is UTF-16, host wchar_t may not be. */
+		char number[96], *end;
+		wchar_t const *text = string(context, index);
+		int length = 0;
+		double value;
+		if (!text) return row;
+		while (text[length] && length < (int)sizeof(number) - 1)
+		{
+			if (text[length] > 127) return row;
+			number[length] = (char)text[length];
+			length++;
+		}
+		if (text[length] || !length) return row;
+		number[length] = 0;
+		value = strtod(number, &end);
+		if (end == number || *end || !isfinite(value) || (index && value <= previous)) return row;
+		previous = value;
+	}
+	row.kind = HALO_ROW_RANGE;
+	return row;
+}
+#endif

@@ -82,6 +82,14 @@ static inline int halo_glyph_element(int physical)
 	return physical >= 0 && physical < 18 ? elements[physical] : -1;
 }
 
+/* The input the player 0 menus' prompts follow: 0 keyboard and mouse, 1 controller, 2 touch. The order is that of the
+{keyboard|controller|touch} wordings in help text, which ui_widget.c indexes by it. */
+enum { HALO_INPUT_KEYBOARD, HALO_INPUT_CONTROLLER, HALO_INPUT_TOUCH };
+int halo_menu_input_kind(void);
+/* 0 keyboard/controller, 1 mouse, 2 finger or pinch. */
+int halo_menu_pointer_controls(void);
+struct halo_ui_pointer;
+void halo_menu_pointer_activity(struct halo_ui_pointer const *pointer);
 int halo_controller_glyph_request(short player, short semantic, short physical, char *label, unsigned int size);
 struct host_ui_pointer;
 /* the screen's secondary action (X) is destructive: the keyboard legend reads Delete */

@@ -240,6 +240,10 @@
 	<bitmap name="xbox/bitmaps/visr_title_icon">
 		<frame png="xbox/art/visr_title_icon.png" width="36" height="36" />
 	</bitmap>
+	<bitmap name="xbox/bitmaps/toggle_switch">
+		<frame png="xbox/art/toggle_switch__0.png" width="32" height="17" />
+		<frame png="xbox/art/toggle_switch__1.png" width="32" height="17" />
+	</bitmap>
 	<bitmap name="xbox/bitmaps/row_36/option_bkds">
 		<frame png="ce/shell/bitmaps/option_bkds__0.png" width="512" height="59" map="ui\shell\bitmaps\option_bkds" index="0" y="-10" />
 		<frame png="ce/shell/bitmaps/option_bkds__1.png" width="512" height="53" map="ui\shell\bitmaps\option_bkds" index="1" y="-7" />
