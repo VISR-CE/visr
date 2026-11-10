@@ -37,7 +37,7 @@ def main():
     # Verify both the native overrides and the shared host's original mobile flags.
     for native, name in ((1, 'window-native-probe'), (0, 'window-mobile-probe')):
         run(*common, f'-DHALO_NATIVE_MAC={native}', 'tools/macos_window_test.c',
-            'port/ios/host/host_config.c', *sdl_flags, '-o', BUILD / name)
+            'port/ios/host/host_config.c', 'port/ios/host/host_main_thread.c', *sdl_flags, '-o', BUILD / name)
         run(BUILD / name)
 
 
