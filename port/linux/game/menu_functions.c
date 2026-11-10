@@ -72,9 +72,11 @@ their handlers open opens.
 #include "interface/player_ui.h"
 #include "interface/ui_widget.h"
 #include "interface/ui_widget_event_handler_functions.h"
+#include "interface/virtual_keyboard.h"
 #include "main/main.h"
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
+#include "saved games/saved_game_files.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
@@ -1803,9 +1805,12 @@ static short profile_list_rows(void)
 	return (short)MIN(profile_list.count + 1, PROFILE_ROWS);
 }
 
+static void host_profile_visit(void);
+
 /* "player profile list initialize": on player 1's profile */
 static boolean profile_list_initialize(struct widget_instance *list)
 {
+	host_profile_visit();
 	long active = player_ui_get_active_player_profile_index(0);
 	short index;
 
@@ -1847,6 +1852,8 @@ static void visible_set(struct widget_instance *widget, boolean visible)
 
 /* "3wide player profile list update": the rows, and the profile chosen:
 its name, colour, current level, best difficulty and controls */
+static void host_profile_poll(struct widget_instance *list);
+
 static void profile_list_update(struct widget_instance *list)
 {
 	struct widget_instance *description = list->parameters.list.extended_description;
@@ -1855,6 +1862,7 @@ static void profile_list_update(struct widget_instance *list)
 	boolean profile;
 
 	profile_list_read(FALSE);
+	host_profile_poll(list);
 	item = list_scroll(list, &profile_list.first, (short)(profile_list.count + 1), profile_list_rows());
 	if (item != NONE)
 		profile_list.chosen = item;
@@ -2682,14 +2690,33 @@ static boolean multiplayer_player(short controller)
 	return ui_widget_port_multiplayer_player(controller, player_ui_get_active_player_profile_index(0));
 }
 
-/* Create Game's ("join controller to mp game", first): player 1 in, and
-the server made: an internet one (an invite, Discord) or a LAN one */
-static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
+#define HOST_PROFILE_NAME "pc\\main_menu\\profile_manager\\player_profile_manager"
+#define HOST_MAP_SELECT_NAME "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"
+
+/* Create Game with no profile (a fresh install): the game's own profile
+screen (the one the campaign and Settings open, with its Create New Player
+Profile row) asks for one first, and the controller that pressed it hosts.
+Hosting goes on to the map once the profile exists (host_profile_poll) */
+static struct
+{
+	short controller;
+	boolean visited;
+} host_profile = { NONE, FALSE };
+
+/* the profile screen's list opened: the first open is the host's own. The list
+opens again after the name keyboard and the saving screen, so later opens do
+not end the host's turn; host_profile_continue does, once the profile exists */
+static void host_profile_visit(void)
+{
+	if (host_profile.controller != NONE)
+		host_profile.visited = TRUE;
+}
+
+/* the server made, once player 1 is in: an internet one (an invite, Discord)
+or a LAN one */
+static boolean multiplayer_host_start(struct widget_instance *widget, struct event_record *event,
 	boolean *widget_deleted)
 {
-	multiplayer_mode_set(widget);
-	if (!multiplayer_player(controller))
-		return FALSE;
 	p2p_set_hosting_allowed(multiplayer.mode == _multiplayer_mode_host_internet);
 	/* (in the server browser, if PUBLIC: Server Setup's LISTING, which a
 	new game starts with as network.host_public says) */
@@ -2697,6 +2724,62 @@ static boolean multiplayer_host(struct widget_instance *widget, struct event_rec
 	p2p_set_hosting_public(multiplayer.mode == _multiplayer_mode_host_internet && !multiplayer.game_private);
 	multiplayer.cooperative_maximum_players_set = FALSE;
 	return ui_widget_port_host(widget, event, widget_deleted);
+}
+
+/* Create Game's ("join controller to mp game", first): player 1 in, and
+the server made. With no profile, the profile screen opens instead, and its
+choice goes on to the map (the browser's second handler, "mp type set mode",
+does not run once a screen has opened) */
+static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted)
+{
+	struct player_profile profile;
+
+	multiplayer_mode_set(widget);
+	if (!campaign_profile(controller, &profile))
+	{
+		host_profile.controller = controller;
+		host_profile.visited = FALSE;
+		return ui_widget_port_open(widget, HOST_PROFILE_NAME, widget_deleted);
+	}
+	if (!multiplayer_player(controller))
+		return FALSE;
+	return multiplayer_host_start(widget, event, widget_deleted);
+}
+
+/* the profile just made is player 1's: hosting goes on to the map */
+static boolean host_profile_continue(struct widget_instance *widget, struct event_record *event,
+	boolean *widget_deleted)
+{
+	struct player_profile profile;
+	short controller = host_profile.controller;
+
+	host_profile.controller = NONE;
+	if (controller == NONE || !campaign_profile(controller, &profile) || !multiplayer_player(controller))
+		return campaign_fail();
+	if (!multiplayer_host_start(widget, event, widget_deleted))
+		return FALSE;
+	*widget_deleted = FALSE;
+	return ui_widget_port_open(widget, HOST_MAP_SELECT_NAME, widget_deleted);
+}
+
+/* (from the profile list's update) once the profile screen's New Player
+Profile made one (the game's own name keyboard and saving screens ran), the
+host goes on */
+static void host_profile_poll(struct widget_instance *list)
+{
+	struct player_profile profile;
+	struct event_record event;
+	boolean deleted = FALSE;
+
+	if (host_profile.controller == NONE || !host_profile.visited || virtual_keyboard_active() ||
+		!campaign_profile(host_profile.controller, &profile))
+	{
+		return;
+	}
+	memset(&event, 0, sizeof(event));
+	event.controller_index = host_profile.controller;
+	host_profile_continue(list, &event, &deleted);
 }
 
 /* ---- the map list (the Map screen's): its chooser's SINGLEPLAYER levels,
