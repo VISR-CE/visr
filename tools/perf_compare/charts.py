@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from decimal import ROUND_HALF_UP, Decimal
 import math
 import re
 from pathlib import Path
@@ -601,13 +602,19 @@ def legend(spec: dict, built: dict | None = None) -> str:
     return " ".join(f"{marks[i % len(marks)]} {name}" for i, name in enumerate(names))
 
 
+def _to_fixed(value: float, places: int) -> str:
+    """Format like JavaScript's `toFixed`: an exact tie rounds away from zero, not to even."""
+    quantum = Decimal(1).scaleb(-places)
+    return str(Decimal(value).quantize(quantum, rounding=ROUND_HALF_UP)) if places else str(Decimal(value).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 def _detail_text(entry: dict, columns: list[str]) -> str:
     parts = []
     for column in columns:
         value = (entry["value"].get("details") or {}).get(column)
         if value is not None:
             unit, description, _, places = DETAILS[column]
-            text = f"{value:.{places}f}"
+            text = _to_fixed(value, places)
             text = text.rstrip("0").rstrip(".") if "." in text else text
             parts.append(f"{text} ms {description}" if unit == " ms" else f"{text}% {description}")
     if parts:
@@ -665,7 +672,7 @@ def _detail_cells(entry: dict, columns: list[str]) -> tuple[list[str], str]:
             cells.append("\u2013")
             continue
         unit, _, _, places = DETAILS[column]
-        text = f"{value:.{places}f}"
+        text = _to_fixed(value, places)
         text = text.rstrip("0").rstrip(".") if "." in text else text
         cells.append(text + ("%" if unit == "%" else ""))
     note = _detail_text(entry, columns) if columns and all(cell == "\u2013" for cell in cells) else ""
