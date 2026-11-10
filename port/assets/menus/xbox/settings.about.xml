@@ -140,12 +140,12 @@
 	<widget name="xbox/settings/about/notices_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/gradient">
 		<on event="b" back="true" />
 		<on event="back" back="true" />
-		<child widget="xbox/settings/about/notices/title" x="67" y="24" />
+		<child widget="xbox/settings/about/notices/header" />
 		<child widget="xbox/settings/about/notices/options_menu" />
 		<child widget="xbox/settings/about/notices/b_butn" x="326" y="414" />
 		<child widget="xbox/settings/about/notices/cancel" x="348" y="414" />
 	</widget>
-	<widget name="xbox/settings/about/notices/title" type="text" text="OPEN SOURCE NOTICES" font="ui\large_ui" color="#FF2896FF" width="512" height="36" />
+	<widget name="xbox/settings/about/notices/header" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_open_source_notices" />
 	<widget name="xbox/settings/about/notices/options_menu" type="column_list" width="640" height="480" visible_rows="7" description="xbox/settings/about/notices/help" flags="pass_unhandled_to_focused_child up_down_tabs_children">
 		<data input="port settings help" />
 		<child widget="xbox/settings/about/notices/op_0" x="54" y="73" />
@@ -184,7 +184,7 @@
 		<child widget="xbox/settings/about/notices/op_0/label" />
 		<child widget="xbox/settings/about/notices/op_0/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_0/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="0" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_0/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_0/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="0" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_1" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -192,7 +192,7 @@
 		<child widget="xbox/settings/about/notices/op_1/label" />
 		<child widget="xbox/settings/about/notices/op_1/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_1/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="1" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_1/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_1/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="1" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_2" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -200,7 +200,7 @@
 		<child widget="xbox/settings/about/notices/op_2/label" />
 		<child widget="xbox/settings/about/notices/op_2/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_2/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="2" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_2/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_2/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="2" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_3" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -208,7 +208,7 @@
 		<child widget="xbox/settings/about/notices/op_3/label" />
 		<child widget="xbox/settings/about/notices/op_3/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_3/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="3" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_3/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_3/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="3" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_4" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -216,7 +216,7 @@
 		<child widget="xbox/settings/about/notices/op_4/label" />
 		<child widget="xbox/settings/about/notices/op_4/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_4/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="4" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_4/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_4/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="4" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_5" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -224,7 +224,7 @@
 		<child widget="xbox/settings/about/notices/op_5/label" />
 		<child widget="xbox/settings/about/notices/op_5/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_5/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="5" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_5/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_5/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="5" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_6" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -232,7 +232,7 @@
 		<child widget="xbox/settings/about/notices/op_6/label" />
 		<child widget="xbox/settings/about/notices/op_6/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_6/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="6" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_6/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_6/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="6" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_7" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -240,7 +240,7 @@
 		<child widget="xbox/settings/about/notices/op_7/label" />
 		<child widget="xbox/settings/about/notices/op_7/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_7/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="7" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_7/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_7/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="7" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_8" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -248,7 +248,7 @@
 		<child widget="xbox/settings/about/notices/op_8/label" />
 		<child widget="xbox/settings/about/notices/op_8/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_8/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="8" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_8/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="8" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_8/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="8" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_9" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -256,7 +256,7 @@
 		<child widget="xbox/settings/about/notices/op_9/label" />
 		<child widget="xbox/settings/about/notices/op_9/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_9/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="9" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_9/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_9/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="9" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_10" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -264,7 +264,7 @@
 		<child widget="xbox/settings/about/notices/op_10/label" />
 		<child widget="xbox/settings/about/notices/op_10/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_10/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="10" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_10/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="10" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_10/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="10" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_11" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -272,7 +272,7 @@
 		<child widget="xbox/settings/about/notices/op_11/label" />
 		<child widget="xbox/settings/about/notices/op_11/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_11/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="11" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_11/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_11/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="11" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_12" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -280,7 +280,7 @@
 		<child widget="xbox/settings/about/notices/op_12/label" />
 		<child widget="xbox/settings/about/notices/op_12/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_12/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="12" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_12/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="12" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_12/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="12" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_13" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -288,7 +288,7 @@
 		<child widget="xbox/settings/about/notices/op_13/label" />
 		<child widget="xbox/settings/about/notices/op_13/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_13/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="13" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_13/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="13" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_13/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="13" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_14" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -296,7 +296,7 @@
 		<child widget="xbox/settings/about/notices/op_14/label" />
 		<child widget="xbox/settings/about/notices/op_14/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_14/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="14" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_14/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="14" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_14/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="14" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_15" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -304,7 +304,7 @@
 		<child widget="xbox/settings/about/notices/op_15/label" />
 		<child widget="xbox/settings/about/notices/op_15/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_15/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="15" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_15/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="15" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_15/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="15" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_16" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -312,7 +312,7 @@
 		<child widget="xbox/settings/about/notices/op_16/label" />
 		<child widget="xbox/settings/about/notices/op_16/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_16/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="16" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_16/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="16" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_16/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="16" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_17" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -320,7 +320,7 @@
 		<child widget="xbox/settings/about/notices/op_17/label" />
 		<child widget="xbox/settings/about/notices/op_17/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_17/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="17" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_17/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="17" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_17/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="17" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_18" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -328,7 +328,7 @@
 		<child widget="xbox/settings/about/notices/op_18/label" />
 		<child widget="xbox/settings/about/notices/op_18/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_18/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="18" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_18/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="18" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_18/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="18" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_19" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -336,7 +336,7 @@
 		<child widget="xbox/settings/about/notices/op_19/label" />
 		<child widget="xbox/settings/about/notices/op_19/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_19/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="19" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_19/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="19" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_19/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="19" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_20" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -344,7 +344,7 @@
 		<child widget="xbox/settings/about/notices/op_20/label" />
 		<child widget="xbox/settings/about/notices/op_20/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_20/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="20" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_20/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="20" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_20/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="20" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_21" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -352,7 +352,7 @@
 		<child widget="xbox/settings/about/notices/op_21/label" />
 		<child widget="xbox/settings/about/notices/op_21/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_21/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="21" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_21/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="21" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_21/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="21" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_22" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -360,7 +360,7 @@
 		<child widget="xbox/settings/about/notices/op_22/label" />
 		<child widget="xbox/settings/about/notices/op_22/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_22/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="22" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_22/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_22/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="22" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_23" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -368,7 +368,7 @@
 		<child widget="xbox/settings/about/notices/op_23/label" />
 		<child widget="xbox/settings/about/notices/op_23/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_23/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="23" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_23/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="23" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_23/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="23" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_24" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -376,7 +376,7 @@
 		<child widget="xbox/settings/about/notices/op_24/label" />
 		<child widget="xbox/settings/about/notices/op_24/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_24/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="24" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_24/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_24/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="24" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/op_25" width="512" height="36" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" flags="pass_unhandled_to_focused_child">
 		<on event="a" />
@@ -384,7 +384,7 @@
 		<child widget="xbox/settings/about/notices/op_25/label" />
 		<child widget="xbox/settings/about/notices/op_25/value" x="250" />
 	</widget>
-	<widget name="xbox/settings/about/notices/op_25/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="25" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="7" />
+	<widget name="xbox/settings/about/notices/op_25/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_25/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="25" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<widget name="xbox/settings/about/notices/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/about/notices/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />

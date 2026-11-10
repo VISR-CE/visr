@@ -242,8 +242,9 @@ def notices_screen(root, bitmaps):
                     bitmap=bitmap_ref('bitmaps/gradient', bitmaps))
     for event in ('b', 'back'):
         ET.SubElement(screen, 'on', event=event, back='true')
-    child(screen, prefix + '/title', x=67, y=24)
-    text_widget(root, prefix + '/title', 'OPEN SOURCE NOTICES', width=512, height=36)
+    child(screen, prefix + '/header')
+    widget(root, prefix + '/header', controller=1, left=35, top=11, width=512, height=64,
+           bitmap=bitmap_ref(f'{PE}/about/header_open_source_notices', bitmaps))
     child(screen, prefix + '/options_menu')
     options = widget(root, prefix + '/options_menu', type='column_list', width=640, height=480,
                      visible_rows=7, description=prefix + '/help',
@@ -262,7 +263,7 @@ def notices_screen(root, bitmaps):
         child(item, row + '/value', x=250)
         widget(root, row + '/label', type='text', width=250, height=36,
                string_list=prefix + '/labels', string_index=index,
-               font=r'ui\large_ui', color='#FFFFFFFF', text_x=13, text_y=7)
+               font=r'ui\large_ui', color=BLUE, text_x=13, text_y=7)
         widget(root, row + '/value', type='text', width=252, height=36,
                string_list=prefix + '/values', string_index=index,
                font=r'ui\small_ui', color=BLUE, align='right', text_y=9,

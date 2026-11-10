@@ -229,7 +229,7 @@ def test_notices_screen_rows_scroll_help_and_back():
         assert item.get("height") == "36"
         assert item.find('on[@event="left_mouse"]').get("run") == "mouse emit accept event"
         label, value = [widgets[c.get("widget")] for c in item.findall("child")]
-        assert label.get("color") == "#FFFFFFFF" and value.get("color") == xbox_menus.BLUE
+        assert label.get("color") == xbox_menus.BLUE and value.get("color") == xbox_menus.BLUE
         assert int(label.get("string_index")) == index
         help_text = strings[base + "/help_strings"][index + 1]
         assert help_text.replace("\\n", " ") == about_data.LICENSES[index][2]

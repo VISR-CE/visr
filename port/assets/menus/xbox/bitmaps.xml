@@ -182,6 +182,9 @@
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/about/header_about.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_open_source_notices">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/about/header_open_source_notices.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/audio_settings/header_profile_audio_settings">
 		<frame png="ce/shell/main_menu/settings_select/player_setup/player_profile_edit/audio_settings/header_profile_audio_settings__0.png" width="512" height="64" />
 	</bitmap>
