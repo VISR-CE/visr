@@ -264,6 +264,7 @@ def test_dropdown_uses_visible_band_and_legend(tmp_path):
 #define NONE -1
 #define MIN(a,b) ((a)<(b)?(a):(b))
 #define _ui_mouse_target_button 3
+#define UI_DROPDOWN_LEGEND_CLEARANCE 6
 struct widget_instance {
  int creation_time, key;
  struct { struct { int number_of_items, selected_index; } list; } parameters;
@@ -298,7 +299,9 @@ int main(void) {
  ui_mouse_targets[1].bounds.y0 = 414;
  ui_mouse_targets[2] = target;
  ui_dropdown_open(&target);
- assert(ui_dropdown.y == 47 && ui_dropdown.rows == 7);
+ /* The panel's bottom border stays 2 units above the legend line (410). */
+ assert(ui_dropdown.y + ui_dropdown.rows * HALO_DROPDOWN_PITCH + 3 <= 408);
+ assert(ui_dropdown.y == 41 && ui_dropdown.rows == 7);
  assert(ui_dropdown_widget == &row && ui_dropdown_creation_time == 42);
  assert(ui_dropdown_selection == -1 && ui_dropdown_last_selection == -1);
  assert(halo_menu_dropdown_click(&ui_dropdown, 82, 49) == 0);

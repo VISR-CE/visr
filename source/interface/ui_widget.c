@@ -8008,6 +8008,9 @@ static boolean ui_dropdown_owner_valid(void)
 	return FALSE;
 }
 
+/* port: legend line (4 units above the captions) plus a 2-unit gap. */
+#define UI_DROPDOWN_LEGEND_CLEARANCE 6
+
 static void ui_dropdown_open(struct ui_mouse_target *target)
 {
 	float visible_top, visible_bottom;
@@ -8019,12 +8022,15 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	limit_bottom = (int)floorf(visible_bottom);
 	/* port: ui_mouse_note_target records each legend icon together with its
 	caption in screen menu units (414 at the top of the Xbox settings bar).
-	Use those drawn bounds so scroll arrows and carousel buttons do not count. */
+	Use those drawn bounds so scroll arrows and carousel buttons do not count.
+	The bar's top line sits at 410, 4 units above the captions; stop the panel
+	2 units above that line so its border never touches it. */
 	for (index = 0; index < ui_mouse_target_count; index++)
 		if (ui_mouse_targets[index].kind == _ui_mouse_target_button &&
 			ui_mouse_key_button(ui_mouse_targets[index].widget) != NONE &&
 			ui_mouse_targets[index].bounds.y0 >= target->value_bounds.y1)
-			limit_bottom = MIN(limit_bottom, ui_mouse_targets[index].bounds.y0);
+			limit_bottom = MIN(limit_bottom,
+				ui_mouse_targets[index].bounds.y0 - UI_DROPDOWN_LEGEND_CLEARANCE);
 
 	ui_dropdown_widget = target->widget;
 	ui_dropdown_creation_time = target->widget->creation_time;
