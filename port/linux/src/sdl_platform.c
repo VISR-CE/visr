@@ -108,6 +108,18 @@ static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
 #endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
+/* new key, mouse-button and touch presses seen, ever (a held key's repeats
+are not presses): the intro movie skips when it rises (bink_playback.c) */
+static unsigned int input_press_count;
+
+unsigned int platform_input_press_count(void)
+{
+	unsigned int count;
+	pthread_mutex_lock(&input_lock);
+	count = input_press_count;
+	pthread_mutex_unlock(&input_lock);
+	return count;
+}
 /* rebinding (platform_binding_capture_begin), under input_lock: waiting for
 an input, and the one taken; then the keyboard and mouse settle (their keys
 and buttons held then are let go) before they drive anything again */
@@ -1742,12 +1754,15 @@ void platform_pump_events(void)
 			exit(EXIT_SUCCESS);
 		case SDL_EVENT_FINGER_DOWN:
 		case SDL_EVENT_FINGER_MOTION:
+			if (event.type == SDL_EVENT_FINGER_DOWN)
+				input_press_count++;
 			platform_menu_activity(1, 0, 0, 0);
 			break;
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
 			if (event.key.down && !event.key.repeat)
 			{
+				input_press_count++;
 #ifdef HALO_IOS
 				/* UIKit also sends key events for the on-screen keyboard. */
 				extern int host_menu_keyboard(void);
@@ -1831,6 +1846,8 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
+			if (event.button.down)
+				input_press_count++;
 			if (event.button.down)
 				platform_menu_activity(event.button.which == SDL_TOUCH_MOUSEID || event.button.which == SDL_PEN_MOUSEID, 0, 0, 0);
 			if (event.button.button < 32)
