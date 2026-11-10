@@ -192,6 +192,15 @@ run(BUILD/'memory-probe', 'early')
 run(BUILD/'memory-probe', 'unaligned')
 run(BUILD/'memory-probe', 'unaligned-reduced')
 sdl_flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'sdl3'], text=True))
+sdl_headers = shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sdl3'], text=True))
+(BUILD / 'game_thread_next_event.inc').write_text(
+    extracted_definition('port/ios/host/host_sdl.c', 'next_event'))
+run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+    '-fsanitize=address,undefined', '-Iport/ios/host', f'-I{BUILD}', *sdl_headers,
+    'port/ios/tests/game_thread_flag_probe.c', 'port/ios/host/host_game_thread.c',
+    '-o', BUILD/'game-thread-flag-probe')
+for arguments in ((), ('true',), ('false',), ('invalid',)):
+    run(BUILD/'game-thread-flag-probe', *arguments)
 run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host',
     '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
     *sdl_flags, '-o', BUILD/'audio-probe')
