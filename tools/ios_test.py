@@ -158,11 +158,30 @@ sdl_headers = shlex.split(subprocess.check_output(['pkg-config', '--cflags', 'sd
 (BUILD / 'game_thread_next_event.inc').write_text(
     extracted_definition('port/ios/host/host_sdl.c', 'next_event'))
 run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
-    '-fsanitize=address,undefined', '-Iport/ios/host', f'-I{BUILD}', *sdl_headers,
+    '-fsanitize=address,undefined', '-Iport/ios/host', '-Iport/runtime/include', f'-I{BUILD}', *sdl_headers,
     'port/ios/tests/game_thread_flag_probe.c', 'port/ios/host/host_game_thread.c',
     '-o', BUILD/'game-thread-flag-probe')
 for arguments in ((), ('true',), ('false',), ('invalid',)):
     run(BUILD/'game-thread-flag-probe', *arguments)
+# Use production window helpers with SDL and the main executor stubbed by the probe.
+window_source = (ROOT / 'port/ios/host/host_sdl.c').read_text()
+(BUILD / 'game_thread_window.inc').write_text('\n'.join([
+    window_source[window_source.index('#define HANDLE_COUNT'):window_source.index('/* ---------- general */')],
+    window_source[window_source.index('static SDL_MetalView metal_view;'):
+                  window_source.index('void host_sdl_pin_window_pixels')],
+    *(extracted_definition('port/ios/host/host_sdl.c', name) for name in (
+        'host_sdl_window_size_in_pixels', 'host_sdl_set_relative_mouse',
+        'host_sdl_window', 'host_ios_default_framebuffer')),
+]))
+for catalyst, native in ((0, 0), (1, 0), (0, 1)):
+    window_probe = BUILD / f'game-thread-window-{catalyst}-{native}-probe'
+    run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+        '-fsanitize=address,undefined', f'-DPROBE_MACCATALYST={catalyst}', f'-DPROBE_NATIVE_MAC={native}',
+        '-Iport/ios/host', '-Iport/runtime/include', f'-I{BUILD}', *sdl_headers,
+        'port/ios/tests/game_thread_window_probe.c', 'port/ios/host/host_game_thread.c',
+        '-o', window_probe)
+    for flag in ('true', 'false'):
+        run(window_probe, flag)
 run('xcrun', 'clang', '-O2', '-DHALO_IOS=1', '-Iport/ios/host', '-Iport/ios/host',
     '-Iport/runtime/include', 'port/ios/tests/audio_probe.c', '-Wl,-dead_strip',
     *sdl_flags, '-o', BUILD/'audio-probe')
