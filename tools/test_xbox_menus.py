@@ -682,3 +682,26 @@ def test_keyboard_picture_is_generated_at_import_without_a_shipped_png():
     redraw = (ROOT / 'port/ios/host/menu_picture_redraw.m').read_text()
     assert '@"keyboard"' not in redraw
     assert 'keyboard.png' not in (ROOT / 'port/ios/CMakeLists.txt').read_text()
+
+
+def test_filters_title_sits_with_the_other_titles_and_the_count_inside_the_panel():
+    base = 'xbox/main_menu/multiplayer_type_select/join_game'
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.filters.xml').getroot()
+    screen = root.find(f"widget[@name='{base}/filters/filters_screen']")
+    placed = {c.get('widget').rsplit('/', 1)[-1]: (c.get('x'), c.get('y')) for c in screen.findall('child')}
+    # The server browser lifts its title 26 units; the same title spot here is 26 above the original top of 11.
+    assert placed['header_filters'][1] == '-15'
+    x, y = (int(v) for v in placed['browser_filter_status'])
+    assert 44 <= y and y + 22 <= 73  # below the band line, above the first option row
+    assert x + 276 <= 586  # right-aligned to the option rows' edge
+
+
+def test_empty_browser_explains_on_the_left_and_keeps_the_detail_panel():
+    base = 'xbox/main_menu/multiplayer_type_select/join_game'
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml').getroot()
+    names = {w.get('name') for w in root.iter('widget')}
+    screen = root.find(f"widget[@name='{base}/join_game_screen']")
+    placed = {c.get('widget').rsplit('/', 1)[-1]: (int(c.get('x', 0)), int(c.get('y', 0))) for c in screen.findall('child')}
+    for leaf in ('browser_list_status', 'browser_list_hint'):
+        assert f'{base}/{leaf}' in names
+        assert placed[leaf][0] == 24 and 82 <= placed[leaf][1] < 82 + 53 * 3  # where the first rows sit

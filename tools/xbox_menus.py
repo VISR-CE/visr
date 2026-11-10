@@ -586,7 +586,12 @@ def filters_layout(root, widgets):
             screen.remove(c)
     ET.SubElement(screen, 'on', event='x', run='port browser filters reset')
     ET.SubElement(screen, 'data', input='port browser filters update')
-    child(screen, base + '/browser_filter_status', x=340, y=21)
+    # The title takes the same place as the server browser's (26 units above its original spot);
+    # the count sits inside the panel, between the band and the first row.
+    title = screen.find(f"child[@widget='{base}/header_filters']")
+    if title is not None:
+        title.set('y', '-15')
+    child(screen, base + '/browser_filter_status', x=310, y=48)
     widget(root, base + '/browser_filter_status', type='text', width=276, height=22,
            font=r'ui\small_ui', color='#7fc4ff', align='right')
     menu = widgets[base + '/options_menu']
@@ -867,6 +872,13 @@ def browser_layout(root, widgets, bitmaps):
     child(actions, base + '/join_game_items_list')
     child(actions, base + '/browser_chips')
     child(actions, base + '/browser_detail')
+    # With no games the list area says why, as the Xbox's own empty list does.
+    child(screen, base + '/browser_list_status', x=24, y=90)
+    widget(root, base + '/browser_list_status', type='text', width=270, height=48,
+           font=r'ui\small_ui', color='#7fc4ff')
+    child(screen, base + '/browser_list_hint', x=24, y=146)
+    widget(root, base + '/browser_list_hint', type='text', width=270, height=48,
+           font=r'ui\small_ui', color='#2f73c4')
     rows = widget(root, base + '/join_game_items_list', type='column_list', width=294, height=421,
                   visible_rows=6, flags='pass_unhandled_to_focused_child')
     ET.SubElement(rows, 'data', input='gamespy screen update')

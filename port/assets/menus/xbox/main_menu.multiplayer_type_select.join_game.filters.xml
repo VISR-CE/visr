@@ -4,11 +4,11 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/browser/filters_backdrop" type="column_list">
 		<on event="b" back="true" />
 		<on event="back" back="true" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" y="-15" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/options_menu" />
 		<on event="x" run="port browser filters reset" />
 		<data input="port browser filters update" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" x="340" y="21" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_filter_status" x="310" y="48" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_reset" x="342" y="427" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/browser_done" x="490" y="427" />
 	</widget>

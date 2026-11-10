@@ -4517,13 +4517,37 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		child->disabled = TRUE;
 	for (child = detail->child; child; child = child->next)
 		visible_set(child, present);
-	visible_set(named(detail, "browser_detail_status", 0), !present);
-	text_set(named(detail, "browser_detail_status", 0), status);
+	/* With no game chosen the panel keeps its layout as placeholders (the unknown-map picture and empty
+	   labels); the reason shows on the left, where the rows would be. */
+	child = named(detail, "browser_detail_content", 0);
+	if (child)
+		visible_set(child, TRUE);
+	visible_set(named(screen, "browser_list_status", 0), !present);
+	text_set(named(screen, "browser_list_status", 0), status);
+	visible_set(named(screen, "browser_list_hint", 0), !present);
+	text_set(named(screen, "browser_list_hint", 0), L"Select CREATE to start your own game.");
 	visible_set(named(detail, "browser_connection_status", 0), present && (lobby_browser.joining ||
 		(lobby_browser.failed_time && system_milliseconds() - lobby_browser.failed_time < LOBBY_BROWSER_FAILED_TIME)));
 	text_set(named(detail, "browser_connection_status", 0), status);
 	if (!present)
+	{
+		char const *const blank[] = { "browser_detail_name", "browser_detail_type", "browser_detail_rules",
+			"browser_detail_host", "browser_detail_equipment", "browser_detail_big", "browser_join_reason",
+			"browser_detail_net", "browser_detail_password" };
+		char const *const hidden[] = { "browser_equipment_label", "browser_detail_big", "browser_join_reason",
+			"browser_detail_net", "browser_detail_password" };
+		short index;
+
+		lobby_map_show(detail, "");
+		for (index = 0; index < NUMBEROF(blank); index++)
+			text_set(named(detail, blank[index], 0), L"");
+		for (index = 0; index < NUMBEROF(hidden); index++)
+			visible_set(named(detail, hidden[index], 0), FALSE);
+		visible_set(named(detail, "browser_detail_equipment", 0), FALSE);
+		visible_set(named(detail, "browser_host_label", 0), TRUE);
+		visible_set(named(detail, "browser_detail_host", 0), TRUE);
 		return;
+	}
 	game = &lobby_browser.games[lobby_browser.chosen];
 	lobby_map_show(detail, game->map);
 	text_to_wide(game->name, text, ROW_TEXT_LENGTH);
