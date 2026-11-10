@@ -132,7 +132,7 @@ item_options = "ITEM OPTIONS:"
 vehicle_options = "VEHICLE OPTIONS:"
 indicator_options = "INDICATOR OPTIONS:"
 teamplay_options = "TEAMPLAY OPTIONS:"
-listing = "LISTING:"
+public_game = "PUBLIC GAME:"
 friendly_fire = "FRIENDLY FIRE:"
 extra_enemies = "EXTRA ENEMIES:"
 per_player = "PER PLAYER:"
@@ -145,8 +145,8 @@ fireteam = "FIRETEAM:"
 co_op_options = "CO-OP OPTIONS"
 
 [ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_listing_spinner]
-s0 = "PUBLIC"
-s1 = "PRIVATE"
+s0 = "ON"
+s1 = "OFF"
 
 [ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_max_players_spinner]
 s0 = "2"
@@ -904,7 +904,7 @@ item_options = "ITEM OPTIONS:"
 vehicle_options = "VEHICLE OPTIONS:"
 indicator_options = "INDICATOR OPTIONS:"
 teamplay_options = "TEAMPLAY OPTIONS:"
-listing = "LISTING:"
+public_game = "PUBLIC GAME:"
 friendly_fire = "FRIENDLY FIRE:"
 extra_enemies = "EXTRA ENEMIES:"
 per_player = "PER PLAYER:"
@@ -917,8 +917,8 @@ fireteam = "FIRETEAM:"
 co_op_options = "CO-OP OPTIONS"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_listing_spinner]
-s0 = "PUBLIC"
-s1 = "PRIVATE"
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_max_players_spinner]
 s0 = "2"

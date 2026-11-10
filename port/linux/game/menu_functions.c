@@ -2922,8 +2922,8 @@ static struct
 	(the client's slot it is in may come to hold another game) */
 	byte preview_key_id[8];
 	byte preview_xnaddr[12];
-	/* Server Setup's LISTING: PRIVATE (each new game starts with
-	network.host_public's choice: PUBLIC unless set otherwise) */
+	/* Server Setup's PUBLIC GAME: OFF (each new game starts with
+	network.host_public's choice: ON unless set otherwise) */
 	boolean game_private;
 	/* (Apple builds) an invite was taken: Direct Link says it connects until its game comes */
 	boolean invite_pending;
@@ -3187,7 +3187,7 @@ static boolean multiplayer_host_start(struct widget_instance *widget, struct eve
 	boolean *widget_deleted)
 {
 	p2p_set_hosting_allowed(multiplayer.mode == _multiplayer_mode_host_internet);
-	/* (in the server browser, if PUBLIC: Server Setup's LISTING, which a
+	/* (in the server browser, if Server Setup's PUBLIC GAME is ON, which a
 	new game starts with as network.host_public says) */
 	multiplayer.game_private = !config_boolean("network.host_public");
 	p2p_set_hosting_public(multiplayer.mode == _multiplayer_mode_host_internet && !multiplayer.game_private);
@@ -3763,7 +3763,7 @@ static short *server_settings_maximum_players_index(void)
 	return &multiplayer.cooperative_maximum_players_index;
 }
 
-/* Server Setup's LISTING, PRIVATE: the multiplayer game's (as
+/* Server Setup's PUBLIC GAME, OFF: the multiplayer game's (as
 network.host_public started it), or co-op's, saved in network.coop_public */
 static boolean server_settings_private(void)
 {
@@ -3944,8 +3944,8 @@ static void server_settings_update(struct widget_instance *list)
 			list->focused_child == named(list, "op_coop_options", 0))
 			list->parameters.list.extended_description->parameters.text_box.string_list_index = COOPERATIVE_OPTIONS_HELP;
 	}
-	/* LISTING (an internet game's): PUBLIC, listed in everyone's server
-	browser, or PRIVATE, for this game. Its help is its choice's */
+	/* PUBLIC GAME (an internet game's): ON, listed in everyone's server
+	browser, or OFF, for this game. Its help is its choice's */
 	visible_set(named(list, "op_listing", 0), multiplayer.mode == _multiplayer_mode_host_internet &&
 		config_boolean("network.online") && config_boolean("network.public_lobby"));
 	if ((spinner = named(list, "listing_spinner", 0)) != NULL && named(list, "op_listing", 0)->visible)

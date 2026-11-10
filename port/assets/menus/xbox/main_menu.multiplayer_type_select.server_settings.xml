@@ -43,7 +43,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_max_players" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/max_players_label" y="0" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/max_players_spinner" x="285" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/max_players_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/max_players_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
@@ -62,7 +62,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/listing_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PUBLIC|PRIVATE" strings_ids="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_listing_spinner.s0|xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_listing_spinner.s1" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 45 19 51" footer_bounds="7 160 19 166">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_listing_spinner.s0|xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_listing_spinner.s1" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 57 19 63" footer_bounds="7 149 19 155">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_password" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
@@ -120,7 +120,7 @@
 		<string text="VEHICLE OPTIONS:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.vehicle_options" />
 		<string text="INDICATOR OPTIONS:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.indicator_options" />
 		<string text="TEAMPLAY OPTIONS:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.teamplay_options" />
-		<string text="LISTING:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.listing" />
+		<string text="PUBLIC GAME:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.public_game" />
 		<string text="FRIENDLY FIRE:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.friendly_fire" />
 		<string text="EXTRA ENEMIES:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.extra_enemies" />
 		<string text="PER PLAYER:" id="xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels.per_player" />

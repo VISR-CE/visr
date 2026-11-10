@@ -1129,10 +1129,10 @@ static const struct config_setting config_settings[] =
 		"game is listed at (network.delta_announce). Empty turns both off and\n"
 		"suppresses signed legacy table requests (network.delta_table)." },
 	{ "network.host_public", _config_boolean, DEFAULT_HOST_PUBLIC, "HALO_NET_HOST_PUBLIC", _environment_value, _platform_all,
-		"Whether a new game of Create Game > Internet starts as PUBLIC (listed\n"
-		"in everyone's server browser: anyone can see and join it) or, false,\n"
-		"PRIVATE (only players with its invite link can join). Server Setup's\n"
-		"LISTING changes it for each game." },
+		"Whether a new game of Create Game > Internet starts public (listed in\n"
+		"everyone's server browser: anyone can see and join it) or, false,\n"
+		"private (only players with its invite link can join). Server Setup's\n"
+		"PUBLIC GAME changes it for each game." },
 	{ "network.host_version", _config_integer, "38", "HALO_NET_HOST_VERSION", _environment_value, _platform_all,
 		"Experimental: the network version a hosted game uses, 38 (default) or\n"
 		"43. Players on other versions cannot join the game. A game\n"
@@ -1195,7 +1195,7 @@ static const struct config_setting config_settings[] =
 		"and network.map_seed (a player in another's game)." },
 	{ "network.coop_public", _config_boolean, "false", "HALO_NET_COOP_PUBLIC", _environment_value, _platform_all,
 		"Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER\n"
-		"map) starts as PUBLIC or, false, PRIVATE: Server Setup's LISTING in\n"
+		"map) starts public or, false, private: Server Setup's PUBLIC GAME in\n"
 		"co-op, which writes its choice here." },
 	{ "network.coop_late_join", _config_boolean, "true", "HALO_NET_COOP_LATE_JOIN", _environment_value,
 		_platform_all,

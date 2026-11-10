@@ -3841,7 +3841,7 @@
         "host_public": {
           "type": "boolean",
           "default": false,
-          "description": "Whether a new game of Create Game > Internet starts as PUBLIC (listed in everyone's server browser: anyone can see and join it) or, false, PRIVATE (only players with its invite link can join). Server Setup's LISTING changes it for each game.",
+          "description": "Whether a new game of Create Game > Internet starts public (listed in everyone's server browser: anyone can see and join it) or, false, private (only players with its invite link can join). Server Setup's PUBLIC GAME changes it for each game.",
           "x-environment": "HALO_NET_HOST_PUBLIC",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3962,7 +3962,7 @@
         "coop_public": {
           "type": "boolean",
           "default": false,
-          "description": "Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER map) starts as PUBLIC or, false, PRIVATE: Server Setup's LISTING in co-op, which writes its choice here.",
+          "description": "Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER map) starts public or, false, private: Server Setup's PUBLIC GAME in co-op, which writes its choice here.",
           "x-environment": "HALO_NET_COOP_PUBLIC",
           "x-environment-style": "value",
           "x-platforms": [

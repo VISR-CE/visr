@@ -59,7 +59,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/listing_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/server_settings/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PUBLIC|PRIVATE" strings_ids="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_listing_spinner.s0|ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_listing_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_listing_spinner.s0|ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_listing_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/op_password" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
@@ -117,7 +117,7 @@
 		<string text="VEHICLE OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.vehicle_options"/>
 		<string text="INDICATOR OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.indicator_options"/>
 		<string text="TEAMPLAY OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.teamplay_options"/>
-		<string text="LISTING:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.listing"/>
+		<string text="PUBLIC GAME:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.public_game"/>
 		<string text="FRIENDLY FIRE:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.friendly_fire"/>
 		<string text="EXTRA ENEMIES:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.extra_enemies"/>
 		<string text="PER PLAYER:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.per_player"/>

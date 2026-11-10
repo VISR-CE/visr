@@ -509,7 +509,7 @@ the setting for one start of the game. It has priority over the file.
 | `network.delta_peer` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_PEER` | Exchange Delta handshakes and platform claims after joining a host that advertises Delta. |
 | `network.delta_announce` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_ANNOUNCE` | Publish the public internet game this machine hosts (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. |
 | `network.delta_url` | string | `"https://halo.milenko.org"` | apple, desktop | `HALO_NET_DELTA_URL` | The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). |
-| `network.host_public` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_HOST_PUBLIC` | Whether a new game of Create Game > Internet starts as PUBLIC (listed in everyone's server browser: anyone can see and join it) or, false, PRIVATE (only players with its invite link can join). |
+| `network.host_public` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_HOST_PUBLIC` | Whether a new game of Create Game > Internet starts public (listed in everyone's server browser: anyone can see and join it) or, false, private (only players with its invite link can join). |
 | `network.host_version` | integer | `38` | apple, desktop | `HALO_NET_HOST_VERSION` | Experimental: the network version a hosted game uses, 38 (default) or 43. |
 | `network.player_capacity` | integer | `0` | apple, desktop | `HALO_NET_PLAYER_CAPACITY` | The most players this device holds at 30 frames a second at the lowest settings, 2 to 128; 0 (default) names no limit. |
 | `network.full_rate_players` | integer | `0` | apple | `HALO_NET_FULL_RATE_PLAYERS` | The most multiplayer slots this device holds at 60 fps and variable quality, or at 30 when the first rung cannot hold 60, 2 to 128; 0 (default) leaves it unlimited. |
@@ -519,7 +519,7 @@ the setting for one start of the game. It has priority over the file.
 | `network.map_seed_upload` | integer | `256` | apple, desktop | `HALO_NET_MAP_SEED_UPLOAD` | Playing in another's game: the most kilobytes a second this machine sends of maps to other players (16 to 65536). |
 | `network.custom_maps` | boolean | `false` | apple, desktop | `HALO_NET_CUSTOM_MAPS` | Experimental: the server browser also shows games on Custom Edition maps, those of a map in custom_maps or, with network.map_download on, any. |
 | `network.map_download` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_MAP_DOWNLOAD` | Joining a game on a Custom Edition map this machine does not have: download it (and the resource maps it needs, up to about 2.3 GB) from the game's players into custom_maps, if its host shares it (network.map_share); false leaves the game, saying which map is missing and that downloads are off. |
-| `network.coop_public` | boolean | `false` | apple, desktop | `HALO_NET_COOP_PUBLIC` | Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER map) starts as PUBLIC or, false, PRIVATE: Server Setup's LISTING in co-op, which writes its choice here. |
+| `network.coop_public` | boolean | `false` | apple, desktop | `HALO_NET_COOP_PUBLIC` | Whether an online co-op game (Create Game > Internet, a SINGLEPLAYER map) starts public or, false, private: Server Setup's PUBLIC GAME in co-op, which writes its choice here. |
 | `network.coop_late_join` | boolean | `true` | apple, desktop | `HALO_NET_COOP_LATE_JOIN` | Whether players can join a co-op game after it starts: true selects DROP-IN, where a team wipe respawns players and keeps world progress. |
 | `network.coop_friendly_fire` | string | `"on"` | apple, desktop | `HALO_NET_COOP_FRIENDLY_FIRE` | Whether the players of an online co-op game hurt each other: "off", "on", "shields_only" or "explosives_only" (CO-OP OPTIONS' FRIENDLY FIRE in co-op, which writes its choice here). |
 | `network.coop_own_friendly_fire` | boolean | `true` | apple, desktop | `HALO_NET_COOP_OWN_FRIENDLY_FIRE` | Whether this machine's players hurt, and are hurt by, the other players of an online co-op game: two players hurt each other only if both have it true. |
@@ -947,18 +947,18 @@ network, and finds the public listing of the host of an invite.
 
 ### Server browser
 
-Server Setup in Create Game > Internet has a LISTING row:
+Server Setup in Create Game > Internet has a PUBLIC GAME row:
 
-- PUBLIC (the default): the game also shows in Join Game > Server Browser
+- ON (the default): the game also shows in Join Game > Server Browser
   on every machine. Anyone can see and join the game.
-- PRIVATE: only players with the invite link can join.
+- OFF: only players with the invite link can join.
 
-Each new game starts as PUBLIC (`network.host_public = false` makes new
-games start as PRIVATE). An online co-op game starts as PRIVATE, and keeps
-the last choice of its LISTING (`network.coop_public`). A LAN game is never listed. `network.public_lobby = false` turns the server browser off.
+Each new game starts public (`network.host_public = false` makes new
+games start private). An online co-op game starts private, and keeps
+the last choice of its PUBLIC GAME (`network.coop_public`). A LAN game is never listed. `network.public_lobby = false` turns the server browser off.
 
-A PUBLIC game can also have a PASSWORD (a row of Server Setup, below
-LISTING). The Server Browser shows a lock at the left of a game with a
+A public game can also have a PASSWORD (a row of Server Setup, below
+PUBLIC GAME). The Server Browser shows a lock at the left of a game with a
 password. A player who selects that game must type the password, and JOIN
 GAME joins only with the correct password. The invite link of the game joins
 it without the password. The host keeps the password only while the game

@@ -1122,7 +1122,7 @@ def _coop_options() -> list:
 def _server_settings() -> list:
     """Create Game's server settings (in the PC version's place): the game's
     name, the most players (up to the port's 128), its invite link, and
-    whether the server browser lists it (PUBLIC or PRIVATE: an internet
+    whether the server browser lists it (PUBLIC GAME ON or OFF: an internet
     game's)"""
     base = f"{MT}/server_settings"
     spec = {"screen": "server_settings_screen", "spacing": 24, "help_top": 350, "list_action": True,
@@ -1156,7 +1156,7 @@ def _server_settings() -> list:
     extra += _widget(f"{base}/x_butn_invite", [("width", 280), ("height", 53)],
                      [f'<child widget="{base}/invite_value"/>',
                       '<on event="left_mouse" run="ss copy invite"/>'])
-    # (PUBLIC or PRIVATE: menu_functions.c's server_settings_update)
+    # (PUBLIC GAME ON or OFF: menu_functions.c's server_settings_update)
     extra += _widget(f"{base}/op_listing", [("width", 512), ("height", 28),
                                             ("flags", "pass_unhandled_to_focused_child"),
                                             ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -1169,7 +1169,7 @@ def _server_settings() -> list:
     extra += _widget(f"{base}/listing_spinner",
                      [("type", "spinner"), ("left", 3), ("top", 2), ("width", 147), ("height", 20),
                       ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                      ("strings", "PUBLIC|PRIVATE"), ("font", "ui\\large_ui"),
+                      ("strings", "ON|OFF"), ("font", "ui\\large_ui"),
                       ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1),
                       ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                       ("header_bounds", "7 -6 19 0"), ("footer_bounds", "7 150 19 156")],
@@ -1221,7 +1221,7 @@ def _server_settings() -> list:
                       '<on event="left_mouse" run="mouse emit accept event"/>'])
     extra += _strings(f"{base}/labels", ["GAME NAME:", "MAXIMUM PLAYERS:", "INVITE LINK:", "GAME TYPE:",
                                          "PLAYER OPTIONS:", "ITEM OPTIONS:", "VEHICLE OPTIONS:", "INDICATOR OPTIONS:",
-                                         "TEAMPLAY OPTIONS:", "LISTING:", "FRIENDLY FIRE:", "EXTRA ENEMIES:",
+                                         "TEAMPLAY OPTIONS:", "PUBLIC GAME:", "FRIENDLY FIRE:", "EXTRA ENEMIES:",
                                          "PER PLAYER:", "MULTIPLIER:", "PLAYER COLLISIONS:", "PASSWORD:",
                                          "SHARE MAPS:", "ALLY FRIENDLY FIRE:", "FIRETEAM:", "CO-OP OPTIONS"])
     extra += _strings(f"{base}/help_strings", [
@@ -1235,7 +1235,7 @@ def _server_settings() -> list:
         "Each team's vehicles and their respawn time, for\\nthis game.",
         "The motion tracker and nav points, for this game.",
         "Friendly fire and team balance, for this game.",
-        # (LISTING's, by its choice)
+        # (PUBLIC GAME's, by its choice: ON, then OFF)
         "Anyone can see and join your game: it is listed\\nin everyone's Server Browser.",
         "Only players with your invite link can join.",
         # (FRIENDLY FIRE's, by its choice, as Teamplay Options' words them)
