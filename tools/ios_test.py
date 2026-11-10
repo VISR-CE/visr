@@ -191,6 +191,13 @@ run(BUILD/'memory-probe', 'reduced')
 run(BUILD/'memory-probe', 'early')
 run(BUILD/'memory-probe', 'unaligned')
 run(BUILD/'memory-probe', 'unaligned-reduced')
+# Exercise the lifecycle worker hold without UIKit; only erase the autorelease pool.
+(BUILD / 'game_thread_lifecycle.inc').write_text(
+    extracted_definition('port/ios/host/host_lifecycle.m', 'host_lifecycle_hold').replace('@autoreleasepool', ''))
+run('xcrun', 'clang', '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+    '-fsanitize=address,undefined', '-Iport/ios/host', f'-I{BUILD}',
+    'port/ios/tests/game_thread_lifecycle_probe.c', '-o', BUILD/'game-thread-lifecycle-probe')
+run(BUILD/'game-thread-lifecycle-probe')
 # Exercise output request generations and real external-state readers without Metal.
 (BUILD / 'game_thread_output.inc').write_text('\n'.join(
     extracted_definition('port/ios/host/host_external.m', name)
