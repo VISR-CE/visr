@@ -20,10 +20,14 @@
 #undef TARGET_OS_IOS
 #undef TARGET_OS_MACCATALYST
 #undef TARGET_OS_VISION
-#define TARGET_OS_IOS (!HALO_NATIVE_MAC)
+#define TARGET_OS_IOS (!HALO_NATIVE_MAC && !GAME_THREAD_PROBE_TV)
 #define TARGET_OS_MACCATALYST 0
 #define TARGET_OS_VISION 0
-#define TARGET_OS_TV 0
+#ifndef GAME_THREAD_PROBE_TV
+#define GAME_THREAD_PROBE_TV 0
+#endif
+#undef TARGET_OS_TV
+#define TARGET_OS_TV GAME_THREAD_PROBE_TV
 #define HOST_LOG_INFO 0
 static size_t main_stack_size;
 static void *main_alternate;
@@ -68,8 +72,12 @@ static uint32_t host_guest_on_stack(uintptr_t start, uint32_t boot, uintptr_t ar
     char name[32]; assert(!pthread_getname_np(pthread_self(), name, sizeof(name)));
     assert(!strcmp(name, "game"));
     stack_t alternate; assert(!sigaltstack(NULL, &alternate));
+#if TARGET_OS_TV
+    assert(alternate.ss_flags & SS_DISABLE);
+#else
     assert(!(alternate.ss_flags & SS_DISABLE) && alternate.ss_size >= 64 * 1024);
     assert(alternate.ss_sp != main_alternate);
+#endif
     host_main_sync(^{
         assert(host_on_main_thread());
 #if !HALO_NATIVE_MAC
@@ -90,9 +98,13 @@ static uint32_t host_guest_on_stack(uintptr_t start, uint32_t boot, uintptr_t ar
 int main(void) {
     assert(host_game_thread_enabled());
     main_stack_size = pthread_get_stacksize_np(pthread_self());
+#if !TARGET_OS_TV
     char alternate[64 * 1024];
     stack_t stack = { .ss_sp = alternate, .ss_size = sizeof(alternate) };
     assert(!sigaltstack(&stack, NULL)); main_alternate = alternate;
+#else
+    (void)main_alternate;
+#endif
     for (quit_mode = 0; quit_mode < 3; quit_mode++) {
         pid_t child = fork(); assert(child >= 0);
         if (!child) {
@@ -112,6 +124,7 @@ int main(void) {
         assert(WIFEXITED(status) && WEXITSTATUS(status) == (quit_mode == 2 ? 0 : 23));
     }
     puts(HALO_NATIVE_MAC ? "native game thread startup and main-thread exit passed" :
+         TARGET_OS_TV ? "tvOS game thread startup return and main-thread exit passed" :
          "iOS game thread startup return and main-thread exit passed");
     return 0;
 }
