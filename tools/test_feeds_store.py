@@ -143,7 +143,7 @@ def synthetic() -> list[store.Item]:
         "docs/site/packs/tester/publication-format.txt": b"visr-signed-assets-1\n",
         "docs/site/packs/tester/shaders.json": b"{\"shaders\":1}",
         "docs/site/packs/tester/latest.json": b"{\"latest\":1}",
-        "docs/site/packs/tester/device-profiles-4/ios/iPad11,3/_.json": b"{\"shard\":1}",
+        "docs/site/packs/tester/device-profiles-5/ios/iPad11,3/_.json": b"{\"shard\":1}",
         "docs/site/packs/tester/shader-maps/" + "a" * 64 + ".zlib": b"map",
         "docs/site/packs/tester/recording-blobs/" + "b" * 64 + ".xz": b"blob",
     }
@@ -153,6 +153,7 @@ def synthetic() -> list[store.Item]:
 def test_each_key_gets_its_type_cache_policy_and_rank():
     assert store.describe("tester/shader-maps/x.zlib") == ("application/octet-stream", store.IMMUTABLE, 0)
     assert store.describe("tester/recording-blobs/x.xz") == ("application/octet-stream", store.IMMUTABLE, 0)
+    assert store.describe("tester/device-profiles-5/ios/iPhone18,1/_.json") == ("application/json", store.MUTABLE, 1)
     assert store.describe("tester/device-profiles-4/ios/iPhone18,1/_.json") == ("application/json", store.MUTABLE, 1)
     assert store.describe("tester/profiles/ios/iPhone18,1/_.json") == ("application/json", store.MUTABLE, 1)
     assert store.describe("tester/recordings-2-" + "c" * 64 + ".json") == ("application/json", store.MUTABLE, 2)
@@ -170,7 +171,7 @@ def test_each_key_gets_its_type_cache_policy_and_rank():
 def test_uploads_go_archives_first_and_receipts_last():
     order = [entry.key for entry in store.plan(synthetic(), {})]
     assert order[:2] == ["tester/recording-blobs/" + "b" * 64 + ".xz", "tester/shader-maps/" + "a" * 64 + ".zlib"]
-    assert order[2] == "tester/device-profiles-4/ios/iPad11,3/_.json"
+    assert order[2] == "tester/device-profiles-5/ios/iPad11,3/_.json"
     assert order[-2:] == ["tester/publication-format.txt", "tester/publication.json"]
 
 
@@ -271,11 +272,11 @@ def test_signature_v4_matches_the_aws_examples():
 def test_s3_uploads_are_signed_puts_with_the_feed_headers(host):
     endpoint = host()
     backend = store.S3("0" * 32, "key-id", "secret", endpoint=endpoint.url)
-    shard = store.item("docs/site/packs/tester/device-profiles-4/ios/iPad11,3/_.json", b"{\"shard\":1}")
+    shard = store.item("docs/site/packs/tester/device-profiles-5/ios/iPad11,3/_.json", b"{\"shard\":1}")
     backend.put(shard)
     path, headers, body = endpoint.puts[0]
     headers = {name.lower(): value for name, value in headers.items()}
-    assert path == "/visr-feeds/tester/device-profiles-4/ios/iPad11%2C3/_.json"
+    assert path == "/visr-feeds/tester/device-profiles-5/ios/iPad11%2C3/_.json"
     assert body == shard.data
     assert headers["content-type"] == "application/json" and headers["cache-control"] == store.MUTABLE
     assert headers["x-amz-content-sha256"] == shard.sha256
@@ -340,7 +341,7 @@ def test_builds_and_the_host_check_name_only_feeds_visr_gg(checked_in, tmp_path)
     from tools import feeds_host_check as check
 
     check.development_defaults()
-    assert check.key_of("https://feeds.visr.gg/tester/device-profiles-4/ios/iPad11%2C3/_.json") == "tester/device-profiles-4/ios/iPad11,3/_.json"
+    assert check.key_of("https://feeds.visr.gg/tester/device-profiles-5/ios/iPad11%2C3/_.json") == "tester/device-profiles-5/ios/iPad11,3/_.json"
     for url in ("https://code.steverice.org/visr/packs/tester/shaders.json", "http://feeds.visr.gg/tester/shaders.json"):
         with pytest.raises(ValueError):
             check.key_of(url)

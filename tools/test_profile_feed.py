@@ -24,7 +24,8 @@ KEYS = ROOT / "port/linux/src/port_profile_keys.h"
 # was re-recorded rather than a generation 3 opened, and again for display.shadow_minimum_size (still unreleased).
 GENERATION_KEYS = {2: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
                    3: "6a4fb7669346d05409e78d6bf38c08123257bb66555ea9dfa340a7970f655888",
-                   4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3"}
+                   4: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3",
+                   5: "09e815dbfcff208ed1d075d7986ed75755b7a48e270d164048d0f932a82ac4d3"}
 
 
 def key_table_sha256(text):
@@ -41,7 +42,7 @@ def test_generation_constants_agree():
     header = (ROOT / "port/ios/host/host_profile.h").read_text()
     generation = int(re.search(r"HOST_PROFILE_FEED_GENERATION = (\d+)", header)[1])
     domain = re.search(r'#define HOST_PROFILE_FEED_DOMAIN "([^"]+)"', header)[1]
-    assert generation == data_pack.PROFILE_FEED_GENERATION
+    assert generation == data_pack.PROFILE_FEED_GENERATION == 5
     profile_pr = re.search(r'^PROFILE_DOMAIN = "([^"]+)"', (ROOT / "tools/profile_pr.py").read_text(), re.M)[1]
     pages = (ROOT / "tools/pages_asset_overlay.py").read_text()
     assert domain == data_pack.PROFILE_FEED_DOMAIN == ios_build.PROFILE_FEED_DIRECTORY == profile_pr
@@ -198,6 +199,8 @@ def test_native_validators_hold_each_generation_to_its_revision_rule(tmp_path):
         return subprocess.run([probe, command, str(tmp_path / name), "ios", "iPhone18,1", ""], capture_output=True).returncode == 0
     assert admits("validate", "without") and not admits("validate", "with")
     assert admits("validate-2", "with") and not admits("validate-2", "without")
+    for generation in (4, 5):
+        assert admits(f"validate-{generation}", "with") and not admits(f"validate-{generation}", "without")
     (tmp_path / "with/hardware/revision.toml").write_text("schema = 1\nrevision = 1\n")
     assert not admits("validate-2", "with")
 
@@ -235,12 +238,13 @@ def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
 
 
 @pytest.mark.skipif("visr-v0.6.7" not in tags(), reason="needs the release tags")
-def test_a_profile_with_the_key_reaches_both_generations(tmp_path):
+def test_a_profile_with_the_key_reaches_current_and_older_generations(tmp_path):
     target = "ios/iPhone18,1/_"
     profiles = profiles_with_full_rate(tmp_path / "profiles")
     stripped = profile_pr.generation_profiles(profiles, "device-profiles-3", tmp_path / "generation-3")
     assert profile_revision.read(stripped)[0] == profile_revision.read(profiles)[0]
     assert profile_pr.generation_profiles(profiles, "device-profiles-4", tmp_path / "generation-4") == profiles
+    assert profile_pr.generation_profiles(profiles, "device-profiles-5", tmp_path / "generation-5") == profiles
     # the released validators refuse the key, and every one of them accepts the stripped shard
     bare = data_pack.device_profile_snapshot(profiles, "ios", "iPhone18,1", generation=3)
     with pytest.raises(ValueError, match="would refuse"):
@@ -250,15 +254,15 @@ def test_a_profile_with_the_key_reaches_both_generations(tmp_path):
     assert {"visr-v0.6.4", "visr-v0.6.7"} <= set(accepted)
     assert b"full_rate_players" not in files["iphone-17-pro.toml"]
     assert b"player_capacity = 128" in files["iphone-17-pro.toml"]
-    # generation 4 signs with the key, through the publisher
+    # generation 5 signs with the same key table, through the publisher
     output = tmp_path / "shard.json"
     assert data_pack.main(["--kind", "profiles", "--channel", "tester", "--sequence", "1",
-        "--compatibility", f"device-profiles-4:{target}", "--input", str(profiles),
+        "--compatibility", f"device-profiles-5:{target}", "--input", str(profiles),
         "--signing-key", str(signing_key(tmp_path)), "--output", str(output)]) == 0
     assert b"full_rate_players = 64" in payload_files(output.read_bytes())["iphone-17-pro.toml"]
 
 
-def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
+def test_sign_all_writes_every_generation_and_the_receipt(tmp_path):
     repo = tmp_path / "repo"
     profiles_with_full_rate(repo / "profiles")
     feeds = tmp_path / "feeds"
@@ -279,10 +283,11 @@ def test_sign_all_writes_both_generations_and_the_receipt(tmp_path):
     options = profile_pr.SimpleNamespace(worktree=str(repo), feeds_tree=str(feeds), signing_key="seed", out=str(tmp_path / "out"), sign_all=2**40)
     assert profile_pr.sign_all(options, run) == 0
     # (the published target, plus every other model a profile matches: a model with no shard yet gets one)
-    assert {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
-    assert {"device-profiles-3:ios/iPad13,1/_", "device-profiles-4:ios/iPad13,1/_"} <= {domain for domain, _ in calls}
+    assert {"device-profiles-3:ios/iPhone18,1/_", "device-profiles-4:ios/iPhone18,1/_", "device-profiles-5:ios/iPhone18,1/_"} <= {domain for domain, _ in calls}
+    assert {"device-profiles-3:ios/iPad13,1/_", "device-profiles-4:ios/iPad13,1/_", "device-profiles-5:ios/iPad13,1/_"} <= {domain for domain, _ in calls}
     sources = dict(calls)
     assert sources["device-profiles-4:ios/iPhone18,1/_"] == str(repo / "profiles")
+    assert sources["device-profiles-5:ios/iPhone18,1/_"] == str(repo / "profiles")
     assert sources["device-profiles-3:ios/iPhone18,1/_"] != str(repo / "profiles")
     assets = json.loads((tester / "publication.json").read_text())["assets"]
     for domain in profile_pr.GENERATIONS:
