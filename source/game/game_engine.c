@@ -7181,8 +7181,14 @@ void game_engine_vehicle_placement_begin(
 	void)
 {
 	csmemset(game_engine_vehicles_placed, 0, sizeof(game_engine_vehicles_placed));
-	/* port: photo mode can rebuild the placement set live; old homes must not
-	respawn vehicles from the previous variant after the game resumes. */
+}
+
+/* port: photo mode rebuilds the map's vehicles live; forget the learned
+respawn homes so the old set does not respawn after the game resumes. Only
+photo mode calls this. */
+void game_engine_vehicle_homes_reset(
+	void)
+{
 	game_engine_vehicle_home_count = NONE;
 }
 

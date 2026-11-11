@@ -284,6 +284,7 @@ static void scene_restore(const struct photo_shot *shot)
 	{
 		object_iterator_new(&iterator,_object_mask_vehicle,0);
 		while (object_iterator_next(&iterator)) object_delete(iterator.index);
+		game_engine_vehicle_homes_reset();
 		game_engine_vehicle_placement_begin();
 		for (i=0;i<global_scenario->vehicles.count;i++)
 		{
