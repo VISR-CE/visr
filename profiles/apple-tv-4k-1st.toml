@@ -16,6 +16,7 @@ platform = "tvos"
 models = ["AppleTV6,2"]
 
 [display]
+upscaled_textures = false
 render_scale = 1.0
 shadow_map_size = 128
 texture_idle_seconds = 30
@@ -27,6 +28,10 @@ dynamic_resolution = true
 
 [network]
 full_rate_players = 2
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "At a 720-line ceiling, upscaled textures add little visible detail and cost memory."
 
 [evidence."display.dynamic_resolution"]
 basis = "assumed"
