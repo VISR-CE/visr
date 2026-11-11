@@ -2588,16 +2588,30 @@ static boolean add_advertised_game(
 				(advertisement->__unknown5A[HALO_PORT_ADVERTISED_VERSION_OFFSET + 1] << 8));
 			network_game_client_advertised_versions[game_index].flags =
 				advertisement->__unknown5A[HALO_PORT_ADVERTISED_FLAGS_OFFSET];
-			/* port: Delta uses these reserved bytes for its own metadata.
-			Only the OpenCE layout assigns the flags/kind bytes these meanings. */
+			/* port: only a Delta signature marks a Delta host. Other ports
+			(OpenH1 among them) put their own fields in reserved bytes 4-6,
+			so a nonzero byte alone does not identify Delta. Two layouts are
+			recognized: the older one carries the "chupa-" token from byte 4,
+			the current one a 9-byte tag at byte 17 ('D', 'L', then six
+			fields and a check byte, 0xA5 xor the eight bytes before it). */
 			boolean delta = FALSE;
-			unsigned int reserved;
-
-			for (reserved = HALO_PORT_ADVERTISED_KIND_OFFSET + 1;
-				reserved < sizeof(advertisement->__unknown5A); reserved++)
 			{
-				if (advertisement->__unknown5A[reserved])
-					delta = TRUE;
+				byte const *reserved = (byte const *)advertisement->__unknown5A;
+
+				if (sizeof(advertisement->__unknown5A) >= 26)
+				{
+					if (memcmp(reserved + 4, "chupa-", 6) == 0)
+						delta = TRUE;
+					else if (reserved[17] == 'D' && reserved[18] == 'L')
+					{
+						byte check = 0xA5;
+						unsigned int i;
+
+						for (i = 0; i < 8; i++)
+							check ^= reserved[17 + i];
+						delta = check == reserved[25];
+					}
+				}
 			}
 			network_game_client_advertised_versions[game_index].dedicated = !delta &&
 				halo_network_version_has_dedicated(network_game_client_advertised_versions[game_index].version) &&
