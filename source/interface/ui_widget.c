@@ -4061,6 +4061,12 @@ short ui_widget_port_list_index(
 	struct widget_instance *child;
 	short index = 0;
 
+	/* a nested list in focus (a button bar, which the mouse can focus) is not
+	one of the list's items, so it has no description of its own: NONE leaves
+	the description of the item before it up */
+	if (list_widget->focused_child && list_widget->focused_child->type == _ui_widget_type_column_list)
+		return NONE;
+
 	if (pc_menu_patch_list_index(list_widget->definition_tag_index,
 		list_widget->focused_child ? list_widget->focused_child->definition_tag_index : NONE, &index))
 	{
