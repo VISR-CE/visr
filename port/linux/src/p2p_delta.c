@@ -7,7 +7,7 @@ run by others, network.delta_url):
 - Browsing (network.delta_browse): while the server browser is open, the
   list's games are asked for (GET /v1/games, nothing else sent) and handed to
   p2p_lobby.c, which shows them with the signalling brokers' games.
-- Announcing (network.delta_announce, off by default): the public game this
+- Announcing (network.delta_announce, on by default): the public game this
   machine hosts for the internet, without a password, is listed with
   POST /v1/announce, again every minute (the list drops a game it has not
   heard of in 75 seconds), and withdrawn with POST /v1/withdraw when it ends,
