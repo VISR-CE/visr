@@ -19,6 +19,7 @@ platform = "ios"
 models = ["iPhone16,1", "iPhone16,2", "iPhone17,1", "iPhone17,2", "iPhone18,3", "iPhone18,4"]
 
 [display]
+upscaled_textures = true
 frame_rate = "120"
 render_height = 0
 anisotropic_filtering = 16
@@ -103,3 +104,7 @@ source = "`iphone-12-pro.toml` network.player_capacity evidence and the iPhone 1
 basis = "inherited"
 why = "Inherit 32 from the nearest measured weaker iPhone, the iPhone 12 Pro. Its current-build ladder at 60 frames a second and its variable settings holds 32 on Blood Gulch and Sidewinder and fails 48 on Blood Gulch. These models do not have a completed threshold qualification at their own variable settings."
 source = "`iphone-12-pro.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."

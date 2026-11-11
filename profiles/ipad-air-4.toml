@@ -12,6 +12,7 @@ platform = "ios"
 models = ["iPad13,1"]
 
 [display]
+upscaled_textures = true
 frame_rate = "60"
 render_height = 1080
 anisotropic_filtering = 16
@@ -64,3 +65,7 @@ source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch
 basis = "measured"
 why = "At 60 frames a second, the real variable settings (1080-line ceiling, dynamic resolution down to 540, 128 shadows, 16x filtering, maximum model detail and full effects) hold every Blood Gulch rung through 64 players. At 64, two valid presented rounds put 99.93% and 99.89% of frames on time, median 99.91%. At 128 the median is 49.225%, below the 99.5% bar. Sidewinder confirms 64 at 99.97% and 99.93%, median 99.95%. 64 is the largest passing ladder count confirmed on both maps."
 source = "VISR toobig sweep, build 20261029.192128 (main e77a24957), Metal, Blood Gulch and Sidewinder, 2026-10-31 to 2026-11-01"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."

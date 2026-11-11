@@ -8,6 +8,7 @@ platform = "ios"
 models = ["iPad16,3", "iPad16,4", "iPad16,5", "iPad16,6"]
 
 [display]
+upscaled_textures = true
 frame_rate = "120"
 render_height = 0
 dynamic_resolution = true
@@ -72,3 +73,7 @@ source = "Providence a10-heroic, d40-maw-fight and b30 presented runs, build d29
 basis = "inherited"
 why = "Inherit 64 from the nearest measured weaker iPad, the iPad Pro (M1), whose two-round 60-fps Blood Gulch result holds at 64 and fails at 128 on the current build. The M4 has not run this multiplayer ladder at its own variable settings."
 source = "ipad-pro-m1.toml network.full_rate_players evidence, main e77a24957, 2026-10-30"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."

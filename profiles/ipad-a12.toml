@@ -15,6 +15,7 @@ platform = "ios"
 models = ["iPad11,3", "iPad11,4"]
 
 [display]
+upscaled_textures = true
 frame_rate = "30"
 render_height = 900
 anisotropic_filtering = 16
@@ -84,3 +85,7 @@ source = "`ipad-pro-12-9-2nd.toml` network.player_capacity evidence, main e77a24
 basis = "inherited"
 why = "Inherit 16 from the nearest measured weaker iPad, the A10X iPad Pro, whose ladder at 60 frames a second and its variable settings holds 16 on Blood Gulch and Sidewinder and fails 24 on Blood Gulch. This A12 profile has not run the multiplayer threshold ladder at its own variable settings."
 source = "`ipad-pro-12-9-2nd.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."

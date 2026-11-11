@@ -9,6 +9,7 @@ models = ["iPhone18,1"]
 and_newer = true
 
 [display]
+upscaled_textures = true
 frame_rate = "60"
 render_height = 1080
 anisotropic_filtering = 16
@@ -80,3 +81,7 @@ source = "VISR presented benchmark runs on the iPhone 12 Pro, iPad Pro 12.9-inch
 basis = "measured"
 why = "At 60 frames a second, a 1080-line ceiling, dynamic resolution down to 540 lines and 128 shadows, Blood Gulch with 64 players holds a median 99.97% of frames on time across two presented rounds. At 128 the median is 93.895%, below the 99.5% bar. 64 is the largest passing ladder count; counts between 64 and 128 and Sidewinder at 64 were not run. These runs used anti-aliasing off; the profile uses FXAA. The 64-player result is retained from the accepted current-build multiplayer evidence."
 source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."

@@ -16,6 +16,7 @@ gpu_family = [1, 0]
 # the iPad Pro 12.9-inch (1st generation, A9X; ipad-pro-12-9-1st.toml), which was measured at 720 lines. Menus and
 # cutscenes stay at the display's own size, as that device left them.
 [display]
+upscaled_textures = false
 renderer = "metal"
 render_height = 720
 frame_rate = "30"
@@ -84,3 +85,7 @@ source = "`ipad-pro-12-9-1st.toml` and `iphone-12-pro.toml` network.player_capac
 basis = "inherited"
 why = "Use the conservative shared class floor of 16: the weakest measured iPad (A9X) holds 16 and the weakest measured iPhone (12 Pro) holds 32 at 60 frames a second and their own variable settings. Model profiles retain their separate family values. This shared fallback is inherited policy rather than a cross-family measurement or a guarantee for hardware older than those devices."
 source = "`ipad-pro-12-9-1st.toml` and `iphone-12-pro.toml` network.full_rate_players evidence, main e77a24957, 2026-10-31 to 2026-11-01"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "At a 720-line ceiling, upscaled textures add little visible detail and cost memory. Models with a profile of their own that render above 720 lines set them on."
