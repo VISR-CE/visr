@@ -78,7 +78,7 @@ def check_saved_picture(path: Path) -> None:
 def test_menu_patches(tmp_path):
     binary = build(tmp_path)
     (tmp_path / "menus/xbox").mkdir(parents=True)
-    for mode in ("apple", "tvos", "bad"):
+    for mode in ("apple", "tvos", "compact", "override0", "override1", "bad"):
         result = subprocess.run([str(binary), mode, str(tmp_path)], capture_output=True, text=True)
         print(result.stdout + result.stderr)
         assert result.returncode == 0, f"menu patch probe failed ({mode})"

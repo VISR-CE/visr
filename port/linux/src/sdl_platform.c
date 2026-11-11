@@ -45,6 +45,17 @@ static struct menu_input_tracker menu_input;
 static int menu_ignore_warp;
 static float menu_warp_x, menu_warp_y;
 
+int platform_menu_compact_density(void)
+{
+#if defined(__APPLE__) && !defined(HALO_IOS)
+	return 1;
+#elif defined(HALO_IOS) && defined(HALO_ILP32)
+	return menu_input_env("HALO_HOST_MAC");
+#else
+	return 0;
+#endif
+}
+
 int platform_menu_pad(void)
 {
 	if (!menu_input.initialized)

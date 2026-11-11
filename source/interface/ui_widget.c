@@ -667,6 +667,9 @@ struct widget_instance;
 /* port: the menus' redraw (port/linux/src/ui_redraw.c) */
 void ui_redraw_begin_screen(char const *tag_name);
 void ui_redraw_end_screen(void);
+#include "menu_scale.h" /* port: shared content bounds and padding */
+void halo_screen_menu_content(float top, float bottom);
+static void ui_widget_menu_content(struct widget_instance *widget);
 void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
 long ui_redraw_touch_target_units(void);
 #include "rasterizer/rasterizer.h"
@@ -6718,6 +6721,8 @@ static void ui_widgets_process_mouse(
 	struct ui_mouse_target *target;
 	short controller_index = 0;
 
+	/* port: use the same screen bounds for input and widget drawing. */
+	ui_widget_menu_content(virtual_keyboard_active() ? NULL : ui_mouse_menu());
 	if (!halo_ui_pointer_update(ui_mouse_menus_active(), &pointer) ||
 		virtual_keyboard_active())
 	{
@@ -7066,6 +7071,59 @@ static void menu_title_icon_draw(
 	draw_bitmap_in_rect(icon, &rect, NULL, clip, color, NULL, FALSE);
 }
 
+/* port: measure the active pause layout, including its title and button hints.
+Full-screen dims and the pausebox pieces are backdrop, not content. Use the
+same list window as rendering so hidden rows cannot enlarge the crop. */
+static void ui_widget_content_bounds(struct widget_instance *widget, long y, long *top, long *bottom)
+{
+	struct ui_widget_definition *definition;
+	struct widget_instance *child;
+	boolean saved[WINDOW_MAXIMUM_ROWS];
+	short count = 0, window;
+	char const *bitmap_name;
+
+	if (!widget || !widget->visible)
+		return;
+	definition = ui_widget_definition_get(widget->definition_tag_index);
+	y += widget->vertical_offset;
+	bitmap_name = definition->background_bitmap.index == NONE ? NULL :
+		tag_get_name(definition->background_bitmap.index);
+	if ((definition->text_font.index != NONE ||
+		(!widget->child && bitmap_name && !strstr(bitmap_name, "pausebox"))) &&
+		definition->bounds.y1 - definition->bounds.y0 < 480)
+	{
+		*top = MIN(*top, y + definition->bounds.y0);
+		*bottom = MAX(*bottom, y + definition->bounds.y1);
+	}
+	window = widget->type == _ui_widget_type_column_list ?
+		pc_menu_list_window(widget->definition_tag_index) : 0;
+	if (window > 0)
+		count = column_list_window_begin(widget, definition, window, saved);
+	if (widget->type == _ui_widget_type_column_list)
+		ui_widget_content_bounds(widget->parameters.list.extended_description, y, top, bottom);
+	for (child = widget->child; child; child = child->next)
+		ui_widget_content_bounds(child, y, top, bottom);
+	if (count > 0)
+		column_list_window_end(widget, count, saved);
+}
+
+static void ui_widget_menu_content(struct widget_instance *widget)
+{
+	long top = 480, bottom = 0;
+	char const *name = widget ? tag_get_name(widget->definition_tag_index) : NULL;
+
+	/* Shared settings retain their front-end layout when opened over a game. */
+	if (name && (we_are_at_the_main_menu || strstr(name, "xbox\\") || !strncmp(name, "xbox/", 5) ||
+		strstr(name, "main_menu")))
+	{
+		top = MENU_CONTENT_TOP;
+		bottom = MENU_CONTENT_BOTTOM;
+	}
+	else
+		ui_widget_content_bounds(widget, 0, &top, &bottom);
+	halo_screen_menu_content((float)top, (float)bottom);
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -7136,6 +7194,14 @@ static void widget_instance_render_recursive(
 			&bitmap_group->sequences,
 			0,
 			struct bitmap_group_sequence);
+		/* port: generated comfortable row art draws 36 units inside the
+		39-unit tap band. Frame placement changes texture coordinates, so
+		the quad also needs its own bounds (tools/xbox_menus.py). */
+		const char *row_bitmap_name = tag_get_name(definition->background_bitmap.index);
+		if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
+			strstr(row_bitmap_name, "\\row_36\\")))
+			bounds.y1 = MIN(bounds.y1, bounds.y0 + 36);
+
 		/* port: a widget whose bounds cover the whole 640x480 design space (the
 		 * pause menu's dim, for example) should cover the whole screen too,
 		 * not just the centered 640 columns -- same as the fade_to_black
@@ -7223,6 +7289,11 @@ static void widget_instance_render_recursive(
 			{
 				bounds.x0 += frame_x;
 				bounds.y0 += frame_y;
+				/* port: a taller row frame (tools/xbox_menus.py) is drawn at its
+				own height, over the clamp above, so its visible band fills the row */
+				if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
+					strstr(row_bitmap_name, "\\row_36\\")))
+					bounds.y1 = bounds.y0 + frame_height;
 				texels.x0 = 0;
 				texels.y0 = 0;
 				texels.x1 = (short)((long)(bounds.x1 - bounds.x0) * bitmap->width / frame_width);
@@ -7478,6 +7549,7 @@ void render_ui_widgets(
 					widget->local_player_index == 0;
 				/* port: whether the menus' redraw draws this screen
 				(port/linux/src/ui_redraw.c: not the main menu) */
+				ui_widget_menu_content(widget);
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
 					widget_globals.active_widgets[widget_index],

@@ -3,6 +3,7 @@ license file it names, the screens in both looks are what tools/port_settings.py
 help of every row fits the help's three lines."""
 from pathlib import Path
 import re
+import shutil
 import sys
 import textwrap
 from xml.etree import ElementTree as ET
@@ -145,9 +146,10 @@ def test_send_log_row_is_there_only_in_builds_that_can_send_a_log():
         assert "send_log" not in [name for _, name in off]
         assert [name for _, name in on if name != "send_log"] == [name for _, name in off]
         assert [name for _, name in on][-1] == "send_log"
-        # each build's rows are a row apart with no gap where the row is missing
+        # each build's rows are a row apart with no gap where the row is missing (the Xbox look at its row pitch)
+        pitch = xbox_menus.ROW_PITCH if path == XBOX_SCREEN else 30
         for rows in (on, off):
-            assert [y for y, _ in rows] == [port_settings.ABOUT_ROW_TOP + 30 * index for index in range(len(rows))]
+            assert [y for y, _ in rows] == [port_settings.ABOUT_ROW_TOP + pitch * index for index in range(len(rows))]
     text = PC_SCREEN.read_text()
     # pressing it asks first (the Xbox look's confirmation, which both looks open): SEND runs it and goes back
     assert text.count('open="xbox/settings/send_log_confirm"') == 2 and 'input="port send log status"' in text
@@ -226,7 +228,9 @@ def test_notices_screen_rows_scroll_help_and_back():
     strings = {s.get("name"): [x.get("text") for x in s] for s in root.iter("strings")}
     for index, row in enumerate(rows):
         item = widgets[row.get("widget")]
-        assert item.get("height") == "36"
+        # (36 units drawn inside the full 39-unit tap band)
+        assert item.get("height") == str(xbox_menus.COMFORTABLE_PITCH)
+        assert item.get("bitmap") == "xbox/bitmaps/row_36/option_bkds"
         assert item.find('on[@event="left_mouse"]').get("run") == "mouse emit accept event"
         label, value = [widgets[c.get("widget")] for c in item.findall("child")]
         assert label.get("color") == xbox_menus.BLUE and value.get("color") == xbox_menus.BLUE
@@ -235,7 +239,7 @@ def test_notices_screen_rows_scroll_help_and_back():
         assert help_text.replace("\\n", " ") == about_data.LICENSES[index][2]
         assert len(help_text.split("\\n")) <= 3
     for direction, y in (("up", 73), ("down", 313)):
-        arrow = base + f"/scroll_{direction}_arrow"
+        arrow = base + f"/options_menu/scroll_{direction}_arrow"
         assert options.find(f'child[@widget="{arrow}"]').get("y") == str(y)
         assert widgets[arrow].get("bitmap") == f"xbox/bitmaps/arrow_sm_{direction}"
     assert widgets[base + "/cancel"].get("text") == "BACK"
@@ -248,14 +252,26 @@ def test_about_and_notices_layout_clears_help_and_legend():
     widgets = {w.get("name"): w for w in root.iter("widget")}
     base = "xbox/settings/about"
     help = widgets[base + "/help"]
-    for child in widgets[base + "/options_menu"].findall("child"):
+    options = widgets[base + "/options_menu"]
+    # the rows the list shows at once stop above the legal text; the rest scroll into those slots
+    rows = [c for c in options.findall("child") if "/op_" in c.get("widget")]
+    shown = rows[:int(options.get("visible_rows", len(rows)))]
+    assert len(shown) < len(rows) and int(options.get("height")) <= int(help.get("top"))
+    for child in shown:
         assert int(child.get("y")) + int(widgets[child.get("widget")].get("height")) <= int(help.get("top"))
+    for direction in ("up", "down"):
+        assert options.find(f'child[@widget="{base}/options_menu/scroll_{direction}_arrow"]') is not None
     assert int(help.get("top")) + int(help.get("height")) <= 414
     help = widgets[base + "/notices/help"]
     assert 73 + 6 * 39 + 36 <= int(help.get("top"))
     assert int(help.get("top")) + int(help.get("height")) <= 414
 
 
-def test_xbox_about_is_current():
-    expected = xbox_menus.serialize(xbox_menus.settings_page(MENUS, "about", set()))
-    assert XBOX_SCREEN.read_text() == expected
+def test_xbox_about_is_current(tmp_path):
+    # (the whole generator runs: row density, legends and spinners are passes over every document)
+    assets = tmp_path / "menus"
+    shutil.copytree(MENUS / "ce", assets / "ce")
+    shutil.copytree(MENUS / "xbox/art", assets / "xbox/art")
+    shutil.copy(MENUS / "menus.json", assets / "menus.json")
+    xbox_menus.generate(assets)
+    assert XBOX_SCREEN.read_text() == (assets / "xbox/settings.about.xml").read_text()

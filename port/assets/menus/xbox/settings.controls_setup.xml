@@ -17,83 +17,85 @@
 	</widget>
 	<widget name="xbox/settings/controls_setup/help" type="text" controller="1" left="68" top="350" width="482" height="60" string_list="xbox/settings/controls_setup/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/settings/controls_setup/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/settings/controls_setup/help">
+	<widget name="xbox/settings/controls_setup/options_menu" type="column_list" width="640" height="350" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/settings/controls_setup/help" visible_rows="7">
 		<data input="controls update menu" />
 		<on event="created" run="controls screen init" />
 		<child widget="xbox/settings/controls_setup/op_group" x="54" y="73" />
-		<child widget="xbox/settings/controls_setup/op_command_1" x="54" y="103" />
-		<child widget="xbox/settings/controls_setup/op_command_2" x="54" y="133" />
-		<child widget="xbox/settings/controls_setup/op_command_3" x="54" y="163" />
-		<child widget="xbox/settings/controls_setup/op_command_4" x="54" y="193" />
-		<child widget="xbox/settings/controls_setup/op_command_5" x="54" y="223" />
-		<child widget="xbox/settings/controls_setup/op_command_6" x="54" y="253" />
-		<child widget="xbox/settings/controls_setup/op_command_7" x="54" y="283" />
-		<child widget="xbox/settings/controls_setup/mouse_setup" x="54" y="313" />
+		<child widget="xbox/settings/controls_setup/op_command_1" x="54" y="112" />
+		<child widget="xbox/settings/controls_setup/op_command_2" x="54" y="151" />
+		<child widget="xbox/settings/controls_setup/op_command_3" x="54" y="190" />
+		<child widget="xbox/settings/controls_setup/op_command_4" x="54" y="229" />
+		<child widget="xbox/settings/controls_setup/op_command_5" x="54" y="268" />
+		<child widget="xbox/settings/controls_setup/op_command_6" x="54" y="307" />
+		<child widget="xbox/settings/controls_setup/op_command_7" x="54" y="346" />
 		<child widget="xbox/settings/controls_setup/button_bar" y="414" />
+		<child widget="xbox/settings/controls_setup/mouse_setup" x="54" y="385" />
+		<child widget="xbox/settings/controls_setup/options_menu/scroll_up_arrow" x="574" y="73" />
+		<child widget="xbox/settings/controls_setup/options_menu/scroll_down_arrow" x="574" y="313" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_group" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/controls_setup/group_label" />
-		<child widget="xbox/settings/controls_setup/group_spinner" x="200" y="1" />
+	<widget name="xbox/settings/controls_setup/op_group" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/settings/controls_setup/group_label" y="5" />
+		<child widget="xbox/settings/controls_setup/group_spinner" x="200" y="6" />
 	</widget>
 	<widget name="xbox/settings/controls_setup/group_label" type="text" controller="1" width="200" height="22" text="SHOW:" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/controls_setup/group_spinner" type="spinner" left="3" top="2" width="297" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="MOVEMENT|WEAPONS|ACTIONS" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 300 19 306">
+	<widget name="xbox/settings/controls_setup/group_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="MOVEMENT|WEAPONS|ACTIONS" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_1" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_1" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_2" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_2" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_3" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_3" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_4" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_4" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_5" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_5" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_6" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_6" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
-	<widget name="xbox/settings/controls_setup/op_command_7" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="xbox/settings/controls_setup/op_command_7" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
 		<on event="a" run="controls begin binding" />
 		<on event="start" run="controls begin binding" />
 		<on event="left right" run="controls binding slot" />
-		<child widget="xbox/settings/controls_setup/command_label" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="200" />
-		<child widget="xbox/settings/controls_setup/command_binding" x="356" />
+		<child widget="xbox/settings/controls_setup/command_label" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="200" y="5" />
+		<child widget="xbox/settings/controls_setup/command_binding" x="356" y="5" />
 	</widget>
 	<widget name="xbox/settings/controls_setup/command_label" type="text" controller="1" width="200" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
@@ -132,8 +134,10 @@
 	<widget name="xbox/settings/controls_setup/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/controls_setup/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/settings/controls_setup/cancel" type="text" text="CANCEL" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/settings/controls_setup/mouse_setup" type="text" text="MOUSE SETUP" font="ui\large_ui" color="#FF2896FF" width="512" height="28" bitmap="xbox/bitmaps/option_bkds" text_x="13" text_y="4">
+	<widget name="xbox/settings/controls_setup/mouse_setup" type="text" text="MOUSE SETUP" font="ui\large_ui" color="#FF2896FF" width="512" height="39" bitmap="xbox/bitmaps/row_36/option_bkds" text_x="13" text_y="9" top="0">
 		<on event="a" open="xbox/settings/mouse_settings/mouse_settings_screen" />
 		<on event="start" open="xbox/settings/mouse_settings/mouse_settings_screen" />
 	</widget>
+	<widget name="xbox/settings/controls_setup/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
+	<widget name="xbox/settings/controls_setup/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 </menus>

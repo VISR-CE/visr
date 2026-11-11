@@ -189,4 +189,4 @@ def test_video_is_mac_app_only_in_profile_and_pause_settings():
     # The runtime packs visible rows at the first two remaining rows' pitch.
     assert options.get('visible_rows') == '5'
     assert [int(children[key].get('y')) for key in ('controls', 'video', 'audio', 'network', 'keyboard')] == [
-        78, 111, 111, 144, 177]
+        78, 117, 117, 156, 195]

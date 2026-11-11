@@ -48,24 +48,24 @@
 		<frame png="ce/shell/bitmaps/list_field__0.png" width="512" height="512" map="ui\shell\bitmaps\list_field" index="0" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/list_item_bkd">
-		<frame png="ce/shell/bitmaps/list_item_bkd__0.png" width="256" height="32" map="ui\shell\bitmaps\list_item_bkd" index="0" />
-		<frame png="ce/shell/bitmaps/list_item_bkd__1.png" width="256" height="32" map="ui\shell\bitmaps\list_item_bkd" index="1" />
+		<frame png="ce/shell/bitmaps/list_item_bkd__0.png" width="256" height="28" map="ui\shell\bitmaps\list_item_bkd" index="0" />
+		<frame png="ce/shell/bitmaps/list_item_bkd__1.png" width="256" height="28" map="ui\shell\bitmaps\list_item_bkd" index="1" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/list_item_bkd_top">
-		<frame png="ce/shell/bitmaps/list_item_bkd_top__0.png" width="256" height="32" map="ui\shell\bitmaps\list_item_bkd_top" index="0" />
-		<frame png="ce/shell/bitmaps/list_item_bkd_top__1.png" width="256" height="32" map="ui\shell\bitmaps\list_item_bkd_top" index="1" />
+		<frame png="ce/shell/bitmaps/list_item_bkd_top__0.png" width="256" height="28" map="ui\shell\bitmaps\list_item_bkd_top" index="0" />
+		<frame png="ce/shell/bitmaps/list_item_bkd_top__1.png" width="256" height="28" map="ui\shell\bitmaps\list_item_bkd_top" index="1" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/locked_gametype">
 		<frame png="ce/shell/bitmaps/locked_gametype__0.png" width="16" height="16" />
 		<frame png="ce/shell/bitmaps/locked_gametype__1.png" width="16" height="16" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/option_bkds">
-		<frame png="ce/shell/bitmaps/option_bkds__0.png" width="512" height="32" map="ui\shell\bitmaps\option_bkds" index="0" />
-		<frame png="ce/shell/bitmaps/option_bkds__1.png" width="512" height="32" map="ui\shell\bitmaps\option_bkds" index="1" />
+		<frame png="ce/shell/bitmaps/option_bkds__0.png" width="512" height="28" map="ui\shell\bitmaps\option_bkds" index="0" />
+		<frame png="ce/shell/bitmaps/option_bkds__1.png" width="512" height="28" map="ui\shell\bitmaps\option_bkds" index="1" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/option_bkds_sm">
-		<frame png="ce/shell/bitmaps/option_bkds_sm__0.png" width="256" height="32" />
-		<frame png="ce/shell/bitmaps/option_bkds_sm__1.png" width="256" height="32" />
+		<frame png="ce/shell/bitmaps/option_bkds_sm__0.png" width="256" height="28" />
+		<frame png="ce/shell/bitmaps/option_bkds_sm__1.png" width="256" height="28" />
 	</bitmap>
 	<bitmap name="xbox/bitmaps/option_bkds_sm2">
 		<frame png="ce/shell/bitmaps/option_bkds_sm2__0.png" width="128" height="32" />
@@ -209,6 +209,10 @@
 	<bitmap name="xbox/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings">
 		<frame png="ce/shell/main_menu/settings_select/player_setup/player_profile_edit/video_settings/header_profile_video_settings__0.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="pause/pause_row">
+		<frame png="ce/port/pause/pause_row__0.png" width="232" height="36" />
+		<frame png="ce/port/pause/pause_row__1.png" width="232" height="36" />
+	</bitmap>
 	<bitmap name="pause/pausebox_center">
 		<frame png="ce/port/pause/pausebox_center__0.png" width="4" height="256" />
 		<frame png="ce/port/pause/pausebox_center__1.png" width="4" height="256" />
@@ -235,5 +239,21 @@
 	</bitmap>
 	<bitmap name="xbox/bitmaps/visr_title_icon">
 		<frame png="xbox/art/visr_title_icon.png" width="36" height="36" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/row_36/option_bkds">
+		<frame png="ce/shell/bitmaps/option_bkds__0.png" width="512" height="59" map="ui\shell\bitmaps\option_bkds" index="0" y="-10" />
+		<frame png="ce/shell/bitmaps/option_bkds__1.png" width="512" height="53" map="ui\shell\bitmaps\option_bkds" index="1" y="-7" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/row_36/list_item_bkd">
+		<frame png="ce/shell/bitmaps/list_item_bkd__0.png" width="256" height="36" map="ui\shell\bitmaps\list_item_bkd" index="0" />
+		<frame png="ce/shell/bitmaps/list_item_bkd__1.png" width="256" height="36" map="ui\shell\bitmaps\list_item_bkd" index="1" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/row_36/list_item_bkd_top">
+		<frame png="ce/shell/bitmaps/list_item_bkd_top__0.png" width="256" height="36" map="ui\shell\bitmaps\list_item_bkd_top" index="0" />
+		<frame png="ce/shell/bitmaps/list_item_bkd_top__1.png" width="256" height="36" map="ui\shell\bitmaps\list_item_bkd_top" index="1" />
+	</bitmap>
+	<bitmap name="xbox/bitmaps/row_36/option_bkds_sm">
+		<frame png="ce/shell/bitmaps/option_bkds_sm__0.png" width="256" height="56" y="-9" />
+		<frame png="ce/shell/bitmaps/option_bkds_sm__1.png" width="256" height="52" y="-7" />
 	</bitmap>
 </menus>

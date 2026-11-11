@@ -2755,6 +2755,28 @@
             "desktop"
           ]
         },
+        "menu_min_scale": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enlarge front-end and pause menu widgets toward one point per menu unit by cropping only their backdrop margins. visionOS keeps its existing scale.",
+          "x-environment": "HALO_MENU_MIN_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "menu_density": {
+          "type": "integer",
+          "default": -1,
+          "description": "Menu list row density, fixed at load: -1 uses the platform default, 0 uses comfortable rows, 1 uses compact rows. Fixed settings stay comfortable; key bindings follow list density.",
+          "x-environment": "HALO_MENU_DENSITY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "menu_open": {
           "type": "string",
           "default": "",

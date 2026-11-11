@@ -20,13 +20,13 @@
 		<data input="server settings update" />
 		<on event="created" run="server settings init" />
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_server_name" x="54" y="73" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_max_players" x="54" y="103" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_game_type" x="54" y="133" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_options" x="54" y="163" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_gametype_options" x="54" y="163" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_listing" x="54" y="193" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_password" x="54" y="223" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_start_game" x="54" y="253" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_max_players" x="54" y="112" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_game_type" x="54" y="151" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_coop_options" x="54" y="190" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_gametype_options" x="54" y="190" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_listing" x="54" y="229" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_password" x="54" y="268" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/op_start_game" x="54" y="307" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_server_name" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<on event="a" run="ss edit server name" />
@@ -43,11 +43,11 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_max_players" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/max_players_label" y="0" />
-		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/max_players_spinner" x="286" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/server_settings/max_players_spinner" x="285" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/max_players_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/max_players_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="2|4|8|12|16|24|32|48|64|96|128" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/max_players_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="2|4|8|12|16|24|32|48|64|96|128" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/invite_value" type="text" width="238" height="53" font="ui\large_ui" color="#FFFFFFFF" text_y="4">
 		<on event="left_mouse" run="ss copy invite" />
@@ -62,7 +62,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/listing_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/server_settings/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PUBLIC|PRIVATE" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
+	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PUBLIC|PRIVATE" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/server_settings/op_password" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">

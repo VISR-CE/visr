@@ -3,7 +3,7 @@
 <menus>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/empty_servers_label" type="text" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/empty_servers_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/empty_servers_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -36,53 +36,53 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/full_servers_label" type="text" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/full_servers_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/full_servers_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/game_options_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/game_options_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_game_options" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/game_options_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_game_options" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/game_type_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/game_type_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_gametype" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/game_type_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_gametype" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/filters/header_filters">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/installed_maps_label" type="text" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/installed_maps_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/installed_maps_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/strings/var_boolean" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/op_empty_servers" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/empty_servers_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/empty_servers_spinner" x="300" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/empty_servers_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/op_full_servers" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/full_servers_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/full_servers_spinner" x="300" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/full_servers_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/op_game_options" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/game_options_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/game_options_spinner" x="300" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/game_options_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/op_game_type" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/game_type_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/game_type_spinner" x="300" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/game_type_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/op_installed_maps" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/installed_maps_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/installed_maps_spinner" x="300" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/installed_maps_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/op_ping" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_label" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_spinner" x="300" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_spinner" x="286" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_label" type="text" controller="1" width="300" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_spinner" type="spinner" left="3" top="2" width="187" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_ping" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/ping_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_ping" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings one_tooltip" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />

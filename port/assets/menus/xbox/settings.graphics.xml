@@ -17,33 +17,33 @@
 	</widget>
 	<widget name="xbox/settings/graphics/help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/graphics/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/settings/graphics/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="8" description="xbox/settings/graphics/help" row_top="73" row_pitch="30">
+	<widget name="xbox/settings/graphics/options_menu" type="column_list" width="640" height="335" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="6" description="xbox/settings/graphics/help" row_top="73" row_pitch="39">
 		<data input="port settings help" />
 		<child widget="xbox/settings/graphics/op_graphics" x="54" y="73" />
-		<child widget="xbox/settings/graphics/op_crt_effect" x="54" y="103" platform="apple" />
+		<child widget="xbox/settings/graphics/op_crt_effect" x="54" y="112" platform="apple" />
 	</widget>
-	<widget name="xbox/settings/graphics/op_graphics" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/graphics/graphics_label" />
-		<child widget="xbox/settings/graphics/graphics_spinner" x="320" y="1" />
+	<widget name="xbox/settings/graphics/op_graphics" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/settings/graphics/graphics_label" y="5" />
+		<child widget="xbox/settings/graphics/graphics_spinner" x="320" y="6" />
 		<on event="a" run="port settings save" back="true" />
 		<on event="start" run="port settings save" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/settings/graphics/graphics_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/graphics/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/graphics/graphics_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HARDCORE|CLASSIC|ENHANCED" setting="display.graphics" values="hardcore|classic|enhanced" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="xbox/settings/graphics/graphics_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HARDCORE|CLASSIC|ENHANCED" setting="display.graphics" values="hardcore|classic|enhanced" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/graphics/op_crt_effect" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF" platform="apple">
-		<child widget="xbox/settings/graphics/crt_effect_label" />
-		<child widget="xbox/settings/graphics/crt_effect_spinner" x="320" y="1" />
+	<widget name="xbox/settings/graphics/op_crt_effect" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" platform="apple" top="0">
+		<child widget="xbox/settings/graphics/crt_effect_label" y="5" />
+		<child widget="xbox/settings/graphics/crt_effect_spinner" x="319" y="6" />
 		<on event="a" run="port settings save" back="true" />
 		<on event="start" run="port settings save" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/settings/graphics/crt_effect_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/graphics/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 	</widget>
 	<widget name="xbox/settings/graphics/row_help" type="text" controller="1" left="68" top="335" width="482" height="75" font="ui\large_ui" color="#FFFFFFFF">

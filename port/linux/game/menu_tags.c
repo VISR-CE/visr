@@ -46,6 +46,9 @@ no screen pauses the game (a network game's clock runs on).
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
 char const *config_string(char const *name);
+long config_integer(char const *name);
+int platform_menu_pad(void);
+int platform_menu_compact_density(void);
 int platform_display_resolutions(long *widths, long *heights, int maximum);
 int platform_window_sizes(long *widths, long *heights, int maximum);
 
@@ -982,6 +985,25 @@ static boolean png_frame_build(struct bitmap_data *bitmap, long tag_index, char 
 	return TRUE;
 }
 
+/* (a frame drawn at its own width and height, x and y into the widget: the texture stays
+the bitmap's, drawn smaller or larger, ui_widget.c) */
+static void frame_placement_add(struct bitmap_data *bitmap, struct halo_menu_frame const *data)
+{
+	struct menu_frame_placement *placements = realloc(menu_tags.placements,
+		(menu_tags.placement_count + 1) * sizeof(*menu_tags.placements));
+
+	if (placements)
+	{
+		menu_tags.placements = placements;
+		placements[menu_tags.placement_count].bitmap = bitmap;
+		placements[menu_tags.placement_count].x = (short)PIN(data->x, -2048, 2048);
+		placements[menu_tags.placement_count].y = (short)PIN(data->y, -2048, 2048);
+		placements[menu_tags.placement_count].width = (short)data->width;
+		placements[menu_tags.placement_count].height = (short)data->height;
+		menu_tags.placement_count++;
+	}
+}
+
 static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 {
 	struct bitmap_group *group = allocate(sizeof(struct bitmap_group));
@@ -1047,21 +1069,7 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			/* (scaled to a size of the file's: the texture stays the map's,
 			drawn smaller or larger, ui_widget.c) */
 			if (data->width > 0 && data->height > 0 && data->width <= 2048 && data->height <= 2048)
-			{
-				struct menu_frame_placement *placements = realloc(menu_tags.placements,
-					(menu_tags.placement_count + 1) * sizeof(*menu_tags.placements));
-
-				if (placements)
-				{
-					menu_tags.placements = placements;
-					placements[menu_tags.placement_count].bitmap = bitmap;
-					placements[menu_tags.placement_count].x = (short)PIN(data->x, -2048, 2048);
-					placements[menu_tags.placement_count].y = (short)PIN(data->y, -2048, 2048);
-					placements[menu_tags.placement_count].width = (short)data->width;
-					placements[menu_tags.placement_count].height = (short)data->height;
-					menu_tags.placement_count++;
-				}
-			}
+				frame_placement_add(bitmap, data);
 			/* (ui.map has the picture, which a game map's menus draw from the player's copy of it) */
 			if (data->cache && !build.game_map && extraction_count < MAXIMUM_EXTRACTIONS &&
 				halo_menus_art_needs_save(data->cache))
@@ -1090,6 +1098,8 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 			problem(source->file, source->line, "could not make the texture of bitmap", source->name);
 			return group;
 		}
+		if (data->x || data->y)
+			frame_placement_add(bitmap, data);
 	}
 	return group;
 }
@@ -1697,6 +1707,12 @@ or the Xbox look's own hub (a game map has not got ui.map's screens) */
 #define PAUSE_SETTINGS_SCREEN_PC "main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen"
 #define PAUSE_SETTINGS_SCREEN_XBOX "xbox/settings/settings_screen"
 #define PAUSE_BUTTON_SPACING 35
+/* the Xbox look's comfortable row (xbox/settings.xml's hub rows): 36 units
+drawn on a 39 pitch, in a 232 wide list (the pause row picture: a band closed at both ends) */
+#define PAUSE_ROW_PITCH 39
+#define PAUSE_ROW_WIDTH 232
+#define PAUSE_ROW_BITMAP "pause/pause_row"
+#define PAUSE_ROW_WIDEN (PAUSE_ROW_WIDTH - 202)
 #define PAUSE_BOX_FIRST_BUTTONS 3
 
 static long ui_function_named(char const *name)
@@ -1752,6 +1768,23 @@ static long pause_quit_button(struct ui_widget_definition const *list, long quit
 	return NONE;
 }
 
+/* a pause button drawn as the Xbox look's comfortable row: its picture, its
+bounds (the tap band is the whole 39) and the hub rows' text place */
+static boolean pause_row_style(struct ui_widget_definition *button)
+{
+	long bitmap = find(PAUSE_ROW_BITMAP, build.menus->bitmap_count, bitmap_name);
+
+	if (bitmap == NONE)
+		return FALSE;
+	reference_set(&button->background_bitmap, BITMAP_GROUP_TAG, build.bitmap_tags[bitmap]);
+	button->bounds.x1 = (short)(button->bounds.x0 + PAUSE_ROW_WIDTH);
+	button->bounds.y1 = (short)(button->bounds.y0 + PAUSE_ROW_PITCH);
+	button->justification = 2;
+	button->horizontal_offset = 0;
+	button->vertical_offset = 8;
+	return TRUE;
+}
+
 /* a button like the model (its look), its own text, each of the model's
 events (its A and Start) running the function and opening the widget (if
 not NONE) */
@@ -1787,11 +1820,14 @@ static void *pause_button(struct cache_file_tag_instance *instances, struct ui_w
 		}
 	}
 	button->event_handlers.address = handlers;
+	pause_row_style(button);
 	return button;
 }
 
 /* the list's buttons: SETTINGS (and the host's END GAME) put before LEAVE
 GAME (quit); returns how many were added */
+static short pause_list_growth, pause_widen;
+
 static long pause_list_patch(struct cache_file_tag_instance *instances, struct ui_widget_definition *list, long quit,
 	boolean host)
 {
@@ -1837,6 +1873,30 @@ static long pause_list_patch(struct cache_file_tag_instance *instances, struct u
 	list->child_widgets.count = count + added;
 	/* (the list draws within its bounds) */
 	list->bounds.y1 = (short)(list->bounds.y1 + added * spacing);
+	pause_list_growth = (short)(added * spacing);
+	pause_widen = 0;
+	/* every button the comfortable row of the Xbox look: the main menu's
+	36 drawn on a 39 pitch, the list and box wide enough for them */
+	{
+		short old_height = list->bounds.y1 - list->bounds.y0;
+		boolean styled = TRUE;
+
+		for (child = 0; child < count + added && styled; child++)
+		{
+			if (grown[child].widget_tag.index == NONE)
+				continue;
+			styled = pause_row_style(tag_get(UI_WIDGET_DEFINITION_TAG, grown[child].widget_tag.index));
+		}
+		if (styled)
+		{
+			for (child = 0; child < count + added; child++)
+				grown[child].vertical_offset = (short)(child * PAUSE_ROW_PITCH);
+			list->bounds.y1 = (short)(list->bounds.y0 + (count + added) * PAUSE_ROW_PITCH);
+			list->bounds.x1 = (short)(list->bounds.x0 + PAUSE_ROW_WIDTH);
+			pause_list_growth = (short)(list->bounds.y1 - list->bounds.y0 - (old_height - added * spacing));
+			pause_widen = PAUSE_ROW_WIDEN;
+		}
+	}
 	return added;
 }
 
@@ -1874,7 +1934,11 @@ static void pause_box_redraw(struct ui_widget_definition const *box, long button
 		sequence->bitmap_count = 1;
 		reference_set(&definition->background_bitmap, BITMAP_GROUP_TAG, build.bitmap_tags[bitmap]);
 		definition->bounds.y1 = (short)(definition->bounds.y0 + 256);
+		/* (wider for the wider rows: the strip longer, the right cap over) */
+		if (piece == 1)
+			definition->bounds.x1 = (short)(definition->bounds.x1 + pause_widen);
 	}
+	((struct ui_widget_child_reference *)pieces)[2].horizontal_offset += pause_widen;
 }
 
 static void pause_patch(struct cache_file_tag_instance *instances)
@@ -1939,12 +2003,16 @@ static void pause_patch(struct cache_file_tag_instance *instances)
 		}
 		/* the stock box: taller, centred where it was, the list with it, and
 		what is below it moved down; else only what is below the list */
-		grow = (short)(added * PAUSE_BUTTON_SPACING);
+		grow = pause_list_growth;
 		list_top = children[list_child].vertical_offset;
 		for (child = 0; child < definition->child_widgets.count; child++)
 		{
 			if (box_child != NONE && (child == box_child || child == list_child))
+			{
 				children[child].vertical_offset -= grow / 2;
+				/* (wider: kept centred where the old box was) */
+				children[child].horizontal_offset -= pause_widen / 2;
+			}
 			else if (children[child].vertical_offset > list_top)
 				children[child].vertical_offset += box_child != NONE ? grow - grow / 2 : grow;
 		}
@@ -3004,6 +3072,17 @@ void menu_tags_loaded(
 	/* (ui.map, and a multiplayer map: its pause menu's SETTINGS) */
 	if (game_map && tag_loaded('Soul', MULTIPLAYER_COLLECTION) == NONE)
 		return;
+	/* Keep the first choice across map loads and input changes. */
+	{
+		static int density = -1;
+		if (density < 0)
+		{
+			long override = config_integer("debug.menu_density");
+			density = override == 0 || override == 1 ? (int)override : platform_menu_compact_density();
+			halo_menus_set_compact_density(density);
+			platform_log("menus: row density %s", density ? "compact" : "comfortable");
+		}
+	}
 	menus = halo_menus_load();
 	if (!menus)
 		return;
@@ -3258,7 +3337,6 @@ static void menu_profile_description(int keyboard)
 
 static int menu_use_xbox(void)
 {
-	extern int platform_menu_pad(void);
 	char const *setting = config_string("display.menus");
 
 	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());

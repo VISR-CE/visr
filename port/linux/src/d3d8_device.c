@@ -29,6 +29,7 @@ Conventions carried over from the Xbox:
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
+#include "menu_scale.h"
 #include "port_config.h"
 #include "port_graphics_modes.h"
 #include "halo_display.h"
@@ -592,6 +593,83 @@ float halo_screen_scale(void)
 void halo_screen_ui_offset(unsigned char centered)
 {
 	ui_offset = centered ? (halo_screen_width() - 640) / 2 : 0;
+}
+
+/* Only widget draws opt in; the world, HUD, console and loading screens
+keep their original viewport. ui_widget.c supplies each screen's content. */
+static int menu_window_drawing;
+static float menu_draw_top, menu_draw_zoom = 1.0f;
+static float menu_content_top = MENU_CONTENT_TOP, menu_content_bottom = MENU_CONTENT_BOTTOM;
+static int menu_content_active;
+
+void halo_screen_menu_content(float top, float bottom)
+{
+	menu_content_active = bottom > top && top >= 0.0f && bottom <= 480.0f;
+	menu_content_top = menu_content_active ? top : MENU_CONTENT_TOP;
+	menu_content_bottom = menu_content_active ? bottom : MENU_CONTENT_BOTTOM;
+}
+
+static void menu_window_geometry(float *top, float *zoom)
+{
+
+	float height, bottom, points_per_unit;
+
+	*top = 0.0f;
+	*zoom = 1.0f;
+	if (!config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
+		return;
+#ifdef HALO_ILP32
+	/* A spatial surface has its own apparent size, unrelated to window points. */
+	const char *vision = getenv("HALO_HOST_VISIONOS");
+	if (vision && !strcmp(vision, "1"))
+		return;
+	height = host_sdl_menu_height_points();
+#else
+	int window_width = 0, window_height = 0;
+	platform_video_window_size(&window_width, &window_height);
+	height = window_height;
+#endif
+	if (height <= 0.0f)
+		return;
+	menu_scale_window(height, menu_content_top, menu_content_bottom, top, &bottom, &points_per_unit);
+	*zoom = 480.0f / (bottom - *top);
+	/* Narrow windows must still fit all 640 content columns. */
+	if (*zoom > halo_screen_width() / 640.0f)
+	{
+		*zoom = halo_screen_width() / 640.0f;
+		menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
+			top, &bottom, &points_per_unit);
+	}
+}
+
+void halo_screen_menu_window(int active)
+{
+	if (active)
+		menu_window_geometry(&menu_draw_top, &menu_draw_zoom);
+	menu_window_drawing = active != 0;
+}
+
+float halo_screen_menu_pixel_scale(void)
+{
+	float top, zoom;
+	if (menu_window_drawing)
+		zoom = menu_draw_zoom;
+	else
+		menu_window_geometry(&top, &zoom);
+	return halo_screen_pixel_scale() * zoom;
+}
+
+/* Undo precisely the widget-only viewport zoom after the display blit and
+widescreen centering have been undone by halo_ui_pointer_map. */
+static void menu_window_pointer(struct halo_ui_pointer *pointer)
+{
+	float top, zoom;
+	menu_window_geometry(&top, &zoom);
+	pointer->x = (short)floorf(320.0f + (pointer->x - 320.0f) / zoom);
+	pointer->y = (short)floorf(top + pointer->y / zoom);
+	pointer->click_x = (short)floorf(320.0f + (pointer->click_x - 320.0f) / zoom);
+	pointer->click_y = (short)floorf(top + pointer->click_y / zoom);
+	pointer->radius = (short)ceilf(pointer->radius / zoom);
 }
 
 /* render_window calls this once for each view it draws (each player's, and
@@ -3438,6 +3516,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 			}
 		}
 	}
+	menu_window_pointer(pointer);
 	pointer->moved = host.moved != 0;
 	pointer->left_clicks = (unsigned char)(host.left_clicks < 0 ? 0 : host.left_clicks < 255 ? host.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(host.right_clicks < 0 ? 0 : host.right_clicks < 255 ? host.right_clicks : 255);
@@ -3477,6 +3556,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	memset(pointer, 0, sizeof(*pointer));
 	ui_point_from_window(state.x, state.y, &pointer->x, &pointer->y);
 	ui_point_from_window(state.click_x, state.click_y, &pointer->click_x, &pointer->click_y);
+	menu_window_pointer(pointer);
 	pointer->moved = state.moved != FALSE;
 	pointer->left_clicks = (unsigned char)(state.left_clicks < 255 ? state.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(state.right_clicks < 255 ? state.right_clicks : 255);
@@ -5772,7 +5852,7 @@ static void raster_state_fill(BOOL has_depth, struct gpu_viewport *viewport, str
 
 /* the uniforms of the latest draws, converted from these inputs; the serial
 counts the conversions */
-#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 7 * D3DTSS_MAXSTAGES)
+#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 2 + 7 * D3DTSS_MAXSTAGES)
 
 static DWORD draw_uniform_inputs[DRAW_UNIFORM_INPUT_COUNT];
 static struct gpu_uniforms draw_uniforms;
@@ -5950,6 +6030,12 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	{
 		DWORD inputs[DRAW_UNIFORM_INPUT_COUNT];
 		unsigned long count = 0;
+		float menu_top = 0.0f, menu_zoom = 1.0f;
+		if (menu_window_drawing)
+		{
+			menu_top = menu_draw_top;
+			menu_zoom = menu_draw_zoom;
+		}
 
 		memcpy(&inputs[count], device.viewport_scale, sizeof(device.viewport_scale));
 		count += 4;
@@ -5971,6 +6057,8 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		inputs[count++] = D3D__RenderState[D3DRS_FOGDENSITY];
 		inputs[count++] = D3D__RenderState[D3DRS_ALPHAREF];
 		inputs[count++] = (DWORD)UI_OFFSET;
+		memcpy(&inputs[count++], &menu_top, sizeof(menu_top));
+		memcpy(&inputs[count++], &menu_zoom, sizeof(menu_zoom));
 		for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
 		{
 			DWORD *state = D3D__TextureState[stage];
@@ -5992,6 +6080,11 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 			draw_uniforms.serial++;
 			memcpy(converted->viewport_scale[0], device.viewport_scale, sizeof(converted->viewport_scale));
 			memcpy(converted->viewport_offset[0], device.viewport_offset, sizeof(converted->viewport_offset));
+			converted->viewport_scale[0][0] /= menu_zoom;
+			converted->viewport_scale[0][1] /= menu_zoom;
+			converted->viewport_offset[0][0] = halo_screen_width() * 0.5f +
+				(device.viewport_offset[0] - halo_screen_width() * 0.5f) / menu_zoom;
+			converted->viewport_offset[0][1] = menu_top + device.viewport_offset[1] / menu_zoom;
 			memcpy(converted->texture_scale, texture_scale, sizeof(converted->texture_scale));
 			converted->point_size[0][0] = D3D__RenderState[D3DRS_POINTSIZE] ?
 				dword_to_float(D3D__RenderState[D3DRS_POINTSIZE]) : 1.0f;

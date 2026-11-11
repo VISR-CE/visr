@@ -1690,6 +1690,12 @@ static const struct config_setting config_settings[] =
 		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
 		"network.full_rate_players below 16, or network.player_capacity below\n"
 		"16 when full_rate_players is 0." },
+	{ "debug.menu_min_scale", _config_boolean, "true", "HALO_MENU_MIN_SCALE", _environment_value, _platform_all,
+		"Enlarge front-end and pause menu widgets toward one point per menu unit\n"
+		"by cropping only their backdrop margins. visionOS keeps its existing scale." },
+	{ "debug.menu_density", _config_integer, "-1", "HALO_MENU_DENSITY", _environment_value, _platform_all,
+		"Menu list row density, fixed at load: -1 uses the platform default,\n"
+		"0 uses comfortable rows, 1 uses compact rows. Fixed settings stay comfortable; key bindings follow list density." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },

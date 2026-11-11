@@ -539,8 +539,8 @@ static void read_frame(struct reader *reader, const XML_Char **attributes, long 
 		reader_error(reader, "a <frame> of a map bitmap needs its index");
 	else if (!reader->failed && frame.map && (frame.width < 0 || frame.height < 0 || !frame.width != !frame.height))
 		reader_error(reader, "a <frame> of a map bitmap is scaled to a width and a height, or neither");
-	else if (!reader->failed && (frame.x || frame.y) && (!frame.map || !frame.width))
-		reader_error(reader, "only a scaled <frame> of a map bitmap is placed at an x and y");
+	else if (!reader->failed && (frame.x || frame.y) && !frame.width)
+		reader_error(reader, "only a <frame> with a width and height is placed at an x and y");
 	if (!reader->failed && reader->bitmap_frames_attribute)
 		reader_error(reader, "a bitmap's <frame>s and frames= cannot be mixed");
 	if (frame.index < 0)
@@ -1054,6 +1054,13 @@ static int read_file(struct reader *reader, const struct menu_file *file)
 
 /* ---------- public code */
 
+static int compact_density;
+
+void halo_menus_set_compact_density(int compact)
+{
+	compact_density = compact != 0;
+}
+
 struct halo_menus const *halo_menus_load(void)
 {
 	static int read;
@@ -1071,9 +1078,21 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		size_t length = strlen(files[index].path);
 
-		/* Both looks must exist before any screen can switch between them. */
-		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml"))
-			read_file(&reader, &files[index]);
+		char twin[1024];
+		int is_compact = length > 12 && !strcmp(files[index].path + length - 12, ".compact.xml");
+
+		/* A twin defines the same tags: read exactly one density, including shared rows. */
+		if (length <= 4 || strcmp(files[index].path + length - 4, ".xml")) continue;
+		if (is_compact)
+		{
+			if (!compact_density) continue;
+		}
+		else if (compact_density && length + 9 < sizeof(twin))
+		{
+			snprintf(twin, sizeof(twin), "%.*s.compact.xml", (int)(length - 4), files[index].path);
+			if (file_find(twin) >= 0) continue;
+		}
+		read_file(&reader, &files[index]);
 	}
 	free(reader.last_child);
 	free(reader.last_handler);

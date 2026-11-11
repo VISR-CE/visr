@@ -308,6 +308,28 @@ void host_sdl_window_size_in_pixels(uint32_t window, int *width, int *height)
 		SDL_GetWindowSizeInPixels(object, width, height);
 }
 
+/* Menu units are sized in the current window's points, independent of its
+   drawable cap, render resolution, Retina density or a resized Mac window. */
+int host_sdl_menu_height_points(void)
+{
+	SDL_Window *window = host_sdl_window();
+	int width = 0, height = 0;
+	if (!window)
+		return 0;
+	/* External output is a TV surface; its pixel height is at least the
+	   content's 480 units. The phone's window does not size its menus. */
+	if (host_external_size(&width, &height))
+		return height;
+	if (pinned_height)
+	{
+		const char *text = getenv("HALO_HOST_DISPLAY");
+		float scale;
+		if (text && sscanf(text, "%dx%d@%f", &width, &height, &scale) == 3)
+			return width < height ? width : height;
+	}
+	return SDL_GetWindowSize(window, &width, &height) ? height : 0;
+}
+
 int host_sdl_set_relative_mouse(uint32_t window, int enabled)
 {
 	SDL_Window *object = handle_get(window, _handle_window);

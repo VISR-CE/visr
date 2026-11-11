@@ -219,7 +219,8 @@ MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "
                            "text_y", "top", "visible_rows", "row_top", "row_pitch", "width", "x", "y"}
 
 
-def test_menus_are_well_formed():
+@pytest.mark.parametrize('compact', [False, True])
+def test_menus_are_well_formed(compact):
     """What port/linux/src/menu_files.c and port/linux/game/menu_tags.c check
     when the game loads them, but the map's own names (paths with backslashes),
     which only the map has."""
@@ -238,10 +239,17 @@ def test_menus_are_well_formed():
     files = sorted(MENUS.rglob("*.xml"))
     assert sorted(path.relative_to(MENUS).as_posix() for path in files) == \
         sorted(name for name in listed if name.endswith(".xml"))
+    # The runtime loads one density variant, with shared definitions only once.
+    files = [path for path in files
+             if ('.compact.' in path.name if compact else '.compact.' not in path.name)
+             or (compact and '.compact.' not in path.name
+                 and not path.with_suffix('.compact.xml').exists())]
     widgets, bitmaps, strings, references, roots = {}, {}, {}, [], []
     for path in files:
         tree = ElementTree.parse(path)
         assert tree.getroot().tag == "menus", path
+        row_art = {w.get('bitmap') for w in tree.iter('widget')
+                   if w.get('height') in ('30', '39') and w.get('name', '').startswith('xbox/')}
         if tree.getroot().get("root"):
             roots.append(tree.getroot().get("root"))
         for element in tree.getroot().iter():
@@ -274,7 +282,12 @@ def test_menus_are_well_formed():
                         header = png.read(24)
                     width, height = int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
                     logical = int(frame.get("width")), int(frame.get("height"))
-                    assert width % logical[0] == 0 and width // logical[0] == height // logical[1], where
+                    if '/row_36/' in element.get('name', '') or element.get('name') in row_art:
+                        # Density rows deliberately stretch source art vertically;
+                        # their drawing height is separate from the tap band.
+                        assert logical[1] in (28, 36, 52, 53, 56, 59) and width % logical[0] == 0, where
+                    else:
+                        assert width % logical[0] == 0 and width // logical[0] == height // logical[1], where
             elif element.tag == "strings":
                 strings[element.get("name")] = element
             elif element.tag == "widget":
@@ -627,7 +640,7 @@ def test_settings_lists_pack_rows_and_keep_a_window():
                            ("xbox", f"settings.{folder}.xml")):
             root = ElementTree.parse(MENUS / look / name).getroot()
             options = next(w for w in root.findall("widget") if w.get("name").endswith("/options_menu"))
-            assert options.get("row_top") == "73" and int(options.get("row_pitch")) in (26, 30), (look, folder)
+            assert options.get("row_top") == "73" and int(options.get("row_pitch")) in (26, 30, 39), (look, folder)
             assert int(options.get("visible_rows")) >= 1, (look, folder)
 
 

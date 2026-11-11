@@ -17,48 +17,48 @@
 	</widget>
 	<widget name="xbox/settings/mouse_settings/help" type="text" controller="1" left="68" top="321" width="482" height="79" string_list="xbox/settings/mouse_settings/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/settings/mouse_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="8" description="xbox/settings/mouse_settings/help" row_top="73" row_pitch="30">
+	<widget name="xbox/settings/mouse_settings/options_menu" type="column_list" width="640" height="321" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="6" description="xbox/settings/mouse_settings/help" row_top="73" row_pitch="39">
 		<data input="port settings help" />
 		<child widget="xbox/settings/mouse_settings/op_mouse_sensitivity" x="54" y="73" />
-		<child widget="xbox/settings/mouse_settings/op_mouse_vertical_sensitivity" x="54" y="103" />
-		<child widget="xbox/settings/mouse_settings/op_invert_mouse" x="54" y="133" />
-		<child widget="xbox/settings/mouse_settings/op_mouse_aim_assist" x="54" y="163" />
+		<child widget="xbox/settings/mouse_settings/op_mouse_vertical_sensitivity" x="54" y="112" />
+		<child widget="xbox/settings/mouse_settings/op_invert_mouse" x="54" y="151" />
+		<child widget="xbox/settings/mouse_settings/op_mouse_aim_assist" x="54" y="190" />
 		<child widget="xbox/settings/mouse_settings/button_bar" y="414" />
 	</widget>
-	<widget name="xbox/settings/mouse_settings/op_mouse_sensitivity" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/mouse_settings/mouse_sensitivity_label" />
-		<child widget="xbox/settings/mouse_settings/mouse_sensitivity_spinner" x="320" y="1" />
+	<widget name="xbox/settings/mouse_settings/op_mouse_sensitivity" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/settings/mouse_settings/mouse_sensitivity_label" y="5" />
+		<child widget="xbox/settings/mouse_settings/mouse_sensitivity_spinner" x="320" y="6" />
 	</widget>
 	<widget name="xbox/settings/mouse_settings/mouse_sensitivity_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/mouse_settings/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/mouse_settings/mouse_sensitivity_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" setting="input.mouse_sensitivity" values="0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="xbox/settings/mouse_settings/mouse_sensitivity_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" setting="input.mouse_sensitivity" values="0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/mouse_settings/op_mouse_vertical_sensitivity" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/mouse_settings/mouse_vertical_sensitivity_label" />
-		<child widget="xbox/settings/mouse_settings/mouse_vertical_sensitivity_spinner" x="320" y="1" />
+	<widget name="xbox/settings/mouse_settings/op_mouse_vertical_sensitivity" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/settings/mouse_settings/mouse_vertical_sensitivity_label" y="5" />
+		<child widget="xbox/settings/mouse_settings/mouse_vertical_sensitivity_spinner" x="320" y="6" />
 	</widget>
 	<widget name="xbox/settings/mouse_settings/mouse_vertical_sensitivity_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/mouse_settings/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/mouse_settings/mouse_vertical_sensitivity_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SAME|0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" setting="input.mouse_vertical_sensitivity" values="0|0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="xbox/settings/mouse_settings/mouse_vertical_sensitivity_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SAME|0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" setting="input.mouse_vertical_sensitivity" values="0|0.25|0.5|0.75|1|1.25|1.5|1.75|2|2.5|3|4" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/mouse_settings/op_invert_mouse" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/mouse_settings/invert_mouse_label" />
-		<child widget="xbox/settings/mouse_settings/invert_mouse_spinner" x="320" y="1" />
+	<widget name="xbox/settings/mouse_settings/op_invert_mouse" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/settings/mouse_settings/invert_mouse_label" y="5" />
+		<child widget="xbox/settings/mouse_settings/invert_mouse_spinner" x="320" y="6" />
 	</widget>
 	<widget name="xbox/settings/mouse_settings/invert_mouse_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/mouse_settings/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/mouse_settings/invert_mouse_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="input.invert_mouse" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="xbox/settings/mouse_settings/invert_mouse_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="input.invert_mouse" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 	</widget>
-	<widget name="xbox/settings/mouse_settings/op_mouse_aim_assist" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="xbox/settings/mouse_settings/mouse_aim_assist_label" />
-		<child widget="xbox/settings/mouse_settings/mouse_aim_assist_spinner" x="320" y="1" />
+	<widget name="xbox/settings/mouse_settings/op_mouse_aim_assist" width="512" height="39" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/row_36/option_bkds" color="#FF2896FF" top="0">
+		<child widget="xbox/settings/mouse_settings/mouse_aim_assist_label" y="5" />
+		<child widget="xbox/settings/mouse_settings/mouse_aim_assist_spinner" x="320" y="6" />
 	</widget>
 	<widget name="xbox/settings/mouse_settings/mouse_aim_assist_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/mouse_settings/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/mouse_settings/mouse_aim_assist_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="input.mouse_aim_assist" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="xbox/settings/mouse_settings/mouse_aim_assist_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="input.mouse_aim_assist" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 	</widget>
 	<strings name="xbox/settings/mouse_settings/labels">

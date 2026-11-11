@@ -131,6 +131,9 @@ def test_option_rows_end_above_the_help_text(path):
             row_ys = sorted({int(child.get('y')) for child in widget.findall('child')
                              if child.get('y') and not child.get('widget').endswith('/button_bar')
                              and '/scroll_' not in child.get('widget')})
+            # (the places the list's rows take, which the leading rows' own y values may skip past)
+            if len(row_ys) > 1:
+                row_ys = list(range(row_ys[0], row_ys[-1] + 1, row_ys[1] - row_ys[0]))
             # a list that scrolls shows visible_rows of its rows at once
             row_ys = row_ys[:int(widget.get('visible_rows', len(row_ys)))]
     if help_top is not None:
@@ -180,13 +183,15 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
         module.validate(output.getroot(), MENUS)
 
 
-def test_browser_uses_xbox_nine_row_list_and_description_panel():
+def test_browser_uses_density_row_list_and_description_panel():
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
     widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
     rows = [c for c in widgets['join_game_items_list'].findall('child')
             if c.get('widget').rsplit('/', 1)[-1].removeprefix('server_item_').isdigit()]
-    assert len(rows) == 9
-    assert widgets['join_game_items_list'].get('visible_rows') == '9'
+    pitch = generator().COMFORTABLE_PITCH
+    count = (338 - 108) // pitch
+    assert len(rows) == count
+    assert int(widgets['join_game_items_list'].get('visible_rows')) == count
     # Match the viewport's row eligibility: descriptive containers must
     # not consume a server slot or change the first row's origin/pitch.
     eligible = []
@@ -199,7 +204,7 @@ def test_browser_uses_xbox_nine_row_list_and_description_panel():
         c.get('widget').rsplit('/', 1)[-1]
         for c in widgets['join_game_items_list'].findall('child')}
     assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
-        (48, 108 + 24 * i) for i in range(9)]
+        (48, 108 + pitch * i) for i in range(count)]
     fields = ('server_name', 'map', 'type', 'players', 'ping')
     headers = widgets['join_game_header']
     header_x = {c.get('widget').rsplit('_', 1)[-1]: int(c.get('x', 0))
@@ -221,7 +226,7 @@ def test_browser_uses_xbox_nine_row_list_and_description_panel():
                   int(widgets['server_item_ping'].get('width')))
     assert int(first_row.get('width')) - right_edge == left_margin
     panel = widgets['screen_stats_container']
-    assert int(panel.get('top')) >= 108 + 9 * 24
+    assert int(panel.get('top')) >= 108 + count * pitch
     assert int(panel.get('top')) + int(panel.get('height')) <= 414
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     frame = bitmaps[panel.get('bitmap')].find('frame')
@@ -233,7 +238,8 @@ def test_browser_uses_xbox_nine_row_list_and_description_panel():
         row = widgets[c.get('widget').rsplit('/', 1)[-1]]
         for frame in bitmaps[row.get('bitmap')].findall('frame'):
             assert int(frame.get('width')) >= int(row.get('width'))
-            assert frame.get('height') == row.get('height')
+            assert frame.get('height') == '36'
+            assert int(row.get('height')) == pitch
     assert {'a_butn', 'b_butn', 'y_butn', 'x_butn'} <= widgets.keys()
     assert not any(c.get('widget').endswith('/join_game_button_bar')
                    for w in root.iter('widget') for c in w.findall('child'))
@@ -309,11 +315,15 @@ def test_selection_rows_end_above_footer():
                 if c.get('y') and (leaf.startswith('list_item_') or
                                    leaf.startswith('server_item_')):
                     row = widgets[c.get('widget')]
-                    assert int(c.get('y')) + int(row.get('top', 0)) + int(row.get('height')) <= 414
+                    first = min(int(part.get('y')) for part in w.findall('child')
+                                if part.get('y') and (part.get('widget').rsplit('/', 1)[-1].startswith('list_item_')
+                                                    or part.get('widget').rsplit('/', 1)[-1].startswith('server_item_')))
+                    if int(c.get('y')) < first + int(w.get('visible_rows', '64')) * generator().COMFORTABLE_PITCH:
+                        assert int(c.get('y')) + int(row.get('top', 0)) + int(row.get('height')) <= 414
 
 
 def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
-    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml')
+    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name
              for e in ET.parse(p).getroot() if e.get('name')]
     assert len(names) == len(set(names))
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
@@ -328,6 +338,8 @@ def window_rows(options, widgets):
     rows = [c for c in options.findall('child') if c.get('y') and 'button_bar' not in c.get('widget')
             and '/scroll_' not in c.get('widget')]
     slots = sorted({int(c.get('y')) for c in rows})
+    # (the places the list's rows take, which the leading rows' own y values may skip past)
+    slots = list(range(slots[0], slots[-1] + 1, slots[1] - slots[0]))
     height = max(int(widgets[c.get('widget')].get('height')) for c in rows)
     window = int(options.get('visible_rows', len(slots)))
     pitch = slots[1] - slots[0]
@@ -343,16 +355,29 @@ def shown_children(options):
 def test_scrolling_lists_fit_above_their_help():
     seen = []
     for path in (MENUS / 'xbox').glob('*.xml'):
-        widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
-        for w in widgets.values():
+        compact = '.compact.' in path.name
+        files = [p for p in (MENUS / 'xbox').glob('*.xml')
+                 if ('.compact.' in p.name if compact else '.compact.' not in p.name)
+                 or (compact and '.compact.' not in p.name and not p.with_suffix('.compact.xml').exists())]
+        widgets = {w.get('name'): w for p in files for w in ET.parse(p).iter('widget')}
+        for w in list(ET.parse(path).getroot().iter('widget')):
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
                 continue
             slots, window, bottom = window_rows(w, widgets)
             # (the hub's description is a panel beside the rows, not help text under them)
+            help_text = widgets.get(w.get('name').rsplit('/', 1)[0] + '/help')
+            if not w.get('description') and w.get('name').startswith('xbox/settings/') and help_text is not None:
+                # (ABOUT's help is fixed text, not a row description: its rows scroll above it)
+                assert bottom <= int(help_text.get('top')), w.get('name')
+                continue
             if not w.get('description') or w.get('name') == 'xbox/settings/settings_list':
                 assert shown_children(w) <= window and bottom <= 414, w.get('name')
                 continue
-            help_top = int(widgets[w.get('description')].get('top'))
+            description = widgets[w.get('description')]
+            if description.get('type') != 'text':
+                assert bottom <= 414
+                continue
+            help_top = int(description.get('top'))
             # (a settings list keeps its window when its rows fit: rows its code hides close up)
             assert (window < len(slots) or w.get('row_pitch')) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
@@ -386,7 +411,7 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
     for path in (MENUS / 'xbox').glob('*.xml'):
         widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
         for w in widgets.values():
-            # (the server browser pages its own nine rows, lobby_browser_update, and shows the page number)
+            # The browser updater pages its density's rows and shows the page number.
             if 'visible_rows' not in w.attrib or w.get('name').endswith('/join_game_items_list'):
                 continue
             # A short list can use the viewport only to pack platform-filtered rows.
@@ -448,8 +473,10 @@ def test_browser_buttons_draw_map_art_with_shipped_fallbacks():
 
 def test_browser_highlight_has_one_shape_for_every_row():
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
-    rows = [w for w in root.iter('widget')
-            if w.get('name').rsplit('/', 1)[-1].removeprefix('server_item_').isdigit()]
+    names = {c.get('widget') for w in root.iter('widget')
+             if w.get('name').endswith('/join_game_items_list') for c in w.findall('child')}
+    rows = [w for w in root.iter('widget') if w.get('name') in names
+            and w.get('name').rsplit('/', 1)[-1].removeprefix('server_item_').isdigit()]
     assert len({r.get('bitmap') for r in rows}) == 1
     bitmap = root.find(f"bitmap[@name='{rows[0].get('bitmap')}']")
     frame = bitmap.findall('frame')[1]
@@ -705,15 +732,18 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
             if leaf.endswith(('_value', '_spinner')):
                 assert value.get('font') == r'ui\large_ui'
                 assert value.get('color') == '#FFFFFFFF'
-                # (a text value is centered on the spinner's line in a wider field: 264 + 250 / 2 = 286 + 206 / 2)
-                wide = value.get('type') != 'spinner'
-                assert (inner.get('x'), value.get('left'), value.get('width')) == (
-                    ('264', '3', '250') if wide else ('286', '3', '206'))
+                # (spinners take a standard width; every value is centered on the screen's shared spinner line)
+                width = int(value.get('width'))
+                if value.get('type') == 'spinner':
+                    assert width in {w for _, w, _ in module.SPINNER_WIDTHS}
+                else:
+                    assert (inner.get('x'), value.get('left'), width) == ('264', '3', 250)
+                assert abs(int(inner.get('x')) + int(value.get('left')) + width / 2 - 391.5) <= 1
                 label = widgets[value.get('name').rsplit('_', 1)[0] + '_label']
                 assert int(inner.get('y')) + int(value.get('top')) + int(value.get('text_y')) == int(label.get('text_y'))
                 if value.get('type') == 'spinner':
                     assert value.get('header_bounds') == '7 -6 19 0'
-                    assert value.get('footer_bounds') == '7 209 19 215'
+                    assert value.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
     accept = widgets[base + '/' + page + '_screen/legend/accept']
     assert accept.get('text') == 'SELECT'
 
@@ -1300,3 +1330,85 @@ def test_delete_confirmation_has_adaptive_a_and_b_touch_targets():
         assert target.find('data[@input="port dialog legend update"]') is not None
         assert widgets[f'{base}/{button}_butn/touch_caption'].get('text') == label
         assert (target.get('width'), target.get('height')) == ('112', '53')
+
+
+@pytest.mark.parametrize('platform', [None, 'apple', 'mac_app'])
+def test_video_setup_rows_keep_the_leading_places_on_every_platform(platform):
+    """The game lays a platform's surviving rows out by rank from the list's row_top and row_pitch, so those must
+    match the first row and the comfortable pitch, and every row kept on iOS must survive (FRAME RATE on the Mac
+    app)."""
+    root = ET.parse(Path(__file__).parents[1] / 'port/assets/menus/xbox/settings.video_settings.xml').getroot()
+    options = next(w for w in root.iter('widget') if w.get('name', '').endswith('video_settings/options_menu'))
+    rows = [c for c in options.findall('child') if c.get('y') and '/op_' in c.get('widget')]
+    kept = [c for c in rows if c.get('platform') in (None, platform)]
+    names = [c.get('widget').rsplit('/', 1)[1] for c in kept]
+    assert options.get('row_pitch') == '39'
+    assert options.get('row_top') == rows[0].get('y')
+    if platform is None:
+        assert names == ['op_graphics', 'op_vsync', 'op_interpolation']
+    if platform == 'mac_app':
+        assert names == ['op_graphics', 'op_vsync', 'op_frame_rate', 'op_interpolation']
+
+
+def test_frame_rate_spinner_fits_the_longest_value_inside_the_row():
+    """The Mac app's DISPLAY choice reads "DISPLAY (240 HZ)" (menu_tags.c); the spinner needs about 10.5 units a
+    character as the clipped 147-unit one showed, and both arrows must stay inside the 512-unit row."""
+    root = ET.parse(Path(__file__).parents[1] / 'port/assets/menus/xbox/settings.video_settings.xml').getroot()
+    spinner = next(w for w in root.iter('widget') if w.get('name', '').endswith('/frame_rate_spinner'))
+    row = next(c for c in root.iter('child') if c.get('widget', '').endswith('/frame_rate_spinner'))
+    width = int(spinner.get('width'))
+    assert width >= len('DISPLAY (240 HZ)') * 10.5
+    footer_end = int(row.get('x')) + int(spinner.get('left')) + int(spinner.get('footer_bounds').split()[3])
+    assert footer_end <= 512
+
+
+def spinner_rows(document):
+    widgets = {w.get('name'): w for w in document.iter('widget')}
+    for row in document.iter('widget'):
+        for part in row.findall('child'):
+            spinner = widgets.get(part.get('widget'))
+            if spinner is not None and spinner.get('type') == 'spinner':
+                yield row, part, spinner
+
+
+def test_every_value_control_uses_a_standard_width_that_fits_its_longest_value():
+    module = generator()
+    standard = {width for _, width, _ in module.SPINNER_WIDTHS}
+    documents = {p.name: ET.parse(p).getroot() for p in sorted((MENUS / 'xbox').glob('*.xml'))}
+    longest = {id(s): n for s, n in module.spinner_longest_values(documents)}
+    seen = 0
+    for name, document in documents.items():
+        if not name.endswith('.xml') or name in ('bitmaps.xml', 'patches.xml'):
+            continue
+        for row, part, spinner in spinner_rows(document):
+            seen += 1
+            width = int(spinner.get('width'))
+            assert width in standard, (name, spinner.get('name'), width)
+            assert width / 2 >= module.SPINNER_MINIMUM_HALF_WIDTH, (name, spinner.get('name'), width)
+            assert spinner.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
+            if id(spinner) in longest:
+                assert longest[id(spinner)] * module.SPINNER_UNITS_PER_CHARACTER <= width, (name, spinner.get('name'))
+            reach = int(part.get('x', '0')) + int(spinner.get('left', '0')) + width + 9
+            assert reach <= int(row.get('width')), (name, spinner.get('name'), reach)
+    assert seen > 50
+
+
+def test_in_game_help_toggle_lines_up_with_the_other_short_controls():
+    root = ET.parse(MENUS / 'xbox/settings.gamepad_setup.xml').getroot()
+    shorts = {(int(s.get('width')), p.get('x')) for _, p, s in spinner_rows(root)
+              if s.get('strings') in ('ON|OFF', 'YES|NO')}
+    assert len(shorts) == 1, shorts
+
+
+def test_value_controls_on_a_screen_share_one_center_line():
+    """The short, medium and wide controls of a screen are centered on one vertical line (within the half unit an odd
+    width leaves), so values align and both arrow edges stagger symmetrically."""
+    documents = {p.name: ET.parse(p).getroot() for p in sorted((MENUS / 'xbox').glob('*.xml'))}
+    checked = 0
+    for name, document in documents.items():
+        centers = [int(part.get('x', '0')) + int(spinner.get('left', '0')) + int(spinner.get('width')) / 2
+                   for _, part, spinner in spinner_rows(document)]
+        if len(centers) > 1:
+            checked += 1
+            assert max(centers) - min(centers) <= 1, (name, min(centers), max(centers))
+    assert checked >= 8

@@ -885,13 +885,23 @@ def title_backdrop(width: float) -> str:
 # the in-game pause menu's box, taller for the buttons this port adds
 # (menu_tags.c's pause_patch: SETTINGS, and the host's END GAME): the
 # pausebox5 redraw's rounded box (ui-svg-handmade/shell/bitmaps), drawn to
-# hold each number of buttons, one frame each (the Xbox's 2-button box is
-# 159 units high, and each button 35 more)
+# hold each number of buttons, one frame each (the Xbox look's comfortable
+# rows: 39 units each, 89 units of margin and legend around them)
 PAUSE_BOX_BUTTONS = [3, 4]
 
 
 def pause_box_height(buttons: int) -> int:
-    return 159 + (buttons - 2) * 35
+    return 89 + buttons * 39
+
+
+def pause_row_svg(focused: bool) -> str:
+    """a pause menu row's picture: 232 x 36 units, the focus band closed with a rounded cap at each end"""
+    lines = ['<svg xmlns="http://www.w3.org/2000/svg" width="232" height="36" viewBox="0 0 232 36">']
+    if focused:
+        lines += ['  <path d="M11,1 H221 A10,10 0 0 1 231,11 V25 A10,10 0 0 1 221,35 H11 A10,10 0 0 1 1,25 V11 '
+                  'A10,10 0 0 1 11,1 Z" fill="#000e23" stroke="#2995ff" stroke-width="2"/>']
+    lines += ["</svg>", ""]
+    return "\n".join(lines)
 
 
 def pause_box_svg(piece: str, height: int) -> str:

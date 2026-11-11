@@ -197,6 +197,8 @@ struct halo_menus
 
 /* the menus, read from the files (once; the same each call after); NULL if
 there are none, or a file has an error (logged) */
+/* Select before the first load; cached menus keep their original density. */
+void halo_menus_set_compact_density(int compact);
 struct halo_menus const *halo_menus_load(void);
 /* text as UTF-16, its terminator included, "\n" written as the game's line
 breaks ("\r\n"): the number of characters written (at most capacity) */

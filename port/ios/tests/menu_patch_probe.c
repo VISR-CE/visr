@@ -8,9 +8,11 @@ rows, the screens' children, the descriptions' strings and frames and pc_menu_pa
 argv[1]: "apple" (a keyboard, no Apple TV), "tvos" (the Apple TV, no keyboard) or "bad" (a malformed patch, which
 fails the files). */
 
-static int input_pad = 1, input_keyboard = 1;
+static int input_pad = 1, input_keyboard = 1, input_compact, input_density_override = -1;
 static char const *menu_mode = "xbox";
 int platform_menu_pad(void) { return input_pad; }
+int platform_menu_compact_density(void) { return input_compact; }
+long config_integer(char const *name) { (void)name; return input_density_override; }
 int platform_menu_keyboard(void) { return input_keyboard; }
 
 #include "menu_tags.c"
@@ -111,14 +113,18 @@ which replaces it) */
 /* (a picture's "files": the first byte is the texture the stand-in PNG decoder gives, 0 being one that cannot be
 drawn) */
 static const char shipped_png[] = "S";
+static char const density_xml[] = "<menus><widget name=\"xbox/density_probe\" height=\"39\"/></menus>";
+static char const compact_xml[] = "<menus><widget name=\"xbox/density_probe\" height=\"30\"/></menus>";
 const struct menu_file_embedded menu_files_embedded[] =
 {
+	{ "xbox/density.xml", (const unsigned int *)density_xml, sizeof(density_xml) - 1 },
+	{ "xbox/density.compact.xml", (const unsigned int *)compact_xml, sizeof(compact_xml) - 1 },
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
 	{ "ce/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
 	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
 };
-const unsigned int menu_files_embedded_count = 4;
+const unsigned int menu_files_embedded_count = 6;
 
 /* ---------- what the game and the platform layer give */
 
@@ -916,9 +922,9 @@ static void check_apple(boolean tvos)
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Four widgets, two bitmaps and the two PC description lists precede patch tags. */
-	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
-	used = 6 + 2 * (3 + 4 + 1) + 2;
+	/* Five widgets, two bitmaps and the two PC description lists precede patch tags. */
+	counted = 7 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
+	used = 7 + 2 * (3 + 4 + 1) + 2;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1124,6 +1130,9 @@ int main(int argc, char **argv)
 			fclose(file);
 		}
 	}
+	input_compact = !strcmp(mode, "compact") || !strcmp(mode, "override0");
+	if (!strcmp(mode, "override0")) input_density_override = 0;
+	if (!strcmp(mode, "override1")) input_density_override = 1;
 	map_build();
 	menu_tags_loaded("ui");
 	if (!strcmp(mode, "bad"))
@@ -1134,6 +1143,19 @@ int main(int argc, char **argv)
 	else
 	{
 		check(menu_tags.loaded, "the menus loaded");
+		{
+			struct halo_menus const *menus = halo_menus_load();
+			long i, found = 0;
+			for (i = 0; menus && i < menus->widget_count; i++)
+				if (!strcmp(menus->widgets[i].name, "xbox/density_probe"))
+				{
+					found++;
+					check(menus->widgets[i].height == ((input_density_override < 0 ? input_compact : input_density_override) ? 30 : 39), "selected density's tap band");
+				}
+			check(found == 1, "exactly one density definition loaded");
+			halo_menus_set_compact_density(!input_compact);
+			check(halo_menus_load() == menus, "density stays fixed after the first load");
+		}
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
 		{

@@ -27,6 +27,8 @@ edges): pictures, the legend's buttons among them, are drawn as they are.
 
 /* d3d8_device.c: the display's pixels for each of the 480 lines */
 float halo_screen_pixel_scale(void);
+float halo_screen_menu_pixel_scale(void);
+void halo_screen_menu_window(int active);
 
 /* the frames redrawn, by the last part of their bitmap's tag name (the map's
 "ui\shell\bitmaps\list_field" and the menus' "xbox/bitmaps/list_field" alike) */
@@ -131,7 +133,7 @@ int ui_redraw_enabled(void)
 1.5 (below it the original is as sharp) and at most 4 */
 static float wanted_scale(void)
 {
-	float pixels = halo_screen_pixel_scale();
+	float pixels = halo_screen_menu_pixel_scale();
 
 	return pixels < 1.5f ? 1.5f : pixels > 4.0f ? 4.0f : pixels;
 }
@@ -168,6 +170,8 @@ void ui_redraw_begin_screen(const char *tag_name)
 {
 	int enabled = ui_redraw_enabled();
 
+	halo_screen_menu_window(1);
+
 	if (enabled != last_enabled)
 	{
 		last_enabled = enabled;
@@ -188,6 +192,7 @@ void ui_redraw_begin_screen(const char *tag_name)
 
 void ui_redraw_end_screen(void)
 {
+	halo_screen_menu_window(0);
 	screen_active = 0;
 }
 
@@ -395,7 +400,7 @@ long ui_redraw_touch_target_units(void)
 	/* (the host says it is an iPhone, with its points' pixels: host_main.m) */
 	const char *phone = getenv("HALO_HOST_PHONE_SCALE");
 	float points_scale = phone ? (float)atof(phone) : 0.0f;
-	float pixels = halo_screen_pixel_scale();
+	float pixels = halo_screen_menu_pixel_scale();
 	long points = config_integer("input.ui_touch_target");
 
 	if (points_scale <= 0.0f || pixels <= 0.0f || points <= 0)

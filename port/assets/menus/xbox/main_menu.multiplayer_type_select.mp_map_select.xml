@@ -31,7 +31,7 @@
 		<on event="start" run="emit custom activation event" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2" type="column_list" width="640" height="406" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_extended_desc">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2" type="column_list" width="640" height="414" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_extended_desc" visible_rows="8">
 		<data input="mp map list update" />
 		<on event="created" run="mp level list initialize" />
 		<on event="deleted" run="mp level list dispose" />
@@ -39,18 +39,20 @@
 		<on event="b" run="port map list back" />
 		<on event="back" run="port map list back" />
 		<child widget="xbox/main_menu/new_select/list_item_0_map_kind" x="48" y="73" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_1" x="48" y="103" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_2" x="48" y="133" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_3" x="48" y="163" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_4" x="48" y="193" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_5" x="48" y="223" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_6" x="48" y="253" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_7" x="48" y="283" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_8" x="48" y="313" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_9" x="48" y="343" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_10" x="48" y="373" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_1" x="48" y="112" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_2" x="48" y="151" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_3" x="48" y="190" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_4" x="48" y="229" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_5" x="48" y="268" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_6" x="48" y="307" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_7" x="48" y="346" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_8" x="48" y="385" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_9" x="48" y="424" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_10" x="48" y="463" />
 		<on event="left" run="mp map kind previous" />
 		<on event="right" run="mp map kind next" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2/scroll_up_arrow" x="574" y="73" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2/scroll_down_arrow" x="574" y="352" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/gradient">
 		<on event="created" run="net server defer start" />
@@ -89,95 +91,95 @@
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" type="text" controller="1" width="230" height="28" font="ui\small_ui" color="#FF2896FF" align="center" text_flags="no_focus_test" text_y="6">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_1" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_1" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_2" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_2" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_3" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_3" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_4" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_4" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_5" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_5" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_6" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_6" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_7" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_7" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_8" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_8" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_9" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_9" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_10" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_10" controller="1" width="256" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="7" top="0">
 		<on event="a" run="single prev cl item activated" />
 		<on event="start" run="single prev cl item activated" />
 		<on event="left_mouse" run="mouse emit accept event" />
-		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" />
-		<child widget="xbox/main_menu/new_select/list_item_arrows" />
-		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" />
-		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
+		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" x="25" y="4" />
+		<child widget="xbox/main_menu/new_select/list_item_arrows" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_up_button" x="40" y="4" />
+		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" y="4" />
 	</widget>
 	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/map_list_one_line">
 		<string text="The Pillar of Autumn" />
@@ -198,4 +200,6 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_list_2/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 </menus>
