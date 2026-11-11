@@ -370,9 +370,15 @@ void delta_legacy_initialize(int on, const char *root, const struct delta_legacy
 	if (!keys) { keys = delta_legacy_keys; count = sizeof(delta_legacy_keys) / sizeof(delta_legacy_keys[0]); }
 	accepted_count = count <= KEY_LIMIT ? count : 0;
 	if (accepted_count) memcpy(accepted, keys, accepted_count * sizeof(*keys));
-	delta_legacy_runtime_set(NULL);
+	/* The row joins already read stays in force until the new state replaces it, so there is no window with none. */
+	if (!on) delta_legacy_runtime_set(NULL);
 	pthread_mutex_unlock(&table_lock);
-	if (on) delta_legacy_cache_read();
+	if (on && !delta_legacy_cache_read())
+	{
+		pthread_mutex_lock(&table_lock);
+		if (!active.row.serial) delta_legacy_runtime_set(NULL);
+		pthread_mutex_unlock(&table_lock);
+	}
 }
 int delta_legacy_offer(const void *bytes, size_t size)
 {

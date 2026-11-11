@@ -48,6 +48,8 @@ enum
 	/* an announcement or a withdrawal waits this long for each step, so that quitting, which waits for one under
 	way, usually sees it end */
 	ANNOUNCE_TIMEOUT = 4000,
+	/* a signed-table request is background work and gives up quickly */
+	LEGACY_TIMEOUT = 2000,
 	QUIT_TIMEOUT = 3000,
 	QUIT_WAIT = 6000,
 	URL_SIZE = 256,
@@ -111,28 +113,34 @@ static uint32_t legacy_next;
 
 static int legacy_copy(const char *document_url, const char *signature_url)
 {
-	char document[DELTA_LEGACY_DOCUMENT_MAX + 1], signature[130], error[ERROR_SIZE];
-	unsigned char bytes[DELTA_LEGACY_SIGNED_MAX];
+	char error[ERROR_SIZE];
 	struct posix_https_headers headers;
-	struct delta_legacy_table table;
-	int document_size, signature_size;
-	if (posix_https_get_signed(document_url, NULL, document, sizeof(document),
-		ANNOUNCE_TIMEOUT, &headers, error, sizeof(error)) != 200) return 0;
+	int document_size, signature_size, result = 0;
+	/* The buffers are large for a worker thread's stack, so they live on the heap. */
+	char *document = malloc(DELTA_LEGACY_DOCUMENT_MAX + 1), *signature = malloc(130);
+	unsigned char *bytes = malloc(DELTA_LEGACY_SIGNED_MAX);
+	struct delta_legacy_table *table = malloc(sizeof(*table));
+	if (!document || !signature || !bytes || !table) goto done;
+	if (posix_https_get_signed(document_url, NULL, document, DELTA_LEGACY_DOCUMENT_MAX + 1,
+		LEGACY_TIMEOUT, &headers, error, sizeof(error)) != 200) goto done;
 	document_size = headers.body_size;
-	if (document_size <= 0 || document_size > DELTA_LEGACY_DOCUMENT_MAX) return 0;
-	if (posix_https_get_signed(signature_url, NULL, signature, sizeof(signature),
-		ANNOUNCE_TIMEOUT, &headers, error, sizeof(error)) != 200) return 0;
+	if (document_size <= 0 || document_size > DELTA_LEGACY_DOCUMENT_MAX) goto done;
+	if (posix_https_get_signed(signature_url, NULL, signature, 130,
+		LEGACY_TIMEOUT, &headers, error, sizeof(error)) != 200) goto done;
 	signature_size = headers.body_size;
-	if (signature_size != 128 && !(signature_size == 129 && signature[128] == '\n')) return 0;
+	if (signature_size != 128 && !(signature_size == 129 && signature[128] == '\n')) goto done;
 	memcpy(bytes, signature, 128); bytes[128] = '\n';
 	memcpy(bytes + 129, document, (size_t)document_size);
 	/* An equal or older valid copy is a successful fetch, too. */
 	if (!delta_legacy_verify(bytes, (size_t)document_size + 129, delta_legacy_keys,
-		sizeof(delta_legacy_keys) / sizeof(delta_legacy_keys[0]), &table)) return 0;
-	if (!config_boolean("network.delta_table")) return 0;
+		sizeof(delta_legacy_keys) / sizeof(delta_legacy_keys[0]), table)) goto done;
+	if (!config_boolean("network.delta_table")) goto done;
 	if (delta_legacy_offer(bytes, (size_t)document_size + 129))
-		platform_log("Delta legacy: accepted table %u", (unsigned)table.row.serial);
-	return 1;
+		platform_log("Delta legacy: accepted table %u", (unsigned)table->row.serial);
+	result = 1;
+done:
+	free(document); free(signature); free(bytes); free(table);
+	return result;
 }
 static void legacy_pass(void)
 {
@@ -147,11 +155,13 @@ static void legacy_pass(void)
 		!list_url(document_url, sizeof(document_url), "/v1/delta/legacy") ||
 		!list_url(signature_url, sizeof(signature_url), "/v1/delta/legacy.sig") ||
 		!delta_legacy_fetch_due((uint32_t)p2p_now(), legacy_next, legacy_attempted)) return;
-	/* Four bounded requests must fit well before the next public-list heartbeat. */
-	if (delta.announce.listed && (uint32_t)(p2p_now() - delta.announce.sent_time) >= 30000u) return;
+	/* The fetch runs on the worker that also browses and sends heartbeats, so it waits while the game is listed
+	   and each of its requests gives up after LEGACY_TIMEOUT. */
+	if (delta.announce.listed) return;
 	success = legacy_copy(document_url, signature_url);
-	/* Ask both signed mirrors; a reachable older copy must not hide a newer one. */
-	if (config_boolean("network.delta_table") && legacy_copy("https://raw.githubusercontent.com/ChupathingyCE/chupathingyce/delta-table/legacy.json",
+	/* The GitHub copy comes from the same publisher and carries the same signature; it is asked only when the
+	   list server's copy fails. */
+	if (!success && config_boolean("network.delta_table") && legacy_copy("https://raw.githubusercontent.com/ChupathingyCE/chupathingyce/delta-table/legacy.json",
 		"https://raw.githubusercontent.com/ChupathingyCE/chupathingyce/delta-table/legacy.json.sig")) success = 1;
 	if (!success && !legacy_failed)
 		platform_log("Delta legacy: neither mirror supplied a valid table; keeping built-in or cached numbers");
