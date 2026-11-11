@@ -2989,7 +2989,8 @@ static boolean network_game_client_idle_joining(
 					_message_client_join_game_request,
 					&join_game_request,
 					sizeof(join_game_request),
-					halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0);
+					halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0,
+					halo_network_version_has_join_version_field(network_game_host_version()) ? network_game_host_version() : 0);
 				if (message)
 				{
 					/* (read before the write, which byte-swaps the header in place) */

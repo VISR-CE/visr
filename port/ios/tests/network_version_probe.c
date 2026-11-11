@@ -52,6 +52,18 @@ int main(void)
 		assert(halo_network_version_has_game_kind(version) == (version >= 37));
 		assert(halo_network_version_has_dedicated(version) == (version >= 39));
 	}
+	/* the shared contract from 42, riding from 43 */
+	for (version = 0; version < 0x10000; version++)
+	{
+		int contract = version >= 42;
+
+		assert(halo_network_version_has_join_version_field(version) == contract);
+		assert(halo_network_version_has_settings_digests(version) == contract);
+		assert(halo_network_version_has_checkpoint_epoch(version) == contract);
+		assert(halo_network_version_has_scripted_poses(version) == contract);
+		assert(halo_network_version_has_shared_sim_fixes(version) == contract);
+		assert(halo_network_version_has_riding(version) == (version >= 43));
+	}
 	/* a stamp within 450 ticks of the latest either way is taken */
 	assert(halo_network_stamp_in_window(1000, 1000) && halo_network_stamp_in_window(1000, 1450));
 	assert(halo_network_stamp_in_window(1000, 550));

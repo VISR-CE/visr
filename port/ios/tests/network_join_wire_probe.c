@@ -55,11 +55,32 @@ int main(void)
 	code = ((unsigned)refusal[1] << 8) | refusal[2];
 	assert(code == 9);
 	assert(!strcmp(halo_network_rejection_message(code), "This server doesn't allow VPN connections."));
-	/* the wire size logged for a join: 116 to hosts below 40, 350 from 40 */
-	for (unsigned version = 29; version <= 43; version++)
-		assert(halo_network_join_request_wire_size(halo_network_version_has_join_pass_field(version)) ==
-			(version >= 40 ? 350u : 116u));
-	assert(halo_network_join_request_wire_size(0) == 116 && halo_network_join_request_wire_size(1) == 350);
+	/* the wire size logged for a join: 116 to hosts below 40, 350 to 40 and 41, 352 from 42 */
+	for (unsigned version = 29; version <= 44; version++)
+		assert(halo_network_join_request_wire_size(halo_network_version_has_join_pass_field(version),
+			halo_network_version_has_join_version_field(version)) ==
+			(version >= 42 ? 352u : version >= 40 ? 350u : 116u));
+	assert(halo_network_join_request_wire_size(0, 0) == 116 && halo_network_join_request_wire_size(1, 0) == 350);
+	assert(halo_network_join_request_wire_size(1, 1) == 352);
+	/* from 42: the 234 zeros, then the version as a big-endian word, then the trailer */
+	{
+		unsigned char versioned[350];
+
+		size = halo_network_join_request_pad(encoded, sizeof(encoded), HALO_NETWORK_JOIN_PASS_FIELD_SIZE,
+			versioned, sizeof(versioned));
+		assert(size == 348);
+		size = halo_network_join_request_append_version(versioned, size, sizeof(versioned), 43);
+		assert(size == 350);
+		assert(!memcmp(encoded, versioned, 113));
+		for (index = 113; index <= 346; index++)
+			assert(versioned[index] == 0);
+		assert(versioned[347] == 0x00 && versioned[348] == 0x2b && versioned[349] == 0x0c);
+		/* the frame adds the length word: 352 bytes */
+		assert(size + 2 == 352);
+		assert(halo_network_join_request_append_version(versioned, 348, 349, 43) == 0);
+		assert(halo_network_join_request_append_version(versioned, 1, sizeof(versioned), 43) == 0);
+		assert(halo_network_join_request_append_version(versioned, 348, sizeof(versioned), 0x10000) == 0);
+	}
 	puts("PASS: join padding, frame lengths, refusal messages");
 	return 0;
 }

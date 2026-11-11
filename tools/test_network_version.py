@@ -91,3 +91,4 @@ def test_join_request_padding_follows_the_host_version():
     client = read("source/networking/network_client_manager.c")
     assert "create_network_game_message_padded(" in client
     assert "halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0" in client
+    assert "halo_network_version_has_join_version_field(network_game_host_version()) ? network_game_host_version() : 0" in client

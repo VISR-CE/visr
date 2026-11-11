@@ -6,8 +6,9 @@ The current agreement is 38. A client also joins hosts of 29 to 32 and 34 to
 settings record with the 28-byte options block, which the receiver widens;
 hosts of 35 to 37 send the 13,136-byte record. Each
 later rule is taken only from a host whose version has it (the helpers below);
-callers ask a helper rather than compare version numbers. A host does not know
-client versions because join requests do not carry one. Signed table rows may
+callers ask a helper rather than compare version numbers. Join requests to
+hosts of 42 and later end with the client's version (the shared contract from
+GulchCE); earlier hosts do not learn it. Signed table rows may
 extend discovery numbers without changing the game codec.
 */
 
@@ -44,6 +45,15 @@ their own destruction */
 #define HALO_NETWORK_VERSION_JOIN_PASS_FIELD 40
 /* The built-in ceiling; signed tables may extend it. */
 #define HALO_NETWORK_VERSION_NEWEST_JOINABLE 41
+/* the shared contract (chester's, GulchCE): the join request ends with the
+client's network version, the settings record carries two 32-byte digests
+(zero for Xbox maps), the distributed header grows to 12 bytes with a
+checkpoint epoch, message 96 carries checkpoints, scripted player poses, and
+simulation fixes every peer must apply. No OpenCE release used 42; 43 is the
+first. */
+#define HALO_NETWORK_VERSION_SHARED_CONTRACT 42
+/* the host's vehicle riding switch (OpenCE PR #637) */
+#define HALO_NETWORK_VERSION_RIDING 43
 
 /* the older versions a client of this build joins, one bit per version from
 the oldest: 29 to 32, and 34 to 36, each checked by joining a host of that
@@ -126,6 +136,46 @@ static inline int halo_network_version_has_dedicated(unsigned version)
 static inline int halo_network_version_has_join_pass_field(unsigned version)
 {
 	return version >= HALO_NETWORK_VERSION_JOIN_PASS_FIELD;
+}
+
+/* whether a host of the version requires the client's network version at the
+end of the join request (a big-endian word after the pass and proof field) */
+static inline int halo_network_version_has_join_version_field(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_SHARED_CONTRACT;
+}
+
+/* whether the settings record carries the two 32-byte map digests */
+static inline int halo_network_version_has_settings_digests(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_SHARED_CONTRACT;
+}
+
+/* whether distributed messages carry the 12-byte header with the checkpoint
+epoch, and message 96 carries checkpoints */
+static inline int halo_network_version_has_checkpoint_epoch(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_SHARED_CONTRACT;
+}
+
+/* whether unit updates may carry the scripted pose part and suspended flag */
+static inline int halo_network_version_has_scripted_poses(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_SHARED_CONTRACT;
+}
+
+/* whether a game of the version runs the shared simulation fixes (powered
+boat controls zeroed before use, and the others the contract lists); games
+and recordings of older versions keep the original simulation */
+static inline int halo_network_version_has_shared_sim_fixes(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_SHARED_CONTRACT;
+}
+
+/* whether a host of the version may turn vehicle riding on */
+static inline int halo_network_version_has_riding(unsigned version)
+{
+	return version >= HALO_NETWORK_VERSION_RIDING;
 }
 
 /* how far a datagram's tick may be from the latest the sender's others
