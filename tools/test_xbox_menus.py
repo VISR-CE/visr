@@ -1457,3 +1457,19 @@ def test_profile_editor_removes_save_after_inserting_settings():
     assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
     assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
     assert not any(p.find('remove') is not None for p in root.findall('patch') if p is not edit)
+
+@pytest.mark.parametrize('kind', ('password', 'code'))
+def test_password_and_code_legend_caption_follows_the_field(kind):
+    """A opens the keyboard until text is held, so the legend's A caption is a two-string list
+    (EDIT, JOIN GAME) that menu_functions.c's legend_accept_caption switches; taps still join."""
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.port.xml').getroot()
+    base = f'xbox/main_menu/multiplayer_type_select/join_game/{kind}/{kind}_screen/legend'
+    accept = next(w for w in root.iter('widget') if w.get('name') == base + '/accept')
+    assert accept.get('text') is None
+    strings = next(s for s in root.iter('strings') if s.get('name') == accept.get('string_list'))
+    assert [s.get('text') for s in strings] == ['EDIT', 'JOIN GAME']
+    assert accept.get('string_index') == '1'
+    assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} join'
+    source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    assert f'legend_accept_caption(list, text_field_editing(NULL) || {kind}_screen.text[0])' in source
+    assert f'text_field_editing(row) || {kind}_screen.text[0])' in source

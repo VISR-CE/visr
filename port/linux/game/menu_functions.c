@@ -5059,6 +5059,22 @@ static void password_screen_done(char const *text)
 	snprintf(password_screen.text, sizeof(password_screen.text), "%s", text);
 }
 
+/* The legend's A caption on the password and code screens: EDIT while A
+opens the keyboard (nothing typed yet), JOIN GAME once A joins (text held, or
+a touch or keyboard player, whose legend taps and Enter join). */
+static void legend_accept_caption(struct widget_instance *list, boolean join)
+{
+	extern int controller_glyph_hidden(short player, short physical);
+	extern short local_player_index_for_draw_string_and_hack_in_icons;
+	short owner = list->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : list->local_player_index;
+	struct widget_instance *caption = named(screen_of(list), "accept", 0);
+
+	if (caption)
+		caption->parameters.text_box.string_list_index =
+			(short)((join || controller_glyph_hidden(owner, BUTTON_A)) ? 1 : 0);
+}
+
 /* "port password init" */
 static boolean password_screen_initialize(struct widget_instance *list)
 {
@@ -5084,6 +5100,7 @@ static void password_screen_update(struct widget_instance *list)
 	text_field_show(named(list, "password_value", 0), stars, text_field_editing(named(list, "op_password", 0)));
 	if (help)
 		help->parameters.text_box.string_list_index = password_screen.help;
+	legend_accept_caption(list, text_field_editing(NULL) || password_screen.text[0]);
 }
 
 /* "port password join" (JOIN GAME, and Enter: password_screen_edit) */
@@ -5130,7 +5147,7 @@ static boolean password_screen_back(struct widget_instance *widget, boolean *wid
 end, joins) */
 static boolean password_screen_edit(struct widget_instance *row, boolean *widget_deleted)
 {
-	if (text_field_editing(row))
+	if (text_field_editing(row) || password_screen.text[0])
 		return password_screen_join(row, widget_deleted);
 	text_field_begin_masked(row, password_screen.text, PASSWORD_LENGTH, password_screen_done);
 	return TRUE;
@@ -5316,6 +5333,7 @@ static void code_screen_update(struct widget_instance *list)
 	text_field_show(named(list, "code_value", 0), code_screen.text, text_field_editing(named(list, "op_code", 0)));
 	if (help)
 		help->parameters.text_box.string_list_index = code_screen.help;
+	legend_accept_caption(list, text_field_editing(NULL) || code_screen.text[0]);
 }
 
 /* "port code join" (JOIN GAME, and Enter: code_screen_edit) */
@@ -5354,7 +5372,7 @@ static boolean code_screen_back(struct widget_instance *widget, boolean *widget_
 /* "port code edit" (the field's row's A: the typing begins; Enter joins) */
 static boolean code_screen_edit(struct widget_instance *row, boolean *widget_deleted)
 {
-	if (text_field_editing(row))
+	if (text_field_editing(row) || code_screen.text[0])
 		return code_screen_join(row, widget_deleted);
 	text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
 	return TRUE;

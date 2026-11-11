@@ -896,6 +896,17 @@ def multiplayer_documents(assets, bitmaps):
                 kind = 'password' if name.endswith('/password_screen') else 'code'
                 base = name + '/legend'
                 legend(root, w, base, accept='JOIN GAME')
+                # The caption follows the field (menu_functions.c's
+                # legend_accept_caption): EDIT while A would open the keyboard,
+                # JOIN GAME while A joins.
+                strings = ET.SubElement(root, 'strings', name=f'{base}/accept_captions')
+                for caption in ('EDIT', 'JOIN GAME'):
+                    ET.SubElement(strings, 'string', text=caption)
+                for target in root.iter('widget'):
+                    if target.get('name') == f'{base}/accept':
+                        del target.attrib['text']
+                        target.set('string_list', f'{base}/accept_captions')
+                        target.set('string_index', '1')
                 for leaf, run in (('a_butn', f'port {kind} join'), ('accept', f'port {kind} join'),
                                   ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
                     for target in root.iter('widget'):
