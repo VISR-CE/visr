@@ -58,3 +58,10 @@ def test_virtual_keyboard_separator_patch_preserves_the_typed_key():
     assert 'rectangle2d separators[2] = {{414,397,440,408}, {414,498,440,509}};' in source
     # Patches touch only the legend strip, not the grid of typed characters.
     assert 'controller_glyph_blit(bitmap, &separators[index], &sample' in source
+
+
+def test_legend_glyphs_center_on_caption_cap_height():
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert '#define LEGEND_GLYPH_RAISE 3' in source
+    assert 'glyph_bounds.y0 -= LEGEND_GLYPH_RAISE;' in source
+    assert '&glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu' in source
