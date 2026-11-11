@@ -431,6 +431,9 @@ static int synthetic_key(SDL_Event *event)
 		event->type = SDL_EVENT_KEY_DOWN;
 		event->key.scancode = pressed;
 		event->key.down = true;
+		/* menu-bar commands, so the game treats them as chords (the intro
+		movie does not skip on them) */
+		event->key.mod = SDL_KMOD_CTRL | SDL_KMOD_GUI;
 		return 1;
 	}
 }
