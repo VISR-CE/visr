@@ -1197,3 +1197,28 @@ def test_profile_edit_has_a_graphics_row_where_there_is_no_video_row():
     row = next(r for r in patches.iter('row') if r.get('name') == 'profile_item_graphics')
     assert (row.get('platform'), row.get('text')) == ('!mac_app', 'GRAPHICS')
     assert row.get('open') == 'xbox/settings/graphics/graphics_screen'
+
+def test_no_screen_draws_both_a_legend_and_its_own_button_bar():
+    """A screen with a generated footer legend must not also draw the original
+    button row (JOIN GAME / CANCEL, OK / BACK), or the actions show twice."""
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+
+    def reachable(name, seen):
+        if name in seen or name not in widgets:
+            return
+        seen.add(name)
+        for c in widgets[name].findall('child'):
+            reachable(c.get('widget'), seen)
+
+    duplicated = []
+    for name in widgets:
+        if not name.endswith('_screen'):
+            continue
+        seen = set()
+        reachable(name, seen)
+        has_legend = any('/legend/' in n for n in seen)
+        has_bar = any(n.rsplit('/', 1)[-1] in ('button_bar', 'player_2_button_bar') for n in seen)
+        if has_legend and has_bar:
+            duplicated.append(name)
+    assert duplicated == []

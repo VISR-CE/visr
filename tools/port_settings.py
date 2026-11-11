@@ -1018,7 +1018,7 @@ def _password_screen() -> list:
     # (by its state: menu_functions.c's password_screen_update)
     extra += _strings(f"{base}/help_strings", [
         "",
-        "This game has a password. Type it, then press\\nEnter to join.",
+        "This game has a password.\\nEnter it, then select JOIN GAME.",
         "That is not the game's password. Try again.",
         "Could not join the game.",
     ])

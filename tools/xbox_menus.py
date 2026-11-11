@@ -136,7 +136,7 @@ def legend(root, screen, base, accept='SELECT', cancel='CANCEL', accept_platform
         child(screen, f'{base}/{caption}', x=x + 22, y=414, **only)
         # the game's own button art (ui.map's a_butn/b_butn, PNG fallbacks), as the Xbox legends draw it
         widget(root, f'{base}/{button}', type='container', width=21, height=26, bitmap=f'xbox/browser/{button}')
-        text_widget(root, f'{base}/{caption}', label, width=100, height=22)
+        text_widget(root, f'{base}/{caption}', label, width=max(100, 12 * len(label)), height=22)
 
 
 def footer(root, base, save, defaults):
@@ -765,11 +765,37 @@ def multiplayer_documents(assets, bitmaps):
         for w in list(root.findall('widget')):
             if w.get('name', '').endswith('_screen'):
                 legend(root, w, w.get('name') + '/legend', cancel='BACK')
+        # The legend already carries SELECT / BACK, so the shared OK / BACK bar
+        # that the profile list places under it would draw a second row.
+        for parent in root.iter('widget'):
+            for c in list(parent.findall('child')):
+                if c.get('widget', '').endswith('/player_2_button_bar'):
+                    parent.remove(c)
     for filename in ('join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options'):
         root = documents['main_menu.multiplayer_type_select.' + filename + '.xml']
         for w in list(root.findall('widget')):
-            if w.get('name', '').endswith('_screen'):
-                legend(root, w, w.get('name') + '/legend')
+            name = w.get('name', '')
+            if name.endswith(('/password_screen', '/code_screen')):
+                # The footer legend carries JOIN GAME / CANCEL like every other
+                # screen. The screen's own button bar is hidden, so tapping the
+                # legend runs what the bar's buttons did (Enter in the field
+                # joins too).
+                kind = 'password' if name.endswith('/password_screen') else 'code'
+                base = name + '/legend'
+                legend(root, w, base, accept='JOIN GAME')
+                for leaf, run in (('a_butn', f'port {kind} join'), ('accept', f'port {kind} join'),
+                                  ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
+                    for target in root.iter('widget'):
+                        if target.get('name') == f'{base}/{leaf}':
+                            ET.SubElement(target, 'on', event='left_mouse', run=run)
+                for parent in root.iter('widget'):
+                    for c in list(parent.findall('child')):
+                        if c.get('widget', '').endswith('/button_bar') and \
+                                c.get('widget', '').startswith(name.rsplit('/', 1)[0]):
+                            parent.remove(c)
+                continue
+            if name.endswith('_screen'):
+                legend(root, w, name + '/legend')
     lobby_action_layout(documents['main_menu.multiplayer_type_select.lobby.xml'])
     return documents
 
