@@ -10,6 +10,8 @@
 #include "game/game.h"
 #include "game/game_engine.h"
 #include "game/players.h"
+#include "game/cheats.h"
+#include "units/units.h"
 #include "networking/network_connection.h"
 #include "interface/hud.h"
 #include "scenario/scenario.h"
@@ -48,7 +50,7 @@ static long settle_until;
 static struct director saved_director, *current_director;
 static struct cinematic_global_data saved_cinematic;
 static struct hud_scripted_globals_definition saved_hud;
-static int saved_input, saved_scripted, saved_bsp, saved_dont_timeout;
+static int saved_input, saved_scripted, saved_bsp, saved_dont_timeout, saved_deathless = -1, report_settle;
 static float saved_speed, fov;
 static struct photo_shot metadata;
 
@@ -86,6 +88,8 @@ void photo_mode_end(void)
 	active = 0;
 	global_connection_dont_timeout = saved_dont_timeout;
 	if (saved_bsp != global_structure_bsp_index_get()) scenario_switch_structure_bsp((short)saved_bsp);
+	if (saved_deathless >= 0) cheat.deathless_player = (boolean)saved_deathless;
+	saved_deathless = -1; report_settle = 0;
 	game_time_set_speed(saved_speed);
 	if (!saved_cinematic.in_progress) cinematic_stop();
 	*cinematic_globals = saved_cinematic;
@@ -224,6 +228,59 @@ static void fly(boolean *controls_active, float seconds, float facing[3], float 
 	}
 }
 
+/* T: carry player 0 to the camera so the level's later structure BSPs load around him. The game
+holds one structure BSP at a time, so each other BSP is loaded in turn and asked, with the
+game's own leaf lookup, whether it holds the point; the current one is asked first. */
+static void teleport_player(const struct flying_camera *camera)
+{
+	real_point3d point = camera->position;
+	real_vector3d forward;
+	short original = global_structure_bsp_index_get(), target = NONE, index;
+	short count = (short)global_scenario->structure_bsp_references.count;
+	long player_index = local_player_get_player_index(0);
+	struct player_datum *player = player_index == NONE ? NULL : player_try_and_get(player_index);
+	struct unit_datum *unit;
+	if (!player || player->unit_index == NONE)
+	{ error(_error_silent, "photo teleport: player 0 has no unit; refused"); return; }
+	if (scenario_leaf_index_from_point(&point) != NONE) target = original;
+	for (index = 0; target == NONE && index < count; index++)
+	{
+		if (index == original) continue;
+		if (!scenario_switch_structure_bsp(index)) continue;
+		if (scenario_leaf_index_from_point(&point) != NONE) target = index;
+	}
+	if (target == NONE)
+	{
+		if (global_structure_bsp_index_get() != original) scenario_switch_structure_bsp(original);
+		error(_error_silent, "photo teleport: no structure BSP holds (%.2f,%.2f,%.2f); stayed in BSP %d", point.x, point.y, point.z, original);
+		return;
+	}
+	vector3d_from_euler_angles2d(&forward, &camera->facing);
+	forward.k = 0; /* the biped stands upright, facing the camera's heading */
+	if (!normalize3d(&forward)) { forward.i = 1; forward.j = 0; }
+	if (saved_deathless < 0) saved_deathless = cheat.deathless_player;
+	cheat.deathless_player = TRUE; /* a drop from the camera's height must not cost a checkpoint revert */
+	if (!player_teleport(player_index, NONE, &point))
+	{ error(_error_silent, "photo teleport: player_teleport refused (%.2f,%.2f,%.2f)", point.x, point.y, point.z); }
+	if ((unit = unit_try_and_get(player->unit_index)) != NULL)
+	{
+		unit->unit.desired_facing_vector = forward;
+		unit->unit.desired_aiming_vector = forward;
+		unit->unit.desired_looking_vector = forward;
+	}
+	if (player->local_player_index != NONE) player_control_set_facing(player->local_player_index, &forward);
+	saved_bsp = target; /* leaving photo mode keeps the player's new BSP */
+	if (target != original)
+	{
+		ai_scripting_erase_all();
+		game_time_set_speed(1);
+		settle_until = game_time_get() + metadata.settle_ticks;
+		report_settle = 1;
+	}
+	error(_error_silent, "photo teleport: BSP %d -> %d; player 0 at (%.2f,%.2f,%.2f) facing (%.3f,%.3f)%s",
+		original, target, point.x, point.y, point.z, forward.i, forward.j, target != original ? "; settling, then frozen" : "");
+}
+
 void photo_mode_update(struct director *director, boolean *controls_active, float seconds, float facing[3], float translation[3])
 {
 	struct flying_camera *camera = (struct flying_camera *)director->camera_data;
@@ -278,7 +335,15 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	director->camera_change_pause = 0;
 	player_input_enable(FALSE);
 	cinematic_globals->show_letterbox = FALSE; cinematic_globals->letterbox_amount = 0;
-	if (game_time_get() >= settle_until) game_time_set_speed(0);
+	if (game_time_get() >= settle_until)
+	{
+		game_time_set_speed(0);
+		if (report_settle)
+		{
+			report_settle = 0;
+			error(_error_silent, "photo teleport: settled and frozen in BSP %d", global_structure_bsp_index_get());
+		}
+	}
 	if (action == PHOTO_GUIDES) guides = !guides;
 	if (action == PHOTO_SLOWER && speed_step > -4) speed_step--;
 	if (action == PHOTO_FASTER && speed_step < 4) speed_step++;
@@ -286,6 +351,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	camera->field_of_view = fov; camera->roll = 0;
 	fly(controls_active,seconds,facing,translation,camera);
 	if (action == PHOTO_SAVE || action == PHOTO_LOAD) file_action(action,camera);
+	if (action == PHOTO_TELEPORT) teleport_player(camera);
 	if (action == PHOTO_RENDER_CHECK) error(_error_silent, "photo mode: render check not implemented (phase 5)");
 	host_photo_mode_overlay(fov,speed_step,guides,metadata.focus[0],metadata.focus[1]);
 }

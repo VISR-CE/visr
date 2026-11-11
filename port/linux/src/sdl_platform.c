@@ -1788,6 +1788,7 @@ void platform_pump_events(void)
 				case SDL_SCANCODE_P: action = PHOTO_TOGGLE; break;
 				case SDL_SCANCODE_O: action = PHOTO_GUIDES; break;
 				case SDL_SCANCODE_I: action = PHOTO_SAVE; break;
+				case SDL_SCANCODE_T: action = PHOTO_TELEPORT; break;
 				case SDL_SCANCODE_L: action = PHOTO_LOAD; break;
 				case SDL_SCANCODE_K: action = PHOTO_RENDER_CHECK; break;
 				case SDL_SCANCODE_LEFTBRACKET: action = PHOTO_SLOWER; break;
