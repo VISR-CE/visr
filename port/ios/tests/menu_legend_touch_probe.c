@@ -43,8 +43,10 @@ typedef unsigned int pixel32;
 static int draw_count;
 static rectangle2d drawn_bounds;
 static pixel32 modulate_pixel32_by_real_alpha(pixel32 color, real alpha) {(void)alpha;return color;}
+static short ui_mouse_legend_label_width(struct widget_instance *l,struct ui_widget_definition const *d,short f) {(void)l;(void)d;(void)f;return 70;}
+static pixel32 last_color;
 static void draw_quad(rectangle2d *bounds,pixel32 color) {
- assert(color==0xff2996ff || color==0xb0102030);
+ last_color=color;
  if(!draw_count++)drawn_bounds=*bounds;
  drawn_bounds.x0=MIN(drawn_bounds.x0,bounds->x0);
  drawn_bounds.x1=MAX(drawn_bounds.x1,bounds->x1);
@@ -77,14 +79,23 @@ int main(void) {
  assert(ui_mouse_target_at(420,455)==target);
  assert(!ui_mouse_target_at(420,390));
  assert(!ui_mouse_target_at(480,427));
- /* Drawing and hit testing use the identical screen-space rectangle. */
- rectangle2d visual=definitions[0].bounds;
- assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&visual));
- assert(!memcmp(&visual,&target->bounds,sizeof(visual)));
- ui_widget_draw_touch_legend(&visual,NULL,1);
- assert(draw_count>0 && !memcmp(&visual,&drawn_bounds,sizeof(visual)));
+ /* The visible button sits inside the 35-unit legend band (y 410-445), is centered on the
+  text (70 wide) and is inside its pointer target. */
+ rectangle2d visual,hit=definitions[0].bounds;
+ assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual));
+ assert(!memcmp(&hit,&target->bounds,sizeof(hit)));
+ assert(visual.y1-visual.y0==28 && visual.y0>=410 && visual.y1<=445);
+ assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
+ assert((visual.x0+visual.x1)/2==368+70/2);
+ ui_widget_draw_touch_legend(&visual,NULL,1,0);
+ assert(draw_count>0);
+ assert(drawn_bounds.x0>=visual.x0-4 && drawn_bounds.x1<=visual.x1+4);
+ assert(drawn_bounds.y0>=visual.y0-4 && drawn_bounds.y1<=visual.y1+4);
+ ui_widget_draw_touch_legend(&visual,NULL,1,0);pixel32 idle=last_color;
+ ui_widget_draw_touch_legend(&visual,NULL,1,1);
+ assert(last_color!=idle);
  rectangle2d clip={410,360,440,450};draw_count=0;
- ui_widget_draw_touch_legend(&visual,&clip,1);
+ ui_widget_draw_touch_legend(&visual,&clip,1,0);
  assert(drawn_bounds.x0>=clip.x0 && drawn_bounds.x1<=clip.x1);
  assert(drawn_bounds.y0>=clip.y0 && drawn_bounds.y1<=clip.y1);
  for(int face=0;face<6;face++) {

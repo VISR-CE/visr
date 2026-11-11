@@ -6163,6 +6163,9 @@ static boolean ui_mouse_hover_pending = FALSE;
 static boolean ui_mouse_click_pending = FALSE;
 static short ui_mouse_hover_x, ui_mouse_hover_y;
 static short ui_mouse_click_x, ui_mouse_click_y;
+/* port: the touch legend button a tap just hit, drawn brighter for a few frames */
+static struct widget_instance *ui_touch_legend_pressed = NULL;
+static short ui_touch_legend_pressed_frames = 0;
 
 /* A screen that goes away (Save and Quit, restart, revert) leaves the
 targets its last draw noted, and the pointer's pending hover, click and
@@ -6340,19 +6343,46 @@ static void ui_mouse_note_carousel_arrows(
 	return;
 }
 
-/* port: the legend's visible button and pointer target share one rectangle.
-Pair by position, so captions stay ordinary text without a sentinel prefix. */
+/* port: the width the legend's caption is drawn with, so its button can be
+centered on the text instead of on the caption widget's full width. */
+static short ui_mouse_legend_label_width(
+	struct widget_instance *label,
+	struct ui_widget_definition const *label_definition,
+	short fallback)
+{
+	long old_font;
+	short width;
+
+	if (!label->parameters.text_box.text || label_definition->text_font.index == NONE)
+		return fallback;
+	old_font = draw_string_get_font();
+	draw_string_set_font(label_definition->text_font.index);
+	draw_string_set_format(NONE, 0, 0);
+	draw_string_set_indents(0, 0);
+	width = ui_widget_port_text_width(label->parameters.text_box.text);
+	if (old_font != NONE)
+		draw_string_set_font(old_font);
+
+	return width > 0 ? width : fallback;
+}
+
+/* port: the touch legend's button. `bounds` is the pointer target, at least 60
+menu units square (46.875 pt at the smallest landscape scale, 375/480). `drawn`
+is the visible button: 28 units tall so it sits inside the 35-unit legend band,
+centered on the caption's text, which stays where the controller legend puts it. */
 static boolean ui_mouse_legend_bounds(
 	struct widget_instance *widget,
 	struct ui_widget_definition const *definition,
 	point2d offset,
-	rectangle2d *bounds)
+	rectangle2d *bounds,
+	rectangle2d *drawn)
 {
 	struct widget_instance *parent = widget->parent;
 	short button = ui_mouse_key_button(widget);
 	short owner = widget->local_player_index == NONE ?
 		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
-	struct widget_instance *sibling;
+	struct widget_instance *sibling, *label = NULL;
+	struct ui_widget_definition *label_definition = NULL;
 	rectangle2d label_bounds;
 	short best_distance = 17;
 
@@ -6381,33 +6411,43 @@ static boolean ui_mouse_legend_bounds(
 		{
 			best_distance = distance;
 			label_bounds = sibling_bounds;
+			label = sibling;
+			label_definition = sibling_definition;
 		}
-	}
-	if (best_distance < 17)
-	{
-		bounds->x1 = MAX(bounds->x1, label_bounds.x1);
-		bounds->y0 = MIN(bounds->y0, label_bounds.y0);
-		bounds->y1 = MAX(bounds->y1, label_bounds.y1);
 	}
 
 	if (best_distance >= 17 || button == NONE || !controller_glyph_hidden(owner, button))
-		return FALSE;
-	/* 60 menu units are 46.875 pt at the smallest landscape scale (375/480).
-	Eight units of side padding keep the caption away from the outline. */
 	{
-		short width = MAX(16, 60 - (bounds->x1 - bounds->x0));
-		short height = MAX(0, 60 - (bounds->y1 - bounds->y0));
-		bounds->x0 -= width / 2;
-		bounds->x1 += width - width / 2;
-		bounds->y0 -= height / 2;
-		bounds->y1 += height - height / 2;
+		if (best_distance < 17)
+		{
+			bounds->x1 = MAX(bounds->x1, label_bounds.x1);
+			bounds->y0 = MIN(bounds->y0, label_bounds.y0);
+			bounds->y1 = MAX(bounds->y1, label_bounds.y1);
+		}
+		return FALSE;
+	}
+	{
+		short text_width = ui_mouse_legend_label_width(label, label_definition,
+			label_bounds.x1 - label_bounds.x0);
+		short center_x = label_bounds.x0 + text_width / 2;
+		short center_y = (bounds->y0 + bounds->y1) / 2;
+		short width = MAX(44, text_width + 20);
+		short hit_width = MAX(60, width + 12);
+
+		drawn->x0 = center_x - width / 2;
+		drawn->x1 = drawn->x0 + width;
+		drawn->y0 = center_y - 14;
+		drawn->y1 = drawn->y0 + 28;
+		bounds->x0 = center_x - hit_width / 2;
+		bounds->x1 = bounds->x0 + hit_width;
+		bounds->y0 = center_y - 30;
+		bounds->y1 = bounds->y0 + 60;
 	}
 	return TRUE;
 }
 
-/* port: scanline quads preserve the menu renderer's alpha blending and clip.
-The eight-unit corner radius and HUD blue outline match the game's controls. */
-static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d const *clip, real alpha)
+/* port: scanline quads preserve the menu renderer's alpha blending and clip. */
+static void ui_widget_draw_touch_legend_fill(rectangle2d const *bounds, rectangle2d const *clip, pixel32 color)
 {
 	static short const insets[8] = {5, 3, 2, 1, 1, 0, 0, 0};
 	short y;
@@ -6416,34 +6456,32 @@ static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d c
 		short edge = MIN(y - bounds->y0, bounds->y1 - 1 - y);
 		short inset = edge < 8 ? insets[edge] : 0;
 		short end = edge >= 8 ? bounds->y1 - 8 : y + 1;
-		short part;
-		for (part = 0; part < 3; part++)
+		rectangle2d row = {y, bounds->x0 + inset, end, bounds->x1 - inset};
+		if (clip)
 		{
-			rectangle2d row = {y, bounds->x0 + inset, end, bounds->x1 - inset};
-			pixel32 color = modulate_pixel32_by_real_alpha(0xff2996ff, alpha);
-			if (edge >= 2)
-			{
-				if (part == 0) row.x1 = row.x0 + 2;
-				else if (part == 1)
-				{
-					row.x0 += 2;
-					row.x1 -= 2;
-					color = modulate_pixel32_by_real_alpha(0xb0102030, alpha);
-				}
-				else row.x0 = row.x1 - 2;
-			}
-			else if (part) continue;
-			if (clip)
-			{
-				row.x0 = MAX(row.x0, clip->x0);
-				row.x1 = MIN(row.x1, clip->x1);
-				row.y0 = MAX(row.y0, clip->y0);
-				row.y1 = MIN(row.y1, clip->y1);
-			}
-			if (row.x0 < row.x1 && row.y0 < row.y1) draw_quad(&row, color);
+			row.x0 = MAX(row.x0, clip->x0);
+			row.x1 = MIN(row.x1, clip->x1);
+			row.y0 = MAX(row.y0, clip->y0);
+			row.y1 = MIN(row.y1, clip->y1);
 		}
+		if (row.x0 < row.x1 && row.y0 < row.y1) draw_quad(&row, color);
 		y = end;
 	}
+}
+
+/* port: the focused-button look of the menus: a blue-tinted fill, a bright
+blue border and a soft glow. A tap brightens the fill for a few frames. */
+static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d const *clip, real alpha, boolean pressed)
+{
+	rectangle2d ring = {bounds->y0 - 4, bounds->x0 - 4, bounds->y1 + 4, bounds->x1 + 4};
+	rectangle2d inner = {bounds->y0 + 2, bounds->x0 + 2, bounds->y1 - 2, bounds->x1 - 2};
+
+	ui_widget_draw_touch_legend_fill(&ring, clip, modulate_pixel32_by_real_alpha(0x182996ff, alpha));
+	ring.y0 += 2; ring.x0 += 2; ring.y1 -= 2; ring.x1 -= 2;
+	ui_widget_draw_touch_legend_fill(&ring, clip, modulate_pixel32_by_real_alpha(0x302996ff, alpha));
+	ui_widget_draw_touch_legend_fill(bounds, clip, modulate_pixel32_by_real_alpha(0xff4aa8ff, alpha));
+	ui_widget_draw_touch_legend_fill(&inner, clip,
+		modulate_pixel32_by_real_alpha(pressed ? 0xf03c78c0 : 0xe0183a66, alpha));
 }
 
 static void ui_mouse_note_target(
@@ -6480,7 +6518,8 @@ static void ui_mouse_note_target(
 	else if (button_index != NONE)
 	{
 		kind = _ui_mouse_target_button;
-		ui_mouse_legend_bounds(widget, definition, offset, &bounds);
+		rectangle2d drawn;
+		ui_mouse_legend_bounds(widget, definition, offset, &bounds, &drawn);
 	}
 	else if (parent && ui_mouse_list_shows_several(parent))
 	{
@@ -6843,6 +6882,11 @@ static void ui_widgets_process_mouse(
 			target = ui_mouse_target_at(ui_mouse_click_x, ui_mouse_click_y);
 			if (target)
 			{
+				if (target->kind == _ui_mouse_target_button)
+				{
+					ui_touch_legend_pressed = target->widget;
+					ui_touch_legend_pressed_frames = 8;
+				}
 				switch (target->kind)
 				{
 				case _ui_mouse_target_item:
@@ -7204,10 +7248,15 @@ static void widget_instance_render_recursive(
 		return;
 	ui_mouse_note_target(widget, definition, offset);
 	{
-		rectangle2d legend_bounds;
+		rectangle2d legend_bounds, legend_drawn;
 		if (ui_mouse_key_button(widget) != NONE &&
-			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds))
-			ui_widget_draw_touch_legend(&legend_bounds, clip_rect, alpha_modifier);
+			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn))
+		{
+			boolean pressed = widget == ui_touch_legend_pressed && ui_touch_legend_pressed_frames > 0;
+			ui_widget_draw_touch_legend(&legend_drawn, clip_rect, alpha_modifier, pressed);
+			if (pressed)
+				ui_touch_legend_pressed_frames--;
+		}
 	}
 	/* port: a Custom Edition map's picture, drawn over the whole widget, or
 	the unknown level's frame for a map without one
