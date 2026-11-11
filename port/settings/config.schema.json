@@ -4092,7 +4092,7 @@
         },
         "switch_weapon": {
           "type": "string",
-          "default": "Wheel, 1",
+          "default": "Wheel, Tab",
           "description": "Switching weapons.",
           "x-environment": "HALO_KEY_SWITCH_WEAPON",
           "x-environment-style": "value",
@@ -4136,7 +4136,7 @@
         },
         "scoreboard": {
           "type": "string",
-          "default": "Tab",
+          "default": "1",
           "description": "Showing the scores (the controller's Back).",
           "x-environment": "HALO_KEY_SCOREBOARD",
           "x-environment-style": "value",

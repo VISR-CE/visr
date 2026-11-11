@@ -459,11 +459,11 @@ the setting for one start of the game. It has priority over the file.
 | `controls.melee` | string | `"F, Mouse 4"` | apple, desktop | `HALO_KEY_MELEE` | Melee attack. |
 | `controls.reload` | string | `"R"` | apple, desktop | `HALO_KEY_RELOAD` | Reloading. |
 | `controls.zoom` | string | `"Z, Mouse Middle"` | apple, desktop | `HALO_KEY_ZOOM` | Zooming the scope. |
-| `controls.switch_weapon` | string | `"Wheel, 1"` | apple, desktop | `HALO_KEY_SWITCH_WEAPON` | Switching weapons. |
+| `controls.switch_weapon` | string | `"Wheel, Tab"` | apple, desktop | `HALO_KEY_SWITCH_WEAPON` | Switching weapons. |
 | `controls.switch_grenade` | string | `"X"` | apple, desktop | `HALO_KEY_SWITCH_GRENADE` | Switching grenades. |
 | `controls.action` | string | `"E"` | apple, desktop | `HALO_KEY_ACTION` | The action: picking up (held: swapping weapons), entering and leaving vehicles, pressing switches; never reloading (the controller's X does when there is nothing to act on). |
 | `controls.flashlight` | string | `"Q"` | apple, desktop | `HALO_KEY_FLASHLIGHT` | The flashlight. |
-| `controls.scoreboard` | string | `"Tab"` | apple, desktop | `HALO_KEY_SCOREBOARD` | Showing the scores (the controller's Back). |
+| `controls.scoreboard` | string | `"1"` | apple, desktop | `HALO_KEY_SCOREBOARD` | Showing the scores (the controller's Back). |
 | `controls.pause` | string | `"Escape"` | apple, desktop | `HALO_KEY_PAUSE` | The pause menu (the controller's Start). |
 ### game
 
