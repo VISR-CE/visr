@@ -907,6 +907,18 @@ def multiplayer_documents(assets, bitmaps):
                         del target.attrib['text']
                         target.set('string_list', f'{base}/accept_captions')
                         target.set('string_index', '1')
+                # With text held on a controller, A joins and Y re-edits: the Y
+                # legend (hidden otherwise by legend_accept_caption) opens the keyboard.
+                for leaf, label, x in (('y_edit_butn', None, 190), ('y_edit', 'EDIT', 212)):
+                    child(w, f'{base}/{leaf}', x=x, y=414)
+                    if label:
+                        text_widget(root, f'{base}/{leaf}', label, width=60, height=22)
+                    else:
+                        widget(root, f'{base}/{leaf}', type='container', width=21, height=26,
+                               bitmap='xbox/browser/y_butn')
+                    target = next(t for t in root.iter('widget') if t.get('name') == f'{base}/{leaf}')
+                    ET.SubElement(target, 'on', event='left_mouse', run=f'port {kind} reedit')
+                ET.SubElement(w, 'on', event='y', run=f'port {kind} reedit')
                 for leaf, run in (('a_butn', f'port {kind} join'), ('accept', f'port {kind} join'),
                                   ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
                     for target in root.iter('widget'):

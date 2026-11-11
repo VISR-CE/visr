@@ -5061,18 +5061,23 @@ static void password_screen_done(char const *text)
 
 /* The legend's A caption on the password and code screens: EDIT while A
 opens the keyboard (nothing typed yet), JOIN GAME once A joins (text held, or
-a touch or keyboard player, whose legend taps and Enter join). */
+a touch or keyboard player, whose legend taps and Enter join). A controller
+player holding text also gets the Y legend, EDIT, to open the keyboard again. */
 static void legend_accept_caption(struct widget_instance *list, boolean join)
 {
 	extern int controller_glyph_hidden(short player, short physical);
 	extern short local_player_index_for_draw_string_and_hack_in_icons;
 	short owner = list->local_player_index == NONE ?
 		local_player_index_for_draw_string_and_hack_in_icons : list->local_player_index;
-	struct widget_instance *caption = named(screen_of(list), "accept", 0);
+	boolean controller = !controller_glyph_hidden(owner, BUTTON_A);
+	struct widget_instance *screen = screen_of(list);
+	struct widget_instance *caption = named(screen, "accept", 0);
+	boolean reedit = controller && join && !text_field_editing(NULL);
 
 	if (caption)
-		caption->parameters.text_box.string_list_index =
-			(short)((join || controller_glyph_hidden(owner, BUTTON_A)) ? 1 : 0);
+		caption->parameters.text_box.string_list_index = (short)((join || !controller) ? 1 : 0);
+	visible_set(named(screen, "y_edit_butn", 0), reedit);
+	visible_set(named(screen, "y_edit", 0), reedit);
 }
 
 /* "port password init" */
@@ -5149,6 +5154,18 @@ static boolean password_screen_edit(struct widget_instance *row, boolean *widget
 {
 	if (text_field_editing(row) || password_screen.text[0])
 		return password_screen_join(row, widget_deleted);
+	text_field_begin_masked(row, password_screen.text, PASSWORD_LENGTH, password_screen_done);
+	return TRUE;
+}
+
+/* "port password reedit" (Y, the legend's EDIT): the keyboard again over the
+text held */
+static boolean password_screen_reedit(struct widget_instance *widget)
+{
+	struct widget_instance *row = named(screen_of(widget), "op_password", 0);
+
+	if (!row || text_field_editing(NULL))
+		return FALSE;
 	text_field_begin_masked(row, password_screen.text, PASSWORD_LENGTH, password_screen_done);
 	return TRUE;
 }
@@ -5374,6 +5391,17 @@ static boolean code_screen_edit(struct widget_instance *row, boolean *widget_del
 {
 	if (text_field_editing(row) || code_screen.text[0])
 		return code_screen_join(row, widget_deleted);
+	text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
+	return TRUE;
+}
+
+/* "port code reedit" (Y, the legend's EDIT): the keyboard again over the text held */
+static boolean code_screen_reedit(struct widget_instance *widget)
+{
+	struct widget_instance *row = named(screen_of(widget), "op_code", 0);
+
+	if (!row || text_field_editing(NULL))
+		return FALSE;
 	text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
 	return TRUE;
 }
@@ -7042,6 +7070,14 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port password join"))
 		{
 			return password_screen_join(widget, widget_deleted);
+		}
+		else if (!strcmp(name, "port password reedit"))
+		{
+			return password_screen_reedit(widget);
+		}
+		else if (!strcmp(name, "port code reedit"))
+		{
+			return code_screen_reedit(widget);
 		}
 		else if (!strcmp(name, "port password back"))
 		{

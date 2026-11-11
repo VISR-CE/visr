@@ -1470,6 +1470,14 @@ def test_password_and_code_legend_caption_follows_the_field(kind):
     assert [s.get('text') for s in strings] == ['EDIT', 'JOIN GAME']
     assert accept.get('string_index') == '1'
     assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} join'
+    # a controller player holding text re-edits with Y: its legend and the screen's y event
+    screen = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0])
+    assert screen.find('on[@event="y"]').get('run') == f'port {kind} reedit'
+    for leaf in ('y_edit_butn', 'y_edit'):
+        entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
+        assert entry.find('on[@event="left_mouse"]').get('run') == f'port {kind} reedit'
+        assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None
+    assert f'"port {kind} reedit"' in (ROOT / 'port/linux/game/menu_functions.c').read_text()
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     assert f'legend_accept_caption(list, text_field_editing(NULL) || {kind}_screen.text[0])' in source
     assert f'text_field_editing(row) || {kind}_screen.text[0])' in source
