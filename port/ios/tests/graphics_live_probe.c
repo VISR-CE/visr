@@ -31,6 +31,7 @@ static const struct probe_stereo *halo_stereo_frame(void) { return &probe_stereo
 static int head_eyes_frame(void) { return 0; }
 static int halo_scene_class(void) { return CONFIG_SCENE_GAMEPLAY; }
 static int halo_external_pause_allowed(void) { return 0; }
+static int photo_mode_active(void) { return 0; }
 static void host_external_commit(int allowed) { (void)allowed; }
 static int dynamic_resolution_refused(void) { return 2; }
 static int host_dynamic_resolution_lines(int ceiling) { (void)ceiling; return 0; }
