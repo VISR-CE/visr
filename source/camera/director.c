@@ -871,6 +871,10 @@ static boolean director_update_controls(
 		{
 			if (gamepad->buttons[_gamepad_binary_button_right_thumb] == 1)
 				director->debug_controls = !director->debug_controls;
+			/* port: keyboard and mouse arrive as a gamepad (xinput_sdl.c), so the
+			flying controls need the debug toggle; photo mode owns them outright. */
+			if (local_player_index == 0 && photo_mode_active())
+				director->debug_controls = TRUE;
 			if (director->debug_controls)
 			{
 				control_flags = 0;

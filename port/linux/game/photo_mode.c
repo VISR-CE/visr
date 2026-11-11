@@ -9,6 +9,7 @@
 #include "game/game.h"
 #include "game/game_engine.h"
 #include "game/players.h"
+#include "networking/network_connection.h"
 #include "interface/hud.h"
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
@@ -38,7 +39,7 @@ static long settle_until;
 static struct director saved_director, *current_director;
 static struct cinematic_global_data saved_cinematic;
 static struct hud_scripted_globals_definition saved_hud;
-static int saved_input, saved_scripted, saved_bsp;
+static int saved_input, saved_scripted, saved_bsp, saved_dont_timeout;
 static float saved_speed, fov;
 static struct photo_shot metadata;
 
@@ -72,6 +73,7 @@ void photo_mode_end(void)
 	pending = 0;
 	if (!active) return;
 	active = 0;
+	global_connection_dont_timeout = saved_dont_timeout;
 	if (saved_bsp != global_structure_bsp_index_get()) scenario_switch_structure_bsp((short)saved_bsp);
 	game_time_set_speed(saved_speed);
 	if (!saved_cinematic.in_progress) cinematic_stop();
@@ -217,6 +219,7 @@ void photo_mode_update(struct director *director, float *translation, float *rol
 		  long index = game_engine_get_variant()->game_engine_index;
 		  snprintf(metadata.variant,sizeof(metadata.variant),"%s",index >= 0 && index < 6 ? names[index] : "slayer"); }
 		active = 1; speed_step = 0;
+		saved_dont_timeout = global_connection_dont_timeout; global_connection_dont_timeout = TRUE;
 		cinematic_start();
 		*director_camera_scripted = FALSE;
 		scripted_show_hud(FALSE); scripted_show_hud_help_text(FALSE); player_input_enable(FALSE);

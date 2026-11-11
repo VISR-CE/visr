@@ -622,6 +622,9 @@ boolean network_connection_going_stale(
 		0x338,
 		connection);
 
+	/* port: a held game (photo mode) sends no traffic; no stale notice */
+	if (global_connection_dont_timeout)
+		return FALSE;
 	return TEST_FLAG(connection->flags, _connection_going_stale_bit);
 }
 
