@@ -7,15 +7,19 @@
 #include <string.h>
 
 #define HALO_NETWORK_JOIN_PASS_FIELD_SIZE 234
+/* the client's network version after the pass field (from 42), big-endian */
+#define HALO_NETWORK_JOIN_VERSION_FIELD_SIZE 2
 /* the join request's TCP frame without the pass field: length word, version
 byte, 112-byte body, type trailer */
 #define HALO_NETWORK_JOIN_REQUEST_FRAME_SIZE 116
 
 /* the join request's size on the wire to a host of this network version
-(halo_network_version_has_join_pass_field: from 40) */
-static inline unsigned halo_network_join_request_wire_size(int has_pass_field)
+(halo_network_version_has_join_pass_field: from 40;
+halo_network_version_has_join_version_field: from 42) */
+static inline unsigned halo_network_join_request_wire_size(int has_pass_field, int has_version_field)
 {
-	return HALO_NETWORK_JOIN_REQUEST_FRAME_SIZE + (has_pass_field ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0);
+	return HALO_NETWORK_JOIN_REQUEST_FRAME_SIZE + (has_pass_field ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0) +
+		(has_version_field ? HALO_NETWORK_JOIN_VERSION_FIELD_SIZE : 0);
 }
 
 /* Client-only codes: the hosting protocol's rejection range stays unchanged. */
@@ -39,6 +43,23 @@ static inline size_t halo_network_join_request_pad(unsigned char const *encoded,
 	memset(out + size - 1, 0, extra);
 	out[size + extra - 1] = trailer;
 	return size + extra;
+}
+
+/* Inserts the client's network version, big-endian, before the type trailer
+of a padded join request in place; returns the new size, or 0 when it does
+not fit. */
+static inline size_t halo_network_join_request_append_version(unsigned char *message, size_t size,
+	size_t capacity, unsigned version)
+{
+	unsigned char trailer;
+
+	if (size < 2 || size > capacity || capacity - size < HALO_NETWORK_JOIN_VERSION_FIELD_SIZE || version > 0xFFFFu)
+		return 0;
+	trailer = message[size - 1];
+	message[size - 1] = (unsigned char)(version >> 8);
+	message[size] = (unsigned char)(version & 0xFFu);
+	message[size + 1] = trailer;
+	return size + HALO_NETWORK_JOIN_VERSION_FIELD_SIZE;
 }
 
 static inline char const *halo_network_rejection_message(unsigned code)
