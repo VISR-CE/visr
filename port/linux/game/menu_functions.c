@@ -6344,6 +6344,14 @@ static struct widget_instance *vehicle_spinner(struct widget_instance *list, cha
 	return NULL;
 }
 
+/* the presets' spinner index of the side's stored set */
+static short vehicles_preset_index(struct game_variant_options const *options, short side)
+{
+	return options->vehicle_set[side] == VARIANT_VEHICLE_SET_CUSTOM ?
+		VEHICLE_PRESET_CUSTOM : options->vehicle_set[side] == VARIANT_VEHICLE_SET_PC ?
+		VEHICLE_PRESET_PC : (short)MIN(options->vehicle_set[side], VEHICLE_PRESET_PC - 1);
+}
+
 static void vehicles_show(struct widget_instance *list)
 {
 	struct game_variant_options *options = edit_options();
@@ -6355,9 +6363,7 @@ static void vehicles_show(struct widget_instance *list)
 	if ((spinner = vehicle_spinner(list, "team_spinner")) != NULL)
 		spinner->parameters.list.selected_index = side;
 	if ((spinner = vehicle_spinner(list, "vehicle_presets_spinner")) != NULL)
-		spinner->parameters.list.selected_index = options->vehicle_set[side] == VARIANT_VEHICLE_SET_CUSTOM ?
-			VEHICLE_PRESET_CUSTOM : options->vehicle_set[side] == VARIANT_VEHICLE_SET_PC ?
-			VEHICLE_PRESET_PC : (short)MIN(options->vehicle_set[side], VEHICLE_PRESET_PC - 1);
+		spinner->parameters.list.selected_index = vehicles_preset_index(options, side);
 	for (index = 0; index < NUMBER_OF_VARIANT_VEHICLES; index++)
 	{
 		if ((spinner = vehicle_spinner(list, vehicle_spinners[index])) != NULL)
@@ -6391,12 +6397,16 @@ static void vehicles_keep(struct widget_instance *list)
 }
 
 /* "mp prof vehicles update": the side changed (the one left kept, the other
-shown); a count changed makes the side's set CUSTOM */
+shown); a count changed makes the side's set CUSTOM. port: every change is
+kept as it is made, set included, as the counts always were: the screen's
+B leaves without its OK, and a set left behind its counts (the gametype's
+own, e.g. Slayer Pro's none) placed no vehicle in the game's first round */
 static void vehicles_update(struct widget_instance *list)
 {
 	struct game_variant_options *options = edit_options();
 	struct widget_instance *team = vehicle_spinner(list, "team_spinner");
 	struct widget_instance *preset = vehicle_spinner(list, "vehicle_presets_spinner");
+	boolean changed = FALSE;
 	short index;
 
 	if (!options)
@@ -6417,8 +6427,12 @@ static void vehicles_update(struct widget_instance *list)
 		{
 			options->vehicle_counts[gametype_edit.vehicle_side][index] = (byte)spinner->parameters.list.selected_index;
 			preset->parameters.list.selected_index = VEHICLE_PRESET_CUSTOM;
+			changed = TRUE;
 		}
 	}
+	if (changed || (preset && preset->parameters.list.selected_index !=
+		vehicles_preset_index(options, gametype_edit.vehicle_side)))
+		vehicles_keep(list);
 }
 
 /* "mp profile init X" (the list's creation): its spinners from the gametype */
