@@ -42,3 +42,16 @@ def test_keep_stores_the_universal_set():
     body = function_body(MENUS.read_text(), 'vehicles_keep')
     assert 'options->vehicle_set[side] =' in body, body
     assert 'variant->universal_variant.vehicle_set =' in body, body
+
+
+def test_update_keeps_the_respawn_time():
+    # (B leaves without OK: the respawn time is kept as it changes, too)
+    text = MENUS.read_text()
+    body = function_body(text, 'vehicles_update')
+    assert 'vehicles_respawn_keep(list);' in body, body
+    keep = function_body(text, 'vehicles_respawn_keep')
+    assert 'gametype_option_named("vehicles_respawn_spinner")' in keep, keep
+    # (only a move off the stored value's place is stored, so a time between
+    # the spinner's values is not snapped by opening the screen)
+    assert 'gametype_option_index(option, gametype_option_value(option, variant, options))' in keep, keep
+    assert 'gametype_option_value_set(option, option->values[index], variant, options);' in keep, keep
