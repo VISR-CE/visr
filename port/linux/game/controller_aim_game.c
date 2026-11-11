@@ -387,7 +387,8 @@ static struct
 
 /* the settings, read once (settings) */
 static int settings_read;
-static int aim_controller;          /* input.aim = "controller" */
+static int aim_controller;          /* a hand aims: input.aim = "controller" or "hands" */
+static int aim_hands;               /* a bare hand aims: input.aim = "hands" */
 static int test_controller;         /* debug.test_controller or debug.controller_replay set */
 static int aim_trace;               /* debug.aim_trace: a line every drawn frame while a hand aims */
 static float pitch_offset_degrees;  /* input.aim_pitch_offset; the live chord steps it */
@@ -440,6 +441,12 @@ choice over the setting once used */
 #define ARMS_FOLLOW_ON 0.5f
 static float arms_follow_live = -1.0f;
 static int arms_turn_limit_message_pending, arms_follow_message_pending;
+/* input.arms_level_mount, resolved (controller_level_mount): the "solved"
+model hangs off a levelled view rather than the head's own frame, so the
+head's pitch stops swinging the whole model, and the grip with it, about the
+eyes. first_person_arms.c does the levelling; this is only which answer the
+setting came to, which the solve reads through halo_controller_gun_frame */
+static int level_mount;
 /* input.zoom_takeover: 1, the zoom gate: zoomed, the head takes the aim
 (and the reticle goes to the center) where the hand's reticle would leave
 sight in the zoomed picture. 0, the default: the hand keeps the aim at any
@@ -482,7 +489,12 @@ static void settings(void)
 	if (settings_read)
 		return;
 	settings_read = 1;
-	aim_controller = !strcmp(config_string("input.aim"), "controller");
+	{
+		const char *aim = config_string("input.aim");
+
+		aim_hands = !strcmp(aim, "hands");
+		aim_controller = !strcmp(aim, "controller") || aim_hands;
+	}
 	/* a replayed pose stream (debug.controller_replay) is checked like a synthetic one */
 	test_controller = config_string("debug.test_controller")[0] != 0 || config_string("debug.controller_replay")[0] != 0;
 	aim_trace = config_boolean("debug.aim_trace");
@@ -538,6 +550,11 @@ static void settings(void)
 			arms_follow = 0.5f;
 		if (arms_follow_live >= 0.0f)
 			arms_follow = arms_follow_live;
+		level_mount = controller_level_mount(config_string("input.arms_level_mount"), aim_hands);
+		if (arms_mode == HALO_ARMS_SOLVED)
+			platform_log("controller aim: the solved arms' mounting is %s (input.arms_level_mount)",
+				level_mount ? "levelled: the head's pitch leaves the gun where the arm holds it" :
+				"the view's: the head carries the model with it");
 	}
 	zoom_takeover = config_boolean("input.zoom_takeover");
 	if (zoom_takeover)
@@ -772,6 +789,7 @@ static void can_not_start_messages(const struct halo_spatial_sample *sample)
 	case HALO_SPATIAL_ONE_CONTROLLER: text = "Controller aim needs both Sense controllers"; break;
 	case HALO_SPATIAL_DENIED: text = "Controller aim needs accessory tracking permission"; break;
 	case HALO_SPATIAL_NEEDS_27: text = "Controller aim needs visionOS 27"; break;
+	case HALO_SPATIAL_HANDS_DENIED: text = "Hand aim needs hand tracking permission"; break;
 	case HALO_SPATIAL_MISPLACED:
 		text = network_controller_aim() ? "Controller tracking is off: holding gameplay aim" :
 			"Controller tracking is off: aiming with your head";
@@ -2063,7 +2081,8 @@ int halo_controller_weapon_frame(short local_player_index, const float camera_fo
 	return 1;
 }
 
-int halo_controller_gun_frame(short local_player_index, float forward[3], float up[3], float *blend, float shift[3])
+int halo_controller_gun_frame(short local_player_index, float forward[3], float up[3], float *blend, float shift[3],
+	int *level_mount_out)
 {
 	if (local_player_index != 0 || !draw.active || drawing.active_frame != render.frame_index)
 		return 0;
@@ -2071,6 +2090,7 @@ int halo_controller_gun_frame(short local_player_index, float forward[3], float 
 	memcpy(up, drawing.weapon_up, sizeof(drawing.weapon_up));
 	*blend = draw.blend;
 	memcpy(shift, drawing.grip_shift, sizeof(drawing.grip_shift));
+	*level_mount_out = level_mount;
 	return 1;
 }
 
@@ -2174,9 +2194,9 @@ void halo_controller_debug_marker(void)
 /* ---------- for input_replay.c */
 
 /* for input_replay.c's header, decided at a run's first tick: 1 when this
-run's configuration can aim with a hand (input.aim = "controller" and a
-synthetic controller, or a host that has the Sense controllers connected or
-loading). The caller adds the stereo mode */
+run's configuration can aim with a hand (input.aim = "controller" or
+"hands", with a synthetic controller, or a host whose Sense controllers or
+bare hands are tracking or loading). The caller adds the stereo mode */
 int halo_controller_aim_configured(void)
 {
 	settings();

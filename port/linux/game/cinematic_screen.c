@@ -316,6 +316,37 @@ int halo_seat_first_person_passenger(void)
 		!TEST_FLAG(seat->flags, _unit_seat_invisible_bit);
 }
 
+/* A seat that steers the vehicle under it: the vehicle takes this rider's
+desired facing whole, as its own, every tick (units.c's
+unit_update_driver_and_gunner), so where this rider faces is the whole of
+where the vehicle is told to go. The seat's own driver flag decides it
+rather than the vehicle's driver_object_index, because that index is live
+bookkeeping the engine fills as a seat is taken and clears as it is left,
+and a seat flagged driver and gunner at once fills the gunner index from the
+same rider. A gunner seat is excluded for that reason: there the facing aims
+the vehicle's own weapon (unit_get_aiming_unit_index sends the aim to the
+vehicle), which is a different job from steering and has its own rules. */
+int halo_seat_driving(void)
+{
+	long player_index = local_player_get_player_index(0);
+	long unit_index, parent_index;
+	struct unit_datum *unit;
+
+	if (player_index == NONE)
+		return 0;
+	unit_index = player_get(player_index)->unit_index;
+	if (unit_index == NONE)
+		return 0;
+	unit = unit_get(unit_index);
+	parent_index = unit->object.parent_object_index;
+	if (parent_index == NONE || !object_try_and_get_and_verify_type(parent_index, _object_mask_vehicle))
+		return 0;
+	/* (both calls bound the seat index against the vehicle's seat block
+	themselves, so a rider between seats, with none, answers 0) */
+	return unit_seat_is_driver(parent_index, unit->unit.parent_seat_index) &&
+		!unit_seat_is_gunner(parent_index, unit->unit.parent_seat_index);
+}
+
 /* The zoom reticle can use the unit's ordinary aim only when the player
 fires their own held weapon. A gunner or vehicle weapon may fire from its
 marker instead; leave those reticles on their existing camera rule. */

@@ -38,11 +38,23 @@ enum
 struct arms_input
 {
 	float view_forward[3], view_up[3];   /* the mounting: the view's frame (world, unit) */
+	/* and the point it was mounted at (world): the camera's position, which
+	animation_graph_node_matrices_from_orientations built the root matrix
+	from. Not the root node's own position, which carries the animation's
+	root translation on top of it, and so is not the point the head turns
+	the pose about */
+	float view_position[3];
 	float gun_forward[3], gun_up[3];     /* where the gun should point (world; the smoothed sightline and barrel up) */
 	float blend;                         /* the action's blend: 0 the view's frame, 1 the gun's */
 	float grip_shift[3];                 /* the grip's move (world units): the position term */
 	float left_grip[3];                  /* the left palm's place on the gun in the base pose (world) */
 	int left_grip_valid;
+	/* input.arms_level_mount, resolved by controller_aim.c's
+	controller_level_mount: mount the pose on the view levelled (its pitch
+	and roll taken out, its yaw kept) rather than on the view itself, so the
+	head's pitch stops swinging the whole model, and the grip with it, about
+	the eyes. 0 is the mounting as it was */
+	int level_mount;
 };
 
 struct arms_limits
@@ -84,11 +96,12 @@ int halo_first_person_arms_apply(short local_player_index, real_matrix4x3 *matri
 /* controller_aim_game.c: the mode in force (input.first_person_arms, or the
 live chord's), its live cycle (Back and the left stick), and the gun's frame
 for the solve: the smoothed sightline and barrel up (world), the action's
-blend and the grip's shift; 0 when no hand aims this frame */
+blend, the grip's shift and whether the mounting is levelled
+(input.arms_level_mount); 0 when no hand aims this frame */
 int halo_controller_arms_mode(void);
 void halo_controller_arms_cycle(int direction);
 int halo_controller_gun_frame(short local_player_index, float forward[3], float up[3], float *blend,
-	float shift[3]);
+	float shift[3], int *level_mount);
 #endif
 
 #endif

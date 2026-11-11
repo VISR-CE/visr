@@ -36,6 +36,7 @@ unsigned long halo_level_serial(void) { return 0; }
 int halo_level_start_campaign(void) { return 0; }
 int halo_seat_cryo_pod(void) { return 0; }
 int halo_seat_first_person_passenger(void) { return 0; }
+int halo_seat_driving(void) { return 0; }
 int halo_third_person_camera(void) { return game_third_person; }
 int halo_coop_dead_camera(void) { return 0; }
 int halo_cutscene_camera_first_person(void) { return 0; }

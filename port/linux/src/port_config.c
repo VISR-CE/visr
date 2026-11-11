@@ -479,13 +479,15 @@ static const struct config_setting config_settings[] =
 		"With input.turn = \"smooth\": darken the edges of the view while the stick\n"
 		"turns it, for comfort." },
 	{ "input.aim", _config_string, "\"controller\"", "HALO_AIM", _environment_value, _platform_ios,
-		"With display.stereo = \"head\": what aims, \"head\" (the view's center)\n"
-		"or \"controller\" (default; the aiming hand's Sense controller). Aiming\n"
-		"uses the head when tracking is unavailable in local play. In network\n"
-		"play, aim holds its last valid hand direction through input.aim_loss_grace,\n"
-		"then uses the head until the hand is tracked again (and before the\n"
-		"first tracked pose); a seat uses stick aim. Anything else aims with the\n"
-		"head." },
+		"With display.stereo = \"head\": what aims, \"head\" (the view's center),\n"
+		"\"controller\" (default; the aiming hand's Sense controller) or\n"
+		"\"hands\" (the dominant hand's forearm aims; a Sense pair is not used in\n"
+		"this mode even if paired; the head is the fallback).\n"
+		"Aiming uses the head when tracking is unavailable in local play. In\n"
+		"network play, aim holds its last valid hand direction through\n"
+		"input.aim_loss_grace, then uses the head until the hand is tracked\n"
+		"again (and before the first tracked pose); a seat uses stick aim.\n"
+		"Anything else aims with the head." },
 	{ "input.aim_loss_grace", _config_real, "0.5", "HALO_AIM_LOSS_GRACE", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": seconds of lost hand tracking during\n"
 		"which the last hand aim is held, in local and network play, before the\n"
@@ -494,6 +496,57 @@ static const struct config_setting config_settings[] =
 	{ "input.aim_hand", _config_string, "\"right\"", "HALO_AIM_HAND", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": the aiming hand, \"right\" (default) or\n"
 		"\"left\" (the buttons mirror)." },
+	{ "input.hand_turn_deadzone", _config_real, "18.0", "HALO_HAND_TURN_DEADZONE", _environment_value,
+		_platform_ios,
+		"With input.aim = \"hands\": degrees the aim must point past your body's\n"
+		"forward before the body turns under it, 5 to 60." },
+	{ "input.hand_elevation_deadzone", _config_real, "9.0", "HALO_HAND_ELEVATION_DEADZONE",
+		_environment_value, _platform_ios,
+		"With input.aim = \"hands\": degrees the aim must rise or fall past its\n"
+		"corrected zero before a turret's gun follows it, 2 to 45. Separate from\n"
+		"input.hand_turn_deadzone, which it used to share: a comfortable vertical\n"
+		"reach is much shorter than a sideways sweep, so one number for both made\n"
+		"the up and down adjustment feel slow." },
+	{ "input.hand_elevation_span", _config_real, "14.0", "HALO_HAND_ELEVATION_SPAN", _environment_value,
+		_platform_ios,
+		"With input.aim = \"hands\": degrees of aim past\n"
+		"input.hand_elevation_deadzone to a turret's full up or down, 5 to 60.\n"
+		"With both defaults the gun is at its stop 23 degrees above the corrected\n"
+		"zero." },
+	{ "input.hand_aim_gap", _config_real, "0.15", "HALO_HAND_AIM_GAP", _environment_value, _platform_ios,
+		"With input.aim = \"hands\": seconds a hand's aim is held through a\n"
+		"tracking dropout before the head takes it, 0 to 1, where 0 holds\n"
+		"nothing. Hand tracking drops a hand for a few samples at a time, and a\n"
+		"dropout that reaches the game costs far more aim than the dropout\n"
+		"itself: the tracking a recovery is made to wait for grows with each loss\n"
+		"soon after the last, and the aim keeps easing toward the head while that\n"
+		"wait runs, so a single lost sample can cost a third of a second of head\n"
+		"aim. A dropout shorter than this gap never reaches the game at all,\n"
+		"which is what keeps that from building up. The aim's position goes stale\n"
+		"for the length of a hold, so a longer gap trades a little lag for fewer\n"
+		"snaps. A hand genuinely gone for longer than the gap still hands the aim\n"
+		"over to the head. Size it from debug.hand_log, whose \"hands: aim\" lines\n"
+		"report each dropout as held, meaning this gap absorbed it and the game\n"
+		"never saw it, with how long it ran, or as lost, with how long it ran past\n"
+		"the gap. Held runs pressed up against the gap, with lost runs behind\n"
+		"them, are a gap that wants widening." },
+	{ "input.hand_aim_loss", _config_string, "\"hold\"", "HALO_HAND_AIM_LOSS", _environment_value,
+		_platform_ios,
+		"With input.aim = \"hands\": what aims once a hand has been out of view\n"
+		"for longer than input.hand_aim_gap, \"hold\" (default) or \"head\".\n"
+		"Anything else holds. \"hold\" keeps the hand's last direction for as long\n"
+		"as the hand is gone and never lets the head take the aim from a hand:\n"
+		"the head taking over was the single most disruptive thing in play,\n"
+		"because it does not lag the aim, it moves it somewhere else and then\n"
+		"moves it back, where a frozen aim is at least legible and the player can\n"
+		"simply lower the hand and raise it again. That is the trade a player\n"
+		"chose on device and it is the default. \"head\" hands the aim to the view\n"
+		"centre at the end of the gap instead, for anyone who would rather have a\n"
+		"live aim than a held one. Either way the gap goes on measuring, so\n"
+		"debug.hand_log sorts the dropouts the same under both. Neither setting\n"
+		"covers hand tracking itself stopping (a withdrawn permission, a session\n"
+		"that ends): the head aims then whatever this says, or there would be no\n"
+		"way to aim at all." },
 	{ "input.aim_pitch_offset", _config_real, "0.0", "HALO_AIM_PITCH_OFFSET", _environment_value, _platform_ios,
 		"With input.aim = \"controller\": degrees the barrel ray and gun tilt down\n"
 		"from the aim axis (-10 to 45), for aiming from the hip with the forearm\n"
@@ -586,6 +639,24 @@ static const struct config_setting config_settings[] =
 		"where the animation puts it) to 1.0 (it moves with the hand, as far as\n"
 		"the arm reaches); default 0.5. With debug.sense_tuning_chord, hold Back (Create) and press A (Cross)\n"
 		"to switch between 0.0 and 0.5." },
+	{ "input.arms_level_mount", _config_string, "\"auto\"", "HALO_ARMS_LEVEL_MOUNT", _environment_value,
+		_platform_ios,
+		"HEAD mode with controller aim, input.first_person_arms \"solved\":\n"
+		"whether the drawn gun and arms hang off your level forward rather than\n"
+		"off wherever you are looking, \"auto\" (default), \"on\" or \"off\".\n"
+		"Anything else is \"auto\", which is on with input.aim = \"hands\" and off\n"
+		"with a Sense pair. The game animated this model for a gun carried by\n"
+		"the head, so the whole of it, the grip included, swings about your eyes\n"
+		"as you look up and down: hold your arm still, look up, and the gun\n"
+		"rises with your gaze even though the hand aiming it has not moved. On,\n"
+		"the model is mounted level instead, keeping the way you are facing and\n"
+		"losing your pitch and roll, so the gun stays where your arm holds it\n"
+		"and the view pans over it. Under bare hands the arm is the only thing\n"
+		"holding the gun, which is why it is the default there. Off is the\n"
+		"mounting as it was, for anyone who prefers the gun in front of the\n"
+		"face. The gun's own aim, the reticle and the shots come from the hand\n"
+		"either way, and the four arms limits are then measured from the level\n"
+		"forward rather than from the view's center." },
 	{ "input.arms_turn_limit", _config_real, "35", "HALO_ARMS_TURN_LIMIT", _environment_value, _platform_ios,
 		"HEAD mode with controller aim, input.first_person_arms \"solved\":\n"
 		"how far across the view, in degrees, the drawn gun turns with the\n"
@@ -642,6 +713,13 @@ static const struct config_setting config_settings[] =
 		"degrees each way over 4 s, and \"loss:<seconds>\" holds it at fixed:0,0\n"
 		"but untracked for that long every 10 s, then orientation-only as long\n"
 		"(up to 5). Empty for none; leave it empty on a headset." },
+	{ "debug.hand_log", _config_boolean, "false", "HALO_HAND_LOG", _environment_value, _platform_ios,
+		"Log every hand gesture's state change with the value measured against\n"
+		"its threshold." },
+	{ "debug.hand_distance_log", _config_boolean, "false", "HALO_HAND_DISTANCE_LOG", _environment_value,
+		_platform_ios,
+		"Log the raw thumb to fingertip distances periodically, for calibrating\n"
+		"the pinch thresholds." },
 	{ "debug.controller_record", _config_string, "\"\"", "HALO_CONTROLLER_RECORD", _environment_value,
 		_platform_ios,
 		"Write every pose sample the host hands the game (both hands, the\n"

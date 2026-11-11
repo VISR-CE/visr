@@ -43,6 +43,12 @@ HEAD mode: the head turns the game's camera for the picture only, relative
 to its pose when the camera began, and never the player's facing, so the
 sticks drive and aim as in mono (halo_stereo_head_orient). With
 display.stereo_vehicle_screen it goes on the screen as the film instead.
+The one exception is the seat that steers: with input.aim = "hands" there is
+no stick to drive with, so in a seat that drives the vehicle the head's turn
+past a deadzone turns the look at a rate, where the stick's turn would
+(drive_steer_yaw). The picture is still the head's; the car follows it,
+behind the comfort vignette the stick's own smooth turn already uses, for a
+player who has asked for one (input.comfort_vignette).
 
 SCREEN mode's gameplay is the same picture from the player's camera, with
 display.screen_depth_share and display.screen_convergence, and the head's
@@ -172,6 +178,10 @@ static const char *const turn_names[] = {"snap", "smooth", "off"};
 static int turn_mode = -1;
 static float snap_degrees, smooth_degrees_per_second;
 static int comfort_vignette;
+/* input.aim = "hands", read with the turn settings: a player aiming with
+bare hands has no thumbstick, which is what the driving seat's head steer
+below is for */
+static int aim_hands;
 /* input.snap_angle's and input.smooth_turn_speed's ranges, in degrees and
 degrees per second */
 #define SNAP_ANGLE_MIN 5.0f
@@ -392,6 +402,67 @@ turn. The turn is the head's since the camera began: its yaw since then
 the view by however far the head was turned */
 static int third_person_head;
 static float third_person_yaw, third_person_pitch_from;
+/* A driving seat's head steer, this frame's turn in radians (left positive);
+0 on every frame that is not one. Every vehicle seat in the game is a
+third-person camera, so the two lines above hold there: the head turns the
+picture and the look takes none of it. A driver's look is the whole of the
+vehicle's steering, since the vehicle copies its driver's desired facing
+each tick (units.c's unit_update_driver_and_gunner), so with the head shut
+out the only steering left is the right stick's turn, which under
+input.aim = "hands" is the gun arm's own sweep and is also the aim. Hence:
+in a seat that drives (halo_seat_driving), with bare hands, the head's turn
+since the camera began, past a deadzone, turns the look at a rate, in the
+same place and by the same arithmetic as the stick's smooth turn. The car
+comes around to what the player is looking at, the HUD's heading and the
+radar follow because they read the look, and straightening the head stops
+the turn.
+
+A rate and not a position, deliberately: the look's angles swing the chase
+camera (following_camera.c builds its forward from them), so handing the
+head's angle to the look would leave the picture following the camera
+instead of the head, which is the one thing third_person_head exists to
+prevent. As a rate the picture stays rigidly the head's and the car
+follows, which is how the same seat behaves for a thumbstick.
+
+On every setting of input.turn, snap and off included: a snap is a discrete
+step of yaw and there is no such thing as a snapped steer, so a player who
+chose either would otherwise have no steering in the seat at all. It takes
+its speed from input.smooth_turn_speed whatever the setting says.
+
+The deadzone is centred on the head's pose when the camera began, which is
+the anchor third_person_yaw already gives the picture, so on taking the seat
+the car's heading and the centre of the picture are the same place.
+
+While it turns, the look turns, the chase camera's forward is built from the
+look (following_camera.c), and head_orient adds the head's own
+third_person_yaw back on top, so the whole world rotates about a head that
+is deliberately holding still. That is the turn the comfort vignette is
+there for: a smooth turn the body did not make. So the steer takes that same
+vignette, through the same ease (halo_stereo_vignette_ease) and the same
+share-of-the-rate scale the stick's own turn hands it, under the one switch
+the player already has for it (input.comfort_vignette, off unless asked
+for). No switch of its own and no mechanism of its own: a player who wants
+the view narrowed while something else turns it wants it narrowed here too,
+and a player who has said no to that has said no. The seat look fade is no
+help whichever way the switch is set, because its gate is a seat clamp on a
+first-person head-look frame (seat_look_fade_update), and a third-person
+camera is neither.
+
+The other cost is the framing, and it is not this file's to fix: the picture
+is the look turned by third_person_yaw, so a head resting anywhere inside
+the deadzone frames the vehicle that far off the centre of the view while
+steering nothing. Centring it again would mean either rotating the picture
+out from under a still head, which is the vection above, or handing the look
+the head's angle rather than a rate, which is the one thing
+third_person_head exists to prevent. */
+static float drive_steer_yaw;
+/* The head's turn under this many degrees steers nothing, so a glance at
+the HUD or along the road costs no heading. The ramp to the full turn rate
+is that same span again, which puts input.smooth_turn_speed at twice the
+deadzone: one number rather than two, because nothing on a device has
+measured either yet and a second would be a second thing to tune with
+nothing behind it. */
+#define DRIVE_STEER_DEADZONE_DEGREES 15.0f
 /* why the view is on the screen: none, the letterbox, a scripted camera, a
 third-person camera; logged as it changes */
 static const char *const film_reasons[] = {"none", "a cutscene", "a scripted camera", "a third-person camera"};
@@ -517,7 +588,7 @@ static void cutscene_log(float time_delta)
 /* reads input.turn and its companions, once */
 static void turn_settings(void)
 {
-	const char *turn;
+	const char *turn, *aim;
 	int mode;
 
 	if (turn_mode >= 0)
@@ -537,6 +608,40 @@ static void turn_settings(void)
 	smooth_degrees_per_second = clamped_setting("input.smooth_turn_speed",
 		(float)config_real("input.smooth_turn_speed"), SMOOTH_SPEED_MIN, SMOOTH_SPEED_MAX, "degrees per second");
 	comfort_vignette = config_boolean("input.comfort_vignette") != 0;
+	/* (the one value this file needs from input.aim: whether the player has a
+	hand where a thumbstick would be. Anything else, "controller" or "head"
+	included, leaves the driving seat's head steer off, because those players
+	still have a stick to steer the seat with) */
+	aim = config_string("input.aim");
+	aim_hands = aim && strcmp(aim, "hands") == 0;
+}
+
+/* the look's turn this frame from a driving seat's head (drive_steer_yaw),
+in radians, left positive: the head's turn since the camera began past
+DRIVE_STEER_DEADZONE_DEGREES, ramped linearly over that span again to the
+whole of input.smooth_turn_speed. 0 inside the deadzone, for a frame with no
+time step, and for a turn that is not a number.
+
+turn_fraction takes how strong the comfort vignette should be for this turn,
+on the one scale that mechanism already works in: the share of
+VIGNETTE_FULL_RATE the turn is asking for, which is the rate's own share of
+the ramp times input.smooth_turn_speed, exactly as the stick's smooth turn
+builds it from its own share of the stick. 0 inside the deadzone, so nothing
+is veiled while nothing is turning. The caller decides whether the player
+asked for it; this only says how much of it this frame's turn has earned */
+static float drive_steer_rate(float head_yaw, float time_delta, float *turn_fraction)
+{
+	float deadzone = DRIVE_STEER_DEADZONE_DEGREES * (3.14159265f / 180.0f);
+	float share;
+
+	*turn_fraction = 0.0f;
+	/* (written so that a head yaw of NaN takes this branch and steers
+	nothing, rather than carrying a NaN into the look) */
+	if (!(fabsf(head_yaw) > deadzone) || !(time_delta > 0.0f))
+		return 0.0f;
+	share = fminf(1.0f, (fabsf(head_yaw) - deadzone) / deadzone);
+	*turn_fraction = share * smooth_degrees_per_second / VIGNETTE_FULL_RATE;
+	return (head_yaw < 0.0f ? -share : share) * smooth_degrees_per_second * (3.14159265f / 180.0f) * time_delta;
 }
 
 /* reads the mappings' settings and the screen's framing, once */
@@ -1897,7 +2002,10 @@ void halo_stereo_replay_look(short gamepad_index, float yaw)
 		return;
 	/* Do not consume head_pending_yaw or head_seat_leftover: the recorded
 	   control pose does not contain the live head's motion. */
-	snap_pending = smooth_yaw = head_request = head_fold = 0.0f;
+	/* (the driving seat's head steer goes with them: a replay takes its
+	turn from the recording, and a value left over from the live head would
+	add to it every frame the replay runs) */
+	snap_pending = smooth_yaw = head_request = head_fold = drive_steer_yaw = 0.0f;
 	vignette_strength = 0.0f;
 	vignette_stick_read = 1;
 	if (fabsf(yaw) < SNAP_RELEASE)
@@ -1914,15 +2022,48 @@ void halo_stereo_stick_look(short gamepad_index, float yaw_response, float time_
 		return;
 	vignette_stick_read = 1;
 	smooth_yaw = 0.0f;
+	/* (read before the branch below: the third-person path needs the turn
+	speed and input.aim too, for the driving seat's head steer) */
+	turn_settings();
 	/* not head-tracked, or HEAD mode's third person: the game's own turn and
 	pitch, which swing a vehicle's chase camera and aim its guns; no snaps,
-	no vignette */
+	and no vignette but the driving seat's own steer below */
 	if (!head_tracking(gamepad_index)) {
-		vignette_strength = 0.0f;
+		int driving = third_person_head && aim_hands && halo_seat_driving();
+
+		/* the driving seat's head steer, computed here because this is where
+		the frame's time step arrives, and read by halo_stereo_head_look as
+		the smooth turn above is */
+		drive_steer_yaw = driving ? drive_steer_rate(third_person_yaw, time_delta, &turn_fraction) : 0.0f;
+		/* and the comfort vignette with it, eased in and out by exactly the
+		call the stick's smooth turn eases it with on foot and scaled on the
+		same share-of-the-rate: the steer rotates the whole world about a head
+		holding still, which is the turn that mechanism exists for, so it is
+		the mechanism the steer gets. input.comfort_vignette alone decides it,
+		the same switch and the same default as on foot, so a player who has
+		not asked for a vignette sees not one pixel of one here either. Every
+		third-person camera that is not steering (a gunner's seat, a coop
+		death, a player with a stick to drive with) falls to the 0 and keeps
+		the clear view it has always had */
+		vignette_strength = driving && comfort_vignette ?
+			halo_stereo_vignette_ease(vignette_strength, turn_fraction, time_delta) : 0.0f;
+		/* and the stick's own turn and pitch dropped in that one seat, so the
+		head is the whole of the steering and the gun hand is free. In a
+		third-person camera this stick does not look around: it turns the
+		look, which is what the chase camera points along and what the vehicle
+		steers by, so leaving it in would have the gun arm pulling the car
+		whenever the head was centred. Its pitch goes with it: that pitch
+		reaches the vehicle's desired facing, where a steeply pitched facing
+		makes the steering angle erratic as soon as the chassis tilts
+		(vehicles.c takes it as a whole 3D vector), and the head already
+		pitches the picture here. A gunner's seat is not a driving seat, so
+		the arm goes on turning and elevating a turret there */
+		if (driving)
+			*yaw = *pitch = 0.0f;
 		return;
 	}
+	drive_steer_yaw = 0.0f;
 	*pitch = 0.0f;
-	turn_settings();
 	if (turn_mode == TURN_SMOOTH) {
 		/* the game's response curve, at the speed asked for, steady and for
 		this frame's time: the game's own turn would speed up to three times
@@ -2022,6 +2163,23 @@ int halo_stereo_head_look(short gamepad_index, float current_pitch, float *yaw, 
 		when it opens again */
 		if (gamepad_index == 0)
 			snap_pending = 0.0f;
+		/* the driving seat's head steer is the one turn this path carries:
+		the look takes it where it takes the stick's smooth turn, through the
+		same hook (player_control.c adds what this returns to the facing
+		delta), and the picture keeps the head's own turn on top. The pitch
+		stays 0: a third-person camera's pitch is the game's.
+
+		Consumed where it is read, as head_pending_yaw is, so one turn is
+		taken once. The look does not always read the stick that set it: a
+		network session holding gameplay aim keeps its seat's own stick aim
+		and skips that read (player_control.c), and a value left standing
+		would then be added again every tick the player sat in the seat */
+		if (gamepad_index == 0 && drive_steer_yaw != 0.0f)
+		{
+			*yaw = drive_steer_yaw;
+			drive_steer_yaw = 0.0f;
+			return 1;
+		}
 		return 0;
 	}
 	/* the head's yaw since the look last ran, and all the eye cameras kept

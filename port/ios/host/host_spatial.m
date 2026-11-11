@@ -27,6 +27,11 @@ game sample takes each hand's latest anchor; the drawing sample
 the drawable's trackable-anchor time. On visionOS 26 the game logs once that
 controller aim needs 27, and aims with the head.
 
+With input.aim = "hands" the player's bare hands are the only source of the
+same hands (host_spatial_hands.m), filling them from ARKit's hand tracking.
+input.aim chooses the source outright: a tracked Sense pair is never
+consulted in hands mode, however many controllers are on the desk.
+
 The game sample also carries both controllers' buttons, read at the aiming
 hand's anchor timestamp (host_spatial_input.m) and mapped onto the Xbox
 gamepad (host_spatial_gamepad.c), which xinput_sdl.c merges into port 0.
@@ -54,6 +59,7 @@ controller aim owns them. */
 #include <os/lock.h>
 #include <simd/simd.h>
 #include "host_spatial_input.h"
+#include "host_spatial_hands.h"
 #include "host_theater.h"
 #endif
 
@@ -77,6 +83,7 @@ overrides them for another controller */
 /* the settings, read once (read_settings) */
 static int settings_read;
 static int aim_controller;     /* input.aim = "controller" */
+static int aim_hands;          /* input.aim = "hands" */
 static int aiming_hand = 1;    /* input.aim_hand: 0 left, 1 right */
 static int head_mode;          /* display.stereo = "head" (Enter VR's HEAD mode: host_stereo_mode) */
 static int synthetic_on;       /* debug.test_controller parsed */
@@ -100,7 +107,24 @@ static atomic_int misplaced_restart_wanted;
 static int misplaced_restarts;
 #define MISPLACED_RESTARTS 2
 /* host_spatial_feedback's last values */
-static int feedback_aiming, feedback_buzz_serial;
+static int feedback_hidden, feedback_buzz_serial;
+#if TARGET_OS_VISION
+/* 1 while the bare-hand source filled the last game sample
+(host_spatial_hands.m): the player's real hands are the point of
+input.aim = "hands", so they stay visible however the guest aims. Kept here
+and not asked of the hands source, because the Sense tracker takes the sample
+back the moment it is READY and then the hands source is never called again
+to notice */
+static int hands_filled_sample;
+/* the head every hand position in a sample is measured from, across the samples that have no
+latch of their own (hands_head_hold, which carries the reasoning). Both samples go through it,
+the drawing one from its drawable's device anchor and the game one from the stereo latch, so
+the two are never measured from different heads for want of one. Both of those run on the game
+thread and in that order (this file's own opening note: the drawing sample is taken at the
+frame's begin, inside host_stereo_frame, and the game sample follows), so this has the one
+writer the provider's anchors have */
+static struct hands_head_hold head_hold;
+#endif
 /* 1 while controller aim owns the Sense controllers: the tracker runs with
 both loaded, so their buttons merge into port 0 (the game sample's
 gamepad_valid); host_sdl.c leaves them out of SDL's gamepads only then.
@@ -173,7 +197,8 @@ static void read_settings(void)
 	settings_read = 1;
 	host_config_string("input.aim", "controller", value, sizeof(value));
 	aim_controller = !strcmp(value, "controller");
-	if (!aim_controller && strcmp(value, "head"))
+	aim_hands = !strcmp(value, "hands");
+	if (!aim_controller && !aim_hands && strcmp(value, "head"))
 		host_logf(HOST_LOG_WARN, "controller aim: input.aim \"%s\" is not recognized; aiming with the head", value);
 	host_config_string("input.aim_hand", "right", value, sizeof(value));
 	aiming_hand = strcmp(value, "left") ? 1 : 0;
@@ -232,6 +257,57 @@ static void read_settings(void)
 #endif
 #endif
 }
+
+#if TARGET_OS_VISION
+/* the bare-hand source's drawing sample, beside the Sense tracker's and from
+the same drawable: the head of this drawable's device anchor (else the last
+latch, as the tracker does) and the drawable's trackable-anchor time, the
+instant the tracker predicts its own controllers to. Outside the visionOS 27
+gates, so it runs with or without the Sense SDK */
+static void hands_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device)
+{
+	float back[3], position[3] = { 0.0f, 0.0f, 0.0f };
+	const float *head = NULL;
+	int latched = 0;
+	double time = 0.0;
+
+	/* the same gate tracker_start runs under (read_settings): a synthetic controller or a
+	replay answers every sample itself, so starting hand tracking under either would ask the
+	player for the hand tracking permission to feed a source nothing reads */
+	if (!aim_hands || !head_mode || synthetic_on || replay_on)
+		return;
+	/* A drawable without its device anchor cannot rebase the origin yet, so a
+	fill now would read the hand anchors in one origin and subtract a head
+	from the other, and the drawn gun would pop for those frames. Keep the
+	last drawing pose paired with the head it was made against
+	(host_spatial_pose.h's contract, which the tracker's frame: keeps with
+	hold_reference and host_spatial_hold_poses): host_spatial_hands_frame
+	isn't called at all, so the hands it holds stand until the origin
+	rebases. */
+	if (!origin_from_device && host_stereo_room_recenter_pending())
+		return;
+	if (drawable)
+	{
+		if (origin_from_device)
+		{
+			position[0] = origin_from_device->columns[3].x;
+			position[1] = origin_from_device->columns[3].y;
+			position[2] = origin_from_device->columns[3].z;
+			latched = 1;
+		}
+		else
+			latched = host_stereo_last_head(back, position);
+		time = cp_time_to_cf_time_interval(cp_frame_timing_get_trackable_anchor_time(
+			cp_drawable_get_frame_timing(drawable)));
+	}
+	/* the latch's own answer rather than the buffer it wrote into: host_stereo_last_head
+	leaves the buffer untouched when it has nothing, which left a zero vector standing in for
+	the head and every hand position in the sample measured from the room's origin instead of
+	from the player. hands_head_hold is where that is decided now */
+	head = hands_head_hold(&head_hold, latched ? position : NULL);
+	host_spatial_hands_frame(drawable, head, time);
+}
+#endif
 
 #if HOST_SPATIAL_SENSE_SDK
 /* ---------- visionOS 27: the Sense controllers through ARKit */
@@ -764,7 +840,7 @@ updated as they come and go */
 	rerun_device_position = last_device_position;
 	rerun_device_known = last_device_known;
 	rerun_pending = 1;
-	host_theater_session_run(provider);
+	host_theater_session_set_provider(HOST_THEATER_PROVIDER_ACCESSORY, provider);
 	ran_session = session;
 	host_logf(HOST_LOG_INFO, "spatial: the accessory provider tracks %s; ARKit's session runs again with it",
 		names.UTF8String);
@@ -1155,6 +1231,7 @@ void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from
 		tracker_start();
 	if (@available(visionOS 27.0, *))
 		[(HostSpatialTracker *)tracker frame:drawable device:origin_from_device];
+	hands_frame(drawable, origin_from_device);
 }
 
 /* the tracker's sample of this kind: the drawing sample host_stereo_frame
@@ -1181,16 +1258,22 @@ static void tracker_sample(int kind, struct halo_spatial_sample *sample, const f
 #if TARGET_OS_VISION && !HOST_SPATIAL_SENSE_SDK
 void host_spatial_frame(cp_drawable_t drawable, const simd_float4x4 *origin_from_device)
 {
-	(void)drawable;
-	(void)origin_from_device;
 	if (!settings_read)
 		read_settings();
+	hands_frame(drawable, origin_from_device);
 }
 #endif
 
 void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 {
 	float back[3], position[3] = { 0.0f, 0.0f, 0.0f };
+	/* one reading of the latch for this whole sample: the turn it gives the guest and the head
+	the hand positions are measured from are two questions about it, and a second reading could
+	answer them from two different frames */
+	int latched;
+#if TARGET_OS_VISION
+	const float *head;
+#endif
 
 	if (!settings_read)
 		read_settings();
@@ -1199,13 +1282,34 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 	/* the head at the last host_stereo_frame's latch: for the drawing
 	sample, taken after it, this frame's */
 	sample->head_level = 1;
-	if (host_stereo_last_head(back, position))
+	latched = host_stereo_last_head(back, position);
+	if (latched)
 	{
 		int level;
 
 		sample->head_yaw = host_spatial_head_yaw(back, &level) + host_stereo_room_yaw_offset();
 		sample->head_level = level;
 	}
+#if TARGET_OS_VISION
+	/* and the head the hand positions below are measured from, which is not the same question.
+	The latch above is cleared for every frame the head does not drive the view: the menus, a
+	cinematic and a level load all run on the screen, and there host_stereo_last_head answers
+	nothing and leaves position at the zero it was declared with. A zero head is a legal head,
+	so nothing downstream could tell it from a player standing on the room's origin, and every
+	hand position in the sample came out as the room's own coordinates: a session's log showed
+	the gun hand a metre and a half above the head for the whole of the menus and an honest
+	third of a metre below it from the first frame of play onward. hands_head_hold holds the
+	last head that was placed for those samples, and answers nothing at all before the first,
+	which the hands source reads as a hand it can orient but not place */
+	head = hands_head_hold(&head_hold, latched ? position : NULL);
+	/* the Sense tracker's own positions are measured from the same head and were zeroed on the
+	same samples. It is given the held head, which is strictly closer than the room's origin;
+	it is not given the no-head case, since its sample carries an accessory anchor's own
+	position and host_spatial_misplaced_update already refuses to judge one without a live
+	latch. A tracker that should decline the sample outright there is its own change */
+	if (head)
+		memcpy(position, head, sizeof(position));
+#endif
 	if (replay_on && host_spatial_replay_next(kind, sample))
 		;
 	else if (synthetic_on)
@@ -1221,13 +1325,41 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 	}
 	else
 	{
-		sample->reason = aim_controller ? HALO_SPATIAL_NO_CONTROLLERS : HALO_SPATIAL_OFF;
+		sample->reason = aim_controller || aim_hands ? HALO_SPATIAL_NO_CONTROLLERS : HALO_SPATIAL_OFF;
 #if TARGET_OS_VISION
-		if (needs_27)
+		/* needs_27 is the Sense SDK gate: its message names visionOS 27 and
+		Sense, which would be wrong for a hands source */
+		if (needs_27 && aim_controller)
 			sample->reason = HALO_SPATIAL_NEEDS_27;
 #if HOST_SPATIAL_SENSE_SDK
 		tracker_sample(kind, sample, position);
 #endif
+		/* input.aim chooses the source: in hands mode bare hands fill the
+		sample (host_spatial_hands.m) and a Sense pair is never consulted,
+		however many controllers are tracked */
+		if (aim_hands)
+		{
+			host_spatial_hands_sample(kind, sample, head);
+			if (kind == HALO_SPATIAL_SAMPLE_GAME)
+			{
+				hands_filled_sample = host_spatial_hands_active();
+				/* the flag below is a statement about an accessory anchor this sample no longer
+				consults: a hands sample is built from the hand anchors, the test is skipped for
+				it, and nothing else clears the flag, so a controller flagged before it was put
+				down would rewrite every later hands sample MISPLACED for the rest of the run */
+				if (hands_filled_sample)
+					memset(&misplaced, 0, sizeof(misplaced));
+			}
+		}
+		else if (kind == HALO_SPATIAL_SAMPLE_GAME)
+		{
+			hands_filled_sample = 0;
+			/* hands were not this game sample's source (input.aim isn't "hands"): reset the
+			gesture recognizer's state so a pinch or a prayer dwell held before this is never
+			carried into the next sample hands fill, exactly as if the hand itself had been
+			lost */
+			host_spatial_hands_idle();
+		}
 #else
 		(void)kind;
 #endif
@@ -1236,11 +1368,17 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 	/* a controller that reads well above the head isn't where it reads
 	(the recording above keeps the sample as it came). Judged on the game
 	sample, live or replayed (a replay's head is the recording's: its yaw is
-	exactly 0 while there was none); the head aims until they agree */
-	if (kind == HALO_SPATIAL_SAMPLE_GAME && sample->reason == HALO_SPATIAL_READY && sample->synthetic != 1)
+	exactly 0 while there was none); the head aims until they agree. Never on
+	a hands sample (gamepad_valid 2): a hand held overhead is where it reads,
+	and the ARKit restart the test asks for would drop hand tracking */
+	if (kind == HALO_SPATIAL_SAMPLE_GAME && sample->reason == HALO_SPATIAL_READY && sample->synthetic != 1 &&
+		sample->gamepad_valid != 2)
 	{
 		const struct halo_spatial_hand *hand = &sample->hands[sample->aiming_hand ? 1 : 0];
-		int has_head = sample->synthetic == 2 ? sample->head_yaw != 0.0f : host_stereo_last_head(back, position);
+		/* the live latch, which is what this test means by a head: a held one says where the
+		player was and not that the two readings are in one frame, which is the whole question
+		here (host_spatial_pose.h's misplaced test) */
+		int has_head = sample->synthetic == 2 ? sample->head_yaw != 0.0f : latched;
 		int change = host_spatial_misplaced_update(&misplaced, hand, has_head, seconds_now());
 
 		if (change > 0)
@@ -1279,15 +1417,22 @@ void host_spatial_sample(int kind, struct halo_spatial_sample *sample)
 void host_spatial_feedback(const struct halo_spatial_feedback *feedback)
 {
 	int aiming = feedback->aiming != 0;
-
-	if (aiming != feedback_aiming)
-	{
-		feedback_aiming = aiming;
-		host_logf(HOST_LOG_INFO, "spatial: hands %s", aiming ? "hidden" : "shown");
 #if TARGET_OS_VISION
-		/* the drawn gun stands in for the hand (Theater.swift; the main
-		queue's) */
-		host_theater_set_upper_limbs(!aiming);
+	/* the drawn gun stands in for a controller in the hand, but not for the
+	hand itself: while the bare-hand source fills the sample the player's own
+	hands stay visible, whatever the guest aims with */
+	int hidden = aiming && !hands_filled_sample;
+#else
+	int hidden = aiming;
+#endif
+
+	if (hidden != feedback_hidden)
+	{
+		feedback_hidden = hidden;
+		host_logf(HOST_LOG_INFO, "spatial: hands %s", hidden ? "hidden" : "shown");
+#if TARGET_OS_VISION
+		/* (Theater.swift; the main queue's) */
+		host_theater_set_upper_limbs(!hidden);
 #endif
 	}
 	if (feedback->buzz_serial != feedback_buzz_serial)

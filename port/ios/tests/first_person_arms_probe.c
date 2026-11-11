@@ -10,7 +10,10 @@ a roll past its limit likewise, and the forearm takes a share of the
 wrist's twist; a hand behind the head is held at the limit; blend 0 leaves
 the pose; a left hand away from the gun stays where the animation put it;
 a grip shifted past the arm's reach pulls the wrist and the gun back onto
-the reach; a graph without the gun node comes back unchanged. */
+the reach; a levelled mounting (input.arms_level_mount) leaves the whole
+model where a level view had it while the head looks 40 degrees up, where
+the view's own mounting carries it away and clamps its elevation; a graph
+without the gun node comes back unchanged. */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -248,6 +251,41 @@ static int solve(float yaw, float pitch, float roll, float blend, const float sh
 	return first_person_arms_solve(pose, NODE_COUNT, nodes, sizeof(nodes[0]), &input, &limits, report);
 }
 
+/* the same with a pitched view, the pose built in it as the engine builds it
+(animation_graph_node_matrices_from_orientations takes the camera's frame,
+first_person_weapons.c), so the skeleton above, which is the level view's, is
+first turned by the view's own pitch about the eye. The eye is the origin and
+the skeleton's root is 0.23 away from it, which is the animation's own root
+translation: a solve that turned the pose about the root instead would leave
+that much of the head's swing in the pose and these cases would catch it */
+static int solve_pitched_view(float view_pitch, float yaw, float pitch, float roll, float blend, int level_mount,
+	struct arms_report *report)
+{
+	struct arms_rotation view, level, onto;
+	struct arms_input input;
+	float none[3] = { 0.0f, 0.0f, 0.0f };
+	int i;
+
+	memcpy(pose, base, sizeof(pose));
+	memset(&input, 0, sizeof(input));
+	yaw_pitch_roll_frame(0.0f, view_pitch, 0.0f, input.view_forward, input.view_up);
+	if (!frame_from_vectors(input.view_forward, input.view_up, &view) || !level_frame(&view, &level))
+	{
+		printf("FAIL: the view pitched %.0f has no frame\n", view_pitch);
+		exit(1);
+	}
+	rotation_transpose(&level, &onto);
+	rotation_multiply(&view, &onto, &onto);
+	for (i = 0; i < NODE_COUNT; i++)
+		matrix_move(&pose[i], &onto, input.view_position, none);
+	yaw_pitch_roll_frame(yaw, pitch, roll, input.gun_forward, input.gun_up);
+	input.blend = blend;
+	input.level_mount = level_mount;
+	input.left_grip_valid = 1;
+	matrix_position(&pose[L_WRIST], input.left_grip);
+	return first_person_arms_solve(pose, NODE_COUNT, nodes, sizeof(nodes[0]), &input, &limits, report);
+}
+
 static void check_invariants(const char *label)
 {
 	int i;
@@ -440,6 +478,57 @@ int main(void)
 		for (i = 0; i < NODE_COUNT; i++)
 			CHECK(same(&pose[i], &base[i]), "no gun: node %d changed", i);
 		memcpy(nodes[GUN].name, kept, sizeof(kept));
+	}
+
+	/* input.arms_level_mount: a level arm and a head looking up. The pose
+	the engine hands in is pitched with the view, and the levelled mounting
+	puts every node back where the level view had it, so the gun the player
+	sees does not move when only the head does */
+	{
+		float on_gun[3], off_gun[3], blend_gun[3], difference[3];
+
+		CHECK(solve_pitched_view(0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1, &report) == 1,
+			"the levelled mounting was refused with a level view");
+		for (i = 0; i < NODE_COUNT; i++)
+			CHECK(orthonormal(&pose[i]) && distance(&pose[i], &base[i]) < 1e-4f,
+				"level mount, level view: node %d (%s) moved %.4f", i, nodes[i].name, distance(&pose[i], &base[i]));
+		CHECK(solve_pitched_view(40.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1, &report) == 1,
+			"the levelled mounting was refused with the view pitched up");
+		for (i = 0; i < NODE_COUNT; i++)
+			CHECK(orthonormal(&pose[i]) && distance(&pose[i], &base[i]) < 1e-4f &&
+				relative_change(&base[ROOT], &base[i], &pose[ROOT], &pose[i]) < 1e-3f,
+				"level mount: node %d (%s) moved with the head by %.4f", i, nodes[i].name,
+				distance(&pose[i], &base[i]));
+		memcpy(on_gun, report.gun_position, sizeof(on_gun));
+		CHECK(report.right_pulled == 0 && report.left_pulled == 0,
+			"level mount: an arm was pulled (%d %d)", report.right_pulled, report.left_pulled);
+		CHECK(fabsf(report.elevation_degrees) < 0.01f,
+			"level mount: the arm's elevation reads %.2f against the levelled mounting", report.elevation_degrees);
+		CHECK(fabsf(report.limited_elevation_degrees - report.elevation_degrees) < 0.01f,
+			"level mount: the elevation was limited to %.2f", report.limited_elevation_degrees);
+		/* and off, the mounting as it was: the same head pitch carries the
+		gun away from the arm, and the limits bind on the head's pitch rather
+		than on the arm's own elevation */
+		CHECK(solve_pitched_view(40.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0, &report) == 1, "the view's mounting was refused");
+		memcpy(off_gun, report.gun_position, sizeof(off_gun));
+		for (i = 0; i < 3; i++)
+			difference[i] = off_gun[i] - on_gun[i];
+		CHECK(length3(difference) > 0.05f, "the view's mounting: the gun moved only %.4f with a 40 degree head pitch",
+			length3(difference));
+		CHECK(fabsf(report.elevation_degrees + 40.0f) < 0.01f,
+			"the view's mounting: the arm's elevation reads %.2f against the view", report.elevation_degrees);
+		CHECK(fabsf(report.limited_elevation_degrees) < fabsf(report.elevation_degrees) - 0.5f,
+			"the view's mounting: the elevation %.2f was not limited (%.2f)", report.elevation_degrees,
+			report.limited_elevation_degrees);
+		/* blend 0, no hand aiming: the levelling eases out with the turn, so
+		the mounting is the view's again and nothing of the head is removed */
+		CHECK(solve_pitched_view(40.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1, &report) == 1,
+			"the levelled mounting was refused at blend 0");
+		memcpy(blend_gun, report.gun_position, sizeof(blend_gun));
+		for (i = 0; i < 3; i++)
+			difference[i] = blend_gun[i] - off_gun[i];
+		CHECK(length3(difference) < 1e-4f, "level mount at blend 0: the gun is %.4f from where the view mounts it",
+			length3(difference));
 	}
 
 	/* a sweep through and past every limit: never refused, never a NaN */

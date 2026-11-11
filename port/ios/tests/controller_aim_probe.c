@@ -6,7 +6,8 @@ the eye with its near low-pass; the angles' pitch clamp; the
 facing offset packed into player_action.pad; the yaw blend the short way;
 tracking loss and recovery with the growing dwell; the gate's ease; the
 pending flags and the press latch; the resets; the first-person
-gun's frame; and where a direction shows in the zoomed picture. */
+gun's frame; input.arms_level_mount's three answers; and where a direction
+shows in the zoomed picture. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -673,6 +674,89 @@ static void growing_dwell(void)
 	check(run.messages[1] + run.messages[2] <= 2 && run.buzzes <= 2, what);
 }
 
+/* how much blend a single brief loss costs, by how many losses came before it inside
+DWELL_GROWS_WITHIN: the lowest blend reached, and how many milliseconds the head had the aim
+outright (blend 0), measured over the four seconds of unbroken tracking that follow */
+static void brief_loss(int losses_before, int lost_ms, float *lowest, int *head_ms)
+{
+	struct controller_track track;
+	struct controller_track_out out;
+	struct track_run run = { { 0 }, 0 };
+	int t;
+
+	controller_track_reset(&track);
+	*lowest = 1.0f;
+	*head_ms = 0;
+	tracked_for(&track, 200, &run);
+	/* each of these is a loss and a recovery well inside DWELL_GROWS_WITHIN of the last, which
+	is what walks dwell_step up */
+	for (t = 0; t < losses_before; t++)
+	{
+		int ms;
+
+		for (ms = 0; ms < 50; ms++)
+			track_frame(&track, HALO_SPATIAL_UNTRACKED, 1, &out, &run);
+		tracked_for(&track, 2000, &run);
+	}
+	for (t = 0; t < lost_ms; t++)
+		track_frame(&track, HALO_SPATIAL_UNTRACKED, 1, &out, &run);
+	for (t = 0; t < 4000; t++)
+	{
+		track_frame(&track, HALO_SPATIAL_TRACKED, 1, &out, &run);
+		if (out.blend < *lowest)
+			*lowest = out.blend;
+		if (out.blend <= 0.0f)
+			(*head_ms)++;
+	}
+}
+
+/* what a brief, recoverable loss costs once the hand has been flapping, which is the
+measurement behind the bare hands' reported head aim snap: on a Vision Pro the aiming hand's
+anchor drops in runs no log yet sizes, and every one of them reaches this function with no
+host-side gap of its own, where a Sense controller at the edge of tracking is what the
+escalation above was written for.
+
+Nothing here stops lost_for accumulating once the hand is tracked again: a recovery is gated
+on DWELL_SECONDS[dwell_step] of continuous tracking, and while it waits the loss's own ease
+keeps running. So at dwell_step 2 the recovery is a whole second away, lost_for passes
+hold_seconds (0.5) plus EASE_SECONDS (0.2) at 0.7 s, and the head holds the aim outright for
+the rest of that second however briefly the hand was actually missing. The third loss inside
+five seconds is where that starts: the first costs nothing visible and the second a dip.
+
+Written as a measurement, not a guard. These are the numbers a brief dropout costs today, so
+a later change to the hands' aim path can be read against them, and the last check is here to
+keep any such change from being read as licence to never hand the aim over: a hand genuinely
+gone for seconds still must, or there is nothing left to aim with */
+static void brief_loss_reaches_the_head(void)
+{
+	float first, second, third, single;
+	int first_head, second_head, third_head, single_head, gone_head;
+	float gone;
+	char what[160];
+
+	brief_loss(0, 50, &first, &first_head);
+	brief_loss(1, 50, &second, &second_head);
+	brief_loss(2, 50, &third, &third_head);
+	brief_loss(2, 1, &single, &single_head);
+	brief_loss(2, 3000, &gone, &gone_head);
+
+	snprintf(what, sizeof(what), "brief loss: the first 50 ms costs no blend at all (%.4f, %d ms of head)", first,
+		first_head);
+	check(first >= 0.9999f && first_head == 0, what);
+	snprintf(what, sizeof(what), "brief loss: the second dips but never reaches the head (%.4f, %d ms)", second,
+		second_head);
+	check(second < 0.9f && second > 0.0f && second_head == 0, what);
+	snprintf(what, sizeof(what), "brief loss: the third gives the head the aim for a third of a second (%.4f, %d ms)",
+		third, third_head);
+	check(third == 0.0f && third_head >= 300 && third_head <= 400, what);
+	snprintf(what, sizeof(what), "brief loss: and one dropped sample costs nearly as much (%.4f, %d ms)", single,
+		single_head);
+	check(single == 0.0f && single_head >= 250 && single_head <= 350, what);
+	snprintf(what, sizeof(what), "brief loss: a hand gone 3 s still hands the aim over (%.4f, %d ms)", gone,
+		gone_head);
+	check(gone == 0.0f && gone_head >= 900, what);
+}
+
 static void gate_ease(void)
 {
 	float value = 0.0f, blend = 0.0f;
@@ -1003,6 +1087,24 @@ static void weapon_frame(void)
 	}
 }
 
+/* input.arms_level_mount: "on" and "off" outright, and "auto" (with
+anything unreadable) levelled only while a bare hand aims */
+static void level_mount(void)
+{
+	check(controller_level_mount("on", 0) == 1, "level mount: on with a Sense pair");
+	check(controller_level_mount("on", 1) == 1, "level mount: on with bare hands");
+	check(controller_level_mount("off", 0) == 0, "level mount: off with a Sense pair");
+	check(controller_level_mount("off", 1) == 0, "level mount: off with bare hands");
+	check(controller_level_mount("auto", 0) == 0, "level mount: auto with a Sense pair");
+	check(controller_level_mount("auto", 1) == 1, "level mount: auto with bare hands");
+	check(controller_level_mount("", 1) == 1 && controller_level_mount("", 0) == 0,
+		"level mount: an empty value is auto");
+	check(controller_level_mount("ON", 1) == 1 && controller_level_mount("ON", 0) == 0,
+		"level mount: a misspelling is auto");
+	check(controller_level_mount(NULL, 1) == 1 && controller_level_mount(NULL, 0) == 0,
+		"level mount: no value is auto");
+}
+
 /* a camera's frame turned to yaw and pitch (radians, the game's convention:
 +X forward, +Y left, +Z up): forward, up and right */
 static void zoom_camera(double yaw, double pitch, float forward[3], float up[3], float right[3])
@@ -1314,10 +1416,12 @@ int main(void)
 	yaw_blend();
 	tracking();
 	growing_dwell();
+	brief_loss_reaches_the_head();
 	gate_ease();
 	latch();
 	resets();
 	weapon_frame();
+	level_mount();
 	weapon_smooth();
 	range_ease();
 	weapon_limit();

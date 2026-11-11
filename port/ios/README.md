@@ -669,6 +669,43 @@ default size), follows the window when it's resized, and is letterboxed at 16:9;
 - **Controls.** A game controller plays. Looking at the window and pinching
   does nothing in the game; a "Connect a game controller" note shows while
   none is connected. A keyboard's arrows, Return and Escape work the menus.
+- **Bare hands.** With `display.stereo = "head"` (so `display.immersive =
+  true`), `input.aim = "hands"` aims with the dominant forearm rather than a
+  controller or the head. The gun hand's thumb to index fires, held for
+  automatic fire; thumb to middle is action (use, reload, enter a vehicle);
+  thumb to ring jumps; holding the arm past `input.hand_turn_deadzone` degrees
+  to one side turns, governed by `input.turn`, `input.snap_angle` and
+  `input.smooth_turn_speed` the same way the Sense stick is. In a vehicle's
+  driving seat the car steers where the head looks, past a small deadzone,
+  and the arm's sweep does nothing there, so the gun hand can rest; a
+  network or co-op driver still steers by the arm for now. The off hand's
+  thumb to index walks forward where you look, thumb to middle walks
+  backward, thumb to ring crouches, and thumb to little switches weapons.
+  Both palms together, fingers up, held for 0.6 seconds, pauses. In a menu
+  the fire pinch accepts, the crouch pinch backs out, and the walk pinches
+  move the highlight. `input.aim_hand` picks the dominant hand and mirrors
+  every gesture above. `input.aim` chooses the source outright: in hands
+  mode the Sense controllers are not used even if paired (switch it back to
+  `"controller"` to use them). A classic gamepad still works for buttons
+  alongside hand aiming: its Back held as the prayer sign fires reaches the
+  game as Back plus Start, which ends a `debug.input_record` recording,
+  and is not the chord that leaves the immersive space (that one reads Back
+  and Start from a gamepad's own buttons, held together for a second).
+  A hand that goes out of sight keeps aiming where it last pointed for
+  `input.hand_aim_gap` seconds, so a dropout of a few frames costs no aim
+  at all. `input.hand_aim_loss` says what happens after that, `"hold"` (the
+  default) to keep pointing for as long as the hand is gone or `"head"` to
+  hand the aim to the view centre: holding is the default because the head
+  taking over moves the aim somewhere else and then moves it back, where a
+  held aim stays where you left it and clears as soon as the hand is seen
+  again. `debug.hand_log` logs every gesture's state change with the value
+  measured against its threshold, each hand's aim condition as it changes
+  (measured, held, held past the gap, carried or lost, with how long the
+  run that ended lasted, what refused the sample, the wrist joint's own
+  tracking flag, the hand's tracking fidelity and where the hand was last
+  seen relative to your head), and, for a prayer sign that is refused,
+  which term refused it and what that term measured. Unlike the Sense
+  controllers, hand tracking needs no visionOS 27 feature.
 - **Game data.** As on iPhone: the setup screen offers the Files picker, and
   an XISO placed in the app's Documents folder is imported.
 - **Closing the window pauses the game**, sound included, and reopening Halo
