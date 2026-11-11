@@ -41,11 +41,9 @@ static int __attribute__((unused)) controller_glyph_hidden(short owner,short but
 typedef float real;
 typedef unsigned int pixel32;
 static int draw_count;
-static rectangle2d drawn_bounds;
 static short ui_mouse_legend_label_width(struct widget_instance *l,struct ui_widget_definition const *d,short f) {(void)l;(void)d;(void)f;return 70;}
 #define BITMAP_GROUP_TAG 1
 struct bitmap_data {int width,height;};
-struct rasterizer_dynamic_screen_geometry_parameters {int pad[8];};
 static struct bitmap_data idle_bitmap={128,32},pressed_bitmap={128,32};
 static int draw_frame=-1,missing_tag;
 static const struct bitmap_data *drawn_bitmap;
@@ -59,14 +57,20 @@ static struct bitmap_data *bitmap_group_get_bitmap_from_sequence(long tag,short 
 }
 static void csmemset(void *p,int v,size_t n) {memset(p,v,n);}
 static int fast_ftol(float f) {return (int)f;}
+#define NUMBER_OF_POINTS_PER_RECTANGLE 4
+typedef struct {float i,j;} real_point2d_stub;
+struct dynamic_screen_vertex {pixel32 color;struct {float x,y;} texture_coordinates;struct {float x,y;} position;};
+struct rasterizer_dynamic_screen_geometry_parameters {struct {float i,j;} map_texture_scale[2],map_scale[2];struct bitmap_data *map[2];void *meter_parameters;int point_sampled,alpha_weighted,framebuffer_blend_function;};
 static pixel32 last_color;
-static rectangle2d drawn_clip;static int drawn_has_clip;
-static void draw_bitmap_in_rect(struct bitmap_data *bitmap,rectangle2d const *rect,rectangle2d const *bitmap_rect,rectangle2d const *clip,pixel32 argb,struct rasterizer_dynamic_screen_geometry_parameters *params,boolean no_plasma) {
- (void)bitmap_rect;(void)params;(void)no_plasma;
- drawn_bitmap=bitmap;last_color=argb;draw_count++;drawn_bounds=*rect;
- drawn_has_clip=clip!=NULL;if(clip)drawn_clip=*clip;
+static int slice_count;static float slice_x0[4],slice_x1[4],slice_u0[4],slice_u1[4],slice_y0,slice_y1;
+static void rasterizer_psuedo_dynamic_screen_quad_draw(struct rasterizer_dynamic_screen_geometry_parameters *p,struct dynamic_screen_vertex *v) {
+ drawn_bitmap=p->map[0];last_color=v[0].color;draw_count++;
+ slice_x0[slice_count]=v[0].position.x;slice_x1[slice_count]=v[1].position.x;
+ slice_u0[slice_count]=v[0].texture_coordinates.x;slice_u1[slice_count]=v[1].texture_coordinates.x;
+ slice_y0=v[0].position.y;slice_y1=v[2].position.y;slice_count++;
 }
 /* GEOMETRY */
+/* SLICE */
 /* DRAW */
 /* NOTE */
 /* SEARCH */
@@ -101,16 +105,17 @@ int main(void) {
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
  assert((visual.x0+visual.x1)/2==368+70/2);
  /* The button is the game's own text_button_background art: frame 0 idle, frame 1 pressed. */
- ui_widget_draw_touch_legend(&visual,NULL,1,0);
- assert(draw_count==1 && draw_frame==0 && drawn_bitmap==&idle_bitmap);
- assert(!memcmp(&drawn_bounds,&visual,sizeof(visual)) && !drawn_has_clip);
- ui_widget_draw_touch_legend(&visual,NULL,1,1);
+ slice_count=0;ui_widget_draw_touch_legend(&visual,NULL,1,0);
+ assert(draw_count==3 && slice_count==3 && draw_frame==0 && drawn_bitmap==&idle_bitmap);
+ /* three slices tile the button; the caps keep the picture's height at the button's height */
+ assert(slice_x0[0]==visual.x0 && slice_x1[2]==visual.x1 && slice_x1[0]==slice_x0[1] && slice_x1[1]==slice_x0[2]);
+ assert(slice_y0==visual.y0 && slice_y1==visual.y1);
+ assert(slice_x1[0]-slice_x0[0]==14 && slice_x1[2]-slice_x0[2]==14);
+ assert(slice_u0[0]==0 && slice_u1[0]==0.125f && slice_u0[2]==0.875f && slice_u1[2]==1);
+ slice_count=0;ui_widget_draw_touch_legend(&visual,NULL,1,1);
  assert(draw_frame==1 && drawn_bitmap==&pressed_bitmap);
- rectangle2d clip={410,360,440,450};
- ui_widget_draw_touch_legend(&visual,&clip,1,0);
- assert(drawn_has_clip && !memcmp(&drawn_clip,&clip,sizeof(clip)));
  draw_count=0;missing_tag=1;
- ui_widget_draw_touch_legend(&visual,NULL,1,0);
+ slice_count=0;ui_widget_draw_touch_legend(&visual,NULL,1,0);
  assert(draw_count==0);missing_tag=0;
  for(int face=0;face<6;face++) {
   button.button=face;ui_mouse_target_count=0;
