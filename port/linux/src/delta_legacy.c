@@ -219,6 +219,12 @@ static int name_valid(const char *name, int follows)
 			!(follows && ((*s >= 'A' && *s <= 'Z') || *s == '.' || *s == '-'))) return 0;
 	return 1;
 }
+static void skip_row(struct parser *p, int index)
+{
+	char name[STRING_LIMIT + 1];
+	if (!text(&p->nodes[index], name)) strcpy(name, "?");
+	fprintf(stderr, "delta legacy table: skipped unreadable entry %.40s\n", name);
+}
 static int document(struct parser *p, struct delta_legacy_table *out)
 {
 	uint32_t value;
@@ -244,13 +250,14 @@ static int document(struct parser *p, struct delta_legacy_table *out)
 	{
 		uint32_t minimum, announce, maximum;
 		int row = p->nodes[i].child, follows;
+		/* A row this build cannot read is skipped so one new or malformed wire never discards the rest. */
 		if (p->nodes[row].type != '{' ||
 			!integer(p, field(p, row, "minimum"), 65535, &minimum) || !minimum ||
 			!integer(p, field(p, row, "announce"), 65535, &announce) || !announce ||
 			!integer(p, field(p, row, "maximum"), 65535, &maximum) || !maximum ||
-			minimum > announce || announce > maximum) return 0;
+			minimum > announce || announce > maximum) { skip_row(p, i); continue; }
 		follows = field(p, row, "follows");
-		if (follows && (!text(&p->nodes[follows], key) || strlen(key) > 31 || !name_valid(key, 1))) return 0;
+		if (follows && (!text(&p->nodes[follows], key) || strlen(key) > 31 || !name_valid(key, 1))) { skip_row(p, i); continue; }
 		text(&p->nodes[i], key);
 		if (!strcmp(key, "chupa-38a"))
 		{
@@ -258,7 +265,11 @@ static int document(struct parser *p, struct delta_legacy_table *out)
 			out->row.proven_maximum = maximum;
 			if (maximum < announce + DELTA_LEGACY_PRESUMED && announce < 65535) maximum = announce + DELTA_LEGACY_PRESUMED;
 			out->row.maximum = maximum < 41 ? 41 : maximum;
-			out->row.requires = field(p, row, "requires") != 0;
+			{
+				/* An explicit false or null requires nothing. */
+				int required = field(p, row, "requires");
+				out->row.requires = required && p->nodes[required].type != 'f' && p->nodes[required].type != 'n';
+			}
 			if (follows) { text(&p->nodes[follows], key); strcpy(out->row.follows, key); }
 		}
 	}
@@ -280,11 +291,12 @@ static int document(struct parser *p, struct delta_legacy_table *out)
 		if (p->nodes[index].type != '{') return 0;
 		for (i = p->nodes[index].child; i; i = p->nodes[i].next)
 		{
-			int j, limits = p->nodes[i].child;
-			if (!text(&p->nodes[i], key) || !name_valid(key, 0) || p->nodes[limits].type != '{') return 0;
+			int j, limits = p->nodes[i].child, good = 1;
+			if (!text(&p->nodes[i], key) || !name_valid(key, 0) || p->nodes[limits].type != '{') { skip_row(p, i); continue; }
 			for (j = p->nodes[limits].child; j; j = p->nodes[j].next)
 				if (!text(&p->nodes[j], key) || !name_valid(key, 0) ||
-					!integer(p, p->nodes[j].child, 4096, &value)) return 0;
+					!integer(p, p->nodes[j].child, 4096, &value)) good = 0;
+			if (!good) skip_row(p, i);
 		}
 	}
 	return 1;

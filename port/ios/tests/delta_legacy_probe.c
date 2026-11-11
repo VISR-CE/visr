@@ -42,8 +42,37 @@ static void row_document(char *out, size_t capacity, unsigned serial, const char
 	snprintf(out, capacity, "{\"delta_legacy\":1,\"serial\":%u,\"wires\":{\"%s\":{"
 		"\"minimum\":%u,\"announce\":%u,\"maximum\":%u%s}}}", serial, wire, minimum, announce, maximum, extra);
 }
+/* A row this build cannot read is skipped: the table still verifies, with no chupa row. */
+static int skipped(const char *document)
+{
+	struct delta_legacy_table table;
+	return delta_legacy_verify(signed_table, sign_document(document), &key, 1, &table) && !table.row.present;
+}
+static int requires_flag(const char *extra)
+{
+	struct delta_legacy_table table;
+	char document[600];
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 42, extra);
+	assert(delta_legacy_verify(signed_table, sign_document(document), &key, 1, &table) && table.row.present);
+	return table.row.requires;
+}
+static void requires_checks(void)
+{
+	assert(!requires_flag("") && !requires_flag(",\"requires\":false") && !requires_flag(",\"requires\":null"));
+	assert(requires_flag(",\"requires\":[\"protection\"]") && requires_flag(",\"requires\":true"));
+}
+static void skip_keeps_rest_check(void)
+{
+	struct delta_legacy_table table;
+	char document[800];
+	snprintf(document, sizeof(document), "{\"delta_legacy\":1,\"serial\":1,\"wires\":{\"other\":{\"minimum\":0},"
+		"\"chupa-38a\":{\"minimum\":29,\"announce\":42,\"maximum\":42}}}");
+	assert(delta_legacy_verify(signed_table, sign_document(document), &key, 1, &table) && table.row.present);
+}
 static void parser_checks(void)
 {
+	requires_checks();
+	skip_keeps_rest_check();
 	struct delta_legacy_table table;
 	struct delta_legacy_key wrong = {{1}, 255};
 	size_t size, i;
@@ -82,17 +111,17 @@ static void parser_checks(void)
 	key.last_epoch = 255;
 	row_document(document, sizeof(document), 0xFFFFFFFEu, "chupa-38a", 29, 42, 42, ""); assert(verify(document));
 	key.last_epoch = 0;
-	row_document(document, sizeof(document), 1, "chupa-38a", 43, 42, 43, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 0, 42, 42, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 0, 42, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 0, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 65536, 65536, 65536, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 41, ""); assert(!verify(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 43, 42, 43, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 0, 42, 42, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 0, 42, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 0, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 65536, 65536, 65536, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 41, ""); assert(skipped(document));
 
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 65536, 65536, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 65536, ""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 42, ",\"follows\":\"bad/name\""); assert(!verify(document));
-	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 42, ",\"follows\":\"12345678901234567890123456789012\""); assert(!verify(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 65536, 65536, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 65536, ""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 42, ",\"follows\":\"bad/name\""); assert(skipped(document));
+	row_document(document, sizeof(document), 1, "chupa-38a", 29, 42, 42, ",\"follows\":\"12345678901234567890123456789012\""); assert(skipped(document));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"serial\":2,\"wires\":{}}"));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"s\\u0065rial\":2,\"wires\":{}}"));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"unknown\":{\"x\":0,\"x\":1}}"));
@@ -102,8 +131,8 @@ static void parser_checks(void)
 	assert(!verify("{\"delta_legacy\":2,\"serial\":1,\"wires\":{}}"));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":1.0,\"wires\":{}}"));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":01,\"wires\":{}}"));
-	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"platform_policy\":{\"Bad\":{}}}"));
-	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"platform_policy\":{\"pc\":{\"players\":4097}}}"));
+	assert(verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"platform_policy\":{\"Bad\":{}}}"));
+	assert(verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"platform_policy\":{\"pc\":{\"players\":4097}}}"));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"platform_policy\":[]}"));
 	assert(!verify("{\"delta_legacy\":1,\"serial\":1,\"wires\":{},\"unknown\":nonsense}"));
 }
@@ -130,7 +159,7 @@ static void offer_checks(void)
 	assert(halo_network_version_joinable(38, 42) && halo_network_version_joinable(38, 43));
 	assert(!halo_network_version_joinable(38, 44) && !halo_network_version_joinable(38, 33) && !halo_network_version_joinable(38, 37));
 	assert(!delta_legacy_presumed(42) && delta_legacy_presumed(43));
-	assert(delta_legacy_announce_version() == 42);
+	assert(delta_legacy_announce_version() == 38); /* never above the codec this build runs */
 	row_document(document, sizeof(document), 3, "chupa-38a", 29, 44, 44, ",\"requires\":[\"protection\"]");
 	size = sign_document(document); assert(delta_legacy_offer(signed_table, size));
 	assert(delta_legacy_announce_version() == 38 && halo_network_version_joinable(38, 44));
@@ -141,6 +170,9 @@ static void offer_checks(void)
 	size = sign_document(document); assert(delta_legacy_offer(signed_table, size));
 	assert(!halo_network_version_joinable(38, 42) && halo_network_version_joinable(38, 45));
 	assert(halo_network_version_joinable(38, 29) && halo_network_version_joinable(38, 38));
+	row_document(document, sizeof(document), 6, "chupa-38a", 29, 36, 38, "");
+	size = sign_document(document); assert(delta_legacy_offer(signed_table, size));
+	assert(delta_legacy_announce_version() == 38); /* never below 38 */
 	delta_legacy_initialize(1, NULL, &key, 1);
 	size = sign_document(valid); assert(delta_legacy_offer(signed_table, size));
 	assert(delta_legacy_capability_disabled("platform") && !delta_legacy_capability_disabled("unknown"));
