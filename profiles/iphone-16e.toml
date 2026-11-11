@@ -41,8 +41,8 @@ source = "Report HWZD3QQH, build 20261017.73634, quick suite, menu/a10-opening/b
 
 [evidence."display.shadow_map_size"]
 basis = "assumed"
-why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
-source = "Steve, 2026-11-04"
+why = "All shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Project policy, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"

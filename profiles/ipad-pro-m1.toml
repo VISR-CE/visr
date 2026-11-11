@@ -32,8 +32,8 @@ source = "iPad settings sweep, a10 benchmark at 3180x2384, 2026-10-03"
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Blood Gulch at a fixed 1080 lines and 60 frames a second, 128 shadows: 32 players 99.94% and 99.97% of frames on time, 64 players 99.93% and 99.93% (two rounds each, thermal state 0). At 512 shadows the 64-player game missed badly in the look test on the iPhone 17 Pro (28% on time, 35 fps) while 128 held 99.2%; the iPad Pro (M1) 64-player run at 512 was 50% on time at 60 frames a second in an earlier round. Steve 2026-10-30: 128 is acceptable for the whole variable context."
-source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30; Steve, 2026-11-04"
+why = "All shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Blood Gulch at a fixed 1080 lines and 60 frames a second, 128 shadows: 32 players 99.94% and 99.97% of frames on time, 64 players 99.93% and 99.93% (two rounds each, thermal state 0). At 512 shadows the 64-player game missed badly in the look test on the iPhone 17 Pro (28% on time, 35 fps) while 128 held 99.2%; the iPad Pro (M1) 64-player run at 512 was 50% on time at 60 frames a second in an earlier round. 128 is acceptable for the whole variable context."
+source = "VISR settings sweep mpshadow phase, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
 
 [evidence."display.effect_resolution"]
 basis = "measured"
@@ -47,8 +47,8 @@ source = "VISR settings sweep, build 20261024.122832 (0.5.0) with earlier rounds
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "Steve 2026-10-27: 120 now, to be confirmed by the tier-ladder check at 1.5x. With MetalFX spatial scaling from 1080 lines to the 3180x2384 panel, presented runs at 120 frames a second were 99.90% on time on a10 and 99.75% on d40 (the device at thermal state 2). Earlier offscreen rounds without the scaler path held only 79.3% (a10) and 75.7% (d40) within 8.3 ms at 1080 lines, so 120 at 1.5x enemies is not yet shown."
-source = "Providence a10-heroic and d40-maw-fight presented runs, build d290f06fe (20261026.002743), 2026-10-26; Steve, 2026-10-27"
+why = "120 now, to be confirmed by the tier-ladder check at 1.5x. With MetalFX spatial scaling from 1080 lines to the 3180x2384 panel, presented runs at 120 frames a second were 99.90% on time on a10 and 99.75% on d40 (the device at thermal state 2). Earlier offscreen rounds without the scaler path held only 79.3% (a10) and 75.7% (d40) within 8.3 ms at 1080 lines, so 120 at 1.5x enemies is not yet shown."
+source = "Providence a10-heroic and d40-maw-fight presented runs, build d290f06fe (20261026.002743), 2026-10-26"
 
 [evidence."network.player_capacity"]
 basis = "measured"

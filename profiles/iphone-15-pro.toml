@@ -42,8 +42,8 @@ full_rate_players = 32
 
 [evidence."display.frame_rate"]
 basis = "measured"
-why = "Steve 2026-11-09: keep 120 with dynamic resolution down to 1080 lines, from report 5TTEGVTX (iPhone 15 Pro Max, VISR 0.6.14, native 1290 lines, benchmark holds the planner at the ceiling): a10-heroic 119.4 fps, 99.5% on time; a50-campaign-heroic 119.9 fps, 99.9%; b30 113.3 fps, 96.0%; d40-maw-fight 110.4 fps, 93.4%, thermal 2 at the end. The heavier 1x windows miss at the fixed native ceiling, which dynamic resolution covers in play. Earlier tester reports at about 102 fps were the 60 fps scene-rate pacing bug fixed in 0.6.14. Steve chose the same 120 for the iPhone 17 and iPhone Air (2026-10-27)."
-source = "Report 5TTEGVTX, build 20261108.25946, campaign, 2026-11-08 UTC; Steve, 2026-11-09"
+why = "Keep 120 with dynamic resolution down to 1080 lines, from report 5TTEGVTX (iPhone 15 Pro Max, VISR 0.6.14, native 1290 lines, benchmark holds the planner at the ceiling): a10-heroic 119.4 fps, 99.5% on time; a50-campaign-heroic 119.9 fps, 99.9%; b30 113.3 fps, 96.0%; d40-maw-fight 110.4 fps, 93.4%, thermal 2 at the end. The heavier 1x windows miss at the fixed native ceiling, which dynamic resolution covers in play. Earlier tester reports at about 102 fps were the 60 fps scene-rate pacing bug fixed in 0.6.14. The iPhone 17 and iPhone Air use the same 120 (2026-10-27)."
+source = "Report 5TTEGVTX, build 20261108.25946, campaign, 2026-11-08 UTC"
 
 [evidence."variable.display.frame_rate"]
 basis = "measured"
@@ -62,8 +62,8 @@ source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, campaign setting
 
 [evidence."display.shadow_map_size"]
 basis = "assumed"
-why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
-source = "Steve, 2026-11-04"
+why = "All shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Project policy, 2026-11-04"
 
 [evidence."display.model_lod"]
 basis = "measured"
@@ -88,12 +88,12 @@ source = "VISR presented benchmark runs on the iPhone 17 Pro, main c6f138a78, 20
 [evidence."external.display.output_height"]
 basis = "assumed"
 why = "Estimated from built-in measurements, not measured on a wired display. A 2560x1600 monitor at 1440 lines draws 2304x1440 (3.3 million pixels), about 1.1 times the 3.0 million of this class's measured native 2556x1179, which held 60 frames a second (99.7 to 100% on time, thermal nominal) on the iPhone 15 Pro. Presentation p90 at native was already at the 16.7 ms budget, so the iPhone 15 Pro class gets 1440 and not the monitor's full 1600 lines (4.1 million pixels, 1.4 times the measured load). The earlier 1080 cap was a placeholder pending measurements."
-source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, native built-in output, 2026-10-24 UTC; Steve, 2026-10-27"
+source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, native built-in output, 2026-10-24 UTC"
 
 [evidence."external.display.render_height"]
 basis = "assumed"
 why = "Rendering follows the output cap: the drawable is the monitor's own shape at up to 1440 lines, scaled to the monitor by the layer. Estimated, not measured on a wired display; dynamic resolution (on, floor 1080) is the safety net if a monitor proves heavier than estimated."
-source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, native built-in output, 2026-10-24 UTC; Steve, 2026-10-27"
+source = "Reports XPBNZMAZ and UYY37PNG, build 20261023.212823, native built-in output, 2026-10-24 UTC"
 
 [evidence."network.player_capacity"]
 basis = "inherited"

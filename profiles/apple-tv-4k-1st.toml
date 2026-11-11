@@ -84,7 +84,7 @@ why = "Pinned to the built-in default so the Apple TV class profile's floor (the
 
 [evidence."display.output_height"]
 basis = "measured"
-why = "On a 4K TV with the scene at 720 lines, handing the Apple TV a 1080 image tied a 720 image when both ran cool (on-time 0.991 in the 8 windows where both were thermally nominal; GPU mean 14.1 against 14.7 ms over all windows), against the full 4K drawable baseline at 55.0 frames a second and 0.907 on time. 1080 gives the HUD and text 1.5 times the lines and gives 1080p TVs a native picture. The cap only lowers output, so 720p TVs are unchanged. Steve's decision."
+why = "On a 4K TV with the scene at 720 lines, handing the Apple TV a 1080 image tied a 720 image when both ran cool (on-time 0.991 in the 8 windows where both were thermally nominal; GPU mean 14.1 against 14.7 ms over all windows), against the full 4K drawable baseline at 55.0 frames a second and 0.907 on time. 1080 gives the HUD and text 1.5 times the lines and gives 1080p TVs a native picture. The cap only lowers output, so 720p TVs are unchanged."
 source = "TestFlight 0.5.0 benchmark reports X6RJWBVJ, 3LADMGUU, U764MX75 (4K TV) and ZGVMKGQJ (0.4.1 baseline), build 20261025.150026, 2026-10-25"
 
 [evidence."network.full_rate_players"]

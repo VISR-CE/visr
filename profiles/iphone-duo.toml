@@ -1,6 +1,6 @@
 #:schema ../port/settings/profile.schema.json
 # iPhone Duo (iPhone19,4): built-in 2669x1878 at 120 Hz. Campaign runs at the
-# native ceiling with dynamic resolution down to 1080 lines (Steve, 2026-11-09);
+# native ceiling with dynamic resolution down to 1080 lines (2026-11-09);
 # variable games keep the iPhone 17 Pro's 60 frames a second at 1080 lines.
 # render_height 0 means the active display's own height, so the cover display
 # and external displays never get the inner display's line count.
@@ -39,18 +39,18 @@ full_rate_players = 64
 
 [evidence."display.frame_rate"]
 basis = "assumed"
-why = "Steve 2026-11-09: enable the Duo at native resolution and 120. Measured on this model at the native 2669x1878 built-in output with dynamic resolution off: a10 99.46% of frames on time, a50 98.65%, d40 98.1%, b30 90.6%, with 1.5x and 2x enemy windows near 60 fps (GPU p95 15 to 17 ms) and thermal state 2 in five windows. At a fixed 1080 lines and 120 Hz a10 held 99.89%. Dynamic resolution down to 1080 should recover the misses; confirm with a rerun on the published profile."
-source = "Steve, 2026-11-09; VISR Duo benchmark runs CEHKY4BW and BBHUXU8M, 2026-11-09"
+why = "Enable the Duo at native resolution and 120. Measured on this model at the native 2669x1878 built-in output with dynamic resolution off: a10 99.46% of frames on time, a50 98.65%, d40 98.1%, b30 90.6%, with 1.5x and 2x enemy windows near 60 fps (GPU p95 15 to 17 ms) and thermal state 2 in five windows. At a fixed 1080 lines and 120 Hz a10 held 99.89%. Dynamic resolution down to 1080 should recover the misses; confirm with a rerun on the published profile."
+source = "VISR Duo benchmark runs CEHKY4BW and BBHUXU8M, 2026-11-09"
 
 [evidence."display.render_height"]
 basis = "assumed"
-why = "Steve 2026-11-09: native ceiling. 0 resolves to the active display's height (1878 lines on the inner display), so the cover display and external displays are never given the inner display's line count. Fixed native held a10 at 99.46% only; b30 at 90.6% needs the dynamic window."
-source = "Steve, 2026-11-09; VISR Duo benchmark run BBHUXU8M"
+why = "Native ceiling. 0 resolves to the active display's height (1878 lines on the inner display), so the cover display and external displays are never given the inner display's line count. Fixed native held a10 at 99.46% only; b30 at 90.6% needs the dynamic window."
+source = "VISR Duo benchmark run BBHUXU8M"
 
 [evidence."display.dynamic_resolution_floor"]
 basis = "assumed"
-why = "Steve 2026-11-09: dynamic resolution down to 1080 in campaign. Variable games (multiplayer, co-op, enemy multipliers) keep the iPhone 17 Pro's 1080 ceiling with the 540 floor."
-source = "Steve, 2026-11-09; profiles/README.md, Dynamic resolution in both workloads"
+why = "Dynamic resolution down to 1080 in campaign. Variable games (multiplayer, co-op, enemy multipliers) keep the iPhone 17 Pro's 1080 ceiling with the 540 floor."
+source = "profiles/README.md, Dynamic resolution in both workloads"
 
 [evidence."variable.display.render_height"]
 basis = "inherited"
@@ -68,8 +68,8 @@ why = "Free on the iPad Pro (M1); this phone's one benchmark ran a10 at 119 fram
 
 [evidence."display.shadow_map_size"]
 basis = "measured"
-why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Look test at a fixed 1080 lines, 60 frames a second, 64 players on Blood Gulch: 512 shadows 28% of frames on time (35 fps), 128 shadows 99.2% (56 fps). With the window down to 540 lines and 128 shadows, 32 players held 99.96% and 100%, 64 players 99.97% and 99.97% (59.7 to 60.0 fps, thermal state 0 or 1). Steve 2026-10-30: 128 is acceptable for the whole variable context."
-source = "VISR settings sweep look and mpshadow phases, build 20261029.192128 (main e77a24957), presented, 2026-10-30; Steve, 2026-11-04"
+why = "All shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games. Measured on this device in the variable context: Look test at a fixed 1080 lines, 60 frames a second, 64 players on Blood Gulch: 512 shadows 28% of frames on time (35 fps), 128 shadows 99.2% (56 fps). With the window down to 540 lines and 128 shadows, 32 players held 99.96% and 100%, 64 players 99.97% and 99.97% (59.7 to 60.0 fps, thermal state 0 or 1). 128 is acceptable for the whole variable context."
+source = "VISR settings sweep look and mpshadow phases, build 20261029.192128 (main e77a24957), presented, 2026-10-30"
 
 [evidence."display.anti_aliasing"]
 basis = "measured"
@@ -79,12 +79,12 @@ source = "Reports NMYSEQ6R (off) and 47PS5LC2 (on), iPhone18,1, quick suite, 202
 [evidence."external.display.output_height"]
 basis = "assumed"
 why = "Estimated from built-in measurements, not measured on a wired display. A 2560x1600 monitor at its full 1600 lines draws 2560x1600 (4.1 million pixels), 1.3 times the 3.2 million of this phone's native 2622x1206. At native the b30 and a10 scenes cost 5.3 and about 5 ms of GPU at 120 Hz (FXAA on), so about 7 ms scaled by pixel count, against the 16.7 ms budget at the external display's 60 Hz. A 4K monitor is capped to 1600 lines too (2844x1600 at most). The earlier 1080 cap was a placeholder pending measurements."
-source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15; presented iPhone 17 Pro runs, main c6f138a78, 2026-10-26; Steve, 2026-10-27"
+source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15; presented iPhone 17 Pro runs, main c6f138a78, 2026-10-26"
 
 [evidence."external.display.render_height"]
 basis = "assumed"
 why = "Rendering follows the output cap: the drawable is the monitor's own shape at up to 1600 lines, scaled to the monitor by the layer. Estimated, not measured on a wired display; dynamic resolution (on, floor 1080) is the safety net if a monitor proves heavier than estimated."
-source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15; presented iPhone 17 Pro runs, main c6f138a78, 2026-10-26; Steve, 2026-10-27"
+source = "VISR quick suite reports NMYSEQ6R and 47PS5LC2, iPhone18,1, 2026-10-15; presented iPhone 17 Pro runs, main c6f138a78, 2026-10-26"
 
 [evidence."network.player_capacity"]
 basis = "measured"
