@@ -1,0 +1,78 @@
+# iPhone10,1 to iPhone10,6 (iPhone 8, 8 Plus and X; A11, 2 to 3 GB): 30 frames a second at 720 lines with dynamic resolution down to 540 and no upscaled
+# textures. Measured on the iPhone X (five 0.6.14 campaign reports; assumed for the 8 and 8 Plus, which share its GPU and have smaller screens): held 30 with a p99 interval of 38 to 50 ms in four of five sessions, and the GPU is the limit
+# (it renders at the ceiling most of the time), so a resolution window is the lever for the dips. Before this profile the model fell
+# to the iPhone and iPad class, which has dynamic resolution off and upscaled textures on.
+#:schema ../port/settings/profile.schema.json
+schema = 1
+name = "iPhone A11"
+kind = "model"
+status = "provisional"
+
+[match]
+platform = "ios"
+models = ["iPhone10,1", "iPhone10,2", "iPhone10,3", "iPhone10,4", "iPhone10,5", "iPhone10,6"]
+
+[display]
+frame_rate = "30"
+render_height = 720
+shadow_map_size = 128
+upscaled_textures = false
+dynamic_resolution = true
+dynamic_resolution_floor = 540
+
+[scene.menu.display]
+render_height = 0
+frame_rate = "60"
+
+[scene.cutscene.display]
+render_height = 0
+
+[network]
+player_capacity = 64
+full_rate_players = 16
+
+[evidence."display.frame_rate"]
+basis = "measured"
+why = "Five 0.6.14 campaign reports at 720 lines held a 33.4 ms median interval; four of the five had a p99 of 38 to 50 ms and the longest session (4,310 frames) had a p95 near 50 ms, so the floor of 30 is the target and 60 is out of reach for the A11 GPU."
+source = "Five GamePerformanceReports from an iPhone X on VISR 0.6.14, campaign, 2026-11 (iPhone 8 and 8 Plus assumed)"
+
+[evidence."display.render_height"]
+basis = "measured"
+why = "The reports ran 720 lines (render quality 0.6) at 30 frames a second with the class profile; 720 is the ceiling and dynamic resolution handles the late frames."
+source = "Five GamePerformanceReports from an iPhone X on VISR 0.6.14, campaign, 2026-11 (iPhone 8 and 8 Plus assumed)"
+
+[evidence."display.dynamic_resolution"]
+basis = "assumed"
+why = "The reports carry GPU samples, so the A11 has the stage timing the planner needs, and the GPU runs near the budget at the ceiling; one session had 1 frame in 20 late. A window from 720 down to 540 is the cheapest lever before dropping the tier (profiles/README.md, Targets). Not yet measured with it on."
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "At a 720-line ceiling, upscaled textures add little visible detail and cost memory. Off also saves memory and import time on the 2 GB iPhone 8 and the 3 GB 8 Plus and X."
+
+[evidence."display.shadow_map_size"]
+basis = "inherited"
+why = "128 shadows everywhere (project decision, 2026-11-04)."
+
+[evidence."scene.menu.display.frame_rate"]
+basis = "assumed"
+why = "Menus run at 60 as in the class profile; not measured on this phone."
+
+[evidence."network.player_capacity"]
+basis = "inherited"
+why = "The iPhone and iPad class value; no multiplayer reports from this model yet."
+
+[evidence."network.full_rate_players"]
+basis = "inherited"
+why = "The iPhone and iPad class value; no multiplayer reports from this model yet."
+
+[evidence."display.dynamic_resolution_floor"]
+basis = "assumed"
+why = "540 lines is the floor of the profile ladder (30/540/1x); the planner never goes below it."
+
+[evidence."scene.menu.display.render_height"]
+basis = "assumed"
+why = "Menus render at native resolution (0), as in the class profile."
+
+[evidence."scene.cutscene.display.render_height"]
+basis = "assumed"
+why = "Cutscenes render at native resolution (0), as in the class profile."
