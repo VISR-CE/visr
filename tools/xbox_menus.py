@@ -920,6 +920,28 @@ def multiplayer_documents(assets, bitmaps):
                     target = next(t for t in root.iter('widget') if t.get('name') == f'{base}/{leaf}')
                     ET.SubElement(target, 'on', event='left_mouse', run=f'port {kind} reedit')
                 ET.SubElement(w, 'on', event='y', run=f'port {kind} reedit')
+                if kind == 'password':
+                    # X hides or shows the password (plain text by default); the
+                    # caption follows menu_functions.c's password_screen.hidden.
+                    # Screen-level X ignores the key while typing (E is a letter
+                    # then); a click on the legend always toggles.
+                    hide = ET.SubElement(root, 'strings', name=f'{base}/hide_captions')
+                    for caption in ('HIDE', 'SHOW'):
+                        ET.SubElement(hide, 'string', text=caption)
+                    for leaf, x in (('x_butn', 60), ('x_hide', 82)):
+                        child(w, f'{base}/{leaf}', x=x, y=414)
+                        if leaf == 'x_hide':
+                            text_widget(root, f'{base}/{leaf}', 'HIDE', width=60, height=22)
+                        else:
+                            widget(root, f'{base}/{leaf}', type='container', width=21, height=26,
+                                   bitmap='xbox/browser/x_butn')
+                        target = next(t for t in root.iter('widget') if t.get('name') == f'{base}/{leaf}')
+                        if leaf == 'x_hide':
+                            del target.attrib['text']
+                            target.set('string_list', f'{base}/hide_captions')
+                            target.set('string_index', '0')
+                        ET.SubElement(target, 'on', event='left_mouse', run='port password togglehide click')
+                    ET.SubElement(w, 'on', event='x', run='port password togglehide')
                 for leaf, run in (('a_butn', f'port {kind} join'), ('accept', f'port {kind} join'),
                                   ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
                     for target in root.iter('widget'):

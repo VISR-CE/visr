@@ -1723,7 +1723,8 @@ static const struct config_setting config_settings[] =
 	{ "debug.menu_text_seed", _config_string, "\"\"", "HALO_MENU_TEXT_SEED", _environment_value, _platform_all,
 		"The join password and Direct Link code screens open with this text already\n"
 		"entered and the keyboard closed, to see their held-text state (for\n"
-		"screenshots); empty for none." },
+		"screenshots); on the password screen a leading `*` starts it hidden; empty\n"
+		"for none." },
 	{ "debug.gpu_flush_draws", _config_integer, "-1", "HALO_GPU_FLUSH_DRAWS", _environment_value, _platform_desktop,
 		"Flush the GPU's pipeline every this many draws: -1 for every 3 on Intel\n"
 		"graphics with Mesa's driver (which can hang without), 0 never." },

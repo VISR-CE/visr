@@ -429,7 +429,7 @@ static char const *const port_function_names[] =
 	settings' screens having written theirs to config.toml) */
 	"player profile save changes",
 	/* (the server browser's password screen) */
-	"port password init", "port password edit", "port password join", "port password back", "port password reedit",
+	"port password init", "port password edit", "port password join", "port password back", "port password reedit", "port password togglehide", "port password togglehide click",
 	/* (Settings begins editing after its new profile is created) */
 	"new campaign decision",
 	/* (Direct Link's ENTER CODE screen: a join code or an invite link) */

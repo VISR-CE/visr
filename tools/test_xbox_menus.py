@@ -1482,3 +1482,22 @@ def test_password_and_code_legend_caption_follows_the_field(kind):
     assert f'legend_accept_caption(list, text_field_editing(NULL) || {kind}_screen.text[0])' in source
     assert f'text_field_editing(row) || {kind}_screen.text[0])' in source
     assert 'config_string("debug.menu_text_seed")' in source
+    # X hides or shows the password (password screen only): HIDE while plain, SHOW while stars
+    x_names = [w.get('name') for w in root.iter('widget') if w.get('name', '').startswith(base + '/x_')]
+    if kind == 'code':
+        assert x_names == []
+        return
+    assert screen.find('on[@event="x"]').get('run') == 'port password togglehide'
+    hide = next(w for w in root.iter('widget') if w.get('name') == base + '/x_hide')
+    assert hide.get('text') is None and hide.get('string_index') == '0'
+    strings = next(s for s in root.iter('strings') if s.get('name') == hide.get('string_list'))
+    assert [s.get('text') for s in strings] == ['HIDE', 'SHOW']
+    for leaf in ('x_butn', 'x_hide'):
+        entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
+        assert entry.find('on[@event="left_mouse"]').get('run') == 'port password togglehide click'
+        assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None
+    assert 'password_screen.hidden = FALSE' in source
+    assert 'stars[index] = password_screen.hidden' in source
+    assert '"port password togglehide click"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
+    # the hosting Server Settings password stays masked
+    assert 'text_field_begin_masked(row, multiplayer.game_password' in source

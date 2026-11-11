@@ -5052,6 +5052,8 @@ static struct
 {
 	char text[PASSWORD_LENGTH + 1];
 	short help;
+	/* shown as stars (X, the legend's HIDE/SHOW); plain text by default */
+	boolean hidden;
 } password_screen;
 
 static void password_screen_done(char const *text)
@@ -5078,6 +5080,10 @@ static void legend_accept_caption(struct widget_instance *list, boolean join)
 		caption->parameters.text_box.string_list_index = (short)((join || !controller) ? 1 : 0);
 	visible_set(named(screen, "y_butn", 0), reedit);
 	visible_set(named(screen, "y_edit", 0), reedit);
+	/* the password screen's X legend: HIDE while the text shows, SHOW while stars */
+	caption = named(screen, "x_hide", 0);
+	if (caption)
+		caption->parameters.text_box.string_list_index = (short)(password_screen.hidden ? 1 : 0);
 }
 
 /* "port password init" */
@@ -5087,13 +5093,22 @@ static boolean password_screen_initialize(struct widget_instance *list)
 
 	password_screen.text[0] = 0;
 	password_screen.help = _password_help_ask;
+	password_screen.hidden = FALSE;
 	if (row)
 	{
-		text_field_begin_masked(row, "", PASSWORD_LENGTH, password_screen_done);
-		/* (debug.menu_text_seed: text already held, the keyboard closed) */
-		if (config_string("debug.menu_text_seed")[0])
+		text_field_start(row, "", PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
+		/* (debug.menu_text_seed: text already held, the keyboard closed; a leading '*' starts it hidden) */
+		const char *seed = config_string("debug.menu_text_seed");
+		if (seed[0])
 		{
-			text_field_insert(config_string("debug.menu_text_seed"));
+			if (seed[0] == '*')
+			{
+				password_screen.hidden = TRUE;
+				text_field.masked = TRUE;
+				seed++;
+			}
+			if (seed[0])
+				text_field_insert(seed);
 			text_field_end(TRUE);
 		}
 	}
@@ -5108,7 +5123,7 @@ static void password_screen_update(struct widget_instance *list)
 	short index;
 
 	for (index = 0; password_screen.text[index] && index < PASSWORD_LENGTH; index++)
-		stars[index] = '*';
+		stars[index] = password_screen.hidden ? '*' : password_screen.text[index];
 	stars[index] = 0;
 	text_field_show(named(list, "password_value", 0), stars, text_field_editing(named(list, "op_password", 0)));
 	if (help)
@@ -5129,7 +5144,7 @@ static boolean password_screen_join(struct widget_instance *widget, boolean *wid
 		password_screen.help = _password_help_wrong;
 		password_screen.text[0] = 0;
 		if (row)
-			text_field_begin_masked(row, "", PASSWORD_LENGTH, password_screen_done);
+			text_field_start(row, "", PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
 		return campaign_fail();
 	}
 	if (!lobby_browser_join(&game, lobby_browser.controller))
@@ -5162,7 +5177,7 @@ static boolean password_screen_edit(struct widget_instance *row, boolean *widget
 {
 	if (text_field_editing(row) || password_screen.text[0])
 		return password_screen_join(row, widget_deleted);
-	text_field_begin_masked(row, password_screen.text, PASSWORD_LENGTH, password_screen_done);
+	text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
 	return TRUE;
 }
 
@@ -5174,7 +5189,21 @@ static boolean password_screen_reedit(struct widget_instance *widget)
 
 	if (!row || text_field_editing(NULL))
 		return FALSE;
-	text_field_begin_masked(row, password_screen.text, PASSWORD_LENGTH, password_screen_done);
+	text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
+	return TRUE;
+}
+
+/* "port password togglehide" (X, the legend's HIDE / SHOW): the text as
+stars or plain. The X key event is ignored while typing (a keyboard's E is a
+letter then); a click on the legend, "port password togglehide click", always
+works. */
+static boolean password_screen_togglehide(boolean typing_ok)
+{
+	if (!typing_ok && text_field_editing(NULL))
+		return FALSE;
+	password_screen.hidden = !password_screen.hidden;
+	if (text_field_editing(NULL))
+		text_field.masked = password_screen.hidden;
 	return TRUE;
 }
 
@@ -7089,6 +7118,14 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port password reedit"))
 		{
 			return password_screen_reedit(widget);
+		}
+		else if (!strcmp(name, "port password togglehide"))
+		{
+			return password_screen_togglehide(FALSE);
+		}
+		else if (!strcmp(name, "port password togglehide click"))
+		{
+			return password_screen_togglehide(TRUE);
 		}
 		else if (!strcmp(name, "port code reedit"))
 		{
