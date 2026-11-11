@@ -242,6 +242,36 @@ static int vehicle_occupied(long index)
 		if (unit->unit.player_index != NONE && object_get_ultimate_parent(iterator.index) == index) return 1;
 	return 0;
 }
+/* A vehicle still in the object table but already queued for deletion is gone:
+the table keeps it until the next objects update. */
+static boolean vehicle_live(long index)
+{
+	struct object_header_datum *header=object_header_try_and_get(index);
+	return header && header->datum && !TEST_FLAG(header->flags,_object_header_being_deleted_bit);
+}
+static long vehicles_live_count(void)
+{
+	struct object_iterator iterator;
+	long count=0;
+	object_iterator_new(&iterator,_object_mask_vehicle,0);
+	while (object_iterator_next(&iterator)) if (vehicle_live(iterator.index)) count++;
+	return count;
+}
+/* Delete every vehicle now, not at the next objects update, so the rebuild and
+the moved-vehicle search see only the new set and a second load starts clean. */
+static void vehicles_delete_all(void)
+{
+	struct object_iterator iterator;
+	for (;;)
+	{
+		long found=NONE;
+		object_iterator_new(&iterator,_object_mask_vehicle,0);
+		while (object_iterator_next(&iterator)) if (vehicle_live(iterator.index)) { found=iterator.index; break; }
+		if (found == NONE) return;
+		object_delete_immediately(found);
+		if (vehicle_live(found)) { error(_error_silent,"photo: cannot delete vehicle %ld",found); return; }
+	}
+}
 static void scene_restore(const struct photo_shot *shot)
 {
 	struct universal_variant *v=&game_engine_get_variant()->universal_variant;
@@ -249,6 +279,7 @@ static void scene_restore(const struct photo_shot *shot)
 	const struct photo_mp_scene *m=&shot->mp;
 	struct object_iterator iterator;
 	long i, restored[PHOTO_MAX_MOVED_VEHICLES];
+	long before, after_delete=NONE, after_rebuild=NONE;
 	int side, k;
 	if (!shot->has_mp && !shot->moved_vehicle_count) return;
 	if (global_scenario->type != _scenario_type_multiplayer)
@@ -276,14 +307,15 @@ static void scene_restore(const struct photo_shot *shot)
 		error(_error_silent,"photo: cannot restore map weapons and equipment live; reload the map with variant %s",shot->variant);
 		error(_error_silent,"photo: cannot re-equip existing players or rebuild team objectives live; reload the map with variant %s",shot->variant);
 	}
+	before=vehicles_live_count();
 	/* Do not delete a vehicle carrying a player or leave half a new placement set. */
 	object_iterator_new(&iterator,_object_mask_vehicle,0);
-	while (object_iterator_next(&iterator)) if (vehicle_occupied(iterator.index))
+	while (object_iterator_next(&iterator)) if (vehicle_live(iterator.index) && vehicle_occupied(iterator.index))
 	{ error(_error_silent,"photo: cannot restore vehicles while a player occupies one; exit the vehicle and load again"); return; }
 	if (shot->has_mp)
 	{
-		object_iterator_new(&iterator,_object_mask_vehicle,0);
-		while (object_iterator_next(&iterator)) object_delete(iterator.index);
+		vehicles_delete_all();
+		after_delete=vehicles_live_count();
 		game_engine_vehicle_homes_reset();
 		game_engine_vehicle_placement_begin();
 		for (i=0;i<global_scenario->vehicles.count;i++)
@@ -295,6 +327,7 @@ static void scene_restore(const struct photo_shot *shot)
 			if (object_new_from_scenario(p,&global_scenario->vehicle_palette) == NONE)
 				error(_error_silent,"photo: cannot restore scenario vehicle %ld; tag unavailable or placement refused",i);
 		}
+		after_rebuild=vehicles_live_count();
 	}
 	for (i=0;i<shot->moved_vehicle_count;i++)
 	{
@@ -313,7 +346,7 @@ static void scene_restore(const struct photo_shot *shot)
 		while ((object=object_iterator_next(&iterator)) != NULL)
 		{
 			float d;
-			if (object->definition_index != tag) continue;
+			if (object->definition_index != tag || !vehicle_live(iterator.index)) continue;
 			for (k=0;k<i;k++) if (restored[k] == iterator.index) break;
 			if (k<i) continue;
 			d=distance_squared((float *)&object->object.position,moved->position);
@@ -327,10 +360,12 @@ static void scene_restore(const struct photo_shot *shot)
 		{ error(_error_silent,"photo: cannot restore moved vehicle %s; position is outside the BSP",moved->tag); continue; }
 		created=object_new(&placement);
 		if (created == NONE) { error(_error_silent,"photo: cannot create moved vehicle %s",moved->tag); continue; }
-		if (nearest != NONE) object_delete(nearest);
+		if (nearest != NONE) object_delete_immediately(nearest);
 		if (name != NONE) object_claim_scenario_name(created,name);
 		restored[i]=created;
 	}
+	error(_error_silent,"photo: vehicles before restore %ld, after delete %ld, after rebuild %ld, after moved %ld (%d moved)",
+		before,after_delete,after_rebuild,vehicles_live_count(),shot->moved_vehicle_count);
 }
 
 static void camera_shot(struct flying_camera *camera, struct photo_shot *shot)
