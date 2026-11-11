@@ -1805,10 +1805,16 @@ boolean network_game_client_game_has_started(
 	else
 	{
 		/* port: a map this build cannot load (its bsp refused) leaves the
-		client in the pregame lobby of a game it cannot play: it goes back to
-		the main menu, which drops the connection, rather than halt */
+		client in the pregame lobby of a game it cannot play: it leaves the
+		game and the main menu says why in the game's own dialog, as for a
+		refused join (network_game_client_handle_message_reject), rather than
+		halt */
 		network_event("failed to load the necessary game data: leaving the game");
+		display_error_text_when_main_menu_loaded(
+			L"Couldn't load this map. It may be missing or different from the host's.");
 		main_goto_main_menu();
+		network_game_abort();
+		network_game_client_reset(client, TRUE);
 	}
 
 	return client->state == _network_game_client_state_ingame;
