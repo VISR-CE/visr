@@ -5869,7 +5869,11 @@ static boolean multiplayer_profile_set_for_game(
 		player_ui_set_game_variant(&profile);
 		player_ui_set_game_variant_options(&options);
 		if (server)
+		{
+			/* VISR: later rounds are set up from the playlist stage */
+			game_engine_override_game_variant(&profile);
 			network_game_server_change_game_variant(server, &profile);
+		}
 		return TRUE;
 	}
 	error(2, "failed to retrieve user selected game variant");
@@ -6128,7 +6132,11 @@ boolean ui_widget_port_gametype_choose(
 	/* (and its PC options: game_engine.h) */
 	player_ui_set_game_variant_options(&options);
 	if (server)
+	{
+		/* VISR: later rounds are set up from the playlist stage */
+		game_engine_override_game_variant(&profile);
 		network_game_server_change_game_variant(server, &profile);
+	}
 	return TRUE;
 }
 
@@ -6310,7 +6318,12 @@ boolean ui_widget_port_game_variant_set(
 	player_ui_set_game_variant(variant);
 	player_ui_set_game_variant_options(options);
 	if (server)
+	{
+		/* VISR: later rounds are set up from the playlist stage, whose
+		 * variant must match player_ui's for the session options to apply */
+		game_engine_override_game_variant(variant);
 		network_game_server_change_game_variant(server, variant);
+	}
 	return TRUE;
 }
 
