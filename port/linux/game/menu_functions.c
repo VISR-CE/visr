@@ -5760,10 +5760,38 @@ static void vehicles_keep(struct widget_instance *list)
 	variant->universal_variant.vehicle_set = options->vehicle_set[0] <= 4 ? options->vehicle_set[0] : 0;
 }
 
+/* the screen's respawn time kept as it changes, as its set and counts are
+(only a move off the stored value's place: a stored time between the
+spinner's values stays until the spinner is moved) */
+static void vehicles_respawn_keep(struct widget_instance *list)
+{
+	struct game_variant *variant = edit_variant();
+	struct game_variant_options *options = edit_options();
+	struct gametype_option const *option = gametype_option_named("vehicles_respawn_spinner");
+	struct widget_instance *row, *spinner;
+
+	if (!variant || !options || !option)
+		return;
+	for (row = list->child; row; row = row->next)
+	{
+		for (spinner = row->child; spinner; spinner = spinner->next)
+		{
+			short index;
+
+			if (spinner->type != 2 || gametype_option_named(spinner->name) != option)
+				continue;
+			index = (short)PIN(spinner->parameters.list.selected_index, 0, option->count - 1);
+			if (index != gametype_option_index(option, gametype_option_value(option, variant, options)))
+				gametype_option_value_set(option, option->values[index], variant, options);
+			return;
+		}
+	}
+}
+
 /* "mp prof vehicles update": the side changed (the one left kept, the other
 shown); a count changed makes the side's set CUSTOM. port: every change is
 kept as it is made, set included, as the counts always were: the screen's
-B leaves without its OK, and a set left behind its counts (the gametype's
+B leaves without its OK (the respawn time too: vehicles_respawn_keep), and a set left behind its counts (the gametype's
 own, e.g. Slayer Pro's none) placed no vehicle in the game's first round */
 static void vehicles_update(struct widget_instance *list)
 {
@@ -5775,6 +5803,7 @@ static void vehicles_update(struct widget_instance *list)
 
 	if (!options)
 		return;
+	vehicles_respawn_keep(list);
 	if (team && team->parameters.list.selected_index != gametype_edit.vehicle_side)
 	{
 		vehicles_keep(list);
