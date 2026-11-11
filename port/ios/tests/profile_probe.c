@@ -393,8 +393,12 @@ static void check_unprofiled_models(const char *shipped)
 	profile = resolve_model(shipped, "ios", "iPhone19,1", 11, 12000, 2622, 1206, 120);
 	assert(!profile.inherited && !strcmp(profile.model_file, "iphone-17-pro.toml") && has(&profile, "display.anti_aliasing", "fxaa") &&
 		strstr(logged, "and_newer iphone-17-pro.toml: iPhone19,1"));
-	/* The oldest supported iPhone sits below every measured profile: the class floor. */
+	/* The oldest supported iPhone (A11) is the measured iPhone X family's own profile. */
 	profile = resolve_model(shipped, "ios", "iPhone10,1", 4, 1950, 1334, 750, 60);
+	assert(!strcmp(profile.model_file, "iphone-a11.toml") && has(&profile, "display.render_height", "720") &&
+		has(&profile, "display.frame_rate", "30"));
+	/* An A10 iPad sits below every measured profile: the class floor. */
+	profile = resolve_model(shipped, "ios", "iPad7,5", 3, 2950, 2048, 1536, 60);
 	assert(!profile.model_file[0] && !strcmp(profile.class_file, "iphone-ipad.toml") &&
 		has(&profile, "display.render_height", "720") &&
 		has(&profile, "display.frame_rate", "30"));
@@ -420,11 +424,11 @@ static void check_unprofiled_models(const char *shipped)
 	/* iPad 10th generation: the same A14 as the measured Air 4. */
 	profile = resolve_model(shipped, "ios", "iPad13,18", 7, 3900, 2360, 1640, 60);
 	assert(profile.inherited && !strcmp(profile.model_file, "ipad-air-4.toml") && has(&profile, "display.render_height", "1080"));
-	/* iPhone 12 Pro Max: the measured 12 Pro's chip and memory; the 4 GB iPhone 12 keeps the class floor. */
+	/* iPhone 12 Pro Max: the measured 12 Pro's chip and memory; the 4 GB iPhone 12 inherits the A11 profile below it. */
 	profile = resolve_model(shipped, "ios", "iPhone13,4", 7, 5700, 2778, 1284, 60);
 	assert(profile.inherited && !strcmp(profile.model_file, "iphone-12-pro.toml") && has(&profile, "display.frame_rate", "30"));
 	profile = resolve_model(shipped, "ios", "iPhone13,2", 7, 3800, 2532, 1170, 60);
-	assert(!profile.model_file[0] && !strcmp(profile.class_file, "iphone-ipad.toml"));
+	assert(profile.inherited && !strcmp(profile.model_file, "iphone-a11.toml"));
 	/* iPad 5th generation (A9), the oldest: below every measured iPad profile. */
 	profile = resolve_model(shipped, "ios", "iPad6,11", 3, 1950, 2048, 1536, 60);
 	assert(!profile.model_file[0] && !strcmp(profile.class_file, "iphone-ipad.toml") &&
@@ -533,6 +537,16 @@ static void check_shipped(const char *shipped)
 		has(&profile, "display.renderer", "metal"));
 	profile = resolve(shipped, device("ios", "iPad6,8", "", 3), NULL, "");
 	assert(!profile.model_file[0] && !profile.inherited);
+	/* iPhones newer than the A11 and below the 12 Pro's envelope inherit the A11 profile rather than the class floor:
+	   an iPhone 11 (A13, 4 GB) and an iPhone 13 (A15, 4 GB). Memory under the A11's own floor keeps the class. */
+	struct host_device a13 = device("ios", "iPhone12,1", "", 5);
+	a13.memory_megabytes = 3800; a13.pixel_width = 1792; a13.pixel_height = 828; a13.refresh_rate = 60;
+	profile = resolve(shipped, a13, NULL, "");
+	assert(profile.inherited && !strcmp(profile.model_file, "iphone-a11.toml") && !strcmp(profile.source_hardware, "iphone-a11") &&
+		has(&profile, "display.render_height", "720") && has(&profile, "display.frame_rate", "30"));
+	a13.model[0] = 0; snprintf(a13.model, sizeof a13.model, "iPhone14,5"); a13.gpu_family = 7; a13.pixel_width = 2532; a13.pixel_height = 1170;
+	profile = resolve(shipped, a13, NULL, "");
+	assert(profile.inherited && !strcmp(profile.model_file, "iphone-a11.toml"));
 	profile = resolve(shipped, device("mac", "Mac14,5", "Apple M2 Max", 8), NULL, "");
 	assert(profile.count == 3 && has(&profile, "display.model_lod", "max") &&
 		has(&profile, "display.compressed_textures", "true") && has(&profile, "display.renderer", "metal"));
