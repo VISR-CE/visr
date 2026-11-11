@@ -7,10 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Whole degrees from 12 to 148, so stepping from any loaded value lands on 90. */
 float photo_fov_step(float fov, int steps)
 {
-	float value = fov + steps * 0.02f;
-	return fminf(2.6f, fmaxf(0.2f, value));
+	float degrees = roundf(fov * 180.f / 3.14159265f) + (float)steps;
+	degrees = fminf(148.f, fmaxf(12.f, degrees));
+	return degrees * 3.14159265f / 180.f;
 }
 
 void photo_level_up(const float forward[3], float up[3])

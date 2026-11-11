@@ -34,6 +34,7 @@ struct photo_shot
 };
 
 /* These helpers have no engine dependencies; tests use synthetic camera values. */
+#define PHOTO_ENTRY_FOV 1.5707963f /* 90 degrees, as most original map pictures */
 float photo_fov_step(float fov, int steps);
 void photo_level_up(const float forward[3], float up[3]);
 /* The up axis for a camera rolled by roll radians about forward, the way the flying camera

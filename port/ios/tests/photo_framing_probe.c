@@ -40,9 +40,16 @@ int main(int argc, char **argv)
     assert(photo_map_key("custom_maps\\Example",1,hash,key,sizeof(key)));
     assert(strlen(key)==72 && !strcmp(key+70,"ff"));
     assert(!photo_map_key("x",1,hash,key,72));
-    assert(fabsf(photo_fov_step(1,1)-1.02f)<1e-6f);
-    assert(fabsf(photo_fov_step(1,-1)-0.98f)<1e-6f);
-    assert(photo_fov_step(2.6f,1)==2.6f && photo_fov_step(0.2f,-1)==0.2f);
+    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,0)-PHOTO_ENTRY_FOV)<1e-6f);
+    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,1)*180.f/3.14159265f-91.f)<1e-4f);
+    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,-1)*180.f/3.14159265f-89.f)<1e-4f);
+    {   /* From a saved 84.9 degrees, stepping up reaches 90 exactly. */
+        float fov = 1.4817f; int i;
+        for (i=0;i<5;i++) fov = photo_fov_step(fov,1);
+        assert(fabsf(fov-PHOTO_ENTRY_FOV)<1e-6f);
+    }
+    assert(fabsf(photo_fov_step(2.6f,1)*180.f/3.14159265f-148.f)<1e-4f);
+    assert(fabsf(photo_fov_step(0.2f,-1)*180.f/3.14159265f-12.f)<1e-4f);
     photo_level_up(forward,up);
     assert(fabsf(up[0]+0.8f)<1e-6f && fabsf(up[2]-0.6f)<1e-6f);
     assert(fabsf(up[0]*forward[0]+up[2]*forward[2])<1e-6f);

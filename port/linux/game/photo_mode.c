@@ -542,7 +542,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 			saved_speed = game_time_get_speed();
 			saved_bsp = global_structure_bsp_index_get();
 			flying_camera_new_from_point_and_vector(camera,&view->position,&view->forward);
-			camera->field_of_view = fov = photo_fov_step(view->field_of_view,0);
+			camera->field_of_view = fov = PHOTO_ENTRY_FOV;
 		}
 		memset(&metadata,0,sizeof(metadata));
 		metadata.focus[0] = metadata.focus[1] = 0.5f;
@@ -562,6 +562,16 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 		game_time_set_speed(1);
 		settle_until = game_time_get() + metadata.settle_ticks;
 		error(_error_silent, "photo mode: entered; AI erased; reload the map to play");
+		if (global_scenario->type == _scenario_type_multiplayer)
+		{
+			const struct game_variant_options *o = game_variant_options_get();
+			const struct universal_variant *u = &game_engine_get_variant()->universal_variant;
+			error(_error_silent, "photo mode: engine %ld teams %d universal vehicle set %d; sets %d/%d; counts %d %d %d %d %d %d / %d %d %d %d %d %d; %ld vehicles live",
+				(long)game_engine_get_variant()->game_engine_index, (int)u->teams, (int)u->vehicle_set, (int)o->vehicle_set[0], (int)o->vehicle_set[1],
+				(int)o->vehicle_counts[0][0], (int)o->vehicle_counts[0][1], (int)o->vehicle_counts[0][2], (int)o->vehicle_counts[0][3], (int)o->vehicle_counts[0][4], (int)o->vehicle_counts[0][5],
+				(int)o->vehicle_counts[1][0], (int)o->vehicle_counts[1][1], (int)o->vehicle_counts[1][2], (int)o->vehicle_counts[1][3], (int)o->vehicle_counts[1][4], (int)o->vehicle_counts[1][5],
+				vehicles_live_count());
+		}
 	}
 	if (!active) return;
 	/* Scripted cutscenes cannot take the camera back while framing. */
