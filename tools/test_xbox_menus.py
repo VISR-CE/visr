@@ -714,4 +714,4 @@ def test_empty_browser_explains_on_the_left_and_keeps_the_detail_panel():
     placed = {c.get('widget').rsplit('/', 1)[-1]: (int(c.get('x', 0)), int(c.get('y', 0))) for c in screen.findall('child')}
     for leaf in ('browser_list_status', 'browser_list_hint'):
         assert f'{base}/{leaf}' in names
-        assert placed[leaf][0] == 24 and 82 <= placed[leaf][1] < 82 + 53 * 3  # where the first rows sit
+        assert placed[leaf][0] == 36 and 82 <= placed[leaf][1] < 82 + 53 * 3  # inset from the list edges, where the first rows sit

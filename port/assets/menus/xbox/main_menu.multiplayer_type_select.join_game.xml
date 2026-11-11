@@ -605,8 +605,8 @@
 		<on event="x" run="port browser filters open" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" y="-26" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" x="24" y="90" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" x="24" y="146" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" x="36" y="92" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" x="36" y="166" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
 	</widget>
@@ -637,8 +637,8 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_create_inter" x="242" y="427" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/browser_back" x="362" y="427" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" type="text" width="270" height="48" font="ui\small_ui" color="#7fc4ff" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" type="text" width="270" height="48" font="ui\small_ui" color="#2f73c4" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_status" type="text" width="222" height="66" font="ui\large_ui" color="#7fc4ff" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/browser_list_hint" type="text" width="222" height="66" font="ui\large_ui" color="#2f73c4" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" type="column_list" width="294" height="421" visible_rows="6" flags="pass_unhandled_to_focused_child">
 		<data input="gamespy screen update" />
 		<on event="up" run="port browser rows up" />
