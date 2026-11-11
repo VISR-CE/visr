@@ -16,6 +16,19 @@ int main(int argc, char **argv)
     if (argc == 4 && !strcmp(argv[1], "--read"))
         return photo_fragment_read(argv[2], argv[3], &loaded, &revision) ? 0 : 1;
     assert(argc == 2);
+    {
+        float d[3];
+        photo_fly_step(PHOTO_FLY_FORWARD | PHOTO_FLY_LEFT | PHOTO_FLY_UP, 0.5f, 0, d);
+        assert(fabsf(d[0] - 0.75f) < 1e-6f && fabsf(d[1] - 0.75f) < 1e-6f && fabsf(d[2] - 0.75f) < 1e-6f);
+        photo_fly_step(PHOTO_FLY_BACKWARD | PHOTO_FLY_RIGHT | PHOTO_FLY_DOWN, 1.f, 2, d);
+        assert(fabsf(d[0] + 6.f) < 1e-6f && fabsf(d[1] + 6.f) < 1e-6f && fabsf(d[2] + 6.f) < 1e-6f);
+        photo_fly_step(PHOTO_FLY_FORWARD | PHOTO_FLY_BACKWARD, 1.f, 0, d);
+        assert(d[0] == 0.f && d[1] == 0.f && d[2] == 0.f);
+        photo_fly_step(PHOTO_FLY_FORWARD, 0.f, 4, d);
+        assert(d[0] == 0.f);
+        photo_fly_step(1UL << 6, 1.f, 0, d);
+        assert(d[0] == 0.f && d[1] == 0.f && d[2] == 0.f);
+    }
     assert(photo_stock_scenario("levels\\a10\\a10"));
     assert(!photo_stock_scenario("example"));
     assert(photo_map_key("levels\\Example\\Example",0,NULL,key,sizeof(key)));

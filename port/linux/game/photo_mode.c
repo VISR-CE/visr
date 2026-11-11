@@ -1,5 +1,6 @@
 /* Developer framing controls; scene and camera ownership stays on the game thread. */
 #include "cseries/cseries.h"
+#include "cseries/cseries_windows.h"
 #include "photo_mode.h"
 #include "photo_framing.h"
 #include "camera/director.h"
@@ -19,12 +20,19 @@
 #include "custom_edition_cache.h"
 #include "map_share.h"
 #include "../src/port_config.h"
+#include "halo_keyboard.h"
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <direct.h>
 
 void platform_log(const char *format, ...);
+int halo_linux_mouse_look(short gamepad_index, float *yaw, float *pitch);
+/* photo_fly_step reads halo_keyboard_actions bits directly. */
+typedef char photo_fly_bits_match[(PHOTO_FLY_FORWARD == 1UL << HALO_KEYBOARD_MOVE_FORWARD &&
+	PHOTO_FLY_BACKWARD == 1UL << HALO_KEYBOARD_MOVE_BACKWARD && PHOTO_FLY_LEFT == 1UL << HALO_KEYBOARD_STRAFE_LEFT &&
+	PHOTO_FLY_RIGHT == 1UL << HALO_KEYBOARD_STRAFE_RIGHT && PHOTO_FLY_UP == 1UL << HALO_KEYBOARD_JUMP &&
+	PHOTO_FLY_DOWN == 1UL << HALO_KEYBOARD_CROUCH) ? 1 : -1];
 const char *platform_data_root(void);
 #ifdef HALO_ILP32
 int host_photo_mode_available(void);
@@ -184,10 +192,33 @@ static void file_action(int action, struct flying_camera *camera)
 	}
 }
 
-void photo_mode_update(struct director *director, float *translation, float *roll_delta)
+/* The keyboard and mouse never reach the gamepad's sticks in gameplay (xinput_sdl.c sets only
+keyboard_actions_held and the pending mouse motion), so photo mode reads them itself and drives
+the flying camera from them, in real seconds, while the game's clock stands still. */
+static void fly(boolean *controls_active, float seconds, float facing[3], float translation[3], const struct flying_camera *camera)
+{
+	static unsigned long logged_at;
+	unsigned long keys = halo_keyboard_actions(0), now = (unsigned long)(system_milliseconds());
+	float mouse_yaw = 0, mouse_pitch = 0, step[3], scale = powf(2.f,(float)speed_step);
+	int mouse = halo_linux_mouse_look(0,&mouse_yaw,&mouse_pitch), i;
+	float stick[3] = {translation[0], translation[1], translation[2]};
+	photo_fly_step(keys,seconds,speed_step,step);
+	for (i=0;i<3;i++) translation[i] = stick[i]*scale + step[i];
+	facing[0] += mouse_yaw; facing[1] += mouse_pitch; facing[2] = 0;
+	*controls_active = TRUE;
+	if (now - logged_at >= 500 && (keys || mouse || stick[0] || stick[1] || stick[2] || facing[0] || facing[1]))
+	{
+		logged_at = now;
+		error(_error_silent, "photo fly: dt %.4f keys 0x%lx mouse %d (%.4f,%.4f) stick (%.4f,%.4f,%.4f) move (%.4f,%.4f,%.4f) facing (%.4f,%.4f) speed %d camera (%.2f,%.2f,%.2f) yaw %.3f pitch %.3f",
+			seconds, keys, mouse, mouse_yaw, mouse_pitch, stick[0], stick[1], stick[2], translation[0], translation[1], translation[2],
+			facing[0], facing[1], speed_step, camera->position.x, camera->position.y, camera->position.z, camera->facing.yaw, camera->facing.pitch);
+	}
+}
+
+void photo_mode_update(struct director *director, boolean *controls_active, float seconds, float facing[3], float translation[3])
 {
 	struct flying_camera *camera = (struct flying_camera *)director->camera_data;
-	int action = pending, i;
+	int action = pending;
 	pending = 0;
 	if (!active && !action) return;
 	if (!host_photo_mode_available() || !config_boolean("debug.photo_mode"))
@@ -243,8 +274,8 @@ void photo_mode_update(struct director *director, float *translation, float *rol
 	if (action == PHOTO_SLOWER && speed_step > -4) speed_step--;
 	if (action == PHOTO_FASTER && speed_step < 4) speed_step++;
 	if (action == PHOTO_FOV_DOWN || action == PHOTO_FOV_UP) fov = photo_fov_step(fov,action == PHOTO_FOV_UP ? 1 : -1);
-	camera->field_of_view = fov; camera->roll = 0; *roll_delta = 0;
-	for (i=0;i<3;i++) translation[i] *= powf(2.f,(float)speed_step);
+	camera->field_of_view = fov; camera->roll = 0;
+	fly(controls_active,seconds,facing,translation,camera);
 	if (action == PHOTO_SAVE || action == PHOTO_LOAD) file_action(action,camera);
 	if (action == PHOTO_RENDER_CHECK) error(_error_silent, "photo mode: render check not implemented (phase 5)");
 	host_photo_mode_overlay(fov,speed_step,guides,metadata.focus[0],metadata.focus[1]);

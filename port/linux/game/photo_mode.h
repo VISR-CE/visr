@@ -7,6 +7,7 @@ enum photo_action { PHOTO_TOGGLE = 1, PHOTO_GUIDES, PHOTO_SAVE, PHOTO_LOAD,
 void photo_mode_trace_key(int scancode, int action);
 int photo_mode_key(int action);
 int photo_mode_active(void);
-void photo_mode_update(struct director *director, float *translation, float *roll_delta);
+/* facing is yaw, pitch, roll; translation is forward, left, up (struct camera_control). */
+void photo_mode_update(struct director *director, unsigned char *controls_active, float seconds, float facing[3], float translation[3]);
 void photo_mode_end(void);
 #endif

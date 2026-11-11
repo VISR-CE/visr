@@ -272,3 +272,16 @@ int photo_camera_read(const char *path, struct photo_shot *s)
 	do { ch = fgetc(f); } while (ch != EOF && isspace(ch));
 	fclose(f); return n == 10 && ch == EOF && photo_shot_valid(s);
 }
+
+static float photo_fly_axis(unsigned long keys, unsigned long positive, unsigned long negative)
+{
+	return ((keys & positive) ? 1.f : 0.f) - ((keys & negative) ? 1.f : 0.f);
+}
+
+void photo_fly_step(unsigned long keys, float seconds, int speed_step, float delta[3])
+{
+	float rate = seconds > 0.f ? PHOTO_FLY_SPEED * powf(2.f, (float)speed_step) * seconds : 0.f;
+	delta[0] = photo_fly_axis(keys, PHOTO_FLY_FORWARD, PHOTO_FLY_BACKWARD) * rate;
+	delta[1] = photo_fly_axis(keys, PHOTO_FLY_LEFT, PHOTO_FLY_RIGHT) * rate;
+	delta[2] = photo_fly_axis(keys, PHOTO_FLY_UP, PHOTO_FLY_DOWN) * rate;
+}

@@ -1042,7 +1042,7 @@ void director_update(
 			director_globals.initialize_camera = FALSE;
 			/* port: the existing flying controls also run while game speed is zero. */
 			if (local_player_index == 0)
-				photo_mode_update(director, &controls.position_delta.i, &controls.facing_delta.roll);
+				photo_mode_update(director, &controls.active, controls.seconds_elapsed, controls.facing_delta.n, controls.position_delta.n);
 			csmemset(&command, 0, sizeof(command));
 
 			if (director->camera_proc &&

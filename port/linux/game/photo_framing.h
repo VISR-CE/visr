@@ -21,4 +21,12 @@ int photo_fragment_read(const char *path, const char *key, struct photo_shot *sh
 int photo_fragment_write(const char *path, const char *key, const struct photo_shot *shot);
 int photo_camera_read(const char *path, struct photo_shot *shot);
 
+/* World units per second the keyboard flies the photo camera at speed step 0. */
+#define PHOTO_FLY_SPEED 1.5f
+/* Key bits as halo_keyboard_actions reports them (port/linux/include/halo_keyboard.h). */
+enum { PHOTO_FLY_FORWARD = 1 << 0, PHOTO_FLY_BACKWARD = 1 << 1, PHOTO_FLY_LEFT = 1 << 2,
+	PHOTO_FLY_RIGHT = 1 << 3, PHOTO_FLY_UP = 1 << 4, PHOTO_FLY_DOWN = 1 << 5 };
+/* The flying camera's position change for one frame of held keys: i forward, j left, k up. */
+void photo_fly_step(unsigned long keys, float seconds, int speed_step, float delta[3]);
+
 #endif
