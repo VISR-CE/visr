@@ -117,6 +117,7 @@ symbols in this file:
 #include "cseries.h"
 #include "bink_playback.h"
 #include "bink_movie_fit.h"
+#include "bink_edge_gradient.h"
 #include "bitmaps/bitmap_group.h"
 #include "bitmaps/bitmaps.h"
 #include "cache/cache_files.h"
@@ -418,6 +419,36 @@ left/right and top/bottom are averaged and smoothed over a few frames (rgb, 0..2
 #define BINK_EDGE_SMOOTHING 0.3f
 static real bink_edge_color[2][3]; /* [0]= left/right, [1]= top/bottom */
 static boolean bink_edge_primed = FALSE;
+/* when the frame's edge is a smooth radial background (the Bungie section), the bars continue
+that gradient, drawn as a small texture, and the frame's own edge feathers into it */
+#define BINK_GRADIENT_WIDTH 256
+#define BINK_GRADIENT_HEIGHT 192
+#define BINK_FEATHER_PERCENT 0.12f
+#define BINK_PROFILE_MAXIMUM 1024
+#define BINK_PROFILE_DEPTH 4 /* pixels in from the edge averaged per profile entry */
+#define BINK_FEATHER_NONE 0
+#define BINK_FEATHER_SIDES 1
+#define BINK_FEATHER_ENDS 2
+static struct bink_gradient bink_gradient_state;
+/* port: the movie's own outer edge, per row (left, right) and per column (top, bottom), blurred; the bars and
+the feathered band both blend toward it so the movie meets the fill without a seam */
+static real bink_edge_profile[4][BINK_PROFILE_MAXIMUM][3];
+static long bink_feather_mode = BINK_FEATHER_NONE; /* set by the last draw, read by the next decode */
+/* port: allocated from the movie's physical pool like the frame buffer, because the host re-uploads a texture only
+when it sees writes to memory it watches; a static array was uploaded once, zeroed, and the fill stayed black */
+static byte *bink_gradient_pixels= NULL;
+#define BINK_GRADIENT_BYTES (BINK_GRADIENT_WIDTH*BINK_GRADIENT_HEIGHT*4)
+
+static byte bink_clamp_color(
+	real value)
+{
+	return value<=0.0f ? 0 : (value>=254.5f ? 255 : (byte)(value+0.5f));
+}
+
+static struct bitmap_data bink_gradient_bitmap = { 0 };
+static D3DBaseTexture bink_gradient_texture = { 0 };
+static struct rasterizer_dynamic_screen_geometry_parameters bink_gradient_geometry;
+static boolean bink_gradient_registered = FALSE;
 /* January .bss +0x160: entries used in bink_pointer_blocks */
 static long bink_pointer_block_count = 0;
 
@@ -484,6 +515,7 @@ void bink_playback_stop(
 	saved_frame_rate_throttle = bink_saved_frame_rate_throttle;
 	bink_globals.flags = 0;
 	bink_edge_primed = FALSE;
+	bink_feather_mode = BINK_FEATHER_NONE;
 	global_frame_rate_throttle = saved_frame_rate_throttle;
 	attract_mode_reset_timer();
 
@@ -525,6 +557,8 @@ skip_decode:
 
 	return;
 }
+
+extern void platform_log(const char *format, ...);
 
 void bink_playback_start(
 	const char *full_pathname,
@@ -637,8 +671,46 @@ void bink_playback_start(
 			bink_bitmap.base_address= (void *)NONE;
 			bink_globals.screen_geometry.map[0]= &bink_bitmap;
 
+			{
+				long gradient_buffer_size= (BINK_GRADIENT_BYTES+CPU_PAGE_SIZE-1)&~(CPU_PAGE_SIZE-1);
+
+				bink_gradient_pixels= bink_alloc_permanent(gradient_buffer_size, BINK_FRAME_BUFFER_ALIGNMENT);
+				XPhysicalProtect(bink_gradient_pixels, gradient_buffer_size, PAGE_READWRITE|PAGE_WRITECOMBINE);
+				csmemset(bink_gradient_pixels, 0, gradient_buffer_size);
+			}
+			bink_gradient_texture.Common= BINK_TEXTURE_COMMON;
+			bink_gradient_texture.Data= 0;
+			bink_gradient_texture.Lock= 0;
+			bink_gradient_texture.Size= ((BINK_GRADIENT_WIDTH*sizeof(pixel32)/D3DTEXTURE_PITCH_ALIGNMENT-1)<<D3DSIZE_PITCH_SHIFT)|
+				((BINK_GRADIENT_HEIGHT-1)<<D3DSIZE_HEIGHT_SHIFT)|(BINK_GRADIENT_WIDTH-1);
+			bink_gradient_texture.Format= BINK_TEXTURE_FORMAT;
+			IDirect3DBaseTexture8_Register(&bink_gradient_texture, bink_gradient_pixels);
+			csmemset(&bink_gradient_geometry, 0, sizeof(bink_gradient_geometry));
+			bink_gradient_geometry.map_texture_scale[0].i= 1.f;
+			bink_gradient_geometry.map_texture_scale[0].j= 1.f;
+			bink_gradient_geometry.map_scale[0].i= 1.f;
+			bink_gradient_geometry.map_scale[0].j= 1.f;
+			bink_gradient_geometry.meter_parameters= NULL;
+			bink_gradient_geometry.point_sampled= FALSE;
+			bink_gradient_geometry.framebuffer_blend_function= _shader_framebuffer_blend_function_alpha_multiply_add;
+			bink_gradient_bitmap.signature= BITMAP_GROUP_TAG;
+			bink_gradient_bitmap.width= BINK_GRADIENT_WIDTH;
+			bink_gradient_bitmap.height= BINK_GRADIENT_HEIGHT;
+			bink_gradient_bitmap.depth= 1;
+			bink_gradient_bitmap.type= _bitmap_type_2d;
+			bink_gradient_bitmap.format= _bitmap_format_x8r8g8b8;
+			bink_gradient_bitmap.flags= FLAG(_bitmap_linear_bit);
+			bink_gradient_bitmap.pixels_size= BINK_GRADIENT_BYTES;
+			bink_gradient_bitmap.tag_index= NONE;
+			bink_gradient_bitmap.cache_block_index= NONE;
+			bink_gradient_bitmap.hardware_format= (D3DTexture *)&bink_gradient_texture;
+			bink_gradient_bitmap.base_address= (void *)NONE;
+			bink_gradient_geometry.map[0]= &bink_gradient_bitmap;
+			bink_gradient_registered= TRUE;
+
 			bink_globals.flags= flags;
 			bink_edge_primed= FALSE;
+			bink_feather_mode= BINK_FEATHER_NONE;
 			if (TEST_FLAG(flags, _bink_playback_prevent_events_to_ui_bit))
 			{
 				bink_get_memory_available("begin event_manager");
@@ -691,6 +763,97 @@ void bink_decompress_audio_frame(
 	return;
 }
 
+/* the radial background continued over the whole screen: a small texture evaluated from the fitted
+profile at each texel's distance from the movie's center, drawn bilinear under the movie */
+static void bink_draw_gradient_background(
+	const struct bink_movie_fit *fit,
+	short screen_width,
+	short screen_height)
+{
+	struct dynamic_screen_vertex vertices[4];
+	real scale= (fit->x1-fit->x0)/(real)bink_globals.width;
+	real half_diagonal= 0.5f*sqrtf((real)(bink_globals.width*bink_globals.width+bink_globals.height*bink_globals.height));
+	long tx, ty, vertex_index;
+
+	for (ty= 0; ty<BINK_GRADIENT_HEIGHT; ty++)
+	{
+		real dy= ((ty+0.5f)/BINK_GRADIENT_HEIGHT-0.5f)*screen_height;
+
+		for (tx= 0; tx<BINK_GRADIENT_WIDTH; tx++)
+		{
+			real dx= ((tx+0.5f)/BINK_GRADIENT_WIDTH-0.5f)*screen_width;
+			float rgb[3];
+			byte *pixel= bink_gradient_pixels+(ty*BINK_GRADIENT_WIDTH+tx)*4;
+			real sx= dx+screen_width*0.5f, sy= dy+screen_height*0.5f;
+			long side= NONE, index= 0;
+			real distance= 0.0f, bar= 1.0f;
+
+			bink_gradient_eval(&bink_gradient_state, sqrtf(dx*dx+dy*dy)/(scale*half_diagonal), rgb);
+			if (fit->x0>0.0f && sx<fit->x0)
+			{
+				side= 0; distance= fit->x0-sx; bar= fit->x0;
+				index= (long)((sy-fit->y0)/scale);
+			}
+			else if (fit->x0>0.0f && sx>fit->x1)
+			{
+				side= 1; distance= sx-fit->x1; bar= screen_width-fit->x1;
+				index= (long)((sy-fit->y0)/scale);
+			}
+			else if (fit->y0>0.0f && sy<fit->y0)
+			{
+				side= 2; distance= fit->y0-sy; bar= fit->y0;
+				index= (long)((sx-fit->x0)/scale);
+			}
+			else if (fit->y0>0.0f && sy>fit->y1)
+			{
+				side= 3; distance= sy-fit->y1; bar= screen_height-fit->y1;
+				index= (long)((sx-fit->x0)/scale);
+			}
+			if (side==NONE && fit->x0>0.0f)
+			{
+				/* under the movie: continue the nearest edge's profile so bilinear sampling across the seam has no step */
+				side= sx<screen_width*0.5f ? 0 : 1; distance= 0.0f; bar= 1.0f;
+				index= (long)((sy-fit->y0)/scale);
+			}
+			else if (side==NONE && fit->y0>0.0f)
+			{
+				side= sy<screen_height*0.5f ? 2 : 3; distance= 0.0f; bar= 1.0f;
+				index= (long)((sx-fit->x0)/scale);
+			}
+			if (side!=NONE)
+			{
+				long length= side<2 ? bink_globals.height : bink_globals.width;
+				real t= bar>1.0f ? distance/bar : 0.0f;
+				real far_weight= (t>1.0f ? 1.0f : t)*0.3f; /* the movie's own edge near the seam, the fitted model out toward the screen edge */
+				if (index<0) index= 0;
+				if (index>=length) index= length-1;
+				rgb[0]= bink_edge_profile[side][index][0]*(1.0f-far_weight)+rgb[0]*far_weight;
+				rgb[1]= bink_edge_profile[side][index][1]*(1.0f-far_weight)+rgb[1]*far_weight;
+				rgb[2]= bink_edge_profile[side][index][2]*(1.0f-far_weight)+rgb[2]*far_weight;
+			}
+			pixel[0]= bink_clamp_color(rgb[2]);
+			pixel[1]= bink_clamp_color(rgb[1]);
+			pixel[2]= bink_clamp_color(rgb[0]);
+			pixel[3]= 0xFF;
+		}
+	}
+
+	for (vertex_index= 0; vertex_index<4; vertex_index++)
+	{
+		boolean right= ((vertex_index+1)&2)!=0;
+		boolean bottom= vertex_index>1;
+
+		vertices[vertex_index].position.x= right ? (real)screen_width : 0.0f;
+		vertices[vertex_index].position.y= bottom ? (real)screen_height : 0.0f;
+		vertices[vertex_index].texture_coordinates.x= right ? (real)BINK_GRADIENT_WIDTH : 0.0f;
+		vertices[vertex_index].texture_coordinates.y= bottom ? (real)BINK_GRADIENT_HEIGHT : 0.0f;
+		vertices[vertex_index].color= (pixel32)NONE;
+	}
+	rasterizer_psuedo_dynamic_screen_quad_draw(&bink_gradient_geometry, vertices);
+
+	return;
+}
+
 static void bink_draw_frame(
 	void)
 {
@@ -722,7 +885,16 @@ static void bink_draw_frame(
 		u1= fit.u1;
 		v1= fit.v1;
 
-		if (fit.has_bars)
+		bink_feather_mode= BINK_FEATHER_NONE;
+		if (fit.has_bars && bink_gradient_registered && bink_edge_primed)
+		{
+			/* port: flat frames (the Microsoft section, the white at the end of the Bungie one) draw the
+			same quad with a constant color instead of a clear, which the device's viewport can clip away
+			and which left the bars black */
+			bink_draw_gradient_background(&fit, screen_width, screen_height);
+			bink_feather_mode= fit.x0>0.0f ? BINK_FEATHER_SIDES : BINK_FEATHER_ENDS;
+		}
+		else if (fit.has_bars)
 		{
 			D3DRECT bars[2];
 			long axis;
@@ -766,9 +938,9 @@ static void bink_draw_frame(
 				if (bar_count)
 				{
 					color= 0xFF000000|
-						((unsigned long)(bink_edge_color[axis][0]+0.5f)<<16)|
-						((unsigned long)(bink_edge_color[axis][1]+0.5f)<<8)|
-						(unsigned long)(bink_edge_color[axis][2]+0.5f);
+						((unsigned long)bink_clamp_color(bink_edge_color[axis][0])<<16)|
+						((unsigned long)bink_clamp_color(bink_edge_color[axis][1])<<8)|
+						(unsigned long)bink_clamp_color(bink_edge_color[axis][2]);
 					IDirect3DDevice8_Clear(global_d3d_device, bar_count, bars, D3DCLEAR_TARGET, color, 1.0f, 0);
 				}
 			}
@@ -1035,6 +1207,66 @@ static boolean is_all_bink_memory_free(
 	return result;
 }
 
+/* per-row and per-column edge colors of the decoded frame, box-blurred and smoothed over frames */
+static void bink_update_edge_profiles(
+	const byte *bits,
+	long pitch)
+{
+	long width= bink_globals.width;
+	long height= bink_globals.height;
+	long side, i, k, channel;
+
+	if (width>BINK_PROFILE_MAXIMUM || height>BINK_PROFILE_MAXIMUM || width<2*BINK_PROFILE_DEPTH || height<2*BINK_PROFILE_DEPTH)
+		return;
+
+	for (side= 0; side<4; side++)
+	{
+		long length= side<2 ? height : width;
+		long radius= length/8; /* low frequency only: the bars carry color and vignette, never streaks of the movie's shapes */
+		static real raw[BINK_PROFILE_MAXIMUM][3];
+
+		for (i= 0; i<length; i++)
+		{
+			real sum[3]= { 0.0f, 0.0f, 0.0f };
+
+			for (k= 0; k<BINK_PROFILE_DEPTH; k++)
+			{
+				const byte *pixel;
+
+				switch (side)
+				{
+					case 0: pixel= bits+i*pitch+k*4; break;
+					case 1: pixel= bits+i*pitch+(width-1-k)*4; break;
+					case 2: pixel= bits+k*pitch+i*4; break;
+					default: pixel= bits+(height-1-k)*pitch+i*4; break;
+				}
+				sum[0]+= pixel[2]; sum[1]+= pixel[1]; sum[2]+= pixel[0];
+			}
+			for (channel= 0; channel<3; channel++)
+				raw[i][channel]= sum[channel]/BINK_PROFILE_DEPTH;
+		}
+		for (i= 0; i<length; i++)
+		{
+			long lo= i-radius<0 ? 0 : i-radius;
+			long hi= i+radius>=length ? length-1 : i+radius;
+
+			for (channel= 0; channel<3; channel++)
+			{
+				real sum= 0.0f, blurred;
+
+				for (k= lo; k<=hi; k++)
+					sum+= raw[k][channel];
+				blurred= sum/(hi-lo+1);
+				bink_edge_profile[side][i][channel]= bink_edge_primed ?
+					bink_edge_profile[side][i][channel]+(blurred-bink_edge_profile[side][i][channel])*BINK_EDGE_SMOOTHING :
+					blurred;
+			}
+		}
+	}
+
+	return;
+}
+
 /* average of the frame's outer edges (BGRA bytes), every other pixel, blended into bink_edge_color */
 static void bink_sample_edge_colors(
 	const byte *bits,
@@ -1046,10 +1278,15 @@ static void bink_sample_edge_colors(
 	real raw[2][3]= { { 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f } };
 	long count[2]= { 0, 0 };
 	long x, y, axis, channel;
+	struct bink_gradient_sums sums;
+	struct bink_gradient solved;
+	real center_x= width*0.5f, center_y= height*0.5f;
+	real inverse_half_diagonal= 2.0f/sqrtf((real)(width*width+height*height));
 
 	if (!bits || width<2*depth || height<2*depth)
 		return;
 
+	bink_gradient_sums_reset(&sums);
 	for (y= 0; y<height; y+= 2)
 	{
 		boolean on_top= y<depth || y>=height-depth;
@@ -1071,6 +1308,13 @@ static void bink_sample_edge_colors(
 			raw[axis][1]+= pixel[1];
 			raw[axis][2]+= pixel[0];
 			count[axis]++;
+			{
+				float rgb[3];
+				real dx= x-center_x, dy= y-center_y;
+
+				rgb[0]= pixel[2]; rgb[1]= pixel[1]; rgb[2]= pixel[0];
+				bink_gradient_sums_add(&sums, sqrtf(dx*dx+dy*dy)*inverse_half_diagonal, rgb);
+			}
 		}
 	}
 
@@ -1087,7 +1331,78 @@ static void bink_sample_edge_colors(
 				average;
 		}
 	}
+	bink_update_edge_profiles(bits, pitch);
+	bink_gradient_solve(&sums, &solved);
+	if (bink_edge_primed)
+		bink_gradient_blend(&bink_gradient_state, &solved, BINK_EDGE_SMOOTHING);
+	else
+		bink_gradient_state= solved;
 	bink_edge_primed= TRUE;
+
+	return;
+}
+
+/* fades the frame's outer band into the continued background so objects entering from the edge
+do not appear at a hard line; only while the bars show the radial gradient */
+static void bink_feather_frame_edges(
+	byte *bits,
+	long pitch)
+{
+	long width= bink_globals.width;
+	long height= bink_globals.height;
+	boolean sides= bink_feather_mode==BINK_FEATHER_SIDES;
+	long band= (long)((sides ? width : height)*BINK_FEATHER_PERCENT+0.5f);
+	real inverse_band= band>0 ? 1.0f/(real)band : 0.0f;
+	long y, x, i;
+
+	if (!bits || band<1 || width>BINK_PROFILE_MAXIMUM || height>BINK_PROFILE_MAXIMUM)
+		return;
+
+	if (sides)
+	{
+		for (y= 0; y<height; y++)
+		{
+			for (i= 0; i<2; i++)
+			{
+				long start= i==0 ? 0 : width-band;
+
+				for (x= start; x<start+band; x++)
+				{
+					real distance= (real)(i==0 ? x : width-1-x);
+					real t= (distance+0.5f)*inverse_band;
+					real weight= t*t*(3.0f-2.0f*t);
+					byte *pixel= bits+y*pitch+x*4;
+					const real *target= bink_edge_profile[i][y];
+
+					pixel[0]= bink_clamp_color(target[2]+(pixel[0]-target[2])*weight+0.5f);
+					pixel[1]= bink_clamp_color(target[1]+(pixel[1]-target[1])*weight+0.5f);
+					pixel[2]= bink_clamp_color(target[0]+(pixel[2]-target[0])*weight+0.5f);
+				}
+			}
+		}
+	}
+	else
+	{
+		for (i= 0; i<2; i++)
+		{
+			for (y= 0; y<band; y++)
+			{
+				long row= i==0 ? y : height-1-y;
+				real t= (y+0.5f)*inverse_band;
+				real weight= t*t*(3.0f-2.0f*t);
+
+				for (x= 0; x<width; x++)
+				{
+					byte *pixel= bits+row*pitch+x*4;
+					const real *target= bink_edge_profile[2+i][x];
+
+					pixel[0]= bink_clamp_color(target[2]+(pixel[0]-target[2])*weight+0.5f);
+					pixel[1]= bink_clamp_color(target[1]+(pixel[1]-target[1])*weight+0.5f);
+					pixel[2]= bink_clamp_color(target[0]+(pixel[2]-target[0])*weight+0.5f);
+				}
+			}
+		}
+	}
 
 	return;
 }
@@ -1105,6 +1420,8 @@ static void bink_decompress_video_frame(
 	BinkCopyToBuffer(bink_globals.bink, locked_rect.pBits, locked_rect.Pitch, bink_globals.bink->Height,
 		0, 0, bink_globals.surface_type|BINKCOPYALL);
 	bink_sample_edge_colors((const byte *)locked_rect.pBits, locked_rect.Pitch);
+	if (bink_feather_mode!=BINK_FEATHER_NONE)
+		bink_feather_frame_edges((byte *)locked_rect.pBits, locked_rect.Pitch);
 	IDirect3DTexture8_UnlockRect(bink_globals.texture, 0);
 	rasterizer_globals.current_lock_operation= _rasterizer_lock_none;
 

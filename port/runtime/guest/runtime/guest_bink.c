@@ -215,18 +215,25 @@ HBINK __stdcall BinkOpen(const char *name, unsigned long flags)
 
 	(void)flags;
 	if (movie.open || !name || !name[0])
+	{
+		platform_log("Bink: not opening \"%s\" (%s)", name ? name : "(null)", movie.open ? "a movie is open" : "no name");
 		return NULL;
+	}
 	if (!strncasecmp(base_name(name), "attract", 7))
 	{
 		platform_log("Bink: the attract movies are not played; skipping \"%s\"", name);
 		return NULL;
 	}
 	if (!movies_enabled())
+	{
+		platform_log("Bink: display.movies is off; skipping \"%s\"", name);
 		return NULL;
+	}
 	platform_translate_path(name, path, sizeof(path));
 	if (!host_bink_open(path, &movie.information))
 	{
 		/* (a host without the decoder has said so) */
+		platform_log("Bink: the decoder could not open \"%s\"", path);
 		return NULL;
 	}
 	if (!movie.information.frame_rate || !movie.information.frame_rate_divisor || !movie.information.frame_count)

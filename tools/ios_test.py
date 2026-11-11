@@ -45,7 +45,7 @@ run('python3', 'tools/test_astc_store.py')
 run('python3', 'tools/astc_worker_test.py')
 
 # Pure network probes also run in the portable pytest suite.
-for probe in ('network_version', 'network_join_wire', 'menu_gametype', 'bink_movie_fit'):
+for probe in ('network_version', 'network_join_wire', 'menu_gametype', 'bink_movie_fit', 'bink_edge_gradient'):
     executable = BUILD / (probe.replace('_', '-') + '-probe')
     run('xcrun', 'clang', '-std=c11', '-Wall', '-Werror', '-O2', '-fsanitize=address,undefined',
         f'port/ios/tests/{probe}_probe.c', '-o', executable)
