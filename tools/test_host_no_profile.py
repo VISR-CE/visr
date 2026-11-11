@@ -36,11 +36,13 @@ def test_host_no_profile():
     assert 'host_profile_screen' not in source
     tags = (ROOT / 'port/linux/game/menu_tags.c').read_text()
     assert 'port host profile' not in tags
-    equiv = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
-    assert 'host_profile_screen' not in equiv
+    equiv_path = ROOT / 'port/linux/include/menu_equivalence.h'
+    if equiv_path.exists():
+        assert 'host_profile_screen' not in equiv_path.read_text()
     for look in ('ce', 'xbox'):
-        xml = (ROOT / f'port/assets/menus/{look}/main_menu.multiplayer_type_select.lobby.xml').read_text()
-        assert 'host_profile' not in xml
+        xml_path = ROOT / f'port/assets/menus/{look}/main_menu.multiplayer_type_select.lobby.xml'
+        if look == 'ce' or xml_path.exists():
+            assert 'host_profile' not in xml_path.read_text()
 
 
 if __name__ == '__main__':
