@@ -1,6 +1,7 @@
 """Asset-free framing schema and converter regressions (collected by ci_test.py)."""
 import copy
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -13,6 +14,14 @@ CAMERA = '1 2 3\n1 0 0\n0 0 1\n1.12\n'
 
 def good():
     return framing.import_camera('stock:example', CAMERA)
+
+
+def test_rolled_up_validates():
+    data = good()
+    shot = data['maps']['stock:example']['shots'][0]
+    shot['forward'] = [1, 0, 0]
+    shot['up'] = [0, -math.sin(0.5), math.cos(0.5)]
+    assert framing.validate(data) == []
 
 
 def test_source():

@@ -1795,11 +1795,18 @@ void platform_pump_events(void)
 				case SDL_SCANCODE_RIGHTBRACKET: action = PHOTO_FASTER; break;
 				case SDL_SCANCODE_MINUS: action = PHOTO_FOV_DOWN; break;
 				case SDL_SCANCODE_EQUALS: action = PHOTO_FOV_UP; break;
+				case SDL_SCANCODE_Q: action = PHOTO_ROLL_LEFT; break;
+				case SDL_SCANCODE_E: action = PHOTO_ROLL_RIGHT; break;
+				case SDL_SCANCODE_R: action = PHOTO_ROLL_RESET; break;
 				}
-				if (action && event.key.down) photo_mode_trace_key((int)key, (int)action);
+				if (action && event.key.down && !event.key.repeat) photo_mode_trace_key((int)key, (int)action);
 				if (key > 0 && key < SDL_SCANCODE_COUNT && held[key])
 				{
-					if (!event.key.down) held[key] = 0;
+					if (!event.key.down)
+					{
+						held[key] = 0;
+						photo_mode_key_up(action);
+					}
 					break;
 				}
 				if (action && event.key.down && !event.key.repeat && !(event.key.mod & (SDL_KMOD_GUI | SDL_KMOD_CTRL | SDL_KMOD_ALT)) && photo_mode_key(action))

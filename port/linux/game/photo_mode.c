@@ -39,13 +39,16 @@ const char *platform_data_root(void);
 void platform_translate_path(const char *xbox_path, char *host_path, unsigned long host_path_size);
 #ifdef HALO_ILP32
 int host_photo_mode_available(void);
-void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
+void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees);
 #else
 static int host_photo_mode_available(void) { return 0; }
-static void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y) { (void)fov; (void)speed; (void)guides; (void)focus_x; (void)focus_y; }
+static void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees) { (void)fov; (void)speed; (void)guides; (void)focus_x; (void)focus_y; (void)roll_degrees; }
 #endif
 
 static int active, pending, guides = 1, speed_step;
+/* Q and E held (set on the input thread, read on the game thread); roll in radians. */
+static volatile int roll_left, roll_right;
+static float roll;
 static long settle_until;
 static struct director saved_director, *current_director;
 static struct cinematic_global_data saved_cinematic;
@@ -71,6 +74,8 @@ int photo_mode_key(int action)
 		return 0;
 	}
 	if (action != PHOTO_TOGGLE && !active) return 0;
+	if (action == PHOTO_ROLL_LEFT) { roll_left = 1; return 1; }
+	if (action == PHOTO_ROLL_RIGHT) { roll_right = 1; return 1; }
 	if (!active && (!game_map_loaded() || !global_scenario ||
 		global_scenario->type == _scenario_type_main_menu || (game_connection() != _game_connection_local && game_connection() != _game_connection_network_server)))
 	{
@@ -81,9 +86,17 @@ int photo_mode_key(int action)
 	return 1;
 }
 
+void photo_mode_key_up(int action)
+{
+	if (action == PHOTO_ROLL_LEFT) roll_left = 0;
+	if (action == PHOTO_ROLL_RIGHT) roll_right = 0;
+}
+
 void photo_mode_end(void)
 {
 	pending = 0;
+	roll_left = roll_right = 0;
+	roll = 0;
 	if (!active) return;
 	active = 0;
 	global_connection_dont_timeout = saved_dont_timeout;
@@ -98,7 +111,7 @@ void photo_mode_end(void)
 	*director_camera_scripted = saved_scripted;
 	if (current_director) *current_director = saved_director;
 	current_director = NULL;
-	host_photo_mode_overlay(0,0,0,0.5f,0.5f);
+	host_photo_mode_overlay(0,0,0,0.5f,0.5f,0);
 	error(_error_silent, "photo mode: exited; reload the map to play (AI and projectiles cannot be restored)");
 }
 
@@ -141,7 +154,7 @@ static void camera_shot(struct flying_camera *camera, struct photo_shot *shot)
 	memcpy(shot->position,&camera->position,sizeof(shot->position));
 	vector3d_from_euler_angles2d(&forward,&camera->facing);
 	memcpy(shot->forward,&forward,sizeof(shot->forward));
-	photo_level_up(shot->forward,shot->up);
+	photo_roll_up(shot->forward,camera->roll,shot->up);
 	shot->fov = camera->field_of_view;
 	shot->bsp = global_structure_bsp_index_get();
 }
@@ -196,12 +209,12 @@ static void file_action(int action, struct flying_camera *camera)
 		}
 		memcpy(&camera->position,shot.position,sizeof(shot.position));
 		{ real_vector3d forward; memcpy(&forward,shot.forward,sizeof(shot.forward)); euler_angles2d_from_vector3d(&camera->facing,&forward); }
-		camera->roll = 0;
+		camera->roll = roll = photo_roll_from_up(shot.forward,shot.up);
 		camera->field_of_view = fov = shot.fov;
 		metadata = shot;
 		/* AI was already erased on entry; retain an honest recipe on the next save. */
 		metadata.erase_ai = 1;
-		error(_error_silent, "photo mode: loaded first shot (roll lock on)");
+		error(_error_silent, "photo mode: loaded first shot (roll %.2f degrees)", roll * 180.f / 3.14159265f);
 	}
 }
 
@@ -315,7 +328,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 		{ static const char *names[] = {"none","ctf","slayer","oddball","king","race"};
 		  long index = game_engine_get_variant()->game_engine_index;
 		  snprintf(metadata.variant,sizeof(metadata.variant),"%s",index >= 0 && index < 6 ? names[index] : "slayer"); }
-		active = 1; speed_step = 0;
+		active = 1; speed_step = 0; roll = 0;
 		saved_dont_timeout = global_connection_dont_timeout; global_connection_dont_timeout = TRUE;
 		cinematic_start();
 		*director_camera_scripted = FALSE;
@@ -348,10 +361,13 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	if (action == PHOTO_SLOWER && speed_step > -4) speed_step--;
 	if (action == PHOTO_FASTER && speed_step < 4) speed_step++;
 	if (action == PHOTO_FOV_DOWN || action == PHOTO_FOV_UP) fov = photo_fov_step(fov,action == PHOTO_FOV_UP ? 1 : -1);
-	camera->field_of_view = fov; camera->roll = 0;
+	if (action == PHOTO_ROLL_RESET) roll = 0;
+	roll = photo_roll_step(roll,(roll_right ? 1 : 0) - (roll_left ? 1 : 0),seconds,speed_step);
+	/* fly() zeroes the game's own roll delta; photo mode owns the roll. */
+	camera->field_of_view = fov; camera->roll = roll;
 	fly(controls_active,seconds,facing,translation,camera);
 	if (action == PHOTO_SAVE || action == PHOTO_LOAD) file_action(action,camera);
 	if (action == PHOTO_TELEPORT) teleport_player(camera);
 	if (action == PHOTO_RENDER_CHECK) error(_error_silent, "photo mode: render check not implemented (phase 5)");
-	host_photo_mode_overlay(fov,speed_step,guides,metadata.focus[0],metadata.focus[1]);
+	host_photo_mode_overlay(fov,speed_step,guides,metadata.focus[0],metadata.focus[1],roll * 180.f / 3.14159265f);
 }

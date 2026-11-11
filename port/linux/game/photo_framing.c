@@ -30,6 +30,39 @@ void photo_level_up(const float forward[3], float up[3])
 	}
 }
 
+/* flying_camera_update rotates the level up axis about forward with rotate_vector_about_axis:
+up cos(roll) + (forward x up) sin(roll). */
+void photo_roll_up(const float forward[3], float roll, float up[3])
+{
+	float level[3], side[3], c = cosf(roll), s = sinf(roll);
+	int i;
+	photo_level_up(forward, level);
+	side[0] = forward[1] * level[2] - forward[2] * level[1];
+	side[1] = forward[2] * level[0] - forward[0] * level[2];
+	side[2] = forward[0] * level[1] - forward[1] * level[0];
+	for (i = 0; i < 3; i++) up[i] = level[i] * c + side[i] * s;
+}
+
+float photo_roll_from_up(const float forward[3], const float up[3])
+{
+	float level[3], side[3];
+	photo_level_up(forward, level);
+	side[0] = forward[1] * level[2] - forward[2] * level[1];
+	side[1] = forward[2] * level[0] - forward[0] * level[2];
+	side[2] = forward[0] * level[1] - forward[1] * level[0];
+	return atan2f(up[0] * side[0] + up[1] * side[1] + up[2] * side[2],
+		up[0] * level[0] + up[1] * level[1] + up[2] * level[2]);
+}
+
+float photo_roll_step(float roll, int direction, float seconds, int speed_step)
+{
+	const float pi = 3.14159265f;
+	if (direction && seconds > 0.f) roll += (float)direction * PHOTO_ROLL_SPEED * powf(2.f, (float)speed_step) * seconds;
+	while (roll > pi) roll -= 2.f * pi;
+	while (roll < -pi) roll += 2.f * pi;
+	return roll;
+}
+
 int photo_map_key(const char *scenario, int custom, const unsigned char *hash, char *key, size_t size)
 {
 	const char *name = scenario, *p;
