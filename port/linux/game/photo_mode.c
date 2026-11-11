@@ -34,6 +34,7 @@ typedef char photo_fly_bits_match[(PHOTO_FLY_FORWARD == 1UL << HALO_KEYBOARD_MOV
 	PHOTO_FLY_RIGHT == 1UL << HALO_KEYBOARD_STRAFE_RIGHT && PHOTO_FLY_UP == 1UL << HALO_KEYBOARD_JUMP &&
 	PHOTO_FLY_DOWN == 1UL << HALO_KEYBOARD_CROUCH) ? 1 : -1];
 const char *platform_data_root(void);
+void platform_translate_path(const char *xbox_path, char *host_path, unsigned long host_path_size);
 #ifdef HALO_ILP32
 int host_photo_mode_available(void);
 void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
@@ -145,17 +146,23 @@ static void file_action(int action, struct flying_camera *camera)
 	struct photo_shot shot;
 	int revision;
 	if (!map_key(key,sizeof(key))) return;
-	if (snprintf(folder,sizeof(folder),"%s/framings",platform_data_root()) >= (int)sizeof(folder) ||
-		snprintf(path,sizeof(path),"%s/%s.json",folder,key) >= (int)sizeof(path) ||
-		snprintf(camera_path,sizeof(camera_path),"%s/camera.txt",platform_data_root()) >= (int)sizeof(camera_path)) return;
+	char host_path[1024], host_camera_path[1024];
+	/* the game's CRT maps d:\ to platform_data_root(); a host path here would be prefixed with that root again */
+	if (snprintf(folder,sizeof(folder),"d:\\framings") >= (int)sizeof(folder) ||
+		snprintf(path,sizeof(path),"%s\\%s.json",folder,key) >= (int)sizeof(path) ||
+		snprintf(camera_path,sizeof(camera_path),"d:\\camera.txt") >= (int)sizeof(camera_path)) return;
+	platform_translate_path(path,host_path,sizeof(host_path));
+	platform_translate_path(camera_path,host_camera_path,sizeof(host_camera_path));
 	camera_shot(camera,&shot);
 	if (action == PHOTO_SAVE)
 	{
 		if (!inside_bsp(&shot)) { error(_error_silent, "photo mode: camera is outside the current BSP bounds; save refused"); return; }
 		_mkdir(folder);
-		if (!photo_fragment_write(path,key,&shot)) { error(_error_silent, "photo mode: fragment save failed"); return; }
+		if (!photo_fragment_write(path,key,&shot)) { error(_error_silent, "photo mode: fragment save failed: %s", host_path); return; }
 		director_save_camera();
-		error(_error_silent, "photo mode: saved framing and camera.txt");
+		FILE *written = fopen(camera_path,"r");
+		error(_error_silent, "photo mode: saved framing %s; camera.txt %s %s", host_path, written ? "written" : "MISSING", host_camera_path);
+		if (written) fclose(written);
 	}
 	else
 	{
@@ -166,7 +173,7 @@ static void file_action(int action, struct flying_camera *camera)
 		if (!(exists ? photo_fragment_read(path,key,&shot,&revision) : photo_camera_read(camera_path,&shot)) ||
 			shot.bsp >= global_scenario->structure_bsp_references.count || shot.bsp > 32767)
 		{
-			error(_error_silent, "photo mode: invalid framing or BSP index; load refused"); return;
+			error(_error_silent, "photo mode: invalid framing or BSP index; load refused (%s)", exists ? host_path : host_camera_path); return;
 		}
 		if (shot.bsp != previous_bsp && !scenario_switch_structure_bsp((short)shot.bsp))
 		{ error(_error_silent, "photo mode: BSP switch failed; load refused"); return; }
