@@ -6336,8 +6336,19 @@ boolean ui_widget_port_delete_finish(
 	if (!success)
 		return FALSE;
 	event_handler_functions.profile_index = NONE;
-	player_ui_end_editing_profile();
-	ui_widget_port_go_back_past_editor(widget);
+	/* port: the original profile selector shares the generated confirmation,
+	but must return to its selector rather than skip an editor. */
+	{
+		extern boolean pc_menu_delete_from_select(void);
+		extern void ui_widget_port_go_back(struct widget_instance *widget);
+		if (pc_menu_delete_from_select())
+			ui_widget_port_go_back(widget);
+		else
+		{
+			player_ui_end_editing_profile();
+			ui_widget_port_go_back_past_editor(widget);
+		}
+	}
 	*widget_deleted = TRUE;
 	return TRUE;
 }

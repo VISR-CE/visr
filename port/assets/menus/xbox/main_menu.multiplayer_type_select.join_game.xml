@@ -9,7 +9,7 @@
 		<on event="start" run="gamespy dismiss error" />
 		<on event="b" run="gamespy dismiss error" />
 		<on event="back" run="gamespy dismiss error" />
-		<child widget="xbox/error/error_modal" />
+		<child widget="xbox/error/browser_error_panel" />
 		<child widget="xbox/error/error_modal_button_bar" x="194" y="430" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">

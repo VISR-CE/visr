@@ -215,6 +215,7 @@
   "xbox/art/x_butn.png",
   "xbox/art/y_butn.png",
   "xbox/bitmaps.xml",
+  "xbox/dialogs.xml",
   "xbox/main_menu.multiplayer_type_select.coop_options.xml",
   "xbox/main_menu.multiplayer_type_select.direct_ip.xml",
   "xbox/main_menu.multiplayer_type_select.join_game.filters.xml",

@@ -2747,7 +2747,7 @@
         "browser_fake_big": {
           "type": "boolean",
           "default": false,
-          "description": "Development builds only: the server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.full_rate_players below 16, or network.player_capacity below 16 when full_rate_players is 0. App Store packages ignore it.",
+          "description": "The server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.full_rate_players below 16, or network.player_capacity below 16 when full_rate_players is 0.",
           "x-environment": "HALO_BROWSER_FAKE_BIG",
           "x-environment-style": "value",
           "x-platforms": [
@@ -2760,6 +2760,17 @@
           "default": "",
           "description": "Start on this screen of the menus (port/assets/menus) instead of the main menu, a player profile being edited; empty for the main menu.",
           "x-environment": "HALO_MENU_OPEN",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "menu_error": {
+          "type": "string",
+          "default": "",
+          "description": "Development builds only: after the menu loads, call the real error API. Use code,modal,full|half|qtr, or code,optional,abort (code 0-39, flags 0-1). Empty disables it. Pane overrides apply only to this screenshot call.",
+          "x-environment": "HALO_MENU_ERROR",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

@@ -2138,6 +2138,25 @@ static void visible_set(struct widget_instance *widget, boolean visible)
 		widget->visible = visible;
 }
 
+/* A legend's children change on every draw, so touch and controller input
+can alternate without reopening the dialog. The button art is already ours. */
+static void dialog_legend_update(struct widget_instance *widget)
+{
+	extern int controller_glyph_hidden(short player, short physical);
+	extern short local_player_index_for_draw_string_and_hack_in_icons;
+	short owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	boolean touch = controller_glyph_hidden(owner, BUTTON_A);
+	struct widget_instance *child;
+
+	for (child = widget->child; child; child = child->next)
+	{
+		char const *leaf = strrchr(child->name, '/');
+		leaf = leaf ? leaf + 1 : child->name;
+		child->visible = !strncmp(leaf, "touch_", 6) ? touch : !touch;
+	}
+}
+
 /* "3wide player profile list update": the rows, and the profile chosen:
 its name, colour, current level, best difficulty and controls */
 static void host_profile_poll(struct widget_instance *list);
@@ -4477,12 +4496,11 @@ static short lobby_browser_valid_games(struct p2p_listing *games, short count)
 	return written;
 }
 
-/* A development build lists one extra marked game when debug.browser_fake_big is set, so the join warning can be
-screenshot without a real host (set HALO_NET_PLAYER_CAPACITY below 16 as well). Compiled out of App Store packages. */
+/* debug.browser_fake_big lists one extra marked game, so the join warning can be screenshot without a real host (set
+HALO_NET_PLAYER_CAPACITY below 16 as well). A runtime switch: the game code is one guest build for every package, so it cannot be compiled out. */
 static short lobby_browser_games_read(struct p2p_listing *games)
 {
 	short count = lobby_browser_valid_games(games, (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES));
-#ifdef HALO_DEVELOPMENT_HOOKS
 	if (config_boolean("debug.browser_fake_big") && count < LOBBY_BROWSER_GAMES)
 	{
 		/* (first, so it is on the first page of a long list) */
@@ -4500,7 +4518,6 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 		fake->open = fake->joinable = TRUE;
 		fake->ping = 40;
 	}
-#endif
 	return count;
 }
 
@@ -7126,6 +7143,8 @@ void pc_menu_game_data_function_invoke(
 		code_screen_update(widget);
 	else if (!strcmp(name, "gamespy screen update"))
 		browser_update(widget);
+	else if (!strcmp(name, "port dialog legend update"))
+		dialog_legend_update(widget);
 	else if (!strcmp(name, "gt edit list update"))
 		gametype_edit_list_update(widget);
 	else if (!strcmp(name, "get edit game settings name"))

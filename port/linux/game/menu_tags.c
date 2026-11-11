@@ -472,6 +472,7 @@ static char const *const port_game_data_input_names[] =
 	"coop options update",
 	/* (the About screen's version and build) */
 	"port about version", "port about build", "port send log status",
+	"port dialog legend update",
 };
 
 static struct
@@ -3263,16 +3264,31 @@ static int menu_use_xbox(void)
 	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
 }
 
-long pc_menu_screen_open(long tag_index)
+static boolean menu_delete_from_select;
+
+boolean pc_menu_delete_from_select(void)
+{
+	return menu_delete_from_select;
+}
+
+long pc_menu_screen_open(long tag_index, char const *requested_name, boolean root)
 {
 	extern int platform_menu_keyboard(void);
 	char const *name, *target;
 	long replacement;
 	int use_xbox;
-	if (!menu_tags.loaded || tag_index == NONE) return tag_index;
-	menu_profile_description(platform_menu_keyboard());
-	name = tag_get_name(tag_index);
+	if (!menu_tags.loaded) return tag_index;
+	/* Split-pane originals may be absent from ui.map during screenshots. */
+	name = tag_index == NONE ? requested_name : tag_get_name(tag_index);
 	if (!name) return tag_index;
+	/* Profile creation embeds its warning rather than opening a new screen. */
+	if (!root && strcmp(name, "ui\\shell\\error\\warning_creating_player_profile_screen") &&
+		strcmp(name, "ui\\shell\\error\\warning_saving_file_screen"))
+		return tag_index;
+	if (root && (strstr(name, "\\confirm_delete_profile_modal_fullscreen") ||
+		strstr(name, "\\confirm_delete_gametype_modal_fullscreen")))
+		menu_delete_from_select = !strcmp(name, "ui\\shell\\error\\confirm_delete_profile_modal_fullscreen");
+	if (root) menu_profile_description(platform_menu_keyboard());
 	use_xbox = menu_use_xbox();
 	target = menu_screen_equivalent(name, use_xbox);
 	/* The pause hub exists only in the Xbox look; PC pause settings edit the active profile. */
@@ -3286,6 +3302,57 @@ long pc_menu_screen_open(long tag_index)
 	return replacement;
 }
 
+/* debug.menu_error is a runtime switch like debug.menu_open: the game code is one guest build for every package, so it cannot be compiled out. */
+static int menu_error_code, menu_error_modal, menu_error_size;
+static boolean menu_error_pending, menu_error_active, menu_error_used;
+
+char const *pc_menu_debug_error_variant(char const *name, boolean modal)
+{
+	if (menu_error_active && menu_error_size == 1)
+		return modal ? "ui\\shell\\error\\error_modal_halfscreen" : "ui\\shell\\error\\error_nonmodal_halfscreen";
+	if (menu_error_active && menu_error_size == 2)
+		return modal ? "ui\\shell\\error\\error_modal_qtrscreen" : "ui\\shell\\error\\error_nonmodal_qtrscreen";
+	return name;
+}
+
+void pc_menu_debug_error_ready(void)
+{
+	if (menu_error_pending)
+	{
+		extern void display_error(short code, short player, boolean modal, boolean pause);
+		extern void display_error_abort_to_dashboard(short code, boolean optional);
+		menu_error_pending = FALSE;
+		menu_error_active = TRUE;
+		platform_log("menus: debug.menu_error firing code %d size %d", menu_error_code, menu_error_size);
+		if (menu_error_size == 3)
+			display_error_abort_to_dashboard((short)menu_error_code, (boolean)menu_error_modal);
+		else
+			display_error((short)menu_error_code, NONE, (boolean)menu_error_modal, FALSE);
+		menu_error_active = FALSE;
+	}
+}
+
+static void menu_debug_error_schedule(void)
+{
+	char const *value = config_string("debug.menu_error");
+	char size[8], extra;
+	int code, modal;
+	if (menu_error_used || !*value)
+		return;
+	menu_error_used = TRUE;
+	if (sscanf(value, "%d,%d,%7s%c", &code, &modal, size, &extra) != 3 ||
+		code < 0 || code >= 40 || (modal != 0 && modal != 1) ||
+		(strcmp(size, "full") && strcmp(size, "half") && strcmp(size, "qtr") && strcmp(size, "abort")))
+	{
+		platform_log("menus: invalid debug.menu_error (expected code,0|1,full|half|qtr|abort)");
+		return;
+	}
+	menu_error_code = code;
+	menu_error_modal = modal;
+	menu_error_size = !strcmp(size, "half") ? 1 : !strcmp(size, "qtr") ? 2 : !strcmp(size, "abort") ? 3 : 0;
+	menu_error_pending = TRUE;
+}
+
 char const *pc_menus_root_name(
 	void)
 {
@@ -3295,6 +3362,8 @@ char const *pc_menus_root_name(
 	backslashes, which the game loads itself, with the player's profile
 	being edited, or the first gametype for the gametype editors) */
 	char const *open = config_string("debug.menu_open");
+
+	menu_debug_error_schedule();
 
 	if (*open)
 	{

@@ -285,7 +285,7 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
-    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(244, 310), (260, 310), (356, 310), (372, 310)]
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(244, 305), (260, 305), (356, 305), (372, 305)]
     children = bar.findall('child')
     assert children[0].get('widget') == 'xbox/error/confirm_delete_profile/b_butn'
     assert children[2].get('widget') == 'xbox/error/confirm_delete_profile/a_butn'
@@ -608,8 +608,8 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
     delete = widgets['xbox/error/confirm_delete_profile']
     assert panel.get('bitmap') == delete.get('bitmap')
     placed = lambda w: [(c.get('widget').rsplit('/', 1)[-1], c.get('x'), c.get('y')) for c in w.findall('child')]
-    assert placed(panel) == [(name.replace('confirm_delete_profile', 'confirm_join_big'), x, y)
-                             for name, x, y in placed(delete)]
+    assert placed(panel)[:2] == [(name.replace('confirm_delete_profile', 'confirm_join_big'), x, y)
+                                 for name, x, y in placed(delete)[:2]]
     text = widgets[base + '_text_box']
     reference = widgets['xbox/error/confirm_delete_profile_text_box']
     for attr in ('bitmap', 'width', 'height', 'text_x', 'text_y', 'font', 'color'):
@@ -1222,3 +1222,81 @@ def test_no_screen_draws_both_a_legend_and_its_own_button_bar():
         if has_legend and has_bar:
             duplicated.append(name)
     assert duplicated == []
+
+
+ERROR_SCREENS = tuple(f'error_{mode}_{size}screen' for mode in ('modal', 'nonmodal')
+                      for size in ('full', 'half', 'qtr')) + ('error_modal', 'error_non_modal')
+ABORT_SCREENS = ('error_abort_to_dashboard', 'error_abort_to_dashboard_you_have_no_choice')
+WAIT_SCREENS = ('warning_creating_player_profile_screen', 'warning_saving_file_screen')
+
+
+@pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS +
+                         ('confirm_delete_profile_modal_fullscreen',))
+def test_original_dialogs_route_on_every_platform(name):
+    assert (f'ui/shell/error/{name}', f'pc/xbox/error/{name}') in generator().SCREEN_ALWAYS
+
+
+@pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS)
+def test_generated_errors_preserve_runtime_text_and_pane_bounds(name):
+    module = generator()
+    root = module.dialog_document()
+    widgets = {w.get('name'): w for w in root.findall('widget')}
+    screen = widgets[f'xbox/error/{name}']
+    frame = widgets[screen.find('child').get('widget')]
+    panel_children = [widgets[c.get('widget')] for c in frame.findall('child')
+                      if c.get('widget') in widgets]
+    text = panel_children[0]
+    assert text.get('type') == 'text'
+    assert frame.get('width') == '239' and text.get('width') == '239'
+    assert frame.get('bitmap') == 'xbox/bitmaps/alert_bkd'
+    assert text.get('string_list') == 'xbox/strings/displayed_error_messages'
+    assert text.find('replace[@search="%controller"][@function="controller"]') is not None
+    width = 320 if 'qtrscreen' in name else 640
+    height = 240 if any(s in name for s in ('halfscreen', 'qtrscreen')) else 480
+    assert (int(screen.get('width')), int(screen.get('height'))) == (width, height)
+    if name in WAIT_SCREENS:
+        assert screen.get('auto_close') == '1000'
+        assert screen.get('auto_close_fade') == '500'
+        assert screen.find('on[@event="b"]').get('run') == 'NULL'
+        assert not any('butn' in c.get('widget') for c in screen.findall('child'))
+    else:
+        for event in ('a', 'start'):
+            assert screen.find(f'on[@event="{event}"]').get('close') == 'current'
+        assert screen.find('on[@event="b"]') is None
+        icon = widgets[f'xbox/error/{name}/a_butn']
+        assert int(icon.get('height')) >= 53
+        assert int(icon.get('width')) >= 53
+        assert widgets[f'xbox/error/{name}/accept'].get('text') == 'OK'
+    for w in widgets.values():
+        assert 'dashboard' not in w.get('text', '').lower()
+
+
+def test_browser_private_error_panel_keeps_its_direct_text_child():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    screen = widgets['xbox/' + generator().MP + '/join_game/gamespy_error_fullscreen']
+    panel = widgets[screen.find('child').get('widget')]
+    assert panel.get('name') == 'xbox/error/browser_error_panel'
+    assert panel.find('child').get('widget') == 'xbox/error/error_text_box'
+
+
+def test_dialog_ok_has_a_rounded_touch_button_and_adaptive_legend():
+    root = generator().dialog_document()
+    widgets = {w.get('name'): w for w in root.findall('widget')}
+    for name in ERROR_SCREENS + ABORT_SCREENS:
+        base = f'xbox/error/{name}'
+        target = widgets[base + '/a_butn']
+        assert target.find('data[@input="port dialog legend update"]') is not None
+        assert widgets[base + '/a_butn/touch_background'].get('bitmap') == 'xbox/dialog_touch_button'
+        caption = widgets[base + '/a_butn/touch_caption']
+        assert caption.get('text') == 'OK' and caption.get('align') == 'center'
+
+
+def test_delete_confirmation_has_adaptive_a_and_b_touch_targets():
+    widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox/multiplayer.shared.xml').iter('widget')}
+    base = 'xbox/error/confirm_delete_profile/legend'
+    for button, label in (('a', 'OK'), ('b', 'CANCEL')):
+        target = widgets[f'{base}/{button}_butn']
+        assert target.find('data[@input="port dialog legend update"]') is not None
+        assert widgets[f'{base}/{button}_butn/touch_caption'].get('text') == label
+        assert (target.get('width'), target.get('height')) == ('112', '53')

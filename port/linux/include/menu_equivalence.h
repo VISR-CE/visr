@@ -38,6 +38,19 @@ static char const *const menu_screen_replaced[][2] = {
 };
 static char const *const menu_screen_always[][2] = {
 	{"ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper", "pc\\xbox\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"},
+	{"ui\\shell\\error\\error_modal_fullscreen", "pc\\xbox\\error\\error_modal_fullscreen"},
+	{"ui\\shell\\error\\error_modal_halfscreen", "pc\\xbox\\error\\error_modal_halfscreen"},
+	{"ui\\shell\\error\\error_modal_qtrscreen", "pc\\xbox\\error\\error_modal_qtrscreen"},
+	{"ui\\shell\\error\\error_nonmodal_fullscreen", "pc\\xbox\\error\\error_nonmodal_fullscreen"},
+	{"ui\\shell\\error\\error_nonmodal_halfscreen", "pc\\xbox\\error\\error_nonmodal_halfscreen"},
+	{"ui\\shell\\error\\error_nonmodal_qtrscreen", "pc\\xbox\\error\\error_nonmodal_qtrscreen"},
+	{"ui\\shell\\error\\error_modal", "pc\\xbox\\error\\error_modal"},
+	{"ui\\shell\\error\\error_non_modal", "pc\\xbox\\error\\error_non_modal"},
+	{"ui\\shell\\error\\error_abort_to_dashboard", "pc\\xbox\\error\\error_abort_to_dashboard"},
+	{"ui\\shell\\error\\error_abort_to_dashboard_you_have_no_choice", "pc\\xbox\\error\\error_abort_to_dashboard_you_have_no_choice"},
+	{"ui\\shell\\error\\warning_creating_player_profile_screen", "pc\\xbox\\error\\warning_creating_player_profile_screen"},
+	{"ui\\shell\\error\\warning_saving_file_screen", "pc\\xbox\\error\\warning_saving_file_screen"},
+	{"ui\\shell\\error\\confirm_delete_profile_modal_fullscreen", "pc\\xbox\\error\\confirm_delete_profile_modal_fullscreen"},
 };
 static char const *menu_screen_equivalent(char const *name, int use_xbox)
 {

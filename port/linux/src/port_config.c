@@ -1686,13 +1686,17 @@ static const struct config_setting config_settings[] =
 		"indices are drawn as the game holds them; false copies and rebases every\n"
 		"draw's indices on the CPU, as the OpenGL ES renderer has to, to compare." },
 	{ "debug.browser_fake_big", _config_boolean, "false", "HALO_BROWSER_FAKE_BIG", _environment_value, _platform_all,
-		"Development builds only: the server browser lists one extra game marked\n"
+		"The server browser lists one extra game marked\n"
 		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
 		"network.full_rate_players below 16, or network.player_capacity below\n"
-		"16 when full_rate_players is 0. App Store packages ignore it." },
+		"16 when full_rate_players is 0." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
+	{ "debug.menu_error", _config_string, "\"\"", "HALO_MENU_ERROR", _environment_value, _platform_all,
+		"Development builds only: after the menu loads, call the real error API.\n"
+		"Use code,modal,full|half|qtr, or code,optional,abort (code 0-39, flags 0-1).\n"
+		"Empty disables it. Pane overrides apply only to this screenshot call." },
 	{ "debug.menu_open_coop", _config_boolean, "false", "HALO_MENU_OPEN_COOP", _environment_value, _platform_all,
 		"With debug.menu_open on Server Setup, show it as a co-op host's, though\n"
 		"no game is hosted (for screenshots)." },

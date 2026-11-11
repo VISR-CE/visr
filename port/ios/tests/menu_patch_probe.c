@@ -188,6 +188,16 @@ void gpu_texture_destroy(unsigned int texture)
 	(void)texture;
 }
 
+void display_error(short code, short player, boolean modal, boolean pause)
+{
+	(void)code; (void)player; (void)modal; (void)pause;
+}
+
+void display_error_abort_to_dashboard(short code, boolean optional)
+{
+	(void)code; (void)optional;
+}
+
 boolean pc_menu_profile_edit_begin(void)
 {
 	return TRUE;
@@ -1134,18 +1144,18 @@ int main(int argc, char **argv)
 			input_pad = 0;
 			check(pc != NONE, "both looks loaded together");
 			check(open == xbox, "input changes do not mutate an open screen");
-			check(pc_menu_screen_open(open) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
+			check(pc_menu_screen_open(open, NULL, TRUE) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
 			input_pad = 1;
-			check(pc_menu_screen_open(pc) == xbox && menu_tags.xbox_set, "back to main takes pad look");
-			check(pc_menu_screen_open(mp_screen) == mp_screen && menu_tags.xbox_set,
+			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox && menu_tags.xbox_set, "back to main takes pad look");
+			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen && menu_tags.xbox_set,
 				"an unavailable counterpart holds the look");
 			menu_mode = "pc";
-			check(pc_menu_screen_open(xbox) == pc, "fixed PC overrides pad input");
+			check(pc_menu_screen_open(xbox, NULL, TRUE) == pc, "fixed PC overrides pad input");
 			menu_mode = "xbox";
 			input_pad = 0;
-			check(pc_menu_screen_open(pc) == xbox, "fixed Xbox overrides keyboard input");
+			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox, "fixed Xbox overrides keyboard input");
 			input_keyboard = 0;
-			pc_menu_screen_open(xbox);
+			pc_menu_screen_open(xbox, NULL, TRUE);
 			{
 				struct string_list *list = tag_get(UNICODE_STRING_LIST_TAG,
 					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
@@ -1156,7 +1166,7 @@ int main(int argc, char **argv)
 				check(string_is(gametype, 0, "Rename this gametype using\\nthe virtual keyboard.\\n\\nThis gametype:"),
 					"virtual keyboard caption keeps the gametype label on the fourth line");
 				input_keyboard = 1;
-				pc_menu_screen_open(xbox);
+				pc_menu_screen_open(xbox, NULL, TRUE);
 				check(string_is(list, 0, "Rename this profile with your\\nkeyboard.\\n\\nCurrent Profile:"),
 					"keyboard attachment changes the next screen's description");
 				check(string_is(gametype, 0, "Rename this gametype with\\nyour keyboard.\\n\\nThis gametype:"),

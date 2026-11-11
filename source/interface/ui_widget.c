@@ -4171,11 +4171,11 @@ struct widget_instance *ui_widget_load_by_name_or_tag(
 		(widget_stack>=0) && (widget_stack<MAXIMUM_GAMEPADS));
 	if (tag_index == NONE)
 		tag_index = tag_loaded(UI_WIDGET_DEFINITION_TAG, name);
-	/* port: decide the menu look only at a screen open, never for its children. */
-	if (!parent && tag_index != NONE)
+	/* port: map screen opens and embedded save warnings (menu_tags.c). */
+	if (tag_index != NONE || name)
 	{
-		extern long pc_menu_screen_open(long tag_index);
-		long screen_tag = pc_menu_screen_open(tag_index);
+		extern long pc_menu_screen_open(long tag_index, char const *name, boolean root);
+		long screen_tag = pc_menu_screen_open(tag_index, name, parent == NULL);
 		if (screen_tag != tag_index)
 		{
 			focused_child_parent_widget_tag = NONE;
@@ -4699,6 +4699,7 @@ void display_error(
 {
 	if (cinematic_in_progress())
 	{
+		{ extern void platform_log(char const *, ...); platform_log("menus: display_error %d deferred for a cinematic", (int)error_code); }
 		if (local_player_index == NONE)
 			local_player_index = 0;
 		match_assert(
@@ -4799,6 +4800,11 @@ void display_error(
 				"invalid local player count");
 			break;
 		}
+		/* port: force a pane only during the development screenshot call. */
+		{
+			extern char const *pc_menu_debug_error_variant(char const *name, boolean modal);
+			widget_name = pc_menu_debug_error_variant(widget_name, modal);
+		}
 		if (widget_name)
 		{
 			widget_stack = local_player_index == NONE ? 0 : local_player_index;
@@ -4848,11 +4854,8 @@ void display_error(
 					"expected a text box widget in the error widget");
 				text_box->parameters.text_box.string_list_index = PIN(error_code, 0, NUMBER_OF_ERROR_CODES - 1);
 				/* (port: the port's own text in place of the error's) */
-				if (port_text)
-				{
-					ui_widget_port_error_text_box = text_box;
-					ui_widget_port_error_text = port_text;
-				}
+				ui_widget_port_error_text_box = text_box;
+				ui_widget_port_error_text = port_text;
 				widget->widget_is_error_dialog = TRUE;
 				if (!widget->pause_game_time)
 				{
@@ -4892,6 +4895,7 @@ void display_error(
 			}
 			else
 			{
+				{ extern void platform_log(char const *, ...); platform_log("menus: display_error %d failed to open %s", (int)error_code, widget_name); }
 				error(_error_silent, "failed to display error message");
 			}
 		}
@@ -4922,6 +4926,15 @@ void display_error_abort_to_dashboard(
 			widget->type == _ui_widget_type_text_box,
 			"expected a text box widget");
 		widget->parameters.text_box.string_list_index = error_code;
+		/* port: our text-box root holds the index; its visible text follows
+		the backdrop in draw order (tools/xbox_menus.py: dialog_document). */
+		if (widget->child && widget->child->child && widget->child->child->type == _ui_widget_type_text_box)
+		{
+			widget->child->child->parameters.text_box.string_list_index = error_code;
+			/* the same wrap to the dialog as every other error text (the game's own string) */
+			ui_widget_port_error_text_box = widget->child->child;
+			ui_widget_port_error_text = NULL;
+		}
 		widget->widget_is_error_dialog = TRUE;
 		dashboard_abort_error = error_code;
 	}
@@ -5276,6 +5289,11 @@ void main_screen_shell_load(
 		if (!widget_globals.main_menu_music_active)
 			ui_start_main_menu_music();
 		reset_last_player1_profile_index();
+		/* port: exercise real error APIs only after the menu has loaded. */
+		{
+			extern void pc_menu_debug_error_ready(void);
+			pc_menu_debug_error_ready();
+		}
 	}
 	if (!virtual_keyboard_initialize())
 		error(_error_silent, "failed to initialize the virtual keyboard");
@@ -5565,17 +5583,38 @@ static boolean ui_widget_port_text_wrap(
 	long index;
 	boolean fits = TRUE;
 
+	/* the strings' line breaks (a \r\n pair, from "\n") were made for the original box's width: a single break is a
+	space now (this box wraps to its own width); a blank line (paragraph break) stays */
+	for (index = 1; text[index]; index++)
+	{
+		long run_end = index;
+
+		if (text[index] != L'\r' && text[index] != L'\n')
+			continue;
+		while (text[run_end] == L'\r' || text[run_end] == L'\n')
+			run_end++;
+		if (run_end - index <= 2 && !(run_end - index == 2 && text[index] == text[index + 1]) && text[run_end])
+		{
+			long copy_index;
+
+			text[index] = L' ';
+			for (copy_index = index + 1; ; copy_index++)
+			{
+				text[copy_index] = text[copy_index - index - 1 + run_end];
+				if (!text[copy_index])
+					break;
+			}
+		}
+		else
+			index = run_end - 1;
+	}
+
 	for (index = 0; ; index++)
 	{
 		wchar_t character = text[index];
 
-		if (character == L'\r' || character == L'\n')
-		{
-			line_start = index + 1;
-			last_space = NONE;
-			continue;
-		}
-		if (character == L' ' || character == 0)
+		/* a hard line break ends a word like a space does: the last word of each authored line is measured too */
+		if (character == L' ' || character == 0 || character == L'\r' || character == L'\n')
 		{
 			wchar_t line[256];
 			long length = MIN(index - line_start, (long)NUMBEROF(line) - 1);
@@ -5585,7 +5624,8 @@ static boolean ui_widget_port_text_wrap(
 			csmemcpy(line, text + line_start, length * sizeof(wchar_t));
 			line[length] = 0;
 			draw_unicode_string_compute_bounds(bounds, line, &text_bounds, &cursor_bounds);
-			if (cursor_bounds.x0 - bounds->x0 > width && last_space != NONE)
+			/* the glyphs of a line reach past its cursor: measure what is drawn */
+			if (MAX(cursor_bounds.x0, text_bounds.x1) - bounds->x0 > width && last_space != NONE)
 			{
 				text[last_space] = L'\r';
 				line_start = last_space + 1;
@@ -5595,10 +5635,16 @@ static boolean ui_widget_port_text_wrap(
 				line[length] = 0;
 				draw_unicode_string_compute_bounds(bounds, line, &text_bounds, &cursor_bounds);
 			}
-			if (cursor_bounds.x0 - bounds->x0 > width)
+			if (MAX(cursor_bounds.x0, text_bounds.x1) - bounds->x0 > width)
 				fits = FALSE;
 			if (character == 0)
 				break;
+			if (character == L'\r' || character == L'\n')
+			{
+				line_start = index + 1;
+				last_space = NONE;
+				continue;
+			}
 			last_space = index;
 		}
 	}
@@ -5751,7 +5797,7 @@ static void widget_instance_render_text_box(
 	again), and as tall as the text box less its offset above and as much
 	below (the dialog's footer). Text that would be taller, or wider (a word
 	longer than a line), is drawn in the menus' smaller font. */
-	if (widget == ui_widget_port_error_text_box && ui_widget_port_error_text)
+	if (widget == ui_widget_port_error_text_box)
 	{
 		struct bitmap_data *background = definition->background_bitmap.index != NONE ?
 			bitmap_group_get_bitmap_from_sequence(definition->background_bitmap.index, 0, 0) : NULL;
@@ -5763,7 +5809,8 @@ static void widget_instance_render_text_box(
 
 		if (background && background->width > 0 && background->width < width)
 			width = background->width;
-		width = (short)(width - 4 * definition->horizontal_offset);
+		/* the frame's border takes about 4 units beyond the offset on each side: wrap to what is left */
+		width = (short)(width - 2 * (definition->horizontal_offset + 4));
 		ustrncpy(wrapped, *text, NUMBEROF(wrapped) - 1);
 		wrapped[NUMBEROF(wrapped) - 1] = 0;
 		if (!ui_widget_port_text_wrap(wrapped, &bounds, width) ||

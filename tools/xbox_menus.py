@@ -632,6 +632,8 @@ def multiplayer_documents(assets, bitmaps):
             ET.SubElement(e, 'on', event='right', run='mp map kind next')
     owned.add(('widget', wrapper.get('name')))
     shared = ET.Element('menus')
+    shared.append(deepcopy(definitions['widget', 'error/header_saving']))
+    owned.add(('widget', 'error/header_saving'))
     documents['multiplayer.shared.xml'] = shared
     # Xbox item options combine vehicles with weapons; these two PC-only
     # editors still need their wired XML screens until routing is integrated.
@@ -656,10 +658,12 @@ def multiplayer_documents(assets, bitmaps):
             ET.SubElement(modal, 'on', event=event, **cancel, sound=r'sound\sfx\ui\back')
         panel = widget(shared, base, width=640, height=480, bitmap='bitmaps/semi_transparent_grey')
         child(modal, base)
+        child(panel, base + '_frame', x=192, y=176)
         child(panel, base + '_text_box', x=192, y=176)
         child(panel, 'error/header_warning', x=201, y=180)
+        widget(shared, base + '_frame', width=239, height=159, bitmap='bitmaps/alert_bkd')
         widget(shared, base + '_text_box', type='text', width=239, height=159,
-               bitmap='bitmaps/alert_bkd', string_list='strings/displayed_error_messages', string_index=message,
+               string_list='strings/displayed_error_messages', string_index=message,
                font=r'ui\large_ui', color=BLUE, text_x=9, text_y=36)
         for button, caption, x in (('b', 'CANCEL', 244), ('a', 'OK', 356)):
             icon = base + '/' + button + '_butn'
@@ -1376,6 +1380,89 @@ def browser_layout(root, widgets, bitmaps):
         x += 21 + width + 27
 
 
+ERROR_DIALOGS = tuple(f'error_{mode}_{size}screen' for mode in ('modal', 'nonmodal')
+                      for size in ('full', 'half', 'qtr')) + ('error_modal', 'error_non_modal')
+ABORT_DIALOGS = ('error_abort_to_dashboard', 'error_abort_to_dashboard_you_have_no_choice')
+WAIT_DIALOGS = ('warning_creating_player_profile_screen', 'warning_saving_file_screen')
+
+
+def dialog_legend_targets(root, screen, base, x, y, cancel=False):
+    """Reuse the legend bindings, with full touch buttons and adaptive glyphs."""
+    legend(root, screen, base, accept='OK')
+    for button, label in (('a', 'OK'), ('b', 'CANCEL')):
+        icon, caption = f'{base}/{button}_butn', f'{base}/' + ('accept' if button == 'a' else 'cancel')
+        if button == 'b' and not cancel:
+            for name in (icon, caption):
+                root.remove(root.find(f"widget[@name='{name}']"))
+                screen.remove(screen.find(f"child[@widget='{name}']"))
+            continue
+        screen.remove(screen.find(f"child[@widget='{caption}']"))
+        screen.find(f"child[@widget='{icon}']").attrib.update(x=str(x if button == 'a' else x - 118), y=str(y))
+        target = root.find(f"widget[@name='{icon}']")
+        target.attrib.update(width='112', height='53')
+        target.attrib.pop('bitmap')
+        root.find(f"widget[@name='{caption}']").set('width', '90')
+        ET.SubElement(target, 'data', input='port dialog legend update')
+        touch_base = icon + '/'
+        child(target, touch_base + 'touch_background')
+        widget(root, touch_base + 'touch_background', width=112, height=53, bitmap='xbox/dialog_touch_button')
+        child(target, touch_base + 'touch_caption', y=15)
+        text_widget(root, touch_base + 'touch_caption', label, width=112, height=24, align='center')
+        child(target, icon + '_glyph', y=2)
+        widget(root, icon + '_glyph', width=21, height=26, bitmap=f'xbox/browser/{button}_butn')
+        child(target, caption, x=22, y=4)
+        ET.SubElement(target, 'on', event='left_mouse',
+                      run='mouse emit accept event' if button == 'a' else 'mouse emit back event')
+
+
+def dialog_document():
+    """Keep display_error's first two children stable while sharing the Xbox art."""
+    root = ET.Element('menus')
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/dialog_touch_button')
+    ET.SubElement(bitmap, 'frame', png='ce/shell/bitmaps/text_button_background__1.png',
+                  width='128', height='32')
+    for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS:
+        base = 'xbox/error/' + name
+        width = 320 if 'qtrscreen' in name else 640
+        height = 240 if any(size in name for size in ('halfscreen', 'qtrscreen')) else 480
+        left, top = (width - 239) // 2, (height - 212) // 2
+        waiting = name in WAIT_DIALOGS
+        abort = name in ABORT_DIALOGS
+        screen = widget(root, base, width=width, height=height,
+                        flags='pass_unhandled_to_focused_child' +
+                              (' pause_game' if name == WAIT_DIALOGS[1] else ''))
+        # The abort API requires a text-box root; its small port hook copies
+        # the index into the visible child, after the backdrop has drawn.
+        if abort:
+            screen.set('type', 'text')
+        # The dim covers a whole 640x480 screen only; a split view gets no dim box. It is the
+        # screen's own bitmap. display_error needs the pane's first child to be the text box, so
+        # the frame art is the pane's bitmap and the text box is as wide as the frame and the
+        # runtime wraps to its width less the text offset on each side (equal padding).
+        if width == 640 and height == 480:
+            screen.set('bitmap', 'xbox/bitmaps/semi_transparent_grey')
+        panel = widget(root, base + '/panel', width=239, height=159,
+                       bitmap='xbox/bitmaps/alert_bkd')
+        child(screen, panel.get('name'), x=left, y=top)
+        text = widget(root, base + '/error_text_box', type='text', width=239, height=159,
+                      string_list='xbox/strings/displayed_error_messages',
+                      font=r'ui\large_ui', color=BLUE, text_x=9, text_y=36)
+        ET.SubElement(text, 'replace', search='%controller', function='controller')
+        child(panel, text.get('name'), x=0, y=0)
+        child(panel, 'xbox/error/header_saving' if waiting else 'xbox/error/header_error',
+              x=9, y=4)
+        if waiting:
+            screen.attrib.update(auto_close='1000', auto_close_fade='500')
+            text.set('string_index', '16' if name == WAIT_DIALOGS[0] else '15')
+            for event in ('b', 'back'):
+                ET.SubElement(screen, 'on', event=event, run='NULL')
+            continue
+        for event in ('a', 'start'):
+            ET.SubElement(screen, 'on', event=event, close='current')
+        dialog_legend_targets(root, screen, base, left + 149, top + 128)
+    return root
+
+
 def quit_layout(root, widgets):
     base = 'xbox/main_menu/quit_select'
     bar = widgets[base + '/quit_button_bar']
@@ -1387,9 +1474,9 @@ def quit_layout(root, widgets):
     bar[:] = []
     for button, x in (('b', 244), ('a', 356)):
         shared = 'xbox/error/confirm_delete_profile/'
-        child(bar, shared + button + '_butn', x=x, y=310)
+        child(bar, shared + button + '_butn', x=x, y=305)
         target = shared + 'b_caption' if button == 'b' else base + '/quit_button_ok'
-        child(bar, target, x=x + 16, y=310)
+        child(bar, target, x=x + 16, y=305)
     action = widgets[base + '/quit_button_ok']
     action.attrib.pop('string_list', None)
     action.attrib.pop('string_index', None)
@@ -1591,7 +1678,9 @@ SCREEN_REPLACED = (('ui/shell/main_menu/settings_select/multiplayer_setup/playli
 
 # (the game's own screens that ours replaces on every platform, the Apple TV too)
 SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
-                  'pc/xbox/' + MP + '/connected/connected_map_select_wrapper'),)
+                  'pc/xbox/' + MP + '/connected/connected_map_select_wrapper'),) + tuple(
+    (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
+    for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',))
 
 
 def equivalence_header():
@@ -1656,6 +1745,27 @@ def generate(assets=MENUS):
     gamepad.append(spinner)
     gamepad.append(row)
     documents.update(multiplayer_documents(assets, names))
+    documents['dialogs.xml'] = dialog_document()
+    shared = documents['multiplayer.shared.xml']
+    for kind in ('profile', 'gametype'):
+        panel = shared.find(f"widget[@name='xbox/error/confirm_delete_{kind}']")
+        for part in list(panel.findall('child'))[2:]:
+            panel.remove(part)
+        modal = shared.find(f"widget[@name='xbox/error/confirm_delete_{kind}_modal_fullscreen']")
+        dialog_legend_targets(shared, modal, f'xbox/error/confirm_delete_{kind}/legend', 341, 305, cancel=True)
+        if kind == 'gametype':
+            # The legend replaces the per-button widgets; only the profile's are shared with Quit.
+            for leaf in ('a_butn', 'a_caption', 'b_butn', 'b_caption'):
+                stale = shared.find(f"widget[@name='xbox/error/confirm_delete_gametype/{leaf}']")
+                if stale is not None:
+                    shared.remove(stale)
+    # The browser's private error panel predates the engine error screens.
+    # Keep its child topology when error_modal becomes a standalone screen.
+    shared.find("widget[@name='xbox/error/error_modal']").set('name', 'xbox/error/browser_error_panel')
+    for document in documents.values():
+        for part in document.iter('child'):
+            if part.get('widget') == 'xbox/error/error_modal':
+                part.set('widget', 'xbox/error/browser_error_panel')
     documents['main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml'] = item_options_document(
         assets, names)
     documents['patches.xml'] = patch_document(names)
