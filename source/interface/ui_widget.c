@@ -6449,24 +6449,66 @@ static boolean ui_mouse_legend_bounds(
 /* port: the touch legend's button is the menus' own text button art
 (`text_button_background`, the picture behind JOIN GAME and the lobby's bottom
 bar): frame 0 at rest, frame 1 (the glowing border) while a tap is held. */
+/* port: draws the part [u0, u1] (0..1 across the picture) of `bitmap` into `x0..x1` by `y0..y1`. */
+static void ui_widget_draw_touch_legend_slice(
+	struct bitmap_data *bitmap,
+	real x0, real x1, real y0, real y1,
+	real u0, real u1,
+	pixel32 argb)
+{
+	struct rasterizer_dynamic_screen_geometry_parameters parameters;
+	struct dynamic_screen_vertex vertices[NUMBER_OF_POINTS_PER_RECTANGLE];
+	short i;
+
+	for (i = 0; i < NUMBER_OF_POINTS_PER_RECTANGLE; i++)
+	{
+		vertices[i].color = argb;
+		vertices[i].texture_coordinates.x = (i % 3) ? u1 : u0;
+		vertices[i].texture_coordinates.y = (i > 1) ? 1.0f : 0.0f;
+		vertices[i].position.x = (i % 3) ? x1 : x0;
+		vertices[i].position.y = (i > 1) ? y1 : y0;
+	}
+	csmemset(&parameters, 0, sizeof(parameters));
+	parameters.map_texture_scale[0].j = 1.0f;
+	parameters.map_texture_scale[0].i = 1.0f;
+	parameters.map_scale[0].j = 1.0f;
+	parameters.map_scale[0].i = 1.0f;
+	parameters.map[0] = bitmap;
+	parameters.meter_parameters = NULL;
+	parameters.point_sampled = FALSE;
+	parameters.alpha_weighted = FALSE;
+	parameters.framebuffer_blend_function = 0;
+	rasterizer_psuedo_dynamic_screen_quad_draw(&parameters, vertices);
+}
+
+/* port: the touch legend's button is `text_button_background` in three slices: the end caps keep their
+shape (the picture's height is drawn at the button's height) and only the middle stretches. */
 static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d const *clip, real alpha, boolean pressed)
 {
 	long tag_index = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\text_button_background");
 	struct bitmap_data *bitmap = tag_index == NONE ? NULL :
 		bitmap_group_get_bitmap_from_sequence(tag_index, 0, pressed ? 1 : 0);
-	struct rasterizer_dynamic_screen_geometry_parameters parameters;
-	rectangle2d source;
+	pixel32 argb = (fast_ftol(alpha * 255.0f) << 24) | 0x00FFFFFF;
+	real x0, x1, y0, y1, cap, cap_u;
 
+	(void)clip;
 	if (!bitmap)
 		return;
-	/* the source rectangle is the whole picture, so a button narrower than the art is scaled, not cropped */
-	source.x0 = 0;
-	source.y0 = 0;
-	source.x1 = bitmap->width;
-	source.y1 = bitmap->height;
-	csmemset(&parameters, 0, sizeof(parameters));
-	draw_bitmap_in_rect(bitmap, (rectangle2d *)bounds, &source, (rectangle2d *)clip,
-		(fast_ftol(alpha * 255.0f) << 24) | 0x00FFFFFF, &parameters, FALSE);
+	x0 = (real)bounds->x0;
+	x1 = (real)bounds->x1;
+	y0 = (real)bounds->y0;
+	y1 = (real)bounds->y1;
+	cap = (real)(y1 - y0) * 0.5f;
+	cap_u = 0.5f * (real)bitmap->height / MAX(1.0f, (real)bitmap->width);
+	if (cap * 2.0f > x1 - x0)
+	{
+		cap = (x1 - x0) * 0.5f;
+		cap_u = 0.5f;
+	}
+	ui_widget_draw_touch_legend_slice(bitmap, x0, x0 + cap, y0, y1, 0.0f, cap_u, argb);
+	if (x1 - x0 > cap * 2.0f)
+		ui_widget_draw_touch_legend_slice(bitmap, x0 + cap, x1 - cap, y0, y1, cap_u, 1.0f - cap_u, argb);
+	ui_widget_draw_touch_legend_slice(bitmap, x1 - cap, x1, y0, y1, 1.0f - cap_u, 1.0f, argb);
 }
 
 static void ui_mouse_note_target(
