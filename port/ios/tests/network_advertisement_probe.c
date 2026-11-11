@@ -93,17 +93,41 @@ int main(void)
 		assert(!network_game_client_advertised_versions[0].dedicated);
 		assert(network_game_client_advertised_versions[0].kind == 0);
 	}
-	/* Each reserved byte independently identifies a non-OpenCE layout. */
+	/* Other ports use reserved bytes 4-6 for their own fields; no single
+	   nonzero byte makes a host Delta, so OpenCE kind and dedicated bits
+	   still apply. */
 	for (i = 4; i < 26; i++)
 	{
 		memset(advertisement.__unknown5A, 0, sizeof(advertisement.__unknown5A));
 		memcpy(advertisement.__unknown5A, fields[2], 4);
 		advertisement.__unknown5A[3] = 1;
 		advertisement.__unknown5A[i] = 1;
+		advertisement.player_count = 0;
+		assert(add_advertised_game(games, &advertisement));
+		assert(network_game_client_advertised_versions[0].dedicated);
+		assert(network_game_client_advertised_versions[0].kind == 1);
+	}
+	/* The current Delta layout: tag at byte 17 with its check byte. */
+	{
+		byte tag[9] = {'D','L',1,1,38,'a',38,'a',0};
+		unsigned int j;
+
+		memset(advertisement.__unknown5A, 0, sizeof(advertisement.__unknown5A));
+		memcpy(advertisement.__unknown5A, fields[2], 4);
+		advertisement.__unknown5A[3] = 1;
+		tag[8] = 0xA5;
+		for (j = 0; j < 8; j++)
+			tag[8] ^= tag[j];
+		memcpy(advertisement.__unknown5A + 17, tag, sizeof(tag));
 		assert(add_advertised_game(games, &advertisement));
 		assert(!network_game_client_advertised_versions[0].dedicated);
 		assert(!network_game_client_advertised_versions[0].kind);
+		/* A bad check byte is not a tag. */
+		advertisement.__unknown5A[25] ^= 1;
+		assert(add_advertised_game(games, &advertisement));
+		assert(network_game_client_advertised_versions[0].dedicated);
+		assert(network_game_client_advertised_versions[0].kind == 1);
 	}
-	puts("PASS: LAN kind retention, independent engine, legacy fallback");
+	puts("PASS: LAN kind retention, independent engine, legacy fallback, OpenH1 bytes not Delta");
 	return 0;
 }
