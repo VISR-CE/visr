@@ -16,7 +16,7 @@ run by others, network.delta_url):
   (delta_announce_step).
 
 The requests block for seconds, so a thread of its own makes them, started
-the first time either is wanted. It takes p2p_lock for a moment to hand over
+at network startup for signed legacy tables, or the first time a list request is wanted. It takes p2p_lock for a moment to hand over
 games and to read the game hosted, and never holds its own lock while it
 does; the p2p thread, which holds p2p_lock when it calls in here, may take
 the thread's lock under it.
@@ -27,6 +27,8 @@ the thread's lock under it.
 #include "port_config.h"
 #include "p2p_internal.h"
 #include "delta_list.h"
+#include "halo_delta_legacy.h"
+#include "halo_delta_key.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -100,6 +102,62 @@ static int list_url(char *url, int size, const char *path)
 	memcpy(url, base, (size_t)length);
 	strcpy(url + length, path);
 	return 1;
+}
+
+/* The table uses the existing HTTP worker, independently of public announcing.
+   This tree calls the list server setting delta_url (browser_url in the spec). */
+static int legacy_initialized, legacy_enabled, legacy_attempted, legacy_failed;
+static uint32_t legacy_next;
+
+static int legacy_copy(const char *document_url, const char *signature_url)
+{
+	char document[DELTA_LEGACY_DOCUMENT_MAX + 1], signature[130], error[ERROR_SIZE];
+	unsigned char bytes[DELTA_LEGACY_SIGNED_MAX];
+	struct posix_https_headers headers;
+	struct delta_legacy_table table;
+	int document_size, signature_size;
+	if (posix_https_get_signed(document_url, NULL, document, sizeof(document),
+		ANNOUNCE_TIMEOUT, &headers, error, sizeof(error)) != 200) return 0;
+	document_size = headers.body_size;
+	if (document_size <= 0 || document_size > DELTA_LEGACY_DOCUMENT_MAX) return 0;
+	if (posix_https_get_signed(signature_url, NULL, signature, sizeof(signature),
+		ANNOUNCE_TIMEOUT, &headers, error, sizeof(error)) != 200) return 0;
+	signature_size = headers.body_size;
+	if (signature_size != 128 && !(signature_size == 129 && signature[128] == '\n')) return 0;
+	memcpy(bytes, signature, 128); bytes[128] = '\n';
+	memcpy(bytes + 129, document, (size_t)document_size);
+	/* An equal or older valid copy is a successful fetch, too. */
+	if (!delta_legacy_verify(bytes, (size_t)document_size + 129, delta_legacy_keys,
+		sizeof(delta_legacy_keys) / sizeof(delta_legacy_keys[0]), &table)) return 0;
+	if (!config_boolean("network.delta_table")) return 0;
+	if (delta_legacy_offer(bytes, (size_t)document_size + 129))
+		platform_log("Delta legacy: accepted table %u", (unsigned)table.row.serial);
+	return 1;
+}
+static void legacy_pass(void)
+{
+	char document_url[URL_SIZE], signature_url[URL_SIZE];
+	int success, on = config_boolean("network.delta_table");
+	if (on != legacy_enabled)
+	{
+		legacy_enabled = on; legacy_attempted = 0; legacy_failed = 0;
+		delta_legacy_initialize(on, platform_save_root(), NULL, 0);
+	}
+	if (!on || !config_boolean("network.online") ||
+		!list_url(document_url, sizeof(document_url), "/v1/delta/legacy") ||
+		!list_url(signature_url, sizeof(signature_url), "/v1/delta/legacy.sig") ||
+		!delta_legacy_fetch_due((uint32_t)p2p_now(), legacy_next, legacy_attempted)) return;
+	/* Four bounded requests must fit well before the next public-list heartbeat. */
+	if (delta.announce.listed && (uint32_t)(p2p_now() - delta.announce.sent_time) >= 30000u) return;
+	success = legacy_copy(document_url, signature_url);
+	/* Ask both signed mirrors; a reachable older copy must not hide a newer one. */
+	if (config_boolean("network.delta_table") && legacy_copy("https://raw.githubusercontent.com/ChupathingyCE/chupathingyce/delta-table/legacy.json",
+		"https://raw.githubusercontent.com/ChupathingyCE/chupathingyce/delta-table/legacy.json.sig")) success = 1;
+	if (!success && !legacy_failed)
+		platform_log("Delta legacy: neither mirror supplied a valid table; keeping built-in or cached numbers");
+	legacy_failed = !success;
+	legacy_next = delta_legacy_fetch_next((uint32_t)p2p_now(), success);
+	legacy_attempted = 1;
 }
 
 static int browsing_allowed(void)
@@ -258,6 +316,7 @@ static void *delta_thread(void *unused)
 			delta.browse_asked = 0;
 		}
 		announce_pass();
+		legacy_pass();
 
 		pthread_mutex_lock(&delta.lock);
 		delta.busy = 0;
@@ -282,6 +341,15 @@ void p2p_delta_refresh(void)
 	pthread_mutex_unlock(&delta.lock);
 }
 
+void p2p_delta_initialize(void)
+{
+	if (legacy_initialized) return;
+	legacy_initialized = 1;
+	legacy_enabled = config_boolean("network.delta_table");
+	delta_legacy_initialize(legacy_enabled, platform_save_root(), NULL, 0);
+	p2p_delta_update();
+}
+
 void p2p_delta_update(void)
 {
 	pthread_t thread;
@@ -290,7 +358,8 @@ void p2p_delta_update(void)
 	if (delta.started)
 		return;
 	pthread_mutex_lock(&delta.lock);
-	wanted = delta.browse || (config_boolean("network.delta_announce") && p2p_lobby_listed());
+	wanted = delta.browse || (config_boolean("network.delta_announce") && p2p_lobby_listed()) ||
+		(config_boolean("network.delta_table") && config_string("network.delta_url")[0]);
 	if (wanted && !delta.quitting && pthread_create(&thread, NULL, delta_thread, NULL) == 0)
 	{
 		pthread_detach(thread);

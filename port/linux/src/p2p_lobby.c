@@ -315,8 +315,11 @@ static int listing_make(unsigned char *bytes, int flags)
 	bytes[size++] = 'H';
 	bytes[size++] = 'L';
 	bytes[size++] = LISTING_FORMAT;
-	bytes[size++] = (unsigned char)(HALO_PORT_NETWORK_VERSION >> 8);
-	bytes[size++] = (unsigned char)HALO_PORT_NETWORK_VERSION;
+	{
+		unsigned version = delta_legacy_announce_version();
+		bytes[size++] = (unsigned char)(version >> 8);
+		bytes[size++] = (unsigned char)version;
+	}
 	bytes[size++] = (unsigned char)flags;
 	put_long(bytes + size, ++lobby.sequence);
 	size += 4;
@@ -1303,7 +1306,7 @@ int p2p_lobby_delta_wanted(struct delta_announce *announce)
 	announce->maximum_players = lobby.maximum_player_count;
 	announce->open = (lobby.flags & _listing_open) != 0;
 	announce->teams = (lobby.flags & _listing_has_teams) != 0;
-	announce->version = HALO_PORT_NETWORK_VERSION;
+	announce->version = delta_legacy_announce_version();
 #ifdef HALO_IOS
 	delta_platform_key(announce->platform_key, delta_platform_current(delta_host_flag("HALO_HOST_MAC"),
 		delta_host_flag("HALO_HOST_TVOS"), delta_host_flag("HALO_HOST_VISIONOS")), 0, 0, 0);

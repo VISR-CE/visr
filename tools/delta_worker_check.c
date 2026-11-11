@@ -13,6 +13,8 @@
 
 pthread_mutex_t p2p_lock = PTHREAD_MUTEX_INITIALIZER;
 
+/* This fixture exercises list requests, without contacting table mirrors. */
+const char *platform_save_root(void) { return ""; }
 static int announce_setting;
 static int online = 1;
 /* the game hosted, as p2p_lobby_delta_wanted gives it (under p2p_lock) */
@@ -43,6 +45,8 @@ unsigned long p2p_now(void)
 
 int config_boolean(const char *name)
 {
+	if (!strcmp(name, "network.delta_table"))
+		return 0;
 	if (!strcmp(name, "network.delta_announce"))
 		return announce_setting;
 	if (!strcmp(name, "network.online"))

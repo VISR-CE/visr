@@ -145,7 +145,11 @@ int host_lan_txt_matches(const unsigned char *txt, int length, unsigned version,
 		}
 		position += entry;
 	}
-	return has_version && found_version <= 0xFFFF && halo_network_version_joinable(version, (unsigned)found_version) && found_fork == fork;
+	/* The TXT number is an announcement; compatibility still uses our game codec. */
+	if (version >= HALO_PORT_NETWORK_VERSION || version == delta_legacy_announce_version())
+		version = HALO_PORT_NETWORK_VERSION;
+	return has_version && found_version <= 0xFFFF &&
+		halo_network_version_joinable(version, (unsigned)found_version) && found_fork == fork;
 }
 
 void host_lan_hold_request(struct host_lan_hold *hold, int hosting, int searching, double now)

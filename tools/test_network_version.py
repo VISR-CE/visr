@@ -14,7 +14,7 @@ def read(path):
 def test_probe_of_range_gates_and_stamp_window():
     with tempfile.TemporaryDirectory() as directory:
         executable = Path(directory) / "network_version_probe"
-        subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-o", str(executable),
+        subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-o", str(executable),
                         str(ROOT / "port/ios/tests/network_version_probe.c")], check=True)
         result = subprocess.run([str(executable)], capture_output=True, text=True)
         assert result.returncode == 0, result.stdout + result.stderr
@@ -22,7 +22,8 @@ def test_probe_of_range_gates_and_stamp_window():
 
 def test_host_advertises_its_version_and_clients_gate_by_range():
     server = read("source/networking/network_server_message_handler.c")
-    assert "advertisement.reserved[HALO_PORT_ADVERTISED_VERSION_OFFSET] = (byte)(HALO_PORT_NETWORK_VERSION & 0xFF)" in server
+    assert "advertisement.reserved[HALO_PORT_ADVERTISED_VERSION_OFFSET] = (byte)(version & 0xFF)" in server
+    assert "unsigned version = delta_legacy_announce_version();" in server
     client = read("source/networking/network_client_manager.c")
     assert "halo_network_version_joinable(ours, theirs)" in client
     assert "network_game_client_host_version = " in client
@@ -59,7 +60,7 @@ def test_coop_friendly_fire_byte_is_byte_two_of_the_input_entry():
 def test_documented_options_content_and_legacy_settings_fixtures():
     with tempfile.TemporaryDirectory() as directory:
         executable = Path(directory) / "network_content_probe"
-        subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-o", str(executable),
+        subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-o", str(executable),
                         str(ROOT / "port/ios/tests/network_content_probe.c")], check=True)
         result = subprocess.run([str(executable)], capture_output=True, text=True)
         assert result.returncode == 0, result.stdout + result.stderr

@@ -3688,6 +3688,17 @@
             "desktop"
           ]
         },
+        "delta_table": {
+          "type": "boolean",
+          "default": true,
+          "description": "Accept signed Delta legacy tables from the save cache and fetch them in the background from network.delta_url, with a GitHub fallback. Tables extend newer joins and update discovery numbers without changing the game codec. False uses only the built-in numbers and fetches nothing.",
+          "x-environment": "HALO_NET_DELTA_TABLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "delta_peer": {
           "type": "boolean",
           "default": true,
@@ -3713,7 +3724,7 @@
         "delta_url": {
           "type": "string",
           "default": "https://halo.milenko.org",
-          "description": "The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). Empty turns both off.",
+          "description": "The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). Empty turns both off and suppresses signed legacy table requests (network.delta_table).",
           "x-environment": "HALO_NET_DELTA_URL",
           "x-environment-style": "value",
           "x-platforms": [

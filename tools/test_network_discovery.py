@@ -29,7 +29,7 @@ def test_advertised_unsupported_kind_is_refused_before_join(tmp_path):
                                   '"' + str(ROOT / "port/linux/include" / name) + '"')
     probe, binary = tmp_path / "discovery.c", tmp_path / "discovery"
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+    subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -51,7 +51,7 @@ def test_lan_kind_is_retained_and_older_reserved_bytes_are_ignored(tmp_path):
     program = program.replace('"halo_delta.h"', '"' + str(ROOT / "port/linux/include/halo_delta.h") + '"')
     probe, binary = tmp_path / "advertisement.c", tmp_path / "advertisement"
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+    subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -81,7 +81,7 @@ def test_browser_names_the_advertised_mode_before_join(tmp_path):
                               '"' + str(ROOT / "port/linux/include/halo_network_content.h") + '"')
     probe, binary = tmp_path / "browser.c", tmp_path / "browser"
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+    subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr

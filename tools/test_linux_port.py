@@ -394,7 +394,8 @@ def test_p2p_signatures_and_listings(tmp_path):
     program = tmp_path / "p2p_lobby_check"
     built = subprocess.run(["clang", *flags, "-O1", "-no-pie", "-Wl,--unresolved-symbols=ignore-all", "-o",
                             str(program), "tools/p2p_lobby_check.c", "port/linux/src/p2p_crypto.c",
-                            "port/linux/src/p2p_lobby.c", "port/linux/src/delta_platform.c", "port/third_party/monocypher/monocypher.c",
+                            "port/linux/src/p2p_lobby.c", "port/linux/src/delta_legacy_runtime.c",
+                            "port/linux/src/delta_platform.c", "port/third_party/monocypher/monocypher.c",
                             "port/third_party/monocypher/monocypher-ed25519.c"],
                            capture_output=True, text=True)
     assert built.returncode == 0, built.stderr[-4000:]
@@ -666,3 +667,11 @@ def test_delta_peer_codec_and_sessions(tmp_path, probe):
     assert result.returncode == 0, result.stderr
     result = subprocess.run([str(program)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr
+
+
+def test_signed_delta_legacy_table(tmp_path):
+    # Keep this probe in the portable port gate as well as tools/test_delta.py.
+    if not shutil.which("clang"):
+        pytest.skip("needs clang")
+    from test_delta import test_signed_legacy_table
+    test_signed_legacy_table(tmp_path, [])

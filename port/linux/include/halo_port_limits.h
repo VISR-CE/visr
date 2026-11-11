@@ -59,14 +59,12 @@ protocol version and never see the Xbox game's, or it theirs. */
 
 #define HALO_PORT_NETWORK_GAME_MESSAGE_VERSION 2
 
-/* The native builds' network code has a version of its own (an unsigned
-16-bit number): machines of different versions cannot play together, and a
-client does not join a host of another version, but tells the player which
-is newer (network_client_manager.c), but joins hosts of the older versions
-back to HALO_PORT_NETWORK_OLDEST_JOINABLE (halo_network_version.h). A host advertises it, with its netcode,
-in its game's advertisement's reserved bytes (network_server_message_handler.c),
-which hosts built before there was a version send as zeros: version 0.
-Raise it with any change to what the machines send each other. */
+/* The built-in game codec's legacy number. halo_network_version.h keeps the
+older-version join mask and admits newer hosts through verified Delta rows.
+Discovery uses delta_legacy_announce_version() in the advertisement's reserved
+bytes (network_server_message_handler.c); signed config never changes this
+codec number. Hosts from before versioned discovery send zeros: version 0.
+Raise this with a change to what the machines send each other. */
 #define HALO_PORT_NETWORK_VERSION 38
 /* ... the advertisement's reserved bytes: the version (a little-endian word),
 then flags */

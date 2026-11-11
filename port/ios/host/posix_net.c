@@ -189,3 +189,14 @@ int posix_upnp_renew_seconds(void)
 {
 	return forward_renew_seconds;
 }
+
+/* Native Bonjour and the guest game use the same verified compatibility row. */
+#include "../../linux/include/halo_delta_legacy.h"
+void posix_delta_legacy_row(unsigned int minimum, unsigned int announce, unsigned int maximum,
+    unsigned int proven_maximum, int requires)
+{
+    struct delta_legacy_row row = {0};
+    row.present = minimum != 0; row.minimum = minimum; row.announce = announce;
+    row.maximum = maximum; row.proven_maximum = proven_maximum; row.requires = requires;
+    delta_legacy_runtime_set(&row);
+}
