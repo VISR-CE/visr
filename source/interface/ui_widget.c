@@ -6455,11 +6455,17 @@ static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d c
 	struct bitmap_data *bitmap = tag_index == NONE ? NULL :
 		bitmap_group_get_bitmap_from_sequence(tag_index, 0, pressed ? 1 : 0);
 	struct rasterizer_dynamic_screen_geometry_parameters parameters;
+	rectangle2d source;
 
 	if (!bitmap)
 		return;
+	/* the source rectangle is the whole picture, so a button narrower than the art is scaled, not cropped */
+	source.x0 = 0;
+	source.y0 = 0;
+	source.x1 = bitmap->width;
+	source.y1 = bitmap->height;
 	csmemset(&parameters, 0, sizeof(parameters));
-	draw_bitmap_in_rect(bitmap, bounds, bounds, clip,
+	draw_bitmap_in_rect(bitmap, (rectangle2d *)bounds, &source, (rectangle2d *)clip,
 		(fast_ftol(alpha * 255.0f) << 24) | 0x00FFFFFF, &parameters, FALSE);
 }
 
