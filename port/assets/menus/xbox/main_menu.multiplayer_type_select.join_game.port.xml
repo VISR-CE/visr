@@ -10,7 +10,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept" x="493" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" x="326" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/cancel" x="348" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_edit_butn" x="190" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_butn" x="190" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_edit" x="212" y="414" />
 		<on event="y" run="port password reedit" />
 	</widget>
@@ -75,7 +75,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept" x="493" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" x="326" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/cancel" x="348" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_edit_butn" x="190" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_butn" x="190" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_edit" x="212" y="414" />
 		<on event="y" run="port code reedit" />
 	</widget>
@@ -137,7 +137,7 @@
 		<string text="EDIT" />
 		<string text="JOIN GAME" />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_edit_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn">
 		<on event="left_mouse" run="port password reedit" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_edit" type="text" text="EDIT" font="ui\large_ui" color="#FF2896FF" width="60" height="22">
@@ -159,7 +159,7 @@
 		<string text="EDIT" />
 		<string text="JOIN GAME" />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_edit_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn">
 		<on event="left_mouse" run="port code reedit" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_edit" type="text" text="EDIT" font="ui\large_ui" color="#FF2896FF" width="60" height="22">

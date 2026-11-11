@@ -5076,7 +5076,7 @@ static void legend_accept_caption(struct widget_instance *list, boolean join)
 
 	if (caption)
 		caption->parameters.text_box.string_list_index = (short)((join || !controller) ? 1 : 0);
-	visible_set(named(screen, "y_edit_butn", 0), reedit);
+	visible_set(named(screen, "y_butn", 0), reedit);
 	visible_set(named(screen, "y_edit", 0), reedit);
 }
 

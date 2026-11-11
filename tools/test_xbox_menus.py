@@ -1473,7 +1473,7 @@ def test_password_and_code_legend_caption_follows_the_field(kind):
     # a controller player holding text re-edits with Y: its legend and the screen's y event
     screen = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0])
     assert screen.find('on[@event="y"]').get('run') == f'port {kind} reedit'
-    for leaf in ('y_edit_butn', 'y_edit'):
+    for leaf in ('y_butn', 'y_edit'):
         entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
         assert entry.find('on[@event="left_mouse"]').get('run') == f'port {kind} reedit'
         assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None

@@ -908,8 +908,9 @@ def multiplayer_documents(assets, bitmaps):
                         target.set('string_list', f'{base}/accept_captions')
                         target.set('string_index', '1')
                 # With text held on a controller, A joins and Y re-edits: the Y
-                # legend (hidden otherwise by legend_accept_caption) opens the keyboard.
-                for leaf, label, x in (('y_edit_butn', None, 190), ('y_edit', 'EDIT', 212)):
+                # legend (hidden otherwise by legend_accept_caption) opens the keyboard;
+                # keyboard players press Tab, and the leaf name y_butn swaps the icon for its keycap.
+                for leaf, label, x in (('y_butn', None, 190), ('y_edit', 'EDIT', 212)):
                     child(w, f'{base}/{leaf}', x=x, y=414)
                     if label:
                         text_widget(root, f'{base}/{leaf}', label, width=60, height=22)
