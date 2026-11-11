@@ -453,6 +453,18 @@ void draw_string_set_font(
 	return;
 }
 
+/* port: put back a font index draw_string_get_font returned, without
+looking it up: it may be NONE, the zeroed global's 0, or the previous map's
+index while a new map's menus are made, before
+draw_string_initialize_for_new_map clears it */
+void draw_string_restore_font(
+	long font_index)
+{
+	font_drawing_globals.current_font_index = font_index;
+
+	return;
+}
+
 /* port: the font the next string is drawn with (rasterizer_text.c's
 high-res text) */
 long draw_string_get_font(

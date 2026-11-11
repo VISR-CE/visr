@@ -5552,10 +5552,11 @@ short ui_widget_port_font_text_width(long font_index, void const *text)
 	draw_string_set_format(NONE, 0, 0);
 	draw_string_set_indents(0, 0);
 	width = ui_widget_port_text_width((wchar_t const *)text);
-	/* (before anything is drawn the font is the zeroed global's, 0: no font,
-	which draw_string_set_font refuses; the next text drawn sets its own) */
-	if (old_font != NONE && old_font != 0)
-		draw_string_set_font(old_font);
+	/* (the font in force may not be one of this map's: before anything is
+	drawn it is the zeroed global's 0, and while a game map's menus are made
+	it is still the previous map's index, which draw_string_set_font would
+	look up as a font in the new map) */
+	draw_string_restore_font(old_font);
 	return width;
 }
 
@@ -5606,8 +5607,7 @@ void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text
 			}
 		}
 	}
-	if (old_font != NONE)
-		draw_string_set_font(old_font);
+	draw_string_restore_font(old_font);
 }
 
 /* port: the port's own error text (display_error_text_deferred), which may be
