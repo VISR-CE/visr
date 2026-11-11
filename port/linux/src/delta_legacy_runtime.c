@@ -3,6 +3,7 @@
 #if defined(HALO_IOS) && defined(HALO_LINUX_PLATFORM_LAYER)
 #include "posix.h"
 #endif
+#include "../include/halo_port_limits.h"
 #include <pthread.h>
 #include <string.h>
 static pthread_mutex_t row_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -29,8 +30,14 @@ unsigned delta_legacy_announce_version(void)
 {
 	struct delta_legacy_row row;
 	delta_legacy_runtime_get(&row);
+	unsigned version;
 	/* We implement no host protections, so any requires field keeps hosting at 38. */
-	return row.present && !(row.requires && row.announce > 38) ? row.announce : 38;
+	version = row.present && !(row.requires && row.announce > 38) ? row.announce : 38;
+	/* Never below the base version, and never above the codec this build runs: a higher number makes
+	   VISR clients add join-pass padding that a host on this codec does not expect. */
+	if (version < 38) version = 38;
+	if (version > HALO_PORT_NETWORK_VERSION) version = HALO_PORT_NETWORK_VERSION;
+	return version;
 }
 int delta_legacy_joinable(unsigned version)
 {
