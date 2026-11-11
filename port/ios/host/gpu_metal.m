@@ -1838,8 +1838,10 @@ static struct metal_skip_frame skip_frame;
 static struct metal_hold window_hold;
 /* the window's frames held in a row at most: half a second at 60 Hz */
 #define HOLD_LIMIT 30
-/* the level's first frames, which hold any frame that skips a draw (metal_start_hold), and the most held in a row */
-#define START_HOLD_WINDOW 180
+/* the level's first seconds, which hold any frame that skips a draw (metal_start_hold), and the most held in a row.
+A pipeline the map's list lacks is first needed when the view reaches what uses it (3 s and 5.5 s in on the
+Silent Cartographer's opening), so the window runs 10 s, not the 3 s (180 frames) it first had */
+#define START_HOLD_WINDOW_SECONDS 10.0
 #define START_HOLD_LIMIT 30
 static struct metal_start_hold start_hold;
 /* gpu_metal_present held this frame (async_frame_end counts it) */
@@ -3762,7 +3764,7 @@ static void gpu_metal_compile_progress(uint32_t action, struct gpu_compile_progr
 	if (action == GPU_COMPILE_PROGRESS_FIRST_FRAME)
 	{
 		if (async_compiles)
-			metal_start_hold_arm(&start_hold);
+			metal_start_hold_arm(&start_hold, CACurrentMediaTime());
 		memset(progress, 0, sizeof(*progress));
 		return;
 	}
@@ -8883,11 +8885,12 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 		if (async_compiles && start_hold.armed)
 		{
 			/* the level's first frames: one that skips a draw for a pipeline still compiling is not shown */
-			if (metal_start_hold_frame(&start_hold, skip_frame.skipped, START_HOLD_WINDOW, START_HOLD_LIMIT))
+			if (metal_start_hold_frame(&start_hold, skip_frame.skipped, CACurrentMediaTime(),
+				START_HOLD_WINDOW_SECONDS, START_HOLD_LIMIT))
 				frame_held = YES;
 			if (!start_hold.armed)
-				platform_log("Metal: the level's first %u frames: %u held for pipelines still compiling, %u shown with "
-					"draws skipped", start_hold.frames, start_hold.held, start_hold.shown);
+				platform_log("Metal: the level's first %.1f s (%u frames): %u held for pipelines still compiling, %u shown with "
+					"draws skipped", start_hold.elapsed, start_hold.frames, start_hold.held, start_hold.shown);
 		}
 		unsynced = frame_rate_sync();
 		gpu_metal_presentation_configure(layer);

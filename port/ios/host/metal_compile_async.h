@@ -304,30 +304,39 @@ nothing skipped: the frames after it draw what the first did not (the HUD,
 the weapon raised, an effect, the structure from a vertex shader the list
 pairs with other pixel shaders: Blood Gulch's ground on an iPhone, the sky
 alone for three frames), and those make more pipelines. At most limit frames
-in a row are held, so a long compile doesn't freeze the picture */
+in a row are held; reaching that limit ends the window, because a compile that
+slow is not pop-in worth hiding and holding on would freeze the picture */
 struct metal_start_hold
 {
 	int armed;
+	double began;       /* when it was armed (seconds) */
+	double elapsed;     /* the window's length so far (seconds) */
 	unsigned frames;    /* the window's frames so far */
 	unsigned held;      /* frames held */
 	unsigned shown;     /* frames shown with draws skipped */
 	unsigned in_a_row;  /* frames held in a row */
 };
 
-static inline void metal_start_hold_arm(struct metal_start_hold *hold)
+static inline void metal_start_hold_arm(struct metal_start_hold *hold, double now)
 {
 	memset(hold, 0, sizeof(*hold));
 	hold->armed = 1;
+	hold->began = now;
 }
 
-/* whether this frame, which skipped this many draws, is not shown; window
-frames from the arming, at most limit held in a row */
-static inline int metal_start_hold_frame(struct metal_start_hold *hold, unsigned long skipped, unsigned window,
-	unsigned limit)
+/* whether this frame, which skipped this many draws, is not shown; the window
+is a length of time from the arming (not a frame count: pipelines the list
+lacks are first needed when the view first reaches what uses them, seconds in
+whatever the frame rate), at most limit held in a row, after which the window
+ends */
+static inline int metal_start_hold_frame(struct metal_start_hold *hold, unsigned long skipped, double now,
+	double window_seconds, unsigned limit)
 {
 	if (!hold->armed)
 		return 0;
-	if (++hold->frames >= window)
+	hold->frames++;
+	hold->elapsed = now - hold->began;
+	if (hold->elapsed >= window_seconds)
 		hold->armed = 0;
 	if (!skipped)
 	{
@@ -336,6 +345,7 @@ static inline int metal_start_hold_frame(struct metal_start_hold *hold, unsigned
 	}
 	if (hold->in_a_row >= limit)
 	{
+		hold->armed = 0;
 		hold->in_a_row = 0;
 		hold->shown++;
 		return 0;
