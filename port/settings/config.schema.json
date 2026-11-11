@@ -2810,6 +2810,17 @@
             "desktop"
           ]
         },
+        "menu_text_seed": {
+          "type": "string",
+          "default": "",
+          "description": "The join password and Direct Link code screens open with this text already entered and the keyboard closed, to see their held-text state (for screenshots); empty for none.",
+          "x-environment": "HALO_MENU_TEXT_SEED",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "gpu_flush_draws": {
           "type": "integer",
           "default": -1,

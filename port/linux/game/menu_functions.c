@@ -5088,7 +5088,15 @@ static boolean password_screen_initialize(struct widget_instance *list)
 	password_screen.text[0] = 0;
 	password_screen.help = _password_help_ask;
 	if (row)
+	{
 		text_field_begin_masked(row, "", PASSWORD_LENGTH, password_screen_done);
+		/* (debug.menu_text_seed: text already held, the keyboard closed) */
+		if (config_string("debug.menu_text_seed")[0])
+		{
+			text_field_insert(config_string("debug.menu_text_seed"));
+			text_field_end(TRUE);
+		}
+	}
 	return TRUE;
 }
 
@@ -5338,7 +5346,14 @@ static boolean code_screen_initialize(struct widget_instance *list)
 		snprintf(code_screen.text, sizeof(code_screen.text), "%s", clipboard);
 	code_screen.help = _code_help_ask;
 	if (row)
+	{
 		text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
+		if (config_string("debug.menu_text_seed")[0])
+		{
+			text_field_insert(config_string("debug.menu_text_seed"));
+			text_field_end(TRUE);
+		}
+	}
 	return TRUE;
 }
 

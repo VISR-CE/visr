@@ -1481,3 +1481,4 @@ def test_password_and_code_legend_caption_follows_the_field(kind):
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     assert f'legend_accept_caption(list, text_field_editing(NULL) || {kind}_screen.text[0])' in source
     assert f'text_field_editing(row) || {kind}_screen.text[0])' in source
+    assert 'config_string("debug.menu_text_seed")' in source
