@@ -56,6 +56,8 @@ int photo_mode_active(void) { return active; }
 
 void photo_mode_trace_key(int scancode, int action)
 {
+	if (!host_photo_mode_available())
+		return; /* distribution hosts: these are ordinary keys */
 	error(_error_silent, "photo key: scancode %d action %d (host available %d, debug.photo_mode %d)", scancode, action, host_photo_mode_available(), config_boolean("debug.photo_mode") ? 1 : 0);
 }
 
