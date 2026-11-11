@@ -3638,7 +3638,7 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 		usnprintf(text, size - 1, L"Connected to the host. Waiting for its game...");
 		break;
 	case P2P_JOIN_NO_SERVER:
-		usnprintf(text, size - 1, L"Couldn't reach the matchmaking servers. Check your internet connection.");
+		usnprintf(text, size - 1, L"Couldn't reach the matchmaking servers. Check your connection.");
 		break;
 	case P2P_JOIN_NOT_FOUND:
 		usnprintf(text, size - 1, L"Couldn't find the host's game. It may have ended.");
@@ -3651,14 +3651,14 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 		break;
 	case P2P_JOIN_VERSION:
 		usnprintf(text, size - 1, version > HALO_PORT_NETWORK_VERSION ?
-			L"The host is on version %d and you are on %d. Update the game to join." :
-			L"The host is on version %d and you are on %d. The host needs to update.", version, HALO_PORT_NETWORK_VERSION);
+			L"The host is on version %d and you are on %d. Update to join." :
+			L"The host is on version %d, you're on %d. The host must update.", version, HALO_PORT_NETWORK_VERSION);
 		break;
 	case P2P_JOIN_NO_DIRECT:
 		usnprintf(text, size - 1, L"Found the host, but your networks can't connect directly.");
 		break;
 	case P2P_JOIN_LOCAL_NETWORK:
-		usnprintf(text, size - 1, L"Found the host. Allow Local Network access for VISR in your device's Settings.");
+		usnprintf(text, size - 1, L"Found the host. Allow Local Network for VISR in Settings.");
 		break;
 	default:
 		text[0] = 0;
