@@ -345,15 +345,12 @@ static int cache_write_locked(void)
 #else
 	char temporary[1232];
 	FILE *file;
-	int descriptor, ok;
+	int ok;
 	if (!enabled || !signed_size || !cache_path[0]) return 0;
-	if (snprintf(temporary, sizeof(temporary), "%s.XXXXXX", cache_path) >= (int)sizeof(temporary)) return 0;
-	descriptor = mkstemp(temporary);
-	if (descriptor < 0) return 0;
-	file = fdopen(descriptor, "wb");
-	if (!file) { close(descriptor); unlink(temporary); return 0; }
+	if (snprintf(temporary, sizeof(temporary), "%s.tmp", cache_path) >= (int)sizeof(temporary)) return 0;
+	file = fopen(temporary, "wb");
+	if (!file) return 0;
 	ok = fwrite(signed_bytes, 1, signed_size, file) == signed_size;
-	if (fflush(file) || fsync(descriptor)) ok = 0;
 	if (fclose(file)) ok = 0;
 	if (ok) ok = rename(temporary, cache_path) == 0;
 	if (!ok) unlink(temporary);
