@@ -404,6 +404,16 @@ maximum_pixels = [2073600, 8294400, 8294400]
 maximum_refresh_hertz = 60
 
 [[fallback]]
+hardware = "iphone-a11"
+profile = "iphone-a11.toml"
+# The measured iPhone X has 3 GB (about 2,850 MB reported) and the 8 has 2 GB; every newer iPhone below the 12 Pro's envelope has at least that much and inherits this profile.
+minimum_memory_mb = 1800
+minimum_gpu_family = 4
+# Play at 720 lines capped at 30; menu and cutscenes native up to 2796x1290 (3,607,000), under the class's 3,888,000 wired-display floor.
+maximum_pixels = [3900000, 3900000, 3900000]
+maximum_refresh_hertz = 60
+
+[[fallback]]
 hardware = "iphone-12-pro"
 profile = "iphone-12-pro.toml"
 # The measured 12 Pro has 6 GB (5,715 MB reported); the 4 GB 12 and 12 mini keep the class profile.
