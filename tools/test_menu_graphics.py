@@ -68,6 +68,15 @@ int config_default(char const *name, char *text, unsigned int size)
 {
     (void)name; snprintf(text, size, "%s", profile_campaign ? profile_campaign : ""); return 1;
 }
+/* the game's settings file: what the menu wrote, last */
+static int writes;
+static char written_name[64], written_value[64];
+int config_write(char const *name, char const *value)
+{
+    writes++; snprintf(written_name, sizeof(written_name), "%s", name);
+    snprintf(written_value, sizeof(written_value), "%s", value); return 1;
+}
+void platform_log(char const *format, ...) { (void)format; }
 int config_text(char const *name, char *text, unsigned int size) { (void)name; snprintf(text, size, "stereo"); return 1; }
 static short text_value_of(wchar_t const *line, char *out)
 {
@@ -189,7 +198,7 @@ int main(void)
 
     list->parameters.list.extended_description = help;
     list->focused_child = op_mode;
-    spinner(op_crt, "crt_effect_spinner", "display.crt_effect", "true|false");
+    struct widget_instance *crt_spin = spinner(op_crt, "crt_effect_spinner", "display.crt_effect", "true|false");
 
     /* the hub's status line: "Graphics: <Mode>", the word as a name (Hardcore) */
     for (stored_mode = 0; stored_mode < NUMBER_OF_GRAPHICS_MODES; stored_mode++)
@@ -424,6 +433,35 @@ int main(void)
     assert(mode_help->parameters.text_box.string_list_index == 2);
     unsetenv("HALO_HOST_VISIONOS");
 
+    /* the mode and the CRT effect apply as the player moves through them: written once, the moment the value
+    shown differs from the one in force, and not again while it stays */
+    {
+        int before;
+
+        setting_for(mode)->loaded_index = 2;
+        mode->parameters.list.selected_index = 2;
+        setting_for(crt_spin)->loaded_index = 1;
+        crt_spin->parameters.list.selected_index = 1;
+        before = writes;
+        graphics_rows_show(list);
+        assert(writes == before);
+        mode->parameters.list.selected_index = 0;
+        graphics_rows_show(list);
+        assert(writes == before + 1 && !strcmp(written_name, "display.graphics") && !strcmp(written_value, "hardcore"));
+        assert(setting_for(mode)->loaded_index == 0);
+        graphics_rows_show(list);
+        assert(writes == before + 1);
+        crt_spin->parameters.list.selected_index = 0;
+        graphics_rows_show(list);
+        assert(writes == before + 2 && !strcmp(written_name, "display.crt_effect") && !strcmp(written_value, "true"));
+        assert(setting_for(crt_spin)->loaded_index == 0);
+        /* a row not yet loaded (the screen still opening) is not written */
+        setting_for(mode)->loaded_index = NONE;
+        mode->parameters.list.selected_index = 1;
+        graphics_rows_show(list);
+        assert(writes == before + 2);
+    }
+
     /* a screen without the mode's row is left alone */
     {
         struct widget_instance *other = make("options_menu", NULL, 5);
@@ -444,7 +482,8 @@ def test_the_graphics_rows_follow_the_mode(tmp_path):
         'static void graphics_state_show(', 'static void hub_status_show(', 'static boolean graphics_in_vr(',
         'static short graphics_mode_shown(', 'static boolean graphics_replaces(',
         'boolean ui_widget_port_graphics_locked(', 'static char const *graphics_device_name(',
-        'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_rows_show('))
+        'static void graphics_help_text(', 'static void graphics_fixed_help(', 'static void graphics_apply_shown(',
+        'static void graphics_rows_show('))
     functions = block((ROOT / 'port/linux/src/menu_files.c').read_text(), 'long halo_menus_utf16(') + '\n' + functions
     ui = (ROOT / 'source/interface/ui_widget.c').read_text()
     functions += '\n' + '\n'.join(block(ui[ui.rindex(marker):], marker) for marker in (

@@ -1095,7 +1095,7 @@ def test_graphics_screen_is_controller_setups_layout_with_the_modes_help():
     flat = [' '.join(text.split('\\n')) for text in helps]
     assert flat[3] == flat[0] + ' In VR, Hardcore draws as Classic.'
     assert flat[:3] == [
-        'The original Xbox exactly: 640x480 at 30 frames a second, nothing added. Takes effect at the next level.',
+        'The original Xbox exactly: 640x480 at 30 frames a second, nothing added.',
         "The original Xbox look at this device's resolution and frame rate, with sharper textures and HUD.",
         'Tastefully enhanced: the original game with soft shading where things meet the ground and shadows under '
         'props.']

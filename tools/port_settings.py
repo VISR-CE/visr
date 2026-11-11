@@ -33,11 +33,11 @@ VOLUMES = [(str(step), f"{step / 10:g}") for step in range(11)]
 # (menu_functions.c's graphics_help_show); the CRT effect's is its row's, and only Hardcore shows the row.
 GRAPHICS_MODES = [("HARDCORE", "hardcore"), ("CLASSIC", "classic"), ("ENHANCED", "enhanced")]
 GRAPHICS_HELP = [
-    "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel.",
+    "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added.",
     "The original Xbox look at this device's resolution\nand frame rate, with sharper textures and HUD.",
     "Tastefully enhanced: the original game with soft\nshading where things meet the ground and shadows\nunder props.",
     # (Hardcore's on visionOS, where it draws as Classic: menu_functions.c's graphics_rows_show)
-    "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel. In VR, Hardcore draws as Classic.",
+    "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. In VR, Hardcore draws as\nClassic.",
 ]
 CRT_HELP = "The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color."
 

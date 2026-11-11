@@ -1757,6 +1757,33 @@ static void graphics_fixed_help(struct widget_instance *help, short mode, char c
 	graphics_help_text(help, message);
 }
 
+/* the mode's and the CRT effect's rows apply as the player moves through them: a value shown that differs from the
+one in force is written at once, so the game behind the menu draws it on the next frame (and SAVE has nothing left
+to write for them, nor CANCEL anything to undo) */
+static void graphics_apply_shown(struct widget_instance *list)
+{
+	char const *const names[] = { "graphics_spinner", "crt_effect_spinner" };
+	short which;
+
+	for (which = 0; which < NUMBEROF(names); which++)
+	{
+		struct widget_instance *spinner = named(list, names[which], 0);
+		struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+		short index = spinner ? spinner->parameters.list.selected_index : NONE;
+
+		if (!setting || setting->loaded_index == NONE || index < 0 || index >= setting->value_count ||
+			index == setting->loaded_index)
+			continue;
+		if (!config_write(setting->setting, setting->values[index]))
+		{
+			platform_log("menus: could not write %s to config.toml", setting->setting);
+			continue;
+		}
+		setting->loaded_index = index;
+		platform_log("menus: %s = %s (now)", setting->setting, setting->values[index]);
+	}
+}
+
 /* "port settings help" on a screen with the mode's row: the CRT effect's row only while Hardcore is shown (the
 list's window closes the rows below it up); a setting the mode shown fixes shown as its value in force in the row's
 value place (its spinner hidden, so it does not change; its row can still be chosen, for its help); a setting the
@@ -1774,6 +1801,7 @@ static void graphics_rows_show(struct widget_instance *list)
 
 	if (mode == NONE)
 		return;
+	graphics_apply_shown(list);
 	if (crt)
 	{
 		crt->visible = mode == GRAPHICS_MODE_HARDCORE;

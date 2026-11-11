@@ -171,10 +171,10 @@
 	<widget name="xbox/settings/video_settings/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/video_settings/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<strings name="xbox/settings/video_settings/graphics_help_strings">
-		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel." />
+		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added." />
 		<string text="The original Xbox look at this device's resolution\nand frame rate, with sharper textures and HUD." />
 		<string text="Tastefully enhanced: the original game with soft\nshading where things meet the ground and shadows\nunder props." />
-		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. Takes effect at the next\nlevel. In VR, Hardcore draws as Classic." />
+		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. In VR, Hardcore draws as\nClassic." />
 	</strings>
 	<strings name="xbox/settings/video_settings/labels">
 		<string text="GRAPHICS:" />
