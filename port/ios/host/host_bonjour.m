@@ -463,6 +463,29 @@ void posix_lan_discovery(int hosting, int searching, unsigned short version, pos
 #endif
 }
 
+/* A newly verified legacy table can change the number we advertise. The guest only passes it on its next discovery
+   call, so the host adopts it directly (once discovery has been asked for at all) and wakes the tick. */
+void host_bonjour_announce_version(unsigned short version)
+{
+#if !TARGET_OS_TV
+	int changed = 0;
+
+	if (!queue)
+		return;
+	os_unfair_lock_lock(&lock);
+	if (wanted_version && wanted_version != version)
+	{
+		wanted_version = version;
+		changed = 1;
+	}
+	os_unfair_lock_unlock(&lock);
+	if (changed)
+		dispatch_async(queue, ^{ tick(); });
+#else
+	(void)version;
+#endif
+}
+
 int posix_lan_peers(posix_ulong *addresses, int maximum_count)
 {
 	uint32_t found[HOST_LAN_MAXIMUM_PEERS * HOST_LAN_MAXIMUM_ADDRESSES];
