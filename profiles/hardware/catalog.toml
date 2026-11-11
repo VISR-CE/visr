@@ -13,8 +13,8 @@ platform = "ios"
 models = ["iPhone10,1", "iPhone10,2", "iPhone10,3", "iPhone10,4", "iPhone10,5", "iPhone10,6"]
 tier = 110
 gpu_family = 4
-basis = "assumed"
-source = "iPhone 8, 8 Plus and X (A11, the first Apple-designed GPU). Identifiers and chips: https://en.wikipedia.org/wiki/List_of_iPhone_models. Lowest model iOS 16 supports."
+basis = "measured"
+source = "iphone-a11.toml: values measured on the iPhone X (five 0.6.14 campaign reports) and assumed for the iPhone 8 and 8 Plus. iPhone 8, 8 Plus and X (A11, the first Apple-designed GPU). Identifiers and chips: https://en.wikipedia.org/wiki/List_of_iPhone_models. Lowest model iOS 16 supports."
 
 [[hardware]]
 id = "iphone-a12"
