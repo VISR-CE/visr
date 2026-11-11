@@ -1804,7 +1804,11 @@ boolean network_game_client_game_has_started(
 	}
 	else
 	{
-		network_event("failed to load the necessary game data");
+		/* port: a map this build cannot load (its bsp refused) leaves the
+		client in the pregame lobby of a game it cannot play: it goes back to
+		the main menu, which drops the connection, rather than halt */
+		network_event("failed to load the necessary game data: leaving the game");
+		main_goto_main_menu();
 	}
 
 	return client->state == _network_game_client_state_ingame;

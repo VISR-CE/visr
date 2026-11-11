@@ -1117,7 +1117,8 @@ boolean scenario_switch_structure_bsp(
 		checked. (A map's first bsp refused refuses the map: scenario_load) */
 		if (!loaded)
 		{
-			error(_error_immediate, "failed to load structure bsp #%d", structure_bsp_index);
+			/* port: silent: a bsp the port refuses (a joined game's map included) is no reason to halt */
+			error(_error_silent, "failed to load structure bsp #%d", structure_bsp_index);
 			global_structure_bsp = NULL;
 			global_collision_bsp = NULL;
 			global_bsp3d = NULL;
