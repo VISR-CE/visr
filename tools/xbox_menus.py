@@ -743,6 +743,9 @@ def filters_layout(root, widgets):
     for c in list(screen.findall('child')):
         if '/legend/' in c.get('widget', ''):
             screen.remove(c)
+    for w in list(root.iter('widget')):  # the dropped legend's widgets would be orphans
+        if w.get('name', '').startswith(base + '/filters_screen/legend'):
+            root.remove(w)
     ET.SubElement(screen, 'on', event='x', run='port browser filters reset')
     ET.SubElement(screen, 'data', input='port browser filters update')
     # The title takes the same place as the server browser's (26 units above its original spot);
