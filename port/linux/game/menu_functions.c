@@ -3438,10 +3438,10 @@ static void server_settings_update(struct widget_instance *list)
 	if (multiplayer.mode != _multiplayer_mode_host_internet)
 		text[0] = 0; /* (a LAN game has no join code, so the line is blank) */
 	else if (!config_boolean("network.online"))
-		snprintf(text, sizeof(text), "INTERNET PLAY IS OFF (SETTINGS)");
+		snprintf(text, sizeof(text), "TURN ON INTERNET PLAY IN NETWORK SETTINGS");
 	/* (an invite reaches no one without a broker) */
 	else if (p2p_servers_status() == HALO_INTERNET_SERVERS_UNREACHABLE)
-		snprintf(text, sizeof(text), "CAN'T REACH THE MATCHMAKING SERVERS");
+		snprintf(text, sizeof(text), "COULDN'T REACH THE MATCHMAKING SERVERS");
 	else if (!p2p_host_code(text, sizeof(text)))
 		snprintf(text, sizeof(text), "MADE WHEN THE GAME STARTS");
 	else
@@ -3626,39 +3626,39 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 	switch (stage)
 	{
 	case P2P_JOIN_STARTING:
-		usnprintf(text, size - 1, L"Joining: reaching the matchmaking servers...");
+		usnprintf(text, size - 1, L"Reaching the matchmaking servers...");
 		break;
 	case P2P_JOIN_ASKING:
-		usnprintf(text, size - 1, L"Joining: looking for the host's game... (%ds)", seconds);
+		usnprintf(text, size - 1, L"Looking for the host's game... (%d s)", seconds);
 		break;
 	case P2P_JOIN_REACHING:
-		usnprintf(text, size - 1, L"Found the host: connecting directly... (%ds)", seconds);
+		usnprintf(text, size - 1, L"Found the host. Connecting directly... (%d s)", seconds);
 		break;
 	case P2P_JOIN_CONNECTED:
-		usnprintf(text, size - 1, L"Connected to the host: waiting for its game...");
+		usnprintf(text, size - 1, L"Connected to the host. Waiting for its game...");
 		break;
 	case P2P_JOIN_NO_SERVER:
-		usnprintf(text, size - 1, L"Can't reach the matchmaking servers: check your internet");
+		usnprintf(text, size - 1, L"Couldn't reach the matchmaking servers. Check your internet connection.");
 		break;
 	case P2P_JOIN_NOT_FOUND:
-		usnprintf(text, size - 1, L"The host's game wasn't found: it may have ended");
+		usnprintf(text, size - 1, L"Couldn't find the host's game. It may have ended.");
 		break;
 	case P2P_JOIN_ENDED:
-		usnprintf(text, size - 1, L"The host's game has ended");
+		usnprintf(text, size - 1, L"The host's game has ended.");
 		break;
 	case P2P_JOIN_NEW_INVITE:
-		usnprintf(text, size - 1, L"This invite is old: ask the host for its new link");
+		usnprintf(text, size - 1, L"This invite is out of date. Ask the host for a new link.");
 		break;
 	case P2P_JOIN_VERSION:
 		usnprintf(text, size - 1, version > HALO_PORT_NETWORK_VERSION ?
-			L"The host is on version %d, you on %d: update this game" :
-			L"The host is on version %d, you on %d: the host must update", version, HALO_PORT_NETWORK_VERSION);
+			L"The host is on version %d and you are on %d. Update the game to join." :
+			L"The host is on version %d and you are on %d. The host needs to update.", version, HALO_PORT_NETWORK_VERSION);
 		break;
 	case P2P_JOIN_NO_DIRECT:
-		usnprintf(text, size - 1, L"Found the host, but your networks can't connect directly");
+		usnprintf(text, size - 1, L"Found the host, but your networks can't connect directly.");
 		break;
 	case P2P_JOIN_LOCAL_NETWORK:
-		usnprintf(text, size - 1, L"Found the host: allow Local Network access in Settings");
+		usnprintf(text, size - 1, L"Found the host. Allow Local Network access for VISR in your device's Settings.");
 		break;
 	default:
 		text[0] = 0;
@@ -4791,11 +4791,11 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		if (halo_network_kind_reason(game->kind))
 			usnprintf(text, NUMBEROF(text) - 1, L"%hs", halo_network_kind_reason(game->kind));
 		else if (!game->joinable)
-			usnprintf(text, NUMBEROF(text) - 1, L"Network version %d; this build plays %d to %d",
+			usnprintf(text, NUMBEROF(text) - 1, L"This game uses network version %d. VISR can join versions %d to %d.",
 				game->network_version, HALO_PORT_NETWORK_OLDEST_JOINABLE, HALO_PORT_NETWORK_VERSION);
 		else
-			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULD NOT REACH GAME" :
-				!game->open ? L"FULL OR STARTING" : !config_boolean("network.online") ? L"INTERNET PLAY IS OFF" :
+			usnprintf(text, NUMBEROF(text) - 1, game->failed ? L"COULDN'T REACH THIS GAME" :
+				!game->open ? L"THIS GAME IS FULL OR STARTING" : !config_boolean("network.online") ? L"INTERNET PLAY IS OFF" :
 				lobby_browser.joining ? L"CONNECTING..." : L"");
 		/* the button lives in the legend and always reads JOIN GAME (dimmed when unusable); why it is
 		   unusable shows in the detail box */
@@ -5190,9 +5190,9 @@ static void lobby_browser_update(struct widget_instance *list)
 		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
 
 		if (!config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off (Settings)");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. You can turn it on in Settings, under Network.");
 		else if (!config_boolean("network.public_lobby"))
-			usnprintf(text, NUMBEROF(text) - 1, L"The server browser is off (network.public_lobby)");
+			usnprintf(text, NUMBEROF(text) - 1, L"The public game list is turned off.");
 		else if (lobby_browser.joining)
 		{
 			text_to_wide(lobby_browser.name, name, NUMBEROF(name));
@@ -5204,12 +5204,12 @@ static void lobby_browser_update(struct widget_instance *list)
 			/* (and why, when this network's NAT is what stops it: the router's
 			UPnP, or a forwarded network.tunnel_port, lets it through) */
 			usnprintf(text, NUMBEROF(text) - 1, lobby_browser.failed_nat_strict ?
-				L"Strict NAT, turn on UPnP: could not reach %s" :
-				L"Could not reach %s", name);
+				L"Couldn't reach %s. Your network may be blocking it. Try turning on UPnP Port Forwarding in Settings, under Network." :
+				L"Couldn't reach %s.", name);
 		}
 		else if (!lobby_browser.count && lobby_browser.hidden)
 		{
-			usnprintf(text, NUMBEROF(text) - 1, L"No games match: %d hidden by filters",
+			usnprintf(text, NUMBEROF(text) - 1, L"No games match your filters. %d are hidden.",
 				lobby_browser.hidden);
 		}
 		else if (!lobby_browser.count)
@@ -5224,19 +5224,19 @@ static void lobby_browser_update(struct widget_instance *list)
 				usnprintf(text, NUMBEROF(text) - 1, L"Looking for public games...");
 				break;
 			case HALO_INTERNET_BROWSER_NO_SERVERS:
-				usnprintf(text, NUMBEROF(text) - 1, L"Can't reach the matchmaking servers: check your internet");
+				usnprintf(text, NUMBEROF(text) - 1, L"Couldn't reach the matchmaking servers. Check your internet connection.");
 				break;
 			/* (the list shows only this build's network version) */
 			case HALO_INTERNET_BROWSER_NEWER_ONLY:
-				usnprintf(text, NUMBEROF(text) - 1, L"No games on version %d: %d on newer ones (update this game)",
+				usnprintf(text, NUMBEROF(text) - 1, L"No games on version %d. %d are on a newer version, so update the game to join them.",
 					HALO_PORT_NETWORK_VERSION, newer);
 				break;
 			case HALO_INTERNET_BROWSER_OLDER_ONLY:
-				usnprintf(text, NUMBEROF(text) - 1, L"No games on version %d: %d on older ones",
+				usnprintf(text, NUMBEROF(text) - 1, L"No games on version %d. %d are on an older version.",
 					HALO_PORT_NETWORK_VERSION, older);
 				break;
 			default:
-				usnprintf(text, NUMBEROF(text) - 1, L"No public games found");
+				usnprintf(text, NUMBEROF(text) - 1, L"No public games right now.");
 				break;
 			}
 		}
@@ -5559,7 +5559,7 @@ static void browser_update(struct widget_instance *list)
 		if (multiplayer.mode == _multiplayer_mode_server_browser)
 			text[0] = 0;
 		else if (multiplayer.mode == _multiplayer_mode_direct_link && !config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off (Settings)");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. You can turn it on in Settings, under Network.");
 		/* the invite being joined: how it goes, or what went wrong (a game in
 		the list is shown instead, unless the invite's host is known to have
 		another version) */
