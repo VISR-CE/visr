@@ -1066,6 +1066,49 @@ static void vector_turn_about_up(real_vector3d *v, real angle)
 	v->j = i * s + j * c;
 }
 
+/* the camera as it stood one tick before its latest, when the frame that
+kept the latest ran more than one tick. The observer moves once a frame, so
+the camera kept before is ticks ticks back: blended over one tick's time it
+would cover ticks ticks of motion while every object covers one, and what the
+camera rides (a vehicle's seat) is drawn ahead of it for that frame, then
+back. Taken as the share (ticks - 1) / ticks of the way from the earlier
+camera to the latest; a cut between them stays a cut */
+static void camera_previous_one_tick_back(struct interpolated_camera *camera, long ticks)
+{
+	real share;
+	real_vector3d forward, up;
+
+	if (ticks <= 1 || !camera->has_previous ||
+		camera->previous_facing_posed != camera->latest_facing_posed)
+		return;
+	forward = camera->previous.forward;
+	up = camera->previous.up;
+	if (camera->previous_facing_posed)
+	{
+		/* both posed from the facing: the earlier turned to the latest's
+		head yaw first, so the share turns only what the camera did */
+		real turn = remainderf(camera->latest_head_yaw - camera->previous_head_yaw, 2.0f * _pi);
+
+		if (turn != 0.0f)
+		{
+			vector_turn_about_up(&forward, turn);
+			vector_turn_about_up(&up, turn);
+		}
+	}
+	if (!(distance_squared(&camera->previous.position, &camera->latest.position) <=
+			CAMERA_CUT_DISTANCE * CAMERA_CUT_DISTANCE) ||
+		!(forward.i * camera->latest.forward.i +
+			forward.j * camera->latest.forward.j +
+			forward.k * camera->latest.forward.k >= CAMERA_CUT_COSINE))
+		return;
+	share = (real)(ticks - 1) / (real)ticks;
+	point_lerp(&camera->previous.position, &camera->latest.position, share, &camera->previous.position);
+	vector_nlerp(&forward, &camera->latest.forward, share, &camera->previous.forward);
+	vector_nlerp(&up, &camera->latest.up, share, &camera->previous.up);
+	camera->previous.field_of_view = lerp(camera->previous.field_of_view, camera->latest.field_of_view, share);
+	camera->previous_head_yaw = camera->latest_head_yaw;
+}
+
 static struct observer_result const *render_interpolation_blended_camera(
 	short local_player_index,
 	struct observer_result const *observer)
@@ -1087,6 +1130,8 @@ static struct observer_result const *render_interpolation_blended_camera(
 	after the tick) */
 	if (!camera->valid || camera->tick != interpolation_tick)
 	{
+		long ticks = camera->valid ? interpolation_tick - camera->tick : 0;
+
 		/* (its correction taken on each tick, render_interpolation_tick) */
 		if (!camera->valid)
 		{
@@ -1102,6 +1147,8 @@ static struct observer_result const *render_interpolation_blended_camera(
 		camera->latest_facing_posed = camera_facing_posed(local_player_index);
 		camera->tick = interpolation_tick;
 		camera->valid = TRUE;
+		/* one tick apart, as every object's (render_interpolation_tick) */
+		camera_previous_one_tick_back(camera, ticks);
 	}
 	/* HEAD mode: each camera posed from the facing turned about the world's
 	up by the head yaw the look has taken since it was kept, so it holds the
