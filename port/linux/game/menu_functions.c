@@ -4693,12 +4693,42 @@ static void browser_detail_gametype_set(struct widget_instance *detail, short fr
 		picture->animation.current_frame_index = frame;
 }
 
+/* Breaks text at spaces into lines of at most `width` characters, joined with \r\n, for text widgets that do not wrap. */
+static void browser_text_wrap(wchar_t const *text, wchar_t *out, size_t out_size, size_t width)
+{
+	size_t used = 0, line = 0, word;
+
+	out[0] = 0;
+	while (*text && used + 3 < out_size)
+	{
+		for (word = 0; text[word] && text[word] != L' '; word++)
+			;
+		if (line && line + 1 + word > width)
+		{
+			out[used++] = L'\r';
+			out[used++] = L'\n';
+			line = 0;
+		}
+		else if (line)
+		{
+			out[used++] = L' ';
+			line++;
+		}
+		for (size_t i = 0; i < word && used + 3 < out_size; i++, line++)
+			out[used++] = text[i];
+		text += word;
+		while (*text == L' ')
+			text++;
+	}
+	out[used] = 0;
+}
+
 static void browser_c_detail_update(struct widget_instance *list, wchar_t const *status)
 {
 	struct widget_instance *screen = screen_of(list);
 	struct widget_instance *detail = named(screen, "browser_detail", 0), *child;
 	struct p2p_listing const *game;
-	wchar_t text[ROW_TEXT_LENGTH * 2], map[ROW_TEXT_LENGTH], region[32];
+	wchar_t text[ROW_TEXT_LENGTH * 2], map[ROW_TEXT_LENGTH], region[32], wrapped[ROW_TEXT_LENGTH * 3];
 	wchar_t const *const types[] = { L"Co-op", L"CTF", L"Slayer", L"Oddball", L"King", L"Race" };
 	wchar_t const *host = L"";
 	boolean present = lobby_browser.chosen >= 0 && lobby_browser.chosen < lobby_browser.count;
@@ -4718,9 +4748,11 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	if (child)
 		visible_set(child, TRUE);
 	visible_set(named(screen, "browser_list_status", 0), !present);
-	text_set(named(screen, "browser_list_status", 0), status);
+	browser_text_wrap(status, wrapped, NUMBEROF(wrapped), 20);
+	text_set(named(screen, "browser_list_status", 0), wrapped);
 	visible_set(named(screen, "browser_list_hint", 0), !present);
-	text_set(named(screen, "browser_list_hint", 0), L"Select CREATE to start your own game.");
+	browser_text_wrap(L"Select CREATE to start your own game.", wrapped, NUMBEROF(wrapped), 20);
+	text_set(named(screen, "browser_list_hint", 0), wrapped);
 	visible_set(named(detail, "browser_connection_status", 0), present && (lobby_browser.joining ||
 		(lobby_browser.failed_time && system_milliseconds() - lobby_browser.failed_time < LOBBY_BROWSER_FAILED_TIME)));
 	text_set(named(detail, "browser_connection_status", 0), status);
