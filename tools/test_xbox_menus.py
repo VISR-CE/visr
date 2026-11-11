@@ -101,7 +101,7 @@ def test_save_is_a_focusable_action_separate_from_a_legend():
         if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:
             # (CONTROLLER SETUP's layout: A on any row accepts, so the legend's A, posted to the focus, does too)
             assert not any(n.endswith('/button_ok') for n in widgets)
-            assert next(w for n, w in widgets.items() if n.endswith('/=accept')).get('text') == 'ACCEPT'
+            assert next(w for n, w in widgets.items() if n.endswith('/accept')).get('text') == 'ACCEPT'
             rows = [w for n, w in widgets.items() if n.rsplit('/', 1)[-1].startswith('op_')]
             assert rows and all(w.find('on[@event="a"][@run="port settings save"][@back="true"]') is not None
                                 for w in rows)
@@ -840,8 +840,11 @@ def test_merged_rows_and_bindings():
 
 
 def test_settings_legends_have_global_button_bindings():
+    module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
+            continue
+        if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:  # (A accepts on any row: no DEFAULTS or SAVE)
             continue
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
@@ -929,8 +932,11 @@ def test_legend_touch_rectangles_fit_without_overlapping():
 
 
 def test_settings_footer_focus_only_visits_actions():
+    module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
+            continue
+        if path.stem.split('.', 1)[-1] in module.ACCEPT_PAGES:  # (A accepts on any row: no DEFAULTS or SAVE)
             continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
         bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
