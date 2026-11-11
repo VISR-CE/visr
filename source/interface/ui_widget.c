@@ -7232,7 +7232,8 @@ static void widget_instance_render_recursive(
 			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn))
 		{
 			boolean pressed = widget == ui_touch_legend_pressed && ui_touch_legend_pressed_frames > 0;
-			ui_widget_draw_touch_legend(&legend_drawn, clip_rect, alpha_modifier, pressed);
+			/* (the button is wider than the caption widget, so the caption's clip would cut its right cap) */
+			ui_widget_draw_touch_legend(&legend_drawn, NULL, alpha_modifier, pressed);
 			if (pressed)
 				ui_touch_legend_pressed_frames--;
 		}
