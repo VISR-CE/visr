@@ -60,6 +60,23 @@ static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
 are not presses): the intro movie skips when it rises (bink_playback.c) */
 static unsigned int input_press_count;
 
+/* a key press that counts toward the intro skip: not a modifier key itself,
+and not a Ctrl, Option or Cmd chord (Cmd-M, Shift-Cmd-3 and the like) */
+static int key_counts_as_press(int scancode, unsigned int mod)
+{
+	switch (scancode)
+	{
+	case SDL_SCANCODE_LCTRL: case SDL_SCANCODE_RCTRL:
+	case SDL_SCANCODE_LSHIFT: case SDL_SCANCODE_RSHIFT:
+	case SDL_SCANCODE_LALT: case SDL_SCANCODE_RALT:
+	case SDL_SCANCODE_LGUI: case SDL_SCANCODE_RGUI:
+	case SDL_SCANCODE_CAPSLOCK:
+	case SDL_SCANCODE_MODE:
+		return 0;
+	}
+	return !(mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI));
+}
+
 unsigned int platform_input_press_count(void)
 {
 	unsigned int count;
@@ -1694,7 +1711,8 @@ void platform_pump_events(void)
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
 			if (event.key.down && !event.key.repeat)
-				input_press_count++;
+				if (key_counts_as_press(event.key.scancode, event.key.mod))
+					input_press_count++;
 			if (event.key.scancode < SDL_SCANCODE_COUNT)
 			{
 				input_state.keys[event.key.scancode] = event.key.down;
