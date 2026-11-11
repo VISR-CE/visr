@@ -7,7 +7,7 @@ games announce versions from 11 to 32 and which the server browser shows
 whatever they are. A game of a version this build cannot join is shown with
 its version and not joined.
 
-Header-only and pure, so the probes can run it.
+Pure probes link delta_legacy_runtime.c for the active signed-table row.
 */
 
 #ifndef HALO_NETWORK_JOIN_H

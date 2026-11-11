@@ -249,6 +249,7 @@ symbols in this file:
 
 /* port: Delta uses only the advertisement tail. */
 #include "halo_delta.h"
+#include "halo_delta_legacy.h"
 #include "halo_delta_peer.h"
 #include "cseries.h"
 #include "bungie_net/common/message_header.h"
@@ -1728,11 +1729,13 @@ static boolean network_game_server_handle_message_client_broadcast_game_search(
 				advertisement.flags |= FLAG(_game_advertisement_oddball_variant_bit);
 			}
 
-			/* the native builds' network version and netcode (a client
-			refuses a host of another version, or of the lockstep netcode
-			older builds had: network_client_manager.c) */
-			advertisement.reserved[HALO_PORT_ADVERTISED_VERSION_OFFSET] = (byte)(HALO_PORT_NETWORK_VERSION & 0xFF);
-			advertisement.reserved[HALO_PORT_ADVERTISED_VERSION_OFFSET + 1] = (byte)(HALO_PORT_NETWORK_VERSION >> 8);
+			/* port: discovery follows the verified table, while the game
+			codec stays at HALO_PORT_NETWORK_VERSION. */
+			{
+				unsigned version = delta_legacy_announce_version();
+				advertisement.reserved[HALO_PORT_ADVERTISED_VERSION_OFFSET] = (byte)(version & 0xFF);
+				advertisement.reserved[HALO_PORT_ADVERTISED_VERSION_OFFSET + 1] = (byte)(version >> 8);
+			}
 			/* port: VISR hosts only ordinary modes; version 37 carries
 			the kind at payload offset 93 (wire offset 96). */
 			advertisement.reserved[HALO_PORT_ADVERTISED_KIND_OFFSET] = 0;

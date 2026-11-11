@@ -58,6 +58,7 @@ alone peers reach.
 #include "p2p.h"
 #include "halo_lan_targets.h"
 #include "halo_port_limits.h"
+#include "halo_delta_legacy.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -422,6 +423,7 @@ int WSAAPI WSAStartup(WORD version_requested, LPWSADATA data)
 
 	/* here, before the game's network threads start */
 	net_settings_read();
+	p2p_delta_initialize();
 	delayed_enabled();
 	p2p_initialize(local_address_setting(&local) ? local : loopback_address());
 	if (data)
@@ -494,7 +496,7 @@ int WSAAPI halo_ws_closesocket(SOCKET socket)
 	last_listener = halo_lan_listener_remove(&lan_listeners, (int)socket) && !lan_listeners.count;
 	pthread_mutex_unlock(&lan_listeners_lock);
 	if (last_listener)
-		posix_lan_discovery(0, 0, HALO_PORT_NETWORK_VERSION, HALO_LAN_FORK_TAG);
+		posix_lan_discovery(0, 0, delta_legacy_announce_version(), HALO_LAN_FORK_TAG);
 	p2p_socket_closed((int)socket, type == SOCK_DGRAM ? socket_port(socket) : 0);
 	delayed_closed((int)socket);
 #ifdef HALO_IOS
@@ -588,7 +590,7 @@ int WSAAPI halo_ws_listen(SOCKET socket, int backlog)
 		pthread_mutex_lock(&lan_listeners_lock);
 		halo_lan_listener_add(&lan_listeners, (int)socket);
 		pthread_mutex_unlock(&lan_listeners_lock);
-		posix_lan_discovery(1, 0, HALO_PORT_NETWORK_VERSION, HALO_LAN_FORK_TAG);
+		posix_lan_discovery(1, 0, delta_legacy_announce_version(), HALO_LAN_FORK_TAG);
 	}
 	return winsock_result(result);
 }
@@ -636,7 +638,7 @@ static int WSAAPI perf_sendto_inner(SOCKET socket, const char *buffer, int lengt
 		pthread_mutex_lock(&lan_listeners_lock);
 		hosting = lan_listeners.count > 0;
 		pthread_mutex_unlock(&lan_listeners_lock);
-		posix_lan_discovery(hosting, 1, HALO_PORT_NETWORK_VERSION, HALO_LAN_FORK_TAG);
+		posix_lan_discovery(hosting, 1, delta_legacy_announce_version(), HALO_LAN_FORK_TAG);
 		/* one datagram per target; the broadcast counts as sent if any is */
 		memcpy(&target, address, sizeof(target));
 		if (target_count > 0)

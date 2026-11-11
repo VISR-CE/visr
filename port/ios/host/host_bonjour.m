@@ -69,8 +69,8 @@ static dispatch_queue_t queue;
 /* kept: under ARC a timer nothing holds is released and stops firing */
 static dispatch_source_t timer;
 static struct host_lan_hold hold;
-static unsigned short wanted_version;
-static uint32_t wanted_fork;
+static unsigned short wanted_version, registered_version;
+static uint32_t wanted_fork, registered_fork;
 static DNSServiceRef registration, browse;
 static int running, retry_seconds;
 static char self_name[HOST_LAN_NAME_SIZE];
@@ -361,6 +361,8 @@ static void start(void)
 		retry_seconds = 2;
 		return;
 	}
+	registered_version = version;
+	registered_fork = fork;
 	running = 1;
 	host_logf(HOST_LOG_INFO, "bonjour: discovering as %s", self_name);
 }
@@ -369,9 +371,13 @@ static void start(void)
 static void tick(void)
 {
 	int wanted;
+	unsigned short version;
+	uint32_t fork;
 
 	os_unfair_lock_lock(&lock);
 	wanted = host_lan_hold_wanted(&hold, monotonic_seconds());
+	version = wanted_version;
+	fork = wanted_fork;
 	os_unfair_lock_unlock(&lock);
 	if (!wanted)
 	{
@@ -379,6 +385,19 @@ static void tick(void)
 			stop();
 		retry_seconds = 0;
 		return;
+	}
+	/* A newly verified table changes discovery without restarting the game. */
+	if (running && (version != registered_version || fork != registered_fork))
+	{
+		unsigned char txt[64];
+		int length = host_lan_txt_build(txt, sizeof(txt), version, fork);
+		if (DNSServiceUpdateRecord(registration, NULL, 0, (uint16_t)length, txt, 0) != kDNSServiceErr_NoError)
+			stop();
+		else
+		{
+			registered_version = version;
+			registered_fork = fork;
+		}
 	}
 	if (running || (retry_seconds > 0 && --retry_seconds > 0))
 		return;

@@ -1015,6 +1015,11 @@ static const struct config_setting config_settings[] =
 		"network.public_lobby on. It asks the list for its games every 15\n"
 		"seconds and sends nothing else: the list's server sees this machine's\n"
 		"internet address, as the signalling brokers do." },
+	{ "network.delta_table", _config_boolean, "true", "HALO_NET_DELTA_TABLE", _environment_value, _platform_all,
+		"Accept signed Delta legacy tables from the save cache and fetch them in\n"
+		"the background from network.delta_url, with a GitHub fallback. Tables\n"
+		"extend newer joins and update discovery numbers without changing the\n"
+		"game codec. False uses only the built-in numbers and fetches nothing." },
 	{ "network.delta_peer", _config_boolean, "true", "HALO_NET_DELTA_PEER", _environment_value, _platform_all,
 		"Exchange Delta handshakes and platform claims after joining a host that\n"
 		"advertises Delta. A silent host falls back to legacy after 4 seconds.\n"
@@ -1036,7 +1041,8 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"The address of Delta's public game list, whose /v1/games the server\n"
 		"browser reads (network.delta_browse) and whose /v1/announce a hosted\n"
-		"game is listed at (network.delta_announce). Empty turns both off." },
+		"game is listed at (network.delta_announce). Empty turns both off and\n"
+		"suppresses signed legacy table requests (network.delta_table)." },
 	{ "network.host_public", _config_boolean, DEFAULT_HOST_PUBLIC, "HALO_NET_HOST_PUBLIC", _environment_value, _platform_all,
 		"Whether a new game of Create Game > Internet starts as PUBLIC (listed\n"
 		"in everyone's server browser: anyone can see and join it) or, false,\n"

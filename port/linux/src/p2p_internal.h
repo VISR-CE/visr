@@ -375,8 +375,10 @@ unsigned short p2p_tunnel_local_port(void);
 p2p_lock */
 void p2p_delta_browse(int on);
 void p2p_delta_refresh(void);
-/* the p2p thread's pass, under p2p_lock: starts the thread that asks the list
-once the browser is open or the game hosted is to be listed */
+/* Startup loads the signed cache before any network threads. */
+void p2p_delta_initialize(void);
+/* The p2p thread's pass, under p2p_lock: starts the HTTP worker for the
+browser, public announcements or the signed table. */
 void p2p_delta_update(void);
 /* the game quits: the game hosted is withdrawn from the list; not under
 p2p_lock */

@@ -177,6 +177,7 @@ add_executable(VISR MACOSX_BUNDLE
     "${ROOT}/port/runtime/benchmark_plan.c" "${ROOT}/port/runtime/benchmark_journal.c"
     host/host_stereo.m host/host_stereo_head.c host/host_stereo_hud.c
     host/host_spatial.m host/host_spatial_pose.c host/host_spatial_record.c
+    "${ROOT}/port/linux/src/delta_legacy_runtime.c"
     "${ROOT}/port/linux/src/posix_files.c" host/posix_net.c host/host_socket_revival.c host/host_natpmp.c host/host_natpmp_packets.c
     "${ROOT}/build/ios/host/bridges.c" "${ROOT}/build/ios/embedded/guest_image.S")
 if(HALO_NATIVE_MAC)

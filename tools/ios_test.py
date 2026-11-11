@@ -32,7 +32,7 @@ run('python3', 'tools/astc_worker_test.py')
 for probe in ('network_version', 'network_join_wire'):
     executable = BUILD / (probe.replace('_', '-') + '-probe')
     run('xcrun', 'clang', '-std=c11', '-Wall', '-Werror', '-O2', '-fsanitize=address,undefined',
-        f'port/ios/tests/{probe}_probe.c', '-o', executable)
+        f'port/ios/tests/{probe}_probe.c', 'port/linux/src/delta_legacy_runtime.c', '-o', executable)
     run(executable)
 
 clang = '/opt/homebrew/opt/llvm/bin/clang'
@@ -396,8 +396,15 @@ run(BUILD/'master-list-probe', 'port/ios/tests/fixtures/master-list')
 for platform_defines in ([], ['-DHALO_IOS=1']):
     run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
         '-iquote', 'port/linux/include', 'port/ios/tests/delta_probe.c', 'port/linux/src/delta_list.c',
-        'port/linux/src/delta_platform.c', *platform_defines, '-o', BUILD/'delta-probe')
+        'port/linux/src/delta_platform.c', 'port/linux/src/delta_legacy_runtime.c', *platform_defines, '-o', BUILD/'delta-probe')
     run(BUILD/'delta-probe')
+# Signed table probes use a disposable key and never reach a network service.
+run('xcrun', 'clang', '-std=gnu11', '-O1', '-Wall', '-Wextra', '-Werror',
+    '-fsanitize=address,undefined', '-pthread', '-iquote', 'port/linux/include', '--include-directory=port/third_party/monocypher',
+    'port/ios/tests/delta_legacy_probe.c', 'port/linux/src/delta_legacy.c',
+    'port/linux/src/delta_legacy_runtime.c', 'port/third_party/monocypher/monocypher.c',
+    'port/third_party/monocypher/monocypher-ed25519.c', '--output=' + str(BUILD/'delta-legacy-probe'))
+run(BUILD/'delta-legacy-probe')
 # Delta Peer uses the same pure codec and fake-clock sessions on every target.
 run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
     '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_probe.c',
@@ -954,7 +961,7 @@ mac_run_text = (ROOT / 'tools/mac_run.py').read_text()
 if '"display.foveation": "true",' not in mac_run_text or '"debug.foveation_eye_passes": "true",' not in mac_run_text:
     raise SystemExit("mac_run.py: DEFAULTS must follow port_config.c's foveation defaults")
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
-    'port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c', f'--output={BUILD / "host-lan-probe"}')
+    'port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c', 'port/linux/src/delta_legacy_runtime.c', f'--output={BUILD / "host-lan-probe"}')
 run(BUILD/'host-lan-probe')
 # which interface supplies the system link address (halo_interface_rank.h)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src',

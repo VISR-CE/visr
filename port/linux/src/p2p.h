@@ -12,6 +12,9 @@ Addresses and ports are in network byte order.
 #ifndef __HALO_LINUX_P2P_H
 #define __HALO_LINUX_P2P_H
 
+/* Load signed legacy configuration before starting network threads. */
+void p2p_delta_initialize(void);
+
 /* starts internet play, if network.online is set, when the game starts
 its networking; local_address is the address the game's sockets are
 reached at (network.address, else 127.0.0.1) */
