@@ -1606,6 +1606,54 @@ static boolean setting_apply_now(struct widget_instance *spinner, struct pc_menu
 	return TRUE;
 }
 
+/* PC-look rows whose change is heard before OK: written as the spinner
+moves ("port setting preview"), and written back to the value the screen
+opened with when it closes without OK ("port setting revert", on the
+spinner's deleted event; OK sets the loaded index first, so nothing reverts) */
+static char const *const preview_settings[] = {"audio.volume", "audio.music_volume", "audio.effects_volume"};
+
+static boolean setting_previewed(char const *name)
+{
+	short index;
+
+	for (index = 0; index < NUMBEROF(preview_settings); index++)
+		if (!strcmp(name, preview_settings[index]))
+			return TRUE;
+	return FALSE;
+}
+
+static boolean setting_write_value(struct pc_menu_setting *setting, short index, char const *why)
+{
+	char current[300];
+
+	if (index < 0 || index >= setting->value_count)
+		return TRUE;
+	if (setting_text(setting->setting, current, sizeof(current), FALSE) && !strcmp(current, setting->values[index]))
+		return TRUE;
+	if (!setting_write(setting->setting, setting->values[index]))
+	{
+		platform_log("menus: could not set %s", setting->setting);
+		return FALSE;
+	}
+	platform_log("menus: %s = %s (%s)", setting->setting, setting->values[index], why);
+	return TRUE;
+}
+
+static boolean setting_preview(struct widget_instance *spinner, struct pc_menu_setting *setting)
+{
+	if (!setting_previewed(setting->setting))
+		return TRUE;
+	return setting_write_value(setting, spinner->parameters.list.selected_index, "preview");
+}
+
+static boolean setting_revert(struct widget_instance *spinner, struct pc_menu_setting *setting)
+{
+	(void)spinner;
+	if (!setting_previewed(setting->setting) || setting->loaded_index == NONE)
+		return TRUE;
+	return setting_write_value(setting, setting->loaded_index, "canceled");
+}
+
 /* "port settings defaults" */
 static boolean setting_default_show(struct widget_instance *spinner, struct pc_menu_setting *setting)
 {
@@ -7050,6 +7098,17 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port settings defaults"))
 		{
 			settings_each(screen_of(widget), setting_default_show);
+			settings_each(screen_of(widget), setting_preview);
+		}
+		else if (!strcmp(name, "port setting preview") || !strcmp(name, "port setting revert"))
+		{
+			struct pc_menu_setting *setting = pc_menu_setting_get(widget->definition_tag_index);
+
+			if (spinner_item(widget))
+				return TRUE;
+			if (!setting)
+				return FALSE;
+			return strcmp(name, "port setting revert") ? setting_preview(widget, setting) : setting_revert(widget, setting);
 		}
 		else if (!strcmp(name, "controls screen init") || !strcmp(name, "controls screen defaults"))
 		{

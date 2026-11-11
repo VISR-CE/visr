@@ -32,6 +32,11 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/volume_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0|1|2|3|4|5|6|7|8|9|10" setting="audio.volume" values="0|0.1|0.2|0.3|0.4|0.5|0.6|0.7|0.8|0.9|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load"/>
+		<on event="left" run="port setting preview"/>
+		<on event="right" run="port setting preview"/>
+		<on event="stick_left" run="port setting preview"/>
+		<on event="stick_right" run="port setting preview"/>
+		<on event="deleted" run="port setting revert"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_music_volume" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/music_volume_label"/>
@@ -41,6 +46,11 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/music_volume_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0|1|2|3|4|5|6|7|8|9|10" setting="audio.music_volume" values="0|0.1|0.2|0.3|0.4|0.5|0.6|0.7|0.8|0.9|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load"/>
+		<on event="left" run="port setting preview"/>
+		<on event="right" run="port setting preview"/>
+		<on event="stick_left" run="port setting preview"/>
+		<on event="stick_right" run="port setting preview"/>
+		<on event="deleted" run="port setting revert"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_effects_volume" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/effects_volume_label"/>
@@ -50,6 +60,11 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/effects_volume_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0|1|2|3|4|5|6|7|8|9|10" setting="audio.effects_volume" values="0|0.1|0.2|0.3|0.4|0.5|0.6|0.7|0.8|0.9|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="created" run="port setting load"/>
+		<on event="left" run="port setting preview"/>
+		<on event="right" run="port setting preview"/>
+		<on event="stick_left" run="port setting preview"/>
+		<on event="stick_right" run="port setting preview"/>
+		<on event="deleted" run="port setting revert"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_enabled" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_label"/>

@@ -172,7 +172,8 @@ def apply_now_spinners(root):
     for spinner in root.iter('widget'):
         if spinner.get('type') != 'spinner' or not spinner.get('setting'):
             continue
-        for on in list(spinner.findall('on[@event="deleted"]')):
+        # (the PC look's preview and revert handlers go too: the Xbox look writes each step and keeps it)
+        for on in list(spinner.findall('on[@event="deleted"]')) + list(spinner.findall('on[@run="port setting preview"]')):
             spinner.remove(on)
         for handler in apply_now_spinner_handlers():
             spinner.append(ET.fromstring(handler))

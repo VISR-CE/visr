@@ -452,6 +452,7 @@ static char const *const port_function_names[] =
 	/* Server Setup opens the stock gametype editor without editing a saved profile. */
 	"close if not editing profile", "mp profile change name", "mp profile end editing",
 	"port setting changed", "port settings close", "port settings defaults apply",
+	"port setting preview", "port setting revert",
 	"port controls init", "port controls defaults",
 };
 

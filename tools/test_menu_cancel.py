@@ -91,6 +91,24 @@ def test_settings_back_keeps_changes_and_video_applies_on_close():
             assert close is None
 
 
+
+def test_pc_audio_volumes_are_heard_while_changing_and_cancel_reverts():
+    path = ROOT / 'port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit.audio_settings.xml'
+    previewed = {'audio.volume', 'audio.music_volume', 'audio.effects_volume'}
+    seen = set()
+    for spinner in ElementTree.parse(path).getroot().iter('widget'):
+        if spinner.get('type') != 'spinner' or not spinner.get('setting'):
+            continue
+        runs = {(on.get('event'), on.get('run')) for on in spinner.findall('on')}
+        if spinner.get('setting') in previewed:
+            seen.add(spinner.get('setting'))
+            assert {(event, 'port setting preview') for event in
+                    ('left', 'right', 'stick_left', 'stick_right')} <= runs
+            assert ('deleted', 'port setting revert') in runs
+        else:
+            assert not {run for _, run in runs} & {'port setting preview', 'port setting revert'}
+    assert seen == previewed
+
 if __name__ == "__main__":
     import tempfile
 
