@@ -42,16 +42,29 @@ typedef float real;
 typedef unsigned int pixel32;
 static int draw_count;
 static rectangle2d drawn_bounds;
-static pixel32 modulate_pixel32_by_real_alpha(pixel32 color, real alpha) {(void)alpha;return color;}
 static short ui_mouse_legend_label_width(struct widget_instance *l,struct ui_widget_definition const *d,short f) {(void)l;(void)d;(void)f;return 70;}
+#define BITMAP_GROUP_TAG 1
+struct bitmap_data {int width,height;};
+struct rasterizer_dynamic_screen_geometry_parameters {int pad[8];};
+static struct bitmap_data idle_bitmap={128,32},pressed_bitmap={128,32};
+static int draw_frame=-1,missing_tag;
+static const struct bitmap_data *drawn_bitmap;
+static long tag_loaded(int group,const char *name) {
+ assert(group==BITMAP_GROUP_TAG && !strcmp(name,"pc\\xbox\\bitmaps\\text_button_background"));
+ return missing_tag?NONE:7;
+}
+static struct bitmap_data *bitmap_group_get_bitmap_from_sequence(long tag,short seq,short frame) {
+ assert(tag==7 && seq==0 && (frame==0||frame==1));
+ draw_frame=frame;return frame?&pressed_bitmap:&idle_bitmap;
+}
+static void csmemset(void *p,int v,size_t n) {memset(p,v,n);}
+static int fast_ftol(float f) {return (int)f;}
 static pixel32 last_color;
-static void draw_quad(rectangle2d *bounds,pixel32 color) {
- last_color=color;
- if(!draw_count++)drawn_bounds=*bounds;
- drawn_bounds.x0=MIN(drawn_bounds.x0,bounds->x0);
- drawn_bounds.x1=MAX(drawn_bounds.x1,bounds->x1);
- drawn_bounds.y0=MIN(drawn_bounds.y0,bounds->y0);
- drawn_bounds.y1=MAX(drawn_bounds.y1,bounds->y1);
+static rectangle2d drawn_clip;static int drawn_has_clip;
+static void draw_bitmap_in_rect(struct bitmap_data *bitmap,rectangle2d const *rect,rectangle2d const *bitmap_rect,rectangle2d const *clip,pixel32 argb,struct rasterizer_dynamic_screen_geometry_parameters *params,boolean no_plasma) {
+ (void)bitmap_rect;(void)params;(void)no_plasma;
+ drawn_bitmap=bitmap;last_color=argb;draw_count++;drawn_bounds=*rect;
+ drawn_has_clip=clip!=NULL;if(clip)drawn_clip=*clip;
 }
 /* GEOMETRY */
 /* DRAW */
@@ -87,17 +100,18 @@ int main(void) {
  assert(visual.y1-visual.y0==28 && visual.y0>=410 && visual.y1<=445);
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
  assert((visual.x0+visual.x1)/2==368+70/2);
+ /* The button is the game's own text_button_background art: frame 0 idle, frame 1 pressed. */
  ui_widget_draw_touch_legend(&visual,NULL,1,0);
- assert(draw_count>0);
- assert(drawn_bounds.x0>=visual.x0-4 && drawn_bounds.x1<=visual.x1+4);
- assert(drawn_bounds.y0>=visual.y0-4 && drawn_bounds.y1<=visual.y1+4);
- ui_widget_draw_touch_legend(&visual,NULL,1,0);pixel32 idle=last_color;
+ assert(draw_count==1 && draw_frame==0 && drawn_bitmap==&idle_bitmap);
+ assert(!memcmp(&drawn_bounds,&visual,sizeof(visual)) && !drawn_has_clip);
  ui_widget_draw_touch_legend(&visual,NULL,1,1);
- assert(last_color!=idle);
- rectangle2d clip={410,360,440,450};draw_count=0;
+ assert(draw_frame==1 && drawn_bitmap==&pressed_bitmap);
+ rectangle2d clip={410,360,440,450};
  ui_widget_draw_touch_legend(&visual,&clip,1,0);
- assert(drawn_bounds.x0>=clip.x0 && drawn_bounds.x1<=clip.x1);
- assert(drawn_bounds.y0>=clip.y0 && drawn_bounds.y1<=clip.y1);
+ assert(drawn_has_clip && !memcmp(&drawn_clip,&clip,sizeof(clip)));
+ draw_count=0;missing_tag=1;
+ ui_widget_draw_touch_legend(&visual,NULL,1,0);
+ assert(draw_count==0);missing_tag=0;
  for(int face=0;face<6;face++) {
   button.button=face;ui_mouse_target_count=0;
   ui_mouse_note_target(&button,&definitions[0],offset);

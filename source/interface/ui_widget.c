@@ -6446,42 +6446,21 @@ static boolean ui_mouse_legend_bounds(
 	return TRUE;
 }
 
-/* port: scanline quads preserve the menu renderer's alpha blending and clip. */
-static void ui_widget_draw_touch_legend_fill(rectangle2d const *bounds, rectangle2d const *clip, pixel32 color)
-{
-	static short const insets[8] = {5, 3, 2, 1, 1, 0, 0, 0};
-	short y;
-	for (y = bounds->y0; y < bounds->y1;)
-	{
-		short edge = MIN(y - bounds->y0, bounds->y1 - 1 - y);
-		short inset = edge < 8 ? insets[edge] : 0;
-		short end = edge >= 8 ? bounds->y1 - 8 : y + 1;
-		rectangle2d row = {y, bounds->x0 + inset, end, bounds->x1 - inset};
-		if (clip)
-		{
-			row.x0 = MAX(row.x0, clip->x0);
-			row.x1 = MIN(row.x1, clip->x1);
-			row.y0 = MAX(row.y0, clip->y0);
-			row.y1 = MIN(row.y1, clip->y1);
-		}
-		if (row.x0 < row.x1 && row.y0 < row.y1) draw_quad(&row, color);
-		y = end;
-	}
-}
-
-/* port: the focused-button look of the menus: a blue-tinted fill, a bright
-blue border and a soft glow. A tap brightens the fill for a few frames. */
+/* port: the touch legend's button is the menus' own text button art
+(`text_button_background`, the picture behind JOIN GAME and the lobby's bottom
+bar): frame 0 at rest, frame 1 (the glowing border) while a tap is held. */
 static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d const *clip, real alpha, boolean pressed)
 {
-	rectangle2d ring = {bounds->y0 - 4, bounds->x0 - 4, bounds->y1 + 4, bounds->x1 + 4};
-	rectangle2d inner = {bounds->y0 + 2, bounds->x0 + 2, bounds->y1 - 2, bounds->x1 - 2};
+	long tag_index = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\text_button_background");
+	struct bitmap_data *bitmap = tag_index == NONE ? NULL :
+		bitmap_group_get_bitmap_from_sequence(tag_index, 0, pressed ? 1 : 0);
+	struct rasterizer_dynamic_screen_geometry_parameters parameters;
 
-	ui_widget_draw_touch_legend_fill(&ring, clip, modulate_pixel32_by_real_alpha(0x182996ff, alpha));
-	ring.y0 += 2; ring.x0 += 2; ring.y1 -= 2; ring.x1 -= 2;
-	ui_widget_draw_touch_legend_fill(&ring, clip, modulate_pixel32_by_real_alpha(0x302996ff, alpha));
-	ui_widget_draw_touch_legend_fill(bounds, clip, modulate_pixel32_by_real_alpha(0xff4aa8ff, alpha));
-	ui_widget_draw_touch_legend_fill(&inner, clip,
-		modulate_pixel32_by_real_alpha(pressed ? 0xf03c78c0 : 0xe0183a66, alpha));
+	if (!bitmap)
+		return;
+	csmemset(&parameters, 0, sizeof(parameters));
+	draw_bitmap_in_rect(bitmap, bounds, bounds, clip,
+		(fast_ftol(alpha * 255.0f) << 24) | 0x00FFFFFF, &parameters, FALSE);
 }
 
 static void ui_mouse_note_target(
