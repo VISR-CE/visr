@@ -4777,6 +4777,108 @@ static struct vertex_shader_object *shader_list_program(struct vertex_shader_obj
 	return NULL;
 }
 
+/* Shared by prepare_draw and replay derivation, including the draw-time debug overrides. */
+static void lighting_key_fill(struct nv2a_pixel_shader_key *key, const struct vertex_shader_object *program,
+	long highlight, long limit)
+{
+	key->lighting_program[0] = (unsigned int)program->program_hash;
+	key->lighting_program[1] = (unsigned int)(program->program_hash >> 32);
+	key->lighting_highlight = (unsigned char)(highlight < 0 ? 0 :
+		highlight > NV2A_HIGHLIGHT_PRESETS ? NV2A_HIGHLIGHT_PRESETS : highlight);
+	key->lighting_point_lights = (unsigned char)(limit <= 2 ? 0 : limit >= 8 ? 6 : limit - 2);
+}
+
+/* rasterizer_set_framebuffer_blend_function's GPU factors, with the fade modes from
+rasterizer_xbox_transparent_geometry.c. Other blends have no particle fade. */
+static int shader_list_soft_mode(const struct gpu_pipeline_description *description)
+{
+	if (!description->blend)
+		return 0;
+	if (description->operation == GPU_BLEND_OP_ADD)
+	{
+		if (description->source == GPU_BLEND_SOURCE_ALPHA && description->destination == GPU_BLEND_ONE_MINUS_SOURCE_ALPHA)
+			return 1;
+		if (description->source == GPU_BLEND_DESTINATION_COLOR && description->destination == GPU_BLEND_ZERO)
+			return 2;
+		if (description->source == GPU_BLEND_DESTINATION_COLOR && description->destination == GPU_BLEND_SOURCE_COLOR)
+			return 3;
+		if (description->source == GPU_BLEND_ONE && description->destination == GPU_BLEND_ONE_MINUS_SOURCE_ALPHA)
+			return 5;
+	}
+	if (description->source == GPU_BLEND_ONE && description->destination == GPU_BLEND_ONE)
+	{
+		if (description->operation == GPU_BLEND_OP_MIN)
+			return 2;
+		if (description->operation == GPU_BLEND_OP_ADD || description->operation == GPU_BLEND_OP_REVERSE_SUBTRACT ||
+			description->operation == GPU_BLEND_OP_MAX)
+			return 4;
+	}
+	return 0;
+}
+
+static const struct nv2a_pixel_shader_key *shader_list_pixel_key(gpu_shader shader)
+{
+	unsigned long bucket;
+	struct fragment_entry *entry;
+
+	for (bucket = 0; bucket < FRAGMENT_BUCKETS; bucket++)
+		for (entry = fragment_buckets[bucket]; entry; entry = entry->next)
+			if (entry->shader == shader)
+				return &entry->key;
+	return NULL;
+}
+
+struct shader_list_warm_record
+{
+	struct gpu_pipeline_description description;
+	struct vertex_shader_object *program;
+	struct nv2a_pixel_shader_key key;
+	int variant;
+};
+
+/* The original descriptions and every derived description share one set, so a listed lit
+pipeline or repeated program cannot cause the third pass to warm it again. */
+static BOOL shader_list_warm_remember(struct shader_list_warm_record **records, size_t *count, size_t *capacity,
+	const struct gpu_pipeline_description *description, struct vertex_shader_object *program, int variant,
+	const struct nv2a_pixel_shader_key *key)
+{
+	size_t index;
+	struct shader_list_warm_record *record;
+
+	for (index = 0; index < *count; index++)
+		if (!memcmp(&(*records)[index].description, description, sizeof(*description)))
+			return FALSE;
+	if (*count == *capacity)
+	{
+		size_t grown_capacity = *capacity ? 2 * *capacity : 256;
+		struct shader_list_warm_record *grown = realloc(*records, grown_capacity * sizeof(*grown));
+
+		if (!grown)
+			return FALSE;
+		*records = grown;
+		*capacity = grown_capacity;
+	}
+	record = &(*records)[(*count)++];
+	record->description = *description;
+	record->program = program;
+	record->key = *key;
+	record->variant = variant;
+	return TRUE;
+}
+
+/* The desktop GL build does not import host programs. The existing imports keep their ABI. */
+static void shader_list_host_prepare(BOOL soft)
+{
+#ifdef HALO_ILP32
+	if (shader_dialect.msl && config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED))
+		host_ssao_apply(0, 0, NULL, 0);
+	if (soft)
+		(void)host_soft_depth_prepare(0, NULL, 0);
+#else
+	(void)soft;
+#endif
+}
+
 /* the most of a device's own record (debug.shader_list_record) warmed with a
 map's list: a10's whole list is under half a megabyte */
 #define SHADER_LIST_RECORD_MAXIMUM (4L * 1024 * 1024)
@@ -4808,6 +4910,11 @@ void halo_shader_list_warm(char const *map_name)
 	unsigned long vertex_count = 0, pixel_count = 0, pipeline_count = 0, missing = 0;
 	double started;
 	int pass;
+	BOOL derive = shader_dialect.msl;
+	BOOL lit_wanted, soft_wanted;
+	struct shader_list_warm_record *records = NULL;
+	size_t record_count = 0, record_capacity = 0, original_count, record_index;
+	unsigned long derived_lit = 0, derived_unlit = 0, derived_soft = 0, derived_skipped = 0;
 	char recorded_path[512];
 	FILE *recorded = NULL;
 	uint32_t recorded_size = 0;
@@ -4856,6 +4963,10 @@ void halo_shader_list_warm(char const *map_name)
 		platform_log("shader list %s: not warmed: debug.gpu_dump_shaders dumps the shaders this run draws", shader_list.map);
 		return;
 	}
+	lit_wanted = shader_dialect.msl && config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_ENHANCED);
+	soft_wanted = shader_dialect.msl && halo_stereo_frame()->mode != HALO_STEREO_HEAD &&
+		(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_CLASSIC) ||
+		 config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_ENHANCED));
 	size = gpu_warm_list_read(shader_list.map, NULL, 0);
 	/* what earlier sessions on this device still had to make while drawing
 	(shader_list_made's record) is warmed with the list, so a device stops
@@ -4887,6 +4998,7 @@ void halo_shader_list_warm(char const *map_name)
 	{
 		if (recorded)
 			fclose(recorded);
+		shader_list_host_prepare(soft_wanted);
 		return;
 	}
 	text_capacity = (size_t)size + 1 + recorded_size;
@@ -5002,7 +5114,8 @@ void halo_shader_list_warm(char const *map_name)
 					values[7] = values[1];
 					values[8] = values[2];
 				}
-				if ((fields != 12 && fields != 14) || variant > 1 || strlen(kinds) != 2 * GPU_ATTRIBUTE_COUNT ||
+				if ((fields != 12 && fields != 14) || variant > 3 ||
+					(variant >= 2 && !shader_dialect.msl) || strlen(kinds) != 2 * GPU_ATTRIBUTE_COUNT ||
 					!hex_bytes(kinds, description.attribute_kinds, GPU_ATTRIBUTE_COUNT) ||
 					!(description.pixel_shader = shader_list_pixel((uint64_t)pixel_hash)))
 				{
@@ -5032,6 +5145,14 @@ void halo_shader_list_warm(char const *map_name)
 				{
 					description.vertex_shader = program->shader[variant];
 					gpu_pipeline_warm(&description);
+					if (derive)
+					{
+						const struct nv2a_pixel_shader_key *key = shader_list_pixel_key(description.pixel_shader);
+
+						if (key)
+							(void)shader_list_warm_remember(&records, &record_count, &record_capacity,
+								&description, program, (int)variant, key);
+					}
 					pipeline_count++;
 					used = TRUE;
 				}
@@ -5049,12 +5170,81 @@ void halo_shader_list_warm(char const *map_name)
 			}
 		}
 	}
+	/* Walk only the listed pipelines; appended descriptions are for deduplication. Copy the record
+	before appending, since the set may grow. Every lit record also supplies an unlit base. */
+	original_count = record_count;
+	for (record_index = 0; record_index < original_count; record_index++)
+	{
+		struct shader_list_warm_record record = records[record_index];
+		struct gpu_pipeline_description description = record.description;
+		struct nv2a_pixel_shader_key base_key = record.key, key;
+		int variant = record.variant & 1, soft_mode;
+		unsigned long mask = record.program->shader_packed_mask[record.variant];
+
+		base_key.lighting_program[0] = base_key.lighting_program[1] = 0;
+		base_key.lighting_highlight = base_key.lighting_point_lights = 0;
+		nv2a_pixel_shader_key_canonicalize(&base_key);
+		if (record.variant >= 2)
+		{
+			description.vertex_shader = vertex_shader_compile(record.program, variant, mask);
+			description.pixel_shader = fragment_shader_get(&base_key);
+			if (description.vertex_shader && description.pixel_shader &&
+				shader_list_warm_remember(&records, &record_count, &record_capacity, &description, record.program,
+					variant, &base_key))
+			{
+				gpu_pipeline_warm(&description);
+				derived_unlit++;
+			}
+			else
+				derived_skipped++;
+		}
+		if (lit_wanted && record.program->lit && !base_key.soft_depth)
+		{
+			key = base_key;
+			lighting_key_fill(&key, record.program, config_integer("display.point_light_highlight"),
+				config_integer("display.point_light_limit"));
+			nv2a_pixel_shader_key_canonicalize(&key);
+			description.vertex_shader = vertex_shader_compile(record.program, variant + 2, mask);
+			description.pixel_shader = fragment_shader_get(&key);
+			if (description.vertex_shader && description.pixel_shader &&
+				shader_list_warm_remember(&records, &record_count, &record_capacity, &description, record.program,
+					variant + 2, &key))
+			{
+				gpu_pipeline_warm(&description);
+				derived_lit++;
+			}
+			else
+				derived_skipped++;
+		}
+		soft_mode = shader_list_soft_mode(&record.description);
+		if (soft_wanted && record.description.depth && soft_mode)
+		{
+			key = base_key;
+			key.soft_depth = (unsigned char)soft_mode;
+			nv2a_pixel_shader_key_canonicalize(&key);
+			description.vertex_shader = vertex_shader_compile(record.program, variant, mask);
+			description.pixel_shader = fragment_shader_get(&key);
+			if (description.vertex_shader && description.pixel_shader &&
+				shader_list_warm_remember(&records, &record_count, &record_capacity, &description, record.program,
+					variant, &key))
+			{
+				gpu_pipeline_warm(&description);
+				derived_soft++;
+			}
+			else
+				derived_skipped++;
+		}
+	}
+	shader_list_host_prepare(soft_wanted);
 	gpu_warm_end();
 	shader_list_warming = FALSE;
+	free(records);
 	free(text);
 	platform_log("shader list %s: %lu vertex shaders, %lu pixel shaders and %lu pipelines compiled at load in %.0f ms; "
 		"%lu lines not used", shader_list.map, vertex_count, pixel_count, pipeline_count,
 		halo_frame_trace_milliseconds() - started, missing);
+	platform_log("shader list %s: derived %lu lit, %lu unlit, %lu soft pipelines; %lu skipped",
+		shader_list.map, derived_lit, derived_unlit, derived_soft, derived_skipped);
 }
 
 /* ---------- per-draw state */
@@ -5636,9 +5826,9 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 
 /* display.per_pixel_lighting, read once a frame so that a change (the
 graphics mode, a debug A/B) takes effect at the next frame */
-static int point_light_highlight;
-/* display.point_light_limit past the game's two (nv2a_pixel_shader_key lighting_point_lights) */
-static int point_light_extra;
+static long point_light_highlight;
+/* The requested limit; lighting_key_fill converts it to lights past the game's two. */
+static long point_light_limit;
 
 static BOOL per_pixel_lighting(void)
 {
@@ -5647,13 +5837,9 @@ static BOOL per_pixel_lighting(void)
 
 	if (read_frame != device.frame)
 	{
-		long highlight = config_integer("display.point_light_highlight");
-		long limit = config_integer("display.point_light_limit");
-
 		read_frame = device.frame;
-		point_light_highlight = highlight < 0 ? 0 : highlight > NV2A_HIGHLIGHT_PRESETS ? NV2A_HIGHLIGHT_PRESETS :
-			(int)highlight;
-		point_light_extra = limit <= 2 ? 0 : limit >= 8 ? 6 : (int)limit - 2;
+		point_light_highlight = config_integer("display.point_light_highlight");
+		point_light_limit = config_integer("display.point_light_limit");
 		enabled = config_boolean("display.per_pixel_lighting") != FALSE;
 		/* matched stills: on in odd frames only, so that two frames of a paused
 		game show the same picture lit both ways */
@@ -5664,7 +5850,7 @@ static BOOL per_pixel_lighting(void)
 			break;
 		case 2:
 			if (!(device.frame & 1))
-				point_light_highlight = point_light_extra = 0;
+				point_light_highlight = point_light_limit = 0;
 			break;
 		default:
 			break;
@@ -5727,12 +5913,7 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	named by it (nv2a_pixel_shader_key lighting_program) */
 	lit = program->lit && shader_dialect.msl && per_pixel_lighting();
 	if (lit)
-	{
-		key.lighting_program[0] = (unsigned int)program->program_hash;
-		key.lighting_program[1] = (unsigned int)(program->program_hash >> 32);
-		key.lighting_highlight = (unsigned char)point_light_highlight;
-		key.lighting_point_lights = (unsigned char)point_light_extra;
-	}
+		lighting_key_fill(&key, program, point_light_highlight, point_light_limit);
 	draw->vertex_shader = vertex_shader_get(program, immediate, lit);
 	draw->pixel_shader = fragment_shader_get(&key);
 	if (companion_flash_adapt && companion_active() && target_native)

@@ -121,6 +121,74 @@ static void check_consumers(int hardcore)
 	}
 }
 
+/* Queries must use the requested mode without changing the active mode or stored settings. */
+static void check_boolean_modes(void)
+{
+	char *settings, *saved_origins, *after;
+	unsigned long revision;
+	int active, requested;
+
+	fresh();
+	launch("");
+	assert(config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_ENHANCED));
+	assert(!config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED));
+	launch("display.upscaled_textures\tfalse\tprofile\n");
+	assert(!config_boolean_in_graphics_mode("display.upscaled_textures", GRAPHICS_MODE_ENHANCED));
+	assert(!config_boolean_in_graphics_mode("display.upscaled_textures", GRAPHICS_MODE_CLASSIC));
+	assert(config_write_boolean("display.upscaled_textures", 1));
+	assert(config_boolean_in_graphics_mode("display.upscaled_textures", GRAPHICS_MODE_ENHANCED));
+	assert(config_write_boolean("display.ambient_occlusion", 1));
+	assert(config_write_boolean("display.crt_effect", 1));
+	for (active = 0; active < NUMBER_OF_GRAPHICS_MODES; active++)
+	{
+		assert(config_graphics_try(graphics_mode_names[active]));
+		revision = config_changes();
+		settings = read_text(path);
+		saved_origins = read_text(origins);
+		for (requested = 0; requested < NUMBER_OF_GRAPHICS_MODES; requested++)
+		{
+			assert(config_boolean_in_graphics_mode("display.per_pixel_lighting", requested) ==
+				(requested == GRAPHICS_MODE_ENHANCED));
+			assert(config_boolean_in_graphics_mode("display.ambient_occlusion", requested) ==
+				(requested == GRAPHICS_MODE_ENHANCED));
+			assert(config_boolean_in_graphics_mode("display.soft_particles", requested) ==
+				(requested != GRAPHICS_MODE_HARDCORE));
+			assert(config_boolean_in_graphics_mode("display.crt_effect", requested));
+		}
+		assert(config_graphics_mode() == active && config_changes() == revision);
+		assert(config_boolean("display.per_pixel_lighting") == (active == GRAPHICS_MODE_ENHANCED));
+		after = read_text(path);
+		assert(!strcmp(after, settings));
+		free(after);
+		after = read_text(origins);
+		assert(!strcmp(after, saved_origins));
+		free(after);
+		free(settings);
+		free(saved_origins);
+	}
+	assert(config_boolean_in_graphics_mode("display.per_pixel_lighting", -1));
+	assert(config_boolean_in_graphics_mode("display.per_pixel_lighting", NUMBER_OF_GRAPHICS_MODES));
+	assert(!config_boolean_in_graphics_mode("display.no_such_setting", GRAPHICS_MODE_ENHANCED));
+	assert(!config_boolean_in_graphics_mode("display.frame_rate", GRAPHICS_MODE_ENHANCED));
+	config_graphics_head_stereo(1);
+	assert(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_HARDCORE));
+	assert(!config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_HARDCORE));
+	config_graphics_head_stereo(0);
+	assert(!config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_HARDCORE));
+	setenv("HALO_PER_PIXEL_LIGHTING", "true", 1);
+	setenv("HALO_SOFT_PARTICLES", "false", 1);
+	launch("");
+	for (requested = 0; requested < NUMBER_OF_GRAPHICS_MODES; requested++)
+	{
+		assert(config_boolean_in_graphics_mode("display.per_pixel_lighting", requested));
+		assert(!config_boolean_in_graphics_mode("display.soft_particles", requested));
+	}
+	unsetenv("HALO_PER_PIXEL_LIGHTING");
+	unsetenv("HALO_SOFT_PARTICLES");
+	fresh();
+	puts("graphics_boolean_modes: ok");
+}
+
 int main(void)
 {
 	assert(config_origins_main() == 0);
@@ -129,6 +197,7 @@ int main(void)
 	setenv("HALO_DATA_ROOT", directory, 1);
 	snprintf(path, sizeof(path), "%s/config.toml", directory);
 	snprintf(origins, sizeof(origins), "%s/config.origins", directory);
+	check_boolean_modes();
 	launch("display.upscaled_textures\ttrue\tprofile\n" "display.native_hud\ttrue\tprofile\n" "display.upscaler\tmetalfx\tprofile\n");
 	assert(config_write("display.native_hud", "true"));
 	assert(config_write("display.frame_rate", "60"));

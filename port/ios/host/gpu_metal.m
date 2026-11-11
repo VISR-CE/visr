@@ -7863,6 +7863,12 @@ void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, 
 {
 	@autoreleasepool
 	{
+		/* Level-load warming needs only the programs, before any render resources are available. */
+		if (count == 0)
+		{
+			ssao_programs();
+			return;
+		}
 		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
 		struct ssao_parameters p;
 		struct ssao_composite_parameters c;
@@ -9832,6 +9838,9 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 {
 	@autoreleasepool
 	{
+		/* Compile-only warming must preserve the current view's active soft-depth state. */
+		if (count == 0)
+			return soft_depth_program();
 		MetalTexture *record = texture_record(depth);
 		id<MTLComputeCommandEncoder> compute;
 		MTLTextureDescriptor *descriptor;

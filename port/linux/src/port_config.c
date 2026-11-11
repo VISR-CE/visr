@@ -4400,6 +4400,20 @@ int config_boolean(const char *name)
 	return config_value(name, _config_boolean)->boolean;
 }
 
+int config_boolean_in_graphics_mode(const char *name, int mode)
+{
+	long index;
+
+	(void)config_value(name, _config_boolean);   /* the first load */
+	index = config_setting_index(name);
+	if (index < 0 || config_settings[index].type != _config_boolean)
+		return 0;
+	mode = graphics_mode_effective(mode, config_graphics_head);
+	if (config_states[index].source != _source_environment && config_mode_replaces[index][mode])
+		return config_mode_values[index][mode].boolean;
+	return config_values[index].boolean;
+}
+
 /* one boolean read again from the file, as at start-up (the device's value
 when the file lacks it or does not parse), the environment still winning: for a
 setting another process changes while the game runs (the iOS host, from the

@@ -124,4 +124,5 @@ def test_live_consumers(tmp_path):
                     '-Iport/linux/src', '-Iport/third_party/tomlc17', f'-I{tmp_path}',
                     'port/ios/tests/graphics_live_probe.c', *sdl, '-o', str(probe)], cwd=ROOT, check=True)
     result = subprocess.run([str(probe)], cwd=ROOT, check=True, capture_output=True, text=True)
+    assert 'graphics_boolean_modes: ok' in result.stdout
     assert 'graphics_live_probe: ok' in result.stdout
