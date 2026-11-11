@@ -6431,12 +6431,12 @@ static boolean ui_mouse_legend_bounds(
 			label_bounds.x1 - label_bounds.x0);
 		short center_x = label_bounds.x0 + text_width / 2;
 		short center_y = (bounds->y0 + bounds->y1) / 2;
-		short width = MAX(52, text_width + 28);
+		short width = MAX(60, text_width + 40);
 		short hit_width = MAX(60, width + 12);
 
 		drawn->x0 = center_x - width / 2;
 		drawn->x1 = drawn->x0 + width;
-		drawn->y0 = center_y - 20;
+		drawn->y0 = center_y - 15;
 		drawn->y1 = drawn->y0 + 40;
 		bounds->x0 = center_x - hit_width / 2;
 		bounds->x1 = bounds->x0 + hit_width;

@@ -101,7 +101,7 @@ int main(void) {
  rectangle2d visual,hit=definitions[0].bounds;
  assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual));
  assert(!memcmp(&hit,&target->bounds,sizeof(hit)));
- assert(visual.y1-visual.y0==40 && visual.y0>=404 && visual.y1<=450);
+ assert(visual.y1-visual.y0==40 && visual.y0>=404 && visual.y1<=456);
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
  assert((visual.x0+visual.x1)/2==368+70/2);
  /* The button is the game's own text_button_background art: frame 0 idle, frame 1 pressed. */
