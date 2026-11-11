@@ -197,22 +197,31 @@ int main(void)
 
 	/* the level's first frames: nothing held until armed; in the window, every frame that skips a draw is held,
 	including ones after a frame with nothing skipped (the sky alone on Blood Gulch was such a frame, shown by
-	the earlier hold that ended at the first whole frame); at most limit in a row; nothing after the window */
+	the earlier hold that ended at the first whole frame); at most limit in a row, and the limit ends the window; nothing after it */
 	{
 		struct metal_start_hold start = { 0 };
 
-		assert(!metal_start_hold_frame(&start, 5, 6, 2));
-		metal_start_hold_arm(&start);
-		assert(metal_start_hold_frame(&start, 5, 6, 2));
-		assert(!metal_start_hold_frame(&start, 0, 6, 2));
-		assert(metal_start_hold_frame(&start, 3, 6, 2));
-		assert(metal_start_hold_frame(&start, 3, 6, 2));
-		assert(!metal_start_hold_frame(&start, 3, 6, 2));
-		assert(start.armed && start.held == 3 && start.shown == 1);
-		assert(metal_start_hold_frame(&start, 1, 6, 2));
-		assert(!start.armed && start.frames == 6);
-		assert(!metal_start_hold_frame(&start, 5, 6, 2));
-		assert(start.held == 4 && start.shown == 1);
+		/* (times in seconds: a 6 s window, at most 2 held in a row) */
+		assert(!metal_start_hold_frame(&start, 5, 100.0, 6.0, 2));
+		metal_start_hold_arm(&start, 100.0);
+		assert(metal_start_hold_frame(&start, 5, 100.5, 6.0, 2));
+		assert(!metal_start_hold_frame(&start, 0, 101.0, 6.0, 2));
+		assert(metal_start_hold_frame(&start, 3, 103.1, 6.0, 2));
+		assert(metal_start_hold_frame(&start, 3, 103.2, 6.0, 2));
+		/* the limit ends the window: a compile that slow is shown, not hidden */
+		assert(!metal_start_hold_frame(&start, 3, 103.3, 6.0, 2));
+		assert(!start.armed && start.held == 3 && start.shown == 1);
+		assert(!metal_start_hold_frame(&start, 5, 103.4, 6.0, 2));
+		assert(start.frames == 5 && start.held == 3);
+
+		/* the frame that reaches the window's end is the last one held */
+		metal_start_hold_arm(&start, 200.0);
+		assert(metal_start_hold_frame(&start, 1, 205.6, 6.0, 2));
+		assert(start.armed);
+		assert(metal_start_hold_frame(&start, 1, 206.0, 6.0, 2));
+		assert(!start.armed && start.frames == 2 && start.elapsed >= 6.0);
+		assert(!metal_start_hold_frame(&start, 5, 206.5, 6.0, 2));
+		assert(start.held == 2 && start.shown == 0);
 	}
 
 	/* the launch's line: once, at the first frame with nothing skipped and
