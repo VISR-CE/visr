@@ -340,7 +340,7 @@ static char const *const widget_flag_names[] =
 
 static char const *const widget_type_names[] = { "container", "text", "spinner", "column_list" };
 static char const *const list_flag_names[] = { "items_in_code", "items_from_strings", "one_tooltip", "single_preview" };
-static char const *const text_flag_names[] = { "editable", "password", "flashing", "no_focus_test" };
+static char const *const text_flag_names[] = { "editable", "password", "flashing", "no_focus_test", "wrap" };
 static char const *const align_names[] = { "left", "right", "center" };
 /* (build_number and pid are the PC version's, which this engine has not) */
 static char const *const replace_names[] = { "none", "controller", "build_number", "pid" };

@@ -860,7 +860,9 @@ enum
 enum
 {
 	/* only the bit this file tests is named */
-	_text_box_flashing_text_bit = 2
+	_text_box_flashing_text_bit = 2,
+	/* port: the text is broken at spaces to the widget's width */
+	_text_box_port_wrap_bit = 4
 };
 
 enum
@@ -5729,6 +5731,8 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
+	if (TEST_FLAG(definition->text_box_flags, _text_box_port_wrap_bit))
+		ui_widget_port_text_wrap(*text, &bounds, (short)(definition->bounds.x1 - definition->bounds.x0));
 	wchar_t const *display_text = *text;
 	if (string_has_icons_to_draw(display_text))
 	{

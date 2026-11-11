@@ -1314,9 +1314,9 @@ def browser_layout(root, widgets, bitmaps):
     # With no games the list area says why, as the Xbox's own empty list does.
     # Row-sized text, inset 36 units from both edges of the 294-wide list column, wrapping to a few lines.
     child(screen, base + '/browser_list_status', x=36, y=92)
-    widget(root, base + '/browser_list_status', type='text', width=222, height=66, font=r'ui\large_ui', color='#7fc4ff')
+    widget(root, base + '/browser_list_status', type='text', width=222, height=66, font=r'ui\large_ui', color='#7fc4ff', text_flags='wrap')
     child(screen, base + '/browser_list_hint', x=36, y=166)
-    widget(root, base + '/browser_list_hint', type='text', width=222, height=66, font=r'ui\large_ui', color='#2f73c4')
+    widget(root, base + '/browser_list_hint', type='text', width=222, height=66, font=r'ui\large_ui', color='#2f73c4', text_flags='wrap')
     rows = widget(root, base + '/join_game_items_list', type='column_list', width=294, height=421,
                   visible_rows=6, flags='pass_unhandled_to_focused_child')
     ET.SubElement(rows, 'data', input='gamespy screen update')
