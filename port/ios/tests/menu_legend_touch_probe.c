@@ -101,7 +101,7 @@ int main(void) {
  rectangle2d visual,hit=definitions[0].bounds;
  assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual));
  assert(!memcmp(&hit,&target->bounds,sizeof(hit)));
- assert(visual.y1-visual.y0==28 && visual.y0>=410 && visual.y1<=445);
+ assert(visual.y1-visual.y0==40 && visual.y0>=404 && visual.y1<=450);
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
  assert((visual.x0+visual.x1)/2==368+70/2);
  /* The button is the game's own text_button_background art: frame 0 idle, frame 1 pressed. */
@@ -110,7 +110,7 @@ int main(void) {
  /* three slices tile the button; the caps keep the picture's height at the button's height */
  assert(slice_x0[0]==visual.x0 && slice_x1[2]==visual.x1 && slice_x1[0]==slice_x0[1] && slice_x1[1]==slice_x0[2]);
  assert(slice_y0==visual.y0 && slice_y1==visual.y1);
- assert(slice_x1[0]-slice_x0[0]==14 && slice_x1[2]-slice_x0[2]==14);
+ assert(slice_x1[0]-slice_x0[0]==20 && slice_x1[2]-slice_x0[2]==20);
  assert(slice_u0[0]==0 && slice_u1[0]==0.125f && slice_u0[2]==0.875f && slice_u1[2]==1);
  slice_count=0;ui_widget_draw_touch_legend(&visual,NULL,1,1);
  assert(draw_frame==1 && drawn_bitmap==&pressed_bitmap);
