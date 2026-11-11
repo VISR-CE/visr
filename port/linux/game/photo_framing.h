@@ -3,12 +3,34 @@
 
 #include <stddef.h>
 
+/* Mirrors game_engine.h without making the framing format depend on the engine. */
+#define PHOTO_VARIANT_VEHICLES 6
+#define PHOTO_MAX_VEHICLE_COUNT 4
+#define PHOTO_MAX_MOVED_VEHICLES 16
+struct photo_mp_scene
+{
+	/* starting_equipment: 1 for generic, 0 for the map's equipment. */
+	int teams, weapon_set, vehicle_set, starting_equipment;
+	int no_shields, always_invisible, infinite_grenades;
+	int vehicle_sets[2], vehicle_counts[2][PHOTO_VARIANT_VEHICLES];
+	int loadout, primary_weapon, secondary_weapon, no_map_weapons, vehicle_respawn_time;
+};
+struct photo_moved_vehicle
+{
+	char tag[256];
+	float position[3], forward[3], up[3];
+};
+
 struct photo_shot
 {
 	float position[3], forward[3], up[3], fov;
 	int bsp, settle_ticks, erase_ai;
 	float focus[2], safe[4];
 	char variant[64];
+	int has_mp;
+	struct photo_mp_scene mp;
+	int moved_vehicle_count;
+	struct photo_moved_vehicle moved_vehicles[PHOTO_MAX_MOVED_VEHICLES];
 };
 
 /* These helpers have no engine dependencies; tests use synthetic camera values. */

@@ -7,7 +7,8 @@
 
 int main(int argc, char **argv)
 {
-    struct photo_shot shot = {{1,2,3},{1,0,0},{0,0,1},1.12f,0,30,1,{0.5f,0.5f},{0.19f,0,0.81f,1},"slayer"};
+    struct photo_shot shot = {.position={1,2,3}, .forward={1,0,0}, .up={0,0,1}, .fov=1.12f,
+        .settle_ticks=30, .erase_ai=1, .focus={0.5f,0.5f}, .safe={0.19f,0,0.81f,1}, .variant="slayer"};
     struct photo_shot loaded;
     unsigned char hash[32] = {0};
     char key[128];
@@ -83,9 +84,28 @@ int main(int argc, char **argv)
             remove(rolled_path);
         }
     }
+    shot.has_mp = 1;
+    shot.mp.teams = 1;
+    shot.mp.vehicle_sets[0] = 254; shot.mp.vehicle_sets[1] = 255;
+    shot.mp.vehicle_counts[1][5] = PHOTO_MAX_VEHICLE_COUNT;
+    shot.mp.starting_equipment = 1; shot.mp.no_shields = 1;
+    shot.mp.infinite_grenades = 1; shot.mp.always_invisible = 1;
+    shot.mp.weapon_set = 13; shot.mp.vehicle_set = 255;
+    shot.mp.loadout = 1; shot.mp.primary_weapon = 9; shot.mp.secondary_weapon = 2;
+    shot.mp.no_map_weapons = 1; shot.mp.vehicle_respawn_time = 60;
+    shot.moved_vehicle_count = 1;
+    strcpy(shot.moved_vehicles[0].tag,"vehicles\\warthog\\warthog");
+    memcpy(shot.moved_vehicles[0].position,shot.position,sizeof(shot.position));
+    memcpy(shot.moved_vehicles[0].forward,shot.forward,sizeof(shot.forward));
+    memcpy(shot.moved_vehicles[0].up,shot.up,sizeof(shot.up));
     assert(photo_fragment_write(argv[1],"stock:example",&shot));
     assert(photo_fragment_read(argv[1],"stock:example",&loaded,&revision) && revision==1);
     assert(loaded.position[1]==2 && loaded.erase_ai && !strcmp(loaded.variant,"slayer"));
+    assert(loaded.has_mp && !memcmp(&loaded.mp,&shot.mp,sizeof(shot.mp)));
+    assert(loaded.moved_vehicle_count==1 && !memcmp(loaded.moved_vehicles,shot.moved_vehicles,sizeof(shot.moved_vehicles)));
+    shot.mp.vehicle_counts[0][0] = 5; assert(!photo_shot_valid(&shot)); shot.mp.vehicle_counts[0][0] = 0;
+    shot.moved_vehicles[0].up[0] = 1; assert(!photo_shot_valid(&shot)); shot.moved_vehicles[0].up[0] = 0;
+
     assert(photo_fragment_write(argv[1],"stock:example",&loaded));
     assert(photo_fragment_read(argv[1],"stock:example",&loaded,&revision) && revision==2);
     assert(!photo_fragment_read(argv[1],"stock:other",&loaded,&revision));

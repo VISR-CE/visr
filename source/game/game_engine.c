@@ -7181,6 +7181,9 @@ void game_engine_vehicle_placement_begin(
 	void)
 {
 	csmemset(game_engine_vehicles_placed, 0, sizeof(game_engine_vehicles_placed));
+	/* port: photo mode can rebuild the placement set live; old homes must not
+	respawn vehicles from the previous variant after the game resumes. */
+	game_engine_vehicle_home_count = NONE;
 }
 
 /* a vehicle definition's type: the globals' multiplayer vehicles (warthog,

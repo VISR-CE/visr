@@ -121,31 +121,66 @@ static int vector_valid(const float *v, int n, int bounded)
 	return 1;
 }
 
-int photo_shot_valid(const struct photo_shot *s)
+static int axes_valid(const float *forward, const float *up)
 {
 	float f = 0, u = 0, dot = 0;
 	int i;
+	if (!vector_valid(forward,3,0) || !vector_valid(up,3,0)) return 0;
+	for (i=0;i<3;i++) { f += forward[i]*forward[i]; u += up[i]*up[i]; dot += forward[i]*up[i]; }
+	return fabsf(sqrtf(f)-1) <= 0.001f && fabsf(sqrtf(u)-1) <= 0.001f && fabsf(dot) <= 0.001f;
+}
+static int between(int n, int low, int high) { return n >= low && n <= high; }
+static int printable(const char *s, size_t size)
+{
+	size_t i;
+	for (i=0;i<size;i++) { if (!s[i]) return i > 0; if ((unsigned char)s[i] < 32 || (unsigned char)s[i] > 126) return 0; }
+	return 0;
+}
+static int mp_valid(const struct photo_mp_scene *m)
+{
+	int side, i;
+	if (!between(m->teams,0,1) || !between(m->weapon_set,0,13) || !between(m->vehicle_set,0,255) ||
+		!between(m->starting_equipment,0,1) || !between(m->no_shields,0,1) ||
+		!between(m->always_invisible,0,1) || !between(m->infinite_grenades,0,1) ||
+		!between(m->loadout,0,1) || !between(m->primary_weapon,0,9) || !between(m->secondary_weapon,0,9) ||
+		!between(m->no_map_weapons,0,1) || !between(m->vehicle_respawn_time,0,32767)) return 0;
+	for (side=0;side<2;side++)
+	{
+		if (!between(m->vehicle_sets[side],0,255)) return 0;
+		for (i=0;i<PHOTO_VARIANT_VEHICLES;i++) if (!between(m->vehicle_counts[side][i],0,PHOTO_MAX_VEHICLE_COUNT)) return 0;
+	}
+	return 1;
+}
+int photo_shot_valid(const struct photo_shot *s)
+{
+	int i;
+	if (!between(s->has_mp,0,1) || (s->has_mp && !mp_valid(&s->mp)) ||
+		!between(s->moved_vehicle_count,0,PHOTO_MAX_MOVED_VEHICLES)) return 0;
+	for (i=0;i<s->moved_vehicle_count;i++)
+	{
+		const struct photo_moved_vehicle *v = &s->moved_vehicles[i];
+		if (!printable(v->tag,sizeof(v->tag)) || !vector_valid(v->position,3,0) || !axes_valid(v->forward,v->up)) return 0;
+	}
 	if (!vector_valid(s->position, 3, 0) || !vector_valid(s->forward, 3, 0) ||
 		!vector_valid(s->up, 3, 0) || !vector_valid(s->focus, 2, 1) || !vector_valid(s->safe, 4, 1)) return 0;
-	for (i = 0; i < 3; i++) { f += s->forward[i]*s->forward[i]; u += s->up[i]*s->up[i]; dot += s->forward[i]*s->up[i]; }
-	return fabsf(sqrtf(f)-1) <= 0.001f && fabsf(sqrtf(u)-1) <= 0.001f && fabsf(dot) <= 0.001f &&
+	return axes_valid(s->forward,s->up) &&
 		isfinite(s->fov) && s->fov >= 0.2f && s->fov <= 2.6f && s->bsp >= 0 &&
 		s->settle_ticks >= 0 && s->settle_ticks <= 600 && s->safe[0] < s->safe[2] && s->safe[1] < s->safe[3] &&
 		(s->erase_ai == 0 || s->erase_ai == 1) && memchr(s->variant, 0, sizeof(s->variant));
 }
 
 /* A bounded JSON reader. Token subtrees end at next, so object lookup cannot
-   accidentally pick a field from another map or shot. Escaped names/variants
-   are refused rather than interpreted as a different engine identifier. */
+   accidentally pick a field from another map or shot. Tag paths decode JSON
+   escapes to printable ASCII; keys are literal identifiers. */
 struct token { const char *start; int length, next; char type; };
-struct json { const char *p; struct token t[2048]; int count, depth, bad; };
+struct json { const char *p; struct token t[16384]; int count, depth, bad; };
 static void space(struct json *j) { while (isspace((unsigned char)*j->p)) j->p++; }
 static int value(struct json *j)
 {
 	int index = ++j->count;
 	struct token *t;
 	char close;
-	if (index >= 2048 || ++j->depth > 24) { j->bad = 1; return 0; }
+	if (index >= 16384 || ++j->depth > 24) { j->bad = 1; return 0; }
 	space(j); t = &j->t[index]; t->start = j->p; t->type = *j->p;
 	if (*j->p == '{' || *j->p == '[')
 	{
@@ -168,11 +203,21 @@ static int value(struct json *j)
 		j->p++;
 		while (*j->p && *j->p != '"')
 		{
-			if ((unsigned char)*j->p < 32 || *j->p == '\\') { j->bad = 1; break; }
+			if ((unsigned char)*j->p < 32) { j->bad = 1; break; }
+			if (*j->p == '\\')
+			{
+				int k;
+				j->p++;
+				if (*j->p == 'u') { for (k=0;k<4;k++) { j->p++; if (!isxdigit((unsigned char)*j->p)) { j->bad=1; break; } } }
+				else if (!*j->p || !strchr("\"\\/bfnrt",*j->p)) j->bad=1;
+				if (j->bad) break;
+			}
 			j->p++;
 		}
 		if (!j->bad && *j->p == '"') j->p++; else j->bad = 1;
 	}
+	else if (!strncmp(j->p,"true",4)) { j->p += 4; t->type = 't'; }
+	else if (!strncmp(j->p,"false",5)) { j->p += 5; t->type = 'f'; }
 	else
 	{
 		const char *begin = j->p;
@@ -199,7 +244,7 @@ static int field(struct json *j, int object, const char *name)
 	if (!object || j->t[object].type != '{') return 0;
 	for (i = object+1; i < j->t[object].next; i = j->t[i+1].next)
 	{
-		if (equal(j, i, name)) { if (found) return 0; found = i+1; }
+		if (equal(j, i, name)) { if (found) { j->bad=1; return 0; } found = i+1; }
 	}
 	return found;
 }
@@ -224,31 +269,103 @@ static int array(struct json *j, int i, float *out, int count)
 	}
 	return item == j->t[i].next;
 }
+static int string_read(struct json *j, int i, char *out, size_t size)
+{
+	int k; size_t n=0;
+	if (!i || j->t[i].type != '"') return 0;
+	for (k=1;k<j->t[i].length-1;k++)
+	{
+		unsigned char c = (unsigned char)j->t[i].start[k];
+		if (c == '\\')
+		{
+			c = (unsigned char)j->t[i].start[++k];
+			if (c == 'u')
+			{
+				char hex[5]; unsigned long decoded;
+				memcpy(hex,j->t[i].start+k+1,4); hex[4]=0; decoded=strtoul(hex,NULL,16); k+=4;
+				if (decoded < 32 || decoded > 126) return 0;
+				c=(unsigned char)decoded;
+			}
+			else if (!strchr("\"\\/",c)) return 0;
+		}
+		if (c < 32 || c > 126 || n+1 >= size) return 0;
+		out[n++]=(char)c;
+	}
+	out[n]=0; return 1;
+}
+static int boolean_read(struct json *j, int i, int *out)
+{
+	if (!i || (j->t[i].type != 't' && j->t[i].type != 'f')) return 0;
+	*out = j->t[i].type == 't'; return 1;
+}
+static int integers(struct json *j, int i, int *out, int count)
+{
+	int k, item=i+1;
+	if (!i || j->t[i].type != '[') return 0;
+	for (k=0;k<count;k++,item++) if (item >= j->t[i].next || !integer(j,item,&out[k])) return 0;
+	return item == j->t[i].next;
+}
+static int mp_read(struct json *j, int i, struct photo_mp_scene *m)
+{
+	int counts=field(j,i,"vehicle_counts"), row, side;
+	if (!boolean_read(j,field(j,i,"teams"),&m->teams) ||
+		!integer(j,field(j,i,"weapon_set"),&m->weapon_set) || !integer(j,field(j,i,"vehicle_set"),&m->vehicle_set) ||
+		!boolean_read(j,field(j,i,"no_shields"),&m->no_shields) ||
+		!boolean_read(j,field(j,i,"always_invisible"),&m->always_invisible) ||
+		!boolean_read(j,field(j,i,"infinite_grenades"),&m->infinite_grenades) ||
+		!integers(j,field(j,i,"vehicle_sets"),m->vehicle_sets,2) ||
+		!integer(j,field(j,i,"loadout"),&m->loadout) || !integer(j,field(j,i,"primary_weapon"),&m->primary_weapon) ||
+		!integer(j,field(j,i,"secondary_weapon"),&m->secondary_weapon) ||
+		!boolean_read(j,field(j,i,"no_map_weapons"),&m->no_map_weapons) ||
+		!integer(j,field(j,i,"vehicle_respawn_time"),&m->vehicle_respawn_time) ||
+		(!equal(j,field(j,i,"starting_equipment"),"generic") && !equal(j,field(j,i,"starting_equipment"),"map")) ||
+		!counts || j->t[counts].type != '[') return 0;
+	m->starting_equipment = equal(j,field(j,i,"starting_equipment"),"generic");
+	row=counts+1;
+	for (side=0;side<2;side++) { if (row >= j->t[counts].next || !integers(j,row,m->vehicle_counts[side],PHOTO_VARIANT_VEHICLES)) return 0; row=j->t[row].next; }
+	return row == j->t[counts].next && mp_valid(m);
+}
 static int shot_read(struct json *j, int i, struct photo_shot *s)
 {
 	int fov = field(j, i, "fov"), scene = field(j, i, "scene"), variant = field(j, scene, "variant"), ai = field(j, scene, "ai");
+	int mp=field(j,scene,"mp"), moved=field(j,scene,"moved_vehicles"), item;
+	memset(s,0,sizeof(*s));
+	if (mp) { s->has_mp=1; if (!mp_read(j,mp,&s->mp)) return 0; }
+	if (moved)
+	{
+		if (j->t[moved].type != '[') return 0;
+		for (item=moved+1;item<j->t[moved].next;item=j->t[item].next)
+		{
+			struct photo_moved_vehicle *v;
+			if (s->moved_vehicle_count == PHOTO_MAX_MOVED_VEHICLES) return 0;
+			v=&s->moved_vehicles[s->moved_vehicle_count++];
+			if (!string_read(j,field(j,item,"tag"),v->tag,sizeof(v->tag)) ||
+				!array(j,field(j,item,"position"),v->position,3) || !array(j,field(j,item,"forward"),v->forward,3) ||
+				!array(j,field(j,item,"up"),v->up,3)) return 0;
+		}
+	}
 	if (!array(j, field(j,i,"position"), s->position, 3) || !array(j,field(j,i,"forward"),s->forward,3) ||
 		!array(j,field(j,i,"up"),s->up,3) || !array(j,field(j,i,"focus"),s->focus,2) || !array(j,field(j,i,"safe"),s->safe,4) ||
 		!integer(j,field(j,i,"bsp"),&s->bsp) || !integer(j,field(j,i,"settle_ticks"),&s->settle_ticks) ||
 		!fov || j->t[fov].type != 'n' || !variant || j->t[variant].type != '"' || j->t[variant].length > 65 ||
 		(!equal(j,ai,"erase") && !equal(j,ai,"keep"))) return 0;
 	s->fov = (float)strtod(j->t[fov].start,NULL); s->erase_ai = equal(j,ai,"erase");
-	memcpy(s->variant,j->t[variant].start+1,j->t[variant].length-2); s->variant[j->t[variant].length-2] = 0;
-	return photo_shot_valid(s);
+	if (!string_read(j,variant,s->variant,sizeof(s->variant))) return 0;
+	return !j->bad && photo_shot_valid(s);
 }
 int photo_fragment_read(const char *path, const char *key, struct photo_shot *shot, int *revision)
 {
-	char *text = malloc(65537);
+	char *text = malloc(262145);
 	struct json *j = calloc(1,sizeof(*j));
 	FILE *file = fopen(path,"r");
 	int ok = 0, schema, map, shots, i, count = 0;
 	size_t length;
 	struct photo_shot next;
 	if (!file || !text || !j || !key_valid(key)) goto done;
-	length = fread(text,1,65536,file); text[length] = 0;
+	length = fread(text,1,262144,file); text[length] = 0;
 	if (ferror(file) || !feof(file) || strlen(text) != length) goto done;
 	j->p = text; value(j); space(j);
-	if (j->bad || *j->p || !integer(j,field(j,1,"schema"),&schema) || schema != 1) goto done;
+	if (j->bad || *j->p || !integer(j,field(j,1,"schema"),&schema) || (schema != 1 && schema != 2)) goto done;
 	map = field(j,field(j,1,"maps"),key);
 	if (!integer(j,field(j,map,"revision"),revision) || *revision < 1) goto done;
 	shots = field(j,map,"shots");
@@ -281,7 +398,7 @@ int photo_fragment_write(const char *path, const char *key, const struct photo_s
 	if (f) { fclose(f); if (!photo_fragment_read(path,key,&old,&revision)) return 0; }
 	if (revision == INT_MAX || snprintf(temp,sizeof(temp),"%s.tmp",path) >= (int)sizeof(temp)) return 0;
 	f = fopen(temp,"w"); if (!f) return 0;
-	fprintf(f,"{\n  \"schema\": 1,\n  \"maps\": {\n    \"%s\": {\n      \"revision\": %d,\n      \"shots\": [{\n",key,revision+1);
+	fprintf(f,"{\n  \"schema\": 2,\n  \"maps\": {\n    \"%s\": {\n      \"revision\": %d,\n      \"shots\": [{\n",key,revision+1);
 	fputs("        \"position\": ",f); vector_write(f,s->position,3);
 	fputs(",\n        \"forward\": ",f); vector_write(f,s->forward,3);
 	fputs(",\n        \"up\": ",f); vector_write(f,s->up,3);
@@ -291,7 +408,34 @@ int photo_fragment_write(const char *path, const char *key, const struct photo_s
 	/* Engine variant names are printable identifiers, never arbitrary JSON text. */
 	{ const unsigned char *p = (const unsigned char *)s->variant;
 	  for (; *p; p++) { if (*p < 32 || *p == '"' || *p == '\\') { fclose(f); remove(temp); return 0; } fputc(*p,f); } }
-	fputs("\"}\n      }]\n    }\n  }\n}\n",f);
+	fputc('"',f);
+	if (s->has_mp)
+	{
+		const struct photo_mp_scene *m=&s->mp;
+		int side, k;
+		fprintf(f,", \"mp\": {\"teams\": %s, \"weapon_set\": %d, \"vehicle_set\": %d, \"starting_equipment\": \"%s\", \"no_shields\": %s, \"always_invisible\": %s, \"infinite_grenades\": %s, \"vehicle_sets\": [%d, %d], \"vehicle_counts\": [",
+			m->teams ? "true" : "false",m->weapon_set,m->vehicle_set,m->starting_equipment ? "generic" : "map",
+			m->no_shields ? "true" : "false",m->always_invisible ? "true" : "false",m->infinite_grenades ? "true" : "false",m->vehicle_sets[0],m->vehicle_sets[1]);
+		for (side=0;side<2;side++) { fputs(side ? ", [" : "[",f); for (k=0;k<PHOTO_VARIANT_VEHICLES;k++) fprintf(f,"%s%d",k ? ", " : "",m->vehicle_counts[side][k]); fputc(']',f); }
+		fprintf(f,"], \"loadout\": %d, \"primary_weapon\": %d, \"secondary_weapon\": %d, \"no_map_weapons\": %s, \"vehicle_respawn_time\": %d}",m->loadout,m->primary_weapon,m->secondary_weapon,m->no_map_weapons ? "true" : "false",m->vehicle_respawn_time);
+	}
+	if (s->has_mp || s->moved_vehicle_count)
+	{
+		int i;
+		fputs(", \"moved_vehicles\": [",f);
+		for (i=0;i<s->moved_vehicle_count;i++)
+		{
+			const struct photo_moved_vehicle *v=&s->moved_vehicles[i];
+			const char *p;
+			fputs(i ? ", {\"tag\": \"" : "{\"tag\": \"",f);
+			for (p=v->tag;*p;p++) { if (*p == '\\' || *p == '"') fputc('\\',f); fputc(*p,f); }
+			fputs("\", \"position\": ",f); vector_write(f,v->position,3);
+			fputs(", \"forward\": ",f); vector_write(f,v->forward,3);
+			fputs(", \"up\": ",f); vector_write(f,v->up,3); fputc('}',f);
+		}
+		fputc(']',f);
+	}
+	fputs("}\n      }]\n    }\n  }\n}\n",f);
 	ok = !ferror(f); if (fclose(f)) ok = 0;
 	if (ok && !rename(temp,path)) return 1;
 	remove(temp); return 0;

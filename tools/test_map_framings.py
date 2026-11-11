@@ -69,7 +69,7 @@ def test_shot_count(count):
     assert framing.validate(data)
 
 
-@pytest.mark.parametrize('value', [None, [], {}, {'schema': True, 'maps': {}}, {'schema': 2, 'maps': {}}])
+@pytest.mark.parametrize('value', [None, [], {}, {'schema': True, 'maps': {}}, {'schema': 3, 'maps': {}}])
 def test_shape(value):
     assert framing.validate(value)
 
@@ -189,3 +189,96 @@ def test_finite_integer_overflow():
     data = good()
     data['maps']['stock:example']['shots'][0]['position'][0] = 10**400
     assert framing.validate(data)
+
+
+def mp_scene():
+    return dict(teams=True, weapon_set=0, vehicle_set=0, starting_equipment='map',
+                no_shields=False, always_invisible=False, infinite_grenades=False,
+                vehicle_sets=[254, 255], vehicle_counts=[[0]*6, [4]*6], loadout=1,
+                primary_weapon=2, secondary_weapon=3, no_map_weapons=False, vehicle_respawn_time=60)
+
+
+def mp_framing():
+    data = good()
+    scene = data['maps']['stock:example']['shots'][0]['scene']
+    scene['mp'] = mp_scene()
+    scene['moved_vehicles'] = [dict(tag='vehicles\\warthog\\warthog', position=[1, 2, 3], forward=[1, 0, 0], up=[0, 0, 1])]
+    return data
+
+
+def native_accepts(tmp_path, native_probe, data):
+    path = tmp_path / 'mp.json'
+    path.write_text(json.dumps(data))
+    return subprocess.run([str(native_probe), '--read', str(path), 'stock:example']).returncode == 0
+
+
+def test_mp_scene(tmp_path, native_probe):
+    data = mp_framing()
+    assert not framing.validate(data)
+    assert native_accepts(tmp_path, native_probe, data)
+    data['maps']['stock:example']['shots'][0]['scene']['moved_vehicles'] *= 16
+    assert not framing.validate(data)
+    assert native_accepts(tmp_path, native_probe, data)
+
+
+@pytest.mark.parametrize('key,value', [
+    ('vehicle_counts', [[5]*6, [0]*6]), ('vehicle_counts', [[0]*5, [0]*6]),
+    ('vehicle_sets', [256, 0]), ('vehicle_sets', [True, 0]), ('vehicle_set', -1),
+    ('teams', 1), ('no_map_weapons', 0), ('loadout', 2), ('weapon_set', 14),
+    ('primary_weapon', 10), ('secondary_weapon', -1), ('vehicle_respawn_time', 32768),
+    ('starting_equipment', 'other'), ('no_shields', None),
+])
+def test_bad_mp(tmp_path, native_probe, key, value):
+    data = mp_framing()
+    data['maps']['stock:example']['shots'][0]['scene']['mp'][key] = value
+    assert framing.validate(data)
+    assert not native_accepts(tmp_path, native_probe, data)
+
+
+@pytest.mark.parametrize('key,value', [('forward', [2, 0, 0]), ('up', [1, 0, 0]),
+    ('position', [float('inf'), 0, 0]), ('tag', ''), ('tag', 'x'*256), ('tag', 'a\n'), ('tag', 'é')])
+def test_bad_moved_vehicle(tmp_path, native_probe, key, value):
+    data = mp_framing()
+    data['maps']['stock:example']['shots'][0]['scene']['moved_vehicles'][0][key] = value
+    assert framing.validate(data)
+    assert not native_accepts(tmp_path, native_probe, data)
+
+
+def test_scene_limits_and_required_keys(tmp_path, native_probe):
+    for key in mp_scene():
+        data = mp_framing()
+        del data['maps']['stock:example']['shots'][0]['scene']['mp'][key]
+        assert framing.validate(data)
+        assert not native_accepts(tmp_path, native_probe, data)
+    data = mp_framing()
+    data['maps']['stock:example']['shots'][0]['scene']['moved_vehicles'] *= 17
+    assert framing.validate(data)
+    assert not native_accepts(tmp_path, native_probe, data)
+
+
+def test_schema_one_still_accepted(tmp_path, native_probe):
+    data = good()
+    data['schema'] = 1
+    assert not framing.validate(data)
+    assert native_accepts(tmp_path, native_probe, data)
+    assert framing.merge(data, [])['schema'] == 2
+
+
+def test_full_scene_capacity(tmp_path, native_probe):
+    data = mp_framing()
+    shot = data['maps']['stock:example']['shots'][0]
+    vehicle = shot['scene']['moved_vehicles'][0]
+    vehicle['tag'] = 'vehicles\\' + '\\'*246
+    shot['scene']['moved_vehicles'] *= 16
+    data['maps']['stock:example']['shots'] *= 8
+    assert len(json.dumps(data)) > 65536
+    assert not framing.validate(data)
+    assert native_accepts(tmp_path, native_probe, data)
+
+
+def test_native_rejects_duplicate_optional_scene(tmp_path, native_probe):
+    data = mp_framing()
+    path = tmp_path / 'duplicates.json'
+    text = json.dumps(data).replace('"mp": {', '"mp": {}, "mp": {')
+    path.write_text(text)
+    assert subprocess.run([str(native_probe), '--read', str(path), 'stock:example']).returncode == 1
