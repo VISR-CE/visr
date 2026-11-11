@@ -96,3 +96,18 @@ if __name__ == "__main__":
 
     with tempfile.TemporaryDirectory() as directory:
         test_cancel_preserves_the_main_menu_and_keeps_back_navigation(Path(directory))
+
+
+def test_native_profile_back_saves_and_confirmed_names_save():
+    source = (ROOT / 'source/interface/ui_widget_event_handler_functions.c').read_text()
+    signature = 'static boolean player_profile_end_editing(\n\tstruct widget_instance *widget,\n\tstruct event_record *event,\n\tboolean *widget_deleted)\n'
+    handler = block(source, signature)
+    assert handler.index('pc_menu_profile_save_on_back()') < handler.index('player_ui_end_editing_profile()')
+    playlist = block(source, signature.replace('player_profile_end_editing', 'playlist_profile_end_editing'))
+    assert 'pc_menu_profile_save_on_back' not in playlist
+    color = block(source, signature.replace('player_profile_end_editing', 'player_profile_color_picker_select_color'))
+    assert 'return pc_menu_profile_save_on_back();' in color
+    keyboard = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
+    done = keyboard[keyboard.index('case _vkey_done:', keyboard.index('static boolean virtual_keyboard_select(\n\tvoid)\n{')):]
+    assert 'if (virtual_keyboard_globals.last_exit_saved_text)' in done
+    assert 'pc_menu_profile_name_saved(virtual_keyboard_globals.text_buffer)' in done

@@ -2186,6 +2186,11 @@ static boolean player_profile_end_editing(
 	struct event_record *event,
 	boolean *widget_deleted)
 {
+	/* port: the Xbox profile editor keeps changes when Back ends editing. */
+	extern boolean pc_menu_profile_save_on_back(void);
+
+	if (!pc_menu_profile_save_on_back())
+		return FALSE;
 	event_handler_functions.profile_index = NONE;
 	player_ui_end_editing_profile();
 	return TRUE;
@@ -2813,8 +2818,11 @@ static boolean player_profile_color_picker_select_color(
 		"invalid player profile color index specified");
 	if (profile)
 	{
+		/* port: the native Xbox color picker shares the auto-save policy. */
+		extern boolean pc_menu_profile_save_on_back(void);
+
 		profile->primary_color_index = color_select_screen->data3C.selected_index;
-		return TRUE;
+		return pc_menu_profile_save_on_back();
 	}
 	error(2, "failed to set player profile color because no profile is currently being edited");
 	return FALSE;

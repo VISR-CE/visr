@@ -1444,3 +1444,15 @@ def test_value_controls_on_a_screen_share_one_center_line():
             checked += 1
             assert max(centers) - min(centers) <= 1, (name, min(centers), max(centers))
     assert checked >= 8
+
+
+def test_profile_editor_removes_save_after_inserting_settings():
+    module = generator()
+    root = ET.parse(MENUS / 'xbox/patches.xml').getroot()
+    edit = next(p for p in root.findall('patch') if p.get('list') == module.PEP + 'profile_edit_select_list')
+    operations = list(edit)
+    assert operations[-1].tag == 'remove'
+    assert operations[-1].get('child') == module.PEP + 'save_changes_profile_item'
+    assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
+    assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
+    assert not any(p.find('remove') is not None for p in root.findall('patch') if p is not edit)

@@ -77,6 +77,8 @@ int config_write(char const *name, char const *value)
     snprintf(written_value, sizeof(written_value), "%s", value); return 1;
 }
 void platform_log(char const *format, ...) { (void)format; }
+/* the Xbox controller pages' profile auto-save after each step (tested in test_menu_apply_now.py) */
+static void widget_profile_spinner_save(struct widget_instance *spinner) { (void)spinner; }
 int config_text(char const *name, char *text, unsigned int size) { (void)name; snprintf(text, size, "stereo"); return 1; }
 static short text_value_of(wchar_t const *line, char *out)
 {

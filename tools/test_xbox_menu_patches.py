@@ -114,10 +114,11 @@ def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]
     assert texts == [("VIDEO", "mac_app"), ("GRAPHICS", "!mac_app"), ("AUDIO", None), ("NETWORK", None),
-                     ("KEYBOARD & MOUSE", "keyboard"), ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos")]
+                     ("KEYBOARD & MOUSE", "keyboard"), ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos"), (None, None)]
+    # the trailing entry is the <remove> of SAVE CHANGES (the profile editor saves as it goes)
     keyboard = next(row for row in rows(patch) if row.get("platform") == "keyboard")
     assert keyboard.get("open").endswith("controls_settings_screen")
-    delete = rows(patch)[-1]
+    delete = rows(patch)[-2]
     assert delete.get("after").endswith("save_changes_profile_item") and delete.get("run") == "port delete request"
 
 

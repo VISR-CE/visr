@@ -1541,28 +1541,45 @@ static boolean setting_changed_save(struct widget_instance *spinner, struct pc_m
 	return TRUE;
 }
 
-/* Saving ends profile editing (player_ui.c). Keep name/color edits pending
-for the hub's SAVE CHANGES, and start editing again with the saved controls
-as the new baseline so Back cannot discard them. */
-static boolean profile_controls_save(void)
+/* player_ui_save_profile ends editing. Reopen the saved profile so the
+hub and its subpages keep using the same edit session after each change. */
+static boolean profile_save_now(void)
 {
-	struct player_profile *edit = player_ui_get_edit_player_profile();
-	struct player_profile pending, saved;
 	long index = player_ui_get_edit_profile_index();
 	boolean result;
 
-	if (!edit || index == NONE || !player_profile_get(index, &saved))
+	if (!player_ui_get_edit_player_profile() || index == NONE)
 		return FALSE;
-	pending = *edit;
-	saved.controller_settings = pending.controller_settings;
-	*edit = saved;
+	if (!player_ui_edit_profile_is_dirty())
+		return TRUE;
 	result = player_ui_save_profile();
 	player_ui_begin_editing_profile(index);
-	edit = player_ui_get_edit_player_profile();
-	if (!edit)
-		return FALSE;
-	*edit = pending;
 	return result;
+}
+
+boolean pc_menu_profile_auto_save_enabled(void)
+{
+	extern int platform_menu_pad(void);
+	char const *menus = config_string("display.menus");
+
+	return !strcmp(menus, "xbox") || (strcmp(menus, "pc") && platform_menu_pad());
+}
+
+/* The native Xbox hub's Back handler calls this before ending editing.
+Playlist editing has its own handler and keeps its explicit save behavior. */
+boolean pc_menu_profile_save_on_back(void)
+{
+	return !pc_menu_profile_auto_save_enabled() || !player_ui_get_edit_player_profile() || profile_save_now();
+}
+
+/* virtual_keyboard.c calls this only after a name passes confirmation.
+The buffer identity excludes gametype names and other keyboard dialogs. */
+void pc_menu_profile_name_saved(wchar_t const *name)
+{
+	struct player_profile *profile = player_ui_get_edit_player_profile();
+
+	if (pc_menu_profile_auto_save_enabled() && profile && name == profile->player_name && !profile_save_now())
+		platform_log("menus: could not save the profile's name");
 }
 
 /* Xbox spinners run this after the engine steps them, for d-pad, stick,
@@ -1579,7 +1596,7 @@ static boolean setting_apply_now(struct widget_instance *spinner, struct pc_menu
 		return FALSE;
 	if (spinner->parameters.list.selected_index != index)
 		return TRUE;
-	if (!strncmp(setting->setting, "profile.", 8) && !profile_controls_save())
+	if (!strncmp(setting->setting, "profile.", 8) && !profile_save_now())
 	{
 		setting->loaded_index = loaded;
 		return FALSE;
@@ -1984,8 +2001,8 @@ static void video_rows_show(struct widget_instance *list)
 	}
 }
 
-/* ---------- Change Color: the profile's colour, from a list of the
-game's colours (more than its rows: it scrolls), by the Xbox's names for
+/* ---------- Change Color: the profile's color, from a list of the
+game's colors (more than its rows: it scrolls), by the Xbox's names for
 its spinner's functions */
 
 #define COLOR_COUNT 18
@@ -1993,7 +2010,7 @@ its spinner's functions */
 
 static struct
 {
-	/* the colour on the first row, and the colour chosen */
+	/* the color on the first row, and the color chosen */
 	short first;
 	short color;
 } color_list;
@@ -2004,7 +2021,7 @@ static void color_row_text(short row, wchar_t *text)
 		(short)(color_list.first + row), text);
 }
 
-/* "color picker menu initialize": on the profile's colour */
+/* "color picker menu initialize": on the profile's color */
 static boolean color_list_initialize(struct widget_instance *list)
 {
 	struct player_profile *profile = player_ui_get_edit_player_profile();
@@ -2037,7 +2054,7 @@ static short list_scroll(struct widget_instance *list, short *first, short count
 	return row == NONE || row >= rows ? NONE : (short)(*first + row);
 }
 
-/* "color picker update": the list scrolled on at its ends, the colour's
+/* "color picker update": the list scrolled on at its ends, the color's
 name and picture */
 static void color_list_update(struct widget_instance *list)
 {
@@ -2063,7 +2080,7 @@ static boolean color_choose(void)
 	if (!profile)
 		return FALSE;
 	profile->primary_color_index = color_list.color;
-	return TRUE;
+	return pc_menu_profile_save_on_back();
 }
 
 /* ---------- Edit Profile Settings: its picture of Gamepad Setup, the

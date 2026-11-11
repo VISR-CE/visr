@@ -2838,6 +2838,40 @@ static boolean widget_instance_port_refuse_graphics_edit(
 	return TRUE;
 }
 
+/* port: the native Xbox controller pages normally copy their spinners to
+player_ui only on exit. Run that same copy after each input step, then save.
+Generated settings have their own changed handlers in menu_functions.c. */
+static void widget_profile_spinner_save(struct widget_instance *spinner)
+{
+	extern boolean pc_menu_profile_auto_save_enabled(void);
+	extern boolean pc_menu_profile_save_on_back(void);
+	struct widget_instance *list;
+
+	if (spinner->type != _ui_widget_type_spinner_list || !main_menu_is_active() ||
+		!pc_menu_profile_auto_save_enabled())
+		return;
+	for (list = spinner->parent; list; list = list->parent)
+	{
+		struct ui_widget_definition *definition = ui_widget_definition_get(list->definition_tag_index);
+		struct ui_widget_event_handler_reference *handlers = definition->event_handlers.address;
+		long index;
+
+		for (index = 0; index < definition->event_handlers.count; index++)
+		{
+			/* Native controller and advanced-controller save functions. */
+			if (TEST_FLAG(handlers[index].flags, _event_handler_run_function_bit) &&
+				(handlers[index].function == 70 || handlers[index].function == 71))
+			{
+				boolean deleted = FALSE;
+
+				if (ui_widget_event_handler_function_invoke(list, NULL, handlers[index].function, &deleted))
+					pc_menu_profile_save_on_back();
+				return;
+			}
+		}
+	}
+}
+
 boolean widget_event_function_list_widget_goto_next_item(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -2978,7 +3012,10 @@ boolean widget_event_function_list_widget_goto_next_item(
 		}
 	}
 	if (result)
+	{
 		widget->parameters.list.last_list_tab_direction = 15;
+		widget_profile_spinner_save(widget); /* port */
+	}
 
 	return result;
 }
@@ -3121,6 +3158,7 @@ boolean widget_event_function_list_widget_goto_previous_item(
 		}
 	}
 	widget->parameters.list.last_list_tab_direction = -15;
+	widget_profile_spinner_save(widget); /* port */
 
 	return TRUE;
 }

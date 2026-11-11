@@ -1634,8 +1634,8 @@ def patch_document(names):
     patch_row(mp, after='multiplayer_type_internet', name='multiplayer_type_join_direct', text='DIRECT LINK',
               run='mp type set mode', open=browser, picture=f'png:{ART}/internet.png',
               description="Join a friend's game with\\nits join code or invite link.")
-    # Profile edit: the settings pages that are not the profile's before SAVE CHANGES (the keyboard's only where
-    # one is), and DELETE PROFILE after it on the Apple TV, whose remote has no X
+    # Insert settings while the map's SAVE CHANGES anchor still exists, then remove it.
+    # Apple TV keeps a DELETE PROFILE row because its remote has no X.
     edit = patch(root, PEP + 'profile_edit_select_list', PEP + 'player_profile_edit_screen')
     current = CURRENT
     pages = tuple(row for row in PAGE_ROWS if row[0] != 'controls')
@@ -1665,6 +1665,7 @@ def patch_document(names):
               name='profile_item_delete', text='DELETE PROFILE', run='port delete request',
               open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=3,
               description='Delete this profile and\\neverything saved with it.' + current)
+    patch_row(edit, 'remove', child=PEP + 'save_changes_profile_item')
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
                      PEP + 'advanced_controls\\advanced_controls_screen')

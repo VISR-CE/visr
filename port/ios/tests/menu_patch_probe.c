@@ -38,8 +38,7 @@ static char const patches_xml[] =
 	"       run=\"mp type set mode\" open=\"xbox/test_screen\" description=\"Join a game by its code.\"\n"
 	"       picture=\"png:ce/port/blank__0.png\"/>\n"
 	"</patch>\n"
-	/* the profile edit list: four rows before SAVE CHANGES (KEYBOARD with a keyboard), DELETE PROFILE after it
-	on the Apple TV, a row's pitch below it (SAVE CHANGES is further from the row above it, which would not fit) */
+	/* Insert settings and the Apple TV delete row before removing SAVE CHANGES. */
 	"<patch list=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_select_list\"\n"
 	"       screen=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen\">\n"
 	"  <row before=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\save_changes_profile_item\"\n"
@@ -55,6 +54,7 @@ static char const patches_xml[] =
 	"       platform=\"tvos\" pitch=\"33\" name=\"profile_item_delete\" text=\"DELETE PROFILE\"\n"
 	"       run=\"request del player profile\"\n"
 	"       description=\"Delete.\" picture=\"0\"/>\n"
+	"  <remove child=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\save_changes_profile_item\"/>\n"
 	"</patch>\n"
 	/* a row out of the settings list: those after it move up, keeping their descriptions */
 	"<patch list=\"ui\\shell\\settings\\settings_list\" screen=\"ui\\shell\\settings\\settings_screen\">\n"
@@ -789,19 +789,20 @@ static void check_apple(boolean tvos)
 		check(frames[0].cache_block_index == NONE && frames[3].pixels_offset == 4000,
 			"the map's frames are kept, to be loaded from their new place");
 	}
-	/* the profile edit list: three or four rows before SAVE CHANGES, DELETE PROFILE after it on the Apple TV */
+	/* The profile editor auto-saves; Apple TV retains DELETE PROFILE. */
 	{
-		short const tops_keyboard[9] = { 78, 111, 144, 177, 210, 243, 276, 309, 365 };
-		short const tops_tvos[9] = { 78, 111, 144, 177, 210, 243, 276, 332, 365 };
-		short const descriptions_keyboard[9] = { 0, 1, 2, 3, 6, 7, 8, 9, 4 };
-		short const descriptions_tvos[9] = { 0, 1, 2, 3, 6, 7, 8, 4, 9 };
+		short const tops_keyboard[8] = { 78, 111, 144, 177, 210, 243, 276, 309 };
+		short const tops_tvos[8] = { 78, 111, 144, 177, 210, 243, 276, 309 };
+		short const descriptions_keyboard[8] = { 0, 1, 2, 3, 6, 7, 8, 9 };
+		short const descriptions_tvos[8] = { 0, 1, 2, 3, 6, 7, 8, 9 };
 
-		check_rows("profile edit", pe_list, tvos ? tops_tvos : tops_keyboard, 9);
+		check_rows("profile edit", pe_list, tvos ? tops_tvos : tops_keyboard, 8);
 		check_row_copy(pe_list, 4, "profile_item_video", "VIDEO", NONE, test_screen);
-		check(!strcmp(children_of(pe_list)[tvos ? 7 : 8].name, "save_changes_profile_item"), "SAVE CHANGES is the map's");
+		for (short row = 0; row < child_count(pe_list); row++)
+			check(strcmp(children_of(pe_list)[row].name, "save_changes_profile_item") != 0, "SAVE CHANGES is removed");
 		if (tvos)
 		{
-			check_row_copy(pe_list, 8, "profile_item_delete", "DELETE PROFILE",
+			check_row_copy(pe_list, 7, "profile_item_delete", "DELETE PROFILE",
 				function_lookup("request del player profile"), NONE);
 		}
 		check_descriptions("profile edit", pe_list, tvos ? descriptions_tvos : descriptions_keyboard);
