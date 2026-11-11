@@ -1693,6 +1693,26 @@ static void get_local_player_input_blob(
 		}
 	}
 
+	/* port: photo mode (photo_mode.c) flies its own camera from the keyboard and mouse; the game,
+	its scripts' action tests and a cutscene's skip see no player input while it is on */
+	{
+		extern int photo_mode_active(void);
+		static boolean photo_skip_logged;
+
+		if (photo_mode_active())
+		{
+			if (input->accept && cinematic_can_be_skipped())
+			{
+				if (!photo_skip_logged)
+					error(_error_silent, "photo mode: cutscene skip blocked");
+				photo_skip_logged = TRUE;
+			}
+			else
+				photo_skip_logged = FALSE;
+			memset(input, 0, sizeof(*input));
+		}
+	}
+
 	player_control_action_test_check_reset_input_blob(input);
 	match_assert_valid_real(
 		"c:\\halo\\SOURCE\\game\\player_control.c",
