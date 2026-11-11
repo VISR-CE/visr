@@ -576,6 +576,8 @@ static const struct config_setting config_settings[] =
 		"With input.laser = \"close\": how near the reticle's surface is, in\n"
 		"meters from the eyes (1 to 20), for the line to show. It fades in over\n"
 		"the last half meter inside this distance." },
+	{ "debug.photo_mode", _config_boolean, "false", "HALO_PHOTO_MODE", _environment_value, _platform_all,
+		"Enable developer map framing controls in the development AppKit Mac host." },
 	{ "debug.test_controller", _config_string, "\"\"", "HALO_TEST_CONTROLLER", _environment_value, _platform_ios,
 		"A synthetic right Sense controller in place of the real ones, to check\n"
 		"controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\"\n"
@@ -1371,6 +1373,11 @@ static const struct config_setting config_settings[] =
 		_platform_all,
 		"The weapon network_test_pickup stands the player on: the first whose tag\n"
 		"name has this in it (\"sniper\", say); empty any." },
+	{ "debug.network_test_weapon", _config_string, "\"\"", "HALO_NETWORK_TEST_WEAPON", _environment_value,
+		_platform_all,
+		"In an automated test game, the host puts the first weapon whose tag name\n"
+		"has this in it (\"sniper\", say) in the hands of each of its own local\n"
+		"players (split screen), again after each respawn; empty none." },
 	{ "debug.network_test_public", _config_boolean, "false", "HALO_NETWORK_TEST_PUBLIC", _environment_value,
 		_platform_all,
 		"The network test's host lists its game in the server browser; browse joins it." },
@@ -1640,6 +1647,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
+	{ "debug.menu_open_coop", _config_boolean, "false", "HALO_MENU_OPEN_COOP", _environment_value, _platform_all,
+		"With debug.menu_open on Server Setup, show it as a co-op host's, though\n"
+		"no game is hosted (for screenshots)." },
 	{ "debug.gpu_flush_draws", _config_integer, "-1", "HALO_GPU_FLUSH_DRAWS", _environment_value, _platform_desktop,
 		"Flush the GPU's pipeline every this many draws: -1 for every 3 on Intel\n"
 		"graphics with Mesa's driver (which can hang without), 0 never." },

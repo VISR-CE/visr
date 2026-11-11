@@ -15,6 +15,7 @@
     </filter>
     <path id="shell" d="M104 91C104 62 117 45 144 45C171 45 184 62 184 91L194 155C200 189 181 210 144 210C107 210 88 189 94 155Z"/>
   </defs>
+  <g transform="translate(5 -5.2) scale(0.88)">
   <use href="#shell" fill="url(#surface)" fill-opacity="0.333333"/>
   <g fill="none" stroke="#298eef" stroke-opacity="0.866667" stroke-width="1" stroke-linejoin="round" filter="url(#halo)">
     <use href="#shell"/>
@@ -29,5 +30,6 @@
     <path d="M141 72H147 M141 76H147 M141 80H147 M141 84H147"/>
     <path d="M112 66Q108 80 110 96 M178 126L209 126V108H232 M112 205V226H74" stroke-width="0.45"/>
     <path d="M218 106V110 M223 106V110 M228 106V110 M76 224V228 M81 224V228 M86 224V228 M91 224V228 M96 224V228" stroke-width="0.45"/>
+  </g>
   </g>
 </svg>

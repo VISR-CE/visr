@@ -128,7 +128,7 @@ def host():
 
 @pytest.fixture(scope="module")
 def feeds_tree():
-    """The pinned steverice/visr-feeds tree, every file (tools/visr_feeds_tree.py)."""
+    """The pinned VISR-CE/visr-feeds tree, every file (tools/visr_feeds_tree.py)."""
     return visr_feeds_tree.feeds_tree(full=True)
 
 

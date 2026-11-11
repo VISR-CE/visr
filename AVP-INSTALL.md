@@ -44,7 +44,7 @@ xcrun devicectl device install app --device DEVICE_UDID \
 xcrun devicectl device process launch --device DEVICE_UDID com.yourname.visr
 ```
 
-**Prebuilt IPA.** Each [GitHub release](https://github.com/steverice/visr/releases) attaches `VISR-visionOS-unsigned.ipa` and its `.sha256` file. The IPA is unsigned and will not launch as downloaded. Verify the checksum, then sign and install it with your own Apple ID using a tool such as [AltStore](https://faq.altstore.io/) or [Sideloadly](https://sideloadly.io/faq). Keep the same account and bundle identifier when you update, and your saves carry over.
+**Prebuilt IPA.** Each [GitHub release](https://github.com/VISR-CE/visr/releases) attaches `VISR-visionOS-unsigned.ipa` and its `.sha256` file. The IPA is unsigned and will not launch as downloaded. Verify the checksum, then sign and install it with your own Apple ID using a tool such as [AltStore](https://faq.altstore.io/) or [Sideloadly](https://sideloadly.io/faq). Keep the same account and bundle identifier when you update, and your saves carry over.
 
 On first launch, trust the developer profile in Settings if visionOS asks.
 

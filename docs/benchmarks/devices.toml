@@ -34,6 +34,7 @@ display = "iPad Air (4th generation)"
 
 ["M1 iPad Pro"]
 display = "iPad Pro M1"
+play_fps = 120
 
 ["A10X iPad Pro"]
 display = "iPad Pro (2nd generation)"

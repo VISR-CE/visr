@@ -16,6 +16,9 @@ struct texture_upscale_generate_input {
     unsigned level_count;
     enum texture_upscale_alpha alpha;
     int wrap, dilate, pinned;
+    /* The caller replaces every pixel of the result (an authored redraw that reads only the source), so the model's
+       prediction is skipped and a plain resize stands in: nothing of it survives. */
+    int synthetic;
 };
 struct texture_upscale_generate_times {
     double predict, refine, damage, mips, bump;

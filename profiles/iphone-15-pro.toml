@@ -40,9 +40,9 @@ player_capacity = 64
 full_rate_players = 32
 
 [evidence."display.frame_rate"]
-basis = "assumed"
-why = "Steve 2026-10-27: Pro iPhones target 120 in campaign; validate with benchmarks. Steve chose the same 120 for the iPhone 17 and iPhone Air the same day (\"17 and air should get 120 for campaign\"). The earlier settings sweep did not hold 120 at maximum quality (variable games keep 60, below)."
-source = "Steve, 2026-10-27"
+basis = "measured"
+why = "Steve 2026-11-09: keep 120 with dynamic resolution down to 1080 lines, from report 5TTEGVTX (iPhone 15 Pro Max, VISR 0.6.14, native 1290 lines, benchmark holds the planner at the ceiling): a10-heroic 119.4 fps, 99.5% on time; a50-campaign-heroic 119.9 fps, 99.9%; b30 113.3 fps, 96.0%; d40-maw-fight 110.4 fps, 93.4%, thermal 2 at the end. The heavier 1x windows miss at the fixed native ceiling, which dynamic resolution covers in play. Earlier tester reports at about 102 fps were the 60 fps scene-rate pacing bug fixed in 0.6.14. Steve chose the same 120 for the iPhone 17 and iPhone Air (2026-10-27)."
+source = "Report 5TTEGVTX, build 20261108.25946, campaign, 2026-11-08 UTC; Steve, 2026-11-09"
 
 [evidence."variable.display.frame_rate"]
 basis = "measured"

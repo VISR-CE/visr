@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A checkout of the published feeds, steverice/visr-feeds, for tests and probes.
+"""A checkout of the published feeds, VISR-CE/visr-feeds, for tests and probes.
 
 Feeds do not live in this repository. `VISR_FEEDS_TREE` names a checkout to use as it is; otherwise the commit pinned in
 tools/visr-feeds.pin is fetched into build/visr-feeds/<sha> (one commit, no history, blobs on demand) and reused on later
@@ -20,7 +20,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PIN = ROOT / "tools/visr-feeds.pin"
-REMOTE = "https://github.com/steverice/visr-feeds.git"
+REMOTE = "https://github.com/VISR-CE/visr-feeds.git"
 # what the tests and probes read without the legacy envelopes
 SPARSE = [
     "/tester/latest.json", "/tester/publication.json", "/tester/publication-format.txt", "/tester/shaders.json",

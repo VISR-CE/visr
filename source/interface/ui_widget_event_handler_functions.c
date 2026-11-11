@@ -3475,6 +3475,11 @@ boolean ui_widget_event_handler_function_invoke(
 	run what changes the player's files or settings: ui_widget_function_denied */
 	if (ui_widget_function_denied(widget, function_index))
 		return TRUE;
+	/* port: the stock editor can edit Server Setup's copy without a saved profile. */
+	{
+		extern long pc_menu_setup_event_function(long function);
+		function_index = (word)pc_menu_setup_event_function(function_index);
+	}
 	/* port: preserve the initiating controller across the keyboard's event flush. */
 	virtual_keyboard_set_controller_context(event && event->controller_index >= 0 && event->controller_index < 4 ?
 		event->controller_index : widget->local_player_index);
@@ -4129,8 +4134,10 @@ static boolean player_profile_set_for_game_1wide(
 	if (player_profile_get(available_profiles[spinner_list->data3C.selected_index], &profile))
 	{
 		/* port: not a profile whose name the host's ban command could not
-		name (one made before names were checked: player_name_valid) */
-		if (!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
+		name (one made before names were checked: player_name_valid); a built-in
+		default profile stores none and is named by the host */
+		if (!TEST_FLAG(profile.flags, _player_profile_default_profile_bit) &&
+			!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
 		{
 			display_error_text_deferred(
 				L"Sorry, this profile's\r\nname can't be used in\r\nmultiplayer. Please\r\nrename the profile.",
@@ -6227,7 +6234,10 @@ boolean ui_widget_port_multiplayer_player(
 
 	if (controller_index < 0 || controller_index >= 4 || !player_profile_get(profile_index, &profile))
 		return FALSE;
-	if (!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
+	/* a built-in default profile stores no name; it joins with an empty one and
+	the host names it, as on the Xbox */
+	if (!TEST_FLAG(profile.flags, _player_profile_default_profile_bit) &&
+		!player_name_valid(profile.player_name, NUMBEROF(profile.player_name)))
 	{
 		display_error_text_deferred(
 			L"Sorry, this profile's\r\nname can't be used in\r\nmultiplayer. Please\r\nrename the profile.",

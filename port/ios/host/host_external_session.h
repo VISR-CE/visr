@@ -43,6 +43,22 @@ static inline int host_external_refresh_due(struct host_external_refresh *r,int 
      own scene on its way.
    An iPhone or iPad app running on a Mac ("Designed for iPad") has no external display and never reports a mirror. */
 #define HOST_EXTERNAL_OFFER_SETTLE 3.0
+/* Whether a screen is an external display or one of this device's own panels.
+   An iPhone never extends its window scenes onto an external display: a monitor, TV or AirPlay receiver either
+   mirrors the device (the screen lists the device's screen as its mirroredScreen) or gets VISR's external scene.
+   So on an iPhone, a second screen that does neither is another built-in panel (the iPhone Duo's cover and inner
+   displays, either of which may be UIScreen.mainScreen while the game's scene sits on the other).
+   On an iPad, a non-mirroring second screen is Stage Manager's extended display, which is external.
+   A Mac (Catalyst, or "Designed for iPad") has no external displays of its own: its monitors hold windows. */
+struct host_external_screen_signals {
+    int main_screen, external_scene, mirroring, phone, mac;
+};
+static inline int host_external_screen_is_external(const struct host_external_screen_signals *s) {
+    if(s->mac)return 0;
+    if(s->external_scene || s->mirroring)return 1;
+    if(s->main_screen || s->phone)return 0;
+    return 1;
+}
 enum host_external_display_use {
     HOST_EXTERNAL_DISPLAY_NONE, HOST_EXTERNAL_DISPLAY_IN_USE, HOST_EXTERNAL_DISPLAY_MIRRORED, HOST_EXTERNAL_DISPLAY_OTHER
 };

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Copy the signed feeds from their public record, steverice/visr-feeds, to the R2 bucket behind
+"""Copy the signed feeds from their public record, VISR-CE/visr-feeds, to the R2 bucket behind
 https://feeds.visr.gg/.
 
 Builds read every feed from feeds.visr.gg (docs/data-packs.md, "Feed hosts"). The record is a visr-feeds checkout whose
@@ -16,7 +16,7 @@ what the bucket already serves, refuse to replace a live envelope with a lower s
   feeds_store.py publish --tree DIR --backend wrangler   a local `wrangler login`
   feeds_store.py verify --tree DIR               every published file, byte for byte, with redirects refused
   feeds_store.py stage --tree DIR --output DIR   the bucket's tree as files, for a local stand-in server
-  DIR is a steverice/visr-feeds checkout (tester/, staging/)
+  DIR is a VISR-CE/visr-feeds checkout (tester/, staging/)
   feeds_store.py policy --input policy.json      a release policy with its feed URLs moved to feeds.visr.gg
 """
 from __future__ import annotations
@@ -393,7 +393,7 @@ def main(arguments=None) -> int:
     staging = commands.add_parser("stage", help="write the bucket's tree to a folder")
     staging.add_argument("--output", type=Path, required=True)
     for command in (publishing, checking, staging):
-        command.add_argument("--tree", type=Path, required=True, help="a steverice/visr-feeds checkout (tester/, staging/)")
+        command.add_argument("--tree", type=Path, required=True, help="a VISR-CE/visr-feeds checkout (tester/, staging/)")
     policy = commands.add_parser("policy", help="move a release policy's feed URLs to feeds.visr.gg")
     policy.add_argument("--input", type=Path, help="policy JSON (default: standard input)")
     args = parser.parse_args(arguments)

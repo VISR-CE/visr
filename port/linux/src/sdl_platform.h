@@ -76,6 +76,8 @@ that fit the desktop, and display.window_size's; how many. None on
 Android. */
 int platform_window_sizes(long *widths, long *heights, int maximum);
 void platform_video_drawable_size(int *width, int *height);
+/* the display's safe-area insets as fractions of the window (left, right, top, bottom): the HUD keeps clear of them */
+void platform_video_safe_insets(float *insets);
 /* the window's mode and size and V-Sync, from config.toml as Settings has
 just written it (the main thread's) */
 void platform_display_apply(void);

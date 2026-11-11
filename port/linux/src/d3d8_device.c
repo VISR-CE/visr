@@ -529,6 +529,44 @@ long halo_screen_width(void)
 	return screen_width;
 }
 
+void halo_screen_hud_frame(long width, short *x0, short *y0, short *x1, short *y1)
+{
+	static long logged_width;
+	static float logged_insets[4];
+	static short logged_frame[4];
+	/* the Xbox's 7.5% title-safe inset, widened in proportion to the screen */
+	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	long left = 48 * width / 640, right = left, top = 36, bottom = 480 - 444;
+
+	platform_video_safe_insets(insets);
+	/* the display's own safe area wins where it is deeper than the title-safe inset */
+	if (insets[0] > 0.0f && (long)ceilf(insets[0] * width) > left)
+		left = (long)ceilf(insets[0] * width);
+	if (insets[1] > 0.0f && (long)ceilf(insets[1] * width) > right)
+		right = (long)ceilf(insets[1] * width);
+	if (insets[2] > 0.0f && (long)ceilf(insets[2] * SCREEN_HEIGHT) > top)
+		top = (long)ceilf(insets[2] * SCREEN_HEIGHT);
+	if (insets[3] > 0.0f && (long)ceilf(insets[3] * SCREEN_HEIGHT) > bottom)
+		bottom = (long)ceilf(insets[3] * SCREEN_HEIGHT);
+	*x0 = (short)left;
+	*x1 = (short)(width - right);
+	*y0 = (short)top;
+	*y1 = (short)(SCREEN_HEIGHT - bottom);
+	if (logged_width != width || memcmp(logged_insets, insets, sizeof(insets)) ||
+		logged_frame[0] != *x0 || logged_frame[1] != *x1 ||
+		logged_frame[2] != *y0 || logged_frame[3] != *y1)
+	{
+		platform_log("HUD frame: width %ld, insets left %.4f right %.4f top %.4f bottom %.4f, x0 %d x1 %d y0 %d y1 %d",
+			width, insets[0], insets[1], insets[2], insets[3], *x0, *x1, *y0, *y1);
+		logged_width = width;
+		memcpy(logged_insets, insets, sizeof(insets));
+		logged_frame[0] = *x0;
+		logged_frame[1] = *x1;
+		logged_frame[2] = *y0;
+		logged_frame[3] = *y1;
+	}
+}
+
 /* the display's pixels for each of the 480 lines (text_hires.c): those of
 the back buffer text is drawn into, which display.native_hud makes the
 display's own */

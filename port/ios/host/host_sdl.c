@@ -20,6 +20,8 @@ so the audio callback is handed to a thread that has one.
 #include "host_app_version.h"
 #include "host_config.h"
 #include "host_cloud_saves.h"
+#include "host_log_send.h"
+#include "host_open_website.h"
 #include "host_frame_pacer.h"
 
 #include <SDL3/SDL.h>
@@ -440,6 +442,9 @@ static int synthetic_key(SDL_Event *event)
 		event->type = SDL_EVENT_KEY_DOWN;
 		event->key.scancode = pressed;
 		event->key.down = true;
+		/* menu-bar commands, so the game treats them as chords (the intro
+		movie does not skip on them) */
+		event->key.mod = SDL_KMOD_CTRL | SDL_KMOD_GUI;
 		return 1;
 	}
 }
@@ -447,6 +452,10 @@ static int synthetic_key(SDL_Event *event)
 
 int host_sdl_poll_event(void *event)
 {
+#if TARGET_OS_IOS
+	/* Retire only presses returned by the previous guest input frame. */
+	host_ios_touch_frame();
+#endif
 	SDL_Event host_event;
 	static int test_extra_scene = -1;
 	static unsigned long polls;
@@ -633,7 +642,14 @@ int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, c
 			"r2.rectangle.roundedtop", "dpad.up.filled", "dpad.down.filled", "dpad.left.filled",
 			"dpad.right.filled", "line.3.horizontal.circle", "rectangle.on.rectangle.circle",
 			"l.joystick.press.down", "r.joystick.press.down", "l.joystick", "r.joystick" };
-		if (!strcmp(family, "xbox") || !strcmp(family, "missing")) return HALO_GLYPH_ORIGINAL;
+		if (!strcmp(family, "missing")) return HALO_GLYPH_ORIGINAL;
+		if (!strcmp(family, "xbox"))
+		{
+			/* These action-row buttons have no packaged Xbox bitmap. */
+			if (menus && physical == 14)
+				symbol = "l.joystick.press.down";
+			else return HALO_GLYPH_ORIGINAL;
+		}
 		if (!strcmp(family, "touch")) return HALO_GLYPH_HIDDEN;
 		if (!strcmp(family, "keyboard")) return HALO_GLYPH_KEYCAP;
 		if (!strcmp(family, "playstation") || !strcmp(family, "switch") || !strcmp(family, "mfi"))
@@ -667,8 +683,12 @@ int host_sdl_gamepad_glyph(uint32_t gamepad, int physical, const char *family, c
 		}
 		SDL_GamepadType type = SDL_GetGamepadType(pad);
 		if (type == SDL_GAMEPAD_TYPE_XBOX360 || type == SDL_GAMEPAD_TYPE_XBOXONE)
-			return HALO_GLYPH_ORIGINAL;
-		symbol = halo_glyph_is_axis(physical)
+		{
+			if (menus && physical == 14)
+				symbol = "l.joystick.press.down";
+			else return HALO_GLYPH_ORIGINAL;
+		}
+		else symbol = halo_glyph_is_axis(physical)
 			? SDL_GetGamepadAppleSFSymbolsNameForAxis(pad, (SDL_GamepadAxis)element)
 			: SDL_GetGamepadAppleSFSymbolsNameForButton(pad, (SDL_GamepadButton)element);
 	}
@@ -1550,10 +1570,37 @@ void host_sdl_cloud_saves_set_enabled(int enabled)
     host_cloud_saves_set_enabled(enabled);
 }
 
+/* the menus' SEND LOG row (host_log_send.m) */
+void host_sdl_open_website(int page)
+{
+    host_open_website(page);
+}
+
+void host_sdl_send_log_start(void)
+{
+    host_log_send_start();
+}
+
+void host_sdl_send_log_status(char *buffer, unsigned int size)
+{
+    host_log_send_status(buffer, size);
+}
+
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
 {
     if (!size) return;
     strncpy(buffer, host_cloud_saves_status(), size - 1);
+    buffer[size - 1] = 0;
+}
+
+void host_sdl_app_build(char *buffer, unsigned int size)
+{
+    CFTypeRef build = CFBundleGetValueForInfoDictionaryKey(CFBundleGetMainBundle(), CFSTR("CFBundleVersion"));
+
+    if (!size) return;
+    buffer[0] = 0;
+    if (build && CFGetTypeID(build) == CFStringGetTypeID())
+        CFStringGetCString((CFStringRef)build, buffer, (CFIndex)size, kCFStringEncodingUTF8);
     buffer[size - 1] = 0;
 }
 

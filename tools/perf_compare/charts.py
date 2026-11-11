@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from decimal import ROUND_HALF_UP, Decimal
 import math
 import re
 from pathlib import Path
@@ -252,7 +253,9 @@ def _suite_value(group: list[dict], query: dict, suite: str, device: str) -> tup
     if unsupported:
         return None, unsupported[0]["notes"] or "not supported", "not_supported"
     if not box:
-        gone = [row["notes"] for row in group if row["status"] == "unavailable" and row["notes"]]
+        # A build measured on another device is simply not run here; another device's unavailable note is not this one's reason.
+        measured_elsewhere = any(row["status"] == "ok" for row in group)
+        gone = [] if measured_elsewhere else [row["notes"] for row in group if row["status"] == "unavailable" and row["notes"]]
         return None, gone[0] if gone else "not measured on this device", "not_measured"
     mine = [row for row in box if row["suite"] == suite]
     if not mine:
@@ -599,13 +602,19 @@ def legend(spec: dict, built: dict | None = None) -> str:
     return " ".join(f"{marks[i % len(marks)]} {name}" for i, name in enumerate(names))
 
 
+def _to_fixed(value: float, places: int) -> str:
+    """Format like JavaScript's `toFixed`: an exact tie rounds away from zero, not to even."""
+    quantum = Decimal(1).scaleb(-places)
+    return str(Decimal(value).quantize(quantum, rounding=ROUND_HALF_UP)) if places else str(Decimal(value).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+
+
 def _detail_text(entry: dict, columns: list[str]) -> str:
     parts = []
     for column in columns:
         value = (entry["value"].get("details") or {}).get(column)
         if value is not None:
             unit, description, _, places = DETAILS[column]
-            text = f"{value:.{places}f}"
+            text = _to_fixed(value, places)
             text = text.rstrip("0").rstrip(".") if "." in text else text
             parts.append(f"{text} ms {description}" if unit == " ms" else f"{text}% {description}")
     if parts:
@@ -663,7 +672,7 @@ def _detail_cells(entry: dict, columns: list[str]) -> tuple[list[str], str]:
             cells.append("\u2013")
             continue
         unit, _, _, places = DETAILS[column]
-        text = f"{value:.{places}f}"
+        text = _to_fixed(value, places)
         text = text.rstrip("0").rstrip(".") if "." in text else text
         cells.append(text + ("%" if unit == "%" else ""))
     note = _detail_text(entry, columns) if columns and all(cell == "\u2013" for cell in cells) else ""

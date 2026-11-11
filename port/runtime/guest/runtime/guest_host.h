@@ -26,6 +26,8 @@ layouts).
 int host_device_profile_pending(char *values, unsigned long capacity, char *version, unsigned long size);
 void host_device_profile_applied(int point, int networked, int changed, int metalfx, int frame_rate);
 int host_external_active(void);
+/* Fractions of the window: left, right, top, bottom; zero on an external display. */
+void host_external_safe_insets(float *insets);
 void host_external_commit(int allow_pause);
 /* dynamic resolution (port/ios/host/host_perf_hooks.c): asked between frames
 (d3d8_device.c's screen_mode_choose) with the lines the scene would render at
@@ -43,6 +45,8 @@ void host_touch_replay_active(int active);
 
 /* 1 when the host target was built with development hooks, otherwise 0. */
 int host_development_hooks(void);
+int host_photo_mode_available(void);
+void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
 
 /* performs a Linux system call on the guest's behalf, converting the
 structures whose layout differs; returns the raw result (-errno on failure) */
@@ -308,8 +312,14 @@ void host_bink_audio_skip(unsigned int position);
 int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
+/* the menus' SEND LOG row: starts the upload of the log to iCloud; the row's text (its progress, the code or why not) */
+void host_sdl_send_log_start(void);
+/* the About screen's website row: opens https://visr.gg/ in the default browser (not on the Apple TV) */
+void host_sdl_open_website(int page);
+void host_sdl_send_log_status(char *buffer, unsigned int size);
 /* the app's build description (numeric version for releases), copied into guest memory: the main menu shows it */
 void host_sdl_app_version(char *buffer, unsigned int size);
+void host_sdl_app_build(char *buffer, unsigned int size);
 
 int host_astc_texture_key(const void *source, unsigned int format, unsigned int width, unsigned int height, unsigned int levels, unsigned int faces, unsigned int source_face_bytes, void *key);
 int host_astc_texture_read(const void *key, void *bytes, unsigned int size);

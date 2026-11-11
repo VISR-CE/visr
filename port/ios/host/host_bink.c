@@ -33,6 +33,7 @@ int host_bink_open(const char *path, struct host_bink_information *information)
 
 	bink_decoder_set_log(log_line);
 	opened = bink_decoder_open(path, &found);
+	host_logf(HOST_LOG_INFO, "bink: host open \"%s\" %s", path ? path : "", opened ? "opened" : "failed");
 	memcpy(information, &found, sizeof(found));
 	return opened;
 }

@@ -1,8 +1,8 @@
 # Performance benchmarks
 
-We try to make these comparisons fair, but numbers or projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/steverice/visr/issues/new?template=benchmark.yml)
+We try to make these comparisons fair, but numbers or projects may be wrong or out of date. Corrections? Updates? A new port or build we should add? [Open an issue](https://github.com/VISR-CE/visr/issues/new?template=benchmark.yml)
 
-Last measured: 2026-11-06.
+Last measured: 2026-11-09.
 
 The [results spreadsheet](https://docs.google.com/spreadsheets/d/1tuTJpOxUTbqgzOSDSW-nSvWKL8HkZMVucvNRUIee0t4) holds every number. The [interactive version](https://visr.gg/benchmarks.html) adds suites and a choice of builds. The methodology is at the bottom of this page.
 
@@ -21,26 +21,26 @@ Measured on a Mac mini M6 with the matched-stock settings and a 2560×1920 drawa
 config:
   xyChart:
     width: 520
-    height: 380
+    height: 432
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms), Mac mini M6"
-    x-axis "Port and version" ["VISR 0.6.11", "OpenCE-macOS v1.0.2", "CoreCE 0.3.67", "Chupathingy v0.8.1d", "Halo OG v0.5.1"]
+    x-axis "Port and version" ["VISR 0.6.11", "OpenCE-macOS v1.0.2", "CoreCE 0.3.67", "Chupathingy v0.8.1d", "Halo OG v0.5.1", "OpenH1 build-1683"]
     y-axis "Milliseconds per frame" 0 --> 8
-    bar [2.1, 0, 5.4, 2.5, 0]
-    bar [2.6, 5.2, 3, 3.2, 4.1]
+    bar [2.1, 0, 5.4, 2.5, 0, 3.9]
+    bar [2.6, 5.2, 3, 3.2, 4.1, 4.7]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.11](https://github.com/steverice/visr/releases/tag/visr-v0.6.11) (build 20261105.90817, measured 2026-11-06; 2.07 ms median CPU time per frame, 2.6 ms median GPU time per rendered frame, 3 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.67](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-67) (build 67, measured 2026-11-05; 5.43 ms median CPU time per frame, 2.96 ms median GPU time per rendered frame, 3.93 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (build 0.8.1d, measured 2026-11-04; 2.5 ms median CPU time per frame, 3.21 ms median GPU time per rendered frame, 3.76 ms 90th-percentile GPU time per rendered frame); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame).
+[VISR 0.6.11](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.11) (build 20261105.90817, measured 2026-11-06; 2.07 ms median CPU time per frame, 2.6 ms median GPU time per rendered frame, 3 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.67](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-67) (build 67, measured 2026-11-05; 5.43 ms median CPU time per frame, 2.96 ms median GPU time per rendered frame, 3.93 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (build 0.8.1d, measured 2026-11-04; 2.5 ms median CPU time per frame, 3.21 ms median GPU time per rendered frame, 3.76 ms 90th-percentile GPU time per rendered frame); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame); [OpenH1 build-1683](https://github.com/OpenH1/OpenH1/releases/tag/build-1683) (build 1683, measured 2026-11-06; 3.9 ms median CPU time per frame, 4.69 ms median GPU time per rendered frame, 6.22 ms 90th-percentile GPU time per rendered frame).
 
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Not reported: this build reports neither CPU nor GPU time per frame.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (The game halts on a sound engine assertion during this window.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (Not reported: this build reports neither CPU nor GPU time per frame.); [OpenH1 build-1662](https://github.com/OpenH1/OpenH1/releases/tag/build-1662) (Not run on this device.); [OpenH1 build-1683](https://github.com/OpenH1/OpenH1/releases/tag/build-1683) (Not reported: this build reports neither CPU nor GPU time per frame.); [OpenH1 build-1463](https://github.com/OpenH1/OpenH1/releases/tag/build-1463) (Not run on this device.).
+Not measured: [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [VISR 0.5.1](https://github.com/VISR-CE/visr/releases/tag/visr-v0.5.1) (Not reported: this build reports neither CPU nor GPU time per frame.); [CoreCE 0.3.75 build 75](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-75) (Not run on this device.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (Not run on this device.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [Chupathingy v0.9.0 (OpenGL)](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.9.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [Chupathingy v0.8.0h](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.0h) (Not reported: this build reports neither CPU nor GPU time per frame.); [OpenH1 build-1910](https://github.com/OpenH1/OpenH1/releases/tag/build-1910) (The timing trace held no frames for this window.); [OpenH1 build-1662](https://github.com/OpenH1/OpenH1/releases/tag/build-1662) (Not run on this device.); [OpenH1 build-1463](https://github.com/OpenH1/OpenH1/releases/tag/build-1463) (Not run on this device.).
 
 #### Mac: frame rate
 
@@ -58,18 +58,18 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: uncapped fps, Mac mini M6"
-    x-axis "Port and version" ["VISR 0.6.11", "OpenCE-macOS v1.0.2", "CoreCE 0.3.67", "Chupathingy v0.8.1d", "Halo OG v0.5.1", "OpenH1 build-1683"]
+    x-axis "Port and version" ["VISR 0.6.11", "OpenCE-macOS v1.0.2", "CoreCE 0.3.67", "Chupathingy v0.9.0", "Halo OG v0.5.1", "OpenH1 build-1683"]
     y-axis "Frames per second" 0 --> 500
-    bar [390.2, 332.8, 260, 205.5, 95.8, 240.5]
+    bar [390.2, 332.8, 260, 225.7, 95.8, 240.5]
 ```
 
 🟦 Average fps
 
 Higher is better.
 
-[VISR 0.6.11](https://github.com/steverice/visr/releases/tag/visr-v0.6.11) (build 20261105.90817, measured 2026-11-06; 2.6 ms median GPU time per rendered frame, 3 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.67](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-67) (build 67, measured 2026-11-05; 2.96 ms median GPU time per rendered frame, 3.93 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.8.1d](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.8.1d) (build 0.8.1d, measured 2026-11-04; 3.21 ms median GPU time per rendered frame, 3.76 ms 90th-percentile GPU time per rendered frame); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame); [OpenH1 build-1683](https://github.com/OpenH1/OpenH1/releases/tag/build-1683) (build 1683, measured 2026-11-06; no GPU times reported).
+[VISR 0.6.11](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.11) (build 20261105.90817, measured 2026-11-06; 2.6 ms median GPU time per rendered frame, 3 ms 90th-percentile GPU time per rendered frame); [OpenCE-macOS v1.0.2](https://github.com/channelramble/OpenCE-macOS/releases/tag/v1.0.2) (build 2, measured 2026-10-28; 5.17 ms median GPU time per rendered frame, 7.57 ms 90th-percentile GPU time per rendered frame); [CoreCE 0.3.67](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-67) (build 67, measured 2026-11-05; 2.96 ms median GPU time per rendered frame, 3.93 ms 90th-percentile GPU time per rendered frame); [Chupathingy v0.9.0 (OpenGL)](https://github.com/ChupathingyCE/chupathingyce/releases/tag/v0.9.0) (build 0.9.0, measured 2026-11-07; GPU time per frame not available (OpenGL)); [Halo OG v0.5.1](https://github.com/pfista/halo-og/releases/tag/v0.5.1) (build 97.1, measured 2026-10-28; 4.1 ms median GPU time per rendered frame, 5.9 ms 90th-percentile GPU time per rendered frame); [OpenH1 build-1683](https://github.com/OpenH1/OpenH1/releases/tag/build-1683) (build 1683, measured 2026-11-06; 4.69 ms median GPU time per rendered frame, 6.22 ms 90th-percentile GPU time per rendered frame).
 
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Only measured with the frame cap on, at another size or with other settings.); [VISR 0.5.1](https://github.com/steverice/visr/releases/tag/visr-v0.5.1) (Only measured with the frame cap on, at another size or with other settings.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (The game halts on a sound engine assertion during this window.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [OpenH1 build-1662](https://github.com/OpenH1/OpenH1/releases/tag/build-1662) (Not run on this device.); [OpenH1 build-1463](https://github.com/OpenH1/OpenH1/releases/tag/build-1463) (Not run on this device.).
+Not measured: [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Only measured with the frame cap on, at another size or with other settings.); [VISR 0.5.1](https://github.com/VISR-CE/visr/releases/tag/visr-v0.5.1) (Only measured with the frame cap on, at another size or with other settings.); [CoreCE 0.3.75 build 75](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-75) (Not run on this device.); [CoreCE 0.3.63](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-63) (Not run on this device.); [CoreCE 0.3.0 build 51](https://github.com/mastercheese-dev/CoreCE/releases/tag/build-51) (Not run on this device.); [OpenH1 build-1910](https://github.com/OpenH1/OpenH1/releases/tag/build-1910) (The timing trace held no frames for this window.); [OpenH1 build-1662](https://github.com/OpenH1/OpenH1/releases/tag/build-1662) (Not run on this device.); [OpenH1 build-1463](https://github.com/OpenH1/OpenH1/releases/tag/build-1463) (Not run on this device.).
 
 ### iPhone and iPad
 
@@ -87,19 +87,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, iPad Pro M1"
-    x-axis "Port and version" ["VISR 0.6.10", "ChupathingyCE iOS v0.4.1"]
-    y-axis "Milliseconds per frame" 0 --> 8.3
-    bar [3, 4.3]
-    bar [6, 0]
+    x-axis "Port and version" ["VISR 0.6.14", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
+    y-axis "Milliseconds per frame" 0 --> 25.7
+    bar [0, 5.3, 4.3, 24.4]
+    bar [5.9, 0, 0, 0]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-05; 3.03 ms median CPU time per frame, 6.02 ms median GPU time per rendered frame, 6.52 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet).
+[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 5.87 ms median GPU time per rendered frame, 7.24 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; 5.27 ms median CPU time per frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 24.4 ms median CPU time per frame; a10 not measured yet).
 
-Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+Not measured: [VISR 0.6.10](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 #### iPhone and iPad: frame rate
 
@@ -110,26 +110,26 @@ Measured on an iPad Pro M1 from runs presented at the display rate. Frame rate i
 config:
   xyChart:
     width: 520
-    height: 373
+    height: 380
   themeVariables:
     xyChart:
       plotColorPalette: "#1fa9d4, #ffc24d"
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, iPad Pro M1"
-    x-axis "Port and version" ["VISR 0.6.10", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1"]
+    x-axis "Port and version" ["VISR 0.6.14", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
     y-axis "Frames per second" 0 --> 150
-    bar [119.7, 23.9, 119.4, 119.9]
-    bar [119.7, 21.6, 119.4, 107.6]
+    bar [119.4, 23.9, 106.9, 119.9, 11.8]
+    bar [119.4, 21.6, 66.6, 107.6, 3.7]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-05; 100% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-10-27; no on-time share reported; b30 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet).
+[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; no on-time share reported); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 18.2% of frames on time; a10 not measured yet).
 
-Not measured: [VISR 0.6.5](https://github.com/steverice/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+Not measured: [VISR 0.6.10](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 ### Apple TV
 
@@ -147,9 +147,9 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 16.7 ms frame budget, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.10", "Beeman main e3abbd1"]
+    x-axis "Port and version" ["VISR 0.6.14", "Beeman main e3abbd1"]
     y-axis "Milliseconds per frame" 0 --> 16.7
-    bar [6.4, 8.4]
+    bar [4.6, 8.4]
     bar [13.6, 0]
 ```
 
@@ -157,9 +157,9 @@ xychart-beta horizontal
 
 Lower is better.
 
-[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 6.42 ms median CPU time per frame, 13.65 ms median GPU time per rendered frame); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 8.43 ms median CPU time per frame).
+[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 4.57 ms median CPU time per frame, 13.62 ms median GPU time per rendered frame); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 8.43 ms median CPU time per frame).
 
-Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
+Not measured: [VISR 0.6.3](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
 #### Apple TV: frame rate
 
@@ -177,19 +177,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.10", "Beeman main e3abbd1"]
+    x-axis "Port and version" ["VISR 0.6.14", "Beeman main e3abbd1"]
     y-axis "Frames per second" 0 --> 80
-    bar [57.9, 59.7]
-    bar [53.6, 48.6]
+    bar [58.4, 59.7]
+    bar [32.9, 48.6]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.10](https://github.com/steverice/visr/releases/tag/visr-v0.6.10) (build 20261104.114703, measured 2026-11-04; 99.9% of frames on time); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 53.5% of frames on time).
+[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 97.8% of frames on time); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 53.5% of frames on time).
 
-Not measured: [VISR 0.6.3](https://github.com/steverice/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
+Not measured: [VISR 0.6.3](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
 ### Vision Pro
 
@@ -219,7 +219,7 @@ Lower is better.
 
 VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 4.53 ms median CPU time per frame, 9.72 ms median GPU time per rendered frame).
 
-Not measured: [VISR 0.6.0](https://github.com/steverice/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build reports neither CPU nor GPU time per frame.).
+Not measured: [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [master-chef 1.0.3](https://github.com/mitchaiet/master-chef/releases/tag/v1.0.3) (Not reported: this build reports neither CPU nor GPU time per frame.).
 
 #### Vision Pro: frame rate
 
@@ -253,7 +253,9 @@ VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 11.1 ms 95th-percentile
 
 ## Methodology
 
-The snapshot holds 399 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 498 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+
+A build's screenshots come from runs on the device shown for it, and a row without a frame from that device has none.
 
 ### Timing by platform
 
@@ -264,7 +266,7 @@ The snapshot holds 399 measured windows for 11 ports on 4 platforms (Mac, iPhone
 - **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR, Beeman, ChupathingyCE iOS.
 - **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The phone's on-device Metal performance trace, read with `metalperftrace`: each frame's presented interval and GPU time, used where Instruments Metal System Trace cannot record a full window. Against Instruments Metal System Trace on an iPad Pro, average rate agreed within 0.01 fps and GPU p90 within 2%. Ports: VISR, Beeman, HaloPad.
 - **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: 117-vision.
-- **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Another method, named in the `method` column. Ports: ChupathingyCE iOS, Beeman.
+- **iPhone/iPad** (A10X iPad Pro, A14 iPad Air, A14 iPhone 12 Pro, A18 Pro iPhone 16 Pro, A19 Pro iPhone 17 Pro, M1 iPad Pro; frame cap on): Another method, named in the `method` column. Ports: ChupathingyCE iOS, Beeman, HaloPad, VISR.
 - **Apple TV** (Apple TV 4K, Apple TV HD; frame cap on): Instruments Metal System Trace recorded over the network; each frame's time is a row of the `displayed-surfaces-interval` table. Against VISR's own frame log over the same window, average rate and p95/p99 agree within 1%. Ports: VISR.
 - **Apple TV** (Apple TV 4K, Apple TV HD; frame cap on): Another method, named in the `method` column. Ports: VISR, Beeman.
 - **Vision Pro** (Apple Vision Pro, M2 Vision Pro; frame cap on): The app's own benchmark report: VISR's report, or the telemetry of a port that has no timing tool, counted over the same warm-up and sampling window. Ports: master-chef, VISR, 117-vision.
@@ -285,17 +287,17 @@ Uncapped charts show average fps and GPU time per rendered frame, not 1% low rat
 ### Suites
 
 - **Campaign:** the openings of c10 (343 Guilty Spark) and b30 (The Silent Cartographer). One player, no input, default enemies. Each window warms up for 15 seconds after player readiness, takes a five-second background CPU baseline, then samples for 60 seconds. Three rounds per set. A set with fewer than three valid rounds is marked incomplete. Earlier sets used the a10 opening and a b30 window 90 seconds later (`b30 +90 s`); those rows stay in the spreadsheet. Measured on 11 ports: VISR, OpenCE-macOS, CoreCE, master-chef, Beeman, ChupathingyCE iOS, Chupathingy, Halo OG, 117-vision, HaloPad, OpenH1.
-- **Combat:** the player is made deathless and placed in a battle from the game console: the a50 hangar (`switch_bsp`, `object_teleport`, `ai_place` for the Covenant floors and the Marines, `ai_magically_see_encounter` and `ai_magically_see_players` so the sides engage at once) and Exterior A of b40 (the same commands), each sampled for 60 seconds after a 15-second warm-up, plus the b30 bot window: the scripted bot player for 1,800 game ticks (60 seconds of game time) from tick 900. Battles and the bot window are equivalent workloads, not replays: the AI's outcome differs by a few actors between runs, so each round's end counts (`ai_living_count`, player health, ticks) are kept in the `fingerprint` column and a round outside the other rounds' range is flagged in `notes`. A round is rejected when an encounter was not placed, the game reloaded a checkpoint, or the bot did not cover its ticks or throw a grenade. A port with no unattended console shows the status `not_measured`. Measured on 9 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG, Beeman, HaloPad, ChupathingyCE iOS, OpenH1.
+- **Combat:** the player is made deathless and placed in a battle from the game console: the a50 hangar (`switch_bsp`, `object_teleport`, `ai_place` for the Covenant floors and the Marines, `ai_magically_see_encounter` and `ai_magically_see_players` so the sides engage at once) and Exterior A of b40 (the same commands), each sampled for 60 seconds after a 15-second warm-up, plus the b30 bot window: the scripted bot player for 1,800 game ticks (60 seconds of game time) from tick 900. Battles and the bot window are equivalent workloads, not replays: the AI's outcome differs by a few actors between runs, so each round's end counts (`ai_living_count`, player health, ticks) are kept in the `fingerprint` column and a round outside the other rounds' range is flagged in `notes`. A round is rejected when an encounter was not placed, the game reloaded a checkpoint, or the bot did not cover its ticks or throw a grenade. A port with no unattended console shows the status `not_measured`. Measured on 9 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG, Beeman, HaloPad, OpenH1, ChupathingyCE iOS.
 - **Cutscenes:** two whole in-engine cutscenes called from the console, `x70_bridge` on d40 and `cutscene_rescue` on a50, sampled from the call to the script's `print`. Their length is set by the game's ticks, so it is the same on every port. A round is rejected when the print does not arrive within 1.5 times the expected length or the sample covers less than 95% of it. Measured on 9 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, Halo OG, HaloPad, ChupathingyCE iOS, Beeman, OpenH1.
 - **Multiplayer:** a hosted Slayer match on Chill Out and one on Blood Gulch, each a sampling window; the suite value is the mean over both maps' windows. One local player, driven by the scripted bot input, hosts and starts the match with no other humans. Bot input is paced from the wall clock, so runs on different ports, and repeated runs on one port, play equivalent workloads, not identical replays. Measured on 5 ports: VISR, OpenCE-macOS, CoreCE, Chupathingy, OpenH1.
-- **Split-screen co-op:** local split-screen campaign co-op on one device, two players. Enemy scaling is set explicitly to static 1x on every port that has the option: VISR sets `debug.enemy_multiplier = 1`, and OpenCE-macOS and CoreCE set their enemies-per-player scaling to static 1x. A port without the option runs its own fixed behavior, and its notes column in the spreadsheet says so. A port without split screen shows "Does not support split screen" and the status `not_supported`; that differs from "not measured", which means the suite has not been run for the build. Measured on 1 port: VISR.
+- **Split-screen co-op:** local split-screen campaign co-op on one device, two players. Enemy scaling is set explicitly to static 1x on every port that has the option: VISR sets `debug.enemy_multiplier = 1`, and OpenCE-macOS and CoreCE set their enemies-per-player scaling to static 1x. A port without the option runs its own fixed behavior, and its notes column in the spreadsheet says so. A port without split screen shows "Does not support split screen" and the status `not_supported`; that differs from "not measured", which means the suite has not been run for the build. Measured on 2 ports: VISR, Chupathingy.
 - **Overall:** per build, the geometric mean of the suites' average rates and the geometric mean of their 1% low rates, each suite weighted equally, so every suite counts the same whatever its frame-rate scale. Each chart averages the suites that every build drawn in it has measured, so its bars stay comparable; the caption names them. A build that shares fewer than two suites with the others is left out and named in the caption. Ticking or unticking a build can change which suites a chart covers.
 
 Mac charts use a 2560×1920 drawable (a 1280×960-point window at 2×), where the ports' frame times separate; 1280×960 rows stay in the spreadsheet. Device sets run the same windows through a hosted one-player game, with the console commands held until the level runs. Their `cpu_p50_ms` column is VISR's own median frame CPU time, which shows the work a window adds on a device where the CPU matters.
 
 A round is rejected when the outside-process CPU average rises more than half a core above the baseline taken before the window. Each round allows three attempts. Rejected attempts appear in the spreadsheet with the status `rejected` and their reason. This snapshot has 0 rejected attempts.
 
-Suite definitions and the harness are in [`tools/perf_compare`](https://github.com/steverice/visr/blob/main/tools/perf_compare) ([`adapters.py`](https://github.com/steverice/visr/blob/main/tools/perf_compare/adapters.py), [`refresh.py`](https://github.com/steverice/visr/blob/main/tools/perf_compare/refresh.py)).
+Suite definitions and the harness are in [`tools/perf_compare`](https://github.com/VISR-CE/visr/blob/main/tools/perf_compare) ([`adapters.py`](https://github.com/VISR-CE/visr/blob/main/tools/perf_compare/adapters.py), [`refresh.py`](https://github.com/VISR-CE/visr/blob/main/tools/perf_compare/refresh.py)).
 
 Background CPU is sampled for five seconds immediately before each native sampling window. Runs are rejected when average outside-process CPU rises more than half a core above that baseline. Steady background work remains active and may affect these estimates. Each round allows up to three attempts; rejected attempts do not enter the ranges.
 

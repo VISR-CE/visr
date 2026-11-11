@@ -100,7 +100,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/), each led by
 
 ## Reporting bugs
 
-Open an [issue](https://github.com/steverice/visr/issues) with the bug report
+Open an [issue](https://github.com/VISR-CE/visr/issues) with the bug report
 template. Include your device, OS version, the app's version, your disc's
 region (NTSC-US or PAL), and what you were doing. Attach `ios-runtime.log` and
 `debug.txt` from the VISR folder in Files after you check them for anything

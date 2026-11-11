@@ -29,15 +29,21 @@ def glyph_blends():
     return re.search(r'enum\s*\{[^}]*\};', source).group()
 
 
-def test_touch_captions_and_initial_keyboard_owner(tmp_path):
+def test_keyboard_backdrop_stretch_uses_the_picture_size_not_the_texture_size():
+    source = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
+    start = source.index('static void virtual_keyboard_render_internal(\n\tvoid)\n{')
+    body = source[start:start + 6000]
+    body = body[:body.index('draw_string_set_draw_mode')]
+    assert 'left_source = {0, 0, 480, 1}' in body
+    assert 'right_source = {0, 639, 480, 640}' in body
+
+
+def test_initial_keyboard_owner(tmp_path):
     if not shutil.which('xcrun'):
         import pytest
         pytest.skip('Apple compiler and frameworks are required')
-    widget = (ROOT / 'source/interface/ui_widget.c').read_text()
     keyboard = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
     cases = {
-        'caption': ('controller_glyph_caption_probe.c', {
-            '/* CAPTION */': block(widget, 'static wchar_t const *ui_widget_touch_caption(')}),
         'owner': ('controller_glyph_owner_probe.c', {
             '/* OWNER */': block(keyboard, 'void virtual_keyboard_set_controller_context('),
             '/* LAUNCH */': block(keyboard, 'boolean virtual_keyboard_launch(')}),
@@ -141,7 +147,7 @@ def test_controller_glyph_requests(tmp_path):
     first = source.index('static const char *const binding_settings[')
     settings = source[first:source.index('};', first)+2]
     program = program.replace('/* BINDING SETTINGS */', settings).replace('/* BINDINGS READ */', block(source, 'static void bindings_read(void)'))
-    activity = '\n'.join(block(source, marker) for marker in ('void halo_controller_glyph_pointer_activity(', 'static void glyph_keyboard_activity(', 'static int glyph_gamepad_active('))
+    activity = '\n'.join(block(source, marker) for marker in ('void halo_controller_glyph_pointer_activity(', 'static void glyph_keyboard_activity(', 'static int glyph_gamepad_active(', 'void halo_controller_glyph_input_event('))
     program = program.replace('/* ACTIVITY */', activity)
     probe, binary = tmp_path / 'request.c', tmp_path / 'request'
     probe.write_text(program)
@@ -191,12 +197,25 @@ int main(void) {
     subprocess.run([str(binary)], check=True)
 
 
+def test_keyboard_symbol_and_original_legend_policy(tmp_path):
+    if not shutil.which('xcrun'):
+        import pytest
+        pytest.skip('Apple compiler and frameworks are required')
+    binary = tmp_path / 'keyboard-symbol-policy'
+    subprocess.run(['xcrun', 'clang', '-Wall', '-Werror', '-fsanitize=address,undefined',
+                    '-iquote', str(ROOT / 'port/linux/include'),
+                    str(ROOT / 'port/ios/tests/keyboard_symbol_policy_probe.c'),
+                    '--output=' + str(binary)], check=True)
+    subprocess.run([str(binary)], check=True)
+
+
 if __name__ == '__main__':
     with tempfile.TemporaryDirectory() as directory:
+        test_keyboard_symbol_and_original_legend_policy(Path(directory))
         test_controller_glyph_policy(Path(directory))
         test_controller_glyph_requests(Path(directory))
         test_controller_glyph_draw_cache_and_clipping(Path(directory))
         test_hud_glyph_layout_color_and_fallback(Path(directory))
         test_native_controller_bridge_mapping(Path(directory))
         test_virtual_keyboard_fallback_and_legend_patches(Path(directory))
-        test_touch_captions_and_initial_keyboard_owner(Path(directory))
+        test_initial_keyboard_owner(Path(directory))

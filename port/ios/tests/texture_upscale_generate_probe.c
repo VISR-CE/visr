@@ -208,6 +208,19 @@ int main(void)
     assert(!texture_upscale_generate(g, &in, &out, error, sizeof(error)));
     assert(out.level_count == 4 && out.levels[0].width == 8 && !memcmp(out.levels[1].pixels, a, 64));
     texture_upscale_generate_free_output(&out);
+    {   /* a redrawn picture asks for no prediction: the stand-in resize has the same shapes */
+        int before = calls;
+        in.synthetic = 1;
+        in.decision.scale = 2;
+        assert(!texture_upscale_generate(g, &in, &out, error, sizeof(error)));
+        assert(calls == before && out.level_count == 4 && out.levels[0].width == 8 && !memcmp(out.levels[1].pixels, a, 64));
+        texture_upscale_generate_free_output(&out);
+        in.decision.scale = 4;
+        assert(!texture_upscale_generate(g, &in, &out, error, sizeof(error)));
+        assert(calls == before && out.level_count == 5 && out.levels[0].width == 16 && out.levels[1].width == 8);
+        texture_upscale_generate_free_output(&out);
+        in.synthetic = 0;
+    }
     in.decision.scale = 4;
     assert(!texture_upscale_generate(g, &in, &out, error, sizeof(error)));
     assert(out.level_count == 5 && out.levels[0].width == 16 && out.levels[1].width == 8

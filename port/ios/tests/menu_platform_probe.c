@@ -33,6 +33,13 @@ int main(int argc, char **argv)
 	check("cloud_saves", 0);
 #endif
 #if defined(HALO_IOS)
+	check("send_log", getenv("HALO_HOST_SEND_LOG") && !strcmp(getenv("HALO_HOST_SEND_LOG"), "1"));
+	check("!send_log", !(getenv("HALO_HOST_SEND_LOG") && !strcmp(getenv("HALO_HOST_SEND_LOG"), "1")));
+#else
+	check("send_log", 0);
+	check("!send_log", 1);
+#endif
+#if defined(HALO_IOS)
 	check("tvos", getenv("HALO_HOST_TVOS") && !strcmp(getenv("HALO_HOST_TVOS"), "1"));
 #else
 	check("tvos", 0);
@@ -48,6 +55,10 @@ int main(int argc, char **argv)
 	check("desktop", want_desktop);
 	check("android", want_android);
 	check("tv", -1);
+	/* (a "!" before a value: the builds that are not for it) */
+	check("!desktop", !want_desktop);
+	check("!android", !want_android);
+	check("!tv", -1);
 	check("", -1);
 	printf("%s (%s)\n", failures ? "menu platform probe FAILED" : "menu platform probe passed", kind);
 	return failures != 0;

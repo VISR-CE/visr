@@ -7,6 +7,8 @@ host_guest_halt
 host_map_load_failed
 host_exit
 host_development_hooks
+host_photo_mode_available
+host_photo_mode_overlay
 host_benchmark_start
 host_benchmark_next
 host_benchmark_phase
@@ -132,6 +134,7 @@ host_benchmark_worker_wait
 
 # Wired external display lifecycle and test controls
 host_external_active
+host_external_safe_insets
 host_external_commit
 host_external_cycle
 host_external_force
@@ -147,7 +150,11 @@ host_memory_available_megabytes
 host_sdl_cloud_saves_enabled
 host_sdl_cloud_saves_set_enabled
 host_sdl_cloud_saves_status
+host_sdl_send_log_start
+host_sdl_open_website
+host_sdl_send_log_status
 host_sdl_app_version
+host_sdl_app_build
 
 host_shader_observation_activate
 host_shader_observation_append

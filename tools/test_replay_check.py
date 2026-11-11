@@ -161,3 +161,13 @@ def test_staging_preset_defaults_to_opening_end_window(tmp_path, monkeypatch, pr
     assert replay_check.main() == 2  # No reports from the launch stub.
     assert cases
     assert all((case["anchor"], case["lead"], case["window"]) == expected for case in cases)
+
+
+def test_local_catalog_replaces_an_anchor_the_take_carries(tmp_path):
+    folder = take(tmp_path)
+    folder.with_suffix(".route").write_text("anchor = checkpoint:1\nevents = checkpoint:1:10\n" + ROUTE)
+    local = tmp_path / "local-routes"
+    replay_check.write_local_routes(folder, local, "check", "checkpoint:1", 1, 4)
+    [case] = benchmark_catalog.load_catalog(local)
+    assert case["anchor"] == "checkpoint:1"
+    assert (local / "check.route").read_text().count("anchor = ") == 1

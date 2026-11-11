@@ -35,7 +35,7 @@
 		<on event="b" run="gamespy dismiss error" />
 		<on event="back" run="gamespy dismiss error" />
 		<child widget="xbox/error/error_modal" />
-		<child widget="xbox/error/error_modal_button_bar" x="194" y="449" />
+		<child widget="xbox/error/error_modal_button_bar" x="194" y="430" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
 	</widget>
@@ -124,11 +124,11 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/button_refresh_create_inter" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/gamespy_error_fullscreen" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/a_butn" x="498" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/=accept" x="519" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/accept" x="519" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/b_butn" x="398" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/=cancel" x="419" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/cancel" x="419" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/y_butn" x="218" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/=create" x="239" y="414" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/create" x="239" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/x_butn" x="66" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/join_game_button_refresh" x="87" y="414" />
 	</widget>
@@ -491,11 +491,11 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/join_game_items_list" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/=accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="70" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="70" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/=cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="52" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="52" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/=create" type="text" text="CREATE GAME" font="ui\large_ui" color="#FF2896FF" width="132" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/create" type="text" text="CREATE GAME" font="ui\large_ui" color="#FF2896FF" width="132" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<bitmap name="xbox/browser/c_row">
 		<frame png="xbox/art/browser/row__0.png" width="270" height="50" />

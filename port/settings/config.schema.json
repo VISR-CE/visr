@@ -1391,6 +1391,17 @@
     "debug": {
       "type": "object",
       "properties": {
+        "photo_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable developer map framing controls in the development AppKit Mac host.",
+          "x-environment": "HALO_PHOTO_MODE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "test_controller": {
           "type": "string",
           "default": "",
@@ -1978,6 +1989,17 @@
           "default": "",
           "description": "The weapon network_test_pickup stands the player on: the first whose tag name has this in it (\"sniper\", say); empty any.",
           "x-environment": "HALO_NETWORK_TEST_PICKUP_WEAPON",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "network_test_weapon": {
+          "type": "string",
+          "default": "",
+          "description": "In an automated test game, the host puts the first weapon whose tag name has this in it (\"sniper\", say) in the hands of each of its own local players (split screen), again after each respawn; empty none.",
+          "x-environment": "HALO_NETWORK_TEST_WEAPON",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -2631,6 +2653,17 @@
           "default": "",
           "description": "Start on this screen of the menus (port/assets/menus) instead of the main menu, a player profile being edited; empty for the main menu.",
           "x-environment": "HALO_MENU_OPEN",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "menu_open_coop": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.menu_open on Server Setup, show it as a co-op host's, though no game is hosted (for screenshots).",
+          "x-environment": "HALO_MENU_OPEN_COOP",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

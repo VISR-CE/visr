@@ -13,7 +13,7 @@
 
 ![Halo on Vision Pro](./a30-visor.png){hero video=hero}
 
-[Get VISR](https://github.com/steverice/visr/releases) • [Vision Pro](#apple-vision-pro) • [iPhone](#iphone) • [iPad](#ipad) • [Apple TV](#apple-tv) • [Mac](#mac) • [GitHub](https://github.com/steverice/visr)
+[Get VISR](https://github.com/VISR-CE/visr/releases) • [Vision Pro](#apple-vision-pro) • [iPhone](#iphone) • [iPad](#ipad) • [Apple TV](#apple-tv) • [Mac](#mac) • [GitHub](https://github.com/VISR-CE/visr)
 
 ## Behind the visor like never before
 

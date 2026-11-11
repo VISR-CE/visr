@@ -65,7 +65,9 @@ def test_settings_keep_pc_values_and_handlers():
         assert {e.get('run') for e in source.iter('on') if e.get('run')} <= {
             e.get('run') for e in output.iter('on') if e.get('run')}
         names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
-        assert {'a_butn', 'b_butn', '=accept', '=cancel'} <= names
+        # (the About screen's A does nothing: its legend is the way back alone)
+        assert ({'b_butn', 'cancel'} if folder == 'about' else
+                {'a_butn', 'b_butn', 'accept', 'cancel'}) <= names
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
@@ -90,15 +92,18 @@ def test_generator_rejects_map_widget_definitions(tmp_path):
 
 def test_save_is_a_focusable_action_separate_from_a_legend():
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        if path.name == 'settings.about.xml':  # (nothing to save)
+            continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
         save = next(w for n, w in widgets.items() if n.endswith('/button_ok'))
         # ui_mouse_key_button posts A to the existing focus; a SAVE item must
         # get the normal item target, which focuses it before posting A.
-        assert save.get('type') == 'text'
-        assert save.get('text') == 'SAVE'
-        assert not save.findall('child')
+        assert save.get('type') is None
+        caption = widgets[next(c.get('widget') for c in save.findall('child') if c.get('widget').endswith('_caption'))]
+        assert caption.get('text') == 'SAVE'
+        assert len(save.findall('child')) == 2
         assert save.find('on[@event="a"][@back="true"]') is not None
-        accept = next(w for n, w in widgets.items() if n.endswith('/=accept'))
+        accept = next(w for n, w in widgets.items() if n.endswith('/accept'))
         assert accept.get('text') == 'SELECT'
 
 
@@ -152,10 +157,11 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
             for tag, key in (('on', 'run'), ('data', 'input')):
                 expected = [(e.get('event'), e.get(key)) for e in original.findall(tag)]
                 actual = [(e.get('event'), e.get(key)) for e in copied.findall(tag)]
-                if name.endswith('/filters/filters_screen'):
-                    assert all(item in actual for item in expected)
-                else:
-                    assert expected == actual
+                if '/lobby/lobby_button_' in name or name.endswith('/lobby/lobby_screen'):
+                    # The distinct shortcuts are checked by the lobby action test.
+                    if tag == 'on':
+                        continue
+                assert all(item in actual for item in expected), (name, expected, actual)
             if '/header_' in original.get('name'):
                 # (their size is their picture's: tools/test_xbox_titles.py)
                 for key in ('left', 'top'):
@@ -338,7 +344,7 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
-    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(268, 310), (284, 310), (356, 310), (372, 310)]
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(244, 310), (260, 310), (356, 310), (372, 310)]
     children = bar.findall('child')
     assert children[0].get('widget') == 'xbox/error/confirm_delete_profile/b_butn'
     assert children[2].get('widget') == 'xbox/error/confirm_delete_profile/a_butn'
@@ -405,19 +411,23 @@ def test_scrolling_lists_fit_above_their_help():
             help_top = int(widgets[w.get('description')].get('top'))
             assert window < len(slots) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
-    assert any(name.endswith('server_settings/options_menu') for name in seen)
     assert any(name.endswith('network_setup/options_menu') for name in seen)
 
 
-def test_server_settings_and_network_rows_fit_with_scrolling():
-    for filename, name in (('main_menu.multiplayer_type_select.server_settings', 'server_settings'),
-                           ('settings.network_setup', 'network_setup')):
-        widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox' / (filename + '.xml')).getroot().iter('widget')}
-        options = next(w for w in widgets.values() if w.get('name').endswith(name + '/options_menu'))
-        slots, window, bottom = window_rows(options, widgets)
-        assert 'visible_rows' in options.attrib
-        assert bottom <= int(widgets[options.get('description')].get('top'))
-        assert len(slots) > window
+def test_server_settings_rows_fit_without_scrolling_and_network_rows_scroll():
+    # (Server Setup's seven rows fit above its help)
+    widgets = {w.get('name'): w for w in ET.parse(
+        MENUS / 'xbox/main_menu.multiplayer_type_select.server_settings.xml').getroot().iter('widget')}
+    options = next(w for w in widgets.values() if w.get('name').endswith('server_settings/options_menu'))
+    slots, window, bottom = window_rows(options, widgets)
+    assert 'visible_rows' not in options.attrib
+    assert bottom <= int(widgets[options.get('description')].get('top'))
+    widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox/settings.network_setup.xml').getroot().iter('widget')}
+    options = next(w for w in widgets.values() if w.get('name').endswith('network_setup/options_menu'))
+    slots, window, bottom = window_rows(options, widgets)
+    assert 'visible_rows' in options.attrib
+    assert bottom <= int(widgets[options.get('description')].get('top'))
+    assert len(slots) > window
 
 
 def test_only_column_lists_scroll():
@@ -444,7 +454,9 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
             up, down = int(arrows['scroll_up_arrow'].get('y')), int(arrows['scroll_down_arrow'].get('y'))
             assert up == min(rows) and up < down
             window = int(w.get('visible_rows'))
-            assert down <= min(rows) + window * 30
+            slots = sorted(set(rows))
+            pitch = slots[1] - slots[0]
+            assert down <= min(rows) + window * pitch
             for leaf, frame in (('scroll_up_arrow', 'arrow_sm_up'), ('scroll_down_arrow', 'arrow_sm_down')):
                 art = widgets[arrows[leaf].get('widget')]
                 assert art.get('bitmap') == 'xbox/bitmaps/' + frame
@@ -676,7 +688,7 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
                for s in ET.parse(path).iter('strings')}
     assert strings[text.get('string_list')][int(text.get('string_index'))].get('text').replace(r'\n', ' ') == (
         'This game allows more players than this device runs smoothly. Join anyway?')
-    for icon, caption, emitted in (('b', '=CANCEL', 'back'), ('a', '=OK', 'accept')):
+    for icon, caption, emitted in (('b', 'CANCEL', 'back'), ('a', 'OK', 'accept')):
         assert widgets[f'{base}/{icon}_butn'].get('bitmap') == f'xbox/browser/{icon}_butn_sm'
         label = widgets[f'{base}/{icon}_caption']
         assert label.get('text') == caption
@@ -715,3 +727,399 @@ def test_empty_browser_explains_on_the_left_and_keeps_the_detail_panel():
     for leaf in ('browser_list_status', 'browser_list_hint'):
         assert f'{base}/{leaf}' in names
         assert placed[leaf][0] == 36 and 82 <= placed[leaf][1] < 82 + 53 * 3  # inset from the list edges, where the first rows sit
+
+
+def png_header_and_first_pixel(path):
+    """An 8-bit RGBA PNG's size and its top-left pixel (row 0's first pixel is stored raw under every filter)."""
+    data = path.read_bytes()
+    assert data[:8] == b'\x89PNG\r\n\x1a\n'
+    position, idat, size = 8, b'', None
+    while position < len(data):
+        length = int.from_bytes(data[position:position + 4], 'big')
+        kind = data[position + 4:position + 8]
+        body = data[position + 8:position + 8 + length]
+        if kind == b'IHDR':
+            size = (int.from_bytes(body[:4], 'big'), int.from_bytes(body[4:8], 'big'), body[8], body[9])
+        elif kind == b'IDAT':
+            idat += body
+        position += 12 + length
+    return size, tuple(zlib.decompress(idat)[1:5])
+
+
+def test_title_icon_is_the_outline_helmet_drawn_at_four_times_its_size():
+    module = generator()
+    bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
+    icon = bitmaps.find(f"bitmap[@name='{module.TITLE_ICON}']")
+    frame = icon.find('frame')
+    assert (frame.get('width'), frame.get('height')) == (str(module.TITLE_ICON_SIZE),) * 2 == ('36', '36')
+    (width, height, depth, color), corner = png_header_and_first_pixel(MENUS / frame.get('png'))
+    assert (width, height, depth, color) == (144, 144, 8, 6)
+    # (the helmet is drawn from art/visr_title_icon.svg, which is in the checked-in set; the corner is transparent)
+    assert (MENUS / 'xbox/art/visr_title_icon.svg').is_file()
+    assert corner[3] == 0
+    assert frame.get('png') in json.loads((MENUS / 'menus.json').read_text())['files']
+
+
+def test_title_icon_drawn_by_the_name_the_generator_gives_it():
+    """The game finds the icon by its tag name (the menus' tags are named pc\\<name>, with backslashes)."""
+    module = generator()
+    source = (ROOT / 'source/interface/ui_widget.c').read_text()
+    tag = 'pc\\' + module.TITLE_ICON.replace('/', '\\')
+    assert '"' + tag.replace('\\', '\\\\') + '"' in source
+    # the titles' capitals (22 units tall from 33 units down, 30 units in) which the 36-unit picture's helmet matches
+    assert 'size = 36 * scale_y;' in source and 'bounds->y0 + 44 * scale_y - size / 2' in source
+
+
+@pytest.mark.parametrize('page', ('server_settings', 'coop_options'))
+def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
+    module = generator()
+    root = ET.parse(MENUS / 'xbox' / f'main_menu.multiplayer_type_select.{page}.xml')
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    base = 'xbox/' + module.MP + '/' + page
+    options = widgets[base + '/options_menu']
+    rows = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')]
+    assert not any(c.get('widget').endswith('/button_bar') for c in rows)
+    action = widgets[rows[-1].get('widget')]
+    assert action.get('name') == base + ('/op_start_game' if page == 'server_settings' else '/op_save')
+    assert action.get('text') == ('START GAME' if page == 'server_settings' else 'SAVE')
+    if page == 'coop_options':
+        old = widgets[base + '/button_ok']
+        assert [e.attrib for e in action.findall('on')] == [e.attrib for e in old.findall('on')]
+    else:
+        assert action.find('on[@event="a"]').get('run') == 'ss start game'
+    assert action.get('bitmap') == widgets[base + ('/op_coop_options' if page == 'server_settings'
+                                                  else '/op_fireteam')].get('bitmap')
+    for c in rows:
+        row = widgets[c.get('widget')]
+        assert int(row.get('height')) == module.ROW_HEIGHT == 28
+        for inner in row.findall('child'):
+            value = widgets[inner.get('widget')]
+            leaf = value.get('name').rsplit('/', 1)[-1]
+            if leaf.endswith(('_value', '_spinner')):
+                assert value.get('font') == r'ui\large_ui'
+                assert value.get('color') == '#FFFFFFFF'
+                # (a text value is centered on the spinner's line in a wider field: 264 + 250 / 2 = 286 + 206 / 2)
+                wide = value.get('type') != 'spinner'
+                assert (inner.get('x'), value.get('left'), value.get('width')) == (
+                    ('264', '3', '250') if wide else ('286', '3', '206'))
+                label = widgets[value.get('name').rsplit('_', 1)[0] + '_label']
+                assert int(inner.get('y')) + int(value.get('top')) + int(value.get('text_y')) == int(label.get('text_y'))
+                if value.get('type') == 'spinner':
+                    assert value.get('header_bounds') == '7 -6 19 0'
+                    assert value.get('footer_bounds') == '7 209 19 215'
+    accept = widgets[base + '/' + page + '_screen/legend/accept']
+    assert accept.get('text') == 'SELECT'
+
+
+def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
+    base = 'xbox/main_menu/multiplayer_type_select/mp_map_select'
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.mp_map_select.xml')
+    data = root.find(f'widget[@name="{base}/mp_map_right_data"]')
+    counts = root.find(f'strings[@name="{data.get("string_list")}"]')
+    assert counts is not None
+    source = ET.parse(MENUS / 'ce/strings.xml').find(
+        'strings[@name="main_menu/multiplayer_type_select/mp_map_select/map_data"]')
+    assert len(counts) == len(source)
+    for actual, original in zip(counts, source):
+        lines = original.get('text').split(r'\n')
+        expected = [line.strip() for line in lines if line.strip().endswith(' players')]
+        assert actual.get('text') == (expected[0] if expected else '')
+    assert counts[6].get('text') == '2-8 players'  # Chill Out keeps its capacity.
+    panel = root.find(f'widget[@name="{base}/mp_map_right_item"]')
+    assert panel.find('child[@widget="xbox/main_menu/solo_level_select/replay_level_right_data"]') is not None
+    shared = ET.parse(MENUS / 'xbox/multiplayer.shared.xml')
+    campaign = shared.find('strings[@name="xbox/main_menu/solo_level_select/map_data"]')
+    pc_campaign = ET.parse(MENUS / 'ce/strings.xml').find(
+        'strings[@name="main_menu/solo_level_select/map_data"]')
+    assert [s.get('text') for s in campaign] == [s.get('text') for s in pc_campaign]
+
+
+@pytest.mark.parametrize('look', ('ce', 'xbox'))
+def test_server_setup_rows_invite_and_gametype_editor(look):
+    base = ('xbox/' if look == 'xbox' else '') + 'main_menu/multiplayer_type_select/server_settings'
+    root = ET.parse(MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml')
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    options = widgets[base + '/options_menu']
+    screen = widgets[base + '/server_settings_screen']
+    rows = [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')
+            if '/scroll_' not in c.get('widget')]
+    assert [r for r in rows if r != 'op_coop_options'] == [
+        'op_server_name', 'op_max_players', 'op_game_type', 'op_gametype_options',
+        'op_listing', 'op_password', 'op_start_game']
+    assert [r for r in rows if r not in ('op_game_type', 'op_gametype_options')] == [
+        'op_server_name', 'op_max_players', 'op_coop_options', 'op_listing', 'op_password', 'op_start_game']
+    assert not any(base + '/' + r in widgets for r in (
+        'op_invite', 'op_map_share', 'op_player_options', 'op_item_options', 'op_vehicle_options',
+        'op_indicator_options', 'op_team_options', 'op_friendly_fire', 'op_extra_enemies',
+        'op_enemies_per_player', 'op_enemies_multiplier', 'op_player_collisions', 'op_ally_friendly_fire', 'op_fireteam'))
+    invite = widgets[base + '/invite_value']
+    assert invite.get('color') == '#FFFFFFFF'
+    assert int(invite.get('height')) >= 53
+    assert invite.find('on[@event="left_mouse"]').get('run') == 'ss copy invite'
+    assert 'invite_value' not in rows
+    position = screen.find(f'child[@widget="{base}/x_butn_invite"]')
+    assert position is not None
+    hit = widgets[position.get('widget')]
+    assert hit.find(f'child[@widget="{base}/invite_value"]') is not None
+    assert hit.get('height') == invite.get('height')
+    assert hit.get('bitmap') is None
+    assert hit.find('on[@event="left_mouse"]').get('run') == 'ss copy invite'
+    help_panel = widgets[options.get('description')]
+    assert int(help_panel.get('top')) + int(help_panel.get('height')) <= int(position.get('y'))
+    assert screen.find('on[@event="x"]').get('run') == 'ss copy invite'
+    editor = widgets[base + '/op_gametype_options']
+    for event in ('a', 'start'):
+        handler = editor.find(f'on[@event="{event}"]')
+        assert handler.get('run') == 'port setup edit'
+        target = 'main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen'
+        assert handler.get('open') == ('ui\\shell\\' + target.replace('/', '\\') if look == 'xbox' else target)
+    assert widgets[base + '/op_game_type'].find(f'child[@widget="{base}/game_type_value"]') is not None
+    if look == 'xbox':
+        legend = base + '/server_settings_screen/legend'
+        assert widgets[legend + '/copy'].get('text') == 'INVITE'
+        keys = [screen.find(f'child[@widget="{legend}/{key}_butn"]') for key in ('x', 'b', 'a')]
+        assert int(position.get('x')) + int(invite.get('width')) <= int(keys[0].get('x'))
+        for i, key in enumerate(keys):
+            target = widgets[key.get('widget')]
+            assert int(target.get('height')) >= 53
+            assert int(key.get('x')) + int(target.get('width')) <= (int(keys[i + 1].get('x')) if i < 2 else 640)
+        assert widgets[legend + '/x_butn'].find('on[@event="left_mouse"]').get('run') == 'ss copy invite'
+    # Hard-coded help and label indices remain available to the runtime.
+    import port_settings
+    generated_text = '\n'.join(port_settings.multiplayer_files()['main_menu.multiplayer_type_select.server_settings.xml'])
+    if look == 'ce':
+        assert (MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml').read_text() == generated_text
+    generated = ET.fromstring(generated_text)
+    for name in ('labels', 'help_strings'):
+        expected = generated.find(f'strings[@name="main_menu/multiplayer_type_select/server_settings/{name}"]')
+        assert [e.attrib for e in root.find(f'strings[@name="{base}/{name}"]')] == [e.attrib for e in expected]
+
+
+def test_merged_rows_and_bindings():
+    import port_settings
+    BASE = 'main_menu/multiplayer_type_select/coop_options/'
+    NAME = 'main_menu.multiplayer_type_select.coop_options.xml'
+    for look in ('ce', 'xbox'):
+        prefix = 'xbox/' if look == 'xbox' else ''
+        base = prefix + BASE
+        root = ET.parse(ROOT / 'port/assets/menus' / look / NAME).getroot()
+        widgets = {w.get('name'): w for w in root.findall('widget')}
+        rows = widgets[base + 'options_menu'].findall('child')
+        assert [c.get('widget').removeprefix(base) for c in rows] == [
+            'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam',
+            'op_save' if look == 'xbox' else 'button_bar']
+        assert [int(c.get('y')) for c in rows[:4]] == [73, 103, 133, 163]
+        assert all(widgets[base + name].get('height') == '28' for name in (
+            'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam'))
+        for key, expected in (
+            ('friendly_fire', ['OFF', 'PLAYERS ONLY', 'AI ALLIES ONLY', 'ON']),
+            ('extra_enemies', ['NONE'] + [f'+{x}% PER PLAYER' for x in port_settings.COOP_ENEMIES_PERCENTAGES]
+             + [f'{x}X' for x in port_settings.COOP_ENEMIES_MULTIPLIERS])):
+            spinner = widgets[base + key + '_spinner']
+            assert spinner.get('strings').split('|') == expected
+            assert spinner.get('width') == '206'
+            assert spinner.get('setting') is None and spinner.get('values') is None
+            assert spinner.find("on[@event='created']") is None
+            assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
+        assert widgets[base + 'coop_options_screen'].find("on[@event='created']").get('run') == 'coop options init'
+        action = widgets[base + ('op_save' if look == 'xbox' else 'button_ok')]
+        for event in ('a', 'start'):
+            assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
+        if look == 'xbox':
+            assert action.get('text') == 'SAVE'
+            assert int(rows[-1].get('y')) == 193
+        assert all(not any(w.get('name').endswith('/' + name) for w in widgets.values())
+                   for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))
+
+
+def test_settings_legends_have_global_button_bindings():
+    for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        if path.name == 'settings.about.xml':
+            continue
+        root = ET.parse(path).getroot()
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
+        for button, target in (('x', 'button_defaults'), ('y', 'button_ok')):
+            action = next(w for name, w in widgets.items() if name.endswith('/' + target))
+            handler = action.find(f'on[@event="{button}"]')
+            assert handler is not None, (path, button)
+            global_handler = screen.find(f'on[@event="{button}"]')
+            assert global_handler is not None
+            assert global_handler.get('run') == handler.get('run')
+            assert global_handler.get('back') == handler.get('back')
+            assert any(name.endswith('/' + button + '_butn') for name in widgets)
+            for event in ('a', 'start'):
+                assert action.find(f'on[@event="{event}"]').get('run') == handler.get('run')
+
+
+def test_generated_menu_text_and_names_do_not_contain_equals():
+    for path in (MENUS / 'xbox').glob('*.xml'):
+        for element in ET.parse(path).iter():
+            for attr in ('text', 'name', 'widget'):
+                assert '=' not in element.get(attr, ''), (path, element.attrib)
+
+
+def test_legend_touch_rectangles_fit_without_overlapping():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    def origin(name, seen=()):
+        assert name not in seen
+        for widget in widgets.values():
+            for c in widget.findall('child'):
+                if c.get('widget') == name:
+                    px, py = origin(widget.get('name'), (*seen, name))
+                    return px + int(c.get('x', 0)), py + int(c.get('y', 0))
+        return 0, 0
+
+    parents = {}
+    for name, widget in widgets.items():
+        for c in widget.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+    def screens(name, seen=()):
+        if name in seen:
+            return set()
+        if name.endswith('screen'):
+            return {name}
+        return {screen for parent in parents.get(name, []) for screen in screens(parent, (*seen, name))}
+    screen_rectangles = {}
+    count = 0
+    for parent in widgets.values():
+        children = parent.findall('child')
+        rectangles = []
+        for icon in children:
+            name = icon.get('widget')
+            if name.rsplit('/', 1)[-1] not in ('a_butn', 'b_butn', 'x_butn', 'y_butn', 'left_thumb_butn'):
+                continue
+            art = widgets[name]
+            if art.findall('child') or parent.get('name').rsplit('/', 1)[-1] in (
+                    'a_butn', 'b_butn', 'x_butn', 'y_butn'):
+                continue  # a tall target that holds its own caption and mouse handler
+            x, y = int(icon.get('x', 0)), int(icon.get('y', 0))
+            right = x + int(art.get('width', 0))
+            labels = [c for c in children if widgets[c.get('widget')].get('type') == 'text'
+                      and int(c.get('y', 0)) == y and 0 <= int(c.get('x', 0)) - right < 17]
+            assert len(labels) == 1, name
+            label = labels[0]
+            end = int(label.get('x')) + int(widgets[label.get('widget')].get('width'))
+            # The C helper pads by eight horizontally and centers a 60-unit height.
+            width = max(60, end - x + 16)
+            parent_x, parent_y = origin(parent.get('name'))
+            x += parent_x
+            end += parent_x
+            y += parent_y
+            rect = (x - (width - (end - x)) // 2, y - 17, x - (width - (end - x)) // 2 + width, y + 43)
+            assert 0 <= rect[0] < rect[2] <= 640, (name, rect)
+            assert 0 <= rect[1] < rect[3] <= 480, (name, rect)
+            for previous in rectangles:
+                assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (name, rect, previous)
+            rectangles.append(rect)
+            for screen in screens(parent.get('name')):
+                for previous in screen_rectangles.get(screen, []):
+                    assert rect[0] >= previous[2] or previous[0] >= rect[2] or rect[1] >= previous[3] or previous[1] >= rect[3], (screen, name, rect, previous)
+                screen_rectangles.setdefault(screen, []).append(rect)
+            count += 1
+    assert count > 40
+
+
+def test_settings_footer_focus_only_visits_actions():
+    for path in (MENUS / 'xbox').glob('settings.*.xml'):
+        if path.name == 'settings.about.xml':
+            continue
+        widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
+        bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
+        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults', 'button_ok']
+        for placement in bar.findall('child'):
+            action = widgets[placement.get('widget')]
+            assert action.find('on[@event="a"]') is not None
+            assert len(action.findall('child')) == 2
+
+
+def test_every_legend_button_has_a_key_and_action():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    parents = {}
+    for name, widget in widgets.items():
+        for c in widget.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+
+    def ancestors(name, seen):
+        if name in seen:
+            return
+        seen.add(name)
+        for parent in parents.get(name, []):
+            ancestors(parent, seen)
+
+    def descendants(name, seen):
+        if name in seen:
+            return
+        seen.add(name)
+        for c in widgets[name].findall('child'):
+            if c.get('widget') in widgets:
+                descendants(c.get('widget'), seen)
+
+    header = (ROOT / 'port/linux/include/halo_controller_glyphs.h').read_text()
+    import re
+    keys = dict((int(button), label) for button, label in
+                re.findall(r'X\((\d+), SDL_SCANCODE_\w+, "([^"]+)"\)', header))
+    buttons = dict(a=0, b=1, x=2, y=3, left_thumb=14)
+    keys[14] = 'R'
+    count = 0
+    for name in widgets:
+        leaf = name.rsplit('/', 1)[-1]
+        if leaf not in tuple(button + '_butn' for button in buttons):
+            continue
+        button = leaf.removesuffix('_butn')
+        assert keys[buttons[button]]
+        family = set()
+        ancestors(name, family)
+        graph = set()
+        for root in family:
+            if not parents.get(root):
+                descendants(root, graph)
+        events = {event.get('event') for n in graph for event in widgets[n].findall('on')}
+        # B without a screen-specific handler uses the engine's built-in back action.
+        assert button in events or button == 'b', name
+        count += 1
+    assert count > 40
+
+
+def test_lobby_actions_have_distinct_live_shortcuts_and_glyphs():
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.lobby.xml')
+    widgets = {w.get('name').rsplit('/', 1)[-1]: w for w in root.iter('widget')}
+    expected = {'start': 'a', 'team': 'x', 'add': 'y', 'leave': 'b', 'share': 'left_thumb'}
+    screen = widgets['lobby_screen']
+    for action, button in expected.items():
+        target = widgets['lobby_button_' + action]
+        assert target.get('type') != 'text', action
+        assert target.find(f'on[@event="{button}"]') is not None, action
+        assert any(c.get('widget').endswith('/' + button + '_butn') for c in target.findall('child'))
+        if action != 'start':  # A acts on the focused button only
+            assert screen.find(f'on[@event="{button}"]') is not None
+    assert len({screen.find(f'on[@event="{b}"]').get('run') for a, b in expected.items() if a != 'start'}) == 4
+    assert not any('/legend/' in c.get('widget') for c in screen.findall('child'))
+    assert screen.find('on[@event="start"][@run="port lobby join"]') is not None
+
+
+def test_visible_action_bars_use_glyph_caption_pairs():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    parents = {}
+    for name, w in widgets.items():
+        for c in w.findall('child'):
+            parents.setdefault(c.get('widget'), []).append(name)
+    def screens(name, seen):
+        if name in seen:
+            return set()
+        seen.add(name)
+        result = {name} if name.endswith('_screen') else set()
+        for parent in parents.get(name, []):
+            result |= screens(parent, seen)
+        return result
+    for name, w in widgets.items():
+        if 'button_bar' not in name.rsplit('/', 1)[-1] or not screens(name, set()):
+            continue
+        children = [widgets[c.get('widget')] for c in w.findall('child')]
+        if any(c.get('name').endswith('_butn') for c in children):
+            continue  # Confirmation bars already pair icons and captions.
+        for action in children:
+            assert any(c.get('widget').endswith('_butn') for c in action.findall('child')), action.attrib

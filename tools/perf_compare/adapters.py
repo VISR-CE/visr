@@ -358,8 +358,10 @@ def _native(target, scenario, out, config):
     # A hosted game picks its own level: a map_name here would start the campaign level before the host does.
     (data / 'init.txt').write_text('game_difficulty_set normal\n' + ('' if hosted else 'map_name ' + level + '\n'))
     env = {**os.environ, 'HALO_DATA_ROOT': str(data), 'HALO_SAVE_ROOT': str(saves),
-           'HALO_HOST_DISPLAY': '%dx%d@2' % drawable_window(drawable), 'HALO_RUNNER': '1', 'MTL_HUD_ENABLED': '1',
-           'MTL_HUD_LOG_ENABLED': '1'}
+           'HALO_HOST_DISPLAY': '%dx%d@2' % drawable_window(drawable), 'HALO_RUNNER': '1'}
+    shots_only = bool(config.get('shots_only'))
+    if not shots_only:
+        env.update({'MTL_HUD_ENABLED': '1', 'MTL_HUD_LOG_ENABLED': '1'})  # the performance overlay stays out of shots
     if window['kind'] == 'bot' and target['id'] != 'visr':
         env['HALO_TEST_INPUT'] = window['test_input']
     if target['id'] == 'chupathingy':
@@ -369,7 +371,7 @@ def _native(target, scenario, out, config):
         env.update({'HOME': str(out / 'home'), 'HALO_TELNET_CONSOLE': '1', 'HALO_TELNET_CONSOLE_PORT': str(port),
                     'HALO_DISPLAY_MODE': 'windowed', 'HALO_WINDOWED': '1', 'HALO_UPDATE_AUTO': '0',
                     'HALO_WINDOW_SCALE': str(drawable_window(drawable)[0] // 640)})
-    method = timing_method(target, config)
+    method = 'none' if shots_only else timing_method(target, config)
     glft_output = out / 'glft.bin'
     if method == 'glft':
         env.update(GLFT_ENVIRONMENT[config.get('frame_mode', 'capped')])
@@ -409,6 +411,9 @@ def _native(target, scenario, out, config):
         if not ready:
             raise RuntimeError('scenario-not-ready')
         frontmost(process.pid, activate=True)
+        if shots_only:
+            return _shot_run(window, connection, console_text, process, target, out,
+                             (data, saves, out, out / 'home', app.parent), config, drawable)
         state = {}
         owned = {process.pid}
 
@@ -464,6 +469,13 @@ def _native(target, scenario, out, config):
                              for path in collect['traces']]
                 (out / 'timeline.json').write_text(json.dumps({'pid': process.pid, 'traces': timelines}))
 
+        def untimed_shot():
+            # `capture_shots` (see the README, "Screenshots for the public page") takes the scene's frame after the
+            # window has closed and the trace is collected, so it cannot change a timing.
+            if config.get('capture_shots'):
+                frontmost(process.pid)
+                capture_window(process.pid, out / 'shot.png')
+
         extra = {}
         if window['kind'] == 'opening':
             time.sleep(config.get('warmup_seconds', 15))
@@ -472,6 +484,7 @@ def _native(target, scenario, out, config):
             begin_sample()
             time.sleep(window.get('sample_s', config.get('seconds', 60)))
             end_sample()
+            untimed_shot()
         else:
             class SampleHooks(consolewin.Hooks):
                 prepare = staticmethod(prepare_sample)
@@ -482,6 +495,9 @@ def _native(target, scenario, out, config):
                 def mid():
                     if config.get('capture_windows'):
                         capture_window(process.pid, out / 'qualification-mid.png')
+
+                takes_shots = bool(config.get('capture_shots'))
+                shot = staticmethod(untimed_shot)
             console = consolewin.Console.attach(connection, console_text)
             outcome = consolewin.run_window(window, console, SampleHooks, prints=target.get('console_prints', target['id'] not in ('corece', 'chupathingy')))
             (out / 'window.json').write_text(json.dumps(outcome, indent=2))
@@ -517,6 +533,55 @@ def _native(target, scenario, out, config):
         for cache_root in (data / 'save/z', saves / 'z'):
             for cache in cache_root.glob('cache00?.map'):
                 cache.unlink()
+
+
+class _CameraFiles(consolewin.ShotHooks):
+    """`d:\\camera.txt` for a port: the folders its `d:` may map to. A pose is written to all of them and read back
+    from whichever the port wrote."""
+
+    def __init__(self, folders, pid, out, harvesting):
+        self.folders, self.pid, self.out, self.harvesting = [Path(f) for f in folders], pid, out, harvesting
+        self.found = None
+
+    def place(self, camera):
+        for folder in self.folders:
+            if folder.is_dir():
+                (folder / 'camera.txt').write_text(consolewin.camera_text(camera))
+
+    def clear(self):
+        for folder in self.folders:
+            (folder / 'camera.txt').unlink(missing_ok=True)
+
+    def readback(self):
+        for folder in self.folders:
+            path = folder / 'camera.txt'
+            if path.is_file():
+                self.found = str(path)
+                return path.read_text()
+        return None
+
+    harvest = readback
+
+    def shot(self, name):
+        frontmost(self.pid)
+        capture_window(self.pid, self.out / name)
+
+
+def _shot_run(window, connection, console_text, process, target, out, folders, config, drawable):
+    """Shots-only: no timing, no performance overlay; see the README, "Screenshots for the public page"."""
+    if 'shot' not in window:
+        raise RuntimeError('no-shot-pose')
+    hooks = _CameraFiles(folders, process.pid, out, bool(config.get('harvest_camera')))
+    console = consolewin.Console.attach(connection, console_text)
+    outcome = consolewin.run_shot(window, console, hooks, consolewin.RealClock(),
+                                  prints=target.get('console_prints', target['id'] not in ('corece', 'chupathingy')))
+    outcome['camera_file'] = hooks.found
+    (out / 'window.json').write_text(json.dumps(outcome, indent=2))
+    (out / 'console.txt').write_text(console.buf)
+    if process.poll() is not None:
+        raise RuntimeError('app-exited')
+    return {'timing': 'none', 'shot': outcome, 'drawable': target.get('drawable', drawable).replace('x', '×'),
+            'window_kind': window['kind']}
 
 
 class WebDriver:

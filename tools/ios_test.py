@@ -8,6 +8,12 @@ import subprocess
 from pathlib import Path
 from xml.etree import ElementTree
 
+import host_toolchain
+
+_problem = host_toolchain.check_run_host('tools/ios_test.py (the guest probe runner)')
+if _problem:
+    raise SystemExit(_problem)
+
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / 'build/ios/probe'
 BUILD.mkdir(parents=True, exist_ok=True)
@@ -30,6 +36,7 @@ run('python3', 'tools/test_controller_glyph_raster.py')
 # Held touch sticks must stop feeding movement while the pause menu is open.
 run('python3', 'tools/test_touch_pause.py')
 run('python3', 'tools/test_join_warning.py')
+run('python3', 'tools/test_host_no_profile.py')
 run('python3', 'tools/test_ios_asm_convert.py')
 run('python3', 'tools/test_astc_rewrite.py')
 run('python3', 'tools/test_astc_encode.py')
@@ -44,8 +51,8 @@ for probe in ('network_version', 'network_join_wire', 'menu_gametype'):
         f'port/ios/tests/{probe}_probe.c', '-o', executable)
     run(executable)
 
-clang = '/opt/homebrew/opt/llvm/bin/clang'
-lld = '/opt/homebrew/opt/lld/bin/ld.lld'
+clang = host_toolchain.llvm_tool('clang')
+lld = host_toolchain.find_lld()
 run(clang, '--target=arm64_32-apple-watchos', '-mcpu=cortex-a53', '-ffixed-x15', '-ffixed-x27', '-fno-omit-frame-pointer',
     '-mllvm', '-aarch64-enable-compress-jump-tables=false', '-fno-stack-protector', '-ffreestanding',
     '-O2', '-S', 'port/ios/tests/guest_probe.c', '-o', BUILD/'probe.darwin.s')
@@ -288,7 +295,7 @@ run('xcrun', 'clang', '-O2', '-fobjc-arc', '-fblocks', '-DHALO_GUEST_SHA256="tes
     'port/ios/host/host_recording_pack.c', 'port/ios/host/host_shader_pack.c', 'port/ios/host/host_benchmark_catalog.m', 'port/runtime/benchmark_plan.c',
     'port/third_party/tomlc17/tomlc17.c', 'port/third_party/monocypher/monocypher.c',
     'port/third_party/monocypher/monocypher-ed25519.c', '-o', BUILD / 'profile-feed-probe')
-# (the published feeds are the steverice/visr-feeds commit tools/visr-feeds.pin names, fetched by tools/visr_feeds_tree.py)
+# (the published feeds are the VISR-CE/visr-feeds commit tools/visr-feeds.pin names, fetched by tools/visr_feeds_tree.py)
 feeds_tree = Path(subprocess.run(
     ['python3', 'tools/visr_feeds_tree.py', '--extra', 'tester/recordings-c2ce7f3b23742865e51ad2716fd5dd15ecfe14c68c205cea5ba5be33e3d00b89.json'], check=True, capture_output=True, text=True, cwd=ROOT).stdout.strip())
 run(BUILD / 'profile-feed-probe', ROOT, feeds_tree / 'tester/profiles',
@@ -563,6 +570,13 @@ run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,
     '-fobjc-arc', '-fblocks', '-Iport/ios/host', '-framework', 'Foundation', 'port/ios/tests/log_file_probe.m',
     '-o', BUILD/'log-file-probe')
 run(BUILD/'log-file-probe')
+# SEND LOG's file order and look-alike-free codes, without an iCloud entitlement
+run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-fobjc-arc', '-fblocks', '-DHALO_PERF_REPORTS=1', '-DHALO_NATIVE_MAC=1',
+    '-DHALO_PERF_CLOUD="iCloud.org.steverice.visr"', '-Iport/ios/host', '-Iport/runtime/include', '-framework', 'Foundation',
+    '-framework', 'AppKit', '-framework', 'CloudKit', 'port/ios/tests/log_send_probe.m', '-lz',
+    '-o', BUILD/'log-send-probe')
+run(BUILD/'log-send-probe')
 # Explicit identity initialization serves ASTC even without report collectors; lazy lookup stays inert.
 for perf_reports in (1, 0):
     probe = BUILD/f'map-identity-probe-{perf_reports}'
@@ -1046,7 +1060,7 @@ for name, defines, mac in (('menu-platform-desktop', [], False), ('menu-platform
     kind = name.split('-', 2)[2]
     for cloud in ('0', '1'):
         subprocess.run([str(BUILD / name), kind], cwd=ROOT, check=True,
-                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud,
+                       env={**os.environ, 'HALO_HOST_CLOUD_SAVES': cloud, 'HALO_HOST_TVOS': cloud, 'HALO_HOST_SEND_LOG': cloud,
                             'HALO_HOST_KEYBOARD': '1' if mac else '0'})
 # Every platform keeps four evenly spaced rows and inert root cancel handlers.
 main_menu = ElementTree.parse(ROOT / 'port/assets/menus/ce/main_menu.xml').getroot()

@@ -11,6 +11,7 @@
 #include "host_shader_upload.h"
 #include "host_frame_counter_stats.h"
 #include <stdatomic.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -41,9 +42,23 @@ const char *host_macos_data_root(void) {
     return root;
 }
 @interface VISRMacActions : NSObject
+- (void)about:(id)sender;
 - (void)quit:(id)sender;
 @end
 @implementation VISRMacActions
+- (void)about:(id)sender {
+    (void)sender;
+    /* The standard panel: the app's icon, name, version and build from Info.plist, with the website as credits. */
+    NSMutableParagraphStyle *centered = [NSMutableParagraphStyle new];
+    centered.alignment = NSTextAlignmentCenter;
+    NSAttributedString *credits = [[NSAttributedString alloc] initWithString:@"visr.gg" attributes:@{
+        NSLinkAttributeName: [NSURL URLWithString:@"https://visr.gg/"],
+        NSFontAttributeName: [NSFont systemFontOfSize:NSFont.smallSystemFontSize],
+        NSParagraphStyleAttributeName: centered,
+    }];
+    [NSApp orderFrontStandardAboutPanelWithOptions:@{ NSAboutPanelOptionCredits: credits }];
+    [NSApp activateIgnoringOtherApps:YES];
+}
 - (void)quit:(id)sender {
     (void)sender;
     SDL_Event event = { .type = SDL_EVENT_QUIT };
@@ -81,6 +96,10 @@ void host_macos_window_ready(void *sdl_window) {
     NSMenuItem *application = [NSMenuItem new];
     [bar addItem:application];
     NSMenu *menu = [[NSMenu alloc] initWithTitle:@"VISR"];
+    NSMenuItem *about = [[NSMenuItem alloc] initWithTitle:@"About VISR" action:@selector(about:) keyEquivalent:@""];
+    about.target = actions;
+    [menu addItem:about];
+    [menu addItem:NSMenuItem.separatorItem];
     NSMenuItem *quit = [[NSMenuItem alloc] initWithTitle:@"Quit VISR" action:@selector(quit:) keyEquivalent:@"q"];
     quit.target = actions;
     [menu addItem:quit];
@@ -172,6 +191,7 @@ void host_external_poll(void) {
 void host_external_commit(int allow_pause) { (void)allow_pause; }
 int host_external_active(void) { return 0; }
 int host_external_size(int *width, int *height) { (void)width; (void)height; return 0; }
+void host_external_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 void *host_external_phone_layer(void) { return NULL; }
 void *host_external_screen(void) { return (__bridge void *)game_window().screen; }
 double host_external_companion_dim(void) { return 0; }
@@ -347,3 +367,67 @@ int host_benchmark_notice(const char *heading, const char *detail, double second
     }
     [panel orderOut:nil];return stopped || host_benchmark_finish_requested();
 }
+
+#if defined(HALO_DEVELOPMENT_HOOKS)
+/* A sibling of the Metal drawable: guides never enter camera captures or render targets. */
+@interface VISRPhotoGuides : NSView
+@property(nonatomic) float fov;
+@property(nonatomic) int speed;
+@property(nonatomic) BOOL guides;
+@property(nonatomic) NSPoint focus;
+@end
+@implementation VISRPhotoGuides
+- (NSView *)hitTest:(NSPoint)point { (void)point; return nil; }
+- (BOOL)isFlipped { return YES; }
+- (void)drawRect:(NSRect)dirty {
+    (void)dirty;
+    NSString *text = [NSString stringWithFormat:@"Photo mode | FOV %.2f rad (%.1f°) | speed %d (%.4g×)",
+        self.fov, self.fov * 180.0 / M_PI, self.speed, pow(2.0, self.speed)];
+    [text drawAtPoint:NSMakePoint(12, 12) withAttributes:@{
+        NSFontAttributeName: [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular],
+        NSForegroundColorAttributeName: NSColor.whiteColor,
+        NSBackgroundColorAttributeName: [NSColor.blackColor colorWithAlphaComponent:0.8]
+    }];
+    if (!self.guides) return;
+    CGFloat width = MIN(self.bounds.size.width, self.bounds.size.height * 2.0);
+    CGFloat height = width / 2.0;
+    NSRect master = NSMakeRect((self.bounds.size.width-width)/2, (self.bounds.size.height-height)/2, width, height);
+    NSRect safe = NSMakeRect(NSMidX(master)-height*1.23/2, master.origin.y, height*1.23, height);
+    /* D assumes a square tile centered on focus, clamped to the master frame. */
+    CGFloat x = MIN(MAX(self.focus.x * width - height/2, 0), width-height);
+    NSRect tile = NSMakeRect(master.origin.x+x, master.origin.y, height, height);
+    NSRect frames[] = {master, safe, tile};
+    NSColor *colors[] = {NSColor.whiteColor, NSColor.systemYellowColor, NSColor.systemCyanColor};
+    for (int i=0; i<3; i++) {
+        [colors[i] setStroke];
+        NSBezierPath *path = [NSBezierPath bezierPathWithRect:NSInsetRect(frames[i], 1, 1)];
+        path.lineWidth = 1;
+        if (i == 2) { CGFloat dash[] = {5, 4}; [path setLineDash:dash count:2 phase:0]; }
+        [path stroke];
+    }
+}
+@end
+
+void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, float focus_y) {
+    static VISRPhotoGuides *overlay;
+    static float previous_fov = -1, previous_x = -1, previous_y = -1;
+    static int previous_speed = -99, previous_guides = -1;
+    if (fov == previous_fov && speed == previous_speed && guides == previous_guides &&
+        focus_x == previous_x && focus_y == previous_y) return;
+    previous_fov = fov; previous_speed = speed; previous_guides = guides;
+    previous_x = focus_x; previous_y = focus_y;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSView *parent = game_window().contentView;
+        if (fov <= 0) { overlay.hidden = YES; return; }
+        if (!overlay) {
+            overlay = [[VISRPhotoGuides alloc] initWithFrame:parent.bounds];
+            overlay.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+            overlay.wantsLayer = YES;
+            [parent addSubview:overlay positioned:NSWindowAbove relativeTo:nil];
+        }
+        overlay.fov = fov; overlay.speed = speed; overlay.guides = guides;
+        overlay.focus = NSMakePoint(focus_x, focus_y);
+        overlay.hidden = NO; overlay.needsDisplay = YES;
+    });
+}
+#endif

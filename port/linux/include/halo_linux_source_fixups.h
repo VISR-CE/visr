@@ -60,6 +60,9 @@ unsigned char custom_edition_vehicle_placement_allowed(struct scenario_object_da
 /* the width of the screen the game draws, 480 lines tall: the device's or
 the display's shape, or 640 (port/linux/src/d3d8_device.c) */
 long halo_screen_width(void);
+/* the HUD's frame (the Xbox's title-safe 7.5% inset) for a screen WIDTH wide and 480 lines tall, kept clear of the display's
+   safe area (a camera hole, a Dynamic Island): x0, y0, x1, y1 */
+void halo_screen_hud_frame(long width, short *x0, short *y0, short *x1, short *y1);
 /* the screen targets' pixels to the Xbox's one (screen effects) */
 float halo_screen_scale(void);
 /* takes up a new width between frames (F11); returns the width */

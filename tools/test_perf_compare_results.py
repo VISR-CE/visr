@@ -254,7 +254,7 @@ def test_page_opens_with_the_fairness_caveat():
     from perf_compare.results import CAVEAT
     page = render({})
     assert page.splitlines()[2] == CAVEAT
-    assert "https://github.com/steverice/visr/issues" in CAVEAT
+    assert "https://github.com/VISR-CE/visr/issues" in CAVEAT
 
 
 def test_trace_uses_only_owned_on_glass_intervals_and_deduplicates():

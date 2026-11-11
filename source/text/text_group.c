@@ -32,6 +32,7 @@ symbols in this file:
 
 #include "tag_files/tag_files.h"
 #include "custom_edition_maps.h"
+#include "menu_legend_strings.h" /* port: original menu string-list overrides */
 
 #define MULTIPLAYER_GAME_TEXT_TAG_NAME "ui\\multiplayer_game_text"
 #define FIRST_FALLBACK_MULTIPLAYER_GAME_TEXT_STRING 36
@@ -277,11 +278,22 @@ wchar_t *unicode_string_list_get_string(long tag_index, short string_index)
 			{
 				result = entry->string.address;
 				result[entry->string.size / sizeof(wchar_t) - 1] = L'\0';
+				/* port: original pause/menu legends use the same plain labels
+				as the generated menus. Do not change typed keyboard characters
+				or unrelated scenario and HUD text. */
+				{
+					char const *name = tag_get_name(tag_index);
+					if (name && (strstr(name, "ui\\shell\\") == name ||
+						!strcmp(name, MULTIPLAYER_GAME_TEXT_TAG_NAME)) && !strstr(name, "keyboard"))
+						halo_menu_legend_plain(result);
+				}
 			}
 		}
 		else if (fallback_string(tag_index, string_index))
 		{
 			result = fallback_string(tag_index, string_index);
+			if (!strcmp(tag_get_name(tag_index), MULTIPLAYER_GAME_TEXT_TAG_NAME) && halo_menu_legend_fallback(string_index))
+				result = halo_menu_legend_fallback(string_index);
 		}
 	}
 

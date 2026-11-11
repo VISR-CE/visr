@@ -1703,6 +1703,9 @@ void controller_glyph_blit(struct bitmap_data *bitmap, rectangle2d const *bounds
 	rasterizer_psuedo_dynamic_screen_quad_draw(&parameters, vertices);
 }
 
+/* design units a legend glyph is raised to sit on its caption's cap height */
+#define LEGEND_GLYPH_RAISE 3
+
 int controller_glyph_draw(short player, short semantic, short physical,
 	rectangle2d const *bounds, rectangle2d const *clip, pixel32 color, short blend)
 {
@@ -3932,9 +3935,11 @@ static void widget_instance_initialize(
 	widget->render_regardless_of_controller_index =
 		TEST_FLAG(definition->flags, _widget_render_regardless_of_controller_index_bit);
 	/* port: a network co-op game never pauses (it opens the campaign's pause
-	screen, which would) */
+	screen, which would), and neither does the main menu: its child screens
+	(settings and the like carry the in-game pause flag) keep the animated
+	backdrop running */
 	widget->pause_game_time = TEST_FLAG(definition->flags, _widget_pause_game_time_bit) &&
-		!network_coop_active();
+		!network_coop_active() && !we_are_at_the_main_menu;
 	widget->creation_time = widget_globals.current_system_milliseconds;
 	widget->milliseconds_to_auto_close = MAX(definition->milliseconds_to_auto_close, 0);
 	widget->auto_close_fade_time = MAX(definition->auto_close_fade_time, 0);
@@ -4058,6 +4063,12 @@ short ui_widget_port_list_index(
 	boolean skip_labels = pc_menu_tag(list_widget->definition_tag_index);
 	struct widget_instance *child;
 	short index = 0;
+
+	/* a nested list in focus (a button bar, which the mouse can focus) is not
+	one of the list's items, so it has no description of its own: NONE leaves
+	the description of the item before it up */
+	if (list_widget->focused_child && list_widget->focused_child->type == _ui_widget_type_column_list)
+		return NONE;
 
 	if (pc_menu_patch_list_index(list_widget->definition_tag_index,
 		list_widget->focused_child ? list_widget->focused_child->definition_tag_index : NONE, &index))
@@ -5544,44 +5555,6 @@ static boolean ui_widget_port_text_wrap(
 	return fits;
 }
 
-/* port: '=' joins a button to its caption in the Xbox legends. A hidden
-button leaves the actionable caption, without changing the stored string. */
-static wchar_t const *ui_widget_touch_caption(struct widget_instance *widget, wchar_t const *text)
-{
-	struct widget_instance *child;
-	struct ui_widget_definition *definition;
-	short best_button = NONE, owner = NONE;
-	int closest = 64;
-
-	if (!text || text[0] != L'=' || !widget->parent) return text;
-	definition = ui_widget_definition_get(widget->definition_tag_index);
-	for (child = widget->parent->child; child; child = child->next)
-	{
-		short button = ui_mouse_key_button(child);
-		struct ui_widget_definition *button_definition;
-		int dx, dy;
-		if (button == NONE || !child->visible) continue;
-		button_definition = ui_widget_definition_get(child->definition_tag_index);
-		dx = widget->horizontal_offset + definition->bounds.x0 -
-			child->horizontal_offset - button_definition->bounds.x0;
-		dy = widget->vertical_offset + definition->bounds.y0 -
-			child->vertical_offset - button_definition->bounds.y0;
-		if (dx > 0 && dx < closest && abs(dy) < 16)
-		{
-			closest = dx;
-			best_button = button;
-			owner = child->local_player_index == NONE ?
-				local_player_index_for_draw_string_and_hack_in_icons : child->local_player_index;
-		}
-	}
-	if (best_button != NONE && controller_glyph_hidden(owner, best_button))
-	{
-		text++;
-		while (*text == L' ') text++;
-	}
-	return text;
-}
-
 static void widget_instance_render_text_box(
 	struct widget_instance *widget,
 	struct ui_widget_definition *definition,
@@ -5756,7 +5729,7 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
-	wchar_t const *display_text = ui_widget_touch_caption(widget, *text);
+	wchar_t const *display_text = *text;
 	if (string_has_icons_to_draw(display_text))
 	{
 		short saved_player = local_player_index_for_draw_string_and_hack_in_icons;
@@ -6116,6 +6089,7 @@ static short ui_mouse_key_button(
 		{ "y_butn", _gamepad_analog_button_y },
 		{ "black_butn", _gamepad_analog_button_black },
 		{ "white_butn", _gamepad_analog_button_white },
+		{ "left_thumb_butn", _gamepad_binary_button_left_thumb },
 		{ "start_butn", _gamepad_binary_button_start },
 		{ "back_butn", _gamepad_binary_button_back },
 	};
@@ -6227,6 +6201,112 @@ static void ui_mouse_note_carousel_arrows(
 	return;
 }
 
+/* port: the legend's visible button and pointer target share one rectangle.
+Pair by position, so captions stay ordinary text without a sentinel prefix. */
+static boolean ui_mouse_legend_bounds(
+	struct widget_instance *widget,
+	struct ui_widget_definition const *definition,
+	point2d offset,
+	rectangle2d *bounds)
+{
+	struct widget_instance *parent = widget->parent;
+	short button = ui_mouse_key_button(widget);
+	short owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	struct widget_instance *sibling;
+	rectangle2d label_bounds;
+	short best_distance = 17;
+
+	*bounds = definition->bounds;
+	bounds->x0 += offset.x;
+	bounds->x1 += offset.x;
+	bounds->y0 += offset.y;
+	bounds->y1 += offset.y;
+	for (sibling = parent ? parent->child : NULL; sibling; sibling = sibling->next)
+	{
+		struct ui_widget_definition *sibling_definition;
+		rectangle2d sibling_bounds;
+		short distance;
+
+		if (sibling->type != _ui_widget_type_text_box || !sibling->visible)
+			continue;
+		sibling_definition = ui_widget_definition_get(sibling->definition_tag_index);
+		sibling_bounds = sibling_definition->bounds;
+		sibling_bounds.x0 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
+		sibling_bounds.x1 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
+		sibling_bounds.y0 += offset.y - widget->vertical_offset + sibling->vertical_offset;
+		sibling_bounds.y1 += offset.y - widget->vertical_offset + sibling->vertical_offset;
+		distance = (short)ABS(sibling_bounds.x0 - bounds->x1);
+		if (distance < best_distance &&
+			sibling_bounds.y0 < bounds->y1 && sibling_bounds.y1 > bounds->y0)
+		{
+			best_distance = distance;
+			label_bounds = sibling_bounds;
+		}
+	}
+	if (best_distance < 17)
+	{
+		bounds->x1 = MAX(bounds->x1, label_bounds.x1);
+		bounds->y0 = MIN(bounds->y0, label_bounds.y0);
+		bounds->y1 = MAX(bounds->y1, label_bounds.y1);
+	}
+
+	if (best_distance >= 17 || button == NONE || !controller_glyph_hidden(owner, button))
+		return FALSE;
+	/* 60 menu units are 46.875 pt at the smallest landscape scale (375/480).
+	Eight units of side padding keep the caption away from the outline. */
+	{
+		short width = MAX(16, 60 - (bounds->x1 - bounds->x0));
+		short height = MAX(0, 60 - (bounds->y1 - bounds->y0));
+		bounds->x0 -= width / 2;
+		bounds->x1 += width - width / 2;
+		bounds->y0 -= height / 2;
+		bounds->y1 += height - height / 2;
+	}
+	return TRUE;
+}
+
+/* port: scanline quads preserve the menu renderer's alpha blending and clip.
+The eight-unit corner radius and HUD blue outline match the game's controls. */
+static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d const *clip, real alpha)
+{
+	static short const insets[8] = {5, 3, 2, 1, 1, 0, 0, 0};
+	short y;
+	for (y = bounds->y0; y < bounds->y1;)
+	{
+		short edge = MIN(y - bounds->y0, bounds->y1 - 1 - y);
+		short inset = edge < 8 ? insets[edge] : 0;
+		short end = edge >= 8 ? bounds->y1 - 8 : y + 1;
+		short part;
+		for (part = 0; part < 3; part++)
+		{
+			rectangle2d row = {y, bounds->x0 + inset, end, bounds->x1 - inset};
+			pixel32 color = modulate_pixel32_by_real_alpha(0xff2996ff, alpha);
+			if (edge >= 2)
+			{
+				if (part == 0) row.x1 = row.x0 + 2;
+				else if (part == 1)
+				{
+					row.x0 += 2;
+					row.x1 -= 2;
+					color = modulate_pixel32_by_real_alpha(0xb0102030, alpha);
+				}
+				else row.x0 = row.x1 - 2;
+			}
+			else if (part) continue;
+			if (clip)
+			{
+				row.x0 = MAX(row.x0, clip->x0);
+				row.x1 = MIN(row.x1, clip->x1);
+				row.y0 = MAX(row.y0, clip->y0);
+				row.y1 = MIN(row.y1, clip->y1);
+			}
+			if (row.x0 < row.x1 && row.y0 < row.y1) draw_quad(&row, color);
+		}
+		y = end;
+	}
+}
+
 static void ui_mouse_note_target(
 	struct widget_instance *widget,
 	struct ui_widget_definition const *definition,
@@ -6260,40 +6340,8 @@ static void ui_mouse_note_target(
 	}
 	else if (button_index != NONE)
 	{
-		/* the icon and its label: the text beginning just right of it */
-		struct widget_instance *sibling;
-		rectangle2d label_bounds;
-		short best_distance = 17;
-
 		kind = _ui_mouse_target_button;
-		for (sibling = parent ? parent->child : NULL; sibling; sibling = sibling->next)
-		{
-			struct ui_widget_definition *sibling_definition;
-			rectangle2d sibling_bounds;
-			short distance;
-
-			if (sibling->type != _ui_widget_type_text_box || !sibling->visible)
-				continue;
-			sibling_definition = ui_widget_definition_get(sibling->definition_tag_index);
-			sibling_bounds = sibling_definition->bounds;
-			sibling_bounds.x0 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
-			sibling_bounds.x1 += offset.x - widget->horizontal_offset + sibling->horizontal_offset;
-			sibling_bounds.y0 += offset.y - widget->vertical_offset + sibling->vertical_offset;
-			sibling_bounds.y1 += offset.y - widget->vertical_offset + sibling->vertical_offset;
-			distance = (short)ABS(sibling_bounds.x0 - bounds.x1);
-			if (distance < best_distance &&
-				sibling_bounds.y0 < bounds.y1 && sibling_bounds.y1 > bounds.y0)
-			{
-				best_distance = distance;
-				label_bounds = sibling_bounds;
-			}
-		}
-		if (best_distance < 17)
-		{
-			bounds.x1 = MAX(bounds.x1, label_bounds.x1);
-			bounds.y0 = MIN(bounds.y0, label_bounds.y0);
-			bounds.y1 = MAX(bounds.y1, label_bounds.y1);
-		}
+		ui_mouse_legend_bounds(widget, definition, offset, &bounds);
 	}
 	else if (parent && ui_mouse_list_shows_several(parent))
 	{
@@ -6870,6 +6918,56 @@ static void column_list_window_end(
 		child->visible = saved[index++];
 }
 
+/* port: the VISR helmet left of a screen's title. The titles are pictures
+(header_*, in ui.map and in the menus' files, of both looks), 64 units high,
+whose capitals stand 22 units tall from 33 units down and start 30 units in.
+The picture (xbox/bitmaps/visr_title_icon, tools/xbox_menus.py) is 36 units
+square; the helmet in it is 22 units tall like the capitals and 29 wide, and
+the picture is centered on them with 11 units between the helmet and the first
+letter.
+Dialogs' headers (ui\\shell\\error\\...) are not screens' titles. */
+static void menu_title_icon_draw(
+	long bitmap_tag,
+	struct bitmap_data const *picture,
+	rectangle2d const *bounds,
+	rectangle2d *clip,
+	pixel32 color)
+{
+	char const *name;
+	char const *leaf;
+	long icon_tag;
+	struct bitmap_data *icon;
+	rectangle2d rect;
+	long scale_x = 1, scale_y = 1, size, left;
+
+	if (bitmap_tag == NONE || !picture || picture->height != 64 || picture->width < 256)
+		return;
+	name = tag_get_name(bitmap_tag);
+	if (!name || (strncmp(name, "ui\\shell\\", 9) && strncmp(name, "pc\\", 3)) || strstr(name, "\\error\\"))
+		return;
+	leaf = strrchr(name, '\\');
+	leaf = leaf ? leaf + 1 : name;
+	if (strncmp(leaf, "header", 6))
+		return;
+	icon_tag = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\visr_title_icon");
+	icon = icon_tag == NONE ? NULL : bitmap_group_get_bitmap_from_sequence(icon_tag, 0, 0);
+	if (!icon)
+		return;
+	/* (a picture smaller than its widget is drawn stretched over it) */
+	if (bounds->x1 - bounds->x0 > picture->width)
+		scale_x = (bounds->x1 - bounds->x0) / picture->width;
+	if (bounds->y1 - bounds->y0 > picture->height)
+		scale_y = (bounds->y1 - bounds->y0) / picture->height;
+	/* (the helmet is 29 of the picture's 36 units wide, 3.5 units in from each side) */
+	size = 36 * scale_y;
+	left = bounds->x0 + (30 - 11 - 29) * scale_x - (36 - 29) * scale_x / 2;
+	rect.x0 = (short)left;
+	rect.x1 = (short)(left + size);
+	rect.y0 = (short)(bounds->y0 + 44 * scale_y - size / 2);
+	rect.y1 = (short)(rect.y0 + size);
+	draw_bitmap_in_rect(icon, &rect, NULL, clip, color, NULL, FALSE);
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -6911,6 +7009,12 @@ static void widget_instance_render_recursive(
 	if (!widget->visible)
 		return;
 	ui_mouse_note_target(widget, definition, offset);
+	{
+		rectangle2d legend_bounds;
+		if (ui_mouse_key_button(widget) != NONE &&
+			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds))
+			ui_widget_draw_touch_legend(&legend_bounds, clip_rect, alpha_modifier);
+	}
 	/* port: a Custom Edition map's picture, drawn over the whole widget, or
 	the unknown level's frame for a map without one
 	(port/linux/game/custom_edition_maps.c) */
@@ -7044,7 +7148,13 @@ static void widget_instance_render_recursive(
 				short owner = widget->local_player_index == NONE ?
 					local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
 				pixel32 glyph_color = modulate_pixel32_by_real_alpha(0xff2996ff, alpha);
-				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &bounds, clip, glyph_color, _controller_glyph_blend_menu))
+				/* port: the legend's icon box is taller than its caption's, so the
+				glyph, centered in the box, sits below the caption's cap height;
+				raise it to center on the capitals */
+				rectangle2d glyph_bounds = bounds;
+				glyph_bounds.y0 -= LEGEND_GLYPH_RAISE;
+				glyph_bounds.y1 -= LEGEND_GLYPH_RAISE;
+				if (controller_glyph_draw(owner, NONE, ui_mouse_key_button(widget), &glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu))
 					shown = FALSE;
 			}
 			if (shown)
@@ -7057,6 +7167,8 @@ static void widget_instance_render_recursive(
 					color,
 					&multitexture_params,
 					FALSE);
+				if (!custom_edition_picture)
+					menu_title_icon_draw(definition->background_bitmap.index, bitmap, &bounds, clip, color);
 			}
 		}
 		if (use_nifty_plasma_fx)

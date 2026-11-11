@@ -619,3 +619,11 @@ def test_only_the_cmake_catalyst_configuration_lets_the_host_compile_for_catalys
     assert 'if(HALO_MAC AND HALO_TESTER_BUILD)\n    message(FATAL_ERROR' in cmake
     assert 'set_target_properties(VISR PROPERTIES XCODE_ATTRIBUTE_SKIP_INSTALL YES)' in cmake
 
+
+
+def test_host_signature_names_the_runners_stable_identity_or_nothing():
+    assert ios_build.host_signature({}) is None
+    assert ios_build.host_signature({'HALO_MAC_SIGN_IDENTITY': ''}) is None
+    assert ios_build.host_signature({'HALO_MAC_SIGN_IDENTITY': 'ABC123'}) == ['--sign', 'ABC123']
+    assert ios_build.host_signature({'HALO_MAC_SIGN_IDENTITY': 'ABC123', 'HALO_MAC_SIGN_KEYCHAIN': '/k'}) == [
+        '--sign', 'ABC123', '--keychain', '/k']

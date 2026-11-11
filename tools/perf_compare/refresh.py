@@ -298,7 +298,7 @@ def routed_source(route):
         raise ValueError('route ref must be refs/heads/main or a refs/tags/visr-vX.Y.Z release tag')
     if match and not re.fullmatch(r'[0-9]{8}\.[0-9]{1,6}', str(route.get('build_number', ''))):
         raise ValueError('a release route needs the release build number')
-    lines = adapters.run(['git', 'ls-remote', 'https://github.com/steverice/visr.git', ref, ref + '^{}']).split('\n')
+    lines = adapters.run(['git', 'ls-remote', 'https://github.com/VISR-CE/visr.git', ref, ref + '^{}']).split('\n')
     fields = [line.split() for line in lines if line.strip()]
     shas = {item[1]: item[0] for item in fields if len(item) == 2}
     sha = shas.get(ref + '^{}', shas.get(ref)) or (fields[0][0] if fields and len(fields[0]) == 1 else '')
@@ -543,7 +543,7 @@ def _routed_refresh(config, summary_path, page_path):
     remote = Path(route['remote_scratch']) / transfer_id
     local.mkdir(parents=True, exist_ok=True)
     ref, live, build_command, identity = routed_source(route)
-    adapters.run(['git', 'fetch', '--no-tags', 'https://github.com/steverice/visr.git', ref], cwd=ROOT)
+    adapters.run(['git', 'fetch', '--no-tags', 'https://github.com/VISR-CE/visr.git', ref], cwd=ROOT)
     source = Path(route['local_scratch']) / 'build-source'
     if (source / '.git').exists():
         if adapters.run(['git', 'status', '--porcelain'], cwd=source).strip():

@@ -24,6 +24,7 @@ waits for it unless the player skips. One texture at a time; the manifest is the
 #include "host_profile.h"
 #include "texture_refine.h"
 #include "menu_picture_trace.h"
+#include "menu_picture_shapes.h"
 #include "menu_background_redraw.h"
 #include "menu_picture_redraw.h"
 #include "menu_difficulty.h"
@@ -292,7 +293,7 @@ static struct texture_recipe_globals recipe_globals(void) {
     const struct texture_policy_table *policy=&texture_policy_embedded;
     return (struct texture_recipe_globals){.model_id="S4g: PBRify SPAN V4 per channel",
         .model_sha256="d1f1fa1af7a5ab23fcf143e75aac4951e6c52d56bf77d9ccd4d004a4831d0461",.pipeline_version={1,1,1,1,1,1},
-        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=7,
+        .low=policy->low,.high=policy->high,.sigma=policy->sigma,.iterations=(uint32_t)policy->iterations,.post_version=8,
         .encoder=texture_upscale_encoder_name(record_format),.damage_share=policy->damage_share,.damage_structure_loss=policy->damage_structure_loss,
         .damage_bpf_structure_loss=policy->damage_bpf_structure_loss,.damage_measure_version=(uint32_t)policy->damage_measure_version};
 }
@@ -523,6 +524,13 @@ static int generate_source(void *opaque,const struct host_texture_source *source
     const uint8_t *large=companion_bytes?owned+source_bytes:NULL;
     if(large)memcpy((uint8_t *)large,matching,companion_bytes);
     struct texture_upscale_generate_input input={*d,policy,levels,source->level_count,alpha,d->wrap,dilate,d->pinned};
+    /* Pictures the redraws below rebuild from the player's pixels alone (the keyboard, the carousel arrows, the menu
+       band, the gradient gametype icons, small difficulty icons that a matching large frame replaces) keep nothing of the model's prediction. */
+    input.synthetic=(d->result==TEXTURE_POLICY_BPF&&(menu_picture_redraw_source(owned,d->width,d->height)==0||
+        menu_carousel_shapes_source(owned,d->width,d->height)>=0||menu_background_redraw_source(owned,d->width,d->height)>=0||
+        menu_picture_trace_source(owned,d->width,d->height)>=11))||
+        (d->result==TEXTURE_POLICY_S4G&&large);
+    if(input.synthetic)host_logf(HOST_LOG_INFO,"Upscale %016llx: redrawn from the source, no model prediction",(unsigned long long)d->hash);
     char error[512]={0};double start=now();
     dispatch_group_enter(work_group);
     atomic_store(&work_hash,d->hash);atomic_store(&work_stage,"predictions");
@@ -567,7 +575,9 @@ static int generate_source(void *opaque,const struct host_texture_source *source
         }
         /* Source hashes gate the optional silhouette post-step. It shares the finisher, gameplay stop,
            compressed record and draw route with the existing menu picture upscale. */
-        if(output.result==TEXTURE_POLICY_BPF&&d->height==256&&menu_picture_trace_source(owned,d->width,d->height)>=0) {
+        int trace_picture=output.result==TEXTURE_POLICY_BPF?menu_picture_trace_source(owned,d->width,d->height):-1;
+        /* (the controller maps, 6 to 10, are traced inside their own redraw) */
+        if(trace_picture>=0&&!(trace_picture>=6&&trace_picture<11)) {
             for(unsigned level=0;level<output.level_count;level++) {
                 unsigned scale=output.levels[level].width/d->width;
                 if(scale!=2&&scale!=4)continue;
@@ -674,6 +684,11 @@ static int generate_source(void *opaque,const struct host_texture_source *source
 }
 static BOOL thermal_may_run(void) {
     NSProcessInfoThermalState state=NSProcessInfo.processInfo.thermalState;
+#ifdef HALO_DEVELOPMENT_HOOKS
+    /* Development only: HALO_TEXTURE_UPSCALE_THERMAL_STATE (0-3) replaces the real state so tests do not depend on the host's heat. */
+    const char *fake_thermal=getenv("HALO_TEXTURE_UPSCALE_THERMAL_STATE");
+    if(fake_thermal&&fake_thermal[0])state=(NSProcessInfoThermalState)atoi(fake_thermal);
+#endif
     if(state==NSProcessInfoThermalStateCritical)atomic_store(&thermal_blocked,true);
     if(state<=NSProcessInfoThermalStateFair)atomic_store(&thermal_blocked,false);
     return !atomic_load(&thermal_blocked);

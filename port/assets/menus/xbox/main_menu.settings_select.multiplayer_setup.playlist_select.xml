@@ -14,9 +14,9 @@
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/x_butn" x="246" y="414" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_button_delete" x="267" y="414" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/b_butn" x="374" y="414" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/=back" x="395" y="414" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/back" x="395" y="414" />
 		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/a_butn" x="474" y="414" />
-		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/=select" x="495" y="414" />
+		<child widget="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/select" x="495" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit">
 	</widget>
@@ -114,11 +114,11 @@
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/x_butn" type="container" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/=back" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="52" height="22">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/back" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="52" height="22">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/=select" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="70" height="22">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/select" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="70" height="22">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 </menus>

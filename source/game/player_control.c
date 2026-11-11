@@ -1407,10 +1407,13 @@ static void get_local_player_input_blob(
 					{
 						/* direct mouse aim (port/linux/src/xinput_sdl.c) */
 						extern int halo_linux_mouse_look(short gamepad_index, real *yaw, real *pitch);
+						extern int photo_mode_active(void);
 						real mouse_yaw;
 						real mouse_pitch;
 
-						if (halo_linux_mouse_look(gamepad_index, &mouse_yaw, &mouse_pitch))
+						/* port: photo mode's flying camera takes the mouse motion (photo_mode.c) */
+						if (!photo_mode_active() &&
+							halo_linux_mouse_look(gamepad_index, &mouse_yaw, &mouse_pitch))
 						{
 							if (player->unit_index != NONE && control->zoom_level != NONE)
 							{

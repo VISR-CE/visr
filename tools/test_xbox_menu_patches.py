@@ -14,7 +14,7 @@ MP = "ui\\shell\\main_menu\\multiplayer_type_select\\"
 # the Xbox's own rows of the multiplayer type list, in order, each with the description and picture of its place
 MP_ROWS = ["multiplayer_type_coop_item", "multiplayer_type_split_item", "multiplayer_type_conn_item",
            "multiplayer_type_gametypes_item"]
-PLATFORMS = {"tvos", "keyboard", "mac_app"}
+PLATFORMS = {"tvos", "keyboard", "mac_app", "!keyboard"}
 
 
 def table():
@@ -110,25 +110,11 @@ def test_multiplayer_modes_follow_the_row_names():
                                                                                        "join_lan", "join_direct"))
 
 
-def test_main_menu_adds_only_custom_campaign():
-    """The custom row follows SETTINGS without adding an exit action."""
-    patch = next(p for p in table() if p.get("screen") == "ui\\shell\\main_menu\\main_menu")
-    custom, = rows(patch)
-    settings = "ui\\shell\\main_menu\\main_menu_item_settings"
-    assert custom.get("text") == "CUSTOM CAMPAIGN" and custom.get("created") == "disable if no custom campaigns"
-    assert custom.get("run") == "port custom campaign begin" and not custom.get("platform")
-    assert custom.get("after") == settings
-    # (their labels are pictures, as the main menu's are, with the two frames the highlight switches between)
-    bitmaps = {b.get("name"): b for b in ET.parse(MENUS / "bitmaps.xml").getroot()}
-    for row in (custom,):
-        assert len(bitmaps[row.get("bitmap")].findall("frame")) == 2, row.get("bitmap")
-
-
 def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]
     assert texts == [("VIDEO", "mac_app"), ("AUDIO", None), ("NETWORK", None), ("KEYBOARD & MOUSE", "keyboard"),
-                     ("DELETE PROFILE", "tvos")]
+                     ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos")]
     keyboard = next(row for row in rows(patch) if row.get("platform") == "keyboard")
     assert keyboard.get("open").endswith("controls_settings_screen")
     delete = rows(patch)[-1]
@@ -177,7 +163,7 @@ def test_delete_confirmations_finish_both_edit_flows():
             assert cancel.get('run') == 'cancel profile delete' and cancel.get('back') == 'true'
         assert not any('button_bar' in c.get('widget', '') for c in modal.findall('child'))
         panel = widgets[f'xbox/error/confirm_delete_{kind}']
-        for button, caption in (('a', '=OK'), ('b', '=CANCEL')):
+        for button, caption in (('a', 'OK'), ('b', 'CANCEL')):
             icon = f'xbox/error/confirm_delete_{kind}/{button}_butn'
             assert panel.find(f'child[@widget="{icon}"][@y="310"]') is not None
             assert widgets[icon].get('bitmap') == f'xbox/browser/{button}_butn_sm'

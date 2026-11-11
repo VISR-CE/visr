@@ -14,6 +14,8 @@ symbols in this file:
 
 /* ---------- headers */
 
+/* port: photo mode permits wide-angle framing up to 2.6 radians. */
+#include "photo_mode.h"
 #include "flying_camera.h"
 #include "observer.h"
 #include "static_camera.h"
@@ -127,7 +129,7 @@ void flying_camera_update(
 			valid_real(result->offset.k) && result->offset.k>=-5000.f && result->offset.k<=5000.f &&
 			valid_real_vector3d(&result->velocity) &&
 			valid_real(result->depth) && result->depth>=0.f && result->depth<=5000.f &&
-			valid_real(result->field_of_view) && result->field_of_view>=0.001f && result->field_of_view<=_pi / 2.f &&
+			valid_real(result->field_of_view) && result->field_of_view>=0.001f && result->field_of_view<=(photo_mode_active() ? 2.6f : _pi / 2.f) &&
 			valid_real(result->timer) && result->timer>=0.f && result->timer<=3600.f),
 		csprintf(
 			temporary,

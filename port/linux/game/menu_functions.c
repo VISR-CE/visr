@@ -28,7 +28,8 @@ calls them from PC_MENU_FUNCTION_BASE on):
   (OK) writes those changed and applies the window's (the rest follow
   config.toml themselves), "port settings defaults" shows the defaults,
   "port settings help" the help of the row chosen (and Video Setup's
-  Resolution or Window Size, for the display mode shown);
+  Resolution or Window Size, for the display mode shown), and the About
+  screen's "port about version" and "port about build" (and its SEND LOG row's "port send log" and "port send log status");
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
@@ -71,9 +72,11 @@ their handlers open opens.
 #include "interface/player_ui.h"
 #include "interface/ui_widget.h"
 #include "interface/ui_widget_event_handler_functions.h"
+#include "interface/virtual_keyboard.h"
 #include "main/main.h"
 #include "networking/network_game_manager.h"
 #include "saved games/player_profile.h"
+#include "saved games/saved_game_files.h"
 #include "tag_files/tag_groups.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
@@ -97,6 +100,10 @@ int host_sdl_cloud_saves_enabled(void);
 void host_sdl_cloud_saves_set_enabled(int enabled);
 void host_sdl_cloud_saves_status(char *buffer, unsigned int size);
 void host_sdl_app_version(char *buffer, unsigned int size);
+void host_sdl_app_build(char *buffer, unsigned int size);
+void host_sdl_send_log_start(void);
+void host_sdl_open_website(int page);
+void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
 #include <stdlib.h>
@@ -1177,21 +1184,6 @@ static char const *custom_map_level_name(short kind, short entry)
 	return custom_edition_maps_level_name(map_kind_display_index(kind, entry));
 }
 
-/* the main menu's CUSTOM CAMPAIGN (the Xbox look's patch): shown when there are Custom Edition campaign maps, and
-the list it opens starts on them */
-static boolean custom_campaign_entry;
-
-/* "disable if no custom campaigns" (the row's creation) */
-static boolean custom_campaigns_disable(struct widget_instance *row)
-{
-	if (custom_edition_maps_count(TRUE) < 1)
-	{
-		row->disabled = TRUE;
-		row->visible = FALSE;
-	}
-	return TRUE;
-}
-
 /* "initialize sp level list solo" starts on the level last played */
 static boolean level_list_initialize(struct widget_instance *list, short controller)
 {
@@ -1211,14 +1203,6 @@ static boolean level_list_initialize(struct widget_instance *list, short control
 	level_list.kind = MAP_KIND_SINGLEPLAYER;
 	level_list.chosen = level;
 	level_list.first = map_kind_first(level, NUMBER_OF_SINGLE_PLAYER_LEVELS);
-	/* (opened from the main menu's CUSTOM CAMPAIGN: on the Custom Edition campaigns) */
-	if (custom_campaign_entry && custom_edition_maps_count(TRUE) > 0)
-	{
-		level_list.kind = MAP_KIND_CUSTOM_SINGLEPLAYER;
-		level_list.chosen = 0;
-		level_list.first = 0;
-	}
-	custom_campaign_entry = FALSE;
 	map_kind_set(list, level_list.kind);
 	map_kind_focus(list, level_list.first, level_list.chosen);
 	return TRUE;
@@ -1592,6 +1576,44 @@ static void cloud_saves_status_show(struct widget_instance *widget)
 #endif
 }
 
+/* "port about version" and "port about build": the About screen's rows, the app's version and its build number.
+The host copies them into guest memory, as the cloud saves' status does */
+static void about_text_show(struct widget_instance *widget, boolean build)
+{
+#ifdef HALO_IOS
+	char shown[80], version[64];
+	wchar_t text[80];
+
+	if (build)
+		host_sdl_app_build(shown, sizeof(shown));
+	else
+	{
+		host_sdl_app_version(version, sizeof(version));
+		snprintf(shown, sizeof(shown), "VISR %s", version);
+	}
+	halo_menus_utf16(shown, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(widget, text, NUMBEROF(text));
+#else
+	(void)widget, (void)build;
+#endif
+}
+
+/* "port send log status": the About screen's SEND LOG row's value, the upload's progress, its code or why it failed
+(host_log_send.m) */
+static void send_log_status_show(struct widget_instance *widget)
+{
+#ifdef HALO_IOS
+	char shown[96];
+	wchar_t text[96];
+
+	host_sdl_send_log_status(shown, sizeof(shown));
+	halo_menus_utf16(shown, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(widget, text, NUMBEROF(text));
+#else
+	(void)widget;
+#endif
+}
+
 /* Video Setup's Resolution and Window Size, in the one row's place
 (tools/port_settings.py): the one the display mode shown uses (Window Size
 the window's, Resolution fullscreen's and borderless's) is shown, and the
@@ -1785,9 +1807,12 @@ static short profile_list_rows(void)
 	return (short)MIN(profile_list.count + 1, PROFILE_ROWS);
 }
 
+static void host_profile_visit(void);
+
 /* "player profile list initialize": on player 1's profile */
 static boolean profile_list_initialize(struct widget_instance *list)
 {
+	host_profile_visit();
 	long active = player_ui_get_active_player_profile_index(0);
 	short index;
 
@@ -1829,6 +1854,8 @@ static void visible_set(struct widget_instance *widget, boolean visible)
 
 /* "3wide player profile list update": the rows, and the profile chosen:
 its name, colour, current level, best difficulty and controls */
+static void host_profile_poll(struct widget_instance *list);
+
 static void profile_list_update(struct widget_instance *list)
 {
 	struct widget_instance *description = list->parameters.list.extended_description;
@@ -1837,6 +1864,7 @@ static void profile_list_update(struct widget_instance *list)
 	boolean profile;
 
 	profile_list_read(FALSE);
+	host_profile_poll(list);
 	item = list_scroll(list, &profile_list.first, (short)(profile_list.count + 1), profile_list_rows());
 	if (item != NONE)
 		profile_list.chosen = item;
@@ -2667,14 +2695,33 @@ static boolean multiplayer_player(short controller)
 	return ui_widget_port_multiplayer_player(controller, player_ui_get_active_player_profile_index(0));
 }
 
-/* Create Game's ("join controller to mp game", first): player 1 in, and
-the server made: an internet one (an invite, Discord) or a LAN one */
-static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
+#define HOST_PROFILE_NAME "pc\\main_menu\\profile_manager\\player_profile_manager"
+#define HOST_MAP_SELECT_NAME "ui\\shell\\main_menu\\multiplayer_type_select\\connected\\connected_map_select_wrapper"
+
+/* Create Game with no profile (a fresh install): the game's own profile
+screen (the one the campaign and Settings open, with its Create New Player
+Profile row) asks for one first, and the controller that pressed it hosts.
+Hosting goes on to the map once the profile exists (host_profile_poll) */
+static struct
+{
+	short controller;
+	boolean visited;
+} host_profile = { NONE, FALSE };
+
+/* the profile screen's list opened: the first open is the host's own. The list
+opens again after the name keyboard and the saving screen, so later opens do
+not end the host's turn; host_profile_continue does, once the profile exists */
+static void host_profile_visit(void)
+{
+	if (host_profile.controller != NONE)
+		host_profile.visited = TRUE;
+}
+
+/* the server made, once player 1 is in: an internet one (an invite, Discord)
+or a LAN one */
+static boolean multiplayer_host_start(struct widget_instance *widget, struct event_record *event,
 	boolean *widget_deleted)
 {
-	multiplayer_mode_set(widget);
-	if (!multiplayer_player(controller))
-		return FALSE;
 	p2p_set_hosting_allowed(multiplayer.mode == _multiplayer_mode_host_internet);
 	/* (in the server browser, if PUBLIC: Server Setup's LISTING, which a
 	new game starts with as network.host_public says) */
@@ -2682,6 +2729,62 @@ static boolean multiplayer_host(struct widget_instance *widget, struct event_rec
 	p2p_set_hosting_public(multiplayer.mode == _multiplayer_mode_host_internet && !multiplayer.game_private);
 	multiplayer.cooperative_maximum_players_set = FALSE;
 	return ui_widget_port_host(widget, event, widget_deleted);
+}
+
+/* Create Game's ("join controller to mp game", first): player 1 in, and
+the server made. With no profile, the profile screen opens instead, and its
+choice goes on to the map (the browser's second handler, "mp type set mode",
+does not run once a screen has opened) */
+static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted)
+{
+	struct player_profile profile;
+
+	multiplayer_mode_set(widget);
+	if (!campaign_profile(controller, &profile))
+	{
+		host_profile.controller = controller;
+		host_profile.visited = FALSE;
+		return ui_widget_port_open(widget, HOST_PROFILE_NAME, widget_deleted);
+	}
+	if (!multiplayer_player(controller))
+		return FALSE;
+	return multiplayer_host_start(widget, event, widget_deleted);
+}
+
+/* the profile just made is player 1's: hosting goes on to the map */
+static boolean host_profile_continue(struct widget_instance *widget, struct event_record *event,
+	boolean *widget_deleted)
+{
+	struct player_profile profile;
+	short controller = host_profile.controller;
+
+	host_profile.controller = NONE;
+	if (controller == NONE || !campaign_profile(controller, &profile) || !multiplayer_player(controller))
+		return campaign_fail();
+	if (!multiplayer_host_start(widget, event, widget_deleted))
+		return FALSE;
+	*widget_deleted = FALSE;
+	return ui_widget_port_open(widget, HOST_MAP_SELECT_NAME, widget_deleted);
+}
+
+/* (from the profile list's update) once the profile screen's New Player
+Profile made one (the game's own name keyboard and saving screens ran), the
+host goes on */
+static void host_profile_poll(struct widget_instance *list)
+{
+	struct player_profile profile;
+	struct event_record event;
+	boolean deleted = FALSE;
+
+	if (host_profile.controller == NONE || !host_profile.visited || virtual_keyboard_active() ||
+		!campaign_profile(host_profile.controller, &profile))
+	{
+		return;
+	}
+	memset(&event, 0, sizeof(event));
+	event.controller_index = host_profile.controller;
+	host_profile_continue(list, &event, &deleted);
 }
 
 /* ---- the map list (the Map screen's): its chooser's SINGLEPLAYER levels,
@@ -3027,47 +3130,135 @@ static boolean hosting_cooperative(void)
 {
 	void *server = global_network_game_server_get();
 
+	/* (debug.menu_open_coop: Server Setup as a co-op host's, with no server) */
+	if (config_boolean("debug.menu_open_coop"))
+		return TRUE;
 	return server && game_cooperative(network_game_server_get_game(server));
 }
 
 /* Server Setup's gametype rows, which co-op hides */
 static char const *const server_settings_gametype_rows[] =
 {
-	"op_game_type", "op_player_options", "op_item_options", "op_vehicle_options", "op_indicator_options",
-	"op_team_options",
+	"op_game_type", "op_gametype_options",
 };
 
 /* the most players a co-op game hosted starts with (maximum_players') */
 #define COOPERATIVE_DEFAULT_PLAYERS 16
-/* CO-OP OPTIONS shares Server Setup's help strings for FRIENDLY FIRE and
-EXTRA ENEMIES, by their choices, and EXTRA ENEMIES' PER PLAYER and MULTIPLIER (its
-help_strings, tools/port_settings.py) */
-#define COOPERATIVE_FRIENDLY_FIRE_HELP 12
+/* Shared help indices stay stable when rows are merged (port_settings.py). */
+#define COOPERATIVE_FRIENDLY_FIRE_HELP 32
 #define COOPERATIVE_EXTRA_ENEMIES_HELP 16
-#define COOPERATIVE_ENEMIES_PER_PLAYER_HELP 19
-#define COOPERATIVE_ENEMIES_MULTIPLIER_HELP 20
 #define COOPERATIVE_PLAYER_COLLISIONS_HELP 21
 #define SERVER_PASSWORD_HELP 23
-/* ... and for MAXIMUM PLAYERS past player_capacity()'s warning threshold */
 #define MAXIMUM_PLAYERS_SLOW_HELP 28
-/* ... and for SHARE MAPS, by its choice (port/linux/game/map_share.c) */
-#define MAP_SHARE_HELP 24
-#define COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP 26
 #define COOPERATIVE_FIRETEAM_HELP 29
 #define COOPERATIVE_OPTIONS_HELP 31
 
-/* co-op's EXTRA ENEMIES' choices (port_settings.COOP_ENEMIES_MODES, in this
-order): its amount's row is the choice's */
-enum
-{
-	_cooperative_enemies_none,
-	_cooperative_enemies_per_player,
-	_cooperative_enemies_multiplier,
-	NUMBER_OF_COOPERATIVE_ENEMIES_MODES
-};
+static long const cooperative_enemies_percentages[] = {25, 50, 100, 150, 200};
+static long const cooperative_enemies_multipliers[] = {2, 4, 8, 16, 32};
 
-/* co-op's FRIENDLY FIRE's choices (network.coop_friendly_fire's values,
-port_settings.COOP_FRIENDLY_FIRE_VALUES, in this order) */
+/* Return the nearest listed amount; ties keep the smaller choice. */
+static short coop_enemies_choice(char const *mode, long per_player, long multiplier)
+{
+	long const *amounts;
+	long value;
+	short index, best = 0, offset, count;
+
+	if (!_stricmp(mode, "per_player"))
+	{
+		amounts = cooperative_enemies_percentages;
+		count = NUMBEROF(cooperative_enemies_percentages);
+		value = per_player;
+		offset = 1;
+	}
+	else if (!_stricmp(mode, "multiplier"))
+	{
+		amounts = cooperative_enemies_multipliers;
+		count = NUMBEROF(cooperative_enemies_multipliers);
+		value = multiplier;
+		offset = 1 + NUMBEROF(cooperative_enemies_percentages);
+	}
+	else
+		return 0;
+	for (index = 1; index < count; index++)
+		if ((double)value > ((double)amounts[index] + amounts[best]) / 2.0)
+			best = index;
+	return offset + best;
+}
+
+/* Amount zero means NONE: neither amount key is written. */
+static char const *coop_enemies_apply(short choice, long *amount)
+{
+	choice = (short)PIN(choice, 0, NUMBEROF(cooperative_enemies_percentages) + NUMBEROF(cooperative_enemies_multipliers));
+	*amount = 0;
+	if (!choice)
+		return "none";
+	if (choice <= NUMBEROF(cooperative_enemies_percentages))
+	{
+		*amount = cooperative_enemies_percentages[choice - 1];
+		return "per_player";
+	}
+	*amount = cooperative_enemies_multipliers[choice - 1 - NUMBEROF(cooperative_enemies_percentages)];
+	return "multiplier";
+}
+
+static short coop_friendly_fire_choice(char const *players, boolean allies)
+{
+	return (_stricmp(players, "off") ? 1 : 0) | (allies ? 2 : 0);
+}
+
+static char const *coop_friendly_fire_apply(short choice, char const *players, boolean *allies)
+{
+	*allies = (choice & 2) != 0;
+	if (!(choice & 1))
+		return "off";
+	if (!_stricmp(players, "shields_only") || !_stricmp(players, "explosives_only"))
+		return players;
+	return "on";
+}
+
+static void coop_options_init(struct widget_instance *screen)
+{
+	struct widget_instance *spinner = named(screen, "extra_enemies_spinner", 0);
+
+	if (spinner)
+		spinner->parameters.list.selected_index = coop_enemies_choice(config_string("network.coop_enemies_mode"),
+			config_integer("network.coop_enemies"), config_integer("network.coop_enemies_multiplier"));
+	spinner = named(screen, "friendly_fire_spinner", 0);
+	if (spinner)
+		spinner->parameters.list.selected_index = coop_friendly_fire_choice(config_string("network.coop_friendly_fire"),
+			config_boolean("network.coop_ally_friendly_fire"));
+}
+
+static void coop_options_save(struct widget_instance *screen)
+{
+	struct widget_instance *spinner = named(screen, "extra_enemies_spinner", 0);
+
+	if (spinner)
+	{
+		long amount;
+		char text[32];
+		char const *mode = coop_enemies_apply(spinner->parameters.list.selected_index, &amount);
+
+		config_write("network.coop_enemies_mode", mode);
+		if (amount)
+		{
+			snprintf(text, sizeof(text), "%ld", amount);
+			config_write(!strcmp(mode, "per_player") ? "network.coop_enemies" : "network.coop_enemies_multiplier", text);
+		}
+	}
+	spinner = named(screen, "friendly_fire_spinner", 0);
+	if (spinner)
+	{
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 3);
+		boolean allies;
+		char const *players = coop_friendly_fire_apply(choice, config_string("network.coop_friendly_fire"), &allies);
+
+		config_write("network.coop_friendly_fire", players);
+		config_write("network.coop_ally_friendly_fire", allies ? "true" : "false");
+	}
+}
+
+/* Legacy player-only rules remain valid config values for the server. */
 static short const cooperative_friendly_fire_modes[] =
 {
 	_friendly_fire_off, _friendly_fire_on, _friendly_fire_shields_only, _friendly_fire_explosives_only
@@ -3172,36 +3363,21 @@ static void coop_options_update(struct widget_instance *list)
 	/* Each rule's help follows its spinner choice. */
 	if ((spinner = named(list, "friendly_fire_spinner", 0)) != NULL)
 	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0,
-			NUMBEROF(cooperative_friendly_fire_modes) - 1);
+		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 3);
 		struct widget_instance *help = list->parameters.list.extended_description;
 
 		if (help && list->focused_child == named(list, "op_friendly_fire", 0))
 			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FRIENDLY_FIRE_HELP + choice);
 	}
-	/* ... and its EXTRA ENEMIES, with the row of the amount of the one
-	chosen below it (network.coop_enemies_mode and its amounts, which the
-	host reads as the game begins: coop_enemies.c) */
+	if ((spinner = named(list, "extra_enemies_spinner", 0)) != NULL)
 	{
 		struct widget_instance *help = list->parameters.list.extended_description;
-		short mode = _cooperative_enemies_none;
+		long amount;
+		char const *mode = coop_enemies_apply(spinner->parameters.list.selected_index, &amount);
+		short mode_index = !strcmp(mode, "none") ? 0 : !strcmp(mode, "per_player") ? 1 : 2;
 
-		if ((spinner = named(list, "extra_enemies_spinner", 0)) != NULL)
-		{
-			mode = (short)PIN(spinner->parameters.list.selected_index, 0,
-				NUMBER_OF_COOPERATIVE_ENEMIES_MODES - 1);
-		}
-		visible_set(named(list, "op_enemies_per_player", 0), mode == _cooperative_enemies_per_player);
-		visible_set(named(list, "op_enemies_multiplier", 0), mode == _cooperative_enemies_multiplier);
-		if (help)
-		{
-			if (list->focused_child == named(list, "op_extra_enemies", 0))
-				help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_ENEMIES_HELP + mode);
-			else if (list->focused_child == named(list, "op_enemies_per_player", 0))
-				help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_PER_PLAYER_HELP;
-			else if (list->focused_child == named(list, "op_enemies_multiplier", 0))
-				help->parameters.text_box.string_list_index = COOPERATIVE_ENEMIES_MULTIPLIER_HELP;
-		}
+		if (help && list->focused_child == named(list, "op_extra_enemies", 0))
+			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_EXTRA_ENEMIES_HELP + mode_index);
 	}
 	/* ... and its PLAYER COLLISIONS, below them: ON or OFF, its help its
 	choice's */
@@ -3221,13 +3397,29 @@ static void coop_options_update(struct widget_instance *list)
 		if (help && list->focused_child == named(list, "op_fireteam", 0))
 			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_FIRETEAM_HELP + choice);
 	}
-	if ((spinner = named(list, "ally_friendly_fire_spinner", 0)) != NULL)
-	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
-		struct widget_instance *help = list->parameters.list.extended_description;
+}
 
-		if (help && list->focused_child == named(list, "op_ally_friendly_fire", 0))
-			help->parameters.text_box.string_list_index = (short)(COOPERATIVE_ALLY_FRIENDLY_FIRE_HELP + choice);
+/* Server Setup's rows in order. Rows that are hidden (a co-op game's gametype rows, a LAN game's listing and
+password) close up: each shown row takes the next slot, at the pitch of the first two rows' offsets. */
+static void server_settings_pack_rows(struct widget_instance *list)
+{
+	static char const *const rows[] =
+	{
+		"op_server_name", "op_max_players", "op_game_type", "op_coop_options", "op_gametype_options",
+		"op_listing", "op_password", "op_start_game",
+	};
+	struct widget_instance *first = named(list, rows[0], 0);
+	struct widget_instance *second = named(list, rows[1], 0);
+	short slot = 0, row;
+
+	if (!first || !second || second->vertical_offset <= first->vertical_offset)
+		return;
+	for (row = 0; row < NUMBEROF(rows); row++)
+	{
+		struct widget_instance *widget = named(list, rows[row], 0);
+
+		if (widget && widget->visible)
+			widget->vertical_offset = first->vertical_offset + slot++ * (second->vertical_offset - first->vertical_offset);
 	}
 }
 
@@ -3244,7 +3436,7 @@ static void server_settings_update(struct widget_instance *list)
 	wide_to_text(multiplayer.game_name, text, sizeof(text));
 	text_field_show(named(list, "server_name_value", 0), text, text_field_editing(row));
 	if (multiplayer.mode != _multiplayer_mode_host_internet)
-		snprintf(text, sizeof(text), "NONE: A LAN GAME");
+		text[0] = 0; /* (a LAN game has no join code, so the line is blank) */
 	else if (!config_boolean("network.online"))
 		snprintf(text, sizeof(text), "INTERNET PLAY IS OFF (SETTINGS)");
 	/* (an invite reaches no one without a broker) */
@@ -3261,7 +3453,7 @@ static void server_settings_update(struct widget_instance *list)
 		snprintf(code, sizeof(code), "%s", text);
 		snprintf(text, sizeof(text), "JOIN CODE %s", code);
 	}
-	text_field_show(named(list, "invite_value", 0), text, FALSE);
+	text_field_show(named(screen_of(list), "invite_value", 0), text, FALSE);
 	{
 		wchar_t type[ROW_TEXT_LENGTH];
 
@@ -3269,6 +3461,10 @@ static void server_settings_update(struct widget_instance *list)
 		text_set(named(list, "game_type_value", 0), type);
 	}
 	settings_help(list);
+	if (list->parameters.list.extended_description &&
+		(list->focused_child == named(list, "op_game_type", 0) ||
+		list->focused_child == named(list, "op_gametype_options", 0)))
+		list->parameters.list.extended_description->parameters.text_box.string_list_index = 4;
 	/* MAXIMUM PLAYERS past the warning threshold (player_capacity()) says so */
 	if (spinner && list->focused_child == named(list, "op_max_players", 0) && list->parameters.list.extended_description &&
 		player_capacity_exceeded(maximum_players[*server_settings_maximum_players_index()]))
@@ -3283,16 +3479,6 @@ static void server_settings_update(struct widget_instance *list)
 		if (cooperative && list->parameters.list.extended_description &&
 			list->focused_child == named(list, "op_coop_options", 0))
 			list->parameters.list.extended_description->parameters.text_box.string_list_index = COOPERATIVE_OPTIONS_HELP;
-	}
-	/* SHARE MAPS (any game's: map_share.c), ON or OFF: its help is its
-	choice's. Its spinner keeps network.map_share itself */
-	if ((spinner = named(list, "map_share_spinner", 0)) != NULL)
-	{
-		short choice = (short)PIN(spinner->parameters.list.selected_index, 0, 1);
-		struct widget_instance *help = list->parameters.list.extended_description;
-
-		if (help && list->focused_child == named(list, "op_map_share", 0))
-			help->parameters.text_box.string_list_index = (short)(MAP_SHARE_HELP + choice);
 	}
 	/* LISTING (an internet game's): PUBLIC, listed in everyone's server
 	browser, or PRIVATE, for this game. Its help is its choice's */
@@ -3326,6 +3512,7 @@ static void server_settings_update(struct widget_instance *list)
 		if (help && list->focused_child == row)
 			help->parameters.text_box.string_list_index = SERVER_PASSWORD_HELP;
 	}
+	server_settings_pack_rows(list);
 }
 
 static void server_password_done(char const *text)
@@ -6122,8 +6309,8 @@ static void preview_update(struct widget_instance *list)
 		ustrncpy(name, game->game_name, NUMBEROF(game->game_name));
 		name[NUMBEROF(game->game_name)] = 0;
 		/* (the text box does not wrap: lines of up to 28 characters) */
-		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n\r\nThis game is under way.\r\n\r\n%s", name,
-			game->open ? L"JOIN GAME joins it now;\r\nits players show then." :
+		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n\r\nThis game has already\r\nstarted.\r\n\r\n%s", name,
+			game->open ? L"Select JOIN GAME\r\nto jump in." :
 			L"It cannot be joined now:\r\nit is loading, over or full.");
 		text[NUMBEROF(text) - 1] = 0;
 		preview_players_text(text, NUMBEROF(text));
@@ -6228,6 +6415,12 @@ static struct
 	/* the vehicle screen's side shown */
 	short vehicle_side;
 } gametype_edit = { { 0 }, 0, 0, 0, TRUE, NONE, FALSE };
+
+/* The stock Xbox editor's handlers also edit this game's copy in setup mode. */
+boolean pc_menu_gametype_setup_active(void)
+{
+	return gametype_edit.setup;
+}
 
 static struct game_variant *edit_variant(void)
 {
@@ -7018,6 +7211,14 @@ boolean pc_menu_event_function_invoke(
 			if (deleted)
 				*widget_deleted = TRUE;
 		}
+		else if (!strcmp(name, "mp map kind previous") || !strcmp(name, "mp map kind next"))
+		{
+			/* (left and right from any row of the Map screen's list turn the chooser,
+			which is only reachable by scrolling the list back to its top) */
+			if (map_list.step == MAP_STEP_MAPS)
+				map_kind_set(widget, (short)((map_list.kind + (strstr(name, "next") ? 1 : NUMBER_OF_MAP_KINDS - 1)) %
+					NUMBER_OF_MAP_KINDS));
+		}
 		else if (!strcmp(name, "mp type set mode"))
 		{
 			lan_mode = strstr(widget->name, "_lan_") != NULL;
@@ -7084,7 +7285,26 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "mp profile save changes"))
 		{
+			if (gametype_edit.setup)
+			{
+				/* The setup copy survives returning to Server Setup; START GAME applies it. */
+				ui_widget_port_go_back(widget);
+				*widget_deleted = TRUE;
+				return TRUE;
+			}
 			return ui_widget_port_gametype_save(widget, widget_deleted);
+		}
+		else if (!strcmp(name, "close if not editing profile"))
+		{
+			return gametype_edit.setup || game_function(name, widget, event, widget_deleted);
+		}
+		else if (!strcmp(name, "mp profile change name"))
+		{
+			return gametype_edit.setup ? campaign_fail() : game_function(name, widget, event, widget_deleted);
+		}
+		else if (!strcmp(name, "mp profile end editing"))
+		{
+			return gametype_edit.setup || game_function(name, widget, event, widget_deleted);
 		}
 		else if (!strcmp(name, "mp profile begin editing"))
 		{
@@ -7226,9 +7446,14 @@ boolean pc_menu_event_function_invoke(
 		{
 			item_activated(widget, event_controller(widget, event), widget_deleted);
 		}
+		else if (!strcmp(name, "coop options init"))
+		{
+			coop_options_init(screen_of(widget));
+		}
 		else if (!strcmp(name, "coop options save"))
 		{
 			settings_each(screen_of(widget), setting_changed_save);
+			coop_options_save(screen_of(widget));
 		}
 		else if (!strcmp(name, "port settings save"))
 		{
@@ -7331,10 +7556,6 @@ boolean pc_menu_event_function_invoke(
 		{
 			return campaign_continue(controller);
 		}
-		else if (!strcmp(name, "disable if no custom campaigns"))
-		{
-			return custom_campaigns_disable(widget);
-		}
 		else if (!strcmp(name, "port option row init"))
 		{
 			/* (an option row of the Xbox look's Item Options, which its own functions do not know) */
@@ -7348,13 +7569,23 @@ boolean pc_menu_event_function_invoke(
 		{
 			return ui_widget_port_delete_finish(widget, widget_deleted);
 		}
+		else if (!strcmp(name, "port open website") || !strcmp(name, "port open privacy") ||
+			!strcmp(name, "port open license"))
+		{
+#ifdef HALO_IOS
+			/* (pages in host_open_website.h: 0 the site, 1 its privacy page, 2 the license) */
+			host_sdl_open_website(!strcmp(name, "port open privacy") ? 1 : !strcmp(name, "port open license") ? 2 : 0);
+#endif
+		}
+		else if (!strcmp(name, "port send log"))
+		{
+#ifdef HALO_IOS
+			host_sdl_send_log_start();
+#endif
+		}
 		else if (!strcmp(name, "port delete request"))
 		{
-			return ui_widget_port_delete_request();
-		}
-		else if (!strcmp(name, "port custom campaign begin"))
-		{
-			custom_campaign_entry = TRUE;
+			return gametype_edit.setup ? campaign_fail() : ui_widget_port_delete_request();
 		}
 		else if (!strcmp(name, "initialize sp level list solo"))
 		{
@@ -7446,6 +7677,12 @@ void pc_menu_game_data_function_invoke(
 		lobby_update(widget);
 	else if (!strcmp(name, "port cloud saves status"))
 		cloud_saves_status_show(widget);
+	else if (!strcmp(name, "port send log status"))
+		send_log_status_show(widget);
+	else if (!strcmp(name, "port about version"))
+		about_text_show(widget, FALSE);
+	else if (!strcmp(name, "port about build"))
+		about_text_show(widget, TRUE);
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);

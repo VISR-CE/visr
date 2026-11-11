@@ -9,6 +9,7 @@ mouse state gathered here feeds the controller emulation in xinput_sdl.c
 and the debug keyboard that the game's console reads.
 */
 
+#include "halo_controller_glyphs.h"
 #include "platform.h"
 #include "sdl_platform.h"
 #include "menu_input.h"
@@ -22,6 +23,7 @@ and the debug keyboard that the game's console reads.
 #include "halo_internet.h"
 #include "xiso.h"
 #include "../game/text_filter.h"
+#include "../game/photo_mode.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -107,6 +109,35 @@ static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
 #endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
+/* new key, mouse-button and touch presses seen, ever (a held key's repeats
+are not presses): the intro movie skips when it rises (bink_playback.c) */
+static unsigned int input_press_count;
+
+/* a key press that counts toward the intro skip: not a modifier key itself,
+and not a Ctrl, Option or Cmd chord (Cmd-M, Shift-Cmd-3 and the like) */
+static int key_counts_as_press(int scancode, unsigned int mod)
+{
+	switch (scancode)
+	{
+	case SDL_SCANCODE_LCTRL: case SDL_SCANCODE_RCTRL:
+	case SDL_SCANCODE_LSHIFT: case SDL_SCANCODE_RSHIFT:
+	case SDL_SCANCODE_LALT: case SDL_SCANCODE_RALT:
+	case SDL_SCANCODE_LGUI: case SDL_SCANCODE_RGUI:
+	case SDL_SCANCODE_CAPSLOCK:
+	case SDL_SCANCODE_MODE:
+		return 0;
+	}
+	return !(mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI));
+}
+
+unsigned int platform_input_press_count(void)
+{
+	unsigned int count;
+	pthread_mutex_lock(&input_lock);
+	count = input_press_count;
+	pthread_mutex_unlock(&input_lock);
+	return count;
+}
 /* rebinding (platform_binding_capture_begin), under input_lock: waiting for
 an input, and the one taken; then the keyboard and mouse settle (their keys
 and buttons held then are let go) before they drive anything again */
@@ -526,7 +557,7 @@ int halo_interpolation_enabled(void)
 		read_at = config_changes();
 		enabled = config_boolean("display.interpolation");
 	}
-	return enabled;
+	return enabled && !photo_mode_active();
 }
 
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
@@ -1043,6 +1074,18 @@ void platform_display_apply(void)
 void platform_video_drawable_size(int *width, int *height)
 {
 	SDL_GetWindowSizeInPixels(platform_window, width, height);
+}
+
+void platform_video_safe_insets(float *insets)
+{
+#ifdef HALO_IOS
+	/* The HUD frame runs in the guest; host_gpu.c's platform function is
+	for the host backend and cannot supply its insets here. */
+	extern void host_external_safe_insets(float *insets);
+	host_external_safe_insets(insets);
+#else
+	insets[0] = insets[1] = insets[2] = insets[3] = 0.0f;
+#endif
 }
 
 #if !defined(HALO_ANDROID) && !defined(HALO_ILP32)
@@ -1720,6 +1763,7 @@ void platform_pump_events(void)
 	pthread_mutex_lock(&input_lock);
 	while (SDL_PollEvent(&event))
 	{
+		if (input_state.focused) halo_controller_glyph_input_event(&event);
 		switch (event.type)
 		{
 		case SDL_EVENT_QUIT:
@@ -1728,12 +1772,46 @@ void platform_pump_events(void)
 			exit(EXIT_SUCCESS);
 		case SDL_EVENT_FINGER_DOWN:
 		case SDL_EVENT_FINGER_MOTION:
+			if (event.type == SDL_EVENT_FINGER_DOWN)
+				input_press_count++;
 			platform_menu_activity(1, 0, 0, 0);
 			break;
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
+#ifdef HALO_ILP32
+			/* port: host_photo_mode_available admits only the development AppKit host. */
+			{
+				static unsigned char held[SDL_SCANCODE_COUNT];
+				int key = event.key.scancode, action = 0;
+				switch (key)
+				{
+				case SDL_SCANCODE_P: action = PHOTO_TOGGLE; break;
+				case SDL_SCANCODE_O: action = PHOTO_GUIDES; break;
+				case SDL_SCANCODE_I: action = PHOTO_SAVE; break;
+				case SDL_SCANCODE_L: action = PHOTO_LOAD; break;
+				case SDL_SCANCODE_K: action = PHOTO_RENDER_CHECK; break;
+				case SDL_SCANCODE_LEFTBRACKET: action = PHOTO_SLOWER; break;
+				case SDL_SCANCODE_RIGHTBRACKET: action = PHOTO_FASTER; break;
+				case SDL_SCANCODE_MINUS: action = PHOTO_FOV_DOWN; break;
+				case SDL_SCANCODE_EQUALS: action = PHOTO_FOV_UP; break;
+				}
+				if (action && event.key.down) photo_mode_trace_key((int)key, (int)action);
+				if (key > 0 && key < SDL_SCANCODE_COUNT && held[key])
+				{
+					if (!event.key.down) held[key] = 0;
+					break;
+				}
+				if (action && event.key.down && !event.key.repeat && !(event.key.mod & (SDL_KMOD_GUI | SDL_KMOD_CTRL | SDL_KMOD_ALT)) && photo_mode_key(action))
+				{
+					held[key] = 1;
+					break;
+				}
+			}
+#endif
 			if (event.key.down && !event.key.repeat)
 			{
+				if (key_counts_as_press(event.key.scancode, event.key.mod))
+					input_press_count++;
 #ifdef HALO_IOS
 				/* UIKit also sends key events for the on-screen keyboard. */
 				extern int host_menu_keyboard(void);
@@ -1817,6 +1895,8 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
+			if (event.button.down)
+				input_press_count++;
 			if (event.button.down)
 				platform_menu_activity(event.button.which == SDL_TOUCH_MOUSEID || event.button.which == SDL_PEN_MOUSEID, 0, 0, 0);
 			if (event.button.button < 32)

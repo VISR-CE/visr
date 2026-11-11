@@ -40,10 +40,14 @@ what they link into the app's `Licenses` folder (`tools/ios_build.py`).
 | [KCP](https://github.com/skywind3000/kcp) | MIT | `port/third_party/kcp/LICENSE` | Yes |
 | [Monocypher](https://monocypher.org/) | BSD-2-Clause or CC0 1.0 | `port/third_party/monocypher/LICENCE.md` | Yes |
 | [stb_truetype](https://github.com/nothings/stb) | MIT or public domain (Unlicense) | `port/third_party/stb/LICENSE` | Yes |
+| [stb_vorbis](https://github.com/nothings/stb), Custom Edition audio decoder | MIT or public domain (Unlicense) | `port/third_party/stb_vorbis/LICENSE` | Yes |
 | [tomlc17](https://github.com/cktan/tomlc17) | MIT | `port/third_party/tomlc17/LICENSE` | Yes |
 | [zlib](https://zlib.net/) 1.3.2 | zlib | `port/third_party/zlib/LICENSE` | Yes |
+| [SMAA](https://github.com/iryoku/smaa) by Jorge Jimenez and others, anti-aliasing shaders | MIT | `port/third_party/smaa/LICENSE` | Yes |
+| Surge AI's profanity list, the source of streamer mode's word table | MIT | `port/assets/text_filter/README.md` | Yes |
+| [english-words](https://github.com/dwyl/english-words), used to review the streamer words | Unlicense | `port/third_party/english-words/LICENSE.md` | Notice only |
 | [musl](https://musl.libc.org/) math functions | MIT | `port/third_party/musl-math/COPYRIGHT` | No, Linux build only (the Apple builds download musl itself) |
-| [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/) | Apache-2.0 or GPL-2.0-or-later (we use Apache-2.0) | `port/third_party/mbedtls/LICENSE` | No, desktop builds only |
+| [Mbed TLS](https://www.trustedfirmware.org/projects/mbed-tls/) | Apache-2.0 or GPL-2.0-or-later (we use Apache-2.0) | `port/third_party/mbedtls/LICENSE` | Yes |
 | [miniupnpc](https://miniupnp.tuxfamily.org/) | BSD-3-Clause | `port/third_party/miniupnpc/LICENSE` | No, desktop builds only |
 | zlib, as the game shipped it | zlib | `source/memory/zlib/` | Part of the decompiled source tree |
 | libtiff, as the game shipped it | libtiff (Sam Leffler and Silicon Graphics, notice in each file) | `source/bitmaps/libtiff/` | Part of the decompiled source tree |
@@ -65,7 +69,7 @@ its own notice.
   `--enable-nonfree`, and no external libraries.
 - FFmpeg is linked statically into the app's executable. The complete source
   of the app, including the FFmpeg code it is built with, is at
-  <https://github.com/steverice/visr>.
+  <https://github.com/VISR-CE/visr>.
 - To rebuild the app with a modified FFmpeg, change the files in
   `port/third_party/ffmpeg-bink/`, then build from the repository root with
   `python3 tools/ios_build.py --unsigned --ipa dist/VISR-iOS-unsigned.ipa`
@@ -84,6 +88,9 @@ its own notice.
 | [SDL](https://libsdl.org/) 3.4.16 | zlib |
 | [musl](https://musl.libc.org/) 1.2.5 | MIT, with the component notices in its `COPYRIGHT` |
 | Khronos OpenGL ES and EGL headers | MIT and Apache-2.0, as their registries state in each header |
+
+Their license texts are also kept in `LICENSES/` so `tools/notices_text.py`
+can generate the bundled `Licenses/NOTICES.txt` without a build.
 
 ## Fonts
 

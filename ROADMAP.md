@@ -2,7 +2,7 @@
 
 ## Releases
 
-Planned releases and the work in each are tracked as milestones: https://github.com/steverice/visr/milestones. The sections below list what VISR does today and link the open items to their issues.
+Planned releases and the work in each are tracked as milestones: https://github.com/VISR-CE/visr/milestones. The sections below list what VISR does today and link the open items to their issues.
 
 ## VR
 
@@ -23,7 +23,7 @@ Planned releases and the work in each are tracked as milestones: https://github.
 - [x] An adjustable first-person weapon height for the headset's taller view (`display.weapon_offset_down`)
 - [x] The first-person body drawn below the view (`display.first_person_body_offset`)
 - [x] The first-person body in vehicle seats, and depth clamping on the body
-- [ ] Immersive cutscenes, with the scene outside the director's frame blurred ([#88](https://github.com/steverice/visr/issues/88))
+- [ ] Immersive cutscenes, with the scene outside the director's frame blurred ([#88](https://github.com/VISR-CE/visr/issues/88))
 - [x] Stereo on the theater screen, as a 3D TV (`display.stereo = "screen"`)
 - [x] 2D play in a window at the window's resolution
 - [x] 2D play on a screen in your room on visionOS 26 (`display.immersive`, `display.theater_width`, `display.theater_distance`, `display.theater_environment`)
@@ -46,7 +46,7 @@ Planned releases and the work in each are tracked as milestones: https://github.
 - [x] Shader and pipeline warm-up at map load
 - [x] Device profiles: graphics settings chosen per device model or class, with the main menu and cutscenes budgeted apart from play (`profiles/`, `debug.device_profile`)
 - [x] Device profiles can set shadow resolution and anti-aliasing, plus separate frame-rate targets for the main menu, cutscenes and play (`display.shadow_map_size`, `display.anti_aliasing`, `display.frame_rate`)
-- [ ] Profile knobs still to build: a shadow budget, a level-of-detail bias outside stereo, pixel math as a setting ([#89](https://github.com/steverice/visr/issues/89))
+- [ ] Profile knobs still to build: a shadow budget, a level-of-detail bias outside stereo, pixel math as a setting ([#89](https://github.com/VISR-CE/visr/issues/89))
 - [x] Choose the strongest compatible measured hardware profile at or below the current device, with exact profiles taking precedence and unknown hardware retaining its class fallback
 - [x] Signed profile-data updates independent of app releases, with compatible snapshots, offline defaults, and rollback
 - [x] A benchmark testers can run from the app, with live timing and display-variant runs, whose report a profile is derived from (tester builds; `debug.benchmark_suite`)
@@ -62,9 +62,9 @@ Planned releases and the work in each are tracked as milestones: https://github.
 - [x] Compressed textures, 16x anisotropic filtering and reversed-Z depth
 - [x] Upstream's redrawn high-resolution HUD and text
 - [x] FXAA and SMAA on flat Metal views, and adjustable shadow resolution (`display.anti_aliasing`, `display.shadow_map_size`)
-- [ ] MSAA and per-pixel lighting on Metal ([#90](https://github.com/steverice/visr/issues/90))
+- [ ] MSAA and per-pixel lighting on Metal ([#90](https://github.com/VISR-CE/visr/issues/90))
 - [x] Mirror reflections and active camouflage at Xbox, half or full resolution (`display.effect_resolution`: `"xbox"`, `"half"` by default, or `"full"`)
-- [ ] Mirror reflections at full resolution by default ([#91](https://github.com/steverice/visr/issues/91))
+- [ ] Mirror reflections at full resolution by default ([#91](https://github.com/VISR-CE/visr/issues/91))
 - [x] AI-upscaled textures, generated on the device at import
 - [x] The intro and credits movies (Bink video, decoded with FFmpeg; `display.movies`)
 - [x] Your own legs when you look down on a flat screen, from OpenCE (`display.first_person_legs`, off by default; set it in `config.toml`). The headset draws the whole body instead (`display.first_person_body`)
@@ -76,13 +76,13 @@ Planned releases and the work in each are tracked as milestones: https://github.
 - [x] `halo://join` invite links on every Apple platform
 - [x] A grace period before other players drop an internet game's backgrounded app (`network.background_grace`, 60 seconds by default)
 - [x] LAN discovery over Bonjour on iPhone, iPad and Vision Pro, relaying UDP discovery broadcasts to resolved peers without the multicast networking entitlement
-- [ ] LAN discovery over Bonjour on Apple TV ([#92](https://github.com/steverice/visr/issues/92))
+- [ ] LAN discovery over Bonjour on Apple TV ([#92](https://github.com/VISR-CE/visr/issues/92))
 - [x] Sharing the host's invite through the system share sheet on iPhone, iPad and Vision Pro
-- [ ] Sharing the host's invite from Apple TV, as a QR code ([#75](https://github.com/steverice/visr/issues/75))
-- [ ] Internet play on by default ([#93](https://github.com/steverice/visr/issues/93))
+- [ ] Sharing the host's invite from Apple TV, as a QR code ([#75](https://github.com/VISR-CE/visr/issues/75))
+- [ ] Internet play on by default ([#93](https://github.com/VISR-CE/visr/issues/93))
 - [x] Custom Edition maps downloaded from a game's players, from OpenCE; off by default (`network.map_download`, DOWNLOAD MAPS in Settings > Network Setup)
 - [x] Helping send a Custom Edition map to other players is off by default (`network.map_seed`, HELP SEND MAPS in Settings > Network Setup)
-- [ ] A question with the map's name and size before a map download starts, then downloads on by default ([#94](https://github.com/steverice/visr/issues/94))
+- [ ] A question with the map's name and size before a map download starts, then downloads on by default ([#94](https://github.com/VISR-CE/visr/issues/94))
 - [x] Network version 38 compatibility: versions 33 (co-op ally friendly fire), 34 (scenery shields and tripmines) and 37 implemented; the formats of 35, 36 and 38 accepted while their new gametypes are refused and stock shield effects are drawn and hosted
 
 ## App

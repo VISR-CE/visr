@@ -149,6 +149,74 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.14 (2026-11-08)
+
+### Summary
+
+- On iPhone and iPad, tap and drag through the menus. Touching an item highlights it, and lifting your finger without moving taps it.
+- Drag a list to scroll it. Menu taps also work if your finger lands a little off an item.
+- On iPad and Mac, try navigating the menus with a mouse or trackpad, including the scroll wheel, which follows your system's scroll direction.
+- You should feel haptic ticks when an item is highlighted and when you activate it.
+- While a menu is open, the on-screen touch controls shrink to A, B, X, Y, the arrows, and PAUSE.
+- Trackpad clicks in menus should register once, not as both a tap and a click.
+- On iPhone and iPad, benchmark runs should now use the frame rate set for each case, including on 120 Hz displays.
+- The scores screen after a game should now appear without getting stuck waiting.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **touch**: tap and drag the menus on iPhone and iPad, and drive them with a mouse or trackpad — the iOS guest's `halo_ui_pointer_update` was a stub, so the pointer driver in `ui_widget.c` never ran; a UIKit recognizer (`host_menu_pointer.m`, rules in the plain-C `host_menu_pointer.h`) now feeds it through the new `host_ui_pointer_read` import: touch-down focuses, a lift without travel clicks, travel past the slop scrolls the list, a 22 pt reach finds the nearest item, SDL mouse events do the same on iPad and Mac, and the Taptic Engine ticks on focus and taps on activation; the touch controls shrink to A, B, X, Y, the arrows and PAUSE while a menu is up (`VISR_MENU_ACTIVE`), and the letterbox inverse moves to `halo_ui_pointer_map.h`, shared with the desktop build
+
+### fix
+
+- **ios**: a benchmark case's frame rate replaces the profile's scene and workload rate — the variable context's 60 stayed in `frame_context.rate`, so `frame_context_refreshes` held every frame two refreshes on a 120 Hz display while `display.frame_rate` 120 was in force
+- **mac**: hold the mouse through `ui_mouse_hold_update` so `test_ilp32_mouse_capture.py` probes it alone — the backported `halo_ui_pointer_update` pulled the host pointer types into the probe's stub; the hold request moves to its own function, as on main
+- **touch**: menu pointer review fixes and a scripted pointer for runs with no finger — `d3d8_device.c` includes `halo_host_pointer.h` only in the iOS guest branch so the Linux and Windows builds still compile; the scores after a game no longer wait for a menu draw that never comes; the recognizer takes direct touches only (a trackpad click was both a tap and an SDL click) and leaves a button's touch to it; the wheel follows the system's scroll direction as the desktop build does; the `VISR_MENU_ACTIVE` hint is noted and applied on the next poll instead of running UIKit under SDL's hint lock; the Mac host forwards replay blocking; haptics follow what the tap did; `HALO_MENU_POINTER_SCRIPT` drives taps, drags, clicks and wheel by fractions of the window, and `test_menu_tap_targets.py` now runs in `ios_test.py` and pins the first-draw gate
+
+### perf
+
+- **shaders**: add one pipeline to the `a10` shader list — the Apple TV 4K (3rd generation) opening campaign interval drew `4c3a0e7d9fdef693.1.0` with pixel shader `7be6a1c242c0a93d`, a pipeline already listed for `ui` and `sidewinder`; its vertex and pixel shader lines come from those known records
+
+## visr-v0.6.13 (2026-11-07)
+
+### Summary
+
+- Apple TV: Enter an address for a direct join or a game password in the text dialog. It should no longer crash.
+- iOS: Open the iCloud saves prompt and confirm your choice. It should no longer raise a "Failed to create work interval" error.
+- iOS: Trigger in-game alerts and open the benchmark notice and report screens. Try dragging the report screen. None of these should raise that error, and alerts should animate away cleanly.
+- Apple TV: Check that alerts with animated lists, such as the alert's collection view, open and close without an error.
+- iOS and Apple TV: After dismissing any of these dialogs, confirm that normal gameplay and animations continue as usual.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **feeds**: report git's error when fetching the `visr-feeds` tree fails — `visr_feeds_tree.py` captured git's output, so a failed fetch showed only the exit code
+- **ios**: leave the frame workgroup before an iCloud saves message — `cloud_ask`'s `SDL_ShowMessageBox` runs UIKit's loop on the drawing thread, which is still in the `VISR frame` workgroup, so an animation there could raise "Failed to create work interval" as in #51; it now calls `gpu_metal_frame_deadline_leave` first, and the next shown frame joins again
+- **ios**: leave the frame workgroup before the game's alerts and the benchmark notice and report screens — like the benchmark menu's `ask()` (#51), `host_alert`, `host_benchmark_notice` and `host_benchmark_page` run UIKit's loop on the drawing thread, which is still in the `VISR frame` workgroup, so an animation there (an Apple TV alert's collection view, a drag of the report screen) could raise "Failed to create work interval"; each now calls `gpu_metal_frame_deadline_leave` first, the next shown frame joins again, and `host_alert` lets its alert animate away before it returns
+- **tvos**: stay out of the frame workgroup while the text dialog is up — the game keeps drawing under tvOS's text dialog, and its event pump (`D3DDevice_Present` → `platform_pump_events` → `SDL_PollEvent`) runs the dialog's presentation on the main thread, which is in the `VISR frame` workgroup; the alert's collection view animates its content offset there and UIKit raises "Failed to create work interval" from `_beginInterval`, so entering an address for a direct join or a game password crashed an Apple TV. `host_tv_text_prompt` now calls `gpu_metal_frame_deadline_hold(1)` before presenting, which leaves the workgroup and keeps every frame out until `text_input_blocked` sees the dialog gone and ends the hold; `frame_deadline_rejoin_wanted` takes the hold, and `frame_deadline_probe` checks it. Same class as #51.
+
+### test
+
+- **release**: skip the legacy recording feed check on a tree without `docs/site/packs` — `test_pages_overlay_keeps_the_published_legacy_feed_unchanged` read the checked-in `recordings-4d6924ec.json`, which the history rewrite removed with the rest of the feeds
+- **feeds**: skip the feeds' publication tests on a tree without `docs/site/packs` — the history rewrite took the feeds out of this repository, including the rewritten `visr-v0.6.12` tree, so on this release branch `test_feeds_store.py` keeps the tag's tests and its `checked_in` fixture (and the two tests that read the checked-in feeds without it) skip; main runs them against the pinned `VISR-CE/visr-feeds` tree
+- **feeds**: read the published feeds from a pinned `VISR-CE/visr-feeds` tree instead of `docs/site/packs` — `tools/visr_feeds_tree.py` fetches the commit in `tools/visr-feeds.pin` (or uses `VISR_FEEDS_TREE`) into `build/visr-feeds`, and `ios_test.py`, `feeds_host_check.py`, `profile_feed_probe.m`, `test_feeds_store.py` and `test_profile_feed.py` read it; the two `test_pages_main_assets.py` tests that staged main's checked-in feeds are removed, the release-hash pins move to `test_feeds_store.py`
+- **ios**: pace the frame workgroup probe by the clock and skip where UIKit cannot run it — `frame_workgroup_uikit_probe.m` counted 400 frames of `CFRunLoopRunInMode`, which returns at once when no source is ready, so on some hosts the frames ran out in under a second, before the dialog's dismissal finished, and "fixed" failed; each frame now runs the loop for 16 ms of wall time, within 10 s. A dialog that has not gone by then, a host without a workgroup, or a scene UIKit cannot make (a hosted CI runner raised while connecting it, before the probe started) is a SKIP line from `tools/test_frame_workgroup_uikit.py`, never a pass
+- **ios**: reproduce UIKit's work interval exception with the frame workgroup — `frame_workgroup_uikit_probe.m`, a small Mac Catalyst app run by `tools/test_frame_workgroup_uikit.py` from `ios_test.py`, runs frames around a nested run loop while a text dialog is up and a scroll view animates; "fixed" holds the thread out of the workgroup by `frame_deadline.h`'s rules, as `host_tv.m` does, and must finish cleanly, and "unfixed" keeps it joined and is expected to end with "Failed to create work interval" (only a warning if a UIKit update stops raising)
+
 ## visr-v0.6.12 (2026-11-06)
 
 ### Summary
@@ -168,7 +236,7 @@ VISR automatically sends game performance data to improve the game. Reports excl
 ### feat
 
 - **feeds**: builds and releases read their feeds from feeds.visr.gg (#112)
-- **feeds**: `tools/feeds_store.py` records the feeds in steverice/visr-feeds and copies them to the feeds.visr.gg bucket (#112)
+- **feeds**: `tools/feeds_store.py` records the feeds in VISR-CE/visr-feeds and copies them to the feeds.visr.gg bucket (#112)
 
 ### fix
 
@@ -2803,7 +2871,7 @@ VISR automatically sends game performance data to improve the game. Reports excl
 - **site**: add a static landing page for VISR in `docs/site` and a `pages.yml` workflow that publishes it to GitHub Pages — what VISR is, the platforms, the bring-your-own-disc model, how to get started, credits and the trademark disclaimer
 - add `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md` and GitHub issue and pull request templates for the public repository
 - **license**: mark `LICENSE.md` as a draft pending the license choice and add `NOTICE.md` for the third-party components — every upstream is CC0 1.0, and the vendored libraries, fonts and build-time downloads keep their own licenses
-- **readme**: rewrite the README for the public `steverice/visr` repository — what VISR is, the bring-your-own-disc model, features, status, device requirements, building from source, credits and a trademark disclaimer
+- **readme**: rewrite the README for the public `VISR-CE/visr` repository — what VISR is, the bring-your-own-disc model, features, status, device requirements, building from source, credits and a trademark disclaimer
 - **nv2a**: say that color sign on sampling stages only is our inference — `cc0a6faa` called it xemu-confirmed, but xemu does not implement COLORSIGN (its TEXFILTER signed bits are `NV2A_UNIMPLEMENTED`); only the alpha kill rule comes from xemu's `psh.c`
 - **readme**: credit pfista/halo-og — Michael Pfister's port, whose native Metal renderer gave us exact border colors, combiner fixes and the pre-HUD hook's spot
 - **ios**: the README covers the Metal renderer's settings and the benchmark recorder — render scale and MetalFX, compressed textures, anisotropic filtering, shadow and camouflage sizes, frame pacing and live aim, and how to record, replay and time a stretch of play

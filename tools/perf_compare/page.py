@@ -14,7 +14,7 @@ SHEET_URL = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
 
 
 PINNED_REF = "main"  # replace with the merged commit that holds the harness the numbers came from
-CODE_URL = f"https://github.com/steverice/visr/blob/{PINNED_REF}/tools/perf_compare"
+CODE_URL = f"https://github.com/VISR-CE/visr/blob/{PINNED_REF}/tools/perf_compare"
 SITE_PAGE_URL = "https://visr.gg/benchmarks.html"
 
 
@@ -220,6 +220,7 @@ def methodology(summary: dict, rows: list[dict]) -> list[str]:
              "omitted for uncapped rows and does not establish a display tier. The methods measure different events and are "
              "not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each "
              "column.", ""]
+    lines.extend(["A build's screenshots come from runs on the device shown for it, and a row without a frame from that device has none.", ""])
     lines.extend(timing_section(rows))
     lines.extend(device_section(rows))
     lines.extend(uncapped_section(rows))

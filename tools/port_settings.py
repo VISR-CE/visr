@@ -13,7 +13,14 @@ settings defaults" shows the defaults. Controls Setup binds the keyboard and
 mouse's controls, by the functions the PC version names for it.
 """
 
+import re
+import sys
+import textwrap
+from pathlib import Path
 from xml.sax.saxutils import quoteattr
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import about_data  # noqa: E402
 
 PE = "main_menu/settings_select/player_setup/player_profile_edit"
 YES_NO = [("YES", "true"), ("NO", "false")]
@@ -197,7 +204,7 @@ STRING_OVERRIDES = {
         "Choose a window or the full\\nscreen, the frame rate and more.\\n\\nProfile:",
         "Internet play, updates and the\\nmultiplayer HUD.\\n\\nProfile:",
         "Change the current profile's\\nfree-for-all multiplayer color.\\n\\nProfile:",
-        "Halo: Combat Evolved, the Xbox\\ngame, on this computer.\\n\\nProfile:",
+        "An unofficial port of Halo:\\nCombat Evolved.\\n\\nProfile:",
     ],
 }
 
@@ -235,29 +242,48 @@ def _screen(folder: str, spec: dict, rows: list, list_inputs: list, list_handler
                       f'<child{attributes([("widget", f"{base}/{header}")])}/>',
                       f'<child{attributes([("widget", f"{base}/options_menu")])}/>'] +
                      ([f'<child widget="{base}/cloud_saves_status" platform="cloud_saves"/>']
-                      if spec.get("cloud_status") else []))
-    lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 605), ("height", 59),
+                      if spec.get("cloud_status") else []) +
+                     # (a fixed text is no row's description, so the screen holds it itself)
+                     ([f'<child widget="{base}/help"/>'] if spec.get("help_text") else []))
+    lines += _widget(f"{base}/{header}", [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                                           ("bitmap", header_bitmap)], [])
+    fixed = spec.get("help_text")  # (a text that stays, in the small font, in place of the rows' help)
     lines += _widget(f"{base}/help", [("type", "text"), ("controller", 1), ("left", 68),
                                       ("top", spec.get("help_top", 350)), ("width", 482),
-                                      ("height", spec.get("help_height", 60)), ("string_list", f"{base}/help_strings"),
-                                      ("font", "ui\\large_ui"), ("color", "#FFFFFFFF")], [])
+                                      ("height", spec.get("help_height", 60)),
+                                      *([("text", fixed), ("font", "ui\\small_ui")] if fixed else
+                                        [("string_list", f"{base}/help_strings"), ("font", "ui\\large_ui")]),
+                                      ("color", "#FFFFFFFF")], [])
     children = [f'<data input="{name}"/>' for name in list_inputs] + list_handlers
     # (each row: its widget, platform, and the place it is in, else the next)
     for index, (row, platform, *place) in enumerate(rows):
         y = spec.get("row_top", 73) + (place[0] if place else index) * spec["spacing"]
         children.append(f'<child{attributes([("widget", row), ("x", 54), ("y", y), ("platform", platform)])}/>')
-    children.append(f'<child{attributes([("widget", f"{base}/button_bar"), ("y", 414)])}/>')
+    if not spec.get("list_action"):
+        children.append(f'<child{attributes([("widget", f"{base}/button_bar"), ("y", 414)])}/>')
+    # (a list of more rows than fit shows a window of them and scrolls the rest in, with the arrows
+    # port/assets/menus/README.md describes: visible_rows)
+    window = spec.get("visible_rows")
+    arrows = []
+    if window:
+        first = spec.get("row_top", 73)
+        for direction, y in (("up", first), ("down", first + (window - 1) * spec["spacing"] + 6)):
+            arrow = f"{base}/scroll_{direction}_arrow"
+            arrows += _widget(arrow, [("width", 16), ("height", 16), ("bitmap", f"bitmaps/arrow_sm_{direction}")], [])
+            children.insert(len(children) - (0 if spec.get("list_action") else 1), f'<child{attributes([("widget", arrow), ("x", 574), ("y", y)])}/>')
     lines += _widget(f"{base}/options_menu",
                      [("type", "column_list"), ("width", 640), ("height", 480),
                       ("flags", "pass_unhandled_to_focused_child up_down_tabs_children"),
-                      ("description", f"{base}/help")], children)
-    lines += _widget(f"{base}/button_bar",
-                     [("type", "column_list"), ("width", 640), ("height", 28),
-                      ("flags", "pass_unhandled_to_focused_child left_right_tabs_items")],
-                     [f'<child{attributes([("widget", f"{base}/button_defaults"), ("y", 1)])}/>',
-                      f'<child{attributes([("widget", f"{base}/button_ok"), ("x", 380), ("y", 1)])}/>',
-                      '<child widget="common_button_cancel" x="510" y="1"/>'])
+                      ("visible_rows", window), ("description", None if fixed else f"{base}/help")], children)
+    lines += arrows
+    if not spec.get("list_action"):
+        lines += _widget(f"{base}/button_bar",
+                         [("type", "column_list"), ("width", 640), ("height", 28),
+                          ("flags", "pass_unhandled_to_focused_child left_right_tabs_items")],
+                         spec.get("buttons") or
+                         [f'<child{attributes([("widget", f"{base}/button_defaults"), ("y", 1)])}/>',
+                          f'<child{attributes([("widget", f"{base}/button_ok"), ("x", 380), ("y", 1)])}/>',
+                          '<child widget="common_button_cancel" x="510" y="1"/>'])
     lines += extra
     return lines
 
@@ -357,12 +383,108 @@ def _controls_screen() -> list:
                    extra)
 
 
+ABOUT = "about"
+# the question SEND LOG asks first (tools/xbox_menus.py: send_log_confirmation, which both looks open)
+SEND_LOG_CONFIRM = "xbox/settings/send_log_confirm"
+NOTICES_SCREEN = "xbox/settings/about/notices_screen"
+ABOUT_ROWS = 6
+# the rows start below the two title lines (the app's version and what VISR is)
+ABOUT_ROW_TOP = 102
+# SEND LOG is the last row, in the builds that can send a log (menu_platform.h: send_log)
+SEND_LOG_PLATFORM = "send_log"
+# the trademark notice under the rows: the small font's characters that fit the width of its box (calibrated from
+# screenshots), and the lines the box holds
+NOTICE_WIDTH = 68
+NOTICE_LINES = 6
+
+
+def about_notice(text: str) -> str:
+    """the fixed notice, wrapped for its box (the engine does not wrap)"""
+    # (the small font draws the copyright sign with almost no side space, so its spaces get a second one; the
+    # sign and its neighbors stay on one line, since a space at a line break is lost)
+    text = text.replace(" \u00a9 ", "\x00\u00a9\x00")
+    lines = textwrap.wrap(text, NOTICE_WIDTH - 4)
+    assert len(lines) <= NOTICE_LINES, text
+    return "\\n".join(lines).replace("\x00", "  ")
+
+
+def _about_screen() -> list:
+    """Settings > ABOUT: the version and build, website, privacy, license, open source notices, and SEND LOG where
+    supported. The trademark notice stays below the rows. The notices row opens an in-game screen on every platform;
+    the website, privacy, and license rows open browser pages except on the Apple TV."""
+    base = f"{PE}/{ABOUT}"
+    spec = {"screen": "about_screen", "spacing": 30, "visible_rows": ABOUT_ROWS, "row_top": ABOUT_ROW_TOP,
+            "help_top": 286, "help_height": 120, "help_text": about_notice(about_data.NOTICE),
+            "header": ("header_about", f"{base}/header_about"),
+            "buttons": [f'<child{attributes([("widget", f"{base}/button_back"), ("x", 510), ("y", 1)])}/>']}
+    # (label, the value shown, key, the page it opens)
+    entries = [("BUILD", None, "build", None),
+               ("ONLINE", about_data.WEBSITE, "website", "port open website"),
+               ("PRIVACY", about_data.PRIVACY, "privacy", "port open privacy"),
+               ("LICENSE", about_data.LICENSE, "license", "port open license"),
+               ("OPEN SOURCE NOTICES", None, "notices", None),
+               ("SEND LOG", None, "send_log", None)]
+    rows, extra = [], []
+    values = []
+    for index, (label, value, key, opens) in enumerate(entries):
+        row = f"{base}/op_{key}"
+        rows.append((row, SEND_LOG_PLATFORM if key == "send_log" else None, index))
+        children = [f'<child{attributes([("widget", f"{base}/{key}_label")])}/>']
+        if value or key in ("build", "send_log"):
+            children.append(f'<child{attributes([("widget", f"{base}/{key}_value"), ("x", 270), ("y", 1)])}/>')
+        extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
+                               ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                         [*([f'<on event="a" run="{opens}" platform="!tvos"/>',
+                             f'<on event="start" run="{opens}" platform="!tvos"/>'] if opens else
+                            [f'<on event="a" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else
+                             f'<on event="a" open="{NOTICES_SCREEN}"/>' if key == "notices" else '<on event="a"/>',
+                             f'<on event="start" open="{SEND_LOG_CONFIRM}"/>' if key == "send_log" else
+                             f'<on event="start" open="{NOTICES_SCREEN}"/>' if key == "notices" else '<on event="start"/>']),
+                          '<on event="left_mouse" run="mouse emit accept event"/>', *children])
+        extra += _widget(f"{base}/{key}_label",
+                         [("type", "text"), ("controller", 1), ("width", 500 if key == "notices" else 255), ("height", 22),
+                          ("string_list", f"{base}/labels"), ("string_index", index or None), ("font", "ui\\large_ui"),
+                          ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+        if key in ("build", "send_log"):
+            # (the app's own: menu_functions.c's about_text_show, and send_log_status_show for SEND LOG)
+            extra += _widget(f"{base}/{key}_value",
+                             [("type", "text"), ("controller", 1), ("width", 235), ("height", 22), ("font", "ui\\small_ui"),
+                              ("color", "#FFFFFFFF"), ("text_y", 5), ("text_flags", "no_focus_test")],
+                             [f'<data input="port send log status"/>' if key == "send_log"
+                              else f'<data input="port about {key}"/>'])
+        elif value:
+            values.append(value)
+            extra += _widget(f"{base}/{key}_value",
+                             [("type", "text"), ("controller", 1), ("width", 235), ("height", 22), ("font", "ui\\small_ui"),
+                              ("string_list", f"{base}/values"), ("string_index", len(values) - 1 or None),
+                              ("color", "#FFFFFFFF"), ("text_y", 5), ("text_flags", "no_focus_test")], [])
+    extra += _widget(f"{base}/button_back",
+                     [("type", "text"), ("width", 128), ("height", 24), ("bitmap", "bitmaps/text_button_background"),
+                      ("text", "BACK"), ("font", "ui\\small_ui"), ("color", "#FFFFFFFF"), ("align", "center"),
+                      ("text_y", 2)],
+                     ['<on event="a" back="true"/>', '<on event="start" back="true"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>'])
+    extra += _strings(f"{base}/labels", [label for label, *_ in entries])
+    extra += _strings(f"{base}/values", values)
+    lines = _screen(ABOUT, spec, rows, [], [], extra)
+    # the title block: the app's version over the list (the version is the app's own:
+    # menu_functions.c's about_text_show)
+    header = f'\t\t<child widget="{base}/header_about"/>'
+    block = [f'\t\t<child widget="{base}/title_version" x="54" y="78"/>']
+    lines[lines.index(header) + 1:lines.index(header) + 1] = block
+    extra_title = _widget(f"{base}/title_version", [("type", "text"), ("controller", 1), ("width", 512), ("height", 24),
+                                                     ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("text_x", 13)],
+                          ['<data input="port about version"/>'])
+    return lines + extra_title
+
+
 def settings_files() -> dict:
     """the files of the port's screens, by their names in ce/"""
     files = {}
     for folder, spec in SCREENS.items():
         files[f"{PE}/{folder}".replace("/", ".") + ".xml"] = _setting_screen(folder, spec)
     files[f"{PE}/controls_setup".replace("/", ".") + ".xml"] = _controls_screen()
+    files[f"{PE}/{ABOUT}".replace("/", ".") + ".xml"] = _about_screen()
     return {name: ['<?xml version="1.0" encoding="UTF-8"?>',
                    "<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->",
                    "<menus>", *lines, "</menus>", ""] for name, lines in files.items()}
@@ -503,6 +625,12 @@ MAP_KIND_CHOOSER = "main_menu/new_select/list_item_0_map_kind"
 # changes to the PC version's widgets (by our names): attributes set, all
 # their handlers replaced, children added, game data inputs added
 WIDGET_PATCHES = {
+    # (the PC version's ABOUT row only showed its description: it opens the port's About screen)
+    f"{PE}/about_item": {"handlers": [
+        f'<on event="a" open="{PE}/about/about_screen"/>',
+        f'<on event="start" open="{PE}/about/about_screen"/>',
+        '<on event="left_mouse" run="mouse emit accept event"/>',
+    ]},
     # Region names need more room than the former Ping column.
     **{f"{MT}/join_game/{name}": {"set": {"width": width}} for name, width in (
         ("op_sort_header_type", 80), ("sort_header_type", 80), ("server_item_type", 77),
@@ -645,6 +773,8 @@ BITMAP_FRAMES = {
 # the titles this port has that the PC version has not, set as its headers
 # are (port/assets/menus/port_svg): bitmap name, text
 TITLES = {
+    f"{PE}/about/header_about": "ABOUT",
+    f"{PE}/about/header_open_source_notices": "OPEN SOURCE NOTICES",
     f"{MT}/join_game/header_server_browser": "SERVER BROWSER",
     f"{MT}/join_game/filters/header_sort_filter": "SORT & FILTER",
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
@@ -711,7 +841,7 @@ TITLE_COLOR = (0x29, 0x95, 0xFD, 255)
 
 
 def _header(name: str, bitmap: str, platform=None) -> list:
-    return _widget(name, [("controller", 1), ("left", 35), ("top", 11), ("width", 363), ("height", 59),
+    return _widget(name, [("controller", 1), ("left", 35), ("top", 11), ("width", 512), ("height", 64),
                           ("bitmap", bitmap), ("platform", platform)], [])
 
 
@@ -837,14 +967,15 @@ def _hosting_spinner(base, key, label_index, strings, setting, values):
     extra += _widget(f"{base}/{key}_spinner",
                      [("type", "spinner"), ("top", 2), ("width", 206), ("height", 20),
                       ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                      ("strings", "|".join(strings)), ("setting", setting),
-                      ("values", "|".join(str(value) for value in values)), ("font", "ui\\large_ui"),
+                      ("strings", "|".join(strings)),
+                      *([("setting", setting), ("values", "|".join(str(value) for value in values))] if setting else []),
+                      ("font", "ui\\large_ui"),
                       ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
                       ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                       ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
-                     ['<on event="created" run="port setting load"/>',
-                      '<on event="deleted" run="port setting save"/>',
-                      '<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+                     (['<on event="created" run="port setting load"/>',
+                       '<on event="deleted" run="port setting save"/>'] if setting else [])
+                     + ['<on event="left_mouse" run="mouse spinner 1wide click"/>'])
     return extra
 
 
@@ -853,56 +984,25 @@ def _coop_options() -> list:
     spec = {"screen": "coop_options_screen", "spacing": 30,
             "header": ("header_coop_options", f"{base}/header_coop_options")}
     rows, extra = [], []
-    # Keep the Server Setup bindings and shared help indices as the rules
-    # move to their own page (menu_functions.c's coop_options_update).
-    extra += _widget(f"{base}/op_friendly_fire", [("width", 512), ("height", 28),
-                                                  ("flags", "pass_unhandled_to_focused_child"),
-                                                  ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                     [f'<child widget="{base}/friendly_fire_label"/>',
-                      f'<child widget="{base}/friendly_fire_spinner" x="286" y="1"/>'])
-    extra += _widget(f"{base}/friendly_fire_label", [("type", "text"), ("controller", 1), ("width", 300),
-                                                     ("height", 22), ("string_list", f"{base}/labels"),
-                                                     ("string_index", 10), ("font", "ui\\large_ui"),
-                                                     ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    extra += _widget(f"{base}/friendly_fire_spinner",
-                     [("type", "spinner"), ("top", 2), ("width", 206), ("height", 20),
-                      ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                      ("strings", "OFF|ON|SHIELD ONLY|EXPLOSIVES ONLY"), ("setting", "network.coop_friendly_fire"),
-                      ("values", "|".join(COOP_FRIENDLY_FIRE_VALUES)), ("font", "ui\\large_ui"),
-                      ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4),
-                      ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
-                      ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
-                     ['<on event="created" run="port setting load"/>', '<on event="deleted" run="port setting save"/>',
-                      '<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+    # These two choices span config keys; coop options init/save owns them.
+    extra += _hosting_spinner(base, "friendly_fire", 10,
+                ["OFF", "PLAYERS ONLY", "AI ALLIES ONLY", "ON"], None, None)
     rows.append((f"{base}/op_friendly_fire", None, 0))
-    # ... and its EXTRA ENEMIES (port/linux/game/coop_enemies.c), below it:
-    # NONE, PER PLAYER or STATIC MULTIPLIER, and below that the amount of the
-    # one chosen (its own row, the other hidden: menu_functions.c's
-    # coop_options_update); each kept in its network.coop_enemies setting
-
-    extra += _hosting_spinner(base, "extra_enemies", 11, ["NONE", "PER PLAYER", "STATIC MULTIPLIER"], "network.coop_enemies_mode",
-                COOP_ENEMIES_MODES)
+    extra += _hosting_spinner(base, "extra_enemies", 11,
+                ["NONE"] + [f"+{value}% PER PLAYER" for value in COOP_ENEMIES_PERCENTAGES]
+                + [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS], None, None)
     rows.append((f"{base}/op_extra_enemies", None, 1))
-    extra += _hosting_spinner(base, "enemies_per_player", 12, [f"{value}%" for value in COOP_ENEMIES_PERCENTAGES],
-                "network.coop_enemies", COOP_ENEMIES_PERCENTAGES)
-    rows.append((f"{base}/op_enemies_per_player", None, 2))
-    extra += _hosting_spinner(base, "enemies_multiplier", 13, [f"{value}X" for value in COOP_ENEMIES_MULTIPLIERS],
-                "network.coop_enemies_multiplier", COOP_ENEMIES_MULTIPLIERS)
-    rows.append((f"{base}/op_enemies_multiplier", None, 2))
-    # ... and its PLAYER COLLISIONS, below them (network.coop_player_collisions,
-    # which the host sends its players as the game begins: menu_functions.c's
-    # server_start)
     extra += _hosting_spinner(base, "player_collisions", 14, ["ON", "OFF"], "network.coop_player_collisions", ["true", "false"])
-    rows.append((f"{base}/op_player_collisions", None, 3))
-    extra += _hosting_spinner(base, "ally_friendly_fire", 17, ["ON", "OFF"], "network.coop_ally_friendly_fire", ["true", "false"])
-    rows.append((f"{base}/op_ally_friendly_fire", None, 4))
+    rows.append((f"{base}/op_player_collisions", None, 2))
     extra += _hosting_spinner(base, "fireteam", 18, ["DROP-IN", "CLASSIC"],
                 "network.coop_late_join", ["true", "false"])
-    rows.append((f"{base}/op_fireteam", None, 5))
+    rows.append((f"{base}/op_fireteam", None, 3))
     extra += _button(f"{base}/button_ok", 1,
                      ['<on event="a" run="coop options save" back="true"/>',
                       '<on event="start" run="coop options save" back="true"/>'])
     lines = _screen(base, spec, rows, ["coop options update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/coop_options_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="coop options init"/>')
     # Hosting pages share labels and help so moving a rule preserves its words.
     lines = [line.replace(f'string_list="{base}/labels"', f'string_list="{MT}/server_settings/labels"')
              .replace(f'string_list="{base}/help_strings"', f'string_list="{MT}/server_settings/help_strings"')
@@ -951,12 +1051,11 @@ def _server_settings() -> list:
     whether the server browser lists it (PUBLIC or PRIVATE: an internet
     game's)"""
     base = f"{MT}/server_settings"
-    # (twelve rows: closer together, the help lower)
-    spec = {"screen": "server_settings_screen", "spacing": 24, "help_top": 366,
+    spec = {"screen": "server_settings_screen", "spacing": 24, "help_top": 350, "list_action": True,
             "header": ("header_server_settings", f"{base}/header_server_settings")}
     rows, extra = [], []
     extra += _value_row(base, "server_name", 0, "ss edit server name")
-    rows.append((f"{base}/op_server_name", None))
+    rows.append((f"{base}/op_server_name", None, 0))
     extra += _widget(f"{base}/op_max_players", [("width", 512), ("height", 28),
                                                 ("flags", "pass_unhandled_to_focused_child"),
                                                 ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -973,9 +1072,16 @@ def _server_settings() -> list:
                       ("color", "#FF2896FF"), ("align", "center"), ("text_y", 1),
                       ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                       ("header_bounds", "7 -6 19 0"), ("footer_bounds", "7 150 19 156")], [])
-    rows.append((f"{base}/op_max_players", None))
-    extra += _value_row(base, "invite", 2, "ss copy invite")
-    rows.append((f"{base}/op_invite", None))
+    rows.append((f"{base}/op_max_players", None, 1))
+    # The invite shares the bottom line with the legend, outside the list.
+    extra += _widget(f"{base}/invite_value", [("type", "text"), ("width", 280), ("height", 53),
+                                               ("font", "ui\\large_ui"), ("color", "#FFFFFFFF"), ("text_y", 4)],
+                     ['<on event="left_mouse" run="ss copy invite"/>'])
+    # ui_widget.c recognizes x_butn_* pointer targets and posts X to the
+    # screen, keeping list focus intact. This container draws no button art.
+    extra += _widget(f"{base}/x_butn_invite", [("width", 280), ("height", 53)],
+                     [f'<child widget="{base}/invite_value"/>',
+                      '<on event="left_mouse" run="ss copy invite"/>'])
     # (PUBLIC or PRIVATE: menu_functions.c's server_settings_update)
     extra += _widget(f"{base}/op_listing", [("width", 512), ("height", 28),
                                             ("flags", "pass_unhandled_to_focused_child"),
@@ -994,11 +1100,11 @@ def _server_settings() -> list:
                       ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                       ("header_bounds", "7 -6 19 0"), ("footer_bounds", "7 150 19 156")],
                      ['<on event="left_mouse" run="mouse spinner 1wide click"/>'])
-    rows.append((f"{base}/op_listing", None))
+    rows.append((f"{base}/op_listing", None, 4))
     # PASSWORD (a public internet game's: menu_functions.c's server_settings_update),
     # which players from the server browser must type
     extra += _value_row(base, "password", 15, "ss edit server password")
-    rows.append((f"{base}/op_password", None))
+    rows.append((f"{base}/op_password", None, 5))
     extra += _widget(f"{base}/op_coop_options", [("width", 512), ("height", 28),
                                                 ("flags", "pass_unhandled_to_focused_child"),
                                                 ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -1010,12 +1116,6 @@ def _server_settings() -> list:
                                                  ("height", 22), ("string_list", f"{base}/labels"),
                                                  ("string_index", 19), ("font", "ui\\large_ui"),
                                                  ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    # SHARE MAPS (port/linux/game/map_share.c), for any game, above the
-    # options' rows (SETUP_OPTIONS_PLACE): whether players who join without
-    # the game's Custom Edition map download it (network.map_share). The
-    # host's upload limit is config.toml's network.map_share_upload
-    extra += _hosting_spinner(base, "map_share", 16, ["ON", "OFF"], "network.map_share", ["true", "false"])
-    rows.append((f"{base}/op_map_share", None, SETUP_OPTIONS_PLACE - 1))
     rows.append((f"{base}/op_coop_options", None, SETUP_OPTIONS_PLACE))
     # the gametype's options for this game (the gametype editor's screens,
     # editing a copy of the gametype chosen: "port setup edit")
@@ -1027,20 +1127,21 @@ def _server_settings() -> list:
                          [f'<on event="a" run="port setup edit" open="{target}"/>',
                           f'<on event="start" run="port setup edit" open="{target}"/>',
                           '<on event="left_mouse" run="mouse emit accept event"/>',
-                          f'<child widget="{base}/{key}_label"/>', f'<child widget="{base}/{key}_value" x="230" y="1"/>'])
+                          f'<child widget="{base}/{key}_label"/>'] +
+                         ([f'<child widget="{base}/{key}_value" x="230" y="1"/>'] if key == "game_type" else []))
         extra += _widget(f"{base}/{key}_label", [("type", "text"), ("controller", 1), ("width", 230), ("height", 22),
-                                                 ("string_list", f"{base}/labels"), ("string_index", 3 + index),
+                                                 ("text", "GAME TYPE:" if key == "game_type" else "GAMETYPE OPTIONS"),
                                                  ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("text_x", 13),
                                                  ("text_y", 4)], [])
-        extra += _widget(f"{base}/{key}_value", [("type", "text"), ("controller", 1), ("width", 280), ("height", 22),
-                                                 ("font", "ui\\small_ui"), ("color", "#FF2896FF"), ("align", "center"),
-                                                 ("text_y", 5), ("text_flags", "no_focus_test")], [])
-        rows.append((f"{base}/op_{key}", None, SETUP_OPTIONS_PLACE + index))
-    extra += _button(f"{base}/button_defaults", 3, [])
-    extra += _widget(f"{base}/button_ok", [("type", "text"), ("width", 128), ("height", 24),
-                                           ("bitmap", "bitmaps/text_button_background"), ("text", "START GAME"),
-                                           ("font", "ui\\small_ui"), ("color", "#FFFFFFFF"), ("align", "center"),
-                                           ("text_y", 2)],
+        if key == "game_type":
+            extra += _widget(f"{base}/{key}_value", [("type", "text"), ("controller", 1), ("width", 280), ("height", 22),
+                                                     ("font", "ui\\small_ui"), ("color", "#FF2896FF"), ("align", "center"),
+                                                     ("text_y", 5), ("text_flags", "no_focus_test")], [])
+        rows.append((f"{base}/op_{key}", None, SETUP_OPTIONS_PLACE - 1 + index))
+    extra += _widget(f"{base}/op_start_game", [("type", "text"), ("width", 512), ("height", 28),
+                                           ("bitmap", "bitmaps/option_bkds"), ("text", "START GAME"),
+                                           ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("text_x", 13),
+                                           ("text_y", 4)],
                      [f'<on event="a" run="ss start game" open="{MT}/lobby/lobby_screen"/>',
                       f'<on event="start" run="ss start game" open="{MT}/lobby/lobby_screen"/>',
                       '<on event="left_mouse" run="mouse emit accept event"/>'])
@@ -1090,20 +1191,27 @@ def _server_settings() -> list:
         "Players can leave and join at any time.\\nPlayers always respawn in place upon death.",
         "Fireteam cannot change after level start.\\nIf the whole team dies, revert to checkpoint.",
         "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies.",
+        # Merged FRIENDLY FIRE choices; old help indices remain stable.
+        "Players and friendly AI are protected from\\nplayers' weapons and explosives.",
+        "Players can hurt each other. Friendly AI is\\nprotected from players.",
+        "Players can hurt friendly AI and vehicles.\\nPlayers are protected from each other.",
+        "Players can hurt each other, friendly AI and\\nvehicles.",
     ])
+    rows.sort(key=lambda row: row[2])
+    rows.append((f"{base}/op_start_game", None, 6))
     lines = _screen(base, spec, rows, ["server settings update"],
                     ['<on event="created" run="server settings init"/>'], extra)
-    # (no Defaults: the bar is START and CANCEL; B cancels the name's edit
-    # first)
-    lines = [line.replace(f'<child widget="{base}/button_defaults" y="1"/>', "") for line in lines]
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/server_settings_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="x" run="ss copy invite"/>')
+    options = next(i for i, line in enumerate(lines) if f'<child widget="{base}/options_menu"' in line)
+    lines.insert(options + 1, f'\t\t<child widget="{base}/x_butn_invite" x="54" y="410"/>')
     lines = [line.replace('<on event="b" back="true"/>', SCREEN_BACK[0])
              .replace('<on event="back" back="true"/>', SCREEN_BACK[1]) for line in lines]
     return lines
 
 
 MAXIMUM_PLAYERS = [2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
-# network.coop_friendly_fire's values, as CO-OP OPTIONS' FRIENDLY FIRE shows
-# them (menu_functions.c's cooperative_friendly_fire_modes, in this order)
+# Legacy player-only config values, in the server's friendly-fire enum order.
 COOP_FRIENDLY_FIRE_VALUES = ["off", "on", "shields_only", "explosives_only"]
 # CO-OP OPTIONS' EXTRA ENEMIES: network.coop_enemies_mode's values (in
 # coop_enemies.c's order), and the amounts of PER PLAYER (network.coop_enemies,
@@ -1111,18 +1219,11 @@ COOP_FRIENDLY_FIRE_VALUES = ["off", "on", "shields_only", "explosives_only"]
 COOP_ENEMIES_MODES = ["none", "per_player", "multiplier"]
 COOP_ENEMIES_PERCENTAGES = [25, 50, 100, 150, 200]
 COOP_ENEMIES_MULTIPLIERS = [2, 4, 8, 16, 32]
-# (Server Setup's place of CO-OP OPTIONS or the gametype rows: after
-# SHARE MAPS')
-SETUP_OPTIONS_PLACE = 6
-# Server Setup's rows of the gametype's options: the gametype editor's
-# screens
+# GAME TYPE and GAMETYPE OPTIONS precede LISTING; co-op shares the latter slot.
+SETUP_OPTIONS_PLACE = 3
 SETUP_OPTION_SCREENS = [
     ("game_type", "playlist_edit/game_type_select/gametype_select_screen"),
-    ("player_options", "player_options_edit/player_options_screen"),
-    ("item_options", "item_options_edit/item_options_screen"),
-    ("vehicle_options", "vehicle_options_edit/vehicle_options_screen"),
-    ("indicator_options", "indicator_options_edit/indicator_options_screen"),
-    ("team_options", "teamplay_options_edit/teamplay_options_screen"),
+    ("gametype_options", "playlist_edit/gametype_edit_screen"),
 ]
 
 

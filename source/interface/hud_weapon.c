@@ -1046,7 +1046,6 @@ static void crosshairs_draw(
 			{
 				struct weapon_hud_interface_definition *definition = weapon_hud_hierarchy[definition_index];
 				struct hud_absolute_placement_definition absolute_placement = { _hud_anchor_center };
-				boolean in_multiplayer = hud_split_screen_layout();
 				short crosshair_index;
 
 				for (crosshair_index = 0;
@@ -1058,12 +1057,21 @@ static void crosshairs_draw(
 						crosshair_index,
 						struct weapon_hud_crosshairs_element);
 					short state_index = element->crosshair_type;
+					/* port: while zoomed, a split screen view's crosshairs (the
+					scope's lines and rulers, items shown only off the default
+					zoom, and the magnification, the zoom state's) are the Xbox
+					split screen HUD's, drawn as it draws them, inside the scope's
+					split screen mask, as the zoom's other overlays are
+					(hud_weapon_zoom_map_type_flags) */
+					boolean zoomed = crosshair->states[_crosshair_state_zoom].value.reference_data > 0;
 
 					if (weapon_hud_state_index_valid(state_index, NUMBER_OF_WEAPON_HUD_CROSSHAIR_STATES) &&
 						TEST_FLAG(render_flags, state_index) &&
-						TEST_FLAG(map_type_flags, element->use_on_map_type))
+						TEST_FLAG(hud_weapon_zoom_map_type_flags(map_type_flags, zoomed), element->use_on_map_type))
 					{
 						struct crosshair_state *state = &crosshair->states[state_index];
+						boolean split_zoom = zoomed && hud_full_layout_zoom_begin();
+						boolean in_multiplayer = hud_split_screen_layout();
 						short item_index;
 
 						for (item_index = 0;
@@ -1344,6 +1352,7 @@ static void crosshairs_draw(
 								}
 							}
 						}
+						hud_full_layout_zoom_end(split_zoom);
 					}
 				}
 			}

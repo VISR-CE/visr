@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the iPhone/iPad (or, with --tvos, Apple TV; with --visionos, Apple Vision Pro) app from source on an Apple Silicon Mac."""
+"""Build the iPhone/iPad (or, with --tvos, Apple TV; with --visionos, Apple Vision Pro) app from source on a Mac (Apple Silicon or Intel)."""
 from __future__ import annotations
 
 import argparse
@@ -14,9 +14,9 @@ import urllib.parse
 import urllib.request
 
 if __package__:
-    from . import release_signing
+    from . import host_toolchain, release_signing
 else:
-    import release_signing
+    import host_toolchain, release_signing
 
 ROOT = Path(__file__).resolve().parents[1]
 GL_REVISION = '1cdd228e34966dd6b95bd203e9f84faba0f371a1'
@@ -191,8 +191,10 @@ def main():
                         help='profile-guided optimization of the host (the app, the Metal backend, SDL): use (the '
                              'default) builds with pgo/visr_host.profdata, off without, generate builds the '
                              'instrumented app that tools/host_pgo_train.py records the profile with')
-    parser.add_argument('--llvm', default='/opt/homebrew/opt/llvm')
-    parser.add_argument('--lld', default='/opt/homebrew/opt/lld/bin/ld.lld')
+    parser.add_argument('--llvm', default=host_toolchain.find_llvm(),
+                        help='LLVM installation with arm64_32 clang (default: found under the Homebrew prefix)')
+    parser.add_argument('--lld', default=host_toolchain.find_lld(),
+                        help='ELF linker for the guest (default: found under the Homebrew prefix)')
     parser.add_argument('--jobs', type=int, default=min(12,os.cpu_count() or 4))
     args = parser.parse_args()
     if args.mac:
@@ -200,8 +202,9 @@ def main():
             validate_catalyst_test_host(args)  # before the other checks, so its refusal is what --mac reports
         except ValueError as error:
             parser.error(str(error))
-    if platform.system() != 'Darwin' or platform.machine() != 'arm64':
-        parser.error('an Apple Silicon Mac with full Xcode is required')
+    host_problem = host_toolchain.check_build_host()
+    if host_problem:
+        parser.error(host_problem)
     if not args.simulator and not args.unsigned and not args.team and not args.mac and not args.native_mac:
         parser.error('use --team YOUR_TEAM_ID to sign, or --unsigned to sign later')
     if args.team and (args.unsigned or args.simulator):
@@ -301,9 +304,9 @@ def main():
         include=ROOT/'build/ios/gl_include'
         for name,(registry,revision,source) in HEADERS.items():
             target=include/name;target.parent.mkdir(parents=True,exist_ok=True)
+            if target.exists():continue  # pinned revision: a header already fetched never changes
             url=f'https://raw.githubusercontent.com/KhronosGroup/{registry}/{revision}/{source}'
-            data=urllib.request.urlopen(url,timeout=30).read()
-            if not target.exists() or target.read_bytes()!=data:target.write_bytes(data)
+            target.write_bytes(urllib.request.urlopen(url,timeout=30).read())
     validation = args.render_validation == 'on'
     run(sys.executable,'configure.py','--ios',f'--pgo={args.pgo}',f'--lto={args.lto}','--ios-llvm',args.llvm,'--ios-lld',args.lld,
         *(['--render-validation'] if validation else []),*(['--collision-log'] if args.collision_log else []),
@@ -319,12 +322,14 @@ def main():
         ('LICENSE', 'Project-Apache-2.0.txt'),
         ('LICENSES/CC0-1.0.txt', 'Origin-Projects-CC0.txt'),
         ('NOTICE.md', 'NOTICE-VISR.txt'),
+        ('port/ios/Licenses/NOTICES.txt', 'NOTICES.txt'),
         ('port/ios/THIRD_PARTY.md', 'NOTICE.txt'),
         ('build/third_party/SDL3/LICENSE.txt', 'SDL.txt'),
         ('build/third_party/musl-1.2.5/COPYRIGHT', 'musl.txt'),
         ('port/third_party/kcp/LICENSE', 'kcp.txt'),
         ('port/third_party/tomlc17/LICENSE', 'tomlc17.txt'),
         ('port/third_party/stb/LICENSE', 'stb_truetype.txt'),
+        ('port/third_party/stb_vorbis/LICENSE', 'stb_vorbis.txt'),
         ('port/third_party/expat/COPYING', 'expat.txt'),
         ('port/third_party/monocypher/LICENCE.md', 'Monocypher.txt'),
         ('port/third_party/mbedtls/LICENSE', 'MbedTLS-Apache-2.0.txt'),
@@ -663,6 +668,19 @@ def mac_build_folder(environment=None):
     return ROOT / 'build/mac/app'
 
 
+def host_signature(environment=None):
+    """codesign arguments for a host's stable development identity, or None: a job host's runner sets
+    HALO_MAC_SIGN_IDENTITY (and HALO_MAC_SIGN_KEYCHAIN). macOS privacy approvals (removable volumes, files) key on the
+    signature's designated requirement; an ad hoc app's is its hash, so every new build would ask again and an
+    unanswered prompt stalls unattended runs. Signed by the stable identity, every build shares one requirement."""
+    environment = os.environ if environment is None else environment
+    identity = environment.get('HALO_MAC_SIGN_IDENTITY')
+    if not identity:
+        return None
+    keychain = environment.get('HALO_MAC_SIGN_KEYCHAIN')
+    return ['--sign', identity, *(['--keychain', keychain] if keychain else [])]
+
+
 def build_mac(args, cloud, data_packs=()):
     """The iOS project built for Mac Catalyst, the Mac runner's test host (never shipped): configured as iOS, built
     with the macOS SDK"""
@@ -689,7 +707,12 @@ def build_mac(args, cloud, data_packs=()):
     run('cmake','--build',build,'--config','Release','--target','VISR','--','-quiet',
         '-sdk','macosx','SDK_VARIANT=iosmac','SUPPORTS_MACCATALYST=YES','DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER=NO',
         *signing)
-    print(f'App: {build}/Release-maccatalyst/VISR.app')
+    app = build / 'Release-maccatalyst/VISR.app'
+    host = host_signature()
+    if host and 'CODE_SIGN_IDENTITY=-' in signing:
+        run('codesign', '--force', *host, '--preserve-metadata=entitlements', app)
+        run('codesign', '--verify', '--deep', '--strict', app)
+    print(f'App: {app}')
 
 
 if __name__=='__main__':main()

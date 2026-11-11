@@ -18,7 +18,8 @@ static const char *const menu_picture_upscaled_tags[] = {
 	"ui\\shell\\bitmaps\\arrow_big_right",
 	"ui\\shell\\main_menu\\settings_select\\multiplayer_setup\\playlist_edit\\gametype_options",
 	"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_options",
-	"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\controller_edit\\config_controller"
+	"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\controller_edit\\config_controller",
+	"ui\\shell\\bitmaps\\game_type_grafix"
 };
 
 static inline int menu_picture_upscaled_tag(const char *tag)

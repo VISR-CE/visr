@@ -62,6 +62,7 @@ long config_integer(const char *name) { (void)name; return 0; }
 double config_scene_real(const char *name, int scene) { (void)name; (void)scene; return 1; }
 long config_scene_integer(const char *name, int scene) { (void)name; (void)scene; return 0; }
 void platform_video_drawable_size(int *width, int *height) { *width = 1280; *height = 720; }
+void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 double halo_frame_trace_milliseconds(void) { return now; }
 unsigned char filesystem_check_thread_is_active(void) { readiness_reads++; return worker_active; }
 int host_benchmark_start(const char *name, int drawable, int base, int anisotropy, int shadow, int lod) {

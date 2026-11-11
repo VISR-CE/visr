@@ -67,6 +67,7 @@ Called from the main loop every frame (main.c).
 #include "scenario/scenario_definitions.h"
 #include "devices/devices.h"
 #include "tag_files/tag_files.h"
+#include "cache/cache_files.h"
 #include "camera/observer.h"
 #include "network_test_suite.h"
 #include "benchmark_mp_arena.h"
@@ -139,6 +140,7 @@ static struct
 	real vehicle_time;
 	real pickup_time;
 	char pickup_weapon[64];
+	char local_weapon[64];
 	long score_to_win;
 	short suite_time_limit_minutes;
 	short suite_network_players;
@@ -705,6 +707,8 @@ static void network_test_read_settings(
 	network_test.pickup_time = (real)config_real("debug.network_test_pickup");
 	snprintf(network_test.pickup_weapon, sizeof(network_test.pickup_weapon), "%s",
 		config_string("debug.network_test_pickup_weapon"));
+	snprintf(network_test.local_weapon, sizeof(network_test.local_weapon), "%s",
+		config_string("debug.network_test_weapon"));
 	network_test.score_to_win = (long)config_integer("debug.network_test_score");
 	if (network_test.mode != _network_test_off)
 		platform_log("network test: %s", setting);
@@ -1243,6 +1247,72 @@ static void network_test_vehicle_approach(
 	platform_log("network test: no vehicle to get into");
 }
 
+/* debug.network_test_weapon: the host puts the first weapon whose tag name
+has this in it in the hands of each of its own local players (split screen)
+who does not carry it, and again after each respawn: the checks of a weapon's
+split screen HUD, such as the sniper's scope, which the bots' wandering and
+the pickup test (a joining machine's player only) do not reach */
+static void network_test_local_weapon(
+	void)
+{
+	long definition_index = NONE;
+	short local_index;
+
+	for (local_index = 0; local_index < local_player_count(); local_index++)
+	{
+		long player_index = local_player_get_player_index(local_index);
+		struct player_datum *player = player_index == NONE ? NULL : player_try_and_get(player_index);
+		struct unit_datum *unit = player && player->unit_index != NONE ? unit_try_and_get(player->unit_index) : NULL;
+		struct object_placement_data placement;
+		boolean carried = FALSE;
+		long weapon_index;
+		short slot;
+
+		if (!unit || TEST_FLAG(unit->object.damage_flags, _object_dead_bit))
+			continue;
+		if (definition_index == NONE)
+		{
+			struct tag_iterator iterator;
+			long tag_index;
+
+			tag_iterator_new(&iterator, WEAPON_DEFINITION_TAG);
+			while ((tag_index = tag_iterator_next(&iterator)) != NONE)
+			{
+				if (strstr(tag_get_name(tag_index), network_test.local_weapon))
+				{
+					definition_index = tag_index;
+					break;
+				}
+			}
+			if (definition_index == NONE)
+			{
+				platform_log("network test: no weapon named like \"%s\" for the local players", network_test.local_weapon);
+				network_test.local_weapon[0] = 0;
+				return;
+			}
+		}
+		for (slot = 0; slot < MAXIMUM_WEAPONS_PER_UNIT; slot++)
+		{
+			long carried_index = unit->unit.weapon_object_indices[slot];
+
+			carried |= carried_index != NONE && object_get(carried_index)->definition_index == definition_index;
+		}
+		if (carried)
+			continue;
+		network_test_suite_clear_bot_weapons(player->unit_index);
+		object_placement_data_new(&placement, definition_index, player->unit_index);
+		weapon_index = object_new(&placement);
+		if (weapon_index == NONE)
+			continue;
+		if (!unit_add_weapon_to_inventory(player->unit_index, weapon_index, _unit_add_weapon_starting))
+		{
+			object_delete_immediately(weapon_index);
+			continue;
+		}
+		platform_log("network test: local player %d holds %s", local_index, tag_get_name(definition_index));
+	}
+}
+
 /* the host gives the last player a second weapon, lying about */
 static void network_test_second_weapon(
 	void)
@@ -1396,6 +1466,8 @@ void network_test_update(
 
 			network_test_gather(network_test.vehicle_time > 0.0f && game_time_get() >= vehicle_time - 2 * TICKS_PER_SECOND);
 		}
+		if (network_test.mode == _network_test_host && network_test.local_weapon[0])
+			network_test_local_weapon();
 		if (network_test.pickup_time > 0.0f)
 		{
 			long pickup_time = (long)(network_test.pickup_time * TICKS_PER_SECOND);

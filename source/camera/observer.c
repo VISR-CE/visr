@@ -100,6 +100,8 @@ symbols in this file:
 
 /* ---------- headers */
 
+/* port: photo mode permits wide-angle framing up to 2.6 radians. */
+#include "photo_mode.h"
 #include "cseries/cseries.h"
 #include "observer.h"
 
@@ -139,7 +141,7 @@ enum
 			valid_real((command)->focus_offset.k) && (command)->focus_offset.k>=-5000.f && (command)->focus_offset.k<=5000.f && \
 			valid_real_vector3d(&(command)->focus_velocity) && \
 			valid_real((command)->focus_distance) && (command)->focus_distance>=0.f && (command)->focus_distance<=5000.f && \
-			valid_real((command)->field_of_view) && (command)->field_of_view>=0.001f && (command)->field_of_view<=_pi / 2.f && \
+			valid_real((command)->field_of_view) && (command)->field_of_view>=0.001f && (command)->field_of_view<=(photo_mode_active() ? 2.6f : _pi / 2.f) && \
 			valid_real((command)->timer) && (command)->timer>=0.f && (command)->timer<=3600.f)), \
 		csprintf( \
 			temporary, \
@@ -167,7 +169,7 @@ enum
 #define valid_world_real(value) (valid_real(value) && (value)>=-5000.f && (value)<=5000.f)
 #define valid_world_real_point3d(point) (valid_world_real((point)->x) && valid_world_real((point)->y) && valid_world_real((point)->z))
 #define valid_focus_distance(distance) (valid_real(distance) && (distance)>=0.f && (distance)<=5000.f)
-#define valid_field_of_view(field_of_view) (valid_real(field_of_view) && (field_of_view)>=0.001f && (field_of_view)<=_pi/2.f)
+#define valid_field_of_view(field_of_view) (valid_real(field_of_view) && (field_of_view)>=0.001f && (field_of_view)<=(photo_mode_active() ? 2.6f : _pi/2.f))
 
 /* ---------- structures */
 
@@ -1178,7 +1180,7 @@ static void observer_postcheck(
 		0x3B2,
 		valid_focus_distance(focus_distance));
 
-	observer->field_of_view = PIN(observer->field_of_view, 0.001f, _pi/2.f);
+	observer->field_of_view = PIN(observer->field_of_view, 0.001f, (photo_mode_active() ? 2.6f : _pi/2.f));
 	focus_position.x = PIN(focus_position.x, -5000.f, 5000.f);
 	focus_position.y = PIN(focus_position.y, -5000.f, 5000.f);
 	focus_position.z = PIN(focus_position.z, -5000.f, 5000.f);

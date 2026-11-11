@@ -105,6 +105,7 @@ int main(void) {
         });
         assert(window_reads==0);
         assert(host_lifecycle_background_milliseconds()==0);
+        assert([[VISRMacActions new] respondsToSelector:@selector(about:)]);
         [[VISRMacActions new]quit:nil];
         assert(pushes==1 && last_event==SDL_EVENT_QUIT);
         SDL_Event event={.type=SDL_EVENT_WINDOW_CLOSE_REQUESTED};

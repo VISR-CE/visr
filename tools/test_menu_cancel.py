@@ -68,6 +68,7 @@ def test_cancel_preserves_the_main_menu_and_keeps_back_navigation(tmp_path):
     sdl_flags = subprocess.check_output(["pkg-config", "--cflags", "sdl3"], text=True).split()
     subprocess.run(["xcrun", "clang", "-Wall", "-Werror", "-Wno-unused-variable", *sdl_flags,
                     "-fsanitize=address,undefined", "--include-directory=" + str(ROOT / "port/linux/src"),
+                    "-iquote", str(ROOT / "port/linux/include"),
                     "-DHALO_ILP32=1", str(probe), "--output=" + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 

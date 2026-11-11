@@ -714,6 +714,10 @@ void ui_widget_game_data_function_invoke(
 		widget);
 
 	/* port: the menus' own functions (port/linux/game/menu_functions.c) */
+	{
+		extern long pc_menu_setup_data_function(long function);
+		function = (word)pc_menu_setup_data_function(function);
+	}
 	if (function >= PC_MENU_FUNCTION_BASE && function < 0x8000)
 	{
 		extern void pc_menu_game_data_function_invoke(struct widget_instance *widget, long function);
