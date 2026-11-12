@@ -148,3 +148,113 @@ int main(void)
                     "-Wno-unused-variable", "-fsanitize=address,undefined",
                     str(tmp_path / "probe.c"), "-o", str(executable)], check=True)
     subprocess.run([str(executable)], check=True)
+
+
+def test_epoch_path_is_off_below_42(tmp_path):
+    """Below 42 the epoch never holds play, never gates what a client sends,
+    and the revert hook sends no checkpoint; from 42 on all three engage."""
+    source = (ROOT / "port/linux/game/network_distributed.c").read_text()
+    header = (ROOT / "port/linux/game/network_distributed.h").read_text()
+    kinds = block(header, "enum\n{") + ";\n"
+    structures = block(header, "struct distributed_message_header\n{").replace(
+        "long game_time;", "int32_t game_time;") + ";\n"
+    functions = "\n".join(block(source, marker) for marker in (
+        "unsigned long network_distributed_wire_epoch_size(",
+        "static boolean distributed_fill_header(",
+        "void network_distributed_reverted(",
+        "void distributed_checkpoint_to_machine(",
+        "boolean distributed_checkpoint_ready(",
+    ))
+    program = r'''
+#include <assert.h>
+#include <stdint.h>
+#include <string.h>
+#include "VERSION_HEADER"
+typedef unsigned char byte;
+typedef uint16_t word;
+typedef uint16_t message_header;
+typedef int boolean;
+#define NONE (-1)
+#define TRUE 1
+#define FALSE 0
+#define csmemset memset
+enum { _game_connection_network_client, _game_connection_network_server, _game_connection_local };
+''' + kinds + structures + r'''
+static unsigned host_version;
+static int connection = _game_connection_network_client, coop = 1, in_progress = 1;
+static unsigned int distributed_checkpoint_epoch;
+static boolean distributed_checkpoint_synchronized;
+static struct { long sent; } distributed_statistics;
+static int advances, restores, checkpoints_sent, host_reverts;
+static unsigned network_game_host_version(void) { return host_version; }
+static int game_connection(void) { return connection; }
+static boolean network_coop_active(void) { return coop; }
+static boolean game_in_progress(void) { return in_progress; }
+static int32_t game_time_get(void) { return 7; }
+static void build_message_header(message_header *h, word size, int a, int b) { (void)a; (void)b; *h = size; }
+static void distributed_advance_checkpoint(void) { advances++; }
+static void distributed_restore_checkpoint(void) { restores++; }
+static short distributed_client_machines(long *machines, short capacity)
+{ (void)capacity; machines[0] = 1; machines[1] = 2; return 2; }
+static void distributed_send_to_machine_reliably(long machine, void *message, byte type, short count, word size)
+{ (void)machine; (void)message; (void)count; (void)size; assert(type == _distributed_message_checkpoint); checkpoints_sent++; }
+static void network_objects_host_reverted(void) { host_reverts++; }
+void distributed_checkpoint_to_machine(long machine_index);
+''' + functions + r'''
+static boolean fill(byte type)
+{
+    struct distributed_message_header message;
+    return distributed_fill_header(&message, type, 1, (word)sizeof(message));
+}
+int main(void)
+{
+    unsigned version;
+    for (version = 38; version <= 43; version++)
+    {
+        int epoch = version >= 42;
+        host_version = version;
+        advances = restores = checkpoints_sent = host_reverts = 0;
+        distributed_checkpoint_synchronized = FALSE;
+
+        assert((network_distributed_wire_epoch_size() != 0) == epoch);
+
+        /* a client not yet synchronized: play held, sends gated, only from 42 */
+        connection = _game_connection_network_client;
+        assert(distributed_checkpoint_ready() == !epoch);
+        assert(fill(_distributed_message_unit_states) == !epoch);
+        assert(fill(_distributed_message_client_ready));
+        distributed_checkpoint_synchronized = TRUE;
+        assert(distributed_checkpoint_ready() && fill(_distributed_message_unit_states));
+        distributed_checkpoint_synchronized = FALSE;
+
+        /* the host's co-op revert: inert below 42 */
+        connection = _game_connection_network_server;
+        network_distributed_reverted();
+        assert(advances == epoch && restores == epoch && host_reverts == epoch);
+        assert(checkpoints_sent == (epoch ? 2 : 0));
+        distributed_checkpoint_to_machine(1);
+        assert(checkpoints_sent == (epoch ? 3 : 0));
+    }
+    return 0;
+}
+'''
+    program = program.replace("VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h"))
+    (tmp_path / "probe.c").write_text(program)
+    executable = tmp_path / "probe"
+    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+                    "-Wno-unused-variable", "-fsanitize=address,undefined",
+                    str(tmp_path / "probe.c"), "-o", str(executable)], check=True)
+    subprocess.run([str(executable)], check=True)
+
+
+def test_client_tick_stops_before_predictions_only_while_the_epoch_holds_play():
+    """network_objects_client_tick's early return hangs on
+    distributed_checkpoint_ready, which is always true below 42 (see above),
+    and comes after the ready request but before every prediction."""
+    tick = block((ROOT / "port/linux/game/network_objects.c").read_text(),
+                 "void network_objects_client_tick(")
+    ready = tick.index("_distributed_message_client_ready")
+    gate = tick.index("if (!distributed_checkpoint_ready())\n\t\treturn;")
+    first_prediction = tick.index("distributed_client_ready_picked_up_weapons();")
+    assert ready < gate < first_prediction
+    assert tick.count("return;") == 1
