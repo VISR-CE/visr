@@ -526,14 +526,50 @@ static void custom_edition_maps_look_for(
 	return;
 }
 
+/* A bmp file in memory as a menu picture texture, fit to the picture shape.
+Returns NULL if it can't be shown (logged, naming it by label). */
+static struct bitmap_data *custom_edition_picture_new(
+	uint8_t const *file,
+	uint32_t size,
+	char const *label)
+{
+	struct bmp_file_picture picture;
+	enum bmp_file_status status = bmp_file_open(file, size, &picture);
+	struct bitmap_data *bitmap = NULL;
+
+	if (status != _bmp_file_status_ok)
+	{
+		error(_error_silent, "custom edition: the picture '%s' cannot be shown: %s", label, bmp_file_status_describe(status));
+		return NULL;
+	}
+	bitmap = bitmap_2d_new(PICTURE_TEXTURE_SIZE, PICTURE_TEXTURE_SIZE, 0, _bitmap_format_a8r8g8b8);
+	if (bitmap && bitmap->base_address)
+	{
+		bmp_file_fit(
+			file,
+			&picture,
+			LEVEL_PICTURE_SHAPE_WIDTH,
+			LEVEL_PICTURE_SHAPE_HEIGHT,
+			PICTURE_TEXTURE_SIZE,
+			PICTURE_TEXTURE_SIZE,
+			XBOX_POINTER(uint32_t, bitmap->base_address));
+		bitmap_rebuild(bitmap);
+	}
+	if (bitmap && !bitmap->hardware_format)
+	{
+		bitmap_delete(bitmap);
+		bitmap = NULL;
+	}
+
+	return bitmap;
+}
+
 /* Loads the map's picture as a texture. Returns NULL if it has none, or if
 it can't be shown (logged). */
 static struct bitmap_data *custom_edition_map_picture_read(
 	struct custom_edition_map const *map)
 {
 	char path[MAXIMUM_FILENAME_LENGTH + 1];
-	struct bmp_file_picture picture;
-	enum bmp_file_status status;
 	struct bitmap_data *bitmap = NULL;
 	uint8_t *file = NULL;
 	FILE *stream;
@@ -572,32 +608,7 @@ static struct bitmap_data *custom_edition_map_picture_read(
 		return NULL;
 	}
 
-	status = bmp_file_open(file, (uint32_t)size, &picture);
-	if (status == _bmp_file_status_ok)
-	{
-		bitmap = bitmap_2d_new(PICTURE_TEXTURE_SIZE, PICTURE_TEXTURE_SIZE, 0, _bitmap_format_a8r8g8b8);
-		if (bitmap && bitmap->base_address)
-		{
-			bmp_file_fit(
-				file,
-				&picture,
-				LEVEL_PICTURE_SHAPE_WIDTH,
-				LEVEL_PICTURE_SHAPE_HEIGHT,
-				PICTURE_TEXTURE_SIZE,
-				PICTURE_TEXTURE_SIZE,
-				XBOX_POINTER(uint32_t, bitmap->base_address));
-			bitmap_rebuild(bitmap);
-		}
-		if (bitmap && !bitmap->hardware_format)
-		{
-			bitmap_delete(bitmap);
-			bitmap = NULL;
-		}
-	}
-	else
-	{
-		error(_error_silent, "custom edition: the picture '%s' cannot be shown: %s", path, bmp_file_status_describe(status));
-	}
+	bitmap = custom_edition_picture_new(file, (uint32_t)size, path);
 	free(file);
 
 	return bitmap;
@@ -866,12 +877,135 @@ wchar_t *custom_edition_maps_description(
 	return map ? map->description : NULL;
 }
 
+#ifdef HALO_IOS
+/* map_pictures_render.c (debug.map_pictures_render): the stock map's rendered picture, a bmp file */
+extern int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size);
+
+/* the stock multiplayer maps, in mp_map_grafix's frame order */
+static char const *const stock_map_picture_names[] =
+{
+	"beavercreek", "sidewinder", "damnation", "ratrace", "prisoner", "hangemhigh", "chillout",
+	"carousel", "boardingaction", "bloodgulch", "wizard", "putput", "longest",
+};
+
+#define RENDERED_PICTURES_MAXIMUM 32
+static struct
+{
+	char name[32];
+	struct bitmap_data *picture;
+} rendered_pictures[RENDERED_PICTURES_MAXIMUM];
+static short rendered_picture_count;
+
+/* The stock map's rendered picture (by its base name) as a texture, read once
+the launch's renders are done; NULL without one, so the stock frame shows. */
+static struct bitmap_data *rendered_picture_get(
+	char const *name)
+{
+	uint8_t *file = NULL;
+	uint32_t size = 0;
+	short index;
+
+	if (!name || !*name || strlen(name) >= sizeof(rendered_pictures[0].name))
+	{
+		return NULL;
+	}
+	for (index = 0; index < rendered_picture_count; index++)
+	{
+		if (!csstrcasecmp(rendered_pictures[index].name, name))
+		{
+			return rendered_pictures[index].picture;
+		}
+	}
+	/* (not rendered yet, or the setting off: asked again next time) */
+	if (!map_pictures_render_picture_read(name, &file, &size))
+	{
+		return NULL;
+	}
+	if (rendered_picture_count >= RENDERED_PICTURES_MAXIMUM)
+	{
+		free(file);
+		return NULL;
+	}
+	index = rendered_picture_count++;
+	strcpy(rendered_pictures[index].name, name);
+	rendered_pictures[index].picture = custom_edition_picture_new(file, size, name);
+	free(file);
+
+	return rendered_pictures[index].picture;
+}
+
+/* The rendered picture standing in for a stock frame of the level pictures
+(mp_map_grafix's maps, sp_levels' levels, or a co-op level's display index),
+or NULL to show the frame as it is. */
+static struct bitmap_data *rendered_picture_for_frame(
+	long bitmap_tag_index,
+	short frame_index)
+{
+	char const *tag_name;
+	short level = campaign_level_get(frame_index);
+	boolean map_pictures, level_pictures;
+
+	if (bitmap_tag_index == NONE)
+	{
+		return NULL;
+	}
+	tag_name = tag_get_name(bitmap_tag_index);
+	map_pictures = !csstrcasecmp(tag_name, LEVEL_PICTURES_TAG_NAME);
+	level_pictures = !csstrcasecmp(tag_name, CAMPAIGN_LEVEL_PICTURES_TAG_NAME);
+	if (map_pictures && level != NONE)
+	{
+		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(level)));
+	}
+	if (map_pictures && frame_index >= 0 && frame_index < NUMBEROF(stock_map_picture_names))
+	{
+		return rendered_picture_get(stock_map_picture_names[frame_index]);
+	}
+	if (level_pictures && frame_index >= 0 && frame_index < NUMBER_OF_SINGLE_PLAYER_LEVELS)
+	{
+		return rendered_picture_get(tag_name_strip_path(main_get_solo_level_name(frame_index)));
+	}
+
+	return NULL;
+}
+#endif
+
+boolean custom_edition_maps_picture_rendered(
+	struct bitmap_data const *picture)
+{
+#ifdef HALO_IOS
+	short index;
+
+	for (index = 0; picture && index < rendered_picture_count; index++)
+	{
+		if (rendered_pictures[index].picture == picture)
+		{
+			return TRUE;
+		}
+	}
+#endif
+	(void)picture;
+
+	return FALSE;
+}
+
 struct bitmap_data *custom_edition_maps_picture(
 	long bitmap_tag_index,
 	short *frame_index)
 {
 	struct custom_edition_map *map;
 	short level = campaign_level_get(*frame_index);
+
+#ifdef HALO_IOS
+	{
+		struct bitmap_data *rendered = rendered_picture_for_frame(bitmap_tag_index, *frame_index);
+
+		if (rendered)
+		{
+			*frame_index = UNKNOWN_LEVEL_FRAME;
+			return rendered;
+		}
+	}
+#endif
 
 	if (level != NONE &&
 		bitmap_tag_index != NONE &&
