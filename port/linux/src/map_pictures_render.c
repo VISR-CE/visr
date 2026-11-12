@@ -61,7 +61,9 @@ uint32_t halo_pipelines_built(void);
 #define RENDER_SHADOWS 512
 #define RENDERER_VERSION 7
 #define AUTO_VERSION 1
-#define SETTLE_MILLISECONDS 3000.0
+/* the request's settle time, in game ticks (90 = 3 s); the capture itself does not wait in real time
+before it: the clean-frame warm-up below covers streaming */
+#define REQUEST_SETTLE_TICKS 90
 #define LOAD_TIMEOUT_MILLISECONDS 60000.0
 #define CAPTURE_TIMEOUT_MILLISECONDS 60000.0
 #define FRAME_TIMEOUT_MILLISECONDS 10000.0
@@ -92,7 +94,7 @@ static struct
 	long fast_forward_start;
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
-	double run_start, map_start, loaded, quiet, settled, captured, warmed;
+	double run_start, map_start, loaded, settled, captured, warmed;
 	/* main.c's map load stages: cache ready, tags loaded, setup done, shader warm done */
 	double stages[STAGE_COUNT];
 	double fast_forward_real_start, fast_forward_milliseconds;
@@ -270,7 +272,7 @@ static void next_map(void)
 		meta->width = PICTURE_WIDTH;
 		meta->height = PICTURE_HEIGHT;
 		meta->pre_game = 0;
-		render.request.settle_ticks = (uint32_t)(SETTLE_MILLISECONDS * 30.0 / 1000.0);
+		render.request.settle_ticks = REQUEST_SETTLE_TICKS;
 		if (map_directory(directory, sizeof(directory), render.key) && cached_fresh(directory, &render.request))
 		{
 			render.cached++;
@@ -352,7 +354,6 @@ void map_pictures_render_update(void)
 		if (map_pictures_scenario_in_game())
 		{
 			render.loaded = time;
-			render.quiet = time;
 			render.state = STATE_SETTLE;
 		}
 		else if (time - render.map_start > LOAD_TIMEOUT_MILLISECONDS)
@@ -363,7 +364,8 @@ void map_pictures_render_update(void)
 		cutscene (space, fades, black). Every map takes one route past it: the game runs
 		fast and undrawn until the tick the cinematic ends (map_pictures_scenario.c stops it
 		there and pauses), never waiting in real time and never skipping, so each map is
-		captured from the state its intro leaves. Then settle so streaming has caught up. */
+		captured from the state its intro leaves. The capture starts at once: the readback's
+		clean-frame warm-up waits for streaming. */
 		if (map_pictures_scenario_in_cinematic() || render.fast_forwarding)
 		{
 			if (!render.fast_forwarding)
@@ -385,18 +387,14 @@ void map_pictures_render_update(void)
 					skip_map("the opening cinematic did not end in time");
 					return;
 				}
-				render.quiet = time;
 				return;
 			}
 			/* (ended on the cinematic's last tick) */
 		}
 		fast_forward_end();
-		if (time - render.quiet >= SETTLE_MILLISECONDS)
-		{
-			render.settled = time;
-			photo_mode_capture_begin();
-			render.state = STATE_CAPTURING;
-		}
+		render.settled = time;
+		photo_mode_capture_begin();
+		render.state = STATE_CAPTURING;
 		return;
 	case STATE_CAPTURING:
 		capture = photo_mode_capture_state(&framed, &revision);
