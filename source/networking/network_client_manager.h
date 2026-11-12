@@ -57,6 +57,9 @@ boolean network_game_client_advertised_game_in_progress(
 /* port: the joined host's network version (this machine's when hosting) */
 unsigned int network_game_host_version(
 	void);
+/* port: set by the server on create and dispose (network.host_version) */
+void network_game_set_host_version(
+	unsigned int version);
 /* port: whether its version, netcode, and game kind can be joined; tell
 displays the refusal reason. */
 boolean network_game_client_advertised_game_compatible(

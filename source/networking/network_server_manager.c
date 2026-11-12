@@ -476,6 +476,20 @@ symbols in this file:
 #include "interface/player_ui.h"
 #include "tag_files/tag_files.h"
 #include "map_share.h" /* port: port/linux/game/map_share.c */
+#include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
+
+int config_boolean(char const *name);
+long config_integer(char const *name);
+void delta_legacy_set_hosted_version(unsigned version); /* port: halo_delta_legacy.h */
+
+/* port: the network version this machine hosts: 43 when network.host_version
+asks for it, else this build's own (HALO_PORT_NETWORK_VERSION) */
+static unsigned int network_game_server_configured_version(
+	void)
+{
+	return config_integer("network.host_version") == HALO_NETWORK_VERSION_RIDING ?
+		HALO_NETWORK_VERSION_RIDING : HALO_PORT_NETWORK_VERSION;
+}
 
 /* port: internet play's Discord presence (port/linux/src/p2p.c), and the
 server browser's listing of a public game (p2p_lobby.c) */
@@ -1188,6 +1202,10 @@ struct network_game_server *network_game_server_create(
 		0xE0,
 		!network_game_server_memory_do_not_use_directly_in_use);
 	network_game_server_memory_do_not_use_directly_in_use = TRUE;
+	/* port: the hosted game speaks the configured version, not the last
+	joined host's */
+	network_game_set_host_version(network_game_server_configured_version());
+	delta_legacy_set_hosted_version(network_game_server_configured_version());
 
 	csmemset(server, 0, sizeof(*server));
 
@@ -1269,6 +1287,8 @@ void network_game_server_dispose(
 
 	/* port: a won co-op round's next level belongs to this server alone */
 	network_game_server_cooperative_next_map[0] = 0;
+	network_game_set_host_version(HALO_PORT_NETWORK_VERSION);
+	delta_legacy_set_hosted_version(0);
 
 	switch (server->state)
 	{

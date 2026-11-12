@@ -147,6 +147,14 @@ static void offer_checks(void)
 		assert(halo_network_version_joinable(38, version) == ((version >= 29 && version <= 32) ||
 			(version >= 34 && version <= 36) || (version >= 38 && version <= 41)));
 	assert(delta_legacy_announce_version() == 38 && !delta_legacy_serial());
+	/* a game hosted on 43 (network.host_version) announces 43 until it ends */
+	delta_legacy_set_hosted_version(43);
+	assert(delta_legacy_announce_version() == 43);
+	delta_legacy_set_hosted_version(38);
+	assert(delta_legacy_announce_version() == 38);
+	delta_legacy_set_hosted_version(43);
+	delta_legacy_set_hosted_version(0);
+	assert(delta_legacy_announce_version() == 38);
 	row_document(document, sizeof(document), 1, "another-wire", 29, 42, 42, "");
 	size = sign_document(document); assert(delta_legacy_offer(signed_table, size));
 	assert(!halo_network_version_joinable(38, 42) && delta_legacy_announce_version() == 38);

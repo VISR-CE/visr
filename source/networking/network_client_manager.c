@@ -836,6 +836,12 @@ unsigned int network_game_host_version(
 	return network_game_client_host_version;
 }
 
+void network_game_set_host_version(
+	unsigned int version)
+{
+	network_game_client_host_version = version;
+}
+
 struct network_game_client network_game_client_dont_use_directly;
 boolean allow_out_of_sync = FALSE;
 boolean network_game_client_dont_use_directly_in_use = FALSE;

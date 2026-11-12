@@ -37,6 +37,8 @@ int delta_legacy_cache_write(void);
 /* Runtime row is separate so small probes need only delta_legacy_runtime.c. */
 void delta_legacy_runtime_set(const struct delta_legacy_row *row);
 void delta_legacy_runtime_get(struct delta_legacy_row *row);
+/* The game this machine hosts (network.host_version); versions below 42 announce the table's row. */
+void delta_legacy_set_hosted_version(unsigned version);
 unsigned delta_legacy_announce_version(void);
 int delta_legacy_joinable(unsigned version);
 int delta_legacy_presumed(unsigned version);

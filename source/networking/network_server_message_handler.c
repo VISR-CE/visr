@@ -251,6 +251,9 @@ symbols in this file:
 #include "halo_delta.h"
 #include "halo_delta_legacy.h"
 #include "halo_delta_peer.h"
+#include "halo_network_content.h"
+#include "halo_network_join_wire.h"
+#include "halo_network_version.h"
 #include "cseries.h"
 #include "bungie_net/common/message_header.h"
 #include "bungie_net/network/transport.h"
@@ -258,6 +261,7 @@ symbols in this file:
 #include "game/game.h"
 #include "game/game_engine.h"
 #include "game/players.h"
+#include "networking/network_client_manager.h"
 #include "networking/network_connection.h"
 #include "networking/network_game_globals.h"
 #include "networking/network_game_manager.h"
@@ -777,6 +781,32 @@ boolean network_game_server_send_message_to_client_machine(
 	return network_game_server_write(connection, buffer, size, NULL, 1);
 }
 
+/* port: from network version 42 the record is followed by two 32-byte map
+digests (contract by chester, GulchCE); VISR hosts only Xbox and Custom
+Edition maps, so they are zero */
+static long network_game_server_settings_total_size(
+	long game_size)
+{
+	return halo_network_version_has_settings_digests(network_game_host_version()) ?
+		game_size + HALO_NETWORK_SETTINGS_DIGESTS_SIZE : game_size;
+}
+
+static void network_game_server_fill_settings_piece(
+	struct message_server_game_settings_update *message,
+	void const *game,
+	long game_size,
+	long total_size,
+	long offset)
+{
+	message->total_size = (word)total_size;
+	message->offset = (word)offset;
+	message->length = (word)MIN((long)sizeof(message->data), total_size - offset);
+	message->pad = 0;
+	csmemset(message->data, 0, sizeof(message->data));
+	if (offset < game_size)
+		csmemcpy(message->data, (byte const *)game + offset, MIN((long)message->length, game_size - offset));
+}
+
 boolean network_game_server_send_game_settings_to_client_machine(
 	struct network_game_server *server,
 	struct network_game_server_client_machine *machine,
@@ -784,18 +814,14 @@ boolean network_game_server_send_game_settings_to_client_machine(
 	long game_size)
 {
 	struct message_server_game_settings_update message;
+	long total_size = network_game_server_settings_total_size(game_size);
 	long offset;
 
-	for (offset = 0; offset < game_size; offset += sizeof(message.data))
+	for (offset = 0; offset < total_size; offset += sizeof(message.data))
 	{
 		void *encoded_message;
 
-		message.total_size = (word)game_size;
-		message.offset = (word)offset;
-		message.length = (word)MIN((long)sizeof(message.data), game_size - offset);
-		message.pad = 0;
-		csmemset(message.data, 0, sizeof(message.data));
-		csmemcpy(message.data, (byte const *)game + offset, message.length);
+		network_game_server_fill_settings_piece(&message, game, game_size, total_size, offset);
 		encoded_message = create_network_game_message(_message_server_game_settings_update, &message, sizeof(message));
 		if (!encoded_message || !network_game_server_send_message_to_client_machine(server, machine, encoded_message))
 			return FALSE;
@@ -1061,6 +1087,7 @@ boolean network_game_server_send_game_settings_to_all_machines(
 	long game_size)
 {
 	struct message_server_game_settings_update message;
+	long total_size = network_game_server_settings_total_size(game_size);
 	long offset;
 	boolean result = TRUE;
 
@@ -1072,16 +1099,11 @@ boolean network_game_server_send_game_settings_to_all_machines(
 	/* every piece goes out even if one fails for a machine: the others
 	would otherwise keep the old settings (a machine whose connection failed
 	is closed, and is skipped when the update is sent again) */
-	for (offset = 0; offset < game_size; offset += sizeof(message.data))
+	for (offset = 0; offset < total_size; offset += sizeof(message.data))
 	{
 		void *encoded_message;
 
-		message.total_size = (word)game_size;
-		message.offset = (word)offset;
-		message.length = (word)MIN((long)sizeof(message.data), game_size - offset);
-		message.pad = 0;
-		csmemset(message.data, 0, sizeof(message.data));
-		csmemcpy(message.data, (byte const *)game + offset, message.length);
+		network_game_server_fill_settings_piece(&message, game, game_size, total_size, offset);
 		encoded_message = create_network_game_message(
 			_message_server_game_settings_update,
 			&message,
@@ -1887,6 +1909,30 @@ static boolean network_game_server_handle_message_client_join_game_request(
 		struct message_client_join_game_request join_game_request;
 		short packet_type = _message_client_join_game_request;
 		short packet_version = NETWORK_GAME_MESSAGE_VERSION;
+
+		/* port: hosts from 42 admit only clients whose join request ends with
+		the same network version (behavior described in GulchCE's netcode notes) */
+		if (halo_network_version_has_join_version_field(network_game_host_version()))
+		{
+			unsigned host_version = network_game_host_version();
+			unsigned client_version = halo_network_join_request_read_version((byte const *)message, (size_t)message_size);
+
+			if (client_version != host_version)
+			{
+				struct message_server_machine_rejected rejection;
+				struct network_message *reply;
+
+				network_event("rejecting a join request for network version %u (hosting %u)", client_version, host_version);
+				rejection.reason = client_version < host_version ? _rejection_code_version_too_old : _rejection_code_version_too_new;
+				reply = create_network_game_message(_message_server_machine_rejected, &rejection, sizeof(rejection));
+				if (reply)
+				{
+					network_game_server_write(network_game_server_get_client_connection(server_client_machine), reply,
+						GET_MESSAGE_SIZE(reply->header), NULL, 1);
+				}
+				return FALSE;
+			}
+		}
 
 		message_size -= sizeof(word);
 		if (network_game_server_client_machine_is_joined_to_game(server, server_client_machine))
