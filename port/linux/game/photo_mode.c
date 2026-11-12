@@ -600,7 +600,7 @@ static int auto_camera(struct flying_camera *camera)
 		euler_angles2d_from_vector3d(&camera->facing, &v);
 	}
 	camera->roll = roll = 0;
-	camera->field_of_view = fov = 1.2217305f; /* 70 degrees */
+	camera->field_of_view = fov = PHOTO_ENTRY_FOV;
 	error(_error_silent, "photo capture: automatic camera at (%.2f,%.2f,%.2f) from %d starts in BSP %d", shot.position[0], shot.position[1], shot.position[2], count, bsp);
 	return 1;
 }
@@ -617,7 +617,7 @@ static int view_camera(struct flying_camera *camera)
 	if (scenario_leaf_index_from_point(&point) == NONE) return 0;
 	flying_camera_new_from_point_and_vector(camera,&view->position,&view->forward);
 	camera->roll = roll = 0;
-	camera->field_of_view = fov = 1.2217305f; /* 70 degrees */
+	camera->field_of_view = fov = PHOTO_ENTRY_FOV;
 	error(_error_silent, "photo capture: player view camera at (%.2f,%.2f,%.2f) in BSP %d", view->position.x, view->position.y, view->position.z, global_structure_bsp_index_get());
 	return 1;
 }
