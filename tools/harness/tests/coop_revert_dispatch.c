@@ -10,6 +10,8 @@ static void update_queues_reset_and_fill_with_lies(void) { repaired++; }
 static void game_state_port_restamp_revert_time(void) { }
 static void hs_runtime_port_shift_sleep_times(long ticks) { CHECK(ticks == 200, "wrong clock shift"); }
 static void coop_enemies_reset(void) { }
+static int reverted_epochs;
+static void network_distributed_reverted(void) { CHECK(refreshed > 0, "epoch advanced before the world was sent"); reverted_epochs++; }
 #define error(...) ((void)0)
 static void event_new(int kind) { }
 static void coop_reconcile_departures(void)

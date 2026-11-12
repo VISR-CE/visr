@@ -2948,6 +2948,9 @@ void network_coop_reverted(
 	network_objects_coop_reverted();
 	/* (the dropships' riders kept are of the game state reverted from) */
 	coop_enemies_reset();
+	/* (on a checkpoint-epoch wire: a new epoch and the whole world to
+	every client; nothing below version 43; GulchCE, by chester) */
+	network_distributed_reverted();
 	error(_error_silent, "co-op: reverted %ld ticks, clock kept at %ld, enemy scaling players %d", ticks, now, coop_enemies_game_players());
 	event_new(_coop_event_reverted);
 }

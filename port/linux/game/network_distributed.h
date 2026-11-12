@@ -134,6 +134,10 @@ enum
 	readiness and changes. VISR accepts every documented choice and draws
 	stock effects; its host always sends STOCK. */
 	_distributed_message_shield_policy = 91,
+	/* version 42: the host's checkpoint epoch, a header-only message that
+	starts a client's resynchronization after a revert or a join (the epoch
+	in its wire header; see network_distributed_wire_epoch_size) */
+	_distributed_message_checkpoint = 96,
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };
@@ -208,15 +212,30 @@ typedef char distributed_vector_size_assert[sizeof(struct distributed_vector) ==
 
 /* the entries of a type that fit one unreliable message, in a tick's batch
 (its header, and the message's size and header but for its message header);
-a longer message is split where a batch is full */
+a longer message is split where a batch is full. From version 42 every
+header carries a checkpoint epoch on the wire (the batch's and the
+message's), so fewer fit. */
 #define DATAGRAM_ENTRIES(type) \
 	((short)((DATAGRAM_MAXIMUM_SIZE - 2 * sizeof(struct distributed_message_header) - sizeof(word) + \
-		sizeof(message_header)) / sizeof(type)))
+		sizeof(message_header) - 2 * network_distributed_wire_epoch_size()) / sizeof(type)))
 /* ... and one reliable message (its count a byte) */
 #define RELIABLE_ENTRIES(type) \
-	((short)MIN(255, (MAXIMUM_MESSAGE_SIZE - sizeof(struct distributed_message_header)) / sizeof(type)))
+	((short)MIN(255, (MAXIMUM_MESSAGE_SIZE - sizeof(struct distributed_message_header) - \
+		network_distributed_wire_epoch_size()) / sizeof(type)))
 
 /* ---------- prototypes/NETWORK_DISTRIBUTED.C */
+
+/* the bytes of checkpoint epoch after a distributed header on the wire in
+this game: 4 from version 42 (a 12-byte header), 0 before (8 bytes, as
+every earlier version sends) */
+unsigned long network_distributed_wire_epoch_size(void);
+/* copies a distributed message (8-byte header in memory) into buffer as it
+goes on the wire, the game's checkpoint epoch after its header when the
+game carries one; returns the wire size, 0 when it does not fit */
+word network_distributed_wire_copy(void *buffer, word capacity, void const *message, word size);
+/* (the host) the game reverted to a checkpoint: a new epoch, and every
+client told to resynchronize (version 42 co-op) */
+void network_distributed_reverted(void);
 
 /* sends a message (its header filled in here) where destination says: the
 unreliable ones gathered into one datagram a machine each tick */
@@ -243,6 +262,11 @@ void distributed_count_prediction_rejected(void);
 void distributed_count_resync(void);
 /* (the host) the client machines in the game, but for its own; their count */
 short distributed_client_machines(long *machine_indices, short maximum);
+/* checkpoint epochs (network version 43 and later; no-ops below it) */
+void distributed_checkpoint_to_machine(long machine_index);
+boolean distributed_checkpoint_ready(void);
+void network_objects_client_resynchronize(void);
+void network_objects_host_reverted(void);
 /* (the host) how long a message takes that client and its answer back, in
 ticks (and its jitter), as its players' input messages tell */
 real distributed_machine_round_trip_ticks(long machine_index);
