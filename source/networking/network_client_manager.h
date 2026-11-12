@@ -112,6 +112,8 @@ void network_game_client_rejected_by_game(
 	struct network_game_client *client,
 	struct transport_address *source_address,
 	word rejection_code);
+void network_game_client_refuse_join(
+	char const *reason);
 boolean network_game_client_game_settings_updated(
 	struct network_game_client *client,
 	struct network_game *message_packet);

@@ -947,7 +947,12 @@ static boolean network_game_client_handle_message_server_machine_rejected(
 
 /* the game settings record as its pieces arrive; it is applied once the last
 piece is in */
-static struct network_game network_game_client_settings_staging;
+static struct
+{
+	struct network_game game;
+	/* port: from network version 42, the map digests after the record */
+	byte digests[HALO_NETWORK_SETTINGS_DIGESTS_SIZE];
+} network_game_client_settings_staging;
 static long network_game_client_settings_staging_size = 0;
 
 static boolean network_game_client_receive_game_settings_piece(
@@ -956,7 +961,11 @@ static boolean network_game_client_receive_game_settings_piece(
 {
 	boolean result = TRUE;
 	boolean legacy = !halo_network_version_has_mode_options(network_game_host_version());
-	unsigned expected_size = legacy ? HALO_NETWORK_LEGACY_SETTINGS_SIZE : sizeof(network_game_client_settings_staging);
+	boolean digests = halo_network_version_has_settings_digests(network_game_host_version());
+	unsigned expected_size = legacy ? HALO_NETWORK_LEGACY_SETTINGS_SIZE : sizeof(network_game_client_settings_staging.game);
+
+	if (digests)
+		expected_size += HALO_NETWORK_SETTINGS_DIGESTS_SIZE;
 
 	if (piece->total_size != expected_size ||
 		piece->length > sizeof(piece->data) ||
@@ -988,9 +997,20 @@ static boolean network_game_client_receive_game_settings_piece(
 			if (network_game_client_settings_staging_size == piece->total_size)
 			{
 				network_game_client_settings_staging_size = 0;
+				char const *unsupported = digests ?
+					halo_network_settings_digests_reason(network_game_client_settings_staging.digests) : 0;
+
 				if (legacy)
-					halo_network_settings_expand_legacy((byte *)&network_game_client_settings_staging);
-				result = network_game_client_game_settings_updated(client, &network_game_client_settings_staging);
+					halo_network_settings_expand_legacy((byte *)&network_game_client_settings_staging.game);
+				if (unsupported)
+				{
+					network_game_client_refuse_join(unsupported);
+					result = FALSE;
+				}
+				else
+				{
+					result = network_game_client_game_settings_updated(client, &network_game_client_settings_staging.game);
+				}
 				if (!result)
 				{
 					network_event("network_game_client_game_settings_updated() failed");

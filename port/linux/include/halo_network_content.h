@@ -70,4 +70,17 @@ static inline void halo_network_settings_expand_legacy(unsigned char *settings)
 	halo_network_options_defaults(settings + HALO_PORT_NETWORK_GAME_VARIANT_OPTIONS_OFFSET + HALO_NETWORK_LEGACY_OPTIONS_SIZE);
 }
 
+/* From network version 42 the settings record ends with two 32-byte map
+   digests (contract by chester, GulchCE). They are zero for Xbox and
+   Custom Edition maps; anything else is an MCC map. */
+#define HALO_NETWORK_SETTINGS_DIGESTS_SIZE 64
+
+static inline char const *halo_network_settings_digests_reason(unsigned char const *digests)
+{
+	unsigned i;
+	for (i = 0; i < HALO_NETWORK_SETTINGS_DIGESTS_SIZE; i++)
+		if (digests[i]) return "This game uses an MCC map, which VISR does not support.";
+	return 0;
+}
+
 #endif
