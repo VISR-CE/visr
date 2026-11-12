@@ -1992,7 +1992,10 @@ static void update_human_boat_physics(
 
 		/* port: network version 42 starts the three powered mass points'
 		controls from zero instead of the previous tick's leftovers, so every
-		machine in a game computes the same boat (fix by chester, GulchCE). */
+		machine in a game computes the same boat (fix by chester, GulchCE).
+		A recording does not store the network version, so a replay of a
+		42 or 43 network game runs without this fix and its boats can drift
+		from what the players saw. */
 		if (network_game_shared_sim_fixes())
 			csmemset(state, 0, 3 * sizeof(*state));
 
