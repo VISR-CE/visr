@@ -4,10 +4,13 @@
 #include "posix.h"
 #endif
 #include "../include/halo_port_limits.h"
+#include "../include/halo_network_version.h"
 #include <pthread.h>
 #include <string.h>
 static pthread_mutex_t row_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct delta_legacy_row active;
+/* A game this machine hosts on a version with the shared contract (42+) announces that version. */
+static unsigned hosted_version;
 void delta_legacy_runtime_set(const struct delta_legacy_row *row)
 {
 	pthread_mutex_lock(&row_lock);
@@ -26,10 +29,25 @@ void delta_legacy_runtime_get(struct delta_legacy_row *row)
 	*row = active;
 	pthread_mutex_unlock(&row_lock);
 }
+void delta_legacy_set_hosted_version(unsigned version)
+{
+	pthread_mutex_lock(&row_lock);
+	hosted_version = version >= HALO_NETWORK_VERSION_SHARED_CONTRACT ? version : 0;
+	pthread_mutex_unlock(&row_lock);
+#if defined(HALO_IOS) && defined(HALO_LINUX_PLATFORM_LAYER)
+	posix_delta_legacy_hosted_version(version);
+#endif
+}
 unsigned delta_legacy_announce_version(void)
 {
 	struct delta_legacy_row row;
-	delta_legacy_runtime_get(&row);
+	unsigned hosted;
+	pthread_mutex_lock(&row_lock);
+	row = active;
+	hosted = hosted_version;
+	pthread_mutex_unlock(&row_lock);
+	if (hosted)
+		return hosted;
 	unsigned version;
 	/* We implement no host protections, so any requires field keeps hosting at 38. */
 	version = row.present && !(row.requires && row.announce > 38) ? row.announce : 38;

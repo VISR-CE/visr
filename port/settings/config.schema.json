@@ -3758,6 +3758,17 @@
             "desktop": true
           }
         },
+        "host_version": {
+          "type": "integer",
+          "default": 38,
+          "description": "Experimental: the network version a hosted game uses, 38 (default) or 43. Players on other versions cannot join the game. A game hosted on 43 has no vehicle riding. Any other value hosts 38.",
+          "x-environment": "HALO_NET_HOST_VERSION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "player_capacity": {
           "type": "integer",
           "default": 0,

@@ -80,6 +80,22 @@ int main(void)
 		assert(halo_network_join_request_append_version(versioned, 348, 349, 43) == 0);
 		assert(halo_network_join_request_append_version(versioned, 1, sizeof(versioned), 43) == 0);
 		assert(halo_network_join_request_append_version(versioned, 348, sizeof(versioned), 0x10000) == 0);
+
+		/* the host reads it back from the framed request (length word first) */
+		{
+			unsigned char framed[352];
+
+			framed[0] = 0x60;
+			framed[1] = 0x01;
+			memcpy(framed + 2, versioned, sizeof(versioned));
+			assert(halo_network_join_request_read_version(framed, sizeof(framed)) == 43);
+			/* a client before 42 sends a shorter request: it reads as 0 */
+			assert(halo_network_join_request_read_version(framed, 350) == 0);
+			assert(halo_network_join_request_read_version(framed, 116) == 0);
+			framed[349] = 0x01;
+			framed[350] = 0x02;
+			assert(halo_network_join_request_read_version(framed, sizeof(framed)) == 0x0102);
+		}
 	}
 	puts("PASS: join padding, frame lengths, refusal messages");
 	return 0;

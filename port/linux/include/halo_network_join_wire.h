@@ -62,6 +62,17 @@ static inline size_t halo_network_join_request_append_version(unsigned char *mes
 	return size + HALO_NETWORK_JOIN_VERSION_FIELD_SIZE;
 }
 
+/* Host side: reads the client's network version from a whole join request
+(header word through type trailer). A request without the field (a client
+before 42) reads as 0. Returns the version, or 0 when the size does not hold
+the field. */
+static inline unsigned halo_network_join_request_read_version(unsigned char const *message, size_t size)
+{
+	if (size != halo_network_join_request_wire_size(1, 1))
+		return 0;
+	return ((unsigned)message[size - 3] << 8) | message[size - 2];
+}
+
 static inline char const *halo_network_rejection_message(unsigned code)
 {
 	switch (code)

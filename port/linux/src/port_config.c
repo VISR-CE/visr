@@ -1130,6 +1130,10 @@ static const struct config_setting config_settings[] =
 		"in everyone's server browser: anyone can see and join it) or, false,\n"
 		"PRIVATE (only players with its invite link can join). Server Setup's\n"
 		"LISTING changes it for each game." },
+	{ "network.host_version", _config_integer, "38", "HALO_NET_HOST_VERSION", _environment_value, _platform_all,
+		"Experimental: the network version a hosted game uses, 38 (default) or\n"
+		"43. Players on other versions cannot join the game. A game\n"
+		"hosted on 43 has no vehicle riding. Any other value hosts 38." },
 	{ "network.player_capacity", _config_integer, "0", "HALO_NET_PLAYER_CAPACITY", _environment_value, _platform_all,
 		"The most players this device holds at 30 frames a second at the lowest\n"
 		"settings, 2 to 128; 0 (default) names no limit. This remains the measured\n"
