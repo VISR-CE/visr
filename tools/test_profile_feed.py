@@ -222,8 +222,12 @@ def test_stripping_leaves_other_text_alone():
 
 
 def test_generations_without_the_key_sign_from_the_sources_themselves(tmp_path):
+    profiles = tmp_path / "profiles"
+    shutil.copytree(ROOT / "profiles", profiles)
+    for path in profiles.glob("*.toml"):
+        path.write_text(profile_pr.strip_keys(path.read_text(), ("network.full_rate_players",)))
     for domain in profile_pr.GENERATIONS:
-        assert profile_pr.generation_profiles(ROOT / "profiles", domain, tmp_path / domain) == ROOT / "profiles"
+        assert profile_pr.generation_profiles(profiles, domain, tmp_path / domain) == profiles
 
 
 @pytest.mark.skipif("visr-v0.6.7" not in tags(), reason="needs the release tags")
