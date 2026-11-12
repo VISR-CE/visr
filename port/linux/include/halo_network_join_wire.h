@@ -73,6 +73,22 @@ static inline unsigned halo_network_join_request_read_version(unsigned char cons
 	return ((unsigned)message[size - 3] << 8) | message[size - 2];
 }
 
+/* Host side, from 42: what to do with a join request whose version field
+reads client_version (0 when the request has no field). */
+enum
+{
+	HALO_NETWORK_JOIN_VERSION_ADMIT = 0,
+	HALO_NETWORK_JOIN_VERSION_TOO_OLD,
+	HALO_NETWORK_JOIN_VERSION_TOO_NEW,
+};
+
+static inline int halo_network_join_version_verdict(unsigned host_version, unsigned client_version)
+{
+	if (client_version == host_version)
+		return HALO_NETWORK_JOIN_VERSION_ADMIT;
+	return client_version < host_version ? HALO_NETWORK_JOIN_VERSION_TOO_OLD : HALO_NETWORK_JOIN_VERSION_TOO_NEW;
+}
+
 static inline char const *halo_network_rejection_message(unsigned code)
 {
 	switch (code)
