@@ -687,6 +687,9 @@ typedef char network_game_player_count_offset_assert[
 	offsetof(struct network_game, player_count) == HALO_PORT_NETWORK_GAME_PLAYER_COUNT_OFFSET ? 1 : -1];
 typedef char network_game_players_offset_assert[
 	offsetof(struct network_game, players) == HALO_PORT_NETWORK_GAME_PLAYERS_OFFSET ? 1 : -1];
+/* the 43 riding switch: halo_network_settings_riding_reason reads this byte */
+typedef char network_game_universal_flags_offset_assert[
+	offsetof(struct network_game, variant.universal_variant.flags) == HALO_NETWORK_SETTINGS_RIDING_OFFSET ? 1 : -1];
 typedef char network_advertised_game_update_time_offset_assert[
 	offsetof(struct network_advertised_game, update_time) == 0x2C ? 1 : -1];
 typedef char network_advertised_game_size_assert2[
