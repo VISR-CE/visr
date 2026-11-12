@@ -345,6 +345,9 @@ struct distributed_unit_state
 	/* (network version 42 and later) the host's pose for a player whose
 	input a script holds */
 	boolean scripted_pose;
+	/* the pose part was in the message, whether or not its vectors were
+	usable (a host refuses a client's state that carries one) */
+	boolean scripted_pose_sent;
 	struct distributed_vector pose[NUMBER_OF_DISTRIBUTED_POSE_VECTORS];
 };
 
@@ -949,6 +952,23 @@ void distributed_vector_pack(
 	result->i = (short)parts[0];
 	result->j = (short)parts[1];
 	result->k = (short)parts[2];
+}
+
+/* packs a direction as a unit normal; FALSE for a zero or non-finite vector */
+boolean distributed_unit_vector_pack(
+	real_vector3d const *vector,
+	struct distributed_vector *result)
+{
+	real length = (real)sqrt(vector->i * vector->i + vector->j * vector->j + vector->k * vector->k);
+	real_vector3d unit;
+
+	if (!(length > 0.001f && length < 1.0e6f))
+		return FALSE;
+	unit.i = vector->i / length;
+	unit.j = vector->j / length;
+	unit.k = vector->k / length;
+	distributed_vector_pack(&unit, DISTRIBUTED_UNIT_SCALE, result);
+	return TRUE;
 }
 
 void distributed_vector_unpack(
@@ -1559,11 +1579,14 @@ static void distributed_scripted_pose_from_unit(
 	state->scripted_pose = !player_input_enabled() || TEST_FLAG(unit->unit.flags, _unit_suspended_bit);
 	if (!state->scripted_pose)
 		return;
-	distributed_vector_pack(&unit->unit.desired_facing_vector, DISTRIBUTED_UNIT_SCALE, &state->pose[_distributed_pose_facing]);
-	distributed_vector_pack(&unit->unit.desired_aiming_vector, DISTRIBUTED_UNIT_SCALE, &state->pose[_distributed_pose_aiming]);
-	distributed_vector_pack(&unit->unit.desired_looking_vector, DISTRIBUTED_UNIT_SCALE, &state->pose[_distributed_pose_looking]);
-	distributed_vector_pack(&unit->unit.aiming_vector, DISTRIBUTED_UNIT_SCALE, &state->pose[_distributed_pose_current_aiming]);
-	distributed_vector_pack(&unit->unit.looking_vector, DISTRIBUTED_UNIT_SCALE, &state->pose[_distributed_pose_current_looking]);
+	/* (normalized before packing, so every peer's length check passes; a
+	unit with a zero vector sends no pose rather than one peers refuse) */
+	state->scripted_pose =
+		distributed_unit_vector_pack(&unit->unit.desired_facing_vector, &state->pose[_distributed_pose_facing]) &&
+		distributed_unit_vector_pack(&unit->unit.desired_aiming_vector, &state->pose[_distributed_pose_aiming]) &&
+		distributed_unit_vector_pack(&unit->unit.desired_looking_vector, &state->pose[_distributed_pose_looking]) &&
+		distributed_unit_vector_pack(&unit->unit.aiming_vector, &state->pose[_distributed_pose_current_aiming]) &&
+		distributed_unit_vector_pack(&unit->unit.looking_vector, &state->pose[_distributed_pose_current_looking]);
 }
 
 static boolean distributed_scripted_pose_valid(
@@ -1840,12 +1863,12 @@ static word distributed_unit_state_read(
 		}
 		if (distributed_scripted_poses() && TEST_FLAG(parts, _distributed_unit_part_scripted_pose_bit))
 		{
-			if (!distributed_take(&cursor, end, state->pose, sizeof(state->pose)) ||
-				!distributed_scripted_pose_valid(state))
-			{
+			if (!distributed_take(&cursor, end, state->pose, sizeof(state->pose)))
 				return 0;
-			}
-			state->scripted_pose = TRUE;
+			/* (an unusable pose is dropped alone: the rest of the state, and
+			the states after it in the message, still apply) */
+			state->scripted_pose_sent = TRUE;
+			state->scripted_pose = distributed_scripted_pose_valid(state);
 		}
 	}
 	else if (TEST_FLAG(parts, _distributed_unit_part_killer_bit) &&
@@ -2088,7 +2111,7 @@ static void distributed_handle_predictions(
 			!TEST_FLAG(state.flags, _distributed_unit_placed_bit) ||
 			/* (a client never speaks for a pose a script holds) */
 			(distributed_scripted_poses() &&
-				(state.scripted_pose || TEST_FLAG(state.unit_flags, _distributed_unit_suspended_bit))))
+				(state.scripted_pose_sent || TEST_FLAG(state.unit_flags, _distributed_unit_suspended_bit))))
 		{
 			distributed_count_prediction_rejected();
 			continue;
