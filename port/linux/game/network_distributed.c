@@ -404,7 +404,9 @@ enum
 	first) */
 	DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE = 3,
 	DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE = 3 + 4 + (4 + 2) + (12 + 3 * 6) + 2 + 2 * 2 + 4 * 2 +
-		2 * NUMBER_OF_PLAYER_POWERUPS + 2 + 1 + NUMBER_OF_DISTRIBUTED_POSE_VECTORS * 6,
+		2 * NUMBER_OF_PLAYER_POWERUPS + 2 + 1,
+	/* what a scripted pose adds to it (network version 42 and later) */
+	DISTRIBUTED_UNIT_STATE_POSE_SIZE = NUMBER_OF_DISTRIBUTED_POSE_VECTORS * 6,
 	DISTRIBUTED_RELAYED_ACTION_MINIMUM_SIZE = 14,
 	DISTRIBUTED_RELAYED_ACTION_MAXIMUM_SIZE = 14 + 2 * (DISTRIBUTED_INPUT_HISTORY - 1),
 };
@@ -1672,7 +1674,8 @@ static void distributed_state_from_player(
 	}
 }
 
-/* the state's bytes on the wire (at most DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE):
+/* the state's bytes on the wire (at most DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE,
+and DISTRIBUTED_UNIT_STATE_POSE_SIZE more with a scripted pose):
 its player, flags and parts, then (alive) its unit, the vehicle and seat it
 rides, (placed) where it is, how fast it moves and which way it faces,
 (predicted) the client's tick, its shields and health, the damage they
@@ -2046,7 +2049,7 @@ static void distributed_client_send_predictions(
 	{
 		long unit_index = distributed_living_unit(player);
 		struct distributed_unit_state state;
-		byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE];
+		byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE + DISTRIBUTED_UNIT_STATE_POSE_SIZE];
 
 		/* a client speaks for its own players only, where they are */
 		if (player->local_player_index == NONE || unit_index == NONE ||
@@ -3180,7 +3183,7 @@ static void distributed_host_send_players(
 		distributed_packer_begin(&distributed_packer, (short)machine_index, _distributed_message_unit_states, NULL, 0);
 		for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS; player_index++)
 		{
-			byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE];
+			byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE + DISTRIBUTED_UNIT_STATE_POSE_SIZE];
 
 			if (TEST_FLAG(distributed_sends[machine_index][player_index], _distributed_send_state_bit))
 			{
