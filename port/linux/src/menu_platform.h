@@ -13,9 +13,9 @@ with the cloud-saves capability, advertised through HALO_HOST_CLOUD_SAVES.
 performance reports). "tvos" is the Apple TV, whose host sets HALO_HOST_TVOS (its remote has no X
 or Y). "keyboard" is a build with a keyboard: the desktop ports, and an Apple
 host that says it has one (HALO_HOST_KEYBOARD: always on the Mac, on an iPad
-or iPhone when one is attached as the game starts). A value with a "!" before it is
-for the builds that are not. Returns -1 for a value
-that is none of these. A header of its own so that tools/ios_test.py can
+or iPhone when one is attached as the game starts). Returns -1 for a value
+that is none of these. A value led by "!" is for every build the value is
+not for ("!tvos": all but the Apple TV). A header of its own so that tools/ios_test.py can
 build the three cases.
 */
 
@@ -27,10 +27,10 @@ build the three cases.
 
 static int menu_platform_matches(char const *platform)
 {
-	/* "!keyboard" and so on: the builds that are not for the value after it */
+	/* "!value": every build the value is not for */
 	if (platform[0] == '!')
 	{
-		int matches = menu_platform_matches(platform + 1);
+		int matches = platform[1] == '!' ? -1 : menu_platform_matches(platform + 1);
 
 		return matches < 0 ? -1 : !matches;
 	}

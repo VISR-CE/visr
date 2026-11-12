@@ -1021,6 +1021,11 @@ static void damage_data_validate_owner(
 {
 	if (damage->owner_player_index != NONE && !player_try_and_get(damage->owner_player_index))
 		damage->owner_player_index = NONE;
+
+	/* port: likewise an owner object that was deleted while its projectile
+	was in flight (a thrower killed or removed after the throw) */
+	if (damage->owner_object_index != NONE && !object_try_and_get(damage->owner_object_index))
+		damage->owner_object_index = NONE;
 }
 
 static void object_damage_aftermath(
@@ -2207,7 +2212,14 @@ static long get_player_index_from_object_or_parents(
 			break;
 		}
 
-		object_index = object_get(object_index)->object.parent_object_index;
+		{
+			/* port: a parent chain that ends in a deleted object stops there */
+			struct object_datum *object = object_try_and_get(object_index);
+
+			if (!object)
+				break;
+			object_index = object->object.parent_object_index;
+		}
 	}
 
 	return player_index;

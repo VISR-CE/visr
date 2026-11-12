@@ -23,10 +23,10 @@
 		<frame map="ui\shell\bitmaps\b_butn_sm" index="0" png="xbox/art/b_butn.png" width="21" height="26" />
 	</bitmap>
 	<bitmap name="xbox/browser/row">
-		<frame png="xbox/art/browser_row__0.png" width="544" height="24" />
-		<frame png="xbox/art/browser_row__1.png" width="544" height="24" />
+		<frame png="xbox/art/browser_row__0.png" width="544" height="28" />
+		<frame png="xbox/art/browser_row__1.png" width="544" height="28" />
 	</bitmap>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/browser_mode_spinner" type="spinner" left="3" top="2" width="97" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/join_game_mode" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 100 19 106">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/browser_mode_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/multiplayer_type_select/join_game/join_game_mode" font="ui\large_ui" color="#FF2896FF" align="center" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/gamespy_error_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/black">
@@ -34,7 +34,7 @@
 		<on event="start" run="gamespy dismiss error" />
 		<on event="b" run="gamespy dismiss error" />
 		<on event="back" run="gamespy dismiss error" />
-		<child widget="xbox/error/error_modal" />
+		<child widget="xbox/error/browser_error_panel" />
 		<child widget="xbox/error/error_modal_button_bar" x="194" y="430" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/header_internet" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_internet">
@@ -133,7 +133,7 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/join_game_button_refresh" x="87" y="414" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/op_browser_mode" width="150" height="28" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/option_bkds_sm2" color="#FF2896FF" type="column_list">
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/browser_mode_spinner" x="25" y="1" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game_legacy/browser_mode_spinner" x="-24" y="1" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game_legacy/op_sort_header_classic" width="10" height="18" string_list="xbox/main_menu/multiplayer_type_select/join_game/join_game_column_headers" string_index="1" font="ui\small_ui" color="#FF2896FF" text_y="1">
 		<on event="a" run="gamespy select header" />

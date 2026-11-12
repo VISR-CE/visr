@@ -373,6 +373,7 @@ int host_benchmark_notice(const char *heading, const char *detail, double second
 @interface VISRPhotoGuides : NSView
 @property(nonatomic) float fov;
 @property(nonatomic) int speed;
+@property(nonatomic) float roll;
 @property(nonatomic) BOOL guides;
 @property(nonatomic) NSPoint focus;
 @end
@@ -381,8 +382,8 @@ int host_benchmark_notice(const char *heading, const char *detail, double second
 - (BOOL)isFlipped { return YES; }
 - (void)drawRect:(NSRect)dirty {
     (void)dirty;
-    NSString *text = [NSString stringWithFormat:@"Photo mode | FOV %.2f rad (%.1f°) | speed %d (%.4g×)",
-        self.fov, self.fov * 180.0 / M_PI, self.speed, pow(2.0, self.speed)];
+    NSString *text = [NSString stringWithFormat:@"Photo mode | FOV %.2f rad (%.1f°) | speed %d (%.4g×) | roll %+.1f°",
+        self.fov, self.fov * 180.0 / M_PI, self.speed, pow(2.0, self.speed), self.roll];
     [text drawAtPoint:NSMakePoint(12, 12) withAttributes:@{
         NSFontAttributeName: [NSFont monospacedSystemFontOfSize:12 weight:NSFontWeightRegular],
         NSForegroundColorAttributeName: NSColor.whiteColor,
@@ -408,13 +409,13 @@ int host_benchmark_notice(const char *heading, const char *detail, double second
 }
 @end
 
-void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, float focus_y) {
+void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees) {
     static VISRPhotoGuides *overlay;
-    static float previous_fov = -1, previous_x = -1, previous_y = -1;
+    static float previous_fov = -1, previous_x = -1, previous_y = -1, previous_roll = -999;
     static int previous_speed = -99, previous_guides = -1;
     if (fov == previous_fov && speed == previous_speed && guides == previous_guides &&
-        focus_x == previous_x && focus_y == previous_y) return;
-    previous_fov = fov; previous_speed = speed; previous_guides = guides;
+        focus_x == previous_x && focus_y == previous_y && roll_degrees == previous_roll) return;
+    previous_fov = fov; previous_roll = roll_degrees; previous_speed = speed; previous_guides = guides;
     previous_x = focus_x; previous_y = focus_y;
     dispatch_async(dispatch_get_main_queue(), ^{
         NSView *parent = game_window().contentView;
@@ -425,7 +426,7 @@ void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, f
             overlay.wantsLayer = YES;
             [parent addSubview:overlay positioned:NSWindowAbove relativeTo:nil];
         }
-        overlay.fov = fov; overlay.speed = speed; overlay.guides = guides;
+        overlay.fov = fov; overlay.speed = speed; overlay.guides = guides; overlay.roll = roll_degrees;
         overlay.focus = NSMakePoint(focus_x, focus_y);
         overlay.hidden = NO; overlay.needsDisplay = YES;
     });

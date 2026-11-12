@@ -199,6 +199,13 @@ static void dynamic_drain_locked(uint64_t frame_id) {
  * and its floor now in force, after the player's and the environment's choices. Off there, the planner holds the
  * ceiling inside the pool, as for a refused frame; the debug pins and the validation run ignore it. */
 void host_dynamic_resolution_scene(int enabled, int floor_lines) {
+    /* A session launched in Hardcore may not have armed the planner. Once an effective scene asks for it,
+     * keep the session capable; scene holds, debug overrides and the pool's ceiling behavior stay the same. */
+    host_perf_hooks_dynamic_enabled();
+    if (enabled) {
+        dynamic_actuate = 1;
+        dynamic_setting = 1;
+    }
     pthread_mutex_lock(&dynamic_lock);
     floor_lines = floor_lines > 0 ? floor_lines : 0;
     /* a new context starts at the ceiling: a level the planner chose under the old floor, or while the context

@@ -180,6 +180,9 @@ def test_coop_merged_setting_dispatch():
     assert 'coop_options_init(screen_of(widget));' in init
     assert 'settings_each(screen_of(widget), setting_changed_save);' in save
     assert 'coop_options_save(screen_of(widget));' in save
+    assert '"coop options changed"' in tags
+    changed = block(source, 'else if (!strcmp(name, "coop options changed"))')
+    assert 'coop_options_save(screen_of(widget));' in changed
     settings = block(source, 'static void settings_each(')
     assert 'pc_menu_setting_get(child->definition_tag_index)' in settings
     assert 'if (setting)' in settings and 'visit(child, setting);' in settings

@@ -107,6 +107,7 @@ double config_real(const char *name)
 	return 0.0;
 }
 int config_boolean(const char *name) { (void)name; return 0; }
+void config_graphics_head_stereo(int head) { (void)head; }
 
 /* host_stereo.m's SCREEN eyes: 64 mm apart about the head's offset, 4 m in
 front of a screen 4.618 m wide (the theater's default), frusta through its

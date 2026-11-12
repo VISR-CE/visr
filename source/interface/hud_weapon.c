@@ -1057,20 +1057,22 @@ static void crosshairs_draw(
 						crosshair_index,
 						struct weapon_hud_crosshairs_element);
 					short state_index = element->crosshair_type;
-					/* port: while zoomed, a split screen view's crosshairs (the
-					scope's lines and rulers, items shown only off the default
-					zoom, and the magnification, the zoom state's) are the Xbox
-					split screen HUD's, drawn as it draws them, inside the scope's
+					/* port: a split screen view's crosshairs, zoomed or not, are
+					the Xbox split screen HUD's, drawn as it draws them (its items,
+					at its half size, in the view's own window). Zoomed, that keeps
+					the scope's lines, rulers and magnification inside the scope's
 					split screen mask, as the zoom's other overlays are
-					(hud_weapon_zoom_map_type_flags) */
-					boolean zoomed = crosshair->states[_crosshair_state_zoom].value.reference_data > 0;
-
+					(hud_weapon_zoom_map_type_flags); unzoomed, it keeps the
+					reticle the size the Xbox gave it against the view, which the
+					full split screen HUD, one player's at full or 75% size in a
+					half or quarter of the screen, drew two or one and a half times
+					as large */
 					if (weapon_hud_state_index_valid(state_index, NUMBER_OF_WEAPON_HUD_CROSSHAIR_STATES) &&
 						TEST_FLAG(render_flags, state_index) &&
-						TEST_FLAG(hud_weapon_zoom_map_type_flags(map_type_flags, zoomed), element->use_on_map_type))
+						TEST_FLAG(hud_weapon_zoom_map_type_flags(map_type_flags, TRUE), element->use_on_map_type))
 					{
 						struct crosshair_state *state = &crosshair->states[state_index];
-						boolean split_zoom = zoomed && hud_full_layout_zoom_begin();
+						boolean split_zoom = hud_full_layout_zoom_begin();
 						boolean in_multiplayer = hud_split_screen_layout();
 						short item_index;
 

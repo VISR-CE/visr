@@ -45,6 +45,17 @@ static struct menu_input_tracker menu_input;
 static int menu_ignore_warp;
 static float menu_warp_x, menu_warp_y;
 
+int platform_menu_compact_density(void)
+{
+#if defined(__APPLE__) && !defined(HALO_IOS)
+	return 1;
+#elif defined(HALO_IOS) && defined(HALO_ILP32)
+	return menu_input_env("HALO_HOST_MAC");
+#else
+	return 0;
+#endif
+}
+
 int platform_menu_pad(void)
 {
 	if (!menu_input.initialized)
@@ -1788,17 +1799,25 @@ void platform_pump_events(void)
 				case SDL_SCANCODE_P: action = PHOTO_TOGGLE; break;
 				case SDL_SCANCODE_O: action = PHOTO_GUIDES; break;
 				case SDL_SCANCODE_I: action = PHOTO_SAVE; break;
+				case SDL_SCANCODE_T: action = PHOTO_TELEPORT; break;
 				case SDL_SCANCODE_L: action = PHOTO_LOAD; break;
 				case SDL_SCANCODE_K: action = PHOTO_RENDER_CHECK; break;
 				case SDL_SCANCODE_LEFTBRACKET: action = PHOTO_SLOWER; break;
 				case SDL_SCANCODE_RIGHTBRACKET: action = PHOTO_FASTER; break;
 				case SDL_SCANCODE_MINUS: action = PHOTO_FOV_DOWN; break;
 				case SDL_SCANCODE_EQUALS: action = PHOTO_FOV_UP; break;
+				case SDL_SCANCODE_Q: action = PHOTO_ROLL_LEFT; break;
+				case SDL_SCANCODE_E: action = PHOTO_ROLL_RIGHT; break;
+				case SDL_SCANCODE_R: action = PHOTO_ROLL_RESET; break;
 				}
-				if (action && event.key.down) photo_mode_trace_key((int)key, (int)action);
+				if (action && event.key.down && !event.key.repeat) photo_mode_trace_key((int)key, (int)action);
 				if (key > 0 && key < SDL_SCANCODE_COUNT && held[key])
 				{
-					if (!event.key.down) held[key] = 0;
+					if (!event.key.down)
+					{
+						held[key] = 0;
+						photo_mode_key_up(action);
+					}
 					break;
 				}
 				if (action && event.key.down && !event.key.repeat && !(event.key.mod & (SDL_KMOD_GUI | SDL_KMOD_CTRL | SDL_KMOD_ALT)) && photo_mode_key(action))

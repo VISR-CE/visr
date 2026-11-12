@@ -6,6 +6,27 @@
     "display": {
       "type": "object",
       "properties": {
+        "graphics": {
+          "type": "string",
+          "default": "enhanced",
+          "description": "The game's look: \"enhanced\" (default) is the original game tastefully enhanced, with ambient occlusion, shadows under props and per-pixel lighting; \"classic\" draws only what the original Xbox drew, at this device's resolution and frame rate, with upscaled textures, a sharp HUD, more room for decals, bodies and particles, and soft particle edges; \"hardcore\" is the original Xbox exactly: 640x480 at 30 frames a second, the Xbox's limits, nothing added. The mode wins over the settings it replaces (port_graphics_modes.h), which keep their values for when it changes back. The picture's size and rate change at the next level.",
+          "x-environment": "HALO_GRAPHICS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "crt_effect": {
+          "type": "boolean",
+          "default": false,
+          "description": "With display.graphics = \"hardcore\": show the 640x480 picture as a composite CRT television did, with scanlines, a phosphor mask, soft sideways color and a glow on bright light; false (default) shows the clean picture. Ignored in the other modes, and on Apple Vision Pro in head-tracked stereo.",
+          "x-environment": "HALO_CRT_EFFECT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "fullscreen": {
           "type": "boolean",
           "default": true,
@@ -130,6 +151,39 @@
             "desktop"
           ]
         },
+        "per_pixel_lighting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Light characters, weapons and vehicles per pixel: the game's own lights, colors, ranges and falloff, with its reflection tint and direction, worked out for each pixel instead of at each vertex and blended across the triangle. Metal only. False lights them per vertex, as the Xbox does. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
+          "x-environment": "HALO_PER_PIXEL_LIGHTING",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "point_light_highlight": {
+          "type": "integer",
+          "default": 2,
+          "description": "With display.per_pixel_lighting: a highlight on shiny surfaces from the two point lights the game already lights each object with (muzzle flashes, plasma, flashlights), in their own color and range, added to the surface's reflection so its own tint and specular mask apply. 0 none; 1 to 4 brighter and broader in turn, 1 the dimmest and tightest; 2 by default.",
+          "x-environment": "HALO_POINT_LIGHT_HIGHLIGHT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "point_light_limit": {
+          "type": "integer",
+          "default": 2,
+          "description": "With display.per_pixel_lighting: how many of the dynamic lights near a character, weapon or vehicle light it, strongest first, 2 (the game's own) to 8. The ones past the game's two are chosen and lit the same way, for drawing only; the game itself still keeps two.",
+          "x-environment": "HALO_POINT_LIGHT_LIMIT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_minimum_size": {
           "type": "integer",
           "default": 0,
@@ -163,11 +217,54 @@
             "desktop"
           ]
         },
+        "soft_particles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Smoke, dust and plasma fade where they meet the ground and walls instead of cutting a hard line (camera-facing particles; Metal, not in stereo or with multisampling). Hardcore turns it off (display.graphics).",
+          "x-environment": "HALO_SOFT_PARTICLES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "effect_limits": {
+          "type": "string",
+          "default": "raised",
+          "description": "How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: \"raised\" (default) four times the Xbox's decals and every player the effect's whole count; \"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\" (display.graphics).",
+          "x-environment": "HALO_EFFECT_LIMITS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_map_size": {
           "type": "integer",
           "default": 128,
           "description": "The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512.",
           "x-environment": "HALO_SHADOW_MAP_SIZE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "ambient_occlusion": {
+          "type": "boolean",
+          "default": false,
+          "description": "Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space ambient occlusion over the level's light and, weaker, the objects), which the original game never drew. Metal, one view, not multisampled and not in stereo. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics). debug.ssao, when set, wins over it.",
+          "x-environment": "HALO_AMBIENT_OCCLUSION",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "shadow_props": {
+          "type": "boolean",
+          "default": true,
+          "description": "Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. At most the four nearest to the camera in a view, none over 3 units across; false draws what the Xbox drew. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics).",
+          "x-environment": "HALO_SHADOW_PROPS",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -1631,10 +1728,20 @@
             "apple"
           ]
         },
+        "graphics_cycle": {
+          "type": "integer",
+          "default": 0,
+          "description": "Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved, wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame without leaks or stalls. 0 (default) does nothing.",
+          "x-environment": "HALO_GRAPHICS_CYCLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "knob_cycle": {
           "type": "boolean",
           "default": false,
-          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
+          "description": "While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and debug.sense_tuning_chord's D-pad step get none of its presses. Not saved.",
           "x-environment": "HALO_KNOB_CYCLE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -2301,6 +2408,17 @@
             "desktop"
           ]
         },
+        "per_pixel_lighting_alternate": {
+          "type": "integer",
+          "default": 0,
+          "description": "Matched stills: odd frames lit as the display settings say, even frames the plain way, so that with the game paused two frames in a row are the same picture both ways. 1: even frames per vertex; 2: even frames per pixel with no point-light highlight and the game's two point lights; 0 none.",
+          "x-environment": "HALO_PER_PIXEL_LIGHTING_ALTERNATE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "fixed_timestep": {
           "type": "boolean",
           "default": false,
@@ -2629,7 +2747,7 @@
         "browser_fake_big": {
           "type": "boolean",
           "default": false,
-          "description": "Development builds only: the server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.full_rate_players below 16, or network.player_capacity below 16 when full_rate_players is 0. App Store packages ignore it.",
+          "description": "The server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.full_rate_players below 16, or network.player_capacity below 16 when full_rate_players is 0.",
           "x-environment": "HALO_BROWSER_FAKE_BIG",
           "x-environment-style": "value",
           "x-platforms": [
@@ -2648,6 +2766,28 @@
             "desktop"
           ]
         },
+        "menu_min_scale": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enlarge front-end and pause menu widgets toward one point per menu unit by cropping only their backdrop margins. visionOS keeps its existing scale.",
+          "x-environment": "HALO_MENU_MIN_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "menu_density": {
+          "type": "integer",
+          "default": -1,
+          "description": "Menu list row density, fixed at load: -1 uses the platform default, 0 uses comfortable rows, 1 uses compact rows. Fixed settings stay comfortable; key bindings follow list density.",
+          "x-environment": "HALO_MENU_DENSITY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "menu_open": {
           "type": "string",
           "default": "",
@@ -2659,11 +2799,33 @@
             "desktop"
           ]
         },
+        "menu_error": {
+          "type": "string",
+          "default": "",
+          "description": "Development builds only: after the menu loads, call the real error API. Use code,modal,full|half|qtr, or code,optional,abort (code 0-39, flags 0-1). Empty disables it. Pane overrides apply only to this screenshot call.",
+          "x-environment": "HALO_MENU_ERROR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "menu_open_coop": {
           "type": "boolean",
           "default": false,
           "description": "With debug.menu_open on Server Setup, show it as a co-op host's, though no game is hosted (for screenshots).",
           "x-environment": "HALO_MENU_OPEN_COOP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "menu_text_seed": {
+          "type": "string",
+          "default": "",
+          "description": "The join password and Direct Link code screens open with this text already entered and the keyboard closed, to see their held-text state (for screenshots); on the password screen a leading `*` starts it hidden; empty for none.",
+          "x-environment": "HALO_MENU_TEXT_SEED",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -2852,11 +3014,66 @@
             "desktop"
           ]
         },
+        "shadow_scenery": {
+          "type": "integer",
+          "default": 0,
+          "description": "For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all scenery, bit 2 all devices, bit 4 equipment and garbage).",
+          "x-environment": "HALO_SHADOW_SCENERY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "shadow_blur": {
           "type": "string",
           "default": "footprint",
           "description": "How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur.",
           "x-environment": "HALO_SHADOW_BLUR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "screenshot_frames": {
+          "type": "string",
+          "default": "",
+          "description": "With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them); empty saves every one.",
+          "x-environment": "HALO_SCREENSHOT_FRAMES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "screenshot_scene_only": {
+          "type": "boolean",
+          "default": false,
+          "description": "With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame.",
+          "x-environment": "HALO_SCREENSHOT_SCENE_ONLY",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "soft_particle_distance": {
+          "type": "number",
+          "default": 0.06,
+          "description": "With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet).",
+          "x-environment": "HALO_SOFT_PARTICLE_DISTANCE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "soft_particle_scale": {
+          "type": "integer",
+          "default": 2,
+          "description": "With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half (2, the nearest level surface of each 2x2 block).",
+          "x-environment": "HALO_SOFT_PARTICLE_SCALE",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",
@@ -2872,6 +3089,166 @@
           "x-platforms": [
             "apple",
             "desktop"
+          ]
+        },
+        "ssao": {
+          "type": "integer",
+          "default": 0,
+          "description": "A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only).",
+          "x-environment": "HALO_SSAO",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_radius": {
+          "type": "number",
+          "default": 0.3,
+          "description": "With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet).",
+          "x-environment": "HALO_SSAO_RADIUS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_strength": {
+          "type": "number",
+          "default": 1.5,
+          "description": "With debug.ssao: the power the visibility is raised to; higher darkens more.",
+          "x-environment": "HALO_SSAO_STRENGTH",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_objects": {
+          "type": "number",
+          "default": 0.3,
+          "description": "With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included).",
+          "x-environment": "HALO_SSAO_OBJECTS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_static_weight": {
+          "type": "number",
+          "default": 0,
+          "description": "With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that); objects always occlude fully.",
+          "x-environment": "HALO_SSAO_STATIC_WEIGHT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_high": {
+          "type": "boolean",
+          "default": true,
+          "description": "With debug.ssao: two directions and four steps a side per pixel; false, one direction and three steps.",
+          "x-environment": "HALO_SSAO_HIGH",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_steps": {
+          "type": "integer",
+          "default": 0,
+          "description": "With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own.",
+          "x-environment": "HALO_SSAO_STEPS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_max_pixels": {
+          "type": "number",
+          "default": 0.12,
+          "description": "With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height.",
+          "x-environment": "HALO_SSAO_MAX_PIXELS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_fade_distance": {
+          "type": "number",
+          "default": 35,
+          "description": "With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units).",
+          "x-environment": "HALO_SSAO_FADE_DISTANCE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_level_floor": {
+          "type": "number",
+          "default": 0.35,
+          "description": "With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black).",
+          "x-environment": "HALO_SSAO_LEVEL_FLOOR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_object_floor": {
+          "type": "number",
+          "default": 0.6,
+          "description": "With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it).",
+          "x-environment": "HALO_SSAO_OBJECT_FLOOR",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_path": {
+          "type": "integer",
+          "default": 1,
+          "description": "With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled bilinearly as it is applied, 2 the same without the blur.",
+          "x-environment": "HALO_SSAO_PATH",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_stop": {
+          "type": "integer",
+          "default": 0,
+          "description": "With debug.ssao 1, to measure the stages: 1 only the depth preparation, 2 also the gather, 3 every dispatch; none of them applies the occlusion. 0 everything.",
+          "x-environment": "HALO_SSAO_STOP",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_gather_v1": {
+          "type": "boolean",
+          "default": false,
+          "description": "With debug.ssao 1: the first spike's depth preparation and gather, to time them against the current ones.",
+          "x-environment": "HALO_SSAO_GATHER_V1",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "ssao_scale": {
+          "type": "integer",
+          "default": 4,
+          "description": "With debug.ssao 1 and debug.ssao_path 1 or 2: compute the occlusion at half (2) or quarter (4) resolution.",
+          "x-environment": "HALO_SSAO_SCALE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
+        "stencil_views": {
+          "type": "boolean",
+          "default": true,
+          "description": "Make depth targets readable as stencil views, which SSAO and soft particle edges need; false to measure what that costs (neither then runs).",
+          "x-environment": "HALO_STENCIL_VIEWS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
           ]
         },
         "texture_astc": {
@@ -3388,10 +3765,32 @@
             "desktop"
           ]
         },
+        "delta_table": {
+          "type": "boolean",
+          "default": true,
+          "description": "Accept signed Delta legacy tables from the save cache and fetch them in the background from network.delta_url, with a GitHub fallback. Tables extend newer joins and update discovery numbers without changing the game codec. False uses only the built-in numbers and fetches nothing.",
+          "x-environment": "HALO_NET_DELTA_TABLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "delta_peer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Exchange Delta handshakes and platform claims after joining a host that advertises Delta. A silent host falls back to legacy after 4 seconds. Hosting opens the Delta socket only when network.delta_announce is also on; a busy side port hosts without Delta. False disables both.",
+          "x-environment": "HALO_NET_DELTA_PEER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "delta_announce": {
           "type": "boolean",
-          "default": false,
-          "description": "List the public game this machine hosts for the internet (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. Off by default: it sends the list's server, run by others, the game's invite (anyone who has it can join), name, map, game type number, player counts, whether it is open and has teams, this build's network version and that it plays the game's own protocol alone, and the server sees this machine's internet address. The game is withdrawn when it ends or goes private.",
+          "default": true,
+          "description": "Publish the public internet game this machine hosts (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. On by default: it sends the list's server, run by others, the game's invite (anyone who has it can join), name, map, engine (game type number), players, maximum_players, open, version (network version), teams, delta (the major while its Delta socket is open, otherwise 0), platform_key, arch, build and capabilities (platform only). With network.delta_peer on, also open the Delta socket for LAN and internet games. No machines, roster, profile or stats are sent to the list. The server sees this machine's internet address. The game is withdrawn when it ends or goes private.",
           "x-environment": "HALO_NET_DELTA_ANNOUNCE",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3402,7 +3801,7 @@
         "delta_url": {
           "type": "string",
           "default": "https://halo.milenko.org",
-          "description": "The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). Empty turns both off.",
+          "description": "The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). Empty turns both off and suppresses signed legacy table requests (network.delta_table).",
           "x-environment": "HALO_NET_DELTA_URL",
           "x-environment-style": "value",
           "x-platforms": [
@@ -3770,7 +4169,7 @@
         },
         "switch_weapon": {
           "type": "string",
-          "default": "Wheel, 1",
+          "default": "Wheel, Tab",
           "description": "Switching weapons.",
           "x-environment": "HALO_KEY_SWITCH_WEAPON",
           "x-environment-style": "value",
@@ -3814,7 +4213,7 @@
         },
         "scoreboard": {
           "type": "string",
-          "default": "Tab",
+          "default": "1",
           "description": "Showing the scores (the controller's Back).",
           "x-environment": "HALO_KEY_SCOREBOARD",
           "x-environment-style": "value",
@@ -3878,6 +4277,17 @@
           "default": 1.5,
           "description": "The least time the loading screen stays up, in seconds (0 to 30), so a level that is ready at once doesn't flash it.",
           "x-environment": "HALO_LOADING_SCREEN_SECONDS",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "garbage_limit": {
+          "type": "string",
+          "default": "raised",
+          "description": "How many bodies and dropped weapons a game keeps before the ones no player sees are removed: \"raised\" (default) four times the Xbox's in a game on this device alone, the Xbox's in a network game and while an input recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for 16 players). Hardcore uses \"xbox\" (display.graphics).",
+          "x-environment": "HALO_GARBAGE_LIMIT",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

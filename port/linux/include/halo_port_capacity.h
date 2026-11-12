@@ -126,6 +126,19 @@ without its widget */
 #define HALO_PORT_MAXIMUM_LIGHTS_PER_MAP 4096 /* (896) */
 #define HALO_PORT_MAXIMUM_GAME_LOOPING_SOUNDS 4096 /* (1024) */
 
+/* ---------- decals
+
+Bullet holes, scorch marks and blood on the level: each decal's vertices take
+pages of 64 bytes in a cache, and a new decal takes the place of the one
+least recently drawn when the decals or the pages run out. The game state
+keeps the Xbox's pools (2048 decals, 2560 pages, so saved games keep their
+layout); display.effect_limits "raised" draws from a second set four times
+that size, held outside the game state (effects/decals.c), from the next map.
+A saved game or a checkpoint then carries no decals: loading one clears the
+raised set, and the level's own decals come back as their clusters are seen */
+#define HALO_PORT_MAXIMUM_DECALS 8192 /* (2048) */
+#define HALO_PORT_DECAL_VERTEX_PAGES 10240 /* (2560) */
+
 /* ---------- rasterizer
 
 A frame's transparent geometry groups: each transparent part of a model drawn,

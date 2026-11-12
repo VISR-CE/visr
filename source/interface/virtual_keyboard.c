@@ -1104,6 +1104,13 @@ static boolean virtual_keyboard_select(
 		}
 		ui_play_audio_feedback_sound(_ui_audio_feedback_back);
 		virtual_keyboard_globals.active = FALSE;
+		/* port: confirmed player names persist before returning to the hub. */
+		if (virtual_keyboard_globals.last_exit_saved_text)
+		{
+			extern void pc_menu_profile_name_saved(wchar_t const *name);
+
+			pc_menu_profile_name_saved(virtual_keyboard_globals.text_buffer);
+		}
 		event_manager_flush();
 		break;
 

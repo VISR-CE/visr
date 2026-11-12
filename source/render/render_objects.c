@@ -91,6 +91,7 @@ symbols in this file:
 #include "bitmaps/bitmaps.h"
 #include "render/render.h"
 #include "render/shadow_minimum_size.h"
+#include "render/shadow_props.h"
 #include "camera/camera_scripting.h"
 #include "editor/editor_stubs.h"
 #include "rasterizer/rasterizer.h"
@@ -281,10 +282,117 @@ static boolean clutter_lowest_lod = FALSE;
 
 extern boolean debug_objects;
 extern short debug_rasterizer_light_count;
+/* port: rasterizer_xbox.c (per-pixel lighting's longer point light list) */
+extern long rasterizer_port_point_light_object;
 
 /* ---------- globals */
 
 boolean render_shadows = TRUE;
+
+/* port: display.shadow_props and debug.shadow_scenery (port/linux/src/port_config.c). The game marks every scenery
+object, device, piece of equipment and garbage object shadowless when it makes it (scenery_new, device_new,
+equipment_new, garbage_new), whatever its tag says, so none of them cast. With the setting on, the Covenant crates and
+emitters named in shadow_prop_scenery_names, and every device of a size that fits, cast one: a render-only choice that
+reads and changes no game state. What a definition's answer is stays until the next map. */
+#define SHADOW_PROP_CACHE_SIZE 512
+static boolean shadow_props_on = FALSE;
+static long shadow_props_debug_mask = 0;
+static long shadow_prop_chosen[SHADOW_PROP_MAXIMUM_PER_VIEW];
+static short shadow_prop_chosen_count = 0;
+static long shadow_prop_cache_definition[SHADOW_PROP_CACHE_SIZE];
+static byte shadow_prop_cache_answer[SHADOW_PROP_CACHE_SIZE]; /* 0 unknown, 1 no, 2 yes */
+
+static boolean shadow_prop_scenery_whitelisted(
+	long definition_index)
+{
+	long slot = definition_index & (SHADOW_PROP_CACHE_SIZE - 1);
+
+	if (shadow_prop_cache_answer[slot] == 0 || shadow_prop_cache_definition[slot] != definition_index)
+	{
+		shadow_prop_cache_definition[slot] = definition_index;
+		shadow_prop_cache_answer[slot] = shadow_prop_scenery_name_matches(tag_get_name(definition_index)) ? 2 : 1;
+	}
+	return shadow_prop_cache_answer[slot] == 2;
+}
+
+static boolean shadow_prop_object_eligible(
+	struct object_datum *object)
+{
+	boolean is_scenery = object->object.type == _object_type_scenery;
+
+	return shadow_prop_eligible(
+		is_scenery,
+		TEST_FLAG(_object_mask_device, object->object.type),
+		object->object.bounding_sphere_radius,
+		is_scenery && shadow_prop_scenery_whitelisted(object->definition_index));
+}
+
+/* the (at most SHADOW_PROP_MAXIMUM_PER_VIEW) props of the frame's rendered objects that may cast and are nearest the
+camera, chosen once before the frame's shadows are drawn. The center camera of a stereo frame, so both eyes agree */
+static struct render_object_globals render_object_globals;
+
+static void shadow_props_choose(
+	void)
+{
+	static long candidates[MAXIMUM_RENDERED_OBJECTS];
+	static float distances[MAXIMUM_RENDERED_OBJECTS];
+	static unsigned char keep[MAXIMUM_RENDERED_OBJECTS];
+	short count = 0;
+	short index;
+
+	shadow_prop_chosen_count = 0;
+	if (!shadow_props_on)
+		return;
+	{
+		struct render_camera const *camera = render_clutter_camera();
+		real_point3d const *position = camera ? &camera->position : &render.camera.position;
+
+		for (index = 0; index < render_object_globals.rendered_object_count; index++)
+		{
+			long object_index = render_object_globals.rendered_object_indices[index];
+			struct object_datum *object = object_get(object_index);
+
+			if (TEST_FLAG(object->object.flags, _object_shadowless_bit) &&
+				!TEST_FLAG(object->object.flags, _object_invisible_bit) &&
+				shadow_prop_object_eligible(object))
+			{
+				real dx = object->object.bounding_sphere_center.x - position->x;
+				real dy = object->object.bounding_sphere_center.y - position->y;
+				real dz = object->object.bounding_sphere_center.z - position->z;
+
+				candidates[count] = object_index;
+				distances[count++] = dx * dx + dy * dy + dz * dz;
+			}
+		}
+	}
+	shadow_prop_select_nearest(distances, count, SHADOW_PROP_MAXIMUM_PER_VIEW, keep);
+	for (index = 0; index < count; index++)
+	{
+		if (keep[index])
+			shadow_prop_chosen[shadow_prop_chosen_count++] = candidates[index];
+	}
+}
+
+static boolean shadow_prop_object_allowed(
+	long object_index,
+	struct object_datum *object)
+{
+	short index;
+	boolean chosen = FALSE;
+
+	if (!shadow_props_on && !shadow_props_debug_mask)
+		return FALSE;
+	for (index = 0; index < shadow_prop_chosen_count; index++)
+		chosen = chosen || shadow_prop_chosen[index] == object_index;
+	return shadow_prop_allowed(
+		object->object.type == _object_type_scenery,
+		TEST_FLAG(_object_mask_device, object->object.type),
+		object->object.type == _object_type_equipment || object->object.type == _object_type_garbage,
+		shadow_props_debug_mask,
+		shadow_props_on,
+		shadow_props_on && shadow_prop_object_eligible(object),
+		chosen);
+}
 
 /* port: deferred object shadows (rasterizer_xbox_shadows.c): a window's
 shadows are all generated, each into targets of its own, before any is
@@ -441,6 +549,7 @@ void render_objects_initialize(
 void render_objects_initialize_for_new_map(
 	void)
 {
+	csmemset(shadow_prop_cache_answer, 0, sizeof(shadow_prop_cache_answer));
 	data_make_valid(cached_object_render_states);
 
 	return;
@@ -540,6 +649,9 @@ void render_object_shadows(
 	{
 		struct object_render_data data;
 
+		shadow_props_on = config_boolean("display.shadow_props") != FALSE;
+		shadow_props_debug_mask = config_integer("debug.shadow_scenery");
+		shadow_props_choose();
 		shadow_minimum_size_begin();
 		rasterizer_environment_shadows_begin();
 
@@ -1474,7 +1586,7 @@ static void render_object(
 		if ((!object_is_first_person_camera(data->object_index) ||
 				(halo_first_person_body(data->object_index) && !render.camera.mirrored) ||
 				first_person_legs_shadow(data->object_index)) &&
-			!TEST_FLAG(object->object.flags, _object_shadowless_bit) &&
+			(!TEST_FLAG(object->object.flags, _object_shadowless_bit) || shadow_prop_object_allowed(data->object_index, object)) &&
 			(!TEST_FLAG(object->object.flags, _object_invisible_bit) ||
 				object->object.first_child_object_index != NONE))
 		{
@@ -1594,7 +1706,11 @@ static void render_object(
 						&object->object.bounding_sphere_center) >
 						definition->object.bounding_radius;
 
+				/* port: the object whose lights a longer point light list is gathered for, while it and its
+				attachments are drawn (rasterizer_set_model_lighting) */
+				rasterizer_port_point_light_object = data->object_index;
 				render_object_list(data, &model_effect, data->object_index);
+				rasterizer_port_point_light_object = NONE;
 			}
 		}
 	}

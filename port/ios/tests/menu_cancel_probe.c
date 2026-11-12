@@ -31,12 +31,12 @@ static void typing_gamepad(const struct platform_input_state *input, XINPUT_GAME
 #define TEST_FLAG(flags, bit) (((flags) >> (bit)) & 1)
 #define match_assert(file, line, condition) assert(condition)
 #define match_vwarn(file, line, condition, message) assert(condition)
-enum { _gamepad_analog_button_b = 1, _gamepad_binary_button_dpad_up = 8,
+enum { _gamepad_analog_button_a = 0, _gamepad_analog_button_b = 1, _gamepad_binary_button_dpad_up = 8,
 	_gamepad_binary_button_dpad_down, _gamepad_binary_button_dpad_left,
 	_gamepad_binary_button_dpad_right, _gamepad_binary_button_back = 13,
 	NUMBER_OF_GAMEPAD_BUTTONS = 16 };
 enum { _ui_audio_feedback_none, _ui_audio_feedback_cursor,
-	_ui_audio_feedback_forward, _ui_audio_feedback_back, _error_silent,
+	_ui_audio_feedback_forward, _ui_audio_feedback_back, _ui_audio_feedback_flag_failure, _error_silent,
 	_ui_widget_type_spinner_list, _ui_widget_type_column_list };
 /* ENUMS */
 struct tag_reference { long index; };
@@ -77,6 +77,11 @@ static struct ui_widget_event_handler_reference handlers[8];
 static struct widget_instance instances[3];
 static struct widget_stack_node history;
 static int game_paused, returned_to_main, menu_source;
+static boolean graphics_locked;
+static int refusal_sounds;
+/* The graphics probe tests the real mode resolver. Here only the focused child is a locked row. */
+static boolean ui_widget_port_graphics_locked(struct widget_instance *widget)
+{ return graphics_locked && widget == &instances[1]; }
 
 static struct widget_instance *widget_instance_get_topmost_parent(struct widget_instance *widget)
 { while (widget->parent) widget = widget->parent; return widget; }
@@ -101,7 +106,8 @@ static void widget_instance_set_focused_child_by_index(long tag, struct widget_i
 static struct ui_widget_definition *ui_widget_definition_get(long tag) { return &definitions[tag]; }
 static int widget_takes_events_of_controller(struct widget_instance *widget, short controller) { return controller == 0; }
 static int input_has_gamepad(short player) { return 1; }
-static void ui_play_audio_feedback_sound(long feedback) {}
+static void ui_play_audio_feedback_sound(long feedback)
+{ if (feedback == _ui_audio_feedback_flag_failure) refusal_sounds++; }
 static void widget_instance_update_animation_parameters(struct widget_instance *widget) {}
 static void main_goto_main_menu(void) { returned_to_main++; }
 static int ui_widget_launch_widget(struct widget_instance *widget, long tag)
@@ -158,7 +164,7 @@ static void reset(int can_quit)
 	instances[0].child = instances[0].focused_child = &instances[1];
 	instances[1].parent = &instances[0];
 	widget_globals.active_widgets[0] = &instances[0];
-	game_paused = returned_to_main = 0;
+	game_paused = returned_to_main = graphics_locked = refusal_sounds = 0;
 }
 static int press(short button)
 {
@@ -219,6 +225,31 @@ int main(void)
 		assert(widget_globals.active_widgets[0] == &instances[0]);
 	}
 	}
+	/* A (also posted by mouse/touch) and horizontal edits stop before row handlers.
+	The row handler would call the aborting engine boundary if the lock were ignored. */
+	reset(0);
+	graphics_locked = TRUE;
+	struct ui_widget_event_handler_reference edit_handlers[3] = {0};
+	short edit_buttons[] = { _gamepad_analog_button_a, _widget_event_dpad_left, _widget_event_dpad_right };
+	definitions[1].event_handlers.address = edit_handlers;
+	definitions[1].event_handlers.count = 3;
+	for (int i = 0; i < 3; i++) {
+		edit_handlers[i].event_type = edit_buttons[i];
+		edit_handlers[i].flags = 1 << _event_handler_run_function_bit;
+		assert(!press(edit_buttons[i]));
+		assert(instances[0].focused_child == &instances[1]);
+	}
+	assert(refusal_sounds == 3);
+	int arrow_keys[] = { SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT };
+	for (int i = 0; i < 2; i++) {
+		struct platform_input_state input = {0};
+		XINPUT_GAMEPAD pad = {0};
+		input.keys[arrow_keys[i]] = 1;
+		keyboard_gamepad(&input, &pad);
+		assert(pad.wButtons & (i ? XINPUT_GAMEPAD_DPAD_RIGHT : XINPUT_GAMEPAD_DPAD_LEFT));
+		assert(!press(i ? _widget_event_dpad_right : _widget_event_dpad_left));
+	}
+	assert(refusal_sounds == 5);
 	puts("PASS: root B/Back consumed; Mac cancel, nested Back and pause resume preserved");
 	return 0;
 }

@@ -352,6 +352,9 @@ struct scenario_object_datum;
 struct tag_block;
 void game_engine_vehicle_placement_begin(
 	void);
+/* port: photo mode only; forgets the learned vehicle respawn homes */
+void game_engine_vehicle_homes_reset(
+	void);
 boolean game_engine_vehicle_placement_allowed(
 	struct scenario_object_datum const *placement,
 	struct tag_block *palette);

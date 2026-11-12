@@ -196,7 +196,24 @@ version, so a client of 38 sends a host of 33 to 37 the same bytes it sends a
 host of 38. Current hosts do not negotiate a downgrade with older clients.
 Version 39 uses the 38 join and game codecs. Versions 40 and 41 add 234
 zero bytes before the join packet's type trailer, making a 350-byte TCP
-frame; hosts below 40 keep the 116-byte frame. Hosting stays at 38.
+frame; hosts below 40 keep the 116-byte frame. A signed Delta legacy table
+(`delta_legacy.c`, `halo_delta_legacy.h`) may extend joins above 41; those hosts
+use the same join padding as 41. The hand table's older mask stays exact:
+33 and 37 remain refused. Rows never narrow the built-in join set. Their
+maximum includes at least the announced number plus one (up to 65535),
+logged as "presumed additive" when a join needs that extension.
+
+Hosting uses the row's announcement number in discovery, independently of
+`network.delta_announce`; the game codec and Delta wire remain 38 and `chupa-38a`.
+A row with `requires` cannot raise hosting past 38 because this build does not
+implement host protections. `network.delta_table` defaults on; off ignores
+the cache and fetches nothing. The cache is `delta_legacy.signed` in the save
+root, re-verified on startup and atomically replaced on acceptance of a newer
+serial. The existing HTTP worker fetches both signed copies from
+`network.delta_url` and the published GitHub mirror every four hours, or
+thirty minutes after failure. An empty list URL suppresses both requests.
+TABLE/TABLE_HAVE relay, layout application, platform policy application and
+capability enforcement are not implemented by this table module.
 Servers requiring a Discord link or rejecting a VPN connection show a
 specific refusal message; VISR does not support Discord join passes. The
 client-build message (92) is discarded as an unknown distributed kind.

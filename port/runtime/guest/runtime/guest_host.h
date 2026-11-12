@@ -46,7 +46,7 @@ void host_touch_replay_active(int active);
 /* 1 when the host target was built with development hooks, otherwise 0. */
 int host_development_hooks(void);
 int host_photo_mode_available(void);
-void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
+void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees);
 
 /* performs a Linux system call on the guest's behalf, converting the
 structures whose layout differs; returns the raw result (-errno on failure) */
@@ -164,6 +164,7 @@ long long host_sdl_ticks(void);
 long long host_sdl_thread_id(void);
 unsigned int host_sdl_create_window(const char *title, int width, int height, long long flags);
 void host_sdl_window_size_in_pixels(unsigned int window, int *width, int *height);
+int host_sdl_menu_height_points(void);
 /* Current native Mac display maximum; 0 keeps other hosts' menu behavior. */
 int host_sdl_display_max_fps(void);
 /* What frames aim for when following the display: its refresh rate, halved in Low Power Mode; 0 when unknown. */
@@ -264,6 +265,16 @@ void host_gpu_frame_context(uint32_t scene_class, uint32_t frame_rate, const cha
 uint32_t host_gpu_compiles_outstanding(void);
 void host_gpu_compile_progress(uint32_t action, struct gpu_compile_progress *progress);
 void host_gpu_initialize(uint32_t flags, struct gpu_capabilities *capabilities);
+/* Effective presentation settings, committed between frames by halo_screen_commit. */
+void host_graphics_apply(int metalfx, int crt, int frame_rate);
+/* debug.ssao (spike; port/linux/src/d3d8_device.c, gpu_metal.m): ambient occlusion from the scene's depth into its
+color, after the level's lightmap pass; count floats of the view's rectangle, camera and tuning */
+void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *parameters, uint32_t count);
+/* soft particle edges (display.soft_particles; port/linux/src/d3d8_device.c, gpu_metal.m): the scene's depth kept
+as view distances for the transparent geometry drawn next (count floats: near, far, the projection's depth row, the
+fade distance, the distances' scale); 1 when it was. Finish ends it */
+uint32_t host_soft_depth_prepare(gpu_texture depth, const float *parameters, uint32_t count);
+void host_soft_depth_finish(void);
 
 /* ---------- stereo (port/linux/game/stereo.c; the host's port/ios/host/host_stereo.m)
 

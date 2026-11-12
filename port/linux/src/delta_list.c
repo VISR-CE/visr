@@ -585,12 +585,46 @@ static int put_number(char *form, int size, int *length, const char *name, int v
 	return put_field(form, size, length, name, text);
 }
 
+/* Fixed-size host strings must terminate inside their fields and contain printable ASCII. */
+static int printable_field(const char *text, unsigned size)
+{
+	unsigned index;
+
+	for (index = 0; index < size; index++)
+	{
+		unsigned char c = (unsigned char)text[index];
+		if (!c)
+			return 1;
+		if (c < 32 || c > 126)
+			return 0;
+	}
+	return 0;
+}
+
 int delta_announce_form(char *form, int size, const struct delta_announce *announce)
 {
-	int length = 0;
+	int length = 0, index;
+	char platform_key[17], capabilities[9];
+	static const char hex[] = "0123456789abcdef";
 
-	if (size < 2)
+	if (!form || !announce || size < 2 || announce->delta < 0 || announce->delta > 255 ||
+		!printable_field(announce->invite, sizeof(announce->invite)) ||
+		!printable_field(announce->name, sizeof(announce->name)) ||
+		!printable_field(announce->map, sizeof(announce->map)) ||
+		!printable_field(announce->arch, sizeof(announce->arch)) ||
+		!printable_field(announce->build, sizeof(announce->build)))
 		return 0;
+	if (announce->arch[0] && strcmp(announce->arch, "x64") && strcmp(announce->arch, "x86") &&
+		strcmp(announce->arch, "arm64") && strcmp(announce->arch, "arm"))
+		return 0;
+	for (index = 0; index < 8; index++)
+	{
+		platform_key[index * 2] = hex[announce->platform_key[index] >> 4];
+		platform_key[index * 2 + 1] = hex[announce->platform_key[index] & 15];
+		capabilities[index] = hex[(announce->capabilities >> ((7 - index) * 4)) & 15];
+	}
+	platform_key[16] = 0;
+	capabilities[8] = 0;
 	if (!put_field(form, size, &length, "invite", announce->invite) ||
 		!put_field(form, size, &length, "name", announce->name) ||
 		!put_field(form, size, &length, "map", announce->map) ||
@@ -600,8 +634,11 @@ int delta_announce_form(char *form, int size, const struct delta_announce *annou
 		!put_number(form, size, &length, "open", announce->open ? 1 : 0) ||
 		!put_number(form, size, &length, "version", announce->version) ||
 		!put_number(form, size, &length, "teams", announce->teams ? 1 : 0) ||
-		/* (this build plays the legacy protocol alone: no Delta Peer) */
-		!put_number(form, size, &length, "delta", 0))
+		!put_number(form, size, &length, "delta", announce->delta) ||
+		!put_field(form, size, &length, "platform_key", platform_key) ||
+		!put_field(form, size, &length, "arch", announce->arch) ||
+		!put_field(form, size, &length, "build", announce->build) ||
+		!put_field(form, size, &length, "capabilities", capabilities))
 	{
 		return 0;
 	}
@@ -637,7 +674,9 @@ static int announce_changed(const struct delta_announce *a, const struct delta_a
 {
 	return strcmp(a->name, b->name) || strcmp(a->map, b->map) || a->engine != b->engine ||
 		a->players != b->players || a->maximum_players != b->maximum_players || a->open != b->open ||
-		a->teams != b->teams;
+		a->teams != b->teams || a->version != b->version || a->delta != b->delta ||
+		memcmp(a->platform_key, b->platform_key, sizeof(a->platform_key)) ||
+		strcmp(a->arch, b->arch) || strcmp(a->build, b->build) || a->capabilities != b->capabilities;
 }
 
 static int waiting(const struct delta_announce_state *state, unsigned long now)

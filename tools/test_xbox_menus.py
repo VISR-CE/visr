@@ -62,8 +62,11 @@ def test_settings_keep_pc_values_and_handlers():
         actual = {w.get('setting'): (w.get('values'), w.get('strings'))
                   for w in output.iter('widget') if w.get('setting')}
         assert actual == expected
-        assert {e.get('run') for e in source.iter('on') if e.get('run')} <= {
-            e.get('run') for e in output.iter('on') if e.get('run')}
+        retained = {e.get('run') for e in source.iter('on') if e.get('run')} - {
+            'port settings save', 'port settings defaults', 'port setting preview', 'port setting revert',
+            'controls screen change set',
+            'controls screen defaults', 'controls screen init'}
+        assert retained <= {e.get('run') for e in output.iter('on') if e.get('run')}
         names = {w.get('name').rsplit('/', 1)[-1] for w in output.iter('widget')}
         # (the About screen's A does nothing: its legend is the way back alone)
         assert ({'b_butn', 'cancel'} if folder == 'about' else
@@ -71,7 +74,7 @@ def test_settings_keep_pc_values_and_handlers():
         assert all('\\' not in w.get('name') for w in output.iter('widget'))
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
-        'CONTROLS', 'VIDEO', 'AUDIO', 'NETWORK', 'KEYBOARD & MOUSE'}
+        'CONTROLS', 'VIDEO', 'GRAPHICS', 'AUDIO', 'NETWORK', 'KEYBOARD & MOUSE'}
     keyboard = next(w for w in hub.iter('child') if w.get('widget') == 'xbox/settings/keyboard')
     assert keyboard.get('platform') == 'keyboard'
 
@@ -90,21 +93,45 @@ def test_generator_rejects_map_widget_definitions(tmp_path):
         module.validate(root, tmp_path)
 
 
-def test_save_is_a_focusable_action_separate_from_a_legend():
+def test_settings_apply_without_save_and_offer_defaults_on_x():
+    module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
-        if path.name == 'settings.about.xml':  # (nothing to save)
+        if path.name == 'settings.about.xml':  # (nothing to apply or reset)
             continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
-        save = next(w for n, w in widgets.items() if n.endswith('/button_ok'))
-        # ui_mouse_key_button posts A to the existing focus; a SAVE item must
-        # get the normal item target, which focuses it before posting A.
-        assert save.get('type') is None
-        caption = widgets[next(c.get('widget') for c in save.findall('child') if c.get('widget').endswith('_caption'))]
-        assert caption.get('text') == 'SAVE'
-        assert len(save.findall('child')) == 2
-        assert save.find('on[@event="a"][@back="true"]') is not None
-        accept = next(w for n, w in widgets.items() if n.endswith('/accept'))
-        assert accept.get('text') == 'SELECT'
+        root = ET.parse(path).getroot()
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        screen = root.find('widget')
+        assert not any(w.get('text') == 'SAVE' for w in widgets.values())
+        assert screen.find('on[@event="x"][@run]') is not None
+        for event in ('b', 'back'):
+            assert screen.find(f'on[@event="{event}"][@back="true"]') is not None
+        captions = {w.get('text') for w in widgets.values() if w.get('type') == 'text'}
+        assert {'SELECT', 'DEFAULTS', 'BACK'} <= captions
+        assert not any(text and '=' in text for text in captions)
+        defaults = next(w for n, w in widgets.items() if n.endswith('/button_defaults'))
+        assert defaults.find('on[@event="left_mouse"]') is not None
+        assert defaults.find('on[@event="a"][@run]').get('run') == screen.find('on[@event="x"]').get('run')
+        assert any(w.get('bitmap') == 'xbox/browser/x_butn' for w in widgets.values())
+        for spinner in root.iter('widget'):
+            if not spinner.get('setting'):
+                continue
+            for event in ('left', 'right', 'stick_left', 'stick_right'):
+                assert spinner.find(f'on[@event="{event}"][@run="port setting changed"]') is not None
+            assert spinner.find('on[@event="deleted"]') is None
+        if 'video_settings' in path.name:
+            assert screen.find('on[@event="deleted"][@run="port settings close"]') is not None
+
+
+def test_hosting_spinners_apply_on_change_without_an_ok_action():
+    for page in ('server_settings', 'coop_options'):
+        root = ET.parse(MENUS / f'xbox/main_menu.multiplayer_type_select.{page}.xml')
+        for spinner in root.iter('widget'):
+            if spinner.get('setting'):
+                for event in ('left', 'right', 'stick_left', 'stick_right'):
+                    assert spinner.find(f'on[@event="{event}"][@run="port setting changed"]') is not None
+                assert spinner.find('on[@event="deleted"]') is None
+        assert not any(e.get('run') == 'coop options save' for e in root.iter('on'))
 
 
 @pytest.mark.parametrize('path', sorted((MENUS / 'xbox').glob('settings.*_*.xml')))
@@ -120,6 +147,9 @@ def test_option_rows_end_above_the_help_text(path):
             row_ys = sorted({int(child.get('y')) for child in widget.findall('child')
                              if child.get('y') and not child.get('widget').endswith('/button_bar')
                              and '/scroll_' not in child.get('widget')})
+            # (the places the list's rows take, which the leading rows' own y values may skip past)
+            if len(row_ys) > 1:
+                row_ys = list(range(row_ys[0], row_ys[-1] + 1, row_ys[1] - row_ys[0]))
             # a list that scrolls shows visible_rows of its rows at once
             row_ys = row_ys[:int(widget.get('visible_rows', len(row_ys)))]
     if help_top is not None:
@@ -153,8 +183,13 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
             # Quit's original text panel sits inside a new confirmation modal.
             if name == 'xbox/main_menu/quit_select/quit_screen':
                 name = 'xbox/main_menu/quit_select/quit_panel'
+            if filename.endswith('coop_options') and name.endswith(('/button_bar', '/button_ok')):
+                continue
             copied = widgets[name]
             for tag, key in (('on', 'run'), ('data', 'input')):
+                if original.get('setting') and filename.endswith(('server_settings', 'coop_options')) and tag == 'on':
+                    assert copied.find('on[@event="created"][@run="port setting load"]') is not None
+                    continue
                 expected = [(e.get('event'), e.get(key)) for e in original.findall(tag)]
                 actual = [(e.get('event'), e.get(key)) for e in copied.findall(tag)]
                 if '/lobby/lobby_button_' in name or name.endswith('/lobby/lobby_screen'):
@@ -344,7 +379,7 @@ def test_multiplayer_list_viewports_stop_before_help_and_footer():
 def test_quit_uses_confirm_button_positions():
     root = ET.parse(MENUS / 'xbox/main_menu.quit_select.xml')
     bar = next(w for w in root.iter('widget') if w.get('name').endswith('/quit_button_bar'))
-    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(244, 310), (260, 310), (356, 310), (372, 310)]
+    assert [(int(c.get('x')), int(c.get('y'))) for c in bar.findall('child')] == [(244, 305), (260, 305), (356, 305), (372, 305)]
     children = bar.findall('child')
     assert children[0].get('widget') == 'xbox/error/confirm_delete_profile/b_butn'
     assert children[2].get('widget') == 'xbox/error/confirm_delete_profile/a_butn'
@@ -369,11 +404,15 @@ def test_selection_rows_end_above_footer():
                                    leaf.startswith('server_item_')):
                     row = widgets[c.get('widget')]
                     limit = 421 if '/join_game/' in c.get('widget') else 414
-                    assert int(c.get('y')) + int(row.get('top', 0)) + int(row.get('height')) <= limit
+                    first = min(int(part.get('y')) for part in w.findall('child')
+                                if part.get('y') and (part.get('widget').rsplit('/', 1)[-1].startswith('list_item_')
+                                                    or part.get('widget').rsplit('/', 1)[-1].startswith('server_item_')))
+                    if int(c.get('y')) < first + int(w.get('visible_rows', '64')) * generator().COMFORTABLE_PITCH:
+                        assert int(c.get('y')) + int(row.get('top', 0)) + int(row.get('height')) <= limit
 
 
 def test_multiplayer_definitions_are_unique_and_browser_colors_match_xbox():
-    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml')
+    names = [(e.tag, e.get('name')) for p in (MENUS / 'xbox').glob('*.xml') if '.compact.' not in p.name
              for e in ET.parse(p).getroot() if e.get('name')]
     assert len(names) == len(set(names))
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.xml')
@@ -389,27 +428,48 @@ def window_rows(options, widgets):
     rows = [c for c in options.findall('child') if c.get('y') and 'button_bar' not in c.get('widget')
             and '/scroll_' not in c.get('widget')]
     slots = sorted({int(c.get('y')) for c in rows})
+    # (the places the list's rows take, which the leading rows' own y values may skip past)
+    slots = list(range(slots[0], slots[-1] + 1, slots[1] - slots[0]))
     height = max(int(widgets[c.get('widget')].get('height')) for c in rows)
     window = int(options.get('visible_rows', len(slots)))
     pitch = slots[1] - slots[0]
     return slots, window, slots[0] + (window - 1) * pitch + height
 
 
+def shown_children(options):
+    """The most rows of a list one platform shows: the Mac's VIDEO and every other platform's GRAPHICS share a slot."""
+    children = options.findall('child')
+    return max(len([c for c in children if c.get('platform') != hidden]) for hidden in ('mac_app', '!mac_app'))
+
+
 def test_scrolling_lists_fit_above_their_help():
     seen = []
     for path in (MENUS / 'xbox').glob('*.xml'):
-        widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
-        for w in widgets.values():
+        compact = '.compact.' in path.name
+        files = [p for p in (MENUS / 'xbox').glob('*.xml')
+                 if ('.compact.' in p.name if compact else '.compact.' not in p.name)
+                 or (compact and '.compact.' not in p.name and not p.with_suffix('.compact.xml').exists())]
+        widgets = {w.get('name'): w for p in files for w in ET.parse(p).iter('widget')}
+        for w in list(ET.parse(path).getroot().iter('widget')):
             if w.get('type') != 'column_list' or 'visible_rows' not in w.attrib:
                 continue
             slots, window, bottom = window_rows(w, widgets)
             # (the hub's description is a panel beside the rows, not help text under them)
-            if not w.get('description') or w.get('name') == 'xbox/settings/settings_list':
-                limit = 421 if '/join_game/' in w.get('name') else 414
-                assert len(w.findall('child')) <= window and bottom <= limit, w.get('name')
+            help_text = widgets.get(w.get('name').rsplit('/', 1)[0] + '/help')
+            if not w.get('description') and w.get('name').startswith('xbox/settings/') and help_text is not None:
+                # (ABOUT's help is fixed text, not a row description: its rows scroll above it)
+                assert bottom <= int(help_text.get('top')), w.get('name')
                 continue
-            help_top = int(widgets[w.get('description')].get('top'))
-            assert window < len(slots) and bottom <= help_top, w.get('name')
+            if not w.get('description') or w.get('name') == 'xbox/settings/settings_list':
+                assert shown_children(w) <= window and bottom <= 414, w.get('name')
+                continue
+            description = widgets[w.get('description')]
+            if description.get('type') != 'text':
+                assert bottom <= 414
+                continue
+            help_top = int(description.get('top'))
+            # (a settings list keeps its window when its rows fit: rows its code hides close up)
+            assert (window < len(slots) or w.get('row_pitch')) and bottom <= help_top, w.get('name')
             seen.append(w.get('name'))
     assert any(name.endswith('network_setup/options_menu') for name in seen)
 
@@ -441,11 +501,16 @@ def test_scrolling_lists_have_the_game_arrows_beside_their_rows():
     for path in (MENUS / 'xbox').glob('*.xml'):
         widgets = {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
         for w in widgets.values():
-            # (the server browser pages its own nine rows, lobby_browser_update, and shows the page number)
+            # The browser updater pages its density's rows and shows the page number.
             if 'visible_rows' not in w.attrib or w.get('name').endswith('/join_game_items_list'):
                 continue
             # A short list can use the viewport only to pack platform-filtered rows.
-            if len(w.findall('child')) <= int(w.get('visible_rows')):
+            if shown_children(w) <= int(w.get('visible_rows')):
+                continue
+            # (nor arrows for a settings list whose rows fit its window: it closes hidden rows up)
+            slots = {c.get('y') for c in w.findall('child')
+                     if c.get('y') and 'button_bar' not in c.get('widget') and '/scroll_' not in c.get('widget')}
+            if w.get('row_pitch') and len(slots) <= int(w.get('visible_rows')):
                 continue
             arrows = {c.get('widget').rsplit('/', 1)[-1]: c for c in w.findall('child') if '/scroll_' in c.get('widget')}
             assert set(arrows) == {'scroll_up_arrow', 'scroll_down_arrow'}, w.get('name')
@@ -584,11 +649,11 @@ def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
     frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
     pngs = [frame.get('png') for frame in frames]
-    assert pngs[1:4] == ['xbox/art/video.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
-    assert all(frame.get('cache') is None for frame in frames[1:4])
+    assert pngs[1:5] == ['xbox/art/video.png', 'xbox/art/none.png', 'xbox/art/audio.png', 'xbox/art/internet.png']
+    assert all(frame.get('cache') is None for frame in frames[1:5])
     # Both pictures use the player's map; the importer redraws the recognized keyboard.
     assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache')
-    assert pngs[4] == 'xbox/art/none.png' and frames[4].get('cache') == 'cache/xbox/v1/keyboard.png'
+    assert pngs[5] == 'xbox/art/none.png' and frames[5].get('cache') == 'cache/xbox/v1/keyboard.png'
     bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
     assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
 
@@ -623,14 +688,18 @@ def test_hub_has_the_profile_editors_framed_panel():
     frames = hub.find("bitmap[@name='xbox/settings/hub_pictures']")
     assert [c.get('platform') for c in rows] == [s.get('platform') for s in strings] == [
         f.get('platform') for f in frames]
-    assert all(s.get('text').endswith('Current Profile:') for s in strings)
+    # (GRAPHICS' panel names its mode there, in the profile name's place, while it is chosen)
+    assert all(s.get('text').endswith(('Current Profile:', 'Graphics:')) for s in strings)
 
 
 def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
     # no redraw for the others: the player's cache over the transparent PNG (menu_files.c tries cache first)
     _, frames = hub_panel(tmp_path / 'a', redraws=('audio',))
-    by_key = dict(zip(('controls', 'video', 'audio', 'network', 'keyboard'), frames))
+    by_key = dict(zip(('controls', 'video', 'graphics', 'audio', 'network', 'keyboard'), frames))
     assert by_key['audio'].attrib == {'png': 'xbox/art/audio.png', 'width': '512', 'height': '256'}
+    # GRAPHICS has no picture of the player's: a transparent one, so its panel is text only
+    assert by_key['graphics'].attrib == {'png': 'xbox/art/none.png', 'width': '512', 'height': '256',
+                                         'platform': '!mac_app'}
     for key in ('controls', 'video', 'network', 'keyboard'):
         frame = by_key[key]
         assert frame.get('cache') == f'cache/xbox/v1/{key}.png'
@@ -678,8 +747,8 @@ def test_join_warning_takes_a_as_ok_like_the_xbox_confirmations():
     delete = widgets['xbox/error/confirm_delete_profile']
     assert panel.get('bitmap') == delete.get('bitmap')
     placed = lambda w: [(c.get('widget').rsplit('/', 1)[-1], c.get('x'), c.get('y')) for c in w.findall('child')]
-    assert placed(panel) == [(name.replace('confirm_delete_profile', 'confirm_join_big'), x, y)
-                             for name, x, y in placed(delete)]
+    assert placed(panel)[:2] == [(name.replace('confirm_delete_profile', 'confirm_join_big'), x, y)
+                                 for name, x, y in placed(delete)[:2]]
     text = widgets[base + '_text_box']
     reference = widgets['xbox/error/confirm_delete_profile_text_box']
     for attr in ('bitmap', 'width', 'height', 'text_x', 'text_y', 'font', 'color'):
@@ -780,15 +849,15 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
     rows = [c for c in options.findall('child') if '/scroll_' not in c.get('widget')]
     assert not any(c.get('widget').endswith('/button_bar') for c in rows)
     action = widgets[rows[-1].get('widget')]
-    assert action.get('name') == base + ('/op_start_game' if page == 'server_settings' else '/op_save')
-    assert action.get('text') == ('START GAME' if page == 'server_settings' else 'SAVE')
-    if page == 'coop_options':
-        old = widgets[base + '/button_ok']
-        assert [e.attrib for e in action.findall('on')] == [e.attrib for e in old.findall('on')]
-    else:
+    if page == 'server_settings':
+        assert action.get('name') == base + '/op_start_game'
+        assert action.get('text') == 'START GAME'
         assert action.find('on[@event="a"]').get('run') == 'ss start game'
-    assert action.get('bitmap') == widgets[base + ('/op_coop_options' if page == 'server_settings'
-                                                  else '/op_fireteam')].get('bitmap')
+        assert action.get('bitmap') == widgets[base + '/op_coop_options'].get('bitmap')
+    else:
+        # (co-op rows apply as they change: the list ends with its last option)
+        assert action.get('name') == base + '/op_fireteam'
+        assert base + '/op_save' not in widgets and base + '/button_ok' not in widgets
     for c in rows:
         row = widgets[c.get('widget')]
         assert int(row.get('height')) == module.ROW_HEIGHT == 28
@@ -798,17 +867,24 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
             if leaf.endswith(('_value', '_spinner')):
                 assert value.get('font') == r'ui\large_ui'
                 assert value.get('color') == '#FFFFFFFF'
-                # (a text value is centered on the spinner's line in a wider field: 264 + 250 / 2 = 286 + 206 / 2)
-                wide = value.get('type') != 'spinner'
-                assert (inner.get('x'), value.get('left'), value.get('width')) == (
-                    ('264', '3', '250') if wide else ('286', '3', '206'))
+                # (spinners take a standard width; every value is centered on the screen's shared spinner line)
+                width = int(value.get('width'))
+                if value.get('type') == 'spinner':
+                    assert width in {w for _, w, _ in module.SPINNER_WIDTHS}
+                else:
+                    assert (inner.get('x'), value.get('left'), width) == ('264', '3', 250)
+                assert abs(int(inner.get('x')) + int(value.get('left')) + width / 2 - 391.5) <= 1
                 label = widgets[value.get('name').rsplit('_', 1)[0] + '_label']
                 assert int(inner.get('y')) + int(value.get('top')) + int(value.get('text_y')) == int(label.get('text_y'))
                 if value.get('type') == 'spinner':
                     assert value.get('header_bounds') == '7 -6 19 0'
-                    assert value.get('footer_bounds') == '7 209 19 215'
-    accept = widgets[base + '/' + page + '_screen/legend/accept']
-    assert accept.get('text') == 'SELECT'
+                    assert value.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
+    if page == 'coop_options':
+        # (every co-op row applies as it changes, so the legend has nothing to select)
+        assert base + '/' + page + '_screen/legend/accept' not in widgets
+    else:
+        accept = widgets[base + '/' + page + '_screen/legend/accept']
+        assert accept.get('text') == 'SELECT'
 
 
 def test_map_screen_uses_only_player_counts_and_keeps_campaign_descriptions():
@@ -907,7 +983,7 @@ def test_merged_rows_and_bindings():
         rows = widgets[base + 'options_menu'].findall('child')
         assert [c.get('widget').removeprefix(base) for c in rows] == [
             'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam',
-            'op_save' if look == 'xbox' else 'button_bar']
+            ] + ([] if look == 'xbox' else ['button_bar'])
         assert [int(c.get('y')) for c in rows[:4]] == [73, 103, 133, 163]
         assert all(widgets[base + name].get('height') == '28' for name in (
             'op_friendly_fire', 'op_extra_enemies', 'op_player_collisions', 'op_fireteam'))
@@ -921,25 +997,30 @@ def test_merged_rows_and_bindings():
             assert spinner.get('setting') is None and spinner.get('values') is None
             assert spinner.find("on[@event='created']") is None
             assert spinner.find("on[@event='left_mouse']").get('run') == 'mouse spinner 1wide click'
+            if look == 'xbox':
+                for event in ('left', 'right', 'stick_left', 'stick_right'):
+                    assert spinner.find(f"on[@event='{event}']").get('run') == 'coop options changed'
         assert widgets[base + 'coop_options_screen'].find("on[@event='created']").get('run') == 'coop options init'
-        action = widgets[base + ('op_save' if look == 'xbox' else 'button_ok')]
-        for event in ('a', 'start'):
-            assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
-        if look == 'xbox':
-            assert action.get('text') == 'SAVE'
-            assert int(rows[-1].get('y')) == 193
+        if look == 'ce':
+            action = widgets[base + 'button_ok']
+            for event in ('a', 'start'):
+                assert action.find(f"on[@event='{event}']").get('run') == 'coop options save'
         assert all(not any(w.get('name').endswith('/' + name) for w in widgets.values())
                    for name in ('op_ally_friendly_fire', 'op_enemies_per_player', 'op_enemies_multiplier'))
 
 
 def test_settings_legends_have_global_button_bindings():
+    module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
             continue
         root = ET.parse(path).getroot()
         widgets = {w.get('name'): w for w in root.iter('widget')}
         screen = next(w for name, w in widgets.items() if name.endswith('_screen'))
-        for button, target in (('x', 'button_defaults'), ('y', 'button_ok')):
+        # (each change applies and saves as it is made: X DEFAULTS is the bar's only action)
+        assert not any(name.endswith('/button_ok') for name in widgets), path
+        assert screen.find('on[@event="y"]') is None, path
+        for button, target in (('x', 'button_defaults'),):
             action = next(w for name, w in widgets.items() if name.endswith('/' + target))
             handler = action.find(f'on[@event="{button}"]')
             assert handler is not None, (path, button)
@@ -1022,12 +1103,13 @@ def test_legend_touch_rectangles_fit_without_overlapping():
 
 
 def test_settings_footer_focus_only_visits_actions():
+    module = generator()
     for path in (MENUS / 'xbox').glob('settings.*.xml'):
         if path.name == 'settings.about.xml':
             continue
         widgets = {w.get('name'): w for w in ET.parse(path).iter('widget')}
         bar = next(w for name, w in widgets.items() if name.endswith('/button_bar'))
-        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults', 'button_ok']
+        assert [c.get('widget').rsplit('/', 1)[-1] for c in bar.findall('child')] == ['button_defaults']
         for placement in bar.findall('child'):
             action = widgets[placement.get('widget')]
             assert action.find('on[@event="a"]') is not None
@@ -1123,3 +1205,415 @@ def test_visible_action_bars_use_glyph_caption_pairs():
             continue  # Confirmation bars already pair icons and captions.
         for action in children:
             assert any(c.get('widget').endswith('_butn') for c in action.findall('child')), action.attrib
+
+
+# ---------- the graphics modes (display.graphics): the hub's row, the GRAPHICS screen, VIDEO's and the PC look's rows
+
+def settings_widgets(path):
+    return {w.get('name'): w for w in ET.parse(path).getroot().iter('widget')}
+
+
+def test_hub_has_a_graphics_row_between_controls_and_audio_with_its_mode_in_the_status_line():
+    hub = ET.parse(MENUS / 'xbox/settings.xml').getroot()
+    options = hub.find("widget[@name='xbox/settings/settings_list']")
+    rows = [(c.get('widget').rsplit('/', 1)[-1], c.get('platform')) for c in options.findall('child')]
+    assert rows == [('controls', None), ('video', 'mac_app'), ('graphics', '!mac_app'), ('audio', None),
+                    ('network', None), ('keyboard', 'keyboard')]
+    # the Mac keeps VIDEO, which has the mode as its first row: GRAPHICS shares its slot elsewhere
+    by_name = {c.get('widget').rsplit('/', 1)[-1]: c for c in options.findall('child')}
+    assert by_name['graphics'].get('y') == by_name['video'].get('y') == by_name['audio'].get('y')
+    strings = hub.find("strings[@name='xbox/settings/hub_descriptions']")
+    # (a blank line more than the text needs, so the status line sits where the other rows' do)
+    assert [s.get('text') for s in strings if s.get('platform') == '!mac_app'] == [
+        "The game's look.\\n\\n\\nGraphics:"]
+    row = hub.find("widget[@name='xbox/settings/graphics']")
+    # the row shows only its name, like the others: no mode word, no children
+    assert row.get('text') == 'GRAPHICS' and row.find('child') is None
+    assert row.find('on[@event="a"]').get('open') == 'xbox/settings/graphics/graphics_screen'
+    assert hub.find("widget[@name='xbox/settings/graphics_state']") is None
+    # the panel's status line: "Graphics:" ends the description, and the mode's word is a text the game fills in
+    # (menu_functions.c's "port graphics state") in the profile name's place, which "port hub status" swaps while
+    # GRAPHICS is the row chosen
+    status = hub.find("widget[@name='xbox/settings/graphics_label']")
+    assert status.find('data').get('input') == 'port graphics state'
+    profile = hub.find("widget[@name='xbox/settings/profile_label']")
+    placed = {c.get('widget'): c for c in hub.find("widget[@name='xbox/settings/settings_screen']").findall('child')}
+    assert placed['xbox/settings/graphics_label'].get('y') == placed['xbox/settings/profile_label'].get('y')
+    assert placed['xbox/settings/graphics_label'].get('platform') == '!mac_app'
+    assert (status.get('font'), status.get('color')) == (profile.get('font'), profile.get('color'))
+    assert [d.get('input') for d in options.findall('data')] == ['plyr prof edit select menu upd8', 'port hub status']
+
+
+def test_graphics_screen_applies_each_change_with_the_modes_help():
+    widgets = settings_widgets(MENUS / 'xbox/settings.graphics.xml')
+    base = 'xbox/settings/graphics'
+    options = widgets[f'{base}/options_menu']
+    assert [c.get('widget').rsplit('/', 1)[-1] for c in options.findall('child')] == [
+        'op_graphics', 'op_crt_effect', 'button_bar']
+    # the CRT effect is an Apple setting, shown by the game only while the mode row shows Hardcore
+    assert options.findall('child')[1].get('platform') == 'apple'
+    mode = widgets[f'{base}/graphics_spinner']
+    assert mode.get('setting') == 'display.graphics'
+    assert mode.get('strings') == 'HARDCORE|CLASSIC|ENHANCED' and mode.get('values') == 'hardcore|classic|enhanced'
+    crt = widgets[f'{base}/crt_effect_spinner']
+    assert (crt.get('setting'), crt.get('strings'), crt.get('values')) == ('display.crt_effect', 'ON|OFF', 'true|false')
+    labels = ET.parse(MENUS / 'xbox/settings.graphics.xml').getroot().find(f"strings[@name='{base}/labels']")
+    assert [s.get('text') for s in labels] == ['MODE:', 'CRT EFFECT:']
+    # the help of the mode shown: the three texts of the design, and the CRT effect's under its row
+    root = ET.parse(MENUS / 'xbox/settings.graphics.xml').getroot()
+    helps = [s.get('text') for s in root.find(f"strings[@name='{base}/graphics_help_strings']")]
+    flat = [' '.join(text.split('\\n')) for text in helps]
+    assert flat[3] == flat[0] + ' In VR, Hardcore draws as Classic.'
+    assert flat[:3] == [
+        'The original Xbox exactly: 640x480 at 30 frames a second, nothing added.',
+        "The original Xbox look at this device's resolution and frame rate, with sharper textures and HUD.",
+        'Tastefully enhanced: the original game with soft shading where things meet the ground and shadows under '
+        'props.']
+    assert len(flat) == 4
+    crt_help = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")][-1]
+    assert ' '.join(crt_help.split('\\n')) == (
+        'The picture as a CRT television showed it: scanlines, phosphor glow and soft color.')
+    # each change applies as it is made, as on the other settings screens: B just leaves, X restores the defaults
+    screen = widgets[f'{base}/graphics_screen']
+    assert screen.find('on[@event="b"]').get('back') == 'true'
+    assert screen.find('on[@event="x"]').get('run') == 'port settings defaults apply'
+    assert f'{base}/button_ok' not in widgets and f'{base}/button_defaults' in widgets
+    assert widgets[f'{base}/cancel'].get('text') == 'BACK'
+    for spinner in (mode, crt):
+        assert spinner.find('on[@event="left"][@run="port setting changed"]') is not None
+        assert spinner.find('on[@event="deleted"]') is None
+    assert not any(on.get('run') == 'port settings save' for on in root.iter('on'))
+
+
+def test_video_and_the_pc_looks_video_settings_have_the_mode_first_and_the_crt_row_beneath_it():
+    for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
+                       (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                        'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
+        widgets = settings_widgets(path)
+        rows = [c.get('widget').rsplit('/', 1)[-1] for c in widgets[f'{base}/options_menu'].findall('child')]
+        assert rows[:3] == ['op_graphics', 'op_crt_effect', 'op_mode'], path
+        assert widgets[f'{base}/graphics_spinner'].get('values') == 'hardcore|classic|enhanced'
+        # a page's row is packed from the top, so the CRT effect's closing up when it is hidden leaves no gap
+        assert widgets[f'{base}/options_menu'].get('row_pitch'), path
+
+
+@pytest.mark.parametrize('look', ['ce', 'xbox'])
+@pytest.mark.parametrize('page', ['video_settings', 'graphics'])
+def test_hires_rows_are_absent_and_remaining_rows_keep_their_layout_and_strings(look, page):
+    import port_settings
+
+    base = f'xbox/settings/{page}' if look == 'xbox' else f'{port_settings.PE}/{page}'
+    filename = f'settings.{page}.xml' if look == 'xbox' else base.replace('/', '.') + '.xml'
+    root = ET.parse(MENUS / look / filename).getroot()
+    widgets = {w.get('name'): w for w in root.iter('widget')}
+    assert not any('high_res_' in name for name in widgets)
+    assert not any(w.get('setting') in ('display.high_res_hud', 'display.high_res_text')
+                   for w in widgets.values())
+    labels = [s.get('text') for s in root.find(f"strings[@name='{base}/labels']")]
+    helps = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")]
+    rows = port_settings.SCREENS[page]['rows']
+    assert labels == [row[0] for row in rows]
+    assert helps == [''] + [row[3].replace('\n', r'\n') for row in rows]
+    options = widgets[f'{base}/options_menu']
+    children = [c for c in options.findall('child') if c.get('widget').startswith(f'{base}/op_')]
+    assert len(children) == len(rows)
+    slots = sorted({int(c.get('y')) for c in children})
+    pitch = int(options.get('row_pitch'))
+    assert slots == list(range(int(options.get('row_top')), slots[-1] + 1, pitch))
+    visible = min(len(slots), int(options.get('visible_rows')))
+    assert slots[visible - 1] + 28 <= int(widgets[f'{base}/help'].get('top'))
+    assert int(widgets[f'{base}/help'].get('top')) + int(widgets[f'{base}/help'].get('height')) <= 414
+    for index, (_, setting, *_rest) in enumerate(rows):
+        key = setting.split('.', 1)[1]
+        assert widgets[f'{base}/{key}_label'].get('string_index') == str(index)
+
+
+def test_rows_the_hardcore_mode_replaces_show_their_value_in_force_beside_their_spinner():
+    """Every Video Settings row whose setting the mode table replaces has a text in its spinner's place that shows one
+    of the spinner's own strings (menu_functions.c's graphics_rows_show chooses it and hides the spinner), and the
+    screen has the line of help the game writes for a fixed or profile-set row"""
+    import port_settings
+    replaced = port_settings.graphics_replaced()
+    video_settings = {row[1] for row in port_settings.SCREENS['video_settings']['rows']}
+    assert {'display.frame_rate', 'display.interpolation'} <= replaced & video_settings
+    for path, base in ((MENUS / 'xbox/settings.video_settings.xml', 'xbox/settings/video_settings'),
+                       (MENUS / 'ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml',
+                        'main_menu/settings_select/player_setup/player_profile_edit/video_settings')):
+        root = ET.parse(path).getroot()
+        widgets = {w.get('name'): w for w in root.iter('widget')}
+        assert widgets[f'{base}/row_help'].get('type') == 'text'
+        assert widgets[f'{base}/row_help'].get('string_list') is None
+        spinners = [w for w in widgets.values() if w.get('type') == 'spinner']
+        for spinner in spinners:
+            key = spinner.get('name').rsplit('/', 1)[-1].removesuffix('_spinner')
+            overlay = widgets.get(f'{base}/{key}_replaced')
+            assert (overlay is not None) == (spinner.get('setting') in replaced), spinner.get('setting')
+            if overlay is not None:
+                assert overlay.get('type') == 'text' and overlay.get('text') is None
+                assert overlay.get('string_list') == f'{base}/{key}_shown'
+                shown = [s.get('text') for s in root.find(f"strings[@name='{base}/{key}_shown']")]
+                assert shown == spinner.get('strings').split('|')
+                row = widgets[f'{base}/op_{key}']
+                assert [c.get('widget').rsplit('/', 1)[-1] for c in row.findall('child')] == [
+                    f'{key}_label', f'{key}_spinner', f'{key}_replaced']
+    # the settings the mode does not replace keep their spinner alone
+    assert 'display.vsync' not in replaced and 'display.graphics' not in replaced
+
+
+def test_the_pc_looks_graphics_screen_is_the_xbox_looks_source_and_pairs_with_it():
+    pairs = (ROOT / 'port/linux/include/menu_equivalence.h').read_text()
+    assert r'{"pc\\xbox\\settings\\graphics\\graphics_screen", ' in pairs
+    manifest = json.loads((MENUS / 'menus.json').read_text())['files']
+    for name in ('xbox/settings.graphics.xml', 'ce/main_menu.settings_select.player_setup.player_profile_edit.graphics.xml',
+                 'ce/port/main_menu/settings_select/player_setup/player_profile_edit/graphics/header_graphics.png'):
+        assert name in manifest, name
+
+
+def test_profile_edit_has_a_graphics_row_where_there_is_no_video_row():
+    patches = ET.parse(MENUS / 'xbox/patches.xml').getroot()
+    row = next(r for r in patches.iter('row') if r.get('name') == 'profile_item_graphics')
+    assert (row.get('platform'), row.get('text')) == ('!mac_app', 'GRAPHICS')
+    assert row.get('open') == 'xbox/settings/graphics/graphics_screen'
+
+def test_no_screen_draws_both_a_legend_and_its_own_button_bar():
+    """A screen with a generated footer legend must not also draw the original
+    button row (JOIN GAME / CANCEL, OK / BACK), or the actions show twice."""
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+
+    def reachable(name, seen):
+        if name in seen or name not in widgets:
+            return
+        seen.add(name)
+        for c in widgets[name].findall('child'):
+            reachable(c.get('widget'), seen)
+
+    duplicated = []
+    for name in widgets:
+        if not name.endswith('_screen'):
+            continue
+        seen = set()
+        reachable(name, seen)
+        has_legend = any('/legend/' in n for n in seen)
+        has_bar = any(n.rsplit('/', 1)[-1] in ('button_bar', 'player_2_button_bar') for n in seen)
+        if has_legend and has_bar:
+            duplicated.append(name)
+    assert duplicated == []
+
+
+ERROR_SCREENS = tuple(f'error_{mode}_{size}screen' for mode in ('modal', 'nonmodal')
+                      for size in ('full', 'half', 'qtr')) + ('error_modal', 'error_non_modal')
+ABORT_SCREENS = ('error_abort_to_dashboard', 'error_abort_to_dashboard_you_have_no_choice')
+WAIT_SCREENS = ('warning_creating_player_profile_screen', 'warning_saving_file_screen')
+
+
+@pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS +
+                         ('confirm_delete_profile_modal_fullscreen',))
+def test_original_dialogs_route_on_every_platform(name):
+    assert (f'ui/shell/error/{name}', f'pc/xbox/error/{name}') in generator().SCREEN_ALWAYS
+
+
+@pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS)
+def test_generated_errors_preserve_runtime_text_and_pane_bounds(name):
+    module = generator()
+    root = module.dialog_document()
+    widgets = {w.get('name'): w for w in root.findall('widget')}
+    screen = widgets[f'xbox/error/{name}']
+    frame = widgets[screen.find('child').get('widget')]
+    panel_children = [widgets[c.get('widget')] for c in frame.findall('child')
+                      if c.get('widget') in widgets]
+    text = panel_children[0]
+    assert text.get('type') == 'text'
+    assert frame.get('width') == '239' and text.get('width') == '239'
+    assert frame.get('bitmap') == 'xbox/bitmaps/alert_bkd'
+    assert text.get('string_list') == 'xbox/strings/displayed_error_messages'
+    assert text.find('replace[@search="%controller"][@function="controller"]') is not None
+    width = 320 if 'qtrscreen' in name else 640
+    height = 240 if any(s in name for s in ('halfscreen', 'qtrscreen')) else 480
+    assert (int(screen.get('width')), int(screen.get('height'))) == (width, height)
+    if name in WAIT_SCREENS:
+        assert screen.get('auto_close') == '1000'
+        assert screen.get('auto_close_fade') == '500'
+        assert screen.find('on[@event="b"]').get('run') == 'NULL'
+        assert not any('butn' in c.get('widget') for c in screen.findall('child'))
+    else:
+        for event in ('a', 'start'):
+            assert screen.find(f'on[@event="{event}"]').get('close') == 'current'
+        assert screen.find('on[@event="b"]') is None
+        icon = widgets[f'xbox/error/{name}/a_butn']
+        assert int(icon.get('height')) >= 53
+        assert int(icon.get('width')) >= 53
+        assert widgets[f'xbox/error/{name}/accept'].get('text') == 'OK'
+    for w in widgets.values():
+        assert 'dashboard' not in w.get('text', '').lower()
+
+
+def test_browser_private_error_panel_keeps_its_direct_text_child():
+    widgets = {w.get('name'): w for path in (MENUS / 'xbox').glob('*.xml')
+               for w in ET.parse(path).iter('widget')}
+    screen = widgets['xbox/' + generator().MP + '/join_game_legacy/gamespy_error_fullscreen']
+    panel = widgets[screen.find('child').get('widget')]
+    assert panel.get('name') == 'xbox/error/browser_error_panel'
+    assert panel.find('child').get('widget') == 'xbox/error/error_text_box'
+
+
+def test_dialog_ok_has_a_rounded_touch_button_and_adaptive_legend():
+    root = generator().dialog_document()
+    widgets = {w.get('name'): w for w in root.findall('widget')}
+    for name in ERROR_SCREENS + ABORT_SCREENS:
+        base = f'xbox/error/{name}'
+        target = widgets[base + '/a_butn']
+        assert target.find('data[@input="port dialog legend update"]') is not None
+        assert widgets[base + '/a_butn/touch_background'].get('bitmap') == 'xbox/dialog_touch_button'
+        caption = widgets[base + '/a_butn/touch_caption']
+        assert caption.get('text') == 'OK' and caption.get('align') == 'center'
+
+
+def test_delete_confirmation_has_adaptive_a_and_b_touch_targets():
+    widgets = {w.get('name'): w for w in ET.parse(MENUS / 'xbox/multiplayer.shared.xml').iter('widget')}
+    base = 'xbox/error/confirm_delete_profile/legend'
+    for button, label in (('a', 'OK'), ('b', 'CANCEL')):
+        target = widgets[f'{base}/{button}_butn']
+        assert target.find('data[@input="port dialog legend update"]') is not None
+        assert widgets[f'{base}/{button}_butn/touch_caption'].get('text') == label
+        assert (target.get('width'), target.get('height')) == ('112', '53')
+
+
+@pytest.mark.parametrize('platform', [None, 'apple', 'mac_app'])
+def test_video_setup_rows_keep_the_leading_places_on_every_platform(platform):
+    """The game lays a platform's surviving rows out by rank from the list's row_top and row_pitch, so those must
+    match the first row and the comfortable pitch, and every row kept on iOS must survive (FRAME RATE on the Mac
+    app)."""
+    root = ET.parse(Path(__file__).parents[1] / 'port/assets/menus/xbox/settings.video_settings.xml').getroot()
+    options = next(w for w in root.iter('widget') if w.get('name', '').endswith('video_settings/options_menu'))
+    rows = [c for c in options.findall('child') if c.get('y') and '/op_' in c.get('widget')]
+    kept = [c for c in rows if c.get('platform') in (None, platform)]
+    names = [c.get('widget').rsplit('/', 1)[1] for c in kept]
+    assert options.get('row_pitch') == '39'
+    assert options.get('row_top') == rows[0].get('y')
+    if platform is None:
+        assert names == ['op_graphics', 'op_vsync', 'op_interpolation']
+    if platform == 'mac_app':
+        assert names == ['op_graphics', 'op_vsync', 'op_frame_rate', 'op_interpolation']
+
+
+def test_frame_rate_spinner_fits_the_longest_value_inside_the_row():
+    """The Mac app's DISPLAY choice reads "DISPLAY (240 HZ)" (menu_tags.c); the spinner needs about 10.5 units a
+    character as the clipped 147-unit one showed, and both arrows must stay inside the 512-unit row."""
+    root = ET.parse(Path(__file__).parents[1] / 'port/assets/menus/xbox/settings.video_settings.xml').getroot()
+    spinner = next(w for w in root.iter('widget') if w.get('name', '').endswith('/frame_rate_spinner'))
+    row = next(c for c in root.iter('child') if c.get('widget', '').endswith('/frame_rate_spinner'))
+    width = int(spinner.get('width'))
+    assert width >= len('DISPLAY (240 HZ)') * 10.5
+    footer_end = int(row.get('x')) + int(spinner.get('left')) + int(spinner.get('footer_bounds').split()[3])
+    assert footer_end <= 512
+
+
+def spinner_rows(document):
+    widgets = {w.get('name'): w for w in document.iter('widget')}
+    for row in document.iter('widget'):
+        for part in row.findall('child'):
+            spinner = widgets.get(part.get('widget'))
+            if spinner is not None and spinner.get('type') == 'spinner':
+                yield row, part, spinner
+
+
+def test_every_value_control_uses_a_standard_width_that_fits_its_longest_value():
+    module = generator()
+    standard = {width for _, width, _ in module.SPINNER_WIDTHS}
+    documents = {p.name: ET.parse(p).getroot() for p in sorted((MENUS / 'xbox').glob('*.xml'))}
+    longest = {id(s): n for s, n in module.spinner_longest_values(documents)}
+    seen = 0
+    for name, document in documents.items():
+        if not name.endswith('.xml') or name in ('bitmaps.xml', 'patches.xml'):
+            continue
+        for row, part, spinner in spinner_rows(document):
+            seen += 1
+            width = int(spinner.get('width'))
+            if '/join_game/filters/' in spinner.get('name'):
+                continue  # the Sort & Filter screen draws its own 198-wide value slots
+            assert width in standard, (name, spinner.get('name'), width)
+            assert width / 2 >= module.SPINNER_MINIMUM_HALF_WIDTH, (name, spinner.get('name'), width)
+            assert spinner.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
+            if id(spinner) in longest:
+                assert longest[id(spinner)] * module.SPINNER_UNITS_PER_CHARACTER <= width, (name, spinner.get('name'))
+            reach = int(part.get('x', '0')) + int(spinner.get('left', '0')) + width + 9
+            assert reach <= int(row.get('width')), (name, spinner.get('name'), reach)
+    assert seen > 50
+
+
+def test_in_game_help_toggle_lines_up_with_the_other_short_controls():
+    root = ET.parse(MENUS / 'xbox/settings.gamepad_setup.xml').getroot()
+    shorts = {(int(s.get('width')), p.get('x')) for _, p, s in spinner_rows(root)
+              if s.get('strings') in ('ON|OFF', 'YES|NO')}
+    assert len(shorts) == 1, shorts
+
+
+def test_value_controls_on_a_screen_share_one_center_line():
+    """The short, medium and wide controls of a screen are centered on one vertical line (within the half unit an odd
+    width leaves), so values align and both arrow edges stagger symmetrically."""
+    documents = {p.name: ET.parse(p).getroot() for p in sorted((MENUS / 'xbox').glob('*.xml'))}
+    checked = 0
+    for name, document in documents.items():
+        centers = [int(part.get('x', '0')) + int(spinner.get('left', '0')) + int(spinner.get('width')) / 2
+                   for _, part, spinner in spinner_rows(document)]
+        if len(centers) > 1:
+            checked += 1
+            assert max(centers) - min(centers) <= 1, (name, min(centers), max(centers))
+    assert checked >= 8
+
+
+def test_profile_editor_removes_save_after_inserting_settings():
+    module = generator()
+    root = ET.parse(MENUS / 'xbox/patches.xml').getroot()
+    edit = next(p for p in root.findall('patch') if p.get('list') == module.PEP + 'profile_edit_select_list')
+    operations = list(edit)
+    assert operations[-1].tag == 'remove'
+    assert operations[-1].get('child') == module.PEP + 'save_changes_profile_item'
+    assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
+    assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
+    assert not any(p.find('remove') is not None for p in root.findall('patch') if p is not edit)
+
+@pytest.mark.parametrize('kind', ('password', 'code'))
+def test_password_and_code_legend_caption_follows_the_field(kind):
+    """A opens the keyboard until text is held, so the legend's A caption is a two-string list
+    (EDIT, JOIN GAME) that menu_functions.c's legend_accept_caption switches; taps still join."""
+    root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.port.xml').getroot()
+    base = f'xbox/main_menu/multiplayer_type_select/join_game/{kind}/{kind}_screen/legend'
+    accept = next(w for w in root.iter('widget') if w.get('name') == base + '/accept')
+    assert accept.get('text') is None
+    strings = next(s for s in root.iter('strings') if s.get('name') == accept.get('string_list'))
+    assert [s.get('text') for s in strings] == ['EDIT', 'JOIN GAME']
+    assert accept.get('string_index') == '1'
+    assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} join'
+    # a controller player holding text re-edits with Y: its legend and the screen's y event
+    screen = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0])
+    assert screen.find('on[@event="y"]').get('run') == f'port {kind} reedit'
+    for leaf in ('y_butn', 'y_edit'):
+        entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
+        assert entry.find('on[@event="left_mouse"]').get('run') == f'port {kind} reedit'
+        assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None
+    assert f'"port {kind} reedit"' in (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
+    assert f'legend_accept_caption(list, text_field_editing(NULL) || {kind}_screen.text[0])' in source
+    assert f'text_field_editing(row) || {kind}_screen.text[0])' in source
+    assert 'config_string("debug.menu_text_seed")' in source
+    # X hides or shows the password (password screen only): HIDE while plain, SHOW while stars
+    x_names = [w.get('name') for w in root.iter('widget') if w.get('name', '').startswith(base + '/x_')]
+    if kind == 'code':
+        assert x_names == []
+        return
+    assert screen.find('on[@event="x"]').get('run') == 'port password togglehide'
+    hide = next(w for w in root.iter('widget') if w.get('name') == base + '/x_hide')
+    assert hide.get('text') is None and hide.get('string_index') == '0'
+    strings = next(s for s in root.iter('strings') if s.get('name') == hide.get('string_list'))
+    assert [s.get('text') for s in strings] == ['HIDE', 'SHOW']
+    for leaf in ('x_butn', 'x_hide'):
+        entry = next(w for w in root.iter('widget') if w.get('name') == f'{base}/{leaf}')
+        assert entry.find('on[@event="left_mouse"]').get('run') == 'port password togglehide click'
+        assert screen.find(f'child[@widget="{base}/{leaf}"]') is not None
+    assert 'password_screen.hidden = FALSE' in source
+    assert 'stars[index] = password_screen.hidden' in source
+    assert '"port password togglehide click"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
+    # the hosting Server Settings password stays masked
+    assert 'text_field_begin_masked(row, multiplayer.game_password' in source

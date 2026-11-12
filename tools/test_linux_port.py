@@ -190,7 +190,8 @@ MENU_ATTRIBUTES = {
     "widget": {"name", "type", "controller", "flags", "bitmap", "text", "strings", "values", "setting", "font",
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
-               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows"},
+               "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows",
+               "row_top", "row_pitch"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
@@ -215,10 +216,11 @@ def c_strings(path: Path, start: str, end: str) -> list:
 
 # menu_files.c's attributes read as whole numbers (its tables' { name, NULL, &long })
 MENU_INTEGER_ATTRIBUTES = {"auto_close", "auto_close_fade", "height", "index", "left", "string_index", "text_x",
-                           "text_y", "top", "visible_rows", "width", "x", "y"}
+                           "text_y", "top", "visible_rows", "row_top", "row_pitch", "width", "x", "y"}
 
 
-def test_menus_are_well_formed():
+@pytest.mark.parametrize('compact', [False, True])
+def test_menus_are_well_formed(compact):
     """What port/linux/src/menu_files.c and port/linux/game/menu_tags.c check
     when the game loads them, but the map's own names (paths with backslashes),
     which only the map has."""
@@ -237,18 +239,26 @@ def test_menus_are_well_formed():
     files = sorted(MENUS.rglob("*.xml"))
     assert sorted(path.relative_to(MENUS).as_posix() for path in files) == \
         sorted(name for name in listed if name.endswith(".xml"))
+    # The runtime loads one density variant, with shared definitions only once.
+    files = [path for path in files
+             if ('.compact.' in path.name if compact else '.compact.' not in path.name)
+             or (compact and '.compact.' not in path.name
+                 and not path.with_suffix('.compact.xml').exists())]
     widgets, bitmaps, strings, references, roots = {}, {}, {}, [], []
     for path in files:
         tree = ElementTree.parse(path)
         assert tree.getroot().tag == "menus", path
+        row_art = {w.get('bitmap') for w in tree.iter('widget')
+                   if w.get('height') in ('30', '39') and w.get('name', '').startswith('xbox/')}
         if tree.getroot().get("root"):
             roots.append(tree.getroot().get("root"))
         for element in tree.getroot().iter():
             where = f"{path.name}: <{element.tag} {element.get('name', '')}>"
             assert element.tag in MENU_ATTRIBUTES, where
             assert set(element.attrib) <= MENU_ATTRIBUTES[element.tag], where
-            assert element.get("platform") in (None, "desktop", "android", "apple", "cloud_saves", "mac_app",
-                                               "tvos", "keyboard", "!keyboard", "!tvos", "send_log", "!send_log"), where
+            # (a value led by "!": every build it is not for)
+            assert (element.get("platform") or "").lstrip("!") in ("", "desktop", "android", "apple", "cloud_saves",
+                                                                  "mac_app", "tvos", "keyboard", "send_log"), where
             # (menu_files.c's whole numbers, which the tags keep in shorts,
             # its true/false attributes, and no text but whitespace outside
             # <string>s)
@@ -272,7 +282,12 @@ def test_menus_are_well_formed():
                         header = png.read(24)
                     width, height = int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
                     logical = int(frame.get("width")), int(frame.get("height"))
-                    assert width % logical[0] == 0 and width // logical[0] == height // logical[1], where
+                    if '/row_36/' in element.get('name', '') or element.get('name') in row_art:
+                        # Density rows deliberately stretch source art vertically;
+                        # their drawing height is separate from the tap band.
+                        assert logical[1] in (28, 36, 52, 53, 56, 59) and width % logical[0] == 0, where
+                    else:
+                        assert width % logical[0] == 0 and width // logical[0] == height // logical[1], where
             elif element.tag == "strings":
                 strings[element.get("name")] = element
             elif element.tag == "widget":
@@ -379,7 +394,8 @@ def test_p2p_signatures_and_listings(tmp_path):
     program = tmp_path / "p2p_lobby_check"
     built = subprocess.run(["clang", *flags, "-O1", "-no-pie", "-Wl,--unresolved-symbols=ignore-all", "-o",
                             str(program), "tools/p2p_lobby_check.c", "port/linux/src/p2p_crypto.c",
-                            "port/linux/src/p2p_lobby.c", "port/third_party/monocypher/monocypher.c",
+                            "port/linux/src/p2p_lobby.c", "port/linux/src/delta_legacy_runtime.c",
+                            "port/linux/src/delta_platform.c", "port/third_party/monocypher/monocypher.c",
                             "port/third_party/monocypher/monocypher-ed25519.c"],
                            capture_output=True, text=True)
     assert built.returncode == 0, built.stderr[-4000:]
@@ -613,3 +629,49 @@ def test_cloud_menu_capability_is_host_specific(tmp_path, kind, defines):
         if capability is not None:
             current["HALO_HOST_CLOUD_SAVES"] = capability
         subprocess.run([str(probe), kind], env=current, check=True)
+
+
+def test_settings_lists_pack_rows_and_keep_a_window():
+    """Every settings list packs its rows from its top at its pitch (menu_tags.c rows_pack) and keeps a window
+    (visible_rows), so rows for another platform, or hidden as the screen is shown, leave no gap."""
+    import xml.etree.ElementTree as ElementTree
+
+    for folder in ("video_settings", "audio_settings", "mouse_settings", "gamepad_setup"):
+        for look, name in (("ce", f"{port_settings.PE.replace('/', '.')}.{folder}.xml"),
+                           ("xbox", f"settings.{folder}.xml")):
+            root = ElementTree.parse(MENUS / look / name).getroot()
+            options = next(w for w in root.findall("widget") if w.get("name").endswith("/options_menu"))
+            assert options.get("row_top") == "73" and int(options.get("row_pitch")) in (26, 30, 39), (look, folder)
+            assert int(options.get("visible_rows")) >= 1, (look, folder)
+
+
+def test_menu_platform_negation():
+    """menu_platform.h: "!value" is every build the value is not for; an unknown value stays unknown."""
+    header = (Path(__file__).resolve().parent.parent / "port/linux/src/menu_platform.h").read_text()
+    start = header.index("static int menu_platform_matches")
+    assert "platform[0] == '!'" in header[start:]
+    assert "return matches < 0 ? -1 : !matches;" in header[start:]
+
+
+@pytest.mark.parametrize("probe", ["delta_peer", "delta_peer_game"])
+def test_delta_peer_codec_and_sessions(tmp_path, probe):
+    """Reject malformed wire packets and nonmembers; retry without holding up the game."""
+    clang = shutil.which("clang")
+    if not clang:
+        pytest.skip("needs clang")
+    program = tmp_path / "delta-peer-probe"
+    result = subprocess.run([clang, "-std=gnu89", "-O1", "-Wall", "-Wextra", "-Werror",
+                             "-fsanitize=address,undefined", "-Iport/linux/src", "-iquote", "port/linux/include",
+                             f"port/ios/tests/{probe}_probe.c", "port/linux/src/delta_peer.c", "port/linux/src/delta_platform.c", "-o", str(program)],
+                            capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    result = subprocess.run([str(program)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0 and ("delta peer game probe ok" if probe == "delta_peer_game" else "delta peer probe ok") in result.stdout, result.stderr
+
+
+def test_signed_delta_legacy_table(tmp_path):
+    # Keep this probe in the portable port gate as well as tools/test_delta.py.
+    if not shutil.which("clang"):
+        pytest.skip("needs clang")
+    from test_delta import test_signed_legacy_table
+    test_signed_legacy_table(tmp_path, [])

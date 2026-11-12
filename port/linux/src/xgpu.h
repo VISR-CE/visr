@@ -97,6 +97,68 @@ d3d8_device.c measures the HUD's draws with it (stereo's HUD groups) */
 void nv2a_vertex_program_position(const DWORD *instructions, unsigned long instruction_count,
 	const float (*constants)[4], const float (*inputs)[4], float position[4]);
 
+/* ---------- per-pixel lighting (display.per_pixel_lighting)
+
+The model vertex programs light each vertex: an ambient color, two distant
+lights and two point lights (c[17] to c[27], rasterizer_set_model_lighting),
+into oD0, a Fresnel tint into oD1 and a reflection vector into oT3. Lit per
+pixel, a program hands its pixel shader the values those outputs are made
+from (its world position and normal, as they stand where the lighting
+starts), and the pixel shader runs the same instructions again for each pixel
+with the same constants: the game's own light colors, ranges and falloff,
+evaluated per pixel instead of interpolated between vertices.
+
+nv2a_lighting_slice finds that part of a program: the instructions from cut
+on that oD0, oD1 and oT3 depend on (in_slice), and the registers they read
+that were last written before cut (live, one varying each, xL0 onward). It
+fails (returns 0) for a program that does not read the lighting constants. */
+#define NV2A_LIGHTING_MAX_INSTRUCTIONS 136
+#define NV2A_LIGHTING_MAX_VARYINGS 8
+struct nv2a_lighting_slice
+{
+	unsigned long cut;
+	unsigned char in_slice[NV2A_LIGHTING_MAX_INSTRUCTIONS];
+	/* the live registers in varying order: 0-11 r0-r11, 12 oPos, 16-31 v0-v15 */
+	unsigned char live[NV2A_LIGHTING_MAX_VARYINGS];
+	unsigned long live_count;
+	/* the live register that holds the normal (renormalized per pixel to
+	its interpolated length, xLn), or -1 */
+	int normal;
+	/* the outputs the pixel shader replaces: bit 0 oD0, 1 oD1, 2 oT3 */
+	unsigned long outputs;
+	/* the live register that holds the world position (the one the point
+	lights' and the camera's vectors are taken from, c[17] - P and c[4] - P),
+	or -1: a point-light highlight (nv2a_pixel_shader_key lighting_highlight)
+	needs it and the normal */
+	int position;
+	/* the constant the normal is scaled by on its way to the light's dot
+	products (index * 4 + component), or -1 for none */
+	int normal_scale;
+};
+
+/* display.point_light_highlight's presets (1 to NV2A_HIGHLIGHT_PRESETS): the
+highlight's brightness and its Blinn-Phong exponent, dim and tight first */
+#define NV2A_HIGHLIGHT_PRESETS 4
+
+int nv2a_lighting_slice(const DWORD *instructions, unsigned long instruction_count, struct nv2a_lighting_slice *slice);
+/* the programs a lit pixel shader key (nv2a_pixel_shader_key lighting_program)
+can name: d3d8_device.c registers each it lights */
+void nv2a_lighting_register(uint64_t program_hash, const DWORD *instructions, unsigned long instruction_count);
+/* the vertex shader of a lit program: the plain translation, also writing the
+slice's live registers as varyings */
+char *nv2a_vertex_shader_translate_lit(const struct nv2a_dialect *dialect, const DWORD *instructions,
+	unsigned long instruction_count, unsigned long packed_attribute_mask, int lit);
+/* a registered program and its slice, for a lit key; 0 if none (a key
+recorded in another run, before its program was made) */
+int nv2a_lighting_find(uint64_t program_hash, const DWORD **instructions, unsigned long *instruction_count,
+	struct nv2a_lighting_slice *slice);
+/* MSL for the pixel shader's part: the declarations before its entry point
+(helpers), and the block at the start of its body that replaces xD0, xD1 and
+xT3 (nv2a_psh.c) */
+void nv2a_lighting_pixel_helpers(struct xgpu_text *text);
+void nv2a_lighting_pixel_block(struct xgpu_text *text, const DWORD *instructions, unsigned long instruction_count,
+	const struct nv2a_lighting_slice *slice, int highlight, int point_lights);
+
 /* ---------- pixel shaders */
 
 enum
@@ -153,7 +215,27 @@ struct nv2a_pixel_shader_key
 	reference, not all of the pixel or none of it, so that cut-out edges
 	(foliage, grates) are smoothed too */
 	unsigned char alpha_test_samples;
-	unsigned char pad[3];
+	/* a camera-facing particle sprite with soft edges (display.soft_particles,
+	d3d8_device.c's halo_soft_particles_mode; Metal only): it fades where it is
+	near the surface behind it, toward what leaves the frame unchanged under
+	its blend: 1 alpha, 2 color toward white, 3 color toward gray, 4 color,
+	5 color and alpha */
+	unsigned char soft_depth;
+	/* (later still, with lighting_program) display.point_light_highlight's
+	preset: 0 none, else a highlight from the program's point lights added to
+	the reflection (stage 3's cube map lookup), where the shader's own Fresnel
+	tint and specular mask then apply */
+	unsigned char lighting_highlight;
+	/* display.point_light_limit, past the game's two: 0 for the game's own
+	two, else up to this many lights the game's model lighting constants do
+	not hold (vertex constants 39 to 57, rasterizer_set_model_lighting) */
+	unsigned char lighting_point_lights;
+	/* (later still: nv2a_pixel_shader_key_size) per-pixel lighting
+	(display.per_pixel_lighting): the program hash (d3d8_device.c's
+	program_hash) of the lit vertex program this pixel shader is drawn with,
+	low word first; 0 unlit. Its shader replaces xD0, xD1 and xT3 with the
+	program's lighting, run per pixel (nv2a_lighting_slice) */
+	unsigned int lighting_program[2];
 };
 #define XGPU_COVERAGE_ALPHA 1
 #define XGPU_COVERAGE_POINT_THRESHOLD 2
@@ -164,9 +246,15 @@ with it 0, so such a key is hashed, listed, dumped and replayed as its first
 NV2A_PIXEL_SHADER_KEY_BASE_SIZE bytes, as it was recorded */
 #define NV2A_PIXEL_SHADER_KEY_BASE_SIZE offsetof(struct nv2a_pixel_shader_key, alpha_test_samples)
 
+/* ... and the keys recorded before lighting_program, as the keys with it 0 */
+#define NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE offsetof(struct nv2a_pixel_shader_key, lighting_program)
+
 static inline unsigned long nv2a_pixel_shader_key_size(const struct nv2a_pixel_shader_key *key)
 {
-	return key->alpha_test_samples ? sizeof(*key) : NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
+	if (key->lighting_program[0] || key->lighting_program[1])
+		return sizeof(*key);
+	return key->alpha_test_samples || key->soft_depth ? NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE
+		: NV2A_PIXEL_SHADER_KEY_BASE_SIZE;
 }
 
 /* the key as the translation reads it: the translation runs the combiner stages below the combiner count
@@ -193,13 +281,15 @@ or GPU_UNIFORM_PIXEL); the vertex shader's outputs, its entry point's
 opening and its return; the pixel shader's inputs and its entry point's
 opening */
 void nv2a_msl_prelude(struct xgpu_text *text, int stage);
-void nv2a_msl_vertex_outputs(struct xgpu_text *text);
+void nv2a_msl_vertex_outputs(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting);
 void nv2a_msl_vertex_main(struct xgpu_text *text, const struct nv2a_dialect *dialect,
-	unsigned long packed_attribute_mask);
-void nv2a_msl_vertex_return(struct xgpu_text *text);
-void nv2a_msl_fragment_inputs(struct xgpu_text *text);
+	unsigned long packed_attribute_mask, const struct nv2a_lighting_slice *lighting);
+void nv2a_msl_vertex_return(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting);
+/* (lighting: per-pixel lighting's varyings and, for the pixel shader, the
+vertex constants; NULL without) */
+void nv2a_msl_fragment_inputs(struct xgpu_text *text, const struct nv2a_lighting_slice *lighting);
 void nv2a_msl_fragment_main(struct xgpu_text *text, const struct nv2a_dialect *dialect,
-	const struct nv2a_pixel_shader_key *key, BOOL writes_depth);
+	const struct nv2a_pixel_shader_key *key, BOOL writes_depth, const struct nv2a_lighting_slice *lighting);
 
 /* ---------- textures */
 
@@ -226,6 +316,8 @@ unsigned long xgpu_texture_level_pitch(const struct xgpu_texture_description *de
 guest memory as needed; *type receives a GPU_TEXTURE_* */
 gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uint32_t *type,
 	struct xgpu_texture_description *description);
+/* Also called before rendering, after input may have changed the effective graphics mode. */
+void xgpu_texture_cache_settings_read(void);
 void xgpu_texture_cache_begin_frame(void);
 /* a small 2D texture's mean alpha (0 to 1), decoded from guest memory: 1 and
 *alpha set for one of at most 4096 texels (palettized ones excepted), else 0 */

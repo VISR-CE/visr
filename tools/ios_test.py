@@ -45,10 +45,10 @@ run('python3', 'tools/test_astc_store.py')
 run('python3', 'tools/astc_worker_test.py')
 
 # Pure network probes also run in the portable pytest suite.
-for probe in ('network_version', 'network_join_wire', 'menu_gametype'):
+for probe in ('network_version', 'network_join_wire', 'menu_gametype', 'bink_movie_fit', 'bink_edge_gradient'):
     executable = BUILD / (probe.replace('_', '-') + '-probe')
     run('xcrun', 'clang', '-std=c11', '-Wall', '-Werror', '-O2', '-fsanitize=address,undefined',
-        f'port/ios/tests/{probe}_probe.c', '-o', executable)
+        f'port/ios/tests/{probe}_probe.c', 'port/linux/src/delta_legacy_runtime.c', '-o', executable)
     run(executable)
 
 clang = host_toolchain.llvm_tool('clang')
@@ -143,6 +143,24 @@ for probe in ('external_session', 'external_splash', 'audio_route'):
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/knob_cycle_probe.c', '-o', BUILD/'knob-cycle-probe')
 run(BUILD/'knob-cycle-probe')
+# display.crt_effect's shader (port/ios/host/crt_shader.h) compiles for Metal, and the CRT picture of a checker
+# test card differs from the plain stretch (tools/crt_stills.m, which draws through the same source)
+run('xcrun', 'clang', '-O2', '-fobjc-arc', '-Iport/ios/host', 'tools/crt_stills.m', '-framework', 'Foundation',
+    '-framework', 'Metal', '-framework', 'ImageIO', '-framework', 'CoreGraphics', '-framework', 'UniformTypeIdentifiers',
+    '-o', BUILD/'crt-stills')
+def _crt_card(path):
+    import struct, zlib
+    rows = b''.join(b'\0' + b''.join(bytes((x * 255 // 640, y * 255 // 480, 255 if (x // 40 + y // 40) % 2 else 30))
+                                    for x in range(640)) for y in range(480))
+    chunk = lambda kind, data: struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+    path.write_bytes(b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', 640, 480, 8, 2, 0, 0, 0)) +
+                     chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
+_crt_card(BUILD/'crt-card.png')
+run(BUILD/'crt-stills', BUILD/'crt-card.png', BUILD/'crt-on.png', '1080', 'on')
+run(BUILD/'crt-stills', BUILD/'crt-card.png', BUILD/'crt-off.png', '1080', 'off')
+if (BUILD/'crt-on.png').read_bytes() == (BUILD/'crt-off.png').read_bytes():
+    raise SystemExit('crt-stills: the CRT picture is the plain stretch')
+print('CRT effect shader: compiles and draws')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/external_request_probe.c', 'port/ios/host/host_external_mode.c',
     '-o', BUILD/'external-request-probe')
@@ -450,10 +468,27 @@ run('xcrun', 'clang', '-std=gnu11', '-O2', '-Wall', '-Werror', '-fsanitize=addre
 run(BUILD/'master-list-probe', 'port/ios/tests/fixtures/master-list')
 # the Delta game list (delta_list.c): an answer read as /v1/games gives it, hostile and cut-off ones refused, the
 # announcement's form and when announcing goes on; and the network versions this build joins (halo_network_join.h)
-run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
-    '-iquote', 'port/linux/include', 'port/ios/tests/delta_probe.c', 'port/linux/src/delta_list.c',
-    '-o', BUILD/'delta-probe')
-run(BUILD/'delta-probe')
+for platform_defines in ([], ['-DHALO_IOS=1']):
+    run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
+        '-iquote', 'port/linux/include', 'port/ios/tests/delta_probe.c', 'port/linux/src/delta_list.c',
+        'port/linux/src/delta_platform.c', 'port/linux/src/delta_legacy_runtime.c', *platform_defines, '-o', BUILD/'delta-probe')
+    run(BUILD/'delta-probe')
+# Signed table probes use a disposable key and never reach a network service.
+run('xcrun', 'clang', '-std=gnu11', '-O1', '-Wall', '-Wextra', '-Werror',
+    '-fsanitize=address,undefined', '-pthread', '-iquote', 'port/linux/include', '--include-directory=port/third_party/monocypher',
+    'port/ios/tests/delta_legacy_probe.c', 'port/linux/src/delta_legacy.c',
+    'port/linux/src/delta_legacy_runtime.c', 'port/third_party/monocypher/monocypher.c',
+    'port/third_party/monocypher/monocypher-ed25519.c', '--output=' + str(BUILD/'delta-legacy-probe'))
+run(BUILD/'delta-legacy-probe')
+# Delta Peer uses the same pure codec and fake-clock sessions on every target.
+run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_probe.c',
+    'port/linux/src/delta_peer.c', '-o', BUILD/'delta-peer-probe')
+run(BUILD/'delta-peer-probe')
+run('xcrun', 'clang', '-std=gnu89', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '-Iport/linux/src', '-iquote', 'port/linux/include', 'port/ios/tests/delta_peer_game_probe.c',
+    'port/linux/src/delta_peer.c', 'port/linux/src/delta_platform.c', '-o', BUILD/'delta-peer-game-probe')
+run(BUILD/'delta-peer-game-probe')
 # and the call sites the probe can't see: the tunnel waits for a peer that said it is away instead of timing it out,
 # the game's server and connections wait for it too, the app asks the system for its background time, and the
 # game's loop shows the notices and joins a lost game again
@@ -542,7 +577,7 @@ run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,
     '-DHALO_PERF_REPORTS=0', '-Iport/ios/host', '-Iport/runtime',
     'port/ios/tests/dynamic_resolution_actuation_probe.c', 'port/ios/host/host_perf_hooks.c',
     '-o', BUILD/'dynamic-resolution-actuation-probe')
-for mode in ('plan', 'pin', 'sweep', 'profile', 'notiming', 'variable', 'variable-floor-environment', 'external'):
+for mode in ('graphics', 'plan', 'pin', 'sweep', 'profile', 'notiming', 'variable', 'variable-floor-environment', 'external'):
     run(BUILD/'dynamic-resolution-actuation-probe', mode)
 # Counter metadata remains bounded and refuses stale/partial completion; no GPU submission.
 run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
@@ -1046,7 +1081,7 @@ mac_run_text = (ROOT / 'tools/mac_run.py').read_text()
 if '"display.foveation": "true",' not in mac_run_text or '"debug.foveation_eye_passes": "true",' not in mac_run_text:
     raise SystemExit("mac_run.py: DEFAULTS must follow port_config.c's foveation defaults")
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/ios/host',
-    'port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c', f'--output={BUILD / "host-lan-probe"}')
+    'port/ios/tests/host_lan_probe.c', 'port/ios/host/host_lan.c', 'port/linux/src/delta_legacy_runtime.c', f'--output={BUILD / "host-lan-probe"}')
 run(BUILD/'host-lan-probe')
 # which interface supplies the system link address (halo_interface_rank.h)
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src',

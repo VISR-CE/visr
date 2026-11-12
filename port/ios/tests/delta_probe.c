@@ -1,6 +1,7 @@
 /* the Delta game list (delta_list.c, halo_network_join.h): an answer read as /v1/games gives it, what is left out
    of it, malformed and hostile answers, the announcement's form, the answer to it, and when announcing goes on */
 #include "delta_list.h"
+#include "delta_platform.h"
 #include "halo_network_join.h"
 #include <assert.h>
 #include <stdio.h>
@@ -33,6 +34,71 @@ static const char answer[] =
 static int parse(const char *text, struct delta_game *games, int maximum)
 {
 	return delta_parse_games(text, (int)strlen(text), games, maximum);
+}
+
+static void platform_and_tag_checks(void)
+{
+	unsigned char reserved[26], original[26], key[8];
+	const unsigned char expected[] = {'D', 'L', 1, 1, 38, 'a', 28, 'a', 0x97};
+	const int platforms[] = {0, 2, 3, 20, 21, 22};
+	const int memories[] = {0, 12, 12, 11, 11, 11};
+	struct delta_advertised_tag tag;
+	unsigned index, byte;
+
+	memset(reserved, 0x7e, sizeof(reserved));
+	memcpy(original, reserved, sizeof(original));
+	delta_advertise(reserved);
+	assert(!memcmp(reserved, original, 17));
+	assert(!memcmp(reserved + 17, expected, sizeof(expected)));
+	assert(delta_advertised_tag_parse(reserved, sizeof(reserved), &tag));
+	assert(tag.major == 1 && tag.wire_number == 38 && tag.wire_letter == 'a');
+	assert(tag.oldest_number == 28 && tag.oldest_letter == 'a');
+	for (index = 0; index < sizeof(reserved); index++)
+		assert(!delta_advertised_tag_parse(reserved, index, &tag));
+	assert(!delta_advertised_tag_parse(NULL, 26, &tag));
+	assert(!delta_advertised_tag_parse(reserved, 26, NULL));
+	for (byte = 17; byte < 26; byte++)
+	{
+		reserved[byte] ^= 1;
+		assert(!delta_advertised_tag_parse(reserved, 26, &tag));
+		reserved[byte] ^= 1;
+	}
+	/* Invalid layout, letter and range are refused even with a matching check. */
+	for (byte = 20; byte <= 24; byte++)
+	{
+		unsigned char old = reserved[byte];
+		reserved[byte] = 255;
+		reserved[25] ^= old ^ 255;
+		if (byte != 21) /* Future wire numbers remain readable. */
+			assert(!delta_advertised_tag_parse(reserved, 26, &tag));
+		reserved[byte] = old;
+		reserved[25] ^= old ^ 255;
+	}
+	for (index = 0; index < sizeof(platforms) / sizeof(platforms[0]); index++)
+	{
+		delta_platform_key(key, platforms[index], 0, 0, 0);
+		assert(key[0] == platforms[index] && key[1] == 1 && key[2] == 0);
+		assert(key[3] == 128 && key[4] == 128 && key[5] == 128);
+		assert(key[6] == memories[index] && key[7] == 0);
+		delta_platform_key(key, platforms[index], 1, 1, 4096);
+		assert(key[2] == 3 && key[6] == 12 && key[7] == 0);
+	}
+	delta_platform_key(key, -1, 0, 0, 0);
+	assert(key[0] == 0 && key[6] == 0);
+	delta_platform_key(key, 999, 0, 0, 3072);
+	assert(key[0] == 0 && key[6] == 11);
+	delta_platform_key(key, 20, 0, 0, 1);
+	assert(key[6] == 0);
+#ifdef HALO_IOS
+	assert(delta_platform_current(0, 0, 0) == 20);
+	assert(delta_platform_current(0, 1, 0) == 21);
+	assert(delta_platform_current(0, 0, 1) == 22);
+	assert(delta_platform_current(1, 0, 0) == 2);
+#elif defined(__APPLE__)
+	assert(delta_platform_current(0, 0, 0) == 2);
+#elif defined(__linux__)
+	assert(delta_platform_current(0, 0, 0) == 3);
+#endif
 }
 
 int main(void)
@@ -112,6 +178,8 @@ int main(void)
 		assert(parse(text, games, 8) == -1);
 	}
 
+	platform_and_tag_checks();
+
 	/* the announcement */
 	memset(&announce, 0, sizeof(announce));
 	strcpy(announce.invite, INVITE_A);
@@ -123,9 +191,37 @@ int main(void)
 	announce.open = 1;
 	announce.teams = 0;
 	announce.version = HALO_PORT_NETWORK_VERSION;
+	delta_platform_key(announce.platform_key, _delta_platform_ios, 0, 0, 0);
+	strcpy(announce.arch, "arm64");
+	strcpy(announce.build, "0.6.14 & test=1");
 	assert(delta_announce_form(form, sizeof(form), &announce) > 0);
 	assert(!strcmp(form, "invite=" INVITE_A "&name=Fun%20%26%20games%20%3D%20100%25&map=bloodgulch&engine=2&players=3"
-		"&maximum_players=16&open=1&version=38&teams=0&delta=0"));
+		"&maximum_players=16&open=1&version=38&teams=0&delta=0"
+		"&platform_key=1401008080800b00&arch=arm64&build=0.6.14%20%26%20test%3D1&capabilities=00000000"));
+	{
+		struct delta_announce bad = announce;
+		int length = (int)strlen(form), size;
+
+		for (size = 0; size <= length; size++)
+			assert(delta_announce_form(form, size, &announce) == 0);
+		assert(delta_announce_form(form, length + 1, &announce) == length);
+		assert(!strstr(form, "machines=") && !strstr(form, "roster=") && !strstr(form, "profile=") && !strstr(form, "stats="));
+		assert(!delta_announce_form(NULL, sizeof(form), &announce));
+		assert(!delta_announce_form(form, sizeof(form), NULL));
+		memset(bad.build, 'A', sizeof(bad.build));
+		assert(!delta_announce_form(form, sizeof(form), &bad));
+		bad = announce; bad.build[0] = '\n';
+		assert(!delta_announce_form(form, sizeof(form), &bad));
+		bad = announce; bad.build[0] = (char)0x80;
+		assert(!delta_announce_form(form, sizeof(form), &bad));
+		bad = announce; strcpy(bad.arch, "other");
+		assert(!delta_announce_form(form, sizeof(form), &bad));
+		bad = announce; bad.delta = -1;
+		assert(!delta_announce_form(form, sizeof(form), &bad));
+		bad = announce; bad.delta = DELTA_MAJOR; bad.capabilities = 0x89abcdefu;
+		assert(delta_announce_form(form, sizeof(form), &bad));
+		assert(strstr(form, "&delta=1&") && strstr(form, "&capabilities=89abcdef"));
+	}
 	assert(delta_announce_form(form, 20, &announce) == 0);
 	assert(delta_announce_form(form, 1, &announce) == 0);
 	assert(delta_withdraw_form(form, sizeof(form), INVITE_A) == (int)strlen("invite=" INVITE_A));

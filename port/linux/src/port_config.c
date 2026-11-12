@@ -24,6 +24,7 @@ config_origin_decide.
 #include "platform.h"
 #include "port_config.h"
 #include "port_profile_apply.h"
+#include "port_graphics_modes.h"
 #include "tomlc17.h"
 
 #include <SDL3/SDL.h>
@@ -108,6 +109,23 @@ nothing reaches a server before the player agrees (halo_internet.h) */
 
 static const struct config_setting config_settings[] =
 {
+	{ "display.graphics", _config_string, "\"enhanced\"", "HALO_GRAPHICS", _environment_value, _platform_all,
+		"The game's look: \"enhanced\" (default) is the original game tastefully\n"
+		"enhanced, with ambient occlusion, shadows under props and per-pixel\n"
+		"lighting; \"classic\" draws only what the original Xbox drew, at this\n"
+		"device's resolution and frame rate, with upscaled textures, a sharp HUD,\n"
+		"more room for decals, bodies and particles, and soft particle edges;\n"
+		"\"hardcore\" is the original Xbox exactly: 640x480 at 30 frames a second,\n"
+		"the Xbox's limits, nothing added. The mode wins\n"
+		"over the settings it replaces (port_graphics_modes.h), which keep their\n"
+		"values for when it changes back. The picture's size and rate change at\n"
+		"the next level." },
+	{ "display.crt_effect", _config_boolean, "false", "HALO_CRT_EFFECT", _environment_value, _platform_ios,
+		"With display.graphics = \"hardcore\": show the 640x480 picture as a\n"
+		"composite CRT television did, with scanlines, a phosphor mask, soft\n"
+		"sideways color and a glow on bright light; false (default) shows the\n"
+		"clean picture. Ignored in the other modes, and on Apple Vision Pro in\n"
+		"head-tracked stereo." },
 	{ "display.fullscreen", _config_boolean, "true", "HALO_FULLSCREEN", _environment_value, _platform_desktop,
 		"Where display.mode is empty: start borderless over the whole display;\n"
 		"false starts in a window. F11 switches." },
@@ -154,6 +172,23 @@ static const struct config_setting config_settings[] =
 		"world, and in stereo lay one eye's shadows in the other too: the picture's\n"
 		"pass is no longer interrupted for each shadow. False keeps the Xbox's\n"
 		"order, to compare." },
+	{ "display.per_pixel_lighting", _config_boolean, "true", "HALO_PER_PIXEL_LIGHTING", _environment_value, _platform_all,
+		"Light characters, weapons and vehicles per pixel: the game's own lights,\n"
+		"colors, ranges and falloff, with its reflection tint and direction, worked\n"
+		"out for each pixel instead of at each vertex and blended across the\n"
+		"triangle. Metal only. False lights them per vertex, as the Xbox does.\n"
+		"Enhanced graphics only: Classic and Hardcore turn it off (display.graphics)." },
+	{ "display.point_light_highlight", _config_integer, "2", "HALO_POINT_LIGHT_HIGHLIGHT", _environment_value, _platform_all,
+		"With display.per_pixel_lighting: a highlight on shiny surfaces from the\n"
+		"two point lights the game already lights each object with (muzzle\n"
+		"flashes, plasma, flashlights), in their own color and range, added to the\n"
+		"surface's reflection so its own tint and specular mask apply. 0 none; 1 to\n"
+		"4 brighter and broader in turn, 1 the dimmest and tightest; 2 by default." },
+	{ "display.point_light_limit", _config_integer, "2", "HALO_POINT_LIGHT_LIMIT", _environment_value, _platform_all,
+		"With display.per_pixel_lighting: how many of the dynamic lights near a\n"
+		"character, weapon or vehicle light it, strongest first, 2 (the game's\n"
+		"own) to 8. The ones past the game's two are chosen and lit the same way,\n"
+		"for drawing only; the game itself still keeps two." },
 	{ "display.shadow_minimum_size", _config_integer, "0", "HALO_SHADOW_MINIMUM_SIZE", _environment_value, _platform_all,
 		"Device-profile floor on how small a character or vehicle may look and still\n"
 		"cast its shadow, in pixels of the 480-line picture, 0 to 240. Shadows fade\n"
@@ -167,9 +202,30 @@ static const struct config_setting config_settings[] =
 		"Device-profile cap on specular lights among the level's selected dynamic\n"
 		"lights, 0 to 128. Zero keeps all selected lights' highlights. First-person\n"
 		"weapon lights are always retained. Object lighting is unchanged." },
+	{ "display.soft_particles", _config_boolean, "true", "HALO_SOFT_PARTICLES", _environment_value, _platform_all,
+		"Smoke, dust and plasma fade where they meet the ground and walls instead of\n"
+		"cutting a hard line (camera-facing particles; Metal, not in stereo or with\n"
+		"multisampling). Hardcore turns it off (display.graphics)." },
+	{ "display.effect_limits", _config_string, "\"raised\"", "HALO_EFFECT_LIMITS", _environment_value, _platform_all,
+		"How many bullet holes, scorch marks and blood stains a level keeps, and how\n"
+		"many particles each split-screen player sees of an effect: \"raised\" (default)\n"
+		"four times the Xbox's decals and every player the effect's whole count;\n"
+		"\"xbox\" the Xbox's 2048 decals and its split-screen share. Decals change\n"
+		"at the next map. Drawing only: the game plays the same. Hardcore uses \"xbox\"\n"
+		"(display.graphics)." },
 	{ "display.shadow_map_size", _config_integer, "128", "HALO_SHADOW_MAP_SIZE", _environment_value, _platform_all,
 		"The size of the textures characters' and vehicles' shadows are drawn into,\n"
 		"128 (as on the Xbox) to 512: larger is smoother. Larger values are used as 512." },
+	{ "display.ambient_occlusion", _config_boolean, "false", "HALO_AMBIENT_OCCLUSION", _environment_value, _platform_ios,
+		"Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space\n"
+		"ambient occlusion over the level's light and, weaker, the objects), which the original game never\n"
+		"drew. Metal, one view, not multisampled and not in stereo. Enhanced graphics only: Classic and\n"
+		"Hardcore turn it off (display.graphics). debug.ssao, when set, wins over it." },
+	{ "display.shadow_props", _config_boolean, "true", "HALO_SHADOW_PROPS", _environment_value, _platform_all,
+		"Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and\n"
+		"light fixtures) a shadow of their own, which the original game never drew for scenery or devices.\n"
+		"At most the four nearest to the camera in a view, none over 3 units across; false draws what the Xbox\n"
+		"drew. Enhanced graphics only: Classic and Hardcore turn it off (display.graphics)." },
 	{ "display.effect_resolution", _config_string, "\"half\"", "HALO_EFFECT_RESOLUTION", _environment_value, _platform_all,
 		"The resolution of the 320x240 target the reflections in mirror floors and\n"
 		"the active camouflage are drawn into: \"xbox\" keeps the Xbox's 320x240,\n"
@@ -908,7 +964,7 @@ static const struct config_setting config_settings[] =
 		"Reloading." },
 	{ "controls.zoom", _config_string, "\"Z, Mouse Middle\"", "HALO_KEY_ZOOM", _environment_value, _platform_all,
 		"Zooming the scope." },
-	{ "controls.switch_weapon", _config_string, "\"Wheel, 1\"", "HALO_KEY_SWITCH_WEAPON", _environment_value,
+	{ "controls.switch_weapon", _config_string, "\"Wheel, Tab\"", "HALO_KEY_SWITCH_WEAPON", _environment_value,
 		_platform_all,
 		"Switching weapons." },
 	{ "controls.switch_grenade", _config_string, "\"X\"", "HALO_KEY_SWITCH_GRENADE", _environment_value, _platform_all,
@@ -919,7 +975,7 @@ static const struct config_setting config_settings[] =
 		"when there is nothing to act on)." },
 	{ "controls.flashlight", _config_string, "\"Q\"", "HALO_KEY_FLASHLIGHT", _environment_value, _platform_all,
 		"The flashlight." },
-	{ "controls.scoreboard", _config_string, "\"Tab\"", "HALO_KEY_SCOREBOARD", _environment_value, _platform_all,
+	{ "controls.scoreboard", _config_string, "\"1\"", "HALO_KEY_SCOREBOARD", _environment_value, _platform_all,
 		"Showing the scores (the controller's Back)." },
 	{ "controls.pause", _config_string, "\"Escape\"", "HALO_KEY_PAUSE", _environment_value, _platform_all,
 		"The pause menu (the controller's Start)." },
@@ -946,6 +1002,12 @@ static const struct config_setting config_settings[] =
 	{ "game.loading_screen_seconds", _config_real, "1.5", "HALO_LOADING_SCREEN_SECONDS", _environment_value, _platform_all,
 		"The least time the loading screen stays up, in seconds (0 to 30), so a\n"
 		"level that is ready at once doesn't flash it." },
+	{ "game.garbage_limit", _config_string, "\"raised\"", "HALO_GARBAGE_LIMIT", _environment_value, _platform_all,
+		"How many bodies and dropped weapons a game keeps before the ones no player\n"
+		"sees are removed: \"raised\" (default) four times the Xbox's in a game on\n"
+		"this device alone, the Xbox's in a network game and while an input\n"
+		"recording is made or replayed; \"xbox\" the Xbox's always (30 to 50 for\n"
+		"16 players). Hardcore uses \"xbox\" (display.graphics)." },
 	{ "game.enhanced_animations", _config_boolean, "true", "HALO_ENHANCED_ANIMATIONS", _environment_value, _platform_all,
 		"The player bipeds' grenade throws keep their legs moving (crouched,\n"
 		"in the air and in a vehicle's seat too), riders' hands leave the grips\n"
@@ -1057,20 +1119,34 @@ static const struct config_setting config_settings[] =
 		"network.public_lobby on. It asks the list for its games every 15\n"
 		"seconds and sends nothing else: the list's server sees this machine's\n"
 		"internet address, as the signalling brokers do." },
-	{ "network.delta_announce", _config_boolean, "false", "HALO_NET_DELTA_ANNOUNCE", _environment_value, _platform_all,
-		"List the public game this machine hosts for the internet (Create Game >\n"
+	{ "network.delta_table", _config_boolean, "true", "HALO_NET_DELTA_TABLE", _environment_value, _platform_all,
+		"Accept signed Delta legacy tables from the save cache and fetch them in\n"
+		"the background from network.delta_url, with a GitHub fallback. Tables\n"
+		"extend newer joins and update discovery numbers without changing the\n"
+		"game codec. False uses only the built-in numbers and fetches nothing." },
+	{ "network.delta_peer", _config_boolean, "true", "HALO_NET_DELTA_PEER", _environment_value, _platform_all,
+		"Exchange Delta handshakes and platform claims after joining a host that\n"
+		"advertises Delta. A silent host falls back to legacy after 4 seconds.\n"
+		"Hosting opens the Delta socket only when network.delta_announce is\n"
+		"also on; a busy side port hosts without Delta. False disables both." },
+	{ "network.delta_announce", _config_boolean, "true", "HALO_NET_DELTA_ANNOUNCE", _environment_value, _platform_all,
+		"Publish the public internet game this machine hosts (Create Game >\n"
 		"Internet, PUBLIC, no password) in Delta's public list\n"
-		"(network.delta_url), so that players using it find it. Off by default:\n"
+		"(network.delta_url), so that players using it find it. On by default:\n"
 		"it sends the list's server, run by others, the game's invite (anyone who\n"
-		"has it can join), name, map, game type number, player counts, whether\n"
-		"it is open and has teams, this build's network version and that it\n"
-		"plays the game's own protocol alone, and the server sees this machine's\n"
+		"has it can join), name, map, engine (game type number), players,\n"
+		"maximum_players, open, version (network version), teams, delta (the\n"
+		"major while its Delta socket is open, otherwise 0), platform_key, arch,\n"
+		"build and capabilities (platform only). With network.delta_peer on,\n"
+		"also open the Delta socket for LAN and internet games. No machines,\n"
+		"roster, profile or stats are sent to the list. The server sees this machine's\n"
 		"internet address. The game is withdrawn when it ends or goes private." },
 	{ "network.delta_url", _config_string, "\"https://halo.milenko.org\"", "HALO_NET_DELTA_URL", _environment_value,
 		_platform_all,
 		"The address of Delta's public game list, whose /v1/games the server\n"
 		"browser reads (network.delta_browse) and whose /v1/announce a hosted\n"
-		"game is listed at (network.delta_announce). Empty turns both off." },
+		"game is listed at (network.delta_announce). Empty turns both off and\n"
+		"suppresses signed legacy table requests (network.delta_table)." },
 	{ "network.host_public", _config_boolean, DEFAULT_HOST_PUBLIC, "HALO_NET_HOST_PUBLIC", _environment_value, _platform_all,
 		"Whether a new game of Create Game > Internet starts as PUBLIC (listed\n"
 		"in everyone's server browser: anyone can see and join it) or, false,\n"
@@ -1223,11 +1299,17 @@ static const struct config_setting config_settings[] =
 		"Every this many frames, step the render scale 0.005 down a 100-step ramp\n"
 		"from 1.0 and wrap to 1.0, each step a new render target size, for checking that\n"
 		"debug.gpu_stats' live render targets stay flat (0, the default: off)." },
+	{ "debug.graphics_cycle", _config_integer, "0", "HALO_GRAPHICS_CYCLE", _environment_value, _platform_ios,
+		"Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved,\n"
+		"wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame\n"
+		"without leaks or stalls. 0 (default) does nothing." },
 	{ "debug.knob_cycle", _config_boolean, "false", "HALO_KNOB_CYCLE", _environment_value, _platform_ios,
 		"While Back is held, the D-pad's up and down choose a quality setting\n"
 		"(render height, shadow map size, anisotropic filtering, model detail,\n"
-		"anti-aliasing, effect resolution, mirror resolution) and left and right\n"
-		"step its value as the game runs, from the next frame, shown on screen for\n"
+		"anti-aliasing, effect resolution, mirror resolution, per-pixel lighting,\n"
+		"point-light highlight, point light limit)\n"
+		"and left and right step its value as the game runs, from the next frame,\n"
+		"shown on screen for\n"
 		"two seconds and logged as \"knob: <setting>=<value>\". The game doesn't see\n"
 		"the D-pad meanwhile, and debug.render_scale_dpad, debug.external_mode and\n"
 		"debug.sense_tuning_chord's D-pad step get none of its presses. Not saved." },
@@ -1503,6 +1585,12 @@ static const struct config_setting config_settings[] =
 		"Show the measured benchmark window and a five-second countdown onscreen." },
 	{ "debug.benchmark_review_take", _config_boolean, "false", "HALO_BENCHMARK_REVIEW_TAKE", _environment_set_is_true, _platform_all,
 		"In an onscreen benchmark replay, play the rest of the recorded input after the measured window closes. Log take position every ten seconds." },
+	{ "debug.per_pixel_lighting_alternate", _config_integer, "0", "HALO_PER_PIXEL_LIGHTING_ALTERNATE", _environment_value, _platform_all,
+		"Matched stills: odd frames lit as the display settings say, even frames\n"
+		"the plain way, so that with the game paused two frames in a row are the\n"
+		"same picture both ways. 1: even frames per vertex; 2: even frames per\n"
+		"pixel with no point-light highlight and the game's two point lights;\n"
+		"0 none." },
 	{ "debug.fixed_timestep", _config_boolean, "false", "HALO_FIXED_TIMESTEP", _environment_set_is_true, _platform_all,
 		"Advance the game's clock 1/30 s per frame, however long the frame took, so\n"
 		"two runs show the same frames; debug.exit_after then counts seconds of\n"
@@ -1634,22 +1722,37 @@ static const struct config_setting config_settings[] =
 		"indices are drawn as the game holds them; false copies and rebases every\n"
 		"draw's indices on the CPU, as the OpenGL ES renderer has to, to compare." },
 	{ "debug.browser_fake_big", _config_boolean, "false", "HALO_BROWSER_FAKE_BIG", _environment_value, _platform_all,
-		"Development builds only: the server browser lists one extra game marked\n"
+		"The server browser lists one extra game marked\n"
 		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
 		"network.full_rate_players below 16, or network.player_capacity below\n"
-		"16 when full_rate_players is 0. App Store packages ignore it." },
+		"16 when full_rate_players is 0." },
 	{ "debug.browser_fake_games", _config_boolean, "false", "HALO_BROWSER_FAKE_GAMES", _environment_value,
 		_platform_all,
 		"Development builds only: the server browser lists a fixed set of\n"
 		"fourteen made-up games instead of the live list, so its sort, filters\n"
 		"and empty result look the same on every run. App Store packages ignore\n"
 		"it." },
+	{ "debug.menu_min_scale", _config_boolean, "true", "HALO_MENU_MIN_SCALE", _environment_value, _platform_all,
+		"Enlarge front-end and pause menu widgets toward one point per menu unit\n"
+		"by cropping only their backdrop margins. visionOS keeps its existing scale." },
+	{ "debug.menu_density", _config_integer, "-1", "HALO_MENU_DENSITY", _environment_value, _platform_all,
+		"Menu list row density, fixed at load: -1 uses the platform default,\n"
+		"0 uses comfortable rows, 1 uses compact rows. Fixed settings stay comfortable; key bindings follow list density." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
+	{ "debug.menu_error", _config_string, "\"\"", "HALO_MENU_ERROR", _environment_value, _platform_all,
+		"Development builds only: after the menu loads, call the real error API.\n"
+		"Use code,modal,full|half|qtr, or code,optional,abort (code 0-39, flags 0-1).\n"
+		"Empty disables it. Pane overrides apply only to this screenshot call." },
 	{ "debug.menu_open_coop", _config_boolean, "false", "HALO_MENU_OPEN_COOP", _environment_value, _platform_all,
 		"With debug.menu_open on Server Setup, show it as a co-op host's, though\n"
 		"no game is hosted (for screenshots)." },
+	{ "debug.menu_text_seed", _config_string, "\"\"", "HALO_MENU_TEXT_SEED", _environment_value, _platform_all,
+		"The join password and Direct Link code screens open with this text already\n"
+		"entered and the keyboard closed, to see their held-text state (for\n"
+		"screenshots); on the password screen a leading `*` starts it hidden; empty\n"
+		"for none." },
 	{ "debug.gpu_flush_draws", _config_integer, "-1", "HALO_GPU_FLUSH_DRAWS", _environment_value, _platform_desktop,
 		"Flush the GPU's pipeline every this many draws: -1 for every 3 on Intel\n"
 		"graphics with Mesa's driver (which can hang without), 0 never." },
@@ -1693,12 +1796,65 @@ static const struct config_setting config_settings[] =
 		"Draw the companion HUD without an external display and save it with screenshots." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
+	{ "debug.shadow_scenery", _config_integer, "0", "HALO_SHADOW_SCENERY", _environment_value, _platform_all,
+		"For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all\n"
+		"scenery, bit 2 all devices, bit 4 equipment and garbage)." },
 	{ "debug.shadow_blur", _config_string, "\"footprint\"", "HALO_SHADOW_BLUR", _environment_value, _platform_all,
 		"How object shadows larger than 128 texels (display.shadow_map_size) are blurred: \"footprint\" over\n"
 		"the area the game's blur covers at 128, \"xbox\" the game's taps at their fixed offsets (at 512 they\n"
 		"fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur." },
+	{ "debug.screenshot_frames", _config_string, "\"\"", "HALO_SCREENSHOT_FRAMES", _environment_value, _platform_all,
+		"With screenshot_every: save only frames in these ranges, \"900-1200;1800-2100\" (\",\" also separates them);\n"
+		"empty saves every one." },
+	{ "debug.screenshot_scene_only", _config_boolean, "false", "HALO_SCREENSHOT_SCENE_ONLY", _environment_set_is_true,
+		_platform_all,
+		"With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame." },
+	{ "debug.soft_particle_distance", _config_real, "0.06", "HALO_SOFT_PARTICLE_DISTANCE", _environment_value, _platform_all,
+		"With display.soft_particles: how far in front of a surface a particle starts to fade, in world units\n"
+		"(1 is 10 feet)." },
+	{ "debug.soft_particle_scale", _config_integer, "2", "HALO_SOFT_PARTICLE_SCALE", _environment_value, _platform_all,
+		"With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half\n"
+		"(2, the nearest level surface of each 2x2 block)." },
 	{ "debug.screenshot_every", _config_integer, "0", "HALO_SCREENSHOT_EVERY", _environment_value, _platform_all,
 		"Save every this many frames to screenshot_directory; 0 none." },
+	{ "debug.ssao", _config_integer, "0", "HALO_SSAO", _environment_value, _platform_ios,
+		"A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on,\n"
+		"2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone\n"
+		"(Metal; mono views only)." },
+	{ "debug.ssao_radius", _config_real, "0.3", "HALO_SSAO_RADIUS", _environment_value, _platform_ios,
+		"With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet)." },
+	{ "debug.ssao_strength", _config_real, "1.5", "HALO_SSAO_STRENGTH", _environment_value, _platform_ios,
+		"With debug.ssao: the power the visibility is raised to; higher darkens more." },
+	{ "debug.ssao_objects", _config_real, "0.3", "HALO_SSAO_OBJECTS", _environment_value, _platform_ios,
+		"With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included)." },
+	{ "debug.ssao_static_weight", _config_real, "0", "HALO_SSAO_STATIC_WEIGHT", _environment_value, _platform_ios,
+		"With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that);\n"
+		"objects always occlude fully." },
+	{ "debug.ssao_high", _config_boolean, "true", "HALO_SSAO_HIGH", _environment_value, _platform_ios,
+		"With debug.ssao: two directions and four steps a side per pixel; false, one direction and three steps." },
+	{ "debug.ssao_steps", _config_integer, "0", "HALO_SSAO_STEPS", _environment_value, _platform_ios,
+		"With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own." },
+	{ "debug.ssao_max_pixels", _config_real, "0.12", "HALO_SSAO_MAX_PIXELS", _environment_value, _platform_ios,
+		"With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height." },
+	{ "debug.ssao_fade_distance", _config_real, "35", "HALO_SSAO_FADE_DISTANCE", _environment_value, _platform_ios,
+		"With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units)." },
+	{ "debug.ssao_level_floor", _config_real, "0.35", "HALO_SSAO_LEVEL_FLOOR", _environment_value, _platform_ios,
+		"With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black)." },
+	{ "debug.ssao_object_floor", _config_real, "0.6", "HALO_SSAO_OBJECT_FLOOR", _environment_value, _platform_ios,
+		"With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it)." },
+	{ "debug.ssao_path", _config_integer, "1", "HALO_SSAO_PATH", _environment_value, _platform_ios,
+		"With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled\n"
+		"bilinearly as it is applied, 2 the same without the blur." },
+	{ "debug.ssao_stop", _config_integer, "0", "HALO_SSAO_STOP", _environment_value, _platform_ios,
+		"With debug.ssao 1, to measure the stages: 1 only the depth preparation, 2 also the gather, 3 every dispatch;\n"
+		"none of them applies the occlusion. 0 everything." },
+	{ "debug.ssao_gather_v1", _config_boolean, "false", "HALO_SSAO_GATHER_V1", _environment_value, _platform_ios,
+		"With debug.ssao 1: the first spike's depth preparation and gather, to time them against the current ones." },
+	{ "debug.ssao_scale", _config_integer, "4", "HALO_SSAO_SCALE", _environment_value, _platform_ios,
+		"With debug.ssao 1 and debug.ssao_path 1 or 2: compute the occlusion at half (2) or quarter (4) resolution." },
+	{ "debug.stencil_views", _config_boolean, "true", "HALO_STENCIL_VIEWS", _environment_value, _platform_ios,
+		"Make depth targets readable as stencil views, which SSAO and soft particle\n"
+		"edges need; false to measure what that costs (neither then runs)." },
 	{ "debug.texture_astc", _config_string, "\"auto\"", "HALO_TEXTURE_ASTC", _environment_value, _platform_ios,
 		"DXT-to-ASTC texture preparation: \"auto\" (default) converts on GPUs without BC\n"
 		"once the release enables it, \"force\" emulates a GPU without BC for validation, \"off\" disables it. Requires compressed_textures." },
@@ -1948,6 +2104,26 @@ static struct config_setting_state
 } config_states[NUMBER_OF_CONFIG_SETTINGS];
 
 static int config_origins_changed;
+
+/* ---------- the graphics mode (port_graphics_modes.h)
+
+display.graphics is a layer over the player's own choices and the profile's
+(scene class and variable context too) and under the environment: a setting
+the mode replaces reads as the mode's value, while config_values keeps the
+stored one for when the mode changes back. */
+
+/* the mode display.graphics names (an unknown one: Enhanced) */
+static int config_graphics_stored = GRAPHICS_MODE_ENHANCED;
+/* head-tracked stereo this frame (config_graphics_head_stereo): Hardcore acts as Classic */
+static int config_graphics_head;
+/* each setting's value in each mode, where the mode replaces it */
+static struct config_value config_mode_values[NUMBER_OF_CONFIG_SETTINGS][NUMBER_OF_GRAPHICS_MODES];
+static unsigned char config_mode_replaces[NUMBER_OF_CONFIG_SETTINGS][NUMBER_OF_GRAPHICS_MODES];
+/* display.graphics as it reads: the mode in force (a benchmark suite's Enhanced, Enhanced for an unknown name), so
+reports record the mode that drew the frame, not only the one stored */
+static long config_graphics_index = -1;
+static struct config_value config_graphics_reported[NUMBER_OF_GRAPHICS_MODES] =
+	{ { .string = "hardcore" }, { .string = "classic" }, { .string = "enhanced" } };
 
 /* ---------- the file */
 
@@ -3134,6 +3310,130 @@ static void config_set_from_environment(size_t index)
 	config_states[index].source = _source_environment;
 }
 
+static const struct config_value *config_value(const char *name, enum config_type type);
+
+/* the mode table's values as settings, once */
+static void config_graphics_build(void)
+{
+	static int built;
+	size_t row;
+
+	if (built)
+		return;
+	built = 1;
+	for (row = 0; row < NUMBER_OF_GRAPHICS_MODE_SETTINGS; row++)
+	{
+		long index = config_setting_index(graphics_mode_settings[row].name);
+		int mode;
+
+		if (index < 0)
+		{
+			platform_log("graphics: the mode table names %s, which is no setting", graphics_mode_settings[row].name);
+			continue;
+		}
+		for (mode = 0; mode < NUMBER_OF_GRAPHICS_MODES; mode++)
+		{
+			if (!graphics_mode_settings[row].value[mode])
+				continue;
+			config_set_from_text(&config_mode_values[index][mode], config_settings[index].type,
+				graphics_mode_settings[row].value[mode]);
+			config_mode_replaces[index][mode] = 1;
+		}
+	}
+}
+
+/* display.graphics read again, after the file or a write changed it */
+static void config_graphics_update(void)
+{
+	long index = config_setting_index("display.graphics");
+	const char *text;
+	int mode;
+
+	config_graphics_build();
+	config_graphics_index = index;
+	if (index < 0)
+		return;
+	text = config_values[index].string ? config_values[index].string : "";
+	mode = graphics_mode_parse(text);
+	if (mode < 0)
+	{
+		platform_log("graphics: display.graphics \"%s\" is no mode this build has; drawing enhanced", text);
+		mode = GRAPHICS_MODE_ENHANCED;
+	}
+	/* a benchmark suite measures the profile's mode, Enhanced, whatever the player plays in, unless its own
+	environment names one (HALO_GRAPHICS) */
+	if (config_benchmark_isolated() && config_states[index].source != _source_environment && mode != GRAPHICS_MODE_ENHANCED)
+	{
+		platform_log("graphics: a benchmark suite draws enhanced (display.graphics is %s)", graphics_mode_names[mode]);
+		mode = GRAPHICS_MODE_ENHANCED;
+	}
+	if (mode != config_graphics_stored)
+		platform_log("graphics: %s (was %s)", graphics_mode_names[mode], graphics_mode_names[config_graphics_stored]);
+	config_graphics_stored = mode;
+}
+
+/* the mode's value for a setting it replaces, or NULL: the setting's own value stands (the environment always
+wins) */
+static const struct config_value *config_mode_value(size_t index)
+{
+	int mode = graphics_mode_effective(config_graphics_stored, config_graphics_head);
+
+	if ((long)index == config_graphics_index)
+		return &config_graphics_reported[config_graphics_stored];
+	if (!config_mode_replaces[index][mode] || config_states[index].source == _source_environment)
+		return NULL;
+	return &config_mode_values[index][mode];
+}
+
+int config_graphics_mode(void)
+{
+	(void)config_boolean("display.vsync");   /* the first load */
+	return graphics_mode_effective(config_graphics_stored, config_graphics_head);
+}
+
+const char *config_graphics_mode_name(void)
+{
+	return graphics_mode_names[config_graphics_mode()];
+}
+
+int config_graphics_try(const char *name)
+{
+	int mode = graphics_mode_parse(name);
+
+	(void)config_boolean("display.vsync");   /* the first load */
+	if (mode < 0)
+		return 0;
+	pthread_mutex_lock(&config_lock);
+	if (mode != config_graphics_stored)
+		platform_log("graphics: %s for this run (was %s)", graphics_mode_names[mode], graphics_mode_names[config_graphics_stored]);
+	config_graphics_stored = mode;
+	config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+	return 1;
+}
+
+void config_graphics_head_stereo(int head)
+{
+	head = head != 0;
+	if (head == config_graphics_head)
+		return;
+	pthread_mutex_lock(&config_lock);
+	config_graphics_head = head;
+	if (config_graphics_stored == GRAPHICS_MODE_HARDCORE)
+		config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+}
+
+const char *config_graphics_replaces(const char *name)
+{
+	long index = config_setting_index(name);
+
+	if (index < 0)
+		return NULL;
+	(void)config_value(name, config_settings[index].type);
+	return index != config_graphics_index && config_mode_value((size_t)index) ? config_graphics_mode_name() : NULL;
+}
+
 /* the log's account of where the settings a profile may set got their
 values: one line for each that anything but its default set (all of them
 with debug.settings_dump), highest layer first. Other settings (network,
@@ -3328,6 +3628,7 @@ static void config_load(void)
 
 	for (index = 0; index < NUMBER_OF_CONFIG_SETTINGS; index++)
 		config_set_from_environment(index);
+	config_graphics_update();
 	config_dump();
 }
 
@@ -3349,7 +3650,11 @@ static const struct config_value *config_value(const char *name, enum config_typ
 		platform_log("settings: no %s setting %s", type == _config_string ? "string" : "such", name);
 		return &none;
 	}
-	return &config_values[index];
+	{
+		const struct config_value *mode = config_mode_value((size_t)index);
+
+		return mode ? mode : &config_values[index];
+	}
 }
 
 /* ---------- writing a setting */
@@ -3524,6 +3829,8 @@ int config_write(const char *name, const char *value)
 	out = config_text_set(text, name, line_text);
 	succeeded = out && config_write_file(path, out);
 	config_origins_write();
+	if (!strcmp(name, "display.graphics"))
+		config_graphics_update();
 	config_change_count++;
 	pthread_mutex_unlock(&config_lock);
 	free(out);
@@ -3546,6 +3853,19 @@ int config_explicit(const char *name)
 	if (index < 0) return 0;
 	(void)config_value(name, config_settings[index].type);
 	return config_states[index].origin == _origin_chosen || config_states[index].source == _source_environment;
+}
+
+/* 1 when a device profile layer gives the setting a value (what the menus show as "optimized for your device" until
+the player chooses one): the profile's own value, which is its campaign (predictable) value, whatever a scene class or
+the variable context gives the setting while a map is loaded */
+int config_profile_sets(const char *name)
+{
+	long index = config_setting_index(name);
+
+	if (index < 0)
+		return 0;
+	(void)config_value(name, config_settings[index].type);
+	return config_states[index].profile_count > 0;
 }
 
 int config_text(const char *name, char *text, size_t size)
@@ -3771,6 +4091,11 @@ static long config_frame_rate_index = -1;
 static const struct config_value *config_scene_value_uncapped(size_t index, int scene, int external)
 {
 	const struct config_setting_state *state = &config_states[index];
+	/* (the graphics mode wins over a scene class's, the external display's and the variable context's values) */
+	const struct config_value *mode = config_mode_value(index);
+
+	if (mode)
+		return mode;
 	if (state->source == _source_default || state->source == _source_profile)
 	{
 		if (external)
@@ -4146,6 +4471,20 @@ int config_boolean(const char *name)
 	return config_value(name, _config_boolean)->boolean;
 }
 
+int config_boolean_in_graphics_mode(const char *name, int mode)
+{
+	long index;
+
+	(void)config_value(name, _config_boolean);   /* the first load */
+	index = config_setting_index(name);
+	if (index < 0 || config_settings[index].type != _config_boolean)
+		return 0;
+	mode = graphics_mode_effective(mode, config_graphics_head);
+	if (config_states[index].source != _source_environment && config_mode_replaces[index][mode])
+		return config_mode_values[index][mode].boolean;
+	return config_values[index].boolean;
+}
+
 /* one boolean read again from the file, as at start-up (the device's value
 when the file lacks it or does not parse), the environment still winning: for a
 setting another process changes while the game runs (the iOS host, from the
@@ -4189,7 +4528,7 @@ int config_reload_boolean(const char *name)
 		toml_free(result);
 	}
 	config_set_from_environment((size_t)index);
-	value = config_values[index].boolean;
+	value = config_mode_value((size_t)index) ? config_mode_value((size_t)index)->boolean : config_values[index].boolean;
 	pthread_mutex_unlock(&config_lock);
 	free(text);
 	return value;
@@ -4210,4 +4549,12 @@ const char *config_string(const char *name)
 	const char *string = config_value(name, _config_string)->string;
 
 	return string ? string : "";
+}
+
+/* display.effect_limits (halo_linux_source_fixups.h): anything but "xbox" raises them */
+unsigned char halo_effect_limits_raised(void)
+{
+	const char *limits = config_string("display.effect_limits");
+
+	return !limits || strcmp(limits, "xbox") != 0;
 }

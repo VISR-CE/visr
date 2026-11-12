@@ -8,9 +8,11 @@ rows, the screens' children, the descriptions' strings and frames and pc_menu_pa
 argv[1]: "apple" (a keyboard, no Apple TV), "tvos" (the Apple TV, no keyboard) or "bad" (a malformed patch, which
 fails the files). */
 
-static int input_pad = 1, input_keyboard = 1;
+static int input_pad = 1, input_keyboard = 1, input_compact, input_density_override = -1;
 static char const *menu_mode = "xbox";
 int platform_menu_pad(void) { return input_pad; }
+int platform_menu_compact_density(void) { return input_compact; }
+long config_integer(char const *name) { (void)name; return input_density_override; }
 int platform_menu_keyboard(void) { return input_keyboard; }
 
 #include "menu_tags.c"
@@ -36,8 +38,7 @@ static char const patches_xml[] =
 	"       run=\"mp type set mode\" open=\"xbox/test_screen\" description=\"Join a game by its code.\"\n"
 	"       picture=\"png:ce/port/blank__0.png\"/>\n"
 	"</patch>\n"
-	/* the profile edit list: four rows before SAVE CHANGES (KEYBOARD with a keyboard), DELETE PROFILE after it
-	on the Apple TV, a row's pitch below it (SAVE CHANGES is further from the row above it, which would not fit) */
+	/* Insert settings and the Apple TV delete row before removing SAVE CHANGES. */
 	"<patch list=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_select_list\"\n"
 	"       screen=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\player_profile_edit_screen\">\n"
 	"  <row before=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\save_changes_profile_item\"\n"
@@ -53,6 +54,7 @@ static char const patches_xml[] =
 	"       platform=\"tvos\" pitch=\"33\" name=\"profile_item_delete\" text=\"DELETE PROFILE\"\n"
 	"       run=\"request del player profile\"\n"
 	"       description=\"Delete.\" picture=\"0\"/>\n"
+	"  <remove child=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\save_changes_profile_item\"/>\n"
 	"</patch>\n"
 	/* a row out of the settings list: those after it move up, keeping their descriptions */
 	"<patch list=\"ui\\shell\\settings\\settings_list\" screen=\"ui\\shell\\settings\\settings_screen\">\n"
@@ -96,7 +98,13 @@ static char const screen_xml[] =
 	"<bitmap name=\"xbox/test_cached\"><frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"0\" cache=\"cache/xbox/v1/extracted.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
 	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"1\" cache=\"cache/xbox/v1/present.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/>"
 	"<frame map=\"ui\\shell\\main_menu\\multiplayer_type_select\\mp_options\" index=\"2\" cache=\"cache/xbox/v1/upgrade.png\" png=\"xbox/art/shipped.png\" width=\"512\" height=\"256\"/></bitmap>"
-	"<widget name=\"xbox/test_screen\"/><widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
+	"<widget name=\"xbox/test_screen\"><on event=\"x\" run=\"port settings defaults apply\"/>"
+	"<on event=\"deleted\" run=\"port settings close\"/></widget>"
+	"<widget name=\"xbox/test_spinner\" type=\"spinner\" strings=\"OFF|ON\" setting=\"audio.master\" values=\"0|1\">"
+	"<on event=\"created\" run=\"port setting load\"/>"
+	"<on event=\"left\" run=\"port setting changed\"/><on event=\"right\" run=\"port setting changed\"/>"
+	"<on event=\"stick_left\" run=\"port setting changed\"/><on event=\"stick_right\" run=\"port setting changed\"/></widget>"
+	"<widget name=\"xbox/test_row\" width=\"512\" height=\"28\"/>"
 	"<widget name=\"xbox/main_menu/multiplayer_type_select/lobby/lobby_screen\"/></menus>\n";
 
 static char const pc_xml[] =
@@ -111,14 +119,18 @@ which replaces it) */
 /* (a picture's "files": the first byte is the texture the stand-in PNG decoder gives, 0 being one that cannot be
 drawn) */
 static const char shipped_png[] = "S";
+static char const density_xml[] = "<menus><widget name=\"xbox/density_probe\" height=\"39\"/></menus>";
+static char const compact_xml[] = "<menus><widget name=\"xbox/density_probe\" height=\"30\"/></menus>";
 const struct menu_file_embedded menu_files_embedded[] =
 {
+	{ "xbox/density.xml", (const unsigned int *)density_xml, sizeof(density_xml) - 1 },
+	{ "xbox/density.compact.xml", (const unsigned int *)compact_xml, sizeof(compact_xml) - 1 },
 	{ "xbox/patches.xml", (const unsigned int *)patches_xml, sizeof(patches_xml) - 1 },
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
 	{ "ce/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
 	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
 };
-const unsigned int menu_files_embedded_count = 4;
+const unsigned int menu_files_embedded_count = 6;
 
 /* ---------- what the game and the platform layer give */
 
@@ -188,6 +200,16 @@ void gpu_texture_destroy(unsigned int texture)
 	(void)texture;
 }
 
+void display_error(short code, short player, boolean modal, boolean pause)
+{
+	(void)code; (void)player; (void)modal; (void)pause;
+}
+
+void display_error_abort_to_dashboard(short code, boolean optional)
+{
+	(void)code; (void)optional;
+}
+
 boolean pc_menu_profile_edit_begin(void)
 {
 	return TRUE;
@@ -249,6 +271,18 @@ static struct cache_file_tag_instance map_table[TABLE_CAPACITY];
 static long map_count;
 static struct cache_file_tag_instance *table;
 static long table_count;
+
+/* (the game's measure: here 8 for each character) */
+short ui_widget_port_font_text_width(long font_index, void const *text)
+{
+	unsigned short const *characters = text;
+	short width = 0;
+
+	(void)font_index;
+	while (characters && *characters++)
+		width += 8;
+	return width;
+}
 
 void *cache_files_tag_instances(long *count)
 {
@@ -450,6 +484,8 @@ static void adopt_build(void);
 static void map_build(void)
 {
 	adopt_build();
+	/* The spinner resolves its default font, but this probe does not render it. */
+	map_add(FONT_TAG, "ui\\large_ui", calloc(1, 1));
 	/* the multiplayer type screen (bounds and offsets as the Xbox's ui.map has them) */
 	{
 		long rows[4], children[4];
@@ -753,19 +789,20 @@ static void check_apple(boolean tvos)
 		check(frames[0].cache_block_index == NONE && frames[3].pixels_offset == 4000,
 			"the map's frames are kept, to be loaded from their new place");
 	}
-	/* the profile edit list: three or four rows before SAVE CHANGES, DELETE PROFILE after it on the Apple TV */
+	/* The profile editor auto-saves; Apple TV retains DELETE PROFILE. */
 	{
-		short const tops_keyboard[9] = { 78, 111, 144, 177, 210, 243, 276, 309, 365 };
-		short const tops_tvos[9] = { 78, 111, 144, 177, 210, 243, 276, 332, 365 };
-		short const descriptions_keyboard[9] = { 0, 1, 2, 3, 6, 7, 8, 9, 4 };
-		short const descriptions_tvos[9] = { 0, 1, 2, 3, 6, 7, 8, 4, 9 };
+		short const tops_keyboard[8] = { 78, 111, 144, 177, 210, 243, 276, 309 };
+		short const tops_tvos[8] = { 78, 111, 144, 177, 210, 243, 276, 309 };
+		short const descriptions_keyboard[8] = { 0, 1, 2, 3, 6, 7, 8, 9 };
+		short const descriptions_tvos[8] = { 0, 1, 2, 3, 6, 7, 8, 9 };
 
-		check_rows("profile edit", pe_list, tvos ? tops_tvos : tops_keyboard, 9);
+		check_rows("profile edit", pe_list, tvos ? tops_tvos : tops_keyboard, 8);
 		check_row_copy(pe_list, 4, "profile_item_video", "VIDEO", NONE, test_screen);
-		check(!strcmp(children_of(pe_list)[tvos ? 7 : 8].name, "save_changes_profile_item"), "SAVE CHANGES is the map's");
+		for (short row = 0; row < child_count(pe_list); row++)
+			check(strcmp(children_of(pe_list)[row].name, "save_changes_profile_item") != 0, "SAVE CHANGES is removed");
 		if (tvos)
 		{
-			check_row_copy(pe_list, 8, "profile_item_delete", "DELETE PROFILE",
+			check_row_copy(pe_list, 7, "profile_item_delete", "DELETE PROFILE",
 				function_lookup("request del player profile"), NONE);
 		}
 		check_descriptions("profile edit", pe_list, tvos ? descriptions_tvos : descriptions_keyboard);
@@ -894,9 +931,9 @@ static void check_apple(boolean tvos)
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Four widgets, two bitmaps and the two PC description lists precede patch tags. */
-	counted = 6 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
-	used = 6 + 2 * (3 + 4 + 1) + 2;
+	/* Six widgets, two bitmaps, spinner strings, and the two PC description lists precede patch tags. */
+	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
+	used = 9 + 2 * (3 + 4 + 1) + 2;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1102,6 +1139,9 @@ int main(int argc, char **argv)
 			fclose(file);
 		}
 	}
+	input_compact = !strcmp(mode, "compact") || !strcmp(mode, "override0");
+	if (!strcmp(mode, "override0")) input_density_override = 0;
+	if (!strcmp(mode, "override1")) input_density_override = 1;
 	map_build();
 	menu_tags_loaded("ui");
 	if (!strcmp(mode, "bad"))
@@ -1112,6 +1152,41 @@ int main(int argc, char **argv)
 	else
 	{
 		check(menu_tags.loaded, "the menus loaded");
+		{
+			long tag = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\test_spinner");
+			struct ui_widget_definition *definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+			struct ui_widget_event_handler_reference *handlers = definition->event_handlers.address;
+			short events[] = { 24, 10, 11, 18, 19 };
+			long i, changed = PC_MENU_FUNCTION_BASE + name_index("port setting changed", port_function_names,
+				NUMBEROF(port_function_names));
+
+			check(definition->event_handlers.count == 5, "spinner loads once and saves on four direction events");
+			for (i = 0; i < definition->event_handlers.count && i < 5; i++)
+				check(handlers[i].event_type == events[i] &&
+					(i == 0 || handlers[i].function == changed), "spinner direction handler resolves");
+			tag = tag_loaded(UI_WIDGET_DEFINITION_TAG, "pc\\xbox\\test_screen");
+			definition = tag_get(UI_WIDGET_DEFINITION_TAG, tag);
+			handlers = definition->event_handlers.address;
+			check(definition->event_handlers.count == 2 && handlers[0].event_type == 2 &&
+				handlers[0].function == PC_MENU_FUNCTION_BASE + name_index("port settings defaults apply", port_function_names,
+					NUMBEROF(port_function_names)), "X defaults resolves without a SAVE item");
+			check(handlers[1].event_type == 25 && handlers[1].function == PC_MENU_FUNCTION_BASE +
+				name_index("port settings close", port_function_names, NUMBEROF(port_function_names)),
+				"Video applies when deleted");
+		}
+		{
+			struct halo_menus const *menus = halo_menus_load();
+			long i, found = 0;
+			for (i = 0; menus && i < menus->widget_count; i++)
+				if (!strcmp(menus->widgets[i].name, "xbox/density_probe"))
+				{
+					found++;
+					check(menus->widgets[i].height == ((input_density_override < 0 ? input_compact : input_density_override) ? 30 : 39), "selected density's tap band");
+				}
+			check(found == 1, "exactly one density definition loaded");
+			halo_menus_set_compact_density(!input_compact);
+			check(halo_menus_load() == menus, "density stays fixed after the first load");
+		}
 		if (menu_tags.loaded)
 			check_apple(!strcmp(mode, "tvos"));
 		{
@@ -1122,18 +1197,18 @@ int main(int argc, char **argv)
 			input_pad = 0;
 			check(pc != NONE, "both looks loaded together");
 			check(open == xbox, "input changes do not mutate an open screen");
-			check(pc_menu_screen_open(open) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
+			check(pc_menu_screen_open(open, NULL, TRUE) == pc && !menu_tags.xbox_set, "next open takes keyboard look");
 			input_pad = 1;
-			check(pc_menu_screen_open(pc) == xbox && menu_tags.xbox_set, "back to main takes pad look");
-			check(pc_menu_screen_open(mp_screen) == mp_screen && menu_tags.xbox_set,
+			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox && menu_tags.xbox_set, "back to main takes pad look");
+			check(pc_menu_screen_open(mp_screen, NULL, TRUE) == mp_screen && menu_tags.xbox_set,
 				"an unavailable counterpart holds the look");
 			menu_mode = "pc";
-			check(pc_menu_screen_open(xbox) == pc, "fixed PC overrides pad input");
+			check(pc_menu_screen_open(xbox, NULL, TRUE) == pc, "fixed PC overrides pad input");
 			menu_mode = "xbox";
 			input_pad = 0;
-			check(pc_menu_screen_open(pc) == xbox, "fixed Xbox overrides keyboard input");
+			check(pc_menu_screen_open(pc, NULL, TRUE) == xbox, "fixed Xbox overrides keyboard input");
 			input_keyboard = 0;
-			pc_menu_screen_open(xbox);
+			pc_menu_screen_open(xbox, NULL, TRUE);
 			{
 				struct string_list *list = tag_get(UNICODE_STRING_LIST_TAG,
 					tag_loaded(UNICODE_STRING_LIST_TAG, "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_descriptions"));
@@ -1144,7 +1219,7 @@ int main(int argc, char **argv)
 				check(string_is(gametype, 0, "Rename this gametype using\\nthe virtual keyboard.\\n\\nThis gametype:"),
 					"virtual keyboard caption keeps the gametype label on the fourth line");
 				input_keyboard = 1;
-				pc_menu_screen_open(xbox);
+				pc_menu_screen_open(xbox, NULL, TRUE);
 				check(string_is(list, 0, "Rename this profile with your\\nkeyboard.\\n\\nCurrent Profile:"),
 					"keyboard attachment changes the next screen's description");
 				check(string_is(gametype, 0, "Rename this gametype with\\nyour keyboard.\\n\\nThis gametype:"),

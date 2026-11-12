@@ -13,6 +13,7 @@ platform = "ios"
 models = ["iPad6,7"]
 
 [display]
+upscaled_textures = false
 frame_rate = "30"
 render_height = 720
 shadow_map_size = 128
@@ -22,6 +23,10 @@ model_lod = "auto"
 [network]
 player_capacity = 64
 full_rate_players = 16
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "At a 720-line ceiling, upscaled textures add little visible detail and cost memory."
 
 [evidence."display.frame_rate"]
 basis = "measured"

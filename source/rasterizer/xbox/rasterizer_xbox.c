@@ -407,6 +407,7 @@ symbols in this file:
 #include "render/render.h"
 #include "render/render_cameras.h"
 #include "models/model_definitions.h" /* port: MAXIMUM_NODES_PER_MODEL */
+#include "objects/object_lights.h" /* port: lights_port_point_lights_for_object */
 
 /* The January object retains out-of-line copies of the D3D inline wrappers.
  * The stock XDK definition of D3DINLINE (static __forceinline) reproduces
@@ -417,6 +418,7 @@ symbols in this file:
 
 #include "rasterizer_xbox.h"
 #include "rasterizer/xbox/rasterizer_xbox_pixel_shader.h"
+#include "interface/hud.h" /* port: hud_split_screen_layout */
 #include "rasterizer_xbox_internal.h"
 #include "rasterizer_xbox_vertex_shaders.h"
 
@@ -1181,6 +1183,65 @@ void rasterizer_set_model_lighting_distant_light(
 	return;
 }
 
+/* port: per-pixel lighting's longer point light list (display.point_light_limit,
+d3d8_device.c and nv2a_lighting_pixel_block). The object being drawn
+(render_objects.c sets it around an object and its attachments, NONE
+otherwise) has its strongest lights gathered again past the game's two
+(lights_port_point_lights_for_object), and those the game did not keep go to
+vertex constants 39 to 57, which no vertex program reads: c[39].x the count,
+then three constants a light, as the game's own two. Written only while the
+setting asks for more than two lights; the lit pixel shaders read them */
+long rasterizer_port_point_light_object = NONE;
+
+enum
+{
+	PORT_EXTRA_POINT_LIGHT_CONSTANT = -57,
+	PORT_EXTRA_POINT_LIGHTS = LIGHTS_PORT_MAXIMUM_POINT_LIGHTS - MAXIMUM_RENDERED_POINT_LIGHTS,
+};
+
+boolean config_boolean(const char *name);
+long config_integer(const char *name);
+
+static void rasterizer_port_extra_point_lights(
+	struct render_lighting const *lighting)
+{
+	struct
+	{
+		real header[4];
+		struct rasterizer_point_light_constants lights[PORT_EXTRA_POINT_LIGHTS];
+	} constants;
+	long limit = config_integer("display.point_light_limit");
+	long indices[LIGHTS_PORT_MAXIMUM_POINT_LIGHTS];
+	short count = 0, index, extra = 0;
+
+	if (limit <= MAXIMUM_RENDERED_POINT_LIGHTS || !config_boolean("display.per_pixel_lighting"))
+		return;
+	if (limit > LIGHTS_PORT_MAXIMUM_POINT_LIGHTS)
+		limit = LIGHTS_PORT_MAXIMUM_POINT_LIGHTS;
+	if (rasterizer_port_point_light_object != NONE && lighting->point_light_count >= MAXIMUM_RENDERED_POINT_LIGHTS)
+		count = lights_port_point_lights_for_object(rasterizer_port_point_light_object, indices, (short)limit);
+	for (index = 0; index < count && extra < limit - MAXIMUM_RENDERED_POINT_LIGHTS; index++)
+	{
+		struct rasterizer_model_lighting_constants one;
+		short kept;
+
+		/* (the game's own two are already in its constants) */
+		for (kept = 0; kept < lighting->point_light_count; kept++)
+			if (lighting->point_light_indices[kept] == indices[index])
+				break;
+		if (kept < lighting->point_light_count || indices[index] < 0 || indices[index] >= rasterizer_lights.light_count)
+			continue;
+		rasterizer_set_model_lighting_point_light(indices[index], 0, &one);
+		constants.lights[extra++] = one.point_lights[0];
+	}
+	csmemset(constants.header, 0, sizeof(constants.header));
+	constants.header[0] = (real)extra;
+	D3DDevice_SetVertexShaderConstant(
+		PORT_EXTRA_POINT_LIGHT_CONSTANT,
+		&constants,
+		1 + 3 * extra);
+}
+
 void rasterizer_set_model_lighting(
 	struct render_lighting const *lighting)
 {
@@ -1227,6 +1288,7 @@ void rasterizer_set_model_lighting(
 		-79,
 		&lighting_constants,
 		NUMBER_OF_MODEL_LIGHTING_CONSTANTS);
+	rasterizer_port_extra_point_lights(lighting);
 	if (rasterizer_debug_options.statistics_mode)
 		rasterizer_frame_statistics.vertex_shader_lighting_constant_bytes +=
 			sizeof(lighting_constants);
@@ -2924,6 +2986,42 @@ static void rasterizer_first_person_offset(
 	return;
 }
 
+/* port: split screen's first-person weapon sits where the Xbox drew the top
+view's. The Xbox centered each view's projection on its title-safe window,
+so the top view's picture, gun included, sat 16 of its 240 lines lower than
+the bottom view's; the port centers the projection on the view instead
+(compute_window_bounds), keeping each view's reticle on its center. Only the
+weapon's draws take the top view's window: the window's camera with its
+window moved down by a fifteenth of the view's height, its projection's x
+and y columns into the window's frustum, the view unchanged. Mono only; the
+Xbox's own split HUD layout keeps its windows as they were */
+static boolean rasterizer_first_person_split_screen(
+	void)
+{
+	struct render_camera camera = global_window_parameters.camera;
+	struct render_frustum frustum;
+	short view_height = camera.viewport_bounds.y1 - camera.viewport_bounds.y0;
+	short shift;
+	short row;
+
+	if (main_get_window_count() < 2 || hud_split_screen_layout() || halo_stereo_frame()->eye_count != 0 ||
+		view_height <= 0)
+	{
+		return FALSE;
+	}
+	shift = (short)((view_height + 7) / 15);
+	camera.window_bounds.y0 += shift;
+	camera.window_bounds.y1 += shift;
+	render_camera_build_frustum(&camera, NULL, &frustum, TRUE);
+	for (row = 0; row < 4; row++)
+	{
+		global_window_parameters.frustum.projection_matrix[row][0] = frustum.projection_matrix[row][0];
+		global_window_parameters.frustum.projection_matrix[row][1] = frustum.projection_matrix[row][1];
+	}
+	first_person_eye_applied = TRUE;
+	return TRUE;
+}
+
 void rasterizer_set_frustum_z(
 	real z_near,
 	real z_far)
@@ -2939,9 +3037,11 @@ void rasterizer_set_frustum_z(
 	/* port: in a SCREEN mode eye (gameplay or the film) the first-person
 	weapon has its own eye, nearly flat with its nearest point on the
 	screen's surface (stereo.c); in HEAD mode's full view its draws may move
-	down and back instead (rasterizer_first_person_offset). The window's
+	down and back instead (rasterizer_first_person_offset), and in mono split
+screen they take the Xbox top view's lower placement
+(rasterizer_first_person_split_screen). The window's
 	save call keeps the view and projection, and the restore call puts them
-	back beside the depth range. Mono never changes them */
+	back beside the depth range. A single mono view never changes them */
 	if (z_near == -1.0f && z_far == -1.0f)
 	{
 		first_person_saved_world_to_view = global_window_parameters.frustum.world_to_view;
@@ -2975,6 +3075,8 @@ void rasterizer_set_frustum_z(
 			rasterizer_first_person_eye(&weapon_eye);
 		else if (halo_stereo_weapon_offset(&down, &back))
 			rasterizer_first_person_offset(down, back);
+		else
+			rasterizer_first_person_split_screen();
 	}
 	render_camera_hack_frustum_z(
 		&global_window_parameters.frustum,

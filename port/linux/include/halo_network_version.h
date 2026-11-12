@@ -7,14 +7,15 @@ settings record with the 28-byte options block, which the receiver widens;
 hosts of 35 to 37 send the 13,136-byte record. Each
 later rule is taken only from a host whose version has it (the helpers below);
 callers ask a helper rather than compare version numbers. A host does not know
-client versions because join requests do not carry one, so hosting stays at
-this build's own version.
+client versions because join requests do not carry one. Signed table rows may
+extend discovery numbers without changing the game codec.
 */
 
 #ifndef __HALO_NETWORK_VERSION_H
 #define __HALO_NETWORK_VERSION_H
 
 #include "halo_port_limits.h"
+#include "halo_delta_legacy.h"
 
 /* the oldest version a client joins (29 is the last whose rules the later
 ones add to) */
@@ -41,6 +42,7 @@ their own destruction */
 #define HALO_NETWORK_VERSION_DEDICATED 39
 /* the join request adds an empty pass and proof field */
 #define HALO_NETWORK_VERSION_JOIN_PASS_FIELD 40
+/* The built-in ceiling; signed tables may extend it. */
 #define HALO_NETWORK_VERSION_NEWEST_JOINABLE 41
 
 /* the older versions a client of this build joins, one bit per version from
@@ -51,6 +53,10 @@ version. No host of 33 or 37 was released, so neither is joined. */
 /* whether a client of version `ours` joins a host of version `theirs` */
 static inline int halo_network_version_joinable(unsigned ours, unsigned theirs)
 {
+	/* Signed rows extend only the newer side; the historical mask stays exact. */
+	if (ours == HALO_PORT_NETWORK_VERSION && theirs > HALO_NETWORK_VERSION_NEWEST_JOINABLE &&
+		delta_legacy_joinable(theirs))
+		return 1;
 	/* port: newer hosts keep the game codec; 40 and 41 need join padding. */
 	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS &&
 		theirs >= HALO_NETWORK_VERSION_DEDICATED && theirs <= HALO_NETWORK_VERSION_NEWEST_JOINABLE)

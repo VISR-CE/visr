@@ -1013,6 +1013,14 @@ void main_revert_map(
 void main_skip_cinematic(
 	void)
 {
+	/* port: a skip would run the script past the cutscene photo mode is framing (photo_mode.c) */
+	extern int photo_mode_active(void);
+
+	if (photo_mode_active())
+	{
+		error(_error_silent, "photo mode: cutscene skip blocked");
+		return;
+	}
 	main_globals.switch_to_structure_bsp_index = NONE;
 	main_globals.saving_map = FALSE;
 	main_globals.skip_cinematic = TRUE;

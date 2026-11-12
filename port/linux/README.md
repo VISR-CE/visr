@@ -242,6 +242,8 @@ the setting for one start of the game. It has priority over the file.
 
 | Setting | Type and accepted values | Default (Apple) | Platforms | Environment | Description |
 | --- | --- | --- | --- | --- | --- |
+| `display.graphics` | string | `"enhanced"` | apple, desktop | `HALO_GRAPHICS` | The game's look: "enhanced" (default) is the original game tastefully enhanced, with ambient occlusion, shadows under props and per-pixel lighting; "classic" draws only what the original Xbox drew, at this device's resolution and frame rate, with upscaled textures, a sharp HUD, more room for decals, bodies and particles, and soft particle edges; "hardcore" is the original Xbox exactly: 640x480 at 30 frames a second, the Xbox's limits, nothing added. |
+| `display.crt_effect` | boolean | `false` | apple | `HALO_CRT_EFFECT` | With display.graphics = "hardcore": show the 640x480 picture as a composite CRT television did, with scanlines, a phosphor mask, soft sideways color and a glow on bright light; false (default) shows the clean picture. |
 | `display.fullscreen` | boolean | `true` | desktop | `HALO_FULLSCREEN` | Where display.mode is empty: start borderless over the whole display; false starts in a window. |
 | `display.mode` | string | `""` | desktop | `HALO_DISPLAY_MODE` | "fullscreen" takes the display (at display.resolution's mode), "borderless" is a window over the whole desktop, "windowed" a window (display.window_size). |
 | `display.resolution` | string | `"native"` | desktop | `HALO_RESOLUTION` | What fullscreen and borderless draw at: "native", the display's own, or "<width>x<height>" ("1920x1080"), 640x480 or more. |
@@ -254,10 +256,17 @@ the setting for one start of the game. It has priority over the file.
 | `display.decal_batching` | boolean | `true` | apple, desktop | `HALO_DECAL_BATCHING` | Draw the decals (bullet holes, blood, scorch marks) that share a texture in one draw each rather than one draw a decal: the same picture for less CPU time. |
 | `display.light_volume_batching` | boolean | `true` | apple, desktop | `HALO_LIGHT_VOLUME_BATCHING` | Draw the sprites of a light volume (a glow drawn as a row of sprites along an object's marker) in one draw rather than one draw a sprite: the same picture for less CPU time. |
 | `display.shadow_batching` | boolean | `true` | apple, desktop | `HALO_SHADOW_BATCHING` | Draw all of a view's character and vehicle shadows before laying any on the world, and in stereo lay one eye's shadows in the other too: the picture's pass is no longer interrupted for each shadow. |
+| `display.per_pixel_lighting` | boolean | `true` | apple, desktop | `HALO_PER_PIXEL_LIGHTING` | Light characters, weapons and vehicles per pixel: the game's own lights, colors, ranges and falloff, with its reflection tint and direction, worked out for each pixel instead of at each vertex and blended across the triangle. |
+| `display.point_light_highlight` | integer | `2` | apple, desktop | `HALO_POINT_LIGHT_HIGHLIGHT` | With display.per_pixel_lighting: a highlight on shiny surfaces from the two point lights the game already lights each object with (muzzle flashes, plasma, flashlights), in their own color and range, added to the surface's reflection so its own tint and specular mask apply. 0 none; 1 to 4 brighter and broader in turn, 1 the dimmest and tightest; 2 by default. |
+| `display.point_light_limit` | integer | `2` | apple, desktop | `HALO_POINT_LIGHT_LIMIT` | With display.per_pixel_lighting: how many of the dynamic lights near a character, weapon or vehicle light it, strongest first, 2 (the game's own) to 8. |
 | `display.shadow_minimum_size` | integer | `0` | apple, desktop | `HALO_SHADOW_MINIMUM_SIZE` | Device-profile floor on how small a character or vehicle may look and still cast its shadow, in pixels of the 480-line picture, 0 to 240. |
 | `display.dynamic_light_limit` | integer | `0` | apple, desktop | `HALO_DYNAMIC_LIGHT_LIMIT` | Device-profile cap on dynamic lights illuminating level surfaces, 0 to 128. |
 | `display.specular_light_limit` | integer | `0` | apple, desktop | `HALO_SPECULAR_LIGHT_LIMIT` | Device-profile cap on specular lights among the level's selected dynamic lights, 0 to 128. |
+| `display.soft_particles` | boolean | `true` | apple, desktop | `HALO_SOFT_PARTICLES` | Smoke, dust and plasma fade where they meet the ground and walls instead of cutting a hard line (camera-facing particles; Metal, not in stereo or with multisampling). |
+| `display.effect_limits` | string | `"raised"` | apple, desktop | `HALO_EFFECT_LIMITS` | How many bullet holes, scorch marks and blood stains a level keeps, and how many particles each split-screen player sees of an effect: "raised" (default) four times the Xbox's decals and every player the effect's whole count; "xbox" the Xbox's 2048 decals and its split-screen share. |
 | `display.shadow_map_size` | integer | `128` | apple, desktop | `HALO_SHADOW_MAP_SIZE` | The size of the textures characters' and vehicles' shadows are drawn into, 128 (as on the Xbox) to 512: larger is smoother. |
+| `display.ambient_occlusion` | boolean | `false` | apple | `HALO_AMBIENT_OCCLUSION` | Soft darkening where characters, vehicles and props meet the ground and the walls (screen-space ambient occlusion over the level's light and, weaker, the objects), which the original game never drew. |
+| `display.shadow_props` | boolean | `true` | apple, desktop | `HALO_SHADOW_PROPS` | Give the level's Covenant crates, shield and field emitters, and its devices (machines, controls and light fixtures) a shadow of their own, which the original game never drew for scenery or devices. |
 | `display.effect_resolution` | string | `"half"` | apple, desktop | `HALO_EFFECT_RESOLUTION` | The resolution of the 320x240 target the reflections in mirror floors and the active camouflage are drawn into: "xbox" keeps the Xbox's 320x240, "half" is half the screen's resolution each way, and "full" the screen's resolution (sharper; up to a whole second render of the scene's pixels where a mirror shows). |
 | `display.model_lod` | string | `"max"` | apple, desktop | `HALO_MODEL_LOD` | Which geometry detail level models draw: "max" (default) always the highest they have, so they never pop between levels or drop out with distance; "auto" picks by on-screen size, as the Xbox did. |
 | `display.lod_scale` | number | `1.0` | apple | `HALO_LOD_SCALE` | HEAD mode and the side-by-side view: a multiplier on the pixel size the game picks model detail and particle distance by; 1.0 is the Xbox's (0.5 to 4). |
@@ -450,11 +459,11 @@ the setting for one start of the game. It has priority over the file.
 | `controls.melee` | string | `"F, Mouse 4"` | apple, desktop | `HALO_KEY_MELEE` | Melee attack. |
 | `controls.reload` | string | `"R"` | apple, desktop | `HALO_KEY_RELOAD` | Reloading. |
 | `controls.zoom` | string | `"Z, Mouse Middle"` | apple, desktop | `HALO_KEY_ZOOM` | Zooming the scope. |
-| `controls.switch_weapon` | string | `"Wheel, 1"` | apple, desktop | `HALO_KEY_SWITCH_WEAPON` | Switching weapons. |
+| `controls.switch_weapon` | string | `"Wheel, Tab"` | apple, desktop | `HALO_KEY_SWITCH_WEAPON` | Switching weapons. |
 | `controls.switch_grenade` | string | `"X"` | apple, desktop | `HALO_KEY_SWITCH_GRENADE` | Switching grenades. |
 | `controls.action` | string | `"E"` | apple, desktop | `HALO_KEY_ACTION` | The action: picking up (held: swapping weapons), entering and leaving vehicles, pressing switches; never reloading (the controller's X does when there is nothing to act on). |
 | `controls.flashlight` | string | `"Q"` | apple, desktop | `HALO_KEY_FLASHLIGHT` | The flashlight. |
-| `controls.scoreboard` | string | `"Tab"` | apple, desktop | `HALO_KEY_SCOREBOARD` | Showing the scores (the controller's Back). |
+| `controls.scoreboard` | string | `"1"` | apple, desktop | `HALO_KEY_SCOREBOARD` | Showing the scores (the controller's Back). |
 | `controls.pause` | string | `"Escape"` | apple, desktop | `HALO_KEY_PAUSE` | The pause menu (the controller's Start). |
 ### game
 
@@ -464,6 +473,7 @@ the setting for one start of the game. It has priority over the file.
 | `game.language` | string | `""` | apple, desktop | `HALO_LANGUAGE` | The language the game asks the Xbox for: "ja", "de", "fr", "es" or "it"; empty for English. |
 | `game.loading_screen` | string | `"auto"` | apple, desktop | `HALO_LOADING_SCREEN` | The loading screen over a campaign level's load: the last frame blurring away, the ring's picture lit from left to right as the load goes, and its tone, until the level is read and its shaders are compiled. "auto" (default) shows it except in a run that must draw the same frames every time (fixed timestep, an input replay or benchmark, debug.exit_after, screenshots) and except in stereo; "on" or "off" forces either. |
 | `game.loading_screen_seconds` | number | `1.5` | apple, desktop | `HALO_LOADING_SCREEN_SECONDS` | The least time the loading screen stays up, in seconds (0 to 30), so a level that is ready at once doesn't flash it. |
+| `game.garbage_limit` | string | `"raised"` | apple, desktop | `HALO_GARBAGE_LIMIT` | How many bodies and dropped weapons a game keeps before the ones no player sees are removed: "raised" (default) four times the Xbox's in a game on this device alone, the Xbox's in a network game and while an input recording is made or replayed; "xbox" the Xbox's always (30 to 50 for 16 players). |
 | `game.enhanced_animations` | boolean | `true` | apple, desktop | `HALO_ENHANCED_ANIMATIONS` | The player bipeds' grenade throws keep their legs moving (crouched, in the air and in a vehicle's seat too), riders' hands leave the grips to throw and reload, and a player turns with the aim while throwing; false: the original animations, which freeze the legs and stand a rider up. |
 | `game.custom_edition` | boolean | `true` | apple, desktop | `HALO_CUSTOM_EDITION` | Load and run Halo Custom Edition maps (not those that need OpenSauce): put them and Custom Edition's bitmaps.map, sounds.map and loc.map in the custom_maps folder beside the maps folder; the map lists show them as CUSTOM SINGLEPLAYER and CUSTOM MULTIPLAYER. |
 ### display
@@ -499,7 +509,9 @@ the setting for one start of the game. It has priority over the file.
 | `network.browser_show_locked` | boolean | `true` | apple, desktop | `HALO_NET_BROWSER_SHOW_LOCKED` | Whether the server browser lists games with a password (FILTERS' PASSWORD GAMES). |
 | `network.browser_show_unjoinable` | boolean | `false` | apple, desktop | `HALO_NET_BROWSER_SHOW_UNJOINABLE` | Whether the server browser lists games this build cannot join: another network version, a mode it does not play, or a join that failed this run (FILTERS' GAMES I CAN'T JOIN). |
 | `network.delta_browse` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_BROWSE` | The server browser also lists the games of Delta's public list (network.delta_url), run by others, with the network version of each; games of a version this build can't join are shown and not joined. |
-| `network.delta_announce` | boolean | `false` | apple, desktop | `HALO_NET_DELTA_ANNOUNCE` | List the public game this machine hosts for the internet (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. |
+| `network.delta_table` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_TABLE` | Accept signed Delta legacy tables from the save cache and fetch them in the background from network.delta_url, with a GitHub fallback. |
+| `network.delta_peer` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_PEER` | Exchange Delta handshakes and platform claims after joining a host that advertises Delta. |
+| `network.delta_announce` | boolean | `true` | apple, desktop | `HALO_NET_DELTA_ANNOUNCE` | Publish the public internet game this machine hosts (Create Game > Internet, PUBLIC, no password) in Delta's public list (network.delta_url), so that players using it find it. |
 | `network.delta_url` | string | `"https://halo.milenko.org"` | apple, desktop | `HALO_NET_DELTA_URL` | The address of Delta's public game list, whose /v1/games the server browser reads (network.delta_browse) and whose /v1/announce a hosted game is listed at (network.delta_announce). |
 | `network.host_public` | boolean | `false`; desktop `true` | apple, desktop | `HALO_NET_HOST_PUBLIC` | Whether a new game of Create Game > Internet starts as PUBLIC (listed in everyone's server browser: anyone can see and join it) or, false, PRIVATE (only players with its invite link can join). |
 | `network.player_capacity` | integer | `0` | apple, desktop | `HALO_NET_PLAYER_CAPACITY` | The most players this device holds at 30 frames a second at the lowest settings, 2 to 128; 0 (default) names no limit. |
@@ -539,7 +551,8 @@ the setting for one start of the game. It has priority over the file.
 | `debug.output_height` | integer | `0` | apple | `HALO_OUTPUT_HEIGHT` | Cap the built-in display's drawable at this many lines for measuring (0, the default: the device's own size, or an Apple TV profile's display.output_height); the system scales it to the panel. iPhone, iPad and Apple TV with Metal, read at launch. |
 | `debug.render_scale_dpad` | boolean | `false` | apple | `HALO_RENDER_SCALE_DPAD` | While Back is held, the D-pad's left and right step the render scale (display.render_scale) down and up by 0.05 as the game runs, shown on screen for two seconds; the game doesn't see the D-pad meanwhile. |
 | `debug.render_scale_sweep` | integer | `0` | apple | `HALO_RENDER_SCALE_SWEEP` | Every this many frames, step the render scale 0.005 down a 100-step ramp from 1.0 and wrap to 1.0, each step a new render target size, for checking that debug.gpu_stats' live render targets stay flat (0, the default: off). |
-| `debug.knob_cycle` | boolean | `false` | apple | `HALO_KNOB_CYCLE` | While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as "knob: <setting>=<value>". |
+| `debug.graphics_cycle` | integer | `0` | apple | `HALO_GRAPHICS_CYCLE` | Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved, wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame without leaks or stalls. 0 (default) does nothing. |
+| `debug.knob_cycle` | boolean | `false` | apple | `HALO_KNOB_CYCLE` | While Back is held, the D-pad's up and down choose a quality setting (render height, shadow map size, anisotropic filtering, model detail, anti-aliasing, effect resolution, mirror resolution, per-pixel lighting, point-light highlight, point light limit) and left and right step its value as the game runs, from the next frame, shown on screen for two seconds and logged as "knob: <setting>=<value>". |
 | `debug.sense_tuning_chord` | boolean | `false` | apple | `HALO_SENSE_TUNING_CHORD` | While a hand aims and Back (Create) is held, controller buttons change aim and arms tuning as the game runs (laser mode, aim assist, steadying, pitch offset, origin raise, reticle easing, arms, gun smoothing), and the game sees neither stick meanwhile. |
 | `debug.split_screen_hud` | boolean | `false` | apple, desktop | `HALO_SPLIT_SCREEN_HUD` | Split screen draws the Xbox's split screen HUD (its smaller elements, packed against the screen's title-safe edges) instead of each player's full HUD laid out in their own view as in a one-player game. |
 | `debug.split_hud_margin` | number | `-1` | apple, desktop | `HALO_SPLIT_HUD_MARGIN` | In split screen, the margin between each player's HUD and the edges of their view, as a fraction of the view's height, 0.0 to 0.2. |
@@ -602,6 +615,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.init_after` | number | `0.0` | apple, desktop | `HALO_INIT_AFTER` | Run init.txt's commands this many seconds after start-up instead of at once, so a test can wait at the main menu and then start a level ('map_name a10') in the same launch; 0 at once. |
 | `debug.benchmark_window_marker` | boolean | `false` | apple, desktop | `HALO_BENCHMARK_WINDOW_MARKER` | Show the measured benchmark window and a five-second countdown onscreen. |
 | `debug.benchmark_review_take` | boolean | `false` | apple, desktop | `HALO_BENCHMARK_REVIEW_TAKE` | In an onscreen benchmark replay, play the rest of the recorded input after the measured window closes. |
+| `debug.per_pixel_lighting_alternate` | integer | `0` | apple, desktop | `HALO_PER_PIXEL_LIGHTING_ALTERNATE` | Matched stills: odd frames lit as the display settings say, even frames the plain way, so that with the game paused two frames in a row are the same picture both ways. 1: even frames per vertex; 2: even frames per pixel with no point-light highlight and the game's two point lights; 0 none. |
 | `debug.fixed_timestep` | boolean | `false` | apple, desktop | `HALO_FIXED_TIMESTEP` | Advance the game's clock 1/30 s per frame, however long the frame took, so two runs show the same frames; debug.exit_after then counts seconds of game time, 30 frames each (600 = 18,000 frames). |
 | `debug.hidden_window` | boolean | `false` | desktop | `HALO_HIDDEN_WINDOW` | Keep the window hidden (and never fullscreen). |
 | `debug.null_renderer` | boolean | `false` | apple, desktop | `HALO_NULL_RENDERER` | Run without a window, drawing nothing. |
@@ -634,10 +648,14 @@ the setting for one start of the game. It has priority over the file.
 | `debug.metal_specialize` | boolean | `true` | apple | `HALO_METAL_SPECIALIZE` | With the Metal renderer, specialize each pipeline's vertex shader for its attribute formats; false uses the unspecialized shaders, which read the formats per draw (the fallback when specializing fails), to compare. |
 | `debug.metal_vertex_bgra` | boolean | `true` | apple | `HALO_METAL_VERTEX_BGRA` | With the Metal renderer, the vertex shaders read vertex colors in the game's own byte order (BGRA); false swaps the bytes of every colored vertex on the CPU as it is uploaded, as the OpenGL ES renderer has to, to compare. |
 | `debug.metal_base_vertex` | boolean | `true` | apple | `HALO_METAL_BASE_VERTEX` | With the Metal renderer, indexed draws take a base vertex, so their indices are drawn as the game holds them; false copies and rebases every draw's indices on the CPU, as the OpenGL ES renderer has to, to compare. |
-| `debug.browser_fake_big` | boolean | `false` | apple, desktop | `HALO_BROWSER_FAKE_BIG` | Development builds only: the server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.full_rate_players below 16, or network.player_capacity below 16 when full_rate_players is 0. |
+| `debug.browser_fake_big` | boolean | `false` | apple, desktop | `HALO_BROWSER_FAKE_BIG` | The server browser lists one extra game marked BIG (12 of 16 players), to see the join warning without a real host; set network.full_rate_players below 16, or network.player_capacity below 16 when full_rate_players is 0. |
 | `debug.browser_fake_games` | boolean | `false` | apple, desktop | `HALO_BROWSER_FAKE_GAMES` | Development builds only: the server browser lists a fixed set of fourteen made-up games instead of the live list, so its sort, filters and empty result look the same on every run. |
+| `debug.menu_min_scale` | boolean | `true` | apple, desktop | `HALO_MENU_MIN_SCALE` | Enlarge front-end and pause menu widgets toward one point per menu unit by cropping only their backdrop margins. visionOS keeps its existing scale. |
+| `debug.menu_density` | integer | `-1` | apple, desktop | `HALO_MENU_DENSITY` | Menu list row density, fixed at load: -1 uses the platform default, 0 uses comfortable rows, 1 uses compact rows. |
 | `debug.menu_open` | string | `""` | apple, desktop | `HALO_MENU_OPEN` | Start on this screen of the menus (port/assets/menus) instead of the main menu, a player profile being edited; empty for the main menu. |
+| `debug.menu_error` | string | `""` | apple, desktop | `HALO_MENU_ERROR` | Development builds only: after the menu loads, call the real error API. |
 | `debug.menu_open_coop` | boolean | `false` | apple, desktop | `HALO_MENU_OPEN_COOP` | With debug.menu_open on Server Setup, show it as a co-op host's, though no game is hosted (for screenshots). |
+| `debug.menu_text_seed` | string | `""` | apple, desktop | `HALO_MENU_TEXT_SEED` | The join password and Direct Link code screens open with this text already entered and the keyboard closed, to see their held-text state (for screenshots); on the password screen a leading `*` starts it hidden; empty for none. |
 | `debug.gpu_flush_draws` | integer | `-1` | desktop | `HALO_GPU_FLUSH_DRAWS` | Flush the GPU's pipeline every this many draws: -1 for every 3 on Intel graphics with Mesa's driver (which can hang without), 0 never. |
 | `debug.dynamic_resolution_shadow` | boolean | `false` | apple | `HALO_DYNAMIC_RESOLUTION_SHADOW` | With the Metal renderer, log and record the dynamic resolution planner's choices without changing the rendered resolution. |
 | `debug.dynamic_resolution_lines` | integer | `0` | apple | `HALO_DYNAMIC_RESOLUTION_LINES` | Turn dynamic resolution on and hold the 3D view at this many lines inside its ceiling's targets (from its floor to its ceiling), for comparisons; 0 for the planner's choice. |
@@ -655,8 +673,29 @@ the setting for one start of the game. It has priority over the file.
 | `debug.gpu_debug_flat` | boolean | `false` | apple, desktop | `HALO_GPU_DEBUG_FLAT` | Pixel shaders show their vertex colour. |
 | `debug.companion_capture` | boolean | `false` | apple, desktop | `HALO_COMPANION_CAPTURE` | Draw the companion HUD without an external display and save it with screenshots. |
 | `debug.screenshot_directory` | string | `""` | apple, desktop | `HALO_SCREENSHOT_DIR` | A folder to save frames to (with screenshot_every); empty none. |
+| `debug.shadow_scenery` | integer | `0` | apple, desktop | `HALO_SHADOW_SCENERY` | For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all scenery, bit 2 all devices, bit 4 equipment and garbage). |
 | `debug.shadow_blur` | string | `"footprint"` | apple, desktop | `HALO_SHADOW_BLUR` | How object shadows larger than 128 texels (display.shadow_map_size) are blurred: "footprint" over the area the game's blur covers at 128, "xbox" the game's taps at their fixed offsets (at 512 they fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur. |
+| `debug.screenshot_frames` | string | `""` | apple, desktop | `HALO_SCREENSHOT_FRAMES` | With screenshot_every: save only frames in these ranges, "900-1200;1800-2100" ("," also separates them); empty saves every one. |
+| `debug.screenshot_scene_only` | boolean | `false` | apple, desktop | `HALO_SCREENSHOT_SCENE_ONLY` | With screenshot_every: save only the scene as drawn when it has its own target, not the presented frame. |
+| `debug.soft_particle_distance` | number | `0.06` | apple, desktop | `HALO_SOFT_PARTICLE_DISTANCE` | With display.soft_particles: how far in front of a surface a particle starts to fade, in world units (1 is 10 feet). |
+| `debug.soft_particle_scale` | integer | `2` | apple, desktop | `HALO_SOFT_PARTICLE_SCALE` | With display.soft_particles: the scene distances the particles fade against, at full resolution (1) or half (2, the nearest level surface of each 2x2 block). |
 | `debug.screenshot_every` | integer | `0` | apple, desktop | `HALO_SCREENSHOT_EVERY` | Save every this many frames to screenshot_directory; 0 none. |
+| `debug.ssao` | integer | `0` | apple | `HALO_SSAO` | A spike: screen-space ambient occlusion over the level's lightmap light and, weaker, the objects. 0 off, 1 on, 2 the occlusion alone, 3 the normals rebuilt from depth, 4 the pixel classes and depth, 5 the pass break alone (Metal; mono views only). |
+| `debug.ssao_radius` | number | `0.3` | apple | `HALO_SSAO_RADIUS` | With debug.ssao: how far occlusion reaches, in world units (1 is 10 feet). |
+| `debug.ssao_strength` | number | `1.5` | apple | `HALO_SSAO_STRENGTH` | With debug.ssao: the power the visibility is raised to; higher darkens more. |
+| `debug.ssao_objects` | number | `0.3` | apple | `HALO_SSAO_OBJECTS` | With debug.ssao: how much of the occlusion the objects' pixels take (their whole color, specular included). |
+| `debug.ssao_static_weight` | number | `0` | apple | `HALO_SSAO_STATIC_WEIGHT` | With debug.ssao: how much the level's own surfaces occlude the level (its lightmaps already hold that); objects always occlude fully. |
+| `debug.ssao_high` | boolean | `true` | apple | `HALO_SSAO_HIGH` | With debug.ssao: two directions and four steps a side per pixel; false, one direction and three steps. |
+| `debug.ssao_steps` | integer | `0` | apple | `HALO_SSAO_STEPS` | With debug.ssao: steps a side along each direction in place of debug.ssao_high's; 0 its own. |
+| `debug.ssao_max_pixels` | number | `0.12` | apple | `HALO_SSAO_MAX_PIXELS` | With debug.ssao: the farthest a sample goes on screen, as a fraction of the view's height. |
+| `debug.ssao_fade_distance` | number | `35` | apple | `HALO_SSAO_FADE_DISTANCE` | With debug.ssao: the occlusion fades out from 0.6 of this distance to this distance (world units). |
+| `debug.ssao_level_floor` | number | `0.35` | apple | `HALO_SSAO_LEVEL_FLOOR` | With debug.ssao: the least light occlusion leaves on the level (so contacts on dark lightmaps do not go black). |
+| `debug.ssao_object_floor` | number | `0.6` | apple | `HALO_SSAO_OBJECT_FLOOR` | With debug.ssao: the least of an object's color occlusion leaves (before debug.ssao_objects scales it). |
+| `debug.ssao_path` | integer | `1` | apple | `HALO_SSAO_PATH` | With debug.ssao 1: 0 a depth-aware upsample to full resolution, 1 the blurred half-resolution occlusion sampled bilinearly as it is applied, 2 the same without the blur. |
+| `debug.ssao_stop` | integer | `0` | apple | `HALO_SSAO_STOP` | With debug.ssao 1, to measure the stages: 1 only the depth preparation, 2 also the gather, 3 every dispatch; none of them applies the occlusion. 0 everything. |
+| `debug.ssao_gather_v1` | boolean | `false` | apple | `HALO_SSAO_GATHER_V1` | With debug.ssao 1: the first spike's depth preparation and gather, to time them against the current ones. |
+| `debug.ssao_scale` | integer | `4` | apple | `HALO_SSAO_SCALE` | With debug.ssao 1 and debug.ssao_path 1 or 2: compute the occlusion at half (2) or quarter (4) resolution. |
+| `debug.stencil_views` | boolean | `true` | apple | `HALO_STENCIL_VIEWS` | Make depth targets readable as stencil views, which SSAO and soft particle edges need; false to measure what that costs (neither then runs). |
 | `debug.texture_astc` | string | `"auto"` | apple | `HALO_TEXTURE_ASTC` | DXT-to-ASTC texture preparation: "auto" (default) converts on GPUs without BC once the release enables it, "force" emulates a GPU without BC for validation, "off" disables it. |
 | `debug.texture_astc_sync` | boolean | `false` | apple | `HALO_TEXTURE_ASTC_SYNC` | Wait for ASTC map preparation before loading, for screenshot validation only. |
 | `debug.texture_upscale_generate` | string | `"auto"` | apple | `HALO_TEXTURE_UPSCALE_GENERATE` | Make upscaled textures on this device: "auto" (default) where the device's profile and the display.upscaled_textures switch both say so and Core ML has a Neural Engine (at import, in menus, loading and pauses, never in gameplay), "force" whatever the profile says, "off" never. |
@@ -958,8 +997,8 @@ left out. A game that a broker also lists is shown once.
   pressed. It sends nothing but the request (the program name VISR, and no
   language, setting, name or game). The list's server sees this machine's
   internet address, as the brokers do.
-- Announcing (`network.delta_announce`, off): the PUBLIC game this machine
-  hosts for the internet, without a password, is also listed in the list
+- Announcing (`network.delta_announce`, on by default): the PUBLIC game this machine
+  hosts for the internet, without a password, is published to `network.delta_url`
   (`POST /v1/announce`), every minute and when the game changes (the list
   drops a game it has not heard of in 75 seconds), and withdrawn
   (`POST /v1/withdraw`) when the game ends, goes private, gets a password
@@ -967,21 +1006,30 @@ left out. A game that a broker also lists is shown once.
   `network.online` is off; the list drops the game in 75 seconds). It sends
   the invite (anyone who has it can join the game), the name, map, game type
   number (not its name), player counts, whether it is open and has teams,
-  this build's network version, and `delta=0` (the game's own protocol
-  alone), and the list's server sees this machine's internet address. It
-  sends no player's name, platform, build or address of the machine. The list tries
-  to reach a new game before it lists it, and refuses it for two minutes if
-  it cannot: this build waits and tries again.
+  this build's network version, platform key, architecture, build, and
+  capabilities. With `network.delta_peer` on, this setting also opens the
+  Delta socket on the game server port plus 10 (normally 5160) for hosted LAN
+  and internet games. The list's `delta` field is the major while that socket is open, otherwise 0. A busy
+  port leaves the game on legacy. The list's server sees this machine's
+  internet address; no player's name, roster, profile, or stats are sent.
+  The list tries to reach a new game before it lists it, and refuses it for
+  two minutes if it cannot: this build waits and tries again.
+- Delta Peer (`network.delta_peer`, on): after joining an advertised Delta
+  host and receiving a machine index, exchange a handshake, build string,
+  and platform key with that host. HELLO repeats every 500 ms; after 4
+  seconds without an answer, that game stays on legacy. The host relays
+  platform claims in a bounded roster. This runs beside the game and never
+  blocks play. Turning it off also disables hosting a Delta socket.
 - `network.delta_url = ""` turns both off. The requests are made on a
   thread of their own (`src/p2p_delta.c`) with the system's TLS (Mbed TLS
   and the system's certificate authorities on Linux, WinHTTP on Windows,
   `NSURLSession` on Apple devices) and never follow a redirect. The answer
   is read as untrusted text (`src/delta_list.c`).
 
-Delta Peer (the version and capability exchange on UDP port 5160), the
-signed table of network versions, the statistics and link calls and the
-control interface are not used: a game joined from the list is joined by
-its invite, as any other, and plays the game's own protocol.
+A game joined from the list is joined by its invite, as any other, and
+plays the game's own protocol with the optional Delta Peer exchange above.
+The signed table of network versions, statistics, link calls and control
+interface are not used.
 
 How it operates (`src/p2p_lobby.c`):
 

@@ -58,6 +58,8 @@ void draw_string_set_font(
 	long font_index);
 long draw_string_get_font(
 	void);
+void draw_string_restore_font(
+	long font_index);
 void draw_string_set_format(
 	short style,
 	short justification,

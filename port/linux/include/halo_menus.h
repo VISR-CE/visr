@@ -117,6 +117,10 @@ struct halo_menu_widget
 	long has_width, has_height;
 	/* a column list's rows shown at once (0: all) */
 	long visible_rows;
+	/* a settings list's rows (children named op_*): the first one's y and the
+	pitch they are packed at, so rows for another platform leave no gap (0: as
+	placed) */
+	long row_top, row_pitch;
 	/* indices in their arrays, or HALO_MENU_NONE */
 	long parent, first_child, first_handler, first_input, first_conditional, first_replace;
 	char const *file;
@@ -193,6 +197,8 @@ struct halo_menus
 
 /* the menus, read from the files (once; the same each call after); NULL if
 there are none, or a file has an error (logged) */
+/* Select before the first load; cached menus keep their original density. */
+void halo_menus_set_compact_density(int compact);
 struct halo_menus const *halo_menus_load(void);
 /* text as UTF-16, its terminator included, "\n" written as the game's line
 breaks ("\r\n"): the number of characters written (at most capacity) */

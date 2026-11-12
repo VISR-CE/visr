@@ -1613,7 +1613,9 @@ static void particle_system_render(
 							2,
 							state_definition->bitmaps.index,
 							shader,
-							0);
+							/* port: camera-facing sprites take soft edges (halo_soft_particles_prepare) */
+							type_definition->sprite_render_mode == _build_sprite_normal ?
+								FLAG(HALO_BUILD_SPRITES_SOFT_BIT) : 0);
 						if (type_definition->complex_sprite_render_mode ==
 							_particle_system_type_complex_sprite_render_mode_rotational)
 						{
@@ -1673,7 +1675,9 @@ static void particle_system_render(
 							2,
 							transition_state_definition->bitmaps.index,
 							transition_shader,
-							0);
+							/* port: camera-facing sprites take soft edges (halo_soft_particles_prepare) */
+							type_definition->sprite_render_mode == _build_sprite_normal ?
+								FLAG(HALO_BUILD_SPRITES_SOFT_BIT) : 0);
 						position_viewer_space.z += 0.001f;
 						if (type_definition->complex_sprite_render_mode ==
 							_particle_system_type_complex_sprite_render_mode_rotational)

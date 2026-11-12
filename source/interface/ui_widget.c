@@ -667,6 +667,9 @@ struct widget_instance;
 /* port: the menus' redraw (port/linux/src/ui_redraw.c) */
 void ui_redraw_begin_screen(char const *tag_name);
 void ui_redraw_end_screen(void);
+#include "menu_scale.h" /* port: shared content bounds and padding */
+void halo_screen_menu_content(float top, float bottom);
+static void ui_widget_menu_content(struct widget_instance *widget);
 void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
 long ui_redraw_touch_target_units(void);
 #include "rasterizer/rasterizer.h"
@@ -1391,6 +1394,9 @@ boolean pc_menu_patch_list_index(
 /* port: unavailable browser rows stay focusable for their reason text
 (port/linux/game/menu_functions.c), and draw in gray. */
 boolean ui_widget_port_browser_row_unavailable(
+	struct widget_instance *widget);
+/* port: a graphics-mode override locks editing without disabling the row (menu_functions.c). */
+boolean ui_widget_port_graphics_locked(
 	struct widget_instance *widget);
 /* port: where in its widget, and how large, the menus draw a frame of
 ui.map's that they scale (port/linux/game/menu_tags.c) */
@@ -2817,6 +2823,57 @@ static void widget_instance_give_focus_by_tag(
 	return;
 }
 
+/* port: a locked row still receives focus and help, but its edit presses must stop before the hidden spinner's
+handlers run. Mouse clicks and taps arrive as A or left/right button events through ui_widgets_process_mouse. */
+static boolean widget_instance_port_refuse_graphics_edit(
+	struct widget_instance *widget,
+	struct event_record *event)
+{
+	boolean edit = event->type == _event_type_button && event->data.button.value == 1 &&
+		(event->data.button.index == _gamepad_analog_button_a ||
+		 event->data.button.index == _widget_event_dpad_left || event->data.button.index == _widget_event_dpad_right);
+
+	edit = edit || (event->type == _event_type_left_stick && event->data.stick.x != 0);
+	if (!edit || !ui_widget_port_graphics_locked(widget))
+		return FALSE;
+	ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+	return TRUE;
+}
+
+/* port: the native Xbox controller pages normally copy their spinners to
+player_ui only on exit. Run that same copy after each input step, then save.
+Generated settings have their own changed handlers in menu_functions.c. */
+static void widget_profile_spinner_save(struct widget_instance *spinner)
+{
+	extern boolean pc_menu_profile_auto_save_enabled(void);
+	extern boolean pc_menu_profile_save_on_back(void);
+	struct widget_instance *list;
+
+	if (spinner->type != _ui_widget_type_spinner_list || !main_menu_is_active() ||
+		!pc_menu_profile_auto_save_enabled())
+		return;
+	for (list = spinner->parent; list; list = list->parent)
+	{
+		struct ui_widget_definition *definition = ui_widget_definition_get(list->definition_tag_index);
+		struct ui_widget_event_handler_reference *handlers = definition->event_handlers.address;
+		long index;
+
+		for (index = 0; index < definition->event_handlers.count; index++)
+		{
+			/* Native controller and advanced-controller save functions. */
+			if (TEST_FLAG(handlers[index].flags, _event_handler_run_function_bit) &&
+				(handlers[index].function == 70 || handlers[index].function == 71))
+			{
+				boolean deleted = FALSE;
+
+				if (ui_widget_event_handler_function_invoke(list, NULL, handlers[index].function, &deleted))
+					pc_menu_profile_save_on_back();
+				return;
+			}
+		}
+	}
+}
+
 boolean widget_event_function_list_widget_goto_next_item(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -2831,6 +2888,12 @@ boolean widget_event_function_list_widget_goto_next_item(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
 		1230,
 		widget);
+	/* port: direct cycle handlers must obey the same lock as input dispatch. */
+	if (ui_widget_port_graphics_locked(widget))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -2951,7 +3014,10 @@ boolean widget_event_function_list_widget_goto_next_item(
 		}
 	}
 	if (result)
+	{
 		widget->parameters.list.last_list_tab_direction = 15;
+		widget_profile_spinner_save(widget); /* port */
+	}
 
 	return result;
 }
@@ -2969,6 +3035,12 @@ boolean widget_event_function_list_widget_goto_previous_item(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
 		1359,
 		widget);
+	/* port: direct cycle handlers must obey the same lock as input dispatch. */
+	if (ui_widget_port_graphics_locked(widget))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -3088,6 +3160,7 @@ boolean widget_event_function_list_widget_goto_previous_item(
 		}
 	}
 	widget->parameters.list.last_list_tab_direction = -15;
+	widget_profile_spinner_save(widget); /* port */
 
 	return TRUE;
 }
@@ -4141,11 +4214,11 @@ struct widget_instance *ui_widget_load_by_name_or_tag(
 		(widget_stack>=0) && (widget_stack<MAXIMUM_GAMEPADS));
 	if (tag_index == NONE)
 		tag_index = tag_loaded(UI_WIDGET_DEFINITION_TAG, name);
-	/* port: decide the menu look only at a screen open, never for its children. */
-	if (!parent && tag_index != NONE)
+	/* port: map screen opens and embedded save warnings (menu_tags.c). */
+	if (tag_index != NONE || name)
 	{
-		extern long pc_menu_screen_open(long tag_index);
-		long screen_tag = pc_menu_screen_open(tag_index);
+		extern long pc_menu_screen_open(long tag_index, char const *name, boolean root);
+		long screen_tag = pc_menu_screen_open(tag_index, name, parent == NULL);
 		if (screen_tag != tag_index)
 		{
 			focused_child_parent_widget_tag = NONE;
@@ -4669,6 +4742,7 @@ void display_error(
 {
 	if (cinematic_in_progress())
 	{
+		{ extern void platform_log(char const *, ...); platform_log("menus: display_error %d deferred for a cinematic", (int)error_code); }
 		if (local_player_index == NONE)
 			local_player_index = 0;
 		match_assert(
@@ -4769,6 +4843,11 @@ void display_error(
 				"invalid local player count");
 			break;
 		}
+		/* port: force a pane only during the development screenshot call. */
+		{
+			extern char const *pc_menu_debug_error_variant(char const *name, boolean modal);
+			widget_name = pc_menu_debug_error_variant(widget_name, modal);
+		}
 		if (widget_name)
 		{
 			widget_stack = local_player_index == NONE ? 0 : local_player_index;
@@ -4818,11 +4897,8 @@ void display_error(
 					"expected a text box widget in the error widget");
 				text_box->parameters.text_box.string_list_index = PIN(error_code, 0, NUMBER_OF_ERROR_CODES - 1);
 				/* (port: the port's own text in place of the error's) */
-				if (port_text)
-				{
-					ui_widget_port_error_text_box = text_box;
-					ui_widget_port_error_text = port_text;
-				}
+				ui_widget_port_error_text_box = text_box;
+				ui_widget_port_error_text = port_text;
 				widget->widget_is_error_dialog = TRUE;
 				if (!widget->pause_game_time)
 				{
@@ -4862,6 +4938,7 @@ void display_error(
 			}
 			else
 			{
+				{ extern void platform_log(char const *, ...); platform_log("menus: display_error %d failed to open %s", (int)error_code, widget_name); }
 				error(_error_silent, "failed to display error message");
 			}
 		}
@@ -4892,6 +4969,15 @@ void display_error_abort_to_dashboard(
 			widget->type == _ui_widget_type_text_box,
 			"expected a text box widget");
 		widget->parameters.text_box.string_list_index = error_code;
+		/* port: our text-box root holds the index; its visible text follows
+		the backdrop in draw order (tools/xbox_menus.py: dialog_document). */
+		if (widget->child && widget->child->child && widget->child->child->type == _ui_widget_type_text_box)
+		{
+			widget->child->child->parameters.text_box.string_list_index = error_code;
+			/* the same wrap to the dialog as every other error text (the game's own string) */
+			ui_widget_port_error_text_box = widget->child->child;
+			ui_widget_port_error_text = NULL;
+		}
 		widget->widget_is_error_dialog = TRUE;
 		dashboard_abort_error = error_code;
 	}
@@ -5246,6 +5332,11 @@ void main_screen_shell_load(
 		if (!widget_globals.main_menu_music_active)
 			ui_start_main_menu_music();
 		reset_last_player1_profile_index();
+		/* port: exercise real error APIs only after the menu has loaded. */
+		{
+			extern void pc_menu_debug_error_ready(void);
+			pc_menu_debug_error_ready();
+		}
 	}
 	if (!virtual_keyboard_initialize())
 		error(_error_silent, "failed to initialize the virtual keyboard");
@@ -5450,6 +5541,27 @@ static short ui_widget_port_text_width(wchar_t const *text)
 	return MAX(ink.x1, cursor.x0);
 }
 
+/* port: a string's width in a font, for the menus' layout (menu_tags.c
+sizes the settings lists' value columns with it as the menus are made). */
+short ui_widget_port_font_text_width(long font_index, void const *text)
+{
+	long old_font = draw_string_get_font();
+	short width;
+
+	if (font_index == NONE || !text)
+		return 0;
+	draw_string_set_font(font_index);
+	draw_string_set_format(NONE, 0, 0);
+	draw_string_set_indents(0, 0);
+	width = ui_widget_port_text_width((wchar_t const *)text);
+	/* (the font in force may not be one of this map's: before anything is
+	drawn it is the zeroed global's 0, and while a game map's menus are made
+	it is still the previous map's index, which draw_string_set_font would
+	look up as a font in the new map) */
+	draw_string_restore_font(old_font);
+	return width;
+}
+
 /* port: browser cells share this path for both menu looks. Use the rendered
 font's metrics and glyph table so a cut name ends visibly in an ellipsis. */
 void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text, short capacity)
@@ -5498,8 +5610,7 @@ void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text
 			}
 		}
 	}
-	if (old_font != NONE)
-		draw_string_set_font(old_font);
+	draw_string_restore_font(old_font);
 }
 
 /* port: the port's own error text (display_error_text_deferred), which may be
@@ -5516,17 +5627,38 @@ static boolean ui_widget_port_text_wrap(
 	long index;
 	boolean fits = TRUE;
 
+	/* the strings' line breaks (a \r\n pair, from "\n") were made for the original box's width: a single break is a
+	space now (this box wraps to its own width); a blank line (paragraph break) stays */
+	for (index = 1; text[index]; index++)
+	{
+		long run_end = index;
+
+		if (text[index] != L'\r' && text[index] != L'\n')
+			continue;
+		while (text[run_end] == L'\r' || text[run_end] == L'\n')
+			run_end++;
+		if (run_end - index <= 2 && !(run_end - index == 2 && text[index] == text[index + 1]) && text[run_end])
+		{
+			long copy_index;
+
+			text[index] = L' ';
+			for (copy_index = index + 1; ; copy_index++)
+			{
+				text[copy_index] = text[copy_index - index - 1 + run_end];
+				if (!text[copy_index])
+					break;
+			}
+		}
+		else
+			index = run_end - 1;
+	}
+
 	for (index = 0; ; index++)
 	{
 		wchar_t character = text[index];
 
-		if (character == L'\r' || character == L'\n')
-		{
-			line_start = index + 1;
-			last_space = NONE;
-			continue;
-		}
-		if (character == L' ' || character == 0)
+		/* a hard line break ends a word like a space does: the last word of each authored line is measured too */
+		if (character == L' ' || character == 0 || character == L'\r' || character == L'\n')
 		{
 			wchar_t line[256];
 			long length = MIN(index - line_start, (long)NUMBEROF(line) - 1);
@@ -5536,7 +5668,8 @@ static boolean ui_widget_port_text_wrap(
 			csmemcpy(line, text + line_start, length * sizeof(wchar_t));
 			line[length] = 0;
 			draw_unicode_string_compute_bounds(bounds, line, &text_bounds, &cursor_bounds);
-			if (cursor_bounds.x0 - bounds->x0 > width && last_space != NONE)
+			/* the glyphs of a line reach past its cursor: measure what is drawn */
+			if (MAX(cursor_bounds.x0, text_bounds.x1) - bounds->x0 > width && last_space != NONE)
 			{
 				text[last_space] = L'\r';
 				line_start = last_space + 1;
@@ -5546,10 +5679,16 @@ static boolean ui_widget_port_text_wrap(
 				line[length] = 0;
 				draw_unicode_string_compute_bounds(bounds, line, &text_bounds, &cursor_bounds);
 			}
-			if (cursor_bounds.x0 - bounds->x0 > width)
+			if (MAX(cursor_bounds.x0, text_bounds.x1) - bounds->x0 > width)
 				fits = FALSE;
 			if (character == 0)
 				break;
+			if (character == L'\r' || character == L'\n')
+			{
+				line_start = index + 1;
+				last_space = NONE;
+				continue;
+			}
 			last_space = index;
 		}
 	}
@@ -5702,7 +5841,7 @@ static void widget_instance_render_text_box(
 	again), and as tall as the text box less its offset above and as much
 	below (the dialog's footer). Text that would be taller, or wider (a word
 	longer than a line), is drawn in the menus' smaller font. */
-	if (widget == ui_widget_port_error_text_box && ui_widget_port_error_text)
+	if (widget == ui_widget_port_error_text_box)
 	{
 		struct bitmap_data *background = definition->background_bitmap.index != NONE ?
 			bitmap_group_get_bitmap_from_sequence(definition->background_bitmap.index, 0, 0) : NULL;
@@ -5714,7 +5853,8 @@ static void widget_instance_render_text_box(
 
 		if (background && background->width > 0 && background->width < width)
 			width = background->width;
-		width = (short)(width - 4 * definition->horizontal_offset);
+		/* the frame's border takes about 4 units beyond the offset on each side: wrap to what is left */
+		width = (short)(width - 2 * (definition->horizontal_offset + 4));
 		ustrncpy(wrapped, *text, NUMBEROF(wrapped) - 1);
 		wrapped[NUMBEROF(wrapped) - 1] = 0;
 		if (!ui_widget_port_text_wrap(wrapped, &bounds, width) ||
@@ -6624,6 +6764,8 @@ static void ui_widgets_process_mouse(
 	struct ui_mouse_target *target;
 	short controller_index = 0;
 
+	/* port: use the same screen bounds for input and widget drawing. */
+	ui_widget_menu_content(virtual_keyboard_active() ? NULL : ui_mouse_menu());
 	if (!halo_ui_pointer_update(ui_mouse_menus_active(), &pointer) ||
 		virtual_keyboard_active())
 	{
@@ -6972,6 +7114,59 @@ static void menu_title_icon_draw(
 	draw_bitmap_in_rect(icon, &rect, NULL, clip, color, NULL, FALSE);
 }
 
+/* port: measure the active pause layout, including its title and button hints.
+Full-screen dims and the pausebox pieces are backdrop, not content. Use the
+same list window as rendering so hidden rows cannot enlarge the crop. */
+static void ui_widget_content_bounds(struct widget_instance *widget, long y, long *top, long *bottom)
+{
+	struct ui_widget_definition *definition;
+	struct widget_instance *child;
+	boolean saved[WINDOW_MAXIMUM_ROWS];
+	short count = 0, window;
+	char const *bitmap_name;
+
+	if (!widget || !widget->visible)
+		return;
+	definition = ui_widget_definition_get(widget->definition_tag_index);
+	y += widget->vertical_offset;
+	bitmap_name = definition->background_bitmap.index == NONE ? NULL :
+		tag_get_name(definition->background_bitmap.index);
+	if ((definition->text_font.index != NONE ||
+		(!widget->child && bitmap_name && !strstr(bitmap_name, "pausebox"))) &&
+		definition->bounds.y1 - definition->bounds.y0 < 480)
+	{
+		*top = MIN(*top, y + definition->bounds.y0);
+		*bottom = MAX(*bottom, y + definition->bounds.y1);
+	}
+	window = widget->type == _ui_widget_type_column_list ?
+		pc_menu_list_window(widget->definition_tag_index) : 0;
+	if (window > 0)
+		count = column_list_window_begin(widget, definition, window, saved);
+	if (widget->type == _ui_widget_type_column_list)
+		ui_widget_content_bounds(widget->parameters.list.extended_description, y, top, bottom);
+	for (child = widget->child; child; child = child->next)
+		ui_widget_content_bounds(child, y, top, bottom);
+	if (count > 0)
+		column_list_window_end(widget, count, saved);
+}
+
+static void ui_widget_menu_content(struct widget_instance *widget)
+{
+	long top = 480, bottom = 0;
+	char const *name = widget ? tag_get_name(widget->definition_tag_index) : NULL;
+
+	/* Shared settings retain their front-end layout when opened over a game. */
+	if (name && (we_are_at_the_main_menu || strstr(name, "xbox\\") || !strncmp(name, "xbox/", 5) ||
+		strstr(name, "main_menu")))
+	{
+		top = MENU_CONTENT_TOP;
+		bottom = MENU_CONTENT_BOTTOM;
+	}
+	else
+		ui_widget_content_bounds(widget, 0, &top, &bottom);
+	halo_screen_menu_content((float)top, (float)bottom);
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -7042,6 +7237,14 @@ static void widget_instance_render_recursive(
 			&bitmap_group->sequences,
 			0,
 			struct bitmap_group_sequence);
+		/* port: generated comfortable row art draws 36 units inside the
+		39-unit tap band. Frame placement changes texture coordinates, so
+		the quad also needs its own bounds (tools/xbox_menus.py). */
+		const char *row_bitmap_name = tag_get_name(definition->background_bitmap.index);
+		if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
+			strstr(row_bitmap_name, "\\row_36\\")))
+			bounds.y1 = MIN(bounds.y1, bounds.y0 + 36);
+
 		/* port: a widget whose bounds cover the whole 640x480 design space (the
 		 * pause menu's dim, for example) should cover the whole screen too,
 		 * not just the centered 640 columns -- same as the fade_to_black
@@ -7134,6 +7337,11 @@ static void widget_instance_render_recursive(
 
 				bounds.x0 += frame_x > 0 ? frame_x : 0;
 				bounds.y0 += frame_y > 0 ? frame_y : 0;
+				/* port: a taller row frame (tools/xbox_menus.py) is drawn at its
+				own height, over the clamp above, so its visible band fills the row */
+				if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
+					strstr(row_bitmap_name, "\\row_36\\")))
+					bounds.y1 = bounds.y0 + frame_height;
 				texels.x0 = (short)((long)shift_x * bitmap->width / frame_width);
 				texels.y0 = (short)((long)shift_y * bitmap->height / frame_height);
 				texels.x1 = (short)(texels.x0 + (long)(bounds.x1 - bounds.x0) * bitmap->width / frame_width);
@@ -7389,6 +7597,7 @@ void render_ui_widgets(
 					widget->local_player_index == 0;
 				/* port: whether the menus' redraw draws this screen
 				(port/linux/src/ui_redraw.c: not the main menu) */
+				ui_widget_menu_content(widget);
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
 					widget_globals.active_widgets[widget_index],
@@ -7597,6 +7806,24 @@ static void column_list_update(
 	return;
 }
 
+/* port: child tabs and item steps share a column list's selection. A stale index can make the next item step
+wrap before the focused row reaches the end. Pointer focus uses the same physical child indices. */
+static void widget_instance_port_focus_child(
+	struct widget_instance *widget,
+	struct widget_instance *child)
+{
+	struct widget_instance *item;
+	short index = 0;
+
+	widget->focused_child = child;
+	if (widget->type == _ui_widget_type_column_list && pc_menu_tag(widget->definition_tag_index))
+	{
+		for (item = widget->child; item && item != child; item = item->next)
+			index++;
+		widget->parameters.list.selected_index = index;
+	}
+}
+
 static void widget_instance_tab_to_next_valid_widget(
 	struct widget_instance *widget)
 {
@@ -7619,7 +7846,7 @@ static void widget_instance_tab_to_next_valid_widget(
 			!(widget->type == _ui_widget_type_column_list && pc_menu_tag(widget->definition_tag_index) &&
 				widget_instance_port_is_label(child)))
 		{
-			widget->focused_child = child;
+			widget_instance_port_focus_child(widget, child);
 			break;
 		}
 		child = child->next;
@@ -7661,7 +7888,7 @@ static void widget_instance_tab_to_previous_valid_widget(
 			!(widget->type == _ui_widget_type_column_list && pc_menu_tag(widget->definition_tag_index) &&
 				widget_instance_port_is_label(child)))
 		{
-			widget->focused_child = child;
+			widget_instance_port_focus_child(widget, child);
 			break;
 		}
 		if (child->previous)
@@ -7727,6 +7954,12 @@ static void widget_instance_process_one_event_recursive(
 			DPAD_EVENT_REPEAT_MILLISECONDS)
 	{
 		event->data.button.value = 1;
+	}
+	/* port: navigation remains available on fixed graphics rows; only editing is refused. */
+	if (event_for_this_widget && widget_instance_port_refuse_graphics_edit(widget, event))
+	{
+		*return_widget_deleted = FALSE;
+		return;
 	}
 	if (widget->close_if_local_player_controller_present == TRUE)
 	{

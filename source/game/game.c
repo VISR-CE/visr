@@ -416,7 +416,9 @@ void game_tick(
 	/* port: in network co-op only the host runs the scripts. A client running
 	them would place the map's actors and objects a second time and make
 	decisions that belong to the host. */
-	if (!(network_game_distributed_client() && network_coop_active()))
+	/* port: nor while photo mode holds the world (photo_mode.c): its settle ticks move objects into
+	place, and a script running then could carry a cutscene on or switch the structure BSP */
+	if (!(network_game_distributed_client() && network_coop_active()) && !photo_mode_active())
 		profile_scope(game_tick_hs_section, hs_update();)
 	profile_scope(game_tick_recorded_animations_section, recorded_animations_update();)
 	profile_scope(game_tick_objects_section, objects_update();)

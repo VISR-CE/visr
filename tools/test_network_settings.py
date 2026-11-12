@@ -286,6 +286,7 @@ static void game_variant_options_default(struct game_variant const *v, struct ga
 static void player_ui_set_game_variant(struct game_variant *v) { (void)v; memset(&applied, 0, sizeof(applied)); }
 static void player_ui_set_game_variant_options(struct game_variant_options const *v) { applied = *v; }
 static void network_game_server_change_game_variant(void *s, struct game_variant *v) { (void)s; (void)v; hosting++; }
+static void game_engine_override_game_variant(struct game_variant const *v) { (void)v; }
 static void platform_show_message(char const *t, char const *m) { (void)t; assert(m); told++; }
 static void error(int i, char const *s) { (void)i; (void)s; }
 ''' + handler + r'''

@@ -1037,9 +1037,63 @@ void _rasterizer_environment_lightmap_end(
 	return;
 }
 
+/* port: debug.ssao and soft particle edges (halo_ssao_lightmaps_mark,
+halo_soft_particles_lightmaps_mark): the lightmap pass also writes stencil
+0x10 where it draws, keeping the stencil test it had (the first-person
+weapon's REJECT: value 1 clear), so the ambient occlusion and the
+particles' fade after it know the level's pixels; the stencil mode in
+effect is put back after. No mask or reference the game or the presenter
+uses reads 0x10 */
+static short level_stencil_saved_mode = -1;
+
+static void level_stencil_mark_begin(
+	void)
+{
+	short mode;
+
+	level_stencil_saved_mode = -1;
+	/* (both are asked, each remembering its own answer for the view) */
+	if (!(halo_ssao_lightmaps_mark(TRUE) | halo_soft_particles_lightmaps_mark(TRUE)))
+		return;
+	mode = rasterizer_get_stencil_mode();
+	/* (0 none, 2 REJECT: rasterizer_xbox.c's modes) */
+	if (mode != 0 && mode != 2)
+		return;
+	level_stencil_saved_mode = mode;
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILENABLE, TRUE);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILFAIL, D3DSTENCILOP_KEEP);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILZFAIL, D3DSTENCILOP_KEEP);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILPASS, D3DSTENCILOP_REPLACE);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILFUNC, mode ? D3DCMP_EQUAL : D3DCMP_ALWAYS);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILREF, 0x10);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILMASK, mode ? 1 : 0);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILWRITEMASK, 0x10);
+}
+
+static void level_stencil_mark_end(
+	void)
+{
+	short mode = level_stencil_saved_mode;
+
+	if (mode < 0)
+		return;
+	level_stencil_saved_mode = -1;
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILPASS, D3DSTENCILOP_KEEP);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILWRITEMASK, 0);
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILREF, 0);
+	if (mode)
+	{
+		IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILFUNC, D3DCMP_EQUAL);
+		IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILMASK, 1);
+	}
+	else
+		IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_STENCILENABLE, FALSE);
+}
+
 void _rasterizer_environment_lightmaps_end(
 	void)
 {
+	level_stencil_mark_end();
 	rasterizer_profile_end(_rasterizer_profile_environment_lightmaps);
 	return;
 }
@@ -1079,6 +1133,7 @@ void _rasterizer_environment_lightmaps_begin(
 		D3DDevice_SetRenderState(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
 		D3DDevice_SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
 		D3DDevice_SetRenderState(D3DRS_ZBIAS, 0);
+		level_stencil_mark_begin();
 	}
 	return;
 }

@@ -39,7 +39,8 @@ struct widget_stack_node { struct widget_stack_data data; struct widget_stack_no
 static struct { struct widget_stack_node *widget_stack[4]; } widget_globals;
 static struct { long profile_index; } event_handler_functions;
 static long edit_index, shown;
-static int deleted, fail_delete;
+static int deleted, fail_delete, from_select;
+static boolean pc_menu_delete_from_select(void) { return from_select; }
 static void player_ui_end_editing_profile(void) { edit_index = NONE; }
 static boolean delete_player_profile_final(struct widget_instance *w, struct event_record *e, boolean *d)
 { assert(edit_index == event_handler_functions.profile_index); if (fail_delete) return FALSE; deleted++; return TRUE; }
@@ -49,6 +50,8 @@ static void pop_widget(struct widget_stack_node **stack, struct widget_stack_dat
 { *data = (*stack)->data; *stack = (*stack)->next; }
 static void widget_instance_go_back_to_previous(struct widget_instance *widget)
 { struct widget_stack_data data; pop_widget(&widget_globals.widget_stack[0], &data); shown = data.tag; }
+static void ui_widget_port_go_back(struct widget_instance *widget)
+{ widget_instance_go_back_to_previous(widget); }
 /* BACK */
 /* FINISH */
 int main(void)
@@ -68,6 +71,14 @@ int main(void)
         assert(widget_deleted && shown == 100 && widget_globals.widget_stack[0] == NULL);
     }
     assert(deleted == 2);
+    struct widget_stack_node select = { { 100 }, NULL };
+    boolean widget_deleted = FALSE;
+    widget_globals.widget_stack[0] = &select;
+    edit_index = event_handler_functions.profile_index = 0x80000000L;
+    from_select = 1;
+    assert(ui_widget_port_delete_finish(&widget, &widget_deleted));
+    assert(widget_deleted && shown == 100 && widget_globals.widget_stack[0] == NULL);
+    assert(event_handler_functions.profile_index == NONE && deleted == 3);
 }
 '''
     program = program.replace('/* BACK */', back).replace('/* FINISH */', finish)

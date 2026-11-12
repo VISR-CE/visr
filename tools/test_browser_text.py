@@ -13,6 +13,7 @@ def test_browser_text_fit_and_regions(tmp_path):
     menu = (ROOT / 'port/linux/game/menu_functions.c').read_text()
     production = function(ui, 'static short ui_widget_port_text_width(')
     production += '\n' + function(ui, 'void ui_widget_port_text_ellipsize(')
+    production += '\n' + function(ui, 'short ui_widget_port_font_text_width(')
     for signature in ('static long player_capacity(void)', 'static boolean player_capacity_exceeded(',
                       'static boolean player_capacity_marked(', 'static void browser_listing_region('):
         production += '\n' + function(menu, signature)
@@ -39,7 +40,10 @@ static long current_font;
 #define ui_widget_definition_get(index) (&cell_definition)
 #define font_definition_get(index) (&fonts[index])
 static long draw_string_get_font(void) { return current_font; }
-static void draw_string_set_font(long font) { current_font=font; }
+/* set_font looks the index up as one of this map's fonts; restore must not,
+because the saved index can be stale (another map's, NONE or the zeroed 0) */
+static void draw_string_set_font(long font) { assert(font == 0 || font == 1); current_font=font; }
+static void draw_string_restore_font(long font) { current_font=font; }
 static void draw_string_set_format(short style, short justification, unsigned long flags) {
     assert(style == NONE && justification == 0 && flags == 0);
 }
@@ -131,6 +135,14 @@ int main(void) {
     wcscpy(text, L"");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(text[0] == 0);
+    /* a previous map's font index survives into a new map's menu building */
+    current_font=227;
+    assert(ui_widget_port_font_text_width(1, L"WW") > 0); assert(current_font == 227);
+    current_font=NONE;
+    assert(ui_widget_port_font_text_width(1, L"WW") > 0); assert(current_font == NONE);
+    current_font=227; cell_definition.bounds.x1=30;
+    wcscpy(text, L"WWWW");
+    ui_widget_port_text_ellipsize(&box, text, 32); assert(current_font == 227);
     return 0;
 }
 '''

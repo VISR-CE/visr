@@ -4245,6 +4245,29 @@ void object_delete_immediately(
 	return;
 }
 
+/* port: game.garbage_limit (port/linux/src/port_config.c): "raised" keeps
+GARBAGE_RAISED_SCALE times the active garbage below, so the bodies and
+weapons of a fight stay. Which objects exist is the game's state: the AI
+sees bodies, shots hit them, players pick weapons up. So only a game on this
+device alone takes it, never a network game (every machine must remove the
+same objects) or one an input recording is made or replayed in (a replay
+must meet what its take met) */
+#define GARBAGE_RAISED_SCALE 4
+unsigned char input_replay_playing(void);
+unsigned char input_replay_recording(void);
+const char *config_string(const char *name);
+
+static boolean garbage_limit_raised(
+	void)
+{
+	const char *limit;
+
+	if (game_connection() != _game_connection_local || input_replay_playing() || input_replay_recording())
+		return FALSE;
+	limit = config_string("game.garbage_limit");
+	return !limit || strcmp(limit, "xbox") != 0;
+}
+
 /* the active garbage limits are per 16 players: a session of up to 128
 keeps proportionally more garbage around, campaign and smaller games the
 Xbox's amount */
@@ -4253,7 +4276,8 @@ static long active_garbage_limit(
 {
 	long player_count = player_data ? player_data->actual_count : 0;
 
-	return limit_per_16_players * MAX(16, player_count) / 16;
+	return limit_per_16_players * MAX(16, player_count) / 16 *
+		(garbage_limit_raised() ? GARBAGE_RAISED_SCALE : 1);
 }
 
 /* port: whether a collection of active garbage may be tried

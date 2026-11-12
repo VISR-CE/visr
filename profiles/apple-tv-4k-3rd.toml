@@ -37,7 +37,7 @@ full_rate_players = 6
 
 [evidence."display.upscaled_textures"]
 basis = "assumed"
-why = "Steve's decision (2026-10-25): upscaled textures on the Apple TV 4K (3rd generation) and newer, off on the earlier Apple TVs (the class's value). Its A15 has the Neural Engine the upscaler needs and 4 GB of memory; the whole game's set takes about 655 MB of storage, kept in Library/Caches, which tvOS may purge between launches (it is then made again)."
+why = "Upscaled textures are on for the Apple TV 4K (3rd generation) and newer, and off on the earlier Apple TVs (the class's value). Its A15 has the Neural Engine the upscaler needs and 4 GB of memory; the whole game's set takes about 655 MB of storage, kept in Library/Caches, which tvOS may purge between launches (it is then made again)."
 
 [evidence."display.render_height"]
 basis = "measured"
@@ -81,8 +81,8 @@ why = "Pinned to the built-in default so the Apple TV class profile's floor (the
 
 [evidence."display.shadow_map_size"]
 basis = "assumed"
-why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
-source = "Steve, 2026-11-04"
+why = "All shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Project policy, 2026-11-04"
 
 [evidence."display.texture_idle_seconds"]
 basis = "assumed"
@@ -123,7 +123,7 @@ source = "VISR context qualification on Apple TV 4K (3rd generation), build from
 [evidence."display.dynamic_resolution"]
 basis = "measured"
 why = "Fixed at 1080 lines, 128 shadows and 60 frames a second, a50-hangar held only 66.2% of frames on time on 0.6.10 (72.8% on 0.6.8) with a median GPU time of 23.8 ms against a 16.7 ms budget, while the other campaign windows held 99.8% to 99.9% (c10, b30, b40-exta, b30-bot). The extra cost is fragment work in the hangar; the investigation found no code regression to fix. Dynamic resolution lets the planner drop only the hangar's frames to the lines they need and leaves the other windows at the 1080 ceiling."
-source = "docs/benchmarks/results.csv, VISR 0.6.8 (2026-11-02) and 0.6.10 (2026-11-04) combat and campaign windows on Apple TV 4K (3rd generation); Steve 2026-11-04"
+source = "docs/benchmarks/results.csv, VISR 0.6.8 (2026-11-02) and 0.6.10 (2026-11-04) combat and campaign windows on Apple TV 4K (3rd generation)"
 
 [evidence."display.dynamic_resolution_floor"]
 basis = "measured"

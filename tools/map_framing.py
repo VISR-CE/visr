@@ -42,6 +42,48 @@ def validate(data):
                 valid = False
         return valid
 
+    def pose(value, path):
+        vector(value.get('position'), path + '.position', 3)
+        axes = []
+        for axis in ('forward', 'up'):
+            v = value.get(axis)
+            ok = vector(v, path + '.' + axis, 3)
+            if ok and abs(math.hypot(*v) - 1) > 1e-3:
+                error(path + '.' + axis, 'expected unit vector within 1e-3')
+                ok = False
+            axes.append(ok)
+        if all(axes) and abs(sum(a*b for a, b in zip(value['forward'], value['up']))) > 1e-3:
+            error(path + '.up', 'expected orthogonal forward and up within 1e-3')
+
+    def mp_scene(mp, path):
+        if not isinstance(mp, dict):
+            error(path, 'expected object')
+            return
+        for key in ('teams', 'no_map_weapons', 'no_shields', 'always_invisible', 'infinite_grenades'):
+            if type(mp.get(key)) is not bool:
+                error(path + '.' + key, 'expected boolean')
+        for key, high in (('weapon_set', 13), ('vehicle_set', 255), ('loadout', 1),
+                          ('primary_weapon', 9), ('secondary_weapon', 9), ('vehicle_respawn_time', 32767)):
+            integer(mp.get(key), path + '.' + key, 0, high)
+        if mp.get('starting_equipment') not in ('generic', 'map'):
+            error(path + '.starting_equipment', 'expected generic or map')
+        sets = mp.get('vehicle_sets')
+        if not isinstance(sets, list) or len(sets) != 2:
+            error(path + '.vehicle_sets', 'expected two vehicle sets')
+        else:
+            for side, value in enumerate(sets):
+                integer(value, f'{path}.vehicle_sets[{side}]', 0, 255)
+        counts = mp.get('vehicle_counts')
+        if not isinstance(counts, list) or len(counts) != 2:
+            error(path + '.vehicle_counts', 'expected two rows of six vehicle counts')
+        else:
+            for side, row in enumerate(counts):
+                if not isinstance(row, list) or len(row) != 6:
+                    error(f'{path}.vehicle_counts[{side}]', 'expected six vehicle counts')
+                else:
+                    for index, value in enumerate(row):
+                        integer(value, f'{path}.vehicle_counts[{side}][{index}]', 0, 4)
+
     def finite_tree(value, path):
         if type(value) in (int, float) and not number(value):
             error(path, 'expected finite number')
@@ -55,8 +97,8 @@ def validate(data):
     if not isinstance(data, dict):
         return ["$: expected object"]
     finite_tree(data, '$')
-    if type(data.get('schema')) is not int or data['schema'] != 1:
-        error('$.schema', 'expected schema 1')
+    if type(data.get('schema')) is not int or data['schema'] not in (1, 2):
+        error('$.schema', 'expected schema 1 or 2')
     maps = data.get('maps')
     if not isinstance(maps, dict):
         return errors + ['$.maps: expected object']
@@ -77,17 +119,7 @@ def validate(data):
             if not isinstance(shot, dict):
                 error(p, 'expected object')
                 continue
-            vector(shot.get('position'), p + '.position', 3)
-            axes = []
-            for axis in ('forward', 'up'):
-                v = shot.get(axis)
-                ok = vector(v, p + '.' + axis, 3)
-                if ok and abs(math.hypot(*v) - 1) > 1e-3:
-                    error(p + '.' + axis, 'expected unit vector within 1e-3')
-                    ok = False
-                axes.append(ok)
-            if all(axes) and abs(sum(a*b for a, b in zip(shot['forward'], shot['up']))) > 1e-3:
-                error(p + '.up', 'expected orthogonal forward and up within 1e-3')
+            pose(shot, p)
             fov = shot.get('fov')
             if not number(fov) or not 0.2 <= fov <= 2.6:
                 error(p + '.fov', 'expected finite radians in [0.2,2.6]')
@@ -105,6 +137,23 @@ def validate(data):
                     error(p + '.scene.ai', 'expected erase or keep')
                 if not isinstance(scene.get('variant'), str):
                     error(p + '.scene.variant', 'expected string')
+                if 'mp' in scene:
+                    mp_scene(scene['mp'], p + '.scene.mp')
+                if 'moved_vehicles' in scene:
+                    moved = scene['moved_vehicles']
+                    if not isinstance(moved, list) or len(moved) > 16:
+                        error(p + '.scene.moved_vehicles', 'expected at most 16 moved vehicles')
+                    else:
+                        for index, vehicle in enumerate(moved):
+                            vp = f'{p}.scene.moved_vehicles[{index}]'
+                            if not isinstance(vehicle, dict):
+                                error(vp, 'expected object')
+                                continue
+                            tag = vehicle.get('tag')
+                            if not isinstance(tag, str) or not 1 <= len(tag) < 256 or any(not 32 <= ord(c) <= 126 for c in tag):
+                                error(vp + '.tag', 'expected 1 to 255 printable ASCII characters')
+                            pose(vehicle, vp)
+
     return errors
 
 
@@ -121,6 +170,7 @@ def stable(data):
 
 def merge(source, fragments, force=False):
     result = json.loads(json.dumps(checked(source)))
+    result['schema'] = 2
     for fragment in fragments:
         checked(fragment)
         for key, entry in fragment['maps'].items():
@@ -140,7 +190,7 @@ def import_camera(key, text, camera_format='visr', fov=None):
                 fov=values[9] if fov is None else fov, bsp=0,
                 focus=[0.5, 0.5], safe=[0.19, 0, 0.81, 1], settle_ticks=30,
                 scene=dict(ai='erase', variant='slayer'))
-    return checked(dict(schema=1, maps={key: dict(revision=1, shots=[shot])}))
+    return checked(dict(schema=2, maps={key: dict(revision=1, shots=[shot])}))
 
 
 def main(argv=None):

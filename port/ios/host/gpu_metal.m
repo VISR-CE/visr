@@ -149,6 +149,9 @@ Handles index tables of these; 0 is none. */
 	NSString *source;
 	id<MTLFunction> exact[16];
 	uint16_t exact_tried;
+	/* a pixel shader lit per pixel (nv2a_lighting_pixel_block): it reads the
+	vertex constants at fragment buffer 4 (bind_constants) */
+	BOOL reads_constants;
 	/* a vertex shader's library, and its function specialized for each set
 	of attribute kinds it is drawn with (vertex_function) */
 	id<MTLLibrary> library;
@@ -240,6 +243,9 @@ static float reversed_depth(float depth);
 static BOOL foveation_sizes(MetalTexture *record, MTLSize *screen, MTLSize *physical);
 static id<MTLTexture> foveation_resolve(MetalTexture *record, NSUInteger width, NSUInteger height);
 #include "host_config.h"
+#include "crt_shader.h"
+#include "../../linux/src/port_graphics_modes.h"
+#include <sys/stat.h>
 #include "host_frame_pacer.h"
 #include "frame_deadline.h"
 #include "visibility_history.h"
@@ -1128,6 +1134,40 @@ static void level_layout(uint32_t format, unsigned long width, unsigned long hei
 	}
 }
 
+/* SSAO (host_ssao_apply) and soft particle edges (host_soft_depth_prepare) read the level's stencil mark through an
+X32_Stencil8 view, so every depth-stencil target is made able to give one: both can switch on mid-game (display.graphics,
+display.ambient_occlusion, display.soft_particles) after the targets exist. debug.stencil_views = false leaves the flag
+off, to measure what it costs (neither feature then runs). */
+static BOOL stencil_view_flag(void)
+{
+	static int flag = -1;
+
+	if (flag < 0)
+	{
+		char value[32];
+
+		host_config_string("debug.stencil_views", "true", value, sizeof(value));
+		flag = strcmp(value, "false") != 0;
+		if (!flag)
+			platform_log("stencil views: off (debug.stencil_views); SSAO and soft particle edges cannot run");
+	}
+	return flag != 0;
+}
+
+/* the level's stencil mark (halo_ssao_lightmaps_mark, halo_soft_particles_lightmaps_mark) as one X32_Stencil8 view of
+the depth target, which SSAO and soft particle edges share, kept until the target changes; nil when the target cannot
+give one */
+static id<MTLTexture> level_stencil_view(id<MTLTexture> depth)
+{
+	static id<MTLTexture> view;
+
+	if (!depth || !(depth.usage & MTLTextureUsagePixelFormatView))
+		return nil;
+	if (!view || view.parentTexture != depth)
+		view = [depth newTextureViewWithPixelFormat:MTLPixelFormatX32_Stencil8];
+	return view;
+}
+
 /* the storage a texture's description asks for */
 static id<MTLTexture> texture_storage(MetalTexture *record)
 {
@@ -1145,6 +1185,8 @@ static id<MTLTexture> texture_storage(MetalTexture *record)
 	{
 		storage.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
 		storage.storageMode = MTLStorageModePrivate;
+		if (storage.pixelFormat == MTLPixelFormatDepth32Float_Stencil8 && stencil_view_flag())
+			storage.usage |= MTLTextureUsagePixelFormatView;
 	}
 	else
 	{
@@ -1880,6 +1922,7 @@ static gpu_shader gpu_metal_shader_create(uint32_t stage, const char *source)
 		id<MTLLibrary> library;
 
 		record->compiled = dispatch_group_create();
+		record->reads_constants = stage != GPU_SHADER_VERTEX && strstr(source, "constant float4 *c [[buffer(4)]]") != NULL;
 		/* (each on a worker thread, compiled synchronously there: not with
 		newLibraryWithSource's completion handler, which runs on Metal's
 		compiler queue, where shader_finish's newFunctionWithName waits on
@@ -2484,6 +2527,18 @@ static NSMutableDictionary<NSNumber *, id<MTLRenderPipelineState>> *fill_pipelin
 static id<MTLRenderPipelineState> present_pipeline, companion_pipeline;
 /* gpu_upscale's: the present quad into a BGRA8 render target with no depth */
 static id<MTLRenderPipelineState> upscale_pipeline;
+/* display.crt_effect: the present pass's CRT television in Hardcore graphics (crt_shader.h) */
+static id<MTLRenderPipelineState> crt_pipeline;
+
+/* The guest commits the effective mode and switch before rendering, including unsaved previews. */
+static BOOL crt_enabled;
+void gpu_metal_set_crt(int enabled)
+{
+	if (crt_enabled != (enabled != 0))
+		platform_log("Metal: CRT effect %s", enabled ? "on" : "off");
+	crt_enabled = enabled != 0;
+}
+
 static id<MTLSamplerState> present_sampler;
 
 static NSString *const utility_source =
@@ -2528,7 +2583,9 @@ static NSString *const utility_source =
 	"fragment float4 fill_fragment(PresentOut in [[stage_in]], texture2d<float> picture [[texture(0)]])\n"
 	"{\n"
 	"\treturn picture.read(uint2(in.position.xy));\n"
-	"}\n";
+	"}\n"
+	/* display.crt_effect (crt_shader.h) */
+	CRT_SHADER_SOURCE;
 
 static id<MTLRenderPipelineState> clear_pipeline(MTLPixelFormat color, MTLPixelFormat depth, uint32_t mask,
 	uint32_t samples)
@@ -4230,7 +4287,8 @@ static uint32_t attribute_size(uint8_t format)
 /* c[192] and struct gpu_uniforms, as the shaders read them, shared by the
 frame's draws until a serial moves: a Metal draw reads everything bound, so
 each snapshot is whole */
-static void bind_constants(const struct gpu_constant_store *constants, const struct gpu_uniforms *uniforms)
+static void bind_constants(const struct gpu_constant_store *constants, const struct gpu_uniforms *uniforms,
+	BOOL pixel_constants)
 {
 	__unsafe_unretained MetalBuffer *record;
 
@@ -4262,6 +4320,12 @@ static void bind_constants(const struct gpu_constant_store *constants, const str
 	if (metal_state_object(&state_cache, METAL_STATE_FRAGMENT_BUFFER, (__bridge void *)record->buffer,
 		snapshot.offset + sizeof(constants->c)))
 		[encoder setFragmentBuffer:record->buffer offset:snapshot.offset + sizeof(constants->c) atIndex:0];
+	/* per-pixel lighting's pixel shaders read c[] too */
+	if (pixel_constants && metal_state_object(&state_cache, METAL_STATE_FRAGMENT_CONSTANTS,
+		(__bridge void *)record->buffer, snapshot.offset))
+	{
+		[encoder setFragmentBuffer:record->buffer offset:snapshot.offset atIndex:4];
+	}
 }
 
 static void bind_attributes(const struct gpu_draw *draw, const struct draw_attributes *attributes)
@@ -4309,6 +4373,16 @@ static struct
 	uint32_t zero_border;
 	__unsafe_unretained id<MTLSamplerState> sampler;
 } stage_samplers[GPU_STAGE_COUNT];
+
+/* soft particle edges (host_soft_depth_prepare): the scene's view distances, bound to every draw while a view's
+transparent geometry is drawn; only shaders with soft edges read them (nv2a_msl.c) */
+static struct
+{
+	id<MTLComputePipelineState> linearize;
+	id<MTLTexture> distances, stencil_view;
+	float parameters[4];
+	BOOL active, tried, failed;
+} soft;
 
 static void bind_stages(const struct gpu_draw *draw, unsigned exact)
 {
@@ -4692,7 +4766,16 @@ static uint32_t gpu_metal_draw(const struct gpu_draw *draw, const struct gpu_con
 			}
 		}
 		bind_stages(draw, exact);
-		bind_constants(constants, uniforms);
+		/* soft particle edges (host_soft_depth_prepare): the scene's distances, on every draw while they last (the
+		state cache doesn't track them); only shaders with soft edges read them */
+		if (soft.active)
+		{
+			[encoder setFragmentTexture:soft.distances atIndex:8];
+			metal_state_always(&state_cache);
+			[encoder setFragmentBytes:soft.parameters length:sizeof(soft.parameters) atIndex:5];
+			metal_state_always(&state_cache);
+		}
+		bind_constants(constants, uniforms, pixel && pixel->reads_constants);
 		bind_attributes(draw, &attributes);
 		pass_commands++;
 		/* the draw call itself, made below unless a conversion leaves nothing */
@@ -6184,6 +6267,48 @@ static void gpu_metal_frame_start(void)
 	uint64_t total = atomic_load(&pacing_gpu_nanoseconds);
 
 	frame_pacer_gpu_time((double)(total - counted) / 1e9);
+	/* (the debug.rt_object_shadows spike's cost runs: HALO_RT_GPU_LOG in the app's environment logs the GPU time
+	of every 300 frames' completed command buffers, median and mean a frame) */
+	{
+		static int rt_gpu_log = -1;
+		static double times[300];
+		static int timed;
+		static unsigned long blocks;
+
+		if (rt_gpu_log < 0)
+			rt_gpu_log = getenv("HALO_RT_GPU_LOG") != NULL;
+		if (rt_gpu_log && counted)
+		{
+			times[timed++] = (double)(total - counted) / 1e6;
+			if (timed == 300)
+			{
+				double sorted[300], sum = 0.0;
+				int index;
+
+				memcpy(sorted, times, sizeof(sorted));
+				qsort(sorted, 300, sizeof(double), compare_times);
+				for (index = 0; index < 300; index++)
+					sum += times[index];
+				/* and the process's CPU time (every thread, user and system) and the wall time a frame, over the block */
+				{
+					static double cpu_before, wall_before;
+					struct rusage usage;
+					double cpu_now, wall_now = CACurrentMediaTime();
+
+					getrusage(RUSAGE_SELF, &usage);
+					cpu_now = (double)usage.ru_utime.tv_sec + (double)usage.ru_utime.tv_usec / 1e6 +
+						(double)usage.ru_stime.tv_sec + (double)usage.ru_stime.tv_usec / 1e6;
+					platform_log("rt-gpu: block %lu (frames to %lu): GPU median %.3f ms, mean %.3f ms, p90 %.3f ms; "
+						"process CPU %.3f ms, wall %.3f ms a frame", blocks++, frames, sorted[150], sum / 300.0, sorted[270],
+						cpu_before > 0.0 ? (cpu_now - cpu_before) * 1000.0 / 300.0 : 0.0,
+						wall_before > 0.0 ? (wall_now - wall_before) * 1000.0 / 300.0 : 0.0);
+					cpu_before = cpu_now;
+					wall_before = wall_now;
+				}
+				timed = 0;
+			}
+		}
+	}
 	counted = total;
 	/* (debug.benchmark_offscreen: nothing waits on the display) */
 	if (!host_benchmark_offscreen_active())
@@ -6896,6 +7021,1066 @@ static void post_pass(id<MTLTexture> target, BOOL clear, id<MTLRenderPipelineSta
 	[post_encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 	host_perf_metal_end(perf_token, post_encoder);
 	[post_encoder endEncoding];
+}
+
+/* ---------- debug.ssao (spike): screen-space ambient occlusion (host_ssao_apply)
+
+The front end calls host_ssao_apply right after the level's lightmap pass (d3d8_device.c,
+halo_ssao_after_lightmaps), with the scene's color and depth targets, the view's rectangle and its camera. The
+scene's pass ends (color and depth-stencil stored), one compute encoder runs four dispatches, and the pass opens
+again (loaded) with a full-screen draw first that multiplies the occlusion into the pixels:
+
+1. prepare (half resolution): one depth and stencil sample of each 2x2 block, in a rotating order, as view-space
+   depth and a class: 0 sky or nothing, 1 the level (stencil 0x10, which the lightmap pass writes), 2 an object,
+   3 the first-person weapon or body (stencil 1 or 4)
+2. gather (half resolution): ground-truth AO (Jimenez et al. 2016, after XeGTAO's form) with normals rebuilt from
+   depth; a level pixel takes occlusion from objects fully and from the level at debug.ssao_static_weight (its
+   lightmaps hold the level's own); an object pixel from everything
+3. blur (half resolution): a 4x4 depth-aware box over the 4x4 noise pattern
+4. upsample (full resolution): the half-resolution neighbor nearest in depth, raised to debug.ssao_strength
+
+Then the composite: dst *= ao on the level's pixels (stencil 0x10, not 1), dst *= mix(1, ao, objects) on the
+objects' (stencil 0x10, 1 and 4 clear); depth untouched. Modes (debug.ssao): 1 on, 2 the AO term in place of the
+pixels, 3 the rebuilt normals, 4 the classes and depth, 5 the pass break alone (end and reopen, nothing else). */
+
+static NSString *const ssao_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"\n"
+	"struct ssao_parameters\n"
+	"{\n"
+	"\tuint ox, oy, w, h, hw, hh;\n"
+	"\tfloat z_near, z_far, p00, p11, p20, p21;\n"
+	"\tfloat radius, strength, objects, static_weight, max_pixels, fade_distance;\n"
+	"\tuint slices, steps, mode, scale;\n"
+	"\tfloat level_floor, object_floor, pad1, pad2;\n"
+	"};\n"
+	"\n"
+	"static float linear_z(float stored, constant ssao_parameters &p)\n"
+	"{\n"
+	"\tfloat d = 1.0 - stored;\n"
+	"\treturn p.z_near * p.z_far / (p.z_far - d * (p.z_far - p.z_near));\n"
+	"}\n"
+	"\n"
+	"static int classify(float stored, uint stencil, float z, constant ssao_parameters &p)\n"
+	"{\n"
+	"\tif (stencil & 5u)\n"
+	"\t\treturn 3;\n"
+	"\tif (stored <= 1.0e-7 || z >= 0.98 * p.z_far)\n"
+	"\t\treturn 0;\n"
+	"\treturn (stencil & 0x10u) ? 1 : 2;\n"
+	"}\n"
+	"\n"
+	"/* the half-resolution depth texel: view depth with the class in its sign, positive for the level, negative for\n"
+	"an object, 0 for sky or first-person (neither occludes nor receives) */\n"
+	"static float half_encode(float z, int cls)\n"
+	"{\n"
+	"\treturn cls == 1 ? z : cls == 2 ? -z : 0.0;\n"
+	"}\n"
+	"\n"
+	"static float2 half_decode(float v)\n"
+	"{\n"
+	"\treturn float2(abs(v), v > 0.0 ? 1.0 : v < 0.0 ? 2.0 : 0.0);\n"
+	"}\n"
+	"\n"
+	"/* the full-resolution pixel (in the rectangle) a low-resolution texel took: at half resolution (scale 2) (0,0),\n"
+	"(1,1), (1,0), (0,1) of its 2x2 block in turn; at quarter resolution the same pattern around the 4x4 block's center */\n"
+	"static int2 half_pick(int2 h, uint scale)\n"
+	"{\n"
+	"\treturn h * int(scale) + int(scale / 2u) - 1 + int2((h.x ^ h.y) & 1, h.x & 1);\n"
+	"}\n"
+	"\n"
+	"static float3 view_position(float2 pixel, float z, constant ssao_parameters &p)\n"
+	"{\n"
+	"\tfloat2 ndc = float2(pixel.x / float(p.w) * 2.0 - 1.0, 1.0 - pixel.y / float(p.h) * 2.0);\n"
+	"\treturn float3((ndc.x + p.p20) / p.p00 * z, (ndc.y + p.p21) / p.p11 * z, z);\n"
+	"}\n"
+	"\n"
+	"kernel void ssao_prepare(depth2d<float, access::read> depth [[texture(0)]],\n"
+	"\ttexture2d<uint, access::read> stencil [[texture(1)]],\n"
+	"\ttexture2d<float, access::write> half_out [[texture(2)]],\n"
+	"\tconstant ssao_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tint2 local = min(half_pick(int2(gid), p.scale), int2(p.w - 1, p.h - 1));\n"
+	"\tuint2 full = uint2(local) + uint2(p.ox, p.oy);\n"
+	"\tfloat stored = depth.read(full);\n"
+	"\tuint st = stencil.read(full).r;\n"
+	"\tfloat z = linear_z(stored, p);\n"
+	"\tint cls = classify(stored, st, z, p);\n"
+	"\thalf_out.write(float4(half_encode(z, cls)), gid);\n"
+	"}\n"
+	"\n"
+	"/* a half-resolution texel's view position and class; outside the view, class 0 */\n"
+	"static float3 half_position(texture2d<float, access::read> t, int2 c, constant ssao_parameters &p, thread int &cls)\n"
+	"{\n"
+	"\tif (c.x < 0 || c.y < 0 || c.x >= int(p.hw) || c.y >= int(p.hh))\n"
+	"\t{\n"
+	"\t\tcls = 0;\n"
+	"\t\treturn float3(0.0);\n"
+	"\t}\n"
+	"\tfloat2 v = half_decode(t.read(uint2(c)).r);\n"
+	"\tcls = int(v.y);\n"
+	"\treturn view_position(float2(min(half_pick(c, p.scale), int2(p.w - 1, p.h - 1))) + 0.5, v.x, p);\n"
+	"}\n"
+	"\n"
+	"/* acos to about 1e-4 (Eberly), for the horizon angles */\n"
+	"static float fast_acos(float x)\n"
+	"{\n"
+	"\tfloat a = abs(x);\n"
+	"\tfloat r = (-0.0187293 * a + 0.0742610) * a - 0.2121144;\n"
+	"\tr = (r * a + 1.5707288) * sqrt(max(1.0 - a, 0.0));\n"
+	"\treturn x < 0.0 ? 3.14159265 - r : r;\n"
+	"}\n"
+	"\n"
+	"constant uint bayer4[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };\n"
+	"\n"
+	"/* threadgroups are 8x8 and a SIMD group 32 lanes: 8 wide, 4 tall. The normal's four neighbors come from the\n"
+	"neighboring lanes; only lanes on a SIMD group's edge read the texture */\n"
+	"kernel void ssao_gather(texture2d<float, access::read> half_in [[texture(0)]],\n"
+	"\ttexture2d<float, access::write> ao_out [[texture(1)]],\n"
+	"\tconstant ssao_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]],\n"
+	"\tuint2 tid [[thread_position_in_threadgroup]], ushort lane [[thread_index_in_simdgroup]])\n"
+	"{\n"
+	"\tint2 c = int2(gid);\n"
+	"\tint cls;\n"
+	"\tfloat3 P = half_position(half_in, c, p, cls);\n"
+	"\tfloat clsf = float(cls);\n"
+	"\tfloat3 Pl = simd_shuffle(P, ushort(max(int(lane) - 1, 0)));\n"
+	"\tfloat3 Pr = simd_shuffle(P, ushort(min(int(lane) + 1, 31)));\n"
+	"\tfloat3 Pu = simd_shuffle(P, ushort(max(int(lane) - 8, 0)));\n"
+	"\tfloat3 Pd = simd_shuffle(P, ushort(min(int(lane) + 8, 31)));\n"
+	"\tint cl = int(simd_shuffle(clsf, ushort(max(int(lane) - 1, 0))));\n"
+	"\tint cr = int(simd_shuffle(clsf, ushort(min(int(lane) + 1, 31))));\n"
+	"\tint cu = int(simd_shuffle(clsf, ushort(max(int(lane) - 8, 0))));\n"
+	"\tint cd = int(simd_shuffle(clsf, ushort(min(int(lane) + 8, 31))));\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tif (tid.x == 0)\n"
+	"\t\tPl = half_position(half_in, c + int2(-1, 0), p, cl);\n"
+	"\tif (tid.x == 7)\n"
+	"\t\tPr = half_position(half_in, c + int2(1, 0), p, cr);\n"
+	"\tif ((tid.y & 3) == 0)\n"
+	"\t\tPu = half_position(half_in, c + int2(0, -1), p, cu);\n"
+	"\tif ((tid.y & 3) == 3)\n"
+	"\t\tPd = half_position(half_in, c + int2(0, 1), p, cd);\n"
+	"\tif (cls == 0)\n"
+	"\t{\n"
+	"\t\tao_out.write(float4(1.0), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
+	"\tfloat z = P.z;\n"
+	"\tfloat3 V = normalize(-P);\n"
+	"\t/* neighbors of another class (an object's edge against the level) would bend the normal across the edge */\n"
+	"\tfloat el = cl != cls ? 1.0e9 : abs(z - Pl.z), er = cr != cls ? 1.0e9 : abs(Pr.z - z);\n"
+	"\tfloat eu = cu != cls ? 1.0e9 : abs(z - Pu.z), ed = cd != cls ? 1.0e9 : abs(Pd.z - z);\n"
+	"\tfloat3 dx = er < el ? Pr - P : P - Pl;\n"
+	"\tfloat3 dy = ed < eu ? Pd - P : P - Pu;\n"
+	"\tfloat3 N = normalize(cross(dx, dy));\n"
+	"\tif (!all(isfinite(N)))\n"
+	"\t\tN = V;\n"
+	"\tif (dot(N, V) < 0.0)\n"
+	"\t\tN = -N;\n"
+	"\n"
+	"\tfloat pixels_per_unit = p.p11 * float(p.hh) * 0.5 / z;\n"
+	"\tfloat radius_pixels = min(p.radius * pixels_per_unit, p.max_pixels * float(p.hh));\n"
+	"\tif (radius_pixels < 1.0 || z >= p.fade_distance)\n"
+	"\t{\n"
+	"\t\tao_out.write(float4(1.0), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
+	"\tfloat radius = radius_pixels / pixels_per_unit;\n"
+	"\tfloat falloff_range = 0.6 * radius;\n"
+	"\tfloat falloff_mul = -1.0 / falloff_range;\n"
+	"\tfloat falloff_add = (radius - falloff_range) / falloff_range + 1.0;\n"
+	"\tuint index = (gid.x & 3u) + 4u * (gid.y & 3u);\n"
+	"\tfloat noise_slice = (float(bayer4[index]) + 0.5) / 16.0;\n"
+	"\tfloat noise_step = (float(bayer4[(index * 5u + 3u) & 15u]) + 0.5) / 16.0;\n"
+	"\t/* two horizons a side: from objects only, and from everything; a level pixel blends their visibilities by\n"
+	"\tstatic_weight (its lightmap holds the level's own occlusion), an object pixel takes everything's */\n"
+	"\tfloat visibility_objects = 0.0, visibility_all = 0.0, unoccluded = 0.0;\n"
+	"\tconst float half_pi = 1.5707963;\n"
+	"\n"
+	"\tfor (uint s = 0; s < p.slices; s++)\n"
+	"\t{\n"
+	"\t\tfloat phi = (float(s) + noise_slice) / float(p.slices) * 3.14159265;\n"
+	"\t\tfloat cos_phi = cos(phi), sin_phi = sin(phi);\n"
+	"\t\tfloat2 omega = float2(cos_phi, -sin_phi);\n"
+	"\t\tfloat3 direction = float3(cos_phi, sin_phi, 0.0);\n"
+	"\t\tfloat3 ortho = direction - dot(direction, V) * V;\n"
+	"\t\tfloat3 axis = normalize(cross(ortho, V));\n"
+	"\t\tfloat3 projected = N - axis * dot(N, axis);\n"
+	"\t\tfloat projected_length = length(projected);\n"
+	"\t\tfloat sign_n = dot(ortho, projected) < 0.0 ? -1.0 : 1.0;\n"
+	"\t\tfloat cos_n = saturate(dot(projected, V) / max(projected_length, 1.0e-6));\n"
+	"\t\tfloat n = sign_n * fast_acos(cos_n);\n"
+	"\t\tfloat sin_n = sin(n);\n"
+	"\t\tfloat low0 = -sin_n, low1 = sin_n;\n"
+	"\t\tfloat horizon0 = low0, horizon1 = low1, object0 = low0, object1 = low1;\n"
+	"\t\t/* the slice's integral with nothing in the way: 1 only on average over slice angles, so dividing by it\n"
+	"\t\tkeeps open ground at exactly 1 at every pixel instead of clamping the values above 1 away */\n"
+	"\t\tunoccluded += projected_length * (cos_n + n * sin_n);\n"
+	"\n"
+	"\t\tfor (uint k = 0; k < p.steps; k++)\n"
+	"\t\t{\n"
+	"\t\t\tfloat t = (float(k) + noise_step) / float(p.steps);\n"
+	"\t\t\tint2 offset = int2(round(omega * max(t * t * radius_pixels, float(k) + 1.0)));\n"
+	"\n"
+	"\t\t\tfor (int side = 0; side < 2; side++)\n"
+	"\t\t\t{\n"
+	"\t\t\t\tint qc;\n"
+	"\t\t\t\tfloat3 S = half_position(half_in, side == 0 ? c + offset : c - offset, p, qc);\n"
+	"\t\t\t\tif (qc == 0)\n"
+	"\t\t\t\t\tcontinue;\n"
+	"\t\t\t\tfloat3 D = S - P;\n"
+	"\t\t\t\tfloat dist = length(D);\n"
+	"\t\t\t\tfloat shc = dot(D, V) / max(dist, 1.0e-6);\n"
+	"\t\t\t\t/* the falloff is over the 3D distance, so an occluder far in front (a marine against a distant\n"
+	"\t\t\t\twall) does not darken what is behind it */\n"
+	"\t\t\t\tfloat weight = saturate(dist * falloff_mul + falloff_add);\n"
+	"\t\t\t\tfloat low = side == 0 ? low0 : low1;\n"
+	"\t\t\t\tfloat h = mix(low, shc, weight);\n"
+	"\t\t\t\tif (side == 0)\n"
+	"\t\t\t\t{\n"
+	"\t\t\t\t\thorizon0 = max(horizon0, h);\n"
+	"\t\t\t\t\tif (qc == 2)\n"
+	"\t\t\t\t\t\tobject0 = max(object0, h);\n"
+	"\t\t\t\t}\n"
+	"\t\t\t\telse\n"
+	"\t\t\t\t{\n"
+	"\t\t\t\t\thorizon1 = max(horizon1, h);\n"
+	"\t\t\t\t\tif (qc == 2)\n"
+	"\t\t\t\t\t\tobject1 = max(object1, h);\n"
+	"\t\t\t\t}\n"
+	"\t\t\t}\n"
+	"\t\t}\n"
+	"\t\t/* objects first; a level pixel with no static weight needs nothing else */\n"
+	"\t\tfor (int which = 1; which >= 0; which--)\n"
+	"\t\t{\n"
+	"\t\t\tfloat h0 = -fast_acos(clamp(which ? object1 : horizon1, -1.0, 1.0));\n"
+	"\t\t\tfloat h1 = fast_acos(clamp(which ? object0 : horizon0, -1.0, 1.0));\n"
+	"\t\t\th0 = n + clamp(h0 - n, -half_pi, half_pi);\n"
+	"\t\t\th1 = n + clamp(h1 - n, -half_pi, half_pi);\n"
+	"\t\t\tfloat arc0 = (cos_n + 2.0 * h0 * sin_n - cos(2.0 * h0 - n)) * 0.25;\n"
+	"\t\t\tfloat arc1 = (cos_n + 2.0 * h1 * sin_n - cos(2.0 * h1 - n)) * 0.25;\n"
+	"\t\t\tfloat slice = projected_length * (arc0 + arc1);\n"
+	"\t\t\tif (which)\n"
+	"\t\t\t\tvisibility_objects += slice;\n"
+	"\t\t\telse\n"
+	"\t\t\t\tvisibility_all += slice;\n"
+	"\t\t\tif (which && cls == 1 && p.static_weight <= 0.0)\n"
+	"\t\t\t{\n"
+	"\t\t\t\tvisibility_all += slice;\n"
+	"\t\t\t\tbreak;\n"
+	"\t\t\t}\n"
+	"\t\t}\n"
+	"\t}\n"
+	"\tvisibility_all = saturate(visibility_all / max(unoccluded, 1.0e-4));\n"
+	"\tvisibility_objects = saturate(visibility_objects / max(unoccluded, 1.0e-4));\n"
+	"\tfloat visibility = cls == 1 ? min(visibility_objects, mix(visibility_objects, visibility_all, p.static_weight)) :\n"
+	"\t\tvisibility_all;\n"
+	"\tvisibility = mix(visibility, 1.0, smoothstep(0.6 * p.fade_distance, p.fade_distance, z));\n"
+	"\tao_out.write(float4(visibility), gid);\n"
+	"}\n"
+	"\n"
+	"kernel void ssao_blur(texture2d<float, access::read> half_in [[texture(0)]],\n"
+	"\ttexture2d<float, access::read> ao_in [[texture(1)]],\n"
+	"\ttexture2d<float, access::write> ao_out [[texture(2)]],\n"
+	"\tconstant ssao_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tfloat2 center = half_decode(half_in.read(gid).r);\n"
+	"\tif (center.y == 0.0)\n"
+	"\t{\n"
+	"\t\tao_out.write(float4(1.0), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
+	"\tfloat sum = 0.0, weights = 0.0;\n"
+	"\tfloat tolerance = 0.03 * center.x + 0.02;\n"
+	"\tfor (int y = -1; y <= 2; y++)\n"
+	"\t\tfor (int x = -1; x <= 2; x++)\n"
+	"\t\t{\n"
+	"\t\t\tint2 q = clamp(int2(gid) + int2(x, y), int2(0), int2(p.hw - 1, p.hh - 1));\n"
+	"\t\t\tfloat2 v = half_decode(half_in.read(uint2(q)).r);\n"
+	"\t\t\tif (v.y == 0.0)\n"
+	"\t\t\t\tcontinue;\n"
+	"\t\t\tfloat w = saturate(1.0 - abs(v.x - center.x) / tolerance);\n"
+	"\t\t\tsum += w * ao_in.read(uint2(q)).r;\n"
+	"\t\t\tweights += w;\n"
+	"\t\t}\n"
+	"\tao_out.write(float4(weights > 0.0 ? sum / weights : 1.0), gid);\n"
+	"}\n"
+	"\n"
+	"kernel void ssao_upsample(depth2d<float, access::read> depth [[texture(0)]],\n"
+	"\ttexture2d<uint, access::read> stencil [[texture(1)]],\n"
+	"\ttexture2d<float, access::read> half_in [[texture(2)]],\n"
+	"\ttexture2d<float, access::read> ao_in [[texture(3)]],\n"
+	"\ttexture2d<float, access::write> full_out [[texture(4)]],\n"
+	"\ttexture2d<float, access::write> debug_out [[texture(5)]],\n"
+	"\tconstant ssao_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.w || gid.y >= p.h)\n"
+	"\t\treturn;\n"
+	"\tuint2 full = gid + uint2(p.ox, p.oy);\n"
+	"\tfloat stored = depth.read(full);\n"
+	"\tuint st = stencil.read(full).r;\n"
+	"\tfloat z = linear_z(stored, p);\n"
+	"\tint cls = classify(stored, st, z, p);\n"
+	"\tfloat ao = 1.0;\n"
+	"\tif (cls == 1 || cls == 2)\n"
+	"\t{\n"
+	"\t\tint2 base = (int2(gid) + 1) / 2 - 1;\n"
+	"\t\tfloat best = 1.0e30;\n"
+	"\t\tfor (int y = 0; y < 2; y++)\n"
+	"\t\t\tfor (int x = 0; x < 2; x++)\n"
+	"\t\t\t{\n"
+	"\t\t\t\tint2 q = clamp(base + int2(x, y), int2(0), int2(p.hw - 1, p.hh - 1));\n"
+	"\t\t\t\tfloat2 v = half_decode(half_in.read(uint2(q)).r);\n"
+	"\t\t\t\tint qc = int(v.y);\n"
+	"\t\t\t\t/* the same class first (object AO stays off the level beside it), then the nearest depth */\n"
+	"\t\t\t\tfloat e = (qc == 0 || qc == 3) ? 1.0e20 : abs(v.x - z) + (qc != cls ? 1.0e10 : 0.0);\n"
+	"\t\t\t\tif (e < best)\n"
+	"\t\t\t\t{\n"
+	"\t\t\t\t\tbest = e;\n"
+	"\t\t\t\t\tao = ao_in.read(uint2(q)).r;\n"
+	"\t\t\t\t}\n"
+	"\t\t\t}\n"
+	"\t\tao = max(pow(saturate(ao), p.strength), cls == 1 ? p.level_floor : p.object_floor);\n"
+	"\t}\n"
+	"\tif (p.mode == 3 || p.mode == 4)\n"
+	"\t{\n"
+	"\t\tfloat4 color = float4(0.0, 0.0, 0.0, 1.0);\n"
+	"\t\tif (p.mode == 3 && (cls == 1 || cls == 2))\n"
+	"\t\t{\n"
+	"\t\t\tint2 l = clamp(int2(full) + int2(-1, 0), int2(p.ox, p.oy), int2(p.ox + p.w - 1, p.oy + p.h - 1));\n"
+	"\t\t\tint2 r = clamp(int2(full) + int2(1, 0), int2(p.ox, p.oy), int2(p.ox + p.w - 1, p.oy + p.h - 1));\n"
+	"\t\t\tint2 u = clamp(int2(full) + int2(0, -1), int2(p.ox, p.oy), int2(p.ox + p.w - 1, p.oy + p.h - 1));\n"
+	"\t\t\tint2 d = clamp(int2(full) + int2(0, 1), int2(p.ox, p.oy), int2(p.ox + p.w - 1, p.oy + p.h - 1));\n"
+	"\t\t\tfloat2 pc = float2(gid) + 0.5;\n"
+	"\t\t\tfloat3 P = view_position(pc, z, p);\n"
+	"\t\t\tfloat3 Pl = view_position(pc + float2(-1, 0), linear_z(depth.read(uint2(l)), p), p);\n"
+	"\t\t\tfloat3 Pr = view_position(pc + float2(1, 0), linear_z(depth.read(uint2(r)), p), p);\n"
+	"\t\t\tfloat3 Pu = view_position(pc + float2(0, -1), linear_z(depth.read(uint2(u)), p), p);\n"
+	"\t\t\tfloat3 Pd = view_position(pc + float2(0, 1), linear_z(depth.read(uint2(d)), p), p);\n"
+	"\t\t\tfloat3 dx = abs(Pr.z - z) < abs(z - Pl.z) ? Pr - P : P - Pl;\n"
+	"\t\t\tfloat3 dy = abs(Pd.z - z) < abs(z - Pu.z) ? Pd - P : P - Pu;\n"
+	"\t\t\tfloat3 N = normalize(cross(dx, dy));\n"
+	"\t\t\tif (dot(N, -P) < 0.0)\n"
+	"\t\t\t\tN = -N;\n"
+	"\t\t\tcolor.rgb = N * 0.5 + 0.5;\n"
+	"\t\t}\n"
+	"\t\telse if (p.mode == 4)\n"
+	"\t\t{\n"
+	"\t\t\tfloat shade = 1.0 - saturate(log2(max(z, 0.01) + 1.0) / 8.0);\n"
+	"\t\t\tcolor.rgb = cls == 1 ? float3(0.0, shade, 0.0) : cls == 2 ? float3(shade, 0.0, 0.0) :\n"
+	"\t\t\t\tcls == 3 ? float3(0.0, 0.0, 1.0) : float3(0.0);\n"
+	"\t\t}\n"
+	"\t\tdebug_out.write(color, gid);\n"
+	"\t}\n"
+	"\tfull_out.write(float4(ao), gid);\n"
+	"}\n"
+	"\n"
+	"/* debug.ssao_gather_v1: the first spike's preparation and gather (RG32Float depth and class), for timing against\n"
+	"the current ones */\n"
+	"/* the full-resolution pixel (in the rectangle) a half-resolution texel took */\n"
+	"static int2 half_pick_v1(int2 h)\n"
+	"{\n"
+	"\tconst int2 picks[4] = { int2(0, 0), int2(1, 1), int2(1, 0), int2(0, 1) };\n"
+	"\treturn h * 2 + picks[(h.x & 1) + 2 * (h.y & 1)];\n"
+	"}\n"
+	"\n"
+	"static float3 view_position_v1(float2 pixel, float z, constant ssao_parameters &p)\n"
+	"{\n"
+	"\tfloat2 ndc = float2(pixel.x / float(p.w) * 2.0 - 1.0, 1.0 - pixel.y / float(p.h) * 2.0);\n"
+	"\treturn float3((ndc.x + p.p20) / p.p00 * z, (ndc.y + p.p21) / p.p11 * z, z);\n"
+	"}\n"
+	"\n"
+	"kernel void ssao_prepare_v1(depth2d<float, access::read> depth [[texture(0)]],\n"
+	"\ttexture2d<uint, access::read> stencil [[texture(1)]],\n"
+	"\ttexture2d<float, access::write> half_out [[texture(2)]],\n"
+	"\tconstant ssao_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tint2 local = min(half_pick_v1(int2(gid)), int2(p.w - 1, p.h - 1));\n"
+	"\tuint2 full = uint2(local) + uint2(p.ox, p.oy);\n"
+	"\tfloat stored = depth.read(full);\n"
+	"\tuint st = stencil.read(full).r;\n"
+	"\tfloat z = linear_z(stored, p);\n"
+	"\thalf_out.write(float4(z, float(classify(stored, st, z, p)), 0.0, 0.0), gid);\n"
+	"}\n"
+	"\n"
+	"static float2 half_read_v1(texture2d<float, access::read> t, int2 c, constant ssao_parameters &p)\n"
+	"{\n"
+	"\tc = clamp(c, int2(0), int2(p.hw - 1, p.hh - 1));\n"
+	"\treturn t.read(uint2(c)).rg;\n"
+	"}\n"
+	"\n"
+	"static float3 half_position_v1(texture2d<float, access::read> t, int2 c, constant ssao_parameters &p, thread int &cls)\n"
+	"{\n"
+	"\tc = clamp(c, int2(0), int2(p.hw - 1, p.hh - 1));\n"
+	"\tfloat2 v = t.read(uint2(c)).rg;\n"
+	"\tcls = int(v.y + 0.5);\n"
+	"\treturn view_position_v1(float2(min(half_pick_v1(c), int2(p.w - 1, p.h - 1))) + 0.5, v.x, p);\n"
+	"}\n"
+	"\n"
+	"constant uint bayer4_v1[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };\n"
+	"\n"
+	"kernel void ssao_gather_v1(texture2d<float, access::read> half_in [[texture(0)]],\n"
+	"\ttexture2d<float, access::write> ao_out [[texture(1)]],\n"
+	"\tconstant ssao_parameters &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= p.hw || gid.y >= p.hh)\n"
+	"\t\treturn;\n"
+	"\tint2 c = int2(gid);\n"
+	"\tint cls, cl, cr, cu, cd;\n"
+	"\tfloat3 P = half_position_v1(half_in, c, p, cls);\n"
+	"\tif (cls == 0 || cls == 3)\n"
+	"\t{\n"
+	"\t\tao_out.write(float4(1.0), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
+	"\tfloat z = P.z;\n"
+	"\tfloat3 V = normalize(-P);\n"
+	"\tfloat3 Pl = half_position_v1(half_in, c + int2(-1, 0), p, cl);\n"
+	"\tfloat3 Pr = half_position_v1(half_in, c + int2(1, 0), p, cr);\n"
+	"\tfloat3 Pu = half_position_v1(half_in, c + int2(0, -1), p, cu);\n"
+	"\tfloat3 Pd = half_position_v1(half_in, c + int2(0, 1), p, cd);\n"
+	"\t/* neighbors of another class (an object's edge against the level) would bend the normal across the edge */\n"
+	"\tfloat el = cl != cls ? 1.0e9 : abs(z - Pl.z), er = cr != cls ? 1.0e9 : abs(Pr.z - z);\n"
+	"\tfloat eu = cu != cls ? 1.0e9 : abs(z - Pu.z), ed = cd != cls ? 1.0e9 : abs(Pd.z - z);\n"
+	"\tfloat3 dx = er < el ? Pr - P : P - Pl;\n"
+	"\tfloat3 dy = ed < eu ? Pd - P : P - Pu;\n"
+	"\tfloat3 N = normalize(cross(dx, dy));\n"
+	"\tif (!all(isfinite(N)))\n"
+	"\t\tN = V;\n"
+	"\tif (dot(N, V) < 0.0)\n"
+	"\t\tN = -N;\n"
+	"\n"
+	"\tfloat pixels_per_unit = p.p11 * float(p.hh) * 0.5 / z;\n"
+	"\t/* (max_pixels: a fraction of the view's height, in half-resolution pixels) */\n"
+	"\tfloat radius_pixels = min(p.radius * pixels_per_unit, p.max_pixels * float(p.hh));\n"
+	"\tif (radius_pixels < 1.0 || z >= p.fade_distance)\n"
+	"\t{\n"
+	"\t\tao_out.write(float4(1.0), gid);\n"
+	"\t\treturn;\n"
+	"\t}\n"
+	"\t/* the radius in world units the steps reach (smaller when clamped on screen) */\n"
+	"\tfloat radius = radius_pixels / pixels_per_unit;\n"
+	"\tfloat falloff_range = 0.6 * radius;\n"
+	"\tfloat falloff_mul = -1.0 / falloff_range;\n"
+	"\tfloat falloff_add = (radius - falloff_range) / falloff_range + 1.0;\n"
+	"\tuint index = (gid.x & 3u) + 4u * (gid.y & 3u);\n"
+	"\tfloat noise_slice = (float(bayer4_v1[index]) + 0.5) / 16.0;\n"
+	"\tfloat noise_step = (float(bayer4_v1[(index * 5u + 3u) & 15u]) + 0.5) / 16.0;\n"
+	"\t/* two horizons a side: from objects only, and from everything; a level pixel blends their visibilities by\n"
+	"\tstatic_weight (its lightmap holds the level's own occlusion), an object pixel takes everything's */\n"
+	"\tfloat visibility_objects = 0.0, visibility_all = 0.0, unoccluded = 0.0;\n"
+	"\tconst float half_pi = 1.5707963;\n"
+	"\n"
+	"\tfor (uint s = 0; s < p.slices; s++)\n"
+	"\t{\n"
+	"\t\tfloat phi = (float(s) + noise_slice) / float(p.slices) * 3.14159265;\n"
+	"\t\tfloat2 omega = float2(cos(phi), -sin(phi));\n"
+	"\t\tfloat3 direction = float3(cos(phi), sin(phi), 0.0);\n"
+	"\t\tfloat3 ortho = direction - dot(direction, V) * V;\n"
+	"\t\tfloat3 axis = normalize(cross(ortho, V));\n"
+	"\t\tfloat3 projected = N - axis * dot(N, axis);\n"
+	"\t\tfloat projected_length = length(projected);\n"
+	"\t\tfloat sign_n = dot(ortho, projected) < 0.0 ? -1.0 : 1.0;\n"
+	"\t\tfloat cos_n = saturate(dot(projected, V) / max(projected_length, 1.0e-6));\n"
+	"\t\tfloat n = sign_n * acos(cos_n);\n"
+	"\t\tfloat low0 = cos(n + half_pi), low1 = cos(n - half_pi);\n"
+	"\t\tfloat horizon0 = low0, horizon1 = low1, object0 = low0, object1 = low1;\n"
+	"\t\t/* the slice's integral with nothing in the way: 1 only on average over slice angles, so dividing by it\n"
+	"\t\tkeeps open ground at exactly 1 at every pixel instead of clamping the values above 1 away */\n"
+	"\t\tunoccluded += projected_length * (cos_n + n * sin(n));\n"
+	"\n"
+	"\t\tfor (uint k = 0; k < p.steps; k++)\n"
+	"\t\t{\n"
+	"\t\t\tfloat t = (float(k) + noise_step) / float(p.steps);\n"
+	"\t\t\tint2 offset = int2(round(omega * max(t * t * radius_pixels, float(k) + 1.0)));\n"
+	"\n"
+	"\t\t\tfor (int side = 0; side < 2; side++)\n"
+	"\t\t\t{\n"
+	"\t\t\t\tint2 q = side == 0 ? c + offset : c - offset;\n"
+	"\t\t\t\tif (q.x < 0 || q.y < 0 || q.x >= int(p.hw) || q.y >= int(p.hh))\n"
+	"\t\t\t\t\tcontinue;\n"
+	"\t\t\t\tint qc;\n"
+	"\t\t\t\tfloat3 S = half_position_v1(half_in, q, p, qc);\n"
+	"\t\t\t\tif (qc == 0 || qc == 3)\n"
+	"\t\t\t\t\tcontinue;\n"
+	"\t\t\t\tfloat3 D = S - P;\n"
+	"\t\t\t\tfloat dist = length(D);\n"
+	"\t\t\t\tfloat shc = dot(D / max(dist, 1.0e-6), V);\n"
+	"\t\t\t\t/* the falloff is over the 3D distance, so an occluder far in front (a marine against a distant\n"
+	"\t\t\t\twall) does not darken what is behind it */\n"
+	"\t\t\t\tfloat weight = saturate(dist * falloff_mul + falloff_add);\n"
+	"\t\t\t\tif (side == 0)\n"
+	"\t\t\t\t{\n"
+	"\t\t\t\t\thorizon0 = max(horizon0, mix(low0, shc, weight));\n"
+	"\t\t\t\t\tif (qc == 2)\n"
+	"\t\t\t\t\t\tobject0 = max(object0, mix(low0, shc, weight));\n"
+	"\t\t\t\t}\n"
+	"\t\t\t\telse\n"
+	"\t\t\t\t{\n"
+	"\t\t\t\t\thorizon1 = max(horizon1, mix(low1, shc, weight));\n"
+	"\t\t\t\t\tif (qc == 2)\n"
+	"\t\t\t\t\t\tobject1 = max(object1, mix(low1, shc, weight));\n"
+	"\t\t\t\t}\n"
+	"\t\t\t}\n"
+	"\t\t}\n"
+	"\t\tfor (int which = 0; which < 2; which++)\n"
+	"\t\t{\n"
+	"\t\t\tfloat h0 = -acos(clamp(which ? object1 : horizon1, -1.0, 1.0));\n"
+	"\t\t\tfloat h1 = acos(clamp(which ? object0 : horizon0, -1.0, 1.0));\n"
+	"\t\t\th0 = n + clamp(h0 - n, -half_pi, half_pi);\n"
+	"\t\t\th1 = n + clamp(h1 - n, -half_pi, half_pi);\n"
+	"\t\t\tfloat arc0 = (cos_n + 2.0 * h0 * sin(n) - cos(2.0 * h0 - n)) * 0.25;\n"
+	"\t\t\tfloat arc1 = (cos_n + 2.0 * h1 * sin(n) - cos(2.0 * h1 - n)) * 0.25;\n"
+	"\t\t\tfloat slice = projected_length * (arc0 + arc1);\n"
+	"\t\t\tif (which)\n"
+	"\t\t\t\tvisibility_objects += slice;\n"
+	"\t\t\telse\n"
+	"\t\t\t\tvisibility_all += slice;\n"
+	"\t\t}\n"
+	"\t}\n"
+	"\tvisibility_all = saturate(visibility_all / max(unoccluded, 1.0e-4));\n"
+	"\tvisibility_objects = saturate(visibility_objects / max(unoccluded, 1.0e-4));\n"
+	"\tfloat visibility = cls == 1 ? min(visibility_objects, mix(visibility_objects, visibility_all, p.static_weight)) :\n"
+	"\t\tvisibility_all;\n"
+	"\tvisibility = mix(visibility, 1.0, smoothstep(0.6 * p.fade_distance, p.fade_distance, z));\n"
+	"\tao_out.write(float4(visibility), gid);\n"
+	"}\n"
+	"\n"
+	"\n"
+	"struct ssao_vertex_out\n"
+	"{\n"
+	"\tfloat4 position [[position]];\n"
+	"};\n"
+	"\n"
+	"vertex ssao_vertex_out ssao_vertex(uint id [[vertex_id]])\n"
+	"{\n"
+	"\tssao_vertex_out out;\n"
+	"\tfloat2 uv = float2((id << 1) & 2, id & 2);\n"
+	"\tout.position = float4(uv * 2.0 - 1.0, 0.0, 1.0);\n"
+	"\treturn out;\n"
+	"}\n"
+	"\n"
+	"struct ssao_composite_parameters\n"
+	"{\n"
+	"\tuint ox, oy, w, h;\n"
+	"\tfloat amount;\n"
+	"\t/* the low-resolution path (debug.ssao_path 1, 2): the texture's size, the power and the floor, and the scale */\n"
+	"\tfloat half_w, half_h, strength, floor;\n"
+	"\tfloat inverse_scale;\n"
+	"\tuint pad[2];\n"
+	"};\n"
+	"\n"
+	"fragment float4 ssao_composite(ssao_vertex_out in [[stage_in]], texture2d<float, access::read> ao [[texture(0)]],\n"
+	"\tconstant ssao_composite_parameters &c [[buffer(0)]])\n"
+	"{\n"
+	"\tuint2 q = min(uint2(in.position.xy) - uint2(c.ox, c.oy), uint2(c.w - 1, c.h - 1));\n"
+	"\tfloat a = mix(1.0, ao.read(q).r, c.amount);\n"
+	"\treturn float4(a, a, a, 1.0);\n"
+	"}\n"
+	"\n"
+	"fragment float4 ssao_debug(ssao_vertex_out in [[stage_in]], texture2d<float, access::read> image [[texture(0)]],\n"
+	"\tconstant ssao_composite_parameters &c [[buffer(0)]])\n"
+	"{\n"
+	"\tuint2 q = min(uint2(in.position.xy) - uint2(c.ox, c.oy), uint2(c.w - 1, c.h - 1));\n"
+	"\treturn float4(image.read(q).rgb, 1.0);\n"
+	"}\n"
+	"\n"
+	"/* debug.ssao_path 1 and 2: the half-resolution AO sampled bilinearly, no full-resolution upsample */\n"
+	"fragment float4 ssao_composite_half(ssao_vertex_out in [[stage_in]], texture2d<float> ao [[texture(0)]],\n"
+	"\tsampler linear_clamp [[sampler(0)]], constant ssao_composite_parameters &c [[buffer(0)]])\n"
+	"{\n"
+	"\tfloat2 q = (in.position.xy - float2(c.ox, c.oy)) * c.inverse_scale;\n"
+	"\tfloat a = ao.sample(linear_clamp, q / float2(c.half_w, c.half_h)).r;\n"
+	"\ta = max(pow(saturate(a), c.strength), c.floor);\n"
+	"\ta = mix(1.0, a, c.amount);\n"
+	"\treturn float4(a, a, a, 1.0);\n"
+	"}\n";
+
+struct ssao_parameters
+{
+	uint32_t ox, oy, w, h, hw, hh;
+	float z_near, z_far, p00, p11, p20, p21;
+	float radius, strength, objects, static_weight, max_pixels, fade_distance;
+	uint32_t slices, steps, mode, scale;
+	float level_floor, object_floor, pad1, pad2;
+};
+
+struct ssao_composite_parameters
+{
+	uint32_t ox, oy, w, h;
+	float amount;
+	float half_w, half_h, strength, floor;
+	float inverse_scale;
+	uint32_t pad[2];
+};
+
+static struct
+{
+	BOOL tried, failed;
+	id<MTLComputePipelineState> prepare, gather, blur, upsample, prepare_v1, gather_v1;
+	id<MTLRenderPipelineState> multiply, replace, debug, multiply_half;
+	id<MTLSamplerState> linear_clamp;
+	id<MTLDepthStencilState> level, objects, everything;
+	/* half resolution: depth with the class in its sign (R32Float), raw and blurred AO (R16Float); full: AO (R8), the
+	debug image */
+	id<MTLTexture> half_depth, raw, blurred, full, debug_image, half_v1;
+	/* the stencil view and the depth-stencil texture it views */
+	id<MTLTexture> stencil_view;
+	unsigned long passes;
+} ssao;
+
+static BOOL ssao_programs(void)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library;
+	MTLRenderPipelineDescriptor *pipeline;
+	MTLDepthStencilDescriptor *state;
+	MTLStencilDescriptor *stencil;
+
+	if (ssao.tried)
+		return !ssao.failed;
+	ssao.tried = YES;
+	ssao.failed = YES;
+	library = [device newLibraryWithSource:ssao_source options:nil error:&error];
+	if (!library)
+	{
+		platform_log("ssao: the shaders do not compile: %s", error.localizedDescription.UTF8String);
+		return NO;
+	}
+	ssao.prepare = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_prepare"] error:&error];
+	ssao.gather = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_gather"] error:&error];
+	ssao.blur = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_blur"] error:&error];
+	ssao.upsample = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_upsample"]
+		error:&error];
+	ssao.prepare_v1 = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_prepare_v1"]
+		error:&error];
+	ssao.gather_v1 = [device newComputePipelineStateWithFunction:[library newFunctionWithName:@"ssao_gather_v1"]
+		error:&error];
+	pipeline = [MTLRenderPipelineDescriptor new];
+	pipeline.vertexFunction = [library newFunctionWithName:@"ssao_vertex"];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite"];
+	pipeline.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
+	pipeline.colorAttachments[0].writeMask = MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue;
+	pipeline.depthAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	pipeline.stencilAttachmentPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+	ssao.replace = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = YES;
+	pipeline.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceRGBBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationRGBBlendFactor = MTLBlendFactorSourceColor;
+	pipeline.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
+	pipeline.colorAttachments[0].sourceAlphaBlendFactor = MTLBlendFactorZero;
+	pipeline.colorAttachments[0].destinationAlphaBlendFactor = MTLBlendFactorOne;
+	ssao.multiply = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_composite_half"];
+	ssao.multiply_half = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	pipeline.colorAttachments[0].blendingEnabled = NO;
+	pipeline.fragmentFunction = [library newFunctionWithName:@"ssao_debug"];
+	ssao.debug = [device newRenderPipelineStateWithDescriptor:pipeline error:&error];
+	{
+		MTLSamplerDescriptor *sampler = [MTLSamplerDescriptor new];
+
+		sampler.minFilter = sampler.magFilter = MTLSamplerMinMagFilterLinear;
+		sampler.sAddressMode = sampler.tAddressMode = MTLSamplerAddressModeClampToEdge;
+		ssao.linear_clamp = [device newSamplerStateWithDescriptor:sampler];
+	}
+	if (!ssao.prepare || !ssao.gather || !ssao.blur || !ssao.upsample || !ssao.prepare_v1 || !ssao.gather_v1 || !ssao.replace || !ssao.multiply || !ssao.debug ||
+		!ssao.multiply_half)
+	{
+		platform_log("ssao: a pipeline cannot be made: %s", error ? error.localizedDescription.UTF8String : "?");
+		return NO;
+	}
+	state = [MTLDepthStencilDescriptor new];
+	state.depthCompareFunction = MTLCompareFunctionAlways;
+	state.depthWriteEnabled = NO;
+	ssao.everything = [device newDepthStencilStateWithDescriptor:state];
+	stencil = [MTLStencilDescriptor new];
+	stencil.stencilCompareFunction = MTLCompareFunctionEqual;
+	stencil.stencilFailureOperation = stencil.depthFailureOperation = stencil.depthStencilPassOperation =
+		MTLStencilOperationKeep;
+	stencil.writeMask = 0;
+	stencil.readMask = 0x11;
+	state.frontFaceStencil = state.backFaceStencil = stencil;
+	ssao.level = [device newDepthStencilStateWithDescriptor:state];
+	stencil.readMask = 0x15;
+	state.frontFaceStencil = state.backFaceStencil = stencil;
+	ssao.objects = [device newDepthStencilStateWithDescriptor:state];
+	ssao.failed = NO;
+	platform_log("ssao: programs ready");
+	return YES;
+}
+
+/* a work texture at least width x height, kept between frames (made again only to grow) */
+static id<MTLTexture> ssao_texture(id<MTLTexture> kept, MTLPixelFormat format, unsigned long width, unsigned long height)
+{
+	MTLTextureDescriptor *descriptor;
+
+	if (kept && kept.width >= width && kept.height >= height && kept.pixelFormat == format)
+		return kept;
+	if (kept)
+	{
+		width = MAX(width, kept.width);
+		height = MAX(height, kept.height);
+	}
+	descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:format width:width height:height mipmapped:NO];
+	descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+	descriptor.storageMode = MTLStorageModePrivate;
+	return [device newTextureWithDescriptor:descriptor];
+}
+
+static void ssao_dispatch(id<MTLComputeCommandEncoder> compute, id<MTLComputePipelineState> pipeline,
+	unsigned long width, unsigned long height)
+{
+	[compute setComputePipelineState:pipeline];
+	[compute dispatchThreadgroups:MTLSizeMake((width + 7) / 8, (height + 7) / 8, 1)
+		threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+}
+
+
+/* HALO_SSAO_TIMING in the app's environment (cost runs): each dispatch in an encoder of its own with GPU timestamps
+at its start and end (MTLCounterSamplingPointAtStageBoundary); every 300 passes the medians are logged */
+#include <mach/mach_time.h>
+enum { SSAO_TIMING_STAGES = 4, SSAO_TIMING_RING = 4, SSAO_TIMING_WINDOW = 300 };
+static struct
+{
+	int state; /* 0 unread, 1 on, -1 off or unsupported */
+	id<MTLCounterSampleBuffer> buffers[SSAO_TIMING_RING];
+	unsigned next;
+	MTLTimestamp cpu0, gpu0;
+	double ns_per_tick;
+	float samples[SSAO_TIMING_STAGES + 1][SSAO_TIMING_WINDOW];
+	unsigned count, windows;
+	dispatch_queue_t queue;
+} ssao_timing;
+
+static BOOL ssao_timing_on(void)
+{
+	if (!ssao_timing.state)
+	{
+		id<MTLCounterSet> timestamps = nil;
+
+		ssao_timing.state = -1;
+		if (!getenv("HALO_SSAO_TIMING") || ![device supportsCounterSampling:MTLCounterSamplingPointAtStageBoundary])
+			return NO;
+		for (id<MTLCounterSet> set in device.counterSets)
+			if ([set.name isEqualToString:MTLCommonCounterSetTimestamp])
+				timestamps = set;
+		if (!timestamps)
+			return NO;
+		MTLCounterSampleBufferDescriptor *descriptor = [MTLCounterSampleBufferDescriptor new];
+		descriptor.counterSet = timestamps;
+		descriptor.storageMode = MTLStorageModeShared;
+		descriptor.sampleCount = SSAO_TIMING_STAGES * 2;
+		for (unsigned i = 0; i < SSAO_TIMING_RING; i++)
+			if (!(ssao_timing.buffers[i] = [device newCounterSampleBufferWithDescriptor:descriptor error:nil]))
+				return NO;
+		[device sampleTimestamps:&ssao_timing.cpu0 gpuTimestamp:&ssao_timing.gpu0];
+		ssao_timing.queue = dispatch_queue_create("ssao timing", DISPATCH_QUEUE_SERIAL);
+		ssao_timing.state = 1;
+		platform_log("ssao: timing each dispatch (HALO_SSAO_TIMING)");
+	}
+	return ssao_timing.state > 0;
+}
+
+static int ssao_float_order(const void *a, const void *b)
+{
+	float x = *(const float *)a, y = *(const float *)b;
+	return x < y ? -1 : x > y;
+}
+
+static void ssao_timing_resolve(id<MTLCounterSampleBuffer> buffer, unsigned stages)
+{
+	NSData *data = [buffer resolveCounterRange:NSMakeRange(0, SSAO_TIMING_STAGES * 2)];
+	const MTLCounterResultTimestamp *t = data.bytes;
+	float total = 0.0f;
+
+	if (!t || data.length < sizeof(*t) * SSAO_TIMING_STAGES * 2)
+		return;
+	if (ssao_timing.ns_per_tick <= 0.0)
+	{
+		MTLTimestamp cpu, gpu;
+		mach_timebase_info_data_t timebase;
+
+		[device sampleTimestamps:&cpu gpuTimestamp:&gpu];
+		mach_timebase_info(&timebase);
+		if (gpu <= ssao_timing.gpu0 + 1000000)
+			return;
+		/* (the CPU timestamps are already nanoseconds) */
+		(void)timebase;
+		ssao_timing.ns_per_tick = (double)(cpu - ssao_timing.cpu0) / (double)(gpu - ssao_timing.gpu0);
+	}
+	for (unsigned stage = 0; stage < SSAO_TIMING_STAGES; stage++)
+	{
+		MTLTimestamp start = t[stage * 2].timestamp, end = t[stage * 2 + 1].timestamp;
+		float ms = stage < stages && end > start && start != MTLCounterErrorValue && end != MTLCounterErrorValue ?
+			(float)((double)(end - start) * ssao_timing.ns_per_tick * 1.0e-6) : 0.0f;
+
+		ssao_timing.samples[stage][ssao_timing.count] = ms;
+		total += ms;
+	}
+	ssao_timing.samples[SSAO_TIMING_STAGES][ssao_timing.count] = total;
+	if (++ssao_timing.count == SSAO_TIMING_WINDOW)
+	{
+		float median[SSAO_TIMING_STAGES + 1];
+
+		for (unsigned i = 0; i <= SSAO_TIMING_STAGES; i++)
+		{
+			qsort(ssao_timing.samples[i], SSAO_TIMING_WINDOW, sizeof(float), ssao_float_order);
+			median[i] = ssao_timing.samples[i][SSAO_TIMING_WINDOW / 2];
+		}
+		platform_log("ssao-time: window %u: prepare %.3f gather %.3f blur %.3f upsample %.3f total %.3f ms (medians "
+			"of %u passes)", ssao_timing.windows++, median[0], median[1], median[2], median[3], median[4],
+			(unsigned)SSAO_TIMING_WINDOW);
+		ssao_timing.count = 0;
+	}
+}
+
+/* a compute encoder for one stage; with timing, its own encoder with the stage's samples */
+static id<MTLComputeCommandEncoder> ssao_encoder(id<MTLComputeCommandEncoder> shared, id<MTLCounterSampleBuffer> timing,
+	unsigned stage)
+{
+	MTLComputePassDescriptor *pass;
+
+	if (!timing)
+		return shared;
+	pass = [MTLComputePassDescriptor computePassDescriptor];
+	pass.sampleBufferAttachments[0].sampleBuffer = timing;
+	pass.sampleBufferAttachments[0].startOfEncoderSampleIndex = stage * 2;
+	pass.sampleBufferAttachments[0].endOfEncoderSampleIndex = stage * 2 + 1;
+	return [command_buffer() computeCommandEncoderWithDescriptor:pass];
+}
+
+void host_ssao_apply(gpu_texture color, gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
+		/* Level-load warming needs only the programs, before any render resources are available. */
+		if (count == 0)
+		{
+			ssao_programs();
+			return;
+		}
+		MetalTexture *color_record = texture_record(color), *depth_record = texture_record(depth);
+		struct ssao_parameters p;
+		struct ssao_composite_parameters c;
+		MTLScissorRect area;
+		struct gpu_rect rect;
+		unsigned long width, height;
+		id<MTLComputeCommandEncoder> compute;
+		int mode;
+		static BOOL refused_logged;
+
+		if (count < 18 || !color_record || !color_record->texture || !depth_record || !depth_record->texture ||
+			color_record->description.format != GPU_FORMAT_BGRA8 ||
+			depth_record->description.format != GPU_FORMAT_DEPTH_STENCIL || color_record->samples ||
+			depth_record->samples || foveation_map(color_record) || foveation_map(depth_record) ||
+			!(depth_record->texture.usage & MTLTextureUsagePixelFormatView) || !ssao_programs())
+		{
+			if (!refused_logged)
+				platform_log("ssao: skipped (targets %s, stencil view %s)", color_record && depth_record ? "ok" : "missing",
+					depth_record && depth_record->texture && (depth_record->texture.usage & MTLTextureUsagePixelFormatView) ?
+					"ok" : "not available: debug.ssao was off at launch");
+			refused_logged = YES;
+			return;
+		}
+		mode = (int)values[14];
+		/* debug.ssao_path: 0 full-resolution upsample, 1 the blurred half-resolution AO sampled bilinearly in the
+		composite, 2 the raw half-resolution AO (no blur); modes 2-4 always take path 0 */
+		int path = count >= 23 && mode == 1 ? (int)values[22] : 0;
+		/* debug.ssao_stop (cost bisection): 1 prepare only, 2 prepare and gather, 3 every dispatch; none of them
+		composite; 0 everything */
+		int stop = count >= 24 && mode == 1 ? (int)values[23] : 0;
+		/* debug.ssao_gather_v1: the first spike's preparation and gather, for timing */
+		int gather_v1 = count >= 26 && mode == 1 && values[25] != 0.0f;
+		width = color_record->content_width ? color_record->content_width : color_record->texture.width;
+		height = color_record->content_height ? color_record->content_height : color_record->texture.height;
+		width = MIN(width, depth_record->texture.width);
+		height = MIN(height, depth_record->texture.height);
+		rect.x = (int32_t)values[0];
+		rect.y = (int32_t)values[1];
+		rect.width = (int32_t)values[2];
+		rect.height = (int32_t)values[3];
+		if (!clamp_rect(&rect, width, height, &area) || area.width < 4 || area.height < 4)
+			return;
+		pass_end();
+		if (pass_log)
+			[pass_log appendFormat:@"\n  ssao (mode %d): %lux%lu at %lu,%lu", mode, (unsigned long)area.width,
+				(unsigned long)area.height, (unsigned long)area.x, (unsigned long)area.y];
+		if (mode != 5)
+		{
+			memset(&p, 0, sizeof(p));
+			p.ox = (uint32_t)area.x;
+			p.oy = (uint32_t)area.y;
+			p.w = (uint32_t)area.width;
+			p.h = (uint32_t)area.height;
+			/* debug.ssao_scale: 2 half resolution, 4 quarter (the low-resolution paths only) */
+			p.scale = count >= 27 && values[26] == 4.0f && path != 0 ? 4 : 2;
+			p.hw = (p.w + p.scale - 1) / p.scale;
+			p.hh = (p.h + p.scale - 1) / p.scale;
+			p.z_near = values[4];
+			p.z_far = values[5];
+			/* the projection's own depth row (GL-style), when given: the near and far the depth was made with */
+			if (count >= 22 && values[20] != 1.0f && values[20] != -1.0f && values[21] != 0.0f)
+			{
+				p.z_near = values[21] / (values[20] - 1.0f);
+				p.z_far = values[21] / (values[20] + 1.0f);
+			}
+			p.p00 = values[6];
+			p.p11 = values[7];
+			p.p20 = values[8];
+			p.p21 = values[9];
+			p.radius = values[10] > 0.0f ? values[10] : 0.3f;
+			p.strength = values[11] > 0.0f ? values[11] : 1.0f;
+			p.objects = values[12];
+			p.static_weight = values[13];
+			/* low: one direction, three steps a side; high: two directions, four; the 4x4 pattern turns them per
+			pixel and the blur averages the turns (debug.ssao_steps overrides the steps) */
+			p.slices = values[15] != 0.0f ? 2 : 1;
+			p.steps = values[15] != 0.0f ? 4 : 3;
+			if (count >= 25 && values[24] >= 1.0f)
+				p.steps = (uint32_t)values[24];
+			p.max_pixels = values[16] > 0.0f ? values[16] : 0.12f;
+			p.fade_distance = values[17] > 0.0f ? values[17] : 35.0f;
+			p.level_floor = count > 18 ? values[18] : 0.35f;
+			p.object_floor = count > 19 ? values[19] : 0.6f;
+			p.mode = (uint32_t)mode;
+			ssao.half_depth = ssao_texture(ssao.half_depth, MTLPixelFormatR32Float, p.hw, p.hh);
+			ssao.raw = ssao_texture(ssao.raw, MTLPixelFormatR16Float, p.hw, p.hh);
+			if (gather_v1)
+				ssao.half_v1 = ssao_texture(ssao.half_v1, MTLPixelFormatRG32Float, p.hw, p.hh);
+			ssao.blurred = ssao_texture(ssao.blurred, MTLPixelFormatR16Float, p.hw, p.hh);
+			ssao.full = ssao_texture(ssao.full, MTLPixelFormatR8Unorm, p.w, p.h);
+			if (mode == 3 || mode == 4)
+				ssao.debug_image = ssao_texture(ssao.debug_image, MTLPixelFormatRGBA8Unorm, p.w, p.h);
+			else if (!ssao.debug_image)
+				ssao.debug_image = ssao_texture(nil, MTLPixelFormatRGBA8Unorm, 1, 1);
+			ssao.stencil_view = level_stencil_view(depth_record->texture);
+			{
+				id<MTLCounterSampleBuffer> timing = nil;
+				unsigned stages = 0;
+
+				if (ssao_timing_on())
+				{
+					timing = ssao_timing.buffers[ssao_timing.next++ % SSAO_TIMING_RING];
+					compute = nil;
+				}
+				else
+					compute = [command_buffer() computeCommandEncoder];
+#define SSAO_STAGE(index, body) do { id<MTLComputeCommandEncoder> e = ssao_encoder(compute, timing, index); \
+	[e setBytes:&p length:sizeof(p) atIndex:0]; body; if (timing) [e endEncoding]; stages = (index) + 1; } while (0)
+				SSAO_STAGE(0, {
+					[e setTexture:depth_record->texture atIndex:0];
+					[e setTexture:ssao.stencil_view atIndex:1];
+					[e setTexture:ssao.half_depth atIndex:2];
+					ssao_dispatch(e, ssao.prepare, p.hw, p.hh);
+					if (gather_v1)
+					{
+						[e setTexture:ssao.half_v1 atIndex:2];
+						ssao_dispatch(e, ssao.prepare_v1, p.hw, p.hh);
+					} });
+				if (stop != 1)
+				{
+					SSAO_STAGE(1, {
+						[e setTexture:gather_v1 ? ssao.half_v1 : ssao.half_depth atIndex:0];
+						[e setTexture:ssao.raw atIndex:1];
+						ssao_dispatch(e, gather_v1 ? ssao.gather_v1 : ssao.gather, p.hw, p.hh); });
+					if (path != 2 && stop != 2)
+						SSAO_STAGE(2, {
+							[e setTexture:ssao.half_depth atIndex:0];
+							[e setTexture:ssao.raw atIndex:1];
+							[e setTexture:ssao.blurred atIndex:2];
+							ssao_dispatch(e, ssao.blur, p.hw, p.hh); });
+					if (path == 0 && stop != 2)
+						SSAO_STAGE(3, {
+							[e setTexture:depth_record->texture atIndex:0];
+							[e setTexture:ssao.stencil_view atIndex:1];
+							[e setTexture:ssao.half_depth atIndex:2];
+							[e setTexture:ssao.blurred atIndex:3];
+							[e setTexture:ssao.full atIndex:4];
+							[e setTexture:ssao.debug_image atIndex:5];
+							ssao_dispatch(e, ssao.upsample, p.w, p.h); });
+				}
+#undef SSAO_STAGE
+				if (!timing)
+				{
+					if (metal_debug)
+						compute.label = @"ssao";
+					[compute endEncoding];
+				}
+				else
+				{
+					id<MTLCounterSampleBuffer> resolved = timing;
+					unsigned resolved_stages = stages;
+
+					[command_buffer() addCompletedHandler:^(id<MTLCommandBuffer> done)
+					{
+						(void)done;
+						dispatch_async(ssao_timing.queue, ^{ ssao_timing_resolve(resolved, resolved_stages); });
+					}];
+				}
+			}
+		}
+		/* the scene's pass again, loaded, with the composite first */
+		if (!pass_begin(color, depth, NULL) || !encoder)
+			return;
+		if (mode != 5 && !stop)
+		{
+			c.ox = (uint32_t)area.x;
+			c.oy = (uint32_t)area.y;
+			c.w = (uint32_t)area.width;
+			c.h = (uint32_t)area.height;
+			c.pad[0] = c.pad[1] = 0;
+			c.inverse_scale = 1.0f / (float)p.scale;
+			[encoder setViewport:(MTLViewport){ (double)area.x, (double)area.y, (double)area.width, (double)area.height,
+				0.0, 1.0 }];
+			[encoder setScissorRect:area];
+			[encoder setCullMode:MTLCullModeNone];
+			if (mode == 3 || mode == 4)
+			{
+				c.amount = 1.0f;
+				[encoder setRenderPipelineState:ssao.debug];
+				[encoder setDepthStencilState:ssao.everything];
+				[encoder setFragmentTexture:ssao.debug_image atIndex:0];
+				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
+				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+			}
+			else
+			{
+				[encoder setRenderPipelineState:path ? ssao.multiply_half : mode == 2 ? ssao.replace : ssao.multiply];
+				[encoder setFragmentTexture:path == 0 ? ssao.full : path == 1 ? ssao.blurred : ssao.raw atIndex:0];
+				[encoder setFragmentSamplerState:ssao.linear_clamp atIndex:0];
+				c.half_w = (float)(path == 1 ? ssao.blurred : ssao.raw).width;
+				c.half_h = (float)(path == 1 ? ssao.blurred : ssao.raw).height;
+				c.strength = p.strength;
+				c.floor = p.level_floor;
+				c.amount = 1.0f;
+				[encoder setDepthStencilState:ssao.level];
+				[encoder setStencilReferenceValue:0x10];
+				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
+				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+				c.amount = values[12];
+				c.floor = p.object_floor;
+				[encoder setDepthStencilState:ssao.objects];
+				[encoder setStencilReferenceValue:0];
+				[encoder setFragmentBytes:&c length:sizeof(c) atIndex:0];
+				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+			}
+		}
+		/* the game's next draw sets everything again */
+		metal_state_reset(&state_cache);
+		if (!ssao.passes++)
+			platform_log("ssao: first pass, mode %d, %lux%lu at %lu,%lu", mode, (unsigned long)area.width,
+				(unsigned long)area.height, (unsigned long)area.x, (unsigned long)area.y);
+	}
 }
 
 static void gpu_metal_anti_alias(uint32_t method, gpu_texture target, const struct gpu_rect *rect)
@@ -7804,7 +8989,17 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
 				[pass_log appendFormat:@"\n  present: texture %u %lux%lu into %ldx%ld of drawable %ldx%ld %s/%s", back_buffer,
 					(unsigned long)picture.width, (unsigned long)picture.height, width, height, window_width, window_height,
 					load_name(pass.colorAttachments[0].loadAction), store_name(pass.colorAttachments[0].storeAction)];
-			[present setRenderPipelineState:present_pipeline];
+			/* (the CRT only over Hardcore's 480-line picture: until the next level a mode change can leave the
+			picture at the device's size) */
+			if (crt_pipeline && picture.height <= 540 && crt_enabled)
+			{
+				float sizes[4] = { (float)picture.width, (float)picture.height, (float)width, (float)height };
+
+				[present setRenderPipelineState:crt_pipeline];
+				[present setFragmentBytes:sizes length:sizeof(sizes) atIndex:0];
+			}
+			else
+				[present setRenderPipelineState:present_pipeline];
 			[present setViewport:(MTLViewport){ (double)((window_width - width) / 2), (double)((window_height - height) / 2),
 				(double)width, (double)height, 0.0, 1.0 }];
 			[present setFragmentTexture:picture atIndex:0];
@@ -8362,6 +9557,12 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		upscale_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
 		if (!upscale_pipeline)
 			host_fatal("Metal: cannot create the upscale pipeline: %s", error.description.UTF8String);
+		present_descriptor.fragmentFunction = [utilities newFunctionWithName:@"crt_fragment"];
+		present_descriptor.colorAttachments[0].pixelFormat = layer.pixelFormat;
+		crt_pipeline = [device newRenderPipelineStateWithDescriptor:present_descriptor error:&error];
+		/* (no CRT is no reason to stop the game) */
+		if (!crt_pipeline)
+			platform_log("Metal: cannot create the CRT pipeline: %s", error.description.UTF8String);
 		linear.minFilter = MTLSamplerMinMagFilterLinear;
 		linear.magFilter = MTLSamplerMinMagFilterLinear;
 		present_sampler = [device newSamplerStateWithDescriptor:linear];
@@ -8572,6 +9773,138 @@ static void gpu_metal_initialize(uint32_t flags, struct gpu_capabilities *capabi
 		capabilities->clip_z_remap = 0;
 		GPU_CAPABILITIES_LOG(platform_log, capabilities);
 	}
+}
+
+/* ---------- soft particle edges (display.soft_particles; d3d8_device.c's halo_soft_particles_prepare)
+
+Before a view's transparent geometry the front end hands over its depth target: the pass ends, a compute pass turns
+every pixel's reversed depth into its view distance (R32Float, the target's size), and until host_soft_depth_finish
+every draw binds it as fragment texture 8, with the near, far, 1 / fade distance and the texture's scale (1, or 2 at
+half resolution: debug.soft_particle_scale) as fragment buffer 5. A pixel the
+level did not draw (no stencil 0x10: an object, the sky) is stored as far away, so particles fade against the level
+alone. The next
+draw reopens the pass, its depth loaded, as after any pass break. */
+static NSString *const soft_depth_source =
+	@"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"kernel void soft_depth_linearize(depth2d<float, access::read> depth [[texture(0)]],\n"
+	"\ttexture2d<float, access::write> distances [[texture(1)]], texture2d<uint, access::read> stencil [[texture(2)]],\n"
+	"\tconstant float4 &p [[buffer(0)]], uint2 gid [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (gid.x >= distances.get_width() || gid.y >= distances.get_height())\n"
+	"\t\treturn;\n"
+	"\tuint scale = uint(p.w);\n"
+	"\tuint2 last = uint2(depth.get_width() - 1, depth.get_height() - 1);\n"
+	"\tfloat nearest = 1.0e30;\n"
+	"\tfor (uint y = 0; y < scale; y++)\n"
+	"\t\tfor (uint x = 0; x < scale; x++)\n"
+	"\t\t{\n"
+	"\t\t\tuint2 c = min(gid * scale + uint2(x, y), last);\n"
+	"\t\t\tif (!(stencil.read(c).r & 0x10u))\n"
+	"\t\t\t{\n"
+	"\t\t\t\tdistances.write(float4(1.0e30), gid);\n"
+	"\t\t\t\treturn;\n"
+	"\t\t\t}\n"
+	"\t\t\tfloat stored = depth.read(c);\n"
+	"\t\t\tnearest = min(nearest, p.x * p.y / (p.y - (1.0 - stored) * (p.y - p.x)));\n"
+	"\t\t}\n"
+	"\tdistances.write(float4(nearest), gid);\n"
+	"}\n";
+
+static BOOL soft_depth_program(void)
+{
+	NSError *error = nil;
+	id<MTLLibrary> library;
+	id<MTLFunction> function;
+
+	if (soft.tried)
+		return !soft.failed;
+	soft.tried = YES;
+	soft.failed = YES;
+	library = [device newLibraryWithSource:soft_depth_source options:nil error:&error];
+	function = library ? [library newFunctionWithName:@"soft_depth_linearize"] : nil;
+	soft.linearize = function ? [device newComputePipelineStateWithFunction:function error:&error] : nil;
+	if (!soft.linearize)
+	{
+		platform_log("soft particles: the depth program failed: %s",
+			error ? error.localizedDescription.UTF8String : "no function");
+		return NO;
+	}
+	soft.failed = NO;
+	return YES;
+}
+
+uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_t count)
+{
+	@autoreleasepool
+	{
+		/* Compile-only warming must preserve the current view's active soft-depth state. */
+		if (count == 0)
+			return soft_depth_program();
+		MetalTexture *record = texture_record(depth);
+		id<MTLComputeCommandEncoder> compute;
+		MTLTextureDescriptor *descriptor;
+		float near_plane, far_plane;
+		unsigned long width, height, soft_scale;
+
+		soft.active = NO;
+		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
+			record->samples || foveation_map(record) || !(record->texture.usage & MTLTextureUsagePixelFormatView) ||
+			!soft_depth_program())
+			return 0;
+		/* the level's stencil mark, shared with SSAO */
+		soft.stencil_view = level_stencil_view(record->texture);
+		if (!soft.stencil_view)
+			return 0;
+		/* debug.soft_particle_scale: 2 keeps the distances at half resolution, the nearest level surface of each 2x2
+		block, or far away when any of its pixels is not the level, so an object's edge never fades a glow drawn over
+		it (the particles' shader reads them at half its coordinates); 1 full resolution */
+		soft_scale = count >= 6 && values[5] >= 2.0f ? 2 : 1;
+		width = (record->texture.width + soft_scale - 1) / soft_scale;
+		height = (record->texture.height + soft_scale - 1) / soft_scale;
+		if (!soft.distances || soft.distances.width != width || soft.distances.height != height)
+		{
+			descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR32Float width:width
+				height:height mipmapped:NO];
+			descriptor.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+			descriptor.storageMode = MTLStorageModePrivate;
+			soft.distances = [device newTextureWithDescriptor:descriptor];
+			soft.distances.label = @"soft particle distances";
+		}
+		if (!soft.distances)
+			return 0;
+		/* the near and far the depth was made with: the projection's own depth row (GL-style), when given */
+		near_plane = values[0];
+		far_plane = values[1];
+		if (values[2] != 1.0f && values[2] != -1.0f && values[3] != 0.0f)
+		{
+			near_plane = values[3] / (values[2] - 1.0f);
+			far_plane = values[3] / (values[2] + 1.0f);
+		}
+		soft.parameters[0] = near_plane;
+		soft.parameters[1] = far_plane;
+		soft.parameters[2] = values[4] > 0.0f ? 1.0f / values[4] : 1.0e6f;
+		soft.parameters[3] = (float)soft_scale;
+		pass_end();
+		if (pass_log)
+			[pass_log appendFormat:@"\n  soft particle distances: %lux%lu", width, height];
+		compute = [command_buffer() computeCommandEncoder];
+		compute.label = @"soft particle distances";
+		[compute setComputePipelineState:soft.linearize];
+		[compute setTexture:record->texture atIndex:0];
+		[compute setTexture:soft.distances atIndex:1];
+		[compute setTexture:soft.stencil_view atIndex:2];
+		[compute setBytes:soft.parameters length:sizeof(soft.parameters) atIndex:0];
+		[compute dispatchThreads:MTLSizeMake(width, height, 1) threadsPerThreadgroup:MTLSizeMake(16, 16, 1)];
+		[compute endEncoding];
+		soft.active = YES;
+		return 1;
+	}
+}
+
+void host_soft_depth_finish(void)
+{
+	soft.active = NO;
 }
 
 #define GPU_METAL_FUNCTION(type, name, parameters, arguments) .name = gpu_metal_##name,

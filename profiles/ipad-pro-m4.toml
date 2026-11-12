@@ -8,6 +8,7 @@ platform = "ios"
 models = ["iPad16,3", "iPad16,4", "iPad16,5", "iPad16,6"]
 
 [display]
+upscaled_textures = true
 frame_rate = "120"
 render_height = 0
 dynamic_resolution = true
@@ -31,7 +32,7 @@ source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay run
 [evidence."display.render_height"]
 basis = "measured"
 why = "Native (0) is the ceiling of dynamic resolution, 1668 lines on the 11-inch and 2064 on the 13-inch. On the 11-inch the device held 120 frames a second at the 1668-line ceiling in all 20 runs (see display.frame_rate), including 2x enemies. The 13-inch panel was not measured."
-source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29; Steve, 2026-10-28"
+source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29"
 
 [evidence."display.dynamic_resolution"]
 basis = "measured"
@@ -40,8 +41,8 @@ source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay run
 
 [evidence."display.dynamic_resolution_floor"]
 basis = "assumed"
-why = "1080 lines is the ladder's ideal tier and the resolution the device held at 120 frames a second with GPU headroom; Steve chose it as the floor on 2026-10-28. It is above half of either panel's native lines, as the floor requires. Not exercised: the 0.6.4 runs never dropped below native, so the range below 1668 is unmeasured on this device."
-source = "Steve, 2026-10-28; VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29"
+why = "1080 lines is the ladder's ideal tier and the resolution the device held at 120 frames a second with GPU headroom; it was set as the floor on 2026-10-28. It is above half of either panel's native lines, as the floor requires. Not exercised: the 0.6.4 runs never dropped below native, so the range below 1668 is unmeasured on this device."
+source = "VISR 0.6.4 benchmark report 5R2BP4EV, iPad16,3, presented gameplay runs, build 20261029.143236, 2026-10-29"
 
 [evidence."display.anisotropic_filtering"]
 basis = "measured"
@@ -50,8 +51,8 @@ source = "iPad settings sweep, a10 benchmark at 3180x2384, 2026-10-03"
 
 [evidence."display.shadow_map_size"]
 basis = "assumed"
-why = "Steve 2026-11-04: all shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
-source = "Steve, 2026-11-04"
+why = "All shadow maps are 128 texels except offline renders; the visual gain above 128 is small and the cost is large in big games."
+source = "Project policy, 2026-11-04"
 
 [evidence."display.effect_resolution"]
 basis = "measured"
@@ -72,3 +73,7 @@ source = "Providence a10-heroic, d40-maw-fight and b30 presented runs, build d29
 basis = "inherited"
 why = "Inherit 64 from the nearest measured weaker iPad, the iPad Pro (M1), whose two-round 60-fps Blood Gulch result holds at 64 and fails at 128 on the current build. The M4 has not run this multiplayer ladder at its own variable settings."
 source = "ipad-pro-m1.toml network.full_rate_players evidence, main e77a24957, 2026-10-30"
+
+[evidence."display.upscaled_textures"]
+basis = "assumed"
+why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."

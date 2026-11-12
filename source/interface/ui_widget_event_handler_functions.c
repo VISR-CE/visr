@@ -2186,6 +2186,11 @@ static boolean player_profile_end_editing(
 	struct event_record *event,
 	boolean *widget_deleted)
 {
+	/* port: the Xbox profile editor keeps changes when Back ends editing. */
+	extern boolean pc_menu_profile_save_on_back(void);
+
+	if (!pc_menu_profile_save_on_back())
+		return FALSE;
 	event_handler_functions.profile_index = NONE;
 	player_ui_end_editing_profile();
 	return TRUE;
@@ -2813,8 +2818,11 @@ static boolean player_profile_color_picker_select_color(
 		"invalid player profile color index specified");
 	if (profile)
 	{
+		/* port: the native Xbox color picker shares the auto-save policy. */
+		extern boolean pc_menu_profile_save_on_back(void);
+
 		profile->primary_color_index = color_select_screen->data3C.selected_index;
-		return TRUE;
+		return pc_menu_profile_save_on_back();
 	}
 	error(2, "failed to set player profile color because no profile is currently being edited");
 	return FALSE;
@@ -5885,7 +5893,11 @@ static boolean multiplayer_profile_set_for_game(
 		player_ui_set_game_variant(&profile);
 		player_ui_set_game_variant_options(&options);
 		if (server)
+		{
+			/* VISR: later rounds are set up from the playlist stage */
+			game_engine_override_game_variant(&profile);
 			network_game_server_change_game_variant(server, &profile);
+		}
 		return TRUE;
 	}
 	error(2, "failed to retrieve user selected game variant");
@@ -6144,7 +6156,11 @@ boolean ui_widget_port_gametype_choose(
 	/* (and its PC options: game_engine.h) */
 	player_ui_set_game_variant_options(&options);
 	if (server)
+	{
+		/* VISR: later rounds are set up from the playlist stage */
+		game_engine_override_game_variant(&profile);
 		network_game_server_change_game_variant(server, &profile);
+	}
 	return TRUE;
 }
 
@@ -6336,8 +6352,19 @@ boolean ui_widget_port_delete_finish(
 	if (!success)
 		return FALSE;
 	event_handler_functions.profile_index = NONE;
-	player_ui_end_editing_profile();
-	ui_widget_port_go_back_past_editor(widget);
+	/* port: the original profile selector shares the generated confirmation,
+	but must return to its selector rather than skip an editor. */
+	{
+		extern boolean pc_menu_delete_from_select(void);
+		extern void ui_widget_port_go_back(struct widget_instance *widget);
+		if (pc_menu_delete_from_select())
+			ui_widget_port_go_back(widget);
+		else
+		{
+			player_ui_end_editing_profile();
+			ui_widget_port_go_back_past_editor(widget);
+		}
+	}
 	*widget_deleted = TRUE;
 	return TRUE;
 }
@@ -6369,7 +6396,12 @@ boolean ui_widget_port_game_variant_set(
 	player_ui_set_game_variant(variant);
 	player_ui_set_game_variant_options(options);
 	if (server)
+	{
+		/* VISR: later rounds are set up from the playlist stage, whose
+		 * variant must match player_ui's for the session options to apply */
+		game_engine_override_game_variant(variant);
 		network_game_server_change_game_variant(server, variant);
+	}
 	return TRUE;
 }
 

@@ -30,11 +30,16 @@ calls them from PC_MENU_FUNCTION_BASE on):
   "port settings help" the help of the row chosen (and Video Setup's
   Resolution or Window Size, for the display mode shown), and the About
   screen's "port about version" and "port about build" (and its SEND LOG row's "port send log" and "port send log status");
+- Xbox settings (tools/xbox_menus.py) run "port setting changed" after each
+  direction press and "port settings defaults apply" on X. Video applies
+  its window on "port settings close"; controller changes save the profile.
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
   right choose ("controls binding slot"); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults.
+  writes them, "controls screen defaults" shows the defaults. The Xbox
+  screen ("port controls init") saves each capture or clear; "port controls
+  defaults" resets and saves.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -89,6 +94,7 @@ their handlers open opens.
 #include "text_filter.h"
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
+#include "../src/port_graphics_modes.h"
 #include "../src/halo_internet.h"
 #include "../include/menu_gametype.h"
 #ifdef HALO_IOS
@@ -106,6 +112,7 @@ void host_sdl_open_website(int page);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <xtl.h>
@@ -129,6 +136,12 @@ int config_boolean(char const *name);
 long config_integer(char const *name);
 int config_default(char const *name, char *text, unsigned int size);
 char const *config_string(char const *name);
+/* the graphics mode in force (enum graphics_mode, port_graphics_modes.h) and its name; the mode's name while it
+replaces a setting's own value, else NULL (port_config.h) */
+int config_profile_sets(char const *name);
+int config_graphics_mode(void);
+char const *config_graphics_mode_name(void);
+char const *config_graphics_replaces(char const *name);
 void platform_display_apply(void);
 void platform_binding_capture_begin(void);
 int platform_binding_capture_poll(int *input);
@@ -1530,6 +1543,119 @@ static boolean setting_changed_save(struct widget_instance *spinner, struct pc_m
 	return TRUE;
 }
 
+/* player_ui_save_profile ends editing. Reopen the saved profile so the
+hub and its subpages keep using the same edit session after each change. */
+static boolean profile_save_now(void)
+{
+	long index = player_ui_get_edit_profile_index();
+	boolean result;
+
+	if (!player_ui_get_edit_player_profile() || index == NONE)
+		return FALSE;
+	if (!player_ui_edit_profile_is_dirty())
+		return TRUE;
+	result = player_ui_save_profile();
+	player_ui_begin_editing_profile(index);
+	return result;
+}
+
+boolean pc_menu_profile_auto_save_enabled(void)
+{
+	extern int platform_menu_pad(void);
+	char const *menus = config_string("display.menus");
+
+	return !strcmp(menus, "xbox") || (strcmp(menus, "pc") && platform_menu_pad());
+}
+
+/* The native Xbox hub's Back handler calls this before ending editing.
+Playlist editing has its own handler and keeps its explicit save behavior. */
+boolean pc_menu_profile_save_on_back(void)
+{
+	return !pc_menu_profile_auto_save_enabled() || !player_ui_get_edit_player_profile() || profile_save_now();
+}
+
+/* virtual_keyboard.c calls this only after a name passes confirmation.
+The buffer identity excludes gametype names and other keyboard dialogs. */
+void pc_menu_profile_name_saved(wchar_t const *name)
+{
+	struct player_profile *profile = player_ui_get_edit_player_profile();
+
+	if (pc_menu_profile_auto_save_enabled() && profile && name == profile->player_name && !profile_save_now())
+		platform_log("menus: could not save the profile's name");
+}
+
+/* Xbox spinners run this after the engine steps them, for d-pad, stick,
+keyboard, and pointer input alike. The loaded index also suppresses repeat
+writes and keeps Internet Play's ask-first reset intact. */
+static boolean setting_apply_now(struct widget_instance *spinner, struct pc_menu_setting *setting)
+{
+	short loaded = setting->loaded_index;
+	short index = spinner->parameters.list.selected_index;
+
+	if (index < 0 || index >= setting->value_count || loaded == NONE || index == loaded)
+		return TRUE;
+	if (!setting_changed_save(spinner, setting))
+		return FALSE;
+	if (spinner->parameters.list.selected_index != index)
+		return TRUE;
+	if (!strncmp(setting->setting, "profile.", 8) && !profile_save_now())
+	{
+		setting->loaded_index = loaded;
+		return FALSE;
+	}
+	if (strcmp(screen_of(spinner)->name, "video_settings_screen"))
+		platform_display_apply();
+	return TRUE;
+}
+
+/* PC-look rows whose change is heard before OK: written as the spinner
+moves ("port setting preview"), and written back to the value the screen
+opened with when it closes without OK ("port setting revert", on the
+spinner's deleted event; OK sets the loaded index first, so nothing reverts) */
+static char const *const preview_settings[] = {"audio.volume", "audio.music_volume", "audio.effects_volume"};
+
+static boolean setting_previewed(char const *name)
+{
+	short index;
+
+	for (index = 0; index < NUMBEROF(preview_settings); index++)
+		if (!strcmp(name, preview_settings[index]))
+			return TRUE;
+	return FALSE;
+}
+
+static boolean setting_write_value(struct pc_menu_setting *setting, short index, char const *why)
+{
+	char current[300];
+
+	if (index < 0 || index >= setting->value_count)
+		return TRUE;
+	if (setting_text(setting->setting, current, sizeof(current), FALSE) && !strcmp(current, setting->values[index]))
+		return TRUE;
+	if (!setting_write(setting->setting, setting->values[index]))
+	{
+		platform_log("menus: could not set %s", setting->setting);
+		return FALSE;
+	}
+	platform_log("menus: %s = %s (%s)", setting->setting, setting->values[index], why);
+	return TRUE;
+}
+
+static boolean setting_preview(struct widget_instance *spinner, struct pc_menu_setting *setting)
+{
+	if (!setting_previewed(setting->setting))
+		return TRUE;
+	return setting_write_value(setting, spinner->parameters.list.selected_index, "preview");
+}
+
+static boolean setting_revert(struct widget_instance *spinner, struct pc_menu_setting *setting)
+{
+	(void)spinner;
+	if (!setting_previewed(setting->setting) || setting->loaded_index == NONE)
+		return TRUE;
+	return setting_write_value(setting, setting->loaded_index, "canceled");
+}
+
 /* "port settings defaults" */
 static boolean setting_default_show(struct widget_instance *spinner, struct pc_menu_setting *setting)
 {
@@ -1614,6 +1740,286 @@ static void send_log_status_show(struct widget_instance *widget)
 #endif
 }
 
+/* ---------- the graphics modes (display.graphics): the settings hub's GRAPHICS row, and the mode's row and the
+CRT effect's in Video Settings and on the GRAPHICS screen (tools/port_settings.py) */
+
+/* "port graphics state": the settings hub's status line "Graphics: <Mode>" while GRAPHICS is chosen (the word, in the
+profile name's place) */
+static void graphics_state_show(struct widget_instance *widget)
+{
+	char name[16];
+	wchar_t text[16];
+
+	snprintf(name, sizeof(name), "%s", config_graphics_mode_name());
+	name[0] = (char)toupper((unsigned char)name[0]);
+	halo_menus_utf16(name, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(widget, text, NUMBEROF(text));
+}
+
+/* "port hub status" on the settings hub's list: the mode's word where the profile's name is while GRAPHICS is the
+row chosen, else the profile's name */
+static void hub_status_show(struct widget_instance *list)
+{
+	struct widget_instance *screen = screen_of(list);
+	struct widget_instance *profile = named(screen, "profile_label", 0);
+	struct widget_instance *mode = named(screen, "graphics_label", 0);
+	boolean on_graphics = list->focused_child && !strcmp(list->focused_child->name, "graphics");
+
+	if (!mode)
+		return;
+	mode->visible = on_graphics;
+	if (profile)
+		profile->visible = !on_graphics;
+}
+
+/* the mode the screen's mode row shows (enum graphics_mode), or NONE */
+static short graphics_mode_shown(struct widget_instance *list)
+{
+	struct widget_instance *spinner = named(list, "graphics_spinner", 0);
+	struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+	short index = spinner ? spinner->parameters.list.selected_index : NONE;
+
+	if (!setting || index < 0 || index >= setting->value_count)
+		return NONE;
+	index = (short)graphics_mode_parse(setting->values[index]);
+	return index < 0 ? NONE : index;
+}
+
+/* whether the mode replaces the setting's own value: the game's answer for the mode in force (which has Hardcore
+acting as Classic in head-tracked stereo), else the table's for the mode the row shows before it is saved */
+static boolean graphics_replaces(short mode, char const *setting)
+{
+	if (mode == config_graphics_mode())
+		return config_graphics_replaces(setting) != NULL;
+	return graphics_mode_value(mode, setting) != NULL;
+}
+
+/* The row stays focusable; ui_widget.c rejects edits before dispatching to its hidden spinner. Read the mode
+shown on this screen so an unsaved mode choice locks and unlocks the controls immediately. */
+boolean ui_widget_port_graphics_locked(struct widget_instance *widget)
+{
+	struct widget_instance *row = widget->type == 2 ? widget->parent : widget;
+	struct widget_instance *part;
+	short mode;
+
+	if (!row || !row->parent || strncmp(row->name, "op_", 3))
+		return FALSE;
+	mode = graphics_mode_shown(row->parent);
+	if (mode == NONE)
+		return FALSE;
+	for (part = row->child; part; part = part->next)
+	{
+		struct pc_menu_setting *setting = part->type == 2 && !spinner_item(part) ?
+			pc_menu_setting_get(part->definition_tag_index) : NULL;
+
+		if (setting && graphics_replaces(mode, setting->setting))
+			return TRUE;
+	}
+	return FALSE;
+}
+
+/* the Apple Vision Pro's host (menu_platform.h), where a stereo view cannot be the Xbox's 4:3 picture */
+static boolean graphics_in_vr(void)
+{
+	char const *vision = getenv("HALO_HOST_VISIONOS");
+
+	return vision && !strcmp(vision, "1");
+}
+
+/* what the device is called in a row's help (menu_platform.h's host variables) */
+static char const *graphics_device_name(void)
+{
+	char const *mac = getenv("HALO_HOST_MAC"), *tv = getenv("HALO_HOST_TVOS");
+
+	if (mac && !strcmp(mac, "1"))
+		return "Mac";
+	if (tv && !strcmp(tv, "1"))
+		return "Apple TV";
+	if (graphics_in_vr())
+		return "Apple Vision Pro";
+	return getenv("HALO_HOST_PHONE_SCALE") ? "iPhone" : "iPad";
+}
+
+/* Help uses the same carriage-return line breaks as draw_string.c's parser. */
+static void graphics_help_text(struct widget_instance *help, char const *message)
+{
+	char wrapped[240];
+	wchar_t text[240];
+	short column = 0, last_space = NONE, index;
+
+	snprintf(wrapped, sizeof(wrapped), "%s", message);
+	for (index = 0; wrapped[index]; index++, column++)
+	{
+		if (wrapped[index] == ' ')
+			last_space = index;
+		if (column >= 48 && last_space != NONE)
+		{
+			wrapped[last_space] = '\r';
+			column = (short)(index - last_space);
+			last_space = NONE;
+		}
+	}
+	halo_menus_utf16(wrapped, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(help, text, NUMBEROF(text));
+}
+
+/* the help of a row the mode fixes: what it is fixed to, from the mode's table */
+static void graphics_fixed_help(struct widget_instance *help, short mode, char const *setting, char const *value)
+{
+	char message[200], name[16];
+	char const *what = !strcmp(setting, "display.frame_rate") ? "Fixed to %s FPS in %s mode." :
+		!strcmp(setting, "display.interpolation") ? "Frames are drawn at the game's 30 ticks per second in %.0s%s mode." :
+		"Fixed to %s in %s mode.";
+
+	snprintf(name, sizeof(name), "%s", graphics_mode_names[mode]);
+	name[0] = (char)toupper((unsigned char)name[0]);
+	snprintf(message, sizeof(message), what, value, name);
+	graphics_help_text(help, message);
+}
+
+/* the mode's and the CRT effect's rows apply as the player moves through them: a value shown that differs from the
+one in force is written at once, so the game behind the menu draws it on the next frame (and SAVE has nothing left
+to write for them, nor CANCEL anything to undo) */
+static void graphics_apply_shown(struct widget_instance *list)
+{
+	char const *const names[] = { "graphics_spinner", "crt_effect_spinner" };
+	short which;
+
+	for (which = 0; which < NUMBEROF(names); which++)
+	{
+		struct widget_instance *spinner = named(list, names[which], 0);
+		struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+		short index = spinner ? spinner->parameters.list.selected_index : NONE;
+
+		if (!setting || setting->loaded_index == NONE || index < 0 || index >= setting->value_count ||
+			index == setting->loaded_index)
+			continue;
+		if (!config_write(setting->setting, setting->values[index]))
+		{
+			platform_log("menus: could not write %s to config.toml", setting->setting);
+			continue;
+		}
+		setting->loaded_index = index;
+		platform_log("menus: %s = %s (now)", setting->setting, setting->values[index]);
+	}
+}
+
+/* "port settings help" on a screen with the mode's row: the CRT effect's row only while Hardcore is shown (the
+list's window closes the rows below it up); a setting the mode shown fixes shown as its value in force in the row's
+value place (its spinner hidden, so it does not change; its row can still be chosen, for its help); a setting the
+device's profile sets, which the player has not chosen, shown at the profile's campaign value; and, in the help's
+place, the help of the mode while its row is chosen, or of a fixed or profile-set row while it is */
+static void graphics_rows_show(struct widget_instance *list)
+{
+	short mode = graphics_mode_shown(list);
+	struct widget_instance *help = list->parameters.list.extended_description;
+	struct widget_instance *mode_help = named(screen_of(list), "graphics_help", 0);
+	struct widget_instance *row_help = named(screen_of(list), "row_help", 0);
+	struct widget_instance *crt = named(list, "op_crt_effect", 0);
+	struct widget_instance *row;
+	boolean on_mode, row_helped = FALSE;
+
+	if (mode == NONE)
+		return;
+	graphics_apply_shown(list);
+	if (crt)
+	{
+		crt->visible = mode == GRAPHICS_MODE_HARDCORE;
+		if (!crt->visible && list->focused_child == crt)
+		{
+			/* (the mode's row, the list's first) */
+			list->focused_child = list->child;
+			list->parameters.list.selected_index = 0;
+		}
+	}
+	for (row = list->child; row; row = row->next)
+	{
+		struct widget_instance *spinner = NULL, *replaced = NULL, *part;
+		struct pc_menu_setting *setting = NULL;
+		boolean replaces;
+
+		if (strncmp(row->name, "op_", 3))
+			continue;
+		/* column_list_update runs before event navigation. Match the outline to the focus used for help
+		during this draw, including when hiding the CRT row moves focus back to GRAPHICS. */
+		if (row->animation.number_of_sprite_frames == 2)
+			row->animation.current_frame_index = row == list->focused_child ? 1 : 0;
+		for (part = row->child; part; part = part->next)
+		{
+			if (strstr(part->name, "_replaced"))
+				replaced = part;
+			else if (part->type == 2 && !spinner_item(part) && !setting)
+			{
+				setting = pc_menu_setting_get(part->definition_tag_index);
+				spinner = part;
+			}
+		}
+		if (!setting || !strcmp(setting->setting, "display.graphics"))
+			continue;
+		replaces = replaced && graphics_replaces(mode, setting->setting);
+		if (replaced)
+		{
+			replaced->visible = replaces;
+			spinner->visible = !replaces;
+			/* Keep the row focusable so its fixed-value help is reachable. */
+			row->disabled = FALSE;
+		}
+		if (replaces)
+		{
+			char value[64];
+			char const *table = graphics_mode_value(mode, setting->setting);
+
+			/* (Hardcore acting as Classic in stereo: the setting's own value stands) */
+			if (table)
+				snprintf(value, sizeof(value), "%s", table);
+			else if (!config_text(setting->setting, value, sizeof(value)))
+				value[0] = 0;
+			replaced->parameters.text_box.string_list_index = setting_value_index(setting, value);
+			if (row == list->focused_child && row_help)
+			{
+				graphics_fixed_help(row_help, mode, setting->setting, value);
+				row_helped = TRUE;
+			}
+		}
+		else if (config_profile_sets(setting->setting) && !config_explicit(setting->setting))
+		{
+			char campaign[64];
+
+			if (config_default(setting->setting, campaign, sizeof(campaign)))
+			{
+				short index = setting_value_index(setting, campaign);
+
+				/* (until the player turns it, the spinner shows the profile's campaign value, as it was loaded) */
+				if (spinner->parameters.list.selected_index == setting->loaded_index)
+				{
+					spinner->parameters.list.selected_index = index;
+					setting->loaded_index = index;
+				}
+				if (row == list->focused_child && row_help && spinner->parameters.list.selected_index == index)
+				{
+					char message[200];
+
+					snprintf(message, sizeof(message), "Optimized setting for your %s. Certain modes like "
+						"Multiplayer or Co-Op may change this for better performance.", graphics_device_name());
+					graphics_help_text(row_help, message);
+					row_helped = TRUE;
+				}
+			}
+		}
+	}
+	on_mode = list->focused_child && !strcmp(list->focused_child->name, "op_graphics");
+	if (row_help)
+		row_help->visible = row_helped;
+	if (mode_help && help)
+	{
+		mode_help->visible = on_mode;
+		help->visible = !on_mode && !row_helped;
+		/* (the string after the three modes': Hardcore's with a note, as it draws as Classic in VR) */
+		mode_help->parameters.text_box.string_list_index = mode == GRAPHICS_MODE_HARDCORE && graphics_in_vr() ?
+			NUMBER_OF_GRAPHICS_MODES : mode;
+	}
+}
+
 /* Video Setup's Resolution and Window Size, in the one row's place
 (tools/port_settings.py): the one the display mode shown uses (Window Size
 the window's, Resolution fullscreen's and borderless's) is shown, and the
@@ -1645,8 +2051,8 @@ static void video_rows_show(struct widget_instance *list)
 	}
 }
 
-/* ---------- Change Color: the profile's colour, from a list of the
-game's colours (more than its rows: it scrolls), by the Xbox's names for
+/* ---------- Change Color: the profile's color, from a list of the
+game's colors (more than its rows: it scrolls), by the Xbox's names for
 its spinner's functions */
 
 #define COLOR_COUNT 18
@@ -1654,7 +2060,7 @@ its spinner's functions */
 
 static struct
 {
-	/* the colour on the first row, and the colour chosen */
+	/* the color on the first row, and the color chosen */
 	short first;
 	short color;
 } color_list;
@@ -1665,7 +2071,7 @@ static void color_row_text(short row, wchar_t *text)
 		(short)(color_list.first + row), text);
 }
 
-/* "color picker menu initialize": on the profile's colour */
+/* "color picker menu initialize": on the profile's color */
 static boolean color_list_initialize(struct widget_instance *list)
 {
 	struct player_profile *profile = player_ui_get_edit_player_profile();
@@ -1698,7 +2104,7 @@ static short list_scroll(struct widget_instance *list, short *first, short count
 	return row == NONE || row >= rows ? NONE : (short)(*first + row);
 }
 
-/* "color picker update": the list scrolled on at its ends, the colour's
+/* "color picker update": the list scrolled on at its ends, the color's
 name and picture */
 static void color_list_update(struct widget_instance *list)
 {
@@ -1724,7 +2130,7 @@ static boolean color_choose(void)
 	if (!profile)
 		return FALSE;
 	profile->primary_color_index = color_list.color;
-	return TRUE;
+	return pc_menu_profile_save_on_back();
 }
 
 /* ---------- Edit Profile Settings: its picture of Gamepad Setup, the
@@ -1850,6 +2256,25 @@ static void visible_set(struct widget_instance *widget, boolean visible)
 {
 	if (widget)
 		widget->visible = visible;
+}
+
+/* A legend's children change on every draw, so touch and controller input
+can alternate without reopening the dialog. The button art is already ours. */
+static void dialog_legend_update(struct widget_instance *widget)
+{
+	extern int controller_glyph_hidden(short player, short physical);
+	extern short local_player_index_for_draw_string_and_hack_in_icons;
+	short owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	boolean touch = controller_glyph_hidden(owner, BUTTON_A);
+	struct widget_instance *child;
+
+	for (child = widget->child; child; child = child->next)
+	{
+		char const *leaf = strrchr(child->name, '/');
+		leaf = leaf ? leaf + 1 : child->name;
+		child->visible = !strncmp(leaf, "touch_", 6) ? touch : !touch;
+	}
 }
 
 /* "3wide player profile list update": the rows, and the profile chosen:
@@ -2069,13 +2494,14 @@ static struct
 
 static struct
 {
-	/* the bindings shown, until OK writes them */
+	/* PC bindings wait for OK; Xbox bindings save after capture or clear. */
 	char bindings[NUMBEROF(controls)][CONTROL_BINDINGS][CONTROL_NAME_LENGTH];
 	/* the binding left and right choose, and the one being set */
 	short slot;
 	short capturing_control;
 	short capturing_slot;
-} controls_screen = { { { { 0 } } }, 0, NONE, 0 };
+	boolean apply_now;
+} controls_screen = { { { { 0 } } }, 0, NONE, 0, FALSE };
 
 /* a setting's bindings ("Left Ctrl, C") into the control's */
 static void control_bindings_read(short control, char const *text)
@@ -2226,6 +2652,8 @@ static void control_capture_poll(void)
 	{
 		controls_screen.bindings[control][slot][0] = 0;
 	}
+	if (controls_screen.apply_now && (result == 1 || result == 2))
+		controls_save();
 }
 
 /* "controls update menu": the group's rows, their bindings (the one left
@@ -4502,8 +4930,8 @@ static short browser_fake_games(struct p2p_listing *games)
 	return index;
 }
 
-/* A development build lists one extra marked game when debug.browser_fake_big is set, so the join warning can be
-screenshot without a real host (set HALO_NET_PLAYER_CAPACITY below 16 as well). Compiled out of App Store packages. */
+/* debug.browser_fake_big lists one extra marked game, so the join warning can be screenshot without a real host (set
+HALO_NET_PLAYER_CAPACITY below 16 as well). A runtime switch: the game code is one guest build for every package, so it cannot be compiled out. */
 static short lobby_browser_games_read(struct p2p_listing *games)
 {
 	short count;
@@ -4512,7 +4940,6 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 		count = browser_fake_games(games);
 	else
 		count = lobby_browser_valid_games(games, (short)p2p_lobby_games(games, LOBBY_BROWSER_GAMES));
-#ifdef HALO_DEVELOPMENT_HOOKS
 	if (config_boolean("debug.browser_fake_big") && count < LOBBY_BROWSER_GAMES)
 	{
 		/* (first, so it is on the first page of a long list) */
@@ -4530,7 +4957,6 @@ static short lobby_browser_games_read(struct p2p_listing *games)
 		fake->open = fake->joinable = TRUE;
 		fake->ping = 40;
 	}
-#endif
 	return browser_filter_and_sort(games, count, &lobby_browser.hidden);
 }
 
@@ -5421,11 +5847,38 @@ static struct
 {
 	char text[PASSWORD_LENGTH + 1];
 	short help;
+	/* shown as stars (X, the legend's HIDE/SHOW); plain text by default */
+	boolean hidden;
 } password_screen;
 
 static void password_screen_done(char const *text)
 {
 	snprintf(password_screen.text, sizeof(password_screen.text), "%s", text);
+}
+
+/* The legend's A caption on the password and code screens: EDIT while A
+opens the keyboard (nothing typed yet), JOIN GAME once A joins (text held, or
+a touch or keyboard player, whose legend taps and Enter join). A controller
+player holding text also gets the Y legend, EDIT, to open the keyboard again. */
+static void legend_accept_caption(struct widget_instance *list, boolean join)
+{
+	extern int controller_glyph_hidden(short player, short physical);
+	extern short local_player_index_for_draw_string_and_hack_in_icons;
+	short owner = list->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : list->local_player_index;
+	boolean controller = !controller_glyph_hidden(owner, BUTTON_A);
+	struct widget_instance *screen = screen_of(list);
+	struct widget_instance *caption = named(screen, "accept", 0);
+	boolean reedit = controller && join && !text_field_editing(NULL);
+
+	if (caption)
+		caption->parameters.text_box.string_list_index = (short)((join || !controller) ? 1 : 0);
+	visible_set(named(screen, "y_butn", 0), reedit);
+	visible_set(named(screen, "y_edit", 0), reedit);
+	/* the password screen's X legend: HIDE while the text shows, SHOW while stars */
+	caption = named(screen, "x_hide", 0);
+	if (caption)
+		caption->parameters.text_box.string_list_index = (short)(password_screen.hidden ? 1 : 0);
 }
 
 /* "port password init" */
@@ -5435,8 +5888,25 @@ static boolean password_screen_initialize(struct widget_instance *list)
 
 	password_screen.text[0] = 0;
 	password_screen.help = _password_help_ask;
+	password_screen.hidden = FALSE;
 	if (row)
-		text_field_begin_masked(row, "", PASSWORD_LENGTH, password_screen_done);
+	{
+		text_field_start(row, "", PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
+		/* (debug.menu_text_seed: text already held, the keyboard closed; a leading '*' starts it hidden) */
+		const char *seed = config_string("debug.menu_text_seed");
+		if (seed[0])
+		{
+			if (seed[0] == '*')
+			{
+				password_screen.hidden = TRUE;
+				text_field.masked = TRUE;
+				seed++;
+			}
+			if (seed[0])
+				text_field_insert(seed);
+			text_field_end(TRUE);
+		}
+	}
 	return TRUE;
 }
 
@@ -5448,11 +5918,12 @@ static void password_screen_update(struct widget_instance *list)
 	short index;
 
 	for (index = 0; password_screen.text[index] && index < PASSWORD_LENGTH; index++)
-		stars[index] = '*';
+		stars[index] = password_screen.hidden ? '*' : password_screen.text[index];
 	stars[index] = 0;
 	text_field_show(named(list, "password_value", 0), stars, text_field_editing(named(list, "op_password", 0)));
 	if (help)
 		help->parameters.text_box.string_list_index = password_screen.help;
+	legend_accept_caption(list, text_field_editing(NULL) || password_screen.text[0]);
 }
 
 /* "port password join" (JOIN GAME, and Enter: password_screen_edit) */
@@ -5468,7 +5939,7 @@ static boolean password_screen_join(struct widget_instance *widget, boolean *wid
 		password_screen.help = _password_help_wrong;
 		password_screen.text[0] = 0;
 		if (row)
-			text_field_begin_masked(row, "", PASSWORD_LENGTH, password_screen_done);
+			text_field_start(row, "", PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
 		return campaign_fail();
 	}
 	if (!lobby_browser_join(&game, lobby_browser.controller))
@@ -5499,9 +5970,35 @@ static boolean password_screen_back(struct widget_instance *widget, boolean *wid
 end, joins) */
 static boolean password_screen_edit(struct widget_instance *row, boolean *widget_deleted)
 {
-	if (text_field_editing(row))
+	if (text_field_editing(row) || password_screen.text[0])
 		return password_screen_join(row, widget_deleted);
-	text_field_begin_masked(row, password_screen.text, PASSWORD_LENGTH, password_screen_done);
+	text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
+	return TRUE;
+}
+
+/* "port password reedit" (Y, the legend's EDIT): the keyboard again over the
+text held */
+static boolean password_screen_reedit(struct widget_instance *widget)
+{
+	struct widget_instance *row = named(screen_of(widget), "op_password", 0);
+
+	if (!row || text_field_editing(NULL))
+		return FALSE;
+	text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
+	return TRUE;
+}
+
+/* "port password togglehide" (X, the legend's HIDE / SHOW): the text as
+stars or plain. The X key event is ignored while typing (a keyboard's E is a
+letter then); a click on the legend, "port password togglehide click", always
+works. */
+static boolean password_screen_togglehide(boolean typing_ok)
+{
+	if (!typing_ok && text_field_editing(NULL))
+		return FALSE;
+	password_screen.hidden = !password_screen.hidden;
+	if (text_field_editing(NULL))
+		text_field.masked = password_screen.hidden;
 	return TRUE;
 }
 
@@ -5673,7 +6170,14 @@ static boolean code_screen_initialize(struct widget_instance *list)
 		snprintf(code_screen.text, sizeof(code_screen.text), "%s", clipboard);
 	code_screen.help = _code_help_ask;
 	if (row)
+	{
 		text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
+		if (config_string("debug.menu_text_seed")[0])
+		{
+			text_field_insert(config_string("debug.menu_text_seed"));
+			text_field_end(TRUE);
+		}
+	}
 	return TRUE;
 }
 
@@ -5685,6 +6189,7 @@ static void code_screen_update(struct widget_instance *list)
 	text_field_show(named(list, "code_value", 0), code_screen.text, text_field_editing(named(list, "op_code", 0)));
 	if (help)
 		help->parameters.text_box.string_list_index = code_screen.help;
+	legend_accept_caption(list, text_field_editing(NULL) || code_screen.text[0]);
 }
 
 /* "port code join" (JOIN GAME, and Enter: code_screen_edit) */
@@ -5723,8 +6228,19 @@ static boolean code_screen_back(struct widget_instance *widget, boolean *widget_
 /* "port code edit" (the field's row's A: the typing begins; Enter joins) */
 static boolean code_screen_edit(struct widget_instance *row, boolean *widget_deleted)
 {
-	if (text_field_editing(row))
+	if (text_field_editing(row) || code_screen.text[0])
 		return code_screen_join(row, widget_deleted);
+	text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
+	return TRUE;
+}
+
+/* "port code reedit" (Y, the legend's EDIT): the keyboard again over the text held */
+static boolean code_screen_reedit(struct widget_instance *widget)
+{
+	struct widget_instance *row = named(screen_of(widget), "op_code", 0);
+
+	if (!row || text_field_editing(NULL))
+		return FALSE;
 	text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
 	return TRUE;
 }
@@ -6713,6 +7229,14 @@ static struct widget_instance *vehicle_spinner(struct widget_instance *list, cha
 	return NULL;
 }
 
+/* the presets' spinner index of the side's stored set */
+static short vehicles_preset_index(struct game_variant_options const *options, short side)
+{
+	return options->vehicle_set[side] == VARIANT_VEHICLE_SET_CUSTOM ?
+		VEHICLE_PRESET_CUSTOM : options->vehicle_set[side] == VARIANT_VEHICLE_SET_PC ?
+		VEHICLE_PRESET_PC : (short)MIN(options->vehicle_set[side], VEHICLE_PRESET_PC - 1);
+}
+
 static void vehicles_show(struct widget_instance *list)
 {
 	struct game_variant_options *options = edit_options();
@@ -6724,9 +7248,7 @@ static void vehicles_show(struct widget_instance *list)
 	if ((spinner = vehicle_spinner(list, "team_spinner")) != NULL)
 		spinner->parameters.list.selected_index = side;
 	if ((spinner = vehicle_spinner(list, "vehicle_presets_spinner")) != NULL)
-		spinner->parameters.list.selected_index = options->vehicle_set[side] == VARIANT_VEHICLE_SET_CUSTOM ?
-			VEHICLE_PRESET_CUSTOM : options->vehicle_set[side] == VARIANT_VEHICLE_SET_PC ?
-			VEHICLE_PRESET_PC : (short)MIN(options->vehicle_set[side], VEHICLE_PRESET_PC - 1);
+		spinner->parameters.list.selected_index = vehicles_preset_index(options, side);
 	for (index = 0; index < NUMBER_OF_VARIANT_VEHICLES; index++)
 	{
 		if ((spinner = vehicle_spinner(list, vehicle_spinners[index])) != NULL)
@@ -6759,17 +7281,50 @@ static void vehicles_keep(struct widget_instance *list)
 	variant->universal_variant.vehicle_set = options->vehicle_set[0] <= 4 ? options->vehicle_set[0] : 0;
 }
 
+/* the screen's respawn time kept as it changes, as its set and counts are
+(only a move off the stored value's place: a stored time between the
+spinner's values stays until the spinner is moved) */
+static void vehicles_respawn_keep(struct widget_instance *list)
+{
+	struct game_variant *variant = edit_variant();
+	struct game_variant_options *options = edit_options();
+	struct gametype_option const *option = gametype_option_named("vehicles_respawn_spinner");
+	struct widget_instance *row, *spinner;
+
+	if (!variant || !options || !option)
+		return;
+	for (row = list->child; row; row = row->next)
+	{
+		for (spinner = row->child; spinner; spinner = spinner->next)
+		{
+			short index;
+
+			if (spinner->type != 2 || gametype_option_named(spinner->name) != option)
+				continue;
+			index = (short)PIN(spinner->parameters.list.selected_index, 0, option->count - 1);
+			if (index != gametype_option_index(option, gametype_option_value(option, variant, options)))
+				gametype_option_value_set(option, option->values[index], variant, options);
+			return;
+		}
+	}
+}
+
 /* "mp prof vehicles update": the side changed (the one left kept, the other
-shown); a count changed makes the side's set CUSTOM */
+shown); a count changed makes the side's set CUSTOM. port: every change is
+kept as it is made, set included, as the counts always were: the screen's
+B leaves without its OK (the respawn time too: vehicles_respawn_keep), and a set left behind its counts (the gametype's
+own, e.g. Slayer Pro's none) placed no vehicle in the game's first round */
 static void vehicles_update(struct widget_instance *list)
 {
 	struct game_variant_options *options = edit_options();
 	struct widget_instance *team = vehicle_spinner(list, "team_spinner");
 	struct widget_instance *preset = vehicle_spinner(list, "vehicle_presets_spinner");
+	boolean changed = FALSE;
 	short index;
 
 	if (!options)
 		return;
+	vehicles_respawn_keep(list);
 	if (team && team->parameters.list.selected_index != gametype_edit.vehicle_side)
 	{
 		vehicles_keep(list);
@@ -6786,8 +7341,12 @@ static void vehicles_update(struct widget_instance *list)
 		{
 			options->vehicle_counts[gametype_edit.vehicle_side][index] = (byte)spinner->parameters.list.selected_index;
 			preset->parameters.list.selected_index = VEHICLE_PRESET_CUSTOM;
+			changed = TRUE;
 		}
 	}
+	if (changed || (preset && preset->parameters.list.selected_index !=
+		vehicles_preset_index(options, gametype_edit.vehicle_side)))
+		vehicles_keep(list);
 }
 
 /* "mp profile init X" (the list's creation): its spinners from the gametype */
@@ -7406,6 +7965,22 @@ boolean pc_menu_event_function_invoke(
 		{
 			return password_screen_join(widget, widget_deleted);
 		}
+		else if (!strcmp(name, "port password reedit"))
+		{
+			return password_screen_reedit(widget);
+		}
+		else if (!strcmp(name, "port password togglehide"))
+		{
+			return password_screen_togglehide(FALSE);
+		}
+		else if (!strcmp(name, "port password togglehide click"))
+		{
+			return password_screen_togglehide(TRUE);
+		}
+		else if (!strcmp(name, "port code reedit"))
+		{
+			return code_screen_reedit(widget);
+		}
 		else if (!strcmp(name, "port password back"))
 		{
 			return password_screen_back(widget, widget_deleted);
@@ -7450,6 +8025,36 @@ boolean pc_menu_event_function_invoke(
 		{
 			coop_options_init(screen_of(widget));
 		}
+		else if (!strcmp(name, "port setting changed"))
+		{
+			struct pc_menu_setting *setting = pc_menu_setting_get(widget->definition_tag_index);
+
+			if (spinner_item(widget))
+				return TRUE;
+			return setting ? setting_apply_now(widget, setting) : FALSE;
+		}
+		else if (!strcmp(name, "port settings close"))
+		{
+			platform_display_apply();
+		}
+		else if (!strcmp(name, "port settings defaults apply"))
+		{
+			settings_each(screen_of(widget), setting_default_show);
+			settings_each(screen_of(widget), setting_apply_now);
+		}
+		else if (!strcmp(name, "port controls init"))
+		{
+			controls_screen.apply_now = TRUE;
+			return controls_load(FALSE);
+		}
+		else if (!strcmp(name, "port controls defaults"))
+		{
+			return controls_load(TRUE) && controls_save();
+		}
+		else if (!strcmp(name, "coop options changed"))
+		{
+			coop_options_save(screen_of(widget));
+		}
 		else if (!strcmp(name, "coop options save"))
 		{
 			settings_each(screen_of(widget), setting_changed_save);
@@ -7463,9 +8068,21 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port settings defaults"))
 		{
 			settings_each(screen_of(widget), setting_default_show);
+			settings_each(screen_of(widget), setting_preview);
+		}
+		else if (!strcmp(name, "port setting preview") || !strcmp(name, "port setting revert"))
+		{
+			struct pc_menu_setting *setting = pc_menu_setting_get(widget->definition_tag_index);
+
+			if (spinner_item(widget))
+				return TRUE;
+			if (!setting)
+				return FALSE;
+			return strcmp(name, "port setting revert") ? setting_preview(widget, setting) : setting_revert(widget, setting);
 		}
 		else if (!strcmp(name, "controls screen init") || !strcmp(name, "controls screen defaults"))
 		{
+			controls_screen.apply_now = FALSE;
 			return controls_load(!strcmp(name, "controls screen defaults"));
 		}
 		else if (!strcmp(name, "controls screen change set"))
@@ -7661,6 +8278,8 @@ void pc_menu_game_data_function_invoke(
 		browser_filters_update(widget);
 	else if (!strcmp(name, "gamespy screen update"))
 		browser_update(widget);
+	else if (!strcmp(name, "port dialog legend update"))
+		dialog_legend_update(widget);
 	else if (!strcmp(name, "gt edit list update"))
 		gametype_edit_list_update(widget);
 	else if (!strcmp(name, "get edit game settings name"))
@@ -7683,9 +8302,14 @@ void pc_menu_game_data_function_invoke(
 		about_text_show(widget, FALSE);
 	else if (!strcmp(name, "port about build"))
 		about_text_show(widget, TRUE);
+	else if (!strcmp(name, "port graphics state"))
+		graphics_state_show(widget);
+	else if (!strcmp(name, "port hub status"))
+		hub_status_show(widget);
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);
+		graphics_rows_show(widget);
 		settings_help(widget);
 	}
 	else if (!strcmp(name, "controls update menu"))

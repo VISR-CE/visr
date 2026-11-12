@@ -29,7 +29,9 @@ Conventions carried over from the Xbox:
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "halo_ui_pointer_map.h"
+#include "menu_scale.h"
 #include "port_config.h"
+#include "port_graphics_modes.h"
 #include "halo_display.h"
 #ifdef HALO_ILP32
 #include "guest_host.h"
@@ -365,6 +367,7 @@ static double render_scale_now(void)
 static int dynamic_resolution_refused(void);
 #endif
 static void screen_targets_release(int pooled);
+static void recent_render_targets_forget(void);
 
 /* ceiling: the scale the scene's targets are allocated at (scale itself but
 under dynamic resolution); dynamic: 1 while dynamic resolution renders the
@@ -592,6 +595,83 @@ void halo_screen_ui_offset(unsigned char centered)
 	ui_offset = centered ? (halo_screen_width() - 640) / 2 : 0;
 }
 
+/* Only widget draws opt in; the world, HUD, console and loading screens
+keep their original viewport. ui_widget.c supplies each screen's content. */
+static int menu_window_drawing;
+static float menu_draw_top, menu_draw_zoom = 1.0f;
+static float menu_content_top = MENU_CONTENT_TOP, menu_content_bottom = MENU_CONTENT_BOTTOM;
+static int menu_content_active;
+
+void halo_screen_menu_content(float top, float bottom)
+{
+	menu_content_active = bottom > top && top >= 0.0f && bottom <= 480.0f;
+	menu_content_top = menu_content_active ? top : MENU_CONTENT_TOP;
+	menu_content_bottom = menu_content_active ? bottom : MENU_CONTENT_BOTTOM;
+}
+
+static void menu_window_geometry(float *top, float *zoom)
+{
+
+	float height, bottom, points_per_unit;
+
+	*top = 0.0f;
+	*zoom = 1.0f;
+	if (!config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
+		return;
+#ifdef HALO_ILP32
+	/* A spatial surface has its own apparent size, unrelated to window points. */
+	const char *vision = getenv("HALO_HOST_VISIONOS");
+	if (vision && !strcmp(vision, "1"))
+		return;
+	height = host_sdl_menu_height_points();
+#else
+	int window_width = 0, window_height = 0;
+	platform_video_window_size(&window_width, &window_height);
+	height = window_height;
+#endif
+	if (height <= 0.0f)
+		return;
+	menu_scale_window(height, menu_content_top, menu_content_bottom, top, &bottom, &points_per_unit);
+	*zoom = 480.0f / (bottom - *top);
+	/* Narrow windows must still fit all 640 content columns. */
+	if (*zoom > halo_screen_width() / 640.0f)
+	{
+		*zoom = halo_screen_width() / 640.0f;
+		menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
+			top, &bottom, &points_per_unit);
+	}
+}
+
+void halo_screen_menu_window(int active)
+{
+	if (active)
+		menu_window_geometry(&menu_draw_top, &menu_draw_zoom);
+	menu_window_drawing = active != 0;
+}
+
+float halo_screen_menu_pixel_scale(void)
+{
+	float top, zoom;
+	if (menu_window_drawing)
+		zoom = menu_draw_zoom;
+	else
+		menu_window_geometry(&top, &zoom);
+	return halo_screen_pixel_scale() * zoom;
+}
+
+/* Undo precisely the widget-only viewport zoom after the display blit and
+widescreen centering have been undone by halo_ui_pointer_map. */
+static void menu_window_pointer(struct halo_ui_pointer *pointer)
+{
+	float top, zoom;
+	menu_window_geometry(&top, &zoom);
+	pointer->x = (short)floorf(320.0f + (pointer->x - 320.0f) / zoom);
+	pointer->y = (short)floorf(top + pointer->y / zoom);
+	pointer->click_x = (short)floorf(320.0f + (pointer->click_x - 320.0f) / zoom);
+	pointer->click_y = (short)floorf(top + pointer->click_y / zoom);
+	pointer->radius = (short)ceilf(pointer->radius / zoom);
+}
+
 /* render_window calls this once for each view it draws (each player's, and
 the mirror's, whose rasterizer_target says which), after the world, its fog
 and lens flares, and before interface_draw_screen draws the HUD: a
@@ -769,13 +849,17 @@ struct vertex_shader_object
 	struct vertex_element elements[XGPU_VERTEX_ATTRIBUTE_COUNT];
 	unsigned long element_count;
 	unsigned long packed_mask;
-	/* [0] streams per the declaration, [1] immediate mode (all floats) */
-	gpu_shader shader[2];
+	/* [0] streams per the declaration, [1] immediate mode (all floats);
+	[2] and [3] the same lit per pixel (display.per_pixel_lighting) */
+	gpu_shader shader[4];
 	/* the packed-attribute mask each was translated with */
-	unsigned long shader_packed_mask[2];
+	unsigned long shader_packed_mask[4];
 	/* debug.gpu_dump_shaders, for each compiled at map load: its source,
 	dumped at its first draw (shader_dump_pending) */
-	char *dump_source[2];
+	char *dump_source[4];
+	/* a model lighting program per-pixel lighting can light
+	(nv2a_lighting_slice) */
+	BOOL lit;
 	/* every object, newest first, and its instructions' hash: its name in
 	the shader lists (shader_list_warm) */
 	struct vertex_shader_object *next_object;
@@ -1001,6 +1085,27 @@ static BOOL companion_active(void)
             lroundf(SCREEN_HEIGHT*screen_scale_native[1]),width,height,companion_scale);
 	}
 	return companion_enabled;
+}
+
+/* Settings are committed before screen_mode_choose, whose DRS refusal uses native_hud_wanted. */
+static void graphics_settings_read(void)
+{
+	static unsigned long read_at = (unsigned long)-1;
+
+	if (!device.gl_ready || read_at == config_changes())
+		return;
+	read_at = config_changes();
+	/* Recent shadow and effect hits otherwise bypass offscreen_target_scale. */
+	recent_render_targets_forget();
+	xgpu_texture_cache_settings_read();
+	knob_release_frame = device.frame + 120;
+	native_hud_wanted = config_boolean("display.native_hud") && device_capabilities.upscale;
+#ifdef HALO_ILP32
+	uint32_t rate = frame_rate_flags() >> GPU_INITIALIZE_FRAME_RATE_SHIFT;
+	host_graphics_apply(!strcmp(config_string("display.upscaler"), "metalfx"),
+		config_graphics_mode() == GRAPHICS_MODE_HARDCORE && config_boolean("display.crt_effect"),
+		rate == GPU_INITIALIZE_FRAME_RATE_UNLIMITED ? -1 : (int)rate);
+#endif
 }
 
 static BOOL native_hud_active(void)
@@ -2386,6 +2491,9 @@ float halo_knob_render_quality(void)
 /* One setting of debug.knob_cycle's chord (xinput_sdl.c), by its config name and value text.
 The targets that depend on it are allocated again on the next frame; changes last until the app quits.
 Render height does not affect foveated eyes, whose size comes from the Compositor's rate maps. */
+/* debug.knob_cycle's "ambient occlusion" (debug.ssao spike, halo_ssao_after_lightmaps), -1: the setting */
+static int ssao_live = -1;
+
 int halo_knob_apply(const char *name, const char *value)
 {
 	if (!strcmp(name, "display.render_height"))
@@ -2413,6 +2521,10 @@ int halo_knob_apply(const char *name, const char *value)
 	}
 	else if (!strcmp(name, "display.effect_resolution"))
 		knob_effect_level = effect_resolution_level(value);
+	else if (!strcmp(name, "debug.ssao"))
+		ssao_live = atoi(value);
+	else if (!strcmp(name, "display.graphics"))
+		return config_graphics_try(value);
 	else
 		return 0;
 	knob_ab_changed();
@@ -2615,6 +2727,219 @@ void halo_render_scene_end(void)
 /* what the shader translators emit for this context */
 static struct nv2a_dialect shader_dialect;
 
+/* ---------- debug.ssao (spike): screen-space ambient occlusion (~/code/agent-specs, 2026-11-05 ssao design)
+
+Right after the level's lightmap pass (render_window, source/render/render.c) the frame holds the level's lightmap
+light (multiplied by the diffuse textures later) and the objects' finished pixels, and its depth buffer has every
+opaque surface. The lightmap pass marks the pixels it wrote with stencil 0x10 (halo_ssao_lightmaps_mark), and
+halo_ssao_after_lightmaps hands the scene's color and depth targets to the backend, which computes AO from the depth
+and multiplies it into the level's light and, weaker, into the objects' pixels (gpu_metal.m, host_ssao_apply).
+Metal only, a player's or the menu's own view only, not multisampled and not stereo; off: nothing changes. */
+
+/* the view whose lightmap pass marked the stencil, so halo_ssao_after_lightmaps may run */
+static BOOL ssao_view_marked;
+
+static int ssao_mode(void)
+{
+	long debug;
+
+	if (ssao_live >= 0)
+		return ssao_live;
+	/* debug.ssao (the spike's modes) wins; otherwise the player's setting, which the graphics mode turns off
+	outside Enhanced */
+	debug = config_integer("debug.ssao");
+	return debug ? (int)debug : config_boolean("display.ambient_occlusion") ? 1 : 0;
+}
+
+/* whether the view being drawn takes AO: the same answer at the mark and at the pass */
+static BOOL ssao_view_wanted(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+	struct render_target_entry *color, *depth;
+
+	if (!native_scene || !device.gl_ready || !shader_dialect.msl || ssao_mode() <= 0)
+		return FALSE;
+	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
+		return FALSE;
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || !depth->target.depth || color->samples || depth->samples)
+		return FALSE;
+	return TRUE;
+}
+
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark its pixels in stencil (0x10) */
+int halo_ssao_lightmaps_mark(int begin)
+{
+	if (begin)
+		ssao_view_marked = ssao_view_wanted();
+	return ssao_view_marked;
+}
+
+void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
+	float p21, float p22, float p32)
+{
+	struct render_target_entry *color, *depth;
+	float parameters[27];
+	int mode = ssao_mode();
+
+	(void)rasterizer_target;
+	if (!ssao_view_marked)
+		return;
+	ssao_view_marked = FALSE;
+	if (!ssao_view_wanted())
+		return;
+	IMMEDIATE_FLUSH();
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	parameters[0] = floorf((float)native_scene_bounds[0] * color->target.scale[0] + 0.5f);
+	parameters[1] = floorf((float)native_scene_bounds[1] * color->target.scale[1] + 0.5f);
+	parameters[2] = floorf((float)native_scene_bounds[2] * color->target.scale[0] + 0.5f) - parameters[0];
+	parameters[3] = floorf((float)native_scene_bounds[3] * color->target.scale[1] + 0.5f) - parameters[1];
+	parameters[4] = z_near;
+	parameters[5] = z_far;
+	parameters[6] = p00;
+	parameters[7] = p11;
+	parameters[8] = p20;
+	parameters[9] = p21;
+	parameters[10] = (float)config_real("debug.ssao_radius");
+	parameters[11] = (float)config_real("debug.ssao_strength");
+	parameters[12] = (float)config_real("debug.ssao_objects");
+	parameters[13] = (float)config_real("debug.ssao_static_weight");
+	parameters[14] = (float)mode;
+	parameters[15] = config_boolean("debug.ssao_high") ? 1.0f : 0.0f;
+	parameters[16] = (float)config_real("debug.ssao_max_pixels");
+	parameters[17] = (float)config_real("debug.ssao_fade_distance");
+	parameters[18] = (float)config_real("debug.ssao_level_floor");
+	parameters[19] = (float)config_real("debug.ssao_object_floor");
+	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), which the host linearizes depth with */
+	parameters[20] = p22;
+	parameters[21] = p32;
+	parameters[22] = (float)config_integer("debug.ssao_path");
+	parameters[23] = (float)config_integer("debug.ssao_stop");
+	parameters[24] = (float)config_integer("debug.ssao_steps");
+	parameters[25] = config_boolean("debug.ssao_gather_v1") ? 1.0f : 0.0f;
+	parameters[26] = (float)config_integer("debug.ssao_scale");
+	if (parameters[2] <= 0.0f || parameters[3] <= 0.0f)
+		return;
+	{
+		static unsigned long passes;
+
+		if (!passes++ || !(passes % 7200))
+			platform_log("ssao: pass %lu, mode %d, %gx%g at %g,%g, near %g far %g (projection: near %g far %g), radius %g",
+				passes, mode, (double)parameters[2], (double)parameters[3], (double)parameters[0], (double)parameters[1],
+				(double)z_near, (double)z_far, (double)(p32 / (p22 - 1.0f)), (double)(p32 / (p22 + 1.0f)),
+				(double)parameters[10]);
+	}
+#ifdef HALO_ILP32
+	host_ssao_apply(color->target.texture, depth->target.texture, parameters, 27);
+#endif
+}
+
+/* ---------- soft particle edges (display.soft_particles)
+
+Before a view's transparent geometry (render_window, source/render/render.c), every opaque surface is in the depth
+buffer. halo_soft_particles_prepare hands it to the backend, which keeps a copy as view distances (gpu_metal.m,
+host_soft_depth_prepare), with every pixel the level did not draw (its lightmap pass marks its pixels with stencil
+0x10, halo_soft_particles_lightmaps_mark) as far away, so objects never fade a particle; a camera-facing particle
+sprite's draw then names its blend's fade
+(halo_soft_particles_mode, rasterizer_xbox_transparent_geometry.c), which goes into its pixel shader's key
+(nv2a_pixel_shader_key soft_depth): the shader fades the sprite where it is closer to the surface behind it than
+debug.soft_particle_distance. Metal only, a player's or the menu's own view only, not multisampled and not stereo;
+off: nothing changes. */
+static BOOL soft_view_ready;
+static int soft_draw_mode;
+/* the groups drawn soft since the last log line (halo_soft_particles_prepare) */
+static unsigned long soft_groups;
+
+static BOOL soft_view_wanted(void)
+{
+	const struct halo_stereo_frame *stereo = halo_stereo_frame();
+	struct render_target_entry *color, *depth;
+
+	if (!native_scene || !device.gl_ready || !shader_dialect.msl || !config_boolean("display.soft_particles"))
+		return FALSE;
+	if (stereo->mode != HALO_STEREO_OFF || stereo->eye_count)
+		return FALSE;
+	color = render_target_get(device.render_target);
+	depth = render_target_get(device.depth_stencil);
+	if (!color || !depth || !depth->target.depth || color->samples || depth->samples)
+		return FALSE;
+	return TRUE;
+}
+
+/* the view whose lightmap pass marked the level in stencil (0x10), so its particles may fade against it */
+static BOOL soft_view_marked;
+
+int halo_soft_particles_lightmaps_mark(int begin)
+{
+	if (begin)
+		soft_view_marked = soft_view_wanted();
+	return soft_view_marked;
+}
+
+unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32)
+{
+	struct render_target_entry *depth;
+	float parameters[6];
+
+	soft_view_ready = FALSE;
+	soft_draw_mode = 0;
+	/* (only a view whose level is marked: the fade is against the level alone) */
+	if (!soft_view_marked)
+		return FALSE;
+	soft_view_marked = FALSE;
+	if (!soft_view_wanted())
+		return FALSE;
+	IMMEDIATE_FLUSH();
+	depth = render_target_get(device.depth_stencil);
+	parameters[0] = z_near;
+	parameters[1] = z_far;
+	/* the projection's depth row (GL-style: ndc z = -p22 + p32 / distance), the near and far the depth was made with */
+	parameters[2] = p22;
+	parameters[3] = p32;
+	parameters[4] = (float)config_real("debug.soft_particle_distance");
+	parameters[5] = (float)config_integer("debug.soft_particle_scale");
+#ifdef HALO_ILP32
+	soft_view_ready = host_soft_depth_prepare(depth->target.texture, parameters, 6) != 0;
+#else
+	(void)depth;
+#endif
+	{
+		static unsigned long views;
+
+		if (!views++ || !(views % 1800))
+		{
+			platform_log("soft particles: view %lu, %s, near %g far %g, distance %g; %lu groups drawn soft", views,
+				soft_view_ready ? "depth kept" : "refused", (double)z_near, (double)z_far, (double)parameters[4],
+				soft_groups);
+			soft_groups = 0;
+		}
+	}
+	return (unsigned char)soft_view_ready;
+}
+
+void halo_soft_particles_mode(int mode)
+{
+	if (mode != soft_draw_mode)
+		IMMEDIATE_FLUSH();
+	soft_draw_mode = soft_view_ready ? mode : 0;
+	if (soft_draw_mode)
+		soft_groups++;
+}
+
+void halo_soft_particles_finish(void)
+{
+	if (!soft_view_ready)
+		return;
+	IMMEDIATE_FLUSH();
+	soft_view_ready = FALSE;
+	soft_draw_mode = 0;
+#ifdef HALO_ILP32
+	host_soft_depth_finish();
+#endif
+}
+
 /* debug.rate_map_test, on Metal outside a stereo frame */
 static int rate_map_test(void)
 {
@@ -2643,11 +2968,15 @@ static int dynamic_resolution_refused(void)
 	const struct halo_stereo_frame *stereo = halo_stereo_frame();
 	static const char *said;
 	static int on = -1;
+	static unsigned long read_at = (unsigned long)-1;
 	const char *why = NULL;
 
-	/* (off: nothing to refuse or say; asked once the renderer, and the device's profile, are up) */
-	if (on < 0 && device.gl_ready)
+	/* Recheck the session capability when a mode or profile changes; the planner keeps its existing pool policy. */
+	if (device.gl_ready && (on < 0 || read_at != config_changes()))
+	{
 		on = host_dynamic_resolution_lines(-1) > 0;
+		read_at = config_changes();
+	}
 	if (on <= 0)
 		return 2;
 	if (native_hud_wanted < 0 && device.gl_ready)
@@ -3187,6 +3516,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 			}
 		}
 	}
+	menu_window_pointer(pointer);
 	pointer->moved = host.moved != 0;
 	pointer->left_clicks = (unsigned char)(host.left_clicks < 0 ? 0 : host.left_clicks < 255 ? host.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(host.right_clicks < 0 ? 0 : host.right_clicks < 255 ? host.right_clicks : 255);
@@ -3226,6 +3556,7 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	memset(pointer, 0, sizeof(*pointer));
 	ui_point_from_window(state.x, state.y, &pointer->x, &pointer->y);
 	ui_point_from_window(state.click_x, state.click_y, &pointer->click_x, &pointer->click_y);
+	menu_window_pointer(pointer);
 	pointer->moved = state.moved != FALSE;
 	pointer->left_clicks = (unsigned char)(state.left_clicks < 255 ? state.left_clicks : 255);
 	pointer->right_clicks = (unsigned char)(state.right_clicks < 255 ? state.right_clicks : 255);
@@ -3252,9 +3583,30 @@ long halo_screen_commit(void)
 #ifdef HALO_ILP32
     host_external_commit(halo_external_pause_allowed());
 #endif
+	/* debug.graphics_cycle: the next graphics mode every so many frames of a level, unsaved */
+	{
+		static long every = -1;
+		static unsigned long last_switch;
+
+		if (every < 0)
+			every = config_integer("debug.graphics_cycle");
+		if (every > 0 && device.gl_ready && halo_scene_class() != CONFIG_SCENE_MENU && device.frame >= last_switch + (unsigned long)every)
+		{
+			static const char *const modes[] = { "hardcore", "classic", "enhanced" };
+			int next = (config_graphics_mode() + 1) % 3;
+
+			if (last_switch)
+			{
+				config_graphics_try(modes[next]);
+				platform_log("graphics cycle: frame %lu, %s", device.frame, modes[next]);
+			}
+			last_switch = device.frame;
+		}
+	}
 	/* (display.anti_aliasing, as config.toml has it now) */
 	if (device.gl_ready)
 		anti_aliasing_read();
+	graphics_settings_read();
 	if (!screen_width)
 		return halo_screen_width();
 	screen_mode_choose(&width, scale, native, ceiling, &dynamic);
@@ -3859,6 +4211,13 @@ HRESULT WINAPI D3DDevice_CreateVertexShader(CONST DWORD *declaration, CONST DWOR
 		object->instructions = malloc(object->instruction_count * 4 * sizeof(DWORD));
 		memcpy(object->instructions, function + 1, object->instruction_count * 4 * sizeof(DWORD));
 		object->program_hash = hash64(object->instructions, object->instruction_count * 4 * sizeof(DWORD));
+		{
+			struct nv2a_lighting_slice slice;
+
+			object->lit = nv2a_lighting_slice(object->instructions, object->instruction_count, &slice);
+			if (object->lit)
+				nv2a_lighting_register(object->program_hash, object->instructions, object->instruction_count);
+		}
 	}
 	parse_declaration(object, declaration);
 	object->next_object = vertex_shader_objects;
@@ -4044,7 +4403,8 @@ static gpu_shader vertex_shader_compile(struct vertex_shader_object *program, in
 {
 	if (!program->shader[variant])
 	{
-		char *source = nv2a_vertex_shader_translate(&shader_dialect, program->instructions, program->instruction_count, packed_mask);
+		char *source = nv2a_vertex_shader_translate_lit(&shader_dialect, program->instructions,
+			program->instruction_count, packed_mask, variant >= 2);
 
 		program->shader[variant] = source ? gpu_shader_create(GPU_SHADER_VERTEX, source) : 0;
 		program->shader_packed_mask[variant] = packed_mask;
@@ -4057,9 +4417,9 @@ static gpu_shader vertex_shader_compile(struct vertex_shader_object *program, in
 	return program->shader[variant];
 }
 
-static gpu_shader vertex_shader_get(struct vertex_shader_object *program, BOOL immediate)
+static gpu_shader vertex_shader_get(struct vertex_shader_object *program, BOOL immediate, BOOL lit)
 {
-	int variant = immediate ? 1 : 0;
+	int variant = (immediate ? 1 : 0) + (lit ? 2 : 0);
 
 	if (program->shader[variant])
 	{
@@ -4363,7 +4723,7 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 
 	/* (a multisampled alpha test's shader is not listed or observed: the
 	lists and catalogs hold the shaders of draws without multisampling) */
-	if (!name || key->alpha_test_samples)
+	if (!name || key->alpha_test_samples || key->soft_depth)
 		return;
 	name->kind = 2;
 	name->hash = hash64(key, nv2a_pixel_shader_key_size(key));
@@ -4491,10 +4851,112 @@ static struct vertex_shader_object *shader_list_program(struct vertex_shader_obj
 		if (!object->instructions || object->program_hash != hash)
 			continue;
 		if (compiled ? object->shader[variant] && object->shader_packed_mask[variant] == mask :
-			(variant ? mask == 0 : object->packed_mask == mask))
+			((variant & 1) ? mask == 0 : object->packed_mask == mask) && (variant < 2 || object->lit))
 			return object;
 	}
 	return NULL;
+}
+
+/* Shared by prepare_draw and replay derivation, including the draw-time debug overrides. */
+static void lighting_key_fill(struct nv2a_pixel_shader_key *key, const struct vertex_shader_object *program,
+	long highlight, long limit)
+{
+	key->lighting_program[0] = (unsigned int)program->program_hash;
+	key->lighting_program[1] = (unsigned int)(program->program_hash >> 32);
+	key->lighting_highlight = (unsigned char)(highlight < 0 ? 0 :
+		highlight > NV2A_HIGHLIGHT_PRESETS ? NV2A_HIGHLIGHT_PRESETS : highlight);
+	key->lighting_point_lights = (unsigned char)(limit <= 2 ? 0 : limit >= 8 ? 6 : limit - 2);
+}
+
+/* rasterizer_set_framebuffer_blend_function's GPU factors, with the fade modes from
+rasterizer_xbox_transparent_geometry.c. Other blends have no particle fade. */
+static int shader_list_soft_mode(const struct gpu_pipeline_description *description)
+{
+	if (!description->blend)
+		return 0;
+	if (description->operation == GPU_BLEND_OP_ADD)
+	{
+		if (description->source == GPU_BLEND_SOURCE_ALPHA && description->destination == GPU_BLEND_ONE_MINUS_SOURCE_ALPHA)
+			return 1;
+		if (description->source == GPU_BLEND_DESTINATION_COLOR && description->destination == GPU_BLEND_ZERO)
+			return 2;
+		if (description->source == GPU_BLEND_DESTINATION_COLOR && description->destination == GPU_BLEND_SOURCE_COLOR)
+			return 3;
+		if (description->source == GPU_BLEND_ONE && description->destination == GPU_BLEND_ONE_MINUS_SOURCE_ALPHA)
+			return 5;
+	}
+	if (description->source == GPU_BLEND_ONE && description->destination == GPU_BLEND_ONE)
+	{
+		if (description->operation == GPU_BLEND_OP_MIN)
+			return 2;
+		if (description->operation == GPU_BLEND_OP_ADD || description->operation == GPU_BLEND_OP_REVERSE_SUBTRACT ||
+			description->operation == GPU_BLEND_OP_MAX)
+			return 4;
+	}
+	return 0;
+}
+
+static const struct nv2a_pixel_shader_key *shader_list_pixel_key(gpu_shader shader)
+{
+	unsigned long bucket;
+	struct fragment_entry *entry;
+
+	for (bucket = 0; bucket < FRAGMENT_BUCKETS; bucket++)
+		for (entry = fragment_buckets[bucket]; entry; entry = entry->next)
+			if (entry->shader == shader)
+				return &entry->key;
+	return NULL;
+}
+
+struct shader_list_warm_record
+{
+	struct gpu_pipeline_description description;
+	struct vertex_shader_object *program;
+	struct nv2a_pixel_shader_key key;
+	int variant;
+};
+
+/* The original descriptions and every derived description share one set, so a listed lit
+pipeline or repeated program cannot cause the third pass to warm it again. */
+static BOOL shader_list_warm_remember(struct shader_list_warm_record **records, size_t *count, size_t *capacity,
+	const struct gpu_pipeline_description *description, struct vertex_shader_object *program, int variant,
+	const struct nv2a_pixel_shader_key *key)
+{
+	size_t index;
+	struct shader_list_warm_record *record;
+
+	for (index = 0; index < *count; index++)
+		if (!memcmp(&(*records)[index].description, description, sizeof(*description)))
+			return FALSE;
+	if (*count == *capacity)
+	{
+		size_t grown_capacity = *capacity ? 2 * *capacity : 256;
+		struct shader_list_warm_record *grown = realloc(*records, grown_capacity * sizeof(*grown));
+
+		if (!grown)
+			return FALSE;
+		*records = grown;
+		*capacity = grown_capacity;
+	}
+	record = &(*records)[(*count)++];
+	record->description = *description;
+	record->program = program;
+	record->key = *key;
+	record->variant = variant;
+	return TRUE;
+}
+
+/* The desktop GL build does not import host programs. The existing imports keep their ABI. */
+static void shader_list_host_prepare(BOOL soft)
+{
+#ifdef HALO_ILP32
+	if (shader_dialect.msl && config_boolean_in_graphics_mode("display.ambient_occlusion", GRAPHICS_MODE_ENHANCED))
+		host_ssao_apply(0, 0, NULL, 0);
+	if (soft)
+		(void)host_soft_depth_prepare(0, NULL, 0);
+#else
+	(void)soft;
+#endif
 }
 
 /* the most of a device's own record (debug.shader_list_record) warmed with a
@@ -4528,6 +4990,11 @@ void halo_shader_list_warm(char const *map_name)
 	unsigned long vertex_count = 0, pixel_count = 0, pipeline_count = 0, missing = 0;
 	double started;
 	int pass;
+	BOOL derive = shader_dialect.msl;
+	BOOL lit_wanted, soft_wanted;
+	struct shader_list_warm_record *records = NULL;
+	size_t record_count = 0, record_capacity = 0, original_count, record_index;
+	unsigned long derived_lit = 0, derived_unlit = 0, derived_soft = 0, derived_skipped = 0;
 	char recorded_path[512];
 	FILE *recorded = NULL;
 	uint32_t recorded_size = 0;
@@ -4576,6 +5043,10 @@ void halo_shader_list_warm(char const *map_name)
 		platform_log("shader list %s: not warmed: debug.gpu_dump_shaders dumps the shaders this run draws", shader_list.map);
 		return;
 	}
+	lit_wanted = shader_dialect.msl && config_boolean_in_graphics_mode("display.per_pixel_lighting", GRAPHICS_MODE_ENHANCED);
+	soft_wanted = shader_dialect.msl && halo_stereo_frame()->mode != HALO_STEREO_HEAD &&
+		(config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_CLASSIC) ||
+		 config_boolean_in_graphics_mode("display.soft_particles", GRAPHICS_MODE_ENHANCED));
 	size = gpu_warm_list_read(shader_list.map, NULL, 0);
 	/* what earlier sessions on this device still had to make while drawing
 	(shader_list_made's record) is warmed with the list, so a device stops
@@ -4607,6 +5078,7 @@ void halo_shader_list_warm(char const *map_name)
 	{
 		if (recorded)
 			fclose(recorded);
+		shader_list_host_prepare(soft_wanted);
 		return;
 	}
 	text_capacity = (size_t)size + 1 + recorded_size;
@@ -4653,7 +5125,8 @@ void halo_shader_list_warm(char const *map_name)
 				struct vertex_shader_object *program = NULL;
 				BOOL used = FALSE;
 
-				if (sscanf(line, "vs %llx %d %lx", &hash, &variant, &mask) != 3 || variant < 0 || variant > 1)
+				if (sscanf(line, "vs %llx %d %lx", &hash, &variant, &mask) != 3 || variant < 0 || variant > 3 ||
+					(variant >= 2 && !shader_dialect.msl))
 				{
 					missing++;
 					continue;
@@ -4677,7 +5150,8 @@ void halo_shader_list_warm(char const *map_name)
 
 				memset(&key, 0, sizeof(key));
 				if (sscanf(line, "ps %63s %599s", second, first) != 2 ||
-					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
+					(strlen(first) != 2 * sizeof(key) && strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_SAMPLES_SIZE &&
+						strlen(first) != 2 * NV2A_PIXEL_SHADER_KEY_BASE_SIZE) ||
 					!hex_bytes(first, bytes, strlen(first) / 2))
 				{
 					missing++;
@@ -4720,7 +5194,8 @@ void halo_shader_list_warm(char const *map_name)
 					values[7] = values[1];
 					values[8] = values[2];
 				}
-				if ((fields != 12 && fields != 14) || variant > 1 || strlen(kinds) != 2 * GPU_ATTRIBUTE_COUNT ||
+				if ((fields != 12 && fields != 14) || variant > 3 ||
+					(variant >= 2 && !shader_dialect.msl) || strlen(kinds) != 2 * GPU_ATTRIBUTE_COUNT ||
 					!hex_bytes(kinds, description.attribute_kinds, GPU_ATTRIBUTE_COUNT) ||
 					!(description.pixel_shader = shader_list_pixel((uint64_t)pixel_hash)))
 				{
@@ -4750,6 +5225,14 @@ void halo_shader_list_warm(char const *map_name)
 				{
 					description.vertex_shader = program->shader[variant];
 					gpu_pipeline_warm(&description);
+					if (derive)
+					{
+						const struct nv2a_pixel_shader_key *key = shader_list_pixel_key(description.pixel_shader);
+
+						if (key)
+							(void)shader_list_warm_remember(&records, &record_count, &record_capacity,
+								&description, program, (int)variant, key);
+					}
 					pipeline_count++;
 					used = TRUE;
 				}
@@ -4767,12 +5250,81 @@ void halo_shader_list_warm(char const *map_name)
 			}
 		}
 	}
+	/* Walk only the listed pipelines; appended descriptions are for deduplication. Copy the record
+	before appending, since the set may grow. Every lit record also supplies an unlit base. */
+	original_count = record_count;
+	for (record_index = 0; record_index < original_count; record_index++)
+	{
+		struct shader_list_warm_record record = records[record_index];
+		struct gpu_pipeline_description description = record.description;
+		struct nv2a_pixel_shader_key base_key = record.key, key;
+		int variant = record.variant & 1, soft_mode;
+		unsigned long mask = record.program->shader_packed_mask[record.variant];
+
+		base_key.lighting_program[0] = base_key.lighting_program[1] = 0;
+		base_key.lighting_highlight = base_key.lighting_point_lights = 0;
+		nv2a_pixel_shader_key_canonicalize(&base_key);
+		if (record.variant >= 2)
+		{
+			description.vertex_shader = vertex_shader_compile(record.program, variant, mask);
+			description.pixel_shader = fragment_shader_get(&base_key);
+			if (description.vertex_shader && description.pixel_shader &&
+				shader_list_warm_remember(&records, &record_count, &record_capacity, &description, record.program,
+					variant, &base_key))
+			{
+				gpu_pipeline_warm(&description);
+				derived_unlit++;
+			}
+			else
+				derived_skipped++;
+		}
+		if (lit_wanted && record.program->lit && !base_key.soft_depth)
+		{
+			key = base_key;
+			lighting_key_fill(&key, record.program, config_integer("display.point_light_highlight"),
+				config_integer("display.point_light_limit"));
+			nv2a_pixel_shader_key_canonicalize(&key);
+			description.vertex_shader = vertex_shader_compile(record.program, variant + 2, mask);
+			description.pixel_shader = fragment_shader_get(&key);
+			if (description.vertex_shader && description.pixel_shader &&
+				shader_list_warm_remember(&records, &record_count, &record_capacity, &description, record.program,
+					variant + 2, &key))
+			{
+				gpu_pipeline_warm(&description);
+				derived_lit++;
+			}
+			else
+				derived_skipped++;
+		}
+		soft_mode = shader_list_soft_mode(&record.description);
+		if (soft_wanted && record.description.depth && soft_mode)
+		{
+			key = base_key;
+			key.soft_depth = (unsigned char)soft_mode;
+			nv2a_pixel_shader_key_canonicalize(&key);
+			description.vertex_shader = vertex_shader_compile(record.program, variant, mask);
+			description.pixel_shader = fragment_shader_get(&key);
+			if (description.vertex_shader && description.pixel_shader &&
+				shader_list_warm_remember(&records, &record_count, &record_capacity, &description, record.program,
+					variant, &key))
+			{
+				gpu_pipeline_warm(&description);
+				derived_soft++;
+			}
+			else
+				derived_skipped++;
+		}
+	}
+	shader_list_host_prepare(soft_wanted);
 	gpu_warm_end();
 	shader_list_warming = FALSE;
+	free(records);
 	free(text);
 	platform_log("shader list %s: %lu vertex shaders, %lu pixel shaders and %lu pipelines compiled at load in %.0f ms; "
 		"%lu lines not used", shader_list.map, vertex_count, pixel_count, pipeline_count,
 		halo_frame_trace_milliseconds() - started, missing);
+	platform_log("shader list %s: derived %lu lit, %lu unlit, %lu soft pipelines; %lu skipped",
+		shader_list.map, derived_lit, derived_unlit, derived_soft, derived_skipped);
 }
 
 /* ---------- per-draw state */
@@ -5300,7 +5852,7 @@ static void raster_state_fill(BOOL has_depth, struct gpu_viewport *viewport, str
 
 /* the uniforms of the latest draws, converted from these inputs; the serial
 counts the conversions */
-#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 7 * D3DTSS_MAXSTAGES)
+#define DRAW_UNIFORM_INPUT_COUNT (4 + 4 + 16 + 1 + 16 + 2 + 4 + 1 + 1 + 2 + 7 * D3DTSS_MAXSTAGES)
 
 static DWORD draw_uniform_inputs[DRAW_UNIFORM_INPUT_COUNT];
 static struct gpu_uniforms draw_uniforms;
@@ -5343,11 +5895,48 @@ static void pixel_key_finish(struct nv2a_pixel_shader_key *key)
 	if (target_samples > 1 && key->alpha_test_function && !D3D__RenderState[D3DRS_ALPHABLENDENABLE] &&
 		shader_dialect.sample_mask)
 		key->alpha_test_samples = (unsigned char)target_samples;
+	/* soft particle edges (halo_soft_particles_mode): Metal's translation only */
+	key->soft_depth = shader_dialect.msl ? (unsigned char)soft_draw_mode : 0;
 	key->fog_enable = D3D__RenderState[D3DRS_FOGENABLE] != 0;
 	key->fog_table_mode = (unsigned char)D3D__RenderState[D3DRS_FOGTABLEMODE];
 	key->count_samples = device.visibility_test_active &&
 		device_capabilities.occlusion_mode == GPU_OCCLUSION_SHADER_COUNTER;
 	nv2a_pixel_shader_key_canonicalize(key);
+}
+
+/* display.per_pixel_lighting, read once a frame so that a change (the
+graphics mode, a debug A/B) takes effect at the next frame */
+static long point_light_highlight;
+/* The requested limit; lighting_key_fill converts it to lights past the game's two. */
+static long point_light_limit;
+
+static BOOL per_pixel_lighting(void)
+{
+	static unsigned long read_frame = (unsigned long)-1;
+	static BOOL enabled;
+
+	if (read_frame != device.frame)
+	{
+		read_frame = device.frame;
+		point_light_highlight = config_integer("display.point_light_highlight");
+		point_light_limit = config_integer("display.point_light_limit");
+		enabled = config_boolean("display.per_pixel_lighting") != FALSE;
+		/* matched stills: on in odd frames only, so that two frames of a paused
+		game show the same picture lit both ways */
+		switch (config_integer("debug.per_pixel_lighting_alternate"))
+		{
+		case 1:
+			enabled = enabled && (device.frame & 1) != 0;
+			break;
+		case 2:
+			if (!(device.frame & 1))
+				point_light_highlight = point_light_limit = 0;
+			break;
+		default:
+			break;
+		}
+	}
+	return enabled;
 }
 
 /* fills a draw's packet but for its streams, attributes, indices and
@@ -5358,7 +5947,7 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	struct vertex_shader_object *program = current_program();
 	struct nv2a_pixel_shader_key key;
 	float texture_scale[4][4];
-	BOOL has_depth = FALSE;
+	BOOL has_depth = FALSE, lit;
 	int stage;
 
 	if (!device.gl_ready || !program || !device.vertex_shader || !program->instructions)
@@ -5400,7 +5989,12 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	stages_fill(&key, texture_scale, draw->stages);
 	pixel_key_finish(&key);
 
-	draw->vertex_shader = vertex_shader_get(program, immediate);
+	/* per-pixel lighting: a lit program's lit shader, and its pixel shader
+	named by it (nv2a_pixel_shader_key lighting_program) */
+	lit = program->lit && shader_dialect.msl && per_pixel_lighting();
+	if (lit)
+		lighting_key_fill(&key, program, point_light_highlight, point_light_limit);
+	draw->vertex_shader = vertex_shader_get(program, immediate, lit);
 	draw->pixel_shader = fragment_shader_get(&key);
 	if (companion_flash_adapt && companion_active() && target_native)
 	{
@@ -5436,6 +6030,12 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 	{
 		DWORD inputs[DRAW_UNIFORM_INPUT_COUNT];
 		unsigned long count = 0;
+		float menu_top = 0.0f, menu_zoom = 1.0f;
+		if (menu_window_drawing)
+		{
+			menu_top = menu_draw_top;
+			menu_zoom = menu_draw_zoom;
+		}
 
 		memcpy(&inputs[count], device.viewport_scale, sizeof(device.viewport_scale));
 		count += 4;
@@ -5457,6 +6057,8 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 		inputs[count++] = D3D__RenderState[D3DRS_FOGDENSITY];
 		inputs[count++] = D3D__RenderState[D3DRS_ALPHAREF];
 		inputs[count++] = (DWORD)UI_OFFSET;
+		memcpy(&inputs[count++], &menu_top, sizeof(menu_top));
+		memcpy(&inputs[count++], &menu_zoom, sizeof(menu_zoom));
 		for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
 		{
 			DWORD *state = D3D__TextureState[stage];
@@ -5478,6 +6080,11 @@ static BOOL prepare_draw(struct gpu_draw *draw, BOOL immediate)
 			draw_uniforms.serial++;
 			memcpy(converted->viewport_scale[0], device.viewport_scale, sizeof(converted->viewport_scale));
 			memcpy(converted->viewport_offset[0], device.viewport_offset, sizeof(converted->viewport_offset));
+			converted->viewport_scale[0][0] /= menu_zoom;
+			converted->viewport_scale[0][1] /= menu_zoom;
+			converted->viewport_offset[0][0] = halo_screen_width() * 0.5f +
+				(device.viewport_offset[0] - halo_screen_width() * 0.5f) / menu_zoom;
+			converted->viewport_offset[0][1] = menu_top + device.viewport_offset[1] / menu_zoom;
 			memcpy(converted->texture_scale, texture_scale, sizeof(converted->texture_scale));
 			converted->point_size[0][0] = D3D__RenderState[D3DRS_POINTSIZE] ?
 				dword_to_float(D3D__RenderState[D3DRS_POINTSIZE]) : 1.0f;
@@ -7550,6 +8157,29 @@ static struct render_target_entry *companion_reissue(void)
 	return target;
 }
 
+/* debug.screenshot_frames ("900-1200;1800-2100"): with debug.screenshot_every, save only frames in these ranges
+(motion clips of the rt-object-shadows spike); empty saves every one */
+static BOOL screenshot_frame_wanted(unsigned long frame)
+{
+	const char *text = config_string("debug.screenshot_frames");
+	unsigned long first, last;
+	int used;
+
+	if (!text || !*text)
+		return TRUE;
+	while (sscanf(text, "%lu-%lu%n", &first, &last, &used) == 2)
+	{
+		if (frame >= first && frame <= last)
+			return TRUE;
+		text += used;
+		if (*text != ',' && *text != ';')
+			break;
+		text++;
+	}
+	return FALSE;
+}
+
+
 void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destination_rectangle,
 	void *unused, void *unused2)
 {
@@ -7665,9 +8295,12 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,
 				back_buffer->target.texture);
-		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0)
+		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0 && screenshot_frame_wanted(device.frame))
 		{
-			write_screenshot(back_buffer, "");
+			/* debug.screenshot_scene_only: only the scene as drawn when it has its own target (clip captures) */
+			if (!(config_boolean("debug.screenshot_scene_only") && back_buffer->layer == HALO_STEREO_LAYER_NATIVE &&
+				back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO)))
+				write_screenshot(back_buffer, "");
 			if (companion && companion_capture)
 				write_screenshot(companion, "-companion");
 			/* display.native_hud: and the scene as drawn, before its stretch */

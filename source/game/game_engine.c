@@ -7183,6 +7183,15 @@ void game_engine_vehicle_placement_begin(
 	csmemset(game_engine_vehicles_placed, 0, sizeof(game_engine_vehicles_placed));
 }
 
+/* port: photo mode rebuilds the map's vehicles live; forget the learned
+respawn homes so the old set does not respawn after the game resumes. Only
+photo mode calls this. */
+void game_engine_vehicle_homes_reset(
+	void)
+{
+	game_engine_vehicle_home_count = NONE;
+}
+
 /* a vehicle definition's type: the globals' multiplayer vehicles (warthog,
 ghost, scorpion), else by its tag's name; NONE for none of them */
 static short game_engine_variant_vehicle_type(

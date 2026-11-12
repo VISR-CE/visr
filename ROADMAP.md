@@ -72,7 +72,7 @@ Planned releases and the work in each are tracked as milestones: https://github.
 ## Multiplayer
 
 - [x] Split-screen co-op, LAN play, and internet play with a server browser, from OpenCE (`network.online`)
-- [x] Delta's public games in the server browser, with joins to network versions 29 through 32; optional host announcements are off by default (`network.delta_browse`, `network.delta_announce`)
+- [x] Delta's public games in the server browser, with joins to network versions 29 through 32; host announcements are on by default (`network.delta_browse`, `network.delta_announce`)
 - [x] `halo://join` invite links on every Apple platform
 - [x] A grace period before other players drop an internet game's backgrounded app (`network.background_grace`, 60 seconds by default)
 - [x] LAN discovery over Bonjour on iPhone, iPad and Vision Pro, relaying UDP discovery broadcasts to resolved peers without the multicast networking entitlement

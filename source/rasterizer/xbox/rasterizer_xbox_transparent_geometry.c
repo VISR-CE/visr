@@ -1015,6 +1015,8 @@ void rasterizer_transparent_geometry_group_draw(
 {
 	boolean success = TRUE;
 	boolean draw_active_camouflage_groups2 = FALSE;
+	/* port: soft particle edges' fade for the pass's draw (halo_soft_particles_mode) */
+	int soft_particle_mode;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox_transparent_geometry.c",
@@ -1449,6 +1451,7 @@ void rasterizer_transparent_geometry_group_draw(
 						break;
 					}
 
+					soft_particle_mode = 0;
 					switch (group->shader->base.type)
 					{
 						case _shader_type_model:
@@ -1836,6 +1839,36 @@ void rasterizer_transparent_geometry_group_draw(
 								}
 								pixel_shader.combiner_count = combiner_index;
 
+								/* port: soft particle edges, for camera-facing sprites
+								tested against the depth buffer: the fade takes the
+								fragment toward what leaves the frame unchanged under
+								its blend, as the fog stage above does */
+								if (TEST_FLAG(group->geometry_flags, HALO_GEOMETRY_SOFT_BIT) &&
+									!TEST_FLAG(group->geometry_flags, _rasterizer_geometry_first_person_bit) &&
+									!TEST_FLAG(group->geometry_flags, _rasterizer_geometry_no_zbuffer_bit))
+								{
+									switch (shader_effect->framebuffer_blend_function)
+									{
+										case _framebuffer_blend_function_alpha_blend:
+											soft_particle_mode = 1;
+											break;
+										case _framebuffer_blend_function_multiply:
+										case _framebuffer_blend_function_component_min:
+											soft_particle_mode = 2;
+											break;
+										case _framebuffer_blend_function_double_multiply:
+											soft_particle_mode = 3;
+											break;
+										case _framebuffer_blend_function_add:
+										case _framebuffer_blend_function_subtract:
+										case _framebuffer_blend_function_component_max:
+											soft_particle_mode = 4;
+											break;
+										case _framebuffer_blend_function_alpha_multiply_add:
+											soft_particle_mode = 5;
+											break;
+									}
+								}
 							}
 							break;
 
@@ -3487,7 +3520,11 @@ void rasterizer_transparent_geometry_group_draw(
 					}
 
 					rasterizer_set_pixel_shader(&pixel_shader);
+					if (soft_particle_mode)
+						halo_soft_particles_mode(soft_particle_mode);
 					rasterizer_transparent_geometry_group_draw__internal(group, FALSE);
+					if (soft_particle_mode)
+						halo_soft_particles_mode(0);
 				}
 
 				if (TEST_FLAG(group->geometry_flags, _rasterizer_geometry_no_zbuffer_bit) &&

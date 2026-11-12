@@ -603,6 +603,11 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 	DWORD final_efg = state[D3DRS_PSFINALCOMBINERINPUTSEFG];
 	int stage;
 	BOOL writes_depth = writes_replaced_depth(dialect, key);
+	/* per-pixel lighting (Metal only): the lit program the key names */
+	struct nv2a_lighting_slice slice;
+	const struct nv2a_lighting_slice *lighting = NULL;
+	const DWORD *lighting_instructions = NULL;
+	unsigned long lighting_count = 0;
 
 	if (combiner_count > 8)
 		combiner_count = 8;
@@ -612,10 +617,18 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		platform_log("pixel shader translated before the dialect was set");
 		return NULL;
 	}
+	if (dialect->msl && (key->lighting_program[0] || key->lighting_program[1]) &&
+		nv2a_lighting_find(((uint64_t)key->lighting_program[1] << 32) | key->lighting_program[0],
+			&lighting_instructions, &lighting_count, &slice))
+	{
+		lighting = &slice;
+	}
 	if (dialect->msl)
 	{
 		nv2a_msl_prelude(&text, GPU_UNIFORM_PIXEL);
-		nv2a_msl_fragment_inputs(&text);
+		nv2a_msl_fragment_inputs(&text, lighting);
+		if (lighting)
+			nv2a_lighting_pixel_helpers(&text);
 	}
 	else if (dialect->es)
 	{
@@ -670,9 +683,13 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 		"	return vec3(signed_byte(x.r), signed_byte(x.g), signed_byte(x.b));\n"
 		"}\n");
 	if (dialect->msl)
-		nv2a_msl_fragment_main(&text, dialect, key, writes_depth);
+		nv2a_msl_fragment_main(&text, dialect, key, writes_depth, lighting);
 	else
 		xgpu_text_append(&text, "void main()\n{\n");
+	if (lighting)
+		nv2a_lighting_pixel_block(&text, lighting_instructions, lighting_count, lighting,
+			stage_mode(key, 3) == _mode_cubemap && key->sampler_type[3] == _xgpu_sampler_cube ? key->lighting_highlight : 0,
+			key->lighting_point_lights);
 	xgpu_text_append(&text,
 		"\tvec4 v0 = xD0;\n"
 		"\tvec4 v1 = xD1;\n"
@@ -683,6 +700,13 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 
 	for (stage = 0; stage < 4; stage++)
 		texture_stage(&text, dialect, key, stage);
+	/* the point-light highlight goes into the reflection, before the shader's
+	Fresnel tint and specular mask (nv2a_pixel_shader_key lighting_highlight) */
+	if (lighting && key->lighting_highlight && stage_mode(key, 3) == _mode_cubemap &&
+		key->sampler_type[3] == _xgpu_sampler_cube)
+	{
+		xgpu_text_append(&text, "\tt3.rgb += ppl_highlight;\n");
+	}
 
 	/* the fog register: rgb is the fog color, alpha the fog factor */
 	if (key->fog_enable)
@@ -750,6 +774,31 @@ char *nv2a_pixel_shader_translate(const struct nv2a_dialect *dialect, const stru
 
 	if (key->coverage_alpha)
 		xgpu_text_append(&text, "\tresult.a = mix(1.0, result.a, t0.g);\n");
+	/* soft particle edges (nv2a_pixel_shader_key soft_depth, Metal only): the
+	sprite fades over the last debug.soft_particle_distance in front of the
+	surface behind it, toward what its blend leaves unchanged. Depth is
+	reversed (1 at the near plane), as the backend draws it */
+	if (key->soft_depth && dialect->msl)
+	{
+		static const char *const fades[] =
+		{
+			"",
+			"\tresult.a = clamp(result.a, 0.0, 1.0) * soft_fade;\n",
+			"\tresult.rgb = mix(vec3(1.0), clamp(result.rgb, 0.0, 1.0), soft_fade);\n",
+			"\tresult.rgb = mix(vec3(0.5), clamp(result.rgb, 0.0, 1.0), soft_fade);\n",
+			"\tresult.rgb = clamp(result.rgb, 0.0, 1.0) * soft_fade;\n",
+			"\tresult = clamp(result, 0.0, 1.0) * soft_fade;\n",
+		};
+
+		xgpu_text_append(&text,
+			"\tuint2 soft_texel = min(uint2(soft_position.xy / max(soft.w, 1.0)), uint2(soft_depth.get_width() - 1, soft_depth.get_height() - 1));\n"
+			"\tfloat soft_scene = soft_depth.read(soft_texel).r;\n"
+			"\tfloat soft_view = soft.x * soft.y / (soft.y - (1.0 - soft_position.z) * (soft.y - soft.x));\n"
+			"\tfloat soft_fade = clamp((soft_scene - soft_view) * soft.z, 0.0, 1.0);\n"
+			"\tsoft_fade = soft_fade * soft_fade * (3.0 - 2.0 * soft_fade);\n");
+		if (key->soft_depth < sizeof(fades) / sizeof(fades[0]))
+			xgpu_text_append(&text, "%s", fades[key->soft_depth]);
+	}
 	if (key->alpha_test_function)
 	{
 		const char *comparison = comparison_operator(key->alpha_test_function);

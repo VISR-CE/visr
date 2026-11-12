@@ -68,12 +68,17 @@ struct delta_announce
 	int players, maximum_players;
 	int open, teams;
 	int version;
+	int delta; /* 0 until Delta Peer runs */
+	unsigned char platform_key[8];
+	char arch[6];
+	char build[64];
+	unsigned int capabilities;
 };
 
 /* the body of POST /v1/announce (application/x-www-form-urlencoded) for it:
-the fields the list requires and the game's own, and none of the optional
-host fields (platform, architecture, build, capabilities, machines, roster).
-Returns its length, or 0 if it does not fit in size */
+the game fields plus delta, platform_key, arch, build and capabilities.
+Machines, roster, profile and stats are omitted. Returns its length, or 0
+for invalid host fields or if it does not fit in size */
 int delta_announce_form(char *form, int size, const struct delta_announce *announce);
 /* the body of POST /v1/withdraw for an invite */
 int delta_withdraw_form(char *form, int size, const char *invite);

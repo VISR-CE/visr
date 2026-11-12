@@ -8,6 +8,8 @@ struct distributed_message_header { word header; byte type,count; long game_time
 static int connection=2,playing=1,menu=0,block=0,preference=1;
 static unsigned int host_version=32;
 static unsigned int network_game_host_version(void){return host_version;}
+#define HALO_PORT_NETWORK_VERSION 38
+static int delta_legacy_joinable(unsigned int version){(void)version;return 0;}
 #include "version.inc"
 static unsigned long changes,mouse_aimed_ms,stick_aimed_ms;
 static int mouse_lock,sends,unreliable;

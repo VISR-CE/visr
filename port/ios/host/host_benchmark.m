@@ -88,13 +88,13 @@ int host_photo_mode_available(void)
 #endif
 }
 
-void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y)
+void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees)
 {
 #if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
-    extern void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, float focus_y);
-    host_macos_photo_overlay(fov, speed, guides, focus_x, focus_y);
+    extern void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees);
+    host_macos_photo_overlay(fov, speed, guides, focus_x, focus_y, roll_degrees);
 #else
-    (void)fov; (void)speed; (void)guides; (void)focus_x; (void)focus_y;
+    (void)fov; (void)speed; (void)guides; (void)focus_x; (void)focus_y; (void)roll_degrees;
 #endif
 }
 

@@ -89,7 +89,7 @@ int main(void)
 '''
     probe, binary = tmp_path / 'master_lobby.c', tmp_path / 'master_lobby'
     probe.write_text(fixture)
-    subprocess.run(['clang', '-std=c11', '-Wall', '-Werror', '-Wno-unused-function',
+    subprocess.run(['clang', '-pthread', str(ROOT / 'port/linux/src/delta_legacy_runtime.c'), '-std=c11', '-Wall', '-Werror', '-Wno-unused-function',
                     '-iquote', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '--output=' + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
@@ -144,7 +144,7 @@ int main(void) {
         'static int p2p_lobby_games(', 'int p2p_lobby_games(')
     probe, binary = tmp_path / 'browse_only.c', tmp_path / 'browse_only'
     probe.write_text(program.replace('/* HELPER */', helper).replace('/* BRANCH */', branch))
-    subprocess.run(['clang', '-std=c11', '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/src'),
+    subprocess.run(['clang', '-pthread', str(ROOT / 'port/linux/src/delta_legacy_runtime.c'), '-std=c11', '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/src'),
                     str(probe), '--output=' + str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -201,7 +201,7 @@ int main(void) {
         '/* LISTING */', ','.join(str(value) for value in listing))
     probe, binary = tmp_path / 'master_signed.c', tmp_path / 'master_signed'
     probe.write_text(program)
-    subprocess.run(['clang', '-std=c11', '-Wall', '-Werror', '-Wno-unused-function',
+    subprocess.run(['clang', '-pthread', str(ROOT / 'port/linux/src/delta_legacy_runtime.c'), '-std=c11', '-Wall', '-Werror', '-Wno-unused-function',
                     '-iquote', str(ROOT / 'port/linux/src'), '-iquote', str(ROOT / 'port/linux/include'),
                     '-I' + str(ROOT / 'port/third_party/monocypher'), str(probe),
                     str(ROOT / 'port/linux/src/p2p_crypto.c'),

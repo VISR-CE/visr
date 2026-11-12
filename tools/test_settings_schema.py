@@ -34,6 +34,12 @@ def test_config_comes_from_every_c_entry():
     assert config['additionalProperties'] is False
 
 
+def test_switch_weapon_defaults_to_tab_and_scoreboard_to_one():
+    controls = schema.config_schema(schema.config_settings())['properties']['controls']['properties']
+    assert controls['switch_weapon']['default'] == 'Wheel, Tab'
+    assert controls['scoreboard']['default'] == '1'
+
+
 def test_build_defaults_follow_conditions_not_declaration_order():
     source = (schema.ROOT / 'port/linux/src/port_config.c').read_text()
     start = source.index('#ifdef HALO_IOS\n#define DEFAULT_INTERNET_PLAY')

@@ -63,7 +63,8 @@ static int parse(char *line, struct record *r)
         snprintf(hashed, sizeof(hashed), "%016llx", (unsigned long long)h);
         if (strcmp(hashed, fields[1])) return 0;
         /* Fixed guest ABI: 57 combiner words, texture modes, then bounded byte fields. */
-        for (int i = 232; i < 236; i++) if (bytes[i] > 4) return 0;
+        /* Texture modes run to 5 (PS_TEXTUREMODES_CLIPPLANE, which the pixel shader translator handles). */
+        for (int i = 232; i < 236; i++) if (bytes[i] > 5) return 0;
         for (int i = 236; i < 240; i++) if (bytes[i] > 1) return 0;
         for (int i = 240; i < 244; i++) if (bytes[i] > 15) return 0;
         unsigned comparison = bytes[244] | ((unsigned)bytes[245] << 8) | ((unsigned)bytes[246] << 16) | ((unsigned)bytes[247] << 24);

@@ -82,6 +82,12 @@ these spans (the HUD, the flash, menus, bars, loading screens, movies) is
 drawn at the display's size when the scene's is smaller */
 void halo_render_scene_begin(short rasterizer_target, long x0, long y0, long x1, long y1);
 void halo_render_scene_end(void);
+/* debug.ssao (spike, port/linux/src/d3d8_device.c): the level's lightmap pass marks its pixels in stencil (0x10)
+when halo_ssao_lightmaps_mark(TRUE) says so (rasterizer_xbox_environment.c), and after it the view's ambient
+occlusion runs (render_window), with the window's depth range and its projection's scale and offset */
+int halo_ssao_lightmaps_mark(int begin);
+void halo_ssao_after_lightmaps(short rasterizer_target, float z_near, float z_far, float p00, float p11, float p20,
+	float p21, float p22, float p32);
 /* a map has loaded and its first frame is next (main_new_map): the shaders
 and pipelines its list names are compiled now, under the loading screen
 (port/linux/src/d3d8_device.c) */
@@ -108,6 +114,26 @@ moves a frame (port/linux/src/xbox_kernel.c) */
 void platform_clock_unpresented_frame(void);
 /* an offscreen benchmark lead-in's frames that draw nothing (port/linux/src/benchmark_suite.c) */
 int benchmark_suite_skips_drawing(void);
+/* display.effect_limits (port/linux/src/port_config.c): TRUE ("raised") for
+the native builds' larger decal pools and every split-screen player's whole
+share of an effect's particles; FALSE ("xbox") for the Xbox's */
+unsigned char halo_effect_limits_raised(void);
+/* soft particle edges (display.soft_particles, port/linux/src/d3d8_device.c):
+before a view's transparent geometry, the scene's depth is kept for the
+particles drawn after it (TRUE when it was); each particle group's draw names
+its blend function's fade (1 alpha, 2 toward white, 3 toward gray, 4 color,
+5 both; 0 none), and the view's transparent geometry ends. Camera-facing
+sprites are marked for it: build_sprites_begin's HALO_BUILD_SPRITES_SOFT_BIT
+becomes their transparent group's HALO_GEOMETRY_SOFT_BIT; sprites lying in
+a plane (a splash on the ground) are not faded, which would erase them */
+#define HALO_BUILD_SPRITES_SOFT_BIT 15
+#define HALO_GEOMETRY_SOFT_BIT 24
+/* the lightmap pass begins (begin) or ends: TRUE when it should mark the
+level's pixels in stencil (0x10), which the particles fade against */
+int halo_soft_particles_lightmaps_mark(int begin);
+unsigned char halo_soft_particles_prepare(float z_near, float z_far, float p22, float p32);
+void halo_soft_particles_mode(int mode);
+void halo_soft_particles_finish(void);
 /* the mouse in the menus (source/interface/ui_widget.c) */
 #include "halo_ui_pointer.h"
 /* the frame's stereo state: source/render/render.c renders each eye and the

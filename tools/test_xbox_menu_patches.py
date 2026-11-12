@@ -63,7 +63,7 @@ def test_row_names_are_unique_and_short_and_platforms_known():
                 names.append(row.get("name"))
                 assert len(row.get("name")) <= 31, row.get("name")
             if row.get("platform"):
-                assert row.get("platform") in PLATFORMS
+                assert row.get("platform").removeprefix("!") in PLATFORMS
     assert len(names) == len(set(names))
 
 
@@ -113,11 +113,12 @@ def test_multiplayer_modes_follow_the_row_names():
 def test_profile_edit_rows():
     patch = next(p for p in table() if p.get("screen").endswith("player_profile_edit_screen"))
     texts = [(row.get("text"), row.get("platform")) for row in rows(patch)]
-    assert texts == [("VIDEO", "mac_app"), ("AUDIO", None), ("NETWORK", None), ("KEYBOARD & MOUSE", "keyboard"),
-                     ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos")]
+    assert texts == [("VIDEO", "mac_app"), ("GRAPHICS", "!mac_app"), ("AUDIO", None), ("NETWORK", None),
+                     ("KEYBOARD & MOUSE", "keyboard"), ("ABOUT", "!keyboard"), ("DELETE PROFILE", "tvos"), (None, None)]
+    # the trailing entry is the <remove> of SAVE CHANGES (the profile editor saves as it goes)
     keyboard = next(row for row in rows(patch) if row.get("platform") == "keyboard")
     assert keyboard.get("open").endswith("controls_settings_screen")
-    delete = rows(patch)[-1]
+    delete = rows(patch)[-2]
     assert delete.get("after").endswith("save_changes_profile_item") and delete.get("run") == "port delete request"
 
 
@@ -162,14 +163,12 @@ def test_delete_confirmations_finish_both_edit_flows():
             cancel = modal.find(f'on[@event="{event}"]')
             assert cancel.get('run') == 'cancel profile delete' and cancel.get('back') == 'true'
         assert not any('button_bar' in c.get('widget', '') for c in modal.findall('child'))
-        panel = widgets[f'xbox/error/confirm_delete_{kind}']
         for button, caption in (('a', 'OK'), ('b', 'CANCEL')):
-            icon = f'xbox/error/confirm_delete_{kind}/{button}_butn'
-            assert panel.find(f'child[@widget="{icon}"][@y="310"]') is not None
-            assert widgets[icon].get('bitmap') == f'xbox/browser/{button}_butn_sm'
-            label = widgets[f'xbox/error/confirm_delete_{kind}/{button}_caption']
-            assert label.get('text') == caption
-            assert label.find('on').get('run') == ('mouse emit accept event' if button == 'a' else 'mouse emit back event')
+            legend = f'xbox/error/confirm_delete_{kind}/legend/{button}_butn'
+            assert modal.find(f'child[@widget="{legend}"][@y="305"]') is not None
+            assert widgets[f'{legend}_glyph'].get('bitmap') == f'xbox/browser/{button}_butn'
+            assert widgets[f'{legend}/touch_caption'].get('text') == caption
+            assert widgets[legend].find('on').get('run') == ('mouse emit accept event' if button == 'a' else 'mouse emit back event')
         for event in ('a', 'start'):
             handler = modal.find(f'on[@event="{event}"]')
             assert handler.get('run') == 'port delete finish' and handler.get('close') is None
@@ -191,4 +190,4 @@ def test_video_is_mac_app_only_in_profile_and_pause_settings():
     # The runtime packs visible rows at the first two remaining rows' pitch.
     assert options.get('visible_rows') == '5'
     assert [int(children[key].get('y')) for key in ('controls', 'video', 'audio', 'network', 'keyboard')] == [
-        78, 111, 111, 144, 177]
+        78, 117, 117, 156, 195]

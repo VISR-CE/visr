@@ -21,7 +21,7 @@ def test_internet_kind_and_malformed_listings(tmp_path):
     program = fixture.replace("/* DECLARATIONS */", declarations).replace("/* PRODUCTION */", production)
     probe, binary = tmp_path / "internet.c", tmp_path / "internet"
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+    subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
                     "-iquote", str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"),
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
@@ -80,7 +80,7 @@ int main(void)
         "/* SET_KIND */", "row.kind = kind;")
     probe, binary = tmp_path / "ticker.c", tmp_path / "ticker"
     probe.write_text(program)
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+    subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
                     "-iquote", str(ROOT / "port/linux/src"), "-iquote", str(ROOT / "port/linux/include"),
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)
@@ -128,7 +128,7 @@ int main(void)
 '''
     probe, binary = tmp_path / "labels.c", tmp_path / "labels"
     probe.write_text(program.replace("/* LABEL */", block))
-    subprocess.run(["clang", "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
+    subprocess.run(["clang", "-pthread", str(ROOT / "port/linux/src/delta_legacy_runtime.c"), "-std=c11", "-Wall", "-Werror", "-Wno-unused-function",
                     "-Wno-unused-variable", "-iquote", str(ROOT / "port/linux/include"),
                     str(probe), "--output=" + str(binary)], check=True)
     result = subprocess.run([str(binary)], capture_output=True, text=True)

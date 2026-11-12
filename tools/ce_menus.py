@@ -657,6 +657,8 @@ def main() -> None:
         lines.append(art.port_picture(f"pause/pausebox_{piece}", [
             (port_settings.pause_box_svg(piece, port_settings.pause_box_height(buttons)), 4 if piece == "center" else 16,
              256) for buttons in port_settings.PAUSE_BOX_BUTTONS]))
+    lines.append(art.port_picture("pause/pause_row", [
+        (port_settings.pause_row_svg(focused), 232, 36) for focused in (False, True)]))
     # (nothing: what a game map draws for a frame of ui.map's it has not,
     # menu_tags.c)
     lines.append(art.port_picture("blank", [

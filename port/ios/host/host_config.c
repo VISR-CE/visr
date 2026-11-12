@@ -5,6 +5,7 @@ owns the file: it writes every setting with its default and its description
 "key = value" lines of one section, and writes only the one boolean the
 Settings app's switch sets (host_texture_settings.m), keeping every other line. */
 #include "host_config.h"
+#include "../../linux/src/port_graphics_modes.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -34,8 +35,8 @@ static const char *launch_value(const char *name)
 	return getenv(variable);
 }
 
-/* the raw value text of section.key (quotes kept), or 0 if it isn't there */
-static int config_value(const char *name, char *value, size_t size)
+/* the raw value text of section.key in config.toml (quotes kept), or 0 if it isn't there */
+static int config_file_value(const char *name, char *value, size_t size)
 {
 	const char *dot = strchr(name, '.');
 	const char *launch = launch_value(name);
@@ -109,6 +110,45 @@ static int config_value(const char *name, char *value, size_t size)
 }
 
 static int (*profile_value)(const char *name, char *text, size_t size);
+static int (*head_stereo)(void);
+
+void host_config_set_head_stereo(int (*head)(void))
+{
+	head_stereo = head;
+}
+
+/* the graphics mode in force (display.graphics, port/linux/src/port_graphics_modes.h), as the game reads it:
+Enhanced when unset or unknown, Classic for Hardcore in head-tracked stereo */
+int host_config_graphics_mode(void)
+{
+	char text[64];
+	const char *launch = launch_value("display.graphics");
+	int mode;
+
+	const char *suite = getenv("HALO_BENCHMARK_SUITE");
+
+	if (launch)
+		snprintf(text, sizeof(text), "%s", launch);
+	/* (a benchmark suite measures Enhanced, the profile's mode, unless its environment names another) */
+	else if ((suite && *suite) || !config_file_value("display.graphics", text, sizeof(text)))
+		return GRAPHICS_MODE_ENHANCED;
+	mode = graphics_mode_parse(text);
+	return graphics_mode_effective(mode < 0 ? GRAPHICS_MODE_ENHANCED : mode, head_stereo && head_stereo());
+}
+
+/* section.key's value text: a benchmark suite's launch environment, then the graphics mode where it replaces
+the setting, then config.toml */
+static int config_value(const char *name, char *value, size_t size)
+{
+	const char *launch = launch_value(name), *mode;
+
+	if (!launch && (mode = graphics_mode_value(host_config_graphics_mode(), name)))
+	{
+		snprintf(value, size, "%s", mode);
+		return 1;
+	}
+	return config_file_value(name, value, size);
+}
 
 void host_config_set_profile(int (*value)(const char *name, char *text, size_t size))
 {

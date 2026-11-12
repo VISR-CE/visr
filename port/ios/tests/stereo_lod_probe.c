@@ -185,6 +185,7 @@ double config_real(const char *name)
 	return 0.0;
 }
 int config_boolean(const char *name) { (void)name; return 0; }
+void config_graphics_head_stereo(int head) { (void)head; }
 void platform_video_drawable_size(int *width, int *height) { *width = *height = 0; }
 void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 void platform_log(const char *format, ...)

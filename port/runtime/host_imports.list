@@ -35,6 +35,7 @@ host_sdl_ticks
 host_sdl_thread_id
 host_sdl_create_window
 host_sdl_window_size_in_pixels
+host_sdl_menu_height_points
 host_sdl_display_max_fps
 host_sdl_display_target_fps
 host_sdl_set_relative_mouse
@@ -109,6 +110,13 @@ host_gpu_frame_context
 host_gpu_compiles_outstanding
 host_gpu_compile_progress
 host_gpu_initialize
+# the effective graphics mode's presentation settings, committed between frames (d3d8_device.c, host_gpu_dispatch.c)
+host_graphics_apply
+# debug.ssao (spike; d3d8_device.c, gpu_metal.m)
+host_ssao_apply
+# soft particle edges (d3d8_device.c, gpu_metal.m)
+host_soft_depth_prepare
+host_soft_depth_finish
 # stereo (halo_stereo.h)
 host_stereo_frame
 host_stereo_entered

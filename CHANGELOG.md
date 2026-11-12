@@ -4,6 +4,13 @@
 
 ### feat
 
+- **network**: accept Ed25519-signed Delta legacy tables from the save cache and background list requests, with a GitHub mirror — verified rows extend joins above 41 and update discovery numbers while preserving the game codec, the `chupa-38a` wire and the hand table's older-version gaps; `network.delta_table` turns the feature off, and rows requiring host protections keep announcements at 38
+- **network**: add the Delta Peer handshake and platform roster — `network.delta_peer` joins advertised Delta hosts by default, retries HELLO every 500 ms and falls back silently after 4 seconds; hosting opens the game server port plus 10 (normally 5160) with `network.delta_announce` (now on by default), advertises Delta only while that socket is open, and checks every peer against the game's machines before parsing
+
+- **network**: publish public internet games to `network.delta_url` by default — `network.delta_announce` sends the invite, game name, map, game type, player counts, open/team flags, network version, Delta major, host platform key, architecture, build and capabilities; the list sees the host’s internet address, but receives no machines, roster, profile or stats
+
+- **network**: add the Delta advertisement tail tag and host platform fields — hosts advertise wire `38a` compatible back to `28a`, leaving OpenCE’s front bytes intact; Delta listings add `platform_key`, `arch`, `build` and `capabilities`, with `delta=0` until Delta Peer runs and no machines, roster, profile or stats
+
 - **hud**: give each split screen player the full one-player HUD — `hud_full_layout_begin` lays a view's HUD out as a one-player screen in the view's shape, so the elements, fonts and scales are the one-player game's; with three or four players the HUD is drawn at 75% of its size (`debug.split_hud_scale`) with a 5% margin from the view's edges (`debug.split_hud_margin`, 3% with two players), `debug.split_tracker_scale` sizes the motion sensor and `debug.split_screen_hud` brings back the Xbox's split screen HUD
 - **menus**: save the hub's pictures from the upscaled texture where the upscaler made one — `xgpu_texture_picture_rgba` asks the host (`host_texture_record_rgba`, which decodes level 0 of the texture's record in the upscaled-texture cache through `texture_record_decode_level0`: BC7, ASTC 4x4 or BGRA8, checked as the loader checks it) and falls back to the original's texels; a note beside each saved picture (`<row>.png.key`) keeps the texture's key and what was saved, and `halo_menus_art_needs_save` saves a picture again, once, when a larger upscaled version has appeared since. The probes check the preference, the fallback for a record that cannot be read, the re-save, and each record format's level 0
 - **menus**: ship the VIDEO, AUDIO and INTERNET drawings as our own pictures — `xbox/art/{video,audio,internet}.svg` are rendered at 4x by `redraw_art` in `tools/xbox_menu_art.py` (the raster `audio.png` is gone), and wired to the profile editor's VIDEO, AUDIO and NETWORK rows, the multiplayer type screen's INTERNET and DIRECT LINK rows, and the hub's VIDEO, AUDIO and NETWORK slots ahead of the cache; the borrowed `xbox/pictures/video` and `xbox/pictures/network` bitmaps are dropped, and the console frames and controllers stay the player's own
@@ -148,6 +155,59 @@
 - **site**: give the sticky suite bar the same height for every suite — the pills' row reserves the height of a screenshot and its caption (`min-height: 50px`) so Overall, which has no screenshots, is as tall as Combat, and at 900 to 1059 px smaller pills and screenshots keep Combat's three on the pills' row
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
+
+## visr-v0.6.15 (2026-11-11)
+
+### Summary
+
+- Skip the intro movie with any key, mouse click, or touch. On Mac, modifier keys and Cmd/Ctrl/Option shortcuts like Cmd-M no longer skip it.
+- Choose CREATE GAME without a profile to open the game's profile screen, then continue to SELECT MAP once your profile is made. Internet and Direct Link no longer create an untitled profile for you.
+- Try hosting and playing multiplayer with the built-in default profiles.
+- Watch the main menu backdrop, including behind settings screens and the multiplayer menus. It should keep animating smoothly instead of freezing or flickering between two frames.
+- Host a game from the multiplayer menus and sit at the main menu. The host should no longer stop unexpectedly.
+- Join a game whose map won't load. You should return to the main menu with an error dialog explaining why, instead of the game halting.
+- Check the game browser. OpenH1 hosts should keep their own dedicated and kind markers and no longer show up as Delta hosts.
+- On Mac, hover the MULTIPLAYER list's button bar. The last description should stay up instead of showing "<missing string>". In the lobby of a game in progress, you should now see "This game has already started. Select JOIN GAME to jump in."
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **bink**: any key, mouse click or touch skips the intro movie — `platform_input_press_count` counts new presses in `sdl_platform.c` and `bink_playback_update__internal` skips when it rises past the count taken at `bink_playback_start`, next to the gamepad check and inside the same `allow_skipping` gate; `host_bink_open` logs its result to the host log
+
+### fix
+
+- **network**: say why a joined game's map would not load — the main menu shows the game's error dialog after the client leaves
+- **network**: leave a joined game whose map will not load instead of halting — `scenario_switch_structure_bsp` raised `_error_immediate`, which ends in `system_exit`; it is silent now and the client returns to the main menu
+- **network**: only a Delta signature marks a Delta host in the browser — OpenH1 hosts put their own fields in reserved bytes 4-6, so `add_advertised_game` no longer treats any nonzero byte after the kind as Delta and keeps their dedicated and kind marks; the `chupa-` token at byte 4 and the checked tag at byte 17 still identify Delta
+- **shaders**: accept the clip-plane texture mode in the shader pack probe — `host_shader_pack.c` refused texture mode 5, so shaders a 0.6.14 Apple TV HD report recorded could not join `a10.txt` and `a50.txt`; the pixel shader translator already handles the mode
+- **macos**: menu-bar Release Mouse and Back reach the game as Command chords — `synthetic_key` in `host_sdl.c` sent F12 and F1 with no modifiers, so Control-Command-M counted as a plain key press and skipped the intro movie
+- **input**: modifier keys and Ctrl/Option/Cmd chords no longer skip the intro — `key_counts_as_press` in `sdl_platform.c` ignores modifier keys and any key pressed with Ctrl, Alt or GUI held, so Cmd-M and Shift-Cmd-3 work during the movie
+- **menus**: keep the last description up when the mouse focuses a list's button bar — `ui_widget_port_list_index` counted the nested BACK button bar as one more item, so the MULTIPLAYER panel read past its 7 strings and showed `<missing string>`; it now returns `NONE` for a focused nested `column_list`, and `tools/test_menu_description_focus.py` checks the strings match the selectable rows
+- **menu**: stop the host ticking without updates at the main menu — hosting from the multiplayer menus makes the connection a network server while the menu backdrop is loaded, and `game_time_update` then ticked on local time; the host's update queue stays empty until the game starts, so `update_client_dequeue` found no update and `players_update_before_game` halted (players.c #779). A host now ticks only as far as its update queue again; the client's local-time backdrop clock (`game_time_held`) is unchanged.
+- **menus**: `CREATE GAME` with no profile opens the game's own profile screen — `multiplayer_host` opens `player_profile_manager` (the screen the campaign and the other profile pickers use, with its `Create New Player Profile` entry) when no profile exists, then `host_profile_poll` continues to `SELECT MAP` once the profile is made and the name keyboard is closed; Internet and Direct Link no longer auto-create an untitled profile
+- **menu**: say "This game has already started. Select JOIN GAME to jump in." in the lobby of a game in progress — the old "This game is under way. JOIN GAME joins it now; its players show then." read awkwardly
+- **ios**: time the retry note from the Try Again press in `texture_upscale_driver_probe` — it measured from first observation, which a slow runner delays, so the 2.8 s assertion failed intermittently
+- **menu**: draw the menu backdrop while the multiplayer menus hold a game engine — `main` skipped the frame unless the game time passed 3 ticks and the view wait was clear, and the multiplayer menus keep a game engine, so the backdrop stopped drawing and the display flipped between two old frames. The player's view gate now applies only outside the active main menu.
+- **menu**: keep the backdrop clock running in the multiplayer menus — the lobby screens keep a network connection while the menu backdrop plays, so `game_time_update` gated ticks on the host's update queue and `game_time_held`, and the backdrop alternated between two frames instead of advancing. While the main menu is active with its scenario loaded, the clock now runs on local time (`game_time_held` is false and the server time follows the local time).
+- **menu**: keep the main menu backdrop animating behind child screens — settings screens carry `pause_game_time` for the in-game pause menu, so opening one from the main menu paused game time, and the menu backdrop clock (game time) stopped with it. `widget_instance_initialize` now requires `!we_are_at_the_main_menu` before setting `pause_game_time`, so the widget counter never pauses time or re-initializes menu time on close (`game_time_dispose_from_old_map` plus `game_time_initialize_for_new_map`) at the main menu. This fix existed on a side branch and never reached `main`; this commit carries it over without other changes.
+- **menus**: let the built-in default profiles play multiplayer
+
+### test
+
+- **menus**: check `menu_equivalence.h` and the Xbox lobby menu in `test_host_no_profile` only where they exist — the 0.6.x line has neither file
+- **menu**: pin that main menu widgets never pause game time — `widget_instance_initialize` must keep `!we_are_at_the_main_menu` in the `pause_game_time` assignment so the backdrop clock keeps running.
+- **upscale**: pin thermal state in the driver probe — a warm host refused for heat before storage, so `retry_progress` saw `needed_bytes` of zero and its headroom assert fired
+
+### chore
+
+- **shaders**: add one `c20` pipeline line recorded by a 0.6.14 Apple TV HD benchmark report
 
 ## visr-v0.6.14 (2026-11-08)
 

@@ -34,6 +34,7 @@ def test_cancel_preserves_the_main_menu_and_keeps_back_navigation(tmp_path):
     functions = "\n".join(block(source, signature) for signature in (
         "static void widget_instance_go_back_to_previous(\n\tstruct widget_instance *widget)\n{",
         "static void event_handler_dispatch(\n\tstruct widget_instance *widget,\n\tstruct ui_widget_definition *definition,\n\tstruct event_record *event,\n\tstruct ui_widget_event_handler_reference *handler,\n\tboolean *calling_widget_deleted)\n{",
+        "static boolean widget_instance_port_refuse_graphics_edit(\n\tstruct widget_instance *widget,\n\tstruct event_record *event)\n{",
         "static void widget_instance_process_one_event_recursive(\n\tstruct widget_instance *widget,\n\tstruct ui_widget_definition *definition,\n\tstruct event_record *event,\n\tboolean *return_widget_deleted)\n{"))
     main_menu = ElementTree.parse(ROOT / "port/assets/menus/ce/main_menu.xml").getroot()
     root = main_menu.find("widget[@name='main_menu/main_menu']")
@@ -73,8 +74,58 @@ def test_cancel_preserves_the_main_menu_and_keeps_back_navigation(tmp_path):
     subprocess.run([str(binary)], check=True)
 
 
+def test_settings_back_keeps_changes_and_video_applies_on_close():
+    menus = ROOT / 'port/assets/menus/xbox'
+    for path in menus.glob('settings.*.xml'):
+        root = ElementTree.parse(path).getroot()
+        screen = root.find('widget')
+        for event in ('b', 'back'):
+            # Back only closes; it must neither discard edits nor resave the
+            # whole page (which could reopen the Internet Play question).
+            on = screen.find(f'on[@event="{event}"]')
+            assert on.attrib == {'event': event, 'back': 'true'}
+        close = screen.find('on[@event="deleted"]')
+        if 'video_settings' in path.name:
+            assert close is not None and close.get('run') == 'port settings close'
+        else:
+            assert close is None
+
+
+
+def test_pc_audio_volumes_are_heard_while_changing_and_cancel_reverts():
+    path = ROOT / 'port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit.audio_settings.xml'
+    previewed = {'audio.volume', 'audio.music_volume', 'audio.effects_volume'}
+    seen = set()
+    for spinner in ElementTree.parse(path).getroot().iter('widget'):
+        if spinner.get('type') != 'spinner' or not spinner.get('setting'):
+            continue
+        runs = {(on.get('event'), on.get('run')) for on in spinner.findall('on')}
+        if spinner.get('setting') in previewed:
+            seen.add(spinner.get('setting'))
+            assert {(event, 'port setting preview') for event in
+                    ('left', 'right', 'stick_left', 'stick_right')} <= runs
+            assert ('deleted', 'port setting revert') in runs
+        else:
+            assert not {run for _, run in runs} & {'port setting preview', 'port setting revert'}
+    assert seen == previewed
+
 if __name__ == "__main__":
     import tempfile
 
     with tempfile.TemporaryDirectory() as directory:
         test_cancel_preserves_the_main_menu_and_keeps_back_navigation(Path(directory))
+
+
+def test_native_profile_back_saves_and_confirmed_names_save():
+    source = (ROOT / 'source/interface/ui_widget_event_handler_functions.c').read_text()
+    signature = 'static boolean player_profile_end_editing(\n\tstruct widget_instance *widget,\n\tstruct event_record *event,\n\tboolean *widget_deleted)\n'
+    handler = block(source, signature)
+    assert handler.index('pc_menu_profile_save_on_back()') < handler.index('player_ui_end_editing_profile()')
+    playlist = block(source, signature.replace('player_profile_end_editing', 'playlist_profile_end_editing'))
+    assert 'pc_menu_profile_save_on_back' not in playlist
+    color = block(source, signature.replace('player_profile_end_editing', 'player_profile_color_picker_select_color'))
+    assert 'return pc_menu_profile_save_on_back();' in color
+    keyboard = (ROOT / 'source/interface/virtual_keyboard.c').read_text()
+    done = keyboard[keyboard.index('case _vkey_done:', keyboard.index('static boolean virtual_keyboard_select(\n\tvoid)\n{')):]
+    assert 'if (virtual_keyboard_globals.last_exit_saved_text)' in done
+    assert 'pc_menu_profile_name_saved(virtual_keyboard_globals.text_buffer)' in done

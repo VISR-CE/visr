@@ -74,6 +74,7 @@ brings bars in for titles (cinematics.c), following the held film.
 const char *config_string(const char *name);
 double config_real(const char *name);
 int config_boolean(const char *name);
+void config_graphics_head_stereo(int head);
 
 /* port/linux/src/sdl_platform.c (the host's port/ios/host/host_gpu.c on iOS);
    d3d8_device.c declares it the same way */
@@ -1065,6 +1066,7 @@ void halo_stereo_frame_begin(void)
 		entered = host_stereo_entered() != 0;
 #endif
 		stereo_mode = halo_stereo_mode_entered(stereo_configured, entered);
+		config_graphics_head_stereo(stereo_mode == HALO_STEREO_HEAD);
 		if (entered != entered_last)
 			platform_log("stereo: %s VR: the mode is %s (display.stereo %s)", entered ? "entered" : "left",
 				mode_names[stereo_mode], mode_names[stereo_configured]);

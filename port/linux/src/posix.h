@@ -264,6 +264,10 @@ enum
 	_posix_lan_refused = 1 << 1,
 };
 
+/* Mirror the guest table row for native Bonjour compatibility checks. */
+void posix_delta_legacy_row(unsigned int minimum, unsigned int announce, unsigned int maximum,
+	unsigned int proven_maximum, int requires);
+
 /* this machine's discovery: hosting holds registration and browsing while
 nonzero (the game listens); searching refreshes a 10-second hold; version
 and fork go in the TXT record */

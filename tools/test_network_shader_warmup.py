@@ -33,6 +33,7 @@ def test_network_maps_select_shader_capture_before_the_first_frame(tmp_path):
 #include <stdint.h>
 #include <string.h>
 typedef int boolean;
+typedef int BOOL;
 #define TRUE 1
 #define FALSE 0
 #define NETWORK_GAME_PLAYER_SLOTS 2
@@ -51,6 +52,7 @@ struct network_game {
 };
 static struct { char map[256]; unsigned long alias_count; } shader_list;
 static struct { int gl_ready; } device;
+static struct { int msl; } shader_dialect;
 static int connection, load_ok, spawn_ok, initialized, spawned;
 static int config_boolean(const char *key) { (void)key; return 0; }
 static void game_options_new(struct game_options *o) { memset(o, 0, sizeof(*o)); }

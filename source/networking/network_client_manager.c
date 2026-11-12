@@ -395,6 +395,8 @@ symbols in this file:
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
 void platform_show_message(char const *title, char const *message);
 #include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
+#include "halo_delta.h" /* port: Delta advertisement metadata */
+#include "halo_delta_peer.h" /* port: optional handshake beside the game */
 #include "halo_network_join_wire.h" /* port: join padding and refusals */
 #include "halo_network_content.h" /* port: game-kind refusal */
 
@@ -820,6 +822,7 @@ static struct
 	byte flags;
 	byte kind;
 	boolean dedicated;
+	byte delta_major;
 } network_game_client_advertised_versions[MAXIMUM_NETWORK_ADVERTISED_GAMES];
 
 /* port: the network version of the host this client joined (this machine's
@@ -925,6 +928,9 @@ static boolean check_networking_and_generate_error(
 void network_game_client_dispose(
 	struct network_game_client *client)
 {
+	/* port: say BYE before the game releases its connection. */
+	delta_peer_game_client_stop();
+
 	if (client)
 	{
 		if (client->connection)
@@ -1276,6 +1282,21 @@ boolean network_game_client_idle(
 			0xEE,
 			!"unknown client state");
 		break;
+	}
+
+	/* port: run beside the game; a timeout never delays its network state. */
+	if (client->state >= _network_game_client_state_pregame)
+	{
+		unsigned char has_players[HALO_PORT_MAXIMUM_NETWORK_MACHINES] = {0};
+		int i;
+		for (i = 0; i < HALO_PORT_MAXIMUM_NETWORK_PLAYERS; i++)
+		{
+			struct network_player *player = &client->game.players[i];
+			if (network_player_is_valid(player) && player->machine_index >= 0 &&
+				player->machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES)
+				has_players[(unsigned char)player->machine_index] = 1;
+		}
+		delta_peer_game_client_idle(client->machine_index, has_players, system_milliseconds());
 	}
 
 	return success;
@@ -1804,7 +1825,17 @@ boolean network_game_client_game_has_started(
 	}
 	else
 	{
-		network_event("failed to load the necessary game data");
+		/* port: a map this build cannot load (its bsp refused) leaves the
+		client in the pregame lobby of a game it cannot play: it leaves the
+		game and the main menu says why in the game's own dialog, as for a
+		refused join (network_game_client_handle_message_reject), rather than
+		halt */
+		network_event("failed to load the necessary game data: leaving the game");
+		display_error_text_when_main_menu_loaded(
+			L"Couldn't load this map. It may be missing or different from the host's.");
+		main_goto_main_menu();
+		network_game_abort();
+		network_game_client_reset(client, TRUE);
 	}
 
 	return client->state == _network_game_client_state_ingame;
@@ -2107,6 +2138,10 @@ boolean network_game_client_initiate_join_game(
 
 		network_game_client_host_version = game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES ?
 			network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION;
+		/* port: Delta starts only after this legacy join supplies a machine index. */
+		delta_peer_game_join(address->address.long_words[0], address->port,
+			game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
+			network_game_client_advertised_versions[game_index].delta_major != 0);
 	}
 
 	csmemcpy(
@@ -2265,6 +2300,9 @@ void network_game_client_reset(
 		"c:\\halo\\SOURCE\\networking\\network_client_manager.c",
 		0x4EE,
 		client);
+
+	/* port: a new game gets a new Delta session, even at the same address. */
+	delta_peer_game_client_stop();
 
 	network_game_invalidate(&client->game);
 
@@ -2592,18 +2630,34 @@ static boolean add_advertised_game(
 			network_game_client_advertised_versions[game_index].version = (word)(
 				advertisement->__unknown5A[HALO_PORT_ADVERTISED_VERSION_OFFSET] |
 				(advertisement->__unknown5A[HALO_PORT_ADVERTISED_VERSION_OFFSET + 1] << 8));
+			network_game_client_advertised_versions[game_index].delta_major = (byte)
+				delta_advertised_peer_major(advertisement->__unknown5A, sizeof(advertisement->__unknown5A));
 			network_game_client_advertised_versions[game_index].flags =
 				advertisement->__unknown5A[HALO_PORT_ADVERTISED_FLAGS_OFFSET];
-			/* port: Delta uses these reserved bytes for its own metadata.
-			Only the OpenCE layout assigns the flags/kind bytes these meanings. */
+			/* port: only a Delta signature marks a Delta host. Other ports
+			(OpenH1 among them) put their own fields in reserved bytes 4-6,
+			so a nonzero byte alone does not identify Delta. Two layouts are
+			recognized: the older one carries the "chupa-" token from byte 4,
+			the current one a 9-byte tag at byte 17 ('D', 'L', then six
+			fields and a check byte, 0xA5 xor the eight bytes before it). */
 			boolean delta = FALSE;
-			unsigned int reserved;
-
-			for (reserved = HALO_PORT_ADVERTISED_KIND_OFFSET + 1;
-				reserved < sizeof(advertisement->__unknown5A); reserved++)
 			{
-				if (advertisement->__unknown5A[reserved])
-					delta = TRUE;
+				byte const *reserved = (byte const *)advertisement->__unknown5A;
+
+				if (sizeof(advertisement->__unknown5A) >= 26)
+				{
+					if (memcmp(reserved + 4, "chupa-", 6) == 0)
+						delta = TRUE;
+					else if (reserved[17] == 'D' && reserved[18] == 'L')
+					{
+						byte check = 0xA5;
+						unsigned int i;
+
+						for (i = 0; i < 8; i++)
+							check ^= reserved[17 + i];
+						delta = check == reserved[25];
+					}
+				}
 			}
 			network_game_client_advertised_versions[game_index].dedicated = !delta &&
 				halo_network_version_has_dedicated(network_game_client_advertised_versions[game_index].version) &&
@@ -3248,7 +3302,8 @@ boolean network_game_client_advertised_game_compatible(
 			return FALSE;
 		}
 		if (tell)
-			network_event("joining a host of network version %u", theirs);
+			network_event("joining a host of network version %u%s", theirs,
+				delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
 		return TRUE;
 	}
 	if (halo_network_version_joinable(ours, theirs))
