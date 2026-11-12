@@ -356,3 +356,50 @@ int main(void) {
 }
 '''
     compile_run(tmp_path, program.replace("CONTENT_HEADER", str(ROOT / "port/linux/include/halo_network_content.h")))
+
+
+def test_hosted_settings_clear_the_riding_bit_for_43(tmp_path):
+    text = (ROOT / "source/networking/network_server_message_handler.c").read_text()
+    total = definition_text(text[text.index("static long network_game_server_settings_total_size("):])
+    fill = definition_text(text[text.index("static void network_game_server_fill_settings_piece("):])
+    program = r'''
+#include <assert.h>
+#include <stdint.h>
+#include <string.h>
+#include "LIMITS_HEADER"
+#include "CONTENT_HEADER"
+#include "VERSION_HEADER"
+typedef unsigned char byte;
+typedef unsigned short word;
+#define csmemcpy memcpy
+#define csmemset memset
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+struct message_server_game_settings_update {
+    word total_size, offset, length, pad; byte data[HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE];
+};
+static unsigned host_version;
+static unsigned network_game_host_version(void) { return host_version; }
+''' + total + "\n" + fill + r'''
+int main(void) {
+    static byte game[HALO_PORT_NETWORK_GAME_SIZE];
+    struct message_server_game_settings_update piece;
+    memset(game, 0, sizeof(game));
+    game[HALO_NETWORK_SETTINGS_RIDING_OFFSET] = 0x43;
+    for (unsigned v = 38; v <= 43; v++) {
+        host_version = v;
+        long size = network_game_server_settings_total_size(sizeof(game));
+        network_game_server_fill_settings_piece(&piece, game, sizeof(game), size, 0);
+        /* only 43 clears bit 6, and only that bit; the host's own record keeps it */
+        assert(piece.data[HALO_NETWORK_SETTINGS_RIDING_OFFSET] == (v == 43 ? 0x03 : 0x43));
+        assert(game[HALO_NETWORK_SETTINGS_RIDING_OFFSET] == 0x43);
+        /* a later piece never touches its own byte 196 */
+        game[HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE + HALO_NETWORK_SETTINGS_RIDING_OFFSET] = 0x40;
+        network_game_server_fill_settings_piece(&piece, game, sizeof(game), size, HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE);
+        assert(piece.data[HALO_NETWORK_SETTINGS_RIDING_OFFSET] == 0x40);
+    }
+    return 0;
+}
+'''
+    compile_run(tmp_path, program.replace("LIMITS_HEADER", str(ROOT / "port/linux/include/halo_port_limits.h")).replace(
+        "CONTENT_HEADER", str(ROOT / "port/linux/include/halo_network_content.h")).replace(
+        "VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")))

@@ -805,6 +805,16 @@ static void network_game_server_fill_settings_piece(
 	csmemset(message->data, 0, sizeof(message->data));
 	if (offset < game_size)
 		csmemcpy(message->data, (byte const *)game + offset, MIN((long)message->length, game_size - offset));
+	/* port: a 43 host announces vehicle riding in a bit the Xbox left
+	spare; VISR does not simulate riding, so its games always say off,
+	whatever a saved gametype holds in that bit */
+	if (halo_network_version_has_riding(network_game_host_version()) &&
+		HALO_NETWORK_SETTINGS_RIDING_OFFSET < game_size &&
+		offset <= HALO_NETWORK_SETTINGS_RIDING_OFFSET &&
+		HALO_NETWORK_SETTINGS_RIDING_OFFSET < offset + message->length)
+	{
+		message->data[HALO_NETWORK_SETTINGS_RIDING_OFFSET - offset] &= (byte)~HALO_NETWORK_SETTINGS_RIDING_MASK;
+	}
 }
 
 boolean network_game_server_send_game_settings_to_client_machine(
