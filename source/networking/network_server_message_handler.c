@@ -1926,14 +1926,15 @@ static boolean network_game_server_handle_message_client_join_game_request(
 		{
 			unsigned host_version = network_game_host_version();
 			unsigned client_version = halo_network_join_request_read_version((byte const *)message, (size_t)message_size);
+			int verdict = halo_network_join_version_verdict(host_version, client_version);
 
-			if (client_version != host_version)
+			if (verdict != HALO_NETWORK_JOIN_VERSION_ADMIT)
 			{
 				struct message_server_machine_rejected rejection;
 				struct network_message *reply;
 
 				network_event("rejecting a join request for network version %u (hosting %u)", client_version, host_version);
-				rejection.reason = client_version < host_version ? _rejection_code_version_too_old : _rejection_code_version_too_new;
+				rejection.reason = verdict == HALO_NETWORK_JOIN_VERSION_TOO_OLD ? _rejection_code_version_too_old : _rejection_code_version_too_new;
 				reply = create_network_game_message(_message_server_machine_rejected, &rejection, sizeof(rejection));
 				if (reply)
 				{
