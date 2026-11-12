@@ -67,6 +67,8 @@ static struct photo_shot metadata;
 /* Scripted capture (map_pictures_render.c): entered without a key or debug.photo_mode, no
 fly input, no overlay. capture_failed is set when entry was refused. */
 static int scripted, capture_failed, capture_framed, capture_revision, last_from_fragment, last_revision;
+/* A scripted capture carries player 0 to the camera, as T does while framing, once the entry settle ends. */
+static int capture_teleport;
 
 int photo_mode_active(void) { return active; }
 
@@ -670,14 +672,14 @@ static void clear_level_start_effects(void)
 void photo_mode_capture_begin(void)
 {
 	photo_mode_end();
-	scripted = 1; capture_failed = 0; capture_framed = 0; capture_revision = 0;
+	scripted = 1; capture_failed = 0; capture_framed = 0; capture_revision = 0; capture_teleport = 0;
 	pending = PHOTO_TOGGLE;
 }
 
 int photo_mode_capture_state(int *framed, int *revision)
 {
 	if (capture_failed) return -1;
-	if (!scripted || !active || pending || game_time_get() < settle_until || game_time_get_speed() != 0) return 0;
+	if (!scripted || !active || pending || capture_teleport || game_time_get() < settle_until || game_time_get_speed() != 0) return 0;
 	if (framed) *framed = capture_framed;
 	if (revision) *revision = capture_revision;
 	return 1;
@@ -733,6 +735,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 			if (file_action(PHOTO_LOAD,camera) && last_from_fragment) { capture_framed = 1; capture_revision = last_revision; }
 			else if (!auto_camera(camera) && !view_camera(camera)) { error(_error_silent, "photo capture: no framing, no usable player start and no player view"); capture_failed = 1; }
 			capture_bsp = global_structure_bsp_index_get(); capture_cleared = 0;
+			capture_teleport = !capture_failed;
 		}
 		if (global_scenario->type == _scenario_type_multiplayer)
 		{
@@ -772,6 +775,16 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	roll = photo_roll_step(roll,(roll_right ? 1 : 0) - (roll_left ? 1 : 0),seconds,speed_step);
 	/* fly() zeroes the game's own roll delta; photo mode owns the roll. */
 	camera->field_of_view = fov; camera->roll = roll;
+	if (scripted && capture_teleport && game_time_get() >= settle_until)
+	{
+		/* The framing does not record where the player stood. When it was framed he stood at
+		the camera (T), out of view; at capture he would stand at his start, often in frame.
+		Moving him after the settle matches T pressed on a frozen game: he hangs at the camera
+		instead of falling into view. A move into another BSP settles again before the capture. */
+		capture_teleport = 0;
+		teleport_player(camera);
+		capture_bsp = global_structure_bsp_index_get();
+	}
 	if (scripted)
 	{
 		/* Hold the camera still: no stick, keyboard or mouse input reaches it. */
