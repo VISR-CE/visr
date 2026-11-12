@@ -14,6 +14,10 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_
 int map_pictures_scenario_in_game(void);
 /* 1 while a cinematic (a campaign map's opening cutscene) is playing. */
 int map_pictures_scenario_in_cinematic(void);
-/* Skips the playing cinematic when the game allows it now; 1 if it did. */
-int map_pictures_scenario_skip_cinematic(void);
+/* The game's tick count (0 before a game runs). */
+long map_pictures_scenario_ticks(void);
+/* 1: run the game at high speed with drawing off; 0: stop it (paused, drawing on). The
+fast-forward also stops by itself on the tick the cinematic ends. */
+void map_pictures_scenario_fast_forward(int on);
+int map_pictures_scenario_fast_forwarding(void);
 #endif

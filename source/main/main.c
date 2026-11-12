@@ -2367,6 +2367,13 @@ static boolean main_steps_each_tick(
 boolean main_tick_end(
 	void)
 {
+#ifdef HALO_IOS
+	/* port: a launch map picture render's intro fast-forward stops on the tick its
+	cinematic ends (port/linux/game/map_pictures_scenario.c) */
+	extern boolean map_pictures_scenario_tick_end(void);
+	if (map_pictures_scenario_tick_end())
+		return TRUE;
+#endif
 	if (!main_steps_each_tick())
 		return FALSE;
 	if (main_globals.saving_map)

@@ -52,7 +52,7 @@ int posix_make_directory(const char *path);
 /* a 16:9 frame at 1152 lines is 2048 wide, so the 2:1 picture is the frame's own pixels */
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
-#define RENDERER_VERSION 3
+#define RENDERER_VERSION 4
 #define AUTO_VERSION 1
 #define SETTLE_MILLISECONDS 3000.0
 #define LOAD_TIMEOUT_MILLISECONDS 60000.0
@@ -61,7 +61,10 @@ int posix_make_directory(const char *path);
 /* frames drawn with the capture camera before the readback, so textures the new view
 streams in have landed */
 #define FRAME_WAIT_UPDATES 45
-#define CINEMATIC_TIMEOUT_MILLISECONDS 90000.0
+/* An opening cinematic is run fast, undrawn, for at most this much game time (5 minutes at
+30 ticks a second); the real-time limit only guards a fast-forward that stalls */
+#define CINEMATIC_TICK_LIMIT 9000L
+#define CINEMATIC_TIMEOUT_MILLISECONDS 120000.0
 
 enum render_state
 {
@@ -72,7 +75,8 @@ enum render_state
 static struct
 {
 	enum render_state state;
-	int enabled, index, rendered, cached, failed, updates, skips;
+	int enabled, index, rendered, cached, failed, updates, fast_forwarding;
+	long fast_forward_start;
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
 	double run_start, map_start, loaded, quiet, settled, captured;
@@ -263,9 +267,23 @@ static void next_map(void)
 	finish();
 }
 
+/* logs how much game time the intro fast-forward covered; stops it if it still runs */
+static void fast_forward_end(void)
+{
+	long ticks;
+
+	if (!render.fast_forwarding) return;
+	map_pictures_scenario_fast_forward(0);
+	render.fast_forwarding = 0;
+	ticks = map_pictures_scenario_ticks() - render.fast_forward_start;
+	platform_log("map pictures: %s: fast-forwarded %ld ticks (%.1f s game time)", render.key, ticks,
+		(double)ticks / 30.0);
+}
+
 /* this map failed; the menu comes back before the next one */
 static void skip_map(const char *why)
 {
+	fast_forward_end();
 	platform_log("map pictures: %s: %s, skipped", render.key, why);
 	render.failed++;
 	photo_mode_end();
@@ -310,28 +328,43 @@ void map_pictures_render_update(void)
 		{
 			render.loaded = time;
 			render.quiet = time;
-			render.skips = 0;
 			render.state = STATE_SETTLE;
 		}
 		else if (time - render.map_start > LOAD_TIMEOUT_MILLISECONDS)
 			skip_map("the map did not load in time");
 		return;
 	case STATE_SETTLE:
-		/* A campaign map opens on a cutscene; photo mode cannot skip it, and a capture taken
-		during it shows the cutscene (space, fades, black). Skip it whenever the game allows,
-		then settle from the moment it ends so the fade back in has finished. */
-		if (map_pictures_scenario_in_cinematic())
+		/* A campaign map opens on a cutscene, and a capture taken during it shows the
+		cutscene (space, fades, black). Every map takes one route past it: the game runs
+		fast and undrawn until the tick the cinematic ends (map_pictures_scenario.c stops it
+		there and pauses), never waiting in real time and never skipping, so each map is
+		captured from the state its intro leaves. Then settle so streaming has caught up. */
+		if (map_pictures_scenario_in_cinematic() || render.fast_forwarding)
 		{
-			if (map_pictures_scenario_skip_cinematic() && render.skips++ == 0)
-				platform_log("map pictures: %s: skipped the opening cinematic", render.key);
-			if (time - render.loaded > CINEMATIC_TIMEOUT_MILLISECONDS)
+			if (!render.fast_forwarding)
 			{
-				skip_map("the opening cinematic did not end in time");
+				render.fast_forwarding = 1;
+				render.fast_forward_start = map_pictures_scenario_ticks();
+				map_pictures_scenario_fast_forward(1);
+			}
+			if (map_pictures_scenario_fast_forwarding())
+			{
+				if (map_pictures_scenario_ticks() - render.fast_forward_start > CINEMATIC_TICK_LIMIT)
+				{
+					skip_map("the opening cinematic ran past 5 minutes of game time");
+					return;
+				}
+				if (time - render.loaded > CINEMATIC_TIMEOUT_MILLISECONDS)
+				{
+					skip_map("the opening cinematic did not end in time");
+					return;
+				}
+				render.quiet = time;
 				return;
 			}
-			render.quiet = time;
-			return;
+			/* (ended on the cinematic's last tick) */
 		}
+		fast_forward_end();
 		if (time - render.quiet >= SETTLE_MILLISECONDS)
 		{
 			render.settled = time;

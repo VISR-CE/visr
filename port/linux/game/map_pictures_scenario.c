@@ -71,10 +71,36 @@ int map_pictures_scenario_in_cinematic(void)
 	return map_pictures_scenario_in_game() && cinematic_in_progress();
 }
 
-int map_pictures_scenario_skip_cinematic(void)
+long map_pictures_scenario_ticks(void)
 {
-	if (!map_pictures_scenario_in_cinematic() || !cinematic_can_be_skipped()) return 0;
-	main_skip_cinematic();
-	return 1;
+	return game_time_initialized() ? game_time_get() : 0;
+}
+
+static int fast_forwarding;
+
+/* Runs the game as fast as its local tick cap allows (7 ticks a frame) with nothing drawn,
+or stops it. Game speed goes through the engine's own tick path, so the scripts, BSP
+switches and sounds the cinematic starts run as in play. Stopping leaves the game paused
+(speed 0); photo mode's capture sets its own speed. */
+void map_pictures_scenario_fast_forward(int on)
+{
+	fast_forwarding = on;
+	if (!game_time_initialized()) return;
+	game_time_set_speed(on ? 120.0f : 0.0f);
+	debug_no_drawing = on ? TRUE : FALSE;
+}
+
+int map_pictures_scenario_fast_forwarding(void)
+{
+	return fast_forwarding;
+}
+
+/* After each tick (main_tick_end): the fast-forward ends on the tick the cinematic does, so
+the AI and scripts that start after it have not moved when photo mode freezes the scene. */
+boolean map_pictures_scenario_tick_end(void)
+{
+	if (!fast_forwarding || cinematic_in_progress()) return FALSE;
+	map_pictures_scenario_fast_forward(0);
+	return TRUE;
 }
 #endif
