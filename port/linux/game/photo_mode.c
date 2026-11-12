@@ -126,7 +126,8 @@ void photo_mode_end(void)
 
 static int map_key(char *key, size_t size)
 {
-	const char *name = global_scenario->type == _scenario_type_multiplayer ? main_get_multiplayer_map_name() : main_get_map_name();
+	/* a scripted capture loads every map, multiplayer ones too, by the solo map name (map_pictures_render.c) */
+	const char *name = global_scenario->type == _scenario_type_multiplayer && !scripted ? main_get_multiplayer_map_name() : main_get_map_name();
 	byte hash[32]; char path[256], stock_key[256];
 	int custom = custom_edition_level_name(name);
 	if (!custom && photo_stock_scenario(name)) return photo_map_key(name,0,NULL,key,size);
