@@ -52,13 +52,16 @@ int posix_make_directory(const char *path);
 /* a 16:9 frame at 1152 lines is 2048 wide, so the 2:1 picture is the frame's own pixels */
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
-#define RENDERER_VERSION 1
+#define RENDERER_VERSION 2
 #define AUTO_VERSION 1
 #define SETTLE_MILLISECONDS 3000.0
 #define LOAD_TIMEOUT_MILLISECONDS 60000.0
 #define CAPTURE_TIMEOUT_MILLISECONDS 60000.0
 #define FRAME_TIMEOUT_MILLISECONDS 10000.0
-#define FRAME_WAIT_UPDATES 3
+/* frames drawn with the capture camera before the readback, so textures the new view
+streams in have landed */
+#define FRAME_WAIT_UPDATES 45
+#define CINEMATIC_TIMEOUT_MILLISECONDS 90000.0
 
 enum render_state
 {
@@ -69,10 +72,10 @@ enum render_state
 static struct
 {
 	enum render_state state;
-	int enabled, index, rendered, cached, failed, updates;
+	int enabled, index, rendered, cached, failed, updates, skips;
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
-	double run_start, map_start, loaded, settled, captured;
+	double run_start, map_start, loaded, quiet, settled, captured;
 	volatile int wants_frame, frame_done, frame_ok;
 	double frame_milliseconds;
 } render;
@@ -306,13 +309,30 @@ void map_pictures_render_update(void)
 		if (map_pictures_scenario_in_game())
 		{
 			render.loaded = time;
+			render.quiet = time;
+			render.skips = 0;
 			render.state = STATE_SETTLE;
 		}
 		else if (time - render.map_start > LOAD_TIMEOUT_MILLISECONDS)
 			skip_map("the map did not load in time");
 		return;
 	case STATE_SETTLE:
-		if (time - render.loaded >= SETTLE_MILLISECONDS)
+		/* A campaign map opens on a cutscene; photo mode cannot skip it, and a capture taken
+		during it shows the cutscene (space, fades, black). Skip it whenever the game allows,
+		then settle from the moment it ends so the fade back in has finished. */
+		if (map_pictures_scenario_in_cinematic())
+		{
+			if (map_pictures_scenario_skip_cinematic() && render.skips++ == 0)
+				platform_log("map pictures: %s: skipped the opening cinematic", render.key);
+			if (time - render.loaded > CINEMATIC_TIMEOUT_MILLISECONDS)
+			{
+				skip_map("the opening cinematic did not end in time");
+				return;
+			}
+			render.quiet = time;
+			return;
+		}
+		if (time - render.quiet >= SETTLE_MILLISECONDS)
 		{
 			render.settled = time;
 			photo_mode_capture_begin();

@@ -599,6 +599,23 @@ static int auto_camera(struct flying_camera *camera)
 	return 1;
 }
 
+/* The last resort for a map whose player starts give no camera (d20's sit outside the
+loaded BSP's bounds): the player's own view as the capture begins. */
+static int view_camera(struct flying_camera *camera)
+{
+	const struct observer_result *view = observer_get_camera(0);
+	real_point3d point;
+	if (!view || !__builtin_isfinite(view->position.x) || !__builtin_isfinite(view->position.y) || !__builtin_isfinite(view->position.z)) return 0;
+	if (!__builtin_isfinite(view->forward.i) || !__builtin_isfinite(view->forward.j) || !__builtin_isfinite(view->forward.k)) return 0;
+	point = view->position;
+	if (scenario_leaf_index_from_point(&point) == NONE) return 0;
+	flying_camera_new_from_point_and_vector(camera,&view->position,&view->forward);
+	camera->roll = roll = 0;
+	camera->field_of_view = fov = 1.2217305f; /* 70 degrees */
+	error(_error_silent, "photo capture: player view camera at (%.2f,%.2f,%.2f) in BSP %d", view->position.x, view->position.y, view->position.z, global_structure_bsp_index_get());
+	return 1;
+}
+
 void photo_mode_capture_begin(void)
 {
 	photo_mode_end();
@@ -663,7 +680,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 		if (scripted)
 		{
 			if (file_action(PHOTO_LOAD,camera) && last_from_fragment) { capture_framed = 1; capture_revision = last_revision; }
-			else if (!auto_camera(camera)) { error(_error_silent, "photo capture: no framing and no usable player start"); capture_failed = 1; }
+			else if (!auto_camera(camera) && !view_camera(camera)) { error(_error_silent, "photo capture: no framing, no usable player start and no player view"); capture_failed = 1; }
 		}
 		if (global_scenario->type == _scenario_type_multiplayer)
 		{

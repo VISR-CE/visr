@@ -3,7 +3,9 @@
 which maps, their keys, hashes and saved framings, and whether a map's game runs. */
 #ifdef HALO_IOS
 #include "cseries.h"
+#include "cutscene/cinematics.h"
 #include "game/game.h"
+#include "main/main.h"
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
 #include "map_pictures_scenario.h"
@@ -62,5 +64,17 @@ int map_pictures_scenario_in_game(void)
 	if (!game_time_initialized() || !game_in_progress()) return 0;
 	scenario = global_scenario_try_and_get();
 	return scenario && scenario->type != _scenario_type_main_menu;
+}
+
+int map_pictures_scenario_in_cinematic(void)
+{
+	return map_pictures_scenario_in_game() && cinematic_in_progress();
+}
+
+int map_pictures_scenario_skip_cinematic(void)
+{
+	if (!map_pictures_scenario_in_cinematic() || !cinematic_can_be_skipped()) return 0;
+	main_skip_cinematic();
+	return 1;
 }
 #endif

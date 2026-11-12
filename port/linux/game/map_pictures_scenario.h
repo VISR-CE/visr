@@ -12,4 +12,8 @@ framing's revision (0 without one). 0 if the key or the hash cannot be had. */
 int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision);
 /* 1 while a non-menu map is loaded and its game is running. */
 int map_pictures_scenario_in_game(void);
+/* 1 while a cinematic (a campaign map's opening cutscene) is playing. */
+int map_pictures_scenario_in_cinematic(void);
+/* Skips the playing cinematic when the game allows it now; 1 if it did. */
+int map_pictures_scenario_skip_cinematic(void);
 #endif
