@@ -27,6 +27,7 @@ meta.json. Then the menu comes back and the map menus show the pictures
 
 /* port/runtime/guest/runtime/guest_host.h */
 int host_photo_mode_available(void);
+void host_map_pictures_keep_awake(int on);
 void host_texture_cache_directory(char *text, unsigned long size);
 /* port/linux/game/benchmark_scenario.c: an empty map is the main menu */
 void benchmark_scenario_load(const char *map, const char *difficulty);
@@ -80,6 +81,8 @@ with a warning in the log. */
 30 ticks a second); the real-time limit only guards a fast-forward that stalls */
 #define CINEMATIC_TICK_LIMIT 9000L
 #define CINEMATIC_TIMEOUT_MILLISECONDS 120000.0
+/* a wait for the menu longer than this is logged with what holds it, and again each time it doubles */
+#define MENU_WAIT_LOG_MILLISECONDS 10000.0
 
 enum render_state
 {
@@ -95,6 +98,9 @@ static struct
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
 	double run_start, map_start, loaded, settled, captured, warmed;
+	/* the wait for the menu between maps: when it began, the updates it took, the next log */
+	double menu_wait, menu_wait_log;
+	int menu_wait_updates;
 	/* main.c's map load stages: cache ready, tags loaded, setup done, shader warm done */
 	double stages[STAGE_COUNT];
 	double fast_forward_real_start, fast_forward_milliseconds;
@@ -237,6 +243,15 @@ static int cached_fresh(const char *directory, const struct map_pictures_request
 	return fresh;
 }
 
+/* waits for the menu before the next map */
+static void wait_menu(void)
+{
+	render.menu_wait = now();
+	render.menu_wait_log = MENU_WAIT_LOG_MILLISECONDS;
+	render.menu_wait_updates = 0;
+	render.state = STATE_WAIT_MENU;
+}
+
 static void finish(void)
 {
 	halo_benchmark_overrides(0, 0, 0);
@@ -275,6 +290,7 @@ static void next_map(void)
 		render.request.settle_ticks = REQUEST_SETTLE_TICKS;
 		if (map_directory(directory, sizeof(directory), render.key) && cached_fresh(directory, &render.request))
 		{
+			platform_log("map pictures: %s: picture is current, skipped", render.key);
 			render.cached++;
 			continue;
 		}
@@ -318,7 +334,7 @@ static void skip_map(const char *why)
 	render.index++;
 	halo_benchmark_overrides(0, 0, 0);
 	benchmark_scenario_load("", "");
-	render.state = STATE_WAIT_MENU;
+	wait_menu();
 }
 
 void map_pictures_render_update(void)
@@ -343,13 +359,31 @@ void map_pictures_render_update(void)
 			return;
 		}
 		render.run_start = time;
-		render.state = STATE_WAIT_MENU;
+		host_map_pictures_keep_awake(1);
+		wait_menu();
 		return;
 	case STATE_WAIT_MENU:
-		if (benchmark_scenario_at_menu() && !filesystem_check_thread_is_active() &&
-			!bink_playback_in_progress() && !cache_files_precache_in_progress())
+	{
+		int menu = benchmark_scenario_at_menu(), check = filesystem_check_thread_is_active(),
+			movie = bink_playback_in_progress(), precache = cache_files_precache_in_progress();
+		double waited = time - render.menu_wait;
+
+		render.menu_wait_updates++;
+		if (menu && !check && !movie && !precache)
+		{
+			if (waited > MENU_WAIT_LOG_MILLISECONDS)
+				platform_log("map pictures: the menu took %.1f s (%d updates)", waited / 1000.0,
+					render.menu_wait_updates);
 			next_map();
+		}
+		else if (waited > render.menu_wait_log)
+		{
+			platform_log("map pictures: waiting %.1f s for the menu (%d updates): menu %d, disk check %d, "
+				"movie %d, map copy %d", waited / 1000.0, render.menu_wait_updates, menu, check, movie, precache);
+			render.menu_wait_log *= 2.0;
+		}
 		return;
+	}
 	case STATE_LOADING:
 		if (map_pictures_scenario_in_game())
 		{
@@ -482,7 +516,7 @@ void map_pictures_render_update(void)
 			render.index++;
 			halo_benchmark_overrides(0, 0, 0);
 			benchmark_scenario_load("", "");
-			render.state = STATE_WAIT_MENU;
+			wait_menu();
 		}
 		else if (time - render.captured > FRAME_TIMEOUT_MILLISECONDS)
 			skip_map("no frame was presented");
@@ -492,6 +526,7 @@ void map_pictures_render_update(void)
 		{
 			platform_log("map pictures: done in %.1f s: %d rendered, %d cached, %d failed",
 				(time - render.run_start) / 1000.0, render.rendered, render.cached, render.failed);
+			host_map_pictures_keep_awake(0);
 			render.state = STATE_DONE;
 		}
 		return;

@@ -88,6 +88,26 @@ int host_photo_mode_available(void)
 #endif
 }
 
+/* debug.map_pictures_render: while the launch render runs (on 1, until 0), App Nap and idle display
+   sleep are held off. Without it, an unattended render left at the main menu ran the game loop at about
+   one frame in five seconds and stalled between maps for half an hour. */
+void host_map_pictures_keep_awake(int on)
+{
+#if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
+    static id activity;
+    if (on && !activity)
+        activity = [NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiated | NSActivityLatencyCritical |
+            NSActivityIdleDisplaySleepDisabled reason:@"Rendering map pictures"];
+    else if (!on && activity)
+    {
+        [NSProcessInfo.processInfo endActivity:activity];
+        activity = nil;
+    }
+#else
+    (void)on;
+#endif
+}
+
 void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees)
 {
 #if HALO_NATIVE_MAC && defined(HALO_DEVELOPMENT_HOOKS)
