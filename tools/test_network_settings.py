@@ -130,12 +130,13 @@ struct network_game_client { int unused; };
 struct message_server_game_settings_update {
     word total_size, offset, length; byte data[HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE];
 };
-static struct network_game network_game_client_settings_staging;
+static struct { struct network_game game; byte digests[HALO_NETWORK_SETTINGS_DIGESTS_SIZE]; } network_game_client_settings_staging;
 static long network_game_client_settings_staging_size;
 static unsigned host_version = 38;
-static int applied;
+static int applied, refused;
 static struct network_game result;
 static unsigned network_game_host_version(void) { return host_version; }
+static void network_game_client_refuse_join(char const *reason) { assert(strstr(reason, "MCC")); refused++; }
 static boolean network_game_client_game_settings_updated(struct network_game_client *c, struct network_game *g) {
     (void)c; result = *g; applied++; return TRUE;
 }
@@ -160,6 +161,30 @@ int main(void) {
         piece.total_size = total; piece.offset = total - 1; piece.length = 2;
         assert(!network_game_client_receive_game_settings_piece(0, &piece));
         piece.offset = 0; piece.length = 3585;
+        assert(!network_game_client_receive_game_settings_piece(0, &piece));
+    }
+    /* 42 and 43 add two zero 32-byte map digests after the record; a nonzero
+    digest names an MCC map */
+    for (unsigned v = 42; v <= 43; v++) {
+        host_version = v;
+        unsigned total = 13136 + 64;
+        for (int mcc = 0; mcc <= 1; mcc++) {
+            applied = 0; refused = 0;
+            for (unsigned offset = 0; offset < total; offset += 3584) {
+                piece.total_size = total; piece.offset = offset;
+                piece.length = total - offset < 3584 ? total - offset : 3584;
+                memset(piece.data, 0xA5, sizeof(piece.data));
+                if (offset + piece.length > 13136)
+                    memset(piece.data + (offset > 13136 ? 0 : 13136 - offset), 0, piece.length - (offset > 13136 ? 0 : 13136 - offset));
+                if (mcc && offset + piece.length == total)
+                    piece.data[piece.length - 1] = 1;
+                boolean ok = network_game_client_receive_game_settings_piece(0, &piece);
+                assert(ok == !(mcc && offset + piece.length == total));
+            }
+            assert(applied == !mcc && refused == mcc);
+            if (!mcc) assert(result.raw[13135] == 0xA5);
+        }
+        piece.offset = 0; piece.length = 1; piece.total_size = 13136;
         assert(!network_game_client_receive_game_settings_piece(0, &piece));
     }
     return 0;
@@ -208,6 +233,7 @@ static void cache_files_show_multiplayer_unavailable(const char *s, const char *
 static void main_set_multiplayer_map_name(const char *s) { (void)s; }
 static void platform_show_message(const char *title, const char *message) { (void)title; told++; reason = message; }
 static void display_error_when_main_menu_loaded(int e) { generic = e; }
+static void network_game_client_refuse_join(const char *r) { platform_show_message("VISR: cannot join this game", r); display_error_when_main_menu_loaded(_error_network_failed_to_join_game); }
 ''' + handler + r'''
 int main(void) {
     struct network_game_client client = {0};

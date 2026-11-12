@@ -1302,6 +1302,15 @@ boolean network_game_client_idle(
 	return success;
 }
 
+/* port: tell the player why the game cannot be joined; the caller then
+fails the join */
+void network_game_client_refuse_join(
+	char const *reason)
+{
+	platform_show_message("VISR: cannot join this game", reason);
+	display_error_when_main_menu_loaded(_error_network_failed_to_join_game);
+}
+
 boolean network_game_client_game_settings_updated(
 	struct network_game_client *client,
 	struct network_game *message_packet)
@@ -1332,8 +1341,7 @@ boolean network_game_client_game_settings_updated(
 			unsupported = "This game uses a gametype that VISR does not support.";
 		if (unsupported)
 		{
-			platform_show_message("VISR: cannot join this game", unsupported);
-			display_error_when_main_menu_loaded(_error_network_failed_to_join_game);
+			network_game_client_refuse_join(unsupported);
 			return FALSE;
 		}
 
