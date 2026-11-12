@@ -396,6 +396,7 @@ symbols in this file:
 void platform_show_message(char const *title, char const *message);
 #include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
 #include "halo_delta.h" /* port: Delta advertisement metadata */
+#include "../../port/linux/src/input_replay.h" /* port: recordings keep the original simulation */
 #include "halo_delta_peer.h" /* port: optional handshake beside the game */
 #include "halo_network_join_wire.h" /* port: join padding and refusals */
 #include "halo_network_content.h" /* port: game-kind refusal */
@@ -840,6 +841,16 @@ void network_game_set_host_version(
 	unsigned int version)
 {
 	network_game_client_host_version = version;
+}
+
+boolean network_game_shared_sim_fixes(
+	void)
+{
+	short connection = game_connection();
+
+	return !input_replay_playing() &&
+		(connection == _game_connection_network_client || connection == _game_connection_network_server) &&
+		halo_network_version_has_shared_sim_fixes(network_game_host_version());
 }
 
 struct network_game_client network_game_client_dont_use_directly;
