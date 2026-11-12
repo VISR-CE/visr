@@ -389,6 +389,34 @@ int main(int argc,char **argv) {
             host_logf(HOST_LOG_INFO,"runner: App Nap held off");
         }
 #endif
+#if HALO_NATIVE_MAC
+        /* while the Mac app is in front, the display stays awake and App Nap stays off: a game controller's
+           input doesn't reset macOS's idle timer. Released when the app is deactivated, hidden or a window is
+           minimized, so a backgrounded game can nap as usual. One activity at a time (the runner's and the
+           import's are separate). */
+        {
+            static id awake_activity;
+            static void (^awake_update)(void);
+            awake_update=^{
+                BOOL want=NSApp.isActive && !NSApp.isHidden;
+                for(NSWindow *window in NSApp.windows)if(window.isMiniaturized)want=NO;
+                if(want && !awake_activity){
+                    awake_activity=[NSProcessInfo.processInfo beginActivityWithOptions:
+                        NSActivityUserInitiated|NSActivityIdleDisplaySleepDisabled reason:@"VISR is in front"];
+                    host_logf(HOST_LOG_INFO,"keep-awake: display sleep and App Nap held off");
+                }else if(!want && awake_activity){
+                    [NSProcessInfo.processInfo endActivity:awake_activity];
+                    awake_activity=nil;
+                    host_logf(HOST_LOG_INFO,"keep-awake: released");
+                }};
+            for(NSNotificationName name in @[NSApplicationDidBecomeActiveNotification,NSApplicationDidResignActiveNotification,
+                NSApplicationDidHideNotification,NSApplicationDidUnhideNotification,
+                NSWindowDidMiniaturizeNotification,NSWindowDidDeminiaturizeNotification])
+                [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue
+                    usingBlock:^(NSNotification *notification){awake_update();}];
+            dispatch_async(dispatch_get_main_queue(),^{awake_update();});
+        }
+#endif
         /* the arena is the step a device can refuse (visionOS: see port/ios/README.md); reserved before main
            (host_loader.c) and adopted here, before the import screen, so a refusal shows at once, not after a
            multi-GB import */
