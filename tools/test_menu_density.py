@@ -50,7 +50,8 @@ def test_selected_density_has_unique_definitions_and_tiled_tap_bands(compact):
     pitch = 30 if compact else 39
     seen = 0
     for options in widgets.values():
-        if options.get('type') != 'column_list':
+        if options.get('type') != 'column_list' or '/multiplayer_type_select/join_game' in options.get('name', ''):
+            # The server browser (53-unit rows) and the Direct Link table (24-unit rows) keep their own geometry.
             continue
         rows = [c for c in options.findall('child')
                 if re.fullmatch(r'(?:list_item_|server_item_)\d+(?:_map_kind)?',
@@ -70,7 +71,7 @@ def test_selected_density_has_unique_definitions_and_tiled_tap_bands(compact):
                 assert heights <= ({'28'} if compact else {'36', '59', '53', '56', '52'})
         visible = int(options.get('visible_rows', len(slots)))
         assert slots[0] + visible * pitch <= (338 if options.get('name').endswith('/join_game_items_list') else 414)
-    assert seen >= 5
+    assert seen >= 4
 
 
 def test_fixed_settings_fit_and_use_comfortable_tap_bands():

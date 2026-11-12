@@ -1813,7 +1813,7 @@ def legacy_browser_layout(root, widgets, bitmaps):
     # A shared, inset redraw keeps the cap and right edge inside every row.
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
     for index in (0, 1):
-        ET.SubElement(bitmap, 'frame', png=f'xbox/art/browser_row__{index}.png', width='544', height='28')
+        ET.SubElement(bitmap, 'frame', png=f'xbox/art/browser_row__{index}.png', width='544', height='24')
     child(screen, base + '/y_butn', x=180, y=414)
     child(screen, base + '/create', x=202, y=414)
     widget(root, base + '/y_butn', width=21, height=26, bitmap='xbox/browser/y_butn')
