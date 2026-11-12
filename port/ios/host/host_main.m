@@ -815,6 +815,13 @@ int main(int argc,char **argv) {
             snprintf(env_photo,sizeof(env_photo),"HALO_PHOTO_MODE=%s",photo_mode);
             env[env_count++]=env_photo;
         }
+        /* debug.map_pictures_render likewise: HALO_MAP_PICTURES_RENDER from the launch is passed on */
+        static char env_map_pictures[sizeof("HALO_MAP_PICTURES_RENDER=")+16];
+        const char *map_pictures=getenv("HALO_MAP_PICTURES_RENDER");
+        if(map_pictures&&*map_pictures){
+            snprintf(env_map_pictures,sizeof(env_map_pictures),"HALO_MAP_PICTURES_RENDER=%s",map_pictures);
+            env[env_count++]=env_map_pictures;
+        }
 #endif
         static char env_external[sizeof("HALO_EXTERNAL_MODE=")+512];
         const char *external_mode=getenv("HALO_EXTERNAL_MODE");
