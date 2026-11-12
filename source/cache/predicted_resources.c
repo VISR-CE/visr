@@ -35,6 +35,11 @@ static boolean predicted_resource_valid(struct predicted_resource const *predict
 
 /* ---------- public code */
 
+#ifdef HALO_IOS
+/* port/linux/src/map_pictures_render.c's */
+int map_pictures_render_active(void);
+#endif
+
 void predicted_resources_precache(
 	struct tag_block *predicted_resources)
 {
@@ -42,6 +47,12 @@ void predicted_resources_precache(
 	never ended) */
 	long predicted_resource_index;
 
+#ifdef HALO_IOS
+	/* port: a map picture render loads what it draws, when it draws it,
+	and waits for those loads before the picture */
+	if (map_pictures_render_active())
+		return;
+#endif
 	for (predicted_resource_index = 0;
 		predicted_resource_index < predicted_resources->count;
 		predicted_resource_index++)

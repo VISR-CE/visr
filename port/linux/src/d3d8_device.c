@@ -4833,6 +4833,15 @@ static void shader_list_pixel_made(const struct nv2a_pixel_shader_key *key, gpu_
 	shader_list_made(line);
 }
 
+/* the pipelines draws built, counted (map_pictures_render.c's warm-up waits
+for frames that build none) */
+static uint32_t shader_list_pipelines_built;
+
+uint32_t halo_pipelines_built(void)
+{
+	return shader_list_pipelines_built;
+}
+
 /* the pipelines draws made since the last frame, as list lines (called at
 Present) */
 static void shader_list_take_pipelines(void)
@@ -4845,6 +4854,8 @@ static void shader_list_take_pipelines(void)
 		struct shader_list_name *pixel = shader_list_name(built.pixel_shader);
 		char line[192], kinds[2 * GPU_ATTRIBUTE_COUNT + 1];
 		int index;
+
+		shader_list_pipelines_built++;
 
 		if (!vertex || !pixel || vertex->kind != 1 || pixel->kind != 2)
 			continue;
@@ -5123,6 +5134,15 @@ void halo_shader_list_warm(char const *map_name)
 #endif
 	snprintf(shader_list.map, sizeof(shader_list.map), "%s", base);
 	shader_list.alias_count = 0;
+#ifdef HALO_IOS
+	/* a map picture render compiles each pipeline at its first draw and
+	waits for the compiles before the picture */
+	if (map_pictures_render_active())
+	{
+		platform_log("shader list %s: not warmed: map picture render", shader_list.map);
+		return;
+	}
+#endif
 	if (!shader_list.map[0] || !device.gl_ready || !config_boolean("debug.shader_list_warm"))
 		return;
 	/* a run that dumps its shaders (debug.gpu_dump_shaders: check-metal's) compiles each at its first draw, as

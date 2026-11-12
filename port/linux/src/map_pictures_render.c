@@ -44,6 +44,13 @@ void halo_benchmark_overrides(long render_lines, long shadow_size, long anisotro
 /* xbox_kernel.c: milliseconds of real time */
 double halo_frame_trace_milliseconds(void);
 int posix_make_directory(const char *path);
+/* source/cache/cache_files_windows.c: texture and geometry reads waiting on the disk, and reads started */
+short cache_file_requests_pending(void);
+unsigned long cache_file_reads_started(void);
+/* guest_gpu.c: pipelines still compiling on the worker threads */
+unsigned int gpu_compiles_outstanding(void);
+/* d3d8_device.c: pipelines the draws have built, counted */
+uint32_t halo_pipelines_built(void);
 
 #define PICTURE_WIDTH 2048
 #define PICTURE_HEIGHT 1024
@@ -52,15 +59,21 @@ int posix_make_directory(const char *path);
 /* a 16:9 frame at 1152 lines is 2048 wide, so the 2:1 picture is the frame's own pixels */
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
-#define RENDERER_VERSION 6
+#define RENDERER_VERSION 7
 #define AUTO_VERSION 1
 #define SETTLE_MILLISECONDS 3000.0
 #define LOAD_TIMEOUT_MILLISECONDS 60000.0
 #define CAPTURE_TIMEOUT_MILLISECONDS 60000.0
 #define FRAME_TIMEOUT_MILLISECONDS 10000.0
-/* frames drawn with the capture camera before the readback, so textures the new view
-streams in have landed */
-#define FRAME_WAIT_UPDATES 45
+/* A picture's load skips the map's precache and shader-list warm, so the capture camera's
+view loads its textures and compiles its pipelines as it draws. The readback waits for at
+least FRAME_WAIT_MIN_UPDATES frames and then FRAME_WAIT_CLEAN_UPDATES frames in a row that
+read nothing from the disk and compile nothing; at FRAME_WAIT_MAX_UPDATES it is taken anyway,
+with a warning in the log. */
+#define FRAME_WAIT_MIN_UPDATES 10
+#define FRAME_WAIT_CLEAN_UPDATES 5
+#define FRAME_WAIT_MAX_UPDATES 600
+#define STAGE_COUNT 4
 /* An opening cinematic is run fast, undrawn, for at most this much game time (5 minutes at
 30 ticks a second); the real-time limit only guards a fast-forward that stalls */
 #define CINEMATIC_TICK_LIMIT 9000L
@@ -79,7 +92,14 @@ static struct
 	long fast_forward_start;
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
-	double run_start, map_start, loaded, quiet, settled, captured;
+	double run_start, map_start, loaded, quiet, settled, captured, warmed;
+	/* main.c's map load stages: cache ready, tags loaded, setup done, shader warm done */
+	double stages[STAGE_COUNT];
+	double fast_forward_real_start, fast_forward_milliseconds;
+	long fast_forward_ticks;
+	unsigned long last_reads;
+	uint32_t last_pipelines;
+	int clean_run, warm_capped;
 	volatile int wants_frame, frame_done, frame_ok;
 	double frame_milliseconds;
 } render;
@@ -260,6 +280,9 @@ static void next_map(void)
 			revision ? "saved framing" : "automatic camera");
 		halo_benchmark_overrides(RENDER_LINES, RENDER_SHADOWS, 0);
 		render.map_start = now();
+		memset(render.stages, 0, sizeof(render.stages));
+		render.fast_forward_milliseconds = 0.0;
+		render.fast_forward_ticks = 0;
 		benchmark_scenario_load(map_pictures_scenario_name(render.index), "normal");
 		render.state = STATE_LOADING;
 		return;
@@ -276,6 +299,8 @@ static void fast_forward_end(void)
 	map_pictures_scenario_fast_forward(0);
 	render.fast_forwarding = 0;
 	ticks = map_pictures_scenario_ticks() - render.fast_forward_start;
+	render.fast_forward_ticks = ticks;
+	render.fast_forward_milliseconds = now() - render.fast_forward_real_start;
 	platform_log("map pictures: %s: fast-forwarded %ld ticks (%.1f s game time)", render.key, ticks,
 		(double)ticks / 30.0);
 }
@@ -345,6 +370,7 @@ void map_pictures_render_update(void)
 			{
 				render.fast_forwarding = 1;
 				render.fast_forward_start = map_pictures_scenario_ticks();
+				render.fast_forward_real_start = time;
 				map_pictures_scenario_fast_forward(1);
 			}
 			if (map_pictures_scenario_fast_forwarding())
@@ -390,20 +416,43 @@ void map_pictures_render_update(void)
 			}
 			render.captured = time;
 			render.updates = 0;
+			render.clean_run = 0;
+			render.warm_capped = 0;
+			render.last_reads = cache_file_reads_started();
+			render.last_pipelines = halo_pipelines_built();
 			render.state = STATE_FRAME_WAIT;
 		}
 		else if (time - render.settled > CAPTURE_TIMEOUT_MILLISECONDS)
 			skip_map("the capture did not settle in time");
 		return;
 	case STATE_FRAME_WAIT:
-		if (++render.updates >= FRAME_WAIT_UPDATES)
+	{
+		unsigned long reads = cache_file_reads_started();
+		uint32_t pipelines = halo_pipelines_built();
+		int clean = reads == render.last_reads && pipelines == render.last_pipelines &&
+			cache_file_requests_pending() == 0 && gpu_compiles_outstanding() == 0;
+
+		render.last_reads = reads;
+		render.last_pipelines = pipelines;
+		render.clean_run = clean ? render.clean_run + 1 : 0;
+		++render.updates;
+		if (render.updates >= FRAME_WAIT_MAX_UPDATES && render.clean_run < FRAME_WAIT_CLEAN_UPDATES)
 		{
+			render.warm_capped = 1;
+			platform_log("map pictures: %s: textures or pipelines still loading after %d frames; taking the picture anyway",
+				render.key, render.updates);
+		}
+		if ((render.updates >= FRAME_WAIT_MIN_UPDATES && render.clean_run >= FRAME_WAIT_CLEAN_UPDATES) ||
+			render.warm_capped)
+		{
+			render.warmed = time;
 			render.frame_done = 0;
 			render.frame_ok = 0;
 			render.wants_frame = 1;
 			render.state = STATE_FRAME_PENDING;
 		}
 		return;
+	}
 	case STATE_FRAME_PENDING:
 		if (render.frame_done)
 		{
@@ -412,9 +461,24 @@ void map_pictures_render_update(void)
 				skip_map("the picture could not be written");
 				return;
 			}
-			platform_log("map pictures: %s: load %.0f ms, settle %.0f ms, capture %.0f ms, write %.0f ms, total %.0f ms",
-				render.key, render.loaded - render.map_start, render.settled - render.loaded,
-				render.captured - render.settled, render.frame_milliseconds, time - render.map_start);
+			{
+				/* stages main.c did not reach (a menu-only load) read as 0 */
+				double cache = render.stages[0] ? render.stages[0] - render.map_start : 0.0;
+				double tags = render.stages[1] && render.stages[0] ? render.stages[1] - render.stages[0] : 0.0;
+				double setup = render.stages[2] && render.stages[1] ? render.stages[2] - render.stages[1] : 0.0;
+				double warm = render.stages[3] && render.stages[2] ? render.stages[3] - render.stages[2] : 0.0;
+				double first_frame = render.stages[3] ? render.loaded - render.stages[3] : 0.0;
+
+				platform_log("map pictures: %s: to cache ready %.0f ms (precache skipped), tag load %.0f ms, "
+					"setup %.0f ms, shader warm %.0f ms (skipped), to in game %.0f ms, load total %.0f ms; "
+					"fast-forward %ld ticks in %.0f ms, settle %.0f ms, capture %.0f ms, "
+					"warm-up %d frames in %.0f ms (%s), write %.0f ms, total %.0f ms",
+					render.key, cache, tags, setup, warm, first_frame, render.loaded - render.map_start,
+					render.fast_forward_ticks, render.fast_forward_milliseconds,
+					render.settled - render.loaded - render.fast_forward_milliseconds,
+					render.captured - render.settled, render.updates, render.warmed - render.captured,
+					render.warm_capped ? "capped" : "clean", render.frame_milliseconds, time - render.map_start);
+			}
 			render.rendered++;
 			photo_mode_end();
 			render.index++;
@@ -436,6 +500,12 @@ void map_pictures_render_update(void)
 	case STATE_DONE:
 		return;
 	}
+}
+
+void map_pictures_render_stage(int stage)
+{
+	if (map_pictures_render_active() && stage >= 0 && stage < STAGE_COUNT)
+		render.stages[stage] = now();
 }
 
 int map_pictures_render_active(void)

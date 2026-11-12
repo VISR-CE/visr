@@ -11,6 +11,9 @@ void map_pictures_render_update(void);
 /* 1 while a map is loaded for its picture (loading to the readback): the level is drawn with the original
 textures, never upscaled ones, so a picture never waits on the upscaler or changes with it (xbox_textures.c) */
 int map_pictures_render_active(void);
+/* main.c's map load reached a stage (0 cache ready, 1 tags loaded, 2 setup done, 3 shader warm done);
+the time is logged with the picture, for a map loaded for its picture only */
+void map_pictures_render_stage(int stage);
 /* 1 when the next presented frame is the picture (d3d8_device.c reads it then) */
 int map_pictures_render_wants_frame(void);
 /* the presented frame's BGRA pixels, rows from the top */

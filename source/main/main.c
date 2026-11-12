@@ -420,6 +420,8 @@ player can fix: a message, not a crash (port/ios/host/host_crash.c) */
 void host_map_load_failed(const char *map_name, const char *messages);
 /* port: debug.crash_test "map" (port/runtime/guest/runtime/guest_crash_test.c) */
 int guest_crash_test_map_load(void);
+/* port: a map picture render's load stage times (port/linux/src/map_pictures_render.c) */
+void map_pictures_render_stage(int stage);
 #define MAIN_CPU_PHASE(phase, ticks) host_frame_cpu_phase((phase), (ticks))
 #else
 #define MAIN_CPU_PHASE(phase, ticks) ((void)0)
@@ -1545,6 +1547,7 @@ static void main_new_map(
 	struct game_options *options)
 {
 #ifdef HALO_IOS
+	map_pictures_render_stage(0);
 	halo_perf_reports_map_begin(options->map_name);
 	host_perf_hooks_loading(1);
 #endif
@@ -1556,6 +1559,9 @@ static void main_new_map(
 #endif
 	{
 		game_initialize_for_new_map();
+#ifdef HALO_IOS
+		map_pictures_render_stage(1);
+#endif
 	}
 	else
 	{
@@ -1580,8 +1586,14 @@ static void main_new_map(
 		error(_error_immediate, "main_new_map() failed.");
 	}
 	game_initial_pulse();
+#ifdef HALO_IOS
+	map_pictures_render_stage(2);
+#endif
 	/* port: compile the map's shaders and pipelines before its first frame */
 	halo_shader_list_warm(options->map_name);
+#ifdef HALO_IOS
+	map_pictures_render_stage(3);
+#endif
 
 	main_globals.reset_map = FALSE;
 	main_globals.defer_map_change = FALSE;
