@@ -83,4 +83,18 @@ static inline char const *halo_network_settings_digests_reason(unsigned char con
 	return 0;
 }
 
+/* From network version 43 a host's vehicle riding switch (OpenCE PR #637)
+   travels in bit 6 of the variant's universal flags, a bit the Xbox left
+   spare: record offset 196, mask 0x40 (confirmed by capture of an OpenCE
+   release dedicated server). VISR does not simulate riding yet. */
+#define HALO_NETWORK_SETTINGS_RIDING_OFFSET 196
+#define HALO_NETWORK_SETTINGS_RIDING_MASK 0x40
+
+static inline char const *halo_network_settings_riding_reason(unsigned char const *settings)
+{
+	if (settings[HALO_NETWORK_SETTINGS_RIDING_OFFSET] & HALO_NETWORK_SETTINGS_RIDING_MASK)
+		return "This game has vehicle riding on, which VISR does not support yet.";
+	return 0;
+}
+
 #endif
