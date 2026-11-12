@@ -145,7 +145,7 @@ static void offer_checks(void)
 	delta_legacy_initialize(1, NULL, &key, 1);
 	for (version = 0; version < 100; version++)
 		assert(halo_network_version_joinable(38, version) == ((version >= 29 && version <= 32) ||
-			(version >= 34 && version <= 36) || (version >= 38 && version <= 41)));
+			(version >= 34 && version <= 36) || (version >= 38 && version <= 41) || version == 43));
 	assert(delta_legacy_announce_version() == 38 && !delta_legacy_serial());
 	/* a game hosted on 43 (network.host_version) announces 43 until it ends */
 	delta_legacy_set_hosted_version(43);

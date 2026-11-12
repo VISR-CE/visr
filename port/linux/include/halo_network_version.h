@@ -71,6 +71,10 @@ static inline int halo_network_version_joinable(unsigned ours, unsigned theirs)
 	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS &&
 		theirs >= HALO_NETWORK_VERSION_DEDICATED && theirs <= HALO_NETWORK_VERSION_NEWEST_JOINABLE)
 		return 1;
+	/* port: 43 hosts use the shared contract (352-byte join, 12-byte header,
+	settings digests); 42 was never released and joins only through a signed row */
+	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS && theirs == HALO_NETWORK_VERSION_RIDING)
+		return 1;
 	if (theirs == ours)
 		return 1;
 	if (ours < theirs || theirs < HALO_PORT_NETWORK_OLDEST_JOINABLE ||
