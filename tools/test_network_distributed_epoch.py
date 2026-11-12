@@ -103,6 +103,15 @@ int main(void)
         assert(stripped_size == 8);
         assert(network_distributed_wire_copy(wire, (word)(size + 3), message, size) == 0);
         assert(network_distributed_wire_copy(wire, sizeof(wire), message, 7) == 0);
+
+        /* a message the epoch would push past the header's size field */
+        {
+            static byte big[MAXIMUM_MESSAGE_SIZE + 4], big_wire[MAXIMUM_MESSAGE_SIZE + 8];
+            word big_size = make_message(big, (word)(MAXIMUM_MESSAGE_SIZE - 4 - 8));
+            assert(network_distributed_wire_copy(big_wire, sizeof(big_wire), big, big_size) == MAXIMUM_MESSAGE_SIZE);
+            big_size = make_message(big, (word)(MAXIMUM_MESSAGE_SIZE - 3 - 8));
+            assert(network_distributed_wire_copy(big_wire, sizeof(big_wire), big, big_size) == 0);
+        }
     }
     return 0;
 }
