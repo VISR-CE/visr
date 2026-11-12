@@ -27,6 +27,7 @@ def test_scripted_pose_round_trips_from_42_and_is_ignored_below(tmp_path):
         state,
         "enum { DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE = 3 };\n",
         block(source, "void distributed_vector_pack("),
+        block(source, "boolean distributed_unit_vector_pack("),
         block(source, "void distributed_vector_unpack("),
         block(source, "static byte *distributed_put("),
         block(source, "static boolean distributed_take("),
@@ -112,16 +113,36 @@ int main(void)
         /* short by a byte */
         assert(distributed_unit_state_read(buffer, buffer + size - 1, &back) == 0);
 
-        /* a zero vector, or one far from unit length, refuses the whole state */
+        /* a zero vector, or one far from unit length, drops only the pose:
+           the state keeps its size and the rest of its parts */
         state.pose[_distributed_pose_looking].i = 0;
         state.pose[_distributed_pose_looking].j = 0;
         state.pose[_distributed_pose_looking].k = 0;
         size = distributed_unit_state_write(&state, FALSE, buffer);
-        assert(distributed_unit_state_read(buffer, buffer + size, &back) == 0);
+        assert(distributed_unit_state_read(buffer, buffer + size, &back) == size);
+        assert(!back.scripted_pose && back.scripted_pose_sent);
+        assert(TEST_FLAG(back.unit_flags, _distributed_unit_suspended_bit));
+        assert(back.body_vitality == 16384);
         posed(&state);
         state.pose[_distributed_pose_facing].i = 16000;
         size = distributed_unit_state_write(&state, FALSE, buffer);
-        assert(distributed_unit_state_read(buffer, buffer + size, &back) == 0);
+        assert(distributed_unit_state_read(buffer, buffer + size, &back) == size);
+        assert(!back.scripted_pose && back.scripted_pose_sent);
+
+        /* two states in one message: a bad pose in the first leaves the
+           second intact */
+        {
+            struct distributed_unit_state second;
+            word first_size, second_size;
+            alive(&second);
+            second.player_index = 5;
+            second.body_vitality = 1000;
+            first_size = distributed_unit_state_write(&state, FALSE, buffer);
+            second_size = distributed_unit_state_write(&second, FALSE, buffer + first_size);
+            assert(distributed_unit_state_read(buffer, buffer + first_size + second_size, &back) == first_size);
+            assert(distributed_unit_state_read(buffer + first_size, buffer + first_size + second_size, &back) == second_size);
+            assert(back.player_index == 5 && back.body_vitality == 1000 && !back.scripted_pose_sent);
+        }
 
         /* a pose on a dead unit is refused */
         memset(buffer, 0, sizeof(buffer));
@@ -129,6 +150,16 @@ int main(void)
         buffer[1] = 0;
         buffer[2] = 1u << _distributed_unit_part_scripted_pose_bit;
         assert(distributed_unit_state_read(buffer, buffer + 3, &back) == 0);
+    }
+
+    /* the sender normalizes each direction and refuses a zero one */
+    {
+        real_vector3d long_vector = {3, 4, 0}, zero = {0, 0, 0}, back_vector;
+        struct distributed_vector packed;
+        assert(distributed_unit_vector_pack(&long_vector, &packed));
+        distributed_vector_unpack(&packed, DISTRIBUTED_UNIT_SCALE, &back_vector);
+        assert(fabsf(back_vector.i - 0.6f) < 0.001f && fabsf(back_vector.j - 0.8f) < 0.001f);
+        assert(!distributed_unit_vector_pack(&zero, &packed));
     }
 
     /* 29-41: the part bit means nothing, nothing past the old parts is
@@ -174,3 +205,5 @@ def test_scripted_pose_apply_and_prediction_are_gated():
     assert "distributed_scripted_pose_apply(" in handle
     from_unit = block(source, "static void distributed_scripted_pose_from_unit(")
     assert "_game_connection_network_server" in from_unit and "distributed_scripted_poses()" in from_unit
+    # a host refuses a client's state that carried a pose, valid or not
+    assert "state.scripted_pose_sent ||" in source
