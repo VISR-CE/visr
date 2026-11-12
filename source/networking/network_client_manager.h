@@ -63,6 +63,11 @@ unsigned int network_game_host_version(
 /* port: set by the server on create and dispose (network.host_version) */
 void network_game_set_host_version(
 	unsigned int version);
+/* port: whether this network game uses the shared simulation fixes of
+network version 42 and later; local games and replays keep the original
+simulation */
+boolean network_game_shared_sim_fixes(
+	void);
 /* port: whether its version, netcode, and game kind can be joined; tell
 displays the refusal reason. */
 boolean network_game_client_advertised_game_compatible(

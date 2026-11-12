@@ -165,6 +165,7 @@ symbols in this file:
 #include "structures/structure_bsp_definitions.h"
 #include "units/unit_definitions.h"
 #include "units/vehicle_definitions.h"
+#include "networking/network_client_manager.h" /* port: version-gated shared simulation fixes */
 
 /* ---------- constants */
 
@@ -1988,6 +1989,12 @@ static void update_human_boat_physics(
 		real maximum_angle;
 		real *rotation;
 		real const *forward;
+
+		/* port: network version 42 starts the three powered mass points'
+		controls from zero instead of the previous tick's leftovers, so every
+		machine in a game computes the same boat (fix by chester, GulchCE). */
+		if (network_game_shared_sim_fixes())
+			csmemset(state, 0, 3 * sizeof(*state));
 
 		speed = (real)fabs(magnitude3d(&vehicle->object.translational_velocity)*2.5f);
 		maximum_angle = vehicle->vehicle.turn*0.5f;
