@@ -22,6 +22,7 @@
 #include "structures/structure_bsp_definitions.h"
 #include "main/main.h"
 #include "ai/ai_script.h"
+#include "effects/player_effects.h"
 #include "custom_edition_cache.h"
 #include "map_share.h"
 #include "../src/port_config.h"
@@ -58,6 +59,7 @@ static long settle_until;
 static struct director saved_director, *current_director;
 static struct cinematic_global_data saved_cinematic;
 static struct hud_scripted_globals_definition saved_hud;
+static int capture_bsp = -1, capture_cleared;
 static int saved_input, saved_scripted, saved_bsp, saved_dont_timeout, saved_deathless = -1, report_settle;
 static float saved_speed, fov;
 static struct photo_shot metadata;
@@ -106,6 +108,7 @@ void photo_mode_end(void)
 	roll_left = roll_right = 0;
 	roll = 0;
 	scripted = 0;
+	capture_bsp = -1;
 	if (!active) return;
 	active = 0;
 	global_connection_dont_timeout = saved_dont_timeout;
@@ -616,6 +619,33 @@ static int view_camera(struct flying_camera *camera)
 	return 1;
 }
 
+/* A scripted capture starts right after the map loads, while the level's
+   startup scripts still run during the settle ticks: they can fade the screen,
+   shake the camera or switch the BSP away from the framing's. Undo all three
+   on every update so the framing's camera is what gets rendered. */
+static void clear_level_start_effects(void)
+{
+	real_rgb_color color; short ticks; boolean fading_out; long start_time;
+	player_effect_port_screen_fade_get(&color,&ticks,&fading_out,&start_time);
+	if (ticks != NONE)
+	{
+		if (!(capture_cleared & 1)) error(_error_silent, "photo capture: cleared a scripted screen fade (%s, %d ticks)", fading_out ? "out" : "in", (int)ticks);
+		capture_cleared |= 1;
+		player_effect_port_screen_fade_set(&color,NONE,FALSE,start_time);
+	}
+	if (player_effect_port_scripted_active())
+	{
+		if (!(capture_cleared & 2)) error(_error_silent, "photo capture: ended a scripted camera effect");
+		capture_cleared |= 2;
+		player_effect_port_scripted_end();
+	}
+	if (capture_bsp >= 0 && capture_bsp != global_structure_bsp_index_get())
+	{
+		error(_error_silent, "photo capture: a script switched to BSP %d; back to BSP %d", global_structure_bsp_index_get(), capture_bsp);
+		if (!scenario_switch_structure_bsp((short)capture_bsp)) capture_bsp = -1;
+	}
+}
+
 void photo_mode_capture_begin(void)
 {
 	photo_mode_end();
@@ -681,6 +711,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 		{
 			if (file_action(PHOTO_LOAD,camera) && last_from_fragment) { capture_framed = 1; capture_revision = last_revision; }
 			else if (!auto_camera(camera) && !view_camera(camera)) { error(_error_silent, "photo capture: no framing, no usable player start and no player view"); capture_failed = 1; }
+			capture_bsp = global_structure_bsp_index_get(); capture_cleared = 0;
 		}
 		if (global_scenario->type == _scenario_type_multiplayer)
 		{
@@ -702,6 +733,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	director->camera_change_pause = 0;
 	player_input_enable(FALSE);
 	cinematic_globals->show_letterbox = FALSE; cinematic_globals->letterbox_amount = 0;
+	if (scripted) clear_level_start_effects();
 	if (game_time_get() >= settle_until)
 	{
 		game_time_set_speed(0);

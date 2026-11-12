@@ -52,7 +52,7 @@ int posix_make_directory(const char *path);
 /* a 16:9 frame at 1152 lines is 2048 wide, so the 2:1 picture is the frame's own pixels */
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
-#define RENDERER_VERSION 2
+#define RENDERER_VERSION 3
 #define AUTO_VERSION 1
 #define SETTLE_MILLISECONDS 3000.0
 #define LOAD_TIMEOUT_MILLISECONDS 60000.0
