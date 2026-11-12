@@ -45,6 +45,17 @@ int main(void)
 		.enemy_multiplier = 1.5 }, "enemy multiplier"));
 	assert(decide((struct workload_inputs){ .networked = 1, .network_players = 2, .local_players = 1,
 		.coop_extra_enemies = 1 }, "co-op extra enemies"));
+	/* a one-player hosted game under the default mode adds no enemies, so it stays predictable */
+	assert(!workload_coop_extra_enemies(0, "per_player", 1));
+	assert(!workload_coop_extra_enemies(0, "per_player", 0));
+	assert(!workload_coop_extra_enemies(0, "none", 4));
+	assert(workload_coop_extra_enemies(0, "per_player", 2));
+	assert(workload_coop_extra_enemies(0, "multiplier", 1));
+	assert(workload_coop_extra_enemies(1, "none", 1));
+	assert(!decide((struct workload_inputs){ .networked = 1, .network_players = 1, .local_players = 1,
+		.coop_extra_enemies = workload_coop_extra_enemies(0, "per_player", 1) }, "LAN co-op at standard settings"));
+	assert(decide((struct workload_inputs){ .networked = 1, .network_players = 2, .local_players = 1,
+		.coop_extra_enemies = workload_coop_extra_enemies(0, "per_player", 2) }, "co-op extra enemies"));
 	/* online co-op, at any size */
 	assert(decide((struct workload_inputs){ .networked = 1, .online = 1, .network_players = 2, .local_players = 1 },
 		"online co-op"));

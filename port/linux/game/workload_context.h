@@ -20,6 +20,7 @@ local player count is among the inputs for that.
 #define WORKLOAD_CONTEXT_H
 
 #include <stdio.h>
+#include <string.h>
 
 /* the most players a LAN co-op game may have and stay predictable */
 #define WORKLOAD_LAN_PLAYERS 4
@@ -45,6 +46,17 @@ struct workload_inputs
 	/* a co-op host's extra enemies (network.coop_enemies_mode other than "none") */
 	int coop_extra_enemies;
 };
+
+/* Whether a game's extra co-op enemies add any (coop_enemies.c): a machine that joined is not told the host's choice, so
+it counts the default's; a host's "per_player" adds none until a second player is in the game, "multiplier" always adds. */
+static inline int workload_coop_extra_enemies(int joined, const char *mode, int players)
+{
+	if (joined)
+		return 1;
+	if (!strcmp(mode, "multiplier"))
+		return 1;
+	return !strcmp(mode, "per_player") && players > 1;
+}
 
 /* Synthetic games may have a larger roster than their advertised limit. */
 static inline int workload_game_players(const struct workload_inputs *in)
