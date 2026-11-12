@@ -1000,6 +1000,8 @@ static boolean network_game_client_receive_game_settings_piece(
 				char const *unsupported = digests ?
 					halo_network_settings_digests_reason(network_game_client_settings_staging.digests) : 0;
 
+				if (!unsupported && halo_network_version_has_riding(network_game_host_version()))
+					unsupported = halo_network_settings_riding_reason((byte const *)&network_game_client_settings_staging.game);
 				if (legacy)
 					halo_network_settings_expand_legacy((byte *)&network_game_client_settings_staging.game);
 				if (unsupported)

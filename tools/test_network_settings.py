@@ -136,7 +136,8 @@ static unsigned host_version = 38;
 static int applied, refused;
 static struct network_game result;
 static unsigned network_game_host_version(void) { return host_version; }
-static void network_game_client_refuse_join(char const *reason) { assert(strstr(reason, "MCC")); refused++; }
+static char const *refusal;
+static void network_game_client_refuse_join(char const *reason) { refusal = reason; refused++; }
 static boolean network_game_client_game_settings_updated(struct network_game_client *c, struct network_game *g) {
     (void)c; result = *g; applied++; return TRUE;
 }
@@ -182,10 +183,27 @@ int main(void) {
                 assert(ok == !(mcc && offset + piece.length == total));
             }
             assert(applied == !mcc && refused == mcc);
+            if (mcc) assert(strstr(refusal, "MCC"));
             if (!mcc) assert(result.raw[13135] == 0xA5);
         }
         piece.offset = 0; piece.length = 1; piece.total_size = 13136;
         assert(!network_game_client_receive_game_settings_piece(0, &piece));
+    }
+    /* 43 hosts carry vehicle riding in bit 6 of the universal flags (record
+    offset 196); 42 has no such bit and applies the same record */
+    for (unsigned v = 42; v <= 43; v++) {
+        host_version = v; applied = 0; refused = 0; refusal = 0;
+        unsigned total = 13136 + 64;
+        for (unsigned offset = 0; offset < total; offset += 3584) {
+            piece.total_size = total; piece.offset = offset;
+            piece.length = total - offset < 3584 ? total - offset : 3584;
+            memset(piece.data, 0, sizeof(piece.data));
+            if (offset == 0) piece.data[196] = 0x43;
+            boolean ok = network_game_client_receive_game_settings_piece(0, &piece);
+            assert(ok == !(v == 43 && offset + piece.length == total));
+        }
+        assert(applied == (v == 42) && refused == (v == 43));
+        if (v == 43) assert(strstr(refusal, "vehicle riding"));
     }
     return 0;
 }

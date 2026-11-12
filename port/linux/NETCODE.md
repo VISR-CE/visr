@@ -226,8 +226,9 @@ bit are applied, and network games on 42 or later apply the shared
 simulation fixes; local games and replays keep the original simulation.
 Clients join 43 hosts; 42 joins only through a signed row.
 `network.host_version` (38 or 43, default 38) picks the version a game
-hosted here plays. Vehicle riding (43) is not supported; how a host
-announces it is not yet confirmed by capture.
+hosted here plays. Vehicle riding (43) is not supported: a 43 host
+announces it in bit 6 (0x40) of the variant's universal flags, settings
+record offset 196, and clients refuse such games with a message.
 Servers requiring a Discord link or rejecting a VPN connection show a
 specific refusal message; VISR does not support Discord join passes. The
 client-build message (92) is discarded as an unknown distributed kind.
