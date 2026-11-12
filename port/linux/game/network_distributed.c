@@ -4592,7 +4592,11 @@ static void distributed_handle_message_in_epoch(
 			distributed_statistics.received++;
 		return;
 	}
-	/* a tick's messages in one: each as if it came alone */
+	/* a tick's messages in one: each as if it came alone. (Members go
+	straight here, past network_distributed_handle_message's map-share and
+	aim-assist routing: both of those are sent reliably on their own and are
+	never batched. A new batched kind that needs its own routing must be
+	routed below as well.) */
 	if (header.type == _distributed_message_batch)
 	{
 		word offset = sizeof(header);
