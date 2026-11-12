@@ -15,4 +15,5 @@ void map_pictures_render_frame(const uint8_t *bgra, uint32_t width, uint32_t hei
 /* the stock map's rendered menu picture (a BMP, by the map's base name, "a10" or "bloodgulch"), in memory
 the caller frees with free(); 0 unless the setting is on, the launch's renders are done and the file is there */
 int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size);
+void map_pictures_render_picture_free(uint8_t *data);
 #endif

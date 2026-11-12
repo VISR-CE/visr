@@ -880,6 +880,7 @@ wchar_t *custom_edition_maps_description(
 #ifdef HALO_IOS
 /* map_pictures_render.c (debug.map_pictures_render): the stock map's rendered picture, a bmp file */
 extern int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size);
+extern void map_pictures_render_picture_free(uint8_t *data);
 
 /* the stock multiplayer maps, in mp_map_grafix's frame order */
 static char const *const stock_map_picture_names[] =
@@ -923,13 +924,13 @@ static struct bitmap_data *rendered_picture_get(
 	}
 	if (rendered_picture_count >= RENDERED_PICTURES_MAXIMUM)
 	{
-		free(file);
+		map_pictures_render_picture_free(file);
 		return NULL;
 	}
 	index = rendered_picture_count++;
 	strcpy(rendered_pictures[index].name, name);
 	rendered_pictures[index].picture = custom_edition_picture_new(file, size, name);
-	free(file);
+	map_pictures_render_picture_free(file);
 
 	return rendered_pictures[index].picture;
 }

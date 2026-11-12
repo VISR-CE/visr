@@ -436,6 +436,13 @@ void map_pictures_render_frame(const uint8_t *bgra, uint32_t width, uint32_t hei
 	render.frame_done = 1;
 }
 
+/* frees a picture from map_pictures_render_picture_read: it is the platform's allocation, so the game's own free
+(the checked allocator in custom_edition_maps.c) must not take it */
+void map_pictures_render_picture_free(uint8_t *data)
+{
+	free(data);
+}
+
 int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size)
 {
 	char key[MAP_PICTURES_KEY_SIZE], directory[1100], path[1200];
