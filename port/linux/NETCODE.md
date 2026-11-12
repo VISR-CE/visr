@@ -198,7 +198,7 @@ Version 39 uses the 38 join and game codecs. Versions 40 and 41 add 234
 zero bytes before the join packet's type trailer, making a 350-byte TCP
 frame; hosts below 40 keep the 116-byte frame. A signed Delta legacy table
 (`delta_legacy.c`, `halo_delta_legacy.h`) may extend joins above 41; those hosts
-use the same join padding as 41. The hand table's older mask stays exact:
+use the same join padding as 41 and none of the shared contract, except 43. The hand table's older mask stays exact:
 33 and 37 remain refused. Rows never narrow the built-in join set. Their
 maximum includes at least the announced number plus one (up to 65535),
 logged as "presumed additive" when a join needs that extension.

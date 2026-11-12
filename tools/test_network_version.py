@@ -92,3 +92,12 @@ def test_join_request_padding_follows_the_host_version():
     assert "create_network_game_message_padded(" in client
     assert "halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0" in client
     assert "halo_network_version_has_join_version_field(network_game_host_version()) ? network_game_host_version() : 0" in client
+
+
+def test_row_joined_versions_keep_the_older_codec():
+    """A version past 41 that only a signed row makes joinable is presumed additive over the 41 codec,
+    so the join records its wire contract, not the advertised number, as the host version."""
+    client = read("source/networking/network_client_manager.c")
+    assert "halo_network_version_wire_contract(network_game_client_advertised_versions[game_index].version)" in client
+    assert "network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION" not in client
+    assert "theirs != HALO_NETWORK_VERSION_RIDING && delta_legacy_presumed(theirs)" in client

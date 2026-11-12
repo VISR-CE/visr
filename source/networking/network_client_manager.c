@@ -2157,12 +2157,14 @@ boolean network_game_client_initiate_join_game(
 	client->join_in_progress = TRUE;
 	client->connect_process = 0;
 	client->connection_attempt_time = system_milliseconds();
-	/* port: the host's version, for what it sends and takes */
+	/* port: the contract of the host's version, for what it sends and takes; a
+	version joinable only through a signed row speaks the 41 codec */
 	{
 		long game_index = game - client->available_games;
 
 		network_game_client_host_version = game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES ?
-			network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION;
+			halo_network_version_wire_contract(network_game_client_advertised_versions[game_index].version) :
+			HALO_PORT_NETWORK_VERSION;
 		/* port: Delta starts only after this legacy join supplies a machine index. */
 		delta_peer_game_join(address->address.long_words[0], address->port,
 			game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
@@ -3329,7 +3331,7 @@ boolean network_game_client_advertised_game_compatible(
 		}
 		if (tell)
 			network_event("joining a host of network version %u%s", theirs,
-				delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
+				theirs != HALO_NETWORK_VERSION_RIDING && delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
 		return TRUE;
 	}
 	if (halo_network_version_joinable(ours, theirs))

@@ -83,6 +83,18 @@ static inline int halo_network_version_joinable(unsigned ours, unsigned theirs)
 	return (HALO_NETWORK_JOINABLE_OLDER_MASK >> (theirs - HALO_PORT_NETWORK_OLDEST_JOINABLE)) & 1u;
 }
 
+/* the version whose wire contract this build speaks to a joinable host of
+version `theirs`. 43 is the shared contract. A newer version that only a signed
+row makes joinable is presumed additive over the 41 codec: it keeps 41's join
+padding and none of the shared contract (no version word, no digests, no epoch
+header, no scripted poses, no shared simulation fixes). */
+static inline unsigned halo_network_version_wire_contract(unsigned theirs)
+{
+	if (theirs > HALO_NETWORK_VERSION_NEWEST_JOINABLE && theirs != HALO_NETWORK_VERSION_RIDING)
+		return HALO_NETWORK_VERSION_NEWEST_JOINABLE;
+	return theirs;
+}
+
 /* whether a host of the version sends the aim-assist policy (message 90);
 a client of an older host plays with the mouse's magnetism as set */
 static inline int halo_network_version_has_aim_policy(unsigned version)
