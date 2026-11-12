@@ -24,6 +24,7 @@ what they link into the app's `Licenses` folder (`tools/ios_build.py`).
 | [OpenCE](https://github.com/OpenCommunityEdition/OpenCE) (formerly cybersecurity/halo-ce-universal) | CC0 1.0 | The ports in `port/`, `tools/` and `pgo/`, the high-resolution HUD, menus and titles in `port/assets/` |
 | [NicholasDominici/halo-ce-ios](https://github.com/NicholasDominici/halo-ce-ios) | CC0 1.0 | The iOS port in `port/ios/` and `port/runtime/` |
 | [pfista/halo-og](https://github.com/pfista/halo-og) | CC0 1.0 | Metal renderer fixes |
+| [GulchCE](https://github.com/chestahh/GulchCE) by chester, branch `GET-YOUR-MCC-HERE` | AGPL-3.0, relicensed by its author for his own code | Network version 42/43 shared contract: the version field in the join request, settings digests, checkpoint epochs, scripted poses and shared simulation fixes |
 
 ## Vendored libraries
 
