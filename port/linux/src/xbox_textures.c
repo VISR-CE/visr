@@ -30,6 +30,9 @@ memory_watch.c detects that by write-protecting the pages.
 #include "texture_override_cache.h"
 #include "texture_record.h"
 #include "texture_upscale_state.h"
+#ifdef HALO_IOS
+#include "map_pictures_render.h"
+#endif
 #include "../../runtime/loading_picture_upscaled.h"
 /* render validation's name for a texture this file cannot convert, in a
 build configured with it (gpu_validate.h); nothing otherwise */
@@ -1229,6 +1232,14 @@ void texture_upscale_map_loaded(void)
 	config_default("display.upscaled_textures", profile, sizeof(profile));
 	switch_on = config_reload_boolean("display.upscaled_textures") && !strcmp(profile, "true");
 #ifdef HALO_IOS
+	/* debug.map_pictures_render: a map loaded for its picture is drawn with the original textures, whatever
+	the switch, the cache or an override folder would give it */
+	if (map_pictures_render_active())
+	{
+		switch_on = 0;
+		override = "";
+		compare = "";
+	}
 	/* a level plays upscaled only if every texture its policy upscales is made: never some of each */
 	if (switch_on && !*override && !host_texture_upscale_level_ready())
 		texture_upscale_state_request_original(&texture_upscale);
@@ -1274,6 +1285,10 @@ static void texture_upscale_settings_read(void)
 	menu_picture_refresh = 0;
 	config_default("display.upscaled_textures", profile, sizeof(profile));
 	switch_on = config_boolean("display.upscaled_textures") && !strcmp(profile, "true");
+#ifdef HALO_IOS
+	if (map_pictures_render_active())
+		switch_on = 0;
+#endif
 	if (switch_on == texture_upscale.switch_on)
 		return;
 	if (switch_on && !texture_upscale_state_enabled(&texture_upscale))

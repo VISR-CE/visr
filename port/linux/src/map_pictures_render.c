@@ -52,7 +52,7 @@ int posix_make_directory(const char *path);
 /* a 16:9 frame at 1152 lines is 2048 wide, so the 2:1 picture is the frame's own pixels */
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
-#define RENDERER_VERSION 4
+#define RENDERER_VERSION 5
 #define AUTO_VERSION 1
 #define SETTLE_MILLISECONDS 3000.0
 #define LOAD_TIMEOUT_MILLISECONDS 60000.0
@@ -436,6 +436,11 @@ void map_pictures_render_update(void)
 	case STATE_DONE:
 		return;
 	}
+}
+
+int map_pictures_render_active(void)
+{
+	return render.enabled && render.state >= STATE_LOADING && render.state <= STATE_FRAME_PENDING;
 }
 
 int map_pictures_render_wants_frame(void)

@@ -134,12 +134,15 @@ static void test_staleness(void)
 #define STALE_CHANGE(change) do { wanted.metadata = cached; change; assert(map_pictures_is_stale(&cached, &wanted)); } while (0)
 	STALE_CHANGE(wanted.metadata.framing_revision++);
 	STALE_CHANGE(wanted.metadata.renderer_version++);
-	STALE_CHANGE(wanted.metadata.texture_set = MAP_PICTURES_UPSCALED);
 	STALE_CHANGE(wanted.metadata.map_hash[0] = 'b');
 	STALE_CHANGE(wanted.metadata.map_key[6] = 'x');
 	STALE_CHANGE(wanted.metadata.width++);
 	STALE_CHANGE(wanted.metadata.height++);
 #undef STALE_CHANGE
+	/* the texture set never makes a picture stale */
+	wanted.metadata = cached;
+	wanted.metadata.texture_set = cached.texture_set == MAP_PICTURES_ORIGINAL ? MAP_PICTURES_UPSCALED : MAP_PICTURES_ORIGINAL;
+	assert(!map_pictures_is_stale(&cached, &wanted));
 	wanted.metadata = cached;
 	wanted.settle_ticks = 30; wanted.erase_ai = 1;
 	assert(!map_pictures_is_stale(&cached, &wanted));

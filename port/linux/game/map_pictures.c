@@ -178,9 +178,11 @@ int map_pictures_is_stale(const struct map_pictures_metadata *cached, const stru
 	const struct map_pictures_metadata *m;
 	if (!wanted || !metadata_valid(cached) || !metadata_valid(&wanted->metadata)) return 1;
 	m = &wanted->metadata;
+	/* (texture_set is recorded but never compared: pictures are always rendered with the original textures,
+	so a finished upscaled set must not send a map back to be rendered) */
 	return strcmp(cached->map_key, m->map_key) || strcmp(cached->map_hash, m->map_hash) ||
 		cached->framing_revision != m->framing_revision || cached->renderer_version != m->renderer_version ||
-		cached->texture_set != m->texture_set || cached->width != m->width || cached->height != m->height ||
+		cached->width != m->width || cached->height != m->height ||
 		cached->framing != m->framing || cached->auto_version != m->auto_version ||
 		(cached->pre_game && (wanted->settle_ticks || wanted->erase_ai));
 }

@@ -8,6 +8,9 @@
 framed by photo mode's scripted capture and its picture written to the cache (map_pictures_render.c).
 Called once a main-loop pass on the game thread. */
 void map_pictures_render_update(void);
+/* 1 while a map is loaded for its picture (loading to the readback): the level is drawn with the original
+textures, never upscaled ones, so a picture never waits on the upscaler or changes with it (xbox_textures.c) */
+int map_pictures_render_active(void);
 /* 1 when the next presented frame is the picture (d3d8_device.c reads it then) */
 int map_pictures_render_wants_frame(void);
 /* the presented frame's BGRA pixels, rows from the top */
