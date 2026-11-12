@@ -48,6 +48,9 @@ const char *custom_edition_cache_loaded_path(void);
 #include "posix.h"
 #include "zlib_prefixed.h"
 #include "png_write.h"
+#ifdef HALO_IOS
+#include "map_pictures_render.h"
+#endif
 
 #include <math.h>
 #include <stddef.h>
@@ -8431,6 +8434,27 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		}
 
 		struct render_target_entry *companion = companion_reissue();
+
+#ifdef HALO_IOS
+		/* debug.map_pictures_render: the map picture is this frame (the scene as drawn, before a native stretch) */
+		if (map_pictures_render_wants_frame())
+		{
+			struct render_target_entry *picture = back_buffer;
+			unsigned char *pixels;
+			uint32_t picture_size;
+
+			if (back_buffer->layer == HALO_STEREO_LAYER_NATIVE && back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO))
+				picture = back_buffer_drawn_this_frame(HALO_STEREO_LAYER_MONO);
+			picture_size = (uint32_t)(picture->target.gl_width * picture->target.gl_height * 4);
+			pixels = picture_size ? malloc(picture_size) : NULL;
+			if (pixels && target_read(picture, pixels, picture_size))
+				map_pictures_render_frame(pixels, (uint32_t)picture->target.gl_width,
+					(uint32_t)picture->target.gl_height, (size_t)picture->target.gl_width * 4);
+			else
+				map_pictures_render_frame(NULL, 0, 0, 0);
+			free(pixels);
+		}
+#endif
 
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,

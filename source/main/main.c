@@ -3875,6 +3875,9 @@ void main_loop(
 			/* port: debug.crash_test (port/runtime/guest/runtime/guest_crash_test.c) */
 			extern void guest_crash_test_update(void);
 			guest_crash_test_update();
+			/* port: debug.map_pictures_render (port/linux/src/map_pictures_render.c) */
+			extern void map_pictures_render_update(void);
+			map_pictures_render_update();
 		}
 #endif
 		profile_scope_enter(main_platform_events_section)
