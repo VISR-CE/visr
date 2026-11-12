@@ -403,3 +403,36 @@ int main(void) {
     compile_run(tmp_path, program.replace("LIMITS_HEADER", str(ROOT / "port/linux/include/halo_port_limits.h")).replace(
         "CONTENT_HEADER", str(ROOT / "port/linux/include/halo_network_content.h")).replace(
         "VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")))
+
+
+def test_hosted_version_is_this_builds_own_unless_43_is_configured(tmp_path):
+    """A VISR host speaks 38 unless `network.host_version` is exactly 43; no other value, including a
+    joinable 39-41, changes what it hosts. Creating a server applies it and disposing it resets to 38."""
+    text = (ROOT / "source/networking/network_server_manager.c").read_text()
+    configured = definition_text(text[text.index("static unsigned int network_game_server_configured_version("):])
+    program = r'''
+#include <assert.h>
+#include "LIMITS_HEADER"
+#include "VERSION_HEADER"
+static long configured;
+static long config_integer(char const *name) { (void)name; return configured; }
+''' + configured + r'''
+int main(void) {
+    long values[] = { 0, -1, 29, 38, 39, 40, 41, 42, 44, 300, 43 + 256 };
+    for (unsigned i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        configured = values[i];
+        assert(network_game_server_configured_version() == HALO_PORT_NETWORK_VERSION);
+    }
+    configured = 43;
+    assert(network_game_server_configured_version() == HALO_NETWORK_VERSION_RIDING);
+    return 0;
+}
+'''
+    compile_run(tmp_path, program.replace("LIMITS_HEADER", str(ROOT / "port/linux/include/halo_port_limits.h")).replace(
+        "VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")))
+    create = definition_text(text[text.index("struct network_game_server *network_game_server_create("):])
+    assert "network_game_set_host_version(network_game_server_configured_version());" in create
+    assert "delta_legacy_set_hosted_version(network_game_server_configured_version());" in create
+    dispose = definition_text(text[text.index("void network_game_server_dispose("):])
+    assert "network_game_set_host_version(HALO_PORT_NETWORK_VERSION);" in dispose
+    assert "delta_legacy_set_hosted_version(0);" in dispose
