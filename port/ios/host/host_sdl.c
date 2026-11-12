@@ -18,6 +18,7 @@ so the audio callback is handed to a thread that has one.
 #include "host.h"
 #include "host_config.h"
 #include "host_cloud_saves.h"
+#include "host_app_version.h"
 #include "host_frame_pacer.h"
 
 #include <SDL3/SDL.h>
@@ -1333,5 +1334,16 @@ void host_sdl_cloud_saves_status(char *buffer, unsigned int size)
 {
     if (!size) return;
     strncpy(buffer, host_cloud_saves_status(), size - 1);
+    buffer[size - 1] = 0;
+}
+
+void host_sdl_app_version(char *buffer, unsigned int size)
+{
+    CFTypeRef version = host_app_version_string(CFBundleGetMainBundle());
+
+    if (!size) return;
+    buffer[0] = 0;
+    if (version && CFGetTypeID(version) == CFStringGetTypeID())
+        CFStringGetCString((CFStringRef)version, buffer, (CFIndex)size, kCFStringEncodingUTF8);
     buffer[size - 1] = 0;
 }
