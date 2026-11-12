@@ -61,6 +61,9 @@ static struct hud_scripted_globals_definition saved_hud;
 static int saved_input, saved_scripted, saved_bsp, saved_dont_timeout, saved_deathless = -1, report_settle;
 static float saved_speed, fov;
 static struct photo_shot metadata;
+/* Scripted capture (map_pictures_render.c): entered without a key or debug.photo_mode, no
+fly input, no overlay. capture_failed is set when entry was refused. */
+static int scripted, capture_failed, capture_framed, capture_revision, last_from_fragment, last_revision;
 
 int photo_mode_active(void) { return active; }
 
@@ -102,6 +105,7 @@ void photo_mode_end(void)
 	pending = 0;
 	roll_left = roll_right = 0;
 	roll = 0;
+	scripted = 0;
 	if (!active) return;
 	active = 0;
 	global_connection_dont_timeout = saved_dont_timeout;
@@ -380,49 +384,53 @@ static void camera_shot(struct flying_camera *camera, struct photo_shot *shot)
 	shot->bsp = global_structure_bsp_index_get();
 }
 
-static void file_action(int action, struct flying_camera *camera)
+static int file_action(int action, struct flying_camera *camera)
 {
 	char key[256], folder[768], path[1024], camera_path[1024];
 	struct photo_shot shot;
-	int revision;
-	if (!map_key(key,sizeof(key))) return;
+	int revision = 0;
+	last_from_fragment = 0; last_revision = 0;
+	if (!map_key(key,sizeof(key))) return 0;
 	char host_path[1024], host_camera_path[1024];
 	/* the game's CRT maps d:\ to platform_data_root(); a host path here would be prefixed with that root again */
 	if (snprintf(folder,sizeof(folder),"d:\\framings") >= (int)sizeof(folder) ||
 		snprintf(path,sizeof(path),"%s\\%s.json",folder,key) >= (int)sizeof(path) ||
-		snprintf(camera_path,sizeof(camera_path),"d:\\camera.txt") >= (int)sizeof(camera_path)) return;
+		snprintf(camera_path,sizeof(camera_path),"d:\\camera.txt") >= (int)sizeof(camera_path)) return 0;
 	platform_translate_path(path,host_path,sizeof(host_path));
 	platform_translate_path(camera_path,host_camera_path,sizeof(host_camera_path));
 	camera_shot(camera,&shot);
 	if (action == PHOTO_SAVE)
 	{
-		if (!inside_bsp(&shot)) { error(_error_silent, "photo mode: camera is outside the current BSP bounds; save refused"); return; }
+		if (!inside_bsp(&shot)) { error(_error_silent, "photo mode: camera is outside the current BSP bounds; save refused"); return 0; }
 		scene_record(&shot);
 		_mkdir(folder);
-		if (!photo_fragment_write(path,key,&shot)) { error(_error_silent, "photo mode: fragment save failed: %s", host_path); return; }
+		if (!photo_fragment_write(path,key,&shot)) { error(_error_silent, "photo mode: fragment save failed: %s", host_path); return 0; }
 		director_save_camera();
 		FILE *written = fopen(camera_path,"r");
 		error(_error_silent, "photo mode: saved framing %s; camera.txt %s %s", host_path, written ? "written" : "MISSING", host_camera_path);
 		if (written) fclose(written);
+		return 1;
 	}
 	else
 	{
 		FILE *file = fopen(path,"r");
 		int exists = file != NULL;
 		if (file) fclose(file);
+		/* A scripted capture uses only the map's own framing, never the last camera.txt. */
+		if (!exists && scripted) return 0;
 		int previous_bsp = global_structure_bsp_index_get();
 		shot.has_mp=0; shot.moved_vehicle_count=0;
 		if (!(exists ? photo_fragment_read(path,key,&shot,&revision) : photo_camera_read(camera_path,&shot)) ||
 			shot.bsp >= global_scenario->structure_bsp_references.count || shot.bsp > 32767)
 		{
-			error(_error_silent, "photo mode: invalid framing or BSP index; load refused (%s)", exists ? host_path : host_camera_path); return;
+			error(_error_silent, "photo mode: invalid framing or BSP index; load refused (%s)", exists ? host_path : host_camera_path); return 0;
 		}
 		if (shot.bsp != previous_bsp && !scenario_switch_structure_bsp((short)shot.bsp))
-		{ error(_error_silent, "photo mode: BSP switch failed; load refused"); return; }
+		{ error(_error_silent, "photo mode: BSP switch failed; load refused"); return 0; }
 		if (!inside_bsp(&shot))
 		{
 			if (previous_bsp != global_structure_bsp_index_get()) scenario_switch_structure_bsp((short)previous_bsp);
-			error(_error_silent, "photo mode: position outside BSP bounds; load refused"); return;
+			error(_error_silent, "photo mode: position outside BSP bounds; load refused"); return 0;
 		}
 		if (previous_bsp != shot.bsp)
 		{
@@ -439,6 +447,8 @@ static void file_action(int action, struct flying_camera *camera)
 		/* AI was already erased on entry; retain an honest recipe on the next save. */
 		metadata.erase_ai = 1;
 		error(_error_silent, "photo mode: loaded first shot (roll %.2f degrees)", roll * 180.f / 3.14159265f);
+		last_from_fragment = exists; last_revision = exists ? revision : 0;
+		return 1;
 	}
 }
 
@@ -518,22 +528,109 @@ static void teleport_player(const struct flying_camera *camera)
 		original, target, point.x, point.y, point.z, forward.i, forward.j, target != original ? "; settling, then frozen" : "");
 }
 
+/* A camera for a map without a saved framing: above the centroid of the player starts in the
+current BSP, looking toward the farthest of them, or along the first start's facing when they
+sit close together (campaign). Pure fallback; a saved framing always wins. */
+static int auto_camera(struct flying_camera *camera)
+{
+	struct scenario *scenario = global_scenario_try_and_get();
+	int bsp = global_structure_bsp_index_get(), i, count = 0, any_in_bsp = 0, far_index = -1;
+	float center[3] = {0, 0, 0}, far_distance = 0, forward[3];
+	struct photo_shot shot;
+	struct player_starting_location *first = NULL;
+	if (!scenario || scenario->players.count <= 0) return 0;
+	for (i = 0; i < scenario->players.count; i++)
+		if (TAG_BLOCK_GET_ELEMENT(&scenario->players, i, struct player_starting_location)->structure_bsp_reference_index == bsp) any_in_bsp = 1;
+	for (i = 0; i < scenario->players.count && i < 256; i++)
+	{
+		struct player_starting_location *start = TAG_BLOCK_GET_ELEMENT(&scenario->players, i, struct player_starting_location);
+		if (any_in_bsp && start->structure_bsp_reference_index != bsp) continue;
+		if (!__builtin_isfinite(start->position.x) || !__builtin_isfinite(start->position.y) || !__builtin_isfinite(start->position.z)) continue;
+		if (!first) first = start;
+		center[0] += start->position.x; center[1] += start->position.y; center[2] += start->position.z;
+		count++;
+	}
+	if (!count || !first) return 0;
+	for (i = 0; i < 3; i++) center[i] /= (float)count;
+	for (i = 0; i < scenario->players.count && i < 256; i++)
+	{
+		struct player_starting_location *start = TAG_BLOCK_GET_ELEMENT(&scenario->players, i, struct player_starting_location);
+		float dx, dy, d;
+		if (any_in_bsp && start->structure_bsp_reference_index != bsp) continue;
+		if (!__builtin_isfinite(start->position.x) || !__builtin_isfinite(start->position.y)) continue;
+		dx = start->position.x - center[0]; dy = start->position.y - center[1]; d = dx * dx + dy * dy;
+		if (d > far_distance) { far_distance = d; far_index = i; }
+	}
+	memset(&shot, 0, sizeof(shot));
+	shot.bsp = bsp;
+	if (count > 1 && far_index >= 0 && far_distance >= 16.f)
+	{
+		struct player_starting_location *far = TAG_BLOCK_GET_ELEMENT(&scenario->players, far_index, struct player_starting_location);
+		shot.position[0] = center[0]; shot.position[1] = center[1]; shot.position[2] = center[2] + 3.f;
+		forward[0] = far->position.x - center[0]; forward[1] = far->position.y - center[1]; forward[2] = far->position.z - shot.position[2];
+	}
+	else
+	{
+		/* Campaign: one start, or starts in a cluster. Stand behind and above the first. */
+		float c = cosf(first->facing), si = sinf(first->facing);
+		shot.position[0] = first->position.x - 2.f * c; shot.position[1] = first->position.y - 2.f * si; shot.position[2] = first->position.z + 1.5f;
+		forward[0] = c; forward[1] = si; forward[2] = -0.15f;
+	}
+	if (!inside_bsp(&shot))
+	{
+		/* Fall back to the first start's own eye. */
+		float c = cosf(first->facing), si = sinf(first->facing);
+		shot.position[0] = first->position.x; shot.position[1] = first->position.y; shot.position[2] = first->position.z + 0.62f;
+		forward[0] = c; forward[1] = si; forward[2] = -0.05f;
+		if (!inside_bsp(&shot)) return 0;
+	}
+	{
+		real_vector3d v;
+		float length = sqrtf(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
+		if (!(length > 0)) return 0;
+		v.i = forward[0] / length; v.j = forward[1] / length; v.k = forward[2] / length;
+		memcpy(&camera->position, shot.position, sizeof(shot.position));
+		euler_angles2d_from_vector3d(&camera->facing, &v);
+	}
+	camera->roll = roll = 0;
+	camera->field_of_view = fov = 1.2217305f; /* 70 degrees */
+	error(_error_silent, "photo capture: automatic camera at (%.2f,%.2f,%.2f) from %d starts in BSP %d", shot.position[0], shot.position[1], shot.position[2], count, bsp);
+	return 1;
+}
+
+void photo_mode_capture_begin(void)
+{
+	photo_mode_end();
+	scripted = 1; capture_failed = 0; capture_framed = 0; capture_revision = 0;
+	pending = PHOTO_TOGGLE;
+}
+
+int photo_mode_capture_state(int *framed, int *revision)
+{
+	if (capture_failed) return -1;
+	if (!scripted || !active || pending || game_time_get() < settle_until || game_time_get_speed() != 0) return 0;
+	if (framed) *framed = capture_framed;
+	if (revision) *revision = capture_revision;
+	return 1;
+}
+
 void photo_mode_update(struct director *director, boolean *controls_active, float seconds, float facing[3], float translation[3])
 {
 	struct flying_camera *camera = (struct flying_camera *)director->camera_data;
 	int action = pending;
 	pending = 0;
 	if (!active && !action) return;
-	if (!host_photo_mode_available() || !config_boolean("debug.photo_mode"))
+	if (!host_photo_mode_available() || (!scripted && !config_boolean("debug.photo_mode")))
 	{
 		photo_mode_end();
 		return;
 	}
+	if (scripted && action && action != PHOTO_TOGGLE) action = 0; /* keys do nothing during a capture */
 	if (action == PHOTO_TOGGLE)
 	{
 		if (active) { photo_mode_end(); return; }
 		if (!game_map_loaded() || !global_scenario || global_scenario->type == _scenario_type_main_menu || (game_connection() != _game_connection_local && game_connection() != _game_connection_network_server))
-		{ error(_error_silent, "photo mode: host a map first"); return; }
+		{ error(_error_silent, "photo mode: host a map first"); if (scripted) capture_failed = 1; return; }
 		{
 			const struct observer_result *view = observer_get_camera(0);
 			saved_director = *director; current_director = director;
@@ -562,6 +659,11 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 		game_time_set_speed(1);
 		settle_until = game_time_get() + metadata.settle_ticks;
 		error(_error_silent, "photo mode: entered; AI erased; reload the map to play");
+		if (scripted)
+		{
+			if (file_action(PHOTO_LOAD,camera) && last_from_fragment) { capture_framed = 1; capture_revision = last_revision; }
+			else if (!auto_camera(camera)) { error(_error_silent, "photo capture: no framing and no usable player start"); capture_failed = 1; }
+		}
 		if (global_scenario->type == _scenario_type_multiplayer)
 		{
 			const struct game_variant_options *o = game_variant_options_get();
@@ -599,6 +701,14 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	roll = photo_roll_step(roll,(roll_right ? 1 : 0) - (roll_left ? 1 : 0),seconds,speed_step);
 	/* fly() zeroes the game's own roll delta; photo mode owns the roll. */
 	camera->field_of_view = fov; camera->roll = roll;
+	if (scripted)
+	{
+		/* Hold the camera still: no stick, keyboard or mouse input reaches it. */
+		facing[0] = facing[1] = facing[2] = 0;
+		translation[0] = translation[1] = translation[2] = 0;
+		*controls_active = TRUE;
+		return;
+	}
 	fly(controls_active,seconds,facing,translation,camera);
 	if (action == PHOTO_SAVE || action == PHOTO_LOAD) file_action(action,camera);
 	if (action == PHOTO_TELEPORT) teleport_player(camera);
