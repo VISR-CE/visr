@@ -16,13 +16,14 @@ typedef struct {short x,y;} point2d;
 enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_ui_mouse_target_button};
 enum {_ui_widget_type_text_box, _ui_widget_type_spinner_list, _widget_event_dpad_up=8, _widget_event_dpad_down};
 enum {_gamepad_analog_button_a,_gamepad_analog_button_b,_gamepad_analog_button_x,_gamepad_analog_button_y};
-struct ui_widget_definition {rectangle2d bounds;struct {long index;} text_font;};
+struct string_list_ref {long index;};
+struct ui_widget_definition {rectangle2d bounds,list_header_bounds,list_footer_bounds;struct string_list_ref text_label_string_list;struct {long index;} text_font;};
 struct widget_instance {
  struct widget_instance *parent,*child,*next;
  short type,definition_tag_index,disabled,visible,horizontal_offset,vertical_offset,local_player_index,button;
  const char *name;
 };
-struct ui_mouse_target {struct widget_instance *widget;rectangle2d bounds;short kind,button_index;};
+struct ui_mouse_target {struct widget_instance *widget;rectangle2d bounds;short kind,button_index,back_arrow_end,forward_arrow_start;rectangle2d value_bounds;};
 static struct ui_mouse_target ui_mouse_targets[96];
 static long ui_mouse_target_count;
 static int ui_mouse_noting_targets=1,hidden;
@@ -37,6 +38,14 @@ static boolean widget_instance_can_receive_events(struct widget_instance *w) {(v
 static boolean ui_mouse_widget_is_item(struct widget_instance *w) {(void)w;return 0;}
 static void ui_mouse_note_carousel_arrows(struct widget_instance *w,point2d p) {(void)w;(void)p;}
 static long ui_redraw_touch_target_units(void) {return 0;}
+#define SPINNER_EXTRA_WIDTH 0
+#define HALO_MENU_SLIDER_WIDTH 0
+enum {HALO_ROW_NONE,HALO_ROW_TOGGLE,HALO_ROW_RANGE};
+struct halo_menu_row {int kind;};
+static struct halo_menu_row ui_widget_row_control(struct widget_instance *w) {(void)w;struct halo_menu_row r={HALO_ROW_NONE};return r;}
+static int ui_widget_row_has_dropdown(struct widget_instance *w) {(void)w;return 0;}
+static int halo_menu_pointer_controls(void) {return 0;}
+static int spinner_string_list_extra_count(long index) {(void)index;return 0;}
 static int __attribute__((unused)) controller_glyph_hidden(short owner,short button) {
  assert(owner==0 && button>=0 && button<6);return hidden;
 }
