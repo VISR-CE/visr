@@ -17,6 +17,7 @@
 #include "tag_files/tag_groups.h"
 #include "networking/network_connection.h"
 #include "interface/hud.h"
+#include "interface/hud_messaging.h"
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
 #include "structures/structure_bsp_definitions.h"
@@ -621,7 +622,8 @@ static int view_camera(struct flying_camera *camera)
 
 /* A scripted capture starts right after the map loads, while the level's
    startup scripts still run during the settle ticks: they can fade the screen,
-   shake the camera or switch the BSP away from the framing's. Undo all three
+   shake the camera, switch the BSP away from the framing's or leave subtitles
+   and HUD text up. Undo all of it
    on every update so the framing's camera is what gets rendered. */
 static void clear_level_start_effects(void)
 {
@@ -638,6 +640,25 @@ static void clear_level_start_effects(void)
 		if (!(capture_cleared & 2)) error(_error_silent, "photo capture: ended a scripted camera effect");
 		capture_cleared |= 2;
 		player_effect_port_scripted_end();
+	}
+	/* Cutscene subtitles and chapter titles age only in cinematic_render,
+	   which the undrawn fast-forward skips, so they never expire on their own. */
+	if (cinematic_globals)
+	{
+		boolean titles = FALSE; int i;
+		for (i = 0; i < 4; i++)
+		{
+			if (cinematic_globals->queued_titles[i].title_index != NONE) titles = TRUE;
+			cinematic_globals->queued_titles[i].title_index = NONE;
+			cinematic_globals->queued_titles[i].time = NONE;
+		}
+		if (titles && !(capture_cleared & 4)) error(_error_silent, "photo capture: cleared cinematic titles (subtitles)");
+		if (titles) capture_cleared |= 4;
+	}
+	if (hud_messaging_port_clear_text())
+	{
+		if (!(capture_cleared & 8)) error(_error_silent, "photo capture: cleared HUD messages and objective text");
+		capture_cleared |= 8;
 	}
 	if (capture_bsp >= 0 && capture_bsp != global_structure_bsp_index_get())
 	{

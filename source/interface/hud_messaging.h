@@ -118,6 +118,9 @@ long hud_get_font_index(
 	void);
 union real_argb_color *hud_get_text_color(
 	union real_argb_color *result);
+/* port: photo mode's scripted capture clears all HUD text */
+boolean hud_messaging_port_clear_text(
+	void);
 
 /* ---------- globals */
 

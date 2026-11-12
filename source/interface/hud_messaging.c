@@ -1217,6 +1217,42 @@ wchar_t *hud_messaging_get_objective(
 	return result;
 }
 
+/* port: drop every HUD message, state message, help line, objective and
+   timer without telling co-op peers, for photo mode's scripted capture.
+   Returns TRUE when anything was showing. */
+boolean hud_messaging_port_clear_text(
+	void)
+{
+	boolean cleared = FALSE;
+	long datum_index;
+
+	if (!hud_messaging_globals)
+		return FALSE;
+	for (datum_index = 0; datum_index < NUMBER_OF_HUD_MESSAGING_DATUMS; datum_index++)
+	{
+		struct hud_messaging_datum_definition *datum =
+			&hud_messaging_globals->message_data[datum_index];
+		long message_index;
+
+		for (message_index = 0; message_index < NUMBER_OF_HUD_MESSAGES_PER_DATUM; message_index++)
+		{
+			cleared |= datum->messages[message_index].valid;
+			datum->messages[message_index].valid = FALSE;
+		}
+		cleared |= datum->state_message.valid || datum->custom_message;
+		datum->state_message.valid = FALSE;
+		datum->custom_message = FALSE;
+	}
+	cleared |= hud_messaging_globals->help_message != NULL ||
+		(hud_messaging_globals->objective.message != NULL && hud_messaging_globals->objective.uptime) ||
+		hud_messaging_globals->timer.enabled;
+	hud_messaging_globals->help_message = NULL;
+	hud_messaging_globals->objective.message = NULL;
+	hud_messaging_globals->objective.uptime = 0;
+	hud_messaging_globals->timer.enabled = FALSE;
+	return cleared;
+}
+
 void scripted_hud_messages_clear(
 	void)
 {
