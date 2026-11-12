@@ -202,6 +202,20 @@ serial. The existing HTTP worker fetches both signed copies from
 thirty minutes after failure. An empty list URL suppresses both requests.
 TABLE/TABLE_HAVE relay, layout application, platform policy application and
 capability enforcement are not implemented by this table module.
+
+Version 43 uses the shared contract of version 42, which no release used.
+The join request ends with the client's two-byte network version, a
+352-byte frame. The settings record carries two 32-byte map digests; a
+client accepts only zero digests (Xbox maps) and refuses others as
+Master Chief Collection maps. The distributed header grows to 12 bytes
+with a checkpoint epoch, message 96 carries checkpoints, and messages
+97-100 and 103-106 are discarded. Scripted player poses and the suspended
+bit are applied, and network games on 42 or later apply the shared
+simulation fixes; local games and replays keep the original simulation.
+Clients join 43 hosts; 42 joins only through a signed row.
+`network.host_version` (38 or 43, default 38) picks the version a game
+hosted here plays. Vehicle riding (43) is not supported; how a host
+announces it is not yet confirmed by capture.
 Servers requiring a Discord link or rejecting a VPN connection show a
 specific refusal message; VISR does not support Discord join passes. The
 client-build message (92) is discarded as an unknown distributed kind.

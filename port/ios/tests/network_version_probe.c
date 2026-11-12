@@ -16,11 +16,12 @@ int main(void)
 
 		assert(halo_network_version_joinable(32, version) == expected);
 	}
-	/* a build of 38 joins hosts of 29 to 32, 34 to 36, 38 to 41, and no others
-	   (no host of 33 or 37 was released to join) */
+	/* a build of 38 joins hosts of 29 to 32, 34 to 36, 38 to 41 and 43, and no others
+	   (no host of 33, 37 or 42 was released to join) */
 	for (version = 0; version < 0x10000; version++)
 		assert(halo_network_version_joinable(38, version) ==
-			((version >= 29 && version <= 32) || (version >= 34 && version <= 36) || (version >= 38 && version <= 41)));
+			((version >= 29 && version <= 32) || (version >= 34 && version <= 36) || (version >= 38 && version <= 41) ||
+				version == 43));
 	/* Other clients still refuse newer hosts. */
 	for (unsigned ours = 0; ours <= 41; ours++)
 		for (version = ours + 1; version <= 42; version++)
