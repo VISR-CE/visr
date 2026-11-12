@@ -33,6 +33,12 @@ void benchmark_scenario_load(const char *map, const char *difficulty);
 unsigned char benchmark_scenario_at_menu(void);
 /* source/interface/ui_widget.c */
 unsigned char filesystem_check_thread_is_active(void);
+/* source/bink/bink_playback.c: a movie (the launch intro) holds the texture
+cache's stolen memory until it stops, and a map load's precache takes that
+memory too, so loading while one plays halts in xbox_texture_cache.c */
+unsigned char bink_playback_in_progress(void);
+/* source/cache/cache_files_windows.c: a map copy into the cache also holds it */
+unsigned char cache_files_precache_in_progress(void);
 /* d3d8_device.c: render lines, shadow size and anisotropy in place of the settings; 0 for the settings' own */
 void halo_benchmark_overrides(long render_lines, long shadow_size, long anisotropy);
 /* xbox_kernel.c: milliseconds of real time */
@@ -292,7 +298,8 @@ void map_pictures_render_update(void)
 		render.state = STATE_WAIT_MENU;
 		return;
 	case STATE_WAIT_MENU:
-		if (benchmark_scenario_at_menu() && !filesystem_check_thread_is_active())
+		if (benchmark_scenario_at_menu() && !filesystem_check_thread_is_active() &&
+			!bink_playback_in_progress() && !cache_files_precache_in_progress())
 			next_map();
 		return;
 	case STATE_LOADING:
