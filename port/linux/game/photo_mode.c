@@ -13,6 +13,7 @@
 #include "game/cheats.h"
 #include "units/units.h"
 #include "objects/object_types.h"
+#include "objects/objects.h"
 #include "tag_files/tag_files.h"
 #include "tag_files/tag_groups.h"
 #include "networking/network_connection.h"
@@ -67,8 +68,8 @@ static struct photo_shot metadata;
 /* Scripted capture (map_pictures_render.c): entered without a key or debug.photo_mode, no
 fly input, no overlay. capture_failed is set when entry was refused. */
 static int scripted, capture_failed, capture_framed, capture_revision, last_from_fragment, last_revision;
-/* A scripted capture carries player 0 to the camera, as T does while framing, once the entry settle ends. */
-static int capture_teleport;
+/* A scripted capture hides the local players' units and what they carry once the entry settle ends. */
+static int capture_hide;
 
 int photo_mode_active(void) { return active; }
 
@@ -482,6 +483,31 @@ static void fly(boolean *controls_active, float seconds, float facing[3], float 
 	}
 }
 
+/* Hides an object's attachments (held weapons and the like), then the object. */
+static void hide_object_children(long object_index)
+{
+	while (object_index != NONE)
+	{
+		struct object_datum *object = object_get(object_index);
+		hide_object_children(object->object.first_child_object_index);
+		object_set_visibility(object_index, FALSE);
+		object_index = object->object.next_object_index;
+	}
+}
+
+static void hide_local_players(void)
+{
+	short local;
+	for (local = 0; local < MAXIMUM_LOCAL_PLAYERS; local++)
+	{
+		long player_index = local_player_get_player_index(local);
+		struct player_datum *player = player_index == NONE ? NULL : player_try_and_get(player_index);
+		if (!player || player->unit_index == NONE || !object_try_and_get_and_verify_type(player->unit_index, _object_mask_unit)) continue;
+		hide_object_children(object_get(player->unit_index)->object.first_child_object_index);
+		object_set_visibility(player->unit_index, FALSE);
+	}
+}
+
 /* T: carry player 0 to the camera so the level's later structure BSPs load around him. The game
 holds one structure BSP at a time, so each other BSP is loaded in turn and asked, with the
 game's own leaf lookup, whether it holds the point; the current one is asked first. */
@@ -672,14 +698,14 @@ static void clear_level_start_effects(void)
 void photo_mode_capture_begin(void)
 {
 	photo_mode_end();
-	scripted = 1; capture_failed = 0; capture_framed = 0; capture_revision = 0; capture_teleport = 0;
+	scripted = 1; capture_failed = 0; capture_framed = 0; capture_revision = 0; capture_hide = 0;
 	pending = PHOTO_TOGGLE;
 }
 
 int photo_mode_capture_state(int *framed, int *revision)
 {
 	if (capture_failed) return -1;
-	if (!scripted || !active || pending || capture_teleport || game_time_get() < settle_until || game_time_get_speed() != 0) return 0;
+	if (!scripted || !active || pending || capture_hide || game_time_get() < settle_until || game_time_get_speed() != 0) return 0;
 	if (framed) *framed = capture_framed;
 	if (revision) *revision = capture_revision;
 	return 1;
@@ -735,7 +761,7 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 			if (file_action(PHOTO_LOAD,camera) && last_from_fragment) { capture_framed = 1; capture_revision = last_revision; }
 			else if (!auto_camera(camera) && !view_camera(camera)) { error(_error_silent, "photo capture: no framing, no usable player start and no player view"); capture_failed = 1; }
 			capture_bsp = global_structure_bsp_index_get(); capture_cleared = 0;
-			capture_teleport = !capture_failed;
+			capture_hide = !capture_failed;
 		}
 		if (global_scenario->type == _scenario_type_multiplayer)
 		{
@@ -775,15 +801,14 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	roll = photo_roll_step(roll,(roll_right ? 1 : 0) - (roll_left ? 1 : 0),seconds,speed_step);
 	/* fly() zeroes the game's own roll delta; photo mode owns the roll. */
 	camera->field_of_view = fov; camera->roll = roll;
-	if (scripted && capture_teleport && game_time_get() >= settle_until)
+	if (scripted && !capture_failed && game_time_get() >= settle_until && game_time_get_speed() == 0)
 	{
-		/* The framing does not record where the player stood. When it was framed he stood at
-		the camera (T), out of view; at capture he would stand at his start, often in frame.
-		Moving him after the settle matches T pressed on a frozen game: he hangs at the camera
-		instead of falling into view. A move into another BSP settles again before the capture. */
-		capture_teleport = 0;
-		teleport_player(camera);
-		capture_bsp = global_structure_bsp_index_get();
+		/* The framing does not record where the player stood, so at capture he stands at his
+		start, often in frame. Every frame of the frozen capture, each local player's unit and
+		everything attached to it is hidden, the way the game hides a dead player's body. The
+		map is unloaded after the capture, so nothing is shown again. */
+		hide_local_players();
+		capture_hide = 0;
 	}
 	if (scripted)
 	{
