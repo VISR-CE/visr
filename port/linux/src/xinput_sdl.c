@@ -1405,8 +1405,8 @@ void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer co
 	}
 	/* SDL already orders mouse events. This hook supplies UIKit finger and
 	Vision Pro gaze/pinch activity, which do not necessarily emit SDL events. */
-	if (pointer->radius > 0.0f)
-		glyph_menu_input = halo_glyph_input_note(glyph_menu_input, HALO_GLYPH_INPUT_TOUCH, 0, 1);
+	glyph_menu_input = halo_glyph_input_note(glyph_menu_input, pointer->radius > 0.0f ?
+		HALO_GLYPH_INPUT_TOUCH : HALO_GLYPH_INPUT_KEYBOARD, 0, 1);
 	glyph_mouse_active = pointer->radius <= 0.0f;
 #else
 	(void)menus; (void)pointer;

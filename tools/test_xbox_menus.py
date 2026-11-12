@@ -1209,7 +1209,11 @@ def test_hires_rows_are_absent_and_remaining_rows_keep_their_layout_and_strings(
     assert helps == [''] + [row[3].replace('\n', r'\n') for row in rows]
     options = widgets[f'{base}/options_menu']
     children = [c for c in options.findall('child') if c.get('widget').startswith(f'{base}/op_')]
-    assert len(children) == len(rows)
+    import xbox_menus
+    dropped = 0
+    if look == 'xbox':
+        dropped = sum(1 for n in xbox_menus.XBOX_DROPPED_ROWS.get(page, ()) if n.startswith('op_'))
+    assert len(children) == len(rows) - dropped
     slots = sorted({int(c.get('y')) for c in children})
     pitch = int(options.get('row_pitch'))
     assert slots == list(range(int(options.get('row_top')), slots[-1] + 1, pitch))
@@ -1218,6 +1222,8 @@ def test_hires_rows_are_absent_and_remaining_rows_keep_their_layout_and_strings(
     assert int(widgets[f'{base}/help'].get('top')) + int(widgets[f'{base}/help'].get('height')) <= 414
     for index, (_, setting, *_rest) in enumerate(rows):
         key = setting.split('.', 1)[1]
+        if look == 'xbox' and f'{key}_label' in xbox_menus.XBOX_DROPPED_ROWS.get(page, ()):
+            continue
         assert widgets[f'{base}/{key}_label'].get('string_index') == str(index)
 
 

@@ -1,47 +1,14 @@
 [
   {
     "file": "main_menu.multiplayer_type_select.coop_options.xml",
-    "name": "friendly_fire_spinner",
-    "strings": [
-      "OFF",
-      "ON",
-      "SHIELD ONLY",
-      "EXPLOSIVES ONLY"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(4)"
-  },
-  {
-    "file": "main_menu.multiplayer_type_select.coop_options.xml",
     "name": "extra_enemies_spinner",
     "strings": [
       "NONE",
-      "PER PLAYER",
-      "STATIC MULTIPLIER"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(3)"
-  },
-  {
-    "file": "main_menu.multiplayer_type_select.coop_options.xml",
-    "name": "enemies_per_player_spinner",
-    "strings": [
-      "25%",
-      "50%",
-      "100%",
-      "150%",
-      "200%"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(5)"
-  },
-  {
-    "file": "main_menu.multiplayer_type_select.coop_options.xml",
-    "name": "enemies_multiplier_spinner",
-    "strings": [
+      "+25% PER PLAYER",
+      "+50% PER PLAYER",
+      "+100% PER PLAYER",
+      "+150% PER PLAYER",
+      "+200% PER PLAYER",
       "2X",
       "4X",
       "8X",
@@ -50,7 +17,31 @@
     ],
     "kind": 2,
     "on_index": -1,
-    "reference_kind": "enum(5)"
+    "reference_kind": "enum(11)"
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.coop_options.xml",
+    "name": "fireteam_spinner",
+    "strings": [
+      "DROP-IN",
+      "CLASSIC"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(2)"
+  },
+  {
+    "file": "main_menu.multiplayer_type_select.coop_options.xml",
+    "name": "friendly_fire_spinner",
+    "strings": [
+      "OFF",
+      "PLAYERS ONLY",
+      "AI ALLIES ONLY",
+      "ON"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(4)"
   },
   {
     "file": "main_menu.multiplayer_type_select.coop_options.xml",
@@ -64,8 +55,8 @@
     "reference_kind": "toggle"
   },
   {
-    "file": "main_menu.multiplayer_type_select.coop_options.xml",
-    "name": "ally_friendly_fire_spinner",
+    "file": "main_menu.multiplayer_type_select.server_settings.xml",
+    "name": "listing_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -73,17 +64,6 @@
     "kind": 1,
     "on_index": 0,
     "reference_kind": "toggle"
-  },
-  {
-    "file": "main_menu.multiplayer_type_select.coop_options.xml",
-    "name": "fireteam_spinner",
-    "strings": [
-      "DROP-IN",
-      "CLASSIC"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(2)"
   },
   {
     "file": "main_menu.multiplayer_type_select.server_settings.xml",
@@ -100,68 +80,6 @@
       "64",
       "96",
       "128"
-    ],
-    "kind": 3,
-    "on_index": -1,
-    "reference_kind": "range"
-  },
-  {
-    "file": "main_menu.multiplayer_type_select.server_settings.xml",
-    "name": "listing_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "main_menu.multiplayer_type_select.server_settings.xml",
-    "name": "map_share_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.audio_settings.xml",
-    "name": "volume_spinner",
-    "strings": [
-      "0",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10"
-    ],
-    "kind": 3,
-    "on_index": -1,
-    "reference_kind": "range"
-  },
-  {
-    "file": "settings.audio_settings.xml",
-    "name": "music_volume_spinner",
-    "strings": [
-      "0",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10"
     ],
     "kind": 3,
     "on_index": -1,
@@ -199,6 +117,46 @@
     "reference_kind": "toggle"
   },
   {
+    "file": "settings.audio_settings.xml",
+    "name": "music_volume_spinner",
+    "strings": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": "range"
+  },
+  {
+    "file": "settings.audio_settings.xml",
+    "name": "volume_spinner",
+    "strings": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": "range"
+  },
+  {
     "file": "settings.controls_setup.compact.xml",
     "name": "group_spinner",
     "strings": [
@@ -221,47 +179,6 @@
     "kind": 2,
     "on_index": -1,
     "reference_kind": "enum(3)"
-  },
-  {
-    "file": "settings.gamepad_setup.xml",
-    "name": "look_sensitivity_spinner",
-    "strings": [
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10"
-    ],
-    "kind": 3,
-    "on_index": -1,
-    "reference_kind": "range"
-  },
-  {
-    "file": "settings.gamepad_setup.xml",
-    "name": "invert_look_spinner",
-    "strings": [
-      "YES",
-      "NO"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.gamepad_setup.xml",
-    "name": "flight_inversion_spinner",
-    "strings": [
-      "YES",
-      "NO"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
   },
   {
     "file": "settings.gamepad_setup.xml",
@@ -291,23 +208,10 @@
   },
   {
     "file": "settings.gamepad_setup.xml",
-    "name": "joystick_preset_spinner",
+    "name": "flight_inversion_spinner",
     "strings": [
-      "DEFAULT",
-      "SOUTHPAW",
-      "LEGACY",
-      "LEGACY SOUTHPAW"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(4)"
-  },
-  {
-    "file": "settings.gamepad_setup.xml",
-    "name": "vibration_spinner",
-    "strings": [
-      "ON",
-      "OFF"
+      "YES",
+      "NO"
     ],
     "kind": 1,
     "on_index": 0,
@@ -327,6 +231,105 @@
   {
     "file": "settings.gamepad_setup.xml",
     "name": "ingame_help_spinner_advanced",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "invert_look_spinner",
+    "strings": [
+      "YES",
+      "NO"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "joystick_preset_spinner",
+    "strings": [
+      "DEFAULT",
+      "SOUTHPAW",
+      "LEGACY",
+      "LEGACY SOUTHPAW"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(4)"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "look_sensitivity_spinner",
+    "strings": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "kind": 3,
+    "on_index": -1,
+    "reference_kind": "range"
+  },
+  {
+    "file": "settings.gamepad_setup.xml",
+    "name": "vibration_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.graphics.xml",
+    "name": "crt_effect_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.graphics.xml",
+    "name": "graphics_spinner",
+    "strings": [
+      "HARDCORE",
+      "CLASSIC",
+      "ENHANCED"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(3)"
+  },
+  {
+    "file": "settings.mouse_settings.xml",
+    "name": "invert_mouse_spinner",
+    "strings": [
+      "YES",
+      "NO"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.mouse_settings.xml",
+    "name": "mouse_aim_assist_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -377,52 +380,8 @@
     "reference_kind": "enum(12)"
   },
   {
-    "file": "settings.mouse_settings.xml",
-    "name": "invert_mouse_spinner",
-    "strings": [
-      "YES",
-      "NO"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.mouse_settings.xml",
-    "name": "mouse_aim_assist_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "online_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
     "file": "settings.network_setup.xml",
     "name": "allow_upnp_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "join_from_clipboard_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -455,57 +414,29 @@
   },
   {
     "file": "settings.network_setup.xml",
-    "name": "player_names_spinner",
-    "strings": [
-      "ALL",
-      "ALLIES",
-      "ENEMIES",
-      "NONE"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(4)"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "player_name_scale_spinner",
-    "strings": [
-      "0.5x",
-      "0.75x",
-      "1x",
-      "1.25x",
-      "1.5x",
-      "2x"
-    ],
-    "kind": 2,
-    "on_index": -1,
-    "reference_kind": "enum(6)"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "scoreboard_team_layout_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
-    "name": "scoreboard_background_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.network_setup.xml",
     "name": "custom_maps_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.network_setup.xml",
+    "name": "enabled_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.network_setup.xml",
+    "name": "join_from_clipboard_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -553,7 +484,57 @@
   },
   {
     "file": "settings.network_setup.xml",
-    "name": "enabled_spinner",
+    "name": "online_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.network_setup.xml",
+    "name": "player_name_scale_spinner",
+    "strings": [
+      "0.5x",
+      "0.75x",
+      "1x",
+      "1.25x",
+      "1.5x",
+      "2x"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(6)"
+  },
+  {
+    "file": "settings.network_setup.xml",
+    "name": "player_names_spinner",
+    "strings": [
+      "ALL",
+      "ALLIES",
+      "ENEMIES",
+      "NONE"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(4)"
+  },
+  {
+    "file": "settings.network_setup.xml",
+    "name": "scoreboard_background_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.network_setup.xml",
+    "name": "scoreboard_team_layout_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -564,11 +545,47 @@
   },
   {
     "file": "settings.video_settings.xml",
-    "name": "mode_spinner",
+    "name": "crt_effect_spinner",
     "strings": [
-      "FULLSCREEN",
-      "BORDERLESS",
-      "WINDOWED"
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.video_settings.xml",
+    "name": "direct_camera_spinner",
+    "strings": [
+      "ON",
+      "OFF"
+    ],
+    "kind": 1,
+    "on_index": 0,
+    "reference_kind": "toggle"
+  },
+  {
+    "file": "settings.video_settings.xml",
+    "name": "frame_rate_spinner",
+    "strings": [
+      "DISPLAY",
+      "30",
+      "60",
+      "120",
+      "UNLIMITED"
+    ],
+    "kind": 2,
+    "on_index": -1,
+    "reference_kind": "enum(5)"
+  },
+  {
+    "file": "settings.video_settings.xml",
+    "name": "graphics_spinner",
+    "strings": [
+      "HARDCORE",
+      "CLASSIC",
+      "ENHANCED"
     ],
     "kind": 2,
     "on_index": -1,
@@ -576,27 +593,7 @@
   },
   {
     "file": "settings.video_settings.xml",
-    "name": "resolution_spinner",
-    "strings": [
-      "NATIVE"
-    ],
-    "kind": 0,
-    "on_index": -1,
-    "reference_kind": "enum(1)"
-  },
-  {
-    "file": "settings.video_settings.xml",
-    "name": "window_size_spinner",
-    "strings": [
-      "1280 x 960"
-    ],
-    "kind": 0,
-    "on_index": -1,
-    "reference_kind": "enum(1)"
-  },
-  {
-    "file": "settings.video_settings.xml",
-    "name": "vsync_spinner",
+    "name": "interpolation_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -624,21 +621,29 @@
   },
   {
     "file": "settings.video_settings.xml",
-    "name": "frame_rate_spinner",
+    "name": "mode_spinner",
     "strings": [
-      "DISPLAY",
-      "30",
-      "60",
-      "120",
-      "UNLIMITED"
+      "FULLSCREEN",
+      "BORDERLESS",
+      "WINDOWED"
     ],
     "kind": 2,
     "on_index": -1,
-    "reference_kind": "enum(5)"
+    "reference_kind": "enum(3)"
   },
   {
     "file": "settings.video_settings.xml",
-    "name": "interpolation_spinner",
+    "name": "resolution_spinner",
+    "strings": [
+      "NATIVE"
+    ],
+    "kind": 0,
+    "on_index": -1,
+    "reference_kind": "enum(1)"
+  },
+  {
+    "file": "settings.video_settings.xml",
+    "name": "vsync_spinner",
     "strings": [
       "ON",
       "OFF"
@@ -649,35 +654,12 @@
   },
   {
     "file": "settings.video_settings.xml",
-    "name": "direct_camera_spinner",
+    "name": "window_size_spinner",
     "strings": [
-      "ON",
-      "OFF"
+      "1280 x 960"
     ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.video_settings.xml",
-    "name": "high_res_hud_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
-  },
-  {
-    "file": "settings.video_settings.xml",
-    "name": "high_res_text_spinner",
-    "strings": [
-      "ON",
-      "OFF"
-    ],
-    "kind": 1,
-    "on_index": 0,
-    "reference_kind": "toggle"
+    "kind": 0,
+    "on_index": -1,
+    "reference_kind": "enum(1)"
   }
 ]

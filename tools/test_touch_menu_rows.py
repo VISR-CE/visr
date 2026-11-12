@@ -70,6 +70,7 @@ def test_pointer_control_activity(tmp_path):
 #include "halo_controller_glyphs.h"
 #include "halo_ui_pointer.h"
 static int glyph_keyboard_active, glyph_mouse_active, glyph_menus_active, dev, keyboard = 1;
+static struct halo_glyph_input glyph_menu_input;
 static char const *family = "";
 struct host_ui_pointer { int active, moved, left_clicks, right_clicks, wheel_steps; float radius; };
 struct platform_input_state { int focused, mouse_released, mouse_buttons[3], keys[4]; float mouse_dx, mouse_dy, mouse_wheel; };
