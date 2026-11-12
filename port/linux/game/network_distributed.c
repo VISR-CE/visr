@@ -748,7 +748,8 @@ word network_distributed_wire_copy(
 	word wire_size = (word)(size + epoch_size);
 	struct distributed_message_header header;
 
-	if (size < sizeof(header) || wire_size > capacity)
+	/* (the transport header's size field holds no more than MAXIMUM_MESSAGE_SIZE) */
+	if (size < sizeof(header) || wire_size > capacity || wire_size > MAXIMUM_MESSAGE_SIZE)
 		return 0;
 	if (!epoch_size)
 	{
