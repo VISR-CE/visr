@@ -325,7 +325,7 @@ static void touch_latency_watch(void) {
     [CATransaction flush];
 }
 /* debug.portrait_fov_button: a "FOV" button that presses the Back + L1 chord (the guest's portrait field of view
-   cycle), for touch-only devices. Only in gameplay, and never where the overlay is put away. */
+   cycle), for touch-only devices. Always drawn when enabled (menus, every posture). */
 - (void)makeFovButton {
     char on[16];host_config_string("debug.portrait_fov_button","false",on,sizeof(on));
     if(strcmp(on,"true"))return;
@@ -339,7 +339,8 @@ static void touch_latency_watch(void) {
 }
 - (void)updateFovButton {
     if(!self.fovButton)return;
-    self.fovButton.hidden=atomic_load(&menu_up)!=0||self.laptop||self.manuallyHidden||self.controllerHidden;
+    /* a debug aid: drawn and hit-testable in every menu and posture, whatever the overlay's own visibility */
+    self.fovButton.hidden=NO;[self bringSubviewToFront:self.fovButton];
 }
 - (void)fovPressed {
     if(host_touch_replay_blocked(&replay_gate))return;
