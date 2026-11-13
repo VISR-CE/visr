@@ -221,11 +221,11 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert len(rows) == 6
     assert widgets['join_game_items_list'].get('visible_rows') == '6'
     assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
-        (24, 106 + 49 * i) for i in range(6)]
+        (24, 110 + 46 * i) for i in range(6)]
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     for index in range(1, 7):
         row = widgets[f'server_item_{index}']
-        assert (row.get('width'), row.get('height')) == ('270', '46')
+        assert (row.get('width'), row.get('height')) == ('270', '43')
         assert row.get('bitmap') == 'xbox/browser/c_row'
         assert row.find('on[@event="a"][@run="gamespy select item"]') is not None
         for frame in bitmaps[row.get('bitmap')]:
@@ -236,7 +236,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         assert widgets[key].get('height') == '54'
         assert widgets[key].find('on[@event="a"][@run="port browser chip select"]') is not None
     panel = widgets['browser_detail']
-    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', '102', '312', '301')
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', '110', '312', '273')
     assert all(len(name.rsplit('/', 1)[-1]) <= 31 for name in widgets)
     assert widgets['browser_connection_status'].get('height') == '26'
     assert widgets['join_game_screen'].get('type') == 'column_list'
@@ -246,7 +246,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     content = widgets['browser_detail_content']
     assert content.get('flags') == 'no_focused_child'
     assert (content.get('left'), content.get('top'), content.get('width'), content.get('height')) == (
-        '304', '102', '312', '301')
+        '304', '110', '312', '273')
     names = {c.get('widget').rsplit('/', 1)[-1] for c in content.findall('child')}
     assert {'lobby_map_pic', 'replay_level_right_pic', 'browser_connection_status',
             'browser_rules_label', 'browser_detail_rules', 'browser_detail_name'} <= names
@@ -554,10 +554,10 @@ def test_browser_buttons_draw_map_art_with_large_caption_targets():
               ('browser_sort_filter', 'browser_create_inter', 'browser_back')]
     assert len(legend) == 3
     assert all(int(c.get('y')) == 398 for c in legend)
-    assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 446
+    assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 471
     join = [c for c in widgets['browser_detail'].findall('child') if c.get('widget').endswith('join_game_button_join')][0]
-    assert (int(join.get('x')), int(join.get('y'))) == (454, 398)
-    assert 454 + int(widgets['join_game_button_join'].get('width')) == 616
+    assert (int(join.get('x')), int(join.get('y'))) == (492, 398)
+    assert 492 + int(widgets['join_game_button_join'].get('width')) == 616
 
 
 def test_browser_highlight_has_one_shape_for_every_row():

@@ -52,8 +52,8 @@ def generate(output, icons):
          '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
          '<stop offset="0" stop-color="#072751" stop-opacity="0.69"/>'
          '<stop offset="1" stop-color="#062348" stop-opacity="0.69"/></linearGradient></defs>'
-         '<rect x="0" y="44" width="4" height="365" fill="url(#g)"/>'
-         '<rect x="0" y="44" width="4" height="1" fill="#36afff"/>'
+         '<rect x="0" y="66" width="4" height="343" fill="url(#g)"/>'
+         '<rect x="0" y="66" width="4" height="1" fill="#36afff"/>'
          '<rect x="0" y="409" width="4" height="1" fill="#2896ff"/>'
          '<rect x="0" y="410" width="4" height="34" fill="#000000" fill-opacity="0.696"/>'), scale=2)
 
@@ -73,12 +73,12 @@ def generate(output, icons):
 
     # (transparent, so 1x: thirty preview frames fall back to it, and at 4x they cost the Apple TV HD about 90 MB)
     draw("preview_none", 310, 155, svg(310, 155, ""), scale=1)
-    draw("detail", 312, 322, rounded(312, 322, "#0d2c57", "#4aa8ff", radius=9))
+    draw("detail", 312, 273, rounded(312, 273, "#0d2c57", "#4aa8ff", radius=9))
     draw("big", 294, 20, rounded(294, 20, "#e8b520", radius=3))
     draw("badge", 120, 18, rounded(120, 18, "none", "#1f5fae", radius=3))
     for index, (fill, border) in enumerate((("none", "none"),
                                            ("#174b89", "#cfe8ff"))):
-        draw(f"join__{index}", 162, 53, rounded(162, 53, fill, border))
+        draw(f"join__{index}", 124, 45, rounded(124, 45, fill, border))
 
     for index, name in enumerate(GAMETYPES):
         icon = ET.parse(icons / f"{name}-nobg.svg").getroot()

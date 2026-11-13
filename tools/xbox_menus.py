@@ -1512,7 +1512,7 @@ def browser_layout(root, widgets, bitmaps):
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
             ('gametype_large', 145, 118, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
-            ('detail', 312, 322, ['detail']), ('join', 162, 53, ['join__0', 'join__1']),
+            ('detail', 312, 273, ['detail']), ('join', 124, 45, ['join__0', 'join__1']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
@@ -1555,13 +1555,13 @@ def browser_layout(root, widgets, bitmaps):
                        ('right', 'port browser detail navigation'), ('stick_right', 'port browser detail navigation')):
         ET.SubElement(rows, 'on', event=event, run=run)
     for index in range(6):
-        child(rows, base + f'/server_item_{index + 1}', x=24, y=106 + index * 49)
-        row = widget(root, base + f'/server_item_{index + 1}', width=270, height=46,
+        child(rows, base + f'/server_item_{index + 1}', x=24, y=110 + index * 46)
+        row = widget(root, base + f'/server_item_{index + 1}', width=270, height=43,
                      bitmap='xbox/browser/c_row', color='#FFFFFF')
         ET.SubElement(row, 'on', event='a', run='gamespy select item')
         ET.SubElement(row, 'on', event='start', run='gamespy select item')
         for leaf, x, y in (('type', 6, 5), ('server_name', 48, 3), ('map', 48, 24),
-                           ('gauge', 222, 2), ('players', 226, 5), ('capacity', 226, 19)):
+                           ('gauge', 222, 1), ('players', 226, 5), ('capacity', 226, 19)):
             child(row, base + '/server_item_' + leaf, x=x, y=y)
     for leaf, width, height, font, color, bitmap in (
             ('type', 36, 36, None, None, 'gametype'),
@@ -1578,7 +1578,7 @@ def browser_layout(root, widgets, bitmaps):
         if bitmap:
             attributes['bitmap'] = 'xbox/browser/' + bitmap
         widget(root, base + '/server_item_' + leaf, **attributes)
-    chips = widget(root, base + '/browser_chips', type='column_list', width=640, height=98,
+    chips = widget(root, base + '/browser_chips', type='column_list', width=640, height=104,
                    flags='pass_unhandled_to_focused_child left_right_tabs_items')
     for event in ('down', 'stick_down'):
         ET.SubElement(chips, 'on', event=event, run='port browser chips navigation')
@@ -1587,7 +1587,7 @@ def browser_layout(root, widgets, bitmaps):
             ('browser_chip_multiplayer', 'chip_multiplayer', 107, 144),
             ('browser_chip_coop', 'chip_coop', 256, 100),
             ('browser_toggle', 'toggle', 442, 174)):
-        child(chips, base + '/' + leaf, x=x, y=44)
+        child(chips, base + '/' + leaf, x=x, y=50)
         chip = widget(root, base + '/' + leaf, width=width, height=54, bitmap='xbox/browser/' + art)
         ET.SubElement(chip, 'on', event='a', run='port browser chip select')
         child(chip, base + '/' + leaf + '_label', y=29)
@@ -1596,18 +1596,18 @@ def browser_layout(root, widgets, bitmaps):
         child(chip, base + '/' + leaf + '_white', y=29)
         widget(root, base + '/' + leaf + '_white', type='text',
                width=width, height=23, font=r'ui\small_ui', color='#ffffff', align='center')
-    detail = widget(root, base + '/browser_detail', type='column_list', left=304, top=102, width=312, height=301,
+    detail = widget(root, base + '/browser_detail', type='column_list', left=304, top=110, width=312, height=273,
                     bitmap='xbox/browser/detail', flags='pass_unhandled_to_focused_child')
     for event in ('left', 'stick_left'):
         ET.SubElement(detail, 'on', event=event, run='port browser chips navigation')
     # A content container breaks focus inheritance so descriptive colors stay blue.
-    content = widget(root, base + '/browser_detail_content', left=304, top=102, width=312, height=301,
+    content = widget(root, base + '/browser_detail_content', left=304, top=110, width=312, height=273,
                      flags='no_focused_child')
     # Child coordinates are absolute menu coordinates: bounds do not offset children.
     for leaf, art, source, count in (
             ('lobby_map_pic', 'preview_mp', r'ui\shell\bitmaps\mp_map_grafix', 20),
             ('replay_level_right_pic', 'preview_sp', r'ui\shell\bitmaps\sp_levels', 10)):
-        child(content, base + '/' + leaf, x=313, y=103)
+        child(content, base + '/' + leaf, x=313, y=111)
         widget(root, base + '/' + leaf, width=124, height=100, bitmap='xbox/browser/' + art)
         bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/' + art)
         for index in range(count):
@@ -1619,23 +1619,23 @@ def browser_layout(root, widgets, bitmaps):
             geometry = dict(x='0', y='0', width='265', height='133')
             ET.SubElement(bitmap, 'frame', map=source, index=str(frame), png='xbox/art/browser/preview_none.png',
                           **geometry)
-    child(content, base + '/browser_detail_gametype', x=485, y=103)
+    child(content, base + '/browser_detail_gametype', x=485, y=111)
     widget(root, base + '/browser_detail_gametype', width=124, height=100, bitmap='xbox/browser/gametype_large')
     for leaf, x, y, width, height, font, color, text in (
-            ('browser_detail_name', 313, 208, 294, 25, 'large', '#ffffff', ''),
-            ('browser_detail_type', 313, 233, 294, 20, 'small', '#7fc4ff', ''),
-            ('browser_rules_label', 313, 255, 76, 18, 'small', '#2f73c4', 'RULES'),
-            ('browser_detail_rules', 389, 255, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_equipment_label', 313, 276, 76, 18, 'small', '#2f73c4', 'EQUIPMENT'),
-            ('browser_detail_equipment', 389, 276, 218, 18, 'small', '#cfe8ff', ''),
-            ('browser_host_label', 313, 276, 76, 18, 'small', '#2f73c4', 'HOST'),
-            ('browser_detail_host', 389, 276, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_name', 313, 214, 294, 25, 'large', '#ffffff', ''),
+            ('browser_detail_type', 313, 238, 294, 20, 'small', '#7fc4ff', ''),
+            ('browser_rules_label', 313, 258, 76, 18, 'small', '#2f73c4', 'RULES'),
+            ('browser_detail_rules', 389, 258, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_equipment_label', 313, 278, 76, 18, 'small', '#2f73c4', 'EQUIPMENT'),
+            ('browser_detail_equipment', 389, 278, 218, 18, 'small', '#cfe8ff', ''),
+            ('browser_host_label', 313, 278, 76, 18, 'small', '#2f73c4', 'HOST'),
+            ('browser_detail_host', 389, 278, 218, 18, 'small', '#cfe8ff', ''),
             ('browser_connection_status', 313, 296, 294, 26, 'small', '#7fc4ff', ''),
-            ('browser_detail_big', 313, 324, 294, 20, 'small', '#0a2245', ''),
-            ('browser_join_reason', 313, 346, 294, 22, 'small', '#7fc4ff', ''),
-            ('browser_detail_net', 313, 371, 120, 18, 'small', '#cfe8ff', ''),
-            ('browser_detail_password', 441, 371, 120, 18, 'small', '#cfe8ff', ''),
-            ('browser_detail_status', 317, 205, 286, 170, 'small', '#7fc4ff', '')):
+            ('browser_detail_big', 313, 318, 294, 20, 'small', '#0a2245', ''),
+            ('browser_join_reason', 313, 338, 294, 20, 'small', '#7fc4ff', ''),
+            ('browser_detail_net', 313, 360, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_password', 441, 360, 120, 18, 'small', '#cfe8ff', ''),
+            ('browser_detail_status', 317, 213, 286, 160, 'small', '#7fc4ff', '')):
         child(detail if leaf == 'browser_detail_status' else content, base + '/' + leaf, x=x, y=y)
         item = widget(root, base + '/' + leaf, type='text', width=width, height=height,
                       font='ui\\' + font + '_ui', color=color)
@@ -1645,23 +1645,23 @@ def browser_layout(root, widgets, bitmaps):
             item.attrib.update(bitmap='xbox/browser/big', text_x='5', text_y='2')
         elif leaf in ('browser_detail_net', 'browser_detail_password'):
             item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1')
-    child(detail, base + '/join_game_button_join', x=454, y=398)
+    child(detail, base + '/join_game_button_join', x=492, y=398)
     # JOIN stays the first eligible child; the content never takes focus.
     join_ref = detail.find(f"child[@widget='{base}/join_game_button_join']")
     detail.remove(join_ref)
     detail.insert(0, join_ref)
     detail.insert(1, ET.Element('child', widget=base + '/browser_detail_content'))
-    join = widget(root, base + '/join_game_button_join', width=162, height=45, bitmap='xbox/browser/join')
+    join = widget(root, base + '/join_game_button_join', width=124, height=45, bitmap='xbox/browser/join')
     ET.SubElement(join, 'on', event='a', run='gamespy select button')
     child(join, base + '/browser_join_icon', x=0, y=16)
     widget(root, base + '/browser_join_icon', width=28, height=28, bitmap='xbox/browser/a_butn')
     child(join, base + '/browser_join_caption', x=34, y=17)
-    widget(root, base + '/browser_join_caption', type='text', width=128, height=26,
+    widget(root, base + '/browser_join_caption', type='text', width=90, height=26,
            font=r'ui\large_ui', color='#4aa8ff')
     browser_legend(root, actions, base, (
-        ('browser_sort_filter', 'x', 'SORT & FILTER', 24, 210, 'port browser filters open'),
-        ('browser_create_inter', 'y', 'CREATE', 242, 112, 'join controller to mp game'),
-        ('browser_back', 'b', 'BACK', 362, 84, 'mouse emit back event')), navigate=True)
+        ('browser_sort_filter', 'x', 'SORT & FILTER', 24, 190, 'port browser filters open'),
+        ('browser_create_inter', 'y', 'CREATE', 230, 130, 'join controller to mp game'),
+        ('browser_back', 'b', 'BACK', 371, 100, 'mouse emit back event')), navigate=True)
     create = root.find(f"widget[@name='{base}/browser_create_inter']")
     ET.SubElement(create, 'on', event='a', run='mp type set mode',
                   open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
