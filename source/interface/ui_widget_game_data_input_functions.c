@@ -334,7 +334,7 @@ symbols in this file:
 
 /* ---------- headers */
 
-#include "halo_ui_carousel.h"
+#include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "cseries/cseries.h"
 #include "cseries/cseries_windows.h"
 #include "cseries/errors.h"

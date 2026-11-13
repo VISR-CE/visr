@@ -697,7 +697,7 @@ long ui_redraw_safe_left_units(long width);
 #include "halo_menu_slider.h"
 #include "halo_controller_glyphs.h"
 #include "halo_menus.h"
-#include "halo_ui_carousel.h"
+#include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 
 /* ---------- constants */
