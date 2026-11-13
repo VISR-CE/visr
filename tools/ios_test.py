@@ -687,6 +687,10 @@ for perf_reports in (1, 0):
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/benchmark_offscreen_probe.c', '-o', BUILD/'benchmark-offscreen-probe')
 run(BUILD/'benchmark-offscreen-probe')
+# Disc-import picture progress uses the same clamped fraction on UIKit and AppKit.
+run('xcrun', 'clang', '-std=c99', '-Wall', '-Wextra', '-Werror', '-Iport/ios/host',
+    'port/ios/tests/map_pictures_progress_probe.c', '-o', BUILD/'map-pictures-progress-probe')
+run(BUILD/'map-pictures-progress-probe')
 run('xcrun', 'clang', '-O1', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-fobjc-arc',
     '-framework', 'Foundation', '-Iport/ios/host', 'port/ios/tests/benchmark_outbox_probe.m',
     'port/ios/host/host_benchmark_outbox.m', '-o', BUILD/'benchmark-outbox-probe')

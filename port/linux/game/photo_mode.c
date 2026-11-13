@@ -49,9 +49,11 @@ const char *platform_data_root(void);
 void platform_translate_path(const char *xbox_path, char *host_path, unsigned long host_path_size);
 #ifdef HALO_ILP32
 int host_photo_mode_available(void);
+int host_map_pictures_import_stage(void);
 void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees);
 #else
 static int host_photo_mode_available(void) { return 0; }
+static int host_map_pictures_import_stage(void) { return 0; }
 static void host_photo_mode_overlay(float fov, int speed, int guides, float focus_x, float focus_y, float roll_degrees) { (void)fov; (void)speed; (void)guides; (void)focus_x; (void)focus_y; (void)roll_degrees; }
 #endif
 
@@ -837,7 +839,8 @@ void photo_mode_update(struct director *director, boolean *controls_active, floa
 	int action = pending;
 	pending = 0;
 	if (!active && !action) return;
-	if (!host_photo_mode_available() || (!scripted && !config_boolean("debug.photo_mode")))
+	if ((!host_photo_mode_available() && !(scripted && host_map_pictures_import_stage())) ||
+		(!scripted && !config_boolean("debug.photo_mode")))
 	{
 		photo_mode_end();
 		return;

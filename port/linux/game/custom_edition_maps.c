@@ -878,7 +878,7 @@ wchar_t *custom_edition_maps_description(
 }
 
 #ifdef HALO_IOS
-/* map_pictures_render.c (debug.map_pictures_render): the stock map's rendered picture, a bmp file */
+/* map_pictures_render.c: the stock map's persistent rendered picture, a BMP file */
 extern int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size);
 extern void map_pictures_render_picture_free(uint8_t *data);
 
@@ -897,8 +897,8 @@ static struct
 } rendered_pictures[RENDERED_PICTURES_MAXIMUM];
 static short rendered_picture_count;
 
-/* The stock map's rendered picture (by its base name) as a texture, read once
-the launch's renders are done; NULL without one, so the stock frame shows. */
+/* The stock map's cached picture (by its base name) as a texture; NULL without
+one, so the stock frame shows. Missing pictures are checked again next time. */
 static struct bitmap_data *rendered_picture_get(
 	char const *name)
 {
@@ -917,7 +917,7 @@ static struct bitmap_data *rendered_picture_get(
 			return rendered_pictures[index].picture;
 		}
 	}
-	/* (not rendered yet, or the setting off: asked again next time) */
+	/* The import pass may produce a missing picture later in this launch. */
 	if (!map_pictures_render_picture_read(name, &file, &size))
 	{
 		return NULL;

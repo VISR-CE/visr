@@ -2,9 +2,9 @@
 /*
 MAP_PICTURES_RENDER.C
 
-debug.map_pictures_render (development, AppKit Mac host): at launch, once the main menu is up, every
+Disc import or debug.map_pictures_render (development, AppKit Mac host): once the main menu is up, every
 stock map whose cached picture is missing or stale is loaded in turn, framed by photo mode's scripted
-capture (its saved framing, or the automatic spawn camera without one), and the presented frame is
+capture (its saved framing, or the automatic spawn camera without one), and the rendered frame is
 written to <cache>/map-pictures/<key>/ as picture.png (2048x1024), picture.bmp (the menus' copy) and
 meta.json. Then the menu comes back and the map menus show the pictures
 (custom_edition_maps_picture). A changed framing revision, map or renderer version renders that map again.
@@ -28,6 +28,9 @@ meta.json. Then the menu comes back and the map menus show the pictures
 /* port/runtime/guest/runtime/guest_host.h */
 int host_photo_mode_available(void);
 void host_map_pictures_keep_awake(int on);
+int host_map_pictures_import_stage(void);
+void host_map_pictures_import_progress(int done, int total, const char *name);
+void host_map_pictures_import_done(int rendered, int cached, int failed);
 void host_texture_cache_directory(char *text, unsigned long size);
 /* port/linux/game/benchmark_scenario.c: an empty map is the main menu */
 void benchmark_scenario_load(const char *map, const char *difficulty);
@@ -93,7 +96,7 @@ enum render_state
 static struct
 {
 	enum render_state state;
-	int enabled, index, rendered, cached, failed, updates, fast_forwarding;
+	int enabled, import_mode, index, rendered, cached, failed, updates, fast_forwarding;
 	long fast_forward_start;
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
@@ -268,11 +271,16 @@ static void next_map(void)
 	{
 		char hash[65], directory[1100];
 		uint32_t revision = 0;
+		double checked = now();
+		int scenario = render.import_mode ? map_pictures_scenario_import_index(render.index) : render.index;
 		struct map_pictures_metadata *meta = &render.request.metadata;
 
-		if (!map_pictures_scenario_identity(render.index, render.key, sizeof(render.key), hash, &revision))
+		if (render.import_mode)
+			host_map_pictures_import_progress(render.index, count, map_pictures_scenario_name(scenario));
+		if (!map_pictures_scenario_identity(scenario, render.key, sizeof(render.key), hash, &revision))
 		{
-			platform_log("map pictures: %s: no key or map hash, skipped", map_pictures_scenario_name(render.index));
+			platform_log("map pictures: %s: no key or map hash, skipped (%.1f s, framing revision %u)",
+				map_pictures_scenario_name(scenario), (now() - checked) / 1000.0, revision);
 			render.failed++;
 			continue;
 		}
@@ -290,7 +298,8 @@ static void next_map(void)
 		render.request.settle_ticks = REQUEST_SETTLE_TICKS;
 		if (map_directory(directory, sizeof(directory), render.key) && cached_fresh(directory, &render.request))
 		{
-			platform_log("map pictures: %s: picture is current, skipped", render.key);
+			platform_log("map pictures: %s: picture is current, skipped (%.1f s, framing revision %u)",
+				render.key, (now() - checked) / 1000.0, revision);
 			render.cached++;
 			continue;
 		}
@@ -301,7 +310,7 @@ static void next_map(void)
 		memset(render.stages, 0, sizeof(render.stages));
 		render.fast_forward_milliseconds = 0.0;
 		render.fast_forward_ticks = 0;
-		benchmark_scenario_load(map_pictures_scenario_name(render.index), "normal");
+		benchmark_scenario_load(map_pictures_scenario_name(scenario), "normal");
 		render.state = STATE_LOADING;
 		return;
 	}
@@ -327,7 +336,8 @@ static void fast_forward_end(void)
 static void skip_map(const char *why)
 {
 	fast_forward_end();
-	platform_log("map pictures: %s: %s, skipped", render.key, why);
+	platform_log("map pictures: %s: %s, skipped (%.1f s, framing revision %u)", render.key, why,
+		(now() - render.map_start) / 1000.0, render.request.metadata.framing_revision);
 	render.failed++;
 	photo_mode_end();
 	render.wants_frame = 0;
@@ -345,7 +355,8 @@ void map_pictures_render_update(void)
 	switch (render.state)
 	{
 	case STATE_START:
-		render.enabled = config_boolean("debug.map_pictures_render") && host_photo_mode_available();
+		render.import_mode = host_map_pictures_import_stage();
+		render.enabled = (config_boolean("debug.map_pictures_render") && host_photo_mode_available()) || render.import_mode;
 		if (!render.enabled)
 		{
 			render.state = STATE_DONE;
@@ -354,12 +365,18 @@ void map_pictures_render_update(void)
 		if (!cache_root(render.root, sizeof(render.root)))
 		{
 			platform_log("map pictures: no cache folder; nothing rendered");
+			platform_log("map pictures: done in %.1f s: 0 rendered, 0 cached, %d failed",
+				(now() - time) / 1000.0, map_pictures_scenario_count());
 			render.enabled = 0;
+			if (render.import_mode)
+				host_map_pictures_import_done(0, 0, map_pictures_scenario_count());
 			render.state = STATE_DONE;
 			return;
 		}
 		render.run_start = time;
 		host_map_pictures_keep_awake(1);
+		if (render.import_mode)
+			host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
 		wait_menu();
 		return;
 	case STATE_WAIT_MENU:
@@ -511,6 +528,8 @@ void map_pictures_render_update(void)
 					render.captured - render.settled, render.updates, render.warmed - render.captured,
 					render.warm_capped ? "capped" : "clean", render.frame_milliseconds, time - render.map_start);
 			}
+			platform_log("map pictures: %s: rendered in %.1f s, framing revision %u", render.key,
+				(time - render.map_start) / 1000.0, render.request.metadata.framing_revision);
 			render.rendered++;
 			photo_mode_end();
 			render.index++;
@@ -519,7 +538,7 @@ void map_pictures_render_update(void)
 			wait_menu();
 		}
 		else if (time - render.captured > FRAME_TIMEOUT_MILLISECONDS)
-			skip_map("no frame was presented");
+			skip_map("no rendered frame was read back");
 		return;
 	case STATE_LEAVING:
 		if (benchmark_scenario_at_menu())
@@ -527,6 +546,11 @@ void map_pictures_render_update(void)
 			platform_log("map pictures: done in %.1f s: %d rendered, %d cached, %d failed",
 				(time - render.run_start) / 1000.0, render.rendered, render.cached, render.failed);
 			host_map_pictures_keep_awake(0);
+			if (render.import_mode)
+			{
+				host_map_pictures_import_progress(map_pictures_scenario_count(), map_pictures_scenario_count(), "");
+				host_map_pictures_import_done(render.rendered, render.cached, render.failed);
+			}
 			render.state = STATE_DONE;
 		}
 		return;
@@ -606,14 +630,14 @@ void map_pictures_render_picture_free(uint8_t *data)
 
 int map_pictures_render_picture_read(const char *base_name, uint8_t **data, uint32_t *size)
 {
-	char key[MAP_PICTURES_KEY_SIZE], directory[1100], path[1200];
+	char root[1024], key[MAP_PICTURES_KEY_SIZE], directory[1100], path[1200];
 
 	*data = NULL;
 	*size = 0;
-	if (!render.enabled || render.state != STATE_DONE || !base_name || !*base_name)
+	if (!base_name || !*base_name || !cache_root(root, sizeof(root)))
 		return 0;
 	snprintf(key, sizeof(key), "stock:%s", base_name);
-	if (!map_directory(directory, sizeof(directory), key))
+	if (!map_pictures_cache_path(directory, sizeof(directory), root, key))
 		return 0;
 	snprintf(path, sizeof(path), "%spicture.bmp", directory);
 	return (*data = file_read(path, size)) != NULL;

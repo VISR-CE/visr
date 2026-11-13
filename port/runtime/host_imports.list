@@ -10,6 +10,9 @@ host_development_hooks
 host_photo_mode_available
 host_photo_mode_overlay
 host_map_pictures_keep_awake
+host_map_pictures_import_stage
+host_map_pictures_import_progress
+host_map_pictures_import_done
 host_benchmark_start
 host_benchmark_next
 host_benchmark_phase

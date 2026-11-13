@@ -7,6 +7,8 @@
 /* The stock maps a launch render covers, in menu order: the campaign, then multiplayer. */
 int map_pictures_scenario_count(void);
 const char *map_pictures_scenario_name(int index);
+/* The scenario table index at an import position: multiplayer, then campaign in order; -1 outside the list. */
+int map_pictures_scenario_import_index(int position);
 /* The map's photo key ("stock:a10"), its file hash as lowercase hex and its saved
 framing's revision (0 without one). 0 if the key or the hash cannot be had. */
 int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision);

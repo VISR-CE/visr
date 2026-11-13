@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 /* The game side of the launch map picture render (port/linux/src/map_pictures_render.c):
 which maps, their keys, hashes and saved framings, and whether a map's game runs. */
+#include "map_pictures_scenario.h"
+
 #ifdef HALO_IOS
 #include "cseries.h"
 #include "cutscene/cinematics.h"
@@ -8,11 +10,11 @@ which maps, their keys, hashes and saved framings, and whether a map's game runs
 #include "main/main.h"
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
-#include "map_pictures_scenario.h"
 #include "photo_framing.h"
 #include "map_share.h"
 #include <stdio.h>
 #include <string.h>
+#endif
 
 static const char *const map_pictures_scenarios[] = {
 	"levels\\a10\\a10", "levels\\a30\\a30", "levels\\a50\\a50", "levels\\b30\\b30", "levels\\b40\\b40",
@@ -36,6 +38,17 @@ const char *map_pictures_scenario_name(int index)
 	return index >= 0 && index < map_pictures_scenario_count() ? map_pictures_scenarios[index] : NULL;
 }
 
+/* The scenario table keeps campaign menu order; import prepares multiplayer first. */
+int map_pictures_scenario_import_index(int position)
+{
+	const int campaign_count = 10;
+	int multiplayer_count = map_pictures_scenario_count() - campaign_count;
+
+	if (position < 0 || position >= map_pictures_scenario_count()) return -1;
+	return position < multiplayer_count ? campaign_count + position : position - multiplayer_count;
+}
+
+#ifdef HALO_IOS
 int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_hex[65], uint32_t *revision)
 {
 	const char *name = map_pictures_scenario_name(index);
