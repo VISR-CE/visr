@@ -87,19 +87,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 8.3 ms frame budget, iPad Pro M1"
-    x-axis "Port and version" ["VISR 0.6.14", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
+    x-axis "Port and version" ["VISR 0.6.16", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
     y-axis "Milliseconds per frame" 0 --> 25.7
-    bar [0, 5.3, 4.3, 24.4]
-    bar [5.9, 0, 0, 0]
+    bar [2.9, 5.3, 4.3, 24.4]
+    bar [6.1, 0, 0, 0]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 5.87 ms median GPU time per rendered frame, 7.24 ms 90th-percentile GPU time per rendered frame; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; 5.27 ms median CPU time per frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 24.4 ms median CPU time per frame; a10 not measured yet).
+[VISR 0.6.16](https://github.com/steverice/visr/releases/tag/visr-v0.6.16) (build 20261112.214111, measured 2026-11-13; 2.92 ms median CPU time per frame, 6.06 ms median GPU time per rendered frame; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; 5.27 ms median CPU time per frame; a10 not measured yet); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 4.27 ms median CPU time per frame; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 24.4 ms median CPU time per frame; a10 not measured yet).
 
-Not measured: [b616-bedroom](https://github.com/steverice/visr/releases/tag/visr-v0.6.16) (Not run on this device.); [VISR 0.6.10](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+Not measured: [VISR 0.6.10](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (Not reported: this build reports neither CPU nor GPU time per frame.); [ChupathingyCE iOS v0.2.0 (pre-release)](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.2.0) (Not reported: this build reports neither CPU nor GPU time per frame.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 #### iPhone and iPad: frame rate
 
@@ -117,19 +117,19 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at display rate, iPad Pro M1"
-    x-axis "Port and version" ["VISR 0.6.14", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
-    y-axis "Frames per second" 0 --> 150
-    bar [119.4, 23.9, 106.9, 119.9, 11.8]
-    bar [119.4, 21.6, 66.6, 107.6, 3.7]
+    x-axis "Port and version" ["VISR 0.6.16", "117-vision b25332ef9", "Beeman apple-v0.3.0", "ChupathingyCE iOS v0.4.1", "HaloPad v0.3.13"]
+    y-axis "Frames per second" 0 --> 200
+    bar [120, 23.9, 106.9, 119.9, 11.8]
+    bar [103.2, 21.6, 66.6, 107.6, 3.7]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 99.8% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; no on-time share reported); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 18.2% of frames on time; a10 not measured yet).
+[VISR 0.6.16](https://github.com/steverice/visr/releases/tag/visr-v0.6.16) (build 20261112.214111, measured 2026-11-13; 99.9% of frames on time; a10 not measured yet); [117-vision b25332ef9](https://github.com/zschwendi/117-vision/commit/b25332ef9) (build 130, measured 2026-10-29; no on-time share reported; a10 not measured yet); [Beeman apple-v0.3.0](https://github.com/bmanturner/halo-ce-universal/releases/tag/apple-v0.3.0) (build unknown, measured 2026-11-08; no on-time share reported); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (build unknown, measured 2026-11-03; 95.9% of frames on time; a10 not measured yet); [HaloPad v0.3.13](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.13) (build unknown, measured 2026-11-08; 18.2% of frames on time; a10 not measured yet).
 
-Not measured: [b616-bedroom](https://github.com/steverice/visr/releases/tag/visr-v0.6.16) (Not run on this device.); [VISR 0.6.10](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
+Not measured: [VISR 0.6.10](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.10) (The campaign suite has not been run for this build.); [VISR 0.6.5](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.5) (Not run on this device.); [HaloPad v0.3.12](https://github.com/chrissotraidis/projectreach/releases/tag/v0.3.12) (Not run on this device yet.); [SnailBBQ v0.2.118-beta](https://github.com/SnailBBQ/Halo-CE-IOS/releases/tag/v0.2.118-beta) (Not run on this device yet.).
 
 ### Apple TV
 
@@ -253,7 +253,7 @@ VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 11.1 ms 95th-percentile
 
 ## Methodology
 
-The snapshot holds 504 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 511 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 A build's screenshots come from runs on the device shown for it, and a row without a frame from that device has none.
 
