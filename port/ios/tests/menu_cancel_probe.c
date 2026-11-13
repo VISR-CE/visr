@@ -19,7 +19,7 @@ enum { XINPUT_GAMEPAD_DPAD_UP = 1, XINPUT_GAMEPAD_DPAD_DOWN = 2,
 	XINPUT_GAMEPAD_DPAD_LEFT = 4, XINPUT_GAMEPAD_DPAD_RIGHT = 8, XINPUT_GAMEPAD_BACK = 32,
 	XINPUT_GAMEPAD_LEFT_THUMB = 64 };
 typedef struct { unsigned short wButtons; BYTE bAnalogButtons[8]; SHORT sThumbLX, sThumbLY; } XINPUT_GAMEPAD;
-static BOOL text_typing;
+static BOOL text_typing, text_typing_submit;
 static void typing_gamepad(const struct platform_input_state *input, XINPUT_GAMEPAD *pad) { abort(); }
 /* KEYBOARD */
 #define TRUE 1
