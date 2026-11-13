@@ -5138,11 +5138,9 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		child->disabled = TRUE;
 	for (child = detail->child; child; child = child->next)
 		visible_set(child, present);
-	/* With no game chosen the panel keeps its layout as placeholders (the unknown-map picture and empty
-	   labels); the reason shows on the left, where the rows would be. */
-	child = named(detail, "browser_detail_content", 0);
-	if (child)
-		visible_set(child, TRUE);
+	/* With no game chosen the whole panel is hidden (no placeholder picture or empty labels); the reason
+	   shows on the left, where the rows would be. */
+	visible_set(detail, present);
 	visible_set(named(screen, "browser_list_status", 0), !present);
 	text_set(named(screen, "browser_list_status", 0), status);
 	visible_set(named(screen, "browser_list_hint", 0), !present);
