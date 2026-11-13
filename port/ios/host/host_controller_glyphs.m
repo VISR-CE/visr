@@ -83,11 +83,54 @@ static void glyph_draw_image(HostGlyphImage *image, int width, int height, CGFlo
 #endif
 }
 
+/* A mouse with one button lit: the left or right half of the top is filled
+   and the other half stays an outline. */
+static void glyph_draw_mouse(CGContextRef context, int width, int height, int right)
+{
+    CGFloat h = height - 4.0, w = h * .62;
+    CGRect body = CGRectMake((width - w) / 2, 2, w, h);
+    CGFloat radius = w / 2, split = body.origin.y + h * .42, line = MAX(1.5, h * .07);
+    CGContextSetLineWidth(context, line);
+    CGContextSetGrayStrokeColor(context, 1, 1);
+    CGContextSetGrayFillColor(context, 1, 1);
+    CGRect inner = CGRectInset(body, line / 2, line / 2);
+    CGPathRef outline = CGPathCreateWithRoundedRect(inner, radius, radius, NULL);
+    CGContextAddPath(context, outline);
+    CGContextStrokePath(context);
+    CGContextSaveGState(context);
+    CGContextAddPath(context, outline);
+    CGContextClip(context);
+    CGFloat half = body.size.width / 2;
+    CGContextFillRect(context, CGRectMake(body.origin.x + (right ? half : 0), body.origin.y, half, split - body.origin.y));
+    CGContextRestoreGState(context);
+    CGContextMoveToPoint(context, body.origin.x, split);
+    CGContextAddLineToPoint(context, body.origin.x + w, split);
+    CGContextMoveToPoint(context, width / 2.0, body.origin.y);
+    CGContextAddLineToPoint(context, width / 2.0, split);
+    CGContextStrokePath(context);
+    CGPathRelease(outline);
+}
+
 int host_controller_glyph_raster(int kind, const char *label, int width, int height, unsigned char *pixels)
 {
     if ((kind != 2 && kind != 3) || !label || !*label || strnlen(label, 96) >= 96 ||
         !pixels || width < 8 || height < 8 || width > 512 || height > 256)
         return 0;
+    if (kind == 3 && (!strcmp(label, "Mouse Left") || !strcmp(label, "Mouse Right"))) {
+        memset(pixels, 0, (size_t)width * height * 4);
+        CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
+        CGContextRef context = CGBitmapContextCreate(pixels, width, height, 8, width * 4, space,
+            kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+        CGColorSpaceRelease(space);
+        if (!context) return 0;
+        CGContextTranslateCTM(context, 0, height);
+        CGContextScaleCTM(context, 1, -1);
+        glyph_draw_mouse(context, width, height, !strcmp(label, "Mouse Right"));
+        CGContextRelease(context);
+        for (int index = 0; index < width * height; index++)
+            pixels[index * 4] = pixels[index * 4 + 1] = pixels[index * 4 + 2] = 255;
+        return 1;
+    }
     @autoreleasepool {
         glyph_validate_keyboard_symbols();
         const char *overlay = NULL;

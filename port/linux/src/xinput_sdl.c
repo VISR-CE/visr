@@ -1451,7 +1451,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	if (!family[0] && (player == 0 || glyph_menus_active))
 	{
 		int source = glyph_menus_active ? glyph_menu_input.source : glyph_keyboard_active;
-		/* Until the mouse legend art lands the mouse shares the keyboard's keycaps. */
+		/* The mouse uses the keyboard family; its main and secondary labels draw as lit mouse art. */
 		if (source == HALO_GLYPH_INPUT_KEYBOARD || source == HALO_GLYPH_INPUT_MOUSE) strcpy(family, "keyboard");
 		else if (source == HALO_GLYPH_INPUT_TOUCH) strcpy(family, "touch");
 	}
@@ -1483,7 +1483,12 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		}
 		return HALO_GLYPH_ORIGINAL;
 	}
-	if (semantic == 28 || semantic == 29)
+	/* The mouse legend lights the button that acts: left for the main action, right for the secondary. */
+	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && semantic == 28)
+		snprintf(label, size, "Mouse Left");
+	else if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && physical == 2)
+		snprintf(label, size, "Mouse Right");
+	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
 	else if (semantic == 30 || semantic == 31)
 		snprintf(label, size, "%s", semantic == 30 ? "WASD" : "Mouse");

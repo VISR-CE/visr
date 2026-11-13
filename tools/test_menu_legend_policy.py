@@ -65,3 +65,13 @@ def test_legend_glyphs_center_on_caption_cap_height():
     assert '#define LEGEND_GLYPH_RAISE 3' in source
     assert 'glyph_bounds.y0 -= LEGEND_GLYPH_RAISE;' in source
     assert '&glyph_bounds, clip, glyph_color, _controller_glyph_blend_menu' in source
+
+
+def test_mouse_legend_lights_the_acting_button_and_touch_hides_select_and_back():
+    source = (ROOT / 'port/linux/src/xinput_sdl.c').read_text()
+    assert '"Mouse Left"' in source and '"Mouse Right"' in source
+    widget = (ROOT / 'source/interface/ui_widget.c').read_text()
+    assert 'ui_touch_legend_suppressed' in widget
+    assert 'ui_touch_legend_caption_suppressed' in widget
+    glyphs = (ROOT / 'port/ios/host/host_controller_glyphs.m').read_text()
+    assert 'glyph_draw_mouse' in glyphs

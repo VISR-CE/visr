@@ -6497,10 +6497,12 @@ static boolean ui_mouse_legend_bounds(
 	struct ui_widget_definition const *definition,
 	point2d offset,
 	rectangle2d *bounds,
-	rectangle2d *drawn)
+	rectangle2d *drawn,
+	struct widget_instance **caption_out)
 {
 	struct widget_instance *parent = widget->parent;
 	short button = ui_mouse_key_button(widget);
+	struct widget_instance *caption = NULL;
 	short owner = widget->local_player_index == NONE ?
 		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
 	struct widget_instance *sibling, *label = NULL;
@@ -6537,6 +6539,7 @@ static boolean ui_mouse_legend_bounds(
 			label_definition = sibling_definition;
 		}
 	}
+	if (caption_out) *caption_out = best_distance < 17 ? label : NULL;
 
 	if (best_distance >= 17 || button == NONE || !controller_glyph_hidden(owner, button))
 	{
@@ -6595,6 +6598,50 @@ static boolean ui_mouse_legend_bounds(
 		bounds->y1 = bounds->y0 + 60;
 	}
 	return TRUE;
+}
+
+/* port: on touch the bottom legend lists global actions only. SELECT, EDIT, BACK,
+CANCEL, and LEAVE (the A and B buttons of a screen's legend) are not drawn: a tap acts
+on the item directly and BACK is the title chevron or the edge swipe. The smaller dialog
+buttons ("a_butn_sm") keep their own touch buttons. */
+static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
+{
+	short button = ui_mouse_key_button(widget);
+	char const *name;
+	char const *leaf;
+	short owner;
+
+	if (button != _gamepad_analog_button_a && button != _gamepad_analog_button_b) return FALSE;
+	name = tag_get_name(widget->definition_tag_index);
+	leaf = name ? strrchr(name, '\\') : NULL;
+	leaf = leaf ? leaf + 1 : name;
+	if (!leaf || strstr(leaf, "_sm")) return FALSE;
+	owner = widget->local_player_index == NONE ?
+		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+	return controller_glyph_hidden(owner, button) != 0;
+}
+
+/* whether a suppressed touch legend button owns this caption text box */
+static boolean ui_touch_legend_caption_suppressed(struct widget_instance *caption, point2d offset)
+{
+	struct widget_instance *sibling;
+
+	if (!caption->parent) return FALSE;
+	for (sibling = caption->parent->child; sibling; sibling = sibling->next)
+	{
+		struct widget_instance *paired = NULL;
+		rectangle2d bounds, drawn_unused;
+		struct ui_widget_definition *sibling_definition;
+		point2d sibling_offset = offset;
+		if (sibling == caption || ui_mouse_key_button(sibling) == NONE || !ui_touch_legend_suppressed(sibling)) continue;
+		sibling_definition = ui_widget_definition_get(sibling->definition_tag_index);
+		/* offset is the caption's; both share the parent, so adjust by the offset difference */
+		sibling_offset.x += sibling->horizontal_offset - caption->horizontal_offset;
+		sibling_offset.y += sibling->vertical_offset - caption->vertical_offset;
+		ui_mouse_legend_bounds(sibling, sibling_definition, sibling_offset, &bounds, &drawn_unused, &paired);
+		if (paired == caption) return TRUE;
+	}
+	return FALSE;
 }
 
 /* port: the touch legend's button is the menus' own text button art
@@ -6697,7 +6744,7 @@ static void ui_mouse_note_target(
 	{
 		kind = _ui_mouse_target_button;
 		rectangle2d drawn;
-		ui_mouse_legend_bounds(widget, definition, offset, &bounds, &drawn);
+		ui_mouse_legend_bounds(widget, definition, offset, &bounds, &drawn, NULL);
 	}
 	else if (parent && ui_mouse_list_shows_several(parent))
 	{
@@ -7056,12 +7103,13 @@ static void ui_widgets_process_mouse(
 					ui_mouse_give_focus(target->widget);
 					break;
 				case _ui_mouse_target_list_slot:
-					/* (a slot is chosen by a click: stepping the list to
-					it on a hover slides another card under the pointer,
-					and the next move steps again) */
-					if (!ui_mouse_widget_has_focus(target->widget->parent))
+					/* hovering a slot focuses that slot, as it does an item. Only pointer
+					motion hovers, so a card that slides under a still pointer does not
+					step the list again. */
+					if (!ui_mouse_widget_has_focus(target->widget->parent) ||
+						target->widget->parent->focused_child != target->widget)
 						halo_ui_pointer_feedback(1);
-					ui_mouse_give_focus(target->widget->parent);
+					ui_mouse_step_list_to_slot(target->widget);
 					break;
 				}
 			}
@@ -7445,7 +7493,8 @@ static void widget_instance_render_recursive(
 	{
 		rectangle2d legend_bounds, legend_drawn;
 		if (ui_mouse_key_button(widget) != NONE &&
-			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn))
+			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn, NULL) &&
+			!ui_touch_legend_suppressed(widget))
 		{
 			boolean pressed = widget == ui_touch_legend_pressed && ui_touch_legend_pressed_frames > 0;
 			/* (the button is wider than the caption widget, so the caption's clip would cut its right cap) */
@@ -7629,6 +7678,7 @@ static void widget_instance_render_recursive(
 	switch (widget->type)
 	{
 	case _ui_widget_type_text_box:
+		if (ui_touch_legend_caption_suppressed(widget, offset)) break;
 		{
 			short shift = ui_touch_legend_caption_shift(widget);
 			rectangle2d shifted_clip;

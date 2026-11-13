@@ -85,12 +85,14 @@ int main(void) {
  halo_controller_glyph_pointer_activity(1,&pointer);
  assert(halo_controller_glyph_request(0,18,2,label,sizeof(label))==3 && last_menus==1);
  assert(halo_controller_glyph_request(1,18,2,label,sizeof(label))==3);
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
+ assert(halo_controller_glyph_request(0,2,2,label,sizeof(label))==3 && !strcmp(label,"Mouse Right"));
  halo_controller_glyph_pointer_activity(0,NULL);
  assert(halo_controller_glyph_request(0,13,13,label,sizeof(label))==3 && !strcmp(label,"T"));
  assert(halo_controller_glyph_request(0,12,12,label,sizeof(label))==3 && !strcmp(label,"P"));
  halo_controller_glyph_pointer_activity(1,NULL);
  assert(halo_controller_glyph_request(0,13,13,label,sizeof(label))==3 && !strcmp(label,"F1"));
- assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Enter"));
+ assert(halo_controller_glyph_request(0,28,5,label,sizeof(label))==3 && !strcmp(label,"Mouse Left"));
  glyph_keyboard_active=0;input.focused=1;input.keys[1]=1;keyboard_active=0;
  glyph_keyboard_activity(&input);assert(glyph_keyboard_active==0); /* software keyboard */
  keyboard_active=1;glyph_keyboard_activity(&input);assert(glyph_keyboard_active==1);
