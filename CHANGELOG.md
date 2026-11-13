@@ -1,3 +1,87 @@
+## visr-v0.6.16 (2026-11-13)
+
+### Summary
+
+- Try joining network version 43 hosts. If the host has vehicle riding turned on, you'll see a message that VISR doesn't support it yet and the join is refused.
+- Try hosting on network version 43. This is experimental and has to be enabled in the network settings.
+- Check joining and hosting games on network version 42 and later. Scripted player poses and checkpoints now work there, and map info in game settings is read correctly.
+- Try LAN games with the new Delta Peer connection. It's off unless you enable it, and Delta announcements are now on by default.
+- On macOS, keep playing with a controller and confirm the display stays awake while VISR is in front.
+- In Server Setup, change vehicle options and leave with B. Your vehicle set, counts, and respawn time should now stick, and session options should carry into later rounds.
+- Play a solo hosted game and watch for smoother frame rate. On iPhone 8, 8 Plus, and X, check the new device profile.
+- Throw grenades or fire rockets after the thrower is gone, and tap controls under the share sheet, audio panel, or pause menu. Neither should cause problems.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **network**: refuse 43 games with vehicle riding on — a 43 host announces riding in bit 6 of the variant's universal flags (settings record offset 196, confirmed by capture of an OpenCE release dedicated server), and `network_game_client_receive_game_settings_piece` now refuses such games with "This game has vehicle riding on, which VISR does not support yet." through `network_game_client_refuse_join`
+- **network**: join network version 43 hosts
+- **network**: experimental hosting on network version 43 (`network.host_version`)
+- **network**: read the map digests in game settings from network version 42
+- **network**: scripted player poses for network version 42 and later
+- **network**: checkpoint epochs for network version 42 and later
+- **network**: send the client's network version in joins to hosts from 42
+- **delta**: read Delta's signed legacy table to decide which OpenCE network versions a build joins and announces — Ed25519-verified, epoch and serial checked, cached as `delta_legacy.signed`, fetched in the background, with the built-in table as the fallback; the peer relay is not included (#118)
+- **network**: log Delta Peer handshake events — HELLO sent, WELCOME received and ROSTER entries with platform keys, so a live LAN check can be judged from the game log (#118)
+- **delta**: Delta Peer handshake — HELLO/WELCOME/ROSTER/BYE on the side port with silent legacy fallback, platform keys per machine, behind `network.delta_peer`; implements issue #118 item 2 from the published Delta spec
+- **network**: write the Delta advertisement tag and announce platform fields — `delta_advertise` fills the tail of the reserved bytes (wire `38a`, compatible back to `28a`) beside OpenCE's front fields, and `delta_announce_form` adds `platform_key`, `arch`, `build` and `capabilities` when announcing is on (off by default). Refs #118
+- **profiles**: add `iphone-a11.toml` for iPhone10,1 to iPhone10,6 — 30 fps at 720 lines with dynamic resolution down to 540 and upscaled textures off, measured on the iPhone X and assumed for the 8 and 8 Plus, with the X models kept in the `iphone-a11` entry of `catalog.toml`
+
+### fix
+
+- **delta**: define the host's app version for Delta announcements — the picked Delta Peer and lobby code calls `host_sdl_app_version`, which the 0.6.15 tree lacks, so Apple app builds would fail to link; adds main's definition, its `host_app_version.h` helper, the guest declaration and the host import entry
+- **macos**: keep the display awake and App Nap off while VISR is in front — a game controller's input does not reset macOS's idle timer, so the display could sleep mid-game; one `NSProcessInfo` activity is now held while the app is active and released when it is deactivated, hidden or minimized
+- **network**: always announce vehicle riding off when hosting 43
+- **network**: refuse a distributed message the epoch would push past the size field
+- **network**: drop a bad scripted pose without losing the unit state
+- **network**: keep row-joined hosts on the 41 codec
+- **network**: start three-point boat controls from zero on network version 42 and later
+- **workload**: a one-player hosted game is predictable, not variable — `halo_workload_decide` set `coop_extra_enemies` for any host whose `network.coop_enemies_mode` was not "none", but the default "per_player" adds enemies only for players past the first, so a solo host ran capped at the variable context's frame rate
+- **metal**: hold the level's first frames with skipped draws for 10 s, not 180 frames — the frame-count window ended at about 3 s while pipelines first needed in gameplay were still compiling, so `gpu_metal.m` showed frames with draws skipped (#126). `metal_start_hold` now measures its window in seconds, ends it when 30 frames in a row were held (a compile that slow is shown, not hidden) and logs how long it held.
+- **menus**: keep the vehicle respawn time as the vehicle options screen changes — `vehicles_respawn_spinner` was stored only on OK through `gametype_options_each`, so leaving the screen with B kept the vehicle set and counts but dropped a respawn time change; `vehicles_update` now stores it through `vehicles_respawn_keep` when the spinner moves off the stored value's place
+- **delta**: clamp the announced version, honor `"requires": false`, skip unreadable table rows — a host never announces above the codec it runs (`HALO_PORT_NETWORK_VERSION`) or below 38; `requires` of `false` or `null` no longer counts as requiring; a malformed `wires` or `platform_policy` row is logged and skipped while the rest of the signed table still applies. Tests added in `delta_legacy_probe.c`.
+- **delta**: map only our own announced version to the game codec in `host_lan_txt_matches`
+- **delta**: write the signed-table cache with `fopen` and `rename` so the guest links
+- **delta**: keep the signed-table fetch from delaying heartbeats and refresh LAN discovery when the table changes the advertised version
+- **delta**: roster resends only on real peer changes, exact reply endpoint, game-port-relative bind — review fixes for Delta Peer; `network.delta_announce` now defaults on
+- **render**: keep the blended camera's previous pose one tick old after a frame runs two ticks
+- **menus**: store the vehicle set as the vehicle options screen changes — `vehicles_update` stored counts live but left `vehicle_set` and the universal vehicle set to OK/START, so leaving with B kept Slayer Pro's set of none and the first round placed no vehicles
+- **menus**: keep Server Setup's session options after the first round
+- **profiles**: add the missing `iphone-a11` fallback so A12 to A15 iPhones inherit it — the catalog had an `iphone-a11` hardware entry but no `[[fallback]]` entry, so `host_profile_resolve` never tried `iphone-a11.toml` as a source and those phones landed on the class profile; `profile_probe` now asserts the inheritance
+- **damage**: treat a deleted owner object as no owner — `damage_data_validate_owner` now clears a stale `owner_object_index` and `get_player_index_from_object_or_parents` stops at a deleted parent, so a grenade or rocket whose thrower is gone no longer hits a checked `object_get` in `object_damage_aftermath` (behavior described in a SlipstreamCE commit title)
+- **touch**: drop latched taps made under a share sheet, audio panel or pause menu
+
+### perf
+
+- **touch**: latch touch press edges between guest reads
+
+### docs
+
+- **vehicles**: note that a replay of a 42 or 43 network game skips the boat fix
+- **network**: note that batched messages skip the map-share and aim-assist routing
+- **notice**: cite chester's GulchCE license grant
+- **notice**: credit chester's GulchCE for the version 42/43 contract
+- **delta**: say that `network.delta_announce` is on by default — the config default, schema and settings table already read true; the `p2p_delta.c` header comment and the ROADMAP entry still said off
+
+### test
+
+- **profiles**: strip `network.full_rate_players` before checking that generations sign from their sources — the picked iPhone A11 profile sets the key, so `test_generations_without_the_key_sign_from_the_sources_themselves` builds its fixture from profiles without it, as main's test does
+- **network**: show the checkpoint epoch path stays off below 42
+- **network**: check a captured 43 join request against the host's version gate
+- **network**: pin that a host runs this build's version unless 43 is configured
+- **network**: pin the riding switch's record offset at compile time
+- **net**: record the 42/43 wire additions — keep `DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE` at its version 38 value and size entry buffers with a separate `DISTRIBUTED_UNIT_STATE_POSE_SIZE`, since the pose vectors only travel in 42 and later games; record the added pose, checkpoint and suspended items in `network_format.txt`
+- **network**: include `halo_delta.h` in the advertisement probe — `add_advertised_game` now calls `delta_advertised_peer_major`, which the compiled copy could not see (#118)
+- **delta**: declare `HALO_PORT_NETWORK_VERSION` and `delta_legacy_joinable` in the `aim_assist.c` probe — the generated `version.inc` now calls both, and the 32-bit game-code probe strips the includes that declared them
+- **network**: stub `game_engine_override_game_variant` in the Server Setup probe — `ui_widget_port_game_variant_set` now calls it before changing the server's gametype
+
 ## visr-v0.6.15 (2026-11-11)
 
 ### Summary
