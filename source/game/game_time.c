@@ -123,6 +123,14 @@ struct game_time_globals_struct
 
 static struct game_time_globals_struct *game_time_globals;
 
+/* port: the clock's time came due but no tick ran (a host whose update queue
+is still empty, such as at the menu backdrop while a network pregame waits, or
+a client held for the host's time). The renderer then holds the latest tick:
+the fraction would otherwise sweep from 0 to 1 again on every stalled tick
+between the same two snapshots, and the whole scene would jitter back and
+forth in time. Outside the game state's layout. */
+static boolean game_time_ticks_stalled;
+
 /* ---------- public code */
 
 boolean game_time_initialized(
@@ -300,6 +308,8 @@ real game_time_get_tick_fraction(
 
 	if (!game_time_globals || !game_time_globals->active || game_time_globals->paused)
 		return 1.0f;
+	if (game_time_ticks_stalled)
+		return 1.0f;
 	fraction = game_time_globals->leftover_dt * game_time_globals->speed * TICKS_PER_SECOND;
 	return PIN(fraction, 0.0f, 1.0f);
 }
@@ -372,6 +382,7 @@ void game_time_start(
 	game_time_globals->speed = 1.f;
 	game_time_globals->leftover_dt = 0;
 	game_time_globals->active = TRUE;
+	game_time_ticks_stalled = FALSE;
 
 	connection = game_connection();
 
@@ -466,6 +477,8 @@ void game_time_update(
 				long final_local_time;
 				long maximum_possible_server_time;
 
+				long server_time_before = game_time_globals->server_time;
+
 				final_local_time = game_time_globals->local_time + ticks_elapsed;
 				switch (game_connection())
 				{
@@ -511,6 +524,10 @@ void game_time_update(
 							break;
 					}
 				}
+
+				/* port: due ticks that did not run hold the renderer on the
+				latest tick until one does (game_time_ticks_stalled) */
+				game_time_ticks_stalled = (game_time_globals->server_time == server_time_before);
 
 				/* (none while a client's clock waits: a frame that runs no tick
 				reports none) */
