@@ -4884,7 +4884,7 @@ static void lobby_browser_update(struct widget_instance *list)
 		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
 
 		if (!config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. Turn it on in Settings > Network Setup.");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off. Turn on INTERNET PLAY in NETWORK SETUP.");
 		else if (!config_boolean("network.public_lobby"))
 			usnprintf(text, NUMBEROF(text) - 1, L"The server browser is off (network.public_lobby)");
 		else if (lobby_browser.joining)
@@ -5303,7 +5303,7 @@ static void browser_update(struct widget_instance *list)
 		if (multiplayer.mode == _multiplayer_mode_server_browser)
 			text[0] = 0;
 		else if (multiplayer.mode == _multiplayer_mode_direct_link && !config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. Turn it on in Settings > Network Setup.");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off. Turn on INTERNET PLAY in NETWORK SETUP.");
 		/* the invite being joined: how it goes, or what went wrong (a game in
 		the list is shown instead, unless the invite's host is known to have
 		another version) */

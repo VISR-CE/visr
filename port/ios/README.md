@@ -507,7 +507,7 @@ Internet Play?", which INTERNET PLAY in Settings > Network Setup asks. With
 `network.online_ask = true` (off by default), the first of Create Game >
 Internet, Join Game > Server Browser or Direct Link you open with internet
 play off asks it too, once. Not Now leaves internet play off, and those
-screens then say "Internet play is turned off. Turn it on in Settings > Network Setup.".
+screens then say "Internet play is off. Turn on INTERNET PLAY in NETWORK SETUP.".
 
 When no matchmaking server can be reached, the Server Browser, Direct Link and
 a host's lobby and Server Setup say so, and the game keeps trying each one
