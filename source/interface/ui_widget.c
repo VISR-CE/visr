@@ -9260,6 +9260,17 @@ static void widget_instance_render_recursive(
 				boolean portrait_backdrop = halo_screen_width() < 640 &&
 					bounds.x0 <= 0 && bounds.y0 <= 0 &&
 					bounds.x1 >= 640 && bounds.y1 >= 480;
+				/* port: the menu band (gradient.bitmap) carries its two rules at
+				rows 65 and 383 of the 480; it takes the menus' own fit so the
+				rules stay just outside the title and the legend, and the
+				untinted backdrop shows above and below it */
+				if (portrait_backdrop)
+				{
+					char const *backdrop_name = tag_get_name(definition->background_bitmap.index);
+
+					if (backdrop_name && (strstr(backdrop_name, "bitmaps\\gradient") || strstr(backdrop_name, "bitmaps/gradient")))
+						portrait_backdrop = FALSE;
+				}
 
 				if (portrait_backdrop)
 					halo_screen_ui_backdrop(TRUE);
