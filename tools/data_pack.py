@@ -62,7 +62,11 @@ _RECORDING_PAYLOAD_MAX = ((_RECORDING_ENVELOPE_CONTENT_MAX + 2) // 3) * 4 + RECO
 ENVELOPE_LIMITS = {"profiles": 4 * 1024 * 1024,
                    "recordings": ((_RECORDING_PAYLOAD_MAX + 2) // 3) * 4 + 65536,
                    "shaders": 16 * 1024 * 1024,
-                   "latest": 16 * 1024}
+                   "latest": 16 * 1024,
+                   "framings": 384 * 1024}
+FRAMINGS_NAME = "map-framings.json"
+FRAMINGS_MAX_BYTES = 256 * 1024
+FRAMINGS_COMPATIBILITY = "map-framings-2"
 LATEST_NAME = "latest-release.json"
 LATEST_MAX_BYTES = 4096
 LATEST_PLATFORMS = ("ios", "tvos", "visionos", "macos")
@@ -427,7 +431,42 @@ def validate_latest_record(data):
     return record
 
 
+def validate_framings_record(data):
+    """The framings feed file (docs/data-packs.md, "Map framings"): the map-framing format, keyed only by custom-map hash."""
+    if not isinstance(data, bytes) or not 0 < len(data) <= FRAMINGS_MAX_BYTES:
+        raise ValueError(f"{FRAMINGS_NAME}: not a bounded file")
+
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"{FRAMINGS_NAME}: duplicate key")
+            result[key] = value
+        return result
+
+    def constant(name):
+        raise ValueError(f"{FRAMINGS_NAME}: {name} is not allowed")
+
+    try:
+        record = json.loads(data.decode("utf-8"), object_pairs_hook=unique, parse_constant=constant)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"{FRAMINGS_NAME}: invalid JSON") from error
+    if __package__:
+        from . import map_framing
+    else:
+        import map_framing
+    errors = map_framing.validate(record)
+    if errors:
+        raise ValueError(f"{FRAMINGS_NAME}: " + "; ".join(errors[:4]))
+    for key in record["maps"]:
+        if not re.fullmatch(r"blake2b:[0-9a-f]{64}", key):
+            raise ValueError(f"{FRAMINGS_NAME}: the feed carries only blake2b:<64 lowercase hex> keys")
+    return record
+
+
 def snapshot_limits(kind):
+    if kind == "framings":
+        return 1, FRAMINGS_MAX_BYTES, FRAMINGS_MAX_BYTES
     if kind == "latest":
         return 1, LATEST_MAX_BYTES, LATEST_MAX_BYTES
     if kind == "shaders":
@@ -441,6 +480,8 @@ def snapshot_name_allowed(name, kind, compatibility=None):
         return False
     if kind == "latest":
         return name == LATEST_NAME
+    if kind == "framings":
+        return name == FRAMINGS_NAME
     if kind == "shaders":
         return re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}\.txt", name) is not None
     if kind == "profiles":
@@ -504,6 +545,8 @@ def snapshot(folder, kind, compatibility=None):
             target.write_bytes(content)
         if kind == "latest":
             validate_latest_record(files[LATEST_NAME])
+        elif kind == "framings":
+            validate_framings_record(files[FRAMINGS_NAME])
         elif kind == "shaders":
             validate_shaders(validated)
         elif kind == "profiles":
@@ -539,7 +582,7 @@ def atomic_write(path, contents):
 
 def main(arguments=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--kind", required=True, choices=("profiles", "recordings", "shaders", "latest"))
+    parser.add_argument("--kind", required=True, choices=("profiles", "recordings", "shaders", "latest", "framings"))
     parser.add_argument("--channel", required=True, choices=("stable", "tester"))
     parser.add_argument("--sequence", required=True, type=int)
     parser.add_argument("--compatibility", required=True)
@@ -558,10 +601,10 @@ def main(arguments=None):
     if args.minimum_engine != 1 or args.maximum_engine != 1:
         raise ValueError("this publisher supports only minimum_engine = maximum_engine = 1")
     expected = (r"device-profiles-[1234]:.+|profiles-[12]" if args.kind == "profiles" else
-                "shader-lists-[12]" if args.kind == "shaders" else "latest-release-1" if args.kind == "latest" else r"benchmark-(?:replay-1|catalog-[12]):[0-9a-f]{64}")
+                "shader-lists-[12]" if args.kind == "shaders" else "latest-release-1" if args.kind == "latest" else FRAMINGS_COMPATIBILITY if args.kind == "framings" else r"benchmark-(?:replay-1|catalog-[12]):[0-9a-f]{64}")
     if not re.fullmatch(expected, args.compatibility):
         raise ValueError("compatibility must be device-profiles-1:, -2:, -3: or -4: plus a target, profiles-1 or profiles-2, "
-                         "benchmark-replay-1:/benchmark-catalog-1:/benchmark-catalog-2: plus the exact lowercase guest SHA-256, or latest-release-1")
+                         "benchmark-replay-1:/benchmark-catalog-1:/benchmark-catalog-2: plus the exact lowercase guest SHA-256, latest-release-1, or map-framings-2")
     if len(args.notes.encode("utf-8")) > 4096:
         raise ValueError("notes must be at most 4096 UTF-8 bytes")
     device = device_domain(args.compatibility) if args.kind == "profiles" else None
