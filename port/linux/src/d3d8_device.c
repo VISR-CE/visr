@@ -2602,7 +2602,7 @@ void halo_portrait_field_of_view_toggle(void)
 	portrait_fov_degrees(portrait_fov_tangent(mode, aspect, PORTRAIT_FOV_BASE_TANGENT), aspect, &horizontal, &vertical);
 	if (game_in_progress())
 	{
-		swprintf(message, 48, L"FOV: %.0f H / %.0f V", horizontal, vertical);
+		swprintf(message, L"FOV: %.0f H / %.0f V", horizontal, vertical);
 		hud_print_message(0, message);
 	}
 	platform_log("portrait field of view: %s, %.1f H / %.1f V at a %.3f view (the live chord, until the app quits)",
