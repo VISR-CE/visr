@@ -1512,7 +1512,7 @@ def browser_layout(root, widgets, bitmaps):
             ('gametype', 36, 36, [f'gametype__{i}' for i in range(6)]),
             ('gametype_large', 145, 118, [f'gametype_large__{i}' for i in range(7)]),
             ('gauge', 42, 42, [f'gauge__{i:02}' for i in range(33)]),
-            ('detail', 312, 273, ['detail']), ('join', 124, 45, ['join__0', 'join__1']),
+            ('detail', 312, 273, ['detail']), ('join', 140, 45, ['join__0', 'join__1']),
             ('big', 294, 20, ['big']), ('badge', 120, 18, ['badge']),
             ('option', 532, 54, ['option__0', 'option__1'])):
         browser_bitmap(root, name, width, height, frames)
@@ -1645,23 +1645,23 @@ def browser_layout(root, widgets, bitmaps):
             item.attrib.update(bitmap='xbox/browser/big', text_x='5', text_y='2')
         elif leaf in ('browser_detail_net', 'browser_detail_password'):
             item.attrib.update(bitmap='xbox/browser/badge', align='center', text_y='1')
-    child(detail, base + '/join_game_button_join', x=492, y=398)
+    child(detail, base + '/join_game_button_join', x=476, y=398)
     # JOIN stays the first eligible child; the content never takes focus.
     join_ref = detail.find(f"child[@widget='{base}/join_game_button_join']")
     detail.remove(join_ref)
     detail.insert(0, join_ref)
     detail.insert(1, ET.Element('child', widget=base + '/browser_detail_content'))
-    join = widget(root, base + '/join_game_button_join', width=124, height=45, bitmap='xbox/browser/join')
+    join = widget(root, base + '/join_game_button_join', width=140, height=45, bitmap='xbox/browser/join')
     ET.SubElement(join, 'on', event='a', run='gamespy select button')
     child(join, base + '/browser_join_icon', x=0, y=16)
     widget(root, base + '/browser_join_icon', width=28, height=28, bitmap='xbox/browser/a_butn')
     child(join, base + '/browser_join_caption', x=34, y=17)
-    widget(root, base + '/browser_join_caption', type='text', width=90, height=26,
+    widget(root, base + '/browser_join_caption', type='text', width=106, height=26,
            font=r'ui\large_ui', color='#4aa8ff')
     browser_legend(root, actions, base, (
         ('browser_sort_filter', 'x', 'SORT & FILTER', 24, 190, 'port browser filters open'),
         ('browser_create_inter', 'y', 'CREATE', 230, 130, 'join controller to mp game'),
-        ('browser_back', 'b', 'BACK', 371, 100, 'mouse emit back event')), navigate=True)
+        ('browser_back', 'b', 'BACK', 371, 90, 'mouse emit back event')), navigate=True)
     create = root.find(f"widget[@name='{base}/browser_create_inter']")
     ET.SubElement(create, 'on', event='a', run='mp type set mode',
                   open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')

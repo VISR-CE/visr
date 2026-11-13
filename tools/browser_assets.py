@@ -78,7 +78,7 @@ def generate(output, icons):
     draw("badge", 120, 18, rounded(120, 18, "none", "#1f5fae", radius=3))
     for index, (fill, border) in enumerate((("none", "none"),
                                            ("#174b89", "#cfe8ff"))):
-        draw(f"join__{index}", 124, 45, rounded(124, 45, fill, border))
+        draw(f"join__{index}", 140, 45, rounded(140, 45, fill, border))
 
     for index, name in enumerate(GAMETYPES):
         icon = ET.parse(icons / f"{name}-nobg.svg").getroot()

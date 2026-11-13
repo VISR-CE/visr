@@ -554,10 +554,10 @@ def test_browser_buttons_draw_map_art_with_large_caption_targets():
               ('browser_sort_filter', 'browser_create_inter', 'browser_back')]
     assert len(legend) == 3
     assert all(int(c.get('y')) == 398 for c in legend)
-    assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 471
+    assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 461
     join = [c for c in widgets['browser_detail'].findall('child') if c.get('widget').endswith('join_game_button_join')][0]
-    assert (int(join.get('x')), int(join.get('y'))) == (492, 398)
-    assert 492 + int(widgets['join_game_button_join'].get('width')) == 616
+    assert (int(join.get('x')), int(join.get('y'))) == (476, 398)
+    assert 476 + int(widgets['join_game_button_join'].get('width')) == 616
 
 
 def test_browser_highlight_has_one_shape_for_every_row():
