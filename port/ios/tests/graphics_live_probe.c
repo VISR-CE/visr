@@ -32,6 +32,7 @@ static int head_eyes_frame(void) { return 0; }
 static int halo_scene_class(void) { return CONFIG_SCENE_GAMEPLAY; }
 static int halo_external_pause_allowed(void) { return 0; }
 static int photo_mode_active(void) { return 0; }
+int host_display_supports_portrait(void) { return 0; }
 static void host_external_commit(int allowed) { (void)allowed; }
 static void audio_cycle_step(void) {}
 static int dynamic_resolution_refused(void) { return 2; }
@@ -114,10 +115,10 @@ static void check_consumers(int hardcore)
 	assert(applied == before && forgotten == before_forgotten);
 	if (hardcore)
 	{
-		long width = halo_display_layout_width(2560, 1440, config_integer("display.screen_width"), 1280);
+		long width = halo_display_layout_width(2560, 1440, config_integer("display.screen_width"), 1280, 0);
 		assert(config_real("display.render_scale") == 1.0);
 		size = halo_display_render_size(2560, 1440, width, config_integer("display.screen_width"),
-			config_scene_integer("display.render_height", CONFIG_SCENE_GAMEPLAY), 8192);
+			config_scene_integer("display.render_height", CONFIG_SCENE_GAMEPLAY), 8192, 0);
 		assert(width == 640 && size.width == 640 && size.height == 480);
 	}
 }
