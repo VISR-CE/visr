@@ -61,6 +61,7 @@ static void pictures_mark_pending(NSString *root) {
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL ready;
 @property(nonatomic) BOOL preparingMaps;
+@property(atomic) BOOL extracted; /* this launch extracted the disc: the map pictures take the bar's last part */
 - (void)prepareMaps;
 @property(atomic) BOOL upscaling; /* the upscaling phase is on screen */
 @property(nonatomic) UIBackgroundTaskIdentifier backgroundTask;
@@ -78,7 +79,7 @@ static int import_progress(void *context, const char *file, uint64_t done, uint6
     dispatch_async(dispatch_get_main_queue(), ^{
         controller.progress.hidden=NO;
         [controller.spinner stopAnimating];
-        controller.progress.progress=fraction;
+        controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_EXTRACT,fraction,1);
         controller.statusLabel.text=[NSString stringWithFormat:@"Importing %@ · %.0f%%",name,fraction*100];
     });
     return 1;
@@ -91,7 +92,7 @@ static int texture_progress(void *context,uint64_t done,uint64_t total) {
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
     dispatch_async(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
-        controller.progress.progress=total?(float)done/total:0;
+        controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_TEXTURES,total?(float)done/total:0,1);
         controller.statusLabel.text=@"Preparing textures for this device";
         [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
     });return 1;
@@ -328,9 +329,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
         host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
         dispatch_async(dispatch_get_main_queue(),^{
-            [self.spinner stopAnimating];self.importing=NO;
-            if(pictures_supported()&&[NSFileManager.defaultManager fileExistsAtPath:pictures_marker])[self prepareMaps];
-            else self.ready=YES;
+            [self.spinner stopAnimating];self.importing=NO;self.ready=YES;
         });
     });
 }
@@ -340,13 +339,21 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.chooseButton.hidden=YES;self.introLabel.hidden=YES;
     self.cancelButton.hidden=YES;self.cancelButton.enabled=NO;
     self.retryButton.hidden=YES;self.retryButton.enabled=NO;
-    self.progress.hidden=NO;self.progress.alpha=1;self.progress.progress=0;
+    self.progress.hidden=NO;self.progress.alpha=1;self.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_PICTURES,0,self.extracted);
     self.progress.progressTintColor=halo_upscale_bar_blue();[self.tick setPosition:-1];
     [self.spinner stopAnimating];self.statusLabel.text=@"Preparing maps, 0 of 0";
     pictures_previous_idle_timer=UIApplication.sharedApplication.idleTimerDisabled;
     UIApplication.sharedApplication.idleTimerDisabled=YES;
     atomic_store(&pictures_pending,1);
+    /* the on-device upscaler runs alongside the pictures (each map's own textures are the originals); its bar follows
+       only if it is still going when the last picture is made */
+    host_texture_upscale_stage_begin(self.documents.fileSystemRepresentation);
     self.ready=YES;
+}
+/* after the map pictures: the upscaling bar with Start playing, only while upscaling is still running */
+- (void)upscaleAfterMaps {
+    self.preparingMaps=NO;self.ready=NO;self.progress.progress=0;
+    [self upscalePhaseOnly];
 }
 - (BOOL)canBecomeFirstResponder { return YES; }
 /* Return or Enter presses Start playing once it is offered (a Mac's or an iPad's keyboard) */
@@ -367,7 +374,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 - (void)cancelImport {if(self.preparingMaps)return;self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.retryButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
 - (void)importImage:(NSURL *)url {
     if (self.importing) return;
-    self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;
+    self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;self.extracted=YES;
     self.chooseButton.hidden=YES;self.introLabel.hidden=YES;self.cancelButton.hidden=NO;self.cancelButton.enabled=YES;
     self.progress.hidden=YES;self.progress.progress=0;[self.spinner startAnimating];
     self.statusLabel.text=@"Opening disc image… If it's in iCloud, it may need to download first.";
@@ -435,7 +442,9 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
                     /* Persist before the texture work too: interruption there must still prepare pictures next launch. */
                     pictures_mark_pending(self.documents);
                     host_astc_store_prepare_import(self.documents.fileSystemRepresentation,texture_progress,(__bridge void *)self);
-                    host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
+                    /* where the map pictures are made, upscaling runs alongside them and its bar comes after (prepareMaps) */
+                    if(!pictures_supported())
+                        host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
                 }
                 /* Preserve the backup if an unexpected restore failure left it here. */
                 if (!imported && [files fileExistsAtPath:backup]) staging=nil;
@@ -511,8 +520,9 @@ void host_ios_prepare_assets(const char *root) {
         if (images.count==1 && !upscale_phase && !picture_phase) controller.pendingImage=images.firstObject;
         window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
         window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
-        if (upscale_phase) [controller upscalePhaseOnly];
-        else if(picture_phase)[controller prepareMaps];
+        /* the pictures first, with upscaling alongside them; its own bar follows if it is still running */
+        if(picture_phase)[controller prepareMaps];
+        else if(upscale_phase)[controller upscalePhaseOnly];
     });
     if (!host_on_main_thread()) {
         host_modal_wait(0.01, ^bool { return controller.ready; });
@@ -537,13 +547,25 @@ void host_map_pictures_import_progress(int done,int total,const char *name) {
         if(!atomic_load(&pictures_pending))return;
         HaloImportController *controller=(HaloImportController *)pictures_window.rootViewController;
         controller.statusLabel.text=[NSString stringWithFormat:@"Preparing maps, %d of %d",MAX(done,0),MAX(total,0)];
-        controller.progress.progress=host_map_pictures_progress_fraction(done,total);
+        controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_PICTURES,host_map_pictures_progress_fraction(done,total),controller.extracted);
     });
 }
 void host_map_pictures_import_done(int rendered,int cached,int failed) {
     (void)rendered;(void)cached;(void)failed;
     void (^finish)(void)=^{
         if(!atomic_load(&pictures_pending))return;
+        host_texture_upscale_stage_end();
+        /* upscaling still running: its bar with Start playing, on the same screen, before the menu */
+        if(host_texture_upscale_busy()) {
+            HaloImportController *controller=(HaloImportController *)pictures_window.rootViewController;
+            [controller upscaleAfterMaps];
+            while(!controller.ready) {
+                @autoreleasepool {
+                    CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.01,true);
+                    CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode,0.01,true);
+                }
+            }
+        }
         NSError *error=nil;
         if(![NSFileManager.defaultManager removeItemAtPath:pictures_marker error:&error])
             host_logf(HOST_LOG_WARN,"Could not clear map preparation marker: %s",error.localizedDescription.UTF8String);

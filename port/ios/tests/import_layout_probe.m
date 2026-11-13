@@ -21,6 +21,9 @@ int host_texture_upscale_prepare_import(const char *root, host_texture_upscale_p
 int host_texture_upscale_first_run_phase(const char *root) { return 0; }
 void host_texture_upscale_init(const char *root) {}
 int host_texture_upscale_enabled(void) { return 0; }
+void host_texture_upscale_stage_begin(const char *root) { (void)root; }
+void host_texture_upscale_stage_end(void) {}
+int host_texture_upscale_busy(void) { return 0; }
 
 /* A real simulator window supplies its own notch. Explicit safe guides let the same
    production controller exercise other supported screens without that notch leaking in. */
