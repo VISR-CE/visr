@@ -6374,6 +6374,8 @@ measured in the caption's own font. */
 #define UI_TOUCH_LEGEND_SLOTS 4
 #define UI_TOUCH_LEGEND_RIGHT 592
 #define UI_TOUCH_LEGEND_GAP 12
+#define UI_TOUCH_LEGEND_LEFT_MARGIN 12 /* the leftmost slot stays this far inside the screen's left edge */
+#define UI_TOUCH_LEGEND_SCREEN_RIGHT 628 /* and the rightmost this far inside the right edge */
 #define UI_TOUCH_LEGEND_PADDING 24
 #define UI_TOUCH_LEGEND_BAR_Y 395 /* a bar's buttons are centered at or below this */
 #define UI_TOUCH_LEGEND_BAR_TOP 404 /* the bar's top rule: a hit area never reaches above it */
@@ -6447,14 +6449,31 @@ static void ui_touch_legend_slot_bounds(
 	short *x1)
 {
 	long old_font = draw_string_get_font();
-	short i, right = UI_TOUCH_LEGEND_RIGHT;
+	short i, right = UI_TOUCH_LEGEND_RIGHT, padding = UI_TOUCH_LEGEND_PADDING;
+	short widths[UI_TOUCH_LEGEND_SLOTS], total = 0, overflow, shift;
 
 	draw_string_set_font(font);
 	draw_string_set_format(NONE, 0, 0);
 	draw_string_set_indents(0, 0);
+	for (i = 0; i < UI_TOUCH_LEGEND_SLOTS; i++)
+	{
+		widths[i] = ui_widget_port_text_width(ui_touch_legend_widest[i]);
+		total += widths[i];
+	}
+	/* keep the whole row inside the screen: first slide it right into the margin, then trim padding */
+	overflow = (UI_TOUCH_LEGEND_RIGHT - (total + 2 * padding * UI_TOUCH_LEGEND_SLOTS +
+		UI_TOUCH_LEGEND_GAP * (UI_TOUCH_LEGEND_SLOTS - 1))) * -1 + UI_TOUCH_LEGEND_LEFT_MARGIN;
+	if (overflow > 0)
+	{
+		shift = MIN(overflow, UI_TOUCH_LEGEND_SCREEN_RIGHT - UI_TOUCH_LEGEND_RIGHT);
+		right += shift;
+		overflow -= shift;
+		if (overflow > 0)
+			padding = MAX(8, padding - (overflow + 2 * UI_TOUCH_LEGEND_SLOTS - 1) / (2 * UI_TOUCH_LEGEND_SLOTS));
+	}
 	for (i = 0; i <= slot; i++)
 	{
-		short width = ui_widget_port_text_width(ui_touch_legend_widest[i]) + 2 * UI_TOUCH_LEGEND_PADDING;
+		short width = widths[i] + 2 * padding;
 
 		*x1 = right;
 		*x0 = right - width;
