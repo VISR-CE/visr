@@ -1337,16 +1337,16 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 		active = !event->key.repeat && platform_menu_keyboard();
 		break;
 	case SDL_EVENT_MOUSE_MOTION:
-		source = HALO_GLYPH_INPUT_KEYBOARD;
+		source = HALO_GLYPH_INPUT_MOUSE;
 		active = event->motion.which != SDL_TOUCH_MOUSEID && event->motion.which != SDL_PEN_MOUSEID &&
-			(event->motion.xrel != 0 || event->motion.yrel != 0);
+			halo_glyph_mouse_motion_active(event->motion.xrel, event->motion.yrel);
 		break;
 	case SDL_EVENT_MOUSE_BUTTON_DOWN:
-		source = HALO_GLYPH_INPUT_KEYBOARD;
+		source = HALO_GLYPH_INPUT_MOUSE;
 		active = event->button.which != SDL_TOUCH_MOUSEID && event->button.which != SDL_PEN_MOUSEID;
 		break;
 	case SDL_EVENT_MOUSE_WHEEL:
-		source = HALO_GLYPH_INPUT_KEYBOARD;
+		source = HALO_GLYPH_INPUT_MOUSE;
 		active = event->wheel.x != 0 || event->wheel.y != 0;
 		break;
 	case SDL_EVENT_FINGER_DOWN:
@@ -1451,7 +1451,8 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	if (!family[0] && (player == 0 || glyph_menus_active))
 	{
 		int source = glyph_menus_active ? glyph_menu_input.source : glyph_keyboard_active;
-		if (source == HALO_GLYPH_INPUT_KEYBOARD) strcpy(family, "keyboard");
+		/* Until the mouse legend art lands the mouse shares the keyboard's keycaps. */
+		if (source == HALO_GLYPH_INPUT_KEYBOARD || source == HALO_GLYPH_INPUT_MOUSE) strcpy(family, "keyboard");
 		else if (source == HALO_GLYPH_INPUT_TOUCH) strcpy(family, "touch");
 	}
 	count = sdl_gamepads(gamepads);

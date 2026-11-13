@@ -34,7 +34,8 @@ static inline const char *halo_glyph_menu_key(int physical)
 #undef MENU_LABEL
 }
 
-enum { HALO_GLYPH_INPUT_TOUCH = -2, HALO_GLYPH_INPUT_CONTROLLER = 0, HALO_GLYPH_INPUT_KEYBOARD = 1 };
+enum { HALO_GLYPH_INPUT_TOUCH = -2, HALO_GLYPH_INPUT_CONTROLLER = 0, HALO_GLYPH_INPUT_KEYBOARD = 1,
+	HALO_GLYPH_INPUT_MOUSE = 2 };
 struct halo_glyph_input { int source; unsigned int gamepad; };
 
 /* Events, rather than held state, select the device. Idle and key-repeat
@@ -48,6 +49,15 @@ static inline struct halo_glyph_input halo_glyph_input_note(
 		previous.gamepad = source == HALO_GLYPH_INPUT_CONTROLLER ? gamepad : 0;
 	}
 	return previous;
+}
+
+/* The mouse is its own source, separate from the keyboard: a click always claims
+the prompts, but motion must travel this far (menu units) so a bumped desk does not. */
+#define HALO_GLYPH_MOUSE_MOTION_THRESHOLD 2.0f
+
+static inline int halo_glyph_mouse_motion_active(float dx, float dy)
+{
+	return dx * dx + dy * dy >= HALO_GLYPH_MOUSE_MOTION_THRESHOLD * HALO_GLYPH_MOUSE_MOTION_THRESHOLD;
 }
 
 union SDL_Event;

@@ -114,6 +114,17 @@ int main(void) {
  assert(selected.source==-2);
  selected=halo_glyph_input_note(selected,0,22,1);
  assert(selected.source==0 && selected.gamepad==22);
+ /* The mouse is separate from the keyboard; small motion never claims the prompts. */
+ selected=halo_glyph_input_note(selected,HALO_GLYPH_INPUT_KEYBOARD,0,1);
+ selected=halo_glyph_input_note(selected,HALO_GLYPH_INPUT_MOUSE,0,halo_glyph_mouse_motion_active(1.0f,1.0f));
+ assert(selected.source==HALO_GLYPH_INPUT_KEYBOARD);
+ selected=halo_glyph_input_note(selected,HALO_GLYPH_INPUT_MOUSE,0,halo_glyph_mouse_motion_active(2.0f,0.0f));
+ assert(selected.source==HALO_GLYPH_INPUT_MOUSE && selected.gamepad==0);
+ selected=halo_glyph_input_note(selected,HALO_GLYPH_INPUT_KEYBOARD,0,1);
+ assert(selected.source==HALO_GLYPH_INPUT_KEYBOARD);
+ selected=halo_glyph_input_note(selected,HALO_GLYPH_INPUT_MOUSE,0,1); /* a click */
+ assert(selected.source==HALO_GLYPH_INPUT_MOUSE);
+ selected=halo_glyph_input_note(selected,0,22,1);
  /* Events select the last controller for every menu legend owner. */
  event.type=SDL_EVENT_GAMEPAD_BUTTON_DOWN;event.gbutton.which=22;
  halo_controller_glyph_input_event(&event);
