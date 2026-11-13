@@ -973,23 +973,27 @@ def multiplayer_documents(assets, bitmaps):
 
 def direct_ip_layout(root, dir_):
     """DIRECT IP: SERVER ADDRESS, SERVER PORT (numeric, default prefilled) and a JOIN GAME row.
-    No password row: a host that wants one raises the PASSWORD screen after connecting.
+    There is no password row: the invite link is already a token.
     A activates the selected row, like SERVER SETUP's START GAME."""
     by = {t.get('name'): t for t in root.iter('widget')}
     menu = by[dir_ + '/direct_ip_menu']
-    port = by[dir_ + '/op_server_password']
+    # The PC row set has only SERVER ADDRESS; SERVER PORT is a copy of it.
+    port = deepcopy(by[dir_ + '/op_server_address'])
     port.set('name', dir_ + '/op_server_port')
     for c in port.findall('child'):
-        c.set('widget', c.get('widget').replace('server_password_', 'server_port_'))
-    label = by[dir_ + '/server_password_label']
+        c.set('widget', c.get('widget').replace('server_address_', 'server_port_'))
+    label = deepcopy(by[dir_ + '/server_address_label'])
     label.set('name', dir_ + '/server_port_label')
-    label.attrib.pop('string_list')
-    label.attrib.pop('string_index')
+    label.attrib.pop('string_list', None)
+    label.attrib.pop('string_index', None)
     label.set('text', 'SERVER PORT')
-    value = by[dir_ + '/server_password_value_label']
+    value = deepcopy(by[dir_ + '/server_address_value_label'])
     value.set('name', dir_ + '/server_port_value_label')
-    value.set('font', r'ui\small_ui')
     value.set('text', '5150')
+    anchor = by[dir_ + '/server_address_value_label']
+    index = list(root).index(anchor) + 1
+    for offset, element in enumerate((port, label, value)):
+        root.insert(index + offset, element)
     join = by[dir_ + '/direct_ip_button_join']
     for key in ('string_list', 'string_index', 'align', 'text_y', 'width', 'height', 'font'):
         join.attrib.pop(key, None)
