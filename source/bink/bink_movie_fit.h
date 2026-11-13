@@ -2,7 +2,9 @@
 headers, so a probe can test it on its own. A movie keeps its native size, centered,
 unless that leaves only thin bars (at most BINK_MOVIE_THIN_BAR_PERCENT of the screen
 on an axis, all axes thin or zero): then it scales up to cover the screen and the
-overflow is cropped, centered. Wider bars keep the whole picture. */
+overflow is cropped, centered. Wider bars keep the whole picture. A movie larger than
+the screen on either axis (a portrait screen) scales down to fit without cropping,
+centered, and the uncovered bars are filled like any other bars. */
 #ifndef BINK_MOVIE_FIT_H
 #define BINK_MOVIE_FIT_H
 
@@ -53,6 +55,25 @@ static void bink_movie_fit_compute(
 		fit->v1 = fit->v0 + visible_height;
 		fit->covers = 1;
 		fit->has_bars = 0;
+		return;
+	}
+
+	if (bar_x < 0 || bar_y < 0)
+	{
+		/* too big on an axis: scale down by the smaller ratio so the whole picture shows */
+		float scale_x = (float)screen_width / (float)movie_width;
+		float scale_y = (float)screen_height / (float)movie_height;
+		float scale = scale_x < scale_y ? scale_x : scale_y;
+		int fitted_width = (int)((float)movie_width * scale + 0.5f);
+		int fitted_height = (int)((float)movie_height * scale + 0.5f);
+
+		if (fitted_width > screen_width) fitted_width = screen_width;
+		if (fitted_height > screen_height) fitted_height = screen_height;
+		fit->x0 = (float)((short)((screen_width - fitted_width) / 2));
+		fit->x1 = fit->x0 + (float)fitted_width;
+		fit->y0 = (float)((short)((screen_height - fitted_height) / 2));
+		fit->y1 = fit->y0 + (float)fitted_height;
+		fit->has_bars = fitted_width < screen_width || fitted_height < screen_height;
 		return;
 	}
 
