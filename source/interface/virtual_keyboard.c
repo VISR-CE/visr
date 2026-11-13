@@ -273,6 +273,12 @@ typedef char verify_virtual_keyboard_key_size[
 
 /* ---------- prototypes */
 
+/* port: touch name entry uses the same system prompt as menu fields. */
+extern int platform_text_touch(void);
+extern void platform_text_field(int typing, const char *title, const char *text, int masked);
+extern int platform_text_field_result(char *text, int size);
+static boolean virtual_keyboard_system;
+
 static boolean virtual_keyboard_cancel(
 	void);
 static wchar_t virtual_keyboard_get_character(
@@ -411,6 +417,8 @@ boolean virtual_keyboard_initialize(
 void virtual_keyboard_dispose(
 	void)
 {
+	if (virtual_keyboard_system) platform_text_field(FALSE, NULL, NULL, FALSE);
+	virtual_keyboard_system = FALSE;
 	virtual_keyboard_globals.active = FALSE;
 	virtual_keyboard_globals.shift_active = FALSE;
 	virtual_keyboard_globals.caps_active = FALSE;
@@ -473,6 +481,16 @@ boolean virtual_keyboard_launch(
 		virtual_keyboard_globals.saved_text[MAXIMUM_VIRTUAL_KEYBOARD_SAVED_TEXT_LENGTH - 1] = L'\0';
 		virtual_keyboard_globals.last_exit_saved_text = FALSE;
 		ui_play_audio_feedback_sound(_ui_audio_feedback_forward);
+		virtual_keyboard_system = platform_text_touch();
+		if (virtual_keyboard_system)
+		{
+			char text[MAXIMUM_VIRTUAL_KEYBOARD_BUFFER_SIZE];
+			unsigned int i;
+			for (i = 0; text_buffer[i] && i + 1 < sizeof(text); i++)
+				text[i] = text_buffer[i] < 128 ? (char)text_buffer[i] : '?';
+			text[i] = 0;
+			platform_text_field(TRUE, caption_index == 8 ? "Profile Name" : "Gametype Name", text, FALSE);
+		}
 		result = TRUE;
 	}
 
@@ -566,6 +584,12 @@ static boolean virtual_keyboard_tab_down(
 static boolean virtual_keyboard_cancel(
 	void)
 {
+	if (virtual_keyboard_system)
+	{
+		platform_text_field(FALSE, NULL, NULL, FALSE);
+		event_manager_flush();
+	}
+	virtual_keyboard_system = FALSE;
 	virtual_keyboard_globals.active = FALSE;
 	if (virtual_keyboard_globals.text_buffer)
 	{
@@ -1038,7 +1062,7 @@ void virtual_keyboard_close(
 void virtual_keyboard_render(
 	void)
 {
-	if (virtual_keyboard_globals.active)
+	if (virtual_keyboard_globals.active && !virtual_keyboard_system)
 		virtual_keyboard_render_internal();
 
 	return;
@@ -1054,7 +1078,24 @@ void virtual_keyboard_process(
 
 		platform_text_typing(virtual_keyboard_globals.active);
 	}
-	if (virtual_keyboard_globals.active)
+	if (virtual_keyboard_system && virtual_keyboard_globals.active)
+	{
+		char text[MAXIMUM_VIRTUAL_KEYBOARD_BUFFER_SIZE];
+		int result = platform_text_field_result(text, sizeof(text));
+		if (result == 2) virtual_keyboard_cancel();
+		else if (result == 3 || result == 4)
+		{
+			unsigned int i, capacity = virtual_keyboard_globals.buffer_size / sizeof(wchar_t);
+			for (i = 0; text[i] && i + 1 < capacity; i++)
+				virtual_keyboard_globals.text_buffer[i] = (wchar_t)(unsigned char)text[i];
+			virtual_keyboard_globals.text_buffer[i] = 0;
+			virtual_keyboard_globals.row = virtual_keyboard_globals.column = 0;
+			virtual_keyboard_select();
+			platform_text_field(FALSE, NULL, NULL, FALSE);
+			virtual_keyboard_system = FALSE;
+		}
+	}
+	else if (virtual_keyboard_globals.active)
 		virtual_keyboard_process_internal();
 
 	return;

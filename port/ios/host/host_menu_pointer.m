@@ -96,3 +96,77 @@ void host_menu_pointer_attach(void *root_view) {
     [root addGestureRecognizer:[[HaloMenuTouch alloc]initWithTarget:nil action:nil]];
     host_ui_pointer_install(pointer_feedback,menus_changed);
 }
+
+#if !TARGET_OS_TV && !TARGET_OS_VISION
+/* UIKit keeps the editable field above the keyboard, including landscape and floating keyboards. */
+@interface HaloMenuText : NSObject <UITextFieldDelegate>
+@property(nonatomic, strong) UIAlertController *alert;
+@property(nonatomic, copy) NSString *answer;
+@property(nonatomic) int result;
+@end
+@implementation HaloMenuText
+- (void)finish:(int)result {
+    if (!self.alert || self.result) return;
+    self.answer = self.alert.textFields.firstObject.text ?: @"";
+    self.result = result;
+    [self.alert dismissViewControllerAnimated:YES completion:nil];
+}
+- (BOOL)textFieldShouldReturn:(UITextField *)field {
+    [self finish:4];
+    return NO;
+}
+@end
+static HaloMenuText *menu_text;
+
+int host_menu_text_active(void) {
+    return menu_text.alert && !menu_text.result;
+}
+
+int host_menu_text_prompt(int on, const char *title, const char *text, int masked) {
+    if (!menu_text) menu_text = [HaloMenuText new];
+    if (!on) {
+        [menu_text.alert dismissViewControllerAnimated:NO completion:nil];
+        menu_text.alert = nil;
+        menu_text.result = 0;
+        menu_text.answer = nil;
+        return 1;
+    }
+    SDL_Window *window = host_sdl_window();
+    UIWindow *ui = window ? (__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
+        SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER, NULL) : nil;
+    UIViewController *presenter = ui.rootViewController;
+    if (!presenter || presenter.presentedViewController) return 0;
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:
+        [NSString stringWithUTF8String:title && *title ? title : "Name"] message:nil
+        preferredStyle:UIAlertControllerStyleAlert];
+    menu_text.alert = alert;
+    menu_text.result = 0;
+    menu_text.answer = nil;
+    [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+        field.text = [NSString stringWithUTF8String:text ?: ""];
+        field.secureTextEntry = masked != 0;
+        field.keyboardType = title && !strcmp(title, "Server Port") ?
+            UIKeyboardTypeNumbersAndPunctuation : UIKeyboardTypeASCIICapable;
+        field.autocorrectionType = UITextAutocorrectionTypeNo;
+        field.autocapitalizationType = UITextAutocapitalizationTypeNone;
+        field.spellCheckingType = UITextSpellCheckingTypeNo;
+        field.returnKeyType = UIReturnKeyGo;
+        field.delegate = menu_text;
+    }];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel
+        handler:^(UIAlertAction *action) { [menu_text finish:2]; }]];
+    [alert addAction:[UIAlertAction actionWithTitle:@"Done" style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *action) { [menu_text finish:3]; }]];
+    [presenter presentViewController:alert animated:YES completion:^{
+        [alert.textFields.firstObject becomeFirstResponder];
+    }];
+    return 1;
+}
+
+int host_menu_text_result(char *buffer, uint32_t size) {
+    int result = menu_text.result;
+    if (result && size) SDL_strlcpy(buffer, menu_text.answer.UTF8String ?: "", size);
+    menu_text.result = 0;
+    return result;
+}
+#endif

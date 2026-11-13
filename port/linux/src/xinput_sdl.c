@@ -560,6 +560,11 @@ int halo_host_text_result(char *buffer, unsigned int size);
 Start once (typing_gamepad), as Enter does */
 static BOOL text_typing_submit;
 
+#ifndef HALO_IOS
+int platform_text_auto_open(void) { return 1; }
+int platform_text_touch(void) { return 0; }
+#endif
+
 void platform_text_field(int typing, const char *title, const char *text, int masked)
 {
 #ifdef HALO_IOS
@@ -594,6 +599,11 @@ int platform_text_field_result(char *text, int size)
 #endif
 }
 
+void platform_text_field_submit(void)
+{
+	text_typing_submit = TRUE;
+}
+
 static void typing_gamepad(const struct platform_input_state *input, XINPUT_GAMEPAD *pad)
 {
 	const unsigned char *k = input->keys;
@@ -622,7 +632,7 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	const unsigned char *m = input->mouse_buttons;
 	int x = 0, y = 0;
 
-	if (text_typing)
+	if (text_typing || text_typing_submit)
 	{
 		typing_gamepad(input, pad);
 		return;

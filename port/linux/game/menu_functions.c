@@ -2823,6 +2823,8 @@ void p2p_set_hosting_allowed(int allowed);
 int p2p_peer_address(unsigned char const *identifier, unsigned long *address);
 int platform_clipboard_get(char *text, int size);
 void platform_clipboard_set(char const *text);
+int platform_text_auto_open(void);
+void platform_text_field_submit(void);
 void platform_text_field(int typing, char const *title, char const *text, int masked);
 int platform_text_field_result(char *text, int size);
 int config_boolean(char const *name);
@@ -2921,7 +2923,24 @@ static boolean text_field_editing(struct widget_instance *row)
 static char const *text_field_title(struct widget_instance const *row)
 {
 	return !row ? "" : strstr(row->name, "password") ? "Password" : strstr(row->name, "code") ? "Join Code" :
+		strstr(row->name, "address") ? "Server Address" : strstr(row->name, "port") ? "Server Port" :
 		strstr(row->name, "name") ? "Game Name" : "";
+}
+
+static void text_field_focus(struct widget_instance *row)
+{
+	for (; row && row->parent; row = row->parent)
+	{
+		struct widget_instance *parent = row->parent;
+		struct widget_instance *child;
+		short index = 0;
+
+		for (child = parent->child; child && child != row; child = child->next)
+			index++;
+		parent->focused_child = row;
+		if (parent->type == 3)
+			parent->parameters.list.selected_index = index;
+	}
 }
 
 static void text_field_start(struct widget_instance *row, char const *text, short maximum,
@@ -2929,7 +2948,11 @@ static void text_field_start(struct widget_instance *row, char const *text, shor
 {
 	struct key_stroke key;
 
+	if (text_field.row)
+		platform_text_field(FALSE, NULL, NULL, FALSE);
 	text_field.row = row;
+	text_field_focus(row);
+
 	snprintf(text_field.text, sizeof(text_field.text), "%s", text);
 	snprintf(text_field.before, sizeof(text_field.before), "%s", text);
 	text_field.maximum = (short)MIN(maximum, TEXT_FIELD_LENGTH - 1);
@@ -2980,13 +3003,35 @@ static void text_field_insert(char const *text)
 	text_field.text[length] = 0;
 }
 
-/* the keys typed since the last frame, and the field shown (a caret
-blinking while it is edited) */
+/* Done returns to the action; Return advances through the editable fields first. */
+static void text_field_finish(boolean advance)
+{
+	struct widget_instance *row = text_field.row;
+	struct widget_instance *screen = screen_of(row);
+	struct widget_instance *action = named(screen, "button_ok", 0);
+	if (!action) action = named(screen, "op_start_game", 0);
+	if (!action) action = named(screen, "direct_ip_button_join", 0);
+	if (advance && row)
+	{
+		struct widget_instance *next = NULL;
+		if (!strcmp(row->name, "op_server_address"))
+		{
+			next = named(screen, "op_server_port", 0);
+			if (!next) next = named(screen, "op_server_password", 0);
+		}
+		if (!strcmp(row->name, "op_server_name")) next = named(screen, "op_password", 0);
+		if (next && next->visible) action = next;
+	}
+	text_field_end(TRUE);
+	text_field_focus(action);
+}
 
+/* Read the typed characters and show a caret while editing. */
 static void text_field_show(struct widget_instance *value, char const *text, boolean editing)
 {
 	wchar_t shown[TEXT_FIELD_LENGTH + 2];
 	short index;
+	boolean concealed = editing && text_field.masked;
 
 	if (editing)
 	{
@@ -2998,18 +3043,28 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 		/* the system's dialog's text (an Apple TV's), whole: Done also
 		presses Start, which the field's row takes as Enter; Cancel stops
 		the editing, and the row's A asks again */
-		switch (platform_text_field_result(asked, sizeof(asked)))
+		int result = platform_text_field_result(asked, sizeof(asked));
+		switch (result)
 		{
 		case 1:
 			text_field.text[0] = 0;
 			text_field_insert(asked);
+			break;
+		case 3:
+		case 4:
+			text_field.text[0] = 0;
+			text_field_insert(asked);
+			text_field_finish(result == 4);
+			if (result == 4) platform_text_field_submit();
+			editing = FALSE;
+			text = text_field.text;
 			break;
 		case 2:
 			text_field_end(FALSE);
 			text_set(value, L"");
 			return;
 		}
-		while (input_get_key(&key))
+		while (editing && input_get_key(&key))
 		{
 			size_t length = strlen(text_field.text);
 
@@ -3035,7 +3090,7 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 		text = text_field.text;
 	}
 	for (index = 0; text[index] && index < TEXT_FIELD_LENGTH; index++)
-		shown[index] = editing && text_field.masked ? L'*' : (wchar_t)(unsigned char)text[index];
+		shown[index] = concealed ? L'*' : (wchar_t)(unsigned char)text[index];
 	if (editing && (system_milliseconds() / 500) % 2)
 		shown[index++] = L'_';
 	shown[index] = 0;
@@ -3948,7 +4003,7 @@ static boolean server_password_edit(struct widget_instance *row)
 {
 	if (text_field_editing(row))
 	{
-		text_field_end(TRUE);
+		text_field_finish(FALSE);
 		return TRUE;
 	}
 	text_field_begin_masked(row, multiplayer.game_password, PASSWORD_LENGTH, server_password_done);
@@ -3962,7 +4017,7 @@ static boolean server_name_edit(struct widget_instance *row)
 
 	if (text_field_editing(row))
 	{
-		text_field_end(TRUE);
+		text_field_finish(FALSE);
 		return TRUE;
 	}
 	wide_to_text(multiplayer.game_name, text, sizeof(text));
@@ -5082,7 +5137,9 @@ static boolean join_row_focused(struct widget_instance *list)
 {
 	struct widget_instance *join = named(list, "button_ok", 0);
 
-	return join && list->focused_child == join;
+	while (list && list != join && list->focused_child)
+		list = list->focused_child;
+	return join && list == join;
 }
 
 /* "port password init" */
@@ -5093,7 +5150,7 @@ static boolean password_screen_initialize(struct widget_instance *list)
 	password_screen.text[0] = 0;
 	password_screen.help = _password_help_ask;
 	password_screen.hidden = FALSE;
-	if (row)
+	if (row && (platform_text_auto_open() || config_string("debug.menu_text_seed")[0]))
 	{
 		text_field_start(row, "", PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
 		/* (debug.menu_text_seed: text already held, the keyboard closed; a leading '*' starts it hidden) */
@@ -5176,7 +5233,7 @@ static boolean password_screen_edit(struct widget_instance *row, boolean *widget
 {
 	(void)widget_deleted;
 	if (text_field_editing(row))
-		text_field_end(TRUE);
+		text_field_finish(FALSE);
 	else
 		text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
 	return TRUE;
@@ -5375,7 +5432,7 @@ static boolean code_screen_initialize(struct widget_instance *list)
 	if (platform_clipboard_get(clipboard, sizeof(clipboard)) && strstr(clipboard, "halo://join/"))
 		snprintf(code_screen.text, sizeof(code_screen.text), "%s", clipboard);
 	code_screen.help = _code_help_ask;
-	if (row)
+	if (row && (platform_text_auto_open() || config_string("debug.menu_text_seed")[0]))
 	{
 		text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
 		if (config_string("debug.menu_text_seed")[0])
@@ -5437,7 +5494,7 @@ static boolean code_screen_edit(struct widget_instance *row, boolean *widget_del
 {
 	(void)widget_deleted;
 	if (text_field_editing(row))
-		text_field_end(TRUE);
+		text_field_finish(FALSE);
 	else
 		text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
 	return TRUE;
@@ -5453,6 +5510,52 @@ static boolean code_screen_accept(struct widget_instance *widget, boolean *widge
 	if (list ? join_row_focused(list) : FALSE)
 		return code_screen_join(widget, widget_deleted);
 	return row ? code_screen_edit(row, widget_deleted) : FALSE;
+}
+
+/* Direct IP's fields share the same input and completion rules as the other forms. */
+static char direct_address[TEXT_FIELD_LENGTH], direct_port[6] = "2302", direct_password[PASSWORD_LENGTH + 1];
+static void direct_address_done(char const *text) { snprintf(direct_address, sizeof(direct_address), "%s", text); }
+static void direct_port_done(char const *text) { snprintf(direct_port, sizeof(direct_port), "%s", text); }
+static void direct_password_done(char const *text) { snprintf(direct_password, sizeof(direct_password), "%s", text); }
+
+static boolean direct_ip_edit(struct widget_instance *widget)
+{
+	struct widget_instance *row = widget;
+	boolean address = strstr(widget->name, "address") != NULL;
+	if (strncmp(row->name, "op_", 3)) row = row->parent;
+	if (!row) return FALSE;
+	if (text_field_editing(row)) text_field_finish(FALSE);
+	else if (strstr(row->name, "password"))
+		text_field_begin_masked(row, direct_password, PASSWORD_LENGTH, direct_password_done);
+	else text_field_begin(row, address ? direct_address : direct_port,
+		address ? sizeof(direct_address) - 1 : sizeof(direct_port) - 1,
+		address ? direct_address_done : direct_port_done);
+	return TRUE;
+}
+
+static boolean direct_ip_initialize(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_server_address", 0);
+	direct_address[0] = direct_password[0] = 0;
+	snprintf(direct_port, sizeof(direct_port), "2302");
+	if (row && platform_text_auto_open()) direct_ip_edit(row);
+	return TRUE;
+}
+
+static void direct_ip_update(struct widget_instance *list)
+{
+	struct widget_instance *address = named(list, "op_server_address", 0);
+	struct widget_instance *port = named(list, "op_server_port", 0);
+	struct widget_instance *password = named(list, "op_server_password", 0);
+	char masked[PASSWORD_LENGTH + 1];
+	memset(masked, '*', strlen(direct_password));
+	masked[strlen(direct_password)] = 0;
+	text_field_show(named(list, "server_address_value_label", 0), direct_address,
+		address && text_field_editing(address));
+	text_field_show(named(list, "server_port_value_label", 0), direct_port,
+		port && text_field_editing(port));
+	text_field_show(named(list, "server_password_value_label", 0), masked,
+		password && text_field_editing(password));
 }
 
 /* "direct ip connect go" (Direct Link's PASTE LINK, before ENTER CODE): the
@@ -7095,6 +7198,10 @@ boolean pc_menu_event_function_invoke(
 		{
 			return profile_save_changes(widget, widget_deleted);
 		}
+		else if (!strcmp(name, "direct ip connect init"))
+			return direct_ip_initialize(widget);
+		else if (!strcmp(name, "direct ip edit field"))
+			return direct_ip_edit(widget);
 		else if (!strcmp(name, "direct ip connect go"))
 		{
 			return direct_link_from_clipboard();
@@ -7456,6 +7563,8 @@ void pc_menu_game_data_function_invoke(
 		coop_options_update(widget);
 	else if (!strcmp(name, "port password update"))
 		password_screen_update(widget);
+	else if (!strcmp(name, "direct ip connect update"))
+		direct_ip_update(widget);
 	else if (!strcmp(name, "port code update"))
 		code_screen_update(widget);
 	else if (!strcmp(name, "gamespy screen update"))
