@@ -2552,35 +2552,61 @@ void halo_anti_aliasing_toggle(void)
 	knob_ab_changed();
 }
 
-/* Portrait field of view (source/main/main.c set_window_camera_values): a
-view narrower than 4:3 keeps the game's vertical angle ("hold vertical", the
-default) or, with debug.portrait_field_of_view = "horizontal_minimum", widens
-the vertical angle so the horizontal one never drops below 60 degrees. The
-live chord (xinput_sdl.c: hold Back and press L1, where portrait is allowed)
-switches between the two until the app quits, with the mode on the HUD's
-message line and in the log */
-static int portrait_field_of_view_mode = -1;
+/* Portrait field of view (source/main/main.c set_window_camera_values, modes in
+source/main/portrait_fov.h): a view narrower than 4:3 keeps the game's vertical
+angle ("hold vertical", the default) or, with debug.portrait_field_of_view set to
+"horizontal_minimum", "horizontal_70" or "match_landscape", widens it. The live
+chord (xinput_sdl.c: hold Back and press L1, where portrait is allowed) cycles the
+four until the app quits, with the angles on the HUD's message line and in the log */
+#include <wchar.h>
+#include "../../../source/main/portrait_fov.h"
 
-int halo_portrait_field_of_view_minimum(void)
+static int portrait_field_of_view_mode = -1;
+static float portrait_field_of_view_aspect = 0.0f;
+
+static int portrait_field_of_view_current(void)
 {
 	if (portrait_field_of_view_mode < 0)
 	{
 		const char *mode = config_string("debug.portrait_field_of_view");
-		portrait_field_of_view_mode = mode && strcmp(mode, "horizontal_minimum") == 0;
+		portrait_field_of_view_mode = 0;
+		if (mode && strcmp(mode, "horizontal_minimum") == 0)
+			portrait_field_of_view_mode = 1;
+		else if (mode && strcmp(mode, "horizontal_70") == 0)
+			portrait_field_of_view_mode = 2;
+		else if (mode && strcmp(mode, "match_landscape") == 0)
+			portrait_field_of_view_mode = 3;
 		if (portrait_field_of_view_mode)
-			platform_log("portrait field of view: horizontal minimum (debug.portrait_field_of_view)");
+			platform_log("portrait field of view: mode %d (debug.portrait_field_of_view)", portrait_field_of_view_mode);
 	}
 	return portrait_field_of_view_mode;
 }
 
+/* the half-vertical tangent for a portrait view of this width / height */
+float halo_portrait_field_of_view_tangent(float aspect, float base_tangent)
+{
+	portrait_field_of_view_aspect = aspect;
+	return portrait_fov_tangent(portrait_field_of_view_current(), aspect, base_tangent);
+}
+
 void halo_portrait_field_of_view_toggle(void)
 {
-	int minimum = !halo_portrait_field_of_view_minimum();
-	portrait_field_of_view_mode = minimum;
+	static const char *const names[PORTRAIT_FOV_MODE_COUNT] =
+		{ "keep vertical", "horizontal minimum", "horizontal 70", "match landscape" };
+	int mode = (portrait_field_of_view_current() + 1) % PORTRAIT_FOV_MODE_COUNT;
+	float aspect = portrait_field_of_view_aspect > 0.0f ? portrait_field_of_view_aspect : 0.705f;
+	float horizontal, vertical;
+	wchar_t message[48];
+
+	portrait_field_of_view_mode = mode;
+	portrait_fov_degrees(portrait_fov_tangent(mode, aspect, PORTRAIT_FOV_BASE_TANGENT), aspect, &horizontal, &vertical);
 	if (game_in_progress())
-		hud_print_message(0, minimum ? L"FOV: horizontal minimum" : L"FOV: hold vertical");
-	platform_log("portrait field of view: %s (the live chord, until the app quits)",
-		minimum ? "horizontal minimum" : "hold vertical");
+	{
+		swprintf(message, 48, L"FOV: %.0f H / %.0f V", horizontal, vertical);
+		hud_print_message(0, message);
+	}
+	platform_log("portrait field of view: %s, %.1f H / %.1f V at a %.3f view (the live chord, until the app quits)",
+		names[mode], horizontal, vertical, aspect);
 }
 
 /* debug.knob_cycle's anti-aliasing: the method named from the next frame, until the app quits */

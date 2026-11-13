@@ -105,7 +105,7 @@ static void anti_aliasing_chord(XINPUT_GAMEPAD *pad)
 void halo_portrait_field_of_view_toggle(void);
 
 /* while Back is held, L1 (the Xbox's White) switches the portrait field of
-view between hold vertical and horizontal minimum, only where portrait play
+view through its four modes (portrait_fov.h), only where portrait play
 is allowed (display.allow_portrait), and the game doesn't see L1 */
 static void portrait_field_of_view_chord(XINPUT_GAMEPAD *pad)
 {

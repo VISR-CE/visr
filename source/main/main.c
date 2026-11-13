@@ -1224,24 +1224,22 @@ void set_window_camera_values(
 
 		/* port: a view narrower than 4:3 (portrait) keeps the vertical angle
 		and narrows the horizontal one; debug.portrait_field_of_view's
-		"horizontal_minimum" (or its live chord) instead widens the vertical
-		angle just enough that the horizontal one stays at least 60 degrees */
+		"horizontal_minimum", "horizontal_70" or "match_landscape" (or the live
+		chord through all four) widen it; see portrait_fov.h */
 		{
-			extern int halo_portrait_field_of_view_minimum(void);
+			extern float halo_portrait_field_of_view_tangent(float aspect, float base_tangent);
 			extern real halo_cinematic_portrait_letterbox(real width, real height, real *bar_fraction);
 			rectangle2d const *view = &window->rasterizer_camera.viewport_bounds;
 			real width = (real)(view->x1 - view->x0);
 			real height = (real)(view->y1 - view->y0);
 			real base_vertical_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
 
-			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f &&
-				halo_portrait_field_of_view_minimum())
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f)
 			{
-				real vertical_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
-				real minimum_tangent = 0.57735027f / (width / height); /* tan(30 degrees) */
-
-				if (vertical_tangent < minimum_tangent)
-					window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(minimum_tangent, 1.0f);
+				/* the four modes are in portrait_fov.h; the widest passes 90 degrees, and nothing here clamps
+				it (the game's own 90-degree checks see the observer's angle, before this) */
+				window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(
+					halo_portrait_field_of_view_tangent(width / height, base_vertical_tangent), 1.0f);
 			}
 
 			/* port: a letterboxed cinematic in a portrait view keeps the landscape cinematic's picture: the

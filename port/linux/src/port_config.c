@@ -1560,8 +1560,9 @@ static const struct config_setting config_settings[] =
 		"Field of view in a view narrower than 4:3 (portrait play): empty keeps\n"
 		"the game's vertical angle and narrows the horizontal one;\n"
 		"\"horizontal_minimum\" widens the vertical angle so the horizontal one\n"
-		"stays at least 60 degrees. Where portrait is allowed, hold Back and\n"
-		"press L1 to switch between the two until the app quits." },
+		"stays at least 60 degrees; \"horizontal_70\" and \"match_landscape\"\n"
+		"widen it to 70 and 73.5 degrees horizontal. Where portrait is allowed,\n"
+		"hold Back and press L1 to cycle the four modes until the app quits." },
 	{ "debug.anti_aliasing_folded", _config_boolean, "false", "HALO_ANTI_ALIASING_FOLDED", _environment_value, _platform_all,
 		"With display.anti_aliasing = \"fxaa\" and the HUD at the display's size:\n"
 		"run FXAA inside the stretch to the display's size (Metal), at each of\n"
