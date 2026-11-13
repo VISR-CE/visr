@@ -7593,13 +7593,26 @@ static void widget_instance_render_recursive(
 	switch (widget->type)
 	{
 	case _ui_widget_type_text_box:
-		offset.x += ui_touch_legend_caption_shift(widget);
-		widget_instance_render_text_box(
-			widget,
-			definition,
-			clip_rect,
-			offset,
-			widget_instance_text_box_is_focused(widget));
+		{
+			short shift = ui_touch_legend_caption_shift(widget);
+			rectangle2d shifted_clip;
+
+			offset.x += shift;
+			/* the shifted caption must not be clipped by the box it left */
+			if (shift)
+			{
+				shifted_clip = clip_rect ? *clip_rect : definition->bounds;
+				shifted_clip.x0 = MIN(shifted_clip.x0, shifted_clip.x0 + shift);
+				shifted_clip.x1 = MAX(shifted_clip.x1, shifted_clip.x1 + shift);
+				clip_rect = &shifted_clip;
+			}
+			widget_instance_render_text_box(
+				widget,
+				definition,
+				clip_rect,
+				offset,
+				widget_instance_text_box_is_focused(widget));
+		}
 		break;
 
 	case _ui_widget_type_spinner_list:
