@@ -6190,11 +6190,14 @@ boolean ui_widget_port_browse(
 
 /* joining a found game (as network_game_join_game_from_server_list), then
 the lobby (by name) in place of the widget's screen */
-boolean ui_widget_port_join(
+/* port: Direct IP supplies a port; normal browser joins keep system link's
+default. Both use the same validation, join token, failure path, and lobby. */
+static boolean ui_widget_port_join_at_port(
 	struct widget_instance *widget,
 	void *advertised_game,
 	char const *lobby_name,
-	boolean *widget_deleted)
+	boolean *widget_deleted,
+	word port)
 {
 	byte *server = advertised_game;
 	struct transport_address address = { { { 0 } } };
@@ -6214,7 +6217,7 @@ boolean ui_widget_port_join(
 	{
 		return FALSE;
 	}
-	transport_client_start(server + 0x18, server + 8, server, 0x141E, &address);
+	transport_client_start(server + 0x18, server + 8, server, port, &address);
 	if (!address.address.long_words[0] || !address.port)
 	{
 		error(2, "attempted to join a network game with a bogus address");
@@ -6237,6 +6240,30 @@ boolean ui_widget_port_join(
 	game_connection_set(1);
 	*widget_deleted = TRUE;
 	return TRUE;
+}
+
+boolean ui_widget_port_join(
+	struct widget_instance *widget,
+	void *advertised_game,
+	char const *lobby_name,
+	boolean *widget_deleted)
+{
+	return ui_widget_port_join_at_port(widget, advertised_game, lobby_name, widget_deleted, 0x141E);
+}
+
+/* port: system link has no password in its join descriptor. The browser's
+password unlocks an internet invite, which cannot be used with an IP address. */
+boolean ui_widget_port_join_direct(
+	struct widget_instance *widget,
+	void *advertised_game,
+	char const *lobby_name,
+	boolean *widget_deleted,
+	word port,
+	char const *password)
+{
+	if (*password || !port)
+		return FALSE;
+	return ui_widget_port_join_at_port(widget, advertised_game, lobby_name, widget_deleted, port);
 }
 
 /* the player of the controller in a network game: player 1's profile (its
