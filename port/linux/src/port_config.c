@@ -1720,6 +1720,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
+	{ "debug.menu_ready_shot", _config_integer, "0", "HALO_MENU_READY_SHOT", _environment_value, _platform_ios,
+		"Menu captures: once a menu screen is up, log \"menus: ready\", let it\n"
+		"settle this many frames, save one frame as frameNNNNN-ready.png in\n"
+		"debug.screenshot_directory, and quit; 0 off." },
 	{ "debug.menu_error", _config_string, "\"\"", "HALO_MENU_ERROR", _environment_value, _platform_all,
 		"Development builds only: after the menu loads, call the real error API.\n"
 		"Use code,modal,full|half|qtr, or code,optional,abort (code 0-39, flags 0-1).\n"

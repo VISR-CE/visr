@@ -199,6 +199,10 @@ void platform_clock_realtime(int on);
 background where the game's (GetTickCount) stands still (xbox_kernel.c) */
 unsigned long platform_real_milliseconds(void);
 unsigned long platform_clock_frames(void);
+/* debug.menu_ready_shot: save the next presented frame as frameNNNNN-ready.png
+(d3d8_device.c); taken says it has been written */
+void platform_ready_screenshot_request(void);
+int platform_ready_screenshot_taken(void);
 void platform_clock_frame(void);
 /* a main loop pass that presented nothing: with debug.fixed_timestep, the
 clock moves a frame anyway (xbox_kernel.c) */

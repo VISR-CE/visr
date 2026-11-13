@@ -125,6 +125,10 @@ void platform_show_message(char const *title, char const *message);
 internet play on */
 void platform_internet_play_request(void);
 int menu_in_network_game(void);
+/* (platform.h) presented frames, and the debug.menu_ready_shot frame (d3d8_device.c) */
+unsigned long platform_clock_frames(void);
+void platform_ready_screenshot_request(void);
+int platform_ready_screenshot_taken(void);
 #endif
 void platform_request_quit(void);
 char const *pc_menu_function_name(long function_index);
@@ -7609,6 +7613,39 @@ void menu_join_failed(void)
 	console_notice("Could not reach the host");
 }
 
+/* debug.menu_ready_shot (frames): a menu capture waits for the menus rather
+than a fixed time. Once a screen is up, "menus: ready" is logged; after that
+many frames one frame is saved (frameNNNNN-ready.png) and the game quits. */
+static void menu_ready_shot_poll(void)
+{
+	static int state; /* 0 waiting, 1 settling, 2 asked for the frame, 3 off */
+	static unsigned long ready_frame;
+	static long settle = -1;
+	unsigned long frame = platform_clock_frames();
+
+	if (settle < 0)
+		settle = config_integer("debug.menu_ready_shot");
+	if (settle <= 0 || state == 3)
+		return;
+	if (state == 0)
+	{
+		ready_frame = frame;
+		state = 1;
+		platform_log("menus: ready at frame %lu; the ready shot waits %ld frames", frame, settle);
+	}
+	else if (state == 1 && frame - ready_frame >= (unsigned long)settle)
+	{
+		platform_ready_screenshot_request();
+		state = 2;
+	}
+	else if (state == 2 && platform_ready_screenshot_taken())
+	{
+		platform_log("menus: ready shot saved at frame %lu; quitting", frame);
+		state = 3;
+		exit(EXIT_SUCCESS);
+	}
+}
+
 /* (Apple builds; every pump, sdl_platform.c) the jump a link at launch is
 waiting for, once the main menu's screen is up */
 void menu_invite_poll(void)
@@ -7619,7 +7656,10 @@ void menu_invite_poll(void)
 		return;
 	menus_seen = TRUE;
 	if (ui_widget_port_active_screen(0))
+	{
 		posix_invite_menu_ready();
+		menu_ready_shot_poll();
+	}
 	if (!multiplayer.invite_jump)
 		return;
 	screen = ui_widget_port_active_screen(0);

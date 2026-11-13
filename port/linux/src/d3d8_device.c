@@ -7403,6 +7403,19 @@ static void write_screenshot(struct render_target_entry *target, const char *suf
 	write_screenshot_channel(target, suffix, 0);
 }
 
+/* debug.menu_ready_shot: 1 once the menus ask for a frame, 2 once it is written */
+static int ready_screenshot;
+
+void platform_ready_screenshot_request(void)
+{
+	__atomic_store_n(&ready_screenshot, 1, __ATOMIC_RELAXED);
+}
+
+int platform_ready_screenshot_taken(void)
+{
+	return __atomic_load_n(&ready_screenshot, __ATOMIC_RELAXED) == 2;
+}
+
 /* a target's picture, gl_width x gl_height texels of 4 bytes, rows from the
 top, into pixels (gpu_texture_read); dynamic resolution's pooled targets are
 read whole and their top left kept */
@@ -8295,6 +8308,11 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,
 				back_buffer->target.texture);
+		if (__atomic_load_n(&ready_screenshot, __ATOMIC_RELAXED) == 1)
+		{
+			write_screenshot(back_buffer, "-ready");
+			__atomic_store_n(&ready_screenshot, 2, __ATOMIC_RELAXED);
+		}
 		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0 && screenshot_frame_wanted(device.frame))
 		{
 			/* debug.screenshot_scene_only: only the scene as drawn when it has its own target (clip captures) */

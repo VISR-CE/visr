@@ -2799,6 +2799,16 @@
             "desktop"
           ]
         },
+        "menu_ready_shot": {
+          "type": "integer",
+          "default": 0,
+          "description": "Menu captures: once a menu screen is up, log \"menus: ready\", let it settle this many frames, save one frame as frameNNNNN-ready.png in debug.screenshot_directory, and quit; 0 off.",
+          "x-environment": "HALO_MENU_READY_SHOT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "menu_error": {
           "type": "string",
           "default": "",
