@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+#include <math.h>
 #include <stdlib.h>
 typedef int boolean;
 typedef struct {short y0,x0,y1,x1;} rectangle2d;
@@ -14,7 +15,8 @@ typedef struct {short x,y;} point2d;
 #define UI_MOUSE_MAXIMUM_TARGETS 96
 enum {_ui_mouse_target_item,_ui_mouse_target_value,_ui_mouse_target_list_slot,_ui_mouse_target_button};
 enum {_ui_widget_type_text_box, _ui_widget_type_spinner_list, _widget_event_dpad_up=8, _widget_event_dpad_down};
-struct ui_widget_definition {rectangle2d bounds;};
+enum {_gamepad_analog_button_a,_gamepad_analog_button_b,_gamepad_analog_button_x,_gamepad_analog_button_y};
+struct ui_widget_definition {rectangle2d bounds;struct {long index;} text_font;};
 struct widget_instance {
  struct widget_instance *parent,*child,*next;
  short type,definition_tag_index,disabled,visible,horizontal_offset,vertical_offset,local_player_index,button;
@@ -26,7 +28,7 @@ static long ui_mouse_target_count;
 static int ui_mouse_noting_targets=1,hidden;
 static short ui_mouse_radius;
 static short __attribute__((unused)) local_player_index_for_draw_string_and_hack_in_icons=0;
-static struct ui_widget_definition definitions[2]={{{0,0,26,21}},{{0,0,22,100}}};
+static struct ui_widget_definition definitions[2]={{{0,0,26,21},{NONE}},{{0,0,22,100},{5}}};
 static struct ui_widget_definition *ui_widget_definition_get(int i) {return &definitions[i];}
 static short ui_mouse_key_button(struct widget_instance *w) {return w->button;}
 static boolean ui_mouse_list_shows_several(struct widget_instance *w) {(void)w;return 0;}
@@ -42,6 +44,15 @@ typedef float real;
 typedef unsigned int pixel32;
 static int draw_count;
 static short ui_mouse_legend_label_width(struct widget_instance *l,struct ui_widget_definition const *d,short f) {(void)l;(void)d;(void)f;return 70;}
+static long draw_string_get_font(void) {return NONE;}
+static void draw_string_set_font(long f) {(void)f;}
+static void draw_string_set_format(int a,int b,int c) {(void)a;(void)b;(void)c;}
+static void draw_string_set_indents(int a,int b) {(void)a;(void)b;}
+typedef int wchar_stub;
+/* every caption measures 70 wide */
+static short ui_widget_port_text_width(wchar_t const *t) {(void)t;return 70;}
+static float stub_bottom=480.0f,stub_ppu=0.78125f;
+void halo_screen_menu_visible_bottom(float *b,float *p) {*b=stub_bottom;*p=stub_ppu;}
 #define BITMAP_GROUP_TAG 1
 struct bitmap_data {int width,height;};
 static struct bitmap_data idle_bitmap={128,32},pressed_bitmap={128,32};
@@ -69,6 +80,7 @@ static void rasterizer_psuedo_dynamic_screen_quad_draw(struct rasterizer_dynamic
  slice_u0[slice_count]=v[0].texture_coordinates.x;slice_u1[slice_count]=v[1].texture_coordinates.x;
  slice_y0=v[0].position.y;slice_y1=v[2].position.y;slice_count++;
 }
+/* SLOTS */
 /* GEOMETRY */
 /* SLICE */
 /* DRAW */
@@ -89,21 +101,51 @@ int main(void) {
  ui_mouse_note_target(&button,&definitions[0],offset);
  struct ui_mouse_target *target=&ui_mouse_targets[0];
  assert(target->button_index==1 && target->kind==_ui_mouse_target_button);
- /* 60 menu units cover 46.875 pt at 375/480 pt per menu unit. */
+ /* B's slot (118 wide with 24 padding each side around a 70-wide caption) sits second from the right.
+  Its pointer target runs from the button's top (412) to the screen's bottom edge (480): 68 units,
+  53 pt at 375/480 pt per unit, and never reaches above the bar's top rule (404). */
  assert(target->bounds.y1-target->bounds.y0>=60);
+ assert(target->bounds.y0==412 && target->bounds.y1==480);
+ assert((target->bounds.y1-target->bounds.y0)*0.78125f>=44);
  assert(target->bounds.x1-target->bounds.x0>=60);
- assert(ui_mouse_target_at(420,398)==target);
- assert(ui_mouse_target_at(420,455)==target);
- assert(!ui_mouse_target_at(420,390));
+ assert(ui_mouse_target_at(420,415)==target);
+ assert(ui_mouse_target_at(420,479)==target);
+ assert(!ui_mouse_target_at(420,398));
  assert(!ui_mouse_target_at(480,427));
- /* The visible button sits inside the 35-unit legend band (y 410-445), is centered on the
-  text (70 wide) and is inside its pointer target. */
+ /* The visible button is 40 units tall and is the slot itself (338-468 .. 344-462 plus padding),
+  with its caption centered by the legend's caption shift, and is inside its pointer target. */
  rectangle2d visual,hit=definitions[0].bounds;
  assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual));
  assert(!memcmp(&hit,&target->bounds,sizeof(hit)));
  assert(visual.y1-visual.y0==40 && visual.y0>=404 && visual.y1<=456);
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
- assert((visual.x0+visual.x1)/2==368+70/2);
+ assert(visual.x1-visual.x0==118 && visual.x1==592-118-12);
+ assert((visual.x0+visual.x1)/2==368+70/2+ui_touch_legend_caption_shift(&caption)*0);
+ assert(ui_touch_legend_caption_shift(&caption)==(visual.x0+visual.x1)/2-70/2-368);
+ /* Every slot has the same place on every screen: the A, B, X and Y buttons' pointer targets never
+  overlap each other, stay below the bar's top rule, reach the screen's bottom and are 44 pt tall,
+  also on a short screen whose backdrop margin is cropped (visible bottom 462, 0.9 pt per unit). */
+ for(int crop=0;crop<2;crop++) {
+  stub_bottom=crop?462.0f:480.0f;stub_ppu=crop?0.9f:0.78125f;
+  rectangle2d rects[4],visuals[4];
+  for(int face=0;face<4;face++) {
+   button.button=face;ui_mouse_target_count=0;
+   ui_mouse_note_target(&button,&definitions[0],offset);
+   rects[face]=target->bounds;
+   hit=definitions[0].bounds;
+   assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visuals[face]));
+   assert(rects[face].y0>=404 && rects[face].y1==(short)ceilf(stub_bottom));
+   assert((rects[face].y1-rects[face].y0)*stub_ppu>=44-stub_ppu);
+   assert(visuals[face].x0>=rects[face].x0 && visuals[face].x1<=rects[face].x1);
+  }
+  for(int i=0;i<4;i++) for(int j=i+1;j<4;j++) {
+   assert(rects[i].x1<=rects[j].x0 || rects[j].x1<=rects[i].x0);
+   assert(visuals[i].x1<=visuals[j].x0 || visuals[j].x1<=visuals[i].x0);
+  }
+ }
+ stub_bottom=480.0f;stub_ppu=0.78125f;button.button=1;ui_mouse_target_count=0;
+ ui_mouse_note_target(&button,&definitions[0],offset);
+ hit=definitions[0].bounds;ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual);
  /* The button is the game's own text_button_background art: frame 0 idle, frame 1 pressed. */
  slice_count=0;ui_widget_draw_touch_legend(&visual,NULL,1,0);
  assert(draw_count==3 && slice_count==3 && draw_frame==0 && drawn_bitmap==&idle_bitmap);

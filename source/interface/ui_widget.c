@@ -6366,10 +6366,113 @@ static short ui_mouse_legend_label_width(
 	return width > 0 ? width : fallback;
 }
 
-/* port: the touch legend's button. `bounds` is the pointer target, at least 60
-menu units square (46.875 pt at the smallest landscape scale, 375/480). `drawn`
-is the visible button: 28 units tall so it sits inside the 35-unit legend band,
-centered on the caption's text, which stays where the controller legend puts it. */
+/* port: the touch legend's four fixed slots. Every Xbox-look screen's bottom bar
+draws its A, B, Y and X buttons in the same four places, right to left (A, B, Y,
+X), so a button never drifts from screen to screen and an unused slot stays empty.
+Each slot is as wide as the widest caption ever shown on that button plus padding,
+measured in the caption's own font. */
+#define UI_TOUCH_LEGEND_SLOTS 4
+#define UI_TOUCH_LEGEND_RIGHT 592
+#define UI_TOUCH_LEGEND_GAP 12
+#define UI_TOUCH_LEGEND_PADDING 24
+#define UI_TOUCH_LEGEND_BAR_Y 395 /* a bar's buttons are centered at or below this */
+#define UI_TOUCH_LEGEND_BAR_TOP 404 /* the bar's top rule: a hit area never reaches above it */
+#define UI_TOUCH_LEGEND_MINIMUM_POINTS 44.0f
+#define UI_TOUCH_LEGEND_CAPTION_SHIFTS 16
+
+/* the widest caption each slot ever holds: A (START GAME), B (CANCEL), Y (CREATE GAME), X (DEFAULTS) */
+static wchar_t const *const ui_touch_legend_widest[UI_TOUCH_LEGEND_SLOTS] =
+	{ L"START GAME", L"CANCEL", L"CREATE GAME", L"DEFAULTS" };
+
+void halo_screen_menu_visible_bottom(float *bottom_unit, float *points_per_unit);
+
+static short ui_touch_legend_caption_shift_count;
+static struct widget_instance *ui_touch_legend_caption_shift_widgets[UI_TOUCH_LEGEND_CAPTION_SHIFTS];
+static short ui_touch_legend_caption_shifts[UI_TOUCH_LEGEND_CAPTION_SHIFTS];
+
+/* port: how far the legend moved a caption to center it in its slot, 0 for any other text box */
+static short ui_touch_legend_caption_shift(
+	struct widget_instance *widget)
+{
+	short i;
+
+	for (i = 0; i < ui_touch_legend_caption_shift_count; i++)
+	{
+		if (ui_touch_legend_caption_shift_widgets[i] == widget)
+			return ui_touch_legend_caption_shifts[i];
+	}
+	return 0;
+}
+
+static void ui_touch_legend_note_caption_shift(
+	struct widget_instance *widget,
+	short shift)
+{
+	short i;
+
+	for (i = 0; i < ui_touch_legend_caption_shift_count; i++)
+	{
+		if (ui_touch_legend_caption_shift_widgets[i] == widget)
+		{
+			ui_touch_legend_caption_shifts[i] = shift;
+			return;
+		}
+	}
+	if (i == UI_TOUCH_LEGEND_CAPTION_SHIFTS)
+		i = ui_touch_legend_caption_shift_count = 0;
+	ui_touch_legend_caption_shift_widgets[i] = widget;
+	ui_touch_legend_caption_shifts[i] = shift;
+	ui_touch_legend_caption_shift_count = MAX(ui_touch_legend_caption_shift_count, i + 1);
+}
+
+/* the slot (0 = A ... 3 = X) a legend button owns, or NONE for the keys that have none */
+static short ui_touch_legend_slot_for_button(
+	short button)
+{
+	switch (button)
+	{
+	case _gamepad_analog_button_a: return 0;
+	case _gamepad_analog_button_b: return 1;
+	case _gamepad_analog_button_y: return 2;
+	case _gamepad_analog_button_x: return 3;
+	}
+	return NONE;
+}
+
+/* the slot's x range, measured with `font`; the slots sit right to left from the A slot's right edge */
+static void ui_touch_legend_slot_bounds(
+	long font,
+	short slot,
+	short *x0,
+	short *x1)
+{
+	long old_font = draw_string_get_font();
+	short i, right = UI_TOUCH_LEGEND_RIGHT;
+
+	draw_string_set_font(font);
+	draw_string_set_format(NONE, 0, 0);
+	draw_string_set_indents(0, 0);
+	for (i = 0; i <= slot; i++)
+	{
+		short width = ui_widget_port_text_width(ui_touch_legend_widest[i]) + 2 * UI_TOUCH_LEGEND_PADDING;
+
+		*x1 = right;
+		*x0 = right - width;
+		right = *x0 - UI_TOUCH_LEGEND_GAP;
+	}
+	if (old_font != NONE)
+		draw_string_set_font(old_font);
+
+	return;
+}
+
+/* port: the touch legend's button. `drawn` is the visible button: 40 units tall, in
+its slot (see above) for a bottom bar's A, B, Y and X, otherwise centered on the
+caption's text as before; the caption is centered in it. `bounds` is the pointer
+target. A slot's pointer target runs from the button's top (never above the bar's
+top rule) down to the bottom edge of the screen, through the cropped backdrop margin
+and the home indicator's inset, and is at least 44 pt tall there; sideways it stops
+halfway to the neighboring slot. Other buttons get a target at least 60 units square. */
 static boolean ui_mouse_legend_bounds(
 	struct widget_instance *widget,
 	struct ui_widget_definition const *definition,
@@ -6429,10 +6532,39 @@ static boolean ui_mouse_legend_bounds(
 	{
 		short text_width = ui_mouse_legend_label_width(label, label_definition,
 			label_bounds.x1 - label_bounds.x0);
-		short center_x = label_bounds.x0 + text_width / 2;
+		short center_x;
 		short center_y = (bounds->y0 + bounds->y1) / 2;
-		short width = MAX(60, text_width + 40);
-		short hit_width = MAX(60, width + 12);
+		short slot = ui_touch_legend_slot_for_button(button);
+		short width, hit_width;
+
+		if (slot != NONE && center_y >= UI_TOUCH_LEGEND_BAR_Y && label_definition->text_font.index != NONE)
+		{
+			short x0, x1;
+			float visible_bottom, points_per_unit, minimum_units;
+
+			ui_touch_legend_slot_bounds(label_definition->text_font.index, slot, &x0, &x1);
+			center_x = (x0 + x1) / 2;
+			drawn->x0 = x0;
+			drawn->x1 = x1;
+			drawn->y0 = center_y - 15;
+			drawn->y1 = drawn->y0 + 40;
+			/* the caption is centered in the slot, wherever its screen put it */
+			ui_touch_legend_note_caption_shift(label, center_x - text_width / 2 - label_bounds.x0);
+			halo_screen_menu_visible_bottom(&visible_bottom, &points_per_unit);
+			minimum_units = UI_TOUCH_LEGEND_MINIMUM_POINTS / (points_per_unit > 0.0f ? points_per_unit : 0.78125f);
+			bounds->x0 = x0 - UI_TOUCH_LEGEND_GAP / 2;
+			bounds->x1 = x1 + UI_TOUCH_LEGEND_GAP / 2;
+			bounds->y1 = (short)ceilf(visible_bottom);
+			bounds->y0 = (short)floorf(visible_bottom - minimum_units);
+			if (bounds->y0 > drawn->y0)
+				bounds->y0 = drawn->y0;
+			if (bounds->y0 < UI_TOUCH_LEGEND_BAR_TOP)
+				bounds->y0 = UI_TOUCH_LEGEND_BAR_TOP;
+			return TRUE;
+		}
+		center_x = label_bounds.x0 + text_width / 2;
+		width = MAX(60, text_width + 40);
+		hit_width = MAX(60, width + 12);
 
 		drawn->x0 = center_x - width / 2;
 		drawn->x1 = drawn->x0 + width;
@@ -7461,6 +7593,7 @@ static void widget_instance_render_recursive(
 	switch (widget->type)
 	{
 	case _ui_widget_type_text_box:
+		offset.x += ui_touch_legend_caption_shift(widget);
 		widget_instance_render_text_box(
 			widget,
 			definition,

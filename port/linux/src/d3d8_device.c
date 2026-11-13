@@ -601,6 +601,7 @@ static int menu_window_drawing;
 static float menu_draw_top, menu_draw_zoom = 1.0f;
 static float menu_content_top = MENU_CONTENT_TOP, menu_content_bottom = MENU_CONTENT_BOTTOM;
 static int menu_content_active;
+static float menu_height_points;
 
 void halo_screen_menu_content(float top, float bottom)
 {
@@ -616,6 +617,7 @@ static void menu_window_geometry(float *top, float *zoom)
 
 	*top = 0.0f;
 	*zoom = 1.0f;
+	menu_height_points = 0.0f;
 	if (!config_boolean("debug.menu_min_scale") || (halo_scene_class() != CONFIG_SCENE_MENU && !menu_content_active))
 		return;
 #ifdef HALO_ILP32
@@ -631,6 +633,7 @@ static void menu_window_geometry(float *top, float *zoom)
 #endif
 	if (height <= 0.0f)
 		return;
+	menu_height_points = height;
 	menu_scale_window(height, menu_content_top, menu_content_bottom, top, &bottom, &points_per_unit);
 	*zoom = 480.0f / (bottom - *top);
 	/* Narrow windows must still fit all 640 content columns. */
@@ -640,6 +643,17 @@ static void menu_window_geometry(float *top, float *zoom)
 		menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
 			top, &bottom, &points_per_unit);
 	}
+}
+
+/* The menu space's visible bottom edge (menu units) and the points one unit covers,
+for the touch legend's hit areas, which run down to the screen's bottom edge. */
+void halo_screen_menu_visible_bottom(float *bottom_unit, float *points_per_unit)
+{
+	float top, zoom;
+
+	menu_window_geometry(&top, &zoom);
+	*bottom_unit = top + 480.0f / zoom;
+	*points_per_unit = menu_height_points > 0.0f ? menu_height_points * zoom / 480.0f : 0.0f;
 }
 
 void halo_screen_menu_window(int active)
