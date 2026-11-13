@@ -221,11 +221,11 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert len(rows) == 6
     assert widgets['join_game_items_list'].get('visible_rows') == '6'
     assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
-        (24, 82 + 53 * i) for i in range(6)]
+        (24, 106 + 49 * i) for i in range(6)]
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     for index in range(1, 7):
         row = widgets[f'server_item_{index}']
-        assert (row.get('width'), row.get('height')) == ('270', '50')
+        assert (row.get('width'), row.get('height')) == ('270', '46')
         assert row.get('bitmap') == 'xbox/browser/c_row'
         assert row.find('on[@event="a"][@run="gamespy select item"]') is not None
         for frame in bitmaps[row.get('bitmap')]:
@@ -236,7 +236,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         assert widgets[key].get('height') == '54'
         assert widgets[key].find('on[@event="a"][@run="port browser chip select"]') is not None
     panel = widgets['browser_detail']
-    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', '82', '312', '322')
+    assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', '102', '312', '301')
     assert all(len(name.rsplit('/', 1)[-1]) <= 31 for name in widgets)
     assert widgets['browser_connection_status'].get('height') == '26'
     assert widgets['join_game_screen'].get('type') == 'column_list'
@@ -246,13 +246,13 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     content = widgets['browser_detail_content']
     assert content.get('flags') == 'no_focused_child'
     assert (content.get('left'), content.get('top'), content.get('width'), content.get('height')) == (
-        '304', '82', '312', '322')
+        '304', '102', '312', '301')
     names = {c.get('widget').rsplit('/', 1)[-1] for c in content.findall('child')}
     assert {'lobby_map_pic', 'replay_level_right_pic', 'browser_connection_status',
             'browser_rules_label', 'browser_detail_rules', 'browser_detail_name'} <= names
     assert 'browser_detail_status' not in names
     assert not content.findall('data')
-    assert widgets['join_game_button_join'].get('height') == '53'
+    assert widgets['join_game_button_join'].get('height') == '45'
     assert widgets['join_game_button_join'].get('bitmap') == 'xbox/browser/join'
     assert not {'join_game_header', 'browser_filters', 'join_game_button_refresh'} & widgets.keys()
     assert widgets['server_item_server_name'].get('font') == r'ui\large_ui'
@@ -263,7 +263,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
     assert len(bitmaps['xbox/browser/gametype_large'].findall('frame')) == 7
     picture = widgets['browser_detail_gametype']
     assert picture.get('bitmap') == 'xbox/browser/gametype_large'
-    assert (picture.get('width'), picture.get('height')) == ('145', '118')
+    assert (picture.get('width'), picture.get('height')) == ('124', '100')
     placed = {c.get('widget').rsplit('/', 1)[-1]: c for c in content.findall('child')}
     assert int(placed['lobby_map_pic'].get('x')) + 145 < int(placed['browser_detail_gametype'].get('x'))
     assert placed['browser_detail_gametype'].get('y') == placed['lobby_map_pic'].get('y')
@@ -273,7 +273,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         assert len(frames) == count
         assert all((f.get('x'), f.get('y'), f.get('width'), f.get('height')) == ('0', '0', '265', '133')
                    for f in frames)
-        assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == ('145', '118')
+        assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == ('124', '100')
         assert all(f.get('map') and f.get('png') for f in frames)
     assert [int(f.get('index')) for f in bitmaps['xbox/browser/preview_mp']] == list(range(13)) + [13] * 7
     for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_toggle'):
@@ -547,16 +547,16 @@ def test_browser_buttons_draw_map_art_with_large_caption_targets():
         assert (MENUS / frame.get('png')).is_file()
         assert (frame.get('width'), frame.get('height')) == ('32', '32')
         if button != 'a':
-            assert int(widgets[leaf].get('height')) >= 53
+            assert int(widgets[leaf].get('height')) >= 45
             assert widgets[leaf].find('on[@event="a"]') is not None
     children = widgets['button_refresh_create_inter'].findall('child')
     legend = [c for c in children if c.get('widget').rsplit('/', 1)[-1] in
               ('browser_sort_filter', 'browser_create_inter', 'browser_back')]
     assert len(legend) == 3
-    assert all(int(c.get('y')) == 427 for c in legend)
+    assert all(int(c.get('y')) == 398 for c in legend)
     assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 446
     join = [c for c in widgets['browser_detail'].findall('child') if c.get('widget').endswith('join_game_button_join')][0]
-    assert (int(join.get('x')), int(join.get('y'))) == (454, 427)
+    assert (int(join.get('x')), int(join.get('y'))) == (454, 398)
     assert 454 + int(widgets['join_game_button_join'].get('width')) == 616
 
 
@@ -595,7 +595,7 @@ def test_sort_filter_has_four_large_rows_reset_and_done():
     assert widgets['filters_screen'].find('on[@event="x"][@run="port browser filters reset"]') is not None
     assert widgets['filters_screen'].find('data[@input="port browser filters update"]') is not None
     for leaf in ('browser_reset', 'browser_done'):
-        assert int(widgets[leaf].get('height')) >= 53
+        assert int(widgets[leaf].get('height')) >= 45
     assert widgets['browser_done_caption'].get('text') == 'DONE'
 
 
@@ -780,8 +780,8 @@ def test_filters_title_sits_with_the_other_titles_and_the_count_inside_the_panel
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.filters.xml').getroot()
     screen = root.find(f"widget[@name='{base}/filters/filters_screen']")
     placed = {c.get('widget').rsplit('/', 1)[-1]: (c.get('x'), c.get('y')) for c in screen.findall('child')}
-    # The server browser lifts its title 26 units; the same title spot here is 26 above the original top of 11.
-    assert placed['header_filters'][1] == '-22'
+    # Both titles keep the standard position inside the shared content frame.
+    assert placed['header_filters'] == (None, None)
     x, y = (int(v) for v in placed['browser_filter_status'])
     assert 44 <= y and y + 22 <= 73  # below the band line, above the first option row
     assert x + 276 <= 586  # right-aligned to the option rows' edge
