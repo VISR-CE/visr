@@ -10,6 +10,7 @@
 #include HOST_SDL_SOURCE
 
 static int panel_open;
+int host_menu_text_active(void) { return 0; }
 int host_window_up(void) { return 0; }
 int host_audio_output_up(void) { return panel_open; }
 
