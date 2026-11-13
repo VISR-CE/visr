@@ -97,6 +97,8 @@ static struct
 {
 	enum render_state state;
 	int enabled, import_mode, index, rendered, cached, failed, updates, fast_forwarding;
+	/* 1 while a map loads straight from the last one, with no menu between them (the import stage) */
+	int direct;
 	long fast_forward_start;
 	char root[1024], key[MAP_PICTURES_KEY_SIZE];
 	struct map_pictures_request request;
@@ -310,6 +312,8 @@ static void next_map(void)
 		memset(render.stages, 0, sizeof(render.stages));
 		render.fast_forward_milliseconds = 0.0;
 		render.fast_forward_ticks = 0;
+		platform_log("map pictures: %s: load requested at %.1f s (%s)", render.key, (render.map_start - render.run_start) / 1000.0,
+			render.direct ? "straight from the last map" : "from the menu");
 		benchmark_scenario_load(map_pictures_scenario_name(scenario), "normal");
 		render.state = STATE_LOADING;
 		return;
@@ -332,7 +336,25 @@ static void fast_forward_end(void)
 		(double)ticks / 30.0);
 }
 
-/* this map failed; the menu comes back before the next one */
+/* After a map: the import stage loads the next one straight from this one (main_set_map_name defers the change
+to the main loop, which unloads this map and loads the next with no menu between them, no menu music fade and
+no upscaler resume and pause); the debug render goes back to the menu first, as before. */
+static void advance(void)
+{
+	render.index++;
+	if (render.import_mode)
+	{
+		platform_log("map pictures: %s: next load requested at %.1f s", render.key, (now() - render.run_start) / 1000.0);
+		render.direct = 1;
+		next_map();
+		return;
+	}
+	halo_benchmark_overrides(0, 0, 0);
+	benchmark_scenario_load("", "");
+	wait_menu();
+}
+
+/* this map failed; the next one follows (advance) */
 static void skip_map(const char *why)
 {
 	fast_forward_end();
@@ -341,10 +363,7 @@ static void skip_map(const char *why)
 	render.failed++;
 	photo_mode_end();
 	render.wants_frame = 0;
-	render.index++;
-	halo_benchmark_overrides(0, 0, 0);
-	benchmark_scenario_load("", "");
-	wait_menu();
+	advance();
 }
 
 void map_pictures_render_update(void)
@@ -386,6 +405,9 @@ void map_pictures_render_update(void)
 		double waited = time - render.menu_wait;
 
 		render.menu_wait_updates++;
+		/* the import stage plays no movie (guest_bink.c refuses them), so it never waits on one */
+		if (render.import_mode)
+			movie = 0;
 		if (menu && !check && !movie && !precache)
 		{
 			if (waited > MENU_WAIT_LOG_MILLISECONDS)
@@ -402,9 +424,13 @@ void map_pictures_render_update(void)
 		return;
 	}
 	case STATE_LOADING:
-		if (map_pictures_scenario_in_game())
+		/* from a map, the last map still reads as in game until the change runs: wait for main_new_map to
+		finish this one (its last stage, after the shader warm) */
+		if (map_pictures_scenario_in_game() && (!render.direct || render.stages[STAGE_COUNT - 1] != 0.0))
 		{
 			render.loaded = time;
+			platform_log("map pictures: %s: in game at %.1f s (%.1f s after its load was requested)", render.key,
+				(time - render.run_start) / 1000.0, (time - render.map_start) / 1000.0);
 			render.state = STATE_SETTLE;
 		}
 		else if (time - render.map_start > LOAD_TIMEOUT_MILLISECONDS)
@@ -464,6 +490,7 @@ void map_pictures_render_update(void)
 				render.request.metadata.auto_version = AUTO_VERSION;
 			}
 			render.captured = time;
+			platform_log("map pictures: %s: capture began at %.1f s", render.key, (time - render.run_start) / 1000.0);
 			render.updates = 0;
 			render.clean_run = 0;
 			render.warm_capped = 0;
@@ -532,10 +559,7 @@ void map_pictures_render_update(void)
 				(time - render.map_start) / 1000.0, render.request.metadata.framing_revision);
 			render.rendered++;
 			photo_mode_end();
-			render.index++;
-			halo_benchmark_overrides(0, 0, 0);
-			benchmark_scenario_load("", "");
-			wait_menu();
+			advance();
 		}
 		else if (time - render.captured > FRAME_TIMEOUT_MILLISECONDS)
 			skip_map("no rendered frame was read back");

@@ -48,6 +48,8 @@ void benchmark_scenario_load(const char *map, const char *difficulty)
 	assert(i < map_pictures_scenario_count());
 	loaded_scenario = i;
 	menu = 0; game = 1;
+	/* The new map finishes loading at once here; the import goes map to map without the menu. */
+	render.stages[STAGE_COUNT - 1] = clock_ms;
 }
 unsigned char benchmark_scenario_at_menu(void) { return (unsigned char)menu; }
 unsigned char filesystem_check_thread_is_active(void) { return 0; }
@@ -93,6 +95,8 @@ static void run_maps(void)
 	{
 		clock_ms += 100;
 		map_pictures_render_update();
+		if (render.import_mode && render.index > 0 && render.state != STATE_DONE && render.state != STATE_LEAVING)
+			assert(!menu); /* Never back to the menu between import maps. */
 		if (render.state == STATE_LOADING)
 			assert(loaded_scenario == (render.import_mode ?
 				map_pictures_scenario_import_index(render.index) : render.index));

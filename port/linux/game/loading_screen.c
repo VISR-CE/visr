@@ -112,6 +112,8 @@ unsigned int gpu_compiles_outstanding(void);
 extern real last_t;
 void halo_main_time_restart(void);
 short main_get_solo_level_from_name(char const *name);
+/* port/linux/src/map_pictures_render.c */
+int map_pictures_render_active(void);
 unsigned long system_milliseconds(void);
 void __stdcall Sleep(unsigned long milliseconds);
 
@@ -186,6 +188,10 @@ static boolean loading_screen_wanted(void)
 		halo_stereo_frame()->mode != HALO_STEREO_OFF ? "stereo" : NULL;
 	static boolean logged = FALSE;
 
+	/* the import stage's map pictures load behind the import screen: no loading screen, no minimum, no
+	upscale wait (the upscaler keeps running beside the renders) */
+	if (map_pictures_render_active())
+		return FALSE;
 	if (!strcmp(mode, "on"))
 		return TRUE;
 	if (!strcmp(mode, "off"))
