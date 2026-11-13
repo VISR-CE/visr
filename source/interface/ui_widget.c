@@ -697,6 +697,7 @@ long ui_redraw_safe_left_units(long width);
 #include "halo_menu_slider.h"
 #include "halo_controller_glyphs.h"
 #include "halo_menus.h"
+#include "halo_ui_carousel.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 
 /* ---------- constants */
@@ -1811,6 +1812,130 @@ int controller_glyph_ready(short player, short semantic, short physical, rectang
 	return controller_glyph_draw(player, semantic, physical, bounds, NULL, 0, -1);
 }
 
+/* port: three reusable widgets bind a nonwrapping strip. Keep its motion out of
+widget_instance, whose layout is shared with the original game. */
+static void widget_instance_give_focus_directly(
+	struct widget_instance *widget, struct widget_instance *new_focus);
+#define CAROUSEL_STATE_COUNT 16
+struct ui_carousel_state
+{
+	struct widget_instance *widget;
+	long creation_time;
+	int first, binding_first;
+	unsigned long last_tick, last_input;
+	struct halo_ui_drag drag;
+	rectangle2d frame;
+};
+static struct ui_carousel_state ui_carousels[CAROUSEL_STATE_COUNT];
+static unsigned int ui_carousel_next;
+static struct ui_carousel_state *ui_carousel_capture;
+static boolean ui_carousel_pointer_was_down;
+/* Absolute menu-space clipping for descendants whose bitmap clips otherwise
+move with their own offsets. Active only during the carousel's render passes. */
+static rectangle2d *ui_carousel_clip;
+
+static boolean ui_widget_is_carousel(struct widget_instance *widget)
+{
+	return widget && widget->type == _ui_widget_type_spinner_list &&
+		ui_widget_definition_get(widget->definition_tag_index)->child_widgets.count == 3;
+}
+
+static struct ui_carousel_state *ui_carousel_state(struct widget_instance *widget)
+{
+	unsigned int index;
+	struct ui_carousel_state *state;
+	for (index = 0; index < CAROUSEL_STATE_COUNT; index++)
+		if (ui_carousels[index].widget == widget &&
+			ui_carousels[index].creation_time == widget->creation_time)
+			return &ui_carousels[index];
+	state = &ui_carousels[ui_carousel_next++ % CAROUSEL_STATE_COUNT];
+	if (ui_carousel_capture == state)
+		ui_carousel_capture = NULL;
+	csmemset(state, 0, sizeof(*state));
+	state->widget = widget;
+	state->frame.x1 = 640;
+	state->frame.y1 = 480;
+	state->creation_time = widget->creation_time;
+	state->first = halo_ui_carousel_clamp_first(widget->parameters.list.selected_index,
+		widget->parameters.list.number_of_items);
+	state->binding_first = state->first;
+	state->last_tick = widget_globals.current_system_milliseconds;
+	state->last_input = system_milliseconds();
+	halo_ui_drag_reset(&state->drag, state->first * HALO_UI_CAROUSEL_PITCH);
+	return state;
+}
+
+/* Game-data inputs use this even while a render pass temporarily rebinds the
+three cards. Focus never determines their contents. */
+long ui_widget_port_carousel_first(struct widget_instance *widget)
+{
+	return ui_carousel_state(widget)->binding_first;
+}
+
+static void ui_carousel_forget(void *widget)
+{
+	unsigned int index;
+	for (index = 0; index < CAROUSEL_STATE_COUNT; index++)
+		if (ui_carousels[index].widget == widget)
+		{
+			if (ui_carousel_capture == &ui_carousels[index])
+				ui_carousel_capture = NULL;
+			ui_carousels[index].widget = NULL;
+		}
+}
+
+static void ui_carousel_focus(struct widget_instance *widget, int item, int first)
+{
+	struct widget_instance *child = widget_instance_get_nth_child(widget, item - first);
+	if (child)
+		widget_instance_give_focus_directly(widget, child);
+	widget->parameters.list.selected_index = (short)item;
+}
+
+static boolean ui_carousel_controller_move(struct widget_instance *widget, int direction)
+{
+	struct ui_carousel_state *state = ui_carousel_state(widget);
+	int focus = widget->parameters.list.selected_index;
+	if (!halo_ui_carousel_controller_move(&state->drag, &focus, &state->first,
+		widget->parameters.list.number_of_items, direction))
+	{
+		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
+		return TRUE;
+	}
+	state->binding_first = state->first;
+	ui_carousel_focus(widget, focus, state->first);
+	return TRUE;
+}
+
+static void ui_carousel_tick(struct widget_instance *widget)
+{
+	struct ui_carousel_state *state = ui_carousel_state(widget);
+	unsigned long now = widget_globals.current_system_milliseconds;
+	float dt = MIN((float)(now - state->last_tick) * 0.001f, 0.1f);
+	int count = widget->parameters.list.number_of_items;
+	state->last_tick = now;
+	state->first = halo_ui_carousel_clamp_first(state->first, count);
+	if (state->drag.state == HALO_UI_DRAG_IDLE)
+		state->drag.offset = halo_ui_drag_snap(state->drag.offset, HALO_UI_CAROUSEL_PITCH,
+			0, halo_ui_carousel_max_first(count) * HALO_UI_CAROUSEL_PITCH);
+	state->drag.target = halo_ui_drag_snap(state->drag.target, HALO_UI_CAROUSEL_PITCH,
+		0, halo_ui_carousel_max_first(count) * HALO_UI_CAROUSEL_PITCH);
+	if (dt > 0)
+		halo_ui_drag_step(&state->drag, dt);
+	if (state->drag.state == HALO_UI_DRAG_IDLE && count > 0)
+	{
+		int focus;
+		state->first = halo_ui_carousel_settled_first(state->drag.offset, count);
+		focus = halo_ui_carousel_focus_in_window(widget->parameters.list.selected_index, state->first, count);
+		if (focus != widget->parameters.list.selected_index ||
+			widget->focused_child != widget_instance_get_nth_child(widget, focus - state->first))
+			ui_carousel_focus(widget, focus, state->first);
+	}
+	state->binding_first = state->first;
+}
+
+/* port: carousel state helpers end. */
+
 /* ---------- public code */
 
 void set_ui_plasma_effect_color(
@@ -1876,6 +2001,20 @@ void draw_bitmap_in_rect(
 	struct rasterizer_dynamic_screen_geometry_parameters *multitexture_params,
 	boolean no_plasma)
 {
+	rectangle2d carousel_clip;
+	if (ui_carousel_clip)
+	{
+		carousel_clip = clip_rect ? *clip_rect : *ui_carousel_clip;
+		carousel_clip.x0 = MAX(carousel_clip.x0, ui_carousel_clip->x0);
+		carousel_clip.x1 = MIN(carousel_clip.x1, ui_carousel_clip->x1);
+		carousel_clip.y0 = MAX(carousel_clip.y0, ui_carousel_clip->y0);
+		carousel_clip.y1 = MIN(carousel_clip.y1, ui_carousel_clip->y1);
+		if (!rect || carousel_clip.x0 >= rect->x1 || carousel_clip.x1 <= rect->x0 ||
+			carousel_clip.y0 >= rect->y1 || carousel_clip.y1 <= rect->y0)
+			return;
+		clip_rect = &carousel_clip;
+	}
+
 	if (bitmap && rect)
 	{
 		real_argb_color plasma_fade = ui_plasma_effect_color;
@@ -1963,6 +2102,17 @@ void draw_bitmap_in_rect(
 				(vertex_index > 1) ? texture_height : 0.0f;
 			vertices[vertex_index].position = points[vertex_index];
 		}
+
+		/* port: crop the moving card's texture instead of squeezing it into
+		the visible peek. Other menu quads retain their original behavior. */
+		if (ui_carousel_clip && rectangle_width > 0 && rectangle_height > 0)
+			for (vertex_index = 0; vertex_index < NUMBER_OF_POINTS_PER_RECTANGLE; vertex_index++)
+			{
+				vertices[vertex_index].texture_coordinates.x = texture_width *
+					(points[vertex_index].x - rectangle_x0) / rectangle_width;
+				vertices[vertex_index].texture_coordinates.y = texture_height *
+					(points[vertex_index].y - rectangle_y0) / rectangle_height;
+			}
 
 		csmemset(&parameters, 0, sizeof(parameters));
 		if (no_plasma)
@@ -2119,6 +2269,7 @@ void *ui_widget_realloc(
 void widget_free(
 	void *ptr)
 {
+	ui_carousel_forget(ptr); /* port */
 	dispose_pointer(widget_memory_pool, ptr);
 
 	return;
@@ -2903,6 +3054,8 @@ boolean widget_event_function_list_widget_goto_next_item(
 		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
 		return TRUE;
 	}
+	if (ui_widget_is_carousel(widget))
+		return ui_carousel_controller_move(widget, 1);
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -3050,6 +3203,8 @@ boolean widget_event_function_list_widget_goto_previous_item(
 		ui_play_audio_feedback_sound(_ui_audio_feedback_flag_failure);
 		return TRUE;
 	}
+	if (ui_widget_is_carousel(widget))
+		return ui_carousel_controller_move(widget, -1);
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget.c",
@@ -4024,6 +4179,7 @@ static void widget_instance_initialize(
 	backdrop running */
 	widget->pause_game_time = TEST_FLAG(definition->flags, _widget_pause_game_time_bit) &&
 		!network_coop_active() && !we_are_at_the_main_menu;
+	ui_carousel_forget(widget); /* port: a pool address can be reused in the same millisecond. */
 	widget->creation_time = widget_globals.current_system_milliseconds;
 	widget->milliseconds_to_auto_close = MAX(definition->milliseconds_to_auto_close, 0);
 	widget->auto_close_fade_time = MAX(definition->auto_close_fade_time, 0);
@@ -5808,6 +5964,14 @@ static void widget_instance_render_text_box(
 	alpha_modifier = widget_instance_get_cumulative_alpha_modifier(widget);
 	bounds = definition->bounds;
 	clip = clip_rect ? *clip_rect : definition->bounds;
+	if (ui_carousel_clip)
+	{
+		clip.x0 = MAX(clip.x0, ui_carousel_clip->x0);
+		clip.x1 = MIN(clip.x1, ui_carousel_clip->x1);
+		clip.y0 = MAX(clip.y0, ui_carousel_clip->y0);
+		clip.y1 = MIN(clip.y1, ui_carousel_clip->y1);
+	}
+
 	bounds.x1 += offset.x;
 	bounds.y1 += offset.y;
 	bounds.x0 += offset.x;
@@ -6053,7 +6217,7 @@ static void widget_instance_render_spinner_list(
 	struct bitmap_data *bitmap;
 	rectangle2d bounds;
 
-	if (!widget->visible)
+	if (!widget->visible || ui_widget_is_carousel(widget))
 		return;
 	last_list_tab_direction = widget->parameters.list.last_list_tab_direction;
 	if (last_list_tab_direction)
@@ -6305,9 +6469,10 @@ enum ui_mouse_target_kind
 	/* a list showing one value at a time: a click on either half steps it
 	that way */
 	_ui_mouse_target_value,
-	/* one of the items a list shows side by side (profiles, levels): the
-	list steps to it, and a click then presses A */
+	/* one of the items a list shows side by side (profiles, levels): a
+	click selects its absolute item and presses A once */
 	_ui_mouse_target_list_slot,
+	_ui_mouse_target_carousel_peek,
 	/* a button's icon and label in a screen's key: a click presses it */
 	_ui_mouse_target_button
 };
@@ -6555,54 +6720,43 @@ static void ui_mouse_list_directions(
 	short *back,
 	short *forward);
 
-/* port: the arrows at the ends of a carousel (a list showing several items side by side: the profile
-select's) are drawn by the list itself, with no widget of their own to find, so they are the strips just
-outside its first and last items; a tap on one steps the list that way, as the d-pad does */
-#define UI_MOUSE_CAROUSEL_ARROW_WIDTH 24
-
-static void ui_mouse_note_carousel_arrows(
+/* port: the clipped portion of an adjacent item scrolls the strip; the
+visible card supplies its full height rather than a small arrow hit area. */
+static void ui_mouse_note_carousel_peeks(
 	struct widget_instance *list,
 	point2d offset)
 {
-	struct widget_instance *child;
-	struct widget_instance *first = NULL;
-	struct widget_instance *last = NULL;
-	short back, forward, side;
-
-	ui_mouse_list_directions(list, &back, &forward);
-	if (back != _widget_event_dpad_left)
+	struct ui_carousel_state *state = ui_carousel_state(list);
+	struct widget_instance *child = list->child;
+	int count = list->parameters.list.number_of_items;
+	int begin, end, item;
+	if (!child || count <= 3)
 		return;
-	for (child = list->child; child; child = child->next)
+	halo_ui_carousel_visible_range(state->drag.offset / HALO_UI_CAROUSEL_PITCH, count, &begin, &end);
+	for (item = begin; item < end; item++)
 	{
-		if (!first)
-			first = child;
-		last = child;
-	}
-	for (side = 0; first && side < 2; side++)
-	{
-		struct widget_instance *item = side ? last : first;
-		struct ui_widget_definition *item_definition = ui_widget_definition_get(item->definition_tag_index);
+		float left = halo_ui_carousel_item_x(item, state->drag.offset / HALO_UI_CAROUSEL_PITCH, count);
+		int side = left >= state->frame.x0;
 		struct ui_mouse_target *target;
-		rectangle2d bounds = item_definition->bounds;
-
+		rectangle2d bounds = ui_widget_definition_get(child->definition_tag_index)->bounds;
+		if (left >= state->frame.x0 && left + HALO_UI_CAROUSEL_CARD_WIDTH <= state->frame.x1)
+			continue;
 		if (ui_mouse_target_count >= UI_MOUSE_MAXIMUM_TARGETS)
 			return;
-		bounds.x0 += offset.x + item->horizontal_offset;
-		bounds.x1 += offset.x + item->horizontal_offset;
-		bounds.y0 += offset.y + item->vertical_offset;
-		bounds.y1 += offset.y + item->vertical_offset;
-		if (side)
-			bounds.x0 = bounds.x1, bounds.x1 += UI_MOUSE_CAROUSEL_ARROW_WIDTH;
-		else
-			bounds.x1 = bounds.x0, bounds.x0 -= UI_MOUSE_CAROUSEL_ARROW_WIDTH;
+		bounds.x0 = (short)MAX(state->frame.x0, left);
+		bounds.x1 = (short)MIN(state->frame.x1, left + HALO_UI_CAROUSEL_CARD_WIDTH);
+		bounds.y0 += offset.y + child->vertical_offset;
+		bounds.y1 += offset.y + child->vertical_offset;
+		bounds.y0 = MAX(bounds.y0, state->frame.y0);
+		bounds.y1 = MIN(bounds.y1, state->frame.y1);
+		if (bounds.x0 >= bounds.x1 || bounds.y0 >= bounds.y1)
+			continue;
 		target = &ui_mouse_targets[ui_mouse_target_count++];
 		target->widget = list;
 		target->bounds = bounds;
-		target->kind = _ui_mouse_target_button;
-		target->button_index = side ? forward : back;
+		target->kind = _ui_mouse_target_carousel_peek;
+		target->button_index = side ? 1 : -1;
 	}
-
-	return;
 }
 
 /* port: the width the legend's caption is drawn with, so its button can be
@@ -7713,7 +7867,7 @@ static void ui_mouse_note_target(
 	{
 		/* a list showing several items is picked through them */
 		if (parent && ui_mouse_list_shows_several(widget) && widget_instance_can_receive_events(widget))
-			ui_mouse_note_carousel_arrows(widget, offset);
+			ui_mouse_note_carousel_peeks(widget, offset);
 		if (!parent || ui_mouse_list_shows_several(widget) || !widget_instance_can_receive_events(widget))
 			return;
 		kind = _ui_mouse_target_value;
@@ -7889,28 +8043,6 @@ static void ui_mouse_list_directions(
 		*back = _widget_event_dpad_up;
 		*forward = _widget_event_dpad_down;
 	}
-
-	return;
-}
-
-/* steps a list that shows several items to the one shown in a slot, as
-pressing the d-pad that many times would */
-static void ui_mouse_step_list_to_slot(
-	struct widget_instance *slot)
-{
-	struct widget_instance *list = slot->parent;
-	long steps;
-	short back, forward;
-
-	ui_mouse_give_focus(list);
-	if (!list->focused_child)
-		return;
-	steps = ui_mouse_child_index(slot) - ui_mouse_child_index(list->focused_child);
-	ui_mouse_list_directions(list, &back, &forward);
-	for (; steps > 0; steps--)
-		ui_mouse_press(forward);
-	for (; steps < 0; steps++)
-		ui_mouse_press(back);
 
 	return;
 }
@@ -8270,6 +8402,95 @@ static void ui_mouse_row_step(struct ui_mouse_target *target, short x,
 	else ui_mouse_press(first_half ? back : forward);
 }
 
+/* port: host touch radius is 22 points converted with the menu picture's
+scale. A mouse has no radius, so its guest fallback is 10 menu units. */
+static boolean ui_carousel_pointer(struct halo_ui_pointer *pointer)
+{
+	struct ui_carousel_state *state = ui_carousel_capture;
+	boolean consumed = FALSE;
+	unsigned long now = system_milliseconds();
+	if (pointer->held && !ui_carousel_pointer_was_down && !state)
+	{
+		long index;
+		for (index = 0; index < ui_mouse_target_count; index++)
+		{
+			struct ui_mouse_target *target = &ui_mouse_targets[index];
+			struct widget_instance *list = target->kind == _ui_mouse_target_list_slot ?
+				target->widget->parent : target->kind == _ui_mouse_target_carousel_peek ? target->widget : NULL;
+			if (list && ui_widget_is_carousel(list) && pointer->x >= 0 && pointer->x < 640 &&
+				pointer->y >= target->bounds.y0 && pointer->y < target->bounds.y1)
+			{
+				state = ui_carousel_capture = ui_carousel_state(list);
+				state->last_input = now;
+				halo_ui_drag_press(&state->drag, pointer->x, pointer->y);
+				break;
+			}
+		}
+	}
+	if (state)
+	{
+		float dt = MIN((float)(now - state->last_input) * 0.001f, 0.1f);
+		float slop = pointer->radius > 0 ? pointer->radius * HALO_UI_DRAG_SLOP_POINTS / 22.0f : 10.0f;
+		float maximum = halo_ui_carousel_max_first(state->widget->parameters.list.number_of_items) * HALO_UI_CAROUSEL_PITCH;
+		state->last_input = now;
+		consumed = TRUE;
+		/* The final position matters even when the lift and last move arrive
+		in one guest frame. Wheel steps made by the host's drag are discarded. */
+		halo_ui_drag_move(&state->drag, pointer->x, pointer->y, slop, dt, 0, maximum);
+		pointer->wheel_steps = 0;
+		if (!pointer->held)
+		{
+			if (!halo_ui_drag_release(&state->drag, HALO_UI_CAROUSEL_PITCH, 0, maximum))
+			{
+				pointer->left_clicks = 0;
+				ui_mouse_click_pending = FALSE;
+			}
+			ui_carousel_capture = NULL;
+		}
+	}
+	ui_carousel_pointer_was_down = pointer->held;
+	return consumed;
+}
+
+static void ui_carousel_rebind(struct widget_instance *list)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(list->definition_tag_index);
+	long index;
+	for (index = 0; index < definition->game_data_inputs.count; index++)
+	{
+		struct ui_widget_game_data_input_reference *input =
+			(struct ui_widget_game_data_input_reference *)definition->game_data_inputs.address + index;
+		ui_widget_game_data_function_invoke(list, input->function);
+	}
+}
+
+static void ui_carousel_peek(struct widget_instance *list, int direction)
+{
+	struct ui_carousel_state *state = ui_carousel_state(list);
+	state->first = halo_ui_carousel_clamp_first(
+		halo_ui_carousel_settled_first(state->drag.target, list->parameters.list.number_of_items) + direction,
+		list->parameters.list.number_of_items);
+	halo_ui_drag_glide(&state->drag, state->first * HALO_UI_CAROUSEL_PITCH);
+}
+
+static void ui_carousel_activate(struct ui_mouse_target *target)
+{
+	struct widget_instance *list = target->widget->parent;
+	struct ui_carousel_state *state = ui_carousel_state(list);
+	int item = target->button_index;
+	int first = halo_ui_carousel_settled_first(state->drag.offset, list->parameters.list.number_of_items);
+	if (item < first)
+		first = item;
+	if (item > first + 2)
+		first = item - 2;
+	state->first = state->binding_first = halo_ui_carousel_clamp_first(first, list->parameters.list.number_of_items);
+	ui_mouse_give_focus(list);
+	ui_carousel_focus(list, item, state->first);
+	ui_carousel_rebind(list);
+	halo_ui_drag_glide(&state->drag, state->first * HALO_UI_CAROUSEL_PITCH);
+	ui_mouse_press(_gamepad_analog_button_a);
+}
+
 static void ui_widgets_process_mouse(
 	void)
 {
@@ -8289,6 +8510,13 @@ static void ui_widgets_process_mouse(
 		ui_slider_selection = -1;
 		ui_slider_was_held = FALSE;
 		ui_mouse_menu_drawn = FALSE;
+		if (ui_carousel_capture)
+		{
+			halo_ui_drag_cancel(&ui_carousel_capture->drag, HALO_UI_CAROUSEL_PITCH, 0,
+				halo_ui_carousel_max_first(ui_carousel_capture->widget->parameters.list.number_of_items) * HALO_UI_CAROUSEL_PITCH);
+		}
+		ui_carousel_capture = NULL;
+		ui_carousel_pointer_was_down = FALSE;
 		ui_mouse_radius = 0;
 		ui_mouse_press_count = 0;
 		ui_mouse_hover_pending = FALSE;
@@ -8308,6 +8536,7 @@ static void ui_widgets_process_mouse(
 			ui_mouse_hover_pending = ui_mouse_click_pending = FALSE;
 			goto post_pointer_presses;
 		}
+		ui_carousel_pointer(&pointer);
 		/* (a screen with no menu widget, the scores after a game, has nothing to draw first) */
 		if (!ui_mouse_menu())
 			ui_mouse_menu_drawn = TRUE;
@@ -8604,8 +8833,11 @@ static void ui_widgets_process_mouse(
 				}
 				case _ui_mouse_target_list_slot:
 					halo_ui_pointer_feedback(2);
-					ui_mouse_step_list_to_slot(target->widget);
-					ui_mouse_press(_gamepad_analog_button_a);
+					ui_carousel_activate(target);
+					break;
+				case _ui_mouse_target_carousel_peek:
+					halo_ui_pointer_feedback(1);
+					ui_carousel_peek(target->widget, target->button_index);
 					break;
 				case _ui_mouse_target_button:
 					halo_ui_pointer_feedback(2);
@@ -8947,6 +9179,81 @@ static void ui_widget_menu_content(struct widget_instance *widget)
 	halo_screen_menu_content((float)top, (float)bottom);
 }
 
+/* port: reuse the native cards and their game-data callbacks for every
+visible item. Each pass binds a valid three-item window; the original binding,
+focus, animations, and target collection are restored before returning. */
+static void ui_carousel_render(struct widget_instance *list, point2d offset)
+{
+	struct ui_carousel_state *state = ui_carousel_state(list);
+	struct widget_instance *saved_focus = list->focused_child;
+	short saved_selected = list->parameters.list.selected_index;
+	int saved_binding = state->binding_first;
+	int count = list->parameters.list.number_of_items;
+	int begin, end, item, bound = -1;
+	boolean noting = ui_mouse_noting_targets;
+	rectangle2d frame;
+	rectangle2d *saved_clip = ui_carousel_clip;
+	frame = state->frame;
+	ui_carousel_clip = &frame;
+	halo_ui_carousel_visible_range(state->drag.offset / HALO_UI_CAROUSEL_PITCH, count, &begin, &end);
+	for (item = begin; item < end; item++)
+	{
+		struct widget_instance *child, *card;
+		struct ui_widget_definition *card_definition;
+		point2d card_offset = offset;
+		int slot;
+		float left = halo_ui_carousel_item_x(item, state->drag.offset / HALO_UI_CAROUSEL_PITCH, count);
+		/* At most two windows cover the visible strip, even between items.
+		Rebind once per window, rather than once per card and its cache load. */
+		state->binding_first = halo_ui_carousel_clamp_first(begin + (item - begin) / 3 * 3, count);
+		if (bound != state->binding_first)
+		{
+			bound = state->binding_first;
+			list->focused_child = saved_selected >= bound && saved_selected < bound + 3 ?
+				widget_instance_get_nth_child(list, saved_selected - bound) : NULL;
+			ui_carousel_rebind(list);
+			for (child = list->child; child; child = child->next)
+				if (child->animation.number_of_sprite_frames == 2)
+					child->animation.current_frame_index = child == list->focused_child ? 1 : 0;
+		}
+		slot = item - state->binding_first;
+		card = widget_instance_get_nth_child(list, slot);
+		if (!card)
+			continue;
+		card_definition = ui_widget_definition_get(card->definition_tag_index);
+		card_offset.x = (short)roundf(left) - card_definition->bounds.x0 - card->horizontal_offset;
+		ui_mouse_noting_targets = FALSE;
+		widget_instance_render_recursive(card, &frame, card_offset, item == saved_selected, item == saved_selected);
+		ui_mouse_noting_targets = noting;
+		if (noting && card->visible && !card->disabled && !list->disabled &&
+			widget_instance_can_receive_events(list) && left >= frame.x0 &&
+			left + HALO_UI_CAROUSEL_CARD_WIDTH <= frame.x1 &&
+			ui_mouse_target_count < UI_MOUSE_MAXIMUM_TARGETS)
+		{
+			struct ui_mouse_target *target = &ui_mouse_targets[ui_mouse_target_count++];
+			target->widget = card;
+			target->kind = _ui_mouse_target_list_slot;
+			target->button_index = (short)item;
+			target->bounds = card_definition->bounds;
+			target->bounds.x0 = (short)roundf(left);
+			target->bounds.x1 = target->bounds.x0 + (short)HALO_UI_CAROUSEL_CARD_WIDTH;
+			target->bounds.y0 += offset.y + card->vertical_offset;
+			target->bounds.y1 += offset.y + card->vertical_offset;
+			target->bounds.y0 = MAX(target->bounds.y0, frame.y0);
+			target->bounds.y1 = MIN(target->bounds.y1, frame.y1);
+			if (target->bounds.y0 >= target->bounds.y1)
+				ui_mouse_target_count--;
+		}
+	}
+	state->binding_first = saved_binding;
+	list->focused_child = saved_focus;
+	list->parameters.list.selected_index = saved_selected;
+	ui_carousel_rebind(list);
+	spinner_list_update(list);
+	ui_carousel_clip = saved_clip;
+	ui_mouse_noting_targets = noting;
+}
+
 static void widget_instance_render_recursive(
 	struct widget_instance *widget,
 	rectangle2d *clip_rect,
@@ -8985,6 +9292,19 @@ static void widget_instance_render_recursive(
 
 		ui_widget_game_data_function_invoke(widget, input->function);
 	}
+	if (ui_widget_is_carousel(widget))
+	{
+		struct ui_carousel_state *state = ui_carousel_state(widget);
+		int previous = state->binding_first;
+		state->frame.x0 = clip_rect ? MAX(0, clip_rect->x0) : 0;
+		state->frame.x1 = clip_rect ? MIN(640, clip_rect->x1) : 640;
+		state->frame.y0 = clip_rect ? clip_rect->y0 : 0;
+		state->frame.y1 = clip_rect ? clip_rect->y1 : 480;
+		ui_carousel_tick(widget);
+		if (previous != ui_carousel_state(widget)->binding_first)
+			ui_carousel_rebind(widget);
+	}
+
 	if (!widget->visible)
 	{
 		/* touch draws no X legend, so the secondary action (X) is known from the screen's own X button
@@ -9136,7 +9456,7 @@ static void widget_instance_render_recursive(
 		bounds.x1 += offset.x;
 		bounds.y0 += offset.y;
 		bounds.y1 += offset.y;
-		if (clip)
+		if (clip && !ui_carousel_clip)
 		{
 			local_clip = *clip;
 			clip = &local_clip;
@@ -9351,6 +9671,12 @@ static void widget_instance_render_recursive(
 			_list_items_generated_in_code);
 		break;
 	}
+	if (render_children && ui_widget_is_carousel(widget))
+	{
+		ui_carousel_render(widget, offset);
+		render_children = FALSE;
+	}
+
 	if (render_children)
 	{
 		short window = widget->type == _ui_widget_type_column_list ?
@@ -9770,6 +10096,13 @@ static void widget_instance_tab_to_next_valid_widget(
 {
 	struct widget_instance *child;
 
+	/* port: three-card spinners navigate items, never wrap child slots. */
+	if (ui_widget_is_carousel(widget))
+	{
+		ui_carousel_controller_move(widget, 1);
+		return;
+	}
+
 	if (widget->focused_child && widget->focused_child->next)
 		child = widget->focused_child->next;
 	else
@@ -9802,6 +10135,13 @@ static void widget_instance_tab_to_previous_valid_widget(
 	struct widget_instance *widget)
 {
 	struct widget_instance *child;
+
+	/* port: three-card spinners navigate items, never wrap child slots. */
+	if (ui_widget_is_carousel(widget))
+	{
+		ui_carousel_controller_move(widget, -1);
+		return;
+	}
 
 	if (widget->focused_child)
 	{

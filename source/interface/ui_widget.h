@@ -253,4 +253,7 @@ extern short dashboard_abort_error;
 
 /* ---------- public code */
 
+/* port: the carousel render window, independent of the focused child. */
+long ui_widget_port_carousel_first(struct widget_instance *widget);
+
 #endif // __UI_WIDGET_H

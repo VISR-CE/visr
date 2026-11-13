@@ -4,6 +4,7 @@
 
 ### feat
 
+- **menus**: center the three-card carousels and replace their arrows with clipped neighboring cards — drag with a finger or mouse to scroll and snap, tap a full card to activate it, or tap a peek to scroll one item; controller and keyboard focus glide through the list without wrapping
 - **network**: accept Ed25519-signed Delta legacy tables from the save cache and background list requests, with a GitHub mirror — verified rows extend joins above 41 and update discovery numbers while preserving the game codec, the `chupa-38a` wire and the hand table's older-version gaps; `network.delta_table` turns the feature off, and rows requiring host protections keep announcements at 38
 - **network**: add the Delta Peer handshake and platform roster — `network.delta_peer` joins advertised Delta hosts by default, retries HELLO every 500 ms and falls back silently after 4 seconds; hosting opens the game server port plus 10 (normally 5160) with `network.delta_announce` (now on by default), advertises Delta only while that socket is open, and checks every peer against the game's machines before parsing
 

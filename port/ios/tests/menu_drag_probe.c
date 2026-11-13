@@ -121,22 +121,22 @@ static void host_down(void) {
     assert(HOST_MENU_POINTER_SLOP == HALO_UI_DRAG_SLOP_POINTS);
     host_menu_pointer_touch_begin(&m, 1, 100, 300);
     host_menu_pointer_read(&m, &p);
-    assert(p.down && p.y == 300);
+    assert(p.held && p.y == 300);
     /* inside the slop the point still follows the finger, with no step and no click yet */
     host_menu_pointer_touch_move(&m, 1, 100, 295);
     host_menu_pointer_read(&m, &p);
-    assert(p.down && p.y == 295 && !p.wheel_steps && !p.left_clicks);
+    assert(p.held && p.y == 295 && !p.wheel_steps && !p.left_clicks);
     host_menu_pointer_touch_move(&m, 1, 100, 200);
     host_menu_pointer_read(&m, &p);
-    assert(p.down && p.y == 200 && p.wheel_steps);
+    assert(p.held && p.y == 200 && p.wheel_steps);
     host_menu_pointer_touch_end(&m, 1);
     host_menu_pointer_read(&m, &p);
-    assert(!p.down && !p.left_clicks);
+    assert(!p.held && !p.left_clicks);
     /* a pointer device is never down */
     host_menu_pointer_device_move(&m, 10, 10);
     host_menu_pointer_device_click(&m, 0, 10, 10);
     host_menu_pointer_read(&m, &p);
-    assert(!p.down && p.left_clicks == 1);
+    assert(!p.held && p.left_clicks == 1);
 }
 
 int main(void) {

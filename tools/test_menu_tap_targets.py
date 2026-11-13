@@ -110,16 +110,19 @@ def test_pointer_synthesizes_no_input_activity():
     assert "platform_menu_activity" not in widget
 
 
-def test_carousel_arrows_are_targets():
+def test_carousel_peeks_are_targets():
     source = (ROOT / "source/interface/ui_widget.c").read_text()
-    helper = source[source.index("static void ui_mouse_note_carousel_arrows("):]
+    helper = source[source.index("static void ui_mouse_note_carousel_peeks("):]
     helper = helper[:helper.index("\n}\n")]
-    # the profile carousel's arrows have no widget: strips outside the first and last items press the d-pad
-    assert "_widget_event_dpad_left" in helper and "ui_mouse_list_directions" in helper
-    assert "target->button_index = side ? forward : back;" in helper
+    # Peek targets follow the drawn card geometry and scroll without activating a card.
+    assert "halo_ui_carousel_item_x" in helper
+    assert "_ui_mouse_target_carousel_peek" in helper
+    assert "target->button_index = side ? 1 : -1;" in helper
+    assert "UI_MOUSE_CAROUSEL_ARROW_WIDTH" not in source
     note = source[source.index("static void ui_mouse_note_target("):]
     note = note[:note.index("\n}\n")]
-    assert "ui_mouse_note_carousel_arrows(widget, offset)" in note
+    assert "ui_mouse_note_carousel_peeks(widget, offset)" in note
+    assert "_ui_mouse_target_list_slot" in note
 
 
 def test_touch_legend_labels_have_minimum_tap_bounds(tmp_path):
