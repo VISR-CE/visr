@@ -53,6 +53,8 @@ void host_map_pictures_keep_awake(int on);
 int host_map_pictures_import_stage(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
+/* The framings feed's verified map-framings.json for a custom map's "blake2b:" key: 1 with its path, else 0. */
+int host_map_framings_feed_path(const char *key, char *path, unsigned int size);
 
 /* performs a Linux system call on the guest's behalf, converting the
 structures whose layout differs; returns the raw result (-errno on failure) */

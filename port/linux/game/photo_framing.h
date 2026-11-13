@@ -58,9 +58,9 @@ the app (bundle_path, schema 2 with one entry per framed map) and never the feed
 Returns the PHOTO_FRAMING_ source, or PHOTO_FRAMING_NONE when the map has no framing (automatic camera). */
 int photo_framing_lookup(const char *fragment_path, const char *bundle_path, const char *key,
 	struct photo_shot *shot, int *revision);
-/* Framings published for other maps, looked up by the map's 64-hex-digit hash. Nothing is published yet,
-so this always returns 0. */
-int photo_framing_feed_lookup(const char *map_hash, struct photo_shot *shot, int *revision);
+/* Framings published on the framings feed for a custom map ("blake2b:<64 hex>" key): 1 with the shot when the
+host has a verified feed file newer than the bundled framings that lists the map, otherwise 0. */
+int photo_framing_feed_lookup(const char *key, struct photo_shot *shot, int *revision);
 int photo_camera_read(const char *path, struct photo_shot *shot);
 
 /* World units per second the keyboard flies the photo camera at speed step 0. */

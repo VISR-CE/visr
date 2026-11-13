@@ -20,12 +20,15 @@ def test_native_map_pictures_import(tmp_path):
 
 def test_host_import_contract():
     names = ("host_map_pictures_import_stage", "host_map_pictures_import_progress",
-             "host_map_pictures_import_done")
+             "host_map_pictures_import_done", "host_map_framings_feed_path")
     imports = (ROOT / "port/runtime/host_imports.list").read_text().splitlines()
     header = (ROOT / "port/runtime/guest/runtime/guest_host.h").read_text()
     for name in names:
         assert imports.count(name) == 1
         assert name + "(" in header
+    host = (ROOT / "port/ios/host/host_data_updates.m").read_text()
+    assert "int host_map_framings_feed_path(" in host
+    assert "host_data_updates_set_bundled_framings_sequence([" in host
 
 
 def test_scripted_import_capture_gate(tmp_path):

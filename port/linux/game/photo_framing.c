@@ -388,10 +388,18 @@ static void vector_write(FILE *f, const float *v, int count)
 	for(i=0;i<count;i++) fprintf(f,"%s%.9g",i ? ", " : "",v[i]);
 	fputc(']',f);
 }
-int photo_framing_feed_lookup(const char *map_hash, struct photo_shot *shot, int *revision)
+#ifdef HALO_ILP32
+/* port/runtime/guest/runtime/guest_host.h */
+int host_map_framings_feed_path(const char *key, char *path, unsigned int size);
+#else
+static int host_map_framings_feed_path(const char *key, char *path, unsigned int size)
+{ (void)key; (void)path; (void)size; return 0; }
+#endif
+int photo_framing_feed_lookup(const char *key, struct photo_shot *shot, int *revision)
 {
-	(void)map_hash; (void)shot; (void)revision;
-	return 0;
+	char path[1024];
+	if (strncmp(key,"blake2b:",8) || !host_map_framings_feed_path(key,path,sizeof path)) return 0;
+	return photo_fragment_read(path,key,shot,revision);
 }
 int photo_framing_lookup(const char *fragment_path, const char *bundle_path, const char *key,
 	struct photo_shot *shot, int *revision)
@@ -408,7 +416,7 @@ int photo_framing_lookup(const char *fragment_path, const char *bundle_path, con
 	}
 	if (!strncmp(key,"stock:",6))
 		return bundle_path && photo_fragment_read(bundle_path,key,shot,revision) ? PHOTO_FRAMING_BUNDLED : PHOTO_FRAMING_NONE;
-	return photo_framing_feed_lookup(key + 8,shot,revision) ? PHOTO_FRAMING_FEED : PHOTO_FRAMING_NONE;
+	return photo_framing_feed_lookup(key,shot,revision) ? PHOTO_FRAMING_FEED : PHOTO_FRAMING_NONE;
 }
 int photo_fragment_write(const char *path, const char *key, const struct photo_shot *s)
 {

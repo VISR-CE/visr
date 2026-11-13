@@ -52,6 +52,7 @@ void host_ios_prepare_assets(const char *documents);
 int host_map_pictures_import_stage(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
+int host_map_framings_feed_path(const char *key, char *path, unsigned int size);
 /* tvOS: receive the player's XISO over the local network into <documents>/maps. */
 void host_tv_import(const char *documents);
 void host_ios_touch_attach(struct SDL_Window *window);

@@ -4,6 +4,7 @@
 #import "host_data_pack.h"
 #import <CommonCrypto/CommonDigest.h>
 #include "host.h"
+#include "ios_host.h"
 #include "host_profile.h"
 #include "host_shader_pack.h"
 #include "host_recording_pack.h"
@@ -455,6 +456,15 @@ NSString *host_data_updates_framings_path(const char *key)
         return [framingsFolder stringByAppendingPathComponent:@"map-framings.json"];
     }
 }
+/* The guest's photo_framing_feed_lookup (host_imports.list): the feed file to read `key` from, copied into `path`. */
+int host_map_framings_feed_path(const char *key, char *path, unsigned int size)
+{
+    NSString *file = key ? host_data_updates_framings_path(key) : nil;
+    const char *text = file.fileSystemRepresentation;
+    if (!size || !text || strlen(text) >= size) return 0;
+    memcpy(path, text, strlen(text) + 1);
+    return 1;
+}
 /* One more conditional request beside the recording check. */
 static void checkFramings(void)
 {
@@ -716,6 +726,11 @@ static void initializeMenu(struct host_device device)
         if (!valid && error) *error = [NSError errorWithDomain:@"VISRDataUpdates" code:5 userInfo:@{NSLocalizedDescriptionKey: @"Invalid map-framings file"}];
         return valid;
     });
+    // The bundled map-framings.json's "sequence": a downloaded envelope must be newer to apply.
+    NSData *bundledFramings = [NSData dataWithContentsOfFile:[NSBundle.mainBundle pathForResource:@"map-framings" ofType:@"json"]];
+    NSDictionary *bundledFramingsRoot = bundledFramings ? [NSJSONSerialization JSONObjectWithData:bundledFramings options:0 error:NULL] : nil;
+    id bundledFramingsSequence = [bundledFramingsRoot isKindOfClass:NSDictionary.class] ? bundledFramingsRoot[@"sequence"] : nil;
+    host_data_updates_set_bundled_framings_sequence([bundledFramingsSequence isKindOfClass:NSNumber.class] ? [bundledFramingsSequence unsignedLongLongValue] : 0);
     refreshFramings();
     NSDictionary *recording = [recordings menuSnapshot];
     NSString *selectedRecording = publishMenuSnapshot(NO, recording);
