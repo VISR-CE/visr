@@ -26,6 +26,7 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 	struct halo_menu_row row = { HALO_ROW_ENUM, -1 };
 	int index;
 	double previous = 0;
+	int suffix = -1; /* every label shares one unit suffix: none, "x" or "%" */
 	if (count == 1) { row.kind = HALO_ROW_STATIC; return row; }
 	if (count == 2)
 	{
@@ -47,6 +48,7 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 		wchar_t const *text = string(context, index);
 		int length = 0;
 		double value;
+		int unit = 0;
 		if (!text) return row;
 		while (text[length] && length < (int)sizeof(number) - 1)
 		{
@@ -57,7 +59,11 @@ static inline struct halo_menu_row halo_menu_row_classify(int count, halo_menu_r
 		if (text[length] || !length) return row;
 		number[length] = 0;
 		value = strtod(number, &end);
-		if (end == number || *end || !isfinite(value) || (index && value <= previous)) return row;
+		if (end != number && (*end == 'x' || *end == 'X') && !end[1]) unit = 1;
+		else if (end != number && *end == '%' && !end[1]) unit = 2;
+		else if (end == number || *end) return row;
+		if (!isfinite(value) || (index && value <= previous) || (suffix >= 0 && unit != suffix)) return row;
+		suffix = unit;
 		previous = value;
 	}
 	row.kind = HALO_ROW_RANGE;

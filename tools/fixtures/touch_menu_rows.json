@@ -504,7 +504,7 @@
       "1.5x",
       "2x"
     ],
-    "kind": 2,
+    "kind": 3,
     "on_index": -1,
     "reference_kind": "enum(6)"
   },
