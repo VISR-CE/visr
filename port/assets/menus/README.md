@@ -147,8 +147,10 @@ and what to do.
 | `sound` | A sound tag of the map to play |
 
 On the keyboard, A is Enter or Space, B is Backspace or F, Start is Escape and
-Back is F1. The mouse picks the item under it, clicks A, right-clicks B and
-scrolls lists.
+Back is F1; Delete or E is the secondary action (X). The mouse's focus follows
+the pointer, a left click acts on the item (A), a right click is the item's
+secondary action (X, never back) and the wheel scrolls lists without moving
+focus.
 
 The port's functions: `port quit game` quits; `port setting load` (on a
 spinner's `created`) shows its setting's value and `port setting save` (on

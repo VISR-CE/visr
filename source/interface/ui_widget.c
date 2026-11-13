@@ -7005,8 +7005,27 @@ static void ui_widgets_process_mouse(
 			ui_mouse_click_x = pointer.click_x;
 			ui_mouse_click_y = pointer.click_y;
 		}
-		if (pointer.right_clicks)
-			ui_mouse_press(_widget_event_b_button);
+		if (pointer.right_clicks && ui_mouse_menu_drawn)
+		{
+			/* the secondary action (X) of the item under the pointer; right-click is
+			never BACK (Escape, B and mouse button 4 stay BACK) */
+			target = ui_mouse_target_at(pointer.x, pointer.y);
+			if (target)
+			{
+				switch (target->kind)
+				{
+				case _ui_mouse_target_item:
+				case _ui_mouse_target_value:
+					ui_mouse_give_focus(target->widget);
+					ui_mouse_press(_gamepad_analog_button_x);
+					break;
+				case _ui_mouse_target_list_slot:
+					ui_mouse_step_list_to_slot(target->widget);
+					ui_mouse_press(_gamepad_analog_button_x);
+					break;
+				}
+			}
+		}
 		if (pointer.wheel_steps && ui_mouse_menu())
 		{
 			struct widget_instance *widget = ui_mouse_wheel_widget(ui_mouse_menu());
@@ -7029,14 +7048,12 @@ static void ui_widgets_process_mouse(
 				{
 				case _ui_mouse_target_item:
 				case _ui_mouse_target_value:
-					/* (a selection list's row is chosen by a click, not
-					by passing over it on the way to its buttons) */
-					if (!ui_mouse_selection_row(target->widget))
-					{
-						if (!ui_mouse_widget_has_focus(target->widget))
-							halo_ui_pointer_feedback(1);
-						ui_mouse_give_focus(target->widget);
-					}
+					/* focus follows the pointer, selection rows included; a click then
+					acts on the item directly. Focus stays where it was when the pointer
+					leaves every item. */
+					if (!ui_mouse_widget_has_focus(target->widget))
+						halo_ui_pointer_feedback(1);
+					ui_mouse_give_focus(target->widget);
 					break;
 				case _ui_mouse_target_list_slot:
 					/* (a slot is chosen by a click: stepping the list to
