@@ -115,7 +115,7 @@ int main(void) {
  /* The visible button is 40 units tall and is the slot itself (338-468 .. 344-462 plus padding),
   with its caption centered by the legend's caption shift, and is inside its pointer target. */
  rectangle2d visual,hit=definitions[0].bounds;
- assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual));
+ assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual,NULL));
  assert(!memcmp(&hit,&target->bounds,sizeof(hit)));
  assert(visual.y1-visual.y0==40 && visual.y0>=404 && visual.y1<=456);
  assert(visual.x0>=hit.x0 && visual.x1<=hit.x1 && visual.y0>=hit.y0 && visual.y1<=hit.y1);
@@ -133,7 +133,7 @@ int main(void) {
    ui_mouse_note_target(&button,&definitions[0],offset);
    rects[face]=target->bounds;
    hit=definitions[0].bounds;
-   assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visuals[face]));
+   assert(ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visuals[face],NULL));
    assert(rects[face].y0>=404 && rects[face].y1==(short)ceilf(stub_bottom));
    assert((rects[face].y1-rects[face].y0)*stub_ppu>=44-stub_ppu);
    assert(visuals[face].x0>=rects[face].x0 && visuals[face].x1<=rects[face].x1);
@@ -145,7 +145,7 @@ int main(void) {
  }
  stub_bottom=480.0f;stub_ppu=0.78125f;button.button=1;ui_mouse_target_count=0;
  ui_mouse_note_target(&button,&definitions[0],offset);
- hit=definitions[0].bounds;ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual);
+ hit=definitions[0].bounds;ui_mouse_legend_bounds(&button,&definitions[0],offset,&hit,&visual,NULL);
  /* The button is the game's own text_button_background art: frame 0 idle, frame 1 pressed. */
  slice_count=0;ui_widget_draw_touch_legend(&visual,NULL,1,0);
  assert(draw_count==3 && slice_count==3 && draw_frame==0 && drawn_bitmap==&idle_bitmap);
