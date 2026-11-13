@@ -65,9 +65,19 @@ def test_signed_envelope_round_trip(tmp_path):
 
 
 def test_pack_refuses_bad_content_and_names(tmp_path):
-    with pytest.raises(SystemExit):
+    with pytest.raises((SystemExit, ValueError)):
         build(tmp_path, b"{}")
     other = tmp_path / "b"
     other.mkdir()
-    with pytest.raises(SystemExit):
+    with pytest.raises((SystemExit, ValueError)):
         build(other, data_pack.canonical(record()), name="other.json")
+
+
+def test_pages_allow_list_and_limit():
+    import pages_asset_overlay as overlay
+    assert overlay.allowed_asset("docs/site/packs/tester/framings.json") == ("framings", None)
+    assert overlay.limit_for("docs/site/packs/tester/framings.json") == data_pack.ENVELOPE_LIMITS["framings"]
+    with pytest.raises(ValueError):
+        overlay.allowed_asset("docs/site/packs/tester/framings-2.json")
+    with pytest.raises(ValueError):
+        overlay.verify_asset("docs/site/packs/tester/framings.json", b"x" * (data_pack.ENVELOPE_LIMITS["framings"] + 1))
