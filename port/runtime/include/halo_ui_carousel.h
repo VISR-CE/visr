@@ -13,6 +13,8 @@ its own binding and focus, so rendering a peek never changes the focused item.
 #define HALO_UI_CAROUSEL_PITCH 167.0f
 #define HALO_UI_CAROUSEL_CARD_WIDTH 158.0f
 #define HALO_UI_CAROUSEL_FRAME_WIDTH 640.0f
+/* Half of a 65-unit peek: the outer half of each peek fades to nothing. */
+#define HALO_UI_CAROUSEL_FADE_WIDTH 32.0f
 
 static inline int halo_ui_carousel_max_first(int count)
 {
@@ -65,6 +67,15 @@ static inline void halo_ui_carousel_visible_range(float scroll, int count, int *
 	high = (int)ceilf(scroll + (HALO_UI_CAROUSEL_FRAME_WIDTH - origin) / HALO_UI_CAROUSEL_PITCH);
 	*begin = low < 0 ? 0 : low > count ? count : low;
 	*end = high < 0 ? 0 : high > count ? count : high;
+}
+
+/* Opacity at menu x inside a frame [x0, x1): 0 at either edge, rising linearly
+   to 1 over HALO_UI_CAROUSEL_FADE_WIDTH. Linear, so a quad split at the fade
+   breakpoints interpolates it exactly from its corner colors. */
+static inline float halo_ui_carousel_fade(float x, float x0, float x1)
+{
+	float edge = x - x0 < x1 - x ? x - x0 : x1 - x;
+	return edge <= 0.0f ? 0.0f : edge >= HALO_UI_CAROUSEL_FADE_WIDTH ? 1.0f : edge / HALO_UI_CAROUSEL_FADE_WIDTH;
 }
 
 /* A settled drag keeps its old focus whenever that item is still full. */

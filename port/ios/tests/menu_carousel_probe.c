@@ -132,12 +132,27 @@ static void drag_and_tap(void)
     assert(halo_ui_carousel_tap(200.0f, 2.5f, 10, &item) == HALO_UI_CAROUSEL_TAP_ACTIVATE && item == 3);
 }
 
+static void edge_fade(void)
+{
+    /* Half of the 65-unit peek fades; the middle cards stay fully opaque. */
+    assert(HALO_UI_CAROUSEL_FADE_WIDTH * 2.0f <= 65.0f);
+    assert(halo_ui_carousel_fade(0.0f, 0.0f, 640.0f) == 0.0f);
+    assert(halo_ui_carousel_fade(640.0f, 0.0f, 640.0f) == 0.0f);
+    assert(halo_ui_carousel_fade(-5.0f, 0.0f, 640.0f) == 0.0f);
+    assert(halo_ui_carousel_fade(16.0f, 0.0f, 640.0f) == 0.5f);
+    assert(halo_ui_carousel_fade(624.0f, 0.0f, 640.0f) == 0.5f);
+    assert(halo_ui_carousel_fade(32.0f, 0.0f, 640.0f) == 1.0f);
+    assert(halo_ui_carousel_fade(65.0f, 0.0f, 640.0f) == 1.0f);
+    assert(halo_ui_carousel_fade(320.0f, 0.0f, 640.0f) == 1.0f);
+}
+
 int main(void)
 {
     binding();
     geometry();
     controller();
     drag_and_tap();
+    edge_fade();
     puts("menu carousel probe: ok");
     return 0;
 }

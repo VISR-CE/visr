@@ -1992,6 +1992,57 @@ static __inline real compute_offset_coordinate(
 		1.0);
 }
 
+/* port: the carousel's edges fade its peeks out instead of cutting them with
+a hard line. The clipped quad is split where the fade starts and ends, and each
+piece's corner alphas carry the linear fade, using the game's own alpha blend. */
+static void ui_carousel_faded_quad_draw(
+	struct rasterizer_dynamic_screen_geometry_parameters *parameters,
+	struct dynamic_screen_vertex const *clipped,
+	pixel32 argb,
+	short rectangle_x0, short rectangle_y0, short rectangle_width, short rectangle_height,
+	real texture_width, real texture_height)
+{
+	real frame_x0 = (real)ui_carousel_clip->x0;
+	real frame_x1 = (real)ui_carousel_clip->x1;
+	real left = clipped[0].position.x;
+	real right = clipped[1].position.x;
+	real cuts[4];
+	short cut_count = 0;
+	short cut_index;
+	unsigned long alpha = (unsigned long)argb >> 24;
+
+	cuts[cut_count++] = left;
+	if (frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH > left && frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH < right)
+		cuts[cut_count++] = frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH;
+	if (frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH > cuts[cut_count - 1] && frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH < right)
+		cuts[cut_count++] = frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH;
+	cuts[cut_count++] = right;
+	for (cut_index = 0; cut_index + 1 < cut_count; cut_index++)
+	{
+		struct dynamic_screen_vertex piece[NUMBER_OF_POINTS_PER_RECTANGLE];
+		short vertex_index;
+		boolean visible = FALSE;
+
+		for (vertex_index = 0; vertex_index < NUMBER_OF_POINTS_PER_RECTANGLE; vertex_index++)
+		{
+			real x = (vertex_index % 3) ? cuts[cut_index + 1] : cuts[cut_index];
+			real fade = halo_ui_carousel_fade(x, frame_x0, frame_x1);
+			unsigned long faded = (unsigned long)(alpha * fade + 0.5f);
+
+			piece[vertex_index] = clipped[vertex_index];
+			piece[vertex_index].position.x = x;
+			piece[vertex_index].texture_coordinates.x = texture_width * (x - rectangle_x0) / rectangle_width;
+			piece[vertex_index].texture_coordinates.y = texture_height *
+				(piece[vertex_index].position.y - rectangle_y0) / rectangle_height;
+			piece[vertex_index].color = (pixel32)(((unsigned long)argb & 0x00FFFFFFul) | (faded << 24));
+			if (faded)
+				visible = TRUE;
+		}
+		if (visible)
+			rasterizer_psuedo_dynamic_screen_quad_draw(parameters, piece);
+	}
+}
+
 void draw_bitmap_in_rect(
 	struct bitmap_data *bitmap,
 	rectangle2d *rect,
@@ -2180,7 +2231,11 @@ void draw_bitmap_in_rect(
 		/* port: (rasterizer.h) */
 		parameters.alpha_weighted = FALSE;
 		parameters.framebuffer_blend_function = 0;
-		rasterizer_psuedo_dynamic_screen_quad_draw(&parameters, vertices);
+		if (ui_carousel_clip && rectangle_width > 0 && rectangle_height > 0)
+			ui_carousel_faded_quad_draw(&parameters, vertices, argb,
+				rectangle_x0, rectangle_y0, rectangle_width, rectangle_height, texture_width, texture_height);
+		else
+			rasterizer_psuedo_dynamic_screen_quad_draw(&parameters, vertices);
 	}
 
 	return;
@@ -6016,6 +6071,15 @@ static void widget_instance_render_text_box(
 		color.alpha = (((real)cos(
 			widget_globals.current_system_milliseconds *
 				SECONDS_PER_MILLISECOND * 3.0f) + 1.5f) * 0.4f) * color.alpha;
+	}
+	/* port: text inside the carousel's edge fade takes the fade at the middle
+	of its visible span, matching the faded card art around it. */
+	if (ui_carousel_clip)
+	{
+		real visible_x0 = (real)MAX(bounds.x0, clip.x0);
+		real visible_x1 = (real)MIN(bounds.x1, clip.x1);
+		color.alpha *= halo_ui_carousel_fade((visible_x0 + visible_x1) * 0.5f,
+			(real)ui_carousel_clip->x0, (real)ui_carousel_clip->x1);
 	}
 	draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
 	/* port: the port's own error text, wrapped to its dialog: the box its
