@@ -3328,7 +3328,7 @@ boolean network_game_client_advertised_game_compatible(
 		}
 		if (tell)
 			network_event("joining a host of network version %u%s", theirs,
-				theirs != HALO_NETWORK_VERSION_RIDING && delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
+				!halo_network_version_is_shared_release(theirs) && delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
 		return TRUE;
 	}
 	if (halo_network_version_joinable(ours, theirs))

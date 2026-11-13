@@ -100,4 +100,4 @@ def test_row_joined_versions_keep_the_older_codec():
     client = read("source/networking/network_client_manager.c")
     assert "halo_network_version_wire_contract(network_game_client_advertised_versions[game_index].version)" in client
     assert "network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION" not in client
-    assert "theirs != HALO_NETWORK_VERSION_RIDING && delta_legacy_presumed(theirs)" in client
+    assert "!halo_network_version_is_shared_release(theirs) && delta_legacy_presumed(theirs)" in client

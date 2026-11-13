@@ -54,6 +54,17 @@ first. */
 #define HALO_NETWORK_VERSION_SHARED_CONTRACT 42
 /* the host's vehicle riding switch (OpenCE PR #637) */
 #define HALO_NETWORK_VERSION_RIDING 43
+/* MCC map sharing (OpenCE hotfix #658). The layout is 43's: a signed Delta
+table (serial 12) lists layout 44 as identical. MCC maps carry nonzero settings
+digests, which this build refuses with a clear message. */
+#define HALO_NETWORK_VERSION_MCC 44
+
+/* whether the version is an OpenCE release on the shared contract that this
+build joins by its own rule rather than through a signed row */
+static inline int halo_network_version_is_shared_release(unsigned version)
+{
+	return version == HALO_NETWORK_VERSION_RIDING || version == HALO_NETWORK_VERSION_MCC;
+}
 
 /* the older versions a client of this build joins, one bit per version from
 the oldest: 29 to 32, and 34 to 36, each checked by joining a host of that
@@ -65,15 +76,15 @@ static inline int halo_network_version_joinable(unsigned ours, unsigned theirs)
 {
 	/* Signed rows extend only the newer side; the historical mask stays exact. */
 	if (ours == HALO_PORT_NETWORK_VERSION && theirs > HALO_NETWORK_VERSION_NEWEST_JOINABLE &&
-		delta_legacy_joinable(theirs))
+		(halo_network_version_is_shared_release(theirs) || delta_legacy_joinable(theirs)))
 		return 1;
 	/* port: newer hosts keep the game codec; 40 and 41 need join padding. */
 	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS &&
 		theirs >= HALO_NETWORK_VERSION_DEDICATED && theirs <= HALO_NETWORK_VERSION_NEWEST_JOINABLE)
 		return 1;
-	/* port: 43 hosts use the shared contract (352-byte join, 12-byte header,
+	/* port: 43 and 44 hosts use the shared contract (352-byte join, 12-byte header,
 	settings digests); 42 was never released and joins only through a signed row */
-	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS && theirs == HALO_NETWORK_VERSION_RIDING)
+	if (ours == HALO_NETWORK_VERSION_PLAYERS_OWN_SHIELDS && halo_network_version_is_shared_release(theirs))
 		return 1;
 	if (theirs == ours)
 		return 1;
@@ -90,7 +101,7 @@ padding and none of the shared contract (no version word, no digests, no epoch
 header, no scripted poses, no shared simulation fixes). */
 static inline unsigned halo_network_version_wire_contract(unsigned theirs)
 {
-	if (theirs > HALO_NETWORK_VERSION_NEWEST_JOINABLE && theirs != HALO_NETWORK_VERSION_RIDING)
+	if (theirs > HALO_NETWORK_VERSION_NEWEST_JOINABLE && !halo_network_version_is_shared_release(theirs))
 		return HALO_NETWORK_VERSION_NEWEST_JOINABLE;
 	return theirs;
 }

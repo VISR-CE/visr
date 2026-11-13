@@ -145,7 +145,7 @@ static void offer_checks(void)
 	delta_legacy_initialize(1, NULL, &key, 1);
 	for (version = 0; version < 100; version++)
 		assert(halo_network_version_joinable(38, version) == ((version >= 29 && version <= 32) ||
-			(version >= 34 && version <= 36) || (version >= 38 && version <= 41) || version == 43));
+			(version >= 34 && version <= 36) || (version >= 38 && version <= 41) || version == 43 || version == 44));
 	assert(delta_legacy_announce_version() == 38 && !delta_legacy_serial());
 	/* a game hosted on 43 (network.host_version) announces 43 until it ends */
 	delta_legacy_set_hosted_version(43);
@@ -165,7 +165,7 @@ static void offer_checks(void)
 	assert(!memcmp(copy, signed_table, size) && !delta_legacy_signed(copy, size - 1));
 	assert(!delta_legacy_offer(signed_table, size));
 	assert(halo_network_version_joinable(38, 42) && halo_network_version_joinable(38, 43));
-	assert(!halo_network_version_joinable(38, 44) && !halo_network_version_joinable(38, 33) && !halo_network_version_joinable(38, 37));
+	assert(halo_network_version_joinable(38, 44) && !halo_network_version_joinable(38, 33) && !halo_network_version_joinable(38, 37));
 	assert(!delta_legacy_presumed(42) && delta_legacy_presumed(43));
 	assert(delta_legacy_announce_version() == 38); /* never above the codec this build runs */
 	row_document(document, sizeof(document), 3, "chupa-38a", 29, 44, 44, ",\"requires\":[\"protection\"]");
