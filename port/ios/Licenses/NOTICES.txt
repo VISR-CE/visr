@@ -208,7 +208,7 @@ Apache License
 
 ORIGIN PROJECTS
 CC0 1.0
-punpckhdq/halo, bnunu/halo-1, OpenCE, NicholasDominici/halo-ce-ios and pfista/halo-og. Public domain dedication.
+punpckhdq/halo, bnunu/halo-1, OpenCE, NicholasDominici/halo-ce-ios, and pfista/halo-og. Public domain dedication.
 
 Creative Commons Legal Code
 

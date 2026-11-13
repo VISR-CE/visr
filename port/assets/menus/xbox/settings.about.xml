@@ -15,7 +15,7 @@
 	</widget>
 	<widget name="xbox/settings/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
-	<widget name="xbox/settings/about/help" type="text" controller="1" left="68" top="286" width="482" height="120" text="Halo, Halo: Combat Evolved, Master Chief and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries) or Bungie." font="ui\small_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/about/help" type="text" controller="1" left="68" top="286" width="482" height="120" text="Halo, Halo: Combat Evolved, Master Chief, and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by, or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries), or Bungie." font="ui\small_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/about/options_menu" type="column_list" width="640" height="286" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="4">
 		<child widget="xbox/settings/about/op_build" x="54" y="102" />
@@ -447,7 +447,7 @@
 	<strings name="xbox/settings/about/notices/help_strings">
 		<string text="" />
 		<string text="Licensed under the Apache License, Version 2.0." />
-		<string text="punpckhdq/halo, bnunu/halo-1, OpenCE,\nNicholasDominici/halo-ce-ios and pfista/halo-og. Public domain\ndedication." />
+		<string text="punpckhdq/halo, bnunu/halo-1, OpenCE,\nNicholasDominici/halo-ce-ios, and pfista/halo-og. Public domain\ndedication." />
 		<string text="Copyright (C) 1997-2026 Sam Lantinga." />
 		<string text="Copyright (c) 2005-2020 Rich Felker, et al." />
 		<string text="Copyright The Mbed TLS Contributors." />

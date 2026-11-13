@@ -2,7 +2,7 @@
 
 VISR is licensed under Apache-2.0 (see [LICENSE](LICENSE)). It includes code
 that originated in CC0 1.0 projects (punpckhdq/halo, bnunu/halo-1, OpenCE,
-NicholasDominici/halo-ce-ios and pfista/halo-og, listed below), whose original
+NicholasDominici/halo-ce-ios, and pfista/halo-og, listed below), whose original
 code remains available from those projects under CC0 1.0. VISR's commits before
 the change that added this notice were published under CC0 1.0. The CC0 1.0
 text is kept at [LICENSES/CC0-1.0.txt](LICENSES/CC0-1.0.txt) for reference.
@@ -104,7 +104,7 @@ can generate the bundled `Licenses/NOTICES.txt` without a build.
 
 ## Game content and trademarks
 
-Halo, Halo: Combat Evolved, Master Chief and the related names and logos are
+Halo, Halo: Combat Evolved, Master Chief, and the related names and logos are
 trademarks of Microsoft Corporation. Halo: Combat Evolved © Microsoft
 Corporation. VISR is not affiliated with or endorsed by Microsoft, Halo Studios
 or Bungie.

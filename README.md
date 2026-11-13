@@ -217,11 +217,11 @@ own copy of the game.
 ## Legal
 
 <!-- generated: shared: legal -->
-Halo, Halo: Combat Evolved, Master Chief and the related names and logos are
+Halo, Halo: Combat Evolved, Master Chief, and the related names and logos are
 trademarks of Microsoft Corporation. Halo: Combat Evolved © Microsoft
 Corporation. VISR is an unofficial fan project. It is not affiliated with,
-sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios
-(formerly 343 Industries) or Bungie.
+sponsored by, or endorsed by Microsoft, Xbox Game Studios, Halo Studios
+(formerly 343 Industries), or Bungie.
 
 VISR does not include or distribute the game's maps, sounds, textures, videos or other content, and it does not help you obtain them. You need a disc image of the original Xbox game, made from your own disc. VISR is free and is not sold.
 

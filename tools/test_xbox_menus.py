@@ -1158,7 +1158,7 @@ def test_graphics_screen_applies_each_change_with_the_modes_help():
     assert len(flat) == 4
     crt_help = [s.get('text') for s in root.find(f"strings[@name='{base}/help_strings']")][-1]
     assert ' '.join(crt_help.split('\\n')) == (
-        'The picture as a CRT television showed it: scanlines, phosphor glow and soft color.')
+        'The picture as a CRT television showed it: scanlines, phosphor glow, and soft color.')
     # each change applies as it is made, as on the other settings screens: B just leaves, X restores the defaults
     screen = widgets[f'{base}/graphics_screen']
     assert screen.find('on[@event="b"]').get('back') == 'true'

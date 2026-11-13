@@ -67,7 +67,7 @@
 	<strings name="xbox/settings/graphics/help_strings">
 		<string text="" />
 		<string text="" />
-		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color." />
+		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color." />
 	</strings>
 	<widget name="xbox/settings/graphics/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/settings/graphics/button_defaults" x="40" />

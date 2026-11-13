@@ -103,7 +103,7 @@
 	<strings name="xbox/settings/controls_setup/help_strings">
 		<string text="Choose what to show, with left and right." />
 		<string text="Enter sets the key chosen; left and right choose\nwhich of two. Then press the new key or button." />
-		<string text="Press a key, a mouse button or turn the wheel...\nEscape cancels, Delete clears it." />
+		<string text="Press a key, a mouse button, or turn the wheel...\nEscape cancels, Delete clears it." />
 	</strings>
 	<widget name="xbox/settings/controls_setup/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/settings/controls_setup/button_defaults" x="40" />

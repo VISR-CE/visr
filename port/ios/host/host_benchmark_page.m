@@ -67,8 +67,8 @@ static NSData *html(NSString *summary, NSString *code, NSUInteger size) {
         "a.get{display:block;text-align:center;background:var(--accent);color:#fff;font-weight:600;text-decoration:none;"
         "padding:14px 16px;border-radius:12px;margin:20px 0}</style></head><body><main>"
         "<h1>VISR benchmark</h1><p>Report %@. Download the file and send it to the VISR developers. "
-        "It holds the device's model, its system version and the measurements below in full; "
-        "it does not hold the device's name, an account, an address or game assets. It includes shader compilation descriptors for improving load times.</p>"
+        "It holds the device's model, its system version, and the measurements below in full; "
+        "it does not hold the device's name, an account, an address, or game assets. It includes shader compilation descriptors for improving load times.</p>"
         "<pre>%@</pre><a class=get href='/%@' download>Download the report (%lu KB)</a>"
         "<p>Keep the report screen open on the device until the download finishes.</p></main></body></html>",
         escaped(code), escaped(summary), report_name, (unsigned long)((size + 1023) / 1024)];

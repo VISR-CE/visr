@@ -514,7 +514,7 @@ PAGE_ROWS = (
     ('controls', 'CONTROLS', 'gamepad_setup', 'gamepad_setup_screen', None,
      'Look, sensitivity, vibration and\\nthe button layout.' + CURRENT),
     ('video', 'VIDEO', 'video_settings', 'video_settings_screen', 'mac_app',
-     'Frame rate, resolution and how\\nthe picture is drawn.' + CURRENT),
+     'Frame rate, resolution, and how\\nthe picture is drawn.' + CURRENT),
     # (the Mac's VIDEO screen has this mode as its first row; in the hub, the panel's status line names the mode
     # while this row is chosen: HUB_DESCRIPTIONS, "port hub status")
     ('graphics', 'GRAPHICS', 'graphics', 'graphics_screen', '!mac_app',

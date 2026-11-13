@@ -236,7 +236,7 @@
 	<strings name="xbox/settings/video_settings/help_strings">
 		<string text="" />
 		<string text="" />
-		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color." />
+		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color." />
 		<string text="Fullscreen takes the display; borderless covers it\nwith a window. F11 switches to the window." />
 		<string text="What fullscreen and borderless draw at. Fullscreen\nsets the display to it; borderless scales it." />
 		<string text="The window's size: 4:3, then 16:10, 16:9 and 21:9\n(its edges can also be dragged)." />

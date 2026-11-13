@@ -69,6 +69,6 @@
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/graphics/help_strings">
 		<string text=""/>
 		<string text=""/>
-		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color."/>
+		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color."/>
 	</strings>
 </menus>

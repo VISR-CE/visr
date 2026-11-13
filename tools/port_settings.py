@@ -55,7 +55,7 @@ GRAPHICS_HELP = [
     # (Hardcore's on visionOS, where it draws as Classic: menu_functions.c's graphics_rows_show)
     "The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. In VR, Hardcore draws as\nClassic.",
 ]
-CRT_HELP = "The picture as a CRT television showed it:\nscanlines, phosphor glow and soft color."
+CRT_HELP = "The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color."
 
 
 def graphics_rows(mode_label: str) -> list:
@@ -254,8 +254,8 @@ STRING_OVERRIDES = {
         "Set this profile's controller\\nsensitivity and layouts.\\n\\nProfile:",
         "Adjust the mouse's sensitivity\\nand aiming.\\n\\nProfile:",
         "Adjust the volume of the music\\nand of everything else.\\n\\nProfile:",
-        "Choose a window or the full\\nscreen, the frame rate and more.\\n\\nProfile:",
-        "Internet play, updates and the\\nmultiplayer HUD.\\n\\nProfile:",
+        "Choose a window or the full\\nscreen, the frame rate, and more.\\n\\nProfile:",
+        "Internet play, updates, and the\\nmultiplayer HUD.\\n\\nProfile:",
         "Change the current profile's\\nfree-for-all multiplayer color.\\n\\nProfile:",
         "An unofficial port of Halo:\\nCombat Evolved.\\n\\nProfile:",
     ],
@@ -474,7 +474,7 @@ def _controls_screen() -> list:
     extra += _strings(f"{base}/help_strings", [
         "Choose what to show, with left and right.",
         "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button.",
-        "Press a key, a mouse button or turn the wheel...\\nEscape cancels, Delete clears it.",
+        "Press a key, a mouse button, or turn the wheel...\\nEscape cancels, Delete clears it.",
     ])
     return _screen(folder, spec, rows, ["controls update menu"], ['<on event="created" run="controls screen init"/>'],
                    extra)
@@ -1229,8 +1229,8 @@ def _server_settings() -> list:
         "The most players the game takes (up to 128).",
         "Players join this game by its invite link, or your\\nDiscord invite. Enter copies the link again.",
         "The gametype and its rules, for this game.",
-        "Lives, health, shields and respawning, for this game.",
-        "Weapons, grenades and starting equipment, for\\nthis game.",
+        "Lives, health, shields, and respawning, for this game.",
+        "Weapons, grenades, and starting equipment, for\\nthis game.",
         "Each team's vehicles and their respawn time, for\\nthis game.",
         "The motion tracker and nav points, for this game.",
         "Friendly fire and team balance, for this game.",

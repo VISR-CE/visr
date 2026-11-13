@@ -188,8 +188,8 @@ void cheats_network_client_enforce(
 	changed |= cheats_network_client_rasterizer_enforce();
 	if (changed)
 	{
-		console_warning("playing in another's game: its host's rules (cheats, game speed and drawing put back)");
-		error(_error_log, "playing in another's game: cheats, game speed and drawing put back to the host's");
+		console_warning("playing in another's game: its host's rules (cheats, game speed, and drawing put back)");
+		error(_error_log, "playing in another's game: cheats, game speed, and drawing put back to the host's");
 	}
 
 	return;

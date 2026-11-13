@@ -15,13 +15,13 @@ PRIVACY = "visr.gg/privacy"
 LICENSE = "Apache-2.0"
 
 # fixed under the rows, never hidden
-NOTICE = ("Halo, Halo: Combat Evolved, Master Chief and the related names and logos are trademarks of Microsoft "
+NOTICE = ("Halo, Halo: Combat Evolved, Master Chief, and the related names and logos are trademarks of Microsoft "
           "Corporation. Halo: Combat Evolved \u00a9 Microsoft Corporation. VISR is an unofficial fan project. It is not "
-          "affiliated with, sponsored by or endorsed by Microsoft, Xbox Game Studios, Halo Studios (formerly 343 "
-          "Industries) or Bungie.")
+          "affiliated with, sponsored by, or endorsed by Microsoft, Xbox Game Studios, Halo Studios (formerly 343 "
+          "Industries), or Bungie.")
 
 CREDIT = ("VISR builds on the community's work decompiling Halo: Combat Evolved and porting it: "
-          "punpckhdq, bnunu, OpenCE, NicholasDominici and pfista.")
+          "punpckhdq, bnunu, OpenCE, NicholasDominici, and pfista.")
 
 BUILD_HELP = "The build number of this app."
 
@@ -34,7 +34,7 @@ LICENSES_HELP = "The full license texts are in the app's Licenses folder and at 
 LICENSES = [
     ("VISR", "APACHE-2.0", "Licensed under the Apache License, Version 2.0.", "LICENSE", "Apache License"),
     ("ORIGIN PROJECTS", "CC0 1.0",
-     "punpckhdq/halo, bnunu/halo-1, OpenCE, NicholasDominici/halo-ce-ios and pfista/halo-og. Public domain "
+     "punpckhdq/halo, bnunu/halo-1, OpenCE, NicholasDominici/halo-ce-ios, and pfista/halo-og. Public domain "
      "dedication.", "LICENSES/CC0-1.0.txt", "CC0 1.0"),
     ("SDL", "ZLIB", "Copyright (C) 1997-2026 Sam Lantinga.", "LICENSES/SDL.txt", "Sam Lantinga"),
     ("MUSL", "MIT", "Copyright (c) 2005-2020 Rich Felker, et al.", "LICENSES/musl.txt", "Rich Felker"),

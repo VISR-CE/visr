@@ -3,7 +3,7 @@
 <menus>
 	<strings name="xbox/settings/hub_descriptions">
 		<string text="Look, sensitivity, vibration and\nthe button layout.\n\nCurrent Profile:" />
-		<string text="Frame rate, resolution and how\nthe picture is drawn.\n\nCurrent Profile:" platform="mac_app" />
+		<string text="Frame rate, resolution, and how\nthe picture is drawn.\n\nCurrent Profile:" platform="mac_app" />
 		<string text="The game's look.\n\n\nGraphics:" platform="!mac_app" />
 		<string text="Volume and sound for the\ngame on this device.\n\nCurrent Profile:" />
 		<string text="Online play, custom maps\nand player names.\n\nCurrent Profile:" />
