@@ -76,14 +76,14 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" type="column_list" width="640" height="338" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/screen_stats_container" visible_rows="7">
 		<data input="gamespy screen update" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/op_browser_mode" x="10" y="55" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_header" y="86" x="48" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" x="48" y="108" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" x="48" y="138" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_3" x="48" y="168" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_4" x="48" y="198" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" x="48" y="228" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" x="48" y="258" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_7" x="48" y="288" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_header" y="94" x="48" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_1" x="48" y="116" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_2" x="48" y="146" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_3" x="48" y="176" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_4" x="48" y="206" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_5" x="48" y="236" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_6" x="48" y="266" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_item_7" x="48" y="296" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/item_ticker_player_info" x="61" y="348" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/item_ticker_rules_info" x="61" y="374" />
 	</widget>
@@ -92,7 +92,7 @@
 		<on event="deleted" run="gamespy screen dispose" />
 		<on event="b" run="gamespy back handler" />
 		<on event="back" run="gamespy back handler" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" y="-21" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/header_join_game" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/button_refresh_create_inter" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/gamespy_error_fullscreen" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen" />
@@ -165,10 +165,10 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/player_count_label" type="text" controller="1" width="176" height="22" font="ui\small_ui" color="#FF2896FF" text_flags="no_focus_test">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/screen_stats_container" controller="1" width="544" height="64" color="#FF2896FF" align="right" left="48" top="338" bitmap="xbox/browser/list_field">
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_count_label" x="326" y="68" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/player_count_label" x="48" y="68" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/page_count_label" x="226" y="68" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/screen_stats_container" controller="1" width="544" height="64" color="#FF2896FF" align="right" left="48" top="338" bitmap="xbox/browser/browser_status">
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/server_count_label" x="326" y="76" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/player_count_label" x="48" y="76" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/page_count_label" x="226" y="76" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/scroll_down_arrow" width="64" height="32" bitmap="xbox/bitmaps/arrow_sm_down">
 	</widget>
@@ -480,6 +480,9 @@
 	</bitmap>
 	<bitmap name="xbox/browser/b_butn_sm">
 		<frame map="ui\shell\bitmaps\b_butn_sm" index="0" png="xbox/art/b_butn.png" width="21" height="26" />
+	</bitmap>
+	<bitmap name="xbox/browser/browser_status">
+		<frame png="xbox/art/browser_status__0.png" width="544" height="64" />
 	</bitmap>
 	<bitmap name="xbox/browser/row">
 		<frame png="xbox/art/browser_row__0.png" width="544" height="28" />

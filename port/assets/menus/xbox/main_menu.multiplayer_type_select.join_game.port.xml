@@ -16,12 +16,13 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/header_password" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_password">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/help" type="text" controller="1" left="68" top="120" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/join_game/password/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/help" type="text" controller="1" left="68" top="156" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/join_game/password/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/options_menu" type="column_list" width="640" height="120" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/password/help">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/options_menu" type="column_list" width="640" height="156" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/password/help">
 		<data input="port password update" />
 		<on event="created" run="port password init" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/op_password" x="54" y="73" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/op_password" x="54" y="81" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/button_ok" x="54" y="120" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/button_ok" x="380" y="1" />
@@ -43,7 +44,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/button_defaults" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/button_ok" type="text" width="128" height="24" text="JOIN GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_button_ok.text" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/button_ok" type="text" width="512" height="28" text="JOIN GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_button_ok.text" font="ui\large_ui" color="#FF2896FF" text_y="4" bitmap="xbox/bitmaps/option_bkds" text_x="13">
 		<on event="a" run="port password join" />
 		<on event="start" run="port password join" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -78,12 +79,13 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/help" type="text" controller="1" left="68" top="120" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/join_game/code/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/help" type="text" controller="1" left="68" top="156" width="482" height="60" string_list="xbox/main_menu/multiplayer_type_select/join_game/code/help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/options_menu" type="column_list" width="640" height="120" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/code/help">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/options_menu" type="column_list" width="640" height="156" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/main_menu/multiplayer_type_select/join_game/code/help">
 		<data input="port code update" />
 		<on event="created" run="port code init" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/op_code" x="54" y="73" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/op_code" x="54" y="81" />
+		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/button_ok" x="54" y="120" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/button_ok" x="380" y="1" />
@@ -105,7 +107,7 @@
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/button_defaults" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/button_ok" type="text" width="128" height="24" text="JOIN GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_button_ok.text" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/button_ok" type="text" width="512" height="28" text="JOIN GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_button_ok.text" font="ui\large_ui" color="#FF2896FF" text_y="4" bitmap="xbox/bitmaps/option_bkds" text_x="13">
 		<on event="a" run="port code join" />
 		<on event="start" run="port code join" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -119,10 +121,10 @@
 		<string text="That is not a join code (eight letters and digits)\nor an invite link. Try again." id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings.that_is_not_a_join_code_eight_le_74b529" />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn">
-		<on event="left_mouse" run="port password join" />
+		<on event="left_mouse" run="port password accept" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept" type="text" font="ui\large_ui" color="#FF2896FF" width="108" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept_captions" string_index="1">
-		<on event="left_mouse" run="port password join" />
+		<on event="left_mouse" run="port password accept" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn">
 		<on event="left_mouse" run="port password back" />
@@ -145,10 +147,10 @@
 		<on event="left_mouse" run="port password togglehide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn">
-		<on event="left_mouse" run="port code join" />
+		<on event="left_mouse" run="port code accept" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept" type="text" font="ui\large_ui" color="#FF2896FF" width="108" height="22" string_list="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept_captions" string_index="1">
-		<on event="left_mouse" run="port code join" />
+		<on event="left_mouse" run="port code accept" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn">
 		<on event="left_mouse" run="port code back" />

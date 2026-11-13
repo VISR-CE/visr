@@ -3902,7 +3902,7 @@ static void server_settings_update(struct widget_instance *list)
 	if (multiplayer.mode != _multiplayer_mode_host_internet)
 		text[0] = 0; /* (a LAN game has no join code, so the line is blank) */
 	else if (!config_boolean("network.online"))
-		snprintf(text, sizeof(text), "INTERNET PLAY IS OFF (SETTINGS)");
+		snprintf(text, sizeof(text), "INTERNET PLAY IS TURNED OFF. TURN IT ON IN SETTINGS > NETWORK SETUP.");
 	/* (an invite reaches no one without a broker) */
 	else if (p2p_servers_status() == HALO_INTERNET_SERVERS_UNREACHABLE)
 		snprintf(text, sizeof(text), "CAN'T REACH THE MATCHMAKING SERVERS");
@@ -4884,7 +4884,7 @@ static void lobby_browser_update(struct widget_instance *list)
 		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
 
 		if (!config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off (Settings)");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. Turn it on in Settings > Network Setup.");
 		else if (!config_boolean("network.public_lobby"))
 			usnprintf(text, NUMBEROF(text) - 1, L"The server browser is off (network.public_lobby)");
 		else if (lobby_browser.joining)
@@ -5102,25 +5102,28 @@ static void password_screen_done(char const *text)
 	snprintf(password_screen.text, sizeof(password_screen.text), "%s", text);
 }
 
-/* The legend's A caption on the password and code screens: EDIT while A
-opens the keyboard (nothing typed yet), JOIN GAME once A joins (text held, or
-a touch or keyboard player, whose legend taps and Enter join). */
+/* The legend's A caption on the password and code screens follows the
+selected row, like SERVER SETUP's: EDIT on the field (A opens or closes the
+keyboard), JOIN GAME on the JOIN GAME row. */
 static void legend_accept_caption(struct widget_instance *list, boolean join)
 {
-	extern int controller_glyph_hidden(short player, short physical);
-	extern short local_player_index_for_draw_string_and_hack_in_icons;
-	short owner = list->local_player_index == NONE ?
-		local_player_index_for_draw_string_and_hack_in_icons : list->local_player_index;
-	boolean controller = !controller_glyph_hidden(owner, BUTTON_A);
 	struct widget_instance *screen = screen_of(list);
 	struct widget_instance *caption = named(screen, "accept", 0);
 
 	if (caption)
-		caption->parameters.text_box.string_list_index = (short)((join || !controller) ? 1 : 0);
+		caption->parameters.text_box.string_list_index = (short)(join ? 1 : 0);
 	/* the password screen's X legend: HIDE while the text shows, SHOW while stars */
 	caption = named(screen, "x_hide", 0);
 	if (caption)
 		caption->parameters.text_box.string_list_index = (short)(password_screen.hidden ? 1 : 0);
+}
+
+/* the JOIN GAME row has the focus (the screen's list) */
+static boolean join_row_focused(struct widget_instance *list)
+{
+	struct widget_instance *join = named(list, "button_ok", 0);
+
+	return join && list->focused_child == join;
 }
 
 /* "port password init" */
@@ -5165,7 +5168,7 @@ static void password_screen_update(struct widget_instance *list)
 	text_field_show(named(list, "password_value", 0), stars, text_field_editing(named(list, "op_password", 0)));
 	if (help)
 		help->parameters.text_box.string_list_index = password_screen.help;
-	legend_accept_caption(list, text_field_editing(NULL) || password_screen.text[0]);
+	legend_accept_caption(list, join_row_focused(list));
 }
 
 /* "port password join" (JOIN GAME, and Enter: password_screen_edit) */
@@ -5208,14 +5211,28 @@ static boolean password_screen_back(struct widget_instance *widget, boolean *wid
 	return TRUE;
 }
 
-/* "port password edit" (the field's row's A: the typing begins; Enter, its
-end, joins) */
+/* "port password edit" (the field's row's A: the typing begins, or ends with
+the text kept; it never joins, JOIN GAME does) */
 static boolean password_screen_edit(struct widget_instance *row, boolean *widget_deleted)
 {
-	if (text_field_editing(row) || password_screen.text[0])
-		return password_screen_join(row, widget_deleted);
-	text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
+	(void)widget_deleted;
+	if (text_field_editing(row))
+		text_field_end(TRUE);
+	else
+		text_field_start(row, password_screen.text, PASSWORD_LENGTH, password_screen_done, password_screen.hidden);
 	return TRUE;
+}
+
+/* "port password accept" (the legend's A caption, clicked): what A does on the selected row */
+static boolean password_screen_accept(struct widget_instance *widget, boolean *widget_deleted)
+{
+	struct widget_instance *screen = screen_of(widget);
+	struct widget_instance *list = named(screen, "options_menu", 0);
+	struct widget_instance *row = named(screen, "op_password", 0);
+
+	if (list ? join_row_focused(list) : FALSE)
+		return password_screen_join(widget, widget_deleted);
+	return row ? password_screen_edit(row, widget_deleted) : FALSE;
 }
 
 /* "port password togglehide" (X, the legend's HIDE / SHOW): the text as
@@ -5286,7 +5303,7 @@ static void browser_update(struct widget_instance *list)
 		if (multiplayer.mode == _multiplayer_mode_server_browser)
 			text[0] = 0;
 		else if (multiplayer.mode == _multiplayer_mode_direct_link && !config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off (Settings)");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. Turn it on in Settings > Network Setup.");
 		/* the invite being joined: how it goes, or what went wrong (a game in
 		the list is shown instead, unless the invite's host is known to have
 		another version) */
@@ -5419,7 +5436,7 @@ static void code_screen_update(struct widget_instance *list)
 	text_field_show(named(list, "code_value", 0), code_screen.text, text_field_editing(named(list, "op_code", 0)));
 	if (help)
 		help->parameters.text_box.string_list_index = code_screen.help;
-	legend_accept_caption(list, text_field_editing(NULL) || code_screen.text[0]);
+	legend_accept_caption(list, join_row_focused(list));
 }
 
 /* "port code join" (JOIN GAME, and Enter: code_screen_edit) */
@@ -5455,12 +5472,15 @@ static boolean code_screen_back(struct widget_instance *widget, boolean *widget_
 	return TRUE;
 }
 
-/* "port code edit" (the field's row's A: the typing begins; Enter joins) */
+/* "port code edit" (the field's row's A: the typing begins, or ends with the
+text kept; it never joins, JOIN GAME does) */
 static boolean code_screen_edit(struct widget_instance *row, boolean *widget_deleted)
 {
-	if (text_field_editing(row) || code_screen.text[0])
-		return code_screen_join(row, widget_deleted);
-	text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
+	(void)widget_deleted;
+	if (text_field_editing(row))
+		text_field_end(TRUE);
+	else
+		text_field_begin(row, code_screen.text, TEXT_FIELD_LENGTH - 1, code_screen_done);
 	return TRUE;
 }
 
@@ -5522,6 +5542,18 @@ static boolean direct_ip_edit(struct widget_instance *widget)
 		address ? sizeof(direct_address) - 1 : sizeof(direct_port) - 1,
 		address ? direct_address_done : direct_port_done);
 	return TRUE;
+}
+
+/* "port code accept" (the legend's A caption, clicked): what A does on the selected row */
+static boolean code_screen_accept(struct widget_instance *widget, boolean *widget_deleted)
+{
+	struct widget_instance *screen = screen_of(widget);
+	struct widget_instance *list = named(screen, "options_menu", 0);
+	struct widget_instance *row = named(screen, "op_code", 0);
+
+	if (list ? join_row_focused(list) : FALSE)
+		return code_screen_join(widget, widget_deleted);
+	return row ? code_screen_edit(row, widget_deleted) : FALSE;
 }
 
 static boolean direct_ip_initialize(struct widget_instance *list)
@@ -7298,6 +7330,10 @@ boolean pc_menu_event_function_invoke(
 		{
 			return password_screen_join(widget, widget_deleted);
 		}
+		else if (!strcmp(name, "port password accept"))
+		{
+			return password_screen_accept(widget, widget_deleted);
+		}
 		else if (!strcmp(name, "port password togglehide"))
 		{
 			return password_screen_togglehide(FALSE);
@@ -7305,6 +7341,10 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port password togglehide click"))
 		{
 			return password_screen_togglehide(TRUE);
+		}
+		else if (!strcmp(name, "port code accept"))
+		{
+			return code_screen_accept(widget, widget_deleted);
 		}
 		else if (!strcmp(name, "port password back"))
 		{
