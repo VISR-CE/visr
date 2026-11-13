@@ -793,6 +793,11 @@ run(BUILD/'posix-net-probe')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '--include-directory=port/linux/src',
     'port/ios/tests/lan_targets_probe.c', f'--output={BUILD / "lan-targets-probe"}')
 run(BUILD/'lan-targets-probe')
+# Direct IP's typed address and port, without a network host or game data.
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined',
+    '--include-directory=port/linux/src', 'port/ios/tests/direct_ip_probe.c',
+    f'--output={BUILD / "direct-ip-probe"}')
+run(BUILD/'direct-ip-probe')
 # internet play: whether its brokers can be reached, the server browser's empty list and the question
 # an Apple build asks before turning it on (halo_internet.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Werror', '-fsanitize=address,undefined', '--include-directory=port/linux/src',

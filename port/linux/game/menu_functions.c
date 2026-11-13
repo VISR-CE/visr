@@ -96,6 +96,7 @@ their handlers open opens.
 #include "../src/p2p.h"
 #include "../src/port_graphics_modes.h"
 #include "../src/halo_internet.h"
+#include "../src/halo_direct_ip.h"
 #include "../include/menu_gametype.h"
 #ifdef HALO_IOS
 #include "../src/halo_lan_targets.h"
@@ -5455,8 +5456,121 @@ static boolean code_screen_reedit(struct widget_instance *widget)
 	return TRUE;
 }
 
-/* "direct ip connect go" (Direct Link's PASTE LINK, before ENTER CODE): the
-invite link on the clipboard reached, its game then in the list */
+/* Direct IP's fields share the same input and completion rules as the other forms. */
+static char direct_address[TEXT_FIELD_LENGTH], direct_port[6] = "2302", direct_password[PASSWORD_LENGTH + 1];
+static struct
+{
+	struct halo_direct_target target;
+	boolean pending, ready;
+	short controller;
+	uint32_t start_time, posted_time;
+} direct_join;
+
+unsigned long platform_real_milliseconds(void);
+void dispose_global_network_game_client(void);
+void dispose_global_network_game_server(void);
+boolean ui_widget_port_join_direct(struct widget_instance *widget, void *game, char const *lobby_name,
+	boolean *widget_deleted, word port, char const *password);
+
+static void direct_ip_cancel(void)
+{
+	direct_join.pending = direct_join.ready = FALSE;
+	halo_direct_ip_probe_set(NULL);
+}
+
+static boolean direct_ip_fail(wchar_t const *message)
+{
+	direct_ip_cancel();
+	display_error_text_deferred(message, NONE);
+	return campaign_fail();
+}
+
+/* A fresh browse has no stale advertisements. Match XNADDR's IPv4 bytes,
+not a browser row, whose identity can change while discovery runs. */
+static struct advertised_game *direct_ip_game(void)
+{
+	void *client = global_network_game_client_get();
+	struct advertised_game *games = client ? network_game_client_get_available_games(client) : NULL;
+	short index;
+	for (index = 0; games && index < MAXIMUM_ADVERTISED_GAMES; index++)
+		if (network_game_client_advertised_game_is_valid(&games[index]) &&
+			!memcmp(games[index].xnaddr + 8, &direct_join.target.address, 4))
+			return &games[index];
+	return NULL;
+}
+
+static void direct_address_done(char const *text) { snprintf(direct_address, sizeof(direct_address), "%s", text); }
+static void direct_port_done(char const *text) { snprintf(direct_port, sizeof(direct_port), "%s", text); }
+static void direct_password_done(char const *text) { snprintf(direct_password, sizeof(direct_password), "%s", text); }
+
+static boolean direct_ip_edit(struct widget_instance *widget)
+{
+	struct widget_instance *row = widget;
+	boolean address = strstr(widget->name, "address") != NULL;
+	if (strncmp(row->name, "op_", 3)) row = row->parent;
+	if (!row) return FALSE;
+	direct_ip_cancel();
+	if (text_field_editing(row)) text_field_finish(FALSE);
+	else if (strstr(row->name, "password"))
+		text_field_begin_masked(row, direct_password, PASSWORD_LENGTH, direct_password_done);
+	else text_field_begin(row, address ? direct_address : direct_port,
+		address ? sizeof(direct_address) - 1 : sizeof(direct_port) - 1,
+		address ? direct_address_done : direct_port_done);
+	return TRUE;
+}
+
+static boolean direct_ip_initialize(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_server_address", 0);
+
+	direct_ip_cancel();
+	direct_address[0] = direct_password[0] = 0;
+	snprintf(direct_port, sizeof(direct_port), "2302");
+	if (row && platform_text_auto_open()) direct_ip_edit(row);
+	return TRUE;
+}
+
+static void direct_ip_update(struct widget_instance *list)
+{
+	struct widget_instance *address = named(list, "op_server_address", 0);
+	struct widget_instance *port = named(list, "op_server_port", 0);
+	struct widget_instance *password = named(list, "op_server_password", 0);
+	char masked[PASSWORD_LENGTH + 1];
+	memset(masked, '*', strlen(direct_password));
+	masked[strlen(direct_password)] = 0;
+	text_field_show(named(list, "server_address_value_label", 0), direct_address,
+		address && text_field_editing(address));
+	text_field_show(named(list, "server_port_value_label", 0), direct_port,
+		port && text_field_editing(port));
+	text_field_show(named(list, "server_password_value_label", 0), masked,
+		password && text_field_editing(password));
+	if (direct_join.pending)
+	{
+		uint32_t now = (uint32_t)platform_real_milliseconds();
+		if ((uint32_t)(now - direct_join.start_time) >= HALO_DIRECT_IP_TIMEOUT)
+			direct_ip_fail(L"Unable to join the game.\r\nThe host did not answer.");
+		else if (direct_ip_game() && (!direct_join.ready || (uint32_t)(now - direct_join.posted_time) > 1000))
+		{
+			struct widget_instance *row;
+			short index = 0;
+			/* Joining replaces widgets only in event dispatch, as the server
+			browser does. Its posted A must select JOIN GAME, not a field. */
+			for (row = list->child; row; row = row->next, index++)
+				if (!strcmp(row->name, "direct_ip_button_join"))
+				{
+					list->focused_child = row;
+					list->parameters.list.selected_index = index;
+					direct_join.ready = TRUE;
+					direct_join.posted_time = now;
+					ui_widget_port_post_button(direct_join.controller, BUTTON_A);
+					break;
+				}
+		}
+	}
+}
+
+/* Direct Link's PASTE LINK fallback: the invite on the clipboard reached,
+its game then in the list. A typed Direct IP address takes precedence. */
 static boolean direct_link_from_clipboard(void)
 {
 	char text[TEXT_FIELD_LENGTH];
@@ -5475,6 +5589,41 @@ static boolean direct_link_from_clipboard(void)
 		platform_log("menus: the clipboard has no invite link");
 		return campaign_fail();
 	}
+	return TRUE;
+}
+
+static boolean direct_ip_connect(struct widget_instance *widget, struct event_record *event, short controller,
+	boolean *widget_deleted)
+{
+	struct advertised_game *game;
+	if (text_field.row) text_field_finish(FALSE);
+	if (direct_join.pending)
+	{
+		if ((uint32_t)((uint32_t)platform_real_milliseconds() - direct_join.start_time) >= HALO_DIRECT_IP_TIMEOUT)
+			return direct_ip_fail(L"Unable to join the game.\r\nThe host did not answer.");
+		if (!direct_join.ready) return TRUE;
+		game = direct_ip_game();
+		direct_ip_cancel();
+		if (!game || !multiplayer_player(direct_join.controller))
+			return direct_ip_fail(L"Unable to join the game.");
+		return ui_widget_port_join_direct(widget, game, LOBBY_NAME, widget_deleted,
+			direct_join.target.port, direct_password) || direct_ip_fail(L"Unable to join the game.");
+	}
+	/* An empty address preserves PASTE LINK's existing invite behavior. */
+	if (!*direct_address) return direct_link_from_clipboard();
+	if (!halo_direct_ip_parse(direct_address, direct_port, &direct_join.target))
+		return direct_ip_fail(L"Unable to join the game.\r\nCheck the address and port.");
+	if (*direct_password)
+		return direct_ip_fail(L"Direct IP does not support\r\npasswords. Use the server\r\nbrowser for a locked game.");
+	dispose_global_network_game_client();
+	dispose_global_network_game_server();
+	if (!ui_widget_port_browse(widget, event, widget_deleted))
+		return direct_ip_fail(L"Unable to search for the game.");
+	direct_join.controller = controller;
+	direct_join.start_time = (uint32_t)platform_real_milliseconds();
+	direct_join.pending = TRUE;
+	direct_join.ready = FALSE;
+	halo_direct_ip_probe_set(&direct_join.target);
 	return TRUE;
 }
 
@@ -7100,7 +7249,7 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "direct ip connect go"))
 		{
-			return direct_link_from_clipboard();
+			return direct_ip_connect(widget, event, controller, widget_deleted);
 		}
 		else if (!strcmp(name, "join controller to mp game"))
 		{
