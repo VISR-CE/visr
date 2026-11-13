@@ -26,7 +26,7 @@ static inline int halo_direct_ip_port(const char *text, const char *end, unsigne
 	const char *p;
 	while (text < end && halo_direct_ip_space(*text)) text++;
 	while (end > text && halo_direct_ip_space(end[-1])) end--;
-	*port = 2302;
+	*port = 5150;
 	if (text == end) return 1;
 	for (p = text; p < end; p++)
 		if (*p < '0' || *p > '9') return 1;

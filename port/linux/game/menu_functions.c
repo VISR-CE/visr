@@ -5514,7 +5514,7 @@ static boolean code_screen_accept(struct widget_instance *widget, boolean *widge
 }
 
 /* Direct IP's fields share the same input and completion rules as the other forms. */
-static char direct_address[TEXT_FIELD_LENGTH], direct_port[6] = "2302", direct_password[PASSWORD_LENGTH + 1];
+static char direct_address[TEXT_FIELD_LENGTH], direct_port[6] = "5150", direct_password[PASSWORD_LENGTH + 1];
 static struct
 {
 	struct halo_direct_target target;
@@ -5582,7 +5582,7 @@ static boolean direct_ip_initialize(struct widget_instance *list)
 
 	direct_ip_cancel();
 	direct_address[0] = direct_password[0] = 0;
-	snprintf(direct_port, sizeof(direct_port), "2302");
+	snprintf(direct_port, sizeof(direct_port), "5150");
 	if (row && platform_text_auto_open()) direct_ip_edit(row);
 	return TRUE;
 }

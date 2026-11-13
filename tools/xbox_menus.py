@@ -989,7 +989,7 @@ def direct_ip_layout(root, dir_):
     value = by[dir_ + '/server_password_value_label']
     value.set('name', dir_ + '/server_port_value_label')
     value.set('font', r'ui\small_ui')
-    value.set('text', '2302')
+    value.set('text', '5150')
     join = by[dir_ + '/direct_ip_button_join']
     for key in ('string_list', 'string_index', 'align', 'text_y', 'width', 'height', 'font'):
         join.attrib.pop(key, None)

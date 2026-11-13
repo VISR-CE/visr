@@ -47,7 +47,7 @@
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/server_port_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="SERVER PORT">
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/server_port_value_label" type="text" width="230" height="22" flags="pass_unhandled_to_focused_child" font="ui\small_ui" color="#FF2896FF" align="center" text_x="13" text_y="2" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196" text="2302">
+	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/server_port_value_label" type="text" width="230" height="22" flags="pass_unhandled_to_focused_child" font="ui\small_ui" color="#FF2896FF" align="center" text_x="13" text_y="2" header_bounds="7 -6 19 0" footer_bounds="7 190 19 196" text="5150">
 		<on event="a" run="direct ip edit field" />
 		<on event="start" run="direct ip edit field" />
 	</widget>
