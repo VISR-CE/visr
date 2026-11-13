@@ -397,6 +397,75 @@ NSString *host_data_updates_latest_newer(void)
     @synchronized(selectionLock()) { return latestNewerVersion; }
 }
 
+/* The map-framings feed (docs/data-packs.md, "Map framings"): framings for maps the app does not bundle, keyed by the
+   custom map's blake2b hash. Stock maps never consult it. Never selected for a launch. */
+static HostDataPackStore *framingsStore;
+static NSURL *menuFramingsURL;
+static BOOL framingsChecking, framingsAttempted;
+static NSString *framingsFolder;           /* selectionLock: the cached generation's folder, nil when only the bundled file exists */
+static uint64_t framingsSequence;          /* selectionLock: that generation's sequence */
+static uint64_t framingsBundledSequence;   /* selectionLock: a downloaded envelope applies only above this */
+static BOOL framingsKeyIsFeedKey(const char *key)
+{
+    if (!key || strncmp(key, "blake2b:", 8) || strlen(key) != 8 + 64) return NO;
+    for (const char *c = key + 8; *c; c++) if (!((*c >= '0' && *c <= '9') || (*c >= 'a' && *c <= 'f'))) return NO;
+    return YES;
+}
+/* A downloaded map-framings.json: at most 256 KiB, schema 1 or 2, only custom-map hash keys, one to eight shots per map.
+   The shots themselves are checked when read (photo_fragment_read), and the signer already validated the whole file. */
+BOOL host_framings_validate_file(NSString *path)
+{
+    NSData *data = [NSData dataWithContentsOfFile:path];
+    if (!data.length || data.length > 256 * 1024) return NO;
+    id root = [NSJSONSerialization JSONObjectWithData:data options:0 error:NULL];
+    NSDictionary *maps = [root isKindOfClass:NSDictionary.class] ? root[@"maps"] : nil;
+    NSNumber *schema = [root isKindOfClass:NSDictionary.class] ? root[@"schema"] : nil;
+    if (![schema isKindOfClass:NSNumber.class] || !([schema intValue] == 1 || [schema intValue] == 2) || ![maps isKindOfClass:NSDictionary.class]) return NO;
+    for (NSString *key in maps) {
+        NSDictionary *map = maps[key];
+        NSArray *shots = [map isKindOfClass:NSDictionary.class] ? map[@"shots"] : nil;
+        if (!framingsKeyIsFeedKey(key.UTF8String) || ![shots isKindOfClass:NSArray.class] || shots.count < 1 || shots.count > 8 || [map[@"revision"] intValue] < 1) return NO;
+    }
+    return YES;
+}
+/* Updates queue only: reads the cached generation's identity, never the network. */
+static void refreshFramings(void)
+{
+    if (!framingsStore) return;
+    NSDictionary *snapshot = [framingsStore menuSnapshot];
+    NSString *folder = snapshot[@"folder"];
+    BOOL bundled = [snapshot[@"metadata"][@"bundled"] boolValue];
+    uint64_t sequence = [snapshot[@"metadata"][@"sequence"] unsignedLongLongValue];
+    [framingsStore retainMenuFolder:folder];
+    @synchronized(selectionLock()) { framingsFolder = bundled ? nil : folder; framingsSequence = bundled ? 0 : sequence; }
+}
+/* The sequence of the framings file bundled in the app; a downloaded envelope applies only when its sequence is higher. */
+void host_data_updates_set_bundled_framings_sequence(uint64_t sequence)
+{
+    @synchronized(selectionLock()) { framingsBundledSequence = sequence; }
+}
+/* The path of the verified downloaded map-framings.json to read `key` from, or nil: a key that is not a custom map's
+   blake2b hash (every stock map's "stock:" key included) never consults the feed, and neither does a launch with no
+   downloaded envelope newer than the bundled file. Read the file with photo_fragment_read. */
+NSString *host_data_updates_framings_path(const char *key)
+{
+    if (!framingsKeyIsFeedKey(key)) return nil;
+    @synchronized(selectionLock()) {
+        if (!framingsFolder.length || framingsSequence <= framingsBundledSequence) return nil;
+        return [framingsFolder stringByAppendingPathComponent:@"map-framings.json"];
+    }
+}
+/* One more conditional request beside the recording check. */
+static void checkFramings(void)
+{
+    if (!framingsStore || !menuFramingsURL || framingsChecking || framingsAttempted) return;
+    framingsChecking = YES; framingsAttempted = YES;
+    [framingsStore checkForUpdateAtURL:menuFramingsURL completion:^(BOOL success) {
+        (void)success;
+        dispatch_async(updatesQueue(), ^{ framingsChecking = NO; refreshFramings(); });
+    }];
+}
+
 /* "Downloading benchmark recordings…" plus a percentage, or megabytes when the server announced no size. */
 static NSString *recordingProgressText(void)
 {
@@ -564,6 +633,7 @@ static void refreshMenuKinds(BOOL profile, BOOL recording)
         @synchronized(selectionLock()) { if (!menuFrozen && !recordingReady) recordingLoading = YES; }
         recordingAttempted = YES;
         checkLatest();
+        checkFramings();
         [recordings checkForUpdateAtURL:menuRecordingURL completion:^(BOOL success) {
             dispatch_async(updatesQueue(), ^{
                 recordingChecking = NO;
@@ -640,6 +710,13 @@ static void initializeMenu(struct host_device device)
         return valid;
     });
     refreshLatestNewer();
+    menuFramingsURL = menuRecordingURL ? [menuRecordingURL.URLByDeletingLastPathComponent URLByAppendingPathComponent:@"framings.json"] : nil;
+    framingsStore = store(@"framings", [resources stringByAppendingPathComponent:@"map-framings"], @"map-framings-2", ^BOOL(NSString *folder, NSError **error) {
+        BOOL valid = host_framings_validate_file([folder stringByAppendingPathComponent:@"map-framings.json"]);
+        if (!valid && error) *error = [NSError errorWithDomain:@"VISRDataUpdates" code:5 userInfo:@{NSLocalizedDescriptionKey: @"Invalid map-framings file"}];
+        return valid;
+    });
+    refreshFramings();
     NSDictionary *recording = [recordings menuSnapshot];
     NSString *selectedRecording = publishMenuSnapshot(NO, recording);
     [recordings retainMenuFolder:selectedRecording];
