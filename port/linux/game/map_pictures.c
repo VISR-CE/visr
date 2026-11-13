@@ -259,3 +259,30 @@ size_t map_pictures_name_tile(char *buf, size_t size, const char *name, size_t m
 	buf[bytes] = 0;
 	return bytes;
 }
+
+float map_pictures_near_fraction(const float *distances, int count, float near_distance)
+{
+	int i, near = 0;
+	if (count <= 0) return 0.f;
+	for (i = 0; i < count; i++)
+		if (distances[i] >= 0.f && distances[i] < near_distance) near++;
+	return (float)near / (float)count;
+}
+
+int map_pictures_view_blocked(float near_fraction)
+{
+	return near_fraction > MAP_PICTURES_MAX_NEAR_FRACTION;
+}
+
+int map_pictures_pick_view(const float *near_fractions, int count, int *all_rejected)
+{
+	int i, best = -1;
+	if (all_rejected) *all_rejected = 0;
+	for (i = 0; i < count; i++)
+	{
+		if (!map_pictures_view_blocked(near_fractions[i])) return i;
+		if (best < 0 || near_fractions[i] < near_fractions[best]) best = i;
+	}
+	if (best >= 0 && all_rejected) *all_rejected = 1;
+	return best;
+}

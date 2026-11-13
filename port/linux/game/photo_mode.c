@@ -27,6 +27,8 @@
 #include "effects/player_effects.h"
 #include "custom_edition_cache.h"
 #include "map_share.h"
+#include "map_pictures.h"
+#include "physics/collisions.h"
 #include "../src/port_config.h"
 #include "halo_keyboard.h"
 #include <math.h>
@@ -561,16 +563,100 @@ static void teleport_player(const struct flying_camera *camera)
 		original, target, point.x, point.y, point.z, forward.i, forward.j, target != original ? "; settling, then frozen" : "");
 }
 
-/* A camera for a map without a saved framing: above the centroid of the player starts in the
-current BSP, looking toward the farthest of them, or along the first start's facing when they
-sit close together (campaign). Pure fallback; a saved framing always wins. */
+/* Automatic camera candidates are checked with a grid of sight rays across the
+frame (cheaper than rendering each one and reading back the depth buffer, and
+available on the game thread before anything is drawn). Floors are not counted:
+ground in the lower half of the picture is expected. */
+#define AUTO_GRID_COLUMNS 9
+#define AUTO_GRID_ROWS 7
+#define AUTO_MAX_CANDIDATES 16
+#define AUTO_FLOOR_NORMAL_Z 0.7f
+struct auto_candidate { float position[3], forward[3]; int has_eye; float eye[3]; const char *what; };
+
+static int auto_normalize(float *v)
+{
+	float length = sqrtf(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+	if (!(length > 0)) return 0;
+	v[0] /= length; v[1] /= length; v[2] /= length;
+	return 1;
+}
+
+/* Fraction of the frame closer than MAP_PICTURES_NEAR_DISTANCE; 1 when the camera
+sits behind a wall as seen from the start it was placed from. */
+static float auto_near_fraction(const struct auto_candidate *candidate)
+{
+	const unsigned long flags = FLAG(_collision_test_front_facing_surfaces_bit) | FLAG(_collision_test_structure_bit) |
+		FLAG(_collision_test_ignore_invisible_surfaces_bit) | FLAG(_collision_test_objects_bit) |
+		_collision_test_objects_sight_blocking_flags;
+	float distances[AUTO_GRID_COLUMNS * AUTO_GRID_ROWS], f[3], right[3], up[3], h, v;
+	struct collision_result collision;
+	real_point3d origin;
+	real_vector3d ray;
+	int x, y, n = 0, i;
+	memcpy(f, candidate->forward, sizeof(f));
+	if (!auto_normalize(f)) return 1.f;
+	if (candidate->has_eye)
+	{
+		origin.x = candidate->eye[0]; origin.y = candidate->eye[1]; origin.z = candidate->eye[2];
+		ray.i = candidate->position[0] - origin.x; ray.j = candidate->position[1] - origin.y; ray.k = candidate->position[2] - origin.z;
+		if (collision_test_vector(FLAG(_collision_test_front_facing_surfaces_bit) | FLAG(_collision_test_structure_bit), &origin, &ray, NONE, &collision))
+			return 1.f;
+	}
+	right[0] = f[1]; right[1] = -f[0]; right[2] = 0;
+	if (!auto_normalize(right)) { right[0] = 1; right[1] = 0; right[2] = 0; }
+	up[0] = right[1] * f[2] - right[2] * f[1]; up[1] = right[2] * f[0] - right[0] * f[2]; up[2] = right[0] * f[1] - right[1] * f[0];
+	h = tanf(PHOTO_ENTRY_FOV * 0.5f); v = h * 0.75f;
+	origin.x = candidate->position[0]; origin.y = candidate->position[1]; origin.z = candidate->position[2];
+	for (y = 0; y < AUTO_GRID_ROWS; y++)
+		for (x = 0; x < AUTO_GRID_COLUMNS; x++)
+		{
+			float sx = (2.f * (x + 0.5f) / AUTO_GRID_COLUMNS - 1.f) * h, sy = (1.f - 2.f * (y + 0.5f) / AUTO_GRID_ROWS) * v, d[3];
+			for (i = 0; i < 3; i++) d[i] = f[i] + sx * right[i] + sy * up[i];
+			auto_normalize(d);
+			ray.i = d[0] * MAP_PICTURES_NEAR_DISTANCE; ray.j = d[1] * MAP_PICTURES_NEAR_DISTANCE; ray.k = d[2] * MAP_PICTURES_NEAR_DISTANCE;
+			distances[n] = -1.f;
+			if (collision_test_vector(flags, &origin, &ray, NONE, &collision) && !(collision.plane.n.k > AUTO_FLOOR_NORMAL_Z))
+			{
+				float dx = collision.point.x - origin.x, dy = collision.point.y - origin.y, dz = collision.point.z - origin.z;
+				distances[n] = sqrtf(dx * dx + dy * dy + dz * dz);
+			}
+			n++;
+		}
+	return map_pictures_near_fraction(distances, n, MAP_PICTURES_NEAR_DISTANCE);
+}
+
+static void auto_add(struct auto_candidate *list, int *count, const char *what, const float *position, const float *forward, const float *eye)
+{
+	struct auto_candidate *c;
+	if (*count >= AUTO_MAX_CANDIDATES) return;
+	c = &list[(*count)++];
+	memset(c, 0, sizeof(*c));
+	memcpy(c->position, position, sizeof(c->position));
+	memcpy(c->forward, forward, sizeof(c->forward));
+	if (eye) { c->has_eye = 1; memcpy(c->eye, eye, sizeof(c->eye)); }
+	c->what = what;
+}
+
+/* A camera for a map without a saved framing. The first candidate is the original one:
+above the centroid of the player starts in the current BSP, looking toward the farthest of
+them, or behind and above the first start along its facing when they sit close together
+(campaign). Candidates whose frame is mostly near geometry are rejected for the next: the
+first start's eye along its facing and turned away from it, a higher view behind it, and
+other starts' eyes looking toward the centroid. Pure fallback; a saved framing always wins. */
 static int auto_camera(struct flying_camera *camera)
 {
+	static const float turns[] = {0.f, 0.785398f, -0.785398f, 1.570796f, -1.570796f, 3.141593f};
+	static const char *const turn_names[] = {"first start eye", "first start eye +45", "first start eye -45",
+		"first start eye +90", "first start eye -90", "first start eye reversed"};
 	struct scenario *scenario = global_scenario_try_and_get();
-	int bsp = global_structure_bsp_index_get(), i, count = 0, any_in_bsp = 0, far_index = -1;
-	float center[3] = {0, 0, 0}, far_distance = 0, forward[3];
+	int bsp = global_structure_bsp_index_get(), i, count = 0, any_in_bsp = 0, far_index = -1, n = 0, chosen, all_rejected = 0;
+	int valid[AUTO_MAX_CANDIDATES], valid_count = 0;
+	float center[3] = {0, 0, 0}, far_distance = 0, position[3], forward[3], eye[3], c, si;
+	float fractions[AUTO_MAX_CANDIDATES];
+	struct auto_candidate candidates[AUTO_MAX_CANDIDATES];
 	struct photo_shot shot;
 	struct player_starting_location *first = NULL;
+	const char *map = main_get_map_name();
 	if (!scenario || scenario->players.count <= 0) return 0;
 	for (i = 0; i < scenario->players.count; i++)
 		if (TAG_BLOCK_GET_ELEMENT(&scenario->players, i, struct player_starting_location)->structure_bsp_reference_index == bsp) any_in_bsp = 1;
@@ -594,40 +680,74 @@ static int auto_camera(struct flying_camera *camera)
 		dx = start->position.x - center[0]; dy = start->position.y - center[1]; d = dx * dx + dy * dy;
 		if (d > far_distance) { far_distance = d; far_index = i; }
 	}
-	memset(&shot, 0, sizeof(shot));
-	shot.bsp = bsp;
+	c = cosf(first->facing); si = sinf(first->facing);
+	eye[0] = first->position.x; eye[1] = first->position.y; eye[2] = first->position.z + 0.62f;
 	if (count > 1 && far_index >= 0 && far_distance >= 16.f)
 	{
 		struct player_starting_location *far = TAG_BLOCK_GET_ELEMENT(&scenario->players, far_index, struct player_starting_location);
-		shot.position[0] = center[0]; shot.position[1] = center[1]; shot.position[2] = center[2] + 3.f;
-		forward[0] = far->position.x - center[0]; forward[1] = far->position.y - center[1]; forward[2] = far->position.z - shot.position[2];
+		position[0] = center[0]; position[1] = center[1]; position[2] = center[2] + 3.f;
+		forward[0] = far->position.x - center[0]; forward[1] = far->position.y - center[1]; forward[2] = far->position.z - position[2];
+		auto_add(candidates, &n, "above the starts", position, forward, NULL);
 	}
 	else
 	{
 		/* Campaign: one start, or starts in a cluster. Stand behind and above the first. */
-		float c = cosf(first->facing), si = sinf(first->facing);
-		shot.position[0] = first->position.x - 2.f * c; shot.position[1] = first->position.y - 2.f * si; shot.position[2] = first->position.z + 1.5f;
+		position[0] = first->position.x - 2.f * c; position[1] = first->position.y - 2.f * si; position[2] = first->position.z + 1.5f;
 		forward[0] = c; forward[1] = si; forward[2] = -0.15f;
+		auto_add(candidates, &n, "behind the first start", position, forward, eye);
 	}
-	if (!inside_bsp(&shot))
+	for (i = 0; i < (int)(sizeof(turns) / sizeof(turns[0])); i++)
 	{
-		/* Fall back to the first start's own eye. */
-		float c = cosf(first->facing), si = sinf(first->facing);
-		shot.position[0] = first->position.x; shot.position[1] = first->position.y; shot.position[2] = first->position.z + 0.62f;
-		forward[0] = c; forward[1] = si; forward[2] = -0.05f;
-		if (!inside_bsp(&shot)) return 0;
+		float tc = cosf(first->facing + turns[i]), ts = sinf(first->facing + turns[i]);
+		forward[0] = tc; forward[1] = ts; forward[2] = -0.05f;
+		auto_add(candidates, &n, turn_names[i], eye, forward, NULL);
 	}
+	position[0] = first->position.x - 3.f * c; position[1] = first->position.y - 3.f * si; position[2] = first->position.z + 2.5f;
+	forward[0] = c; forward[1] = si; forward[2] = -0.25f;
+	auto_add(candidates, &n, "high behind the first start", position, forward, eye);
+	for (i = 0; i < scenario->players.count && i < 256 && n < AUTO_MAX_CANDIDATES; i++)
 	{
+		struct player_starting_location *start = TAG_BLOCK_GET_ELEMENT(&scenario->players, i, struct player_starting_location);
+		if (start == first || (any_in_bsp && start->structure_bsp_reference_index != bsp)) continue;
+		if (!__builtin_isfinite(start->position.x) || !__builtin_isfinite(start->position.y) || !__builtin_isfinite(start->position.z)) continue;
+		position[0] = start->position.x; position[1] = start->position.y; position[2] = start->position.z + 0.62f;
+		forward[0] = center[0] - position[0]; forward[1] = center[1] - position[1]; forward[2] = -0.05f;
+		if (forward[0] * forward[0] + forward[1] * forward[1] < 1.f) { forward[0] = cosf(start->facing); forward[1] = sinf(start->facing); }
+		auto_add(candidates, &n, "another start's eye", position, forward, NULL);
+	}
+	memset(&shot, 0, sizeof(shot));
+	shot.bsp = bsp;
+	for (i = 0; i < n; i++)
+	{
+		float f;
+		memcpy(shot.position, candidates[i].position, sizeof(shot.position));
+		if (!inside_bsp(&shot) || !auto_normalize(candidates[i].forward))
+		{
+			error(_error_silent, "photo capture: %s auto candidate %d (%s) outside BSP %d; skipped", map, i, candidates[i].what, bsp);
+			continue;
+		}
+		f = auto_near_fraction(&candidates[i]);
+		fractions[valid_count] = f;
+		valid[valid_count++] = i;
+		error(_error_silent, "photo capture: %s auto candidate %d (%s) at (%.2f,%.2f,%.2f) near %.2f %s", map, i, candidates[i].what,
+			candidates[i].position[0], candidates[i].position[1], candidates[i].position[2], f,
+			map_pictures_view_blocked(f) ? "rejected" : "accepted");
+	}
+	chosen = map_pictures_pick_view(fractions, valid_count, &all_rejected);
+	if (chosen < 0) return 0;
+	if (all_rejected)
+		error(_error_silent, "photo capture: %s every auto candidate was blocked; keeping the least blocked, %d (near %.2f)", map, valid[chosen], fractions[chosen]);
+	{
+		const struct auto_candidate *pick = &candidates[valid[chosen]];
 		real_vector3d v;
-		float length = sqrtf(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
-		if (!(length > 0)) return 0;
-		v.i = forward[0] / length; v.j = forward[1] / length; v.k = forward[2] / length;
-		memcpy(&camera->position, shot.position, sizeof(shot.position));
+		v.i = pick->forward[0]; v.j = pick->forward[1]; v.k = pick->forward[2];
+		memcpy(&camera->position, pick->position, sizeof(pick->position));
 		euler_angles2d_from_vector3d(&camera->facing, &v);
+		camera->roll = roll = 0;
+		camera->field_of_view = fov = PHOTO_ENTRY_FOV;
+		error(_error_silent, "photo capture: automatic camera %d (%s) at (%.2f,%.2f,%.2f) from %d starts in BSP %d", valid[chosen], pick->what,
+			pick->position[0], pick->position[1], pick->position[2], count, bsp);
 	}
-	camera->roll = roll = 0;
-	camera->field_of_view = fov = PHOTO_ENTRY_FOV;
-	error(_error_silent, "photo capture: automatic camera at (%.2f,%.2f,%.2f) from %d starts in BSP %d", shot.position[0], shot.position[1], shot.position[2], count, bsp);
 	return 1;
 }
 

@@ -61,7 +61,7 @@ uint32_t halo_pipelines_built(void);
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
 #define RENDERER_VERSION 9
-#define AUTO_VERSION 2
+#define AUTO_VERSION 3
 /* the request's settle time, in game ticks (90 = 3 s); the capture itself does not wait in real time
 before it: the clean-frame warm-up below covers streaming */
 #define REQUEST_SETTLE_TICKS 90
