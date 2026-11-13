@@ -80,7 +80,7 @@ static int import_progress(void *context, const char *file, uint64_t done, uint6
         controller.progress.hidden=NO;
         [controller.spinner stopAnimating];
         controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_EXTRACT,fraction,1);
-        controller.statusLabel.text=[NSString stringWithFormat:@"Importing %@ · %.0f%%",name,fraction*100];
+        controller.statusLabel.text=[NSString stringWithFormat:@"Importing %@",name];
     });
     return 1;
 }
