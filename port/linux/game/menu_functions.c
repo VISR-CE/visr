@@ -5457,7 +5457,7 @@ static boolean code_screen_reedit(struct widget_instance *widget)
 }
 
 /* Direct IP's fields share the same input and completion rules as the other forms. */
-static char direct_address[TEXT_FIELD_LENGTH], direct_port[6] = "2302", direct_password[PASSWORD_LENGTH + 1];
+static char direct_address[TEXT_FIELD_LENGTH], direct_port[6] = "5150";
 static struct
 {
 	struct halo_direct_target target;
@@ -5470,7 +5470,7 @@ unsigned long platform_real_milliseconds(void);
 void dispose_global_network_game_client(void);
 void dispose_global_network_game_server(void);
 boolean ui_widget_port_join_direct(struct widget_instance *widget, void *game, char const *lobby_name,
-	boolean *widget_deleted, word port, char const *password);
+	boolean *widget_deleted, word port);
 
 static void direct_ip_cancel(void)
 {
@@ -5501,7 +5501,6 @@ static struct advertised_game *direct_ip_game(void)
 
 static void direct_address_done(char const *text) { snprintf(direct_address, sizeof(direct_address), "%s", text); }
 static void direct_port_done(char const *text) { snprintf(direct_port, sizeof(direct_port), "%s", text); }
-static void direct_password_done(char const *text) { snprintf(direct_password, sizeof(direct_password), "%s", text); }
 
 static boolean direct_ip_edit(struct widget_instance *widget)
 {
@@ -5511,8 +5510,6 @@ static boolean direct_ip_edit(struct widget_instance *widget)
 	if (!row) return FALSE;
 	direct_ip_cancel();
 	if (text_field_editing(row)) text_field_finish(FALSE);
-	else if (strstr(row->name, "password"))
-		text_field_begin_masked(row, direct_password, PASSWORD_LENGTH, direct_password_done);
 	else text_field_begin(row, address ? direct_address : direct_port,
 		address ? sizeof(direct_address) - 1 : sizeof(direct_port) - 1,
 		address ? direct_address_done : direct_port_done);
@@ -5524,8 +5521,8 @@ static boolean direct_ip_initialize(struct widget_instance *list)
 	struct widget_instance *row = named(list, "op_server_address", 0);
 
 	direct_ip_cancel();
-	direct_address[0] = direct_password[0] = 0;
-	snprintf(direct_port, sizeof(direct_port), "2302");
+	direct_address[0] = 0;
+	snprintf(direct_port, sizeof(direct_port), "5150");
 	if (row && platform_text_auto_open()) direct_ip_edit(row);
 	return TRUE;
 }
@@ -5534,16 +5531,10 @@ static void direct_ip_update(struct widget_instance *list)
 {
 	struct widget_instance *address = named(list, "op_server_address", 0);
 	struct widget_instance *port = named(list, "op_server_port", 0);
-	struct widget_instance *password = named(list, "op_server_password", 0);
-	char masked[PASSWORD_LENGTH + 1];
-	memset(masked, '*', strlen(direct_password));
-	masked[strlen(direct_password)] = 0;
 	text_field_show(named(list, "server_address_value_label", 0), direct_address,
 		address && text_field_editing(address));
 	text_field_show(named(list, "server_port_value_label", 0), direct_port,
 		port && text_field_editing(port));
-	text_field_show(named(list, "server_password_value_label", 0), masked,
-		password && text_field_editing(password));
 	if (direct_join.pending)
 	{
 		uint32_t now = (uint32_t)platform_real_milliseconds();
@@ -5607,14 +5598,12 @@ static boolean direct_ip_connect(struct widget_instance *widget, struct event_re
 		if (!game || !multiplayer_player(direct_join.controller))
 			return direct_ip_fail(L"Unable to join the game.");
 		return ui_widget_port_join_direct(widget, game, LOBBY_NAME, widget_deleted,
-			direct_join.target.port, direct_password) || direct_ip_fail(L"Unable to join the game.");
+			direct_join.target.port) || direct_ip_fail(L"Unable to join the game.");
 	}
 	/* An empty address preserves PASTE LINK's existing invite behavior. */
 	if (!*direct_address) return direct_link_from_clipboard();
 	if (!halo_direct_ip_parse(direct_address, direct_port, &direct_join.target))
 		return direct_ip_fail(L"Unable to join the game.\r\nCheck the address and port.");
-	if (*direct_password)
-		return direct_ip_fail(L"Direct IP does not support\r\npasswords. Use the server\r\nbrowser for a locked game.");
 	dispose_global_network_game_client();
 	dispose_global_network_game_server();
 	if (!ui_widget_port_browse(widget, event, widget_deleted))

@@ -6251,17 +6251,15 @@ boolean ui_widget_port_join(
 	return ui_widget_port_join_at_port(widget, advertised_game, lobby_name, widget_deleted, 0x141E);
 }
 
-/* port: system link has no password in its join descriptor. The browser's
-password unlocks an internet invite, which cannot be used with an IP address. */
+/* port: Direct IP joins an address and port; system link has no password. */
 boolean ui_widget_port_join_direct(
 	struct widget_instance *widget,
 	void *advertised_game,
 	char const *lobby_name,
 	boolean *widget_deleted,
-	word port,
-	char const *password)
+	word port)
 {
-	if (*password || !port)
+	if (!port)
 		return FALSE;
 	return ui_widget_port_join_at_port(widget, advertised_game, lobby_name, widget_deleted, port);
 }

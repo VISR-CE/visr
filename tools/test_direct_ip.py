@@ -27,7 +27,7 @@ def test_direct_ip_discovery_and_join(tmp_path):
     """Catch ignored typed fields, wrong-host joins, missing expiry, and lost ports."""
     source = (ROOT / "port/linux/game/menu_functions.c").read_text()
     # Execute the production handlers against the network and widget boundaries.
-    # The fixture asserts which host, port, password, and controller reach them.
+    # The fixture asserts which host, port, and controller reach them.
     from test_network_discovery import function
     state = source[source.index("static char direct_address["):source.index("static void direct_address_done(")]
     production = state + "\n" + "\n".join(function(source, signature) for signature in (

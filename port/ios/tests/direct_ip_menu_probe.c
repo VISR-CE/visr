@@ -46,11 +46,11 @@ static int multiplayer_player(short controller) { seen_controller = controller; 
 static int ui_widget_port_browse(struct widget_instance *w, struct event_record *e, boolean *deleted)
 { (void)w; (void)e; assert(!*deleted); client = browse_ok; return browse_ok; }
 boolean ui_widget_port_join_direct(struct widget_instance *w, void *g, const char *lobby,
-	boolean *deleted, word port, const char *password)
+	boolean *deleted, word port)
 {
 	(void)w;
 	assert(g == &games[1] && !strcmp(lobby, "lobby"));
-	assert(port == 2500 && !*password && seen_controller == 2);
+	assert(port == 2500 && seen_controller == 2);
 	joins++;
 	*deleted = join_ok;
 	return join_ok;
@@ -81,9 +81,6 @@ int main(void)
 	assert(!direct_ip_connect(&join, &event, 2, &deleted));
 	assert(failures == 1 && messages == 1 && !probe_enabled && clipboard_joins == 1);
 	strcpy(direct_address, "192.0.2.7:2500");
-	strcpy(direct_password, "secret");
-	assert(!direct_ip_connect(&join, &event, 2, &deleted) && failures == 2);
-	direct_password[0] = 0;
 	assert(direct_ip_connect(&join, &event, 2, &deleted));
 	assert(direct_join.pending && probe_enabled && sent_target.port == 2500);
 	games[0].valid = 1;
@@ -101,22 +98,22 @@ int main(void)
 	assert(!games[1].valid); /* New searches cannot use a cached game. */
 	now = HALO_DIRECT_IP_TIMEOUT;
 	direct_ip_update(&list);
-	assert(!direct_join.pending && !probe_enabled && failures == 3 && messages == 3 && joins == 1);
+	assert(!direct_join.pending && !probe_enabled && failures == 2 && messages == 2 && joins == 1);
 	/* Expiry also works across the 32-bit clock wrap. */
 	now = UINT32_MAX - 100;
 	assert(direct_ip_connect(&join, &event, 2, &deleted));
 	now = (uint32_t)(now + HALO_DIRECT_IP_TIMEOUT);
 	direct_ip_update(&list);
-	assert(!direct_join.pending && failures == 4);
+	assert(!direct_join.pending && failures == 3);
 	browse_ok = 0;
-	assert(!direct_ip_connect(&join, &event, 2, &deleted) && failures == 5 && !probe_enabled);
+	assert(!direct_ip_connect(&join, &event, 2, &deleted) && failures == 4 && !probe_enabled);
 	browse_ok = 1;
 	assert(direct_ip_connect(&join, &event, 2, &deleted));
 	games[1].valid = 1;
 	memcpy(games[1].xnaddr + 8, (unsigned char[]){192, 0, 2, 7}, 4);
 	direct_ip_update(&list);
 	join_ok = 0;
-	assert(!direct_ip_connect(&join, &event, 2, &deleted) && failures == 6 && !probe_enabled);
+	assert(!direct_ip_connect(&join, &event, 2, &deleted) && failures == 5 && !probe_enabled);
 	puts("PASS: direct IP discovery, host matching, join port, fallback, and failures");
 	return 0;
 }

@@ -816,14 +816,6 @@
 		<string text="Heroic" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names.heroic" />
 		<string text="Legendary" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names.legendary" />
 	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
-		<string text="SERVER NAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_name" />
-		<string text="PASSWORD" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.password" />
-		<string text="SERVER MODE" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_mode" />
-		<string text="MAX PLAYERS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.max_players" />
-		<string text="START GAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.start_game" />
-		<string text="SERVER IP" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_ip" />
-	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_options">
 		<string text="SERVER ADDRESS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.server_address" />
 		<string text="PASSWORD" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.password" />
@@ -831,6 +823,14 @@
 	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options">
 		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2304." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_the_address_of_the_server__3d82b1" />
 		<string text="Enter a password for the server you want\nto connect to." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_a_password_for_the_server__9d3b53" />
+	</strings>
+	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
+		<string text="SERVER NAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_name" />
+		<string text="PASSWORD" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.password" />
+		<string text="SERVER MODE" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_mode" />
+		<string text="MAX PLAYERS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.max_players" />
+		<string text="START GAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.start_game" />
+		<string text="SERVER IP" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_ip" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_ping">
 		<string text="ANY" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.any" />
