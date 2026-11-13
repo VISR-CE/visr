@@ -19,6 +19,9 @@ static struct {int active;void *keyboard;int row,column;wchar_t *text_buffer,*cu
 static int event_manager_flush(void) {return 0;}
 static int system_milliseconds(void) {return 1;}
 static void ui_play_audio_feedback_sound(int sound) {(void)sound;}
+static boolean virtual_keyboard_system;
+static int platform_text_touch(void) {return 0;}
+static void platform_text_field(int typing, const char *title, const char *text, int masked) {(void)typing;(void)title;(void)text;(void)masked;}
 /* OWNER */
 /* LAUNCH */
 int main(void) {
