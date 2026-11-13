@@ -399,6 +399,8 @@ static void camera_shot(struct flying_camera *camera, struct photo_shot *shot)
 static int file_action(int action, struct flying_camera *camera)
 {
 	char key[256], folder[768], path[1024], camera_path[1024];
+	/* bundled with the app; the host copies it to the data folder at each start */
+	const char *bundle_path = "d:\\map-framings.json";
 	struct photo_shot shot;
 	int revision = 0;
 	last_from_fragment = 0; last_revision = 0;
@@ -416,7 +418,9 @@ static int file_action(int action, struct flying_camera *camera)
 		if (!inside_bsp(&shot)) { error(_error_silent, "photo mode: camera is outside the current BSP bounds; save refused"); return 0; }
 		scene_record(&shot);
 		_mkdir(folder);
-		if (!photo_fragment_write(path,key,&shot)) { error(_error_silent, "photo mode: fragment save failed: %s", host_path); return 0; }
+		/* a first save over a bundled framing continues its revision, so the menu picture is remade */
+		{ struct photo_shot bundled; if (photo_framing_lookup(NULL,bundle_path,key,&bundled,&revision) != PHOTO_FRAMING_BUNDLED) revision = 0; }
+		if (!photo_fragment_write_from(path,key,&shot,revision)) { error(_error_silent, "photo mode: fragment save failed: %s", host_path); return 0; }
 		director_save_camera();
 		FILE *written = fopen(camera_path,"r");
 		error(_error_silent, "photo mode: saved framing %s; camera.txt %s %s", host_path, written ? "written" : "MISSING", host_camera_path);
@@ -426,16 +430,17 @@ static int file_action(int action, struct flying_camera *camera)
 	else
 	{
 		FILE *file = fopen(path,"r");
-		int exists = file != NULL;
+		int exists = file != NULL, source;
 		if (file) fclose(file);
-		/* A scripted capture uses only the map's own framing, never the last camera.txt. */
-		if (!exists && scripted) return 0;
 		int previous_bsp = global_structure_bsp_index_get();
 		shot.has_mp=0; shot.moved_vehicle_count=0;
-		if (!(exists ? photo_fragment_read(path,key,&shot,&revision) : photo_camera_read(camera_path,&shot)) ||
+		source = photo_framing_lookup(path,bundle_path,key,&shot,&revision);
+		/* A scripted capture uses only the map's own framing, never the last camera.txt. */
+		if (source == PHOTO_FRAMING_NONE && !exists && scripted) return 0;
+		if (!(source != PHOTO_FRAMING_NONE || (!exists && photo_camera_read(camera_path,&shot))) ||
 			shot.bsp >= global_scenario->structure_bsp_references.count || shot.bsp > 32767)
 		{
-			error(_error_silent, "photo mode: invalid framing or BSP index; load refused (%s)", exists ? host_path : host_camera_path); return 0;
+			error(_error_silent, "photo mode: invalid framing or BSP index; load refused (%s)", exists || source != PHOTO_FRAMING_NONE ? host_path : host_camera_path); return 0;
 		}
 		if (shot.bsp != previous_bsp && !scenario_switch_structure_bsp((short)shot.bsp))
 		{ error(_error_silent, "photo mode: BSP switch failed; load refused"); return 0; }
@@ -459,7 +464,7 @@ static int file_action(int action, struct flying_camera *camera)
 		/* AI was already erased on entry; retain an honest recipe on the next save. */
 		metadata.erase_ai = 1;
 		error(_error_silent, "photo mode: loaded first shot (roll %.2f degrees)", roll * 180.f / 3.14159265f);
-		last_from_fragment = exists; last_revision = exists ? revision : 0;
+		last_from_fragment = source != PHOTO_FRAMING_NONE; last_revision = last_from_fragment ? revision : 0;
 		return 1;
 	}
 }

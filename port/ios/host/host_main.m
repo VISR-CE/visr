@@ -475,6 +475,14 @@ int main(int argc,char **argv) {
             if(!list||![list writeToFile:@"brokers.txt" atomically:YES])
                 host_logf(HOST_LOG_ERROR,"cannot write brokers.txt from the app bundle");
         }
+        /* the stock maps' menu-picture framings (photo_framing_lookup): a copy of the app's file at each
+           start, so an update's framings replace the last; the player's own framings/ fragments still win */
+        {
+            NSString *framings=[NSBundle.mainBundle pathForResource:@"map-framings" ofType:@"json"];
+            NSData *data=framings?[NSData dataWithContentsOfFile:framings]:nil;
+            if(!data||![data writeToFile:@"map-framings.json" atomically:YES])
+                host_logf(HOST_LOG_ERROR,"cannot write map-framings.json from the app bundle");
+        }
         /* Tools (tools/mac_run.py) create stderr.log to keep the guest's own log, platform_log
            and debug.gpu_stats among it, which otherwise only a debugger's console shows; so does
            opening a join link (host_join_link.c). Past 4 MB it starts anew. */

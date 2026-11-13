@@ -48,6 +48,19 @@ int photo_map_key(const char *scenario, int custom, const unsigned char *hash, c
 int photo_shot_valid(const struct photo_shot *shot);
 int photo_fragment_read(const char *path, const char *key, struct photo_shot *shot, int *revision);
 int photo_fragment_write(const char *path, const char *key, const struct photo_shot *shot);
+/* Like photo_fragment_write, but a new file starts above base_revision (the bundled framing it replaces). */
+int photo_fragment_write_from(const char *path, const char *key, const struct photo_shot *shot, int base_revision);
+
+/* Where a map's saved framing came from. */
+enum { PHOTO_FRAMING_NONE, PHOTO_FRAMING_FRAGMENT, PHOTO_FRAMING_BUNDLED, PHOTO_FRAMING_FEED };
+/* A map's saved framing: the data folder's fragment wins; a stock map then uses the framings bundled with
+the app (bundle_path, schema 2 with one entry per framed map) and never the feed; any other map asks the feed.
+Returns the PHOTO_FRAMING_ source, or PHOTO_FRAMING_NONE when the map has no framing (automatic camera). */
+int photo_framing_lookup(const char *fragment_path, const char *bundle_path, const char *key,
+	struct photo_shot *shot, int *revision);
+/* Framings published for other maps, looked up by the map's 64-hex-digit hash. Nothing is published yet,
+so this always returns 0. */
+int photo_framing_feed_lookup(const char *map_hash, struct photo_shot *shot, int *revision);
 int photo_camera_read(const char *path, struct photo_shot *shot);
 
 /* World units per second the keyboard flies the photo camera at speed step 0. */

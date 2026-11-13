@@ -63,9 +63,9 @@ int map_pictures_scenario_identity(int index, char *key, size_t size, char hash_
 		!map_share_map_hash(path, hash)) return 0;
 	for (i = 0; i < 32; i++) sprintf(hash_hex + i * 2, "%02x", hash[i]);
 	hash_hex[64] = 0;
-	/* the same file photo mode saves to (photo_mode.c) */
+	/* the same sources photo mode loads from (photo_mode.c): the data folder's fragment, then the bundle */
 	if (snprintf(path, sizeof(path), "d:\\framings\\%s.json", key) < (int)sizeof(path) &&
-		photo_fragment_read(path, key, &shot, &saved) && saved > 0)
+		photo_framing_lookup(path, "d:\\map-framings.json", key, &shot, &saved) != PHOTO_FRAMING_NONE && saved > 0)
 		*revision = (uint32_t)saved;
 	return 1;
 }

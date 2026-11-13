@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int main(int argc, char **argv)
@@ -16,6 +17,14 @@ int main(int argc, char **argv)
     float up[3], forward[] = {0.6f,0,0.8f}, pole[] = {0,0,1};
     if (argc == 4 && !strcmp(argv[1], "--read"))
         return photo_fragment_read(argv[2], argv[3], &loaded, &revision) ? 0 : 1;
+    if (argc == 5 && !strcmp(argv[1], "--lookup"))
+    {
+        int source = photo_framing_lookup(argv[2][0] ? argv[2] : NULL, argv[3][0] ? argv[3] : NULL, argv[4], &loaded, &revision);
+        printf("%d %d\n", source, source ? revision : 0);
+        return 0;
+    }
+    if (argc == 5 && !strcmp(argv[1], "--write-from"))
+        return photo_fragment_write_from(argv[2], argv[3], &shot, atoi(argv[4])) ? 0 : 1;
     assert(argc == 2);
     {
         float d[3];
