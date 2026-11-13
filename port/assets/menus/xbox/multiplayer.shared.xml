@@ -821,7 +821,7 @@
 		<string text="PASSWORD" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options">
-		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2302." />
+		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:5150." />
 		<string text="Enter a password for the server you want\nto connect to." />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
