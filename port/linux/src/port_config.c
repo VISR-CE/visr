@@ -1563,6 +1563,11 @@ static const struct config_setting config_settings[] =
 		"stays at least 60 degrees; \"horizontal_70\" and \"match_landscape\"\n"
 		"widen it to 70 and 73.5 degrees horizontal. Where portrait is allowed,\n"
 		"hold Back and press L1 to cycle the four modes until the app quits." },
+	{ "debug.portrait_fov_button", _config_boolean, "false", "HALO_PORTRAIT_FOV_BUTTON", _environment_value, _platform_ios,
+		"Shows a small FOV button at the bottom center of the touch controls\n"
+		"in gameplay that cycles the portrait field of view like the Back + L1\n"
+		"chord (debug.portrait_field_of_view), for devices with no controller.\n"
+		"Needs display.allow_portrait." },
 	{ "debug.anti_aliasing_folded", _config_boolean, "false", "HALO_ANTI_ALIASING_FOLDED", _environment_value, _platform_all,
 		"With display.anti_aliasing = \"fxaa\" and the HUD at the display's size:\n"
 		"run FXAA inside the stretch to the display's size (Metal), at each of\n"

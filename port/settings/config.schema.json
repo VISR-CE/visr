@@ -2374,6 +2374,16 @@
             "apple"
           ]
         },
+        "portrait_fov_button": {
+          "type": "boolean",
+          "default": false,
+          "description": "Shows a small FOV button at the bottom center of the touch controls in gameplay that cycles the portrait field of view like the Back + L1 chord (debug.portrait_field_of_view), for devices with no controller. Needs display.allow_portrait.",
+          "x-environment": "HALO_PORTRAIT_FOV_BUTTON",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "anti_aliasing_folded": {
           "type": "boolean",
           "default": false,

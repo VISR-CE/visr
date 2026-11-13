@@ -13,6 +13,7 @@
 #include "host_posture_layout.h"
 #include "host_menu_pointer.h"
 #include "host_audio_output.h"
+#include "host_config.h"
 
 static struct host_touch_replay_gate replay_gate;
 static void touch_replay_ui_update(void);
@@ -249,6 +250,7 @@ static void touch_latency_watch(void) {
 @property(nonatomic,strong) HaloStick *lookStick;
 @property(nonatomic,strong) NSMutableArray<HaloButton *> *buttons;
 @property(nonatomic,strong) UIButton *toggle;
+@property(nonatomic,strong) UIButton *fovButton;
 @property(nonatomic) BOOL laptop;
 @property(nonatomic) unsigned postureGeneration;
 @property(nonatomic,strong) UIView *postureBackdrop;
@@ -290,6 +292,7 @@ static void touch_latency_watch(void) {
     [self.toggle setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];self.toggle.titleLabel.font=[UIFont systemFontOfSize:12];
     self.toggle.backgroundColor=[UIColor colorWithWhite:0 alpha:.3];self.toggle.layer.cornerRadius=12;
     [self.toggle addTarget:self action:@selector(toggleControls) forControlEvents:UIControlEventTouchUpInside];[self addSubview:self.toggle];
+    [self makeFovButton];
     [[NSNotificationCenter defaultCenter]addObserver:self selector:@selector(reset) name:UIApplicationWillResignActiveNotification object:nil];
     /* The overlay hides while a game controller is connected, and returns when the last one
        disconnects or on a touch of the screen, and goes again when the controller is used
@@ -317,8 +320,33 @@ static void touch_latency_watch(void) {
     self.toggle.hidden=self.laptop||self.controllerHidden||menu;
     atomic_store(&controls_showing,!self.laptop&&!self.controllerHidden);
     [self.toggle setTitle:self.manuallyHidden?@"Show controls":@"Hide controls" forState:UIControlStateNormal];
+    [self updateFovButton];
     /* the guest pumps the run loop without letting it wait: commit now, not at the next touch */
     [CATransaction flush];
+}
+/* debug.portrait_fov_button: a "FOV" button that presses the Back + L1 chord (the guest's portrait field of view
+   cycle), for touch-only devices. Only in gameplay, and never where the overlay is put away. */
+- (void)makeFovButton {
+    char on[16];host_config_string("debug.portrait_fov_button","false",on,sizeof(on));
+    if(strcmp(on,"true"))return;
+    self.fovButton=[UIButton buttonWithType:UIButtonTypeCustom];
+    [self.fovButton setTitle:@"FOV" forState:UIControlStateNormal];
+    [self.fovButton setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
+    self.fovButton.titleLabel.font=[UIFont boldSystemFontOfSize:13];
+    self.fovButton.backgroundColor=[UIColor colorWithWhite:0 alpha:.45];self.fovButton.layer.cornerRadius=15;
+    [self.fovButton addTarget:self action:@selector(fovPressed) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:self.fovButton];
+}
+- (void)updateFovButton {
+    if(!self.fovButton)return;
+    self.fovButton.hidden=atomic_load(&menu_up)!=0||self.laptop||self.manuallyHidden||self.controllerHidden;
+}
+- (void)fovPressed {
+    if(host_touch_replay_blocked(&replay_gate))return;
+    fprintf(stderr,"halo-ios: portrait FOV button tapped\n");
+    button_state(SDL_GAMEPAD_BUTTON_BACK,YES);button_state(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,YES);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.12*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        button_state(SDL_GAMEPAD_BUTTON_BACK,NO);button_state(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,NO);});
 }
 /* A hardware controller in use puts the overlay away again after a touch brought it back,
    and covers a controller connected before its notification could reach us. */
@@ -406,6 +434,8 @@ static void touch_latency_watch(void) {
     self.buttons[14].frame=CGRectMake(left+104,top+55,80,36);
     for(UIButton *b in self.buttons){b.layer.cornerRadius=MIN(b.bounds.size.width,b.bounds.size.height)/2;b.titleLabel.adjustsFontSizeToFitWidth=YES;}
     self.toggle.frame=CGRectMake(right-108,top,108,32);
+    /* bottom center: clear of the sticks, the face buttons, the arrows and the pause and toggle corners */
+    self.fovButton.frame=CGRectMake(CGRectGetMidX(r)-30,bottom-30,60,30);
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG"))fprintf(stderr,"halo-ios: host_touch hittest %.1f,%.1f\n",point.x,point.y);
