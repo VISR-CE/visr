@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include "halo_host_pointer.h"
+#include "halo_ui_drag.h"
 
 /* in points */
 #define HOST_MENU_POINTER_SLOP 10.0f
@@ -192,6 +193,7 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->radius = m->touch == 2 ? HOST_MENU_POINTER_GAZE_RADIUS : m->touch ? HOST_MENU_POINTER_RADIUS : 0.0f;
     out->picture = m->touch == 2;
     if (!host_menu_pointer_listening(m)) {
+        out->down = 0;
         host_menu_pointer_clear(m);
         return;
     }
