@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from tools import embed_assets, linux_build, linux_link_check, linux_msvc_semantics, port_settings
+from tools import embed_assets, linux_build, linux_link_check, linux_msvc_semantics, menu_catalog, port_settings
 
 
 # ---------- MSVC semantics header
@@ -185,24 +185,25 @@ MENU_ATTRIBUTES = {
     "menus": {"root"},
     "bitmap": {"name", "width", "height", "frames", "platform"},
     "frame": {"png", "cache", "map", "index", "width", "height", "x", "y", "platform"},
-    "strings": {"name", "platform"},
-    "string": {"text", "platform"},
+    "strings": {"name", "platform", "id", "strings_ids"},
+    "string": {"text", "platform", "id"},
     "widget": {"name", "type", "controller", "flags", "bitmap", "text", "strings", "values", "setting", "font",
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
                "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform", "visible_rows",
-               "row_top", "row_pitch"},
+               "row_top", "row_pitch", "id", "text_id", "description_id", "strings_ids", "help_ids"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
     "data": {"input", "platform"},
     "conditional": {"widget", "if_failed", "platform"},
     # (a widget's search and replace, or in a <patch> a row's replacement)
-    "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created"},
+    "replace": {"search", "function", "platform", "child", "model", "name", "text", "run", "open", "created",
+                "id", "text_id", "description_id"},
     # (a <patch>'s, port/assets/menus/README.md)
     "patch": {"list", "screen", "footer"},
     "row": {"after", "before", "model", "name", "text", "run", "open", "created", "description", "picture", "pitch",
-            "platform", "widget", "help", "bitmap"},
+            "platform", "widget", "help", "bitmap", "id", "text_id", "description_id", "help_ids"},
     "remove": {"child", "pitch", "platform"},
 }
 
@@ -351,7 +352,7 @@ def test_network_settings_hide_update_toggle_on_mobile():
     generated = "\n".join(files[name])
     asset = MENUS / "ce" / name
     repository = Path(__file__).resolve().parent.parent
-    assert asset.read_text(encoding="utf-8") == generated
+    assert menu_catalog.STRIP.sub("", asset.read_text(encoding="utf-8")) == generated
     assert asset.relative_to(repository) in embed_assets.hud_asset_inputs()
 
     root = ElementTree.fromstring(asset.read_text(encoding="utf-8"))
@@ -591,7 +592,7 @@ def test_icloud_setting_and_status_share_network_screen():
 
     name = "main_menu.settings_select.player_setup.player_profile_edit.network_setup.xml"
     generated = "\n".join(port_settings.settings_files()[name])
-    assert (MENUS / "ce" / name).read_text() == generated
+    assert menu_catalog.STRIP.sub("", (MENUS / "ce" / name).read_text()) == generated
     root = ElementTree.fromstring(generated)
     base = f"{port_settings.PE}/network_setup"
     row = root.find(f"widget[@name='{base}/op_cloud_saves']")

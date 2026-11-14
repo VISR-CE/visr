@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MENUS = ROOT / "port/assets/menus"
 sys.path.insert(0, str(ROOT / "tools"))
 import about_data  # noqa: E402
+import menu_catalog  # noqa: E402
 import port_settings  # noqa: E402
 import notices_text  # noqa: E402
 import xbox_menus  # noqa: E402
@@ -74,7 +75,7 @@ def test_notice_is_exact_fits_and_has_the_copyright_sign():
 
 def test_pc_screen_is_what_the_generator_writes():
     expected = "\n".join(port_settings.settings_files()["main_menu.settings_select.player_setup.player_profile_edit.about.xml"])
-    assert PC_SCREEN.read_text() == expected
+    assert menu_catalog.STRIP.sub("", PC_SCREEN.read_text()) == expected
 
 
 def labels(path, prefix):
