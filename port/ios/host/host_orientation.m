@@ -158,12 +158,26 @@ static void relayout_to_scene(void) {
                 if (![NSStringFromClass(sub.class) isEqualToString:@"HaloControls"]) continue;
                 if (!CGRectEqualToRect(sub.frame, view.bounds)) { sub.frame = view.bounds; [sub setNeedsLayout]; changed = YES; }
             }
+            /* The SDL metal view (the layer's delegate) can keep the previous screen's frame while the
+               drawable already matches, so SDL never sees a resize. Check the layer's own bounds too. */
+            UIView *metal_view = [layer.delegate isKindOfClass:UIView.class] ? (UIView *)layer.delegate : nil;
+            BOOL bounds_off = NO;
+            if (metal_view && !CGRectEqualToRect(metal_view.frame, view.bounds)) {
+                metal_view.frame = view.bounds; [metal_view setNeedsLayout]; bounds_off = YES;
+            }
+            if (!CGSizeEqualToSize(layer.bounds.size, view.bounds.size)) {
+                layer.frame = view.bounds; bounds_off = YES;
+            }
+            if (bounds_off) changed = YES;
             CGFloat scale = windowScene.screen.nativeScale > 0 ? windowScene.screen.nativeScale : windowScene.screen.scale;
             CGSize want = CGSizeMake(round(bounds.size.width * scale), round(bounds.size.height * scale));
             int width = 0, height = 0;
             SDL_GetWindowSize(sdl, &width, &height);
             BOOL layer_off = !CGSizeEqualToSize(layer.drawableSize, want);
-            BOOL sdl_off = width != (int)bounds.size.width || height != (int)bounds.size.height;
+            int pw = 0, ph = 0;
+            SDL_GetWindowSizeInPixels(sdl, &pw, &ph);
+            BOOL sdl_off = width != (int)bounds.size.width || height != (int)bounds.size.height ||
+                           pw != (int)want.width || ph != (int)want.height;
             if (changed) { [view setNeedsLayout]; [view layoutIfNeeded]; }
             if (layer.contentsScale != scale) layer.contentsScale = scale;
             double now = CACurrentMediaTime();
