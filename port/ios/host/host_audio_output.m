@@ -7,23 +7,37 @@
 #include <SDL3/SDL.h>
 #include <stdatomic.h>
 #include "ios_host.h"
+#include "host_main_thread.h"
 
 static UIButton *audio_button;
 static UIViewController *audio_panel;
 /* Mirrored by a hint callback: the event poll runs every frame and should not
    look the hint up each time. The guest sets it only when it changes. */
 static _Atomic int pause_menu, pause_menu_shown;
+/* Whether the panel is on screen, kept on the main thread for the game thread's
+   per-frame reads: UIKit properties must not be read off the main thread. */
+static _Atomic int panel_up;
 
 static void SDLCALL pause_menu_changed(void *userdata,const char *name,const char *old_value,const char *new_value) {
     (void)userdata;(void)name;(void)old_value;
     atomic_store(&pause_menu,new_value && new_value[0]=='1');
 }
 
-@interface VISRAudioOutput : NSObject
+@interface VISRAudioOutput : NSObject <UIAdaptivePresentationControllerDelegate>
 + (void)show;
 + (void)done;
 @end
 @implementation VISRAudioOutput
+/* A swipe down dismisses the page sheet without Done. */
++ (VISRAudioOutput *)shared {
+    static VISRAudioOutput *shared;
+    if(!shared)shared=[VISRAudioOutput new];
+    return shared;
+}
+- (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController {
+    (void)presentationController;
+    audio_panel=nil;atomic_store(&panel_up,0);
+}
 + (void)show {
     UIWindow *window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(host_sdl_window()),
         SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
@@ -66,27 +80,37 @@ static void SDLCALL pause_menu_changed(void *userdata,const char *name,const cha
         [stack.widthAnchor constraintEqualToAnchor:scroll.frameLayoutGuide.widthAnchor constant:-48]]];
     UINavigationController *navigation=[[UINavigationController alloc]initWithRootViewController:audio_panel];
     navigation.modalPresentationStyle=UIModalPresentationPageSheet;
+    navigation.presentationController.delegate=[VISRAudioOutput shared];
+    atomic_store(&panel_up,1);
     [presenter presentViewController:navigation animated:YES completion:nil];
 }
 + (void)done {
     [audio_panel.navigationController dismissViewControllerAnimated:YES completion:nil];audio_panel=nil;
+    atomic_store(&panel_up,0);
 }
 @end
 
 int host_audio_output_up(void) {
-    return audio_panel.navigationController.presentingViewController!=nil;
+    return atomic_load(&panel_up);
 }
+static void update_audio_button(BOOL paused);
 void host_audio_output_poll(void) {
     static BOOL watching;
     if(!watching) {watching=YES;SDL_AddHintCallback("VISR_PAUSE_MENU",pause_menu_changed,NULL);}
     BOOL paused=atomic_load(&pause_menu)!=0;
     if(paused==(atomic_load(&pause_menu_shown)!=0))return;
+    /* The poll runs on the game thread when it is on; the button is UIKit. */
+    atomic_store(&pause_menu_shown,paused);
+    host_main_async(^{ update_audio_button(paused); });
+}
+static void update_audio_button(BOOL paused) {
     SDL_Window *sdl_window=host_sdl_window();
-    if(!sdl_window)return;
+    /* No window yet: let a later poll try again. */
+    if(!sdl_window) {atomic_store(&pause_menu_shown,!paused);return;}
     UIWindow *window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(sdl_window),
         SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
     UIView *view=window.rootViewController.view;
-    if(!view)return;
+    if(!view) {atomic_store(&pause_menu_shown,!paused);return;}
     if(!audio_button) {
         audio_button=[UIButton buttonWithType:UIButtonTypeSystem];
         audio_button.configuration=[UIButtonConfiguration filledButtonConfiguration];
@@ -99,11 +123,11 @@ void host_audio_output_poll(void) {
             [audio_button.topAnchor constraintEqualToAnchor:view.safeAreaLayoutGuide.topAnchor constant:8],
             [audio_button.heightAnchor constraintGreaterThanOrEqualToConstant:44]]];
     }
-    atomic_store(&pause_menu_shown,paused);
     audio_button.hidden=!paused;
     if(paused)[view bringSubviewToFront:audio_button];
     else if(audio_panel) {
         [audio_panel.navigationController dismissViewControllerAnimated:NO completion:nil];audio_panel=nil;
+        atomic_store(&panel_up,0);
     }
 }
 #else
