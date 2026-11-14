@@ -320,3 +320,18 @@ def test_lookup_order(tmp_path, native_probe):
     assert json.loads(fragment.read_text())['maps']['stock:example']['revision'] == 4
     assert lookup(native_probe, fragment, bundle, 'stock:example') == (1, 4)
     assert lookup(native_probe, None, BUNDLE, 'stock:a10')[0] == 2
+
+
+def test_bundled_framings_resolve_through_game_lookup(native_probe):
+    """Every built-in map resolves to its bundled framing (not the automatic camera) via the game's resolver."""
+    root = Path(__file__).resolve().parents[1]
+    bundle = root / 'port/assets/map-framings.json'
+    maps = json.loads(bundle.read_text())['maps']
+    for key in ('stock:c10', 'stock:d20', 'stock:beavercreek', 'stock:bloodgulch',
+                'stock:boardingaction', 'stock:carousel'):
+        assert key in maps
+    for key, entry in maps.items():
+        out = subprocess.run([str(native_probe), '--lookup', '', str(bundle), key],
+                             check=True, capture_output=True, text=True).stdout.split()
+        assert int(out[0]) == 2, key  # PHOTO_FRAMING_BUNDLED
+        assert int(out[1]) == entry['revision'], key
