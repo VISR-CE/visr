@@ -1747,6 +1747,15 @@ static void menu_script_run(void)
 		return;
 	case 3:
 	case 4:
+		{
+			/* (the menus' hints follow the last device, so a scripted click counts as the mouse) */
+			SDL_Event note;
+
+			memset(&note, 0, sizeof(note));
+			note.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+			note.button.which = 1;
+			halo_controller_glyph_input_event(&note);
+		}
 		host_menu_pointer_device_move(&menu_pointer, x, y);
 		host_menu_pointer_device_click(&menu_pointer, menu_script.kind == 4, x, y);
 		break;
