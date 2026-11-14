@@ -406,12 +406,15 @@ void photo_mode_prepare_variant(const char *key)
 	int revision = 0;
 	struct game_variant variant;
 	player_ui_clear_game_variant();
+	game_set_game_variant(NULL);
 	memset(&shot,0,sizeof(shot));
 	if (snprintf(path,sizeof(path),"d:\\framings\\%s.json",key) >= (int)sizeof(path)) return;
 	if (photo_framing_lookup(path,"d:\\map-framings.json",key,&shot,&revision) == PHOTO_FRAMING_NONE) return;
 	if ((!shot.has_mp && !shot.moved_vehicle_count) || !strcmp(shot.variant,"none") || !shot.variant[0]) return;
 	game_engine_get_variant_by_name(&variant,shot.variant);
 	player_ui_set_game_variant(&variant);
+	/* the engine starts from the game's own variant (game_initialize_for_new_map), which only the menu's start path sets */
+	game_set_game_variant(&variant);
 	error(_error_silent,"photo: map load starts with variant %s",shot.variant);
 }
 
