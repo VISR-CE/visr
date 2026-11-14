@@ -6388,6 +6388,9 @@ static int output_change(void *new_layer, void *screen, int width, int height, i
         if(host_game_thread_enabled())companion_drawable_request(nil);
         perf_output = screen ? 3 : 1;
         layer=(__bridge CAMetalLayer *)new_layer;
+        /* This hop runs while every frame_slots entry is held. Main must never
+           wait on a frame slot (drawable callback, present handler), or this
+           becomes a deadlock. */
         host_main_sync(^{
             /* Both scale and drawable size change after the old frames complete. */
             if(change_scale && !output_cap_layer(layer,width,height)){applied=NO;return;}
