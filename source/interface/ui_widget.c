@@ -2002,31 +2002,53 @@ static void ui_carousel_faded_quad_draw(
 	short rectangle_x0, short rectangle_y0, short rectangle_width, short rectangle_height,
 	real texture_width, real texture_height)
 {
+	/* port: the plasma pixel shader ignores vertex alpha (its alpha comes from the map 2 fade constant),
+	   so plasma draws are cut into narrow strips that each carry a constant fade. */
+	enum { MAXIMUM_CUTS = 64 };
 	real frame_x0 = (real)ui_carousel_clip->x0;
 	real frame_x1 = (real)ui_carousel_clip->x1;
 	real left = clipped[0].position.x;
 	real right = clipped[1].position.x;
-	real cuts[4];
+	real cuts[MAXIMUM_CUTS];
 	short cut_count = 0;
 	short cut_index;
 	unsigned long alpha = (unsigned long)argb >> 24;
+	boolean strips = parameters->doing_plasma_effect ? TRUE : FALSE;
+	real strip_fade = 1.0f;
 
 	cuts[cut_count++] = left;
-	if (frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH > left && frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH < right)
-		cuts[cut_count++] = frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH;
-	if (frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH > cuts[cut_count - 1] && frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH < right)
-		cuts[cut_count++] = frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH;
+	if (strips)
+	{
+		real x;
+		for (x = left + 4.0f; x < right && cut_count < MAXIMUM_CUTS - 1; x += 4.0f)
+			cuts[cut_count++] = x;
+	}
+	else
+	{
+		if (frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH > left && frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH < right)
+			cuts[cut_count++] = frame_x0 + HALO_UI_CAROUSEL_FADE_WIDTH;
+		if (frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH > cuts[cut_count - 1] && frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH < right)
+			cuts[cut_count++] = frame_x1 - HALO_UI_CAROUSEL_FADE_WIDTH;
+	}
 	cuts[cut_count++] = right;
+	if (strips)
+		parameters->map_fade[2] = &strip_fade;
 	for (cut_index = 0; cut_index + 1 < cut_count; cut_index++)
 	{
 		struct dynamic_screen_vertex piece[NUMBER_OF_POINTS_PER_RECTANGLE];
 		short vertex_index;
 		boolean visible = FALSE;
 
+		if (strips)
+		{
+			strip_fade = halo_ui_carousel_fade(0.5f * (cuts[cut_index] + cuts[cut_index + 1]), frame_x0, frame_x1);
+			if (strip_fade > 0.0f)
+				visible = TRUE;
+		}
 		for (vertex_index = 0; vertex_index < NUMBER_OF_POINTS_PER_RECTANGLE; vertex_index++)
 		{
 			real x = (vertex_index % 3) ? cuts[cut_index + 1] : cuts[cut_index];
-			real fade = halo_ui_carousel_fade(x, frame_x0, frame_x1);
+			real fade = strips ? 1.0f : halo_ui_carousel_fade(x, frame_x0, frame_x1);
 			unsigned long faded = (unsigned long)(alpha * fade + 0.5f);
 
 			piece[vertex_index] = clipped[vertex_index];
@@ -2035,12 +2057,14 @@ static void ui_carousel_faded_quad_draw(
 			piece[vertex_index].texture_coordinates.y = texture_height *
 				(piece[vertex_index].position.y - rectangle_y0) / rectangle_height;
 			piece[vertex_index].color = (pixel32)(((unsigned long)argb & 0x00FFFFFFul) | (faded << 24));
-			if (faded)
+			if (faded && !strips)
 				visible = TRUE;
 		}
 		if (visible)
 			rasterizer_psuedo_dynamic_screen_quad_draw(parameters, piece);
 	}
+	if (strips)
+		parameters->map_fade[2] = NULL;
 }
 
 void draw_bitmap_in_rect(
