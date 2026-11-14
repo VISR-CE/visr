@@ -96,7 +96,7 @@ static char const language_xml[] =
 	"<widget name=\"lang/list_widget\" strings=\"OFF|ON\" strings_ids=\"t.off|t.on\" type=\"spinner\"><on event=\"left_mouse\" run=\"mouse spinner 1wide click\"/></widget>"
 	"<strings name=\"lang/list\"><string id=\"t.a\" text=\"Alpha one\"/><string text=\"Plain\"/></strings></menus>\n";
 static char const language_bad_xml[] =
-	"<menus><widget name=\"lang/bad\" strings=\"A|B\" strings_ids=\"t.a\"/></menus>\n";
+	"<menus><widget name=\"lang/bad\" strings=\"A|B\" strings_ids=\"t.a\"/><widget name=\"lang/ok\" text=\"Fine\"/></menus>\n";
 static char const *language_name = "";
 
 static char const bad_xml[] =
@@ -1167,7 +1167,14 @@ static void language_probe(char const *name)
 			fputs(language_bad_xml, file);
 			fclose(file);
 		}
-		check(halo_menus_load() == NULL, "a pipe-count mismatch fails the files");
+		{
+			struct halo_menus const *loaded = halo_menus_load();
+			struct halo_menu_widget const *bad = loaded ? language_widget_named(loaded, "lang/bad") : NULL;
+
+			check(loaded != NULL, "a pipe-count mismatch does not fail the files");
+			check(bad != NULL && bad->strings && !strcmp(bad->strings, "A|B"), "a mismatched list keeps its inline text");
+			check(loaded && language_widget_named(loaded, "lang/ok") != NULL, "the other widgets still load");
+		}
 		remove(path);
 		printf("menu patch probe %s (language-%s)\n", failures ? "FAILED" : "passed", name);
 		return;

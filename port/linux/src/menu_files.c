@@ -552,7 +552,7 @@ static const char *localize(const char *id, const char *inline_text)
 	return localize_one(id, inline_text);
 }
 
-/* a pipe list by its IDs, entry by entry; a count that is not the list's is the caller's error */
+/* a pipe list by its IDs, entry by entry; the caller has checked the count */
 static const char *localize_list(const char *ids, const char *inline_list)
 {
 	char *result, *id_copy, *id_cursor, *save;
@@ -585,6 +585,12 @@ static const char *localize_list(const char *ids, const char *inline_list)
 		if (id_bar)
 			*id_bar = 0;
 		text = piece ? localize_one(id_cursor, piece) : "";
+		if (piece && strchr(text, '|'))
+		{
+			/* a translation that holds the separator would shift every entry after it */
+			language_warn_once("menus: the translation for %s holds a |; using the inline text", id_cursor);
+			text = piece;
+		}
 		text_length = strlen(text);
 		if (used + text_length + 2 > size)
 		{
@@ -613,14 +619,22 @@ static const char *localize_list(const char *ids, const char *inline_list)
 	return result;
 }
 
-/* the IDs' pipe count must be the list's */
-static void ids_check(struct reader *reader, const char *name, const char *ids, const char *list)
+/* the IDs for a pipe list, or none (with a warning) when their count is not the list's:
+a bad ID attribute costs that list its translation, never the menu files */
+static const char *ids_usable(struct reader *reader, const char *name, const char *ids, const char *list)
 {
-	if (ids && !list)
-		reader_error(reader, "%s needs the attribute it names", name);
-	else if (ids && pipe_count(ids) != pipe_count(list))
-		reader_error(reader, "%s has %lu IDs for %lu entries", name, (unsigned long)pipe_count(ids),
+	if (!ids)
+		return NULL;
+	if (!list)
+		platform_log("menus: %s:%lu: %s needs the attribute it names; using the inline text", reader->file,
+			(unsigned long)XML_GetCurrentLineNumber(reader->parser), name);
+	else if (pipe_count(ids) != pipe_count(list))
+		platform_log("menus: %s:%lu: %s has %lu IDs for %lu entries; using the inline text", reader->file,
+			(unsigned long)XML_GetCurrentLineNumber(reader->parser), name, (unsigned long)pipe_count(ids),
 			(unsigned long)pipe_count(list));
+	else
+		return ids;
+	return NULL;
 }
 
 /* whether the element is for this platform (its platform attribute) */
@@ -878,7 +892,7 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 		reader_error(reader, "a <widget> needs a name");
 	if (!reader->failed && text_id && !widget.text)
 		reader_error(reader, "text_id needs text");
-	ids_check(reader, "strings_ids", strings_ids, widget.strings);
+	strings_ids = ids_usable(reader, "strings_ids", strings_ids, widget.strings);
 	if (!reader->failed)
 	{
 		widget.text = localize(text_id, widget.text);
@@ -1071,7 +1085,7 @@ static void read_patch_row(struct reader *reader, const char *element, const XML
 		return;
 	if ((text_id && !row.text) || (description_id && !row.description))
 		reader_error(reader, "text_id and description_id need text and description");
-	ids_check(reader, "help_ids", help_ids, row.help);
+	help_ids = ids_usable(reader, "help_ids", help_ids, row.help);
 	if (reader->failed)
 		return;
 	row.text = localize(text_id, row.text);
