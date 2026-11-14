@@ -13,6 +13,7 @@
 #include "host_frame_counter_stats.h"
 #include "host_main_thread.h"
 #include "host_modal_wait.h"
+#include "host_game_thread.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
@@ -32,7 +33,12 @@ static NSWindow *game_window(void) {
 const char *host_macos_data_root(void) {
     static char root[4096];
     NSString *path = NSProcessInfo.processInfo.environment[@"HALO_DATA_ROOT"];
-    if (!path.length) path = [@(host_startup_get()->application_support_root) stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier];
+    if (!path.length) {
+        const char *support = host_startup_get()->application_support_root;
+        NSString *base = support[0] ? @(support) : NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory,
+            NSUserDomainMask, YES).firstObject;
+        path = [base stringByAppendingPathComponent:NSBundle.mainBundle.bundleIdentifier];
+    }
     NSError *error = nil;
     if (![path isAbsolutePath] || ![NSFileManager.defaultManager createDirectoryAtPath:path
         withIntermediateDirectories:YES attributes:nil error:&error])
@@ -133,6 +139,8 @@ CADisplayLink *host_macos_display_link(id target, SEL selector) {
     return link;
 }
 int host_alert(const char *title, const char *message, const char *first, const char *second) {
+    /* off main without the game thread, decline as before */
+    if (!host_on_main_thread() && !host_game_thread_enabled()) return -1;
     if (!host_on_main_thread()) {
         dispatch_semaphore_t done = dispatch_semaphore_create(0);
         __block int answer;

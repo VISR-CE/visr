@@ -8,6 +8,7 @@ theater mode hides the game's window for the immersive space
 #include <SDL3/SDL.h>
 #include "ios_host.h"
 #include "host_modal_wait.h"
+#include "host_game_thread.h"
 #include "posix.h"
 #if !TARGET_OS_TV
 #import "host_orientation.h"
@@ -151,6 +152,9 @@ int host_alert(const char *title, const char *message, const char *first, const 
 	__block UIWindow *window;
 	__block UIAlertController *alert;
 
+	/* (off main without the game thread, decline as before: SDL's box, which the caller falls back on, takes it) */
+	if (!on_main && !host_game_thread_enabled())
+		return -1;
 	host_main_sync(^{
 		/* the main thread drew the game and is in the frame workgroup, and UIKit raises from its own interval when an
 		animation begins on such a thread (an Apple TV's alert animates a collection view): out until the next frame,
