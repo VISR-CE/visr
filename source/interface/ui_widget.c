@@ -6645,6 +6645,36 @@ static boolean ui_mouse_legend_bounds(
 CANCEL, and LEAVE (the A and B buttons of a screen's legend) are not drawn: a tap acts
 on the item directly and BACK is the title chevron or the edge swipe. The smaller dialog
 buttons ("a_butn_sm") keep their own touch buttons. */
+/* whether the text is exactly one of the words a commit page's A caption uses */
+static boolean ui_text_is_commit_caption(wchar_t const *text)
+{
+	static char const *const words[] = { "ACCEPT", "OK", "DONE", "SAVE" };
+	long word;
+
+	if (!text) return FALSE;
+	for (word = 0; word < 4; word++)
+	{
+		long i = 0;
+		while (words[word][i] && text[i] &&
+			(text[i] == (wchar_t)words[word][i] || text[i] == (wchar_t)(words[word][i] + 32))) i++;
+		if (!words[word][i] && !text[i]) return TRUE;
+	}
+	return FALSE;
+}
+
+/* port: a commit page's A button (ACCEPT, OK, DONE) is the page's SAVE button on touch
+and mouse. The chevron discards, so the page needs one visible commit button. */
+static struct widget_instance *ui_legend_save_caption(struct widget_instance *widget)
+{
+	point2d zero = { 0, 0 };
+	rectangle2d bounds;
+	struct widget_instance *caption = NULL;
+
+	if (ui_mouse_key_button(widget) != _gamepad_analog_button_a) return NULL;
+	ui_mouse_legend_bounds(widget, ui_widget_definition_get(widget->definition_tag_index), zero, &bounds, &caption);
+	return caption && ui_text_is_commit_caption(caption->parameters.text_box.text) ? caption : NULL;
+}
+
 static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 {
 	short button = ui_mouse_key_button(widget);
@@ -6658,6 +6688,15 @@ static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 	leaf = name ? strrchr(name, '\\') : NULL;
 	leaf = leaf ? leaf + 1 : name;
 	if (!leaf || strstr(leaf, "_sm")) return FALSE;
+	/* the lobby and the lobby preview keep their action buttons (global actions);
+	LEAVE and BACK stay on the chevron */
+	if (button != _gamepad_analog_button_b && widget->parent)
+	{
+		char const *parent_name = tag_get_name(widget->parent->definition_tag_index);
+		if (parent_name && (strstr(parent_name, "lobby_button_") || strstr(parent_name, "preview_button_")))
+			return FALSE;
+	}
+	if (button == _gamepad_analog_button_a && ui_legend_save_caption(widget)) return FALSE;
 	owner = widget->local_player_index == NONE ?
 		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
 	return controller_glyph_hidden(owner, button) != 0;
@@ -7221,6 +7260,7 @@ static void ui_widgets_process_mouse(
 	struct halo_ui_pointer pointer;
 	struct ui_mouse_target *target;
 	short controller_index = 0;
+	static short claim_controller = NONE;
 
 	/* port: use the same screen bounds for input and widget drawing. */
 	ui_widget_menu_content(virtual_keyboard_active() ? NULL : ui_mouse_menu());
@@ -7514,6 +7554,24 @@ static void ui_widgets_process_mouse(
 				}
 				if (index == ui_mouse_target_count)
 				{
+					struct widget_instance *menu = ui_mouse_menu();
+
+					/* the split screen pregame: a click or tap claims the first open slot (the
+					first local player not yet joined), as that slot's controller would with A */
+					claim_controller = NONE;
+					if (menu && strstr(tag_get_name(menu->definition_tag_index), "splitscreen_pregame"))
+					{
+						short player;
+
+						for (player = 0; player < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; player++)
+						{
+							if (!player_ui_local_player_wants_to_play_multiplayer(player))
+							{
+								claim_controller = player;
+								break;
+							}
+						}
+					}
 					halo_ui_pointer_feedback(2);
 					ui_mouse_press(_gamepad_analog_button_a);
 				}
@@ -7521,7 +7579,8 @@ static void ui_widgets_process_mouse(
 		}
 		if (ui_mouse_press_count)
 		{
-			event_manager_post_button(controller_index, ui_mouse_presses[0]);
+			event_manager_post_button(claim_controller != NONE ? claim_controller : controller_index, ui_mouse_presses[0]);
+			claim_controller = NONE;
 			csmemmove(ui_mouse_presses, ui_mouse_presses + 1, --ui_mouse_press_count * sizeof(ui_mouse_presses[0]));
 		}
 	}
@@ -8036,6 +8095,22 @@ static void widget_instance_render_recursive(
 	case _ui_widget_type_text_box:
 		if (ui_touch_legend_caption_suppressed(widget, offset)) break;
 		{
+			/* port: on touch and mouse a commit page's A caption reads SAVE */
+			static wchar_t save_text[] = { 'S', 'A', 'V', 'E', 0 };
+			wchar_t *original_text = widget->parameters.text_box.text;
+			boolean relabel = FALSE;
+
+			if (widget->parent && ui_text_is_commit_caption(original_text))
+			{
+				struct widget_instance *sibling;
+				short owner = widget->local_player_index == NONE ?
+					local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
+
+				for (sibling = widget->parent->child; sibling && !relabel; sibling = sibling->next)
+					relabel = sibling != widget && ui_legend_save_caption(sibling) == widget &&
+						controller_glyph_hidden(owner, _gamepad_analog_button_a) != 0;
+			}
+			if (relabel) widget->parameters.text_box.text = save_text;
 			short shift = ui_touch_legend_caption_shift(widget);
 			rectangle2d shifted_clip;
 
@@ -8054,6 +8129,7 @@ static void widget_instance_render_recursive(
 				clip_rect,
 				offset,
 				widget_instance_text_box_is_focused(widget));
+			if (relabel) widget->parameters.text_box.text = original_text;
 		}
 		break;
 
