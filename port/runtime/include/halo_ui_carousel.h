@@ -13,8 +13,8 @@ its own binding and focus, so rendering a peek never changes the focused item.
 #define HALO_UI_CAROUSEL_PITCH 167.0f
 #define HALO_UI_CAROUSEL_CARD_WIDTH 158.0f
 #define HALO_UI_CAROUSEL_FRAME_WIDTH 640.0f
-/* Half of a 65-unit peek: the outer half of each peek fades to nothing. */
-#define HALO_UI_CAROUSEL_FADE_WIDTH 32.0f
+/* The whole 65-unit peek: a peeking card fades from opaque at its inner edge to nothing at the frame edge. */
+#define HALO_UI_CAROUSEL_FADE_WIDTH 65.0f
 
 static inline int halo_ui_carousel_max_first(int count)
 {

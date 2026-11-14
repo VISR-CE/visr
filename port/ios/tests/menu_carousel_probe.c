@@ -134,14 +134,13 @@ static void drag_and_tap(void)
 
 static void edge_fade(void)
 {
-    /* Half of the 65-unit peek fades; the middle cards stay fully opaque. */
-    assert(HALO_UI_CAROUSEL_FADE_WIDTH * 2.0f <= 65.0f);
+    /* The whole 65-unit peek fades; the middle cards stay fully opaque. */
+    assert(HALO_UI_CAROUSEL_FADE_WIDTH <= 65.0f);
     assert(halo_ui_carousel_fade(0.0f, 0.0f, 640.0f) == 0.0f);
     assert(halo_ui_carousel_fade(640.0f, 0.0f, 640.0f) == 0.0f);
     assert(halo_ui_carousel_fade(-5.0f, 0.0f, 640.0f) == 0.0f);
-    assert(halo_ui_carousel_fade(16.0f, 0.0f, 640.0f) == 0.5f);
-    assert(halo_ui_carousel_fade(624.0f, 0.0f, 640.0f) == 0.5f);
-    assert(halo_ui_carousel_fade(32.0f, 0.0f, 640.0f) == 1.0f);
+    assert(halo_ui_carousel_fade(32.5f, 0.0f, 640.0f) == 0.5f);
+    assert(halo_ui_carousel_fade(607.5f, 0.0f, 640.0f) == 0.5f);
     assert(halo_ui_carousel_fade(65.0f, 0.0f, 640.0f) == 1.0f);
     assert(halo_ui_carousel_fade(320.0f, 0.0f, 640.0f) == 1.0f);
 }
