@@ -1486,6 +1486,12 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 	/* Gameplay bindings belong to port 0; shared menus follow the last device. */
 	if (kind != HALO_GLYPH_KEYCAP || (player != 0 && !glyph_menus_active && strcmp(family, "keyboard")))
 		return kind == HALO_GLYPH_KEYCAP ? HALO_GLYPH_ORIGINAL : kind;
+	/* The mouse legend lights the button that acts: left for the main action, right for the secondary. */
+	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && (semantic == 28 || physical == 2))
+	{
+		snprintf(label, size, semantic == 28 ? "Mouse Left" : "Mouse Right");
+		return HALO_GLYPH_KEYCAP;
+	}
 	action = halo_glyph_keyboard_action(semantic);
 	if (!glyph_menus_active && semantic == physical && (physical == 12 || physical == 13))
 		action = physical == 12 ? HALO_KEYBOARD_PAUSE : HALO_KEYBOARD_SCOREBOARD;
@@ -1503,12 +1509,7 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		}
 		return HALO_GLYPH_ORIGINAL;
 	}
-	/* The mouse legend lights the button that acts: left for the main action, right for the secondary. */
-	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && semantic == 28)
-		snprintf(label, size, "Mouse Left");
-	else if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && physical == 2)
-		snprintf(label, size, "Mouse Right");
-	else if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
+	if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
 		snprintf(label, size, "Delete");
 	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
