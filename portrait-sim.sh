@@ -54,7 +54,7 @@ data=$(capped 30 xcrun simctl get_app_container "$udid" "$bundle" data)/Document
 mkdir -p "$data/maps"; for map in "$maps"/*.map; do capped 300 cp -c "$map" "$data/maps/" 2> /dev/null || capped 600 cp "$map" "$data/maps/" || { echo "map copy failed: $map"; exit 1; }; done
 for mode in ${MODES:-hold horizontal_minimum}; do
 	sub=$out/$mode; mkdir -p "$sub"
-	fov=$mode; [ "$mode" = hold ] && fov=""
+	fov=$mode; [ "$mode" = horizontal_minimum ] && fov=""
 	orient='orientation = "portrait"'; override=""
 	# laptopl: landscape with a faked half-open laptop L (VISR_POSTURE_OVERRIDE), for screenshots
 	[ "$mode" = laptopl ] && { fov=""; override=laptop-l; }

@@ -1557,12 +1557,13 @@ static const struct config_setting config_settings[] =
 		"goes through the Compositor's rate map (composite-only foveation, the\n"
 		"reference the full path is compared against)." },
 	{ "debug.portrait_field_of_view", _config_string, "\"\"", "HALO_PORTRAIT_FIELD_OF_VIEW", _environment_value, _platform_ios,
-		"Field of view in a view narrower than 4:3 (portrait play): empty keeps\n"
-		"the game's vertical angle and narrows the horizontal one;\n"
+		"Field of view in a view narrower than 4:3 (portrait play): empty or\n"
 		"\"horizontal_minimum\" widens the vertical angle so the horizontal one\n"
-		"stays at least 60 degrees; \"horizontal_70\" and \"match_landscape\"\n"
-		"widen it to 70 and 73.5 degrees horizontal. Where portrait is allowed,\n"
-		"hold Back and press L1 to cycle the four modes until the app quits." },
+		"stays at least 60 degrees (the default); \"hold\" keeps the game's\n"
+		"vertical angle and narrows the horizontal one; \"horizontal_70\" and\n"
+		"\"match_landscape\" widen it to 70 and 73.5 degrees horizontal. Where\n"
+		"portrait is allowed, hold Back and press L1 to cycle the four modes\n"
+		"until the app quits." },
 	{ "debug.portrait_fov_button", _config_boolean, "false", "HALO_PORTRAIT_FOV_BUTTON", _environment_value, _platform_ios,
 		"Shows a small FOV button at the bottom center of the touch controls\n"
 		"in gameplay that cycles the portrait field of view like the Back + L1\n"

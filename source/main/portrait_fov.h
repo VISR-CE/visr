@@ -15,6 +15,7 @@ angle before this override. */
 #define PORTRAIT_FOV_H
 
 #include <math.h>
+#include <string.h>
 
 #define PORTRAIT_FOV_MODE_COUNT 4
 #define PORTRAIT_FOV_BASE_TANGENT 0.525f /* 0.75 * tan(35 degrees), the 4:3 view's */
@@ -38,6 +39,20 @@ static inline float portrait_fov_tangent(int mode, float aspect, float base_tang
 	default:
 		return base_tangent;
 	}
+}
+
+/* The mode debug.portrait_field_of_view names. Empty or unset is the default, 1 (horizontal
+minimum: a 60 degree horizontal angle at least, Steve's pick); "hold" keeps the game's vertical
+angle; an unknown name is the default too. */
+static inline int portrait_fov_mode_from_name(const char *name)
+{
+	if (name && strcmp(name, "hold") == 0)
+		return 0;
+	if (name && strcmp(name, "horizontal_70") == 0)
+		return 2;
+	if (name && strcmp(name, "match_landscape") == 0)
+		return 3;
+	return 1;
 }
 
 /* the degrees across the width and the height for a half-vertical tangent */

@@ -24,6 +24,13 @@ int main(void)
 	check(2, duo, base, 70.0f, 89.7f);   /* the 4:3 view's width */
 	check(3, duo, base, 73.5f, 93.0f);   /* match landscape, past 90 vertical */
 
+	/* the default (empty or unset) is horizontal minimum, Steve's pick; hold is the override */
+	assert(portrait_fov_mode_from_name(NULL) == 1);
+	assert(portrait_fov_mode_from_name("") == 1);
+	assert(portrait_fov_mode_from_name("horizontal_minimum") == 1);
+	assert(portrait_fov_mode_from_name("hold") == 0);
+	assert(portrait_fov_mode_from_name("horizontal_70") == 2);
+	assert(portrait_fov_mode_from_name("match_landscape") == 3);
 	/* the minimum never narrows a view that is already wide enough */
 	assert(within(portrait_fov_tangent(1, 1.2f, 0.9f), 0.9f, 0.0001f));
 	/* zoom keeps its ratio in modes 2 and 3: half the tangent stays half */

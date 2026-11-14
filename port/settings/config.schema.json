@@ -2367,7 +2367,7 @@
         "portrait_field_of_view": {
           "type": "string",
           "default": "",
-          "description": "Field of view in a view narrower than 4:3 (portrait play): empty keeps the game's vertical angle and narrows the horizontal one; \"horizontal_minimum\" widens the vertical angle so the horizontal one stays at least 60 degrees; \"horizontal_70\" and \"match_landscape\" widen it to 70 and 73.5 degrees horizontal. Where portrait is allowed, hold Back and press L1 to cycle the four modes until the app quits.",
+          "description": "Field of view in a view narrower than 4:3 (portrait play): empty or \"horizontal_minimum\" widens the vertical angle so the horizontal one stays at least 60 degrees (the default); \"hold\" keeps the game's vertical angle and narrows the horizontal one; \"horizontal_70\" and \"match_landscape\" widen it to 70 and 73.5 degrees horizontal. Where portrait is allowed, hold Back and press L1 to cycle the four modes until the app quits.",
           "x-environment": "HALO_PORTRAIT_FIELD_OF_VIEW",
           "x-environment-style": "value",
           "x-platforms": [
