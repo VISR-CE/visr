@@ -1864,6 +1864,17 @@
             "desktop"
           ]
         },
+        "language": {
+          "type": "string",
+          "default": "",
+          "description": "Menu text language, read once at launch: empty or en is English; en-XA is a pseudo-locale that lengthens every catalog string.",
+          "x-environment": "HALO_LANGUAGE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "input_replay": {
           "type": "string",
           "default": "",

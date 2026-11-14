@@ -1341,6 +1341,9 @@ static const struct config_setting config_settings[] =
 	{ "debug.input_record", _config_string, "\"\"", "HALO_INPUT_RECORD", _environment_value, _platform_all,
 		"Record controller 1 while a map plays, to <name>.input in the data folder\n"
 		"(port/linux/src/input_replay.c); empty records nothing." },
+	{ "debug.language", _config_string, "\"\"", "HALO_LANGUAGE", _environment_value, _platform_all,
+		"Menu text language, read once at launch: empty or en is English;\n"
+		"en-XA is a pseudo-locale that lengthens every catalog string." },
 	{ "debug.input_replay", _config_string, "\"\"", "HALO_INPUT_REPLAY", _environment_value, _platform_all,
 		"Replay a recording made with debug.input_record in place of controller 1,\n"
 		"at the same moments of the game time." },

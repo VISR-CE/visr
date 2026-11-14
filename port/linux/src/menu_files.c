@@ -391,6 +391,231 @@ static long current_line(struct reader *reader)
 	return (long)XML_GetCurrentLineNumber(reader->parser);
 }
 
+/* ---------- text by ID (docs: the i18n string catalog design, 0.7.0 part)
+
+An element may name its text's catalog ID (id=, text_id=, description_id=, and for the pipe lists
+strings_ids= and help_ids=, one ID per entry). With English active (debug.language empty or en) the
+element's inline text is used as it is and no table is consulted. */
+
+enum language
+{
+	_language_english,
+	_language_pseudo,
+	_language_table,
+};
+
+static enum language menu_language;
+static const struct halo_menu_translation *menu_translations;
+static size_t menu_translation_count;
+static int menu_language_warned;
+
+static void language_warn_once(const char *format, const char *detail)
+{
+	if (menu_language_warned)
+		return;
+	menu_language_warned = 1;
+	platform_log(format, detail);
+}
+
+/* a table sorted by ID, without duplicates */
+static int translations_valid(const struct halo_menu_translation *table, size_t count)
+{
+	size_t index;
+
+	if (!table && count)
+		return 0;
+	for (index = 0; index < count; index++)
+	{
+		if (!table[index].id || !table[index].text || (index && strcmp(table[index - 1].id, table[index].id) >= 0))
+			return 0;
+	}
+	return 1;
+}
+
+void halo_menus_use_language(const char *name, const struct halo_menu_translation *table, size_t count)
+{
+	menu_language = _language_english;
+	menu_translations = NULL;
+	menu_translation_count = 0;
+	menu_language_warned = 0;
+	if (!name || !*name || !strcmp(name, "en"))
+		return;
+	if (!strcmp(name, "en-XA"))
+		menu_language = _language_pseudo;
+	else if (!table)
+		language_warn_once("menus: no text for language %s; using English", name);
+	else if (!translations_valid(table, count))
+		language_warn_once("menus: the text table for %s is malformed; using English", name);
+	else
+	{
+		menu_language = _language_table;
+		menu_translations = table;
+		menu_translation_count = count;
+	}
+}
+
+/* en-XA: each string in brackets, its vowels doubled and tildes added, about a third longer; placeholders
+({name}), backslash-n, newlines and the | codes (| and the character after it) are left as they are */
+static char *pseudo_locale(const char *text)
+{
+	size_t length = strlen(text), size = length * 2 + 16, out = 0, letters = 0, index;
+	char *result = malloc(size);
+	int depth = 0;
+
+	if (!result)
+		return NULL;
+	result[out++] = '[';
+	for (index = 0; text[index]; index++)
+	{
+		char c = text[index];
+
+		if (c == '{')
+			depth++;
+		if (depth || c == '|' || c == '\n' || (c == '\\' && text[index + 1] == 'n'))
+		{
+			result[out++] = c;
+			if ((c == '|' || c == '\\') && text[index + 1])
+				result[out++] = text[++index];
+			if (c == '}')
+				depth = 0;
+			continue;
+		}
+		result[out++] = c;
+		if (strchr("aeiouAEIOU", c))
+			result[out++] = c;
+		if (c != ' ')
+			letters++;
+	}
+	for (index = 0; index < letters / 3 && out + 3 < size; index++)
+		result[out++] = '~';
+	result[out++] = ']';
+	result[out] = 0;
+	return result;
+}
+
+static const char *localize_one(const char *id, const char *inline_text)
+{
+	const struct halo_menu_translation *found = NULL;
+	size_t low = 0, high = menu_translation_count;
+	char *result;
+
+	if (!id || !inline_text || menu_language == _language_english)
+		return inline_text;
+	if (menu_language == _language_pseudo)
+	{
+		result = pseudo_locale(inline_text);
+		return result ? result : inline_text;
+	}
+	while (low < high)
+	{
+		size_t middle = (low + high) / 2;
+		int order = strcmp(id, menu_translations[middle].id);
+
+		if (!order)
+		{
+			found = &menu_translations[middle];
+			break;
+		}
+		if (order < 0)
+			high = middle;
+		else
+			low = middle + 1;
+	}
+	if (!found)
+	{
+		language_warn_once("menus: no translation for %s (and maybe more); using the inline text", id);
+		return inline_text;
+	}
+	result = copy(found->text);
+	return result ? result : inline_text;
+}
+
+static size_t pipe_count(const char *text)
+{
+	size_t count = 1;
+
+	for (; *text; text++)
+		count += *text == '|';
+	return count;
+}
+
+/* an attribute's text by its ID attribute (or the inline text if it has none) */
+static const char *localize(const char *id, const char *inline_text)
+{
+	return localize_one(id, inline_text);
+}
+
+/* a pipe list by its IDs, entry by entry; a count that is not the list's is the caller's error */
+static const char *localize_list(const char *ids, const char *inline_list)
+{
+	char *result, *id_copy, *id_cursor, *save;
+	const char *cursor;
+	size_t size, used = 0;
+
+	if (!ids || !inline_list || menu_language == _language_english)
+		return inline_list;
+	size = strlen(inline_list) * 3 + 64;
+	result = malloc(size);
+	id_copy = copy(ids);
+	if (!result || !id_copy)
+	{
+		free(result);
+		free(id_copy);
+		return inline_list;
+	}
+	result[0] = 0;
+	cursor = inline_list;
+	id_cursor = id_copy;
+	for (;;)
+	{
+		const char *bar = strchr(cursor, '|');
+		char *id_bar = strchr(id_cursor, '|');
+		size_t length = bar ? (size_t)(bar - cursor) : strlen(cursor);
+		char *piece = copy_length(cursor, length);
+		const char *text;
+		size_t text_length;
+
+		if (id_bar)
+			*id_bar = 0;
+		text = piece ? localize_one(id_cursor, piece) : "";
+		text_length = strlen(text);
+		if (used + text_length + 2 > size)
+		{
+			size = (used + text_length + 2) * 2;
+			save = realloc(result, size);
+			if (!save)
+			{
+				free(result);
+				free(id_copy);
+				free(piece);
+				return inline_list;
+			}
+			result = save;
+		}
+		memcpy(result + used, text, text_length);
+		used += text_length;
+		free(piece);
+		if (!bar || !id_bar)
+			break;
+		result[used++] = '|';
+		cursor = bar + 1;
+		id_cursor = id_bar + 1;
+	}
+	result[used] = 0;
+	free(id_copy);
+	return result;
+}
+
+/* the IDs' pipe count must be the list's */
+static void ids_check(struct reader *reader, const char *name, const char *ids, const char *list)
+{
+	if (ids && !list)
+		reader_error(reader, "%s needs the attribute it names", name);
+	else if (ids && pipe_count(ids) != pipe_count(list))
+		reader_error(reader, "%s has %lu IDs for %lu entries", name, (unsigned long)pipe_count(ids),
+			(unsigned long)pipe_count(list));
+}
+
 /* whether the element is for this platform (its platform attribute) */
 static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 {
@@ -575,12 +800,13 @@ static void read_strings(struct reader *reader, const XML_Char **attributes)
 static void read_string(struct reader *reader, const XML_Char **attributes, long owner)
 {
 	struct halo_menus *menus = &reader->menus;
-	const char *text = NULL;
-	struct attribute table[] = { { "text", &text } };
+	const char *text = NULL, *id = NULL;
+	struct attribute table[] = { { "text", &text }, { "id", &id } };
 
 	read_attributes(reader, "string", attributes, table, sizeof(table) / sizeof(*table));
 	if (!reader->failed && !text)
 		reader_error(reader, "a <string> needs text");
+	text = localize(id, text);
 	GROW(reader, menus->strings, menus->string_count);
 	menus->strings[menus->string_count++] = text ? text : "";
 	menus->string_lists[owner].count++;
@@ -612,9 +838,10 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 	struct halo_menus *menus = &reader->menus;
 	struct halo_menu_widget widget;
 	long index = menus->widget_count;
-	const char *child_controller = NULL;
+	const char *child_controller = NULL, *text_id = NULL, *strings_ids = NULL;
 	struct attribute table[] =
 	{
+		{ "text_id", &text_id }, { "strings_ids", &strings_ids },
 		{ "name", &widget.name }, { "type", &widget.type }, { "controller", &widget.controller },
 		{ "flags", &widget.flags }, { "bitmap", &widget.bitmap }, { "text", &widget.text },
 		{ "strings", &widget.strings }, { "values", &widget.values }, { "setting", &widget.setting },
@@ -642,6 +869,14 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 	read_attributes(reader, "widget", attributes, table, sizeof(table) / sizeof(*table));
 	if (!reader->failed && !widget.name)
 		reader_error(reader, "a <widget> needs a name");
+	if (!reader->failed && text_id && !widget.text)
+		reader_error(reader, "text_id needs text");
+	ids_check(reader, "strings_ids", strings_ids, widget.strings);
+	if (!reader->failed)
+	{
+		widget.text = localize(text_id, widget.text);
+		widget.strings = localize_list(strings_ids, widget.strings);
+	}
 	GROW(reader, menus->widgets, index);
 	menus->widgets[index] = widget;
 	menus->widget_count++;
@@ -810,8 +1045,10 @@ static void read_patch_row(struct reader *reader, const char *element, const XML
 {
 	struct halo_menus *menus = &reader->menus;
 	struct halo_menu_patch_row row;
+	const char *text_id = NULL, *description_id = NULL, *help_ids = NULL;
 	struct attribute table[] =
 	{
+		{ "text_id", &text_id }, { "description_id", &description_id }, { "help_ids", &help_ids },
 		{ "after", &row.after }, { "before", &row.before }, { "child", &row.child }, { "model", &row.model },
 		{ "name", &row.name }, { "text", &row.text }, { "run", &row.run }, { "open", &row.open },
 		{ "created", &row.created }, { "description", &row.description }, { "picture", &row.picture },
@@ -825,6 +1062,14 @@ static void read_patch_row(struct reader *reader, const char *element, const XML
 	read_attributes(reader, element, attributes, table, sizeof(table) / sizeof(*table));
 	if (reader->failed)
 		return;
+	if ((text_id && !row.text) || (description_id && !row.description))
+		reader_error(reader, "text_id and description_id need text and description");
+	ids_check(reader, "help_ids", help_ids, row.help);
+	if (reader->failed)
+		return;
+	row.text = localize(text_id, row.text);
+	row.description = localize(description_id, row.description);
+	row.help = localize_list(help_ids, row.help);
 	if (kind == HALO_MENU_PATCH_ROW && (!row.after == !row.before || row.child))
 		reader_error(reader, "a <row> is put after or before a row (one of them), and has no child");
 	else if (kind != HALO_MENU_PATCH_ROW && (!row.child || row.after || row.before))
@@ -1072,6 +1317,7 @@ struct halo_menus const *halo_menus_load(void)
 	if (read)
 		return succeeded ? &menus : NULL;
 	read = 1;
+	halo_menus_use_language(config_string("debug.language"), NULL, 0);
 	files_gather();
 	memset(&reader, 0, sizeof(reader));
 	for (index = 0; index < file_count && !reader.failed; index++)

@@ -9,6 +9,8 @@ those in a menus folder beside config.toml, for the game (halo_menus.h).
 #ifndef MENU_FILES_H
 #define MENU_FILES_H
 
+#include <stddef.h>
+
 /* an embedded file, by its path in port/assets/menus */
 struct menu_file_embedded
 {
@@ -33,5 +35,17 @@ int menu_art_pixels(unsigned long data, unsigned char **bgra, unsigned long *wid
 
 /* Changes when registering or forgetting art can replace a cached GPU texture. */
 unsigned long menu_art_generation(void);
+
+/* a language's text by ID, for halo_menus_use_language: sorted by id with no duplicates */
+struct halo_menu_translation
+{
+	const char *id;
+	const char *text;
+};
+
+/* The language the menu files are read in: NULL, "" or "en" is English (inline text, never looked up),
+"en-XA" the pseudo-locale, anything else the table (sorted by id; a missing or malformed table or a missing ID
+logs once and uses the inline English). halo_menus_load calls it with debug.language before reading. */
+void halo_menus_use_language(const char *name, const struct halo_menu_translation *table, size_t count);
 
 #endif
