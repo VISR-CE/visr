@@ -37,6 +37,8 @@ static int alert_runs;
 #undef NSAlert
 
 void host_macos_menu_add(NSMenu *bar) { (void)bar; }
+static int game_thread_on = 1;
+int host_game_thread_enabled(void) { return game_thread_on; }
 static int finish_requested;
 int host_benchmark_finish_requested(void) { return finish_requested; }
 void host_benchmark_progress(struct host_benchmark_progress *progress) { memset(progress, 0, sizeof(*progress)); }
@@ -121,6 +123,11 @@ int main(void) {
         alert_response = NSAlertSecondButtonReturn;
         run_worker(^{ assert(host_alert("test", "test", "OK", "Cancel") == 1); });
         assert(alert_runs == 2 && modal_depth == 0);
+        /* With the game thread off, an off-main alert is a caller bug and is declined. */
+        game_thread_on = 0;
+        run_worker(^{ assert(host_alert("test", "test", "OK", "Cancel") == -1); });
+        assert(alert_runs == 2);
+        game_thread_on = 1;
         run_worker(^{
             int w = -1, h = -1;
             host_macos_screen_size(&w, &h);
