@@ -1320,8 +1320,84 @@
           }
         }
       ]
+    },
+    "stock:damnation": {
+      "revision": 3,
+      "shots": [
+        {
+          "position": [
+            -11.251626,
+            14.7003756,
+            3.9075036
+          ],
+          "forward": [
+            0.811155975,
+            -0.562542975,
+            0.159910396
+          ],
+          "up": [
+            -0.131403238,
+            0.0911291763,
+            0.987131536
+          ],
+          "fov": 1.41371667,
+          "bsp": 0,
+          "focus": [
+            0.5,
+            0.5
+          ],
+          "safe": [
+            0.189999998,
+            0,
+            0.810000002,
+            1
+          ],
+          "settle_ticks": 30,
+          "scene": {
+            "ai": "erase",
+            "variant": "slayer",
+            "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
+              "always_invisible": false,
+              "infinite_grenades": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
+              "vehicle_counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
+            },
+            "moved_vehicles": []
+          }
+        }
+      ]
     }
   },
   "schema": 2,
-  "sequence": 1794630494
+  "sequence": 1794630495
 }

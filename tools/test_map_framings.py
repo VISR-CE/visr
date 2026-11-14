@@ -297,7 +297,7 @@ def test_bundled_framings():
     data = json.loads(BUNDLE.read_text())
     assert not framing.validate(data)
     assert len(STOCK_KEYS) == 23
-    assert set(data['maps']) <= STOCK_KEYS
+    assert set(data['maps']) == STOCK_KEYS
     assert CURATED_KEYS <= set(data['maps'])
 
 
