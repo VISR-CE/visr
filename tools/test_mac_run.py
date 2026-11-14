@@ -12,6 +12,12 @@ import pytest
 from tools import mac_run
 
 
+@pytest.fixture(autouse=True)
+def no_job_host_catalyst_data(monkeypatch):
+    """a job host may export HALO_CATALYST_DATA, which would send the Catalyst runner's data folder outside the test's own"""
+    monkeypatch.delenv("HALO_CATALYST_DATA", raising=False)
+
+
 CONFIG = """# comment
 [display]
 screen_width = 0
