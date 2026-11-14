@@ -2038,7 +2038,7 @@ def generate(assets=MENUS):
         for part in list(panel.findall('child'))[2:]:
             panel.remove(part)
         modal = shared.find(f"widget[@name='xbox/error/confirm_delete_{kind}_modal_fullscreen']")
-        dialog_legend_targets(shared, modal, f'xbox/error/confirm_delete_{kind}/legend', 341, 305, cancel=True)
+        dialog_legend_targets(shared, modal, f'xbox/error/confirm_delete_{kind}/legend', 315, 292, cancel=True)
         if kind == 'gametype':
             # The legend replaces the per-button widgets; only the profile's are shared with Quit.
             for leaf in ('a_butn', 'a_caption', 'b_butn', 'b_caption'):

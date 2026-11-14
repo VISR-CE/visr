@@ -175,8 +175,8 @@
 		<on event="b" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
 		<on event="back" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
 		<child widget="xbox/error/confirm_delete_profile" />
-		<child widget="xbox/error/confirm_delete_profile/legend/a_butn" x="315" y="278" />
-		<child widget="xbox/error/confirm_delete_profile/legend/b_butn" x="196" y="278" />
+		<child widget="xbox/error/confirm_delete_profile/legend/a_butn" x="315" y="292" />
+		<child widget="xbox/error/confirm_delete_profile/legend/b_butn" x="197" y="292" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/confirm_delete_profile_frame" x="192" y="176" />
@@ -198,8 +198,8 @@
 		<on event="b" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
 		<on event="back" run="cancel profile delete" back="true" sound="sound\sfx\ui\back" />
 		<child widget="xbox/error/confirm_delete_gametype" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn" x="315" y="278" />
-		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn" x="196" y="278" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/a_butn" x="315" y="292" />
+		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn" x="197" y="292" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_gametype" width="640" height="480" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/confirm_delete_gametype_frame" x="192" y="176" />
