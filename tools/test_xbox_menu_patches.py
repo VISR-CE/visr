@@ -165,7 +165,7 @@ def test_delete_confirmations_finish_both_edit_flows():
         assert not any('button_bar' in c.get('widget', '') for c in modal.findall('child'))
         for button, caption in (('a', 'OK'), ('b', 'CANCEL')):
             legend = f'xbox/error/confirm_delete_{kind}/legend/{button}_butn'
-            assert modal.find(f'child[@widget="{legend}"][@y="297"]') is not None
+            assert modal.find(f'child[@widget="{legend}"][@y="307"]') is not None
             assert widgets[f'{legend}_glyph'].get('bitmap') == f'xbox/browser/{button}_butn'
             assert widgets[f'{legend}/touch_caption'].get('text') == caption
             assert widgets[legend].find('on').get('run') == ('mouse emit accept event' if button == 'a' else 'mouse emit back event')
