@@ -18,5 +18,7 @@ debug.photo_mode, places the camera from the map's saved framing or an automatic
 and freezes. State: 1 frozen and ready (framed is 1 when a saved framing was used, revision is its
 revision), 0 still settling, -1 failed. photo_mode_end() leaves it. */
 void photo_mode_capture_begin(void);
+/* Sets the gametype the next map load starts with from the map's framing (see photo_mode.c). */
+void photo_mode_prepare_variant(const char *key);
 int photo_mode_capture_state(int *framed, int *revision);
 #endif

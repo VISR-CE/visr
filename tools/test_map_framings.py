@@ -335,3 +335,12 @@ def test_bundled_framings_resolve_through_game_lookup(native_probe):
                              check=True, capture_output=True, text=True).stdout.split()
         assert int(out[0]) == 2, key  # PHOTO_FRAMING_BUNDLED
         assert int(out[1]) == entry['revision'], key
+
+
+def test_bundled_bloodgulch_keeps_moved_warthog():
+    bundle = Path(__file__).resolve().parent.parent / 'port' / 'assets' / 'map-framings.json'
+    data = json.loads(bundle.read_text())
+    scene = data['maps']['stock:bloodgulch']['shots'][0]['scene']
+    assert scene['variant'] == 'slayer'
+    moved = scene['moved_vehicles']
+    assert any(v['tag'].endswith('warthog') for v in moved)

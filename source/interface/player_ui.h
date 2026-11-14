@@ -95,6 +95,8 @@ void player_ui_activate_all_solo_levels(
 	void);
 void player_ui_set_game_variant(
 	struct game_variant *variant);
+void player_ui_clear_game_variant(
+	void);
 boolean player_ui_game_variant_specified(
 	struct game_variant *variant);
 void player_ui_set_single_player_local_player_controller(

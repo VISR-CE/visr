@@ -669,6 +669,13 @@ void player_ui_set_game_variant(
 	return;
 }
 
+/* port: forgets a specified multiplayer gametype, so the next map starts with the default */
+void player_ui_clear_game_variant(
+	void)
+{
+	player_ui_globals.multiplayer_variant_specified = FALSE;
+}
+
 /* port: the PC options of the multiplayer gametype (player_ui_set_game_variant's) */
 void player_ui_set_game_variant_options(
 	struct game_variant_options const *options)

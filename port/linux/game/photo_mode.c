@@ -18,6 +18,7 @@
 #include "tag_files/tag_groups.h"
 #include "networking/network_connection.h"
 #include "interface/hud.h"
+#include "interface/player_ui.h"
 #include "interface/hud_messaging.h"
 #include "scenario/scenario.h"
 #include "scenario/scenario_definitions.h"
@@ -394,6 +395,24 @@ static void camera_shot(struct flying_camera *camera, struct photo_shot *shot)
 	photo_roll_up(shot->forward,camera->roll,shot->up);
 	shot->fov = camera->field_of_view;
 	shot->bsp = global_structure_bsp_index_get();
+}
+
+/* Before a map loads: the framing's gametype becomes the one the load starts with, as scene_restore only
+applies a scene to a map already running that gametype. Maps with no multiplayer scene get the default again. */
+void photo_mode_prepare_variant(const char *key)
+{
+	char path[1024];
+	struct photo_shot shot;
+	int revision = 0;
+	struct game_variant variant;
+	player_ui_clear_game_variant();
+	memset(&shot,0,sizeof(shot));
+	if (snprintf(path,sizeof(path),"d:\\framings\\%s.json",key) >= (int)sizeof(path)) return;
+	if (photo_framing_lookup(path,"d:\\map-framings.json",key,&shot,&revision) == PHOTO_FRAMING_NONE) return;
+	if ((!shot.has_mp && !shot.moved_vehicle_count) || !strcmp(shot.variant,"none") || !shot.variant[0]) return;
+	game_engine_get_variant_by_name(&variant,shot.variant);
+	player_ui_set_game_variant(&variant);
+	error(_error_silent,"photo: map load starts with variant %s",shot.variant);
 }
 
 static int file_action(int action, struct flying_camera *camera)

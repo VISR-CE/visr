@@ -260,6 +260,7 @@ static void wait_menu(void)
 static void finish(void)
 {
 	halo_benchmark_overrides(0, 0, 0);
+	player_ui_clear_game_variant();
 	benchmark_scenario_load("", "");
 	render.state = STATE_LEAVING;
 }
@@ -314,6 +315,7 @@ static void next_map(void)
 		render.fast_forward_ticks = 0;
 		platform_log("map pictures: %s: load requested at %.1f s (%s)", render.key, (render.map_start - render.run_start) / 1000.0,
 			render.direct ? "straight from the last map" : "from the menu");
+		photo_mode_prepare_variant(render.key);
 		benchmark_scenario_load(map_pictures_scenario_name(scenario), "normal");
 		render.state = STATE_LOADING;
 		return;
