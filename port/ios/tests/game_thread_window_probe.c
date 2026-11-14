@@ -29,7 +29,7 @@ static SDL_Window *test_window = (SDL_Window *)(uintptr_t)0x1000;
 static SDL_MetalView test_view = (SDL_MetalView)(uintptr_t)0x2000;
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     if (!strcmp(name, "debug.game_thread")) {
-        assert(!strcmp(fallback, "false"));
+        assert(!strcmp(fallback, "true"));
         snprintf(out, size, "%s", configured);
     } else {
         assert(!strcmp(name, "display.mode") || !strcmp(name, "display.fullscreen"));
