@@ -10,9 +10,6 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/accept" x="493" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/b_butn" x="326" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/cancel" x="348" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_butn" x="190" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_edit" x="212" y="414" />
-		<on event="y" run="port password reedit" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/x_butn" x="60" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/x_hide" x="82" y="414" />
 		<on event="x" run="port password togglehide" />
@@ -78,9 +75,6 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/accept" x="493" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/b_butn" x="326" y="414" />
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/cancel" x="348" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_butn" x="190" y="414" />
-		<child widget="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_edit" x="212" y="414" />
-		<on event="y" run="port code reedit" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/header_direct_link" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/multiplayer_type_select/join_game/header_direct_link">
 	</widget>
@@ -140,12 +134,6 @@
 		<string text="EDIT" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions.edit" />
 		<string text="JOIN GAME" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions.join_game" />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn">
-		<on event="left_mouse" run="port password reedit" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/y_edit" type="text" text="EDIT" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_y_edit.text" font="ui\large_ui" color="#FF2896FF" width="60" height="22">
-		<on event="left_mouse" run="port password reedit" />
-	</widget>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/password/password_screen/legend/hide_captions">
 		<string text="HIDE" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions.hide" />
 		<string text="SHOW" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions.show" />
@@ -172,10 +160,4 @@
 		<string text="EDIT" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions.edit" />
 		<string text="JOIN GAME" id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions.join_game" />
 	</strings>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn">
-		<on event="left_mouse" run="port code reedit" />
-	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/code/code_screen/legend/y_edit" type="text" text="EDIT" text_id="xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_y_edit.text" font="ui\large_ui" color="#FF2896FF" width="60" height="22">
-		<on event="left_mouse" run="port code reedit" />
-	</widget>
 </menus>
