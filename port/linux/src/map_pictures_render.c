@@ -63,7 +63,7 @@ uint32_t halo_pipelines_built(void);
 /* a 16:9 frame at 1152 lines is 2048 wide, so the 2:1 picture is the frame's own pixels */
 #define RENDER_LINES 1152
 #define RENDER_SHADOWS 512
-#define RENDERER_VERSION 9
+#define RENDERER_VERSION 10
 #define AUTO_VERSION 3
 /* the request's settle time, in game ticks (90 = 3 s); the capture itself does not wait in real time
 before it: the clean-frame warm-up below covers streaming */
