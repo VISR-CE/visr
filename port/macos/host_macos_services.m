@@ -492,3 +492,9 @@ void host_macos_photo_overlay(float fov, int speed, int guides, float focus_x, f
     });
 }
 #endif
+
+/* The AppKit app has no orientation handling or drawable geometry probe: these
+   iOS-only host hooks (host/host_orientation.m, host/host_geometry_probe.m) are
+   referenced from shared host code, so the native Mac build gets no-op versions. */
+int host_ios_portrait_allowed(void) { return 0; }
+void host_geometry_probe_note_drawable(int width, int height) { (void)width; (void)height; }
