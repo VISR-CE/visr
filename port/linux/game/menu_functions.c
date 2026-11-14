@@ -5862,7 +5862,9 @@ static void lobby_map_show(struct widget_instance *description, char const *map_
 
 	for (index = 0; index < count; index++)
 	{
-		if (!_stricmp(names[index], map_name))
+		/* (by scenario name, as map_display_name: the list holds scenario
+		paths, a game's map is a path or just a name) */
+		if (!_stricmp(scenario_name(names[index]), scenario_name(map_name)))
 			map = index;
 	}
 	/* (a Custom Edition map's picture and name, multiplayer or campaign, by
