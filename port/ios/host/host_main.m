@@ -74,7 +74,14 @@ void host_memory_pressure_start(void);
 void host_fatal(const char *format,...) {
     va_list ap;va_start(ap,format);char text[1024];vsnprintf(text,sizeof(text),format,ap);va_end(ap);
     host_logf(HOST_LOG_ERROR,"FATAL: %s",text);
-    if(!getenv("HALO_RUNNER"))SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"VISR",text,NULL);exit(1);
+    if(!getenv("HALO_RUNNER")) {
+        const char *message=text;
+        /* The message box is UIKit or AppKit UI, so a fatal on the game thread hops to main. */
+        if(host_game_thread_enabled() && !host_on_main_thread())
+            host_main_sync(^{ SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"VISR",message,NULL); });
+        else SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,"VISR",message,NULL);
+    }
+    exit(1);
 }
 /* host_abort, the guest runtime's own fatal errors, is host_crash.c's */
 void host_exit(int code) {
