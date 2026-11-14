@@ -636,24 +636,29 @@
       ]
     },
     "stock:chillout": {
-      "revision": 1,
+      "revision": 4,
       "shots": [
         {
+          "position": [
+            -1.95025039,
+            2.81301212,
+            0.857499123
+          ],
+          "forward": [
+            0.581344366,
+            -0.738308668,
+            0.34196344
+          ],
+          "up": [
+            -0.211552352,
+            0.26867196,
+            0.939713299
+          ],
+          "fov": 1.4486233,
           "bsp": 0,
           "focus": [
             0.5,
             0.5
-          ],
-          "forward": [
-            0.621140182,
-            -0.716461718,
-            0.317596495
-          ],
-          "fov": 1.56173015,
-          "position": [
-            -1.79856408,
-            2.51186657,
-            0.666202843
           ],
           "safe": [
             0.189999998,
@@ -661,19 +666,22 @@
             0.810000002,
             1
           ],
+          "settle_ticks": 30,
           "scene": {
             "ai": "erase",
-            "moved_vehicles": [],
+            "variant": "slayer",
             "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
               "always_invisible": false,
               "infinite_grenades": false,
-              "loadout": 0,
-              "no_map_weapons": false,
-              "no_shields": false,
-              "primary_weapon": 2,
-              "secondary_weapon": 3,
-              "starting_equipment": "generic",
-              "teams": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
               "vehicle_counts": [
                 [
                   0,
@@ -692,22 +700,14 @@
                   0
                 ]
               ],
-              "vehicle_respawn_time": 0,
-              "vehicle_set": 2,
-              "vehicle_sets": [
-                2,
-                2
-              ],
-              "weapon_set": 0
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
             },
-            "variant": "slayer"
-          },
-          "settle_ticks": 30,
-          "up": [
-            -0.208043173,
-            0.239969939,
-            0.948225975
-          ]
+            "moved_vehicles": []
+          }
         }
       ]
     },
@@ -1019,5 +1019,5 @@
     }
   },
   "schema": 2,
-  "sequence": 1794630492
+  "sequence": 1794630493
 }
