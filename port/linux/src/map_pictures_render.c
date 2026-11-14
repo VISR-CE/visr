@@ -260,7 +260,7 @@ static void wait_menu(void)
 static void finish(void)
 {
 	halo_benchmark_overrides(0, 0, 0);
-	player_ui_clear_game_variant();
+	photo_mode_clear_variant();
 	benchmark_scenario_load("", "");
 	render.state = STATE_LEAVING;
 }

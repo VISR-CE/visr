@@ -415,6 +415,12 @@ void photo_mode_prepare_variant(const char *key)
 	error(_error_silent,"photo: map load starts with variant %s",shot.variant);
 }
 
+/* After a capture: the next load starts with the default gametype again. */
+void photo_mode_clear_variant(void)
+{
+	player_ui_clear_game_variant();
+}
+
 static int file_action(int action, struct flying_camera *camera)
 {
 	char key[256], folder[768], path[1024], camera_path[1024];
