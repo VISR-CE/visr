@@ -1,3 +1,23 @@
+## visr-v0.6.17 (2026-11-14)
+
+### Summary
+
+- Try joining multiplayer games hosted on network version 44. Joining now works with hosts on either version 43 or 44.
+- Try joining a host that is running MCC maps. You should be refused instead of being let into the game.
+- Check that joining a regular host on the same release still works the way it did before.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **net**: join network version 44 hosts with the 43 layout — `halo_network_version_is_shared_release` treats 43 and 44 alike in `halo_network_version_joinable` and `halo_network_version_wire_contract`, so the join request carries 44; MCC maps are refused through the existing settings digests check. Refs #143
+
 ## visr-v0.6.16 (2026-11-13)
 
 ### Summary
