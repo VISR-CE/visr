@@ -28,6 +28,8 @@ meta.json. Then the menu comes back and the map menus show the pictures
 /* port/runtime/guest/runtime/guest_host.h */
 int host_photo_mode_available(void);
 void host_map_pictures_keep_awake(int on);
+/* port/linux/src/dsound_sdl.c: silences every voice until switched off */
+void dsound_set_capture_mute(int on);
 int host_map_pictures_import_stage(void);
 void host_map_pictures_import_progress(int done, int total, const char *name);
 void host_map_pictures_import_done(int rendered, int cached, int failed);
@@ -397,6 +399,8 @@ void map_pictures_render_update(void)
 		render.run_start = time;
 		host_map_pictures_keep_awake(1);
 		if (render.import_mode)
+			dsound_set_capture_mute(1);
+		if (render.import_mode)
 			host_map_pictures_import_progress(0, map_pictures_scenario_count(), "");
 		wait_menu();
 		return;
@@ -572,6 +576,7 @@ void map_pictures_render_update(void)
 			platform_log("map pictures: done in %.1f s: %d rendered, %d cached, %d failed",
 				(time - render.run_start) / 1000.0, render.rendered, render.cached, render.failed);
 			host_map_pictures_keep_awake(0);
+			dsound_set_capture_mute(0);
 			if (render.import_mode)
 			{
 				host_map_pictures_import_progress(map_pictures_scenario_count(), map_pictures_scenario_count(), "");
