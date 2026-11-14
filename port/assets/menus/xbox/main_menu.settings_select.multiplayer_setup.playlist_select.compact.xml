@@ -20,12 +20,12 @@
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/header_select_gametype_to_edit">
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_button_delete" type="text" width="80" height="22" font="ui\large_ui" color="#FF2896FF" align="left" text_y="0" text="DELETE" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.playlist_select_playlist_button_delete.text">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_button_delete" type="text" width="80" height="22" font="ui\large_ui" color="#FF2896FF" align="left" text_y="0" text="DELETE" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_playlist_button_delete.text">
 		<on event="a" run="mouse emit x event" />
 		<on event="start" run="mouse emit x event" />
 		<on event="left_mouse" run="mouse emit x event" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_button_new" type="text" width="132" height="22" font="ui\large_ui" color="#FF2896FF" align="left" text_y="0" text="CREATE NEW" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.playlist_select_playlist_button_new.text">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/playlist_button_new" type="text" width="132" height="22" font="ui\large_ui" color="#FF2896FF" align="left" text_y="0" text="CREATE NEW" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_playlist_button_new.text">
 		<on event="a" run="create&amp;edit playlist profile" open="ui\shell\main_menu\settings_select\multiplayer_setup\create_and_edit_new_gametype_screen" />
 		<on event="start" run="create&amp;edit playlist profile" open="ui\shell\main_menu\settings_select\multiplayer_setup\create_and_edit_new_gametype_screen" />
 		<on event="left_mouse" run="create&amp;edit playlist profile" open="ui\shell\main_menu\settings_select\multiplayer_setup\create_and_edit_new_gametype_screen" />
@@ -110,11 +110,11 @@
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/y_butn" type="container" width="21" height="26" bitmap="xbox/browser/y_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/x_butn" type="container" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/back" type="text" text="BACK" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.legend_back.text" font="ui\large_ui" color="#FF2896FF" width="52" height="22">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/back" type="text" text="BACK" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back.text" font="ui\large_ui" color="#FF2896FF" width="52" height="22">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/select" type="text" text="SELECT" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.legend_select.text" font="ui\large_ui" color="#FF2896FF" width="70" height="22">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/playlist_select/legend/select" type="text" text="SELECT" text_id="xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_select.text" font="ui\large_ui" color="#FF2896FF" width="70" height="22">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 </menus>

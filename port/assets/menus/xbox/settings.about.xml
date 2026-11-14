@@ -15,7 +15,7 @@
 	</widget>
 	<widget name="xbox/settings/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="xbox/main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
-	<widget name="xbox/settings/about/help" type="text" controller="1" left="68" top="286" width="482" height="120" text="Halo, Halo: Combat Evolved, Master Chief, and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by, or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries), or Bungie." text_id="xbox.settings_about.about_help.text" font="ui\small_ui" color="#FFFFFFFF">
+	<widget name="xbox/settings/about/help" type="text" controller="1" left="68" top="286" width="482" height="120" text="Halo, Halo: Combat Evolved, Master Chief, and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by, or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries), or Bungie." text_id="xbox.settings_about.xbox_settings_about_help.text" font="ui\small_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="xbox/settings/about/options_menu" type="column_list" width="640" height="286" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="4">
 		<child widget="xbox/settings/about/op_build" x="54" y="102" />
@@ -93,25 +93,25 @@
 		<data input="port send log status" />
 	</widget>
 	<strings name="xbox/settings/about/labels">
-		<string text="BUILD" id="xbox.settings_about.xbox_settings_about_labels.i0" />
-		<string text="ONLINE" id="xbox.settings_about.xbox_settings_about_labels.i1" />
-		<string text="PRIVACY" id="xbox.settings_about.xbox_settings_about_labels.i2" />
-		<string text="LICENSE" id="xbox.settings_about.xbox_settings_about_labels.i3" />
-		<string text="OPEN SOURCE NOTICES" id="xbox.settings_about.xbox_settings_about_labels.i4" />
-		<string text="SEND LOG" id="xbox.settings_about.xbox_settings_about_labels.i5" />
+		<string text="BUILD" id="xbox.settings_about.xbox_settings_about_labels.build" />
+		<string text="ONLINE" id="xbox.settings_about.xbox_settings_about_labels.online" />
+		<string text="PRIVACY" id="xbox.settings_about.xbox_settings_about_labels.privacy" />
+		<string text="LICENSE" id="xbox.settings_about.xbox_settings_about_labels.license" />
+		<string text="OPEN SOURCE NOTICES" id="xbox.settings_about.xbox_settings_about_labels.open_source_notices" />
+		<string text="SEND LOG" id="xbox.settings_about.xbox_settings_about_labels.send_log" />
 	</strings>
 	<strings name="xbox/settings/about/values">
-		<string text="visr.gg" id="xbox.settings_about.xbox_settings_about_values.i0" />
-		<string text="visr.gg/privacy" id="xbox.settings_about.xbox_settings_about_values.i1" />
-		<string text="Apache-2.0" id="xbox.settings_about.xbox_settings_about_values.i2" />
+		<string text="visr.gg" id="xbox.settings_about.xbox_settings_about_values.visr_gg" />
+		<string text="visr.gg/privacy" id="xbox.settings_about.xbox_settings_about_values.visr_gg_privacy" />
+		<string text="Apache-2.0" id="xbox.settings_about.xbox_settings_about_values.apache_2_0" />
 	</strings>
 	<widget name="xbox/settings/about/title_version" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FF2896FF" text_x="13">
 		<data input="port about version" />
 	</widget>
 	<widget name="xbox/settings/about/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/about/accept" type="text" text="SELECT" text_id="xbox.settings_about.about_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/about/accept" type="text" text="SELECT" text_id="xbox.settings_about.xbox_settings_about_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/about/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/about/cancel" type="text" text="BACK" text_id="xbox.settings_about.about_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/about/cancel" type="text" text="BACK" text_id="xbox.settings_about.xbox_settings_about_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/send_log_confirm" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<on event="b" back="true" />
 		<on event="back" back="true" />
@@ -119,20 +119,20 @@
 		<child widget="xbox/settings/send_log_confirm/title" x="201" y="180" />
 		<child widget="xbox/settings/send_log_confirm/buttons" x="256" y="310" />
 	</widget>
-	<widget name="xbox/settings/send_log_confirm/message" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" text="Your log goes to the\nVISR team via iCloud." text_id="xbox.settings_about.send_log_confirm_message.text" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
-	<widget name="xbox/settings/send_log_confirm/title" type="text" width="170" height="20" text="SEND LOG?" text_id="xbox.settings_about.send_log_confirm_title.text" font="ui\large_ui" color="#FF2896FF" />
+	<widget name="xbox/settings/send_log_confirm/message" type="text" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" text="Your log goes to the\nVISR team via iCloud." text_id="xbox.settings_about.xbox_settings_send_log_confirm_message.text" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
+	<widget name="xbox/settings/send_log_confirm/title" type="text" width="170" height="20" text="SEND LOG?" text_id="xbox.settings_about.xbox_settings_send_log_confirm_title.text" font="ui\large_ui" color="#FF2896FF" />
 	<widget name="xbox/settings/send_log_confirm/buttons" type="column_list" width="172" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items up_down_tabs_items">
 		<child widget="xbox/settings/send_log_confirm/cancel" x="0" />
 		<child widget="xbox/settings/send_log_confirm/send" x="86" />
 	</widget>
-	<widget name="xbox/settings/send_log_confirm/cancel" type="text" text="CANCEL" text_id="xbox.settings_about.send_log_confirm_cancel.text" width="84" height="22" font="ui\small_ui" color="#FF2896FF" text_x="16" text_y="0">
+	<widget name="xbox/settings/send_log_confirm/cancel" type="text" text="CANCEL" text_id="xbox.settings_about.xbox_settings_send_log_confirm_cancel.text" width="84" height="22" font="ui\small_ui" color="#FF2896FF" text_x="16" text_y="0">
 		<on event="a" run="mouse emit back event" />
 		<on event="start" run="mouse emit back event" />
 		<on event="left_mouse" run="mouse emit back event" />
 		<child widget="xbox/settings/send_log_confirm/cancel/icon" />
 	</widget>
 	<widget name="xbox/settings/send_log_confirm/cancel/icon" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
-	<widget name="xbox/settings/send_log_confirm/send" type="text" text="SEND" text_id="xbox.settings_about.send_log_confirm_send.text" width="84" height="22" font="ui\small_ui" color="#FF2896FF" text_x="16" text_y="0">
+	<widget name="xbox/settings/send_log_confirm/send" type="text" text="SEND" text_id="xbox.settings_about.xbox_settings_send_log_confirm_send.text" width="84" height="22" font="ui\small_ui" color="#FF2896FF" text_x="16" text_y="0">
 		<on event="a" run="port send log" back="true" />
 		<on event="start" run="port send log" back="true" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -389,92 +389,92 @@
 	<widget name="xbox/settings/about/notices/op_25/label" type="text" width="250" height="36" string_list="xbox/settings/about/notices/labels" string_index="25" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="7" />
 	<widget name="xbox/settings/about/notices/op_25/value" type="text" width="252" height="36" string_list="xbox/settings/about/notices/values" string_index="25" font="ui\small_ui" color="#FF2896FF" align="right" text_y="9" text_flags="no_focus_test" />
 	<strings name="xbox/settings/about/notices/labels">
-		<string text="VISR" id="xbox.settings_about.xbox_settings_about_notices_labels.i0" />
-		<string text="ORIGIN PROJECTS" id="xbox.settings_about.xbox_settings_about_notices_labels.i1" />
-		<string text="SDL" id="xbox.settings_about.xbox_settings_about_notices_labels.i2" />
-		<string text="MUSL" id="xbox.settings_about.xbox_settings_about_notices_labels.i3" />
-		<string text="MBED TLS" id="xbox.settings_about.xbox_settings_about_notices_labels.i4" />
-		<string text="FFMPEG" id="xbox.settings_about.xbox_settings_about_notices_labels.i5" />
-		<string text="EXPAT" id="xbox.settings_about.xbox_settings_about_notices_labels.i6" />
-		<string text="ZLIB" id="xbox.settings_about.xbox_settings_about_notices_labels.i7" />
-		<string text="KCP" id="xbox.settings_about.xbox_settings_about_notices_labels.i8" />
-		<string text="TOMLC17" id="xbox.settings_about.xbox_settings_about_notices_labels.i9" />
-		<string text="STB_TRUETYPE" id="xbox.settings_about.xbox_settings_about_notices_labels.i10" />
-		<string text="STB_VORBIS" id="xbox.settings_about.xbox_settings_about_notices_labels.i11" />
-		<string text="MONOCYPHER" id="xbox.settings_about.xbox_settings_about_notices_labels.i12" />
-		<string text="XXHASH" id="xbox.settings_about.xbox_settings_about_notices_labels.i13" />
-		<string text="BC7ENC" id="xbox.settings_about.xbox_settings_about_notices_labels.i14" />
-		<string text="BC7 DECODER" id="xbox.settings_about.xbox_settings_about_notices_labels.i15" />
-		<string text="ASTC ENCODER" id="xbox.settings_about.xbox_settings_about_notices_labels.i16" />
-		<string text="SMAA" id="xbox.settings_about.xbox_settings_about_notices_labels.i17" />
-		<string text="PBRIFY UPSCALER" id="xbox.settings_about.xbox_settings_about_notices_labels.i18" />
-		<string text="STREAMER WORDS" id="xbox.settings_about.xbox_settings_about_notices_labels.i19" />
-		<string text="ENGLISH WORD LIST" id="xbox.settings_about.xbox_settings_about_notices_labels.i20" />
-		<string text="KHRONOS HEADERS" id="xbox.settings_about.xbox_settings_about_notices_labels.i21" />
-		<string text="OVERPASS" id="xbox.settings_about.xbox_settings_about_notices_labels.i22" />
-		<string text="OPENCE FONT" id="xbox.settings_about.xbox_settings_about_notices_labels.i23" />
-		<string text="NEWTOWN" id="xbox.settings_about.xbox_settings_about_notices_labels.i24" />
-		<string text="ORBITRON" id="xbox.settings_about.xbox_settings_about_notices_labels.i25" />
+		<string text="VISR" id="xbox.settings_about.xbox_settings_about_notices_labels.visr" />
+		<string text="ORIGIN PROJECTS" id="xbox.settings_about.xbox_settings_about_notices_labels.origin_projects" />
+		<string text="SDL" id="xbox.settings_about.xbox_settings_about_notices_labels.sdl" />
+		<string text="MUSL" id="xbox.settings_about.xbox_settings_about_notices_labels.musl" />
+		<string text="MBED TLS" id="xbox.settings_about.xbox_settings_about_notices_labels.mbed_tls" />
+		<string text="FFMPEG" id="xbox.settings_about.xbox_settings_about_notices_labels.ffmpeg" />
+		<string text="EXPAT" id="xbox.settings_about.xbox_settings_about_notices_labels.expat" />
+		<string text="ZLIB" id="xbox.settings_about.xbox_settings_about_notices_labels.zlib" />
+		<string text="KCP" id="xbox.settings_about.xbox_settings_about_notices_labels.kcp" />
+		<string text="TOMLC17" id="xbox.settings_about.xbox_settings_about_notices_labels.tomlc17" />
+		<string text="STB_TRUETYPE" id="xbox.settings_about.xbox_settings_about_notices_labels.stb_truetype" />
+		<string text="STB_VORBIS" id="xbox.settings_about.xbox_settings_about_notices_labels.stb_vorbis" />
+		<string text="MONOCYPHER" id="xbox.settings_about.xbox_settings_about_notices_labels.monocypher" />
+		<string text="XXHASH" id="xbox.settings_about.xbox_settings_about_notices_labels.xxhash" />
+		<string text="BC7ENC" id="xbox.settings_about.xbox_settings_about_notices_labels.bc7enc" />
+		<string text="BC7 DECODER" id="xbox.settings_about.xbox_settings_about_notices_labels.bc7_decoder" />
+		<string text="ASTC ENCODER" id="xbox.settings_about.xbox_settings_about_notices_labels.astc_encoder" />
+		<string text="SMAA" id="xbox.settings_about.xbox_settings_about_notices_labels.smaa" />
+		<string text="PBRIFY UPSCALER" id="xbox.settings_about.xbox_settings_about_notices_labels.pbrify_upscaler" />
+		<string text="STREAMER WORDS" id="xbox.settings_about.xbox_settings_about_notices_labels.streamer_words" />
+		<string text="ENGLISH WORD LIST" id="xbox.settings_about.xbox_settings_about_notices_labels.english_word_list" />
+		<string text="KHRONOS HEADERS" id="xbox.settings_about.xbox_settings_about_notices_labels.khronos_headers" />
+		<string text="OVERPASS" id="xbox.settings_about.xbox_settings_about_notices_labels.overpass" />
+		<string text="OPENCE FONT" id="xbox.settings_about.xbox_settings_about_notices_labels.opence_font" />
+		<string text="NEWTOWN" id="xbox.settings_about.xbox_settings_about_notices_labels.newtown" />
+		<string text="ORBITRON" id="xbox.settings_about.xbox_settings_about_notices_labels.orbitron" />
 	</strings>
 	<strings name="xbox/settings/about/notices/values">
-		<string text="APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.i0" />
-		<string text="CC0 1.0" id="xbox.settings_about.xbox_settings_about_notices_values.i1" />
-		<string text="ZLIB" id="xbox.settings_about.xbox_settings_about_notices_values.i2" />
-		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.i3" />
-		<string text="APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.i4" />
-		<string text="LGPL-2.1+" id="xbox.settings_about.xbox_settings_about_notices_values.i5" />
-		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.i6" />
-		<string text="ZLIB" id="xbox.settings_about.xbox_settings_about_notices_values.i7" />
-		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.i8" />
-		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.i9" />
-		<string text="MIT OR PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.i10" />
-		<string text="MIT OR PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.i11" />
-		<string text="BSD-2-CLAUSE OR CC0" id="xbox.settings_about.xbox_settings_about_notices_values.i12" />
-		<string text="BSD-2-CLAUSE" id="xbox.settings_about.xbox_settings_about_notices_values.i13" />
-		<string text="MIT OR PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.i14" />
-		<string text="MIT, PUBLIC DOMAIN, ISC" id="xbox.settings_about.xbox_settings_about_notices_values.i15" />
-		<string text="APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.i16" />
-		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.i17" />
-		<string text="CC0 1.0" id="xbox.settings_about.xbox_settings_about_notices_values.i18" />
-		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.i19" />
-		<string text="UNLICENSE" id="xbox.settings_about.xbox_settings_about_notices_values.i20" />
-		<string text="MIT, APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.i21" />
-		<string text="SIL OFL 1.1" id="xbox.settings_about.xbox_settings_about_notices_values.i22" />
-		<string text="SIL OFL 1.1" id="xbox.settings_about.xbox_settings_about_notices_values.i23" />
-		<string text="PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.i24" />
-		<string text="SIL OFL 1.1" id="xbox.settings_about.xbox_settings_about_notices_values.i25" />
+		<string text="APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.apache_2_0" />
+		<string text="CC0 1.0" id="xbox.settings_about.xbox_settings_about_notices_values.cc0_1_0" />
+		<string text="ZLIB" id="xbox.settings_about.xbox_settings_about_notices_values.zlib" />
+		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.mit" />
+		<string text="APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.apache_2_0_2" />
+		<string text="LGPL-2.1+" id="xbox.settings_about.xbox_settings_about_notices_values.lgpl_2_1" />
+		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.mit_2" />
+		<string text="ZLIB" id="xbox.settings_about.xbox_settings_about_notices_values.zlib_2" />
+		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.mit_3" />
+		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.mit_4" />
+		<string text="MIT OR PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.mit_or_public_domain" />
+		<string text="MIT OR PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.mit_or_public_domain_2" />
+		<string text="BSD-2-CLAUSE OR CC0" id="xbox.settings_about.xbox_settings_about_notices_values.bsd_2_clause_or_cc0" />
+		<string text="BSD-2-CLAUSE" id="xbox.settings_about.xbox_settings_about_notices_values.bsd_2_clause" />
+		<string text="MIT OR PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.mit_or_public_domain_3" />
+		<string text="MIT, PUBLIC DOMAIN, ISC" id="xbox.settings_about.xbox_settings_about_notices_values.mit_public_domain_isc" />
+		<string text="APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.apache_2_0_3" />
+		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.mit_5" />
+		<string text="CC0 1.0" id="xbox.settings_about.xbox_settings_about_notices_values.cc0_1_0_2" />
+		<string text="MIT" id="xbox.settings_about.xbox_settings_about_notices_values.mit_6" />
+		<string text="UNLICENSE" id="xbox.settings_about.xbox_settings_about_notices_values.unlicense" />
+		<string text="MIT, APACHE-2.0" id="xbox.settings_about.xbox_settings_about_notices_values.mit_apache_2_0" />
+		<string text="SIL OFL 1.1" id="xbox.settings_about.xbox_settings_about_notices_values.sil_ofl_1_1" />
+		<string text="SIL OFL 1.1" id="xbox.settings_about.xbox_settings_about_notices_values.sil_ofl_1_1_2" />
+		<string text="PUBLIC DOMAIN" id="xbox.settings_about.xbox_settings_about_notices_values.public_domain" />
+		<string text="SIL OFL 1.1" id="xbox.settings_about.xbox_settings_about_notices_values.sil_ofl_1_1_3" />
 	</strings>
 	<strings name="xbox/settings/about/notices/help_strings">
 		<string text="" />
-		<string text="Licensed under the Apache License, Version 2.0." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i0" />
-		<string text="punpckhdq/halo, bnunu/halo-1, OpenCE,\nNicholasDominici/halo-ce-ios, and pfista/halo-og. Public domain\ndedication." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i1" />
-		<string text="Copyright (C) 1997-2026 Sam Lantinga." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i2" />
-		<string text="Copyright (c) 2005-2020 Rich Felker, et al." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i3" />
-		<string text="Copyright The Mbed TLS Contributors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i4" />
-		<string text="Copyright the FFmpeg developers. Bink decoding only, linked\nstatically; its source is at github.com/VISR-CE/visr." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i5" />
-		<string text="Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and\nClark Cooper; 2001-2025 Expat maintainers." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i6" />
-		<string text="Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i7" />
-		<string text="Copyright (c) 2017 Lin Wei." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i8" />
-		<string text="Copyright (c) 2024-2026 CK Tan." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i9" />
-		<string text="Copyright (c) 2017 Sean Barrett." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i10" />
-		<string text="Copyright (c) 2017 Sean Barrett." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i11" />
-		<string text="Copyright (c) 2017-2023 Loup Vaillant, Michael Savage and Fabio\nScotoni." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i12" />
-		<string text="Copyright (c) 2012-2021 Yann Collet." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i13" />
-		<string text="Copyright (c) 2018-2021 Richard Geldreich, Jr." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i14" />
-		<string text="Copyright (c) 2018 Richard Geldreich, Jr.; (c) 2015 Harm\nHanemaaijer." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i15" />
-		<string text="Copyright Arm Limited." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i16" />
-		<string text="Copyright (C) 2013 Jorge Jimenez, Jose I. Echevarria, Belen\nMasia, Fernando Navarro and Diego Gutierrez." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i17" />
-		<string text="Kim2091's 4x-PBRify_UpscalerSPANV4 weights, converted to Core\nML. Public domain dedication." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i18" />
-		<string text="Copyright (c) Surge AI. The profanity list streamer mode's words\nderive from." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i19" />
-		<string text="Public domain. Used to review the streamer words." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i20" />
-		<string text="Copyright The Khronos Group Inc. OpenGL ES and EGL headers." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i21" />
-		<string text="Copyright 2021 The Overpass Project Authors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i22" />
-		<string text="Copyright 2026 The OpenCE Project Authors. Newtown with respaced\nglyphs." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i23" />
-		<string text="Roger White, 1994, released by its author into the public\ndomain." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i24" />
-		<string text="Copyright 2018 The Orbitron Project Authors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.i25" />
+		<string text="Licensed under the Apache License, Version 2.0." id="xbox.settings_about.xbox_settings_about_notices_help_strings.licensed_under_the_apache_licens_ec793e" />
+		<string text="punpckhdq/halo, bnunu/halo-1, OpenCE,\nNicholasDominici/halo-ce-ios, and pfista/halo-og. Public domain\ndedication." id="xbox.settings_about.xbox_settings_about_notices_help_strings.punpckhdq_halo_bnunu_halo_1_open_ddaf1d" />
+		<string text="Copyright (C) 1997-2026 Sam Lantinga." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_1997_2026_sam_lantinga" />
+		<string text="Copyright (c) 2005-2020 Rich Felker, et al." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2005_2020_rich_felker_et_al" />
+		<string text="Copyright The Mbed TLS Contributors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_the_mbed_tls_contributors" />
+		<string text="Copyright the FFmpeg developers. Bink decoding only, linked\nstatically; its source is at github.com/VISR-CE/visr." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_the_ffmpeg_developers__092743" />
+		<string text="Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and\nClark Cooper; 2001-2025 Expat maintainers." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_1998_2000_thai_open__14d79b" />
+		<string text="Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_1995_2026_jean_loup__b8ab25" />
+		<string text="Copyright (c) 2017 Lin Wei." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2017_lin_wei" />
+		<string text="Copyright (c) 2024-2026 CK Tan." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2024_2026_ck_tan" />
+		<string text="Copyright (c) 2017 Sean Barrett." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2017_sean_barrett" />
+		<string text="Copyright (c) 2017 Sean Barrett." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2017_sean_barrett_2" />
+		<string text="Copyright (c) 2017-2023 Loup Vaillant, Michael Savage and Fabio\nScotoni." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2017_2023_loup_vaill_b92578" />
+		<string text="Copyright (c) 2012-2021 Yann Collet." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2012_2021_yann_collet" />
+		<string text="Copyright (c) 2018-2021 Richard Geldreich, Jr." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2018_2021_richard_ge_17dd1e" />
+		<string text="Copyright (c) 2018 Richard Geldreich, Jr.; (c) 2015 Harm\nHanemaaijer." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2018_richard_geldrei_b42357" />
+		<string text="Copyright Arm Limited." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_arm_limited" />
+		<string text="Copyright (C) 2013 Jorge Jimenez, Jose I. Echevarria, Belen\nMasia, Fernando Navarro and Diego Gutierrez." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_2013_jorge_jimenez_j_f57ccb" />
+		<string text="Kim2091's 4x-PBRify_UpscalerSPANV4 weights, converted to Core\nML. Public domain dedication." id="xbox.settings_about.xbox_settings_about_notices_help_strings.kim2091_s_4x_pbrify_upscalerspan_a84b02" />
+		<string text="Copyright (c) Surge AI. The profanity list streamer mode's words\nderive from." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_c_surge_ai_the_profani_187fc8" />
+		<string text="Public domain. Used to review the streamer words." id="xbox.settings_about.xbox_settings_about_notices_help_strings.public_domain_used_to_review_the_8e4b56" />
+		<string text="Copyright The Khronos Group Inc. OpenGL ES and EGL headers." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_the_khronos_group_inc__2b4763" />
+		<string text="Copyright 2021 The Overpass Project Authors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_2021_the_overpass_proj_bbabb6" />
+		<string text="Copyright 2026 The OpenCE Project Authors. Newtown with respaced\nglyphs." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_2026_the_opence_projec_3c7e9c" />
+		<string text="Roger White, 1994, released by its author into the public\ndomain." id="xbox.settings_about.xbox_settings_about_notices_help_strings.roger_white_1994_released_by_its_8266c2" />
+		<string text="Copyright 2018 The Orbitron Project Authors." id="xbox.settings_about.xbox_settings_about_notices_help_strings.copyright_2018_the_orbitron_proj_96eea1" />
 	</strings>
 	<widget name="xbox/settings/about/notices/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/about/notices/cancel" type="text" text="BACK" text_id="xbox.settings_about.notices_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/about/notices/cancel" type="text" text="BACK" text_id="xbox.settings_about.xbox_settings_about_notices_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/about/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />
 	<widget name="xbox/settings/about/options_menu/scroll_down_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_down" />
 	<widget name="xbox/settings/about/notices/options_menu/scroll_up_arrow" width="16" height="16" bitmap="xbox/bitmaps/arrow_sm_up" />

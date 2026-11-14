@@ -78,3 +78,14 @@ def test_adding_ids_changes_nothing_else():
 
 def test_check_command_passes():
     subprocess.run([sys.executable, 'tools/menu_catalog.py', '--check'], cwd=ROOT, check=True)
+
+
+def test_ids_survive_inserting_a_row():
+    # An ID follows the element's own path (or a list entry's text), never its position.
+    rows = ['<widget name="a/b/one" type="text" text="One" />', '<widget name="a/c/one" type="text" text="Uno" />']
+    lists = ['<strings name="L"><string text="Alpha" /><string text="Beta" /></strings>']
+    before = menu_catalog.add_ids('\n'.join(lists + rows), 'f', 'xbox')
+    after = menu_catalog.add_ids('\n'.join(['<strings name="L"><string text="New" /><string text="Alpha" /><string text="Beta" /></strings>',
+                                            '<widget name="a/z/new" type="text" text="New" />'] + rows), 'f', 'xbox')
+    ids = re.compile(r'\b(?:id|text_id)="([^"]*)"')
+    assert set(ids.findall(before)) <= set(ids.findall(after))

@@ -15,6 +15,7 @@ the inline English.
 """
 
 import argparse
+import hashlib
 import html
 import re
 import sys
@@ -43,7 +44,6 @@ def add_ids(xml, stem, prefix):
     stem = f'{prefix}.{segment(stem)}'
     seen = {}
     list_name = None
-    list_index = 0
 
     def unique(base):
         count = seen.get(base, 0) + 1
@@ -51,7 +51,7 @@ def add_ids(xml, stem, prefix):
         return base if count == 1 else f'{base}_{count}'
 
     def rewrite(match):
-        nonlocal list_name, list_index
+        nonlocal list_name
         closing, tag, body, selfclose = match.groups()
         if closing:
             if tag == 'strings':
@@ -60,15 +60,16 @@ def add_ids(xml, stem, prefix):
         attributes = dict(ATTR.findall(body))
         if tag == 'strings':
             list_name = None if selfclose else segment(attributes.get('name', ''))
-            list_index = 0
             return match.group(0)
         pairs = []  # (attribute, id attribute, [ids])
-        name = segment('_'.join(attributes.get('name', '').replace('\\', '/').split('/')[-2:]))
+        name = segment(attributes.get('name', '').replace('\\', '/'))  # the whole path: stable when siblings move
         if tag == 'string':
             if list_name is None or not attributes.get('text'):
                 return match.group(0)
-            ident = unique(f'{stem}.{list_name}.i{list_index}')
-            list_index += 1
+            slug = segment(attributes['text'])
+            if len(slug) > 40:  # long text: a cut slug plus a hash of the whole
+                slug = f'{slug[:32]}_{hashlib.sha1(attributes["text"].encode()).hexdigest()[:6]}'
+            ident = unique(f'{stem}.{list_name}.{slug}')
             pairs.append(('text', 'id', [ident]))
         else:
             base = unique(f'{stem}.{name}')

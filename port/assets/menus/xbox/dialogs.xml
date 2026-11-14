@@ -25,9 +25,9 @@
 		<child widget="xbox/error/error_modal_fullscreen/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_modal_fullscreen/accept" type="text" text="OK" text_id="xbox.dialogs.error_modal_fullscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_modal_fullscreen/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_fullscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_modal_fullscreen/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_modal_fullscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_modal_fullscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_fullscreen_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_modal_fullscreen/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_modal_halfscreen" width="640" height="240" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/error/error_modal_halfscreen/panel" x="200" y="14" />
@@ -50,9 +50,9 @@
 		<child widget="xbox/error/error_modal_halfscreen/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_modal_halfscreen/accept" type="text" text="OK" text_id="xbox.dialogs.error_modal_halfscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_modal_halfscreen/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_halfscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_modal_halfscreen/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_modal_halfscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_2.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_modal_halfscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_halfscreen_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_modal_halfscreen/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_modal_qtrscreen" width="320" height="240" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/error/error_modal_qtrscreen/panel" x="40" y="14" />
@@ -75,9 +75,9 @@
 		<child widget="xbox/error/error_modal_qtrscreen/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_modal_qtrscreen/accept" type="text" text="OK" text_id="xbox.dialogs.error_modal_qtrscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_modal_qtrscreen/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_qtrscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_modal_qtrscreen/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_modal_qtrscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_3.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_modal_qtrscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_qtrscreen_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_modal_qtrscreen/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_nonmodal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/error_nonmodal_fullscreen/panel" x="200" y="134" />
@@ -100,9 +100,9 @@
 		<child widget="xbox/error/error_nonmodal_fullscreen/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_nonmodal_fullscreen/accept" type="text" text="OK" text_id="xbox.dialogs.error_nonmodal_fullscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_nonmodal_fullscreen/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_nonmodal_fullscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_nonmodal_fullscreen/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_nonmodal_fullscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_4.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_nonmodal_fullscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_nonmodal_fullscreen_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_nonmodal_fullscreen/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_nonmodal_halfscreen" width="640" height="240" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/error/error_nonmodal_halfscreen/panel" x="200" y="14" />
@@ -125,9 +125,9 @@
 		<child widget="xbox/error/error_nonmodal_halfscreen/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_nonmodal_halfscreen/accept" type="text" text="OK" text_id="xbox.dialogs.error_nonmodal_halfscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_nonmodal_halfscreen/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_nonmodal_halfscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_nonmodal_halfscreen/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_nonmodal_halfscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_5.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_nonmodal_halfscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_nonmodal_halfscreen_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_nonmodal_halfscreen/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_nonmodal_qtrscreen" width="320" height="240" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/error/error_nonmodal_qtrscreen/panel" x="40" y="14" />
@@ -150,9 +150,9 @@
 		<child widget="xbox/error/error_nonmodal_qtrscreen/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_nonmodal_qtrscreen/accept" type="text" text="OK" text_id="xbox.dialogs.error_nonmodal_qtrscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_nonmodal_qtrscreen/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_nonmodal_qtrscreen_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_nonmodal_qtrscreen/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_nonmodal_qtrscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_6.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_nonmodal_qtrscreen/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_nonmodal_qtrscreen_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_nonmodal_qtrscreen/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_modal" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/error_modal/panel" x="200" y="134" />
@@ -175,9 +175,9 @@
 		<child widget="xbox/error/error_modal/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_modal/accept" type="text" text="OK" text_id="xbox.dialogs.error_modal_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_modal/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_modal/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_modal/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_7.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_modal/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_modal_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_modal/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_non_modal" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/error_non_modal/panel" x="200" y="134" />
@@ -200,9 +200,9 @@
 		<child widget="xbox/error/error_non_modal/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_non_modal/accept" type="text" text="OK" text_id="xbox.dialogs.error_non_modal_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_non_modal/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_non_modal_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_non_modal/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_non_modal/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_8.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_non_modal/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_non_modal_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_non_modal/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_abort_to_dashboard" width="640" height="480" flags="pass_unhandled_to_focused_child" type="text" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/error_abort_to_dashboard/panel" x="200" y="134" />
@@ -225,9 +225,9 @@
 		<child widget="xbox/error/error_abort_to_dashboard/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_abort_to_dashboard/accept" type="text" text="OK" text_id="xbox.dialogs.error_abort_to_dashboard_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_abort_to_dashboard/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_abort_to_dashboard_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_abort_to_dashboard/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_abort_to_dashboard/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_9.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_abort_to_dashboard/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_abort_to_dashboard_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_abort_to_dashboard/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice" width="640" height="480" flags="pass_unhandled_to_focused_child" type="text" bitmap="xbox/bitmaps/semi_transparent_grey">
 		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/panel" x="200" y="134" />
@@ -250,9 +250,9 @@
 		<child widget="xbox/error/error_abort_to_dashboard_you_have_no_choice/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/accept" type="text" text="OK" text_id="xbox.dialogs.error_abort_to_dashboard_you_have_no_choice_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/accept" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_abort_to_dashboard_you_have_no_choice_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.a_butn_touch_caption_10.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn/touch_caption" type="text" text="OK" text_id="xbox.dialogs.xbox_error_error_abort_to_dashboard_you_have_no_choice_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/error_abort_to_dashboard_you_have_no_choice/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/warning_creating_player_profile_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="xbox/bitmaps/semi_transparent_grey" auto_close="1000" auto_close_fade="500">
 		<child widget="xbox/error/warning_creating_player_profile_screen/panel" x="200" y="134" />

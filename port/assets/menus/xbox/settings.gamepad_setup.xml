@@ -36,7 +36,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/look_sensitivity_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/look_sensitivity_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1|2|3|4|5|6|7|8|9|10" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s1|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s2|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s3|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s4|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s5|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s6|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s7|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s8|xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner.s9" setting="profile.look_sensitivity" values="1|2|3|4|5|6|7|8|9|10" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/look_sensitivity_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1|2|3|4|5|6|7|8|9|10" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s1|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s2|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s3|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s4|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s5|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s6|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s7|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s8|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_look_sensitivity_spinner.s9" setting="profile.look_sensitivity" values="1|2|3|4|5|6|7|8|9|10" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -49,7 +49,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/invert_look_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/invert_look_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_invert_look_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_invert_look_spinner.s1" setting="profile.invert_look" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/invert_look_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_invert_look_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_invert_look_spinner.s1" setting="profile.invert_look" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -62,7 +62,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/flight_inversion_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/flight_inversion_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_flight_inversion_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_flight_inversion_spinner.s1" setting="profile.flight_inversion" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/flight_inversion_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_flight_inversion_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_flight_inversion_spinner.s1" setting="profile.flight_inversion" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -75,7 +75,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/autocenter_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/autocenter_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_autocenter_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_autocenter_spinner.s1" setting="profile.autocenter" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/autocenter_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_autocenter_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_autocenter_spinner.s1" setting="profile.autocenter" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -88,7 +88,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/button_preset_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/button_preset_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|SWAP TRIGGERS|SWAP A, L TRIGGER|SWAP B, L TRIGGER|SWAP B, R STICK|BUMPER JUMPER" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner.s1|xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner.s2|xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner.s3|xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner.s4|xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner.s5" setting="profile.button_preset" values="0|1|2|3|4|5" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
+	<widget name="xbox/settings/gamepad_setup/button_preset_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|SWAP TRIGGERS|SWAP A, L TRIGGER|SWAP B, L TRIGGER|SWAP B, R STICK|BUMPER JUMPER" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner.s1|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner.s2|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner.s3|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner.s4|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_preset_spinner.s5" setting="profile.button_preset" values="0|1|2|3|4|5" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -101,7 +101,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/joystick_preset_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/joystick_preset_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|SOUTHPAW|LEGACY|LEGACY SOUTHPAW" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_joystick_preset_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_joystick_preset_spinner.s1|xbox.settings_gamepad_setup.gamepad_setup_joystick_preset_spinner.s2|xbox.settings_gamepad_setup.gamepad_setup_joystick_preset_spinner.s3" setting="profile.joystick_preset" values="0|1|2|3" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
+	<widget name="xbox/settings/gamepad_setup/joystick_preset_spinner" type="spinner" left="3" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|SOUTHPAW|LEGACY|LEGACY SOUTHPAW" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_joystick_preset_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_joystick_preset_spinner.s1|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_joystick_preset_spinner.s2|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_joystick_preset_spinner.s3" setting="profile.joystick_preset" values="0|1|2|3" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 209 19 215">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -114,7 +114,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/vibration_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/vibration_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_vibration_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_vibration_spinner.s1" setting="profile.vibration" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/vibration_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_vibration_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_vibration_spinner.s1" setting="profile.vibration" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -127,7 +127,7 @@
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/ingame_help_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/gamepad_setup/labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/gamepad_setup/ingame_help_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_ingame_help_spinner.s0|xbox.settings_gamepad_setup.gamepad_setup_ingame_help_spinner.s1" setting="profile.ingame_help" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/ingame_help_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_ingame_help_spinner.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_ingame_help_spinner.s1" setting="profile.ingame_help" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -135,25 +135,25 @@
 		<on event="stick_right" run="port setting changed" />
 	</widget>
 	<strings name="xbox/settings/gamepad_setup/labels">
-		<string text="LOOK SENSITIVITY:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i0" />
-		<string text="INVERT LOOK:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i1" />
-		<string text="INVERT FLIGHT:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i2" />
-		<string text="AUTO-CENTER LOOK:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i3" />
-		<string text="BUTTON LAYOUT:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i4" />
-		<string text="STICK LAYOUT:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i5" />
-		<string text="VIBRATION:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i6" />
-		<string text="IN-GAME HELP:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.i7" />
+		<string text="LOOK SENSITIVITY:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.look_sensitivity" />
+		<string text="INVERT LOOK:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.invert_look" />
+		<string text="INVERT FLIGHT:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.invert_flight" />
+		<string text="AUTO-CENTER LOOK:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.auto_center_look" />
+		<string text="BUTTON LAYOUT:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.button_layout" />
+		<string text="STICK LAYOUT:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.stick_layout" />
+		<string text="VIBRATION:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.vibration" />
+		<string text="IN-GAME HELP:" id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels.in_game_help" />
 	</strings>
 	<strings name="xbox/settings/gamepad_setup/help_strings">
 		<string text="" />
-		<string text="How fast the right stick turns the view." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i0" />
-		<string text="Pushing the right stick up looks down." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i1" />
-		<string text="Flying vehicles pitch as aircraft do: pushing up\nflies down." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i2" />
-		<string text="Level the view while walking." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i3" />
-		<string text="Which of the controller's buttons does what (not\nthe keyboard's: Controls Setup sets those)." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i4" />
-		<string text="Which stick moves and which looks." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i5" />
-		<string text="Rumble the controller." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i6" />
-		<string text="Show the game's hints about its controls." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.i7" />
+		<string text="How fast the right stick turns the view." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.how_fast_the_right_stick_turns_the_view" />
+		<string text="Pushing the right stick up looks down." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.pushing_the_right_stick_up_looks_down" />
+		<string text="Flying vehicles pitch as aircraft do: pushing up\nflies down." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.flying_vehicles_pitch_as_aircraf_e02060" />
+		<string text="Level the view while walking." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.level_the_view_while_walking" />
+		<string text="Which of the controller's buttons does what (not\nthe keyboard's: Controls Setup sets those)." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.which_of_the_controller_s_button_65bfb2" />
+		<string text="Which stick moves and which looks." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.which_stick_moves_and_which_looks" />
+		<string text="Rumble the controller." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.rumble_the_controller" />
+		<string text="Show the game's hints about its controls." id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings.show_the_game_s_hints_about_its_controls" />
 	</strings>
 	<widget name="xbox/settings/gamepad_setup/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/settings/gamepad_setup/button_defaults" x="40" />
@@ -167,12 +167,12 @@
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/settings/gamepad_setup/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/settings/gamepad_setup/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_gamepad_setup.gamepad_setup_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
+	<widget name="xbox/settings/gamepad_setup/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
 	<widget name="xbox/settings/gamepad_setup/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/gamepad_setup/accept" type="text" text="SELECT" text_id="xbox.settings_gamepad_setup.gamepad_setup_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/gamepad_setup/accept" type="text" text="SELECT" text_id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/gamepad_setup/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/gamepad_setup/cancel" type="text" text="BACK" text_id="xbox.settings_gamepad_setup.gamepad_setup_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
-	<widget name="xbox/settings/gamepad_setup/ingame_help_spinner_advanced" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_gamepad_setup.gamepad_setup_ingame_help_spinner_advanced.s0|xbox.settings_gamepad_setup.gamepad_setup_ingame_help_spinner_advanced.s1" setting="profile.ingame_help" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/gamepad_setup/cancel" type="text" text="BACK" text_id="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/gamepad_setup/ingame_help_spinner_advanced" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_ingame_help_spinner_advanced.s0|xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_ingame_help_spinner_advanced.s1" setting="profile.ingame_help" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
