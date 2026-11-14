@@ -56,16 +56,10 @@ static inline enum host_posture host_posture_update(struct host_posture_state *s
             isfinite(hinge->angle) && hinge->angle >= 0 &&
             hinge->angle < (state->posture == HOST_POSTURE_LAPTOP_L ?
                 HOST_POSTURE_L_EXIT_ANGLE : HOST_POSTURE_L_ENTER_ANGLE)) {
-            double x = in->gravity_x, y = in->gravity_y, z = in->gravity_z;
-            double length = sqrt(x*x + y*y + z*z);
-            int known = in->gravity_known && isfinite(length) && length > 0.1;
-            /* pi is flat open. Rotate the upper half's outward normal toward
-               screen +y by the closing angle to estimate the lower normal.
-               A positive upward projection distinguishes laptop from inverted L. */
-            double bend = 3.141592653589793 - hinge->angle;
-            double lower_up = -(y * sin(bend) + z * cos(bend));
-            if (!known || -y >= 0.7 * length ||
-                (lower_up >= 0.7 * length && lower_up > -z + 0.1 * length)) {
+            /* A horizontal fold in the L angle range is a laptop however the
+               device lies: flat on a table reads gravity along the screen normal.
+               Gravity only separates book from laptop for a vertical fold. */
+            {
                 next = HOST_POSTURE_LAPTOP_L;
                 upper.width = in->view_width;
                 upper.height = hinge->division_y;

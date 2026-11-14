@@ -52,14 +52,23 @@ static void check_posture(void)
     assert(host_posture_update(&state, &in) == HOST_POSTURE_CLOSED);
     assert(state.upper_half.height == 0);
 
-    /* Sideways and inverted gravity must not turn a horizontal fold into a laptop. */
+    /* Gravity does not matter for a horizontal fold in the L range, so a
+       device lying nearly flat still reports a laptop (probe reading 13). */
     in = laptop();
+    in.hinge.angle = 98 * 3.141592653589793 / 180;
+    in.hinge.division_y = 455.5;
+    in.hinge.division_height = 40;
+    in.gravity_x = -0.17;
+    in.gravity_y = 0.07;
+    in.gravity_z = -0.98;
+    assert(host_posture_update(&state, &in) == HOST_POSTURE_LAPTOP_L);
+    assert(state.upper_half.height == 455.5);
     in.gravity_x = 1;
     in.gravity_y = 0;
-    assert(host_posture_update(&state, &in) == HOST_POSTURE_FLAT);
-    in.gravity_x = 0;
-    in.gravity_y = 1;
-    assert(host_posture_update(&state, &in) == HOST_POSTURE_FLAT);
+    in.gravity_z = 0;
+    assert(host_posture_update(&state, &in) == HOST_POSTURE_LAPTOP_L);
+    in.gravity_known = 0;
+    assert(host_posture_update(&state, &in) == HOST_POSTURE_LAPTOP_L);
     /* A tilted upper half with the lower half level still qualifies. */
     in.hinge.angle = 2.3;
     in.gravity_y = -sin(3.141592653589793 - 2.3);
