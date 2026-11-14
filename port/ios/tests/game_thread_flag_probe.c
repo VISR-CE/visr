@@ -11,7 +11,7 @@ static int on_main = 1, peep_result = 1;
 
 void host_config_string(const char *name, const char *fallback, char *out, size_t size) {
     assert(strcmp(name, "debug.game_thread") == 0);
-    assert(strcmp(fallback, "false") == 0);
+    assert(strcmp(fallback, "true") == 0);
     config_reads++;
     snprintf(out, size, "%s", configured ? configured : fallback);
 }
@@ -51,7 +51,7 @@ int SDL_PeepEvents(SDL_Event *event, int count, SDL_EventAction action, Uint32 f
 int main(int argc, char **argv) {
     assert(argc == 1 || argc == 2);
     configured = argc == 2 ? argv[1] : NULL;
-    int expected = configured && strcmp(configured, "true") == 0;
+    int expected = strcmp(configured ? configured : "true", "true") == 0;
     assert(host_game_thread_enabled() == expected);
     assert(config_reads == 1);
     configured = expected ? "false" : "true";
