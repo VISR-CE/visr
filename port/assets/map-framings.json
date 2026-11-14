@@ -790,24 +790,29 @@
       ]
     },
     "stock:hangemhigh": {
-      "revision": 1,
+      "revision": 8,
       "shots": [
         {
+          "position": [
+            25.3178768,
+            -9.51725292,
+            -6.63663387
+          ],
+          "forward": [
+            -0.596210718,
+            0.725703061,
+            0.343347967
+          ],
+          "up": [
+            0.21795775,
+            -0.265296489,
+            0.939208269
+          ],
+          "fov": 1.41371667,
           "bsp": 0,
           "focus": [
             0.5,
             0.5
-          ],
-          "forward": [
-            -0.606236875,
-            0.730200529,
-            0.315093637
-          ],
-          "fov": 1.44173026,
-          "position": [
-            25.2750187,
-            -9.53343582,
-            -7.12276077
           ],
           "safe": [
             0.189999998,
@@ -815,19 +820,22 @@
             0.810000002,
             1
           ],
+          "settle_ticks": 30,
           "scene": {
             "ai": "erase",
-            "moved_vehicles": [],
+            "variant": "slayer",
             "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
               "always_invisible": false,
               "infinite_grenades": false,
-              "loadout": 0,
-              "no_map_weapons": false,
-              "no_shields": false,
-              "primary_weapon": 2,
-              "secondary_weapon": 3,
-              "starting_equipment": "generic",
-              "teams": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
               "vehicle_counts": [
                 [
                   0,
@@ -846,22 +854,14 @@
                   0
                 ]
               ],
-              "vehicle_respawn_time": 0,
-              "vehicle_set": 2,
-              "vehicle_sets": [
-                2,
-                2
-              ],
-              "weapon_set": 0
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
             },
-            "variant": "slayer"
-          },
-          "settle_ticks": 30,
-          "up": [
-            0.201274186,
-            -0.242430851,
-            0.949060619
-          ]
+            "moved_vehicles": []
+          }
         }
       ]
     },
@@ -942,24 +942,29 @@
       ]
     },
     "stock:wizard": {
-      "revision": 1,
+      "revision": 3,
       "shots": [
         {
+          "position": [
+            -4.60254049,
+            -5.07664061,
+            -2.13000178
+          ],
+          "forward": [
+            0.48753193,
+            0.864736795,
+            0.120593816
+          ],
+          "up": [
+            -0.0592255667,
+            -0.10504856,
+            0.992701948
+          ],
+          "fov": 1.20427716,
           "bsp": 0,
           "focus": [
             0.5,
             0.5
-          ],
-          "forward": [
-            -0.553900719,
-            -0.819214165,
-            0.148600668
-          ],
-          "fov": 1.54173017,
-          "position": [
-            4.33965969,
-            3.62120771,
-            -2.4300015
           ],
           "safe": [
             0.189999998,
@@ -967,19 +972,22 @@
             0.810000002,
             1
           ],
+          "settle_ticks": 30,
           "scene": {
             "ai": "erase",
-            "moved_vehicles": [],
+            "variant": "slayer",
             "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
               "always_invisible": false,
               "infinite_grenades": false,
-              "loadout": 0,
-              "no_map_weapons": false,
-              "no_shields": false,
-              "primary_weapon": 2,
-              "secondary_weapon": 3,
-              "starting_equipment": "generic",
-              "teams": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
               "vehicle_counts": [
                 [
                   0,
@@ -998,26 +1006,322 @@
                   0
                 ]
               ],
-              "vehicle_respawn_time": 0,
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
+            },
+            "moved_vehicles": []
+          }
+        }
+      ]
+    },
+    "stock:prisoner": {
+      "revision": 2,
+      "shots": [
+        {
+          "position": [
+            -7.82416582,
+            -0.0713938102,
+            -0.362500578
+          ],
+          "forward": [
+            0.873876154,
+            -0.324329913,
+            0.362147182
+          ],
+          "up": [
+            -0.339517951,
+            0.126008511,
+            0.932120919
+          ],
+          "fov": 1.30899704,
+          "bsp": 0,
+          "focus": [
+            0.5,
+            0.5
+          ],
+          "safe": [
+            0.189999998,
+            0,
+            0.810000002,
+            1
+          ],
+          "settle_ticks": 30,
+          "scene": {
+            "ai": "erase",
+            "variant": "slayer",
+            "mp": {
+              "teams": false,
+              "weapon_set": 0,
               "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
+              "always_invisible": false,
+              "infinite_grenades": false,
               "vehicle_sets": [
                 2,
                 2
               ],
-              "weapon_set": 0
+              "vehicle_counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
             },
-            "variant": "slayer"
-          },
-          "settle_ticks": 30,
+            "moved_vehicles": []
+          }
+        }
+      ]
+    },
+    "stock:longest": {
+      "revision": 1,
+      "shots": [
+        {
+          "position": [
+            4.95807981,
+            -16.9783325,
+            2.83875108
+          ],
+          "forward": [
+            -0.968266129,
+            0.224636883,
+            -0.109539405
+          ],
           "up": [
-            0.0832341462,
-            0.123102553,
-            0.988897324
-          ]
+            -0.0952357501,
+            0.0735839009,
+            0.992731392
+          ],
+          "fov": 1.09955752,
+          "bsp": 0,
+          "focus": [
+            0.5,
+            0.5
+          ],
+          "safe": [
+            0.189999998,
+            0,
+            0.810000002,
+            1
+          ],
+          "settle_ticks": 30,
+          "scene": {
+            "ai": "erase",
+            "variant": "slayer",
+            "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
+              "always_invisible": false,
+              "infinite_grenades": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
+              "vehicle_counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
+            },
+            "moved_vehicles": []
+          }
+        }
+      ]
+    },
+    "stock:putput": {
+      "revision": 1,
+      "shots": [
+        {
+          "position": [
+            13.7797031,
+            -36.1683121,
+            1.42935765
+          ],
+          "forward": [
+            -0.553901017,
+            0.769771576,
+            0.317246735
+          ],
+          "up": [
+            0.18529506,
+            -0.257509679,
+            0.948343098
+          ],
+          "fov": 1.48352981,
+          "bsp": 0,
+          "focus": [
+            0.5,
+            0.5
+          ],
+          "safe": [
+            0.189999998,
+            0,
+            0.810000002,
+            1
+          ],
+          "settle_ticks": 30,
+          "scene": {
+            "ai": "erase",
+            "variant": "slayer",
+            "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
+              "always_invisible": false,
+              "infinite_grenades": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
+              "vehicle_counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
+            },
+            "moved_vehicles": []
+          }
+        }
+      ]
+    },
+    "stock:ratrace": {
+      "revision": 1,
+      "shots": [
+        {
+          "position": [
+            12.1443739,
+            -22.2374401,
+            -2.29823208
+          ],
+          "forward": [
+            -0.866291165,
+            -0.497200221,
+            -0.0482865646
+          ],
+          "up": [
+            -0.0418790728,
+            -0.0240361262,
+            0.998833537
+          ],
+          "fov": 1.46607661,
+          "bsp": 0,
+          "focus": [
+            0.5,
+            0.5
+          ],
+          "safe": [
+            0.189999998,
+            0,
+            0.810000002,
+            1
+          ],
+          "settle_ticks": 30,
+          "scene": {
+            "ai": "erase",
+            "variant": "slayer",
+            "mp": {
+              "teams": false,
+              "weapon_set": 0,
+              "vehicle_set": 2,
+              "starting_equipment": "map",
+              "no_shields": false,
+              "always_invisible": false,
+              "infinite_grenades": false,
+              "vehicle_sets": [
+                2,
+                2
+              ],
+              "vehicle_counts": [
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0
+                ]
+              ],
+              "loadout": 0,
+              "primary_weapon": 2,
+              "secondary_weapon": 3,
+              "no_map_weapons": false,
+              "vehicle_respawn_time": 0
+            },
+            "moved_vehicles": []
+          }
         }
       ]
     }
   },
   "schema": 2,
-  "sequence": 1794630493
+  "sequence": 1794630494
 }
