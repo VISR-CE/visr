@@ -1,3 +1,114 @@
+## visr-v0.6.18 (2026-11-14)
+
+### Summary
+
+- The game now runs on its own thread by default on iPhone, iPad, Apple TV, and Mac. Play for a while and watch for anything that feels different in responsiveness or stability.
+- Try quitting the game and backgrounding and returning to it on each device. Check that it resumes cleanly and doesn't hang.
+- On iPhone and iPad, change screen setups, such as connecting or disconnecting an external display, to check that the picture resizes and recovers correctly.
+- Open text prompts and the on-screen keyboard. On Apple TV, also try the Siri Remote and import screens.
+- Open the pause menu on iPhone and iPad and tap the audio button.
+- Run the asset import flow and the benchmark menus and notices on iPhone, iPad, Apple TV, and Mac to confirm they open and close normally.
+- Trigger an alert or a fatal error message if you can. The message box should appear and not freeze the game.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### feat
+
+- **host**: start the game thread on tvOS behind `debug.game_thread` (#128) — `game_thread_run` and the `host_exit` posting now cover `TARGET_OS_TV`, with flag-off flow unchanged
+- **host**: start the game thread on iOS and iPadOS behind `debug.game_thread` (#128) — `main` starts the thread and returns into UIKit, a main-run-loop timer capped at 120 Hz pumps events, and `host_exit` posts shutdown to main
+- **host**: start the guest on a `game` pthread on native Mac behind `debug.game_thread`, with main pumping events and owning shutdown (#128)
+- **metal**: keep the game thread's frame workgroup membership on native Mac when `debug.game_thread` is on (#128)
+- **host**: add `host_crash_thread_install`, a 64 KB `sigaltstack` for a dedicated thread (#128)
+- **host**: declare `host_crash_thread_install` for per-thread alternate signal stacks (#128)
+- **host**: hold the worker on a condition variable in `host_lifecycle_hold` (#128) — off main with `debug.game_thread` on, install marshals to main; flag-off and on-main paths keep the run-loop spin
+- **host**: condition-variable foreground wait for the game thread (#128) — `host_lifecycle_wait` publishes background state under the mutex the worker waits on, so no wakeup is lost
+- **ios**: add `host_output_sync.h` request mailbox and slot-drain fence for threaded output changes (#128)
+- **host**: read `debug.game_thread` once and pump SDL events on main (#128)
+- **host**: declare `host_game_thread_enabled` and `host_event_pump` (#128)
+
+### fix
+
+- **host**: show the fatal message box on the main thread — `host_fatal` raised on the game thread now hops to main before `SDL_ShowSimpleMessageBox` (#128)
+- **host**: report the game thread off on visionOS and Catalyst and expect the on default in the window probe (#128)
+- **ios**: show the pause-menu audio button from the main thread (#128)
+- **host**: keep main-thread behavior with the game thread off — `host_device_identify` reads the screen size and refresh rate live again when on main instead of from the startup snapshot, `host_alert` declines off-main callers again unless `host_game_thread_enabled()` is true, and `host_macos_data_root` falls back to the Application Support search path when the startup snapshot is empty (#128)
+- **host**: start and stop SDL text input on the main thread — `text_input_update` ran on the game thread and Main Thread Checker reported the Cocoa text view calls from `SDL_StartTextInput`, so both calls now go through `host_main_sync_f` (#128)
+- **tvos**: marshal text prompts, the input gate and Siri Remote latch reads to main when the game runs off main (#128)
+- **host**: make the second-scene request atomic and keep SDL's nested pump off on the game thread (#128) — `extra_scene_pending` and `extra_scene_watch` are `_Atomic`, `host_extra_scene_poll` claims 1 to 2 with a compare-and-exchange, and with `debug.game_thread` it no longer calls `SDL_SetiOSEventPump(true)`
+- **ios**: link `host_main_thread.c` into the macOS window probes in `macos_test.py` (#128)
+
+### perf
+
+- **metal**: skip the frame workgroup leave and hold on tvOS with `debug.game_thread` (#128) — UIKit stays on main without membership, so the text-dialog work-interval workaround is not needed
+- **metal**: keep workgroup membership on the game thread on iOS (#128) — extends the native Mac guards in `gpu_metal_frame_deadline_leave` and `gpu_metal_frame_deadline_hold` to iOS when `debug.game_thread` is on
+
+### refactor
+
+- **ios**: main-owned external scene state with a planned, fenced output commit in `host_external.m` (#128)
+- **metal**: drain `frame_slots` before scale and drawable-size changes and ticket cap requests with `debug.game_thread` on (#128)
+- **ios**: run the minimized-window recovery on the main thread in `host_main.m` (#128)
+- **ios**: marshal the snapshot fallback and use cached pixels in `host_external.m` (#128)
+- **ios**: read the drawable size through `host_sdl_window_pixels` in `host_gpu.c` (#128)
+- **ios**: refresh the window caches after each `host_event_pump` (#128)
+- **ios**: marshal window creation and relative mouse through `host_main_sync_f` and cache window sizes for workers in `host_sdl.c` (#128)
+- **ios**: declare the window pixel helper and cache refresh in `ios_host.h` (#128)
+- **host**: fetch events through `next_event` so `debug.game_thread` can peep instead of poll (#128)
+- **macos**: marshal the Mac import flow through the main thread (#128)
+- **macos**: let the Mac alert and benchmark notice run off main (#128)
+- **host**: wait on semaphores off main in `cloud_wait` (#128)
+- **host**: marshal the benchmark page and notice through `host_main_sync` (#128)
+- **host**: marshal the tester benchmark menu through `host_main_sync` (#128)
+- **host**: marshal the tvOS import screens through `host_main_sync` (#128)
+- **host**: marshal the asset import screen through `host_main_sync` (#128)
+- **host**: let `host_alert` present on main and wait off main (#128)
+- **host**: add `host_modal_wait` for off-main modal polling (#128)
+- **gpu**: route CAMetalLayer property changes and display-link creation through `host_main_sync` (#128)
+- **host**: read startup UIKit and AppKit state once in `main()` into `host_startup_info` (#128)
+- **host**: route UIKit and AppKit one-shot calls through `host_main_sync` (#128)
+- **host**: add `host_main_sync`/`host_main_async` and route main-thread hops through them (#128)
+
+### build
+
+- **host**: add `host_game_thread.c` to the app sources (#128)
+
+### docs
+
+- **metal**: note that `output_change` hops to main while it holds every `frame_slots` entry, so main must never wait on a frame slot (#128)
+- **host**: record `host_frame_counter` ownership and locking (#128) — audit found no race needing a code change
+- **ios**: document main ownership of scene state and declare `host_external_output_resize` in `host_external.h` (#128)
+
+### test
+
+- **host**: run the extra-scene probe without the restore hook (#128)
+- **host**: stub `host_game_thread_enabled` in the services probe and cover the declined off-main alert (#128)
+- **host**: build and run the tvOS startup probe in `macos_test` (#128)
+- **host**: add a tvOS variant to `game_thread_start_probe` (#128)
+- **host**: build and run `extra_scene_probe` in `macos_test` (#128)
+- **host**: add `extra_scene_probe` for the second-scene recovery transitions (#128)
+- **host**: build and run both game thread startup probe variants in `macos_test` (#128)
+- **host**: add an iOS control-flow variant to `game_thread_start_probe` (#128)
+- **host**: build and run `game_thread_start_probe` in `macos_test.py` (#128)
+- **host**: add `game_thread_start_probe` for thread identity, quit and SIGTERM with the game off main (#128)
+- **ios**: run the lifecycle probe from `tools/ios_test.py` (#128)
+- **host**: lifecycle wait probe under ASan and UBSan (#128) — `game_thread_lifecycle_probe.c` covers waiters, races and timed recovery
+- **ios**: build and run the output probe under ASan/UBSan in `tools/ios_test.py` (#128)
+- **ios**: add `game_thread_output_probe` for the output fence, cap tickets and size publication (#128)
+- **ios**: run the window probe in `ios_test.py` (#128)
+- **ios**: add the window probe and extend the flag probe for slice 8 (#128)
+- **host**: run `game_thread_flag_probe` under ASan and UBSan in `ios_test` (#128)
+- **host**: probe the `debug.game_thread` flag and event fetch paths (#128)
+- **macos**: check the cached worker refresh rate before main reads the display (#128)
+
+### chore
+
+- **host**: turn `debug.game_thread` on by default for 0.6.18 (#128) — the game runs on its own thread on iPhone, iPad, Apple TV and the Mac; `game_thread_flag_probe` now expects the `true` fallback
+
 ## visr-v0.6.17 (2026-11-14)
 
 ### Summary
