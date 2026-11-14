@@ -21,6 +21,9 @@
 /* half of Apple's 44 pt minimum target */
 #define HOST_MENU_POINTER_RADIUS 22.0f
 #define HOST_MENU_POINTER_MAXIMUM_STEPS 8
+/* a swipe in from the left edge: starts within the edge band and travels the distance (points) */
+#define HOST_MENU_POINTER_EDGE_BAND 24.0f
+#define HOST_MENU_POINTER_EDGE_TRAVEL 64.0f
 /* a look and pinch (host_menu_gaze.h): half of visionOS's 60 pt minimum target, and a slop that a pinching
    hand's own wobble stays inside */
 #define HOST_MENU_POINTER_GAZE_RADIUS 30.0f
@@ -34,6 +37,8 @@ struct host_menu_pointer {
     intptr_t finger;
     float down_x, down_y, anchor_y;
     int scrolling;
+    /* the finger's swipe from the left edge has counted: it is not a click or a scroll */
+    int swiped, back_swipes;
     /* the latest position, and what has happened since the last read */
     float x, y, click_x, click_y;
     int moved, left_clicks, right_clicks, wheel_steps;
@@ -44,6 +49,7 @@ struct host_menu_pointer {
 static inline void host_menu_pointer_clear(struct host_menu_pointer *m) {
     m->tracking = 0;
     m->scrolling = 0;
+    m->swiped = m->back_swipes = 0;
     m->moved = m->left_clicks = m->right_clicks = m->wheel_steps = 0;
 }
 static inline void host_menu_pointer_set_surface(struct host_menu_pointer *m, float width, float height) {
@@ -68,6 +74,7 @@ static inline void host_menu_pointer_touch_begin(struct host_menu_pointer *m, in
     m->tracking = 1;
     m->finger = finger;
     m->scrolling = 0;
+    m->swiped = 0;
     m->down_x = m->x = x;
     m->down_y = m->y = y;
     m->touch = 1;
@@ -81,6 +88,13 @@ static inline void host_menu_pointer_gaze_begin(struct host_menu_pointer *m, int
 }
 static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, intptr_t finger, float x, float y) {
     if (!m->tracking || m->finger != finger || !host_menu_pointer_listening(m)) return;
+    if (m->touch == 1 && m->swiped) return;
+    if (m->touch == 1 && !m->scrolling && m->down_x <= HOST_MENU_POINTER_EDGE_BAND &&
+        x - m->down_x >= HOST_MENU_POINTER_EDGE_TRAVEL && fabsf(y - m->down_y) < x - m->down_x) {
+        m->swiped = 1;
+        m->back_swipes++;
+        return;
+    }
     if (!m->scrolling) {
         if (hypotf(x - m->down_x, y - m->down_y) <=
             (m->touch == 2 ? HOST_MENU_POINTER_GAZE_SLOP : HOST_MENU_POINTER_SLOP)) return;
@@ -100,7 +114,7 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
 }
 static inline void host_menu_pointer_touch_end(struct host_menu_pointer *m, intptr_t finger) {
     if (!m->tracking || m->finger != finger) return;
-    if (!m->scrolling && host_menu_pointer_listening(m)) {
+    if (!m->scrolling && !m->swiped && host_menu_pointer_listening(m)) {
         m->left_clicks++;
         m->click_x = m->down_x;
         m->click_y = m->down_y;
@@ -159,8 +173,10 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->moved = m->moved;
     out->left_clicks = m->left_clicks;
     out->right_clicks = m->right_clicks;
+    out->back_swipes = m->back_swipes;
     out->wheel_steps = steps < -HOST_MENU_POINTER_MAXIMUM_STEPS ? -HOST_MENU_POINTER_MAXIMUM_STEPS :
         steps > HOST_MENU_POINTER_MAXIMUM_STEPS ? HOST_MENU_POINTER_MAXIMUM_STEPS : steps;
     m->moved = m->left_clicks = m->right_clicks = m->wheel_steps = 0;
+    m->back_swipes = 0;
 }
 #endif

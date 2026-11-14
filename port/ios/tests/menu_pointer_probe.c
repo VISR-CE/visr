@@ -178,7 +178,30 @@ static void mapping(void) {
     assert(units > 25.0f && units < 28.0f);
 }
 
+static void edge_swipe(void) {
+    struct host_menu_pointer m = fresh();
+    struct host_ui_pointer p;
+    /* a swipe in from the left edge is one BACK and never a click */
+    host_menu_pointer_touch_begin(&m, 1, 6, 200);
+    host_menu_pointer_touch_move(&m, 1, 90, 204);
+    host_menu_pointer_touch_end(&m, 1);
+    p = take(&m);
+    assert(p.back_swipes == 1 && !p.left_clicks);
+    p = take(&m);
+    assert(!p.back_swipes);
+    /* a drag that starts inside the screen is not a BACK, and a short edge drag is not either */
+    host_menu_pointer_touch_begin(&m, 1, 100, 200);
+    host_menu_pointer_touch_move(&m, 1, 200, 200);
+    host_menu_pointer_touch_end(&m, 1);
+    assert(take(&m).back_swipes == 0);
+    host_menu_pointer_touch_begin(&m, 1, 6, 200);
+    host_menu_pointer_touch_move(&m, 1, 20, 200);
+    host_menu_pointer_touch_end(&m, 1);
+    assert(take(&m).back_swipes == 0);
+}
+
 int main(void) {
+    edge_swipe();
     tap();
     drag();
     fingers();

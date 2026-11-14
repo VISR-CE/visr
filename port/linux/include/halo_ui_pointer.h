@@ -24,6 +24,8 @@ struct halo_ui_pointer
 	/* a finger: how far from an item (in menu units) a touch still counts as
 	on it, when none contains it; 0 for a mouse */
 	short radius;
+	/* swipes in from the left screen edge: BACK on touch */
+	unsigned char back_swipes;
 };
 
 /* frees the mouse for the menus while menus_active, and captures it again

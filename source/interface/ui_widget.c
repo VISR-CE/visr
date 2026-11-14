@@ -6150,6 +6150,12 @@ whether the menu has drawn since the pointer came: a click before the first draw
 has no targets to find and would otherwise be the "nothing to pick" A */
 static short ui_mouse_radius = 0;
 static boolean ui_mouse_menu_drawn = FALSE;
+/* port: touch BACK. A screen whose legend has a B button (BACK, CANCEL, LEAVE) shows a chevron beside
+its title and answers a swipe in from the left edge with that B. The title's helmet picture places the
+chevron; both are noted as the screen draws. */
+static boolean ui_touch_back_seen = FALSE;
+static boolean ui_touch_title_seen = FALSE;
+static rectangle2d ui_touch_title_icon;
 
 /* The presses the mouse makes, posted one a frame: the event queue keeps
 only the latest event posted between two frames (queue_event). What they
@@ -6178,6 +6184,8 @@ static void ui_mouse_forget_targets(
 	ui_mouse_press_count = 0;
 	ui_mouse_hover_pending = FALSE;
 	ui_mouse_click_pending = FALSE;
+	ui_touch_back_seen = FALSE;
+	ui_touch_title_seen = FALSE;
 
 	return;
 }
@@ -6709,6 +6717,43 @@ static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d c
 	ui_widget_draw_touch_legend_slice(bitmap, x1 - cap, x1, y0, y1, 1.0f - cap_u, 1.0f, argb);
 }
 
+/* port: the touch BACK chevron: left of the title's helmet, in the HUD blue of the touch legend,
+with a tap target at least as tall as input.ui_touch_target */
+static void ui_touch_back_chevron_draw(
+	struct widget_instance *widget,
+	rectangle2d const *clip)
+{
+	long arm = 10, thickness = 4, index;
+	long reach = MAX(ui_redraw_touch_target_units(), 2 * arm + 12);
+	long cy, cx;
+	rectangle2d hit;
+
+	if (!ui_touch_back_seen || !ui_touch_title_seen || ui_mouse_radius <= 0 ||
+		ui_mouse_target_count >= UI_MOUSE_MAXIMUM_TARGETS)
+		return;
+	cy = (ui_touch_title_icon.y0 + ui_touch_title_icon.y1) / 2;
+	cx = MAX(ui_touch_title_icon.x0 - reach / 2 - 2, reach / 2 + 2);
+	for (index = -arm; index <= arm; index++)
+	{
+		rectangle2d row;
+
+		row.y0 = (short)(cy + index);
+		row.y1 = (short)(row.y0 + 1);
+		row.x0 = (short)(cx - arm / 2 + ABS(index));
+		row.x1 = (short)(row.x0 + thickness);
+		draw_quad(&row, 0xff2996ff);
+	}
+	hit.x0 = (short)MAX(cx - reach / 2, clip->x0);
+	hit.x1 = (short)(cx + reach / 2);
+	hit.y0 = (short)(cy - reach / 2);
+	hit.y1 = (short)(cy + reach / 2);
+	ui_mouse_targets[ui_mouse_target_count].widget = widget;
+	ui_mouse_targets[ui_mouse_target_count].bounds = hit;
+	ui_mouse_targets[ui_mouse_target_count].kind = _ui_mouse_target_button;
+	ui_mouse_targets[ui_mouse_target_count].button_index = _gamepad_analog_button_b;
+	ui_mouse_target_count++;
+}
+
 static void ui_mouse_note_target(
 	struct widget_instance *widget,
 	struct ui_widget_definition const *definition,
@@ -7073,6 +7118,11 @@ static void ui_widgets_process_mouse(
 				}
 			}
 		}
+		if (pointer.back_swipes && ui_touch_back_seen && ui_mouse_menu_drawn)
+		{
+			halo_ui_pointer_feedback(2);
+			ui_mouse_press(_gamepad_analog_button_b);
+		}
 		if (pointer.wheel_steps && ui_mouse_menu())
 		{
 			struct widget_instance *widget = ui_mouse_wheel_widget(ui_mouse_menu());
@@ -7393,6 +7443,11 @@ static void menu_title_icon_draw(
 	rect.x1 = (short)(left + size);
 	rect.y0 = (short)(bounds->y0 + 44 * scale_y - size / 2);
 	rect.y1 = (short)(rect.y0 + size);
+	if (ui_mouse_noting_targets)
+	{
+		ui_touch_title_icon = rect;
+		ui_touch_title_seen = TRUE;
+	}
 	draw_bitmap_in_rect(icon, &rect, NULL, clip, color, NULL, FALSE);
 }
 
@@ -7492,6 +7547,9 @@ static void widget_instance_render_recursive(
 	ui_mouse_note_target(widget, definition, offset);
 	{
 		rectangle2d legend_bounds, legend_drawn;
+		if (ui_mouse_noting_targets && ui_mouse_key_button(widget) == _gamepad_analog_button_b &&
+			ui_touch_legend_suppressed(widget))
+			ui_touch_back_seen = TRUE;
 		if (ui_mouse_key_button(widget) != NONE &&
 			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn, NULL) &&
 			!ui_touch_legend_suppressed(widget))
@@ -7897,6 +7955,11 @@ void render_ui_widgets(
 				/* port: whether the menus' redraw draws this screen
 				(port/linux/src/ui_redraw.c: not the main menu) */
 				ui_widget_menu_content(widget);
+				if (ui_mouse_noting_targets)
+				{
+					ui_touch_back_seen = FALSE;
+					ui_touch_title_seen = FALSE;
+				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
 					widget_globals.active_widgets[widget_index],
@@ -7905,6 +7968,8 @@ void render_ui_widgets(
 					TRUE,
 					FALSE);
 				ui_redraw_end_screen();
+				if (ui_mouse_noting_targets)
+					ui_touch_back_chevron_draw(widget, &bounds);
 				if (ui_mouse_noting_targets)
 					ui_mouse_menu_drawn = TRUE;
 				ui_mouse_noting_targets = FALSE;

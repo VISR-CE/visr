@@ -38,9 +38,11 @@ struct host_ui_pointer
 	fractions of the picture times the surface's size, with no letterbox to
 	undo; 0: a surface the picture is fit into, keeping its shape */
 	int32_t picture;
+	/* whole swipes in from the left edge since the last read: BACK on a touch screen */
+	int32_t back_swipes;
 };
 
-_Static_assert(sizeof(struct host_ui_pointer) == 52, "host_ui_pointer crosses between the guest and the host");
+_Static_assert(sizeof(struct host_ui_pointer) == 56, "host_ui_pointer crosses between the guest and the host");
 
 /* host_ui_pointer_feedback(kind) */
 enum host_ui_pointer_feedback_kind
