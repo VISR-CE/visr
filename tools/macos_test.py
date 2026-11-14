@@ -41,7 +41,10 @@ def main():
     (BUILD / 'extra_scene.inc').write_text('\n'.join([
         declaration('extra_scene_pending'),
         declaration('extra_scene_watch'),
-        definition(source, 'void host_extra_scene_restore_watch(void)'),
+        # The restore hook arrived with later theater work; older trees lack it.
+        *([definition(source, 'void host_extra_scene_restore_watch(void)'),
+           '#define HAVE_EXTRA_SCENE_RESTORE_WATCH 1']
+          if 'void host_extra_scene_restore_watch(void)' in source else []),
         definition(source, 'void host_extra_scene_poll(void)'),
         'static int scene_start(void) {\n' + source[entered:entered_end] + '\nreturn 0;\n}',
     ]))

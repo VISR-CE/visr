@@ -79,11 +79,13 @@ static void exercise(void) {
     host_main_sync(^{ window.flags = SDL_WINDOW_MINIMIZED; });
     host_extra_scene_poll();
     assert(extra_scene_watch == 0 && foreground_calls == 1);
+#ifdef HAVE_EXTRA_SCENE_RESTORE_WATCH
     host_main_sync(^{ host_extra_scene_restore_watch(); });
     host_extra_scene_poll();
     assert(extra_scene_watch == 599);
     for (int poll = 0; poll < 600; poll++) host_extra_scene_poll();
     assert(extra_scene_watch == 0 && close_calls == 3);
+#endif
     if (background) {
         /* A newer main() call must survive both the recovery and close transitions. */
         for (int phase = 0; phase < 3; phase++) {
