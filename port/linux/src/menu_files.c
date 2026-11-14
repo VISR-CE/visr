@@ -408,6 +408,7 @@ static enum language menu_language;
 static const struct halo_menu_translation *menu_translations;
 static size_t menu_translation_count;
 static int menu_language_warned;
+static int menu_language_explicit;
 
 static void language_warn_once(const char *format, const char *detail)
 {
@@ -432,7 +433,7 @@ static int translations_valid(const struct halo_menu_translation *table, size_t 
 	return 1;
 }
 
-void halo_menus_use_language(const char *name, const struct halo_menu_translation *table, size_t count)
+static void language_select(const char *name, const struct halo_menu_translation *table, size_t count)
 {
 	menu_language = _language_english;
 	menu_translations = NULL;
@@ -452,6 +453,12 @@ void halo_menus_use_language(const char *name, const struct halo_menu_translatio
 		menu_translations = table;
 		menu_translation_count = count;
 	}
+}
+
+void halo_menus_use_language(const char *name, const struct halo_menu_translation *table, size_t count)
+{
+	menu_language_explicit = 1;
+	language_select(name, table, count);
 }
 
 /* en-XA: each string in brackets, its vowels doubled and tildes added, about a third longer; placeholders
@@ -1317,7 +1324,8 @@ struct halo_menus const *halo_menus_load(void)
 	if (read)
 		return succeeded ? &menus : NULL;
 	read = 1;
-	halo_menus_use_language(config_string("debug.language"), NULL, 0);
+	if (!menu_language_explicit)
+		language_select(config_string("debug.language"), NULL, 0);
 	files_gather();
 	memset(&reader, 0, sizeof(reader));
 	for (index = 0; index < file_count && !reader.failed; index++)

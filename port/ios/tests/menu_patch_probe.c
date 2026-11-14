@@ -90,6 +90,15 @@ static char const patches_xml[] =
 	"</patch>\n"
 	"</menus>\n";
 
+/* the language modes: ID attributes on a widget and a string list, read under each language */
+static char const language_xml[] =
+	"<menus><widget name=\"lang/widget\" text=\"Hello {name}\\nWorld\" text_id=\"t.hello\"/>"
+	"<widget name=\"lang/list_widget\" strings=\"OFF|ON\" strings_ids=\"t.off|t.on\" type=\"spinner\"><on event=\"left_mouse\" run=\"mouse spinner 1wide click\"/></widget>"
+	"<strings name=\"lang/list\"><string id=\"t.a\" text=\"Alpha one\"/><string text=\"Plain\"/></strings></menus>\n";
+static char const language_bad_xml[] =
+	"<menus><widget name=\"lang/bad\" strings=\"A|B\" strings_ids=\"t.a\"/></menus>\n";
+static char const *language_name = "";
+
 static char const bad_xml[] =
 	"<menus><patch list=\"ui\\shell\\a\" screen=\"ui\\shell\\b\"><row name=\"r\" text=\"R\" open=\"x\"/></patch></menus>\n";
 
@@ -129,12 +138,13 @@ const struct menu_file_embedded menu_files_embedded[] =
 	{ "xbox/test.xml", (const unsigned int *)screen_xml, sizeof(screen_xml) - 1 },
 	{ "ce/probe.xml", (const unsigned int *)pc_xml, sizeof(pc_xml) - 1 },
 	{ "xbox/art/shipped.png", (const unsigned int *)shipped_png, 1 },
+	{ "ce/language.xml", (const unsigned int *)language_xml, sizeof(language_xml) - 1 },
 };
-const unsigned int menu_files_embedded_count = 6;
+const unsigned int menu_files_embedded_count = 7;
 
 /* ---------- what the game and the platform layer give */
 
-static char mode[16];
+static char mode[32];
 static char folder[256];
 static long failures;
 
@@ -153,6 +163,8 @@ char const *config_string(char const *name)
 {
 	if (!strcmp(name, "display.menus"))
 		return menu_mode;
+	if (!strcmp(name, "debug.language"))
+		return language_name;
 	return "";
 }
 
@@ -931,9 +943,9 @@ static void check_apple(boolean tvos)
 		}
 	}
 	/* the tags: 2 for each row made or tried, the table trimmed to them, the tried ones empty */
-	/* Six widgets, two bitmaps, spinner strings, and the two PC description lists precede patch tags. */
-	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2;
-	used = 9 + 2 * (3 + 4 + 1) + 2;
+	/* Six widgets, two bitmaps, spinner strings, the two PC description lists and the language file's two widgets and list (5 tags) precede patch tags. */
+	counted = 9 + 2 * (3 + (tvos ? 4 : 4) + 1 + 1 + 1) + 2 + 5;
+	used = 9 + 2 * (3 + 4 + 1) + 2 + 5;
 	check(table_count == map_count + used, "the table has the map's %ld tags and %ld of ours (%ld counted): %ld",
 		map_count, used, counted, table_count);
 	for (index = map_count; index < table_count; index++)
@@ -1097,10 +1109,117 @@ static void check_art(void)
 	halo_menus_art_forget();
 }
 
+static struct halo_menu_widget const *language_widget_named(struct halo_menus const *menus, char const *name)
+{
+	long index;
+
+	for (index = 0; menus && index < menus->widget_count; index++)
+		if (!strcmp(menus->widgets[index].name, name))
+			return &menus->widgets[index];
+	return NULL;
+}
+
+static struct halo_menu_widget const *language_widget(struct halo_menus const *menus)
+{
+	return language_widget_named(menus, "lang/widget");
+}
+
+static char const *language_string(struct halo_menus const *menus, long index)
+{
+	long list;
+
+	for (list = 0; menus && list < menus->string_list_count; list++)
+		if (!strcmp(menus->string_lists[list].name, "lang/list") && index < menus->string_lists[list].count)
+			return menus->strings[menus->string_lists[list].first + index];
+	return NULL;
+}
+
+/* language-<name>: one language for the whole load (the first one is kept), checked against the inline English */
+static void language_probe(char const *name)
+{
+	static struct halo_menu_translation const french[] =
+		{ { "t.a", "Alpha un" }, { "t.hello", "Bonjour {name}\\nMonde" }, { "t.off", "NON" }, { "t.on", "OUI" } };
+	static struct halo_menu_translation const missing[] = { { "t.a", "Alpha un" }, { "t.on", "OUI" } };
+	static struct halo_menu_translation const unsorted[] = { { "t.b", "B" }, { "t.a", "A" } };
+	struct halo_menus const *menus;
+	struct halo_menu_widget const *widget, *list;
+	int ok = 0;
+
+	if (!strcmp(name, "xa")) language_name = "en-XA";
+	else if (!strcmp(name, "unknown")) language_name = "fr";
+	else if (!strcmp(name, "unknown-en")) language_name = "en";
+	else if (!strcmp(name, "table")) halo_menus_use_language("fr", french, 4);
+	else if (!strcmp(name, "missing")) halo_menus_use_language("fr", missing, 2);
+	else if (!strcmp(name, "malformed")) halo_menus_use_language("fr", unsorted, 2);
+	else if (!strcmp(name, "nulltable")) halo_menus_use_language("fr", NULL, 0);
+	else if (!strcmp(name, "pipes"))
+	{
+		char path[400];
+		FILE *file;
+
+		snprintf(path, sizeof(path), "mkdir -p '%smenus/ce'", folder);
+		check(system(path) == 0, "the folder is made");
+		snprintf(path, sizeof(path), "%smenus/ce/language.xml", folder);
+		file = fopen(path, "w");
+		check(file != NULL, "the mismatched pipe list is written");
+		if (file)
+		{
+			fputs(language_bad_xml, file);
+			fclose(file);
+		}
+		check(halo_menus_load() == NULL, "a pipe-count mismatch fails the files");
+		remove(path);
+		printf("menu patch probe %s (language-%s)\n", failures ? "FAILED" : "passed", name);
+		return;
+	}
+	menus = halo_menus_load();
+	widget = language_widget(menus);
+	list = language_widget_named(menus, "lang/list_widget");
+	check(widget != NULL && list != NULL && language_string(menus, 1) != NULL, "the language file loads");
+	if (!widget || !list || !language_string(menus, 1))
+		return;
+	check(!strcmp(language_string(menus, 1), "Plain"), "a string without an ID is inline text");
+	if (!strcmp(name, "xa"))
+	{
+		check(!strcmp(language_string(menus, 0), "[AAlphaa oonee~~]"), "en-XA brackets, doubles vowels and lengthens: %s",
+			language_string(menus, 0));
+		check(!strncmp(widget->text, "[Heelloo {name}\\nWoorld~", 22) && strstr(widget->text, "{name}\\n") && strchr(widget->text, '['),
+			"en-XA keeps placeholders and the \\n code: %s", widget->text);
+		check(!strcmp(list->strings, "[OOFF~]|[OON]"), "en-XA strings: %s", list->strings);
+		check(strchr(list->strings, '|') != NULL, "en-XA keeps the | separator: %s", list->strings);
+	}
+	else if (!strcmp(name, "table"))
+	{
+		check(!strcmp(language_string(menus, 0), "Alpha un"), "a table replaces a string");
+		check(!strcmp(widget->text, "Bonjour {name}\\nMonde"), "a table replaces widget text: %s", widget->text);
+		check(!strcmp(list->strings, "NON|OUI"), "a table replaces a pipe list entry by entry: %s", list->strings);
+	}
+	else if (!strcmp(name, "missing"))
+	{
+		check(!strcmp(language_string(menus, 0), "Alpha un"), "a present ID is translated");
+		check(!strcmp(widget->text, "Hello {name}\\nWorld"), "a missing ID keeps its inline English: %s", widget->text);
+		check(!strcmp(list->strings, "OFF|OUI"), "a missing entry in a list keeps its English: %s", list->strings);
+	}
+	else
+	{
+		ok = 1;
+		check(!strcmp(language_string(menus, 0), "Alpha one"), "English text is unchanged: %s", language_string(menus, 0));
+		check(!strcmp(widget->text, "Hello {name}\\nWorld"), "English widget text is unchanged: %s", widget->text);
+		check(!strcmp(list->strings, "OFF|ON"), "English list is unchanged: %s", list->strings);
+	}
+	(void)ok;
+	printf("menu patch probe %s (language-%s)\n", failures ? "FAILED" : "passed", name);
+}
+
 int main(int argc, char **argv)
 {
 	snprintf(mode, sizeof(mode), "%s", argc > 1 ? argv[1] : "apple");
 	snprintf(folder, sizeof(folder), "%s/", argc > 2 ? argv[2] : "/nonexistent");
+	if (!strncmp(mode, "language-", 9))
+	{
+		language_probe(mode + 9);
+		return failures != 0;
+	}
 	setenv("HALO_HOST_TVOS", !strcmp(mode, "tvos") ? "1" : "0", 1);
 	setenv("HALO_HOST_KEYBOARD", !strcmp(mode, "tvos") ? "0" : "1", 1);
 	if (!strcmp(mode, "bad"))
