@@ -740,9 +740,6 @@ join_game = "JOIN GAME"
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_cancel]
 text = "CANCEL"
 
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_y_edit]
-text = "EDIT"
-
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings]
 type_the_join_code_your_friend_s_71ed39 = "Type the join code your friend's lobby shows,\\nor a whole invite link, then JOIN GAME."
 that_is_not_a_join_code_eight_le_74b529 = "That is not a join code (eight letters and digits)\\nor an invite link. Try again."
@@ -771,9 +768,6 @@ text = "CANCEL"
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions]
 hide = "HIDE"
 show = "SHOW"
-
-[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_y_edit]
-text = "EDIT"
 
 [xbox.main_menu_multiplayer_type_select_lobby.xbox_main_menu_multiplayer_type_select_lobby_lobby_button_add_caption]
 text = "ADD PLAYER"
