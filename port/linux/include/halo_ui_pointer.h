@@ -26,6 +26,8 @@ struct halo_ui_pointer
 	short radius;
 	/* swipes in from the left screen edge: BACK on touch */
 	unsigned char back_swipes;
+	/* a finger is down and still a tap candidate */
+	unsigned char down;
 };
 
 /* frees the mouse for the menus while menus_active, and captures it again

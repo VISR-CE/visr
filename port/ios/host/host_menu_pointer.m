@@ -14,6 +14,7 @@ static BOOL touch_debug(void) {static int on=-1;if(on<0)on=getenv("HALO_TOUCH_DE
 #if !TARGET_OS_VISION
 static UISelectionFeedbackGenerator *selection_feedback;
 static UIImpactFeedbackGenerator *impact_feedback;
+static UIImpactFeedbackGenerator *medium_feedback;
 #endif
 
 @interface HaloMenuTouch : UIGestureRecognizer <UIGestureRecognizerDelegate>
@@ -77,6 +78,8 @@ static void pointer_feedback(int kind) {
     host_main_async(^{
         if(kind==HOST_UI_POINTER_FEEDBACK_FOCUS)[selection_feedback selectionChanged];
         else if(kind==HOST_UI_POINTER_FEEDBACK_ACTIVATE)[impact_feedback impactOccurred];
+        else if(kind==HOST_UI_POINTER_FEEDBACK_HOLD_START)[impact_feedback impactOccurred];
+        else if(kind==HOST_UI_POINTER_FEEDBACK_HOLD_OPEN)[medium_feedback impactOccurred];
     });
 #else
     (void)kind;
@@ -85,7 +88,7 @@ static void pointer_feedback(int kind) {
 
 static void menus_changed(int menus) {
 #if !TARGET_OS_VISION
-    if(menus)host_main_async(^{[selection_feedback prepare];[impact_feedback prepare];});
+    if(menus)host_main_async(^{[selection_feedback prepare];[impact_feedback prepare];[medium_feedback prepare];});
 #endif
     host_main_sync(^{ host_ios_touch_menu_changed(menus); });
 }
@@ -95,6 +98,7 @@ void host_menu_pointer_attach(void *root_view) {
 #if !TARGET_OS_VISION
     if(!selection_feedback)selection_feedback=[[UISelectionFeedbackGenerator alloc]init];
     if(!impact_feedback)impact_feedback=[[UIImpactFeedbackGenerator alloc]initWithStyle:UIImpactFeedbackStyleLight];
+    if(!medium_feedback)medium_feedback=[[UIImpactFeedbackGenerator alloc]initWithStyle:UIImpactFeedbackStyleMedium];
 #endif
     [root addGestureRecognizer:[[HaloMenuTouch alloc]initWithTarget:nil action:nil]];
     host_ui_pointer_install(pointer_feedback,menus_changed);

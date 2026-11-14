@@ -6157,6 +6157,25 @@ static boolean ui_touch_back_seen = FALSE;
 static boolean ui_touch_title_seen = FALSE;
 static rectangle2d ui_touch_title_icon;
 
+/* port: the secondary action (X) of the screen's items. The screen's X legend button and its caption
+(DELETE, RENAME) are noted as it draws; a press-and-hold on touch, or a right-click, opens a one-entry
+context menu labeled with that caption, which presses X. A destructive caption is drawn red. */
+#define UI_HOLD_GROW_START_MS 150
+#define UI_HOLD_OPEN_MS 500
+#define UI_HOLD_SCALE 1.06f
+static boolean ui_touch_x_seen = FALSE;
+static boolean ui_touch_x_destructive = FALSE;
+static char ui_touch_x_caption[24];
+static boolean ui_hold_active = FALSE;
+static boolean ui_hold_light_done = FALSE;
+static boolean ui_hold_swallow = FALSE;
+static unsigned long ui_hold_start_ms = 0;
+static rectangle2d ui_hold_bounds;
+static boolean ui_popup_open = FALSE;
+static rectangle2d ui_popup_anchor;
+static boolean ui_popup_anchor_is_item = FALSE;
+static rectangle2d ui_popup_entry;
+
 /* The presses the mouse makes, posted one a frame: the event queue keeps
 only the latest event posted between two frames (queue_event). What they
 lead to (the focus, a list's position) is only known once they have been
@@ -6186,6 +6205,10 @@ static void ui_mouse_forget_targets(
 	ui_mouse_click_pending = FALSE;
 	ui_touch_back_seen = FALSE;
 	ui_touch_title_seen = FALSE;
+	ui_touch_x_seen = FALSE;
+	ui_hold_active = FALSE;
+	ui_hold_swallow = FALSE;
+	ui_popup_open = FALSE;
 
 	return;
 }
@@ -6619,7 +6642,8 @@ static boolean ui_touch_legend_suppressed(struct widget_instance *widget)
 	char const *leaf;
 	short owner;
 
-	if (button != _gamepad_analog_button_a && button != _gamepad_analog_button_b) return FALSE;
+	if (button != _gamepad_analog_button_a && button != _gamepad_analog_button_b &&
+		button != _gamepad_analog_button_x) return FALSE;
 	name = tag_get_name(widget->definition_tag_index);
 	leaf = name ? strrchr(name, '\\') : NULL;
 	leaf = leaf ? leaf + 1 : name;
@@ -6752,6 +6776,111 @@ static void ui_touch_back_chevron_draw(
 	ui_mouse_targets[ui_mouse_target_count].kind = _ui_mouse_target_button;
 	ui_mouse_targets[ui_mouse_target_count].button_index = _gamepad_analog_button_b;
 	ui_mouse_target_count++;
+}
+
+/* port: the press-and-hold feedback and the context menu, drawn over the screen: the held item's outline
+grows to 1.06x between 0.15 s and 0.5 s; the menu, a dim backdrop and one entry, holds it at 1.06x */
+static void ui_hold_popup_draw(
+	rectangle2d const *clip)
+{
+	rectangle2d outline;
+	long width, height, extent_x, extent_y;
+	real progress = 0.0f, scale;
+
+	if (ui_hold_active || ui_popup_open)
+	{
+		rectangle2d box = ui_popup_open && ui_popup_anchor_is_item ? ui_popup_anchor : ui_hold_bounds;
+
+		if (ui_popup_open)
+			progress = 1.0f;
+		else
+		{
+			long elapsed = (long)(system_milliseconds() - ui_hold_start_ms);
+
+			if (elapsed > UI_HOLD_GROW_START_MS)
+			{
+				progress = (real)(elapsed - UI_HOLD_GROW_START_MS) / (UI_HOLD_OPEN_MS - UI_HOLD_GROW_START_MS);
+				progress = MIN(progress, 1.0f);
+				progress *= progress;
+			}
+		}
+		if ((progress > 0.0f && ui_popup_anchor_is_item) || (progress > 0.0f && !ui_popup_open))
+		{
+			scale = 1.0f + (UI_HOLD_SCALE - 1.0f) * progress;
+			width = box.x1 - box.x0;
+			height = box.y1 - box.y0;
+			extent_x = (long)(width * (scale - 1.0f) / 2.0f) + 1;
+			extent_y = (long)(height * (scale - 1.0f) / 2.0f) + 1;
+			outline.x0 = (short)(box.x0 - extent_x);
+			outline.x1 = (short)(box.x1 + extent_x);
+			outline.y0 = (short)(box.y0 - extent_y);
+			outline.y1 = (short)(box.y0 - extent_y + 2);
+			draw_quad(&outline, 0xff2996ff);
+			outline.y0 = (short)(box.y1 + extent_y - 2);
+			outline.y1 = (short)(box.y1 + extent_y);
+			draw_quad(&outline, 0xff2996ff);
+			outline.y0 = (short)(box.y0 - extent_y);
+			outline.y1 = (short)(box.y1 + extent_y);
+			outline.x1 = (short)(box.x0 - extent_x + 2);
+			draw_quad(&outline, 0xff2996ff);
+			outline.x0 = (short)(box.x1 + extent_x - 2);
+			outline.x1 = (short)(box.x1 + extent_x);
+			draw_quad(&outline, 0xff2996ff);
+		}
+	}
+	if (ui_popup_open)
+	{
+		rectangle2d full, box;
+		real_argb_color color = {1.0f, 1.0f, 1.0f, 1.0f};
+		short screen_extra = (short)((halo_screen_width() - 640) / 2);
+		short x, y;
+
+		full.x0 = (short)(-screen_extra);
+		full.x1 = (short)(640 + screen_extra);
+		full.y0 = 0;
+		full.y1 = 480;
+		draw_quad(&full, 0x80000000);
+		width = 160;
+		height = 40;
+		x = (short)((ui_popup_anchor.x0 + ui_popup_anchor.x1) / 2 - width / 2);
+		if (ui_popup_anchor_is_item)
+			y = (short)((ui_popup_anchor.y0 + ui_popup_anchor.y1) / 2 > 240 ?
+				ui_popup_anchor.y0 - height - 8 : ui_popup_anchor.y1 + 8);
+		else
+			y = (short)((ui_popup_anchor.y0 > 240) ? ui_popup_anchor.y0 - height : ui_popup_anchor.y0);
+		x = (short)MAX(clip->x0 + 8, MIN(x, clip->x1 - width - 8));
+		y = (short)MAX(8, MIN(y, 480 - height - 8));
+		box.x0 = x;
+		box.x1 = (short)(x + width);
+		box.y0 = y;
+		box.y1 = (short)(y + height);
+		ui_popup_entry = box;
+		draw_quad(&box, 0xf0102030);
+		outline = box;
+		outline.y1 = (short)(box.y0 + 2);
+		draw_quad(&outline, 0xff2996ff);
+		outline.y0 = (short)(box.y1 - 2);
+		outline.y1 = box.y1;
+		draw_quad(&outline, 0xff2996ff);
+		if (ui_touch_x_destructive)
+		{
+			color.red = 1.0f;
+			color.green = 0.25f;
+			color.blue = 0.25f;
+		}
+		else
+		{
+			color.red = 0.55f;
+			color.green = 0.8f;
+			color.blue = 1.0f;
+		}
+		draw_string_set_draw_mode(tag_loaded(FONT_GROUP_TAG, "ui\\small_ui"), NONE, 1, 0, &color);
+		outline = box;
+		outline.y0 = (short)(box.y0 + 12);
+		rasterizer_draw_string(&outline, clip, NULL, 0, ui_touch_x_caption);
+	}
+
+	return;
 }
 
 static void ui_mouse_note_target(
@@ -7097,10 +7226,90 @@ static void ui_widgets_process_mouse(
 			ui_mouse_click_x = pointer.click_x;
 			ui_mouse_click_y = pointer.click_y;
 		}
-		if (pointer.right_clicks && ui_mouse_menu_drawn)
+		/* the long-press release is not also a tap */
+		if (pointer.left_clicks && ui_hold_swallow)
 		{
-			/* the secondary action (X) of the item under the pointer; right-click is
-			never BACK (Escape, B and mouse button 4 stay BACK) */
+			pointer.left_clicks = 0;
+			ui_mouse_click_pending = FALSE;
+		}
+		if (!pointer.down)
+			ui_hold_swallow = FALSE;
+		if (ui_popup_open)
+		{
+			/* the context menu is modal: its entry presses the secondary action, anything else closes it */
+			if (pointer.left_clicks)
+			{
+				if (pointer.click_x >= ui_popup_entry.x0 && pointer.click_x < ui_popup_entry.x1 &&
+					pointer.click_y >= ui_popup_entry.y0 && pointer.click_y < ui_popup_entry.y1)
+				{
+					halo_ui_pointer_feedback(2);
+					ui_mouse_press(_gamepad_analog_button_x);
+				}
+				ui_popup_open = FALSE;
+			}
+			if (pointer.right_clicks)
+				ui_popup_open = FALSE;
+			if (pointer.back_swipes)
+			{
+				ui_popup_open = FALSE;
+				pointer.back_swipes = 0;
+			}
+			ui_mouse_click_pending = FALSE;
+			ui_mouse_hover_pending = FALSE;
+			pointer.right_clicks = 0;
+		}
+		else if (pointer.down && pointer.radius > 0 && ui_mouse_menu_drawn && ui_touch_x_seen)
+		{
+			unsigned long now = (unsigned long)system_milliseconds();
+
+			if (!ui_hold_active)
+			{
+				target = ui_mouse_target_at(pointer.x, pointer.y);
+				if (target && (target->kind == _ui_mouse_target_item || target->kind == _ui_mouse_target_value ||
+					(target->kind == _ui_mouse_target_list_slot && ui_mouse_widget_has_focus(target->widget->parent) &&
+					target->widget->parent->focused_child == target->widget)))
+				{
+					ui_hold_active = TRUE;
+					ui_hold_light_done = FALSE;
+					ui_hold_start_ms = now;
+					ui_hold_bounds = target->bounds;
+				}
+			}
+			else
+			{
+				unsigned long elapsed = now - ui_hold_start_ms;
+
+				if (!ui_hold_light_done && elapsed >= UI_HOLD_GROW_START_MS)
+				{
+					ui_hold_light_done = TRUE;
+					halo_ui_pointer_feedback(3);
+				}
+				if (elapsed >= UI_HOLD_OPEN_MS)
+				{
+					target = ui_mouse_target_at(pointer.x, pointer.y);
+					if (target && target->kind == _ui_mouse_target_list_slot)
+						ui_mouse_step_list_to_slot(target->widget);
+					else if (target)
+						ui_mouse_give_focus(target->widget);
+					halo_ui_pointer_feedback(4);
+					ui_popup_anchor = ui_hold_bounds;
+					ui_popup_anchor_is_item = TRUE;
+					ui_popup_open = TRUE;
+					ui_hold_active = FALSE;
+					ui_hold_swallow = TRUE;
+					ui_mouse_hover_pending = FALSE;
+				}
+			}
+		}
+		else
+		{
+			ui_hold_active = FALSE;
+		}
+		if (pointer.right_clicks && ui_mouse_menu_drawn && ui_touch_x_seen)
+		{
+			/* the secondary action (X) of the item under the pointer, in the same context menu
+			as a press-and-hold, opened at the pointer; right-click is never BACK (Escape, B and
+			mouse button 4 stay BACK) */
 			target = ui_mouse_target_at(pointer.x, pointer.y);
 			if (target)
 			{
@@ -7109,12 +7318,21 @@ static void ui_widgets_process_mouse(
 				case _ui_mouse_target_item:
 				case _ui_mouse_target_value:
 					ui_mouse_give_focus(target->widget);
-					ui_mouse_press(_gamepad_analog_button_x);
 					break;
 				case _ui_mouse_target_list_slot:
 					ui_mouse_step_list_to_slot(target->widget);
-					ui_mouse_press(_gamepad_analog_button_x);
 					break;
+				default:
+					target = NULL;
+					break;
+				}
+				if (target)
+				{
+					ui_popup_anchor.x0 = ui_popup_anchor.x1 = pointer.x;
+					ui_popup_anchor.y0 = ui_popup_anchor.y1 = pointer.y;
+					ui_popup_anchor_is_item = FALSE;
+					ui_popup_open = TRUE;
+					ui_mouse_hover_pending = FALSE;
 				}
 			}
 		}
@@ -7550,6 +7768,23 @@ static void widget_instance_render_recursive(
 		if (ui_mouse_noting_targets && ui_mouse_key_button(widget) == _gamepad_analog_button_b &&
 			ui_touch_legend_suppressed(widget))
 			ui_touch_back_seen = TRUE;
+		if (ui_mouse_noting_targets && ui_mouse_key_button(widget) == _gamepad_analog_button_x)
+		{
+			struct widget_instance *caption = NULL;
+
+			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &caption);
+			if (caption && caption->parameters.text_box.text && caption->parameters.text_box.text[0])
+			{
+				long length;
+
+				ui_touch_x_seen = TRUE;
+				for (length = 0; length < 23 && caption->parameters.text_box.text[length]; length++)
+					ui_touch_x_caption[length] = (char)caption->parameters.text_box.text[length];
+				ui_touch_x_caption[length] = 0;
+				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
+					strstr(ui_touch_x_caption, "Delete") != NULL;
+			}
+		}
 		if (ui_mouse_key_button(widget) != NONE &&
 			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn, NULL) &&
 			!ui_touch_legend_suppressed(widget))
@@ -7959,6 +8194,7 @@ void render_ui_widgets(
 				{
 					ui_touch_back_seen = FALSE;
 					ui_touch_title_seen = FALSE;
+					ui_touch_x_seen = FALSE;
 				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
@@ -7970,6 +8206,8 @@ void render_ui_widgets(
 				ui_redraw_end_screen();
 				if (ui_mouse_noting_targets)
 					ui_touch_back_chevron_draw(widget, &bounds);
+				if (ui_mouse_noting_targets)
+					ui_hold_popup_draw(&bounds);
 				if (ui_mouse_noting_targets)
 					ui_mouse_menu_drawn = TRUE;
 				ui_mouse_noting_targets = FALSE;

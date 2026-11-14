@@ -174,6 +174,7 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->left_clicks = m->left_clicks;
     out->right_clicks = m->right_clicks;
     out->back_swipes = m->back_swipes;
+    out->down = m->tracking && m->touch == 1 && !m->scrolling && !m->swiped;
     out->wheel_steps = steps < -HOST_MENU_POINTER_MAXIMUM_STEPS ? -HOST_MENU_POINTER_MAXIMUM_STEPS :
         steps > HOST_MENU_POINTER_MAXIMUM_STEPS ? HOST_MENU_POINTER_MAXIMUM_STEPS : steps;
     m->moved = m->left_clicks = m->right_clicks = m->wheel_steps = 0;

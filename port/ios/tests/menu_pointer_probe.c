@@ -178,6 +178,21 @@ static void mapping(void) {
     assert(units > 25.0f && units < 28.0f);
 }
 
+static void hold_down(void) {
+    struct host_menu_pointer m = fresh();
+    struct host_ui_pointer p;
+    /* a held touch reports down until it ends, scrolls, or swipes */
+    host_menu_pointer_touch_begin(&m, 1, 100, 200);
+    p = take(&m);
+    assert(p.down == 1);
+    host_menu_pointer_touch_move(&m, 1, 100, 260);
+    p = take(&m);
+    assert(p.down == 0);
+    host_menu_pointer_touch_end(&m, 1);
+    p = take(&m);
+    assert(p.down == 0);
+}
+
 static void edge_swipe(void) {
     struct host_menu_pointer m = fresh();
     struct host_ui_pointer p;
@@ -202,6 +217,7 @@ static void edge_swipe(void) {
 
 int main(void) {
     edge_swipe();
+    hold_down();
     tap();
     drag();
     fingers();

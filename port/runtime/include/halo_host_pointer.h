@@ -40,15 +40,20 @@ struct host_ui_pointer
 	int32_t picture;
 	/* whole swipes in from the left edge since the last read: BACK on a touch screen */
 	int32_t back_swipes;
+	/* a finger is down and still a tap candidate (not scrolling, not an edge swipe): the menus time a press-and-hold from it */
+	int32_t down;
 };
 
-_Static_assert(sizeof(struct host_ui_pointer) == 56, "host_ui_pointer crosses between the guest and the host");
+_Static_assert(sizeof(struct host_ui_pointer) == 60, "host_ui_pointer crosses between the guest and the host");
 
 /* host_ui_pointer_feedback(kind) */
 enum host_ui_pointer_feedback_kind
 {
 	HOST_UI_POINTER_FEEDBACK_FOCUS = 1,
-	HOST_UI_POINTER_FEEDBACK_ACTIVATE = 2
+	HOST_UI_POINTER_FEEDBACK_ACTIVATE = 2,
+	/* a press-and-hold has begun to register (light), and has opened its menu (medium) */
+	HOST_UI_POINTER_FEEDBACK_HOLD_START = 3,
+	HOST_UI_POINTER_FEEDBACK_HOLD_OPEN = 4
 };
 
 #endif
