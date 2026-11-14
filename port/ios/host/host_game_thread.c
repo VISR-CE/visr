@@ -10,7 +10,7 @@ int host_game_thread_enabled(void) {
     static int enabled = -1;
     if (enabled < 0) {
         char value[16];
-        host_config_string("debug.game_thread", "false", value, sizeof(value));
+        host_config_string("debug.game_thread", "true", value, sizeof(value));
         enabled = strcmp(value, "true") == 0;
     }
     return enabled;
