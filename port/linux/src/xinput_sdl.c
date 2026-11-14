@@ -63,6 +63,7 @@ extern unsigned char network_aim_assist_block_mouse(void);
 static int glyph_keyboard_active;
 static int glyph_menus_active;
 static struct halo_glyph_input glyph_menu_input;
+static int glyph_x_destructive;
 #endif
 #define VK_OEM_3_BACKQUOTE 0xc0
 
@@ -1374,6 +1375,15 @@ void halo_controller_glyph_input_event(union SDL_Event const *event)
 
 /* Native pointer activity is authoritative: a positive radius is a finger
 or pinch, and an installed but idle pointer does not change the source. */
+void halo_controller_glyph_x_destructive(int destructive)
+{
+#ifdef HALO_IOS
+	glyph_x_destructive = destructive;
+#else
+	(void)destructive;
+#endif
+}
+
 void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer const *pointer)
 {
 #ifdef HALO_IOS
@@ -1381,6 +1391,16 @@ void halo_controller_glyph_pointer_activity(int menus, struct host_ui_pointer co
 	if (!menus || !pointer || !pointer->active ||
 		!(pointer->moved || pointer->left_clicks || pointer->right_clicks || pointer->wheel_steps)) return;
 	glyph_keyboard_active = pointer->radius > 0.0f ? -2 : 1;
+	if (pointer->radius <= 0.0f && (pointer->left_clicks || pointer->right_clicks))
+	{
+		/* a scripted or host-injected click emits no SDL event: count it as the mouse */
+		SDL_Event note;
+
+		memset(&note, 0, sizeof(note));
+		note.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+		note.button.which = 1;
+		halo_controller_glyph_input_event(&note);
+	}
 	/* SDL already orders mouse events. This hook supplies UIKit finger and
 	Vision Pro gaze/pinch activity, which do not necessarily emit SDL events. */
 	if (pointer->radius > 0.0f)
@@ -1488,6 +1508,8 @@ int halo_controller_glyph_request(short player, short semantic, short physical, 
 		snprintf(label, size, "Mouse Left");
 	else if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_MOUSE && physical == 2)
 		snprintf(label, size, "Mouse Right");
+	else if (glyph_menus_active && glyph_menu_input.source == HALO_GLYPH_INPUT_KEYBOARD && physical == 2 && glyph_x_destructive)
+		snprintf(label, size, "Delete");
 	else if (semantic == 28 || semantic == 29)
 		snprintf(label, size, "%s", semantic == 28 ? "Enter" : "Escape");
 	else if (semantic == 30 || semantic == 31)

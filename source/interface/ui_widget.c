@@ -6168,6 +6168,15 @@ static boolean ui_touch_x_destructive = FALSE;
 static char ui_touch_x_caption[24];
 static boolean ui_hold_active = FALSE;
 static boolean ui_hold_light_done = FALSE;
+static short ui_popup_pending = 0;
+static short ui_popup_pending_x, ui_popup_pending_y;
+static boolean ui_hold_focused = FALSE;
+static long ui_hold_focus_frames = 0;
+static boolean ui_hold_grows = FALSE;
+static boolean ui_hold_shrinking = FALSE;
+static unsigned long ui_hold_shrink_ms = 0;
+static real ui_hold_shrink_from = 0.0f;
+#define UI_HOLD_SHRINK_MS 100
 static boolean ui_hold_swallow = FALSE;
 static unsigned long ui_hold_start_ms = 0;
 static rectangle2d ui_hold_bounds;
@@ -6209,6 +6218,7 @@ static void ui_mouse_forget_targets(
 	ui_hold_active = FALSE;
 	ui_hold_swallow = FALSE;
 	ui_popup_open = FALSE;
+	ui_popup_pending = 0;
 
 	return;
 }
@@ -6787,12 +6797,26 @@ static void ui_hold_popup_draw(
 	long width, height, extent_x, extent_y;
 	real progress = 0.0f, scale;
 
-	if (ui_hold_active || ui_popup_open)
+	if (ui_hold_shrinking)
+	{
+		long elapsed = (long)(system_milliseconds() - ui_hold_shrink_ms);
+
+		if (elapsed >= UI_HOLD_SHRINK_MS)
+			ui_hold_shrinking = FALSE;
+	}
+	if ((ui_hold_active && ui_hold_grows) || ui_popup_open || ui_hold_shrinking)
 	{
 		rectangle2d box = ui_popup_open && ui_popup_anchor_is_item ? ui_popup_anchor : ui_hold_bounds;
 
 		if (ui_popup_open)
 			progress = 1.0f;
+		else if (ui_hold_shrinking && !ui_hold_active)
+		{
+			long elapsed = (long)(system_milliseconds() - ui_hold_shrink_ms);
+
+			progress = ui_hold_shrink_from * (1.0f - (real)elapsed / UI_HOLD_SHRINK_MS);
+			progress = MAX(progress, 0.0f);
+		}
 		else
 		{
 			long elapsed = (long)(system_milliseconds() - ui_hold_start_ms);
@@ -6803,6 +6827,7 @@ static void ui_hold_popup_draw(
 				progress = MIN(progress, 1.0f);
 				progress *= progress;
 			}
+			ui_hold_shrink_from = progress;
 		}
 		if ((progress > 0.0f && ui_popup_anchor_is_item) || (progress > 0.0f && !ui_popup_open))
 		{
@@ -7258,7 +7283,7 @@ static void ui_widgets_process_mouse(
 			ui_mouse_hover_pending = FALSE;
 			pointer.right_clicks = 0;
 		}
-		else if (pointer.down && pointer.radius > 0 && ui_mouse_menu_drawn && ui_touch_x_seen)
+		else if (pointer.down && pointer.radius > 0 && ui_mouse_menu_drawn)
 		{
 			unsigned long now = (unsigned long)system_milliseconds();
 
@@ -7271,6 +7296,10 @@ static void ui_widgets_process_mouse(
 				{
 					ui_hold_active = TRUE;
 					ui_hold_light_done = FALSE;
+					ui_hold_focused = FALSE;
+					ui_hold_focus_frames = 0;
+					ui_hold_grows = FALSE;
+					ui_hold_shrinking = FALSE;
 					ui_hold_start_ms = now;
 					ui_hold_bounds = target->bounds;
 				}
@@ -7279,12 +7308,26 @@ static void ui_widgets_process_mouse(
 			{
 				unsigned long elapsed = now - ui_hold_start_ms;
 
-				if (!ui_hold_light_done && elapsed >= UI_HOLD_GROW_START_MS)
+				/* whether the item has a secondary action is its own: the screen's X legend follows
+				the focused item, so the held item takes focus at 0.15 s and grows only when the
+				legend stays up; an item without one neither grows nor opens a menu */
+				if (!ui_hold_focused && elapsed >= UI_HOLD_GROW_START_MS)
+				{
+					target = ui_mouse_target_at(pointer.x, pointer.y);
+					if (target && target->kind == _ui_mouse_target_list_slot)
+						ui_mouse_step_list_to_slot(target->widget);
+					else if (target)
+						ui_mouse_give_focus(target->widget);
+					ui_hold_focused = TRUE;
+				}
+				else if (ui_hold_focused && !ui_hold_grows && ui_touch_x_seen && ++ui_hold_focus_frames >= 2)
+					ui_hold_grows = TRUE;
+				if (ui_hold_grows && !ui_hold_light_done)
 				{
 					ui_hold_light_done = TRUE;
 					halo_ui_pointer_feedback(3);
 				}
-				if (elapsed >= UI_HOLD_OPEN_MS)
+				if (ui_hold_grows && ui_touch_x_seen && elapsed >= UI_HOLD_OPEN_MS)
 				{
 					target = ui_mouse_target_at(pointer.x, pointer.y);
 					if (target && target->kind == _ui_mouse_target_list_slot)
@@ -7296,6 +7339,7 @@ static void ui_widgets_process_mouse(
 					ui_popup_anchor_is_item = TRUE;
 					ui_popup_open = TRUE;
 					ui_hold_active = FALSE;
+					ui_hold_grows = FALSE;
 					ui_hold_swallow = TRUE;
 					ui_mouse_hover_pending = FALSE;
 				}
@@ -7303,9 +7347,15 @@ static void ui_widgets_process_mouse(
 		}
 		else
 		{
+			if (ui_hold_active && ui_hold_grows && !ui_popup_open)
+			{
+				ui_hold_shrinking = TRUE;
+				ui_hold_shrink_ms = system_milliseconds();
+			}
 			ui_hold_active = FALSE;
+			ui_hold_grows = FALSE;
 		}
-		if (pointer.right_clicks && ui_mouse_menu_drawn && ui_touch_x_seen)
+		if (pointer.right_clicks && ui_mouse_menu_drawn && !ui_popup_open)
 		{
 			/* the secondary action (X) of the item under the pointer, in the same context menu
 			as a press-and-hold, opened at the pointer; right-click is never BACK (Escape, B and
@@ -7328,12 +7378,24 @@ static void ui_widgets_process_mouse(
 				}
 				if (target)
 				{
-					ui_popup_anchor.x0 = ui_popup_anchor.x1 = pointer.x;
-					ui_popup_anchor.y0 = ui_popup_anchor.y1 = pointer.y;
-					ui_popup_anchor_is_item = FALSE;
-					ui_popup_open = TRUE;
+					/* the screen's X legend follows the focused item: the menu opens once the
+					focus has taken effect and the legend is still up */
+					ui_popup_pending = 3;
+					ui_popup_pending_x = pointer.x;
+					ui_popup_pending_y = pointer.y;
 					ui_mouse_hover_pending = FALSE;
 				}
+			}
+		}
+		if (ui_popup_pending > 0 && !ui_popup_open)
+		{
+			if (--ui_popup_pending <= 1 && ui_touch_x_seen)
+			{
+				ui_popup_anchor.x0 = ui_popup_anchor.x1 = ui_popup_pending_x;
+				ui_popup_anchor.y0 = ui_popup_anchor.y1 = ui_popup_pending_y;
+				ui_popup_anchor_is_item = FALSE;
+				ui_popup_open = TRUE;
+				ui_popup_pending = 0;
 			}
 		}
 		if (pointer.back_swipes && ui_touch_back_seen && ui_mouse_menu_drawn)
@@ -7783,6 +7845,7 @@ static void widget_instance_render_recursive(
 				ui_touch_x_caption[length] = 0;
 				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
 					strstr(ui_touch_x_caption, "Delete") != NULL;
+				halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 			}
 		}
 		if (ui_mouse_key_button(widget) != NONE &&

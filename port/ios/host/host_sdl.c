@@ -1616,6 +1616,17 @@ static void menu_script_next(void)
 		menu_script.kind = !strcmp(kind, "tap") ? 1 : !strcmp(kind, "click") ? 3 : 4;
 		sscanf(menu_script.cursor, "%f %f%n", &menu_script.x0, &menu_script.y0, &used);
 	}
+	else if (!strcmp(kind, "hold"))
+	{
+		/* "hold x y frames": touch down, stay still for the frames, lift (a drag that does not move) */
+		int frames = 30;
+
+		menu_script.kind = 2;
+		sscanf(menu_script.cursor, "%f %f %d%n", &menu_script.x0, &menu_script.y0, &frames, &used);
+		menu_script.x1 = menu_script.x0;
+		menu_script.y1 = menu_script.y0;
+		menu_script.steps = frames > 2 ? frames : 2;
+	}
 	else if (!strcmp(kind, "drag"))
 	{
 		menu_script.kind = 2;
@@ -1747,15 +1758,6 @@ static void menu_script_run(void)
 		return;
 	case 3:
 	case 4:
-		{
-			/* (the menus' hints follow the last device, so a scripted click counts as the mouse) */
-			SDL_Event note;
-
-			memset(&note, 0, sizeof(note));
-			note.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
-			note.button.which = 1;
-			halo_controller_glyph_input_event(&note);
-		}
 		host_menu_pointer_device_move(&menu_pointer, x, y);
 		host_menu_pointer_device_click(&menu_pointer, menu_script.kind == 4, x, y);
 		break;
