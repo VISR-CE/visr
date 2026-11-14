@@ -5315,8 +5315,8 @@ static void browser_update(struct widget_instance *list)
 				usnprintf(text, NUMBEROF(text) - 1, L"Network version %u is not compatible with this build",
 					network_game_client_advertised_game_version(global_network_game_client_get(), game));
 			else
-				usnprintf(text, NUMBEROF(text) - 1, L"%d players of %d, on %d machines%s", game->player_count,
-					game->maximum_player_count, game->machine_count, advertised_in_progress(game) ? L": under way" : L"");
+				usnprintf(text, NUMBEROF(text) - 1, L"%d players of %d, on %d machine%s%s", game->player_count,
+					game->maximum_player_count, game->machine_count, game->machine_count == 1 ? L"" : L"s", advertised_in_progress(game) ? L": under way" : L"");
 		}
 		text[NUMBEROF(text) - 1] = 0;
 		text_set(named(list, "ticker_player_info", 0), text);
@@ -6030,8 +6030,9 @@ static void preview_update(struct widget_instance *list)
 		lobby_map_show(description, game->map_name);
 
 		advertised_game_type_text(game, type, NUMBEROF(type));
-		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n%d of %d players\r\non %d machines", type,
-			game->player_count, game->maximum_player_count, game->machine_count);
+		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n%d of %d players\r\non %d machine%s", type,
+			game->player_count, game->maximum_player_count, game->machine_count,
+			game->machine_count == 1 ? L"" : L"s");
 		text[NUMBEROF(text) - 1] = 0;
 		text_set_length(named(description, "lobby_game_data", 0), text, LOBBY_TEXT_LENGTH);
 		ustrncpy(name, game->game_name, NUMBEROF(game->game_name));
