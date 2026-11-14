@@ -185,11 +185,11 @@
 	<widget name="xbox/error/confirm_delete_profile_frame" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" />
 	<widget name="xbox/error/confirm_delete_profile_text_box" type="text" width="239" height="159" string_list="xbox/strings/displayed_error_messages" string_index="24" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
 	<widget name="xbox/error/confirm_delete_profile/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
-	<widget name="xbox/error/confirm_delete_profile/b_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_profile_b_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_delete_profile/b_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_b_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_profile/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
-	<widget name="xbox/error/confirm_delete_profile/a_caption" type="text" text="OK" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_profile_a_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_delete_profile/a_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_a_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/error/confirm_delete_gametype_modal_fullscreen" width="640" height="480" flags="pass_unhandled_to_focused_child">
@@ -226,109 +226,109 @@
 	<widget name="xbox/error/confirm_join_big_frame" width="239" height="159" bitmap="xbox/bitmaps/alert_bkd" />
 	<widget name="xbox/error/confirm_join_big_text_box" type="text" width="239" height="159" string_list="xbox/strings/displayed_error_messages" string_index="60" font="ui\large_ui" color="#FF2896FF" text_x="9" text_y="36" />
 	<widget name="xbox/error/confirm_join_big/b_butn" width="16" height="20" bitmap="xbox/browser/b_butn_sm" />
-	<widget name="xbox/error/confirm_join_big/b_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_join_big_b_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_join_big/b_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_b_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<widget name="xbox/error/confirm_join_big/a_butn" width="16" height="20" bitmap="xbox/browser/a_butn_sm" />
-	<widget name="xbox/error/confirm_join_big/a_caption" type="text" text="OK" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_join_big_a_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
+	<widget name="xbox/error/confirm_join_big/a_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_join_big_a_caption.text" width="70" height="22" font="ui\small_ui" color="#FF2896FF">
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<strings name="xbox/strings/displayed_error_messages">
-		<string text="Unable to complete\nthe last operation." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_complete_nthe_last_operation" />
-		<string text="A networking error\nhas occurred." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.a_networking_error_nhas_occurred" />
-		<string text="Unable to join game \nbecause it is closed." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_join_game_nbecause_it__bad92c" />
-		<string text="Unable to join game." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_join_game" />
-		<string text="The game has\nclosed down." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_game_has_nclosed_down" />
-		<string text="Halo can't connect to\nthe network." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.halo_can_t_connect_to_nthe_network" />
-		<string text="Network connection lost." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.network_connection_lost" />
-		<string text="Failed to join the game." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.failed_to_join_the_game" />
-		<string text="Your game has\ngone out of sync with\nthe others in\nthe game. Resetting..." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.your_game_has_ngone_out_of_sync__8f91c4" />
-		<string text="Your connection is\nexperiencing\ndifficulties..." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.your_connection_is_nexperiencing_d2436e" />
-		<string text="unused network error" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unused_network_error" />
-		<string text="A controller error\nhas occurred." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.a_controller_error_nhas_occurred" />
-		<string text="Please reconnect\ncontroller #%controller.\nPress START to continue\nafter reconnecting." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.please_reconnect_ncontroller_con_39fc78" />
-		<string text="Please reconnect\n#%controller controller." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.please_reconnect_n_controller_controller" />
-		<string text="A controller\nmemory card error\nhas occurred." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.a_controller_nmemory_card_error__9aec74" />
-		<string text="Saving... one moment\nplease." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.saving_one_moment_nplease" />
-		<string text="Creating player profile...\none moment please." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.creating_player_profile_none_mom_b991d4" />
-		<string text="Creating game settings\nfile... one moment please." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.creating_game_settings_nfile_one_2eba72" />
-		<string text="Player 2 must use a\ndifferent controller\nthan Player 1." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.player_2_must_use_a_ndifferent_c_7bee23" />
-		<string text="unused controller error" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unused_controller_error" />
-		<string text="unused controller error" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unused_controller_error_2" />
-		<string text="Please insert\nanother quarter." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.please_insert_nanother_quarter" />
-		<string text="All progress since the\nlast checkpoint will\nbe lost." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.all_progress_since_the_nlast_che_987edb" />
-		<string text="All progress on this \nlevel will be lost." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.all_progress_on_this_nlevel_will_be_lost" />
-		<string text="Are you sure you wish \nto delete this profile? \nAll your progress and \nsettings will be lost." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.are_you_sure_you_wish_nto_delete_147adf" />
-		<string text="Are you sure you wish \nto delete this\ngametype? All your\nsettings will be lost." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.are_you_sure_you_wish_nto_delete_c7a366" />
-		<string text="Sorry, you can't delete\nthe default multiplayer\ngame settings." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.sorry_you_can_t_delete_nthe_defa_0f770e" />
-		<string text="Sorry, there is already \na saved gametype or \nprofile with that name." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.sorry_there_is_already_na_saved__5fa0b9" />
-		<string text="Do you really want to\nback out without saving\nyour changes?" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.do_you_really_want_to_nback_out__28c975" />
-		<string text="Sorry, you can't create\na saved game file with\nan empty name." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.sorry_you_can_t_create_na_saved__92a4c3" />
-		<string text="Saving last checkpoint...\none moment please." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.saving_last_checkpoint_none_mome_5fa03f" />
-		<string text="Unable to load saved\ngame file." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_load_saved_ngame_file" />
-		<string text="unused warning" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unused_warning" />
-		<string text="Insufficient free space to\nsave game." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.insufficient_free_space_to_nsave_game" />
-		<string text="Insufficient free save slots." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.insufficient_free_save_slots" />
-		<string text="An error has occurred\nloading a map file." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.an_error_has_occurred_nloading_a_7812be" />
-		<string text="You have reached the\nmaximum number of Halo\ngame files. Unable to\ncreate additional ones." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.you_have_reached_the_nmaximum_nu_11b393" />
-		<string text="Unable to create new\nplayer profile." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_create_new_nplayer_profile" />
-		<string text="Unable to create new\nmultiplayer game\nsettings entry." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_create_new_nmultiplaye_114840" />
-		<string text="Unable to load saved\nprogress for this\nprofile." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_load_saved_nprogress_f_33ffcc" />
-		<string text="An error has occurred\ntrying to contact the \nGameSpy master server." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.an_error_has_occurred_ntrying_to_b5e015" />
-		<string text="Video settings changed...\nPress OK to accept." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.video_settings_changed_npress_ok_f0bc07" />
-		<string text="The server you selected\nrequires a password!" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_server_you_selected_nrequire_654ebb" />
-		<string text="Unable to join the game\nserver!" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.unable_to_join_the_game_nserver" />
-		<string text="The server reported\nan invalid connection\nrequest." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_server_reported_nan_invalid__e97aa6" />
-		<string text="Your password was\nrejected by the server." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.your_password_was_nrejected_by_t_7f6ad2" />
-		<string text="The server is full." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_server_is_full" />
-		<string text="Your CD Key is invalid." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.your_cd_key_is_invalid" />
-		<string text="Your CD Key is in use\nby another player." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.your_cd_key_is_in_use_nby_another_player" />
-		<string text="The server operator has\nbanned you from playing\non this server." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_server_operator_has_nbanned__637cc1" />
-		<string text="The server operator has\nkicked you from this\nserver." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_server_operator_has_nkicked__082fb1" />
-		<string text="Video settings will be\ntested.  If you do not see\na confirm dialog after\nthe change, press ESC." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.video_settings_will_be_ntested_i_40e6d8" />
-		<string text="Checkpoint saved." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.checkpoint_saved" />
-		<string text="The address is invalid." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.the_address_is_invalid" />
-		<string text="You need to create or\nselect a profile in order\nto continue." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.you_need_to_create_or_nselect_a__178926" />
-		<string text="Your client is running an\nincompatible network \nprotocol version." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.your_client_is_running_an_nincom_eb370d" />
-		<string text="Connection rejected: Your\nclient is older than the\nserver." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.connection_rejected_your_nclient_df1722" />
-		<string text="Connection rejected: Your\nclient is newer than the\nserver." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.connection_rejected_your_nclient_09d320" />
-		<string text="You must have\nAdministrator privileges\nto download this required\npatch." id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.you_must_have_nadministrator_pri_ba2dfe" />
-		<string text="Are you sure you want to\ndelete this saved game?" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.are_you_sure_you_want_to_ndelete_761379" />
-		<string text="This game allows more\nplayers than this device\nruns smoothly.\nJoin anyway?" id="xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages.this_game_allows_more_nplayers_t_33cd0c" />
+		<string text="Unable to complete\nthe last operation." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_complete_nthe_last_operation" />
+		<string text="A networking error\nhas occurred." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.a_networking_error_nhas_occurred" />
+		<string text="Unable to join game \nbecause it is closed." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_join_game_nbecause_it__bad92c" />
+		<string text="Unable to join game." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_join_game" />
+		<string text="The game has\nclosed down." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_game_has_nclosed_down" />
+		<string text="Halo can't connect to\nthe network." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.halo_can_t_connect_to_nthe_network" />
+		<string text="Network connection lost." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.network_connection_lost" />
+		<string text="Failed to join the game." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.failed_to_join_the_game" />
+		<string text="Your game has\ngone out of sync with\nthe others in\nthe game. Resetting..." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.your_game_has_ngone_out_of_sync__8f91c4" />
+		<string text="Your connection is\nexperiencing\ndifficulties..." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.your_connection_is_nexperiencing_d2436e" />
+		<string text="unused network error" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unused_network_error" />
+		<string text="A controller error\nhas occurred." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.a_controller_error_nhas_occurred" />
+		<string text="Please reconnect\ncontroller #%controller.\nPress START to continue\nafter reconnecting." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.please_reconnect_ncontroller_con_39fc78" />
+		<string text="Please reconnect\n#%controller controller." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.please_reconnect_n_controller_controller" />
+		<string text="A controller\nmemory card error\nhas occurred." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.a_controller_nmemory_card_error__9aec74" />
+		<string text="Saving... one moment\nplease." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.saving_one_moment_nplease" />
+		<string text="Creating player profile...\none moment please." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.creating_player_profile_none_mom_b991d4" />
+		<string text="Creating game settings\nfile... one moment please." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.creating_game_settings_nfile_one_2eba72" />
+		<string text="Player 2 must use a\ndifferent controller\nthan Player 1." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.player_2_must_use_a_ndifferent_c_7bee23" />
+		<string text="unused controller error" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unused_controller_error" />
+		<string text="unused controller error" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unused_controller_error_2" />
+		<string text="Please insert\nanother quarter." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.please_insert_nanother_quarter" />
+		<string text="All progress since the\nlast checkpoint will\nbe lost." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.all_progress_since_the_nlast_che_987edb" />
+		<string text="All progress on this \nlevel will be lost." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.all_progress_on_this_nlevel_will_be_lost" />
+		<string text="Are you sure you wish \nto delete this profile? \nAll your progress and \nsettings will be lost." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.are_you_sure_you_wish_nto_delete_147adf" />
+		<string text="Are you sure you wish \nto delete this\ngametype? All your\nsettings will be lost." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.are_you_sure_you_wish_nto_delete_c7a366" />
+		<string text="Sorry, you can't delete\nthe default multiplayer\ngame settings." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.sorry_you_can_t_delete_nthe_defa_0f770e" />
+		<string text="Sorry, there is already \na saved gametype or \nprofile with that name." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.sorry_there_is_already_na_saved__5fa0b9" />
+		<string text="Do you really want to\nback out without saving\nyour changes?" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.do_you_really_want_to_nback_out__28c975" />
+		<string text="Sorry, you can't create\na saved game file with\nan empty name." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.sorry_you_can_t_create_na_saved__92a4c3" />
+		<string text="Saving last checkpoint...\none moment please." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.saving_last_checkpoint_none_mome_5fa03f" />
+		<string text="Unable to load saved\ngame file." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_load_saved_ngame_file" />
+		<string text="unused warning" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unused_warning" />
+		<string text="Insufficient free space to\nsave game." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.insufficient_free_space_to_nsave_game" />
+		<string text="Insufficient free save slots." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.insufficient_free_save_slots" />
+		<string text="An error has occurred\nloading a map file." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.an_error_has_occurred_nloading_a_7812be" />
+		<string text="You have reached the\nmaximum number of Halo\ngame files. Unable to\ncreate additional ones." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.you_have_reached_the_nmaximum_nu_11b393" />
+		<string text="Unable to create new\nplayer profile." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_create_new_nplayer_profile" />
+		<string text="Unable to create new\nmultiplayer game\nsettings entry." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_create_new_nmultiplaye_114840" />
+		<string text="Unable to load saved\nprogress for this\nprofile." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_load_saved_nprogress_f_33ffcc" />
+		<string text="An error has occurred\ntrying to contact the \nGameSpy master server." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.an_error_has_occurred_ntrying_to_b5e015" />
+		<string text="Video settings changed...\nPress OK to accept." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.video_settings_changed_npress_ok_f0bc07" />
+		<string text="The server you selected\nrequires a password!" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_server_you_selected_nrequire_654ebb" />
+		<string text="Unable to join the game\nserver!" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.unable_to_join_the_game_nserver" />
+		<string text="The server reported\nan invalid connection\nrequest." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_server_reported_nan_invalid__e97aa6" />
+		<string text="Your password was\nrejected by the server." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.your_password_was_nrejected_by_t_7f6ad2" />
+		<string text="The server is full." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_server_is_full" />
+		<string text="Your CD Key is invalid." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.your_cd_key_is_invalid" />
+		<string text="Your CD Key is in use\nby another player." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.your_cd_key_is_in_use_nby_another_player" />
+		<string text="The server operator has\nbanned you from playing\non this server." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_server_operator_has_nbanned__637cc1" />
+		<string text="The server operator has\nkicked you from this\nserver." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_server_operator_has_nkicked__082fb1" />
+		<string text="Video settings will be\ntested.  If you do not see\na confirm dialog after\nthe change, press ESC." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.video_settings_will_be_ntested_i_40e6d8" />
+		<string text="Checkpoint saved." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.checkpoint_saved" />
+		<string text="The address is invalid." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.the_address_is_invalid" />
+		<string text="You need to create or\nselect a profile in order\nto continue." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.you_need_to_create_or_nselect_a__178926" />
+		<string text="Your client is running an\nincompatible network \nprotocol version." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.your_client_is_running_an_nincom_eb370d" />
+		<string text="Connection rejected: Your\nclient is older than the\nserver." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.connection_rejected_your_nclient_df1722" />
+		<string text="Connection rejected: Your\nclient is newer than the\nserver." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.connection_rejected_your_nclient_09d320" />
+		<string text="You must have\nAdministrator privileges\nto download this required\npatch." id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.you_must_have_nadministrator_pri_ba2dfe" />
+		<string text="Are you sure you want to\ndelete this saved game?" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.are_you_sure_you_want_to_ndelete_761379" />
+		<string text="This game allows more\nplayers than this device\nruns smoothly.\nJoin anyway?" id="xbox.multiplayer_shared.xbox_strings_displayed_error_messages.this_game_allows_more_nplayers_t_33cd0c" />
 	</strings>
 	<widget name="xbox/error/header_warning" type="text" controller="1" width="150" height="20" string_list="xbox/error/error_headers" string_index="1" font="ui\large_ui" color="#FF2896FF">
 	</widget>
 	<strings name="xbox/error/error_headers">
-		<string text="ATTENTION" id="xbox.multiplayer_shared_compact.xbox_error_error_headers.attention" />
-		<string text="ATTENTION" id="xbox.multiplayer_shared_compact.xbox_error_error_headers.attention_2" />
-		<string text="ARE YOU SURE?" id="xbox.multiplayer_shared_compact.xbox_error_error_headers.are_you_sure" />
-		<string text="SAVING..." id="xbox.multiplayer_shared_compact.xbox_error_error_headers.saving" />
-		<string text="ATTENTION:" id="xbox.multiplayer_shared_compact.xbox_error_error_headers.attention_3" />
-		<string text="DID YOU KNOW..." id="xbox.multiplayer_shared_compact.xbox_error_error_headers.did_you_know" />
-		<string text="OOPS!" id="xbox.multiplayer_shared_compact.xbox_error_error_headers.oops" />
-		<string text="ALERT!" id="xbox.multiplayer_shared_compact.xbox_error_error_headers.alert" />
+		<string text="ATTENTION" id="xbox.multiplayer_shared.xbox_error_error_headers.attention" />
+		<string text="ATTENTION" id="xbox.multiplayer_shared.xbox_error_error_headers.attention_2" />
+		<string text="ARE YOU SURE?" id="xbox.multiplayer_shared.xbox_error_error_headers.are_you_sure" />
+		<string text="SAVING..." id="xbox.multiplayer_shared.xbox_error_error_headers.saving" />
+		<string text="ATTENTION:" id="xbox.multiplayer_shared.xbox_error_error_headers.attention_3" />
+		<string text="DID YOU KNOW..." id="xbox.multiplayer_shared.xbox_error_error_headers.did_you_know" />
+		<string text="OOPS!" id="xbox.multiplayer_shared.xbox_error_error_headers.oops" />
+		<string text="ALERT!" id="xbox.multiplayer_shared.xbox_error_error_headers.alert" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/cap_teamplay_options">
-		<string text="Players can not be hurt by weapons and explosives\nfired by their teammates." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_not_be_hurt_by_weapo_f42723" />
-		<string text="Players can be hurt by weapons or explosives\nfired by their teammates." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_be_hurt_by_weapons_o_a40947" />
-		<string text="Damage from friendly fire will only reduce shields.\nHealth will be unaffected." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.damage_from_friendly_fire_will_o_d99200" />
-		<string text="Players can be hurt by damage from explosives \nfired by their teammates." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_be_hurt_by_damage_fr_2e04b2" />
-		<string text="No respawn time penalty will be assessed to players\nwho kill a teammate." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.no_respawn_time_penalty_will_be__49a8c9" />
-		<string text="Players who kill a teammate will be assessed a \nfive-second respawn penalty the next time they die." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_9888f4" />
-		<string text="Players who kill a teammate will be assessed a \nten-second respawn penalty the next time they die." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_551ffb" />
-		<string text="Players who kill a teammate will be assessed\na fifteen-second respawn penalty the next time\nthey die." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_c8e1b7" />
-		<string text="Team autobalancing will be disabled.  Players will\nbe free to change teams as they wish." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.team_autobalancing_will_be_disab_52927b" />
-		<string text="Team autobalancing will be enabled.  Players will\nnot be able to change to a more full team." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.team_autobalancing_will_be_enabl_62458a" />
+		<string text="Players can not be hurt by weapons and explosives\nfired by their teammates." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_not_be_hurt_by_weapo_f42723" />
+		<string text="Players can be hurt by weapons or explosives\nfired by their teammates." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_be_hurt_by_weapons_o_a40947" />
+		<string text="Damage from friendly fire will only reduce shields.\nHealth will be unaffected." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.damage_from_friendly_fire_will_o_d99200" />
+		<string text="Players can be hurt by damage from explosives \nfired by their teammates." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_can_be_hurt_by_damage_fr_2e04b2" />
+		<string text="No respawn time penalty will be assessed to players\nwho kill a teammate." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.no_respawn_time_penalty_will_be__49a8c9" />
+		<string text="Players who kill a teammate will be assessed a \nfive-second respawn penalty the next time they die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_9888f4" />
+		<string text="Players who kill a teammate will be assessed a \nten-second respawn penalty the next time they die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_551ffb" />
+		<string text="Players who kill a teammate will be assessed\na fifteen-second respawn penalty the next time\nthey die." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.players_who_kill_a_teammate_will_c8e1b7" />
+		<string text="Team autobalancing will be disabled.  Players will\nbe free to change teams as they wish." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.team_autobalancing_will_be_disab_52927b" />
+		<string text="Team autobalancing will be enabled.  Players will\nnot be able to change to a more full team." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options.team_autobalancing_will_be_enabl_62458a" />
 	</strings>
 	<strings name="xbox/strings/common_button_captions">
-		<string text="BACK" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.back" />
-		<string text="OK" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.ok" />
-		<string text="CANCEL" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.cancel" />
-		<string text="DEFAULTS" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.defaults" />
-		<string text="CREATE NEW" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.create_new" />
-		<string text="DELETE" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.delete" />
-		<string text="ADVANCED" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.advanced" />
-		<string text="Profile:" id="xbox.multiplayer_shared_compact.xbox_strings_common_button_captions.profile" />
+		<string text="BACK" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.back" />
+		<string text="OK" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.ok" />
+		<string text="CANCEL" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.cancel" />
+		<string text="DEFAULTS" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.defaults" />
+		<string text="CREATE NEW" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.create_new" />
+		<string text="DELETE" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.delete" />
+		<string text="ADVANCED" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.advanced" />
+		<string text="Profile:" id="xbox.multiplayer_shared.xbox_strings_common_button_captions.profile" />
 	</strings>
 	<widget name="xbox/common_button_cancel" type="text" width="128" height="24" string_list="xbox/strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event" />
@@ -336,118 +336,118 @@
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire">
-		<string text="OFF" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.off" />
-		<string text="ON" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.on" />
-		<string text="SHIELD ONLY" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.shield_only" />
-		<string text="EXPLOSIVES ONLY" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.explosives_only" />
+		<string text="OFF" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.off" />
+		<string text="ON" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.on" />
+		<string text="SHIELD ONLY" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.shield_only" />
+		<string text="EXPLOSIVES ONLY" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire.explosives_only" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_friendly_fire_penalty">
-		<string text="NONE" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.none" />
-		<string text="5 SECONDS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.5_seconds" />
-		<string text="10 SECONDS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.10_seconds" />
-		<string text="15 SECONDS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.15_seconds" />
+		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.none" />
+		<string text="5 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.5_seconds" />
+		<string text="10 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.10_seconds" />
+		<string text="15 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty.15_seconds" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels">
-		<string text="FRIENDLY FIRE:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.friendly_fire" />
-		<string text="FRIENDLY FIRE PENALTY:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.friendly_fire_penalty" />
-		<string text="AUTO TEAM BALANCE:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.auto_team_balance" />
+		<string text="FRIENDLY FIRE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.friendly_fire" />
+		<string text="FRIENDLY FIRE PENALTY:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.friendly_fire_penalty" />
+		<string text="AUTO TEAM BALANCE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels.auto_team_balance" />
 	</strings>
 	<strings name="xbox/strings/var_boolean">
-		<string text="NO" id="xbox.multiplayer_shared_compact.xbox_strings_var_boolean.no" />
-		<string text="YES" id="xbox.multiplayer_shared_compact.xbox_strings_var_boolean.yes" />
+		<string text="NO" id="xbox.multiplayer_shared.xbox_strings_var_boolean.no" />
+		<string text="YES" id="xbox.multiplayer_shared.xbox_strings_var_boolean.yes" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_options">
-		<string text="NONE" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.none" />
-		<string text="1" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.1" />
-		<string text="2" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.2" />
-		<string text="3" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.3" />
-		<string text="4" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.4" />
+		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.none" />
+		<string text="1" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.1" />
+		<string text="2" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.2" />
+		<string text="3" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.3" />
+		<string text="4" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options.4" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels">
-		<string text="VEHICLE SET:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_set" />
-		<string text="WARTHOG:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.warthog" />
-		<string text="GHOST:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.ghost" />
-		<string text="SCORPION:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.scorpion" />
-		<string text="ROCKET WARTHOG:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.rocket_warthog" />
-		<string text="BANSHEE:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.banshee" />
-		<string text="GUN TURRET:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.gun_turret" />
-		<string text="VEHICLE RESPAWN TIME:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_respawn_time" />
-		<string text="SIDE:" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.side" />
+		<string text="VEHICLE SET:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_set" />
+		<string text="WARTHOG:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.warthog" />
+		<string text="GHOST:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.ghost" />
+		<string text="SCORPION:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.scorpion" />
+		<string text="ROCKET WARTHOG:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.rocket_warthog" />
+		<string text="BANSHEE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.banshee" />
+		<string text="GUN TURRET:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.gun_turret" />
+		<string text="VEHICLE RESPAWN TIME:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.vehicle_respawn_time" />
+		<string text="SIDE:" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels.side" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicles_respawn">
-		<string text="NEVER" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.never" />
-		<string text="30 SECONDS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.30_seconds" />
-		<string text="60 SECONDS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.60_seconds" />
-		<string text="90 SECONDS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.90_seconds" />
-		<string text="2 MINUTES" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.2_minutes" />
-		<string text="3 MINUTES" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.3_minutes" />
-		<string text="5 MINUTES" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.5_minutes" />
+		<string text="NEVER" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.never" />
+		<string text="30 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.30_seconds" />
+		<string text="60 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.60_seconds" />
+		<string text="90 SECONDS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.90_seconds" />
+		<string text="2 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.2_minutes" />
+		<string text="3 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.3_minutes" />
+		<string text="5 MINUTES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn.5_minutes" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_vehicle_set">
-		<string text="DEFAULT" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.default" />
-		<string text="NONE" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.none" />
-		<string text="WARTHOGS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.warthogs" />
-		<string text="GHOSTS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.ghosts" />
-		<string text="SCORPIONS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.scorpions" />
-		<string text="ROCKET WARTHOGS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.rocket_warthogs" />
-		<string text="BANSHEES" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.banshees" />
-		<string text="GUN TURRETS" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.gun_turrets" />
-		<string text="PC" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.pc" />
-		<string text="CUSTOM" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.custom" />
+		<string text="DEFAULT" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.default" />
+		<string text="NONE" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.none" />
+		<string text="WARTHOGS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.warthogs" />
+		<string text="GHOSTS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.ghosts" />
+		<string text="SCORPIONS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.scorpions" />
+		<string text="ROCKET WARTHOGS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.rocket_warthogs" />
+		<string text="BANSHEES" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.banshees" />
+		<string text="GUN TURRETS" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.gun_turrets" />
+		<string text="PC" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.pc" />
+		<string text="CUSTOM" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set.custom" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cap_vehicle_options">
-		<string text="Vehicles will not respawn." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_not_respawn" />
-		<string text="Vehicles will respawn every 30 seconds if idle." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_30_s_2c01df" />
-		<string text="Vehicles will respawn every 60 seconds if idle." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_60_s_5b000a" />
-		<string text="Vehicles will respawn every 90 seconds if idle." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_90_s_d38ef4" />
-		<string text="Vehicles will respawn every 2 minutes if idle." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_2_mi_1ef019" />
-		<string text="Vehicles will respawn every 3 minutes if idle." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_3_mi_e9018e" />
-		<string text="Vehicles will respawn every 5 minutes if idle." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_5_mi_d78c94" />
-		<string text="Adjust vehicle placement for the Red Team." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.adjust_vehicle_placement_for_the_3ced2b" />
-		<string text="Adjust vehicle placement for the Blue Team." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.adjust_vehicle_placement_for_the_761b8f" />
-		<string text="The map will contain the default vehicles specified\nin the map.  Includes Warthogs, Scorpion tanks, \nGhosts, Banshees and Covenant Gun Turrets." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.the_map_will_contain_the_default_988851" />
-		<string text="No vehicles will appear anywhere on this map; you will\ntravel on foot at all times." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_vehicles_will_appear_anywhere_d641a2" />
-		<string text="You'll traverse the map in the nimble Warthog, a\nhardy jeep with a chain gun mounted in the back." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.you_ll_traverse_the_map_in_the_n_4e1f2e" />
-		<string text="Zip around in the Ghost, a nimble hovercraft with \npowerful energy cannons and the snazziest paint job \nin the galaxy." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.zip_around_in_the_ghost_a_nimble_8501dd" />
-		<string text="Grind your way across the landscape in the Scorpion\ntank, a mighty killing machine." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.grind_your_way_across_the_landsc_a91ae7" />
-		<string text="You'll traverse the map in the Rocket Warthog, a\nhardy jeep with a rocket launcher mounted in the back." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.you_ll_traverse_the_map_in_the_r_befd9c" />
-		<string text="Command the skies in the Banshee." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.command_the_skies_in_the_banshee" />
-		<string text="Defend the lands with the powerful Covenant Gun\nTurret." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.defend_the_lands_with_the_powerf_317ff9" />
-		<string text="Customize the set of vehicles which will spawn\nin the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.customize_the_set_of_vehicles_wh_dccb74" />
-		<string text="No Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_warthogs_will_spawn_in_the_map" />
-		<string text="Up to one Warthog will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_warthog_will_spawn_in_the_map" />
-		<string text="Up to two Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_warthogs_will_spawn_in_the_map" />
-		<string text="Up to three Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_warthogs_will_spawn__486c11" />
-		<string text="Up to four Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_warthogs_will_spawn_i_bad715" />
-		<string text="No Ghosts will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_ghosts_will_spawn_in_the_map" />
-		<string text="Up to one Ghost will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_ghost_will_spawn_in_the_map" />
-		<string text="Up to two Ghosts will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_ghosts_will_spawn_in_the_map" />
-		<string text="Up to three Ghosts will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_ghosts_will_spawn_in_the_map" />
-		<string text="Up to four Ghosts will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_ghosts_will_spawn_in_the_map" />
-		<string text="No Scorpions will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_scorpions_will_spawn_in_the_map" />
-		<string text="Up to one Scorpion will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_scorpion_will_spawn_in_the_map" />
-		<string text="Up to two Scorpions will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_scorpions_will_spawn_i_1fa24a" />
-		<string text="Up to three Scorpions will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_scorpions_will_spawn_6e2029" />
-		<string text="Up to four Scorpions will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_scorpions_will_spawn__da7dc3" />
-		<string text="No Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_rocket_warthogs_will_spawn_in_the_map" />
-		<string text="Up to one Rocket Warthog will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_rocket_warthog_will_sp_537e9d" />
-		<string text="Up to two Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_rocket_warthogs_will_s_4edaea" />
-		<string text="Up to three Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_rocket_warthogs_will_3e6806" />
-		<string text="Up to four Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_rocket_warthogs_will__ae7ff3" />
-		<string text="No Banshees will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_banshees_will_spawn_in_the_map" />
-		<string text="Up to one Banshee will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_banshee_will_spawn_in_the_map" />
-		<string text="Up to two Banshees will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_banshees_will_spawn_in_the_map" />
-		<string text="Up to three Banshees will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_banshees_will_spawn__758065" />
-		<string text="Up to four Banshees will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_banshees_will_spawn_i_83579e" />
-		<string text="No Gun Turrets will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_gun_turrets_will_spawn_in_the_map" />
-		<string text="Up to one Gun Turret will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_gun_turret_will_spawn__874122" />
-		<string text="Up to two Gun Turrets will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_gun_turrets_will_spawn_a7ad86" />
-		<string text="Up to three Gun Turrets will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_gun_turrets_will_spa_4e6358" />
-		<string text="Up to four Gun Turrets will spawn in the map." id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_gun_turrets_will_spaw_2e6640" />
+		<string text="Vehicles will not respawn." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_not_respawn" />
+		<string text="Vehicles will respawn every 30 seconds if idle." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_30_s_2c01df" />
+		<string text="Vehicles will respawn every 60 seconds if idle." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_60_s_5b000a" />
+		<string text="Vehicles will respawn every 90 seconds if idle." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_90_s_d38ef4" />
+		<string text="Vehicles will respawn every 2 minutes if idle." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_2_mi_1ef019" />
+		<string text="Vehicles will respawn every 3 minutes if idle." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_3_mi_e9018e" />
+		<string text="Vehicles will respawn every 5 minutes if idle." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.vehicles_will_respawn_every_5_mi_d78c94" />
+		<string text="Adjust vehicle placement for the Red Team." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.adjust_vehicle_placement_for_the_3ced2b" />
+		<string text="Adjust vehicle placement for the Blue Team." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.adjust_vehicle_placement_for_the_761b8f" />
+		<string text="The map will contain the default vehicles specified\nin the map.  Includes Warthogs, Scorpion tanks, \nGhosts, Banshees and Covenant Gun Turrets." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.the_map_will_contain_the_default_988851" />
+		<string text="No vehicles will appear anywhere on this map; you will\ntravel on foot at all times." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_vehicles_will_appear_anywhere_d641a2" />
+		<string text="You'll traverse the map in the nimble Warthog, a\nhardy jeep with a chain gun mounted in the back." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.you_ll_traverse_the_map_in_the_n_4e1f2e" />
+		<string text="Zip around in the Ghost, a nimble hovercraft with \npowerful energy cannons and the snazziest paint job \nin the galaxy." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.zip_around_in_the_ghost_a_nimble_8501dd" />
+		<string text="Grind your way across the landscape in the Scorpion\ntank, a mighty killing machine." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.grind_your_way_across_the_landsc_a91ae7" />
+		<string text="You'll traverse the map in the Rocket Warthog, a\nhardy jeep with a rocket launcher mounted in the back." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.you_ll_traverse_the_map_in_the_r_befd9c" />
+		<string text="Command the skies in the Banshee." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.command_the_skies_in_the_banshee" />
+		<string text="Defend the lands with the powerful Covenant Gun\nTurret." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.defend_the_lands_with_the_powerf_317ff9" />
+		<string text="Customize the set of vehicles which will spawn\nin the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.customize_the_set_of_vehicles_wh_dccb74" />
+		<string text="No Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_warthogs_will_spawn_in_the_map" />
+		<string text="Up to one Warthog will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_warthog_will_spawn_in_the_map" />
+		<string text="Up to two Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_warthogs_will_spawn_in_the_map" />
+		<string text="Up to three Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_warthogs_will_spawn__486c11" />
+		<string text="Up to four Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_warthogs_will_spawn_i_bad715" />
+		<string text="No Ghosts will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_ghosts_will_spawn_in_the_map" />
+		<string text="Up to one Ghost will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_ghost_will_spawn_in_the_map" />
+		<string text="Up to two Ghosts will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_ghosts_will_spawn_in_the_map" />
+		<string text="Up to three Ghosts will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_ghosts_will_spawn_in_the_map" />
+		<string text="Up to four Ghosts will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_ghosts_will_spawn_in_the_map" />
+		<string text="No Scorpions will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_scorpions_will_spawn_in_the_map" />
+		<string text="Up to one Scorpion will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_scorpion_will_spawn_in_the_map" />
+		<string text="Up to two Scorpions will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_scorpions_will_spawn_i_1fa24a" />
+		<string text="Up to three Scorpions will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_scorpions_will_spawn_6e2029" />
+		<string text="Up to four Scorpions will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_scorpions_will_spawn__da7dc3" />
+		<string text="No Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_rocket_warthogs_will_spawn_in_the_map" />
+		<string text="Up to one Rocket Warthog will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_rocket_warthog_will_sp_537e9d" />
+		<string text="Up to two Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_rocket_warthogs_will_s_4edaea" />
+		<string text="Up to three Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_rocket_warthogs_will_3e6806" />
+		<string text="Up to four Rocket Warthogs will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_rocket_warthogs_will__ae7ff3" />
+		<string text="No Banshees will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_banshees_will_spawn_in_the_map" />
+		<string text="Up to one Banshee will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_banshee_will_spawn_in_the_map" />
+		<string text="Up to two Banshees will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_banshees_will_spawn_in_the_map" />
+		<string text="Up to three Banshees will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_banshees_will_spawn__758065" />
+		<string text="Up to four Banshees will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_banshees_will_spawn_i_83579e" />
+		<string text="No Gun Turrets will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.no_gun_turrets_will_spawn_in_the_map" />
+		<string text="Up to one Gun Turret will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_one_gun_turret_will_spawn__874122" />
+		<string text="Up to two Gun Turrets will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_two_gun_turrets_will_spawn_a7ad86" />
+		<string text="Up to three Gun Turrets will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_three_gun_turrets_will_spa_4e6358" />
+		<string text="Up to four Gun Turrets will spawn in the map." id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options.up_to_four_gun_turrets_will_spaw_2e6640" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/var_team">
-		<string text="RED TEAM" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team.red_team" />
-		<string text="BLUE TEAM" id="xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team.blue_team" />
+		<string text="RED TEAM" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team.red_team" />
+		<string text="BLUE TEAM" id="xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team.blue_team" />
 	</strings>
 	<widget name="xbox/main_menu/new_select/list_item_0" controller="1" width="256" height="28" bitmap="xbox/bitmaps/list_item_bkd_top" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
 		<on event="a" run="single prev cl item activated" />
@@ -594,84 +594,84 @@
 	<widget name="xbox/main_menu/gametype_select/locked_gametype_icon" controller="1" width="16" height="16" bitmap="xbox/bitmaps/locked_gametype">
 	</widget>
 	<strings name="xbox/main_menu/map_list">
-		<string text="The Pillar of \nAutumn" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.the_pillar_of_nautumn" />
-		<string text="Halo" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.halo" />
-		<string text="The Truth and \nReconciliation" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.the_truth_and_nreconciliation" />
-		<string text="The Silent \nCartographer" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.the_silent_ncartographer" />
-		<string text="Assault on the\nControl Room" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.assault_on_the_ncontrol_room" />
-		<string text="343 Guilty \nSpark" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.343_guilty_nspark" />
-		<string text="The Library" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.the_library" />
-		<string text="Two Betrayals" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.two_betrayals" />
-		<string text="Keyes" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.keyes" />
-		<string text="The Maw" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.the_maw" />
-		<string text="This Level\nUnavailable" id="xbox.multiplayer_shared_compact.xbox_main_menu_map_list.this_level_nunavailable" />
+		<string text="The Pillar of \nAutumn" id="xbox.multiplayer_shared.xbox_main_menu_map_list.the_pillar_of_nautumn" />
+		<string text="Halo" id="xbox.multiplayer_shared.xbox_main_menu_map_list.halo" />
+		<string text="The Truth and \nReconciliation" id="xbox.multiplayer_shared.xbox_main_menu_map_list.the_truth_and_nreconciliation" />
+		<string text="The Silent \nCartographer" id="xbox.multiplayer_shared.xbox_main_menu_map_list.the_silent_ncartographer" />
+		<string text="Assault on the\nControl Room" id="xbox.multiplayer_shared.xbox_main_menu_map_list.assault_on_the_ncontrol_room" />
+		<string text="343 Guilty \nSpark" id="xbox.multiplayer_shared.xbox_main_menu_map_list.343_guilty_nspark" />
+		<string text="The Library" id="xbox.multiplayer_shared.xbox_main_menu_map_list.the_library" />
+		<string text="Two Betrayals" id="xbox.multiplayer_shared.xbox_main_menu_map_list.two_betrayals" />
+		<string text="Keyes" id="xbox.multiplayer_shared.xbox_main_menu_map_list.keyes" />
+		<string text="The Maw" id="xbox.multiplayer_shared.xbox_main_menu_map_list.the_maw" />
+		<string text="This Level\nUnavailable" id="xbox.multiplayer_shared.xbox_main_menu_map_list.this_level_nunavailable" />
 	</strings>
 	<strings name="xbox/main_menu/quit_select/header_quit_game_prompt">
-		<string text="Are you sure you wish to\nexit Halo?" id="xbox.multiplayer_shared_compact.xbox_main_menu_quit_select_header_quit_game_prompt.are_you_sure_you_wish_to_nexit_halo" />
-		<string text="Quit?" id="xbox.multiplayer_shared_compact.xbox_main_menu_quit_select_header_quit_game_prompt.quit" />
+		<string text="Are you sure you wish to\nexit Halo?" id="xbox.multiplayer_shared.xbox_main_menu_quit_select_header_quit_game_prompt.are_you_sure_you_wish_to_nexit_halo" />
+		<string text="Quit?" id="xbox.multiplayer_shared.xbox_main_menu_quit_select_header_quit_game_prompt.quit" />
 	</strings>
 	<widget name="xbox/error/header_are_you_sure" type="text" controller="1" width="170" height="20" string_list="xbox/error/error_headers" string_index="2" font="ui\large_ui" color="#FF2896FF">
 	</widget>
 	<strings name="xbox/main_menu/mp_map_list">
-		<string text="Battle Creek" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.battle_creek" />
-		<string text="Sidewinder" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.sidewinder" />
-		<string text="Damnation" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.damnation" />
-		<string text="Rat Race" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.rat_race" />
-		<string text="Prisoner" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.prisoner" />
-		<string text="Hang 'Em High" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.hang_em_high" />
-		<string text="Chill Out" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.chill_out" />
-		<string text="Derelict" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.derelict" />
-		<string text="Boarding Action" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.boarding_action" />
-		<string text="Blood Gulch" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.blood_gulch" />
-		<string text="Wizard" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.wizard" />
-		<string text="Chiron TL34" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.chiron_tl34" />
-		<string text="Longest" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.longest" />
-		<string text="Ice Fields" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.ice_fields" />
-		<string text="Death Island" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.death_island" />
-		<string text="Danger Canyon" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.danger_canyon" />
-		<string text="Infinity" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.infinity" />
-		<string text="Timberland" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.timberland" />
-		<string text="Gephyrophobia" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.gephyrophobia" />
-		<string text="Unknown Level" id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.unknown_level" />
-		<string text=" " id="xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list.x" />
+		<string text="Battle Creek" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.battle_creek" />
+		<string text="Sidewinder" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.sidewinder" />
+		<string text="Damnation" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.damnation" />
+		<string text="Rat Race" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.rat_race" />
+		<string text="Prisoner" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.prisoner" />
+		<string text="Hang 'Em High" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.hang_em_high" />
+		<string text="Chill Out" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.chill_out" />
+		<string text="Derelict" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.derelict" />
+		<string text="Boarding Action" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.boarding_action" />
+		<string text="Blood Gulch" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.blood_gulch" />
+		<string text="Wizard" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.wizard" />
+		<string text="Chiron TL34" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.chiron_tl34" />
+		<string text="Longest" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.longest" />
+		<string text="Ice Fields" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.ice_fields" />
+		<string text="Death Island" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.death_island" />
+		<string text="Danger Canyon" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.danger_canyon" />
+		<string text="Infinity" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.infinity" />
+		<string text="Timberland" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.timberland" />
+		<string text="Gephyrophobia" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.gephyrophobia" />
+		<string text="Unknown Level" id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.unknown_level" />
+		<string text=" " id="xbox.multiplayer_shared.xbox_main_menu_mp_map_list.x" />
 	</strings>
 	<widget name="xbox/main_menu/solo_level_select/replay_level_right_data" type="text" controller="1" left="336" top="253" width="260" height="144" string_list="xbox/main_menu/solo_level_select/map_data" string_index="2" font="ui\small_ui" color="#FF2896FF">
 	</widget>
 	<strings name="xbox/main_menu/solo_level_select/map_data">
-		<string text="Escape intact as \nCovenant forces \nboard your ship." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.escape_intact_as_ncovenant_force_250060" />
-		<string text="Seek out surviving \nMarines and help \nthem fight the Cove-\nnant." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.seek_out_surviving_nmarines_and__088ca8" />
-		<string text="Board a Covenant \nship in an attempt to \nrescue Captain \nKeyes." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.board_a_covenant_nship_in_an_att_6f4813" />
-		<string text="Search for the map \nroom that will lead \nyou to the secrets of \nHalo." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.search_for_the_map_nroom_that_wi_32309d" />
-		<string text="Defend the Control \nRoom against wave \nafter wave of Cove-\nnant troops." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.defend_the_control_nroom_against_3eb82d" />
-		<string text="Creep through a \nswamp to meet the \nonly enemy the \nCovenant fear." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.creep_through_a_nswamp_to_meet_t_8be6b4" />
-		<string text="Fight your way \nthrough an ancient \nsecurity facility in \nsearch of the Index." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.fight_your_way_nthrough_an_ancie_4f0c0b" />
-		<string text="Reactivate the wea-\npon at the heart of \nHalo...and learn the \ntruth." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.reactivate_the_wea_npon_at_the_h_c0446b" />
-		<string text="Stage a one-cyborg \nassault on a Cove-\nnant ship and bring \nback the Captain." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.stage_a_one_cyborg_nassault_on_a_d5842b" />
-		<string text="Destroy Halo before \nHalo destroys all life \nin the galaxy." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.destroy_halo_before_nhalo_destro_4a25ef" />
-		<string text="You cannot play\nthis level... yet!" id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.you_cannot_play_nthis_level_yet" />
-		<string text="You have a game in\nprogress on this\nlevel. Select to\ncontinue your game." id="xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data.you_have_a_game_in_nprogress_on__120622" />
+		<string text="Escape intact as \nCovenant forces \nboard your ship." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.escape_intact_as_ncovenant_force_250060" />
+		<string text="Seek out surviving \nMarines and help \nthem fight the Cove-\nnant." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.seek_out_surviving_nmarines_and__088ca8" />
+		<string text="Board a Covenant \nship in an attempt to \nrescue Captain \nKeyes." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.board_a_covenant_nship_in_an_att_6f4813" />
+		<string text="Search for the map \nroom that will lead \nyou to the secrets of \nHalo." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.search_for_the_map_nroom_that_wi_32309d" />
+		<string text="Defend the Control \nRoom against wave \nafter wave of Cove-\nnant troops." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.defend_the_control_nroom_against_3eb82d" />
+		<string text="Creep through a \nswamp to meet the \nonly enemy the \nCovenant fear." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.creep_through_a_nswamp_to_meet_t_8be6b4" />
+		<string text="Fight your way \nthrough an ancient \nsecurity facility in \nsearch of the Index." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.fight_your_way_nthrough_an_ancie_4f0c0b" />
+		<string text="Reactivate the wea-\npon at the heart of \nHalo...and learn the \ntruth." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.reactivate_the_wea_npon_at_the_h_c0446b" />
+		<string text="Stage a one-cyborg \nassault on a Cove-\nnant ship and bring \nback the Captain." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.stage_a_one_cyborg_nassault_on_a_d5842b" />
+		<string text="Destroy Halo before \nHalo destroys all life \nin the galaxy." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.destroy_halo_before_nhalo_destro_4a25ef" />
+		<string text="You cannot play\nthis level... yet!" id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.you_cannot_play_nthis_level_yet" />
+		<string text="You have a game in\nprogress on this\nlevel. Select to\ncontinue your game." id="xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data.you_have_a_game_in_nprogress_on__120622" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/map_data">
-		<string text="Splash Splash\nBang Bang\n\n2-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.splash_splash_nbang_bang_n_n2_8_players" />
-		<string text="Red Blood\nWhite Snow\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.red_blood_nwhite_snow_n_n4_16_pl_abb284" />
-		<string text="Covenant Hydro-\nProcessing Center\n\n4-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.covenant_hydro_nprocessing_cente_c89b1b" />
-		<string text="Up the Ramps\nDown the Tubes\n\n2-6 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.up_the_ramps_ndown_the_tubes_n_n_fe6eb1" />
-		<string text="Get on Top\n\n\n2-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.get_on_top_n_n_n2_8_players" />
-		<string text="Tombstones for\nEverybody\n\n4-16 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.tombstones_for_neverybody_n_n4_1_c700f6" />
-		<string text="Dude, you really\nneed to...\n\n2-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.dude_you_really_nneed_to_n_n2_8_players" />
-		<string text="Deep-Space\nAnomaly #0198\n\n4-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.deep_space_nanomaly_0198_n_n4_8_players" />
-		<string text="Ship-to-Ship\nCombat\n\n4-16 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.ship_to_ship_ncombat_n_n4_16_players" />
-		<string text="The Quick \nand the Dead\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.the_quick_nand_the_dead_n_n4_16__452e80" />
-		<string text="Round and Round \nand Round\n\n2-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.round_and_round_nand_round_n_n2__f9a0f4" />
-		<string text="Spartan Clone\nTraining Complex\n\n2-6 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.spartan_clone_ntraining_complex__7b9eb0" />
-		<string text="A long walk\ndown a short hall...\n\n2-8 players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.a_long_walk_ndown_a_short_hall_n_b6100d" />
-		<string text="Slipping and\nSliding\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.slipping_and_nsliding_n_n4_16_pl_957a4e" />
-		<string text="Sand, Surf, and \nSpent Shells\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.sand_surf_and_nspent_shells_n_n4_9dab82" />
-		<string text="Don't Look Down...\nUnless You Fall\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.don_t_look_down_nunless_you_fall_b301c0" />
-		<string text="I Imagined it\nWould Be Bigger\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.i_imagined_it_nwould_be_bigger_n_be4d9f" />
-		<string text="An Enemy Behind\nEvery Tree\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.an_enemy_behind_nevery_tree_n_n4_c1b507" />
-		<string text="Scary, huh?\n\n\n2-12 players\n\nSupports vehicles" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.scary_huh_n_n_n2_12_players_n_ns_8d056e" />
-		<string text="UNKNOWN LEVEL\n\n\n" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.unknown_level_n_n_n" />
+		<string text="Splash Splash\nBang Bang\n\n2-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.splash_splash_nbang_bang_n_n2_8_players" />
+		<string text="Red Blood\nWhite Snow\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.red_blood_nwhite_snow_n_n4_16_pl_abb284" />
+		<string text="Covenant Hydro-\nProcessing Center\n\n4-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.covenant_hydro_nprocessing_cente_c89b1b" />
+		<string text="Up the Ramps\nDown the Tubes\n\n2-6 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.up_the_ramps_ndown_the_tubes_n_n_fe6eb1" />
+		<string text="Get on Top\n\n\n2-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.get_on_top_n_n_n2_8_players" />
+		<string text="Tombstones for\nEverybody\n\n4-16 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.tombstones_for_neverybody_n_n4_1_c700f6" />
+		<string text="Dude, you really\nneed to...\n\n2-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.dude_you_really_nneed_to_n_n2_8_players" />
+		<string text="Deep-Space\nAnomaly #0198\n\n4-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.deep_space_nanomaly_0198_n_n4_8_players" />
+		<string text="Ship-to-Ship\nCombat\n\n4-16 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.ship_to_ship_ncombat_n_n4_16_players" />
+		<string text="The Quick \nand the Dead\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.the_quick_nand_the_dead_n_n4_16__452e80" />
+		<string text="Round and Round \nand Round\n\n2-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.round_and_round_nand_round_n_n2__f9a0f4" />
+		<string text="Spartan Clone\nTraining Complex\n\n2-6 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.spartan_clone_ntraining_complex__7b9eb0" />
+		<string text="A long walk\ndown a short hall...\n\n2-8 players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.a_long_walk_ndown_a_short_hall_n_b6100d" />
+		<string text="Slipping and\nSliding\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.slipping_and_nsliding_n_n4_16_pl_957a4e" />
+		<string text="Sand, Surf, and \nSpent Shells\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.sand_surf_and_nspent_shells_n_n4_9dab82" />
+		<string text="Don't Look Down...\nUnless You Fall\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.don_t_look_down_nunless_you_fall_b301c0" />
+		<string text="I Imagined it\nWould Be Bigger\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.i_imagined_it_nwould_be_bigger_n_be4d9f" />
+		<string text="An Enemy Behind\nEvery Tree\n\n4-16 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.an_enemy_behind_nevery_tree_n_n4_c1b507" />
+		<string text="Scary, huh?\n\n\n2-12 players\n\nSupports vehicles" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.scary_huh_n_n_n2_12_players_n_ns_8d056e" />
+		<string text="UNKNOWN LEVEL\n\n\n" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data.unknown_level_n_n_n" />
 	</strings>
 	<widget name="xbox/main_menu/current_profile_name" type="text" controller="1" left="10" top="446" width="340" height="34" font="ui\large_ui" color="#FF2896FF">
 	</widget>
@@ -799,106 +799,106 @@
 	<widget name="xbox/main_menu/player_profiles_select/joystick_controls" type="text" controller="1" width="150" height="25" string_list="xbox/main_menu/player_profiles_select/joystick_set_defaults_descriptions" font="ui\small_ui" color="#FF2896FF">
 	</widget>
 	<strings name="xbox/main_menu/player_profiles_select/joystick_set_defaults_descriptions">
-		<string text="Default" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_joystick_set_defaults_descriptions.default" />
-		<string text="Inverted" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_joystick_set_defaults_descriptions.inverted" />
+		<string text="Default" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_joystick_set_defaults_descriptions.default" />
+		<string text="Inverted" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_joystick_set_defaults_descriptions.inverted" />
 	</strings>
 	<strings name="xbox/main_menu/player_profiles_select/profile_description_labels">
-		<string text="Current Level:" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels.current_level" />
-		<string text="Difficulty:" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels.difficulty" />
-		<string text="Controls:" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels.controls" />
-		<string text="unused" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels.unused" />
-		<string text="Create New\nPlayer Profile" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels.create_new_nplayer_profile" />
-		<string text="Empty game\nsetting slot" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels.empty_game_nsetting_slot" />
+		<string text="Current Level:" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels.current_level" />
+		<string text="Difficulty:" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels.difficulty" />
+		<string text="Controls:" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels.controls" />
+		<string text="unused" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels.unused" />
+		<string text="Create New\nPlayer Profile" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels.create_new_nplayer_profile" />
+		<string text="Empty game\nsetting slot" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels.empty_game_nsetting_slot" />
 	</strings>
 	<strings name="xbox/main_menu/player_profiles_select/difficulty_names">
-		<string text="Easy" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_difficulty_names.easy" />
-		<string text="Normal" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_difficulty_names.normal" />
-		<string text="Heroic" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_difficulty_names.heroic" />
-		<string text="Legendary" id="xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_difficulty_names.legendary" />
+		<string text="Easy" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names.easy" />
+		<string text="Normal" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names.normal" />
+		<string text="Heroic" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names.heroic" />
+		<string text="Legendary" id="xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names.legendary" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
-		<string text="SERVER NAME" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_name" />
-		<string text="PASSWORD" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.password" />
-		<string text="SERVER MODE" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_mode" />
-		<string text="MAX PLAYERS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.max_players" />
-		<string text="START GAME" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.start_game" />
-		<string text="SERVER IP" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_ip" />
+		<string text="SERVER NAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_name" />
+		<string text="PASSWORD" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.password" />
+		<string text="SERVER MODE" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_mode" />
+		<string text="MAX PLAYERS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.max_players" />
+		<string text="START GAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.start_game" />
+		<string text="SERVER IP" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options.server_ip" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_options">
-		<string text="SERVER ADDRESS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.server_address" />
-		<string text="PASSWORD" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.password" />
+		<string text="SERVER ADDRESS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.server_address" />
+		<string text="PASSWORD" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.password" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options">
-		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2304." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_the_address_of_the_server__3d82b1" />
-		<string text="Enter a password for the server you want\nto connect to." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_a_password_for_the_server__9d3b53" />
+		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2304." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_the_address_of_the_server__3d82b1" />
+		<string text="Enter a password for the server you want\nto connect to." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_a_password_for_the_server__9d3b53" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_ping">
-		<string text="ANY" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.any" />
-		<string text="&lt; 50" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_50" />
-		<string text="&lt; 100" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_100" />
-		<string text="&lt; 150" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_150" />
-		<string text="&lt; 200" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_200" />
-		<string text="&lt; 300" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_300" />
+		<string text="ANY" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.any" />
+		<string text="&lt; 50" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_50" />
+		<string text="&lt; 100" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_100" />
+		<string text="&lt; 150" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_150" />
+		<string text="&lt; 200" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_200" />
+		<string text="&lt; 300" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping.lt_300" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/filter_options">
-		<string text="SHOW EMPTY SERVERS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_empty_servers" />
-		<string text="SHOW FULL SERVERS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_full_servers" />
-		<string text="PING" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.ping" />
-		<string text="GAME TYPE" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.game_type" />
-		<string text="TEAMPLAY OPTIONS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.teamplay_options" />
-		<string text="SHOW MISSING MAPS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_missing_maps" />
+		<string text="SHOW EMPTY SERVERS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_empty_servers" />
+		<string text="SHOW FULL SERVERS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_full_servers" />
+		<string text="PING" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.ping" />
+		<string text="GAME TYPE" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.game_type" />
+		<string text="TEAMPLAY OPTIONS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.teamplay_options" />
+		<string text="SHOW MISSING MAPS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options.show_missing_maps" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_gametype">
-		<string text="ANY" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.any" />
-		<string text="CTF" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.ctf" />
-		<string text="SLAYER" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.slayer" />
-		<string text="ODDBALL" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.oddball" />
-		<string text="KING" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.king" />
-		<string text="RACE" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.race" />
+		<string text="ANY" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.any" />
+		<string text="CTF" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.ctf" />
+		<string text="SLAYER" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.slayer" />
+		<string text="ODDBALL" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.oddball" />
+		<string text="KING" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.king" />
+		<string text="RACE" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype.race" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/var_filter_game_options">
-		<string text="ANY" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options.any" />
-		<string text="FREE-FOR-ALL" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options.free_for_all" />
-		<string text="TEAMPLAY" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options.teamplay" />
+		<string text="ANY" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options.any" />
+		<string text="FREE-FOR-ALL" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options.free_for_all" />
+		<string text="TEAMPLAY" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options.teamplay" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/filters/cap_filter_options">
-		<string text="Do not show empty servers." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.do_not_show_empty_servers" />
-		<string text="Show empty servers." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_empty_servers" />
-		<string text="Do not show full servers." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.do_not_show_full_servers" />
-		<string text="Show full servers." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_full_servers" />
-		<string text="Filter servers by connection latency (in ms).\nLatency is how fast data travels from the server." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.filter_servers_by_connection_lat_070e6c" />
-		<string text="Show only games matching the selected\ngame type." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_games_matching_the_sel_e229df" />
-		<string text="Show servers running both free-for-all\nand teamplay modes." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_servers_running_both_free_f_ec0536" />
-		<string text="Show only servers running free-for-all modes." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_servers_running_free_f_a55944" />
-		<string text="Show only servers running teamplay modes." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_servers_running_teamplay_modes" />
-		<string text="Show only servers with custom maps that are\ncurrently installed." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_servers_with_custom_ma_d38390" />
-		<string text="Show servers with custom maps that are not\ncurrently installed." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_servers_with_custom_maps_th_08cbeb" />
+		<string text="Do not show empty servers." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.do_not_show_empty_servers" />
+		<string text="Show empty servers." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_empty_servers" />
+		<string text="Do not show full servers." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.do_not_show_full_servers" />
+		<string text="Show full servers." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_full_servers" />
+		<string text="Filter servers by connection latency (in ms).\nLatency is how fast data travels from the server." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.filter_servers_by_connection_lat_070e6c" />
+		<string text="Show only games matching the selected\ngame type." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_games_matching_the_sel_e229df" />
+		<string text="Show servers running both free-for-all\nand teamplay modes." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_servers_running_both_free_f_ec0536" />
+		<string text="Show only servers running free-for-all modes." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_servers_running_free_f_a55944" />
+		<string text="Show only servers running teamplay modes." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_servers_running_teamplay_modes" />
+		<string text="Show only servers with custom maps that are\ncurrently installed." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_only_servers_with_custom_ma_d38390" />
+		<string text="Show servers with custom maps that are not\ncurrently installed." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options.show_servers_with_custom_maps_th_08cbeb" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
-		<string text="Players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players" />
-		<string text="Rules" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.rules" />
-		<string text="Message" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.message" />
-		<string text="Getting Server Info..." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_server_info" />
-		<string text="Getting Message of the Day..." id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_message_of_the_day" />
-		<string text="Welcome to Halo Multiplayer!" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.welcome_to_halo_multiplayer" />
-		<string text="SERVERS:" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.servers" />
-		<string text="PLAYERS:" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players_2" />
-		<string text="PAGE" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.page" />
-		<string text="TODO: MOTD URL" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.todo_motd_url" />
+		<string text="Players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players" />
+		<string text="Rules" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.rules" />
+		<string text="Message" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.message" />
+		<string text="Getting Server Info..." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_server_info" />
+		<string text="Getting Message of the Day..." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_message_of_the_day" />
+		<string text="Welcome to Halo Multiplayer!" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.welcome_to_halo_multiplayer" />
+		<string text="SERVERS:" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.servers" />
+		<string text="PLAYERS:" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players_2" />
+		<string text="PAGE" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.page" />
+		<string text="TODO: MOTD URL" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.todo_motd_url" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_column_headers">
-		<string text="Server Name" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.server_name" />
-		<string text="Map" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.map" />
-		<string text="Players" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.players" />
-		<string text="Game" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.game" />
-		<string text="Region" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.region" />
+		<string text="Server Name" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.server_name" />
+		<string text="Map" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.map" />
+		<string text="Players" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.players" />
+		<string text="Game" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.game" />
+		<string text="Region" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers.region" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_buttons">
-		<string text="GET LIST" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.get_list" />
-		<string text="REFRESH" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.refresh" />
-		<string text="STOP" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.stop" />
-		<string text="FILTERS" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.filters" />
-		<string text="JOIN GAME" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.join_game" />
+		<string text="GET LIST" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.get_list" />
+		<string text="REFRESH" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.refresh" />
+		<string text="STOP" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.stop" />
+		<string text="FILTERS" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.filters" />
+		<string text="JOIN GAME" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons.join_game" />
 	</strings>
 	<widget name="xbox/error/browser_error_panel" width="640" height="480" flags="pass_unhandled_to_focused_child">
 		<child widget="xbox/error/error_text_box" x="192" y="176" />
@@ -916,56 +916,56 @@
 	<widget name="xbox/error/header_error" type="text" controller="1" width="150" height="20" string_list="xbox/error/error_headers" font="ui\large_ui" color="#FF2896FF">
 	</widget>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_mode">
-		<string text="Internet" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode.internet" />
-		<string text="LAN" id="xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode.lan" />
+		<string text="Internet" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode.internet" />
+		<string text="LAN" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode.lan" />
 	</strings>
 	<strings name="main_menu/map_list">
-		<string text="The Pillar of \nAutumn" id="xbox.multiplayer_shared_compact.main_menu_map_list.the_pillar_of_nautumn" />
-		<string text="Halo" id="xbox.multiplayer_shared_compact.main_menu_map_list.halo" />
-		<string text="The Truth and \nReconciliation" id="xbox.multiplayer_shared_compact.main_menu_map_list.the_truth_and_nreconciliation" />
-		<string text="The Silent \nCartographer" id="xbox.multiplayer_shared_compact.main_menu_map_list.the_silent_ncartographer" />
-		<string text="Assault on the\nControl Room" id="xbox.multiplayer_shared_compact.main_menu_map_list.assault_on_the_ncontrol_room" />
-		<string text="343 Guilty \nSpark" id="xbox.multiplayer_shared_compact.main_menu_map_list.343_guilty_nspark" />
-		<string text="The Library" id="xbox.multiplayer_shared_compact.main_menu_map_list.the_library" />
-		<string text="Two Betrayals" id="xbox.multiplayer_shared_compact.main_menu_map_list.two_betrayals" />
-		<string text="Keyes" id="xbox.multiplayer_shared_compact.main_menu_map_list.keyes" />
-		<string text="The Maw" id="xbox.multiplayer_shared_compact.main_menu_map_list.the_maw" />
-		<string text="This Level\nUnavailable" id="xbox.multiplayer_shared_compact.main_menu_map_list.this_level_nunavailable" />
+		<string text="The Pillar of \nAutumn" id="xbox.multiplayer_shared.main_menu_map_list.the_pillar_of_nautumn" />
+		<string text="Halo" id="xbox.multiplayer_shared.main_menu_map_list.halo" />
+		<string text="The Truth and \nReconciliation" id="xbox.multiplayer_shared.main_menu_map_list.the_truth_and_nreconciliation" />
+		<string text="The Silent \nCartographer" id="xbox.multiplayer_shared.main_menu_map_list.the_silent_ncartographer" />
+		<string text="Assault on the\nControl Room" id="xbox.multiplayer_shared.main_menu_map_list.assault_on_the_ncontrol_room" />
+		<string text="343 Guilty \nSpark" id="xbox.multiplayer_shared.main_menu_map_list.343_guilty_nspark" />
+		<string text="The Library" id="xbox.multiplayer_shared.main_menu_map_list.the_library" />
+		<string text="Two Betrayals" id="xbox.multiplayer_shared.main_menu_map_list.two_betrayals" />
+		<string text="Keyes" id="xbox.multiplayer_shared.main_menu_map_list.keyes" />
+		<string text="The Maw" id="xbox.multiplayer_shared.main_menu_map_list.the_maw" />
+		<string text="This Level\nUnavailable" id="xbox.multiplayer_shared.main_menu_map_list.this_level_nunavailable" />
 	</strings>
 	<strings name="main_menu/mp_map_list">
-		<string text="Battle Creek" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.battle_creek" />
-		<string text="Sidewinder" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.sidewinder" />
-		<string text="Damnation" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.damnation" />
-		<string text="Rat Race" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.rat_race" />
-		<string text="Prisoner" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.prisoner" />
-		<string text="Hang 'Em High" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.hang_em_high" />
-		<string text="Chill Out" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.chill_out" />
-		<string text="Derelict" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.derelict" />
-		<string text="Boarding Action" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.boarding_action" />
-		<string text="Blood Gulch" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.blood_gulch" />
-		<string text="Wizard" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.wizard" />
-		<string text="Chiron TL34" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.chiron_tl34" />
-		<string text="Longest" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.longest" />
-		<string text="Ice Fields" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.ice_fields" />
-		<string text="Death Island" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.death_island" />
-		<string text="Danger Canyon" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.danger_canyon" />
-		<string text="Infinity" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.infinity" />
-		<string text="Timberland" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.timberland" />
-		<string text="Gephyrophobia" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.gephyrophobia" />
-		<string text="Unknown Level" id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.unknown_level" />
-		<string text=" " id="xbox.multiplayer_shared_compact.main_menu_mp_map_list.x" />
+		<string text="Battle Creek" id="xbox.multiplayer_shared.main_menu_mp_map_list.battle_creek" />
+		<string text="Sidewinder" id="xbox.multiplayer_shared.main_menu_mp_map_list.sidewinder" />
+		<string text="Damnation" id="xbox.multiplayer_shared.main_menu_mp_map_list.damnation" />
+		<string text="Rat Race" id="xbox.multiplayer_shared.main_menu_mp_map_list.rat_race" />
+		<string text="Prisoner" id="xbox.multiplayer_shared.main_menu_mp_map_list.prisoner" />
+		<string text="Hang 'Em High" id="xbox.multiplayer_shared.main_menu_mp_map_list.hang_em_high" />
+		<string text="Chill Out" id="xbox.multiplayer_shared.main_menu_mp_map_list.chill_out" />
+		<string text="Derelict" id="xbox.multiplayer_shared.main_menu_mp_map_list.derelict" />
+		<string text="Boarding Action" id="xbox.multiplayer_shared.main_menu_mp_map_list.boarding_action" />
+		<string text="Blood Gulch" id="xbox.multiplayer_shared.main_menu_mp_map_list.blood_gulch" />
+		<string text="Wizard" id="xbox.multiplayer_shared.main_menu_mp_map_list.wizard" />
+		<string text="Chiron TL34" id="xbox.multiplayer_shared.main_menu_mp_map_list.chiron_tl34" />
+		<string text="Longest" id="xbox.multiplayer_shared.main_menu_mp_map_list.longest" />
+		<string text="Ice Fields" id="xbox.multiplayer_shared.main_menu_mp_map_list.ice_fields" />
+		<string text="Death Island" id="xbox.multiplayer_shared.main_menu_mp_map_list.death_island" />
+		<string text="Danger Canyon" id="xbox.multiplayer_shared.main_menu_mp_map_list.danger_canyon" />
+		<string text="Infinity" id="xbox.multiplayer_shared.main_menu_mp_map_list.infinity" />
+		<string text="Timberland" id="xbox.multiplayer_shared.main_menu_mp_map_list.timberland" />
+		<string text="Gephyrophobia" id="xbox.multiplayer_shared.main_menu_mp_map_list.gephyrophobia" />
+		<string text="Unknown Level" id="xbox.multiplayer_shared.main_menu_mp_map_list.unknown_level" />
+		<string text=" " id="xbox.multiplayer_shared.main_menu_mp_map_list.x" />
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
-		<string text="Players" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players" />
-		<string text="Rules" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.rules" />
-		<string text="Message" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.message" />
-		<string text="Getting Server Info..." id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_server_info" />
-		<string text="Getting Message of the Day..." id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_message_of_the_day" />
-		<string text="Welcome to Halo Multiplayer!" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.welcome_to_halo_multiplayer" />
-		<string text="SERVERS:" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.servers" />
-		<string text="PLAYERS:" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players_2" />
-		<string text="PAGE" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.page" />
-		<string text="TODO: MOTD URL" id="xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.todo_motd_url" />
+		<string text="Players" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players" />
+		<string text="Rules" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.rules" />
+		<string text="Message" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.message" />
+		<string text="Getting Server Info..." id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_server_info" />
+		<string text="Getting Message of the Day..." id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.getting_message_of_the_day" />
+		<string text="Welcome to Halo Multiplayer!" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.welcome_to_halo_multiplayer" />
+		<string text="SERVERS:" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.servers" />
+		<string text="PLAYERS:" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.players_2" />
+		<string text="PAGE" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.page" />
+		<string text="TODO: MOTD URL" id="xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels.todo_motd_url" />
 	</strings>
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
@@ -975,7 +975,7 @@
 		<child widget="xbox/error/confirm_delete_profile/legend/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_profile_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_profile/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/confirm_delete_profile/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/confirm_delete_profile/legend/b_butn/touch_background" />
@@ -984,12 +984,12 @@
 		<child widget="xbox/error/confirm_delete_profile/legend/cancel" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_profile/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_profile_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_profile/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/confirm_delete_profile/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_profile_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/confirm_delete_profile/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/confirm_delete_profile/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/confirm_delete_profile/legend/b_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/confirm_delete_profile/legend/b_butn/touch_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_profile_legend_b_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/confirm_delete_profile/legend/b_butn/touch_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_b_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/confirm_delete_profile/legend/b_butn_glyph" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
@@ -999,7 +999,7 @@
 		<child widget="xbox/error/confirm_delete_gametype/legend/accept" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_gametype/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_gametype_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_gametype/legend/accept" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn" type="container" width="112" height="53">
 		<data input="port dialog legend update" />
 		<child widget="xbox/error/confirm_delete_gametype/legend/b_butn/touch_background" />
@@ -1008,12 +1008,12 @@
 		<child widget="xbox/error/confirm_delete_gametype/legend/cancel" x="22" y="4" />
 		<on event="left_mouse" run="mouse emit back event" />
 	</widget>
-	<widget name="xbox/error/confirm_delete_gametype/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_gametype_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
+	<widget name="xbox/error/confirm_delete_gametype/legend/cancel" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="90" height="22" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_gametype_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn/touch_caption" type="text" text="OK" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_a_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/a_butn_glyph" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn/touch_background" width="112" height="53" bitmap="xbox/dialog_touch_button" />
-	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn/touch_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared_compact.xbox_error_confirm_delete_gametype_legend_b_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
+	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn/touch_caption" type="text" text="CANCEL" text_id="xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_b_butn_touch_caption.text" font="ui\large_ui" color="#FF2896FF" width="112" height="24" align="center" />
 	<widget name="xbox/error/confirm_delete_gametype/legend/b_butn_glyph" width="21" height="26" bitmap="xbox/browser/b_butn" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar/vehicle_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />

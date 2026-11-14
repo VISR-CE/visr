@@ -41,7 +41,7 @@ def segment(text):
 def add_ids(xml, stem, prefix):
     """Return the XML with an ID attribute after each translatable attribute."""
     xml = STRIP.sub('', xml)  # IDs copied from another generated file are reassigned
-    stem = f'{prefix}.{segment(stem)}'
+    stem = f'{prefix}.{segment(stem.removesuffix(".compact"))}'  # compact files share the regular file's IDs
     seen = {}
     list_name = None
 

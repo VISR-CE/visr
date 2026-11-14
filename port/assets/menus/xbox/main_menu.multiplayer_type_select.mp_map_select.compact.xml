@@ -66,25 +66,25 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen" />
 	</widget>
 	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/player_counts">
-		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players" />
-		<string text="4-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_8_players" />
-		<string text="2-6 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_6_players" />
-		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_2" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_2" />
-		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_3" />
-		<string text="4-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_8_players_2" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_3" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_4" />
-		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_4" />
-		<string text="2-6 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_6_players_2" />
-		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_5" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_5" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_6" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_7" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_8" />
-		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_9" />
-		<string text="2-12 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_12_players" />
+		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players" />
+		<string text="4-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_8_players" />
+		<string text="2-6 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_6_players" />
+		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_2" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_2" />
+		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_3" />
+		<string text="4-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_8_players_2" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_3" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_4" />
+		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_4" />
+		<string text="2-6 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_6_players_2" />
+		<string text="2-8 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_8_players_5" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_5" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_6" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_7" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_8" />
+		<string text="4-16 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.4_16_players_9" />
+		<string text="2-12 players" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts.2_12_players" />
 		<string text="" />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/list_item_text" type="text" controller="1" width="230" height="28" font="ui\small_ui" color="#FF2896FF" align="center" text_flags="no_focus_test" text_y="6">
@@ -180,22 +180,22 @@
 		<child widget="xbox/main_menu/new_select/scroll_down_button" x="40" />
 	</widget>
 	<strings name="xbox/main_menu/multiplayer_type_select/mp_map_select/map_list_one_line">
-		<string text="The Pillar of Autumn" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_pillar_of_autumn" />
-		<string text="Halo" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.halo" />
-		<string text="The Truth and Reconciliation" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_truth_and_reconciliation" />
-		<string text="The Silent Cartographer" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_silent_cartographer" />
-		<string text="Assault on the Control Room" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.assault_on_the_control_room" />
-		<string text="343 Guilty Spark" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.343_guilty_spark" />
-		<string text="The Library" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_library" />
-		<string text="Two Betrayals" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.two_betrayals" />
-		<string text="Keyes" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.keyes" />
-		<string text="The Maw" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_maw" />
-		<string text="This Level Unavailable" id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.this_level_unavailable" />
+		<string text="The Pillar of Autumn" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_pillar_of_autumn" />
+		<string text="Halo" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.halo" />
+		<string text="The Truth and Reconciliation" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_truth_and_reconciliation" />
+		<string text="The Silent Cartographer" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_silent_cartographer" />
+		<string text="Assault on the Control Room" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.assault_on_the_control_room" />
+		<string text="343 Guilty Spark" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.343_guilty_spark" />
+		<string text="The Library" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_library" />
+		<string text="Two Betrayals" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.two_betrayals" />
+		<string text="Keyes" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.keyes" />
+		<string text="The Maw" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.the_maw" />
+		<string text="This Level Unavailable" id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line.this_level_unavailable" />
 	</strings>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/replay_level_right_name" type="text" controller="1" left="323" top="115" width="254" height="22" string_list="xbox/main_menu/multiplayer_type_select/mp_map_select/map_list_one_line" string_index="2" font="ui\small_ui" color="#FF2896FF" text_y="3">
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/cancel" type="text" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen/legend/cancel" type="text" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_mp_map_select_screen_legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>
