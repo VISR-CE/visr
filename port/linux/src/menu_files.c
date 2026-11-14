@@ -461,7 +461,7 @@ void halo_menus_use_language(const char *name, const struct halo_menu_translatio
 	language_select(name, table, count);
 }
 
-/* en-XA: each string in brackets, its vowels doubled and tildes added, about a third longer; placeholders
+/* en-XA: each string in brackets, its vowels doubled and hyphens added (ASCII the disc fonts certainly carry), about a third longer; placeholders
 ({name}), backslash-n, newlines and the | codes (| and the character after it) are left as they are */
 static char *pseudo_locale(const char *text)
 {
@@ -494,7 +494,7 @@ static char *pseudo_locale(const char *text)
 			letters++;
 	}
 	for (index = 0; index < letters / 3 && out + 3 < size; index++)
-		result[out++] = '~';
+		result[out++] = '-';
 	result[out++] = ']';
 	result[out] = 0;
 	return result;

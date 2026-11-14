@@ -1,0 +1,2874 @@
+# English menu text, extracted from the generated XML by tools/menu_catalog.py.
+# Do not edit: change the generator and run `python3 tools/menu_catalog.py --write`.
+
+[ce.main_menu_multiplayer_type_select_coop.coop_player_2_help]
+text = "Player 2: choose with your controller."
+
+[ce.main_menu_multiplayer_type_select_coop_options.coop_options_extra_enemies_spinner]
+s0 = "NONE"
+s1 = "+25% PER PLAYER"
+s2 = "+50% PER PLAYER"
+s3 = "+100% PER PLAYER"
+s4 = "+150% PER PLAYER"
+s5 = "+200% PER PLAYER"
+s6 = "2X"
+s7 = "4X"
+s8 = "8X"
+s9 = "16X"
+s10 = "32X"
+
+[ce.main_menu_multiplayer_type_select_coop_options.coop_options_fireteam_spinner]
+s0 = "DROP-IN"
+s1 = "CLASSIC"
+
+[ce.main_menu_multiplayer_type_select_coop_options.coop_options_friendly_fire_spinner]
+s0 = "OFF"
+s1 = "PLAYERS ONLY"
+s2 = "AI ALLIES ONLY"
+s3 = "ON"
+
+[ce.main_menu_multiplayer_type_select_coop_options.coop_options_player_collisions_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_multiplayer_type_select_join_game_port.code_button_ok]
+text = "JOIN GAME"
+
+[ce.main_menu_multiplayer_type_select_join_game_port.join_game_button_clipboard]
+text = "ENTER CODE"
+
+[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_help_strings]
+i0 = "Type the join code your friend's lobby shows,\\nor a whole invite link, then JOIN GAME."
+i1 = "That is not a join code (eight letters and digits)\\nor an invite link. Try again."
+
+[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_labels]
+i0 = "JOIN CODE:"
+
+[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_help_strings]
+i0 = "This game has a password.\\nEnter it, then select JOIN GAME."
+i1 = "That is not the game's password. Try again."
+i2 = "Could not join the game."
+
+[ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_labels]
+i0 = "PASSWORD:"
+
+[ce.main_menu_multiplayer_type_select_join_game_port.password_button_ok]
+text = "JOIN GAME"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_add]
+text = "ADD PLAYER"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_leave]
+text = "LEAVE"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_start]
+text = "START NOW"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_team]
+text = "SWITCH TEAM"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_player_profile_help]
+text = "The new player's profile."
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_preview_button_add]
+text = "ADD PLAYER"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_preview_button_back]
+text = "BACK"
+
+[ce.main_menu_multiplayer_type_select_lobby.lobby_preview_button_join]
+text = "JOIN GAME"
+
+[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings]
+i0 = "The name the game shows in the lists of games.\\nEnter changes it."
+i1 = "The most players the game takes (up to 128)."
+i2 = "Players join this game by its invite link, or your\\nDiscord invite. Enter copies the link again."
+i3 = "The gametype and its rules, for this game."
+i4 = "Lives, health, shields, and respawning, for this game."
+i5 = "Weapons, grenades, and starting equipment, for\\nthis game."
+i6 = "Each team's vehicles and their respawn time, for\\nthis game."
+i7 = "The motion tracker and nav points, for this game."
+i8 = "Friendly fire and team balance, for this game."
+i9 = "Anyone can see and join your game: it is listed\\nin everyone's Server Browser."
+i10 = "Only players with your invite link can join."
+i11 = "Players can not be hurt by weapons and explosives\\nfired by the other players."
+i12 = "Players can be hurt by weapons or explosives\\nfired by the other players."
+i13 = "Damage from the other players will only reduce\\nshields. Health will be unaffected."
+i14 = "Players can be hurt by damage from explosives\\nfired by the other players."
+i15 = "Enemy squads are as the campaign has them."
+i16 = "Enemy squads grow with the players: by the amount\\nbelow for each player past the first."
+i17 = "Enemy squads are the amount below times as large,\\nhowever many players there are."
+i18 = "For each player past the first, enemy squads get\\nthis much more of themselves (100%: as many again)."
+i19 = "Each enemy squad is this many times as large."
+i20 = "Players bump into each other, as in the campaign."
+i21 = "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block."
+i22 = "Players from the Server Browser must type it to\\njoin (an invite link needs none). Enter sets it."
+i23 = "Players who join without the game's Custom Edition\\nmap download it from you and the other players."
+i24 = "Players who join without the map cannot play."
+i25 = "Players can hurt friendly AI and vehicles."
+i26 = "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules."
+i27 = "More players than recommended for this device.\\nIt may run slowly."
+i28 = "Players can leave and join at any time.\\nPlayers always respawn in place upon death."
+i29 = "Fireteam cannot change after level start.\\nIf the whole team dies, revert to checkpoint."
+i30 = "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies."
+i31 = "Players and friendly AI are protected from\\nplayers' weapons and explosives."
+i32 = "Players can hurt each other. Friendly AI is\\nprotected from players."
+i33 = "Players can hurt friendly AI and vehicles.\\nPlayers are protected from each other."
+i34 = "Players can hurt each other, friendly AI and\\nvehicles."
+
+[ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels]
+i0 = "GAME NAME:"
+i1 = "MAXIMUM PLAYERS:"
+i2 = "INVITE LINK:"
+i3 = "GAME TYPE:"
+i4 = "PLAYER OPTIONS:"
+i5 = "ITEM OPTIONS:"
+i6 = "VEHICLE OPTIONS:"
+i7 = "INDICATOR OPTIONS:"
+i8 = "TEAMPLAY OPTIONS:"
+i9 = "LISTING:"
+i10 = "FRIENDLY FIRE:"
+i11 = "EXTRA ENEMIES:"
+i12 = "PER PLAYER:"
+i13 = "MULTIPLIER:"
+i14 = "PLAYER COLLISIONS:"
+i15 = "PASSWORD:"
+i16 = "SHARE MAPS:"
+i17 = "ALLY FRIENDLY FIRE:"
+i18 = "FIRETEAM:"
+i19 = "CO-OP OPTIONS"
+
+[ce.main_menu_multiplayer_type_select_server_settings.server_settings_game_type_label]
+text = "GAME TYPE:"
+
+[ce.main_menu_multiplayer_type_select_server_settings.server_settings_gametype_options_label]
+text = "GAMETYPE OPTIONS"
+
+[ce.main_menu_multiplayer_type_select_server_settings.server_settings_listing_spinner]
+s0 = "PUBLIC"
+s1 = "PRIVATE"
+
+[ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner]
+s0 = "2"
+s1 = "4"
+s2 = "8"
+s3 = "12"
+s4 = "16"
+s5 = "24"
+s6 = "32"
+s7 = "48"
+s8 = "64"
+s9 = "96"
+s10 = "128"
+
+[ce.main_menu_multiplayer_type_select_server_settings.server_settings_op_start_game]
+text = "START GAME"
+
+[ce.main_menu_new_select_port.main_menu_new_select_var_map_kinds]
+i0 = "SINGLEPLAYER"
+i1 = "MULTIPLAYER"
+i2 = "CUSTOM SINGLEPLAYER"
+i3 = "CUSTOM MULTIPLAYER"
+
+[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout]
+i0 = "CATEGORY"
+i1 = "CUSTOM"
+
+[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon]
+i0 = "NONE"
+i1 = "RANDOM"
+i2 = "ASSAULT RIFLE"
+i3 = "PISTOL"
+i4 = "SHOTGUN"
+i5 = "SNIPER RIFLE"
+i6 = "ROCKET LAUNCHER"
+i7 = "PLASMA PISTOL"
+i8 = "PLASMA RIFLE"
+i9 = "NEEDLER"
+
+[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
+i0 = "YES"
+i1 = "NO"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_about.about_button_back]
+text = "BACK"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_about.about_help]
+text = "Halo, Halo: Combat Evolved, Master Chief, and the related names\\nand logos are trademarks of Microsoft Corporation. Halo: Combat\\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\\nproject. It is not affiliated with, sponsored by, or endorsed by\\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\\nIndustries), or Bungie."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels]
+i0 = "BUILD"
+i1 = "ONLINE"
+i2 = "PRIVACY"
+i3 = "LICENSE"
+i4 = "OPEN SOURCE NOTICES"
+i5 = "SEND LOG"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_values]
+i0 = "visr.gg"
+i1 = "visr.gg/privacy"
+i2 = "Apache-2.0"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.audio_settings_effects_volume_spinner]
+s0 = "0"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+s5 = "5"
+s6 = "6"
+s7 = "7"
+s8 = "8"
+s9 = "9"
+s10 = "10"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.audio_settings_enabled_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.audio_settings_music_volume_spinner]
+s0 = "0"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+s5 = "5"
+s6 = "6"
+s7 = "7"
+s8 = "8"
+s9 = "9"
+s10 = "10"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.audio_settings_volume_spinner]
+s0 = "0"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+s5 = "5"
+s6 = "6"
+s7 = "7"
+s8 = "8"
+s9 = "9"
+s10 = "10"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_help_strings]
+i0 = "The volume of everything."
+i1 = "The music's volume."
+i2 = "The volume of every other sound: effects and\\nspeech."
+i3 = "Play sound at all; from the next time the game\\nstarts."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_labels]
+i0 = "MASTER VOLUME:"
+i1 = "MUSIC VOLUME:"
+i2 = "EFFECTS VOLUME:"
+i3 = "SOUND:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_controls_setup.controls_setup_group_label]
+text = "SHOW:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_controls_setup.controls_setup_group_spinner]
+s0 = "MOVEMENT"
+s1 = "WEAPONS"
+s2 = "ACTIONS"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_controls_setup.main_menu_settings_select_player_setup_player_profile_edit_controls_setup_help_strings]
+i0 = "Choose what to show, with left and right."
+i1 = "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button."
+i2 = "Press a key, a mouse button, or turn the wheel...\\nEscape cancels, Delete clears it."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_autocenter_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_button_preset_spinner]
+s0 = "DEFAULT"
+s1 = "SWAP TRIGGERS"
+s2 = "SWAP A, L TRIGGER"
+s3 = "SWAP B, L TRIGGER"
+s4 = "SWAP B, R STICK"
+s5 = "BUMPER JUMPER"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_flight_inversion_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_ingame_help_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_invert_look_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_joystick_preset_spinner]
+s0 = "DEFAULT"
+s1 = "SOUTHPAW"
+s2 = "LEGACY"
+s3 = "LEGACY SOUTHPAW"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_look_sensitivity_spinner]
+s0 = "1"
+s1 = "2"
+s2 = "3"
+s3 = "4"
+s4 = "5"
+s5 = "6"
+s6 = "7"
+s7 = "8"
+s8 = "9"
+s9 = "10"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.gamepad_setup_vibration_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_help_strings]
+i0 = "How fast the right stick turns the view."
+i1 = "Pushing the right stick up looks down."
+i2 = "Flying vehicles pitch as aircraft do: pushing up\\nflies down."
+i3 = "Level the view while walking."
+i4 = "Which of the controller's buttons does what (not\\nthe keyboard's: Controls Setup sets those)."
+i5 = "Which stick moves and which looks."
+i6 = "Rumble the controller."
+i7 = "Show the game's hints about its controls."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup.main_menu_settings_select_player_setup_player_profile_edit_gamepad_setup_labels]
+i0 = "LOOK SENSITIVITY:"
+i1 = "INVERT LOOK:"
+i2 = "INVERT FLIGHT:"
+i3 = "AUTO-CENTER LOOK:"
+i4 = "BUTTON LAYOUT:"
+i5 = "STICK LAYOUT:"
+i6 = "VIBRATION:"
+i7 = "IN-GAME HELP:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.graphics_crt_effect_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.graphics_graphics_spinner]
+s0 = "HARDCORE"
+s1 = "CLASSIC"
+s2 = "ENHANCED"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_graphics_help_strings]
+i0 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added."
+i1 = "The original Xbox look at this device's resolution\\nand frame rate, with sharper textures and HUD."
+i2 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
+i3 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_help_strings]
+i0 = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_graphics.main_menu_settings_select_player_setup_player_profile_edit_graphics_labels]
+i0 = "MODE:"
+i1 = "CRT EFFECT:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_help_strings]
+i0 = "How fast the view turns side to side for the\\nmouse's movement."
+i1 = "How fast the view turns up and down; Same\\nturns it as fast as side to side."
+i2 = "Moving the mouse forward looks down."
+i3 = "Slow and drag the view along with a target while\\naiming with the mouse, as with a controller."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings_labels]
+i0 = "HORIZONTAL SENSITIVITY:"
+i1 = "VERTICAL SENSITIVITY:"
+i2 = "INVERT VERTICAL AXIS:"
+i3 = "AIM ASSIST:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.mouse_settings_invert_mouse_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.mouse_settings_mouse_aim_assist_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.mouse_settings_mouse_sensitivity_spinner]
+s0 = "0.25"
+s1 = "0.5"
+s2 = "0.75"
+s3 = "1"
+s4 = "1.25"
+s5 = "1.5"
+s6 = "1.75"
+s7 = "2"
+s8 = "2.5"
+s9 = "3"
+s10 = "4"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_mouse_settings.mouse_settings_mouse_vertical_sensitivity_spinner]
+s0 = "SAME"
+s1 = "0.25"
+s2 = "0.5"
+s3 = "0.75"
+s4 = "1"
+s5 = "1.25"
+s6 = "1.5"
+s7 = "1.75"
+s8 = "2"
+s9 = "2.5"
+s10 = "3"
+s11 = "4"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_help_strings]
+i0 = "Host and join games over the internet by invite\\nlinks; off keeps to the local network."
+i1 = "Let internet play ask the router to forward its\\nport, for networks that stop connections."
+i2 = "Join the game of an invite link copied before\\nswitching to the game."
+i3 = "Look for a new version when the game starts."
+i4 = "Sync saves with iCloud. Turning on applies next\\nlaunch; turning off stops syncing now."
+i5 = "In multiplayer, whose names are drawn above their\\nheads."
+i6 = "How large the players' names are drawn."
+i7 = "A team game's scoreboard: a column for each team,\\nor every player in order of score."
+i8 = "Draw a panel behind the scoreboard, for clearer\\ntext."
+i9 = "Experimental: show games on Custom Edition maps.\\nThese are not fully supported yet."
+i10 = "Joining a game on a Custom Edition map you do not\\nhave: download it from the players (if shared)."
+i11 = "In another's game, send its map to players who\\njoin without it, as a torrent's peers do."
+i12 = "The most you send of maps to other players, so\\nthat the game keeps the rest of your upload."
+i13 = "Hide offensive words in names and text from\\nother players, maps, and mods as stars."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.main_menu_settings_select_player_setup_player_profile_edit_network_setup_labels]
+i0 = "INTERNET PLAY:"
+i1 = "UPNP PORT FORWARDING:"
+i2 = "JOIN FROM CLIPBOARD:"
+i3 = "CHECK FOR UPDATES:"
+i4 = "ICLOUD SAVES:"
+i5 = "PLAYER NAMES:"
+i6 = "PLAYER NAME SIZE:"
+i7 = "SCOREBOARD LAYOUT:"
+i8 = "SCOREBOARD PANEL:"
+i9 = "CUSTOM MAPS:"
+i10 = "DOWNLOAD MAPS:"
+i11 = "HELP SEND MAPS:"
+i12 = "MAP UPLOAD LIMIT:"
+i13 = "STREAMER MODE:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_allow_upnp_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_auto_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_cloud_saves_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_custom_maps_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_enabled_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_join_from_clipboard_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_map_download_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_map_seed_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_map_seed_upload_spinner]
+s0 = "64 KB/S"
+s1 = "128 KB/S"
+s2 = "256 KB/S"
+s3 = "512 KB/S"
+s4 = "1 MB/S"
+s5 = "2 MB/S"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_online_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_player_name_scale_spinner]
+s0 = "0.5x"
+s1 = "0.75x"
+s2 = "1x"
+s3 = "1.25x"
+s4 = "1.5x"
+s5 = "2x"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_player_names_spinner]
+s0 = "ALL"
+s1 = "ALLIES"
+s2 = "ENEMIES"
+s3 = "NONE"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_scoreboard_background_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_network_setup.network_setup_scoreboard_team_layout_spinner]
+s0 = "TEAMS"
+s1 = "BY SCORE"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_direct_camera_shown]
+i0 = "ON"
+i1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_frame_rate_shown]
+i0 = "DISPLAY"
+i1 = "30"
+i2 = "60"
+i3 = "120"
+i4 = "UNLIMITED"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_graphics_help_strings]
+i0 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added."
+i1 = "The original Xbox look at this device's resolution\\nand frame rate, with sharper textures and HUD."
+i2 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
+i3 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_help_strings]
+i0 = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
+i1 = "Fullscreen takes the display; borderless covers it\\nwith a window. F11 switches to the window."
+i2 = "What fullscreen and borderless draw at. Fullscreen\\nsets the display to it; borderless scales it."
+i3 = "The window's size: 4:3, then 16:10, 16:9 and 21:9\\n(its edges can also be dragged)."
+i4 = "Native draws at the resolution; Original draws\\nthe Xbox's 640x480 and scales it up."
+i5 = "Wait for the display between frames, so that the\\npicture never tears."
+i6 = "With V-Sync off, the most frames a second. Auto:\\ntwice the display's refresh rate."
+i7 = "Unlimited can tear and uses more power. Applies\\nthe next time the game starts."
+i8 = "Draw a frame for every display refresh, blending\\nbetween the game's 30 ticks per second."
+i9 = "In first person, turn the view the moment the\\nmouse moves, not up to two ticks later."
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_interpolation_shown]
+i0 = "ON"
+i1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_labels]
+i0 = "GRAPHICS:"
+i1 = "CRT EFFECT:"
+i2 = "DISPLAY MODE:"
+i3 = "RESOLUTION:"
+i4 = "WINDOW SIZE:"
+i5 = "RESOLUTION SCALING:"
+i6 = "V-SYNC:"
+i7 = "FRAME RATE LIMIT:"
+i8 = "FRAME RATE:"
+i9 = "SMOOTH MOTION:"
+i10 = "INSTANT AIM:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.main_menu_settings_select_player_setup_player_profile_edit_video_settings_resolution_scaling_shown]
+i0 = "NATIVE"
+i1 = "ORIGINAL"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_crt_effect_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_direct_camera_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_frame_rate_spinner]
+s0 = "DISPLAY"
+s1 = "30"
+s2 = "60"
+s3 = "120"
+s4 = "UNLIMITED"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_graphics_spinner]
+s0 = "HARDCORE"
+s1 = "CLASSIC"
+s2 = "ENHANCED"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_interpolation_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_max_fps_spinner]
+s0 = "AUTO"
+s1 = "30"
+s2 = "60"
+s3 = "120"
+s4 = "144"
+s5 = "165"
+s6 = "240"
+s7 = "NONE"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_mode_spinner]
+s0 = "FULLSCREEN"
+s1 = "BORDERLESS"
+s2 = "WINDOWED"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_resolution_scaling_spinner]
+s0 = "NATIVE"
+s1 = "ORIGINAL"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_resolution_spinner]
+s0 = "NATIVE"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_vsync_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_video_settings.video_settings_window_size_spinner]
+s0 = "1280 x 960"
+
+[xbox.dialogs.a_butn_touch_caption]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_10]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_2]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_3]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_4]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_5]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_6]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_7]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_8]
+text = "OK"
+
+[xbox.dialogs.a_butn_touch_caption_9]
+text = "OK"
+
+[xbox.dialogs.error_abort_to_dashboard_accept]
+text = "OK"
+
+[xbox.dialogs.error_abort_to_dashboard_you_have_no_choice_accept]
+text = "OK"
+
+[xbox.dialogs.error_modal_accept]
+text = "OK"
+
+[xbox.dialogs.error_modal_fullscreen_accept]
+text = "OK"
+
+[xbox.dialogs.error_modal_halfscreen_accept]
+text = "OK"
+
+[xbox.dialogs.error_modal_qtrscreen_accept]
+text = "OK"
+
+[xbox.dialogs.error_non_modal_accept]
+text = "OK"
+
+[xbox.dialogs.error_nonmodal_fullscreen_accept]
+text = "OK"
+
+[xbox.dialogs.error_nonmodal_halfscreen_accept]
+text = "OK"
+
+[xbox.dialogs.error_nonmodal_qtrscreen_accept]
+text = "OK"
+
+[xbox.main_menu_multiplayer_type_select_coop_options.coop_options_extra_enemies_spinner]
+s0 = "NONE"
+s1 = "+25% PER PLAYER"
+s2 = "+50% PER PLAYER"
+s3 = "+100% PER PLAYER"
+s4 = "+150% PER PLAYER"
+s5 = "+200% PER PLAYER"
+s6 = "2X"
+s7 = "4X"
+s8 = "8X"
+s9 = "16X"
+s10 = "32X"
+
+[xbox.main_menu_multiplayer_type_select_coop_options.coop_options_fireteam_spinner]
+s0 = "DROP-IN"
+s1 = "CLASSIC"
+
+[xbox.main_menu_multiplayer_type_select_coop_options.coop_options_friendly_fire_spinner]
+s0 = "OFF"
+s1 = "PLAYERS ONLY"
+s2 = "AI ALLIES ONLY"
+s3 = "ON"
+
+[xbox.main_menu_multiplayer_type_select_coop_options.coop_options_player_collisions_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.main_menu_multiplayer_type_select_coop_options.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_direct_ip.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_join_game.join_game_create]
+text = "CREATE GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game.join_game_join_game_button_refresh]
+text = "REFRESH"
+
+[xbox.main_menu_multiplayer_type_select_join_game.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_join_game.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_join_game_compact.join_game_create]
+text = "CREATE GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_compact.join_game_join_game_button_refresh]
+text = "REFRESH"
+
+[xbox.main_menu_multiplayer_type_select_join_game_compact.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_join_game_compact.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.code_button_ok]
+text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.join_game_button_clipboard]
+text = "ENTER CODE"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.legend_cancel]
+text = "CANCEL"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.legend_cancel_2]
+text = "CANCEL"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.legend_y_edit]
+text = "EDIT"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.legend_y_edit_2]
+text = "EDIT"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.password_button_ok]
+text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_code_screen_legend_accept_captions]
+i0 = "EDIT"
+i1 = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_help_strings]
+i0 = "Type the join code your friend's lobby shows,\\nor a whole invite link, then JOIN GAME."
+i1 = "That is not a join code (eight letters and digits)\\nor an invite link. Try again."
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_code_labels]
+i0 = "JOIN CODE:"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_help_strings]
+i0 = "This game has a password.\\nEnter it, then select JOIN GAME."
+i1 = "That is not the game's password. Try again."
+i2 = "Could not join the game."
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_labels]
+i0 = "PASSWORD:"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_accept_captions]
+i0 = "EDIT"
+i1 = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_password_password_screen_legend_hide_captions]
+i0 = "HIDE"
+i1 = "SHOW"
+
+[xbox.main_menu_multiplayer_type_select_lobby.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_lobby.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_button_add_caption]
+text = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_button_leave_caption]
+text = "LEAVE"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_button_share_caption]
+text = "SHARE"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_button_start_caption]
+text = "START NOW"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_button_team_caption]
+text = "SWITCH TEAM"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_player_profile_help]
+text = "The new player's profile."
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_preview_button_add]
+text = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_preview_button_back]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_lobby.lobby_preview_button_join]
+text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_lobby.preview_button_add_caption]
+text = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby.preview_button_back_caption]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_lobby.preview_button_join_caption]
+text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_button_add_caption]
+text = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_button_leave_caption]
+text = "LEAVE"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_button_share_caption]
+text = "SHARE"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_button_start_caption]
+text = "START NOW"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_button_team_caption]
+text = "SWITCH TEAM"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_player_profile_help]
+text = "The new player's profile."
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_preview_button_add]
+text = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_preview_button_back]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.lobby_preview_button_join]
+text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.preview_button_add_caption]
+text = "ADD PLAYER"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.preview_button_back_caption]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_lobby_compact.preview_button_join_caption]
+text = "JOIN GAME"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line]
+i0 = "The Pillar of Autumn"
+i1 = "Halo"
+i2 = "The Truth and Reconciliation"
+i3 = "The Silent Cartographer"
+i4 = "Assault on the Control Room"
+i5 = "343 Guilty Spark"
+i6 = "The Library"
+i7 = "Two Betrayals"
+i8 = "Keyes"
+i9 = "The Maw"
+i10 = "This Level Unavailable"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts]
+i0 = "2-8 players"
+i1 = "4-16 players"
+i2 = "4-8 players"
+i3 = "2-6 players"
+i4 = "2-8 players"
+i5 = "4-16 players"
+i6 = "2-8 players"
+i7 = "4-8 players"
+i8 = "4-16 players"
+i9 = "4-16 players"
+i10 = "2-8 players"
+i11 = "2-6 players"
+i12 = "2-8 players"
+i13 = "4-16 players"
+i14 = "4-16 players"
+i15 = "4-16 players"
+i16 = "4-16 players"
+i17 = "4-16 players"
+i18 = "2-12 players"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select_compact.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select_compact.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_list_one_line]
+i0 = "The Pillar of Autumn"
+i1 = "Halo"
+i2 = "The Truth and Reconciliation"
+i3 = "The Silent Cartographer"
+i4 = "Assault on the Control Room"
+i5 = "343 Guilty Spark"
+i6 = "The Library"
+i7 = "Two Betrayals"
+i8 = "Keyes"
+i9 = "The Maw"
+i10 = "This Level Unavailable"
+
+[xbox.main_menu_multiplayer_type_select_mp_map_select_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_player_counts]
+i0 = "2-8 players"
+i1 = "4-16 players"
+i2 = "4-8 players"
+i3 = "2-6 players"
+i4 = "2-8 players"
+i5 = "4-16 players"
+i6 = "2-8 players"
+i7 = "4-8 players"
+i8 = "4-16 players"
+i9 = "4-16 players"
+i10 = "2-8 players"
+i11 = "2-6 players"
+i12 = "2-8 players"
+i13 = "4-16 players"
+i14 = "4-16 players"
+i15 = "4-16 players"
+i16 = "4-16 players"
+i17 = "4-16 players"
+i18 = "2-12 players"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.legend_accept]
+text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.legend_copy]
+text = "INVITE"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.server_settings_game_type_label]
+text = "GAME TYPE:"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.server_settings_gametype_options_label]
+text = "GAMETYPE OPTIONS"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.server_settings_listing_spinner]
+s0 = "PUBLIC"
+s1 = "PRIVATE"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner]
+s0 = "2"
+s1 = "4"
+s2 = "8"
+s3 = "12"
+s4 = "16"
+s5 = "24"
+s6 = "32"
+s7 = "48"
+s8 = "64"
+s9 = "96"
+s10 = "128"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.server_settings_op_start_game]
+text = "START GAME"
+
+[xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_help_strings]
+i0 = "The name the game shows in the lists of games.\\nEnter changes it."
+i1 = "The most players the game takes (up to 128)."
+i2 = "Players join this game by its invite link, or your\\nDiscord invite. Enter copies the link again."
+i3 = "The gametype and its rules, for this game."
+i4 = "Lives, health, shields, and respawning, for this game."
+i5 = "Weapons, grenades, and starting equipment, for\\nthis game."
+i6 = "Each team's vehicles and their respawn time, for\\nthis game."
+i7 = "The motion tracker and nav points, for this game."
+i8 = "Friendly fire and team balance, for this game."
+i9 = "Anyone can see and join your game: it is listed\\nin everyone's Server Browser."
+i10 = "Only players with your invite link can join."
+i11 = "Players can not be hurt by weapons and explosives\\nfired by the other players."
+i12 = "Players can be hurt by weapons or explosives\\nfired by the other players."
+i13 = "Damage from the other players will only reduce\\nshields. Health will be unaffected."
+i14 = "Players can be hurt by damage from explosives\\nfired by the other players."
+i15 = "Enemy squads are as the campaign has them."
+i16 = "Enemy squads grow with the players: by the amount\\nbelow for each player past the first."
+i17 = "Enemy squads are the amount below times as large,\\nhowever many players there are."
+i18 = "For each player past the first, enemy squads get\\nthis much more of themselves (100%: as many again)."
+i19 = "Each enemy squad is this many times as large."
+i20 = "Players bump into each other, as in the campaign."
+i21 = "Players walk through each other, so that no one\\nblocks a doorway. The AI's characters still block."
+i22 = "Players from the Server Browser must type it to\\njoin (an invite link needs none). Enter sets it."
+i23 = "Players who join without the game's Custom Edition\\nmap download it from you and the other players."
+i24 = "Players who join without the map cannot play."
+i25 = "Players can hurt friendly AI and vehicles."
+i26 = "Friendly AI and vehicles are protected from players.\\nPlayer-to-player friendly fire keeps its own rules."
+i27 = "More players than recommended for this device.\\nIt may run slowly."
+i28 = "Players can leave and join at any time.\\nPlayers always respawn in place upon death."
+i29 = "Fireteam cannot change after level start.\\nIf the whole team dies, revert to checkpoint."
+i30 = "Friendly fire, extra enemies, player collisions\\nand what happens when everyone dies."
+i31 = "Players and friendly AI are protected from\\nplayers' weapons and explosives."
+i32 = "Players can hurt each other. Friendly AI is\\nprotected from players."
+i33 = "Players can hurt friendly AI and vehicles.\\nPlayers are protected from each other."
+i34 = "Players can hurt each other, friendly AI and\\nvehicles."
+
+[xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_labels]
+i0 = "GAME NAME:"
+i1 = "MAXIMUM PLAYERS:"
+i2 = "INVITE LINK:"
+i3 = "GAME TYPE:"
+i4 = "PLAYER OPTIONS:"
+i5 = "ITEM OPTIONS:"
+i6 = "VEHICLE OPTIONS:"
+i7 = "INDICATOR OPTIONS:"
+i8 = "TEAMPLAY OPTIONS:"
+i9 = "LISTING:"
+i10 = "FRIENDLY FIRE:"
+i11 = "EXTRA ENEMIES:"
+i12 = "PER PLAYER:"
+i13 = "MULTIPLIER:"
+i14 = "PLAYER COLLISIONS:"
+i15 = "PASSWORD:"
+i16 = "SHARE MAPS:"
+i17 = "ALLY FRIENDLY FIRE:"
+i18 = "FIRETEAM:"
+i19 = "CO-OP OPTIONS"
+
+[xbox.main_menu_new_select_port.xbox_main_menu_new_select_var_map_kinds]
+i0 = "SINGLEPLAYER"
+i1 = "MULTIPLAYER"
+i2 = "CUSTOM SINGLEPLAYER"
+i3 = "CUSTOM MULTIPLAYER"
+
+[xbox.main_menu_new_select_port_compact.xbox_main_menu_new_select_var_map_kinds]
+i0 = "SINGLEPLAYER"
+i1 = "MULTIPLAYER"
+i2 = "CUSTOM SINGLEPLAYER"
+i3 = "CUSTOM MULTIPLAYER"
+
+[xbox.main_menu_quit_select.quit_select_quit_button_ok]
+text = "OK"
+
+[xbox.main_menu_quit_select.quit_select_quit_panel]
+text = "Are you sure you\\nwish to exit Halo?"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_loadout_label]
+text = "LOADOUT:"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_map_weapons_label]
+text = "MAP WEAPONS:"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_primary_weapon_label]
+text = "PRIMARY WEAPON:"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_secondary_weapon_label]
+text = "SECONDARY WEAPON:"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout]
+i0 = "CATEGORY"
+i1 = "CUSTOM"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon]
+i0 = "NONE"
+i1 = "RANDOM"
+i2 = "ASSAULT RIFLE"
+i3 = "PISTOL"
+i4 = "SHOTGUN"
+i5 = "SNIPER RIFLE"
+i6 = "ROCKET LAUNCHER"
+i7 = "PLASMA PISTOL"
+i8 = "PLASMA RIFLE"
+i9 = "NEEDLER"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
+i0 = "YES"
+i1 = "NO"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select.legend_back]
+text = "BACK"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select.legend_select]
+text = "SELECT"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select.playlist_select_playlist_button_delete]
+text = "DELETE"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select.playlist_select_playlist_button_new]
+text = "CREATE NEW"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.legend_back]
+text = "BACK"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.legend_select]
+text = "SELECT"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.playlist_select_playlist_button_delete]
+text = "DELETE"
+
+[xbox.main_menu_settings_select_multiplayer_setup_playlist_select_compact.playlist_select_playlist_button_new]
+text = "CREATE NEW"
+
+[xbox.multiplayer_shared.a_butn_touch_caption]
+text = "OK"
+
+[xbox.multiplayer_shared.a_butn_touch_caption_2]
+text = "OK"
+
+[xbox.multiplayer_shared.b_butn_touch_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.b_butn_touch_caption_2]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.confirm_delete_profile_a_caption]
+text = "OK"
+
+[xbox.multiplayer_shared.confirm_delete_profile_b_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.confirm_join_big_a_caption]
+text = "OK"
+
+[xbox.multiplayer_shared.confirm_join_big_b_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.legend_accept]
+text = "OK"
+
+[xbox.multiplayer_shared.legend_accept_2]
+text = "OK"
+
+[xbox.multiplayer_shared.legend_cancel]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.legend_cancel_2]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.main_menu_map_list]
+i0 = "The Pillar of \\nAutumn"
+i1 = "Halo"
+i2 = "The Truth and \\nReconciliation"
+i3 = "The Silent \\nCartographer"
+i4 = "Assault on the\\nControl Room"
+i5 = "343 Guilty \\nSpark"
+i6 = "The Library"
+i7 = "Two Betrayals"
+i8 = "Keyes"
+i9 = "The Maw"
+i10 = "This Level\\nUnavailable"
+
+[xbox.multiplayer_shared.main_menu_mp_map_list]
+i0 = "Battle Creek"
+i1 = "Sidewinder"
+i2 = "Damnation"
+i3 = "Rat Race"
+i4 = "Prisoner"
+i5 = "Hang 'Em High"
+i6 = "Chill Out"
+i7 = "Derelict"
+i8 = "Boarding Action"
+i9 = "Blood Gulch"
+i10 = "Wizard"
+i11 = "Chiron TL34"
+i12 = "Longest"
+i13 = "Ice Fields"
+i14 = "Death Island"
+i15 = "Danger Canyon"
+i16 = "Infinity"
+i17 = "Timberland"
+i18 = "Gephyrophobia"
+i19 = "Unknown Level"
+i20 = " "
+
+[xbox.multiplayer_shared.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels]
+i0 = "Players"
+i1 = "Rules"
+i2 = "Message"
+i3 = "Getting Server Info..."
+i4 = "Getting Message of the Day..."
+i5 = "Welcome to Halo Multiplayer!"
+i6 = "SERVERS:"
+i7 = "PLAYERS:"
+i8 = "PAGE"
+i9 = "TODO: MOTD URL"
+
+[xbox.multiplayer_shared.xbox_error_error_headers]
+i0 = "ATTENTION"
+i1 = "ATTENTION"
+i2 = "ARE YOU SURE?"
+i3 = "SAVING..."
+i4 = "ATTENTION:"
+i5 = "DID YOU KNOW..."
+i6 = "OOPS!"
+i7 = "ALERT!"
+
+[xbox.multiplayer_shared.xbox_main_menu_map_list]
+i0 = "The Pillar of \\nAutumn"
+i1 = "Halo"
+i2 = "The Truth and \\nReconciliation"
+i3 = "The Silent \\nCartographer"
+i4 = "Assault on the\\nControl Room"
+i5 = "343 Guilty \\nSpark"
+i6 = "The Library"
+i7 = "Two Betrayals"
+i8 = "Keyes"
+i9 = "The Maw"
+i10 = "This Level\\nUnavailable"
+
+[xbox.multiplayer_shared.xbox_main_menu_mp_map_list]
+i0 = "Battle Creek"
+i1 = "Sidewinder"
+i2 = "Damnation"
+i3 = "Rat Race"
+i4 = "Prisoner"
+i5 = "Hang 'Em High"
+i6 = "Chill Out"
+i7 = "Derelict"
+i8 = "Boarding Action"
+i9 = "Blood Gulch"
+i10 = "Wizard"
+i11 = "Chiron TL34"
+i12 = "Longest"
+i13 = "Ice Fields"
+i14 = "Death Island"
+i15 = "Danger Canyon"
+i16 = "Infinity"
+i17 = "Timberland"
+i18 = "Gephyrophobia"
+i19 = "Unknown Level"
+i20 = " "
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options]
+i0 = "Enter the address of  the server you want to\\nconnect to, and optionally a colon and port\\nnumber. Example: 206.0.8.4:2304."
+i1 = "Enter a password for the server you want\\nto connect to."
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options]
+i0 = "SERVER ADDRESS"
+i1 = "PASSWORD"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options]
+i0 = "Do not show empty servers."
+i1 = "Show empty servers."
+i2 = "Do not show full servers."
+i3 = "Show full servers."
+i4 = "Filter servers by connection latency (in ms).\\nLatency is how fast data travels from the server."
+i5 = "Show only games matching the selected\\ngame type."
+i6 = "Show servers running both free-for-all\\nand teamplay modes."
+i7 = "Show only servers running free-for-all modes."
+i8 = "Show only servers running teamplay modes."
+i9 = "Show only servers with custom maps that are\\ncurrently installed."
+i10 = "Show servers with custom maps that are not\\ncurrently installed."
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options]
+i0 = "SHOW EMPTY SERVERS"
+i1 = "SHOW FULL SERVERS"
+i2 = "PING"
+i3 = "GAME TYPE"
+i4 = "TEAMPLAY OPTIONS"
+i5 = "SHOW MISSING MAPS"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options]
+i0 = "ANY"
+i1 = "FREE-FOR-ALL"
+i2 = "TEAMPLAY"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype]
+i0 = "ANY"
+i1 = "CTF"
+i2 = "SLAYER"
+i3 = "ODDBALL"
+i4 = "KING"
+i5 = "RACE"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping]
+i0 = "ANY"
+i1 = "< 50"
+i2 = "< 100"
+i3 = "< 150"
+i4 = "< 200"
+i5 = "< 300"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons]
+i0 = "GET LIST"
+i1 = "REFRESH"
+i2 = "STOP"
+i3 = "FILTERS"
+i4 = "JOIN GAME"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers]
+i0 = "Server Name"
+i1 = "Map"
+i2 = "Players"
+i3 = "Game"
+i4 = "Region"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode]
+i0 = "Internet"
+i1 = "LAN"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels]
+i0 = "Players"
+i1 = "Rules"
+i2 = "Message"
+i3 = "Getting Server Info..."
+i4 = "Getting Message of the Day..."
+i5 = "Welcome to Halo Multiplayer!"
+i6 = "SERVERS:"
+i7 = "PLAYERS:"
+i8 = "PAGE"
+i9 = "TODO: MOTD URL"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data]
+i0 = "Splash Splash\\nBang Bang\\n\\n2-8 players"
+i1 = "Red Blood\\nWhite Snow\\n\\n4-16 players\\n\\nSupports vehicles"
+i2 = "Covenant Hydro-\\nProcessing Center\\n\\n4-8 players"
+i3 = "Up the Ramps\\nDown the Tubes\\n\\n2-6 players"
+i4 = "Get on Top\\n\\n\\n2-8 players"
+i5 = "Tombstones for\\nEverybody\\n\\n4-16 players"
+i6 = "Dude, you really\\nneed to...\\n\\n2-8 players"
+i7 = "Deep-Space\\nAnomaly #0198\\n\\n4-8 players"
+i8 = "Ship-to-Ship\\nCombat\\n\\n4-16 players"
+i9 = "The Quick \\nand the Dead\\n\\n4-16 players\\n\\nSupports vehicles"
+i10 = "Round and Round \\nand Round\\n\\n2-8 players"
+i11 = "Spartan Clone\\nTraining Complex\\n\\n2-6 players"
+i12 = "A long walk\\ndown a short hall...\\n\\n2-8 players"
+i13 = "Slipping and\\nSliding\\n\\n4-16 players\\n\\nSupports vehicles"
+i14 = "Sand, Surf, and \\nSpent Shells\\n\\n4-16 players\\n\\nSupports vehicles"
+i15 = "Don't Look Down...\\nUnless You Fall\\n\\n4-16 players\\n\\nSupports vehicles"
+i16 = "I Imagined it\\nWould Be Bigger\\n\\n4-16 players\\n\\nSupports vehicles"
+i17 = "An Enemy Behind\\nEvery Tree\\n\\n4-16 players\\n\\nSupports vehicles"
+i18 = "Scary, huh?\\n\\n\\n2-12 players\\n\\nSupports vehicles"
+i19 = "UNKNOWN LEVEL\\n\\n\\n"
+
+[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options]
+i0 = "SERVER NAME"
+i1 = "PASSWORD"
+i2 = "SERVER MODE"
+i3 = "MAX PLAYERS"
+i4 = "START GAME"
+i5 = "SERVER IP"
+
+[xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_difficulty_names]
+i0 = "Easy"
+i1 = "Normal"
+i2 = "Heroic"
+i3 = "Legendary"
+
+[xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_joystick_set_defaults_descriptions]
+i0 = "Default"
+i1 = "Inverted"
+
+[xbox.multiplayer_shared.xbox_main_menu_player_profiles_select_profile_description_labels]
+i0 = "Current Level:"
+i1 = "Difficulty:"
+i2 = "Controls:"
+i3 = "unused"
+i4 = "Create New\\nPlayer Profile"
+i5 = "Empty game\\nsetting slot"
+
+[xbox.multiplayer_shared.xbox_main_menu_quit_select_header_quit_game_prompt]
+i0 = "Are you sure you wish to\\nexit Halo?"
+i1 = "Quit?"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options]
+i0 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
+i1 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
+i2 = "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected."
+i3 = "Players can be hurt by damage from explosives \\nfired by their teammates."
+i4 = "No respawn time penalty will be assessed to players\\nwho kill a teammate."
+i5 = "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die."
+i6 = "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die."
+i7 = "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die."
+i8 = "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish."
+i9 = "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels]
+i0 = "FRIENDLY FIRE:"
+i1 = "FRIENDLY FIRE PENALTY:"
+i2 = "AUTO TEAM BALANCE:"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire]
+i0 = "OFF"
+i1 = "ON"
+i2 = "SHIELD ONLY"
+i3 = "EXPLOSIVES ONLY"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty]
+i0 = "NONE"
+i1 = "5 SECONDS"
+i2 = "10 SECONDS"
+i3 = "15 SECONDS"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options]
+i0 = "Vehicles will not respawn."
+i1 = "Vehicles will respawn every 30 seconds if idle."
+i2 = "Vehicles will respawn every 60 seconds if idle."
+i3 = "Vehicles will respawn every 90 seconds if idle."
+i4 = "Vehicles will respawn every 2 minutes if idle."
+i5 = "Vehicles will respawn every 3 minutes if idle."
+i6 = "Vehicles will respawn every 5 minutes if idle."
+i7 = "Adjust vehicle placement for the Red Team."
+i8 = "Adjust vehicle placement for the Blue Team."
+i9 = "The map will contain the default vehicles specified\\nin the map.  Includes Warthogs, Scorpion tanks, \\nGhosts, Banshees and Covenant Gun Turrets."
+i10 = "No vehicles will appear anywhere on this map; you will\\ntravel on foot at all times."
+i11 = "You'll traverse the map in the nimble Warthog, a\\nhardy jeep with a chain gun mounted in the back."
+i12 = "Zip around in the Ghost, a nimble hovercraft with \\npowerful energy cannons and the snazziest paint job \\nin the galaxy."
+i13 = "Grind your way across the landscape in the Scorpion\\ntank, a mighty killing machine."
+i14 = "You'll traverse the map in the Rocket Warthog, a\\nhardy jeep with a rocket launcher mounted in the back."
+i15 = "Command the skies in the Banshee."
+i16 = "Defend the lands with the powerful Covenant Gun\\nTurret."
+i17 = "Customize the set of vehicles which will spawn\\nin the map."
+i18 = "No Warthogs will spawn in the map."
+i19 = "Up to one Warthog will spawn in the map."
+i20 = "Up to two Warthogs will spawn in the map."
+i21 = "Up to three Warthogs will spawn in the map."
+i22 = "Up to four Warthogs will spawn in the map."
+i23 = "No Ghosts will spawn in the map."
+i24 = "Up to one Ghost will spawn in the map."
+i25 = "Up to two Ghosts will spawn in the map."
+i26 = "Up to three Ghosts will spawn in the map."
+i27 = "Up to four Ghosts will spawn in the map."
+i28 = "No Scorpions will spawn in the map."
+i29 = "Up to one Scorpion will spawn in the map."
+i30 = "Up to two Scorpions will spawn in the map."
+i31 = "Up to three Scorpions will spawn in the map."
+i32 = "Up to four Scorpions will spawn in the map."
+i33 = "No Rocket Warthogs will spawn in the map."
+i34 = "Up to one Rocket Warthog will spawn in the map."
+i35 = "Up to two Rocket Warthogs will spawn in the map."
+i36 = "Up to three Rocket Warthogs will spawn in the map."
+i37 = "Up to four Rocket Warthogs will spawn in the map."
+i38 = "No Banshees will spawn in the map."
+i39 = "Up to one Banshee will spawn in the map."
+i40 = "Up to two Banshees will spawn in the map."
+i41 = "Up to three Banshees will spawn in the map."
+i42 = "Up to four Banshees will spawn in the map."
+i43 = "No Gun Turrets will spawn in the map."
+i44 = "Up to one Gun Turret will spawn in the map."
+i45 = "Up to two Gun Turrets will spawn in the map."
+i46 = "Up to three Gun Turrets will spawn in the map."
+i47 = "Up to four Gun Turrets will spawn in the map."
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team]
+i0 = "RED TEAM"
+i1 = "BLUE TEAM"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options]
+i0 = "NONE"
+i1 = "1"
+i2 = "2"
+i3 = "3"
+i4 = "4"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set]
+i0 = "DEFAULT"
+i1 = "NONE"
+i2 = "WARTHOGS"
+i3 = "GHOSTS"
+i4 = "SCORPIONS"
+i5 = "ROCKET WARTHOGS"
+i6 = "BANSHEES"
+i7 = "GUN TURRETS"
+i8 = "PC"
+i9 = "CUSTOM"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn]
+i0 = "NEVER"
+i1 = "30 SECONDS"
+i2 = "60 SECONDS"
+i3 = "90 SECONDS"
+i4 = "2 MINUTES"
+i5 = "3 MINUTES"
+i6 = "5 MINUTES"
+
+[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels]
+i0 = "VEHICLE SET:"
+i1 = "WARTHOG:"
+i2 = "GHOST:"
+i3 = "SCORPION:"
+i4 = "ROCKET WARTHOG:"
+i5 = "BANSHEE:"
+i6 = "GUN TURRET:"
+i7 = "VEHICLE RESPAWN TIME:"
+i8 = "SIDE:"
+
+[xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data]
+i0 = "Escape intact as \\nCovenant forces \\nboard your ship."
+i1 = "Seek out surviving \\nMarines and help \\nthem fight the Cove-\\nnant."
+i2 = "Board a Covenant \\nship in an attempt to \\nrescue Captain \\nKeyes."
+i3 = "Search for the map \\nroom that will lead \\nyou to the secrets of \\nHalo."
+i4 = "Defend the Control \\nRoom against wave \\nafter wave of Cove-\\nnant troops."
+i5 = "Creep through a \\nswamp to meet the \\nonly enemy the \\nCovenant fear."
+i6 = "Fight your way \\nthrough an ancient \\nsecurity facility in \\nsearch of the Index."
+i7 = "Reactivate the wea-\\npon at the heart of \\nHalo...and learn the \\ntruth."
+i8 = "Stage a one-cyborg \\nassault on a Cove-\\nnant ship and bring \\nback the Captain."
+i9 = "Destroy Halo before \\nHalo destroys all life \\nin the galaxy."
+i10 = "You cannot play\\nthis level... yet!"
+i11 = "You have a game in\\nprogress on this\\nlevel. Select to\\ncontinue your game."
+
+[xbox.multiplayer_shared.xbox_strings_common_button_captions]
+i0 = "BACK"
+i1 = "OK"
+i2 = "CANCEL"
+i3 = "DEFAULTS"
+i4 = "CREATE NEW"
+i5 = "DELETE"
+i6 = "ADVANCED"
+i7 = "Profile:"
+
+[xbox.multiplayer_shared.xbox_strings_displayed_error_messages]
+i0 = "Unable to complete\\nthe last operation."
+i1 = "A networking error\\nhas occurred."
+i2 = "Unable to join game \\nbecause it is closed."
+i3 = "Unable to join game."
+i4 = "The game has\\nclosed down."
+i5 = "Halo can't connect to\\nthe network."
+i6 = "Network connection lost."
+i7 = "Failed to join the game."
+i8 = "Your game has\\ngone out of sync with\\nthe others in\\nthe game. Resetting..."
+i9 = "Your connection is\\nexperiencing\\ndifficulties..."
+i10 = "unused network error"
+i11 = "A controller error\\nhas occurred."
+i12 = "Please reconnect\\ncontroller #%controller.\\nPress START to continue\\nafter reconnecting."
+i13 = "Please reconnect\\n#%controller controller."
+i14 = "A controller\\nmemory card error\\nhas occurred."
+i15 = "Saving... one moment\\nplease."
+i16 = "Creating player profile...\\none moment please."
+i17 = "Creating game settings\\nfile... one moment please."
+i18 = "Player 2 must use a\\ndifferent controller\\nthan Player 1."
+i19 = "unused controller error"
+i20 = "unused controller error"
+i21 = "Please insert\\nanother quarter."
+i22 = "All progress since the\\nlast checkpoint will\\nbe lost."
+i23 = "All progress on this \\nlevel will be lost."
+i24 = "Are you sure you wish \\nto delete this profile? \\nAll your progress and \\nsettings will be lost."
+i25 = "Are you sure you wish \\nto delete this\\ngametype? All your\\nsettings will be lost."
+i26 = "Sorry, you can't delete\\nthe default multiplayer\\ngame settings."
+i27 = "Sorry, there is already \\na saved gametype or \\nprofile with that name."
+i28 = "Do you really want to\\nback out without saving\\nyour changes?"
+i29 = "Sorry, you can't create\\na saved game file with\\nan empty name."
+i30 = "Saving last checkpoint...\\none moment please."
+i31 = "Unable to load saved\\ngame file."
+i32 = "unused warning"
+i33 = "Insufficient free space to\\nsave game."
+i34 = "Insufficient free save slots."
+i35 = "An error has occurred\\nloading a map file."
+i36 = "You have reached the\\nmaximum number of Halo\\ngame files. Unable to\\ncreate additional ones."
+i37 = "Unable to create new\\nplayer profile."
+i38 = "Unable to create new\\nmultiplayer game\\nsettings entry."
+i39 = "Unable to load saved\\nprogress for this\\nprofile."
+i40 = "An error has occurred\\ntrying to contact the \\nGameSpy master server."
+i41 = "Video settings changed...\\nPress OK to accept."
+i42 = "The server you selected\\nrequires a password!"
+i43 = "Unable to join the game\\nserver!"
+i44 = "The server reported\\nan invalid connection\\nrequest."
+i45 = "Your password was\\nrejected by the server."
+i46 = "The server is full."
+i47 = "Your CD Key is invalid."
+i48 = "Your CD Key is in use\\nby another player."
+i49 = "The server operator has\\nbanned you from playing\\non this server."
+i50 = "The server operator has\\nkicked you from this\\nserver."
+i51 = "Video settings will be\\ntested.  If you do not see\\na confirm dialog after\\nthe change, press ESC."
+i52 = "Checkpoint saved."
+i53 = "The address is invalid."
+i54 = "You need to create or\\nselect a profile in order\\nto continue."
+i55 = "Your client is running an\\nincompatible network \\nprotocol version."
+i56 = "Connection rejected: Your\\nclient is older than the\\nserver."
+i57 = "Connection rejected: Your\\nclient is newer than the\\nserver."
+i58 = "You must have\\nAdministrator privileges\\nto download this required\\npatch."
+i59 = "Are you sure you want to\\ndelete this saved game?"
+i60 = "This game allows more\\nplayers than this device\\nruns smoothly.\\nJoin anyway?"
+
+[xbox.multiplayer_shared.xbox_strings_var_boolean]
+i0 = "NO"
+i1 = "YES"
+
+[xbox.multiplayer_shared_compact.a_butn_touch_caption]
+text = "OK"
+
+[xbox.multiplayer_shared_compact.a_butn_touch_caption_2]
+text = "OK"
+
+[xbox.multiplayer_shared_compact.b_butn_touch_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared_compact.b_butn_touch_caption_2]
+text = "CANCEL"
+
+[xbox.multiplayer_shared_compact.confirm_delete_profile_a_caption]
+text = "OK"
+
+[xbox.multiplayer_shared_compact.confirm_delete_profile_b_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared_compact.confirm_join_big_a_caption]
+text = "OK"
+
+[xbox.multiplayer_shared_compact.confirm_join_big_b_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared_compact.legend_accept]
+text = "OK"
+
+[xbox.multiplayer_shared_compact.legend_accept_2]
+text = "OK"
+
+[xbox.multiplayer_shared_compact.legend_cancel]
+text = "CANCEL"
+
+[xbox.multiplayer_shared_compact.legend_cancel_2]
+text = "CANCEL"
+
+[xbox.multiplayer_shared_compact.main_menu_map_list]
+i0 = "The Pillar of \\nAutumn"
+i1 = "Halo"
+i2 = "The Truth and \\nReconciliation"
+i3 = "The Silent \\nCartographer"
+i4 = "Assault on the\\nControl Room"
+i5 = "343 Guilty \\nSpark"
+i6 = "The Library"
+i7 = "Two Betrayals"
+i8 = "Keyes"
+i9 = "The Maw"
+i10 = "This Level\\nUnavailable"
+
+[xbox.multiplayer_shared_compact.main_menu_mp_map_list]
+i0 = "Battle Creek"
+i1 = "Sidewinder"
+i2 = "Damnation"
+i3 = "Rat Race"
+i4 = "Prisoner"
+i5 = "Hang 'Em High"
+i6 = "Chill Out"
+i7 = "Derelict"
+i8 = "Boarding Action"
+i9 = "Blood Gulch"
+i10 = "Wizard"
+i11 = "Chiron TL34"
+i12 = "Longest"
+i13 = "Ice Fields"
+i14 = "Death Island"
+i15 = "Danger Canyon"
+i16 = "Infinity"
+i17 = "Timberland"
+i18 = "Gephyrophobia"
+i19 = "Unknown Level"
+i20 = " "
+
+[xbox.multiplayer_shared_compact.main_menu_multiplayer_type_select_join_game_join_game_ticker_labels]
+i0 = "Players"
+i1 = "Rules"
+i2 = "Message"
+i3 = "Getting Server Info..."
+i4 = "Getting Message of the Day..."
+i5 = "Welcome to Halo Multiplayer!"
+i6 = "SERVERS:"
+i7 = "PLAYERS:"
+i8 = "PAGE"
+i9 = "TODO: MOTD URL"
+
+[xbox.multiplayer_shared_compact.xbox_error_error_headers]
+i0 = "ATTENTION"
+i1 = "ATTENTION"
+i2 = "ARE YOU SURE?"
+i3 = "SAVING..."
+i4 = "ATTENTION:"
+i5 = "DID YOU KNOW..."
+i6 = "OOPS!"
+i7 = "ALERT!"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_map_list]
+i0 = "The Pillar of \\nAutumn"
+i1 = "Halo"
+i2 = "The Truth and \\nReconciliation"
+i3 = "The Silent \\nCartographer"
+i4 = "Assault on the\\nControl Room"
+i5 = "343 Guilty \\nSpark"
+i6 = "The Library"
+i7 = "Two Betrayals"
+i8 = "Keyes"
+i9 = "The Maw"
+i10 = "This Level\\nUnavailable"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_mp_map_list]
+i0 = "Battle Creek"
+i1 = "Sidewinder"
+i2 = "Damnation"
+i3 = "Rat Race"
+i4 = "Prisoner"
+i5 = "Hang 'Em High"
+i6 = "Chill Out"
+i7 = "Derelict"
+i8 = "Boarding Action"
+i9 = "Blood Gulch"
+i10 = "Wizard"
+i11 = "Chiron TL34"
+i12 = "Longest"
+i13 = "Ice Fields"
+i14 = "Death Island"
+i15 = "Danger Canyon"
+i16 = "Infinity"
+i17 = "Timberland"
+i18 = "Gephyrophobia"
+i19 = "Unknown Level"
+i20 = " "
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options]
+i0 = "Enter the address of  the server you want to\\nconnect to, and optionally a colon and port\\nnumber. Example: 206.0.8.4:2304."
+i1 = "Enter a password for the server you want\\nto connect to."
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options]
+i0 = "SERVER ADDRESS"
+i1 = "PASSWORD"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options]
+i0 = "Do not show empty servers."
+i1 = "Show empty servers."
+i2 = "Do not show full servers."
+i3 = "Show full servers."
+i4 = "Filter servers by connection latency (in ms).\\nLatency is how fast data travels from the server."
+i5 = "Show only games matching the selected\\ngame type."
+i6 = "Show servers running both free-for-all\\nand teamplay modes."
+i7 = "Show only servers running free-for-all modes."
+i8 = "Show only servers running teamplay modes."
+i9 = "Show only servers with custom maps that are\\ncurrently installed."
+i10 = "Show servers with custom maps that are not\\ncurrently installed."
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options]
+i0 = "SHOW EMPTY SERVERS"
+i1 = "SHOW FULL SERVERS"
+i2 = "PING"
+i3 = "GAME TYPE"
+i4 = "TEAMPLAY OPTIONS"
+i5 = "SHOW MISSING MAPS"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options]
+i0 = "ANY"
+i1 = "FREE-FOR-ALL"
+i2 = "TEAMPLAY"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype]
+i0 = "ANY"
+i1 = "CTF"
+i2 = "SLAYER"
+i3 = "ODDBALL"
+i4 = "KING"
+i5 = "RACE"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping]
+i0 = "ANY"
+i1 = "< 50"
+i2 = "< 100"
+i3 = "< 150"
+i4 = "< 200"
+i5 = "< 300"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons]
+i0 = "GET LIST"
+i1 = "REFRESH"
+i2 = "STOP"
+i3 = "FILTERS"
+i4 = "JOIN GAME"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_column_headers]
+i0 = "Server Name"
+i1 = "Map"
+i2 = "Players"
+i3 = "Game"
+i4 = "Region"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_mode]
+i0 = "Internet"
+i1 = "LAN"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_join_game_join_game_ticker_labels]
+i0 = "Players"
+i1 = "Rules"
+i2 = "Message"
+i3 = "Getting Server Info..."
+i4 = "Getting Message of the Day..."
+i5 = "Welcome to Halo Multiplayer!"
+i6 = "SERVERS:"
+i7 = "PLAYERS:"
+i8 = "PAGE"
+i9 = "TODO: MOTD URL"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_mp_map_select_map_data]
+i0 = "Splash Splash\\nBang Bang\\n\\n2-8 players"
+i1 = "Red Blood\\nWhite Snow\\n\\n4-16 players\\n\\nSupports vehicles"
+i2 = "Covenant Hydro-\\nProcessing Center\\n\\n4-8 players"
+i3 = "Up the Ramps\\nDown the Tubes\\n\\n2-6 players"
+i4 = "Get on Top\\n\\n\\n2-8 players"
+i5 = "Tombstones for\\nEverybody\\n\\n4-16 players"
+i6 = "Dude, you really\\nneed to...\\n\\n2-8 players"
+i7 = "Deep-Space\\nAnomaly #0198\\n\\n4-8 players"
+i8 = "Ship-to-Ship\\nCombat\\n\\n4-16 players"
+i9 = "The Quick \\nand the Dead\\n\\n4-16 players\\n\\nSupports vehicles"
+i10 = "Round and Round \\nand Round\\n\\n2-8 players"
+i11 = "Spartan Clone\\nTraining Complex\\n\\n2-6 players"
+i12 = "A long walk\\ndown a short hall...\\n\\n2-8 players"
+i13 = "Slipping and\\nSliding\\n\\n4-16 players\\n\\nSupports vehicles"
+i14 = "Sand, Surf, and \\nSpent Shells\\n\\n4-16 players\\n\\nSupports vehicles"
+i15 = "Don't Look Down...\\nUnless You Fall\\n\\n4-16 players\\n\\nSupports vehicles"
+i16 = "I Imagined it\\nWould Be Bigger\\n\\n4-16 players\\n\\nSupports vehicles"
+i17 = "An Enemy Behind\\nEvery Tree\\n\\n4-16 players\\n\\nSupports vehicles"
+i18 = "Scary, huh?\\n\\n\\n2-12 players\\n\\nSupports vehicles"
+i19 = "UNKNOWN LEVEL\\n\\n\\n"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_options]
+i0 = "SERVER NAME"
+i1 = "PASSWORD"
+i2 = "SERVER MODE"
+i3 = "MAX PLAYERS"
+i4 = "START GAME"
+i5 = "SERVER IP"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_difficulty_names]
+i0 = "Easy"
+i1 = "Normal"
+i2 = "Heroic"
+i3 = "Legendary"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_joystick_set_defaults_descriptions]
+i0 = "Default"
+i1 = "Inverted"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_player_profiles_select_profile_description_labels]
+i0 = "Current Level:"
+i1 = "Difficulty:"
+i2 = "Controls:"
+i3 = "unused"
+i4 = "Create New\\nPlayer Profile"
+i5 = "Empty game\\nsetting slot"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_quit_select_header_quit_game_prompt]
+i0 = "Are you sure you wish to\\nexit Halo?"
+i1 = "Quit?"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options]
+i0 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
+i1 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
+i2 = "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected."
+i3 = "Players can be hurt by damage from explosives \\nfired by their teammates."
+i4 = "No respawn time penalty will be assessed to players\\nwho kill a teammate."
+i5 = "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die."
+i6 = "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die."
+i7 = "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die."
+i8 = "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish."
+i9 = "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team."
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels]
+i0 = "FRIENDLY FIRE:"
+i1 = "FRIENDLY FIRE PENALTY:"
+i2 = "AUTO TEAM BALANCE:"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire]
+i0 = "OFF"
+i1 = "ON"
+i2 = "SHIELD ONLY"
+i3 = "EXPLOSIVES ONLY"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty]
+i0 = "NONE"
+i1 = "5 SECONDS"
+i2 = "10 SECONDS"
+i3 = "15 SECONDS"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options]
+i0 = "Vehicles will not respawn."
+i1 = "Vehicles will respawn every 30 seconds if idle."
+i2 = "Vehicles will respawn every 60 seconds if idle."
+i3 = "Vehicles will respawn every 90 seconds if idle."
+i4 = "Vehicles will respawn every 2 minutes if idle."
+i5 = "Vehicles will respawn every 3 minutes if idle."
+i6 = "Vehicles will respawn every 5 minutes if idle."
+i7 = "Adjust vehicle placement for the Red Team."
+i8 = "Adjust vehicle placement for the Blue Team."
+i9 = "The map will contain the default vehicles specified\\nin the map.  Includes Warthogs, Scorpion tanks, \\nGhosts, Banshees and Covenant Gun Turrets."
+i10 = "No vehicles will appear anywhere on this map; you will\\ntravel on foot at all times."
+i11 = "You'll traverse the map in the nimble Warthog, a\\nhardy jeep with a chain gun mounted in the back."
+i12 = "Zip around in the Ghost, a nimble hovercraft with \\npowerful energy cannons and the snazziest paint job \\nin the galaxy."
+i13 = "Grind your way across the landscape in the Scorpion\\ntank, a mighty killing machine."
+i14 = "You'll traverse the map in the Rocket Warthog, a\\nhardy jeep with a rocket launcher mounted in the back."
+i15 = "Command the skies in the Banshee."
+i16 = "Defend the lands with the powerful Covenant Gun\\nTurret."
+i17 = "Customize the set of vehicles which will spawn\\nin the map."
+i18 = "No Warthogs will spawn in the map."
+i19 = "Up to one Warthog will spawn in the map."
+i20 = "Up to two Warthogs will spawn in the map."
+i21 = "Up to three Warthogs will spawn in the map."
+i22 = "Up to four Warthogs will spawn in the map."
+i23 = "No Ghosts will spawn in the map."
+i24 = "Up to one Ghost will spawn in the map."
+i25 = "Up to two Ghosts will spawn in the map."
+i26 = "Up to three Ghosts will spawn in the map."
+i27 = "Up to four Ghosts will spawn in the map."
+i28 = "No Scorpions will spawn in the map."
+i29 = "Up to one Scorpion will spawn in the map."
+i30 = "Up to two Scorpions will spawn in the map."
+i31 = "Up to three Scorpions will spawn in the map."
+i32 = "Up to four Scorpions will spawn in the map."
+i33 = "No Rocket Warthogs will spawn in the map."
+i34 = "Up to one Rocket Warthog will spawn in the map."
+i35 = "Up to two Rocket Warthogs will spawn in the map."
+i36 = "Up to three Rocket Warthogs will spawn in the map."
+i37 = "Up to four Rocket Warthogs will spawn in the map."
+i38 = "No Banshees will spawn in the map."
+i39 = "Up to one Banshee will spawn in the map."
+i40 = "Up to two Banshees will spawn in the map."
+i41 = "Up to three Banshees will spawn in the map."
+i42 = "Up to four Banshees will spawn in the map."
+i43 = "No Gun Turrets will spawn in the map."
+i44 = "Up to one Gun Turret will spawn in the map."
+i45 = "Up to two Gun Turrets will spawn in the map."
+i46 = "Up to three Gun Turrets will spawn in the map."
+i47 = "Up to four Gun Turrets will spawn in the map."
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_team]
+i0 = "RED TEAM"
+i1 = "BLUE TEAM"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options]
+i0 = "NONE"
+i1 = "1"
+i2 = "2"
+i3 = "3"
+i4 = "4"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set]
+i0 = "DEFAULT"
+i1 = "NONE"
+i2 = "WARTHOGS"
+i3 = "GHOSTS"
+i4 = "SCORPIONS"
+i5 = "ROCKET WARTHOGS"
+i6 = "BANSHEES"
+i7 = "GUN TURRETS"
+i8 = "PC"
+i9 = "CUSTOM"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicles_respawn]
+i0 = "NEVER"
+i1 = "30 SECONDS"
+i2 = "60 SECONDS"
+i3 = "90 SECONDS"
+i4 = "2 MINUTES"
+i5 = "3 MINUTES"
+i6 = "5 MINUTES"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_vehicle_options_labels]
+i0 = "VEHICLE SET:"
+i1 = "WARTHOG:"
+i2 = "GHOST:"
+i3 = "SCORPION:"
+i4 = "ROCKET WARTHOG:"
+i5 = "BANSHEE:"
+i6 = "GUN TURRET:"
+i7 = "VEHICLE RESPAWN TIME:"
+i8 = "SIDE:"
+
+[xbox.multiplayer_shared_compact.xbox_main_menu_solo_level_select_map_data]
+i0 = "Escape intact as \\nCovenant forces \\nboard your ship."
+i1 = "Seek out surviving \\nMarines and help \\nthem fight the Cove-\\nnant."
+i2 = "Board a Covenant \\nship in an attempt to \\nrescue Captain \\nKeyes."
+i3 = "Search for the map \\nroom that will lead \\nyou to the secrets of \\nHalo."
+i4 = "Defend the Control \\nRoom against wave \\nafter wave of Cove-\\nnant troops."
+i5 = "Creep through a \\nswamp to meet the \\nonly enemy the \\nCovenant fear."
+i6 = "Fight your way \\nthrough an ancient \\nsecurity facility in \\nsearch of the Index."
+i7 = "Reactivate the wea-\\npon at the heart of \\nHalo...and learn the \\ntruth."
+i8 = "Stage a one-cyborg \\nassault on a Cove-\\nnant ship and bring \\nback the Captain."
+i9 = "Destroy Halo before \\nHalo destroys all life \\nin the galaxy."
+i10 = "You cannot play\\nthis level... yet!"
+i11 = "You have a game in\\nprogress on this\\nlevel. Select to\\ncontinue your game."
+
+[xbox.multiplayer_shared_compact.xbox_strings_common_button_captions]
+i0 = "BACK"
+i1 = "OK"
+i2 = "CANCEL"
+i3 = "DEFAULTS"
+i4 = "CREATE NEW"
+i5 = "DELETE"
+i6 = "ADVANCED"
+i7 = "Profile:"
+
+[xbox.multiplayer_shared_compact.xbox_strings_displayed_error_messages]
+i0 = "Unable to complete\\nthe last operation."
+i1 = "A networking error\\nhas occurred."
+i2 = "Unable to join game \\nbecause it is closed."
+i3 = "Unable to join game."
+i4 = "The game has\\nclosed down."
+i5 = "Halo can't connect to\\nthe network."
+i6 = "Network connection lost."
+i7 = "Failed to join the game."
+i8 = "Your game has\\ngone out of sync with\\nthe others in\\nthe game. Resetting..."
+i9 = "Your connection is\\nexperiencing\\ndifficulties..."
+i10 = "unused network error"
+i11 = "A controller error\\nhas occurred."
+i12 = "Please reconnect\\ncontroller #%controller.\\nPress START to continue\\nafter reconnecting."
+i13 = "Please reconnect\\n#%controller controller."
+i14 = "A controller\\nmemory card error\\nhas occurred."
+i15 = "Saving... one moment\\nplease."
+i16 = "Creating player profile...\\none moment please."
+i17 = "Creating game settings\\nfile... one moment please."
+i18 = "Player 2 must use a\\ndifferent controller\\nthan Player 1."
+i19 = "unused controller error"
+i20 = "unused controller error"
+i21 = "Please insert\\nanother quarter."
+i22 = "All progress since the\\nlast checkpoint will\\nbe lost."
+i23 = "All progress on this \\nlevel will be lost."
+i24 = "Are you sure you wish \\nto delete this profile? \\nAll your progress and \\nsettings will be lost."
+i25 = "Are you sure you wish \\nto delete this\\ngametype? All your\\nsettings will be lost."
+i26 = "Sorry, you can't delete\\nthe default multiplayer\\ngame settings."
+i27 = "Sorry, there is already \\na saved gametype or \\nprofile with that name."
+i28 = "Do you really want to\\nback out without saving\\nyour changes?"
+i29 = "Sorry, you can't create\\na saved game file with\\nan empty name."
+i30 = "Saving last checkpoint...\\none moment please."
+i31 = "Unable to load saved\\ngame file."
+i32 = "unused warning"
+i33 = "Insufficient free space to\\nsave game."
+i34 = "Insufficient free save slots."
+i35 = "An error has occurred\\nloading a map file."
+i36 = "You have reached the\\nmaximum number of Halo\\ngame files. Unable to\\ncreate additional ones."
+i37 = "Unable to create new\\nplayer profile."
+i38 = "Unable to create new\\nmultiplayer game\\nsettings entry."
+i39 = "Unable to load saved\\nprogress for this\\nprofile."
+i40 = "An error has occurred\\ntrying to contact the \\nGameSpy master server."
+i41 = "Video settings changed...\\nPress OK to accept."
+i42 = "The server you selected\\nrequires a password!"
+i43 = "Unable to join the game\\nserver!"
+i44 = "The server reported\\nan invalid connection\\nrequest."
+i45 = "Your password was\\nrejected by the server."
+i46 = "The server is full."
+i47 = "Your CD Key is invalid."
+i48 = "Your CD Key is in use\\nby another player."
+i49 = "The server operator has\\nbanned you from playing\\non this server."
+i50 = "The server operator has\\nkicked you from this\\nserver."
+i51 = "Video settings will be\\ntested.  If you do not see\\na confirm dialog after\\nthe change, press ESC."
+i52 = "Checkpoint saved."
+i53 = "The address is invalid."
+i54 = "You need to create or\\nselect a profile in order\\nto continue."
+i55 = "Your client is running an\\nincompatible network \\nprotocol version."
+i56 = "Connection rejected: Your\\nclient is older than the\\nserver."
+i57 = "Connection rejected: Your\\nclient is newer than the\\nserver."
+i58 = "You must have\\nAdministrator privileges\\nto download this required\\npatch."
+i59 = "Are you sure you want to\\ndelete this saved game?"
+i60 = "This game allows more\\nplayers than this device\\nruns smoothly.\\nJoin anyway?"
+
+[xbox.multiplayer_shared_compact.xbox_strings_var_boolean]
+i0 = "NO"
+i1 = "YES"
+
+[xbox.patches.gametype_item_delete]
+text = "DELETE GAMETYPE"
+description = "Delete this gametype."
+
+[xbox.patches.multiplayer_type_internet]
+text = "INTERNET"
+description = "Browse games on the Internet,\\njoin one, or host your own."
+
+[xbox.patches.multiplayer_type_join_direct]
+text = "DIRECT LINK"
+description = "Join a friend's game with\\nits join code or invite link."
+
+[xbox.patches.multiplayer_type_join_lan]
+text = "SYSTEM LINK PLAY"
+
+[xbox.patches.op_ingame_help]
+help0 = "The game shows hints about its controls\\nas you play."
+help1 = "The game does not show hints about its\\ncontrols."
+
+[xbox.patches.op_loadout]
+help0 = "Everyone starts with the weapon set\\nabove."
+help1 = "Everyone starts with the primary and\\nsecondary weapons chosen here."
+
+[xbox.patches.op_map_weapons]
+help0 = "Weapons are lying around the map\\nto pick up."
+help1 = "There are no weapons lying around\\nthe map."
+
+[xbox.patches.op_primary_weapon]
+help0 = "Everyone starts with no weapon\\nas a primary weapon."
+help1 = "Everyone starts with a random weapon\\nas a primary weapon."
+help2 = "Everyone starts with the assault rifle\\nas a primary weapon."
+help3 = "Everyone starts with the pistol\\nas a primary weapon."
+help4 = "Everyone starts with the shotgun\\nas a primary weapon."
+help5 = "Everyone starts with the sniper rifle\\nas a primary weapon."
+help6 = "Everyone starts with the rocket launcher\\nas a primary weapon."
+help7 = "Everyone starts with the plasma pistol\\nas a primary weapon."
+help8 = "Everyone starts with the plasma rifle\\nas a primary weapon."
+help9 = "Everyone starts with the needler\\nas a primary weapon."
+
+[xbox.patches.op_secondary_weapon]
+help0 = "Everyone starts with no weapon\\nas a secondary weapon."
+help1 = "Everyone starts with a random weapon\\nas a secondary weapon."
+help2 = "Everyone starts with the assault rifle\\nas a secondary weapon."
+help3 = "Everyone starts with the pistol\\nas a secondary weapon."
+help4 = "Everyone starts with the shotgun\\nas a secondary weapon."
+help5 = "Everyone starts with the sniper rifle\\nas a secondary weapon."
+help6 = "Everyone starts with the rocket launcher\\nas a secondary weapon."
+help7 = "Everyone starts with the plasma pistol\\nas a secondary weapon."
+help8 = "Everyone starts with the plasma rifle\\nas a secondary weapon."
+help9 = "Everyone starts with the needler\\nas a secondary weapon."
+
+[xbox.patches.profile_item_about]
+text = "ABOUT"
+description = "An unofficial port of Halo:\\nCombat Evolved.\\n\\nCurrent Profile:"
+
+[xbox.patches.profile_item_audio]
+text = "AUDIO"
+description = "Volume and sound for the\\ngame on this device.\\n\\nCurrent Profile:"
+
+[xbox.patches.profile_item_delete]
+text = "DELETE PROFILE"
+description = "Delete this profile and\\neverything saved with it.\\n\\nCurrent Profile:"
+
+[xbox.patches.profile_item_graphics]
+text = "GRAPHICS"
+description = "The game's look.\\n\\n\\nCurrent Profile:"
+
+[xbox.patches.profile_item_keyboard]
+text = "KEYBOARD & MOUSE"
+description = "The keys and mouse buttons\\nfor each action.\\n\\nCurrent Profile:"
+
+[xbox.patches.profile_item_network]
+text = "NETWORK"
+description = "Online play, custom maps\\nand player names.\\n\\nCurrent Profile:"
+
+[xbox.patches.profile_item_video]
+text = "VIDEO"
+description = "Frame rate, resolution, and how\\nthe picture is drawn.\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.gametype_item_delete]
+text = "DELETE GAMETYPE"
+description = "Delete this gametype."
+
+[xbox.patches_compact.multiplayer_type_internet]
+text = "INTERNET"
+description = "Browse games on the Internet,\\njoin one, or host your own."
+
+[xbox.patches_compact.multiplayer_type_join_direct]
+text = "DIRECT LINK"
+description = "Join a friend's game with\\nits join code or invite link."
+
+[xbox.patches_compact.multiplayer_type_join_lan]
+text = "SYSTEM LINK PLAY"
+
+[xbox.patches_compact.op_ingame_help]
+help0 = "The game shows hints about its controls\\nas you play."
+help1 = "The game does not show hints about its\\ncontrols."
+
+[xbox.patches_compact.op_loadout]
+help0 = "Everyone starts with the weapon set\\nabove."
+help1 = "Everyone starts with the primary and\\nsecondary weapons chosen here."
+
+[xbox.patches_compact.op_map_weapons]
+help0 = "Weapons are lying around the map\\nto pick up."
+help1 = "There are no weapons lying around\\nthe map."
+
+[xbox.patches_compact.op_primary_weapon]
+help0 = "Everyone starts with no weapon\\nas a primary weapon."
+help1 = "Everyone starts with a random weapon\\nas a primary weapon."
+help2 = "Everyone starts with the assault rifle\\nas a primary weapon."
+help3 = "Everyone starts with the pistol\\nas a primary weapon."
+help4 = "Everyone starts with the shotgun\\nas a primary weapon."
+help5 = "Everyone starts with the sniper rifle\\nas a primary weapon."
+help6 = "Everyone starts with the rocket launcher\\nas a primary weapon."
+help7 = "Everyone starts with the plasma pistol\\nas a primary weapon."
+help8 = "Everyone starts with the plasma rifle\\nas a primary weapon."
+help9 = "Everyone starts with the needler\\nas a primary weapon."
+
+[xbox.patches_compact.op_secondary_weapon]
+help0 = "Everyone starts with no weapon\\nas a secondary weapon."
+help1 = "Everyone starts with a random weapon\\nas a secondary weapon."
+help2 = "Everyone starts with the assault rifle\\nas a secondary weapon."
+help3 = "Everyone starts with the pistol\\nas a secondary weapon."
+help4 = "Everyone starts with the shotgun\\nas a secondary weapon."
+help5 = "Everyone starts with the sniper rifle\\nas a secondary weapon."
+help6 = "Everyone starts with the rocket launcher\\nas a secondary weapon."
+help7 = "Everyone starts with the plasma pistol\\nas a secondary weapon."
+help8 = "Everyone starts with the plasma rifle\\nas a secondary weapon."
+help9 = "Everyone starts with the needler\\nas a secondary weapon."
+
+[xbox.patches_compact.profile_item_about]
+text = "ABOUT"
+description = "An unofficial port of Halo:\\nCombat Evolved.\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.profile_item_audio]
+text = "AUDIO"
+description = "Volume and sound for the\\ngame on this device.\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.profile_item_delete]
+text = "DELETE PROFILE"
+description = "Delete this profile and\\neverything saved with it.\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.profile_item_graphics]
+text = "GRAPHICS"
+description = "The game's look.\\n\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.profile_item_keyboard]
+text = "KEYBOARD & MOUSE"
+description = "The keys and mouse buttons\\nfor each action.\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.profile_item_network]
+text = "NETWORK"
+description = "Online play, custom maps\\nand player names.\\n\\nCurrent Profile:"
+
+[xbox.patches_compact.profile_item_video]
+text = "VIDEO"
+description = "Frame rate, resolution, and how\\nthe picture is drawn.\\n\\nCurrent Profile:"
+
+[xbox.settings.settings_accept]
+text = "SELECT"
+
+[xbox.settings.settings_audio]
+text = "AUDIO"
+
+[xbox.settings.settings_cancel]
+text = "BACK"
+
+[xbox.settings.settings_controls]
+text = "CONTROLS"
+
+[xbox.settings.settings_graphics]
+text = "GRAPHICS"
+
+[xbox.settings.settings_keyboard]
+text = "KEYBOARD & MOUSE"
+
+[xbox.settings.settings_network]
+text = "NETWORK"
+
+[xbox.settings.settings_video]
+text = "VIDEO"
+
+[xbox.settings.xbox_settings_hub_descriptions]
+i0 = "Look, sensitivity, vibration and\\nthe button layout.\\n\\nCurrent Profile:"
+i1 = "Frame rate, resolution, and how\\nthe picture is drawn.\\n\\nCurrent Profile:"
+i2 = "The game's look.\\n\\n\\nGraphics:"
+i3 = "Volume and sound for the\\ngame on this device.\\n\\nCurrent Profile:"
+i4 = "Online play, custom maps\\nand player names.\\n\\nCurrent Profile:"
+i5 = "The keys and mouse buttons\\nfor each action.\\n\\nCurrent Profile:"
+
+[xbox.settings_about.about_accept]
+text = "SELECT"
+
+[xbox.settings_about.about_cancel]
+text = "BACK"
+
+[xbox.settings_about.about_help]
+text = "Halo, Halo: Combat Evolved, Master Chief, and the related names\\nand logos are trademarks of Microsoft Corporation. Halo: Combat\\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\\nproject. It is not affiliated with, sponsored by, or endorsed by\\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\\nIndustries), or Bungie."
+
+[xbox.settings_about.notices_cancel]
+text = "BACK"
+
+[xbox.settings_about.send_log_confirm_cancel]
+text = "CANCEL"
+
+[xbox.settings_about.send_log_confirm_message]
+text = "Your log goes to the\\nVISR team via iCloud."
+
+[xbox.settings_about.send_log_confirm_send]
+text = "SEND"
+
+[xbox.settings_about.send_log_confirm_title]
+text = "SEND LOG?"
+
+[xbox.settings_about.xbox_settings_about_labels]
+i0 = "BUILD"
+i1 = "ONLINE"
+i2 = "PRIVACY"
+i3 = "LICENSE"
+i4 = "OPEN SOURCE NOTICES"
+i5 = "SEND LOG"
+
+[xbox.settings_about.xbox_settings_about_notices_help_strings]
+i0 = "Licensed under the Apache License, Version 2.0."
+i1 = "punpckhdq/halo, bnunu/halo-1, OpenCE,\\nNicholasDominici/halo-ce-ios, and pfista/halo-og. Public domain\\ndedication."
+i2 = "Copyright (C) 1997-2026 Sam Lantinga."
+i3 = "Copyright (c) 2005-2020 Rich Felker, et al."
+i4 = "Copyright The Mbed TLS Contributors."
+i5 = "Copyright the FFmpeg developers. Bink decoding only, linked\\nstatically; its source is at github.com/VISR-CE/visr."
+i6 = "Copyright (c) 1998-2000 Thai Open Source Software Center Ltd and\\nClark Cooper; 2001-2025 Expat maintainers."
+i7 = "Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler."
+i8 = "Copyright (c) 2017 Lin Wei."
+i9 = "Copyright (c) 2024-2026 CK Tan."
+i10 = "Copyright (c) 2017 Sean Barrett."
+i11 = "Copyright (c) 2017 Sean Barrett."
+i12 = "Copyright (c) 2017-2023 Loup Vaillant, Michael Savage and Fabio\\nScotoni."
+i13 = "Copyright (c) 2012-2021 Yann Collet."
+i14 = "Copyright (c) 2018-2021 Richard Geldreich, Jr."
+i15 = "Copyright (c) 2018 Richard Geldreich, Jr.; (c) 2015 Harm\\nHanemaaijer."
+i16 = "Copyright Arm Limited."
+i17 = "Copyright (C) 2013 Jorge Jimenez, Jose I. Echevarria, Belen\\nMasia, Fernando Navarro and Diego Gutierrez."
+i18 = "Kim2091's 4x-PBRify_UpscalerSPANV4 weights, converted to Core\\nML. Public domain dedication."
+i19 = "Copyright (c) Surge AI. The profanity list streamer mode's words\\nderive from."
+i20 = "Public domain. Used to review the streamer words."
+i21 = "Copyright The Khronos Group Inc. OpenGL ES and EGL headers."
+i22 = "Copyright 2021 The Overpass Project Authors."
+i23 = "Copyright 2026 The OpenCE Project Authors. Newtown with respaced\\nglyphs."
+i24 = "Roger White, 1994, released by its author into the public\\ndomain."
+i25 = "Copyright 2018 The Orbitron Project Authors."
+
+[xbox.settings_about.xbox_settings_about_notices_labels]
+i0 = "VISR"
+i1 = "ORIGIN PROJECTS"
+i2 = "SDL"
+i3 = "MUSL"
+i4 = "MBED TLS"
+i5 = "FFMPEG"
+i6 = "EXPAT"
+i7 = "ZLIB"
+i8 = "KCP"
+i9 = "TOMLC17"
+i10 = "STB_TRUETYPE"
+i11 = "STB_VORBIS"
+i12 = "MONOCYPHER"
+i13 = "XXHASH"
+i14 = "BC7ENC"
+i15 = "BC7 DECODER"
+i16 = "ASTC ENCODER"
+i17 = "SMAA"
+i18 = "PBRIFY UPSCALER"
+i19 = "STREAMER WORDS"
+i20 = "ENGLISH WORD LIST"
+i21 = "KHRONOS HEADERS"
+i22 = "OVERPASS"
+i23 = "OPENCE FONT"
+i24 = "NEWTOWN"
+i25 = "ORBITRON"
+
+[xbox.settings_about.xbox_settings_about_notices_values]
+i0 = "APACHE-2.0"
+i1 = "CC0 1.0"
+i2 = "ZLIB"
+i3 = "MIT"
+i4 = "APACHE-2.0"
+i5 = "LGPL-2.1+"
+i6 = "MIT"
+i7 = "ZLIB"
+i8 = "MIT"
+i9 = "MIT"
+i10 = "MIT OR PUBLIC DOMAIN"
+i11 = "MIT OR PUBLIC DOMAIN"
+i12 = "BSD-2-CLAUSE OR CC0"
+i13 = "BSD-2-CLAUSE"
+i14 = "MIT OR PUBLIC DOMAIN"
+i15 = "MIT, PUBLIC DOMAIN, ISC"
+i16 = "APACHE-2.0"
+i17 = "MIT"
+i18 = "CC0 1.0"
+i19 = "MIT"
+i20 = "UNLICENSE"
+i21 = "MIT, APACHE-2.0"
+i22 = "SIL OFL 1.1"
+i23 = "SIL OFL 1.1"
+i24 = "PUBLIC DOMAIN"
+i25 = "SIL OFL 1.1"
+
+[xbox.settings_about.xbox_settings_about_values]
+i0 = "visr.gg"
+i1 = "visr.gg/privacy"
+i2 = "Apache-2.0"
+
+[xbox.settings_audio_settings.audio_settings_accept]
+text = "SELECT"
+
+[xbox.settings_audio_settings.audio_settings_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_audio_settings.audio_settings_cancel]
+text = "BACK"
+
+[xbox.settings_audio_settings.audio_settings_effects_volume_spinner]
+s0 = "0"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+s5 = "5"
+s6 = "6"
+s7 = "7"
+s8 = "8"
+s9 = "9"
+s10 = "10"
+
+[xbox.settings_audio_settings.audio_settings_enabled_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_audio_settings.audio_settings_music_volume_spinner]
+s0 = "0"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+s5 = "5"
+s6 = "6"
+s7 = "7"
+s8 = "8"
+s9 = "9"
+s10 = "10"
+
+[xbox.settings_audio_settings.audio_settings_volume_spinner]
+s0 = "0"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+s5 = "5"
+s6 = "6"
+s7 = "7"
+s8 = "8"
+s9 = "9"
+s10 = "10"
+
+[xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings]
+i0 = "The volume of everything."
+i1 = "The music's volume."
+i2 = "The volume of every other sound: effects and\\nspeech."
+i3 = "Play sound at all; from the next time the game\\nstarts."
+
+[xbox.settings_audio_settings.xbox_settings_audio_settings_labels]
+i0 = "MASTER VOLUME:"
+i1 = "MUSIC VOLUME:"
+i2 = "EFFECTS VOLUME:"
+i3 = "SOUND:"
+
+[xbox.settings_controls_setup.controls_setup_accept]
+text = "SELECT"
+
+[xbox.settings_controls_setup.controls_setup_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_controls_setup.controls_setup_cancel]
+text = "BACK"
+
+[xbox.settings_controls_setup.controls_setup_group_label]
+text = "SHOW:"
+
+[xbox.settings_controls_setup.controls_setup_group_spinner]
+s0 = "MOVEMENT"
+s1 = "WEAPONS"
+s2 = "ACTIONS"
+
+[xbox.settings_controls_setup.controls_setup_mouse_setup]
+text = "MOUSE SETUP"
+
+[xbox.settings_controls_setup.xbox_settings_controls_setup_help_strings]
+i0 = "Choose what to show, with left and right."
+i1 = "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button."
+i2 = "Press a key, a mouse button, or turn the wheel...\\nEscape cancels, Delete clears it."
+
+[xbox.settings_controls_setup_compact.controls_setup_accept]
+text = "SELECT"
+
+[xbox.settings_controls_setup_compact.controls_setup_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_controls_setup_compact.controls_setup_cancel]
+text = "BACK"
+
+[xbox.settings_controls_setup_compact.controls_setup_group_label]
+text = "SHOW:"
+
+[xbox.settings_controls_setup_compact.controls_setup_group_spinner]
+s0 = "MOVEMENT"
+s1 = "WEAPONS"
+s2 = "ACTIONS"
+
+[xbox.settings_controls_setup_compact.controls_setup_mouse_setup]
+text = "MOUSE SETUP"
+
+[xbox.settings_controls_setup_compact.xbox_settings_controls_setup_help_strings]
+i0 = "Choose what to show, with left and right."
+i1 = "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button."
+i2 = "Press a key, a mouse button, or turn the wheel...\\nEscape cancels, Delete clears it."
+
+[xbox.settings_gamepad_setup.gamepad_setup_accept]
+text = "SELECT"
+
+[xbox.settings_gamepad_setup.gamepad_setup_autocenter_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.settings_gamepad_setup.gamepad_setup_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_gamepad_setup.gamepad_setup_button_preset_spinner]
+s0 = "DEFAULT"
+s1 = "SWAP TRIGGERS"
+s2 = "SWAP A, L TRIGGER"
+s3 = "SWAP B, L TRIGGER"
+s4 = "SWAP B, R STICK"
+s5 = "BUMPER JUMPER"
+
+[xbox.settings_gamepad_setup.gamepad_setup_cancel]
+text = "BACK"
+
+[xbox.settings_gamepad_setup.gamepad_setup_flight_inversion_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.settings_gamepad_setup.gamepad_setup_ingame_help_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_gamepad_setup.gamepad_setup_ingame_help_spinner_advanced]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_gamepad_setup.gamepad_setup_invert_look_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.settings_gamepad_setup.gamepad_setup_joystick_preset_spinner]
+s0 = "DEFAULT"
+s1 = "SOUTHPAW"
+s2 = "LEGACY"
+s3 = "LEGACY SOUTHPAW"
+
+[xbox.settings_gamepad_setup.gamepad_setup_look_sensitivity_spinner]
+s0 = "1"
+s1 = "2"
+s2 = "3"
+s3 = "4"
+s4 = "5"
+s5 = "6"
+s6 = "7"
+s7 = "8"
+s8 = "9"
+s9 = "10"
+
+[xbox.settings_gamepad_setup.gamepad_setup_vibration_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_help_strings]
+i0 = "How fast the right stick turns the view."
+i1 = "Pushing the right stick up looks down."
+i2 = "Flying vehicles pitch as aircraft do: pushing up\\nflies down."
+i3 = "Level the view while walking."
+i4 = "Which of the controller's buttons does what (not\\nthe keyboard's: Controls Setup sets those)."
+i5 = "Which stick moves and which looks."
+i6 = "Rumble the controller."
+i7 = "Show the game's hints about its controls."
+
+[xbox.settings_gamepad_setup.xbox_settings_gamepad_setup_labels]
+i0 = "LOOK SENSITIVITY:"
+i1 = "INVERT LOOK:"
+i2 = "INVERT FLIGHT:"
+i3 = "AUTO-CENTER LOOK:"
+i4 = "BUTTON LAYOUT:"
+i5 = "STICK LAYOUT:"
+i6 = "VIBRATION:"
+i7 = "IN-GAME HELP:"
+
+[xbox.settings_graphics.graphics_accept]
+text = "SELECT"
+
+[xbox.settings_graphics.graphics_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_graphics.graphics_cancel]
+text = "BACK"
+
+[xbox.settings_graphics.graphics_crt_effect_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_graphics.graphics_graphics_spinner]
+s0 = "HARDCORE"
+s1 = "CLASSIC"
+s2 = "ENHANCED"
+
+[xbox.settings_graphics.xbox_settings_graphics_graphics_help_strings]
+i0 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added."
+i1 = "The original Xbox look at this device's resolution\\nand frame rate, with sharper textures and HUD."
+i2 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
+i3 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
+
+[xbox.settings_graphics.xbox_settings_graphics_help_strings]
+i0 = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
+
+[xbox.settings_graphics.xbox_settings_graphics_labels]
+i0 = "MODE:"
+i1 = "CRT EFFECT:"
+
+[xbox.settings_mouse_settings.mouse_settings_accept]
+text = "SELECT"
+
+[xbox.settings_mouse_settings.mouse_settings_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_mouse_settings.mouse_settings_cancel]
+text = "BACK"
+
+[xbox.settings_mouse_settings.mouse_settings_invert_mouse_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.settings_mouse_settings.mouse_settings_mouse_aim_assist_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_mouse_settings.mouse_settings_mouse_sensitivity_spinner]
+s0 = "0.25"
+s1 = "0.5"
+s2 = "0.75"
+s3 = "1"
+s4 = "1.25"
+s5 = "1.5"
+s6 = "1.75"
+s7 = "2"
+s8 = "2.5"
+s9 = "3"
+s10 = "4"
+
+[xbox.settings_mouse_settings.mouse_settings_mouse_vertical_sensitivity_spinner]
+s0 = "SAME"
+s1 = "0.25"
+s2 = "0.5"
+s3 = "0.75"
+s4 = "1"
+s5 = "1.25"
+s6 = "1.5"
+s7 = "1.75"
+s8 = "2"
+s9 = "2.5"
+s10 = "3"
+s11 = "4"
+
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_help_strings]
+i0 = "How fast the view turns side to side for the\\nmouse's movement."
+i1 = "How fast the view turns up and down; Same\\nturns it as fast as side to side."
+i2 = "Moving the mouse forward looks down."
+i3 = "Slow and drag the view along with a target while\\naiming with the mouse, as with a controller."
+
+[xbox.settings_mouse_settings.xbox_settings_mouse_settings_labels]
+i0 = "HORIZONTAL SENSITIVITY:"
+i1 = "VERTICAL SENSITIVITY:"
+i2 = "INVERT VERTICAL AXIS:"
+i3 = "AIM ASSIST:"
+
+[xbox.settings_network_setup.network_setup_accept]
+text = "SELECT"
+
+[xbox.settings_network_setup.network_setup_allow_upnp_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_auto_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_network_setup.network_setup_cancel]
+text = "BACK"
+
+[xbox.settings_network_setup.network_setup_cloud_saves_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_custom_maps_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_enabled_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_join_from_clipboard_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_map_download_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_map_seed_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_map_seed_upload_spinner]
+s0 = "64 KB/S"
+s1 = "128 KB/S"
+s2 = "256 KB/S"
+s3 = "512 KB/S"
+s4 = "1 MB/S"
+s5 = "2 MB/S"
+
+[xbox.settings_network_setup.network_setup_online_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_player_name_scale_spinner]
+s0 = "0.5x"
+s1 = "0.75x"
+s2 = "1x"
+s3 = "1.25x"
+s4 = "1.5x"
+s5 = "2x"
+
+[xbox.settings_network_setup.network_setup_player_names_spinner]
+s0 = "ALL"
+s1 = "ALLIES"
+s2 = "ENEMIES"
+s3 = "NONE"
+
+[xbox.settings_network_setup.network_setup_scoreboard_background_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_network_setup.network_setup_scoreboard_team_layout_spinner]
+s0 = "TEAMS"
+s1 = "BY SCORE"
+
+[xbox.settings_network_setup.xbox_settings_network_setup_help_strings]
+i0 = "Host and join games over the internet by invite\\nlinks; off keeps to the local network."
+i1 = "Let internet play ask the router to forward its\\nport, for networks that stop connections."
+i2 = "Join the game of an invite link copied before\\nswitching to the game."
+i3 = "Look for a new version when the game starts."
+i4 = "Sync saves with iCloud. Turning on applies next\\nlaunch; turning off stops syncing now."
+i5 = "In multiplayer, whose names are drawn above their\\nheads."
+i6 = "How large the players' names are drawn."
+i7 = "A team game's scoreboard: a column for each team,\\nor every player in order of score."
+i8 = "Draw a panel behind the scoreboard, for clearer\\ntext."
+i9 = "Experimental: show games on Custom Edition maps.\\nThese are not fully supported yet."
+i10 = "Joining a game on a Custom Edition map you do not\\nhave: download it from the players (if shared)."
+i11 = "In another's game, send its map to players who\\njoin without it, as a torrent's peers do."
+i12 = "The most you send of maps to other players, so\\nthat the game keeps the rest of your upload."
+i13 = "Hide offensive words in names and text from\\nother players, maps, and mods as stars."
+
+[xbox.settings_network_setup.xbox_settings_network_setup_labels]
+i0 = "INTERNET PLAY:"
+i1 = "UPNP PORT FORWARDING:"
+i2 = "JOIN FROM CLIPBOARD:"
+i3 = "CHECK FOR UPDATES:"
+i4 = "ICLOUD SAVES:"
+i5 = "PLAYER NAMES:"
+i6 = "PLAYER NAME SIZE:"
+i7 = "SCOREBOARD LAYOUT:"
+i8 = "SCOREBOARD PANEL:"
+i9 = "CUSTOM MAPS:"
+i10 = "DOWNLOAD MAPS:"
+i11 = "HELP SEND MAPS:"
+i12 = "MAP UPLOAD LIMIT:"
+i13 = "STREAMER MODE:"
+
+[xbox.settings_video_settings.video_settings_accept]
+text = "SELECT"
+
+[xbox.settings_video_settings.video_settings_button_defaults_caption]
+text = "DEFAULTS"
+
+[xbox.settings_video_settings.video_settings_cancel]
+text = "BACK"
+
+[xbox.settings_video_settings.video_settings_crt_effect_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_video_settings.video_settings_direct_camera_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_video_settings.video_settings_frame_rate_spinner]
+s0 = "DISPLAY"
+s1 = "30"
+s2 = "60"
+s3 = "120"
+s4 = "UNLIMITED"
+
+[xbox.settings_video_settings.video_settings_graphics_spinner]
+s0 = "HARDCORE"
+s1 = "CLASSIC"
+s2 = "ENHANCED"
+
+[xbox.settings_video_settings.video_settings_interpolation_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_video_settings.video_settings_max_fps_spinner]
+s0 = "AUTO"
+s1 = "30"
+s2 = "60"
+s3 = "120"
+s4 = "144"
+s5 = "165"
+s6 = "240"
+s7 = "NONE"
+
+[xbox.settings_video_settings.video_settings_mode_spinner]
+s0 = "FULLSCREEN"
+s1 = "BORDERLESS"
+s2 = "WINDOWED"
+
+[xbox.settings_video_settings.video_settings_resolution_scaling_spinner]
+s0 = "NATIVE"
+s1 = "ORIGINAL"
+
+[xbox.settings_video_settings.video_settings_resolution_spinner]
+s0 = "NATIVE"
+
+[xbox.settings_video_settings.video_settings_vsync_spinner]
+s0 = "ON"
+s1 = "OFF"
+
+[xbox.settings_video_settings.video_settings_window_size_spinner]
+s0 = "1280 x 960"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_direct_camera_shown]
+i0 = "ON"
+i1 = "OFF"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_frame_rate_shown]
+i0 = "DISPLAY"
+i1 = "30"
+i2 = "60"
+i3 = "120"
+i4 = "UNLIMITED"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_graphics_help_strings]
+i0 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added."
+i1 = "The original Xbox look at this device's resolution\\nand frame rate, with sharper textures and HUD."
+i2 = "Tastefully enhanced: the original game with soft\\nshading where things meet the ground and shadows\\nunder props."
+i3 = "The original Xbox exactly: 640x480 at 30 frames a\\nsecond, nothing added. In VR, Hardcore draws as\\nClassic."
+
+[xbox.settings_video_settings.xbox_settings_video_settings_help_strings]
+i0 = "The picture as a CRT television showed it:\\nscanlines, phosphor glow, and soft color."
+i1 = "Fullscreen takes the display; borderless covers it\\nwith a window. F11 switches to the window."
+i2 = "What fullscreen and borderless draw at. Fullscreen\\nsets the display to it; borderless scales it."
+i3 = "The window's size: 4:3, then 16:10, 16:9 and 21:9\\n(its edges can also be dragged)."
+i4 = "Native draws at the resolution; Original draws\\nthe Xbox's 640x480 and scales it up."
+i5 = "Wait for the display between frames, so that the\\npicture never tears."
+i6 = "With V-Sync off, the most frames a second. Auto:\\ntwice the display's refresh rate."
+i7 = "Unlimited can tear and uses more power. Applies\\nthe next time the game starts."
+i8 = "Draw a frame for every display refresh, blending\\nbetween the game's 30 ticks per second."
+i9 = "In first person, turn the view the moment the\\nmouse moves, not up to two ticks later."
+
+[xbox.settings_video_settings.xbox_settings_video_settings_interpolation_shown]
+i0 = "ON"
+i1 = "OFF"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_labels]
+i0 = "GRAPHICS:"
+i1 = "CRT EFFECT:"
+i2 = "DISPLAY MODE:"
+i3 = "RESOLUTION:"
+i4 = "WINDOW SIZE:"
+i5 = "RESOLUTION SCALING:"
+i6 = "V-SYNC:"
+i7 = "FRAME RATE LIMIT:"
+i8 = "FRAME RATE:"
+i9 = "SMOOTH MOTION:"
+i10 = "INSTANT AIM:"
+
+[xbox.settings_video_settings.xbox_settings_video_settings_resolution_scaling_shown]
+i0 = "NATIVE"
+i1 = "ORIGINAL"

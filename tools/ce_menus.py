@@ -50,6 +50,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hud_assets import bleed, render_svg  # noqa: E402
+import menu_catalog  # noqa: E402
 import port_settings  # noqa: E402
 import xbox_menus  # noqa: E402
 
@@ -632,7 +633,7 @@ def main() -> None:
         lines.append("</menus>")
         (CE / f"{folder.replace('/', '.')}.xml").write_text("\n".join(lines) + "\n")
     for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items()]:
-        (CE / name).write_text("\n".join(lines))
+        (CE / name).write_text(menu_catalog.add_ids("\n".join(lines), Path(name).stem, 'ce'))
     # their strings
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              "<!-- The PC version's menus' text (tools/ce_menus.py) -->", "<menus>"]

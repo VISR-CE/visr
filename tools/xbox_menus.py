@@ -21,6 +21,7 @@ import textwrap
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+import menu_catalog
 from port_settings import apply_now_spinner_handlers
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -2121,7 +2122,7 @@ def generate(assets=MENUS):
     output = assets / 'xbox'
     output.mkdir(parents=True, exist_ok=True)
     for filename, root in documents.items():
-        (output / filename).write_text(serialize(root), encoding='utf-8')
+        (output / filename).write_text(menu_catalog.add_ids(serialize(root), Path(filename).stem, 'xbox'), encoding='utf-8')
     manifest_path = assets / 'menus.json'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     manifest['files'] = retain_xbox_files(assets, manifest['files'])

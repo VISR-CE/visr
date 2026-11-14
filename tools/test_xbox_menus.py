@@ -850,11 +850,13 @@ def test_server_setup_rows_invite_and_gametype_editor(look):
     import port_settings
     generated_text = '\n'.join(port_settings.multiplayer_files()['main_menu.multiplayer_type_select.server_settings.xml'])
     if look == 'ce':
-        assert (MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml').read_text() == generated_text
+        import menu_catalog
+        assert menu_catalog.STRIP.sub('', (MENUS / look / 'main_menu.multiplayer_type_select.server_settings.xml').read_text()) == generated_text
     generated = ET.fromstring(generated_text)
     for name in ('labels', 'help_strings'):
         expected = generated.find(f'strings[@name="main_menu/multiplayer_type_select/server_settings/{name}"]')
-        assert [e.attrib for e in root.find(f'strings[@name="{base}/{name}"]')] == [e.attrib for e in expected]
+        without_ids = lambda e: {k: v for k, v in e.attrib.items() if k != 'id'}
+        assert [without_ids(e) for e in root.find(f'strings[@name="{base}/{name}"]')] == [without_ids(e) for e in expected]
 
 
 def test_merged_rows_and_bindings():

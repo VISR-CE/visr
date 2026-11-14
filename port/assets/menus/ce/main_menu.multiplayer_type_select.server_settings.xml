@@ -44,7 +44,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/max_players_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/server_settings/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/max_players_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="2|4|8|12|16|24|32|48|64|96|128" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/multiplayer_type_select/server_settings/max_players_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="2|4|8|12|16|24|32|48|64|96|128" strings_ids="ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s0|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s1|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s2|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s3|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s4|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s5|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s6|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s7|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s8|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s9|ce.main_menu_multiplayer_type_select_server_settings.server_settings_max_players_spinner.s10" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/invite_value" type="text" width="280" height="53" font="ui\large_ui" color="#FFFFFFFF" text_y="4">
 		<on event="left_mouse" run="ss copy invite"/>
@@ -59,7 +59,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/listing_label" type="text" controller="1" width="300" height="22" string_list="main_menu/multiplayer_type_select/server_settings/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PUBLIC|PRIVATE" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/multiplayer_type_select/server_settings/listing_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PUBLIC|PRIVATE" strings_ids="ce.main_menu_multiplayer_type_select_server_settings.server_settings_listing_spinner.s0|ce.main_menu_multiplayer_type_select_server_settings.server_settings_listing_spinner.s1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/op_password" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
@@ -90,7 +90,7 @@
 		<child widget="main_menu/multiplayer_type_select/server_settings/game_type_label"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/game_type_value" x="230" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/game_type_label" type="text" controller="1" width="230" height="22" text="GAME TYPE:" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/server_settings/game_type_label" type="text" controller="1" width="230" height="22" text="GAME TYPE:" text_id="ce.main_menu_multiplayer_type_select_server_settings.server_settings_game_type_label.text" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/server_settings/game_type_value" type="text" controller="1" width="280" height="22" font="ui\small_ui" color="#FF2896FF" align="center" text_y="5" text_flags="no_focus_test">
 	</widget>
@@ -100,71 +100,71 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/server_settings/gametype_options_label"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/gametype_options_label" type="text" controller="1" width="230" height="22" text="GAMETYPE OPTIONS" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/server_settings/gametype_options_label" type="text" controller="1" width="230" height="22" text="GAMETYPE OPTIONS" text_id="ce.main_menu_multiplayer_type_select_server_settings.server_settings_gametype_options_label.text" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/server_settings/op_start_game" type="text" width="512" height="28" bitmap="bitmaps/option_bkds" text="START GAME" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/server_settings/op_start_game" type="text" width="512" height="28" bitmap="bitmaps/option_bkds" text="START GAME" text_id="ce.main_menu_multiplayer_type_select_server_settings.server_settings_op_start_game.text" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 		<on event="a" run="ss start game" open="main_menu/multiplayer_type_select/lobby/lobby_screen"/>
 		<on event="start" run="ss start game" open="main_menu/multiplayer_type_select/lobby/lobby_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<strings name="main_menu/multiplayer_type_select/server_settings/labels">
-		<string text="GAME NAME:"/>
-		<string text="MAXIMUM PLAYERS:"/>
-		<string text="INVITE LINK:"/>
-		<string text="GAME TYPE:"/>
-		<string text="PLAYER OPTIONS:"/>
-		<string text="ITEM OPTIONS:"/>
-		<string text="VEHICLE OPTIONS:"/>
-		<string text="INDICATOR OPTIONS:"/>
-		<string text="TEAMPLAY OPTIONS:"/>
-		<string text="LISTING:"/>
-		<string text="FRIENDLY FIRE:"/>
-		<string text="EXTRA ENEMIES:"/>
-		<string text="PER PLAYER:"/>
-		<string text="MULTIPLIER:"/>
-		<string text="PLAYER COLLISIONS:"/>
-		<string text="PASSWORD:"/>
-		<string text="SHARE MAPS:"/>
-		<string text="ALLY FRIENDLY FIRE:"/>
-		<string text="FIRETEAM:"/>
-		<string text="CO-OP OPTIONS"/>
+		<string text="GAME NAME:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i0"/>
+		<string text="MAXIMUM PLAYERS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i1"/>
+		<string text="INVITE LINK:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i2"/>
+		<string text="GAME TYPE:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i3"/>
+		<string text="PLAYER OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i4"/>
+		<string text="ITEM OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i5"/>
+		<string text="VEHICLE OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i6"/>
+		<string text="INDICATOR OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i7"/>
+		<string text="TEAMPLAY OPTIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i8"/>
+		<string text="LISTING:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i9"/>
+		<string text="FRIENDLY FIRE:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i10"/>
+		<string text="EXTRA ENEMIES:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i11"/>
+		<string text="PER PLAYER:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i12"/>
+		<string text="MULTIPLIER:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i13"/>
+		<string text="PLAYER COLLISIONS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i14"/>
+		<string text="PASSWORD:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i15"/>
+		<string text="SHARE MAPS:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i16"/>
+		<string text="ALLY FRIENDLY FIRE:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i17"/>
+		<string text="FIRETEAM:" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i18"/>
+		<string text="CO-OP OPTIONS" id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_labels.i19"/>
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/server_settings/help_strings">
 		<string text=""/>
-		<string text="The name the game shows in the lists of games.\nEnter changes it."/>
-		<string text="The most players the game takes (up to 128)."/>
-		<string text="Players join this game by its invite link, or your\nDiscord invite. Enter copies the link again."/>
-		<string text="The gametype and its rules, for this game."/>
-		<string text="Lives, health, shields, and respawning, for this game."/>
-		<string text="Weapons, grenades, and starting equipment, for\nthis game."/>
-		<string text="Each team's vehicles and their respawn time, for\nthis game."/>
-		<string text="The motion tracker and nav points, for this game."/>
-		<string text="Friendly fire and team balance, for this game."/>
-		<string text="Anyone can see and join your game: it is listed\nin everyone's Server Browser."/>
-		<string text="Only players with your invite link can join."/>
-		<string text="Players can not be hurt by weapons and explosives\nfired by the other players."/>
-		<string text="Players can be hurt by weapons or explosives\nfired by the other players."/>
-		<string text="Damage from the other players will only reduce\nshields. Health will be unaffected."/>
-		<string text="Players can be hurt by damage from explosives\nfired by the other players."/>
-		<string text="Enemy squads are as the campaign has them."/>
-		<string text="Enemy squads grow with the players: by the amount\nbelow for each player past the first."/>
-		<string text="Enemy squads are the amount below times as large,\nhowever many players there are."/>
-		<string text="For each player past the first, enemy squads get\nthis much more of themselves (100%: as many again)."/>
-		<string text="Each enemy squad is this many times as large."/>
-		<string text="Players bump into each other, as in the campaign."/>
-		<string text="Players walk through each other, so that no one\nblocks a doorway. The AI's characters still block."/>
-		<string text="Players from the Server Browser must type it to\njoin (an invite link needs none). Enter sets it."/>
-		<string text="Players who join without the game's Custom Edition\nmap download it from you and the other players."/>
-		<string text="Players who join without the map cannot play."/>
-		<string text="Players can hurt friendly AI and vehicles."/>
-		<string text="Friendly AI and vehicles are protected from players.\nPlayer-to-player friendly fire keeps its own rules."/>
-		<string text="More players than recommended for this device.\nIt may run slowly."/>
-		<string text="Players can leave and join at any time.\nPlayers always respawn in place upon death."/>
-		<string text="Fireteam cannot change after level start.\nIf the whole team dies, revert to checkpoint."/>
-		<string text="Friendly fire, extra enemies, player collisions\nand what happens when everyone dies."/>
-		<string text="Players and friendly AI are protected from\nplayers' weapons and explosives."/>
-		<string text="Players can hurt each other. Friendly AI is\nprotected from players."/>
-		<string text="Players can hurt friendly AI and vehicles.\nPlayers are protected from each other."/>
-		<string text="Players can hurt each other, friendly AI and\nvehicles."/>
+		<string text="The name the game shows in the lists of games.\nEnter changes it." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i0"/>
+		<string text="The most players the game takes (up to 128)." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i1"/>
+		<string text="Players join this game by its invite link, or your\nDiscord invite. Enter copies the link again." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i2"/>
+		<string text="The gametype and its rules, for this game." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i3"/>
+		<string text="Lives, health, shields, and respawning, for this game." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i4"/>
+		<string text="Weapons, grenades, and starting equipment, for\nthis game." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i5"/>
+		<string text="Each team's vehicles and their respawn time, for\nthis game." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i6"/>
+		<string text="The motion tracker and nav points, for this game." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i7"/>
+		<string text="Friendly fire and team balance, for this game." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i8"/>
+		<string text="Anyone can see and join your game: it is listed\nin everyone's Server Browser." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i9"/>
+		<string text="Only players with your invite link can join." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i10"/>
+		<string text="Players can not be hurt by weapons and explosives\nfired by the other players." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i11"/>
+		<string text="Players can be hurt by weapons or explosives\nfired by the other players." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i12"/>
+		<string text="Damage from the other players will only reduce\nshields. Health will be unaffected." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i13"/>
+		<string text="Players can be hurt by damage from explosives\nfired by the other players." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i14"/>
+		<string text="Enemy squads are as the campaign has them." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i15"/>
+		<string text="Enemy squads grow with the players: by the amount\nbelow for each player past the first." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i16"/>
+		<string text="Enemy squads are the amount below times as large,\nhowever many players there are." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i17"/>
+		<string text="For each player past the first, enemy squads get\nthis much more of themselves (100%: as many again)." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i18"/>
+		<string text="Each enemy squad is this many times as large." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i19"/>
+		<string text="Players bump into each other, as in the campaign." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i20"/>
+		<string text="Players walk through each other, so that no one\nblocks a doorway. The AI's characters still block." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i21"/>
+		<string text="Players from the Server Browser must type it to\njoin (an invite link needs none). Enter sets it." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i22"/>
+		<string text="Players who join without the game's Custom Edition\nmap download it from you and the other players." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i23"/>
+		<string text="Players who join without the map cannot play." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i24"/>
+		<string text="Players can hurt friendly AI and vehicles." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i25"/>
+		<string text="Friendly AI and vehicles are protected from players.\nPlayer-to-player friendly fire keeps its own rules." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i26"/>
+		<string text="More players than recommended for this device.\nIt may run slowly." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i27"/>
+		<string text="Players can leave and join at any time.\nPlayers always respawn in place upon death." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i28"/>
+		<string text="Fireteam cannot change after level start.\nIf the whole team dies, revert to checkpoint." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i29"/>
+		<string text="Friendly fire, extra enemies, player collisions\nand what happens when everyone dies." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i30"/>
+		<string text="Players and friendly AI are protected from\nplayers' weapons and explosives." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i31"/>
+		<string text="Players can hurt each other. Friendly AI is\nprotected from players." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i32"/>
+		<string text="Players can hurt friendly AI and vehicles.\nPlayers are protected from each other." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i33"/>
+		<string text="Players can hurt each other, friendly AI and\nvehicles." id="ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_help_strings.i34"/>
 	</strings>
 </menus>

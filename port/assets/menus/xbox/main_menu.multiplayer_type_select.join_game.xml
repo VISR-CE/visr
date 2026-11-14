@@ -53,7 +53,7 @@
 		<on event="start" run="gamespy select button" />
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_button_refresh" type="text" width="104" height="22" font="ui\large_ui" color="#FF2896FF" align="left" text_y="0" text="REFRESH">
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/join_game_button_refresh" type="text" width="104" height="22" font="ui\large_ui" color="#FF2896FF" align="left" text_y="0" text="REFRESH" text_id="xbox.main_menu_multiplayer_type_select_join_game.join_game_join_game_button_refresh.text">
 		<on event="a" run="gamespy select button" />
 		<on event="start" run="gamespy select button" />
 		<on event="left_mouse" run="mouse emit accept event" />
@@ -458,9 +458,9 @@
 		<child widget="xbox/main_menu/multiplayer_type_select/join_game/join_game_items_list" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="70" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_join_game.legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="70" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="52" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/legend/cancel" type="text" text="BACK" text_id="xbox.main_menu_multiplayer_type_select_join_game.legend_cancel.text" font="ui\large_ui" color="#FF2896FF" width="52" height="22" />
 	<bitmap name="xbox/browser/a_butn">
 		<frame map="ui\shell\bitmaps\a_butn" index="0" png="xbox/art/a_butn.png" width="32" height="32" />
 	</bitmap>
@@ -484,7 +484,7 @@
 		<frame png="xbox/art/browser_row__1.png" width="544" height="28" />
 	</bitmap>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/y_butn" width="21" height="26" bitmap="xbox/browser/y_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/create" type="text" text="CREATE GAME" font="ui\large_ui" color="#FF2896FF" width="132" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/create" type="text" text="CREATE GAME" text_id="xbox.main_menu_multiplayer_type_select_join_game.join_game_create.text" font="ui\large_ui" color="#FF2896FF" width="132" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
 	<bitmap name="xbox/browser/row_36/row">
 		<frame png="xbox/art/browser_row__0.png" width="544" height="36" />

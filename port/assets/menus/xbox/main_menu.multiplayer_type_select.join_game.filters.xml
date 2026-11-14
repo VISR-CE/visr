@@ -86,7 +86,7 @@
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_screen/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_join_game_filters.legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_button_bar/filters_button_ok/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/strings/common_button_captions" string_index="1" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_button_bar/filters_button_ok/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/join_game/filters/filters_button_bar/filters_button_ok" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">

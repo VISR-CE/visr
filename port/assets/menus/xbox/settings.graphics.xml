@@ -30,7 +30,7 @@
 	</widget>
 	<widget name="xbox/settings/graphics/graphics_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/graphics/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/graphics/graphics_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HARDCORE|CLASSIC|ENHANCED" setting="display.graphics" values="hardcore|classic|enhanced" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
+	<widget name="xbox/settings/graphics/graphics_spinner" type="spinner" left="54" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HARDCORE|CLASSIC|ENHANCED" strings_ids="xbox.settings_graphics.graphics_graphics_spinner.s0|xbox.settings_graphics.graphics_graphics_spinner.s1|xbox.settings_graphics.graphics_graphics_spinner.s2" setting="display.graphics" values="hardcore|classic|enhanced" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 106 19 112">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -43,7 +43,7 @@
 	</widget>
 	<widget name="xbox/settings/graphics/crt_effect_label" type="text" controller="1" width="300" height="22" string_list="xbox/settings/graphics/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
-	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
+	<widget name="xbox/settings/graphics/crt_effect_spinner" type="spinner" left="66" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" strings_ids="xbox.settings_graphics.graphics_crt_effect_spinner.s0|xbox.settings_graphics.graphics_crt_effect_spinner.s1" setting="display.crt_effect" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 83 19 89">
 		<on event="created" run="port setting load" />
 		<on event="left" run="port setting changed" />
 		<on event="right" run="port setting changed" />
@@ -55,19 +55,19 @@
 	<widget name="xbox/settings/graphics/graphics_help" type="text" controller="1" left="68" top="335" width="482" height="75" string_list="xbox/settings/graphics/graphics_help_strings" font="ui\large_ui" color="#FFFFFFFF">
 	</widget>
 	<strings name="xbox/settings/graphics/graphics_help_strings">
-		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added." />
-		<string text="The original Xbox look at this device's resolution\nand frame rate, with sharper textures and HUD." />
-		<string text="Tastefully enhanced: the original game with soft\nshading where things meet the ground and shadows\nunder props." />
-		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. In VR, Hardcore draws as\nClassic." />
+		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added." id="xbox.settings_graphics.xbox_settings_graphics_graphics_help_strings.i0" />
+		<string text="The original Xbox look at this device's resolution\nand frame rate, with sharper textures and HUD." id="xbox.settings_graphics.xbox_settings_graphics_graphics_help_strings.i1" />
+		<string text="Tastefully enhanced: the original game with soft\nshading where things meet the ground and shadows\nunder props." id="xbox.settings_graphics.xbox_settings_graphics_graphics_help_strings.i2" />
+		<string text="The original Xbox exactly: 640x480 at 30 frames a\nsecond, nothing added. In VR, Hardcore draws as\nClassic." id="xbox.settings_graphics.xbox_settings_graphics_graphics_help_strings.i3" />
 	</strings>
 	<strings name="xbox/settings/graphics/labels">
-		<string text="MODE:" />
-		<string text="CRT EFFECT:" />
+		<string text="MODE:" id="xbox.settings_graphics.xbox_settings_graphics_labels.i0" />
+		<string text="CRT EFFECT:" id="xbox.settings_graphics.xbox_settings_graphics_labels.i1" />
 	</strings>
 	<strings name="xbox/settings/graphics/help_strings">
 		<string text="" />
 		<string text="" />
-		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color." />
+		<string text="The picture as a CRT television showed it:\nscanlines, phosphor glow, and soft color." id="xbox.settings_graphics.xbox_settings_graphics_help_strings.i0" />
 	</strings>
 	<widget name="xbox/settings/graphics/button_bar" type="column_list" width="320" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="xbox/settings/graphics/button_defaults" x="40" />
@@ -81,9 +81,9 @@
 		<on event="left_mouse" run="mouse emit accept event" />
 	</widget>
 	<widget name="xbox/settings/graphics/x_butn" width="21" height="26" bitmap="xbox/browser/x_butn" />
-	<widget name="xbox/settings/graphics/button_defaults_caption" type="text" text="DEFAULTS" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
+	<widget name="xbox/settings/graphics/button_defaults_caption" type="text" text="DEFAULTS" text_id="xbox.settings_graphics.graphics_button_defaults_caption.text" font="ui\large_ui" color="#FF2896FF" width="132" height="26" />
 	<widget name="xbox/settings/graphics/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/settings/graphics/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/graphics/accept" type="text" text="SELECT" text_id="xbox.settings_graphics.graphics_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/settings/graphics/b_butn" type="container" width="21" height="26" bitmap="xbox/browser/b_butn" />
-	<widget name="xbox/settings/graphics/cancel" type="text" text="BACK" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/settings/graphics/cancel" type="text" text="BACK" text_id="xbox.settings_graphics.graphics_cancel.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 </menus>

@@ -112,22 +112,22 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_button_add" x="380" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_button_leave" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_add" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ADD PLAYER" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_add" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ADD PLAYER" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_add.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port lobby add player"/>
 		<on event="start" run="port lobby add player"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_team" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="SWITCH TEAM" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_team" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="SWITCH TEAM" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_team.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="swap player team"/>
 		<on event="start" run="swap player team"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_start" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="START NOW" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_start" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="START NOW" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_start.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="net game speed start"/>
 		<on event="start" run="net game speed start"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_leave" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="LEAVE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_button_leave" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="LEAVE" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_lobby_button_leave.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -159,7 +159,7 @@
 		<child widget="main_menu/multiplayer_type_select/coop/list_item_10" x="20" y="373"/>
 		<child widget="main_menu/multiplayer_type_select/coop/player_2_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_help" type="text" width="350" height="24" text="The new player's profile." font="ui\small_ui" color="#FF2896FF" text_y="5" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_help" type="text" width="350" height="24" text="The new player's profile." text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_player_profile_help.text" font="ui\small_ui" color="#FF2896FF" text_y="5" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/lobby/preview_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
 		<on event="created" run="port lobby open"/>
@@ -183,17 +183,17 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_button_add" x="380" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_button_back" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_join" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_join" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_preview_button_join.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port lobby preview join"/>
 		<on event="start" run="port lobby preview join"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_add" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ADD PLAYER" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_add" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ADD PLAYER" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_preview_button_add.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port lobby add player"/>
 		<on event="start" run="port lobby add player"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" text_id="ce.main_menu_multiplayer_type_select_lobby.lobby_preview_button_back.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

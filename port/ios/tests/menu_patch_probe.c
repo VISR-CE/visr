@@ -1181,11 +1181,11 @@ static void language_probe(char const *name)
 	check(!strcmp(language_string(menus, 1), "Plain"), "a string without an ID is inline text");
 	if (!strcmp(name, "xa"))
 	{
-		check(!strcmp(language_string(menus, 0), "[AAlphaa oonee~~]"), "en-XA brackets, doubles vowels and lengthens: %s",
+		check(!strcmp(language_string(menus, 0), "[AAlphaa oonee--]"), "en-XA brackets, doubles vowels and lengthens: %s",
 			language_string(menus, 0));
-		check(!strncmp(widget->text, "[Heelloo {name}\\nWoorld~", 22) && strstr(widget->text, "{name}\\n") && strchr(widget->text, '['),
+		check(!strncmp(widget->text, "[Heelloo {name}\\nWoorld-", 22) && strstr(widget->text, "{name}\\n") && strchr(widget->text, '['),
 			"en-XA keeps placeholders and the \\n code: %s", widget->text);
-		check(!strcmp(list->strings, "[OOFF~]|[OON]"), "en-XA strings: %s", list->strings);
+		check(!strcmp(list->strings, "[OOFF-]|[OON]"), "en-XA strings: %s", list->strings);
 		check(strchr(list->strings, '|') != NULL, "en-XA keeps the | separator: %s", list->strings);
 	}
 	else if (!strcmp(name, "table"))

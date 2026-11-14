@@ -38,23 +38,23 @@
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_map_weapons">
-		<string text="YES"/>
-		<string text="NO"/>
+		<string text="YES" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons.i0"/>
+		<string text="NO" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons.i1"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout">
-		<string text="CATEGORY"/>
-		<string text="CUSTOM"/>
+		<string text="CATEGORY" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout.i0"/>
+		<string text="CUSTOM" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout.i1"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon">
-		<string text="NONE"/>
-		<string text="RANDOM"/>
-		<string text="ASSAULT RIFLE"/>
-		<string text="PISTOL"/>
-		<string text="SHOTGUN"/>
-		<string text="SNIPER RIFLE"/>
-		<string text="ROCKET LAUNCHER"/>
-		<string text="PLASMA PISTOL"/>
-		<string text="PLASMA RIFLE"/>
-		<string text="NEEDLER"/>
+		<string text="NONE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i0"/>
+		<string text="RANDOM" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i1"/>
+		<string text="ASSAULT RIFLE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i2"/>
+		<string text="PISTOL" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i3"/>
+		<string text="SHOTGUN" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i4"/>
+		<string text="SNIPER RIFLE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i5"/>
+		<string text="ROCKET LAUNCHER" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i6"/>
+		<string text="PLASMA PISTOL" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i7"/>
+		<string text="PLASMA RIFLE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i8"/>
+		<string text="NEEDLER" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i9"/>
 	</strings>
 </menus>

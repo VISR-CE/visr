@@ -55,7 +55,7 @@
 		<on event="start" run="direct ip edit field" />
 	</widget>
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/a_butn" type="container" width="21" height="26" bitmap="xbox/browser/a_butn" />
-	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/accept" type="text" text="SELECT" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
+	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_screen/legend/accept" type="text" text="SELECT" text_id="xbox.main_menu_multiplayer_type_select_direct_ip.legend_accept.text" font="ui\large_ui" color="#FF2896FF" width="100" height="22" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/caption" type="text" width="100" height="26" font="ui\small_ui" color="#FF2896FF" string_list="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options" string_index="4" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join/a_butn" width="21" height="26" bitmap="xbox/browser/a_butn" />
 	<widget name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar/direct_ip_button_join" type="container" width="121" height="26" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">

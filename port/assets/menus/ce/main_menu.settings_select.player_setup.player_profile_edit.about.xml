@@ -11,7 +11,7 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/header_about" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/settings_select/player_setup/player_profile_edit/about/header_about">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="286" width="482" height="120" text="Halo, Halo: Combat Evolved, Master Chief, and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by, or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries), or Bungie." font="ui\small_ui" color="#FFFFFFFF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/help" type="text" controller="1" left="68" top="286" width="482" height="120" text="Halo, Halo: Combat Evolved, Master Chief, and the related names\nand logos are trademarks of Microsoft Corporation. Halo: Combat\nEvolved  ©  Microsoft Corporation. VISR is an unofficial fan\nproject. It is not affiliated with, sponsored by, or endorsed by\nMicrosoft, Xbox Game Studios, Halo Studios (formerly 343\nIndustries), or Bungie." text_id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.about_help.text" font="ui\small_ui" color="#FFFFFFFF">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" visible_rows="6">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/about/op_build" x="54" y="102"/>
@@ -96,23 +96,23 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/send_log_value" type="text" controller="1" width="235" height="22" font="ui\small_ui" color="#FFFFFFFF" text_y="5" text_flags="no_focus_test">
 		<data input="port send log status"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" text_id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.about_button_back.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" back="true"/>
 		<on event="start" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/about/labels">
-		<string text="BUILD"/>
-		<string text="ONLINE"/>
-		<string text="PRIVACY"/>
-		<string text="LICENSE"/>
-		<string text="OPEN SOURCE NOTICES"/>
-		<string text="SEND LOG"/>
+		<string text="BUILD" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels.i0"/>
+		<string text="ONLINE" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels.i1"/>
+		<string text="PRIVACY" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels.i2"/>
+		<string text="LICENSE" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels.i3"/>
+		<string text="OPEN SOURCE NOTICES" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels.i4"/>
+		<string text="SEND LOG" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_labels.i5"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/about/values">
-		<string text="visr.gg"/>
-		<string text="visr.gg/privacy"/>
-		<string text="Apache-2.0"/>
+		<string text="visr.gg" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_values.i0"/>
+		<string text="visr.gg/privacy" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_values.i1"/>
+		<string text="Apache-2.0" id="ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_values.i2"/>
 	</strings>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/about/title_version" type="text" controller="1" width="512" height="24" font="ui\large_ui" color="#FF2896FF" text_x="13">
 		<data input="port about version"/>

@@ -7,7 +7,7 @@
 		<on event="created" run="port option row init" />
 		<on event="deleted" run="port option row save" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="MAP WEAPONS:">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="MAP WEAPONS:" text_id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_map_weapons_label.text">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_spinner" type="spinner" top="2" width="80" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_map_weapons" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 83 19 89" left="63">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
@@ -18,7 +18,7 @@
 		<on event="created" run="port option row init" />
 		<on event="deleted" run="port option row save" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="LOADOUT:">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="LOADOUT:" text_id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_loadout_label.text">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_spinner" type="spinner" top="2" width="103" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 106 19 112" left="51">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
@@ -29,7 +29,7 @@
 		<on event="created" run="port option row init" />
 		<on event="deleted" run="port option row save" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="PRIMARY WEAPON:">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="PRIMARY WEAPON:" text_id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_primary_weapon_label.text">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
@@ -40,29 +40,29 @@
 		<on event="created" run="port option row init" />
 		<on event="deleted" run="port option row save" />
 	</widget>
-	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="SECONDARY WEAPON:">
+	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" text="SECONDARY WEAPON:" text_id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.item_options_edit_secondary_weapon_label.text">
 	</widget>
 	<widget name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="xbox/bitmaps/arrow_sm_left" footer_bitmap="xbox/bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 209 19 215" left="0">
 		<on event="left_mouse" run="mouse spinner 1wide click" />
 	</widget>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_map_weapons">
-		<string text="YES" />
-		<string text="NO" />
+		<string text="YES" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons.i0" />
+		<string text="NO" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons.i1" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout">
-		<string text="CATEGORY" />
-		<string text="CUSTOM" />
+		<string text="CATEGORY" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout.i0" />
+		<string text="CUSTOM" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout.i1" />
 	</strings>
 	<strings name="xbox/main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon">
-		<string text="NONE" />
-		<string text="RANDOM" />
-		<string text="ASSAULT RIFLE" />
-		<string text="PISTOL" />
-		<string text="SHOTGUN" />
-		<string text="SNIPER RIFLE" />
-		<string text="ROCKET LAUNCHER" />
-		<string text="PLASMA PISTOL" />
-		<string text="PLASMA RIFLE" />
-		<string text="NEEDLER" />
+		<string text="NONE" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i0" />
+		<string text="RANDOM" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i1" />
+		<string text="ASSAULT RIFLE" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i2" />
+		<string text="PISTOL" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i3" />
+		<string text="SHOTGUN" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i4" />
+		<string text="SNIPER RIFLE" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i5" />
+		<string text="ROCKET LAUNCHER" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i6" />
+		<string text="PLASMA PISTOL" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i7" />
+		<string text="PLASMA RIFLE" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i8" />
+		<string text="NEEDLER" id="xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.i9" />
 	</strings>
 </menus>

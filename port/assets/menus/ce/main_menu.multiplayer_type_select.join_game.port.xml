@@ -38,25 +38,25 @@
 	<widget name="main_menu/multiplayer_type_select/join_game/password/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/password/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/join_game/password/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" text_id="ce.main_menu_multiplayer_type_select_join_game_port.password_button_ok.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port password join"/>
 		<on event="start" run="port password join"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<strings name="main_menu/multiplayer_type_select/join_game/password/labels">
-		<string text="PASSWORD:"/>
+		<string text="PASSWORD:" id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_labels.i0"/>
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/join_game/password/help_strings">
 		<string text=""/>
-		<string text="This game has a password.\nEnter it, then select JOIN GAME."/>
-		<string text="That is not the game's password. Try again."/>
-		<string text="Could not join the game."/>
+		<string text="This game has a password.\nEnter it, then select JOIN GAME." id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_help_strings.i0"/>
+		<string text="That is not the game's password. Try again." id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_help_strings.i1"/>
+		<string text="Could not join the game." id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_password_help_strings.i2"/>
 	</strings>
 	<widget name="main_menu/multiplayer_type_select/join_game/header_server_browser" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/multiplayer_type_select/join_game/header_server_browser">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/header_direct_link" controller="1" left="35" top="11" width="512" height="64" bitmap="main_menu/multiplayer_type_select/join_game/header_direct_link">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/button_clipboard" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ENTER CODE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/join_game/button_clipboard" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ENTER CODE" text_id="ce.main_menu_multiplayer_type_select_join_game_port.join_game_button_clipboard.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port code open"/>
 		<on event="start" run="port code open"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -98,17 +98,17 @@
 	<widget name="main_menu/multiplayer_type_select/join_game/code/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/code/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/join_game/code/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" text_id="ce.main_menu_multiplayer_type_select_join_game_port.code_button_ok.text" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="a" run="port code join"/>
 		<on event="start" run="port code join"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<strings name="main_menu/multiplayer_type_select/join_game/code/labels">
-		<string text="JOIN CODE:"/>
+		<string text="JOIN CODE:" id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_labels.i0"/>
 	</strings>
 	<strings name="main_menu/multiplayer_type_select/join_game/code/help_strings">
 		<string text=""/>
-		<string text="Type the join code your friend's lobby shows,\nor a whole invite link, then JOIN GAME."/>
-		<string text="That is not a join code (eight letters and digits)\nor an invite link. Try again."/>
+		<string text="Type the join code your friend's lobby shows,\nor a whole invite link, then JOIN GAME." id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_help_strings.i0"/>
+		<string text="That is not a join code (eight letters and digits)\nor an invite link. Try again." id="ce.main_menu_multiplayer_type_select_join_game_port.main_menu_multiplayer_type_select_join_game_code_help_strings.i1"/>
 	</strings>
 </menus>
