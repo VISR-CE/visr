@@ -1724,6 +1724,12 @@ static const struct config_setting config_settings[] =
 		"Menu captures: once a menu screen is up, log \"menus: ready\", let it\n"
 		"settle this many frames, save one frame as frameNNNNN-ready.png in\n"
 		"debug.screenshot_directory, and quit; 0 off." },
+	{ "debug.menu_sequence", _config_string, "\"\"", "HALO_MENU_SEQUENCE", _environment_value, _platform_ios,
+		"Menu captures: name=screen entries separated by semicolons. Once the main\n"
+		"menu is up, open each screen (as debug.menu_open takes it) in turn, let it\n"
+		"settle debug.menu_ready_shot frames (15 when 0), save it as\n"
+		"frameNNNNN-<name>.png in debug.screenshot_directory, and quit after the\n"
+		"last; a screen that will not load is logged as missing. Empty for off." },
 	{ "debug.menu_error", _config_string, "\"\"", "HALO_MENU_ERROR", _environment_value, _platform_all,
 		"Development builds only: after the menu loads, call the real error API.\n"
 		"Use code,modal,full|half|qtr, or code,optional,abort (code 0-39, flags 0-1).\n"

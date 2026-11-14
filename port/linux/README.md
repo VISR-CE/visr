@@ -650,6 +650,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.menu_density` | integer | `-1` | apple, desktop | `HALO_MENU_DENSITY` | Menu list row density, fixed at load: -1 uses the platform default, 0 uses comfortable rows, 1 uses compact rows. |
 | `debug.menu_open` | string | `""` | apple, desktop | `HALO_MENU_OPEN` | Start on this screen of the menus (port/assets/menus) instead of the main menu, a player profile being edited; empty for the main menu. |
 | `debug.menu_ready_shot` | integer | `0` | apple | `HALO_MENU_READY_SHOT` | Menu captures: once a menu screen is up, log "menus: ready", let it settle this many frames, save one frame as frameNNNNN-ready.png in debug.screenshot_directory, and quit; 0 off. |
+| `debug.menu_sequence` | string | `""` | apple | `HALO_MENU_SEQUENCE` | Menu captures: name=screen entries separated by semicolons. |
 | `debug.menu_error` | string | `""` | apple, desktop | `HALO_MENU_ERROR` | Development builds only: after the menu loads, call the real error API. |
 | `debug.menu_open_coop` | boolean | `false` | apple, desktop | `HALO_MENU_OPEN_COOP` | With debug.menu_open on Server Setup, show it as a co-op host's, though no game is hosted (for screenshots). |
 | `debug.menu_text_seed` | string | `""` | apple, desktop | `HALO_MENU_TEXT_SEED` | The join password and Direct Link code screens open with this text already entered and the keyboard closed, to see their held-text state (for screenshots); on the password screen a leading `*` starts it hidden; empty for none. |

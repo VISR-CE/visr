@@ -202,6 +202,8 @@ unsigned long platform_clock_frames(void);
 /* debug.menu_ready_shot: save the next presented frame as frameNNNNN-ready.png
 (d3d8_device.c); taken says it has been written */
 void platform_ready_screenshot_request(void);
+/* the same, saved as frameNNNNN-<name>.png (debug.menu_sequence) */
+void platform_ready_screenshot_request_named(const char *name);
 int platform_ready_screenshot_taken(void);
 void platform_clock_frame(void);
 /* a main loop pass that presented nothing: with debug.fixed_timestep, the

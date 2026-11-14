@@ -37,6 +37,10 @@ static char const *tag_get_name(long tag) { return tag_name; }
 static long tag_loaded(int group, char const *name) { return 2; }
 static void platform_log(char const *format, ...) {}
 static char const *config_string(char const *name) { return setting; }
+#define PC_MENU_TAG_PREFIX "pc\\"
+static struct { void *menus; } build = {0};
+boolean pc_menu_profile_edit_begin(void) { return 1; }
+boolean pc_menu_gametype_edit_begin(void) { return 1; }
 char const *pc_menu_debug_error_variant(char const *name, boolean modal);
 static void display_error(short code, short player, boolean modal, boolean pause) {
     calls++; actual_code = code; actual_flag = modal;

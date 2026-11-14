@@ -66,6 +66,7 @@ char const *ui_widget_event_handler_function_name(long function_index);
 void menu_tags_loaded(char const *map_name);
 void menu_tags_unloaded(void);
 char const *pc_menus_root_name(void);
+char const *pc_menu_debug_screen_name(char const *open);
 char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
@@ -3436,51 +3437,62 @@ static void menu_debug_error_schedule(void)
 	menu_error_pending = TRUE;
 }
 
+/* a debug screen to see (debug.menu_open, debug.menu_sequence): an XML
+screen by its name, main_menu/settings_select/..., with a profile being
+edited for the settings' screens; or a widget of the map's by its path, with
+its backslashes, which the game loads itself, with the player's profile being
+edited, or the first gametype for the gametype editors. The widget's name,
+in a buffer the next call reuses, or NULL when there is none. */
+char const *pc_menu_debug_screen_name(
+	char const *open)
+{
+	static char name[300];
+	extern boolean pc_menu_profile_edit_begin(void);
+	extern boolean pc_menu_gametype_edit_begin(void);
+
+	if (strchr(open, '\\'))
+	{
+		snprintf(name, sizeof(name), "%s", open);
+		if (strstr(name, "\\playlist_edit\\"))
+			pc_menu_gametype_edit_begin();
+		else
+			pc_menu_profile_edit_begin();
+		platform_log("menus: debug screen: the map's %s", name);
+		return name;
+	}
+	if (menu_tags.loaded && build.menus == NULL)
+	{
+		long index;
+
+		snprintf(name, sizeof(name), "%s%s", PC_MENU_TAG_PREFIX, open);
+		for (index = 0; name[index]; index++)
+		{
+			if (name[index] == '/')
+				name[index] = '\\';
+		}
+		if (tag_loaded(UI_WIDGET_DEFINITION_TAG, name) != NONE)
+		{
+			pc_menu_profile_edit_begin();
+			return name;
+		}
+	}
+	platform_log("menus: debug screen: there is no widget named %s", open);
+	return NULL;
+}
+
 char const *pc_menus_root_name(
 	void)
 {
-	/* (debug.menu_open: a screen to see. An XML screen by its name,
-	main_menu/settings_select/..., with a profile being edited for the
-	settings' screens; or a widget of the map's by its path, with its
-	backslashes, which the game loads itself, with the player's profile
-	being edited, or the first gametype for the gametype editors) */
 	char const *open = config_string("debug.menu_open");
 
 	menu_debug_error_schedule();
 
 	if (*open)
 	{
-		static char name[300];
-		extern boolean pc_menu_profile_edit_begin(void);
-		extern boolean pc_menu_gametype_edit_begin(void);
+		char const *name = pc_menu_debug_screen_name(open);
 
-		if (strchr(open, '\\'))
-		{
-			snprintf(name, sizeof(name), "%s", open);
-			if (strstr(name, "\\playlist_edit\\"))
-				pc_menu_gametype_edit_begin();
-			else
-				pc_menu_profile_edit_begin();
-			platform_log("menus: debug.menu_open: the map's %s", name);
+		if (name)
 			return name;
-		}
-		if (menu_tags.loaded && build.menus == NULL)
-		{
-			long index;
-
-			snprintf(name, sizeof(name), "%s%s", PC_MENU_TAG_PREFIX, open);
-			for (index = 0; name[index]; index++)
-			{
-				if (name[index] == '/')
-					name[index] = '\\';
-			}
-			if (tag_loaded(UI_WIDGET_DEFINITION_TAG, name) != NONE)
-			{
-				pc_menu_profile_edit_begin();
-				return name;
-			}
-		}
-		platform_log("menus: debug.menu_open: there is no widget named %s", open);
 	}
 	return menu_tags.loaded && menu_tags.root[0] ? menu_tags.root : "ui\\shell\\main_menu\\main_menu";
 }

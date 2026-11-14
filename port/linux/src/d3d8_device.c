@@ -7403,12 +7403,20 @@ static void write_screenshot(struct render_target_entry *target, const char *suf
 	write_screenshot_channel(target, suffix, 0);
 }
 
-/* debug.menu_ready_shot: 1 once the menus ask for a frame, 2 once it is written */
+/* debug.menu_ready_shot: 1 once the menus ask for a frame, 2 once it is
+written; the file name's suffix (debug.menu_sequence names each screen's) */
 static int ready_screenshot;
+static char ready_screenshot_suffix[80] = "-ready";
 
 void platform_ready_screenshot_request(void)
 {
-	__atomic_store_n(&ready_screenshot, 1, __ATOMIC_RELAXED);
+	platform_ready_screenshot_request_named("ready");
+}
+
+void platform_ready_screenshot_request_named(const char *name)
+{
+	snprintf(ready_screenshot_suffix, sizeof(ready_screenshot_suffix), "-%s", name);
+	__atomic_store_n(&ready_screenshot, 1, __ATOMIC_RELEASE);
 }
 
 int platform_ready_screenshot_taken(void)
@@ -8308,9 +8316,9 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		if (trace_frame())
 			platform_log("present back buffer %08lx texture %u", (unsigned long)device.back_buffer.Data,
 				back_buffer->target.texture);
-		if (__atomic_load_n(&ready_screenshot, __ATOMIC_RELAXED) == 1)
+		if (__atomic_load_n(&ready_screenshot, __ATOMIC_ACQUIRE) == 1)
 		{
-			write_screenshot(back_buffer, "-ready");
+			write_screenshot(back_buffer, ready_screenshot_suffix);
 			__atomic_store_n(&ready_screenshot, 2, __ATOMIC_RELAXED);
 		}
 		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0 && screenshot_frame_wanted(device.frame))

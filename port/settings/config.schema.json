@@ -2809,6 +2809,16 @@
             "apple"
           ]
         },
+        "menu_sequence": {
+          "type": "string",
+          "default": "",
+          "description": "Menu captures: name=screen entries separated by semicolons. Once the main menu is up, open each screen (as debug.menu_open takes it) in turn, let it settle debug.menu_ready_shot frames (15 when 0), save it as frameNNNNN-<name>.png in debug.screenshot_directory, and quit after the last; a screen that will not load is logged as missing. Empty for off.",
+          "x-environment": "HALO_MENU_SEQUENCE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "menu_error": {
           "type": "string",
           "default": "",

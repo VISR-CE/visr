@@ -128,6 +128,7 @@ int menu_in_network_game(void);
 /* (platform.h) presented frames, and the debug.menu_ready_shot frame (d3d8_device.c) */
 unsigned long platform_clock_frames(void);
 void platform_ready_screenshot_request(void);
+void platform_ready_screenshot_request_named(char const *name);
 int platform_ready_screenshot_taken(void);
 #endif
 void platform_request_quit(void);
@@ -7613,6 +7614,108 @@ void menu_join_failed(void)
 	console_notice("Could not reach the host");
 }
 
+/* debug.menu_sequence: several screens captured in one launch, one after
+another, each opened as the root screen once the main menu is up, left to
+settle debug.menu_ready_shot frames (15 when 0) and saved as
+frameNNNNN-<name>.png; a screen that will not load is logged as missing and
+skipped, and the game quits after the last. Entries are name=screen,
+separated by semicolons; the screen is what debug.menu_open takes. */
+enum
+{
+	k_menu_sequence_max = 128,
+	k_menu_sequence_shot_frames = 300
+};
+
+char const *pc_menu_debug_screen_name(char const *open); /* menu_tags.c */
+
+static boolean menu_sequence_poll(void)
+{
+	static int state; /* 0 not read, 1 opening, 2 settling, 3 asked, 4 off */
+	static char text[8192];
+	static char *names[k_menu_sequence_max], *screens[k_menu_sequence_max];
+	static long count, index, settle;
+	static unsigned long since;
+	unsigned long frame = platform_clock_frames();
+
+	if (state == 0)
+	{
+		char *entry, *rest;
+
+		snprintf(text, sizeof(text), "%s", config_string("debug.menu_sequence"));
+		for (entry = strtok_r(text, ";", &rest); entry && count < k_menu_sequence_max; entry = strtok_r(NULL, ";", &rest))
+		{
+			char *equals = strchr(entry, '=');
+			char *character;
+
+			if (!equals || equals == entry || !equals[1])
+			{
+				platform_log("menus: sequence entry \"%s\" is not name=screen; skipped", entry);
+				continue;
+			}
+			*equals = 0;
+			for (character = entry; *character; character++)
+			{
+				if (!isalnum((unsigned char)*character) && *character != '-' && *character != '_' && *character != '.')
+					*character = '_';
+			}
+			names[count] = entry;
+			screens[count] = equals + 1;
+			count++;
+		}
+		settle = config_integer("debug.menu_ready_shot");
+		if (settle <= 0)
+			settle = 15;
+		state = count ? 1 : 4;
+		if (count)
+			platform_log("menus: sequence of %ld screens, %ld frames each", count, settle);
+	}
+	if (state == 4)
+		return FALSE;
+	if (state == 1)
+	{
+		if (index >= count)
+		{
+			platform_log("menus: sequence done at frame %lu; quitting", frame);
+			state = 4;
+			exit(EXIT_SUCCESS);
+		}
+		else
+		{
+			char const *name = pc_menu_debug_screen_name(screens[index]);
+
+			if (!name || !ui_widget_load_by_name_or_tag(name, NONE, NULL, NONE, NONE, NONE, NONE))
+			{
+				platform_log("menus: sequence %s missing (%s)", names[index], screens[index]);
+				index++;
+			}
+			else
+			{
+				platform_log("menus: sequence %s opened at frame %lu", names[index], frame);
+				since = frame;
+				state = 2;
+			}
+		}
+	}
+	else if (state == 2 && frame - since >= (unsigned long)settle)
+	{
+		platform_ready_screenshot_request_named(names[index]);
+		since = frame;
+		state = 3;
+	}
+	else if (state == 3)
+	{
+		if (platform_ready_screenshot_taken())
+			platform_log("menus: sequence %s saved at frame %lu", names[index], frame);
+		else if (frame - since < k_menu_sequence_shot_frames)
+			return TRUE;
+		else
+			platform_log("menus: sequence %s never saved", names[index]);
+		index++;
+		state = 1;
+	}
+	return TRUE;
+}
+
 /* debug.menu_ready_shot (frames): a menu capture waits for the menus rather
 than a fixed time. Once a screen is up, "menus: ready" is logged; after that
 many frames one frame is saved (frameNNNNN-ready.png) and the game quits. */
@@ -7658,7 +7761,8 @@ void menu_invite_poll(void)
 	if (ui_widget_port_active_screen(0))
 	{
 		posix_invite_menu_ready();
-		menu_ready_shot_poll();
+		if (!menu_sequence_poll())
+			menu_ready_shot_poll();
 	}
 	if (!multiplayer.invite_jump)
 		return;
