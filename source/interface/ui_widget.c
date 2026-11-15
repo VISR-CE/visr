@@ -6163,7 +6163,6 @@ context menu labeled with that caption, which presses X. A destructive caption i
 #define UI_HOLD_GROW_START_MS 150
 #define UI_HOLD_OPEN_MS 500
 #define UI_HOLD_SCALE 1.06f
-void platform_log(char const *format, ...);
 static boolean ui_touch_x_seen = FALSE;
 static boolean ui_touch_x_destructive = FALSE;
 static char ui_touch_x_caption[24];
@@ -6544,7 +6543,6 @@ static boolean ui_mouse_legend_bounds(
 {
 	struct widget_instance *parent = widget->parent;
 	short button = ui_mouse_key_button(widget);
-	struct widget_instance *caption = NULL;
 	short owner = widget->local_player_index == NONE ?
 		local_player_index_for_draw_string_and_hack_in_icons : widget->local_player_index;
 	struct widget_instance *sibling, *label = NULL;
@@ -6668,11 +6666,11 @@ and mouse. The chevron discards, so the page needs one visible commit button. */
 static struct widget_instance *ui_legend_save_caption(struct widget_instance *widget)
 {
 	point2d zero = { 0, 0 };
-	rectangle2d bounds;
+	rectangle2d bounds, drawn;
 	struct widget_instance *caption = NULL;
 
 	if (ui_mouse_key_button(widget) != _gamepad_analog_button_a) return NULL;
-	ui_mouse_legend_bounds(widget, ui_widget_definition_get(widget->definition_tag_index), zero, &bounds, &caption);
+	ui_mouse_legend_bounds(widget, ui_widget_definition_get(widget->definition_tag_index), zero, &bounds, &drawn, &caption);
 	return caption && ui_text_is_commit_caption(caption->parameters.text_box.text) ? caption : NULL;
 }
 
@@ -7335,8 +7333,6 @@ static void ui_widgets_process_mouse(
 				if (target && (target->kind == _ui_mouse_target_item || target->kind == _ui_mouse_target_value ||
 					target->kind == _ui_mouse_target_list_slot))
 				{
-					platform_log("TMPHOLD start kind=%d focused_slot=%d x_seen=%d", (int)target->kind,
-						target->kind == _ui_mouse_target_list_slot && target->widget->parent->focused_child == target->widget, (int)ui_touch_x_seen);
 					ui_hold_active = TRUE;
 					ui_hold_light_done = FALSE;
 					ui_hold_focused = FALSE;
@@ -7362,23 +7358,18 @@ static void ui_widgets_process_mouse(
 					else if (target)
 						ui_mouse_give_focus(target->widget);
 					ui_hold_focused = TRUE;
-					platform_log("TMPHOLD focused at %lu ms x_seen=%d", elapsed, (int)ui_touch_x_seen);
 				}
 				else if (ui_hold_focused && !ui_hold_grows && ++ui_hold_focus_frames >= 2)
 				{
 					ui_hold_grows = TRUE;
-					platform_log("TMPHOLD grow x_seen=%d", (int)ui_touch_x_seen);
 				}
 				if (ui_hold_grows && !ui_hold_light_done)
 				{
 					ui_hold_light_done = TRUE;
 					halo_ui_pointer_feedback(3);
 				}
-				if (ui_hold_grows && elapsed >= UI_HOLD_OPEN_MS && !ui_touch_x_seen && elapsed < UI_HOLD_OPEN_MS + 40)
-					platform_log("TMPHOLD open blocked: no X caption");
 				if (ui_hold_grows && ui_touch_x_seen && elapsed >= UI_HOLD_OPEN_MS)
 				{
-					platform_log("TMPHOLD open x_seen=%d", (int)ui_touch_x_seen);
 					target = ui_mouse_target_at(pointer.x, pointer.y);
 					if (target && target->kind == _ui_mouse_target_list_slot)
 						ui_mouse_step_list_to_slot(target->widget);
@@ -7903,7 +7894,25 @@ static void widget_instance_render_recursive(
 		{
 			struct widget_instance *caption = NULL;
 
-			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &caption);
+			ui_mouse_legend_bounds(widget, definition, offset, &legend_bounds, &legend_drawn, &caption);
+			if (!caption && widget->parent)
+			{
+				/* the touch legend's slots move the caption away from its button, so take the
+				row's nearest visible caption rather than none */
+				struct widget_instance *sibling;
+				short best = 0x7fff;
+				for (sibling = widget->parent->child; sibling; sibling = sibling->next)
+				{
+					struct ui_widget_definition *sd;
+					short distance;
+					if (sibling->type != _ui_widget_type_text_box || !sibling->visible) continue;
+					sd = ui_widget_definition_get(sibling->definition_tag_index);
+					if (sd->bounds.y0 + sibling->vertical_offset >= definition->bounds.y1 + widget->vertical_offset ||
+						sd->bounds.y1 + sibling->vertical_offset <= definition->bounds.y0 + widget->vertical_offset) continue;
+					distance = (short)ABS(sd->bounds.x0 + sibling->horizontal_offset - definition->bounds.x1 - widget->horizontal_offset);
+					if (distance < best) { best = distance; caption = sibling; }
+				}
+			}
 			if (caption && caption->parameters.text_box.text && caption->parameters.text_box.text[0])
 			{
 				long length;
