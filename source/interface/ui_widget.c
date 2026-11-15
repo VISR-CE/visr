@@ -7927,7 +7927,41 @@ static void widget_instance_render_recursive(
 		ui_widget_game_data_function_invoke(widget, input->function);
 	}
 	if (!widget->visible)
+	{
+		/* touch draws no X legend, so the secondary action (X) is known from the screen's own X button
+		even when it is hidden: its caption widget labels the press-and-hold context menu */
+		if (ui_mouse_noting_targets && widget->parent &&
+			ui_mouse_key_button(widget) == _gamepad_analog_button_x)
+		{
+			struct widget_instance *sibling, *caption = NULL;
+			short best = 0x7fff;
+
+			for (sibling = widget->parent->child; sibling; sibling = sibling->next)
+			{
+				struct ui_widget_definition *sd;
+				short distance;
+				if (sibling->type != _ui_widget_type_text_box) continue;
+				sd = ui_widget_definition_get(sibling->definition_tag_index);
+				if (sd->bounds.y0 + sibling->vertical_offset >= definition->bounds.y1 + widget->vertical_offset ||
+					sd->bounds.y1 + sibling->vertical_offset <= definition->bounds.y0 + widget->vertical_offset) continue;
+				distance = (short)ABS(sd->bounds.x0 + sibling->horizontal_offset - definition->bounds.x1 - widget->horizontal_offset);
+				if (distance < best) { best = distance; caption = sibling; }
+			}
+			if (caption && best < 17 && caption->parameters.text_box.text && caption->parameters.text_box.text[0])
+			{
+				long length;
+
+				ui_touch_x_seen = TRUE;
+				for (length = 0; length < 23 && caption->parameters.text_box.text[length]; length++)
+					ui_touch_x_caption[length] = (char)caption->parameters.text_box.text[length];
+				ui_touch_x_caption[length] = 0;
+				ui_touch_x_destructive = strstr(ui_touch_x_caption, "DELETE") != NULL ||
+					strstr(ui_touch_x_caption, "Delete") != NULL;
+				halo_controller_glyph_x_destructive(ui_touch_x_destructive);
+			}
+		}
 		return;
+	}
 	ui_mouse_note_target(widget, definition, offset);
 	{
 		rectangle2d legend_bounds, legend_drawn;
