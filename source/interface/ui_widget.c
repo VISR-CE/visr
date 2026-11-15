@@ -690,8 +690,8 @@ long ui_redraw_touch_target_units(void);
 #include "ui_widget.h"
 #include "interface/controller_glyphs.h"
 #include "halo_controller_glyphs.h"
+#include "halo_menus.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
-void platform_log(char const *, ...); /* TMPHOLD */
 
 /* ---------- constants */
 
@@ -6827,6 +6827,7 @@ static boolean ui_touch_screen_back_acts(
 /* port: the screen's own secondary (X) action, read from its event handlers so touch (which draws no legends) knows
 whether press-and-hold has a popup to open; a handler whose function name says delete is the destructive kind */
 extern char const *ui_widget_event_handler_function_name(long function_index);
+extern char const *pc_menu_function_name(long function_index);
 
 static void ui_touch_screen_x_scan(
 	struct widget_instance *widget)
@@ -6842,13 +6843,17 @@ static void ui_touch_screen_x_scan(
 			(struct ui_widget_event_handler_reference *)definition->event_handlers.address +
 			handler_index;
 		char const *function_name;
+		long function_index;
 
 		if (handler->event_type != _gamepad_analog_button_x)
 			continue;
-		function_name = ui_widget_event_handler_function_name((long)(unsigned short)handler->function);
-		platform_log("TMPHOLD xscan fn=%ld name=%s", (long)handler->function, function_name ? function_name : "?");
+		function_index = (long)(unsigned short)handler->function;
+		function_name = function_index >= PC_MENU_FUNCTION_BASE && function_index < 0x8000 ?
+			pc_menu_function_name(function_index - PC_MENU_FUNCTION_BASE) :
+			ui_widget_event_handler_function_name(function_index);
 		ui_touch_x_seen = TRUE;
-		ui_touch_x_destructive = function_name && strstr(function_name, "delete") != NULL;
+		ui_touch_x_destructive = function_name &&
+			(strstr(function_name, "delete") != NULL || strstr(function_name, " del ") != NULL);
 		strcpy(ui_touch_x_caption, ui_touch_x_destructive ? "DELETE" : "OPTIONS");
 		halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 		return;
@@ -6981,12 +6986,12 @@ static void ui_hold_popup_draw(
 		height = 40;
 		x = (short)((ui_popup_anchor.x0 + ui_popup_anchor.x1) / 2 - width / 2);
 		if (ui_popup_anchor_is_item)
-			y = (short)((ui_popup_anchor.y0 + ui_popup_anchor.y1) / 2 > 240 ?
-				ui_popup_anchor.y0 - height - 8 : ui_popup_anchor.y1 + 8);
+			y = (short)(ui_popup_anchor.y1 - ui_popup_anchor.y0 > 3 * height ?
+				ui_popup_anchor.y0 + height : ui_popup_anchor.y1 + 8);
 		else
 			y = (short)((ui_popup_anchor.y0 > 240) ? ui_popup_anchor.y0 - height : ui_popup_anchor.y0);
 		x = (short)MAX(clip->x0 + 8, MIN(x, clip->x1 - width - 8));
-		y = (short)MAX(8, MIN(y, 480 - height - 8));
+		y = (short)MAX(8, MIN(y, (ui_popup_anchor_is_item ? 400 : 480) - height - 8));
 		box.x0 = x;
 		box.x1 = (short)(x + width);
 		box.y0 = y;
@@ -7338,11 +7343,6 @@ static void ui_widgets_process_mouse(
 
 	/* port: use the same screen bounds for input and widget drawing. */
 	ui_widget_menu_content(virtual_keyboard_active() ? NULL : ui_mouse_menu());
-	{ /* TMPHOLD */
-		static unsigned long tmp_last;
-		unsigned long tmp_now = (unsigned long)system_milliseconds();
-		if (tmp_now - tmp_last > 1000) { tmp_last = tmp_now; platform_log("TMPHOLD alive menus=%d vk=%d", (int)ui_mouse_menus_active(), (int)virtual_keyboard_active()); }
-	}
 	if (!halo_ui_pointer_update(ui_mouse_menus_active(), &pointer) ||
 		virtual_keyboard_active())
 	{
@@ -7355,7 +7355,6 @@ static void ui_widgets_process_mouse(
 	else
 	{
 		ui_mouse_radius = pointer.radius;
-		{ static unsigned long tl2; unsigned long n2 = (unsigned long)system_milliseconds(); if (pointer.down || n2 - tl2 > 1000) { tl2 = n2; platform_log("TMPHOLD ptr down=%d r=%d drawn=%d", (int)pointer.down, (int)pointer.radius, (int)ui_mouse_menu_drawn); } } /* TMPHOLD */
 		/* (a screen with no menu widget, the scores after a game, has nothing to draw first) */
 		if (!ui_mouse_menu())
 			ui_mouse_menu_drawn = TRUE;
@@ -7410,11 +7409,9 @@ static void ui_widgets_process_mouse(
 			if (!ui_hold_active)
 			{
 				target = ui_mouse_target_at(pointer.x, pointer.y);
-				if (!target) platform_log("TMPHOLD down but no target x=%d y=%d", (int)pointer.x, (int)pointer.y);
 				if (target && (target->kind == _ui_mouse_target_item || target->kind == _ui_mouse_target_value ||
 					target->kind == _ui_mouse_target_list_slot))
 				{
-					platform_log("TMPHOLD start kind=%d r=%d", (int)target->kind, (int)pointer.radius);
 					ui_hold_active = TRUE;
 					ui_hold_light_done = FALSE;
 					ui_hold_focused = FALSE;
@@ -7444,7 +7441,6 @@ static void ui_widgets_process_mouse(
 				else if (ui_hold_focused && !ui_hold_grows && ++ui_hold_focus_frames >= 2)
 				{
 					ui_hold_grows = ui_touch_x_seen;
-					platform_log("TMPHOLD grow=%d x_seen=%d el=%lu", ui_hold_grows, ui_touch_x_seen, elapsed);
 				}
 				if (ui_hold_grows && !ui_hold_light_done)
 				{
@@ -7459,7 +7455,6 @@ static void ui_widgets_process_mouse(
 					else if (target)
 						ui_mouse_give_focus(target->widget);
 					halo_ui_pointer_feedback(4);
-					platform_log("TMPHOLD popup open");
 					ui_popup_anchor = ui_hold_bounds;
 					ui_popup_anchor_is_item = TRUE;
 					ui_popup_open = TRUE;
@@ -7472,17 +7467,6 @@ static void ui_widgets_process_mouse(
 		}
 		else
 		{
-			if (pointer.down)
-			{
-				static unsigned long tmphold_gate_ms;
-				if (system_milliseconds() - tmphold_gate_ms > 1000)
-				{
-					tmphold_gate_ms = system_milliseconds();
-					platform_log("TMPHOLD down but gated r=%d drawn=%d", (int)pointer.radius, (int)ui_mouse_menu_drawn);
-				}
-			}
-			if (ui_hold_active)
-				platform_log("TMPHOLD cancel down=%d r=%d drawn=%d grows=%d el=%lu", (int)pointer.down, (int)pointer.radius, (int)ui_mouse_menu_drawn, (int)ui_hold_grows, (unsigned long)system_milliseconds() - ui_hold_start_ms);
 			if (ui_hold_active && ui_hold_grows && !ui_popup_open)
 			{
 				ui_hold_shrinking = TRUE;
@@ -7987,7 +7971,6 @@ static void widget_instance_render_recursive(
 			struct widget_instance *sibling, *caption = NULL;
 			short best = 0x7fff;
 
-			platform_log("TMPHOLD hiddenX seen"); /* TMPHOLD */
 			for (sibling = widget->parent->child; sibling; sibling = sibling->next)
 			{
 				struct ui_widget_definition *sd;
@@ -7999,7 +7982,6 @@ static void widget_instance_render_recursive(
 				distance = (short)ABS(sd->bounds.x0 + sibling->horizontal_offset - definition->bounds.x1 - widget->horizontal_offset);
 				if (distance < best) { best = distance; caption = sibling; }
 			}
-			platform_log("TMPHOLD hiddenX best=%d cap=%d", (int)best, caption != NULL); /* TMPHOLD */
 			if (caption && best < 17 && caption->parameters.text_box.text && caption->parameters.text_box.text[0])
 			{
 				long length;
