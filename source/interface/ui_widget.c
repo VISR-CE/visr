@@ -7372,11 +7372,11 @@ static void ui_widgets_process_mouse(
 			if (!ui_hold_active)
 			{
 				target = ui_mouse_target_at(pointer.x, pointer.y);
-				if (!target) { extern void platform_log(char const *, ...); platform_log("TMPHOLD down but no target\n"); }
+				if (!target) error(_error_silent, "TMPHOLD down but no target x=%d y=%d", (int)pointer.x, (int)pointer.y);
 				if (target && (target->kind == _ui_mouse_target_item || target->kind == _ui_mouse_target_value ||
 					target->kind == _ui_mouse_target_list_slot))
 				{
-					{ extern void platform_log(char const *, ...); platform_log("TMPHOLD start kind=%d r=%d\n", (int)target->kind, (int)pointer.radius); }
+					error(_error_silent, "TMPHOLD start kind=%d r=%d", (int)target->kind, (int)pointer.radius);
 					ui_hold_active = TRUE;
 					ui_hold_light_done = FALSE;
 					ui_hold_focused = FALSE;
@@ -7406,7 +7406,7 @@ static void ui_widgets_process_mouse(
 				else if (ui_hold_focused && !ui_hold_grows && ++ui_hold_focus_frames >= 2)
 				{
 					ui_hold_grows = ui_touch_x_seen;
-					{ extern void platform_log(char const *, ...); platform_log("TMPHOLD grow=%d x_seen=%d el=%lu\n", ui_hold_grows, ui_touch_x_seen, elapsed); }
+					error(_error_silent, "TMPHOLD grow=%d x_seen=%d el=%lu", ui_hold_grows, ui_touch_x_seen, elapsed);
 				}
 				if (ui_hold_grows && !ui_hold_light_done)
 				{
@@ -7421,7 +7421,7 @@ static void ui_widgets_process_mouse(
 					else if (target)
 						ui_mouse_give_focus(target->widget);
 					halo_ui_pointer_feedback(4);
-					{ extern void platform_log(char const *, ...); platform_log("TMPHOLD popup open\n"); }
+					error(_error_silent, "TMPHOLD popup open");
 					ui_popup_anchor = ui_hold_bounds;
 					ui_popup_anchor_is_item = TRUE;
 					ui_popup_open = TRUE;
@@ -7434,6 +7434,17 @@ static void ui_widgets_process_mouse(
 		}
 		else
 		{
+			if (pointer.down)
+			{
+				static unsigned long tmphold_gate_ms;
+				if (system_milliseconds() - tmphold_gate_ms > 1000)
+				{
+					tmphold_gate_ms = system_milliseconds();
+					error(_error_silent, "TMPHOLD down but gated r=%d drawn=%d", (int)pointer.radius, (int)ui_mouse_menu_drawn);
+				}
+			}
+			if (ui_hold_active)
+				error(_error_silent, "TMPHOLD cancel down=%d r=%d drawn=%d grows=%d el=%lu", (int)pointer.down, (int)pointer.radius, (int)ui_mouse_menu_drawn, (int)ui_hold_grows, (unsigned long)system_milliseconds() - ui_hold_start_ms);
 			if (ui_hold_active && ui_hold_grows && !ui_popup_open)
 			{
 				ui_hold_shrinking = TRUE;
