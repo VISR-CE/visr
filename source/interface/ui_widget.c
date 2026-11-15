@@ -6169,6 +6169,8 @@ context menu labeled with that caption, which presses X. A destructive caption i
 #define UI_HOLD_SCALE 1.06f
 static boolean ui_touch_x_seen = FALSE;
 static boolean ui_touch_x_destructive = FALSE;
+/* the widget whose X handler deletes a gametype; its first child is the list of profile indices */
+static struct widget_instance *ui_touch_x_playlist_widget = NULL;
 static char ui_touch_x_caption[24];
 static boolean ui_hold_active = FALSE;
 static boolean ui_hold_light_done = FALSE;
@@ -6854,11 +6856,24 @@ static boolean ui_touch_widget_x_scan(
 		ui_touch_x_seen = TRUE;
 		ui_touch_x_destructive = function_name &&
 			(strstr(function_name, "delete") != NULL || strstr(function_name, " del ") != NULL);
+		ui_touch_x_playlist_widget = function_name && strstr(function_name, "del playlist profile") ?
+			widget : NULL;
 		strcpy(ui_touch_x_caption, ui_touch_x_destructive ? "DELETE" : "OPTIONS");
 		halo_controller_glyph_x_destructive(ui_touch_x_destructive);
 		return TRUE;
 	}
 	return FALSE;
+}
+
+/* FALSE when the focused gametype is a built-in (locked): it can not be deleted, so the hold has nothing to offer */
+static boolean ui_touch_x_row_deletable(void)
+{
+	struct widget_instance *list;
+
+	if (!ui_touch_x_playlist_widget || !(list = ui_touch_x_playlist_widget->child) ||
+		!list->generated_list || list->data3C.selected_index >= (unsigned short)list->generated_count)
+		return TRUE;
+	return !(((long *)list->generated_list)[list->data3C.selected_index] & 0x40000000);
 }
 
 /* the screen's own handlers first, then those of the focused child chain: a list widget (LOAD GAME's saves)
@@ -7453,7 +7468,7 @@ static void ui_widgets_process_mouse(
 				}
 				else if (ui_hold_focused && !ui_hold_grows && ++ui_hold_focus_frames >= 2)
 				{
-					ui_hold_grows = ui_touch_x_seen;
+					ui_hold_grows = ui_touch_x_seen && ui_touch_x_row_deletable();
 				}
 				if (ui_hold_grows && !ui_hold_light_done)
 				{
@@ -7522,7 +7537,7 @@ static void ui_widgets_process_mouse(
 		}
 		if (ui_popup_pending > 0 && !ui_popup_open)
 		{
-			if (--ui_popup_pending <= 1 && ui_touch_x_seen)
+			if (--ui_popup_pending <= 1 && ui_touch_x_seen && ui_touch_x_row_deletable())
 			{
 				ui_popup_anchor.x0 = ui_popup_anchor.x1 = ui_popup_pending_x;
 				ui_popup_anchor.y0 = ui_popup_anchor.y1 = ui_popup_pending_y;
@@ -8479,6 +8494,7 @@ void render_ui_widgets(
 					ui_touch_back_seen = FALSE;
 					ui_touch_title_seen = FALSE;
 					ui_touch_x_seen = FALSE;
+					ui_touch_x_playlist_widget = NULL;
 					ui_touch_back_generic = ui_touch_screen_back_acts(widget);
 					ui_touch_screen_x_scan(widget);
 				}
