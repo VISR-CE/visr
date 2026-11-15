@@ -6829,14 +6829,14 @@ whether press-and-hold has a popup to open; a handler whose function name says d
 extern char const *ui_widget_event_handler_function_name(long function_index);
 extern char const *pc_menu_function_name(long function_index);
 
-static void ui_touch_screen_x_scan(
+static boolean ui_touch_widget_x_scan(
 	struct widget_instance *widget)
 {
 	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
 	long handler_index;
 
 	if (!definition)
-		return;
+		return FALSE;
 	for (handler_index = 0; handler_index < definition->event_handlers.count; handler_index++)
 	{
 		struct ui_widget_event_handler_reference *handler =
@@ -6856,8 +6856,21 @@ static void ui_touch_screen_x_scan(
 			(strstr(function_name, "delete") != NULL || strstr(function_name, " del ") != NULL);
 		strcpy(ui_touch_x_caption, ui_touch_x_destructive ? "DELETE" : "OPTIONS");
 		halo_controller_glyph_x_destructive(ui_touch_x_destructive);
-		return;
+		return TRUE;
 	}
+	return FALSE;
+}
+
+/* the screen's own handlers first, then those of the focused child chain: a list widget (LOAD GAME's saves)
+carries the X handler for the item held, not the screen */
+static void ui_touch_screen_x_scan(
+	struct widget_instance *widget)
+{
+	long depth;
+
+	for (depth = 0; widget && depth < 8; depth++, widget = widget->focused_child)
+		if (ui_touch_widget_x_scan(widget))
+			return;
 }
 
 /* port: the touch BACK chevron: left of the title's helmet, or top left of the screen when it has none, in the HUD blue of the touch legend,
