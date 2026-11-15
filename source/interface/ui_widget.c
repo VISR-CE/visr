@@ -1504,6 +1504,8 @@ the text waiting for its dialog, then the dialog's text box showing it */
 static wchar_t const *ui_widget_port_error_pending_text = NULL;
 static wchar_t const *ui_widget_port_error_text = NULL;
 static struct widget_instance *ui_widget_port_error_text_box = NULL;
+/* port: the main menu's version label (set_textbox_to_build_number) */
+struct widget_instance *ui_widget_port_build_label = NULL;
 
 static struct ui_widget_bss_prefix ui_widget_globals_storage;
 
@@ -2529,6 +2531,8 @@ void ui_widget_delete(
 	case _ui_widget_type_text_box:
 		if (widget->parameters.text_box.text)
 			dispose_pointer(widget_memory_pool, widget->parameters.text_box.text);
+		if (widget == ui_widget_port_build_label)
+			ui_widget_port_build_label = NULL;
 		if (widget == ui_widget_port_error_text_box)
 		{
 			ui_widget_port_error_text_box = NULL;
@@ -5804,6 +5808,17 @@ static void widget_instance_render_text_box(
 	bounds.y0 += offset.y;
 	bounds.x0 += definition->horizontal_offset;
 	bounds.y0 += definition->vertical_offset;
+#ifdef HALO_IOS
+	/* port: the version label keeps its whole text, including a development build's commit; it is
+	right-aligned to the menu's right edge, which the safe-area zoom keeps inside the camera cutout */
+	if (widget == ui_widget_port_build_label)
+	{
+		justification = _text_justification_right;
+		bounds.x0 = 0;
+		bounds.x1 = 636;
+		clip = bounds;
+	}
+#endif
 	if (focus)
 	{
 		color = get_ui_argb_white();

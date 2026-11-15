@@ -3137,13 +3137,7 @@ void pc_menu_version_text(char *text, long size)
 {
 	char version[64];
 
-	char *detail;
-
 	host_sdl_app_version(version, sizeof(version));
-	/* the map's own label is a fixed width: a development build's " (<commit>...)" suffix runs past it and is clipped,
-	so the main menu shows the version alone (the About screen keeps the whole text) */
-	if ((detail = strstr(version, " (")))
-		*detail = 0;
 	snprintf(text, size, "VISR %s", version);
 }
 #endif

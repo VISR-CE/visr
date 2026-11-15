@@ -2049,6 +2049,14 @@ static void set_textbox_to_build_number(
 
 	if (pc_menu_tag(widget->definition_tag_index))
 		label = blank_label;
+	else
+	{
+		extern struct widget_instance *ui_widget_port_build_label;
+
+		ui_widget_port_build_label = widget;
+	}
+	if (label == blank_label)
+		;
 	else if (!build_number_string[0])
 	{
 		extern void pc_menu_version_text(char *text, long size);
