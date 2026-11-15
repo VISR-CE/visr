@@ -7029,9 +7029,11 @@ static void ui_hold_popup_draw(
 		width = (short)(28 + 8 * (long)strlen(ui_touch_x_caption));
 		height = 40;
 		x = (short)((ui_popup_anchor.x0 + ui_popup_anchor.x1) / 2 - width / 2);
+		if (ui_popup_anchor_is_item && ui_popup_anchor.y1 - ui_popup_anchor.y0 <= 3 * height)
+			x = (short)(ui_popup_anchor.x1 - width - 8);
 		if (ui_popup_anchor_is_item)
 			y = (short)(ui_popup_anchor.y1 - ui_popup_anchor.y0 > 3 * height ?
-				ui_popup_anchor.y0 + height : ui_popup_anchor.y1 + 8);
+				ui_popup_anchor.y0 + height : ui_popup_anchor.y0 + (ui_popup_anchor.y1 - ui_popup_anchor.y0 - height) / 2);
 		else
 			y = (short)((ui_popup_anchor.y0 > 240) ? ui_popup_anchor.y0 - height : ui_popup_anchor.y0);
 		x = (short)MAX(clip->x0 + 8, MIN(x, clip->x1 - width - 8));
