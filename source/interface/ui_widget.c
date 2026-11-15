@@ -7956,6 +7956,7 @@ static void widget_instance_render_recursive(
 			struct widget_instance *sibling, *caption = NULL;
 			short best = 0x7fff;
 
+			platform_log("TMPHOLD hiddenX seen"); /* TMPHOLD */
 			for (sibling = widget->parent->child; sibling; sibling = sibling->next)
 			{
 				struct ui_widget_definition *sd;
@@ -7967,6 +7968,7 @@ static void widget_instance_render_recursive(
 				distance = (short)ABS(sd->bounds.x0 + sibling->horizontal_offset - definition->bounds.x1 - widget->horizontal_offset);
 				if (distance < best) { best = distance; caption = sibling; }
 			}
+			platform_log("TMPHOLD hiddenX best=%d cap=%d", (int)best, caption != NULL); /* TMPHOLD */
 			if (caption && best < 17 && caption->parameters.text_box.text && caption->parameters.text_box.text[0])
 			{
 				long length;
