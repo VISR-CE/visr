@@ -1219,7 +1219,7 @@ def test_the_device_picked_decides_which_rows_a_chart_draws():
 def test_every_devices_frame_budget_is_its_play_cap_or_the_lowest_cap_of_its_runs():
     rows = snapshot()
     texts = charts.load_device_text()
-    expected = {"A10X iPad Pro": 30, "A14 iPad Air": 60, "A19 Pro iPhone 17 Pro": 60, "M1 iPad Pro": 120, "Apple TV 4K": 60, "Apple TV HD": 30, "M2 Vision Pro": 90}
+    expected = {"A10X iPad Pro": 30, "A12 iPad Air": 30, "A14 iPad Air": 60, "A17 Pro iPhone": 60, "A19 Pro iPhone 17 Pro": 60, "M1 iPad Pro": 120, "Apple TV 4K": 60, "Apple TV HD": 30, "M2 Vision Pro": 90}
     seen = set()
     for item in charts.load_specs(ROOT / "docs/benchmarks/charts", rows):
         if not item["query"].get("budget"):
@@ -1344,7 +1344,7 @@ def test_merged_devices_have_no_picker_entry_and_no_builds_on_the_page():
     rows, texts = snapshot(), charts.load_device_text()
     phones = [row for row in rows if row["platform"] == "iPhone/iPad"]
     assert [d["label"] for d in charts.devices(charts.visible_rows(phones, texts), "M1 iPad Pro", texts)] == [
-        "M1 iPad Pro", "A14 iPad Air", "A10X iPad Pro", "A19 Pro iPhone 17 Pro"]
+        "M1 iPad Pro", "A12 iPad Air", "A14 iPad Air", "A10X iPad Pro", "A17 Pro iPhone", "A19 Pro iPhone 17 Pro"]
     assert {d["label"] for d in charts.devices(phones)} - {d["label"] for d in charts.devices(charts.visible_rows(phones, texts))} == {
         "A14 iPhone 12 Pro", "A18 Pro iPhone 16 Pro"}
     query = {"platform": "iPhone/iPad", "metrics": ["fps_avg"], "filter": {}}
@@ -1385,7 +1385,7 @@ def test_the_picker_and_paragraph_use_each_devices_plain_name():
     for platform in ("iPhone/iPad", "Mac", "Apple TV", "Vision Pro"):
         platform_rows = charts.visible_rows([row for row in rows if row["platform"] == platform], texts)
         names[platform] = [d["name"] for d in charts.devices(platform_rows, "", texts)]
-    assert names == {"iPhone/iPad": ["iPad Air (4th generation)", "iPad Pro (2nd generation)", "iPad Pro M1", "iPhone 17 Pro"],
+    assert names == {"iPhone/iPad": ["iPad Air (3rd generation)", "iPad Air (4th generation)", "iPad Pro (2nd generation)", "iPad Pro M1", "iPhone 15 Pro Max", "iPhone 17 Pro"],
                      "Mac": ["Mac mini M4", "Mac mini M6"], "Apple TV": ["Apple TV 4K", "Apple TV HD"], "Vision Pro": ["M2 Vision Pro"]}
     query = {"platform": "iPhone/iPad", "metrics": ["fps_avg"], "filter": {}}
     built = charts.model(rows, query, "campaign", "A19 Pro iPhone 17 Pro", texts)

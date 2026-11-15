@@ -44,3 +44,9 @@ display = "Mac mini M4"
 
 ["M6 Mac mini"]
 display = "Mac mini M6"
+
+["A12 iPad Air"]
+display = "iPad Air (3rd generation)"
+
+["A17 Pro iPhone"]
+display = "iPhone 15 Pro Max"
