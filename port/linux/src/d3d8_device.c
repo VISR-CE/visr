@@ -643,6 +643,33 @@ static void menu_window_geometry(float *top, float *zoom)
 		menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
 			top, &bottom, &points_per_unit);
 	}
+	/* A camera cutout or rounded corner (the safe-area insets, fractions of the window
+	in the order left, right, top, bottom) keeps the content, not the backdrop, clear:
+	the content shrinks until it fits the safe rectangle. The cutout can be on either
+	side, so the larger horizontal inset applies to both to keep the menu centered. */
+	{
+		float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+		float side, safe_zoom, safe_height;
+
+		platform_video_safe_insets(insets);
+		side = insets[0] > insets[1] ? insets[0] : insets[1];
+		safe_zoom = halo_screen_width() * (1.0f - 2.0f * side) / 640.0f;
+		safe_height = 480.0f * (1.0f - insets[2] - insets[3]);
+		if (safe_height > 0.0f)
+		{
+			float need = menu_content_bottom - menu_content_top + 22.0f;
+			float vertical_zoom = safe_height / need;
+
+			if (vertical_zoom < safe_zoom)
+				safe_zoom = vertical_zoom;
+		}
+		if (safe_zoom > 0.25f && *zoom > safe_zoom)
+		{
+			*zoom = safe_zoom;
+			menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
+				top, &bottom, &points_per_unit);
+		}
+	}
 }
 
 /* The menu space's visible bottom edge (menu units) and the points one unit covers,
