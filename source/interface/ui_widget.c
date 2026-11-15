@@ -6886,9 +6886,10 @@ static boolean ui_touch_x_row_deletable(void)
 	struct widget_instance *list;
 
 	if (!ui_touch_x_playlist_widget || !(list = ui_touch_x_playlist_widget->child) ||
-		!list->generated_list || list->data3C.selected_index >= (unsigned short)list->generated_count)
+		!list->parameters.list.list_items ||
+		(unsigned short)list->parameters.list.selected_index >= list->parameters.list.number_of_items)
 		return TRUE;
-	return !(((long *)list->generated_list)[list->data3C.selected_index] & 0x40000000);
+	return !(((long *)list->parameters.list.list_items)[list->parameters.list.selected_index] & 0x40000000);
 }
 
 /* the screen's own handlers first, then those of the focused child chain: a list widget (LOAD GAME's saves)
