@@ -6824,6 +6824,37 @@ static boolean ui_touch_screen_back_acts(
 	return widget_globals.widget_stack[widget_stack] != NULL;
 }
 
+/* port: the screen's own secondary (X) action, read from its event handlers so touch (which draws no legends) knows
+whether press-and-hold has a popup to open; a handler whose function name says delete is the destructive kind */
+extern char const *ui_widget_event_handler_function_name(long function_index);
+
+static void ui_touch_screen_x_scan(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+	long handler_index;
+
+	if (!definition)
+		return;
+	for (handler_index = 0; handler_index < definition->event_handlers.count; handler_index++)
+	{
+		struct ui_widget_event_handler_reference *handler =
+			(struct ui_widget_event_handler_reference *)definition->event_handlers.address +
+			handler_index;
+		char const *function_name;
+
+		if (handler->event_type != _gamepad_analog_button_x)
+			continue;
+		function_name = ui_widget_event_handler_function_name((long)(unsigned short)handler->function);
+		platform_log("TMPHOLD xscan fn=%ld name=%s", (long)handler->function, function_name ? function_name : "?");
+		ui_touch_x_seen = TRUE;
+		ui_touch_x_destructive = function_name && strstr(function_name, "delete") != NULL;
+		strcpy(ui_touch_x_caption, ui_touch_x_destructive ? "DELETE" : "OPTIONS");
+		halo_controller_glyph_x_destructive(ui_touch_x_destructive);
+		return;
+	}
+}
+
 /* port: the touch BACK chevron: left of the title's helmet, or top left of the screen when it has none, in the HUD blue of the touch legend,
 with a tap target at least as tall as input.ui_touch_target */
 static void ui_touch_back_chevron_draw(
@@ -8454,6 +8485,7 @@ void render_ui_widgets(
 					ui_touch_title_seen = FALSE;
 					ui_touch_x_seen = FALSE;
 					ui_touch_back_generic = ui_touch_screen_back_acts(widget);
+					ui_touch_screen_x_scan(widget);
 				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
