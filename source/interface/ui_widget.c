@@ -6155,6 +6155,9 @@ its title and answers a swipe in from the left edge with that B. The title's hel
 chevron; both are noted as the screen draws. */
 static boolean ui_touch_back_seen = FALSE;
 static boolean ui_touch_title_seen = FALSE;
+/* port: B does something on this screen whether or not a legend button says so (see
+ui_touch_screen_back_acts), so the chevron and swipe work on screens with no B legend widget */
+static boolean ui_touch_back_generic = FALSE;
 static rectangle2d ui_touch_title_icon;
 
 /* port: the secondary action (X) of the screen's items. The screen's X legend button and its caption
@@ -6213,6 +6216,7 @@ static void ui_mouse_forget_targets(
 	ui_mouse_hover_pending = FALSE;
 	ui_mouse_click_pending = FALSE;
 	ui_touch_back_seen = FALSE;
+	ui_touch_back_generic = FALSE;
 	ui_touch_title_seen = FALSE;
 	ui_touch_x_seen = FALSE;
 	ui_hold_active = FALSE;
@@ -6789,7 +6793,35 @@ static void ui_widget_draw_touch_legend(rectangle2d const *bounds, rectangle2d c
 	ui_widget_draw_touch_legend_slice(bitmap, x1 - cap, x1, y0, y1, 1.0f - cap_u, 1.0f, argb);
 }
 
-/* port: the touch BACK chevron: left of the title's helmet, in the HUD blue of the touch legend,
+/* port: whether B does something on this screen: its tag has a B or back handler, or has none and the
+default go-back has a previous screen to return to (the root screens have neither, so they get no
+chevron). Dialogs answer their own B and never take the chevron. */
+static boolean ui_touch_screen_back_acts(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+	short widget_stack = (widget->local_player_index == NONE) ? 0 : widget->local_player_index;
+	char const *name = tag_get_name(widget->definition_tag_index);
+	long handler_index;
+
+	if (!definition)
+		return FALSE;
+	if (name && (strstr(name, "dialog") || strstr(name, "error")))
+		return FALSE;
+	for (handler_index = 0; handler_index < definition->event_handlers.count; handler_index++)
+	{
+		struct ui_widget_event_handler_reference *handler =
+			(struct ui_widget_event_handler_reference *)definition->event_handlers.address +
+			handler_index;
+
+		if (handler->event_type == _widget_event_b_button ||
+			handler->event_type == _widget_event_back_button)
+			return TRUE;
+	}
+	return widget_globals.widget_stack[widget_stack] != NULL;
+}
+
+/* port: the touch BACK chevron: left of the title's helmet, or top left of the screen when it has none, in the HUD blue of the touch legend,
 with a tap target at least as tall as input.ui_touch_target */
 static void ui_touch_back_chevron_draw(
 	struct widget_instance *widget,
@@ -6800,11 +6832,19 @@ static void ui_touch_back_chevron_draw(
 	long cy, cx;
 	rectangle2d hit;
 
-	if (!ui_touch_back_seen || !ui_touch_title_seen || ui_mouse_radius <= 0 ||
+	if (!(ui_touch_back_seen || ui_touch_back_generic) || ui_mouse_radius <= 0 ||
 		ui_mouse_target_count >= UI_MOUSE_MAXIMUM_TARGETS)
 		return;
-	cy = (ui_touch_title_icon.y0 + ui_touch_title_icon.y1) / 2;
-	cx = MAX(ui_touch_title_icon.x0 - reach / 2 - 2, reach / 2 + 2);
+	if (ui_touch_title_seen)
+	{
+		cy = (ui_touch_title_icon.y0 + ui_touch_title_icon.y1) / 2;
+		cx = MAX(ui_touch_title_icon.x0 - reach / 2 - 2, reach / 2 + 2);
+	}
+	else
+	{
+		cy = clip->y0 + reach / 2 + 4;
+		cx = clip->x0 + reach / 2 + 4;
+	}
 	for (index = -arm; index <= arm; index++)
 	{
 		rectangle2d row;
@@ -7439,7 +7479,7 @@ static void ui_widgets_process_mouse(
 				ui_popup_pending = 0;
 			}
 		}
-		if (pointer.back_swipes && ui_touch_back_seen && ui_mouse_menu_drawn)
+		if (pointer.back_swipes && (ui_touch_back_seen || ui_touch_back_generic) && ui_mouse_menu_drawn)
 		{
 			halo_ui_pointer_feedback(2);
 			ui_mouse_press(_gamepad_analog_button_b);
@@ -8353,6 +8393,7 @@ void render_ui_widgets(
 					ui_touch_back_seen = FALSE;
 					ui_touch_title_seen = FALSE;
 					ui_touch_x_seen = FALSE;
+					ui_touch_back_generic = ui_touch_screen_back_acts(widget);
 				}
 				ui_redraw_begin_screen(tag_get_name(widget->definition_tag_index));
 				widget_instance_render_recursive(
