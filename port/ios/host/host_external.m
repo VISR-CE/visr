@@ -672,6 +672,8 @@ static void safe_insets_refresh(void) {
             next[2]=(float)(inset.top/size.height);next[3]=(float)(inset.bottom/size.height);
         }
     }
+    /* debug only: HALO_DEBUG_MIRROR_SAFE_INSETS swaps left and right to stand in for the opposite landscape orientation on a simulator that cannot rotate */
+    if(getenv("HALO_DEBUG_MIRROR_SAFE_INSETS")){float t=next[0];next[0]=next[1];next[1]=t;}
     pthread_mutex_lock(&safe_insets_lock);
     BOOL changed=memcmp(next,safe_insets,sizeof(next))!=0;
     memcpy(safe_insets,next,sizeof(next));
