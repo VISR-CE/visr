@@ -6163,6 +6163,7 @@ context menu labeled with that caption, which presses X. A destructive caption i
 #define UI_HOLD_GROW_START_MS 150
 #define UI_HOLD_OPEN_MS 500
 #define UI_HOLD_SCALE 1.06f
+void platform_log(char const *format, ...);
 static boolean ui_touch_x_seen = FALSE;
 static boolean ui_touch_x_destructive = FALSE;
 static char ui_touch_x_caption[24];
@@ -6904,7 +6905,7 @@ static void ui_hold_popup_draw(
 		full.y0 = 0;
 		full.y1 = 480;
 		draw_quad(&full, 0x80000000);
-		width = 160;
+		width = (short)(28 + 8 * (long)strlen(ui_touch_x_caption));
 		height = 40;
 		x = (short)((ui_popup_anchor.x0 + ui_popup_anchor.x1) / 2 - width / 2);
 		if (ui_popup_anchor_is_item)
@@ -6938,8 +6939,9 @@ static void ui_hold_popup_draw(
 			color.green = 0.8f;
 			color.blue = 1.0f;
 		}
-		draw_string_set_draw_mode(tag_loaded(FONT_GROUP_TAG, "ui\\small_ui"), NONE, 1, 0, &color);
+		draw_string_set_draw_mode(tag_loaded(FONT_GROUP_TAG, "ui\\small_ui"), NONE, 0, 0, &color);
 		outline = box;
+		outline.x0 = (short)(box.x0 + 14);
 		outline.y0 = (short)(box.y0 + 12);
 		rasterizer_draw_string(&outline, clip, NULL, 0, ui_touch_x_caption);
 	}
@@ -7331,9 +7333,10 @@ static void ui_widgets_process_mouse(
 			{
 				target = ui_mouse_target_at(pointer.x, pointer.y);
 				if (target && (target->kind == _ui_mouse_target_item || target->kind == _ui_mouse_target_value ||
-					(target->kind == _ui_mouse_target_list_slot && ui_mouse_widget_has_focus(target->widget->parent) &&
-					target->widget->parent->focused_child == target->widget)))
+					target->kind == _ui_mouse_target_list_slot))
 				{
+					platform_log("TMPHOLD start kind=%d focused_slot=%d x_seen=%d", (int)target->kind,
+						target->kind == _ui_mouse_target_list_slot && target->widget->parent->focused_child == target->widget, (int)ui_touch_x_seen);
 					ui_hold_active = TRUE;
 					ui_hold_light_done = FALSE;
 					ui_hold_focused = FALSE;
@@ -7359,16 +7362,23 @@ static void ui_widgets_process_mouse(
 					else if (target)
 						ui_mouse_give_focus(target->widget);
 					ui_hold_focused = TRUE;
+					platform_log("TMPHOLD focused at %lu ms x_seen=%d", elapsed, (int)ui_touch_x_seen);
 				}
-				else if (ui_hold_focused && !ui_hold_grows && ui_touch_x_seen && ++ui_hold_focus_frames >= 2)
+				else if (ui_hold_focused && !ui_hold_grows && ++ui_hold_focus_frames >= 2)
+				{
 					ui_hold_grows = TRUE;
+					platform_log("TMPHOLD grow x_seen=%d", (int)ui_touch_x_seen);
+				}
 				if (ui_hold_grows && !ui_hold_light_done)
 				{
 					ui_hold_light_done = TRUE;
 					halo_ui_pointer_feedback(3);
 				}
+				if (ui_hold_grows && elapsed >= UI_HOLD_OPEN_MS && !ui_touch_x_seen && elapsed < UI_HOLD_OPEN_MS + 40)
+					platform_log("TMPHOLD open blocked: no X caption");
 				if (ui_hold_grows && ui_touch_x_seen && elapsed >= UI_HOLD_OPEN_MS)
 				{
+					platform_log("TMPHOLD open x_seen=%d", (int)ui_touch_x_seen);
 					target = ui_mouse_target_at(pointer.x, pointer.y);
 					if (target && target->kind == _ui_mouse_target_list_slot)
 						ui_mouse_step_list_to_slot(target->widget);
