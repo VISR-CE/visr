@@ -6808,6 +6808,8 @@ static boolean ui_touch_screen_back_acts(
 		return FALSE;
 	if (name && (strstr(name, "dialog") || strstr(name, "error")))
 		return FALSE;
+	if (name && strstr(name, "main_menu\\main_menu") && !strstr(name, "main_menu\\main_menu\\"))
+		return FALSE;
 	for (handler_index = 0; handler_index < definition->event_handlers.count; handler_index++)
 	{
 		struct ui_widget_event_handler_reference *handler =
@@ -7401,14 +7403,15 @@ static void ui_widgets_process_mouse(
 				}
 				else if (ui_hold_focused && !ui_hold_grows && ++ui_hold_focus_frames >= 2)
 				{
-					ui_hold_grows = TRUE;
+					ui_hold_grows = ui_touch_x_seen;
+					{ extern void platform_log(char const *, ...); platform_log("TMPHOLD grow=%d x_seen=%d el=%lu\n", ui_hold_grows, ui_touch_x_seen, elapsed); }
 				}
 				if (ui_hold_grows && !ui_hold_light_done)
 				{
 					ui_hold_light_done = TRUE;
 					halo_ui_pointer_feedback(3);
 				}
-				if (ui_hold_grows && ui_touch_x_seen && elapsed >= UI_HOLD_OPEN_MS)
+				if (ui_hold_grows && elapsed >= UI_HOLD_OPEN_MS)
 				{
 					target = ui_mouse_target_at(pointer.x, pointer.y);
 					if (target && target->kind == _ui_mouse_target_list_slot)
@@ -7416,6 +7419,7 @@ static void ui_widgets_process_mouse(
 					else if (target)
 						ui_mouse_give_focus(target->widget);
 					halo_ui_pointer_feedback(4);
+					{ extern void platform_log(char const *, ...); platform_log("TMPHOLD popup open\n"); }
 					ui_popup_anchor = ui_hold_bounds;
 					ui_popup_anchor_is_item = TRUE;
 					ui_popup_open = TRUE;
