@@ -13,10 +13,15 @@
 #define HALO_HOST_MENU_POINTER_H
 #include <math.h>
 #include <string.h>
+#include <time.h>
 #include "halo_host_pointer.h"
 
 /* in points */
 #define HOST_MENU_POINTER_SLOP 10.0f
+/* a finger that has rested this long is holding, not scrolling: its own wobble gets a wider slop so a press-and-hold
+   (a context menu opens at 0.5 s) is not cancelled as a scroll */
+#define HOST_MENU_POINTER_HOLD_AFTER_MS 250
+#define HOST_MENU_POINTER_HOLD_SLOP 26.0f
 #define HOST_MENU_POINTER_NOTCH 28.0f
 /* half of Apple's 44 pt minimum target */
 #define HOST_MENU_POINTER_RADIUS 22.0f
@@ -36,6 +41,7 @@ struct host_menu_pointer {
     int tracking;
     intptr_t finger;
     float down_x, down_y, anchor_y;
+    unsigned long long down_ms;
     int scrolling;
     /* the finger's swipe from the left edge has counted: it is not a click or a scroll */
     int swiped, back_swipes;
@@ -69,6 +75,12 @@ static inline int host_menu_pointer_listening(const struct host_menu_pointer *m)
     return m->menus_active && !m->blocked;
 }
 
+static inline unsigned long long host_menu_pointer_now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (unsigned long long)ts.tv_sec * 1000ull + (unsigned long long)ts.tv_nsec / 1000000ull;
+}
+
 static inline void host_menu_pointer_touch_begin(struct host_menu_pointer *m, intptr_t finger, float x, float y) {
     if (!host_menu_pointer_listening(m) || m->tracking) return;
     m->tracking = 1;
@@ -78,6 +90,7 @@ static inline void host_menu_pointer_touch_begin(struct host_menu_pointer *m, in
     m->down_x = m->x = x;
     m->down_y = m->y = y;
     m->touch = 1;
+    m->down_ms = host_menu_pointer_now_ms();
     m->moved = 1;
 }
 /* a pinch where the eyes meet the menus' surface (host_menu_gaze.h): a finger with a wider reach and slop, its
@@ -96,8 +109,10 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
         return;
     }
     if (!m->scrolling) {
-        if (hypotf(x - m->down_x, y - m->down_y) <=
-            (m->touch == 2 ? HOST_MENU_POINTER_GAZE_SLOP : HOST_MENU_POINTER_SLOP)) return;
+        float slop = m->touch == 2 ? HOST_MENU_POINTER_GAZE_SLOP : HOST_MENU_POINTER_SLOP;
+        if (m->touch == 1 && host_menu_pointer_now_ms() - m->down_ms >= HOST_MENU_POINTER_HOLD_AFTER_MS)
+            slop = HOST_MENU_POINTER_HOLD_SLOP;
+        if (hypotf(x - m->down_x, y - m->down_y) <= slop) return;
         m->scrolling = 1;
         m->anchor_y = m->down_y;
     }

@@ -6840,7 +6840,7 @@ static void ui_touch_back_chevron_draw(
 	if (ui_touch_title_seen)
 	{
 		cy = (ui_touch_title_icon.y0 + ui_touch_title_icon.y1) / 2;
-		cx = MAX(ui_touch_title_icon.x0 - reach / 2 - 2, reach / 2 + 2);
+		cx = MAX(ui_touch_title_icon.x0 - reach / 2 - 14, reach / 2 + 2);
 	}
 	else
 	{
@@ -7372,9 +7372,11 @@ static void ui_widgets_process_mouse(
 			if (!ui_hold_active)
 			{
 				target = ui_mouse_target_at(pointer.x, pointer.y);
+				if (!target) { extern void platform_log(char const *, ...); platform_log("TMPHOLD down but no target\n"); }
 				if (target && (target->kind == _ui_mouse_target_item || target->kind == _ui_mouse_target_value ||
 					target->kind == _ui_mouse_target_list_slot))
 				{
+					{ extern void platform_log(char const *, ...); platform_log("TMPHOLD start kind=%d r=%d\n", (int)target->kind, (int)pointer.radius); }
 					ui_hold_active = TRUE;
 					ui_hold_light_done = FALSE;
 					ui_hold_focused = FALSE;
