@@ -2150,6 +2150,18 @@ static void get_active_player_profile_display_name(
 		0x9EC,
 		widget->type == _ui_widget_type_text_box,
 		"expected a text box widget for profile display name");
+	/* port: the settings hub can be opened with no local player (debug.menu_open); its label is then empty */
+	if (widget->local_player_index < 0)
+	{
+		widget->parameters.text_box.text = ui_widget_realloc(
+			widget->parameters.text_box.text,
+			sizeof(profile.player_name),
+			"c:\\halo\\SOURCE\\interface\\ui_widget_game_data_input_functions.c",
+			0x9F0);
+		if (widget->parameters.text_box.text)
+			widget->parameters.text_box.text[0] = 0;
+		return;
+	}
 	match_vassert(
 		"c:\\halo\\SOURCE\\interface\\ui_widget_game_data_input_functions.c",
 		0x9EE,
