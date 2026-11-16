@@ -1334,6 +1334,9 @@ void network_objects_client_asked(
 
 	if (machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES)
 		return;
+	/* (on a checkpoint-epoch wire: the current epoch first, so the
+	snapshot below lands in it; adapted from GulchCE, by chester) */
+	distributed_checkpoint_to_machine(machine_index);
 	player_list = machine_get_player_list(machine_index);
 	/* (another machine in its place has other players) */
 	if ((again && game_time_get() - objects_host_machines[machine_index].time >= HOST_OBJECTS_RESEND_TICKS) ||
@@ -3407,6 +3410,10 @@ void network_objects_client_tick(
 	/* (too many to look at one by one later: all of them) */
 	else if (objects_client_new_object_count >= MAXIMUM_CLIENT_NEW_OBJECTS)
 		objects_client_check_all = TRUE;
+	/* (no predictions from the old replicas while the checkpoint's own
+	snapshot is still arriving; adapted from GulchCE, by chester) */
+	if (!distributed_checkpoint_ready())
+		return;
 	distributed_client_ready_picked_up_weapons();
 	distributed_client_note_own_inventories();
 	distributed_client_send_vehicles();
@@ -3418,6 +3425,89 @@ void network_objects_client_tick(
 }
 
 /* ---------- the game */
+
+/* A checkpoint restore starts new prediction, inventory and animation
+histories even when it keeps the same object handles. Ownership and the
+host's last object list stay: its next comparison still sends deletions.
+(Adapted from GulchCE, by chester.) */
+void network_objects_client_resynchronize(
+	void)
+{
+	long absolute_index;
+	short local_player_index;
+	short index;
+
+	csmemset(objects_host_inventories, 0, sizeof(objects_host_inventories));
+	host_damage_animation_count = 0;
+	csmemset(client_damage_animations, 0, sizeof(client_damage_animations));
+	for (absolute_index = 0; absolute_index < MAXIMUM_TRACKED_OBJECTS; absolute_index++)
+	{
+		objects_host_state_moving[absolute_index] = FALSE;
+		objects_host_rest_times[absolute_index] = NONE;
+		objects_host_inventories[absolute_index].carried_time = NONE;
+		objects_host_inventories[absolute_index].ammunition_time = NONE;
+		objects_client_dead[absolute_index].object_index = NONE;
+		objects_client_unsteered_path[absolute_index].object_index = NONE;
+		objects_client_unsteered_path[absolute_index].time = NONE;
+		objects_client_unsteered_path[absolute_index].coast_ticks = 0;
+	}
+	objects_host_resting_cursor = 0;
+	objects_host_viewers.count = 0;
+	csmemset(objects_host_vehicle_predictions, 0, sizeof(objects_host_vehicle_predictions));
+	for (index = 0; index < MAXIMUM_TRACKED_PLAYERS; index++)
+	{
+		objects_host_vehicle_predictions[index].accepted_vehicle_index = NONE;
+		objects_host_vehicle_predictions[index].ground_vehicle_index = NONE;
+		objects_host_vehicle_predictions[index].rest_vehicle_index = NONE;
+	}
+	objects_client_synchronized = FALSE;
+	objects_client_ready_time = NONE;
+	objects_client_ready_interval = CLIENT_READY_INTERVAL_TICKS;
+	objects_client_failed_time = NONE;
+	objects_client_retry_ticks = CLIENT_RETRY_TICKS;
+	objects_client_ask_again = FALSE;
+	objects_client_new_object_count = 0;
+	objects_client_check_all = TRUE;
+	objects_client_local_free_index = LOCAL_OBJECTS_FIRST_INDEX;
+	objects_client_object_count = NONE;
+	for (local_player_index = 0; local_player_index < MAXIMUM_LOCAL_PLAYERS; local_player_index++)
+	{
+		objects_client_own_inventories[local_player_index].unit_index = NONE;
+		objects_client_picked_up_weapons[local_player_index].definition_index = NONE;
+		for (index = 0; index < OWN_VEHICLE_POSITION_TICKS; index++)
+		{
+			objects_client_own_vehicles[local_player_index][index].time = NONE;
+			objects_client_own_vehicles[local_player_index][index].vehicle_index = NONE;
+		}
+	}
+}
+
+/* after a co-op revert on a checkpoint-epoch wire: every client that had
+the old world gets the reverted one whole, with the new epoch ahead of it
+(GulchCE, by chester) */
+void network_objects_host_reverted(
+	void)
+{
+	long machines[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
+	short count;
+	short index;
+
+	if (game_connection() != _game_connection_network_server || !network_coop_active())
+		return;
+	count = distributed_client_machines(machines, NUMBEROF(machines));
+	for (index = 0; index < count; index++)
+	{
+		long machine = machines[index];
+
+		if (machine < 0 || machine >= HALO_PORT_MAXIMUM_NETWORK_MACHINES ||
+			objects_host_machines[machine].time == NONE)
+		{
+			continue;
+		}
+		objects_host_machines[machine].time = NONE;
+		network_objects_client_asked(machine, TRUE);
+	}
+}
 
 void network_objects_new_game(
 	void)

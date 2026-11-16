@@ -29,6 +29,9 @@ MENUS = ROOT / 'port/assets/menus'
 PE = 'main_menu/settings_select/player_setup/player_profile_edit'
 # the Xbox's option rows: where the first sits and the pitch to the next
 FIRST_ROW, ROW_HEIGHT = 73, 28
+# fields under the header rule sit this far down, leaving a gap below the rule
+FIELD_GAP = 8
+FIELD_Y = 73 + FIELD_GAP
 COMFORTABLE_PITCH = 39
 COMPACT_PITCH = 30
 DENSITY_PITCH = {'compact': COMPACT_PITCH, 'comfortable': COMFORTABLE_PITCH}
@@ -902,9 +905,9 @@ def multiplayer_documents(assets, bitmaps):
                 kind = 'password' if name.endswith('/password_screen') else 'code'
                 base = name + '/legend'
                 legend(root, w, base, accept='JOIN GAME')
-                # The caption follows the field (menu_functions.c's
-                # legend_accept_caption): EDIT while A would open the keyboard,
-                # JOIN GAME while A joins.
+                # The caption follows the selected row (menu_functions.c's
+                # legend_accept_caption): EDIT on the field, JOIN GAME on the
+                # JOIN GAME row, like SERVER SETUP's START GAME.
                 strings = ET.SubElement(root, 'strings', name=f'{base}/accept_captions')
                 for caption in ('EDIT', 'JOIN GAME'):
                     ET.SubElement(strings, 'string', text=caption)
@@ -913,19 +916,6 @@ def multiplayer_documents(assets, bitmaps):
                         del target.attrib['text']
                         target.set('string_list', f'{base}/accept_captions')
                         target.set('string_index', '1')
-                # With text held on a controller, A joins and Y re-edits: the Y
-                # legend (hidden otherwise by legend_accept_caption) opens the keyboard;
-                # keyboard players press Tab, and the leaf name y_butn swaps the icon for its keycap.
-                for leaf, label, x in (('y_butn', None, 190), ('y_edit', 'EDIT', 212)):
-                    child(w, f'{base}/{leaf}', x=x, y=414)
-                    if label:
-                        text_widget(root, f'{base}/{leaf}', label, width=60, height=22)
-                    else:
-                        widget(root, f'{base}/{leaf}', type='container', width=21, height=26,
-                               bitmap='xbox/browser/y_butn')
-                    target = next(t for t in root.iter('widget') if t.get('name') == f'{base}/{leaf}')
-                    ET.SubElement(target, 'on', event='left_mouse', run=f'port {kind} reedit')
-                ET.SubElement(w, 'on', event='y', run=f'port {kind} reedit')
                 if kind == 'password':
                     # X hides or shows the password (plain text by default); the
                     # caption follows menu_functions.c's password_screen.hidden.
@@ -948,16 +938,35 @@ def multiplayer_documents(assets, bitmaps):
                             target.set('string_index', '0')
                         ET.SubElement(target, 'on', event='left_mouse', run='port password togglehide click')
                     ET.SubElement(w, 'on', event='x', run='port password togglehide')
-                for leaf, run in (('a_butn', f'port {kind} join'), ('accept', f'port {kind} join'),
+                for leaf, run in (('a_butn', f'port {kind} accept'), ('accept', f'port {kind} accept'),
                                   ('b_butn', f'port {kind} back'), ('cancel', f'port {kind} back')):
                     for target in root.iter('widget'):
                         if target.get('name') == f'{base}/{leaf}':
                             ET.SubElement(target, 'on', event='left_mouse', run=run)
+                # JOIN GAME is a row below the field (SERVER SETUP's START GAME
+                # style); A activates whichever row is selected.
+                dir_ = name.rsplit('/', 1)[0]
+                options = next(t for t in root.iter('widget') if t.get('name') == dir_ + '/options_menu')
+                field = options.find('child')
+                join = next(t for t in root.iter('widget') if t.get('name') == dir_ + '/button_ok')
+                for key in ('align',):
+                    join.attrib.pop(key, None)
+                join.attrib.update(width='512', height=str(ROW_HEIGHT), bitmap='xbox/bitmaps/option_bkds',
+                                   font=r'ui\large_ui', color=BLUE, text_x='13', text_y='4')
+                field.set('y', str(FIELD_Y))
+                options.set('height', str(FIELD_Y + 39 + 36))
+                child(options, dir_ + '/button_ok', x=54, y=FIELD_Y + 39)
+                help_ = next(t for t in root.iter('widget') if t.get('name') == dir_ + '/help')
+                help_.set('top', str(FIELD_Y + 39 + 36))
                 for parent in root.iter('widget'):
                     for c in list(parent.findall('child')):
                         if c.get('widget', '').endswith('/button_bar') and \
                                 c.get('widget', '').startswith(name.rsplit('/', 1)[0]):
                             parent.remove(c)
+                continue
+            if name.endswith('_screen') and filename == 'direct_ip':
+                legend(root, w, name + '/legend', accept='SELECT', cancel='CANCEL')
+                direct_ip_layout(root, name.rsplit('/', 1)[0])
                 continue
             if name.endswith('_screen'):
                 # (co-op options apply as they change: no A action, so no A in the legend)
@@ -1016,6 +1025,44 @@ def filters_layout(root, widgets):
     browser_legend(root, screen, base, (
         ('browser_reset', 'x', 'RESET', 342, 132, 'port browser filters reset'),
         ('browser_done', 'b', 'DONE', 490, 126, 'mouse emit back event')))
+
+
+def direct_ip_layout(root, dir_):
+    """DIRECT IP: SERVER ADDRESS, SERVER PORT (numeric, default prefilled) and a JOIN GAME row.
+    There is no password row: the invite link is already a token.
+    A activates the selected row, like SERVER SETUP's START GAME."""
+    by = {t.get('name'): t for t in root.iter('widget')}
+    menu = by[dir_ + '/direct_ip_menu']
+    # The PC row set has only SERVER ADDRESS; SERVER PORT is a copy of it.
+    port = deepcopy(by[dir_ + '/op_server_address'])
+    port.set('name', dir_ + '/op_server_port')
+    for c in port.findall('child'):
+        c.set('widget', c.get('widget').replace('server_address_', 'server_port_'))
+    label = deepcopy(by[dir_ + '/server_address_label'])
+    label.set('name', dir_ + '/server_port_label')
+    label.attrib.pop('string_list', None)
+    label.attrib.pop('string_index', None)
+    label.set('text', 'SERVER PORT')
+    value = deepcopy(by[dir_ + '/server_address_value_label'])
+    value.set('name', dir_ + '/server_port_value_label')
+    value.set('text', '5150')
+    anchor = by[dir_ + '/server_address_value_label']
+    index = list(root).index(anchor) + 1
+    for offset, element in enumerate((port, label, value)):
+        root.insert(index + offset, element)
+    join = by[dir_ + '/direct_ip_button_join']
+    for key in ('string_list', 'string_index', 'align', 'text_y', 'width', 'height', 'font'):
+        join.attrib.pop(key, None)
+    join.attrib.update(width='512', height=str(ROW_HEIGHT), bitmap='xbox/bitmaps/option_bkds',
+                       font=r'ui\large_ui', color=BLUE, text_x='13', text_y='4', text='JOIN GAME')
+    for c in list(menu.findall('child')):
+        menu.remove(c)
+    child(menu, dir_ + '/op_server_address', x=54, y=FIELD_Y)
+    child(menu, dir_ + '/op_server_port', x=54, y=FIELD_Y + 39)
+    child(menu, dir_ + '/direct_ip_button_join', x=54, y=FIELD_Y + 78)
+    for t in list(root.findall('widget')):
+        if t.get('name', '').startswith(dir_ + '/direct_ip_button_bar'):
+            root.remove(t)
 
 
 def hosting_layout(root, widgets, page):
@@ -1700,11 +1747,11 @@ def legacy_browser_layout(root, widgets, bitmaps):
             if index >= 9:
                 rows.remove(c)
                 continue
-            c.attrib.update(x='48', y=str(108 + 24 * index))
+            c.attrib.update(x='48', y=str(108 + FIELD_GAP + 24 * index))
         elif leaf in ('scroll_up_button', 'scroll_down_button', 'join_game_button_bar'):
             rows.remove(c)
         elif leaf == 'join_game_header':
-            c.attrib.update(x='48', y='86')
+            c.attrib.update(x='48', y=str(86 + FIELD_GAP))
         elif leaf.startswith('item_ticker_') or leaf == 'op_browser_mode':
             # Nested lists are excluded from the viewport's row detection.
             # Keep these descendants where gamespy screen update finds them.
@@ -1780,11 +1827,11 @@ def legacy_browser_layout(root, widgets, bitmaps):
         get(leaf).attrib.update(width='518', height='24', color='#FFFFFFFF')
     panel = get('screen_stats_container')
     panel.attrib.update(left='48', top='338', width='544', height='64',
-                        bitmap='xbox/browser/list_field')
+                        bitmap='xbox/browser/browser_status')
     # Bounds do not translate children: stats stay over the column headers,
     # while the description background sits below the ninth server row.
     for c, x, width in zip(panel.findall('child'), (326, 48, 226), (266, 176, 98)):
-        c.attrib.update(x=str(x), y='68')
+        c.attrib.update(x=str(x), y=str(68 + FIELD_GAP))
         widgets[c.get('widget')].attrib.update(width=str(width), height='22')
     # The PC actions inspect the invoking widget's leaf name. This adapter
     # gives X the refresh action and Y the Internet hosting action while
@@ -1799,6 +1846,10 @@ def legacy_browser_layout(root, widgets, bitmaps):
     for c in screen.findall('child'):
         if c.get('widget') == rows.get('name'):
             c.set('widget', actions.get('name'))
+    # the title sits at the header's own position, like every other Xbox-look screen
+    for c in screen.findall('child'):
+        if c.get('widget', '').endswith('/header_join_game'):
+            c.attrib.pop('y', None)
     legend(root, screen, base + '/legend', cancel='BACK')
     # ui.map's 32x32 button textures include transparent padding; button_key
     # draws them at native size and advances 21 pixels to each caption.
@@ -1810,6 +1861,8 @@ def legacy_browser_layout(root, widgets, bitmaps):
         bitmap = ET.SubElement(root, 'bitmap', name=f'xbox/browser/{art}')
         ET.SubElement(bitmap, 'frame', map='ui\\shell\\bitmaps\\' + art, index='0',
                       png=f'xbox/art/{button[0]}_butn.png', **size)
+    bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/browser_status')
+    ET.SubElement(bitmap, 'frame', png='xbox/art/browser_status__0.png', width='544', height='64')
     # A shared, inset redraw keeps the cap and right edge inside every row.
     bitmap = ET.SubElement(root, 'bitmap', name='xbox/browser/row')
     for index in (0, 1):

@@ -675,7 +675,7 @@ void *create_network_game_message(
 	const void *message_struct,
 	short message_struct_size)
 {
-	return create_network_game_message_padded(message_type, message_struct, message_struct_size, 0);
+	return create_network_game_message_padded(message_type, message_struct, message_struct_size, 0, 0);
 }
 
 /* port: keep the original encoder path when a host needs no extra field. */
@@ -683,7 +683,8 @@ void *create_network_game_message_padded(
 	enum network_game_message_type message_type,
 	const void *message_struct,
 	short message_struct_size,
-	unsigned extra_zero_bytes)
+	unsigned extra_zero_bytes,
+	unsigned trailing_version)
 {
 	/* as large as the packet group lets the encoder write */
 	byte encoded_message[HALO_PORT_NETWORK_PACKET_SIZE];
@@ -854,6 +855,19 @@ void *create_network_game_message_padded(
 				return NULL;
 			}
 			encoded_message_size.value = padded_size;
+		}
+		/* port: hosts from 42 require the client's network version last. */
+		if (trailing_version)
+		{
+			size_t versioned_size = halo_network_join_request_append_version(encoded_message,
+				encoded_message_size.value, sizeof(encoded_message), trailing_version);
+
+			if (!versioned_size)
+			{
+				network_event("create_network_game_message(): the versioned message is too long");
+				return NULL;
+			}
+			encoded_message_size.value = versioned_size;
 		}
 		/* a message header holds lengths up to HALO_PORT_MAXIMUM_NETWORK_MESSAGE_SIZE-1,
 		header included: a longer message would go out with a wrong length and

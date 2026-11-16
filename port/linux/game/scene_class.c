@@ -141,9 +141,9 @@ void halo_workload_decide(void)
 	inputs.local_players = pc_menu_split_players() ? 2 : 1;
 	inputs.enemy_multiplier = coop_enemies_solo_multiplier();
 	/* (a co-op host's own choice; a machine that joined is not told the host's, so it counts them as the default's,
-	which adds enemies for each player past the first) */
-	inputs.coop_extra_enemies = connection == _game_connection_network_client ||
-		strcmp(config_string("network.coop_enemies_mode"), "none") != 0;
+	which adds enemies for each player past the first; a host's mode adds none while it is the only player) */
+	inputs.coop_extra_enemies = workload_coop_extra_enemies(connection == _game_connection_network_client,
+		config_string("network.coop_enemies_mode"), inputs.network_players);
 	variable = workload_variable(&inputs, reasons, sizeof(reasons));
 	/* The compositor owns visionOS pacing, including when its profile sets this threshold. */
 	hold_30 = !(visionos && atoi(visionos)) && workload_hold_30(&inputs, full_rate_players);

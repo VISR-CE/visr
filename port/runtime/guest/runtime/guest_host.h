@@ -183,7 +183,7 @@ and whether it is a password's), or put away (xinput_sdl.c's
 platform_text_field). On a phone, a tablet or a headset its keys come as key
 events; an Apple TV asks with a dialog of its own (host_tv.m), whose text
 host_sdl_text_result gives once it is done: 1 and the text, 2 if it was
-canceled, 0 while there is none */
+canceled, 3 for touch Done, 4 for touch Return, 0 while there is none */
 void host_sdl_text_input(int on, const char *title, const char *text, int masked);
 int host_sdl_text_result(char *buffer, unsigned int size);
 
@@ -207,6 +207,7 @@ int host_sdl_show_message_box(unsigned int flags, const char *title, const char 
 	const char *second);
 int host_sdl_get_gamepads(unsigned int *ids, int capacity);
 int host_menu_keyboard(void);
+int host_menu_touch(void);
 int host_menu_controller(void);
 unsigned int host_sdl_open_gamepad(unsigned int id);
 unsigned int host_sdl_gamepad_from_id(unsigned int id);

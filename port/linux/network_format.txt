@@ -6,6 +6,7 @@ bound DISTRIBUTED_RELAYED_ACTION_MAXIMUM_SIZE 14 + 2 * (DISTRIBUTED_INPUT_HISTOR
 bound DISTRIBUTED_RELAYED_ACTION_MINIMUM_SIZE 14
 bound DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE 3 + 4 + (4 + 2) + (12 + 3 * 6) + 2 + 2 * 2 + 4 * 2 + 2 * NUMBER_OF_PLAYER_POWERUPS + 2 + 1
 bound DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE 3
+bound DISTRIBUTED_UNIT_STATE_POSE_SIZE NUMBER_OF_DISTRIBUTED_POSE_VECTORS * 6
 bound GAME_ALLEGIANCE_BITVECTOR_LONGS 4
 bound LEVEL_NAME_BYTES 64
 bound MAP_SHARE_HASH_BYTES 32
@@ -22,6 +23,7 @@ bound MAXIMUM_REGIONS_PER_OBJECT 8
 bound MAXIMUM_STATISTICS_PER_MESSAGE 64
 bound MAXIMUM_WEAPONS_PER_UNIT 4
 bound NUMBER_OF_ANGLES enum f0ce7d0319b6
+bound NUMBER_OF_DISTRIBUTED_POSE_VECTORS enum 5538f02632fd
 bound NUMBER_OF_OBJECT_CHANGE_COLORS enum b00724872e2d
 bound NUMBER_OF_PLAYER_POWERUPS enum 43075f42087c
 bound NUMBER_OF_UNIT_GRENADE_TYPES enum a0462dbcbdd9
@@ -42,6 +44,7 @@ enum _distributed_message_actor_damage 73
 enum _distributed_message_actor_states 64
 enum _distributed_message_aim_assist_policy 90
 enum _distributed_message_batch 16
+enum _distributed_message_checkpoint 96
 enum _distributed_message_client_identity 18
 enum _distributed_message_client_ready 9
 enum _distributed_message_coop_device_groups 68
@@ -88,6 +91,11 @@ enum _distributed_object_dead_bit 2
 enum _distributed_object_light_on_bit 5
 enum _distributed_object_light_sent_bit 4
 enum _distributed_object_predicted_bit 3
+enum _distributed_pose_aiming 1
+enum _distributed_pose_current_aiming 3
+enum _distributed_pose_current_looking 4
+enum _distributed_pose_facing 0
+enum _distributed_pose_looking 2
 enum _distributed_send_action_bit 1
 enum _distributed_send_sees_bit 2
 enum _distributed_send_state_bit 0
@@ -104,6 +112,7 @@ enum _distributed_unit_part_damage_bit 2
 enum _distributed_unit_part_killer_bit 5
 enum _distributed_unit_part_powerups_bit 3
 enum _distributed_unit_part_riding_bit 0
+enum _distributed_unit_part_scripted_pose_bit 6
 enum _distributed_unit_part_up_bit 1
 enum _distributed_unit_placed_bit 1
 enum _distributed_unit_predicted_bit 7
@@ -111,6 +120,7 @@ enum _distributed_unit_shield_charging_bit 5
 enum _distributed_unit_shield_depleted_bit 4
 enum _distributed_unit_shield_over_charging_bit 6
 enum _distributed_unit_super_camouflaged_bit 1
+enum _distributed_unit_suspended_bit 2
 enum _message_client_add_player_request_ingame 26
 enum _message_client_add_player_request_pregame 13
 enum _message_client_broadcast_game_search 0

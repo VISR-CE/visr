@@ -60,6 +60,14 @@ boolean network_game_client_advertised_game_in_progress(
 /* port: the joined host's network version (this machine's when hosting) */
 unsigned int network_game_host_version(
 	void);
+/* port: set by the server on create and dispose (network.host_version) */
+void network_game_set_host_version(
+	unsigned int version);
+/* port: whether this network game uses the shared simulation fixes of
+network version 42 and later; local games and replays keep the original
+simulation */
+boolean network_game_shared_sim_fixes(
+	void);
 /* port: whether its version, netcode, and game kind can be joined; tell
 displays the refusal reason. */
 boolean network_game_client_advertised_game_compatible(
@@ -115,6 +123,8 @@ void network_game_client_rejected_by_game(
 	struct network_game_client *client,
 	struct transport_address *source_address,
 	word rejection_code);
+void network_game_client_refuse_join(
+	char const *reason);
 boolean network_game_client_game_settings_updated(
 	struct network_game_client *client,
 	struct network_game *message_packet);

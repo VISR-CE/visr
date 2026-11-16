@@ -816,6 +816,14 @@
 		<string text="Heroic" />
 		<string text="Legendary" />
 	</strings>
+	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_options">
+		<string text="SERVER ADDRESS" />
+		<string text="PASSWORD" />
+	</strings>
+	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options">
+		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:5150." />
+		<string text="Enter a password for the server you want\nto connect to." />
+	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
 		<string text="SERVER NAME" />
 		<string text="PASSWORD" />
@@ -823,14 +831,6 @@
 		<string text="MAX PLAYERS" />
 		<string text="START GAME" />
 		<string text="SERVER IP" />
-	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/direct_ip_options">
-		<string text="SERVER ADDRESS" />
-		<string text="PASSWORD" />
-	</strings>
-	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options">
-		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2304." />
-		<string text="Enter a password for the server you want\nto connect to." />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/join_game/join_game_ticker_labels">
 		<string text="Players" />

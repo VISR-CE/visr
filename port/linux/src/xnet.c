@@ -57,6 +57,7 @@ alone peers reach.
 #include "port_config.h"
 #include "p2p.h"
 #include "halo_lan_targets.h"
+#include "halo_direct_ip.h"
 #include "halo_port_limits.h"
 #include "halo_delta_legacy.h"
 
@@ -87,6 +88,35 @@ static struct
 	int broadcast_count;
 	unsigned long broadcast_targets[MAXIMUM_BROADCAST_TARGETS];
 } net_settings;
+
+static pthread_mutex_t direct_probe_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct halo_direct_target direct_probe;
+static uint32_t direct_probe_time;
+static int direct_probe_enabled;
+
+void halo_direct_ip_probe_set(const struct halo_direct_target *target)
+{
+	pthread_mutex_lock(&direct_probe_lock);
+	direct_probe_enabled = target != NULL;
+	if (target)
+	{
+		direct_probe = *target;
+		direct_probe_time = (uint32_t)platform_real_milliseconds();
+	}
+	pthread_mutex_unlock(&direct_probe_lock);
+}
+
+static int direct_ip_probe_get(struct halo_direct_target *target)
+{
+	int enabled;
+	pthread_mutex_lock(&direct_probe_lock);
+	if ((uint32_t)((uint32_t)platform_real_milliseconds() - direct_probe_time) >= HALO_DIRECT_IP_TIMEOUT)
+		direct_probe_enabled = 0;
+	enabled = direct_probe_enabled;
+	*target = direct_probe;
+	pthread_mutex_unlock(&direct_probe_lock);
+	return enabled;
+}
 
 /* a dotted quad of decimal numbers up to 255 filling [text, end), spaces
 around it allowed; the address in network byte order */
@@ -633,6 +663,7 @@ static int WSAAPI perf_sendto_inner(SOCKET socket, const char *buffer, int lengt
 		int peer_count;
 		int hosting;
 		int index;
+		struct halo_direct_target direct;
 
 		/* (a search or an advertisement: discovery stays up 10 seconds more) */
 		pthread_mutex_lock(&lan_listeners_lock);
@@ -664,6 +695,17 @@ static int WSAAPI perf_sendto_inner(SOCKET socket, const char *buffer, int lengt
 		else
 		{
 			result = posix_socket_sendto((int)socket, buffer, length, flags, address, address_length);
+		}
+		/* Direct IP probes alongside ordinary LAN discovery, including where
+		the platform cannot broadcast. The form supplies the destination port. */
+		if (direct_ip_probe_get(&direct))
+		{
+			int sent;
+			memcpy(&target, address, sizeof(target));
+			target.sin_addr.s_addr = direct.address;
+			target.sin_port = halo_ws_htons(direct.port);
+			sent = posix_socket_sendto((int)socket, buffer, length, flags, &target, sizeof(target));
+			if (sent >= 0) result = sent;
 		}
 		/* (the broadcast's own error, which what follows would overwrite) */
 		send_error = result < 0 ? posix_socket_last_error() : 0;

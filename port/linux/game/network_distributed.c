@@ -232,6 +232,8 @@ enum
 	/* (alive) camouflaged, and doubly so */
 	_distributed_unit_camouflaged_bit = 0,
 	_distributed_unit_super_camouflaged_bit,
+	/* (alive) suspended by a script (network version 42 and later) */
+	_distributed_unit_suspended_bit,
 };
 
 /* a unit state's parts on the wire: which of those that are not always
@@ -250,6 +252,20 @@ enum
 	_distributed_unit_part_camouflage_bit,
 	/* (dead) who killed it, when anyone */
 	_distributed_unit_part_killer_bit,
+	/* (alive) host-controlled facing, aim and look while input is inhibited
+	(network version 42 and later) */
+	_distributed_unit_part_scripted_pose_bit,
+};
+
+/* a scripted pose's vectors, in their order on the wire */
+enum
+{
+	_distributed_pose_facing,
+	_distributed_pose_aiming,
+	_distributed_pose_looking,
+	_distributed_pose_current_aiming,
+	_distributed_pose_current_looking,
+	NUMBER_OF_DISTRIBUTED_POSE_VECTORS
 };
 
 /* world units: how far a client's own player's unit may be from the host's
@@ -326,6 +342,13 @@ struct distributed_unit_state
 	word recent_shield_damage;
 	/* the player's powerups: how long each has left */
 	short powerup_durations[NUMBER_OF_PLAYER_POWERUPS];
+	/* (network version 42 and later) the host's pose for a player whose
+	input a script holds */
+	boolean scripted_pose;
+	/* the pose part was in the message, whether or not its vectors were
+	usable (a host refuses a client's state that carries one) */
+	boolean scripted_pose_sent;
+	struct distributed_vector pose[NUMBER_OF_DISTRIBUTED_POSE_VECTORS];
 };
 
 /* a client's player's input at one of its ticks, with the buttons of the
@@ -385,6 +408,8 @@ enum
 	DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE = 3,
 	DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE = 3 + 4 + (4 + 2) + (12 + 3 * 6) + 2 + 2 * 2 + 4 * 2 +
 		2 * NUMBER_OF_PLAYER_POWERUPS + 2 + 1,
+	/* what a scripted pose adds to it (network version 42 and later) */
+	DISTRIBUTED_UNIT_STATE_POSE_SIZE = NUMBER_OF_DISTRIBUTED_POSE_VECTORS * 6,
 	DISTRIBUTED_RELAYED_ACTION_MINIMUM_SIZE = 14,
 	DISTRIBUTED_RELAYED_ACTION_MAXIMUM_SIZE = 14 + 2 * (DISTRIBUTED_INPUT_HISTORY - 1),
 };
@@ -440,9 +465,14 @@ struct distributed_batch
 };
 
 /* what each message in a batch takes besides its entries: its size, and
-its header but for its message header */
+its header but for its message header (with its checkpoint epoch, on
+network versions that carry one) */
 #define BATCH_MESSAGE_OVERHEAD \
-	((word)(sizeof(word) + sizeof(struct distributed_message_header) - sizeof(message_header)))
+	((word)(sizeof(word) + sizeof(struct distributed_message_header) - sizeof(message_header) + \
+		network_distributed_wire_epoch_size()))
+/* an empty batch's bytes: its header, with its epoch */
+#define BATCH_EMPTY_SIZE \
+	((word)(sizeof(struct distributed_message_header) + network_distributed_wire_epoch_size()))
 
 /* messages of entries of a size of their own, to one machine (or the host),
 each as long as the batch has room for (distributed_packer_add): nothing
@@ -690,6 +720,52 @@ static struct distributed_batch distributed_batches[MAXIMUM_SENDERS];
 /* (the largest messages, packed a machine at a time) */
 static struct distributed_packer distributed_packer;
 
+/* network versions with a checkpoint epoch (42 on): every message carries
+the epoch of the host's checkpoint it belongs to after its header. The
+host's own count, and the epoch this machine's messages carry; a client
+takes the host's epoch from its checkpoint message (96), and holds back
+everything but what rebuilds its objects until the host says they are
+synchronized. (Port of chester's GulchCE network contract; he relicensed
+it for VISR.) */
+static unsigned int distributed_checkpoint_epoch;
+static unsigned int distributed_host_epoch;
+static boolean distributed_checkpoint_synchronized;
+
+unsigned long network_distributed_wire_epoch_size(
+	void)
+{
+	return halo_network_version_has_checkpoint_epoch(network_game_host_version()) ?
+		(unsigned long)sizeof(distributed_checkpoint_epoch) : 0;
+}
+
+word network_distributed_wire_copy(
+	void *buffer,
+	word capacity,
+	void const *message,
+	word size)
+{
+	word epoch_size = (word)network_distributed_wire_epoch_size();
+	word wire_size = (word)(size + epoch_size);
+	struct distributed_message_header header;
+
+	/* (the transport header's size field holds no more than MAXIMUM_MESSAGE_SIZE) */
+	if (size < sizeof(header) || wire_size > capacity || wire_size > MAXIMUM_MESSAGE_SIZE)
+		return 0;
+	if (!epoch_size)
+	{
+		csmemcpy(buffer, message, size);
+		return size;
+	}
+	csmemcpy(&header, message, sizeof(header));
+	header.header = 0;
+	build_message_header(&header.header, wire_size, 2, 0);
+	csmemcpy(buffer, &header, sizeof(header));
+	csmemcpy((byte *)buffer + sizeof(header), &distributed_checkpoint_epoch, epoch_size);
+	csmemcpy((byte *)buffer + sizeof(header) + epoch_size, (byte const *)message + sizeof(header),
+		(word)(size - sizeof(header)));
+	return wire_size;
+}
+
 /* for the automated tests' reports (network_test.c) */
 static struct
 {
@@ -879,6 +955,23 @@ void distributed_vector_pack(
 	result->k = (short)parts[2];
 }
 
+/* packs a direction as a unit normal; FALSE for a zero or non-finite vector */
+boolean distributed_unit_vector_pack(
+	real_vector3d const *vector,
+	struct distributed_vector *result)
+{
+	real length = (real)sqrt(vector->i * vector->i + vector->j * vector->j + vector->k * vector->k);
+	real_vector3d unit;
+
+	if (!(length > 0.001f && length < 1.0e6f))
+		return FALSE;
+	unit.i = vector->i / length;
+	unit.j = vector->j / length;
+	unit.k = vector->k / length;
+	distributed_vector_pack(&unit, DISTRIBUTED_UNIT_SCALE, result);
+	return TRUE;
+}
+
 void distributed_vector_unpack(
 	struct distributed_vector const *vector,
 	real scale,
@@ -952,6 +1045,8 @@ static void distributed_batch_flush(
 	header->game_time = game_time_get();
 	header->header = 0;
 	build_message_header(&header->header, batch->size, 2, 0);
+	if (network_distributed_wire_epoch_size())
+		csmemcpy(batch->data + sizeof(*header), &distributed_checkpoint_epoch, network_distributed_wire_epoch_size());
 	if (sender == HOST_SENDER)
 		network_distributed_client_send(batch->data, batch->size);
 	else
@@ -967,12 +1062,12 @@ static word distributed_batch_room(
 	word minimum)
 {
 	struct distributed_batch *batch = &distributed_batches[sender];
-	word used = batch->size ? batch->size : (word)sizeof(struct distributed_message_header);
+	word used = batch->size ? batch->size : BATCH_EMPTY_SIZE;
 
 	if (used + BATCH_MESSAGE_OVERHEAD + minimum > DATAGRAM_MAXIMUM_SIZE)
 	{
 		distributed_batch_flush(sender);
-		used = sizeof(struct distributed_message_header);
+		used = BATCH_EMPTY_SIZE;
 	}
 	return (word)(DATAGRAM_MAXIMUM_SIZE - used - BATCH_MESSAGE_OVERHEAD);
 }
@@ -986,13 +1081,19 @@ static void distributed_batch_append(
 	word entries_size)
 {
 	struct distributed_batch *batch = &distributed_batches[sender];
-	word length = (word)(sizeof(*header) - sizeof(message_header) + entries_size);
+	word epoch_size = (word)network_distributed_wire_epoch_size();
+	word length = (word)(sizeof(*header) - sizeof(message_header) + epoch_size + entries_size);
 
 	if (!batch->size)
-		batch->size = sizeof(struct distributed_message_header);
+		batch->size = BATCH_EMPTY_SIZE;
 	csmemcpy(batch->data + batch->size, &length, sizeof(word));
 	csmemcpy(batch->data + batch->size + sizeof(word), (byte const *)header + sizeof(message_header),
 		sizeof(*header) - sizeof(message_header));
+	if (epoch_size)
+	{
+		csmemcpy(batch->data + batch->size + sizeof(word) + sizeof(*header) - sizeof(message_header),
+			&distributed_checkpoint_epoch, epoch_size);
+	}
 	csmemcpy(batch->data + batch->size + BATCH_MESSAGE_OVERHEAD, entries, entries_size);
 	batch->size += (word)(BATCH_MESSAGE_OVERHEAD + entries_size);
 }
@@ -1059,7 +1160,10 @@ static void distributed_batches_flush(
 		distributed_batch_flush((short)((first + step) % MAXIMUM_SENDERS));
 }
 
-static void distributed_fill_header(
+/* FALSE when the message is not to be sent: a client in a game on a
+network version with a checkpoint epoch sends nothing but that it is
+ready until the host says its objects are synchronized */
+static boolean distributed_fill_header(
 	void *message,
 	byte type,
 	short count,
@@ -1067,12 +1171,19 @@ static void distributed_fill_header(
 {
 	struct distributed_message_header *header = (struct distributed_message_header *)message;
 
+	if (network_distributed_wire_epoch_size() && game_in_progress() &&
+		game_connection() == _game_connection_network_client && !distributed_checkpoint_synchronized &&
+		type != _distributed_message_client_ready)
+	{
+		return FALSE;
+	}
 	header->type = type;
 	header->count = (byte)count;
 	header->game_time = game_time_get();
 	header->header = 0;
 	build_message_header(&header->header, size, 2, 0);
 	distributed_statistics.sent++;
+	return TRUE;
 }
 
 /* the size of each of a message's entries, when they are alike, else 0 */
@@ -1094,7 +1205,8 @@ void distributed_send(
 	word size,
 	short destination)
 {
-	distributed_fill_header(message, type, count, size);
+	if (!distributed_fill_header(message, type, count, size))
+		return;
 	switch (destination)
 	{
 	case _distributed_to_clients:
@@ -1107,11 +1219,27 @@ void distributed_send(
 			distributed_batch_add((short)machine_indices[index], message, size, distributed_entry_size(count, size));
 		break;
 	}
-	case _distributed_to_clients_reliably: network_distributed_server_send_to_all_reliably(message, size); break;
+	case _distributed_to_clients_reliably:
+	{
+		byte wire[MAXIMUM_MESSAGE_SIZE + sizeof(unsigned int)];
+		word wire_size = network_distributed_wire_copy(wire, (word)sizeof(wire), message, size);
+
+		if (wire_size)
+			network_distributed_server_send_to_all_reliably(wire, wire_size);
+		break;
+	}
 	case _distributed_to_host:
 		distributed_batch_add(HOST_SENDER, message, size, distributed_entry_size(count, size));
 		break;
-	case _distributed_to_host_reliably: network_distributed_client_send_reliably(message, size); break;
+	case _distributed_to_host_reliably:
+	{
+		byte wire[MAXIMUM_MESSAGE_SIZE + sizeof(unsigned int)];
+		word wire_size = network_distributed_wire_copy(wire, (word)sizeof(wire), message, size);
+
+		if (wire_size)
+			network_distributed_client_send_reliably(wire, wire_size);
+		break;
+	}
 	}
 }
 
@@ -1124,7 +1252,8 @@ void distributed_send_to_machine(
 {
 	if (machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES)
 		return;
-	distributed_fill_header(message, type, count, size);
+	if (!distributed_fill_header(message, type, count, size))
+		return;
 	distributed_batch_add((short)machine_index, message, size, distributed_entry_size(count, size));
 }
 
@@ -1135,8 +1264,14 @@ void distributed_send_to_machine_reliably(
 	short count,
 	word size)
 {
-	distributed_fill_header(message, type, count, size);
-	network_distributed_server_send_to_machine_reliably(machine_index, message, size);
+	byte wire[MAXIMUM_MESSAGE_SIZE + sizeof(unsigned int)];
+	word wire_size;
+
+	if (!distributed_fill_header(message, type, count, size))
+		return;
+	wire_size = network_distributed_wire_copy(wire, (word)sizeof(wire), message, size);
+	if (wire_size)
+		network_distributed_server_send_to_machine_reliably(machine_index, wire, wire_size);
 }
 
 /* a packer's messages of the type, to the machine (or the host), each
@@ -1166,8 +1301,8 @@ static void distributed_packer_flush(
 
 	if (!packer->count)
 		return;
-	distributed_fill_header(&packer->message, packer->type, packer->count, size);
-	distributed_batch_add(packer->sender, &packer->message, size, 0);
+	if (distributed_fill_header(&packer->message, packer->type, packer->count, size))
+		distributed_batch_add(packer->sender, &packer->message, size, 0);
 	packer->count = 0;
 	packer->size = packer->prefix_size;
 }
@@ -1421,6 +1556,77 @@ real distributed_machine_round_trip_ticks(
 
 /* ---------- units */
 
+/* (network version 42 and later) Relayed input does not describe a scripted
+pose. A late join can process input before the presentation disables it, and
+then retain that local aim indefinitely. Body orientation is not a substitute:
+the host's desired and current aim/look can differ from it and from each other.
+Ordinary input keeps its prediction path and sends none of these additional
+vectors. (Port of chester's GulchCE network contract; he relicensed it for
+VISR.) */
+static boolean distributed_scripted_poses(
+	void)
+{
+	return halo_network_version_has_scripted_poses(network_game_host_version());
+}
+
+static void distributed_scripted_pose_from_unit(
+	struct unit_datum const *unit,
+	struct distributed_unit_state *state)
+{
+	if (game_connection() != _game_connection_network_server || !distributed_scripted_poses())
+		return;
+	SET_FLAG(state->unit_flags, _distributed_unit_suspended_bit,
+		TEST_FLAG(unit->unit.flags, _unit_suspended_bit));
+	state->scripted_pose = !player_input_enabled() || TEST_FLAG(unit->unit.flags, _unit_suspended_bit);
+	if (!state->scripted_pose)
+		return;
+	/* (normalized before packing, so every peer's length check passes; a
+	unit with a zero vector sends no pose rather than one peers refuse) */
+	state->scripted_pose =
+		distributed_unit_vector_pack(&unit->unit.desired_facing_vector, &state->pose[_distributed_pose_facing]) &&
+		distributed_unit_vector_pack(&unit->unit.desired_aiming_vector, &state->pose[_distributed_pose_aiming]) &&
+		distributed_unit_vector_pack(&unit->unit.desired_looking_vector, &state->pose[_distributed_pose_looking]) &&
+		distributed_unit_vector_pack(&unit->unit.aiming_vector, &state->pose[_distributed_pose_current_aiming]) &&
+		distributed_unit_vector_pack(&unit->unit.looking_vector, &state->pose[_distributed_pose_current_looking]);
+}
+
+static boolean distributed_scripted_pose_valid(
+	struct distributed_unit_state const *state)
+{
+	short index;
+
+	for (index = 0; index < NUMBER_OF_DISTRIBUTED_POSE_VECTORS; index++)
+	{
+		real_vector3d vector;
+		real length_squared;
+
+		distributed_vector_unpack(&state->pose[index], DISTRIBUTED_UNIT_SCALE, &vector);
+		length_squared = vector.i * vector.i + vector.j * vector.j + vector.k * vector.k;
+		/* unit normals quantized to signed 16-bit components: zero and
+		non-unit data are refused before any of the state is applied */
+		if (length_squared < 0.99f || length_squared > 1.01f)
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static void distributed_scripted_pose_apply(
+	struct unit_datum *unit,
+	struct distributed_unit_state const *state)
+{
+	if (!distributed_scripted_poses())
+		return;
+	SET_FLAG(unit->unit.flags, _unit_suspended_bit,
+		TEST_FLAG(state->unit_flags, _distributed_unit_suspended_bit));
+	if (!state->scripted_pose)
+		return;
+	distributed_unit_vector_unpack(&state->pose[_distributed_pose_facing], &unit->unit.desired_facing_vector);
+	distributed_unit_vector_unpack(&state->pose[_distributed_pose_aiming], &unit->unit.desired_aiming_vector);
+	distributed_unit_vector_unpack(&state->pose[_distributed_pose_looking], &unit->unit.desired_looking_vector);
+	distributed_unit_vector_unpack(&state->pose[_distributed_pose_current_aiming], &unit->unit.aiming_vector);
+	distributed_unit_vector_unpack(&state->pose[_distributed_pose_current_looking], &unit->unit.looking_vector);
+}
+
 static void distributed_state_from_player(
 	short player_index,
 	struct distributed_unit_state *state)
@@ -1468,6 +1674,7 @@ static void distributed_state_from_player(
 			TEST_FLAG(unit->unit.flags, _unit_super_camouflaged_bit));
 		camouflage = camouflage > 1.0f ? 1.0f : camouflage < 0.0f ? 0.0f : camouflage;
 		state->active_camouflage = (byte)(long)floor(camouflage * 255.0f + 0.5f);
+		distributed_scripted_pose_from_unit(unit, state);
 		/* (the host) a client's player where the client had them: at which of
 		its ticks (with the ticks run since) */
 		if (game_connection() == _game_connection_network_server && player_index < MAXIMUM_TRACKED_PLAYERS &&
@@ -1491,7 +1698,8 @@ static void distributed_state_from_player(
 	}
 }
 
-/* the state's bytes on the wire (at most DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE):
+/* the state's bytes on the wire (at most DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE,
+and DISTRIBUTED_UNIT_STATE_POSE_SIZE more with a scripted pose):
 its player, flags and parts, then (alive) its unit, the vehicle and seat it
 rides, (placed) where it is, how fast it moves and which way it faces,
 (predicted) the client's tick, its shields and health, the damage they
@@ -1562,6 +1770,11 @@ static word distributed_unit_state_write(
 			cursor = distributed_put(cursor, &state->unit_flags, sizeof(state->unit_flags));
 			cursor = distributed_put(cursor, &state->active_camouflage, sizeof(state->active_camouflage));
 		}
+		if (state->scripted_pose && distributed_scripted_poses())
+		{
+			SET_FLAG(parts, _distributed_unit_part_scripted_pose_bit, TRUE);
+			cursor = distributed_put(cursor, state->pose, sizeof(state->pose));
+		}
 	}
 	else if (state->killing_player_index != NO_PLAYER)
 	{
@@ -1593,6 +1806,11 @@ static word distributed_unit_state_read(
 	if (!distributed_take(&cursor, end, &state->player_index, sizeof(state->player_index)) ||
 		!distributed_take(&cursor, end, &state->flags, sizeof(state->flags)) ||
 		!distributed_take(&cursor, end, &parts, sizeof(parts)))
+	{
+		return 0;
+	}
+	if (distributed_scripted_poses() && TEST_FLAG(parts, _distributed_unit_part_scripted_pose_bit) &&
+		!TEST_FLAG(state->flags, _distributed_unit_alive_bit))
 	{
 		return 0;
 	}
@@ -1643,6 +1861,15 @@ static word distributed_unit_state_read(
 				!distributed_take(&cursor, end, &state->active_camouflage, sizeof(state->active_camouflage))))
 		{
 			return 0;
+		}
+		if (distributed_scripted_poses() && TEST_FLAG(parts, _distributed_unit_part_scripted_pose_bit))
+		{
+			if (!distributed_take(&cursor, end, state->pose, sizeof(state->pose)))
+				return 0;
+			/* (an unusable pose is dropped alone: the rest of the state, and
+			the states after it in the message, still apply) */
+			state->scripted_pose_sent = TRUE;
+			state->scripted_pose = distributed_scripted_pose_valid(state);
 		}
 	}
 	else if (TEST_FLAG(parts, _distributed_unit_part_killer_bit) &&
@@ -1695,7 +1922,9 @@ static boolean distributed_apply_state(
 	error.i = position->x - object->object.position.x;
 	error.j = position->y - object->object.position.y;
 	error.k = position->z - object->object.position.z;
-	if (error.i * error.i + error.j * error.j + error.k * error.k <= tolerance * tolerance)
+	/* (a scripted pose is applied even within tolerance: its facing is the
+	point of it) */
+	if (!state->scripted_pose && error.i * error.i + error.j * error.j + error.k * error.k <= tolerance * tolerance)
 		return TRUE;
 	if (network_objects_reconcile(unit_index, position, &forward, &up, &velocity, NULL, blend_distance))
 		distributed_statistics.corrections++;
@@ -1765,7 +1994,7 @@ static void distributed_correct_own_unit(
 	{
 		return;
 	}
-	if (TEST_FLAG(state->flags, _distributed_unit_predicted_bit) &&
+	if (!state->scripted_pose && TEST_FLAG(state->flags, _distributed_unit_predicted_bit) &&
 		local_player_index >= 0 && local_player_index < MAXIMUM_LOCAL_PLAYERS)
 	{
 		long now = game_time_get();
@@ -1844,7 +2073,7 @@ static void distributed_client_send_predictions(
 	{
 		long unit_index = distributed_living_unit(player);
 		struct distributed_unit_state state;
-		byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE];
+		byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE + DISTRIBUTED_UNIT_STATE_POSE_SIZE];
 
 		/* a client speaks for its own players only, where they are */
 		if (player->local_player_index == NONE || unit_index == NONE ||
@@ -1880,7 +2109,10 @@ static void distributed_handle_predictions(
 		if (state.player_index >= MAXIMUM_TRACKED_PLAYERS ||
 			!distributed_machine_has_player(machine_index, state.player_index) ||
 			!TEST_FLAG(state.flags, _distributed_unit_alive_bit) ||
-			!TEST_FLAG(state.flags, _distributed_unit_placed_bit))
+			!TEST_FLAG(state.flags, _distributed_unit_placed_bit) ||
+			/* (a client never speaks for a pose a script holds) */
+			(distributed_scripted_poses() &&
+				(state.scripted_pose_sent || TEST_FLAG(state.unit_flags, _distributed_unit_suspended_bit))))
 		{
 			distributed_count_prediction_rejected();
 			continue;
@@ -2356,6 +2588,7 @@ static void distributed_handle_unit_state(
 			unit_kill(unit_index);
 	}
 	unit_index = state->unit_index;
+	distributed_scripted_pose_apply(unit_get(unit_index), state);
 	/* the seat it rides: a client's own player's, once it has ridden
 	otherwise for longer than its prediction takes to reach the host and
 	come back (a player within the tracked ones, as players.c's datums are) */
@@ -2974,7 +3207,7 @@ static void distributed_host_send_players(
 		distributed_packer_begin(&distributed_packer, (short)machine_index, _distributed_message_unit_states, NULL, 0);
 		for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS; player_index++)
 		{
-			byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE];
+			byte entry[DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE + DISTRIBUTED_UNIT_STATE_POSE_SIZE];
 
 			if (TEST_FLAG(distributed_sends[machine_index][player_index], _distributed_send_state_bit))
 			{
@@ -3424,10 +3657,11 @@ static void distributed_send_shield_policy(
 
 /* ---------- the game */
 
-/* a new map loading (game.c), before any of the new game's messages can
-apply: nothing sent or had yet */
-void network_distributed_new_game(
-	void)
+/* what a checkpoint starts over (and a new map): nothing sent or had of
+the world yet; reset_received_times also forgets each sender's latest
+message times */
+static void distributed_reset_checkpoint_state(
+	boolean reset_received_times)
 {
 	short sender;
 	short type;
@@ -3439,17 +3673,7 @@ void network_distributed_new_game(
 	csmemset(distributed_predictions, 0, sizeof(distributed_predictions));
 	csmemset(distributed_accepted, 0, sizeof(distributed_accepted));
 	csmemset(distributed_host_speeds, 0, sizeof(distributed_host_speeds));
-	csmemset(distributed_round_trips, 0, sizeof(distributed_round_trips));
 	csmemset(distributed_input_facings, 0, sizeof(distributed_input_facings));
-	csmemset(distributed_client_clocks, 0, sizeof(distributed_client_clocks));
-	csmemset(distributed_client_identities, 0, sizeof(distributed_client_identities));
-	distributed_identity_sent = FALSE;
-	{
-		short machine_index;
-
-		for (machine_index = 0; machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES; machine_index++)
-			distributed_client_clocks[machine_index].window_tick = NONE;
-	}
 	csmemset(distributed_seen, 0, sizeof(distributed_seen));
 	csmemset(distributed_viewers, 0, sizeof(distributed_viewers));
 	csmemset(distributed_sends, 0, sizeof(distributed_sends));
@@ -3457,7 +3681,6 @@ void network_distributed_new_game(
 	csmemset(distributed_sent_statistics, 0, sizeof(distributed_sent_statistics));
 	distributed_statistics_cursor = 0;
 	distributed_game_state_checksum = 0;
-	distributed_game_state_postgame = 0;
 	distributed_game_state_time = NONE;
 	distributed_host_update_number = NONE;
 	for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS; player_index++)
@@ -3471,8 +3694,11 @@ void network_distributed_new_game(
 	for (sender = 0; sender < MAXIMUM_SENDERS; sender++)
 	{
 		distributed_batches[sender].size = 0;
-		for (type = 0; type < NUMBER_OF_DISTRIBUTED_MESSAGES; type++)
-			distributed_received_times[sender][type] = NONE;
+		if (reset_received_times)
+		{
+			for (type = 0; type < NUMBER_OF_DISTRIBUTED_MESSAGES; type++)
+				distributed_received_times[sender][type] = NONE;
+		}
 	}
 	for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS; player_index++)
 	{
@@ -3488,17 +3714,111 @@ void network_distributed_new_game(
 			distributed_own_positions[sender][type].unit_index = NONE;
 		}
 	}
+	distributed_machines.valid = FALSE;
+	distributed_pickup_count = 0;
+	/* (each player's latest input: player_queues_new.c) */
+	update_queues_distributed_reset();
+}
+
+/* (the host) a new checkpoint epoch, never 0 (a client's "none yet") */
+static void distributed_advance_checkpoint(
+	void)
+{
+	if (++distributed_host_epoch == 0)
+		++distributed_host_epoch;
+	distributed_checkpoint_epoch = distributed_host_epoch;
+}
+
+/* the world went back to a checkpoint (the host reverting, or a client
+told so by the host's checkpoint message): everything had of the old one
+forgotten, and the objects rebuilt from the host's */
+static void distributed_restore_checkpoint(
+	void)
+{
+	distributed_reset_checkpoint_state(TRUE);
+	csmemset(distributed_host_states, 0, sizeof(distributed_host_states));
+	csmemset(distributed_host_actions, 0, sizeof(distributed_host_actions));
+	distributed_sent_structure_bsp_index = NONE;
+	distributed_statistics_due = TRUE;
+	distributed_stamp_latest = NONE;
+	network_objects_client_resynchronize();
+	network_damage_new_game();
+	network_actors_new_game();
+}
+
+void network_distributed_reverted(
+	void)
+{
+	long machines[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
+	short count;
+	short index;
+
+	if (game_connection() != _game_connection_network_server || !network_coop_active() ||
+		!network_distributed_wire_epoch_size())
+	{
+		return;
+	}
+	distributed_advance_checkpoint();
+	distributed_restore_checkpoint();
+	count = distributed_client_machines(machines, HALO_PORT_MAXIMUM_NETWORK_MACHINES);
+	/* (every client has the new epoch before the first object snapshot of
+	the reverted world) */
+	for (index = 0; index < count; index++)
+		distributed_checkpoint_to_machine(machines[index]);
+	network_objects_host_reverted();
+}
+
+void distributed_checkpoint_to_machine(
+	long machine_index)
+{
+	struct distributed_message_header message;
+
+	if (game_connection() != _game_connection_network_server || !network_distributed_wire_epoch_size() ||
+		machine_index < 0 || machine_index >= HALO_PORT_MAXIMUM_NETWORK_MACHINES)
+	{
+		return;
+	}
+	csmemset(&message, 0, sizeof(message));
+	distributed_send_to_machine_reliably(machine_index, &message, _distributed_message_checkpoint, 0,
+		(word)sizeof(message));
+}
+
+boolean distributed_checkpoint_ready(
+	void)
+{
+	return !network_distributed_wire_epoch_size() || distributed_checkpoint_synchronized;
+}
+
+/* a new map loading (game.c), before any of the new game's messages can
+apply: nothing sent or had yet */
+void network_distributed_new_game(
+	void)
+{
+	if (game_connection() == _game_connection_network_server)
+		distributed_advance_checkpoint();
+	else
+		distributed_checkpoint_epoch = 0;
+	distributed_checkpoint_synchronized = FALSE;
+
+	distributed_reset_checkpoint_state(TRUE);
+	csmemset(distributed_round_trips, 0, sizeof(distributed_round_trips));
+	csmemset(distributed_client_clocks, 0, sizeof(distributed_client_clocks));
+	csmemset(distributed_client_identities, 0, sizeof(distributed_client_identities));
+	distributed_identity_sent = FALSE;
+	{
+		short machine_index;
+
+		for (machine_index = 0; machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES; machine_index++)
+			distributed_client_clocks[machine_index].window_tick = NONE;
+	}
+	distributed_game_state_postgame = 0;
 	distributed_own_round_trip = 0.0f;
 	csmemset(distributed_player_pings, 0xFF, sizeof(distributed_player_pings));
 	csmemset(distributed_machine_players, 0xFF, sizeof(distributed_machine_players));
 	distributed_machines.in_tick = FALSE;
-	distributed_machines.valid = FALSE;
 	distributed_host_time = NONE;
 	distributed_stamp_latest = NONE;
 	distributed_statistics_due = FALSE;
-	distributed_pickup_count = 0;
-	/* (each player's latest input: player_queues_new.c) */
-	update_queues_distributed_reset();
 	network_objects_new_game();
 	network_damage_new_game();
 	network_actors_new_game();
@@ -4105,6 +4425,117 @@ static boolean distributed_shield_policy_valid(
 		halo_network_version_shield_selector_valid(network_game_host_version(), message.selector);
 }
 
+/* Network version 42 and later: only the host's ordered boundary changes
+worlds. A newer datagram may overtake it, and an old reliable message may
+trail newer state in its old world: neither may adopt another epoch.
+(Adapted from GulchCE, by chester.) */
+static boolean distributed_message_epoch_valid(
+	long machine_index,
+	struct distributed_message_header const *header,
+	unsigned int epoch,
+	word size)
+{
+	if (header->type == _distributed_message_checkpoint)
+	{
+		if (machine_index != NONE || game_connection() != _game_connection_network_client ||
+			network_connection_last_read_was_unreliable() || distributed_handling_batch ||
+			size != sizeof(*header) || header->count != 0 || epoch == 0)
+		{
+			return FALSE;
+		}
+		if (distributed_checkpoint_epoch != 0 && (int)(epoch - distributed_checkpoint_epoch) <= 0)
+			return FALSE;
+		distributed_checkpoint_epoch = epoch;
+		distributed_checkpoint_synchronized = FALSE;
+		distributed_restore_checkpoint();
+		/* (a ready sent before the boundary may have carried this client's
+		identity in epoch zero, which the host refused) */
+		distributed_identity_sent = FALSE;
+		return FALSE;
+	}
+	/* A late joiner does not know the epoch yet: its ready asks for the
+	current boundary and snapshot, and authorizes nothing else. */
+	if (header->type == _distributed_message_client_ready)
+	{
+		return game_connection() == _game_connection_network_server &&
+			machine_index >= 0 && machine_index < HALO_PORT_MAXIMUM_NETWORK_MACHINES &&
+			distributed_handling_stream_message && !distributed_handling_batch &&
+			size == sizeof(*header) && header->count <= 1;
+	}
+	if (distributed_checkpoint_epoch == 0 || epoch != distributed_checkpoint_epoch)
+		return FALSE;
+	if (game_connection() == _game_connection_network_client)
+	{
+		if (machine_index != NONE)
+			return FALSE;
+		if (header->type == _distributed_message_object_changes &&
+			(network_connection_last_read_was_unreliable() || distributed_handling_batch))
+		{
+			return FALSE;
+		}
+		if (header->type == _distributed_message_objects_synchronized)
+		{
+			if (network_connection_last_read_was_unreliable() || distributed_handling_batch ||
+				size != sizeof(*header) || header->count != 0)
+			{
+				return FALSE;
+			}
+			if (!distributed_checkpoint_synchronized)
+			{
+				/* (hits and effects from the provisional copies during the
+				transfer are retired before play resumes) */
+				network_damage_new_game();
+				distributed_reset_checkpoint_state(FALSE);
+				distributed_identity_sent = FALSE;
+			}
+			distributed_checkpoint_synchronized = TRUE;
+		}
+		/* (gameplay only after the snapshot's ordered end: a kill that
+		overtakes the snapshot must not be undone by it) */
+		if (!distributed_checkpoint_synchronized)
+		{
+			return header->type == _distributed_message_object_changes ||
+				header->type == _distributed_message_objects_synchronized ||
+				(header->type == _distributed_message_inventories &&
+					!network_connection_last_read_was_unreliable() && !distributed_handling_batch);
+		}
+	}
+	return TRUE;
+}
+
+static void distributed_handle_message_in_epoch(
+	long machine_index,
+	word const *message,
+	word size,
+	unsigned int epoch);
+
+/* (a message whose epoch follows its header on the wire, with the epoch
+taken out: FALSE when it is too short to carry one) */
+static boolean distributed_strip_epoch(
+	word const *message,
+	word size,
+	word *stripped,
+	word *stripped_size,
+	unsigned int *epoch)
+{
+	word header_size = sizeof(struct distributed_message_header);
+	word epoch_size = network_distributed_wire_epoch_size();
+	word length;
+
+	if (size < header_size + epoch_size || size - epoch_size > MAXIMUM_MESSAGE_SIZE)
+		return FALSE;
+	csmemcpy(epoch, (byte const *)message + header_size, sizeof(*epoch));
+	csmemcpy(stripped, message, header_size);
+	csmemcpy((byte *)stripped + header_size, (byte const *)message + header_size + epoch_size,
+		size - header_size - epoch_size);
+	length = (word)(size - epoch_size);
+	*stripped_size = length;
+	/* (the message header's own size: the whole message, as distributed_fill_header writes it) */
+	build_message_header(stripped, length,
+		(byte)GET_MESSAGE_TYPE(*message), (byte)GET_MESSAGE_FLAGS(*message));
+	return TRUE;
+}
+
 /* a message of the distributed kind; machine_index is the sender's on the
 host, NONE on a client */
 void network_distributed_handle_message(
@@ -4112,24 +4543,45 @@ void network_distributed_handle_message(
 	word const *message,
 	word size)
 {
-	struct distributed_message_header header;
-	void const *entries = (byte const *)message + sizeof(header);
-	short index;
-	word entry_size;
+	word stripped[(MAXIMUM_MESSAGE_SIZE + sizeof(word)) / sizeof(word)];
+	word stripped_size;
+	unsigned int epoch = 0;
 
-	if (network_aim_assist_handles_message(message, size))
-	{
-		network_aim_assist_handle_message(machine_index, message, size);
-		return;
-	}
 	/* (map sharing's, in the lobby too, over the host's connection alone:
-	map_share.c) */
+	map_share.c; it carries no epoch) */
 	if (map_share_handles_message(message, size))
 	{
 		map_share_handle_message(machine_index, message, size, machine_index != NONE ?
 			distributed_handling_stream_message : !network_connection_last_read_was_unreliable());
 		return;
 	}
+	if (network_distributed_wire_epoch_size())
+	{
+		if (!distributed_strip_epoch(message, size, stripped, &stripped_size, &epoch))
+			return;
+		message = stripped;
+		size = stripped_size;
+	}
+	if (network_aim_assist_handles_message(message, size))
+	{
+		network_aim_assist_handle_message(machine_index, message, size);
+		return;
+	}
+	distributed_handle_message_in_epoch(machine_index, message, size, epoch);
+}
+
+static void distributed_handle_message_in_epoch(
+	long machine_index,
+	word const *message,
+	word size,
+	unsigned int epoch)
+{
+	struct distributed_message_header header;
+	void const *entries = (byte const *)message + sizeof(header);
+	short index;
+	word entry_size;
+	word epoch_size = network_distributed_wire_epoch_size();
+
 	/* (none between games: loading, or in the menus) */
 	if (size < sizeof(header) || !game_in_progress())
 		return;
@@ -4140,7 +4592,11 @@ void network_distributed_handle_message(
 			distributed_statistics.received++;
 		return;
 	}
-	/* a tick's messages in one: each as if it came alone */
+	/* a tick's messages in one: each as if it came alone. (Members go
+	straight here, past network_distributed_handle_message's map-share and
+	aim-assist routing: both of those are sent reliably on their own and are
+	never batched. A new batched kind that needs its own routing must be
+	routed below as well.) */
 	if (header.type == _distributed_message_batch)
 	{
 		word offset = sizeof(header);
@@ -4152,7 +4608,7 @@ void network_distributed_handle_message(
 
 			csmemcpy(&length, (byte const *)message + offset, sizeof(word));
 			offset += sizeof(word);
-			if (length > size - offset || length < sizeof(header) - sizeof(message_header) ||
+			if (length > size - offset || length < sizeof(header) - sizeof(message_header) + epoch_size ||
 				sizeof(message_header) + length > sizeof(buffer))
 			{
 				break;
@@ -4163,8 +4619,24 @@ void network_distributed_handle_message(
 			/* (no batch in a batch) */
 			if (((struct distributed_message_header const *)buffer)->type != _distributed_message_batch)
 			{
+				word sub_size = (word)(sizeof(message_header) + length);
+				unsigned int sub_epoch = 0;
+
+				/* (each message in it carries its own epoch, after its header) */
+				if (epoch_size)
+				{
+					word sub[(MAXIMUM_MESSAGE_SIZE + sizeof(word)) / sizeof(word)];
+					word sub_stripped;
+
+					if (!distributed_strip_epoch(buffer, sub_size, sub, &sub_stripped, &sub_epoch))
+						continue;
+					distributed_handling_batch = TRUE;
+					distributed_handle_message_in_epoch(machine_index, sub, sub_stripped, sub_epoch);
+					distributed_handling_batch = FALSE;
+					continue;
+				}
 				distributed_handling_batch = TRUE;
-				network_distributed_handle_message(machine_index, buffer, (word)(sizeof(message_header) + length));
+				distributed_handle_message_in_epoch(machine_index, buffer, sub_size, 0);
 				distributed_handling_batch = FALSE;
 			}
 		}
@@ -4195,6 +4667,7 @@ void network_distributed_handle_message(
 	case _distributed_message_player_inputs: entry_size = sizeof(struct distributed_player_input); break;
 	case _distributed_message_relayed_actions: entry_size = DISTRIBUTED_RELAYED_ACTION_MINIMUM_SIZE; break;
 	case _distributed_message_game_state:
+	case _distributed_message_checkpoint:
 	case _distributed_message_objects_synchronized:
 	case _distributed_message_notice:
 	case _distributed_message_client_ready: entry_size = 0; break;
@@ -4203,7 +4676,11 @@ void network_distributed_handle_message(
 	case _distributed_message_hit_reports: entry_size = network_damage_entry_size(header.type); break;
 	default: entry_size = network_objects_entry_size(header.type); break;
 	}
+	/* (92-95, which this port does not handle, are dropped as before 96 was
+	added; 96 only in a game whose headers carry an epoch) */
 	if (header.type == 0 || header.type >= NUMBER_OF_DISTRIBUTED_MESSAGES ||
+		(header.type > _distributed_message_shield_policy && header.type < _distributed_message_checkpoint) ||
+		(header.type == _distributed_message_checkpoint && !epoch_size) ||
 		size < sizeof(header) + header.count * entry_size)
 	{
 		return;
@@ -4225,6 +4702,10 @@ void network_distributed_handle_message(
 	default:
 		break;
 	}
+	/* port: network version 42 and later: the message's world (its checkpoint
+	epoch); the checkpoint itself is taken here */
+	if (epoch_size && !distributed_message_epoch_valid(machine_index, &header, epoch, size))
+		return;
 	distributed_statistics.received++;
 
 	/* (each kind from the host, or from a client) */
@@ -4247,6 +4728,10 @@ void network_distributed_handle_message(
 		{
 			return;
 		}
+		/* port: network version 42 and later: a ready may name an earlier
+		world, so it says nothing of this one's clock */
+		if (epoch_size && header.type == _distributed_message_client_ready)
+			break;
 		/* port: ... and a datagram stamped more than a stamp window from the
 		latest tick taken of the machine is dropped; over its stream any is
 		taken */
@@ -4292,7 +4777,7 @@ void network_distributed_handle_message(
 	}
 	/* (the host: a client's clock, by its messages' ticks; and its players'
 	predictions not taken while its game runs fast) */
-	if (machine_index != NONE)
+	if (machine_index != NONE && !(epoch_size && header.type == _distributed_message_client_ready))
 	{
 		distributed_note_client_clock(machine_index, header.game_time);
 		if ((header.type == _distributed_message_player_prediction ||

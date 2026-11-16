@@ -130,12 +130,14 @@ struct network_game_client { int unused; };
 struct message_server_game_settings_update {
     word total_size, offset, length; byte data[HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE];
 };
-static struct network_game network_game_client_settings_staging;
+static struct { struct network_game game; byte digests[HALO_NETWORK_SETTINGS_DIGESTS_SIZE]; } network_game_client_settings_staging;
 static long network_game_client_settings_staging_size;
 static unsigned host_version = 38;
-static int applied;
+static int applied, refused;
 static struct network_game result;
 static unsigned network_game_host_version(void) { return host_version; }
+static char const *refusal;
+static void network_game_client_refuse_join(char const *reason) { refusal = reason; refused++; }
 static boolean network_game_client_game_settings_updated(struct network_game_client *c, struct network_game *g) {
     (void)c; result = *g; applied++; return TRUE;
 }
@@ -161,6 +163,47 @@ int main(void) {
         assert(!network_game_client_receive_game_settings_piece(0, &piece));
         piece.offset = 0; piece.length = 3585;
         assert(!network_game_client_receive_game_settings_piece(0, &piece));
+    }
+    /* 42 and 43 add two zero 32-byte map digests after the record; a nonzero
+    digest names an MCC map */
+    for (unsigned v = 42; v <= 43; v++) {
+        host_version = v;
+        unsigned total = 13136 + 64;
+        for (int mcc = 0; mcc <= 1; mcc++) {
+            applied = 0; refused = 0;
+            for (unsigned offset = 0; offset < total; offset += 3584) {
+                piece.total_size = total; piece.offset = offset;
+                piece.length = total - offset < 3584 ? total - offset : 3584;
+                memset(piece.data, 0xA5, sizeof(piece.data));
+                if (offset + piece.length > 13136)
+                    memset(piece.data + (offset > 13136 ? 0 : 13136 - offset), 0, piece.length - (offset > 13136 ? 0 : 13136 - offset));
+                if (mcc && offset + piece.length == total)
+                    piece.data[piece.length - 1] = 1;
+                boolean ok = network_game_client_receive_game_settings_piece(0, &piece);
+                assert(ok == !(mcc && offset + piece.length == total));
+            }
+            assert(applied == !mcc && refused == mcc);
+            if (mcc) assert(strstr(refusal, "MCC"));
+            if (!mcc) assert(result.raw[13135] == 0xA5);
+        }
+        piece.offset = 0; piece.length = 1; piece.total_size = 13136;
+        assert(!network_game_client_receive_game_settings_piece(0, &piece));
+    }
+    /* 43 hosts carry vehicle riding in bit 6 of the universal flags (record
+    offset 196); 42 has no such bit and applies the same record */
+    for (unsigned v = 42; v <= 43; v++) {
+        host_version = v; applied = 0; refused = 0; refusal = 0;
+        unsigned total = 13136 + 64;
+        for (unsigned offset = 0; offset < total; offset += 3584) {
+            piece.total_size = total; piece.offset = offset;
+            piece.length = total - offset < 3584 ? total - offset : 3584;
+            memset(piece.data, 0, sizeof(piece.data));
+            if (offset == 0) piece.data[196] = 0x43;
+            boolean ok = network_game_client_receive_game_settings_piece(0, &piece);
+            assert(ok == !(v == 43 && offset + piece.length == total));
+        }
+        assert(applied == (v == 42) && refused == (v == 43));
+        if (v == 43) assert(strstr(refusal, "vehicle riding"));
     }
     return 0;
 }
@@ -208,6 +251,7 @@ static void cache_files_show_multiplayer_unavailable(const char *s, const char *
 static void main_set_multiplayer_map_name(const char *s) { (void)s; }
 static void platform_show_message(const char *title, const char *message) { (void)title; told++; reason = message; }
 static void display_error_when_main_menu_loaded(int e) { generic = e; }
+static void network_game_client_refuse_join(const char *r) { platform_show_message("VISR: cannot join this game", r); display_error_when_main_menu_loaded(_error_network_failed_to_join_game); }
 ''' + handler + r'''
 int main(void) {
     struct network_game_client client = {0};
@@ -312,3 +356,83 @@ int main(void) {
 }
 '''
     compile_run(tmp_path, program.replace("CONTENT_HEADER", str(ROOT / "port/linux/include/halo_network_content.h")))
+
+
+def test_hosted_settings_clear_the_riding_bit_for_43(tmp_path):
+    text = (ROOT / "source/networking/network_server_message_handler.c").read_text()
+    total = definition_text(text[text.index("static long network_game_server_settings_total_size("):])
+    fill = definition_text(text[text.index("static void network_game_server_fill_settings_piece("):])
+    program = r'''
+#include <assert.h>
+#include <stdint.h>
+#include <string.h>
+#include "LIMITS_HEADER"
+#include "CONTENT_HEADER"
+#include "VERSION_HEADER"
+typedef unsigned char byte;
+typedef unsigned short word;
+#define csmemcpy memcpy
+#define csmemset memset
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+struct message_server_game_settings_update {
+    word total_size, offset, length, pad; byte data[HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE];
+};
+static unsigned host_version;
+static unsigned network_game_host_version(void) { return host_version; }
+''' + total + "\n" + fill + r'''
+int main(void) {
+    static byte game[HALO_PORT_NETWORK_GAME_SIZE];
+    struct message_server_game_settings_update piece;
+    memset(game, 0, sizeof(game));
+    game[HALO_NETWORK_SETTINGS_RIDING_OFFSET] = 0x43;
+    for (unsigned v = 38; v <= 43; v++) {
+        host_version = v;
+        long size = network_game_server_settings_total_size(sizeof(game));
+        network_game_server_fill_settings_piece(&piece, game, sizeof(game), size, 0);
+        /* only 43 clears bit 6, and only that bit; the host's own record keeps it */
+        assert(piece.data[HALO_NETWORK_SETTINGS_RIDING_OFFSET] == (v == 43 ? 0x03 : 0x43));
+        assert(game[HALO_NETWORK_SETTINGS_RIDING_OFFSET] == 0x43);
+        /* a later piece never touches its own byte 196 */
+        game[HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE + HALO_NETWORK_SETTINGS_RIDING_OFFSET] = 0x40;
+        network_game_server_fill_settings_piece(&piece, game, sizeof(game), size, HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE);
+        assert(piece.data[HALO_NETWORK_SETTINGS_RIDING_OFFSET] == 0x40);
+    }
+    return 0;
+}
+'''
+    compile_run(tmp_path, program.replace("LIMITS_HEADER", str(ROOT / "port/linux/include/halo_port_limits.h")).replace(
+        "CONTENT_HEADER", str(ROOT / "port/linux/include/halo_network_content.h")).replace(
+        "VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")))
+
+
+def test_hosted_version_is_this_builds_own_unless_43_is_configured(tmp_path):
+    """A VISR host speaks 38 unless `network.host_version` is exactly 43; no other value, including a
+    joinable 39-41, changes what it hosts. Creating a server applies it and disposing it resets to 38."""
+    text = (ROOT / "source/networking/network_server_manager.c").read_text()
+    configured = definition_text(text[text.index("static unsigned int network_game_server_configured_version("):])
+    program = r'''
+#include <assert.h>
+#include "LIMITS_HEADER"
+#include "VERSION_HEADER"
+static long configured;
+static long config_integer(char const *name) { (void)name; return configured; }
+''' + configured + r'''
+int main(void) {
+    long values[] = { 0, -1, 29, 38, 39, 40, 41, 42, 44, 300, 43 + 256 };
+    for (unsigned i = 0; i < sizeof(values) / sizeof(values[0]); i++) {
+        configured = values[i];
+        assert(network_game_server_configured_version() == HALO_PORT_NETWORK_VERSION);
+    }
+    configured = 43;
+    assert(network_game_server_configured_version() == HALO_NETWORK_VERSION_RIDING);
+    return 0;
+}
+'''
+    compile_run(tmp_path, program.replace("LIMITS_HEADER", str(ROOT / "port/linux/include/halo_port_limits.h")).replace(
+        "VERSION_HEADER", str(ROOT / "port/linux/include/halo_network_version.h")))
+    create = definition_text(text[text.index("struct network_game_server *network_game_server_create("):])
+    assert "network_game_set_host_version(network_game_server_configured_version());" in create
+    assert "delta_legacy_set_hosted_version(network_game_server_configured_version());" in create
+    dispose = definition_text(text[text.index("void network_game_server_dispose("):])
+    assert "network_game_set_host_version(HALO_PORT_NETWORK_VERSION);" in dispose
+    assert "delta_legacy_set_hosted_version(0);" in dispose

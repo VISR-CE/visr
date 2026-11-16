@@ -26,7 +26,7 @@ def test_shield_policy_requires_host_stream_and_sends_stock_on_readiness(tmp_pat
     structures += block(header, "struct distributed_shield_policy_message\n{").replace(
         "unsigned long selector;", "uint32_t selector;") + ";\n"
     send = block(source, "static void distributed_send_shield_policy(")
-    fill = block(source, "static void distributed_fill_header(")
+    fill = block(source, "static boolean distributed_fill_header(")
     reliable_send = block(source, "void distributed_send_to_machine_reliably(")
     build = block((ROOT / "source/bungie_net/common/message_header.c").read_text(),
                   "void build_message_header(")
@@ -62,6 +62,14 @@ static int main_menu_is_active(void) { return menu; }
 static int network_connection_last_read_was_unreliable(void) { return unreliable; }
 static unsigned network_game_host_version(void) { return host_version; }
 static long game_time_get(void) { return 209; }
+static int distributed_checkpoint_synchronized = 1;
+static int network_distributed_wire_epoch_size(void) { return 0; }
+static word network_distributed_wire_copy(void *wire, word capacity, void const *message, word size)
+{
+    assert(size <= capacity);
+    memcpy(wire, message, size);
+    return size;
+}
 static struct { unsigned sent; } distributed_statistics;
 ''' + structures + r'''
 static byte sent[12];

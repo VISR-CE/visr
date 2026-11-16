@@ -400,9 +400,16 @@ static void text_input_update(void);
 /* while a share or audio output sheet is up the player's presses and
 movements are the sheet's, not the game's: the game gets the releases alone,
 so nothing stays held */
+#if !TARGET_OS_TV && !TARGET_OS_VISION && !HALO_NATIVE_MAC
+int host_menu_text_active(void);
+#endif
 static int held_back(const SDL_Event *event)
 {
-	if (!host_window_up() && !host_audio_output_up())
+	int text_prompt = 0;
+#if !TARGET_OS_TV && !TARGET_OS_VISION && !HALO_NATIVE_MAC
+	text_prompt = host_menu_text_active();
+#endif
+	if (!text_prompt && !host_window_up() && !host_audio_output_up())
 		return 0;
 	switch (event->type)
 	{
@@ -1083,13 +1090,24 @@ up, so the field is asked for with tvOS's own dialog (host_tv.m), whose text
 the guest takes whole (host_sdl_text_result). Either is begun in
 host_sdl_poll_event, on the main thread, which UIKit needs. */
 
+#if !TARGET_OS_TV && !TARGET_OS_VISION && !HALO_NATIVE_MAC
+int host_menu_text_prompt(int on, const char *title, const char *text, int masked);
+int host_menu_text_result(char *buffer, uint32_t size);
+#endif
 static int text_input_wanted, text_input_on, text_input_masked;
+#if !TARGET_OS_TV
+static int text_input_touch;
+static unsigned int text_input_revision, text_input_applied;
+#endif
 static char text_input_title[64], text_input_text[512];
 
 void host_sdl_text_input(int on, const char *title, const char *text, int masked)
 {
 	if (on)
 	{
+#if !TARGET_OS_TV
+		text_input_revision++;
+#endif
 		SDL_strlcpy(text_input_title, title ? title : "", sizeof(text_input_title));
 		SDL_strlcpy(text_input_text, text ? text : "", sizeof(text_input_text));
 		text_input_masked = masked != 0;
@@ -1156,6 +1174,16 @@ static void menu_pointer_event(const SDL_Event *event)
 	static float wheel;
 	SDL_Window *window;
 	int width = 0, height = 0;
+
+	/* Software keyboard keys must not change the last physical input. */
+	if (event->type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
+		(event->type == SDL_EVENT_GAMEPAD_AXIS_MOTION && abs(event->gaxis.value) > 16000))
+		menu_pointer.touch = 0;
+	if (event->type == SDL_EVENT_KEY_DOWN)
+	{
+		int host_menu_keyboard(void);
+		if (host_menu_keyboard()) menu_pointer.touch = 0;
+	}
 
 #if TARGET_OS_VISION
 	/* the Vision Pro's menus are on a surface in the room, not in the window a mouse moves in; a look and pinch
@@ -1470,6 +1498,16 @@ static void menu_script_run(void)
 	menu_script_next();
 }
 
+int host_menu_touch(void)
+{
+#if !TARGET_OS_TV && !TARGET_OS_VISION && !HALO_NATIVE_MAC
+	int host_menu_keyboard(void);
+	return host_menu_pointer_auto_keyboard(&menu_pointer, host_menu_keyboard());
+#else
+	return 0;
+#endif
+}
+
 void host_ui_pointer_read(struct host_ui_pointer *pointer)
 {
 	memset(pointer, 0, sizeof(*pointer));
@@ -1490,6 +1528,8 @@ int host_sdl_text_result(char *buffer, uint32_t size)
 {
 #if TARGET_OS_TV
 	return host_tv_text_result(buffer, size);
+#elif !TARGET_OS_VISION && !HALO_NATIVE_MAC
+	return text_input_touch ? host_menu_text_result(buffer, size) : 0;
 #else
 	(void)buffer;
 	(void)size;
@@ -1504,12 +1544,33 @@ static void text_input_update(void)
 #if TARGET_OS_TV
 	host_tv_text_prompt_tick();
 #endif
-	if (text_input_wanted == text_input_on || !(window = host_sdl_window()))
-		return;
+	if (!(window = host_sdl_window())) return;
+#if !TARGET_OS_TV
+	if (text_input_applied != text_input_revision)
+	{
+#if !TARGET_OS_VISION && !HALO_NATIVE_MAC
+		if (text_input_touch) host_menu_text_prompt(0, NULL, NULL, 0);
+#endif
+		if (text_input_on && !text_input_touch) SDL_StopTextInput(window);
+		text_input_on = 0;
+		text_input_applied = text_input_revision;
+	}
+#endif
+	if (text_input_wanted == text_input_on) return;
 #if TARGET_OS_TV
 	if (host_tv_text_prompt(text_input_wanted, text_input_title, text_input_text, text_input_masked))
 		text_input_on = text_input_wanted;
 #else
+#if !TARGET_OS_VISION && !HALO_NATIVE_MAC
+	if (text_input_wanted && !text_input_on)
+		text_input_touch = host_menu_touch();
+	if (text_input_touch)
+	{
+		if (host_menu_text_prompt(text_input_wanted, text_input_title, text_input_text, text_input_masked))
+			text_input_on = text_input_wanted;
+		return;
+	}
+#endif
 	text_input_on = text_input_wanted;
 	if (text_input_on)
 	{

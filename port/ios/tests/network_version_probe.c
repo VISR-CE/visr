@@ -16,11 +16,12 @@ int main(void)
 
 		assert(halo_network_version_joinable(32, version) == expected);
 	}
-	/* a build of 38 joins hosts of 29 to 32, 34 to 36, 38 to 41, and no others
-	   (no host of 33 or 37 was released to join) */
+	/* a build of 38 joins hosts of 29 to 32, 34 to 36, 38 to 41 and 43, and no others
+	   (no host of 33, 37 or 42 was released to join) */
 	for (version = 0; version < 0x10000; version++)
 		assert(halo_network_version_joinable(38, version) ==
-			((version >= 29 && version <= 32) || (version >= 34 && version <= 36) || (version >= 38 && version <= 41)));
+			((version >= 29 && version <= 32) || (version >= 34 && version <= 36) || (version >= 38 && version <= 41) ||
+				version == 43));
 	/* Other clients still refuse newer hosts. */
 	for (unsigned ours = 0; ours <= 41; ours++)
 		for (version = ours + 1; version <= 42; version++)
@@ -52,6 +53,32 @@ int main(void)
 		assert(halo_network_version_has_game_kind(version) == (version >= 37));
 		assert(halo_network_version_has_dedicated(version) == (version >= 39));
 	}
+	/* the shared contract from 42, riding from 43 */
+	for (version = 0; version < 0x10000; version++)
+	{
+		int contract = version >= 42;
+
+		assert(halo_network_version_has_join_version_field(version) == contract);
+		assert(halo_network_version_has_settings_digests(version) == contract);
+		assert(halo_network_version_has_checkpoint_epoch(version) == contract);
+		assert(halo_network_version_has_scripted_poses(version) == contract);
+		assert(halo_network_version_has_shared_sim_fixes(version) == contract);
+		assert(halo_network_version_has_riding(version) == (version >= 43));
+	}
+	/* a version joinable only through a signed row speaks the 41 codec; 43 keeps the shared contract */
+	for (version = 0; version < 0x10000; version++)
+	{
+		unsigned contract = halo_network_version_wire_contract(version);
+
+		assert(contract == (version > 41 && version != 43 ? 41u : version));
+		if (version > 41 && version != 43)
+			assert(halo_network_version_has_join_pass_field(contract) &&
+				!halo_network_version_has_join_version_field(contract) &&
+				!halo_network_version_has_checkpoint_epoch(contract) &&
+				!halo_network_version_has_scripted_poses(contract) &&
+				!halo_network_version_has_shared_sim_fixes(contract));
+	}
+	assert(halo_network_version_has_join_version_field(halo_network_version_wire_contract(43)));
 	/* a stamp within 450 ticks of the latest either way is taken */
 	assert(halo_network_stamp_in_window(1000, 1000) && halo_network_stamp_in_window(1000, 1450));
 	assert(halo_network_stamp_in_window(1000, 550));

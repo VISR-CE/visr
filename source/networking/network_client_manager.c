@@ -396,6 +396,7 @@ symbols in this file:
 void platform_show_message(char const *title, char const *message);
 #include "halo_network_version.h" /* port: port/linux/include/halo_network_version.h */
 #include "halo_delta.h" /* port: Delta advertisement metadata */
+#include "../../port/linux/src/input_replay.h" /* port: recordings keep the original simulation */
 #include "halo_delta_peer.h" /* port: optional handshake beside the game */
 #include "halo_network_join_wire.h" /* port: join padding and refusals */
 #include "halo_network_content.h" /* port: game-kind refusal */
@@ -686,6 +687,9 @@ typedef char network_game_player_count_offset_assert[
 	offsetof(struct network_game, player_count) == HALO_PORT_NETWORK_GAME_PLAYER_COUNT_OFFSET ? 1 : -1];
 typedef char network_game_players_offset_assert[
 	offsetof(struct network_game, players) == HALO_PORT_NETWORK_GAME_PLAYERS_OFFSET ? 1 : -1];
+/* the 43 riding switch: halo_network_settings_riding_reason reads this byte */
+typedef char network_game_universal_flags_offset_assert[
+	offsetof(struct network_game, variant.universal_variant.flags) == HALO_NETWORK_SETTINGS_RIDING_OFFSET ? 1 : -1];
 typedef char network_advertised_game_update_time_offset_assert[
 	offsetof(struct network_advertised_game, update_time) == 0x2C ? 1 : -1];
 typedef char network_advertised_game_size_assert2[
@@ -834,6 +838,22 @@ unsigned int network_game_host_version(
 	void)
 {
 	return network_game_client_host_version;
+}
+
+void network_game_set_host_version(
+	unsigned int version)
+{
+	network_game_client_host_version = version;
+}
+
+boolean network_game_shared_sim_fixes(
+	void)
+{
+	short connection = game_connection();
+
+	return !input_replay_playing() &&
+		(connection == _game_connection_network_client || connection == _game_connection_network_server) &&
+		halo_network_version_has_shared_sim_fixes(network_game_host_version());
 }
 
 struct network_game_client network_game_client_dont_use_directly;
@@ -1302,6 +1322,15 @@ boolean network_game_client_idle(
 	return success;
 }
 
+/* port: tell the player why the game cannot be joined; the caller then
+fails the join */
+void network_game_client_refuse_join(
+	char const *reason)
+{
+	platform_show_message("VISR: cannot join this game", reason);
+	display_error_when_main_menu_loaded(_error_network_failed_to_join_game);
+}
+
 boolean network_game_client_game_settings_updated(
 	struct network_game_client *client,
 	struct network_game *message_packet)
@@ -1332,8 +1361,7 @@ boolean network_game_client_game_settings_updated(
 			unsupported = "This game uses a gametype that VISR does not support.";
 		if (unsupported)
 		{
-			platform_show_message("VISR: cannot join this game", unsupported);
-			display_error_when_main_menu_loaded(_error_network_failed_to_join_game);
+			network_game_client_refuse_join(unsupported);
 			return FALSE;
 		}
 
@@ -2132,12 +2160,14 @@ boolean network_game_client_initiate_join_game(
 	client->join_in_progress = TRUE;
 	client->connect_process = 0;
 	client->connection_attempt_time = system_milliseconds();
-	/* port: the host's version, for what it sends and takes */
+	/* port: the contract of the host's version, for what it sends and takes; a
+	version joinable only through a signed row speaks the 41 codec */
 	{
 		long game_index = game - client->available_games;
 
 		network_game_client_host_version = game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES ?
-			network_game_client_advertised_versions[game_index].version : HALO_PORT_NETWORK_VERSION;
+			halo_network_version_wire_contract(network_game_client_advertised_versions[game_index].version) :
+			HALO_PORT_NETWORK_VERSION;
 		/* port: Delta starts only after this legacy join supplies a machine index. */
 		delta_peer_game_join(address->address.long_words[0], address->port,
 			game_index >= 0 && game_index < MAXIMUM_NETWORK_ADVERTISED_GAMES &&
@@ -2995,7 +3025,8 @@ static boolean network_game_client_idle_joining(
 					_message_client_join_game_request,
 					&join_game_request,
 					sizeof(join_game_request),
-					halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0);
+					halo_network_version_has_join_pass_field(network_game_host_version()) ? HALO_NETWORK_JOIN_PASS_FIELD_SIZE : 0,
+					halo_network_version_has_join_version_field(network_game_host_version()) ? network_game_host_version() : 0);
 				if (message)
 				{
 					/* (read before the write, which byte-swaps the header in place) */
@@ -3303,7 +3334,7 @@ boolean network_game_client_advertised_game_compatible(
 		}
 		if (tell)
 			network_event("joining a host of network version %u%s", theirs,
-				delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
+				theirs != HALO_NETWORK_VERSION_RIDING && delta_legacy_presumed(theirs) ? " (presumed additive)" : "");
 		return TRUE;
 	}
 	if (halo_network_version_joinable(ours, theirs))

@@ -81,6 +81,17 @@ char *SDL_GetClipboardText(void)
 
 /* ---------- the system's keyboard (a menu's text field, xinput_sdl.c) */
 
+int platform_text_auto_open(void)
+{
+	const char *tv = getenv("HALO_HOST_TVOS");
+	return (tv && !strcmp(tv, "1")) || host_menu_touch() || host_menu_keyboard();
+}
+
+int platform_text_touch(void)
+{
+	return host_menu_touch();
+}
+
 void halo_host_text_input(int on, const char *title, const char *text, int masked)
 {
 	host_sdl_text_input(on, title, text, masked);

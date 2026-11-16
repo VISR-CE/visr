@@ -207,3 +207,10 @@ void posix_delta_legacy_row(unsigned int minimum, unsigned int announce, unsigne
 	delta_legacy_runtime_set(&row);
 	host_bonjour_announce_version((unsigned short)delta_legacy_announce_version());
 }
+
+void posix_delta_legacy_hosted_version(unsigned int version)
+{
+	/* delta_legacy_set_hosted_version has stored it; only re-announce */
+	(void)version;
+	host_bonjour_announce_version((unsigned short)delta_legacy_announce_version());
+}
