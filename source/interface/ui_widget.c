@@ -667,6 +667,7 @@ struct widget_instance;
 /* port: the menus' redraw (port/linux/src/ui_redraw.c) */
 void ui_redraw_begin_screen(char const *tag_name);
 void ui_redraw_end_screen(void);
+void halo_screen_menu_window(int active);
 #include "menu_scale.h" /* port: shared content bounds and padding */
 void halo_screen_menu_content(float top, float bottom);
 static void ui_widget_menu_content(struct widget_instance *widget);
@@ -7243,19 +7244,26 @@ static void ui_hold_popup_draw(
 
 	if (ui_popup_anchor_is_item)
 	{
-		/* the rest of the screen dims around the lifted item */
-		part = *clip;
+		/* the rest of the screen dims around the lifted item: the whole screen, past the
+		menu clip into the backdrop margins and safe-area insets (draw_quad does not clip) */
+		rectangle2d screen = *clip;
+
+		screen.x0 = (short)(clip->x0 - 4000);
+		screen.y0 = (short)(clip->y0 - 4000);
+		screen.x1 = (short)(clip->x1 + 4000);
+		screen.y1 = (short)(clip->y1 + 4000);
+		part = screen;
 		part.y1 = anchor.y0;
 		draw_quad(&part, 0x99000000);
 		part.y0 = anchor.y1;
-		part.y1 = clip->y1;
+		part.y1 = screen.y1;
 		draw_quad(&part, 0x99000000);
 		part.y0 = anchor.y0;
 		part.y1 = anchor.y1;
 		part.x1 = anchor.x0;
 		draw_quad(&part, 0x99000000);
 		part.x0 = anchor.x1;
-		part.x1 = clip->x1;
+		part.x1 = screen.x1;
 		draw_quad(&part, 0x99000000);
 		/* its shadow, then a soft glow ring around it */
 		part.x0 = (short)(anchor.x0 + 4);
@@ -8941,8 +8949,14 @@ void render_ui_widgets(
 					TRUE,
 					FALSE);
 				ui_redraw_end_screen();
+				/* the popup draws in the menu window's space, like the rows it lifts and their
+				tap targets, so its glow sits on the drawn row where the safe-area zoom applies */
 				if (ui_mouse_noting_targets)
+				{
+					halo_screen_menu_window(1);
 					ui_hold_popup_draw(&bounds);
+					halo_screen_menu_window(0);
+				}
 				if (ui_mouse_noting_targets)
 					ui_touch_back_chevron_draw(widget, &bounds);
 				if (ui_mouse_noting_targets)
