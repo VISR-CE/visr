@@ -6178,11 +6178,12 @@ static boolean ui_touch_back_generic = FALSE;
 static rectangle2d ui_touch_title_icon;
 
 /* port: the secondary action (X) of the screen's items. The screen's X legend button and its caption
-(DELETE, RENAME) are noted as it draws; a press-and-hold on touch, or a right-click, opens a one-entry
-context menu labeled with that caption, which presses X. A destructive caption is drawn red. */
+(DELETE, RENAME) are noted as it draws; a press-and-hold on touch, or a right-click, opens a context
+menu attached to the item: a panel with the item's name and one row per action, the row pressing X.
+A destructive row is drawn in the HUD's red-orange with a trash glyph. */
 #define UI_HOLD_GROW_START_MS 150
 #define UI_HOLD_OPEN_MS 500
-#define UI_HOLD_SCALE 1.06f
+#define UI_HOLD_SCALE 1.05f
 static boolean ui_touch_x_seen = FALSE;
 static boolean ui_touch_x_destructive = FALSE;
 /* the widget whose X handler deletes a gametype; its first child is the list of profile indices */
@@ -6209,7 +6210,17 @@ static boolean ui_hold_drawn_valid = FALSE;
 static boolean ui_popup_open = FALSE;
 static rectangle2d ui_popup_anchor;
 static boolean ui_popup_anchor_is_item = FALSE;
-static rectangle2d ui_popup_entry;
+#define UI_POPUP_MAXIMUM_ROWS 4
+#define UI_POPUP_ROW_HEIGHT 54
+/* the menu's rows as last drawn, the row under the finger or pointer, and the panel */
+static rectangle2d ui_popup_rows[UI_POPUP_MAXIMUM_ROWS];
+static short ui_popup_row_count = 0;
+static short ui_popup_highlight = -1;
+static rectangle2d ui_popup_panel;
+static boolean ui_popup_panel_valid = FALSE;
+static boolean ui_popup_prev_down = FALSE;
+/* the item the menu belongs to, for its name */
+static struct widget_instance *ui_popup_widget = NULL;
 
 /* The presses the mouse makes, posted one a frame: the event queue keeps
 only the latest event posted between two frames (queue_event). What they
@@ -6246,6 +6257,10 @@ static void ui_mouse_forget_targets(
 	ui_hold_swallow = FALSE;
 	ui_popup_open = FALSE;
 	ui_popup_pending = 0;
+	ui_popup_row_count = 0;
+	ui_popup_highlight = -1;
+	ui_popup_panel_valid = FALSE;
+	ui_popup_widget = NULL;
 
 	return;
 }
@@ -6958,7 +6973,7 @@ static void ui_touch_back_chevron_draw(
 }
 
 /* port: the press-and-hold feedback and the context menu, drawn over the screen: the held item's outline
-grows to 1.06x between 0.15 s and 0.5 s; the menu, a dim backdrop and one entry, holds it at 1.06x */
+grows to 1.05x between 0.15 s and 0.5 s; the menu, attached to the item, holds it at 1.05x */
 /* how far the held item has grown, 0 to 1: it starts once the item has taken focus
 and kept a secondary action, eases in, stays full while its menu is open, and eases
 back out when the finger lifts early */
@@ -7027,82 +7042,340 @@ static void ui_hold_grow_card(
 	return;
 }
 
-/* port: the held item's context menu: a small panel sized to its caption, anchored
-just below the item's drawn card (above it when there is no room), like a Home
-Screen icon's menu */
+/* port: the first nonempty text in a widget's tree, the item's name for its context menu */
+static wchar_t const *ui_popup_widget_name(
+	struct widget_instance *widget,
+	short depth)
+{
+	struct widget_instance *child;
+
+	if (!widget || depth > 4)
+		return NULL;
+	if (widget->type == _ui_widget_type_text_box && widget->parameters.text_box.text &&
+		widget->parameters.text_box.text[0])
+		return widget->parameters.text_box.text;
+	for (child = widget->child; child; child = child->next)
+	{
+		wchar_t const *name = ui_popup_widget_name(child, (short)(depth + 1));
+
+		if (name)
+			return name;
+	}
+
+	return NULL;
+}
+
+/* a rectangle with corners cut two units in, filled without overlapping bands so a
+translucent color stays even */
+static void ui_popup_rounded_fill(
+	rectangle2d const *box,
+	unsigned long color)
+{
+	rectangle2d band;
+
+	band = *box;
+	band.x0 = (short)(box->x0 + 2);
+	band.x1 = (short)(box->x1 - 2);
+	band.y1 = (short)(box->y0 + 1);
+	draw_quad(&band, color);
+	band.x0 = (short)(box->x0 + 1);
+	band.x1 = (short)(box->x1 - 1);
+	band.y0 = (short)(box->y0 + 1);
+	band.y1 = (short)(box->y0 + 2);
+	draw_quad(&band, color);
+	band = *box;
+	band.y0 = (short)(box->y0 + 2);
+	band.y1 = (short)(box->y1 - 2);
+	draw_quad(&band, color);
+	band.x0 = (short)(box->x0 + 1);
+	band.x1 = (short)(box->x1 - 1);
+	band.y0 = (short)(box->y1 - 2);
+	band.y1 = (short)(box->y1 - 1);
+	draw_quad(&band, color);
+	band.x0 = (short)(box->x0 + 2);
+	band.x1 = (short)(box->x1 - 2);
+	band.y0 = (short)(box->y1 - 1);
+	band.y1 = box->y1;
+	draw_quad(&band, color);
+}
+
+/* a one-unit outline matching ui_popup_rounded_fill's cut corners */
+static void ui_popup_rounded_outline(
+	rectangle2d const *box,
+	unsigned long color)
+{
+	rectangle2d line;
+
+	line.x0 = (short)(box->x0 + 2);
+	line.x1 = (short)(box->x1 - 2);
+	line.y0 = box->y0;
+	line.y1 = (short)(box->y0 + 1);
+	draw_quad(&line, color);
+	line.y0 = (short)(box->y1 - 1);
+	line.y1 = box->y1;
+	draw_quad(&line, color);
+	line.x0 = box->x0;
+	line.x1 = (short)(box->x0 + 1);
+	line.y0 = (short)(box->y0 + 2);
+	line.y1 = (short)(box->y1 - 2);
+	draw_quad(&line, color);
+	line.x0 = (short)(box->x1 - 1);
+	line.x1 = box->x1;
+	draw_quad(&line, color);
+	line.x0 = (short)(box->x0 + 1);
+	line.x1 = (short)(box->x0 + 2);
+	line.y0 = (short)(box->y0 + 1);
+	line.y1 = (short)(box->y0 + 2);
+	draw_quad(&line, color);
+	line.y0 = (short)(box->y1 - 2);
+	line.y1 = (short)(box->y1 - 1);
+	draw_quad(&line, color);
+	line.x0 = (short)(box->x1 - 2);
+	line.x1 = (short)(box->x1 - 1);
+	draw_quad(&line, color);
+	line.y0 = (short)(box->y0 + 1);
+	line.y1 = (short)(box->y0 + 2);
+	draw_quad(&line, color);
+}
+
+/* a thin trash can, its top-left corner at (x, y), 14 by 16 units */
+static void ui_popup_trash_glyph(
+	short x,
+	short y,
+	unsigned long color)
+{
+	rectangle2d part;
+
+	/* handle, lid, body sides, bottom and two inner ribs */
+	part.x0 = (short)(x + 5); part.x1 = (short)(x + 9); part.y0 = y; part.y1 = (short)(y + 1);
+	draw_quad(&part, color);
+	part.x0 = x; part.x1 = (short)(x + 14); part.y0 = (short)(y + 2); part.y1 = (short)(y + 3);
+	draw_quad(&part, color);
+	part.x0 = (short)(x + 2); part.x1 = (short)(x + 3); part.y0 = (short)(y + 4); part.y1 = (short)(y + 16);
+	draw_quad(&part, color);
+	part.x0 = (short)(x + 11); part.x1 = (short)(x + 12);
+	draw_quad(&part, color);
+	part.x0 = (short)(x + 2); part.x1 = (short)(x + 12); part.y0 = (short)(y + 15); part.y1 = (short)(y + 16);
+	draw_quad(&part, color);
+	part.x0 = (short)(x + 5); part.x1 = (short)(x + 6); part.y0 = (short)(y + 6); part.y1 = (short)(y + 13);
+	draw_quad(&part, color);
+	part.x0 = (short)(x + 8); part.x1 = (short)(x + 9);
+	draw_quad(&part, color);
+}
+
+/* port: the held item's context menu, like a held Home Screen icon's: the rest of the
+screen dims, the lifted item gets a glow and a shadow, and a panel attached to it (below,
+or above when there is no room, with a notch pointing at the item) carries the item's
+name and one full-width row per action. A destructive row is red-orange with a trash
+glyph. A right-click opens the same panel at the pointer. */
 static void ui_hold_popup_draw(
 	rectangle2d const *clip)
 {
-	rectangle2d anchor, box, line;
+	unsigned long const hud_blue = 0xff2996ff;
+	unsigned long const destructive_color = 0xffff5a1e;
+	rectangle2d anchor, panel, part, row;
 	real_argb_color color = {1.0f, 1.0f, 1.0f, 1.0f};
-	wchar_t caption[sizeof(ui_touch_x_caption)];
+	wchar_t const *name;
+	char name_text[32];
 	long font_index;
-	short width, height, text_width, length;
-	short gap = 4;
-	short bottom = 472;
+	short width, height, header, row_index, length;
+	short gap = 10;
+	short top, bottom = 472;
+	short safe_left, notch_x;
+	boolean below = TRUE;
 
 	(void)ui_hold_progress();
 	if (!ui_popup_open)
+	{
+		ui_popup_row_count = 0;
+		ui_popup_panel_valid = FALSE;
 		return;
-	for (length = 0; length < (short)(sizeof(caption) / sizeof(caption[0])) - 1 && ui_touch_x_caption[length]; length++)
-		caption[length] = (wchar_t)(unsigned char)ui_touch_x_caption[length];
-	caption[length] = 0;
+	}
 	font_index = tag_loaded(FONT_GROUP_TAG, "ui\\small_ui");
-	text_width = ui_widget_port_font_text_width(font_index, caption);
-	if (text_width <= 0)
-		text_width = (short)(8 * length);
-	width = (short)(text_width + 32);
-	height = 30;
 	anchor = ui_popup_anchor;
+	safe_left = (short)(clip->x0 + MAX(8, ui_redraw_safe_left_units(clip->x1 - clip->x0)));
+	top = 8;
+
+	name = ui_popup_widget_name(ui_popup_widget, 0);
+	length = 0;
+	if (name)
+	{
+		for (; length < (short)sizeof(name_text) - 1 && name[length]; length++)
+			name_text[length] = (name[length] >= 32 && name[length] < 127) ? (char)name[length] : '?';
+	}
+	name_text[length] = 0;
+	header = (short)(length > 0 ? 24 : 0);
+
+	width = 200;
+	if (ui_popup_anchor_is_item)
+		width = (short)MAX(width, MIN(anchor.x1 - anchor.x0, 320));
+	height = (short)(header + UI_POPUP_ROW_HEIGHT + 4);
+
 	if (ui_popup_anchor_is_item)
 	{
-		box.x0 = anchor.x0;
-		box.y0 = (short)(anchor.y1 + gap);
-		if (box.y0 + height > bottom)
-			box.y0 = (short)(anchor.y0 - gap - height);
+		/* the rest of the screen dims around the lifted item */
+		part = *clip;
+		part.y1 = anchor.y0;
+		draw_quad(&part, 0x60000000);
+		part.y0 = anchor.y1;
+		part.y1 = clip->y1;
+		draw_quad(&part, 0x60000000);
+		part.y0 = anchor.y0;
+		part.y1 = anchor.y1;
+		part.x1 = anchor.x0;
+		draw_quad(&part, 0x60000000);
+		part.x0 = anchor.x1;
+		part.x1 = clip->x1;
+		draw_quad(&part, 0x60000000);
+		/* its shadow, then a soft glow ring around it */
+		part.x0 = (short)(anchor.x0 + 4);
+		part.x1 = (short)(anchor.x1 + 4);
+		part.y0 = anchor.y1;
+		part.y1 = (short)(anchor.y1 + 5);
+		draw_quad(&part, 0x70000000);
+		part.x0 = anchor.x1;
+		part.y0 = (short)(anchor.y0 + 4);
+		draw_quad(&part, 0x70000000);
+		part = anchor;
+		part.x0 = (short)(anchor.x0 - 3);
+		part.x1 = (short)(anchor.x1 + 3);
+		part.y0 = (short)(anchor.y0 - 3);
+		part.y1 = anchor.y0;
+		draw_quad(&part, 0x502996ff);
+		part.y0 = anchor.y1;
+		part.y1 = (short)(anchor.y1 + 3);
+		draw_quad(&part, 0x502996ff);
+		part.x1 = anchor.x0;
+		part.y0 = anchor.y0;
+		part.y1 = anchor.y1;
+		draw_quad(&part, 0x502996ff);
+		part.x0 = anchor.x1;
+		part.x1 = (short)(anchor.x1 + 3);
+		draw_quad(&part, 0x502996ff);
+
+		panel.x0 = anchor.x0;
+		panel.y0 = (short)(anchor.y1 + gap);
+		if (panel.y0 + height > bottom)
+		{
+			below = FALSE;
+			panel.y0 = (short)(anchor.y0 - gap - height);
+		}
+		notch_x = (short)((anchor.x0 + anchor.x1) / 2);
 	}
 	else
 	{
-		box.x0 = (short)(anchor.x0 - width / 2);
-		box.y0 = (short)(anchor.y0 + gap);
-		if (box.y0 + height > bottom)
-			box.y0 = (short)(anchor.y0 - gap - height);
+		panel.x0 = anchor.x0;
+		panel.y0 = (short)(anchor.y0 + 4);
+		if (panel.y0 + height > bottom)
+			panel.y0 = (short)(anchor.y0 - 4 - height);
+		notch_x = -1;
 	}
-	box.x0 = (short)MAX(clip->x0 + 8, MIN(box.x0, clip->x1 - width - 8));
-	box.y0 = (short)MAX(8, MIN(box.y0, bottom - height));
-	box.x1 = (short)(box.x0 + width);
-	box.y1 = (short)(box.y0 + height);
-	ui_popup_entry = box;
-	draw_quad(&box, 0xf0102030);
-	line = box;
-	line.y1 = (short)(box.y0 + 2);
-	draw_quad(&line, 0xff2996ff);
-	line.y0 = (short)(box.y1 - 2);
-	line.y1 = box.y1;
-	draw_quad(&line, 0xff2996ff);
-	line = box;
-	line.x1 = (short)(box.x0 + 2);
-	draw_quad(&line, 0xff2996ff);
-	line.x0 = (short)(box.x1 - 2);
-	line.x1 = box.x1;
-	draw_quad(&line, 0xff2996ff);
-	if (ui_touch_x_destructive)
+	panel.x0 = (short)MAX(safe_left, MIN(panel.x0, clip->x1 - width - 8));
+	panel.y0 = (short)MAX(top, MIN(panel.y0, bottom - height));
+	panel.x1 = (short)(panel.x0 + width);
+	panel.y1 = (short)(panel.y0 + height);
+	ui_popup_panel = panel;
+	ui_popup_panel_valid = TRUE;
+
+	/* shadow, faint glow, fill and outline */
+	part = panel;
+	part.x0 = (short)(panel.x0 + 4);
+	part.x1 = (short)(panel.x1 + 4);
+	part.y0 = (short)(panel.y0 + 5);
+	part.y1 = (short)(panel.y1 + 5);
+	ui_popup_rounded_fill(&part, 0x60000000);
+	part = panel;
+	part.x0 = (short)(panel.x0 - 2);
+	part.x1 = (short)(panel.x1 + 2);
+	part.y0 = (short)(panel.y0 - 2);
+	part.y1 = (short)(panel.y1 + 2);
+	ui_popup_rounded_outline(&part, 0x282996ff);
+	part.x0++; part.x1--; part.y0++; part.y1--;
+	ui_popup_rounded_outline(&part, 0x402996ff);
+	ui_popup_rounded_fill(&panel, 0xe0101c34);
+	ui_popup_rounded_outline(&panel, hud_blue);
+
+	/* the notch points at the item from the panel's near edge */
+	if (notch_x >= 0)
 	{
-		color.red = 1.0f;
-		color.green = 0.25f;
-		color.blue = 0.25f;
+		short step;
+
+		notch_x = (short)MAX(panel.x0 + 12, MIN(notch_x, panel.x1 - 12));
+		for (step = 0; step < 6; step++)
+		{
+			short half = (short)(6 - step);
+
+			part.x0 = (short)(notch_x - half);
+			part.x1 = (short)(notch_x + half);
+			if (below)
+			{
+				part.y0 = (short)(panel.y0 - 1 - step);
+				part.y1 = (short)(part.y0 + 1);
+			}
+			else
+			{
+				part.y0 = (short)(panel.y1 + step);
+				part.y1 = (short)(part.y0 + 1);
+			}
+			draw_quad(&part, 0xe0101c34);
+			part.x1 = (short)(part.x0 + 1);
+			draw_quad(&part, hud_blue);
+			part.x0 = (short)(notch_x + half - 1);
+			part.x1 = (short)(notch_x + half);
+			draw_quad(&part, hud_blue);
+		}
 	}
-	else
+
+	if (header > 0)
 	{
-		color.red = 0.55f;
-		color.green = 0.8f;
+		color.red = 0.16f;
+		color.green = 0.59f;
 		color.blue = 1.0f;
+		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+		part = panel;
+		part.x0 = (short)(panel.x0 + 14);
+		part.y0 = (short)(panel.y0 + 6);
+		part.y1 = (short)(panel.y0 + header);
+		rasterizer_draw_string(&part, clip, NULL, 0, name_text);
+		part.x0 = (short)(panel.x0 + 8);
+		part.x1 = (short)(panel.x1 - 8);
+		part.y0 = (short)(panel.y0 + header);
+		part.y1 = (short)(part.y0 + 1);
+		draw_quad(&part, 0x502996ff);
 	}
-	draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
-	line = box;
-	line.x0 = (short)(box.x0 + 16);
-	line.y0 = (short)(box.y0 + 7);
-	rasterizer_draw_string(&line, clip, NULL, 0, ui_touch_x_caption);
+
+	/* one row today: the screen's secondary action (X) */
+	ui_popup_row_count = 1;
+	for (row_index = 0; row_index < ui_popup_row_count; row_index++)
+	{
+		unsigned long label_color = ui_touch_x_destructive ? destructive_color : hud_blue;
+
+		row.x0 = (short)(panel.x0 + 2);
+		row.x1 = (short)(panel.x1 - 2);
+		row.y0 = (short)(panel.y0 + header + 2 + row_index * UI_POPUP_ROW_HEIGHT);
+		row.y1 = (short)(row.y0 + UI_POPUP_ROW_HEIGHT);
+		ui_popup_rows[row_index] = row;
+		if (row_index == ui_popup_highlight)
+		{
+			part = row;
+			part.x0 = (short)(row.x0 + 4);
+			part.x1 = (short)(row.x1 - 4);
+			part.y0 = (short)(row.y0 + 6);
+			part.y1 = (short)(row.y1 - 6);
+			ui_popup_rounded_fill(&part, ui_touch_x_destructive ? 0x40ff5a1e : 0x402996ff);
+			ui_popup_rounded_outline(&part, ui_touch_x_destructive ? 0xa0ff5a1e : 0xa02996ff);
+		}
+		color.red = (real)((label_color >> 16) & 0xff) / 255.0f;
+		color.green = (real)((label_color >> 8) & 0xff) / 255.0f;
+		color.blue = (real)(label_color & 0xff) / 255.0f;
+		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+		part = row;
+		part.x0 = (short)(row.x0 + 14);
+		part.y0 = (short)(row.y0 + (UI_POPUP_ROW_HEIGHT - 12) / 2);
+		rasterizer_draw_string(&part, clip, NULL, 0, ui_touch_x_caption);
+		if (ui_touch_x_destructive)
+			ui_popup_trash_glyph((short)(row.x1 - 28), (short)(row.y0 + (UI_POPUP_ROW_HEIGHT - 16) / 2), label_color);
+	}
 
 	return;
 }
@@ -7452,36 +7725,67 @@ static void ui_widgets_process_mouse(
 			ui_mouse_click_y = pointer.click_y;
 		}
 		/* the long-press release is not also a tap */
-		if (pointer.left_clicks && ui_hold_swallow)
-		{
-			pointer.left_clicks = 0;
-			ui_mouse_click_pending = FALSE;
-		}
-		if (!pointer.down)
-			ui_hold_swallow = FALSE;
 		if (ui_popup_open)
 		{
-			/* the context menu is modal: its entry presses the secondary action, anything else closes it */
-			if (pointer.left_clicks)
+			/* the context menu is modal. A finger pressed or dragged over a row highlights it
+			(a tick as it crosses onto one); releasing on a row, or tapping or clicking one,
+			runs its action; a tap or release anywhere else closes the menu. The release that
+			ends the long press itself, off the rows, leaves the menu open. */
+			short row_under = -1;
+			boolean released = ui_popup_prev_down && !pointer.down;
+			short px = released || pointer.down ? pointer.x : pointer.click_x;
+			short py = released || pointer.down ? pointer.y : pointer.click_y;
+			short row_index;
+			boolean act = FALSE, close = FALSE;
+
+			for (row_index = 0; row_index < ui_popup_row_count; row_index++)
 			{
-				if (pointer.click_x >= ui_popup_entry.x0 && pointer.click_x < ui_popup_entry.x1 &&
-					pointer.click_y >= ui_popup_entry.y0 && pointer.click_y < ui_popup_entry.y1)
-				{
-					halo_ui_pointer_feedback(2);
-					ui_mouse_press(_gamepad_analog_button_x);
-				}
-				ui_popup_open = FALSE;
+				if (px >= ui_popup_rows[row_index].x0 && px < ui_popup_rows[row_index].x1 &&
+					py >= ui_popup_rows[row_index].y0 && py < ui_popup_rows[row_index].y1)
+					row_under = row_index;
 			}
-			if (pointer.right_clicks)
-				ui_popup_open = FALSE;
-			if (pointer.back_swipes)
+			if (pointer.down)
+			{
+				if (row_under != ui_popup_highlight && row_under >= 0)
+					halo_ui_pointer_feedback(1);
+				ui_popup_highlight = row_under;
+			}
+			else if (released)
+			{
+				if (row_under >= 0)
+					act = TRUE;
+				else if (!ui_hold_swallow)
+					close = TRUE;
+				ui_popup_highlight = -1;
+			}
+			else if (pointer.left_clicks)
+			{
+				if (pointer.click_x >= 0 && row_under >= 0)
+					act = TRUE;
+				else
+					close = TRUE;
+			}
+			if (act)
+			{
+				halo_ui_pointer_feedback(2);
+				ui_mouse_press(_gamepad_analog_button_x);
+				close = TRUE;
+			}
+			if (pointer.right_clicks || pointer.back_swipes)
+				close = TRUE;
+			if (close)
 			{
 				ui_popup_open = FALSE;
-				pointer.back_swipes = 0;
+				ui_popup_highlight = -1;
 			}
+			pointer.back_swipes = 0;
+			pointer.right_clicks = 0;
+			pointer.left_clicks = 0;
 			ui_mouse_click_pending = FALSE;
 			ui_mouse_hover_pending = FALSE;
-			pointer.right_clicks = 0;
+			if (!pointer.down)
+				ui_hold_swallow = FALSE;
+			ui_popup_prev_down = pointer.down;
 		}
 		else if (pointer.down && pointer.radius > 0 && ui_mouse_menu_drawn)
 		{
@@ -7540,6 +7844,9 @@ static void ui_widgets_process_mouse(
 					halo_ui_pointer_feedback(4);
 					ui_popup_anchor = ui_hold_drawn_valid ? ui_hold_drawn : ui_hold_bounds;
 					ui_popup_anchor_is_item = TRUE;
+					ui_popup_widget = ui_hold_widget;
+					ui_popup_highlight = -1;
+					ui_popup_prev_down = TRUE;
 					ui_popup_open = TRUE;
 					ui_hold_active = FALSE;
 					ui_hold_grows = FALSE;
@@ -7584,6 +7891,7 @@ static void ui_widgets_process_mouse(
 					/* the screen's X legend follows the focused item: the menu opens once the
 					focus has taken effect and the legend is still up */
 					ui_popup_pending = 3;
+					ui_popup_widget = target->widget;
 					ui_popup_pending_x = pointer.x;
 					ui_popup_pending_y = pointer.y;
 					ui_mouse_hover_pending = FALSE;
@@ -7597,6 +7905,8 @@ static void ui_widgets_process_mouse(
 				ui_popup_anchor.x0 = ui_popup_anchor.x1 = ui_popup_pending_x;
 				ui_popup_anchor.y0 = ui_popup_anchor.y1 = ui_popup_pending_y;
 				ui_popup_anchor_is_item = FALSE;
+				ui_popup_highlight = -1;
+				ui_popup_prev_down = FALSE;
 				ui_popup_open = TRUE;
 				ui_popup_pending = 0;
 			}
