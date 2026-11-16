@@ -1281,6 +1281,10 @@ static const struct config_setting config_settings[] =
 		"Every this many frames, step the render scale 0.005 down a 100-step ramp\n"
 		"from 1.0 and wrap to 1.0, each step a new render target size, for checking that\n"
 		"debug.gpu_stats' live render targets stay flat (0, the default: off)." },
+	{ "debug.game_thread", _config_boolean, "true", "HALO_GAME_THREAD", _environment_value, _platform_ios,
+		"Run the game loop on its own thread instead of the main thread (iOS, tvOS, and the\n"
+		"native Mac app; read by the host at launch, restart to change). Off keeps the game\n"
+		"loop on the main thread. The game thread is on by default." },
 	{ "debug.graphics_cycle", _config_integer, "0", "HALO_GRAPHICS_CYCLE", _environment_value, _platform_ios,
 		"Every this many frames of a level (not the main menu), switch display.graphics to the next mode, unsaved,\n"
 		"wrapping from enhanced to hardcore, and log it: for checking that each mode applies on the next frame\n"

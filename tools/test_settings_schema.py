@@ -168,3 +168,11 @@ def test_full_rate_players_range():
         assert validator.is_valid(value)
     for value in (-1, 1, 129, True, '32'):
         assert not validator.is_valid(value)
+
+
+def test_host_read_keys_are_in_the_schema():
+    """The host reads these from config.toml; a key missing here logs "unknown setting" on every run."""
+    names = set(schema.config_settings())
+    host = Path(__file__).resolve().parent.parent / 'port/ios/host/host_game_thread.c'
+    assert 'debug.game_thread' in host.read_text()
+    assert 'debug.game_thread' in names

@@ -1728,6 +1728,16 @@
             "apple"
           ]
         },
+        "game_thread": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run the game loop on its own thread instead of the main thread (iOS, tvOS, and the native Mac app; read by the host at launch, restart to change). Off keeps the game loop on the main thread. The game thread is on by default.",
+          "x-environment": "HALO_GAME_THREAD",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "graphics_cycle": {
           "type": "integer",
           "default": 0,
