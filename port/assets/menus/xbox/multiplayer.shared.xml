@@ -821,7 +821,7 @@
 		<string text="PASSWORD" id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options.password" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options">
-		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:2304." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_the_address_of_the_server__3d82b1" />
+		<string text="Enter the address of  the server you want to\nconnect to, and optionally a colon and port\nnumber. Example: 206.0.8.4:5150." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_the_address_of_the_server__5db2e5" />
 		<string text="Enter a password for the server you want\nto connect to." id="xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_cap_direct_ip_options.enter_a_password_for_the_server__9d3b53" />
 	</strings>
 	<strings name="xbox/main_menu/multiplayer_type_select/server_settings/server_settings_options">
