@@ -305,16 +305,11 @@ static void touch_latency_watch(void) {
 - (void)applyVisibility {
     [self reset];
     BOOL hidden=self.manuallyHidden||self.controllerHidden;
-    /* in a menu: A, B, X, Y, the arrows and PAUSE, dimmed; the sticks and weapon buttons put away */
+    /* menus take touch themselves (host_menu_pointer.m): no controls, and no offer to show them */
     BOOL menu=atomic_load(&menu_up)!=0;
     self.moveStick.hidden=self.lookStick.hidden=hidden||menu;
-    for(NSUInteger i=0;i<self.buttons.count;i++) {
-        BOOL keep=i<4||(i>=6&&i<=10);
-        self.buttons[i].hidden=hidden||(menu&&!keep);
-        self.buttons[i].alpha=menu?.45:1;
-    }
-
-    self.toggle.hidden=self.controllerHidden;
+    for(HaloButton *button in self.buttons)button.hidden=hidden||menu;
+    self.toggle.hidden=self.controllerHidden||menu;
     atomic_store(&controls_showing,!self.controllerHidden);
     [self.toggle setTitle:self.manuallyHidden?@"Show controls":@"Hide controls" forState:UIControlStateNormal];
     /* the guest pumps the run loop without letting it wait: commit now, not at the next touch */
@@ -329,7 +324,7 @@ static void touch_latency_watch(void) {
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG")){CGPoint p=[touches.anyObject locationInView:self];fprintf(stderr,"halo-ios: host_touch began %.1f,%.1f menu_up=%d hidden=%d\n",p.x,p.y,(int)atomic_load(&menu_up),(int)self.controllerHidden);}
     /* a tap on a menu is the menu's (host_menu_pointer.m); it does not bring the controls back */
-    if(atomic_load(&menu_up) && self.controllerHidden)return;
+    if(atomic_load(&menu_up))return;
     if(self.controllerHidden){self.controllerHidden=NO;self.manuallyHidden=NO;[self applyVisibility];return;}
     [super touchesBegan:touches withEvent:event];
 }
@@ -368,7 +363,7 @@ static void touch_latency_watch(void) {
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG"))fprintf(stderr,"halo-ios: host_touch hittest %.1f,%.1f\n",point.x,point.y);
-    if(host_touch_replay_blocked(&replay_gate))return NO;
+    if(host_touch_replay_blocked(&replay_gate) || atomic_load(&menu_up))return NO;
     if(self.controllerHidden)return YES;   /* a touch brings the overlay back (touchesBegan:) */
     for(UIView *view in self.subviews)if(!view.hidden && [view pointInside:[self convertPoint:point toView:view] withEvent:event])return YES;
     return NO;
