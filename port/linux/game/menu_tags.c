@@ -71,6 +71,7 @@ char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
 /* whether the multiplayer mode chosen is system link (menu_functions.c) */
 boolean pc_menu_multiplayer_lan(void);
+boolean pc_menu_xbox_look(void);
 short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
@@ -3348,6 +3349,11 @@ static int menu_use_xbox(void)
 	char const *setting = config_string("display.menus");
 
 	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
+}
+
+boolean pc_menu_xbox_look(void)
+{
+	return menu_use_xbox();
 }
 
 static boolean menu_delete_from_select;

@@ -233,6 +233,11 @@ boolean pc_menu_multiplayer_lan(void)
 	return probe_lan;
 }
 
+boolean pc_menu_xbox_look(void)
+{
+	return TRUE;
+}
+
 int host_sdl_display_max_fps(void)
 {
 	return 0;

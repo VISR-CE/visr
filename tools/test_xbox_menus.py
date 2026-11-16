@@ -235,10 +235,11 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         for frame in bitmaps[row.get('bitmap')]:
             assert (frame.get('width'), frame.get('height')) == ('270', '50')
     assert [c.get('widget').rsplit('/', 1)[-1] for c in widgets['browser_chips'].findall('child')] == [
-        'browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_toggle']
-    for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_toggle'):
+        'browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter']
+    for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter'):
         assert widgets[key].get('height') == '54'
-        assert widgets[key].find('on[@event="a"][@run="port browser chip select"]') is not None
+        run = 'port browser filters open' if key == 'browser_filter' else 'port browser chip select'
+        assert widgets[key].find('on[@event="a"][@run="%s"]' % run) is not None
     panel = widgets['browser_detail']
     assert (panel.get('left'), panel.get('top'), panel.get('width'), panel.get('height')) == ('304', '110', '312', '273')
     assert all(len(name.rsplit('/', 1)[-1]) <= 31 for name in widgets)
@@ -280,7 +281,7 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
         assert (widgets[leaf].get('width'), widgets[leaf].get('height')) == ('124', '100')
         assert all(f.get('map') and f.get('png') for f in frames)
     assert [int(f.get('index')) for f in bitmaps['xbox/browser/preview_mp']] == list(range(13)) + [13] * 7
-    for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_toggle'):
+    for key in ('browser_chip_all', 'browser_chip_multiplayer', 'browser_chip_coop', 'browser_filter'):
         assert widgets[key + '_white'].get('color') == '#ffffff'
     assert 'up_down_tabs_children' not in widgets['join_game_items_list'].get('flags')
 
@@ -289,10 +290,10 @@ def test_browser_c_has_six_large_rows_chips_and_detail_panel():
 def test_browser_code_filled_text_has_no_definition_string():
     _, widgets = browser_c_widgets()
     static = {'browser_rules_label', 'browser_equipment_label', 'browser_host_label',
-              'browser_sort_filter_caption', 'browser_create_inter_caption', 'browser_back_caption'}
+              'browser_ip_address_caption', 'browser_create_inter_caption', 'browser_back_caption'}
     dynamic = {name: w for name, w in widgets.items() if w.get('type') == 'text' and name not in static}
     assert {'browser_detail_name', 'browser_detail_status', 'browser_join_caption',
-            'browser_chip_all_label', 'browser_chip_all_white', 'browser_toggle_label',
+            'browser_chip_all_label', 'browser_chip_all_white', 'browser_filter_label',
             'server_item_players', 'server_item_capacity'} <= dynamic.keys()
     # widget_instance_render_text_box reloads a definition string every frame,
     # overwriting text_set even when that definition string is empty.
@@ -355,7 +356,7 @@ def test_browser_legend_routes_shortcuts_without_broadcasting_row_actions():
     assert actions.get('flags') == 'pass_unhandled_to_focused_child'
     assert [c.get('widget').rsplit('/', 1)[-1] for c in actions.findall('child')] == [
         'join_game_items_list', 'browser_chips', 'browser_detail',
-        'browser_sort_filter', 'browser_create_inter', 'browser_back']
+        'browser_ip_address', 'browser_create_inter', 'browser_back']
     rows = widgets['join_game_items_list']
     assert rows.find('on[@event="up"][@run="port browser rows up"]') is not None
     assert rows.find('on[@event="down"][@run="port browser rows down"]') is not None
@@ -544,7 +545,7 @@ def test_browser_buttons_draw_map_art_with_large_caption_targets():
     root, widgets = browser_c_widgets()
     bitmaps = {b.get('name'): b for b in root.iter('bitmap')}
     for leaf, button in (('browser_join', 'a'), ('browser_back', 'b'),
-                         ('browser_sort_filter', 'x'), ('browser_create_inter', 'y')):
+                         ('browser_ip_address', 'x'), ('browser_create_inter', 'y')):
         icon = widgets[leaf + '_icon']
         frame = bitmaps[icon.get('bitmap')].find('frame')
         assert frame.get('map') == 'ui\\shell\\bitmaps\\' + button + '_butn'
@@ -555,7 +556,7 @@ def test_browser_buttons_draw_map_art_with_large_caption_targets():
             assert widgets[leaf].find('on[@event="a"]') is not None
     children = widgets['button_refresh_create_inter'].findall('child')
     legend = [c for c in children if c.get('widget').rsplit('/', 1)[-1] in
-              ('browser_sort_filter', 'browser_create_inter', 'browser_back')]
+              ('browser_ip_address', 'browser_create_inter', 'browser_back')]
     assert len(legend) == 3
     assert all(int(c.get('y')) == 398 for c in legend)
     assert int(legend[-1].get('x')) + int(widgets['browser_back'].get('width')) == 461

@@ -320,10 +320,8 @@ static void ui_widget_port_post_button(short controller, short button)
 }
 static char const *const browser_chip_values[] = { "all", "multiplayer", "coop" };
 static char const *const browser_chip_names[] = { "browser_chip_all", "browser_chip_multiplayer", "browser_chip_coop" };
-static wchar_t const *const browser_toggle_show_all = L"SHOW ALL";
-static wchar_t const *const browser_toggle_joinable_only = L"JOINABLE ONLY";
+static wchar_t const *const browser_filter_label = L"FILTER";
 static char const *config_string(char const *key) { (void)key; return "all"; }
-static boolean config_boolean(char const *key) { return strcmp(key,"network.browser_show_unjoinable")!=0; }
 static void text_set(struct widget_instance *widget, wchar_t const *text) { (void)widget; (void)text; }
 static void visible_set(struct widget_instance *widget, boolean visible) { if (widget) widget->visible=visible; }
 static void usnprintf(wchar_t *text, int size, wchar_t const *format, ...) {
@@ -346,11 +344,11 @@ int main(void)
     struct widget_instance sections[4]={{.name="browser_chips"},{.name="join_game_items_list"},
         {.name="browser_detail"},{.name="browser_actions"}};
     struct widget_instance chips[4]={{.name="browser_chip_all"},{.name="browser_chip_multiplayer"},
-        {.name="browser_chip_coop"},{.name="browser_toggle"}};
+        {.name="browser_chip_coop"},{.name="browser_filter"}};
     struct widget_instance rows[6]={{.name="server_item_1"},{.name="server_item_2"},
         {.name="server_item_3"},{.name="server_item_4"},{.name="server_item_5"},{.name="server_item_6"}};
     struct widget_instance join={.name="join_game_button_join",.visible=TRUE};
-    struct widget_instance legend[3]={{.name="browser_sort_filter"},{.name="browser_create_inter"},{.name="browser_back"}};
+    struct widget_instance legend[3]={{.name="browser_ip_address"},{.name="browser_create_inter"},{.name="browser_back"}};
     children(&screen,sections,4); children(&sections[0],chips,4); children(&sections[1],rows,6);
     children(&sections[2],&join,1); children(&sections[3],legend,3);
     for (int i=0;i<6;i++) rows[i].visible=TRUE;

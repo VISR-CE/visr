@@ -2732,6 +2732,8 @@ longest password */
 #define CODE_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\code\\code_screen"
 /* the server browser's FILTERS screen (tools/port_settings.py): its sort and filters */
 #define FILTERS_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\filters\\filters_screen"
+/* join by address: the DIRECT IP screen, opened from the server browser's X */
+#define DIRECT_IP_NAME "pc\\main_menu\\multiplayer_type_select\\direct_ip\\direct_ip_screen"
 #define PASSWORD_LENGTH 32
 /* the lobby's panel's lines (the gametype, the players, the countdown, the
 invite) */
@@ -3129,16 +3131,21 @@ void menu_internet_screen_opened(void)
 }
 #endif
 
+boolean pc_menu_xbox_look(void);
+
 /* "mp type set mode": the item's (by its name) */
 static void multiplayer_mode_set(struct widget_instance *widget)
 {
 	char const *name = widget->name;
+	boolean pc_look_lan = strstr(name, "join_lan") && !pc_menu_xbox_look();
 
 	/* (an instance's name is cut to 31 characters:
 	"multiplayer_type_create_interne") */
 	multiplayer.mode =
 		strstr(name, "create_inter") ? _multiplayer_mode_host_internet :
 		strstr(name, "create_lan") ? _multiplayer_mode_host_lan :
+		/* (the PC look has no LAN table: its JOIN LAN row opens the server browser; the Xbox look keeps SYSTEM LINK) */
+		pc_look_lan ? _multiplayer_mode_server_browser :
 		strstr(name, "join_lan") ? _multiplayer_mode_lan :
 		strstr(name, "join_direct") ? _multiplayer_mode_direct_link : _multiplayer_mode_server_browser;
 	multiplayer.invite_pending = FALSE;
@@ -5095,8 +5102,7 @@ static void browser_name_set(struct widget_instance *cell, wchar_t *text)
 /* Layout C uses the same listing and joining paths as the PC table. */
 static char const *const browser_chip_values[] = { "all", "multiplayer", "coop" };
 static char const *const browser_chip_names[] = { "browser_chip_all", "browser_chip_multiplayer", "browser_chip_coop" };
-static wchar_t const *const browser_toggle_show_all = L"SHOW ALL";
-static wchar_t const *const browser_toggle_joinable_only = L"JOINABLE ONLY";
+static wchar_t const *const browser_filter_label = L"FILTER";
 
 static void lobby_map_show(struct widget_instance *description, char const *map_name);
 
@@ -5130,14 +5136,12 @@ static void browser_c_controls_update(struct widget_instance *list)
 		visible_set(named(chip, label, 0), selected);
 	}
 	{
-		struct widget_instance *toggle = named(chips, "browser_toggle", 0);
-		boolean selected = config_boolean("network.browser_show_unjoinable");
-		boolean focused = chips->parent->focused_child == chips && chips->focused_child == toggle;
+		struct widget_instance *filter = named(chips, "browser_filter", 0);
+		boolean focused = chips->parent->focused_child == chips && chips->focused_child == filter;
 
-		if (toggle)
-			toggle->animation.current_frame_index = (short)((selected ? 1 : 0) + (focused ? 2 : 0));
-		text_set(named(chips, "browser_toggle_label", 0), selected ?
-			browser_toggle_joinable_only : browser_toggle_show_all);
+		if (filter)
+			filter->animation.current_frame_index = (short)(focused ? 2 : 0);
+		text_set(named(chips, "browser_filter_label", 0), browser_filter_label);
 	}
 }
 
@@ -5290,9 +5294,6 @@ static boolean browser_chip_select(struct widget_instance *widget)
 	struct widget_instance *screen = screen_of(widget);
 	short index;
 
-	if (!strcmp(widget->name, "browser_toggle"))
-		config_write("network.browser_show_unjoinable", config_boolean("network.browser_show_unjoinable") ? "false" : "true");
-	else
 	{
 		for (index = 0; index < NUMBEROF(browser_chip_names); index++)
 		{
@@ -5349,7 +5350,7 @@ static boolean browser_chips_navigation(struct widget_instance *widget)
 	}
 	else
 		browser_c_focus(named(screen, !strncmp(widget->name, "browser_chip", 12) ?
-			"browser_sort_filter" : "browser_chip_all", 0));
+			"browser_ip_address" : "browser_chip_all", 0));
 	return TRUE;
 }
 
@@ -5374,7 +5375,7 @@ static boolean browser_rows_navigation(struct widget_instance *widget, boolean d
 		if (lobby_browser.first + rows < lobby_browser.count)
 			lobby_browser.first++;
 		else
-			browser_c_focus(named(screen, "browser_sort_filter", 0));
+			browser_c_focus(named(screen, "browser_ip_address", 0));
 	}
 	else
 		lobby_browser_focus_row(list, (short)PIN(row + (down ? 1 : -1), 0, rows - 1));
@@ -5394,7 +5395,7 @@ static boolean browser_detail_navigation(struct widget_instance *widget)
 static boolean browser_legend_navigation(struct widget_instance *widget, struct event_record *event)
 {
 	struct widget_instance *screen = screen_of(widget);
-	char const *const names[] = { "browser_sort_filter", "browser_create_inter", "browser_back" };
+	char const *const names[] = { "browser_ip_address", "browser_create_inter", "browser_back" };
 	boolean right = event->type == EVENT_LEFT_STICK ? event->data.stick.x > 0 :
 		event->data.button.index == _gamepad_binary_button_dpad_right;
 	short index;
@@ -8015,6 +8016,10 @@ boolean pc_menu_event_function_invoke(
 				return TRUE;
 			browser_filters_returning = FALSE;
 			return campaign_fail();
+		}
+		else if (!strcmp(name, "port browser ip open"))
+		{
+			return ui_widget_port_open(widget, DIRECT_IP_NAME, widget_deleted) || campaign_fail();
 		}
 		else if (!strcmp(name, "gamespy select header"))
 		{

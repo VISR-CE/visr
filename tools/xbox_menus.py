@@ -1571,7 +1571,7 @@ def browser_layout(root, widgets, bitmaps):
                     flags='pass_unhandled_to_focused_child', bitmap='xbox/browser/backdrop')
     for event, run in (('created', 'gamespy screen init'), ('deleted', 'gamespy screen dispose'),
                        ('b', 'gamespy back handler'), ('back', 'gamespy back handler'),
-                       ('x', 'port browser filters open')):
+                       ('x', 'port browser ip open')):
         ET.SubElement(screen, 'on', event=event, run=run)
     child(screen, base + '/header_join_game')
     # Reuse title widgets verbatim, including the updater's mode-specific names.
@@ -1633,10 +1633,10 @@ def browser_layout(root, widgets, bitmaps):
             ('browser_chip_all', 'chip_all', 24, 78),
             ('browser_chip_multiplayer', 'chip_multiplayer', 107, 144),
             ('browser_chip_coop', 'chip_coop', 256, 100),
-            ('browser_toggle', 'toggle', 442, 174)):
+            ('browser_filter', 'toggle', 442, 174)):
         child(chips, base + '/' + leaf, x=x, y=50)
         chip = widget(root, base + '/' + leaf, width=width, height=54, bitmap='xbox/browser/' + art)
-        ET.SubElement(chip, 'on', event='a', run='port browser chip select')
+        ET.SubElement(chip, 'on', event='a', run='port browser filters open' if leaf == 'browser_filter' else 'port browser chip select')
         child(chip, base + '/' + leaf + '_label', y=29)
         widget(root, base + '/' + leaf + '_label', type='text',
                width=width, height=23, font=r'ui\small_ui', color='#7fc4ff', align='center')
@@ -1706,7 +1706,7 @@ def browser_layout(root, widgets, bitmaps):
     widget(root, base + '/browser_join_caption', type='text', width=106, height=26,
            font=r'ui\large_ui', color='#4aa8ff')
     browser_legend(root, actions, base, (
-        ('browser_sort_filter', 'x', 'SORT & FILTER', 24, 190, 'port browser filters open'),
+        ('browser_ip_address', 'x', 'IP ADDRESS', 24, 190, 'port browser ip open'),
         ('browser_create_inter', 'y', 'CREATE', 230, 130, 'join controller to mp game'),
         ('browser_back', 'b', 'BACK', 371, 90, 'mouse emit back event')), navigate=True)
     create = root.find(f"widget[@name='{base}/browser_create_inter']")
