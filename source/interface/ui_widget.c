@@ -6941,6 +6941,7 @@ static void ui_touch_back_chevron_draw(
 		return;
 	if (ui_touch_title_seen)
 	{
+		/* (the title group itself moves clear of the safe inset, menu_title_touch_shift) */
 		cy = (ui_touch_title_icon.y0 + ui_touch_title_icon.y1) / 2;
 		cx = MAX(ui_touch_title_icon.x0 - reach / 2 - 14, reach / 2 + 2);
 	}
@@ -6948,9 +6949,9 @@ static void ui_touch_back_chevron_draw(
 	{
 		cy = clip->y0 + reach / 2 + 4;
 		cx = clip->x0 + reach / 2 + 4;
+		/* never under a camera cutout or rounded corner: the menu clip can run wider than the screen's safe area */
+		cx = MAX(cx, clip->x0 + safe + reach / 2 + 2);
 	}
-	/* never under a camera cutout or rounded corner: the menu clip can run wider than the screen's safe area */
-	cx = MAX(cx, clip->x0 + safe + reach / 2 + 2);
 	for (index = -arm; index <= arm; index++)
 	{
 		rectangle2d row;
@@ -7142,24 +7143,49 @@ static void ui_popup_rounded_outline(
 static void ui_popup_trash_glyph(
 	short x,
 	short y,
+	short half_scale,
 	unsigned long color)
 {
 	rectangle2d part;
 
-	/* handle, lid, body sides, bottom and two inner ribs */
-	part.x0 = (short)(x + 5); part.x1 = (short)(x + 9); part.y0 = y; part.y1 = (short)(y + 1);
+#define UI_GLYPH(v) ((short)(((v) * half_scale) / 2))
+	/* handle, lid, body sides, bottom and two inner ribs, drawn on a 14x16 grid scaled by half_scale/2 */
+	part.x0 = (short)(x + UI_GLYPH(5)); part.x1 = (short)(x + UI_GLYPH(9)); part.y0 = y; part.y1 = (short)(y + UI_GLYPH(2));
 	draw_quad(&part, color);
-	part.x0 = x; part.x1 = (short)(x + 14); part.y0 = (short)(y + 2); part.y1 = (short)(y + 3);
+	part.x0 = x; part.x1 = (short)(x + UI_GLYPH(14)); part.y0 = (short)(y + UI_GLYPH(2)); part.y1 = (short)(y + UI_GLYPH(4));
 	draw_quad(&part, color);
-	part.x0 = (short)(x + 2); part.x1 = (short)(x + 3); part.y0 = (short)(y + 4); part.y1 = (short)(y + 16);
+	part.x0 = (short)(x + UI_GLYPH(2)); part.x1 = (short)(x + UI_GLYPH(4)); part.y0 = (short)(y + UI_GLYPH(4)); part.y1 = (short)(y + UI_GLYPH(16));
 	draw_quad(&part, color);
-	part.x0 = (short)(x + 11); part.x1 = (short)(x + 12);
+	part.x0 = (short)(x + UI_GLYPH(10)); part.x1 = (short)(x + UI_GLYPH(12));
 	draw_quad(&part, color);
-	part.x0 = (short)(x + 2); part.x1 = (short)(x + 12); part.y0 = (short)(y + 15); part.y1 = (short)(y + 16);
+	part.x0 = (short)(x + UI_GLYPH(2)); part.x1 = (short)(x + UI_GLYPH(12)); part.y0 = (short)(y + UI_GLYPH(14)); part.y1 = (short)(y + UI_GLYPH(16));
 	draw_quad(&part, color);
-	part.x0 = (short)(x + 5); part.x1 = (short)(x + 6); part.y0 = (short)(y + 6); part.y1 = (short)(y + 13);
+	part.x0 = (short)(x + UI_GLYPH(5)); part.x1 = (short)(x + UI_GLYPH(6)); part.y0 = (short)(y + UI_GLYPH(6)); part.y1 = (short)(y + UI_GLYPH(13));
 	draw_quad(&part, color);
-	part.x0 = (short)(x + 8); part.x1 = (short)(x + 9);
+	part.x0 = (short)(x + UI_GLYPH(8)); part.x1 = (short)(x + UI_GLYPH(9));
+	draw_quad(&part, color);
+#undef UI_GLYPH
+}
+
+/* port: a rectangular ring of the given thickness just outside a rectangle, for glows */
+static void ui_popup_ring(
+	rectangle2d const *inner,
+	short distance,
+	short thickness,
+	unsigned long color)
+{
+	rectangle2d part;
+	short x0 = (short)(inner->x0 - distance), x1 = (short)(inner->x1 + distance);
+	short y0 = (short)(inner->y0 - distance), y1 = (short)(inner->y1 + distance);
+
+	part.x0 = (short)(x0 - thickness); part.x1 = (short)(x1 + thickness);
+	part.y0 = (short)(y0 - thickness); part.y1 = y0;
+	draw_quad(&part, color);
+	part.y0 = y1; part.y1 = (short)(y1 + thickness);
+	draw_quad(&part, color);
+	part.x1 = x0; part.y0 = y0; part.y1 = y1;
+	draw_quad(&part, color);
+	part.x0 = x1; part.x1 = (short)(x1 + thickness);
 	draw_quad(&part, color);
 }
 
@@ -7177,9 +7203,9 @@ static void ui_hold_popup_draw(
 	real_argb_color color = {1.0f, 1.0f, 1.0f, 1.0f};
 	wchar_t const *name;
 	char name_text[32];
-	long font_index;
+	long font_index, row_font_index;
 	short width, height, header, row_index, length;
-	short gap = 10;
+	short gap = 14;
 	short top, bottom = 472;
 	short safe_left, notch_x;
 	boolean below = TRUE;
@@ -7191,7 +7217,11 @@ static void ui_hold_popup_draw(
 		ui_popup_panel_valid = FALSE;
 		return;
 	}
+	/* the header reads a step smaller than the rows, which use the list rows' own font */
 	font_index = tag_loaded(FONT_GROUP_TAG, "ui\\small_ui");
+	row_font_index = tag_loaded(FONT_GROUP_TAG, "ui\\large_ui");
+	if (row_font_index == NONE)
+		row_font_index = font_index;
 	anchor = ui_popup_anchor;
 	safe_left = (short)(clip->x0 + MAX(8, ui_redraw_safe_left_units(clip->x1 - clip->x0)));
 	top = 8;
@@ -7204,7 +7234,7 @@ static void ui_hold_popup_draw(
 			name_text[length] = (name[length] >= 32 && name[length] < 127) ? (char)name[length] : '?';
 	}
 	name_text[length] = 0;
-	header = (short)(length > 0 ? 24 : 0);
+	header = (short)(length > 0 ? 30 : 0);
 
 	width = 200;
 	if (ui_popup_anchor_is_item)
@@ -7216,17 +7246,17 @@ static void ui_hold_popup_draw(
 		/* the rest of the screen dims around the lifted item */
 		part = *clip;
 		part.y1 = anchor.y0;
-		draw_quad(&part, 0x60000000);
+		draw_quad(&part, 0x99000000);
 		part.y0 = anchor.y1;
 		part.y1 = clip->y1;
-		draw_quad(&part, 0x60000000);
+		draw_quad(&part, 0x99000000);
 		part.y0 = anchor.y0;
 		part.y1 = anchor.y1;
 		part.x1 = anchor.x0;
-		draw_quad(&part, 0x60000000);
+		draw_quad(&part, 0x99000000);
 		part.x0 = anchor.x1;
 		part.x1 = clip->x1;
-		draw_quad(&part, 0x60000000);
+		draw_quad(&part, 0x99000000);
 		/* its shadow, then a soft glow ring around it */
 		part.x0 = (short)(anchor.x0 + 4);
 		part.x1 = (short)(anchor.x1 + 4);
@@ -7236,22 +7266,12 @@ static void ui_hold_popup_draw(
 		part.x0 = anchor.x1;
 		part.y0 = (short)(anchor.y0 + 4);
 		draw_quad(&part, 0x70000000);
-		part = anchor;
-		part.x0 = (short)(anchor.x0 - 3);
-		part.x1 = (short)(anchor.x1 + 3);
-		part.y0 = (short)(anchor.y0 - 3);
-		part.y1 = anchor.y0;
-		draw_quad(&part, 0x502996ff);
-		part.y0 = anchor.y1;
-		part.y1 = (short)(anchor.y1 + 3);
-		draw_quad(&part, 0x502996ff);
-		part.x1 = anchor.x0;
-		part.y0 = anchor.y0;
-		part.y1 = anchor.y1;
-		draw_quad(&part, 0x502996ff);
-		part.x0 = anchor.x1;
-		part.x1 = (short)(anchor.x1 + 3);
-		draw_quad(&part, 0x502996ff);
+		/* a bright HUD-blue edge on the lifted item, fading out in a glow */
+		ui_popup_ring(&anchor, 0, 2, hud_blue);
+		ui_popup_ring(&anchor, 2, 2, 0x902996ff);
+		ui_popup_ring(&anchor, 4, 2, 0x582996ff);
+		ui_popup_ring(&anchor, 6, 3, 0x302996ff);
+		ui_popup_ring(&anchor, 9, 3, 0x162996ff);
 
 		panel.x0 = anchor.x0;
 		panel.y0 = (short)(anchor.y1 + gap);
@@ -7284,16 +7304,27 @@ static void ui_hold_popup_draw(
 	part.y0 = (short)(panel.y0 + 5);
 	part.y1 = (short)(panel.y1 + 5);
 	ui_popup_rounded_fill(&part, 0x60000000);
-	part = panel;
-	part.x0 = (short)(panel.x0 - 2);
-	part.x1 = (short)(panel.x1 + 2);
-	part.y0 = (short)(panel.y0 - 2);
-	part.y1 = (short)(panel.y1 + 2);
-	ui_popup_rounded_outline(&part, 0x282996ff);
-	part.x0++; part.x1--; part.y0++; part.y1--;
-	ui_popup_rounded_outline(&part, 0x402996ff);
+	/* a faint outer glow fading out from the outline, like the focused buttons */
+	{
+		static unsigned long const glow[] = {0x602996ff, 0x402996ff, 0x2a2996ff, 0x1a2996ff, 0x0e2996ff};
+		short ring;
+
+		for (ring = (short)(NUMBEROF(glow) - 1); ring >= 0; ring--)
+		{
+			part = panel;
+			part.x0 = (short)(panel.x0 - 2 - ring);
+			part.x1 = (short)(panel.x1 + 2 + ring);
+			part.y0 = (short)(panel.y0 - 2 - ring);
+			part.y1 = (short)(panel.y1 + 2 + ring);
+			ui_popup_rounded_outline(&part, glow[ring]);
+		}
+	}
 	ui_popup_rounded_fill(&panel, 0xe0101c34);
+	/* a bright two-unit HUD-blue outline */
 	ui_popup_rounded_outline(&panel, hud_blue);
+	part = panel;
+	part.x0++; part.x1--; part.y0++; part.y1--;
+	ui_popup_rounded_outline(&part, hud_blue);
 
 	/* the notch points at the item from the panel's near edge */
 	if (notch_x >= 0)
@@ -7334,7 +7365,7 @@ static void ui_hold_popup_draw(
 		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
 		part = panel;
 		part.x0 = (short)(panel.x0 + 14);
-		part.y0 = (short)(panel.y0 + 6);
+		part.y0 = (short)(panel.y0 + 8);
 		part.y1 = (short)(panel.y0 + header);
 		rasterizer_draw_string(&part, clip, NULL, 0, name_text);
 		part.x0 = (short)(panel.x0 + 8);
@@ -7368,13 +7399,13 @@ static void ui_hold_popup_draw(
 		color.red = (real)((label_color >> 16) & 0xff) / 255.0f;
 		color.green = (real)((label_color >> 8) & 0xff) / 255.0f;
 		color.blue = (real)(label_color & 0xff) / 255.0f;
-		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+		draw_string_set_draw_mode(row_font_index, NONE, 0, 0, &color);
 		part = row;
 		part.x0 = (short)(row.x0 + 14);
-		part.y0 = (short)(row.y0 + (UI_POPUP_ROW_HEIGHT - 12) / 2);
+		part.y0 = (short)(row.y0 + (UI_POPUP_ROW_HEIGHT - 22) / 2);
 		rasterizer_draw_string(&part, clip, NULL, 0, ui_touch_x_caption);
 		if (ui_touch_x_destructive)
-			ui_popup_trash_glyph((short)(row.x1 - 28), (short)(row.y0 + (UI_POPUP_ROW_HEIGHT - 16) / 2), label_color);
+			ui_popup_trash_glyph((short)(row.x1 - 36), (short)(row.y0 + (UI_POPUP_ROW_HEIGHT - 24) / 2), 3, label_color);
 	}
 
 	return;
@@ -8216,6 +8247,50 @@ square; the helmet in it is 22 units tall like the capitals and 29 wide, and
 the picture is centered on them with 11 units between the helmet and the first
 letter.
 Dialogs' headers (ui\\shell\\error\\...) are not screens' titles. */
+static struct bitmap_data *menu_title_icon(
+	long bitmap_tag,
+	struct bitmap_data const *picture)
+{
+	char const *name;
+	char const *leaf;
+	long icon_tag;
+
+	if (bitmap_tag == NONE || !picture || picture->height != 64 || picture->width < 256)
+		return NULL;
+	name = tag_get_name(bitmap_tag);
+	if (!name || (strncmp(name, "ui\\shell\\", 9) && strncmp(name, "pc\\", 3)) || strstr(name, "\\error\\"))
+		return NULL;
+	leaf = strrchr(name, '\\');
+	leaf = leaf ? leaf + 1 : name;
+	if (strncmp(leaf, "header", 6))
+		return NULL;
+	icon_tag = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\visr_title_icon");
+	return icon_tag == NONE ? NULL : bitmap_group_get_bitmap_from_sequence(icon_tag, 0, 0);
+}
+
+/* port: on touch the BACK chevron sits left of the title's helmet; when the
+screen's safe inset leaves no room for it there, the chevron, helmet and title
+move right together, by how far the chevron's tap target would cross the inset */
+static short menu_title_touch_shift(
+	long bitmap_tag,
+	struct bitmap_data const *picture,
+	rectangle2d const *bounds,
+	rectangle2d const *clip)
+{
+	long reach, safe, scale_x = 1, helmet_left, needed;
+
+	if (ui_mouse_radius <= 0 || !clip || !menu_title_icon(bitmap_tag, picture))
+		return 0;
+	reach = MAX(ui_redraw_touch_target_units(), 32);
+	safe = ui_redraw_safe_left_units(clip->x1 - clip->x0);
+	if (bounds->x1 - bounds->x0 > picture->width)
+		scale_x = (bounds->x1 - bounds->x0) / picture->width;
+	helmet_left = bounds->x0 + (30 - 11 - 29) * scale_x - (36 - 29) * scale_x / 2;
+	/* the chevron's center is reach / 2 + 14 left of the helmet; its tap target must clear the inset by 2 */
+	needed = clip->x0 + safe + 2 + reach + 14 - helmet_left;
+	return (short)MAX(needed, 0);
+}
+
 static void menu_title_icon_draw(
 	long bitmap_tag,
 	struct bitmap_data const *picture,
@@ -8223,24 +8298,11 @@ static void menu_title_icon_draw(
 	rectangle2d *clip,
 	pixel32 color)
 {
-	char const *name;
-	char const *leaf;
-	long icon_tag;
 	struct bitmap_data *icon;
 	rectangle2d rect;
 	long scale_x = 1, scale_y = 1, size, left;
 
-	if (bitmap_tag == NONE || !picture || picture->height != 64 || picture->width < 256)
-		return;
-	name = tag_get_name(bitmap_tag);
-	if (!name || (strncmp(name, "ui\\shell\\", 9) && strncmp(name, "pc\\", 3)) || strstr(name, "\\error\\"))
-		return;
-	leaf = strrchr(name, '\\');
-	leaf = leaf ? leaf + 1 : name;
-	if (strncmp(leaf, "header", 6))
-		return;
-	icon_tag = tag_loaded(BITMAP_GROUP_TAG, "pc\\xbox\\bitmaps\\visr_title_icon");
-	icon = icon_tag == NONE ? NULL : bitmap_group_get_bitmap_from_sequence(icon_tag, 0, 0);
+	icon = menu_title_icon(bitmap_tag, picture);
 	if (!icon)
 		return;
 	/* (a picture smaller than its widget is drawn stretched over it) */
@@ -8596,6 +8658,13 @@ static void widget_instance_render_recursive(
 			if (shown)
 			{
 				ui_hold_grow_card(widget, &bounds);
+				if (!custom_edition_picture)
+				{
+					short shift = menu_title_touch_shift(definition->background_bitmap.index, bitmap, &bounds, clip);
+
+					bounds.x0 += shift;
+					bounds.x1 += shift;
+				}
 				draw_bitmap_in_rect(
 					bitmap,
 					&bounds,
