@@ -5509,7 +5509,7 @@ static boolean direct_ip_edit(struct widget_instance *widget)
 	if (strncmp(row->name, "op_", 3)) row = row->parent;
 	if (!row) return FALSE;
 	direct_ip_cancel();
-	if (text_field_editing(row)) text_field_finish(FALSE);
+	if (text_field_editing(row)) text_field_end(TRUE);
 	else text_field_begin(row, address ? direct_address : direct_port,
 		address ? sizeof(direct_address) - 1 : sizeof(direct_port) - 1,
 		address ? direct_address_done : direct_port_done);
@@ -5587,7 +5587,7 @@ static boolean direct_ip_connect(struct widget_instance *widget, struct event_re
 	boolean *widget_deleted)
 {
 	struct advertised_game *game;
-	if (text_field.row) text_field_finish(FALSE);
+	if (text_field.row) text_field_end(TRUE);
 	if (direct_join.pending)
 	{
 		if ((uint32_t)((uint32_t)platform_real_milliseconds() - direct_join.start_time) >= HALO_DIRECT_IP_TIMEOUT)

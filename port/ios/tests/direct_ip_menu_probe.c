@@ -55,7 +55,7 @@ boolean ui_widget_port_join_direct(struct widget_instance *w, void *g, const cha
 	*deleted = join_ok;
 	return join_ok;
 }
-static void text_field_finish(int cancel) { assert(!cancel); text_field.row = NULL; }
+static void text_field_end(int keep) { assert(keep); text_field.row = NULL; }
 static struct widget_instance *named(struct widget_instance *w, const char *name, int n)
 { (void)w; (void)name; (void)n; return NULL; }
 static int text_field_editing(struct widget_instance *w) { (void)w; return 0; }
