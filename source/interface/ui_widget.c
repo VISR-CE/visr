@@ -6201,6 +6201,10 @@ static real ui_hold_shrink_from = 0.0f;
 static boolean ui_hold_swallow = FALSE;
 static unsigned long ui_hold_start_ms = 0;
 static rectangle2d ui_hold_bounds;
+/* the held item, and where its card art was last drawn (before growing) */
+static struct widget_instance *ui_hold_widget = NULL;
+static rectangle2d ui_hold_drawn;
+static boolean ui_hold_drawn_valid = FALSE;
 static boolean ui_popup_open = FALSE;
 static rectangle2d ui_popup_anchor;
 static boolean ui_popup_anchor_is_item = FALSE;
@@ -6951,12 +6955,12 @@ static void ui_touch_back_chevron_draw(
 
 /* port: the press-and-hold feedback and the context menu, drawn over the screen: the held item's outline
 grows to 1.06x between 0.15 s and 0.5 s; the menu, a dim backdrop and one entry, holds it at 1.06x */
-static void ui_hold_popup_draw(
-	rectangle2d const *clip)
+/* how far the held item has grown, 0 to 1: it starts once the item has taken focus
+and kept a secondary action, eases in, stays full while its menu is open, and eases
+back out when the finger lifts early */
+static real ui_hold_progress(void)
 {
-	rectangle2d outline;
-	long width, height, extent_x, extent_y;
-	real progress = 0.0f, scale;
+	real progress = 0.0f;
 
 	if (ui_hold_shrinking)
 	{
@@ -6965,109 +6969,136 @@ static void ui_hold_popup_draw(
 		if (elapsed >= UI_HOLD_SHRINK_MS)
 			ui_hold_shrinking = FALSE;
 	}
-	if ((ui_hold_active && ui_hold_grows) || ui_popup_open || ui_hold_shrinking)
+	if (ui_popup_open && ui_popup_anchor_is_item)
+		progress = 1.0f;
+	else if (ui_popup_open)
+		progress = 0.0f;
+	else if (ui_hold_active && ui_hold_grows)
 	{
-		rectangle2d box = ui_popup_open && ui_popup_anchor_is_item ? ui_popup_anchor : ui_hold_bounds;
+		long elapsed = (long)(system_milliseconds() - ui_hold_start_ms);
 
-		if (ui_popup_open)
-			progress = 1.0f;
-		else if (ui_hold_shrinking && !ui_hold_active)
+		if (elapsed > UI_HOLD_GROW_START_MS)
 		{
-			long elapsed = (long)(system_milliseconds() - ui_hold_shrink_ms);
-
-			progress = ui_hold_shrink_from * (1.0f - (real)elapsed / UI_HOLD_SHRINK_MS);
-			progress = MAX(progress, 0.0f);
+			progress = (real)(elapsed - UI_HOLD_GROW_START_MS) / (UI_HOLD_OPEN_MS - UI_HOLD_GROW_START_MS);
+			progress = MIN(progress, 1.0f);
+			progress *= progress;
 		}
-		else
-		{
-			long elapsed = (long)(system_milliseconds() - ui_hold_start_ms);
-
-			if (elapsed > UI_HOLD_GROW_START_MS)
-			{
-				progress = (real)(elapsed - UI_HOLD_GROW_START_MS) / (UI_HOLD_OPEN_MS - UI_HOLD_GROW_START_MS);
-				progress = MIN(progress, 1.0f);
-				progress *= progress;
-			}
-			ui_hold_shrink_from = progress;
-		}
-		if ((progress > 0.0f && ui_popup_anchor_is_item) || (progress > 0.0f && !ui_popup_open))
-		{
-			scale = 1.0f + (UI_HOLD_SCALE - 1.0f) * progress;
-			width = box.x1 - box.x0;
-			height = box.y1 - box.y0;
-			extent_x = (long)(width * (scale - 1.0f) / 2.0f) + 1;
-			extent_y = (long)(height * (scale - 1.0f) / 2.0f) + 1;
-			outline.x0 = (short)(box.x0 - extent_x);
-			outline.x1 = (short)(box.x1 + extent_x);
-			outline.y0 = (short)(box.y0 - extent_y);
-			outline.y1 = (short)(box.y0 - extent_y + 2);
-			draw_quad(&outline, 0xff2996ff);
-			outline.y0 = (short)(box.y1 + extent_y - 2);
-			outline.y1 = (short)(box.y1 + extent_y);
-			draw_quad(&outline, 0xff2996ff);
-			outline.y0 = (short)(box.y0 - extent_y);
-			outline.y1 = (short)(box.y1 + extent_y);
-			outline.x1 = (short)(box.x0 - extent_x + 2);
-			draw_quad(&outline, 0xff2996ff);
-			outline.x0 = (short)(box.x1 + extent_x - 2);
-			outline.x1 = (short)(box.x1 + extent_x);
-			draw_quad(&outline, 0xff2996ff);
-		}
+		ui_hold_shrink_from = progress;
 	}
-	if (ui_popup_open)
+	else if (ui_hold_shrinking)
 	{
-		rectangle2d full, box;
-		real_argb_color color = {1.0f, 1.0f, 1.0f, 1.0f};
-		short screen_extra = (short)((halo_screen_width() - 640) / 2);
-		short x, y;
+		long elapsed = (long)(system_milliseconds() - ui_hold_shrink_ms);
 
-		full.x0 = (short)(-screen_extra);
-		full.x1 = (short)(640 + screen_extra);
-		full.y0 = 0;
-		full.y1 = 480;
-		draw_quad(&full, 0x80000000);
-		width = (short)(28 + 8 * (long)strlen(ui_touch_x_caption));
-		height = 40;
-		x = (short)((ui_popup_anchor.x0 + ui_popup_anchor.x1) / 2 - width / 2);
-		if (ui_popup_anchor_is_item && ui_popup_anchor.y1 - ui_popup_anchor.y0 <= 3 * height)
-			x = (short)(ui_popup_anchor.x1 - width - 8);
-		if (ui_popup_anchor_is_item)
-			y = (short)(ui_popup_anchor.y1 - ui_popup_anchor.y0 > 3 * height ?
-				ui_popup_anchor.y0 + height : ui_popup_anchor.y0 + (ui_popup_anchor.y1 - ui_popup_anchor.y0 - height) / 2);
-		else
-			y = (short)((ui_popup_anchor.y0 > 240) ? ui_popup_anchor.y0 - height : ui_popup_anchor.y0);
-		x = (short)MAX(clip->x0 + 8, MIN(x, clip->x1 - width - 8));
-		y = (short)MAX(8, MIN(y, (ui_popup_anchor_is_item ? 400 : 480) - height - 8));
-		box.x0 = x;
-		box.x1 = (short)(x + width);
-		box.y0 = y;
-		box.y1 = (short)(y + height);
-		ui_popup_entry = box;
-		draw_quad(&box, 0xf0102030);
-		outline = box;
-		outline.y1 = (short)(box.y0 + 2);
-		draw_quad(&outline, 0xff2996ff);
-		outline.y0 = (short)(box.y1 - 2);
-		outline.y1 = box.y1;
-		draw_quad(&outline, 0xff2996ff);
-		if (ui_touch_x_destructive)
-		{
-			color.red = 1.0f;
-			color.green = 0.25f;
-			color.blue = 0.25f;
-		}
-		else
-		{
-			color.red = 0.55f;
-			color.green = 0.8f;
-			color.blue = 1.0f;
-		}
-		draw_string_set_draw_mode(tag_loaded(FONT_GROUP_TAG, "ui\\small_ui"), NONE, 0, 0, &color);
-		outline = box;
-		outline.x0 = (short)(box.x0 + 14);
-		outline.y0 = (short)(box.y0 + 12);
-		rasterizer_draw_string(&outline, clip, NULL, 0, ui_touch_x_caption);
+		progress = ui_hold_shrink_from * (1.0f - (real)elapsed / UI_HOLD_SHRINK_MS);
+		progress = MAX(progress, 0.0f);
 	}
+
+	return progress;
+}
+
+/* port: the held item's card art grows in place about its center, like a held Home
+Screen icon (the art is stretched over the larger rectangle; the item's text stays) */
+static void ui_hold_grow_card(
+	struct widget_instance *widget,
+	rectangle2d *bounds)
+{
+	real progress, scale;
+	long extent_x, extent_y;
+
+	if (!ui_hold_widget || widget != ui_hold_widget)
+		return;
+	ui_hold_drawn = *bounds;
+	ui_hold_drawn_valid = TRUE;
+	progress = ui_hold_progress();
+	if (progress <= 0.0f)
+		return;
+	scale = 1.0f + (UI_HOLD_SCALE - 1.0f) * progress;
+	extent_x = (long)((bounds->x1 - bounds->x0) * (scale - 1.0f) / 2.0f + 0.5f);
+	extent_y = (long)((bounds->y1 - bounds->y0) * (scale - 1.0f) / 2.0f + 0.5f);
+	bounds->x0 = (short)(bounds->x0 - extent_x);
+	bounds->x1 = (short)(bounds->x1 + extent_x);
+	bounds->y0 = (short)(bounds->y0 - extent_y);
+	bounds->y1 = (short)(bounds->y1 + extent_y);
+
+	return;
+}
+
+/* port: the held item's context menu: a small panel sized to its caption, anchored
+just below the item's drawn card (above it when there is no room), like a Home
+Screen icon's menu */
+static void ui_hold_popup_draw(
+	rectangle2d const *clip)
+{
+	rectangle2d anchor, box, line;
+	real_argb_color color = {1.0f, 1.0f, 1.0f, 1.0f};
+	wchar_t caption[sizeof(ui_touch_x_caption)];
+	long font_index;
+	short width, height, text_width, length;
+	short gap = 4;
+	short bottom = 472;
+
+	(void)ui_hold_progress();
+	if (!ui_popup_open)
+		return;
+	for (length = 0; length < (short)(sizeof(caption) / sizeof(caption[0])) - 1 && ui_touch_x_caption[length]; length++)
+		caption[length] = (wchar_t)(unsigned char)ui_touch_x_caption[length];
+	caption[length] = 0;
+	font_index = tag_loaded(FONT_GROUP_TAG, "ui\\small_ui");
+	text_width = ui_widget_port_font_text_width(font_index, caption);
+	if (text_width <= 0)
+		text_width = (short)(8 * length);
+	width = (short)(text_width + 32);
+	height = 30;
+	anchor = ui_popup_anchor;
+	if (ui_popup_anchor_is_item)
+	{
+		box.x0 = anchor.x0;
+		box.y0 = (short)(anchor.y1 + gap);
+		if (box.y0 + height > bottom)
+			box.y0 = (short)(anchor.y0 - gap - height);
+	}
+	else
+	{
+		box.x0 = (short)(anchor.x0 - width / 2);
+		box.y0 = (short)(anchor.y0 + gap);
+		if (box.y0 + height > bottom)
+			box.y0 = (short)(anchor.y0 - gap - height);
+	}
+	box.x0 = (short)MAX(clip->x0 + 8, MIN(box.x0, clip->x1 - width - 8));
+	box.y0 = (short)MAX(8, MIN(box.y0, bottom - height));
+	box.x1 = (short)(box.x0 + width);
+	box.y1 = (short)(box.y0 + height);
+	ui_popup_entry = box;
+	draw_quad(&box, 0xf0102030);
+	line = box;
+	line.y1 = (short)(box.y0 + 2);
+	draw_quad(&line, 0xff2996ff);
+	line.y0 = (short)(box.y1 - 2);
+	line.y1 = box.y1;
+	draw_quad(&line, 0xff2996ff);
+	line = box;
+	line.x1 = (short)(box.x0 + 2);
+	draw_quad(&line, 0xff2996ff);
+	line.x0 = (short)(box.x1 - 2);
+	line.x1 = box.x1;
+	draw_quad(&line, 0xff2996ff);
+	if (ui_touch_x_destructive)
+	{
+		color.red = 1.0f;
+		color.green = 0.25f;
+		color.blue = 0.25f;
+	}
+	else
+	{
+		color.red = 0.55f;
+		color.green = 0.8f;
+		color.blue = 1.0f;
+	}
+	draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+	line = box;
+	line.x0 = (short)(box.x0 + 16);
+	line.y0 = (short)(box.y0 + 7);
+	rasterizer_draw_string(&line, clip, NULL, 0, ui_touch_x_caption);
 
 	return;
 }
@@ -7466,6 +7497,8 @@ static void ui_widgets_process_mouse(
 					ui_hold_shrinking = FALSE;
 					ui_hold_start_ms = now;
 					ui_hold_bounds = target->bounds;
+					ui_hold_widget = target->widget;
+					ui_hold_drawn_valid = FALSE;
 				}
 			}
 			else
@@ -7501,7 +7534,7 @@ static void ui_widgets_process_mouse(
 					else if (target)
 						ui_mouse_give_focus(target->widget);
 					halo_ui_pointer_feedback(4);
-					ui_popup_anchor = ui_hold_bounds;
+					ui_popup_anchor = ui_hold_drawn_valid ? ui_hold_drawn : ui_hold_bounds;
 					ui_popup_anchor_is_item = TRUE;
 					ui_popup_open = TRUE;
 					ui_hold_active = FALSE;
@@ -8248,6 +8281,7 @@ static void widget_instance_render_recursive(
 			}
 			if (shown)
 			{
+				ui_hold_grow_card(widget, &bounds);
 				draw_bitmap_in_rect(
 					bitmap,
 					&bounds,
