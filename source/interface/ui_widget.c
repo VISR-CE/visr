@@ -7209,9 +7209,11 @@ static void ui_popup_trash_glyph(
 
 /* port: the held item's context menu, like a held Home Screen icon's: the rest of the
 screen dims, the lifted item gets a glow and a shadow, and a panel attached to it (below,
-or above when there is no room, with a notch pointing at the item) carries the item's
+above when there is no room, or beside a tall item, with a notch pointing at it) carries the item's
 name and one full-width row per action. A destructive row is red-orange with a trash
 glyph. A right-click opens the same panel at the pointer. */
+#define UI_POPUP_CONTENT_TOP 74 /* below the screen title and its rule */
+
 static void ui_hold_popup_draw(
 	rectangle2d const *clip)
 {
@@ -7225,7 +7227,8 @@ static void ui_hold_popup_draw(
 	short width, height, header, row_index, length;
 	short gap = 14;
 	short top, bottom = 472;
-	short safe_left, notch_x;
+	short safe_left, notch_x, notch_y = -1;
+	short side = 0; /* 1: beside the item on its right, -1: on its left */
 	boolean below = TRUE;
 
 	(void)ui_hold_progress();
@@ -7284,14 +7287,28 @@ static void ui_hold_popup_draw(
 		draw_quad(&part, 0x99000000);
 		/* the lifted item itself draws its glow, on its own outline (ui_hold_glow_draw) */
 
+		/* the panel stays inside the content area: never over the screen's title band
+		or the legend band. Below the item first, then above it; when it fits neither
+		(a tall card), beside it, top-aligned: right, or left when the right has no room */
+		top = UI_POPUP_CONTENT_TOP;
+		bottom = UI_TOUCH_LEGEND_BAR_TOP - 4;
 		panel.x0 = anchor.x0;
 		panel.y0 = (short)(anchor.y1 + gap);
+		notch_x = (short)((anchor.x0 + anchor.x1) / 2);
 		if (panel.y0 + height > bottom)
 		{
 			below = FALSE;
 			panel.y0 = (short)(anchor.y0 - gap - height);
+			if (panel.y0 < top)
+			{
+				width = 200;
+				side = (anchor.x1 + gap + width <= clip->x1 - 8) ? 1 : -1;
+				panel.x0 = side > 0 ? (short)(anchor.x1 + gap) : (short)(anchor.x0 - gap - width);
+				panel.y0 = anchor.y0;
+				notch_x = -1;
+				notch_y = (short)(anchor.y0 + 28);
+			}
 		}
-		notch_x = (short)((anchor.x0 + anchor.x1) / 2);
 	}
 	else
 	{
@@ -7301,7 +7318,8 @@ static void ui_hold_popup_draw(
 			panel.y0 = (short)(anchor.y0 - 4 - height);
 		notch_x = -1;
 	}
-	panel.x0 = (short)MAX(safe_left, MIN(panel.x0, clip->x1 - width - 8));
+	if (side == 0)
+		panel.x0 = (short)MAX(safe_left, MIN(panel.x0, clip->x1 - width - 8));
 	panel.y0 = (short)MAX(top, MIN(panel.y0, bottom - height));
 	panel.x1 = (short)(panel.x0 + width);
 	panel.y1 = (short)(panel.y0 + height);
@@ -7378,6 +7396,37 @@ static void ui_hold_popup_draw(
 			draw_quad(&part, hud_blue);
 			part.x0 = (short)(notch_x + half - 1);
 			part.x1 = (short)(notch_x + previous);
+			draw_quad(&part, hud_blue);
+			previous = half;
+		}
+	}
+	else if (notch_y >= 0)
+	{
+		/* the same notch turned sideways, on the edge that faces the item */
+		static short const notch_half[] = { 9, 7, 5, 4, 3, 2, 1 };
+		short step, previous;
+
+		notch_y = (short)MAX(panel.y0 + 16, MIN(notch_y, panel.y1 - 16));
+		part.y0 = (short)(notch_y - notch_half[0] + 1);
+		part.y1 = (short)(notch_y + notch_half[0] - 1);
+		part.x0 = side > 0 ? panel.x0 : (short)(panel.x1 - 2);
+		part.x1 = (short)(part.x0 + 2);
+		draw_quad(&part, 0xf0101c34);
+		previous = notch_half[0];
+		for (step = 0; step < (short)NUMBEROF(notch_half); step++)
+		{
+			short half = notch_half[step];
+
+			part.y0 = (short)(notch_y - half);
+			part.y1 = (short)(notch_y + half);
+			part.x0 = side > 0 ? (short)(panel.x0 - 1 - step) : (short)(panel.x1 + step);
+			part.x1 = (short)(part.x0 + 1);
+			draw_quad(&part, 0xe0101c34);
+			part.y0 = (short)(notch_y - previous);
+			part.y1 = (short)(notch_y - half + 1);
+			draw_quad(&part, hud_blue);
+			part.y0 = (short)(notch_y + half - 1);
+			part.y1 = (short)(notch_y + previous);
 			draw_quad(&part, hud_blue);
 			previous = half;
 		}
