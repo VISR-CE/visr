@@ -207,7 +207,23 @@ static __weak UIAlertController *text_prompt_shown;
 static bool text_prompt_gate, text_prompt_hint_set, text_prompt_hint_had, text_prompt_held;
 static char text_prompt_hint_saved[16];
 
+static bool text_prompt_seen;
+
+/* A dialog the system removed with no handler run (a scene going away, the
+   app resigning) leaves text_prompt set with nothing on screen: once it has
+   been seen presented and no longer is, it counts as cancelled, so the frame
+   thread is not held out of its workgroup for good. */
+static void text_prompt_reap(void) {
+    if(!text_prompt)return;
+    if(text_prompt.presentingViewController || text_prompt.beingPresented){text_prompt_seen=true;return;}
+    if(!text_prompt_seen)return;
+    text_prompt_seen=false;
+    text_prompt_state=2;
+    text_prompt=nil;
+}
+
 static bool text_prompt_up(void) {
+    text_prompt_reap();
     return text_prompt || text_prompt_shown.presentingViewController || text_prompt_shown.beingPresented;
 }
 
@@ -358,6 +374,7 @@ int host_tv_text_prompt(int on, const char *title, const char *text, int masked)
     next poll) */
     if(!presenter || presenter.presentedViewController)return 0;
     text_prompt_state=0;
+    text_prompt_seen=false;
     UIAlertController *alert=[UIAlertController alertControllerWithTitle:@(title&&*title?title:"Text")
         message:nil preferredStyle:UIAlertControllerStyleAlert];
     NSString *initial=@(text?text:"");
