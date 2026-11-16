@@ -672,6 +672,7 @@ void halo_screen_menu_content(float top, float bottom);
 static void ui_widget_menu_content(struct widget_instance *widget);
 void ui_redraw_note(char const *tag_name, void const *hardware_format, long width, long height);
 long ui_redraw_touch_target_units(void);
+long ui_redraw_safe_left_units(long width);
 #include "rasterizer/rasterizer.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -6917,6 +6918,7 @@ static void ui_touch_back_chevron_draw(
 	long arm = 10, thickness = 4, index;
 	long reach = MAX(ui_redraw_touch_target_units(), 2 * arm + 12);
 	long cy, cx;
+	long safe = ui_redraw_safe_left_units(clip->x1 - clip->x0);
 	rectangle2d hit;
 
 	if (!(ui_touch_back_seen || ui_touch_back_generic) || ui_mouse_radius <= 0 ||
@@ -6932,6 +6934,8 @@ static void ui_touch_back_chevron_draw(
 		cy = clip->y0 + reach / 2 + 4;
 		cx = clip->x0 + reach / 2 + 4;
 	}
+	/* never under a camera cutout or rounded corner: the menu clip can run wider than the screen's safe area */
+	cx = MAX(cx, clip->x0 + safe + reach / 2 + 2);
 	for (index = -arm; index <= arm; index++)
 	{
 		rectangle2d row;
@@ -6942,7 +6946,7 @@ static void ui_touch_back_chevron_draw(
 		row.x1 = (short)(row.x0 + thickness);
 		draw_quad(&row, 0xff2996ff);
 	}
-	hit.x0 = (short)MAX(cx - reach / 2, clip->x0);
+	hit.x0 = (short)MAX(cx - reach / 2, clip->x0 + safe);
 	hit.x1 = (short)(cx + reach / 2);
 	hit.y0 = (short)(cy - reach / 2);
 	hit.y1 = (short)(cy + reach / 2);
@@ -8559,9 +8563,9 @@ void render_ui_widgets(
 					FALSE);
 				ui_redraw_end_screen();
 				if (ui_mouse_noting_targets)
-					ui_touch_back_chevron_draw(widget, &bounds);
-				if (ui_mouse_noting_targets)
 					ui_hold_popup_draw(&bounds);
+				if (ui_mouse_noting_targets)
+					ui_touch_back_chevron_draw(widget, &bounds);
 				if (ui_mouse_noting_targets)
 					ui_mouse_menu_drawn = TRUE;
 				ui_mouse_noting_targets = FALSE;
