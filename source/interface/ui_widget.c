@@ -6185,6 +6185,8 @@ A destructive row is drawn in the HUD's red-orange with a trash glyph. */
 #define UI_HOLD_GROW_START_MS 150
 #define UI_HOLD_OPEN_MS 500
 #define UI_HOLD_SCALE 1.05f
+/* port: the context menu panel's corner radius, the menus' pill and button radius */
+#define UI_POPUP_RADIUS 10
 static boolean ui_touch_x_seen = FALSE;
 static boolean ui_touch_x_destructive = FALSE;
 /* the widget whose X handler deletes a gametype; its first child is the list of profile indices */
@@ -7067,77 +7069,114 @@ static wchar_t const *ui_popup_widget_name(
 	return NULL;
 }
 
-/* a rectangle with corners cut two units in, filled without overlapping bands so a
-translucent color stays even */
+/* port: how far a rounded corner of the given radius sits in from the box edge on the
+row dy units from the top (or bottom) edge */
+static short ui_popup_corner_inset(
+	short radius,
+	short dy)
+{
+	real d, inset;
+
+	if (dy >= radius)
+		return 0;
+	d = (real)radius - (real)dy - 0.5f;
+	inset = (real)radius - (real)sqrt((real)radius * (real)radius - d * d);
+
+	return (short)(inset + 0.5f);
+}
+
+static short ui_popup_clamp_radius(
+	rectangle2d const *box,
+	short radius)
+{
+	short limit = (short)(MIN(box->x1 - box->x0, box->y1 - box->y0) / 2);
+
+	return (short)MAX(0, MIN(radius, limit));
+}
+
+/* a rounded rectangle, the same corner radius as the menus' pills and buttons, filled
+with non-overlapping bands so a translucent color stays even */
 static void ui_popup_rounded_fill(
 	rectangle2d const *box,
+	short radius,
 	unsigned long color)
 {
 	rectangle2d band;
+	short dy, inset;
 
+	radius = ui_popup_clamp_radius(box, radius);
+	for (dy = 0; dy < radius; dy++)
+	{
+		inset = ui_popup_corner_inset(radius, dy);
+		band.x0 = (short)(box->x0 + inset);
+		band.x1 = (short)(box->x1 - inset);
+		band.y0 = (short)(box->y0 + dy);
+		band.y1 = (short)(band.y0 + 1);
+		draw_quad(&band, color);
+		band.y0 = (short)(box->y1 - 1 - dy);
+		band.y1 = (short)(band.y0 + 1);
+		draw_quad(&band, color);
+	}
 	band = *box;
-	band.x0 = (short)(box->x0 + 2);
-	band.x1 = (short)(box->x1 - 2);
-	band.y1 = (short)(box->y0 + 1);
-	draw_quad(&band, color);
-	band.x0 = (short)(box->x0 + 1);
-	band.x1 = (short)(box->x1 - 1);
-	band.y0 = (short)(box->y0 + 1);
-	band.y1 = (short)(box->y0 + 2);
-	draw_quad(&band, color);
-	band = *box;
-	band.y0 = (short)(box->y0 + 2);
-	band.y1 = (short)(box->y1 - 2);
-	draw_quad(&band, color);
-	band.x0 = (short)(box->x0 + 1);
-	band.x1 = (short)(box->x1 - 1);
-	band.y0 = (short)(box->y1 - 2);
-	band.y1 = (short)(box->y1 - 1);
-	draw_quad(&band, color);
-	band.x0 = (short)(box->x0 + 2);
-	band.x1 = (short)(box->x1 - 2);
-	band.y0 = (short)(box->y1 - 1);
-	band.y1 = box->y1;
-	draw_quad(&band, color);
+	band.y0 = (short)(box->y0 + radius);
+	band.y1 = (short)(box->y1 - radius);
+	if (band.y1 > band.y0)
+		draw_quad(&band, color);
 }
 
-/* a one-unit outline matching ui_popup_rounded_fill's cut corners */
+/* a one-unit outline of ui_popup_rounded_fill's shape */
 static void ui_popup_rounded_outline(
 	rectangle2d const *box,
+	short radius,
 	unsigned long color)
 {
 	rectangle2d line;
+	short dy, inset, reach;
 
-	line.x0 = (short)(box->x0 + 2);
-	line.x1 = (short)(box->x1 - 2);
-	line.y0 = box->y0;
-	line.y1 = (short)(box->y0 + 1);
-	draw_quad(&line, color);
-	line.y0 = (short)(box->y1 - 1);
-	line.y1 = box->y1;
-	draw_quad(&line, color);
-	line.x0 = box->x0;
-	line.x1 = (short)(box->x0 + 1);
-	line.y0 = (short)(box->y0 + 2);
-	line.y1 = (short)(box->y1 - 2);
-	draw_quad(&line, color);
-	line.x0 = (short)(box->x1 - 1);
-	line.x1 = box->x1;
-	draw_quad(&line, color);
-	line.x0 = (short)(box->x0 + 1);
-	line.x1 = (short)(box->x0 + 2);
-	line.y0 = (short)(box->y0 + 1);
-	line.y1 = (short)(box->y0 + 2);
-	draw_quad(&line, color);
-	line.y0 = (short)(box->y1 - 2);
-	line.y1 = (short)(box->y1 - 1);
-	draw_quad(&line, color);
-	line.x0 = (short)(box->x1 - 2);
-	line.x1 = (short)(box->x1 - 1);
-	draw_quad(&line, color);
-	line.y0 = (short)(box->y0 + 1);
-	line.y1 = (short)(box->y0 + 2);
-	draw_quad(&line, color);
+	radius = ui_popup_clamp_radius(box, radius);
+	for (dy = 0; dy < radius; dy++)
+	{
+		inset = ui_popup_corner_inset(radius, dy);
+		if (dy == 0)
+		{
+			line.x0 = (short)(box->x0 + inset);
+			line.x1 = (short)(box->x1 - inset);
+			line.y0 = box->y0;
+			line.y1 = (short)(box->y0 + 1);
+			draw_quad(&line, color);
+			line.y0 = (short)(box->y1 - 1);
+			line.y1 = box->y1;
+			draw_quad(&line, color);
+			continue;
+		}
+		reach = (short)MAX(inset + 1, ui_popup_corner_inset(radius, (short)(dy - 1)));
+		/* left and right arcs, top and bottom */
+		line.x0 = (short)(box->x0 + inset);
+		line.x1 = (short)(box->x0 + reach);
+		line.y0 = (short)(box->y0 + dy);
+		line.y1 = (short)(line.y0 + 1);
+		draw_quad(&line, color);
+		line.y0 = (short)(box->y1 - 1 - dy);
+		line.y1 = (short)(line.y0 + 1);
+		draw_quad(&line, color);
+		line.x0 = (short)(box->x1 - reach);
+		line.x1 = (short)(box->x1 - inset);
+		draw_quad(&line, color);
+		line.y0 = (short)(box->y0 + dy);
+		line.y1 = (short)(line.y0 + 1);
+		draw_quad(&line, color);
+	}
+	line.y0 = (short)(box->y0 + MAX(radius, 1));
+	line.y1 = (short)(box->y1 - MAX(radius, 1));
+	if (line.y1 > line.y0)
+	{
+		line.x0 = box->x0;
+		line.x1 = (short)(box->x0 + 1);
+		draw_quad(&line, color);
+		line.x0 = (short)(box->x1 - 1);
+		line.x1 = box->x1;
+		draw_quad(&line, color);
+	}
 }
 
 /* a thin trash can, its top-left corner at (x, y), 14 by 16 units */
@@ -7166,28 +7205,6 @@ static void ui_popup_trash_glyph(
 	part.x0 = (short)(x + UI_GLYPH(8)); part.x1 = (short)(x + UI_GLYPH(9));
 	draw_quad(&part, color);
 #undef UI_GLYPH
-}
-
-/* port: a rectangular ring of the given thickness just outside a rectangle, for glows */
-static void ui_popup_ring(
-	rectangle2d const *inner,
-	short distance,
-	short thickness,
-	unsigned long color)
-{
-	rectangle2d part;
-	short x0 = (short)(inner->x0 - distance), x1 = (short)(inner->x1 + distance);
-	short y0 = (short)(inner->y0 - distance), y1 = (short)(inner->y1 + distance);
-
-	part.x0 = (short)(x0 - thickness); part.x1 = (short)(x1 + thickness);
-	part.y0 = (short)(y0 - thickness); part.y1 = y0;
-	draw_quad(&part, color);
-	part.y0 = y1; part.y1 = (short)(y1 + thickness);
-	draw_quad(&part, color);
-	part.x1 = x0; part.y0 = y0; part.y1 = y1;
-	draw_quad(&part, color);
-	part.x0 = x1; part.x1 = (short)(x1 + thickness);
-	draw_quad(&part, color);
 }
 
 /* port: the held item's context menu, like a held Home Screen icon's: the rest of the
@@ -7265,21 +7282,7 @@ static void ui_hold_popup_draw(
 		part.x0 = anchor.x1;
 		part.x1 = screen.x1;
 		draw_quad(&part, 0x99000000);
-		/* its shadow, then a soft glow ring around it */
-		part.x0 = (short)(anchor.x0 + 4);
-		part.x1 = (short)(anchor.x1 + 4);
-		part.y0 = anchor.y1;
-		part.y1 = (short)(anchor.y1 + 5);
-		draw_quad(&part, 0x70000000);
-		part.x0 = anchor.x1;
-		part.y0 = (short)(anchor.y0 + 4);
-		draw_quad(&part, 0x70000000);
-		/* a bright HUD-blue edge on the lifted item, fading out in a glow */
-		ui_popup_ring(&anchor, 0, 2, hud_blue);
-		ui_popup_ring(&anchor, 2, 2, 0x902996ff);
-		ui_popup_ring(&anchor, 4, 2, 0x582996ff);
-		ui_popup_ring(&anchor, 6, 3, 0x302996ff);
-		ui_popup_ring(&anchor, 9, 3, 0x162996ff);
+		/* the lifted item itself draws its glow, on its own outline (ui_hold_glow_draw) */
 
 		panel.x0 = anchor.x0;
 		panel.y0 = (short)(anchor.y1 + gap);
@@ -7311,7 +7314,7 @@ static void ui_hold_popup_draw(
 	part.x1 = (short)(panel.x1 + 4);
 	part.y0 = (short)(panel.y0 + 5);
 	part.y1 = (short)(panel.y1 + 5);
-	ui_popup_rounded_fill(&part, 0x60000000);
+	ui_popup_rounded_fill(&part, UI_POPUP_RADIUS, 0x60000000);
 	/* a faint outer glow fading out from the outline, like the focused buttons */
 	{
 		static unsigned long const glow[] = {0x602996ff, 0x402996ff, 0x2a2996ff, 0x1a2996ff, 0x0e2996ff};
@@ -7324,25 +7327,38 @@ static void ui_hold_popup_draw(
 			part.x1 = (short)(panel.x1 + 2 + ring);
 			part.y0 = (short)(panel.y0 - 2 - ring);
 			part.y1 = (short)(panel.y1 + 2 + ring);
-			ui_popup_rounded_outline(&part, glow[ring]);
+			ui_popup_rounded_outline(&part, (short)(UI_POPUP_RADIUS + 2 + ring), glow[ring]);
 		}
 	}
-	ui_popup_rounded_fill(&panel, 0xe0101c34);
+	ui_popup_rounded_fill(&panel, UI_POPUP_RADIUS, 0xe0101c34);
 	/* a bright two-unit HUD-blue outline */
-	ui_popup_rounded_outline(&panel, hud_blue);
+	ui_popup_rounded_outline(&panel, UI_POPUP_RADIUS, hud_blue);
 	part = panel;
 	part.x0++; part.x1--; part.y0++; part.y1--;
-	ui_popup_rounded_outline(&part, hud_blue);
+	ui_popup_rounded_outline(&part, (short)(UI_POPUP_RADIUS - 1), hud_blue);
 
 	/* the notch points at the item from the panel's near edge */
 	if (notch_x >= 0)
 	{
 		short step;
 
-		notch_x = (short)MAX(panel.x0 + 12, MIN(notch_x, panel.x1 - 12));
-		for (step = 0; step < 6; step++)
+		static short const notch_half[] = { 9, 7, 5, 4, 3, 2, 1 };
+		short previous;
+
+		notch_x = (short)MAX(panel.x0 + 16, MIN(notch_x, panel.x1 - 16));
+		/* open the panel's two outline rows where the notch joins it */
+		part.x0 = (short)(notch_x - notch_half[0] + 1);
+		part.x1 = (short)(notch_x + notch_half[0] - 1);
+		part.y0 = below ? panel.y0 : (short)(panel.y1 - 2);
+		part.y1 = (short)(part.y0 + 2);
+		draw_quad(&part, 0xf0101c34);
+		previous = notch_half[0];
+		for (step = 0; step < (short)NUMBEROF(notch_half); step++)
 		{
-			short half = (short)(6 - step);
+			/* the first rows widen into a fillet, so the notch meets the panel's edge
+			in a curve rather than a corner; each edge segment reaches back to the
+			previous row's edge so the outline stays unbroken */
+			short half = notch_half[step];
 
 			part.x0 = (short)(notch_x - half);
 			part.x1 = (short)(notch_x + half);
@@ -7357,11 +7373,13 @@ static void ui_hold_popup_draw(
 				part.y1 = (short)(part.y0 + 1);
 			}
 			draw_quad(&part, 0xe0101c34);
-			part.x1 = (short)(part.x0 + 1);
+			part.x0 = (short)(notch_x - previous);
+			part.x1 = (short)(notch_x - half + 1);
 			draw_quad(&part, hud_blue);
 			part.x0 = (short)(notch_x + half - 1);
-			part.x1 = (short)(notch_x + half);
+			part.x1 = (short)(notch_x + previous);
 			draw_quad(&part, hud_blue);
+			previous = half;
 		}
 	}
 
@@ -7401,8 +7419,8 @@ static void ui_hold_popup_draw(
 			part.x1 = (short)(row.x1 - 4);
 			part.y0 = (short)(row.y0 + 6);
 			part.y1 = (short)(row.y1 - 6);
-			ui_popup_rounded_fill(&part, ui_touch_x_destructive ? 0x40ff5a1e : 0x402996ff);
-			ui_popup_rounded_outline(&part, ui_touch_x_destructive ? 0xa0ff5a1e : 0xa02996ff);
+			ui_popup_rounded_fill(&part, 8, ui_touch_x_destructive ? 0x40ff5a1e : 0x402996ff);
+			ui_popup_rounded_outline(&part, 8, ui_touch_x_destructive ? 0xa0ff5a1e : 0xa02996ff);
 		}
 		color.red = (real)((label_color >> 16) & 0xff) / 255.0f;
 		color.green = (real)((label_color >> 8) & 0xff) / 255.0f;
@@ -8673,6 +8691,26 @@ static void widget_instance_render_recursive(
 					bounds.x0 += shift;
 					bounds.x1 += shift;
 				}
+				/* port: a held item glows on its own outline: enlarged faint copies of
+				its own frame behind it, then the frame, then a brightening pass */
+				if (widget == ui_hold_widget && ui_hold_progress() > 0.0f)
+				{
+					real hold = ui_hold_progress();
+					short ring;
+
+					for (ring = 3; ring >= 1; ring--)
+					{
+						rectangle2d glow = bounds;
+
+						glow.x0 = (short)(glow.x0 - 2 * ring);
+						glow.x1 = (short)(glow.x1 + 2 * ring);
+						glow.y0 = (short)(glow.y0 - 2 * ring);
+						glow.y1 = (short)(glow.y1 + 2 * ring);
+						draw_bitmap_in_rect(bitmap, &glow, stretched ? NULL : &texels, NULL,
+							modulate_pixel32_by_real_alpha(0xFFFFFFFF, alpha * hold * 0.45f / (real)ring),
+							&multitexture_params, FALSE);
+					}
+				}
 				draw_bitmap_in_rect(
 					bitmap,
 					&bounds,
@@ -8681,6 +8719,12 @@ static void widget_instance_render_recursive(
 					color,
 					&multitexture_params,
 					FALSE);
+				if (widget == ui_hold_widget && ui_hold_progress() > 0.0f)
+				{
+					draw_bitmap_in_rect(bitmap, &bounds, stretched ? NULL : &texels, clip,
+						modulate_pixel32_by_real_alpha(0xFFFFFFFF, alpha * ui_hold_progress() * 0.5f),
+						&multitexture_params, FALSE);
+				}
 				if (!custom_edition_picture)
 					menu_title_icon_draw(definition->background_bitmap.index, bitmap, &bounds, clip, color);
 			}
