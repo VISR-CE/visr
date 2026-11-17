@@ -580,6 +580,9 @@ static void finish(const char *status, const char *note)
 	if (graphics_window_open) benchmark_graphics_window(0,0,0);
 	platform_log("benchmark suite: %s ends: %s%s%s", suite.scene, status, *note ? ", " : "", note);
 	host_benchmark_end(status, note);
+	/* One capture of the first frame after the timer stopped (debug.benchmark_window_shot); off unless set.
+	The guest owns the renderer, so the request is made here, not by the host. */
+	platform_benchmark_window_shot_request();
 	input_replay_begin(NULL, 0);
 	if (suite.mp_scene)
 	{

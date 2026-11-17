@@ -13,12 +13,15 @@ def test_key_is_defined_off_by_default():
     assert 'benchmark_window_shot' in (ROOT / 'port/linux/README.md').read_text()
 
 
-def test_request_follows_the_timer_stop_in_host_benchmark_end():
-    source = (ROOT / 'port/ios/host/host_benchmark.m').read_text()
-    body = source[source.index('void host_benchmark_end('):]
-    closed = body.index('window_open = 0;')
+def test_request_is_made_by_the_guest_after_the_timer_stop():
+    host = (ROOT / 'port/ios/host/host_benchmark.m').read_text()
+    assert 'platform_benchmark_window_shot_request' not in host
+    source = (ROOT / 'port/linux/src/benchmark_suite.c').read_text()
+    body = source[source.index('static void finish('):]
+    closed = body.index('benchmark_graphics_window(0,0,0)')
+    ended = body.index('host_benchmark_end(status, note);')
     request = body.index('platform_benchmark_window_shot_request();')
-    assert closed < request < closed + 400
+    assert closed < ended < request < ended + 300
 
 
 def test_capture_is_one_shot_on_the_ready_path():
