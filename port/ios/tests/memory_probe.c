@@ -21,11 +21,9 @@ static void *writer(void *arg) {
     return NULL;
 }
 /* Probe D: the in-window mmap path (xbox_memory.c's forget, then mmap) races the
-   renderer protecting a neighboring 4 KB block in the same 16 KB page: forget and
-   the remap's mprotect make the whole page writable again, and the watch on the
-   neighbor is lost. It is reported, not enforced: it is a known hazard of blocks
-   sharing a tracker page, and fails nearly every round with the mapper looping.
-   Set HALO_PROBE_D_STRICT to make it fail. */
+   renderer protecting a neighboring 4 KB block in the same 16 KB page. The remap
+   must go through the tracker: a raw mprotect would leave the page writable while
+   the tracker still believed it protected, and the neighbor's watch would be lost. */
 static unsigned stop_mapper;
 static void *mapper(void *arg) {
     (void)arg;
@@ -106,15 +104,42 @@ int main(int argc,char **argv) {
         pthread_t thread;unsigned bad=0,rounds=50000;
         pthread_create(&thread,NULL,mapper,NULL);
         for(unsigned i=0;i<rounds;i++){
-            host_memory_watch_protect(0x80010000,0x1000);
+            /* the renderer's order: generation first, then protect (a release
+               between the two must leave the generation above the recorded one) */
             unsigned before=host_memory_watch_generation(0x80010000,0x1000);
+            host_memory_watch_protect(0x80010000,0x1000);
             *(volatile unsigned *)host_pointer(0x80010000)=i;
-            if(host_memory_watch_generation(0x80010000,0x1000)==before)bad++;
+            if(host_memory_watch_generation(0x80010000,0x1000)<=before)bad++;
         }
         __atomic_store_n(&stop_mapper,1,__ATOMIC_RELAXED);
         pthread_join(thread,NULL);
         fprintf(stderr,"probe D: %u of %u writes beside a remapped block did not advance the generation\n",bad,rounds);
-        if(bad&&getenv("HALO_PROBE_D_STRICT"))return 40;
+        if(bad)return 40;
+    }
+    /* Probe E: the same hazard without a race. Guest mmap and mprotect calls on one
+       4 KB block must not silently drop the watch on its 16 KB page's other blocks. */
+    {
+        volatile unsigned *watched=host_pointer(0x80050000);
+        unsigned before;
+#define WATCH() (host_memory_watch_protect(0x80050000,0x1000),before=host_memory_watch_generation(0x80050000,0x1000))
+#define MISSED() (*watched=1,host_memory_watch_generation(0x80050000,0x1000)==before)
+        /* VirtualProtect(PAGE_READWRITE) on a neighbor */
+        WATCH();if(host_guest_mprotect(0x80051000,0x1000,PROT_READ|PROT_WRITE)||MISSED())return 41;
+        /* VirtualProtect(PAGE_READONLY) on a neighbor: its boundary page stays writable */
+        WATCH();if(host_guest_mprotect(0x80051000,0x1000,PROT_READ)||MISSED())return 42;
+        /* a read-only range that ends inside the watched page */
+        WATCH();if(host_guest_mprotect(0x80048000,0x9000,PROT_READ)||MISSED())return 43;
+        /* a writable range covering the watched page whole (the map cache's enable-writes) */
+        WATCH();if(host_guest_mprotect(0x80040000,0x20000,PROT_READ|PROT_WRITE)||MISSED())return 44;
+        /* a neighbor remapped: the page's content changed, so the generation moves at once */
+        WATCH();if(host_guest_mmap(0x80051000,0x1000,PROT_READ|PROT_WRITE,0x32,-1,0)!=0x80051000||
+            host_memory_watch_generation(0x80050000,0x1000)==before)return 45;
+        WATCH();if(MISSED())return 46;
+        /* whole pages made read-only by the guest become writable again on request */
+        if(host_guest_mprotect(0x80048000,0x8000,PROT_READ|PROT_WRITE))return 47;
+        *(volatile unsigned *)host_pointer(0x80048000)=1;*(volatile unsigned *)host_pointer(0x8004c000)=1;
+#undef WATCH
+#undef MISSED
     }
     printf("PASS: concurrent page tracking, generation %u; reused mmap zeroed; fixed pool mapping\n",generation);
     return 0;
