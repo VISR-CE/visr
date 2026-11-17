@@ -133,7 +133,17 @@ int host_config_graphics_mode(void)
 	else if ((suite && *suite) || !config_file_value("display.graphics", text, sizeof(text)))
 		return GRAPHICS_MODE_ENHANCED;
 	mode = graphics_mode_parse(text);
-	return graphics_mode_effective(mode < 0 ? GRAPHICS_MODE_ENHANCED : mode, head_stereo && head_stereo());
+	/* (the head-stereo query reads settings, which ask for the graphics mode again: while it runs, answer without
+	the head-stereo fallback instead of recursing until the stack ends) */
+	static _Thread_local int in_head_query;
+	int head = 0;
+	if (head_stereo && !in_head_query)
+	{
+		in_head_query = 1;
+		head = head_stereo();
+		in_head_query = 0;
+	}
+	return graphics_mode_effective(mode < 0 ? GRAPHICS_MODE_ENHANCED : mode, head);
 }
 
 /* section.key's value text: a benchmark suite's launch environment, then the graphics mode where it replaces
