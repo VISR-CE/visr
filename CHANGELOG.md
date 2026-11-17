@@ -156,6 +156,35 @@
 - **site**: make the sticky suite bar shorter and translucent — the suite's screenshots join the pills' row at the right and the description takes the line below, the "SUITE" label sits inline (hidden on phones), and the bar's page color is about 88% opaque with `backdrop-filter: blur(10px)` (and the `-webkit-` prefix) on a full-width `::before` that keeps the bottom line; the desktop bar is about 86 px tall instead of 122 px
 - **benchmarks**: keep the builds table readable on phones and wide screens — dates and build ids no longer wrap, and the table caption spans the card on narrow screens.
 
+## visr-v0.6.19 (2026-11-17)
+
+### Summary
+
+- Watch for stale or wrong-looking textures and geometry after the game reuses memory. Models and textures should now update correctly when their data changes.
+- Play through scenes where textures or vertex-based objects change often. They should no longer get stuck showing outdated content.
+- On Apple TV, open a text entry prompt and dismiss it using the system. The game should keep running normally afterward instead of getting stuck.
+- On Apple TV, repeat opening and canceling text prompts a few times to confirm nothing hangs or stalls.
+- Load into a level and check that startup commands that wait for the level to finish loading now run as expected after it loads.
+
+iCloud Saves is new and starts off. To try it, sign in to iCloud on each device, then turn on iCloud Saves under Network Setup in the game's profile settings (on iPhone, iPad and Apple Vision Pro also on VISR's page in the Settings app). It takes effect at the next launch.
+
+VISR automatically sends missing shader descriptions and device model information to improve loading. Reports exclude gameplay and personal file names. Apple's upload service attaches an account-specific identifier. Shader diagnostics are required in builds with shader uploads enabled.
+
+VISR automatically sends game performance data to improve the game. Reports exclude names, chat, and personal file names. Apple's upload service attaches an account-specific identifier. Performance diagnostics are required in builds with performance reports enabled. Sharing this data is part of testing; leaving the beta stops it.
+
+### Full changelog
+
+### fix
+
+- **console**: run init.txt lines after `map_name` once the level has loaded — with `debug.init_after` set, `console_startup_run` ran every line at once so `sleep_until` script threads died on the level load; the rest of the file now waits in `console_startup_update` until `game_in_progress`
+- **tvos**: reap a text dialog the system removed without running a handler — `text_prompt` stayed set, so `text_prompt_up` kept the frame thread out of the workgroup for good; `text_prompt_reap` now treats a dialog that was seen presented and is gone as cancelled
+- **renderer**: record the watch generation read before `memory_watch_protect` — a page released by another thread between protecting and reading was left writable with a newer generation, and recording that value hid every later write to the texture or vertex buffer
+- **host**: keep the write tracker in step when the guest remaps or unprotects part of a 16 KB page — `host_guest_mmap` and `host_guest_mprotect` called `mprotect` directly, so a 4 KB guest block sharing a host page with a watched block made that page writable while `protected_pages` still said read-only, and later writes to the watched block never advanced its generation (stale textures and vertex data)
+
+### test
+
+- **tvos**: make `test_tvos_prompt_reap` a pytest test — the module called `sys.exit(0)` at import and aborted collection of the whole suite
+
 ## visr-v0.6.18 (2026-11-14)
 
 ### Summary
