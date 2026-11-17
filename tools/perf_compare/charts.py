@@ -435,14 +435,14 @@ def overall_split(pool: list[dict]) -> tuple[list[str], list[dict], list[dict]]:
     """(suites, builds drawn, builds left out) for Overall. Overall covers the suites every drawn build has complete.
     While those are fewer than two and more than one build is drawn, the build whose removal leaves the most shared
     suites is dropped (ties: the build with the fewest suites, then the later one), as long as dropping one adds a
-    suite; a lone build counts all of its suites. Mirrored by `overallSplit` in benchmarks.js."""
+    suite (or nothing is shared yet); a lone build counts all of its suites. Mirrored by `overallSplit` in benchmarks.js."""
     kept = list(pool)
     shared = _shared_suites(kept)
     while len(shared) < OVERALL_MIN_SUITES and len(kept) > 1:
         options = [(len(_shared_suites([e for e in kept if e is not drop])), -sum(1 for n in SUITES if drop["suites"].get(n)), index, drop)
                    for index, drop in enumerate(kept)]
         best = max(options, key=lambda option: option[:3])
-        if best[0] <= len(shared):
+        if shared and best[0] <= len(shared):
             break
         kept = [e for e in kept if e is not best[3]]
         shared = _shared_suites(kept)

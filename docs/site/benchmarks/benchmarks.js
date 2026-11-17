@@ -303,7 +303,7 @@ function overallSplit(shown) {
       const option = [sharedSuites(kept.filter((e) => e !== drop)).length, -SUITES.filter((n) => drop.suites[n]).length, index, drop];
       if (!best || option[0] > best[0] || (option[0] === best[0] && (option[1] > best[1] || (option[1] === best[1] && option[2] > best[2])))) best = option;
     });
-    if (best[0] <= shared.length) break;
+    if (shared.length && best[0] <= shared.length) break;
     kept = kept.filter((e) => e !== best[3]);
     shared = sharedSuites(kept);
   }
