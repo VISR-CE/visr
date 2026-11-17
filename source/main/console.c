@@ -57,6 +57,7 @@ symbols in this file:
 #include "cseries/errors.h"
 #include "cseries/profile.h"
 #include "editor/editor_stubs.h"
+#include "game/game.h"
 #include "hs/hs.h"
 #include "networking/network_server_manager.h"
 #include "input/input.h"
@@ -409,6 +410,10 @@ void platform_log(const char *format, ...);
 static unsigned long console_startup_due;
 
 static void console_startup_run(void);
+static void console_startup_run_lines(FILE *file);
+/* port: lines of init.txt after a "map_name" line wait here until that level is loaded, because
+script threads started before the load (sleep_until and the like) die with the old level */
+static FILE *console_startup_rest;
 
 void console_startup(
 	void)
@@ -440,6 +445,14 @@ void console_startup_update(
 		platform_log("init.txt: running its commands (debug.init_after)");
 		console_startup_run();
 	}
+	else if (console_startup_rest && game_in_progress())
+	{
+		FILE *rest = console_startup_rest;
+
+		console_startup_rest = NULL;
+		platform_log("init.txt: level loaded, running its remaining commands");
+		console_startup_run_lines(rest);
+	}
 
 	return;
 }
@@ -447,9 +460,7 @@ void console_startup_update(
 static void console_startup_run(
 	void)
 {
-	char buffer[200];
 	FILE *file;
-	short newest_previous_command_index;
 
 	if (!game_in_editor())
 	{
@@ -462,23 +473,46 @@ static void console_startup_run(
 
 	if (file)
 	{
-		while (fgets(buffer, NUMBEROF(buffer)-1, file))
+		console_startup_run_lines(file);
+	}
+
+	return;
+}
+
+static void console_startup_run_lines(
+	FILE *file)
+{
+	char buffer[200];
+	short newest_previous_command_index;
+	boolean defer_rest = FALSE;
+
+	while (!defer_rest && fgets(buffer, NUMBEROF(buffer)-1, file))
+	{
+		strtok(buffer, "\r\n\t");
+		newest_previous_command_index = (console_globals.newest_previous_command_index + 1) % MAXIMUM_NUMBER_OF_PREVIOUS_COMMANDS;
+
+		console_globals.newest_previous_command_index = newest_previous_command_index;
+		strcpy(console_globals.previous_commands[newest_previous_command_index], buffer);
+
+		console_globals.previous_command_count = MIN(console_globals.previous_command_count + 1, MAXIMUM_NUMBER_OF_PREVIOUS_COMMANDS);
+
+		console_globals.selected_previous_command_index = NONE;
+		if (hs_compile_and_evaluate(buffer))
 		{
-			strtok(buffer, "\r\n\t");
-			newest_previous_command_index = (console_globals.newest_previous_command_index + 1) % MAXIMUM_NUMBER_OF_PREVIOUS_COMMANDS;
-
-			console_globals.newest_previous_command_index = newest_previous_command_index;
-			strcpy(console_globals.previous_commands[newest_previous_command_index], buffer);
-
-			console_globals.previous_command_count = MIN(console_globals.previous_command_count + 1, MAXIMUM_NUMBER_OF_PREVIOUS_COMMANDS);
-
-			console_globals.selected_previous_command_index = NONE;
-			if (hs_compile_and_evaluate(buffer))
-			{
-				error(_error_log, "init: %s", buffer);
-			}
+			error(_error_log, "init: %s", buffer);
 		}
+		if (!strncmp(buffer, "map_name ", 9) && !game_in_editor() && config_real("debug.init_after") > 0.0)
+		{
+			defer_rest = TRUE;
+		}
+	}
 
+	if (defer_rest)
+	{
+		console_startup_rest = file;
+	}
+	else
+	{
 		fclose(file);
 	}
 
