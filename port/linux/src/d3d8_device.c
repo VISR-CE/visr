@@ -5899,14 +5899,18 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 		}
 		address = PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE;
 		size = (run - page) * MIRROR_PAGE_SIZE;
-		/* protect first, so a write racing with the upload is noticed */
-		memory_watch_protect(address, size);
+		/* Read the generations before protecting. A page another thread
+		 * releases between the two steps is left writable with a newer
+		 * generation; recording that one would hide every later write. The
+		 * older value costs one more copy instead. Protecting before the
+		 * copy still catches a write racing with it. */
 		for (; page < run; page++)
 		{
 			mirror.generation[page] = memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE,
 				MIRROR_PAGE_SIZE);
 			mirror.state[page] = _mirror_page_present;
 		}
+		memory_watch_protect(address, size);
 		if (!mirror.buffers[segment])
 			mirror.buffers[segment] = gpu_buffer_create(MIRROR_SEGMENT_SIZE);
 		gpu_buffer_write(mirror.buffers[segment],
