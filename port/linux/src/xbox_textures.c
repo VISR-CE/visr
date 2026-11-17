@@ -1881,11 +1881,13 @@ gpu_texture xgpu_texture_get(const DWORD *resource, const D3DCOLOR *palette, uin
 #endif
 		/* A rewritten guest page gets a fresh content key. The old worker result
 		 * cannot match changed bytes, even when the address is reused. */
-		/* protect first, so a write racing with the upload is noticed */
+		/* Keep the generation read before protecting. A page another thread
+		 * releases between the two steps is left writable with a newer
+		 * generation; recording that one would hide every later write. The
+		 * older value costs one more upload instead. Protecting before the
+		 * upload still catches a write racing with it. */
 		memory_watch_protect(entry->address, entry->size);
-		entry->generation = memory_watch_generation(entry->address, entry->size);
-		if (!entry->generation)
-			entry->generation = 1;
+		entry->generation = generation ? generation : 1;
 		/* (which bitmap is here may have changed with the pixels) */
 		entry->override = -1;
 		entry->texture_override_eligible = 0;
