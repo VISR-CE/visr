@@ -14,6 +14,7 @@
 #define HALO_IOS 1
 #define __HALO_LINUX_PLATFORM_H
 void platform_log(const char *format, ...);
+void platform_benchmark_window_shot_request(void);
 static _Noreturn void probe_exit(int status);
 #define exit probe_exit
 #include "benchmark_suite.c"
@@ -36,6 +37,7 @@ static int progress_phase;
 void host_benchmark_phase(int phase) { progress_phase = phase; }
 int host_benchmark_presented(int on) { (void)on; return 0; }
 void platform_clock_realtime(int on) { (void)on; }
+void platform_benchmark_window_shot_request(void) {}
 static char last_end_status[32];
 static struct benchmark_mp_state observed_mp;
 static int exit_status, exit_armed;
