@@ -229,6 +229,10 @@ static int guest_range_valid(uint64_t address,uint64_t size) {
     return size && address<host_arena_size && size<=host_arena_size-address;
 }
 
+static void page_lock(unsigned page);
+static void page_unlock(unsigned page);
+static void mark_written(unsigned page);
+
 /* Linux mmap constants are deliberately decoded here instead of using Darwin's. */
 long host_guest_mmap(uint64_t address,uint64_t size,int protection,int flags,int fd,int64_t offset) {
     if (!guest_range_valid(address,size) || size>0x70000000ull) return -22;
@@ -244,9 +248,17 @@ long host_guest_mmap(uint64_t address,uint64_t size,int protection,int flags,int
     } else if (flags & (0x10|0x100000)) {
         if (!in_window((uint32_t)address,size)) return -22;
         p=host_pointer(address);
-        uint32_t first=(uint32_t)address & ~(PAGE-1);
-        size_t length=rounded(address+size-first);
-        if (mprotect(host_pointer(first),length,PROT_READ|PROT_WRITE)) return -12;
+        /* The block's contents change, so every 16 KB page it touches counts
+           as written: a watched neighbor sharing a page must see a new
+           generation, and its page must not stay writable while the tracker
+           still believes it is protected. */
+        unsigned first_page=((uint32_t)address-HALO_GUEST_WINDOW_BASE)/PAGE;
+        unsigned last_page=((uint32_t)(address+size-1)-HALO_GUEST_WINDOW_BASE)/PAGE;
+        for(unsigned page=first_page;page<=last_page;++page) {
+            page_lock(page);
+            mark_written(page);
+            page_unlock(page);
+        }
         memset(p,0,size);
     } else {
         p=host_low_map(size,PROT_READ|PROT_WRITE);
@@ -273,19 +285,45 @@ long host_guest_munmap(uint64_t address,uint64_t size) {
     if (in_window(address,size)) return 0;
     host_low_unmap(host_pointer(address),size); return 0;
 }
+/* Makes [first,end) of the physical window writable without disturbing the
+   write tracker. A page the tracker holds read-only stays that way: the next
+   write faults, is recorded and unprotects it. Changing it here would leave a
+   writable page whose writes no longer advance the generation. Runs of
+   untracked pages are changed with one call; locks are taken in ascending
+   order, and every other path holds one lock at a time. */
+static int window_make_writable(uint64_t first,uint64_t end) {
+    unsigned page=(unsigned)((first-HALO_GUEST_WINDOW_BASE)/PAGE);
+    unsigned stop=(unsigned)((end-HALO_GUEST_WINDOW_BASE)/PAGE);
+    while(page<stop) {
+        unsigned run=page;
+        while(run<stop && run-page<256) {
+            page_lock(run);
+            if(protected_pages[run]) { page_unlock(run); break; }
+            ++run;
+        }
+        int failed=run>page && mprotect(host_pointer(HALO_GUEST_WINDOW_BASE+(uint64_t)page*PAGE),
+                                        (size_t)(run-page)*PAGE,PROT_READ|PROT_WRITE);
+        for(unsigned held=page;held<run;++held) page_unlock(held);
+        if(failed) return -1;
+        page=run<stop && run-page<256 ? run+1 : run;
+    }
+    return 0;
+}
 long host_guest_mprotect(uint64_t address,uint64_t size,int protection) {
     if (!guest_range_valid(address,size)) return -22;
     uint32_t first=(uint32_t)address & ~(PAGE-1);
-    if(in_window((uint32_t)address,size) && !(protection&PROT_WRITE)) {
+    if(in_window((uint32_t)address,size)) {
+        uint64_t end=address+size;
+        if(protection&PROT_WRITE)
+            return window_make_writable(first,rounded(end)) ? -12 : 0;
         /* Xbox allocations/protection boundaries are 4 KB. Rounding a read-only
            buffer outwards also protects a neighboring writable zlib buffer.
            Enforce read-only only on complete 16 KB pages; boundary pages stay
            writable. VirtualProtect still records exact Xbox permissions in
            xbox_memory.c. Texture write tracking independently covers them. */
-        uint64_t end=address+size;
-        if(address!=first && mprotect(host_pointer(first),PAGE,PROT_READ|PROT_WRITE))return -12;
-        if((end&(PAGE-1)) && mprotect(host_pointer(end&~(uint64_t)(PAGE-1)),PAGE,PROT_READ|PROT_WRITE))return -12;
         uint64_t inner_start=rounded(address),inner_end=end&~(uint64_t)(PAGE-1);
+        if(address!=first && window_make_writable(first,first+PAGE))return -12;
+        if((end&(PAGE-1)) && inner_end!=first && window_make_writable(inner_end,inner_end+PAGE))return -12;
         return inner_end>inner_start && mprotect(host_pointer(inner_start),inner_end-inner_start,protection&~PROT_EXEC) ? -12:0;
     }
     return mprotect(host_pointer(first),rounded(address+size-first),protection & ~PROT_EXEC) ? -12 : 0;
@@ -298,10 +336,13 @@ static void page_lock(unsigned page) {
     while(__atomic_exchange_n(&page_locks[page],1,__ATOMIC_ACQUIRE)) {}
 }
 static void page_unlock(unsigned page) { __atomic_store_n(&page_locks[page],0,__ATOMIC_RELEASE); }
+/* Publish the generation before the page becomes writable. Generation reads
+   take no lock, so the other order lets a write from another thread land
+   while a reader still sees the old value. */
 static void mark_written(unsigned page) {
-    if(mprotect(host_pointer(HALO_GUEST_WINDOW_BASE+page*PAGE),PAGE,PROT_READ|PROT_WRITE))_exit(128+SIGBUS);
     __atomic_store_n(&generations[page],__atomic_add_fetch(&serial,1,__ATOMIC_RELAXED),__ATOMIC_RELEASE);
     protected_pages[page]=0;
+    if(mprotect(host_pointer(HALO_GUEST_WINDOW_BASE+page*PAGE),PAGE,PROT_READ|PROT_WRITE))_exit(128+SIGBUS);
 }
 static void fault(int sig,siginfo_t *info,void *context) {
     uintptr_t p=(uintptr_t)info->si_addr;
