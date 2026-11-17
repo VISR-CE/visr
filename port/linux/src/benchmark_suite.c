@@ -148,6 +148,10 @@ static struct
 	int capped;
 	/* the run's frames are drawn offscreen (host_benchmark.m); and the lead-in skips drawing this frame */
 	int offscreen, skip_drawing;
+	/* debug.benchmark_shot_pass: the window replays only up to shot_tick ticks after it opens (0: its end), saves
+	one picture and exits; shot_wait is the wall time that picture was asked for */
+	int shot_pass;
+	double shot_tick, shot_wait;
 	/* a gameplay scene: frames of a cutscene inside it are not measured (a cutscene has its own target, and a
 	profile may hold it to 30); whether the window is closed for one now */
 	int gameplay, in_cutscene;
@@ -688,6 +692,9 @@ static void next_run(void)
 	suite.capped = 0;
 	suite.review_progress = -1;
 	suite.offscreen = (int)number_field(text, "offscreen");
+	suite.shot_pass = config_boolean("debug.benchmark_shot_pass");
+	suite.shot_tick = (double)config_integer("debug.benchmark_shot_tick");
+	suite.shot_wait = 0.0;
 	{
 		char kind[32];
 
@@ -1029,7 +1036,8 @@ void benchmark_suite_frame(long width, long height)
 			route_point(ticks);
 		if (suite.presented && (menu || ticks >= suite.lead * 30.0 - PRESENTED_LEAD_TICKS))
 			suite_presented(1);
-		suite.skip_drawing = suite.offscreen && !menu && ticks < suite.lead * 30.0 - DRAWN_LEAD_TICKS;
+		suite.skip_drawing = suite.offscreen && !menu &&
+			(suite.shot_pass || ticks < suite.lead * 30.0 - DRAWN_LEAD_TICKS);
 		if (suite.diverged)
 			finish("diverged", suite.route);
 		else if (menu ? now - suite.entered >= suite.lead * 1000.0 : ticks >= suite.lead * 30.0)
@@ -1078,6 +1086,34 @@ void benchmark_suite_frame(long width, long height)
 				}
 			}
 			break;
+		}
+		if (suite.shot_pass)
+		{
+			double target = suite.shot_tick > 0.0 ? suite.shot_tick : suite.seconds * 30.0;
+
+			if (suite.shot_wait)
+			{
+				if (platform_ready_screenshot_taken())
+				{
+					platform_log("benchmark suite: shot pass saved tick=%ld", (long)(ticks - suite.opened_ticks));
+					exit(EXIT_SUCCESS);
+				}
+				if (now - suite.shot_wait > 10000.0)
+				{
+					platform_log("benchmark suite: shot pass picture was not written");
+					exit(EXIT_FAILURE);
+				}
+				break;
+			}
+			/* only the shot frame is drawn; everything before it runs uncapped without drawing */
+			suite.skip_drawing = suite.offscreen && !menu && ticks - suite.opened_ticks < target - 2.0;
+			if (!menu && ticks - suite.opened_ticks >= target)
+			{
+				platform_log("benchmark suite: shot pass asks for its picture at tick=%ld", (long)(ticks - suite.opened_ticks));
+				platform_benchmark_window_shot_request();
+				suite.shot_wait = now > 0.0 ? now : 1.0;
+				break;
+			}
 		}
 		if (!menu)
 			route_point(ticks);
@@ -1137,7 +1173,7 @@ void benchmark_suite_frame(long width, long height)
 presented, so the suite, the replay and the clock go on as every frame */
 int benchmark_suite_skips_drawing(void)
 {
-	return suite.state == suite_lead && suite.skip_drawing;
+	return (suite.state == suite_lead || (suite.state == suite_measuring && suite.shot_pass)) && suite.skip_drawing;
 }
 
 /* d3d8_device.c: a suite is running, so dynamic resolution stays off and every run renders its fixed lines */

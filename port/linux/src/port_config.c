@@ -1790,6 +1790,11 @@ static const struct config_setting config_settings[] =
 	{ "debug.benchmark_window_shot", _config_string, "\"\"", "HALO_BENCHMARK_WINDOW_SHOT", _environment_value, _platform_all,
 		"A folder for one picture of each benchmark window, saved from the first frame after its timer stops (never\n"
 		"inside the measured span); empty none. Benchmarks use this, never screenshot_every." },
+	{ "debug.benchmark_shot_pass", _config_boolean, "false", "HALO_BENCHMARK_SHOT_PASS", _environment_set_is_true, _platform_all,
+		"One benchmark window replays only up to its shot tick (default its end) as fast as the game runs without\n"
+		"drawing, saves one picture to benchmark_window_shot, and exits; nothing is timed." },
+	{ "debug.benchmark_shot_tick", _config_integer, "0", "HALO_BENCHMARK_SHOT_TICK", _environment_value, _platform_all,
+		"With benchmark_shot_pass, the tick after the window opens to take the picture at; 0 is the window's end." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
 	{ "debug.shadow_scenery", _config_integer, "0", "HALO_SHADOW_SCENERY", _environment_value, _platform_all,

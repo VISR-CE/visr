@@ -3044,6 +3044,28 @@
             "desktop"
           ]
         },
+        "benchmark_shot_pass": {
+          "type": "boolean",
+          "default": false,
+          "description": "One benchmark window replays only up to its shot tick (default its end) as fast as the game runs without drawing, saves one picture to benchmark_window_shot, and exits; nothing is timed.",
+          "x-environment": "HALO_BENCHMARK_SHOT_PASS",
+          "x-environment-style": "set_is_true",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "benchmark_shot_tick": {
+          "type": "integer",
+          "default": 0,
+          "description": "With benchmark_shot_pass, the tick after the window opens to take the picture at; 0 is the window's end.",
+          "x-environment": "HALO_BENCHMARK_SHOT_TICK",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "screenshot_directory": {
           "type": "string",
           "default": "",
