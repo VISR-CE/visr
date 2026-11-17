@@ -136,7 +136,7 @@ def test_offscreen_lead_in_skips_drawing_but_presents():
     assert re.search(r"if \(!benchmark_suite_skips_drawing\(\)\)\s*\n\s*main_game_render\(", main)
     suite = (ROOT / "port/linux/src/benchmark_suite.c").read_text()
     assert "#define DRAWN_LEAD_TICKS 300.0" in suite
-    assert "return suite.state == suite_lead && suite.skip_drawing;" in suite
+    assert "return (suite.state == suite_lead || (suite.state == suite_measuring && suite.shot_pass)) && suite.skip_drawing;" in suite
     host = (ROOT / "port/ios/host/host_benchmark.m").read_text()
     assert "presented=%d offscreen=%d" in host
 
