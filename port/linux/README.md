@@ -671,6 +671,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.gpu_debug_texture0` | boolean | `false` | apple, desktop | `HALO_GPU_DEBUG_T0` | Pixel shaders show their first texture. |
 | `debug.gpu_debug_flat` | boolean | `false` | apple, desktop | `HALO_GPU_DEBUG_FLAT` | Pixel shaders show their vertex colour. |
 | `debug.companion_capture` | boolean | `false` | apple, desktop | `HALO_COMPANION_CAPTURE` | Draw the companion HUD without an external display and save it with screenshots. |
+| `debug.benchmark_window_shot` | string | `""` | apple, desktop | `HALO_BENCHMARK_WINDOW_SHOT` | A folder for one picture of each benchmark window, saved from the first frame after its timer stops (never inside the measured span); empty none. |
 | `debug.screenshot_directory` | string | `""` | apple, desktop | `HALO_SCREENSHOT_DIR` | A folder to save frames to (with screenshot_every); empty none. |
 | `debug.shadow_scenery` | integer | `0` | apple, desktop | `HALO_SHADOW_SCENERY` | For experiments: classes of object that cast a shadow whatever display.shadow_props says (bit 1 all scenery, bit 2 all devices, bit 4 equipment and garbage). |
 | `debug.shadow_blur` | string | `"footprint"` | apple, desktop | `HALO_SHADOW_BLUR` | How object shadows larger than 128 texels (display.shadow_map_size) are blurred: "footprint" over the area the game's blur covers at 128, "xbox" the game's taps at their fixed offsets (at 512 they fall 4 texels apart and show as separate copies). 128-texel shadows always get the game's blur. |

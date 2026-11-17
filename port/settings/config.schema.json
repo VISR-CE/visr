@@ -3033,6 +3033,17 @@
             "desktop"
           ]
         },
+        "benchmark_window_shot": {
+          "type": "string",
+          "default": "",
+          "description": "A folder for one picture of each benchmark window, saved from the first frame after its timer stops (never inside the measured span); empty none. Benchmarks use this, never screenshot_every.",
+          "x-environment": "HALO_BENCHMARK_WINDOW_SHOT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "screenshot_directory": {
           "type": "string",
           "default": "",

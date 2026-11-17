@@ -20,6 +20,7 @@
 #include "ios_host.h"
 #include "guest_image.h"
 #include "host_benchmark.h"
+void platform_benchmark_window_shot_request(void);
 #include "host_benchmark_live.h"
 #import <QuartzCore/CAMediaTiming.h>
 #include "host_benchmark_page_policy.h"
@@ -2066,6 +2067,8 @@ void host_benchmark_end(const char *status_name, const char *note) {
         if (!strcmp(status_name, benchmark_status_name((enum benchmark_status)status))) outcome.status = (enum benchmark_status)status;
     os_unfair_lock_lock(&lock);
     window_open = 0;
+    /* One capture of the first frame after the timer stopped (debug.benchmark_window_shot); off unless set. */
+    platform_benchmark_window_shot_request();
     benchmark_live_reset(&live);
     /* Admission closes on this thread before it can return to rendering.
        The worker never needs the legacy metrics lock. */

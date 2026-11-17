@@ -7423,6 +7423,9 @@ static void write_screenshot(struct render_target_entry *target, const char *suf
 
 /* debug.menu_ready_shot: 1 once the menus ask for a frame, 2 once it is
 written; the file name's suffix (debug.menu_sequence names each screen's) */
+/* debug.benchmark_window_shot: while its one capture is pending, the folder it goes to */
+static const char *window_shot_directory;
+
 static int ready_screenshot;
 static char ready_screenshot_suffix[80] = "-ready";
 
@@ -7435,6 +7438,19 @@ void platform_ready_screenshot_request_named(const char *name)
 {
 	snprintf(ready_screenshot_suffix, sizeof(ready_screenshot_suffix), "-%s", name);
 	__atomic_store_n(&ready_screenshot, 1, __ATOMIC_RELEASE);
+}
+
+/* debug.benchmark_window_shot: a benchmark window just ended (its timer has stopped), so the next presented frame
+is saved once, to that folder, as frameNNNNN-window-end.png. The save happens on the render thread after the span,
+never inside it; nothing happens unless the key names a folder. */
+void platform_benchmark_window_shot_request(void)
+{
+	const char *directory = config_string("debug.benchmark_window_shot");
+
+	if (!*directory)
+		return;
+	window_shot_directory = directory;
+	platform_ready_screenshot_request_named("window-end");
 }
 
 int platform_ready_screenshot_taken(void)
@@ -7478,8 +7494,8 @@ static void screenshot_file(const char *directory, const char *suffix, const uns
 layer: the picture's transmittance, hud_layer_blend) */
 static void write_screenshot_channel(struct render_target_entry *target, const char *suffix, int alpha)
 {
-	const char *directory = *config_string("debug.screenshot_directory") ?
-		config_string("debug.screenshot_directory") : NULL;
+	const char *directory = window_shot_directory ? window_shot_directory :
+		*config_string("debug.screenshot_directory") ? config_string("debug.screenshot_directory") : NULL;
 	unsigned long width = target->target.gl_width, height = target->target.gl_height;
 	unsigned char *pixels;
 	unsigned long row;
@@ -8337,6 +8353,7 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		if (__atomic_load_n(&ready_screenshot, __ATOMIC_ACQUIRE) == 1)
 		{
 			write_screenshot(back_buffer, ready_screenshot_suffix);
+			window_shot_directory = NULL;
 			__atomic_store_n(&ready_screenshot, 2, __ATOMIC_RELAXED);
 		}
 		if (screenshot_every > 0 && device.frame % (unsigned long)screenshot_every == 0 && screenshot_frame_wanted(device.frame))

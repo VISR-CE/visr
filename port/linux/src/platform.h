@@ -205,6 +205,8 @@ void platform_ready_screenshot_request(void);
 /* the same, saved as frameNNNNN-<name>.png (debug.menu_sequence) */
 void platform_ready_screenshot_request_named(const char *name);
 int platform_ready_screenshot_taken(void);
+/* debug.benchmark_window_shot: one capture of the first frame after a benchmark window's timer stops */
+void platform_benchmark_window_shot_request(void);
 void platform_clock_frame(void);
 /* a main loop pass that presented nothing: with debug.fixed_timestep, the
 clock moves a frame anyway (xbox_kernel.c) */

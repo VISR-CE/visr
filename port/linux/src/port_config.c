@@ -1787,6 +1787,9 @@ static const struct config_setting config_settings[] =
 		"Pixel shaders show their vertex colour." },
 	{ "debug.companion_capture", _config_boolean, "false", "HALO_COMPANION_CAPTURE", _environment_set_is_true, _platform_all,
 		"Draw the companion HUD without an external display and save it with screenshots." },
+	{ "debug.benchmark_window_shot", _config_string, "\"\"", "HALO_BENCHMARK_WINDOW_SHOT", _environment_value, _platform_all,
+		"A folder for one picture of each benchmark window, saved from the first frame after its timer stops (never\n"
+		"inside the measured span); empty none. Benchmarks use this, never screenshot_every." },
 	{ "debug.screenshot_directory", _config_string, "\"\"", "HALO_SCREENSHOT_DIR", _environment_value, _platform_all,
 		"A folder to save frames to (with screenshot_every); empty none." },
 	{ "debug.shadow_scenery", _config_integer, "0", "HALO_SHADOW_SCENERY", _environment_value, _platform_all,
