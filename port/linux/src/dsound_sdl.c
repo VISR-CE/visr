@@ -128,6 +128,10 @@ struct sdl_stream
 	/* gains the mixer is ramping from, to avoid clicks */
 	float current_left, current_right;
 	BOOL gains_valid;
+	/* how many times in a row streams_complete_finished found the mixer
+	holding the lock and left this voice for its next pass (only the game's
+	thread reads or writes it) */
+	unsigned long completion_skips;
 };
 
 /* the lists of voices and buffers, and the buffers */
@@ -868,15 +872,37 @@ static void stream_complete_head(struct sdl_stream *stream, DWORD status, DWORD 
 	}
 }
 
+/* the passes in a row that may leave a voice the mixer is busy with before
+one waits for it */
+#define MAXIMUM_COMPLETION_SKIPS 2
+
 /* (the list without mixer_lock: only the game's thread, this one, changes
-it) */
+it)
+A voice the mixer is mixing right now is left for the next pass instead of
+waited for: the audio thread can be held up with the lock taken, and with
+many voices those waits added up to milliseconds of every frame. Its
+finished packets are completed a frame later, which the packets still
+queued cover; after MAXIMUM_COMPLETION_SKIPS passes in a row the wait is
+taken, so no voice is starved. */
 static void streams_complete_finished(void)
 {
 	struct sdl_stream *stream;
 
 	for (stream = streams; stream; stream = stream->next)
 	{
-		pthread_mutex_lock(&stream->lock);
+		if (stream->completion_skips < MAXIMUM_COMPLETION_SKIPS)
+		{
+			if (pthread_mutex_trylock(&stream->lock))
+			{
+				stream->completion_skips++;
+				continue;
+			}
+		}
+		else
+		{
+			pthread_mutex_lock(&stream->lock);
+		}
+		stream->completion_skips = 0;
 		while (stream->packet_count && stream->packets[stream->packet_head].finished)
 			stream_complete_head(stream, XMEDIAPACKET_STATUS_SUCCESS, stream->packets[stream->packet_head].packet.dwMaxSize);
 		pthread_mutex_unlock(&stream->lock);
