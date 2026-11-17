@@ -619,6 +619,11 @@ def test_open_failure_gives_the_login_hint_only_without_a_console_user(tmp_path)
         assert "open wrote nothing to stderr" in message
 
 
+def test_open_failure_reports_free_space(tmp_path):
+    message = mac_run.open_failure_message(Path("/b/VISR.app"), 1, tmp_path, tmp_path / "out", user="steve")
+    assert "free space on the data volume:" in message
+
+
 def test_launch_native_waits_for_the_previous_instance_before_open(tmp_path, monkeypatch):
     data, out = tmp_path / "data", tmp_path / "out"
     data.mkdir()

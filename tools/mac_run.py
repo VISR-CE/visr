@@ -1328,6 +1328,11 @@ def open_failure_message(app, status, data, out, user=None):
     if user in ("root", "loginwindow"):
         lines.append(f"nobody is logged in at this Mac's screen (console user: {user}); a user must be "
                      "logged in for open to start a GUI app")
+    try:
+        free = shutil.disk_usage(data if Path(data).exists() else Path(data).parent).free
+        lines.append(f"free space on the data volume: {free / 2**30:.1f} GiB")
+    except OSError:
+        pass
     lines.append(f"see {out}/open-stderr.log")
     return "\n".join(lines)
 
