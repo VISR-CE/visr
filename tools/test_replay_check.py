@@ -171,3 +171,38 @@ def test_local_catalog_replaces_an_anchor_the_take_carries(tmp_path):
     [case] = benchmark_catalog.load_catalog(local)
     assert case["anchor"] == "checkpoint:1"
     assert (local / "check.route").read_text().count("anchor = ") == 1
+
+
+@pytest.mark.parametrize("option,expected", [([], False), (["--runner", "catalyst"], False), (["--runner", "appkit"], True)])
+def test_runner_option_reaches_every_run(tmp_path, monkeypatch, option, expected):
+    apps = {name: tmp_path / name / "VISR.app" for name in ("catalyst", "appkit")}
+    for name, app in apps.items():
+        (app / "Contents").mkdir(parents=True)
+        (app / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": f"test.{name}"}))
+    monkeypatch.setattr(replay_check.mac_run, "native_app_default", lambda: apps["catalyst"])
+    monkeypatch.setattr(replay_check.mac_run, "APPKIT_APP", apps["appkit"])
+    lookups = []
+    monkeypatch.setattr(replay_check.mac_run, "native_data_folder",
+                        lambda *args, **options: lookups.append((args, options)) or tmp_path / "data")
+    monkeypatch.setattr(sys, "argv", ["replay_check.py", "--out", str(tmp_path / "out"), "--take", str(take(tmp_path)),
+                                    *option])
+    calls = []
+    monkeypatch.setattr(replay_check, "runner", lambda *args: calls.append(args) or 0)
+    assert replay_check.main() == 2  # No reports from the launch stub.
+    assert len(calls) == 2  # One replay per rate.
+    assert all((call[1:3] == ("--runner", "appkit")) == expected for call in calls)
+    assert all("--runner" in call for call in calls) == expected
+    assert lookups == [(("test.appkit",), {"runner": "appkit"}) if expected else (("test.catalyst",), {})]
+
+
+def test_recording_run_uses_the_runner_option(tmp_path, monkeypatch):
+    app = tmp_path / "VISR.app"
+    (app / "Contents").mkdir(parents=True)
+    (app / "Contents/Info.plist").write_bytes(plistlib.dumps({"CFBundleIdentifier": "test.appkit"}))
+    monkeypatch.setattr(replay_check.mac_run, "APPKIT_APP", app)
+    monkeypatch.setattr(replay_check.mac_run, "native_data_folder", lambda *args, **options: tmp_path / "data")
+    monkeypatch.setattr(sys, "argv", ["replay_check.py", "--out", str(tmp_path / "out"), "--runner", "appkit"])
+    calls = []
+    monkeypatch.setattr(replay_check, "runner", lambda *args: calls.append(args) or 0)
+    assert replay_check.main() == 2  # The stub runner leaves no take.
+    assert calls[0][1:3] == ("--runner", "appkit")

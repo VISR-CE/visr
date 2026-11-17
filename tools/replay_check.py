@@ -158,6 +158,9 @@ def main():
     parser.add_argument("--window", type=float, help="the window's length in seconds (default: to near the take's end)")
     parser.add_argument("--only-unlimited", action="store_true", help="replay once, unlimited (for a take's per-frame costs)")
     parser.add_argument("--take", type=Path, help="skip the recording: replay this take (its path without an extension)")
+    parser.add_argument("--runner", choices=("catalyst", "appkit"), default="catalyst",
+                        help="the Mac app the runs use: the Catalyst test host (tools/ios_build.py --mac, the "
+                             "default) or the AppKit app (tools/macos_build.py --data-packs off)")
     parser.add_argument("--offscreen", action="store_true",
                         help="replay the second of each pair offscreen (debug.benchmark_offscreen), not unlimited")
     parser.add_argument("--offscreen-mode", choices=("serialized", "pipelined"), default="serialized",
@@ -178,11 +181,16 @@ def main():
         rates = ("unlimited",)
     args.out.mkdir(parents=True, exist_ok=True)
 
-    app = mac_run.native_app_default()
+    # (the default leaves mac_run.py's own choice of runner, and its data folder lookup, as they were)
+    launch = ["--runner", "appkit"] if args.runner == "appkit" else []
+    app = mac_run.APPKIT_APP if args.runner == "appkit" else mac_run.native_app_default()
     if not (app / "Contents/Info.plist").is_file():
-        sys.exit(f"no native app at {app}; run tools/ios_build.py --mac first")
+        build = "tools/macos_build.py --data-packs off" if args.runner == "appkit" else "tools/ios_build.py --mac"
+        sys.exit(f"no {args.runner} app at {app}; run {build} first")
     with (app / "Contents/Info.plist").open("rb") as file:
-        data = mac_run.native_data_folder(plistlib.load(file)["CFBundleIdentifier"])
+        bundle_id = plistlib.load(file)["CFBundleIdentifier"]
+    data = (mac_run.native_data_folder(bundle_id, runner="appkit") if args.runner == "appkit" else
+            mac_run.native_data_folder(bundle_id))
 
     take = args.take
     if take is None:
@@ -194,7 +202,7 @@ def main():
             extra += ["--set", "debug.benchmark_staging=" + json.dumps(args.staging)]
         if args.enemy_multiplier != 1.0:
             extra += ["--set", f"debug.enemy_multiplier={args.enemy_multiplier}"]
-        status = runner(args.out / "record", "--exit-after", str(args.seconds), "--set", 'debug.input_record="auto"', *extra,
+        status = runner(args.out / "record", *launch, "--exit-after", str(args.seconds), "--set", 'debug.input_record="auto"', *extra,
                         # (the suite refuses a take with the original audio-driven mouths)
                         "--set", "debug.benchmark_lip_sync=true",
                         "--set", f'debug.test_input="bot:{args.bot}"', "--init", f"game_difficulty_set {args.difficulty}",
@@ -221,7 +229,7 @@ def main():
                 mode = (["--set", "debug.benchmark_offscreen=true",
                          "--set", f'debug.benchmark_offscreen_mode="{args.offscreen_mode}"'] if rate == "offscreen" else
                         ["--set", f'display.frame_rate="{rate}"'])
-                runner(out, "--benchmark-suite", "quick:check", "--time-limit", str(int(args.seconds * 3 + 600)), *mode)
+                runner(out, *launch, "--benchmark-suite", "quick:check", "--time-limit", str(int(args.seconds * 3 + 600)), *mode)
                 results[(label, rate)] = out / "benchmark" / "report.json"
     finally:
         shutil.rmtree(local, ignore_errors=True)
