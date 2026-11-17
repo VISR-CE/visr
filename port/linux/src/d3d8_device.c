@@ -7488,6 +7488,8 @@ static void screenshot_file(const char *directory, const char *suffix, const uns
 
 	snprintf(path, sizeof(path), "%s/frame%05lu%s.png", directory, device.frame, suffix);
 	png_write_bgra(path, pixels, width, height, width * 4);
+	/* the benchmark reducer drops the frame-log entry holding a capture frame */
+	platform_log("capture: frame %lu%s", device.frame, suffix);
 }
 
 /* the target's color, or with alpha its alpha channel as gray (stereo's HUD

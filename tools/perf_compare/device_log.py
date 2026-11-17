@@ -17,6 +17,7 @@ from pathlib import Path
 CPU = re.compile(r'frame CPU ([\d.]+) ms, GPU ([\d.]+) ms \(medians; 95th ([\d.]+), ([\d.]+)\)')
 SCENE = re.compile(r'halo-linux: scene: (\w+)')
 FRAME = re.compile(r'halo-linux: frame (\d+):')
+CAPTURE = re.compile(r'capture: frame (\d+)')
 MARKER = 'init.txt: running its commands'
 LOG = re.compile(r'^frames time=([\d.]+) scene=(\w+) .*? frames=(\d+) fps=([\d.]+) mean_ms=([\d.]+) p95_ms=([\d.]+) '
                  r'p99_ms=([\d.]+) late=(\d+) .*?size=(\d+x\d+) cap=(\d+) hz=([\d.]+).*?thermal=(\w+)')
@@ -24,7 +25,7 @@ LOG = re.compile(r'^frames time=([\d.]+) scene=(\w+) .*? frames=(\d+) fps=([\d.]
 
 def parse_stderr(text: str) -> dict:
     """The frame number at the first level scene and at the init marker, and the renderer lines with their frame."""
-    frame, first_scene, marker, cpu = 0, None, None, []
+    frame, first_scene, marker, cpu, captures = 0, None, None, [], []
     scene = 'menu'
     for line in text.splitlines():
         found = FRAME.search(line)
@@ -37,11 +38,14 @@ def parse_stderr(text: str) -> dict:
                 first_scene = frame
         if MARKER in line and marker is None:
             marker = frame
+        found = CAPTURE.search(line)
+        if found:
+            captures.append(int(found.group(1)))
         found = CPU.search(line)
         if found and scene != 'menu':
             cpu.append({'frame': frame, 'cpu_ms': float(found.group(1)), 'gpu_ms': float(found.group(2)),
                         'cpu_p95': float(found.group(3)), 'gpu_p95': float(found.group(4))})
-    return {'first_scene_frame': first_scene, 'marker_frame': marker, 'cpu': cpu}
+    return {'first_scene_frame': first_scene, 'marker_frame': marker, 'cpu': cpu, 'captures': captures}
 
 
 def parse_frame_log(text: str) -> list[dict]:
@@ -101,8 +105,13 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
         first = first_level['t0'] + window['warmup_s']
         last = first + window['sample_s']
     chosen = [e for e in entries if first <= (e['t0'] + e['t1']) / 2 < last and e['scene'] != 'menu' and e['frames'] > 10]
+    # Backstop: a screenshot written inside the span poisons the frame-log entry that holds it (the frame log has no
+    # per-frame times), so drop that entry and say so. A clean window reports `capture_in_span` "none".
+    hit = [e for e in chosen if any(e['start'] <= c < e['start'] + e['frames'] for c in info['captures'])]
+    excluded = sum(e['t1'] - e['t0'] for e in hit)
+    chosen = [e for e in chosen if e not in hit]
     if not chosen:
-        return {'note': 'the frame log ends before the window'}
+        return {'note': 'the frame log ends before the window', 'capture_in_span': f'{len(hit)} entries excluded'}
     frames = sum(e['frames'] for e in chosen)
     seconds = sum(e['t1'] - e['t0'] for e in chosen)
     weight = lambda key: sum(e[key] * e['frames'] for e in chosen) / frames  # noqa: E731
@@ -113,6 +122,7 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
         'on_time_pct': f'{100 * (1 - late / frames):.1f}', 'resolution': chosen[0]['size'].replace('x', '×'),
         'cap_fps': chosen[0]['cap'], 'display_hz': f'{float(chosen[0]["hz"]):g}', 'thermal': chosen[-1]['thermal'],
         'frames': frames, 'seconds': round(seconds, 1),
+        'capture_in_span': 'none' if not hit else f'excluded {len(hit)} entries, {excluded:.1f} s',
     }
     expected = window.get('sample_s') or (window.get('expected_ticks') or window.get('ticks', 0)) / 30
     if columns['seconds'] < 0.9 * expected:

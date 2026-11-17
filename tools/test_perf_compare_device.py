@@ -125,3 +125,13 @@ def test_battle_window_on_a_device_below_the_display_rate_is_placed_in_seconds()
     assert cols['frames'] == pytest.approx(60 * 12, abs=60)
     assert cols['cpu_ms_p95'] == '50.0' and cols['gpu_ms_p95'] == '60.0'
     assert float(cols['gpu_ms_p50']) == 40.0
+
+
+def test_capture_frame_entries_are_dropped_and_reported():
+    clean = device_log.window_columns(W['c10'], stderr(), frame_log())
+    assert clean['capture_in_span'] == 'none'
+    first = device_log.parse_frame_log(frame_log())[3]
+    hit = stderr() + f'capture: frame {first["start"] + 1}-shot\n'
+    cols = device_log.window_columns(W['c10'], hit, frame_log())
+    assert cols['capture_in_span'].startswith('excluded 1 entries') or cols['capture_in_span'].startswith('excluded')
+    assert cols['frames'] < clean['frames']
