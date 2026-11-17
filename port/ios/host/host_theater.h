@@ -70,10 +70,12 @@ int host_theater_foveation_state(float *quality, float *runtime, float *default_
 	const char **offered);
 /* for stereo's frame times (gpu_metal.m): the seconds the game spent
 waiting for the Compositor's frames (host_theater_frame_begin) since the
-last call; the open frame's presentation time (CACurrentMediaTime's clock,
-0 without one); and the layer's frame repeat count */
+last call; the open frame's presentation time and the time the Compositor
+wants it submitted by, its rendering deadline (CACurrentMediaTime's clock,
+0 without a frame); and the layer's frame repeat count */
 double host_theater_take_waited(void);
 double host_theater_presentation_time(void);
+double host_theater_rendering_deadline(void);
 int host_theater_frame_repeat(void);
 /* the screen's pose in the room for the open frame's drawable (placed first
 if a present hasn't placed it yet) and its half width and half height in

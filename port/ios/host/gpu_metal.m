@@ -9330,7 +9330,11 @@ static struct
 	uint64_t gpu_counted;
 	CFTimeInterval intervals[PACING_TIMED_FRAMES];
 	double cpu_times[PACING_TIMED_FRAMES], gpu_times[PACING_TIMED_FRAMES];
-	unsigned long timed, frames;
+	/* how long after the Compositor's rendering deadline each frame was counted (negative: before it), and how
+	long before the presentation that deadline was */
+	double lateness[PACING_TIMED_FRAMES];
+	double deadline_lead;
+	unsigned long timed, frames, late;
 } stereo_pacing;
 
 static void stereo_pacing_count(void)
@@ -9363,6 +9367,17 @@ static void stereo_pacing_count(void)
 		stereo_pacing.intervals[stereo_pacing.timed] = interval;
 		stereo_pacing.cpu_times[stereo_pacing.timed] = cpu;
 		stereo_pacing.gpu_times[stereo_pacing.timed] = gpu;
+		{
+			CFTimeInterval deadline = host_theater_rendering_deadline();
+
+			stereo_pacing.lateness[stereo_pacing.timed] = deadline > 0.0 ? now - deadline : 0.0;
+			if (deadline > 0.0)
+			{
+				stereo_pacing.deadline_lead = presentation - deadline;
+				if (now > deadline)
+					stereo_pacing.late++;
+			}
+		}
 		stereo_pacing.timed++;
 	}
 	if (++stereo_pacing.frames % 600 == 0 && stereo_pacing.timed)
@@ -9404,6 +9419,18 @@ static void stereo_pacing_count(void)
 		platform_log("stereo: frames shown for 1/2/3/4/5+ refreshes at %.1f Hz: %lu/%lu/%lu/%lu/%lu (repeat count %d); "
 			"frame CPU %.1f ms, GPU %.1f ms (medians; 95th %.1f, %.1f)", 1.0 / period, shown[1], shown[2], shown[3],
 			shown[4], shown[5], repeat, cpu_median, gpu_median, cpu_high, gpu_high);
+		/* its own line: avp-benchmark.sh reads the one above. The count comes before the presenter's encode and the
+		end of the submission, so the real margin is a little smaller than this. */
+		{
+			double late_median, late_high;
+			unsigned long timed = stereo_pacing.timed;
+
+			pacing_percentiles(stereo_pacing.lateness, timed, &late_median, &late_high);
+			platform_log("stereo: rendering deadline: frames counted %.1f ms before it (median; 95th %.1f), %lu of %lu "
+				"after it; the deadline is %.1f ms before the presentation", -late_median, -late_high,
+				stereo_pacing.late, timed, stereo_pacing.deadline_lead * 1000.0);
+		}
+		stereo_pacing.late = 0;
 		stereo_pacing.timed = 0;
 		stereo_pacing.shortest = 0.0;
 	}
