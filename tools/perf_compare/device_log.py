@@ -110,6 +110,21 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
     hit = [e for e in chosen if any(e['start'] <= c < e['start'] + e['frames'] for c in info['captures'])]
     excluded = sum(e['t1'] - e['t0'] for e in hit)
     chosen = [e for e in chosen if e not in hit]
+    # Optional `shot_tick` (ticks after the window start): a capture taken at that tick poisons that frame plus the next
+    # second. The frame log is per-interval, so the whole overlapping entries are excluded, only when that costs under
+    # 2% of the window; otherwise the entries stay and the skip is recorded.
+    shot_note = ''
+    if 'shot_tick' in window and chosen:
+        shot_at = first + window['shot_tick'] / 30
+        near = [e for e in chosen if e['t1'] > shot_at and e['t0'] < shot_at + 1.0]
+        near_s = sum(e['t1'] - e['t0'] for e in near)
+        total_s = sum(e['t1'] - e['t0'] for e in chosen)
+        if near and near_s <= 0.02 * total_s:
+            chosen = [e for e in chosen if e not in near]
+            excluded += near_s
+            shot_note = f'shot_tick {window["shot_tick"]} excluded {near_s:.1f} s'
+        elif near:
+            shot_note = f'shot_tick {window["shot_tick"]} exclusion skipped ({100 * near_s / total_s:.1f}% of the window)'
     if not chosen:
         return {'note': 'the frame log ends before the window', 'capture_in_span': f'{len(hit)} entries excluded'}
     frames = sum(e['frames'] for e in chosen)
@@ -123,6 +138,7 @@ def window_columns(window: dict, stderr: str, frame_log: str) -> dict:
         'cap_fps': chosen[0]['cap'], 'display_hz': f'{float(chosen[0]["hz"]):g}', 'thermal': chosen[-1]['thermal'],
         'frames': frames, 'seconds': round(seconds, 1),
         'capture_in_span': 'none' if not hit else f'excluded {len(hit)} entries, {excluded:.1f} s',
+        **({'shot_tick_note': shot_note} if shot_note else {}),
     }
     expected = window.get('sample_s') or (window.get('expected_ticks') or window.get('ticks', 0)) / 30
     if columns['seconds'] < 0.9 * expected:

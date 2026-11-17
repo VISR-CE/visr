@@ -130,8 +130,29 @@ def test_battle_window_on_a_device_below_the_display_rate_is_placed_in_seconds()
 def test_capture_frame_entries_are_dropped_and_reported():
     clean = device_log.window_columns(W['c10'], stderr(), frame_log())
     assert clean['capture_in_span'] == 'none'
-    first = device_log.parse_frame_log(frame_log())[3]
+    first = device_log.parse_frame_log(frame_log())[12]
     hit = stderr() + f'capture: frame {first["start"] + 1}-shot\n'
     cols = device_log.window_columns(W['c10'], hit, frame_log())
     assert cols['capture_in_span'].startswith('excluded 1 entries') or cols['capture_in_span'].startswith('excluded')
     assert cols['frames'] < clean['frames']
+
+
+def long_frame_log(entries=200):
+    rows = ['session start=2026-10-27T13:28:11-0700 build=1 version=0.5.1']
+    for i in range(entries):
+        rows.append(f'frames time={5 * (i + 1) - 4.1} scene={"menu" if i == 0 else "gameplay"} level=d40 frames=300 fps=60.0 '
+                    f'mean_ms=16.7 p95_ms=17.7 p99_ms=18.0 late=0 gaps=0 size=2360x1640 cap=60 hz=60.0 '
+                    f'footprint_mb=654 peak_mb=824 thermal=nominal')
+    return '\n'.join(rows)
+
+
+def test_shot_tick_excludes_its_entries_only_when_cheap():
+    window = {'kind': 'opening', 'warmup_s': 0, 'sample_s': 900, 'shot_tick': 3000}
+    base = device_log.window_columns({k: v for k, v in window.items() if k != 'shot_tick'}, stderr(), long_frame_log())
+    cols = device_log.window_columns(window, stderr(), long_frame_log())
+    assert cols['frames'] < base['frames'] and cols['shot_tick_note'].startswith('shot_tick 3000 excluded')
+    short = {'kind': 'opening', 'warmup_s': 0, 'sample_s': 30, 'shot_tick': 300}
+    skipped = device_log.window_columns(short, stderr(), long_frame_log())
+    assert skipped['shot_tick_note'].startswith('shot_tick 300 exclusion skipped')
+    assert skipped['frames'] == device_log.window_columns({k: v for k, v in short.items() if k != 'shot_tick'},
+                                                          stderr(), long_frame_log())['frames']
