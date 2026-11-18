@@ -59,6 +59,7 @@ struct halo_ui_pointer { int x,y,radius,down,held,wheel_steps,left_clicks; };
 
 
 STUBS = r'''
+static int halo_menu_pointer_controls(void) { return 0; }
 static int a_presses;
 #define _gamepad_analog_button_a 0
 static void ui_mouse_press(int button) {assert(button==_gamepad_analog_button_a);a_presses++;}
