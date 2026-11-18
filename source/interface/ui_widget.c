@@ -6193,6 +6193,13 @@ static wchar_t const *ui_widget_row_string(void *context, int index)
 	return spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
 }
 
+/* port: Xbox rows, plus the Xbox's own advanced controls spinners, which have no xbox/ replacement */
+static boolean ui_widget_row_name_is_touch(char const *name)
+{
+	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5) ||
+		strstr(name, "\\advanced_controls\\"));
+}
+
 static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget)
 {
 	struct halo_menu_row row = { HALO_ROW_ENUM, -1 };
@@ -6200,7 +6207,7 @@ static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget
 	char const *name = tag_get_name(widget->definition_tag_index);
 	struct string_list *strings;
 	/* Keep the original PC look and carousels intact. */
-	if (!name || (strncmp(name, "pc\\xbox\\", 8) && strncmp(name, "xbox/", 5)) ||
+	if (!ui_widget_row_name_is_touch(name) ||
 		definition->child_widgets.count || definition->text_label_string_list.index == NONE)
 		return row;
 	strings = unicode_string_list_definition_get(definition->text_label_string_list.index);
@@ -6216,7 +6223,7 @@ static boolean ui_widget_row_has_dropdown(struct widget_instance *widget)
 {
 	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
 	char const *name = tag_get_name(widget->definition_tag_index);
-	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5)) &&
+	return ui_widget_row_name_is_touch(name) &&
 		!definition->child_widgets.count && definition->text_label_string_list.index != NONE &&
 		widget->parameters.list.number_of_items > 1 && ui_widget_row_control(widget).kind == HALO_ROW_ENUM;
 }
