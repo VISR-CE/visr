@@ -9987,6 +9987,7 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		MTLTextureDescriptor *descriptor;
 		float near_plane, far_plane;
 		unsigned long width, height, soft_scale;
+		NSUInteger content_width, content_height;
 
 		soft.active = NO;
 		if (count < 5 || !record || !record->texture || record->description.format != GPU_FORMAT_DEPTH_STENCIL ||
@@ -10026,6 +10027,10 @@ uint32_t host_soft_depth_prepare(gpu_texture depth, const float *values, uint32_
 		soft.parameters[1] = far_plane;
 		soft.parameters[2] = values[4] > 0.0f ? 1.0f / values[4] : 1.0e6f;
 		soft.parameters[3] = (float)soft_scale;
+		/* a pooled depth target: the texture keeps the allocation's size, and only the scene inside it is computed */
+		texture_content(record, record->texture, &content_width, &content_height);
+		width = (content_width + soft_scale - 1) / soft_scale;
+		height = (content_height + soft_scale - 1) / soft_scale;
 		pass_end();
 		if (pass_log)
 			[pass_log appendFormat:@"\n  soft particle distances: %lux%lu", width, height];
