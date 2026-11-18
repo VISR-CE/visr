@@ -624,6 +624,7 @@ MT = "main_menu/multiplayer_type_select"
 # in turn: menu_functions.c's gametype_option_help)
 SLAYER_EDIT = "main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit"
 STRING_INSERTS = {
+    "main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_labels": [(9, ["VEHICLE TYPES"])],
     "strings/displayed_error_messages": [(60, [
         "This game allows more\\nplayers than this device\\nruns smoothly.\\nJoin anyway?",
     ])],
@@ -900,6 +901,7 @@ TITLES = {
     f"{MT}/respawn_options_edit/header_respawn_options": "RESPAWN OPTIONS",
     f"{MT}/teams_hud_edit/header_teams_hud": "TEAMS & HUD",
     f"{MT}/weapons_edit/header_weapons": "CHOOSE WEAPONS",
+    f"{MT}/vehicle_types_edit/header_vehicle_types": "VEHICLE TYPES",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -1295,6 +1297,59 @@ def _teams_hud() -> list:
     lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
     screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/teams_hud_screen"' in line)
     lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init teams hud"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _vehicle_types() -> list:
+    """VEHICLE TYPES, behind the Vehicles screen's row: the side's count of each vehicle (menu_functions.c's
+    vehicles_update keeps them as they change and makes the side's set CUSTOM)"""
+    base = f"{MT}/vehicle_types_edit"
+    spec = {"screen": "vehicle_types_screen", "spacing": 30,
+            "header": ("header_vehicle_types", f"{base}/header_vehicle_types")}
+    rows, extra = [], []
+    names = ("warthog", "ghost", "scorpion", "rwarthog", "banshee", "cgturret")
+    for index, key in enumerate(names):
+        extra += _hosting_spinner(base, key, index, ["NONE", "1", "2", "3", "4"], None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["WARTHOG:", "GHOST:", "SCORPION:", "ROCKET WARTHOG:", "BANSHEE:", "GUN TURRET:"])
+    extra += _strings(f"{base}/help_strings", [
+        "No Warthogs will spawn in the map.",
+        "Up to one Warthog will spawn in the map.",
+        "Up to two Warthogs will spawn in the map.",
+        "Up to three Warthogs will spawn in the map.",
+        "Up to four Warthogs will spawn in the map.",
+        "No Ghosts will spawn in the map.",
+        "Up to one Ghost will spawn in the map.",
+        "Up to two Ghosts will spawn in the map.",
+        "Up to three Ghosts will spawn in the map.",
+        "Up to four Ghosts will spawn in the map.",
+        "No Scorpions will spawn in the map.",
+        "Up to one Scorpion will spawn in the map.",
+        "Up to two Scorpions will spawn in the map.",
+        "Up to three Scorpions will spawn in the map.",
+        "Up to four Scorpions will spawn in the map.",
+        "No Rocket Warthogs will spawn in the map.",
+        "Up to one Rocket Warthog will spawn in the map.",
+        "Up to two Rocket Warthogs will spawn in the map.",
+        "Up to three Rocket Warthogs will spawn in the map.",
+        "Up to four Rocket Warthogs will spawn in the map.",
+        "No Banshees will spawn in the map.",
+        "Up to one Banshee will spawn in the map.",
+        "Up to two Banshees will spawn in the map.",
+        "Up to three Banshees will spawn in the map.",
+        "Up to four Banshees will spawn in the map.",
+        "No Gun Turrets will spawn in the map.",
+        "Up to one Gun Turret will spawn in the map.",
+        "Up to two Gun Turrets will spawn in the map.",
+        "Up to three Gun Turrets will spawn in the map.",
+        "Up to four Gun Turrets will spawn in the map."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp prof save vehicle options" back="true"/>',
+                      '<on event="start" run="mp prof save vehicle options" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update", "mp prof vehicles update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/vehicle_types_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp prof init vehicle options"/>')
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
             and 'event="deleted" run="port setting save"' not in line]
 
@@ -1796,6 +1851,7 @@ def multiplayer_files() -> dict:
         f"{MT}/respawn_options_edit".replace("/", ".") + ".xml": head + _respawn_options() + ["</menus>", ""],
         f"{MT}/teams_hud_edit".replace("/", ".") + ".xml": head + _teams_hud() + ["</menus>", ""],
         f"{MT}/weapons_edit".replace("/", ".") + ".xml": head + _weapons() + ["</menus>", ""],
+        f"{MT}/vehicle_types_edit".replace("/", ".") + ".xml": head + _vehicle_types() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],

@@ -6749,6 +6749,9 @@ static short vehicles_preset_index(struct game_variant_options const *options, s
 		VEHICLE_PRESET_PC : (short)MIN(options->vehicle_set[side], VEHICLE_PRESET_PC - 1);
 }
 
+/* the preset the screen's spinner last showed (the VEHICLE TYPES screen makes the set CUSTOM behind it) */
+static short vehicle_preset_seen = NONE;
+
 static void vehicles_show(struct widget_instance *list)
 {
 	struct game_variant_options *options = edit_options();
@@ -6767,6 +6770,7 @@ static void vehicles_show(struct widget_instance *list)
 			spinner->parameters.list.selected_index =
 				(short)MIN(options->vehicle_counts[side][index], MAXIMUM_VARIANT_VEHICLE_COUNT);
 	}
+	vehicle_preset_seen = vehicles_preset_index(options, side);
 }
 
 /* the side shown's spinners kept (and the Xbox's vehicle set: red's, if it
@@ -6844,6 +6848,32 @@ static void vehicles_update(struct widget_instance *list)
 		vehicles_show(list);
 		return;
 	}
+	if (!preset && !team)
+	{
+		/* (the VEHICLE TYPES screen: its counts, and the side's set is CUSTOM once one changes) */
+		for (index = 0; index < NUMBER_OF_VARIANT_VEHICLES; index++)
+		{
+			struct widget_instance *spinner = vehicle_spinner(list, vehicle_spinners[index]);
+
+			if (spinner && spinner->parameters.list.selected_index !=
+				options->vehicle_counts[gametype_edit.vehicle_side][index])
+			{
+				options->vehicle_set[gametype_edit.vehicle_side] = VARIANT_VEHICLE_SET_CUSTOM;
+				changed = TRUE;
+			}
+		}
+		if (changed)
+			vehicles_keep(list);
+		return;
+	}
+	/* (back from VEHICLE TYPES: the preset it changed is shown, not overwritten) */
+	if (preset && preset->parameters.list.selected_index == vehicle_preset_seen &&
+		vehicles_preset_index(options, gametype_edit.vehicle_side) != vehicle_preset_seen)
+	{
+		preset->parameters.list.selected_index = vehicles_preset_index(options, gametype_edit.vehicle_side);
+		vehicle_preset_seen = preset->parameters.list.selected_index;
+		return;
+	}
 	for (index = 0; preset && index < NUMBER_OF_VARIANT_VEHICLES; index++)
 	{
 		struct widget_instance *spinner = vehicle_spinner(list, vehicle_spinners[index]);
@@ -6858,7 +6888,11 @@ static void vehicles_update(struct widget_instance *list)
 	}
 	if (changed || (preset && preset->parameters.list.selected_index !=
 		vehicles_preset_index(options, gametype_edit.vehicle_side)))
+	{
 		vehicles_keep(list);
+		if (preset)
+			vehicle_preset_seen = preset->parameters.list.selected_index;
+	}
 }
 
 /* "mp profile init X" (the list's creation): its spinners from the gametype */
@@ -6869,7 +6903,7 @@ static boolean gametype_options_init(struct widget_instance *list)
 	gametype_options_each(list, FALSE);
 	if (named(list, "op_teams_hud", 0))
 		game_options_show(list);
-	if (named(list, "op_team", 0))
+	if (named(list, "op_team", 0) || named(list, "op_warthog", 0))
 		vehicles_show(list);
 	return TRUE;
 }

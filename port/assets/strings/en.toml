@@ -339,6 +339,88 @@ radar_display = "RADAR DISPLAY:"
 players_on_radar = "PLAYERS ON RADAR:"
 friends_on_screen = "FRIENDS ON SCREEN:"
 
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_cgturret_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_help_strings]
+no_warthogs_will_spawn_in_the_map = "No Warthogs will spawn in the map."
+up_to_one_warthog_will_spawn_in_the_map = "Up to one Warthog will spawn in the map."
+up_to_two_warthogs_will_spawn_in_the_map = "Up to two Warthogs will spawn in the map."
+up_to_three_warthogs_will_spawn__486c11 = "Up to three Warthogs will spawn in the map."
+up_to_four_warthogs_will_spawn_i_bad715 = "Up to four Warthogs will spawn in the map."
+no_ghosts_will_spawn_in_the_map = "No Ghosts will spawn in the map."
+up_to_one_ghost_will_spawn_in_the_map = "Up to one Ghost will spawn in the map."
+up_to_two_ghosts_will_spawn_in_the_map = "Up to two Ghosts will spawn in the map."
+up_to_three_ghosts_will_spawn_in_the_map = "Up to three Ghosts will spawn in the map."
+up_to_four_ghosts_will_spawn_in_the_map = "Up to four Ghosts will spawn in the map."
+no_scorpions_will_spawn_in_the_map = "No Scorpions will spawn in the map."
+up_to_one_scorpion_will_spawn_in_the_map = "Up to one Scorpion will spawn in the map."
+up_to_two_scorpions_will_spawn_i_1fa24a = "Up to two Scorpions will spawn in the map."
+up_to_three_scorpions_will_spawn_6e2029 = "Up to three Scorpions will spawn in the map."
+up_to_four_scorpions_will_spawn__da7dc3 = "Up to four Scorpions will spawn in the map."
+no_rocket_warthogs_will_spawn_in_the_map = "No Rocket Warthogs will spawn in the map."
+up_to_one_rocket_warthog_will_sp_537e9d = "Up to one Rocket Warthog will spawn in the map."
+up_to_two_rocket_warthogs_will_s_4edaea = "Up to two Rocket Warthogs will spawn in the map."
+up_to_three_rocket_warthogs_will_3e6806 = "Up to three Rocket Warthogs will spawn in the map."
+up_to_four_rocket_warthogs_will__ae7ff3 = "Up to four Rocket Warthogs will spawn in the map."
+no_banshees_will_spawn_in_the_map = "No Banshees will spawn in the map."
+up_to_one_banshee_will_spawn_in_the_map = "Up to one Banshee will spawn in the map."
+up_to_two_banshees_will_spawn_in_the_map = "Up to two Banshees will spawn in the map."
+up_to_three_banshees_will_spawn__758065 = "Up to three Banshees will spawn in the map."
+up_to_four_banshees_will_spawn_i_83579e = "Up to four Banshees will spawn in the map."
+no_gun_turrets_will_spawn_in_the_map = "No Gun Turrets will spawn in the map."
+up_to_one_gun_turret_will_spawn__874122 = "Up to one Gun Turret will spawn in the map."
+up_to_two_gun_turrets_will_spawn_a7ad86 = "Up to two Gun Turrets will spawn in the map."
+up_to_three_gun_turrets_will_spa_4e6358 = "Up to three Gun Turrets will spawn in the map."
+up_to_four_gun_turrets_will_spaw_2e6640 = "Up to four Gun Turrets will spawn in the map."
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_labels]
+warthog = "WARTHOG:"
+ghost = "GHOST:"
+scorpion = "SCORPION:"
+rocket_warthog = "ROCKET WARTHOG:"
+banshee = "BANSHEE:"
+gun_turret = "GUN TURRET:"
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[ce.main_menu_multiplayer_type_select_vehicle_types_edit.main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
 [ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_help_strings]
 everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
 everyone_starts_with_a_random_we_b88a5d = "Everyone starts with a random weapon\\nas a primary weapon."
@@ -1349,6 +1431,88 @@ radar_display = "RADAR DISPLAY:"
 players_on_radar = "PLAYERS ON RADAR:"
 friends_on_screen = "FRIENDS ON SCREEN:"
 
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_banshee_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_cgturret_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_ghost_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_help_strings]
+no_warthogs_will_spawn_in_the_map = "No Warthogs will spawn in the map."
+up_to_one_warthog_will_spawn_in_the_map = "Up to one Warthog will spawn in the map."
+up_to_two_warthogs_will_spawn_in_the_map = "Up to two Warthogs will spawn in the map."
+up_to_three_warthogs_will_spawn__486c11 = "Up to three Warthogs will spawn in the map."
+up_to_four_warthogs_will_spawn_i_bad715 = "Up to four Warthogs will spawn in the map."
+no_ghosts_will_spawn_in_the_map = "No Ghosts will spawn in the map."
+up_to_one_ghost_will_spawn_in_the_map = "Up to one Ghost will spawn in the map."
+up_to_two_ghosts_will_spawn_in_the_map = "Up to two Ghosts will spawn in the map."
+up_to_three_ghosts_will_spawn_in_the_map = "Up to three Ghosts will spawn in the map."
+up_to_four_ghosts_will_spawn_in_the_map = "Up to four Ghosts will spawn in the map."
+no_scorpions_will_spawn_in_the_map = "No Scorpions will spawn in the map."
+up_to_one_scorpion_will_spawn_in_the_map = "Up to one Scorpion will spawn in the map."
+up_to_two_scorpions_will_spawn_i_1fa24a = "Up to two Scorpions will spawn in the map."
+up_to_three_scorpions_will_spawn_6e2029 = "Up to three Scorpions will spawn in the map."
+up_to_four_scorpions_will_spawn__da7dc3 = "Up to four Scorpions will spawn in the map."
+no_rocket_warthogs_will_spawn_in_the_map = "No Rocket Warthogs will spawn in the map."
+up_to_one_rocket_warthog_will_sp_537e9d = "Up to one Rocket Warthog will spawn in the map."
+up_to_two_rocket_warthogs_will_s_4edaea = "Up to two Rocket Warthogs will spawn in the map."
+up_to_three_rocket_warthogs_will_3e6806 = "Up to three Rocket Warthogs will spawn in the map."
+up_to_four_rocket_warthogs_will__ae7ff3 = "Up to four Rocket Warthogs will spawn in the map."
+no_banshees_will_spawn_in_the_map = "No Banshees will spawn in the map."
+up_to_one_banshee_will_spawn_in_the_map = "Up to one Banshee will spawn in the map."
+up_to_two_banshees_will_spawn_in_the_map = "Up to two Banshees will spawn in the map."
+up_to_three_banshees_will_spawn__758065 = "Up to three Banshees will spawn in the map."
+up_to_four_banshees_will_spawn_i_83579e = "Up to four Banshees will spawn in the map."
+no_gun_turrets_will_spawn_in_the_map = "No Gun Turrets will spawn in the map."
+up_to_one_gun_turret_will_spawn__874122 = "Up to one Gun Turret will spawn in the map."
+up_to_two_gun_turrets_will_spawn_a7ad86 = "Up to two Gun Turrets will spawn in the map."
+up_to_three_gun_turrets_will_spa_4e6358 = "Up to three Gun Turrets will spawn in the map."
+up_to_four_gun_turrets_will_spaw_2e6640 = "Up to four Gun Turrets will spawn in the map."
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_labels]
+warthog = "WARTHOG:"
+ghost = "GHOST:"
+scorpion = "SCORPION:"
+rocket_warthog = "ROCKET WARTHOG:"
+banshee = "BANSHEE:"
+gun_turret = "GUN TURRET:"
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_rwarthog_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_scorpion_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
+[xbox.main_menu_multiplayer_type_select_vehicle_types_edit.xbox_main_menu_multiplayer_type_select_vehicle_types_edit_warthog_spinner]
+s0 = "NONE"
+s1 = "1"
+s2 = "2"
+s3 = "3"
+s4 = "4"
+
 [xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_help_strings]
 everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
 everyone_starts_with_a_random_we_b88a5d = "Everyone starts with a random weapon\\nas a primary weapon."
@@ -1712,40 +1876,6 @@ empty_game_nsetting_slot = "Empty game\\nsetting slot"
 are_you_sure_you_wish_to_nexit_halo = "Are you sure you wish to\\nexit Halo?"
 quit = "Quit?"
 
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_cap_indicator_options]
-the_game_s_objectives_hills_flag_999404 = "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker."
-the_game_s_objectives_will_have__dc6a6c = "The game's objectives will have special markers\\ndisplayed over them on screen."
-the_game_s_objectives_will_not_b_ff68d4 = "The game's objectives will not be visible in your\\nMotion Tracker or on screen."
-all_other_players_in_the_game_wi_2eed11 = "All other players in the game will show up on your \\nMotion Tracker when mobile."
-other_friendly_players_in_the_ga_568d12 = "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile."
-other_players_in_the_game_will_n_93323d = "Other players in the game will never show up on your\\nMotion Tracker."
-green_triangles_will_appear_over_f13744 = "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem."
-your_teammates_will_only_be_deno_5c8d39 = "Your teammates will only be denoted by the color of\\ntheir armor."
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_indicator_options_labels]
-objectives_indicator = "OBJECTIVES INDICATOR:"
-objectives_on_screen = "OBJECTIVES ON SCREEN:"
-other_players_on_radar = "OTHER PLAYERS ON RADAR:"
-friend_indicators_on_screen = "FRIEND INDICATORS ON SCREEN:"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_friends_on_screen]
-yes = "YES"
-no = "NO"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_objectives_on_screen]
-yes = "YES"
-no = "NO"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_others_on_radar]
-all = "ALL"
-friends = "FRIENDS"
-no = "NO"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_indicator_options_edit_var_radar_display]
-motion_tracker = "MOTION TRACKER"
-nav_points = "NAV POINTS"
-none = "NONE"
-
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_cap_ctf]
 you_must_carry_your_own_flag_int_0202d5 = "You must carry your own flag into the opposing\\nteam's base to score."
 you_must_capture_the_enemy_s_fla_c403cd = "You must capture the enemy's flag and return it to\\nyour own base."
@@ -2026,35 +2156,6 @@ no = "NO"
 yes = "YES"
 no = "NO"
 
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_cap_teamplay_options]
-players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
-players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
-damage_from_friendly_fire_will_o_d99200 = "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected."
-players_can_be_hurt_by_damage_fr_2e04b2 = "Players can be hurt by damage from explosives \\nfired by their teammates."
-no_respawn_time_penalty_will_be__49a8c9 = "No respawn time penalty will be assessed to players\\nwho kill a teammate."
-players_who_kill_a_teammate_will_9888f4 = "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die."
-players_who_kill_a_teammate_will_551ffb = "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die."
-players_who_kill_a_teammate_will_c8e1b7 = "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die."
-team_autobalancing_will_be_disab_52927b = "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish."
-team_autobalancing_will_be_enabl_62458a = "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team."
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_teamplay_options_labels]
-friendly_fire = "FRIENDLY FIRE:"
-friendly_fire_penalty = "FRIENDLY FIRE PENALTY:"
-auto_team_balance = "AUTO TEAM BALANCE:"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire]
-off = "OFF"
-on = "ON"
-shield_only = "SHIELD ONLY"
-explosives_only = "EXPLOSIVES ONLY"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_teamplay_options_edit_var_friendly_fire_penalty]
-none = "NONE"
-5_seconds = "5 SECONDS"
-10_seconds = "10 SECONDS"
-15_seconds = "15 SECONDS"
-
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_cap_vehicle_options]
 vehicles_will_not_respawn = "Vehicles will not respawn."
 vehicles_will_respawn_every_30_s_2c01df = "Vehicles will respawn every 30 seconds if idle."
@@ -2109,13 +2210,6 @@ up_to_four_gun_turrets_will_spaw_2e6640 = "Up to four Gun Turrets will spawn in 
 red_team = "RED TEAM"
 blue_team = "BLUE TEAM"
 
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_options]
-none = "NONE"
-1 = "1"
-2 = "2"
-3 = "3"
-4 = "4"
-
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_vehicle_options_edit_var_vehicle_set]
 default = "DEFAULT"
 none = "NONE"
@@ -2147,6 +2241,7 @@ banshee = "BANSHEE:"
 gun_turret = "GUN TURRET:"
 vehicle_respawn_time = "VEHICLE RESPAWN TIME:"
 side = "SIDE:"
+vehicle_types = "VEHICLE TYPES"
 
 [xbox.multiplayer_shared.xbox_main_menu_solo_level_select_map_data]
 escape_intact_as_ncovenant_force_250060 = "Escape intact as \\nCovenant forces \\nboard your ship."

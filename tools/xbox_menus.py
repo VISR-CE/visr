@@ -49,7 +49,7 @@ LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
 MP = 'main_menu/multiplayer_type_select'
 MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
     'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby',
-    'mp_map_select', 'game_options_edit', 'respawn_options_edit', 'teams_hud_edit', 'weapons_edit')) + (
+    'mp_map_select', 'game_options_edit', 'respawn_options_edit', 'teams_hud_edit', 'weapons_edit', 'vehicle_types_edit')) + (
     'main_menu.quit_select', 'main_menu.new_select.port',
     'main_menu.settings_select.multiplayer_setup.playlist_select')
 # Bounds from tags/widgets.json: connected/server_list, advanced_controls,
@@ -834,7 +834,7 @@ def multiplayer_documents(assets, bitmaps):
     documents['multiplayer.shared.xml'] = shared
     # Xbox item options combine vehicles with weapons; these two PC-only
     # editors still need their wired XML screens until routing is integrated.
-    for folder in ('vehicle_options_edit', 'teamplay_options_edit', 'indicator_options_edit',
+    for folder in ('vehicle_options_edit',
                    'playlist_edit.ctf_edit', 'playlist_edit.koth_edit', 'playlist_edit.oddball_edit',
                    'playlist_edit.race_edit', 'playlist_edit.slayer_edit'):
         filename = 'main_menu.settings_select.multiplayer_setup.' + folder + '.xml'

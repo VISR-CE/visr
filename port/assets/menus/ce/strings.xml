@@ -1124,6 +1124,7 @@
 		<string text="GUN TURRET:"/>
 		<string text="VEHICLE RESPAWN TIME:"/>
 		<string text="SIDE:"/>
+		<string text="VEHICLE TYPES"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/audio_option_labels">
 		<string text="MASTER VOLUME:"/>
