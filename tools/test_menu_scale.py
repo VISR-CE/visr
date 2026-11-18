@@ -66,6 +66,7 @@ def test_widget_viewport_and_pointer_round_trip(tmp_path, apple):
 static int enabled = 1, scene = 1, height = 402, width = 1044;
 int config_boolean(const char *name) { (void)name; return enabled; }
 int halo_scene_class(void) { return scene; }
+int halo_screen_ui_portrait(void) { return 0; }
 long halo_screen_width(void) { return width; }
 float halo_screen_pixel_scale(void) { return 3; }
 void platform_video_window_size(int *w, int *h) { *w = width; *h = height; }

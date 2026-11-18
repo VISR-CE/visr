@@ -30,6 +30,7 @@
 #include "renderer_build.h"
 #if !TARGET_OS_TV && !HALO_NATIVE_MAC
 #include "host_texture_settings.h"
+#include "host_orientation.h"
 #endif
 #include "host_astc_store.h"
 #include "host_data_updates.h"
@@ -709,6 +710,9 @@ int main(int argc,char **argv) {
         static char env_profile[sizeof("HALO_DEVICE_PROFILE_VALUES=")+HOST_PROFILE_MAXIMUM_VALUES*216];
         snprintf(env_profile,sizeof(env_profile),"HALO_DEVICE_PROFILE_VALUES=%s",profile_values?profile_values:host_device_profile_install(data_root));
         env[env_count++]=env_profile;
+#if !TARGET_OS_TV && !HALO_NATIVE_MAC
+        host_ios_orientation_configure();
+#endif
         /* the build, for what the game writes beside a recording (input_replay.c), and the folder its automatic
            takes go to */
         static char env_build[96];

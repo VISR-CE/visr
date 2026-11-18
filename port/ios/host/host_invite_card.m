@@ -9,6 +9,9 @@
 #include "ios_host.h"
 #include "posix.h"
 #import "host_qr.h"
+#if !TARGET_OS_TV
+#import "host_orientation.h"
+#endif
 
 /* Match host_benchmark_menu.m's palette and buttons, and the report overlay's
    rounded panel in host_benchmark_page.m. */
@@ -67,10 +70,10 @@ static UIWindow *invite_window;
 
 @implementation HaloInviteCardController
 #if !TARGET_OS_TV
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return UIInterfaceOrientationMaskLandscape; }
-- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation { return UIInterfaceOrientationLandscapeRight; }
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations { return host_ios_allows_portrait() ? UIInterfaceOrientationMaskAllButUpsideDown : UIInterfaceOrientationMaskLandscape; }
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation { return host_ios_presentation_orientation(); }
 - (BOOL)prefersInterfaceOrientationLocked {
-    return UIInterfaceOrientationIsLandscape(self.view.window.windowScene.interfaceOrientation);
+    return !host_ios_allows_portrait() && UIInterfaceOrientationIsLandscape(self.view.window.windowScene.interfaceOrientation);
 }
 #endif
 - (UILabel *)label:(UIFontTextStyle)style color:(UIColor *)color {

@@ -22,18 +22,23 @@ def asset_policy():
 
 
 def test_new_policy_pins_device_shards_and_shader_feed():
-    value = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-4"}
+    value = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-5"}
     assert validation.load_policy(json.dumps(value)) == value
     validation.require_asset_policy(value)
     with pytest.raises(ValueError, match="asset"):
         validation.require_asset_policy(policy())
     # the frozen device-profiles-1 directory (0.4.2 to 0.5.1) still validates, but a new release cannot use it
     assert validation.load_policy(json.dumps(asset_policy())) == asset_policy()
-    with pytest.raises(ValueError, match="device-profiles-4"):
+    with pytest.raises(ValueError, match="device-profiles-5"):
         validation.require_asset_policy(asset_policy())
     # nor the retired device-profiles-2 directory 0.6.0 to 0.6.3 read
-    with pytest.raises(ValueError, match="device-profiles-4"):
+    with pytest.raises(ValueError, match="device-profiles-5"):
         validation.require_asset_policy({**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-2"})
+
+    previous = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-4"}
+    assert validation.load_policy(json.dumps(previous)) == previous
+    with pytest.raises(ValueError, match="device-profiles-5"):
+        validation.require_asset_policy(previous)
 
 
 @pytest.mark.parametrize("url, domain", [
@@ -43,6 +48,7 @@ def test_new_policy_pins_device_shards_and_shader_feed():
     ("https://example.invalid/tester/device-profiles-2/", "device-profiles-2"),
     ("https://example.invalid/tester/device-profiles-3", "device-profiles-3"),
     ("https://example.invalid/tester/device-profiles-4", "device-profiles-4"),
+    ("https://example.invalid/tester/device-profiles-5", "device-profiles-5"),
     ("https://example.invalid/tester/device-profiles-9", "device-profiles-1"),
 ])
 def test_profile_domain_follows_the_feed_directory(url, domain):
@@ -365,9 +371,9 @@ def test_release_rejects_an_unexpected_encryption_approval_code():
     "https://feeds.visr.gg.example.invalid/tester/feed",
 ])
 def test_new_releases_read_their_feeds_from_feeds_visr_gg(field, url):
-    value = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-4"}
+    value = {**asset_policy(), "profile_feed_url": "https://feeds.visr.gg/tester/device-profiles-5"}
     validation.require_asset_policy(value)
     if field == "profile_feed_url":
-        url += "/device-profiles-4"
+        url += "/device-profiles-5"
     with pytest.raises(ValueError, match="feeds.visr.gg"):
         validation.require_asset_policy({**value, field: url})

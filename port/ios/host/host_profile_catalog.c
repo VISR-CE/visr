@@ -183,7 +183,7 @@ static int compatible(const struct host_device *d, const struct host_profile *p,
 		/* Use the renderer's rounding, aspect clamp, and 240-line minimum. Ignoring the
 		   GPU's maximum texture dimension is conservative: it can only reduce allocation. */
 		struct halo_display_size size = halo_display_render_size(lround(long_side * atof(scale)),
-			lround(short_side * atof(scale)), 1600, 0, atoi(height), INT_MAX);
+			lround(short_side * atof(scale)), 1600, 0, atoi(height), INT_MAX, 0);
 		double pixels = (double)size.width * size.height;
 		/* Base frame_rate caps the Mac app at any rate, and an iPhone, an iPad or an
 		   Apple TV under the display's (host_gpu_dispatch.c); a Vision Pro ignores it.
@@ -210,7 +210,7 @@ static int compatible(const struct host_device *d, const struct host_profile *p,
 			long output_height = atol(setting(p, "display.output_height", "", 1, "0"));
 			if (!output_height) output_height = 8192;
 			size = halo_display_render_size(lround(output_height * (1600.0 / 480.0) * atof(external_scale)),
-				lround(output_height * atof(external_scale)), 1600, 0, atoi(external_height), 8192);
+				lround(output_height * atof(external_scale)), 1600, 0, atoi(external_height), 8192, 0);
 			if ((double)size.width * size.height > field(f, "maximum_pixels").u.arr.elem[limits[i]].u.int64) return 0;
 		}
 	}

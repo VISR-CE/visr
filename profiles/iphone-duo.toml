@@ -16,6 +16,7 @@ models = ["iPhone19,4"]
 
 [display]
 upscaled_textures = true
+allow_portrait = true
 frame_rate = "120"
 render_height = 0
 anisotropic_filtering = 16
@@ -109,3 +110,7 @@ source = "iPhone 17 Pro profile evidence; VISR Duo benchmark run BBHUXU8M"
 [evidence."display.upscaled_textures"]
 basis = "assumed"
 why = "Above 720 lines, upscaled textures add visible detail. The iPhone and iPad class profile turns them off for the weakest devices, so this model sets them on."
+[evidence."display.allow_portrait"]
+basis = "assumed"
+why = "Product decision, November 9, 2026: enable portrait play on the iPhone Duo."
+source = "Steve, 2026-11-09"

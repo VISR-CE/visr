@@ -261,6 +261,10 @@ static const struct config_setting config_settings[] =
 		"cannot keep up and raise it again when it can, between frames, from\n"
 		"display.render_height (the ceiling) down to display.dynamic_resolution_floor.\n"
 		"The HUD and menus stay at the display's resolution. Read at launch." },
+	{ "display.allow_portrait", _config_boolean, "false", "HALO_ALLOW_PORTRAIT", _environment_value, _platform_ios,
+		"When true, gameplay and menus follow the device into portrait. Device\n"
+		"profiles turn it on where portrait play is supported (the iPhone Duo);\n"
+		"on other devices set it in config.toml for testing. Read at launch." },
 	{ "display.dynamic_resolution_floor", _config_integer, "540", "HALO_DYNAMIC_RESOLUTION_FLOOR", _environment_value, _platform_ios,
 		"The fewest lines display.dynamic_resolution draws the 3D view at; never\n"
 		"fewer than half the ceiling's. Read at launch." },
@@ -636,6 +640,10 @@ static const struct config_setting config_settings[] =
 		"Enable developer map framing controls in the development AppKit Mac host." },
 	{ "debug.map_pictures_render", _config_boolean, "false", "HALO_MAP_PICTURES_RENDER", _environment_value, _platform_all,
 		"At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only." },
+	{ "debug.orientation", _config_string, "\"\"", "HALO_ORIENTATION", _environment_value, _platform_ios,
+		"Request \"portrait\" or \"landscape\" once the first window scene is active;\n"
+		"empty leaves the device's orientation alone. Portrait requires\n"
+		"display.allow_portrait. For simulator captures. Read at launch." },
 	{ "debug.test_controller", _config_string, "\"\"", "HALO_TEST_CONTROLLER", _environment_value, _platform_ios,
 		"A synthetic right Sense controller in place of the real ones, to check\n"
 		"controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\"\n"
@@ -1550,6 +1558,19 @@ static const struct config_setting config_settings[] =
 		"foveated view's full size, and only the last step that fills each view\n"
 		"goes through the Compositor's rate map (composite-only foveation, the\n"
 		"reference the full path is compared against)." },
+	{ "debug.portrait_field_of_view", _config_string, "\"\"", "HALO_PORTRAIT_FIELD_OF_VIEW", _environment_value, _platform_ios,
+		"Field of view in a view narrower than 4:3 (portrait play): empty or\n"
+		"\"horizontal_minimum\" widens the vertical angle so the horizontal one\n"
+		"stays at least 60 degrees (the default); \"hold\" keeps the game's\n"
+		"vertical angle and narrows the horizontal one; \"horizontal_70\" and\n"
+		"\"match_landscape\" widen it to 70 and 73.5 degrees horizontal. Where\n"
+		"portrait is allowed, hold Back and press L1 to cycle the four modes\n"
+		"until the app quits." },
+	{ "debug.portrait_fov_button", _config_boolean, "false", "HALO_PORTRAIT_FOV_BUTTON", _environment_value, _platform_ios,
+		"Shows a small FOV button at the bottom center of the touch controls\n"
+		"in gameplay that cycles the portrait field of view like the Back + L1\n"
+		"chord (debug.portrait_field_of_view), for devices with no controller.\n"
+		"Needs display.allow_portrait." },
 	{ "debug.anti_aliasing_folded", _config_boolean, "false", "HALO_ANTI_ALIASING_FOLDED", _environment_value, _platform_all,
 		"With display.anti_aliasing = \"fxaa\" and the HUD at the display's size:\n"
 		"run FXAA inside the stretch to the display's size (Metal), at each of\n"

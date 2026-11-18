@@ -15,6 +15,9 @@
 #include "host_external_session.h"
 #include "host_external_splash.h"
 #include "host_hinge.h"
+#include "host_posture_layout.h"
+#include "host_output_cap.h"
+#include "host_geometry.h"
 #include "renderer_build.h"
 #include "host_audio_route.h"
 #include "host_audio_stall.h"
@@ -36,8 +39,109 @@ static int output_width, output_height;
 static void *phone_layer;
 static int output_failures;
 static _Atomic unsigned long long published_size;
+static void publish_size(void);
+static void safe_insets_refresh(void);
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+@interface VISRPosturePicture : UIView
+@end
+@implementation VISRPosturePicture
++ (Class)layerClass { return CAMetalLayer.class; }
+@end
+static VISRPosturePicture *posture_picture;
+static int posture_output;
+static struct host_posture_layout picture_layout;
+
+/* Called between frames, through the same drain/switch path as an output
+   change. SDL's root view stays full size for hinge geometry and input. */
+static void posture_picture_commit(void) {
+    struct host_posture_layout next;
+    host_posture_layout_snapshot(&next);
+    BOOL laptop=next.laptop && !companion_on && metal_enabled;
+    UIView *root=phone_window.rootViewController.view;
+    if(companion_on) {posture_output=0;publish_size();posture_picture.hidden=YES;return;}
+    if(!root || (!laptop && !posture_output))return;
+    int width=0,height=0;
+    SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+    if(laptop) {
+        width=(int)lround(width*next.upper_half.width/root.bounds.size.width);
+        height=(int)lround(height*next.upper_half.height/root.bounds.size.height);
+        if(!posture_picture) {
+            posture_picture=[[VISRPosturePicture alloc]init];
+            posture_picture.userInteractionEnabled=NO;
+            posture_picture.hidden=YES;
+            [root insertSubview:posture_picture atIndex:0];
+        }
+        struct host_posture_rect r=next.upper_half;
+        posture_picture.frame=CGRectMake(r.x,r.y,r.width,r.height);
+    }
+    host_output_cap_apply(width,height,host_sdl_output_cap_requested(),&width,&height);
+    if(width<=0 || height<=0)return;
+    CAMetalLayer *target=laptop?(CAMetalLayer *)posture_picture.layer:(__bridge CAMetalLayer *)phone_layer;
+    if(laptop!=posture_output || (laptop &&
+        (width!=output_width || height!=output_height))) {
+        if(!gpu_metal_output((__bridge void *)target,NULL,width,height))return;
+        output_width=width;output_height=height;
+        posture_output=laptop;
+        publish_size();
+    }
+    picture_layout=next;
+    posture_picture.hidden=!laptop;
+}
+/* The game-thread form: UIKit state is read and written on main, and the
+   renderer switch runs on the game thread between frames like any output change. */
+static void posture_picture_commit_threaded(void) {
+    __block CAMetalLayer *target=nil;
+    __block int width=0,height=0,laptop=0;
+    __block struct host_posture_layout next;
+    host_main_sync(^{
+        host_posture_layout_snapshot(&next);
+        laptop=next.laptop && !companion_on && metal_enabled;
+        UIView *root=phone_window.rootViewController.view;
+        if(companion_on) {posture_output=0;publish_size();posture_picture.hidden=YES;return;}
+        if(!root || (!laptop && !posture_output))return;
+        SDL_GetWindowSizeInPixels(host_sdl_window(),&width,&height);
+        if(laptop) {
+            width=(int)lround(width*next.upper_half.width/root.bounds.size.width);
+            height=(int)lround(height*next.upper_half.height/root.bounds.size.height);
+            if(!posture_picture) {
+                posture_picture=[[VISRPosturePicture alloc]init];
+                posture_picture.userInteractionEnabled=NO;
+                posture_picture.hidden=YES;
+                [root insertSubview:posture_picture atIndex:0];
+            }
+            struct host_posture_rect r=next.upper_half;
+            posture_picture.frame=CGRectMake(r.x,r.y,r.width,r.height);
+        }
+        host_output_cap_apply(width,height,host_sdl_output_cap_requested(),&width,&height);
+        if(width<=0 || height<=0)return;
+        if(laptop!=posture_output || (laptop && (width!=output_width || height!=output_height))) {
+            target=laptop?(CAMetalLayer *)posture_picture.layer:(__bridge CAMetalLayer *)phone_layer;
+        } else {
+            picture_layout=next;
+            posture_picture.hidden=!laptop;
+            safe_insets_refresh();
+        }
+    });
+    if(!target)return;
+    int accepted=gpu_metal_output((__bridge void *)target,NULL,width,height);
+    host_main_sync(^{
+        if(!accepted)return;
+        output_width=width;output_height=height;
+        posture_output=laptop;
+        publish_size();
+        picture_layout=next;
+        posture_picture.hidden=!laptop;
+        safe_insets_refresh();
+    });
+}
+#endif
 static void publish_size(void) {
-    atomic_store(&published_size,companion_on?((unsigned long long)(unsigned)output_width<<32)|(unsigned)output_height:0);
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    int shown=companion_on||posture_output;
+#else
+    int shown=companion_on;
+#endif
+    atomic_store(&published_size,shown?((unsigned long long)(unsigned)output_width<<32)|(unsigned)output_height:0);
 }
 
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
@@ -72,7 +176,13 @@ static int output_switch(void *layer,UIScreen *screen,int width,int height) {
        returning, so publish the destination for that call and roll back on refusal. */
     UIScreen *previous_screen=output_screen;
     output_screen=screen;
-    if(gpu_metal_output(layer,(__bridge void *)screen,width,height)) {output_failures=0;return 1;}
+    if(gpu_metal_output(layer,(__bridge void *)screen,width,height)) {
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+        posture_output=0;
+        posture_picture.hidden=YES;
+#endif
+        output_failures=0;publish_size();return 1;
+    }
     output_screen=previous_screen;
     if(++output_failures==1)
         host_logf(HOST_LOG_WARN,"external display: the renderer cannot take the %dx%d output yet",width,height);
@@ -411,6 +521,7 @@ void host_external_attach(void *window_pointer,int metal) {
         phone_window=(__bridge UIWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(window),
             SDL_PROP_WINDOW_UIKIT_WINDOW_POINTER,NULL);
         host_hinge_attach((__bridge void *)phone_window.rootViewController.view);
+        host_posture_attach((__bridge void *)phone_window.rootViewController.view);
         phone_layer=host_sdl_metal_layer();
         output_screen=phone_window.windowScene.screen;
         SDL_GetWindowSizeInPixels(window,&output_width,&output_height);
@@ -544,6 +655,9 @@ int host_external_size(int *width,int *height) {
         if(!size)return 0;
         *width=(int)(size>>32);*height=(int)(unsigned)size;return 1;
     }
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    if(posture_output && !companion_on) {*width=output_width;*height=output_height;return 1;}
+#endif
     if(!companion_on)return 0;
     *width=output_width;*height=output_height;return 1;
 }
@@ -667,6 +781,16 @@ static void safe_insets_refresh(void) {
     if(!companion_on && phone_window) {
         UIEdgeInsets inset=phone_window.safeAreaInsets;
         CGSize size=phone_window.bounds.size;
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+        if(posture_output && picture_layout.laptop) {
+            struct host_posture_rect r=picture_layout.upper_half;
+            inset.left=MAX(0,inset.left-r.x);
+            inset.right=MAX(0,inset.right-(size.width-r.x-r.width));
+            inset.top=MAX(0,inset.top-r.y);
+            inset.bottom=MAX(0,inset.bottom-(size.height-r.y-r.height));
+            size=CGSizeMake(r.width,r.height);
+        }
+#endif
         if(size.width>0 && size.height>0) {
             next[0]=(float)(inset.left/size.width);next[1]=(float)(inset.right/size.width);
             next[2]=(float)(inset.top/size.height);next[3]=(float)(inset.bottom/size.height);
@@ -687,6 +811,13 @@ void host_external_safe_insets(float *insets) {
 }
 static void host_external_poll_main(void) {
     host_hinge_poll();
+#if TARGET_OS_IOS && !TARGET_OS_TV
+    host_geometry_poll();
+#endif
+    host_posture_poll();
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    host_ios_touch_posture_changed();
+#endif
     safe_insets_refresh();
     if(atomic_exchange(&audio_changed,0)) {
 #if TARGET_OS_IOS && !TARGET_OS_MACCATALYST
@@ -872,7 +1003,7 @@ static void host_external_poll_main(void) {
 /* The worker retains the destination across the GPU drain. Main never drains
    frame_slots or calls renderer code while the worker waits for it. A scene
    change during the drain leaves a new pending transaction for the next frame. */
-static void external_commit_threaded(int allow_pause) {
+static void external_commit_threaded_output(int allow_pause) {
     gpu_metal_output_cap_commit();
 #if TARGET_OS_MACCATALYST
     host_main_sync(^{ test_output_frame++; });
@@ -981,11 +1112,27 @@ void host_external_output_resize(void *target,int width,int height) {
     (void)target;(void)width;(void)height;
 #endif
 }
+static void external_commit_threaded(int allow_pause) {
+    external_commit_threaded_output(allow_pause);
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    posture_picture_commit_threaded();
+#endif
+}
 void host_external_commit(int allow_pause) {
     if(host_game_thread_enabled()){external_commit_threaded(allow_pause);return;}
     (void)allow_pause;
     /* (a benchmark display variant's built-in output cap, before the frame's first draw) */
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    BOOL cap_pending=!gpu_metal_output_cap_settled();
+#endif
     gpu_metal_output_cap_commit();
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    if(cap_pending && gpu_metal_output_cap_settled()) {
+        posture_output=0;
+        publish_size();
+        posture_picture.hidden=YES;
+    }
+#endif
 #if TARGET_OS_MACCATALYST
     test_output_frame++;
 #endif
@@ -1077,6 +1224,10 @@ void host_external_commit(int allow_pause) {
         host_logf(HOST_LOG_INFO,"external display: window moved to %dx%d at %ld Hz",output_width,output_height,
             (long)output_screen.maximumFramesPerSecond);
     }
+#if TARGET_OS_IOS && !TARGET_OS_MACCATALYST && !TARGET_OS_TV
+    posture_picture_commit();
+    safe_insets_refresh();
+#endif
 }
 static double host_external_companion_dim_main(void) {
     int count=0;SDL_JoystickID *ids=SDL_GetGamepads(&count);int hardware=0;

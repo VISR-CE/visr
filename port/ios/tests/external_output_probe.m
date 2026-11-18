@@ -17,6 +17,8 @@ static int gpu_metal_output(void *layer,void *screen,int width,int height) {
     assert(output_screen==expected_screen);
     return renderer_ready;
 }
+/* output_switch republishes the output size after a successful switch (laptop-L posture). */
+static void publish_size(void) {}
 #include "external_output_under_test.inc"
 int main(void) {
     @autoreleasepool {

@@ -136,6 +136,7 @@ def chosen_origins(old, keys):
 # the default, not whatever an earlier run's --set left in config.toml
 DEFAULTS = {
     "debug.dynamic_resolution_shadow": "false",
+    "display.allow_portrait": "false",
     "display.dynamic_resolution": "false",
     "display.dynamic_resolution_floor": "540",
     "display.screen_width": "0",

@@ -67,8 +67,12 @@ void halo_screen_hud_frame(long width, short *x0, short *y0, short *x1, short *y
 float halo_screen_scale(void);
 /* takes up a new width between frames (F11); returns the width */
 long halo_screen_commit(void);
-/* while TRUE, drawing shifts right to center 640-column layouts */
+/* while TRUE, center 640-column layouts; fit their width in portrait */
 void halo_screen_ui_offset(unsigned char centered);
+/* CPU text clipping uses design coordinates only while the portrait fit is on. */
+unsigned char halo_screen_ui_portrait(void);
+/* portrait full-screen widget bitmap only: height-fit, then restore the UI fit */
+void halo_screen_ui_backdrop(unsigned char cover);
 /* a player's view of the world is drawn and its HUD is next (render_window,
 before interface_draw_screen): where a post-process pass over the view goes
 (port/linux/src/d3d8_device.c) */

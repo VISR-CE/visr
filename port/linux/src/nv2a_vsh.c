@@ -1061,6 +1061,13 @@ char *nv2a_vertex_shader_translate_lit(const struct nv2a_dialect *dialect, const
 			"\tvec3 ndc = (vec3(oPos.xy + vec2(0.5 + screen_offset, 0.5), oPos.z) - viewport_offset.xyz) / scale;\n"
 			"\tvec4 position = vec4(ndc * oPos.w, oPos.w);\n");
 	}
+	/* Keep the existing conversion untouched at scale 1, including stereo's
+	clip-capture path. Portrait scales in screen coordinates after that conversion,
+	before the backend's clip-axis changes. Depth and w are unchanged. */
+	xgpu_text_append(&text,
+		"\tif (screen_ui_transform.x != 1.0)\n"
+		"\t\tposition.xy = position.xy * screen_ui_transform.x + ((screen_ui_transform.x - 1.0) * viewport_offset.xy\n"
+		"\t\t\t+ vec2(0.0, screen_ui_transform.y)) * position.w / scale.xy;\n");
 	/* A position whose w is zero, or is not a number, is the clip-space
 	origin: the screen conversion's reciprocal is clamped rather than
 	infinite, so a large position times a w of zero is exactly zero, and the

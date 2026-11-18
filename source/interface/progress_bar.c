@@ -2005,9 +2005,20 @@ static void draw_layer_int(
 	real mask_position;
 
 	generate_gravy_rect(layer, &rect);
-	/* port: the picture keeps its 640 columns, centered on a wider screen */
-	rect.x0*= 640.f/(real)halo_screen_width();
-	rect.x1*= 640.f/(real)halo_screen_width();
+	/* port: these vertices are already centered clip coordinates, drawn
+	outside the UI span (render_frame_pregame). Fit the art in portrait by
+	height as well as width; the feedback copy and blur still fill the screen. */
+	if (halo_screen_width()<640)
+	{
+		real scale= (real)halo_screen_width()/640.f;
+		rect.y0*= scale;
+		rect.y1*= scale;
+	}
+	else
+	{
+		rect.x0*= 640.f/(real)halo_screen_width();
+		rect.x1*= 640.f/(real)halo_screen_width();
+	}
 	IDirect3DDevice8_Begin(global_d3d_device, D3DPT_TRIANGLEFAN);
 	IDirect3DDevice8_SetVertexData4f(global_d3d_device, D3DVSDE_DIFFUSE,
 		color->red, color->green, color->blue, alpha);

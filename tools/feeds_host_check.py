@@ -62,8 +62,15 @@ def release_urls(staged: Path) -> tuple[str, str, str, str]:
             raise Stale("The bucket's tree does not hold a file the release policy names: " + url)
 
     staged_at(policy["shader_feed_url"])
-    for target in policy["profile_feed_sha256s"]:
-        staged_at(policy["profile_feed_url"].rstrip("/") + "/" + target + ".json")
+    # a source that opened a newer profile feed generation than its release policy names reads shards the policy's
+    # directory does not hold until that generation is published: only the shard check is skipped
+    profile = policy["profile_feed_url"]
+    if profile.rstrip("/").rsplit("/", 1)[-1] != ios_build.PROFILE_FEED_DIRECTORY:
+        print(f"SKIP: profile shard: the release policy's feed is not {ios_build.PROFILE_FEED_DIRECTORY}, the generation this source reads")
+        profile = "-"
+    else:
+        for target in policy["profile_feed_sha256s"]:
+            staged_at(profile.rstrip("/") + "/" + target + ".json")
     # the catalog format this source's app accepts (host_data_updates.m), and the feed of that format
     catalog = re.search(r'@"benchmark-catalog-([12]):" HALO_GUEST_SHA256', (ROOT / "port/ios/host/host_data_updates.m").read_text())
     if not catalog:
@@ -77,7 +84,7 @@ def release_urls(staged: Path) -> tuple[str, str, str, str]:
             raise ValueError("No benchmark-catalog-2 feed is staged")
         guest = feeds[-1].stem.removeprefix("recordings-2-")
         recording = feeds_store.FEEDS_URL + "/tester/" + feeds[-1].name
-    return policy["profile_feed_url"], policy["shader_feed_url"], recording, f"benchmark-catalog-{catalog[1]}:{guest}"
+    return profile, policy["shader_feed_url"], recording, f"benchmark-catalog-{catalog[1]}:{guest}"
 
 
 def development_defaults() -> None:

@@ -1224,6 +1224,45 @@ void set_window_camera_values(
 					1.0f);
 		}
 
+		/* port: a view narrower than 4:3 (portrait) keeps the vertical angle
+		and narrows the horizontal one; debug.portrait_field_of_view's
+		"horizontal_minimum", "horizontal_70" or "match_landscape" (or the live
+		chord through all four) widen it; see portrait_fov.h */
+		{
+			extern float halo_portrait_field_of_view_tangent(float aspect, float base_tangent);
+			extern real halo_cinematic_portrait_letterbox(real width, real height, real *bar_fraction);
+			rectangle2d const *view = &window->rasterizer_camera.viewport_bounds;
+			real width = (real)(view->x1 - view->x0);
+			real height = (real)(view->y1 - view->y0);
+			real base_vertical_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
+
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f)
+			{
+				/* the four modes are in portrait_fov.h; the widest passes 90 degrees, and nothing here clamps
+				it (the game's own 90-degree checks see the observer's angle, before this) */
+				window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(
+					halo_portrait_field_of_view_tangent(width / height, base_vertical_tangent), 1.0f);
+			}
+
+			/* port: a letterboxed cinematic in a portrait view keeps the landscape cinematic's picture: the
+			4:3 view's horizontal angle across the width, in the 16:9 band the bars leave (cinematics.c), blended
+			in and out with the bars */
+			if (width > 0.0f && height > 0.0f && width * 3.0f < height * 4.0f)
+			{
+				real bar_fraction;
+				real blend = halo_cinematic_portrait_letterbox(width, height, &bar_fraction);
+
+				if (blend > 0.0f)
+				{
+					real portrait_tangent = tangent(window->rasterizer_camera.vertical_field_of_view * 0.5f);
+					real cinematic_tangent = base_vertical_tangent / 0.75f * (height / width);
+
+					window->rasterizer_camera.vertical_field_of_view = 2.0f * arctangent(
+						portrait_tangent + (cinematic_tangent - portrait_tangent) * blend, 1.0f);
+				}
+			}
+		}
+
 		if (window->local_player_index != NONE &&
 			!console_is_active() &&
 			!game_time_get_paused() &&
