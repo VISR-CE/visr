@@ -29,6 +29,9 @@ int xiso_extract_maps(const char *image, const char *destination, xiso_progress_
 }
 void host_logf(int priority, const char *format, ...) { (void)priority;(void)format; }
 void host_exit(int code) { exit(code); }
+void host_fatal(const char *format, ...) {
+    va_list args;va_start(args,format);vfprintf(stderr,format,args);va_end(args);fputc('\n',stderr);abort();
+}
 int host_alert(const char *title,const char *message,const char *first,const char *second) {
     (void)title;(void)message;(void)first;(void)second;return 1;
 }

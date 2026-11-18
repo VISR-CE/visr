@@ -45,6 +45,7 @@ build with render validation; nothing otherwise */
 #include "metal_compile_progress.h"
 #include "host.h"
 #include "host_benchmark.h"
+#include "host_benchmark_offscreen.h"
 #import "host_data_updates.h"
 #include "gpu_metal_presentation.h"
 #include "halo_display.h"
@@ -477,6 +478,14 @@ static void gpu_busy_count(id<MTLCommandBuffer> completed)
 		return;
 	}
 	gpu_busy_add(completed.GPUStartTime, completed.GPUEndTime);
+}
+
+/* Both callers must agree: an import frame cannot wait for a display slot
+   before gpu_metal_present selects its private target. */
+static int render_offscreen_active(void)
+{
+    return host_render_offscreen_frame(host_benchmark_offscreen_active(),
+        host_map_pictures_import_stage(), TARGET_OS_VISION);
 }
 
 /* host_benchmark.m: the spans used and refused since launch, and the last
@@ -6369,7 +6378,7 @@ static void gpu_metal_frame_start(void)
 	}
 	counted = total;
 	/* (debug.benchmark_offscreen: nothing waits on the display) */
-	if (!host_benchmark_offscreen_active())
+	if (!render_offscreen_active())
 		frame_pacer_frame_start();
 #endif
 }
@@ -8914,9 +8923,9 @@ static uint32_t gpu_metal_present(gpu_texture back_buffer)
             perf_capability_noted = YES;
         }
 		id<CAMetalDrawable> drawable;
-		/* debug.benchmark_offscreen: the frame goes into target, with no
+		/* Benchmarks and map import: the frame goes into target, with no
 		drawable, Present or display wait (host_benchmark_offscreen.h) */
-		BOOL offscreen = host_benchmark_offscreen_active();
+		BOOL offscreen = render_offscreen_active();
 		/* debug.benchmark_virtual_display: a presented run's frame goes to the virtual display's texture */
 		BOOL virtual_frame = HALO_FRAME_PACING && !offscreen && atomic_load(&virtual_display_on);
 		int virtual_texture = -1;

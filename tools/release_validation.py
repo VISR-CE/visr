@@ -699,6 +699,8 @@ def verify_feed(
         compatibility = ("shader-lists-1", "shader-lists-2")
     elif kind == "latest":
         compatibility = "latest-release-1"
+    elif kind == "framings":
+        compatibility = "map-framings-2"
     else:
         compatibility = (
             "profiles-2"
@@ -750,6 +752,7 @@ def _verify_feed(
         "recording": "recordings",
         "shader": "shaders",
         "latest": "latest",
+        "framings": "framings",
     }[kind]
     limit = ENVELOPE_LIMITS[payload_kind]
     if len(data) > limit:

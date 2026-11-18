@@ -29,6 +29,12 @@ static inline int host_benchmark_offscreen_frame(enum host_benchmark_offscreen d
     return decided == HOST_BENCHMARK_OFFSCREEN_ON && suite_running;
 }
 
+/* The importer shares the benchmark target and presentation rules. Vision Pro
+   keeps its Compositor Services path; its importer does not request this stage. */
+static inline int host_render_offscreen_frame(int benchmark_active, int pictures_pending, int stereo) {
+    return benchmark_active || (pictures_pending && !stereo);
+}
+
 /* how a run's frames were paced (the report's pacing_mode and timing_basis): shown on the display; offscreen with
    each visibility answer waited for, so the CPU and the GPU take turns (debug.benchmark_offscreen_mode "serialized");
    offscreen with answers from frames before, so frames overlap ("pipelined"); or offscreen in real time against a

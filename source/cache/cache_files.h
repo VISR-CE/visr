@@ -150,6 +150,11 @@ void cache_files_precache_set_priority(
 boolean cache_files_precache_in_progress(
 	void);
 
+short cache_file_requests_pending(
+	void);
+unsigned long cache_file_reads_started(
+	void);
+
 boolean cache_files_precache_is_copying_map(
 	char const *map_name);
 boolean cache_files_precache_map_loaded(

@@ -8,6 +8,8 @@
 #include "host_texture_upscale.h"
 #include "texture_upscale_schedule.h"
 #include <stdatomic.h>
+#include <string.h>
+#include "host_map_pictures_progress.h"
 
 @interface VISRMacImport : NSObject {
 @public
@@ -195,6 +197,65 @@ static void upscale_phase(NSString *root) {
     });
     if (!on_main) dispatch_semaphore_wait(finished, DISPATCH_TIME_FOREVER);
 }
+/* The persisted marker is beside maps in the app's selected data root. The window is nonmodal so the guest can
+   start underneath it; floating level keeps it above the game until every picture has been prepared. */
+static NSString *pictures_marker;
+static atomic_int pictures_pending;
+static NSWindow *pictures_window;
+static NSTextField *pictures_status;
+static VISRUpscaleBar *pictures_bar;
+static id pictures_activity;
+static NSString *pictures_root;
+static void pictures_mark_pending(NSString *root) {
+    pictures_marker=[root stringByAppendingPathComponent:@".map-pictures-pending"];
+    NSError *error=nil;
+    if(![@"VISR map pictures v1" writeToFile:pictures_marker atomically:YES encoding:NSUTF8StringEncoding error:&error])
+        host_fatal("Could not save map preparation progress: %s",error.localizedDescription.UTF8String);
+}
+static void pictures_phase(NSString *root) {
+    pictures_root=root;
+    pictures_window=[[NSWindow alloc] initWithContentRect:NSMakeRect(0,0,680,170)
+        styleMask:NSWindowStyleMaskTitled backing:NSBackingStoreBuffered defer:NO];
+    pictures_window.title=@"VISR";pictures_window.level=NSFloatingWindowLevel;
+    pictures_window.appearance=[NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+    pictures_window.backgroundColor=[NSColor colorWithSRGBRed:0.025 green:0.045 blue:0.055 alpha:1];
+    pictures_status=[NSTextField labelWithString:@"Preparing maps, 0 of 0"];
+    pictures_status.frame=NSMakeRect(24,116,632,20);pictures_status.alignment=NSTextAlignmentCenter;
+    pictures_status.textColor=NSColor.secondaryLabelColor;[pictures_window.contentView addSubview:pictures_status];
+    pictures_bar=[[VISRUpscaleBar alloc] initWithFrame:NSMakeRect(24,64,632,46)];
+    pictures_bar.tick=-1;pictures_bar.ready=YES;[pictures_window.contentView addSubview:pictures_bar];
+    pictures_activity=[NSProcessInfo.processInfo beginActivityWithOptions:NSActivityUserInitiated|NSActivityLatencyCritical|
+        NSActivityIdleDisplaySleepDisabled reason:@"Preparing map pictures"];
+    atomic_store(&pictures_pending,1);
+    [pictures_window center];[pictures_window makeKeyAndOrderFront:nil];
+    /* the on-device upscaler runs alongside the pictures; its own bar follows only if it is still going at the end */
+    host_texture_upscale_stage_begin(root.fileSystemRepresentation);
+}
+int host_map_pictures_import_stage(void) { return atomic_load(&pictures_pending); }
+void host_map_pictures_import_progress(int done,int total,const char *name) {
+    (void)name;
+    dispatch_async(dispatch_get_main_queue(),^{
+        if(!atomic_load(&pictures_pending))return;
+        pictures_status.stringValue=[NSString stringWithFormat:@"Preparing maps, %d of %d",MAX(done,0),MAX(total,0)];
+        pictures_bar.fraction=host_map_pictures_progress_fraction(done,total);pictures_bar.needsDisplay=YES;
+    });
+}
+void host_map_pictures_import_done(int rendered,int cached,int failed) {
+    (void)rendered;(void)cached;(void)failed;
+    void (^finish)(void)=^{
+        if(!atomic_load(&pictures_pending))return;
+        host_texture_upscale_stage_end();
+        NSError *error=nil;
+        if(![NSFileManager.defaultManager removeItemAtPath:pictures_marker error:&error])
+            host_logf(HOST_LOG_WARN,"Could not clear map preparation marker: %s",error.localizedDescription.UTF8String);
+        [pictures_window orderOut:nil];pictures_window=nil;pictures_status=nil;pictures_bar=nil;
+        /* upscaling still running: its bar with Start playing before the menu (the game's frames stay hidden) */
+        if(host_texture_upscale_busy())upscale_phase(pictures_root);
+        [NSProcessInfo.processInfo endActivity:pictures_activity];pictures_activity=nil;
+        atomic_store(&pictures_pending,0);
+    };
+    if(NSThread.isMainThread)finish();else dispatch_sync(dispatch_get_main_queue(),finish);
+}
 /* Publishing is separate from extraction. A failed move must retain the previous maps. */
 static BOOL publish(NSString *staging, NSString *root, NSError **error) {
     NSFileManager *files = NSFileManager.defaultManager;
@@ -213,6 +274,7 @@ static BOOL publish(NSString *staging, NSString *root, NSError **error) {
     NSString *incoming_movies = [staging stringByAppendingPathComponent:@"bink"];
     if (![files fileExistsAtPath:movies] && [files fileExistsAtPath:incoming_movies])
         [files moveItemAtPath:incoming_movies toPath:movies error:nil];
+    pictures_mark_pending(root);
     host_astc_store_prepare_import(root.fileSystemRepresentation,NULL,NULL);
     return YES;
 }
@@ -362,6 +424,7 @@ static BOOL import_disc(NSURL *url, NSString *root, BOOL save_bookmark, NSString
 }
 void host_ios_prepare_assets(const char *directory) {
     NSString *root = @(directory);
+    pictures_marker=[root stringByAppendingPathComponent:@".map-pictures-pending"];
     recover(root);
     NSString *maps = [root stringByAppendingPathComponent:@"maps"];
     if (xiso_maps_ready(maps.fileSystemRepresentation, NULL, 0)) {
@@ -370,7 +433,13 @@ void host_ios_prepare_assets(const char *directory) {
 #ifdef HALO_DEVELOPMENT_HOOKS
         forced = getenv("HALO_TEXTURE_UPSCALE_IMPORT_PHASE") != NULL;   /* (development builds only) */
 #endif
-        if (forced || host_texture_upscale_first_run_phase(directory)) {
+#ifdef HALO_DEVELOPMENT_HOOKS
+        const char *picture_force=getenv("HALO_MAP_PICTURES_IMPORT_STAGE");
+        if(picture_force&&!strcmp(picture_force,"1"))pictures_mark_pending(root);
+#endif
+        /* the pictures first, with upscaling alongside them; its own bar follows if it is still running */
+        if([NSFileManager.defaultManager fileExistsAtPath:pictures_marker])pictures_phase(root);
+        else if (forced || host_texture_upscale_first_run_phase(directory)) {
             host_texture_upscale_init(directory);
             if (host_texture_upscale_enabled()) upscale_phase(root);
         }
@@ -384,8 +453,7 @@ void host_ios_prepare_assets(const char *directory) {
         NSString *failure = nil;
         if (import_disc(url, root, !automatic || stale, &failure)) {
             host_logf(HOST_LOG_INFO, "XISO import complete; original map bytes preserved");
-            host_texture_upscale_init(directory);
-            if (host_texture_upscale_enabled()) upscale_phase(root);
+            pictures_phase(root);
             return;
         }
         url = nil;

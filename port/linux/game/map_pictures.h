@@ -66,4 +66,15 @@ int map_pictures_render_allowed(enum map_pictures_state state);
    Invalid UTF-8 stops the text before that sequence. Returns bytes written. */
 size_t map_pictures_name_tile(char *buf, size_t size, const char *name, size_t max_length);
 
+/* Automatic camera: a candidate view is blocked when too many of its sight rays hit
+   geometry within MAP_PICTURES_NEAR_DISTANCE world units (a world unit is about 10 ft). */
+#define MAP_PICTURES_NEAR_DISTANCE 1.5f
+#define MAP_PICTURES_MAX_NEAR_FRACTION 0.25f
+/* distances[i] is the hit distance of ray i, or a negative value for no hit. */
+float map_pictures_near_fraction(const float *distances, int count, float near_distance);
+int map_pictures_view_blocked(float near_fraction);
+/* Returns the first candidate that is not blocked; when every one is, the least blocked
+   (earliest on ties) and sets *all_rejected. Returns -1 when count is 0. */
+int map_pictures_pick_view(const float *near_fractions, int count, int *all_rejected);
+
 #endif

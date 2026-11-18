@@ -634,6 +634,8 @@ static const struct config_setting config_settings[] =
 		"the last half meter inside this distance." },
 	{ "debug.photo_mode", _config_boolean, "false", "HALO_PHOTO_MODE", _environment_value, _platform_all,
 		"Enable developer map framing controls in the development AppKit Mac host." },
+	{ "debug.map_pictures_render", _config_boolean, "false", "HALO_MAP_PICTURES_RENDER", _environment_value, _platform_all,
+		"At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only." },
 	{ "debug.test_controller", _config_string, "\"\"", "HALO_TEST_CONTROLLER", _environment_value, _platform_ios,
 		"A synthetic right Sense controller in place of the real ones, to check\n"
 		"controller aim on the Mac and in the simulator: \"fixed:<yaw>,<pitch>\"\n"

@@ -282,3 +282,65 @@ def test_native_rejects_duplicate_optional_scene(tmp_path, native_probe):
     text = json.dumps(data).replace('"mp": {', '"mp": {}, "mp": {')
     path.write_text(text)
     assert subprocess.run([str(native_probe), '--read', str(path), 'stock:example']).returncode == 1
+
+
+ROOT = Path(__file__).resolve().parents[1]
+BUNDLE = ROOT / 'port/assets/map-framings.json'
+STOCK_KEYS = {'stock:' + name for name in (
+    'a10 a30 a50 b30 b40 c10 c20 c40 d20 d40 beavercreek bloodgulch boardingaction carousel chillout '
+    'damnation hangemhigh longest prisoner putput ratrace sidewinder wizard').split()}
+CURATED_KEYS = {'stock:' + name for name in (
+    'a10 a30 a50 b30 b40 c20 c40 chillout d40 hangemhigh sidewinder wizard').split()}
+
+
+def test_bundled_framings():
+    data = json.loads(BUNDLE.read_text())
+    assert not framing.validate(data)
+    assert len(STOCK_KEYS) == 23
+    assert set(data['maps']) == STOCK_KEYS
+    assert CURATED_KEYS <= set(data['maps'])
+
+
+def lookup(native_probe, fragment, bundle, key):
+    result = subprocess.run([str(native_probe), '--lookup', str(fragment or ''), str(bundle or ''), key],
+                            capture_output=True, text=True, check=True)
+    return tuple(int(value) for value in result.stdout.split())
+
+
+def test_lookup_order(tmp_path, native_probe):
+    bundle = tmp_path / 'bundle.json'
+    data = good()
+    data['maps']['stock:example']['revision'] = 3
+    bundle.write_text(json.dumps(data))
+    fragment = tmp_path / 'fragment.json'
+    assert lookup(native_probe, fragment, bundle, 'stock:example') == (2, 3)
+    assert lookup(native_probe, fragment, bundle, 'stock:other') == (0, 0)
+    assert lookup(native_probe, fragment, bundle, 'blake2b:' + 'a' * 64) == (0, 0)
+    subprocess.run([str(native_probe), '--write-from', str(fragment), 'stock:example', '3'], check=True)
+    assert json.loads(fragment.read_text())['maps']['stock:example']['revision'] == 4
+    assert lookup(native_probe, fragment, bundle, 'stock:example') == (1, 4)
+    assert lookup(native_probe, None, BUNDLE, 'stock:a10')[0] == 2
+
+
+def test_bundled_framings_resolve_through_game_lookup(native_probe):
+    """Every built-in map resolves to its bundled framing (not the automatic camera) via the game's resolver."""
+    root = Path(__file__).resolve().parents[1]
+    bundle = root / 'port/assets/map-framings.json'
+    maps = json.loads(bundle.read_text())['maps']
+    for key in ('stock:c10', 'stock:d20', 'stock:beavercreek', 'stock:bloodgulch',
+                'stock:boardingaction', 'stock:carousel'):
+        assert key in maps
+    for key, entry in maps.items():
+        out = subprocess.run([str(native_probe), '--lookup', '', str(bundle), key],
+                             check=True, capture_output=True, text=True).stdout.split()
+        assert int(out[0]) == 2, key  # PHOTO_FRAMING_BUNDLED
+        assert int(out[1]) == entry['revision'], key
+
+
+def test_bundled_bloodgulch_keeps_moved_warthog():
+    bundle = Path(__file__).resolve().parent.parent / 'port' / 'assets' / 'map-framings.json'
+    data = json.loads(bundle.read_text())
+    scene = data['maps']['stock:bloodgulch']['shots'][0]['scene']
+    assert scene['variant'] == 'slayer'
+    moved = scene['moved_vehicles']
+    assert any(v['tag'].endswith('warthog') for v in moved)

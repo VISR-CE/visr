@@ -10,10 +10,35 @@
 #include "texture_upscale_schedule.h"
 #import "host_upscale_tick.h"
 #import "host_import_source.h"
+#include "host_map_pictures_progress.h"
+#include <stdatomic.h>
+#include <string.h>
 
 #if !__has_feature(objc_arc)
 #error The asynchronous importer requires Objective-C ARC.
 #endif
+
+/* Kept in the data root, beside maps, so a relaunch resumes an interrupted stage. */
+static NSString *pictures_marker;
+static atomic_int pictures_pending;
+static UIWindow *pictures_window;
+static BOOL pictures_previous_idle_timer;
+
+static BOOL pictures_supported(void) {
+#if TARGET_OS_VISION
+    /* Compositor Services owns stereo presentation; this stage uses flat offscreen frames. */
+    return NO;
+#else
+    return YES;
+#endif
+}
+static void pictures_mark_pending(NSString *root) {
+    if (!pictures_supported()) return;
+    pictures_marker=[root stringByAppendingPathComponent:@".map-pictures-pending"];
+    NSError *error=nil;
+    if (![@"VISR map pictures v1" writeToFile:pictures_marker atomically:YES encoding:NSUTF8StringEncoding error:&error])
+        host_fatal("Could not save map preparation progress: %s",error.localizedDescription.UTF8String);
+}
 
 @interface HaloImportController : HaloLandscapeController <UIDocumentPickerDelegate>
 @property(nonatomic, copy) NSString *documents;
@@ -35,6 +60,9 @@
 @property(atomic, strong) NSFileCoordinator *coordinator;
 @property(nonatomic) BOOL importing;
 @property(nonatomic) BOOL ready;
+@property(nonatomic) BOOL preparingMaps;
+@property(atomic) BOOL extracted; /* this launch extracted the disc: the map pictures take the bar's last part */
+- (void)prepareMaps;
 @property(atomic) BOOL upscaling; /* the upscaling phase is on screen */
 @property(nonatomic) UIBackgroundTaskIdentifier backgroundTask;
 @property(nonatomic) double lastProgressTime; /* extraction thread only */
@@ -51,8 +79,8 @@ static int import_progress(void *context, const char *file, uint64_t done, uint6
     dispatch_async(dispatch_get_main_queue(), ^{
         controller.progress.hidden=NO;
         [controller.spinner stopAnimating];
-        controller.progress.progress=fraction;
-        controller.statusLabel.text=[NSString stringWithFormat:@"Importing %@ · %.0f%%",name,fraction*100];
+        controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_EXTRACT,fraction,1);
+        controller.statusLabel.text=[NSString stringWithFormat:@"Importing %@",name];
     });
     return 1;
 }
@@ -64,7 +92,7 @@ static int texture_progress(void *context,uint64_t done,uint64_t total) {
     if(now-controller.lastProgressTime<0.1)return 1;controller.lastProgressTime=now;
     dispatch_async(dispatch_get_main_queue(),^{
         controller.progress.hidden=NO;[controller.spinner stopAnimating];
-        controller.progress.progress=total?(float)done/total:0;
+        controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_TEXTURES,total?(float)done/total:0,1);
         controller.statusLabel.text=@"Preparing textures for this device";
         [controller.cancelButton setTitle:@"Start playing" forState:UIControlStateNormal];
     });return 1;
@@ -300,8 +328,32 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     self.progress.progressTintColor=UIColor.systemGrayColor;self.statusLabel.text=@"Upscaling textures";[self.spinner startAnimating];
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED,0),^{
         host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
-        dispatch_async(dispatch_get_main_queue(),^{[self.spinner stopAnimating];self.importing=NO;self.ready=YES;});
+        dispatch_async(dispatch_get_main_queue(),^{
+            [self.spinner stopAnimating];self.importing=NO;self.ready=YES;
+        });
     });
+}
+- (void)prepareMaps {
+    [self loadViewIfNeeded];
+    self.preparingMaps=YES;self.upscaling=NO;self.cancelled=NO;self.importing=YES;
+    self.chooseButton.hidden=YES;self.introLabel.hidden=YES;
+    self.cancelButton.hidden=YES;self.cancelButton.enabled=NO;
+    self.retryButton.hidden=YES;self.retryButton.enabled=NO;
+    self.progress.hidden=NO;self.progress.alpha=1;self.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_PICTURES,0,self.extracted);
+    self.progress.progressTintColor=halo_upscale_bar_blue();[self.tick setPosition:-1];
+    [self.spinner stopAnimating];self.statusLabel.text=@"Preparing maps, 0 of 0";
+    pictures_previous_idle_timer=UIApplication.sharedApplication.idleTimerDisabled;
+    UIApplication.sharedApplication.idleTimerDisabled=YES;
+    atomic_store(&pictures_pending,1);
+    /* the on-device upscaler runs alongside the pictures (each map's own textures are the originals); its bar follows
+       only if it is still going when the last picture is made */
+    host_texture_upscale_stage_begin(self.documents.fileSystemRepresentation);
+    self.ready=YES;
+}
+/* after the map pictures: the upscaling bar with Start playing, only while upscaling is still running */
+- (void)upscaleAfterMaps {
+    self.preparingMaps=NO;self.ready=NO;self.progress.progress=0;
+    [self upscalePhaseOnly];
 }
 - (BOOL)canBecomeFirstResponder { return YES; }
 /* Return or Enter presses Start playing once it is offered (a Mac's or an iPad's keyboard) */
@@ -319,10 +371,10 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
     if(!self.retryButton.enabled)return;
     self.retryButton.enabled=NO;@synchronized(self){self.retryRequested=YES;}
 }
-- (void)cancelImport {self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.retryButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
+- (void)cancelImport {if(self.preparingMaps)return;self.cancelled=YES;[self.coordinator cancel];self.cancelButton.enabled=NO;self.retryButton.enabled=NO;self.statusLabel.text=self.upscaling?@"Starting Halo…":@"Cancelling import…";}
 - (void)importImage:(NSURL *)url {
     if (self.importing) return;
-    self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;
+    self.importing=YES;self.cancelled=NO;self.lastProgressTime=0;self.extracted=YES;
     self.chooseButton.hidden=YES;self.introLabel.hidden=YES;self.cancelButton.hidden=NO;self.cancelButton.enabled=YES;
     self.progress.hidden=YES;self.progress.progress=0;[self.spinner startAnimating];
     self.statusLabel.text=@"Opening disc image… If it's in iCloud, it may need to download first.";
@@ -387,8 +439,12 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
                         host_logf(HOST_LOG_WARN,"Could not remove imported disc image from VISR's Documents folder");
                     /* Successful completion marker used only for diagnostics; game data stays separate. */
                     host_logf(HOST_LOG_INFO,"XISO import complete; original map bytes preserved");
+                    /* Persist before the texture work too: interruption there must still prepare pictures next launch. */
+                    pictures_mark_pending(self.documents);
                     host_astc_store_prepare_import(self.documents.fileSystemRepresentation,texture_progress,(__bridge void *)self);
-                    host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
+                    /* where the map pictures are made, upscaling runs alongside them and its bar comes after (prepareMaps) */
+                    if(!pictures_supported())
+                        host_texture_upscale_prepare_import(self.documents.fileSystemRepresentation,upscale_progress,(__bridge void *)self);
                 }
                 /* Preserve the backup if an unexpected restore failure left it here. */
                 if (!imported && [files fileExistsAtPath:backup]) staging=nil;
@@ -398,7 +454,10 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self.spinner stopAnimating];self.cancelButton.hidden=YES;self.importing=NO;
                 if (self.backgroundTask!=UIBackgroundTaskInvalid) { [UIApplication.sharedApplication endBackgroundTask:self.backgroundTask];self.backgroundTask=UIBackgroundTaskInvalid; }
-                if (imported) {self.statusLabel.text=@"Ready. Starting Halo…";self.ready=YES;}
+                if (imported) {
+                    if(pictures_supported())[self prepareMaps];
+                    else {self.statusLabel.text=@"Ready. Starting Halo…";self.ready=YES;}
+                }
                 else {self.statusLabel.text=failure?:@"Could not import this disc image.";self.chooseButton.hidden=NO;self.introLabel.hidden=NO;self.progress.hidden=YES;}
             });
         }
@@ -408,6 +467,7 @@ static int upscale_progress(void *context,const struct host_texture_upscale_impo
 
 void host_ios_prepare_assets(const char *root) {
     NSString *documents=[NSString stringWithUTF8String:root];
+    pictures_marker=[documents stringByAppendingPathComponent:@".map-pictures-pending"];
     NSFileManager *files=NSFileManager.defaultManager;
     NSString *maps=[documents stringByAppendingPathComponent:@"maps"];
     /* Recover only directories carrying our own marker. Interrupted copies
@@ -424,17 +484,21 @@ void host_ios_prepare_assets(const char *root) {
         [files removeItemAtPath:staging error:nil];
     }
     char reason[1024]={0};
-    BOOL upscale_phase=NO;
+    BOOL upscale_phase=NO,picture_phase=NO;
     if (xiso_maps_ready(maps.fileSystemRepresentation,reason,sizeof(reason))) {
         BOOL forced=NO;
 #ifdef HALO_DEVELOPMENT_HOOKS
         forced=getenv("HALO_TEXTURE_UPSCALE_IMPORT_PHASE")!=NULL;   /* (the development switch is compiled out otherwise) */
+        const char *picture_force=getenv("HALO_MAP_PICTURES_IMPORT_STAGE");
+        if(picture_force&&!strcmp(picture_force,"1"))pictures_mark_pending(documents);
 #endif
+        picture_phase=pictures_supported()&&[files fileExistsAtPath:pictures_marker];
         /* a game imported before the upscaling bar existed shows it once, where upscaling is on */
-        if (!forced && !host_texture_upscale_first_run_phase(root)) return;
-        host_texture_upscale_init(root);
-        if (!host_texture_upscale_enabled()) return;
-        upscale_phase=YES;
+        if(forced||host_texture_upscale_first_run_phase(root)){
+            host_texture_upscale_init(root);
+            upscale_phase=host_texture_upscale_enabled();
+        }
+        if(!picture_phase&&!upscale_phase)return;
     }
     __block HaloImportController *controller;
     __block UIWindow *window;
@@ -453,10 +517,12 @@ void host_ios_prepare_assets(const char *root) {
                 if (regular.boolValue && ([extension isEqualToString:@"iso"] || [extension isEqualToString:@"xiso"])) [images addObject:url];
             }
         }
-        if (images.count==1 && !upscale_phase) controller.pendingImage=images.firstObject;
+        if (images.count==1 && !upscale_phase && !picture_phase) controller.pendingImage=images.firstObject;
         window=[[UIWindow alloc] initWithWindowScene:scene];window.frame=scene.coordinateSpace.bounds;
         window.windowLevel=UIWindowLevelNormal+2;window.rootViewController=controller;[window makeKeyAndVisible];
-        if (upscale_phase) [controller upscalePhaseOnly];
+        /* the pictures first, with upscaling alongside them; its own bar follows if it is still running */
+        if(picture_phase)[controller prepareMaps];
+        else if(upscale_phase)[controller upscalePhaseOnly];
     });
     if (!host_on_main_thread()) {
         host_modal_wait(0.01, ^bool { return controller.ready; });
@@ -470,5 +536,47 @@ void host_ios_prepare_assets(const char *root) {
             }
         }
     }
-    host_main_sync(^{ window.hidden=YES;window.rootViewController=nil; });
+    if(atomic_load(&pictures_pending))pictures_window=window;
+    else host_main_sync(^{ window.hidden=YES;window.rootViewController=nil; });
+}
+
+int host_map_pictures_import_stage(void) { return atomic_load(&pictures_pending); }
+void host_map_pictures_import_progress(int done,int total,const char *name) {
+    (void)name;
+    dispatch_async(dispatch_get_main_queue(),^{
+        if(!atomic_load(&pictures_pending))return;
+        HaloImportController *controller=(HaloImportController *)pictures_window.rootViewController;
+        controller.statusLabel.text=[NSString stringWithFormat:@"Preparing maps, %d of %d",MAX(done,0),MAX(total,0)];
+        controller.progress.progress=host_import_bar_fraction(HOST_IMPORT_BAR_PICTURES,host_map_pictures_progress_fraction(done,total),controller.extracted);
+    });
+}
+void host_map_pictures_import_done(int rendered,int cached,int failed) {
+    (void)rendered;(void)cached;(void)failed;
+    void (^finish)(void)=^{
+        if(!atomic_load(&pictures_pending))return;
+        host_texture_upscale_stage_end();
+        /* upscaling still running: its bar with Start playing, on the same screen, before the menu */
+        if(host_texture_upscale_busy()) {
+            HaloImportController *controller=(HaloImportController *)pictures_window.rootViewController;
+            [controller upscaleAfterMaps];
+            while(!controller.ready) {
+                @autoreleasepool {
+                    CFRunLoopRunInMode(kCFRunLoopDefaultMode,0.01,true);
+                    CFRunLoopRunInMode((__bridge CFStringRef)UITrackingRunLoopMode,0.01,true);
+                }
+            }
+        }
+        NSError *error=nil;
+        if(![NSFileManager.defaultManager removeItemAtPath:pictures_marker error:&error])
+            host_logf(HOST_LOG_WARN,"Could not clear map preparation marker: %s",error.localizedDescription.UTF8String);
+        UIWindowScene *scene=pictures_window.windowScene;
+        pictures_window.hidden=YES;pictures_window.rootViewController=nil;pictures_window=nil;
+        /* SDL created the game window after the importer; it could not be remembered as a previous key window. */
+        for(UIWindow *window in scene.windows){
+            if(!window.hidden&&window.windowLevel==UIWindowLevelNormal){[window makeKeyWindow];break;}
+        }
+        UIApplication.sharedApplication.idleTimerDisabled=pictures_previous_idle_timer;
+        atomic_store(&pictures_pending,0);
+    };
+    if(NSThread.isMainThread)finish();else dispatch_sync(dispatch_get_main_queue(),finish);
 }

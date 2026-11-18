@@ -9180,13 +9180,14 @@ static void widget_instance_render_recursive(
 			picture of the button settings, in the profile settings' smaller
 			box): drawn at their size, from where they place it, in units of
 			that size rather than one to a texel. A Custom Edition map's own
-			picture is stretched over the widget; a stock campaign level's is
-			laid out as the stock pictures are */
+			picture (or a stock map's rendered one) is stretched over the
+			widget; a stock campaign level's is laid out as the stock pictures are */
 			rectangle2d texels = bounds;
 			short frame_x, frame_y, frame_width, frame_height;
 			boolean shown = TRUE;
 			boolean stretched = custom_edition_picture &&
-				custom_edition_maps_campaign_level(widget->animation.current_frame_index) == NONE;
+				(custom_edition_maps_campaign_level(widget->animation.current_frame_index) == NONE ||
+				custom_edition_maps_picture_rendered(custom_edition_picture));
 
 			if (pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
 			{

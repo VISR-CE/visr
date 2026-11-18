@@ -10,7 +10,8 @@ for a missing file.
 What this side does:
 	- which movies play: the intro and the credits, not the attract movies,
 	  and none in a run that must draw the same frames every time
-	  (display.movies);
+	  (display.movies), and none while the import's map pictures render
+	  (the picture pass takes the menu as soon as it is up);
 	- the clock. The game draws a frame, then calls BinkWait until the next
 	  one is due. Frame n is due n frame times after the first was drawn, by
 	  the real clock, so a late frame is followed by early ones and the movie
@@ -222,6 +223,11 @@ HBINK __stdcall BinkOpen(const char *name, unsigned long flags)
 	if (!strncasecmp(base_name(name), "attract", 7))
 	{
 		platform_log("Bink: the attract movies are not played; skipping \"%s\"", name);
+		return NULL;
+	}
+	if (host_map_pictures_import_stage())
+	{
+		platform_log("Bink: map pictures import stage; not playing \"%s\"", name);
 		return NULL;
 	}
 	if (!movies_enabled())

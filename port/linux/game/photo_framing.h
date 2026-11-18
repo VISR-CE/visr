@@ -34,7 +34,9 @@ struct photo_shot
 };
 
 /* These helpers have no engine dependencies; tests use synthetic camera values. */
-#define PHOTO_ENTRY_FOV 1.5707963f /* 90 degrees, as most original map pictures */
+/* 83 degrees across: the stock menu pictures' field of view, measured with no roll. Whole
+degrees, so the FOV keys step from it exactly. */
+#define PHOTO_ENTRY_FOV (83.f * 3.14159265f / 180.f)
 float photo_fov_step(float fov, int steps);
 void photo_level_up(const float forward[3], float up[3]);
 /* The up axis for a camera rolled by roll radians about forward, the way the flying camera
@@ -46,6 +48,19 @@ int photo_map_key(const char *scenario, int custom, const unsigned char *hash, c
 int photo_shot_valid(const struct photo_shot *shot);
 int photo_fragment_read(const char *path, const char *key, struct photo_shot *shot, int *revision);
 int photo_fragment_write(const char *path, const char *key, const struct photo_shot *shot);
+/* Like photo_fragment_write, but a new file starts above base_revision (the bundled framing it replaces). */
+int photo_fragment_write_from(const char *path, const char *key, const struct photo_shot *shot, int base_revision);
+
+/* Where a map's saved framing came from. */
+enum { PHOTO_FRAMING_NONE, PHOTO_FRAMING_FRAGMENT, PHOTO_FRAMING_BUNDLED, PHOTO_FRAMING_FEED };
+/* A map's saved framing: the data folder's fragment wins; a stock map then uses the framings bundled with
+the app (bundle_path, schema 2 with one entry per framed map) and never the feed; any other map asks the feed.
+Returns the PHOTO_FRAMING_ source, or PHOTO_FRAMING_NONE when the map has no framing (automatic camera). */
+int photo_framing_lookup(const char *fragment_path, const char *bundle_path, const char *key,
+	struct photo_shot *shot, int *revision);
+/* Framings published on the framings feed for a custom map ("blake2b:<64 hex>" key): 1 with the shot when the
+host has a verified feed file newer than the bundled framings that lists the map, otherwise 0. */
+int photo_framing_feed_lookup(const char *key, struct photo_shot *shot, int *revision);
 int photo_camera_read(const char *path, struct photo_shot *shot);
 
 /* World units per second the keyboard flies the photo camera at speed step 0. */

@@ -178,9 +178,11 @@ int map_pictures_is_stale(const struct map_pictures_metadata *cached, const stru
 	const struct map_pictures_metadata *m;
 	if (!wanted || !metadata_valid(cached) || !metadata_valid(&wanted->metadata)) return 1;
 	m = &wanted->metadata;
+	/* (texture_set is recorded but never compared: pictures are always rendered with the original textures,
+	so a finished upscaled set must not send a map back to be rendered) */
 	return strcmp(cached->map_key, m->map_key) || strcmp(cached->map_hash, m->map_hash) ||
 		cached->framing_revision != m->framing_revision || cached->renderer_version != m->renderer_version ||
-		cached->texture_set != m->texture_set || cached->width != m->width || cached->height != m->height ||
+		cached->width != m->width || cached->height != m->height ||
 		cached->framing != m->framing || cached->auto_version != m->auto_version ||
 		(cached->pre_game && (wanted->settle_ticks || wanted->erase_ai));
 }
@@ -256,4 +258,31 @@ size_t map_pictures_name_tile(char *buf, size_t size, const char *name, size_t m
 	}
 	buf[bytes] = 0;
 	return bytes;
+}
+
+float map_pictures_near_fraction(const float *distances, int count, float near_distance)
+{
+	int i, near = 0;
+	if (count <= 0) return 0.f;
+	for (i = 0; i < count; i++)
+		if (distances[i] >= 0.f && distances[i] < near_distance) near++;
+	return (float)near / (float)count;
+}
+
+int map_pictures_view_blocked(float near_fraction)
+{
+	return near_fraction > MAP_PICTURES_MAX_NEAR_FRACTION;
+}
+
+int map_pictures_pick_view(const float *near_fractions, int count, int *all_rejected)
+{
+	int i, best = -1;
+	if (all_rejected) *all_rejected = 0;
+	for (i = 0; i < count; i++)
+	{
+		if (!map_pictures_view_blocked(near_fractions[i])) return i;
+		if (best < 0 || near_fractions[i] < near_fractions[best]) best = i;
+	}
+	if (best >= 0 && all_rejected) *all_rejected = 1;
+	return best;
 }

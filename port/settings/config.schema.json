@@ -1499,6 +1499,17 @@
             "desktop"
           ]
         },
+        "map_pictures_render": {
+          "type": "boolean",
+          "default": false,
+          "description": "At launch, render a picture of each stock map from its saved photo-mode framing (or an automatic camera) and use it in the map menus. Development AppKit Mac host only.",
+          "x-environment": "HALO_MAP_PICTURES_RENDER",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "test_controller": {
           "type": "string",
           "default": "",

@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 int main(int argc, char **argv)
@@ -16,6 +17,14 @@ int main(int argc, char **argv)
     float up[3], forward[] = {0.6f,0,0.8f}, pole[] = {0,0,1};
     if (argc == 4 && !strcmp(argv[1], "--read"))
         return photo_fragment_read(argv[2], argv[3], &loaded, &revision) ? 0 : 1;
+    if (argc == 5 && !strcmp(argv[1], "--lookup"))
+    {
+        int source = photo_framing_lookup(argv[2][0] ? argv[2] : NULL, argv[3][0] ? argv[3] : NULL, argv[4], &loaded, &revision);
+        printf("%d %d\n", source, source ? revision : 0);
+        return 0;
+    }
+    if (argc == 5 && !strcmp(argv[1], "--write-from"))
+        return photo_fragment_write_from(argv[2], argv[3], &shot, atoi(argv[4])) ? 0 : 1;
     assert(argc == 2);
     {
         float d[3];
@@ -41,11 +50,11 @@ int main(int argc, char **argv)
     assert(strlen(key)==72 && !strcmp(key+70,"ff"));
     assert(!photo_map_key("x",1,hash,key,72));
     assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,0)-PHOTO_ENTRY_FOV)<1e-6f);
-    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,1)*180.f/3.14159265f-91.f)<1e-4f);
-    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,-1)*180.f/3.14159265f-89.f)<1e-4f);
-    {   /* From a saved 84.9 degrees, stepping up reaches 90 exactly. */
-        float fov = 1.4817f; int i;
-        for (i=0;i<5;i++) fov = photo_fov_step(fov,1);
+    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,1)*180.f/3.14159265f-84.f)<1e-4f);
+    assert(fabsf(photo_fov_step(PHOTO_ENTRY_FOV,-1)*180.f/3.14159265f-82.f)<1e-4f);
+    {   /* From a saved 79.9 degrees, stepping up reaches 83 exactly. */
+        float fov = 1.3945f; int i;
+        for (i=0;i<3;i++) fov = photo_fov_step(fov,1);
         assert(fabsf(fov-PHOTO_ENTRY_FOV)<1e-6f);
     }
     assert(fabsf(photo_fov_step(2.6f,1)*180.f/3.14159265f-148.f)<1e-4f);

@@ -20,6 +20,12 @@ NSDictionary *host_data_updates_menu_state(void);
    cached latest-release record, never from the network. A hook for a future update note. */
 NSString *host_data_updates_latest_newer(void);
 void host_data_updates_menu_finish(void);
+/* Framings for maps the app does not bundle (feeds.visr.gg/tester/framings.json). A key that is not a custom map's
+   "blake2b:<64 hex>" key (every stock map's key included) never consults the feed. Read the returned verified file with
+   photo_fragment_read. A downloaded envelope applies only above the bundled file's sequence. */
+NSString *host_data_updates_framings_path(const char *key);
+void host_data_updates_set_bundled_framings_sequence(uint64_t sequence);
+BOOL host_framings_validate_file(NSString *path);
 #endif
 void host_data_updates_healthy(void);
 /* Called before anything reads the data packs when the launch menu will run: the menu, not a legacy launch, then

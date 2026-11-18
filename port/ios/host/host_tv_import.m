@@ -729,3 +729,8 @@ void host_ios_prepare_assets(const char *root) {
         host_fatal("The imported maps are not usable (%s).",reason);
     host_logf(HOST_LOG_INFO,"maps: %s",imported.fileSystemRepresentation);
 }
+
+/* Apple TV keeps its existing network importer; map preparation is currently offered on flat iOS and Mac hosts. */
+int host_map_pictures_import_stage(void) { return 0; }
+void host_map_pictures_import_progress(int done,int total,const char *name) { (void)done;(void)total;(void)name; }
+void host_map_pictures_import_done(int rendered,int cached,int failed) { (void)rendered;(void)cached;(void)failed; }

@@ -151,6 +151,20 @@ python3 tools/data_pack.py --kind latest --channel tester --sequence SEQUENCE \
 
 `latest_release.py` reads the live record, sets the released platforms and never lowers a version. Use the Unix time as the sequence. Write the envelope to `tester/latest.json` in a `VISR-CE/visr-feeds` checkout with the updated `tester/publication.json` and merge it to that repository's `main` ("Feed hosts"); release policy does not pin it. The release job prints the first command after publishing.
 
+## Map framings
+
+A feed of kind `framings` (compatibility `map-framings-2`) carries the camera framings of maps the app does not bundle. It sits at `framings.json` beside the recording feed. The envelope holds one file, `map-framings.json`, at most 256 KiB, in the schema of the bundled framings file (schema 1 or 2) with these feed rules: every key is `blake2b:` followed by 64 lowercase hex characters (the hash of a custom map), every map has `revision` 1 or higher and one to eight shots, and `fov` is between 0.2 and 2.6. Keys for built-in maps (`stock:`) are bundled only and are refused.
+
+The app checks the feed once per launch menu, verifies it like any pack, and keeps the last valid one. A custom map looks its hash up with `host_data_updates_framings_path(key)`, which returns the cached file to read with `photo_fragment_read`. Built-in maps never consult the feed, and a downloaded record applies only when its sequence is higher than the bundled file's sequence (`host_data_updates_set_bundled_framings_sequence`).
+
+```sh
+python3 tools/data_pack.py --kind framings --channel tester --sequence SEQUENCE \
+  --compatibility map-framings-2 --input framings-input \
+  --signing-key /private/path/signing-seed --output framings.json
+```
+
+`framings-input` holds `map-framings.json`. Publish it as `tester/framings.json` in a `VISR-CE/visr-feeds` checkout, with the updated `tester/publication.json` ("Feed hosts"). Until one is published, the feed answers 404 and the app uses the bundled framings.
+
 ## Publication
 
 Keep the random 32-byte signing seed outside the repository and distribution artifacts. `tools/data_pack.py` signs locally and does not publish. Serve each envelope directly over HTTPS after review. Publish a higher sequence to restore older shader or recording payload bytes; clients reject repeated and decreasing sequences. Device profiles roll back through a new revision instead ("Profile revisions"). Sign separately for each channel. Changing the pinned public key requires an app update.

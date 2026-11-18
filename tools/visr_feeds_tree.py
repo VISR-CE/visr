@@ -23,7 +23,7 @@ PIN = ROOT / "tools/visr-feeds.pin"
 REMOTE = "https://github.com/VISR-CE/visr-feeds.git"
 # what the tests and probes read without the legacy envelopes
 SPARSE = [
-    "/tester/latest.json", "/tester/publication.json", "/tester/publication-format.txt", "/tester/shaders.json",
+    "/tester/latest.json", "/tester/framings.json", "/tester/publication.json", "/tester/publication-format.txt", "/tester/shaders.json",
     "/tester/recordings-2-*.json", "/tester/profiles/", "/tester/device-profiles-*/", "/tester/recording-blobs/",
     "/tester/shader-maps/",
 ]

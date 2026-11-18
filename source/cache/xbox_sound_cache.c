@@ -662,6 +662,11 @@ static void sound_cache_start_loading_sound(
 	return;
 }
 
+#ifdef HALO_IOS
+/* port/linux/src/map_pictures_render.c's */
+int map_pictures_render_active(void);
+#endif
+
 boolean _sound_cache_sound_request(
 	struct sound_permutation *sound,
 	boolean block,
@@ -670,6 +675,12 @@ boolean _sound_cache_sound_request(
 {
 	boolean result = FALSE;
 
+#ifdef HALO_IOS
+	/* port: a map picture render is silent: it loads no sound (not
+	ready, so none plays) */
+	if (!block && map_pictures_render_active())
+		return FALSE;
+#endif
 	match_assert(
 		"c:\\halo\\SOURCE\\cache\\xbox_sound_cache.c",
 		0xC2,

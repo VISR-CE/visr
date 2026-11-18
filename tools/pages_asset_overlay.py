@@ -40,6 +40,7 @@ MARKER_DATA = b"visr-signed-assets-1\n"
 RECORDING = PREFIX + "recordings.json"
 SHADER = PREFIX + "shaders.json"
 LATEST = PREFIX + "latest.json"
+FRAMINGS = PREFIX + "framings.json"
 # benchmark-catalog-2 feeds have their own names, so a build that reads recordings-GUEST.json as catalog-1 never meets one,
 # even when two releases share a guest.
 FEED2 = re.compile(re.escape(PREFIX) + r"recordings-2-([0-9a-f]{64})\.json")
@@ -84,6 +85,8 @@ def allowed_asset(path: str) -> tuple[str, str | None]:
         return "shader", None
     if path == LATEST:
         return "latest", None
+    if path == FRAMINGS:
+        return "framings", None
     if re.fullmatch(re.escape(PREFIX) + r"shader-maps/[0-9a-f]{64}\.zlib", path):
         return "shader-map", None
     if re.fullmatch(re.escape(PREFIX) + r"recording-blobs/[0-9a-f]{64}\.xz", path):
@@ -105,7 +108,7 @@ def limit_for(path: str) -> int:
     if kind == "shader-map":
         return validation.packs.data_pack.SHADER_COMPRESSED_FILE_LIMIT
     return ENVELOPE_LIMITS[
-        {"profile": "profiles", "shader": "shaders", "recording": "recordings", "latest": "latest"}[kind]
+        {"profile": "profiles", "shader": "shaders", "recording": "recordings", "latest": "latest", "framings": "framings"}[kind]
     ]
 
 
@@ -137,6 +140,10 @@ def verify_asset(path: str, data: bytes) -> dict:
         # the record's shape are still checked.
         validation.verify_feed(data, kind, {"latest_feed_sha256": digest})
         domain = "latest-release-1"
+    elif kind == "framings":
+        # Like the latest record, not pinned by release policy: a client without it only lacks pictures for custom maps.
+        validation.verify_feed(data, kind, {"framings_feed_sha256": digest})
+        domain = "map-framings-2"
     elif kind == "profile":
         assert target is not None
         directory = path.removeprefix(PREFIX).split("/", 1)[0]
@@ -342,6 +349,7 @@ def source_assets() -> dict[str, bytes]:
             name == RECORDING
             or name == SHADER
             or name == LATEST
+            or name == FRAMINGS
             or legacy.FEED_PATH.fullmatch(name)
             or FEED2.fullmatch(name)
             or (any(name.startswith(PREFIX + directory + "/") for directory in PROFILE_DIRECTORIES) and path.is_file())

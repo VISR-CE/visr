@@ -408,6 +408,9 @@ endif()
 # beside config.toml at each start, as upstream's Android app does
 target_sources(VISR PRIVATE "${ROOT}/port/assets/network/brokers.txt")
 set_source_files_properties("${ROOT}/port/assets/network/brokers.txt" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+# the stock maps' menu-picture framings (photo_framing_lookup); host_main.m copies them to the data folder
+target_sources(VISR PRIVATE "${ROOT}/port/assets/map-framings.json")
+set_source_files_properties("${ROOT}/port/assets/map-framings.json" PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 target_link_libraries(VISR PRIVATE "-framework CoreText" "-framework CoreGraphics" "-framework ImageIO")
 target_sources(VISR PRIVATE "${ROOT}/port/assets/brand/Orbitron.ttf" "${ROOT}/port/assets/brand/VISRIcon.png"
     "${ROOT}/port/assets/brand/OFL-Orbitron.txt")
