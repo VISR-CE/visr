@@ -265,3 +265,8 @@ bool SDL_ResumeAudioStreamDevice(SDL_AudioStream *stream)
 {
 	return host_sdl_resume_audio_stream_device((unsigned int)stream) != 0;
 }
+
+void SDL_DestroyAudioStream(SDL_AudioStream *stream)
+{
+	host_sdl_destroy_audio_stream((unsigned int)stream);
+}

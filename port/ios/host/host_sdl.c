@@ -908,6 +908,11 @@ struct audio_binding
 	whether it was playing (host_sdl_audio_route_changed) */
 	SDL_AudioSpec source;
 	bool playing_when_lost;
+	/* host_sdl_destroy_audio_stream: stop asks the worker to leave, exited says it has; audio_open is 0 once
+	   the device is closed, so the stall watchdog ignores it */
+	int stop;
+	int exited;
+	_Atomic int audio_open;
 };
 
 /* Every 30 seconds, how long the guest took to mix a callback's sound against how long that sound plays: a mix
@@ -950,8 +955,15 @@ static void *audio_thread(void *context)
 	{
 		int additional, total;
 
-		while (!binding->pending)
+		while (!binding->pending && !binding->stop)
 			pthread_cond_wait(&binding->requested, &binding->lock);
+		if (binding->stop)
+		{
+			binding->exited = 1;
+			pthread_cond_signal(&binding->done);
+			pthread_mutex_unlock(&binding->lock);
+			return NULL;
+		}
 		additional = binding->additional;
 		total = binding->total;
 		pthread_mutex_unlock(&binding->lock);
@@ -1070,7 +1082,7 @@ int host_sdl_audio_stalled(Uint64 now)
     int stalled=0;
     for(size_t i=0;i<SDL_arraysize(audio_streams);i++) {
         struct audio_binding *binding=audio_bindings[i];
-        if(!binding || !binding->callback)continue;
+        if(!binding || !binding->callback || !atomic_load(&binding->audio_open))continue;
         /* (a reopen that failed) */
         if(!audio_streams[i])continue;
         if(SDL_AudioStreamDevicePaused(audio_streams[i]))continue;
@@ -1158,6 +1170,7 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 	}
 	if (callback && host_native_thread_create(audio_thread, binding, 256 * 1024) != 0)
 		host_crash("cannot start the audio thread");
+	atomic_store(&binding->audio_open, 1);
 	return binding->handle;
 }
 
@@ -1201,6 +1214,55 @@ int host_sdl_resume_audio_stream_device(uint32_t stream)
 		if (audio_bindings[index] && audio_bindings[index]->handle == stream)
 			atomic_store(&audio_bindings[index]->last_callback_ns, SDL_GetTicksNS());
 	return object ? SDL_ResumeAudioStreamDevice(object) : 0;
+}
+
+/* Closes a stream for good: the device (a physical device with no stream left is closed by SDL), the worker thread,
+   the binding and its handle slot. Not an audio route change: the stream is not reopened. The guest's later calls
+   with the handle find nothing, as into a paused stream. */
+void host_sdl_destroy_audio_stream(uint32_t stream)
+{
+	size_t index;
+	struct audio_binding *binding = NULL;
+	SDL_AudioStream *object;
+
+	pthread_mutex_lock(&handle_lock);
+	for (index = 0; index < SDL_arraysize(audio_bindings); index++)
+		if (audio_bindings[index] && audio_bindings[index]->handle == stream)
+		{
+			binding = audio_bindings[index];
+			break;
+		}
+	if (!binding)
+	{
+		pthread_mutex_unlock(&handle_lock);
+		return;
+	}
+	atomic_store(&binding->audio_open, 0);
+	object = audio_streams[index];
+	handles[stream].object = NULL;
+	audio_streams[index] = NULL;
+	audio_bindings[index] = NULL;
+	pthread_mutex_unlock(&handle_lock);
+	/* no callback runs once SDL has destroyed the stream */
+	if (object)
+		SDL_DestroyAudioStream(object);
+	if (binding->callback)
+	{
+		pthread_mutex_lock(&binding->lock);
+		binding->stop = 1;
+		pthread_cond_signal(&binding->requested);
+		while (!binding->exited)
+			pthread_cond_wait(&binding->done, &binding->lock);
+		pthread_mutex_unlock(&binding->lock);
+	}
+	pthread_mutex_lock(&handle_lock);
+	handles[stream].type = _handle_free;
+	pthread_mutex_unlock(&handle_lock);
+	SDL_free(binding->samples);
+	pthread_cond_destroy(&binding->done);
+	pthread_cond_destroy(&binding->requested);
+	pthread_mutex_destroy(&binding->lock);
+	SDL_free(binding);
 }
 
 /* ---------- the clipboard (internet play's invite links) */
