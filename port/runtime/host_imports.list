@@ -52,7 +52,6 @@ host_sdl_poll_event
 host_sdl_set_clipboard_text
 host_sdl_get_clipboard_text
 host_sdl_text_input
-host_sdl_keyboard_raise
 host_sdl_text_result
 host_ui_pointer_read
 host_ui_pointer_feedback

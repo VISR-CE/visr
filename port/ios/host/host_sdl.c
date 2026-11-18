@@ -1427,18 +1427,6 @@ void host_sdl_text_input(int on, const char *title, const char *text, int masked
 	text_input_wanted = on != 0;
 }
 
-/* the system keyboard for the game's own on-screen keyboard (a profile's name),
-typing into it as a hardware keyboard does; an Apple TV keeps the game's, which
-its controller drives */
-void host_sdl_keyboard_raise(int on)
-{
-#if !TARGET_OS_TV
-	text_input_wanted = on != 0;
-#else
-	(void)on;
-#endif
-}
-
 /* ---------- fingers and pointer devices in the menus (halo_host_pointer.h, host_menu_pointer.h)
 
 One state for them all: the fingers (host_menu_pointer.m) and a mouse or
