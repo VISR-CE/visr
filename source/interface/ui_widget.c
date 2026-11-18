@@ -8135,6 +8135,28 @@ static void ui_mouse_list_directions(
 	return;
 }
 
+/* steps a list that shows several items to the one shown in a slot, as
+pressing the d-pad that many times would */
+static void ui_mouse_step_list_to_slot(
+	struct widget_instance *slot)
+{
+	struct widget_instance *list = slot->parent;
+	long steps;
+	short back, forward;
+
+	ui_mouse_give_focus(list);
+	if (!list->focused_child)
+		return;
+	steps = ui_mouse_child_index(slot) - ui_mouse_child_index(list->focused_child);
+	ui_mouse_list_directions(list, &back, &forward);
+	for (; steps > 0; steps--)
+		ui_mouse_press(forward);
+	for (; steps < 0; steps++)
+		ui_mouse_press(back);
+
+	return;
+}
+
 /* the wheel's vertical list, even when focus moved into its horizontal
 button bar; the innermost horizontal list if there is no vertical one */
 static struct widget_instance *ui_mouse_wheel_widget(
