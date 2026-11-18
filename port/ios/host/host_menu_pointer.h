@@ -6,7 +6,8 @@
    a lift without travel is a click where it went down, travel past the slop
    cancels the click and turns the drag into list steps, one for each notch of
    travel. Only the first finger counts. A pointer device moves, clicks and
-   wheels as a mouse does. Nothing is tracked while no menu is up or while a
+   wheels as a mouse does. Its left button holds the pointer down and posts a click
+   on release only when travel stayed within the slop. Nothing is tracked while no menu is up or while a
    replay holds the controls. Events accumulate until a read, which clears
    them (platform_ui_pointer_read does the same for the desktop's mouse). */
 #ifndef HALO_HOST_MENU_POINTER_H
@@ -15,6 +16,7 @@
 #include <string.h>
 #include <time.h>
 #include "halo_host_pointer.h"
+#include "halo_ui_drag.h"
 
 /* in points */
 #define HOST_MENU_POINTER_SLOP 10.0f
@@ -88,7 +90,7 @@ static inline unsigned long long host_menu_pointer_now_ms(void) {
 }
 
 static inline void host_menu_pointer_touch_begin(struct host_menu_pointer *m, intptr_t finger, float x, float y) {
-    if (!host_menu_pointer_listening(m) || m->tracking) return;
+    if (!host_menu_pointer_listening(m) || m->tracking || m->device_held) return;
     m->tracking = 1;
     m->finger = finger;
     m->scrolling = 0;
@@ -157,6 +159,7 @@ static inline void host_menu_pointer_device_move(struct host_menu_pointer *m, fl
     m->moved = 1;
     m->touch = 0;
 }
+/* A complete synthetic click for scripts and callers without separate button events. */
 static inline void host_menu_pointer_device_click(struct host_menu_pointer *m, int right, float x, float y) {
     if (!host_menu_pointer_listening(m)) return;
     m->touch = 0;
@@ -197,6 +200,7 @@ static inline void host_menu_pointer_read(struct host_menu_pointer *m, struct ho
     out->radius = m->touch == 2 ? HOST_MENU_POINTER_GAZE_RADIUS : m->touch ? HOST_MENU_POINTER_RADIUS : 0.0f;
     out->picture = m->touch == 2;
     if (!host_menu_pointer_listening(m)) {
+        out->down = 0;
         host_menu_pointer_clear(m);
         return;
     }

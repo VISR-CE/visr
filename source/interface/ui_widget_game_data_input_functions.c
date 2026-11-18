@@ -334,6 +334,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "../../port/runtime/include/halo_ui_carousel.h" /* shared with the host and probes; not on the guest include path */
 #include "cseries/cseries.h"
 #include "cseries/cseries_windows.h"
 #include "cseries/errors.h"
@@ -3127,55 +3128,13 @@ static void spinner_list_3wide_determine_displayed_item_indices(
 	struct widget_instance *list_widget,
 	long *displayed_item_indices)
 {
-	struct widget_instance *focused_child = list_widget->focused_child;
-	struct widget_instance *first_child = list_widget->child;
+	long first = ui_widget_port_carousel_first(list_widget);
+	long slot;
 
-	if (focused_child == first_child)
-	{
-		displayed_item_indices[0] = list_widget->parameters.list.selected_list_item_index;
-		displayed_item_indices[1] = displayed_item_indices[0] + 1;
-		if (displayed_item_indices[1] == list_widget->parameters.list.number_of_items)
-			displayed_item_indices[1] = 0;
-		displayed_item_indices[2] = displayed_item_indices[1] + 1;
-		if (displayed_item_indices[2] == list_widget->parameters.list.number_of_items)
-			displayed_item_indices[2] = 0;
-	}
-	else if (focused_child == first_child->next)
-	{
-		displayed_item_indices[1] = list_widget->parameters.list.selected_list_item_index;
-		displayed_item_indices[0] = displayed_item_indices[1] - 1;
-		if (displayed_item_indices[0] < 0)
-		{
-			displayed_item_indices[0] =
-				list_widget->parameters.list.number_of_items - 1;
-		}
-		displayed_item_indices[2] = displayed_item_indices[1] + 1;
-		if (displayed_item_indices[2] == list_widget->parameters.list.number_of_items)
-			displayed_item_indices[2] = 0;
-	}
-	else
-	{
-		displayed_item_indices[2] = list_widget->parameters.list.selected_list_item_index;
-		displayed_item_indices[1] = displayed_item_indices[2] - 1;
-		if (displayed_item_indices[1] < 0)
-		{
-			displayed_item_indices[1] =
-				list_widget->parameters.list.number_of_items - 1;
-		}
-		displayed_item_indices[0] = displayed_item_indices[1] - 1;
-		if (displayed_item_indices[0] < 0)
-		{
-			displayed_item_indices[0] =
-				list_widget->parameters.list.number_of_items - 1;
-		}
-	}
-
-	if (displayed_item_indices[0] >= list_widget->parameters.list.number_of_items)
-		displayed_item_indices[0] = NONE;
-	if (displayed_item_indices[1] >= list_widget->parameters.list.number_of_items)
-		displayed_item_indices[1] = NONE;
-	if (displayed_item_indices[2] >= list_widget->parameters.list.number_of_items)
-		displayed_item_indices[2] = NONE;
+	/* port: no wrap; render passes may temporarily bind an adjacent window. */
+	for (slot = 0; slot < 3; slot++)
+		displayed_item_indices[slot] = halo_ui_carousel_bound_item(first, slot,
+			list_widget->parameters.list.number_of_items);
 	return;
 }
 
