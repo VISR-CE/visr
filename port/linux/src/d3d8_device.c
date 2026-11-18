@@ -3519,6 +3519,15 @@ static void ui_mouse_hold_update(int menus_active)
 	}
 }
 
+/* source/interface/progress_bar.c; boolean is an unsigned byte in the guest. */
+extern unsigned char progress_bar_is_active(void);
+
+/* A full-screen movie or a loading bar is up: no touch controls over it. */
+int halo_touch_overlay_covered(void)
+{
+	return bink_playback_in_progress() != 0 || progress_bar_is_active() != 0;
+}
+
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 {
 	static int pause_menu = -1, menu_up = -1;
@@ -3532,9 +3541,12 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		pause_menu = paused;
 		host_sdl_set_hint("VISR_PAUSE_MENU", paused ? "1" : "0");
 	}
-	if ((menus_active != 0) != menu_up)
+	/* The touch controls belong to the game alone: a menu, a full-screen movie
+	(the startup logos, the cutscenes) or a loading bar hides them too. */
+	int touch_hidden = menus_active != 0 || halo_touch_overlay_covered();
+	if (touch_hidden != menu_up)
 	{
-		menu_up = menus_active != 0;
+		menu_up = touch_hidden;
 		host_sdl_set_hint("VISR_MENU_ACTIVE", menu_up ? "1" : "0");
 	}
 	ui_mouse_hold_update(menus_active);
