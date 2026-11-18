@@ -33,3 +33,13 @@ def test_music_off_wiring():
     assert "audio_apply_category" in dsound and "audio_music_open" in dsound
     host = (root / "port/ios/host/host_external.m").read_text()
     assert "host_sdl_audio_any_open()" in host
+
+
+def test_last_close_notifies_others():
+    root = Path(__file__).resolve().parent.parent
+    session = (root / "port/ios/host/host_audio_session.m").read_text()
+    assert "AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation" in session
+    host = (root / "port/ios/host/host_sdl.c").read_text()
+    assert "host_audio_session_release();" in host
+    cmake = (root / "port/ios/CMakeLists.txt").read_text()
+    assert "host/host_audio_session.m" in cmake

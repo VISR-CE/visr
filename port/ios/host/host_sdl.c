@@ -15,6 +15,7 @@ so the audio callback is handed to a thread that has one.
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo.h"
+#include "host_audio_session.h"
 #endif
 #include "host.h"
 #include "host_app_version.h"
@@ -1297,6 +1298,16 @@ static void audio_destroy_locked(uint32_t stream)
 	pthread_cond_destroy(&binding->requested);
 	pthread_mutex_destroy(&binding->lock);
 	SDL_free(binding);
+	/* the last device gone: the session goes back to other apps, which are told they may resume */
+	/* audio_life_lock is held here and guards audio_streams; host_sdl_audio_any_open would take it again */
+	{
+		int any = 0;
+		for (index = 0; index < SDL_arraysize(audio_streams); index++)
+			if (audio_streams[index])
+				any = 1;
+		if (!any)
+			host_audio_session_release();
+	}
 }
 
 /* ---------- the clipboard (internet play's invite links) */
