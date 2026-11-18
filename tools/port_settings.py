@@ -899,6 +899,7 @@ TITLES = {
     f"{MT}/coop_options/header_coop_options": "CO-OP OPTIONS",
     f"{MT}/game_options_edit/header_game_options": "GAME",
     f"{MT}/respawn_options_edit/header_respawn_options": "RESPAWN OPTIONS",
+    f"{MT}/teams_hud_edit/header_teams_hud": "TEAMS & HUD",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -1161,18 +1162,23 @@ def _game_options() -> list:
     for key in ("team_play", "koth_team_play"):
         extra += _hosting_spinner(base, key, 2, ["YES", "NO"], None, None)
         rows.append((f"{base}/op_{key}", None, 2))
-    # the teams and HUD (the indicators and team screens, until their own screen)
+    # the teams and HUD: its own screen, the friendly-fire state on the row
+    screen = f"{MT}/teams_hud_edit/teams_hud_screen"
     extra += _widget(f"{base}/op_teams_hud", [("width", 512), ("height", 28),
                                               ("flags", "pass_unhandled_to_focused_child"),
                                               ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                     [f'<on event="a" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen"/>',
-                      f'<on event="start" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen"/>',
+                     [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
                       '<on event="left_mouse" run="mouse emit accept event"/>',
-                      f'<child widget="{base}/teams_hud_label"/>'])
-    extra += _widget(f"{base}/teams_hud_label", [("type", "text"), ("controller", 1), ("width", 512),
+                      f'<child widget="{base}/teams_hud_label"/>',
+                      f'<child widget="{base}/teams_hud_state" x="320" y="1"/>'])
+    extra += _widget(f"{base}/teams_hud_label", [("type", "text"), ("controller", 1), ("width", 320),
                                                  ("height", 22), ("string_list", f"{base}/labels"),
                                                  ("string_index", 3), ("font", "ui\\large_ui"),
                                                  ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
+    extra += _widget(f"{base}/teams_hud_state", [("type", "text"), ("controller", 1), ("width", 148),
+                                                 ("height", 22), ("font", "ui\\large_ui"),
+                                                 ("color", "#FF2896FF"), ("align", "center"), ("text_y", 4)],
+                     ['<data input="port teams hud state"/>'])
     rows.append((f"{base}/op_teams_hud", None, 3))
     # the type's own options: one row per type, the current type's shown
     for key, folder in (("ctf", "ctf_edit"), ("slayer", "slayer_edit"), ("oddball", "oddball_edit"),
@@ -1189,7 +1195,7 @@ def _game_options() -> list:
                                                       ("string_index", 4), ("font", "ui\\large_ui"),
                                                       ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
         rows.append((f"{base}/op_type_{key}", None, 4))
-    extra += _strings(f"{base}/labels", ["SCORE TO WIN:", "TIME LIMIT:", "TEAM PLAY:", "TEAMS & HUD", "TYPE OPTIONS"])
+    extra += _strings(f"{base}/labels", ["SCORE TO WIN:", "TIME LIMIT:", "TEAM PLAY:", "TEAMS & HUD:", "TYPE OPTIONS"])
     extra += _strings(f"{base}/help_strings", [
         "How much a player or team must score to win the game.",
         "How long the game lasts before the leader wins.",
@@ -1241,6 +1247,54 @@ def _respawn_options() -> list:
     lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
     screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/respawn_options_screen"' in line)
     lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init respawn options"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _teams_hud() -> list:
+    """TEAMS & HUD, behind the GAME screen's row: the team rules (friendly fire, its penalty, autobalance) and what
+    the HUD shows (radar display, players on radar, friends on screen), from the Team and Indicators screens they
+    were on; their helps in that order"""
+    base = f"{MT}/teams_hud_edit"
+    spec = {"screen": "teams_hud_screen", "spacing": 30,
+            "header": ("header_teams_hud", f"{base}/header_teams_hud")}
+    rows, extra = [], []
+    for index, (key, strings) in enumerate((
+            ("friendly_fire", ["OFF", "ON", "SHIELD ONLY", "EXPLOSIVES ONLY"]),
+            ("friendly_fire_penalty", ["NONE", "5 SECONDS", "10 SECONDS", "15 SECONDS"]),
+            ("autobalance", ["NO", "YES"]),
+            ("indicator_options_radar display", ["MOTION TRACKER", "NAV POINTS", "NONE"]),
+            ("indicator_options_players_on_radar", ["ALL", "FRIENDS", "NO"]),
+            ("indicator_options_friends_on_screen", ["YES", "NO"]))):
+        extra += _hosting_spinner(base, key, index, strings, None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["FRIENDLY FIRE:", "FRIENDLY FIRE PENALTY:", "AUTOBALANCE:", "RADAR DISPLAY:",
+                                         "PLAYERS ON RADAR:", "FRIENDS ON SCREEN:"])
+    extra += _strings(f"{base}/help_strings", [
+        "Players can not be hurt by weapons and explosives\\nfired by their teammates.",
+        "Players can be hurt by weapons or explosives\\nfired by their teammates.",
+        "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected.",
+        "Players can be hurt by damage from explosives \\nfired by their teammates.",
+        "No respawn time penalty will be assessed to players\\nwho kill a teammate.",
+        "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die.",
+        "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die.",
+        "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die.",
+        "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish.",
+        "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team.",
+        "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker.",
+        "The game's objectives will have special markers\\ndisplayed over them on screen.",
+        "The game's objectives will not be visible in your\\nMotion Tracker or on screen.",
+        "All other players in the game will show up on your \\nMotion Tracker when mobile.",
+        "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile.",
+        "Other players in the game will never show up on your\\nMotion Tracker.",
+        "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem.",
+        "Your teammates will only be denoted by the color of\\ntheir armor."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set teams hud" back="true"/>',
+                      '<on event="start" run="mp profile set teams hud" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/teams_hud_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init teams hud"/>')
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
             and 'event="deleted" run="port setting save"' not in line]
 
@@ -1707,6 +1761,7 @@ def multiplayer_files() -> dict:
         f"{MT}/coop_options".replace("/", ".") + ".xml": head + _coop_options() + ["</menus>", ""],
         f"{MT}/game_options_edit".replace("/", ".") + ".xml": head + _game_options() + ["</menus>", ""],
         f"{MT}/respawn_options_edit".replace("/", ".") + ".xml": head + _respawn_options() + ["</menus>", ""],
+        f"{MT}/teams_hud_edit".replace("/", ".") + ".xml": head + _teams_hud() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],

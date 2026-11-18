@@ -73,7 +73,7 @@ s1 = "NO"
 score_to_win = "SCORE TO WIN:"
 time_limit = "TIME LIMIT:"
 team_play = "TEAM PLAY:"
-teams_amp_hud = "TEAMS & HUD"
+teams_amp_hud = "TEAMS & HUD:"
 type_options = "TYPE OPTIONS"
 
 [ce.main_menu_multiplayer_type_select_game_options_edit.main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner]
@@ -280,6 +280,64 @@ s10 = "128"
 
 [ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_op_start_game]
 text = "START GAME"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_autobalance_spinner]
+s0 = "NO"
+s1 = "YES"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner]
+s0 = "NONE"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner]
+s0 = "OFF"
+s1 = "ON"
+s2 = "SHIELD ONLY"
+s3 = "EXPLOSIVES ONLY"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_help_strings]
+players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
+players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
+damage_from_friendly_fire_will_o_d99200 = "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected."
+players_can_be_hurt_by_damage_fr_2e04b2 = "Players can be hurt by damage from explosives \\nfired by their teammates."
+no_respawn_time_penalty_will_be__49a8c9 = "No respawn time penalty will be assessed to players\\nwho kill a teammate."
+players_who_kill_a_teammate_will_9888f4 = "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die."
+players_who_kill_a_teammate_will_551ffb = "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die."
+players_who_kill_a_teammate_will_c8e1b7 = "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die."
+team_autobalancing_will_be_disab_52927b = "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish."
+team_autobalancing_will_be_enabl_62458a = "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team."
+the_game_s_objectives_hills_flag_999404 = "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker."
+the_game_s_objectives_will_have__dc6a6c = "The game's objectives will have special markers\\ndisplayed over them on screen."
+the_game_s_objectives_will_not_b_ff68d4 = "The game's objectives will not be visible in your\\nMotion Tracker or on screen."
+all_other_players_in_the_game_wi_2eed11 = "All other players in the game will show up on your \\nMotion Tracker when mobile."
+other_friendly_players_in_the_ga_568d12 = "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile."
+other_players_in_the_game_will_n_93323d = "Other players in the game will never show up on your\\nMotion Tracker."
+green_triangles_will_appear_over_f13744 = "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem."
+your_teammates_will_only_be_deno_5c8d39 = "Your teammates will only be denoted by the color of\\ntheir armor."
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_friends_on_screen_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner]
+s0 = "ALL"
+s1 = "FRIENDS"
+s2 = "NO"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_radar_display_spinner]
+s0 = "MOTION TRACKER"
+s1 = "NAV POINTS"
+s2 = "NONE"
+
+[ce.main_menu_multiplayer_type_select_teams_hud_edit.main_menu_multiplayer_type_select_teams_hud_edit_labels]
+friendly_fire = "FRIENDLY FIRE:"
+friendly_fire_penalty = "FRIENDLY FIRE PENALTY:"
+autobalance = "AUTOBALANCE:"
+radar_display = "RADAR DISPLAY:"
+players_on_radar = "PLAYERS ON RADAR:"
+friends_on_screen = "FRIENDS ON SCREEN:"
 
 [ce.main_menu_new_select_port.main_menu_new_select_var_map_kinds]
 singleplayer = "SINGLEPLAYER"
@@ -880,7 +938,7 @@ s1 = "NO"
 score_to_win = "SCORE TO WIN:"
 time_limit = "TIME LIMIT:"
 team_play = "TEAM PLAY:"
-teams_amp_hud = "TEAMS & HUD"
+teams_amp_hud = "TEAMS & HUD:"
 type_options = "TYPE OPTIONS"
 
 [xbox.main_menu_multiplayer_type_select_game_options_edit.xbox_main_menu_multiplayer_type_select_game_options_edit_laps_to_win_spinner]
@@ -1193,6 +1251,64 @@ text = "BACK"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_server_settings_screen_legend_copy]
 text = "INVITE"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_autobalance_spinner]
+s0 = "NO"
+s1 = "YES"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_penalty_spinner]
+s0 = "NONE"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_friendly_fire_spinner]
+s0 = "OFF"
+s1 = "ON"
+s2 = "SHIELD ONLY"
+s3 = "EXPLOSIVES ONLY"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_help_strings]
+players_can_not_be_hurt_by_weapo_f42723 = "Players can not be hurt by weapons and explosives\\nfired by their teammates."
+players_can_be_hurt_by_weapons_o_a40947 = "Players can be hurt by weapons or explosives\\nfired by their teammates."
+damage_from_friendly_fire_will_o_d99200 = "Damage from friendly fire will only reduce shields.\\nHealth will be unaffected."
+players_can_be_hurt_by_damage_fr_2e04b2 = "Players can be hurt by damage from explosives \\nfired by their teammates."
+no_respawn_time_penalty_will_be__49a8c9 = "No respawn time penalty will be assessed to players\\nwho kill a teammate."
+players_who_kill_a_teammate_will_9888f4 = "Players who kill a teammate will be assessed a \\nfive-second respawn penalty the next time they die."
+players_who_kill_a_teammate_will_551ffb = "Players who kill a teammate will be assessed a \\nten-second respawn penalty the next time they die."
+players_who_kill_a_teammate_will_c8e1b7 = "Players who kill a teammate will be assessed\\na fifteen-second respawn penalty the next time\\nthey die."
+team_autobalancing_will_be_disab_52927b = "Team autobalancing will be disabled.  Players will\\nbe free to change teams as they wish."
+team_autobalancing_will_be_enabl_62458a = "Team autobalancing will be enabled.  Players will\\nnot be able to change to a more full team."
+the_game_s_objectives_hills_flag_999404 = "The game's objectives (hills, flags, balls and the like)\\nwill appear in your Motion Tracker."
+the_game_s_objectives_will_have__dc6a6c = "The game's objectives will have special markers\\ndisplayed over them on screen."
+the_game_s_objectives_will_not_b_ff68d4 = "The game's objectives will not be visible in your\\nMotion Tracker or on screen."
+all_other_players_in_the_game_wi_2eed11 = "All other players in the game will show up on your \\nMotion Tracker when mobile."
+other_friendly_players_in_the_ga_568d12 = "Other friendly players in the game will show up on \\nyour Motion Tracker when mobile."
+other_players_in_the_game_will_n_93323d = "Other players in the game will never show up on your\\nMotion Tracker."
+green_triangles_will_appear_over_f13744 = "Green triangles will appear over the heads of your\\nteammates as a reminder that you should not shoot\\nthem."
+your_teammates_will_only_be_deno_5c8d39 = "Your teammates will only be denoted by the color of\\ntheir armor."
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_friends_on_screen_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_players_on_radar_spinner]
+s0 = "ALL"
+s1 = "FRIENDS"
+s2 = "NO"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_indicator_options_radar_display_spinner]
+s0 = "MOTION TRACKER"
+s1 = "NAV POINTS"
+s2 = "NONE"
+
+[xbox.main_menu_multiplayer_type_select_teams_hud_edit.xbox_main_menu_multiplayer_type_select_teams_hud_edit_labels]
+friendly_fire = "FRIENDLY FIRE:"
+friendly_fire_penalty = "FRIENDLY FIRE PENALTY:"
+autobalance = "AUTOBALANCE:"
+radar_display = "RADAR DISPLAY:"
+players_on_radar = "PLAYERS ON RADAR:"
+friends_on_screen = "FRIENDS ON SCREEN:"
 
 [xbox.main_menu_new_select_port.xbox_main_menu_new_select_var_map_kinds]
 singleplayer = "SINGLEPLAYER"

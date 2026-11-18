@@ -7232,6 +7232,22 @@ static void respawn_state_show(struct widget_instance *text_box)
 	text_set_length(text_box, text, NUMBEROF(text));
 }
 
+/* "port teams hud state": the GAME screen's TEAMS & HUD row's state word, the friendly-fire rule */
+static void teams_hud_state_show(struct widget_instance *text_box)
+{
+	struct game_variant_options *options = edit_options();
+	static char const *const words[] = { "OFF", "ON", "SHIELDS", "EXPLOSIVES" };
+	wchar_t text[16];
+	short index;
+
+	if (!options)
+		return;
+	index = options->friendly_fire == _friendly_fire_on ? 1 : options->friendly_fire == _friendly_fire_shields_only ? 2 :
+		options->friendly_fire == _friendly_fire_explosives_only ? 3 : 0;
+	halo_menus_utf16((char *)words[index], (unsigned short *)text, NUMBEROF(text));
+	text_set_length(text_box, text, NUMBEROF(text));
+}
+
 /* ---------- public code */
 
 boolean pc_menu_event_function_invoke(
@@ -7797,6 +7813,8 @@ void pc_menu_game_data_function_invoke(
 		preview_update(widget);
 	else if (!strcmp(name, "port lobby update"))
 		lobby_update(widget);
+	else if (!strcmp(name, "port teams hud state"))
+		teams_hud_state_show(widget);
 	else if (!strcmp(name, "port respawn state"))
 		respawn_state_show(widget);
 	else if (!strcmp(name, "port cloud saves status"))

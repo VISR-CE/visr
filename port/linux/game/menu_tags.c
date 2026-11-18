@@ -421,7 +421,8 @@ static char const *const port_function_names[] =
 	PC version's screens changed) */
 	"mp profile begin editing", "mp profile save changes", "request del playlist profile", "final del playlist profile",
 	"mp profile init game options", "mp profile set game options", "mp profile init respawn options",
-	"mp profile set respawn options", "mp profile init game engine", "mp profile set game engine", "mp profile init ctf rules",
+	"mp profile set respawn options", "mp profile init teams hud", "mp profile set teams hud",
+	"mp profile init game engine", "mp profile set game engine", "mp profile init ctf rules",
 	"mp profile init koth rules", "mp profile init slayer rules", "mp profile init oddball rules",
 	"mp profile init racing rules", "mp profile init player opts", "mp profile init item options",
 	"mp profile init indicator opts", "mp profile set ctf rules", "mp profile set koth rules",
@@ -468,7 +469,7 @@ static char const *const port_game_data_input_names[] =
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",
-	"port respawn state", "port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
+	"port respawn state", "port teams hud state", "port cloud saves status", "port graphics state", "port hub status", "port settings help", "color picker update", "3wide player profile list update", "port lobby update",
 	"port lobby preview update",
 	/* (the gametype editor's: the Xbox's stops the game on the buttons'
 	row; the Xbox's read only player_ui's gametype, not Server Setup's) */
