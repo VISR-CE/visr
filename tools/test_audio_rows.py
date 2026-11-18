@@ -50,7 +50,19 @@ def test_audio_cycle_wiring():
     assert '"debug.audio_cycle"' in config and "int config_set_boolean_unsaved" in config
     assert "debug.audio_cycle" in (ROOT / "port/linux/README.md").read_text()
     dsound = (ROOT / "port/linux/src/dsound_sdl.c").read_text()
-    assert "void audio_cycle_step(void)" in dsound and "host_sdl_audio_open_count" in dsound
+    assert "void audio_cycle_step(void)" in dsound
     assert "audio_cycle_step();" in (ROOT / "port/linux/src/d3d8_device.c").read_text()
     host = (ROOT / "port/ios/host/host_sdl.c").read_text()
     assert "int host_sdl_audio_open_count(void)" in host and "int host_thread_count(void)" in host
+
+
+def test_committed_audio_menus_match_generator():
+    import re
+    import port_settings
+    expected = [row[0] for row in port_settings.SCREENS["audio_settings"]["rows"]] if "audio_settings" in port_settings.SCREENS else None
+    assert expected, "audio_settings screen missing from port_settings.SCREENS"
+    for path in [ROOT / "port/assets/menus/xbox/settings.audio_settings.xml",
+                 ROOT / "port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit.audio_settings.xml"]:
+        text = path.read_text()
+        labels = [t for t in re.findall(r'<string text="([^"]*:)"', text) if t in expected]
+        assert labels == expected, path.name

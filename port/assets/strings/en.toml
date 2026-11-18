@@ -227,16 +227,22 @@ s0 = "ON"
 s1 = "OFF"
 
 [ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_help_strings]
+turn_all_game_sound_on_or_off = "Turn all game sound on or off."
 the_volume_of_everything = "The volume of everything."
-the_music_s_volume = "The music's volume."
 the_volume_of_every_other_sound__6a8da4 = "The volume of every other sound: effects and\\nspeech."
-play_sound_at_all_from_the_next__18051b = "Play sound at all; from the next time the game\\nstarts."
+turn_the_music_on_or_off_off_let_3ae03c = "Turn the music on or off. Off lets other apps'\\nmusic play at full volume."
+the_music_s_volume = "The music's volume."
 
 [ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_labels]
-master_volume = "MASTER VOLUME:"
-music_volume = "MUSIC VOLUME:"
-effects_volume = "EFFECTS VOLUME:"
 sound = "SOUND:"
+master_volume = "MASTER VOLUME:"
+effects_volume = "EFFECTS VOLUME:"
+music = "MUSIC:"
+music_volume = "MUSIC VOLUME:"
+
+[ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_music_enabled_spinner]
+s0 = "ON"
+s1 = "OFF"
 
 [ce.main_menu_settings_select_player_setup_player_profile_edit_audio_settings.main_menu_settings_select_player_setup_player_profile_edit_audio_settings_music_volume_spinner]
 s0 = "0"
@@ -1735,16 +1741,22 @@ s0 = "ON"
 s1 = "OFF"
 
 [xbox.settings_audio_settings.xbox_settings_audio_settings_help_strings]
+turn_all_game_sound_on_or_off = "Turn all game sound on or off."
 the_volume_of_everything = "The volume of everything."
-the_music_s_volume = "The music's volume."
 the_volume_of_every_other_sound__6a8da4 = "The volume of every other sound: effects and\\nspeech."
-play_sound_at_all_from_the_next__18051b = "Play sound at all; from the next time the game\\nstarts."
+turn_the_music_on_or_off_off_let_3ae03c = "Turn the music on or off. Off lets other apps'\\nmusic play at full volume."
+the_music_s_volume = "The music's volume."
 
 [xbox.settings_audio_settings.xbox_settings_audio_settings_labels]
-master_volume = "MASTER VOLUME:"
-music_volume = "MUSIC VOLUME:"
-effects_volume = "EFFECTS VOLUME:"
 sound = "SOUND:"
+master_volume = "MASTER VOLUME:"
+effects_volume = "EFFECTS VOLUME:"
+music = "MUSIC:"
+music_volume = "MUSIC VOLUME:"
+
+[xbox.settings_audio_settings.xbox_settings_audio_settings_music_enabled_spinner]
+s0 = "ON"
+s1 = "OFF"
 
 [xbox.settings_audio_settings.xbox_settings_audio_settings_music_volume_spinner]
 s0 = "0"
