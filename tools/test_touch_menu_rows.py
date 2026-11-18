@@ -573,10 +573,10 @@ int main(void) {
  struct halo_menu_slider s;
  struct halo_slider_rect thumb;
  halo_menu_slider_geometry(&s, 100, 20, 265, 48);
- assert(s.left == 110 && s.right == 213 && s.y == 34);
+ assert(s.left == 110 && s.right == 201 && s.y == 34);
  assert(halo_menu_slider_value(&s, -100, 11) == 0);
  assert(halo_menu_slider_value(&s, 900, 11) == 10);
- assert(halo_menu_slider_value(&s, 161, 11) == 5);
+ assert(halo_menu_slider_value(&s, 156, 11) == 5);
  assert(halo_menu_slider_value(&s, 200, 1) == 0);
  thumb = halo_menu_slider_thumb(&s, 5, 11);
  assert(thumb.x1 - thumb.x0 == 15 && thumb.y1 - thumb.y0 == 15);
@@ -588,8 +588,9 @@ int main(void) {
  assert(halo_menu_slider_dragged(100, 20, 105, 20));
  assert(halo_menu_slider_hit(&s, 110, 34));
  assert(!halo_menu_slider_hit(&s, 250, 34));
+ assert(265 - s.right >= 60);
  halo_menu_slider_geometry(&s, 185, 20, 265, 48);
- assert(s.left == 110 && s.right == 213);
+ assert(s.left == 110 && s.right == 201);
  return 0;
 }
 ''')
@@ -809,13 +810,13 @@ void ui_dropdown_bitmap(struct widget_instance *widget, char const *name, short 
  (void)widget; assert(!frame && clip);
  if (!draws) {
   assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_track"));
-  assert(bounds->x0 == 120 && bounds->x1 == 223 && bounds->y0 == 52 && bounds->y1 == 57);
+  assert(bounds->x0 == 120 && bounds->x1 == 211 && bounds->y0 == 52 && bounds->y1 == 57);
  } else if (draws == 1) {
   assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_fill"));
-  assert(bounds->x0 == 120 && bounds->x1 == 171 && bounds->y1 - bounds->y0 == 5);
+  assert(bounds->x0 == 120 && bounds->x1 == 165 && bounds->y1 - bounds->y0 == 5);
  } else {
   assert(!strcmp(name, "pc\\xbox\\bitmaps\\slider_thumb"));
-  assert(bounds->x0 == 159 && bounds->x1 == 184 && bounds->y0 == 42 && bounds->y1 == 67);
+  assert(bounds->x0 == 153 && bounds->x1 == 178 && bounds->y0 == 42 && bounds->y1 == 67);
  }
  draws++;
 }
@@ -828,7 +829,7 @@ wchar_t *spinner_string_list_get_string(int tag, short index) {
 void rasterizer_draw_unicode_string(rectangle2d *bounds, rectangle2d *clip, void *cursor,
  int flags, wchar_t const *text) {
  assert(clip && !cursor && !flags && !wcscmp(text, L"5"));
- assert(bounds->x0 == 238 && bounds->x1 == 275 && bounds->y0 == 40 && bounds->y1 == 68); strings++;
+ assert(bounds->x0 == 217 && bounds->x1 == 275 && bounds->y0 == 40 && bounds->y1 == 68); strings++;
 }
 ''' + block(source, 'static void ui_widget_row_draw_slider(') + r'''
 int main(void) {

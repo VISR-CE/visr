@@ -4,6 +4,9 @@ lists use equal spacing per selectable step, including nonuniform numbers. */
 #define HALO_MENU_SLIDER_H
 
 #define HALO_MENU_SLIDER_WIDTH 165
+/* Units from the row's right edge reserved for the value text beside the track. */
+#define HALO_MENU_SLIDER_VALUE_ROOM 64
+#define HALO_MENU_SLIDER_VALUE_GAP 6
 
 struct halo_menu_slider { int left, right, y; };
 struct halo_slider_rect { int x0, y0, x1, y1; };
@@ -13,8 +16,8 @@ static void halo_menu_slider_geometry(struct halo_menu_slider *s,
 {
 	if (right - left < HALO_MENU_SLIDER_WIDTH) left = right - HALO_MENU_SLIDER_WIDTH;
 	s->left = left + 10;
-	/* Leave room for the current number and the mouse's right arrow. */
-	s->right = right - 52;
+	/* Leave room for the current value (such as 1.5x) and the mouse's right arrow. */
+	s->right = right - HALO_MENU_SLIDER_VALUE_ROOM;
 	if (s->right <= s->left) s->right = s->left + 1;
 	s->y = (top + bottom) / 2;
 }

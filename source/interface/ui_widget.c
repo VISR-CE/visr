@@ -6314,7 +6314,7 @@ static void ui_widget_row_draw_slider(struct widget_instance *widget,
 	bounds.y0 = thumb.y0 - 5; bounds.y1 = bounds.y0 + 25;
 	ui_dropdown_bitmap(widget, "pc\\xbox\\bitmaps\\slider_thumb", 0, &bounds, clip);
 	bounds = definition->bounds;
-	bounds.x0 = slider.right + 15; bounds.x1 += offset.x;
+	bounds.x0 = slider.right + HALO_MENU_SLIDER_VALUE_GAP; bounds.x1 += offset.x;
 	bounds.y0 += offset.y; bounds.y1 += offset.y;
 	color.alpha *= widget_instance_get_cumulative_alpha_modifier(widget);
 	draw_string_set_draw_mode(definition->text_font.index, NONE, 1, 0, &color);
