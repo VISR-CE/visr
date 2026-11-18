@@ -7,7 +7,15 @@ MENU = (ROOT / 'port/linux/game/menu_functions.c').read_text()
 
 
 def function_body(signature):
-    body = MENU[MENU.index(signature):]
+    # Skip forward declarations: the definition's signature line ends with a brace on the next line.
+    start = 0
+    while True:
+        start = MENU.index(signature, start)
+        line_end = MENU.index('\n', start)
+        if MENU[line_end - 1] != ';':
+            break
+        start = line_end
+    body = MENU[start:]
     return body[:body.index('\n}\n')]
 
 

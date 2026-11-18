@@ -351,7 +351,10 @@ def test_browser_retains_map_names_at_the_c_updaters_lookup_paths():
 def test_browser_legend_routes_shortcuts_without_broadcasting_row_actions():
     _, widgets = browser_c_widgets()
     actions = widgets['button_refresh_create_inter']
-    assert actions.find('on[@event="x"][@run="port browser filters open"]') is not None
+    # X is IP ADDRESS on the whole screen; the filter screen opens from its chip.
+    assert not actions.findall('on[@event="x"]')
+    assert widgets['join_game_screen'].find('on[@event="x"][@run="port browser ip open"]') is not None
+    assert widgets['browser_ip_address'].find('on[@event="a"][@run="port browser ip open"]') is not None
     assert not widgets['join_game_screen'].findall('on[@event="y"]')
     for target, event in ((actions, 'y'), (widgets['browser_create_inter'], 'a')):
         handlers = target.findall(f'on[@event="{event}"]')
