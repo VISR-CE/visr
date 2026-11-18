@@ -188,6 +188,9 @@ static SDL_Window window;
 static SDL_Window *host_sdl_window(void) { return &window; }
 static void SDL_StartTextInput(SDL_Window *w) { (void)w; starts++; }
 static void SDL_StopTextInput(SDL_Window *w) { (void)w; stops++; }
+static void text_input_start_main(void *w) { SDL_StartTextInput((SDL_Window *)w); }
+static void text_input_stop_main(void *w) { SDL_StopTextInput((SDL_Window *)w); }
+static void host_main_sync_f(void *context, void (*fn)(void *)) { fn(context); }
 static void host_logf(int level, const char *text) { (void)level; (void)text; }
 static int host_menu_touch(void) { return touch; }
 static int host_menu_text_prompt(int on, const char *title, const char *text, int masked) {
