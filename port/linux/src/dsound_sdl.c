@@ -750,6 +750,29 @@ static void mix(float *output, unsigned long frames)
 static SDL_AudioStream *audio_stream;
 static BOOL audio_started = FALSE;
 
+/* Who drives the mixer. Exactly one of the SDL device callback and the clock
+thread does at any time (two would run every voice at double speed). Changes
+happen only on the game's thread (audio_start, then DirectSoundDoWork), under
+driver_lock; nothing on SDL's thread or the clock thread takes driver_lock. */
+enum { AUDIO_DRIVER_NONE, AUDIO_DRIVER_SDL, AUDIO_DRIVER_CLOCK };
+static int audio_driver = AUDIO_DRIVER_NONE;
+static pthread_mutex_t driver_lock = PTHREAD_MUTEX_INITIALIZER;
+/* while set the SDL callback writes silence and never calls mix() */
+static int silence_gate = 0;
+
+static pthread_mutex_t clock_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t clock_cond = PTHREAD_COND_INITIALIZER;
+static int clock_run = 0;
+static unsigned long clock_epoch = 0;
+static BOOL clock_thread_started = FALSE;
+
+/* the device backend, replaceable so a test can observe the sequence */
+struct audio_backend
+{
+	SDL_AudioStream *(*open)(void);
+	void (*close)(SDL_AudioStream *stream);
+};
+
 static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int additional_amount, int total_amount)
 {
 	float buffer[MIX_CHUNK_FRAMES * OUTPUT_CHANNELS];
@@ -764,23 +787,43 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
 			frames = MIX_CHUNK_FRAMES;
 		if (!frames)
 			frames = 1;
-		mix(buffer, frames);
+		/* the gate is read under clock_lock, the lock the clock holds around
+		its own mix(), so a callback already mixing finishes before the clock
+		can start and the two never overlap */
+		pthread_mutex_lock(&clock_lock);
+		if (__atomic_load_n(&silence_gate, __ATOMIC_ACQUIRE))
+			memset(buffer, 0, frames * OUTPUT_CHANNELS * sizeof(float));
+		else
+			mix(buffer, frames);
+		pthread_mutex_unlock(&clock_lock);
 		SDL_PutAudioStreamData(stream, buffer, (int)(frames * OUTPUT_CHANNELS * sizeof(float)));
 		additional_amount -= (int)(frames * OUTPUT_CHANNELS * sizeof(float));
 	}
 }
 
-/* without a device, drain voices in real time */
+/* drains voices in real time while no device drives the mixer; holds
+clock_lock around each mix(), so taking clock_lock proves none is in flight */
 static void *silent_clock_thread(void *parameter)
 {
 	float buffer[480 * OUTPUT_CHANNELS];
 	struct timespec next;
+	unsigned long epoch = (unsigned long)-1;
 
 	(void)parameter;
 	clock_gettime(CLOCK_MONOTONIC, &next);
 	for (;;)
 	{
+		pthread_mutex_lock(&clock_lock);
+		while (!clock_run)
+			pthread_cond_wait(&clock_cond, &clock_lock);
+		if (epoch != clock_epoch)
+		{
+			/* restarted: the deadline from the last run is stale */
+			epoch = clock_epoch;
+			clock_gettime(CLOCK_MONOTONIC, &next);
+		}
 		mix(buffer, 480);
+		pthread_mutex_unlock(&clock_lock);
 		next.tv_nsec += 10000000L;
 		if (next.tv_nsec >= 1000000000L)
 		{
@@ -792,10 +835,109 @@ static void *silent_clock_thread(void *parameter)
 	return NULL;
 }
 
-static void audio_start(void)
+static void audio_clock_start(void)
+{
+	pthread_mutex_lock(&clock_lock);
+	if (!clock_thread_started)
+	{
+		pthread_t thread;
+
+		if (!pthread_create(&thread, NULL, silent_clock_thread, NULL))
+		{
+			pthread_detach(thread);
+			clock_thread_started = TRUE;
+		}
+	}
+	clock_epoch++;
+	clock_run = 1;
+	pthread_cond_signal(&clock_cond);
+	pthread_mutex_unlock(&clock_lock);
+}
+
+static void audio_clock_stop(void)
+{
+	/* returns after any mix() the clock was in has finished */
+	pthread_mutex_lock(&clock_lock);
+	clock_run = 0;
+	pthread_mutex_unlock(&clock_lock);
+}
+
+static SDL_AudioStream *audio_open_device(void)
 {
 	SDL_AudioSpec spec;
 
+	spec.format = SDL_AUDIO_F32;
+	spec.channels = OUTPUT_CHANNELS;
+	spec.freq = OUTPUT_RATE;
+#ifdef HALO_ANDROID
+	/* frames per callback: on Android each callback is handed to a thread
+	that can run the guest (host_sdl.c): 512 left it too little time and
+	the menus' music broke up, which 1024 does not (about 21 ms at 48 kHz,
+	11 ms more than 512) */
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
+#else
+	SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "512");
+#endif
+	return SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, NULL);
+}
+
+static void audio_close_device(SDL_AudioStream *stream)
+{
+	/* blocks until a callback in flight returns */
+	SDL_DestroyAudioStream(stream);
+}
+
+static struct audio_backend audio_backend = { audio_open_device, audio_close_device };
+
+/* turns the device on or off with no gap: the clock covers the mixer from
+before the old driver goes until after the new one runs. Game thread only. */
+static void audio_set_device(BOOL wanted)
+{
+	pthread_mutex_lock(&driver_lock);
+	if (wanted && audio_driver != AUDIO_DRIVER_SDL)
+	{
+		SDL_AudioStream *stream;
+
+		/* opened gated, so a first callback cannot overlap the clock */
+		__atomic_store_n(&silence_gate, 1, __ATOMIC_RELEASE);
+		stream = audio_backend.open();
+		if (stream)
+		{
+			SDL_ResumeAudioStreamDevice(stream);
+			audio_stream = stream;
+			audio_clock_stop();
+			audio_driver = AUDIO_DRIVER_SDL;
+			__atomic_store_n(&silence_gate, 0, __ATOMIC_RELEASE);
+		}
+		else
+		{
+			__atomic_store_n(&silence_gate, 0, __ATOMIC_RELEASE);
+			/* stay on the clock; the next toggle tries again */
+			platform_log("cannot open an audio device (%s); sound is silent", SDL_GetError());
+			if (audio_driver != AUDIO_DRIVER_CLOCK)
+			{
+				audio_clock_start();
+				audio_driver = AUDIO_DRIVER_CLOCK;
+			}
+		}
+	}
+	else if (!wanted && audio_driver != AUDIO_DRIVER_CLOCK)
+	{
+		SDL_AudioStream *stream = audio_stream;
+
+		__atomic_store_n(&silence_gate, 1, __ATOMIC_RELEASE);
+		audio_clock_start();
+		audio_driver = AUDIO_DRIVER_CLOCK;
+		audio_stream = NULL;
+		if (stream)
+			audio_backend.close(stream);
+		__atomic_store_n(&silence_gate, 0, __ATOMIC_RELEASE);
+	}
+	pthread_mutex_unlock(&driver_lock);
+}
+
+static void audio_start(void)
+{
 	if (audio_started)
 		return;
 	audio_started = TRUE;
@@ -804,33 +946,9 @@ static void audio_start(void)
 	resampler_phases_initialize();
 
 	if (config_boolean("audio.enabled") && platform_sdl_initialize())
-	{
-		spec.format = SDL_AUDIO_F32;
-		spec.channels = OUTPUT_CHANNELS;
-		spec.freq = OUTPUT_RATE;
-#ifdef HALO_ANDROID
-		/* frames per callback: on Android each callback is handed to a thread
-		that can run the guest (host_sdl.c): 512 left it too little time and
-		the menus' music broke up, which 1024 does not (about 21 ms at 48 kHz,
-		11 ms more than 512) */
-		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
-#else
-		SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "512");
-#endif
-		audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, audio_callback, NULL);
-		if (audio_stream)
-		{
-			SDL_ResumeAudioStreamDevice(audio_stream);
-			return;
-		}
-		platform_log("cannot open an audio device (%s); sound is silent", SDL_GetError());
-	}
-	{
-		pthread_t thread;
-
-		pthread_create(&thread, NULL, silent_clock_thread, NULL);
-		pthread_detach(thread);
-	}
+		audio_set_device(TRUE);
+	else
+		audio_set_device(FALSE);
 }
 
 /* ---------- completion */
@@ -1108,6 +1226,10 @@ VOID WINAPI DirectSoundDoWork(void)
 	{
 		volume_read_at = config_changes();
 		master_volume = (float)config_real("audio.volume");
+		/* audio.enabled applies live: off closes the device (other apps get
+		the output back), on opens it again, with the clock covering the swap */
+		if (audio_started)
+			audio_set_device(config_boolean("audio.enabled") && platform_sdl_initialize());
 	}
 	streams_complete_finished();
 }
