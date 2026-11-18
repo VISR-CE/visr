@@ -1154,6 +1154,7 @@ static boolean network_game_cancel(
 	struct widget_instance *widget,
 	struct event_record *event,
 	boolean *widget_deleted);
+boolean menu_split_screen_needs_controller(void);
 static boolean split_screen_game_initialize(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -2664,6 +2665,9 @@ static boolean split_screen_game_initialize(
 {
 	boolean result = TRUE;
 
+	/* port: split screen on an iPhone needs a game controller for each extra player */
+	if (menu_split_screen_needs_controller())
+		return FALSE;
 	network_game_accept_remote_connections(FALSE);
 	if (!global_network_game_server_get())
 	{

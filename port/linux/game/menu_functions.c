@@ -110,6 +110,7 @@ void host_sdl_app_version(char *buffer, unsigned int size);
 void host_sdl_app_build(char *buffer, unsigned int size);
 void host_sdl_send_log_start(void);
 void host_sdl_open_website(int page);
+int host_sdl_is_phone(void);
 void host_sdl_send_log_status(char *buffer, unsigned int size);
 #endif
 
@@ -3178,6 +3179,33 @@ static boolean internet_item_off(struct widget_instance const *widget)
 	return strstr(name, "multiplayer_type_internet") || strstr(name, "multiplayer_type_create_inter");
 }
 
+/* The multiplayer type screen's SPLIT SCREEN row on an iPhone with no game controller connected for the second
+player: drawn gray, still focusable so its panel says why, and doing nothing when chosen. Every other device (an
+iPad has touch split screen) and every phone with a controller connected plays as before. */
+boolean menu_split_screen_needs_controller(void)
+{
+	short controller;
+
+#ifdef HALO_IOS
+	if (!host_sdl_is_phone())
+		return FALSE;
+	for (controller = 0; controller < 4; controller++)
+		if (input_has_gamepad(controller))
+			return FALSE;
+	return TRUE;
+#else
+	(void)controller;
+	return FALSE;
+#endif
+}
+
+static boolean split_item_off(struct widget_instance const *widget)
+{
+	char const *name = widget ? widget->name : NULL;
+
+	return name && strstr(name, "multiplayer_type_split") && menu_split_screen_needs_controller();
+}
+
 /* "mp type set mode": the item's (by its name) */
 static void multiplayer_mode_set(struct widget_instance *widget)
 {
@@ -4637,7 +4665,7 @@ boolean ui_widget_port_browser_row_unavailable(struct widget_instance *widget)
 
 	for (; widget; widget = widget->parent)
 	{
-		if (internet_item_off(widget))
+		if (internet_item_off(widget) || split_item_off(widget))
 			return TRUE;
 		if (!widget->parent || strcmp(widget->parent->name, "join_game_items_list"))
 			continue;

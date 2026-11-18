@@ -172,6 +172,7 @@ host_sdl_open_website
 host_sdl_send_log_status
 host_sdl_app_version
 host_sdl_app_build
+host_sdl_is_phone
 
 host_shader_observation_activate
 host_shader_observation_append

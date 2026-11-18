@@ -676,6 +676,9 @@ boolean pc_menu_patch_list_index(
 	long row_tag,
 	short *description);
 
+/* port: menu_functions.c's */
+boolean menu_split_screen_needs_controller(void);
+
 /* ---------- globals */
 
 static ui_widget_game_data_function game_data_input_function_list[41];
@@ -885,6 +888,23 @@ static void multiplayer_type_menu_update_extended_description(
 	if (index != NONE && !strncmp(list_widget->focused_child->name, "multiplayer_type_internet", 25) &&
 		!config_boolean("network.online"))
 		index += 1;
+
+	/* port: the split-screen row on an iPhone with no controller shows the panel added after DIRECT LINK's */
+	if (index != NONE && !strncmp(list_widget->focused_child->name, "multiplayer_type_split", 22) &&
+		menu_split_screen_needs_controller())
+	{
+		short direct_index;
+
+		for (child = list_widget->child; child; child = child->next)
+		{
+			if (!strcmp(child->name, "multiplayer_type_join_direct") &&
+				pc_menu_patch_list_index(list_widget->definition_tag_index, child->definition_tag_index, &direct_index))
+			{
+				index = direct_index + 1;
+				break;
+			}
+		}
+	}
 
 	if (index != NONE)
 	{
