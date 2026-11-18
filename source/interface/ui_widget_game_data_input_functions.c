@@ -354,6 +354,9 @@ symbols in this file:
 #include "saved games/playlist_profile.h"
 #include "text/text_group.h"
 #include "text/unicode.h"
+
+/* port: the settings (port/linux/game/config.c) */
+int config_boolean(const char *name);
 #include "custom_edition_maps.h" /* port: port/linux/game/custom_edition_maps.c */
 #include "halo_menus.h" /* port: PC_MENU_FUNCTION_BASE */
 
@@ -876,6 +879,12 @@ static void multiplayer_type_menu_update_extended_description(
 	/* port: in the PC version's lists (port/assets/menus), the item's number
 	among those that take events, as its game counts them (past its labels) */
 	index = ui_widget_port_list_index(list_widget);
+
+	/* port: the INTERNET row, while internet play is off in Settings, shows the next panel in the list (the
+	"Internet play is off" picture and text the menu patches add behind it) */
+	if (index != NONE && !strncmp(list_widget->focused_child->name, "multiplayer_type_internet", 25) &&
+		!config_boolean("network.online"))
+		index += 1;
 
 	if (index != NONE)
 	{

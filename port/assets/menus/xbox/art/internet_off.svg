@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="256" viewBox="0 0 512 256">
+  <title>INTERNET OFF — a cloud with a line through it</title>
+  <desc>Hand-written in American English. A single cloud crossed by a diagonal line, in the HUD blue outline style of the INTERNET drawing.</desc>
+  <defs>
+    <linearGradient id="surface" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="512" y2="256">
+      <stop stop-color="#2f3f4e"/><stop offset="1" stop-color="#0e141a"/>
+    </linearGradient>
+    <filter id="halo" filterUnits="userSpaceOnUse" x="0" y="0" width="512" height="256" color-interpolation-filters="sRGB">
+      <feComponentTransfer in="SourceAlpha"><feFuncA type="linear" slope="1.153846"/></feComponentTransfer>
+      <feMorphology operator="dilate" radius="1.5"/>
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#2396ff" flood-opacity="0.56"/>
+      <feComposite in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <path id="cloud" d="M170 176C140 176 134 140 158 128C150 98 182 80 206 94C222 58 276 62 286 98C312 90 336 110 328 132C358 138 356 176 326 176Z"/>
+  </defs>
+  <use href="#cloud" fill="url(#surface)" fill-opacity="0.4"/>
+  <g fill="none" stroke="#298eef" stroke-opacity="0.87" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" filter="url(#halo)">
+    <use href="#cloud"/>
+    <path d="M132 206L360 52"/>
+  </g>
+</svg>

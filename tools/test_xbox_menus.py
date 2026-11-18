@@ -1481,7 +1481,8 @@ def test_profile_editor_removes_save_after_inserting_settings():
     assert operations[-1].get('child') == module.PEP + 'save_changes_profile_item'
     assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
     assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
-    assert not any(p.find('remove') is not None for p in root.findall('patch') if p is not edit)
+    assert not any(p.find('remove') is not None for p in root.findall('patch')
+                   if p is not edit and not p.get('list', '').endswith('multiplayer_type_select_list'))
 
 @pytest.mark.parametrize('kind', ('password', 'code'))
 def test_password_and_code_legend_caption_follows_the_row(kind):

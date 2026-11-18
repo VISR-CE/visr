@@ -3164,6 +3164,20 @@ void menu_internet_screen_opened(void)
 }
 #endif
 
+/* The multiplayer type screen's INTERNET row (and the Create item that hosts on the Internet) while internet play
+is off in Settings: drawn gray, still focusable so its panel says why, and doing nothing when chosen.
+(an instance's name is cut to 31 characters) */
+static boolean internet_item_off(struct widget_instance const *widget)
+{
+	char const *name = widget ? widget->name : NULL;
+
+	if (!name || config_boolean("network.online"))
+		return FALSE;
+	if (strstr(name, "create_lan") || strstr(name, "join_lan") || strstr(name, "join_direct"))
+		return FALSE;
+	return strstr(name, "multiplayer_type_internet") || strstr(name, "multiplayer_type_create_inter");
+}
+
 /* "mp type set mode": the item's (by its name) */
 static void multiplayer_mode_set(struct widget_instance *widget)
 {
@@ -3259,6 +3273,8 @@ static boolean multiplayer_host(struct widget_instance *widget, struct event_rec
 {
 	struct player_profile profile;
 
+	if (internet_item_off(widget))
+		return campaign_fail();
 	multiplayer_mode_set(widget);
 	if (!campaign_profile(controller, &profile))
 	{
@@ -3956,8 +3972,6 @@ static void server_settings_update(struct widget_instance *list)
 	text_field_show(named(list, "server_name_value", 0), text, text_field_editing(row));
 	if (multiplayer.mode != _multiplayer_mode_host_internet)
 		text[0] = 0; /* (a LAN game has no join code, so the line is blank) */
-	else if (!config_boolean("network.online"))
-		snprintf(text, sizeof(text), "INTERNET PLAY IS TURNED OFF. TURN IT ON IN SETTINGS > NETWORK SETUP.");
 	/* (an invite reaches no one without a broker) */
 	else if (p2p_servers_status() == HALO_INTERNET_SERVERS_UNREACHABLE)
 		snprintf(text, sizeof(text), "CAN'T REACH THE MATCHMAKING SERVERS");
@@ -4623,6 +4637,8 @@ boolean ui_widget_port_browser_row_unavailable(struct widget_instance *widget)
 
 	for (; widget; widget = widget->parent)
 	{
+		if (internet_item_off(widget))
+			return TRUE;
 		if (!widget->parent || strcmp(widget->parent->name, "join_game_items_list"))
 			continue;
 		index = browser_row_index(widget);
@@ -4938,9 +4954,7 @@ static void lobby_browser_update(struct widget_instance *list)
 	{
 		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
 
-		if (!config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off. Turn on INTERNET PLAY in NETWORK SETUP.");
-		else if (!config_boolean("network.public_lobby"))
+		if (!config_boolean("network.public_lobby"))
 			usnprintf(text, NUMBEROF(text) - 1, L"The server browser is off (network.public_lobby)");
 		else if (lobby_browser.joining)
 		{
@@ -5359,8 +5373,6 @@ static void browser_update(struct widget_instance *list)
 
 		if (multiplayer.mode == _multiplayer_mode_server_browser)
 			text[0] = 0;
-		else if (multiplayer.mode == _multiplayer_mode_direct_link && !config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is off. Turn on INTERNET PLAY in NETWORK SETUP.");
 		/* the invite being joined: how it goes, or what went wrong (a game in
 		the list is shown instead, unless the invite's host is known to have
 		another version) */
@@ -7228,6 +7240,8 @@ boolean pc_menu_event_function_invoke(
 		}
 		else if (!strcmp(name, "mp type set mode"))
 		{
+			if (internet_item_off(widget))
+				return campaign_fail();
 			lan_mode = strstr(widget->name, "_lan_") != NULL;
 			multiplayer_mode_set(widget);
 			/* (Create's: the map list only for a game made, "join controller
