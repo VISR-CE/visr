@@ -863,12 +863,14 @@ static void audio_clock_stop(void)
 }
 
 /* The one place that chooses how the output shares the device with other apps.
-Music on: the hint is reset (an empty value), so SDL's own default applies. Music
-off: ambient, which mixes with other apps' audio without ducking it (the held
-choice: ambient obeys the silent switch). Only Apple's SDL reads the hint. */
+Music on: the hint is reset (an empty value), so SDL's own default applies (playback,
+mixing with and ducking other apps). Music off: Playback that mixes with other apps
+without ducking them, and the silent switch does not mute it. SDL's category hint cannot
+say that, so the Apple host reads this VISR hint and re-applies the session options
+after SDL opens the device. */
 static void audio_apply_category(void)
 {
-	SDL_SetHint("SDL_AUDIO_CATEGORY", config_boolean("audio.music_enabled") ? "" : "ambient");
+	SDL_SetHint("VISR_AUDIO_MIX_ONLY", config_boolean("audio.music_enabled") ? "" : "1");
 }
 
 static SDL_AudioStream *audio_open_device(void)

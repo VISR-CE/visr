@@ -35,6 +35,18 @@ def test_music_off_wiring():
     assert "host_sdl_audio_any_open()" in host
 
 
+def test_music_off_mixes_without_ducking():
+    root = Path(__file__).resolve().parent.parent
+    dsound = (root / "port/linux/src/dsound_sdl.c").read_text()
+    assert '"VISR_AUDIO_MIX_ONLY"' in dsound and "SDL_AUDIO_CATEGORY" not in dsound
+    session = (root / "port/ios/host/host_audio_session.m").read_text()
+    assert "AVAudioSessionCategoryPlayback" in session
+    assert "AVAudioSessionCategoryOptionMixWithOthers" in session
+    assert "DuckOthers" not in session and "AVAudioSessionCategoryAmbient" not in session
+    host = (root / "port/ios/host/host_sdl.c").read_text()
+    assert host.count("host_audio_session_apply();") >= 2
+
+
 def test_last_close_notifies_others():
     root = Path(__file__).resolve().parent.parent
     session = (root / "port/ios/host/host_audio_session.m").read_text()

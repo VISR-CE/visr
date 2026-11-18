@@ -134,6 +134,12 @@ int host_sdl_init(uint32_t flags)
 
 int host_sdl_set_hint(const char *name, const char *value)
 {
+	/* the guest's music-off choice for the audio session; SDL has no hint for it (host_audio_session.m) */
+	if(!strcmp(name, "VISR_AUDIO_MIX_ONLY"))
+	{
+		host_audio_session_set_mix_only(value && *value);
+		return 1;
+	}
 	/* an empty value puts the hint back to its default */
 	if(value && !*value)return SDL_ResetHint(name);
 	return SDL_SetHint(name, value);
@@ -1060,6 +1066,7 @@ static void audio_route_changed_locked(void)
         if(!binding)continue;
         SDL_AudioStream *replacement=SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,&binding->source,
             binding->callback?audio_callback:NULL,binding);
+        if(replacement)host_audio_session_apply();
         if(!replacement) {
             /* (the slot stays bound to its handle with no stream: host_sdl_audio_stalled asks for another try) */
             host_logf(HOST_LOG_ERROR,"audio route: cannot reopen stream: %s",SDL_GetError());
@@ -1187,6 +1194,8 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 	pthread_cond_init(&binding->done, NULL);
 	stream = SDL_OpenAudioDeviceStream((SDL_AudioDeviceID)device, spec,
 		callback ? audio_callback : NULL, binding);
+	if (stream)
+		host_audio_session_apply();
 	if (!stream)
 	{
 		pthread_cond_destroy(&binding->done);
