@@ -629,6 +629,11 @@ static void check_workload(void)
 	assert(strstr(logged, "settings: display.dynamic_resolution_floor = 960 [model Apple TV HD] over 540 [default]; "
 		"variable 540 [model Apple TV HD]"));
 	assert(strstr(logged, "settings: display.shadow_map_size = 128 [default]; variable 256 [model Apple TV HD]"));
+	/* the variable value is readable while the map is predictable (the server browser's FPS target); only
+	string settings are readable this way */
+	assert(config_variable_string("display.frame_rate", text, sizeof(text)) && !strcmp(text, "30"));
+	assert(config_variable_string("display.anti_aliasing", text, sizeof(text)) && !strcmp(text, "fxaa"));
+	assert(!config_variable_string("display.render_scale", text, sizeof(text)));
 	/* the map becomes variable: once, logged, config_changes advances */
 	changes = config_changes();
 	logged[0] = 0;

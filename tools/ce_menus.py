@@ -120,7 +120,7 @@ WIDGET_FLAGS = ["pass_unhandled_to_focused_child", "pause_game", "flash_bitmap",
                 "pass_unhandled_to_all_children", "render_any_controller", "pass_handled_to_all_children",
                 "main_menu_if_no_history", "tag_controller_index", "nifty_fx", "no_history", "force_handle_mouse",
                 "no_widescreen_fill"]
-TEXT_FLAGS = ["editable", "password", "flashing", "no_focus_test"]
+TEXT_FLAGS = ["editable", "password", "flashing", "no_focus_test", "wrap"]
 LIST_FLAGS = ["items_in_code", "items_from_strings", "one_tooltip", "single_preview"]
 TYPES = ["container", "text", "spinner", "column_list"]
 ALIGN = ["left", "right", "center"]

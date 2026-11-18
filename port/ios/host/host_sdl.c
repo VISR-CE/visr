@@ -432,6 +432,11 @@ int host_sdl_display_max_fps(void)
 #endif
 }
 
+int host_sdl_display_target_fps(void)
+{
+	return (int)(host_frame_rate_display_target() + 0.5);
+}
+
 void host_sdl_window_size_in_pixels(uint32_t window, int *width, int *height)
 {
 	SDL_Window *object = handle_get(window, _handle_window);

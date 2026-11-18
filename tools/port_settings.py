@@ -875,6 +875,7 @@ TITLES = {
     f"{PE}/about/header_open_source_notices": "OPEN SOURCE NOTICES",
     f"{PE}/graphics/header_graphics": "GRAPHICS",
     f"{MT}/join_game/header_server_browser": "SERVER BROWSER",
+    f"{MT}/join_game/filters/header_sort_filter": "SORT & FILTER",
     f"{MT}/join_game/header_direct_link": "DIRECT LINK",
     f"{MT}/join_game/header_password": "PASSWORD",
     f"{MT}/lobby/header_lobby": "GAME LOBBY",
@@ -1117,6 +1118,40 @@ def _coop_options() -> list:
              for line in lines]
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
             and 'event="deleted" run="port setting save"' not in line]
+
+
+# the server browser's FILTERS (menu_functions.c's browser_filter_and_sort): (key, label, choices shown,
+# setting, values written, help)
+BROWSER_FILTERS = [
+    ("sort", "SORT BY", ["PLAYERS", "NAME", "MAP", "GAME"], "network.browser_sort",
+     ["players", "name", "map", "game"], "The order of the list.\\nGames you can join always come first."),
+    ("games", "GAMES", ["ALL", "MULTIPLAYER", "CO-OP"], "network.browser_games", ["all", "multiplayer", "coop"],
+     "Multiplayer games, co-op campaigns, or both."),
+    ("full", "FULL GAMES", ["SHOW", "HIDE"], "network.browser_show_full", ["true", "false"],
+     "Games that are full or about to start."),
+    ("locked", "PASSWORD GAMES", ["SHOW", "HIDE"], "network.browser_show_locked", ["true", "false"],
+     "Games that need a password to join."),
+    ("unjoinable", "GAMES I CAN'T JOIN", ["HIDE", "SHOW"], "network.browser_show_unjoinable", ["false", "true"],
+     "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."),
+]
+
+
+def _browser_filters() -> list:
+    """the server browser's FILTERS screen, in the original's place (join_game/filters): its sort and the few
+    filters; each spinner writes its setting as it changes (port setting save), and B goes back"""
+    base = f"{MT}/join_game/filters"
+    spec = {"screen": "filters_screen", "spacing": 30,
+            "header": ("header_filters", f"{base}/header_filters")}
+    rows, extra = [], []
+    for index, (key, _, strings, setting, values, _) in enumerate(BROWSER_FILTERS):
+        extra += _hosting_spinner(base, key, index, strings, setting, values)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", [label for _, label, *_ in BROWSER_FILTERS])
+    extra += _strings(f"{base}/help_strings", [""] + [help for *_, help in BROWSER_FILTERS])
+    extra += _button(f"{base}/button_ok", 1, ['<on event="a" back="true"/>', '<on event="start" back="true"/>'])
+    lines = _screen(base, spec, rows, ["port settings help"], [], extra)
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and '<child widget="common_button_cancel"' not in line]
 
 
 def _server_settings() -> list:
@@ -1579,6 +1614,7 @@ def multiplayer_files() -> dict:
         f"{MT}/join_game".replace("/", ".") + ".port.xml": head + _join_game_extras() + ["</menus>", ""],
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
         f"{MT}/coop_options".replace("/", ".") + ".xml": head + _coop_options() + ["</menus>", ""],
+        f"{MT}/join_game/filters".replace("/", ".") + ".xml": head + _browser_filters() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],
@@ -1586,4 +1622,4 @@ def multiplayer_files() -> dict:
     }
 
 
-REPLACED_FOLDERS = [f"{MT}/server_settings"]
+REPLACED_FOLDERS = [f"{MT}/server_settings", f"{MT}/join_game/filters"]

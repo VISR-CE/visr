@@ -131,6 +131,9 @@ void host_frame_rate_profile(int rate);
    (gpu_frame_context, gpu_metal.m) when one is in force, else host_frame_rate_cap's; 0 for none. What the
    frame pacer spaces frames for and judges them against (host_frame_pacer.c) */
 double host_frame_rate_target(void);
+/* the frames a second that frames aim for when the game follows the display (display.frame_rate "display"): the
+   display's rate, halved where Low Power Mode is on; 0 when unknown */
+double host_frame_rate_display_target(void);
 /* whether Low Power Mode's frame rate is in force for the frames from now on (low_power.h, host_gpu_dispatch.c:
    host_frame_rate_cap and host_frame_rate_target then hold its halved rate) */
 int host_frame_rate_low_power(void);

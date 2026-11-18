@@ -34,8 +34,8 @@ typedef struct { short y0, x0, y1, x1; } rectangle2d;
 struct widget_instance { long definition_tag_index; };
 struct ui_widget_definition { rectangle2d bounds; struct { long index; } text_font; short horizontal_offset; };
 struct font_header { int ellipsis; };
-static struct font_header fonts[2] = {{0}, {1}};
-static struct ui_widget_definition cell_definition = {{0,0,18,30}, {0}, 2};
+__attribute__((unused)) static struct font_header fonts[2] = {{0}, {1}};
+static struct ui_widget_definition cell_definition = {{0,0,18,33}, {0}, 2};
 static long current_font;
 #define ui_widget_definition_get(index) (&cell_definition)
 #define font_definition_get(index) (&fonts[index])
@@ -48,7 +48,7 @@ static void draw_string_set_format(short style, short justification, unsigned lo
     assert(style == NONE && justification == 0 && flags == 0);
 }
 static void draw_string_set_indents(short initial, short paragraph) { assert(!initial && !paragraph); }
-static void *font_get_character_by_ascii_code(struct font_header *font, unsigned short character) {
+__attribute__((unused)) static void *font_get_character_by_ascii_code(struct font_header *font, unsigned short character) {
     assert(character == 0x2026); return font->ellipsis ? font : NULL;
 }
 /* Variable advances and bitmap overhang make character-count truncation fail. */
@@ -113,19 +113,19 @@ int main(void) {
     cell_definition.text_font.index=1;
     wcscpy(text, L"WWWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
-    assert(!wcscmp(text, L"WW\x2026"));
+    assert(!wcscmp(text, L"WW..."));
     wcscpy(text, L"iiiiiiii");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(!wcscmp(text, L"iiiiiiii"));
-    cell_definition.bounds.x1=29; cell_definition.horizontal_offset=0;
+    cell_definition.bounds.x1=32; cell_definition.horizontal_offset=0;
     wcscpy(text, L"WWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
-    assert(!wcscmp(text, L"WW\x2026"));
-    cell_definition.bounds.x1=25;
+    assert(!wcscmp(text, L"WW..."));
+    cell_definition.bounds.x1=28;
     wcscpy(text, L"WWWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
-    assert(!wcscmp(text, L"WW\x2026"));
-    cell_definition.bounds.x1=3;
+    assert(!wcscmp(text, L"W..."));
+    cell_definition.bounds.x1=6;
     wcscpy(text, L"WWWW");
     ui_widget_port_text_ellipsize(&box, text, 32);
     assert(text[0] == 0);

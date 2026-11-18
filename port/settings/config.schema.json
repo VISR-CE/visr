@@ -2786,6 +2786,17 @@
             "desktop"
           ]
         },
+        "browser_fake_games": {
+          "type": "boolean",
+          "default": false,
+          "description": "Development builds only: the server browser lists a fixed set of fourteen made-up games instead of the live list, so its sort, filters and empty result look the same on every run. App Store packages ignore it.",
+          "x-environment": "HALO_BROWSER_FAKE_GAMES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "menu_min_scale": {
           "type": "boolean",
           "default": true,
@@ -3777,6 +3788,61 @@
           "default": true,
           "description": "The server browser: public games are listed through the signalling brokers, and Join Game > Server Browser shows them. False lists no game of this machine's and shows none.",
           "x-environment": "HALO_NET_PUBLIC_LOBBY",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "browser_sort": {
+          "type": "string",
+          "default": "players",
+          "description": "The server browser's order: \"players\" (most first), \"name\", \"map\" or \"game\" (A to Z). Games this build can join always come before those it cannot. A column title, or SORT BY in FILTERS, writes it.",
+          "x-environment": "HALO_NET_BROWSER_SORT",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "browser_games": {
+          "type": "string",
+          "default": "all",
+          "description": "Which games the server browser lists: \"all\", \"multiplayer\" or \"coop\" (FILTERS' GAMES writes it).",
+          "x-environment": "HALO_NET_BROWSER_GAMES",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "browser_show_full": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the server browser lists full or closed games (FILTERS' FULL GAMES).",
+          "x-environment": "HALO_NET_BROWSER_SHOW_FULL",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "browser_show_locked": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the server browser lists games with a password (FILTERS' PASSWORD GAMES).",
+          "x-environment": "HALO_NET_BROWSER_SHOW_LOCKED",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
+        "browser_show_unjoinable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the server browser lists games this build cannot join: another network version, a mode it does not play, or a join that failed this run (FILTERS' GAMES I CAN'T JOIN). Their count stays in the list's footer.",
+          "x-environment": "HALO_NET_BROWSER_SHOW_UNJOINABLE",
           "x-environment-style": "value",
           "x-platforms": [
             "apple",

@@ -870,7 +870,9 @@ enum
 enum
 {
 	/* only the bit this file tests is named */
-	_text_box_flashing_text_bit = 2
+	_text_box_flashing_text_bit = 2,
+	/* port: the text is broken at spaces to the widget's width */
+	_text_box_port_wrap_bit = 4
 };
 
 enum
@@ -5585,16 +5587,17 @@ void ui_widget_port_text_ellipsize(struct widget_instance *widget, wchar_t *text
 	definition = ui_widget_definition_get(widget->definition_tag_index);
 	if (definition->text_font.index == NONE)
 		return;
-	/* draw_unicode_string requires a glyph to end strictly before x1. */
-	width = definition->bounds.x1 - definition->bounds.x0 - definition->horizontal_offset - 1;
+	/* draw_unicode_string requires a glyph to end strictly before x1, and the last dot of the suffix was clipped at
+	the edge (rows showed ".." for "..."), so keep a 3 pixel margin. */
+	width = definition->bounds.x1 - definition->bounds.x0 - definition->horizontal_offset - 1 - 3;
 	old_font = draw_string_get_font();
 	draw_string_set_font(definition->text_font.index);
 	draw_string_set_format(NONE, 0, 0);
 	draw_string_set_indents(0, 0);
 	if (ui_widget_port_text_width(text) > width)
 	{
-		suffix = font_get_character_by_ascii_code(font_definition_get(definition->text_font.index), 0x2026) ?
-			L"\x2026" : L"...";
+		/* the font's U+2026 slot draws as two dots, so always use three plain periods */
+		suffix = L"...";
 		suffix_length = suffix[1] ? 3 : 1;
 		while (text[length] && length < capacity - 1)
 			length++;
@@ -5890,6 +5893,8 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
+	if (TEST_FLAG(definition->text_box_flags, _text_box_port_wrap_bit))
+		ui_widget_port_text_wrap(*text, &bounds, (short)(definition->bounds.x1 - definition->bounds.x0));
 	wchar_t const *display_text = *text;
 	if (string_has_icons_to_draw(display_text))
 	{
@@ -9190,17 +9195,22 @@ static void widget_instance_render_recursive(
 
 			if (pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
 			{
-				bounds.x0 += frame_x;
-				bounds.y0 += frame_y;
+				/* a negative place slides the picture up and left inside the
+				widget (a banner cut from the middle of a taller picture) */
+				short shift_x = frame_x < 0 ? -frame_x : 0;
+				short shift_y = frame_y < 0 ? -frame_y : 0;
+
+				bounds.x0 += frame_x > 0 ? frame_x : 0;
+				bounds.y0 += frame_y > 0 ? frame_y : 0;
 				/* port: a taller row frame (tools/xbox_menus.py) is drawn at its
 				own height, over the clamp above, so its visible band fills the row */
 				if (row_bitmap_name && (strstr(row_bitmap_name, "/row_36/") ||
 					strstr(row_bitmap_name, "\\row_36\\")))
 					bounds.y1 = bounds.y0 + frame_height;
-				texels.x0 = 0;
-				texels.y0 = 0;
-				texels.x1 = (short)((long)(bounds.x1 - bounds.x0) * bitmap->width / frame_width);
-				texels.y1 = (short)((long)(bounds.y1 - bounds.y0) * bitmap->height / frame_height);
+				texels.x0 = (short)((long)shift_x * bitmap->width / frame_width);
+				texels.y0 = (short)((long)shift_y * bitmap->height / frame_height);
+				texels.x1 = (short)(texels.x0 + (long)(bounds.x1 - bounds.x0) * bitmap->width / frame_width);
+				texels.y1 = (short)(texels.y0 + (long)(bounds.y1 - bounds.y0) * bitmap->height / frame_height);
 				shown = bounds.x1 > bounds.x0 && bounds.y1 > bounds.y0;
 			}
 			/* port: the menus' redraw draws this frame's texture at the

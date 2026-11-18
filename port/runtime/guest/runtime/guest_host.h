@@ -167,6 +167,8 @@ void host_sdl_window_size_in_pixels(unsigned int window, int *width, int *height
 int host_sdl_menu_height_points(void);
 /* Current native Mac display maximum; 0 keeps other hosts' menu behavior. */
 int host_sdl_display_max_fps(void);
+/* What frames aim for when following the display: its refresh rate, halved in Low Power Mode; 0 when unknown. */
+int host_sdl_display_target_fps(void);
 int host_sdl_set_relative_mouse(unsigned int window, int enabled);
 int host_sdl_gl_set_attribute(int attribute, int value);
 unsigned int host_sdl_gl_create_context(unsigned int window);

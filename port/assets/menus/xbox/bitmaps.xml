@@ -116,6 +116,9 @@
 		<frame png="ce/shell/bitmaps/text_button_background__0.png" width="128" height="32" />
 		<frame png="ce/shell/bitmaps/text_button_background__1.png" width="128" height="32" />
 	</bitmap>
+	<bitmap name="xbox/browser/header_sort_filter">
+		<frame png="ce/port/main_menu/multiplayer_type_select/join_game/filters/header_sort_filter.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/multiplayer_type_select/coop_options/header_coop_options">
 		<frame png="ce/port/main_menu/multiplayer_type_select/coop_options/header_coop_options.png" width="512" height="64" />
 	</bitmap>

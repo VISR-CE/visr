@@ -56,6 +56,8 @@ int text_hires_glyph(long font, unsigned long code, struct text_hires_glyph *gly
 /* the atlas's placeholder: the D3D texture of the bitmap the game binds,
 and its size; NULL forgets it */
 void text_hires_register_atlas(const unsigned long *texture, unsigned long width, unsigned long height);
+/* each frame's start: the atlas goes up to the GPU at most once in a frame */
+void text_hires_begin_frame(void);
 
 /* the GL texture of the atlas when data (a D3D texture's Data) is its
 placeholder's, its rasterized glyphs uploaded; 0 otherwise */

@@ -1092,6 +1092,28 @@ static const struct config_setting config_settings[] =
 		"The server browser: public games are listed through the signalling\n"
 		"brokers, and Join Game > Server Browser shows them. False lists no\n"
 		"game of this machine's and shows none." },
+	{ "network.browser_sort", _config_string, "\"players\"", "HALO_NET_BROWSER_SORT", _environment_value,
+		_platform_all,
+		"The server browser's order: \"players\" (most first), \"name\", \"map\"\n"
+		"or \"game\" (A to Z). Games this build can join always come before\n"
+		"those it cannot. A column title, or SORT BY in FILTERS, writes it." },
+	{ "network.browser_games", _config_string, "\"all\"", "HALO_NET_BROWSER_GAMES", _environment_value,
+		_platform_all,
+		"Which games the server browser lists: \"all\", \"multiplayer\" or\n"
+		"\"coop\" (FILTERS' GAMES writes it)." },
+	{ "network.browser_show_full", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_FULL", _environment_value,
+		_platform_all,
+		"Whether the server browser lists full or closed games (FILTERS' FULL\n"
+		"GAMES)." },
+	{ "network.browser_show_locked", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_LOCKED",
+		_environment_value, _platform_all,
+		"Whether the server browser lists games with a password (FILTERS'\n"
+		"PASSWORD GAMES)." },
+	{ "network.browser_show_unjoinable", _config_boolean, "false", "HALO_NET_BROWSER_SHOW_UNJOINABLE",
+		_environment_value, _platform_all,
+		"Whether the server browser lists games this build cannot join: another\n"
+		"network version, a mode it does not play, or a join that failed this run\n"
+		"(FILTERS' GAMES I CAN'T JOIN). Their count stays in the list's footer." },
 	{ "network.delta_browse", _config_boolean, "true", "HALO_NET_DELTA_BROWSE", _environment_value, _platform_all,
 		"The server browser also lists the games of Delta's public list\n"
 		"(network.delta_url), run by others, with the network version of each;\n"
@@ -1722,6 +1744,12 @@ static const struct config_setting config_settings[] =
 		"BIG (12 of 16 players), to see the join warning without a real host; set\n"
 		"network.full_rate_players below 16, or network.player_capacity below\n"
 		"16 when full_rate_players is 0." },
+	{ "debug.browser_fake_games", _config_boolean, "false", "HALO_BROWSER_FAKE_GAMES", _environment_value,
+		_platform_all,
+		"Development builds only: the server browser lists a fixed set of\n"
+		"fourteen made-up games instead of the live list, so its sort, filters\n"
+		"and empty result look the same on every run. App Store packages ignore\n"
+		"it." },
 	{ "debug.menu_min_scale", _config_boolean, "true", "HALO_MENU_MIN_SCALE", _environment_value, _platform_all,
 		"Enlarge front-end and pause menu widgets toward one point per menu unit\n"
 		"by cropping only their backdrop margins. visionOS keeps its existing scale." },
@@ -4210,6 +4238,24 @@ map loads (port/linux/game/scene_class.c). The scene classes lie over either. */
 int config_workload_variable(void)
 {
 	return config_workload_is_variable;
+}
+
+/* The string setting's value in a variable workload (multiplayer, online co-op), whatever map is in force: the
+profile's [variable.display] value when the setting comes from its default or the profile, else the value in
+force (a player's or the environment's explicit choice wins in every workload). Returns 1 when the setting exists. */
+int config_variable_string(const char *name, char *text, size_t size)
+{
+	long index = config_setting_index(name);
+	const struct config_value *value;
+
+	if (index < 0 || config_settings[index].type != _config_string || !size)
+		return 0;
+	value = config_value(name, _config_string);
+	if (config_states[index].variable.text &&
+		(config_states[index].source == _source_default || config_states[index].source == _source_profile))
+		value = &config_states[index].variable_value;
+	snprintf(text, size, "%s", value->string ? value->string : "");
+	return 1;
 }
 
 int config_workload_set(int variable, const char *reasons)

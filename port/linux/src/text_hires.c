@@ -64,6 +64,8 @@ static int pack_x, pack_y, pack_row_height;
 static int dirty_top = ATLAS_SIZE, dirty_bottom;
 static unsigned long placeholder_data, placeholder_width, placeholder_height;
 static gpu_texture atlas_texture;
+/* the frame the atlas last went up in, and the frame now (text_hires_begin_frame) */
+static unsigned long upload_frame = (unsigned long)-1, current_frame;
 
 /* tag names compared as the game does, ignoring case (and without the POSIX
 strcasecmp, which the Windows build has not) */
@@ -270,6 +272,11 @@ int text_hires_glyph(long font, unsigned long code, struct text_hires_glyph *gly
 	return 1;
 }
 
+void text_hires_begin_frame(void)
+{
+	current_frame++;
+}
+
 void text_hires_register_atlas(const unsigned long *texture, unsigned long width, unsigned long height)
 {
 	placeholder_data = texture ? texture[1] : 0;
@@ -296,8 +303,12 @@ unsigned int text_hires_atlas_texture(unsigned long data)
 		dirty_top = 0;
 		dirty_bottom = ATLAS_SIZE;
 	}
-	if (dirty_top < dirty_bottom)
+	/* (gpu.h uploads whole levels, 16 MB of BGRA here: a menu screen that adds a glyph at each of
+	its first draws put up 72 of them within a few frames, over 1 GB held at once, and tvOS ended
+	the app on an Apple TV HD. At most one a frame; a glyph added after it is drawn from the next) */
+	if (dirty_top < dirty_bottom && upload_frame != current_frame)
 	{
+		upload_frame = current_frame;
 		/* (white, the glyph's coverage its alpha, as the maps' fonts are; so
 		the same bytes in BGRA as in RGBA). gpu.h uploads whole levels, so
 		the atlas goes up whole, on the frames that add glyphs */

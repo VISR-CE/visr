@@ -72,6 +72,7 @@ char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
 /* whether the multiplayer mode chosen is system link (menu_functions.c) */
 boolean pc_menu_multiplayer_lan(void);
+boolean pc_menu_xbox_look(void);
 short pc_menu_list_window(long tag_index);
 boolean pc_menu_patch_list_index(long list_tag, long row_tag, short *description);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
@@ -344,7 +345,7 @@ static char const *const widget_flag_names[] =
 
 static char const *const widget_type_names[] = { "container", "text", "spinner", "column_list" };
 static char const *const list_flag_names[] = { "items_in_code", "items_from_strings", "one_tooltip", "single_preview" };
-static char const *const text_flag_names[] = { "editable", "password", "flashing", "no_focus_test" };
+static char const *const text_flag_names[] = { "editable", "password", "flashing", "no_focus_test", "wrap" };
 static char const *const align_names[] = { "left", "right", "center" };
 /* (build_number and pid are the PC version's, which this engine has not) */
 static char const *const replace_names[] = { "none", "controller", "build_number", "pid" };
@@ -410,6 +411,9 @@ static char const *const port_function_names[] =
 	"mp level select", "mp profiles list initialize", "mp profiles list dispose", "mp profile set for game",
 	"port lobby preview join",
 	"port browser join big confirm", "port browser join big back",
+	"port browser chip select", "port browser chips navigation", "port browser rows up", "port browser rows down",
+	"port browser detail navigation", "port browser legend navigation",
+	"port browser filters reset", "port browser filters open", "port browser ip open",
 	"port setup edit",
 	"port map list back",
 	"port pause end game",
@@ -463,7 +467,7 @@ static char const *const port_game_data_input_names[] =
 {
 	"unwired",
 	"pause game set textbox inverted", "dim unless two controllers", "controls update menu",
-	"video menu update", "gamespy screen update", "common button bar update", "gamepad update menu",
+	"video menu update", "gamespy screen update", "port browser filters update", "common button bar update", "gamepad update menu",
 	"server settings update", "audio menu update", "mp prof vehicles update", "solo map list update",
 	"mp map list update", "gt select list update", "gt edit list update", "load game list update",
 	"direct ip connect update", "network settings update",
@@ -3346,6 +3350,11 @@ static int menu_use_xbox(void)
 	char const *setting = config_string("display.menus");
 
 	return !strcmp(setting, "xbox") || (strcmp(setting, "pc") && platform_menu_pad());
+}
+
+boolean pc_menu_xbox_look(void)
+{
+	return menu_use_xbox();
 }
 
 static boolean menu_delete_from_select;

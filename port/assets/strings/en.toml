@@ -709,23 +709,93 @@ s3 = "ON"
 s0 = "ON"
 s1 = "OFF"
 
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_button_join]
+text = "JOIN GAME"
+
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_accept]
 text = "SELECT"
 
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_create]
-text = "CREATE GAME"
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_cancel]
+text = "CANCEL"
 
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_button_refresh]
-text = "REFRESH"
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_server_port_label]
+text = "SERVER PORT"
 
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legend_accept]
-text = "SELECT"
-
-[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legend_cancel]
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_back_caption]
 text = "BACK"
 
-[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_filters_screen_legend_accept]
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_create_inter_caption]
+text = "CREATE"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_equipment_label]
+text = "EQUIPMENT"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_host_label]
+text = "HOST"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_ip_address_caption]
+text = "IP ADDRESS"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_browser_rules_label]
+text = "RULES"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_browser_filters_label]
+text = "FILTERS"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_create]
+text = "CREATE GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_join_game_button_refresh]
+text = "REFRESH"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_legend_accept]
 text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_legacy_legend_cancel]
+text = "BACK"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_browser_done_caption]
+text = "DONE"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_browser_reset_caption]
+text = "RESET"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_full_spinner]
+s0 = "SHOW"
+s1 = "HIDE"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_games_spinner]
+s0 = "ALL"
+s1 = "MULTIPLAYER"
+s2 = "CO-OP"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_help_strings]
+the_order_of_the_list_ngames_you_267fad = "The order of the list.\\nGames you can join always come first."
+multiplayer_games_co_op_campaign_1677ef = "Multiplayer games, co-op campaigns, or both."
+games_that_are_full_or_about_to_start = "Games that are full or about to start."
+games_that_need_a_password_to_join = "Games that need a password to join."
+games_on_another_network_version_67b7b3 = "Games on another network version, in a mode\\nVISR does not play, or that failed to connect."
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_labels]
+sort_by = "SORT BY"
+games = "GAMES"
+full_games = "FULL GAMES"
+password_games = "PASSWORD GAMES"
+games_i_can_t_join = "GAMES I CAN'T JOIN"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_locked_spinner]
+s0 = "SHOW"
+s1 = "HIDE"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_sort_spinner]
+s0 = "MOST PLAYERS"
+s1 = "NAME"
+s2 = "MAP"
+s3 = "GAME"
+
+[xbox.main_menu_multiplayer_type_select_join_game_filters.xbox_main_menu_multiplayer_type_select_join_game_filters_unjoinable_spinner]
+s0 = "HIDE"
+s1 = "SHOW"
 
 [xbox.main_menu_multiplayer_type_select_join_game_port.xbox_main_menu_multiplayer_type_select_join_game_button_clipboard]
 text = "ENTER CODE"
@@ -1138,48 +1208,6 @@ enter_a_password_for_the_server__9d3b53 = "Enter a password for the server you w
 [xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_options]
 server_address = "SERVER ADDRESS"
 password = "PASSWORD"
-
-[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_cap_filter_options]
-do_not_show_empty_servers = "Do not show empty servers."
-show_empty_servers = "Show empty servers."
-do_not_show_full_servers = "Do not show full servers."
-show_full_servers = "Show full servers."
-filter_servers_by_connection_lat_070e6c = "Filter servers by connection latency (in ms).\\nLatency is how fast data travels from the server."
-show_only_games_matching_the_sel_e229df = "Show only games matching the selected\\ngame type."
-show_servers_running_both_free_f_ec0536 = "Show servers running both free-for-all\\nand teamplay modes."
-show_only_servers_running_free_f_a55944 = "Show only servers running free-for-all modes."
-show_only_servers_running_teamplay_modes = "Show only servers running teamplay modes."
-show_only_servers_with_custom_ma_d38390 = "Show only servers with custom maps that are\\ncurrently installed."
-show_servers_with_custom_maps_th_08cbeb = "Show servers with custom maps that are not\\ncurrently installed."
-
-[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_filter_options]
-show_empty_servers = "SHOW EMPTY SERVERS"
-show_full_servers = "SHOW FULL SERVERS"
-ping = "PING"
-game_type = "GAME TYPE"
-teamplay_options = "TEAMPLAY OPTIONS"
-show_missing_maps = "SHOW MISSING MAPS"
-
-[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_game_options]
-any = "ANY"
-free_for_all = "FREE-FOR-ALL"
-teamplay = "TEAMPLAY"
-
-[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_gametype]
-any = "ANY"
-ctf = "CTF"
-slayer = "SLAYER"
-oddball = "ODDBALL"
-king = "KING"
-race = "RACE"
-
-[xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_filters_var_filter_ping]
-any = "ANY"
-lt_50 = "< 50"
-lt_100 = "< 100"
-lt_150 = "< 150"
-lt_200 = "< 200"
-lt_300 = "< 300"
 
 [xbox.multiplayer_shared.xbox_main_menu_multiplayer_type_select_join_game_join_game_buttons]
 get_list = "GET LIST"

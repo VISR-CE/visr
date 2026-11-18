@@ -112,6 +112,8 @@ void config_profile_settings_text(char *text, size_t size);
 profile's own values), 1 variable ([variable.display] under the scene classes). set, as a map loads
 (port/linux/game/scene_class.c): logged for each map; config_changes advances when it changes, returning 1 */
 int config_workload_variable(void);
+/* a string setting's value in a variable workload, whatever map is in force (see port_config.c) */
+int config_variable_string(const char *name, char *text, size_t size);
 int config_workload_set(int variable, const char *reasons);
 /* Map-load multiplayer fallback, resolved below explicit frame-rate choices. */
 int config_workload_set_limited(int variable, int hold_30, const char *reasons);

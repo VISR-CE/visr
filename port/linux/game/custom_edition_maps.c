@@ -872,10 +872,13 @@ struct bitmap_data *custom_edition_maps_picture(
 {
 	struct custom_edition_map *map;
 	short level = campaign_level_get(*frame_index);
+	/* Layout C aliases need the same installed custom-map pictures as the lobby. */
+	char const *name = bitmap_tag_index != NONE ? tag_get_name(bitmap_tag_index) : NULL;
+	boolean level_pictures = name && (!csstrcasecmp(name, LEVEL_PICTURES_TAG_NAME) ||
+		!csstrcasecmp(name, "pc\\xbox\\browser\\preview_mp"));
 
 	if (level != NONE &&
-		bitmap_tag_index != NONE &&
-		!csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME))
+		level_pictures)
 	{
 		long pictures = tag_loaded('bitm', CAMPAIGN_LEVEL_PICTURES_TAG_NAME);
 
@@ -883,8 +886,7 @@ struct bitmap_data *custom_edition_maps_picture(
 		return pictures != NONE ? bitmap_group_get_bitmap_from_sequence(pictures, 0, level) : NULL;
 	}
 	if (*frame_index < FIRST_DISPLAY_INDEX ||
-		bitmap_tag_index == NONE ||
-		csstrcasecmp(tag_get_name(bitmap_tag_index), LEVEL_PICTURES_TAG_NAME))
+		!level_pictures)
 	{
 		return NULL;
 	}
