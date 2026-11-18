@@ -696,9 +696,26 @@ static void menu_window_geometry(float *top, float *zoom)
 		}
 		if (safe_zoom > 0.25f && *zoom > safe_zoom)
 		{
+			float visible, padded_top, padded_bottom, want;
+
 			*zoom = safe_zoom;
 			menu_scale_window(480.0f / *zoom, menu_content_top, menu_content_bottom,
 				top, &bottom, &points_per_unit);
+			/* The window is taller than the menu space at this zoom, so the scale
+			call top-aligns the content. Center the padded content in the safe band
+			instead, so a bottom inset does not cut the bottom band. */
+			visible = 480.0f / *zoom;
+			padded_top = menu_content_top > MENU_PAD_TOP ? menu_content_top - MENU_PAD_TOP : 0.0f;
+			padded_bottom = menu_content_bottom + MENU_PAD_BOTTOM;
+			if (padded_bottom > 480.0f)
+				padded_bottom = 480.0f;
+			want = (padded_top + padded_bottom) * 0.5f -
+				(insets[2] + 1.0f - insets[3]) * 0.5f * visible;
+			if (want > 0.0f)
+				want = 0.0f;
+			if (want < 480.0f - visible)
+				want = 480.0f - visible;
+			*top = want;
 		}
 	}
 }
@@ -719,6 +736,30 @@ void halo_screen_menu_window(int active)
 	if (active)
 		menu_window_geometry(&menu_draw_top, &menu_draw_zoom);
 	menu_window_drawing = active != 0;
+}
+
+/* The menu units the larger horizontal safe-area inset still covers inside a clip
+width units wide, after the window's own zoom shrink and its backdrop margin have
+absorbed part of it. */
+long halo_screen_menu_safe_units(long width)
+{
+	float insets[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+	float side, top, zoom, window_units, margin, residual;
+
+	platform_video_safe_insets(insets);
+	side = insets[0] > insets[1] ? insets[0] : insets[1];
+	if (side <= 0.0f)
+		return 0;
+	if (menu_window_drawing)
+		zoom = menu_draw_zoom;
+	else
+		menu_window_geometry(&top, &zoom);
+	window_units = halo_screen_width() / zoom;
+	margin = (window_units - (float)width) * 0.5f;
+	if (margin < 0.0f)
+		margin = 0.0f;
+	residual = side * window_units - margin;
+	return residual > 0.0f ? (long)ceilf(residual) : 0;
 }
 
 float halo_screen_menu_pixel_scale(void)
