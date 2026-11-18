@@ -16,8 +16,8 @@ so the audio callback is handed to a thread that has one.
 #if TARGET_OS_VISION
 #include "host_theater.h"
 #include "host_stereo.h"
-#include "host_audio_session.h"
 #endif
+#include "host_audio_session.h"
 #include "host.h"
 #include "host_app_version.h"
 #include "host_config.h"
