@@ -10,7 +10,7 @@
 
 /* Music off: other apps' audio plays at full volume. SDL's session ducks other audio, and its category hint only offers
    playback or ambient (ambient obeys the silent switch), so this one piece is re-applied after SDL opens a device:
-   Playback with MixWithOthers and no DuckOthers. */
+   Playback with MixWithOthers and no ducking. */
 static atomic_int mix_only;
 
 void host_audio_session_set_mix_only(int enabled)
