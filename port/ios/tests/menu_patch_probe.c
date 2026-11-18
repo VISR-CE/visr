@@ -55,6 +55,7 @@ static char const patches_xml[] =
 	"       run=\"request del player profile\"\n"
 	"       description=\"Delete.\" picture=\"0\"/>\n"
 	"  <remove child=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\save_changes_profile_item\"/>\n"
+	"  <remove child=\"ui\\shell\\main_menu\\settings_select\\player_setup\\player_profile_edit\\profile_edit_button_bar\"/>\n"
 	"</patch>\n"
 	/* a row out of the settings list: those after it move up, keeping their descriptions */
 	"<patch list=\"ui\\shell\\settings\\settings_list\" screen=\"ui\\shell\\settings\\settings_screen\">\n"
@@ -523,10 +524,10 @@ static void map_build(void)
 	}
 	/* the profile edit screen */
 	{
-		long rows[5], children[8];
+		long rows[5], children[9];
 		short const xs[5] = { 0, 0, 0, 0, 0 }, ys[5] = { 0, 0, 0, 0, 22 };
-		short const screen_xs[8] = { 0, 368, 0, 432, 346, 471, 492, 64 };
-		short const screen_ys[8] = { 0, 414, 0, 353, 414, 414, 414, 220 };
+		short const screen_xs[9] = { 0, 368, 0, 432, 346, 471, 492, 64, 0 };
+		short const screen_ys[9] = { 0, 414, 0, 353, 414, 414, 414, 220, 400 };
 
 		rows[0] = row_add(PE "name_profile_item", 51, 78, 283, 110, 66);
 		rows[1] = row_add(PE "controller_setup_profile_item", 51, 111, 283, 143, 0);
@@ -547,8 +548,10 @@ static void map_build(void)
 		children[5] = widget_add(MM "a_butn", _widget_type_container, 0, 0, 21, 26);
 		children[6] = widget_add(MM "=accept", _widget_type_text_box, 0, 0, 95, 22);
 		children[7] = pe_blueline = mp_blueline;
+		/* a screen child that is no list row: a patch takes it out */
+		children[8] = widget_add(PE "profile_edit_button_bar", _widget_type_container, 0, 0, 640, 60);
 		pe_screen = widget_add(PE "player_profile_edit_screen", _widget_type_container, 0, 0, 640, 480);
-		children_set(pe_screen, 8, children, screen_xs, screen_ys);
+		children_set(pe_screen, 9, children, screen_xs, screen_ys);
 	}
 	/* the main menu */
 	{
@@ -840,6 +843,10 @@ static void check_apple(boolean tvos)
 		check(child_top(pe_screen, 3) == 353, "the profile's name stayed (right of the list, %d)", child_top(pe_screen, 3));
 		check(child_top(pe_screen, 5) == 414 && child_top(pe_screen, 4) == 414 && child_top(pe_screen, 1) == 414,
 			"the legend stayed at 414");
+		check(definition_of(pe_screen)->child_widgets.count == 8, "the button bar (a screen child) was taken out (%d)",
+			(int)definition_of(pe_screen)->child_widgets.count);
+		check(((struct ui_widget_child_reference const *)definition_of(pe_screen)->child_widgets.address)[2].widget_tag.index == pe_list,
+			"the list kept its place among the screen's children");
 	}
 	/* a row taken out: those after it a row higher, with their own descriptions */
 	{

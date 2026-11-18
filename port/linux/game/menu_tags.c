@@ -2507,11 +2507,43 @@ static boolean patch_row_add(struct patch_work *work, struct halo_menu_patch_row
 	return TRUE;
 }
 
+/* a screen child (a button bar, say) that is not a list row: it is taken out of
+the screen's children, and the list's index and the saved offsets follow it.
+Returns FALSE if the screen has no such child. */
+static boolean patch_screen_child_remove(struct patch_work *work, char const *name)
+{
+	struct ui_widget_child_reference *children = work->screen->child_widgets.address;
+	long child, last, removed, wanted = strchr(name, '\\') ? tag_loaded(UI_WIDGET_DEFINITION_TAG, name) : NONE;
+
+	if (wanted == NONE)
+		return FALSE;
+	for (child = 0; child < work->screen->child_widgets.count; child++)
+	{
+		if (child != work->list_child && children[child].widget_tag.index == wanted)
+			break;
+	}
+	if (child >= work->screen->child_widgets.count)
+		return FALSE;
+	last = work->screen->child_widgets.count - 1;
+	removed = child;
+	for (; child < last; child++)
+	{
+		children[child] = children[child + 1];
+		work->screen_y[child] = work->screen_y[child + 1];
+	}
+	work->screen->child_widgets.count = last;
+	if (work->list_child > removed)
+		work->list_child--;
+	return TRUE;
+}
+
 static boolean patch_row_remove(struct patch_work *work, struct halo_menu_patch_row const *source)
 {
 	long removed = patch_row_find(work, source->child), row;
 	short pitch, y;
 
+	if (removed == NONE && patch_screen_child_remove(work, source->child))
+		return TRUE;
 	if (removed == NONE)
 		return patch_fail(work, source->file, source->line, "the list has no row", source->child);
 	pitch = patch_pitch(work, source, removed, work->definitions[removed]);
