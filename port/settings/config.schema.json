@@ -3607,6 +3607,17 @@
             "desktop"
           ]
         },
+        "music_enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Play the game's music. Turning it off also lets other apps' audio play alongside the game on iOS.",
+          "x-environment": "HALO_MUSIC_ENABLED",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple",
+            "desktop"
+          ]
+        },
         "effects_volume": {
           "type": "number",
           "default": 1.0,

@@ -906,6 +906,9 @@ static const struct config_setting config_settings[] =
 		"The volume of everything, 0.0 to 1.0." },
 	{ "audio.music_volume", _config_real, "1.0", "HALO_MUSIC_VOLUME", _environment_value, _platform_all,
 		"The music's volume, 0.0 to 1.0 (of audio.volume)." },
+	{ "audio.music_enabled", _config_boolean, "true", "HALO_MUSIC_ENABLED", _environment_value, _platform_all,
+		"Play the game's music. Turning it off also lets other apps' audio play\n"
+		"alongside the game on iOS." },
 	{ "audio.effects_volume", _config_real, "1.0", "HALO_EFFECTS_VOLUME", _environment_value, _platform_all,
 		"The volume of every other sound (effects and speech), 0.0 to 1.0 (of\n"
 		"audio.volume)." },
