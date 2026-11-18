@@ -4189,7 +4189,7 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 		usnprintf(text, size - 1, L"Found the host, but your networks can't connect directly.");
 		break;
 	case P2P_JOIN_LOCAL_NETWORK:
-		usnprintf(text, size - 1, L"Found the host. Allow Local Network for VISR in Network Settings.");
+		usnprintf(text, size - 1, L"Found the host. Allow Local Network for VISR in Settings.");
 		break;
 	default:
 		text[0] = 0;
