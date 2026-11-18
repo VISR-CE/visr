@@ -8281,10 +8281,22 @@ static void ui_dropdown_open(struct ui_mouse_target *target)
 	ui_dropdown_creation_time = target->widget->creation_time;
 	ui_dropdown_selection = -1;
 	ui_dropdown_last_selection = -1;
-	halo_menu_dropdown_open(&ui_dropdown, target->value_bounds.x0,
-		target->value_bounds.y0, target->value_bounds.y1,
-		target->widget->parameters.list.number_of_items,
-		target->widget->parameters.list.selected_index, limit_top, limit_bottom);
+	{
+		/* port: size to the widest label in the font the rows draw in, plus the row's text insets (6 left, 22 right incl. the checkmark) and border */
+		struct ui_widget_definition *definition = ui_widget_definition_get(target->widget->definition_tag_index);
+		int widest = 0, min_x = MAX(8, (int)ui_redraw_safe_left_units(640));
+		for (index = 0; index < target->widget->parameters.list.number_of_items; index++)
+		{
+			void const *label = spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
+			int w = label ? ui_widget_port_font_text_width(definition->text_font.index, label) : 0;
+			if (w > widest) widest = w;
+		}
+		halo_menu_dropdown_open(&ui_dropdown, target->value_bounds.x0,
+			target->value_bounds.y0, target->value_bounds.y1,
+			target->widget->parameters.list.number_of_items,
+			target->widget->parameters.list.selected_index, limit_top, limit_bottom,
+			widest + 6 + 22 + 4, min_x, 640 - 8);
+	}
 }
 
 /* port: post one normal spinner step each frame, as ui_mouse_step_list_to_slot
@@ -8365,7 +8377,7 @@ static void ui_dropdown_draw(void)
 	int slot;
 	if (!ui_dropdown.open || !ui_dropdown_owner_valid()) return;
 	definition = ui_widget_definition_get(ui_dropdown_widget->definition_tag_index);
-	bounds.x0 = ui_dropdown.x; bounds.x1 = bounds.x0 + HALO_DROPDOWN_WIDTH;
+	bounds.x0 = ui_dropdown.x; bounds.x1 = bounds.x0 + ui_dropdown.width;
 	bounds.y0 = ui_dropdown.y; bounds.y1 = bounds.y0 + ui_dropdown.rows * HALO_DROPDOWN_PITCH + 3;
 	ui_dropdown_bitmap(ui_dropdown_widget, "pc\\xbox\\bitmaps\\dropdown_panel",
 		ui_dropdown.rows - 1, &bounds, &clip);
@@ -8374,7 +8386,7 @@ static void ui_dropdown_draw(void)
 	{
 		int option = ui_dropdown.first + slot;
 		rectangle2d text;
-		bounds.x0 = ui_dropdown.x + 2; bounds.x1 = ui_dropdown.x + HALO_DROPDOWN_WIDTH - 2;
+		bounds.x0 = ui_dropdown.x + 2; bounds.x1 = ui_dropdown.x + ui_dropdown.width - 2;
 		bounds.y0 = ui_dropdown.y + 2 + slot * HALO_DROPDOWN_PITCH;
 		bounds.y1 = bounds.y0 + HALO_DROPDOWN_PITCH;
 		if (option == ui_dropdown.highlight)
