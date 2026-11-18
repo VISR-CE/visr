@@ -6695,6 +6695,7 @@ static long ui_mouse_press_count = 0;
 static boolean ui_mouse_hover_pending = FALSE;
 static boolean ui_mouse_click_pending = FALSE;
 static short ui_mouse_hover_x, ui_mouse_hover_y;
+static boolean ui_mouse_hover_dragging;
 static short ui_mouse_click_x, ui_mouse_click_y;
 /* port: the touch legend button a tap just hit, drawn brighter for a few frames */
 static struct widget_instance *ui_touch_legend_pressed = NULL;
@@ -8822,6 +8823,8 @@ static void ui_widgets_process_mouse(
 			ui_mouse_hover_pending = TRUE;
 			ui_mouse_hover_x = pointer.x;
 			ui_mouse_hover_y = pointer.y;
+			/* a finger already dragging (no longer a tap candidate) */
+			ui_mouse_hover_dragging = pointer.radius > 0 && !pointer.down;
 		}
 		if (pointer.left_clicks)
 		{
@@ -9026,12 +9029,25 @@ static void ui_widgets_process_mouse(
 			struct widget_instance *widget = ui_mouse_wheel_widget(ui_mouse_menu());
 			short back = _widget_event_dpad_up, forward = _widget_event_dpad_down;
 			long step;
+			boolean finger_list = FALSE;
+			long steps = ABS(pointer.wheel_steps);
 
 			if (widget)
 				ui_mouse_list_directions(widget, &back, &forward);
-			for (step = 0; step < ABS(pointer.wheel_steps) && step < 4; step++)
-				ui_mouse_press(pointer.wheel_steps > 0 ? back : forward);
-			halo_ui_pointer_feedback(1);
+			if (pointer.radius > 0 && back == _widget_event_dpad_up)
+			{
+				/* a finger dragging a vertical list: hover highlights the row under the finger, and only once the
+				finger is past the rows does the list scroll, in the finger's direction */
+				struct ui_mouse_target *under = ui_mouse_target_at(pointer.x, pointer.y);
+
+				finger_list = TRUE;
+				if (under && (under->kind == _ui_mouse_target_item || under->kind == _ui_mouse_target_value))
+					steps = 0;
+			}
+			for (step = 0; step < steps && step < 4; step++)
+				ui_mouse_press((pointer.wheel_steps > 0) != finger_list ? back : forward);
+			if (steps)
+				halo_ui_pointer_feedback(1);
 		}
 		if (!ui_mouse_press_count && ui_mouse_hover_pending)
 		{
@@ -9051,6 +9067,8 @@ static void ui_widgets_process_mouse(
 					ui_mouse_give_focus(target->widget);
 					break;
 				case _ui_mouse_target_list_slot:
+					if (ui_mouse_hover_dragging)
+						break; /* carousels drag-scroll by the wheel */
 					/* hovering a slot focuses that slot, as it does an item. Only pointer
 					motion hovers, so a card that slides under a still pointer does not
 					step the list again. */

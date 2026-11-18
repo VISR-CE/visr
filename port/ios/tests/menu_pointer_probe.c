@@ -49,7 +49,7 @@ static void drag(void) {
     take(&m);
     host_menu_pointer_touch_move(&m, 1, 100, 215);   /* past the slop: scrolling, no notch yet */
     p = take(&m);
-    assert(!p.wheel_steps && !p.moved);
+    assert(!p.wheel_steps && p.moved && p.x == 100 && p.y == 215 && !p.down);   /* the pointer follows the dragging finger */
     host_menu_pointer_touch_move(&m, 1, 100, 200 + 10.0f + 2 * HOST_MENU_POINTER_NOTCH + 3);   /* two notches down */
     p = take(&m);
     assert(p.wheel_steps == -2);

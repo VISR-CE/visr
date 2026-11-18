@@ -173,6 +173,8 @@ static inline void host_menu_pointer_touch_move(struct host_menu_pointer *m, int
         m->scrolling = 1;
         m->anchor_y = m->down_y;
     }
+    /* a dragging finger also moves the pointer, so the row under it takes the highlight */
+    m->moved = 1;
     float travel = y - m->anchor_y;
     int steps = (int)(travel / HOST_MENU_POINTER_NOTCH);
     if (steps) {
