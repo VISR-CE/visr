@@ -116,8 +116,6 @@ SCREENS = {
              "Unlimited can tear and uses more power. Applies\nthe next time the game starts.", "mac_app"),
             ("SMOOTH MOTION:", "display.interpolation", ON_OFF,
              "Draw a frame for every display refresh, blending\nbetween the game's 30 ticks per second.", None),
-            ("INSTANT AIM:", "display.direct_camera", ON_OFF,
-             "In first person, turn the view the moment the\nmouse moves, not up to two ticks later.", "desktop"),
         ],
     },
     # the GRAPHICS screen (Xbox look, not the Mac, which has these rows on VIDEO): each change applies as it is made, as
@@ -142,6 +140,8 @@ SCREENS = {
              "Moving the mouse forward looks down.", None),
             ("AIM ASSIST:", "input.mouse_aim_assist", ON_OFF,
              "Slow and drag the view along with a target while\naiming with the mouse, as with a controller.", None),
+            ("INSTANT AIM:", "display.direct_camera", ON_OFF,
+             "In first person, turn the view the moment the\nmouse moves, not up to two ticks later.", "desktop"),
         ],
     },
     "audio_settings": {
