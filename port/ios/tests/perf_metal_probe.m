@@ -29,13 +29,18 @@ int main(void) {
         assert(!last_frame && !buffers[0].count && !atomic_load(&buffers[0].commands));
         assert(!host_perf_metal_dropped());
         mode = 2;
-        assert(!host_perf_metal_needs_split()); /* suppressed reports and shadow off */
-        test_shadow = 1;
-        assert(host_perf_metal_needs_split()); /* shadow-only stage collection */
-        test_shadow = 0; test_collecting = 1;
-        assert(!host_perf_metal_needs_split()); /* reports alone keep the shared encoder */
+        /* Stage sampling: upscale and HUD share one encoder without spoiling
+         * the frame; a switch involving the scene cannot be told apart. */
+        test_shadow = 1; test_frame = 300;
+        buffers[0].groups[0] = HOST_PERF_UPSCALE;
+        assert(host_perf_metal_switch(1, nil, HOST_PERF_HUD) == 1);
+        assert(!grouped[300 % FRAME_COUNT].invalid);
+        buffers[0].groups[0] = HOST_PERF_SCENE;
+        assert(host_perf_metal_switch(1, nil, HOST_PERF_HUD) == 1);
+        assert(grouped[300 % FRAME_COUNT].invalid == ((1u << HOST_PERF_SCENE) | (1u << HOST_PERF_HUD)));
+        buffers[0].groups[0] = 0;
+        test_shadow = 0; test_frame = 1;
         mode = 1;
-        assert(!host_perf_metal_needs_split()); /* draw samples share the encoder */
         test_collecting = 1;
         for (unsigned i = 0; i < INTERVAL_COUNT; ++i)
             assert(host_perf_metal_prepare((id)commands[0], nil, 0, HOST_PERF_SCENE));

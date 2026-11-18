@@ -146,10 +146,6 @@ uint32_t host_perf_metal_prepare(id<MTLCommandBuffer> commands, MTLRenderPassDes
     }
     return 1 + slot * INTERVAL_COUNT + interval;
 }
-int host_perf_metal_needs_split(void) {
-    /* Only shadow mode splits encoders; report builds keep the shared encoder. */
-    return mode == 2 && host_perf_hooks_dynamic_enabled();
-}
 int host_perf_metal_timing_supported(void) {
     return host_perf_metal_stage_supported() || metal_seen;
 }
@@ -172,8 +168,14 @@ uint32_t host_perf_metal_switch(uint32_t token, id<MTLRenderCommandEncoder> enco
     if (!token) return 0;
     unsigned slot = (token - 1) / INTERVAL_COUNT, interval = (token - 1) % INTERVAL_COUNT;
     if (mode != 1) {
-        host_perf_metal_unavailable(buffers[slot].groups[interval]);
-        host_perf_metal_unavailable(group);
+        /* Stage sampling times whole encoders. Upscale and HUD may share one,
+         * counted under the group it began with: the planner adds the two.
+         * Anything involving the scene cannot be told apart. */
+        unsigned current = buffers[slot].groups[interval];
+        if (current == HOST_PERF_SCENE || group == HOST_PERF_SCENE) {
+            host_perf_metal_unavailable(current);
+            host_perf_metal_unavailable(group);
+        }
         return token;
     }
     host_perf_metal_end(token, encoder);

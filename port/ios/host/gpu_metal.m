@@ -8875,19 +8875,11 @@ static void gpu_metal_upscale(gpu_texture source, gpu_texture destination, const
 		pass_commands++;
 		visibility.entry_open = 0;
         perf_group = HOST_PERF_HUD;
-        if (host_perf_metal_needs_split()) {
-            /* Stage-only devices need separate encoders to measure U and H.
-             * Store the upscale's color, then load the same target for HUD.
-             * The new HUD encoder remains eligible for native parking. */
-            pass_finish_open(NO);
-            native_pass.color = 0;
-            if (!pass_begin(destination, 0, NULL))
-                return;
-            native_pass.color = destination;
-        } else {
-            /* Draw-boundary devices keep the original shared encoder. */
-            perf_pass_token = host_perf_metal_switch(perf_pass_token, encoder, HOST_PERF_HUD);
-        }
+        /* The HUD shares the upscale's encoder: a second encoder would store and
+         * reload the whole display target every frame. Draw-boundary devices
+         * time the two apart; stage-only devices count this encoder as upscale
+         * (the planner only uses the sum of the two). */
+        perf_pass_token = host_perf_metal_switch(perf_pass_token, encoder, HOST_PERF_HUD);
 		/* the next draw sets everything again */
 		metal_state_reset(&state_cache);
 	}
