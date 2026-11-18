@@ -1255,6 +1255,7 @@ VOID WINAPI DirectSoundDoWork(void)
 	streams_complete_finished();
 }
 
+static long mixer_buffer_count(void);
 #ifdef HALO_IOS
 int host_sdl_audio_open_count(void);
 int host_thread_count(void);
@@ -1267,16 +1268,13 @@ void audio_cycle_step(void)
 	static const char *const names[] = { "sound off", "sound on", "music off", "music on" };
 	static int phase = -1;
 	long slots = 0;
-	struct sound_buffer *buffer;
 	int streams = -1, threads = -1;
 
 	phase = (phase + 1) & 3;
 	if (phase == 0) config_set_boolean_unsaved("audio.enabled", 0);
 	else if (phase == 1) config_set_boolean_unsaved("audio.enabled", 1);
 	else config_set_boolean_unsaved("audio.music_enabled", phase == 3);
-	pthread_mutex_lock(&mixer_lock);
-	for (buffer = buffers; buffer; buffer = buffer->next) slots++;
-	pthread_mutex_unlock(&mixer_lock);
+	slots = mixer_buffer_count();
 #ifdef HALO_IOS
 	streams = host_sdl_audio_open_count();
 	threads = host_thread_count();
@@ -1564,6 +1562,17 @@ struct sound_buffer
 };
 
 static struct sound_buffer *buffers;
+
+static long mixer_buffer_count(void)
+{
+	struct sound_buffer *buffer;
+	long count = 0;
+
+	pthread_mutex_lock(&mixer_lock);
+	for (buffer = buffers; buffer; buffer = buffer->next) count++;
+	pthread_mutex_unlock(&mixer_lock);
+	return count;
+}
 
 /* mixes the playing buffers into output (frames of stereo float); the
 caller holds mixer_lock */
