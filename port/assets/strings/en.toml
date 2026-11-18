@@ -709,8 +709,17 @@ s3 = "ON"
 s0 = "ON"
 s1 = "OFF"
 
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_button_join]
+text = "JOIN GAME"
+
 [xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_accept]
 text = "SELECT"
+
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_direct_ip_screen_legend_cancel]
+text = "CANCEL"
+
+[xbox.main_menu_multiplayer_type_select_direct_ip.xbox_main_menu_multiplayer_type_select_direct_ip_server_port_label]
+text = "SERVER PORT"
 
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_create]
 text = "CREATE GAME"
