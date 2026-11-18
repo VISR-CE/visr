@@ -89,6 +89,7 @@ int main(void) {
  struct halo_ui_pointer menu_pointer = {0};
  struct platform_input_state input = {0};
  assert(halo_menu_pointer_controls() == 0);
+ glyph_menu_input.source = HALO_GLYPH_INPUT_MOUSE; /* the SDL mouse motion event notes the mouse first */
  halo_controller_glyph_pointer_activity(1, &pointer);
  assert(halo_menu_pointer_controls() == 1 && halo_menu_input_kind() == HALO_INPUT_KEYBOARD);
  input.focused = 1; input.keys[0] = 1;
