@@ -9303,6 +9303,9 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 	boolean noting = ui_mouse_noting_targets;
 	rectangle2d frame;
 	rectangle2d *saved_clip = ui_carousel_clip;
+	/* port: a finger does not move focus, so touch draws no selected card (no focus border,
+	no animated background); mouse, controller and keyboard keep both. */
+	int pointer_controls = halo_menu_pointer_controls();
 	frame = state->frame;
 	ui_carousel_clip = &frame;
 	halo_ui_carousel_visible_range(state->drag.offset / HALO_UI_CAROUSEL_PITCH, count, &begin, &end);
@@ -9324,7 +9327,7 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 			ui_carousel_rebind(list);
 			for (child = list->child; child; child = child->next)
 				if (child->animation.number_of_sprite_frames == 2)
-					child->animation.current_frame_index = child == list->focused_child ? 1 : 0;
+					child->animation.current_frame_index = pointer_controls != 2 && child == list->focused_child ? 1 : 0;
 		}
 		slot = item - state->binding_first;
 		card = widget_instance_get_nth_child(list, slot);
@@ -9333,7 +9336,8 @@ static void ui_carousel_render(struct widget_instance *list, point2d offset)
 		card_definition = ui_widget_definition_get(card->definition_tag_index);
 		card_offset.x = (short)roundf(left) - card_definition->bounds.x0 - card->horizontal_offset;
 		ui_mouse_noting_targets = FALSE;
-		widget_instance_render_recursive(card, &frame, card_offset, item == saved_selected, item == saved_selected);
+		widget_instance_render_recursive(card, &frame, card_offset,
+			pointer_controls != 2 && item == saved_selected, pointer_controls != 2 && item == saved_selected);
 		ui_mouse_noting_targets = noting;
 		if (noting && card->visible && !card->disabled && !list->disabled &&
 			widget_instance_can_receive_events(list) && left >= frame.x0 &&
