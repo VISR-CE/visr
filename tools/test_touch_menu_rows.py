@@ -76,6 +76,9 @@ static int glyph_keyboard_active, glyph_mouse_active, glyph_menus_active, dev, k
 static struct halo_glyph_input glyph_menu_input;
 static char const *family = "";
 struct host_ui_pointer { int active, moved, left_clicks, right_clicks, wheel_steps; float radius; };
+#define SDL_EVENT_MOUSE_BUTTON_DOWN 0x401
+typedef union SDL_Event { unsigned type; struct { unsigned which; } button; } SDL_Event;
+void halo_controller_glyph_input_event(SDL_Event const *event) { (void)event; }
 struct platform_input_state { int focused, mouse_released, mouse_buttons[3], keys[4]; float mouse_dx, mouse_dy, mouse_wheel; };
 int platform_menu_keyboard(void) { return keyboard; }
 int host_development_hooks(void) { return dev; }
