@@ -1611,7 +1611,6 @@ def browser_layout(root, widgets, bitmaps):
     child(screen, base + '/button_refresh_create_inter')
     actions = widget(root, base + '/button_refresh_create_inter', width=640, height=480,
                      flags='pass_unhandled_to_focused_child')
-    ET.SubElement(actions, 'on', event='x', run='port browser filters open')
     ET.SubElement(actions, 'on', event='y', run='join controller to mp game')
     ET.SubElement(actions, 'on', event='y', run='mp type set mode',
                   open=r'ui\shell\main_menu\multiplayer_type_select\connected\connected_map_select_wrapper')
