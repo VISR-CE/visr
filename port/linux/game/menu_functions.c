@@ -4149,7 +4149,7 @@ static void direct_link_status(wchar_t *text, short size, int stage, int seconds
 		usnprintf(text, size - 1, L"Found the host, but your networks can't connect directly.");
 		break;
 	case P2P_JOIN_LOCAL_NETWORK:
-		usnprintf(text, size - 1, L"Found the host. Allow Local Network for VISR in Settings.");
+		usnprintf(text, size - 1, L"Found the host. Allow Local Network for VISR in Network Settings.");
 		break;
 	default:
 		text[0] = 0;
@@ -5671,7 +5671,7 @@ static void lobby_browser_update(struct widget_instance *list)
 		wchar_t name[P2P_LISTING_NAME_SIZE + 1];
 
 		if (!config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. You can turn it on in Settings, under Network.");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. You can turn it on in Network Settings.");
 		else if (!config_boolean("network.public_lobby"))
 			usnprintf(text, NUMBEROF(text) - 1, L"The public game list is turned off.");
 		else if (lobby_browser.joining)
@@ -5685,7 +5685,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			/* (and why, when this network's NAT is what stops it: the router's
 			UPnP, or a forwarded network.tunnel_port, lets it through) */
 			usnprintf(text, NUMBEROF(text) - 1, lobby_browser.failed_nat_strict ?
-				L"Couldn't reach %s. Your network may be blocking it. Try turning on UPnP Port Forwarding in Settings, under Network." :
+				L"Couldn't reach %s. Your network may be blocking it. Try turning on UPnP Port Forwarding in Network Settings." :
 				L"Couldn't reach %s.", name);
 		}
 		else if (!lobby_browser.count && lobby_browser.hidden)
@@ -6114,7 +6114,7 @@ static void browser_update(struct widget_instance *list)
 		if (multiplayer.mode == _multiplayer_mode_server_browser)
 			text[0] = 0;
 		else if (multiplayer.mode == _multiplayer_mode_direct_link && !config_boolean("network.online"))
-			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. You can turn it on in Settings, under Network.");
+			usnprintf(text, NUMBEROF(text) - 1, L"Internet play is turned off. You can turn it on in Network Settings.");
 		/* the invite being joined: how it goes, or what went wrong (a game in
 		the list is shown instead, unless the invite's host is known to have
 		another version) */
