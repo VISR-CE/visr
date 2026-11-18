@@ -536,6 +536,7 @@
 		<string text="SECONDARY WEAPON:"/>
 		<string text="MAP WEAPONS:"/>
 		<string text="CHOOSE WEAPONS"/>
+		<string text="STARTING EQUIPMENT:"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_infinite_grenades">
 		<string text="YES"/>

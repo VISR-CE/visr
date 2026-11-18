@@ -700,7 +700,7 @@ STRING_OVERRIDES.update({
     # gametype_options maps them to the engine's)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels": ["INFINITE GRENADES:", "WEAPON SET:", "VEHICLE SET:", "STARTING EQUIPMENT:",
                                   "VEHICLE RESPAWN TIME:", "LOADOUT:", "PRIMARY WEAPON:", "SECONDARY WEAPON:",
-                                  "MAP WEAPONS:", "CHOOSE WEAPONS"],
+                                  "MAP WEAPONS:", "CHOOSE WEAPONS", "STARTING EQUIPMENT:"],
     # (the helps of each option's values in turn: menu_functions.c's
     # gametype_option_help)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/cap_item_options": [
@@ -824,9 +824,9 @@ WIDGET_PATCHES = {
     # (Item Options' loadout rows, over its buttons)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu": {"insert_before": {
         "main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_bar": [
+            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_spawn_weapons" x="54" y="133"/>',
             f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" x="54" y="163"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" x="54" y="193"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_choose_weapons" x="54" y="223"/>',
+            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_choose_weapons" x="54" y="193"/>',
         ]}},
     # (the PC's Vehicles row's Start opened Item Options)
     "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_vehicles_list_item": {"handlers": [
@@ -1700,7 +1700,7 @@ def _item_options_extras() -> list:
     and secondary weapons)"""
     base = "main_menu/settings_select/multiplayer_setup/item_options_edit"
     lines = []
-    for key, strings, label in (("map_weapons", "var_map_weapons", 8), ("loadout", "var_loadout", 5)):
+    for key, strings, label in (("spawn_weapons", "var_spawn_weapons", 10), ("map_weapons", "var_map_weapons", 8)):
         lines += _widget(f"{base}/op_{key}", [("width", 512), ("height", 28),
                                                ("flags", "pass_unhandled_to_focused_child"),
                                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -1731,7 +1731,7 @@ def _item_options_extras() -> list:
                                                       ("string_index", 9), ("font", "ui\\large_ui"),
                                                       ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
     lines += _strings(f"{base}/var_map_weapons", ["YES", "NO"])
-    lines += _strings(f"{base}/var_loadout", ["CATEGORY", "CUSTOM"])
+    lines += _strings(f"{base}/var_spawn_weapons", ["MAP", "GENERIC", "CUSTOM"])
     return lines
 
 

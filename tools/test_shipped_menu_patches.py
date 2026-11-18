@@ -31,6 +31,8 @@ DISC_ONLY = {
     # (the PC list of ce/*.xml no longer has the INDICATORS row, which moved into TEAMS & HUD; the disc's list does,
     # and ui_map_tags.py --check-menus resolves the remove against it)
     "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_indicators_item",
+    # (the disc's STARTING EQUIPMENT row, which the port's combined row replaces; gone from the PC list of ce/*.xml)
+    "main_menu/settings_select/multiplayer_setup/item_options_edit/op_starting_equipment",
 }
 
 

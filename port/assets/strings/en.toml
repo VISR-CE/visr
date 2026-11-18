@@ -395,13 +395,14 @@ multiplayer = "MULTIPLAYER"
 custom_singleplayer = "CUSTOM SINGLEPLAYER"
 custom_multiplayer = "CUSTOM MULTIPLAYER"
 
-[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout]
-category = "CATEGORY"
-custom = "CUSTOM"
-
 [ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
 yes = "YES"
 no = "NO"
+
+[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons]
+map = "MAP"
+generic = "GENERIC"
+custom = "CUSTOM"
 
 [ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_button_back]
 text = "BACK"
@@ -1422,19 +1423,20 @@ text = "Are you sure you\\nwish to exit Halo?"
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_choose_weapons_label]
 text = "CHOOSE WEAPONS"
 
-[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_loadout_label]
-text = "LOADOUT:"
-
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_map_weapons_label]
 text = "MAP WEAPONS:"
 
-[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout]
-category = "CATEGORY"
-custom = "CUSTOM"
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_spawn_weapons_label]
+text = "STARTING EQUIPMENT:"
 
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
 yes = "YES"
 no = "NO"
+
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons]
+map = "MAP"
+generic = "GENERIC"
+custom = "CUSTOM"
 
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back]
 text = "BACK"
@@ -2267,13 +2269,14 @@ help0 = "Choose the primary and secondary weapons\\neveryone starts with."
 help0 = "The game shows hints about its controls\\nas you play."
 help1 = "The game does not show hints about its\\ncontrols."
 
-[xbox.patches.op_loadout]
-help0 = "Everyone starts with the weapon set\\nabove."
-help1 = "Everyone starts with the primary and\\nsecondary weapons chosen here."
-
 [xbox.patches.op_map_weapons]
 help0 = "Weapons are lying around the map\\nto pick up."
 help1 = "There are no weapons lying around\\nthe map."
+
+[xbox.patches.op_spawn_weapons]
+help0 = "Everyone starts with the map's own\\nweapons and grenades."
+help1 = "Everyone starts with the standard\\nweapons and grenades."
+help2 = "Everyone starts with the primary and\\nsecondary weapons chosen below."
 
 [xbox.patches.profile_item_about]
 text = "ABOUT"

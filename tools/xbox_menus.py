@@ -559,7 +559,8 @@ def fit_window(options, widgets, help_top, root=None, bitmaps=None, always=False
 
 IO = 'main_menu/settings_select/multiplayer_setup/item_options_edit'
 # the Item Options rows the PC version's port added (map weapons, loadout and the two weapons) and their labels
-IO_ROWS = (('op_map_weapons', 'map_weapons_label', 'MAP WEAPONS:'), ('op_loadout', 'loadout_label', 'LOADOUT:'),
+IO_ROWS = (('op_spawn_weapons', 'spawn_weapons_label', 'STARTING EQUIPMENT:'),
+           ('op_map_weapons', 'map_weapons_label', 'MAP WEAPONS:'),
            ('op_choose_weapons', 'choose_weapons_label', 'CHOOSE WEAPONS'))
 
 
@@ -568,7 +569,7 @@ WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 't
 # what the help text shows for each value of a row, in the order of its spinner's values
 IO_HELP = {
     'op_map_weapons': 'Weapons are lying around the map\\nto pick up.|There are no weapons lying around\\nthe map.',
-    'op_loadout': 'Everyone starts with the weapon set\\nabove.|Everyone starts with the primary and\\nsecondary weapons chosen here.',
+    'op_spawn_weapons': "Everyone starts with the map's own\\nweapons and grenades.|Everyone starts with the standard\\nweapons and grenades.|Everyone starts with the primary and\\nsecondary weapons chosen below.",
     'op_choose_weapons': 'Choose the primary and secondary weapons\\neveryone starts with.',
 }
 
@@ -2053,6 +2054,8 @@ def patch_document(names):
     for name, _, _ in IO_ROWS:
         patch_row(options, after=anchor, name=name, widget=f'xbox/{IO}/{name}', help=IO_HELP[name])
         anchor = name
+    # (STARTING EQUIPMENT's rows replace the Xbox's own)
+    patch_row(options, 'remove', child=MM + 'settings_select\\multiplayer_setup\\item_options_edit\\op_starting_equipment')
     # Gametype edit: DELETE GAMETYPE on the Apple TV
     gametype = patch(root, GTE + 'edit_playlist_select_list', GTE + 'gametype_edit_screen')
     patch_row(gametype, after=GTE + 'save_settings_item', platform='tvos', pitch=COMFORTABLE_PITCH,

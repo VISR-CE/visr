@@ -6404,7 +6404,8 @@ enum
 	_option_health,		/* the variant's health, tenths */
 	_option_short,		/* a short of the options */
 	_option_option_byte,	/* a byte of the options */
-	_option_radar		/* the options' radar players, and the variant's flag */
+	_option_radar,		/* the options' radar players, and the variant's flag */
+	_option_spawn		/* SPAWN WEAPONS: 0 the map's equipment, 1 the generic equipment, 2 a custom loadout */
 };
 
 struct gametype_option
@@ -6439,11 +6440,10 @@ static struct gametype_option const gametype_options[] =
 		{ 1, 0 } },
 	{ "item_options_weapon_set_spinner", _option_long, VARIANT_FIELD(universal_variant.weapon_set), 0, 14,
 		{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 10 } },
-	{ "item_options_starting_equipment_spinner", _option_flag, 0, FLAG(_game_variant_generic_starting_equipment_bit),
-		2, { 0, 1 } },
+	/* (the map's starting equipment, the generic one, or a custom loadout: Starting Equipment and Loadout in one) */
+	{ "spawn_weapons_spinner", _option_spawn, 0, 0, 3, { 0, 1, 2 } },
 	{ "map_weapons_spinner", _option_option_byte, OPTIONS_FIELD(no_map_weapons), 0, 2, { 0, 1 } },
-	/* (the loadout: the weapon set's, or each player's two weapons) */
-	{ "loadout_spinner", _option_option_byte, OPTIONS_FIELD(loadout), 0, 2, { _loadout_category, _loadout_custom } },
+	/* (a custom loadout's two weapons per player) */
 	{ "primary_weapon_spinner", _option_option_byte, OPTIONS_FIELD(primary_weapon), 0, NUMBER_OF_LOADOUT_WEAPONS,
 		{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 } },
 	{ "secondary_weapon_spinner", _option_option_byte, OPTIONS_FIELD(secondary_weapon), 0, NUMBER_OF_LOADOUT_WEAPONS,
@@ -6542,6 +6542,9 @@ static long gametype_option_value(struct gametype_option const *option, struct g
 	case _option_short: return *(short *)(o + option->offset);
 	case _option_option_byte: return o[option->offset];
 	case _option_radar: return options->radar_players;
+	case _option_spawn:
+		return options->loadout == _loadout_custom ? 2 :
+			(variant->universal_variant.flags & FLAG(_game_variant_generic_starting_equipment_bit)) != 0;
 	}
 	return 0;
 }
@@ -6565,6 +6568,14 @@ static void gametype_option_value_set(struct gametype_option const *option, long
 	case _option_health: variant->universal_variant.health = (real)value / 10.0f; break;
 	case _option_short: *(short *)(o + option->offset) = (short)value; break;
 	case _option_option_byte: o[option->offset] = (byte)value; break;
+	case _option_spawn:
+		/* (a custom loadout leaves the generic-equipment flag as it was) */
+		options->loadout = value == 2 ? _loadout_custom : _loadout_category;
+		if (value == 1)
+			variant->universal_variant.flags |= FLAG(_game_variant_generic_starting_equipment_bit);
+		else if (value == 0)
+			variant->universal_variant.flags &= ~FLAG(_game_variant_generic_starting_equipment_bit);
+		break;
 	case _option_radar:
 		/* (and the Xbox's flag: other players on the tracker or not) */
 		options->radar_players = (byte)value;
@@ -7123,11 +7134,10 @@ static void gametype_option_help(struct widget_instance *list)
 
 	/* (Item Options: the weapon set's row for a category loadout, the two
 	weapons' for a custom one) */
-	if (named(list, "loadout_spinner", 0))
+	if (named(list, "spawn_weapons_spinner", 0))
 	{
-		boolean custom = named(list, "loadout_spinner", 0)->parameters.list.selected_index == _loadout_custom;
+		boolean custom = named(list, "spawn_weapons_spinner", 0)->parameters.list.selected_index == 2;
 
-		visible_set(named(list, "op_weapon_set", 0), !custom);
 		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
 	/* (the server browser's filters, hidden: their helps are fewer than
