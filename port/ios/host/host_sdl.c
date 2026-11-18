@@ -132,6 +132,8 @@ int host_sdl_init(uint32_t flags)
 
 int host_sdl_set_hint(const char *name, const char *value)
 {
+	/* an empty value puts the hint back to its default */
+	if(value && !*value)return SDL_ResetHint(name);
 	return SDL_SetHint(name, value);
 }
 
@@ -1082,6 +1084,18 @@ void host_sdl_audio_route_changed(void)
     pthread_mutex_lock(&audio_life_lock);
     audio_route_changed_locked();
     pthread_mutex_unlock(&audio_life_lock);
+}
+
+/* 1 while any sound stream is open. With sound off nothing is open and the audio session belongs to
+   other apps, so nothing here may make it active (host_external.m's audio_reopen asks first). */
+int host_sdl_audio_any_open(void)
+{
+    int any=0;
+    pthread_mutex_lock(&audio_life_lock);
+    for(size_t i=0;i<SDL_arraysize(audio_streams);i++)
+        if(audio_streams[i])any=1;
+    pthread_mutex_unlock(&audio_life_lock);
+    return any;
 }
 
 /* A stream that should be playing whose callbacks stopped coming: the system stopped the device without a

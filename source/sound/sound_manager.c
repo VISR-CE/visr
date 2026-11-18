@@ -1130,6 +1130,7 @@ static short sound_definition_promote(
 /* port: config.toml's audio.music_volume and audio.effects_volume, read
 again when Settings changes them */
 double config_real(const char *name);
+int config_boolean(const char *name);
 unsigned long config_changes(void);
 
 static real sound_manager_port_volume(
@@ -1142,7 +1143,8 @@ static real sound_manager_port_volume(
 	if (read_at != config_changes())
 	{
 		read_at = config_changes();
-		music_volume = PIN((real)config_real("audio.music_volume"), 0.f, 1.f);
+		music_volume = config_boolean("audio.music_enabled") ?
+			PIN((real)config_real("audio.music_volume"), 0.f, 1.f) : 0.f;
 		effects_volume = PIN((real)config_real("audio.effects_volume"), 0.f, 1.f);
 		/* (dsound_sdl.c's DirectSoundDoWork rereads audio.volume as the master
 		gain on the same change count) */

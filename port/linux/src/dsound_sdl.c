@@ -862,9 +862,20 @@ static void audio_clock_stop(void)
 	pthread_mutex_unlock(&clock_lock);
 }
 
+/* The one place that chooses how the output shares the device with other apps.
+Music on: the hint is reset (an empty value), so SDL's own default applies. Music
+off: ambient, which mixes with other apps' audio without ducking it (the held
+choice: ambient obeys the silent switch). Only Apple's SDL reads the hint. */
+static void audio_apply_category(void)
+{
+	SDL_SetHint("SDL_AUDIO_CATEGORY", config_boolean("audio.music_enabled") ? "" : "ambient");
+}
+
 static SDL_AudioStream *audio_open_device(void)
 {
 	SDL_AudioSpec spec;
+
+	audio_apply_category();
 
 	spec.format = SDL_AUDIO_F32;
 	spec.channels = OUTPUT_CHANNELS;
@@ -886,6 +897,8 @@ static void audio_close_device(SDL_AudioStream *stream)
 	/* blocks until a callback in flight returns */
 	SDL_DestroyAudioStream(stream);
 }
+
+static BOOL audio_music_open = TRUE;
 
 static struct audio_backend audio_backend = { audio_open_device, audio_close_device };
 
@@ -1229,7 +1242,15 @@ VOID WINAPI DirectSoundDoWork(void)
 		/* audio.enabled applies live: off closes the device (other apps get
 		the output back), on opens it again, with the clock covering the swap */
 		if (audio_started)
+		{
+			BOOL music = config_boolean("audio.music_enabled");
+
+			/* a music change reopens the device so the category applies */
+			if (music != audio_music_open && audio_driver == AUDIO_DRIVER_SDL)
+				audio_set_device(FALSE);
 			audio_set_device(config_boolean("audio.enabled") && platform_sdl_initialize());
+			audio_music_open = music;
+		}
 	}
 	streams_complete_finished();
 }

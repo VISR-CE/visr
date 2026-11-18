@@ -23,3 +23,13 @@ def test_menu_code_hides_rows_by_state_and_help_no_longer_says_restart():
     assert 'op_music_volume' in code
     text = (ROOT / 'tools/port_settings.py').read_text()
     assert 'Play sound at all' not in text
+
+
+def test_music_off_wiring():
+    root = Path(__file__).resolve().parent.parent
+    sound = (root / "source/sound/sound_manager.c").read_text()
+    assert 'config_boolean("audio.music_enabled")' in sound
+    dsound = (root / "port/linux/src/dsound_sdl.c").read_text()
+    assert "audio_apply_category" in dsound and "audio_music_open" in dsound
+    host = (root / "port/ios/host/host_external.m").read_text()
+    assert "host_sdl_audio_any_open()" in host

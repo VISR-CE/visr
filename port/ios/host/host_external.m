@@ -645,6 +645,11 @@ static void label_layout(void) {
    and the device under them closed and opened again on that route. */
 static void audio_reopen(const char *why) {
     NSError *error=nil;
+    /* sound off: no device is open and the session belongs to other apps, so leave it alone */
+    if(!host_sdl_audio_any_open()) {
+        host_logf(HOST_LOG_INFO,"audio route: no sound device open, nothing to reopen (%s)",why);
+        return;
+    }
     if(![AVAudioSession.sharedInstance setActive:YES error:&error])
         host_logf(HOST_LOG_WARN,"audio route: cannot make the audio session active (%s): %s",why,
             error.localizedDescription.UTF8String);
