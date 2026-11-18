@@ -339,6 +339,56 @@ radar_display = "RADAR DISPLAY:"
 players_on_radar = "PLAYERS ON RADAR:"
 friends_on_screen = "FRIENDS ON SCREEN:"
 
+[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_help_strings]
+everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
+everyone_starts_with_a_random_we_b88a5d = "Everyone starts with a random weapon\\nas a primary weapon."
+everyone_starts_with_the_assault_824b5b = "Everyone starts with the assault rifle\\nas a primary weapon."
+everyone_starts_with_the_pistol__16b583 = "Everyone starts with the pistol\\nas a primary weapon."
+everyone_starts_with_the_shotgun_ff0841 = "Everyone starts with the shotgun\\nas a primary weapon."
+everyone_starts_with_the_sniper__aa408e = "Everyone starts with the sniper rifle\\nas a primary weapon."
+everyone_starts_with_the_rocket__1a063e = "Everyone starts with the rocket launcher\\nas a primary weapon."
+everyone_starts_with_the_plasma__8a89b4 = "Everyone starts with the plasma pistol\\nas a primary weapon."
+everyone_starts_with_the_plasma__25989c = "Everyone starts with the plasma rifle\\nas a primary weapon."
+everyone_starts_with_the_needler_c86a6a = "Everyone starts with the needler\\nas a primary weapon."
+everyone_starts_with_no_weapon_n_60d78b = "Everyone starts with no weapon\\nas a secondary weapon."
+everyone_starts_with_a_random_we_70125c = "Everyone starts with a random weapon\\nas a secondary weapon."
+everyone_starts_with_the_assault_8bc0b6 = "Everyone starts with the assault rifle\\nas a secondary weapon."
+everyone_starts_with_the_pistol__0daa97 = "Everyone starts with the pistol\\nas a secondary weapon."
+everyone_starts_with_the_shotgun_4c8d14 = "Everyone starts with the shotgun\\nas a secondary weapon."
+everyone_starts_with_the_sniper__2e9c8b = "Everyone starts with the sniper rifle\\nas a secondary weapon."
+everyone_starts_with_the_rocket__60fbc1 = "Everyone starts with the rocket launcher\\nas a secondary weapon."
+everyone_starts_with_the_plasma__6d35d1 = "Everyone starts with the plasma pistol\\nas a secondary weapon."
+everyone_starts_with_the_plasma__269736 = "Everyone starts with the plasma rifle\\nas a secondary weapon."
+everyone_starts_with_the_needler_ec53e4 = "Everyone starts with the needler\\nas a secondary weapon."
+
+[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_labels]
+primary_weapon = "PRIMARY WEAPON:"
+secondary_weapon = "SECONDARY WEAPON:"
+
+[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner]
+s0 = "NONE"
+s1 = "RANDOM"
+s2 = "ASSAULT RIFLE"
+s3 = "PISTOL"
+s4 = "SHOTGUN"
+s5 = "SNIPER RIFLE"
+s6 = "ROCKET LAUNCHER"
+s7 = "PLASMA PISTOL"
+s8 = "PLASMA RIFLE"
+s9 = "NEEDLER"
+
+[ce.main_menu_multiplayer_type_select_weapons_edit.main_menu_multiplayer_type_select_weapons_edit_secondary_weapon_spinner]
+s0 = "NONE"
+s1 = "RANDOM"
+s2 = "ASSAULT RIFLE"
+s3 = "PISTOL"
+s4 = "SHOTGUN"
+s5 = "SNIPER RIFLE"
+s6 = "ROCKET LAUNCHER"
+s7 = "PLASMA PISTOL"
+s8 = "PLASMA RIFLE"
+s9 = "NEEDLER"
+
 [ce.main_menu_new_select_port.main_menu_new_select_var_map_kinds]
 singleplayer = "SINGLEPLAYER"
 multiplayer = "MULTIPLAYER"
@@ -348,18 +398,6 @@ custom_multiplayer = "CUSTOM MULTIPLAYER"
 [ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout]
 category = "CATEGORY"
 custom = "CUSTOM"
-
-[ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon]
-none = "NONE"
-random = "RANDOM"
-assault_rifle = "ASSAULT RIFLE"
-pistol = "PISTOL"
-shotgun = "SHOTGUN"
-sniper_rifle = "SNIPER RIFLE"
-rocket_launcher = "ROCKET LAUNCHER"
-plasma_pistol = "PLASMA PISTOL"
-plasma_rifle = "PLASMA RIFLE"
-needler = "NEEDLER"
 
 [ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
 yes = "YES"
@@ -1310,6 +1348,56 @@ radar_display = "RADAR DISPLAY:"
 players_on_radar = "PLAYERS ON RADAR:"
 friends_on_screen = "FRIENDS ON SCREEN:"
 
+[xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_help_strings]
+everyone_starts_with_no_weapon_n_306286 = "Everyone starts with no weapon\\nas a primary weapon."
+everyone_starts_with_a_random_we_b88a5d = "Everyone starts with a random weapon\\nas a primary weapon."
+everyone_starts_with_the_assault_824b5b = "Everyone starts with the assault rifle\\nas a primary weapon."
+everyone_starts_with_the_pistol__16b583 = "Everyone starts with the pistol\\nas a primary weapon."
+everyone_starts_with_the_shotgun_ff0841 = "Everyone starts with the shotgun\\nas a primary weapon."
+everyone_starts_with_the_sniper__aa408e = "Everyone starts with the sniper rifle\\nas a primary weapon."
+everyone_starts_with_the_rocket__1a063e = "Everyone starts with the rocket launcher\\nas a primary weapon."
+everyone_starts_with_the_plasma__8a89b4 = "Everyone starts with the plasma pistol\\nas a primary weapon."
+everyone_starts_with_the_plasma__25989c = "Everyone starts with the plasma rifle\\nas a primary weapon."
+everyone_starts_with_the_needler_c86a6a = "Everyone starts with the needler\\nas a primary weapon."
+everyone_starts_with_no_weapon_n_60d78b = "Everyone starts with no weapon\\nas a secondary weapon."
+everyone_starts_with_a_random_we_70125c = "Everyone starts with a random weapon\\nas a secondary weapon."
+everyone_starts_with_the_assault_8bc0b6 = "Everyone starts with the assault rifle\\nas a secondary weapon."
+everyone_starts_with_the_pistol__0daa97 = "Everyone starts with the pistol\\nas a secondary weapon."
+everyone_starts_with_the_shotgun_4c8d14 = "Everyone starts with the shotgun\\nas a secondary weapon."
+everyone_starts_with_the_sniper__2e9c8b = "Everyone starts with the sniper rifle\\nas a secondary weapon."
+everyone_starts_with_the_rocket__60fbc1 = "Everyone starts with the rocket launcher\\nas a secondary weapon."
+everyone_starts_with_the_plasma__6d35d1 = "Everyone starts with the plasma pistol\\nas a secondary weapon."
+everyone_starts_with_the_plasma__269736 = "Everyone starts with the plasma rifle\\nas a secondary weapon."
+everyone_starts_with_the_needler_ec53e4 = "Everyone starts with the needler\\nas a secondary weapon."
+
+[xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_labels]
+primary_weapon = "PRIMARY WEAPON:"
+secondary_weapon = "SECONDARY WEAPON:"
+
+[xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_primary_weapon_spinner]
+s0 = "NONE"
+s1 = "RANDOM"
+s2 = "ASSAULT RIFLE"
+s3 = "PISTOL"
+s4 = "SHOTGUN"
+s5 = "SNIPER RIFLE"
+s6 = "ROCKET LAUNCHER"
+s7 = "PLASMA PISTOL"
+s8 = "PLASMA RIFLE"
+s9 = "NEEDLER"
+
+[xbox.main_menu_multiplayer_type_select_weapons_edit.xbox_main_menu_multiplayer_type_select_weapons_edit_secondary_weapon_spinner]
+s0 = "NONE"
+s1 = "RANDOM"
+s2 = "ASSAULT RIFLE"
+s3 = "PISTOL"
+s4 = "SHOTGUN"
+s5 = "SNIPER RIFLE"
+s6 = "ROCKET LAUNCHER"
+s7 = "PLASMA PISTOL"
+s8 = "PLASMA RIFLE"
+s9 = "NEEDLER"
+
 [xbox.main_menu_new_select_port.xbox_main_menu_new_select_var_map_kinds]
 singleplayer = "SINGLEPLAYER"
 multiplayer = "MULTIPLAYER"
@@ -1331,33 +1419,18 @@ text = "CANCEL"
 [xbox.main_menu_quit_select.xbox_main_menu_quit_select_quit_panel]
 text = "Are you sure you\\nwish to exit Halo?"
 
+[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_choose_weapons_label]
+text = "CHOOSE WEAPONS"
+
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_loadout_label]
 text = "LOADOUT:"
 
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_map_weapons_label]
 text = "MAP WEAPONS:"
 
-[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_primary_weapon_label]
-text = "PRIMARY WEAPON:"
-
-[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_secondary_weapon_label]
-text = "SECONDARY WEAPON:"
-
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout]
 category = "CATEGORY"
 custom = "CUSTOM"
-
-[xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon]
-none = "NONE"
-random = "RANDOM"
-assault_rifle = "ASSAULT RIFLE"
-pistol = "PISTOL"
-shotgun = "SHOTGUN"
-sniper_rifle = "SNIPER RIFLE"
-rocket_launcher = "ROCKET LAUNCHER"
-plasma_pistol = "PLASMA PISTOL"
-plasma_rifle = "PLASMA RIFLE"
-needler = "NEEDLER"
 
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons]
 yes = "YES"
@@ -2187,6 +2260,9 @@ description = "Join a friend's game with\\nits join code or invite link."
 [xbox.patches.multiplayer_type_join_lan]
 text = "SYSTEM LINK PLAY"
 
+[xbox.patches.op_choose_weapons]
+help0 = "Choose the primary and secondary weapons\\neveryone starts with."
+
 [xbox.patches.op_ingame_help]
 help0 = "The game shows hints about its controls\\nas you play."
 help1 = "The game does not show hints about its\\ncontrols."
@@ -2198,30 +2274,6 @@ help1 = "Everyone starts with the primary and\\nsecondary weapons chosen here."
 [xbox.patches.op_map_weapons]
 help0 = "Weapons are lying around the map\\nto pick up."
 help1 = "There are no weapons lying around\\nthe map."
-
-[xbox.patches.op_primary_weapon]
-help0 = "Everyone starts with no weapon\\nas a primary weapon."
-help1 = "Everyone starts with a random weapon\\nas a primary weapon."
-help2 = "Everyone starts with the assault rifle\\nas a primary weapon."
-help3 = "Everyone starts with the pistol\\nas a primary weapon."
-help4 = "Everyone starts with the shotgun\\nas a primary weapon."
-help5 = "Everyone starts with the sniper rifle\\nas a primary weapon."
-help6 = "Everyone starts with the rocket launcher\\nas a primary weapon."
-help7 = "Everyone starts with the plasma pistol\\nas a primary weapon."
-help8 = "Everyone starts with the plasma rifle\\nas a primary weapon."
-help9 = "Everyone starts with the needler\\nas a primary weapon."
-
-[xbox.patches.op_secondary_weapon]
-help0 = "Everyone starts with no weapon\\nas a secondary weapon."
-help1 = "Everyone starts with a random weapon\\nas a secondary weapon."
-help2 = "Everyone starts with the assault rifle\\nas a secondary weapon."
-help3 = "Everyone starts with the pistol\\nas a secondary weapon."
-help4 = "Everyone starts with the shotgun\\nas a secondary weapon."
-help5 = "Everyone starts with the sniper rifle\\nas a secondary weapon."
-help6 = "Everyone starts with the rocket launcher\\nas a secondary weapon."
-help7 = "Everyone starts with the plasma pistol\\nas a secondary weapon."
-help8 = "Everyone starts with the plasma rifle\\nas a secondary weapon."
-help9 = "Everyone starts with the needler\\nas a secondary weapon."
 
 [xbox.patches.profile_item_about]
 text = "ABOUT"

@@ -19,23 +19,13 @@
 	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" x="286" y="1"/>
+	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_choose_weapons" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<on event="a" open="main_menu/multiplayer_type_select/weapons_edit/weapons_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/weapons_edit/weapons_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/choose_weapons_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" x="286" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" type="spinner" top="2" width="206" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -13 19 -7" footer_bounds="7 208 19 214">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	<widget name="main_menu/settings_select/multiplayer_setup/item_options_edit/choose_weapons_label" type="text" controller="1" width="480" height="22" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_map_weapons">
 		<string text="YES" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons.yes"/>
@@ -44,17 +34,5 @@
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout">
 		<string text="CATEGORY" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout.category"/>
 		<string text="CUSTOM" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout.custom"/>
-	</strings>
-	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon">
-		<string text="NONE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.none"/>
-		<string text="RANDOM" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.random"/>
-		<string text="ASSAULT RIFLE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.assault_rifle"/>
-		<string text="PISTOL" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.pistol"/>
-		<string text="SHOTGUN" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.shotgun"/>
-		<string text="SNIPER RIFLE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.sniper_rifle"/>
-		<string text="ROCKET LAUNCHER" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.rocket_launcher"/>
-		<string text="PLASMA PISTOL" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.plasma_pistol"/>
-		<string text="PLASMA RIFLE" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.plasma_rifle"/>
-		<string text="NEEDLER" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_loadout_weapon.needler"/>
 	</strings>
 </menus>

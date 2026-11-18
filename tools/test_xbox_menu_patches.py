@@ -137,12 +137,12 @@ def test_in_game_help_is_added_to_advanced_setup():
 
 def test_item_options_rows_set_and_save_their_own_spinners():
     patch = next(p for p in table() if p.get("screen").endswith("item_options_screen"))
-    assert [row.get("name") for row in rows(patch)] == ["op_map_weapons", "op_loadout", "op_primary_weapon",
-                                                         "op_secondary_weapon"]
+    assert [row.get("name") for row in rows(patch)] == ["op_map_weapons", "op_loadout", "op_choose_weapons"]
     functions = port_functions()
     widgets = {w.get("name"): w for path in MENUS.glob("*.xml") for w in ET.parse(path).getroot().iter("widget")}
     for row in rows(patch):
-        handlers = {on.get("event"): on.get("run") for on in widgets[row.get("widget")].findall("on")}
+        handlers = {on.get("event"): on.get("run") for on in widgets[row.get("widget")].findall("on")
+                    if on.get("run") and on.get("event") in ("created", "deleted")}
         assert handlers == {"created": "port option row init", "deleted": "port option row save"}
         assert set(handlers.values()) <= functions
     # (the rows have to end above the help text the patch's footer names)

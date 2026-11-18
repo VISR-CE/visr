@@ -422,6 +422,7 @@ static char const *const port_function_names[] =
 	"mp profile begin editing", "mp profile save changes", "request del playlist profile", "final del playlist profile",
 	"mp profile init game options", "mp profile set game options", "mp profile init respawn options",
 	"mp profile set respawn options", "mp profile init teams hud", "mp profile set teams hud",
+	"mp profile init weapons", "mp profile set weapons",
 	"mp profile init game engine", "mp profile set game engine", "mp profile init ctf rules",
 	"mp profile init koth rules", "mp profile init slayer rules", "mp profile init oddball rules",
 	"mp profile init racing rules", "mp profile init player opts", "mp profile init item options",

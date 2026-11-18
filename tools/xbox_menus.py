@@ -49,7 +49,7 @@ LOBBY_MAP_WIDGETS = ('main_menu/solo_level_select/replay_level_right_pic',
 MP = 'main_menu/multiplayer_type_select'
 MP_PAGES = tuple('main_menu.multiplayer_type_select.' + name for name in (
     'join_game', 'join_game.filters', 'join_game.port', 'direct_ip', 'server_settings', 'coop_options', 'lobby',
-    'mp_map_select', 'game_options_edit', 'respawn_options_edit', 'teams_hud_edit')) + (
+    'mp_map_select', 'game_options_edit', 'respawn_options_edit', 'teams_hud_edit', 'weapons_edit')) + (
     'main_menu.quit_select', 'main_menu.new_select.port',
     'main_menu.settings_select.multiplayer_setup.playlist_select')
 # Bounds from tags/widgets.json: connected/server_list, advanced_controls,
@@ -560,8 +560,7 @@ def fit_window(options, widgets, help_top, root=None, bitmaps=None, always=False
 IO = 'main_menu/settings_select/multiplayer_setup/item_options_edit'
 # the Item Options rows the PC version's port added (map weapons, loadout and the two weapons) and their labels
 IO_ROWS = (('op_map_weapons', 'map_weapons_label', 'MAP WEAPONS:'), ('op_loadout', 'loadout_label', 'LOADOUT:'),
-           ('op_primary_weapon', 'primary_weapon_label', 'PRIMARY WEAPON:'),
-           ('op_secondary_weapon', 'secondary_weapon_label', 'SECONDARY WEAPON:'))
+           ('op_choose_weapons', 'choose_weapons_label', 'CHOOSE WEAPONS'))
 
 
 WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 'the shotgun', 'the sniper rifle',
@@ -570,8 +569,7 @@ WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 't
 IO_HELP = {
     'op_map_weapons': 'Weapons are lying around the map\\nto pick up.|There are no weapons lying around\\nthe map.',
     'op_loadout': 'Everyone starts with the weapon set\\nabove.|Everyone starts with the primary and\\nsecondary weapons chosen here.',
-    'op_primary_weapon': '|'.join(f'Everyone starts with {w}\\nas a primary weapon.' for w in WEAPONS),
-    'op_secondary_weapon': '|'.join(f'Everyone starts with {w}\\nas a secondary weapon.' for w in WEAPONS),
+    'op_choose_weapons': 'Choose the primary and secondary weapons\\neveryone starts with.',
 }
 
 
@@ -584,7 +582,7 @@ def item_options_document(assets, bitmaps):
     labels = {f'xbox/{IO}/{label}': caption for _, label, caption in IO_ROWS}
     for element in root.iter():
         for key, value in list(element.attrib.items()):
-            if value.startswith(IO):
+            if value.startswith(IO) or (key == 'open' and value.startswith(MP + '/weapons_edit')):
                 element.set(key, 'xbox/' + value)
             elif key in ('bitmap', 'header_bitmap', 'footer_bitmap'):
                 element.set(key, bitmap_ref(value, bitmaps))

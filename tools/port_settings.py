@@ -700,7 +700,7 @@ STRING_OVERRIDES.update({
     # gametype_options maps them to the engine's)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels": ["INFINITE GRENADES:", "WEAPON SET:", "VEHICLE SET:", "STARTING EQUIPMENT:",
                                   "VEHICLE RESPAWN TIME:", "LOADOUT:", "PRIMARY WEAPON:", "SECONDARY WEAPON:",
-                                  "MAP WEAPONS:"],
+                                  "MAP WEAPONS:", "CHOOSE WEAPONS"],
     # (the helps of each option's values in turn: menu_functions.c's
     # gametype_option_help)
     "main_menu/settings_select/multiplayer_setup/item_options_edit/cap_item_options": [
@@ -826,8 +826,7 @@ WIDGET_PATCHES = {
         "main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_bar": [
             f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" x="54" y="163"/>',
             f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" x="54" y="193"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" x="54" y="223"/>',
-            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" x="54" y="253"/>',
+            f'<child widget="main_menu/settings_select/multiplayer_setup/item_options_edit/op_choose_weapons" x="54" y="223"/>',
         ]}},
     # (the PC's Vehicles row's Start opened Item Options)
     "main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_vehicles_list_item": {"handlers": [
@@ -900,6 +899,7 @@ TITLES = {
     f"{MT}/game_options_edit/header_game_options": "GAME",
     f"{MT}/respawn_options_edit/header_respawn_options": "RESPAWN OPTIONS",
     f"{MT}/teams_hud_edit/header_teams_hud": "TEAMS & HUD",
+    f"{MT}/weapons_edit/header_weapons": "SPAWN WEAPONS",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -1700,9 +1700,7 @@ def _item_options_extras() -> list:
     and secondary weapons)"""
     base = "main_menu/settings_select/multiplayer_setup/item_options_edit"
     lines = []
-    for key, strings, label in (("map_weapons", "var_map_weapons", 8), ("loadout", "var_loadout", 5),
-                                ("primary_weapon", "var_loadout_weapon", 6),
-                                ("secondary_weapon", "var_loadout_weapon", 7)):
+    for key, strings, label in (("map_weapons", "var_map_weapons", 8), ("loadout", "var_loadout", 5)):
         lines += _widget(f"{base}/op_{key}", [("width", 512), ("height", 28),
                                                ("flags", "pass_unhandled_to_focused_child"),
                                                ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
@@ -1720,10 +1718,45 @@ def _item_options_extras() -> list:
                           ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                           ("header_bounds", "7 -13 19 -7"), ("footer_bounds", "7 208 19 214")],
                          ['<on event="left_mouse" run="mouse spinner 1wide click"/>'])
+    # the custom loadout's row, shown while the loadout is CUSTOM: it opens the primary and secondary weapons' screen
+    screen = f"{MT}/weapons_edit/weapons_screen"
+    lines += _widget(f"{base}/op_choose_weapons", [("width", 512), ("height", 28),
+                                                   ("flags", "pass_unhandled_to_focused_child"),
+                                                   ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
+                     [f'<on event="a" open="{screen}"/>', f'<on event="start" open="{screen}"/>',
+                      '<on event="left_mouse" run="mouse emit accept event"/>',
+                      f'<child widget="{base}/choose_weapons_label"/>'])
+    lines += _widget(f"{base}/choose_weapons_label", [("type", "text"), ("controller", 1), ("width", 480),
+                                                      ("height", 22), ("string_list", f"{base}/item_options_labels"),
+                                                      ("string_index", 9), ("font", "ui\\large_ui"),
+                                                      ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
     lines += _strings(f"{base}/var_map_weapons", ["YES", "NO"])
     lines += _strings(f"{base}/var_loadout", ["CATEGORY", "CUSTOM"])
-    lines += _strings(f"{base}/var_loadout_weapon", LOADOUT_WEAPONS)
     return lines
+
+
+def _weapons() -> list:
+    """PRIMARY and SECONDARY WEAPON, behind the Item Options' CHOOSE WEAPONS row (the loadout CUSTOM): each
+    player's two spawn weapons"""
+    base = f"{MT}/weapons_edit"
+    spec = {"screen": "weapons_screen", "spacing": 30, "header": ("header_weapons", f"{base}/header_weapons")}
+    rows, extra = [], []
+    for index, key in enumerate(("primary_weapon", "secondary_weapon")):
+        extra += _hosting_spinner(base, key, index, LOADOUT_WEAPONS, None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["PRIMARY WEAPON:", "SECONDARY WEAPON:"])
+    helps = ["no weapon", "a random weapon", "the assault rifle", "the pistol", "the shotgun", "the sniper rifle",
+             "the rocket launcher", "the plasma pistol", "the plasma rifle", "the needler"]
+    extra += _strings(f"{base}/help_strings", [f"Everyone starts with {w}\\nas a {kind} weapon."
+                                               for kind in ("primary", "secondary") for w in helps])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set weapons" back="true"/>',
+                      '<on event="start" run="mp profile set weapons" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/weapons_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init weapons"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
 
 
 def _map_kind() -> list:
@@ -1762,6 +1795,7 @@ def multiplayer_files() -> dict:
         f"{MT}/game_options_edit".replace("/", ".") + ".xml": head + _game_options() + ["</menus>", ""],
         f"{MT}/respawn_options_edit".replace("/", ".") + ".xml": head + _respawn_options() + ["</menus>", ""],
         f"{MT}/teams_hud_edit".replace("/", ".") + ".xml": head + _teams_hud() + ["</menus>", ""],
+        f"{MT}/weapons_edit".replace("/", ".") + ".xml": head + _weapons() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],

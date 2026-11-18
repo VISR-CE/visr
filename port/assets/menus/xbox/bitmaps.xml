@@ -179,6 +179,9 @@
 	<bitmap name="xbox/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud">
 		<frame png="ce/port/main_menu/multiplayer_type_select/teams_hud_edit/header_teams_hud.png" width="512" height="64" />
 	</bitmap>
+	<bitmap name="xbox/main_menu/multiplayer_type_select/weapons_edit/header_weapons">
+		<frame png="ce/port/main_menu/multiplayer_type_select/weapons_edit/header_weapons.png" width="512" height="64" />
+	</bitmap>
 	<bitmap name="xbox/main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options">
 		<frame png="ce/shell/main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options__0.png" width="512" height="64" />
 	</bitmap>

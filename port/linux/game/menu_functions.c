@@ -7128,8 +7128,7 @@ static void gametype_option_help(struct widget_instance *list)
 		boolean custom = named(list, "loadout_spinner", 0)->parameters.list.selected_index == _loadout_custom;
 
 		visible_set(named(list, "op_weapon_set", 0), !custom);
-		visible_set(named(list, "op_primary_weapon", 0), custom);
-		visible_set(named(list, "op_secondary_weapon", 0), custom);
+		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
