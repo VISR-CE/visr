@@ -1328,6 +1328,20 @@ def test_main_menu_settings_opens_the_hub_not_the_profile_picker():
     assert always[select] == 'pc/xbox/settings/settings_screen'
 
 
+def test_hub_profiles_row_reaches_the_picker_without_looping():
+    module = generator()
+    profiles = [r for r in module.HUB_ROWS if r[0] == 'profiles']
+    assert len(profiles) == 1
+    # The row opens the edit-screen tag, which carries the picker list. Row opens
+    # always pass a parent, and only root opens consult menu_screen_always, so the
+    # SETTINGS redirect to the hub cannot send PROFILES back to the hub.
+    assert module.PROFILES_OPEN.endswith('player_profile_edit_screen')
+    assert module.PROFILES_OPEN.startswith('ui\\shell\\')
+    redirect_sources = {src.replace('/', '\\') for src, _ in module.SCREEN_ALWAYS}
+    assert module.PROFILES_OPEN in redirect_sources  # root-only; non-root row opens skip it
+    assert not module.PROFILES_OPEN.endswith('player_profile_select_screen')
+
+
 @pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS)
 def test_generated_errors_preserve_runtime_text_and_pane_bounds(name):
     module = generator()
