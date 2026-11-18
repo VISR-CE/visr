@@ -147,17 +147,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: CPU and GPU Frame Time (ms) against the 16.7 ms frame budget, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.14", "Beeman main e3abbd1"]
+    x-axis "Port and version" ["VISR 0.6.19", "Beeman main e3abbd1"]
     y-axis "Milliseconds per frame" 0 --> 16.7
-    bar [4.6, 8.4]
-    bar [13.6, 0]
+    bar [6.2, 8.4]
+    bar [13.9, 0]
 ```
 
 🟦 Median CPU time 🟨 Median GPU time
 
 Lower is better.
 
-[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 4.57 ms median CPU time per frame, 13.62 ms median GPU time per rendered frame); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 8.43 ms median CPU time per frame).
+[VISR 0.6.19](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.19) (build 20261117.111529, measured 2026-11-17; 6.17 ms median CPU time per frame, 13.87 ms median GPU time per rendered frame); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 8.43 ms median CPU time per frame).
 
 Not measured: [VISR 0.6.18](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.18) (The campaign suite has not been run for this build.); [VISR 0.6.16](https://github.com/steverice/visr/releases/tag/visr-v0.6.16) (The campaign suite has not been run for this build.); [VISR 0.6.3](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
@@ -177,17 +177,17 @@ config:
 ---
 xychart-beta horizontal
     title "Campaign: fps at the profile's frame cap, Apple TV 4K"
-    x-axis "Port and version" ["VISR 0.6.14", "Beeman main e3abbd1"]
+    x-axis "Port and version" ["VISR 0.6.19", "Beeman main e3abbd1"]
     y-axis "Frames per second" 0 --> 80
-    bar [58.4, 59.7]
-    bar [32.9, 48.6]
+    bar [59.8, 59.7]
+    bar [58.8, 48.6]
 ```
 
 🟦 Average fps 🟨 1% low fps
 
 Higher is better.
 
-[VISR 0.6.14](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.14) (build 20261108.25946, measured 2026-11-09; 97.8% of frames on time); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 53.5% of frames on time).
+[VISR 0.6.19](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.19) (build 20261117.111529, measured 2026-11-17; 100% of frames on time); Beeman main e3abbd1 (build unknown, measured 2026-11-05; 53.5% of frames on time).
 
 Not measured: [VISR 0.6.18](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.18) (The campaign suite has not been run for this build.); [VISR 0.6.16](https://github.com/steverice/visr/releases/tag/visr-v0.6.16) (The campaign suite has not been run for this build.); [VISR 0.6.3](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.3) (Not run on this device.); [VISR 0.6.0](https://github.com/VISR-CE/visr/releases/tag/visr-v0.6.0) (Not run on this device.); VISR 0.6.1 (Not run on this device.); Chupathingy (iOS/tvOS) release-0.9.0 d9068ec6f (The tvOS app cannot be built from the source as its own instructions describe: the build stops with a compile error, because the game's networking code includes a macOS-only CoreGraphics header that the tvOS SDK does not have.); [ChupathingyCE iOS v0.4.1](https://github.com/JizzyRivers/chupathingyce-ios/releases/tag/v0.4.1) (The release's tvOS app starts and loads a level but cannot draw: its window creation fails on tvOS (SDL reports that OpenGL support is not available in the uikit video driver) and the engine runs without a window, so no frame is ever presented and frame time cannot be measured.).
 
@@ -253,7 +253,7 @@ VISR 0.6.10 (build 20261104.114703, measured 2026-11-04; 11.1 ms 95th-percentile
 
 ## Methodology
 
-The snapshot holds 573 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
+The snapshot holds 584 measured windows for 11 ports on 4 platforms (Mac, iPhone/iPad, Apple TV, Vision Pro). Each window's value is the mean over its valid rounds. A bar is the geometric mean of the windows' average presentation rates, drawn beside the geometric mean of their 1% low rates (1000 divided by the 99th percentile interval). When a build was measured on several dates, the newest set is charted. Sets with fewer than three rounds, and targets that could not run, stay in the spreadsheet with their status. On-time share uses the recorded display rate with a 5% interval tolerance, is omitted for uncapped rows and does not establish a display tier. The methods measure different events and are not ranked against one another. Only released builds are shown. The spreadsheet's README tab describes each column.
 
 A build's screenshots come from runs on the device shown for it, and a row without a frame from that device has none.
 
