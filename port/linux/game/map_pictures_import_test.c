@@ -78,6 +78,9 @@ long map_pictures_scenario_ticks(void) { return 0; }
 void map_pictures_scenario_fast_forward(int on) { (void)on; }
 int map_pictures_scenario_fast_forwarding(void) { return 0; }
 void photo_mode_end(void) { }
+void photo_mode_prepare_variant(const char *key) { (void)key; }
+void photo_mode_clear_variant(void) { }
+void dsound_set_capture_mute(int on) { (void)on; }
 void photo_mode_capture_begin(void) { }
 int photo_mode_capture_state(int *framed, int *revision) { *framed = 1; *revision = 7; return 1; }
 
