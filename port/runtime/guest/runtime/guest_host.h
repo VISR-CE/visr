@@ -193,6 +193,7 @@ events; an Apple TV asks with a dialog of its own (host_tv.m), whose text
 host_sdl_text_result gives once it is done: 1 and the text, 2 if it was
 canceled, 3 for touch Done, 4 for touch Return, 0 while there is none */
 void host_sdl_text_input(int on, const char *title, const char *text, int masked);
+void host_sdl_keyboard_raise(int on);
 int host_sdl_text_result(char *buffer, unsigned int size);
 
 /* ---------- fingers and pointer devices in the menus (d3d8_device.c's halo_ui_pointer_update)

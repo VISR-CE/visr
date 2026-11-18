@@ -574,17 +574,25 @@ static void text_typing_update(void)
 	text_typing = typing;
 }
 
-void platform_text_typing(int typing)
-{
-	text_typing_keyboard = typing != 0;
-	text_typing_update();
-}
-
 #ifdef HALO_IOS
 /* (guest_sdl.c: the host's system keyboard) */
 void halo_host_text_input(int on, const char *title, const char *text, int masked);
 int halo_host_text_result(char *buffer, unsigned int size);
+void halo_host_keyboard_raise(int on);
 #endif
+
+void platform_text_typing(int typing)
+{
+#ifdef HALO_IOS
+	/* the game's on-screen keyboard (a profile's name): an Apple device's system
+	keyboard comes up with it, its keys typing into it as a hardware keyboard's
+	do; a menu's text field raises its own (platform_text_field) */
+	if ((typing != 0) != text_typing_keyboard && !text_typing_field)
+		halo_host_keyboard_raise(typing != 0);
+#endif
+	text_typing_keyboard = typing != 0;
+	text_typing_update();
+}
 /* the field's text taken whole from the system's dialog: Done presses
 Start once (typing_gamepad), as Enter does */
 static BOOL text_typing_submit;

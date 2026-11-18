@@ -97,6 +97,13 @@ void halo_host_text_input(int on, const char *title, const char *text, int maske
 	host_sdl_text_input(on, title, text, masked);
 }
 
+/* the system keyboard for the game's own on-screen keyboard (a profile's name),
+whose keys it types as a hardware keyboard's do */
+void halo_host_keyboard_raise(int on)
+{
+	host_sdl_keyboard_raise(on);
+}
+
 int halo_host_text_result(char *buffer, unsigned int size)
 {
 	return host_sdl_text_result(buffer, size);
