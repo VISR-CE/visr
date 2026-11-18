@@ -7,6 +7,7 @@
 		<string text="The game's look.\n\n\nGraphics:" id="xbox.settings.xbox_settings_hub_descriptions.the_game_s_look_n_n_ngraphics" platform="!mac_app" />
 		<string text="Volume and sound for the\ngame on this device.\n\nCurrent Profile:" id="xbox.settings.xbox_settings_hub_descriptions.volume_and_sound_for_the_ngame_o_bc4803" />
 		<string text="Online play, custom maps\nand player names.\n\nCurrent Profile:" id="xbox.settings.xbox_settings_hub_descriptions.online_play_custom_maps_nand_pla_16f3b4" />
+		<string text="Choose, create, and edit\nplayer profiles.\n\nCurrent Profile:" id="xbox.settings.xbox_settings_hub_descriptions.choose_create_and_edit_nplayer_p_fe51d7" />
 		<string text="The keys and mouse buttons\nfor each action.\n\nCurrent Profile:" id="xbox.settings.xbox_settings_hub_descriptions.the_keys_and_mouse_buttons_nfor__98e25d" platform="keyboard" />
 	</strings>
 	<bitmap name="xbox/settings/hub_pictures">
@@ -15,6 +16,7 @@
 		<frame png="xbox/art/none.png" width="512" height="256" platform="!mac_app" />
 		<frame png="xbox/art/audio.png" width="512" height="256" />
 		<frame png="xbox/art/internet.png" width="512" height="256" />
+		<frame png="xbox/art/none.png" width="512" height="256" />
 		<frame map="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\profile_options" index="0" cache="cache/xbox/v1/keyboard.png" png="xbox/art/none.png" width="512" height="256" platform="keyboard" />
 	</bitmap>
 	<widget name="xbox/settings/settings_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="xbox/bitmaps/gradient">
@@ -42,15 +44,16 @@
 	</widget>
 	<widget name="xbox/settings/description_text" type="text" left="294" top="290" width="296" height="110" string_list="xbox/settings/hub_descriptions" font="ui\large_ui" color="#FF2896FF" />
 	<widget name="xbox/settings/description_picture" left="288" top="85" width="279" height="202" bitmap="xbox/settings/hub_pictures" />
-	<widget name="xbox/settings/settings_list" type="column_list" width="640" height="414" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/settings/description" visible_rows="5">
+	<widget name="xbox/settings/settings_list" type="column_list" width="640" height="414" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="xbox/settings/description" visible_rows="6">
 		<data input="plyr prof edit select menu upd8" />
 		<data input="port hub status" />
 		<child widget="xbox/settings/controls" x="51" y="78" />
 		<child widget="xbox/settings/video" x="51" y="117" platform="mac_app" />
 		<child widget="xbox/settings/graphics" x="51" y="117" platform="!mac_app" />
-		<child widget="xbox/settings/audio" x="51" y="117" />
-		<child widget="xbox/settings/network" x="51" y="156" />
-		<child widget="xbox/settings/keyboard" x="51" y="195" platform="keyboard" />
+		<child widget="xbox/settings/audio" x="51" y="156" />
+		<child widget="xbox/settings/network" x="51" y="195" />
+		<child widget="xbox/settings/profiles" x="51" y="234" />
+		<child widget="xbox/settings/keyboard" x="51" y="273" platform="keyboard" />
 	</widget>
 	<widget name="xbox/settings/controls" type="text" text="CONTROLS" text_id="xbox.settings.xbox_settings_controls.text" font="ui\large_ui" color="#FF2896FF" width="232" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" text_x="13" text_y="8" top="0">
 		<on event="a" open="xbox/settings/gamepad_setup/gamepad_setup_screen" />
@@ -71,6 +74,10 @@
 	<widget name="xbox/settings/network" type="text" text="NETWORK" text_id="xbox.settings.xbox_settings_network.text" font="ui\large_ui" color="#FF2896FF" width="232" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" text_x="13" text_y="8" top="0">
 		<on event="a" open="xbox/settings/network_setup/network_settings_screen" />
 		<on event="start" open="xbox/settings/network_setup/network_settings_screen" />
+	</widget>
+	<widget name="xbox/settings/profiles" type="text" text="PROFILES" text_id="xbox.settings.xbox_settings_profiles.text" font="ui\large_ui" color="#FF2896FF" width="232" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" text_x="13" text_y="8" top="0">
+		<on event="a" open="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\player_profile_edit_screen" />
+		<on event="start" open="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\player_profile_edit_screen" />
 	</widget>
 	<widget name="xbox/settings/keyboard" type="text" text="KEYBOARD &amp; MOUSE" text_id="xbox.settings.xbox_settings_keyboard.text" font="ui\large_ui" color="#FF2896FF" width="232" height="39" bitmap="xbox/bitmaps/row_36/list_item_bkd" text_x="13" text_y="8" top="0">
 		<on event="a" open="xbox/settings/controls_setup/controls_settings_screen" />

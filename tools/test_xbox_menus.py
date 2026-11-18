@@ -78,7 +78,7 @@ def test_settings_keep_pc_values_and_handlers():
     assert not [c for c in video.iter('child') if 'resolution_scaling' in c.get('widget', '')]
     hub = ET.parse(MENUS / 'xbox/settings.xml')
     assert {w.get('text') for w in hub.iter('widget') if w.find('on[@open]') is not None} == {
-        'CONTROLS', 'VIDEO', 'GRAPHICS', 'AUDIO', 'NETWORK', 'KEYBOARD & MOUSE'}
+        'CONTROLS', 'VIDEO', 'GRAPHICS', 'AUDIO', 'NETWORK', 'PROFILES', 'KEYBOARD & MOUSE'}
     keyboard = next(w for w in hub.iter('child') if w.get('widget') == 'xbox/settings/keyboard')
     assert keyboard.get('platform') == 'keyboard'
 
@@ -575,7 +575,8 @@ def test_redraws_are_rendered_svgs_wired_to_every_row_that_shows_them():
     assert all(frame.get('cache') is None for frame in frames[1:5])
     # Both pictures use the player's map; the importer redraws the recognized keyboard.
     assert pngs[0] == 'xbox/art/none.png' and frames[0].get('cache')
-    assert pngs[5] == 'xbox/art/none.png' and frames[5].get('cache') == 'cache/xbox/v1/keyboard.png'
+    assert pngs[5] == 'xbox/art/none.png' and frames[5].get('cache') is None
+    assert pngs[6] == 'xbox/art/none.png' and frames[6].get('cache') == 'cache/xbox/v1/keyboard.png'
     bitmaps = ET.parse(MENUS / 'xbox/bitmaps.xml').getroot()
     assert not {'xbox/pictures/video', 'xbox/pictures/network'} & {b.get('name') for b in bitmaps}
 
@@ -617,7 +618,7 @@ def test_hub_has_the_profile_editors_framed_panel():
 def test_picture_slot_resolves_redraw_then_cache_then_nothing(tmp_path):
     # no redraw for the others: the player's cache over the transparent PNG (menu_files.c tries cache first)
     _, frames = hub_panel(tmp_path / 'a', redraws=('audio',))
-    by_key = dict(zip(('controls', 'video', 'graphics', 'audio', 'network', 'keyboard'), frames))
+    by_key = dict(zip(('controls', 'video', 'graphics', 'audio', 'network', 'profiles', 'keyboard'), frames))
     assert by_key['audio'].attrib == {'png': 'xbox/art/audio.png', 'width': '512', 'height': '256'}
     # GRAPHICS has no picture of the player's: a transparent one, so its panel is text only
     assert by_key['graphics'].attrib == {'png': 'xbox/art/none.png', 'width': '512', 'height': '256',
@@ -1120,10 +1121,10 @@ def test_hub_has_a_graphics_row_between_controls_and_audio_with_its_mode_in_the_
     options = hub.find("widget[@name='xbox/settings/settings_list']")
     rows = [(c.get('widget').rsplit('/', 1)[-1], c.get('platform')) for c in options.findall('child')]
     assert rows == [('controls', None), ('video', 'mac_app'), ('graphics', '!mac_app'), ('audio', None),
-                    ('network', None), ('keyboard', 'keyboard')]
+                    ('network', None), ('profiles', None), ('keyboard', 'keyboard')]
     # the Mac keeps VIDEO, which has the mode as its first row: GRAPHICS shares its slot elsewhere
     by_name = {c.get('widget').rsplit('/', 1)[-1]: c for c in options.findall('child')}
-    assert by_name['graphics'].get('y') == by_name['video'].get('y') == by_name['audio'].get('y')
+    assert by_name['graphics'].get('y') == by_name['video'].get('y')
     strings = hub.find("strings[@name='xbox/settings/hub_descriptions']")
     # (a blank line more than the text needs, so the status line sits where the other rows' do)
     assert [s.get('text') for s in strings if s.get('platform') == '!mac_app'] == [
