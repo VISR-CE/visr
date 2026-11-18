@@ -24,7 +24,7 @@ int classify(int count, wchar_t const **strings, int *on) {
 }
 ''')
     library = tmp_path / 'rows.dylib'
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-shared', '-fPIC',
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-shared', '-fPIC',
                     '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(library)], check=True)
     classify = ctypes.CDLL(str(library)).classify
     classify.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_wchar_p), ctypes.POINTER(ctypes.c_int)]
@@ -122,7 +122,7 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'input.c', tmp_path / 'input'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -202,7 +202,7 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'toggle.c', tmp_path / 'toggle'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -258,7 +258,7 @@ int main(void) {
 }
 ''')
     binary = tmp_path / 'dropdown'
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-std=c89', '-pedantic',
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-std=c89', '-pedantic',
                     '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -328,7 +328,7 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'dropdown_limits.c', tmp_path / 'dropdown_limits'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror',
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar',
                     '-iquote', str(ROOT / 'port/linux/include'), str(probe),
                     '-lm', '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
@@ -449,7 +449,7 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'modal.c', tmp_path / 'modal'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -539,7 +539,7 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'drawing.c', tmp_path / 'drawing'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -576,7 +576,7 @@ int main(void) {
 }
 ''')
     binary = tmp_path / 'slider'
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-std=c89', '-pedantic',
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-std=c89', '-pedantic',
                     '-iquote', str(ROOT / 'port/linux/include'), str(source), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -616,8 +616,8 @@ int main(void) {
 }
 ''')
     binary = tmp_path / 'held'
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/ios/host'),
-                    '-iquote', str(ROOT / 'port/runtime/include'), str(source), '-o', str(binary)], check=True)
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/ios/host'),
+                    '-iquote', str(ROOT / 'port/runtime/include'), str(source), '-o', str(binary), '-lm'], check=True)
     subprocess.run([str(binary)], check=True)
 
 
@@ -741,7 +741,7 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'capture.c', tmp_path / 'capture'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
 
@@ -763,7 +763,7 @@ _Static_assert(sizeof(struct halo_ui_pointer) == 18, "guest size");
 _Static_assert(offsetof(struct halo_ui_pointer, held) == 16, "guest held offset");
 ''')
     for target in ('arm64-apple-macos', 'arm64_32-apple-watchos'):
-        subprocess.run([compiler, '--target=' + target, '-isysroot', str(tmp_path), '-ffreestanding', '-fsyntax-only', '-Wall', '-Werror',
+        subprocess.run([compiler, '--target=' + target, '-isysroot', str(tmp_path), '-ffreestanding', '-fsyntax-only', '-Wall', '-Werror', '-Wno-multichar',
                         '-iquote', str(ROOT / 'port/runtime/include'),
                         '-iquote', str(ROOT / 'port/linux/include'), str(source)], check=True)
 
@@ -831,6 +831,6 @@ int main(void) {
 '''
     probe, binary = tmp_path / 'slider-draw.c', tmp_path / 'slider-draw'
     probe.write_text(program)
-    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-iquote', str(ROOT / 'port/linux/include'),
+    subprocess.run([shutil.which('cc'), '-Wall', '-Werror', '-Wno-multichar', '-iquote', str(ROOT / 'port/linux/include'),
                     str(probe), '-o', str(binary)], check=True)
     subprocess.run([str(binary)], check=True)
