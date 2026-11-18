@@ -123,7 +123,7 @@ int main(void) {
 
 def test_level_target_and_sampler_defaults_refresh(tmp_path):
     text = (ROOT / "port/linux/src/d3d8_device.c").read_text()
-    actual = function(text, "static void offscreen_target_scale(") + "\n" + function(text, "static long anisotropy_in_force(")
+    actual = function(text, "static float offscreen_target_scale(") + "\n" + function(text, "static long anisotropy_in_force(")
     binary = compile_probe(tmp_path, r'''
 #include <assert.h>
 #include <string.h>
