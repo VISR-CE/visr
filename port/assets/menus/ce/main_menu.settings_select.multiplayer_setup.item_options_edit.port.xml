@@ -32,8 +32,8 @@
 		<string text="NO" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_map_weapons.no"/>
 	</strings>
 	<strings name="main_menu/settings_select/multiplayer_setup/item_options_edit/var_spawn_weapons">
-		<string text="MAP" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons.map"/>
-		<string text="GENERIC" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons.generic"/>
 		<string text="CUSTOM" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons.custom"/>
+		<string text="GENERIC" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons.generic"/>
+		<string text="AS SPECIFIED" id="ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons.as_specified"/>
 	</strings>
 </menus>

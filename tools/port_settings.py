@@ -1731,7 +1731,7 @@ def _item_options_extras() -> list:
                                                       ("string_index", 9), ("font", "ui\\large_ui"),
                                                       ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
     lines += _strings(f"{base}/var_map_weapons", ["YES", "NO"])
-    lines += _strings(f"{base}/var_spawn_weapons", ["MAP", "GENERIC", "CUSTOM"])
+    lines += _strings(f"{base}/var_spawn_weapons", ["CUSTOM", "GENERIC", "AS SPECIFIED"])
     return lines
 
 

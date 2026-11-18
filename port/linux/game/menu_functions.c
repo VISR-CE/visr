@@ -6405,7 +6405,7 @@ enum
 	_option_short,		/* a short of the options */
 	_option_option_byte,	/* a byte of the options */
 	_option_radar,		/* the options' radar players, and the variant's flag */
-	_option_spawn		/* SPAWN WEAPONS: 0 the map's equipment, 1 the generic equipment, 2 a custom loadout */
+	_option_spawn		/* STARTING EQUIPMENT: 0 CUSTOM (the map's own), 1 GENERIC, 2 AS SPECIFIED (a loadout) */
 };
 
 struct gametype_option
@@ -7140,10 +7140,6 @@ static void gametype_option_help(struct widget_instance *list)
 
 		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
-	/* (WEAPON SET only with the map's weapons on: it remaps the weapons the map places) */
-	if (named(list, "map_weapons_spinner", 0) && named(list, "op_weapon_set", 0))
-		visible_set(named(list, "op_weapon_set", 0),
-			named(list, "map_weapons_spinner", 0)->parameters.list.selected_index == 0);
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
 	if (!description || !list->focused_child || !strncmp(list->name, "filters", 7))

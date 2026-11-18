@@ -569,7 +569,7 @@ WEAPONS = ('no weapon', 'a random weapon', 'the assault rifle', 'the pistol', 't
 # what the help text shows for each value of a row, in the order of its spinner's values
 IO_HELP = {
     'op_map_weapons': 'Weapons are lying around the map\\nto pick up.|There are no weapons lying around\\nthe map.',
-    'op_spawn_weapons': "Everyone starts with the map's own\\nweapons and grenades.|Everyone starts with the standard\\nweapons and grenades.|Everyone starts with the primary and\\nsecondary weapons chosen below.",
+    'op_spawn_weapons': "You will start the game with the weapon set that the\\nmap designers custom tailored for it.|Use the generic starting weapons across\\nall maps.|Everyone starts with the primary and\\nsecondary weapons you choose.",
     'op_choose_weapons': 'Choose the primary and secondary weapons\\neveryone starts with.',
 }
 

@@ -400,9 +400,9 @@ yes = "YES"
 no = "NO"
 
 [ce.main_menu_settings_select_multiplayer_setup_item_options_edit_port.main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons]
-map = "MAP"
-generic = "GENERIC"
 custom = "CUSTOM"
+generic = "GENERIC"
+as_specified = "AS SPECIFIED"
 
 [ce.main_menu_settings_select_player_setup_player_profile_edit_about.main_menu_settings_select_player_setup_player_profile_edit_about_button_back]
 text = "BACK"
@@ -1434,9 +1434,9 @@ yes = "YES"
 no = "NO"
 
 [xbox.main_menu_settings_select_multiplayer_setup_item_options_edit_port.xbox_main_menu_settings_select_multiplayer_setup_item_options_edit_var_spawn_weapons]
-map = "MAP"
-generic = "GENERIC"
 custom = "CUSTOM"
+generic = "GENERIC"
+as_specified = "AS SPECIFIED"
 
 [xbox.main_menu_settings_select_multiplayer_setup_playlist_select.xbox_main_menu_settings_select_multiplayer_setup_playlist_select_legend_back]
 text = "BACK"
@@ -2274,9 +2274,9 @@ help0 = "Weapons are lying around the map\\nto pick up."
 help1 = "There are no weapons lying around\\nthe map."
 
 [xbox.patches.op_spawn_weapons]
-help0 = "Everyone starts with the map's own\\nweapons and grenades."
-help1 = "Everyone starts with the standard\\nweapons and grenades."
-help2 = "Everyone starts with the primary and\\nsecondary weapons chosen below."
+help0 = "You will start the game with the weapon set that the\\nmap designers custom tailored for it."
+help1 = "Use the generic starting weapons across\\nall maps."
+help2 = "Everyone starts with the primary and\\nsecondary weapons you choose."
 
 [xbox.patches.profile_item_about]
 text = "ABOUT"
