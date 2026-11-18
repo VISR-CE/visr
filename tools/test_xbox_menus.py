@@ -1322,6 +1322,12 @@ def test_original_dialogs_route_on_every_platform(name):
     assert (f'ui/shell/error/{name}', f'pc/xbox/error/{name}') in generator().SCREEN_ALWAYS
 
 
+def test_main_menu_settings_opens_the_hub_not_the_profile_picker():
+    always = dict(generator().SCREEN_ALWAYS)
+    select = 'ui/shell/main_menu/settings_select/player_setup/player_profile_select_screen'
+    assert always[select] == 'pc/xbox/settings/settings_screen'
+
+
 @pytest.mark.parametrize('name', ERROR_SCREENS + ABORT_SCREENS + WAIT_SCREENS)
 def test_generated_errors_preserve_runtime_text_and_pane_bounds(name):
     module = generator()

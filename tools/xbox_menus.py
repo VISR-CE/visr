@@ -1920,7 +1920,9 @@ SCREEN_REPLACED = (('ui/shell/main_menu/settings_select/multiplayer_setup/playli
 # (the game's own screens that ours replaces on every platform, the Apple TV too)
 SCREEN_ALWAYS = (('ui/shell/' + MP + '/connected/connected_map_select_wrapper',
                   'pc/xbox/' + MP + '/connected/connected_map_select_wrapper'),
-                ('ui/shell/' + PE + '/player_profile_edit_screen', 'pc/xbox/settings/settings_screen')) + tuple(
+                ('ui/shell/' + PE + '/player_profile_edit_screen', 'pc/xbox/settings/settings_screen'),
+                ('ui/shell/main_menu/settings_select/player_setup/player_profile_select_screen',
+                 'pc/xbox/settings/settings_screen')) + tuple(
     (f'ui/shell/error/{name}', f'pc/xbox/error/{name}')
     for name in ERROR_DIALOGS + ABORT_DIALOGS + WAIT_DIALOGS + ('confirm_delete_profile_modal_fullscreen',))
 
