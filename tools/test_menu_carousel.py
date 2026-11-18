@@ -54,7 +54,7 @@ struct ui_mouse_target { struct widget_instance *widget; rectangle2d bounds; sho
 #define UI_MOUSE_MAXIMUM_TARGETS 64
 static struct ui_mouse_target ui_mouse_targets[64];
 static int ui_mouse_target_count,ui_mouse_noting_targets=1,ui_mouse_click_pending;
-struct halo_ui_pointer { int x,y,radius,down,wheel_steps,left_clicks; };
+struct halo_ui_pointer { int x,y,radius,down,held,wheel_steps,left_clicks; };
 '''
 
 
@@ -84,15 +84,15 @@ int main(void) {
  assert(drawn_count==5);for(int i=0;i<5;i++)assert(drawn[i]==i+1);
  assert(state->binding_first==2 && w.parameters.list.selected_index==3 && w.focused_child==&c[1] && ui_carousel_clip==NULL && ui_mouse_noting_targets);
  assert(ui_mouse_target_count==3);for(int i=0;i<3;i++)assert(ui_mouse_targets[i].button_index==i+2);
- struct halo_ui_pointer p={.x=250,.y=150,.down=1};
+ struct halo_ui_pointer p={.x=250,.y=150,.down=1,.held=1};
  assert(ui_carousel_pointer(&p));assert(w.parameters.list.selected_index==3 && state->drag.state==HALO_UI_DRAG_PRESSED);
  p.x=230;now+=16;assert(ui_carousel_pointer(&p));p.x=0;now+=16;assert(ui_carousel_pointer(&p));
- p.down=0;p.left_clicks=1;p.wheel_steps=1;now+=16;assert(ui_carousel_pointer(&p));assert(!p.left_clicks && !p.wheel_steps && !ui_carousel_capture);
+ p.down=0;p.held=0;p.left_clicks=1;p.wheel_steps=1;now+=16;assert(ui_carousel_pointer(&p));assert(!p.left_clicks && !p.wheel_steps && !ui_carousel_capture);
  halo_ui_drag_reset(&state->drag,7*167);w.parameters.list.number_of_items=3;now+=16;widget_globals.current_system_milliseconds=now;ui_carousel_tick(&w);assert(state->drag.offset==0 && state->first==0);
 
  /* A tap-release leaves exactly the host click for ordinary target dispatch. */
- p=(struct halo_ui_pointer){.x=250,.y=150,.down=1};now+=16;assert(ui_carousel_pointer(&p));
- p.x=256;p.y=154;p.down=0;p.left_clicks=1;now+=16;assert(ui_carousel_pointer(&p));assert(p.left_clicks==1);
+ p=(struct halo_ui_pointer){.x=250,.y=150,.down=1,.held=1};now+=16;assert(ui_carousel_pointer(&p));
+ p.x=256;p.y=154;p.down=0;p.held=0;p.left_clicks=1;now+=16;assert(ui_carousel_pointer(&p));assert(p.left_clicks==1);
  /* Multiple render calls within one menu frame cannot accelerate a glide. */
  w.parameters.list.number_of_items=10;halo_ui_drag_reset(&state->drag,0);halo_ui_drag_glide(&state->drag,167);widget_globals.current_system_milliseconds+=16;
  ui_carousel_tick(&w);float once=state->drag.offset;ui_carousel_tick(&w);assert(state->drag.offset==once);
