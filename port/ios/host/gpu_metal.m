@@ -37,6 +37,7 @@ but never returns to its run loop, which would otherwise drain them.
 #include "gpu.h"
 #include "ios_host.h"
 #include "metal_state_cache.h"
+#include "metal_scene_park.h"
 /* GPU_VALIDATION_REPORT: this backend's fallbacks and skips, by name, in a
 build with render validation; nothing otherwise */
 #include "gpu_validate.h"
@@ -2284,9 +2285,11 @@ static void multisample_fill(MetalTexture *record, uint32_t samples, MTLPixelFor
 	const struct multisample_sources *sources, BOOL fill_depth, BOOL fill_stencil);
 
 /* debug.metal_scene_park: a pass with a depth target whose color target is
-at least a million pixels (the screen's, at any render size a device
-draws) is parked when another pass interrupts it, as the HUD's is
-(native_pass); foveated eyes' passes are not */
+at least a million pixels (the screen's, at 1080 lines and up) is parked
+when another pass interrupts it, as the HUD's is (native_pass); foveated
+eyes' passes are not. The pixels counted are the ones the pass draws
+(metal_scene_park.h), so dynamic resolution's pooled target drawn at 720
+lines is treated as a 720-line target is */
 static int scene_park = -1;
 
 static BOOL scene_park_eligible(MetalTexture *color, MetalTexture *depth)
@@ -2298,7 +2301,8 @@ static BOOL scene_park_eligible(MetalTexture *color, MetalTexture *depth)
 		host_config_string("debug.metal_scene_park", "true", value, sizeof(value));
 		scene_park = !strcmp(value, "true");
 	}
-	return scene_park && color && depth && color->texture.width * color->texture.height >= 1000000 &&
+	return scene_park && color && depth &&
+		metal_scene_park_size(color->texture.width, color->texture.height, color->content_width, color->content_height) &&
 		!foveation_map(color) && !foveation_map(depth) && !color->samples && !depth->samples;
 }
 

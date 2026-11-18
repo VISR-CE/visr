@@ -732,6 +732,10 @@ run(BUILD/'frame-counter-probe')
 run('xcrun', 'clang', '-O2', '-fsanitize=address,undefined', '-Iport/ios/host',
     'port/ios/tests/metal_state_probe.c', '-o', BUILD/'metal-state-probe')
 run(BUILD/'metal-state-probe')
+# the scene's pass is set aside by the size it draws (metal_scene_park.h)
+run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/ios/host',
+    'port/ios/tests/metal_scene_park_probe.c', '-o', BUILD/'metal-scene-park-probe')
+run(BUILD/'metal-scene-park-probe')
 # debug.immediate_merge's triangles and its vertex limit (immediate_batch.h)
 run('xcrun', 'clang', '-O2', '-Wall', '-Wextra', '-Werror', '-fsanitize=address,undefined', '-Iport/linux/src',
     'port/ios/tests/immediate_batch_probe.c', '-o', BUILD/'immediate-batch-probe')
