@@ -32,9 +32,6 @@
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_type" x="54" y="163"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_random_start" x="54" y="193"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_spawn_count" x="54" y="223"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_score_to_win" x="54" y="253"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_team_play" x="54" y="283"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_time_limit" x="54" y="313"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
@@ -53,21 +50,9 @@
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_label"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_spinner" x="288" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_score_to_win" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_label"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_spinner" x="288" y="1"/>
-	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_speed_with_ball" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_label"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_spinner" x="288" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_team_play" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_label"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_spinner" x="288" y="1"/>
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_time_limit" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_label"/>
-		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_spinner" x="288" y="1"/>
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_with_ball" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_label"/>
@@ -82,24 +67,9 @@
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_spinner" type="spinner" left="2" top="2" width="202" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_random_start" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 204 19 210">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_spinner" type="spinner" left="2" top="2" width="202" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_score_to_win" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 204 19 210">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_spinner" type="spinner" left="3" top="2" width="201" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_speed_with_ball" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 204 19 210">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_spinner" type="spinner" left="2" top="2" width="202" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_team_play" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 204 19 210">
-		<on event="left_mouse" run="mouse spinner 1wide click"/>
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
-	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_spinner" type="spinner" left="2" top="2" width="202" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_time_limit" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 204 19 210">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">

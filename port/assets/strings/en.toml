@@ -1732,15 +1732,6 @@ off = "OFF"
 5_minutes = "5 MINUTES"
 10_minutes = "10 MINUTES"
 
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_ctf_edit_var_time_limit]
-none = "NONE"
-10_minutes = "10 MINUTES"
-15_minutes = "15 MINUTES"
-20_minutes = "20 MINUTES"
-25_minutes = "25 MINUTES"
-30_minutes = "30 MINUTES"
-45_minutes = "45 MINUTES"
-
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_cap_koth]
 during_the_course_of_the_game_th_e2679f = "During the course of the game, the Hill will teleport to\\na random location."
 the_hill_will_always_be_in_the_same_spot = "The Hill will always be in the same spot."
@@ -1765,17 +1756,6 @@ score_to_win = "SCORE TO WIN:"
 team_play = "TEAM PLAY:"
 
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_moving_hill]
-yes = "YES"
-no = "NO"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_score_to_win]
-1_minute = "1 MINUTE"
-2_minutes = "2 MINUTES"
-5_minutes = "5 MINUTES"
-10_minutes = "10 MINUTES"
-15_minutes = "15 MINUTES"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_koth_edit_var_team_play]
 yes = "YES"
 no = "NO"
 
@@ -1864,21 +1844,10 @@ juggernaut = "JUGGERNAUT"
 yes = "YES"
 no = "NO"
 
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_score_to_win]
-1 = "1"
-2 = "2"
-5 = "5"
-10 = "10"
-15 = "15"
-
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_speed_with_ball]
 normal = "NORMAL"
 slow = "SLOW"
 fast = "FAST"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_team_play]
-yes = "YES"
-no = "NO"
 
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_oddball_edit_var_trait_with_ball]
 none = "NONE"
@@ -1934,10 +1903,6 @@ normal = "NORMAL"
 any_order = "ANY ORDER"
 rally = "RALLY"
 
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_play]
-yes = "YES"
-no = "NO"
-
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_race_edit_var_team_scoring]
 minimum = "MINIMUM"
 maximum = "MAXIMUM"
@@ -1983,23 +1948,6 @@ yes = "YES"
 no = "NO"
 
 [xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_kill_in_order]
-yes = "YES"
-no = "NO"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_kills_to_win]
-5 = "5"
-10 = "10"
-15 = "15"
-25 = "25"
-50 = "50"
-75 = "75"
-100 = "100"
-150 = "150"
-200 = "200"
-250 = "250"
-500 = "500"
-
-[xbox.multiplayer_shared.xbox_main_menu_settings_select_multiplayer_setup_playlist_edit_slayer_edit_var_team_play]
 yes = "YES"
 no = "NO"
 
