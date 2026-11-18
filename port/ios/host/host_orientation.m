@@ -32,6 +32,8 @@ unsigned host_geometry_settled_size(double *width, double *height) {
     return generation;
 }
 
+int host_ios_portrait_allowed(void) { return allow_portrait ? 1 : 0; }
+
 BOOL host_ios_allows_portrait(void) {
     return allow_portrait;
 }

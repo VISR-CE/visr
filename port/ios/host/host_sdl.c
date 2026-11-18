@@ -132,6 +132,8 @@ int host_sdl_init(uint32_t flags)
 	return SDL_Init((SDL_InitFlags)flags);
 }
 
+int host_ios_portrait_allowed(void);
+
 int host_sdl_set_hint(const char *name, const char *value)
 {
 	/* the guest's music-off choice for the audio session; SDL has no hint for it (host_audio_session.m) */
@@ -140,6 +142,10 @@ int host_sdl_set_hint(const char *name, const char *value)
 		host_audio_session_set_mix_only(value && *value);
 		return 1;
 	}
+	/* The guest's platform start-up asks for landscape only; where portrait
+	   is allowed, the host's own orientation hint stands. */
+	if (name && !strcmp(name, SDL_HINT_ORIENTATIONS) && host_ios_portrait_allowed())
+		return 1;
 	/* an empty value puts the hint back to its default */
 	if(value && !*value)return SDL_ResetHint(name);
 	return SDL_SetHint(name, value);
