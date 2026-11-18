@@ -1527,8 +1527,9 @@ def test_profile_editor_removes_save_after_inserting_settings():
     root = ET.parse(MENUS / 'xbox/patches.xml').getroot()
     edit = next(p for p in root.findall('patch') if p.get('list') == module.PEP + 'profile_edit_select_list')
     operations = list(edit)
-    assert operations[-1].tag == 'remove'
-    assert operations[-1].get('child') == module.PEP + 'save_changes_profile_item'
+    removes = [r for r in operations if r.tag == 'remove']
+    assert operations[-2:] == removes
+    assert [r.get('child') for r in removes] == [module.PEP + 'save_changes_profile_item', module.PEP + 'profile_edit_button_bar']
     assert {r.get('text') for r in operations if r.tag == 'row'} >= {'AUDIO', 'VIDEO', 'NETWORK'}
     assert not any(r.get('text') == 'SAVE CHANGES' for r in operations)
     # (other lists' patches may remove their own rows, e.g. the gametype editor's INDICATORS and the item screen's
