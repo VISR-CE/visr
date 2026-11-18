@@ -355,6 +355,7 @@ def test_dropdown_art_registration(tmp_path):
 
 
 def test_dropdown_art_can_be_regenerated(tmp_path):
+    pytest.importorskip('PIL')
     if not shutil.which('rsvg-convert'):
         pytest.skip('art regeneration requires rsvg-convert')
     from tools import xbox_menu_art
@@ -621,6 +622,7 @@ int main(void) {
 
 
 def test_slider_art_registration_and_regeneration(tmp_path):
+    pytest.importorskip('PIL')
     import struct
     from tools import xbox_menus, xbox_menu_art
     generated = xbox_menus.bitmap_document(ROOT / 'port/assets/menus', set())
