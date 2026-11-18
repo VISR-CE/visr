@@ -6193,11 +6193,10 @@ static wchar_t const *ui_widget_row_string(void *context, int index)
 	return spinner_string_list_get_string(definition->text_label_string_list.index, (short)index);
 }
 
-/* port: Xbox rows, plus the Xbox's own advanced controls spinners, which have no xbox/ replacement */
+/* port: Xbox rows */
 static boolean ui_widget_row_name_is_touch(char const *name)
 {
-	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5) ||
-		strstr(name, "\\advanced_controls\\"));
+	return name && (!strncmp(name, "pc\\xbox\\", 8) || !strncmp(name, "xbox/", 5));
 }
 
 static struct halo_menu_row ui_widget_row_control(struct widget_instance *widget)
@@ -6446,7 +6445,17 @@ static void widget_instance_render_spinner_list(
 			wchar_t *string = spinner_string_list_get_string(
 				definition->text_label_string_list.index,
 				string_index);
-			unsigned long length = ustrlen(string);
+			unsigned long length;
+
+			/* port: a switch row's state word is always ON or OFF, whatever its YES/NO strings say */
+			if (toggle)
+			{
+				static wchar_t state_on[] = L"ON";
+				static wchar_t state_off[] = L"OFF";
+
+				string = widget->parameters.list.selected_index == row.on_index ? state_on : state_off;
+			}
+			length = ustrlen(string);
 
 			item_text = pool_new_pointer(
 				widget_memory_pool,

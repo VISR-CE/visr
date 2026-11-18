@@ -2007,6 +2007,23 @@ def patch(root, list_path, screen_path):
     return ET.SubElement(root, 'patch', {'list': list_path, 'screen': screen_path, 'footer': '414'})
 
 
+# The advanced controls page: (patch row name, the original's row tag, the controls page's key, help text)
+ADVANCED_ROWS = (
+    ('op_invert_joystick', 'op_invert_joystick', 'invert_look',
+     'Pushing the thumbstick up looks down, and\\npulling it down looks up.|Pushing the thumbstick up looks up.'),
+    ('op_look_sensitivity', 'op_controller_sensitivity', 'look_sensitivity',
+     'How fast the thumbstick turns your view.|How fast the thumbstick turns your view.'),
+    ('op_controller_vibration', 'op_controller_vibration', 'vibration',
+     'The controller vibrates during play.|The controller does not vibrate.'),
+    ('op_flight_inversion', 'op_flight_stick_controls', 'flight_inversion',
+     'Flight controls are inverted in aircraft.|Flight controls are not inverted.'),
+    ('op_autocenter', 'op_auto_center', 'autocenter',
+     'The view returns to center when you let\\ngo of the thumbstick.|The view stays where you leave it.'),
+    ('op_ingame_help', 'op_ingame_help', 'ingame_help',
+     'The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.'),
+)
+
+
 def patch_row(parent, tag='row', **attributes):
     return ET.SubElement(parent, tag, {k: str(v) for k, v in attributes.items()})
 
@@ -2077,9 +2094,18 @@ def patch_document(names):
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
                      PEP + 'advanced_controls\\advanced_controls_screen')
-    patch_row(advanced, after=PEP + 'advanced_controls\\op_auto_center', name='op_ingame_help',
-              widget='xbox/settings/gamepad_setup/op_ingame_help_advanced',
-              help='The game shows hints about its controls\\nas you play.|The game does not show hints about its\\ncontrols.')
+    # The Xbox look draws the controls page's own rows here (tall rows, ON/OFF switches): the original's five
+    # rows are replaced by clones of it, in the original's order
+    first = PEP + 'advanced_controls\\' + ADVANCED_ROWS[0][1]
+    previous = None
+    for name, original, key, help in ADVANCED_ROWS:
+        position = {'before': first} if previous is None else {'after': previous}
+        patch_row(advanced, name=name, widget=f'xbox/settings/gamepad_setup/op_{key}_advanced',
+                  pitch=COMFORTABLE_PITCH, help=help, **position)
+        previous = name
+    for name, original, key, _ in ADVANCED_ROWS:
+        if name != 'op_ingame_help':
+            patch_row(advanced, 'remove', child=PEP + 'advanced_controls\\' + original)
     # Item Options (Server Setup's, and a gametype's): the port's rows after the Xbox's four, above the help text
     options = patch(root, MM + 'settings_select\\multiplayer_setup\\item_options_edit\\item_options_menu',
                     MM + 'settings_select\\multiplayer_setup\\item_options_edit\\item_options_screen')
@@ -2381,15 +2407,16 @@ def generate(assets=MENUS):
     # IN-GAME HELP on the Xbox's advanced setup page (a patch row): the row of the controls page, its spinner where
     # the Xbox's advanced rows have theirs
     gamepad = documents['settings.gamepad_setup.xml']
-    row = deepcopy(next(w for w in gamepad if w.get('name') == 'xbox/settings/gamepad_setup/op_ingame_help'))
-    row.set('name', 'xbox/settings/gamepad_setup/op_ingame_help_advanced')
-    spinner = deepcopy(next(w for w in gamepad if w.get('name') == 'xbox/settings/gamepad_setup/ingame_help_spinner'))
-    spinner.set('name', 'xbox/settings/gamepad_setup/ingame_help_spinner_advanced')
-    for part in row.findall('child'):
-        if part.get('widget', '').endswith('ingame_help_spinner'):
-            part.set('widget', 'xbox/settings/gamepad_setup/ingame_help_spinner_advanced')
-    gamepad.append(spinner)
-    gamepad.append(row)
+    for _, _, key, _ in ADVANCED_ROWS:
+        row = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/op_{key}'))
+        row.set('name', f'xbox/settings/gamepad_setup/op_{key}_advanced')
+        spinner = deepcopy(next(w for w in gamepad if w.get('name') == f'xbox/settings/gamepad_setup/{key}_spinner'))
+        spinner.set('name', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        for part in row.findall('child'):
+            if part.get('widget', '').endswith(f'{key}_spinner'):
+                part.set('widget', f'xbox/settings/gamepad_setup/{key}_spinner_advanced')
+        gamepad.append(spinner)
+        gamepad.append(row)
     documents.update(multiplayer_documents(assets, names))
     documents['dialogs.xml'] = dialog_document()
     shared = documents['multiplayer.shared.xml']

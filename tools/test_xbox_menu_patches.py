@@ -140,9 +140,12 @@ def test_gametype_delete_is_tvos_only():
 
 def test_in_game_help_is_added_to_advanced_setup():
     patch = next(p for p in table() if p.get("screen").endswith("advanced_controls_screen"))
-    (row,) = rows(patch)
-    assert row.get("widget") == "xbox/settings/gamepad_setup/op_ingame_help_advanced"
-    assert row.get("after").endswith("op_auto_center")
+    added = [r for r in rows(patch) if r.get("widget")]
+    assert [r.get("widget").rsplit("/", 1)[1] for r in added] == [
+        f"op_{k}_advanced"
+        for k in ("invert_look", "look_sensitivity", "vibration", "flight_inversion", "autocenter", "ingame_help")
+    ]
+    assert all(r.get("pitch") == "39" for r in added)
 
 
 def test_item_options_rows_set_and_save_their_own_spinners():
