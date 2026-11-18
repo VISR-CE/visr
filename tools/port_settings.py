@@ -149,12 +149,13 @@ SCREENS = {
         "header": ("header_profile_audio_settings", f"{PE}/audio_settings/header_profile_audio_settings"),
         "spacing": 30,
         "rows": [
+            ("SOUND:", "audio.enabled", ON_OFF, "Turn all game sound on or off.", None),
             ("MASTER VOLUME:", "audio.volume", VOLUMES, "The volume of everything.", None),
-            ("MUSIC VOLUME:", "audio.music_volume", VOLUMES, "The music's volume.", None),
             ("EFFECTS VOLUME:", "audio.effects_volume", VOLUMES,
              "The volume of every other sound: effects and\nspeech.", None),
-            ("SOUND:", "audio.enabled", ON_OFF,
-             "Play sound at all; from the next time the game\nstarts.", None),
+            ("MUSIC:", "audio.music_enabled", ON_OFF,
+             "Turn the music on or off. Off lets other apps'\nmusic play at full volume.", None),
+            ("MUSIC VOLUME:", "audio.music_volume", VOLUMES, "The music's volume.", None),
         ],
     },
     "network_setup": {

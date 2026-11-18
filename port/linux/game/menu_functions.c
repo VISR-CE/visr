@@ -2024,6 +2024,41 @@ static void graphics_rows_show(struct widget_instance *list)
 	}
 }
 
+/* Audio Setup's rows hidden by state (tools/port_settings.py): with Sound off the volumes and Music have nothing
+to set, and with Music off its volume has none; the list passes over a hidden row, and the focus on one goes to
+the Sound row, which is always there */
+static boolean audio_spinner_is(struct widget_instance *list, char const *name, char const *value)
+{
+	struct widget_instance *spinner = named(list, name, 0);
+	struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+	short index = spinner ? spinner->parameters.list.selected_index : -1;
+
+	return setting && index >= 0 && index < setting->value_count && !strcmp(setting->values[index], value);
+}
+
+static void audio_rows_show(struct widget_instance *list)
+{
+	struct widget_instance *volume = named(list, "op_volume", 0), *effects = named(list, "op_effects_volume", 0);
+	struct widget_instance *music = named(list, "op_music_enabled", 0), *music_volume = named(list, "op_music_volume", 0);
+	struct widget_instance *row;
+	boolean sound, music_on;
+
+	if (!volume || !effects || !music || !music_volume || !named(list, "enabled_spinner", 0))
+		return;
+	sound = audio_spinner_is(list, "enabled_spinner", "true");
+	music_on = sound && audio_spinner_is(list, "music_enabled_spinner", "true");
+	volume->visible = effects->visible = music->visible = sound;
+	music_volume->visible = music_on;
+	for (row = list->child; row; row = row->next)
+	{
+		if (row == list->focused_child && !row->visible)
+		{
+			list->focused_child = list->child;
+			list->parameters.list.selected_index = 0;
+		}
+	}
+}
+
 /* Video Setup's Resolution and Window Size, in the one row's place
 (tools/port_settings.py): the one the display mode shown uses (Window Size
 the window's, Resolution fullscreen's and borderless's) is shown, and the
@@ -7632,6 +7667,7 @@ void pc_menu_game_data_function_invoke(
 	else if (!strcmp(name, "port settings help"))
 	{
 		video_rows_show(widget);
+		audio_rows_show(widget);
 		graphics_rows_show(widget);
 		settings_help(widget);
 	}
