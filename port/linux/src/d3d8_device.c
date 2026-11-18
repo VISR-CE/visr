@@ -3530,7 +3530,7 @@ int halo_touch_overlay_covered(void)
 
 int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 {
-	static int pause_menu = -1, menu_up = -1;
+	static int pause_menu = -1, menu_up = -1, touch_gameplay = -1;
 	int paused = menus_active && halo_scene_class() != CONFIG_SCENE_MENU;
 	struct host_ui_pointer host;
 
@@ -3541,13 +3541,22 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 		pause_menu = paused;
 		host_sdl_set_hint("VISR_PAUSE_MENU", paused ? "1" : "0");
 	}
-	/* The touch controls belong to the game alone: a menu, a full-screen movie
-	(the startup logos, the cutscenes) or a loading bar hides them too. */
-	int touch_hidden = menus_active != 0 || halo_touch_overlay_covered();
-	if (touch_hidden != menu_up)
+	if ((menus_active != 0) != menu_up)
 	{
-		menu_up = touch_hidden;
+		menu_up = menus_active != 0;
 		host_sdl_set_hint("VISR_MENU_ACTIVE", menu_up ? "1" : "0");
+	}
+	/* The touch controls belong to the game alone: the host keeps them hidden
+	until the guest says a map is running, with no menu, pause, movie, loading
+	bar or cutscene over it. */
+	{
+		int gameplay = !menus_active && !halo_touch_overlay_covered() && halo_scene_class() == CONFIG_SCENE_GAMEPLAY;
+
+		if (gameplay != touch_gameplay)
+		{
+			touch_gameplay = gameplay;
+			host_sdl_set_hint("VISR_TOUCH_GAMEPLAY", gameplay ? "1" : "0");
+		}
 	}
 	ui_mouse_hold_update(menus_active);
 	platform_menus_set_active(menus_active != 0);

@@ -119,6 +119,7 @@ static void *handle_get(uint32_t handle, int type)
 static void menu_pointer_hint(void *userdata, const char *name, const char *old_value, const char *value);
 static void menu_pointer_event(const SDL_Event *event);
 static void menu_pointer_sync(void);
+static void touch_gameplay_hint(void *userdata, const char *name, const char *old_value, const char *value);
 
 int host_sdl_init(uint32_t flags)
 {
@@ -128,6 +129,7 @@ int host_sdl_init(uint32_t flags)
 	{
 		hinted = 1;
 		SDL_AddHintCallback("VISR_MENU_ACTIVE", menu_pointer_hint, NULL);
+		SDL_AddHintCallback("VISR_TOUCH_GAMEPLAY", touch_gameplay_hint, NULL);
 	}
 	return SDL_Init((SDL_InitFlags)flags);
 }
@@ -1422,10 +1424,32 @@ static void menu_pointer_hint(void *userdata, const char *name, const char *old_
 	atomic_store(&menu_pointer_hinted, menus);
 }
 
+/* the guest publishes VISR_TOUCH_GAMEPLAY while a map is running with nothing over it; the touch controls show only
+then. Noted here like the menu hint and taken up by menu_pointer_sync */
+static atomic_int touch_gameplay_hinted = -1;
+
+static void touch_gameplay_hint(void *userdata, const char *name, const char *old_value, const char *value)
+{
+	int gameplay = value && (value[0] == '1' || !SDL_strcasecmp(value, "true"));
+
+	(void)userdata;
+	(void)name;
+	(void)old_value;
+	atomic_store(&touch_gameplay_hinted, gameplay);
+}
+
+static void touch_gameplay_main(void *context)
+{
+	host_ios_touch_gameplay_changed((int)(intptr_t)context);
+}
+
 static void menu_pointer_sync(void)
 {
+	int gameplay = atomic_exchange(&touch_gameplay_hinted, -1);
 	int menus = atomic_exchange(&menu_pointer_hinted, -1);
 
+	if (gameplay >= 0)
+		host_main_sync_f((void *)(intptr_t)gameplay, touch_gameplay_main);
 	if (menus < 0)
 		return;
 	host_menu_pointer_set_menus(&menu_pointer, menus);

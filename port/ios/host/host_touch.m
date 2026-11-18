@@ -20,6 +20,10 @@ static atomic_int controls_showing, controller_hide_pending;
 
 /* a menu is up (the guest's VISR_MENU_ACTIVE hint, host_menu_pointer.m): the touch controls keep only what a menu uses */
 static atomic_int menu_up;
+/* a map is running with nothing over it (the guest's VISR_TOUCH_GAMEPLAY hint, host_sdl.c): until the guest says so, from
+app launch on, the controls stay hidden and take no touches */
+static atomic_int gameplay_active;
+static BOOL touch_overlay_off(void) { return atomic_load(&menu_up)!=0||atomic_load(&gameplay_active)==0; }
 int host_ios_touch_blocked(void) { return host_touch_replay_blocked(&replay_gate); }
 static int pause_pending;
 static struct host_touch_latch button_latches[SDL_GAMEPAD_BUTTON_COUNT];
@@ -306,7 +310,7 @@ static void touch_latency_watch(void) {
     [self reset];
     BOOL hidden=self.manuallyHidden||self.controllerHidden;
     /* menus take touch themselves (host_menu_pointer.m): no controls, and no offer to show them */
-    BOOL menu=atomic_load(&menu_up)!=0;
+    BOOL menu=touch_overlay_off();
     self.moveStick.hidden=self.lookStick.hidden=hidden||menu;
     for(HaloButton *button in self.buttons)button.hidden=hidden||menu;
     self.toggle.hidden=self.controllerHidden||menu;
@@ -324,7 +328,7 @@ static void touch_latency_watch(void) {
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG")){CGPoint p=[touches.anyObject locationInView:self];fprintf(stderr,"halo-ios: host_touch began %.1f,%.1f menu_up=%d hidden=%d\n",p.x,p.y,(int)atomic_load(&menu_up),(int)self.controllerHidden);}
     /* a tap on a menu is the menu's (host_menu_pointer.m); it does not bring the controls back */
-    if(atomic_load(&menu_up))return;
+    if(touch_overlay_off())return;
     if(self.controllerHidden){self.controllerHidden=NO;self.manuallyHidden=NO;[self applyVisibility];return;}
     [super touchesBegan:touches withEvent:event];
 }
@@ -363,7 +367,7 @@ static void touch_latency_watch(void) {
 }
 - (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
     if(getenv("HALO_TOUCH_DEBUG"))fprintf(stderr,"halo-ios: host_touch hittest %.1f,%.1f\n",point.x,point.y);
-    if(host_touch_replay_blocked(&replay_gate) || atomic_load(&menu_up))return NO;
+    if(host_touch_replay_blocked(&replay_gate) || touch_overlay_off())return NO;
     if(self.controllerHidden)return YES;   /* a touch brings the overlay back (touchesBegan:) */
     for(UIView *view in self.subviews)if(!view.hidden && [view pointInside:[self convertPoint:point toView:view] withEvent:event])return YES;
     return NO;
@@ -373,6 +377,10 @@ static void touch_latency_watch(void) {
 static NSHashTable<HaloControls *> *attached_controls;
 void host_ios_touch_menu_changed(int menus) {
     if(atomic_exchange(&menu_up,menus!=0)==(menus!=0))return;
+    for(HaloControls *controls in attached_controls)[controls applyVisibility];
+}
+void host_ios_touch_gameplay_changed(int gameplay) {
+    if(atomic_exchange(&gameplay_active,gameplay!=0)==(gameplay!=0))return;
     for(HaloControls *controls in attached_controls)[controls applyVisibility];
 }
 static void touch_replay_ui_update(void) {
