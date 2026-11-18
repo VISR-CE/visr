@@ -237,7 +237,10 @@ def standardize_spinners(documents):
         wide = max(w for _, w, _ in SPINNER_WIDTHS)
         spinner.set('left', str(int(spinner.get('left', '0')) + (wide - width) // 2))
         spinner.set('width', str(width))
-        spinner.set('footer_bounds', f'7 {width + 3} 19 {width + 9}')
+        # The arrows bracket the value box: bounds are relative to the widget's origin, not to the box's left edge
+        left = int(spinner.get('left', '0'))
+        spinner.set('header_bounds', f'7 {left - 9} 19 {left - 3}')
+        spinner.set('footer_bounds', f'7 {left + width + 3} 19 {left + width + 9}')
     # Every control on a screen keeps one common center line. When the widest control would run past its row, the
     # whole screen's controls move left together (by whatever the worst row needs), so nothing clips and the centers
     # stay aligned.

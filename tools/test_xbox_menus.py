@@ -763,8 +763,9 @@ def test_hosting_rows_share_value_geometry_and_keep_a_list_action(page):
                 label = widgets[value.get('name').rsplit('_', 1)[0] + '_label']
                 assert int(inner.get('y')) + int(value.get('top')) + int(value.get('text_y')) == int(label.get('text_y'))
                 if value.get('type') == 'spinner':
-                    assert value.get('header_bounds') == '7 -6 19 0'
-                    assert value.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
+                    left = int(value.get('left'))
+                    assert value.get('header_bounds') == f'7 {left - 9} 19 {left - 3}'
+                    assert value.get('footer_bounds') == f'7 {left + width + 3} 19 {left + width + 9}'
     if page == 'coop_options':
         # (every co-op row applies as it changes, so the legend has nothing to select)
         assert base + '/' + page + '_screen/legend/accept' not in widgets
@@ -1420,7 +1421,10 @@ def test_every_value_control_uses_a_standard_width_that_fits_its_longest_value()
             width = int(spinner.get('width'))
             assert width in standard, (name, spinner.get('name'), width)
             assert width / 2 >= module.SPINNER_MINIMUM_HALF_WIDTH, (name, spinner.get('name'), width)
-            assert spinner.get('footer_bounds') == f'7 {width + 3} 19 {width + 9}'
+            left = int(spinner.get('left', '0'))
+            # (the arrows bracket the value box: bounds are relative to the widget origin, not the box's left edge)
+            assert spinner.get('header_bounds') == f'7 {left - 9} 19 {left - 3}', (name, spinner.get('name'))
+            assert spinner.get('footer_bounds') == f'7 {left + width + 3} 19 {left + width + 9}', (name, spinner.get('name'))
             if id(spinner) in longest:
                 assert longest[id(spinner)] * module.SPINNER_UNITS_PER_CHARACTER <= width, (name, spinner.get('name'))
             reach = int(part.get('x', '0')) + int(spinner.get('left', '0')) + width + 9

@@ -3049,8 +3049,8 @@ static void option_columns_fit(struct ui_widget_definition const *list, char con
 		short left = spinners[row]->bounds.x0;
 
 		spinners[row]->bounds.x1 = (short)(left + widest);
-		spinners[row]->list_footer_bounds.x0 = (short)(widest + 3);
-		spinners[row]->list_footer_bounds.x1 = (short)(widest + 9);
+		spinners[row]->list_footer_bounds.x0 = (short)(left + widest + 3);
+		spinners[row]->list_footer_bounds.x1 = (short)(left + widest + 9);
 		places[row]->horizontal_offset = (short)(right - left - widest);
 	}
 	for (row = 0; row < shown_count; row++)
