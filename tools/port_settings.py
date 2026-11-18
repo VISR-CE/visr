@@ -899,7 +899,7 @@ TITLES = {
     f"{MT}/game_options_edit/header_game_options": "GAME",
     f"{MT}/respawn_options_edit/header_respawn_options": "RESPAWN OPTIONS",
     f"{MT}/teams_hud_edit/header_teams_hud": "TEAMS & HUD",
-    f"{MT}/weapons_edit/header_weapons": "SPAWN WEAPONS",
+    f"{MT}/weapons_edit/header_weapons": "CHOOSE WEAPONS",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }

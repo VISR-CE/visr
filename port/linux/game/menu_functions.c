@@ -7140,6 +7140,10 @@ static void gametype_option_help(struct widget_instance *list)
 
 		visible_set(named(list, "op_choose_weapons", 0), custom);
 	}
+	/* (WEAPON SET only with the map's weapons on: it remaps the weapons the map places) */
+	if (named(list, "map_weapons_spinner", 0) && named(list, "op_weapon_set", 0))
+		visible_set(named(list, "op_weapon_set", 0),
+			named(list, "map_weapons_spinner", 0)->parameters.list.selected_index == 0);
 	/* (the server browser's filters, hidden: their helps are fewer than
 	their values) */
 	if (!description || !list->focused_child || !strncmp(list->name, "filters", 7))
