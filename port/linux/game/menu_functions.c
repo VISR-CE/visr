@@ -5247,7 +5247,8 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	text_set(named(screen, "browser_list_hint", 0), L"Select CREATE to start your own game.");
 	visible_set(named(detail, "browser_connection_status", 0), present && (lobby_browser.joining ||
 		(lobby_browser.failed_time && system_milliseconds() - lobby_browser.failed_time < LOBBY_BROWSER_FAILED_TIME)));
-	text_set(named(detail, "browser_connection_status", 0), status);
+	usnprintf(text, NUMBEROF(text) - 1, L"%s", status ? status : L"");
+	browser_name_set(named(detail, "browser_connection_status", 0), text);
 	if (!present)
 	{
 		char const *const blank[] = { "browser_detail_name", "browser_detail_type", "browser_detail_rules",
@@ -5277,8 +5278,9 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	map_display_name(game->map, map);
 	usnprintf(text, NUMBEROF(text) - 1, L"%s · %s", types[PIN(game->engine_type, 0, 5)], map);
 	browser_name_set(named(detail, "browser_detail_type", 0), text);
-	text_set(named(detail, "browser_detail_rules", 0), browser_listing_cooperative(game) ? L"Co-op campaign" :
+	usnprintf(text, NUMBEROF(text) - 1, L"%s", browser_listing_cooperative(game) ? L"Co-op campaign" :
 		game->has_teams ? L"Teams" : L"Free for all");
+	browser_name_set(named(detail, "browser_detail_rules", 0), text);
 	/* Listings do not advertise loadouts, tracker settings, score limits, or time limits. */
 	visible_set(named(detail, "browser_detail_equipment", 0), FALSE);
 	visible_set(named(detail, "browser_equipment_label", 0), FALSE);
@@ -5297,12 +5299,13 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 	visible_set(named(detail, "browser_host_label", 0), text[0] != 0);
 	visible_set(named(detail, "browser_detail_host", 0), text[0] != 0);
 	usnprintf(text, NUMBEROF(text) - 1, L"BIG GAME · MAY NOT HOLD %ld FPS", browser_target_fps());
-	text_set(named(detail, "browser_detail_big", 0), text);
+	browser_name_set(named(detail, "browser_detail_big", 0), text);
 	visible_set(named(detail, "browser_detail_big", 0),
 		player_capacity_marked(game->player_count, game->maximum_player_count));
 	usnprintf(text, NUMBEROF(text) - 1, L"NET v%d", game->network_version);
-	text_set(named(detail, "browser_detail_net", 0), text);
-	text_set(named(detail, "browser_detail_password", 0), game->locked ? L"PASSWORD" : L"NO PASSWORD");
+	browser_name_set(named(detail, "browser_detail_net", 0), text);
+	usnprintf(text, NUMBEROF(text) - 1, L"%s", game->locked ? L"PASSWORD" : L"NO PASSWORD");
+	browser_name_set(named(detail, "browser_detail_password", 0), text);
 	join = named(detail, "join_game_button_join", 0);
 	if (join)
 	{
@@ -5325,7 +5328,7 @@ static void browser_c_detail_update(struct widget_instance *list, wchar_t const 
 		   unusable shows in the detail box */
 		text_set(named(join, "browser_join_caption", 0), lobby_browser.joining ? L"CONNECTING" : L"JOIN GAME");
 		visible_set(named(detail, "browser_join_reason", 0), !usable && text[0] != 0);
-		text_set(named(detail, "browser_join_reason", 0), text);
+		browser_name_set(named(detail, "browser_join_reason", 0), text);
 	}
 }
 
