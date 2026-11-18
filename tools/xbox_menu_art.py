@@ -44,6 +44,13 @@ def browser_art(output):
                        f'viewBox="0 0 544 24">{shape}</svg>\n')
         subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(output / f'browser_row__{index}.png'),
                         str(svg)], check=True)
+    # the status box under the list: the same outline as the rows and the text fields
+    svg = output / 'browser_status__0.svg'
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="544" height="64" viewBox="0 0 544 64">'
+                   '<rect x="2" y="1" width="540" height="62" rx="10" fill="#001125" fill-opacity=".8" '
+                   'stroke="#2896ff" stroke-width="2"/></svg>\n')
+    subprocess.run(['rsvg-convert', '--zoom', '4', '--output', str(output / 'browser_status__0.png'),
+                    str(svg)], check=True)
 
 
 # the pictures of the profile editor and multiplayer rows that ship as our own art (xbox/art/<name>.svg, 512 by 256):

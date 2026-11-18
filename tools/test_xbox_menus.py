@@ -187,6 +187,10 @@ def test_multiplayer_files_preserve_pc_wiring_and_widget_names():
                 name = 'xbox/main_menu/quit_select/quit_panel'
             if filename.endswith('coop_options') and name.endswith(('/button_bar', '/button_ok')):
                 continue
+            # DIRECT IP's JOIN GAME is a row of the list, not a button bar.
+            # Its password row is gone (the PASSWORD screen asks after connecting).
+            if filename.endswith('direct_ip') and (name.endswith('_button_bar') or 'server_password' in name):
+                continue
             copied = widgets[name]
             for tag, key in (('on', 'run'), ('data', 'input')):
                 if original.get('setting') and filename.endswith(('server_settings', 'coop_options')) and tag == 'on':
@@ -229,7 +233,7 @@ def test_browser_uses_density_row_list_and_description_panel():
         c.get('widget').rsplit('/', 1)[-1]
         for c in widgets['join_game_items_list'].findall('child')}
     assert [(int(c.get('x')), int(c.get('y'))) for c in rows] == [
-        (48, 108 + pitch * i) for i in range(count)]
+        (48, 108 + generator().FIELD_GAP + pitch * i) for i in range(count)]
     fields = ('server_name', 'map', 'type', 'players', 'ping')
     headers = widgets['join_game_header']
     header_x = {c.get('widget').rsplit('_', 1)[-1]: int(c.get('x', 0))
@@ -257,8 +261,13 @@ def test_browser_uses_density_row_list_and_description_panel():
     frame = bitmaps[panel.get('bitmap')].find('frame')
     # The source textures include transparent right/bottom padding. Their
     # visible panel must cover both description lines and the list width.
-    assert int(frame.get('width')) * 315 // 512 >= int(panel.get('width')) - 1
-    assert int(frame.get('height')) * 322 // 512 >= int(panel.get('height'))
+    if panel.get('bitmap').endswith('browser_status'):
+        # Our own outline picture has no transparent padding.
+        assert int(frame.get('width')) >= int(panel.get('width'))
+        assert int(frame.get('height')) >= int(panel.get('height'))
+    else:
+        assert int(frame.get('width')) * 315 // 512 >= int(panel.get('width')) - 1
+        assert int(frame.get('height')) * 322 // 512 >= int(panel.get('height'))
     for c in rows:
         row = widgets[c.get('widget').rsplit('/', 1)[-1]]
         for frame in bitmaps[row.get('bitmap')].findall('frame'):
@@ -1475,7 +1484,7 @@ def test_profile_editor_removes_save_after_inserting_settings():
     assert not any(p.find('remove') is not None for p in root.findall('patch') if p is not edit)
 
 @pytest.mark.parametrize('kind', ('password', 'code'))
-def test_password_and_code_legend_caption_follows_the_field(kind):
+def test_password_and_code_legend_caption_follows_the_row(kind):
     """A opens the keyboard until text is held, so the legend's A caption is a two-string list
     (EDIT, JOIN GAME) that menu_functions.c's legend_accept_caption switches; taps still join."""
     root = ET.parse(MENUS / 'xbox/main_menu.multiplayer_type_select.join_game.port.xml').getroot()
@@ -1485,15 +1494,20 @@ def test_password_and_code_legend_caption_follows_the_field(kind):
     strings = next(s for s in root.iter('strings') if s.get('name') == accept.get('string_list'))
     assert [s.get('text') for s in strings] == ['EDIT', 'JOIN GAME']
     assert accept.get('string_index') == '1'
-    assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} join'
-    # Y no longer re-edits: A on the field row opens the keyboard (menu action rows)
+    assert accept.find('on[@event="left_mouse"]').get('run') == f'port {kind} accept'
     screen = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0])
     assert screen.find('on[@event="y"]') is None
-    for leaf in ('y_butn', 'y_edit'):
-        assert not any(w.get('name') == f'{base}/{leaf}' for w in root.iter('widget'))
+    # JOIN GAME is its own row under the field; A on the field edits, A on the row joins
+    options = next(w for w in root.iter('widget') if w.get('name') == base.rsplit('/', 1)[0].rsplit('/', 1)[0] + '/options_menu')
+    leaves = [c.get('widget').rsplit('/', 1)[1] for c in options.findall('child')]
+    assert leaves == [f'op_{kind}', 'button_ok']
+    ok = next(w for w in root.iter('widget') if w.get('name', '').endswith(f'/{kind}/button_ok'))
+    assert ok.find('on[@event="a"]').get('run') == f'port {kind} join'
+    field = next(w for w in root.iter('widget') if w.get('name', '').endswith(f'/op_{kind}'))
+    assert field.find('on[@event="a"]').get('run') == f'port {kind} edit'
+    assert f'"port {kind} accept"' in (ROOT / 'port/linux/game/menu_tags.c').read_text()
     source = (ROOT / 'port/linux/game/menu_functions.c').read_text()
-    assert f'legend_accept_caption(list, text_field_editing(NULL) || {kind}_screen.text[0])' in source
-    assert f'text_field_editing(row) || {kind}_screen.text[0])' in source
+    assert f'legend_accept_caption(list, join_row_focused(list))' in source
     assert 'config_string("debug.menu_text_seed")' in source
     # X hides or shows the password (password screen only): HIDE while plain, SHOW while stars
     x_names = [w.get('name') for w in root.iter('widget') if w.get('name', '').startswith(base + '/x_')]

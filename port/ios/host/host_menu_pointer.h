@@ -52,6 +52,11 @@ struct host_menu_pointer {
     int touch;
 };
 
+/* A system text prompt belongs to direct touch, never a mouse, gaze, or a hardware keyboard. */
+static inline int host_menu_pointer_auto_keyboard(const struct host_menu_pointer *m, int keyboard) {
+    return m->touch == 1 && !keyboard;
+}
+
 static inline void host_menu_pointer_clear(struct host_menu_pointer *m) {
     m->device_held = 0;
     m->tracking = 0;
