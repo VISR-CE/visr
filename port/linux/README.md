@@ -230,8 +230,8 @@ which it reads again at each level load. If a key is not correct, or a value
 has the wrong type, the game writes the line to the log and uses the default
 value. The Settings menu (Video, Mouse, Audio, Network and Controls Setup)
 changes the useful settings, writes them into the file (only their lines
-change) and applies them at once, but `audio.enabled`, and `display.menus`
-from the next main menu.
+change) and applies them at once, but `display.menus` from the next main
+menu.
 
 Each setting has an environment variable. The environment variable changes
 the setting for one start of the game. It has priority over the file.
