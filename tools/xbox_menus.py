@@ -2071,6 +2071,9 @@ def patch_document(names):
               open='xbox/error/confirm_delete_profile_modal_fullscreen', picture=3,
               description='Delete this profile and\\neverything saved with it.' + current)
     patch_row(edit, 'remove', child=PEP + 'save_changes_profile_item')
+    # The original's OK / CANCEL bar has no buttons left in the Xbox look (B leaves, rows save as they change);
+    # its empty frame would draw a rule and a band under the list
+    patch_row(edit, 'remove', child=PEP + 'profile_edit_button_bar')
     # Advanced setup: IN-GAME HELP, which the game keeps in the profile
     advanced = patch(root, PEP + 'advanced_controls\\advanced_controls_menu',
                      PEP + 'advanced_controls\\advanced_controls_screen')
