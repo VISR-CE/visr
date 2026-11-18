@@ -246,6 +246,24 @@ CONTROL_ROWS = 7
 
 # the profile menu's words for what its items now open
 STRING_OVERRIDES = {
+    # (the PLAYER screen: its four rows, then the RESPAWN row's line; the respawn rows moved to RESPAWN OPTIONS)
+    "main_menu/settings_select/multiplayer_setup/player_options_edit/cap_player_options": [
+        "You will respawn indefinitely until you end the game\\nor reach a time limit.",
+        "You have one life to live. But at least you're using it\\nto kick ass across the galaxy instead of just sitting\\nin a mansion crying with your rich socialite lovers.",
+        "You will have three lives to live, which makes you\\none-third as cool as a cat.",
+        "You have five lives, which is four more than you'd get\\nin the real world.  Use them wisely.",
+        "You will begin the game with half your health already\\ngone, and shields at half capacity.",
+        "You begin the game with full health and shields.",
+        "You begin the game with 50% more health and shield\\nstrength than usual.",
+        "You begin the game with twice as much health and\\nshield strength as you normally do.",
+        "You begin the game with three times as much health \\nand shield strength as you normally do.",
+        "You begin the game with four times as much health \\nand shield strength as you normally do.",
+        "Your battle suit will have shields and thus make you\\nharder to kill.",
+        "The shields on your battle suit will not work, making\\nit much easier for everyone to perish.",
+        "All the players will be completely invisible.",
+        "All players will be visible unless they happen to find\\nan Active Camouflage powerup.",
+        "The respawn time and how it grows, odd man out, and the suicide penalty.",
+    ],
     "main_menu/multiplayer_type_select/join_game/join_game_column_headers": [
         "Server Name", "Map", "Players", "Game", "Region",
     ],
@@ -880,6 +898,7 @@ TITLES = {
     f"{MT}/lobby/header_lobby": "GAME LOBBY",
     f"{MT}/coop_options/header_coop_options": "CO-OP OPTIONS",
     f"{MT}/game_options_edit/header_game_options": "GAME",
+    f"{MT}/respawn_options_edit/header_respawn_options": "RESPAWN OPTIONS",
     f"{MT}/coop/header_player_2": "PLAYER 2 PROFILE",
     f"{MT}/lobby/header_add_player": "ADD PLAYER",
 }
@@ -1183,6 +1202,45 @@ def _game_options() -> list:
     lines = _screen(base, spec, rows, ["mp profile init game options"], [], extra)
     screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/game_options_screen"' in line)
     lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init game options"/>')
+    return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
+            and 'event="deleted" run="port setting save"' not in line]
+
+
+def _respawn_options() -> list:
+    """RESPAWN OPTIONS, behind the PLAYER screen's RESPAWN row: the respawn time and its growth, odd man out, and
+    the suicide penalty (the spinners and values of the PLAYER screen they came from; their helps in that order)"""
+    base = f"{MT}/respawn_options_edit"
+    spec = {"screen": "respawn_options_screen", "spacing": 30,
+            "header": ("header_respawn_options", f"{base}/header_respawn_options")}
+    seconds = ["INSTANT", "5 SECONDS", "10 SECONDS", "15 SECONDS"]
+    penalty = ["NONE", "5 SECONDS", "10 SECONDS", "15 SECONDS"]
+    rows, extra = [], []
+    for index, (key, strings) in enumerate((("respawn_time", seconds), ("respawn_time_growth", penalty),
+                                            ("odd_man_out", ["YES", "NO"]), ("suicide_penalty", penalty))):
+        extra += _hosting_spinner(base, key, index, strings, None, None)
+        rows.append((f"{base}/op_{key}", None, index))
+    extra += _strings(f"{base}/labels", ["RESPAWN TIME:", "RESPAWN TIME GROWTH:", "ODD MAN OUT:", "SUICIDE PENALTY:"])
+    extra += _strings(f"{base}/help_strings", [
+        "After you die, you'll be able to respawn immediately.",
+        "When you die, there will be a five-second wait before\\nyou can rejoin the game.",
+        "You'll wait ten seconds after you perish before you\\ncan return to the game.",
+        "When you die, you must wait fifteen seconds before\\nyou can respawn. This will give you an idea of what\\neternity is like.",
+        "Respawn time will always remain at its initial\\nsetting.",
+        "Every time you die your respawn time will increase\\nby five seconds. Every time you kill someone your\\nrespawn time will decrease by five seconds.",
+        "Your respawn time increases by ten seconds each\\ntime you die, and decreases by ten seconds each\\ntime you kill someone.",
+        "Every time you die you'll add fifteen seconds to your\\nrespawn time. Every time you kill someone you'll\\nsubtract fifteen seconds.",
+        "When he dies, the Odd Man Out cannot respawn until\\nsomeone else assumes the shameful burden of Odd\\nMan Out by dying.",
+        "When you die, you will respawn immediately without\\nwaiting for someone else to repeat your mistakes.",
+        "You pay no price for ending your own life prematurely.",
+        "Every time you cause your own death, there will be a \\nfive-second wait before you can rejoin the game. ",
+        "You'll wait ten seconds after you cause your own \\ndeath before you can return to the game.",
+        "When you suicide, you must wait fifteen seconds \\nbefore you can respawn. This will give you an idea of \\nwhat eternity is like."])
+    extra += _button(f"{base}/button_ok", 1,
+                     ['<on event="a" run="mp profile set respawn options" back="true"/>',
+                      '<on event="start" run="mp profile set respawn options" back="true"/>'])
+    lines = _screen(base, spec, rows, ["game settings lists text update"], [], extra)
+    screen = next(i for i, line in enumerate(lines) if f'<widget name="{base}/respawn_options_screen"' in line)
+    lines.insert(screen + 1, '\t\t<on event="created" run="mp profile init respawn options"/>')
     return [line for line in lines if f'<child widget="{base}/button_defaults"' not in line
             and 'event="deleted" run="port setting save"' not in line]
 
@@ -1648,6 +1706,7 @@ def multiplayer_files() -> dict:
         f"{MT}/server_settings".replace("/", ".") + ".xml": head + _server_settings() + ["</menus>", ""],
         f"{MT}/coop_options".replace("/", ".") + ".xml": head + _coop_options() + ["</menus>", ""],
         f"{MT}/game_options_edit".replace("/", ".") + ".xml": head + _game_options() + ["</menus>", ""],
+        f"{MT}/respawn_options_edit".replace("/", ".") + ".xml": head + _respawn_options() + ["</menus>", ""],
         f"{MT}/lobby".replace("/", ".") + ".xml": head + _lobby() + ["</menus>", ""],
         f"{MT}/coop".replace("/", ".") + ".xml": head + _coop() + ["</menus>", ""],
         "main_menu/new_select".replace("/", ".") + ".port.xml": head + _map_kind() + ["</menus>", ""],

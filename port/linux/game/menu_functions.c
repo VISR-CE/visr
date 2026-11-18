@@ -7145,6 +7145,8 @@ static void gametype_option_help(struct widget_instance *list)
 		{
 			if (spinner)
 				description->parameters.text_box.string_list_index = (short)(index + spinner->parameters.list.selected_index);
+			else if (!strcmp(row->name, "op_respawn"))
+				description->parameters.text_box.string_list_index = index; /* (the line after the spinners') */
 			return;
 		}
 		if (spinner)
@@ -7208,6 +7210,26 @@ static void gametype_engine_name(struct widget_instance *text_box)
 
 	if (variant)
 		text_box->parameters.text_box.string_list_index = strings[PIN(variant->game_engine_index, 0, 5)];
+}
+
+/* "port respawn state": the PLAYER screen's RESPAWN row's state word, the respawn time (the rest of RESPAWN
+OPTIONS is behind the row) */
+static void respawn_state_show(struct widget_instance *text_box)
+{
+	struct game_variant *variant = edit_variant();
+	wchar_t text[16];
+	char word[16];
+	long seconds;
+
+	if (!variant)
+		return;
+	seconds = variant->universal_variant.respawn_time / 30;
+	if (seconds <= 0)
+		snprintf(word, sizeof(word), "INSTANT");
+	else
+		snprintf(word, sizeof(word), "%ld SEC", seconds);
+	halo_menus_utf16(word, (unsigned short *)text, NUMBEROF(text));
+	text_set_length(text_box, text, NUMBEROF(text));
 }
 
 /* ---------- public code */
@@ -7775,6 +7797,8 @@ void pc_menu_game_data_function_invoke(
 		preview_update(widget);
 	else if (!strcmp(name, "port lobby update"))
 		lobby_update(widget);
+	else if (!strcmp(name, "port respawn state"))
+		respawn_state_show(widget);
 	else if (!strcmp(name, "port cloud saves status"))
 		cloud_saves_status_show(widget);
 	else if (!strcmp(name, "port send log status"))

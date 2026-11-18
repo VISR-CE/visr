@@ -152,6 +152,50 @@ text = "BACK"
 [ce.main_menu_multiplayer_type_select_lobby.main_menu_multiplayer_type_select_lobby_preview_button_join]
 text = "JOIN GAME"
 
+[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_help_strings]
+after_you_die_you_ll_be_able_to__bb6af7 = "After you die, you'll be able to respawn immediately."
+when_you_die_there_will_be_a_fiv_8b9c5f = "When you die, there will be a five-second wait before\\nyou can rejoin the game."
+you_ll_wait_ten_seconds_after_yo_990660 = "You'll wait ten seconds after you perish before you\\ncan return to the game."
+when_you_die_you_must_wait_fifte_ef503c = "When you die, you must wait fifteen seconds before\\nyou can respawn. This will give you an idea of what\\neternity is like."
+respawn_time_will_always_remain__d7b6f9 = "Respawn time will always remain at its initial\\nsetting."
+every_time_you_die_your_respawn__b5be1a = "Every time you die your respawn time will increase\\nby five seconds. Every time you kill someone your\\nrespawn time will decrease by five seconds."
+your_respawn_time_increases_by_t_5ff174 = "Your respawn time increases by ten seconds each\\ntime you die, and decreases by ten seconds each\\ntime you kill someone."
+every_time_you_die_you_ll_add_fi_77251e = "Every time you die you'll add fifteen seconds to your\\nrespawn time. Every time you kill someone you'll\\nsubtract fifteen seconds."
+when_he_dies_the_odd_man_out_can_fa115e = "When he dies, the Odd Man Out cannot respawn until\\nsomeone else assumes the shameful burden of Odd\\nMan Out by dying."
+when_you_die_you_will_respawn_im_773175 = "When you die, you will respawn immediately without\\nwaiting for someone else to repeat your mistakes."
+you_pay_no_price_for_ending_your_abd4ea = "You pay no price for ending your own life prematurely."
+every_time_you_cause_your_own_de_a58b50 = "Every time you cause your own death, there will be a \\nfive-second wait before you can rejoin the game. "
+you_ll_wait_ten_seconds_after_yo_b3a1d4 = "You'll wait ten seconds after you cause your own \\ndeath before you can return to the game."
+when_you_suicide_you_must_wait_f_bf856f = "When you suicide, you must wait fifteen seconds \\nbefore you can respawn. This will give you an idea of \\nwhat eternity is like."
+
+[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_labels]
+respawn_time = "RESPAWN TIME:"
+respawn_time_growth = "RESPAWN TIME GROWTH:"
+odd_man_out = "ODD MAN OUT:"
+suicide_penalty = "SUICIDE PENALTY:"
+
+[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_odd_man_out_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner]
+s0 = "NONE"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
+[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner]
+s0 = "INSTANT"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
+[ce.main_menu_multiplayer_type_select_respawn_options_edit.main_menu_multiplayer_type_select_respawn_options_edit_suicide_penalty_spinner]
+s0 = "NONE"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
 [ce.main_menu_multiplayer_type_select_server_settings.main_menu_multiplayer_type_select_server_settings_game_type_label]
 text = "GAME TYPE:"
 
@@ -1011,6 +1055,50 @@ text = "BACK"
 4_16_players_8 = "4-16 players"
 4_16_players_9 = "4-16 players"
 2_12_players = "2-12 players"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_help_strings]
+after_you_die_you_ll_be_able_to__bb6af7 = "After you die, you'll be able to respawn immediately."
+when_you_die_there_will_be_a_fiv_8b9c5f = "When you die, there will be a five-second wait before\\nyou can rejoin the game."
+you_ll_wait_ten_seconds_after_yo_990660 = "You'll wait ten seconds after you perish before you\\ncan return to the game."
+when_you_die_you_must_wait_fifte_ef503c = "When you die, you must wait fifteen seconds before\\nyou can respawn. This will give you an idea of what\\neternity is like."
+respawn_time_will_always_remain__d7b6f9 = "Respawn time will always remain at its initial\\nsetting."
+every_time_you_die_your_respawn__b5be1a = "Every time you die your respawn time will increase\\nby five seconds. Every time you kill someone your\\nrespawn time will decrease by five seconds."
+your_respawn_time_increases_by_t_5ff174 = "Your respawn time increases by ten seconds each\\ntime you die, and decreases by ten seconds each\\ntime you kill someone."
+every_time_you_die_you_ll_add_fi_77251e = "Every time you die you'll add fifteen seconds to your\\nrespawn time. Every time you kill someone you'll\\nsubtract fifteen seconds."
+when_he_dies_the_odd_man_out_can_fa115e = "When he dies, the Odd Man Out cannot respawn until\\nsomeone else assumes the shameful burden of Odd\\nMan Out by dying."
+when_you_die_you_will_respawn_im_773175 = "When you die, you will respawn immediately without\\nwaiting for someone else to repeat your mistakes."
+you_pay_no_price_for_ending_your_abd4ea = "You pay no price for ending your own life prematurely."
+every_time_you_cause_your_own_de_a58b50 = "Every time you cause your own death, there will be a \\nfive-second wait before you can rejoin the game. "
+you_ll_wait_ten_seconds_after_yo_b3a1d4 = "You'll wait ten seconds after you cause your own \\ndeath before you can return to the game."
+when_you_suicide_you_must_wait_f_bf856f = "When you suicide, you must wait fifteen seconds \\nbefore you can respawn. This will give you an idea of \\nwhat eternity is like."
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_labels]
+respawn_time = "RESPAWN TIME:"
+respawn_time_growth = "RESPAWN TIME GROWTH:"
+odd_man_out = "ODD MAN OUT:"
+suicide_penalty = "SUICIDE PENALTY:"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_odd_man_out_spinner]
+s0 = "YES"
+s1 = "NO"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_growth_spinner]
+s0 = "NONE"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_respawn_time_spinner]
+s0 = "INSTANT"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
+
+[xbox.main_menu_multiplayer_type_select_respawn_options_edit.xbox_main_menu_multiplayer_type_select_respawn_options_edit_suicide_penalty_spinner]
+s0 = "NONE"
+s1 = "5 SECONDS"
+s2 = "10 SECONDS"
+s3 = "15 SECONDS"
 
 [xbox.main_menu_multiplayer_type_select_server_settings.xbox_main_menu_multiplayer_type_select_server_settings_game_type_label]
 text = "GAME TYPE:"
