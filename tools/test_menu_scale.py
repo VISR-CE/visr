@@ -69,6 +69,7 @@ int halo_scene_class(void) { return scene; }
 long halo_screen_width(void) { return width; }
 float halo_screen_pixel_scale(void) { return 3; }
 void platform_video_window_size(int *w, int *h) { *w = width; *h = height; }
+void platform_video_safe_insets(float *insets) { insets[0] = insets[1] = insets[2] = insets[3] = 0.0f; }
 int host_sdl_menu_height_points(void) { return height; }
 __HELPERS__
 struct viewport { float viewport_scale[1][4], viewport_offset[1][4]; };

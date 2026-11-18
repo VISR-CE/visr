@@ -38,6 +38,7 @@ static void pc_menu_version_text(char *text, long size) { strcpy(text, "VISR 0.7
 static void ascii_to_wide(const char *text, wchar_t *wide, long size)
 { mbstowcs(wide, text, size / sizeof(*wide)); }
 static void *ui_widget_realloc(void *p, long size, const char *file, long line) { return realloc(p, size); }
+struct widget_instance *ui_widget_port_build_label;
 /* FUNCTION */
 int main(void)
 {
