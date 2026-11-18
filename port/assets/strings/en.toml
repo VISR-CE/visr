@@ -715,6 +715,12 @@ text = "SELECT"
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_create]
 text = "CREATE GAME"
 
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_error_legend_a_butn_touch_caption]
+text = "OK"
+
+[xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_error_legend_accept]
+text = "OK"
+
 [xbox.main_menu_multiplayer_type_select_join_game.xbox_main_menu_multiplayer_type_select_join_game_join_game_button_refresh]
 text = "REFRESH"
 
@@ -951,8 +957,17 @@ multiplayer = "MULTIPLAYER"
 custom_singleplayer = "CUSTOM SINGLEPLAYER"
 custom_multiplayer = "CUSTOM MULTIPLAYER"
 
-[xbox.main_menu_quit_select.xbox_main_menu_quit_select_quit_button_ok]
+[xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_a_butn_touch_caption]
 text = "OK"
+
+[xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_accept]
+text = "OK"
+
+[xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_b_butn_touch_caption]
+text = "CANCEL"
+
+[xbox.main_menu_quit_select.xbox_main_menu_quit_select_legend_cancel]
+text = "CANCEL"
 
 [xbox.main_menu_quit_select.xbox_main_menu_quit_select_quit_panel]
 text = "Are you sure you\\nwish to exit Halo?"
@@ -1061,12 +1076,6 @@ text = "CANCEL"
 [xbox.multiplayer_shared.xbox_error_confirm_delete_gametype_legend_cancel]
 text = "CANCEL"
 
-[xbox.multiplayer_shared.xbox_error_confirm_delete_profile_a_caption]
-text = "OK"
-
-[xbox.multiplayer_shared.xbox_error_confirm_delete_profile_b_caption]
-text = "CANCEL"
-
 [xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_a_butn_touch_caption]
 text = "OK"
 
@@ -1079,10 +1088,16 @@ text = "CANCEL"
 [xbox.multiplayer_shared.xbox_error_confirm_delete_profile_legend_cancel]
 text = "CANCEL"
 
-[xbox.multiplayer_shared.xbox_error_confirm_join_big_a_caption]
+[xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_a_butn_touch_caption]
 text = "OK"
 
-[xbox.multiplayer_shared.xbox_error_confirm_join_big_b_caption]
+[xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_accept]
+text = "OK"
+
+[xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_b_butn_touch_caption]
+text = "CANCEL"
+
+[xbox.multiplayer_shared.xbox_error_confirm_join_big_legend_cancel]
 text = "CANCEL"
 
 [xbox.multiplayer_shared.xbox_error_error_headers]
@@ -1696,14 +1711,20 @@ visr_gg = "visr.gg"
 visr_gg_privacy = "visr.gg/privacy"
 apache_2_0 = "Apache-2.0"
 
-[xbox.settings_about.xbox_settings_send_log_confirm_cancel]
+[xbox.settings_about.xbox_settings_send_log_confirm_legend_a_butn_touch_caption]
+text = "SEND"
+
+[xbox.settings_about.xbox_settings_send_log_confirm_legend_accept]
+text = "SEND"
+
+[xbox.settings_about.xbox_settings_send_log_confirm_legend_b_butn_touch_caption]
+text = "CANCEL"
+
+[xbox.settings_about.xbox_settings_send_log_confirm_legend_cancel]
 text = "CANCEL"
 
 [xbox.settings_about.xbox_settings_send_log_confirm_message]
 text = "Your log goes to the\\nVISR team via iCloud."
-
-[xbox.settings_about.xbox_settings_send_log_confirm_send]
-text = "SEND"
 
 [xbox.settings_about.xbox_settings_send_log_confirm_title]
 text = "SEND LOG?"

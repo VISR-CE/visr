@@ -1720,6 +1720,11 @@ drawn on a 39 pitch, in a 232 wide list (the pause row picture: a band closed at
 #define PAUSE_ROW_BITMAP "pause/pause_row"
 #define PAUSE_ROW_WIDEN (PAUSE_ROW_WIDTH - 202)
 #define PAUSE_BOX_FIRST_BUTTONS 3
+/* (the Xbox look's box: its rows raised into the stock box's tall top margin
+and its legend raised with them, so the touch legend's 60 unit pills fit
+between the last row and the box's bottom edge) */
+#define PAUSE_LIST_RAISE 22
+#define PAUSE_LEGEND_RAISE 15
 
 static long ui_function_named(char const *name)
 {
@@ -2018,9 +2023,15 @@ static void pause_patch(struct cache_file_tag_instance *instances)
 				children[child].vertical_offset -= grow / 2;
 				/* (wider: kept centred where the old box was) */
 				children[child].horizontal_offset -= pause_widen / 2;
+				if (child == list_child && pause_widen)
+					children[child].vertical_offset -= PAUSE_LIST_RAISE;
 			}
 			else if (children[child].vertical_offset > list_top)
+			{
 				children[child].vertical_offset += box_child != NONE ? grow - grow / 2 : grow;
+				if (box_child != NONE && pause_widen)
+					children[child].vertical_offset -= PAUSE_LEGEND_RAISE;
+			}
 		}
 		if (box_child != NONE && !box_redrawn)
 		{
