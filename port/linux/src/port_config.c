@@ -1617,6 +1617,10 @@ static const struct config_setting config_settings[] =
 	{ "debug.frame_load_every", _config_real, "0.0", "HALO_FRAME_LOAD_EVERY", _environment_value, _platform_ios,
 		"With debug.frame_load_cpu: the made-up work comes and goes, on in every\n"
 		"other span of this many seconds, as a fight would. 0 (default): always." },
+	{ "debug.audio_cycle", _config_integer, "0", "HALO_AUDIO_CYCLE", _environment_value, _platform_ios,
+	  "Every this many frames of a level (not the main menu), steps audio.enabled and audio.music_enabled through\n"
+	  "sound off, sound on, music off, music on, unsaved, as the Audio Setup rows do, and logs each step with the open\n"
+	  "sound streams, the app's threads and the mixer's buffers: for checking that nothing grows or stalls. 0 (default) does nothing." },
 	{ "debug.audio_reopen_test", _config_real, "0.0", "HALO_AUDIO_REOPEN_TEST", _environment_value, _platform_ios,
 		"Closes and reopens the sound device every this many seconds, as an\n"
 		"audio route change does (an external display connecting), to check\n"
@@ -3840,6 +3844,22 @@ int config_write(const char *name, const char *value)
 	free(out);
 	free(text);
 	return succeeded;
+}
+
+/* sets a boolean for this run only (nothing is written), advancing config_changes() as config_write does, so the live
+apply the menu relies on runs; for the debug steppers */
+int config_set_boolean_unsaved(const char *name, int value)
+{
+	long index = config_setting_index(name);
+
+	if (index < 0 || config_settings[index].type != _config_boolean)
+		return 0;
+	config_value(name, config_settings[index].type);
+	pthread_mutex_lock(&config_lock);
+	config_set_from_text(&config_values[index], config_settings[index].type, value ? "true" : "false");
+	config_change_count++;
+	pthread_mutex_unlock(&config_lock);
+	return 1;
 }
 
 int config_write_boolean(const char *name, int value)

@@ -1255,6 +1255,35 @@ VOID WINAPI DirectSoundDoWork(void)
 	streams_complete_finished();
 }
 
+#ifdef HALO_IOS
+int host_sdl_audio_open_count(void);
+int host_thread_count(void);
+#endif
+
+/* debug.audio_cycle: the next of sound off, sound on, music off, music on, applied as the menu's rows do (the next
+DirectSoundDoWork), with what could leak or stall in the log */
+void audio_cycle_step(void)
+{
+	static const char *const names[] = { "sound off", "sound on", "music off", "music on" };
+	static int phase = -1;
+	long slots = 0;
+	struct sound_buffer *buffer;
+	int streams = -1, threads = -1;
+
+	phase = (phase + 1) & 3;
+	if (phase == 0) config_set_boolean_unsaved("audio.enabled", 0);
+	else if (phase == 1) config_set_boolean_unsaved("audio.enabled", 1);
+	else config_set_boolean_unsaved("audio.music_enabled", phase == 3);
+	pthread_mutex_lock(&mixer_lock);
+	for (buffer = buffers; buffer; buffer = buffer->next) slots++;
+	pthread_mutex_unlock(&mixer_lock);
+#ifdef HALO_IOS
+	streams = host_sdl_audio_open_count();
+	threads = host_thread_count();
+#endif
+	platform_log("audio cycle: %s (streams before the apply %d, threads %d, mixer buffers %ld)", names[phase], streams, threads, slots);
+}
+
 VOID WINAPI DirectSoundUseFullHRTF(void)
 {
 }

@@ -2544,6 +2544,16 @@
             "apple"
           ]
         },
+        "audio_cycle": {
+          "type": "integer",
+          "default": 0,
+          "description": "Every this many frames of a level (not the main menu), steps audio.enabled and audio.music_enabled through sound off, sound on, music off, music on, unsaved, as the Audio Setup rows do, and logs each step with the open sound streams, the app's threads and the mixer's buffers: for checking that nothing grows or stalls. 0 (default) does nothing.",
+          "x-environment": "HALO_AUDIO_CYCLE",
+          "x-environment-style": "value",
+          "x-platforms": [
+            "apple"
+          ]
+        },
         "audio_reopen_test": {
           "type": "number",
           "default": 0.0,

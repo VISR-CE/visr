@@ -46,6 +46,8 @@ void host_external_output_resize(void *layer, int width, int height);
 /* host_sdl.c: close and reopen the output streams (and so the device) after an audio route change. */
 void host_sdl_audio_route_changed(void);
 int host_sdl_audio_any_open(void);
+int host_sdl_audio_open_count(void);
+int host_thread_count(void);
 /* host_sdl.c: a stream that should be playing has had no callback for over 1.5 s (now: SDL_GetTicksNS). */
 int host_sdl_audio_stalled(unsigned long long now);
 /* host_sdl.c: every stream's stall clock starts now. */

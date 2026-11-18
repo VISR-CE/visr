@@ -43,3 +43,14 @@ def test_last_close_notifies_others():
     assert "host_audio_session_release();" in host
     cmake = (root / "port/ios/CMakeLists.txt").read_text()
     assert "host/host_audio_session.m" in cmake
+
+
+def test_audio_cycle_wiring():
+    config = (ROOT / "port/linux/src/port_config.c").read_text()
+    assert '"debug.audio_cycle"' in config and "int config_set_boolean_unsaved" in config
+    assert "debug.audio_cycle" in (ROOT / "port/linux/README.md").read_text()
+    dsound = (ROOT / "port/linux/src/dsound_sdl.c").read_text()
+    assert "void audio_cycle_step(void)" in dsound and "host_sdl_audio_open_count" in dsound
+    assert "audio_cycle_step();" in (ROOT / "port/linux/src/d3d8_device.c").read_text()
+    host = (ROOT / "port/ios/host/host_sdl.c").read_text()
+    assert "int host_sdl_audio_open_count(void)" in host and "int host_thread_count(void)" in host

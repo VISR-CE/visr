@@ -10,6 +10,7 @@ native guest arena (host_thread.c). SDL's audio thread is the exception: it has 
 so the audio callback is handed to a thread that has one.
 */
 
+#include <mach/mach.h>
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
 #if TARGET_OS_VISION
@@ -1097,6 +1098,29 @@ int host_sdl_audio_any_open(void)
         if(audio_streams[i])any=1;
     pthread_mutex_unlock(&audio_life_lock);
     return any;
+}
+
+/* how many sound streams are open (debug.audio_cycle's log) */
+int host_sdl_audio_open_count(void)
+{
+    int count=0;
+    pthread_mutex_lock(&audio_life_lock);
+    for(size_t i=0;i<SDL_arraysize(audio_streams);i++)
+        if(audio_streams[i])count++;
+    pthread_mutex_unlock(&audio_life_lock);
+    return count;
+}
+
+/* how many threads the app has (debug.audio_cycle's log) */
+int host_thread_count(void)
+{
+    thread_act_array_t threads;
+    mach_msg_type_number_t count;
+
+    if(task_threads(mach_task_self(),&threads,&count)!=KERN_SUCCESS)return -1;
+    for(mach_msg_type_number_t at=0;at<count;at++)mach_port_deallocate(mach_task_self(),threads[at]);
+    vm_deallocate(mach_task_self(),(vm_address_t)threads,count*sizeof(*threads));
+    return (int)count;
 }
 
 /* A stream that should be playing whose callbacks stopped coming: the system stopped the device without a

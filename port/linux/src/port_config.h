@@ -56,6 +56,8 @@ The environment still wins; Hardcore acts as Classic in head-tracked stereo. */
 int config_boolean_in_graphics_mode(const char *name, int mode);
 /* the mode by name for this run only, unsaved (debug.knob_cycle): 0 for a name that is no mode */
 int config_graphics_try(const char *name);
+/* a boolean set for this run only (not written), applied live like config_write_boolean */
+int config_set_boolean_unsaved(const char *name, int value);
 /* 1 while the frames are head-tracked stereo (Apple Vision Pro), where Hardcore acts as Classic */
 void config_graphics_head_stereo(int head);
 /* the mode's name while it replaces this setting's own value (the menus show it instead of the

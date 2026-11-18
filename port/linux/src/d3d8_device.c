@@ -3587,6 +3587,8 @@ void halo_ui_pointer_feedback(int kind)
 /* takes up the display's shape and resolution, or the window's, if they
 have changed; between frames, since the game's layout and the targets must
 agree for a whole frame. Returns the width the game draws. */
+void audio_cycle_step(void);
+
 long halo_screen_commit(void)
 {
 	long width;
@@ -3597,6 +3599,17 @@ long halo_screen_commit(void)
 #ifdef HALO_ILP32
     host_external_commit(halo_external_pause_allowed());
 #endif
+	/* debug.audio_cycle: the next of sound off, sound on, music off, music on every so many frames of a level */
+	{
+		static long every = -1;
+		static unsigned long last_step;
+		if (every < 0) every = config_integer("debug.audio_cycle");
+		if (every > 0 && device.gl_ready && halo_scene_class() != CONFIG_SCENE_MENU && device.frame >= last_step + (unsigned long)every)
+		{
+			if (last_step) audio_cycle_step();
+			last_step = device.frame;
+		}
+	}
 	/* debug.graphics_cycle: the next graphics mode every so many frames of a level, unsaved */
 	{
 		static long every = -1;
