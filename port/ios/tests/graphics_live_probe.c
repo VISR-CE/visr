@@ -33,6 +33,7 @@ static int halo_scene_class(void) { return CONFIG_SCENE_GAMEPLAY; }
 static int halo_external_pause_allowed(void) { return 0; }
 static int photo_mode_active(void) { return 0; }
 static void host_external_commit(int allowed) { (void)allowed; }
+static void audio_cycle_step(void) {}
 static int dynamic_resolution_refused(void) { return 2; }
 static int host_dynamic_resolution_lines(int ceiling) { (void)ceiling; return 0; }
 static void platform_video_drawable_size(int *w, int *h) { *w = 2560; *h = 1440; }
