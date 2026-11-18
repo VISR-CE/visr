@@ -1337,7 +1337,7 @@ console.log(JSON.stringify(out));
     done = subprocess.run(["node", "-e", script, str(ROOT)], input=json.dumps(specs), capture_output=True, text=True, check=True)
     notes = json.loads(done.stdout)
     assert notes["Apple TV 4K"] == [["VISR 0.6.19", ""], ["Beeman main e3abbd1", ""]]
-    assert notes["Apple TV HD"] == [["VISR 0.6.18", ""]]
+    assert notes["Apple TV HD"] == [["VISR 0.6.19", ""]]
 
 
 def test_merged_devices_have_no_picker_entry_and_no_builds_on_the_page():
