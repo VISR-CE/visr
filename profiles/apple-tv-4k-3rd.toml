@@ -25,7 +25,7 @@ model_lod = "max"
 render_height = 1080
 anisotropic_filtering = 16
 dynamic_resolution = true
-dynamic_resolution_floor = 540
+dynamic_resolution_floor = 720
 
 [variable.display]
 dynamic_resolution = true
@@ -127,5 +127,5 @@ source = "docs/benchmarks/results.csv, VISR 0.6.8 (2026-11-02) and 0.6.10 (2026-
 
 [evidence."display.dynamic_resolution_floor"]
 basis = "measured"
-why = "Presented a50-hangar on 0.6.10, two rounds each, alternating: with the window off, 43.1 and 48.1 frames a second with 68.0% and 81.6% of frames on time; with it on (floor 720), 56.1 and 53.9 with 98.5% and 89.7%. At 720 the planner settled at its floor and the second round still ran 17.9 ms of GPU a frame against a 16.7 ms budget. With the floor at 540 on a later main build, one presented run held the hangar at 99.9% of frames on time (56.7 frames a second, 1% low 54.1, GPU 4.1 ms median) and the planner stayed at 1080 lines for the whole window with no frame below the ceiling, so the 540 floor was available but not needed there."
-source = "presented a50-hangar pair on Apple TV 4K (3rd generation), VISR 0.6.10, 2026-11-05; one presented run with floor 540 on main build 20261108.002352, 2026-11-08"
+why = "Campaign at 1x on a50-hangar, presented, with the unit cool at the start: fixed 720 lines held 99.9% of frames on time (GPU median 13.6 ms), fixed 810 held 77.2% and fixed 1080 held 63% or less (GPU median 24 ms against a 16.7 ms budget). The window therefore runs from the 1080-line ceiling down to a 720-line floor, so the hangar can drop to the lines it needs while the other campaign windows stay at the ceiling. Earlier runs with the floor at 720 on 0.6.10 reached only 98.5% and 89.7% on time; the later cool-start fixed-720 runs are the measurements the floor rests on. A second cool-start set on 2026-11-18 held 95.1% at fixed 720 and 95.9% with dynamic resolution held at 720 under the 1080 ceiling, so the window costs nothing over a fixed 720 lines; the same 2026-11-17 build held 94.3% that day."
+source = "presented a50-hangar fixed-resolution runs on Apple TV 4K (3rd generation), main build 20261116.081127, 2026-11-17; fixed and dynamic 720 runs on main build 20261118.055944 and a repeat of 20261116.081127, 2026-11-18; pair on 0.6.10, 2026-11-05"
