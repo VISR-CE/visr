@@ -1025,7 +1025,9 @@ static int audio_retry;
    display connecting mid-game) stayed silent through every later reopen. Only
    a physical device closed and opened again gets a new queue on the current
    route at its current rate and channel count. */
-void host_sdl_audio_route_changed(void)
+static pthread_mutex_t audio_life_lock=PTHREAD_MUTEX_INITIALIZER;
+
+static void audio_route_changed_locked(void)
 {
     SDL_AudioStream *old[SDL_arraysize(audio_streams)]={0};
     bool paused[SDL_arraysize(audio_streams)];
@@ -1072,6 +1074,14 @@ void host_sdl_audio_route_changed(void)
             host_logf(HOST_LOG_INFO,"audio route: stream reopened on a new device at %d Hz, %d channels (guest source %d Hz)",
                 output.freq,output.channels,binding->source.freq);
     }
+}
+
+/* (the lifecycle lock keeps a route change from reading a binding that a close is freeing) */
+void host_sdl_audio_route_changed(void)
+{
+    pthread_mutex_lock(&audio_life_lock);
+    audio_route_changed_locked();
+    pthread_mutex_unlock(&audio_life_lock);
 }
 
 /* A stream that should be playing whose callbacks stopped coming: the system stopped the device without a
@@ -1156,6 +1166,7 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 				device_spec.freq, device_spec.channels, (unsigned)device_spec.format, device_frames);
 	}
 	/* the device starts paused, so no callback can run before this */
+	pthread_mutex_lock(&audio_life_lock);
 	binding->handle = handle_new(_handle_audio, stream);
 	{
 		size_t index;
@@ -1171,6 +1182,7 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 	if (callback && host_native_thread_create(audio_thread, binding, 256 * 1024) != 0)
 		host_crash("cannot start the audio thread");
 	atomic_store(&binding->audio_open, 1);
+	pthread_mutex_unlock(&audio_life_lock);
 	return binding->handle;
 }
 
@@ -1219,7 +1231,15 @@ int host_sdl_resume_audio_stream_device(uint32_t stream)
 /* Closes a stream for good: the device (a physical device with no stream left is closed by SDL), the worker thread,
    the binding and its handle slot. Not an audio route change: the stream is not reopened. The guest's later calls
    with the handle find nothing, as into a paused stream. */
+static void audio_destroy_locked(uint32_t stream);
 void host_sdl_destroy_audio_stream(uint32_t stream)
+{
+	pthread_mutex_lock(&audio_life_lock);
+	audio_destroy_locked(stream);
+	pthread_mutex_unlock(&audio_life_lock);
+}
+
+static void audio_destroy_locked(uint32_t stream)
 {
 	size_t index;
 	struct audio_binding *binding = NULL;
